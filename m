@@ -1,34 +1,49 @@
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Subject: Re: 2.6.27-rc ... iwl3945 regression?
-Date: Thu, 28 Aug 2008 16:41:34 +0200
-Message-ID: <20080828164134.1cd3bb12@hskinnemo-gx745.norway.atmel.com>
-References: <200808131735.42451.david-b@pacbell.net>
+From: "Thiago Lacerda" <thiagotbl@gmail.com>
+Subject: Questions about Linux kernel network programming
+Date: Thu, 28 Aug 2008 11:48:52 -0300
+Message-ID: <3fedcc3b0808280748q4090c5e7n45c74c4fd3b42cca@mail.gmail.com>
+References: <3fedcc3b0808280733w1d7b24dgf95540d2078856f8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpeu1.atmel.com ([195.65.72.27]:49950 "EHLO bagnes.atmel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752830AbYH1Olw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 10:41:52 -0400
-In-Reply-To: <200808131735.42451.david-b@pacbell.net>
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:42696 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755049AbYH1Osx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 10:48:53 -0400
+Received: by gxk9 with SMTP id 9so4651974gxk.13
+        for <netdev@vger.kernel.org>; Thu, 28 Aug 2008 07:48:52 -0700 (PDT)
+In-Reply-To: <3fedcc3b0808280733w1d7b24dgf95540d2078856f8@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Brownell <david-b@pacbell.net> wrote:
-> Does this sound familiar to anyone?  Got a fix that's better than
-> sticking to a 2.6.26 kernel?  :)
+Hi everyone, I'm a Computer Science student from Brazil.
 
-FWIW, I'm seeing the same thing with -rc4 and the b43 driver, so it's
-probably not a regression in iwl3945. I guess it could be something in
-mac80211?
+Hope that you can help me with my undergraduate conclusion project.
 
-I'm currently working around it by manually running iwconfig while
-nm-applet is bringing the interface up. A bit annoying, but it
-works...and it indicates that the driver works fine, but NetworkManager
-doesn't know that it's supposed to do any wireless configuration before
-bringing the interface up.
+I have to capture packets at kernel level. More specifically, I have
+to write a kernel module (for kernel 2.6) that access all the packets
+that are coming through my network interface, then perform some
+operations on that packets and then decide if they can go to user land
+or not.
 
-Haavard
+Please note that I can't do it as a firewall, because I can't
+interfere on the  applications that  work with network. My kernel
+module will get communicated with traffic classifier, that will be
+executing at user land and will inspect the packets that the module
+passed to it.
+
+Can you help me on how can I develop it?
+
+Thanks in advance
+
+Best regards
+
+
+-- 
+Thiago de Barros Lacerda
+Computer Science Undergraduate Student - CIn/UFPE - 2004.2
+Researcher/Software Developer - GPRT - Networking and
+Telecommunications Research Group
