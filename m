@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 35/37] dccp: Implement both feature-local and feature-remote Sequence Window feature
-Date: Thu, 28 Aug 2008 19:45:10 +0200
-Message-ID: <1219945512-7723-36-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 36/37] dccp: Initialisation and type-checking of feature sysctls
+Date: Thu, 28 Aug 2008 19:45:11 +0200
+Message-ID: <1219945512-7723-37-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -38,232 +38,236 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-33-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-34-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-35-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-36-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55167 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55116 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751768AbYH1Rpf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:35 -0400
-In-Reply-To: <1219945512-7723-35-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755694AbYH1Rpk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:40 -0400
+In-Reply-To: <1219945512-7723-36-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds full support for local/remote Sequence Window feature, from which the
-  * sequence-number-validity (W) and
-  * acknowledgment-number-validity (W') windows
-derive as specified in RFC 4340, 7.5.3.
+This patch takes care of initialising and type-checking sysctls related to
+feature negotiation. Type checking is important since some of the sysctls
+now directly act on the feature-negotiation process.
 
-Specifically, the following changes are introduced:
-  * integrated new socket fields into dccp_sk;
-  * updated the update_gsr/gss routines with regard to these fields;
-  * updated handler code: the Sequence Window feature is located at the TX side,
-    so the local feature is meant if the handler-rx flag is false;
-  * the initialisation of `rcv_wnd' in reqsk is removed, since
-    - rcv_wnd is not used by the code anywhere;
-    - sequence number checks are not done in the LISTEN state (cf. 7.5.3);
-    - dccp_check_req checks the Ack number validity more rigorously;
-  * the `struct dccp_minisock' became empty and is now removed.
+The sysctls are initialised with the known default values for each feature.
+For the type-checking the value constraints from RFC 4340 are used:
 
-Until the handshake completes with activating negotiated values, the local/remote
-Sequence-Window values are undefined and thus can not reliably be estimated.
-This issue is addressed in a separate patch.
+ * Sequence Window uses the specified Wmin=32, the maximum is ulong (4 bytes),
+   tested and confirmed that it works up to 4294967295 - for Gbps speed;
+ * Ack Ratio is between 0 .. 0xffff (2-byte unsigned integer);
+ * CCIDs are between 0 .. 255;
+ * request_retries, retries1, retries2 also between 0..255 for good measure;
+ * tx_qlen is checked to be non-negative;
+ * sync_ratelimit remains as before.
+
+Further changes:
+----------------
+Performed s@sysctl_dccp_feat@sysctl_dccp@g since the sysctls are now in feat.c.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- Documentation/networking/dccp.txt |    3 ++-
- include/linux/dccp.h              |   24 ++++--------------------
- net/dccp/dccp.h                   |   16 +++++++---------
- net/dccp/feat.c                   |   13 +++++++++++--
- net/dccp/minisocks.c              |   11 -----------
- net/dccp/proto.c                  |    2 --
- 6 files changed, 24 insertions(+), 45 deletions(-)
+ include/linux/dccp.h |    8 --------
+ net/dccp/dccp.h      |    3 ---
+ net/dccp/feat.c      |   11 ++++++++---
+ net/dccp/feat.h      |    8 ++++++++
+ net/dccp/options.c   |    4 ----
+ net/dccp/sysctl.c    |   43 ++++++++++++++++++++++++++++++-------------
+ 6 files changed, 46 insertions(+), 31 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -141,7 +141,8 @@ rx_ccid = 2
- 	Default CCID for the receiver-sender half-connection; see tx_ccid.
- 
- seq_window = 100
--	The initial sequence window (sec. 7.5.2).
-+	The initial sequence window (sec. 7.5.2) of the sender. This influences
-+	the local ackno validity and the remote seqno validity windows (7.5.1).
- 
- tx_qlen = 5
- 	The size of the transmit buffer in packets. A value of 0 corresponds
 --- a/include/linux/dccp.h
 +++ b/include/linux/dccp.h
-@@ -364,19 +364,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
- #define DCCPF_INITIAL_SEND_NDP_COUNT		1
+@@ -355,14 +355,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+ 	return __dccp_hdr_len(dccp_hdr(skb));
+ }
  
+-
+-/* initial values for each feature */
+-#define DCCPF_INITIAL_SEQUENCE_WINDOW		100
+-#define DCCPF_INITIAL_ACK_RATIO			2
+-#define DCCPF_INITIAL_CCID			DCCPC_CCID2
+-/* FIXME: for now we're default to 1 but it should really be 0 */
+-#define DCCPF_INITIAL_SEND_NDP_COUNT		1
+-
  /**
--  * struct dccp_minisock - Minimal DCCP connection representation
--  *
--  * Will be used to pass the state from dccp_request_sock to dccp_sock.
--  *
--  * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
--  */
--struct dccp_minisock {
--	__u64			dccpms_sequence_window;
--};
--
--extern void dccp_minisock_init(struct dccp_minisock *dmsk);
--
--/**
   * struct dccp_request_sock  -  represent DCCP-specific connection request
   * @dreq_inet_rsk: structure inherited from
-  * @dreq_iss: initial sequence number sent on the Response (RFC 4340, 7.1)
-@@ -464,13 +451,14 @@ struct dccp_ackvec;
-  * @dccps_timestamp_time - time of receiving latest @dccps_timestamp_echo
-  * @dccps_l_ack_ratio - feature-local Ack Ratio
-  * @dccps_r_ack_ratio - feature-remote Ack Ratio
-+ * @dccps_l_seq_win - local Sequence Window (influences ack number validity)
-+ * @dccps_r_seq_win - remote Sequence Window (influences seq number validity)
-  * @dccps_pcslen - sender   partial checksum coverage (via sockopt)
-  * @dccps_pcrlen - receiver partial checksum coverage (via sockopt)
-  * @dccps_send_ndp_count - local Send NDP Count feature (7.7.2)
-  * @dccps_ndp_count - number of Non Data Packets since last data packet
-  * @dccps_mss_cache - current value of MSS (path MTU minus header sizes)
-  * @dccps_rate_last - timestamp for rate-limiting DCCP-Sync (RFC 4340, 7.5.4)
-- * @dccps_minisock - associated minisock (accessed via dccp_msk)
-  * @dccps_featneg - tracks feature-negotiation state (mostly during handshake)
-  * @dccps_hc_rx_ackvec - rx half connection ack vector
-  * @dccps_hc_rx_ccid - CCID used for the receiver (or receiving half-connection)
-@@ -504,12 +492,13 @@ struct dccp_sock {
- 	__u32				dccps_timestamp_time;
- 	__u16				dccps_l_ack_ratio;
- 	__u16				dccps_r_ack_ratio;
-+	__u64				dccps_l_seq_win:48;
-+	__u64				dccps_r_seq_win:48;
- 	__u8				dccps_pcslen:4;
- 	__u8				dccps_pcrlen:4;
- 	__u8				dccps_send_ndp_count:1;
- 	__u64				dccps_ndp_count:48;
- 	unsigned long			dccps_rate_last;
--	struct dccp_minisock		dccps_minisock;
- 	struct list_head		dccps_featneg;
- 	struct dccp_ackvec		*dccps_hc_rx_ackvec;
- 	struct ccid			*dccps_hc_rx_ccid;
-@@ -527,11 +516,6 @@ static inline struct dccp_sock *dccp_sk(const struct sock *sk)
- 	return (struct dccp_sock *)sk;
- }
- 
--static inline struct dccp_minisock *dccp_msk(const struct sock *sk)
--{
--	return (struct dccp_minisock *)&dccp_sk(sk)->dccps_minisock;
--}
--
- static inline const char *dccp_role(const struct sock *sk)
- {
- 	switch (dccp_sk(sk)->dccps_role) {
 --- a/net/dccp/dccp.h
 +++ b/net/dccp/dccp.h
-@@ -409,23 +409,21 @@ static inline void dccp_hdr_set_ack(struct dccp_hdr_ack_bits *dhack,
- static inline void dccp_update_gsr(struct sock *sk, u64 seq)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
--	const struct dccp_minisock *dmsk = dccp_msk(sk);
+@@ -95,9 +95,6 @@ extern void dccp_time_wait(struct sock *sk, int state, int timeo);
+ extern int  sysctl_dccp_request_retries;
+ extern int  sysctl_dccp_retries1;
+ extern int  sysctl_dccp_retries2;
+-extern int  sysctl_dccp_feat_sequence_window;
+-extern int  sysctl_dccp_feat_rx_ccid;
+-extern int  sysctl_dccp_feat_tx_ccid;
+ extern int  sysctl_dccp_tx_qlen;
+ extern int  sysctl_dccp_sync_ratelimit;
  
- 	dp->dccps_gsr = seq;
--	dccp_set_seqno(&dp->dccps_swl,
--		       dp->dccps_gsr + 1 - (dmsk->dccpms_sequence_window / 4));
--	dccp_set_seqno(&dp->dccps_swh,
--		       dp->dccps_gsr + (3 * dmsk->dccpms_sequence_window) / 4);
-+	/* Sequence validity window depends on remote Sequence Window (7.5.1) */
-+	dp->dccps_swl = SUB48(ADD48(dp->dccps_gsr, 1), dp->dccps_r_seq_win / 4);
-+	dp->dccps_swh = ADD48(dp->dccps_gsr, (3 * dp->dccps_r_seq_win) / 4);
- }
- 
- static inline void dccp_update_gss(struct sock *sk, u64 seq)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
- 
--	dp->dccps_awh = dp->dccps_gss = seq;
--	dccp_set_seqno(&dp->dccps_awl,
--		       (dp->dccps_gss -
--			dccp_msk(sk)->dccpms_sequence_window + 1));
-+	dp->dccps_gss = seq;
-+	/* Ack validity window depends on local Sequence Window value (7.5.1) */
-+	dp->dccps_awl = SUB48(ADD48(dp->dccps_gss, 1), dp->dccps_l_seq_win);
-+	dp->dccps_awh = dp->dccps_gss;
- }
- 
- static inline int dccp_ack_pending(const struct sock *sk)
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -52,8 +52,17 @@ static int dccp_hdlr_ccid(struct sock *sk, u64 ccid, bool rx)
+@@ -26,6 +26,11 @@
+ #include "ccid.h"
+ #include "feat.h"
  
- static int dccp_hdlr_seq_win(struct sock *sk, u64 seq_win, bool rx)
- {
--	if (!rx)
--		dccp_msk(sk)->dccpms_sequence_window = seq_win;
-+	struct dccp_sock *dp = dccp_sk(sk);
++/* feature-specific sysctls - initialised to the defaults from RFC 4340, 6.4 */
++unsigned long	sysctl_dccp_sequence_window __read_mostly = 100;
++int		sysctl_dccp_rx_ccid	    __read_mostly = 2,
++		sysctl_dccp_tx_ccid	    __read_mostly = 2;
 +
-+	if (rx) {
-+		dp->dccps_r_seq_win = seq_win;
-+		/* propagate changes to update SWL/SWH */
-+		dccp_update_gsr(sk, dp->dccps_gsr);
-+	} else {
-+		dp->dccps_l_seq_win = seq_win;
-+		/* propagate changes to update AWL */
-+		dccp_update_gss(sk, dp->dccps_gss);
-+	}
- 	return 0;
- }
+ /*
+  * Feature activation handlers.
+  *
+@@ -1153,7 +1158,7 @@ int dccp_feat_init(struct sock *sk)
  
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -42,11 +42,6 @@ struct inet_timewait_death_row dccp_death_row = {
+ 	/* Non-negotiable (NN) features */
+ 	rc = __feat_register_nn(fn, DCCPF_SEQUENCE_WINDOW, 0,
+-				    sysctl_dccp_feat_sequence_window);
++				    sysctl_dccp_sequence_window);
+ 	if (rc)
+ 		return rc;
  
- EXPORT_SYMBOL_GPL(dccp_death_row);
+@@ -1184,8 +1189,8 @@ int dccp_feat_init(struct sock *sk)
+ 	if (ccid_request_modules(tx.val, tx.len))
+ 		goto free_ccid_lists;
  
--void dccp_minisock_init(struct dccp_minisock *dmsk)
--{
--	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
--}
+-	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
+-	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
++	if (!dccp_feat_prefer(sysctl_dccp_tx_ccid, tx.val, tx.len) ||
++	    !dccp_feat_prefer(sysctl_dccp_rx_ccid, rx.val, rx.len))
+ 		goto free_ccid_lists;
+ 
+ 	rc = __feat_register_sp(fn, DCCPF_CCID, true, false, tx.val, tx.len);
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -97,6 +97,13 @@ struct ccid_dependency {
+ 	u8	val;
+ };
+ 
++/*
++ * Sysctls to seed defaults for feature negotiation
++ */
++extern unsigned long sysctl_dccp_sequence_window;
++extern int	     sysctl_dccp_rx_ccid;
++extern int	     sysctl_dccp_tx_ccid;
++
+ #ifdef CONFIG_IP_DCCP_DEBUG
+ extern const char *dccp_feat_typename(const u8 type);
+ extern const char *dccp_feat_name(const u8 feat);
+@@ -111,6 +118,7 @@ static inline void dccp_feat_debug(const u8 type, const u8 feat, const u8 val)
+ #endif /* CONFIG_IP_DCCP_DEBUG */
+ 
+ extern int  dccp_feat_init(struct sock *sk);
++extern void dccp_feat_initialise_sysctls(void);
+ extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
+ 				  u8 const *list, u8 len);
+ extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -23,10 +23,6 @@
+ #include "dccp.h"
+ #include "feat.h"
+ 
+-int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
+-int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
+-int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
 -
- void dccp_time_wait(struct sock *sk, int state, int timeo)
+ u64 dccp_decode_value_var(const u8 *bf, const u8 len)
  {
- 	struct inet_timewait_sock *tw = NULL;
-@@ -110,7 +105,6 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
- 		struct dccp_request_sock *dreq = dccp_rsk(req);
- 		struct inet_connection_sock *newicsk = inet_csk(newsk);
- 		struct dccp_sock *newdp = dccp_sk(newsk);
--		struct dccp_minisock *newdmsk = dccp_msk(newsk);
+ 	u64 value = 0;
+--- a/net/dccp/sysctl.c
++++ b/net/dccp/sysctl.c
+@@ -18,55 +18,72 @@
+ #error This file should not be compiled without CONFIG_SYSCTL defined
+ #endif
  
- 		newdp->dccps_role	    = DCCP_ROLE_SERVER;
- 		newdp->dccps_hc_rx_ackvec   = NULL;
-@@ -128,10 +122,6 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
- 		 *    Initialize S.GAR := S.ISS
- 		 *    Set S.ISR, S.GSR, S.SWL, S.SWH from packet or Init Cookies
- 		 */
--
--		/* See dccp_v4_conn_request */
--		newdmsk->dccpms_sequence_window = req->rcv_wnd;
--
- 		newdp->dccps_gar = newdp->dccps_iss = dreq->dreq_iss;
- 		dccp_update_gss(newsk, dreq->dreq_iss);
- 
-@@ -289,7 +279,6 @@ int dccp_reqsk_init(struct request_sock *req,
- 
- 	inet_rsk(req)->rmt_port	  = dccp_hdr(skb)->dccph_sport;
- 	inet_rsk(req)->acked	  = 0;
--	req->rcv_wnd		  = sysctl_dccp_feat_sequence_window;
- 	dreq->dreq_timestamp_echo = 0;
- 
- 	/* inherit feature negotiation options from listening socket */
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -180,8 +180,6 @@ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
- 	struct dccp_sock *dp = dccp_sk(sk);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 
--	dccp_minisock_init(&dp->dccps_minisock);
--
- 	icsk->icsk_rto		= DCCP_TIMEOUT_INIT;
- 	icsk->icsk_syn_retries	= sysctl_dccp_request_retries;
- 	sk->sk_state		= DCCP_CLOSED;
++/* Boundary values */
++static int		zero     = 0,
++			u8_max   = 0xFF;
++static unsigned long	seqw_min = 32;
++
+ static struct ctl_table dccp_default_table[] = {
+ 	{
+ 		.procname	= "seq_window",
+-		.data		= &sysctl_dccp_feat_sequence_window,
+-		.maxlen		= sizeof(sysctl_dccp_feat_sequence_window),
++		.data		= &sysctl_dccp_sequence_window,
++		.maxlen		= sizeof(sysctl_dccp_sequence_window),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_doulongvec_minmax,
++		.extra1		= &seqw_min,		/* RFC 4340, 7.5.2 */
+ 	},
+ 	{
+ 		.procname	= "rx_ccid",
+-		.data		= &sysctl_dccp_feat_rx_ccid,
+-		.maxlen		= sizeof(sysctl_dccp_feat_rx_ccid),
++		.data		= &sysctl_dccp_rx_ccid,
++		.maxlen		= sizeof(sysctl_dccp_rx_ccid),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,		/* RFC 4340, 10. */
+ 	},
+ 	{
+ 		.procname	= "tx_ccid",
+-		.data		= &sysctl_dccp_feat_tx_ccid,
+-		.maxlen		= sizeof(sysctl_dccp_feat_tx_ccid),
++		.data		= &sysctl_dccp_tx_ccid,
++		.maxlen		= sizeof(sysctl_dccp_tx_ccid),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,		/* RFC 4340, 10. */
+ 	},
+ 	{
+ 		.procname	= "request_retries",
+ 		.data		= &sysctl_dccp_request_retries,
+ 		.maxlen		= sizeof(sysctl_dccp_request_retries),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,
+ 	},
+ 	{
+ 		.procname	= "retries1",
+ 		.data		= &sysctl_dccp_retries1,
+ 		.maxlen		= sizeof(sysctl_dccp_retries1),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,
+ 	},
+ 	{
+ 		.procname	= "retries2",
+ 		.data		= &sysctl_dccp_retries2,
+ 		.maxlen		= sizeof(sysctl_dccp_retries2),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,
+ 	},
+ 	{
+ 		.procname	= "tx_qlen",
+ 		.data		= &sysctl_dccp_tx_qlen,
+ 		.maxlen		= sizeof(sysctl_dccp_tx_qlen),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
+ 	},
+ 	{
+ 		.procname	= "sync_ratelimit",
 -- 
 1.6.0.rc2
 
