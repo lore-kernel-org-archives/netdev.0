@@ -1,45 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][BUG] tcp: advertise MSS requested by user
-Date: Thu, 28 Aug 2008 02:46:17 -0700 (PDT)
-Message-ID: <20080828.024617.117112334.davem@davemloft.net>
-References: <48B44768.3030208@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 3/3] IPROUTE: generate compat messages that match nla_parse_nested_compat
+Date: Thu, 28 Aug 2008 11:51:31 +0200
+Message-ID: <20080828095131.GX20815@postel.suug.ch>
+References: <20080828011340.7987.74684.stgit@jtkirshe-mobile.jf.intel.com> <20080828011347.7987.24759.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lachlan.andrew@gmail.com
-To: virtualphtn@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38634
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751805AbYH1JqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 05:46:22 -0400
-In-Reply-To: <48B44768.3030208@gmail.com>
+Received: from postel.suug.ch ([194.88.212.233]:56804 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751675AbYH1JvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 05:51:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20080828011347.7987.24759.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Quetchenbach <virtualphtn@gmail.com>
-Date: Tue, 26 Aug 2008 11:11:52 -0700
-
-> I'm trying to use the TCP_MAXSEG option to setsockopt() to set the MSS
-> for both sides of a bidirectional connection.
+* Jeff Kirsher <jeffrey.t.kirsher@intel.com> 2008-08-27 18:13
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> man tcp says: "If this option is set before connection establishment, it
-> also changes the MSS value announced to the other end in the initial
-> packet."
+> This patch updates libnetlink.c to generate nested compat netlink
+> attributes in the same format that is parsed by the kernels 2.6.26
+> and newer.
 > 
-> However, the kernel only uses the MTU/route cache to set the advertised
-> MSS. That means if I set the MSS to, say, 500 before calling connect(),
-> I will send at most 500-byte packets, but I will still receive 1500-byte
-> packets in reply.
-> 
-> This is a bug, either in the kernel or the documentation.
+> This patch will fix the prio multiqueue option for 2.6.26 kernels,
+> but will break compatibility with all kernels prior to 2.6.26.
 
-I think this got broken by accident several years ago, shows how many
-people use this feature :)
+I'm not sure what you mean by fix, I can't find any nested attributes
+being parsed in the proposed sch_multiq.c.
 
-We used to use ->mss_clamp to determine the MSS option value,
-but along the way when all of the code using ->advmss et al.
-was added it didn't get translated correctly.
-
-Thanks for your patch, I'll mull over this and put in the fix
-once I understand exactly how this got broken.
+Wouldn't it be simpler to have q_multiq.c use addattr_nest() instead of
+addattr_nest_compat() instead of changing addattr_nest_compat() to be
+equivalent to addattr_nest()?
