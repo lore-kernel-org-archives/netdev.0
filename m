@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 37/37] dccp: Debugging functions for feature negotiation
-Date: Thu, 28 Aug 2008 19:45:12 +0200
-Message-ID: <1219945512-7723-38-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 08/37] dccp: Query supported CCIDs
+Date: Thu, 28 Aug 2008 19:44:43 +0200
+Message-ID: <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -11,323 +11,168 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-32-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-33-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-34-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-35-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-36-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-37-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55167 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55286 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756026AbYH1Rpm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:42 -0400
-In-Reply-To: <1219945512-7723-37-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754199AbYH1RqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:46:06 -0400
+In-Reply-To: <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since all feature-negotiation processing now takes place in feat.c, functions
-for producing verbose debugging output are concentrated there.
+This provides a data structure to record which CCIDs are locally supported
+and three accessor functions:
+ - a test function for internal use which is used to validate CCID requests
+   made by the user;
+ - a copy function so that the list can be used for feature-negotiation;
+ - documented getsockopt() support so that the user can query capabilities.
 
-New functions to print out values, entry records, and options are provided,
-and also a macro is defined to not always have the function name in the
-output line.
+The data structure is a table which is filled in at compile-time with the
+list of available CCIDs (which in turn depends on the Kconfig choices).
 
-Thanks a lot to Wei Yongjun and Giuseppe Galeota for help with errors in an
-earlier revision of this patch.
+Using the copy function for cloning the list of supported CCIDs is useful for
+feature negotiation, since the negotiation is now with the full list of available
+CCIDs (e.g. {2, 3}) instead of the default value {2}. This means negotiation
+will not fail if the peer requests to use CCID3 instead of CCID2.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/dccp.h    |    2 +
- net/dccp/feat.c    |  153 ++++++++++++++++++++++++++++++++++++----------------
- net/dccp/feat.h    |   13 -----
- net/dccp/options.c |    4 --
- 4 files changed, 109 insertions(+), 63 deletions(-)
+ Documentation/networking/dccp.txt |    4 +++
+ include/linux/dccp.h              |    1 +
+ net/dccp/ccid.c                   |   48 +++++++++++++++++++++++++++++++++++++
+ net/dccp/ccid.h                   |    5 ++++
+ net/dccp/feat.c                   |    4 +++
+ net/dccp/proto.c                  |    2 +
+ 6 files changed, 64 insertions(+), 0 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -42,9 +42,11 @@
- extern int dccp_debug;
- #define dccp_pr_debug(format, a...)	  DCCP_PR_DEBUG(dccp_debug, format, ##a)
- #define dccp_pr_debug_cat(format, a...)   DCCP_PRINTK(dccp_debug, format, ##a)
-+#define dccp_debug(fmt, a...)		  dccp_pr_debug_cat(KERN_DEBUG fmt, ##a)
- #else
- #define dccp_pr_debug(format, a...)
- #define dccp_pr_debug_cat(format, a...)
-+#define dccp_debug(format, a...)
- #endif
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -57,6 +57,10 @@ can be set before calling bind().
+ DCCP_SOCKOPT_GET_CUR_MPS is read-only and retrieves the current maximum packet
+ size (application payload size) in bytes, see RFC 4340, section 14.
  
- extern struct inet_hashinfo dccp_hashinfo;
++DCCP_SOCKOPT_AVAILABLE_CCIDS is also read-only and returns the list of CCIDs
++supported by the endpoint (see include/linux/dccp.h for symbolic constants).
++The caller needs to provide a sufficiently large (> 2) array of type uint8_t.
++
+ DCCP_SOCKOPT_SERVER_TIMEWAIT enables the server (listening socket) to hold
+ timewait state when closing the connection (RFC 4340, 8.3). The usual case is
+ that the closing server sends a CloseReq, whereupon the client holds timewait
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -209,6 +209,7 @@ struct dccp_so_feat {
+ #define DCCP_SOCKOPT_SERVER_TIMEWAIT	6
+ #define DCCP_SOCKOPT_SEND_CSCOV		10
+ #define DCCP_SOCKOPT_RECV_CSCOV		11
++#define DCCP_SOCKOPT_AVAILABLE_CCIDS	12
+ #define DCCP_SOCKOPT_CCID_RX_INFO	128
+ #define DCCP_SOCKOPT_CCID_TX_INFO	192
+ 
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -13,6 +13,13 @@
+ 
+ #include "ccid.h"
+ 
++static u8 builtin_ccids[] = {
++	DCCPC_CCID2,		/* CCID2 is supported by default */
++#if defined(CONFIG_IP_DCCP_CCID3) || defined(CONFIG_IP_DCCP_CCID3_MODULE)
++	DCCPC_CCID3,
++#endif
++};
++
+ static struct ccid_operations *ccids[CCID_MAX];
+ #if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT)
+ static atomic_t ccids_lockct = ATOMIC_INIT(0);
+@@ -86,6 +93,47 @@ static void ccid_kmem_cache_destroy(struct kmem_cache *slab)
+ 	}
+ }
+ 
++/* check that up to @array_len members in @ccid_array are supported */
++bool ccid_support_check(u8 const *ccid_array, u8 array_len)
++{
++	u8 i, j, found;
++
++	for (i = 0, found = 0; i < array_len; i++, found = 0) {
++		for (j = 0; !found && j < ARRAY_SIZE(builtin_ccids); j++)
++			found = (ccid_array[i] == builtin_ccids[j]);
++		if (!found)
++			return false;
++	}
++	return true;
++}
++
++/**
++ * ccid_get_builtin_ccids  -  Provide copy of `builtin' CCID array
++ * @ccid_array: pointer to copy into
++ * @array_len: value to return length into
++ * This function allocates memory - caller must see that it is freed after use.
++ */
++int ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len)
++{
++	*ccid_array = kmemdup(builtin_ccids, sizeof(builtin_ccids), gfp_any());
++	if (*ccid_array == NULL)
++		return -ENOBUFS;
++	*array_len = ARRAY_SIZE(builtin_ccids);
++	return 0;
++}
++
++int ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
++				    char __user *optval, int __user *optlen)
++{
++	if (len < sizeof(builtin_ccids))
++		return -EINVAL;
++
++	if (put_user(sizeof(builtin_ccids), optlen) ||
++	    copy_to_user(optval, builtin_ccids, sizeof(builtin_ccids)))
++		return -EFAULT;
++	return 0;
++}
++
+ int ccid_register(struct ccid_operations *ccid_ops)
+ {
+ 	int err = -ENOBUFS;
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -103,6 +103,11 @@ static inline void *ccid_priv(const struct ccid *ccid)
+ 	return (void *)ccid->ccid_priv;
+ }
+ 
++extern bool ccid_support_check(u8 const *ccid_array, u8 array_len);
++extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
++extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
++					  char __user *, int __user *);
++
+ extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
+ 			     gfp_t gfp);
+ 
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -204,6 +204,100 @@ static int dccp_feat_default_value(u8 feat_num)
- 	return idx < 0 ? : dccp_feat_table[idx].default_value;
- }
+@@ -380,6 +380,10 @@ static int __feat_register_sp(struct list_head *fn, u8 feat, u8 is_local,
+ 	    !dccp_feat_sp_list_ok(feat, sp_val, sp_len))
+ 		return -EINVAL;
  
-+/*
-+ *	Debugging and verbose-printing section
-+ */
-+static const char *dccp_feat_fname(const u8 feat)
-+{
-+	static const char *feature_names[] = {
-+		[DCCPF_RESERVED]	= "Reserved",
-+		[DCCPF_CCID]		= "CCID",
-+		[DCCPF_SHORT_SEQNOS]	= "Allow Short Seqnos",
-+		[DCCPF_SEQUENCE_WINDOW]	= "Sequence Window",
-+		[DCCPF_ECN_INCAPABLE]	= "ECN Incapable",
-+		[DCCPF_ACK_RATIO]	= "Ack Ratio",
-+		[DCCPF_SEND_ACK_VECTOR]	= "Send ACK Vector",
-+		[DCCPF_SEND_NDP_COUNT]	= "Send NDP Count",
-+		[DCCPF_MIN_CSUM_COVER]	= "Min. Csum Coverage",
-+		[DCCPF_DATA_CHECKSUM]	= "Send Data Checksum",
-+	};
-+	if (feat > DCCPF_DATA_CHECKSUM && feat < DCCPF_MIN_CCID_SPECIFIC)
-+		return feature_names[DCCPF_RESERVED];
++	/* Avoid negotiating alien CCIDs by only advertising supported ones */
++	if (feat == DCCPF_CCID && !ccid_support_check(sp_val, sp_len))
++		return -EOPNOTSUPP;
 +
-+	if (feat ==  DCCPF_SEND_LEV_RATE)
-+		return "Send Loss Event Rate";
-+	if (feat >= DCCPF_MIN_CCID_SPECIFIC)
-+		return "CCID-specific";
-+
-+	return feature_names[feat];
-+}
-+
-+static const char *dccp_feat_sname[] = { "DEFAULT", "INITIALISING", "CHANGING",
-+					 "UNSTABLE", "STABLE" };
-+
-+#ifdef CONFIG_IP_DCCP_DEBUG
-+static const char *dccp_feat_oname(const u8 opt)
-+{
-+	switch (opt) {
-+	case DCCPO_CHANGE_L:  return "Change_L";
-+	case DCCPO_CONFIRM_L: return "Confirm_L";
-+	case DCCPO_CHANGE_R:  return "Change_R";
-+	case DCCPO_CONFIRM_R: return "Confirm_R";
-+	}
-+	return NULL;
-+}
-+
-+static void dccp_feat_printval(u8 feat_num, dccp_feat_val const *val)
-+{
-+	u8 i, type = dccp_feat_type(feat_num);
-+
-+	if (val == NULL || (type == FEAT_SP && val->sp.vec == NULL))
-+		dccp_pr_debug_cat("(NULL)");
-+	else if (type == FEAT_SP)
-+		for (i = 0; i < val->sp.len; i++)
-+			dccp_pr_debug_cat("%s%u", i ? " " : "", val->sp.vec[i]);
-+	else if (type == FEAT_NN)
-+		dccp_pr_debug_cat("%llu", (unsigned long long)val->nn);
-+	else
-+		dccp_pr_debug_cat("unknown type %u", type);
-+}
-+
-+static void dccp_feat_printvals(u8 feat_num, u8 *list, u8 len)
-+{
-+	u8 type = dccp_feat_type(feat_num);
-+	dccp_feat_val fval = { .sp.vec = list, .sp.len = len };
-+
-+	if (type == FEAT_NN)
-+		fval.nn = dccp_decode_value_var(list, len);
-+	dccp_feat_printval(feat_num, &fval);
-+}
-+
-+static void dccp_feat_print_entry(struct dccp_feat_entry const *entry)
-+{
-+	dccp_debug("   * %s %s = ", entry->is_local ? "local" : "remote",
-+				    dccp_feat_fname(entry->feat_num));
-+	dccp_feat_printval(entry->feat_num, &entry->val);
-+	dccp_pr_debug_cat(", state=%s %s\n", dccp_feat_sname[entry->state],
-+			  entry->needs_confirm ? "(Confirm pending)" : "");
-+}
-+
-+#define dccp_feat_print_opt(opt, feat, val, len, mandatory)	do {	      \
-+	dccp_pr_debug("%s(%s, ", dccp_feat_oname(opt), dccp_feat_fname(feat));\
-+	dccp_feat_printvals(feat, val, len);				      \
-+	dccp_pr_debug_cat(") %s\n", mandatory ? "!" : "");	} while (0)
-+
-+#define dccp_feat_print_fnlist(fn_list)  {		\
-+	const struct dccp_feat_entry *___entry;		\
-+							\
-+	dccp_pr_debug("List Dump:\n");			\
-+	list_for_each_entry(___entry, fn_list, node)	\
-+		dccp_feat_print_entry(___entry);	\
-+}
-+#else	/* ! CONFIG_IP_DCCP_DEBUG */
-+#define dccp_feat_print_opt(opt, feat, val, len, mandatory)
-+#define dccp_feat_print_fnlist(fn_list)
-+#endif
-+
- static int __dccp_feat_activate(struct sock *sk, const int idx,
- 				const bool is_local, dccp_feat_val const *fval)
- {
-@@ -236,6 +330,10 @@ static int __dccp_feat_activate(struct sock *sk, const int idx,
- 	/* Location is RX if this is a local-RX or remote-TX feature */
- 	rx = (is_local == (dccp_feat_table[idx].rxtx == FEAT_AT_RX));
+ 	if (dccp_feat_clone_sp_val(&fval, sp_val, sp_len))
+ 		return -ENOMEM;
  
-+	dccp_debug("   -> activating %s %s, %sval=%llu\n", rx ? "RX" : "TX",
-+		   dccp_feat_fname(dccp_feat_table[idx].feat_num),
-+		   fval ? "" : "default ",  (unsigned long long)val);
-+
- 	return dccp_feat_table[idx].activation_hdlr(sk, val, rx);
- }
- 
-@@ -550,6 +648,7 @@ int dccp_feat_insert_opts(struct dccp_sock *dp, struct dccp_request_sock *dreq,
- 				return -1;
- 			}
- 		}
-+		dccp_feat_print_opt(opt, pos->feat_num, ptr, len, 0);
- 
- 		if (dccp_insert_fn_opt(skb, opt, pos->feat_num, ptr, len, rpt))
- 			return -1;
-@@ -803,6 +902,7 @@ int dccp_feat_finalise_settings(struct dccp_sock *dp)
- 	while (i--)
- 		if (ccids[i] > 0 && dccp_feat_propagate_ccid(fn, ccids[i], i))
- 			return -1;
-+	dccp_feat_print_fnlist(fn);
- 	return 0;
- }
- 
-@@ -921,6 +1021,8 @@ static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
- 	if (len == 0 || type == FEAT_UNKNOWN)		/* 6.1 and 6.6.8 */
- 		goto unknown_feature_or_value;
- 
-+	dccp_feat_print_opt(opt, feat, val, len, is_mandatory);
-+
- 	/*
- 	 *	Negotiation of NN features: Change R is invalid, so there is no
- 	 *	simultaneous negotiation; hence we do not consult the list.
-@@ -1028,6 +1130,8 @@ static u8 dccp_feat_confirm_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
- 	const bool local = (opt == DCCPO_CONFIRM_R);
- 	struct dccp_feat_entry *entry = dccp_feat_list_lookup(fn, feat, local);
- 
-+	dccp_feat_print_opt(opt, feat, val, len, is_mandatory);
-+
- 	if (entry == NULL) {	/* nothing queued: ignore or handle error */
- 		if (is_mandatory && type == FEAT_UNKNOWN)
- 			return DCCP_RESET_CODE_MANDATORY_ERROR;
-@@ -1222,9 +1326,10 @@ int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
- 			goto activation_failed;
- 		}
- 		if (cur->state != FEAT_STABLE) {
--			DCCP_CRIT("Negotiation of %s %u failed in state %u",
-+			DCCP_CRIT("Negotiation of %s %s failed in state %s",
- 				  cur->is_local ? "local" : "remote",
--				  cur->feat_num, cur->state);
-+				  dccp_feat_fname(cur->feat_num),
-+				  dccp_feat_sname[cur->state]);
- 			goto activation_failed;
- 		}
- 		fvals[idx][cur->is_local] = &cur->val;
-@@ -1265,47 +1370,3 @@ activation_failed:
- 	dp->dccps_hc_rx_ackvec = NULL;
- 	return -1;
- }
--
--#ifdef CONFIG_IP_DCCP_DEBUG
--const char *dccp_feat_typename(const u8 type)
--{
--	switch(type) {
--	case DCCPO_CHANGE_L:  return("ChangeL");
--	case DCCPO_CONFIRM_L: return("ConfirmL");
--	case DCCPO_CHANGE_R:  return("ChangeR");
--	case DCCPO_CONFIRM_R: return("ConfirmR");
--	/* the following case must not appear in feature negotation  */
--	default:	      dccp_pr_debug("unknown type %d [BUG!]\n", type);
--	}
--	return NULL;
--}
--
--EXPORT_SYMBOL_GPL(dccp_feat_typename);
--
--const char *dccp_feat_name(const u8 feat)
--{
--	static const char *feature_names[] = {
--		[DCCPF_RESERVED]	= "Reserved",
--		[DCCPF_CCID]		= "CCID",
--		[DCCPF_SHORT_SEQNOS]	= "Allow Short Seqnos",
--		[DCCPF_SEQUENCE_WINDOW]	= "Sequence Window",
--		[DCCPF_ECN_INCAPABLE]	= "ECN Incapable",
--		[DCCPF_ACK_RATIO]	= "Ack Ratio",
--		[DCCPF_SEND_ACK_VECTOR]	= "Send ACK Vector",
--		[DCCPF_SEND_NDP_COUNT]	= "Send NDP Count",
--		[DCCPF_MIN_CSUM_COVER]	= "Min. Csum Coverage",
--		[DCCPF_DATA_CHECKSUM]	= "Send Data Checksum",
--	};
--	if (feat > DCCPF_DATA_CHECKSUM && feat < DCCPF_MIN_CCID_SPECIFIC)
--		return feature_names[DCCPF_RESERVED];
--
--	if (feat ==  DCCPF_SEND_LEV_RATE)
--		return "Send Loss Event Rate";
--	if (feat >= DCCPF_MIN_CCID_SPECIFIC)
--		return "CCID-specific";
--
--	return feature_names[feat];
--}
--
--EXPORT_SYMBOL_GPL(dccp_feat_name);
--#endif /* CONFIG_IP_DCCP_DEBUG */
---- a/net/dccp/feat.h
-+++ b/net/dccp/feat.h
-@@ -104,19 +104,6 @@ extern unsigned long sysctl_dccp_sequence_window;
- extern int	     sysctl_dccp_rx_ccid;
- extern int	     sysctl_dccp_tx_ccid;
- 
--#ifdef CONFIG_IP_DCCP_DEBUG
--extern const char *dccp_feat_typename(const u8 type);
--extern const char *dccp_feat_name(const u8 feat);
--
--static inline void dccp_feat_debug(const u8 type, const u8 feat, const u8 val)
--{
--	dccp_pr_debug("%s(%s (%d), %d)\n", dccp_feat_typename(type),
--					   dccp_feat_name(feat), feat, val);
--}
--#else
--#define dccp_feat_debug(type, feat, val)
--#endif /* CONFIG_IP_DCCP_DEBUG */
--
- extern int  dccp_feat_init(struct sock *sk);
- extern void dccp_feat_initialise_sysctls(void);
- extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -498,10 +498,6 @@ int dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat,
- 		*to++ = *val;
- 	if (len)
- 		memcpy(to, val, len);
--
--	dccp_pr_debug("%s(%s (%d), ...), length %d\n",
--		      dccp_feat_typename(type),
--		      dccp_feat_name(feat), feat, len);
- 	return 0;
- }
- 
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -649,6 +649,8 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
+ 	case DCCP_SOCKOPT_GET_CUR_MPS:
+ 		val = dp->dccps_mss_cache;
+ 		break;
++	case DCCP_SOCKOPT_AVAILABLE_CCIDS:
++		return ccid_getsockopt_builtin_ccids(sk, len, optval, optlen);
+ 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
+ 		val = dp->dccps_server_timewait;
+ 		break;
 -- 
 1.6.0.rc2
 
