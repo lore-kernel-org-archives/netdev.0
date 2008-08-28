@@ -1,51 +1,64 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: Re: about Linux adaptivly adjusting ssthresh
-Date: Wed, 27 Aug 2008 19:53:12 -0500
-Message-ID: <fb62ce3717a7.48b5b0a8@fnal.gov>
-References: <1e41a3230804151540i1f7cee4dva6adc6ef25dae546@mail.gmail.com>
- <20080416.012732.152357000.davem@davemloft.net>
- <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
- <20080416.023551.70464279.davem@davemloft.net>
- <000001c90852$a1c19a50$a05ee183@D2GT6T71>
- <1e41a3230808271548w15164eadt1042f37bf2df7e6f@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH] ixgbe: initialize interrupt throttle rate
+Date: Wed, 27 Aug 2008 18:04:32 -0700
+Message-ID: <20080828010432.7539.735.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, stable@kernel.org,
+	andy@greyhouse.net, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:56591 "EHLO mailgw1.fnal.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753037AbYH1AzA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 20:55:00 -0400
-Received: from mailav1.fnal.gov (mailav1.fnal.gov [131.225.111.18])
- by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0K6A00986D4OK1@mailgw1.fnal.gov> for netdev@vger.kernel.org;
- Wed, 27 Aug 2008 19:53:12 -0500 (CDT)
-Received: from mailgw1.fnal.gov ([131.225.111.11])
- by mailav1.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008082719531224067 for
- <netdev@vger.kernel.org>; Wed, 27 Aug 2008 19:53:12 -0500
-Received: from conversion-daemon.mailgw1.fnal.gov by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0K6A00C01CWN8Z@mailgw1.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Wed, 27 Aug 2008 19:53:12 -0500 (CDT)
-In-reply-to: <1e41a3230808271548w15164eadt1042f37bf2df7e6f@mail.gmail.com>
-Content-language: en
-Content-disposition: inline
+Received: from yx-out-2324.google.com ([74.125.44.30]:26370 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845AbYH1BEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 21:04:37 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so80520yxm.1
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 18:04:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andy Gospodarek <andy@greyhouse.net>
 
-> A little more detail would be helpful.  Are you referring to caching
-> ssthresh between connections, or something going on during a
-> connection?  Various congestion control modules use ssthresh
-> differently, so a comprehensive answer would be difficult.
+This commit dropped the setting of the default interrupt throttle rate.
 
+commit 021230d40ae0e6508d6c717b6e0d6d81cd77ac25
+Author: Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>
+Date:   Mon Mar 3 15:03:45 2008 -0800
 
-Thanks John, I am referring to the adaptive ssthresh adjusting during a connection.
+    ixgbe: Introduce MSI-X queue vector code
 
-thanks,
+The following patch adds it back.  Without this the default value of 0
+causes the performance of this card to be awful.  Restoring these to the
+default values yields much better performance.
 
-wenji
+This regression has been around since 2.6.25.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: stable@kernel.org [2.6.25 and later]
+---
+
+ drivers/net/ixgbe/ixgbe_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 53f41b6..a417be7 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2304,6 +2304,12 @@ static int __devinit ixgbe_set_interrupt_capability(struct ixgbe_adapter
+ 	int vector, v_budget;
+ 
+ 	/*
++	 * Set the default interrupt throttle rate.
++	 */
++	adapter->rx_eitr = (1000000 / IXGBE_DEFAULT_ITR_RX_USECS);
++	adapter->tx_eitr = (1000000 / IXGBE_DEFAULT_ITR_TX_USECS);
++
++	/*
+ 	 * It's easy to be greedy for MSI-X vectors, but it really
+ 	 * doesn't do us much good if we have a lot more vectors
+ 	 * than CPU's.  So let's be conservative and only ask for
+
