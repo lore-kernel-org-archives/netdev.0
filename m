@@ -1,275 +1,142 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 07/37] dccp: Registration routines for changing feature values
-Date: Thu, 28 Aug 2008 19:44:42 +0200
-Message-ID: <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 01/37] dccp: Basic data structure for feature negotiation
+Date: Thu, 28 Aug 2008 19:44:36 +0200
+Message-ID: <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55286 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55122 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755943AbYH1RqK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:46:10 -0400
-In-Reply-To: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756196AbYH1Rpy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:54 -0400
+In-Reply-To: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Two registration routines, for SP and NN features, are provided by this patch,
-replacing a previous routine which was used for both feature types.
+This patch prepares for the new and extended feature-negotiation routines.
 
-These are internal-only routines and therefore start with `__feat_register'.
+The following feature-negotiation data structures are provided:
+	* a container for the various (SP or NN) values,
+	* symbolic state names to track feature states,
+	* an entry struct which holds all current information together,
+	* elementary functions to fill in and process these structures.
 
-It further exports the known limits of Sequence Window and Ack Ratio as symbolic
-constants.
+Entry structs are arranged as FIFO for the following reason: RFC 4340 specifies
+that if multiple options of the same type are present, they are processed in the
+order of their appearance in the packet; which means that this order needs to be
+preserved in the local data structure (the later insertion code also respects
+this order).
+
+The struct list_head has been chosen for the following reasons: the most
+frequent operations are
+ * add new entry at tail (when receiving Change or setting socket options);
+ * delete entry (when Confirm has been received);
+ * deep copy of entire list (cloning from listening socket onto request socket).
+
+The NN value has been set to 64 bit, which is a currently sufficient upper limit
+(Sequence Window feature has 48 bit).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ccids/ccid2.c |    6 +-
- net/dccp/feat.c        |  123 +++++++++++++++++++++++++++++++++++++++---------
- net/dccp/feat.h        |   25 +++++++++-
- net/dccp/proto.c       |    2 +-
- 4 files changed, 128 insertions(+), 28 deletions(-)
+ net/dccp/feat.c |   14 ++++++++++++
+ net/dccp/feat.h |   60 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 74 insertions(+), 0 deletions(-)
 
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -25,7 +25,7 @@
- /*
-  * This implementation should follow RFC 4341
-  */
--
-+#include "../feat.h"
- #include "../ccid.h"
- #include "../dccp.h"
- #include "ccid2.h"
-@@ -147,8 +147,8 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
- 		DCCP_WARN("Limiting Ack Ratio (%u) to %u\n", val, max_ratio);
- 		val = max_ratio;
- 	}
--	if (val > 0xFFFF)		/* RFC 4340, 11.3 */
--		val = 0xFFFF;
-+	if (val > DCCPF_ACK_RATIO_MAX)
-+		val = DCCPF_ACK_RATIO_MAX;
- 
- 	if (val == dp->dccps_l_ack_ratio)
- 		return;
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -297,6 +297,95 @@ cloning_failed:
- 	return -ENOMEM;
- }
+@@ -23,6 +23,20 @@
  
-+static u8 dccp_feat_is_valid_nn_val(u8 feat_num, u64 val)
+ #define DCCP_FEAT_SP_NOAGREE (-123)
+ 
++/* copy constructor, fval must not already contain allocated memory */
++static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
 +{
-+	switch (feat_num) {
-+	case DCCPF_ACK_RATIO:
-+		return val <= DCCPF_ACK_RATIO_MAX;
-+	case DCCPF_SEQUENCE_WINDOW:
-+		return val >= DCCPF_SEQ_WMIN && val <= DCCPF_SEQ_WMAX;
++	fval->sp.len = len;
++	if (fval->sp.len > 0) {
++		fval->sp.vec = kmemdup(val, len, gfp_any());
++		if (fval->sp.vec == NULL) {
++			fval->sp.len = 0;
++			return -ENOBUFS;
++		}
 +	}
-+	return 0;	/* feature unknown - so we can't tell */
-+}
-+
-+/* check that SP values are within the ranges defined in RFC 4340 */
-+static u8 dccp_feat_is_valid_sp_val(u8 feat_num, u8 val)
-+{
-+	switch (feat_num) {
-+	case DCCPF_CCID:
-+		return val == DCCPC_CCID2 || val == DCCPC_CCID3;
-+	/* Type-check Boolean feature values: */
-+	case DCCPF_SHORT_SEQNOS:
-+	case DCCPF_ECN_INCAPABLE:
-+	case DCCPF_SEND_ACK_VECTOR:
-+	case DCCPF_SEND_NDP_COUNT:
-+	case DCCPF_DATA_CHECKSUM:
-+	case DCCPF_SEND_LEV_RATE:
-+		return val < 2;
-+	case DCCPF_MIN_CSUM_COVER:
-+		return val < 16;
-+	}
-+	return 0;			/* feature unknown */
-+}
-+
-+static u8 dccp_feat_sp_list_ok(u8 feat_num, u8 const *sp_list, u8 sp_len)
-+{
-+	if (sp_list == NULL || sp_len < 1)
-+		return 0;
-+	while (sp_len--)
-+		if (!dccp_feat_is_valid_sp_val(feat_num, *sp_list++))
-+			return 0;
-+	return 1;
-+}
-+
-+/**
-+ * __feat_register_nn  -  Register new NN value on socket
-+ * @fn: feature-negotiation list to register with
-+ * @feat: an NN feature from %dccp_feature_numbers
-+ * @mandatory: use Mandatory option if 1
-+ * @nn_val: value to register (restricted to 4 bytes)
-+ * Note that NN features are local by definition (RFC 4340, 6.3.2).
-+ */
-+static int __feat_register_nn(struct list_head *fn, u8 feat,
-+			      u8 mandatory, u64 nn_val)
-+{
-+	dccp_feat_val fval = { .nn = nn_val };
-+
-+	if (dccp_feat_type(feat) != FEAT_NN ||
-+	    !dccp_feat_is_valid_nn_val(feat, nn_val))
-+		return -EINVAL;
-+
-+	/* Don't bother with default values, they will be activated anyway. */
-+	if (nn_val - (u64)dccp_feat_default_value(feat) == 0)
-+		return 0;
-+
-+	return dccp_feat_push_change(fn, feat, 1, mandatory, &fval);
-+}
-+
-+/**
-+ * __feat_register_sp  -  Register new SP value/list on socket
-+ * @fn: feature-negotiation list to register with
-+ * @feat: an SP feature from %dccp_feature_numbers
-+ * @is_local: whether the local (1) or the remote (0) @feat is meant
-+ * @mandatory: use Mandatory option if 1
-+ * @sp_val: SP value followed by optional preference list
-+ * @sp_len: length of @sp_val in bytes
-+ */
-+static int __feat_register_sp(struct list_head *fn, u8 feat, u8 is_local,
-+			      u8 mandatory, u8 const *sp_val, u8 sp_len)
-+{
-+	dccp_feat_val fval;
-+
-+	if (dccp_feat_type(feat) != FEAT_SP ||
-+	    !dccp_feat_sp_list_ok(feat, sp_val, sp_len))
-+		return -EINVAL;
-+
-+	if (dccp_feat_clone_sp_val(&fval, sp_val, sp_len))
-+		return -ENOMEM;
-+
-+	return dccp_feat_push_change(fn, feat, is_local, mandatory, &fval);
++	return 0;
 +}
 +
  int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
  		     u8 *val, u8 len, gfp_t gfp)
  {
-@@ -833,42 +922,30 @@ out_clean:
- 
- EXPORT_SYMBOL_GPL(dccp_feat_clone);
- 
--static int __dccp_feat_init(struct dccp_minisock *dmsk, u8 type, u8 feat,
--			    u8 *val, u8 len)
--{
--	int rc = -ENOMEM;
--	u8 *copy = kmemdup(val, len, GFP_KERNEL);
--
--	if (copy != NULL) {
--		rc = dccp_feat_change(dmsk, type, feat, copy, len, GFP_KERNEL);
--		if (rc)
--			kfree(copy);
--	}
--	return rc;
--}
--
--int dccp_feat_init(struct dccp_minisock *dmsk)
-+int dccp_feat_init(struct sock *sk)
- {
-+	struct dccp_sock *dp = dccp_sk(sk);
-+	struct dccp_minisock *dmsk = dccp_msk(sk);
- 	int rc;
- 
--	INIT_LIST_HEAD(&dmsk->dccpms_pending);
--	INIT_LIST_HEAD(&dmsk->dccpms_conf);
-+	INIT_LIST_HEAD(&dmsk->dccpms_pending);	/* XXX no longer used */
-+	INIT_LIST_HEAD(&dmsk->dccpms_conf);	/* XXX no longer used */
- 
- 	/* CCID L */
--	rc = __dccp_feat_init(dmsk, DCCPO_CHANGE_L, DCCPF_CCID,
--			      &dmsk->dccpms_tx_ccid, 1);
-+	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 1, 0,
-+				&dmsk->dccpms_tx_ccid, 1);
- 	if (rc)
- 		goto out;
- 
- 	/* CCID R */
--	rc = __dccp_feat_init(dmsk, DCCPO_CHANGE_R, DCCPF_CCID,
--			      &dmsk->dccpms_rx_ccid, 1);
-+	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 0, 0,
-+				&dmsk->dccpms_rx_ccid, 1);
- 	if (rc)
- 		goto out;
- 
- 	/* Ack ratio */
--	rc = __dccp_feat_init(dmsk, DCCPO_CHANGE_L, DCCPF_ACK_RATIO,
--			      &dmsk->dccpms_ack_ratio, 1);
-+	rc = __feat_register_nn(&dp->dccps_featneg, DCCPF_ACK_RATIO, 0,
-+				dmsk->dccpms_ack_ratio);
- out:
- 	return rc;
- }
 --- a/net/dccp/feat.h
 +++ b/net/dccp/feat.h
-@@ -14,6 +14,15 @@
+@@ -14,6 +14,66 @@
  #include <linux/types.h>
  #include "dccp.h"
  
-+/*
-+ * Known limits of feature values.
-+ */
-+/* Ack Ratio takes 2-byte integer values (11.3) */
-+#define DCCPF_ACK_RATIO_MAX	0xFFFF
-+/* Wmin=32 and Wmax=2^46-1 from 7.5.2 */
-+#define DCCPF_SEQ_WMIN		32
-+#define DCCPF_SEQ_WMAX		0x3FFFFFFFFFFFull
-+
- enum dccp_feat_type {
- 	FEAT_AT_RX   = 1,	/* located at RX side of half-connection  */
- 	FEAT_AT_TX   = 2,	/* located at TX side of half-connection  */
-@@ -74,6 +83,20 @@ static inline u8 dccp_feat_genopt(struct dccp_feat_entry *entry)
- 	return entry->is_local ? DCCPO_CHANGE_L : DCCPO_CHANGE_R;
- }
- 
-+/**
-+ * struct ccid_dependency  -  Track changes resulting from choosing a CCID
-+ * @dependent_feat: one of %dccp_feature_numbers
-+ * @is_local: local (1) or remote (0) @dependent_feat
-+ * @is_mandatory: whether presence of @dependent_feat is mission-critical or not
-+ * @val: corresponding default value for @dependent_feat (u8 is sufficient here)
-+ */
-+struct ccid_dependency {
-+	u8	dependent_feat;
-+	bool	is_local:1,
-+		is_mandatory:1;
-+	u8	val;
++enum dccp_feat_type {
++	FEAT_AT_RX   = 1,	/* located at RX side of half-connection  */
++	FEAT_AT_TX   = 2,	/* located at TX side of half-connection  */
++	FEAT_SP      = 4,	/* server-priority reconciliation (6.3.1) */
++	FEAT_NN	     = 8,	/* non-negotiable reconciliation (6.3.2)  */
++	FEAT_UNKNOWN = 0xFF	/* not understood or invalid feature	  */
 +};
++
++enum dccp_feat_state {
++	FEAT_DEFAULT = 0,	/* using default values from 6.4 */
++	FEAT_INITIALISING,	/* feature is being initialised  */
++	FEAT_CHANGING,		/* Change sent but not confirmed yet */
++	FEAT_UNSTABLE,		/* local modification in state CHANGING */
++	FEAT_STABLE		/* both ends (think they) agree */
++};
++
++/**
++ * dccp_feat_val  -  Container for SP or NN feature values
++ * @nn:     single NN value
++ * @sp.vec: single SP value plus optional preference list
++ * @sp.len: length of @sp.vec in bytes
++ */
++typedef union {
++	u64 nn;
++	struct {
++		u8	*vec;
++		u8	len;
++	}   sp;
++} dccp_feat_val;
++
++/**
++ * struct feat_entry  -  Data structure to perform feature negotiation
++ * @feat_num: one of %dccp_feature_numbers
++ * @val: feature's current value (SP features may have preference list)
++ * @state: feature's current state
++ * @needs_mandatory: whether Mandatory options should be sent
++ * @needs_confirm: whether to send a Confirm instead of a Change
++ * @empty_confirm: whether to send an empty Confirm (depends on @needs_confirm)
++ * @is_local: feature location (1) or feature-remote (0)
++ * @node: list pointers, entries arranged in FIFO order
++ */
++struct dccp_feat_entry {
++	u8                      feat_num;
++	dccp_feat_val           val;
++	enum dccp_feat_state    state:8;
++	bool			needs_mandatory:1,
++				needs_confirm:1,
++				empty_confirm:1,
++				is_local:1;
++
++	struct list_head	node;
++};
++
++static inline u8 dccp_feat_genopt(struct dccp_feat_entry *entry)
++{
++	if (entry->needs_confirm)
++		return entry->is_local ? DCCPO_CONFIRM_L : DCCPO_CONFIRM_R;
++	return entry->is_local ? DCCPO_CHANGE_L : DCCPO_CHANGE_R;
++}
 +
  #ifdef CONFIG_IP_DCCP_DEBUG
  extern const char *dccp_feat_typename(const u8 type);
  extern const char *dccp_feat_name(const u8 feat);
-@@ -96,6 +119,6 @@ extern int  dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
- extern void dccp_feat_clean(struct dccp_minisock *dmsk);
- extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
- extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
--extern int  dccp_feat_init(struct dccp_minisock *dmsk);
-+extern int  dccp_feat_init(struct sock *sk);
- 
- #endif /* _DCCP_FEAT_H */
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -202,7 +202,7 @@ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
- 	 * setsockopt(CCIDs-I-want/accept). -acme
- 	 */
- 	if (likely(ctl_sock_initialized)) {
--		int rc = dccp_feat_init(dmsk);
-+		int rc = dccp_feat_init(sk);
- 
- 		if (rc)
- 			return rc;
 -- 
 1.6.0.rc2
 
