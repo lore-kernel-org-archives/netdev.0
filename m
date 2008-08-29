@@ -1,112 +1,70 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 06/37] dccp: Limit feature negotiation to connection
-	setup phase
-Date: Fri, 29 Aug 2008 07:54:36 +0200
-Message-ID: <20080829055436.GC3557@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <20080828205057.GM9193@ghostprotocols.net>
+Subject: Re: [PATCH 07/37] dccp: Registration routines for changing feature
+	values
+Date: Fri, 29 Aug 2008 08:12:37 +0200
+Message-ID: <20080829061237.GD3557@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <20080828205447.GN9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36021 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37112 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752737AbYH2Fy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 01:54:57 -0400
+	id S1751211AbYH2GNW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 02:13:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20080828205057.GM9193@ghostprotocols.net>
+In-Reply-To: <20080828205447.GN9193@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > This patch starts the new implementation of feature negotiation:
-| >  1. Although it is theoretically possible to perform feature negotiation at any
-| >     time (and RFC 4340 supports this), in practice this is prohibitively complex,
-| >     as it requires to put traffic on hold for each new negotiation.
-| >  2. As a byproduct of restricting feature negotiation to connection setup, the
-| >     feature-negotiation retransmit timer is no longer required. This part is now
-| >     mapped onto the protocol-level retransmission.
-| >     Details indicating why timers are no longer needed can be found on
-| >     http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
-| > 	                                      implementation_notes.html
-| > 
-| > This patch disables anytime negotiation, subsequent patches work out full
-| > feature negotiation support for connection setup.
+| > +/* check that SP values are within the ranges defined in RFC 4340 */
+| > +static u8 dccp_feat_is_valid_sp_val(u8 feat_num, u8 val)
+| > +{
+| > +	switch (feat_num) {
+| > +	case DCCPF_CCID:
+| > +		return val == DCCPC_CCID2 || val == DCCPC_CCID3;
 | 
-| While I agree that its better to initially support only negotiation at
-| connection startup, I wonder if the response to feature negotiation
-| after connection startup should be plainly ignore the request or if we
-| should reset the connection, telling the other side that what it wants
-| to do is not implemented currently.
+| Shouldn't we look at the registered CCIDs and do validation based on the
+| modules loaded? Doing it this hardcoded way will prevent testing CCID4,
+| for instance, or require that the kernel be patched, which can not be
+| possible with enterprise distros, etc. And defeats the purpose of having
+| multiple pluggable congestion control algorithms :-)
 | 
-The implementation will ignore any peer-attempt at feature negotiation
-as soon as the connection has reached established (OPEN/PARTOPEN) state.
+The point is valid and actually such a check is done, see further below.
 
-This is done in dccp_feat_parse_options() which is shown for reference below.
+In the CCID-4 subtree, the above statement changes to
+ | > +		val >= DCCPC_CCID2 && val <= DCCPC_CCID4;
+The above function only serves as sanity-check for SP values, so that no
+unknown values appear. There is a registry for CCID identifiers, only
+ones that are in RFC documents are "valid". With regard to RFC 4340,
+19.5 we could consider adding the experimental identifiers here
+(248-254 are valid, we could use one for the "UDP-like" CCID).	
 
-Considering doing a reset is something we could consider when it comes
-to Interoperability tests; it may be that the current policy of ignoring
-is sufficient.
-
-There are two main points that I think are important here:
- 1. At the begin of the connection, both endpoints really negotiate their
-    capabilities, i.e. A says to B "I want to do X, but could do Y" and
-    B says to A "can't do X, so will settle for Y".
-    Doing the same in the middle of an established connection seems mad
-    to me - for example changing the CCID in mid-connection.
- 2. There is an actual need for exchanging feature negotiation options
-    even when the connection is established. But this is past the
-    checking-capabilities phase and the only known uses require NN
-    (non-negotiable) options. In this case, if the peer does not
-    understand, the reset will happen as a consequence of receiving an
-    empty Confirm. However, in a well-behaved connection this will not
-    occur, since both peers have negotiated their capabilities in (1).
-
-The second point is actually not part of this patch set, it is in the
-second set which I wanted to send after this one. 
-
-Here is the parse routine as it is currently in the test git tree:
-
-int dccp_feat_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
-                            u8 mandatory, u8 opt, u8 feat, u8 *val, u8 len)
-{
-        struct dccp_sock *dp = dccp_sk(sk);
-        struct list_head *fn = dreq ? &dreq->dreq_featneg : &dp->dccps_featneg;
-        bool server = false;
-
-        switch (sk->sk_state) {
+With regard to doing validation based on the modules loaded, the
+mechanism works as follows:
+ 1. at socket initialisation time dccp_init_sock calls dccp_feat_init
+ 2. dccp_feat_init queries the compiled-in CCIDs:
         /*
-         *      Negotiation during connection setup
+         * We advertise the available list of CCIDs and reorder according to
+         * preferences, to avoid failure resulting from negotiating different
+         * singleton values (which always leads to failure).
+         * These settings can still (later) be overridden via sockopts.
          */
-        case DCCP_LISTEN:
-                server = true;                  /* fall through */
-        case DCCP_REQUESTING:
-                switch (opt) {
-                case DCCPO_CHANGE_L:
-                case DCCPO_CHANGE_R:
-                        return dccp_feat_change_recv(fn, mandatory, opt, feat,
-                                                     val, len, server);
-                case DCCPO_CONFIRM_R:
-                case DCCPO_CONFIRM_L:
-                        return dccp_feat_confirm_recv(fn, mandatory, opt, feat,
-                                                      val, len, server);
-                }
-                break;
-        /*
-         *      Support for exchanging NN options on an established connection
-         *      This is currently restricted to Ack Ratio (RFC 4341, 6.1.2)
-         */
-        case DCCP_OPEN:
-        case DCCP_PARTOPEN:
-                return dccp_feat_handle_nn_established(sk, mandatory, opt, feat,
-                                                       val, len);
-        }
-        return 0;       /* ignore FN options in all other states */
-}
+        if (ccid_get_builtin_ccids(&tx.val, &tx.len) ||
+            ccid_get_builtin_ccids(&rx.val, &rx.len))
+                return -ENOBUFS;
+    ==> If it succeeds, the `tx' and `rx' entries will be identical copies.
 
-===> The first two cases are for the initial phase and allow
-     full/unrestricted negotiation.
-     The dccp_feat_handle_nn_established() is part of the second patch
-     set and basically allows dynamic updates of NN (Sequence Window and 
-     Ack Ratio).
-     In all other cases, 0 is returned to dccp_parse_options(), which means
-     that the option is merely eaten up, but not reacted on.
+ 3. The next step in dccp_feat_init is to try and load all configured  CCIDs:
+
+        if (ccid_request_modules(tx.val, tx.len))
+                goto free_ccid_lists;
+
+    ==> If this succeeds, the host is ready to answer to any request by
+	the peer.
+
+ 4. Finally, if the peer tries to negotiate an unknown CCID, negotiation
+    will fail as per the server-priority negotiation rules (6.3.1), unless
+    the peer has an entry in its CCID list which agrees with an entry of
+    our list.
