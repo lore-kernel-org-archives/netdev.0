@@ -1,108 +1,112 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 04/37] dccp: Per-socket initialisation of feature
-	negotiation
-Date: Fri, 29 Aug 2008 07:41:29 +0200
-Message-ID: <20080829054129.GB3557@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <20080828195315.GK9193@ghostprotocols.net>
+Subject: Re: [PATCH 06/37] dccp: Limit feature negotiation to connection
+	setup phase
+Date: Fri, 29 Aug 2008 07:54:36 +0200
+Message-ID: <20080829055436.GC3557@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <20080828205057.GM9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35258 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36021 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751089AbYH2Fmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 01:42:40 -0400
+	id S1752737AbYH2Fy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 01:54:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20080828195315.GK9193@ghostprotocols.net>
+In-Reply-To: <20080828205057.GM9193@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > --- a/include/linux/dccp.h
-| > +++ b/include/linux/dccp.h
-| > @@ -421,6 +422,7 @@ struct dccp_request_sock {
-| >  	__u64			 dreq_iss;
-| >  	__u64			 dreq_isr;
-| >  	__be32			 dreq_service;
-| > +	struct list_head	 dreq_featneg;
+| > This patch starts the new implementation of feature negotiation:
+| >  1. Although it is theoretically possible to perform feature negotiation at any
+| >     time (and RFC 4340 supports this), in practice this is prohibitively complex,
+| >     as it requires to put traffic on hold for each new negotiation.
+| >  2. As a byproduct of restricting feature negotiation to connection setup, the
+| >     feature-negotiation retransmit timer is no longer required. This part is now
+| >     mapped onto the protocol-level retransmission.
+| >     Details indicating why timers are no longer needed can be found on
+| >     http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
+| > 	                                      implementation_notes.html
+| > 
+| > This patch disables anytime negotiation, subsequent patches work out full
+| > feature negotiation support for connection setup.
 | 
-| Wouldn't be better to use hlist here? So that we use 8 bytes less per
-| struct dccp_request_sock, after all we don't use struct sock while in
-| embryonic stage exactly to reduce the footprint at this point in the
-| socket lifetime :-)
+| While I agree that its better to initially support only negotiation at
+| connection startup, I wonder if the response to feature negotiation
+| after connection startup should be plainly ignore the request or if we
+| should reset the connection, telling the other side that what it wants
+| to do is not implemented currently.
 | 
-That may be a possible consideration for future time, but I have doubts
-from the feature-negotiation side: true, the feature-negotiation list is
-sorted in ascending order, but it is frequently necessary to delete an
-entry in the middle or at the end of the list (when a pending Confirm has
-arrived), and there may be other parts that need changing.
-On the whole, I have tried to use as little space as possible, which
-accounts for some of the perhaps non-obvious design decisions.
+The implementation will ignore any peer-attempt at feature negotiation
+as soon as the connection has reached established (OPEN/PARTOPEN) state.
 
-| > +/* generate @to as full clone of @from - @to must not contain any nodes */
-| > +int dccp_feat_clone_list(struct list_head const *from, struct list_head *to)
-| > +{
-| > +	struct dccp_feat_entry *entry, *new;
-| > +
-| > +	INIT_LIST_HEAD(to);
-| > +	list_for_each_entry(entry, from, node) {
-| > +		new = dccp_feat_clone_entry(entry);
-| 
-| dccp_feat_clone_entry uses kmemdup for a new dccp_feat_entry _and_
-| possibly for sp.vec, and goes on adding it to the 'to' list, but if
-| one fails you go to cloning_failed: and dccp_feat_list_purge will
-| call just dccp_feat_entry_destructor that doesn't frees the
-| dccp_feat_entry instances, just the sp.vec. 
-| 
-| Looks like major leakage, or am I missing something?
-| 
-Hm, I am beginning to doubt that I have chosen the right granularity for
-the patches. Apparently this format is confusing and makes discussion
-difficult. Here is the definition, taken from the other patch:
+This is done in dccp_feat_parse_options() which is shown for reference below.
 
-static struct dccp_feat_entry *
-              dccp_feat_clone_entry(struct dccp_feat_entry const *original)
+Considering doing a reset is something we could consider when it comes
+to Interoperability tests; it may be that the current policy of ignoring
+is sufficient.
+
+There are two main points that I think are important here:
+ 1. At the begin of the connection, both endpoints really negotiate their
+    capabilities, i.e. A says to B "I want to do X, but could do Y" and
+    B says to A "can't do X, so will settle for Y".
+    Doing the same in the middle of an established connection seems mad
+    to me - for example changing the CCID in mid-connection.
+ 2. There is an actual need for exchanging feature negotiation options
+    even when the connection is established. But this is past the
+    checking-capabilities phase and the only known uses require NN
+    (non-negotiable) options. In this case, if the peer does not
+    understand, the reset will happen as a consequence of receiving an
+    empty Confirm. However, in a well-behaved connection this will not
+    occur, since both peers have negotiated their capabilities in (1).
+
+The second point is actually not part of this patch set, it is in the
+second set which I wanted to send after this one. 
+
+Here is the parse routine as it is currently in the test git tree:
+
+int dccp_feat_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+                            u8 mandatory, u8 opt, u8 feat, u8 *val, u8 len)
 {
-        struct dccp_feat_entry *new;
-        u8 type = dccp_feat_type(original->feat_num);
+        struct dccp_sock *dp = dccp_sk(sk);
+        struct list_head *fn = dreq ? &dreq->dreq_featneg : &dp->dccps_featneg;
+        bool server = false;
 
-        if (type == FEAT_UNKNOWN)
-                return NULL;
-
-        new = kmemdup(original, sizeof(struct dccp_feat_entry), gfp_any());
-        if (new == NULL)
-                return NULL;
-
-        if (type == FEAT_SP && dccp_feat_clone_sp_val(&new->val,
-                                                      original->val.sp.vec,
-                                                      original->val.sp.len)) {
-                kfree(new);
-                return NULL;
-        }
-        return new;
-}
-
-Now, dccp_feat_clone_entry returns NULL:
- * when the feature is not known - in this case no new memory is allocated;
- * when kmemdup fails 
- * when, for an SP feature, dccp_feat_clone_sp_val fails
-So we need to continue with its definition, below:
-
-static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
-{
-        fval->sp.len = len;
-        if (fval->sp.len > 0) {
-                fval->sp.vec = kmemdup(val, len, gfp_any());
-                if (fval->sp.vec == NULL) {
-                        fval->sp.len = 0;
-                        return -ENOBUFS;
+        switch (sk->sk_state) {
+        /*
+         *      Negotiation during connection setup
+         */
+        case DCCP_LISTEN:
+                server = true;                  /* fall through */
+        case DCCP_REQUESTING:
+                switch (opt) {
+                case DCCPO_CHANGE_L:
+                case DCCPO_CHANGE_R:
+                        return dccp_feat_change_recv(fn, mandatory, opt, feat,
+                                                     val, len, server);
+                case DCCPO_CONFIRM_R:
+                case DCCPO_CONFIRM_L:
+                        return dccp_feat_confirm_recv(fn, mandatory, opt, feat,
+                                                      val, len, server);
                 }
+                break;
+        /*
+         *      Support for exchanging NN options on an established connection
+         *      This is currently restricted to Ack Ratio (RFC 4341, 6.1.2)
+         */
+        case DCCP_OPEN:
+        case DCCP_PARTOPEN:
+                return dccp_feat_handle_nn_established(sk, mandatory, opt, feat,
+                                                       val, len);
         }
-        return 0;
+        return 0;       /* ignore FN options in all other states */
 }
 
-The function returns a non-0 value if kmemdup fails. 
-
-To summarize, I think I have chosen the wrong granularity for the
-patches. Sorry, I actually intended to make it easier to spot mistakes.
-I thank you for checking through.
+===> The first two cases are for the initial phase and allow
+     full/unrestricted negotiation.
+     The dccp_feat_handle_nn_established() is part of the second patch
+     set and basically allows dynamic updates of NN (Sequence Window and 
+     Ack Ratio).
+     In all other cases, 0 is returned to dccp_parse_options(), which means
+     that the option is merely eaten up, but not reacted on.
