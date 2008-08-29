@@ -1,86 +1,158 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 09/37] dccp: Resolve dependencies of features on choice
-	of CCID
-Date: Fri, 29 Aug 2008 08:34:44 +0200
-Message-ID: <20080829063444.GF3557@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <20080828210713.GP9193@ghostprotocols.net>
+Subject: Re: [PATCH 12/37] dccp: Feature negotiation for
+	minimum-checksum-coverage
+Date: Fri, 29 Aug 2008 08:47:23 +0200
+Message-ID: <20080829064723.GG3557@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <20080828212504.GQ9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38388 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39321 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751301AbYH2Gfa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 02:35:30 -0400
+	id S1751526AbYH2Gro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 02:47:44 -0400
 Content-Disposition: inline
-In-Reply-To: <20080828210713.GP9193@ghostprotocols.net>
+In-Reply-To: <20080828212504.GQ9193@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Arnaldo:
-| Em Thu, Aug 28, 2008 at 07:44:44PM +0200, Gerrit Renker escreveu:
-| > This provides a missing link in the code chain, as several features implicitly
-| > depend and/or rely on the choice of CCID. Most notably, this is the Send Ack Vector
-| > feature, but also Ack Ratio and Send Loss Event Rate (also taken care of).
-| > 
-| > For Send Ack Vector, the situation is as follows:
-| >  * since CCID2 mandates the use of Ack Vectors, there is no point in allowing
-| >    endpoints which use CCID2 to disable Ack Vector features such a connection;
-| > 
-| >  * a peer with a TX CCID of CCID2 will always expect Ack Vectors, and a peer
-| >    with a RX CCID of CCID2 must always send Ack Vectors (RFC 4341, sec. 4);
-| > 
-| >  * for all other CCIDs, the use of (Send) Ack Vector is optional and thus
-| >    negotiable. However, this implies that the code negotiating the use of Ack
-| >    Vectors also supports it (i.e. is able to supply and to either parse or
-| >    ignore received Ack Vectors). Since this is not the case (CCID-3 has no Ack
-| >    Vector support), the use of Ack Vectors is here disabled, with a comment
-| >    in the source code.
-| > 
-| > An analogous consideration arises for the Send Loss Event Rate feature,
-| > since the CCID-3 implementation does not support the loss interval options
-| > of RFC 4342. To make such use explicit, corresponding feature-negotiation
-| > options are inserted which signal the use of the loss event rate option,
-| > as it is used by the CCID3 code.
-| > 
-| > Lastly, the values of the Ack Ratio feature are matched to the choice of CCID.
-| > 
-| > The patch implements this as a function which is called after the user has
-| > made all other registrations for changing default values of features.
-| > 
-| > The table is variable-length, the reserved (and hence for feature-negotiation
-| > invalid, confirmed by considering section 19.4 of RFC 4340) feature number `0'
-| > is used to mark the end of the table.
-| 
-| Doesn't this belongs into struct ccid_operations? Why has the core feature
-| negotiation have knowledge of any specific CCID? When people want to
-| merge CCID 4, 5, etc will we need to change net/dccp/feat.c?
-| 
-| I think that this needs thus to go to struct ccid_operations, and then the feature
-| negotiation code can just use use the ccid number to access:
-| 
-| struct ccid_operations *ccids[CCID_MAX]
-| 
-| ccids[ccid_number]->deps
-|  
-Your point is valid and one could do it this way. At the moment I can
-not see an advantage. From experience, there is actually an advantage of
-keeping all the dependencies in one file (feat.c): since CCID-4 use
-mostly the same (TFRC) concepts as CCID-3, it can reuse the existing
-ccid3_dependencies[] table, rather than copy-and-pasting it (this can
-be seen in the commitdiff link for CCID-4 in the other posting).
+This addresses Arnaldo's comment - change the socket state only after
+ * memory has been successfully allocated and
+ * the setsockopt value has been successfully registered.
 
-For the moment, I would suggest keeping it in place. It is an easy patch
-to do it later. The reason I am holding back here is that there is a
-much larger potential for integration - as in the initial patches by
-Tommi and Leandro, the mostly-identical TFRC functionality of CCID-3
-and CCID-4 can be combined. Progress here has been impeded by waiting
-for rfc3448bis-06 to reach RFC status, which it very soon:
-ftp://ftp.rfc-editor.org/in-notes/authors/rfc5348.txt
+The inter-diff is:
 
-But all this does not mean I disagree. There is a related spot which
-I think should be CCID-specific: the "print" subroutine in
-net/dccp/probe.c - at the moment, the CCIDs are hardcoded. Here it would
-indeed be good to have a struct ccid_operations function pointer instead
-of hardcoding the current CCID.
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -477,11 +477,6 @@ static int dccp_setsockopt_cscov(struct 
+ 
+ 	if (cscov < 0 || cscov > 15)
+ 		return -EINVAL;
+-
+-	if (rx)
+-		dccp_sk(sk)->dccps_pcrlen = cscov;
+-	else
+-		dccp_sk(sk)->dccps_pcslen = cscov;
+ 	/*
+ 	 * Populate a list of permissible values, in the range cscov...15. This
+ 	 * is necessary since feature negotiation of single values only works if
+@@ -501,6 +496,12 @@ static int dccp_setsockopt_cscov(struct 
+ 
+ 	rc = dccp_feat_register_sp(sk, DCCPF_MIN_CSUM_COVER, rx, list, len);
+ 
++	if (rc == 0) {
++		if (rx)
++			dccp_sk(sk)->dccps_pcrlen = cscov;
++		else
++			dccp_sk(sk)->dccps_pcslen = cscov;
++	}
+ 	kfree(list);
+ 	return rc;
+ }
+
+>>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: Feature negotiation for minimum-checksum-coverage
+
+This provides feature negotiation for server minimum checksum coverage
+which so far has been missing.
+
+Since sender/receiver coverage values range only from 0...15, their
+type has also been reduced in size from u16 to u4.
+
+Feature-negotiation options are now generated for both sender and receiver
+coverage, i.e. when the peer has `forgotten' to enable partial coverage
+then feature negotiation will automatically enable (negotiate) the partial
+coverage value for this connection.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ include/linux/dccp.h |    4 +--
+ net/dccp/proto.c     |   53 ++++++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 42 insertions(+), 15 deletions(-)
+
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -527,8 +527,8 @@ struct dccp_sock {
+ 	__u32				dccps_timestamp_time;
+ 	__u16				dccps_l_ack_ratio;
+ 	__u16				dccps_r_ack_ratio;
+-	__u16				dccps_pcslen;
+-	__u16				dccps_pcrlen;
++	__u8				dccps_pcslen:4;
++	__u8				dccps_pcrlen:4;
+ 	__u64				dccps_ndp_count:48;
+ 	unsigned long			dccps_rate_last;
+ 	struct dccp_minisock		dccps_minisock;
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -470,6 +470,42 @@ static int dccp_setsockopt_service(struc
+ 	return 0;
+ }
+ 
++static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
++{
++	u8 *list, len;
++	int i, rc;
++
++	if (cscov < 0 || cscov > 15)
++		return -EINVAL;
++	/*
++	 * Populate a list of permissible values, in the range cscov...15. This
++	 * is necessary since feature negotiation of single values only works if
++	 * both sides incidentally choose the same value. Since the list starts
++	 * lowest-value first, negotiation will pick the smallest shared value.
++	 */
++	if (cscov == 0)
++		return 0;
++	len = 16 - cscov;
++
++	list = kmalloc(len, GFP_KERNEL);
++	if (list == NULL)
++		return -ENOBUFS;
++
++	for (i = 0; i < len; i++)
++		list[i] = cscov++;
++
++	rc = dccp_feat_register_sp(sk, DCCPF_MIN_CSUM_COVER, rx, list, len);
++
++	if (rc == 0) {
++		if (rx)
++			dccp_sk(sk)->dccps_pcrlen = cscov;
++		else
++			dccp_sk(sk)->dccps_pcslen = cscov;
++	}
++	kfree(list);
++	return rc;
++}
++
+ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		char __user *optval, int optlen)
+ {
+@@ -502,20 +538,11 @@ static int do_dccp_setsockopt(struct soc
+ 		else
+ 			dp->dccps_server_timewait = (val != 0);
+ 		break;
+-	case DCCP_SOCKOPT_SEND_CSCOV:	/* sender side, RFC 4340, sec. 9.2 */
+-		if (val < 0 || val > 15)
+-			err = -EINVAL;
+-		else
+-			dp->dccps_pcslen = val;
++	case DCCP_SOCKOPT_SEND_CSCOV:
++		err = dccp_setsockopt_cscov(sk, val, false);
+ 		break;
+-	case DCCP_SOCKOPT_RECV_CSCOV:	/* receiver side, RFC 4340 sec. 9.2.1 */
+-		if (val < 0 || val > 15)
+-			err = -EINVAL;
+-		else {
+-			dp->dccps_pcrlen = val;
+-			/* FIXME: add feature negotiation,
+-			 * ChangeL(MinimumChecksumCoverage, val) */
+-		}
++	case DCCP_SOCKOPT_RECV_CSCOV:
++		err = dccp_setsockopt_cscov(sk, val, true);
+ 		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
