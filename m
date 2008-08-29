@@ -1,66 +1,37 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [RFC] export irq_set/get_affinity() for multiqueue network
- drivers
-Date: Fri, 29 Aug 2008 09:52:03 -0700
-Message-ID: <20080829095203.5732f331@infradead.org>
-References: <48B708E1.4070001@inria.fr>
-	<20080829055023.07966b4a@infradead.org>
-	<8763pjpy2b.fsf@basil.nowhere.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: [PATCH][BUG] tcp: advertise MSS requested by user
+Date: Fri, 29 Aug 2008 19:57:09 +0300
+Message-ID: <200808291957.10007.denys@visp.net.lb>
+References: <48B44768.3030208@gmail.com> <200808281250.35006.denys@visp.net.lb> <48B82843.4090707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Brice Goglin <Brice.Goglin@inria.fr>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	lachlan.andrew@gmail.com
+To: Tom Quetchenbach <virtualphtn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39087 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752769AbYH2QwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 12:52:01 -0400
-In-Reply-To: <8763pjpy2b.fsf@basil.nowhere.org>
+Received: from relay2.globalproof.net ([194.146.153.25]:42404 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754922AbYH2Q6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 12:58:38 -0400
+In-Reply-To: <48B82843.4090707@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Aug 2008 18:48:12 +0200
-Andi Kleen <andi@firstfloor.org> wrote:
-
-> Arjan van de Ven <arjan@infradead.org> writes:
-> 
-> > On Thu, 28 Aug 2008 22:21:53 +0200
-> > Brice Goglin <Brice.Goglin@inria.fr> wrote:
-> >
-> >> Hello,
-> >> 
-> >> Is there any way to setup IRQ masks from within a driver? myri10ge
-> >> currently relies on an external script (writing in
-> >> /proc/irq/*/smp_affinity) to bind each queue/MSI-X to a different
-> >> processor. By default, Linux will either:
-> >> * round-robin the interrupts (killing the benefit of DCA for
-> >> instance)
-> >> * put all IRQs on the same CPU (killing much of th
-> >
-> > * do the right thing with the userspace irq balancer
-> 
-> It probably also needs to be hooked up the sched_mc_power_savings
-> When the switch is on the interrupts shouldn't be spread out over
-> that many sockets.
-
-that's what irqbalance already does today.
-
-> 
-> Also I suspect handling SMT explicitely is a good idea. e.g. I would
-> always set the affinity to all thread siblings in a core, not 
-> just a single one, because context switch is very cheap between them.
-
-that is what irqbalance already does today, at least for what it
-considers somewhat slower irqs.
-for networking it still sucks because the packet reordering logic is
-per logical cpu so you still don't want to receive packets from the
-same "stream" over multiple logical cpus.
-
-
-
--- 
-If you want to reach me at my work email, use arjan@linux.intel.com
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+On Friday 29 August 2008, Tom Quetchenbach wrote:
+> In my case I don't think the iptables workaround is the right solution.
+> I'm working on a traffic generator (tmix, from the University of North
+> Carolina), that starts many simultaneous flows between two endpoints,
+> based on a set of "connection vectors" derived from a tcpdump. The MSS
+> for each flow is specified in the connection vector file on a per-flow
+> basis. So it's not so simple as clamping the MSS to the path MTU or
+> setting it based on some simple criteria like destination or port
+> number. I'm sure I could hack something together using iptables to
+> approximate what I want to do, but it seems like a bit of a mess to me.
+>
+> I'm not that familiar with iptables so please correct me if I'm wrong.
+Sure proper fix always better.
+My case MUCH simplier (i know that all endpoints have lower than 1500 MTU, so 
+i just set required value for all SYN requests to that direction).
