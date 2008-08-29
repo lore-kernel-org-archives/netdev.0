@@ -1,108 +1,93 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 15/37] dccp: Set per-connection CCIDs via socket options
-Date: Fri, 29 Aug 2008 09:17:49 +0200
-Message-ID: <20080829071749.GI3557@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <20080828214501.GT9193@ghostprotocols.net>
+Subject: Re: [PATCH 16/37] dccp: API to query the current TX/RX CCID
+Date: Fri, 29 Aug 2008 09:26:03 +0200
+Message-ID: <20080829072603.GA7311@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk> <20080828214725.GU9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41318 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41882 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750709AbYH2HST (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 03:18:19 -0400
+	id S1750945AbYH2H01 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 03:26:27 -0400
 Content-Disposition: inline
-In-Reply-To: <20080828214501.GT9193@ghostprotocols.net>
+In-Reply-To: <20080828214725.GU9193@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| >  /* maximum number of services provided on the same listening port */
-| >  #define DCCP_SERVICE_LIST_MAX_LEN      32
-| > +/* maximum number of CCID preferences that can be registered at one time */
-| > +#define DCCP_CCID_LIST_MAX_LEN	       16
-| 
-| Since this is an arbitrary lenght up to 253, it could as well be 253,
-| no? Or is there any other limit that I'm forgetting? :-) It may well be
-| that case, would have to read the RFC about how the encoding is done for
-| feat len, which I did some weeks ago, but...
-|   
-The worst-case consideration is the Confirm option:
-max value =  255
-          - 2 bytes for type/length
-          - 1 byte for feature number 
-          - 1 byte for confirmed value (6.2)
-	  = max 251 distinct values.
-
-So make it 251 instead?	- we will need some new RFCs :)
-
-
-| >  #ifdef __KERNEL__
+Quoting Arnaldo:
+| Em Thu, Aug 28, 2008 at 07:44:51PM +0200, Gerrit Renker escreveu:
+| > This provides function to query the current TX/RX CCID dynamically, without
+| > reliance on the minisock value, using dynamic information available in the
+| > currently loaded CCID module.
+| > 
+| > This query function is then used to
+| >  (a) provide the getsockopt part for getting/setting CCIDs via sockopts;
+| >  (b) replace the current test for "which CCID is in use" in probe.c.
+| > 
+| > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+| > Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+| > ---
+| >  net/dccp/ccid.h  |    9 +++++++++
+| >  net/dccp/probe.c |    7 ++-----
+| >  net/dccp/proto.c |    6 ++++++
+| >  3 files changed, 17 insertions(+), 5 deletions(-)
+| > 
+| > --- a/net/dccp/ccid.h
+| > +++ b/net/dccp/ccid.h
+| > @@ -116,6 +116,15 @@ extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
+| >  extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
+| >  				   gfp_t gfp);
 | >  
-| > --- a/net/dccp/proto.c
-| > +++ b/net/dccp/proto.c
-| > @@ -505,6 +505,34 @@ static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
-| >  	return rc;
-| >  }
-| >  
-| > +static int dccp_setsockopt_ccid(struct sock *sk, int type,
-| > +				char __user *optval, int optlen)
+| > +static inline int ccid_get_current_id(struct dccp_sock *dp, bool rx)
 | > +{
-| > +	u8 *val;
-| > +	int rc = 0;
+| > +	struct ccid *ccid = rx ? dp->dccps_hc_rx_ccid : dp->dccps_hc_tx_ccid;
 | > +
-| > +	if (optlen < 1 || optlen > DCCP_CCID_LIST_MAX_LEN)
-| > +		return -EINVAL;
-| > +
-| > +	val = kmalloc(optlen, GFP_KERNEL);
-| > +	if (val == NULL)
-| > +		return -ENOMEM;
-| > +
-| > +	if (copy_from_user(val, optval, optlen))
-| > +		rc = -EFAULT;
-| > +
-| > +	lock_sock(sk);
-| > +	if (!rc && (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID))
-| > +		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
-| > +
-| 
-| This _really_ is confusing! Why not:
-| 
-| 	rc = -EFAULT;
-| 	if (copy_from_user(val, optval, optlen))
-| 		goto out;
-| 
-| 	lock_sock(sk);
-| 	rc = 0;
-| 	if (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID)
-| 		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
-| 
-| 	if (!rc && (type == DCCP_SOCKOPT_RX_CCID || type == DCCP_SOCKOPT_CCID))
-| 		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 0, val, optlen);
-| 	release_sock(sk);
-| out:
-| > +	kfree(val);
-| > +	return rc;
+| > +	if (ccid == NULL || ccid->ccid_ops == NULL)
+| > +		return -1;
+| > +	return ccid->ccid_ops->ccid_id;
 | > +}
+| > +
+| >  extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
+| >  extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
+| >  
+| > --- a/net/dccp/probe.c
+| > +++ b/net/dccp/probe.c
+| > @@ -74,14 +74,11 @@ static void printl(const char *fmt, ...)
+| >  static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
+| >  			 struct msghdr *msg, size_t size)
+| >  {
+| > -	const struct dccp_minisock *dmsk = dccp_msk(sk);
+| >  	const struct inet_sock *inet = inet_sk(sk);
+| > -	const struct ccid3_hc_tx_sock *hctx;
+| > +	struct ccid3_hc_tx_sock *hctx = NULL;
+| >  
+| > -	if (dmsk->dccpms_tx_ccid == DCCPC_CCID3)
+| > +	if (ccid_get_current_id(dccp_sk(sk), false) == DCCPC_CCID3)
 | 
-| :-)
+| The use of boolean here also hurts the brain, I guess we could have
+| ccid_get_current_rx_id or something along these lines?
 | 
-| And even then that '0' or '1' requires one to look at what this binary
-| number means, we could have something like
-| dccp_feat_register_sp_{local,remote} perhaps, IIRC that is the is_local
-| parameter, no?
-| 
-Thanks, I will be revising this with regard to the above. 
+The only other place where ccid_get_current_id is called is in
+do_dccp_getsockopt.
 
-If you want, we could consider dropping the DCCP_SOCKOPT_{RX,TX}_CCID 
-since mixed-mode is at the moment not well understood and will lead
-to bad performance (e.g. CCID-3 on the forward path and CCID-2 on the
-reverse path). 
+Rather than a yes/no, I think a third alternative is possible here:
+it should actually not be necessary to have CCID-dependent code in
+net/dccp/probe.c, i.e. in jdccp_write_xmit() we could have something like
 
-That would make both the above statements and the socket API much
-simpler. Would that be ok?
+f (!port || ntohs(inet->dport) == port || ntohs(inet->sport) == port) {
 
-With regard to the dccp_feat_register_sp_local() function, the price to
-pay is that either lines will be longer than 80 characters or that we
-will end up with more multi-line statements, which does IMO not help
-readability.
+                tv  = ktime_to_timespec(ktime_sub(ktime_get(), dccpw.start));
+                len = sprintf(buf, "%lu.%09lu %d.%d.%d.%d:%u %d.%d.%d.%d:%u %d",
+                               (unsigned long)tv.tv_sec,
+                               (unsigned long)tv.tv_nsec,
+                               NIPQUAD(inet->saddr), ntohs(inet->sport),
+                               NIPQUAD(inet->daddr), ntohs(inet->dport), ccid);
+
+                len += ccid_hc_tx_print_sock_state(sk);
+		/*     ^ new CCID-dependent function for printing */
+
+		// ...
+
