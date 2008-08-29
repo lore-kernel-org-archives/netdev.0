@@ -1,37 +1,28 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: [PATCH][BUG] tcp: advertise MSS requested by user
-Date: Fri, 29 Aug 2008 19:57:09 +0300
-Message-ID: <200808291957.10007.denys@visp.net.lb>
-References: <48B44768.3030208@gmail.com> <200808281250.35006.denys@visp.net.lb> <48B82843.4090707@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] export irq_set/get_affinity() for multiqueue network drivers
+Date: Fri, 29 Aug 2008 10:14:22 -0700
+Message-ID: <48B82E6E.2090603@hp.com>
+References: <48B708E1.4070001@inria.fr> <20080829055023.07966b4a@infradead.org> <8763pjpy2b.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	lachlan.andrew@gmail.com
-To: Tom Quetchenbach <virtualphtn@gmail.com>
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Brice Goglin <Brice.Goglin@inria.fr>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:42404 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754922AbYH2Q6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 12:58:38 -0400
-In-Reply-To: <48B82843.4090707@gmail.com>
-Content-Disposition: inline
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:23878 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754406AbYH2RO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 13:14:27 -0400
+In-Reply-To: <8763pjpy2b.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 29 August 2008, Tom Quetchenbach wrote:
-> In my case I don't think the iptables workaround is the right solution.
-> I'm working on a traffic generator (tmix, from the University of North
-> Carolina), that starts many simultaneous flows between two endpoints,
-> based on a set of "connection vectors" derived from a tcpdump. The MSS
-> for each flow is specified in the connection vector file on a per-flow
-> basis. So it's not so simple as clamping the MSS to the path MTU or
-> setting it based on some simple criteria like destination or port
-> number. I'm sure I could hack something together using iptables to
-> approximate what I want to do, but it seems like a bit of a mess to me.
->
-> I'm not that familiar with iptables so please correct me if I'm wrong.
-Sure proper fix always better.
-My case MUCH simplier (i know that all endpoints have lower than 1500 MTU, so 
-i just set required value for all SYN requests to that direction).
+> Also I suspect handling SMT explicitely is a good idea. e.g. I would
+> always set the affinity to all thread siblings in a core, not 
+> just a single one, because context switch is very cheap between them.
+
+That is true, but don't they also "compete" for pipeline resources?
+
+rick jones
