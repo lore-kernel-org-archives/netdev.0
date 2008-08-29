@@ -1,73 +1,49 @@
-From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc@tvcablenet.be>
-Subject: Re: [Bugme-new] [Bug 11447] New: /proc/sys/net/ipv4/route/flush not
- found
-Date: Fri, 29 Aug 2008 18:35:58 +0200
-Message-ID: <48B8256E.5010800@tvcablenet.be>
-References: <bug-11447-10286@http.bugzilla.kernel.org/>	<20080828131824.49352fa0.akpm@linux-foundation.org> <20080828.132935.193700612.davem@davemloft.net>
+From: Tom Quetchenbach <virtualphtn@gmail.com>
+Subject: Re: [PATCH][BUG] tcp: advertise MSS requested by user
+Date: Fri, 29 Aug 2008 09:48:03 -0700
+Message-ID: <48B82843.4090707@gmail.com>
+References: <48B44768.3030208@gmail.com> <20080828.024617.117112334.davem@davemloft.net> <200808281250.35006.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	lachlan.andrew@gmail.com
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agave.telenet-ops.be ([195.130.137.77]:42219 "EHLO
-	agave.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754009AbYH2QgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 12:36:09 -0400
-In-Reply-To: <20080828.132935.193700612.davem@davemloft.net>
+Received: from rv-out-0506.google.com ([209.85.198.227]:61469 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752986AbYH2QsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 12:48:06 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so954692rvb.1
+        for <netdev@vger.kernel.org>; Fri, 29 Aug 2008 09:48:05 -0700 (PDT)
+In-Reply-To: <200808281250.35006.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Thu, 28 Aug 2008 13:18:24 -0700
->
->  =20
->> (switched to email.  Please respond via emailed reply-to-all, not vi=
-a the
->> bugzilla web interface).
->>    =20
->
-> Should be fixed in Linus's tree as of an hour ago, it was a
-> permissions issue:
->
-> commit d994af0d50efc96b2077978fe9f066992639d525
-> Author: Hugh Dickins <hugh@veritas.com>
-> Date:   Wed Aug 27 02:35:18 2008 -0700
->
->     ipv4: mode 0555 in ipv4_skeleton
->    =20
->     vpnc on today's kernel says Cannot open "/proc/sys/net/ipv4/route=
-/flush":
->     d--------- 0 root root 0 2008-08-26 11:32 /proc/sys/net/ipv4/rout=
-e
->     d--------- 0 root root 0 2008-08-26 19:16 /proc/sys/net/ipv4/neig=
-h
->    =20
->     Signed-off-by: Hugh Dickins <hugh@veritas.com>
->     Acked-by: Al Viro <viro@zeniv.linux.org.uk>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index e91bafe..6ee5354 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -3121,9 +3121,9 @@ static struct ctl_table empty[1];
->  static struct ctl_table ipv4_skeleton[] =3D
->  {
->  	{ .procname =3D "route", .ctl_name =3D NET_IPV4_ROUTE,
-> -	  .child =3D ipv4_route_table},
-> +	  .mode =3D 0555, .child =3D ipv4_route_table},
->  	{ .procname =3D "neigh", .ctl_name =3D NET_IPV4_NEIGH,
-> -	  .child =3D empty},
-> +	  .mode =3D 0555, .child =3D empty},
->  	{ }
->  };
-> =20
->
->
->  =20
-This commit indeed solves the problem.
+Best I can tell, my mailer ate this reply, so apologies if you get it twice.
+
+>> Thanks for your patch, I'll mull over this and put in the fix
+>> once I understand exactly how this got broken.
+
+David, thanks a lot for looking into this. It will be really helpful for
+our TCP benchmarking work.
+
+> I am using, just i workaround this over iptables MSS option. You feel 
+> discomfort, but most people start googling and see this trick with iptables, 
+> and they use it.
+
+In my case I don't think the iptables workaround is the right solution.
+I'm working on a traffic generator (tmix, from the University of North
+Carolina), that starts many simultaneous flows between two endpoints,
+based on a set of "connection vectors" derived from a tcpdump. The MSS
+for each flow is specified in the connection vector file on a per-flow
+basis. So it's not so simple as clamping the MSS to the path MTU or
+setting it based on some simple criteria like destination or port
+number. I'm sure I could hack something together using iptables to
+approximate what I want to do, but it seems like a bit of a mess to me.
+
+I'm not that familiar with iptables so please correct me if I'm wrong.
+
+Thanks
+-Tom
+
