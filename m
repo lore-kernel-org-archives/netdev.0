@@ -1,49 +1,43 @@
-From: Andi Kleen <andi@firstfloor.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Fri, 29 Aug 2008 17:30:36 +0200
-Message-ID: <20080829153036.GV26610@one.firstfloor.org>
-References: <20080828072218.GI26610@one.firstfloor.org> <32566205.1357331220023286187.JavaMail.root@ouachita>
+Date: Fri, 29 Aug 2008 08:43:18 -0700
+Message-ID: <20080829084318.04f0fad8@extreme>
+References: <20080827.201020.17601834.davem@davemloft.net>
+	<200808282225.57535.denys@visp.net.lb>
+	<48B6FE6C.4080905@cosmosbay.com>
+	<200808282255.29640.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Joe Malicki <jmalicki@metacarta.com>,
 	David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru,
-	dada1@cosmosbay.com, denys@visp.net.lb, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, juhlenko@akamai.com, sammy@sammy.net
-To: Joe Malicki <jmalicki@metacarta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:40740 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754252AbYH2P14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 11:27:56 -0400
-Content-Disposition: inline
-In-Reply-To: <32566205.1357331220023286187.JavaMail.root@ouachita>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, sammy@sammy.net
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756898AbYH2Pnn@vger.kernel.org>
+In-Reply-To: <200808282255.29640.denys@visp.net.lb>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> That adds variance, and packets aren't comparable because they may
-> suffer different kernel/hardware delays.
+On Thu, 28 Aug 2008 22:55:29 +0300
+Denys Fedoryshchenko <denys@visp.net.lb> wrote:
 
-And there are no "different kernel/hardware delays" in the network?
-
-If your RTT measurement method cannot handle some variance (using
-standard sampling and data smoothing techniques similar to TCP) then it 
-just needs to be fixed.
-
-Besides measuring in the interrupt handler doesn't protect you
-against local variances anyways because the interrupt timing has variability
-(e.g due to irq off regions or due to interrupt mitigation or
-higher priority interrupts) too
-
-> > Yes, but why ignore local scheduling delays? 
+> On Thursday 28 August 2008, Eric Dumazet wrote:
+> > OK, please try oprofile with call graph analysis.
+> I did already. Even because most of programs (except ripd/zebra) can be 
+> killed, and i kill them, it doesn't change almost anything.
 > 
-> Because one would want to ignore even network scheduling delays
-> if possible... unfortunately in some instances it's not.
+> it seems heavy things causing instability:
+> 
+> 1)HTB (resolution can be lowered to improve performance, i will try Jarek 
+> patch soon)
 
-The local delays add to the user experience too.
-It's unclear why you want to ignore those.
+If you are doing HTB it also calls clock to get timing information.
+Each packet dequeue in htb calls psched_get_time() and that becomes
+another call nano-second real time clock.
 
--Andi
-
--- 
-ak@linux.intel.com
-
+If your embedded processor has really expensive clock, you probably
+just want to provide an alternative cheaper time source with less
+resolution.
