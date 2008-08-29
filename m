@@ -1,39 +1,74 @@
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Subject: Re: 2.6.27-rc ... iwl3945 regression?
-Date: Fri, 29 Aug 2008 00:03:18 +0200
-Message-ID: <20080829000318.53e2212a@siona.skinnemoen.net>
-References: <200808131735.42451.david-b@pacbell.net>
- <20080828164134.1cd3bb12@hskinnemo-gx745.norway.atmel.com>
- <200808280948.07358.david-b@pacbell.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH] e1000e: avoid duplicated output of device name in kernel
+	warning
+Date: Thu, 28 Aug 2008 17:01:00 -0700
+Message-ID: <20080829000100.5149.26290.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Frans Pop <elendil@planet.nl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpeu1.atmel.com ([195.65.72.27]:54796 "EHLO bagnes.atmel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756131AbYH1WDS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 18:03:18 -0400
-In-Reply-To: <200808280948.07358.david-b@pacbell.net>
+Received: from rv-out-0506.google.com ([209.85.198.228]:35438 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298AbYH2ABC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 20:01:02 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so618966rvb.1
+        for <netdev@vger.kernel.org>; Thu, 28 Aug 2008 17:01:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Aug 2008 09:48:07 -0700
-David Brownell <david-b@pacbell.net> wrote:
+From: Frans Pop <elendil@planet.nl>
 
-> > FWIW, I'm seeing the same thing with -rc4 and the b43 driver, so
-> > it's probably not a regression in iwl3945. I guess it could be
-> > something in mac80211?  
-> 
-> It was separately suggested that I ignore the advice about no
-> software needing it, and enable CONFIG_WIRELESS_EXT_SYSFS ...
-> that did the trick for me.
+With 2.6.27-rc3 I noticed the following messages in my boot log:
 
-That did the trick for me too...great!
+0000:01:00.0: 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
+0000:01:00.0: eth0: (PCI Express:2.5GB/s:Width x1) 00:16:76:04:ff:09
 
-> That Kconfig helptext needs updating so it's not completely wrong.
+The second seems correct, but the first has a silly repetition of the
+PCI device before the actual message. The message originates from
+e1000_eeprom_checks in e1000e/netdev.c.
 
-Yeah, NetworkManager definitely counts as "any".
+With this patch below the first message becomes
 
-Haavard
+  e1000e 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
+
+which makes it similar to directly preceding messages.
+
+Use dev_warn instead of e_warn in e1000_eeprom_checks() as the interface
+name has not yet been assigned at that point.
+
+Signed-off-by: Frans Pop <elendil@planet.nl>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/netdev.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index d266510..4563f34 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4335,13 +4335,15 @@ static void e1000_eeprom_checks(struct e1000_adapter *adapter)
+ 	ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &buf);
+ 	if (!(le16_to_cpu(buf) & (1 << 0))) {
+ 		/* Deep Smart Power Down (DSPD) */
+-		e_warn("Warning: detected DSPD enabled in EEPROM\n");
++		dev_warn(&adapter->pdev-dev,
++		         "Warning: detected DSPD enabled in EEPROM\n");
+ 	}
+ 
+ 	ret_val = e1000_read_nvm(hw, NVM_INIT_3GIO_3, 1, &buf);
+ 	if (le16_to_cpu(buf) & (3 << 2)) {
+ 		/* ASPM enable */
+-		e_warn("Warning: detected ASPM enabled in EEPROM\n");
++		dev_warn(&adapter->pdev->dev,
++		         "Warning: detected ASPM enabled in EEPROM\n");
+ 	}
+ }
+ 
+
