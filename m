@@ -1,37 +1,35 @@
-From: Brice Goglin <Brice.Goglin@inria.fr>
-Subject: Re: [RFC] export irq_set/get_affinity() for multiqueue network drivers
-Date: Fri, 29 Aug 2008 09:08:41 +0200
-Message-ID: <48B7A079.5070409@inria.fr>
-References: <48B708E1.4070001@inria.fr> <20080828.135609.106382483.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2.6 patch] wan/hdlc_x25.c: fix a NULL dereference
+Date: Fri, 29 Aug 2008 17:08:30 +1000
+Message-ID: <E1KYy5u-000243-00@gondolin.me.apana.org.au>
+References: <20080827220549.GS11734@cs181140183.pp.htv.fi>
+Cc: khc@pm.waw.pl, jgarzik@redhat.com, netdev@vger.kernel.org
+To: bunk@kernel.org (Adrian Bunk)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iona.labri.fr ([147.210.8.143]:58447 "EHLO iona.labri.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750847AbYH2HII (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 03:08:08 -0400
-In-Reply-To: <20080828.135609.106382483.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:48960 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751646AbYH2HIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 03:08:47 -0400
+In-Reply-To: <20080827220549.GS11734@cs181140183.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> I think we should rather have some kind of generic thing in the
-> IRQ layer that allows specifying the usage model of the device's
-> interrupts, so that the IRQ layer can choose a default affinities.
-> 
-> I never notice any of this complete insanity on sparc64 because
-> we flat spread out all of the interrupts across the machine.
-> 
-> What we don't want it drivers choosing IRQ affinity settings,
-> they have no idea about NUMA topology, what NUMA node the
-> PCI controller sits behind, what cpus are there, etc.  and
-> without that kind of knowledge you cannot possible make
-> affinity decisions properly.
+Adrian Bunk <bunk@kernel.org> wrote:
+>
+> static int x25_rx(struct sk_buff *skb)
+> {
+> -       if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL) {
+> -               skb->dev->stats.rx_dropped++;
+> +       if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+>                return NET_RX_DROP;
+> -       }
 
-As long as we get something better than the current behavior, I am fine
-with it :)
+Why not keep the stat collection? It's not like saving skb->dev
+on the stack is hard or anything...
 
-Brice
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
