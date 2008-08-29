@@ -1,48 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH] Turn part of SNMP accounting macros into functions
-Date: Fri, 29 Aug 2008 17:01:33 +1000
-Message-ID: <E1KYxzB-00021T-00@gondolin.me.apana.org.au>
-References: <48B5815D.4010005@openvz.org>
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org (Pavel Emelyanov)
+From: Brice Goglin <Brice.Goglin@inria.fr>
+Subject: Re: [RFC] export irq_set/get_affinity() for multiqueue network drivers
+Date: Fri, 29 Aug 2008 09:08:41 +0200
+Message-ID: <48B7A079.5070409@inria.fr>
+References: <48B708E1.4070001@inria.fr> <20080828.135609.106382483.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33148 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750725AbYH2HBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 03:01:36 -0400
-In-Reply-To: <48B5815D.4010005@openvz.org>
+Received: from iona.labri.fr ([147.210.8.143]:58447 "EHLO iona.labri.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750847AbYH2HII (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 03:08:08 -0400
+In-Reply-To: <20080828.135609.106382483.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov <xemul@openvz.org> wrote:
-> After turning IP_XXX_STATS, TCP_XXX_STATS and NET_XXX_STATS from
-> macros into functions the net/ipv4/built-in.o shrank significantly:
+David Miller wrote:
+> I think we should rather have some kind of generic thing in the
+> IRQ layer that allows specifying the usage model of the device's
+> interrupts, so that the IRQ layer can choose a default affinities.
 > 
-> add/remove: 14/0 grow/shrink: 0/67 up/down: 482/-2246 (-1764)
+> I never notice any of this complete insanity on sparc64 because
+> we flat spread out all of the interrupts across the machine.
 > 
-> Turning the CONFIG_NET_NS option on makes this shrink even larger:
-> 
-> add/remove: 14/0 grow/shrink: 0/67 up/down: 478/-2646 (-2168)
-> 
-> So the question is - what was the reason to keep those as macros?
-> I thought about the possible performance questions, but netperf
-> didn't show any (I admit I just cannot cook it properly).
-> 
-> The sample patch is here, but it's not good (EXPORTs for ipv6
-> and a better place for functions rather than net/ipv4/af_inet.c
-> are required).
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> What we don't want it drivers choosing IRQ affinity settings,
+> they have no idea about NUMA topology, what NUMA node the
+> PCI controller sits behind, what cpus are there, etc.  and
+> without that kind of knowledge you cannot possible make
+> affinity decisions properly.
 
-What happened to Christoph Lameter's new per-cpu stuff? That would
-allows us to turn these into a single inc/add instruction.
+As long as we get something better than the current behavior, I am fine
+with it :)
 
-So I think we should put this patch on the back-burner until the
-status of the per-cpu stuff is settled.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Brice
