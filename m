@@ -1,158 +1,98 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 12/37] dccp: Feature negotiation for
-	minimum-checksum-coverage
-Date: Fri, 29 Aug 2008 08:47:23 +0200
-Message-ID: <20080829064723.GG3557@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <20080828212504.GQ9193@ghostprotocols.net>
+Subject: Re: [PATCH 14/37] dccp: Tidy up setsockopt calls
+Date: Fri, 29 Aug 2008 08:57:06 +0200
+Message-ID: <20080829065706.GH3557@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <20080828213541.GS9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39321 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39911 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751526AbYH2Gro (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 02:47:44 -0400
+	id S1751414AbYH2G50 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 02:57:26 -0400
 Content-Disposition: inline
-In-Reply-To: <20080828212504.GQ9193@ghostprotocols.net>
+In-Reply-To: <20080828213541.GS9193@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This addresses Arnaldo's comment - change the socket state only after
- * memory has been successfully allocated and
- * the setsockopt value has been successfully registered.
+| > This splits the setsockopt calls into two groups, depending on whether an
+| > integer argument (val) is required and whether routines being called do
+| > their own locking.
+| > 
+| > Some options (such as setting the CCID) use u8 rather than int, so that for
+| > these the test with regard to integer-sizeof can not be used.
+| > 
+| > The second switch-case statement now only has those statements which need
+| > locking and which make use of `val'.
+| > 
+<snip>
+| > --- a/net/dccp/proto.c
+| > +++ b/net/dccp/proto.c
+| > @@ -511,26 +511,27 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+| >  	struct dccp_sock *dp = dccp_sk(sk);
+| >  	int val, err = 0;
+| >  
+| > -	if (optlen < sizeof(int))
+| > -		return -EINVAL;
+| > -
+| > -	if (get_user(val, (int __user *)optval))
+| > -		return -EFAULT;
+| > -
+| > -	if (optname == DCCP_SOCKOPT_SERVICE)
+| > -		return dccp_setsockopt_service(sk, val, optval, optlen);
+| > -
+| > -	lock_sock(sk);
+| >  	switch (optname) {
+| >  	case DCCP_SOCKOPT_PACKET_SIZE:
+| >  		DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app\n");
+| > -		err = 0;
+| > -		break;
+| > +		return 0;
+| >  	case DCCP_SOCKOPT_CHANGE_L:
+| >  	case DCCP_SOCKOPT_CHANGE_R:
+| >  		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
+| > -		err = 0;
+| > -		break;
+| > +		return 0;
+| > +	default:
+| > +		if (optlen < sizeof(int))
+| > +			return -EINVAL;
+| > +
+| > +		if (get_user(val, (int __user *)optval))
+| > +			return -EFAULT;
+| > +
+| > +		if (optname == DCCP_SOCKOPT_SERVICE)
+| > +			return dccp_setsockopt_service(sk, val, optval, optlen);
+| 
+| What is in the default could well continue outside the switch
+| statatement, since all the other cases return directly.
+| 
+Would you be ok to return to this question at a later stage? - agreed
+that there is potential here to unify things. I have not done much here
+for the main reason that most of the API is still open for people to
+define, i.e. although this patch set is about a new API, there is
+actually only a single new setsockopt functionality -- for
+setting/getting the CCID. 
 
-The inter-diff is:
+Since the old mechanism (struct dccp_so_feat) has been removed, there
+is potential for making up a complete new API, but the patch set does
+not do much in this way, so input/discussion would be good.
 
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -477,11 +477,6 @@ static int dccp_setsockopt_cscov(struct 
- 
- 	if (cscov < 0 || cscov > 15)
- 		return -EINVAL;
--
--	if (rx)
--		dccp_sk(sk)->dccps_pcrlen = cscov;
--	else
--		dccp_sk(sk)->dccps_pcslen = cscov;
- 	/*
- 	 * Populate a list of permissible values, in the range cscov...15. This
- 	 * is necessary since feature negotiation of single values only works if
-@@ -501,6 +496,12 @@ static int dccp_setsockopt_cscov(struct 
- 
- 	rc = dccp_feat_register_sp(sk, DCCPF_MIN_CSUM_COVER, rx, list, len);
- 
-+	if (rc == 0) {
-+		if (rx)
-+			dccp_sk(sk)->dccps_pcrlen = cscov;
-+		else
-+			dccp_sk(sk)->dccps_pcslen = cscov;
-+	}
- 	kfree(list);
- 	return rc;
- }
-
->>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-dccp: Feature negotiation for minimum-checksum-coverage
-
-This provides feature negotiation for server minimum checksum coverage
-which so far has been missing.
-
-Since sender/receiver coverage values range only from 0...15, their
-type has also been reduced in size from u16 to u4.
-
-Feature-negotiation options are now generated for both sender and receiver
-coverage, i.e. when the peer has `forgotten' to enable partial coverage
-then feature negotiation will automatically enable (negotiate) the partial
-coverage value for this connection.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
----
- include/linux/dccp.h |    4 +--
- net/dccp/proto.c     |   53 ++++++++++++++++++++++++++++++++++++++-------------
- 2 files changed, 42 insertions(+), 15 deletions(-)
-
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -527,8 +527,8 @@ struct dccp_sock {
- 	__u32				dccps_timestamp_time;
- 	__u16				dccps_l_ack_ratio;
- 	__u16				dccps_r_ack_ratio;
--	__u16				dccps_pcslen;
--	__u16				dccps_pcrlen;
-+	__u8				dccps_pcslen:4;
-+	__u8				dccps_pcrlen:4;
- 	__u64				dccps_ndp_count:48;
- 	unsigned long			dccps_rate_last;
- 	struct dccp_minisock		dccps_minisock;
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -470,6 +470,42 @@ static int dccp_setsockopt_service(struc
- 	return 0;
- }
- 
-+static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
-+{
-+	u8 *list, len;
-+	int i, rc;
-+
-+	if (cscov < 0 || cscov > 15)
-+		return -EINVAL;
-+	/*
-+	 * Populate a list of permissible values, in the range cscov...15. This
-+	 * is necessary since feature negotiation of single values only works if
-+	 * both sides incidentally choose the same value. Since the list starts
-+	 * lowest-value first, negotiation will pick the smallest shared value.
-+	 */
-+	if (cscov == 0)
-+		return 0;
-+	len = 16 - cscov;
-+
-+	list = kmalloc(len, GFP_KERNEL);
-+	if (list == NULL)
-+		return -ENOBUFS;
-+
-+	for (i = 0; i < len; i++)
-+		list[i] = cscov++;
-+
-+	rc = dccp_feat_register_sp(sk, DCCPF_MIN_CSUM_COVER, rx, list, len);
-+
-+	if (rc == 0) {
-+		if (rx)
-+			dccp_sk(sk)->dccps_pcrlen = cscov;
-+		else
-+			dccp_sk(sk)->dccps_pcslen = cscov;
-+	}
-+	kfree(list);
-+	return rc;
-+}
-+
- static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 		char __user *optval, int optlen)
- {
-@@ -502,20 +538,11 @@ static int do_dccp_setsockopt(struct soc
- 		else
- 			dp->dccps_server_timewait = (val != 0);
- 		break;
--	case DCCP_SOCKOPT_SEND_CSCOV:	/* sender side, RFC 4340, sec. 9.2 */
--		if (val < 0 || val > 15)
--			err = -EINVAL;
--		else
--			dp->dccps_pcslen = val;
-+	case DCCP_SOCKOPT_SEND_CSCOV:
-+		err = dccp_setsockopt_cscov(sk, val, false);
- 		break;
--	case DCCP_SOCKOPT_RECV_CSCOV:	/* receiver side, RFC 4340 sec. 9.2.1 */
--		if (val < 0 || val > 15)
--			err = -EINVAL;
--		else {
--			dp->dccps_pcrlen = val;
--			/* FIXME: add feature negotiation,
--			 * ChangeL(MinimumChecksumCoverage, val) */
--		}
-+	case DCCP_SOCKOPT_RECV_CSCOV:
-+		err = dccp_setsockopt_cscov(sk, val, true);
- 		break;
- 	default:
- 		err = -ENOPROTOOPT;
+| > +	}
+| > +
+| > +	lock_sock(sk);
+| > +	switch (optname) {
+| >  	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
+| >  		if (dp->dccps_role != DCCP_ROLE_SERVER)
+| >  			err = -EOPNOTSUPP;
+| > @@ -547,8 +548,8 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+| >  		err = -ENOPROTOOPT;
+| >  		break;
+| >  	}
+| > -
+| >  	release_sock(sk);
+| > +
+| >  	return err;
+| >  }
