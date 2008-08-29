@@ -1,54 +1,65 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [RFC][PATCH] Turn part of SNMP accounting macros into functions
-Date: Fri, 29 Aug 2008 11:29:34 +0400
-Message-ID: <48B7A55E.4010603@openvz.org>
-References: <E1KYxzB-00021T-00@gondolin.me.apana.org.au>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH 2/3]ipv6:fix the return interface index when get it while
+ no message is received
+Date: Fri, 29 Aug 2008 15:40:11 +0800
+Message-ID: <48B7A7DB.4050108@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:60885 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751274AbYH2H3u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 03:29:50 -0400
-In-Reply-To: <E1KYxzB-00021T-00@gondolin.me.apana.org.au>
+Received: from cn.fujitsu.com ([222.73.24.84]:62813 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751043AbYH2Hkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 03:40:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> Pavel Emelyanov <xemul@openvz.org> wrote:
->> After turning IP_XXX_STATS, TCP_XXX_STATS and NET_XXX_STATS from
->> macros into functions the net/ipv4/built-in.o shrank significantly:
->>
->> add/remove: 14/0 grow/shrink: 0/67 up/down: 482/-2246 (-1764)
->>
->> Turning the CONFIG_NET_NS option on makes this shrink even larger:
->>
->> add/remove: 14/0 grow/shrink: 0/67 up/down: 478/-2646 (-2168)
->>
->> So the question is - what was the reason to keep those as macros?
->> I thought about the possible performance questions, but netperf
->> didn't show any (I admit I just cannot cook it properly).
->>
->> The sample patch is here, but it's not good (EXPORTs for ipv6
->> and a better place for functions rather than net/ipv4/af_inet.c
->> are required).
->>
->> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> What happened to Christoph Lameter's new per-cpu stuff? That would
-> allows us to turn these into a single inc/add instruction.
+When get receiving interface index while no message is received,
+the the value seted with setsockopt() should be returned.
 
-I've never heard about it, but if you tell, that this would
-make things *that* simple, then of course I will delay with
-this patch.
+RFC 3542:
+   Issuing getsockopt() for the above options will return the sticky
+   option value i.e., the value set with setsockopt().  If no sticky
+   option value has been set getsockopt() will return the following
+   values:
 
-> So I think we should put this patch on the back-burner until the
-> status of the per-cpu stuff is settled.
+   -  For the IPV6_PKTINFO option, it will return an in6_pktinfo
+      structure with ipi6_addr being in6addr_any and ipi6_ifindex being
+      zero.
 
-OK, thanks.
+Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
 
-> Thanks,
+---
+ net/ipv6/ipv6_sockglue.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 02f64be..36e473b 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -933,8 +933,8 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		} else {
+ 			if (np->rxopt.bits.rxinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+-				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
++				src_info.ipi6_ifindex = np->sticky_pktinfo.ipi6_ifindex;
++				ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
+ 			}
+ 			if (np->rxopt.bits.rxhlim) {
+@@ -943,8 +943,8 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 			}
+ 			if (np->rxopt.bits.rxoinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+-				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
++				src_info.ipi6_ifindex = np->sticky_pktinfo.ipi6_ifindex;
++				ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_2292PKTINFO, sizeof(src_info), &src_info);
+ 			}
+ 			if (np->rxopt.bits.rxohlim) {
+-- 
+1.5.3.8
 
