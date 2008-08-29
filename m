@@ -1,98 +1,48 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 14/37] dccp: Tidy up setsockopt calls
-Date: Fri, 29 Aug 2008 08:57:06 +0200
-Message-ID: <20080829065706.GH3557@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <20080828213541.GS9193@ghostprotocols.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC][PATCH] Turn part of SNMP accounting macros into functions
+Date: Fri, 29 Aug 2008 17:01:33 +1000
+Message-ID: <E1KYxzB-00021T-00@gondolin.me.apana.org.au>
+References: <48B5815D.4010005@openvz.org>
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org (Pavel Emelyanov)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39911 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751414AbYH2G50 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 02:57:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20080828213541.GS9193@ghostprotocols.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:33148 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750725AbYH2HBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 03:01:36 -0400
+In-Reply-To: <48B5815D.4010005@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > This splits the setsockopt calls into two groups, depending on whether an
-| > integer argument (val) is required and whether routines being called do
-| > their own locking.
-| > 
-| > Some options (such as setting the CCID) use u8 rather than int, so that for
-| > these the test with regard to integer-sizeof can not be used.
-| > 
-| > The second switch-case statement now only has those statements which need
-| > locking and which make use of `val'.
-| > 
-<snip>
-| > --- a/net/dccp/proto.c
-| > +++ b/net/dccp/proto.c
-| > @@ -511,26 +511,27 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
-| >  	struct dccp_sock *dp = dccp_sk(sk);
-| >  	int val, err = 0;
-| >  
-| > -	if (optlen < sizeof(int))
-| > -		return -EINVAL;
-| > -
-| > -	if (get_user(val, (int __user *)optval))
-| > -		return -EFAULT;
-| > -
-| > -	if (optname == DCCP_SOCKOPT_SERVICE)
-| > -		return dccp_setsockopt_service(sk, val, optval, optlen);
-| > -
-| > -	lock_sock(sk);
-| >  	switch (optname) {
-| >  	case DCCP_SOCKOPT_PACKET_SIZE:
-| >  		DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app\n");
-| > -		err = 0;
-| > -		break;
-| > +		return 0;
-| >  	case DCCP_SOCKOPT_CHANGE_L:
-| >  	case DCCP_SOCKOPT_CHANGE_R:
-| >  		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
-| > -		err = 0;
-| > -		break;
-| > +		return 0;
-| > +	default:
-| > +		if (optlen < sizeof(int))
-| > +			return -EINVAL;
-| > +
-| > +		if (get_user(val, (int __user *)optval))
-| > +			return -EFAULT;
-| > +
-| > +		if (optname == DCCP_SOCKOPT_SERVICE)
-| > +			return dccp_setsockopt_service(sk, val, optval, optlen);
-| 
-| What is in the default could well continue outside the switch
-| statatement, since all the other cases return directly.
-| 
-Would you be ok to return to this question at a later stage? - agreed
-that there is potential here to unify things. I have not done much here
-for the main reason that most of the API is still open for people to
-define, i.e. although this patch set is about a new API, there is
-actually only a single new setsockopt functionality -- for
-setting/getting the CCID. 
+Pavel Emelyanov <xemul@openvz.org> wrote:
+> After turning IP_XXX_STATS, TCP_XXX_STATS and NET_XXX_STATS from
+> macros into functions the net/ipv4/built-in.o shrank significantly:
+> 
+> add/remove: 14/0 grow/shrink: 0/67 up/down: 482/-2246 (-1764)
+> 
+> Turning the CONFIG_NET_NS option on makes this shrink even larger:
+> 
+> add/remove: 14/0 grow/shrink: 0/67 up/down: 478/-2646 (-2168)
+> 
+> So the question is - what was the reason to keep those as macros?
+> I thought about the possible performance questions, but netperf
+> didn't show any (I admit I just cannot cook it properly).
+> 
+> The sample patch is here, but it's not good (EXPORTs for ipv6
+> and a better place for functions rather than net/ipv4/af_inet.c
+> are required).
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Since the old mechanism (struct dccp_so_feat) has been removed, there
-is potential for making up a complete new API, but the patch set does
-not do much in this way, so input/discussion would be good.
+What happened to Christoph Lameter's new per-cpu stuff? That would
+allows us to turn these into a single inc/add instruction.
 
-| > +	}
-| > +
-| > +	lock_sock(sk);
-| > +	switch (optname) {
-| >  	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
-| >  		if (dp->dccps_role != DCCP_ROLE_SERVER)
-| >  			err = -EOPNOTSUPP;
-| > @@ -547,8 +548,8 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
-| >  		err = -ENOPROTOOPT;
-| >  		break;
-| >  	}
-| > -
-| >  	release_sock(sk);
-| > +
-| >  	return err;
-| >  }
+So I think we should put this patch on the back-burner until the
+status of the per-cpu stuff is settled.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
