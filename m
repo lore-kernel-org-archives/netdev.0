@@ -1,35 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 7/7] [RFC] qlge: New Driver: Add debug source file
- qlge_dbg.c
-Date: Fri, 29 Aug 2008 14:23:44 -0700
-Message-ID: <20080829142344.58d0b9f7@extreme>
-References: <20080829210610.GA14654@susedev.qlogic.org>
-	<12200441023508-git-send-email-ron.mercer@qlogic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: cpu utilisation improvement when not doing
+ netif_tx_{stop,wake}_queue()
+Date: Fri, 29 Aug 2008 14:41:44 -0700 (PDT)
+Message-ID: <20080829.144144.24237103.davem@davemloft.net>
+References: <20080828164638.GA25919@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-driver@qlogic.com,
-	ron.mercer@qlogic.com
-To: Ron Mercer <ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, dale@farnsworth.org, nico@cam.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:46400 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756537AbYH2VXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 17:23:46 -0400
-In-Reply-To: <12200441023508-git-send-email-ron.mercer@qlogic.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42097
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750842AbYH2Vlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2008 17:41:49 -0400
+In-Reply-To: <20080828164638.GA25919@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Aug 2008 14:08:22 -0700
-Ron Mercer <ron.mercer@qlogic.com> wrote:
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Thu, 28 Aug 2008 18:46:38 +0200
 
-> 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-> ---
->  drivers/net/qlge/qlge_dbg.c |  858 +++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 858 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/qlge/qlge_dbg.c
-> 
+> I.e. transmitting wire speed gigabit over a single TCP session takes
+> around 90% CPU time (measured with cyclesoak) if I have the TX queue
+> flow control enabled, but only 70% if I rip the TX queue flow control
+> out.  (This is on a relatively underpowered ARM box.)
 
-This looks like a natural thing to put in a debugfs interface.
-See sky2, skge for how.
+I bet TCP is taking over and doing the flow control for us :)
+
+My suspicion is that TCP adjusts to the initial packet drops when the
+TX queue overflows for the first time and simply does not transmit
+faster than the NIC's TX queue can push things out.
+
+I bet the TX buffer space usage for the socket and the TCP windows
+used are smaller too, another huge win and something that also helps
+for CPU utilization and cpu cache hit rates.
+
+Unfortunately, for the sake of dumb protocols like UDP, this isn't
+something we can do universally.  Although it is very neat!
