@@ -1,49 +1,86 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 08/37] dccp: Query supported CCIDs
-Date: Fri, 29 Aug 2008 08:17:04 +0200
-Message-ID: <20080829061704.GE3557@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <20080828210031.GO9193@ghostprotocols.net>
+Subject: Re: [PATCH 09/37] dccp: Resolve dependencies of features on choice
+	of CCID
+Date: Fri, 29 Aug 2008 08:34:44 +0200
+Message-ID: <20080829063444.GF3557@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <20080828210713.GP9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37294 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38388 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752248AbYH2GR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2008 02:17:26 -0400
+	id S1751301AbYH2Gfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2008 02:35:30 -0400
 Content-Disposition: inline
-In-Reply-To: <20080828210031.GO9193@ghostprotocols.net>
+In-Reply-To: <20080828210713.GP9193@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Quoting Arnaldo:
-| Em Thu, Aug 28, 2008 at 07:44:43PM +0200, Gerrit Renker escreveu:
-| > This provides a data structure to record which CCIDs are locally supported
-| > and three accessor functions:
-| >  - a test function for internal use which is used to validate CCID requests
-| >    made by the user;
-| >  - a copy function so that the list can be used for feature-negotiation;
-| >  - documented getsockopt() support so that the user can query capabilities.
+| Em Thu, Aug 28, 2008 at 07:44:44PM +0200, Gerrit Renker escreveu:
+| > This provides a missing link in the code chain, as several features implicitly
+| > depend and/or rely on the choice of CCID. Most notably, this is the Send Ack Vector
+| > feature, but also Ack Ratio and Send Loss Event Rate (also taken care of).
 | > 
-| > The data structure is a table which is filled in at compile-time with the
-| > list of available CCIDs (which in turn depends on the Kconfig choices).
+| > For Send Ack Vector, the situation is as follows:
+| >  * since CCID2 mandates the use of Ack Vectors, there is no point in allowing
+| >    endpoints which use CCID2 to disable Ack Vector features such a connection;
 | > 
-| > Using the copy function for cloning the list of supported CCIDs is useful for
-| > feature negotiation, since the negotiation is now with the full list of available
-| > CCIDs (e.g. {2, 3}) instead of the default value {2}. This means negotiation
-| > will not fail if the peer requests to use CCID3 instead of CCID2.
+| >  * a peer with a TX CCID of CCID2 will always expect Ack Vectors, and a peer
+| >    with a RX CCID of CCID2 must always send Ack Vectors (RFC 4341, sec. 4);
+| > 
+| >  * for all other CCIDs, the use of (Send) Ack Vector is optional and thus
+| >    negotiable. However, this implies that the code negotiating the use of Ack
+| >    Vectors also supports it (i.e. is able to supply and to either parse or
+| >    ignore received Ack Vectors). Since this is not the case (CCID-3 has no Ack
+| >    Vector support), the use of Ack Vectors is here disabled, with a comment
+| >    in the source code.
+| > 
+| > An analogous consideration arises for the Send Loss Event Rate feature,
+| > since the CCID-3 implementation does not support the loss interval options
+| > of RFC 4342. To make such use explicit, corresponding feature-negotiation
+| > options are inserted which signal the use of the loss event rate option,
+| > as it is used by the CCID3 code.
+| > 
+| > Lastly, the values of the Ack Ratio feature are matched to the choice of CCID.
+| > 
+| > The patch implements this as a function which is called after the user has
+| > made all other registrations for changing default values of features.
+| > 
+| > The table is variable-length, the reserved (and hence for feature-negotiation
+| > invalid, confirmed by considering section 19.4 of RFC 4340) feature number `0'
+| > is used to mark the end of the table.
 | 
-| But this limits us to the CCIDs at kernel build time, what if I want to
-| test CCID4? I guess we could have something like a bitmap and check if
-| the bit for that CCID is set, and it would be set at ccid_register time.
+| Doesn't this belongs into struct ccid_operations? Why has the core feature
+| negotiation have knowledge of any specific CCID? When people want to
+| merge CCID 4, 5, etc will we need to change net/dccp/feat.c?
 | 
-| Perhaps using include/linux/bitmap.h :-)
+| I think that this needs thus to go to struct ccid_operations, and then the feature
+| negotiation code can just use use the ccid number to access:
 | 
-Or have a look at how it has been done in the CCID-4 subtree for about a year?
-Please take a look at
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=d88f6d5505f83f4c19a3417fbf3ee8874c87d227
+| struct ccid_operations *ccids[CCID_MAX]
+| 
+| ccids[ccid_number]->deps
+|  
+Your point is valid and one could do it this way. At the moment I can
+not see an advantage. From experience, there is actually an advantage of
+keeping all the dependencies in one file (feat.c): since CCID-4 use
+mostly the same (TFRC) concepts as CCID-3, it can reuse the existing
+ccid3_dependencies[] table, rather than copy-and-pasting it (this can
+be seen in the commitdiff link for CCID-4 in the other posting).
 
-And also (shows age of the patches):
-http://www.mail-archive.com/dccp@vger.kernel.org/msg02613.html	
+For the moment, I would suggest keeping it in place. It is an easy patch
+to do it later. The reason I am holding back here is that there is a
+much larger potential for integration - as in the initial patches by
+Tommi and Leandro, the mostly-identical TFRC functionality of CCID-3
+and CCID-4 can be combined. Progress here has been impeded by waiting
+for rfc3448bis-06 to reach RFC status, which it very soon:
+ftp://ftp.rfc-editor.org/in-notes/authors/rfc5348.txt
 
+But all this does not mean I disagree. There is a related spot which
+I think should be CCID-specific: the "print" subroutine in
+net/dccp/probe.c - at the moment, the CCIDs are hardcoded. Here it would
+indeed be good to have a struct ccid_operations function pointer instead
+of hardcoding the current CCID.
