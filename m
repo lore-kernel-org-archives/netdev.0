@@ -1,44 +1,34 @@
-From: David Fries <david@fries.net>
-Subject: Re: [PATCH 1/2] ne.c fix, res->name
-Date: Sat, 30 Aug 2008 13:05:03 -0500
-Message-ID: <20080830180503.GI25161@spacedout.fries.net>
-References: <20080830024425.GA24929@spacedout.fries.net> <20080831.000357.70223885.anemo@mba.ocn.ne.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next-2.6 2008-08-29
+Date: Sat, 30 Aug 2008 12:23:48 -0700 (PDT)
+Message-ID: <20080830.122348.103905579.davem@davemloft.net>
+References: <20080829205414.GB11718@tuxdriver.com>
+	<20080829.140303.71048853.davem@davemloft.net>
+	<20080830125833.GC11718@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, p_gortmaker@yahoo.com,
-	netdev@vger.kernel.org
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SpacedOut.fries.net ([67.64.210.234]:41963 "EHLO
-	SpacedOut.fries.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628AbYH3SFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 14:05:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20080831.000357.70223885.anemo@mba.ocn.ne.jp>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34499
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753389AbYH3TXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 15:23:53 -0400
+In-Reply-To: <20080830125833.GC11718@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 31, 2008 at 12:03:57AM +0900, Atsushi Nemoto wrote:
-> On Fri, 29 Aug 2008 21:44:25 -0500, David Fries <david@fries.net> wrote:
-> > +	if (!strcmp(res->name, BAD_STR))
-> > +		dev->mem_end = BAD;
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Sat, 30 Aug 2008 08:58:33 -0400
+
+> Ah, yes...it looks trivial to fix, but the trivial fix won't build!
 > 
-> The res->name might be NULL.  You should check it first.
+> I have it fixed here:
 > 
-> 	if (res->name && !strcmp(res->name, BAD_STR))
-> 		dev->mem_end = BAD;
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git merged-test
+> 
+> And the fixed file is the same as what is in wireless-testing.
 
-The name gets a valid string by that point in time.
-
-drivers/base/platform.c:257
-int platform_device_add(struct platform_device *pdev)
-
-        for (i = 0; i < pdev->num_resources; i++) {
-                struct resource *p, *r = &pdev->resource[i];
-
-                if (r->name == NULL)
-                        r->name = pdev->dev.bus_id;
-
--- 
-David Fries <david@fries.net>
-http://fries.net/~david/ (PGP encryption key available)
+John, I already merged net-2.6 into net-next-2.6 last night, so you
+can give a check to see if I mucked it up or not :-)
