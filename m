@@ -1,50 +1,160 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-08-29
-Date: Sat, 30 Aug 2008 08:58:33 -0400
-Message-ID: <20080830125833.GC11718@tuxdriver.com>
-References: <20080829205414.GB11718@tuxdriver.com> <20080829.140303.71048853.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: v2 [PATCH 03/37] dccp: List management for new feature negotiation
+Date: Sat, 30 Aug 2008 15:51:13 +0200
+Message-ID: <20080830135113.GA17190@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <20080828194336.GJ9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33615 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751610AbYH3Nvy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Aug 2008 09:51:54 -0400
 Content-Disposition: inline
-In-Reply-To: <20080829.140303.71048853.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 29, 2008 at 02:03:03PM -0700, David Miller wrote:
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Date: Fri, 29 Aug 2008 16:54:14 -0400
-> 
-> > Here is this week's supply of stuff for -next -- mostly cleanups and
-> > other driver updates.  Please let me know if there are problems!
->  ...
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
-> 
-> I'm pulling this, thanks John.
-> 
-> I hope to get a chance tonight to deal with that net-2.6 vs. net-next-2.6
-> wireless conflict by doing a merge.  It had to do with that IBSS message
-> your ifdef'd out in net-2.6
+dccp: List management for new feature negotiation
 
-Ah, yes...it looks trivial to fix, but the trivial fix won't build!
+This adds list fields and list management functions for the new feature
+negotiation implementation. The new code is kept in parallel to the old
+code, until removed at the end of the patch set.
 
-I have it fixed here:
+Thanks to Arnaldo for suggestions to improve the code.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git merged-test
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ net/dccp/feat.c |  119 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 119 insertions(+)
 
-And the fixed file is the same as what is in wireless-testing.
-
-Hth!
-
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -150,6 +150,125 @@ static void dccp_feat_entry_destructor(s
+ 	}
+ }
+ 
++/*
++ * List management functions
++ *
++ * Feature negotiation lists rely on and maintain the following invariants:
++ * - each feat_num in the list is known, i.e. we know its type and default value
++ * - each feat_num/is_local combination is unique (old entries are overwritten)
++ * - SP values are always freshly allocated
++ * - list is sorted in increasing order of feature number (faster lookup)
++ */
++static struct dccp_feat_entry *dccp_feat_list_lookup(struct list_head *fn_list,
++						     u8 feat_num, bool is_local)
++{
++	struct dccp_feat_entry *entry;
++
++	list_for_each_entry(entry, fn_list, node)
++		if (entry->feat_num == feat_num && entry->is_local == is_local)
++			return entry;
++		else if (entry->feat_num > feat_num)
++			break;
++	return NULL;
++}
++
++/**
++ * dccp_feat_entry_new  -  Central list update routine (called by all others)
++ * @head:  list to add to
++ * @feat:  feature number
++ * @local: whether the local (1) or remote feature with number @feat is meant
++ * This is the only constructor and serves to ensure the above invariants.
++ */
++static struct dccp_feat_entry *
++	      dccp_feat_entry_new(struct list_head *head, u8 feat, bool local)
++{
++	struct dccp_feat_entry *entry;
++
++	list_for_each_entry(entry, head, node)
++		if (entry->feat_num == feat && entry->is_local == local) {
++			dccp_feat_val_destructor(entry->feat_num, &entry->val);
++			return entry;
++		} else if (entry->feat_num > feat) {
++			head = &entry->node;
++			break;
++		}
++
++	entry = kmalloc(sizeof(*entry), gfp_any());
++	if (entry != NULL) {
++		entry->feat_num = feat;
++		entry->is_local = local;
++		list_add_tail(&entry->node, head);
++	}
++	return entry;
++}
++
++/**
++ * dccp_feat_push_change  -  Add/overwrite a Change option in the list
++ * @fn_list: feature-negotiation list to update
++ * @feat: one of %dccp_feature_numbers
++ * @local: whether local (1) or remote (0) @feat_num is meant
++ * @needs_mandatory: whether to use Mandatory feature negotiation options
++ * @fval: pointer to NN/SP value to be inserted (will be copied)
++ */
++static int dccp_feat_push_change(struct list_head *fn_list, u8 feat, u8 local,
++				 u8 mandatory, dccp_feat_val *fval)
++{
++	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
++
++	if (new == NULL)
++		return -ENOMEM;
++
++	new->feat_num	     = feat;
++	new->is_local	     = local;
++	new->state	     = FEAT_INITIALISING;
++	new->needs_confirm   = 0;
++	new->empty_confirm   = 0;
++	new->val	     = *fval;
++	new->needs_mandatory = mandatory;
++
++	return 0;
++}
++
++/**
++ * dccp_feat_push_confirm  -  Add a Confirm entry to the FN list
++ * @fn_list: feature-negotiation list to add to
++ * @feat: one of %dccp_feature_numbers
++ * @local: whether local (1) or remote (0) @feat_num is being confirmed
++ * @fval: pointer to NN/SP value to be inserted or NULL
++ * Returns 0 on success, a Reset code for further processing otherwise.
++ */
++static int dccp_feat_push_confirm(struct list_head *fn_list, u8 feat, u8 local,
++				  dccp_feat_val *fval)
++{
++	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
++
++	if (new == NULL)
++		return DCCP_RESET_CODE_TOO_BUSY;
++
++	new->feat_num	     = feat;
++	new->is_local	     = local;
++	new->state	     = FEAT_STABLE;	/* transition in 6.6.2 */
++	new->needs_confirm   = 1;
++	new->empty_confirm   = (fval == NULL);
++	new->val.nn	     = 0;		/* zeroes the whole structure */
++	if (!new->empty_confirm)
++		new->val     = *fval;
++	new->needs_mandatory = 0;
++
++	return 0;
++}
++
++static int dccp_push_empty_confirm(struct list_head *fn_list, u8 feat, u8 local)
++{
++	return dccp_feat_push_confirm(fn_list, feat, local, NULL);
++}
++
++static inline void dccp_feat_list_pop(struct dccp_feat_entry *entry)
++{
++	list_del(&entry->node);
++	dccp_feat_entry_destructor(entry);
++}
++
+ int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+ 		     u8 *val, u8 len, gfp_t gfp)
+ {
