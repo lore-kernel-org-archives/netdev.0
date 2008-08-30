@@ -1,333 +1,151 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [UPDATED] [NET-NEXT PATCH 2/2] pkt_action: add new action skbedit
-Date: Sat, 30 Aug 2008 00:24:05 -0700
-Message-ID: <20080830072338.7597.81426.stgit@jtkirshe-mobile.jf.intel.com>
-References: <20080830072304.7597.24577.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [UPDATED] [NET-NEXT PATCH 1/2] IPROUTE: add support formultiq qdisc
+Date: Sat, 30 Aug 2008 00:26:38 -0700
+Message-ID: <20080830072626.7871.46628.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:34629 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695AbYH3HYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 03:24:09 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so680182waf.23
-        for <netdev@vger.kernel.org>; Sat, 30 Aug 2008 00:24:09 -0700 (PDT)
-In-Reply-To: <20080830072304.7597.24577.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from rv-out-0506.google.com ([209.85.198.235]:62468 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbYH3H0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 03:26:40 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1181779rvb.1
+        for <netdev@vger.kernel.org>; Sat, 30 Aug 2008 00:26:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This new action will have the ability to change the priority and/or
-queue_mapping fields on an sk_buff.
+Add support for multiq qdisc
+	This patch adds the ability to configure the multiq qdisc.  Since the qdisc does not require any input it will pull the number of bands directly from the device that it is added to the root of.
+
+usage: tc qdisc add dev <DEV> root handle <HANDLE> multiq
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- include/linux/tc_act/tc_skbedit.h |   23 ++++
- include/net/tc_act/tc_skbedit.h   |   15 +++
- net/sched/Kconfig                 |   11 ++
- net/sched/Makefile                |    1 
- net/sched/act_skbedit.c           |  200 +++++++++++++++++++++++++++++++++++++
- 5 files changed, 250 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/tc_act/tc_skbedit.h
- create mode 100644 include/net/tc_act/tc_skbedit.h
- create mode 100644 net/sched/act_skbedit.c
+ include/linux/pkt_sched.h |    6 +++
+ tc/Makefile               |    1 +
+ tc/q_multiq.c             |   79 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 86 insertions(+), 0 deletions(-)
+ create mode 100644 tc/q_multiq.c
 
-diff --git a/include/linux/tc_act/tc_skbedit.h b/include/linux/tc_act/tc_skbedit.h
-new file mode 100644
-index 0000000..3965636
---- /dev/null
-+++ b/include/linux/tc_act/tc_skbedit.h
-@@ -0,0 +1,23 @@
-+#ifndef __LINUX_TC_SKBEDIT_H
-+#define __LINUX_TC_SKBEDIT_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define SKBEDIT_F_PRIORITY		0x1
-+#define SKBEDIT_F_QUEUE_MAPPING		0x2
-+
-+struct tc_skbedit {
-+	tc_gen;
-+};
-+
-+enum {
-+	TCA_SKBEDIT_UNSPEC,
-+	TCA_SKBEDIT_TM,
-+	TCA_SKBEDIT_PARMS,
-+	TCA_SKBEDIT_PRIORITY,
-+	TCA_SKBEDIT_QUEUE_MAPPING,
-+	__TCA_SKBEDIT_MAX
-+};
-+#define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-+
-+#endif
-diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
-new file mode 100644
-index 0000000..cf4fd9f
---- /dev/null
-+++ b/include/net/tc_act/tc_skbedit.h
-@@ -0,0 +1,15 @@
-+#ifndef __NET_TC_SKBEDIT_H
-+#define __NET_TC_SKBEDIT_H
-+
-+#include <net/act_api.h>
-+
-+struct tcf_skbedit {
-+	struct tcf_common	common;
-+	u32			flags;
-+	u32     		priority;
-+	u16			queue_mapping;
-+};
-+#define to_skbedit(pc) \
-+	container_of(pc, struct tcf_skbedit, common)
-+
-+#endif /* __NET_TC_SKBEDIT_H */
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index efaa7a7..6767e54 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -485,6 +485,17 @@ config NET_ACT_SIMP
- 	  To compile this code as a module, choose M here: the
- 	  module will be called simple.
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index dbb7ac3..8e31e79 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -112,6 +112,12 @@ enum
  
-+config NET_ACT_SKBEDIT
-+        tristate "SKB Editing"
-+        depends on NET_CLS_ACT
-+        ---help---
-+	  Say Y here to change skb priority or queue_mapping settings.
+ #define TCA_PRIO_MAX    (__TCA_PRIO_MAX - 1)
+ 
++/* MULTIQ section */
 +
-+	  If unsure, say N.
++struct tc_multiq_qopt {
++	int	bands;			/* Number of bands */
++};
 +
-+	  To compile this code as a module, choose M here: the
-+	  module will be called skbedit.
-+
- config NET_CLS_IND
- 	bool "Incoming device classification"
- 	depends on NET_CLS_U32 || NET_CLS_FW
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 3d9b953..e60c992 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -14,6 +14,7 @@ obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
- obj-$(CONFIG_NET_ACT_NAT)	+= act_nat.o
- obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
- obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
-+obj-$(CONFIG_NET_ACT_SKBEDIT)	+= act_skbedit.o
- obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
- obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+ /* TBF section */
+ 
+ struct tc_tbf_qopt
+diff --git a/tc/Makefile b/tc/Makefile
+index 4116983..2f3c1ea 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -12,6 +12,7 @@ TCMODULES += q_prio.o
+ TCMODULES += q_tbf.o
+ TCMODULES += q_cbq.o
+ TCMODULES += q_rr.o
++TCMODULES += q_multiq.o
+ TCMODULES += q_netem.o
+ TCMODULES += f_rsvp.o
+ TCMODULES += f_u32.o
+diff --git a/tc/q_multiq.c b/tc/q_multiq.c
 new file mode 100644
-index 0000000..0bc4616
+index 0000000..34ba179
 --- /dev/null
-+++ b/net/sched/act_skbedit.c
-@@ -0,0 +1,200 @@
++++ b/tc/q_multiq.c
+@@ -0,0 +1,79 @@
 +/*
-+ * net/sched/act_skbedit.c	SKB Editing
++ * q_multiq.c		MULTIQ.
 + *
 + *		This program is free software; you can redistribute it and/or
 + *		modify it under the terms of the GNU General Public License
 + *		as published by the Free Software Foundation; either version
 + *		2 of the License, or (at your option) any later version.
 + *
-+ * Authors: Alexander Duyck <alexander.h.duyck@intel.com>
++ * Author: Alexander Duyck <alexander.h.duyck@intel.com>
 + *
-+ * Original Authors:	Jamal Hadi Salim (2005-8) (act_simple)
++ * Original Authors:	PJ Waskiewicz, <peter.p.waskiewicz.jr@intel.com> (RR)
++ * 			Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru> (from PRIO)
 + *
 + */
 +
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
 +
-+#define TCA_ACT_SKBEDIT 11
++#include "utils.h"
++#include "tc_util.h"
 +
-+#include <linux/tc_act/tc_skbedit.h>
-+#include <net/tc_act/tc_skbedit.h>
-+
-+#define SKBEDIT_TAB_MASK     15
-+static struct tcf_common *tcf_skbedit_ht[SKBEDIT_TAB_MASK + 1];
-+static u32 skbedit_idx_gen;
-+static DEFINE_RWLOCK(skbedit_lock);
-+
-+static struct tcf_hashinfo skbedit_hash_info = {
-+	.htab	=	tcf_skbedit_ht,
-+	.hmask	=	SKBEDIT_TAB_MASK,
-+	.lock	=	&skbedit_lock,
-+};
-+
-+static int tcf_skbedit(struct sk_buff *skb, struct tc_action *a,
-+		       struct tcf_result *res)
++static void explain(void)
 +{
-+	struct tcf_skbedit *d = a->priv;
-+
-+	spin_lock(&d->tcf_lock);
-+	d->tcf_tm.lastuse = jiffies;
-+	d->tcf_bstats.bytes += qdisc_pkt_len(skb);
-+	d->tcf_bstats.packets++;
-+
-+	if (d->flags & SKBEDIT_F_PRIORITY)
-+		skb->priority = d->priority;
-+	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
-+	    skb->dev->real_num_tx_queues > d->queue_mapping)
-+		skb_set_queue_mapping(skb, d->queue_mapping);
-+
-+	spin_unlock(&d->tcf_lock);
-+	return d->tcf_action;
++	fprintf(stderr, "Usage: ... multiq [help]\n");
 +}
 +
-+static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
-+	[TCA_SKBEDIT_PARMS]		= { .len = sizeof(struct tc_skbedit) },
-+	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
-+	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
-+};
++#define usage() return(-1)
 +
-+static int tcf_skbedit_init(struct nlattr *nla, struct nlattr *est,
-+			 struct tc_action *a, int ovr, int bind)
++static int multiq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
++			    struct nlmsghdr *n)
 +{
-+	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
-+	struct tc_skbedit *parm;
-+	struct tcf_skbedit *d;
-+	struct tcf_common *pc;
-+	u32 flags = 0, *priority = NULL;
-+	u16 *queue_mapping = NULL;
-+	int ret = 0, err;
++	int ok = 0;
++	struct tc_multiq_qopt opt;
 +
-+	if (nla == NULL)
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(tb, TCA_SKBEDIT_MAX, nla, skbedit_policy);
-+	if (err < 0)
-+		return err;
-+
-+	if (tb[TCA_SKBEDIT_PARMS] == NULL)
-+		return -EINVAL;
-+
-+	if (tb[TCA_SKBEDIT_PRIORITY] != NULL) {
-+		flags |= SKBEDIT_F_PRIORITY;
-+		priority = nla_data(tb[TCA_SKBEDIT_PRIORITY]);
-+	}
-+
-+	if (tb[TCA_SKBEDIT_QUEUE_MAPPING] != NULL) {
-+		flags |= SKBEDIT_F_QUEUE_MAPPING;
-+		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
-+	}
-+	if (!flags)
-+		return -EINVAL;
-+
-+	parm = nla_data(tb[TCA_SKBEDIT_PARMS]);
-+
-+	pc = tcf_hash_check(parm->index, a, bind, &skbedit_hash_info);
-+	if (!pc) {
-+		pc = tcf_hash_create(parm->index, est, a, sizeof(*d), bind,
-+				     &skbedit_idx_gen, &skbedit_hash_info);
-+		if (unlikely(!pc))
-+			return -ENOMEM;
-+
-+		d = to_skbedit(pc);
-+		ret = ACT_P_CREATED;
-+	} else {
-+		d = to_skbedit(pc);
-+		if (!ovr) {
-+			tcf_hash_release(pc, bind, &skbedit_hash_info);
-+			return -EEXIST;
++	while (argc > 0) {
++		if (strcmp(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
 +		}
++		argc--; argv++;
 +	}
 +
-+	spin_lock_bh(&d->tcf_lock);
-+
-+	d->flags = flags;
-+	if (flags & SKBEDIT_F_PRIORITY)
-+		d->priority = *priority;
-+	if (flags & SKBEDIT_F_QUEUE_MAPPING)
-+		d->queue_mapping = *queue_mapping;
-+	d->tcf_action = parm->action;
-+
-+	spin_unlock_bh(&d->tcf_lock);
-+
-+	if (ret == ACT_P_CREATED)
-+		tcf_hash_insert(pc, &skbedit_hash_info);
-+	return ret;
-+}
-+
-+static inline int tcf_skbedit_cleanup(struct tc_action *a, int bind)
-+{
-+	struct tcf_skbedit *d = a->priv;
-+
-+	if (d)
-+		return tcf_hash_release(&d->common, bind, &skbedit_hash_info);
++	addattr_l(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
 +	return 0;
 +}
 +
-+static inline int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
-+				int bind, int ref)
++int multiq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 +{
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct tcf_skbedit *d = a->priv;
-+	struct tc_skbedit opt;
-+	struct tcf_t t;
++	struct tc_multiq_qopt *qopt;
++	struct rtattr *tb[TCA_PRIO_MAX + 1];
 +
-+	opt.index = d->tcf_index;
-+	opt.refcnt = d->tcf_refcnt - ref;
-+	opt.bindcnt = d->tcf_bindcnt - bind;
-+	opt.action = d->tcf_action;
-+	NLA_PUT(skb, TCA_SKBEDIT_PARMS, sizeof(opt), &opt);
-+	if (d->flags & SKBEDIT_F_PRIORITY)
-+		NLA_PUT(skb, TCA_SKBEDIT_PRIORITY, sizeof(d->priority),
-+			&d->priority);
-+	if (d->flags & SKBEDIT_F_QUEUE_MAPPING)
-+		NLA_PUT(skb, TCA_SKBEDIT_QUEUE_MAPPING,
-+			sizeof(d->queue_mapping), &d->queue_mapping);
-+	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
-+	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
-+	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
-+	NLA_PUT(skb, TCA_SKBEDIT_TM, sizeof(t), &t);
-+	return skb->len;
++	if (opt == NULL)
++		return 0;
++	if (RTA_PAYLOAD(opt) < sizeof(*qopt))
++		return 0;
 +
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
++	qopt = RTA_DATA(opt);
++
++	fprintf(f, "bands %u ", qopt->bands);
++
++	return 0;
 +}
 +
-+static struct tc_action_ops act_skbedit_ops = {
-+	.kind		=	"skbedit",
-+	.hinfo		=	&skbedit_hash_info,
-+	.type		=	TCA_ACT_SKBEDIT,
-+	.capab		=	TCA_CAP_NONE,
-+	.owner		=	THIS_MODULE,
-+	.act		=	tcf_skbedit,
-+	.dump		=	tcf_skbedit_dump,
-+	.cleanup	=	tcf_skbedit_cleanup,
-+	.init		=	tcf_skbedit_init,
-+	.walk		=	tcf_generic_walker,
++struct qdisc_util multiq_qdisc_util = {
++	.id	 	= "multiq",
++	.parse_qopt	= multiq_parse_opt,
++	.print_qopt	= multiq_print_opt,
 +};
-+
-+MODULE_AUTHOR("Alexander Duyck(2008)");
-+MODULE_DESCRIPTION("SKB Editing");
-+MODULE_LICENSE("GPL");
-+
-+static int __init skbedit_init_module(void)
-+{
-+	return tcf_register_action(&act_skbedit_ops);
-+}
-+
-+static void __exit skbedit_cleanup_module(void)
-+{
-+	tcf_unregister_action(&act_skbedit_ops);
-+}
-+
-+module_init(skbedit_init_module);
-+module_exit(skbedit_cleanup_module);
 
