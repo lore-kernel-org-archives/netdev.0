@@ -1,91 +1,106 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 14/37] dccp: Tidy up setsockopt calls
-Date: Sat, 30 Aug 2008 15:52:22 +0200
-Message-ID: <20080830135222.GD17190@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <28fa9c5e0808290225w1d2a2ff7kf4fb63741780c091@mail.gmail.com>
+Subject: v2 [PATCH 16/37] dccp: API to query the current TX/RX CCID
+Date: Sat, 30 Aug 2008 15:52:33 +0200
+Message-ID: <20080830135233.GF17190@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk> <20080828214725.GU9193@ghostprotocols.net> <20080829072603.GA7311@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Arnaldo <acme@redhat.com>, Eugene Teo <eugeneteo@kernel.sg>,
-	ian.mcdonald@jandi.co.nz
+Cc: ian.mcdonald@jandi.co.nz
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33706 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33704 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751936AbYH3Nwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Aug 2008 09:52:46 -0400
+	id S1752028AbYH3Nwp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Aug 2008 09:52:45 -0400
 Content-Disposition: inline
-In-Reply-To: <28fa9c5e0808290225w1d2a2ff7kf4fb63741780c091@mail.gmail.com>
+In-Reply-To: <20080829072603.GA7311@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resent for reference after incorporating the suggestions made by
-Arnaldo and Eugene. Many thanks for comments and suggestions.
+Revised, sent for reference after incorporating suggestions by Arnaldo.
 
->>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<
-dccp: Tidy up setsockopt calls
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: API to query the current TX/RX CCID
 
-This splits the setsockopt calls into two groups, depending on whether an
-integer argument (val) is required and whether routines being called do
-their own locking.
+This provides function to query the current TX/RX CCID dynamically, without
+reliance on the minisock value, using dynamic information available in the
+currently loaded CCID module.
 
-Some options (such as setting the CCID) use u8 rather than int, so that for
-these the test with regard to integer-sizeof can not be used.
-
-The second switch-case statement now only has those statements which need
-locking and which make use of `val'.
+This query function is then used to 
+ (a) provide the getsockopt part for getting/setting CCIDs via sockopts;
+ (b) replace the current test for "which CCID is in use" in probe.c.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-Reviewed-by: Eugene Teo <eugeneteo@kernel.sg>
 ---
- net/dccp/proto.c |   23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+ net/dccp/ccid.h  |   18 ++++++++++++++++++
+ net/dccp/probe.c |    7 ++-----
+ net/dccp/proto.c |   10 ++++++++++
+ 3 files changed, 30 insertions(+), 5 deletions(-)
 
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -116,6 +116,24 @@ extern struct ccid *ccid_hc_rx_new(unsig
+ extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
+ 				   gfp_t gfp);
+ 
++static inline int ccid_get_current_rx_ccid(struct dccp_sock *dp)
++{
++	struct ccid *ccid = dp->dccps_hc_rx_ccid;
++
++	if (ccid == NULL || ccid->ccid_ops == NULL)
++		return -1;
++	return ccid->ccid_ops->ccid_id;
++}
++
++static inline int ccid_get_current_tx_ccid(struct dccp_sock *dp)
++{
++	struct ccid *ccid = dp->dccps_hc_tx_ccid;
++
++	if (ccid == NULL || ccid->ccid_ops == NULL)
++		return -1;
++	return ccid->ccid_ops->ccid_id;
++}
++
+ extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
+ extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
+ 
 --- a/net/dccp/proto.c
 +++ b/net/dccp/proto.c
-@@ -512,7 +512,17 @@ static int do_dccp_setsockopt(struct soc
- 	struct dccp_sock *dp = dccp_sk(sk);
- 	int val, err = 0;
- 
--	if (optlen < sizeof(int))
-+	switch (optname) {
-+	case DCCP_SOCKOPT_PACKET_SIZE:
-+		DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app\n");
-+		return 0;
-+	case DCCP_SOCKOPT_CHANGE_L:
-+	case DCCP_SOCKOPT_CHANGE_R:
-+		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
-+		return 0;
-+	}
-+
-+	if (optlen < (int)sizeof(int))
- 		return -EINVAL;
- 
- 	if (get_user(val, (int __user *)optval))
-@@ -523,15 +533,6 @@ static int do_dccp_setsockopt(struct soc
- 
- 	lock_sock(sk);
- 	switch (optname) {
--	case DCCP_SOCKOPT_PACKET_SIZE:
--		DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app\n");
--		err = 0;
--		break;
--	case DCCP_SOCKOPT_CHANGE_L:
--	case DCCP_SOCKOPT_CHANGE_R:
--		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
--		err = 0;
--		break;
- 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
- 		if (dp->dccps_role != DCCP_ROLE_SERVER)
- 			err = -EOPNOTSUPP;
-@@ -548,8 +549,8 @@ static int do_dccp_setsockopt(struct soc
- 		err = -ENOPROTOOPT;
+@@ -667,6 +667,16 @@ static int do_dccp_getsockopt(struct soc
  		break;
- 	}
--
- 	release_sock(sk);
-+
- 	return err;
- }
+ 	case DCCP_SOCKOPT_AVAILABLE_CCIDS:
+ 		return ccid_getsockopt_builtin_ccids(sk, len, optval, optlen);
++	case DCCP_SOCKOPT_TX_CCID:
++		val = ccid_get_current_tx_ccid(dp);
++		if (val < 0)
++			return -ENOPROTOOPT;
++		break;
++	case DCCP_SOCKOPT_RX_CCID:
++		val = ccid_get_current_rx_ccid(dp);
++		if (val < 0)
++			return -ENOPROTOOPT;
++		break;
+ 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
+ 		val = dp->dccps_server_timewait;
+ 		break;
+--- a/net/dccp/probe.c
++++ b/net/dccp/probe.c
+@@ -74,14 +74,11 @@ static void printl(const char *fmt, ...)
+ static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 			 struct msghdr *msg, size_t size)
+ {
+-	const struct dccp_minisock *dmsk = dccp_msk(sk);
+ 	const struct inet_sock *inet = inet_sk(sk);
+-	const struct ccid3_hc_tx_sock *hctx;
++	struct ccid3_hc_tx_sock *hctx = NULL;
  
+-	if (dmsk->dccpms_tx_ccid == DCCPC_CCID3)
++	if (ccid_get_current_tx_ccid(dccp_sk(sk)) == DCCPC_CCID3)
+ 		hctx = ccid3_hc_tx_sk(sk);
+-	else
+-		hctx = NULL;
+ 
+ 	if (port == 0 || ntohs(inet->dport) == port ||
+ 	    ntohs(inet->sport) == port) {
