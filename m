@@ -1,34 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2008-08-29
-Date: Sat, 30 Aug 2008 12:23:48 -0700 (PDT)
-Message-ID: <20080830.122348.103905579.davem@davemloft.net>
-References: <20080829205414.GB11718@tuxdriver.com>
-	<20080829.140303.71048853.davem@davemloft.net>
-	<20080830125833.GC11718@tuxdriver.com>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: Re: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot
+ - v2
+Date: Sat, 30 Aug 2008 20:39:34 +0100
+Message-ID: <48B9A1F6.9030006@simon.arlott.org.uk>
+References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808191958.45886.rjw@sisk.pl> <48AB11E2.3040705@simon.arlott.org.uk> <200808192309.37317.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
+	Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34499
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753389AbYH3TXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 15:23:53 -0400
-In-Reply-To: <20080830125833.GC11718@tuxdriver.com>
+Received: from proxima.lp0.eu ([85.158.45.36]:48437 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752552AbYH3Tkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Aug 2008 15:40:35 -0400
+In-Reply-To: <200808192309.37317.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Sat, 30 Aug 2008 08:58:33 -0400
+On 19/08/08 22:09, Rafael J. Wysocki wrote:
+> On Tuesday, 19 of August 2008, Simon Arlott wrote:
+>> On 19/08/08 18:58, Rafael J. Wysocki wrote:
+>> > On Tuesday, 19 of August 2008, Simon Arlott wrote:
+>> >> On 18/08/08 23:08, Rafael J. Wysocki wrote:
+>> >> > On Monday, 18 of August 2008, Yinghai Lu wrote:
+>> >> >> On Mon, Aug 18, 2008 at 3:22 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+>> >> >> 
+>> >> >> >> > >  drivers/net/forcedeth.c |    8 +++++---
+>> >> >> >> > >  1 file changed, 5 insertions(+), 3 deletions(-)
+>> >> >> >> > >
+>> >> >> >> > > Index: linux-2.6/drivers/net/forcedeth.c
+>> >> >> >> > > ===================================================================
+>> >> >> >> > > --- linux-2.6.orig/drivers/net/forcedeth.c
+>> >> >> >> > > +++ linux-2.6/drivers/net/forcedeth.c
+>> >> >> >> > > @@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
+>> >> >> >> > >        if (netif_running(dev))
+>> >> >> >> > >                nv_close(dev);
+>> >> >> >> > >
+>> >> >> >> > > -       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+>> >> >> >> > > -       pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
+>> >> >> >> > >        pci_disable_device(pdev);
+>> >> >> >> > > -       pci_set_power_state(pdev, PCI_D3hot);
+>> >> >> >> > > +       if (system_state == SYSTEM_POWER_OFF) {
+>> >> >> >> > > +               if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
+>> >> >> >> > > +                       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+>> >> >> >> > > +               pci_set_power_state(pdev, PCI_D3hot);
+>> >> >> >> > > +       }
+>> >> >> >> > >  }
+>> >> >> >> > >  #else
+>> >> >> >> > >  #define nv_suspend NULL
+>> >> >> >> > >
+>> >> >> >> >
+>> >> >> 
+>> >> >> > Does the last patch work for you BTW?
+>> >> >> >
+>> >> >> 
+>> >> >> it works.
+>> >> > 
+>> >> > OK, thanks for testing.
+>> >> > 
+>> >> > I think we can use it as a quick fix for 2.6.27.  Do you agree?
+>> >> > 
+>> >> > Still, it would be helpful to verify if this is the same MSI issue reported by
+>> >> > Simon.
+>> >> 
+>> >> I tried to test that patch but even without it standby/resume has stopped working:
+>> > 
+>> > Which kernel is this?
+>> 
+>> linus-2.6 a7f5aaf36ded825477c4d7167cc6eb1bcdc63191
+>> 
+>> I've reverted to 2b12a4c524812fb3f6ee590a02e65b95c8c32229 where standby/resume still 
+>> works and applied the above patch plus the pci_enable_device patch. It still doesn't 
+>> work after resume if MSI is enabled.
+> 
+> My patch only affects the shutdown code path and is not related to
+> suspend/standby etc.
+> 
+> Could you identify the commit that broke standby/resume for you between
+> 2b12a4c524812fb3f6ee590a02e65b95c8c32229 and
+> a7f5aaf36ded825477c4d7167cc6eb1bcdc63191 ?  It looks like that should be
+> bisectable.
 
-> Ah, yes...it looks trivial to fix, but the trivial fix won't build!
-> 
-> I have it fixed here:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git merged-test
-> 
-> And the fixed file is the same as what is in wireless-testing.
+It appears to be working again as of ee096f75b69913dbad0e6f7f2572513de5c90002.
 
-John, I already merged net-2.6 into net-next-2.6 last night, so you
-can give a check to see if I mucked it up or not :-)
+-- 
+Simon Arlott
+
