@@ -1,64 +1,50 @@
-From: James Brown <accounts@uow.edu.au>
-Subject: Periodic Account Update
-Date: Sat, 30 Aug 2008 12:30:24 +0100
-Message-ID: <1220095824.48b92f500eca7@webmail.shef.ac.uk>
-Reply-To: singnet.helpdesk@y7mail.com
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2008-08-29
+Date: Sat, 30 Aug 2008 08:58:33 -0400
+Message-ID: <20080830125833.GC11718@tuxdriver.com>
+References: <20080829205414.GB11718@tuxdriver.com> <20080829.140303.71048853.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stoat.shef.ac.uk ([143.167.2.187]:36128 "EHLO stoat.shef.ac.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751739AbYH3M4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Aug 2008 08:56:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080829.140303.71048853.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 29, 2008 at 02:03:03PM -0700, David Miller wrote:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Fri, 29 Aug 2008 16:54:14 -0400
+> 
+> > Here is this week's supply of stuff for -next -- mostly cleanups and
+> > other driver updates.  Please let me know if there are problems!
+>  ...
+> > are available in the git repository at:
+> > 
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
+> 
+> I'm pulling this, thanks John.
+> 
+> I hope to get a chance tonight to deal with that net-2.6 vs. net-next-2.6
+> wireless conflict by doing a merge.  It had to do with that IBSS message
+> your ifdef'd out in net-2.6
 
+Ah, yes...it looks trivial to fix, but the trivial fix won't build!
 
-Dear Uow Email Account User,
+I have it fixed here:
 
-We wrote to you on 29 july 2008 advising that you change the
-password on your account in order to prevent any unauthorised
-account access following the network instruction we previously
-communicated.
+	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git merged-test
 
-All Mailhub systems will undergo regularly scheduled maintenance.
-Access to your e-mail via the Webmail client will be unavailable for
-some time during this maintenance period. We are currently upgrading
-our data base and e-mail account center i.e homepage view.
+And the fixed file is the same as what is in wireless-testing.
 
-We shall be deleting old [Uow] email accounts which are no
-longer active to create more space for new accounts users.
-we have also investigated a system wide security audit to improve
-and enhance our current security.
+Hth!
 
-In order to continue using our services you are require to update
-and re-comfirmed your email account details as requested below.
-To complete your account re-comfirmation,you must reply to this email
-immediately and enter your account details as requested below.
-
-Username : (********)
-Password : (********)
-Date of Birth : (2/2/48)
-Future Password : (**************)(Option)
-
-Failure to do this will immediately render your account deactivated
-from our database and service will not be interrupted as important
-messages may as well be lost due to your declining to re-comfirmed
-to us your account account details.
-
-We apologise for the inconvenience that this will cause you during
-this period, but trusting that we are here to serve you better and
-providing more technology which revolves around Secured Email.
-
-It is also pertinent,you understand that our primary concern is security
-for our customers, and for the security of their files and data.
-COMFIRMATION CODE: Sonic-Net /93-1A388-480
-
-Technical Support Team
-
-Regards
-
-Uow Support/Maintainance Team TSR.
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
