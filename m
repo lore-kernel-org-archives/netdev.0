@@ -1,277 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [UPDATED] [NET-NEXT PATCH 2/2] IPROUTE: add support for skbedit action
-Date: Sat, 30 Aug 2008 00:26:52 -0700
-Message-ID: <20080830072641.7871.11369.stgit@jtkirshe-mobile.jf.intel.com>
-References: <20080830072626.7871.46628.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [NET-NEXT PATCH] ixgbe: change config srrctl to only program one
+	register per VMDq/RSS id
+Date: Sat, 30 Aug 2008 00:29:10 -0700
+Message-ID: <20080830072910.8019.28627.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	akpm@linux-foundation.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.235]:62468 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564AbYH3H0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 03:26:54 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so1181779rvb.1
-        for <netdev@vger.kernel.org>; Sat, 30 Aug 2008 00:26:53 -0700 (PDT)
-In-Reply-To: <20080830072626.7871.46628.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from wf-out-1314.google.com ([209.85.200.175]:62525 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856AbYH3H3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 03:29:13 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so1089271wfd.4
+        for <netdev@vger.kernel.org>; Sat, 30 Aug 2008 00:29:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Add support for skbedit action.
-	Provides ability to edit queue_mapping field
-	Provides ability to edit priority field
-
-usage: action skbedit [queue_mapping QUEUE_MAPPING] [priority PRIORITY]
-	at least one option must be select, or both at the same time
+This change makes it so only one srrctl register is programmed per VMDq id, and if VMDq is not enabled it is one register per RSS queue.  Currently this function is working correctly for the multiqueue RSS and single queue cases, but if any advances features such as VMDq or DCB would have been enabled this function would have caused issues as it was not correct.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- include/linux/tc_act/tc_skbedit.h |   23 +++++
- tc/Makefile                       |    1 
- tc/m_skbedit.c                    |  188 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 212 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/tc_act/tc_skbedit.h
- create mode 100644 tc/m_skbedit.c
+ drivers/net/ixgbe/ixgbe_main.c |   25 +++++++++++++++----------
+ 1 files changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/tc_act/tc_skbedit.h b/include/linux/tc_act/tc_skbedit.h
-new file mode 100644
-index 0000000..3965636
---- /dev/null
-+++ b/include/linux/tc_act/tc_skbedit.h
-@@ -0,0 +1,23 @@
-+#ifndef __LINUX_TC_SKBEDIT_H
-+#define __LINUX_TC_SKBEDIT_H
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 198b9d9..99e0b34 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1417,18 +1417,23 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter, int index)
+ 	struct ixgbe_ring *rx_ring;
+ 	u32 srrctl;
+ 	int queue0;
+-	unsigned long *mask, maskval = 1;
+-	long shift, len;
+-
+-	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+-		mask = (unsigned long *) &adapter->ring_feature[RING_F_RSS].mask;
+-		len = sizeof(adapter->ring_feature[RING_F_RSS].mask) * 8;
++	unsigned long mask;
 +
-+#include <linux/pkt_cls.h>
++	/* program one srrctl register per VMDq index */
++	if (adapter->flags & IXGBE_FLAG_VMDQ_ENABLED) {
++		long shift, len;
++		mask = (unsigned long) adapter->ring_feature[RING_F_RSS].mask;
++		len = sizeof(adapter->ring_feature[RING_F_VMDQ].mask) * 8;
++		shift = find_first_bit(&mask, len);
++		queue0 = index & mask;
++		index = (index & mask) >> shift;
++	/* program one srrctl per RSS queue since RDRXCTL.MVMEN is enabled */
+ 	} else {
+-		mask = &maskval;
+-		len = 1;
++		mask = (unsigned long) adapter->ring_feature[RING_F_RSS].mask;
++		queue0 = index & mask;
++		index = index & mask;
+ 	}
+-	shift = find_first_bit(mask, len);
+-	queue0 = index << shift;
 +
-+#define SKBEDIT_F_PRIORITY		0x1
-+#define SKBEDIT_F_QUEUE_MAPPING		0x2
-+
-+struct tc_skbedit {
-+	tc_gen;
-+};
-+
-+enum {
-+	TCA_SKBEDIT_UNSPEC,
-+	TCA_SKBEDIT_TM,
-+	TCA_SKBEDIT_PARMS,
-+	TCA_SKBEDIT_PRIORITY,
-+	TCA_SKBEDIT_QUEUE_MAPPING,
-+	__TCA_SKBEDIT_MAX
-+};
-+#define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-+
-+#endif
-diff --git a/tc/Makefile b/tc/Makefile
-index 2f3c1ea..743a946 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -31,6 +31,7 @@ TCMODULES += m_mirred.o
- TCMODULES += m_ipt.o
- TCMODULES += m_nat.o
- TCMODULES += m_pedit.o
-+TCMODULES += m_skbedit.o
- TCMODULES += p_ip.o
- TCMODULES += p_icmp.o
- TCMODULES += p_tcp.o
-diff --git a/tc/m_skbedit.c b/tc/m_skbedit.c
-new file mode 100644
-index 0000000..2066c16
---- /dev/null
-+++ b/tc/m_skbedit.c
-@@ -0,0 +1,188 @@
-+/*
-+ * m_skbedit.c		SKB Editing module
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Alexander Duyck <alexander.h.duyck@intel.com>
-+ *
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+#include <dlfcn.h>
-+#include "utils.h"
-+#include "tc_util.h"
-+#include <linux/tc_act/tc_skbedit.h>
-+
-+static void
-+explain(void)
-+{
-+	fprintf(stderr, "Usage: ... skbedit "
-+			"queue_mapping QUEUE_MAPPING | priority PRIORITY \n"
-+			"QUEUE_MAPPING = device transmit queue to use\n"
-+			"PRIORITY = classID to assign to priority field\n");
-+}
-+
-+static void
-+usage(void)
-+{
-+	explain();
-+	exit(-1);
-+}
-+
-+static int
-+parse_skbedit(struct action_util *a, int *argc_p, char ***argv_p, int tca_id,
-+	      struct nlmsghdr *n)
-+{
-+	struct tc_skbedit sel;
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+	int ok = 0;
-+	struct rtattr *tail;
-+	unsigned int tmp;
-+	__u16 queue_mapping;
-+	__u32 flags = 0, priority;
-+
-+	if (matches(*argv, "skbedit") != 0)
-+		return -1;
-+
-+	NEXT_ARG();
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "queue_mapping") == 0) {
-+			flags |= SKBEDIT_F_QUEUE_MAPPING;
-+			NEXT_ARG();
-+			if (get_unsigned(&tmp, *argv, 10) || tmp > 65535) {
-+				fprintf(stderr, "Illegal queue_mapping\n");
-+				return -1;
-+			}
-+			queue_mapping = tmp;
-+			ok++;
-+		} else if (matches(*argv, "priority") == 0) {
-+			flags |= SKBEDIT_F_PRIORITY;
-+			NEXT_ARG();
-+			if (get_tc_classid(&priority, *argv)) {
-+				fprintf(stderr, "Illegal priority\n");
-+				return -1;
-+			}
-+			ok++;
-+		} else if (matches(*argv, "help") == 0) {
-+			usage();
-+		} else {
-+			break;
-+		}
-+		argc--;
-+		argv++;
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "reclassify") == 0) {
-+			sel.action = TC_ACT_RECLASSIFY;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "pipe") == 0) {
-+			sel.action = TC_ACT_PIPE;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "drop") == 0 ||
-+			matches(*argv, "shot") == 0) {
-+			sel.action = TC_ACT_SHOT;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "continue") == 0) {
-+			sel.action = TC_ACT_UNSPEC;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "pass") == 0) {
-+			sel.action = TC_ACT_OK;
-+			NEXT_ARG();
-+		}
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "index") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&sel.index, *argv, 10)) {
-+				fprintf(stderr, "Pedit: Illegal \"index\"\n");
-+				return -1;
-+			}
-+			argc--;
-+			argv++;
-+			ok++;
-+		}
-+	}
-+
-+	if (!ok) {
-+		explain();
-+		return -1;
-+	}
-+
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-+	addattr_l(n, MAX_MSG, TCA_SKBEDIT_PARMS, &sel, sizeof(sel));
-+	if (flags & SKBEDIT_F_QUEUE_MAPPING)
-+		addattr_l(n, MAX_MSG, TCA_SKBEDIT_QUEUE_MAPPING,
-+			  &queue_mapping, sizeof(queue_mapping));
-+	if (flags & SKBEDIT_F_PRIORITY)
-+		addattr_l(n, MAX_MSG, TCA_SKBEDIT_PRIORITY,
-+			  &priority, sizeof(priority));
-+	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+	return 0;
-+}
-+
-+static int print_skbedit(struct action_util *au, FILE *f, struct rtattr *arg)
-+{
-+	struct tc_skbedit *sel;
-+	struct rtattr *tb[TCA_SKBEDIT_MAX + 1];
-+	SPRINT_BUF(b1);
-+	__u32 *priority;
-+	__u16 *queue_mapping;
-+
-+	if (arg == NULL)
-+		return -1;
-+
-+	parse_rtattr_nested(tb, TCA_SKBEDIT_MAX, arg);
-+
-+	if (tb[TCA_SKBEDIT_PARMS] == NULL) {
-+		fprintf(f, "[NULL skbedit parameters]");
-+		return -1;
-+	}
-+
-+	sel = RTA_DATA(tb[TCA_SKBEDIT_PARMS]);
-+
-+	fprintf(f, " skbedit");
-+
-+	if (tb[TCA_SKBEDIT_QUEUE_MAPPING] != NULL) {
-+		queue_mapping = RTA_DATA(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
-+		fprintf(f, " queue_mapping %u", *queue_mapping);
-+	}
-+	if (tb[TCA_SKBEDIT_PRIORITY] != NULL) {
-+		priority = RTA_DATA(tb[TCA_SKBEDIT_PRIORITY]);
-+		fprintf(f, " priority %s", sprint_tc_classid(*priority, b1));
-+	}
-+
-+	if (show_stats) {
-+		if (tb[TCA_SKBEDIT_TM]) {
-+			struct tcf_t *tm = RTA_DATA(tb[TCA_SKBEDIT_TM]);
-+			print_tm(f, tm);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+struct action_util skbedit_action_util = {
-+	.id = "skbedit",
-+	.parse_aopt = parse_skbedit,
-+	.print_aopt = print_skbedit,
-+};
+ 	rx_ring = &adapter->rx_ring[queue0];
+ 
+ 	srrctl = IXGBE_READ_REG(&adapter->hw, IXGBE_SRRCTL(index));
 
