@@ -1,86 +1,56 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [NET_NEXT PATCH 2/2] pkt_action: add new action skbedit
-Date: Fri, 29 Aug 2008 22:47:16 -0700
-Message-ID: <9929d2390808292247r116d26b2y9bf995d92d00d2d0@mail.gmail.com>
-References: <20080828011253.7909.5172.stgit@jtkirshe-mobile.jf.intel.com>
-	 <20080828011257.7909.78529.stgit@jtkirshe-mobile.jf.intel.com>
-	 <20080829231345.d74f139d.billfink@mindspring.com>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Sat, 30 Aug 2008 03:56:50 -0300
+Message-ID: <20080830035650.42be37d7@tux>
+References: <20080819213417.45133573@tux>
+ <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
+ <20080822183224.2d52f16c@tux>
+ <20080822.143709.65615512.davem@davemloft.net>
+ <20080823111446.06a350a2@tux>
+ <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
+ <20080824163843.33b4f890@tux>
+ <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
+ <20080826141812.589848a0@tux>
+ <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+ <20080828184919.611dd578@tux>
+ <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
-	"Alexander Duyck" <alexander.h.duyck@intel.com>
-To: "Bill Fink" <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.173]:46955 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750876AbYH3FrS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2008 01:47:18 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1069412wfd.4
-        for <netdev@vger.kernel.org>; Fri, 29 Aug 2008 22:47:17 -0700 (PDT)
-In-Reply-To: <20080829231345.d74f139d.billfink@mindspring.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 29, 2008 at 8:13 PM, Bill Fink <billfink@mindspring.com> wrote:
-> On Wed, 27 Aug 2008, Jeff Kirsher wrote:
->
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>
->> This new action will have the ability to change the priority and/or
->> queue_mapping fields on an sk_buff.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>
->>  include/linux/tc_act/tc_skbedit.h |   23 ++++
->>  include/net/tc_act/tc_skbedit.h   |   15 +++
->>  net/sched/Kconfig                 |   11 ++
->>  net/sched/Makefile                |    1
->>  net/sched/act_skbedit.c           |  199 +++++++++++++++++++++++++++++++++++++
->>  5 files changed, 249 insertions(+), 0 deletions(-)
->>  create mode 100644 include/linux/tc_act/tc_skbedit.h
->>  create mode 100644 include/net/tc_act/tc_skbedit.h
->>  create mode 100644 net/sched/act_skbedit.c
->
->> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
->> index efaa7a7..613823b 100644
->> --- a/net/sched/Kconfig
->> +++ b/net/sched/Kconfig
->> @@ -485,6 +485,17 @@ config NET_ACT_SIMP
->>         To compile this code as a module, choose M here: the
->>         module will be called simple.
->>
->> +config NET_ACT_SKBEDIT
->> +        tristate "SKB Editing"
->> +        depends on NET_CLS_ACT
->> +        ---help---
->> +       Say Y here to change skb priority or queue_mapping settings.
->> +
->> +       If unsure, say N.
->> +
->> +       To compile this code as a module, choose M here: the
->> +       module will be called simple.
->> +
->>  config NET_CLS_IND
->>       bool "Incoming device classification"
->>       depends on NET_CLS_U32 || NET_CLS_FW
->
-> I'm rather backlogged on e-mail at the moment, so apologies if someone
-> else already pointed this out, but I'm guessing there was a copy and
-> paste error here, as the module shouldn't be called simple (that's for
-> the preceding NET_ACT_SIMP).
->
->                                                -Bill
->
+On Fri, 29 Aug 2008 16:07:04 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-Nice catch.  I was just about to post an updated patch set from Alex,
-and it was a good thing I checked mail before sending the patches out.
+> ...as it would probably not be wise to make a full dump available (th=
+at it=20
+> would contain every syscall). Alternatively, you can create one full =
+dump=20
+> for yourself and just grep the relevant parts. There may be need to s=
+trace
+> more than one process (all dovecot related).
 
-I have corrected this in the next patch set (coming in about 10 minutes).
+	While waiting for a stall, I was thinking here: is there any
+chance it could be a bug generated by gcc 4.3? I saw the date gcc 4.3.0
+was released and it's just after 2.6.24 and before 2.6.25...
 
--- 
-Cheers,
-Jeff
+	I was using gcc 4.3.1 and now 4.3.2... but maybe I could try go
+back to gcc 4.2.4 to test...
+
+	Which version of gcc you developers are using?
+
+--=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
