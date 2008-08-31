@@ -1,173 +1,113 @@
-From: "Dushan Tcholich" <dusanc@gmail.com>
-Subject: Re: ksoftirqd high cpu load on kernels 2.6.24 to 2.6.27-rc1-mm1
-Date: Sun, 31 Aug 2008 10:51:46 +0200
-Message-ID: <a08621850808310151o143845h195a8658d02270d9@mail.gmail.com>
-References: <fa.wTMiBcGRgw2fBtdHwtX7y0lkc8s@ifi.uio.no>
-	 <48975BD3.6040709@shaw.ca>
-	 <a08621850808041337k1d1deb6fk78098d9fcd4930dd@mail.gmail.com>
-	 <20080807185802.GA16327@electric-eye.fr.zoreil.com>
-	 <a08621850808101200n220afd2dve58abe67830b7a4f@mail.gmail.com>
-	 <a08621850808110053j5cbf23e6xdf52c9e7440abf19@mail.gmail.com>
-	 <a08621850808291848q5660148fx57d576ecfcbfce8@mail.gmail.com>
+From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: IPv6 tunnel scalability problem
+Date: Sun, 31 Aug 2008 19:58:51 +0300
+Message-ID: <200808311958.51510.rdenis@simphalempin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Robert Hancock" <hancockr@shaw.ca>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757591AbYHaIwE@vger.kernel.org>
-In-Reply-To: <a08621850808291848q5660148fx57d576ecfcbfce8@mail.gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bernhard Schmidt <berni+ipv6@birkenwald.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:39121 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751180AbYHaQ6z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 12:58:55 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello
-I found the culprit.
+	Hello all,
 
-When using powertop I get:
-Top causes for wakeups:
-  35,2% (251,0)                ip : br_stp_enable_bridge (br_hello_timer_expired
+I have been maintaining a TUN-based Linux implementation of Teredo/RFC4=
+380. On=20
+a busy node, this can trigger quite many peers on the virtual point-to-=
+point=20
+tunnel interface. I have received complaints that the whole thing seems=
+ to=20
+hit some severe performance bottleneck when this happens. It is not cle=
+ar to=20
+me at this point whether it's a kernel or a user problem. So I have bee=
+n=20
+writing a stress test.
 
-So I tried to turn them off with:
-brctl sethello br0 0
-but the problem persisted.
-If I do
-brctl sethello br0 5
-context switch rate drops 200 times and problem is gone.
-I think that the command brctl sethello br0 0 doesn't turn off hello
-messages, but sends them 250 times per second.
+Now I seem to be hitting a kernel segmentation fault as soon as there a=
+re 1024=20
+peers on a given tunnel interface (filed as #11469):
 
-Thanks for your time
-Dushan
-On Sat, Aug 30, 2008 at 3:48 AM, Dushan Tcholich <dusanc@gmail.com> wrote:
-> Hello again
->
->
-> On Mon, Aug 11, 2008 at 9:53 AM, Dushan Tcholich <dusanc@gmail.com> wrote:
->> Hi
->>
->> On Sun, Aug 10, 2008 at 9:00 PM, Dushan Tcholich <dusanc@gmail.com> wrote:
->>> Hi
->>> Sorry for answering this late, but I was short on time and couldn't
->>> get reiser4 to work with 2.6.27-rc2
->>>
->>> On Thu, Aug 7, 2008 at 8:58 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
->>>> Dushan Tcholich <dusanc@gmail.com> :
->>>> [...]
->>>>> I googled a little and found out that oprofile is a little above my head.
->>>>> So as I thought that some driver or HW might be responsible for this I
->>>>> tried to disable various onboard HW and found out that if I disable
->>>>> onboard ethernet problem dissapears, so now I've added netdev and
->>>>> maintainer of R8169 driver to cc.
->>>>
->>>> Can you try 2.6.27-rc2 and send the content of /proc/interrupts, dmesg,
->>>> ifconfig as well as a capture of the strange output from top ?
->>>>
->>
->> I tried some more kernels and I had the same problem with 2.6.23.17
->> and 2.6.27-rc1-mm1, but I couldn't reproduce it with kernel from
->> sysresccd 1.0.1 http://www.sysresccd.org/ which is a patched version
->> of 2.6.24 i think .7 when I booted it to change fs.
->> Could it be that something in userspace is creating this?
->>
->
-> I dug a little more and found out some new info.
-> Unsolved bugreport with same symptoms:
-> http://marc.info/?l=linux-kernel&m=119613299024398&w=2
-> Problems appear if I start br0 interface, as context switch rate
-> increases 200 times. If I start eth0 instead everything looks ok.
-> The bugreport above had bridging enabled too.
->
-> When using eth0 I get:
->  vmstat -n 1 10
-> procs -----------memory---------- ---swap-- -----io---- -system-- ----cpu----
->  r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa
->  2  0  17720 162288  25024 576852    0    0    21    22    6    9 10  4 85  0
->  0  0  17720 162196  25024 576880    0    0     0     0   13  473  0  0 99  0
->  0  0  17720 162196  25028 576880    0    0     0     4   36 1122  1  0 99  0
->  0  0  17720 162196  25028 576880    0    0     0     0   83  844  0  0 99  0
->  0  0  17720 162196  25028 576880    0    0     0     0   55  691  1  0 99  0
->  0  0  17720 162556  25028 576880    0    0     0     0   13  490  1  0 100  0
->  0  0  17720 162100  25028 576880    0    0     0     0   39  561  6  0 94  0
->  1  0  17720 162028  25028 576880    0    0     0     0   16 1030  4  0 96  0
->  0  0  17720 162028  25028 576880    0    0     0     0   40  597  1  0 99  0
->  0  0  17720 162028  25028 576880    0    0     0     0   12  512  2  0 97  0
->
->  top
->
-> top - 03:30:07 up 6 days,  5:40,  4 users,  load average: 0.02, 0.11, 0.28
-> Tasks: 149 total,   2 running, 147 sleeping,   0 stopped,   0 zombie
-> Cpu(s): 12.1%us,  3.3%sy,  0.0%ni, 84.6%id,  0.0%wa,  0.0%hi,  0.0%si,  0.0%st
-> Mem:   1033388k total,   871336k used,   162052k free,    25016k buffers
-> Swap:   610460k total,    17720k used,   592740k free,   576852k cached
->
->  PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
->
->    4 root      15  -5     0    0    0 S    0  0.0 554:23.44 ksoftirqd/0
->
-> If I use br0 I get:
->  vmstat -n 1 10
-> procs -----------memory---------- ---swap-- -----io---- -system-- ----cpu----
->  r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa
->  0  0  17720 162112  25048 577120    0    0    21    22    6   11 10  4 86  0
->  0  0  17720 162152  25048 577120    0    0     0     0   14 111082  0  3 97  0
->  0  0  17720 162152  25048 577120    0    0     0     0   23 107134  1  3 96  0
->  1  0  17720 160148  25048 577120    0    0     0     0   11 109888  2  3 95  0
->  0  0  17720 162032  25048 577120    0    0     0     0   33 108163  1  2 97  0
->  0  0  17720 162032  25048 577120    0    0     0     0    7 104642  2  2 95  0
->  0  0  17720 162020  25048 577120    0    0     0     0   41 109135  0  2 98  0
->  0  0  17720 162036  25048 577120    0    0     0     0    9 105133  0  3 96  0
->  0  0  17720 162020  25048 577120    0    0     0     0   42 107605  1  2 97  0
->  1  0  17720 162032  25048 577120    0    0     0     0    5 110768  0  2 98  0
->
-> top
->
-> top - 03:32:03 up 6 days,  5:41,  4 users,  load average: 0.09, 0.10, 0.26
-> Tasks: 148 total,   2 running, 146 sleeping,   0 stopped,   0 zombie
-> Cpu(s):  4.8%us,  2.0%sy,  0.0%ni, 93.0%id,  0.0%wa,  0.0%hi,  0.2%si,  0.0%st
-> Mem:   1033388k total,   871564k used,   161824k free,    25048k buffers
-> Swap:   610460k total,    17720k used,   592740k free,   577120k cached
->
->  PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
-> 11489 dusan     20   0  235m  85m  24m R    6  8.5   1:03.51 firefox
->    4 root      15  -5     0    0    0 S   7  0.0 554:24.04 ksoftirqd/0
->
-> I start br0 like this in /etc/conf.d/net
->
-> bridge_br0="eth0"
-> config_eth0=( "null" )
-> config_br0=( "192.168.1.3/24" )
-> RC_NEED_br0="net.eth0"
-> brctl_br0=( "setfd 0" "sethello 0" "stp off" )
-> #routes_br0=( "default gw 192.168.1.3" )
-> depend_br0() {
->        need net.eth0
-> }
->
-> I start eth0 like this in /etc/conf.d/net
-> config_eth0=( "192.168.1.3/24" )
->
->>> I've copied my root to ext3 partition and with vanilla 2.6.27-rc2 I got:
->>> -With my .config problem is still here
->>> -With only rtl8169 removed from config there is no problem
->>>
->>>> It seems rather benign though.
->>>>
->>> Well I wouldn't agree from power managment standpoint :). This nic is
->>> in a lot of laptops.
->>> 8% of 2.13GHz Core2Duo CPU is a lot :)
->>>
->>> Btw. should LKML be removed from cc?
->>> If you need any more help please ask.
->>> I hope I'm not harrasing you too much :)
->>>> --
->>>> Ueimor
->>>>
->>> Have a nice day
->>> Dushan
->>>
->> ...
->>
-> Have a nice day
-> Dushan
->
+BUG: unable to handle kernel NULL pointer dereference at 0000001d
+IP: [<f8b375bf>] :ipv6:ip6_dst_lookup_tail+0x95/0x15a
+*pde =3D 00000000
+Oops: 0000 [#14] SMP
+Modules linked in: ipx p8022 psnap llc p8023 i915 drm tun cpufreq_ondem=
+and
+binfmt_misc fuse nf_conntrack_ftp nf_conntrack_ipv6 nf_conntrack_ipv4
+nf_conntrack ipv6 snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm_oss
+snd_mixer_oss snd_pcm snd_seq_oss snd_seq_midi snd_rawmidi snd_seq_midi=
+_event
+snd_seq snd_timer snd_seq_device snd intel_agp psmouse soundcore agpgar=
+t=20
+button
+processor snd_page_alloc parport_pc parport iTCO_wdt evdev pcspkr dm_mi=
+rror
+dm_log dm_snapshot dm_mod sg sr_mod cdrom e100 mii ehci_hcd uhci_hcd us=
+bcore
+unix
+
+Pid: 9950, comm: tunload Tainted: G      D   (2.6.26.3 #8)
+EIP: 0060:[<f8b375bf>] EFLAGS: 00210246 CPU: 0
+EIP is at ip6_dst_lookup_tail+0x95/0x15a [ipv6]
+EAX: 00000000 EBX: 00000000 ECX: ef4abdac EDX: 00000000
+ESI: ef4abd3c EDI: ef64ca00 EBP: ef4abcb8 ESP: ef4abc64
+ DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+Process tunload (pid: 9950, ti=3Def4aa000 task=3Df7d45320 task.ti=3Def4=
+aa000)
+Stack: ef4abd58 ef4abdac f7cc0c00 ef4abc80 f8b36918 00000000 ef673e40 e=
+f4abcc0
+       f8b381b2 00000002 f7cc0c00 ef7c3e00 f7cc0e24 00000000 ef4abca8 e=
+f4abca8
+       c030bcfa ef4abcc0 00000000 ef4abed4 00000000 ef4abcc0 f8b377d5 e=
+f4abdbc
+Call Trace:
+ [<f8b36918>] ? ip6_cork_release+0x2e/0x52 [ipv6]
+ [<f8b381b2>] ? ip6_push_pending_frames+0x1c9/0x3d9 [ipv6]
+ [<c030bcfa>] ? _spin_unlock_bh+0xd/0xf
+ [<f8b377d5>] ? ip6_dst_lookup+0xe/0x10 [ipv6]
+ [<f8b4c2b2>] ? rawv6_sendmsg+0x25d/0xc08 [ipv6]
+ [<c0151022>] ? filemap_fault+0x203/0x3d5
+ [<c02e8de0>] ? inet_sendmsg+0x2e/0x50
+ [<c02a24b8>] ? sock_sendmsg+0xcc/0xf0
+ [<c01365f5>] ? autoremove_wake_function+0x0/0x3a
+ [<c0136799>] ? remove_wait_queue+0x30/0x34
+ [<f8a08fbe>] ? tun_chr_aio_read+0x298/0x31f [tun]
+ [<c0211d67>] ? copy_from_user+0x2a/0x114
+ [<c02a2790>] ? sys_sendto+0xa5/0xc5
+ [<c02b3713>] ? neigh_periodic_timer+0x0/0x17a
+ [<c01365f5>] ? autoremove_wake_function+0x0/0x3a
+ [<c02a348f>] ? sys_socketcall+0x141/0x262
+ [<c0102f99>] ? sysenter_past_esp+0x6a/0x91
+ =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+Code: 22 83 fb 9b 74 37 8b 4d b0 8b 01 e8 35 96 77 c7 8b 45 b0 c7 00 00=
+ 00 00
+00 89 d8 83 c4 48 5b 5e 5f 5d c3 8b 4d b0 8b 39 8b 47 2c <f6> 40 1d de =
+74 23=20
+31
+db 89 d8 83 c4 48 5b 5e 5f 5d c3 64 a1 04
+EIP: [<f8b375bf>] ip6_dst_lookup_tail+0x95/0x15a [ipv6] SS:ESP 0068:ef4=
+abc64
+---[ end trace 1035c8e1d028e84b ]---
+
+The test case is here: http://www.remlab.net/files/divers/tunload.c
+
+I would assume some that this is an allocation failure somehow, also it=
+ seems=20
+weird that there would be need to allocate any per-destination data on =
+a=20
+point-to-point link, as there is no need for a neighbors cache.
+
+I'll try with 2.6.27-rc later.
+
+Regards,
+
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
