@@ -1,49 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: ksoftirqd high cpu load on kernels 2.6.24 to 2.6.27-rc1-mm1
-Date: Sun, 31 Aug 2008 10:05:37 -0700
-Message-ID: <20080831100537.6929c51e@extreme>
-References: <fa.wTMiBcGRgw2fBtdHwtX7y0lkc8s@ifi.uio.no>
-	<48975BD3.6040709@shaw.ca>
-	<a08621850808041337k1d1deb6fk78098d9fcd4930dd@mail.gmail.com>
-	<20080807185802.GA16327@electric-eye.fr.zoreil.com>
-	<a08621850808101200n220afd2dve58abe67830b7a4f@mail.gmail.com>
-	<a08621850808110053j5cbf23e6xdf52c9e7440abf19@mail.gmail.com>
-	<a08621850808291848q5660148fx57d576ecfcbfce8@mail.gmail.com>
-	<a08621850808310151o143845h195a8658d02270d9@mail.gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [2.6 patch] wan/hdlc_x25.c: fix a NULL dereference
+Date: Sun, 31 Aug 2008 19:08:35 +0200
+Message-ID: <m3bpz9glik.fsf@maximus.localdomain>
+References: <20080827220549.GS11734@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Francois Romieu" <romieu@fr.zoreil.com>,
-	"Robert Hancock" <hancockr@shaw.ca>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Dushan Tcholich" <dusanc@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@redhat.com>, netdev@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:54248 "EHLO mail.vyatta.com"
+Received: from khc.piap.pl ([195.187.100.11]:40758 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753292AbYHaRFj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 Aug 2008 13:05:39 -0400
-In-Reply-To: <a08621850808310151o143845h195a8658d02270d9@mail.gmail.com>
+	id S1753648AbYHaRIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Aug 2008 13:08:39 -0400
+In-Reply-To: <20080827220549.GS11734@cs181140183.pp.htv.fi> (Adrian Bunk's message of "Thu\, 28 Aug 2008 01\:05\:49 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 31 Aug 2008 10:51:46 +0200
-"Dushan Tcholich" <dusanc@gmail.com> wrote:
+Adrian Bunk <bunk@kernel.org> writes:
 
-> Hello
-> I found the culprit.
-> 
-> When using powertop I get:
-> Top causes for wakeups:
->   35,2% (251,0)                ip : br_stp_enable_bridge (br_hello_timer_expired
-> 
-> So I tried to turn them off with:
-> brctl sethello br0 0
-> but the problem persisted.
+> --- a/drivers/net/wan/hdlc_x25.c
+> +++ b/drivers/net/wan/hdlc_x25.c
+> @@ -163,10 +163,8 @@ static void x25_close(struct net_device *dev)
+>  
+>  static int x25_rx(struct sk_buff *skb)
+>  {
+> -	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL) {
+> -		skb->dev->stats.rx_dropped++;
+> +	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+>  		return NET_RX_DROP;
+> -	}
+>  
 
-
-You can't turn off the hello timer, it is needed for Spanning Tree to
-work. The kernel should reject requests to set hello timer < 1sec.
-Most routers allow 1 - 10sec.
-
-I am going to do a new patch to add tighter range checking for STP timer
-settings and another to default fowarding delay of zero if STP is disabled.
+Right, thanks... though I will update the stats anyway.
+-- 
+Krzysztof Halasa
