@@ -1,34 +1,49 @@
-From: Daniele Lacamera <root@danielinux.net>
-Subject: Re: [PATCH] *icsk_ca_priv: Reduce inet_connection_sock size?
-Date: Sun, 31 Aug 2008 23:35:54 +0200
-Message-ID: <48BB0EBA.6050606@danielinux.net>
-References: <48BAE26A.4060002@danielinux.net> <20080831190916.GA15931@2ka.mipt.ru> <48BAEECA.80906@danielinux.net> <20080831202238.GA12624@2ka.mipt.ru>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [RFC] bridge: STP timer management range checking
+Date: Sun, 31 Aug 2008 23:02:47 +0100
+Message-ID: <20080831230247.76b5a193@lxorguk.ukuu.org.uk>
+References: <fa.wTMiBcGRgw2fBtdHwtX7y0lkc8s@ifi.uio.no>
+	<48975BD3.6040709@shaw.ca>
+	<a08621850808041337k1d1deb6fk78098d9fcd4930dd@mail.gmail.com>
+	<20080807185802.GA16327@electric-eye.fr.zoreil.com>
+	<a08621850808101200n220afd2dve58abe67830b7a4f@mail.gmail.com>
+	<a08621850808110053j5cbf23e6xdf52c9e7440abf19@mail.gmail.com>
+	<a08621850808291848q5660148fx57d576ecfcbfce8@mail.gmail.com>
+	<a08621850808310151o143845h195a8658d02270d9@mail.gmail.com>
+	<20080831100537.6929c51e@extreme>
+	<20080831104309.780cc01f@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, angelo.tornese@gmail.com
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: David Miller <davem@davemloft.net>,
+	"Dushan Tcholich" <dusanc@gmail.com>,
+	"Francois Romieu" <romieu@fr.zoreil.com>,
+	"Robert Hancock" <hancockr@shaw.ca>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from danielinux.vm.bytemark.co.uk ([80.68.95.85]:4064 "EHLO
-	mail.danielinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758368AbYHaVfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 17:35:48 -0400
-In-Reply-To: <20080831202238.GA12624@2ka.mipt.ru>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:59536 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752601AbYHaWUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 18:20:06 -0400
+In-Reply-To: <20080831104309.780cc01f@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> Hi Daniele.
->
-> This actually may be not a big problem, since we allocate and free
-> objects all the time, but still it is additional overhead which can be
-> avoided. Did you run some perfromance analysis to check if influence is
-> small or not visible at all?
->   
-Evgeniy, thanks for pointing out the issue.
+On Sun, 31 Aug 2008 10:43:09 -0700
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-On my virtual machine (kvm), the alloc operation always takes less than 
-one jiffie, but I can't say exactly how long. Is there a way to measure 
-fast path time more accurately (e.g. nanoseconds)?
+> The Spanning Tree Protocol timers need to be set within certain boundaries
+> to keep the internal protocol engine working, and to be interoperable.
+> This patch restricts changes to those timers to the values defined in IEEE 802.1D
+> specification.
 
+Why do we care ? You have to be the network administrator to set values,
+there are cases you may want to be out of the spec and you are
+privileged. The kernel does need to stop things being done which are
+fatal but running around restricting privileged administrators who have
+the ability to bring the network down anyway isn't its job.
 
+Seems bogus extra code to me - stops things working that should be
+allowed too.
