@@ -1,94 +1,126 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot
- - v2
-Date: Sat, 30 Aug 2008 20:39:34 +0100
-Message-ID: <48B9A1F6.9030006@simon.arlott.org.uk>
-References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808191958.45886.rjw@sisk.pl> <48AB11E2.3040705@simon.arlott.org.uk> <200808192309.37317.rjw@sisk.pl>
+From: <jie.yang@atheros.com>
+Subject: [PATCH]atl1e:fix bug [Bug 11454] New: atl1e - BUG: scheduling while atomic: modprobe/678/0x00000002
+Date: Sun, 31 Aug 2008 12:51:58 +0800
+Message-ID: <12201583182726-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
-	Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain
+Cc: <bugme-daemon@bugzilla.kernel.org>, <harn-solo@gmx.de>,
+	<jeff@garzik.org>, <matthew@wil.cx>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Jie Yang <jie.yang@atheros.com>
+To: <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:48437 "EHLO proxima.lp0.eu"
+Received: from mail.atheros.com ([12.36.123.2]:39473 "EHLO mail.atheros.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752552AbYH3Tkf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Aug 2008 15:40:35 -0400
-In-Reply-To: <200808192309.37317.rjw@sisk.pl>
+	id S1750796AbYHaEv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Aug 2008 00:51:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/08/08 22:09, Rafael J. Wysocki wrote:
-> On Tuesday, 19 of August 2008, Simon Arlott wrote:
->> On 19/08/08 18:58, Rafael J. Wysocki wrote:
->> > On Tuesday, 19 of August 2008, Simon Arlott wrote:
->> >> On 18/08/08 23:08, Rafael J. Wysocki wrote:
->> >> > On Monday, 18 of August 2008, Yinghai Lu wrote:
->> >> >> On Mon, Aug 18, 2008 at 3:22 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
->> >> >> 
->> >> >> >> > >  drivers/net/forcedeth.c |    8 +++++---
->> >> >> >> > >  1 file changed, 5 insertions(+), 3 deletions(-)
->> >> >> >> > >
->> >> >> >> > > Index: linux-2.6/drivers/net/forcedeth.c
->> >> >> >> > > ===================================================================
->> >> >> >> > > --- linux-2.6.orig/drivers/net/forcedeth.c
->> >> >> >> > > +++ linux-2.6/drivers/net/forcedeth.c
->> >> >> >> > > @@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
->> >> >> >> > >        if (netif_running(dev))
->> >> >> >> > >                nv_close(dev);
->> >> >> >> > >
->> >> >> >> > > -       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
->> >> >> >> > > -       pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
->> >> >> >> > >        pci_disable_device(pdev);
->> >> >> >> > > -       pci_set_power_state(pdev, PCI_D3hot);
->> >> >> >> > > +       if (system_state == SYSTEM_POWER_OFF) {
->> >> >> >> > > +               if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
->> >> >> >> > > +                       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
->> >> >> >> > > +               pci_set_power_state(pdev, PCI_D3hot);
->> >> >> >> > > +       }
->> >> >> >> > >  }
->> >> >> >> > >  #else
->> >> >> >> > >  #define nv_suspend NULL
->> >> >> >> > >
->> >> >> >> >
->> >> >> 
->> >> >> > Does the last patch work for you BTW?
->> >> >> >
->> >> >> 
->> >> >> it works.
->> >> > 
->> >> > OK, thanks for testing.
->> >> > 
->> >> > I think we can use it as a quick fix for 2.6.27.  Do you agree?
->> >> > 
->> >> > Still, it would be helpful to verify if this is the same MSI issue reported by
->> >> > Simon.
->> >> 
->> >> I tried to test that patch but even without it standby/resume has stopped working:
->> > 
->> > Which kernel is this?
->> 
->> linus-2.6 a7f5aaf36ded825477c4d7167cc6eb1bcdc63191
->> 
->> I've reverted to 2b12a4c524812fb3f6ee590a02e65b95c8c32229 where standby/resume still 
->> works and applied the above patch plus the pci_enable_device patch. It still doesn't 
->> work after resume if MSI is enabled.
-> 
-> My patch only affects the shutdown code path and is not related to
-> suspend/standby etc.
-> 
-> Could you identify the commit that broke standby/resume for you between
-> 2b12a4c524812fb3f6ee590a02e65b95c8c32229 and
-> a7f5aaf36ded825477c4d7167cc6eb1bcdc63191 ?  It looks like that should be
-> bisectable.
+from Jie Yang <jie.yang@atheros.com>
 
-It appears to be working again as of ee096f75b69913dbad0e6f7f2572513de5c90002.
+ On Saturday, August 30, 2008 5:27 AM
+ Andrew Morton <akpm@linux-foundation.org]>
+> On Fri, 29 Aug 2008 14:08:09 -0700 (PDT) 
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=11454
+> >
+> >            Summary: atl1e - BUG: scheduling while atomic:
+> >                     modprobe/678/0x00000002
+> >            Product: Drivers
+> >            Version: 2.5
+> >      KernelVersion: 2.6.27-rc5
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: high
+> >           Priority: P1
+> >          Component: Network
+> >         AssignedTo: jgarzik@pobox.com
+> >         ReportedBy: harn-solo@gmx.de
+> >
+> >
+> > Latest working kernel version: -
+> > Earliest failing kernel version: 2.6.27-rc1
+> > Software: x86_64
+> >
+> 
+> drivers/net/atl1e/atl1e_hw.c:   struct atl1e_adapter *adapter 
+> = (struct atl1e_adapter *)hw->adapter;
+> drivers/net/atl1e/atl1e_hw.c:   struct atl1e_adapter *adapter 
+> = (struct atl1e_adapter *)hw->adapter;
+> drivers/net/atl1e/atl1e_hw.c:   struct atl1e_adapter *adapter 
+> = (struct atl1e_adapter *)hw->adapter;
+> 
+> are unneeded and undesirable.  hw->adapter already has type 
+> atl1e_adapter*.
+> 
 
--- 
-Simon Arlott
+just as Matthew Wilcox <matthew@wil.cx> mentioned:
+> Lockdep warns about the mdio_lock taken with interrupts enabled then 
+> later taken from interrupt context.  Initially, I considered changing 
+> these to spin_lock_irq/spin_unlock_irq, but then I looked at 
+> atl1e_phy_init() and saw that it calls msleep().  Sleeping while 
+> holding a spinlock is not allowed either.
+> 
+> In the probe path, we haven't registered the interrupt handler, so it 
+> can't poke at this card yet.  It's before we call register_netdev(), 
+> so I don't think any other threads can reach this card either.  If I'm 
+> right, we don't need a spinlock at all.
+
+So, just do not take mdio_lock lock in atl1e_probe, and remove the
+unneeded (struct atl1e_adapter *)
+
+Signed-off-by: Jie Yang <jie.yang@atheros.com>
+---
+
+BTW: I do not know if this format is suitable for repling [Bugme-new],
+if it is not suitable, just let me know.
+
+diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/atl1e/atl1e_hw.c
+index 949e753..8cbc1b5 100644
+--- a/drivers/net/atl1e/atl1e_hw.c
++++ b/drivers/net/atl1e/atl1e_hw.c
+@@ -397,7 +397,7 @@ static int atl1e_phy_setup_autoneg_adv(struct atl1e_hw *hw)
+  */
+ int atl1e_phy_commit(struct atl1e_hw *hw)
+ {
+-       struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
++       struct atl1e_adapter *adapter = hw->adapter;
+        struct pci_dev *pdev = adapter->pdev;
+        int ret_val;
+        u16 phy_data;
+@@ -431,7 +431,7 @@ int atl1e_phy_commit(struct atl1e_hw *hw)
+
+ int atl1e_phy_init(struct atl1e_hw *hw)
+ {
+-       struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
++       struct atl1e_adapter *adapter = hw->adapter;
+        struct pci_dev *pdev = adapter->pdev;
+        s32 ret_val;
+        u16 phy_val;
+@@ -525,7 +525,7 @@ int atl1e_phy_init(struct atl1e_hw *hw)
+  */
+ int atl1e_reset_hw(struct atl1e_hw *hw)
+ {
+-       struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
++       struct atl1e_adapter *adapter = hw->adapter;
+        struct pci_dev *pdev = adapter->pdev;
+
+        u32 idle_status_data = 0;
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 7685b99..9b60352 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -2390,9 +2390,7 @@ static int __devinit atl1e_probe(struct pci_dev *pdev,
+        }
+
+        /* Init GPHY as early as possible due to power saving issue  */
+-       spin_lock(&adapter->mdio_lock);
+        atl1e_phy_init(&adapter->hw);
+-       spin_unlock(&adapter->mdio_lock);
+        /* reset the controller to
+         * put the device in a known good starting state */
+        err = atl1e_reset_hw(&adapter->hw);
 
