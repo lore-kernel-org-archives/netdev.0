@@ -1,36 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Sun, 31 Aug 2008 21:10:05 -0700 (PDT)
-Message-ID: <20080831.211005.22750451.davem@davemloft.net>
-References: <20031.1220236756@turing-police.cc.vt.edu>
-	<20080831.205145.225080276.davem@davemloft.net>
-	<6720.1220242094@turing-police.cc.vt.edu>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after some	time
+Date: Sun, 31 Aug 2008 22:49:50 -0700
+Message-ID: <OF94B2D0C1.33DB4CE6-ON882574B7.001FDB00-882574B7.00200870@us.ibm.com>
+References: <20080831182034.GA12035@pest>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, jmalicki@metacarta.com, andi@firstfloor.org,
-	johnpol@2ka.mipt.ru, dada1@cosmosbay.com, denys@visp.net.lb,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	juhlenko@akamai.com, sammy@sammy.net
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Bernhard Schmidt <berni@birkenwald.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46156
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752377AbYIAEKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 00:10:11 -0400
-In-Reply-To: <6720.1220242094@turing-police.cc.vt.edu>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:59316 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750980AbYIAFtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 01:49:55 -0400
+In-Reply-To: <20080831182034.GA12035@pest>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Valdis.Kletnieks@vt.edu
-Date: Mon, 01 Sep 2008 00:08:14 -0400
+My wild guess is that you have lost the multicast bit on
+the interface, by a daemon that is just setting the interface
+flags rather than doing get/or in new/set.
 
-> Quite frankly, unless somebody *IS* planning to become an expert on how the
-> IT stuff for them are designed and run, we *should not* be doing any code
-> changes that we don't understand, just because they say so and we should
-> trust them...
+When it's failing, you might try looking at the interface
+flags to see if IFF_MULTICAST is still there.
 
-Exactly!  We should not change where and how packet timestamps are
-taken!  Thanks!
+                                +-DLS
 
-It is what I have been advocating this whole thread :-)
