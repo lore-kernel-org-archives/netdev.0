@@ -1,59 +1,47 @@
-From: Valdis.Kletnieks@vt.edu
+From: David Miller <davem@davemloft.net>
 Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Sun, 31 Aug 2008 22:39:16 -0400
-Message-ID: <20031.1220236756@turing-police.cc.vt.edu>
+Date: Sun, 31 Aug 2008 20:51:45 -0700 (PDT)
+Message-ID: <20080831.205145.225080276.davem@davemloft.net>
 References: <21915755.1327801219904892242.JavaMail.root@ouachita>
-            <48B6E7D0.5070307@hp.com>
+	<48B6E7D0.5070307@hp.com>
+	<20031.1220236756@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1220236756_12805P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Joe Malicki <jmalicki@metacarta.com>,
-	David Miller <davem@davemloft.net>, andi@firstfloor.org,
+Cc: rick.jones2@hp.com, jmalicki@metacarta.com, andi@firstfloor.org,
 	johnpol@2ka.mipt.ru, dada1@cosmosbay.com, denys@visp.net.lb,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	juhlenko@akamai.com, sammy@sammy.net
-To: Rick Jones <rick.jones2@hp.com>
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:36846 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbYIACjp (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 22:39:45 -0400
-In-Reply-To: Your message of "Thu, 28 Aug 2008 11:00:48 PDT."
-             <48B6E7D0.5070307@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35627
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751099AbYIADvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 23:51:52 -0400
+In-Reply-To: <20031.1220236756@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1220236756_12805P
-Content-Type: text/plain; charset=us-ascii
+From: Valdis.Kletnieks@vt.edu
+Date: Sun, 31 Aug 2008 22:39:16 -0400
 
-On Thu, 28 Aug 2008 11:00:48 PDT, Rick Jones said:
+> As a totally pragmatic point - if the market is in such free-fall that it
+> matters that your order got in a 10 thousandth of a second after somebody
+> else's, instead of before, you probably lost at least 5 to 10 times as much
+> during the time it took somebody to type the damn order in and hit enter.
 
-> Earlier in the thread mention was made of financial services types.  If 
-> someone has knowledge of the (probably) arcane rules under which they 
-> must operate it would be great to hear more.  Does some entity like the 
-> SEC (Securities and Exchange Commission in the United States) mandate 
-> some sort of timestamp for when the trading request "arrives at the 
-> trading system" and do they define that "arriving at the trading system" 
-> means?
+Many trades are made programaticcally using formulas and computer
+algorithms in response to market activity and other trades of the
+same security.
 
-As a totally pragmatic point - if the market is in such free-fall that it
-matters that your order got in a 10 thousandth of a second after somebody
-else's, instead of before, you probably lost at least 5 to 10 times as much
-during the time it took somebody to type the damn order in and hit enter.
+There is no typing involved :)
 
-At that point, you have *bigger* things to worry about.
+I don't think anyone in this thread can even pretend to understand how
+any of this stuff works, that's why I'm starting to consider this
+thread completely pointless.
 
---==_Exmh_1220236756_12805P
-Content-Type: application/pgp-signature
+If the financial folks say they need this stuff, then unless we're
+prepared to become experts in financial markets and how the IT stuff
+for them are designed and run, we might as well just trust them on
+this one.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFIu1XUcC3lWbTT17ARAohOAKCh5/m7M6Tr92hp8Tm74aHeHWmiJgCdG3lM
-kL9+I5B07pACfQ6+SbpUrrc=
-=BYQm
------END PGP SIGNATURE-----
-
---==_Exmh_1220236756_12805P--
