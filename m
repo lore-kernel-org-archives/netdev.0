@@ -1,66 +1,209 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after
-	some time
-Date: Mon, 1 Sep 2008 20:03:42 +0200
-Message-ID: <20080901180342.GA13248@pest>
-References: <20080831182034.GA12035@pest> <OF9473413E.A12F091F-ON882574B7.00472B7A-882574B7.0047BD14@us.ibm.com> <20080901170101.GA12236@pest> <alpine.LRH.1.10.0809012055460.6006@netcore.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [UPDATED] [NET-NEXT PATCH 1/2] pkt_sched: Add multiqueue
+	scheduler support
+Date: Mon, 1 Sep 2008 23:05:16 +0200
+Message-ID: <20080901210516.GA5931@ami.dom.local>
+References: <20080830072304.7597.24577.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
-To: Pekka Savola <pekkas@netcore.fi>
+Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs02.svr02.mucip.net ([83.170.6.69]:36643 "EHLO
-	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751336AbYIASDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 14:03:47 -0400
+Received: from fg-out-1718.google.com ([72.14.220.156]:3653 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843AbYIAVDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 17:03:52 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1619792fgg.17
+        for <netdev@vger.kernel.org>; Mon, 01 Sep 2008 14:03:50 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <alpine.LRH.1.10.0809012055460.6006@netcore.fi>
+In-Reply-To: <20080830072304.7597.24577.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 01, 2008 at 08:57:51PM +0300, Pekka Savola wrote:
+Jeff Kirsher wrote, On 08/30/2008 09:23 AM:
 
-Hello Pekka,
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This patch is intended to add a qdisc to support the new tx multiqueue
+> architecture by providing a band for each hardware queue.  By doing
+> this it is possible to support a different qdisc per physical hardware
+> queue.
+> 
+> This qdisc uses the skb->queue_mapping to select which band to place
+> the traffic onto.  It then uses a round robin w/ a check to see if the
+> subqueue is stopped to determine which band to dequeue the packet from.
 
-> On Mon, 1 Sep 2008, Bernhard Schmidt wrote:
->> sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58),  
->> inet_pton(AF_INET6, "ff02::2", &sin6_addr), sin6_flowinfo=0,  
->> sin6_scope_id=0},  
->> msg_iov(1)=[{"\200\0\0\0004x\0\1\22\37\274H\366\v\5\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30"..., 
->> 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, 
->> ...},  
->> msg_flags=MSG_PEEK|MSG_PROXY|MSG_WAITALL|MSG_CONFIRM|MSG_FIN|MSG_SYN|MSG_RST|MSG_CMSG_CLOEXEC|0x8bc0000}, 
->> 0) = 64
->
-> versus:
->
->> sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58),  
->> inet_pton(AF_INET6, "ff02::9", &sin6_addr), sin6_flowinfo=0,  
->> sin6_scope_id=0},  
->> msg_iov(1)=[{"\200\0\0\0Sx\0\1/\37\274H\354\212\n\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30"..., 
->> 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, 
->> ...}, msg_flags=MSG_CTRUNC}, 0) = -1 EINVAL (Invalid argument)
->
-> It seems that in the latter case, you haven't specified the interface  
-> (sin6_scope_id=0), but in the former case you have.  You can't send to  
-> link-local multicast groups if you have multiple interface if the  
-> interface isn't specified.
+Mostly looks OK to me, but a few (late) doubts below:
 
-I did specify the interface:
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> 
+>  include/linux/pkt_sched.h |    6 +
+>  net/sched/Kconfig         |    9 +
+>  net/sched/Makefile        |    1 
+>  net/sched/sch_multiq.c    |  470 +++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 486 insertions(+), 0 deletions(-)
+>  create mode 100644 net/sched/sch_multiq.c
+> 
+> diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+> index e5de421..7fbc952 100644
+> --- a/include/linux/pkt_sched.h
+> +++ b/include/linux/pkt_sched.h
+> @@ -123,6 +123,12 @@ struct tc_prio_qopt
+>  	__u8	priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> PRIO band */
+>  };
+>  
+> +/* MULTIQ section */
+> +
+> +struct tc_multiq_qopt {
+> +	int	bands;			/* Number of bands */
 
-miredo:~# ping6 -I eth0 ff02::2
-PING ff02::2(ff02::2) from fe80::216:3eff:feb9:29f5 eth0: 56 data bytes
-64 bytes from fe80::216:3eff:feb9:29f5: icmp_seq=1 ttl=64 time=0.034 ms
-[...]
-miredo:~# ping6 -I eth0 ff02::9
-PING ff02::9(ff02::9) from fe80::216:3eff:feb9:29f5 eth0: 56 data bytes
-ping: sendmsg: Invalid argument
-64 bytes from fe80::216:3eff:feb9:29f5: icmp_seq=1 ttl=64 time=0.033 ms
+Probably __u16 or __u32 would look better here.
 
-I have no idea what the different flags mean or where they come from.
+> +};
+> +
+>  /* TBF section */
+>  
+>  struct tc_tbf_qopt
+> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+> index 9437b27..efaa7a7 100644
+> --- a/net/sched/Kconfig
+> +++ b/net/sched/Kconfig
+> @@ -106,6 +106,15 @@ config NET_SCH_PRIO
+>  	  To compile this code as a module, choose M here: the
+>  	  module will be called sch_prio.
+>  
+> +config NET_SCH_MULTIQ
+> +	tristate "Hardware Multiqueue-aware Multi Band Queuing (MULTIQ)"
+> +	---help---
+> +	  Say Y here if you want to use an n-band queue packet scheduler
+> +	  to support devices that have multiple hardware transmit queues.
+> +
+> +	  To compile this code as a module, choose M here: the
+> +	  module will be called sch_multiq.
+> +
 
-Also please note that broken ping6 is just a symptom, the real problem
-is ripngd suddenly not being able to send to the multicast group
-anymore.
+It would be nice to bring back a few lines about MULTIQ(RR) to
+Documentation/networking/multiqueue.txt and mention this here.
 
-Bernhard
+>  config NET_SCH_RED
+>  	tristate "Random Early Detection (RED)"
+>  	---help---
+> diff --git a/net/sched/Makefile b/net/sched/Makefile
+> index 1d2b0f7..3d9b953 100644
+> --- a/net/sched/Makefile
+> +++ b/net/sched/Makefile
+> @@ -26,6 +26,7 @@ obj-$(CONFIG_NET_SCH_SFQ)	+= sch_sfq.o
+>  obj-$(CONFIG_NET_SCH_TBF)	+= sch_tbf.o
+>  obj-$(CONFIG_NET_SCH_TEQL)	+= sch_teql.o
+>  obj-$(CONFIG_NET_SCH_PRIO)	+= sch_prio.o
+> +obj-$(CONFIG_NET_SCH_MULTIQ)	+= sch_multiq.o
+>  obj-$(CONFIG_NET_SCH_ATM)	+= sch_atm.o
+>  obj-$(CONFIG_NET_SCH_NETEM)	+= sch_netem.o
+>  obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
+> diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+> new file mode 100644
+> index 0000000..708dd5c
+> --- /dev/null
+> +++ b/net/sched/sch_multiq.c
+> @@ -0,0 +1,470 @@
+> +/*
+> + * net/sched/sch_multiq.c
+> + * 		This qdisc is based off of the rr qdisc and is meant to
+> + * 		prevent head-of-line blocking on devices that have multiple
+> + * 		hardware queues.
+> + *
+> + *		This program is free software; you can redistribute it and/or
+> + *		modify it under the terms of the GNU General Public License
+> + *		as published by the Free Software Foundation; either version
+> + *		2 of the License, or (at your option) any later version.
+> + *
+> + * Authors:	Alexander Duyck <alexander.h.duyck@intel.com>
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <linux/types.h>
+> +#include <linux/kernel.h>
+> +#include <linux/string.h>
+> +#include <linux/errno.h>
+> +#include <linux/skbuff.h>
+> +#include <net/netlink.h>
+> +#include <net/pkt_sched.h>
+> +
+> +
+> +struct multiq_sched_data {
+> +	int bands;
+> +	int curband;
+
+unsigned etc?
+
+> +	struct tcf_proto *filter_list;
+> +	struct Qdisc **queues;
+> +
+
+A spurious line.
+
+> +};
+
+...
+> +static void
+> +multiq_reset(struct Qdisc *sch)
+> +{
+> +	int band;
+> +	struct multiq_sched_data *q = qdisc_priv(sch);
+> +
+> +	for (band = 0; band < q->bands; band++)
+> +		qdisc_reset(q->queues[band]);
+> +	sch->q.qlen = 0;
+
+  +	q->curband = 0; ?
+
+...
+> +static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
+> +{
+> +	struct multiq_sched_data *q = qdisc_priv(sch);
+> +	struct tc_multiq_qopt *qopt;
+> +	struct Qdisc **queues;
+> +	int i;
+> +
+> +	if (sch->parent != TC_H_ROOT)
+> +		return -EINVAL;
+
+Is it necessary?
+
+> +	if (!netif_is_multiqueue(qdisc_dev(sch)))
+> +		return -EINVAL;
+> +	if (nla_len(opt) < sizeof(*qopt))
+> +		return -EINVAL;
+> +
+> +	qopt = nla_data(opt);
+> +
+> +	qopt->bands = qdisc_dev(sch)->real_num_tx_queues;
+> +
+> +	queues = kzalloc(sizeof(struct Qdisc *)*qopt->bands, GFP_KERNEL);
+
+kcalloc()?
+
+...
+> +static int multiq_dump(struct Qdisc *sch, struct sk_buff *skb)
+> +{
+> +	struct multiq_sched_data *q = qdisc_priv(sch);
+> +	unsigned char *b = skb_tail_pointer(skb);
+> +	struct nlattr *nest;
+> +	struct tc_multiq_qopt opt;
+> +
+> +	opt.bands = q->bands;
+> +
+> +	nest = nla_nest_compat_start(skb, TCA_OPTIONS, sizeof(opt), &opt);
+
+http://marc.info/?l=linux-netdev&m=121993231608269&w=2
+
+> +	if (nest == NULL)
+> +		goto nla_put_failure;
+> +	nla_nest_compat_end(skb, nest);
+...
+
+Jarek P.
