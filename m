@@ -1,332 +1,317 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 19/52] sfc: Cleaned up struct tso_state fields
-Date: Mon, 1 Sep 2008 12:47:02 +0100
-Message-ID: <20080901114701.GM7908@solarflare.com>
+Subject: [PATCH 20/52] sfc: Removed forced inlining of long functions
+Date: Mon, 1 Sep 2008 12:47:12 +0100
+Message-ID: <20080901114710.GN7908@solarflare.com>
 References: <20080901111621.GT7908@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:56605 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757484AbYIALrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:47:05 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:54559 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757512AbYIALrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:47:15 -0400
 Content-Disposition: inline
 In-Reply-To: <20080901111621.GT7908@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Squashed nested structures.
-
-Renamed remaining_len to out_len, ifc.len to in_len, header_length to
-header_len.
-
-Moved ipv4_id into the group of output variables where it belongs.
+gcc will automatically inline static functions with only one caller, and
+may inline other functions depending on the kernel configuration and size
+of the intermediate code.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/tx.c |  161 +++++++++++++++++++++++---------------------------
- 1 files changed, 75 insertions(+), 86 deletions(-)
+ drivers/net/sfc/efx.c    |    2 +-
+ drivers/net/sfc/falcon.c |    8 +++---
+ drivers/net/sfc/rx.c     |   42 ++++++++++++++++++++--------------------
+ drivers/net/sfc/tx.c     |   47 ++++++++++++++++++++++-----------------------
+ 4 files changed, 49 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index 51429b6..550856f 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -540,46 +540,37 @@ void efx_remove_tx_queue(struct efx_tx_queue *tx_queue)
- 
- /**
-  * struct tso_state - TSO state for an SKB
-- * @remaining_len: Bytes of data we've yet to segment
-+ * @out_len: Remaining length in current segment
-  * @seqnum: Current sequence number
-+ * @ipv4_id: Current IPv4 ID, host endian
-  * @packet_space: Remaining space in current packet
-- * @ifc: Input fragment cursor.
-- *	Where we are in the current fragment of the incoming SKB.  These
-- *	values get updated in place when we split a fragment over
-- *	multiple packets.
-- * @p: Parameters.
-- *	These values are set once at the start of the TSO send and do
-- *	not get changed as the routine progresses.
-+ * @dma_addr: DMA address of current position
-+ * @in_len: Remaining length in current SKB fragment
-+ * @unmap_len: Length of SKB fragment
-+ * @unmap_addr: DMA address of SKB fragment
-+ * @unmap_single: DMA single vs page mapping flag
-+ * @header_len: Number of bytes of header
-+ * @full_packet_size: Number of bytes to put in each outgoing segment
-  *
-  * The state used during segmentation.  It is put into this data structure
-  * just to make it easy to pass into inline functions.
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 022dc36..9f1ac3a 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -158,7 +158,7 @@ static void efx_fini_channels(struct efx_nic *efx);
+  * never be concurrently called more than once on the same channel,
+  * though different channels may be being processed concurrently.
   */
- struct tso_state {
--	unsigned remaining_len;
-+	/* Output position */
-+	unsigned out_len;
- 	unsigned seqnum;
-+	unsigned ipv4_id;
- 	unsigned packet_space;
- 
--	struct {
--		/* DMA address of current position */
--		dma_addr_t dma_addr;
--		/* Remaining length */
--		unsigned int len;
--		/* DMA address and length of the whole fragment */
--		unsigned int unmap_len;
--		dma_addr_t unmap_addr;
--		bool unmap_single;
--	} ifc;
--
--	struct {
--		/* The number of bytes of header */
--		unsigned int header_length;
--
--		/* The number of bytes to put in each outgoing segment. */
--		int full_packet_size;
--
--		/* Current IPv4 ID, host endian. */
--		unsigned ipv4_id;
--	} p;
-+	/* Input position */
-+	dma_addr_t dma_addr;
-+	unsigned in_len;
-+	unsigned unmap_len;
-+	dma_addr_t unmap_addr;
-+	bool unmap_single;
-+
-+	unsigned header_len;
-+	int full_packet_size;
- };
- 
- 
-@@ -840,35 +831,34 @@ static inline void tso_start(struct tso_state *st, const struct sk_buff *skb)
- 	/* All ethernet/IP/TCP headers combined size is TCP header size
- 	 * plus offset of TCP header relative to start of packet.
- 	 */
--	st->p.header_length = ((tcp_hdr(skb)->doff << 2u)
--			       + PTR_DIFF(tcp_hdr(skb), skb->data));
--	st->p.full_packet_size = (st->p.header_length
--				  + skb_shinfo(skb)->gso_size);
-+	st->header_len = ((tcp_hdr(skb)->doff << 2u)
-+			  + PTR_DIFF(tcp_hdr(skb), skb->data));
-+	st->full_packet_size = st->header_len + skb_shinfo(skb)->gso_size;
- 
--	st->p.ipv4_id = ntohs(ip_hdr(skb)->id);
-+	st->ipv4_id = ntohs(ip_hdr(skb)->id);
- 	st->seqnum = ntohl(tcp_hdr(skb)->seq);
- 
- 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->urg);
- 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->syn);
- 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->rst);
- 
--	st->packet_space = st->p.full_packet_size;
--	st->remaining_len = skb->len - st->p.header_length;
--	st->ifc.unmap_len = 0;
--	st->ifc.unmap_single = false;
-+	st->packet_space = st->full_packet_size;
-+	st->out_len = skb->len - st->header_len;
-+	st->unmap_len = 0;
-+	st->unmap_single = false;
- }
- 
- static inline int tso_get_fragment(struct tso_state *st, struct efx_nic *efx,
- 				   skb_frag_t *frag)
+-static inline int efx_process_channel(struct efx_channel *channel, int rx_quota)
++static int efx_process_channel(struct efx_channel *channel, int rx_quota)
  {
--	st->ifc.unmap_addr = pci_map_page(efx->pci_dev, frag->page,
--					  frag->page_offset, frag->size,
--					  PCI_DMA_TODEVICE);
--	if (likely(!pci_dma_mapping_error(efx->pci_dev, st->ifc.unmap_addr))) {
--		st->ifc.unmap_single = false;
--		st->ifc.unmap_len = frag->size;
--		st->ifc.len = frag->size;
--		st->ifc.dma_addr = st->ifc.unmap_addr;
-+	st->unmap_addr = pci_map_page(efx->pci_dev, frag->page,
-+				      frag->page_offset, frag->size,
-+				      PCI_DMA_TODEVICE);
-+	if (likely(!pci_dma_mapping_error(efx->pci_dev, st->unmap_addr))) {
-+		st->unmap_single = false;
-+		st->unmap_len = frag->size;
-+		st->in_len = frag->size;
-+		st->dma_addr = st->unmap_addr;
- 		return 0;
- 	}
- 	return -ENOMEM;
-@@ -878,16 +868,16 @@ static inline int
- tso_get_head_fragment(struct tso_state *st, struct efx_nic *efx,
- 		      const struct sk_buff *skb)
+ 	int rxdmaqs;
+ 	struct efx_rx_queue *rx_queue;
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index fb06971..9a13e5c 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -815,8 +815,8 @@ void falcon_generate_event(struct efx_channel *channel, efx_qword_t *event)
+  * Falcon batches TX completion events; the message we receive is of
+  * the form "complete all TX events up to this index".
+  */
+-static inline void falcon_handle_tx_event(struct efx_channel *channel,
+-					  efx_qword_t *event)
++static void falcon_handle_tx_event(struct efx_channel *channel,
++				   efx_qword_t *event)
  {
--	int hl = st->p.header_length;
-+	int hl = st->header_len;
- 	int len = skb_headlen(skb) - hl;
+ 	unsigned int tx_ev_desc_ptr;
+ 	unsigned int tx_ev_q_label;
+@@ -952,8 +952,8 @@ static void falcon_handle_rx_bad_index(struct efx_rx_queue *rx_queue,
+  * Also "is multicast" and "matches multicast filter" flags can be used to
+  * discard non-matching multicast packets.
+  */
+-static inline int falcon_handle_rx_event(struct efx_channel *channel,
+-					 const efx_qword_t *event)
++static int falcon_handle_rx_event(struct efx_channel *channel,
++				  const efx_qword_t *event)
+ {
+ 	unsigned int rx_ev_q_label, rx_ev_desc_ptr, rx_ev_byte_cnt;
+ 	unsigned int rx_ev_hdr_type, rx_ev_mcast_pkt;
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+index 17aa81e..fa1a62a 100644
+--- a/drivers/net/sfc/rx.c
++++ b/drivers/net/sfc/rx.c
+@@ -212,8 +212,8 @@ void efx_lro_fini(struct net_lro_mgr *lro_mgr)
+  * and populates a struct efx_rx_buffer with the relevant
+  * information.  Return a negative error code or 0 on success.
+  */
+-static inline int efx_init_rx_buffer_skb(struct efx_rx_queue *rx_queue,
+-					 struct efx_rx_buffer *rx_buf)
++static int efx_init_rx_buffer_skb(struct efx_rx_queue *rx_queue,
++				  struct efx_rx_buffer *rx_buf)
+ {
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	struct net_device *net_dev = efx->net_dev;
+@@ -252,8 +252,8 @@ static inline int efx_init_rx_buffer_skb(struct efx_rx_queue *rx_queue,
+  * and populates a struct efx_rx_buffer with the relevant
+  * information.  Return a negative error code or 0 on success.
+  */
+-static inline int efx_init_rx_buffer_page(struct efx_rx_queue *rx_queue,
+-					  struct efx_rx_buffer *rx_buf)
++static int efx_init_rx_buffer_page(struct efx_rx_queue *rx_queue,
++				   struct efx_rx_buffer *rx_buf)
+ {
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	int bytes, space, offset;
+@@ -319,8 +319,8 @@ static inline int efx_init_rx_buffer_page(struct efx_rx_queue *rx_queue,
+  * and populates a struct efx_rx_buffer with the relevant
+  * information.
+  */
+-static inline int efx_init_rx_buffer(struct efx_rx_queue *rx_queue,
+-				     struct efx_rx_buffer *new_rx_buf)
++static int efx_init_rx_buffer(struct efx_rx_queue *rx_queue,
++			      struct efx_rx_buffer *new_rx_buf)
+ {
+ 	int rc = 0;
  
--	st->ifc.unmap_addr = pci_map_single(efx->pci_dev, skb->data + hl,
--					    len, PCI_DMA_TODEVICE);
--	if (likely(!pci_dma_mapping_error(efx->pci_dev, st->ifc.unmap_addr))) {
--		st->ifc.unmap_single = true;
--		st->ifc.unmap_len = len;
--		st->ifc.len = len;
--		st->ifc.dma_addr = st->ifc.unmap_addr;
-+	st->unmap_addr = pci_map_single(efx->pci_dev, skb->data + hl,
-+					len, PCI_DMA_TODEVICE);
-+	if (likely(!pci_dma_mapping_error(efx->pci_dev, st->unmap_addr))) {
-+		st->unmap_single = true;
-+		st->unmap_len = len;
-+		st->in_len = len;
-+		st->dma_addr = st->unmap_addr;
- 		return 0;
- 	}
- 	return -ENOMEM;
-@@ -911,38 +901,38 @@ static inline int tso_fill_packet_with_fragment(struct efx_tx_queue *tx_queue,
- 	struct efx_tx_buffer *buffer;
- 	int n, end_of_packet, rc;
- 
--	if (st->ifc.len == 0)
-+	if (st->in_len == 0)
- 		return 0;
- 	if (st->packet_space == 0)
- 		return 0;
- 
--	EFX_BUG_ON_PARANOID(st->ifc.len <= 0);
-+	EFX_BUG_ON_PARANOID(st->in_len <= 0);
- 	EFX_BUG_ON_PARANOID(st->packet_space <= 0);
- 
--	n = min(st->ifc.len, st->packet_space);
-+	n = min(st->in_len, st->packet_space);
- 
- 	st->packet_space -= n;
--	st->remaining_len -= n;
--	st->ifc.len -= n;
-+	st->out_len -= n;
-+	st->in_len -= n;
- 
--	rc = efx_tx_queue_insert(tx_queue, st->ifc.dma_addr, n, &buffer);
-+	rc = efx_tx_queue_insert(tx_queue, st->dma_addr, n, &buffer);
- 	if (likely(rc == 0)) {
--		if (st->remaining_len == 0)
-+		if (st->out_len == 0)
- 			/* Transfer ownership of the skb */
- 			buffer->skb = skb;
- 
--		end_of_packet = st->remaining_len == 0 || st->packet_space == 0;
-+		end_of_packet = st->out_len == 0 || st->packet_space == 0;
- 		buffer->continuation = !end_of_packet;
- 
--		if (st->ifc.len == 0) {
-+		if (st->in_len == 0) {
- 			/* Transfer ownership of the pci mapping */
--			buffer->unmap_len = st->ifc.unmap_len;
--			buffer->unmap_single = st->ifc.unmap_single;
--			st->ifc.unmap_len = 0;
-+			buffer->unmap_len = st->unmap_len;
-+			buffer->unmap_single = st->unmap_single;
-+			st->unmap_len = 0;
- 		}
- 	}
- 
--	st->ifc.dma_addr += n;
-+	st->dma_addr += n;
+@@ -340,8 +340,8 @@ static inline int efx_init_rx_buffer(struct efx_rx_queue *rx_queue,
  	return rc;
  }
  
-@@ -967,7 +957,7 @@ static inline int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 	u8 *header;
- 
- 	/* Allocate a DMA-mapped header buffer. */
--	if (likely(TSOH_SIZE(st->p.header_length) <= TSOH_STD_SIZE)) {
-+	if (likely(TSOH_SIZE(st->header_len) <= TSOH_STD_SIZE)) {
- 		if (tx_queue->tso_headers_free == NULL) {
- 			if (efx_tsoh_block_alloc(tx_queue))
- 				return -1;
-@@ -978,7 +968,7 @@ static inline int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 		tsoh->unmap_len = 0;
- 	} else {
- 		tx_queue->tso_long_headers++;
--		tsoh = efx_tsoh_heap_alloc(tx_queue, st->p.header_length);
-+		tsoh = efx_tsoh_heap_alloc(tx_queue, st->header_len);
- 		if (unlikely(!tsoh))
- 			return -1;
+-static inline void efx_unmap_rx_buffer(struct efx_nic *efx,
+-				       struct efx_rx_buffer *rx_buf)
++static void efx_unmap_rx_buffer(struct efx_nic *efx,
++				struct efx_rx_buffer *rx_buf)
+ {
+ 	if (rx_buf->page) {
+ 		EFX_BUG_ON_PARANOID(rx_buf->skb);
+@@ -357,8 +357,8 @@ static inline void efx_unmap_rx_buffer(struct efx_nic *efx,
  	}
-@@ -988,33 +978,32 @@ static inline int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 	tsoh_iph = (struct iphdr *)(header + SKB_IPV4_OFF(skb));
- 
- 	/* Copy and update the headers. */
--	memcpy(header, skb->data, st->p.header_length);
-+	memcpy(header, skb->data, st->header_len);
- 
- 	tsoh_th->seq = htonl(st->seqnum);
- 	st->seqnum += skb_shinfo(skb)->gso_size;
--	if (st->remaining_len > skb_shinfo(skb)->gso_size) {
-+	if (st->out_len > skb_shinfo(skb)->gso_size) {
- 		/* This packet will not finish the TSO burst. */
--		ip_length = st->p.full_packet_size - ETH_HDR_LEN(skb);
-+		ip_length = st->full_packet_size - ETH_HDR_LEN(skb);
- 		tsoh_th->fin = 0;
- 		tsoh_th->psh = 0;
- 	} else {
- 		/* This packet will be the last in the TSO burst. */
--		ip_length = (st->p.header_length - ETH_HDR_LEN(skb)
--			     + st->remaining_len);
-+		ip_length = st->header_len - ETH_HDR_LEN(skb) + st->out_len;
- 		tsoh_th->fin = tcp_hdr(skb)->fin;
- 		tsoh_th->psh = tcp_hdr(skb)->psh;
- 	}
- 	tsoh_iph->tot_len = htons(ip_length);
- 
- 	/* Linux leaves suitable gaps in the IP ID space for us to fill. */
--	tsoh_iph->id = htons(st->p.ipv4_id);
--	st->p.ipv4_id++;
-+	tsoh_iph->id = htons(st->ipv4_id);
-+	st->ipv4_id++;
- 
- 	st->packet_space = skb_shinfo(skb)->gso_size;
- 	++tx_queue->tso_packets;
- 
- 	/* Form a descriptor for this header. */
--	efx_tso_put_header(tx_queue, tsoh, st->p.header_length);
-+	efx_tso_put_header(tx_queue, tsoh, st->header_len);
- 
- 	return 0;
  }
-@@ -1048,7 +1037,7 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 	/* Assume that skb header area contains exactly the headers, and
- 	 * all payload is in the frag list.
- 	 */
--	if (skb_headlen(skb) == state.p.header_length) {
-+	if (skb_headlen(skb) == state.header_len) {
- 		/* Grab the first payload fragment. */
- 		EFX_BUG_ON_PARANOID(skb_shinfo(skb)->nr_frags < 1);
- 		frag_i = 0;
-@@ -1072,7 +1061,7 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 			goto stop;
  
- 		/* Move onto the next fragment? */
--		if (state.ifc.len == 0) {
-+		if (state.in_len == 0) {
- 			if (++frag_i >= skb_shinfo(skb)->nr_frags)
- 				/* End of payload reached. */
- 				break;
-@@ -1108,13 +1097,13 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 
-  unwind:
- 	/* Free the DMA mapping we were in the process of writing out */
--	if (state.ifc.unmap_len) {
--		if (state.ifc.unmap_single)
--			pci_unmap_single(efx->pci_dev, state.ifc.unmap_addr,
--					 state.ifc.unmap_len, PCI_DMA_TODEVICE);
-+	if (state.unmap_len) {
-+		if (state.unmap_single)
-+			pci_unmap_single(efx->pci_dev, state.unmap_addr,
-+					 state.unmap_len, PCI_DMA_TODEVICE);
- 		else
--			pci_unmap_page(efx->pci_dev, state.ifc.unmap_addr,
--				       state.ifc.unmap_len, PCI_DMA_TODEVICE);
-+			pci_unmap_page(efx->pci_dev, state.unmap_addr,
-+				       state.unmap_len, PCI_DMA_TODEVICE);
+-static inline void efx_free_rx_buffer(struct efx_nic *efx,
+-				      struct efx_rx_buffer *rx_buf)
++static void efx_free_rx_buffer(struct efx_nic *efx,
++			       struct efx_rx_buffer *rx_buf)
+ {
+ 	if (rx_buf->page) {
+ 		__free_pages(rx_buf->page, efx->rx_buffer_order);
+@@ -369,8 +369,8 @@ static inline void efx_free_rx_buffer(struct efx_nic *efx,
  	}
+ }
  
- 	efx_enqueue_unwind(tx_queue);
+-static inline void efx_fini_rx_buffer(struct efx_rx_queue *rx_queue,
+-				      struct efx_rx_buffer *rx_buf)
++static void efx_fini_rx_buffer(struct efx_rx_queue *rx_queue,
++			       struct efx_rx_buffer *rx_buf)
+ {
+ 	efx_unmap_rx_buffer(rx_queue->efx, rx_buf);
+ 	efx_free_rx_buffer(rx_queue->efx, rx_buf);
+@@ -506,10 +506,10 @@ void efx_rx_work(struct work_struct *data)
+ 		efx_schedule_slow_fill(rx_queue, 1);
+ }
+ 
+-static inline void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
+-					    struct efx_rx_buffer *rx_buf,
+-					    int len, bool *discard,
+-					    bool *leak_packet)
++static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
++				     struct efx_rx_buffer *rx_buf,
++				     int len, bool *discard,
++				     bool *leak_packet)
+ {
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	unsigned max_len = rx_buf->len - efx->type->rx_buffer_padding;
+@@ -546,8 +546,8 @@ static inline void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
+  * Handles driverlink veto, and passes the fragment up via
+  * the appropriate LRO method
+  */
+-static inline void efx_rx_packet_lro(struct efx_channel *channel,
+-				     struct efx_rx_buffer *rx_buf)
++static void efx_rx_packet_lro(struct efx_channel *channel,
++			      struct efx_rx_buffer *rx_buf)
+ {
+ 	struct net_lro_mgr *lro_mgr = &channel->lro_mgr;
+ 	void *priv = channel;
+@@ -574,9 +574,9 @@ static inline void efx_rx_packet_lro(struct efx_channel *channel,
+ }
+ 
+ /* Allocate and construct an SKB around a struct page.*/
+-static inline struct sk_buff *efx_rx_mk_skb(struct efx_rx_buffer *rx_buf,
+-					    struct efx_nic *efx,
+-					    int hdr_len)
++static struct sk_buff *efx_rx_mk_skb(struct efx_rx_buffer *rx_buf,
++				     struct efx_nic *efx,
++				     int hdr_len)
+ {
+ 	struct sk_buff *skb;
+ 
+diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
+index 550856f..0e9889c 100644
+--- a/drivers/net/sfc/tx.c
++++ b/drivers/net/sfc/tx.c
+@@ -47,7 +47,7 @@ void efx_stop_queue(struct efx_nic *efx)
+  * We want to be able to nest calls to netif_stop_queue(), since each
+  * channel can have an individual stop on the queue.
+  */
+-inline void efx_wake_queue(struct efx_nic *efx)
++void efx_wake_queue(struct efx_nic *efx)
+ {
+ 	local_bh_disable();
+ 	if (atomic_dec_and_lock(&efx->netif_stop_count,
+@@ -59,8 +59,8 @@ inline void efx_wake_queue(struct efx_nic *efx)
+ 	local_bh_enable();
+ }
+ 
+-static inline void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
+-				      struct efx_tx_buffer *buffer)
++static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
++			       struct efx_tx_buffer *buffer)
+ {
+ 	if (buffer->unmap_len) {
+ 		struct pci_dev *pci_dev = tx_queue->efx->pci_dev;
+@@ -110,8 +110,8 @@ static void efx_fini_tso(struct efx_tx_queue *tx_queue);
+ static void efx_tsoh_heap_free(struct efx_tx_queue *tx_queue,
+ 			       struct efx_tso_header *tsoh);
+ 
+-static inline void efx_tsoh_free(struct efx_tx_queue *tx_queue,
+-				 struct efx_tx_buffer *buffer)
++static void efx_tsoh_free(struct efx_tx_queue *tx_queue,
++			  struct efx_tx_buffer *buffer)
+ {
+ 	if (buffer->tsoh) {
+ 		if (likely(!buffer->tsoh->unmap_len)) {
+@@ -138,8 +138,8 @@ static inline void efx_tsoh_free(struct efx_tx_queue *tx_queue,
+  * Returns NETDEV_TX_OK or NETDEV_TX_BUSY
+  * You must hold netif_tx_lock() to call this function.
+  */
+-static inline int efx_enqueue_skb(struct efx_tx_queue *tx_queue,
+-				  const struct sk_buff *skb)
++static int efx_enqueue_skb(struct efx_tx_queue *tx_queue,
++			   const struct sk_buff *skb)
+ {
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	struct pci_dev *pci_dev = efx->pci_dev;
+@@ -305,8 +305,8 @@ static inline int efx_enqueue_skb(struct efx_tx_queue *tx_queue,
+  * This removes packets from the TX queue, up to and including the
+  * specified index.
+  */
+-static inline void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
+-				       unsigned int index)
++static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
++				unsigned int index)
+ {
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	unsigned int stop_index, read_ptr;
+@@ -578,7 +578,7 @@ struct tso_state {
+  * Verify that our various assumptions about sk_buffs and the conditions
+  * under which TSO will be attempted hold true.
+  */
+-static inline void efx_tso_check_safe(const struct sk_buff *skb)
++static void efx_tso_check_safe(const struct sk_buff *skb)
+ {
+ 	EFX_BUG_ON_PARANOID(skb->protocol != htons(ETH_P_IP));
+ 	EFX_BUG_ON_PARANOID(((struct ethhdr *)skb->data)->h_proto !=
+@@ -772,8 +772,8 @@ static int efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
+  * a single fragment, and we know it doesn't cross a page boundary.  It
+  * also allows us to not worry about end-of-packet etc.
+  */
+-static inline void efx_tso_put_header(struct efx_tx_queue *tx_queue,
+-				      struct efx_tso_header *tsoh, unsigned len)
++static void efx_tso_put_header(struct efx_tx_queue *tx_queue,
++			       struct efx_tso_header *tsoh, unsigned len)
+ {
+ 	struct efx_tx_buffer *buffer;
+ 
+@@ -826,7 +826,7 @@ static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue)
+ 
+ 
+ /* Parse the SKB header and initialise state. */
+-static inline void tso_start(struct tso_state *st, const struct sk_buff *skb)
++static void tso_start(struct tso_state *st, const struct sk_buff *skb)
+ {
+ 	/* All ethernet/IP/TCP headers combined size is TCP header size
+ 	 * plus offset of TCP header relative to start of packet.
+@@ -848,8 +848,8 @@ static inline void tso_start(struct tso_state *st, const struct sk_buff *skb)
+ 	st->unmap_single = false;
+ }
+ 
+-static inline int tso_get_fragment(struct tso_state *st, struct efx_nic *efx,
+-				   skb_frag_t *frag)
++static int tso_get_fragment(struct tso_state *st, struct efx_nic *efx,
++			    skb_frag_t *frag)
+ {
+ 	st->unmap_addr = pci_map_page(efx->pci_dev, frag->page,
+ 				      frag->page_offset, frag->size,
+@@ -864,9 +864,8 @@ static inline int tso_get_fragment(struct tso_state *st, struct efx_nic *efx,
+ 	return -ENOMEM;
+ }
+ 
+-static inline int
+-tso_get_head_fragment(struct tso_state *st, struct efx_nic *efx,
+-		      const struct sk_buff *skb)
++static int tso_get_head_fragment(struct tso_state *st, struct efx_nic *efx,
++				 const struct sk_buff *skb)
+ {
+ 	int hl = st->header_len;
+ 	int len = skb_headlen(skb) - hl;
+@@ -894,9 +893,9 @@ tso_get_head_fragment(struct tso_state *st, struct efx_nic *efx,
+  * of fragment or end-of-packet.  Return 0 on success, 1 if not enough
+  * space in @tx_queue.
+  */
+-static inline int tso_fill_packet_with_fragment(struct efx_tx_queue *tx_queue,
+-						const struct sk_buff *skb,
+-						struct tso_state *st)
++static int tso_fill_packet_with_fragment(struct efx_tx_queue *tx_queue,
++					 const struct sk_buff *skb,
++					 struct tso_state *st)
+ {
+ 	struct efx_tx_buffer *buffer;
+ 	int n, end_of_packet, rc;
+@@ -946,9 +945,9 @@ static inline int tso_fill_packet_with_fragment(struct efx_tx_queue *tx_queue,
+  * Generate a new header and prepare for the new packet.  Return 0 on
+  * success, or -1 if failed to alloc header.
+  */
+-static inline int tso_start_new_packet(struct efx_tx_queue *tx_queue,
+-				       const struct sk_buff *skb,
+-				       struct tso_state *st)
++static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
++				const struct sk_buff *skb,
++				struct tso_state *st)
+ {
+ 	struct efx_tso_header *tsoh;
+ 	struct iphdr *tsoh_iph;
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
