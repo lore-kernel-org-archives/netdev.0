@@ -1,123 +1,336 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 00/52] sfc: Changes for 2.6.28
-Date: Mon, 1 Sep 2008 12:16:22 +0100
-Message-ID: <20080901111621.GT7908@solarflare.com>
+Subject: [PATCH 01/52] sfc: Replace net_dev->priv with netdev_priv(net_dev)
+Date: Mon, 1 Sep 2008 12:43:14 +0100
+Message-ID: <20080901114313.GU7908@solarflare.com>
+References: <20080901111621.GT7908@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Wang Chen <wangchen@cn.fujitsu.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:39680 "EHLO
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:53881 "EHLO
 	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751101AbYIALQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:16:27 -0400
+	by vger.kernel.org with ESMTP id S1750727AbYIALnW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:43:22 -0400
 Content-Disposition: inline
+In-Reply-To: <20080901111621.GT7908@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff,
+Use of the net_device::priv field is deprecated.
 
-Here's a first patch series for sfc in 2.6.28 covering minor fixes and
-improvements and the addition of EEPROM access and more self-tests
-through ethtool.  We have some more changes in the pipeline for new
-hardware support which I will submit later.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/efx.c     |   24 ++++++++++++------------
+ drivers/net/sfc/ethtool.c |   34 +++++++++++++++++-----------------
+ drivers/net/sfc/falcon.c  |    4 ++--
+ drivers/net/sfc/tx.c      |    2 +-
+ 4 files changed, 32 insertions(+), 32 deletions(-)
 
-Ben.
-
-Ben Hutchings (41):
-  sfc: Replace net_dev->priv with netdev_priv(net_dev)
-  sfc: Change first parameter type of {set,clear}_bit_le() to unsigned
-  sfc: Use separate hardware TX queues to select checksum generation
-  sfc: Avoid mangling error codes in efx_test_loopback()
-  sfc: Reduce delays in SFE4001 initialisation
-  sfc: Remove mistaken hardware workaround
-  sfc: XMAC statistics fix-ups
-  sfc: Remove inclusion of workarounds.h from efx.c
-  sfc: Reduce log level for XGXS lane status
-  sfc: Self-test reporting cleanup
-  sfc: Speed up loopback self-test
-  sfc: Don't leak PCI DMA maps in the TSO code when the queue fills up
-  sfc: Use pci_map_single() to map the skb header when doing TSO
-  sfc: Reduce the size of struct efx_tx_buffer
-  sfc: Use explicit bool for boolean variables, parameters and return
-    values
-  sfc: Set net_device::vlan_features appropriately
-  sfc: Cleaned up struct tso_state fields
-  sfc: Removed forced inlining of long functions
-  sfc: Export boot configuration in EEPROM through ethtool
-  sfc: Move CPU counting for RSS into a separate function,
-    efx_wanted_rx_queues()
-  sfc: Remove efx_channel::has_interrupt
-  sfc: Cleanup RX queue information
-  sfc: Remove initialisation of RX_FILTER_CTL_REG.NUM_KER
-  sfc: Make efx_for_each_channel_rx_queue() more efficient
-  sfc: Remove efx_channel::evqnum field
-  sfc: Cleanup RX event processing
-  sfc: Implement get_sset_count, replacing get_stats_count and
-    self_test_count
-  sfc: Make PHY flash mode a device attribute, not a module parameter
-  sfc: Enable TSO for 802.1q VLAN devices
-  sfc: Remove efx_nic_dummy_op_int() as redundant with
-    efx_port_dummy_op_int()
-  sfc: Remove remnants of multi-port abstraction for MAC registers
-  sfc: Remove some unreachable error paths
-  sfc: Cleanup reset code
-  sfc: Extend self-tests
-  sfc: Remove the STATE_RESETTING flag
-  sfc: Add check for memory allocation failure in falcon_probe_nic()
-  sfc: Remove workaround for old firmware bug
-  sfc: Make queue flushes more reliable
-  sfc: Disable interrupts after a fatal interrupt occurs until reset
-  sfc: Remove obsolete comment about PCI modes
-  sfc: Use CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS where appropriate
-
-Neil Turton (1):
-  sfc: Insert read memory barrier after checking MAC statistics flag
-
-Steve Hodgson (10):
-  sfc: Remove unused field efx_channel::reset_work
-  sfc: Reverse the XOFF/XON pause frame control fifo thresholds
-  sfc: Do not call netif_{stop,wake}_queue() before register_netdev
-  sfc: Rework the bitfield header so that we can identify fields by bit
-    number
-  sfc: Rework efx_set_multicast_hash()
-  sfc: Fix memory BAR release call on error path
-  sfc: Serialise tenxpress_special_reset() with statistics fetches
-  sfc: Don't use EFX_OWORD_FIELD on an event (64-bit, quad-word)
-  sfc: Don't include net_driver.h from falcon_io.h
-  sfc: Stop generating bogus events in tenxpress_check_hw()
-
- drivers/net/sfc/bitfield.h      |  178 +++++---
- drivers/net/sfc/boards.c        |   12 +-
- drivers/net/sfc/boards.h        |    2 -
- drivers/net/sfc/efx.c           |  489 ++++++++-----------
- drivers/net/sfc/efx.h           |   14 +-
- drivers/net/sfc/enum.h          |    9 +-
- drivers/net/sfc/ethtool.c       |  184 ++++----
- drivers/net/sfc/falcon.c        | 1017 ++++++++++++++++++++++++++-------------
- drivers/net/sfc/falcon.h        |   17 +-
- drivers/net/sfc/falcon_hwdefs.h |   80 ++-
- drivers/net/sfc/falcon_io.h     |    1 -
- drivers/net/sfc/falcon_xmac.c   |  346 +++++---------
- drivers/net/sfc/mac.h           |    4 -
- drivers/net/sfc/mdio_10g.c      |   16 +-
- drivers/net/sfc/mdio_10g.h      |   13 +-
- drivers/net/sfc/net_driver.h    |  144 +++---
- drivers/net/sfc/phy.h           |   10 +-
- drivers/net/sfc/rx.c            |   78 ++--
- drivers/net/sfc/rx.h            |    4 +-
- drivers/net/sfc/selftest.c      |  391 ++++++++-------
- drivers/net/sfc/selftest.h      |   13 +-
- drivers/net/sfc/sfe4001.c       |  248 ++++++----
- drivers/net/sfc/spi.h           |   89 ++--
- drivers/net/sfc/tenxpress.c     |  149 ++-----
- drivers/net/sfc/tx.c            |  385 ++++++++-------
- drivers/net/sfc/tx.h            |    2 +-
- drivers/net/sfc/workarounds.h   |    4 -
- drivers/net/sfc/xfp_phy.c       |   12 +-
- 28 files changed, 2086 insertions(+), 1825 deletions(-)
-
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 45c72ee..4253980 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1249,7 +1249,7 @@ static void efx_monitor(struct work_struct *data)
+  */
+ static int efx_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 
+@@ -1303,7 +1303,7 @@ static void efx_fini_napi(struct efx_nic *efx)
+  */
+ static void efx_netpoll(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_channel *channel;
+ 
+ 	efx_for_each_channel_with_interrupt(channel, efx)
+@@ -1321,7 +1321,7 @@ static void efx_netpoll(struct net_device *net_dev)
+ /* Context: process, rtnl_lock() held. */
+ static int efx_net_open(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 
+ 	EFX_LOG(efx, "opening device %s on CPU %d\n", net_dev->name,
+@@ -1337,7 +1337,7 @@ static int efx_net_open(struct net_device *net_dev)
+  */
+ static int efx_net_stop(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	int rc;
+ 
+ 	EFX_LOG(efx, "closing %s on CPU %d\n", net_dev->name,
+@@ -1356,7 +1356,7 @@ static int efx_net_stop(struct net_device *net_dev)
+ /* Context: process, dev_base_lock or RTNL held, non-blocking. */
+ static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
+ 	struct net_device_stats *stats = &net_dev->stats;
+ 
+@@ -1403,7 +1403,7 @@ static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
+ /* Context: netif_tx_lock held, BHs disabled. */
+ static void efx_watchdog(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	EFX_ERR(efx, "TX stuck with stop_count=%d port_enabled=%d: %s\n",
+ 		atomic_read(&efx->netif_stop_count), efx->port_enabled,
+@@ -1417,7 +1417,7 @@ static void efx_watchdog(struct net_device *net_dev)
+ /* Context: process, rtnl_lock() held. */
+ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	int rc = 0;
+ 
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+@@ -1445,7 +1445,7 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ 
+ static int efx_set_mac_address(struct net_device *net_dev, void *data)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct sockaddr *addr = data;
+ 	char *new_addr = addr->sa_data;
+ 
+@@ -1469,7 +1469,7 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
+ /* Context: netif_tx_lock held, BHs disabled. */
+ static void efx_set_multicast_list(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct dev_mc_list *mc_list = net_dev->mc_list;
+ 	union efx_multicast_hash *mc_hash = &efx->multicast_hash;
+ 	int promiscuous;
+@@ -1510,7 +1510,7 @@ static int efx_netdev_event(struct notifier_block *this,
+ 	struct net_device *net_dev = ptr;
+ 
+ 	if (net_dev->open == efx_net_open && event == NETDEV_CHANGENAME) {
+-		struct efx_nic *efx = net_dev->priv;
++		struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 		strcpy(efx->name, net_dev->name);
+ 	}
+@@ -1568,7 +1568,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
+ 	if (!efx->net_dev)
+ 		return;
+ 
+-	BUG_ON(efx->net_dev->priv != efx);
++	BUG_ON(netdev_priv(efx->net_dev) != efx);
+ 
+ 	/* Free up any skbs still remaining. This has to happen before
+ 	 * we try to unregister the netdev as running their destructors
+@@ -2105,7 +2105,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 			      NETIF_F_HIGHDMA | NETIF_F_TSO);
+ 	if (lro)
+ 		net_dev->features |= NETIF_F_LRO;
+-	efx = net_dev->priv;
++	efx = netdev_priv(net_dev);
+ 	pci_set_drvdata(pci_dev, efx);
+ 	rc = efx_init_struct(efx, type, pci_dev, net_dev);
+ 	if (rc)
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index e2c75d1..8a15be6 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -183,7 +183,7 @@ static struct efx_ethtool_stat efx_ethtool_stats[] = {
+ /* Identify device by flashing LEDs */
+ static int efx_ethtool_phys_id(struct net_device *net_dev, u32 seconds)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	efx->board_info.blink(efx, 1);
+ 	schedule_timeout_interruptible(seconds * HZ);
+@@ -195,7 +195,7 @@ static int efx_ethtool_phys_id(struct net_device *net_dev, u32 seconds)
+ int efx_ethtool_get_settings(struct net_device *net_dev,
+ 			     struct ethtool_cmd *ecmd)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	int rc;
+ 
+ 	mutex_lock(&efx->mac_lock);
+@@ -209,7 +209,7 @@ int efx_ethtool_get_settings(struct net_device *net_dev,
+ int efx_ethtool_set_settings(struct net_device *net_dev,
+ 			     struct ethtool_cmd *ecmd)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	int rc;
+ 
+ 	mutex_lock(&efx->mac_lock);
+@@ -224,7 +224,7 @@ int efx_ethtool_set_settings(struct net_device *net_dev,
+ static void efx_ethtool_get_drvinfo(struct net_device *net_dev,
+ 				    struct ethtool_drvinfo *info)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	strlcpy(info->driver, EFX_DRIVER_NAME, sizeof(info->driver));
+ 	strlcpy(info->version, EFX_DRIVER_VERSION, sizeof(info->version));
+@@ -376,7 +376,7 @@ static int efx_ethtool_get_stats_count(struct net_device *net_dev)
+ 
+ static int efx_ethtool_self_test_count(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	return efx_ethtool_fill_self_tests(efx, NULL, NULL, NULL);
+ }
+@@ -384,7 +384,7 @@ static int efx_ethtool_self_test_count(struct net_device *net_dev)
+ static void efx_ethtool_get_strings(struct net_device *net_dev,
+ 				    u32 string_set, u8 *strings)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct ethtool_string *ethtool_strings =
+ 		(struct ethtool_string *)strings;
+ 	int i;
+@@ -410,7 +410,7 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
+ 				  struct ethtool_stats *stats,
+ 				  u64 *data)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
+ 	struct efx_ethtool_stat *stat;
+ 	struct efx_channel *channel;
+@@ -460,7 +460,7 @@ static int efx_ethtool_set_tso(struct net_device *net_dev, u32 enable)
+ 
+ static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	int rc;
+ 
+ 	rc = ethtool_op_set_tx_csum(net_dev, enable);
+@@ -483,7 +483,7 @@ static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
+ 
+ static int efx_ethtool_set_rx_csum(struct net_device *net_dev, u32 enable)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	/* No way to stop the hardware doing the checks; we just
+ 	 * ignore the result.
+@@ -495,7 +495,7 @@ static int efx_ethtool_set_rx_csum(struct net_device *net_dev, u32 enable)
+ 
+ static u32 efx_ethtool_get_rx_csum(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	return efx->rx_checksum_enabled;
+ }
+@@ -503,7 +503,7 @@ static u32 efx_ethtool_get_rx_csum(struct net_device *net_dev)
+ static void efx_ethtool_self_test(struct net_device *net_dev,
+ 				  struct ethtool_test *test, u64 *data)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_self_tests efx_tests;
+ 	int offline, already_up;
+ 	int rc;
+@@ -561,14 +561,14 @@ static void efx_ethtool_self_test(struct net_device *net_dev,
+ /* Restart autonegotiation */
+ static int efx_ethtool_nway_reset(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	return mii_nway_restart(&efx->mii);
+ }
+ 
+ static u32 efx_ethtool_get_link(struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	return efx->link_up;
+ }
+@@ -576,7 +576,7 @@ static u32 efx_ethtool_get_link(struct net_device *net_dev)
+ static int efx_ethtool_get_coalesce(struct net_device *net_dev,
+ 				    struct ethtool_coalesce *coalesce)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_tx_queue *tx_queue;
+ 	struct efx_rx_queue *rx_queue;
+ 	struct efx_channel *channel;
+@@ -614,7 +614,7 @@ static int efx_ethtool_get_coalesce(struct net_device *net_dev,
+ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
+ 				    struct ethtool_coalesce *coalesce)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_channel *channel;
+ 	struct efx_tx_queue *tx_queue;
+ 	unsigned tx_usecs, rx_usecs;
+@@ -657,7 +657,7 @@ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
+ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
+ 				      struct ethtool_pauseparam *pause)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	enum efx_fc_type flow_control = efx->flow_control;
+ 	int rc;
+ 
+@@ -680,7 +680,7 @@ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
+ static void efx_ethtool_get_pauseparam(struct net_device *net_dev,
+ 				       struct ethtool_pauseparam *pause)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	pause->rx_pause = (efx->flow_control & EFX_FC_RX) ? 1 : 0;
+ 	pause->tx_pause = (efx->flow_control & EFX_FC_TX) ? 1 : 0;
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 9138ee5..c7aa2f6 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -1951,7 +1951,7 @@ static int falcon_gmii_wait(struct efx_nic *efx)
+ static void falcon_mdio_write(struct net_device *net_dev, int phy_id,
+ 			      int addr, int value)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	unsigned int phy_id2 = phy_id & FALCON_PHY_ID_ID_MASK;
+ 	efx_oword_t reg;
+ 
+@@ -2019,7 +2019,7 @@ static void falcon_mdio_write(struct net_device *net_dev, int phy_id,
+  * could be read, -1 will be returned. */
+ static int falcon_mdio_read(struct net_device *net_dev, int phy_id, int addr)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	unsigned int phy_addr = phy_id & FALCON_PHY_ID_ID_MASK;
+ 	efx_oword_t reg;
+ 	int value = -1;
+diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
+index 5e8374a..2a09101 100644
+--- a/drivers/net/sfc/tx.c
++++ b/drivers/net/sfc/tx.c
+@@ -367,7 +367,7 @@ inline int efx_xmit(struct efx_nic *efx,
+  */
+ int efx_hard_start_xmit(struct sk_buff *skb, struct net_device *net_dev)
+ {
+-	struct efx_nic *efx = net_dev->priv;
++	struct efx_nic *efx = netdev_priv(net_dev);
+ 	return efx_xmit(efx, &efx->tx_queue[0], skb);
+ }
+ 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.5.5
+
