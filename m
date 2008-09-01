@@ -1,61 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 52/52] sfc: Use CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS where appropriate
-Date: Mon, 1 Sep 2008 12:50:28 +0100
-Message-ID: <20080901115027.GS7908@solarflare.com>
-References: <20080901111621.GT7908@solarflare.com>
+From: Olaf Kirch <okir@suse.de>
+Subject: Releasing new traceroute
+Date: Mon, 1 Sep 2008 13:53:53 +0200
+Message-ID: <200809011353.53449.okir@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:47463 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759867AbYIALuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:50:32 -0400
+Received: from mail.suse.de ([195.135.220.2]:34710 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751528AbYIALyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Sep 2008 07:54:06 -0400
+Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx1.suse.de (Postfix) with ESMTP id AA57441C85
+	for <netdev@vger.kernel.org>; Mon,  1 Sep 2008 13:54:03 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <20080901111621.GT7908@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For some buffers we use a starting offset of either NET_IP_ALIGN or 0
-depending on whether we believe the architecture supports efficient
-access to unaligned words.  There is now a config macro specifying
-whether this is the case, so check that rather than checking for
-specific architectures.
+Hi all,
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/net_driver.h |    2 +-
- drivers/net/sfc/tx.c         |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+a new version of my traceroute implementation is available from
+ftp://ftp.lst.de/pub/people/okir/traceroute. I rewrote part
+of the protocol handling to make it more flexible, and added
+traceroute over TCP support. This uses the old-fashioned
+listen-for-icmp-errors-on-raw-socket approach because we don't
+have MSG_ERRQUEUE support in TCP, so it requires root privs.
 
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 868ad1e..cdb11fa 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -474,7 +474,7 @@ enum nic_state {
-  * This is the equivalent of NET_IP_ALIGN [which controls the alignment
-  * of the skb->head for hardware DMA].
-  */
--#if defined(__i386__) || defined(__x86_64__)
-+#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
- #define EFX_PAGE_IP_ALIGN 0
- #else
- #define EFX_PAGE_IP_ALIGN NET_IP_ALIGN
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index cdee7c2..da3e9ff 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -516,7 +516,7 @@ void efx_remove_tx_queue(struct efx_tx_queue *tx_queue)
- /* Number of bytes inserted at the start of a TSO header buffer,
-  * similar to NET_IP_ALIGN.
-  */
--#if defined(__i386__) || defined(__x86_64__)
-+#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
- #define TSOH_OFFSET	0
- #else
- #define TSOH_OFFSET	NET_IP_ALIGN
+Please give it a try and let me know whether you're seeing any
+problems with it. One thing that's still missing is that over
+IPv6, traceroute supports only UDP tracing, no ICMP or TCP.
+That's mostly because I need to write the packet parsing code
+that unwraps the IPv6 packet contained in the ICMP error
+messages.
+
+Cheers,
+Olaf
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+ And mention in the Fitz incident that DCOP is no ego shooter!
+                                --micha istinie, 2001
