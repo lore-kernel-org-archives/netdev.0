@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Sun, 31 Aug 2008 20:51:45 -0700 (PDT)
-Message-ID: <20080831.205145.225080276.davem@davemloft.net>
-References: <21915755.1327801219904892242.JavaMail.root@ouachita>
-	<48B6E7D0.5070307@hp.com>
-	<20031.1220236756@turing-police.cc.vt.edu>
+Subject: Re: [PATCH] *icsk_ca_priv: Reduce inet_connection_sock size?
+Date: Sun, 31 Aug 2008 21:03:31 -0700 (PDT)
+Message-ID: <20080831.210331.252498451.davem@davemloft.net>
+References: <48BAE26A.4060002@danielinux.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, jmalicki@metacarta.com, andi@firstfloor.org,
-	johnpol@2ka.mipt.ru, dada1@cosmosbay.com, denys@visp.net.lb,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	juhlenko@akamai.com, sammy@sammy.net
-To: Valdis.Kletnieks@vt.edu
+Cc: netdev@vger.kernel.org, angelo.tornese@gmail.com
+To: root@danielinux.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35627
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40980
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751099AbYIADvw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 23:51:52 -0400
-In-Reply-To: <20031.1220236756@turing-police.cc.vt.edu>
+	by vger.kernel.org with ESMTP id S1750748AbYIAEDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 00:03:37 -0400
+In-Reply-To: <48BAE26A.4060002@danielinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Valdis.Kletnieks@vt.edu
-Date: Sun, 31 Aug 2008 22:39:16 -0400
+From: Daniele Lacamera <root@danielinux.net>
+Date: Sun, 31 Aug 2008 20:26:50 +0200
 
-> As a totally pragmatic point - if the market is in such free-fall that it
-> matters that your order got in a 10 thousandth of a second after somebody
-> else's, instead of before, you probably lost at least 5 to 10 times as much
-> during the time it took somebody to type the damn order in and hit enter.
+> This simple patch (2.6.26) replaces the icsk_ca_priv big array with a
+> void pointer, reducing the default inet_connection_sock size by 60Bytes.
+> 
+> Each "congestion controlled" socket must allocate and free its own priv
+> structure if needed, from the connection init and release callbacks
+> inside each module.
+> 
+> Wouldn't this reduce memory usage for sockets that don't use ca?
 
-Many trades are made programaticcally using formulas and computer
-algorithms in response to market activity and other trades of the
-same security.
+Yes, but for every TCP socket there is a new memory allocation and
+free.
 
-There is no typing involved :)
-
-I don't think anyone in this thread can even pretend to understand how
-any of this stuff works, that's why I'm starting to consider this
-thread completely pointless.
-
-If the financial folks say they need this stuff, then unless we're
-prepared to become experts in financial markets and how the IT stuff
-for them are designed and run, we might as well just trust them on
-this one.
-
+We're trying to decrease the number of those rather than increase them
+because having more of them non-trivially impacts TCP connection
+rates.
