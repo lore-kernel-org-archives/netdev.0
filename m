@@ -1,272 +1,299 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 37/52] sfc: Rework the bitfield header so that we can identify fields by bit number
-Date: Mon, 1 Sep 2008 12:48:55 +0100
-Message-ID: <20080901114854.GE7908@solarflare.com>
+Subject: [PATCH 43/52] sfc: Remove workaround for old firmware bug
+Date: Mon, 1 Sep 2008 12:49:20 +0100
+Message-ID: <20080901114919.GJ7908@solarflare.com>
 References: <20080901111621.GT7908@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:42041 "EHLO
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:43372 "EHLO
 	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758820AbYIALs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:48:58 -0400
+	by vger.kernel.org with ESMTP id S1759197AbYIALtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:49:23 -0400
 Content-Disposition: inline
 In-Reply-To: <20080901111621.GT7908@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will support register self-tests.
+There was a bug in XAUI synchronisation in early 10Xpress firmware
+versions.  This is fixed in released firmware and we do not need to
+work around it.
 
-From: Steve Hodgson <shodgson@solarflare.com>
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/bitfield.h      |  159 +++++++++++++++++++++++----------------
- drivers/net/sfc/falcon_hwdefs.h |    4 +-
- 2 files changed, 95 insertions(+), 68 deletions(-)
+ drivers/net/sfc/efx.c         |    1 -
+ drivers/net/sfc/falcon_xmac.c |   88 +----------------------------------------
+ drivers/net/sfc/net_driver.h  |    2 -
+ drivers/net/sfc/sfe4001.c     |   12 ------
+ drivers/net/sfc/tenxpress.c   |   51 -----------------------
+ drivers/net/sfc/workarounds.h |    2 -
+ drivers/net/sfc/xfp_phy.c     |    1 -
+ 7 files changed, 1 insertions(+), 156 deletions(-)
 
-diff --git a/drivers/net/sfc/bitfield.h b/drivers/net/sfc/bitfield.h
-index 2c79d27..b757a39 100644
---- a/drivers/net/sfc/bitfield.h
-+++ b/drivers/net/sfc/bitfield.h
-@@ -52,9 +52,9 @@
-  *
-  * The maximum width mask that can be generated is 64 bits.
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index c295ea6..ef72413 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1750,7 +1750,6 @@ static struct efx_phy_operations efx_dummy_phy_operations = {
+ 	.check_hw        = efx_port_dummy_op_int,
+ 	.fini		 = efx_port_dummy_op_void,
+ 	.clear_interrupt = efx_port_dummy_op_void,
+-	.reset_xaui      = efx_port_dummy_op_void,
+ };
+ 
+ static struct efx_board efx_dummy_board_info = {
+diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/sfc/falcon_xmac.c
+index 0d9f68f..d401231 100644
+--- a/drivers/net/sfc/falcon_xmac.c
++++ b/drivers/net/sfc/falcon_xmac.c
+@@ -78,79 +78,7 @@ static void falcon_setup_xaui(struct efx_nic *efx)
+ 	falcon_write(efx, &txdrv, XX_TXDRV_CTL_REG);
+ }
+ 
+-static void falcon_hold_xaui_in_rst(struct efx_nic *efx)
+-{
+-	efx_oword_t reg;
+-
+-	EFX_ZERO_OWORD(reg);
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDNA_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDNB_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDNC_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDND_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RSTPLLAB_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RSTPLLCD_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETA_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETB_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETC_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETD_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RSTXGXSRX_EN, 1);
+-	EFX_SET_OWORD_FIELD(reg, XX_RSTXGXSTX_EN, 1);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-}
+-
+-static int _falcon_reset_xaui_a(struct efx_nic *efx)
+-{
+-	efx_oword_t reg;
+-
+-	falcon_hold_xaui_in_rst(efx);
+-	falcon_read(efx, &reg, XX_PWR_RST_REG);
+-
+-	/* Follow the RAMBUS XAUI data reset sequencing
+-	 * Channels A and B first: power down, reset PLL, reset, clear
+-	 */
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDNA_EN, 0);
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDNB_EN, 0);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-
+-	EFX_SET_OWORD_FIELD(reg, XX_RSTPLLAB_EN, 0);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETA_EN, 0);
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETB_EN, 0);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-
+-	/* Channels C and D: power down, reset PLL, reset, clear */
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDNC_EN, 0);
+-	EFX_SET_OWORD_FIELD(reg, XX_PWRDND_EN, 0);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-
+-	EFX_SET_OWORD_FIELD(reg, XX_RSTPLLCD_EN, 0);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETC_EN, 0);
+-	EFX_SET_OWORD_FIELD(reg, XX_RESETD_EN, 0);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-
+-	/* Setup XAUI */
+-	falcon_setup_xaui(efx);
+-	udelay(10);
+-
+-	/* Take XGXS out of reset */
+-	EFX_ZERO_OWORD(reg);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
+-
+-	return 0;
+-}
+-
+-static int _falcon_reset_xaui_b(struct efx_nic *efx)
++int falcon_reset_xaui(struct efx_nic *efx)
+ {
+ 	efx_oword_t reg;
+ 	int count;
+@@ -171,20 +99,6 @@ static int _falcon_reset_xaui_b(struct efx_nic *efx)
+ 	return -ETIMEDOUT;
+ }
+ 
+-int falcon_reset_xaui(struct efx_nic *efx)
+-{
+-	int rc;
+-
+-	if (EFX_WORKAROUND_9388(efx)) {
+-		falcon_hold_xaui_in_rst(efx);
+-		efx->phy_op->reset_xaui(efx);
+-		rc = _falcon_reset_xaui_a(efx);
+-	} else {
+-		rc = _falcon_reset_xaui_b(efx);
+-	}
+-	return rc;
+-}
+-
+ static bool falcon_xgmii_status(struct efx_nic *efx)
+ {
+ 	efx_oword_t reg;
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 567df00..be3d2ba 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -503,7 +503,6 @@ enum efx_fc_type {
+  * @clear_interrupt: Clear down interrupt
+  * @blink: Blink LEDs
+  * @check_hw: Check hardware
+- * @reset_xaui: Reset XAUI side of PHY for (software sequenced reset)
+  * @mmds: MMD presence mask
+  * @loopbacks: Supported loopback modes mask
   */
--#define EFX_MASK64(field)					\
--	(EFX_WIDTH(field) == 64 ? ~((u64) 0) :		\
--	 (((((u64) 1) << EFX_WIDTH(field))) - 1))
-+#define EFX_MASK64(width)			\
-+	((width) == 64 ? ~((u64) 0) :		\
-+	 (((((u64) 1) << (width))) - 1))
+@@ -513,7 +512,6 @@ struct efx_phy_operations {
+ 	void (*reconfigure) (struct efx_nic *efx);
+ 	void (*clear_interrupt) (struct efx_nic *efx);
+ 	int (*check_hw) (struct efx_nic *efx);
+-	void (*reset_xaui) (struct efx_nic *efx);
+ 	int (*test) (struct efx_nic *efx);
+ 	int mmds;
+ 	unsigned loopbacks;
+diff --git a/drivers/net/sfc/sfe4001.c b/drivers/net/sfc/sfe4001.c
+index b7005da..fe4e3fd 100644
+--- a/drivers/net/sfc/sfe4001.c
++++ b/drivers/net/sfc/sfe4001.c
+@@ -129,18 +129,6 @@ static int sfe4001_poweron(struct efx_nic *efx)
+ 	unsigned int i, j;
+ 	int rc;
+ 	u8 out;
+-	efx_oword_t reg;
+-
+-	/* Ensure that XGXS and XAUI SerDes are held in reset */
+-	EFX_POPULATE_OWORD_7(reg, XX_PWRDNA_EN, 1,
+-			     XX_PWRDNB_EN, 1,
+-			     XX_RSTPLLAB_EN, 1,
+-			     XX_RESETA_EN, 1,
+-			     XX_RESETB_EN, 1,
+-			     XX_RSTXGXSRX_EN, 1,
+-			     XX_RSTXGXSTX_EN, 1);
+-	falcon_write(efx, &reg, XX_PWR_RST_REG);
+-	udelay(10);
  
- /* Mask equal in width to the specified field.
-  *
-@@ -63,9 +63,9 @@
-  * The maximum width mask that can be generated is 32 bits.  Use
-  * EFX_MASK64 for higher width fields.
-  */
--#define EFX_MASK32(field)					\
--	(EFX_WIDTH(field) == 32 ? ~((u32) 0) :		\
--	 (((((u32) 1) << EFX_WIDTH(field))) - 1))
-+#define EFX_MASK32(width)			\
-+	((width) == 32 ? ~((u32) 0) :		\
-+	 (((((u32) 1) << (width))) - 1))
+ 	/* Clear any previous over-temperature alert */
+ 	rc = i2c_smbus_read_byte_data(hwmon_client, RSL);
+diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
+index 8412dbe..77e7f3a 100644
+--- a/drivers/net/sfc/tenxpress.c
++++ b/drivers/net/sfc/tenxpress.c
+@@ -146,8 +146,6 @@ static int tenxpress_phy_check(struct efx_nic *efx)
+ 	return 0;
+ }
  
- /* A doubleword (i.e. 4 byte) datatype - little-endian in HW */
- typedef union efx_dword {
-@@ -138,44 +138,49 @@ typedef union efx_oword {
- 	EFX_EXTRACT_NATIVE(le32_to_cpu(element), min, max, low, high)
+-static void tenxpress_reset_xaui(struct efx_nic *efx);
+-
+ static int tenxpress_init(struct efx_nic *efx)
+ {
+ 	int rc, reg;
+@@ -428,54 +426,6 @@ void tenxpress_phy_blink(struct efx_nic *efx, bool blink)
+ 			    PMA_PMD_LED_OVERR_REG, reg);
+ }
  
- #define EFX_EXTRACT_OWORD64(oword, low, high)				\
--	(EFX_EXTRACT64((oword).u64[0], 0, 63, low, high) |		\
--	 EFX_EXTRACT64((oword).u64[1], 64, 127, low, high))
-+	((EFX_EXTRACT64((oword).u64[0], 0, 63, low, high) |		\
-+	  EFX_EXTRACT64((oword).u64[1], 64, 127, low, high)) &		\
-+	 EFX_MASK64(high + 1 - low))
- 
- #define EFX_EXTRACT_QWORD64(qword, low, high)				\
--	EFX_EXTRACT64((qword).u64[0], 0, 63, low, high)
-+	(EFX_EXTRACT64((qword).u64[0], 0, 63, low, high) &		\
-+	 EFX_MASK64(high + 1 - low))
- 
- #define EFX_EXTRACT_OWORD32(oword, low, high)				\
--	(EFX_EXTRACT32((oword).u32[0], 0, 31, low, high) |		\
--	 EFX_EXTRACT32((oword).u32[1], 32, 63, low, high) |		\
--	 EFX_EXTRACT32((oword).u32[2], 64, 95, low, high) |		\
--	 EFX_EXTRACT32((oword).u32[3], 96, 127, low, high))
-+	((EFX_EXTRACT32((oword).u32[0], 0, 31, low, high) |		\
-+	  EFX_EXTRACT32((oword).u32[1], 32, 63, low, high) |		\
-+	  EFX_EXTRACT32((oword).u32[2], 64, 95, low, high) |		\
-+	  EFX_EXTRACT32((oword).u32[3], 96, 127, low, high)) &		\
-+	 EFX_MASK32(high + 1 - low))
- 
- #define EFX_EXTRACT_QWORD32(qword, low, high)				\
--	(EFX_EXTRACT32((qword).u32[0], 0, 31, low, high) |		\
--	 EFX_EXTRACT32((qword).u32[1], 32, 63, low, high))
-+	((EFX_EXTRACT32((qword).u32[0], 0, 31, low, high) |		\
-+	  EFX_EXTRACT32((qword).u32[1], 32, 63, low, high)) &		\
-+	 EFX_MASK32(high + 1 - low))
- 
--#define EFX_EXTRACT_DWORD(dword, low, high)				\
--	EFX_EXTRACT32((dword).u32[0], 0, 31, low, high)
-+#define EFX_EXTRACT_DWORD(dword, low, high)			\
-+	(EFX_EXTRACT32((dword).u32[0], 0, 31, low, high) &	\
-+	 EFX_MASK32(high + 1 - low))
- 
--#define EFX_OWORD_FIELD64(oword, field)					\
--	(EFX_EXTRACT_OWORD64(oword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
--	 & EFX_MASK64(field))
-+#define EFX_OWORD_FIELD64(oword, field)				\
-+	EFX_EXTRACT_OWORD64(oword, EFX_LOW_BIT(field),		\
-+			    EFX_HIGH_BIT(field))
- 
--#define EFX_QWORD_FIELD64(qword, field)					\
--	(EFX_EXTRACT_QWORD64(qword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
--	 & EFX_MASK64(field))
-+#define EFX_QWORD_FIELD64(qword, field)				\
-+	EFX_EXTRACT_QWORD64(qword, EFX_LOW_BIT(field),		\
-+			    EFX_HIGH_BIT(field))
- 
--#define EFX_OWORD_FIELD32(oword, field)					\
--	(EFX_EXTRACT_OWORD32(oword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
--	 & EFX_MASK32(field))
-+#define EFX_OWORD_FIELD32(oword, field)				\
-+	EFX_EXTRACT_OWORD32(oword, EFX_LOW_BIT(field),		\
-+			    EFX_HIGH_BIT(field))
- 
--#define EFX_QWORD_FIELD32(qword, field)					\
--	(EFX_EXTRACT_QWORD32(qword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
--	 & EFX_MASK32(field))
-+#define EFX_QWORD_FIELD32(qword, field)				\
-+	EFX_EXTRACT_QWORD32(qword, EFX_LOW_BIT(field),		\
-+			    EFX_HIGH_BIT(field))
- 
--#define EFX_DWORD_FIELD(dword, field)					   \
--	(EFX_EXTRACT_DWORD(dword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
--	 & EFX_MASK32(field))
-+#define EFX_DWORD_FIELD(dword, field)				\
-+	EFX_EXTRACT_DWORD(dword, EFX_LOW_BIT(field),		\
-+			  EFX_HIGH_BIT(field))
- 
- #define EFX_OWORD_IS_ZERO64(oword)					\
- 	(((oword).u64[0] | (oword).u64[1]) == (__force __le64) 0)
-@@ -417,63 +422,85 @@ typedef union efx_oword {
- 	(oword).u64[1] = ~((oword).u64[1]);	\
- 	} while (0)
- 
--#define EFX_INSERT_FIELD64(...)					\
--	cpu_to_le64(EFX_INSERT_FIELD_NATIVE(__VA_ARGS__))
-+#define EFX_INSERT64(min, max, low, high, value)			\
-+	cpu_to_le64(EFX_INSERT_NATIVE(min, max, low, high, value))
- 
--#define EFX_INSERT_FIELD32(...)					\
--	cpu_to_le32(EFX_INSERT_FIELD_NATIVE(__VA_ARGS__))
-+#define EFX_INSERT32(min, max, low, high, value)			\
-+	cpu_to_le32(EFX_INSERT_NATIVE(min, max, low, high, value))
- 
--#define EFX_INPLACE_MASK64(min, max, field)			\
--	EFX_INSERT_FIELD64(min, max, field, EFX_MASK64(field))
-+#define EFX_INPLACE_MASK64(min, max, low, high)				\
-+	EFX_INSERT64(min, max, low, high, EFX_MASK64(high + 1 - low))
- 
--#define EFX_INPLACE_MASK32(min, max, field)			\
--	EFX_INSERT_FIELD32(min, max, field, EFX_MASK32(field))
-+#define EFX_INPLACE_MASK32(min, max, low, high)				\
-+	EFX_INSERT32(min, max, low, high, EFX_MASK32(high + 1 - low))
- 
--#define EFX_SET_OWORD_FIELD64(oword, field, value) do {			\
-+#define EFX_SET_OWORD64(oword, low, high, value) do {			\
- 	(oword).u64[0] = (((oword).u64[0] 				\
--			   & ~EFX_INPLACE_MASK64(0,  63, field))	\
--			  | EFX_INSERT_FIELD64(0,  63, field, value));  \
-+			   & ~EFX_INPLACE_MASK64(0,  63, low, high))	\
-+			  | EFX_INSERT64(0,  63, low, high, value));	\
- 	(oword).u64[1] = (((oword).u64[1] 				\
--			   & ~EFX_INPLACE_MASK64(64, 127, field))	\
--			  | EFX_INSERT_FIELD64(64, 127, field, value)); \
-+			   & ~EFX_INPLACE_MASK64(64, 127, low, high))	\
-+			  | EFX_INSERT64(64, 127, low, high, value));	\
- 	} while (0)
- 
--#define EFX_SET_QWORD_FIELD64(qword, field, value) do {			\
-+#define EFX_SET_QWORD64(qword, low, high, value) do {			\
- 	(qword).u64[0] = (((qword).u64[0] 				\
--			   & ~EFX_INPLACE_MASK64(0, 63, field))		\
--			  | EFX_INSERT_FIELD64(0, 63, field, value));	\
-+			   & ~EFX_INPLACE_MASK64(0, 63, low, high))	\
-+			  | EFX_INSERT64(0, 63, low, high, value));	\
- 	} while (0)
- 
--#define EFX_SET_OWORD_FIELD32(oword, field, value) do {			\
-+#define EFX_SET_OWORD32(oword, low, high, value) do {			\
- 	(oword).u32[0] = (((oword).u32[0] 				\
--			   & ~EFX_INPLACE_MASK32(0, 31, field))		\
--			  | EFX_INSERT_FIELD32(0, 31, field, value));	\
-+			   & ~EFX_INPLACE_MASK32(0, 31, low, high))	\
-+			  | EFX_INSERT32(0, 31, low, high, value));	\
- 	(oword).u32[1] = (((oword).u32[1] 				\
--			   & ~EFX_INPLACE_MASK32(32, 63, field))	\
--			  | EFX_INSERT_FIELD32(32, 63, field, value));	\
-+			   & ~EFX_INPLACE_MASK32(32, 63, low, high))	\
-+			  | EFX_INSERT32(32, 63, low, high, value));	\
- 	(oword).u32[2] = (((oword).u32[2] 				\
--			   & ~EFX_INPLACE_MASK32(64, 95, field))	\
--			  | EFX_INSERT_FIELD32(64, 95, field, value));	\
-+			   & ~EFX_INPLACE_MASK32(64, 95, low, high))	\
-+			  | EFX_INSERT32(64, 95, low, high, value));	\
- 	(oword).u32[3] = (((oword).u32[3] 				\
--			   & ~EFX_INPLACE_MASK32(96, 127, field))	\
--			  | EFX_INSERT_FIELD32(96, 127, field, value));	\
-+			   & ~EFX_INPLACE_MASK32(96, 127, low, high))	\
-+			  | EFX_INSERT32(96, 127, low, high, value));	\
- 	} while (0)
- 
--#define EFX_SET_QWORD_FIELD32(qword, field, value) do {			\
-+#define EFX_SET_QWORD32(qword, low, high, value) do {			\
- 	(qword).u32[0] = (((qword).u32[0] 				\
--			   & ~EFX_INPLACE_MASK32(0, 31, field))		\
--			  | EFX_INSERT_FIELD32(0, 31, field, value));	\
-+			   & ~EFX_INPLACE_MASK32(0, 31, low, high))	\
-+			  | EFX_INSERT32(0, 31, low, high, value));	\
- 	(qword).u32[1] = (((qword).u32[1] 				\
--			   & ~EFX_INPLACE_MASK32(32, 63, field))	\
--			  | EFX_INSERT_FIELD32(32, 63, field, value));	\
-+			   & ~EFX_INPLACE_MASK32(32, 63, low, high))	\
-+			  | EFX_INSERT32(32, 63, low, high, value));	\
- 	} while (0)
- 
--#define EFX_SET_DWORD_FIELD(dword, field, value) do {			\
--	(dword).u32[0] = (((dword).u32[0] 				\
--			   & ~EFX_INPLACE_MASK32(0, 31, field))		\
--			  | EFX_INSERT_FIELD32(0, 31, field, value));	\
-+#define EFX_SET_DWORD32(dword, low, high, value) do {			\
-+	(dword).u32[0] = (((dword).u32[0]				\
-+			   & ~EFX_INPLACE_MASK32(0, 31, low, high))	\
-+			  | EFX_INSERT32(0, 31, low, high, value));	\
- 	} while (0)
- 
-+#define EFX_SET_OWORD_FIELD64(oword, field, value)			\
-+	EFX_SET_OWORD64(oword, EFX_LOW_BIT(field),			\
-+			 EFX_HIGH_BIT(field), value)
-+
-+#define EFX_SET_QWORD_FIELD64(qword, field, value)			\
-+	EFX_SET_QWORD64(qword, EFX_LOW_BIT(field),			\
-+			 EFX_HIGH_BIT(field), value)
-+
-+#define EFX_SET_OWORD_FIELD32(oword, field, value)			\
-+	EFX_SET_OWORD32(oword, EFX_LOW_BIT(field),			\
-+			 EFX_HIGH_BIT(field), value)
-+
-+#define EFX_SET_QWORD_FIELD32(qword, field, value)			\
-+	EFX_SET_QWORD32(qword, EFX_LOW_BIT(field),			\
-+			 EFX_HIGH_BIT(field), value)
-+
-+#define EFX_SET_DWORD_FIELD(dword, field, value)			\
-+	EFX_SET_DWORD32(dword, EFX_LOW_BIT(field),			\
-+			 EFX_HIGH_BIT(field), value)
-+
-+
-+
- #if BITS_PER_LONG == 64
- #define EFX_SET_OWORD_FIELD EFX_SET_OWORD_FIELD64
- #define EFX_SET_QWORD_FIELD EFX_SET_QWORD_FIELD64
-diff --git a/drivers/net/sfc/falcon_hwdefs.h b/drivers/net/sfc/falcon_hwdefs.h
-index 7c784f7..a3260df 100644
---- a/drivers/net/sfc/falcon_hwdefs.h
-+++ b/drivers/net/sfc/falcon_hwdefs.h
-@@ -1147,8 +1147,8 @@ struct falcon_nvconfig_board_v3 {
- #define SPI_DEV_TYPE_ERASE_SIZE_WIDTH 5
- #define SPI_DEV_TYPE_BLOCK_SIZE_LBN 24
- #define SPI_DEV_TYPE_BLOCK_SIZE_WIDTH 5
--#define SPI_DEV_TYPE_FIELD(type, field) \
--	(((type) >> EFX_LOW_BIT(field)) & EFX_MASK32(field))
-+#define SPI_DEV_TYPE_FIELD(type, field)					\
-+	(((type) >> EFX_LOW_BIT(field)) & EFX_MASK32(EFX_WIDTH(field)))
- 
- #define NVCONFIG_BASE 0x300
- #define NVCONFIG_BOARD_MAGIC_NUM 0xFA1C
+-static void tenxpress_reset_xaui(struct efx_nic *efx)
+-{
+-	int phy = efx->mii.phy_id;
+-	int clk_ctrl, test_select, soft_rst2;
+-
+-	/* Real work is done on clock_ctrl other resets are thought to be
+-	 * optional but make the reset more reliable
+-	 */
+-
+-	/* Read */
+-	clk_ctrl = mdio_clause45_read(efx, phy, MDIO_MMD_PCS,
+-				      PCS_CLOCK_CTRL_REG);
+-	test_select = mdio_clause45_read(efx, phy, MDIO_MMD_PCS,
+-					 PCS_TEST_SELECT_REG);
+-	soft_rst2 = mdio_clause45_read(efx, phy, MDIO_MMD_PCS,
+-				       PCS_SOFT_RST2_REG);
+-
+-	/* Put in reset */
+-	test_select &= ~(1 << CLK312_EN_LBN);
+-	mdio_clause45_write(efx, phy, MDIO_MMD_PCS,
+-			    PCS_TEST_SELECT_REG, test_select);
+-
+-	soft_rst2 &= ~((1 << XGXS_RST_N_LBN) | (1 << SERDES_RST_N_LBN));
+-	mdio_clause45_write(efx, phy, MDIO_MMD_PCS,
+-			    PCS_SOFT_RST2_REG, soft_rst2);
+-
+-	clk_ctrl &= ~(1 << PLL312_RST_N_LBN);
+-	mdio_clause45_write(efx, phy, MDIO_MMD_PCS,
+-			    PCS_CLOCK_CTRL_REG, clk_ctrl);
+-	udelay(10);
+-
+-	/* Remove reset */
+-	clk_ctrl |= (1 << PLL312_RST_N_LBN);
+-	mdio_clause45_write(efx, phy, MDIO_MMD_PCS,
+-			    PCS_CLOCK_CTRL_REG, clk_ctrl);
+-	udelay(10);
+-
+-	soft_rst2 |= ((1 << XGXS_RST_N_LBN) | (1 << SERDES_RST_N_LBN));
+-	mdio_clause45_write(efx, phy, MDIO_MMD_PCS,
+-			    PCS_SOFT_RST2_REG, soft_rst2);
+-	udelay(10);
+-
+-	test_select |= (1 << CLK312_EN_LBN);
+-	mdio_clause45_write(efx, phy, MDIO_MMD_PCS,
+-			    PCS_TEST_SELECT_REG, test_select);
+-	udelay(10);
+-}
+-
+ static int tenxpress_phy_test(struct efx_nic *efx)
+ {
+ 	/* BIST is automatically run after a special software reset */
+@@ -488,7 +438,6 @@ struct efx_phy_operations falcon_tenxpress_phy_ops = {
+ 	.check_hw         = tenxpress_phy_check_hw,
+ 	.fini             = tenxpress_phy_fini,
+ 	.clear_interrupt  = tenxpress_phy_clear_interrupt,
+-	.reset_xaui       = tenxpress_reset_xaui,
+ 	.test             = tenxpress_phy_test,
+ 	.mmds             = TENXPRESS_REQUIRED_DEVS,
+ 	.loopbacks        = TENXPRESS_LOOPBACKS,
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
+index a824f59..fa7b49d 100644
+--- a/drivers/net/sfc/workarounds.h
++++ b/drivers/net/sfc/workarounds.h
+@@ -24,8 +24,6 @@
+ #define EFX_WORKAROUND_7575 EFX_WORKAROUND_ALWAYS
+ /* TX pkt parser problem with <= 16 byte TXes */
+ #define EFX_WORKAROUND_9141 EFX_WORKAROUND_ALWAYS
+-/* XGXS and XAUI reset sequencing in SW */
+-#define EFX_WORKAROUND_9388 EFX_WORKAROUND_ALWAYS
+ /* Low rate CRC errors require XAUI reset */
+ #define EFX_WORKAROUND_10750 EFX_WORKAROUND_ALWAYS
+ /* TX_EV_PKT_ERR can be caused by a dangling TX descriptor
+diff --git a/drivers/net/sfc/xfp_phy.c b/drivers/net/sfc/xfp_phy.c
+index f6edecc..276151d 100644
+--- a/drivers/net/sfc/xfp_phy.c
++++ b/drivers/net/sfc/xfp_phy.c
+@@ -165,7 +165,6 @@ struct efx_phy_operations falcon_xfp_phy_ops = {
+ 	.check_hw        = xfp_phy_check_hw,
+ 	.fini            = xfp_phy_fini,
+ 	.clear_interrupt = xfp_phy_clear_interrupt,
+-	.reset_xaui      = efx_port_dummy_op_void,
+ 	.mmds            = XFP_REQUIRED_DEVS,
+ 	.loopbacks       = XFP_LOOPBACKS,
+ };
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
