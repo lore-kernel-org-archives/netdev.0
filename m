@@ -1,119 +1,44 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 13/52] sfc: Speed up loopback self-test
-Date: Mon, 1 Sep 2008 12:46:33 +0100
-Message-ID: <20080901114632.GG7908@solarflare.com>
+Subject: [PATCH 14/52] sfc: Don't leak PCI DMA maps in the TSO code when the queue fills up
+Date: Mon, 1 Sep 2008 12:46:36 +0100
+Message-ID: <20080901114636.GH7908@solarflare.com>
 References: <20080901111621.GT7908@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:33920 "EHLO
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:34214 "EHLO
 	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756269AbYIALqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:46:35 -0400
+	by vger.kernel.org with ESMTP id S1756521AbYIALqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:46:39 -0400
 Content-Disposition: inline
 In-Reply-To: <20080901111621.GT7908@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add efx_poll_loopback() function to test for successful completion of test.
-Change efx_test_loopback() to end the test after 1 ms if
-efx_poll_loopback() indicates success, and otherwise to wait for 100 ms
-as before.
-
-While we're here, rename efx_{rx,tx}_loopback() to
-efx_{begin,end}_loopback() which more accurately reflect their
-purpose.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/selftest.c |   44 +++++++++++++++++++++++++++++---------------
- 1 files changed, 29 insertions(+), 15 deletions(-)
+ drivers/net/sfc/tx.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
-index 8ad517c..53fa4ed 100644
---- a/drivers/net/sfc/selftest.c
-+++ b/drivers/net/sfc/selftest.c
-@@ -400,7 +400,7 @@ static void efx_iterate_state(struct efx_nic *efx)
- 	smp_wmb();
+diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
+index e5e0bab..0452ea6 100644
+--- a/drivers/net/sfc/tx.c
++++ b/drivers/net/sfc/tx.c
+@@ -1096,6 +1096,11 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 		efx_stop_queue(tx_queue->efx);
+ 
+  unwind:
++	/* Free the DMA mapping we were in the process of writing out */
++	if (state.ifc.unmap_len)
++		pci_unmap_page(tx_queue->efx->pci_dev, state.ifc.unmap_addr,
++			       state.ifc.unmap_len, PCI_DMA_TODEVICE);
++
+ 	efx_enqueue_unwind(tx_queue);
+ 	return rc2;
  }
- 
--static int efx_tx_loopback(struct efx_tx_queue *tx_queue)
-+static int efx_begin_loopback(struct efx_tx_queue *tx_queue)
- {
- 	struct efx_nic *efx = tx_queue->efx;
- 	struct efx_selftest_state *state = efx->loopback_selftest;
-@@ -449,8 +449,22 @@ static int efx_tx_loopback(struct efx_tx_queue *tx_queue)
- 	return 0;
- }
- 
--static int efx_rx_loopback(struct efx_tx_queue *tx_queue,
--			   struct efx_loopback_self_tests *lb_tests)
-+static int efx_poll_loopback(struct efx_nic *efx)
-+{
-+	struct efx_selftest_state *state = efx->loopback_selftest;
-+	struct efx_channel *channel;
-+
-+	/* NAPI polling is not enabled, so process channels
-+	 * synchronously */
-+	efx_for_each_channel_with_interrupt(channel, efx) {
-+		if (channel->work_pending)
-+			efx_process_channel_now(channel);
-+	}
-+	return atomic_read(&state->rx_good) == state->packet_count;
-+}
-+
-+static int efx_end_loopback(struct efx_tx_queue *tx_queue,
-+			    struct efx_loopback_self_tests *lb_tests)
- {
- 	struct efx_nic *efx = tx_queue->efx;
- 	struct efx_selftest_state *state = efx->loopback_selftest;
-@@ -513,8 +527,7 @@ efx_test_loopback(struct efx_tx_queue *tx_queue,
- {
- 	struct efx_nic *efx = tx_queue->efx;
- 	struct efx_selftest_state *state = efx->loopback_selftest;
--	struct efx_channel *channel;
--	int i, tx_rc, rx_rc;
-+	int i, begin_rc, end_rc;
- 
- 	for (i = 0; i < loopback_test_level; i++) {
- 		/* Determine how many packets to send */
-@@ -531,23 +544,24 @@ efx_test_loopback(struct efx_tx_queue *tx_queue,
- 			state->packet_count);
- 
- 		efx_iterate_state(efx);
--		tx_rc = efx_tx_loopback(tx_queue);
--		
--		/* NAPI polling is not enabled, so process channels synchronously */
--		schedule_timeout_uninterruptible(HZ / 50);
--		efx_for_each_channel_with_interrupt(channel, efx) {
--			if (channel->work_pending)
--				efx_process_channel_now(channel);
-+		begin_rc = efx_begin_loopback(tx_queue);
-+
-+		/* This will normally complete very quickly, but be
-+		 * prepared to wait up to 100 ms. */
-+		msleep(1);
-+		if (!efx_poll_loopback(efx)) {
-+			msleep(100);
-+			efx_poll_loopback(efx);
- 		}
- 
--		rx_rc = efx_rx_loopback(tx_queue, lb_tests);
-+		end_rc = efx_end_loopback(tx_queue, lb_tests);
- 		kfree(state->skbs);
- 
--		if (tx_rc || rx_rc) {
-+		if (begin_rc || end_rc) {
- 			/* Wait a while to ensure there are no packets
- 			 * floating around after a failure. */
- 			schedule_timeout_uninterruptible(HZ / 10);
--			return tx_rc ? tx_rc : rx_rc;
-+			return begin_rc ? begin_rc : end_rc;
- 		}
- 	}
- 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
