@@ -1,194 +1,101 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 36/52] sfc: Cleanup reset code
-Date: Mon, 1 Sep 2008 12:48:50 +0100
-Message-ID: <20080901114849.GD7908@solarflare.com>
+Subject: [PATCH 32/52] sfc: Enable TSO for 802.1q VLAN devices
+Date: Mon, 1 Sep 2008 12:48:23 +0100
+Message-ID: <20080901114823.GZ7908@solarflare.com>
 References: <20080901111621.GT7908@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:41699 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758853AbYIALsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:48:52 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:58207 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758899AbYIALs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 07:48:26 -0400
 Content-Disposition: inline
 In-Reply-To: <20080901111621.GT7908@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move more code from efx_reset() into efx_reset_down() and efx_reset_up().
-
-Stop propagating MAC/PHY setting failures from efx_reset_down() and
-efx_reset_up() as these should not be fatal.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c |   98 ++++++++++++++++++++----------------------------
- 1 files changed, 41 insertions(+), 57 deletions(-)
+ drivers/net/sfc/efx.c |    2 +-
+ drivers/net/sfc/tx.c  |   25 +++++++++++++++++++------
+ 2 files changed, 20 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index f226dcf..f34dbf2 100644
+index be9382f..5a0494a 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -1527,46 +1527,58 @@ static void efx_unregister_netdev(struct efx_nic *efx)
-  *
-  **************************************************************************/
+@@ -2079,7 +2079,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 		net_dev->features |= NETIF_F_LRO;
+ 	/* Mask for features that also apply to VLAN devices */
+ 	net_dev->vlan_features |= (NETIF_F_ALL_CSUM | NETIF_F_SG |
+-				   NETIF_F_HIGHDMA);
++				   NETIF_F_HIGHDMA | NETIF_F_TSO);
+ 	efx = netdev_priv(net_dev);
+ 	pci_set_drvdata(pci_dev, efx);
+ 	rc = efx_init_struct(efx, type, pci_dev, net_dev);
+diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
+index 0e9889c..a3a3edd 100644
+--- a/drivers/net/sfc/tx.c
++++ b/drivers/net/sfc/tx.c
+@@ -105,7 +105,7 @@ struct efx_tso_header {
+ };
  
--/* The final hardware and software finalisation before reset. */
--static int efx_reset_down(struct efx_nic *efx, struct ethtool_cmd *ecmd)
-+/* Tears down the entire software state and most of the hardware state
-+ * before reset.  */
-+static void efx_reset_down(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+-			       const struct sk_buff *skb);
++			       struct sk_buff *skb);
+ static void efx_fini_tso(struct efx_tx_queue *tx_queue);
+ static void efx_tsoh_heap_free(struct efx_tx_queue *tx_queue,
+ 			       struct efx_tso_header *tsoh);
+@@ -139,7 +139,7 @@ static void efx_tsoh_free(struct efx_tx_queue *tx_queue,
+  * You must hold netif_tx_lock() to call this function.
+  */
+ static int efx_enqueue_skb(struct efx_tx_queue *tx_queue,
+-			   const struct sk_buff *skb)
++			   struct sk_buff *skb)
  {
- 	int rc;
- 
- 	EFX_ASSERT_RESET_SERIALISED(efx);
- 
-+	/* The net_dev->get_stats handler is quite slow, and will fail
-+	 * if a fetch is pending over reset. Serialise against it. */
-+	spin_lock(&efx->stats_lock);
-+	spin_unlock(&efx->stats_lock);
-+
-+	efx_stop_all(efx);
-+	mutex_lock(&efx->mac_lock);
-+
- 	rc = falcon_xmac_get_settings(efx, ecmd);
--	if (rc) {
-+	if (rc)
- 		EFX_ERR(efx, "could not back up PHY settings\n");
--		goto fail;
--	}
- 
- 	efx_fini_channels(efx);
--	return 0;
--
-- fail:
--	return rc;
- }
- 
--/* The first part of software initialisation after a hardware reset
-- * This function does not handle serialisation with the kernel, it
-- * assumes the caller has done this */
--static int efx_reset_up(struct efx_nic *efx, struct ethtool_cmd *ecmd)
-+/* This function will always ensure that the locks acquired in
-+ * efx_reset_down() are released. A failure return code indicates
-+ * that we were unable to reinitialise the hardware, and the
-+ * driver should be disabled. If ok is false, then the rx and tx
-+ * engines are not restarted, pending a RESET_DISABLE. */
-+static int efx_reset_up(struct efx_nic *efx, struct ethtool_cmd *ecmd,
-+			bool ok)
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	struct pci_dev *pci_dev = efx->pci_dev;
+@@ -578,11 +578,24 @@ struct tso_state {
+  * Verify that our various assumptions about sk_buffs and the conditions
+  * under which TSO will be attempted hold true.
+  */
+-static void efx_tso_check_safe(const struct sk_buff *skb)
++static void efx_tso_check_safe(struct sk_buff *skb)
  {
- 	int rc;
- 
--	efx_init_channels(efx);
-+	EFX_ASSERT_RESET_SERIALISED(efx);
- 
--	/* Restore MAC and PHY settings. */
--	rc = falcon_xmac_set_settings(efx, ecmd);
-+	rc = falcon_init_nic(efx);
- 	if (rc) {
--		EFX_ERR(efx, "could not restore PHY settings\n");
--		goto fail;
-+		EFX_ERR(efx, "failed to initialise NIC\n");
-+		ok = false;
- 	}
- 
--	return 0;
-+	if (ok) {
-+		efx_init_channels(efx);
- 
-- fail:
--	efx_fini_channels(efx);
-+		if (falcon_xmac_set_settings(efx, ecmd))
-+			EFX_ERR(efx, "could not restore PHY settings\n");
+-	EFX_BUG_ON_PARANOID(skb->protocol != htons(ETH_P_IP));
++	__be16 protocol = skb->protocol;
++
+ 	EFX_BUG_ON_PARANOID(((struct ethhdr *)skb->data)->h_proto !=
+-			    skb->protocol);
++			    protocol);
++	if (protocol == htons(ETH_P_8021Q)) {
++		/* Find the encapsulated protocol; reset network header
++		 * and transport header based on that. */
++		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
++		protocol = veh->h_vlan_encapsulated_proto;
++		skb_set_network_header(skb, sizeof(*veh));
++		if (protocol == htons(ETH_P_IP))
++			skb_set_transport_header(skb, sizeof(*veh) +
++						 4 * ip_hdr(skb)->ihl);
 +	}
 +
-+	mutex_unlock(&efx->mac_lock);
-+
-+	if (ok)
-+		efx_start_all(efx);
- 	return rc;
- }
- 
-@@ -1598,22 +1610,12 @@ static int efx_reset(struct efx_nic *efx)
- 	efx->state = STATE_RESETTING;
- 	EFX_INFO(efx, "resetting (%d)\n", method);
- 
--	/* The net_dev->get_stats handler is quite slow, and will fail
--	 * if a fetch is pending over reset. Serialise against it. */
--	spin_lock(&efx->stats_lock);
--	spin_unlock(&efx->stats_lock);
--
--	efx_stop_all(efx);
--	mutex_lock(&efx->mac_lock);
--
--	rc = efx_reset_down(efx, &ecmd);
--	if (rc)
--		goto fail1;
-+	efx_reset_down(efx, &ecmd);
- 
- 	rc = falcon_reset_hw(efx, method);
- 	if (rc) {
- 		EFX_ERR(efx, "failed to reset hardware\n");
--		goto fail2;
-+		goto fail;
- 	}
- 
- 	/* Allow resets to be rescheduled. */
-@@ -1625,46 +1627,28 @@ static int efx_reset(struct efx_nic *efx)
- 	 * can respond to requests. */
- 	pci_set_master(efx->pci_dev);
- 
--	/* Reinitialise device. This is appropriate in the RESET_TYPE_DISABLE
--	 * case so the driver can talk to external SRAM */
--	rc = falcon_init_nic(efx);
--	if (rc) {
--		EFX_ERR(efx, "failed to initialise NIC\n");
--		goto fail3;
--	}
--
- 	/* Leave device stopped if necessary */
- 	if (method == RESET_TYPE_DISABLE) {
--		/* Reinitialise the device anyway so the driver unload sequence
--		 * can talk to the external SRAM */
--		falcon_init_nic(efx);
- 		rc = -EIO;
--		goto fail4;
-+		goto fail;
- 	}
- 
--	rc = efx_reset_up(efx, &ecmd);
-+	rc = efx_reset_up(efx, &ecmd, true);
- 	if (rc)
--		goto fail5;
-+		goto disable;
- 
--	mutex_unlock(&efx->mac_lock);
- 	EFX_LOG(efx, "reset complete\n");
--
- 	efx->state = STATE_RUNNING;
--	efx_start_all(efx);
--
-  unlock_rtnl:
- 	rtnl_unlock();
- 	return 0;
- 
-- fail5:
-- fail4:
-- fail3:
-- fail2:
-- fail1:
-+ fail:
-+	efx_reset_up(efx, &ecmd, false);
-+ disable:
- 	EFX_ERR(efx, "has been disabled\n");
- 	efx->state = STATE_DISABLED;
- 
--	mutex_unlock(&efx->mac_lock);
- 	rtnl_unlock();
- 	efx_unregister_netdev(efx);
- 	efx_fini_port(efx);
++	EFX_BUG_ON_PARANOID(protocol != htons(ETH_P_IP));
+ 	EFX_BUG_ON_PARANOID(ip_hdr(skb)->protocol != IPPROTO_TCP);
+ 	EFX_BUG_ON_PARANOID((PTR_DIFF(tcp_hdr(skb), skb->data)
+ 			     + (tcp_hdr(skb)->doff << 2u)) >
+@@ -1020,7 +1033,7 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
+  * %NETDEV_TX_OK or %NETDEV_TX_BUSY.
+  */
+ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+-			       const struct sk_buff *skb)
++			       struct sk_buff *skb)
+ {
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	int frag_i, rc, rc2 = NETDEV_TX_OK;
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
