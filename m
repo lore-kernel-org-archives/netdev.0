@@ -1,59 +1,59 @@
 From: Valdis.Kletnieks@vt.edu
-Subject: Re: [RFC] bridge: STP timer management range checking
-Date: Sun, 31 Aug 2008 22:25:30 -0400
-Message-ID: <19455.1220235930@turing-police.cc.vt.edu>
-References: <fa.wTMiBcGRgw2fBtdHwtX7y0lkc8s@ifi.uio.no> <48975BD3.6040709@shaw.ca> <a08621850808041337k1d1deb6fk78098d9fcd4930dd@mail.gmail.com> <20080807185802.GA16327@electric-eye.fr.zoreil.com> <a08621850808101200n220afd2dve58abe67830b7a4f@mail.gmail.com> <a08621850808110053j5cbf23e6xdf52c9e7440abf19@mail.gmail.com> <a08621850808291848q5660148fx57d576ecfcbfce8@mail.gmail.com> <a08621850808310151o143845h195a8658d02270d9@mail.gmail.com> <20080831100537.6929c51e@extreme>
-            <20080831104309.780cc01f@extreme>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Sun, 31 Aug 2008 22:39:16 -0400
+Message-ID: <20031.1220236756@turing-police.cc.vt.edu>
+References: <21915755.1327801219904892242.JavaMail.root@ouachita>
+            <48B6E7D0.5070307@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1220235929_12805P";
+Content-Type: multipart/signed; boundary="==_Exmh_1220236756_12805P";
 	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Dushan Tcholich <dusanc@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Robert Hancock <hancockr@shaw.ca>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Joe Malicki <jmalicki@metacarta.com>,
+	David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	johnpol@2ka.mipt.ru, dada1@cosmosbay.com, denys@visp.net.lb,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, sammy@sammy.net
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:34944 "EHLO
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:36846 "EHLO
 	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055AbYIACZl (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 22:25:41 -0400
-In-Reply-To: Your message of "Sun, 31 Aug 2008 10:43:09 PDT."
-             <20080831104309.780cc01f@extreme>
+	with ESMTP id S1750871AbYIACjp (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Sun, 31 Aug 2008 22:39:45 -0400
+In-Reply-To: Your message of "Thu, 28 Aug 2008 11:00:48 PDT."
+             <48B6E7D0.5070307@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1220235929_12805P
+--==_Exmh_1220236756_12805P
 Content-Type: text/plain; charset=us-ascii
 
-On Sun, 31 Aug 2008 10:43:09 PDT, Stephen Hemminger said:
+On Thu, 28 Aug 2008 11:00:48 PDT, Rick Jones said:
 
-> Warning: this may cause user backlash since apparently working but standards
->   conforming configurations will get configuration errors that they didn't
->   see before.
+> Earlier in the thread mention was made of financial services types.  If 
+> someone has knowledge of the (probably) arcane rules under which they 
+> must operate it would be great to hear more.  Does some entity like the 
+> SEC (Securities and Exchange Commission in the United States) mandate 
+> some sort of timestamp for when the trading request "arrives at the 
+> trading system" and do they define that "arriving at the trading system" 
+> means?
 
-Did you mean "apparently working but *non*-standards conforming"?
+As a totally pragmatic point - if the market is in such free-fall that it
+matters that your order got in a 10 thousandth of a second after somebody
+else's, instead of before, you probably lost at least 5 to 10 times as much
+during the time it took somebody to type the damn order in and hit enter.
 
-Other than that, seems to be a sane application of "Be conservative in what you
-send".  Our network is some 30K cat-5 ports, 1100 switches, 1300 wireless
-access points, and we appreciate it every time somebody makes things more
-bulletproof.  And yes, we prefer things to out-and-out *fail* rather than
-run in a wonky configuration - hard failures usually get fixed in a few
-minutes, wonkiness can drag on for months of mystifying symptoms...
+At that point, you have *bigger* things to worry about.
 
-
---==_Exmh_1220235929_12805P
+--==_Exmh_1220236756_12805P
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.9 (GNU/Linux)
 Comment: Exmh version 2.5 07/13/2001
 
-iD8DBQFIu1KZcC3lWbTT17ARAmJaAKD+LZ/6wS6BV8FrmwpE/v41tXfNtACfT7+d
-7vnicwD7pqOc9q10nWXNz/4=
-=uKnV
+iD8DBQFIu1XUcC3lWbTT17ARAohOAKCh5/m7M6Tr92hp8Tm74aHeHWmiJgCdG3lM
+kL9+I5B07pACfQ6+SbpUrrc=
+=BYQm
 -----END PGP SIGNATURE-----
 
---==_Exmh_1220235929_12805P--
+--==_Exmh_1220236756_12805P--
