@@ -1,56 +1,71 @@
-From: "Nick Kossifidis" <mickflemm@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Mon, 1 Sep 2008 10:19:05 +0300
-Message-ID: <40f31dec0809010019x54d14f43ub614f98ec6420ad7@mail.gmail.com>
-References: <20080805.190020.244441681.davem@davemloft.net>
-	 <alpine.LFD.1.10.0808051937410.15995@nehalem.linux-foundation.org>
-	 <200808061021.56150.IvDoorn@gmail.com> <48B7CBA7.4060107@grupopie.com>
-	 <40f31dec0808311258q7598dfe3he81b7575375faff5@mail.gmail.com>
-	 <alpine.LFD.1.10.0808311313260.12958@nehalem.linux-foundation.org>
+From: Julien Brunel <brunel@diku.dk>
+Subject: [PATCH] net/xfrm: Use an IS_ERR test rather than a NULL test
+Date: Mon, 1 Sep 2008 10:53:33 +0200
+Message-ID: <200809011053.34028.brunel@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Rui Santos" <rsantos@grupopie.com>,
-	"Ivo van Doorn" <ivdoorn@gmail.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.171]:13252 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbYIAHTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 03:19:06 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1754428wfd.4
-        for <netdev@vger.kernel.org>; Mon, 01 Sep 2008 00:19:05 -0700 (PDT)
-In-Reply-To: <alpine.LFD.1.10.0808311313260.12958@nehalem.linux-foundation.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:51286 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751424AbYIAIxi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Sep 2008 04:53:38 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/8/31 Linus Torvalds <torvalds@linux-foundation.org>:
->
->
-> On Sun, 31 Aug 2008, Nick Kossifidis wrote:
->>
->> EeePC is working, the patch series i submitted adds support for RF2425
->> chip which is included on EeePCs as far as i know (i have tested it on
->> an EeePC 900 surf, i think EeePC 901 has the same card) ;-)
->
-> I think the EeePC 900 has a ath5k chip, and the 901/1000 has some totally
-> different RaLink chip afaik.
->
-> I think the design change came when moving from Celeron to Atom.
->
->                Linus
->
+From: Julien Brunel <brunel@diku.dk>
 
-Hmm i missed that part, sorry for the spam...
+In case of error, the function xfrm_bundle_create returns an ERR
+pointer, but never returns a NULL pointer. So a NULL test that comes
+after an IS_ERR test should be deleted.
 
-01:00.0 Network controller: RaLink Unknown device 0781
+The semantic match that finds this problem is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
 
--- 
-GPG ID: 0xD21DB2DB
-As you read this post global entropy rises. Have Fun ;-)
-Nick
+// <smpl>
+@match_bad_null_test@
+expression x, E;
+statement S1,S2;
+@@
+x =  xfrm_bundle_create(...)
+... when != x = E
+*  if (x != NULL) 
+S1 else S2
+// </smpl>
+
+Signed-off-by:  Julien Brunel <brunel@diku.dk>
+Signed-off-by:  Julia Lawall <julia@diku.dk>
+
+---
+ net/xfrm/xfrm_policy.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff -u -p a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1731,8 +1731,7 @@ restart:
+ 			 * We can't enlist stable bundles either.
+ 			 */
+ 			write_unlock_bh(&policy->lock);
+-			if (dst)
+-				dst_free(dst);
++			dst_free(dst);
+ 
+ 			if (pol_dead)
+ 				XFRM_INC_STATS(LINUX_MIB_XFRMOUTPOLDEAD);
+@@ -1748,8 +1747,7 @@ restart:
+ 			err = xfrm_dst_update_origin(dst, fl);
+ 		if (unlikely(err)) {
+ 			write_unlock_bh(&policy->lock);
+-			if (dst)
+-				dst_free(dst);
++			dst_free(dst);
+ 			XFRM_INC_STATS(LINUX_MIB_XFRMOUTBUNDLECHECKERROR);
+ 			goto error;
+ 		}
