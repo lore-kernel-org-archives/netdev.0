@@ -1,37 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
- feature-negotiation patches
-Date: Mon, 01 Sep 2008 14:20:55 -0700 (PDT)
-Message-ID: <20080901.142055.193705447.davem@davemloft.net>
-References: <20080828194336.GJ9193@ghostprotocols.net>
-	<20080830172501.GB26846@gerrit.erg.abdn.ac.uk>
-	<20080901164633.GA6456@gerrit.erg.abdn.ac.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [UPDATED] [NET-NEXT PATCH 1/2] pkt_sched: Add multiqueue
+	scheduler support
+Date: Mon, 01 Sep 2008 15:49:14 -0700
+Message-ID: <1220309354.14337.34.camel@ahduyck-laptop>
+References: <20080901210516.GA5931@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, jeff@garzik.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37223
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751886AbYIAVVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 17:21:01 -0400
-In-Reply-To: <20080901164633.GA6456@gerrit.erg.abdn.ac.uk>
+Received: from wa-out-1112.google.com ([209.85.146.177]:46043 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984AbYIAWt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 18:49:29 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so1468687waf.23
+        for <netdev@vger.kernel.org>; Mon, 01 Sep 2008 15:49:28 -0700 (PDT)
+In-Reply-To: <20080901210516.GA5931@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 1 Sep 2008 18:46:33 +0200
+On Mon, 2008-09-01 at 23:05 +0200, Jarek Poplawski wrote:
 
-> The set contains the same patches as submitted to netdev/dccp@vger last week.
-> Thanks to contributions from several people, this revised set contains several
-> improvements. I have just verified that the set is still fully bisectable.
+> Mostly looks OK to me, but a few (late) doubts below:
 
->From what I can tell the only person who reviewed this set was Arnaldo
-and he was only able to review about half of the patches before passing
-out.
+Most of your suggestions I agree with, with the following exceptions.
+> ...
+> > +static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
+> > +{
+> > +	struct multiq_sched_data *q = qdisc_priv(sch);
+> > +	struct tc_multiq_qopt *qopt;
+> > +	struct Qdisc **queues;
+> > +	int i;
+> > +
+> > +	if (sch->parent != TC_H_ROOT)
+> > +		return -EINVAL;
+> 
+> Is it necessary?
+> 
+I think so.  Basically I want to have this qdisc as the root for all
+other qdiscs because the hardware queue decision needs to be made as
+soon as possible in order to avoid any head of line blocking issues.
+This way you don't end up with multiple qdiscs fighting over hardware
+queues.
 
-Surely I can imagine he would come up with similar fixups and commentary
-for the rest of these patches were he given the chance to do so.
+> > +static int multiq_dump(struct Qdisc *sch, struct sk_buff *skb)
+> > +{
+> > +	struct multiq_sched_data *q = qdisc_priv(sch);
+> > +	unsigned char *b = skb_tail_pointer(skb);
+> > +	struct nlattr *nest;
+> > +	struct tc_multiq_qopt opt;
+> > +
+> > +	opt.bands = q->bands;
+> > +
+> > +	nest = nla_nest_compat_start(skb, TCA_OPTIONS, sizeof(opt), &opt);
+> 
+> http://marc.info/?l=linux-netdev&m=121993231608269&w=2
 
-So I'd like to wait and give him the chance to provide that feedback.
+I can dump the whole nested_compat setup and replace it all with an
+nla_put, because it is inefficient to waste the space on an empty nested
+attribute that isn't needed.  I think this was just a holdover from
+prio/rr anyway.
+
+> 
+> > +	if (nest == NULL)
+> > +		goto nla_put_failure;
+> > +	nla_nest_compat_end(skb, nest);
+> ...
+> 
+> Jarek P.
+
+Thanks,
+
+Alex
+
+
