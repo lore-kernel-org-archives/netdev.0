@@ -1,34 +1,43 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after some	time
-Date: Mon, 1 Sep 2008 06:03:31 -0700
-Message-ID: <OF9473413E.A12F091F-ON882574B7.00472B7A-882574B7.0047BD14@us.ibm.com>
-References: <20080831182034.GA12035@pest>
+From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: IPv6 tunnel scalability problem
+Date: Mon, 1 Sep 2008 18:09:26 +0300
+Message-ID: <200809011809.26410.rdenis@simphalempin.com>
+References: <200808311958.51510.rdenis@simphalempin.com> <8763pgxead.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Bernhard Schmidt <berni@birkenwald.de>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Bernhard Schmidt <berni+ipv6@birkenwald.de>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:40121 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751075AbYIANDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 09:03:35 -0400
-In-Reply-To: <20080831182034.GA12035@pest>
+Received: from yop.chewa.net ([91.121.105.214]:43886 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751305AbYIAPJ3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 11:09:29 -0400
+In-Reply-To: <8763pgxead.fsf@basil.nowhere.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Well, it'd certainly be good to identify exactly where in
-the sendmsg path you're getting the EINVAL from. If
-possible, I'd suggest putting in some debugging code
-and reproducing it.
+Le lundi 1 septembre 2008 15:04:58 Andi Kleen, vous avez =C3=A9crit=C2=A0=
+:
+> R=C3=A9mi Denis-Courmont <rdenis@simphalempin.com> writes:
+> > I have been maintaining a TUN-based Linux implementation of
+> > Teredo/RFC4380. On a busy node, this can trigger quite many peers o=
+n the
+> > virtual point-to-point tunnel interface. I have received complaints=
+ that
+> > the whole thing seems to hit some severe performance bottleneck whe=
+n this
+> > happens. It is not clear to me at this point whether it's a kernel =
+or a
+> > user problem. So I have been writing a stress test.
+>
+> You could use oprofile to find out where the CPU time is going.
+> That would work even during normal operation. Post the opreport -l ou=
+tput
 
- If you can pick up the exact arguments when it's happening
-via strace and send those here, that may help, but I wouldn't
-expect those to be incorrect from ping6 only some of the
-time...
+Understood. But this far, the kernel crashes during my stress test...
 
-I'll look into this some more if someone doesn't beat me to
-it, but I'm travelling now so it will be a few days at least before
-I get to it.
-
-                                        +-DLS
-
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
