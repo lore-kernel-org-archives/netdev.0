@@ -1,43 +1,99 @@
-From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: IPv6 tunnel scalability problem
-Date: Mon, 1 Sep 2008 18:09:26 +0300
-Message-ID: <200809011809.26410.rdenis@simphalempin.com>
-References: <200808311958.51510.rdenis@simphalempin.com> <8763pgxead.fsf@basil.nowhere.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+	feature-negotiation patches
+Date: Mon, 1 Sep 2008 18:46:33 +0200
+Message-ID: <20080901164633.GA6456@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <20080828194336.GJ9193@ghostprotocols.net> <20080830172501.GB26846@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Bernhard Schmidt <berni+ipv6@birkenwald.de>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:43886 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751305AbYIAPJ3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 11:09:29 -0400
-In-Reply-To: <8763pgxead.fsf@basil.nowhere.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:57276 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753425AbYIAQqs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Sep 2008 12:46:48 -0400
 Content-Disposition: inline
+In-Reply-To: <20080830172501.GB26846@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 1 septembre 2008 15:04:58 Andi Kleen, vous avez =C3=A9crit=C2=A0=
-:
-> R=C3=A9mi Denis-Courmont <rdenis@simphalempin.com> writes:
-> > I have been maintaining a TUN-based Linux implementation of
-> > Teredo/RFC4380. On a busy node, this can trigger quite many peers o=
-n the
-> > virtual point-to-point tunnel interface. I have received complaints=
- that
-> > the whole thing seems to hit some severe performance bottleneck whe=
-n this
-> > happens. It is not clear to me at this point whether it's a kernel =
-or a
-> > user problem. So I have been writing a stress test.
->
-> You could use oprofile to find out where the CPU time is going.
-> That would work even during normal operation. Post the opreport -l ou=
-tput
+Hi Dave,
 
-Understood. But this far, the kernel crashes during my stress test...
+can you please consider the following DCCP set of patches. It is a
+self-contained set for feature negotiation among endpoints.
 
---=20
-R=C3=A9mi Denis-Courmont
-http://www.remlab.net/
+These have been tested over a long period in the test tree. 
+
+The set contains the same patches as submitted to netdev/dccp@vger last week.
+Thanks to contributions from several people, this revised set contains several
+improvements. I have just verified that the set is still fully bisectable.
+
+The set can be pulled from
+
+	git://eden-feed.erg.abdn.ac.uk/net-next-2.6 	[subtree `master']
+
+which uses a fresh net-next-2.6 from today, also compile-tested.
+
+A summary is below, changes can be viewed online at
+	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-next-2.6.git
+
+- Gerrit
+
+Part I - Basis
+---------------
+Patch #1: Provides the basic datastructure for feature negotiation. It gets 
+          around the problem that feature-negotiation values have no uniform
+	  type - they can be 48-bit numbers, single characters, 2-byte integers
+	  or a list of unsigned chars.
+Patch #2: Provides a lookup-table for the different negotiable features.
+Patch #3: Adds list management for the list keeping the negotiation-options.
+Patch #4: Initialisation routines (for request sockets and normal sockets).
+Patch #5: Analogous to #4, this provides the cleanup routines.	  
+Patch #6: Changes the existing policy to allow anytime changes as that lead
+          to unpredictable results.
+Patch #7: Adds registration routines. These form part of the user interface
+          and are later used by the socket API to set individual preferences.
+Patch #8: CCIDs are a negotiable feature. This patch adds support to query the
+          supported CCIDs, so as to advertise only the locally supported ones.
+Patch #9: The choice of CCID in turn creates new feature dependencies. The patch
+          adds automatic tracking of such dependencies to avoid later failure.
+
+Part II - Core	  
+--------------
+Patch #10: Provides a mechanism to then resolve CCID-dependent features. Since
+           CCIDs are a server-priority feature, this is done by the server.
+Patch #11: Deprecates old featneg API, as it was dangerous/clumsy.
+Patch #12: Support to negotiate checksum-coverage values (as in UDP-Lite).
+Patch #13: Deprecates Ack Ratio sysctl, to enable automatic updating.
+Patch #14: Tidies up the setsockopt interface for new additions.
+Patch #15: Set/getsockopt support to negotiate CCIDs with the peer.
+Patch #16: Socket API to query the current CCID from userspace.
+Patch #17: Prepares the variable-length htonl/ntohl functions for 48 bits.
+           Such a length is needed by e.g. the Sequence Window feature.
+Patch #18: Support for DCCP `Mandatory' type options (RFC 4340, 5.8.2).
+Patch #19: Routine to insert feature-negotiation header options.
+Patch #20: Complements #19, to add feature-negotiation options onto the skb.
+Patch #21: Complements #20 and completes the insertion of featneg options.
+Patch #22: Logic/algorithm to actually reconcile negotiation options.
+Patch #23: Receiver support to process incoming Change L/R options. 
+Patch #24: Receiver support to process incoming Confirm R/L options.
+Patch #25: Handlers for activating successfully negotiated features.
+
+Part III - Integration and cleanup
+----------------------------------
+Patch #26: Integration of dynamic negotiation, part I (socket setup).
+Patch #27: Integration of dynamic negotiation, part II (server side).
+Patch #28: Integration of dynamic negotiation, part III (client side).
+
+Patch #29: Cleans up the older infrastructure.
+Patch #30: Removes obsolete parts of the old CCID interface.
+Patch #31: Removes manual intervention on NDP count (now automatic).
+Patch #32: Removes Ack Vector sysctl (handled automatically now).
+
+Patch #33: Initialisation framework for the supported features.
+Patch #34: Auto-loading of CCID modules so that the modules are available
+           when the negotiation is completed.
+Patch #35: Adds full support for local/remote Sequence Window.
+Patch #36: Initialisation and type-checking of involved sysctls.
+Patch #37: A set of (useful) debugging/printing helper functions.
