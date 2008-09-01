@@ -1,35 +1,38 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after
-	some time
-Date: Mon, 1 Sep 2008 11:09:59 +0200
-Message-ID: <20080901090959.GA6621@schleppi.birkenwald.de>
-References: <20080831182034.GA12035@pest> <OF94B2D0C1.33DB4CE6-ON882574B7.001FDB00-882574B7.00200870@us.ibm.com>
+From: "Bosko Radivojevic" <bosko.radivojevic@gmail.com>
+Subject: GRE keepalive support
+Date: Mon, 1 Sep 2008 12:32:56 +0200
+Message-ID: <d6c8ef150809010332g4760d893wcc09188e02ed2a2f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, netfilter@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs02.svr02.mucip.net ([83.170.6.69]:59235 "EHLO
-	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757487AbYIAKBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 06:01:39 -0400
+Received: from rv-out-0506.google.com ([209.85.198.234]:65442 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751731AbYIAKc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2008 06:32:57 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1736313rvb.1
+        for <netdev@vger.kernel.org>; Mon, 01 Sep 2008 03:32:56 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <OF94B2D0C1.33DB4CE6-ON882574B7.001FDB00-882574B7.00200870@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 31, 2008 at 10:49:50PM -0700, David Stevens wrote:
+Hi all,
 
-Hello David,
+I hope I'm sending this question to the right mailing list(s).
 
-> My wild guess is that you have lost the multicast bit on
-> the interface, by a daemon that is just setting the interface
-> flags rather than doing get/or in new/set.
-> 
-> When it's failing, you might try looking at the interface
-> flags to see if IFF_MULTICAST is still there.
+After a few hours of googling I realized that there is no support for
+GRE keepalives in Linux. Or, better to say, GRE keepalives are Cisco's
+"proprietary" feature.
 
-It is. miredo isn't doing anything with the eth0 interface, and I can
-still reach other multicast groups on te same interface.
+The project I'm currently working for needs GRE keepalives on Linux
+side (besides possibility to run some routing protocol over GRE) in
+order to have "link state" information. It looks implementing that
+feature on Linux is not too complicated and I'll give a try. Are there
+any obstacles I'm currently unable to see? Maybe there is a reason why
+GRE keepalives are not implemented? Except lack of detailed
+documentation :)
 
-Bernhard
+So, any comments are welcome.
+
+Thanks!
