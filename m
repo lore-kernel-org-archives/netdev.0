@@ -1,103 +1,55 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH 07/37] dccp: Registration routines for changing feature
- values
-Date: Tue, 02 Sep 2008 14:12:21 +0800
-Message-ID: <48BCD945.1020009@cn.fujitsu.com>
-References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <20080828205447.GN9193@ghostprotocols.net> <20080829061237.GD3557@gerrit.erg.abdn.ac.uk>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCHv2 RFC 09/25] IPVS: Add 'af' args to protocol handler
+	functions
+Date: Tue, 2 Sep 2008 16:26:11 +1000
+Message-ID: <20080902062610.GE13730@verge.net.au>
+References: <1220273782-19901-1-git-send-email-juliusv@google.com> <1220273782-19901-10-git-send-email-juliusv@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61838 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752002AbYIBGO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2008 02:14:58 -0400
-In-Reply-To: <20080829061237.GD3557@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1220273782-19901-10-git-send-email-juliusv@google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gerrit Renker wrote:
-> | > +/* check that SP values are within the ranges defined in RFC 4340 */
-> | > +static u8 dccp_feat_is_valid_sp_val(u8 feat_num, u8 val)
-> | > +{
-> | > +	switch (feat_num) {
-> | > +	case DCCPF_CCID:
-> | > +		return val == DCCPC_CCID2 || val == DCCPC_CCID3;
-> | 
-> | Shouldn't we look at the registered CCIDs and do validation based on the
-> | modules loaded? Doing it this hardcoded way will prevent testing CCID4,
-> | for instance, or require that the kernel be patched, which can not be
-> | possible with enterprise distros, etc. And defeats the purpose of having
-> | multiple pluggable congestion control algorithms :-)
-> | 
-> The point is valid and actually such a check is done, see further below.
->
-> In the CCID-4 subtree, the above statement changes to
->  | > +		val >= DCCPC_CCID2 && val <= DCCPC_CCID4;
->   
+On Mon, Sep 01, 2008 at 02:56:06PM +0200, Julius Volz wrote:
+> Add 'af' arguments to conn_schedule(), conn_in_get(), conn_out_get() and
+> csum_check() function pointers in struct ip_vs_protocol. Extend the
+> respective functions for TCP, UDP, AH and ESP and adjust the callers.
+> 
+> The changes in the callers need to be somewhat extensive, since they now
+> need to pass a filled out struct ip_vs_iphdr * to the modified functions
+> instead of a struct iphdr *.
 
-This may cause DCCP client which support only CCID 2 and CCID 3 can not 
-connect to a DCCP server which support CCID2 to CCID4.
+Hi Julius,
 
-See as following:
+./scripts/checkpatch.pl has flagged the following problems.
+Could you take a look into the whitespace ones? I'm not
+so concerned about the assignment one as it is
+an existing problem - though if you want to fix it here and elsewhere,
+thats fine too :-)
 
-DCCP client                    DCCP server
-REQUEST           ------->
-(CHANGE_R/CCID 2 3)
-                  <-------     RESPONSE
-                               (CONFIRM_R/CCID 2 2 3 4)
+ERROR: code indent should use tabs where possible
+#307: FILE: net/ipv4/ipvs/ip_vs_proto_ah_esp.c:43:
++^I           const struct ip_vs_iphdr *iph, unsigned int proto_off,$
 
+ERROR: code indent should use tabs where possible
+#308: FILE: net/ipv4/ipvs/ip_vs_proto_ah_esp.c:44:
++^I           int inverse)$
 
-RESPONSE from DCCP server with CONFIRM_R(CCID 2 2 3 4) will cause DCCP 
-client send a reset to DCCP server.
+ERROR: code indent should use tabs where possible
+#357: FILE: net/ipv4/ipvs/ip_vs_proto_ah_esp.c:82:
++^I            const struct ip_vs_iphdr *iph,$
 
-This is because dccp_feat_confirm_recv() will check whether the feat 
-list is valid before accept the CCID.
+ERROR: code indent should use tabs where possible
+#359: FILE: net/ipv4/ipvs/ip_vs_proto_ah_esp.c:84:
++^I            int inverse)$
 
-static u8 dccp_feat_confirm_recv(struct list_head *fn, u8 is_mandatory, 
-u8 opt, ... {
-    ...
-    if (!dccp_feat_sp_list_ok(feat, val, len))
-        goto confirmation_failed;
-    ...
-}
+ERROR: do not use assignment in if condition
+#654: FILE: net/ipv4/ipvs/ip_vs_proto_udp.c:94:
++	if ((svc = ip_vs_service_get(af, skb->mark, iph.protocol, &iph.daddr,
 
-
-> The above function only serves as sanity-check for SP values, so that no
-> unknown values appear. There is a registry for CCID identifiers, only
-> ones that are in RFC documents are "valid". With regard to RFC 4340,
-> 19.5 we could consider adding the experimental identifiers here
-> (248-254 are valid, we could use one for the "UDP-like" CCID).	
->
-> With regard to doing validation based on the modules loaded, the
-> mechanism works as follows:
->  1. at socket initialisation time dccp_init_sock calls dccp_feat_init
->  2. dccp_feat_init queries the compiled-in CCIDs:
->         /*
->          * We advertise the available list of CCIDs and reorder according to
->          * preferences, to avoid failure resulting from negotiating different
->          * singleton values (which always leads to failure).
->          * These settings can still (later) be overridden via sockopts.
->          */
->         if (ccid_get_builtin_ccids(&tx.val, &tx.len) ||
->             ccid_get_builtin_ccids(&rx.val, &rx.len))
->                 return -ENOBUFS;
->     ==> If it succeeds, the `tx' and `rx' entries will be identical copies.
->
->  3. The next step in dccp_feat_init is to try and load all configured  CCIDs:
->
->         if (ccid_request_modules(tx.val, tx.len))
->                 goto free_ccid_lists;
->
->     ==> If this succeeds, the host is ready to answer to any request by
-> 	the peer.
->
->  4. Finally, if the peer tries to negotiate an unknown CCID, negotiation
->     will fail as per the server-priority negotiation rules (6.3.1), unless
->     the peer has an entry in its CCID list which agrees with an entry of
->     our list.
->   
-
+total: 5 errors, 0 warnings, 624 lines checked
