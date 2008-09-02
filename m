@@ -1,42 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Packet mmap: TX RING and zero copy
-Date: Tue, 2 Sep 2008 23:46:04 +0400
-Message-ID: <20080902194603.GA2825@2ka.mipt.ru>
-References: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] hp-plus: fix link objects
+Date: Tue, 2 Sep 2008 13:03:44 -0700
+Message-ID: <20080902130344.d8847b3d.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Ulisses Alonso =?utf-8?Q?Camar=C3=B3?= <uaca@alumni.uv.es>
-To: Johann Baudy <johaahn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:49341 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754168AbYIBTtk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2008 15:49:40 -0400
-Content-Disposition: inline
-In-Reply-To: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, akpm <akpm@linux-foundation.org>,
+	jgarzik <jgarzik@pobox.com>, alan@lxorguk.ukuu.org.uk
+To: linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Johann.
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-On Tue, Sep 02, 2008 at 08:27:36PM +0200, Johann Baudy (johaahn@gmail.com) wrote:
-> I've made lot of tests, playing with jumbo frames, raw sockets, ...
-> I've never exceeded ~25Mbytes/s. So I've decided to analyze deeply the
-> packet socket transmission process.
-> 
-> The main blocking point was the memcpy_fromiovec() function that is
-> located in the packet_sendmsg() of af_packet.c.
+Fix hp-plus Makefile object file:
 
-Can you saturate the link with usual tcp/udp socket?
+drivers/built-in.o: In function `hpp_open':
+hp-plus.c:(.text+0xaf445): undefined reference to `ei_interrupt'
+hp-plus.c:(.text+0xaf4ac): undefined reference to `ei_open'
+drivers/built-in.o: In function `hpp_close':
+hp-plus.c:(.text+0xaf59d): undefined reference to `ei_close'
+drivers/built-in.o: In function `hpp_probe1':
+hp-plus.c:(.init.text+0x7314): undefined reference to `ei_poll'
+drivers/built-in.o: In function `hp_plus_probe':
+(.init.text+0x7407): undefined reference to `__alloc_ei_netdev'
+make[1]: *** [.tmp_vmlinux1] Error 1
 
-> But, I would like to get as much criticism as possible in order to
-> start a discussion with experts about a conceivable way to mix
-> zero-copy, sk_buff management and packet socket.
-> Which is perhaps impossible with current network kernel flow ...
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Did you try vmsplice and splice?
-It is the preferred way to do a zero-copy.
-
--- 
-	Evgeniy Polyakov
+--- linux-next-20080902.orig/drivers/net/Makefile
++++ linux-next-20080902/drivers/net/Makefile
+@@ -111,7 +111,7 @@ obj-$(CONFIG_EL2) += 3c503.o 8390p.o
+ obj-$(CONFIG_NE2000) += ne.o 8390p.o
+ obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
+ obj-$(CONFIG_HPLAN) += hp.o 8390p.o
+-obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390p.o
++obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390.o
+ obj-$(CONFIG_ULTRA) += smc-ultra.o 8390.o
+ obj-$(CONFIG_ULTRAMCA) += smc-mca.o 8390.o
+ obj-$(CONFIG_ULTRA32) += smc-ultra32.o 8390.o
