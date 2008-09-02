@@ -1,31 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Tue, 02 Sep 2008 10:04:30 -0700
-Message-ID: <48BD721E.4060401@hp.com>
-References: <21915755.1327801219904892242.JavaMail.root@ouachita>	<48B6E7D0.5070307@hp.com>	<20031.1220236756@turing-police.cc.vt.edu> <20080831.205145.225080276.davem@davemloft.net>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Tue, 2 Sep 2008 10:01:48 -0700
+Message-ID: <20080902170148.GA9305@suse.de>
+References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org> <m14p76ih9a.fsf_-_@frodo.ebiederm.org> <m1zloyh2mb.fsf_-_@frodo.ebiederm.org> <m1vdzmh2jr.fsf_-_@frodo.ebiederm.org> <20080820021754.GA25182@kroah.com> <m1od3m282j.fsf_-_@frodo.ebiederm.org> <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net> <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com> <48BD47A8.1080909@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, jmalicki@metacarta.com,
-	andi@firstfloor.org, johnpol@2ka.mipt.ru, dada1@cosmosbay.com,
-	denys@visp.net.lb, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, juhlenko@akamai.com, sammy@sammy.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, Mark Ryden <markryde@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:11914 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568AbYIBREj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 13:04:39 -0400
-In-Reply-To: <20080831.205145.225080276.davem@davemloft.net>
+Received: from ns1.suse.de ([195.135.220.2]:50108 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751578AbYIBRGo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2008 13:06:44 -0400
+Content-Disposition: inline
+In-Reply-To: <48BD47A8.1080909@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I don't think anyone in this thread can even pretend to understand how
-> any of this stuff works
+On Tue, Sep 02, 2008 at 04:03:20PM +0200, Benjamin Thery wrote:
+> Mark Ryden wrote:
+>> Hello,
+>>  I hope that this patch (from 4.7.08) was not forgetten... I don't see
+>> it for example in linux-net (I have an up-to-date linux-next git
+>> tree).
+>
+> I was about to ask the same thing.
+>
+> Greg, what is the plan with these remaining patches for sysfs tagged
+> dirs? Will you have some time to merge them in your tree soon?
 
-So so last week I started asking FSI contacts I've built-up while 
-answering their "how to improve latency" questions.  The intent is to 
-get some direct input from them on just what their and their regulator's 
-expecations are wrt timestamping of packets and/or trades.
+Yes, they should go into my tree this week, sorry been busy with 2.6.27
+work and Novell's Hackweek.
 
-rick jones
+thanks,
+
+greg k-h
