@@ -1,44 +1,47 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
-Date: Tue, 2 Sep 2008 10:01:48 -0700
-Message-ID: <20080902170148.GA9305@suse.de>
-References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org> <m14p76ih9a.fsf_-_@frodo.ebiederm.org> <m1zloyh2mb.fsf_-_@frodo.ebiederm.org> <m1vdzmh2jr.fsf_-_@frodo.ebiederm.org> <20080820021754.GA25182@kroah.com> <m1od3m282j.fsf_-_@frodo.ebiederm.org> <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net> <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com> <48BD47A8.1080909@bull.net>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [UPDATED] [NET-NEXT PATCH 1/2] pkt_sched: Add multiqueue
+	scheduler support
+Date: Tue, 2 Sep 2008 10:18:36 -0700
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F1525E3CA@orsmsx501.amr.corp.intel.com>
+References: <20080901210516.GA5931@ami.dom.local>
+ <1220309354.14337.34.camel@ahduyck-laptop>
+ <20080902055411.GA4180@ff.dom.local> <20080902075241.GB4180@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Mark Ryden <markryde@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <htejun@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: Benjamin Thery <benjamin.thery@bull.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:50108 "EHLO mx1.suse.de"
+Received: from mga01.intel.com ([192.55.52.88]:47059 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751578AbYIBRGo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2008 13:06:44 -0400
-Content-Disposition: inline
-In-Reply-To: <48BD47A8.1080909@bull.net>
+	id S1751651AbYIBRSr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 13:18:47 -0400
+In-Reply-To: <20080902075241.GB4180@ff.dom.local>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 02, 2008 at 04:03:20PM +0200, Benjamin Thery wrote:
-> Mark Ryden wrote:
->> Hello,
->>  I hope that this patch (from 4.7.08) was not forgetten... I don't see
->> it for example in linux-net (I have an up-to-date linux-next git
->> tree).
+Jarek Poplawski wrote:
+> On Tue, Sep 02, 2008 at 05:54:11AM +0000, Jarek Poplawski wrote:
+> ...
+>> OK, but I wonder if it's not enough to treat this as a
+>> recommendation? Actually, since dequeuing is under the common lock
+>> here, the main difference seems to be this checking for
+>> subqueue_stopped could happen a bit earlier,
 >
-> I was about to ask the same thing.
+> Hmm.., actually a bit later... Then this should be a bit more exact?!
+> Anyway, still looks safe to me.
 >
-> Greg, what is the plan with these remaining patches for sysfs tagged
-> dirs? Will you have some time to merge them in your tree soon?
+> Jarek P.
 
-Yes, they should go into my tree this week, sorry been busy with 2.6.27
-work and Novell's Hackweek.
+Let me give an example of how this can go wrong.  Lets say we use multiq as a leaf for each band in prio and two different bands have a packet for hw queue 1.  If prio band 0 tries to pull and the leaf finds that queue 1 is stopped then dequeue returns null.  A tx interrupt fires and the driver then wakes queue 1 since space is available.  Then prio pull from band 1 and enqueues the packet on hw queue 1.  The end result is the lower priority packet slipping in before the higher priority packet in the hardware queue.
 
-thanks,
+The advantage to making this qdisc root is that you then have exactly one qdisc band per hardware queue.  You can then place whatever qdiscs you want on each of the bands and the behavior will be consistent per queue.
 
-greg k-h
+Thanks,
+
+Alex
