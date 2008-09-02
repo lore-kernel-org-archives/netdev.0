@@ -1,89 +1,40 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [Resend] [PATCH] bonding: change some __constant_htons() to htons()
-Date: Tue, 02 Sep 2008 10:08:08 -0400
-Message-ID: <48BD48C8.1090806@hp.com>
+From: Bernhard Schmidt <berni@birkenwald.de>
+Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after
+	some time
+Date: Tue, 2 Sep 2008 17:00:08 +0200
+Message-ID: <20080902150008.GD7289@schleppi.birkenwald.de>
+References: <20080831182034.GA12035@pest> <OF9473413E.A12F091F-ON882574B7.00472B7A-882574B7.0047BD14@us.ibm.com> <20080901170101.GA12236@pest> <48BD463E.6040408@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060905050507080500030407"
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-To: jgarzik@pobox.com, fubar@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:32167 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751248AbYIBOIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 10:08:44 -0400
+Received: from vs02.svr02.mucip.net ([83.170.6.69]:45473 "EHLO
+	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751633AbYIBPAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 11:00:11 -0400
+Content-Disposition: inline
+In-Reply-To: <48BD463E.6040408@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060905050507080500030407
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hello Brian,
 
-Resending since I didn't see any responses from the first try.
+>> So the flags look different, but why?
+> Well, at least in the ping6 sources I have, msg_flags is never  
+> initialized before the sendmsg() call, and since it's allocated on the  
+> stack it can have random bits set.  Can you rebuild your ping6 with the  
+> attached patch and retry?
 
-Change __constant_htons() to htons() in the bonding driver, it should
-only be used for initializers.
+Done, no change.
 
--Brian
+sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58), inet_pton(AF_INET6, "ff02::2", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, msg_iov(1)=[{"\200\0\0\0\3252\0\0010T\275H\274\314\7\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30"..., 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, ...}, msg_flags=0}, 0) = 64
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
+vs. 
 
+sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58), inet_pton(AF_INET6, "ff02::9", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, msg_iov(1)=[{"\200\0\0\0\3162\0\1+T\275H\255K\16\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30"..., 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, ...}, msg_flags=0}, 0) = -1 EINVAL (Invalid argument)
 
---------------060905050507080500030407
-Content-Type: text/x-patch;
- name="bonding-htons.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="bonding-htons.patch"
+don't push too hard on ping6, I just included it to show that all
+processes are affected sending to this particular group.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index b211486..3d39278 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -710,7 +710,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
- 	struct arp_pkt *arp = arp_pkt(skb);
- 	struct slave *tx_slave = NULL;
- 
--	if (arp->op_code == __constant_htons(ARPOP_REPLY)) {
-+	if (arp->op_code == htons(ARPOP_REPLY)) {
- 		/* the arp must be sent on the selected
- 		* rx channel
- 		*/
-@@ -719,7 +719,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
- 			memcpy(arp->mac_src,tx_slave->dev->dev_addr, ETH_ALEN);
- 		}
- 		dprintk("Server sent ARP Reply packet\n");
--	} else if (arp->op_code == __constant_htons(ARPOP_REQUEST)) {
-+	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
- 		/* Create an entry in the rx_hashtbl for this client as a
- 		 * place holder.
- 		 * When the arp reply is received the entry will be updated
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c792138..babe461 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3702,7 +3702,7 @@ static int bond_xmit_hash_policy_l23(struct sk_buff *skb,
- 	struct ethhdr *data = (struct ethhdr *)skb->data;
- 	struct iphdr *iph = ip_hdr(skb);
- 
--	if (skb->protocol == __constant_htons(ETH_P_IP)) {
-+	if (skb->protocol == htons(ETH_P_IP)) {
- 		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
- 			(data->h_dest[5] ^ bond_dev->dev_addr[5])) % count;
- 	}
-@@ -3723,8 +3723,8 @@ static int bond_xmit_hash_policy_l34(struct sk_buff *skb,
- 	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
- 	int layer4_xor = 0;
- 
--	if (skb->protocol == __constant_htons(ETH_P_IP)) {
--		if (!(iph->frag_off & __constant_htons(IP_MF|IP_OFFSET)) &&
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		if (!(iph->frag_off & htons(IP_MF|IP_OFFSET)) &&
- 		    (iph->protocol == IPPROTO_TCP ||
- 		     iph->protocol == IPPROTO_UDP)) {
- 			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
-
-
---------------060905050507080500030407--
+Bernhard
