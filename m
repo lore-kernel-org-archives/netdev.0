@@ -1,49 +1,42 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after	some
- time
-Date: Tue, 02 Sep 2008 11:48:31 -0400
-Message-ID: <48BD604F.6010008@hp.com>
-References: <20080831182034.GA12035@pest> <OF9473413E.A12F091F-ON882574B7.00472B7A-882574B7.0047BD14@us.ibm.com> <20080901170101.GA12236@pest> <48BD463E.6040408@hp.com> <20080902150008.GD7289@schleppi.birkenwald.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: forcedeth: option to disable 100Hz timer
+Date: Tue, 2 Sep 2008 09:11:26 -0700
+Message-ID: <20080902091126.232ee570@extreme>
+References: <fa.zbmDQFBw5U2qR0I4VSAlvj/j2ek@ifi.uio.no>
+	<48BC8BC8.4030308@shaw.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
-To: Bernhard Schmidt <berni@birkenwald.de>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Robert Hancock <hancockr@shaw.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:44608 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbYIBPtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 11:49:05 -0400
-In-Reply-To: <20080902150008.GD7289@schleppi.birkenwald.de>
+Received: from mail.vyatta.com ([216.93.170.194]:33479 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752597AbYIBQL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2008 12:11:28 -0400
+In-Reply-To: <48BC8BC8.4030308@shaw.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bernhard Schmidt wrote:
-> Hello Brian,
-> 
->>> So the flags look different, but why?
->> Well, at least in the ping6 sources I have, msg_flags is never  
->> initialized before the sendmsg() call, and since it's allocated on the  
->> stack it can have random bits set.  Can you rebuild your ping6 with the  
->> attached patch and retry?
-> 
-> Done, no change.
-> 
-> sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58), inet_pton(AF_INET6, "ff02::2", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, msg_iov(1)=[{"\200\0\0\0\3252\0\0010T\275H\274\314\7\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30"..., 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, ...}, msg_flags=0}, 0) = 64
-> 
-> vs. 
-> 
-> sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58), inet_pton(AF_INET6, "ff02::9", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, msg_iov(1)=[{"\200\0\0\0\3162\0\1+T\275H\255K\16\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30"..., 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, ...}, msg_flags=0}, 0) = -1 EINVAL (Invalid argument)
-> 
-> don't push too hard on ping6, I just included it to show that all
-> processes are affected sending to this particular group.
+On Mon, 01 Sep 2008 18:41:44 -0600
+Robert Hancock <hancockr@shaw.ca> wrote:
 
-That was just the obvious answer to why the flags were different.  Since 
-EINVAL is too generic to point at one place in the kernel code path, I'd 
-second David Stevens' suggestion of finding where in the sendmsg() code 
-this is coming from.
+> Mikhail Kshevetskiy wrote:
+> > On some hardware no TX done interrupts are generated, thus special
+> > 100Hz timer interrupt is required to handle this situation properly.
+> > Other device do not require that timer interrupt feature.
+> > 
+> > Patch add a "disable_timerirq" option to disable interrupt timer 
+> > mentioned above. This may be extremely usefull for laptop users.
+> > 
+> > Mikhail Kshevetskiy
+> > 
+> 
+> Someone (ideally NVIDIA) should really find out what hardware actually 
+> requires this timer IRQ and only set the flag on those chipsets rather 
+> than blindingly setting it on everything. This patch would be useful to 
+> test whether a chipset does need it, however.
 
-Maybe you can trace the miredo daemon to see what it's doing that might 
-fix the problem if you don't want to start hacking in the kernel.
-
--Brian
+Some drivers run without TX done interrupts at all. It can be done, it just
+requires cleaning up the ring in the start of the next transmit, and starting
+a longer interval timer to cleanup leftover frames at the end of a burst.
