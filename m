@@ -1,44 +1,50 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [patch for 2.6.27? 4/4] e1000e: prevent corruption of EEPROM/NVM
-Date: Tue, 2 Sep 2008 15:01:28 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52060519E7@orsmsx418.amr.corp.intel.com>
-References: <200809022148.m82LmKQu014384@imap1.linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <chrisl@vmware.com>, <arvidjaar@mail.ru>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	<pratap@vmware.com>, <zach@vmware.com>
-To: <akpm@linux-foundation.org>, <jeff@garzik.org>
+From: Ilya Yanok <yanok@emcraft.com>
+Subject: tehuti: use resource_size_t instead of unsigned long and u32
+Date: Wed,  3 Sep 2008 01:14:28 +0400
+Message-ID: <1220390068-6433-1-git-send-email-yanok@emcraft.com>
+Cc: wd@denx.de, dzu@denx.de, Ilya Yanok <yanok@emcraft.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:40856 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752113AbYIBWBa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 18:01:30 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <200809022148.m82LmKQu014384@imap1.linux-foundation.org>
+Received: from ocean.emcraft.com ([213.221.7.182]:55759 "EHLO
+	ocean.emcraft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751633AbYIBWLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 18:11:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Christopher Li <chrisl@vmware.com>
-> 
-> Andrey reports e1000e corruption, and that a patch in vmware's ESX
-> fixed 
-> it.
-> 
-> The EEPROM corruption is triggered by concurrent access of the EEPROM
-> read/write. Putting a lock around it solve the problem.
-> 
+Use resource_size_t for pci_resource_start() and pci_resource_len() return
+values. Makes tehuti driver work correctly on 32 bit systems with 64 bit
+resources.
 
-NAK.  Please do not apply this patch, for reasons mentioned in my other
-reply just sent to netdev.
+Signed-off-by: Ilya Yanok <yanok@emcraft.com>
+---
+ drivers/net/tehuti.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-The RTNL should be preventing this from being a possible bug in *Linux*
-and if it is not we have much larger problems, not the least of which is
-that this patch doesn't lock against the driver accessing the eeprom
-simultaneously.
+diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
+index 432e837..6e674a5 100644
+--- a/drivers/net/tehuti.c
++++ b/drivers/net/tehuti.c
+@@ -1909,8 +1909,7 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct net_device *ndev;
+ 	struct bdx_priv *priv;
+ 	int err, pci_using_dac, port;
+-	unsigned long pciaddr;
+-	u32 regionSize;
++	resource_size_t pciaddr, regionSize;
+ 	struct pci_nic *nic;
+ 
+ 	ENTER;
+@@ -1949,7 +1948,8 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 	if ((regionSize = pci_resource_len(pdev, 0)) < BDX_REGS_SIZE) {
+ 		err = -EIO;
+-		ERR("tehuti: MMIO resource (%x) too small\n", regionSize);
++		ERR("tehuti: MMIO resource (%llx) too small\n",
++				(u64)regionSize);
+ 		goto err_out_res;
+ 	}
+ 
+-- 
+1.5.6.1
+
