@@ -1,58 +1,74 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [UPDATED] [NET-NEXT PATCH 2/2] pkt_action: add new action
-	skbedit
-Date: Tue, 2 Sep 2008 12:27:22 +0000
-Message-ID: <20080902122722.GA5040@ff.dom.local>
-References: <20080830072338.7597.81426.stgit@jtkirshe-mobile.jf.intel.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCHv2 RFC 16/25] IPVS: Add/adjust Netfilter hook functions and helpers for v6
+Date: Tue, 2 Sep 2008 15:34:20 +0200
+Message-ID: <f4845fc0809020634l7e19f6abn7892bcb9cf12fee2@mail.gmail.com>
+References: <1220273782-19901-1-git-send-email-juliusv@google.com>
+	 <1220273782-19901-17-git-send-email-juliusv@google.com>
+	 <20080902074049.GH13730@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com
+To: "Simon Horman" <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:29237 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352AbYIBM1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 08:27:33 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so324870nfc.21
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2008 05:27:31 -0700 (PDT)
+Received: from smtp-out.google.com ([216.239.33.17]:16521 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751090AbYIBNea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 09:34:30 -0400
+Received: from zps35.corp.google.com (zps35.corp.google.com [172.25.146.35])
+	by smtp-out.google.com with ESMTP id m82DYMca015871
+	for <netdev@vger.kernel.org>; Tue, 2 Sep 2008 14:34:23 +0100
+Received: from nf-out-0910.google.com (nfcd3.prod.google.com [10.48.105.3])
+	by zps35.corp.google.com with ESMTP id m82DXtAW003760
+	for <netdev@vger.kernel.org>; Tue, 2 Sep 2008 06:34:21 -0700
+Received: by nf-out-0910.google.com with SMTP id d3so367104nfc.36
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2008 06:34:21 -0700 (PDT)
+In-Reply-To: <20080902074049.GH13730@verge.net.au>
 Content-Disposition: inline
-In-Reply-To: <20080830072338.7597.81426.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30-08-2008 09:24, Jeff Kirsher wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This new action will have the ability to change the priority and/or
-> queue_mapping fields on an sk_buff.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Tue, Sep 2, 2008 at 9:40 AM, Simon Horman <horms@verge.net.au> wrote:
+> On Mon, Sep 01, 2008 at 02:56:13PM +0200, Julius Volz wrote:
+>> Add Netfilter hook functions or modify existing ones, if possible, to
+>> process IPv6 packets. Some support functions are also added/modified for
+>> this. ip_vs_nat_icmp_v6() was already added in the patch that added the v6
+>> xmit functions, as it is called from one of them.
+>>
+>> Signed-off-by: Julius Volz <juliusv@google.com>
+>
+> Please run checkpatch.pl over this patch.
+>
+>>  1 files changed, 326 insertions(+), 36 deletions(-)
+>>
+>> diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
+>> index 8bfd7c2..0bf871c 100644
+>> --- a/net/ipv4/ipvs/ip_vs_core.c
+>> +++ b/net/ipv4/ipvs/ip_vs_core.c
+>> @@ -39,6 +39,11 @@
+>>  #include <linux/netfilter.h>
+>>  #include <linux/netfilter_ipv4.h>
+>>
+>> +#ifdef CONFIG_IP_VS_IPV6
+>> +#include <net/ipv6.h>
+>> +#include <linux/netfilter_ipv6.h>
+>> +#endif
+>> +
+>>  #include <net/ip_vs.h>
+>>
+>>
+>> @@ -60,6 +65,7 @@ EXPORT_SYMBOL(ip_vs_get_debug_level);
+>>
+>>  /* ID used in ICMP lookups */
+>>  #define icmp_id(icmph)          (((icmph)->un).echo.id)
+>> +#define icmpv6_id(icmph)        (icmph->icmp6_dataun.u_echo.identifier)
+>
+> Should this be ((icmph)->icmp6_dataun.u_echo.identifier) ?
 
-Two cosmetic suggestions:
+Ah yeah, that is safer, thanks!
 
-Probably: include/linux/tc_act/Kbuild should be updated too.
+-- 
+Julius Volz - Corporate Operations - SysOps
 
->  include/linux/tc_act/tc_skbedit.h |   23 ++++
->  include/net/tc_act/tc_skbedit.h   |   15 +++
->  net/sched/Kconfig                 |   11 ++
->  net/sched/Makefile                |    1 
->  net/sched/act_skbedit.c           |  200 +++++++++++++++++++++++++++++++++++++
-...
-> diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-> new file mode 100644
-> index 0000000..0bc4616
-> --- /dev/null
-> +++ b/net/sched/act_skbedit.c
-...
-> +#include <net/pkt_sched.h>
-> +
-> +#define TCA_ACT_SKBEDIT 11
-
-Doesn't matter, but most of others (except act_simple) keep this TCA_
-in include/linux/tc_act/tc_xyz.h.
-
-Otherwise it looks OK to me.
-
-Jarek P.
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
