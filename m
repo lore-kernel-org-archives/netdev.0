@@ -1,57 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tipc on sparc32
-Date: Tue, 02 Sep 2008 23:26:27 -0700 (PDT)
-Message-ID: <20080902.232627.209816179.davem@davemloft.net>
-References: <20080902224059.70a182ba.akpm@linux-foundation.org>
-	<20080902.231201.184658566.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: xfrm_state locking regression...
+Date: Wed, 03 Sep 2008 09:27:47 +0300
+Message-ID: <48BE2E63.8000707@iki.fi>
+References: <20080903053935.GA8428@gondor.apana.org.au>	<48BE245D.3060905@iki.fi>	<20080903055041.GA8547@gondor.apana.org.au> <20080902.231420.255718595.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53612
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753964AbYICG0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 02:26:34 -0400
-In-Reply-To: <20080902.231201.184658566.davem@davemloft.net>
+Received: from ey-out-2122.google.com ([74.125.78.27]:21519 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753975AbYICG1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 02:27:43 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so1334698eyi.37
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2008 23:27:42 -0700 (PDT)
+In-Reply-To: <20080902.231420.255718595.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 02 Sep 2008 23:12:01 -0700 (PDT)
+David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 3 Sep 2008 15:50:41 +1000
+>=20
+>> On Wed, Sep 03, 2008 at 08:45:01AM +0300, Timo Ter=E4s wrote:
+>>>> ipsec: Move state dump list unlinking into GC
+>>>>
+>>>> This patch moves the unlinking of x->all (for dumping) into the
+>>>> GC and changes the lock to xfrm_cfg_mutex.
+>>> Shouldn't this also change the locking in all places where
+>>> x->all is used?
+>> You're right.  I'd forgotten about the larval states for some
+>> reason, probably because I just added them to the list :)
+>>
+>> So let's keep xfrm_state_lock and just move it.
+>=20
+> How about we un-crap the reference counting?
+>=20
+> Every list an object lives on is an external reference, and that is
+> the rule that is violated by this ->all list handling.
+>=20
+> And that's why we need to take a single shared lock twice just to get
+> rid of an xfrm_state object now.
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Tue, 2 Sep 2008 22:40:59 -0700
-> 
-> > sparc32 allmodconfig:
-> > 
-> > In file included from net/tipc/link.h:43,
-> >                  from net/tipc/bcast.c:41:
-> > net/tipc/node.h:71: error: redefinition of 'struct node'
-> > 
-> > sparc32 likes catching code which uses insufficiently cautiously chosen
-> > identifiers.  dlm is presently blowing up on sparc32 because it has a
-> > to_node() function.
-> > 
-> > Arguably, sparc32 should be fixed, but I'd suggest that random bits of
-> > networking code should not be using identifiers as generic-sounding as "node".
-> 
-> I'll fix sparc for the time being, thanks.
+Well, it's just another list keeping a reference like ->bydst,
+->bysrc and ->byspi. The actual amount of external references is
+still correct (the walking code calls _hold() when it returns while
+keeping an external pointer).
 
-Actually, the conflict is between the include/linux/node.h which the
-generic device layer uses, and TIPC.
+The difference is that node should not be unlinked from ->all until
+all other references are gone. For other lists the unlinking can be
+done earlier since they are used only for lookups.
 
-This isn't a sparc specific problem.
+Any good other ways to enumerate to list entries while allowing
+to keep a temporary "iterator"? The previous method was crap too.
 
-And the DLM issue is the same thing.
-
-It might be triggering on sparc32 because linux/node.h gets included
-in the tangle of arch and non-arch include files that happen during
-the build, but that's benign as far as blaming sparc is concerned.
-
-I can take care of TIPC.
-
-Andrew can you take a stab at DLM?
-
-Thanks.
+- Timo
