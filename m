@@ -1,52 +1,41 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: [PATCH resend] r6040: remove unused includes
-Date: Wed, 3 Sep 2008 16:47:17 +0200
-Message-ID: <200809031647.17981.florian.fainelli@telecomint.eu>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: Packet mmap: TX RING and zero copy
+Date: Wed, 03 Sep 2008 09:57:46 -0500
+Message-ID: <48BEA5EA.3050809@linux-foundation.org>
+References: <20080902194603.GA2825@2ka.mipt.ru> <7e0dd21a0809030056q2bfd0344kf3b86a90a4b3fc5f@mail.gmail.com> <7e0dd21a0809030338k3335a5eah4be6e27c26aecf59@mail.gmail.com> <20080903.040626.198546183.davem@davemloft.net> <7e0dd21a0809030605odc28306re8b7640f0632ac36@mail.gmail.com> <20080903132734.GA17541@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
+Cc: Johann Baudy <johaahn@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:34761 "EHLO
-	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005AbYICOv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:51:59 -0400
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42285 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751398AbYICO6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:58:43 -0400
+In-Reply-To: <20080903132734.GA17541@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes all unused includes.
+Evgeniy Polyakov wrote:
+> Hi Johann.
+> 
+> On Wed, Sep 03, 2008 at 03:05:07PM +0200, Johann Baudy (johaahn@gmail.com) wrote:
+>> TCP socket, transferring 20Mbytes file (located in initramfs) in loop
+>> with sendfile() : 5.7Mbytes/s
+> 
+> And _THIS_ is a serious problem. Let's assume that sendfile is broken or
+> driver/hardware does not support scatter/gather and checksumming (does it?).
+> Can you saturate the link with pktgen (1) and usual tcp socket (2).
+> Assuming second case will fail, does it also broken because of very
+> small performance of the copy from the userspace?
 
-Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
----
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 6531ff5..d453987 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -24,13 +24,9 @@
- 
- #include <linux/kernel.h>
- #include <linux/module.h>
--#include <linux/version.h>
--#include <linux/moduleparam.h>
--#include <linux/string.h>
- #include <linux/timer.h>
- #include <linux/errno.h>
- #include <linux/ioport.h>
--#include <linux/slab.h>
- #include <linux/interrupt.h>
- #include <linux/pci.h>
- #include <linux/netdevice.h>
-@@ -45,9 +41,6 @@
- #include <linux/bitops.h>
- #include <linux/io.h>
- #include <linux/irq.h>
--#include <linux/uaccess.h>
--
--#include <asm/processor.h>
- 
- #define DRV_NAME	"r6040"
- #define DRV_VERSION	"0.18"
+Could we see the code that was used to get these numbers? The problem may just
+be in the way that the calls to sendfile() have been coded.
+
+The TX code looks intriguing. Seems that some vendors are tinkering with VNIC
+ideas in order to bypass context switches and data copies. Maybe this is a
+cheap way to attain the same goals?
+
+
