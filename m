@@ -1,127 +1,104 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 04/17] mv643xx_eth: switch ->phy_lock from a spinlock to a mutex
-Date: Wed,  3 Sep 2008 14:29:31 +0200
-Message-ID: <1220444984-20150-5-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 08/17] mv643xx_eth: get rid of compile-time configurable transmit checksumming
+Date: Wed,  3 Sep 2008 14:29:35 +0200
+Message-ID: <1220444984-20150-9-git-send-email-buytenh@wantstofly.org>
 References: <1220444984-20150-1-git-send-email-buytenh@wantstofly.org>
 Cc: Dale Farnsworth <dale@farnsworth.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:52894 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:52898 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751317AbYICM3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 08:29:46 -0400
+	with ESMTP id S1752412AbYICM3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 08:29:48 -0400
 In-Reply-To: <1220444984-20150-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 81600eea98789da09a32de69ca9d3be8b9503c54 ("mv643xx_eth:
-use auto phy polling for configuring (R)(G)MII interface"),
-mv643xx_eth no longer does SMI accesses from interrupt context.  The
-only other callers that do SMI accesses all do them from process
-context, which means we can switch the PHY lock from a spinlock to a
-mutex, and get rid of the extra locking in some ethtool methods.
+Get rid of the mv643xx_eth-internal MV643XX_ETH_CHECKSUM_OFFLOAD_TX
+compile-time option.  Using transmit checksumming is the sane default,
+and anyone wanting to disable it should use ethtool(8) instead of
+recompiling their kernels.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |   23 +++++++----------------
- 1 files changed, 7 insertions(+), 16 deletions(-)
+ drivers/net/mv643xx_eth.c |   25 +++----------------------
+ 1 files changed, 3 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 2f6cec4..2d43401 100644
+index 3831a8b..53cfd01 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -251,7 +251,7 @@ struct mv643xx_eth_shared_private {
- 	/*
- 	 * Protects access to SMI_REG, which is shared between ports.
- 	 */
--	spinlock_t phy_lock;
-+	struct mutex phy_lock;
+@@ -57,15 +57,8 @@
+ static char mv643xx_eth_driver_name[] = "mv643xx_eth";
+ static char mv643xx_eth_driver_version[] = "1.3";
  
- 	/*
- 	 * Per-port MBUS window access register value.
-@@ -988,11 +988,10 @@ static void smi_reg_read(struct mv643xx_eth_private *mp, unsigned int addr,
- 			 unsigned int reg, unsigned int *value)
- {
- 	void __iomem *smi_reg = mp->shared_smi->base + SMI_REG;
--	unsigned long flags;
- 	int i;
+-#define MV643XX_ETH_CHECKSUM_OFFLOAD_TX
+ #define MV643XX_ETH_TX_FAST_REFILL
  
- 	/* the SMI register is a shared resource */
--	spin_lock_irqsave(&mp->shared_smi->phy_lock, flags);
-+	mutex_lock(&mp->shared_smi->phy_lock);
- 
- 	/* wait for the SMI register to become available */
- 	for (i = 0; readl(smi_reg) & SMI_BUSY; i++) {
-@@ -1016,7 +1015,7 @@ static void smi_reg_read(struct mv643xx_eth_private *mp, unsigned int addr,
- 
- 	*value = readl(smi_reg) & 0xffff;
- out:
--	spin_unlock_irqrestore(&mp->shared_smi->phy_lock, flags);
-+	mutex_unlock(&mp->shared_smi->phy_lock);
- }
- 
- static void smi_reg_write(struct mv643xx_eth_private *mp,
-@@ -1024,11 +1023,10 @@ static void smi_reg_write(struct mv643xx_eth_private *mp,
- 			  unsigned int reg, unsigned int value)
- {
- 	void __iomem *smi_reg = mp->shared_smi->base + SMI_REG;
--	unsigned long flags;
- 	int i;
- 
- 	/* the SMI register is a shared resource */
--	spin_lock_irqsave(&mp->shared_smi->phy_lock, flags);
-+	mutex_lock(&mp->shared_smi->phy_lock);
- 
- 	/* wait for the SMI register to become available */
- 	for (i = 0; readl(smi_reg) & SMI_BUSY; i++) {
-@@ -1042,7 +1040,7 @@ static void smi_reg_write(struct mv643xx_eth_private *mp,
- 	writel(SMI_OPCODE_WRITE | (reg << 21) |
- 		(addr << 16) | (value & 0xffff), smi_reg);
- out:
--	spin_unlock_irqrestore(&mp->shared_smi->phy_lock, flags);
-+	mutex_unlock(&mp->shared_smi->phy_lock);
- }
- 
- 
-@@ -1161,9 +1159,7 @@ static int mv643xx_eth_get_settings(struct net_device *dev, struct ethtool_cmd *
- 	struct mv643xx_eth_private *mp = netdev_priv(dev);
- 	int err;
- 
--	spin_lock_irq(&mp->lock);
- 	err = mii_ethtool_gset(&mp->mii, cmd);
--	spin_unlock_irq(&mp->lock);
- 
- 	/*
- 	 * The MAC does not support 1000baseT_Half.
-@@ -1211,18 +1207,13 @@ static int mv643xx_eth_get_settings_phyless(struct net_device *dev, struct ethto
- static int mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct mv643xx_eth_private *mp = netdev_priv(dev);
--	int err;
- 
- 	/*
- 	 * The MAC does not support 1000baseT_Half.
- 	 */
- 	cmd->advertising &= ~ADVERTISED_1000baseT_Half;
- 
--	spin_lock_irq(&mp->lock);
--	err = mii_ethtool_sset(&mp->mii, cmd);
--	spin_unlock_irq(&mp->lock);
+-#ifdef MV643XX_ETH_CHECKSUM_OFFLOAD_TX
+-#define MAX_DESCS_PER_SKB	(MAX_SKB_FRAGS + 1)
+-#else
+-#define MAX_DESCS_PER_SKB	1
+-#endif
 -
--	return err;
-+	return mii_ethtool_sset(&mp->mii, cmd);
+ /*
+  * Registers shared between all ports.
+  */
+@@ -464,7 +457,7 @@ static void __txq_maybe_wake(struct tx_queue *txq)
+ 	 */
+ 	BUG_ON(txq->index != mp->txq_primary);
+ 
+-	if (txq->tx_ring_size - txq->tx_desc_count >= MAX_DESCS_PER_SKB)
++	if (txq->tx_ring_size - txq->tx_desc_count >= MAX_SKB_FRAGS + 1)
+ 		netif_wake_queue(mp->dev);
  }
  
- static int mv643xx_eth_set_settings_phyless(struct net_device *dev, struct ethtool_cmd *cmd)
-@@ -2324,7 +2315,7 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 	if (msp->base == NULL)
- 		goto out_free;
+@@ -855,7 +848,7 @@ static int mv643xx_eth_xmit(struct sk_buff *skb, struct net_device *dev)
  
--	spin_lock_init(&msp->phy_lock);
-+	mutex_init(&msp->phy_lock);
+ 	txq = mp->txq + mp->txq_primary;
  
- 	/*
- 	 * (Re-)program MBUS remapping windows if we are asked to.
+-	if (txq->tx_ring_size - txq->tx_desc_count < MAX_DESCS_PER_SKB) {
++	if (txq->tx_ring_size - txq->tx_desc_count < MAX_SKB_FRAGS + 1) {
+ 		spin_unlock_irqrestore(&mp->lock, flags);
+ 		if (txq->index == mp->txq_primary && net_ratelimit())
+ 			dev_printk(KERN_ERR, &dev->dev,
+@@ -873,7 +866,7 @@ static int mv643xx_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		int entries_left;
+ 
+ 		entries_left = txq->tx_ring_size - txq->tx_desc_count;
+-		if (entries_left < MAX_DESCS_PER_SKB)
++		if (entries_left < MAX_SKB_FRAGS + 1)
+ 			netif_stop_queue(dev);
+ 	}
+ 
+@@ -2656,14 +2649,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	dev->watchdog_timeo = 2 * HZ;
+ 	dev->base_addr = 0;
+ 
+-#ifdef MV643XX_ETH_CHECKSUM_OFFLOAD_TX
+-	/*
+-	 * Zero copy can only work if we use Discovery II memory. Else, we will
+-	 * have to map the buffers to ISA memory which is only 16 MB
+-	 */
+ 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM;
+-#endif
+ 
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+@@ -2677,12 +2664,6 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	dev_printk(KERN_NOTICE, &dev->dev, "port %d with MAC address %s\n",
+ 		   mp->port_num, print_mac(mac, dev->dev_addr));
+ 
+-	if (dev->features & NETIF_F_SG)
+-		dev_printk(KERN_NOTICE, &dev->dev, "scatter/gather enabled\n");
+-
+-	if (dev->features & NETIF_F_IP_CSUM)
+-		dev_printk(KERN_NOTICE, &dev->dev, "tx checksum offload\n");
+-
+ 	if (mp->tx_desc_sram_size > 0)
+ 		dev_printk(KERN_NOTICE, &dev->dev, "configured with sram\n");
+ 
 -- 
 1.5.6.4
 
