@@ -1,80 +1,37 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCHv3 16/24] IPVS: Add/adjust Netfilter hook functions and
-	helpers for v6
-Date: Wed, 3 Sep 2008 15:44:00 +1000
-Message-ID: <20080903054359.GB16875@verge.net.au>
-References: <1220363755-9854-1-git-send-email-juliusv@google.com> <1220363755-9854-17-git-send-email-juliusv@google.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: xfrm_state locking regression...
+Date: Wed, 03 Sep 2008 08:45:01 +0300
+Message-ID: <48BE245D.3060905@iki.fi>
+References: <E1KakUR-0001xp-00@gondolin.me.apana.org.au> <48BE1B95.8000508@iki.fi> <20080903053935.GA8428@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
-	vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1220363755-9854-17-git-send-email-juliusv@google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.24]:9485 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752064AbYICFoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 01:44:55 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so1328866eyi.37
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2008 22:44:53 -0700 (PDT)
+In-Reply-To: <20080903053935.GA8428@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 02, 2008 at 03:55:47PM +0200, Julius Volz wrote:
-> Add Netfilter hook functions or modify existing ones, if possible, to
-> process IPv6 packets. Some support functions are also added/modified for
-> this. ip_vs_nat_icmp_v6() was already added in the patch that added the v6
-> xmit functions, as it is called from one of them.
+Herbert Xu wrote:
+> On Wed, Sep 03, 2008 at 08:07:33AM +0300, Timo Ter=E4s wrote:
+>> Right. Also alternatively the xfrm_state_all could be protected
+>> by a different lock than xfrm_state_lock.
+>=20
+> Yes that's a good idea.  Here's a patch to do that for states.
+> I'm still thinking about whether policy destruction should be
+> restructured or not so I'm not patching that.
+>=20
+> ipsec: Move state dump list unlinking into GC
+>=20
+> This patch moves the unlinking of x->all (for dumping) into the
+> GC and changes the lock to xfrm_cfg_mutex.
 
-Hi Julius,
-
-I was looking over this code a bit more closely to rebase someone
-elses patch (which I intend to post very soon). I noticed two
-minor things.
-
-1) ipl doesn't seem to be needed in ip_vs_out_icmp() any more.
-   But actually I'm quite ok with it staying there because the
-   patch I was working on will need it.
-
-2) I wonder if iph could be initialised earleir in ip_vs_out_icmp_v6()
-
-[snip]
-
-> @@ -727,11 +759,117 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related)
-
->  	return verdict;
->  }
->  
-> -static inline int is_tcp_reset(const struct sk_buff *skb)
-> +#ifdef CONFIG_IP_VS_IPV6
-> +static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related)
-> +{
-> +	struct ipv6hdr *iph;
-> +	struct icmp6hdr	_icmph, *ic;
-> +	struct ipv6hdr	_ciph, *cih;	/* The ip header contained
-> +					   within the ICMP */
-> +	struct ip_vs_iphdr ciph;
-> +	struct ip_vs_conn *cp;
-> +	struct ip_vs_protocol *pp;
-> +	unsigned int offset, verdict;
-> +
-> +	*related = 1;
-> +
-> +	/* reassemble IP fragments */
-> +	if (ipv6_hdr(skb)->nexthdr == IPPROTO_FRAGMENT) {
-> +		if (ip_vs_gather_frags_v6(skb, IP_DEFRAG_VS_OUT))
-> +			return NF_STOLEN;
-> +	}
-> +
-> +	iph = ipv6_hdr(skb);
-
-Would it be worthwhile rearanging things so that iph is intialised
-before "/* reassemble IP fragments */" and used instead
-of ipv6_hdr(skb)->nexthdr in the if statement?
-
-> +	offset = sizeof(struct ipv6hdr);
-> +	ic = skb_header_pointer(skb, offset, sizeof(_icmph), &_icmph);
-> +	if (ic == NULL)
-> +		return NF_DROP;
-> +
-> +	IP_VS_DBG(12, "Outgoing ICMPv6 (%d,%d) " NIP6_FMT "->" NIP6_FMT "\n",
-> +		  ic->icmp6_type, ntohs(icmpv6_id(ic)),
-> +		  NIP6(iph->saddr), NIP6(iph->daddr));
-
-[snip]
-
+Shouldn't this also change the locking in all places where
+x->all is used?
