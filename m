@@ -1,160 +1,74 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH] bnx2x: Accessing un-mapped page
-Date: Wed, 3 Sep 2008 11:20:34 -0700
-Message-ID: <BD3F7F1EFBA6D54DB056C4FFA45140080334A455A8@SJEXCHCCR01.corp.ad.broadcom.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH RESEND] ipv6: return with appropriate error code when
+ sending RH0 using setsockopt()
+Date: Wed, 03 Sep 2008 14:36:46 -0400
+Message-ID: <48BED93E.2000204@hp.com>
+References: <48BE4DA2.20800@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary=_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A455A8SJEXCHCCR01co_
-To: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3482 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752602AbYICSUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 14:20:46 -0400
-Content-Language: en-US
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:25894 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753679AbYICSgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 14:36:49 -0400
+In-Reply-To: <48BE4DA2.20800@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Shan Wei wrote:
+>  I'm sorry to resend the patch, for that no one replied it from Jun 27.
+> 
+>  The kernel had removed the RH0(Type 0 Routing Header), but we can still
+>  send IPv6 packet with RH0 using sendmsg() or setsockopt().
+> 
+>  Compare with sendmsg() that returns EINVAL, but setsockopt() return EPERM.
+>  The patch fix it.
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> ---
+>  net/ipv6/ipv6_sockglue.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index 4e5eac3..7a58597 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -353,9 +353,10 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>  			goto e_inval;
+>  
+>  		/* hop-by-hop / destination options are privileged option */
+> -		retv = -EPERM;
+> -		if (optname != IPV6_RTHDR && !capable(CAP_NET_RAW))
+> +		if (optname != IPV6_RTHDR && !capable(CAP_NET_RAW)) {
+> +			retv = -EPERM;
+>  			break;
+> +		}
 
---_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A455A8SJEXCHCCR01co_
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
+I'm not sure you need this since it doesn't actually change anything,
+setting the error before the check just seems like the style in this
+function.  It will get set to -EINVAL below...
 
-Hi Dave,
+> @@ -365,6 +366,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>  			break;
+>  		}
+>  
+> +		retv = -EINVAL;
+>  		/* routing header option needs extra check */
+>  		if (optname == IPV6_RTHDR && opt && opt->srcrt) {
+>  			struct ipv6_rt_hdr *rthdr = opt->srcrt;
 
-We just root-caused a critical issue that causes fatal error on PPC with 64=
-KB page.
+This seems correct as trying to set an unsupported routing header type
+is invalid, or trying to set a Type 2 that itself is invalid is bad.
+The Unix I checked does this.
 
-The problem was due to a feature that allows the chip to align the Ethernet=
- payload to 64 bytes - those possible extra 64 bytes were only added to the=
- SKB allocation and not to the PCI mapping size. In this case there is no n=
-eed to differentiate between the SKB buffer size and the PCI mapping size s=
-ince the chip might actually use the extra 64 bytes. The problem becomes fa=
-tal if the last 64 bytes of the packets are crossing 4KB boundary and in th=
-is case the last page was not mapped.
+There's actually another bug here and in the sendmsg() path in that you
+can set the hdrlen and segments_left fields to be invalid (according to
+RFC3775), as long as the math works out (segments * 2 == length).
+Segments_left should always be 1 and hdrlen 2 for a Type2 routing
+header.  The packet should be dropped at the destination, but we
+probably shouldn't send it.  I can send a patch for that later.
 
-Please consider applying - I'm attaching a patch for this issue which also =
-includes an update to the version number.
-
-Thanks,
-Eilon
-
---_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A455A8SJEXCHCCR01co_
-Content-Type: application/octet-stream;
- name=0001-Accessing-un-mapped-page.patch
-Content-Description: 0001-Accessing-un-mapped-page.patch
-Content-Disposition: attachment;
- filename=0001-Accessing-un-mapped-page.patch;
- size=5816;
- creation-date="Wed, 03 Sep 2008 10:43:22 GMT";
- modification-date="Wed, 03 Sep 2008 11:08:23 GMT"
-Content-Transfer-Encoding: base64
-
-VGhlIGFsbG9jYXRlZCBSWCBidWZmZXIgc2l6ZSB3YXMgNjQgYnl0ZXMgYmlnZ2VyIHRoYW4gdGhl
-IFBDSSBtYXBwZWQKc2l6ZSB3aXRoIG5vIGdvb2QgcmVhc29uLiBJZiB0aGUgcGFja2V0IHdhcyBh
-Y3R1YWxseSB1c2luZyB0aGUgYnVmZmVyIHVwCnRvIGl0cyBsaW1pdCBhbmQgaWYgdGhlIGxhc3Qg
-NjQgYnl0ZXMgb2YgdGhlIGJ1ZmZlciBjcm9zc2VkIDRLQiBib3VuZGFyeQp0aGVuIGFuIHVubWFw
-cGVkIFBDSSBwYWdlIHdhcyBhY2Nlc3NlZC4gVGhlIGZpeCBpcyB0byB1c2Ugb25seSBvbmUKcGFy
-YW1ldGVyIGZvciB0aGUgYnVmZmVyIHNpemUgLSB0aGVyZSBpcyBubyBuZWVkIHRvIGRpZmZlcmVu
-dGlhdGUKYmV0d2VlbiB0aGUgYnVmZmVyIHNpemUgYW5kIHRoZSBQQ0kgbWFwcGluZyBzaXplIHNp
-bmNlIHRoZSBleHRyYSA2NApieXRlcyBjYW4gYWN0dWFsbHkgYmUgdXNlZCBieSB0aGUgRlcgdG8g
-YWxpZ24gdGhlIEV0aGVybmV0IHBheWxvYWQgdG8KNjQgYnl0ZXMuCgpBbHNvIHVwZGF0aW5nIHRo
-ZSBkcml2ZXIgdmVyc2lvbiBhbmQgZGF0ZQoKU2lnbmVkLW9mZi1ieTogRWlsb24gR3JlZW5zdGVp
-biA8ZWlsb25nQGJyb2FkY29tLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9ibngyeC5oICAgICAgfCAg
-ICA1ICsrKy0tCiBkcml2ZXJzL25ldC9ibngyeF9tYWluLmMgfCAgIDM0ICsrKysrKysrKysrKysr
-KysrLS0tLS0tLS0tLS0tLS0tLS0KIDIgZmlsZXMgY2hhbmdlZCwgMjAgaW5zZXJ0aW9ucygrKSwg
-MTkgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvYm54MnguaCBiL2RyaXZl
-cnMvbmV0L2JueDJ4LmgKaW5kZXggYTE0ZGJhMS4uZmQ3MDVkMSAxMDA2NDQKLS0tIGEvZHJpdmVy
-cy9uZXQvYm54MnguaAorKysgYi9kcml2ZXJzL25ldC9ibngyeC5oCkBAIC0xNTEsNiArMTUxLDgg
-QEAgc3RydWN0IHN3X3J4X3BhZ2UgewogI2RlZmluZSBQQUdFU19QRVJfU0dFX1NISUZUCQkwCiAj
-ZGVmaW5lIFBBR0VTX1BFUl9TR0UJCQkoMSA8PCBQQUdFU19QRVJfU0dFX1NISUZUKQogCisjZGVm
-aW5lIEJDTV9SWF9FVEhfUEFZTE9BRF9BTElHTgk2NAorCiAvKiBTR0UgcmluZyByZWxhdGVkIG1h
-Y3JvcyAqLwogI2RlZmluZSBOVU1fUlhfU0dFX1BBR0VTCQkyCiAjZGVmaW5lIFJYX1NHRV9DTlQJ
-CShCQ01fUEFHRV9TSVpFIC8gc2l6ZW9mKHN0cnVjdCBldGhfcnhfc2dlKSkKQEAgLTc1MCw4ICs3
-NTIsNyBAQCBzdHJ1Y3QgYm54MnggewogCiAJdTMyCQkJcnhfY3N1bTsKIAl1MzIJCQlyeF9vZmZz
-ZXQ7Ci0JdTMyCQkJcnhfYnVmX3VzZV9zaXplOwkvKiB1c2VhYmxlIHNpemUgKi8KLQl1MzIJCQly
-eF9idWZfc2l6ZTsJCS8qIHdpdGggYWxpZ25tZW50ICovCisJdTMyCQkJcnhfYnVmX3NpemU7CiAj
-ZGVmaW5lIEVUSF9PVlJFSEVBRAkJCShFVEhfSExFTiArIDgpCS8qIDggZm9yIENSQyArIFZMQU4g
-Ki8KICNkZWZpbmUgRVRIX01JTl9QQUNLRVRfU0laRQkJNjAKICNkZWZpbmUgRVRIX01BWF9QQUNL
-RVRfU0laRQkJMTUwMApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvYm54MnhfbWFpbi5jIGIvZHJp
-dmVycy9uZXQvYm54MnhfbWFpbi5jCmluZGV4IDgyZGVlYTAuLmE4ZWIzYzQgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2JueDJ4X21haW4uYworKysgYi9kcml2ZXJzL25ldC9ibngyeF9tYWluLmMK
-QEAgLTU5LDggKzU5LDggQEAKICNpbmNsdWRlICJibngyeC5oIgogI2luY2x1ZGUgImJueDJ4X2lu
-aXQuaCIKIAotI2RlZmluZSBEUlZfTU9EVUxFX1ZFUlNJT04JIjEuNDUuMjAiCi0jZGVmaW5lIERS
-Vl9NT0RVTEVfUkVMREFURQkiMjAwOC8wOC8yNSIKKyNkZWZpbmUgRFJWX01PRFVMRV9WRVJTSU9O
-CSIxLjQ1LjIxIgorI2RlZmluZSBEUlZfTU9EVUxFX1JFTERBVEUJIjIwMDgvMDkvMDMiCiAjZGVm
-aW5lIEJOWDJYX0JDX1ZFUgkJMHgwNDAyMDAKIAogLyogVGltZSBpbiBqaWZmaWVzIGJlZm9yZSBj
-b25jbHVkaW5nIHRoZSB0cmFuc21pdHRlciBpcyBodW5nICovCkBAIC0xMDI3LDcgKzEwMjcsNyBA
-QCBzdGF0aWMgaW5saW5lIGludCBibngyeF9hbGxvY19yeF9za2Ioc3RydWN0IGJueDJ4ICpicCwK
-IAlpZiAodW5saWtlbHkoc2tiID09IE5VTEwpKQogCQlyZXR1cm4gLUVOT01FTTsKIAotCW1hcHBp
-bmcgPSBwY2lfbWFwX3NpbmdsZShicC0+cGRldiwgc2tiLT5kYXRhLCBicC0+cnhfYnVmX3VzZV9z
-aXplLAorCW1hcHBpbmcgPSBwY2lfbWFwX3NpbmdsZShicC0+cGRldiwgc2tiLT5kYXRhLCBicC0+
-cnhfYnVmX3NpemUsCiAJCQkJIFBDSV9ETUFfRlJPTURFVklDRSk7CiAJaWYgKHVubGlrZWx5KGRt
-YV9tYXBwaW5nX2Vycm9yKCZicC0+cGRldi0+ZGV2LCBtYXBwaW5nKSkpIHsKIAkJZGV2X2tmcmVl
-X3NrYihza2IpOwpAQCAtMTE2OSw3ICsxMTY5LDcgQEAgc3RhdGljIHZvaWQgYm54MnhfdHBhX3N0
-YXJ0KHN0cnVjdCBibngyeF9mYXN0cGF0aCAqZnAsIHUxNiBxdWV1ZSwKIAkvKiBtb3ZlIGVtcHR5
-IHNrYiBmcm9tIHBvb2wgdG8gcHJvZCBhbmQgbWFwIGl0ICovCiAJcHJvZF9yeF9idWYtPnNrYiA9
-IGZwLT50cGFfcG9vbFtxdWV1ZV0uc2tiOwogCW1hcHBpbmcgPSBwY2lfbWFwX3NpbmdsZShicC0+
-cGRldiwgZnAtPnRwYV9wb29sW3F1ZXVlXS5za2ItPmRhdGEsCi0JCQkJIGJwLT5yeF9idWZfdXNl
-X3NpemUsIFBDSV9ETUFfRlJPTURFVklDRSk7CisJCQkJIGJwLT5yeF9idWZfc2l6ZSwgUENJX0RN
-QV9GUk9NREVWSUNFKTsKIAlwY2lfdW5tYXBfYWRkcl9zZXQocHJvZF9yeF9idWYsIG1hcHBpbmcs
-IG1hcHBpbmcpOwogCiAJLyogbW92ZSBwYXJ0aWFsIHNrYiBmcm9tIGNvbnMgdG8gcG9vbCAoZG9u
-J3QgdW5tYXAgeWV0KSAqLwpAQCAtMTI3Niw3ICsxMjc2LDcgQEAgc3RhdGljIHZvaWQgYm54Mnhf
-dHBhX3N0b3Aoc3RydWN0IGJueDJ4ICpicCwgc3RydWN0IGJueDJ4X2Zhc3RwYXRoICpmcCwKIAkg
-ICBwb29sIGVudHJ5IHN0YXR1cyB0byBCTlgyWF9UUEFfU1RPUCBldmVuIGlmIG5ldyBza2IgYWxs
-b2NhdGlvbgogCSAgIGZhaWxzLiAqLwogCXBjaV91bm1hcF9zaW5nbGUoYnAtPnBkZXYsIHBjaV91
-bm1hcF9hZGRyKHJ4X2J1ZiwgbWFwcGluZyksCi0JCQkgYnAtPnJ4X2J1Zl91c2Vfc2l6ZSwgUENJ
-X0RNQV9GUk9NREVWSUNFKTsKKwkJCSBicC0+cnhfYnVmX3NpemUsIFBDSV9ETUFfRlJPTURFVklD
-RSk7CiAKIAlpZiAobGlrZWx5KG5ld19za2IpKSB7CiAJCS8qIGZpeCBpcCB4c3VtIGFuZCBnaXZl
-IGl0IHRvIHRoZSBzdGFjayAqLwpAQCAtMTUyMCw3ICsxNTIwLDcgQEAgc3RhdGljIGludCBibngy
-eF9yeF9pbnQoc3RydWN0IGJueDJ4X2Zhc3RwYXRoICpmcCwgaW50IGJ1ZGdldCkKIAkJCX0gZWxz
-ZSBpZiAoYm54MnhfYWxsb2Nfcnhfc2tiKGJwLCBmcCwgYmRfcHJvZCkgPT0gMCkgewogCQkJCXBj
-aV91bm1hcF9zaW5nbGUoYnAtPnBkZXYsCiAJCQkJCXBjaV91bm1hcF9hZGRyKHJ4X2J1ZiwgbWFw
-cGluZyksCi0JCQkJCQkgYnAtPnJ4X2J1Zl91c2Vfc2l6ZSwKKwkJCQkJCSBicC0+cnhfYnVmX3Np
-emUsCiAJCQkJCQkgUENJX0RNQV9GUk9NREVWSUNFKTsKIAkJCQlza2JfcmVzZXJ2ZShza2IsIHBh
-ZCk7CiAJCQkJc2tiX3B1dChza2IsIGxlbik7CkBAIC00MjI5LDcgKzQyMjksNyBAQCBzdGF0aWMg
-aW5saW5lIHZvaWQgYm54MnhfZnJlZV90cGFfcG9vbChzdHJ1Y3QgYm54MnggKmJwLAogCQlpZiAo
-ZnAtPnRwYV9zdGF0ZVtpXSA9PSBCTlgyWF9UUEFfU1RBUlQpCiAJCQlwY2lfdW5tYXBfc2luZ2xl
-KGJwLT5wZGV2LAogCQkJCQkgcGNpX3VubWFwX2FkZHIocnhfYnVmLCBtYXBwaW5nKSwKLQkJCQkJ
-IGJwLT5yeF9idWZfdXNlX3NpemUsCisJCQkJCSBicC0+cnhfYnVmX3NpemUsCiAJCQkJCSBQQ0lf
-RE1BX0ZST01ERVZJQ0UpOwogCiAJCWRldl9rZnJlZV9za2Ioc2tiKTsKQEAgLTQyNDUsMTUgKzQy
-NDUsMTQgQEAgc3RhdGljIHZvaWQgYm54MnhfaW5pdF9yeF9yaW5ncyhzdHJ1Y3QgYm54MnggKmJw
-KQogCXUxNiByaW5nX3Byb2QsIGNxZV9yaW5nX3Byb2Q7CiAJaW50IGksIGo7CiAKLQlicC0+cnhf
-YnVmX3VzZV9zaXplID0gYnAtPmRldi0+bXR1OwotCWJwLT5yeF9idWZfdXNlX3NpemUgKz0gYnAt
-PnJ4X29mZnNldCArIEVUSF9PVlJFSEVBRDsKLQlicC0+cnhfYnVmX3NpemUgPSBicC0+cnhfYnVm
-X3VzZV9zaXplICsgNjQ7CisJYnAtPnJ4X2J1Zl9zaXplID0gYnAtPmRldi0+bXR1OworCWJwLT5y
-eF9idWZfc2l6ZSArPSBicC0+cnhfb2Zmc2V0ICsgRVRIX09WUkVIRUFEICsKKwkJQkNNX1JYX0VU
-SF9QQVlMT0FEX0FMSUdOOwogCiAJaWYgKGJwLT5mbGFncyAmIFRQQV9FTkFCTEVfRkxBRykgewog
-CQlEUChORVRJRl9NU0dfSUZVUCwKLQkJICAgInJ4X2J1Zl91c2Vfc2l6ZSAlZCAgcnhfYnVmX3Np
-emUgJWQgIGVmZmVjdGl2ZV9tdHUgJWRcbiIsCi0JCSAgIGJwLT5yeF9idWZfdXNlX3NpemUsIGJw
-LT5yeF9idWZfc2l6ZSwKLQkJICAgYnAtPmRldi0+bXR1ICsgRVRIX09WUkVIRUFEKTsKKwkJICAg
-InJ4X2J1Zl9zaXplICVkICBlZmZlY3RpdmVfbXR1ICVkXG4iLAorCQkgICBicC0+cnhfYnVmX3Np
-emUsIGJwLT5kZXYtPm10dSArIEVUSF9PVlJFSEVBRCk7CiAKIAkJZm9yX2VhY2hfcXVldWUoYnAs
-IGopIHsKIAkJCXN0cnVjdCBibngyeF9mYXN0cGF0aCAqZnAgPSAmYnAtPmZwW2pdOwpAQCAtNDQ2
-Miw5ICs0NDYxLDEwIEBAIHN0YXRpYyB2b2lkIGJueDJ4X2luaXRfY29udGV4dChzdHJ1Y3QgYm54
-MnggKmJwKQogCQljb250ZXh0LT51c3Rvcm1fc3RfY29udGV4dC5jb21tb24uc3RhdHVzX2Jsb2Nr
-X2lkID0gc2JfaWQ7CiAJCWNvbnRleHQtPnVzdG9ybV9zdF9jb250ZXh0LmNvbW1vbi5mbGFncyA9
-CiAJCQlVU1RPUk1fRVRIX1NUX0NPTlRFWFRfQ09ORklHX0VOQUJMRV9NQ19BTElHTk1FTlQ7Ci0J
-CWNvbnRleHQtPnVzdG9ybV9zdF9jb250ZXh0LmNvbW1vbi5tY19hbGlnbm1lbnRfc2l6ZSA9IDY0
-OworCQljb250ZXh0LT51c3Rvcm1fc3RfY29udGV4dC5jb21tb24ubWNfYWxpZ25tZW50X3NpemUg
-PQorCQkJQkNNX1JYX0VUSF9QQVlMT0FEX0FMSUdOOwogCQljb250ZXh0LT51c3Rvcm1fc3RfY29u
-dGV4dC5jb21tb24uYmRfYnVmZl9zaXplID0KLQkJCQkJCWJwLT5yeF9idWZfdXNlX3NpemU7CisJ
-CQkJCQlicC0+cnhfYnVmX3NpemU7CiAJCWNvbnRleHQtPnVzdG9ybV9zdF9jb250ZXh0LmNvbW1v
-bi5iZF9wYWdlX2Jhc2VfaGkgPQogCQkJCQkJVTY0X0hJKGZwLT5yeF9kZXNjX21hcHBpbmcpOwog
-CQljb250ZXh0LT51c3Rvcm1fc3RfY29udGV4dC5jb21tb24uYmRfcGFnZV9iYXNlX2xvID0KQEAg
-LTQ3MTcsNyArNDcxNyw3IEBAIHN0YXRpYyB2b2lkIGJueDJ4X2luaXRfaW50ZXJuYWxfZnVuYyhz
-dHJ1Y3QgYm54MnggKmJwKQogCX0KIAogCS8qIEluaXQgQ1EgcmluZyBtYXBwaW5nIGFuZCBhZ2dy
-ZWdhdGlvbiBzaXplICovCi0JbWF4X2FnZ19zaXplID0gbWluKCh1MzIpKGJwLT5yeF9idWZfdXNl
-X3NpemUgKworCW1heF9hZ2dfc2l6ZSA9IG1pbigodTMyKShicC0+cnhfYnVmX3NpemUgKwogCQkJ
-CSA4KkJDTV9QQUdFX1NJWkUqUEFHRVNfUEVSX1NHRSksCiAJCQkgICAodTMyKTB4ZmZmZik7CiAJ
-Zm9yX2VhY2hfcXVldWUoYnAsIGkpIHsKQEAgLTU5NDAsNyArNTk0MCw3IEBAIHN0YXRpYyB2b2lk
-IGJueDJ4X2ZyZWVfcnhfc2ticyhzdHJ1Y3QgYm54MnggKmJwKQogCiAJCQlwY2lfdW5tYXBfc2lu
-Z2xlKGJwLT5wZGV2LAogCQkJCQkgcGNpX3VubWFwX2FkZHIocnhfYnVmLCBtYXBwaW5nKSwKLQkJ
-CQkJIGJwLT5yeF9idWZfdXNlX3NpemUsCisJCQkJCSBicC0+cnhfYnVmX3NpemUsCiAJCQkJCSBQ
-Q0lfRE1BX0ZST01ERVZJQ0UpOwogCiAJCQlyeF9idWYtPnNrYiA9IE5VTEw7Ci0tIAoxLjUuMy4y
-Cgo=
-
---_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A455A8SJEXCHCCR01co_--
-
+-Brian
