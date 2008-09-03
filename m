@@ -1,120 +1,347 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/3] sky2: use pci_read_vpd to read info during boot
-Date: Wed, 3 Sep 2008 16:00:17 -0700
-Message-ID: <20080903160017.299831b0@extreme>
+Subject: [PATCH 2/3] pci: revise VPD access interface
+Date: Wed, 3 Sep 2008 15:57:00 -0700
+Message-ID: <20080903155700.7517d8d9@extreme>
 References: <20080827204626.4b65862f@extreme>
 	<20080828111323.GI7908@solarflare.com>
 	<20080903155316.1a0a5698@extreme>
-	<20080903155700.7517d8d9@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20080903155700.7517d8d9@extreme>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:38555 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753431AbYICXA1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 19:00:27 -0400
+In-Reply-To: <20080903155316.1a0a5698@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change sky2 driver (in netdev next tree) to use vpd access routines.
+Change PCI VPD API which was only used by sysfs to something usable
+in drivers. 
+   * move iteration over multiple words to the low level
+   * cleanup types of arguments
+   * add exportable wrapper
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Note: other usage of vpd internal access routines will go away in later patches.
-
----
-Patch against netdev-2.6#upstream-next assumes the previous PCI API change.
-
---- a/drivers/net/sky2.c	2008-09-03 11:35:47.000000000 -0700
-+++ b/drivers/net/sky2.c	2008-09-03 11:44:06.000000000 -0700
-@@ -4199,10 +4199,9 @@ static int __devinit pci_wake_enabled(st
+--- a/drivers/pci/access.c	2008-09-03 09:01:53.000000000 -0700
++++ b/drivers/pci/access.c	2008-09-03 11:47:41.000000000 -0700
+@@ -66,6 +66,39 @@ EXPORT_SYMBOL(pci_bus_write_config_byte)
+ EXPORT_SYMBOL(pci_bus_write_config_word);
+ EXPORT_SYMBOL(pci_bus_write_config_dword);
  
- static void __devinit sky2_vpd_info(struct sky2_hw *hw)
- {
--	int cap = pci_find_capability(hw->pdev, PCI_CAP_ID_VPD);
--	const u8 *p;
--	u8 *vpd_buf = NULL;
--	u16 len;
-+	loff_t offs;
-+	u8 len;
-+	u8 tag[3];
- 	static struct vpd_tag {
- 		char tag[2];
- 		char *label;
-@@ -4211,47 +4210,48 @@ static void __devinit sky2_vpd_info(stru
- 		{ "EC", "Engineering Level" },
- 		{ "MN", "Manufacturer" },
- 	};
-+	char str[128];
- 
--	if (!cap)
--		goto out;
--
--	vpd_buf = kmalloc(VPD_SIZE, GFP_KERNEL);
--	if (!vpd_buf)
--		goto out;
-+	if (pci_read_vpd(hw->pdev, 0, sizeof(tag), tag) < 0)
-+		return;
-+	if (tag[0] != VPD_MAGIC)
-+		return;
-+	len = tag[1];
-+	if (len == 0 || len > sizeof(str))
-+		return;
- 
--	if (sky2_vpd_read(hw, cap, vpd_buf, 0, VPD_SIZE))
--		goto out;
-+	offs = 3;
-+	if (pci_read_vpd(hw->pdev, offs, len, str) < 0)
-+		return;
- 
--	if (vpd_buf[0] != VPD_MAGIC)
--		goto out;
--	len = vpd_buf[1];
--	if (len == 0 || len > VPD_SIZE - 4)
--		goto out;
--	p = vpd_buf + 3;
--	dev_info(&hw->pdev->dev, "%.*s\n", len, p);
--	p += len;
-+	dev_info(&hw->pdev->dev, "%.*s\n", len, str);
- 
--	while (p < vpd_buf + VPD_SIZE - 4) {
-+	for(;;) {
- 		int i;
- 
--		if (!memcmp("RW", p, 2))	/* end marker */
-+		offs += len;
-+		if (pci_read_vpd(hw->pdev, offs, sizeof(tag), tag) < 0)
- 			break;
- 
--		len = p[2];
--		if (len > (p - vpd_buf) - 4)
-+		if (!memcmp("RW", tag, 2))	/* end marker */
-+			break;
 +
-+		offs += sizeof(tag);
-+		len = tag[2];
-+		if (len > sizeof(str))
- 			break;
- 
- 		for (i = 0; i < ARRAY_SIZE(vpd_tags); i++) {
--			if (!memcmp(vpd_tags[i].tag, p, 2)) {
-+			if (!memcmp(vpd_tags[i].tag, tag, 2)) {
-+				if (pci_read_vpd(hw->pdev, offs, len, str) < 0)
-+					return;
++/**
++ * pci_read_vpd - Read one entry from Vital Product Data
++ * @dev:	pci device struct
++ * @pos:	offset in vpd space
++ * @count:	number of bytes to read
++ * @buf:	pointer to where to store result
++ *
++ */
++int pci_read_vpd(struct pci_dev *dev, loff_t pos, size_t count, void *buf)
++{
++	if (!dev->vpd || !dev->vpd->ops)
++		return -ENODEV;
++	return dev->vpd->ops->read(dev, pos, count, buf);
++}
++EXPORT_SYMBOL(pci_read_vpd);
 +
- 				printk(KERN_DEBUG " %s: %.*s\n",
--				       vpd_tags[i].label, len, p + 3);
-+				       vpd_tags[i].label, len, str);
- 				break;
- 			}
- 		}
--		p += len + 3;
- 	}
--out:
--	kfree(vpd_buf);
++/**
++ * pci_write_vpd - Write entry to Vital Product Data
++ * @dev:	pci device struct
++ * @pos:	offset in vpd space
++ * @count:	number of bytes to read
++ * @val:	value to write
++ *
++ */
++int pci_write_vpd(struct pci_dev *dev, loff_t pos, size_t count, const void *buf)
++{
++	if (!dev->vpd || !dev->vpd->ops)
++		return -ENODEV;
++	return dev->vpd->ops->write(dev, pos, count, buf);
++}
++EXPORT_SYMBOL(pci_write_vpd);
++
+ /*
+  * The following routines are to prevent the user from accessing PCI config
+  * space when it's unsafe to do so.  Some devices require this during BIST and
+@@ -170,89 +203,93 @@ static int pci_vpd_pci22_wait(struct pci
+ 	return ret;
  }
  
- /* This driver supports yukon2 chipset only */
+-static int pci_vpd_pci22_read(struct pci_dev *dev, int pos, int size,
+-			      char *buf)
++static int pci_vpd_pci22_read(struct pci_dev *dev, loff_t pos, size_t count,
++			      void *buf)
+ {
+ 	struct pci_vpd_pci22 *vpd =
+ 		container_of(dev->vpd, struct pci_vpd_pci22, base);
+-	u32 val;
+-	int ret;
+-	int begin, end, i;
++	int ret = 0;
++	loff_t end = pos + count;
++	unsigned char *p = buf;
+ 
+-	if (pos < 0 || pos > vpd->base.len || size > vpd->base.len  - pos)
++	if (pos < 0 || pos > vpd->base.len || count > vpd->base.len - pos)
+ 		return -EINVAL;
+-	if (size == 0)
+-		return 0;
+ 
+ 	mutex_lock(&vpd->lock);
+-	ret = pci_vpd_pci22_wait(dev);
+-	if (ret < 0)
+-		goto out;
+-	ret = pci_user_write_config_word(dev, vpd->cap + PCI_VPD_ADDR,
+-					 pos & ~3);
+-	if (ret < 0)
+-		goto out;
+-	vpd->busy = true;
+-	vpd->flag = 1;
+-	ret = pci_vpd_pci22_wait(dev);
+-	if (ret < 0)
+-		goto out;
+-	ret = pci_user_read_config_dword(dev, vpd->cap + PCI_VPD_DATA,
+-					 &val);
++	while (pos < end) {
++		u32 val;
++		unsigned int i, skip;
++
++		ret = pci_vpd_pci22_wait(dev);
++		if (ret < 0)
++			goto out;
++
++		ret = pci_user_write_config_word(dev, vpd->cap + PCI_VPD_ADDR,
++						 pos & ~3);
++		if (ret < 0)
++			goto out;
++		vpd->busy = true;
++		vpd->flag = 1;
++		ret = pci_vpd_pci22_wait(dev);
++		if (ret < 0)
++			goto out;
++
++		ret = pci_user_read_config_dword(dev, vpd->cap + PCI_VPD_DATA, &val);
++		if (ret < 0)
++			goto out;
++
++		skip = pos & 3;
++		for (i = 0;  i < sizeof(u32); i++) {
++			if (i >= skip) {
++				*p++ = val;
++				if (++pos == end)
++					break;
++			}
++			val >>= 8;
++		}
++	}
+ out:
+ 	mutex_unlock(&vpd->lock);
+-	if (ret < 0)
+-		return ret;
+-
+-	/* Convert to bytes */
+-	begin = pos & 3;
+-	end = min(4, begin + size);
+-	for (i = 0; i < end; ++i) {
+-		if (i >= begin)
+-			*buf++ = val;
+-		val >>= 8;
+-	}
+-	return end - begin;
++	return ret ? ret : count;
+ }
+ 
+-static int pci_vpd_pci22_write(struct pci_dev *dev, int pos, int size,
+-			       const char *buf)
++static int pci_vpd_pci22_write(struct pci_dev *dev, loff_t pos, size_t count,
++			       const void *buf)
+ {
+ 	struct pci_vpd_pci22 *vpd =
+ 		container_of(dev->vpd, struct pci_vpd_pci22, base);
+-	u32 val;
+-	int ret;
++	loff_t end = pos + count;
++	int ret = 0;
+ 
+-	if (pos < 0 || pos > vpd->base.len || pos & 3 ||
+-	    size > vpd->base.len - pos || size < 4)
++	if (pos > vpd->base.len || pos & 3)
+ 		return -EINVAL;
+ 
+-	val = (u8) *buf++;
+-	val |= ((u8) *buf++) << 8;
+-	val |= ((u8) *buf++) << 16;
+-	val |= ((u32)(u8) *buf++) << 24;
+-
+ 	mutex_lock(&vpd->lock);
+-	ret = pci_vpd_pci22_wait(dev);
+-	if (ret < 0)
+-		goto out;
+-	ret = pci_user_write_config_dword(dev, vpd->cap + PCI_VPD_DATA,
+-					  val);
+-	if (ret < 0)
+-		goto out;
+-	ret = pci_user_write_config_word(dev, vpd->cap + PCI_VPD_ADDR,
+-					 pos | PCI_VPD_ADDR_F);
+-	if (ret < 0)
+-		goto out;
+-	vpd->busy = true;
+-	vpd->flag = 0;
+-	ret = pci_vpd_pci22_wait(dev);
++	while (pos < end) {
++		u32 val;
++
++		ret = pci_vpd_pci22_wait(dev);
++		if (ret < 0)
++			goto out;
++		memcpy(&val, buf, sizeof(u32));
++
++		ret = pci_user_write_config_dword(dev, vpd->cap + PCI_VPD_DATA, val);
++		if (ret < 0)
++			goto out;
++		ret = pci_user_write_config_word(dev, vpd->cap + PCI_VPD_ADDR,
++						 pos | PCI_VPD_ADDR_F);
++		if (ret < 0)
++			goto out;
++		vpd->busy = true;
++		vpd->flag = 0;
++		ret = pci_vpd_pci22_wait(dev);
++
++		buf += sizeof(u32);
++		pos += sizeof(u32);
++	}
+ out:
+ 	mutex_unlock(&vpd->lock);
+-	if (ret < 0)
+-		return ret;
+-
+-	return 4;
++	return ret ? ret : count;
+ }
+ 
+ static void pci_vpd_pci22_release(struct pci_dev *dev)
+@@ -260,7 +297,7 @@ static void pci_vpd_pci22_release(struct
+ 	kfree(container_of(dev->vpd, struct pci_vpd_pci22, base));
+ }
+ 
+-static struct pci_vpd_ops pci_vpd_pci22_ops = {
++static const struct pci_vpd_ops pci_vpd_pci22_ops = {
+ 	.read = pci_vpd_pci22_read,
+ 	.write = pci_vpd_pci22_write,
+ 	.release = pci_vpd_pci22_release,
+--- a/drivers/pci/pci.h	2008-09-03 08:58:03.000000000 -0700
++++ b/drivers/pci/pci.h	2008-09-03 10:47:52.000000000 -0700
+@@ -44,14 +44,14 @@ extern int pci_user_write_config_word(st
+ extern int pci_user_write_config_dword(struct pci_dev *dev, int where, u32 val);
+ 
+ struct pci_vpd_ops {
+-	int (*read)(struct pci_dev *dev, int pos, int size, char *buf);
+-	int (*write)(struct pci_dev *dev, int pos, int size, const char *buf);
++	int (*read)(struct pci_dev *dev, loff_t pos, size_t count, void *buf);
++	int (*write)(struct pci_dev *dev, loff_t pos, size_t count, const void *buf);
+ 	void (*release)(struct pci_dev *dev);
+ };
+ 
+ struct pci_vpd {
+ 	unsigned int len;
+-	struct pci_vpd_ops *ops;
++	const struct pci_vpd_ops *ops;
+ 	struct bin_attribute *attr; /* descriptor for sysfs VPD entry */
+ };
+ 
+--- a/drivers/pci/pci-sysfs.c	2008-09-03 09:17:19.000000000 -0700
++++ b/drivers/pci/pci-sysfs.c	2008-09-03 10:48:25.000000000 -0700
+@@ -360,55 +360,33 @@ pci_write_config(struct kobject *kobj, s
+ }
+ 
+ static ssize_t
+-pci_read_vpd(struct kobject *kobj, struct bin_attribute *bin_attr,
+-	     char *buf, loff_t off, size_t count)
++read_vpd_attr(struct kobject *kobj, struct bin_attribute *bin_attr,
++	      char *buf, loff_t off, size_t count)
+ {
+ 	struct pci_dev *dev =
+ 		to_pci_dev(container_of(kobj, struct device, kobj));
+-	int end;
+-	int ret;
+ 
+ 	if (off > bin_attr->size)
+ 		count = 0;
+ 	else if (count > bin_attr->size - off)
+ 		count = bin_attr->size - off;
+-	end = off + count;
+ 
+-	while (off < end) {
+-		ret = dev->vpd->ops->read(dev, off, end - off, buf);
+-		if (ret < 0)
+-			return ret;
+-		buf += ret;
+-		off += ret;
+-	}
+-
+-	return count;
++	return pci_read_vpd(dev, off, count, buf);
+ }
+ 
+ static ssize_t
+-pci_write_vpd(struct kobject *kobj, struct bin_attribute *bin_attr,
+-	      char *buf, loff_t off, size_t count)
++write_vpd_attr(struct kobject *kobj, struct bin_attribute *bin_attr,
++	       char *buf, loff_t off, size_t count)
+ {
+ 	struct pci_dev *dev =
+ 		to_pci_dev(container_of(kobj, struct device, kobj));
+-	int end;
+-	int ret;
+ 
+ 	if (off > bin_attr->size)
+ 		count = 0;
+ 	else if (count > bin_attr->size - off)
+ 		count = bin_attr->size - off;
+-	end = off + count;
+-
+-	while (off < end) {
+-		ret = dev->vpd->ops->write(dev, off, end - off, buf);
+-		if (ret < 0)
+-			return ret;
+-		buf += ret;
+-		off += ret;
+-	}
+ 
+-	return count;
++	return pci_write_vpd(dev, off, count, buf);
+ }
+ 
+ #ifdef HAVE_PCI_LEGACY
+@@ -739,8 +717,8 @@ int __must_check pci_create_sysfs_dev_fi
+ 			attr->size = pdev->vpd->len;
+ 			attr->attr.name = "vpd";
+ 			attr->attr.mode = S_IRUSR | S_IWUSR;
+-			attr->read = pci_read_vpd;
+-			attr->write = pci_write_vpd;
++			attr->read = read_vpd_attr;
++			attr->write = write_vpd_attr;
+ 			retval = sysfs_create_bin_file(&pdev->dev.kobj, attr);
+ 			if (retval)
+ 				goto err_vpd;
+--- a/include/linux/pci.h	2008-09-03 09:12:51.000000000 -0700
++++ b/include/linux/pci.h	2008-09-03 10:38:52.000000000 -0700
+@@ -650,6 +650,10 @@ int pci_back_from_sleep(struct pci_dev *
+ /* Functions for PCI Hotplug drivers to use */
+ int pci_bus_find_capability(struct pci_bus *bus, unsigned int devfn, int cap);
+ 
++/* Vital product data routines */
++int pci_read_vpd(struct pci_dev *dev, loff_t pos, size_t count, void *buf);
++int pci_write_vpd(struct pci_dev *dev, loff_t pos, size_t count, const void *buf);
++
+ /* Helper functions for low-level code (drivers/pci/setup-[bus,res].c) */
+ void pci_bus_assign_resources(struct pci_bus *bus);
+ void pci_bus_size_bridges(struct pci_bus *bus);
