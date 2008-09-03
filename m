@@ -1,28 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] s2io: reindented misleading for loop
-Date: Wed, 03 Sep 2008 10:24:35 -0400
-Message-ID: <48BE9E23.4030409@garzik.org>
-References: <Pine.LNX.4.64.0808191034490.4551@wrl-59.cs.helsinki.fi>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [NET] removed unused #include <version.h>
+Date: Wed, 03 Sep 2008 10:24:43 -0400
+Message-ID: <48BE9E2B.7010408@pobox.com>
+References: <20080817072712.1632.WEIYI.HUANG@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ram.vepa@neterion.com, Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@redhat.com, netdev@vger.kernel.org
+To: Huang Weiyi <weiyi.huang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38937 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38946 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753189AbYICOYl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 10:24:41 -0400
-In-Reply-To: <Pine.LNX.4.64.0808191034490.4551@wrl-59.cs.helsinki.fi>
+	id S1751686AbYICOYr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 10:24:47 -0400
+In-Reply-To: <20080817072712.1632.WEIYI.HUANG@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen wrote:
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> ---
->  drivers/net/s2io.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+Huang Weiyi wrote:
+> The drivers below do not use LINUX_VERSION_CODE nor KERNEL_VERSION.
+>   drivers/net/myri10ge/myri10ge.c
+>   drivers/net/netxen/netxen_nic_ethtool.c
+>   drivers/net/tokenring/lanstreamer.c
+> 
+> This patch removes the said #include <version.h>.
+> 
+> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
 
 applied
 
