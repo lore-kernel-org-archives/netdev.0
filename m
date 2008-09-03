@@ -1,58 +1,61 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+From: David Miller <davem@davemloft.net>
 Subject: Re: xfrm_state locking regression...
-Date: Wed, 03 Sep 2008 09:27:47 +0300
-Message-ID: <48BE2E63.8000707@iki.fi>
-References: <20080903053935.GA8428@gondor.apana.org.au>	<48BE245D.3060905@iki.fi>	<20080903055041.GA8547@gondor.apana.org.au> <20080902.231420.255718595.davem@davemloft.net>
+Date: Tue, 02 Sep 2008 23:35:38 -0700 (PDT)
+Message-ID: <20080902.233538.200370430.davem@davemloft.net>
+References: <20080903055041.GA8547@gondor.apana.org.au>
+	<20080902.231420.255718595.davem@davemloft.net>
+	<48BE2E63.8000707@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:21519 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753975AbYICG1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 02:27:43 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so1334698eyi.37
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2008 23:27:42 -0700 (PDT)
-In-Reply-To: <20080902.231420.255718595.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51920
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754093AbYICGfp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 02:35:45 -0400
+In-Reply-To: <48BE2E63.8000707@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 3 Sep 2008 15:50:41 +1000
->=20
->> On Wed, Sep 03, 2008 at 08:45:01AM +0300, Timo Ter=E4s wrote:
->>>> ipsec: Move state dump list unlinking into GC
->>>>
->>>> This patch moves the unlinking of x->all (for dumping) into the
->>>> GC and changes the lock to xfrm_cfg_mutex.
->>> Shouldn't this also change the locking in all places where
->>> x->all is used?
->> You're right.  I'd forgotten about the larval states for some
->> reason, probably because I just added them to the list :)
->>
->> So let's keep xfrm_state_lock and just move it.
->=20
-> How about we un-crap the reference counting?
->=20
-> Every list an object lives on is an external reference, and that is
-> the rule that is violated by this ->all list handling.
->=20
-> And that's why we need to take a single shared lock twice just to get
-> rid of an xfrm_state object now.
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Wed, 03 Sep 2008 09:27:47 +0300
 
-Well, it's just another list keeping a reference like ->bydst,
-->bysrc and ->byspi. The actual amount of external references is
-still correct (the walking code calls _hold() when it returns while
-keeping an external pointer).
+> Well, it's just another list keeping a reference like ->bydst,
+> ->bysrc and ->byspi. The actual amount of external references is
+> still correct (the walking code calls _hold() when it returns while
+> keeping an external pointer).
 
-The difference is that node should not be unlinked from ->all until
-all other references are gone. For other lists the unlinking can be
-done earlier since they are used only for lookups.
+->bydst, ->bysrc, and ->byspi are counted as a single external
+reference because:
 
-Any good other ways to enumerate to list entries while allowing
-to keep a temporary "iterator"? The previous method was crap too.
+1) They are controlled as a group
 
-- Timo
+2) Doing 3 atomic operations is more expensive than one
+
+I know because I did that conversion from 3 refcount operations down
+to 1 and I timed it with stress tests, which showed that it made a
+huge performance difference for the control path of our IPSEC stack.
+
+> The difference is that node should not be unlinked from ->all until
+> all other references are gone. For other lists the unlinking can be
+> done earlier since they are used only for lookups.
+
+Once there are no list references, there cannot be any other references=
+=2E
+So in fact it seems to me that unlinking when the xfrm_state is removed
+from those other lists makes perfect sense.
+
+If __xfrm_state_delete sets the state to DEAD, and you skip xfrm_state
+objects marked DEAD, why does the ->all list reference have to survive
+past __xfrm_state_delete()?
+
+It seems the perfect place to do the ->all removal.
+
+> Any good other ways to enumerate to list entries while allowing
+> to keep a temporary "iterator"? The previous method was crap too.
+
+At least the old stuff was self-consistent and only needed one central
+lock grab to destoy an object.
