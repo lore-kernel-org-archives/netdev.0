@@ -1,48 +1,60 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH 0/15] netdevice: Convert directly reference of netdev->priv
- to netdev_priv()
-Date: Wed, 03 Sep 2008 16:24:21 +0800
-Message-ID: <48BE49B5.8070509@cn.fujitsu.com>
-References: <48B3D717.7070706@cn.fujitsu.com>	<48BE4190.6060407@cn.fujitsu.com> <20080903.005830.22785313.davem@davemloft.net>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH RESEND] ipv6: return with appropriate error code when sending
+ RH0 using setsockopt()
+Date: Wed, 03 Sep 2008 16:41:06 +0800
+Message-ID: <48BE4DA2.20800@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59512 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:57541 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751497AbYICI0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 04:26:51 -0400
-In-Reply-To: <20080903.005830.22785313.davem@davemloft.net>
+	id S1750773AbYICInH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 04:43:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller said the following on 2008-9-3 15:58:
-> From: Wang Chen <wangchen@cn.fujitsu.com>
-> Date: Wed, 03 Sep 2008 15:49:36 +0800
-> 
->> Wang Chen said the following on 2008-8-26 18:12:
->>> Following patches will convert directly reference of netdev->priv to netdev_priv().
->>>
->>> - Patch 1/15 is the safe convert which I believe will not make "after converted " worse
->>> than "before converted".
->>>
->>> - Patches 2-14 need comments. Since the value of netdev->priv is changed in drivers
->>> and I use netdev->ml_priv to replace netdev->priv.
->>>
->> Dave, will you apply this for net-next? or give me your comment? :)
-> 
-> I'll see what I can do.
-> 
-> I know this is going to create conflicts in a few places, including sparc-next-2.6
-> where I already made this fix while cleaning up all of the SBUS device drivers.
-> 
-> So I guess I'm saying that I'm being lazy. :)
-> 
-> I'll try to look into this next week as I'm going to be busy and also away for
-> a few days.
-> 
+ I'm sorry to resend the patch, for that no one replied it from Jun 27.
 
-OK. Thank your.
+ The kernel had removed the RH0(Type 0 Routing Header), but we can still
+ send IPv6 packet with RH0 using sendmsg() or setsockopt().
+
+ Compare with sendmsg() that returns EINVAL, but setsockopt() return EPERM.
+ The patch fix it.
+
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ net/ipv6/ipv6_sockglue.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 4e5eac3..7a58597 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -353,9 +353,10 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 			goto e_inval;
+ 
+ 		/* hop-by-hop / destination options are privileged option */
+-		retv = -EPERM;
+-		if (optname != IPV6_RTHDR && !capable(CAP_NET_RAW))
++		if (optname != IPV6_RTHDR && !capable(CAP_NET_RAW)) {
++			retv = -EPERM;
+ 			break;
++		}
+ 
+ 		opt = ipv6_renew_options(sk, np->opt, optname,
+ 					 (struct ipv6_opt_hdr __user *)optval,
+@@ -365,6 +366,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 			break;
+ 		}
+ 
++		retv = -EINVAL;
+ 		/* routing header option needs extra check */
+ 		if (optname == IPV6_RTHDR && opt && opt->srcrt) {
+ 			struct ipv6_rt_hdr *rthdr = opt->srcrt;
+-- 
+1.6.0
+
 
