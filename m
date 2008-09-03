@@ -1,35 +1,42 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v4 00/14] Labeled networking patches for 2.6.28
-Date: Wed, 3 Sep 2008 10:05:59 -0400
-Message-ID: <200809031005.59102.paul.moore@hp.com>
-References: <20080903003647.15669.45349.stgit@flek.lan>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 41/52] sfc: Add check for memory allocation failure in falcon_probe_nic()
+Date: Wed, 3 Sep 2008 15:07:50 +0100
+Message-ID: <20080903140750.GX7908@solarflare.com>
+References: <20080901111621.GT7908@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080903003647.15669.45349.stgit@flek.lan>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:54234 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753801AbYICOH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:07:58 -0400
 Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080901111621.GT7908@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 02 September 2008 8:48:41 pm Paul Moore wrote:
-> Since I'm reasonable certain there are no really nasty regressions,
-> I've added sign-offs to all the patches now.  I expect there will
-> probably be another spin or two to take care of bugs yet to be found
-> and fix other various things that pop-up (maybe even the Smack stuff
-> if I can find the time) but the patches are in reasonably good shape
-> right now.  I also did a test merge/compile with the September 2nd
-> linux-next tree and there were no nasty surprises so I'm also pushing
-> these patches to my lblnet-2.6_next tree which means you should see
-> them in tomorrow's linux-next tree if all goes well.
 
-Just an FYI, it looks like I may have missed the cut for the September 
-3rd linux-next tree.  The patches should be in there for tomorrow's 
-tree.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/falcon.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index e0c0b23..636fe82 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -2758,6 +2758,8 @@ int falcon_probe_nic(struct efx_nic *efx)
+ 
+ 	/* Allocate storage for hardware specific data */
+ 	nic_data = kzalloc(sizeof(*nic_data), GFP_KERNEL);
++	if (!nic_data)
++		return -ENOMEM;
+ 	efx->nic_data = nic_data;
+ 
+ 	/* Determine number of ports etc. */
 -- 
-paul moore
-linux @ hp
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
