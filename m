@@ -1,50 +1,94 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
-	feature-negotiation patches
-Date: Wed, 3 Sep 2008 06:24:50 +0200
-Message-ID: <20080903042450.GA4105@gerrit.erg.abdn.ac.uk>
-References: <20080828194336.GJ9193@ghostprotocols.net> <20080830172501.GB26846@gerrit.erg.abdn.ac.uk> <20080901164633.GA6456@gerrit.erg.abdn.ac.uk> <20080901.142055.193705447.davem@davemloft.net> <20080902135055.GB8346@ghostprotocols.net>
+Subject: Re: v3 [PATCH 1/1] dccp: Process incoming Change
+	feature-negotiation options
+Date: Wed, 3 Sep 2008 06:27:09 +0200
+Message-ID: <20080903042709.GB4105@gerrit.erg.abdn.ac.uk>
+References: <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-4-git-send-email-gerrit@erg.abdn.ac.uk> <20080823105647.GA15928@gerrit.erg.abdn.ac.uk> <48BCE45E.1080709@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39322 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39436 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750838AbYICEZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 00:25:42 -0400
+	id S1750877AbYICE1d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 00:27:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20080902135055.GB8346@ghostprotocols.net>
+In-Reply-To: <48BCE45E.1080709@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > So I'd like to wait and give him the chance to provide that feedback.
-| 
-| 
-| Hi,
-| 
-| 	Thanks Dave, but now there is also Wei looking over this patch
-| set, I'll try to get back to this soon, but I'm busy with other stuff, so if
-| you think it is ok don't wait too much for me :-)
-| 
-| 	I just would love if the core code doesn't get things that are
-| specific to a particular CCID implementation, as I saw in this patchset in
-| the net/dccp/feat.c file. struct ccid and ccid_operations were designed
-| to avoid that.
-| 
-So how long should we wait? I am willing to address all reasonable
-comments, but it is not true that there has been no time for providing
-feedback. The patches were first submitted last October, and if this
-means waiting for another year while the patches in the test tree keep
-piling up then I will need to draw a line.
-Dave what would you like to do?
+>> +/**
+>> + * dccp_feat_change_recv  -  Process incoming ChangeL/R options
+>> + * @fn: feature-negotiation list to update
+>> + * @is_mandatory: whether the Change was preceded by a Mandatory option
+>> + * @opt: %DCCPO_CHANGE_L or %DCCPO_CHANGE_R
+>> + * @feat: one of %dccp_feature_numbers
+>> + * @val: NN value or SP value/preference list
+>> + * @len: length of @val in bytes
+>> + * @server: whether this node is the server (1) or the client (0)
+>> + */
+>> +static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
+>> +				u8 feat, u8 *val, u8 len, const bool server)
+>> +{
+>> +	u8 defval, type = dccp_feat_type(feat);
+>> +	const bool local = (opt == DCCPO_CHANGE_R);
+>> +	struct dccp_feat_entry *entry;
+>> +	dccp_feat_val fval;
+>> +
+>> +	if (len == 0 || type == FEAT_UNKNOWN)		/* 6.1 and 6.6.8 */
+>> +		goto unknown_feature_or_value;
+>> +
+>> +	/*
+>> +	 *	Negotiation of NN features: Change R is invalid, so there is no
+>> +	 *	simultaneous negotiation; hence we do not consult the list.
+>> +	 */
+>> +	if (type == FEAT_NN) {
+>> +		if (local)
+>> +			goto not_valid_or_not_known;
+>>   
+> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+>
+>  Here should be "goto unknown_feature_or_value"?
+>
+> Change R is invalid, and RFC4340 6.6.8
+>
+> An endpoint receiving an invalid Change option MUST respond with the
+> corresponding empty Confirm option.
+>
+> Is this right?
+I am not sure.
+Section 6.3.2 says that Change R options must not be sent for NN options. A
+Change R is different from an invalid value - it is an option which is out
+of place in such a context. A sender using such an option for NN features
+has a clear bug.
 
-Arnaldo, I am answering the point raised above as a separate answer in
-the thread were it was originally raised. The suggestion to separate out
-the dependency table is something which only arose last week. In fact
-the current format of the dependency table is thanks to your comments in
-http://www.mail-archive.com/dccp@vger.kernel.org/msg02548.html
-(October 2007), where this split was not suggested.
+Hence my interpretation of this situation was to flag this bug to the peer:
+ * the peer gets sent an Option Error rather than an empty Confirm,
+ * if it was a Mandatory option, both interpretations are equivalent.
 
-Gerrit
+But there is also the robustness principle (3.6), so thank you, I will
+change it to the `unknown_feature_or_value'.
+
+
+>> +
+>> +	/*
+>> +	 *	Unidirectional/simultaneous negotiation of SP features (6.3.1)
+>> +	 */
+>> +	entry = dccp_feat_list_lookup(fn, feat, local);
+>> +	if (entry == NULL) {
+>> +		if (!dccp_feat_sp_list_ok(feat, val, len))
+>> +			goto unknown_feature_or_value;
+>>   
+>
+> Check for sp feat list should before code "entry =  
+> dccp_feat_list_lookup(fn, feat, local);",
+> here only check for features not register by local endpoint, if the  
+> feature is registed, the validity check is missing?
+>
+No, in this case the validity check is performed already as part of the socket
+registration routines - which in turn end up calling dccp_feat_sp_list_ok.  
+If a user tries to register invalid SP values on the socket, the attempt
+will fail with EINVAL. If the user does not register values, the feature
+defaults (6.4) are used, which are valid by definition.
+The host is conservative in what it allows to send out.
