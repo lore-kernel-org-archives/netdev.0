@@ -1,94 +1,66 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: v3 [PATCH 1/1] dccp: Process incoming Change
-	feature-negotiation options
-Date: Wed, 3 Sep 2008 06:27:09 +0200
-Message-ID: <20080903042709.GB4105@gerrit.erg.abdn.ac.uk>
-References: <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-4-git-send-email-gerrit@erg.abdn.ac.uk> <20080823105647.GA15928@gerrit.erg.abdn.ac.uk> <48BCE45E.1080709@cn.fujitsu.com>
+Subject: Re: [PATCH 25/37] dccp: Feature activation handlers
+Date: Wed, 3 Sep 2008 06:38:28 +0200
+Message-ID: <20080903043828.GC4105@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk> <48BCDE89.7060909@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39436 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40176 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750877AbYICE1d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 00:27:33 -0400
+	id S1750877AbYICEjC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 00:39:02 -0400
 Content-Disposition: inline
-In-Reply-To: <48BCE45E.1080709@cn.fujitsu.com>
+In-Reply-To: <48BCDE89.7060909@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +/**
->> + * dccp_feat_change_recv  -  Process incoming ChangeL/R options
->> + * @fn: feature-negotiation list to update
->> + * @is_mandatory: whether the Change was preceded by a Mandatory option
->> + * @opt: %DCCPO_CHANGE_L or %DCCPO_CHANGE_R
->> + * @feat: one of %dccp_feature_numbers
->> + * @val: NN value or SP value/preference list
->> + * @len: length of @val in bytes
->> + * @server: whether this node is the server (1) or the client (0)
->> + */
->> +static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
->> +				u8 feat, u8 *val, u8 len, const bool server)
->> +{
->> +	u8 defval, type = dccp_feat_type(feat);
->> +	const bool local = (opt == DCCPO_CHANGE_R);
->> +	struct dccp_feat_entry *entry;
->> +	dccp_feat_val fval;
->> +
->> +	if (len == 0 || type == FEAT_UNKNOWN)		/* 6.1 and 6.6.8 */
->> +		goto unknown_feature_or_value;
->> +
->> +	/*
->> +	 *	Negotiation of NN features: Change R is invalid, so there is no
->> +	 *	simultaneous negotiation; hence we do not consult the list.
->> +	 */
->> +	if (type == FEAT_NN) {
->> +		if (local)
->> +			goto not_valid_or_not_known;
->>   
-> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->
->  Here should be "goto unknown_feature_or_value"?
->
-> Change R is invalid, and RFC4340 6.6.8
->
-> An endpoint receiving an invalid Change option MUST respond with the
-> corresponding empty Confirm option.
->
-> Is this right?
-I am not sure.
-Section 6.3.2 says that Change R options must not be sent for NN options. A
-Change R is different from an invalid value - it is an option which is out
-of place in such a context. A sender using such an option for NN features
-has a clear bug.
+| > This patch provides the post-processing of feature negotiation state, after
+| > the negotiation has completed.
 
-Hence my interpretation of this situation was to flag this bug to the peer:
- * the peer gets sent an Option Error rather than an empty Confirm,
- * if it was a Mandatory option, both interpretations are equivalent.
+<snip>
+| >  
+| > +int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
+| > +{
+| > +	struct dccp_sock *dp = dccp_sk(sk);
+| > +	struct dccp_feat_entry *cur, *next;
+| > +	int idx;
+| > +	dccp_feat_val *fvals[DCCP_FEAT_SUPPORTED_MAX][2] = {
+| > +		 [0 ... DCCP_FEAT_SUPPORTED_MAX-1] = { NULL, NULL }
+| > +	};
+| > +
+| > +	list_for_each_entry(cur, fn_list, node) {
+| > +
+| > +		idx = dccp_feat_index(cur->feat_num);
+| > +		if (idx < 0) {
+| > +			DCCP_BUG("Unknown feature %u", cur->feat_num);
+| > +			goto activation_failed;
+| >   
+| 
+| idx < 0 is possible, if you goto activation_failed, the connection from
+| endpoint which want to change feature we unkonwn, the connection will be
+| always fail by reset. So I think it should just continue process the next
+| feature(s).
+| -----------------------------------
+| if (idx < 0)
+| continue;
+| -----------------------------------
+| 
+| idx < 0 is happended when we recv a change option with unknown feature type.
+| 
+| 
+No, since an unknown feature at this stage would most definitively be a bug.
 
-But there is also the robustness principle (3.6), so thank you, I will
-change it to the `unknown_feature_or_value'.
+The validity checking happens earlier:
+ * for NN values every valid value is accepted as per RFC -
+   this is ensured via dccp_feat_is_valid_nn_val();
+ * for SP values at least the confirmed value must be valid -
+   - this is checked in confirm_recv(),
+   - setsockopt is protected against registering invalid feature values,
+   - for CCIDs, additional a check for availability is made before
+     entering negotiation.
 
-
->> +
->> +	/*
->> +	 *	Unidirectional/simultaneous negotiation of SP features (6.3.1)
->> +	 */
->> +	entry = dccp_feat_list_lookup(fn, feat, local);
->> +	if (entry == NULL) {
->> +		if (!dccp_feat_sp_list_ok(feat, val, len))
->> +			goto unknown_feature_or_value;
->>   
->
-> Check for sp feat list should before code "entry =  
-> dccp_feat_list_lookup(fn, feat, local);",
-> here only check for features not register by local endpoint, if the  
-> feature is registed, the validity check is missing?
->
-No, in this case the validity check is performed already as part of the socket
-registration routines - which in turn end up calling dccp_feat_sp_list_ok.  
-If a user tries to register invalid SP values on the socket, the attempt
-will fail with EINVAL. If the user does not register values, the feature
-defaults (6.4) are used, which are valid by definition.
-The host is conservative in what it allows to send out.
+These conditions (should) ensure that the above condition is never
+triggered, the test is like an assert() clause.
