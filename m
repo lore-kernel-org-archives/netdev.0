@@ -1,33 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCHv3 00/24] Add first IPv6 support to IPVS
-Date: Wed, 3 Sep 2008 10:40:52 +1000
-Message-ID: <20080903004050.GA12550@verge.net.au>
-References: <1220363755-9854-1-git-send-email-juliusv@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: + e1000e-prevent-corruption-of-eeprom-nvm.patch added to -mm tree
+Date: Wed, 3 Sep 2008 01:44:56 +0100
+Message-ID: <20080903004454.GV7908@solarflare.com>
+References: <200809021919.m82JJweC008488@imap1.linux-foundation.org> <36D9DB17C6DE9E40B059440DB8D95F52060519D7@orsmsx418.amr.corp.intel.com> <1220398304.32688.163.camel@bodhitayantram.eng.vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
-	vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Qicheng Christopher Li <chrisl@vmware.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"arvidjaar@mail.ru" <arvidjaar@mail.ru>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Pratap Subrahmanyam <pratap@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mm-commits@vger.kernel.org" <mm-commits@vger.kernel.org>
+To: Zachary Amsden <zach@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:32867 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751575AbYICApK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 20:45:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1220363755-9854-1-git-send-email-juliusv@google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1220398304.32688.163.camel@bodhitayantram.eng.vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 02, 2008 at 03:55:31PM +0200, Julius Volz wrote:
-> Hi Horms,
+Zachary Amsden wrote:
+> On Tue, 2008-09-02 at 14:58 -0700, Brandeburg, Jesse wrote:
+[...]
+> > VMWare issues really do not apply to the Linux kernel, and unless the
+> > architecture of ethtool->ioctl->rtnl->e1000e has changed without me
+> > noticing.  In that case every driver that used ethtool would be broken.
 > 
-> Here comes the whole batch again! I've fixed almost all style issues
-> reported by checkpatch.pl, except for some little things which look like
-> they could stay like they are for now (down to 3 warnings and 2 errors).
-> I also integrated your other comments and removed the patch that
-> adds the changelog information (not needed anymore, according to
-> Stephen).
+> No, any drivers that have a state machine consisting of a base register
+> that is used to index which datum is read from device EEPROM by the data
+> register would be broken.
+> 
+> This is not a VMware issue, its a fundamental hardware synchronization
+> issue caused by the dependence of data read/write on a device register.
+> Does the net layer protect against e1000 issuing simultaneous EEPROM
+> read / write?
 
-Hi Julius,
+All ethtool commands are serialised by the RTNL as Jesse said above.
 
-thanks once again, this series addresses all of the (minor) concerns that
-I had yesterday. I'd like to let them sit on netdev for another day or two,
-to give a chance for further review by others. If things are still
-clear at that time I think it would be a good time to merge things.
+> I have no idea.  It probably should.  Should the driver
+> take extra precautions of its own to ensure this on non hot-paths, to
+> avoid corrupting EEPROM memory and resulting in a non-functional NIC?
+> 
+> Absolutely.
+> 
+> From casual inspection it looks like set_mtu is done under dev_baselock, while ethtool is done under rtnl_lock.
+> 
+> Setting the MTU internally reads the EEPROM, which could contend with and corrupt and eeprom operations.
+ 
+No, MTU changes are done by another ioctl which takes the RTNL.  It's
+not hard to find this stuff in net/core/dev.c.
 
+Please do VMware driver developers a favour and pay a little more
+attention to such subtleties.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
