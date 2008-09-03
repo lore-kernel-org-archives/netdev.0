@@ -1,33 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND 2.6.27] netlink: Remove compat API for nested
- attributes
-Date: Tue, 02 Sep 2008 17:34:04 -0700 (PDT)
-Message-ID: <20080902.173404.87370341.davem@davemloft.net>
-References: <48BDB434.1040805@intel.com>
-	<20080902232008.GD20815@postel.suug.ch>
-	<48BDD9F0.8090706@intel.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCHv3 00/24] Add first IPv6 support to IPVS
+Date: Wed, 3 Sep 2008 10:40:52 +1000
+Message-ID: <20080903004050.GA12550@verge.net.au>
+References: <1220363755-9854-1-git-send-email-juliusv@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35155
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752433AbYICAeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 20:34:10 -0400
-In-Reply-To: <48BDD9F0.8090706@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1220363755-9854-1-git-send-email-juliusv@google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Tue, 02 Sep 2008 17:27:28 -0700
+On Tue, Sep 02, 2008 at 03:55:31PM +0200, Julius Volz wrote:
+> Hi Horms,
+> 
+> Here comes the whole batch again! I've fixed almost all style issues
+> reported by checkpatch.pl, except for some little things which look like
+> they could stay like they are for now (down to 3 warnings and 2 errors).
+> I also integrated your other comments and removed the patch that
+> adds the changelog information (not needed anymore, according to
+> Stephen).
 
-> That is the point of code like this.  It defines a standard set of
-> tools for extending an existing netlink interface.  If nothing else
-> we should standardize on the netem approach for both parsing and
-> creation since prio no longer ueses the compat attributes.
+Hi Julius,
 
-If there are no more users, and the netem case is a specialized format
-we don't want to encourage anyone to ever use in the future (and we
-certainlt DON'T), we delete the interface.
+thanks once again, this series addresses all of the (minor) concerns that
+I had yesterday. I'd like to let them sit on netdev for another day or two,
+to give a chance for further review by others. If things are still
+clear at that time I think it would be a good time to merge things.
+
