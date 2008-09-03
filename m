@@ -1,42 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 41/52] sfc: Add check for memory allocation failure in falcon_probe_nic()
-Date: Wed, 3 Sep 2008 15:07:50 +0100
-Message-ID: <20080903140750.GX7908@solarflare.com>
-References: <20080901111621.GT7908@solarflare.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RESEND] [NET-NEXT PATCH 2/3] e1000e: add support for 82567LM-3
+ and	82567LF-3 (ICH10D) parts
+Date: Wed, 03 Sep 2008 10:07:38 -0400
+Message-ID: <48BE9A2A.1020904@garzik.org>
+References: <20080827013611.5716.7376.stgit@jtkirshe-mobile.jf.intel.com> <20080827013639.5716.27200.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, andy@greyhouse.net,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:54234 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753801AbYICOH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:07:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20080901111621.GT7908@solarflare.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:43687 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751398AbYICOHl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 10:07:41 -0400
+In-Reply-To: <20080827013639.5716.27200.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jeff Kirsher wrote:
+> From: Bruce Allan <bruce.w.allan@intel.com>
+> 
+> Add support for new LOM devices on the latest generation ICHx platforms.
+> 
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> 
+>  drivers/net/e1000e/defines.h |    2 +
+>  drivers/net/e1000e/e1000.h   |    3 +
+>  drivers/net/e1000e/ethtool.c |   22 +++++-
+>  drivers/net/e1000e/hw.h      |    3 +
+>  drivers/net/e1000e/ich8lan.c |  154 +++++++++++++++++++++++++++++++++++++++---
+>  drivers/net/e1000e/netdev.c  |   25 +++++++
+>  drivers/net/e1000e/phy.c     |   85 +++++++++++++++++++++++
+>  7 files changed, 280 insertions(+), 14 deletions(-)
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/falcon.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+applied
 
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index e0c0b23..636fe82 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -2758,6 +2758,8 @@ int falcon_probe_nic(struct efx_nic *efx)
- 
- 	/* Allocate storage for hardware specific data */
- 	nic_data = kzalloc(sizeof(*nic_data), GFP_KERNEL);
-+	if (!nic_data)
-+		return -ENOMEM;
- 	efx->nic_data = nic_data;
- 
- 	/* Determine number of ports etc. */
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
