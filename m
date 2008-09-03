@@ -1,116 +1,153 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 2/3] phylib: add missing _{check_gmii_support,link_ok,nway_restart}
-Date: Wed,  3 Sep 2008 15:20:11 +0200
-Message-ID: <1220448012-20347-3-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 1/3] phylib: allow incremental scanning of an mii bus
+Date: Wed,  3 Sep 2008 15:20:10 +0200
+Message-ID: <1220448012-20347-2-git-send-email-buytenh@wantstofly.org>
 References: <1220448012-20347-1-git-send-email-buytenh@wantstofly.org>
 Cc: Andy Fleming <afleming@freescale.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:56365 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:56364 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752077AbYICNUO (ORCPT
+	with ESMTP id S1752066AbYICNUO (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 09:20:14 -0400
 In-Reply-To: <1220448012-20347-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/net/mii.c provides a couple of routines which currently have
-no phylib equivalents.  This patch provides those phylib equivalents.
+This patch splits the bus scanning code in mdiobus_register() off
+into a separate function, and makes this function available for
+calling from external code.  This allows incrementally scanning an
+mii bus, e.g. as information about which addresses are 'safe' to
+scan becomes available.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/phy/phy.c |   63 +++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/phy.h   |    3 ++
- 2 files changed, 66 insertions(+), 0 deletions(-)
+ drivers/net/phy/mdio_bus.c |   89 +++++++++++++++++++++++--------------------
+ include/linux/phy.h        |    2 +
+ 2 files changed, 50 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 45cc291..cb15517 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -349,6 +349,69 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- EXPORT_SYMBOL(phy_ethtool_gset);
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 94e0b7e..e7508c1 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -60,49 +60,14 @@ int mdiobus_register(struct mii_bus *bus)
+ 		bus->reset(bus);
  
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		struct phy_device *phydev;
++		bus->phy_map[i] = NULL;
++		if ((bus->phy_mask & (1 << i)) == 0) {
++			struct phy_device *phydev;
+ 
+-		if (bus->phy_mask & (1 << i)) {
+-			bus->phy_map[i] = NULL;
+-			continue;
++			phydev = mdiobus_scan(bus, i);
++			if (IS_ERR(phydev))
++				err = PTR_ERR(phydev);
+ 		}
+-
+-		phydev = get_phy_device(bus, i);
+-
+-		if (IS_ERR(phydev))
+-			return PTR_ERR(phydev);
+-
+-		/* There's a PHY at this address
+-		 * We need to set:
+-		 * 1) IRQ
+-		 * 2) bus_id
+-		 * 3) parent
+-		 * 4) bus
+-		 * 5) mii_bus
+-		 * And, we need to register it */
+-		if (phydev) {
+-			phydev->irq = bus->irq[i];
+-
+-			phydev->dev.parent = bus->dev;
+-			phydev->dev.bus = &mdio_bus_type;
+-			snprintf(phydev->dev.bus_id, BUS_ID_SIZE, PHY_ID_FMT, bus->id, i);
+-
+-			phydev->bus = bus;
+-
+-			/* Run all of the fixups for this PHY */
+-			phy_scan_fixups(phydev);
+-
+-			err = device_register(&phydev->dev);
+-
+-			if (err) {
+-				printk(KERN_ERR "phy %d failed to register\n",
+-						i);
+-				phy_device_free(phydev);
+-				phydev = NULL;
+-			}
+-		}
+-
+-		bus->phy_map[i] = phydev;
+ 	}
+ 
+ 	pr_info("%s: probed\n", bus->name);
+@@ -122,6 +87,48 @@ void mdiobus_unregister(struct mii_bus *bus)
+ }
+ EXPORT_SYMBOL(mdiobus_unregister);
+ 
++struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
++{
++	struct phy_device *phydev;
++	int err;
++
++	phydev = get_phy_device(bus, addr);
++	if (IS_ERR(phydev) || phydev == NULL)
++		return phydev;
++
++	/* There's a PHY at this address
++	 * We need to set:
++	 * 1) IRQ
++	 * 2) bus_id
++	 * 3) parent
++	 * 4) bus
++	 * 5) mii_bus
++	 * And, we need to register it */
++
++	phydev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
++
++	phydev->dev.parent = bus->dev;
++	phydev->dev.bus = &mdio_bus_type;
++	snprintf(phydev->dev.bus_id, BUS_ID_SIZE, PHY_ID_FMT, bus->id, addr);
++
++	phydev->bus = bus;
++
++	/* Run all of the fixups for this PHY */
++	phy_scan_fixups(phydev);
++
++	err = device_register(&phydev->dev);
++	if (err) {
++		printk(KERN_ERR "phy %d failed to register\n", addr);
++		phy_device_free(phydev);
++		phydev = NULL;
++	}
++
++	bus->phy_map[addr] = phydev;
++
++	return phydev;
++}
++EXPORT_SYMBOL(mdiobus_scan);
++
  /**
-+ * phy_check_gmii_support - check if the PHY supports (R)GMII
-+ * @phydev: the phy_device struct
-+ */
-+int phy_check_gmii_support(struct phy_device *phydev)
-+{
-+	int retval;
-+
-+	retval = phy_read(phydev, MII_BMSR);
-+	if (retval < 0 || (retval & BMSR_ESTATEN) == 0)
-+		return 0;
-+
-+	retval = phy_read(phydev, MII_ESTATUS);
-+	if (retval < 0)
-+		return 0;
-+
-+	return !!(retval & (ESTATUS_1000_TFULL | ESTATUS_1000_THALF));
-+}
-+EXPORT_SYMBOL(phy_check_gmii_support);
-+
-+/**
-+ * phy_link_ok - is link status up/ok
-+ * @phydev: the phy_device struct
-+ *
-+ * Returns 1 if the PHY reports link status up/ok, 0 otherwise.
-+ */
-+int phy_link_ok(struct phy_device *phydev)
-+{
-+	int retval;
-+
-+	/* first, a dummy read, needed to latch some MII phys */
-+	phy_read(phydev, MII_BMSR);
-+
-+	retval = phy_read(phydev, MII_BMSR);
-+	if (retval < 0 || (retval & BMSR_LSTATUS) == 0)
-+		return 0;
-+
-+	return 1;
-+}
-+EXPORT_SYMBOL(phy_link_ok);
-+
-+/**
-+ * phy_nway_restart - restart NWay (autonegotiation) for this interface
-+ * @phydev: the phy_device struct
-+ *
-+ * Returns 0 on success, negative on error.
-+ */
-+int phy_nway_restart(struct phy_device *phydev)
-+{
-+	int bmcr;
-+
-+	/* if autoneg is off, it's an error */
-+	bmcr = phy_read(phydev, MII_BMCR);
-+	if (bmcr < 0 || (bmcr & BMCR_ANENABLE) == 0)
-+		return -EINVAL;
-+
-+	if (phy_write(phydev, MII_BMCR, bmcr | BMCR_ANRESTART) < 0)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(phy_nway_restart);
-+
-+/**
-  * phy_mii_ioctl - generic PHY MII ioctl interface
-  * @phydev: the phy_device struct
-  * @mii_data: MII ioctl data
+  * mdio_bus_match - determine if given PHY driver supports the given PHY device
+  * @dev: target PHY device
 diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 5f170f5..e710bb1 100644
+index 7224c40..5f170f5 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
-@@ -436,6 +436,9 @@ void phy_start_machine(struct phy_device *phydev,
- void phy_stop_machine(struct phy_device *phydev);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-+int phy_check_gmii_support(struct phy_device *phydev);
-+int phy_link_ok(struct phy_device *phydev);
-+int phy_nway_restart(struct phy_device *phydev);
- int phy_mii_ioctl(struct phy_device *phydev,
- 		struct mii_ioctl_data *mii_data, int cmd);
- int phy_start_interrupts(struct phy_device *phydev);
+@@ -410,6 +410,8 @@ int phy_start_aneg(struct phy_device *phydev);
+ 
+ int mdiobus_register(struct mii_bus *bus);
+ void mdiobus_unregister(struct mii_bus *bus);
++struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr);
++
+ void phy_sanitize_settings(struct phy_device *phydev);
+ int phy_stop_interrupts(struct phy_device *phydev);
+ int phy_enable_interrupts(struct phy_device *phydev);
 -- 
 1.5.6.4
 
