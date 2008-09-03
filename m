@@ -1,47 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RESEND] [NET-NEXT PATCH 3/3] e1000e: add support for new 82574L
- part
-Date: Wed, 03 Sep 2008 10:09:19 -0400
-Message-ID: <48BE9A8F.2070003@garzik.org>
-References: <20080827013611.5716.7376.stgit@jtkirshe-mobile.jf.intel.com> <20080827013653.5716.34378.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: Re: [PATCH 4/5] igb: clean up a stray fake netdev code left in rx
+ path
+Date: Wed, 03 Sep 2008 10:09:36 -0400
+Message-ID: <48BE9AA0.50608@garzik.org>
+References: <20080826112503.15627.3855.stgit@jtkirshe-mobile.jf.intel.com> <20080826112510.15627.75540.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, andy@greyhouse.net,
-	Bruce Allan <bruce.w.allan@intel.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43739 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43755 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754364AbYICOJX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 10:09:23 -0400
-In-Reply-To: <20080827013653.5716.34378.stgit@jtkirshe-mobile.jf.intel.com>
+	id S1754549AbYICOJj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 10:09:39 -0400
+In-Reply-To: <20080826112510.15627.75540.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Jeff Kirsher wrote:
-> From: Bruce Allan <bruce.w.allan@intel.com>
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> This new part has the same feature set as previous parts with the addition
-> of MSI-X support.
+> Remove code that was in place to support fake netdev
 > 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
 > 
->  drivers/net/e1000e/82571.c   |  153 ++++++++++++++--
->  drivers/net/e1000e/defines.h |   13 +
->  drivers/net/e1000e/e1000.h   |   28 +++
->  drivers/net/e1000e/es2lan.c  |    2 
->  drivers/net/e1000e/ethtool.c |   38 +++-
->  drivers/net/e1000e/hw.h      |   11 +
->  drivers/net/e1000e/ich8lan.c |   18 ++
->  drivers/net/e1000e/lib.c     |    7 -
->  drivers/net/e1000e/netdev.c  |  409 +++++++++++++++++++++++++++++++++++++-----
->  drivers/net/e1000e/param.c   |   27 +++
->  drivers/net/e1000e/phy.c     |  109 +++++++++++
->  11 files changed, 738 insertions(+), 77 deletions(-)
+>  drivers/net/igb/igb_main.c |    5 -----
+>  1 files changed, 0 insertions(+), 5 deletions(-)
 
 applied
 
