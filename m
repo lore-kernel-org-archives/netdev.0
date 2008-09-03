@@ -1,90 +1,71 @@
-From: Zachary Amsden <zach@vmware.com>
-Subject: RE: + e1000e-prevent-corruption-of-eeprom-nvm.patch added to
-	-mmtree
-Date: Wed, 03 Sep 2008 01:17:25 -0700
-Message-ID: <1220429845.32688.182.camel@bodhitayantram.eng.vmware.com>
-References: <200809021919.m82JJweC008488@imap1.linux-foundation.org>
-	 <36D9DB17C6DE9E40B059440DB8D95F52060519D7@orsmsx418.amr.corp.intel.com>
-	 <1220398304.32688.163.camel@bodhitayantram.eng.vmware.com>
-	 <36D9DB17C6DE9E40B059440DB8D95F5206051BF7@orsmsx418.amr.corp.intel.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: v3 [PATCH 1/1] dccp: Process incoming Change
+	feature-negotiation options
+Date: Wed, 3 Sep 2008 10:24:09 +0200
+Message-ID: <20080903082409.GB9001@gerrit.erg.abdn.ac.uk>
+References: <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-4-git-send-email-gerrit@erg.abdn.ac.uk> <20080823105647.GA15928@gerrit.erg.abdn.ac.uk> <48BCE45E.1080709@cn.fujitsu.com> <20080903042709.GB4105@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Qicheng Christopher Li <chrisl@vmware.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"arvidjaar@mail.ru" <arvidjaar@mail.ru>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Pratap Subrahmanyam <pratap@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mm-commits@vger.kernel.org" <mm-commits@vger.kernel.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: Wei Yongjun <yjwei@cn.fujitsu.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:53507 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751140AbYICIS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 04:18:59 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5206051BF7@orsmsx418.amr.corp.intel.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56106 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751212AbYICIYY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 04:24:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20080903042709.GB4105@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-09-02 at 17:32 -0700, Brandeburg, Jesse wrote:
-> Zachary Amsden wrote:
-> >>> The EEPROM corruption is triggered by concurrent access of the
-> >>> EEPROM read/write. Putting a lock around it solve the problem.
-> >>>
-> >> <snip>  I'd like to know how this actually solves a problem outside
-> >> vmware.
-> >
-> > Yes.  This was observed on a physical E1000 device.
-> 
-> Hi Zach, thanks for the reply, can you give me a reproduction test so
-> that we can verify this fix internally?  We are extremely interested.
-> 
-> <long explanation follows>
+| >> +static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
+| >> +				u8 feat, u8 *val, u8 len, const bool server)
+<snip>
+| >> +	if (type == FEAT_NN) {
+| >> +		if (local)
+| >> +			goto not_valid_or_not_known;
+| >>   
+| > ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+| >
+| >  Here should be "goto unknown_feature_or_value"?
+| >
+| > Change R is invalid, and RFC4340 6.6.8
+| >
+| > An endpoint receiving an invalid Change option MUST respond with the
+| > corresponding empty Confirm option.
+| >
+| > Is this right?
+| I am not sure.
+| Section 6.3.2 says that Change R options must not be sent for NN options. A
+| Change R is different from an invalid value - it is an option which is out
+| of place in such a context. A sender using such an option for NN features
+| has a clear bug.
+| 
+| Hence my interpretation of this situation was to flag this bug to the peer:
+|  * the peer gets sent an Option Error rather than an empty Confirm,
+|  * if it was a Mandatory option, both interpretations are equivalent.
+| 
+| But there is also the robustness principle (3.6), so thank you, I will
+| change it to the `unknown_feature_or_value'.
+| 
+I have serious doubts whether the above is the right thing. Jumping to
+unknown_feature_or_value means the following
 
-This was encountered by a customer and fixed by a developer who no
-longer works for us.  We can't give any better explanation than - 
+unknown_feature_or_value:
+        if (!is_mandatory)
+		return dccp_push_empty_confirm(fn, feat, local);
 
-1) It looks like there is a massive catastrophic failure that causes
-working hardware to DIE.
+not_valid_or_not_known:
+        return is_mandatory ? DCCP_RESET_CODE_MANDATORY_ERROR
+	                    : DCCP_RESET_CODE_OPTION_ERROR;
 
-2) The E1000 driver is really crazily complicated and has to deal with
-many different hardware versions, all with different idiosynchronicities
-about this EEPROM locking, and it isn't really clear how the hardware
-locking protects multiple racing kernel threads in all of these cases.
+==> Hence the host is asked to send an invalid option type, a Confirm L,
+    in response to the invalid Change R.
+    A Confirm L in the context of negotiating NN features is never a valid
+    option, so this jump is paradox. I think this was the reason why it
+    was originally a Reset. 
 
-3) Casual inspection by several people who are not networking experts
-shows several possibly viable paths where potential EEPROM corruption
-might reasonably occur.
+    Are there any objections reverting this to the original state, i.e.
+    sending a Reset instead of a Confirm L for an out-of-place Change R?
 
-4) Adding locking around EEPROM read and write paths resulted in no more
-problems by our customers.
-
-5) It seems LKML customers are getting catastrophic failures where
-EEPROMS are getting corrupted.
-
-Thus, the obvious answer to me is ... LOCK AROUND EEPROM READS AND
-WRITES now and figure out if there are deeper issues due to network
-layer and E1000 complexities later, but ELIMINATE THE CATASTROPHIC
-FAILURES ASAP.
-
-> We are definitely investigating, please help us reproduce it if you can.
-
-I'm sorry, we have no way to reproduce this, don't know anything about
-the hardware the customer was using and really have almost zero context
-on this bug because the developer who addressed the issue and fixed it
-is long gone.  We only have statistical data showing 0% reproduction
-since a very similar fix to the one you just NACKED.
-
-I know it's not a very useful thing to say.
-
-But seriously, if people's hardware is being hosed, you must take every
-precaution in the world to stop it and worry about 'logical' arguments
-regarding invariants in the network and driver layers later.
-
-Zach
-
+Gerrit
