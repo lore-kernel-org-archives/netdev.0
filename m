@@ -1,55 +1,45 @@
-From: "Johann Baudy" <johaahn@gmail.com>
-Subject: Re: Packet mmap: TX RING and zero copy
-Date: Wed, 3 Sep 2008 09:56:25 +0200
-Message-ID: <7e0dd21a0809030056q2bfd0344kf3b86a90a4b3fc5f@mail.gmail.com>
-References: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
-	 <20080902194603.GA2825@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/15] netdevice: Convert directly reference of
+ netdev->priv to netdev_priv()
+Date: Wed, 03 Sep 2008 00:58:30 -0700 (PDT)
+Message-ID: <20080903.005830.22785313.davem@davemloft.net>
+References: <48B3D717.7070706@cn.fujitsu.com>
+	<48BE4190.6060407@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.224]:34263 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750773AbYICH40 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 03:56:26 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2650628rvb.1
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2008 00:56:25 -0700 (PDT)
-In-Reply-To: <20080902194603.GA2825@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37578
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753388AbYICH6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 03:58:37 -0400
+In-Reply-To: <48BE4190.6060407@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Evgeniy,
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Wed, 03 Sep 2008 15:49:36 +0800
 
->> I've made lot of tests, playing with jumbo frames, raw sockets, ...
->> I've never exceeded ~25Mbytes/s. So I've decided to analyze deeply the
->> packet socket transmission process.
->>
->> The main blocking point was the memcpy_fromiovec() function that is
->> located in the packet_sendmsg() of af_packet.c.
->
-> Can you saturate the link with usual tcp/udp socket?
+> Wang Chen said the following on 2008-8-26 18:12:
+> > Following patches will convert directly reference of netdev->priv to netdev_priv().
+> > 
+> > - Patch 1/15 is the safe convert which I believe will not make "after converted " worse
+> > than "before converted".
+> > 
+> > - Patches 2-14 need comments. Since the value of netdev->priv is changed in drivers
+> > and I use netdev->ml_priv to replace netdev->priv.
+> > 
+> 
+> Dave, will you apply this for net-next? or give me your comment? :)
 
-No, only ~15-20Mo/s with standard tcp/udp socket.
+I'll see what I can do.
 
->
->> But, I would like to get as much criticism as possible in order to
->> start a discussion with experts about a conceivable way to mix
->> zero-copy, sk_buff management and packet socket.
->> Which is perhaps impossible with current network kernel flow ...
->
-> Did you try vmsplice and splice?
-> It is the preferred way to do a zero-copy.
+I know this is going to create conflicts in a few places, including sparc-next-2.6
+where I already made this fix while cleaning up all of the SBUS device drivers.
 
-Not yet, I will perform some tests using splice and let you know performances.
+So I guess I'm saying that I'm being lazy. :)
 
-Many thanks,
-Johann
-
-
-
--- 
-Johann Baudy
-johaahn@gmail.com
+I'll try to look into this next week as I'm going to be busy and also away for
+a few days.
