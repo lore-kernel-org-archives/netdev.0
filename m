@@ -1,39 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] [NET] smc91x: provide configurable leds
-Date: Wed, 03 Sep 2008 09:25:11 -0400
-Message-ID: <48BE9037.9090403@pobox.com>
-References: <20080827115254.GB2899@flint.arm.linux.org.uk>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] netxen: Remove workaround for chipset quirk
+Date: Wed, 03 Sep 2008 09:26:48 -0400
+Message-ID: <48BE9098.2050603@garzik.org>
+References: <> <1219899450-7098-1-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Cc: netdev@vger.kernel.org, Michael Brown <mbrown@fensystems.co.uk>
+To: Dhananjay Phadke <dhananjay@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46133 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:46142 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751751AbYICNZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 09:25:16 -0400
-In-Reply-To: <20080827115254.GB2899@flint.arm.linux.org.uk>
+	id S1752072AbYICN0w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 09:26:52 -0400
+In-Reply-To: <1219899450-7098-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Russell King - ARM Linux wrote:
-> This patch provides a mechanism for platforms to be able to supply the
-> LED configuration via platform data, rather than having to hard code
-> it in smc91x.h.
+Dhananjay Phadke wrote:
+> Remove chipset-specific quirk workaround; the workaround caused
+> unrecoverable DMA lockups when the driver was loaded following a
+> PXE boot.
 > 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> Tested-by: Marc Zyngier <maz@misterjones.org>
-> Acked-by: Nicolas Pitre <nico@cam.org>
-> 
-> --
-> As noticed by Eric against the Viper patches, being able to configure
-> the LEDs from platform code would be a good idea.  This patch implements
-> a mechanism to allow that to happen.
-> 
-> Since ARM platforms will depend on this, I'd prefer to add it to the
-> ARM tree, so I'm after an Ack from networking people.
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> Signed-off-by: Michael Brown <mbrown@fensystems.co.uk>
+> ---
+>  drivers/net/netxen/netxen_nic_main.c |   10 ----------
+>  1 files changed, 0 insertions(+), 10 deletions(-)
 
-ACK
+applied
 
 
