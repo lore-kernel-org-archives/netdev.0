@@ -1,66 +1,72 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 07/37] dccp: Registration routines for changing feature
-	values
-Date: Wed, 3 Sep 2008 06:46:04 +0200
-Message-ID: <20080903044604.GE4105@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <20080828205447.GN9193@ghostprotocols.net> <20080829061237.GD3557@gerrit.erg.abdn.ac.uk> <48BCD945.1020009@cn.fujitsu.com>
+Subject: Re: [PATCH 09/37] dccp: Resolve dependencies of features on choice
+	of CCID
+Date: Wed, 3 Sep 2008 06:51:52 +0200
+Message-ID: <20080903045152.GF4105@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <20080828210713.GP9193@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40696 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41043 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750890AbYICEqY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 00:46:24 -0400
+	id S1751046AbYICEwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 00:52:09 -0400
 Content-Disposition: inline
-In-Reply-To: <48BCD945.1020009@cn.fujitsu.com>
+In-Reply-To: <20080828210713.GP9193@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> | > +/* check that SP values are within the ranges defined in RFC 4340 */
->> | > +static u8 dccp_feat_is_valid_sp_val(u8 feat_num, u8 val)
->> | > +{
-<snip>	
->> In the CCID-4 subtree, the above statement changes to
->>  | > +		val >= DCCPC_CCID2 && val <= DCCPC_CCID4;
->>   
->
-> This may cause DCCP client which support only CCID 2 and CCID 3 can not  
-> connect to a DCCP server which support CCID2 to CCID4.
->
-> See as following:
->
-> DCCP client                    DCCP server
-> REQUEST           ------->
-> (CHANGE_R/CCID 2 3)
->                  <-------     RESPONSE
->                               (CONFIRM_R/CCID 2 2 3 4)
->
->
-> RESPONSE from DCCP server with CONFIRM_R(CCID 2 2 3 4) will cause DCCP  
-> client send a reset to DCCP server.
->
-> This is because dccp_feat_confirm_recv() will check whether the feat  
-> list is valid before accept the CCID.
->
-> static u8 dccp_feat_confirm_recv(struct list_head *fn, u8 is_mandatory,  
-> u8 opt, ... {
->    ...
->    if (!dccp_feat_sp_list_ok(feat, val, len))
->        goto confirmation_failed;
->    ...
-> }
->
-Excellent catch, but the problem you point out is not in the range of
-CCID values. It means that the validity checking for SP values in
-general is too restrictive: the same problem will reappear not only
-for CCIDs, but for all SP features that could have values in the Confirm
-list which may locally be unknown. It is also not what 6.6.8 says:
-  "Note that server-priority features do not have value limitations,
-   since unknown values are handled as a matter of course."
+| > This provides a missing link in the code chain, as several features implicitly
+| > depend and/or rely on the choice of CCID. Most notably, this is the Send Ack Vector
+| > feature, but also Ack Ratio and Send Loss Event Rate (also taken care of).
+| > 
+<snip>
+| 
+| Doesn't this belongs into struct ccid_operations? Why has the core feature
+| negotiation have knowledge of any specific CCID? When people want to
+| merge CCID 4, 5, etc will we need to change net/dccp/feat.c?
+| 
+| I think that this needs thus to go to struct ccid_operations, and then the feature
+| negotiation code can just use use the ccid number to access:
+| 
+| struct ccid_operations *ccids[CCID_MAX]
+| 
+| ccids[ccid_number]->deps
+|  
+I am answering this again as you raised the point in your answer to Dave.
 
-So thank you I will restrict the validity check to the confirmed value only.
+The above is a sketch, I sat down and thought through how this might
+actually be implemented.
+
+For each CCID there are two dependencies - one for the RX and one for
+the TX CCID.
+
+Dependency lists are variable-length (CCID-2 has 1/1 and CCID-3 as well as
+CCID-4 both have 3/4 for the RX/TX sides).
+
+Using struct ccid_operations to query the CCID dependencies means that 
+ * the CCID read lock needs to be taken;
+ * protection against failed module-load is needed.
+
+The second point should in principle not be a problem since the feature code
+tries to request the modules before the negotiation begins. Implementing this
+however would at the very least require to test for failure in these cases.
+
+I don't know whether the fact that one module needs to traverse a memory
+region of another module causes issues.
+
+The biggest issue that I see is that there is an indirection now: instead 
+of looking up the dependencies directly, one now needs to first go through
+struct ccid_operations, from there to individual CCID modules, and then
+back to the main dccp.ko module.
+
+What we have here at the moment may not be the last word, but its virtue
+is that it is simple, it works, and does not require an indirection via the
+CCID sub-unit.
+
+In principle I agree with you, what I am asking for is to defer this code
+optimisation until later.
 
 Gerrit
