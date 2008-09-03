@@ -1,35 +1,31 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] bridge: STP timer management range checking
-Date: Tue, 02 Sep 2008 17:00:40 -0700
-Message-ID: <48BDD3A8.6070500@hp.com>
-References: <48BB295A.6050200@vyatta.com>	<20080901093827.24eec86f@lxorguk.ukuu.org.uk>	<48BD6C8E.5060704@hp.com> <20080902.164130.156055373.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-09-02
+Date: Tue, 02 Sep 2008 17:17:06 -0700 (PDT)
+Message-ID: <20080902.171706.135252299.davem@davemloft.net>
+References: <20080902221511.GH3050@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, stephen.hemminger@vyatta.com,
-	shemminger@vyatta.com, dusanc@gmail.com, romieu@fr.zoreil.com,
-	hancockr@shaw.ca, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:3369 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199AbYICAAr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 20:00:47 -0400
-In-Reply-To: <20080902.164130.156055373.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080902221511.GH3050-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Tue, 02 Sep 2008 09:40:46 -0700
->>Can one change the TCP maximum RTO to be smaller than specified in the specs? 
-> We always min-clamp the RTO at RTO calculation time in order to be
-> compatible with BSD's coarse grained times.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 2 Sep 2008 18:15:11 -0400
 
-But tuning TCP_RTO_MAX isn't permitted right?  I'm drawing (perhaps 
-flawed) parallels/distinctions between what is/isn't permitted to tweak 
-for timers for one protocol versus another and wondering which may be a 
-case of sauce for the goose/gander.
+> Here is this week's round of fixes.  Admittedly not all of them are
+> regressions with entries at bugzilla.kernel.org -- hopefully that is not
+> a hard and fast requirement. :-)
+> 
+> I think everything here is suitable for 2.6.27.  Please let me know if
+> there are problems.
 
-rick jones
+Pulled and I'll push back out to kernel.org after my build tests complete.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
