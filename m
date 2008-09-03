@@ -1,35 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RESEND] [RFC PATCH] bonding: Do not tx-balance some IPv6 packets
- on ALB/TLB bonds
-Date: Wed, 03 Sep 2008 10:10:53 -0400
-Message-ID: <48BE9AED.5070306@pobox.com>
-References: <48B6FEC1.7090508@hp.com> <20080829.140806.130290207.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [2.6 patch] wan/hdlc_x25.c: fix a NULL dereference
+Date: Wed, 03 Sep 2008 10:12:34 -0400
+Message-ID: <48BE9B52.8050003@garzik.org>
+References: <20080827220549.GS11734@cs181140183.pp.htv.fi> <m3bpz9glik.fsf@maximus.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, fubar@us.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Adrian Bunk <bunk@kernel.org>, Jeff Garzik <jgarzik@redhat.com>,
+	netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49383 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49426 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753113AbYICOK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 10:10:58 -0400
-In-Reply-To: <20080829.140806.130290207.davem@davemloft.net>
+	id S1753933AbYICOMo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 10:12:44 -0400
+In-Reply-To: <m3bpz9glik.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Thu, 28 Aug 2008 15:38:41 -0400
+Krzysztof Halasa wrote:
+> Adrian Bunk <bunk@kernel.org> writes:
 > 
->> It's been more then a month and still no replies.  Is this just
->> not interesting, or did this get lost in the shuffle...
->>
->> Please take a look.  This patch makes ALB/TLB modes work much more
->> reliably with IPv6.
+>> --- a/drivers/net/wan/hdlc_x25.c
+>> +++ b/drivers/net/wan/hdlc_x25.c
+>> @@ -163,10 +163,8 @@ static void x25_close(struct net_device *dev)
+>>  
+>>  static int x25_rx(struct sk_buff *skb)
+>>  {
+>> -	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL) {
+>> -		skb->dev->stats.rx_dropped++;
+>> +	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+>>  		return NET_RX_DROP;
+>> -	}
+>>  
 > 
-> Jeff, or someone, please be sure to pick this up.
+> Right, thanks... though I will update the stats anyway.
 
-For 2.6.27-rc, I presume?
+In terms of patches... what does this mean?  Does this mean you are 
+taking Adrian's patch, and updating it?  Sending a follow-up patch? 
+Ack'ing Adrian's patch?
 
+I don't want to hold this back due to lack of stat update...
 
