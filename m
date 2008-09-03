@@ -1,49 +1,158 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RESEND] [RFC PATCH] bonding: Do not tx-balance some IPv6 packets on ALB/TLB bonds
-Date: Wed, 03 Sep 2008 07:29:49 -0700
-Message-ID: <22734.1220452189@death.nxdomain.ibm.com>
-References: <48B6FEC1.7090508@hp.com> <20080829.140806.130290207.davem@davemloft.net> <48BE9AED.5070306@pobox.com>
-Cc: David Miller <davem@davemloft.net>, vladislav.yasevich@hp.com,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:55623 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752504AbYICO37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:29:59 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m83EMdsB005854
-	for <netdev@vger.kernel.org>; Wed, 3 Sep 2008 10:22:39 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m83ETtMb163414
-	for <netdev@vger.kernel.org>; Wed, 3 Sep 2008 08:29:55 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m83ETsNp024858
-	for <netdev@vger.kernel.org>; Wed, 3 Sep 2008 08:29:55 -0600
-In-reply-to: <48BE9AED.5070306@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver fixes for .26
+Date: Wed, 3 Sep 2008 10:37:16 -0400
+Message-ID: <20080903143716.GA29026@havoc.gtf.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756170AbYICOhh@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
 
->David Miller wrote:
->> From: Vlad Yasevich <vladislav.yasevich@hp.com>
->> Date: Thu, 28 Aug 2008 15:38:41 -0400
->>
->>> It's been more then a month and still no replies.  Is this just
->>> not interesting, or did this get lost in the shuffle...
->>>
->>> Please take a look.  This patch makes ALB/TLB modes work much more
->>> reliably with IPv6.
->>
->> Jeff, or someone, please be sure to pick this up.
->
->For 2.6.27-rc, I presume?
+Please pull from 'davem-fixes' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
 
-	Ok with me.  I haven't tested this yet (just got back from
-vacation), but the description sounds reasonable.
+to receive the following updates:
 
-	-J
+ drivers/net/ixgbe/ixgbe_main.c       |    6 ++++++
+ drivers/net/netxen/netxen_nic_main.c |   10 ----------
+ drivers/net/pcmcia/axnet_cs.c        |    1 +
+ drivers/net/pcmcia/pcnet_cs.c        |    2 +-
+ drivers/net/usb/pegasus.c            |   11 ++++++-----
+ 5 files changed, 14 insertions(+), 16 deletions(-)
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Andy Gospodarek (1):
+      ixgbe: initialize interrupt throttle rate
+
+David Brownell (1):
+      net/usb/pegasus: avoid hundreds of diagnostics
+
+Dhananjay Phadke (1):
+      netxen: Remove workaround for chipset quirk
+
+Komuro (1):
+      pcnet-cs, axnet_cs: add new IDs, remove dup ID with less info
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 53f41b6..a417be7 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2304,6 +2304,12 @@ static int __devinit ixgbe_set_interrupt_capability(struct ixgbe_adapter
+ 	int vector, v_budget;
+ 
+ 	/*
++	 * Set the default interrupt throttle rate.
++	 */
++	adapter->rx_eitr = (1000000 / IXGBE_DEFAULT_ITR_RX_USECS);
++	adapter->tx_eitr = (1000000 / IXGBE_DEFAULT_ITR_TX_USECS);
++
++	/*
+ 	 * It's easy to be greedy for MSI-X vectors, but it really
+ 	 * doesn't do us much good if we have a lot more vectors
+ 	 * than CPU's.  So let's be conservative and only ask for
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 32bb47a..008fd66 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -359,16 +359,6 @@ static void netxen_pcie_strap_init(struct netxen_adapter *adapter)
+ 	int i, pos;
+ 	struct pci_dev *pdev;
+ 
+-	pdev = pci_get_device(0x1166, 0x0140, NULL);
+-	if (pdev) {
+-		pci_dev_put(pdev);
+-		adapter->hw_read_wx(adapter,
+-			NETXEN_PCIE_REG(PCIE_TGT_SPLIT_CHICKEN), &chicken, 4);
+-		chicken |= 0x4000;
+-		adapter->hw_write_wx(adapter,
+-			NETXEN_PCIE_REG(PCIE_TGT_SPLIT_CHICKEN), &chicken, 4);
+-	}
+-
+ 	pdev = adapter->pdev;
+ 
+ 	adapter->hw_read_wx(adapter,
+diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
+index 3f682d4..52bf11b 100644
+--- a/drivers/net/pcmcia/axnet_cs.c
++++ b/drivers/net/pcmcia/axnet_cs.c
+@@ -784,6 +784,7 @@ static struct pcmcia_device_id axnet_ids[] = {
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega FEther PCC-TXD", 0x5261440f, 0x436768c5),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega FEtherII PCC-TXD", 0x5261440f, 0x730df72e),
+ 	PCMCIA_DEVICE_PROD_ID12("Dynalink", "L100C16", 0x55632fd5, 0x66bc2a90),
++	PCMCIA_DEVICE_PROD_ID12("IO DATA", "ETXPCM", 0x547e66dc, 0x233adac2),
+ 	PCMCIA_DEVICE_PROD_ID12("Linksys", "EtherFast 10/100 PC Card (PCMPC100 V3)", 0x0733cc81, 0x232019a8),
+ 	PCMCIA_DEVICE_PROD_ID12("MELCO", "LPC3-TX", 0x481e0094, 0xf91af609),
+ 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "100BASE", 0x281f1c5d, 0x7c2add04),
+diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+index 2d4c4ad..ebc1ae6 100644
+--- a/drivers/net/pcmcia/pcnet_cs.c
++++ b/drivers/net/pcmcia/pcnet_cs.c
+@@ -1626,6 +1626,7 @@ static struct pcmcia_device_id pcnet_ids[] = {
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega EtherII PCC-TD", 0x5261440f, 0xc49bd73d),
+ 	PCMCIA_DEVICE_PROD_ID12("Corega K.K.", "corega EtherII PCC-TD", 0xd4fdcbd8, 0xc49bd73d),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega Ether PCC-T", 0x5261440f, 0x6705fcaa),
++	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega Ether PCC-TD", 0x5261440f, 0x47d5ca83),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega FastEther PCC-TX", 0x5261440f, 0x485e85d9),
+ 	PCMCIA_DEVICE_PROD_ID12("Corega,K.K.", "Ethernet LAN Card", 0x110d26d9, 0x9fd2f0a2),
+ 	PCMCIA_DEVICE_PROD_ID12("corega,K.K.", "Ethernet LAN Card", 0x9791a90e, 0x9fd2f0a2),
+@@ -1737,7 +1738,6 @@ static struct pcmcia_device_id pcnet_ids[] = {
+ 	PCMCIA_DEVICE_PROD_ID1("CyQ've 10 Base-T LAN CARD", 0x94faf360),
+ 	PCMCIA_DEVICE_PROD_ID1("EP-210 PCMCIA LAN CARD.", 0x8850b4de),
+ 	PCMCIA_DEVICE_PROD_ID1("ETHER-C16", 0x06a8514f),
+-	PCMCIA_DEVICE_PROD_ID1("IC-CARD", 0x60cb09a6),
+ 	PCMCIA_DEVICE_PROD_ID1("NE2000 Compatible", 0x75b8ad5a),
+ 	PCMCIA_DEVICE_PROD_ID2("EN-6200P2", 0xa996d078),
+ 	/* too generic! */
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index a84ba48..8c19307 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -117,7 +117,7 @@ static void ctrl_callback(struct urb *urb)
+ 	case -ENOENT:
+ 		break;
+ 	default:
+-		if (netif_msg_drv(pegasus))
++		if (netif_msg_drv(pegasus) && printk_ratelimit())
+ 			dev_dbg(&pegasus->intf->dev, "%s, status %d\n",
+ 				__FUNCTION__, urb->status);
+ 	}
+@@ -166,7 +166,7 @@ static int get_registers(pegasus_t * pegasus, __u16 indx, __u16 size,
+ 		set_current_state(TASK_RUNNING);
+ 		if (ret == -ENODEV)
+ 			netif_device_detach(pegasus->net);
+-		if (netif_msg_drv(pegasus))
++		if (netif_msg_drv(pegasus) && printk_ratelimit())
+ 			dev_err(&pegasus->intf->dev, "%s, status %d\n",
+ 					__FUNCTION__, ret);
+ 		goto out;
+@@ -275,7 +275,7 @@ static int set_register(pegasus_t * pegasus, __u16 indx, __u8 data)
+ 	if ((ret = usb_submit_urb(pegasus->ctrl_urb, GFP_ATOMIC))) {
+ 		if (ret == -ENODEV)
+ 			netif_device_detach(pegasus->net);
+-		if (netif_msg_drv(pegasus))
++		if (netif_msg_drv(pegasus) && printk_ratelimit())
+ 			dev_err(&pegasus->intf->dev, "%s, status %d\n",
+ 					__FUNCTION__, ret);
+ 		goto out;
+@@ -1209,8 +1209,7 @@ static void pegasus_set_multicast(struct net_device *net)
+ 		pegasus->eth_regs[EthCtrl2] |= RX_PROMISCUOUS;
+ 		if (netif_msg_link(pegasus))
+ 			pr_info("%s: Promiscuous mode enabled.\n", net->name);
+-	} else if (net->mc_count ||
+-		   (net->flags & IFF_ALLMULTI)) {
++	} else if (net->mc_count || (net->flags & IFF_ALLMULTI)) {
+ 		pegasus->eth_regs[EthCtrl0] |= RX_MULTICAST;
+ 		pegasus->eth_regs[EthCtrl2] &= ~RX_PROMISCUOUS;
+ 		if (netif_msg_link(pegasus))
+@@ -1220,6 +1219,8 @@ static void pegasus_set_multicast(struct net_device *net)
+ 		pegasus->eth_regs[EthCtrl2] &= ~RX_PROMISCUOUS;
+ 	}
+ 
++	pegasus->ctrl_urb->status = 0;
++
+ 	pegasus->flags |= ETH_REGS_CHANGE;
+ 	ctrl_callback(pegasus->ctrl_urb);
+ }
