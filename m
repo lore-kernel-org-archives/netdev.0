@@ -1,58 +1,125 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v4 12/14] netlabel: Changes to the NetLabel security
-	attributes to allow LSMs to pass full contexts
-Date: Tue, 02 Sep 2008 20:50:13 -0400
-Message-ID: <20080903005013.15669.42041.stgit@flek.lan>
+Subject: [RFC PATCH v4 14/14] netlabel: Add configuration support for local
+	labeling
+Date: Tue, 02 Sep 2008 20:50:29 -0400
+Message-ID: <20080903005029.15669.17918.stgit@flek.lan>
 References: <20080903003647.15669.45349.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:14057 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754939AbYICAuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 20:50:21 -0400
+Return-path: <linux-security-module-owner@vger.kernel.org>
 In-Reply-To: <20080903003647.15669.45349.stgit@flek.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch provides support for including the LSM's secid in addition to
-the LSM's MLS information in the NetLabel security attributes structure.
+Add the necessary NetLabel support for the new CIPSO mapping,
+CIPSO_V4_MAP_LOCAL, which allows full LSM label/context support.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
 
- include/net/netlabel.h         |    2 +-
- security/selinux/ss/services.c |    3 ++-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ net/netlabel/netlabel_cipso_v4.c |   41 ++++++++++++++++++++++++++++++++++++++
+ net/netlabel/netlabel_cipso_v4.h |    6 ++++--
+ net/netlabel/netlabel_kapi.c     |    3 +++
+ 3 files changed, 48 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index 074cad4..d56517a 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -203,7 +203,7 @@ struct netlbl_lsm_secattr {
- 	u32 type;
- 	char *domain;
- 	struct netlbl_lsm_cache *cache;
--	union {
-+	struct {
- 		struct {
- 			struct netlbl_lsm_secattr_catmap *cat;
- 			u32 lvl;
-diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
-index 5b7ecc1..ee91337 100644
---- a/security/selinux/ss/services.c
-+++ b/security/selinux/ss/services.c
-@@ -2806,7 +2806,8 @@ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
- 		rc = -ENOMEM;
- 		goto netlbl_sid_to_secattr_failure;
+diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
+index a6dc5d1..aa87568 100644
+--- a/net/netlabel/netlabel_cipso_v4.c
++++ b/net/netlabel/netlabel_cipso_v4.c
+@@ -365,6 +365,43 @@ add_pass_failure:
+ }
+ 
+ /**
++ * netlbl_cipsov4_add_local - Adds a CIPSO V4 DOI definition
++ * @info: the Generic NETLINK info block
++ *
++ * Description:
++ * Create a new CIPSO_V4_MAP_LOCAL DOI definition based on the given ADD
++ * message and add it to the CIPSO V4 engine.  Return zero on success and
++ * non-zero on error.
++ *
++ */
++static int netlbl_cipsov4_add_local(struct genl_info *info)
++{
++	int ret_val;
++	struct cipso_v4_doi *doi_def = NULL;
++
++	if (!info->attrs[NLBL_CIPSOV4_A_TAGLST])
++		return -EINVAL;
++
++	doi_def = kmalloc(sizeof(*doi_def), GFP_KERNEL);
++	if (doi_def == NULL)
++		return -ENOMEM;
++	doi_def->type = CIPSO_V4_MAP_LOCAL;
++
++	ret_val = netlbl_cipsov4_add_common(info, doi_def);
++	if (ret_val != 0)
++		goto add_local_failure;
++
++	ret_val = cipso_v4_doi_add(doi_def);
++	if (ret_val != 0)
++		goto add_local_failure;
++	return 0;
++
++add_local_failure:
++	cipso_v4_doi_free(doi_def);
++	return ret_val;
++}
++
++/**
+  * netlbl_cipsov4_add - Handle an ADD message
+  * @skb: the NETLINK buffer
+  * @info: the Generic NETLINK info block
+@@ -401,6 +438,10 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
+ 		type_str = "pass";
+ 		ret_val = netlbl_cipsov4_add_pass(info);
+ 		break;
++	case CIPSO_V4_MAP_LOCAL:
++		type_str = "local";
++		ret_val = netlbl_cipsov4_add_local(info);
++		break;
  	}
--	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY;
-+	secattr->attr.secid = sid;
-+	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY | NETLBL_SECATTR_SECID;
- 	mls_export_netlbl_lvl(ctx, secattr);
- 	rc = mls_export_netlbl_cat(ctx, secattr);
- 	if (rc != 0)
+ 	if (ret_val == 0)
+ 		atomic_inc(&netlabel_mgmt_protocount);
+diff --git a/net/netlabel/netlabel_cipso_v4.h b/net/netlabel/netlabel_cipso_v4.h
+index fb3957f..c8a4079 100644
+--- a/net/netlabel/netlabel_cipso_v4.h
++++ b/net/netlabel/netlabel_cipso_v4.h
+@@ -50,7 +50,8 @@
+  *     NLBL_CIPSOV4_A_MLSLVLLST
+  *     NLBL_CIPSOV4_A_MLSCATLST
+  *
+- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
++ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
++ *   are required.
+  *
+  * o REMOVE:
+  *   Sent by an application to remove a specific DOI mapping table from the
+@@ -81,7 +82,8 @@
+  *     NLBL_CIPSOV4_A_MLSLVLLST
+  *     NLBL_CIPSOV4_A_MLSCATLST
+  *
+- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
++ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
++ *   are required.
+  *
+  * o LISTALL:
+  *   This message is sent by an application to list the valid DOIs on the
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 7b233da..a8d5c27 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -163,6 +163,9 @@ cfg_cipsov4_add_map_return:
+ 		case CIPSO_V4_MAP_PASS:
+ 			type_str = "pass";
+ 			break;
++		case CIPSO_V4_MAP_LOCAL:
++			type_str = "local";
++			break;
+ 		default:
+ 			type_str = "(unknown)";
+ 		}
 
