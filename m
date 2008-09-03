@@ -1,89 +1,49 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 2/2] mv643xx_eth: hook up skb recycling
-Date: Wed, 03 Sep 2008 16:25:34 +0200
-Message-ID: <48BE9E5E.2010702@cosmosbay.com>
-References: <1220450101-21317-1-git-send-email-buytenh@wantstofly.org> <1220450101-21317-3-git-send-email-buytenh@wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RESEND] [RFC PATCH] bonding: Do not tx-balance some IPv6 packets on ALB/TLB bonds
+Date: Wed, 03 Sep 2008 07:29:49 -0700
+Message-ID: <22734.1220452189@death.nxdomain.ibm.com>
+References: <48B6FEC1.7090508@hp.com> <20080829.140806.130290207.davem@davemloft.net> <48BE9AED.5070306@pobox.com>
+Cc: David Miller <davem@davemloft.net>, vladislav.yasevich@hp.com,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.113]:48126 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751691AbYICO3e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:29:34 -0400
-In-Reply-To: <1220450101-21317-3-git-send-email-buytenh@wantstofly.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:55623 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752504AbYICO37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:29:59 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m83EMdsB005854
+	for <netdev@vger.kernel.org>; Wed, 3 Sep 2008 10:22:39 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m83ETtMb163414
+	for <netdev@vger.kernel.org>; Wed, 3 Sep 2008 08:29:55 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m83ETsNp024858
+	for <netdev@vger.kernel.org>; Wed, 3 Sep 2008 08:29:55 -0600
+In-reply-to: <48BE9AED.5070306@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennert Buytenhek a =E9crit :
-> This increases the maximum loss-free packet forwarding rate in
-> routing workloads by typically about 25%.
->=20
-> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+Jeff Garzik <jgarzik@pobox.com> wrote:
+
+>David Miller wrote:
+>> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+>> Date: Thu, 28 Aug 2008 15:38:41 -0400
+>>
+>>> It's been more then a month and still no replies.  Is this just
+>>> not interesting, or did this get lost in the shuffle...
+>>>
+>>> Please take a look.  This patch makes ALB/TLB modes work much more
+>>> reliably with IPv6.
+>>
+>> Jeff, or someone, please be sure to pick this up.
 >
+>For 2.6.27-rc, I presume?
 
+	Ok with me.  I haven't tested this yet (just got back from
+vacation), but the description sounds reasonable.
 
-Interesting...
+	-J
 
->  	refilled =3D 0;
->  	while (refilled < budget && rxq->rx_desc_count < rxq->rx_ring_size)=
- {
->  		struct sk_buff *skb;
->  		int unaligned;
->  		int rx;
-> =20
-> -		skb =3D dev_alloc_skb(skb_size + dma_get_cache_alignment() - 1);
-> +		skb =3D __skb_dequeue(&mp->rx_recycle);
-
-Here you take one skb at the head of queue
-
-> +		if (skb =3D=3D NULL)
-> +			skb =3D dev_alloc_skb(mp->skb_size +
-> +					    dma_get_cache_alignment() - 1);
-> +
->  		if (skb =3D=3D NULL) {
->  			mp->work_rx_oom |=3D 1 << rxq->index;
->  			goto oom;
-> @@ -600,8 +591,8 @@ static int rxq_refill(struct rx_queue *rxq, int b=
-udget)
->  			rxq->rx_used_desc =3D 0;
-> =20
->  		rxq->rx_desc_area[rx].buf_ptr =3D dma_map_single(NULL, skb->data,
-> -						skb_size, DMA_FROM_DEVICE);
-> -		rxq->rx_desc_area[rx].buf_size =3D skb_size;
-> +						mp->skb_size, DMA_FROM_DEVICE);
-> +		rxq->rx_desc_area[rx].buf_size =3D mp->skb_size;
->  		rxq->rx_skb[rx] =3D skb;
->  		wmb();
->  		rxq->rx_desc_area[rx].cmd_sts =3D BUFFER_OWNED_BY_DMA |
-> @@ -905,8 +896,13 @@ static int txq_reclaim(struct tx_queue *txq, int=
- budget, int force)
->  		else
->  			dma_unmap_page(NULL, addr, count, DMA_TO_DEVICE);
-> =20
-> -		if (skb)
-> -			dev_kfree_skb(skb);
-> +		if (skb !=3D NULL) {
-> +			if (skb_queue_len(&mp->rx_recycle) < 1000 &&
-> +			    skb_recycle_check(skb, mp->skb_size))
-> +				__skb_queue_tail(&mp->rx_recycle, skb);
-> +			else
-> +				dev_kfree_skb(skb);
-> +		}
-
-Here you put a skb at the head of queue. So you use a FIFO mode.
-
-To have best performance (cpu cache hot), you might try to use a LIFO m=
-ode (use __skb_queue_head()) ?
-
-Could you give us your actual bench results (number of packets received=
- per second, number of transmited packets per second),=20
-and your machine setup.
-
-Thank you
-
-
-
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
