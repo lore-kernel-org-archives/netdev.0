@@ -1,7 +1,8 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v4 01/14] netlabel: Remove unneeded in-kernel API functions
-Date: Tue, 02 Sep 2008 20:48:48 -0400
-Message-ID: <20080903004848.15669.18191.stgit@flek.lan>
+Subject: [RFC PATCH v4 02/14] selinux: Better local/forward check in
+	selinux_ip_postroute()
+Date: Tue, 02 Sep 2008 20:48:54 -0400
+Message-ID: <20080903004854.15669.95990.stgit@flek.lan>
 References: <20080903003647.15669.45349.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,179 +14,66 @@ In-Reply-To: <20080903003647.15669.45349.stgit@flek.lan>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After some discussions with the Smack folks, well just Casey, I now have a
-better idea of what Smack wants out of NetLabel in the future so I think it
-is now safe to do some API "pruning".  If another LSM comes along that
-needs this functionality we can always add it back in, but I don't see any
-LSMs on the horizon which might make use of these functions.
-
-Thanks to Rami Rosen who suggested removing netlbl_cfg_cipsov4_del() back
-in February 2008.
+It turns out that checking to see if skb->sk is NULL is not a very good
+indicator of a forwarded packet as some locally generated packets also have
+skb->sk set to NULL.  Fix this by not only checking the skb->sk field but also
+the IP[6]CB(skb)->flags field for the IP[6]SKB_FORWARDED flag.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
 
- include/net/netlabel.h       |   13 -------
- net/netlabel/netlabel_kapi.c |   80 +++++++++++-------------------------------
- 2 files changed, 21 insertions(+), 72 deletions(-)
+ security/selinux/hooks.c |   36 +++++++++++++++++++++++++++---------
+ 1 files changed, 27 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index e4d2d6b..5303749 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -352,12 +352,9 @@ static inline void netlbl_secattr_free(struct netlbl_lsm_secattr *secattr)
- int netlbl_cfg_map_del(const char *domain, struct netlbl_audit *audit_info);
- int netlbl_cfg_unlbl_add_map(const char *domain,
- 			     struct netlbl_audit *audit_info);
--int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
--			   struct netlbl_audit *audit_info);
- int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- 			       const char *domain,
- 			       struct netlbl_audit *audit_info);
--int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit *audit_info);
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 03fc6a8..995488d 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4562,19 +4562,37 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 	if (!secmark_active && !peerlbl_active)
+ 		return NF_ACCEPT;
  
- /*
-  * LSM security attribute operations
-@@ -404,22 +401,12 @@ static inline int netlbl_cfg_unlbl_add_map(const char *domain,
- {
- 	return -ENOSYS;
- }
--static inline int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
--					 struct netlbl_audit *audit_info)
--{
--	return -ENOSYS;
--}
- static inline int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- 					     const char *domain,
- 					     struct netlbl_audit *audit_info)
- {
- 	return -ENOSYS;
- }
--static inline int netlbl_cfg_cipsov4_del(u32 doi,
--					 struct netlbl_audit *audit_info)
--{
--	return -ENOSYS;
--}
- static inline int netlbl_secattr_catmap_walk(
- 	                              struct netlbl_lsm_secattr_catmap *catmap,
- 				      u32 offset)
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 39793a1..2a2b8fa 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -104,49 +104,6 @@ cfg_unlbl_add_map_failure:
- }
- 
- /**
-- * netlbl_cfg_cipsov4_add - Add a new CIPSOv4 DOI definition
-- * @doi_def: the DOI definition
-- * @audit_info: NetLabel audit information
-- *
-- * Description:
-- * Add a new CIPSOv4 DOI definition to the NetLabel subsystem.  Returns zero on
-- * success, negative values on failure.
-- *
-- */
--int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
--			   struct netlbl_audit *audit_info)
--{
--	int ret_val;
--	const char *type_str;
--	struct audit_buffer *audit_buf;
--
--	ret_val = cipso_v4_doi_add(doi_def);
--
--	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
--					      audit_info);
--	if (audit_buf != NULL) {
--		switch (doi_def->type) {
--		case CIPSO_V4_MAP_STD:
--			type_str = "std";
--			break;
--		case CIPSO_V4_MAP_PASS:
--			type_str = "pass";
--			break;
--		default:
--			type_str = "(unknown)";
--		}
--		audit_log_format(audit_buf,
--				 " cipso_doi=%u cipso_type=%s res=%u",
--				 doi_def->doi,
--				 type_str,
--				 ret_val == 0 ? 1 : 0);
--		audit_log_end(audit_buf);
--	}
--
--	return ret_val;
--}
--
--/**
-  * netlbl_cfg_cipsov4_add_map - Add a new CIPSOv4 DOI definition and mapping
-  * @doi_def: the DOI definition
-  * @domain: the domain mapping to add
-@@ -165,6 +122,8 @@ int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- {
- 	int ret_val = -ENOMEM;
- 	struct netlbl_dom_map *entry;
-+	const char *type_str;
-+	struct audit_buffer *audit_buf;
- 
- 	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
- 	if (entry == NULL)
-@@ -182,7 +141,7 @@ int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- 	 * domain mapping for it. */
- 
- 	rcu_read_lock();
--	ret_val = netlbl_cfg_cipsov4_add(doi_def, audit_info);
-+	ret_val = cipso_v4_doi_add(doi_def);
- 	if (ret_val != 0)
- 		goto cfg_cipsov4_add_map_failure_unlock;
- 	ret_val = netlbl_domhsh_add(entry, audit_info);
-@@ -196,6 +155,24 @@ cfg_cipsov4_add_map_failure_remove_doi:
- 	cipso_v4_doi_remove(doi_def->doi, audit_info, netlbl_cipsov4_doi_free);
- cfg_cipsov4_add_map_failure_unlock:
- 	rcu_read_unlock();
-+	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
-+					      audit_info);
-+	if (audit_buf != NULL) {
-+		switch (doi_def->type) {
-+		case CIPSO_V4_MAP_STD:
-+			type_str = "std";
+-	/* if the packet is locally generated (skb->sk != NULL) then use the
+-	 * socket's label as the peer label, otherwise the packet is being
+-	 * forwarded through this system and we need to fetch the peer label
+-	 * directly from the packet */
++	/* if the packet is being forwarded then get the peer label from the
++	 * packet itself; otherwise check to see if it is from a local
++	 * application or the kernel, if from an application get the peer label
++	 * from the sending socket, otherwise use the kernel's sid */
+ 	sk = skb->sk;
+-	if (sk) {
++	if (sk == NULL) {
++		switch (family) {
++		case PF_INET:
++			if (IPCB(skb)->flags & IPSKB_FORWARDED)
++				secmark_perm = PACKET__FORWARD_OUT;
++			else
++				secmark_perm = PACKET__SEND;
 +			break;
-+		case CIPSO_V4_MAP_PASS:
-+			type_str = "pass";
++		case PF_INET6:
++			if (IP6CB(skb)->flags & IP6SKB_FORWARDED)
++				secmark_perm = PACKET__FORWARD_OUT;
++			else
++				secmark_perm = PACKET__SEND;
 +			break;
 +		default:
-+			type_str = "(unknown)";
++			return NF_DROP;
 +		}
-+		audit_log_format(audit_buf,
-+				 " cipso_doi=%u cipso_type=%s res=%u",
-+				 doi_def->doi, type_str, ret_val == 0 ? 1 : 0);
-+		audit_log_end(audit_buf);
-+	}
- cfg_cipsov4_add_map_failure:
- 	if (entry != NULL)
- 		kfree(entry->domain);
-@@ -203,21 +180,6 @@ cfg_cipsov4_add_map_failure:
- 	return ret_val;
- }
++		if (secmark_perm == PACKET__FORWARD_OUT) {
++			if (selinux_skb_peerlbl_sid(skb, family, &peer_sid))
++				return NF_DROP;
++		} else
++			peer_sid = SECINITSID_KERNEL;
++	} else {
+ 		struct sk_security_struct *sksec = sk->sk_security;
+ 		peer_sid = sksec->sid;
+ 		secmark_perm = PACKET__SEND;
+-	} else {
+-		if (selinux_skb_peerlbl_sid(skb, family, &peer_sid))
+-				return NF_DROP;
+-		secmark_perm = PACKET__FORWARD_OUT;
+ 	}
  
--/**
-- * netlbl_cfg_cipsov4_del - Removean existing CIPSOv4 DOI definition
-- * @doi: the CIPSO DOI value
-- * @audit_info: NetLabel audit information
-- *
-- * Description:
-- * Removes an existing CIPSOv4 DOI definition from the NetLabel subsystem.
-- * Returns zero on success, negative values on failure.
-- *
-- */
--int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit *audit_info)
--{
--	return cipso_v4_doi_remove(doi, audit_info, netlbl_cipsov4_doi_free);
--}
--
- /*
-  * Security Attribute Functions
-  */
+ 	if (secmark_active)
 
