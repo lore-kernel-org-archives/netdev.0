@@ -1,32 +1,34 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [NET] removed unused #include <version.h>
-Date: Wed, 03 Sep 2008 10:24:43 -0400
-Message-ID: <48BE9E2B.7010408@pobox.com>
-References: <20080817072712.1632.WEIYI.HUANG@gmail.com>
+Subject: Re: [PATCH 1/2] sky2: EEPROM read/write bug fixes
+Date: Wed, 03 Sep 2008 10:25:04 -0400
+Message-ID: <48BE9E40.4010502@pobox.com>
+References: <20080827204626.4b65862f@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@redhat.com, netdev@vger.kernel.org
-To: Huang Weiyi <weiyi.huang@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38946 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:32967 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751686AbYICOYr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 10:24:47 -0400
-In-Reply-To: <20080817072712.1632.WEIYI.HUANG@gmail.com>
+	id S1754836AbYICOZH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 10:25:07 -0400
+In-Reply-To: <20080827204626.4b65862f@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Huang Weiyi wrote:
-> The drivers below do not use LINUX_VERSION_CODE nor KERNEL_VERSION.
->   drivers/net/myri10ge/myri10ge.c
->   drivers/net/netxen/netxen_nic_ethtool.c
->   drivers/net/tokenring/lanstreamer.c
+Stephen Hemminger wrote:
+> Cleanup and harden the routines accessing the EEPROM.
+>   1. Prevent spin forever waiting for the TWSI bus
+>   2. Fix write eeprom to write full words rather than only 16 bits 
+>     Luckly the vendor doesn't provide EEPROM in Linux format so it must never
+>     have been used.
+>   3. Don't allow partial eeprom writes, not needed, not safe.
 > 
-> This patch removes the said #include <version.h>.
+> These are non-urgent bug fixes.
 > 
-> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-applied
+applied 1-2
 
 
