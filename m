@@ -1,169 +1,133 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 10/17] mv643xx_eth: smi sharing is a per-unit property, not a per-port one
-Date: Wed,  3 Sep 2008 14:29:37 +0200
-Message-ID: <1220444984-20150-11-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 14/17] mv643xx_eth: transmit multiqueue support
+Date: Wed,  3 Sep 2008 14:29:41 +0200
+Message-ID: <1220444984-20150-15-git-send-email-buytenh@wantstofly.org>
 References: <1220444984-20150-1-git-send-email-buytenh@wantstofly.org>
 Cc: Dale Farnsworth <dale@farnsworth.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:52900 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:52904 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752556AbYICM3s (ORCPT
+	with ESMTP id S1752705AbYICM3s (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 08:29:48 -0400
 In-Reply-To: <1220444984-20150-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Which top-level unit's SMI interface to use should be a property of
-the top-level unit, not of the individual ports.  This patch moves the
-->shared_smi pointer from the per-port platform data to the global
-platform data.
+As all the infrastructure for multiple transmit queues already exists
+in the driver, this patch is entirely trivial.
+
+The individual transmit queues are still serialised by the driver's
+per-port private spinlock, but that will disappear (i.e. be replaced
+by the per-subqueue ->_xmit_lock) in a subsequent patch.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- arch/arm/mach-mv78xx0/common.c |    6 +++---
- drivers/net/mv643xx_eth.c      |   19 +++++++++++--------
- include/linux/mv643xx_eth.h    |    2 +-
- 3 files changed, 15 insertions(+), 12 deletions(-)
+ drivers/net/mv643xx_eth.c |   40 ++++++++++++++++++----------------------
+ 1 files changed, 18 insertions(+), 22 deletions(-)
 
-diff --git a/arch/arm/mach-mv78xx0/common.c b/arch/arm/mach-mv78xx0/common.c
-index 953a26c..5842d3b 100644
---- a/arch/arm/mach-mv78xx0/common.c
-+++ b/arch/arm/mach-mv78xx0/common.c
-@@ -330,6 +330,7 @@ void __init mv78xx0_ge00_init(struct mv643xx_eth_platform_data *eth_data)
- struct mv643xx_eth_shared_platform_data mv78xx0_ge01_shared_data = {
- 	.t_clk		= 0,
- 	.dram		= &mv78xx0_mbus_dram_info,
-+	.shared_smi	= &mv78xx0_ge00_shared,
- };
- 
- static struct resource mv78xx0_ge01_shared_resources[] = {
-@@ -370,7 +371,6 @@ static struct platform_device mv78xx0_ge01 = {
- void __init mv78xx0_ge01_init(struct mv643xx_eth_platform_data *eth_data)
- {
- 	eth_data->shared = &mv78xx0_ge01_shared;
--	eth_data->shared_smi = &mv78xx0_ge00_shared;
- 	mv78xx0_ge01.dev.platform_data = eth_data;
- 
- 	platform_device_register(&mv78xx0_ge01_shared);
-@@ -384,6 +384,7 @@ void __init mv78xx0_ge01_init(struct mv643xx_eth_platform_data *eth_data)
- struct mv643xx_eth_shared_platform_data mv78xx0_ge10_shared_data = {
- 	.t_clk		= 0,
- 	.dram		= &mv78xx0_mbus_dram_info,
-+	.shared_smi	= &mv78xx0_ge00_shared,
- };
- 
- static struct resource mv78xx0_ge10_shared_resources[] = {
-@@ -424,7 +425,6 @@ static struct platform_device mv78xx0_ge10 = {
- void __init mv78xx0_ge10_init(struct mv643xx_eth_platform_data *eth_data)
- {
- 	eth_data->shared = &mv78xx0_ge10_shared;
--	eth_data->shared_smi = &mv78xx0_ge00_shared;
- 	mv78xx0_ge10.dev.platform_data = eth_data;
- 
- 	platform_device_register(&mv78xx0_ge10_shared);
-@@ -438,6 +438,7 @@ void __init mv78xx0_ge10_init(struct mv643xx_eth_platform_data *eth_data)
- struct mv643xx_eth_shared_platform_data mv78xx0_ge11_shared_data = {
- 	.t_clk		= 0,
- 	.dram		= &mv78xx0_mbus_dram_info,
-+	.shared_smi	= &mv78xx0_ge00_shared,
- };
- 
- static struct resource mv78xx0_ge11_shared_resources[] = {
-@@ -478,7 +479,6 @@ static struct platform_device mv78xx0_ge11 = {
- void __init mv78xx0_ge11_init(struct mv643xx_eth_platform_data *eth_data)
- {
- 	eth_data->shared = &mv78xx0_ge11_shared;
--	eth_data->shared_smi = &mv78xx0_ge00_shared;
- 	mv78xx0_ge11.dev.platform_data = eth_data;
- 
- 	platform_device_register(&mv78xx0_ge11_shared);
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index c41541d..6d3da78 100644
+index e592fac..1ceed87 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -248,6 +248,11 @@ struct mv643xx_eth_shared_private {
- 	void __iomem *base;
- 
- 	/*
-+	 * Points at the right SMI instance to use.
-+	 */
-+	struct mv643xx_eth_shared_private *smi;
-+
-+	/*
- 	 * Protects access to SMI_REG, which is shared between ports.
- 	 */
- 	struct mutex phy_lock;
-@@ -345,7 +350,6 @@ struct mv643xx_eth_private {
- 
- 	struct net_device *dev;
- 
--	struct mv643xx_eth_shared_private *shared_smi;
- 	int phy_addr;
- 
- 	spinlock_t lock;
-@@ -1015,7 +1019,7 @@ static int smi_wait_ready(struct mv643xx_eth_shared_private *msp)
- static int smi_reg_read(struct mv643xx_eth_private *mp,
- 			unsigned int addr, unsigned int reg)
+@@ -449,15 +449,10 @@ static void txq_disable(struct tx_queue *txq)
+ static void __txq_maybe_wake(struct tx_queue *txq)
  {
--	struct mv643xx_eth_shared_private *msp = mp->shared_smi;
-+	struct mv643xx_eth_shared_private *msp = mp->shared->smi;
- 	void __iomem *smi_reg = msp->base + SMI_REG;
- 	int ret;
- 
-@@ -1053,7 +1057,7 @@ out:
- static int smi_reg_write(struct mv643xx_eth_private *mp, unsigned int addr,
- 			 unsigned int reg, unsigned int value)
- {
--	struct mv643xx_eth_shared_private *msp = mp->shared_smi;
-+	struct mv643xx_eth_shared_private *msp = mp->shared->smi;
- 	void __iomem *smi_reg = msp->base + SMI_REG;
- 
- 	mutex_lock(&msp->phy_lock);
-@@ -2311,6 +2315,10 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 	if (msp->base == NULL)
- 		goto out_free;
- 
-+	msp->smi = msp;
-+	if (pd != NULL && pd->shared_smi != NULL)
-+		msp->smi = platform_get_drvdata(pd->shared_smi);
-+
- 	mutex_init(&msp->phy_lock);
- 
- 	msp->err_interrupt = NO_IRQ;
-@@ -2405,13 +2413,8 @@ static void set_params(struct mv643xx_eth_private *mp,
- 		uc_addr_get(mp, dev->dev_addr);
- 
- 	if (pd->phy_addr == -1) {
--		mp->shared_smi = NULL;
- 		mp->phy_addr = -1;
- 	} else {
--		mp->shared_smi = mp->shared;
--		if (pd->shared_smi != NULL)
--			mp->shared_smi = platform_get_drvdata(pd->shared_smi);
+ 	struct mv643xx_eth_private *mp = txq_to_mp(txq);
 -
- 		if (pd->force_phy_addr || pd->phy_addr) {
- 			mp->phy_addr = pd->phy_addr & 0x3f;
- 			phy_addr_set(mp, mp->phy_addr);
-diff --git a/include/linux/mv643xx_eth.h b/include/linux/mv643xx_eth.h
-index eb78b00..12339eb 100644
---- a/include/linux/mv643xx_eth.h
-+++ b/include/linux/mv643xx_eth.h
-@@ -17,6 +17,7 @@
+-	/*
+-	 * netif_{stop,wake}_queue() flow control only applies to
+-	 * the primary queue.
+-	 */
+-	BUG_ON(txq->index != 0);
++	struct netdev_queue *nq = netdev_get_tx_queue(mp->dev, txq->index);
  
- struct mv643xx_eth_shared_platform_data {
- 	struct mbus_dram_target_info	*dram;
-+	struct platform_device	*shared_smi;
- 	unsigned int		t_clk;
- };
+ 	if (txq->tx_ring_size - txq->tx_desc_count >= MAX_SKB_FRAGS + 1)
+-		netif_wake_queue(mp->dev);
++		netif_tx_wake_queue(nq);
+ }
  
-@@ -30,7 +31,6 @@ struct mv643xx_eth_platform_data {
- 	/*
- 	 * Whether a PHY is present, and if yes, at which address.
- 	 */
--	struct platform_device	*shared_smi;
- 	int			force_phy_addr;
- 	int			phy_addr;
+ 
+@@ -827,8 +822,11 @@ static int mv643xx_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mv643xx_eth_private *mp = netdev_priv(dev);
+ 	struct net_device_stats *stats = &dev->stats;
++	int queue;
+ 	struct tx_queue *txq;
++	struct netdev_queue *nq;
+ 	unsigned long flags;
++	int entries_left;
+ 
+ 	if (has_tiny_unaligned_frags(skb) && __skb_linearize(skb)) {
+ 		stats->tx_dropped++;
+@@ -838,15 +836,16 @@ static int mv643xx_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+-	spin_lock_irqsave(&mp->lock, flags);
++	queue = skb_get_queue_mapping(skb);
++	txq = mp->txq + queue;
++	nq = netdev_get_tx_queue(dev, queue);
+ 
+-	txq = mp->txq;
++	spin_lock_irqsave(&mp->lock, flags);
+ 
+ 	if (txq->tx_ring_size - txq->tx_desc_count < MAX_SKB_FRAGS + 1) {
+ 		spin_unlock_irqrestore(&mp->lock, flags);
+-		if (txq->index == 0 && net_ratelimit())
+-			dev_printk(KERN_ERR, &dev->dev,
+-				   "primary tx queue full?!\n");
++		if (net_ratelimit())
++			dev_printk(KERN_ERR, &dev->dev, "tx queue full?!\n");
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+@@ -856,13 +855,9 @@ static int mv643xx_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	stats->tx_packets++;
+ 	dev->trans_start = jiffies;
+ 
+-	if (txq->index == 0) {
+-		int entries_left;
+-
+-		entries_left = txq->tx_ring_size - txq->tx_desc_count;
+-		if (entries_left < MAX_SKB_FRAGS + 1)
+-			netif_stop_queue(dev);
+-	}
++	entries_left = txq->tx_ring_size - txq->tx_desc_count;
++	if (entries_left < MAX_SKB_FRAGS + 1)
++		netif_tx_stop_queue(nq);
+ 
+ 	spin_unlock_irqrestore(&mp->lock, flags);
+ 
+@@ -2169,10 +2164,10 @@ static void tx_timeout_task(struct work_struct *ugly)
+ 
+ 	mp = container_of(ugly, struct mv643xx_eth_private, tx_timeout_task);
+ 	if (netif_running(mp->dev)) {
+-		netif_stop_queue(mp->dev);
++		netif_tx_stop_all_queues(mp->dev);
+ 		port_reset(mp);
+ 		port_start(mp);
+-		netif_wake_queue(mp->dev);
++		netif_tx_wake_all_queues(mp->dev);
+ 	}
+ }
+ 
+@@ -2546,7 +2541,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 		return -ENODEV;
+ 	}
+ 
+-	dev = alloc_etherdev(sizeof(struct mv643xx_eth_private));
++	dev = alloc_etherdev_mq(sizeof(struct mv643xx_eth_private), 8);
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+@@ -2559,6 +2554,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	mp->dev = dev;
+ 
+ 	set_params(mp, pd);
++	dev->real_num_tx_queues = mp->txq_count;
+ 
+ 	spin_lock_init(&mp->lock);
  
 -- 
 1.5.6.4
