@@ -1,84 +1,58 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Packet mmap: TX RING and zero copy
-Date: Wed, 3 Sep 2008 20:43:51 +0400
-Message-ID: <20080903164346.GA6729@2ka.mipt.ru>
-References: <20080902194603.GA2825@2ka.mipt.ru> <7e0dd21a0809030056q2bfd0344kf3b86a90a4b3fc5f@mail.gmail.com> <7e0dd21a0809030338k3335a5eah4be6e27c26aecf59@mail.gmail.com> <20080903.040626.198546183.davem@davemloft.net> <7e0dd21a0809030605odc28306re8b7640f0632ac36@mail.gmail.com> <20080903132734.GA17541@2ka.mipt.ru> <7e0dd21a0809030800v5e39808bl2f22893bc8214c2a@mail.gmail.com> <20080903151340.GA7566@2ka.mipt.ru> <7e0dd21a0809030858h7fdc454dj33acc6be25a0aab@mail.gmail.com>
+From: Andrey Borzenkov <arvidjaar@mail.ru>
+Subject: Re: + e1000e-prevent-corruption-of-eeprom-nvm.patch added to -mmtree
+Date: Wed, 3 Sep 2008 21:04:47 +0400
+Message-ID: <200809032104.49092.arvidjaar@mail.ru>
+References: <200809021919.m82JJweC008488@imap1.linux-foundation.org> <36D9DB17C6DE9E40B059440DB8D95F5206051BF7@orsmsx418.amr.corp.intel.com> <1220429845.32688.182.camel@bodhitayantram.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Johann Baudy <johaahn@gmail.com>
+Content-Type: multipart/signed;
+  boundary="nextPart2710223.Fvsj6mRO1v";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Qicheng Christopher Li <chrisl@vmware.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Zachary Amsden <zach@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:47859 "EHLO 2ka.mipt.ru"
+Received: from mx28.mail.ru ([194.67.23.67]:23351 "EHLO mx28.mail.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbYICQoW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 12:44:22 -0400
-Content-Disposition: inline
-In-Reply-To: <7e0dd21a0809030858h7fdc454dj33acc6be25a0aab@mail.gmail.com>
+	id S1752066AbYICSEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 14:04:08 -0400
+Received: from mx27.mail.ru (mx27.mail.ru [194.67.23.23])
+	by mx28.mail.ru (mPOP.Fallback_MX) with ESMTP id 595AF772C03
+	for <netdev@vger.kernel.org>; Wed,  3 Sep 2008 21:06:55 +0400 (MSD)
+In-Reply-To: <1220429845.32688.182.camel@bodhitayantram.eng.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johann.
+--nextPart2710223.Fvsj6mRO1v
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-On Wed, Sep 03, 2008 at 05:58:50PM +0200, Johann Baudy (johaahn@gmail.com) wrote:
-> > What is the bus width and is there burst mode support?
-> > Not to point to the error in the speed calculation, just out of curiosity :)
-> > Always liked such tiny systems...
-> 
-> 32 bits with burst support. This is a PPC 405 embedded into Xilinx V4
-> FPGA . (PLB bus)
+On Wednesday 03 September 2008, Zachary Amsden wrote:
+> I'm sorry, we have no way to reproduce this, don't know anything about
+> the hardware the customer was using
 
-So small PLB? Not OPB? Weird hardware :)
-But nevertheless at most 400 MB/s with 100mhz, so looks like either
-there is no burst mode or weird NIC hardware (or something else :)
-I used to easily saturate 100mbit channel with 405gp(r) and emac driver,
-which are better numbers than what you have with gige and sockets...
-Actually even 405gp had much wider plb, so this could be an issue.
+According to my information bug affects LAN controllers based on Intel 8254x GBe chipset. Of course, I do not claim it is exhaustive list.
 
-Likley your project will just dma data from some sensor to the
-preallocated buffer, you will add headers and send the data, so very
-small memory bus speed will not allow to use sockets and thus TCP.
-Having splice-friendly setup is possible, but I think raw socket
-approach is simpler for you.
+--nextPart2710223.Fvsj6mRO1v
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-> > But why sendfile/splice does not work the same?
-> > It is (supposed to be) a zero-copy sending interface, which should be even
-> > more optimal, than your ring buffer approach, since uses just single
-> > syscall and no initialization of the data (well, there is page
-> > population and so on, but if file is in the ramdisk, it is effectively
-> > zero overhead). Can you run oprofile during sendfile() data transfer or
-> > describe behaviour (i.e. CPU usage and tcpdump).
-> 
-> I've never used oprofile before. I will get more logs and let you know.
-> Just a question: I don't want to use TCP for final application.
-> Is it expected that the kernel execute packet_sendmsg() when using
-> packet socket with splice()?  (because this function is doing a memcpy
-> from a buffer to a socket buffer).
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-No, it will use sendpage() if hardware and driver support scatter/gather
-and checksumm ofloading. Since you say they do, then there should be no
-copies at all.
+iEYEABECAAYFAki+w7EACgkQR6LMutpd94y2lwCgi2+USmMWIeaJsivK+gVrB3xP
+jKYAn0XlISjI5UuCi7aFvTP6a0OVBtWX
+=NVvA
+-----END PGP SIGNATURE-----
 
-> Or is there a dedicated path for splicing? or maybe only in TCP read
-> (I can see that splice_read operator is redefined with
-> tcp_splice_read())?
-
-It will endup with generic_splice_sendpage() and pipe_to_sendpage().
-
-> And I've also faced some issues with the size of packet (it seems to
-> be limited to page size). It is really important for me to send large
-> packet. I've just decreased the packet size of pktgen script from 7200
-> to 4096 and the bitrate has fallen from 85Mbytes/s to 50Mbytes/s.
-> I understand that this is not a problem with TCP when sending a file,
-> we don't really care about accuracy of the packet size.
-> Do you know if there is way to adjust the size ?
-
-What do you mean by packet size? MTU/MSS? In pktgen it means size of the
-allocated skb, so it will be eventually split into smaller chunks and the
-bigger size you have, the less allocations will be performed. Actually
-the fact, that 7200 works at all, is a bit surprising: your small
-machine has lots of ram and is effectively unused during tests (i.e. no
-other allocations). Changing it do 4k should not decrease performance at
-all... Do you have jumbo frames enabled?
-
--- 
-	Evgeniy Polyakov
+--nextPart2710223.Fvsj6mRO1v--
