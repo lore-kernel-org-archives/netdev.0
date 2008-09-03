@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: Accessing un-mapped page
-Date: Wed, 03 Sep 2008 14:38:28 -0700 (PDT)
-Message-ID: <20080903.143828.192637455.davem@davemloft.net>
-References: <BD3F7F1EFBA6D54DB056C4FFA45140080334A455A8@SJEXCHCCR01.corp.ad.broadcom.com>
+Subject: Re: [git patches] net driver fixes for .26
+Date: Wed, 03 Sep 2008 14:44:26 -0700 (PDT)
+Message-ID: <20080903.144426.10910373.davem@davemloft.net>
+References: <20080903143716.GA29026@havoc.gtf.org>
+	<20080903143824.GA29184@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55038
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47167
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756698AbYICVif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 17:38:35 -0400
-In-Reply-To: <BD3F7F1EFBA6D54DB056C4FFA45140080334A455A8@SJEXCHCCR01.corp.ad.broadcom.com>
+	by vger.kernel.org with ESMTP id S1752392AbYICVod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 17:44:33 -0400
+In-Reply-To: <20080903143824.GA29184@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 3 Sep 2008 11:20:34 -0700
+From: Jeff Garzik <jeff@garzik.org>
+Date: Wed, 3 Sep 2008 10:38:24 -0400
 
-> We just root-caused a critical issue that causes fatal error on PPC with 64KB page.
->
-> The problem was due to a feature that allows the chip to align the
-> Ethernet payload to 64 bytes - those possible extra 64 bytes were
-> only added to the SKB allocation and not to the PCI mapping size. In
-> this case there is no need to differentiate between the SKB buffer
-> size and the PCI mapping size since the chip might actually use the
-> extra 64 bytes. The problem becomes fatal if the last 64 bytes of
-> the packets are crossing 4KB boundary and in this case the last page
-> was not mapped.
->
-> Please consider applying - I'm attaching a patch for this issue
-> which also includes an update to the version number.
+> On Wed, Sep 03, 2008 at 10:37:16AM -0400, Jeff Garzik wrote:
+> > 
+> > Please pull from 'davem-fixes' branch of
+> > master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
+> 
+> The subject line should say "for .27" obviously...
+> 
+> Gonna go back in time... </BTTF song>
 
-Patch applied, thanks Eilon.
+:-)  Pulled, thanks a lot Jeff.
