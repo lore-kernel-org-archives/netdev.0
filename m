@@ -1,72 +1,58 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [PATCH] e1000e: avoid duplicated output of device name in kernel warning
-Date: Wed, 3 Sep 2008 16:43:42 +0200
-Message-ID: <200809031643.43642.elendil@planet.nl>
-References: <20080829000100.5149.26290.stgit@jtkirshe-mobile.jf.intel.com> <48BE9ABA.3030304@garzik.org>
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: [PATCH resend] r6040: fix bad usage of udelay
+Date: Wed, 3 Sep 2008 16:50:03 +0200
+Message-ID: <200809031650.03513.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Andrew Morton <akpm@linux-foundation.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hpsmtp-eml11.kpnxchange.com ([213.75.38.111]:40349 "EHLO
-	hpsmtp-eml11.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752010AbYICOns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:43:48 -0400
-In-Reply-To: <48BE9ABA.3030304@garzik.org>
+Received: from smtp4.int-evry.fr ([157.159.10.71]:52963 "EHLO
+	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751748AbYICOv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 10:51:28 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 03 September 2008, Jeff Garzik wrote:
-> Jeff Kirsher wrote:
-> > From: Frans Pop <elendil@planet.nl>
-> >
-> > With 2.6.27-rc3 I noticed the following messages in my boot log:
-> >
-> > 0000:01:00.0: 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
-> > 0000:01:00.0: eth0: (PCI Express:2.5GB/s:Width x1) 00:16:76:04:ff:09
-> >
-> > The second seems correct, but the first has a silly repetition of the
-> > PCI device before the actual message. The message originates from
-> > e1000_eeprom_checks in e1000e/netdev.c.
-> >
-> > With this patch below the first message becomes
-> >
-> >   e1000e 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
-> >
-> > which makes it similar to directly preceding messages.
-> >
-> > Use dev_warn instead of e_warn in e1000_eeprom_checks() as the
-> > interface name has not yet been assigned at that point.
-> >
-> > Signed-off-by: Frans Pop <elendil@planet.nl>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >
-> >  drivers/net/e1000e/netdev.c |    6 ++++--
-> >  1 files changed, 4 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/e1000e/netdev.c
-> > b/drivers/net/e1000e/netdev.c index d266510..4563f34 100644
-> > --- a/drivers/net/e1000e/netdev.c
-> > +++ b/drivers/net/e1000e/netdev.c
-> > @@ -4335,13 +4335,15 @@ static void e1000_eeprom_checks(struct
-> > e1000_adapter *adapter) ret_val = e1000_read_nvm(hw,
-> > NVM_INIT_CONTROL2_REG, 1, &buf); if (!(le16_to_cpu(buf) & (1 << 0)))
-> > {
-> >  		/* Deep Smart Power Down (DSPD) */
-> > -		e_warn("Warning: detected DSPD enabled in EEPROM\n");
-> > +		dev_warn(&adapter->pdev-dev,
-> > +		         "Warning: detected DSPD enabled in EEPROM\n");
->
-> breaks build, should be "pdev->dev"
+Hi Francois, Jeff,
 
-It was correct in the original patch I submitted and IIRC Andrew already 
-noticed that error and added a "fixup" patch in his tree.
+This patch applies to the patch sent previously entitled :
+[PATCH] r6040: remove unused includes.
 
-Cheers.
-FJP
+Thanks.
+--
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: [PATCH resend] r6040: fix bad usage of udelay
+
+This patch fixes the bad usage of udelay(5000), which in turns is a
+mdelay(5). It causes compilation for ARM where udelay maximum value
+is checked.
+
+Reported-by: Martin Michlmayr <tbm@cyrius.com>
+Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+---
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index d453987..d837bef 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -364,7 +364,7 @@ static void r6040_init_mac_regs(struct net_device *dev)
+ 	/* Reset internal state machine */
+ 	iowrite16(2, ioaddr + MAC_SM);
+ 	iowrite16(0, ioaddr + MAC_SM);
+-	udelay(5000);
++	mdelay(5);
+ 
+ 	/* MAC Bus Control Register */
+ 	iowrite16(MBCR_DEFAULT, ioaddr + MBCR);
+@@ -800,7 +800,7 @@ static void r6040_mac_address(struct net_device *dev)
+ 	iowrite16(0x01, ioaddr + MCR1); /* Reset MAC */
+ 	iowrite16(2, ioaddr + MAC_SM); /* Reset internal state machine */
+ 	iowrite16(0, ioaddr + MAC_SM);
+-	udelay(5000);
++	mdelay(5);
+ 
+ 	/* Restore MAC Address */
+ 	adrp = (u16 *) dev->dev_addr;
