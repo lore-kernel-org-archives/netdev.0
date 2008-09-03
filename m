@@ -1,406 +1,260 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v4 13/14] cipso: Add support for native local labeling and
-	fixup mapping names
-Date: Tue, 02 Sep 2008 20:50:21 -0400
-Message-ID: <20080903005021.15669.56709.stgit@flek.lan>
-References: <20080903003647.15669.45349.stgit@flek.lan>
+From: David Miller <davem@davemloft.net>
+Subject: xfrm_state locking regression...
+Date: Tue, 02 Sep 2008 19:51:48 -0700 (PDT)
+Message-ID: <20080902.195148.193704236.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
+Cc: timo.teras@iki.fi
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:14138 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755048AbYICAue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 20:50:34 -0400
-In-Reply-To: <20080903003647.15669.45349.stgit@flek.lan>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43902
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754682AbYICCv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2008 22:51:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch accomplishes two minor tasks: add a new tag type for local
-labeling and rename the CIPSO_V4_MAP_STD define to CIPSO_V4_MAP_TRANS.  The
-first change allows CIPSO to support full LSM labels/contexts, not just
-MLS attributes.  The second change brings the mapping names inline with
-what userspace is using, compatibility is preserved since we don't actually
-change the value.
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
+I've been hitting a lockup on my machine, and the way to hit
+it is sort of straight forward.
 
- include/net/cipso_ipv4.h         |   13 +++--
- net/ipv4/cipso_ipv4.c            |  107 ++++++++++++++++++++++++++++++++++----
- net/ipv4/ip_options.c            |    2 -
- net/netlabel/netlabel_cipso_v4.c |   14 ++---
- net/netlabel/netlabel_cipso_v4.h |    4 +
- net/netlabel/netlabel_kapi.c     |    4 +
- 6 files changed, 118 insertions(+), 26 deletions(-)
+1) Setup IPSEC connection using openswan
 
-diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-index 811febf..9909774 100644
---- a/include/net/cipso_ipv4.h
-+++ b/include/net/cipso_ipv4.h
-@@ -45,7 +45,7 @@
- /* known doi values */
- #define CIPSO_V4_DOI_UNKNOWN          0x00000000
- 
--/* tag types */
-+/* standard tag types */
- #define CIPSO_V4_TAG_INVALID          0
- #define CIPSO_V4_TAG_RBITMAP          1
- #define CIPSO_V4_TAG_ENUM             2
-@@ -53,10 +53,14 @@
- #define CIPSO_V4_TAG_PBITMAP          6
- #define CIPSO_V4_TAG_FREEFORM         7
- 
-+/* non-standard tag types (tags > 127) */
-+#define CIPSO_V4_TAG_LOCAL            128
-+
- /* doi mapping types */
- #define CIPSO_V4_MAP_UNKNOWN          0
--#define CIPSO_V4_MAP_STD              1
-+#define CIPSO_V4_MAP_TRANS            1
- #define CIPSO_V4_MAP_PASS             2
-+#define CIPSO_V4_MAP_LOCAL            3
- 
- /* limits */
- #define CIPSO_V4_MAX_REM_LVLS         255
-@@ -215,7 +219,7 @@ int cipso_v4_skbuff_setattr(struct sk_buff *skb,
- int cipso_v4_skbuff_delattr(struct sk_buff *skb);
- int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
- 			    struct netlbl_lsm_secattr *secattr);
--int cipso_v4_validate(unsigned char **option);
-+int cipso_v4_validate(const struct sk_buff *skb, unsigned char **option);
- #else
- static inline void cipso_v4_error(struct sk_buff *skb,
- 				  int error,
-@@ -259,7 +263,8 @@ static inline int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
- 	return -ENOSYS;
- }
- 
--static inline int cipso_v4_validate(unsigned char **option)
-+static inline int cipso_v4_validate(const struct sk_buff *skb,
-+				    unsigned char **option)
+2) Use something like XAUTH where openswan is not able refresh the
+   IPSEC policy when it times out because it has no way to prompt the
+   user for the XAUTH password again.
+
+3) After the timeout, try to send a packet over the IPSEC connection,
+   a simple DNS lookup over it works for me.
+
+4) Shut down IPSEC daemon.
+
+At this point with SMP we'll wedge in __xfrm_state_destroy() trying to
+obtain xfrm_state_lock.
+
+This problem seems to have been introduced by:
+
+commit 4c563f7669c10a12354b72b518c2287ffc6ebfb3
+Author: Timo Teras <timo.teras@iki.fi>
+Date:   Thu Feb 28 21:31:08 2008 -0800
+
+    [XFRM]: Speed up xfrm_policy and xfrm_state walking
+
+(BTW, I want to point out how hesitant I was at the time to apply
+ this patch.  It touches a lot of delicate areas...)
+
+This is what added the xfrm_state_lock grabbing in __xfrm_state_destroy().
+
+Such new locking cannot work properly, without also updating a lot of
+other code in net/xfrm/xfrm_state.c
+
+The new locking means that it is absolutely illegal to do an
+xfrm_state_put() while holding xfrm_state_lock.  Yet we do this
+all over the place!
+
+Asynchronously another context can drop the count to one, and this
+xfrm_state_put() call will thus call into __xfrm_state_destroy() and
+try to take xfrm_state_lock (again) causing the deadlock.
+
+I'm not exactly sure how to fix this currently.
+
+I guess we can add a local pointer variable to the relevant functions
+"struct xfrm_state *to_put", which is initialized to NULL, and we
+replace the put calls with assignments to to_put.  In the "out" path,
+after we drop the xfrm_state_lock, we do a put if "to_put" is
+non-NULL.
+
+Something like the patch below, but frankly this is some ugly stuff.
+
+I double checked xfrm_policy.c, since it has the potential to have
+similar issues due to the above changeset, but it appears to be
+OK the best I can tell.
+
+ipsec: Fix deadlock in xfrm_state management.
+
+Ever since commit 4c563f7669c10a12354b72b518c2287ffc6ebfb3
+("[XFRM]: Speed up xfrm_policy and xfrm_state walking") it is
+illegal to call __xfrm_state_destroy (and thus xfrm_state_put())
+with xfrm_state_lock held.  If we do, we'll deadlock since we
+have the lock already and __xfrm_state_destroy() tries to take
+it again.
+
+Fix this by pushing the xfrm_state_put() calls after the lock
+is dropped.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 4c6914e..98f20cc 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -780,11 +780,13 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
  {
- 	return -ENOSYS;
- }
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index b74e57b..f94c3e4 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -109,6 +109,19 @@ int cipso_v4_rbm_strictvalid = 1;
-  * be omitted. */
- #define CIPSO_V4_TAG_RNG_CAT_MAX      8
+ 	unsigned int h;
+ 	struct hlist_node *entry;
+-	struct xfrm_state *x, *x0;
++	struct xfrm_state *x, *x0, *to_put;
+ 	int acquire_in_progress = 0;
+ 	int error = 0;
+ 	struct xfrm_state *best = NULL;
  
-+/* Base length of the local tag (non-standard tag).
-+ *  Tag definition (may change between kernel versions)
-+ *
-+ * 0          8          16         24         32
-+ * +----------+----------+----------+----------+
-+ * | 10000000 | 00001000 | unused (zero fill)  |
-+ * +----------+----------+----------+----------+
-+ * |   32-bit secid value (host byte order)    |
-+ * +----------+----------+----------+----------+
-+ *
-+ */
-+#define CIPSO_V4_TAG_LOC_BLEN         8
++	to_put = NULL;
 +
- /*
-  * Helper Functions
-  */
-@@ -467,6 +480,10 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def)
- 			if (doi_def->type != CIPSO_V4_MAP_PASS)
- 				return -EINVAL;
- 			break;
-+		case CIPSO_V4_TAG_LOCAL:
-+			if (doi_def->type != CIPSO_V4_MAP_LOCAL)
-+				return -EINVAL;
-+			break;
- 		default:
- 			return -EINVAL;
+ 	spin_lock_bh(&xfrm_state_lock);
+ 	h = xfrm_dst_hash(daddr, saddr, tmpl->reqid, family);
+ 	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
+@@ -833,7 +835,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 		if (tmpl->id.spi &&
+ 		    (x0 = __xfrm_state_lookup(daddr, tmpl->id.spi,
+ 					      tmpl->id.proto, family)) != NULL) {
+-			xfrm_state_put(x0);
++			to_put = x0;
+ 			error = -EEXIST;
+ 			goto out;
  		}
-@@ -502,7 +519,7 @@ void cipso_v4_doi_free(struct cipso_v4_doi *doi_def)
- 		return;
- 
- 	switch (doi_def->type) {
--	case CIPSO_V4_MAP_STD:
-+	case CIPSO_V4_MAP_TRANS:
- 		kfree(doi_def->map.std->lvl.cipso);
- 		kfree(doi_def->map.std->lvl.local);
- 		kfree(doi_def->map.std->cat.cipso);
-@@ -673,7 +690,7 @@ static int cipso_v4_map_lvl_valid(const struct cipso_v4_doi *doi_def, u8 level)
- 	switch (doi_def->type) {
- 	case CIPSO_V4_MAP_PASS:
- 		return 0;
--	case CIPSO_V4_MAP_STD:
-+	case CIPSO_V4_MAP_TRANS:
- 		if (doi_def->map.std->lvl.cipso[level] < CIPSO_V4_INV_LVL)
- 			return 0;
- 		break;
-@@ -702,7 +719,7 @@ static int cipso_v4_map_lvl_hton(const struct cipso_v4_doi *doi_def,
- 	case CIPSO_V4_MAP_PASS:
- 		*net_lvl = host_lvl;
- 		return 0;
--	case CIPSO_V4_MAP_STD:
-+	case CIPSO_V4_MAP_TRANS:
- 		if (host_lvl < doi_def->map.std->lvl.local_size &&
- 		    doi_def->map.std->lvl.local[host_lvl] < CIPSO_V4_INV_LVL) {
- 			*net_lvl = doi_def->map.std->lvl.local[host_lvl];
-@@ -736,7 +753,7 @@ static int cipso_v4_map_lvl_ntoh(const struct cipso_v4_doi *doi_def,
- 	case CIPSO_V4_MAP_PASS:
- 		*host_lvl = net_lvl;
- 		return 0;
--	case CIPSO_V4_MAP_STD:
-+	case CIPSO_V4_MAP_TRANS:
- 		map_tbl = doi_def->map.std;
- 		if (net_lvl < map_tbl->lvl.cipso_size &&
- 		    map_tbl->lvl.cipso[net_lvl] < CIPSO_V4_INV_LVL) {
-@@ -773,7 +790,7 @@ static int cipso_v4_map_cat_rbm_valid(const struct cipso_v4_doi *doi_def,
- 	switch (doi_def->type) {
- 	case CIPSO_V4_MAP_PASS:
- 		return 0;
--	case CIPSO_V4_MAP_STD:
-+	case CIPSO_V4_MAP_TRANS:
- 		cipso_cat_size = doi_def->map.std->cat.cipso_size;
- 		cipso_array = doi_def->map.std->cat.cipso;
- 		for (;;) {
-@@ -821,7 +838,7 @@ static int cipso_v4_map_cat_rbm_hton(const struct cipso_v4_doi *doi_def,
- 	u32 host_cat_size = 0;
- 	u32 *host_cat_array = NULL;
- 
--	if (doi_def->type == CIPSO_V4_MAP_STD) {
-+	if (doi_def->type == CIPSO_V4_MAP_TRANS) {
- 		host_cat_size = doi_def->map.std->cat.local_size;
- 		host_cat_array = doi_def->map.std->cat.local;
- 	}
-@@ -836,7 +853,7 @@ static int cipso_v4_map_cat_rbm_hton(const struct cipso_v4_doi *doi_def,
- 		case CIPSO_V4_MAP_PASS:
- 			net_spot = host_spot;
- 			break;
--		case CIPSO_V4_MAP_STD:
-+		case CIPSO_V4_MAP_TRANS:
- 			if (host_spot >= host_cat_size)
- 				return -EPERM;
- 			net_spot = host_cat_array[host_spot];
-@@ -882,7 +899,7 @@ static int cipso_v4_map_cat_rbm_ntoh(const struct cipso_v4_doi *doi_def,
- 	u32 net_cat_size = 0;
- 	u32 *net_cat_array = NULL;
- 
--	if (doi_def->type == CIPSO_V4_MAP_STD) {
-+	if (doi_def->type == CIPSO_V4_MAP_TRANS) {
- 		net_cat_size = doi_def->map.std->cat.cipso_size;
- 		net_cat_array = doi_def->map.std->cat.cipso;
- 	}
-@@ -902,7 +919,7 @@ static int cipso_v4_map_cat_rbm_ntoh(const struct cipso_v4_doi *doi_def,
- 		case CIPSO_V4_MAP_PASS:
- 			host_spot = net_spot;
- 			break;
--		case CIPSO_V4_MAP_STD:
-+		case CIPSO_V4_MAP_TRANS:
- 			if (net_spot >= net_cat_size)
- 				return -EPERM;
- 			host_spot = net_cat_array[net_spot];
-@@ -1484,6 +1501,54 @@ static int cipso_v4_parsetag_rng(const struct cipso_v4_doi *doi_def,
+@@ -849,7 +851,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 		error = security_xfrm_state_alloc_acquire(x, pol->security, fl->secid);
+ 		if (error) {
+ 			x->km.state = XFRM_STATE_DEAD;
+-			xfrm_state_put(x);
++			to_put = x;
+ 			x = NULL;
+ 			goto out;
+ 		}
+@@ -870,7 +872,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 			xfrm_hash_grow_check(x->bydst.next != NULL);
+ 		} else {
+ 			x->km.state = XFRM_STATE_DEAD;
+-			xfrm_state_put(x);
++			to_put = x;
+ 			x = NULL;
+ 			error = -ESRCH;
+ 		}
+@@ -881,6 +883,8 @@ out:
+ 	else
+ 		*err = acquire_in_progress ? -EAGAIN : error;
+ 	spin_unlock_bh(&xfrm_state_lock);
++	if (to_put)
++		xfrm_state_put(to_put);
+ 	return x;
  }
  
- /**
-+ * cipso_v4_gentag_loc - Generate a CIPSO local tag (non-standard)
-+ * @doi_def: the DOI definition
-+ * @secattr: the security attributes
-+ * @buffer: the option buffer
-+ * @buffer_len: length of buffer in bytes
-+ *
-+ * Description:
-+ * Generate a CIPSO option using the local tag.  Returns the size of the tag
-+ * on success, negative values on failure.
-+ *
-+ */
-+static int cipso_v4_gentag_loc(const struct cipso_v4_doi *doi_def,
-+			       const struct netlbl_lsm_secattr *secattr,
-+			       unsigned char *buffer,
-+			       u32 buffer_len)
-+{
-+	if (!(secattr->flags & NETLBL_SECATTR_SECID))
-+		return -EPERM;
-+
-+	buffer[0] = 0x80;
-+	buffer[1] = 0x08;
-+	*(u32 *)&buffer[4] = secattr->attr.secid;
-+
-+	return 8;
-+}
-+
-+/**
-+ * cipso_v4_parsetag_loc - Parse a CIPSO local tag
-+ * @doi_def: the DOI definition
-+ * @tag: the CIPSO tag
-+ * @secattr: the security attributes
-+ *
-+ * Description:
-+ * Parse a CIPSO local tag and return the security attributes in @secattr.
-+ * Return zero on success, negatives values on failure.
-+ *
-+ */
-+static int cipso_v4_parsetag_loc(const struct cipso_v4_doi *doi_def,
-+				 const unsigned char *tag,
-+				 struct netlbl_lsm_secattr *secattr)
-+{
-+	secattr->attr.secid = *(u32 *)&tag[4];
-+	secattr->flags |= NETLBL_SECATTR_SECID;
-+
-+	return 0;
-+}
-+
-+/**
-  * cipso_v4_validate - Validate a CIPSO option
-  * @option: the start of the option, on error it is set to point to the error
-  *
-@@ -1502,7 +1567,7 @@ static int cipso_v4_parsetag_rng(const struct cipso_v4_doi *doi_def,
-  *   that is unrecognized."
-  *
-  */
--int cipso_v4_validate(unsigned char **option)
-+int cipso_v4_validate(const struct sk_buff *skb, unsigned char **option)
+@@ -1067,18 +1071,20 @@ static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq);
+ 
+ int xfrm_state_add(struct xfrm_state *x)
  {
- 	unsigned char *opt = *option;
- 	unsigned char *tag;
-@@ -1610,6 +1675,19 @@ int cipso_v4_validate(unsigned char **option)
- 				goto validate_return_locked;
- 			}
- 			break;
-+		case CIPSO_V4_TAG_LOCAL:
-+			/* This is a non-standard tag that we only allow for
-+			 * local connections, so if the incoming interface is
-+			 * not the loopback device drop the packet. */
-+			if (!(skb->dev->flags & IFF_LOOPBACK)) {
-+				err_offset = opt_iter;
-+				goto validate_return_locked;
-+			}
-+			if (tag_len != 8) {
-+				err_offset = opt_iter + 1;
-+				goto validate_return_locked;
-+			}
-+			break;
- 		default:
- 			err_offset = opt_iter;
- 			goto validate_return_locked;
-@@ -1712,6 +1790,12 @@ static int cipso_v4_genopt(unsigned char *buf, u32 buf_len,
- 						   &buf[CIPSO_V4_HDR_LEN],
- 						   buf_len - CIPSO_V4_HDR_LEN);
- 			break;
-+		case CIPSO_V4_TAG_LOCAL:
-+			ret_val = cipso_v4_gentag_loc(doi_def,
-+						   secattr,
-+						   &buf[CIPSO_V4_HDR_LEN],
-+						   buf_len - CIPSO_V4_HDR_LEN);
-+			break;
- 		default:
- 			return -EPERM;
+-	struct xfrm_state *x1;
++	struct xfrm_state *x1, *to_put;
+ 	int family;
+ 	int err;
+ 	int use_spi = xfrm_id_proto_match(x->id.proto, IPSEC_PROTO_ANY);
+ 
+ 	family = x->props.family;
+ 
++	to_put = NULL;
++
+ 	spin_lock_bh(&xfrm_state_lock);
+ 
+ 	x1 = __xfrm_state_locate(x, use_spi, family);
+ 	if (x1) {
+-		xfrm_state_put(x1);
++		to_put = x1;
+ 		x1 = NULL;
+ 		err = -EEXIST;
+ 		goto out;
+@@ -1088,7 +1094,7 @@ int xfrm_state_add(struct xfrm_state *x)
+ 		x1 = __xfrm_find_acq_byseq(x->km.seq);
+ 		if (x1 && ((x1->id.proto != x->id.proto) ||
+ 		    xfrm_addr_cmp(&x1->id.daddr, &x->id.daddr, family))) {
+-			xfrm_state_put(x1);
++			to_put = x1;
+ 			x1 = NULL;
  		}
-@@ -1894,6 +1978,9 @@ static int cipso_v4_getattr(const unsigned char *cipso,
- 	case CIPSO_V4_TAG_RANGE:
- 		ret_val = cipso_v4_parsetag_rng(doi_def, &cipso[6], secattr);
- 		break;
-+	case CIPSO_V4_TAG_LOCAL:
-+		ret_val = cipso_v4_parsetag_loc(doi_def, &cipso[6], secattr);
-+		break;
  	}
- 	if (ret_val == 0)
- 		secattr->type = NETLBL_NLTYPE_CIPSOV4;
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index be3f18a..2c88da6 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -438,7 +438,7 @@ int ip_options_compile(struct net *net,
- 				goto error;
- 			}
- 			opt->cipso = optptr - iph;
--			if (cipso_v4_validate(&optptr)) {
-+			if (cipso_v4_validate(skb, &optptr)) {
- 				pp_ptr = optptr;
- 				goto error;
- 			}
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index 7eda219..a6dc5d1 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -132,9 +132,9 @@ static int netlbl_cipsov4_add_common(struct genl_info *info,
-  * @info: the Generic NETLINK info block
-  *
-  * Description:
-- * Create a new CIPSO_V4_MAP_STD DOI definition based on the given ADD message
-- * and add it to the CIPSO V4 engine.  Return zero on success and non-zero on
-- * error.
-+ * Create a new CIPSO_V4_MAP_TRANS DOI definition based on the given ADD
-+ * message and add it to the CIPSO V4 engine.  Return zero on success and
-+ * non-zero on error.
-  *
-  */
- static int netlbl_cipsov4_add_std(struct genl_info *info)
-@@ -164,7 +164,7 @@ static int netlbl_cipsov4_add_std(struct genl_info *info)
- 		ret_val = -ENOMEM;
- 		goto add_std_failure;
+@@ -1110,6 +1116,9 @@ out:
+ 		xfrm_state_put(x1);
  	}
--	doi_def->type = CIPSO_V4_MAP_STD;
-+	doi_def->type = CIPSO_V4_MAP_TRANS;
  
- 	ret_val = netlbl_cipsov4_add_common(info, doi_def);
- 	if (ret_val != 0)
-@@ -393,8 +393,8 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
++	if (to_put)
++		xfrm_state_put(to_put);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(xfrm_state_add);
+@@ -1269,10 +1278,12 @@ EXPORT_SYMBOL(xfrm_state_migrate);
  
- 	type = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_MTYPE]);
- 	switch (type) {
--	case CIPSO_V4_MAP_STD:
--		type_str = "std";
-+	case CIPSO_V4_MAP_TRANS:
-+		type_str = "trans";
- 		ret_val = netlbl_cipsov4_add_std(info);
- 		break;
- 	case CIPSO_V4_MAP_PASS:
-@@ -497,7 +497,7 @@ list_start:
- 	nla_nest_end(ans_skb, nla_a);
+ int xfrm_state_update(struct xfrm_state *x)
+ {
+-	struct xfrm_state *x1;
++	struct xfrm_state *x1, *to_put;
+ 	int err;
+ 	int use_spi = xfrm_id_proto_match(x->id.proto, IPSEC_PROTO_ANY);
  
- 	switch (doi_def->type) {
--	case CIPSO_V4_MAP_STD:
-+	case CIPSO_V4_MAP_TRANS:
- 		nla_a = nla_nest_start(ans_skb, NLBL_CIPSOV4_A_MLSLVLLST);
- 		if (nla_a == NULL) {
- 			ret_val = -ENOMEM;
-diff --git a/net/netlabel/netlabel_cipso_v4.h b/net/netlabel/netlabel_cipso_v4.h
-index 220cb9d..fb3957f 100644
---- a/net/netlabel/netlabel_cipso_v4.h
-+++ b/net/netlabel/netlabel_cipso_v4.h
-@@ -45,7 +45,7 @@
-  *     NLBL_CIPSOV4_A_MTYPE
-  *     NLBL_CIPSOV4_A_TAGLST
-  *
-- *   If using CIPSO_V4_MAP_STD the following attributes are required:
-+ *   If using CIPSO_V4_MAP_TRANS the following attributes are required:
-  *
-  *     NLBL_CIPSOV4_A_MLSLVLLST
-  *     NLBL_CIPSOV4_A_MLSCATLST
-@@ -76,7 +76,7 @@
-  *     NLBL_CIPSOV4_A_MTYPE
-  *     NLBL_CIPSOV4_A_TAGLST
-  *
-- *   If using CIPSO_V4_MAP_STD the following attributes are required:
-+ *   If using CIPSO_V4_MAP_TRANS the following attributes are required:
-  *
-  *     NLBL_CIPSOV4_A_MLSLVLLST
-  *     NLBL_CIPSOV4_A_MLSCATLST
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index bf0e1b8..7b233da 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -157,8 +157,8 @@ cfg_cipsov4_add_map_return:
- 					      audit_info);
- 	if (audit_buf != NULL) {
- 		switch (doi_type) {
--		case CIPSO_V4_MAP_STD:
--			type_str = "std";
-+		case CIPSO_V4_MAP_TRANS:
-+			type_str = "trans";
- 			break;
- 		case CIPSO_V4_MAP_PASS:
- 			type_str = "pass";
-
++	to_put = NULL;
++
+ 	spin_lock_bh(&xfrm_state_lock);
+ 	x1 = __xfrm_state_locate(x, use_spi, x->props.family);
+ 
+@@ -1281,7 +1292,7 @@ int xfrm_state_update(struct xfrm_state *x)
+ 		goto out;
+ 
+ 	if (xfrm_state_kern(x1)) {
+-		xfrm_state_put(x1);
++		to_put = x1;
+ 		err = -EEXIST;
+ 		goto out;
+ 	}
+@@ -1295,6 +1306,9 @@ int xfrm_state_update(struct xfrm_state *x)
+ out:
+ 	spin_unlock_bh(&xfrm_state_lock);
+ 
++	if (to_put)
++		xfrm_state_put(to_put);
++
+ 	if (err)
+ 		return err;
+ 
+@@ -1483,11 +1497,13 @@ EXPORT_SYMBOL(xfrm_get_acqseq);
+ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
+ {
+ 	unsigned int h;
+-	struct xfrm_state *x0;
++	struct xfrm_state *x0, *to_put;
+ 	int err = -ENOENT;
+ 	__be32 minspi = htonl(low);
+ 	__be32 maxspi = htonl(high);
+ 
++	to_put = NULL;
++
+ 	spin_lock_bh(&x->lock);
+ 	if (x->km.state == XFRM_STATE_DEAD)
+ 		goto unlock;
+@@ -1501,7 +1517,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
+ 	if (minspi == maxspi) {
+ 		x0 = xfrm_state_lookup(&x->id.daddr, minspi, x->id.proto, x->props.family);
+ 		if (x0) {
+-			xfrm_state_put(x0);
++			to_put = x0;
+ 			goto unlock;
+ 		}
+ 		x->id.spi = minspi;
+@@ -1514,7 +1530,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
+ 				x->id.spi = htonl(spi);
+ 				break;
+ 			}
+-			xfrm_state_put(x0);
++			to_put = x0;
+ 		}
+ 	}
+ 	if (x->id.spi) {
+@@ -1529,6 +1545,9 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
+ unlock:
+ 	spin_unlock_bh(&x->lock);
+ 
++	if (to_put)
++		xfrm_state_put(to_put);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(xfrm_alloc_spi);
