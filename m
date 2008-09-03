@@ -1,66 +1,48 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: avoid duplicated output of device name in kernel
- warning
-Date: Wed, 03 Sep 2008 10:10:02 -0400
-Message-ID: <48BE9ABA.3030304@garzik.org>
-References: <20080829000100.5149.26290.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: Re: [RESEND] [NET-NEXT PATCH 3/3] e1000e: add support for new 82574L
+ part
+Date: Wed, 03 Sep 2008 10:09:19 -0400
+Message-ID: <48BE9A8F.2070003@garzik.org>
+References: <20080827013611.5716.7376.stgit@jtkirshe-mobile.jf.intel.com> <20080827013653.5716.34378.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Frans Pop <elendil@planet.nl>,
-	Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, andy@greyhouse.net,
+	Bruce Allan <bruce.w.allan@intel.com>
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49347 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43739 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753575AbYICOKG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2008 10:10:06 -0400
-In-Reply-To: <20080829000100.5149.26290.stgit@jtkirshe-mobile.jf.intel.com>
+	id S1754364AbYICOJX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2008 10:09:23 -0400
+In-Reply-To: <20080827013653.5716.34378.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Jeff Kirsher wrote:
-> From: Frans Pop <elendil@planet.nl>
+> From: Bruce Allan <bruce.w.allan@intel.com>
 > 
-> With 2.6.27-rc3 I noticed the following messages in my boot log:
+> This new part has the same feature set as previous parts with the addition
+> of MSI-X support.
 > 
-> 0000:01:00.0: 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
-> 0000:01:00.0: eth0: (PCI Express:2.5GB/s:Width x1) 00:16:76:04:ff:09
-> 
-> The second seems correct, but the first has a silly repetition of the
-> PCI device before the actual message. The message originates from
-> e1000_eeprom_checks in e1000e/netdev.c.
-> 
-> With this patch below the first message becomes
-> 
->   e1000e 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
-> 
-> which makes it similar to directly preceding messages.
-> 
-> Use dev_warn instead of e_warn in e1000_eeprom_checks() as the interface
-> name has not yet been assigned at that point.
-> 
-> Signed-off-by: Frans Pop <elendil@planet.nl>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
 > 
->  drivers/net/e1000e/netdev.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index d266510..4563f34 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -4335,13 +4335,15 @@ static void e1000_eeprom_checks(struct e1000_adapter *adapter)
->  	ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &buf);
->  	if (!(le16_to_cpu(buf) & (1 << 0))) {
->  		/* Deep Smart Power Down (DSPD) */
-> -		e_warn("Warning: detected DSPD enabled in EEPROM\n");
-> +		dev_warn(&adapter->pdev-dev,
-> +		         "Warning: detected DSPD enabled in EEPROM\n");
+>  drivers/net/e1000e/82571.c   |  153 ++++++++++++++--
+>  drivers/net/e1000e/defines.h |   13 +
+>  drivers/net/e1000e/e1000.h   |   28 +++
+>  drivers/net/e1000e/es2lan.c  |    2 
+>  drivers/net/e1000e/ethtool.c |   38 +++-
+>  drivers/net/e1000e/hw.h      |   11 +
+>  drivers/net/e1000e/ich8lan.c |   18 ++
+>  drivers/net/e1000e/lib.c     |    7 -
+>  drivers/net/e1000e/netdev.c  |  409 +++++++++++++++++++++++++++++++++++++-----
+>  drivers/net/e1000e/param.c   |   27 +++
+>  drivers/net/e1000e/phy.c     |  109 +++++++++++
+>  11 files changed, 738 insertions(+), 77 deletions(-)
 
-breaks build, should be "pdev->dev"
+applied
 
 
