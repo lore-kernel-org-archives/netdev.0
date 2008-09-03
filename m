@@ -1,48 +1,35 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT]: Networking
-Date: Wed, 3 Sep 2008 16:20:43 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0809031615450.3515@nehalem.linux-foundation.org>
-References: <20080903.161341.239039051.davem@davemloft.net>
+Date: Wed, 3 Sep 2008 16:24:16 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0809031621160.3515@nehalem.linux-foundation.org>
+References: <20080903.161341.239039051.davem@davemloft.net> <alpine.LFD.1.10.0809031615450.3515@nehalem.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49869 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47366 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751840AbYICXUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 19:20:47 -0400
-In-Reply-To: <20080903.161341.239039051.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1751709AbYICXYT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 19:24:19 -0400
+In-Reply-To: <alpine.LFD.1.10.0809031615450.3515@nehalem.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On Wed, 3 Sep 2008, David Miller wrote:
+On Wed, 3 Sep 2008, Linus Torvalds wrote:
 > 
-> 4) Several iwlwifi fixes:
+> What's so hard to understand about this?
 
-Are these really regressions?
+Here's a simple rule of thumb:
+ - if it's not on the regression list
+ - if it's not a reported security hole
+ - if it's not on the reported oopses list
+then why are people sending it to me?
 
-And if they aren't, why are they here and now?
-
-Are people really so _stupid_ that they think that no fixes ever cause new 
-regressions, so that they think that because they are "fixes" they are 
-safe?
-
-Please, guys. I complained once about this already. What's so hard to 
-understand?
-
-Do development _separately_. Push new development during the merge window. 
-Don't do it later. And don't think that just because it's a 'fix', it 
-should go upstream asap.
-
-What's so hard to understand about this?
-
-I'll pull this YET AGAIN, but I'm getting really fed up with telling the 
-same people the same thing over and over again. It looks like the iwlwifi 
-people don't understand what "merge window" means, and thinks that any 
-random fix for any random issue should always just be pushed up.
+IOW, if it's just another random improvement, and you send it to me 
+outside of the merge window, then what is the point of the merge window? 
 
 		Linus
