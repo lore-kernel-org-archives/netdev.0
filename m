@@ -1,51 +1,52 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Thu, 4 Sep 2008 10:21:56 -0700
-Message-ID: <20080904102156.a40ec447.akpm@linux-foundation.org>
-References: <20080903.161341.239039051.davem@davemloft.net>
-	<200809041025.15277.rjw@sisk.pl>
-	<48BFABE0.6050505@garzik.org>
-	<200809041158.19929.rjw@sisk.pl>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] Return value from schedule()
+Date: Thu, 4 Sep 2008 10:30:49 -0700
+Message-ID: <20080904103049.01f748d9@infradead.org>
+References: <20080827204626.4b65862f@extreme>
+	<20080828111323.GI7908@solarflare.com>
+	<20080903155713.7fab2e19@extreme>
+	<20080904160739.GK2772@parisc-linux.org>
+	<20080904161424.GA23042@elte.hu>
+	<20080904162111.GM2772@parisc-linux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Ayaz Abdulla <aabdulla@nvidia.com>,
-	David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	tomasw@gmail.com, yi.zhu@intel.com, linville@tuxdriver.com
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43451 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751124AbYIDRXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 13:23:20 -0400
-In-Reply-To: <200809041158.19929.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>,
+	Linus Torvalds <torvalds@osdl.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Matthew Wilcox <matthew@wil.cx>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20080904162111.GM2772@parisc-linux.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2008 11:58:18 +0200 "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+On Thu, 4 Sep 2008 10:21:11 -0600
+Matthew Wilcox <matthew@wil.cx> wrote:
 
-> > > BTW, there are two regression fixes for forcedeth:
+> On Thu, Sep 04, 2008 at 06:14:24PM +0200, Ingo Molnar wrote:
+> > > If schedule() returned whether or not it had scheduled another
+> > > task, we could do something like:
 > > > 
-> > > http://marc.info/?l=linux-kernel&m=121894389018584&w=4
-> > > http://marc.info/?l=linux-kernel&m=121917167232014&w=4
-> > > 
-> > > that fix the regressions tracked as:
-> > > 
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=11358
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=11361
-> > > 
-> > > respectively and both are more than 2 weeks old now.
-> > > 
-> > > Is there any chance to push them upstream or is there anything wrong with them?
+> > > 		if (!schedule())
+> > > 			udelay(10);
 > > 
-> > Your patch is fine.  Since DaveM and I are gone this weekend, feel free 
-> > to add "acked-by: jgarzik@redhat" and forward upstream to Linus and Andrew.
+> > hm, i'm not really sure - this really just seems to be a higher
+> > prio variant of yield() combined with some weird code. Do we really
+> > want to promote such arguably broken behavior? If there's any
+> > chance of any polling to take a material amount of CPU time it
+> > should be event driven to begin with.
 > 
-> OK, thanks.
+> Oh, I'm not concerned about CPU utilisation, I'm concerned about PCI
+> bus utilisation.  Perhaps I'd like a yield_timeout() function instead
+> where I say that I'd like to not run for at least 10 microseconds?
 > 
-> Andrew, this patch is currently in -mm as forcedeth-fix-kexec-regression.patch
-> Could you please add the Jeff's ACK to it and push it to Linus?
+> Can we do that, or are we still jiffie-based there?
+> 
 
-yup, thanks.
+use schedule_hrtimerout() for this (hopefully will be in 2.6.28);
+see this weeks LWN for an article describing it
