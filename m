@@ -1,85 +1,77 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 25/37] dccp: Feature activation handlers
-Date: Thu, 4 Sep 2008 07:12:16 +0200
-Message-ID: <20080904051216.GB3768@gerrit.erg.abdn.ac.uk>
-References: <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk> <48BCDE89.7060909@cn.fujitsu.com> <20080903043828.GC4105@gerrit.erg.abdn.ac.uk> <48BE23B9.7020203@cn.fujitsu.com>
+From: "David Shwatrz" <dshwatrz@gmail.com>
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Thu, 4 Sep 2008 08:33:50 +0300
+Message-ID: <31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
+References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>
+	 <m1zloyh2mb.fsf_-_@frodo.ebiederm.org>
+	 <m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>
+	 <20080820021754.GA25182@kroah.com>
+	 <m1od3m282j.fsf_-_@frodo.ebiederm.org>
+	 <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net>
+	 <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
+	 <48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Benjamin Thery" <benjamin.thery@bull.net>,
+	"Greg KH" <greg@kroah.com>, "Mark Ryden" <markryde@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Tejun Heo" <htejun@gmail.com>,
+	"Daniel Lezcano" <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, "Al Viro" <viro@ftp.linux.org.uk>,
+	"Linux Containers" <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Greg KH" <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43134 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751310AbYIDFMk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 01:12:40 -0400
+Received: from wa-out-1112.google.com ([209.85.146.176]:54875 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752026AbYIDFdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 01:33:51 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so2189019waf.23
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2008 22:33:50 -0700 (PDT)
+In-Reply-To: <20080902170148.GA9305@suse.de>
 Content-Disposition: inline
-In-Reply-To: <48BE23B9.7020203@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> These conditions (should) ensure that the above condition is never
->> triggered, the test is like an assert() clause.
->>   
+Hi,
+>go into my tree this week,
+
+I am also interested in this patch; may I ask  - what do you mean by
+"my  tree" ?I am a little newbie in the kernel, as you might understand.
+I looked into http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/
+for candidates for this git tree you are talking about.
+
+ May I ask: what is the **exact** URL for this git tree you are talking about ?
+
+Thanks,
+
+Regards,
+DS
+
+
+On Tue, Sep 2, 2008 at 8:01 PM, Greg KH <gregkh@suse.de> wrote:
+> On Tue, Sep 02, 2008 at 04:03:20PM +0200, Benjamin Thery wrote:
+>> Mark Ryden wrote:
+>>> Hello,
+>>>  I hope that this patch (from 4.7.08) was not forgetten... I don't see
+>>> it for example in linux-net (I have an up-to-date linux-next git
+>>> tree).
+>>
+>> I was about to ask the same thing.
+>>
+>> Greg, what is the plan with these remaining patches for sysfs tagged
+>> dirs? Will you have some time to merge them in your tree soon?
 >
-> This special case it is not as you said. The packet seq as following:
+> Yes, they should go into my tree this week, sorry been busy with 2.6.27
+> work and Novell's Hackweek.
 >
-> Endpoint A                    Endpoing B
-> REQUEST        --------->
-> (CHANGE L/unknow feature)
->               <---------     RESPONSE
->                              (CONFIRM R/empty unknow feature)
-> ACK            ---------->
->                              call dccp_feat_activate_values()
->                              -->print DCCP_BUG("Unknown feature %u", cur->feat_num);
+> thanks,
 >
+> greg k-h
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-> After Endpoint B send REPONSE with empty CONFIRM R option, the unknow
-> feature is *still remain* in the feature list. dccp_feat_insert_opts()  
-> never clean up
-> those features. So here we can get idx < 0. Features with is not needed  
-> is clean up
-> after active the feat value in dccp_feat_activate_values().
->
-> int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
-> {
->    ...
->    list_for_each_entry_safe(cur, next, fn_list, node)
->        if (!cur->needs_confirm)
->            dccp_feat_list_pop(cur);
->    ...
-> }
->
-You are right, this is an oversight.
-
-In an earlier revision the code actually removed Confirm options
-immediately, or as soon as the request socket was cloned. Here is an
-early RCS revision of the patch for dccp_feat_insert_opts():
-
-+		if (pos->state == FEAT_INITIALISING)
-+			pos->state = FEAT_CHANGING;
-+		else if (pos->needs_confirm && dreq == NULL)
-+			dccp_feat_list_pop(pos);
-
-But then there was the problem that if Confirm options are not retransmitted
-for robustness, feature negotiation fails if packets are lost (e.g. the Ack
-completing the initial handshake). This was first reported by Leandro, full story on
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/why_retransmit_confirms
-(That fix is not part of this patch set, it comes in the second part.)
-
-But after the above "pop" had been removed, the assumption that only "clean"
-options are in the feature list is no longer valid.
-
-Modifying the above to work only for empty Confirm's would take away the
-advantage of retransmission. The pop() would also not work, while your earlier
-suggestion of skipping over empty Confirms does:
-
-+int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
-...	
-+       list_for_each_entry(cur, fn_list, node) {
-+               if (cur->empty_confirm)
-+                       continue;
-...
-
-This is because Confirm options are retransmitted even after activation.
-
-Many thanks indeed.
