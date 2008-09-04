@@ -1,42 +1,57 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: BUG? locking issue(networking?) with latest git
-Date: Thu, 4 Sep 2008 17:14:05 +0300
-Message-ID: <200809041714.05578.denys@visp.net.lb>
-References: <20080904072155.GA4691@ff.dom.local> <200809041246.11255.denys@visp.net.lb> <20080904100206.GB5407@ff.dom.local>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/3] pci: VPD access timeout increase
+Date: Thu, 4 Sep 2008 15:19:46 +0100
+Message-ID: <20080904141944.GE7908@solarflare.com>
+References: <20080827204626.4b65862f@extreme> <20080828111323.GI7908@solarflare.com> <20080903155713.7fab2e19@extreme> <20080904125219.GJ2772@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Matthew Wilcox <matthew@wil.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:36390 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751481AbYIDOP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 10:15:27 -0400
-In-Reply-To: <20080904100206.GB5407@ff.dom.local>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:54624 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750958AbYIDOTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 10:19:53 -0400
 Content-Disposition: inline
+In-Reply-To: <20080904125219.GJ2772@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 04 September 2008, Jarek Poplawski wrote:
-> On Thu, Sep 04, 2008 at 12:46:11PM +0300, Denys Fedoryshchenko wrote:
-> ...
->
-> > I tried to check for any additional logs, but there is nothing seems.
-> > Once i got softlockup for pppd, and server restarted. Other times it is
-> > just getting stuck on any network operations (ifconfig, pppd crashing in
-> > the middle, tc). I am not able to attach to processes by strace/gdb, so
-> > it is difficult to tell even on which point it does crash.
->
-> BTW, I guess, it was checked with 2.6.26 (or .25) with the same config,
-> scripts and similar load and we are sure it's a really new bug?
-config, scripts and everything is completely same.
-It seems with nosmp i am getting watchdog fired (no messages over neconsole). 
-Probably one CPU becoming too busy in this case, and when it is single CPU - 
-such issue becoming critical and results in hardware watchdog triggering.
+Matthew Wilcox wrote:
+> On Wed, Sep 03, 2008 at 03:57:13PM -0700, Stephen Hemminger wrote:
+> > Accessing the VPD area can take a long time. There are comments in the
+> > SysKonnect vendor driver that it can take up to 25ms.  The existing vpd
+> > access code fails consistently on my hardware.
+> 
+> Wow, that's slow.  If you were to try to read all 32k, it'd take more
+> than three minutes!  (I presume it doesn't actually have as much as 32k).
+> 
+> > Change the access routines to:
+> >   * use a mutex rather than spinning with IRQ's disabled and lock held
+> >   * have a longer timeout
+> >   * call schedule while spinning to provide some responsivness
+> 
+> I agree with your approach, but have one minor comment:
+> 
+> > -	spin_lock_irq(&vpd->lock);
+> > +	mutex_lock(&vpd->lock);
+> 
+> This should be:
+> 
+> +	if (mutex_lock_interruptible(&vpd->lock))
+> +		return -EINTR;
+[...]
 
->
-> Jarek P.
+This is fine for the sysfs case, but not if this is called during device
+probe - we don't want signals to modprobe to break device initialisation,
+do we?
 
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
