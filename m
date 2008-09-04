@@ -1,43 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: BUG? locking issue(networking?) with latest git
-Date: Thu, 4 Sep 2008 07:21:56 +0000
-Message-ID: <20080904072155.GA4691@ff.dom.local>
-References: <200809031422.24883.denys@visp.net.lb>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [GIT]: Networking
+Date: Thu, 04 Sep 2008 03:34:02 -0400
+Message-ID: <48BF8F6A.7050106@garzik.org>
+References: <20080903.161341.239039051.davem@davemloft.net> <alpine.LFD.1.10.0809031615450.3515@nehalem.linux-foundation.org> <alpine.LFD.1.10.0809031621160.3515@nehalem.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:17333 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331AbYIDHWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 03:22:04 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so2475682fkq.5
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2008 00:22:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200809031422.24883.denys@visp.net.lb>
+Received: from srv5.dvmed.net ([207.36.208.214]:41037 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754960AbYIDHeI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 03:34:08 -0400
+In-Reply-To: <alpine.LFD.1.10.0809031621160.3515@nehalem.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03-09-2008 13:22, Denys Fedoryshchenko wrote:
-> I am getting strange lockup, all operations (tc, ifconfig,pppd) after few days running pppoe-server.
+Linus Torvalds wrote:
 > 
-> Programgs getting blocked very strange way, i am not able to kill them even.
-> Softlockup detection enabled, lock dependencies (except lock dependency engine debugging), 
-> RT mutexes and deadlock detection enabled too.
+> On Wed, 3 Sep 2008, Linus Torvalds wrote:
+>> What's so hard to understand about this?
 > 
-> I notice this bug few weeks ago, even before latest patches, and seems it still remains.
-> 
+> Here's a simple rule of thumb:
+>  - if it's not on the regression list
+>  - if it's not a reported security hole
+>  - if it's not on the reported oopses list
+> then why are people sending it to me?
 
-Do you mean this didn't happen with some 2.6.27-rc's? (There was quite
-substantial change in ppp_generic with lock_kernel() in 2.6.27-rc1.)
+FWIW, I also upstream fixes for problems that look bad, or are really 
+annoying for users, as long as the fixes are short and sweet, e.g.
 
-> 
-> Here is result of SysRQ +T:
-> 
+David Brownell (1):
+       net/usb/pegasus: avoid hundreds of diagnostics
+Dhananjay Phadke (1):
+       netxen: Remove workaround for chipset quirk
+Komuro (1):
+       pcnet-cs, axnet_cs: add new IDs, remove dup ID with less info
 
-Alas it shows only some tasks waiting for locks. Maybe it's enough for
-someone with better ppp knowledge, but unless there is such a response
-I guess you should better try with PROVE_LOCKING turned on yet.
+The ixgbe fix was a regression fix, and falls into your category list.
 
-Jarek P.
+	Jeff
+
+
