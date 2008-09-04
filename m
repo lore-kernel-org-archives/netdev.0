@@ -1,45 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ne.c fix for hibernate and rmmod oops fix
-Date: Thu, 04 Sep 2008 03:48:39 -0400
-Message-ID: <48BF92D7.8050304@garzik.org>
-References: <20080904030212.GA23493@spacedout.fries.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: SunHME: trying to enable netconsole/netpolling
+Date: Thu, 4 Sep 2008 08:20:17 +0000
+Message-ID: <20080904082017.GB4691@ff.dom.local>
+References: <20080903.135904.18076182.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	Paul Gortmaker <p_gortmaker@yahoo.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Fries <david@fries.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: a.beregalov@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39959 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751331AbYIDHst (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 03:48:49 -0400
-In-Reply-To: <20080904030212.GA23493@spacedout.fries.net>
+Received: from wr-out-0506.google.com ([64.233.184.235]:49135 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895AbYIDIUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 04:20:25 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so2737948wri.5
+        for <netdev@vger.kernel.org>; Thu, 04 Sep 2008 01:20:24 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080903.135904.18076182.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Fries wrote:
-> Andrew Morton, 
+On 03-09-2008 22:59, David Miller wrote:
+> From: "Alexander Beregalov" <a.beregalov@gmail.com>
+> Date: Wed, 3 Sep 2008 20:26:54 +0400
 > 
-> This patch is ready to be merged.
+>> Hi David
+>>
+>> Can you please advice
+>> I am a newbie here.
+>> I am trying to enable netconsole output with sunhme card,
+>> I found that poll_controller is not defined and defined it
+>> as it is defined in other drivers (just to watch if it will work, I
+>> dont understand this code yet)
+>> My patch is in attach.
+>> My card is connected to PCI bus.
 > 
+> It isn't going to work until sunhme is converted to NAPI, and that
+> may never happen.
 > 
-> 
-> This ne2000 and the previous cr4 problem found when enabling suspend to
-> disk on my i486 with a PnP ISA NE2000 and Creative SB Live in the
-> trunk of my car.  It is providing in car podcast entertainment.  Must
-> be a unique setup.
+> So unless someone knowledgable wants to do the work, which certianly
+> is not me, sunhme for now will not support netconsole.
 
-Please send a correct patch format.  The comments quoted above are all 
-that appears when I run the official patch import tools ('git am').
+Alas I'm not someone like this, and probably there are some deeper
+problems here, but I wonder if could try to look at 3c509.c (non-NAPI
+too), especially wrt.  locking, so spin_lock_irqsave /irqrestore() in
+happy_meal_start_xmit() and disable_irq()/enable_irq() in this
+poll_controller wrapper? 
 
-It should be a simple matter of making sure your patch email body starts 
-with "Removing the module would cause a kernel oops as 
-platform_driver_probe" as described in Documentation/SubmittingPatches.
-
-	Jeff
-
-
+Jarek P.
