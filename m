@@ -1,62 +1,85 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: v3 [PATCH 1/1] dccp: Process incoming Change
-	feature-negotiation options
-Date: Thu, 4 Sep 2008 06:51:36 +0200
-Message-ID: <20080904045136.GA3768@gerrit.erg.abdn.ac.uk>
-References: <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-4-git-send-email-gerrit@erg.abdn.ac.uk> <20080823105647.GA15928@gerrit.erg.abdn.ac.uk> <48BCE45E.1080709@cn.fujitsu.com> <20080903042709.GB4105@gerrit.erg.abdn.ac.uk> <48BE28AB.8040905@cn.fujitsu.com>
+Subject: Re: [PATCH 25/37] dccp: Feature activation handlers
+Date: Thu, 4 Sep 2008 07:12:16 +0200
+Message-ID: <20080904051216.GB3768@gerrit.erg.abdn.ac.uk>
+References: <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk> <48BCDE89.7060909@cn.fujitsu.com> <20080903043828.GC4105@gerrit.erg.abdn.ac.uk> <48BE23B9.7020203@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41778 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43134 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751445AbYIDEvw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 00:51:52 -0400
+	id S1751310AbYIDFMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 01:12:40 -0400
 Content-Disposition: inline
-In-Reply-To: <48BE28AB.8040905@cn.fujitsu.com>
+In-Reply-To: <48BE23B9.7020203@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>> +	/*
->>>> +	 *	Unidirectional/simultaneous negotiation of SP features (6.3.1)
->>>> +	 */
->>>> +	entry = dccp_feat_list_lookup(fn, feat, local);
->>>> +	if (entry == NULL) {
->>>> +		if (!dccp_feat_sp_list_ok(feat, val, len))
->>>> +			goto unknown_feature_or_value;
->>>>         
->>> Check for sp feat list should before code "entry =   
->>> dccp_feat_list_lookup(fn, feat, local);",
->>> here only check for features not register by local endpoint, if the   
->>> feature is registed, the validity check is missing?
->>>
->>>     
->> 
->> No, in this case the validity check is performed already as part of the socket
->> registration routines - which in turn end up calling dccp_feat_sp_list_ok.
->> If a user tries to register invalid SP values on the socket, the attempt
->> will fail with EINVAL. If the user does not register values, the feature
->> defaults (6.4) are used, which are valid by definition.
->> The host is conservative in what it allows to send out.
+>> These conditions (should) ensure that the above condition is never
+>> triggered, the test is like an assert() clause.
 >>   
 >
-> The socket registration routines check the feature values local set, but  
-> this place is check the features we *received* from other endpoints.
+> This special case it is not as you said. The packet seq as following:
 >
-> I agree with you here do not need chec as your other mail said:
-> RFC4340 6.6.8
-> Note that server-priority features do not have value limitations, since
-> unknown values are handled as a matter of course.
+> Endpoint A                    Endpoing B
+> REQUEST        --------->
+> (CHANGE L/unknow feature)
+>               <---------     RESPONSE
+>                              (CONFIRM R/empty unknow feature)
+> ACK            ---------->
+>                              call dccp_feat_activate_values()
+>                              -->print DCCP_BUG("Unknown feature %u", cur->feat_num);
 >
-> May be this check "if (!dccp_feat_sp_list_ok(feat, val, len))" is too  
-> strictly for known sp features but not registed by socket.
 >
-Yes that is possible, since in this case the host has not registered any
-preferences, which means that either
- * only the first value is used
- * or negotiation is done against the default value.
+> After Endpoint B send REPONSE with empty CONFIRM R option, the unknow
+> feature is *still remain* in the feature list. dccp_feat_insert_opts()  
+> never clean up
+> those features. So here we can get idx < 0. Features with is not needed  
+> is clean up
+> after active the feat value in dccp_feat_activate_values().
+>
+> int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
+> {
+>    ...
+>    list_for_each_entry_safe(cur, next, fn_list, node)
+>        if (!cur->needs_confirm)
+>            dccp_feat_list_pop(cur);
+>    ...
+> }
+>
+You are right, this is an oversight.
 
-Checking only the first value also gives a bit more robustness. I have
-changed this and will send the full diff after testing and uploading. 
-Thanks again.
+In an earlier revision the code actually removed Confirm options
+immediately, or as soon as the request socket was cloned. Here is an
+early RCS revision of the patch for dccp_feat_insert_opts():
+
++		if (pos->state == FEAT_INITIALISING)
++			pos->state = FEAT_CHANGING;
++		else if (pos->needs_confirm && dreq == NULL)
++			dccp_feat_list_pop(pos);
+
+But then there was the problem that if Confirm options are not retransmitted
+for robustness, feature negotiation fails if packets are lost (e.g. the Ack
+completing the initial handshake). This was first reported by Leandro, full story on
+http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/why_retransmit_confirms
+(That fix is not part of this patch set, it comes in the second part.)
+
+But after the above "pop" had been removed, the assumption that only "clean"
+options are in the feature list is no longer valid.
+
+Modifying the above to work only for empty Confirm's would take away the
+advantage of retransmission. The pop() would also not work, while your earlier
+suggestion of skipping over empty Confirms does:
+
++int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
+...	
++       list_for_each_entry(cur, fn_list, node) {
++               if (cur->empty_confirm)
++                       continue;
+...
+
+This is because Confirm options are retransmitted even after activation.
+
+Many thanks indeed.
