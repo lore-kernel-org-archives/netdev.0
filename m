@@ -1,71 +1,88 @@
-From: "John W. Linville" <linville@tuxdriver.com>
+From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
 Subject: Re: [GIT]: Networking
-Date: Wed, 3 Sep 2008 19:38:26 -0400
-Message-ID: <20080903233826.GC21704@tuxdriver.com>
-References: <20080903.161341.239039051.davem@davemloft.net> <alpine.LFD.1.10.0809031615450.3515@nehalem.linux-foundation.org>
+Date: Wed, 3 Sep 2008 17:01:03 -0700
+Message-ID: <20080904000103.GF5967@tesla>
+References: <20080903.161341.239039051.davem@davemloft.net> <alpine.LFD.1.10.0809031615450.3515@nehalem.linux-foundation.org> <alpine.LFD.1.10.0809031621160.3515@nehalem.linux-foundation.org> <20080903.162603.27086959.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48301 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751709AbYICXp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2008 19:45:29 -0400
+Content-Type: text/plain; charset="us-ascii"
+Cc: "torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.1.10.0809031615450.3515@nehalem.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080903.162603.27086959.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 03, 2008 at 04:20:43PM -0700, Linus Torvalds wrote:
+On Wed, Sep 03, 2008 at 04:26:03PM -0700, David Miller wrote:
+> From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> Date: Wed, 3 Sep 2008 16:24:16 -0700 (PDT)
 > 
-> On Wed, 3 Sep 2008, David Miller wrote:
-> > 
-> > 4) Several iwlwifi fixes:
+> > On Wed, 3 Sep 2008, Linus Torvalds wrote:
+> > >
+> > > What's so hard to understand about this?
+> >
+> > Here's a simple rule of thumb:
+> >  - if it's not on the regression list
+> >  - if it's not a reported security hole
+> >  - if it's not on the reported oopses list
+> > then why are people sending it to me?
+> >
+> > IOW, if it's just another random improvement, and you send it to me
+> > outside of the merge window, then what is the point of the merge window?
 > 
-> Are these really regressions?
+> This is exactly what I've been trying to tell the Intel wireless folks
+> but they refuse to listen.
+
+What I think really happens here IMHO is communication needs to be
+enhanced. I only recently noticed that "regression only" policy for
+2.6.27 for example. I think some of us were rather surprised by it too.
+
+Before snapping at people for not following "orders" we need a clear
+guideline for what should or not be sent. We're all at fault if we are
+not getting this through people. Most likely not many of us subscribe to
+linux-kernel so I would think the next best thing we can do is to get our
+maintainers to communicate to us of new rules and give a few examples of
+what can go in or not.
+
+I trust that should this had been done *well* none of these issue would have
+come up and we can avoid angry exchanges.
+
+> I just won't take their stuff until they get their act in gear.
 > 
-> And if they aren't, why are they here and now?
-> 
-> Are people really so _stupid_ that they think that no fixes ever cause new 
-> regressions, so that they think that because they are "fixes" they are 
-> safe?
+> No problem.
 
-I can't say for sure which are true regressions and which ones are
-merely important fixes for code we changed and broke in the process.
-I can say that these patches have been through several rounds of
-review both within Intel and (more importantly) in the open on the
-wireless mailing list.  We recognize the risks and we believe that
-the potential benefits outweigh them.
+On the other side of the spectrum, and to try to understand this better,
+since ath9k is new we obviously cannot get regressions, this means
+unless we find a security hole in our driver or if we can generate an
+oops with 2.6.27 we cannot send patches for ath9k for 2.6.27?
 
-> Please, guys. I complained once about this already. What's so hard to 
-> understand?
-> 
-> Do development _separately_. Push new development during the merge window. 
-> Don't do it later. And don't think that just because it's a 'fix', it 
-> should go upstream asap.
-> 
-> What's so hard to understand about this?
+It seems to make sense to me for purposes of stabalizing the kernel for
+sure, however, on the other hand it does also make 2.6.27 miss out on a
+few possible small fixes which may appear here and there.
 
-I believe not only that the Intel wireless team is getting this
-message but also that the message is being reinforced to them by
-certain higher profile community members that are also Intel employees.
+What will happen then is distributions will end up using their own
+patches on top of the kernel, or users using something like
+compat-wireless to get more bleeding edge stuff. This is exactly what we
+want to avoid.
 
-> I'll pull this YET AGAIN, but I'm getting really fed up with telling the 
-> same people the same thing over and over again. It looks like the iwlwifi 
-> people don't understand what "merge window" means, and thinks that any 
-> random fix for any random issue should always just be pushed up.
+To avoid it I do think another exception needs to be made for patches:
 
-I appreciate your indulgence in this matter, just as I appreciate both
-you and the rest of the community reinforcing the messages I have been
-trying to communicate to the Intel wireless team about the process.
-I think they are getting the message and that we will not need to
-revisit this topic again too soon.
+* Small fixes which make something that was not working, which was
+  supposed to work work
 
-Thanks,
+If these type of patches cannot be submitted we will have a stable
+kernel for sure but yet buggy leaving people to opt for alternatives
+for small fixes or driver updates.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
