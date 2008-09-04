@@ -1,76 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/3] pci: VPD access timeout increase
-Date: Thu, 4 Sep 2008 09:32:35 -0700
-Message-ID: <20080904093235.30ade46b@extreme>
-References: <20080827204626.4b65862f@extreme>
-	<20080828111323.GI7908@solarflare.com>
-	<20080903155713.7fab2e19@extreme>
-	<20080904125219.GJ2772@parisc-linux.org>
-	<20080904141944.GE7908@solarflare.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 10/38] netns ct: per-netns expectations
+Date: Thu, 04 Sep 2008 18:43:50 +0200
+Message-ID: <48C01046.2070704@trash.net>
+References: <20080821220040.GJ31136@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <matthew@wil.cx>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:58271 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751404AbYIDQci (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 12:32:38 -0400
-In-Reply-To: <20080904141944.GE7908@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: adobriyan@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080821220040.GJ31136@x200.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2008 15:19:46 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
-
-> Matthew Wilcox wrote:
-> > On Wed, Sep 03, 2008 at 03:57:13PM -0700, Stephen Hemminger wrote:
-> > > Accessing the VPD area can take a long time. There are comments in the
-> > > SysKonnect vendor driver that it can take up to 25ms.  The existing vpd
-> > > access code fails consistently on my hardware.
-
-It's bad but not that bad more details are:
-
-				MIN		MAX
- -------------------------------------------------------------------
- write				1.8 ms		3.6 ms
- internal write cyles		0.7 ms		7.0 ms
- -------------------------------------------------------------------
- over all program time	 	2.5 ms		10.6 ms
- read				1.3 ms		2.6 ms
- -------------------------------------------------------------------
- over all 			3.8 ms		13.2 ms
-
-
-Usable VPD is limited to 2K so worst case read is 27 seconds.
-Note: there doesn't appear to be an standard for VPD size register in
-PCI spec, but there is a device specific register.
-
-> > Wow, that's slow.  If you were to try to read all 32k, it'd take more
-> > than three minutes!  (I presume it doesn't actually have as much as 32k).
-> > 
-> > > Change the access routines to:
-> > >   * use a mutex rather than spinning with IRQ's disabled and lock held
-> > >   * have a longer timeout
-> > >   * call schedule while spinning to provide some responsivness
-> > 
-> > I agree with your approach, but have one minor comment:
-> > 
-> > > -	spin_lock_irq(&vpd->lock);
-> > > +	mutex_lock(&vpd->lock);
-> > 
-> > This should be:
-> > 
-> > +	if (mutex_lock_interruptible(&vpd->lock))
-> > +		return -EINTR;
-> [...]
+adobriyan@gmail.com wrote:
+> Make per-netns expectation hash and expectation count.
 > 
-> This is fine for the sysfs case, but not if this is called during device
-> probe - we don't want signals to modprobe to break device initialisation,
-> do we?
+> Expectation always belongs to netns to which it's master conntrack belongs.
+> This is natural and allows to not bloat expectations.
+> 
+> Proc files and leaf users in protocol modules are stubbed to init_net,
+> this is temporary.
 
-Why not, it makes sense to allow killing a stuck modprobe.
+This one again introduces overly long lines, please fix up
+the remaining patches yourself and resend.
+
+I'll upload my current tree to kernel.org so you can use it
+as a base (will take a couple of minutes):
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git
+
