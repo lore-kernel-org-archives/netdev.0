@@ -1,87 +1,42 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH RESEND] ipv6: return with appropriate error code when
- sending RH0 using setsockopt()
-Date: Thu, 04 Sep 2008 09:54:11 -0400
-Message-ID: <48BFE883.7000203@hp.com>
-References: <48BE4DA2.20800@cn.fujitsu.com> <48BED93E.2000204@hp.com> <48BF77D3.5010105@cn.fujitsu.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: BUG? locking issue(networking?) with latest git
+Date: Thu, 4 Sep 2008 17:14:05 +0300
+Message-ID: <200809041714.05578.denys@visp.net.lb>
+References: <20080904072155.GA4691@ff.dom.local> <200809041246.11255.denys@visp.net.lb> <20080904100206.GB5407@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:4352 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072AbYIDNyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 09:54:13 -0400
-In-Reply-To: <48BF77D3.5010105@cn.fujitsu.com>
+Received: from relay2.globalproof.net ([194.146.153.25]:36390 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751481AbYIDOP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 10:15:27 -0400
+In-Reply-To: <20080904100206.GB5407@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shan Wei wrote:
-> Brian Haley =D0=B4=B5=C0:
->> Shan Wei wrote:
->=20
-> ...snip...
->=20
->> There's actually another bug here and in the sendmsg() path in that =
-you
->> can set the hdrlen and segments_left fields to be invalid (according=
- to
->> RFC3775), as long as the math works out (segments * 2 =3D=3D length)=
-=2E
->> Segments_left should always be 1 and hdrlen 2 for a Type2 routing
->> header.  The packet should be dropped at the destination, but we
->> probably shouldn't send it.  I can send a patch for that later.
->>
-> I check the RFC3775. May be the following patch is good to you.
->=20
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
-> ---
->  net/ipv6/datagram.c      |    8 ++++++--
->  net/ipv6/ipv6_sockglue.c |    7 +++++--
->  2 files changed, 11 insertions(+), 4 deletions(-)
->=20
-> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-> index 410046a..cfd499a 100644
-> --- a/net/ipv6/datagram.c
-> +++ b/net/ipv6/datagram.c
-> @@ -675,8 +675,12 @@ int datagram_send_ctl(struct net *net,
->  				goto exit_f;
->  			}
-> =20
-> -			/* segments left must also match */
-> -			if ((rthdr->hdrlen >> 1) !=3D rthdr->segments_left) {
-> +			/* Per RFC3775, for a type 2 routing header,
-> +			 * the Hdr Ext Len MUST be 2 and the Segments Left
-> +			 * MUST be 1.
-> +			 */
-> +			if ((rthdr->hdrlen !=3D 2) &&
-> +			    (rthdr->segments_left !=3D 1)) {
->  				err =3D -EINVAL;
->  				goto exit_f;
->  			}
-> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-> index 4e5eac3..b967965 100644
-> --- a/net/ipv6/ipv6_sockglue.c
-> +++ b/net/ipv6/ipv6_sockglue.c
-> @@ -377,8 +377,11 @@ static int do_ipv6_setsockopt(struct sock *sk, i=
-nt level, int optname,
->  				goto sticky_done;
->  			}
-> =20
-> -			if ((rthdr->hdrlen & 1) ||
-> -			    (rthdr->hdrlen >> 1) !=3D rthdr->segments_left)
-> +			/* Per RFC3775, for a type 2 routing header,
-> +			 * the Hdr Ext Len MUST be 2 and the Segments Left
-> +			 * MUST be 1.
-> +			 */
-> +			if ((rthdr->hdrlen !=3D 2) && (rthdr->segments_left !=3D 1))
->  				goto sticky_done;
->  		}
+On Thursday 04 September 2008, Jarek Poplawski wrote:
+> On Thu, Sep 04, 2008 at 12:46:11PM +0300, Denys Fedoryshchenko wrote:
+> ...
+>
+> > I tried to check for any additional logs, but there is nothing seems.
+> > Once i got softlockup for pppd, and server restarted. Other times it is
+> > just getting stuck on any network operations (ifconfig, pppd crashing in
+> > the middle, tc). I am not able to attach to processes by strace/gdb, so
+> > it is difficult to tell even on which point it does crash.
+>
+> BTW, I guess, it was checked with 2.6.26 (or .25) with the same config,
+> scripts and similar load and we are sure it's a really new bug?
+config, scripts and everything is completely same.
+It seems with nosmp i am getting watchdog fired (no messages over neconsole). 
+Probably one CPU becoming too busy in this case, and when it is single CPU - 
+such issue becoming critical and results in hardware watchdog triggering.
 
-I think these checks need to be in the Type 2 specific code since if we
-add support for Type 7, for example, then we'd have to change this
-again.  I"'ll send something out soon.
+>
+> Jarek P.
 
--Brian
+
