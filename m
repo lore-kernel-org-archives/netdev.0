@@ -1,8 +1,8 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 20/38] netns ct: NOTRACK in netns
-Date: Thu, 04 Sep 2008 18:54:16 +0200
-Message-ID: <48C012B8.10606@trash.net>
-References: <20080821220432.GT31136@x200.localdomain>
+Subject: Re: [PATCH 21/25] netns ct: per-netns event cache
+Date: Thu, 04 Sep 2008 18:58:38 +0200
+Message-ID: <48C013BE.3060800@trash.net>
+References: <20080821220445.GU31136@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,40 +10,34 @@ Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	containers@lists.linux-foundation.org
 To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33589 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:33681 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048AbYIDQyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 12:54:19 -0400
-In-Reply-To: <20080821220432.GT31136@x200.localdomain>
+	with ESMTP id S1751002AbYIDQ6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 12:58:39 -0400
+In-Reply-To: <20080821220445.GU31136@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 adobriyan@gmail.com wrote:
-> Make untracked conntrack per-netns. Compare conntracks with relevant
-> untracked one.
-> 
-> The following code you'll start laughing at this code:
-> 
-> 	if (ct == ct->ct_net->ct.untracked)
-> 		...
-> 
-> let me remind you that ->ct_net is set in only one place, and never
-> overwritten later.
-> 
-> All of this requires some surgery with headers, otherwise horrible circular
-> dependencies. And we lost nf_ct_is_untracked() as function, it became macro.
+>  static inline void
+> -nf_conntrack_event_cache(enum ip_conntrack_events event,
+> +nf_conntrack_event_cache(struct net *net, enum ip_conntrack_events event,
+>  			 const struct sk_buff *skb)
+>  {
 
-I think you could avoid this mess by using a struct nf_conntrack
-for the untracked conntrack instead of struct nf_conn. It shouldn't
-make any difference since its ignored anyways.
+Passing the conntrack instead of the struct net and the skb
+would probably keep the callers cleaner.
 
-> 
->  struct netns_ct {
->  	atomic_t		count;
-> @@ -12,5 +13,7 @@ struct netns_ct {
->  	struct hlist_head	*expect_hash;
->  	int			expect_vmalloc;
->  	struct hlist_head	unconfirmed;
-> +	/* Fake conntrack entry for untracked connections */
-> +	struct nf_conn		untracked;
->  };
+>  	struct nf_conn *ct = (struct nf_conn *)skb->nfct;
+>  	struct nf_conntrack_ecache *ecache;
+>  
+>  	local_bh_disable();
+> -	ecache = &__get_cpu_var(nf_conntrack_ecache);
+> +	ecache = per_cpu_ptr(net->ct.ecache, raw_smp_processor_id());
+>  	if (ct != ecache->ct)
+>  		__nf_ct_event_cache_init(ct);
+>  	ecache->events |= event;
+> @@ -60,16 +58,29 @@ nf_ct_expect_event(enum ip_conntrack_expect_events event,
+>  	atomic_notifier_call_chain(&nf_ct_expect_chain, event, exp);
+>  }
+>  
