@@ -1,90 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/4] sky2: set VPD size
-Date: Thu, 04 Sep 2008 13:56:40 -0700
-Message-ID: <20080904205718.819202931@vyatta.com>
-References: <20080904205636.130211321@vyatta.com>
-Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org
-To: Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: linux-next: Tree for September 3
+Date: Thu, 4 Sep 2008 15:22:48 -0700
+Message-ID: <20080904152248.50773a6d.akpm@linux-foundation.org>
+References: <20080903191619.6b6b230e.sfr@canb.auug.org.au>
+	<20080903214634.ea17ff53.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809032201510.3378@nehalem.linux-foundation.org>
+	<20080903223318.84b6ce8b.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040045190.3378@nehalem.linux-foundation.org>
+	<20080904012544.cabed847.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040143350.3452@nehalem.linux-foundation.org>
+	<20080904015701.5959623a.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040203510.3452@nehalem.linux-foundation.org>
+	<20080904104554.32ffebea.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809041058140.3400@nehalem.linux-foundation.org>
+	<20080904113408.d47c65f6.akpm@linux-foundation.org>
+	<m163pb4pru.fsf@frodo.ebiederm.org>
+	<20080904134148.0fde4508.akpm@linux-foundation.org>
+	<m1zlmn39oy.fsf@frodo.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yhlu.kernel@gmail.com, ink@jurassic.park.msu.ru,
+	jbarnes@virtuousgeek.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, dwmw2@infradead.org, sam@ravnborg.org,
+	johnstul@us.ibm.com, tglx@linutronix.de
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([69.59.150.140]:39264 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754734AbYIDVsk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 17:48:40 -0400
-Content-Disposition: inline; filename=sky2-vpd-size.patch
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55252 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754622AbYIDWXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 18:23:40 -0400
+In-Reply-To: <m1zlmn39oy.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Read configuration register during probe and use it to size the
-available VPD. Move existing code using same register slightly
-earlier in probe handling.
+On Thu, 04 Sep 2008 14:03:41 -0700
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Andrew Morton <akpm@linux-foundation.org> writes:
+> 
+> > On Thu, 04 Sep 2008 13:31:01 -0700
+> > ebiederm@xmission.com (Eric W. Biederman) wrote:
+> >
+> >> >> are you sure it's a plain tree of mine, without any of the patches 
+> >> >> floating around between Eric/Al?
+> >> >
+> >> > yup, it's yesterday's mainline.
+> >> 
+> >> Does the problem happen if you disable selinux?
+> >> 
+> >> This feels like a case of selinux being over zealous.
+> >
+> > yeah, adding `selinux=0' to the boot command line fixes it.
+> 
+> The proc generic directory back structure is the same.  As requested by
+> the selinux folks.  So I don't expect there is much more we can do on
+> the /proc side.
+> 
+> When we get the interaction bug between the VFS and /proc/net fixed I wonder
+> if there will be some more selinux fall out.  Something to think about.
 
---- a/drivers/net/sky2.c	2008-09-04 11:27:34.000000000 -0700
-+++ b/drivers/net/sky2.c	2008-09-04 11:44:49.000000000 -0700
-@@ -4281,6 +4281,7 @@ static int __devinit sky2_probe(struct p
- 	struct net_device *dev;
- 	struct sky2_hw *hw;
- 	int err, using_dac = 0, wol_default;
-+	u32 reg;
- 	char buf1[16];
- 
- 	err = pci_enable_device(pdev);
-@@ -4314,6 +4315,34 @@ static int __devinit sky2_probe(struct p
- 		}
- 	}
- 
-+	/* Get configuration information
-+	 * Note: only regular PCI config access once to test for HW issues
-+	 *       other PCI access through shared memory for speed and to
-+	 *	 avoid MMCONFIG problems.
-+	 */
-+	err = pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
-+	if (err) {
-+		dev_err(&pdev->dev, "PCI read config failed\n");
-+		goto err_out_free_regions;
-+	}
-+
-+	/* size of available VPD, only impact sysfs */
-+	err = pci_vpd_size(pdev, 1ul << (((reg & PCI_VPD_ROM_SZ) >> 14) + 8));
-+	if (err)
-+		dev_warn(&pdev->dev, "Can't set VPD size\n");
-+
-+#ifdef __BIG_ENDIAN
-+	/* The sk98lin vendor driver uses hardware byte swapping but
-+	 * this driver uses software swapping.
-+	 */
-+	reg &= ~PCI_REV_DESC;
-+	err = pci_write_config_dword(pdev,PCI_DEV_REG2, reg);
-+	if (err) {
-+		dev_err(&pdev->dev, "PCI write config failed\n");
-+		goto err_out_free_regions;
-+	}
-+#endif
-+
- 	wol_default = pci_wake_enabled(pdev) ? WAKE_MAGIC : 0;
- 
- 	err = -ENOMEM;
-@@ -4331,18 +4360,6 @@ static int __devinit sky2_probe(struct p
- 		goto err_out_free_hw;
- 	}
- 
--#ifdef __BIG_ENDIAN
--	/* The sk98lin vendor driver uses hardware byte swapping but
--	 * this driver uses software swapping.
--	 */
--	{
--		u32 reg;
--		reg = sky2_pci_read32(hw, PCI_DEV_REG2);
--		reg &= ~PCI_REV_DESC;
--		sky2_pci_write32(hw, PCI_DEV_REG2, reg);
--	}
--#endif
--
- 	/* ring for status responses */
- 	hw->st_le = pci_alloc_consistent(pdev, STATUS_LE_BYTES, &hw->st_dma);
- 	if (!hw->st_le)
-
--- 
-
+fyi, that machine is x86_32-on-FC5.  My x86_64-on-FC6 test box is
+also running selinux and has the same bug.
