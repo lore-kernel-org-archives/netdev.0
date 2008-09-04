@@ -1,152 +1,239 @@
-From: "Johann Baudy" <johaahn@gmail.com>
-Subject: Re: Packet mmap: TX RING and zero copy
-Date: Thu, 4 Sep 2008 16:44:15 +0200
-Message-ID: <7e0dd21a0809040744q3ee65695uc33f6cc26a1fe4dd@mail.gmail.com>
-References: <7e0dd21a0809030056q2bfd0344kf3b86a90a4b3fc5f@mail.gmail.com>
-	 <20080903.040626.198546183.davem@davemloft.net>
-	 <7e0dd21a0809030605odc28306re8b7640f0632ac36@mail.gmail.com>
-	 <20080903132734.GA17541@2ka.mipt.ru>
-	 <7e0dd21a0809030800v5e39808bl2f22893bc8214c2a@mail.gmail.com>
-	 <20080903151340.GA7566@2ka.mipt.ru>
-	 <7e0dd21a0809030858h7fdc454dj33acc6be25a0aab@mail.gmail.com>
-	 <20080903164346.GA6729@2ka.mipt.ru>
-	 <7e0dd21a0809031330i1363c4aema9c57ef06a3d5279@mail.gmail.com>
-	 <20080903220347.GA22395@2ka.mipt.ru>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: latest git crash (BUG/rt_fill_info)
+Date: Thu, 4 Sep 2008 17:51:03 +0300
+Message-ID: <200809041751.04163.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.238]:63499 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658AbYIDOoQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 10:44:16 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so3325868rvb.1
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2008 07:44:16 -0700 (PDT)
-In-Reply-To: <20080903220347.GA22395@2ka.mipt.ru>
+Received: from relay2.globalproof.net ([194.146.153.25]:43452 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751733AbYIDOwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 10:52:25 -0400
+Received: from [195.69.208.252] (unknown [195.69.208.252])
+	by relay2.globalproof.net (Postfix) with ESMTP id 756C0131011
+	for <netdev@vger.kernel.org>; Thu,  4 Sep 2008 17:52:53 +0300 (EEST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Evgeniy,
+Single processor, working as NAT at office.
+I will try to reproduce the bug. Crash is happening on "light" traffic, after 10-20 minutes of usage.
 
-
-> Looks like you try to sendfile() over packet socket.
-> Both tcp and udp sockets have sendpage method.
->
-> Or your hardware or driver do not support needed fucntionality, so
-> tcp_sendpage() falls back to sock_no_sendpage(). From your dump I thi=
-nk
-> it is the first case above. Well, after I read it again, I found word
-> packet_sendmsg(), which explains everything. Please use tcp or udp
-> socket for splice/sendfile test.
->
-
-I'm finally able to run a full zero copy mechanism with UDP socket as y=
-ou said.
-Unfortunately, I need at least one vmsplice() system call per UDP
-packet (vmsplice call()).
-mere vmsplice(mem to pipe) cost much (80=B5s of CPU). And splice(pipe t=
-o
-socket) call is worst...
-80us is approximately the duration of 12Kbytes sent at 1Gbps. As I
-need to send packet of 7200bytes (with no frag)...
-I can't use this mechanism unfortunaltely. I've only reached 20Mbytes/s=
-=2E
-
-You can find below a FTRACE of vmsplice(), if you find something
-abnormal ... :) :
-(80=B5s result is an average of vmsplice() duration thanks to
-gettimeofday(): WITHOUT FTRACE IN KERNEL CONFIG)
-
-      main-849   [00] ..  1 4154502892.139088: sys_gettimeofday
-<-ret_from_syscall
-            main-849   [00] ..  1 4154502892.139090: do_gettimeofday
-<-sys_gettimeofday
-            main-849   [00] ..  1 4154502892.139092: getnstimeofday
-<-do_gettimeofday
-            main-849   [00] ..  1 4154502892.139100: sys_vmsplice
-<-ret_from_syscall
-            main-849   [00] ..  1 4154502892.139107: fget_light <-sys_v=
-msplice
-            main-849   [00] ..  1 4154502892.139118: rt_down_read <-sys=
-_vmsplice
-            main-849   [00] ..  1 4154502892.139120: __rt_down_read
-<-rt_down_read
-            main-849   [00] ..  1 4154502892.139124:
-rt_mutex_down_read <-__rt_down_read
-            main-849   [00] ..  1 4154502892.139132: pagefault_disable
-<-sys_vmsplice
-            main-849   [00] ..  1 4154502892.139136: pagefault_enable
-<-sys_vmsplice
-            main-849   [00] ..  1 4154502892.139141: get_user_pages
-<-sys_vmsplice
-            main-849   [00] ..  1 4154502892.139147: find_extend_vma
-<-get_user_pages
-            main-849   [00] ..  1 4154502892.139150: find_vma <-find_ex=
-tend_vma
-            main-849   [00] ..  1 4154502892.139158: _cond_resched
-<-get_user_pages
-            main-849   [00] ..  1 4154502892.139161: follow_page
-<-get_user_pages
-            main-849   [00] ..  1 4154502892.139165: rt_spin_lock <-fol=
-low_page
-            main-849   [00] ..  1 4154502892.139167: __rt_spin_lock
-<-rt_spin_lock
-            main-849   [00] ..  1 4154502892.139171: vm_normal_page
-<-follow_page
-            main-849   [00] ..  1 4154502892.139176:
-mark_page_accessed <-follow_page
-            main-849   [00] ..  1 4154502892.139180: rt_spin_unlock
-<-follow_page
-            main-849   [00] ..  1 4154502892.139185: flush_dcache_page
-<-get_user_pages
-            main-849   [00] ..  1 4154502892.139192: rt_up_read <-sys_v=
-msplice
-            main-849   [00] ..  1 4154502892.139194: rt_mutex_up_read
-<-rt_up_read
-            main-849   [00] ..  1 4154502892.139203: splice_to_pipe
-<-sys_vmsplice
-            main-849   [00] ..  1 4154502892.139206: _mutex_lock
-<-splice_to_pipe
-            main-849   [00] ..  1 4154502892.139209: rt_mutex_lock <-_m=
-utex_lock
-            main-849   [00] ..  1 4154502892.139217: _mutex_unlock
-<-splice_to_pipe
-            main-849   [00] ..  1 4154502892.139221: rt_mutex_unlock
-<-_mutex_unlock
-            main-849   [00] ..  1 4154502892.139224: kill_fasync
-<-splice_to_pipe
-            main-849   [00] ..  1 4154502892.139235: sys_gettimeofday
-<-ret_from_syscall
-            main-849   [00] ..  1 4154502892.139237: do_gettimeofday
-<-sys_gettimeofday
-            main-849   [00] ..  1 4154502892.139239: getnstimeofday
-<-do_gettimeofday
-
-
-So, I will return to work on my circular buffer.
-This way I can control (ethernet frame length)*(number of frame)/
-(number of system call) ratio.
-
-Thanks to splice kernel and pktgen code analyses, I've also found a
-clean way to perform
-zero copy between my circular buffer and socket buffer. I will test it
-and I'll let you know
-changes and results.
-
-Many thanks for your help,
-Johann Baudy
-
-
-
-
-
-
-
-
-
---=20
-Johann Baudy
-johaahn@gmail.com
+Sep  4 17:43:41 x.x.x.x [ 1084.917877] BUG: unable to handle kernel 
+Sep  4 17:43:41 x.x.x.x paging request
+Sep  4 17:43:41 x.x.x.x at 84e8dc55
+Sep  4 17:43:41 x.x.x.x [ 1084.917943] IP:
+Sep  4 17:43:41 x.x.x.x [<c02826be>] rt_fill_info+0x329/0x33f
+Sep  4 17:43:41 x.x.x.x [ 1084.918006] Oops: 0000 [#1] 
+Sep  4 17:43:41 x.x.x.x SMP 
+Sep  4 17:43:41 x.x.x.x 
+Sep  4 17:43:41 x.x.x.x [ 1084.918033] Modules linked in:
+Sep  4 17:43:41 x.x.x.x xt_tcpudp
+Sep  4 17:43:41 x.x.x.x netconsole
+Sep  4 17:43:41 x.x.x.x configfs
+Sep  4 17:43:41 x.x.x.x ipt_MASQUERADE
+Sep  4 17:43:41 x.x.x.x iptable_nat
+Sep  4 17:43:41 x.x.x.x nf_nat
+Sep  4 17:43:41 x.x.x.x nf_conntrack_ipv4
+Sep  4 17:43:41 x.x.x.x nf_conntrack
+Sep  4 17:43:41 x.x.x.x rtc_cmos
+Sep  4 17:43:41 x.x.x.x rtc_core
+Sep  4 17:43:41 x.x.x.x rtc_lib
+Sep  4 17:43:41 x.x.x.x iptable_filter
+Sep  4 17:43:41 x.x.x.x ip_tables
+Sep  4 17:43:41 x.x.x.x x_tables
+Sep  4 17:43:41 x.x.x.x 8021q
+Sep  4 17:43:41 x.x.x.x garp
+Sep  4 17:43:41 x.x.x.x stp
+Sep  4 17:43:41 x.x.x.x llc
+Sep  4 17:43:41 x.x.x.x tun
+Sep  4 17:43:41 x.x.x.x loop
+Sep  4 17:43:41 x.x.x.x tulip
+Sep  4 17:43:41 x.x.x.x r8169
+Sep  4 17:43:41 x.x.x.x sky2
+Sep  4 17:43:41 x.x.x.x via_velocity
+Sep  4 17:43:41 x.x.x.x via_rhine
+Sep  4 17:43:41 x.x.x.x sis900
+Sep  4 17:43:41 x.x.x.x ne2k_pci
+Sep  4 17:43:41 x.x.x.x 8390
+Sep  4 17:43:41 x.x.x.x skge
+Sep  4 17:43:41 x.x.x.x tg3
+Sep  4 17:43:41 x.x.x.x libphy
+Sep  4 17:43:41 x.x.x.x 8139too
+Sep  4 17:43:41 x.x.x.x e1000
+Sep  4 17:43:41 x.x.x.x e100
+Sep  4 17:43:41 x.x.x.x usb_storage
+Sep  4 17:43:41 x.x.x.x mtdblock
+Sep  4 17:43:41 x.x.x.x mtd_blkdevs
+Sep  4 17:43:41 x.x.x.x usbhid
+Sep  4 17:43:41 x.x.x.x ohci_hcd
+Sep  4 17:43:41 x.x.x.x uhci_hcd
+Sep  4 17:43:41 x.x.x.x ehci_hcd
+Sep  4 17:43:41 x.x.x.x usbcore
+Sep  4 17:43:41 x.x.x.x 
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] 
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] Pid: 0, comm: swapper Not tainted (2.6.27-rc5-build-0034-00131-g5f17cfc #6)
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] EIP: 0060:[<c02826be>] EFLAGS: 00010293 CPU: 0
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] EIP is at rt_fill_info+0x329/0x33f
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] EAX: ceeab300 EBX: 00000000 ECX: 00000000 EDX: cee93000
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] ESI: ceeab300 EDI: cee98820 EBP: c098cf00 ESP: c098cee8
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] Process swapper (pid: 0, ti=c098c000 task=c038e3cc task.ti=c03b5000)
+Sep  4 17:43:41 x.x.x.x 
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] Stack: 
+Sep  4 17:43:41 x.x.x.x c028569a 
+Sep  4 17:43:41 x.x.x.x ceeab330 
+Sep  4 17:43:41 x.x.x.x c098cf18 
+Sep  4 17:43:41 x.x.x.x cee98820 
+Sep  4 17:43:41 x.x.x.x ceeab300 
+Sep  4 17:43:41 x.x.x.x ceeab330 
+Sep  4 17:43:41 x.x.x.x c098cf18 
+Sep  4 17:43:41 x.x.x.x c028589d 
+Sep  4 17:43:41 x.x.x.x 
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]        
+Sep  4 17:43:41 x.x.x.x cf8dd800 
+Sep  4 17:43:41 x.x.x.x ceeab300 
+Sep  4 17:43:41 x.x.x.x c03a32fc 
+Sep  4 17:43:41 x.x.x.x c03b34a0 
+Sep  4 17:43:41 x.x.x.x c098cf54 
+Sep  4 17:43:41 x.x.x.x c026a9f8 
+Sep  4 17:43:41 x.x.x.x cf8dd800 
+Sep  4 17:43:41 x.x.x.x c03b34b8 
+Sep  4 17:43:41 x.x.x.x 
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]        
+Sep  4 17:43:41 x.x.x.x cf8dd800 
+Sep  4 17:43:41 x.x.x.x 00000000 
+Sep  4 17:43:41 x.x.x.x 00000001 
+Sep  4 17:43:41 x.x.x.x 00080000 
+Sep  4 17:43:41 x.x.x.x ceeab300 
+Sep  4 17:43:41 x.x.x.x ceeab3b0 
+Sep  4 17:43:41 x.x.x.x c02775e4 
+Sep  4 17:43:41 x.x.x.x ceeab3b0 
+Sep  4 17:43:41 x.x.x.x 
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] Call Trace:
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c028569a>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x ip_rcv_finish+0x2a6/0x2bc
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c028589d>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x ip_rcv+0x1ed/0x217
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c026a9f8>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x netif_receive_skb+0x3cd/0x400
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c02775e4>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x eth_type_trans+0x28/0xcc
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<d08e244e>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x rtl8139_poll+0x270/0x391 [8139too]
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c0269414>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x net_rx_action+0xbb/0x1e5
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c012514f>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x __do_softirq+0x7b/0xf4
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c01250d4>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x __do_softirq+0x0/0xf4
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c01060c7>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x do_softirq+0x65/0xb6
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c014a395>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x handle_fasteoi_irq+0x0/0xb6
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c0124d74>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x irq_exit+0x44/0x79
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c010604c>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x do_IRQ+0xae/0xc4
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c010429c>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x common_interrupt+0x28/0x30
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c013007b>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x sys_clock_getres+0x43/0x84
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c010903e>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x default_idle+0x32/0x51
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c0102a03>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x cpu_idle+0xd4/0xf5
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  [<c02b9992>] 
+Sep  4 17:43:41 x.x.x.x ? 
+Sep  4 17:43:41 x.x.x.x rest_init+0x4e/0x50
+Sep  4 17:43:41 x.x.x.x [ 1084.918318]  =======================
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] Code: 
+Sep  4 17:43:41 x.x.x.x 75 
+Sep  4 17:43:41 x.x.x.x e8 
+Sep  4 17:43:41 x.x.x.x e8 
+Sep  4 17:43:41 x.x.x.x 19 
+Sep  4 17:43:41 x.x.x.x 06 
+Sep  4 17:43:41 x.x.x.x ff 
+Sep  4 17:43:41 x.x.x.x ff 
+Sep  4 17:43:41 x.x.x.x 83 
+Sep  4 17:43:41 x.x.x.x c4 
+Sep  4 17:43:41 x.x.x.x 10 
+Sep  4 17:43:41 x.x.x.x 85 
+Sep  4 17:43:41 x.x.x.x c0 
+Sep  4 17:43:41 x.x.x.x 78 
+Sep  4 17:43:41 x.x.x.x 13 
+Sep  4 17:43:41 x.x.x.x 8b 
+Sep  4 17:43:41 x.x.x.x 86 
+Sep  4 17:43:41 x.x.x.x 9c 
+Sep  4 17:43:41 x.x.x.x 00 
+Sep  4 17:43:41 x.x.x.x 00 
+Sep  4 17:43:41 x.x.x.x 00 
+Sep  4 17:43:41 x.x.x.x 8b 
+Sep  4 17:43:41 x.x.x.x 55 
+Sep  4 17:43:41 x.x.x.x dc 
+Sep  4 17:43:41 x.x.x.x 2b 
+Sep  4 17:43:41 x.x.x.x 45 
+Sep  4 17:43:41 x.x.x.x dc 
+Sep  4 17:43:41 x.x.x.x 89 
+Sep  4 17:43:41 x.x.x.x 02 
+Sep  4 17:43:41 x.x.x.x 8b 
+Sep  4 17:43:41 x.x.x.x 46 
+Sep  4 17:43:41 x.x.x.x 50 
+Sep  4 17:43:41 x.x.x.x eb 
+Sep  4 17:43:41 x.x.x.x 18 
+Sep  4 17:43:41 x.x.x.x 8b 
+Sep  4 17:43:41 x.x.x.x 8e 
+Sep  4 17:43:41 x.x.x.x a8 
+Sep  4 17:43:41 x.x.x.x 00 
+Sep  4 17:43:41 x.x.x.x 00 
+Sep  4 17:43:41 x.x.x.x 00 
+Sep  4 17:43:41 x.x.x.x 89 
+Sep  4 17:43:41 x.x.x.x f0 
+Sep  4 17:43:41 x.x.x.x 29 
+Sep  4 17:43:41 x.x.x.x 4d 
+Sep  4 17:43:41 x.x.x.x unparseable log message: "<dc> "
+Sep  4 17:43:41 x.x.x.x 8b 
+Sep  4 17:43:41 x.x.x.x 55 
+Sep  4 17:43:41 x.x.x.x dc 
+Sep  4 17:43:41 x.x.x.x e8 
+Sep  4 17:43:41 x.x.x.x 84 
+Sep  4 17:43:41 x.x.x.x 22 
+Sep  4 17:43:41 x.x.x.x fe 
+Sep  4 17:43:41 x.x.x.x ff 
+Sep  4 17:43:41 x.x.x.x b8 
+Sep  4 17:43:41 x.x.x.x a6 
+Sep  4 17:43:41 x.x.x.x ff 
+Sep  4 17:43:41 x.x.x.x ff 
+Sep  4 17:43:41 x.x.x.x ff 
+Sep  4 17:43:41 x.x.x.x 8d 
+Sep  4 17:43:41 x.x.x.x 65 
+Sep  4 17:43:41 x.x.x.x f4 
+Sep  4 17:43:41 x.x.x.x 5b 
+Sep  4 17:43:41 x.x.x.x 5e 
+Sep  4 17:43:41 x.x.x.x 5f 
+Sep  4 17:43:41 x.x.x.x 5d 
+Sep  4 17:43:41 x.x.x.x 
+Sep  4 17:43:41 x.x.x.x [ 1084.918318] EIP: [<c02826be>] 
+Sep  4 17:43:41 x.x.x.x rt_fill_info+0x329/0x33f
+Sep  4 17:43:41 x.x.x.x SS:ESP 0068:c098cee8
+Sep  4 17:43:41 x.x.x.x [ 1084.925116] Kernel panic - not syncing: Fatal exception in interrupt
+Sep  4 17:43:41 x.x.x.x [ 1084.925227] Rebooting in 5 seconds..
