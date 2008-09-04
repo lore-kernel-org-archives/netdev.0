@@ -1,35 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 05/38] Fix ip{,6}_route_me_harder() in netns
-Date: Thu, 04 Sep 2008 18:10:36 +0200
-Message-ID: <48C0087C.2080708@trash.net>
-References: <20080821215825.GE31136@x200.localdomain> <20080821223958.GA31601@x200.localdomain>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: [PATCH 1/3] pci: VPD access timeout increase
+Date: Thu, 4 Sep 2008 10:10:51 -0600
+Message-ID: <20080904161051.GL2772@parisc-linux.org>
+References: <20080827204626.4b65862f@extreme> <20080828111323.GI7908@solarflare.com> <20080903155713.7fab2e19@extreme> <20080904125219.GJ2772@parisc-linux.org> <20080904141944.GE7908@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.linux-foundation.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080821223958.GA31601@x200.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080904141944.GE7908@solarflare.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-adobriyan@gmail.com wrote:
-> ip_route_me_harder() is called on output codepaths:
-> 1) IPVS: honestly, not sure, looks like it can be called during forwarding
-> 2) IPv4 REJECT: refreshing comment re skb->dst is valid and assigment of
->    skb->dst right before call :^)
-> 3) NAT: called in LOCAL_OUT hook
-> 4) iptable_mangle: LOCAL_OUT hook
-> 5) nf_ip_reroute(): LOCAL_OUT hook (no clue about queueing packets to luserspace)
+On Thu, Sep 04, 2008 at 03:19:46PM +0100, Ben Hutchings wrote:
+> Matthew Wilcox wrote:
+> > On Wed, Sep 03, 2008 at 03:57:13PM -0700, Stephen Hemminger wrote:
+> > > Accessing the VPD area can take a long time. There are comments in the
+> > > SysKonnect vendor driver that it can take up to 25ms.  The existing vpd
+> > > access code fails consistently on my hardware.
+> > 
+> > Wow, that's slow.  If you were to try to read all 32k, it'd take more
+> > than three minutes!  (I presume it doesn't actually have as much as 32k).
+> > 
+> > > Change the access routines to:
+> > >   * use a mutex rather than spinning with IRQ's disabled and lock held
+> > >   * have a longer timeout
+> > >   * call schedule while spinning to provide some responsivness
+> > 
+> > I agree with your approach, but have one minor comment:
+> > 
+> > > -	spin_lock_irq(&vpd->lock);
+> > > +	mutex_lock(&vpd->lock);
+> > 
+> > This should be:
+> > 
+> > +	if (mutex_lock_interruptible(&vpd->lock))
+> > +		return -EINTR;
+> [...]
 > 
-> ip6_route_me_harder() is also called in output codepaths:
-> 1) ip6table_mangle: LOCAL_OUT hook
-> 2) nf_ip6_reroute: LOCAL_OUT hook (ditto)
+> This is fine for the sysfs case, but not if this is called during device
+> probe - we don't want signals to modprobe to break device initialisation,
+> do we?
 
-This changelog doesn't give much clue what the patch is doing
-or even what the problem is. It also doesn't seem that you're
-very convinced of its correctness.
+Probably only fatal signals -- in which case the if (signal_pending)
+check should be a fatal_signal_pending() and mutex_lock_interruptible()
+should be mutex_lock_killable().
 
-Please resend with a proper changelog. If you have any questions
-about the contexts in which this function is called, just ask.
+OTOH, who's signalling modprobe to do anything other than die?
+
+-- 
+Matthew Wilcox				Intel Open Source Technology Centre
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
