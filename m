@@ -1,83 +1,94 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [PATCH RESEND] ipv6: return with appropriate error code when
- sending RH0 using setsockopt()
-Date: Thu, 04 Sep 2008 13:53:23 +0800
-Message-ID: <48BF77D3.5010105@cn.fujitsu.com>
-References: <48BE4DA2.20800@cn.fujitsu.com> <48BED93E.2000204@hp.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+	feature-negotiation patches
+Date: Thu, 4 Sep 2008 08:15:11 +0200
+Message-ID: <20080904061511.GA30756@gerrit.erg.abdn.ac.uk>
+References: <20080901.142055.193705447.davem@davemloft.net> <20080902135055.GB8346@ghostprotocols.net> <20080903042450.GA4105@gerrit.erg.abdn.ac.uk> <20080902.230655.89921076.davem@davemloft.net> <20080903081839.GA9001@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=us-ascii
+To: David Miller <davem@davemloft.net>, acme@redhat.com,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51217 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751635AbYIDFzT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 01:55:19 -0400
-In-Reply-To: <48BED93E.2000204@hp.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:46857 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751100AbYIDGP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 02:15:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20080903081839.GA9001@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley =D0=B4=B5=C0:
-> Shan Wei wrote:
+This is an update with regard to Wei's comments. I have re-synched 
 
-=2E..snip...
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[subtree `dccp']
+	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=shortlog;h=dccp
 
-> There's actually another bug here and in the sendmsg() path in that y=
-ou
-> can set the hdrlen and segments_left fields to be invalid (according =
-to
-> RFC3775), as long as the math works out (segments * 2 =3D=3D length).
-> Segments_left should always be 1 and hdrlen 2 for a Type2 routing
-> header.  The packet should be dropped at the destination, but we
-> probably shouldn't send it.  I can send a patch for that later.
->=20
-I check the RFC3775. May be the following patch is good to you.
+Also did some testing with a client that only supports CCID 2/3 talking to a client supporting
+CCID 2/3/4. They could still negotiate and settle for a common CCID.
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- net/ipv6/datagram.c      |    8 ++++++--
- net/ipv6/ipv6_sockglue.c |    7 +++++--
- 2 files changed, 11 insertions(+), 4 deletions(-)
+Change-Log:
+-----------
+	1. relaxed the requirement of checking each and every SP value in change_recv
+	   to checking only the value that will actually be used/activated;
+	2. fixed an error in yesterdays's update:
+	   dccp_feat_is_valid_sp_val() takes an u8 value, not an u8 *pointer;
+	3. added Wei's suggestion to skip over empty Confirms when activating the
+	   negotiated features in dccp_feat_activate_values().
 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 410046a..cfd499a 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -675,8 +675,12 @@ int datagram_send_ctl(struct net *net,
- 				goto exit_f;
- 			}
-=20
--			/* segments left must also match */
--			if ((rthdr->hdrlen >> 1) !=3D rthdr->segments_left) {
-+			/* Per RFC3775, for a type 2 routing header,
-+			 * the Hdr Ext Len MUST be 2 and the Segments Left
-+			 * MUST be 1.
-+			 */
-+			if ((rthdr->hdrlen !=3D 2) &&
-+			    (rthdr->segments_left !=3D 1)) {
- 				err =3D -EINVAL;
- 				goto exit_f;
- 			}
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 4e5eac3..b967965 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -377,8 +377,11 @@ static int do_ipv6_setsockopt(struct sock *sk, int=
- level, int optname,
- 				goto sticky_done;
- 			}
-=20
--			if ((rthdr->hdrlen & 1) ||
--			    (rthdr->hdrlen >> 1) !=3D rthdr->segments_left)
-+			/* Per RFC3775, for a type 2 routing header,
-+			 * the Hdr Ext Len MUST be 2 and the Segments Left
-+			 * MUST be 1.
-+			 */
-+			if ((rthdr->hdrlen !=3D 2) && (rthdr->segments_left !=3D 1))
- 				goto sticky_done;
+--------------------------------------------------------------------------------------------	   
+List of patches that were updated:
+----------------------------------
+v3 [PATCH 1/1] dccp: Process incoming Change feature-negotiation options 
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=5a146b97d5e93db2df075c0d820f492bb996d0e3
+
+[PATCH 25/37] dccp: Feature activation handlers
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=c926c6aed3e444e8c88a768f063b2de8fd6ae760
+
+--------------------------------------------------------------------------------------------	   
+Interdiff of the submitted changeset relative to yesterday's state:
+--------------------------------------------------------------------------------------------
+ 		1 file changed, 11 insertions(+), 3 deletions(-)
+--- b/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -1102,8 +1102,6 @@ static u8 dccp_feat_change_recv(struct list_head *fn, u8 
+ 	 */
+ 	entry = dccp_feat_list_lookup(fn, feat, local);
+ 	if (entry == NULL) {
+-		if (!dccp_feat_sp_list_ok(feat, val, len))
+-			goto unknown_feature_or_value;
+ 		/*
+ 		 * No particular preferences have been registered. We deal with
+ 		 * this situation by assuming that all valid values are equally
+@@ -1121,6 +1119,9 @@ static u8 dccp_feat_change_recv(struct list_head *fn, u8 
+ 			defval = dccp_feat_default_value(feat);
+ 			if (dccp_feat_preflist_match(&defval, 1, val, len) > -1)
+ 				fval.sp.vec[0] = defval;
++		} else if (!dccp_feat_is_valid_sp_val(feat, fval.sp.vec[0])) {
++			kfree(fval.sp.vec);
++			goto unknown_feature_or_value;
  		}
-=20
---=20
-1.6.0
-
+ 
+ 		/* Treat unsupported CCIDs like invalid values */
+@@ -1229,7 +1230,7 @@ static u8 dccp_feat_confirm_recv(struct list_head *fn, u8 
+ 	 * SP value which the peer confirms, the remainder depends on @len.
+ 	 * Note that only the confirmed value need to be a valid SP value.
+ 	 */
+-	if (!dccp_feat_is_valid_sp_val(feat, val))
++	if (!dccp_feat_is_valid_sp_val(feat, *val))
+ 		goto confirmation_failed;
+ 
+ 	if (len == 1) {		/* peer didn't supply a preference list */
+@@ -1471,6 +1472,13 @@ int dccp_feat_activate_values(struct sock *sk, struct
+ 	};
+ 
+ 	list_for_each_entry(cur, fn_list, node) {
++		/*
++		 * An empty Confirm means that either an unknown feature type
++		 * or an invalid value was present. In the first case there is
++		 * nothing to activate, in the other the default value is used.
++		 */
++		if (cur->empty_confirm)
++			continue;
+ 
+ 		idx = dccp_feat_index(cur->feat_num);
+ 		if (idx < 0) {
