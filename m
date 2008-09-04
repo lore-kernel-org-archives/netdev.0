@@ -1,55 +1,52 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [PATCH 1/3] pci: VPD access timeout increase
-Date: Thu, 4 Sep 2008 06:52:19 -0600
-Message-ID: <20080904125219.GJ2772@parisc-linux.org>
-References: <20080827204626.4b65862f@extreme> <20080828111323.GI7908@solarflare.com> <20080903155713.7fab2e19@extreme>
+From: Eddie Kohler <kohler@cs.ucla.edu>
+Subject: Re: v3 [PATCH 1/1] dccp: Process incoming Change	feature-negotiation
+ options
+Date: Thu, 04 Sep 2008 06:23:44 -0700
+Message-ID: <48BFE160.20901@cs.ucla.edu>
+References: <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219339188-31873-4-git-send-email-gerrit@erg.abdn.ac.uk> <20080823105647.GA15928@gerrit.erg.abdn.ac.uk> <48BCE45E.1080709@cn.fujitsu.com> <20080903042709.GB4105@gerrit.erg.abdn.ac.uk> <20080903082409.GB9001@gerrit.erg.abdn.ac.uk> <48BE829B.9000303@cs.ucla.edu> <20080903151126.GA3572@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080903155713.7fab2e19@extreme>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Eddie Kohler <kohler@cs.ucla.edu>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out-66.smtp.ucla.edu ([169.232.46.167]:53972 "EHLO
+	out-66.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753208AbYIDNY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 09:24:26 -0400
+In-Reply-To: <20080903151126.GA3572@gerrit.erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 03, 2008 at 03:57:13PM -0700, Stephen Hemminger wrote:
-> Accessing the VPD area can take a long time. There are comments in the
-> SysKonnect vendor driver that it can take up to 25ms.  The existing vpd
-> access code fails consistently on my hardware.
+A ha, I understand your complaint, thank you!  This is an error in the spec 
+and deserves an erratum.  The correct interpretation is to send an empty 
+Confirm L.  The text of the spec should probably say "Change R and non-empty 
+Confirm L options MUST NOT be sent ...".
 
-Wow, that's slow.  If you were to try to read all 32k, it'd take more
-than three minutes!  (I presume it doesn't actually have as much as 32k).
+Eddie
 
-> Change the access routines to:
->   * use a mutex rather than spinning with IRQ's disabled and lock held
->   * have a longer timeout
->   * call schedule while spinning to provide some responsivness
 
-I agree with your approach, but have one minor comment:
-
-> -	spin_lock_irq(&vpd->lock);
-> +	mutex_lock(&vpd->lock);
-
-This should be:
-
-+	if (mutex_lock_interruptible(&vpd->lock))
-+		return -EINTR;
-
-> @@ -231,7 +232,7 @@ static int pci_vpd_pci22_write(struct pc
->  	val |= ((u8) *buf++) << 16;
->  	val |= ((u32)(u8) *buf++) << 24;
->  
-> -	spin_lock_irq(&vpd->lock);
-> +	mutex_lock(&vpd->lock);
-
-And the same here, of course.
-
--- 
-Matthew Wilcox				Intel Open Source Technology Centre
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+Gerrit Renker wrote:
+> Thanks for the explanation Eddie.
+>> I don't think this jump is "paradox."  DCCP's partner is asking to 
+>> negotiate a non-negotiable feature, so IT doesn't think the feature is 
+>> non-negotiable! (Otherwise it wouldn't have started the negotiation.)  We 
+>> send an empty Confirm to slap it and tell it to get with the program.  
+>> The pseudocode in section 6.6.2 indicates that an endpoint receiving an 
+>> empty Confirm simply gives up the negotiation without changing the value. 
+>>  This is what we want to happen.
+>>
+> Hm, the paradox (and that is what I was trying to raise) is in 6.3.2:
+>    "Change R and Confirm L options MUST NOT be sent for non-negotiable
+>     features; see Section 6.6.8."
+> While the above steps seem right to me, still there is the problem that
+> this step requires sending a message which is defined as invalid, i.e.
+> we can not do the right thing because 6.3.2 says we must not.
+> 
+> Will check the patch through again, with your comments we have some
+> added confirmation.
+> 
+> Gerrit
+> 
