@@ -1,149 +1,90 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: BUG? locking issue(networking?) with latest git
-Date: Thu, 4 Sep 2008 23:48:39 +0200
-Message-ID: <20080904214839.GA2834@ami.dom.local>
-References: <20080904072155.GA4691@ff.dom.local> <200809041246.11255.denys@visp.net.lb> <20080904100206.GB5407@ff.dom.local> <200809041714.05578.denys@visp.net.lb>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/4] sky2: set VPD size
+Date: Thu, 04 Sep 2008 13:56:40 -0700
+Message-ID: <20080904205718.819202931@vyatta.com>
+References: <20080904205636.130211321@vyatta.com>
+Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:10513 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755019AbYIDVsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 17:48:46 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so547369fgg.17
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2008 14:48:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200809041714.05578.denys@visp.net.lb>
+Received: from suva.vyatta.com ([69.59.150.140]:39264 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754734AbYIDVsk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 17:48:40 -0400
+Content-Disposition: inline; filename=sky2-vpd-size.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 04, 2008 at 05:14:05PM +0300, Denys Fedoryshchenko wrote:
-> On Thursday 04 September 2008, Jarek Poplawski wrote:
-> > On Thu, Sep 04, 2008 at 12:46:11PM +0300, Denys Fedoryshchenko wrote:
-> > ...
-> >
-> > > I tried to check for any additional logs, but there is nothing seems.
-> > > Once i got softlockup for pppd, and server restarted. Other times it is
-> > > just getting stuck on any network operations (ifconfig, pppd crashing in
-> > > the middle, tc). I am not able to attach to processes by strace/gdb, so
-> > > it is difficult to tell even on which point it does crash.
-> >
-> > BTW, I guess, it was checked with 2.6.26 (or .25) with the same config,
-> > scripts and similar load and we are sure it's a really new bug?
-> config, scripts and everything is completely same.
-> It seems with nosmp i am getting watchdog fired (no messages over neconsole). 
-> Probably one CPU becoming too busy in this case, and when it is single CPU - 
-> such issue becoming critical and results in hardware watchdog triggering.
+Read configuration register during probe and use it to size the
+available VPD. Move existing code using same register slightly
+earlier in probe handling.
 
-If this could behave like this with one CPU maybe some other time
-other CPUs are not enough either, and it's not about locking? It would
-be nice to monitor this load somehow then. On the other hand, if there
-are no lockdep warnings you could probably turn it off to reduce the
-overhead. BTW, since netconsole doesn't help much, you could do one
-try without this too.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-And to exclude some minimal doubts about last locking changes in
-ppp_generic maybe you could try the patch below?
-
-Jarek P.
----
-
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index ddccc07..b6b3a74 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -354,7 +354,6 @@ static const int npindex_to_ethertype[NUM_NP] = {
-  */
- static int ppp_open(struct inode *inode, struct file *file)
- {
--	cycle_kernel_lock();
- 	/*
- 	 * This could (should?) be enforced by the permissions on /dev/ppp.
- 	 */
-@@ -547,7 +546,7 @@ static int get_filter(void __user *arg, struct sock_filter **p)
- }
- #endif /* CONFIG_PPP_FILTER */
+--- a/drivers/net/sky2.c	2008-09-04 11:27:34.000000000 -0700
++++ b/drivers/net/sky2.c	2008-09-04 11:44:49.000000000 -0700
+@@ -4281,6 +4281,7 @@ static int __devinit sky2_probe(struct p
+ 	struct net_device *dev;
+ 	struct sky2_hw *hw;
+ 	int err, using_dac = 0, wol_default;
++	u32 reg;
+ 	char buf1[16];
  
--static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-+static long __ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- {
- 	struct ppp_file *pf = file->private_data;
- 	struct ppp *ppp;
-@@ -575,7 +574,6 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 		 * this fd and reopening /dev/ppp.
- 		 */
- 		err = -EINVAL;
--		lock_kernel();
- 		if (pf->kind == INTERFACE) {
- 			ppp = PF_TO_PPP(pf);
- 			if (file == ppp->owner)
-@@ -587,7 +585,6 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 		} else
- 			printk(KERN_DEBUG "PPPIOCDETACH file->f_count=%ld\n",
- 			       atomic_long_read(&file->f_count));
--		unlock_kernel();
- 		return err;
- 	}
- 
-@@ -595,7 +592,6 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 		struct channel *pch;
- 		struct ppp_channel *chan;
- 
--		lock_kernel();
- 		pch = PF_TO_CHANNEL(pf);
- 
- 		switch (cmd) {
-@@ -617,7 +613,6 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 				err = chan->ops->ioctl(chan, cmd, arg);
- 			up_read(&pch->chan_sem);
+ 	err = pci_enable_device(pdev);
+@@ -4314,6 +4315,34 @@ static int __devinit sky2_probe(struct p
  		}
--		unlock_kernel();
- 		return err;
  	}
  
-@@ -627,7 +622,6 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 		return -EINVAL;
- 	}
- 
--	lock_kernel();
- 	ppp = PF_TO_PPP(pf);
- 	switch (cmd) {
- 	case PPPIOCSMRU:
-@@ -775,10 +769,18 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 	default:
- 		err = -ENOTTY;
- 	}
--	unlock_kernel();
- 	return err;
- }
- 
-+static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-+{
-+	long ret;
++	/* Get configuration information
++	 * Note: only regular PCI config access once to test for HW issues
++	 *       other PCI access through shared memory for speed and to
++	 *	 avoid MMCONFIG problems.
++	 */
++	err = pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
++	if (err) {
++		dev_err(&pdev->dev, "PCI read config failed\n");
++		goto err_out_free_regions;
++	}
 +
-+	lock_kernel();
-+	ret = __ppp_ioctl(file, cmd, arg);
-+	unlock_kernel();
-+	return ret;
-+}
- static int ppp_unattached_ioctl(struct ppp_file *pf, struct file *file,
- 				unsigned int cmd, unsigned long arg)
- {
-@@ -787,7 +789,6 @@ static int ppp_unattached_ioctl(struct ppp_file *pf, struct file *file,
- 	struct channel *chan;
- 	int __user *p = (int __user *)arg;
++	/* size of available VPD, only impact sysfs */
++	err = pci_vpd_size(pdev, 1ul << (((reg & PCI_VPD_ROM_SZ) >> 14) + 8));
++	if (err)
++		dev_warn(&pdev->dev, "Can't set VPD size\n");
++
++#ifdef __BIG_ENDIAN
++	/* The sk98lin vendor driver uses hardware byte swapping but
++	 * this driver uses software swapping.
++	 */
++	reg &= ~PCI_REV_DESC;
++	err = pci_write_config_dword(pdev,PCI_DEV_REG2, reg);
++	if (err) {
++		dev_err(&pdev->dev, "PCI write config failed\n");
++		goto err_out_free_regions;
++	}
++#endif
++
+ 	wol_default = pci_wake_enabled(pdev) ? WAKE_MAGIC : 0;
  
--	lock_kernel();
- 	switch (cmd) {
- 	case PPPIOCNEWUNIT:
- 		/* Create a new ppp unit */
-@@ -836,7 +837,6 @@ static int ppp_unattached_ioctl(struct ppp_file *pf, struct file *file,
- 	default:
- 		err = -ENOTTY;
+ 	err = -ENOMEM;
+@@ -4331,18 +4360,6 @@ static int __devinit sky2_probe(struct p
+ 		goto err_out_free_hw;
  	}
--	unlock_kernel();
- 	return err;
- }
  
+-#ifdef __BIG_ENDIAN
+-	/* The sk98lin vendor driver uses hardware byte swapping but
+-	 * this driver uses software swapping.
+-	 */
+-	{
+-		u32 reg;
+-		reg = sky2_pci_read32(hw, PCI_DEV_REG2);
+-		reg &= ~PCI_REV_DESC;
+-		sky2_pci_write32(hw, PCI_DEV_REG2, reg);
+-	}
+-#endif
+-
+ 	/* ring for status responses */
+ 	hw->st_le = pci_alloc_consistent(pdev, STATUS_LE_BYTES, &hw->st_dma);
+ 	if (!hw->st_le)
+
+-- 
+
