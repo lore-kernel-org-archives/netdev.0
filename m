@@ -1,93 +1,58 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: linux-next: Tree for September 3
-Date: Thu, 4 Sep 2008 10:45:54 -0700
-Message-ID: <20080904104554.32ffebea.akpm@linux-foundation.org>
-References: <20080903191619.6b6b230e.sfr@canb.auug.org.au>
-	<20080903214634.ea17ff53.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809032201510.3378@nehalem.linux-foundation.org>
-	<20080903223318.84b6ce8b.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809040045190.3378@nehalem.linux-foundation.org>
-	<20080904012544.cabed847.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809040143350.3452@nehalem.linux-foundation.org>
-	<20080904015701.5959623a.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809040203510.3452@nehalem.linux-foundation.org>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: [PATCH 1/1 net-2.6] s2io: enabling VLAN tag stripping at driver initialization
+Date: Thu, 04 Sep 2008 14:46:03 -0300
+Message-ID: <48C01EDB.7020001@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Yinghai Lu <yhlu.kernel@gmail.com>,
-	Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: jeff@garzik.org, Jay Vosburgh <fubar@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>, Lorandi <rafaello@br.ibm.com>
+To: ram.vepa@neterion.com, santosh.rastapur@neterion.com,
+	sivakumar.subramani@neterion.com, sreenivasa.honnur@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51223 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752268AbYIDRqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 13:46:24 -0400
-In-Reply-To: <alpine.LFD.1.10.0809040203510.3452@nehalem.linux-foundation.org>
+Received: from igw3.br.ibm.com ([32.104.18.26]:46551 "EHLO igw3.br.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755722AbYIDRql (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 13:46:41 -0400
+Received: from mailhub3.br.ibm.com (unknown [9.18.232.110])
+	by igw3.br.ibm.com (Postfix) with ESMTP id 017FD390236
+	for <netdev@vger.kernel.org>; Thu,  4 Sep 2008 14:25:45 -0300 (BRST)
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
+	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m84HkALj4305004
+	for <netdev@vger.kernel.org>; Thu, 4 Sep 2008 14:46:16 -0300
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m84Hk2M6013629
+	for <netdev@vger.kernel.org>; Thu, 4 Sep 2008 14:46:03 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 4 Sep 2008 02:07:05 -0700 (PDT) Linus Torvalds <torvalds@linux-foundation.org> wrote:
+Actually s2io has a bug in VLAN support. VLAN doesn't work except if
+you'd opened the interface in promiscuous mode before. 
+This happens because VLAN tag stripping is not enable by default (when
+the device is loaded). It is only enabled when the device leaves
+promiscuous mode.
 
-> 
-> 
-> On Thu, 4 Sep 2008, Andrew Morton wrote:
-> > > 
-> > > commit 5f17cfce5776c566d64430f543a289e5cfa4538b
-> > > 
-> > >     PCI: fix pbus_size_mem() resource alignment for CardBus controllers
-> > 
-> > Is this worth backporting into 2.6.26.x?
-> 
-> It's certainly at least *potentially* -stable material, but because I 
-> suspect that the whole yenta_allocate_resources() -> pci_setup_cardbus() 
-> fallback code will end up resulting in a working setup, it may not be 
-> worth it.  At least not until we've heard from more people..
-> 
-> Can you check whether your vortex cardbus thing _works_ even without the 
-> fix?
-> 
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Working on it, but got distracted by a /proc/net bug.
+---
 
-
-
-sony:/home/akpm> ifconfig -a
-Warning: cannot open /proc/net/dev (Permission denied). Limited output.
-Warning: cannot open /proc/net/dev (Permission denied). Limited output.
-eth0      Link encap:Ethernet  HWaddr 00:01:4A:9F:7C:79  
-          inet addr:192.168.2.10  Bcast:192.168.2.255  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-
-Warning: cannot open /proc/net/dev (Permission denied). Limited output.
-lo        Link encap:Local Loopback  
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-
-sony:/home/akpm> ls -l /proc/net/dev
-ls: /proc/net/dev: Permission denied
-
-sony:/home/akpm> ls -l /proc/net
-ls: /proc/net: Permission denied
-
-sony:/home/akpm> ls -ld /proc/net
-ls: /proc/net: Permission denied
-
-sony:/home/akpm> ls -l /proc | grep net
-?---------  ? ?         ?                 ?            ? /proc/net
-
-
-This is a pull of your tree from yesterday, ending at
-
-
-commit fbb16e243887332dd5754e48ffe5b963378f3cd2
-Author: Thomas Gleixner <tglx@linutronix.de>
-Date:   Wed Sep 3 00:54:47 2008 +0200
-
-    [x86] Fix TSC calibration issues
-
-config: http://userweb.kernel.org/~akpm/config-sony.txt
-dmesg: http://userweb.kernel.org/~akpm/dmesg-sony-without.txt
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index a2b0730..e656c80 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -8206,6 +8206,14 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	/* Initialize device name */
+ 	sprintf(sp->name, "%s Neterion %s", dev->name, sp->product_name);
+ 
++	/* Initialize VLAN tag strip */
++	if (vlan_tag_strip) {
++		val64 = readq(&bar0->rx_pa_cfg);
++		val64 |= RX_PA_CFG_STRIP_VLAN_TAG;
++		writeq(val64, &bar0->rx_pa_cfg);
++		vlan_strip_flag = 1;
++	}
++
+ 	/*
+ 	 * Make Link state as off at this point, when the Link change
+ 	 * interrupt comes the state will be automatically changed to
