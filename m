@@ -1,24 +1,22 @@
-From: maximilian attems <max@stro.at>
-Subject: skge_up in skge_change_mtu oops
-Date: Thu, 4 Sep 2008 17:47:21 +0200
-Message-ID: <20080904154721.GA15169@stro.at>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 01/38] netns nf: remove nf_*_net() wrappers
+Date: Thu, 04 Sep 2008 17:56:37 +0200
+Message-ID: <48C00535.60909@trash.net>
+References: <20080821215657.GA31136@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:48561 "EHLO
-	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752324AbYIDPr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 11:47:57 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: adobriyan@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080821215657.GA31136@x200.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-according to kerneloops this one shows pretty high up in the list
-http://kerneloops.org/guilty.php?guilty=skge_up&version=2.6.26-release&start=1736704&end=1769471&class=oops
+adobriyan@gmail.com wrote:
+> Now that dev_net() exists, the usefullness of them is even less. Also they're
+> a big problem in resolving circular header dependencies necessary for
+> NOTRACK-in-netns patch. See below.
 
-ifconfig seems reliably choking it, thanks for taking a look.
-
--- 
-maks
+Applied, thanks.
