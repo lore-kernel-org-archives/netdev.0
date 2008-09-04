@@ -1,61 +1,17 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: linux-next: Tree for September 3
-Date: Thu, 04 Sep 2008 14:03:41 -0700
-Message-ID: <m1zlmn39oy.fsf@frodo.ebiederm.org>
-References: <20080903191619.6b6b230e.sfr@canb.auug.org.au>
-	<20080903214634.ea17ff53.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809032201510.3378@nehalem.linux-foundation.org>
-	<20080903223318.84b6ce8b.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809040045190.3378@nehalem.linux-foundation.org>
-	<20080904012544.cabed847.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809040143350.3452@nehalem.linux-foundation.org>
-	<20080904015701.5959623a.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809040203510.3452@nehalem.linux-foundation.org>
-	<20080904104554.32ffebea.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0809041058140.3400@nehalem.linux-foundation.org>
-	<20080904113408.d47c65f6.akpm@linux-foundation.org>
-	<m163pb4pru.fsf@frodo.ebiederm.org>
-	<20080904134148.0fde4508.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yhlu.kernel@gmail.com, ink@jurassic.park.msu.ru,
-	jbarnes@virtuousgeek.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, dwmw2@infradead.org, sam@ravnborg.org,
-	johnstul@us.ibm.com, tglx@linutronix.de
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:40699 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754016AbYIDVOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2008 17:14:40 -0400
-In-Reply-To: <20080904134148.0fde4508.akpm@linux-foundation.org> (Andrew
-	Morton's message of "Thu, 4 Sep 2008 13:41:48 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 0/4] PCI VPD changes
+Date: Thu, 04 Sep 2008 13:56:36 -0700
+Message-ID: <20080904205636.130211321@vyatta.com>
+References: <20080904205636.130211023@vyatta.com>
+Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> writes:
+Update sky2 to use new VPD access routines.
+The patches are against netdev-2.6 upstream-next branch,
+and assume PCI changes submitted already.
 
-> On Thu, 04 Sep 2008 13:31:01 -0700
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
->
->> >> are you sure it's a plain tree of mine, without any of the patches 
->> >> floating around between Eric/Al?
->> >
->> > yup, it's yesterday's mainline.
->> 
->> Does the problem happen if you disable selinux?
->> 
->> This feels like a case of selinux being over zealous.
->
-> yeah, adding `selinux=0' to the boot command line fixes it.
-
-The proc generic directory back structure is the same.  As requested by
-the selinux folks.  So I don't expect there is much more we can do on
-the /proc side.
-
-When we get the interaction bug between the VFS and /proc/net fixed I wonder
-if there will be some more selinux fall out.  Something to think about.
-
-Eric
+-- 
