@@ -1,44 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Bugme-new] [Bug 11469] New: TUN with 1024 neighbours: ip6_dst_lookup_tail NULL crash
-Date: Fri, 5 Sep 2008 20:37:46 +0400
-Message-ID: <20080905163746.GA450@2ka.mipt.ru>
-References: <bug-11469-10286@http.bugzilla.kernel.org/> <20080831111304.d57b9f5a.akpm@linux-foundation.org> <20080905114146.GA29408@2ka.mipt.ru> <200809051903.41103.rdenis@simphalempin.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: + security-selinux-include-netlabelh-fix-two-build-errors.patch added to -mm tree
+Date: Fri, 5 Sep 2008 12:44:15 -0400
+Message-ID: <200809051244.15420.paul.moore@hp.com>
+References: <200809050326.m853QB13012853@imap1.linux-foundation.org> <20080904210033.20700500.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: =?utf-8?B?UsOpbWk=?= Denis-Courmont <rdenis@simphalempin.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:36803 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752248AbYIEQio (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2008 12:38:44 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	netdev <netdev@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753325AbYIEQo2@vger.kernel.org>
+In-Reply-To: <20080904210033.20700500.randy.dunlap@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <200809051903.41103.rdenis@simphalempin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+On Friday 05 September 2008 12:00:33 am Randy Dunlap wrote:
+> Even with this patch, net/netlabel/netlabel_mgmt.c has build errors
+> when CONFIG_IPV6=n:
 
-On Fri, Sep 05, 2008 at 07:03:38PM +0300, R=C3=A9mi Denis-Courmont (rde=
-nis@simphalempin.com) wrote:
-> > Does this problem still exist?
->=20
-> Yes. With 2.6.27-rc5-b380b0d4f7dffcc235c0facefa537d4655619101, I get =
-this:
+Interesting, I tried to reproduce this quickly by changing my .config, 
+running 'make oldconfig', verifying that CONFIG_IPV6 was still "n" (it 
+was actually commented out), and then running 'make M=net/netlabel' ... 
+the result was no error.
 
-I will try to work it out this weekend, thanks for the info.
+You are correct, I obviously made a mistake in the code (which I am 
+fixing now) but I don't understand why the steps I took above didn't 
+highlight the problem?  What am I missing?
 
-> > > > Pid: 9950, comm: tunload Tainted: G      D   (2.6.26.3 #8)
-> >
-> > By whom it was tainted?
->=20
-> Its own self. I just failed to copy the very first crash trace.
+> linux-next-20080904/net/netlabel/netlabel_domainhash.c:79: warning:
+> unused variable 'tmp6'
+> linux-next-20080904/net/netlabel/netlabel_domainhash.c:78: warning:
+> unused variable 'iter6'
+> linux-next-20080904/net/netlabel/netlabel_domainhash.c:340: warning:
+> unused variable 'tmp6'
+> linux-next-20080904/net/netlabel/netlabel_domainhash.c:301: warning:
+> unused variable 'iter6'
+> linux-next-20080904/net/netlabel/netlabel_mgmt.c:219: error: implicit
+> declaration of function 'netlbl_af6list_add'
+> linux-next-20080904/net/netlabel/netlabel_mgmt.c:317: error: implicit
+> declaration of function 'netlbl_af6list_foreach_rcu'
+> linux-next-20080904/net/netlabel/netlabel_mgmt.c:318: error: expected
+> ';' before '{' token make[3]: *** [net/netlabel/netlabel_mgmt.o]
+> Error 1
 
-Likely it will not help, since subsequent crashes are results of the
-first one and rarely contain good info, but dump you have presented is
-not tainted, so problem is not in some other place.
-
---=20
-	Evgeniy Polyakov
+-- 
+paul moore
+linux @ hp
