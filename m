@@ -1,51 +1,55 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: "Listenless" TCP over NAT?
-Date: Fri, 5 Sep 2008 16:15:12 +0400
-Message-ID: <20080905121511.GA14016@2ka.mipt.ru>
-References: <WorldClient-F200809051345.AA45130148@butn.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 20/38] netns ct: NOTRACK in netns
+Date: Fri, 05 Sep 2008 13:54:29 +0200
+Message-ID: <48C11DF5.9040207@netfilter.org>
+References: <20080821220432.GT31136@x200.localdomain> <48C012B8.10606@trash.net> <20080905025838.GA2789@x200.localdomain> <48C11918.8020508@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev <netdev@vger.kernel.org>,
-	Linux Networking <linux-net@vger.kernel.org>
-To: xerces8 <xerces8@butn.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:45466 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752466AbYIEMPm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2008 08:15:42 -0400
-Content-Disposition: inline
-In-Reply-To: <WorldClient-F200809051345.AA45130148@butn.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <48C11918.8020508@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 05, 2008 at 01:45:13PM +0200, xerces8 (xerces8@butn.net) wrote:
-> Recently someone mentioned on this (or maybe other...) list a seldom used
-> technique of establishing a TCP connection without one host listening on a port,
-> but but acting as "clients" and connecting to the peers port.
-
-This is supported by userspace network stack, which was presented here,
-but I'm not sure that exactly unetstack was recommended to you.
-
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=unetstack
-
-> My question: Can this be used to establish a TCP connection between two hosts that
-> are both behind a (P)NAT router ?
+Patrick McHardy wrote:
+> Alexey Dobriyan wrote:
+>> On Thu, Sep 04, 2008 at 06:54:16PM +0200, Patrick McHardy wrote:
+>>> adobriyan@gmail.com wrote:
+>>>> Make untracked conntrack per-netns. Compare conntracks with relevant
+>>>> untracked one.
+>>>>
+>>>> The following code you'll start laughing at this code:
+>>>>
+>>>>     if (ct == ct->ct_net->ct.untracked)
+>>>>         ...
+>>>>
+>>>> let me remind you that ->ct_net is set in only one place, and never
+>>>> overwritten later.
+>>>>
+>>>> All of this requires some surgery with headers, otherwise horrible
+>>>> circular
+>>>> dependencies. And we lost nf_ct_is_untracked() as function, it
+>>>> became macro.
+>>> I think you could avoid this mess by using a struct nf_conntrack
+>>> for the untracked conntrack instead of struct nf_conn. It shouldn't
+>>> make any difference since its ignored anyways.
+>>
+>> Ewww, can I?
 > 
-> (the idea being: NAT router lets outgoing connections thru, and in this case both
-> NAT router would  see an "outgoing" connection)
+> I hope so :) A different possiblity suggest by Pablo some time ago
+> would be to mark untracked packets in skb->nfctinfo and not
+> attach a conntrack at all.
 
-Depending on how NAT is implemented. Usually NAT software will only
-allow syn/ack packets before connection is established, and thus if one
-peer sends syn packet, and second one sends ack packet (without seeng
-ack first) it will work, but if second peer's NAT will send a reset
-packet before ack from the peer, first NAT can drop connection (as long
-as peer itself).
+Indeed, I remember that :). I left that patch of the table time ago [1].
+There's a nf_reset call missing as Patrick said at that time. I can
+recover it if you like the idea.
 
-> If yes, this would simplify the life of many users :-)
-
-It is not directly supported by unetstack, but you can simply extend its
-state machine to switch to different state without explicit packet
-receiving.
+[1]
+http://lists.netfilter.org/pipermail/netfilter-devel/2005-June/020171.html
 
 -- 
-	Evgeniy Polyakov
+"Los honestos son inadaptados sociales" -- Les Luthiers
