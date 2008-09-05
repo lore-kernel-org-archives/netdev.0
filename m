@@ -1,36 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 20/38] netns ct: NOTRACK in netns
-Date: Fri, 05 Sep 2008 14:25:10 +0200
-Message-ID: <48C12526.90501@trash.net>
-References: <20080821220432.GT31136@x200.localdomain> <48C012B8.10606@trash.net> <20080905025838.GA2789@x200.localdomain> <48C11918.8020508@trash.net> <48C11DF5.9040207@netfilter.org>
+From: Wolfgang Denk <wd@denx.de>
+Subject: Re: tehuti: use resource_size_t instead of unsigned long and u32
+Date: Fri, 05 Sep 2008 14:25:24 +0200
+Message-ID: <20080905122524.63FF0242FF@gemini.denx.de>
+References: <1220390068-6433-1-git-send-email-yanok@emcraft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, dzu@denx.de
+To: Ilya Yanok <yanok@emcraft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56759 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752441AbYIEMZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 08:25:13 -0400
-In-Reply-To: <48C11DF5.9040207@netfilter.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:34497 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344AbYIEMZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 08:25:26 -0400
+In-reply-to: <1220390068-6433-1-git-send-email-yanok@emcraft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso wrote:
-> Patrick McHardy wrote:
->>>> I think you could avoid this mess by using a struct nf_conntrack
->>>> for the untracked conntrack instead of struct nf_conn. It shouldn't
->>>> make any difference since its ignored anyways.
->>> Ewww, can I?
->> I hope so :) A different possiblity suggest by Pablo some time ago
->> would be to mark untracked packets in skb->nfctinfo and not
->> attach a conntrack at all.
-> 
-> Indeed, I remember that :). I left that patch of the table time ago [1].
-> There's a nf_reset call missing as Patrick said at that time. I can
-> recover it if you like the idea.
+Dear Ilya Yanok,
 
-I think that would be a good idea.
+In message <1220390068-6433-1-git-send-email-yanok@emcraft.com> you wrote:
+> Use resource_size_t for pci_resource_start() and pci_resource_len() return
+> values. Makes tehuti driver work correctly on 32 bit systems with 64 bit
+> resources.
+> 
+> Signed-off-by: Ilya Yanok <yanok@emcraft.com>
+> ---
+>  drivers/net/tehuti.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+
+Applied to master branch of linux-2.6-denx repo.
+
+Thanks.
+
+Best regards,
+
+Wolfgang Denk
+
+-- 
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
+The only perfect science is hind-sight.
