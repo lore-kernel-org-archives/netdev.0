@@ -1,54 +1,47 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [GIT]: Networking
-Date: Fri, 5 Sep 2008 14:17:04 -0400
-Message-ID: <20080905181704.GC3027@tuxdriver.com>
-References: <20080827.164649.87042354.davem@davemloft.net> <1220627292.7260.3.camel@2710p.home> <alpine.LFD.1.10.0809051039070.3117@nehalem.linux-foundation.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH -mm] Fix dev_load() compilation again
+Date: Fri, 5 Sep 2008 23:32:44 +0400
+Message-ID: <20080905193244.GD11569@x200.localdomain>
+References: <20080904224004.d3dd3076.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alex Williamson <alex.williamson@hp.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jouni.malinen@atheros.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, h-shimamoto@ct.jp.nec.com,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50796 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751374AbYIESaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 14:30:30 -0400
+Received: from mu-out-0910.google.com ([209.85.134.186]:18473 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbYIETbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 15:31:04 -0400
+Received: by mu-out-0910.google.com with SMTP id g7so432134muf.1
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 12:31:02 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.1.10.0809051039070.3117@nehalem.linux-foundation.org>
+In-Reply-To: <20080904224004.d3dd3076.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 05, 2008 at 10:45:11AM -0700, Linus Torvalds wrote:
-> 
-> 
-> On Fri, 5 Sep 2008, Alex Williamson wrote:
-> 
-> > On Wed, 2008-08-27 at 16:46 -0700, David Miller wrote:
-> > 
-> > > 22) Two mac80211 bug fixes from Jouni Malinen:
-> > >     a) Use IWEVCUSTOM so that we don't hit the 256 byte limit that
-> > >        IWEVASSOCREQIE has
-> > 
-> > This one breaks wireless with 32bit userspace/64bit kernel.  Bisected
-> > back to changeset 087d833e5a9f67ba933cb32eaf5a2279c1a5b47c:
-> > 
-> > mac80211: Use IWEVASSOCREQIE instead of IWEVCUSTOM
-> 
-> Grr. I'd love to say "I told you so", and write another rant about -rc 
-> series patches. But I'm too lazy, so people - please mentally insert my 
-> standard rant here.
-> 
-> David/Jouni - just revert it?
+dev_load() doesn't exist if MODULES=n.
 
-Yes, just revert it.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Jouni, feel free to send me a new version for 2.6.28.
+ include/linux/netdevice.h |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Thanks,
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1639,7 +1639,13 @@ extern int		dev_set_allmulti(struct net_device *dev, int inc);
+ extern void		netdev_state_change(struct net_device *dev);
+ extern void		netdev_bonding_change(struct net_device *dev);
+ extern void		netdev_features_change(struct net_device *dev);
++#ifdef CONFIG_MODULES
+ extern void		dev_load(struct net *net, const char *name);
++#else
++static inline void dev_load(struct net *net, const char *name)
++{
++}
++#endif
+ extern void		dev_mcast_init(void);
+ extern int		netdev_max_backlog;
+ extern int		weight_p;
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
