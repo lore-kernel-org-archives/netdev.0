@@ -1,51 +1,56 @@
-From: akpm@linux-foundation.org
-Subject: [patch for 2.6.27? 4/6] drivers/net/mlx4/alloc.c needs mm.h
-Date: Fri, 05 Sep 2008 14:04:07 -0700
-Message-ID: <200809052104.m85L47vw020360@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net
-To: jeff@garzik.org
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC PATCH v4 02/14] selinux: Better local/forward check in selinux_ip_postroute()
+Date: Fri, 5 Sep 2008 17:58:35 -0400
+Message-ID: <200809051758.35242.paul.moore@hp.com>
+References: <20080903003647.15669.45349.stgit@flek.lan> <20080903004854.15669.95990.stgit@flek.lan> <alpine.LRH.1.10.0809051851230.2526@tundra.namei.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: James Morris <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40027 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752227AbYIEVGN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 17:06:13 -0400
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:6388 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751693AbYIEV6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 17:58:38 -0400
+In-Reply-To: <alpine.LRH.1.10.0809051851230.2526@tundra.namei.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+On Friday 05 September 2008 4:51:46 am James Morris wrote:
+> On Tue, 2 Sep 2008, Paul Moore wrote:
+> > It turns out that checking to see if skb->sk is NULL is not a very
+> > good indicator of a forwarded packet as some locally generated
+> > packets also have skb->sk set to NULL.  Fix this by not only
+> > checking the skb->sk field but also the IP[6]CB(skb)->flags field
+> > for the IP[6]SKB_FORWARDED flag.
+> >
+> > Signed-off-by: Paul Moore <paul.moore@hp.com>
+> > ---
+> >
+> >  security/selinux/hooks.c |   36
+> > +++++++++++++++++++++++++++--------- 1 files changed, 27
+> > insertions(+), 9 deletions(-)
+>
+> Acked-by: James Morris <jmorris@namei.org>
 
-sparc32 allmodconfig with linux-next:
+Thanks for taking the time to review the patches and send feedback, I 
+know they weren't small.  I've made all the corrections you've 
+suggested as well as the ones that Andrew and Randy pointed out.  I'm 
+building a new kernel to test right now, if all goes well I'll push the 
+new bits tonight or tomorrow.
 
-drivers/net/mlx4/alloc.c: In function 'mlx4_buf_alloc':
-drivers/net/mlx4/alloc.c:164: error: 'PAGE_KERNEL' undeclared (first use in this function)
-drivers/net/mlx4/alloc.c:164: error: (Each undeclared identifier is reported only once
-drivers/net/mlx4/alloc.c:164: error: for each function it appears in.)
+I've also added all your ACKs to their respective patches except for 
+this one because I made some non-trivial changes and didn't think it 
+was fair to use your ACK.  While I was looking at the code I realized 
+that we are calling selinux_parse_skb() in the per-packet processing 
+functions a bit too early (my fault) resulting in potentially wasted 
+cycles.  I've fixed it in this patch and you'll see the change 
+shortly ...
 
-this is due to some header shuffle in linux-next.  I didn't look to see what
-it was.  I'd sugges that this patch be merged ahead of a linux-next merge to
-avoid bisection breaks.
-
-We strictly only need asm/pgtable.h, but going direct to asm includes always
-seems grubby.
-
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/mlx4/alloc.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff -puN drivers/net/mlx4/alloc.c~drivers-net-mlx4-allocc-needs-mmh drivers/net/mlx4/alloc.c
---- a/drivers/net/mlx4/alloc.c~drivers-net-mlx4-allocc-needs-mmh
-+++ a/drivers/net/mlx4/alloc.c
-@@ -33,6 +33,7 @@
- 
- #include <linux/errno.h>
- #include <linux/slab.h>
-+#include <linux/mm.h>
- #include <linux/bitmap.h>
- #include <linux/dma-mapping.h>
- #include <linux/vmalloc.h>
-_
+-- 
+paul moore
+linux @ hp
