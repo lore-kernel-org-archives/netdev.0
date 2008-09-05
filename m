@@ -1,36 +1,48 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Fwd: Packet mmap: TX RING and zero copy
-Date: Fri, 5 Sep 2008 20:34:46 +0400
-Message-ID: <20080905163446.GB10078@2ka.mipt.ru>
-References: <20080905131618.GB12246@2ka.mipt.ru> <7e0dd21a0809050629w7fa8a914i863faa9ac18c3be4@mail.gmail.com> <20080905133748.GA28656@2ka.mipt.ru> <7e0dd21a0809050655n176ec32bo2bf4febe4e0fc363@mail.gmail.com> <20080905141911.GA16586@2ka.mipt.ru> <7e0dd21a0809050745w692328b7v6dd4e0adf59e9535@mail.gmail.com> <20080905145902.GA12762@2ka.mipt.ru> <7e0dd21a0809050830o7c1dcc2do68da5df9900fcfe8@mail.gmail.com> <20080905153811.GA3596@2ka.mipt.ru> <7e0dd21a0809050901q23d0b16xa1a9d0df2f36f6d8@mail.gmail.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 2/2] ipvs: load balance ipv6 connections from a local process
+Date: Fri, 5 Sep 2008 18:37:28 +0200
+Message-ID: <f4845fc0809050937m15b7fb1fs21ddc08765d1231c@mail.gmail.com>
+References: <20080905013609.GD14128@verge.net.au>
+	 <20080905013755.GE14128@verge.net.au>
+	 <f4845fc0809050440g24f304d9xec7982e984830c6e@mail.gmail.com>
+	 <48C15680.7010004@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Johann Baudy <johaahn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:46230 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750989AbYIEQfS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2008 12:35:18 -0400
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Simon Horman" <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org,
+	"Malcolm Turnbull" <malcolm@loadbalancer.org>,
+	"=?ISO-8859-1?Q?Siim_P=F5der?=" <siim@p6drad-teel.net>,
+	"Vince Busam" <vbusam@google.com>
+To: "Brian Haley" <brian.haley@hp.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <48C15680.7010004@hp.com>
 Content-Disposition: inline
-In-Reply-To: <7e0dd21a0809050901q23d0b16xa1a9d0df2f36f6d8@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Johann.
+On Fri, Sep 5, 2008 at 5:55 PM, Brian Haley <brian.haley@hp.com> wrote:
+> Julius Volz wrote:
+>>>
+>>> -out:
+>>> -       __ip_vs_conn_put(cp);
+>>> -
+>>> -       return verdict;
+>>> +       snet.in6 = iph->saddr;
+>>
+>> I've always been told to use ipv6_addr_copy() for this. I'm not sure
+>> what the problem with the direct struct assignment is though... would
+>> be nice if someone could explain.
+>
+> Because an in6_addr is a union of 4 u32's, which won't all be copied in a
+> struct assignment.  That's the way I've always understood it.
 
-On Fri, Sep 05, 2008 at 06:01:46PM +0200, Johann Baudy (johaahn@gmail.com) wrote:
-> I'm leaving office right now.
-> I'll come back toward you regarding this topic on Monday.
+No, they _do_ all get copied and the result seems correct. There must
+be another reason...
 
-No problem.
-
-> Ok, I see. I just need to check if UDP is fine for my application or
-> if i need to do my own L3/L4.
-
-This may be a bad sign. Or extremely needed step like in satellite links
-with its huge rtts. Likely in case of ethernet usage tcp/udp over IP is
-the way to go.
+Julius
 
 -- 
-	Evgeniy Polyakov
+Julius Volz - Corporate Operations - SysOps
+
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
