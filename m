@@ -1,36 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 21/25] netns ct: per-netns event cache
-Date: Fri, 05 Sep 2008 13:34:39 +0200
-Message-ID: <48C1194F.7030608@trash.net>
-References: <20080821220445.GU31136@x200.localdomain> <48C013BE.3060800@trash.net> <20080905034415.GB2789@x200.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: latest git crash (BUG/rt_fill_info)
+Date: Fri, 5 Sep 2008 11:36:24 +0000
+Message-ID: <20080905113623.GB7320@ff.dom.local>
+References: <200809041751.04163.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080905034415.GB2789@x200.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wr-out-0506.google.com ([64.233.184.239]:14466 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871AbYIELgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 07:36:31 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so379156wri.5
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 04:36:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200809041751.04163.denys@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> On Thu, Sep 04, 2008 at 06:58:38PM +0200, Patrick McHardy wrote:
->> adobriyan@gmail.com wrote:
->>>  static inline void
->>> -nf_conntrack_event_cache(enum ip_conntrack_events event,
->>> +nf_conntrack_event_cache(struct net *net, enum ip_conntrack_events event,
->>>  			 const struct sk_buff *skb)
->>>  {
->> Passing the conntrack instead of the struct net and the skb
->> would probably keep the callers cleaner.
+On 04-09-2008 16:51, Denys Fedoryshchenko wrote:
+> Single processor, working as NAT at office.
+> I will try to reproduce the bug. Crash is happening on "light" traffic, after 10-20 minutes of usage.
 > 
-> Dunno, passing netns explicitly like saying conntrack event happened in
-> netns A, which is reasonable. OTOH, s/skb/ct/ is indeed nicer.
-> 
-> I'll change it as you suggest and see what happens.
-> 
-> BTW, I asked earlier if untracked conntracks are ever supposed to drop into
-> event cache. If they're, trimming nf_conntrack_untracked is out of question.
+> Sep  4 17:43:41 x.x.x.x [ 1084.917877] BUG: unable to handle kernel 
+> Sep  4 17:43:41 x.x.x.x paging request
+> Sep  4 17:43:41 x.x.x.x at 84e8dc55
+> Sep  4 17:43:41 x.x.x.x [ 1084.917943] IP:
+> Sep  4 17:43:41 x.x.x.x [<c02826be>] rt_fill_info+0x329/0x33f
 
-No, they are skipped by the only event handler, ctnetlink.
+I guess it would be helpful to put vmlinux from this kernel build
+under some link (or send some gdb listing of this address).
+
+Jarek P.
