@@ -1,58 +1,49 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: + security-selinux-include-netlabelh-fix-two-build-errors.patch added to -mm tree
-Date: Fri, 5 Sep 2008 13:02:34 -0400
-Message-ID: <200809051302.34768.paul.moore@hp.com>
-References: <200809050326.m853QB13012853@imap1.linux-foundation.org> <20080904210033.20700500.randy.dunlap@oracle.com> <200809051244.15420.paul.moore@hp.com>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 14/18] netdevice airo: Convert directly reference of
+	netdev->priv to netdev->ml_priv
+Date: Fri, 05 Sep 2008 13:06:23 -0400
+Message-ID: <1220634383.6430.14.camel@localhost.localdomain>
+References: <48C0A219.2030004@cn.fujitsu.com>
+	 <48C0A72B.9050407@cn.fujitsu.com>  <20080905125036.GA3027@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	netdev <netdev@vger.kernel.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:6862 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751097AbYIERCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 13:02:38 -0400
-In-Reply-To: <200809051244.15420.paul.moore@hp.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	NETDEV <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080905125036.GA3027-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 05 September 2008 12:44:15 pm Paul Moore wrote:
-> On Friday 05 September 2008 12:00:33 am Randy Dunlap wrote:
-> > Even with this patch, net/netlabel/netlabel_mgmt.c has build errors
-> > when CONFIG_IPV6=n:
->
-> Interesting, I tried to reproduce this quickly by changing my
-> .config, running 'make oldconfig', verifying that CONFIG_IPV6 was
-> still "n" (it was actually commented out), and then running 'make
-> M=net/netlabel' ... the result was no error.
->
-> You are correct, I obviously made a mistake in the code (which I am
-> fixing now) but I don't understand why the steps I took above didn't
-> highlight the problem?  What am I missing?
+On Fri, 2008-09-05 at 08:50 -0400, John W. Linville wrote:
+> On Fri, Sep 05, 2008 at 11:27:39AM +0800, Wang Chen wrote:
+> > We have some reasons to kill netdev->priv:
+> > 1. netdev->priv is equal to netdev_priv().
+> > 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
+> >    netdev_priv() is more flexible than netdev->priv.
+> > But we cann't kill netdev->priv, because so many drivers reference to it
+> > directly.
+> > 
+> > OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
+> > and I want to kill netdev->priv later, I decided to convert all the direct
+> > reference of netdev->priv first.
+> > 
+> > Different to readonly reference of netdev->priv, in this driver, netdev->priv
+> > was changed. I use netdev->ml_priv to replace netdev->priv.
+> > 
+> > Signed-off-by: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> 
+> Thank you for your patch.  However, I do not understand why you didn't
+> simply replace netdev->priv with netdev_priv()?  Can you explain?
 
-Hmmm, nevermind, the problem seems to have disappeared after 
-running 'make prepare scripts'.
+Yeah, that would have been my first choice too...
 
-> > linux-next-20080904/net/netlabel/netlabel_domainhash.c:79: warning:
-> > unused variable 'tmp6'
-> > linux-next-20080904/net/netlabel/netlabel_domainhash.c:78: warning:
-> > unused variable 'iter6'
-> > linux-next-20080904/net/netlabel/netlabel_domainhash.c:340:
-> > warning: unused variable 'tmp6'
-> > linux-next-20080904/net/netlabel/netlabel_domainhash.c:301:
-> > warning: unused variable 'iter6'
-> > linux-next-20080904/net/netlabel/netlabel_mgmt.c:219: error:
-> > implicit declaration of function 'netlbl_af6list_add'
-> > linux-next-20080904/net/netlabel/netlabel_mgmt.c:317: error:
-> > implicit declaration of function 'netlbl_af6list_foreach_rcu'
-> > linux-next-20080904/net/netlabel/netlabel_mgmt.c:318: error:
-> > expected ';' before '{' token make[3]: ***
-> > [net/netlabel/netlabel_mgmt.o] Error 1
+Dan
 
--- 
-paul moore
-linux @ hp
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
