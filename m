@@ -1,29 +1,54 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 20/38] netns ct: NOTRACK in netns
-Date: Fri, 5 Sep 2008 00:18:06 -0400 (EDT)
-Message-ID: <alpine.LNX.1.10.0809050012400.17569@fbirervta.pbzchgretzou.qr>
-References: <20080821220432.GT31136@x200.localdomain> <48C012B8.10606@trash.net> <20080905025838.GA2789@x200.localdomain>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 1/2] ipvs: load balance IPv4 connections from a local
+ process
+Date: Fri, 5 Sep 2008 08:12:08 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0809050750550.2831@u.domain.uli>
+References: <20080905013609.GD14128@verge.net.au>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080905025838.GA2789@x200.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>,
+	Julius Volz <juliusv@google.com>,
+	Vince Busam <vbusam@google.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080905013609.GD14128@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On Thursday 2008-09-04 22:58, Alexey Dobriyan wrote:
+	Hello,
 
->In conntrack_mt_v0() "ct->status" can be used even for untracked connection,
->is this right?
+	TCP checksum is not optional, why this change appeared?
 
-Yes.
+On Fri, 5 Sep 2008, Simon Horman wrote:
 
->For example, does setting IPS_NAT_DONE_MASK and IPS_CONFIRMED_BIT on
->untracked conntracked really necessary?
+> Index: lvs-2.6/net/ipv4/ipvs/ip_vs_proto_tcp.c
+> ===================================================================
+> --- lvs-2.6.orig/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-09-03 10:56:05.000000000 +1000
+> +++ lvs-2.6/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-09-03 11:24:26.000000000 +1000
+> @@ -166,7 +166,7 @@ tcp_snat_handler(struct sk_buff *skb,
+>  	tcph->source = cp->vport;
+>  
+>  	/* Adjust TCP checksums */
+> -	if (!cp->app) {
+> +	if (!cp->app && (tcph->check != 0)) {
+>  		/* Only port and addr are changed, do fast csum update */
+>  		tcp_fast_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
+>  				     cp->dport, cp->vport);
+> @@ -235,7 +235,7 @@ tcp_dnat_handler(struct sk_buff *skb,
+>  	/*
+>  	 *	Adjust TCP checksums
+>  	 */
+> -	if (!cp->app) {
+> +	if (!cp->app && (tcph->check != 0)) {
+>  		/* Only port and addr are changed, do fast csum update */
+>  		tcp_fast_csum_update(cp->af, tcph, &cp->vaddr, &cp->daddr,
+>  				     cp->vport, cp->dport);
+> --
 
-Does it even happen? Something smells afoul if ct->status is anything
-but zero/unset for the untracked entry.
+Regards
 
+--
+Julian Anastasov <ja@ssi.bg>
