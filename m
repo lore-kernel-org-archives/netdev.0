@@ -1,44 +1,45 @@
-From: Wolfgang Denk <wd@denx.de>
-Subject: Re: tehuti: use resource_size_t instead of unsigned long and u32
-Date: Fri, 05 Sep 2008 14:25:24 +0200
-Message-ID: <20080905122524.63FF0242FF@gemini.denx.de>
-References: <1220390068-6433-1-git-send-email-yanok@emcraft.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH] ipvs: Use pointer to address from sync message
+Date: Fri, 5 Sep 2008 14:28:48 +0200
+Message-ID: <f4845fc0809050528q253789fbi60ca6c229a08d8ab@mail.gmail.com>
+References: <1220363755-9854-1-git-send-email-juliusv@google.com>
+	 <1220363755-9854-13-git-send-email-juliusv@google.com>
+	 <alpine.LNX.2.00.0809051342360.18192@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, dzu@denx.de
-To: Ilya Yanok <yanok@emcraft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:34497 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752344AbYIEMZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 08:25:26 -0400
-In-reply-to: <1220390068-6433-1-git-send-email-yanok@emcraft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com
+To: "Sven Wegener" <sven.wegener@stealer.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.0809051342360.18192@titan.stealer.net>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Ilya Yanok,
+On Fri, Sep 5, 2008 at 1:46 PM, Sven Wegener <sven.wegener@stealer.net> wrote:
+> We want a pointer to it, not the value casted to a pointer.
 
-In message <1220390068-6433-1-git-send-email-yanok@emcraft.com> you wrote:
-> Use resource_size_t for pci_resource_start() and pci_resource_len() return
-> values. Makes tehuti driver work correctly on 32 bit systems with 64 bit
-> resources.
-> 
-> Signed-off-by: Ilya Yanok <yanok@emcraft.com>
+Ouch, right!
+
+> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
 > ---
->  drivers/net/tehuti.c |    6 +++---
+>  net/ipv4/ipvs/ip_vs_sync.c |    6 +++---
 >  1 files changed, 3 insertions(+), 3 deletions(-)
+>
+> I've been too late with having a look at these patches. I'm going to
+> send follow-up patches for the issues I find.
 
-Applied to master branch of linux-2.6-denx repo.
+Thanks! There are probably still lots of these easy-to-miss (but bad)
+bugs in this big new bunch of code...
 
-Thanks.
+> Simon, please apply onto lvs-next-2.6.
 
-Best regards,
+Yes!
 
-Wolfgang Denk
+Julius
 
 -- 
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
-The only perfect science is hind-sight.
+Julius Volz - Corporate Operations - SysOps
+
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
