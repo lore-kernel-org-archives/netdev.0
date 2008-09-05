@@ -1,54 +1,48 @@
-From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: "Listenless" TCP over =?UTF-8?Q?NAT=3F?=
-Date: Fri, 05 Sep 2008 14:51:17 +0200
-Message-ID: <5f1c7b80099fb4aa3ad56e830aa525d1@chewa.net>
-References: <WorldClient-F200809051345.AA45130148@butn.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 14/18] netdevice airo: Convert directly reference of
+	netdev->priv to netdev->ml_priv
+Date: Fri, 5 Sep 2008 08:50:36 -0400
+Message-ID: <20080905125036.GA3027@tuxdriver.com>
+References: <48C0A219.2030004@cn.fujitsu.com> <48C0A72B.9050407@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>,
-	Linux Networking <linux-net@vger.kernel.org>
-To: xerces8 <xerces8@butn.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	NETDEV <netdev@vger.kernel.org>, linux-wireless@vger.kernel.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:40894 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751820AbYIEMvS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2008 08:51:18 -0400
-In-Reply-To: <WorldClient-F200809051345.AA45130148@butn.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35548 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752206AbYIENAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 09:00:36 -0400
+Content-Disposition: inline
+In-Reply-To: <48C0A72B.9050407@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Sep 05, 2008 at 11:27:39AM +0800, Wang Chen wrote:
+> We have some reasons to kill netdev->priv:
+> 1. netdev->priv is equal to netdev_priv().
+> 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
+>    netdev_priv() is more flexible than netdev->priv.
+> But we cann't kill netdev->priv, because so many drivers reference to it
+> directly.
+> 
+> OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
+> and I want to kill netdev->priv later, I decided to convert all the direct
+> reference of netdev->priv first.
+> 
+> Different to readonly reference of netdev->priv, in this driver, netdev->priv
+> was changed. I use netdev->ml_priv to replace netdev->priv.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-On Fri, 05 Sep 2008 13:45:13 +0200, "xerces8" <xerces8@butn.net> wrote:=
-=0D
-> Recently someone mentioned on this (or maybe other...) list a seldom =
-used=0D
-> technique of establishing a TCP connection without one host listening=
- on=0D
-a=0D
-> port, but but acting as "clients" and connecting to the peers port.=0D
->=0D
-> My question: Can this be used to establish a TCP connection between t=
-wo=0D
-> hosts that are both behind a (P)NAT router ?=0D
-=0D
-Linux TCP/IP does allow this at the end nodes.=0D
-=0D
-However, whether it works on the NAT model. Many NAPT and firewalling b=
-oxes=0D
-will reset the TCP session if you try to do TCP simultaneous open. Besi=
-des,=0D
-you need to be able to predict your source port number, which again is =
-not=0D
-always possible depending on the NAPT implementation.=0D
-=0D
-=0D
-As far as I can tell, this is simply way too failure prone in real life=
-=2E=0D
-Using some form of UDP encapsulation, such as ICE, Teredo, IPsec-in-UDP=
-,=0D
-etc works A LOT better, although not always either.=0D
-=0D
---=0D
-R=C3=A9mi Denis-Courmont
+Thank you for your patch.  However, I do not understand why you didn't
+simply replace netdev->priv with netdev_priv()?  Can you explain?
 
+Thanks,
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
