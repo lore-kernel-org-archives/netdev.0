@@ -1,48 +1,44 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH 2/2] ipvs: load balance ipv6 connections from a local process
-Date: Fri, 5 Sep 2008 18:37:28 +0200
-Message-ID: <f4845fc0809050937m15b7fb1fs21ddc08765d1231c@mail.gmail.com>
-References: <20080905013609.GD14128@verge.net.au>
-	 <20080905013755.GE14128@verge.net.au>
-	 <f4845fc0809050440g24f304d9xec7982e984830c6e@mail.gmail.com>
-	 <48C15680.7010004@hp.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: TCP stateless offload with bonding?
+Date: Fri, 5 Sep 2008 17:38:29 +0100
+Message-ID: <20080905163828.GK7908@solarflare.com>
+References: <48C15885.9050908@limebrokerage.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Simon Horman" <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org,
-	"Malcolm Turnbull" <malcolm@loadbalancer.org>,
-	"=?ISO-8859-1?Q?Siim_P=F5der?=" <siim@p6drad-teel.net>,
-	"Vince Busam" <vbusam@google.com>
-To: "Brian Haley" <brian.haley@hp.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <48C15680.7010004@hp.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Dan =?iso-8859-1?B?Tm/p?= <dnoe@limebrokerage.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:50402 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751792AbYIEQik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 12:38:40 -0400
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <48C15885.9050908@limebrokerage.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 5, 2008 at 5:55 PM, Brian Haley <brian.haley@hp.com> wrote:
-> Julius Volz wrote:
->>>
->>> -out:
->>> -       __ip_vs_conn_put(cp);
->>> -
->>> -       return verdict;
->>> +       snet.in6 = iph->saddr;
->>
->> I've always been told to use ipv6_addr_copy() for this. I'm not sure
->> what the problem with the direct struct assignment is though... would
->> be nice if someone could explain.
->
-> Because an in6_addr is a union of 4 u32's, which won't all be copied in a
-> struct assignment.  That's the way I've always understood it.
+Dan No=E9 wrote:
+> The Documentation/networking/bonding.txt file talks about VLAN offloa=
+d=20
+> support and the bonding driver, but not TCP segmentation, UDP/TCP=20
+> checksum, etc, offloading.  Is this supported by the bonding driver, =
+and=20
+> if so, how is it configured?
+>=20
+> If it matters, we are using bonding for HA/failover, not for bandwidt=
+h=20
+> aggregation.
 
-No, they _do_ all get copied and the result seems correct. There must
-be another reason...
+The bonding driver generally provides all the offload features that all=
+ its
+slave devices provide.  You can configure this by using ethtool on the =
+slave
+devices.
 
-Julius
+Ben.
 
--- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
