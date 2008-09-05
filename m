@@ -1,42 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] pkt_sched: Fix qdisc state in net_tx_action()
-Date: Fri, 5 Sep 2008 20:26:00 +1000
-Message-ID: <20080905102600.GA30417@gondor.apana.org.au>
-References: <200809050143.27998.denys@visp.net.lb> <20080905082915.GA7320@ff.dom.local>
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Subject: Re: Packet mmap: TX RING and zero copy
+Date: Fri, 5 Sep 2008 13:28:03 +0300
+Message-ID: <7e63f56c0809050328j63b901dbgffb0fa5836229d70@mail.gmail.com>
+References: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"=?ISO-8859-1?Q?Ulisses_Alonso_Camar=F3?=" <uaca@alumni.uv.es>
+To: "Johann Baudy" <johaahn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47593 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751708AbYIEK0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 06:26:10 -0400
+Received: from yx-out-2324.google.com ([74.125.44.28]:43706 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751634AbYIEK2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 06:28:05 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so222354yxm.1
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 03:28:04 -0700 (PDT)
+In-Reply-To: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20080905082915.GA7320@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 05, 2008 at 08:29:15AM +0000, Jarek Poplawski wrote:
-> 
-> pkt_sched: Fix qdisc state in net_tx_action()
-> 
-> net_tx_action() can skip __QDISC_STATE_SCHED bit clearing while qdisc
-> is neither ran nor rescheduled, which may cause endless loop in
-> dev_deactivate().
-> 
-> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Hi Johann,
 
-Good catch!
+On Tue, Sep 2, 2008 at 9:27 PM, Johann Baudy <johaahn@gmail.com> wrote:
+> I've made lot of tests, playing with jumbo frames, raw sockets, ...
+> I've never exceeded ~25Mbytes/s. So I've decided to analyze deeply the
+> packet socket transmission process.
+>
+> The main blocking point was the memcpy_fromiovec() function that is
+> located in the packet_sendmsg() of af_packet.c.
+> It was consuming all my CPU resources to copy data from user space to
+> socket buffer.
+> Then I've started to work on a hack that makes this transfer possible
+> without any memcpys.
+>
+> Mainly, the hack is the implementation of two "features":
+>
+>    *  Sending packet through a circular buffer between user and
+> kernel space that minimizes the number of system calls. (Feature
+> actually implemented for capture process, libpcap ..).
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Something like this has been done in PF_RING socket,
+which is a part of ntop project infra.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Take care.
+
+Truly,
+Robert Iakobashvili
+......................................................................
+www.ghotit.com
+Assistive technology that understands you
+......................................................................
