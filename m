@@ -1,65 +1,41 @@
-From: Matt Sealey <matt@genesi-usa.com>
-Subject: Re: [PATCH, RFC] mv643xx_eth: move sram window setting code into
- the driver
-Date: Fri, 05 Sep 2008 09:31:59 -0500
-Message-ID: <48C142DF.70404@genesi-usa.com>
-References: <20080903140048.GC19602@xi.wantstofly.org> <48BFE63F.70700@genesi-usa.com> <20080904152032.GB27272@xi.wantstofly.org>
+From: Hannes Hering <hannes.hering@gmx.de>
+Subject: [PATCH 1/2] ehea: Fix DLPAR memory handling
+Date: Fri, 5 Sep 2008 16:36:26 +0200
+Message-ID: <200809051636.26545.hannes.hering@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, ossrosch@linux.vnet.ibm.com,
+	ossthema@de.ibm.com, raisch@de.ibm.com, themann@de.ibm.com,
+	osstklei@de.ibm.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:59598 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753244AbYIEOcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 10:32:02 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so303972waf.23
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 07:32:00 -0700 (PDT)
-In-Reply-To: <20080904152032.GB27272@xi.wantstofly.org>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:56096 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbYIEOhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 10:37:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The ehea busmap must be allocated only once in the first of many calls of the
+ehea_create_busmap_callback.
 
-Lennert Buytenhek wrote:
-> On Thu, Sep 04, 2008 at 08:44:31AM -0500, Matt Sealey wrote:
-> 
->> script, but in either case, wouldn't a real sram node in the device
->> tree be the proper solution here? Hardcoding addresses for devices
-> 
-> Probably.
-> 
-> I guess you don't want to pass that info _directly_ to the mv643xx_eth
-> driver, though -- since the on-chip SRAM can be used for many things,
-> and you're not necessarily sure that the user wants to use it for
-> descriptors.  (Or how much of it they want to use for descriptors.)
-> (Or for the descriptors of which of the 8 possible transmit and receive
-> queues, considering the 2.6.27 driver supports multiple queues.)
-> 
-> Well, I'm not sure what the best solution is. :-)
+Signed-off-by: Hannes Hering <hering2@de.ibm.com>
+---
 
-In my view... an sram node (it would be /buildin/sram on Pegasos) which
-defines the location of sram. In the mv643xx_eth driver you'd check if
-you're on Pegasos and set it up, which is what the extra code amounts
-to anyway. It just reduces the need to have this address hardcoded in
-the kernel. Or, perhaps an sram "driver" - like the sram driver on the
-MPC5200B which BestComm relies on. It's simply an rheap wrapper and a
-few extra bobbins to find the base address and suchlike from the device
-tree.
-
-I'm surprised there isn't a generic sram framework in the same way there
-is now a generic GPIO framework. Using rheap allocators and a generic
-API you can mark every sram allocation to the owner module/usage..
-
->> I don't have a Pegasos running right now to test but I will, as soon
->> as possible, make sure this works first.
-> 
-> Cool, thanks.  It would be nice if you could give the driver in
-> 2.6.27-rc5 a spin, it has seen a _lot_ of changes since 2.6.25 and
-> I'd really like to make sure it still works on Pegasos.
-
-I will definitely give it a try, time permitting.
-
--- 
-Matt Sealey <matt@genesi-usa.com>
-Genesi, Manager, Developer Relations
+diff -Nurp -X dontdiff linux-2.6.27-rc5/drivers/net/ehea/ehea_qmr.c patched_kernel/drivers/net/ehea/ehea_qmr.c
+--- linux-2.6.27-rc5/drivers/net/ehea/ehea_qmr.c	2008-08-29 00:52:02.000000000 +0200
++++ patched_kernel/drivers/net/ehea/ehea_qmr.c	2008-09-05 15:31:30.000000000 +0200
+@@ -595,7 +595,8 @@ static int ehea_create_busmap_callback(u
+ 	end_section = start_section + ((nr_pages * PAGE_SIZE) / EHEA_SECTSIZE);
+ 	mr_len = *(unsigned long *)arg;
+ 
+-	ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
++	if (!ehea_bmap)
++		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
+ 	if (!ehea_bmap)
+ 		return -ENOMEM;
+ 
