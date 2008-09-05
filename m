@@ -1,44 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: TCP stateless offload with bonding?
-Date: Fri, 5 Sep 2008 17:38:29 +0100
-Message-ID: <20080905163828.GK7908@solarflare.com>
-References: <48C15885.9050908@limebrokerage.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 12/18] netdevice hdlc: Convert directly reference of netdev->priv to netdev->ml_priv
+Date: Fri, 05 Sep 2008 18:38:35 +0200
+Message-ID: <m31vzy4kfo.fsf@maximus.localdomain>
+References: <48C0A219.2030004@cn.fujitsu.com>
+	<48C0A672.9080102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Dan =?iso-8859-1?B?Tm/p?= <dnoe@limebrokerage.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:50402 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751792AbYIEQik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 12:38:40 -0400
-Content-Disposition: inline
-In-Reply-To: <48C15885.9050908@limebrokerage.com>
+Received: from khc.piap.pl ([195.187.100.11]:40560 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751075AbYIEQih (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2008 12:38:37 -0400
+In-Reply-To: <48C0A672.9080102@cn.fujitsu.com> (Wang Chen's message of "Fri\, 05 Sep 2008 11\:24\:34 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan No=E9 wrote:
-> The Documentation/networking/bonding.txt file talks about VLAN offloa=
-d=20
-> support and the bonding driver, but not TCP segmentation, UDP/TCP=20
-> checksum, etc, offloading.  Is this supported by the bonding driver, =
-and=20
-> if so, how is it configured?
->=20
-> If it matters, we are using bonding for HA/failover, not for bandwidt=
-h=20
-> aggregation.
+Wang Chen <wangchen@cn.fujitsu.com> writes:
 
-The bonding driver generally provides all the offload features that all=
- its
-slave devices provide.  You can configure this by using ethtool on the =
-slave
-devices.
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
+> ---
+>  drivers/net/wan/hdlc_fr.c |   10 +++++-----
+>  include/linux/hdlc.h      |    2 +-
+>  2 files changed, 6 insertions(+), 6 deletions(-)
 
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Since it's now a separate patch I will just take it.
+Thanks.
+-- 
+Krzysztof Halasa
