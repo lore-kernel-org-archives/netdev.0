@@ -1,74 +1,46 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 10/18] netdevice ppp: Convert directly reference of netdev->priv
- to netdev->ml_priv
-Date: Fri, 05 Sep 2008 11:21:34 +0800
-Message-ID: <48C0A5BE.6010701@cn.fujitsu.com>
-References: <48C0A219.2030004@cn.fujitsu.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 2/3] ibm_newemac: Introduce mal_has_feature
+Date: Fri, 05 Sep 2008 13:19:23 +1000
+Message-ID: <1220584763.4879.97.camel@pasglop>
+References: <cover.1220540078.git.jwboyer@linux.vnet.ibm.com>
+	 <20080904150205.GC2479@yoda.jdub.homelinux.org>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, NETDEV <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49486 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751516AbYIEDX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 23:23:57 -0400
-In-Reply-To: <48C0A219.2030004@cn.fujitsu.com>
+Received: from gate.crashing.org ([63.228.1.57]:45057 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752479AbYIEDYl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 23:24:41 -0400
+In-Reply-To: <20080904150205.GC2479@yoda.jdub.homelinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have some reasons to kill netdev->priv:
-1. netdev->priv is equal to netdev_priv().
-2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
-   netdev_priv() is more flexible than netdev->priv.
-But we cann't kill netdev->priv, because so many drivers reference to it
-directly.
+On Thu, 2008-09-04 at 11:02 -0400, Josh Boyer wrote:
+> There are some PowerPC SoCs that do odd things with the MAL handling.  In
+> order to accommodate them, we need to introduce a feature mechanism that is
+> similar to the existing emac_has_feature function.
+> 
+> This adds a feature variable to the mal_instance structure, and adds a
+> mal_has_feature function with some feature definitions.  These are guarded
+> by Kconfig options that are selected by the affected platforms.
+> 
+> Signed-of-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 
-OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
-and I want to kill netdev->priv later, I decided to convert all the direct
-reference of netdev->priv first.
+You also add an actual feature (CLR_ICINSTAT). You should document that
+or move it to a separate patch.
 
-Different to readonly reference of netdev->priv, in this driver, netdev->priv
-was changed. I use netdev->ml_priv to replace netdev->priv.
+> +/* Features of various MAL implementations */
+> +
+> +/* Dummy feature bit so the enum works properly */
+> +#define MAL_FTR_DUMMY	0x00000001
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/net/ppp_generic.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Nah. Just stick an | 0 in the enum to make it happy.
 
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index ddccc07..7d41fbd 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -886,7 +886,7 @@ out_chrdev:
- static int
- ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct ppp *ppp = (struct ppp *) dev->priv;
-+	struct ppp *ppp = dev->ml_priv;
- 	int npi, proto;
- 	unsigned char *pp;
- 
-@@ -931,7 +931,7 @@ ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
- static int
- ppp_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
--	struct ppp *ppp = dev->priv;
-+	struct ppp *ppp = dev->ml_priv;
- 	int err = -EFAULT;
- 	void __user *addr = (void __user *) ifr->ifr_ifru.ifru_data;
- 	struct ppp_stats stats;
-@@ -2435,7 +2435,7 @@ ppp_create_interface(int unit, int *retp)
- 	skb_queue_head_init(&ppp->mrq);
- #endif /* CONFIG_PPP_MULTILINK */
- 	ppp->dev = dev;
--	dev->priv = ppp;
-+	dev->ml_priv = ppp;
- 
- 	dev->hard_start_xmit = ppp_start_xmit;
- 	dev->do_ioctl = ppp_net_ioctl;
--- 
-1.5.3.4
+Cheers,
+Ben.
 
 
