@@ -1,98 +1,103 @@
 From: akpm@linux-foundation.org
-Subject: [patch for 2.6.27? 3/6] e1000: prevent corruption of EEPROM/NVM
-Date: Fri, 05 Sep 2008 14:04:05 -0700
-Message-ID: <200809052104.m85L46VE020352@imap1.linux-foundation.org>
+Subject: [patch for 2.6.27? 6/6] net: forcedeth: call restore mac addr in nv_shutdown path
+Date: Fri, 05 Sep 2008 14:04:10 -0700
+Message-ID: <200809052104.m85L4AAm020367@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	chrisl@vmware.com, arvidjaar@mail.ru, bruce.w.allan@intel.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, peter.p.waskiewicz.jr@intel.com,
-	pratap@vmware.com, zach@vmware.com
+	yhlu.kernel@gmail.com, aabdulla@nvidia.com, jgarzik@redhat.com,
+	ranma+kernel@tdiedrich.de, rjw@sisk.pl
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53158 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:56533 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751564AbYIEVEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 17:04:55 -0400
+	by vger.kernel.org with ESMTP id S1752510AbYIEVFg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 17:05:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christopher Li <chrisl@vmware.com> 
+From: Yinghai Lu <yhlu.kernel@gmail.com>
 
-Andrey reports e1000 corruption, and that a patch in vmware's ESX fixed
-it.
+after
 
-The EEPROM corruption is triggered by concurrent access of the EEPROM
-read/write. Putting a lock around it solve the problem.
+| commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
+| Author: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+| Date:   Sun May 18 15:02:37 2008 +0200
+|
+|    [netdrvr] forcedeth: setup wake-on-lan before shutting down
+|
+|    When hibernating in 'shutdown' mode, after saving the image the suspend hook
+|    is not called again.
+|    However, if the device is in promiscous mode, wake-on-lan will not work.
+|    This adds a shutdown hook to setup wake-on-lan before the final shutdown.
+|
+|    Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+|    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-[akpm@linux-foundation.org: use DEFINE_SPINLOCK to avoid confusing lockdep]
-Signed-off-by: Christopher Li <chrisl@vmware.com>
-Reported-by: Andrey Borzenkov <arvidjaar@mail.ru>
-Cc: Zach Amsden <zach@vmware.com>
-Cc: Pratap Subrahmanyam <pratap@vmware.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>
-Cc: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Cc: John Ronciak <john.ronciak@intel.com>
+my servers with nvidia ck804 and mcp55 will reverse mac address with kexec.
+
+it turns out that we need to restore the mac addr in nv_shutdown().
+
+[akpm@linux-foundation.org: fix typo in printk]
+Signed-off-by: Yinghai Lu <yhlu.kernel@gmail.com>
+Cc: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/e1000/e1000_hw.c |   23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
+ drivers/net/forcedeth.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-diff -puN drivers/net/e1000/e1000_hw.c~e1000e-prevent-corruption-of-eeprom-nvm drivers/net/e1000/e1000_hw.c
---- a/drivers/net/e1000/e1000_hw.c~e1000e-prevent-corruption-of-eeprom-nvm
-+++ a/drivers/net/e1000/e1000_hw.c
-@@ -144,6 +144,8 @@ static s32 e1000_host_if_read_cookie(str
- static u8 e1000_calculate_mng_checksum(char *buffer, u32 length);
- static s32 e1000_configure_kmrn_for_10_100(struct e1000_hw *hw, u16 duplex);
- static s32 e1000_configure_kmrn_for_1000(struct e1000_hw *hw);
-+static s32 e1000_do_read_eeprom(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
-+static s32 e1000_do_write_eeprom(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+diff -puN drivers/net/forcedeth.c~net-forcedeth-call-restore-mac-addr-in-nv_shutdown-path-v2 drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~net-forcedeth-call-restore-mac-addr-in-nv_shutdown-path-v2
++++ a/drivers/net/forcedeth.c
+@@ -5651,6 +5651,7 @@ static int __devinit nv_probe(struct pci
+ 		dev->dev_addr[4] = (np->orig_mac[0] >>  8) & 0xff;
+ 		dev->dev_addr[5] = (np->orig_mac[0] >>  0) & 0xff;
+ 		writel(txreg|NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
++		printk(KERN_DEBUG "nv_probe: set workaround bit for reversed mac addr\n");
+ 	}
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
  
- /* IGP cable length table */
- static const
-@@ -168,6 +170,8 @@ u16 e1000_igp_2_cable_length_table[IGP02
-       83, 89, 95, 100, 105, 109, 113, 116, 119, 122, 124,
-       104, 109, 114, 118, 121, 124};
+@@ -5898,14 +5899,12 @@ static void nv_restore_phy(struct net_de
+ 	}
+ }
  
-+static DEFINE_SPINLOCK(e1000_eeprom_lock);
-+
- /******************************************************************************
-  * Set the phy type member in the hw struct.
-  *
-@@ -4904,6 +4908,15 @@ static s32 e1000_spi_eeprom_ready(struct
-  *****************************************************************************/
- s32 e1000_read_eeprom(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+-static void __devexit nv_remove(struct pci_dev *pci_dev)
++static void nv_restore_mac_addr(struct pci_dev *pci_dev)
  {
-+    s32 ret;
-+    spin_lock(&e1000_eeprom_lock);
-+    ret = e1000_do_read_eeprom(hw, offset, words, data);
-+    spin_unlock(&e1000_eeprom_lock);
-+    return ret;
+ 	struct net_device *dev = pci_get_drvdata(pci_dev);
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+ 
+-	unregister_netdev(dev);
+-
+ 	/* special op: write back the misordered MAC address - otherwise
+ 	 * the next nv_probe would see a wrong address.
+ 	 */
+@@ -5913,6 +5912,15 @@ static void __devexit nv_remove(struct p
+ 	writel(np->orig_mac[1], base + NvRegMacAddrB);
+ 	writel(readl(base + NvRegTransmitPoll) & ~NVREG_TRANSMITPOLL_MAC_ADDR_REV,
+ 	       base + NvRegTransmitPoll);
 +}
 +
-+static s32 e1000_do_read_eeprom(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
++static void __devexit nv_remove(struct pci_dev *pci_dev)
 +{
-     struct e1000_eeprom_info *eeprom = &hw->eeprom;
-     u32 i = 0;
- 
-@@ -5236,6 +5249,16 @@ s32 e1000_update_eeprom_checksum(struct 
-  *****************************************************************************/
- s32 e1000_write_eeprom(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- {
-+    s32 ret;
-+    spin_lock(&e1000_eeprom_lock);
-+    ret = e1000_do_write_eeprom(hw, offset, words, data);
-+    spin_unlock(&e1000_eeprom_lock);
-+    return ret;
-+}
++	struct net_device *dev = pci_get_drvdata(pci_dev);
 +
++	unregister_netdev(dev);
 +
-+static s32 e1000_do_write_eeprom(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
-+{
-     struct e1000_eeprom_info *eeprom = &hw->eeprom;
-     s32 status = 0;
++	nv_restore_mac_addr(pci_dev);
  
+ 	/* restore any phy related changes */
+ 	nv_restore_phy(dev);
+@@ -5990,6 +5998,8 @@ static void nv_shutdown(struct pci_dev *
+ 	if (netif_running(dev))
+ 		nv_close(dev);
+ 
++	nv_restore_mac_addr(pdev);
++
+ 	pci_disable_device(pdev);
+ 	if (system_state == SYSTEM_POWER_OFF) {
+ 		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
 _
