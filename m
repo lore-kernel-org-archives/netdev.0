@@ -1,217 +1,64 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 15/18] netdevice libertas: Fix directly reference of
-	netdev->priv
-Date: Fri, 05 Sep 2008 13:07:45 -0400
-Message-ID: <1220634465.6430.16.camel@localhost.localdomain>
-References: <48C0A219.2030004@cn.fujitsu.com>
-	 <48C0A76F.8090706@cn.fujitsu.com>
+From: "prodyut hazarika" <prodyuth@gmail.com>
+Subject: Re: include/linux/skbuff.h: checksumming documentation
+Date: Fri, 5 Sep 2008 10:37:31 -0700
+Message-ID: <49c0ff980809051037p14de9835y4293f7c63b23a37d@mail.gmail.com>
+References: <20080905164711.GB4318@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	NETDEV <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48C0A76F.8090706-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Ben Dooks" <ben-linux@fluff.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gv-out-0910.google.com ([216.239.58.191]:59036 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752647AbYIERhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 13:37:33 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so55143gvc.37
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 10:37:31 -0700 (PDT)
+In-Reply-To: <20080905164711.GB4318@fluff.org.uk>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-09-05 at 11:28 +0800, Wang Chen wrote:
-> We have some reasons to kill netdev->priv:
-> 1. netdev->priv is equal to netdev_priv().
-> 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
->    netdev_priv() is more flexible than netdev->priv.
-> But we cann't kill netdev->priv, because so many drivers reference to it
-> directly.
-> 
-> OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
-> and I want to kill netdev->priv later, I decided to convert all the direct
-> reference of netdev->priv first.
-> 
-> Different to readonly reference of netdev->priv, in this driver, netdev->priv
-> was changed. I use netdev->ml_priv to replace netdev->priv.
+> The first line does not make sense, and the rest of it is an
+> unslightly rant about hardware manufacturers.
+>
 
-Same comment as the other two; any reason we can't use netdev_priv()
-instead of ->ml_priv?  That would be preferable.
+The documentation is kind of confusing.
+It took me some time to figure this whole thing out.
 
-Thanks!
-Dan
+Note that Linux TCP stack does not support IP checksum offload.
+Only TCP/UDP offload is supported - but to confuse all we have skb->ipsummed,
+which in reality holds the L4 partial checksum state.
+Also, note that the stack always does the L4 pseudo header calculation,
+even though the underlying device might be able to perform it. Only
+the L4 payload
+checksum is offloaded to the device.
 
-> Signed-off-by: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> ---
->  drivers/net/wireless/libertas/main.c |   36 +++++++++++++++++-----------------
->  1 files changed, 18 insertions(+), 18 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/libertas/main.c b/drivers/net/wireless/libertas/main.c
-> index bd32ac0..71c4bd8 100644
-> --- a/drivers/net/wireless/libertas/main.c
-> +++ b/drivers/net/wireless/libertas/main.c
-> @@ -223,7 +223,7 @@ u8 lbs_data_rate_to_fw_index(u32 rate)
->  static ssize_t lbs_anycast_get(struct device *dev,
->  		struct device_attribute *attr, char * buf)
->  {
-> -	struct lbs_private *priv = to_net_dev(dev)->priv;
-> +	struct lbs_private *priv = netdev_priv(to_net_dev(dev));
->  	struct cmd_ds_mesh_access mesh_access;
->  	int ret;
->  
-> @@ -242,7 +242,7 @@ static ssize_t lbs_anycast_get(struct device *dev,
->  static ssize_t lbs_anycast_set(struct device *dev,
->  		struct device_attribute *attr, const char * buf, size_t count)
->  {
-> -	struct lbs_private *priv = to_net_dev(dev)->priv;
-> +	struct lbs_private *priv = netdev_priv(to_net_dev(dev));
->  	struct cmd_ds_mesh_access mesh_access;
->  	uint32_t datum;
->  	int ret;
-> @@ -270,7 +270,7 @@ static void lbs_remove_mesh(struct lbs_private *priv);
->  static ssize_t lbs_rtap_get(struct device *dev,
->  		struct device_attribute *attr, char * buf)
->  {
-> -	struct lbs_private *priv = to_net_dev(dev)->priv;
-> +	struct lbs_private *priv = netdev_priv(to_net_dev(dev));
->  	return snprintf(buf, 5, "0x%X\n", priv->monitormode);
->  }
->  
-> @@ -281,7 +281,7 @@ static ssize_t lbs_rtap_set(struct device *dev,
->  		struct device_attribute *attr, const char * buf, size_t count)
->  {
->  	int monitor_mode;
-> -	struct lbs_private *priv = to_net_dev(dev)->priv;
-> +	struct lbs_private *priv = netdev_priv(to_net_dev(dev));
->  
->  	sscanf(buf, "%x", &monitor_mode);
->  	if (monitor_mode) {
-> @@ -330,7 +330,7 @@ static DEVICE_ATTR(lbs_rtap, 0644, lbs_rtap_get, lbs_rtap_set );
->  static ssize_t lbs_mesh_get(struct device *dev,
->  		struct device_attribute *attr, char * buf)
->  {
-> -	struct lbs_private *priv = to_net_dev(dev)->priv;
-> +	struct lbs_private *priv = netdev_priv(to_net_dev(dev));
->  	return snprintf(buf, 5, "0x%X\n", !!priv->mesh_dev);
->  }
->  
-> @@ -340,7 +340,7 @@ static ssize_t lbs_mesh_get(struct device *dev,
->  static ssize_t lbs_mesh_set(struct device *dev,
->  		struct device_attribute *attr, const char * buf, size_t count)
->  {
-> -	struct lbs_private *priv = to_net_dev(dev)->priv;
-> +	struct lbs_private *priv = netdev_priv(to_net_dev(dev));
->  	int enable;
->  	int ret, action = CMD_ACT_MESH_CONFIG_STOP;
->  
-> @@ -391,7 +391,7 @@ static struct attribute_group lbs_mesh_attr_group = {
->   */
->  static int lbs_dev_open(struct net_device *dev)
->  {
-> -	struct lbs_private *priv = (struct lbs_private *) dev->priv ;
-> +	struct lbs_private *priv = netdev_priv(dev) ;
->  	int ret = 0;
->  
->  	lbs_deb_enter(LBS_DEB_NET);
-> @@ -433,7 +433,7 @@ static int lbs_dev_open(struct net_device *dev)
->   */
->  static int lbs_mesh_stop(struct net_device *dev)
->  {
-> -	struct lbs_private *priv = (struct lbs_private *) (dev->priv);
-> +	struct lbs_private *priv = dev->ml_priv;
->  
->  	lbs_deb_enter(LBS_DEB_MESH);
->  	spin_lock_irq(&priv->driver_lock);
-> @@ -460,7 +460,7 @@ static int lbs_mesh_stop(struct net_device *dev)
->   */
->  static int lbs_eth_stop(struct net_device *dev)
->  {
-> -	struct lbs_private *priv = (struct lbs_private *) dev->priv;
-> +	struct lbs_private *priv = netdev_priv(dev);
->  
->  	lbs_deb_enter(LBS_DEB_NET);
->  
-> @@ -477,7 +477,7 @@ static int lbs_eth_stop(struct net_device *dev)
->  
->  static void lbs_tx_timeout(struct net_device *dev)
->  {
-> -	struct lbs_private *priv = (struct lbs_private *) dev->priv;
-> +	struct lbs_private *priv = netdev_priv(dev);
->  
->  	lbs_deb_enter(LBS_DEB_TX);
->  
-> @@ -529,7 +529,7 @@ EXPORT_SYMBOL_GPL(lbs_host_to_card_done);
->   */
->  static struct net_device_stats *lbs_get_stats(struct net_device *dev)
->  {
-> -	struct lbs_private *priv = (struct lbs_private *) dev->priv;
-> +	struct lbs_private *priv = netdev_priv(dev);
->  
->  	lbs_deb_enter(LBS_DEB_NET);
->  	return &priv->stats;
-> @@ -538,7 +538,7 @@ static struct net_device_stats *lbs_get_stats(struct net_device *dev)
->  static int lbs_set_mac_address(struct net_device *dev, void *addr)
->  {
->  	int ret = 0;
-> -	struct lbs_private *priv = (struct lbs_private *) dev->priv;
-> +	struct lbs_private *priv = netdev_priv(dev);
->  	struct sockaddr *phwaddr = addr;
->  	struct cmd_ds_802_11_mac_address cmd;
->  
-> @@ -672,7 +672,7 @@ static void lbs_set_mcast_worker(struct work_struct *work)
->  
->  static void lbs_set_multicast_list(struct net_device *dev)
->  {
-> -	struct lbs_private *priv = dev->priv;
-> +	struct lbs_private *priv = netdev_priv(dev);
->  
->  	schedule_work(&priv->mcast_work);
->  }
-> @@ -688,7 +688,7 @@ static void lbs_set_multicast_list(struct net_device *dev)
->  static int lbs_thread(void *data)
->  {
->  	struct net_device *dev = data;
-> -	struct lbs_private *priv = dev->priv;
-> +	struct lbs_private *priv = netdev_priv(dev);
->  	wait_queue_t wait;
->  
->  	lbs_deb_enter(LBS_DEB_THREAD);
-> @@ -1116,7 +1116,7 @@ struct lbs_private *lbs_add_card(void *card, struct device *dmdev)
->  		lbs_pr_err("init ethX device failed\n");
->  		goto done;
->  	}
-> -	priv = dev->priv;
-> +	priv = netdev_priv(dev);
->  
->  	if (lbs_init_adapter(priv)) {
->  		lbs_pr_err("failed to initialize adapter structure.\n");
-> @@ -1351,7 +1351,7 @@ static int lbs_add_mesh(struct lbs_private *priv)
->  		ret = -ENOMEM;
->  		goto done;
->  	}
-> -	mesh_dev->priv = priv;
-> +	mesh_dev->ml_priv = priv;
->  	priv->mesh_dev = mesh_dev;
->  
->  	mesh_dev->open = lbs_dev_open;
-> @@ -1564,7 +1564,7 @@ static int lbs_rtap_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  static struct net_device_stats *lbs_rtap_get_stats(struct net_device *dev)
->  {
-> -	struct lbs_private *priv = dev->priv;
-> +	struct lbs_private *priv = dev->ml_priv;
->  	lbs_deb_enter(LBS_DEB_NET);
->  	return &priv->stats;
->  }
-> @@ -1605,7 +1605,7 @@ static int lbs_add_rtap(struct lbs_private *priv)
->  	rtap_dev->stop = lbs_rtap_stop;
->  	rtap_dev->get_stats = lbs_rtap_get_stats;
->  	rtap_dev->hard_start_xmit = lbs_rtap_hard_start_xmit;
-> -	rtap_dev->priv = priv;
-> +	rtap_dev->ml_priv = priv;
->  	SET_NETDEV_DEV(rtap_dev, priv->dev->dev.parent);
->  
->  	ret = register_netdev(rtap_dev);
+The driver exports its capability using the features flag (eg. NETIF_F_HW_CSUM).
+In transmit path, Linux TCP stack calculates the L4 partial checksum
+(pseudo-header only),
+and puts the partial checksum in skb->csum. Look at tcp_v4_send_check.
+CHECKSUM_PARTIAL means that the device is capable of performing
+partial L4 checksum offload.
+The emac driver then grabs this partial checksum and XORs it with the
+checksum over the data,
+puts this new checksum in the tcp packet header, and sends the packet out.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For RX side, if the driver is capable of computing the complete L4
+checksum, it marks
+skb->ipsummed = CHECKSUM_UNNECESARY. If it computes the partial L4 checksum,
+it puts the partial L4 checksum in skb->csum and marks ip_summed as
+CHECKSUM_COMPLETE.
+The tcp stack then XORs this value with the psuedo header.
+See tcp_v4_checksum_init() which is called from tcp_v4_rcv
+
+
+> I will have to research what the chip does with checksumming on IP
+> fragments as, IIRC, the UDP and TCP checksums cover the entriety of
+> the data before fragmentation.
+>
+Look at Intel e1000 driver to understand checksum offload.
+
+Thanks,
+Prodyut Hazarika
