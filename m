@@ -1,48 +1,47 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 21/25] netns ct: per-netns event cache
-Date: Fri, 5 Sep 2008 07:44:15 +0400
-Message-ID: <20080905034415.GB2789@x200.localdomain>
-References: <20080821220445.GU31136@x200.localdomain> <48C013BE.3060800@trash.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [V#2 PATCH 0/18] netdevice: Fix directly reference of netdev->priv
+Date: Fri, 05 Sep 2008 11:42:32 +0800
+Message-ID: <48C0AAA8.7050707@cn.fujitsu.com>
+References: <48C0A219.2030004@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <48C013BE.3060800@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:51985 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753256AbYIEDoz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 23:44:55 -0400
+In-Reply-To: <48C0A219.2030004@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 04, 2008 at 06:58:38PM +0200, Patrick McHardy wrote:
-> adobriyan@gmail.com wrote:
->>  static inline void
->> -nf_conntrack_event_cache(enum ip_conntrack_events event,
->> +nf_conntrack_event_cache(struct net *net, enum ip_conntrack_events event,
->>  			 const struct sk_buff *skb)
->>  {
->
-> Passing the conntrack instead of the struct net and the skb
-> would probably keep the callers cleaner.
+Wang Chen said the following on 2008-9-5 11:06:
+> We have some reasons to kill netdev->priv:
+> 1. netdev->priv is equal to netdev_priv().
+> 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
+>    netdev_priv() is more flexible than netdev->priv.
+> But we cann't kill netdev->priv now, because so many drivers reference to it
+> directly.
+> 
+> OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
+> and I want to kill netdev->priv later, I decided to convert all the direct
+> reference of netdev->priv first.
+> 
+> - Patch 1-4 are the safe convert which I believe will not make "after converted " worse
+>   than "before converted".
+>   Originally, I put this kind of convert in one mail, but it's too big for vger.
+>   So I split it to 4 parts and make every part smaller than 100,000 bytes,
+>   which is max size allowed by vger.
+> 
+> - Patches 5-18 need comments. Since the value of netdev->priv is changed in drivers
+>   and I use netdev->ml_priv to replace netdev->priv.
+> 
 
-Dunno, passing netns explicitly like saying conntrack event happened in
-netns A, which is reasonable. OTOH, s/skb/ct/ is indeed nicer.
+v1->v2:
 
-I'll change it as you suggest and see what happens.
-
-BTW, I asked earlier if untracked conntracks are ever supposed to drop into
-event cache. If they're, trimming nf_conntrack_untracked is out of question.
-
->>  	struct nf_conn *ct = (struct nf_conn *)skb->nfct;
->>  	struct nf_conntrack_ecache *ecache;
->>   	local_bh_disable();
->> -	ecache = &__get_cpu_var(nf_conntrack_ecache);
->> +	ecache = per_cpu_ptr(net->ct.ecache, raw_smp_processor_id());
->>  	if (ct != ecache->ct)
->>  		__nf_ct_event_cache_init(ct);
->>  	ecache->events |= event;
->> @@ -60,16 +58,29 @@ nf_ct_expect_event(enum ip_conntrack_expect_events event,
->>  	atomic_notifier_call_chain(&nf_ct_expect_chain, event, exp);
->>  }
->>  
+- Jeff pointed out some patch's subject is not same as content. fixed.
+- Remove sfc driver fix, because it's already merged.
+- I split safe convertion to 18 parts in version-1, but I split to 4 parts here.
 
