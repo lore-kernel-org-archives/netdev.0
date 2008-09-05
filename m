@@ -1,54 +1,83 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 1/2] ipvs: load balance IPv4 connections from a local
- process
-Date: Fri, 5 Sep 2008 08:12:08 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0809050750550.2831@u.domain.uli>
-References: <20080905013609.GD14128@verge.net.au>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 1/1 2.6.28] cxgb3 - remove duplicate tests in lro
+Date: Thu, 04 Sep 2008 22:34:13 -0700
+Message-ID: <20080905053413.11654.33295.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Malcolm Turnbull <malcolm@loadbalancer.org>,
-	Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>,
-	Julius Volz <juliusv@google.com>,
-	Vince Busam <vbusam@google.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080905013609.GD14128@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:13522 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750910AbYIEFdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 01:33:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Divy Le Ray <divy@chelsio.com>
 
-	Hello,
+The generic lro code checks TCP flags/options.
+Remove duplicate tests done in the driver.
 
-	TCP checksum is not optional, why this change appeared?
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-On Fri, 5 Sep 2008, Simon Horman wrote:
+ drivers/net/cxgb3/sge.c |   35 -----------------------------------
+ 1 files changed, 0 insertions(+), 35 deletions(-)
 
-> Index: lvs-2.6/net/ipv4/ipvs/ip_vs_proto_tcp.c
-> ===================================================================
-> --- lvs-2.6.orig/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-09-03 10:56:05.000000000 +1000
-> +++ lvs-2.6/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-09-03 11:24:26.000000000 +1000
-> @@ -166,7 +166,7 @@ tcp_snat_handler(struct sk_buff *skb,
->  	tcph->source = cp->vport;
->  
->  	/* Adjust TCP checksums */
-> -	if (!cp->app) {
-> +	if (!cp->app && (tcph->check != 0)) {
->  		/* Only port and addr are changed, do fast csum update */
->  		tcp_fast_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
->  				     cp->dport, cp->vport);
-> @@ -235,7 +235,7 @@ tcp_dnat_handler(struct sk_buff *skb,
->  	/*
->  	 *	Adjust TCP checksums
->  	 */
-> -	if (!cp->app) {
-> +	if (!cp->app && (tcph->check != 0)) {
->  		/* Only port and addr are changed, do fast csum update */
->  		tcp_fast_csum_update(cp->af, tcph, &cp->vaddr, &cp->daddr,
->  				     cp->vport, cp->dport);
-> --
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 1b0861d..f78a42c 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -1937,38 +1937,6 @@ static inline int lro_frame_ok(const struct cpl_rx_pkt *p)
+ 		eh->h_proto == htons(ETH_P_IP) && ih->ihl == (sizeof(*ih) >> 2);
+ }
+ 
+-#define TCP_FLAG_MASK (TCP_FLAG_CWR | TCP_FLAG_ECE | TCP_FLAG_URG |\
+-                       TCP_FLAG_ACK | TCP_FLAG_PSH | TCP_FLAG_RST |\
+-		                       TCP_FLAG_SYN | TCP_FLAG_FIN)
+-#define TSTAMP_WORD ((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16) |\
+-                     (TCPOPT_TIMESTAMP << 8) | TCPOLEN_TIMESTAMP)
+-
+-/**
+- *	lro_segment_ok - check if a TCP segment is eligible for LRO
+- *	@tcph: the TCP header of the packet
+- *
+- *	Returns true if a TCP packet is eligible for LRO.  This requires that
+- *	the packet have only the ACK flag set and no TCP options besides
+- *	time stamps.
+- */
+-static inline int lro_segment_ok(const struct tcphdr *tcph)
+-{
+-	int optlen;
+-
+-	if (unlikely((tcp_flag_word(tcph) & TCP_FLAG_MASK) != TCP_FLAG_ACK))
+-		return 0;
+-
+-	optlen = (tcph->doff << 2) - sizeof(*tcph);
+-	if (optlen) {
+-		const u32 *opt = (const u32 *)(tcph + 1);
+-
+-		if (optlen != TCPOLEN_TSTAMP_ALIGNED ||
+-		    *opt != htonl(TSTAMP_WORD) || !opt[2])
+-			return 0;
+-	}
+-	return 1;
+-}
+-
+ static int t3_get_lro_header(void **eh,  void **iph, void **tcph,
+ 			     u64 *hdr_flags, void *priv)
+ {
+@@ -1981,9 +1949,6 @@ static int t3_get_lro_header(void **eh,  void **iph, void **tcph,
+ 	*iph = (struct iphdr *)((struct ethhdr *)*eh + 1);
+ 	*tcph = (struct tcphdr *)((struct iphdr *)*iph + 1);
+ 
+-	 if (!lro_segment_ok(*tcph))
+-		return -1;
+-
+ 	*hdr_flags = LRO_IPV4 | LRO_TCP;
+ 	return 0;
+ }
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
