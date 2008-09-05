@@ -1,83 +1,82 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 1/1 2.6.28] cxgb3 - remove duplicate tests in lro
-Date: Thu, 04 Sep 2008 22:34:13 -0700
-Message-ID: <20080905053413.11654.33295.stgit@speedy5>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: linux-next: Tree for September 3
+Date: Thu, 4 Sep 2008 22:39:39 -0700
+Message-ID: <20080904223939.18a166aa@infradead.org>
+References: <20080903191619.6b6b230e.sfr@canb.auug.org.au>
+	<20080903214634.ea17ff53.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809032201510.3378@nehalem.linux-foundation.org>
+	<20080903223318.84b6ce8b.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040045190.3378@nehalem.linux-foundation.org>
+	<20080904012544.cabed847.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040143350.3452@nehalem.linux-foundation.org>
+	<20080904015701.5959623a.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040203510.3452@nehalem.linux-foundation.org>
+	<20080904104554.32ffebea.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809041058140.3400@nehalem.linux-foundation.org>
+	<20080904113408.d47c65f6.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809050041520.3243@apollo.tec.linutronix.de>
+	<alpine.LFD.1.10.0809041554050.3117@nehalem.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:13522 "EHLO
-	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750910AbYIEFdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 01:33:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Yinghai Lu <yhlu.kernel@gmail.com>,
+	Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Sam Ravnborg <sam@ravnborg.org>,
+	john stultz <johnstul@us.ibm.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.1.10.0809041554050.3117@nehalem.linux-foundation.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+On Thu, 4 Sep 2008 16:17:01 -0700 (PDT)
+Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-The generic lro code checks TCP flags/options.
-Remove duplicate tests done in the driver.
+> 
+> 
+> On Fri, 5 Sep 2008, Thomas Gleixner wrote:
+> >  
+> > > BUG: unable to handle kernel NULL pointer dereference at 00000040
+> > > IP: [<c0126e7f>] get_next_timer_interrupt+0xe9/0x1ab
+> > 
+> > Cute, NULL pointer in the timer check code. Can you please addr2line
+> > the exact code line or upload the vmlinux somewhere ?
+> 
+> Use "scrips/decodecode" (with AFLAGS=--32 since this is x86-32). It
+> shows (after some cleanup and editing):
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
 
- drivers/net/cxgb3/sge.c |   35 -----------------------------------
- 1 files changed, 0 insertions(+), 35 deletions(-)
+btw if the oops was on lkml like it was here you can also just look it
+up on kerneloops.org via the search option
 
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 1b0861d..f78a42c 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -1937,38 +1937,6 @@ static inline int lro_frame_ok(const struct cpl_rx_pkt *p)
- 		eh->h_proto == htons(ETH_P_IP) && ih->ihl == (sizeof(*ih) >> 2);
- }
- 
--#define TCP_FLAG_MASK (TCP_FLAG_CWR | TCP_FLAG_ECE | TCP_FLAG_URG |\
--                       TCP_FLAG_ACK | TCP_FLAG_PSH | TCP_FLAG_RST |\
--		                       TCP_FLAG_SYN | TCP_FLAG_FIN)
--#define TSTAMP_WORD ((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16) |\
--                     (TCPOPT_TIMESTAMP << 8) | TCPOLEN_TIMESTAMP)
--
--/**
-- *	lro_segment_ok - check if a TCP segment is eligible for LRO
-- *	@tcph: the TCP header of the packet
-- *
-- *	Returns true if a TCP packet is eligible for LRO.  This requires that
-- *	the packet have only the ACK flag set and no TCP options besides
-- *	time stamps.
-- */
--static inline int lro_segment_ok(const struct tcphdr *tcph)
--{
--	int optlen;
--
--	if (unlikely((tcp_flag_word(tcph) & TCP_FLAG_MASK) != TCP_FLAG_ACK))
--		return 0;
--
--	optlen = (tcph->doff << 2) - sizeof(*tcph);
--	if (optlen) {
--		const u32 *opt = (const u32 *)(tcph + 1);
--
--		if (optlen != TCPOLEN_TSTAMP_ALIGNED ||
--		    *opt != htonl(TSTAMP_WORD) || !opt[2])
--			return 0;
--	}
--	return 1;
--}
--
- static int t3_get_lro_header(void **eh,  void **iph, void **tcph,
- 			     u64 *hdr_flags, void *priv)
- {
-@@ -1981,9 +1949,6 @@ static int t3_get_lro_header(void **eh,  void **iph, void **tcph,
- 	*iph = (struct iphdr *)((struct ethhdr *)*eh + 1);
- 	*tcph = (struct tcphdr *)((struct iphdr *)*iph + 1);
- 
--	 if (!lro_segment_ok(*tcph))
--		return -1;
--
- 	*hdr_flags = LRO_IPV4 | LRO_TCP;
- 	return 0;
- }
+which for this case finds you
+http://www.kerneloops.org/raw.php?rawid=59347&msgid=http://mid.gmane.org/20080904113408.d47c65f6.akpm@linux-foundation.org
 
+and this has the decodecode already done 
+
+and the search output at
+http://www.kerneloops.org/search.php?search=get_next_timer_interrupt
+shows that there's only been very few reports of this one, but of the
+ones there were at least half were slab poisoned.
+
+what the site doesn't do for an oops like this is show the C-code
+interspersed, it's not that smart for general kernels (that only works
+for fedora rpm kernels like here:
+http://www.kerneloops.org/raw.php?rawid=57807&msgid=
+)
+
+otoh if you have the vmlinux you could do this locally
+(hmm maybe I should clean that script up and submit for adding to
+the scripts/ directory)
+-- 
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
