@@ -1,38 +1,89 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Fri, 5 Sep 2008 10:45:11 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0809051039070.3117@nehalem.linux-foundation.org>
-References: <20080827.164649.87042354.davem@davemloft.net> <1220627292.7260.3.camel@2710p.home>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: linux-next: Tree for September 3
+Date: Fri, 5 Sep 2008 10:49:52 -0700
+Message-ID: <20080905104952.5e9ea394.akpm@linux-foundation.org>
+References: <20080904012544.cabed847.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040143350.3452@nehalem.linux-foundation.org>
+	<20080904015701.5959623a.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809040203510.3452@nehalem.linux-foundation.org>
+	<20080904104554.32ffebea.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809041058140.3400@nehalem.linux-foundation.org>
+	<20080904113408.d47c65f6.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809050041520.3243@apollo.tec.linutronix.de>
+	<20080904161746.dc4800a4.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0809050121440.3243@apollo.tec.linutronix.de>
+	<20080905110411.GA26846@elte.hu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jouni.malinen@atheros.com
-To: Alex Williamson <alex.williamson@hp.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752488AbYIERpt@vger.kernel.org>
-In-Reply-To: <1220627292.7260.3.camel@2710p.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	torvalds@linux-foundation.org, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yhlu.kernel@gmail.com, ink@jurassic.park.msu.ru,
+	jbarnes@virtuousgeek.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, ebiederm@xmission.com,
+	dwmw2@infradead.org, sam@ravnborg.org, johnstul@us.ibm.com
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20080905110411.GA26846@elte.hu>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 5 Sep 2008 13:04:11 +0200 Ingo Molnar <mingo@elte.hu> wrote:
 
-
-On Fri, 5 Sep 2008, Alex Williamson wrote:
-
-> On Wed, 2008-08-27 at 16:46 -0700, David Miller wrote:
 > 
-> > 22) Two mac80211 bug fixes from Jouni Malinen:
-> >     a) Use IWEVCUSTOM so that we don't hit the 256 byte limit that
-> >        IWEVASSOCREQIE has
+> * Thomas Gleixner <tglx@linutronix.de> wrote:
 > 
-> This one breaks wireless with 32bit userspace/64bit kernel.  Bisected
-> back to changeset 087d833e5a9f67ba933cb32eaf5a2279c1a5b47c:
+> > On Thu, 4 Sep 2008, Andrew Morton wrote:
+> > > > 
+> > > > Cute, NULL pointer in the timer check code. Can you please addr2line
+> > > > the exact code line or upload the vmlinux somewhere ?
+> > > > 
+> > > 
+> > > erm, I might have lost that binary, and it only happened the once.  It
+> > > happened shortly after the machine had fully booted, during
+> > > establishment of the first sshd session.
+> > > 
+> > > It nuked the machine really well, too.  I had to pull the battery to
+> > > get it back.
+> > 
+> > Known problem on Sonys. :(
+> > 
+> > > fwiw:
+> > >
+> > > (gdb) l *0xc0126e7f
+> > > 0xc0126e7f is in get_next_timer_interrupt (kernel/timer.c:863).
+> > > warning: Source file is more recent than executable.
+> > > 858             for (array = 0; array < 4; array++) {
+> > > 859                     struct tvec *varp = varray[array];
+> > > 860     
+> > > 861                     index = slot = timer_jiffies & TVN_MASK;
+> > > 862                     do {
+> > > 863                             list_for_each_entry(nte, varp->vec + slot, entry) {
+> > > 864                                     found = 1;
+> > > 865                                     if (time_before(nte->expires, expires))
+> > > 866                                             expires = nte->expires;
+> > > 867                             }
+> > > 
+> > > which looks reasonable.
+> > 
+> > Yeah, as Linus decoded it's that loop. So we look at some corrupted
+> > entry here. 
+> > 
+> > CONFIG_DEBUG_OBJECTS (add debug_objects to the command line as well)
+> > should catch it when this is a timer being discarded, freed or
+> > reinitialized.
+> > 
+> > Otherwise, when it is just random corruption it wont help much.
 > 
-> mac80211: Use IWEVASSOCREQIE instead of IWEVCUSTOM
+> i guess CONFIG_DEBUG_OBJECTS_TIMERS=y is practical, and 
+> CONFIG_DEBUG_LIST=y would be nice as well - it can catch memory 
+> corruptions rather early and is relatively light-weight.
 
-Grr. I'd love to say "I told you so", and write another rant about -rc 
-series patches. But I'm too lazy, so people - please mentally insert my 
-standard rant here.
+I tested rc5-mm1 with all debug options except PAGEALLOC.  No help.
 
-David/Jouni - just revert it?
+> [ and if there's any reproducability of the corruption and if it happens 
+>   at a stable kernel address then a small custom hack in ftrace can 
+>   catch it the moment it happens. ]
 
-		Linus
+It was a once-off.
