@@ -1,54 +1,45 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: Packet mmap: TX RING and zero copy
-Date: Fri, 5 Sep 2008 13:28:03 +0300
-Message-ID: <7e63f56c0809050328j63b901dbgffb0fa5836229d70@mail.gmail.com>
-References: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 1/2] ipvs: load balance IPv4 connections from a local process
+Date: Fri, 5 Sep 2008 13:02:44 +0200
+Message-ID: <f4845fc0809050402x5552f526pc8511026d7faa359@mail.gmail.com>
+References: <20080905013609.GD14128@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"=?ISO-8859-1?Q?Ulisses_Alonso_Camar=F3?=" <uaca@alumni.uv.es>
-To: "Johann Baudy" <johaahn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:43706 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634AbYIEK2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 06:28:05 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so222354yxm.1
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 03:28:04 -0700 (PDT)
-In-Reply-To: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	"Malcolm Turnbull" <malcolm@loadbalancer.org>,
+	"=?ISO-8859-1?Q?Siim_P=F5der?=" <siim@p6drad-teel.net>,
+	"Vince Busam" <vbusam@google.com>
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080905013609.GD14128@verge.net.au>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Johann,
-
-On Tue, Sep 2, 2008 at 9:27 PM, Johann Baudy <johaahn@gmail.com> wrote:
-> I've made lot of tests, playing with jumbo frames, raw sockets, ...
-> I've never exceeded ~25Mbytes/s. So I've decided to analyze deeply the
-> packet socket transmission process.
+On Fri, Sep 5, 2008 at 3:36 AM, Simon Horman <horms@verge.net.au> wrote:
+> @@ -1244,11 +1278,12 @@ ip_vs_in(unsigned int hooknum, struct sk
+>        ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
 >
-> The main blocking point was the memcpy_fromiovec() function that is
-> located in the packet_sendmsg() of af_packet.c.
-> It was consuming all my CPU resources to copy data from user space to
-> socket buffer.
-> Then I've started to work on a hack that makes this transfer possible
-> without any memcpys.
->
-> Mainly, the hack is the implementation of two "features":
->
->    *  Sending packet through a circular buffer between user and
-> kernel space that minimizes the number of system calls. (Feature
-> actually implemented for capture process, libpcap ..).
+>        /*
+> -        *      Big tappo: only PACKET_HOST (neither loopback nor mcasts)
+> -        *      ... don't know why 1st test DOES NOT include 2nd (?)
+> +        *      Big tappo: only PACKET_HOST, including loopback for local client
+> +        *      Don't handle local packets on IPv6 for now
+>         */
+> -       if (unlikely(skb->pkt_type != PACKET_HOST
+> -                    || skb->dev->flags & IFF_LOOPBACK || skb->sk)) {
+> +       if (unlikely(skb->pkt_type != PACKET_HOST ||
+> +                    (af == AF_INET6 || (skb->dev->flags & IFF_LOOPBACK ||
+> +                                        skb->sk)))) {
 
-Something like this has been done in PF_RING socket,
-which is a part of ntop project infra.
+Hm, shouldn't this be (af == AF_INET6 && ...) instead of "||"? The
+current expression just NF_ACCEPTs _any_ incoming IPv6 packets, even
+non-local ones.
 
-Take care.
+Julius
 
-Truly,
-Robert Iakobashvili
-......................................................................
-www.ghotit.com
-Assistive technology that understands you
-......................................................................
+-- 
+Julius Volz - Corporate Operations - SysOps
+
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
