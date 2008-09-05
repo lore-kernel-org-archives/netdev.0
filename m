@@ -1,75 +1,81 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: linux-next: Tree for September 3
-Date: Fri, 5 Sep 2008 13:04:11 +0200
-Message-ID: <20080905110411.GA26846@elte.hu>
-References: <20080904012544.cabed847.akpm@linux-foundation.org> <alpine.LFD.1.10.0809040143350.3452@nehalem.linux-foundation.org> <20080904015701.5959623a.akpm@linux-foundation.org> <alpine.LFD.1.10.0809040203510.3452@nehalem.linux-foundation.org> <20080904104554.32ffebea.akpm@linux-foundation.org> <alpine.LFD.1.10.0809041058140.3400@nehalem.linux-foundation.org> <20080904113408.d47c65f6.akpm@linux-foundation.org> <alpine.LFD.1.10.0809050041520.3243@apollo.tec.linutronix.de> <20080904161746.dc4800a4.akpm@linux-foundation.org> <alpine.LFD.1.10.0809050121440.3243@apollo.tec.linutronix.de>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCHv3 00/24] Add first IPv6 support to IPVS
+Date: Fri, 5 Sep 2008 13:05:12 +0200
+Message-ID: <f4845fc0809050405q650b66b3j266b9429476eb3bb@mail.gmail.com>
+References: <1220363755-9854-1-git-send-email-juliusv@google.com>
+	 <20080905012554.GC14128@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yhlu.kernel@gmail.com, ink@jurassic.park.msu.ru,
-	jbarnes@virtuousgeek.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, ebiederm@xmission.com,
-	dwmw2@infradead.org, sam@ravnborg.org, johnstul@us.ibm.com
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-next-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080905012554.GC14128@verge.net.au>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.1.10.0809050121440.3243@apollo.tec.linutronix.de>
-Sender: linux-next-owner@vger.kernel.org
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Sep 5, 2008 at 3:25 AM, Simon Horman <horms@verge.net.au> wrote:
+> On Tue, Sep 02, 2008 at 03:55:31PM +0200, Julius Volz wrote:
+>> Hi Horms,
+>>
+>> Here comes the whole batch again! I've fixed almost all style issues
+>> reported by checkpatch.pl, except for some little things which look like
+>> they could stay like they are for now (down to 3 warnings and 2 errors).
+>> I also integrated your other comments and removed the patch that
+>> adds the changelog information (not needed anymore, according to
+>> Stephen).
+>>
+>> These patches are based on lvs-2.6:
+>>
+>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-2.6.git
+>>
+>> - Full kernel patch in one file:
+>>   http://www-user.tu-chemnitz.de/~volz/ipvs_ipv6/ipvs_ipv6_v3.patch
+>>
+>> While not all IPv6 features are working or tested, existing IPv4 features
+>> should still work as before. However, to use any of the new features, you
+>> will need a new ipvsadm with support for genetlink and IPv6:
+>>
+>>   http://sixpak.org/vince/google/ipvsadm/
+>>   (by Vince Busam)
+>>
+>> To enable IPv6 support in IPVS, set CONFIG_IP_VS_IPV6=y.
+>>
+>> Short overview:
+>>
+>> What works with IPv6:
+>> - forwarding mechanisms: NAT, DR, maybe Tunnel (not fully tested yet)
+>> - protocols: TCP, UDP, ESP, AH (last two not tested)
+>> - manipulation and inspection of both IPv4 and IPv6 entries with ipvsadm
+>> - 6 out of 10 schedulers
+>>
+>> What is not supported with IPv6:
+>> - handling fragmentation or other extension headers
+>> - FTP application helper (can be loaded, but only operates on v4)
+>> - sync daemon (can be started, but only operates on v4)
+>> - probably some incorrect handling of ICMPv6 or other corner cases
+>>
+>> Since fragmentation and extension headers should not occur very often,
+>> things should "mostly" work. I tested HTTP and DNS over NAT and DR
+>> with various supported schedulers without encountering any problems.
+>> But we didn't test any exotic situations. Also, there are some TODOs
+>> in the code for things that haven't been tested or implemented yet.
+>>
+>> Thanks for any comments!
+>
+> Hi Julius, Hi Vince,
+>
+> I have applied all of these patches to the lvs-next-2.6 branch
+> of the lvs-2.6 tree and I will ask Dave to pull these into
+> net-next-2.6 shortly.
 
-* Thomas Gleixner <tglx@linutronix.de> wrote:
+Great, many thanks!
 
-> On Thu, 4 Sep 2008, Andrew Morton wrote:
-> > > 
-> > > Cute, NULL pointer in the timer check code. Can you please addr2line
-> > > the exact code line or upload the vmlinux somewhere ?
-> > > 
-> > 
-> > erm, I might have lost that binary, and it only happened the once.  It
-> > happened shortly after the machine had fully booted, during
-> > establishment of the first sshd session.
-> > 
-> > It nuked the machine really well, too.  I had to pull the battery to
-> > get it back.
-> 
-> Known problem on Sonys. :(
-> 
-> > fwiw:
-> >
-> > (gdb) l *0xc0126e7f
-> > 0xc0126e7f is in get_next_timer_interrupt (kernel/timer.c:863).
-> > warning: Source file is more recent than executable.
-> > 858             for (array = 0; array < 4; array++) {
-> > 859                     struct tvec *varp = varray[array];
-> > 860     
-> > 861                     index = slot = timer_jiffies & TVN_MASK;
-> > 862                     do {
-> > 863                             list_for_each_entry(nte, varp->vec + slot, entry) {
-> > 864                                     found = 1;
-> > 865                                     if (time_before(nte->expires, expires))
-> > 866                                             expires = nte->expires;
-> > 867                             }
-> > 
-> > which looks reasonable.
-> 
-> Yeah, as Linus decoded it's that loop. So we look at some corrupted
-> entry here. 
-> 
-> CONFIG_DEBUG_OBJECTS (add debug_objects to the command line as well)
-> should catch it when this is a timer being discarded, freed or
-> reinitialized.
-> 
-> Otherwise, when it is just random corruption it wont help much.
+Julius
 
-i guess CONFIG_DEBUG_OBJECTS_TIMERS=y is practical, and 
-CONFIG_DEBUG_LIST=y would be nice as well - it can catch memory 
-corruptions rather early and is relatively light-weight.
+-- 
+Julius Volz - Corporate Operations - SysOps
 
-[ and if there's any reproducability of the corruption and if it happens 
-  at a stable kernel address then a small custom hack in ftrace can 
-  catch it the moment it happens. ]
-
-	Ingo
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
