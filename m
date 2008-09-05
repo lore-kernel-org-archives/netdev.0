@@ -1,20 +1,20 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 11/18] netdevice cycx_x25: Convert directly reference of netdev->priv
+Subject: [PATCH 12/18] netdevice hdlc: Convert directly reference of netdev->priv
  to netdev->ml_priv
-Date: Fri, 05 Sep 2008 11:23:23 +0800
-Message-ID: <48C0A62B.10806@cn.fujitsu.com>
+Date: Fri, 05 Sep 2008 11:24:34 +0800
+Message-ID: <48C0A672.9080102@cn.fujitsu.com>
 References: <48C0A219.2030004@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jgarzik@pobox.com>, NETDEV <netdev@vger.kernel.org>,
-	=?UTF-8?B?S3J6eXN6dG9mIEhhxYJhc2E=?= <khc@pm.waw.pl>
+	Krzysztof Halasa <khc@pm.waw.pl>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53782 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:51653 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751913AbYIEDZq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2008 23:25:46 -0400
+	id S1752564AbYIED05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2008 23:26:57 -0400
 In-Reply-To: <48C0A219.2030004@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -34,196 +34,74 @@ Different to readonly reference of netdev->priv, in this driver, netdev->priv
 was changed. I use netdev->ml_priv to replace netdev->priv.
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
 ---
- drivers/net/wan/cycx_x25.c |   42 +++++++++++++++++++++---------------------
- 1 files changed, 21 insertions(+), 21 deletions(-)
+ drivers/net/wan/hdlc_fr.c |   10 +++++-----
+ include/linux/hdlc.h      |    2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wan/cycx_x25.c b/drivers/net/wan/cycx_x25.c
-index d3b28b0..5309220 100644
---- a/drivers/net/wan/cycx_x25.c
-+++ b/drivers/net/wan/cycx_x25.c
-@@ -445,7 +445,7 @@ static int cycx_wan_new_if(struct wan_device *wandev, struct net_device *dev,
- 	/* prepare network device data space for registration */
- 	strcpy(dev->name, chan->name);
- 	dev->init = cycx_netdevice_init;
--	dev->priv = chan;
-+	dev->ml_priv = chan;
+diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
+index d3d5055..f1ddd7c 100644
+--- a/drivers/net/wan/hdlc_fr.c
++++ b/drivers/net/wan/hdlc_fr.c
+@@ -342,7 +342,7 @@ static int fr_hard_header(struct sk_buff **skb_p, u16 dlci)
  
- 	return 0;
+ static int pvc_open(struct net_device *dev)
+ {
+-	pvc_device *pvc = dev->priv;
++	pvc_device *pvc = dev->ml_priv;
+ 
+ 	if ((pvc->frad->flags & IFF_UP) == 0)
+ 		return -EIO;  /* Frad must be UP in order to activate PVC */
+@@ -362,7 +362,7 @@ static int pvc_open(struct net_device *dev)
+ 
+ static int pvc_close(struct net_device *dev)
+ {
+-	pvc_device *pvc = dev->priv;
++	pvc_device *pvc = dev->ml_priv;
+ 
+ 	if (--pvc->open_count == 0) {
+ 		hdlc_device *hdlc = dev_to_hdlc(pvc->frad);
+@@ -381,7 +381,7 @@ static int pvc_close(struct net_device *dev)
+ 
+ static int pvc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+-	pvc_device *pvc = dev->priv;
++	pvc_device *pvc = dev->ml_priv;
+ 	fr_proto_pvc_info info;
+ 
+ 	if (ifr->ifr_settings.type == IF_GET_PROTO) {
+@@ -409,7 +409,7 @@ static int pvc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 
+ static int pvc_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	pvc_device *pvc = dev->priv;
++	pvc_device *pvc = dev->ml_priv;
+ 
+ 	if (pvc->state.active) {
+ 		if (dev->type == ARPHRD_ETHER) {
+@@ -1111,7 +1111,7 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
+ 	dev->change_mtu = pvc_change_mtu;
+ 	dev->mtu = HDLC_MAX_MTU;
+ 	dev->tx_queue_len = 0;
+-	dev->priv = pvc;
++	dev->ml_priv = pvc;
+ 
+ 	result = dev_alloc_name(dev, dev->name);
+ 	if (result < 0) {
+diff --git a/include/linux/hdlc.h b/include/linux/hdlc.h
+index c597696..e960faa 100644
+--- a/include/linux/hdlc.h
++++ b/include/linux/hdlc.h
+@@ -80,7 +80,7 @@ struct net_device *alloc_hdlcdev(void *priv);
+ 
+ static inline struct hdlc_device* dev_to_hdlc(struct net_device *dev)
+ {
+-	return dev->priv;
++	return netdev_priv(dev);
  }
-@@ -453,8 +453,8 @@ static int cycx_wan_new_if(struct wan_device *wandev, struct net_device *dev,
- /* Delete logical channel. */
- static int cycx_wan_del_if(struct wan_device *wandev, struct net_device *dev)
- {
--	if (dev->priv) {
--		struct cycx_x25_channel *chan = dev->priv;
-+	if (dev->ml_priv) {
-+		struct cycx_x25_channel *chan = dev->ml_priv;
  
- 		if (chan->svc) {
- 			kfree(chan->local_addr);
-@@ -463,7 +463,7 @@ static int cycx_wan_del_if(struct wan_device *wandev, struct net_device *dev)
- 		}
- 
- 		kfree(chan);
--		dev->priv = NULL;
-+		dev->ml_priv = NULL;
- 	}
- 
- 	return 0;
-@@ -484,7 +484,7 @@ static const struct header_ops cycx_header_ops = {
-  * registration. */
- static int cycx_netdevice_init(struct net_device *dev)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 	struct cycx_device *card = chan->card;
- 	struct wan_device *wandev = &card->wandev;
- 
-@@ -542,7 +542,7 @@ static int cycx_netdevice_open(struct net_device *dev)
-  * o if there's no more open channels then disconnect physical link. */
- static int cycx_netdevice_stop(struct net_device *dev)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 
- 	netif_stop_queue(dev);
- 
-@@ -596,7 +596,7 @@ static int cycx_netdevice_rebuild_header(struct sk_buff *skb)
- static int cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
- 					  struct net_device *dev)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 	struct cycx_device *card = chan->card;
- 
- 	if (!chan->svc)
-@@ -670,7 +670,7 @@ free_packet:
-  * Return a pointer to struct net_device_stats */
- static struct net_device_stats *cycx_netdevice_get_stats(struct net_device *dev)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 
- 	return chan ? &chan->ifstats : NULL;
- }
-@@ -783,7 +783,7 @@ static void cycx_x25_irq_rx(struct cycx_device *card, struct cycx_x25_cmd *cmd)
- 		return;
- 	}
- 
--	chan = dev->priv;
-+	chan = dev->ml_priv;
- 	reset_timer(dev);
- 
- 	if (chan->drop_sequence) {
-@@ -884,7 +884,7 @@ static void cycx_x25_irq_connect(struct cycx_device *card,
- 		return;
- 	}
- 
--	chan = dev->priv;
-+	chan = dev->ml_priv;
- 	chan->lcn = lcn;
- 	cycx_x25_connect_response(card, chan);
- 	cycx_x25_set_chan_state(dev, WAN_CONNECTED);
-@@ -914,7 +914,7 @@ static void cycx_x25_irq_connect_confirm(struct cycx_device *card,
- 	}
- 
- 	clear_bit(--key, (void*)&card->u.x.connection_keys);
--	chan = dev->priv;
-+	chan = dev->ml_priv;
- 	chan->lcn = lcn;
- 	cycx_x25_set_chan_state(dev, WAN_CONNECTED);
- }
-@@ -954,7 +954,7 @@ static void cycx_x25_irq_disconnect(struct cycx_device *card,
- 
- 	dev = cycx_x25_get_dev_by_lcn(wandev, lcn);
- 	if (dev) {
--		struct cycx_x25_channel *chan = dev->priv;
-+		struct cycx_x25_channel *chan = dev->ml_priv;
- 
- 		cycx_x25_disconnect_response(card, chan->link, lcn);
- 		cycx_x25_set_chan_state(dev, WAN_DISCONNECTED);
-@@ -1302,7 +1302,7 @@ static struct net_device *cycx_x25_get_dev_by_lcn(struct wan_device *wandev,
- 	struct cycx_x25_channel *chan;
- 
- 	while (dev) {
--		chan = (struct cycx_x25_channel*)dev->priv;
-+		chan = (struct cycx_x25_channel *)dev->ml_priv;
- 
- 		if (chan->lcn == lcn)
- 			break;
-@@ -1319,7 +1319,7 @@ static struct net_device *
- 	struct cycx_x25_channel *chan;
- 
- 	while (dev) {
--		chan = (struct cycx_x25_channel*)dev->priv;
-+		chan = (struct cycx_x25_channel *)dev->ml_priv;
- 
- 		if (!strcmp(chan->addr, dte))
- 			break;
-@@ -1337,7 +1337,7 @@ static struct net_device *
-  *		<0	failure */
- static int cycx_x25_chan_connect(struct net_device *dev)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 	struct cycx_device *card = chan->card;
- 
- 	if (chan->svc) {
-@@ -1362,7 +1362,7 @@ static int cycx_x25_chan_connect(struct net_device *dev)
-  * o if SVC then clear X.25 call */
- static void cycx_x25_chan_disconnect(struct net_device *dev)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 
- 	if (chan->svc) {
- 		x25_clear_call(chan->card, chan->link, chan->lcn, 0, 0);
-@@ -1375,7 +1375,7 @@ static void cycx_x25_chan_disconnect(struct net_device *dev)
- static void cycx_x25_chan_timer(unsigned long d)
- {
- 	struct net_device *dev = (struct net_device *)d;
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 
- 	if (chan->state == WAN_CONNECTED)
- 		cycx_x25_chan_disconnect(dev);
-@@ -1387,7 +1387,7 @@ static void cycx_x25_chan_timer(unsigned long d)
- /* Set logical channel state. */
- static void cycx_x25_set_chan_state(struct net_device *dev, u8 state)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 	struct cycx_device *card = chan->card;
- 	unsigned long flags;
- 	char *string_state = NULL;
-@@ -1453,7 +1453,7 @@ static void cycx_x25_set_chan_state(struct net_device *dev, u8 state)
-  *    to the router.  */
- static int cycx_x25_chan_send(struct net_device *dev, struct sk_buff *skb)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 	struct cycx_device *card = chan->card;
- 	int bitm = 0;		/* final packet */
- 	unsigned len = skb->len;
-@@ -1547,7 +1547,7 @@ static unsigned dec_to_uint(u8 *str, int len)
- 
- static void reset_timer(struct net_device *dev)
- {
--	struct cycx_x25_channel *chan = dev->priv;
-+	struct cycx_x25_channel *chan = dev->ml_priv;
- 
- 	if (chan->svc)
- 		mod_timer(&chan->timer, jiffies+chan->idle_tmout*HZ);
-@@ -1600,7 +1600,7 @@ static void cycx_x25_dump_devs(struct wan_device *wandev)
- 	printk(KERN_INFO "---------------------------------------\n");
- 
- 	while(dev) {
--		struct cycx_x25_channel *chan = dev->priv;
-+		struct cycx_x25_channel *chan = dev->ml_priv;
- 
- 		printk(KERN_INFO "%-5.5s %-15.15s   %d     ETH_P_%s\n",
- 				 chan->name, chan->addr, netif_queue_stopped(dev),
+ static __inline__ void debug_frame(const struct sk_buff *skb)
 -- 
 1.5.3.4
 
