@@ -1,64 +1,38 @@
-From: "prodyut hazarika" <prodyuth@gmail.com>
-Subject: Re: include/linux/skbuff.h: checksumming documentation
-Date: Fri, 5 Sep 2008 10:37:31 -0700
-Message-ID: <49c0ff980809051037p14de9835y4293f7c63b23a37d@mail.gmail.com>
-References: <20080905164711.GB4318@fluff.org.uk>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Fri, 5 Sep 2008 10:45:11 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0809051039070.3117@nehalem.linux-foundation.org>
+References: <20080827.164649.87042354.davem@davemloft.net> <1220627292.7260.3.camel@2710p.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Ben Dooks" <ben-linux@fluff.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.191]:59036 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752647AbYIERhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 13:37:33 -0400
-Received: by gv-out-0910.google.com with SMTP id e6so55143gvc.37
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 10:37:31 -0700 (PDT)
-In-Reply-To: <20080905164711.GB4318@fluff.org.uk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-> The first line does not make sense, and the rest of it is an
-> unslightly rant about hardware manufacturers.
->
-
-The documentation is kind of confusing.
-It took me some time to figure this whole thing out.
-
-Note that Linux TCP stack does not support IP checksum offload.
-Only TCP/UDP offload is supported - but to confuse all we have skb->ipsummed,
-which in reality holds the L4 partial checksum state.
-Also, note that the stack always does the L4 pseudo header calculation,
-even though the underlying device might be able to perform it. Only
-the L4 payload
-checksum is offloaded to the device.
-
-The driver exports its capability using the features flag (eg. NETIF_F_HW_CSUM).
-In transmit path, Linux TCP stack calculates the L4 partial checksum
-(pseudo-header only),
-and puts the partial checksum in skb->csum. Look at tcp_v4_send_check.
-CHECKSUM_PARTIAL means that the device is capable of performing
-partial L4 checksum offload.
-The emac driver then grabs this partial checksum and XORs it with the
-checksum over the data,
-puts this new checksum in the tcp packet header, and sends the packet out.
-
-For RX side, if the driver is capable of computing the complete L4
-checksum, it marks
-skb->ipsummed = CHECKSUM_UNNECESARY. If it computes the partial L4 checksum,
-it puts the partial L4 checksum in skb->csum and marks ip_summed as
-CHECKSUM_COMPLETE.
-The tcp stack then XORs this value with the psuedo header.
-See tcp_v4_checksum_init() which is called from tcp_v4_rcv
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jouni.malinen@atheros.com
+To: Alex Williamson <alex.williamson@hp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752488AbYIERpt@vger.kernel.org>
+In-Reply-To: <1220627292.7260.3.camel@2710p.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> I will have to research what the chip does with checksumming on IP
-> fragments as, IIRC, the UDP and TCP checksums cover the entriety of
-> the data before fragmentation.
->
-Look at Intel e1000 driver to understand checksum offload.
 
-Thanks,
-Prodyut Hazarika
+On Fri, 5 Sep 2008, Alex Williamson wrote:
+
+> On Wed, 2008-08-27 at 16:46 -0700, David Miller wrote:
+> 
+> > 22) Two mac80211 bug fixes from Jouni Malinen:
+> >     a) Use IWEVCUSTOM so that we don't hit the 256 byte limit that
+> >        IWEVASSOCREQIE has
+> 
+> This one breaks wireless with 32bit userspace/64bit kernel.  Bisected
+> back to changeset 087d833e5a9f67ba933cb32eaf5a2279c1a5b47c:
+> 
+> mac80211: Use IWEVASSOCREQIE instead of IWEVCUSTOM
+
+Grr. I'd love to say "I told you so", and write another rant about -rc 
+series patches. But I'm too lazy, so people - please mentally insert my 
+standard rant here.
+
+David/Jouni - just revert it?
+
+		Linus
