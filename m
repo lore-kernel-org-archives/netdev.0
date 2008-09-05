@@ -1,55 +1,77 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 16/18] netdevice zd1201: Convert directly reference of
-	netdev->priv to netdev->ml_priv
-Date: Fri, 5 Sep 2008 08:56:27 -0400
-Message-ID: <20080905125626.GB3027@tuxdriver.com>
-References: <48C0A219.2030004@cn.fujitsu.com> <48C0A7A0.9030200@cn.fujitsu.com>
+From: "Johann Baudy" <johaahn@gmail.com>
+Subject: Re: Packet mmap: TX RING and zero copy
+Date: Fri, 5 Sep 2008 15:06:42 +0200
+Message-ID: <7e0dd21a0809050606t42e5ee06nc8259d146c77868e@mail.gmail.com>
+References: <7e0dd21a0809021127n35cd38d7m98be5ee5d7158788@mail.gmail.com>
+	 <7e63f56c0809050328j63b901dbgffb0fa5836229d70@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	NETDEV <netdev@vger.kernel.org>, linux-wireless@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"=?ISO-8859-1?Q?Ulisses_Alonso_Camar=F3?=" <uaca@alumni.uv.es>
+To: "Robert Iakobashvili" <coroberti@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35550 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752242AbYIENAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 09:00:36 -0400
+Received: from rv-out-0506.google.com ([209.85.198.237]:44202 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752385AbYIENGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 09:06:42 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so445320rvb.1
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 06:06:42 -0700 (PDT)
+In-Reply-To: <7e63f56c0809050328j63b901dbgffb0fa5836229d70@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <48C0A7A0.9030200@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 05, 2008 at 11:29:36AM +0800, Wang Chen wrote:
-> We have some reasons to kill netdev->priv:
-> 1. netdev->priv is equal to netdev_priv().
-> 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
->    netdev_priv() is more flexible than netdev->priv.
-> But we cann't kill netdev->priv, because so many drivers reference to it
-> directly.
-> 
-> OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
-> and I want to kill netdev->priv later, I decided to convert all the direct
-> reference of netdev->priv first.
-> 
-> Different to readonly reference of netdev->priv, in this driver, netdev->priv
-> was changed. I use netdev->ml_priv to replace netdev->priv.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Thanks Robert,
 
-Same comment as the other patch.
+The architecture of PF_RING seems to be really similar to packet mmap
+IO to optimize capture process.
+Is it planned to replace it?
 
-Also, I have to be honest and say that I had never been aware of
-dev->ml_priv before, so I'm not entirely sure what it is.  However,
-from the comment at it's definision ("mid-layer private") and it's
-usage in qeth, loopback, and ppp, I'm not at all sure that you are
-using it as intended.
+I'll try it to get performance.
 
-Can you explain?
+Best regards,
+Johann
 
-Thanks,
 
-John
+
+On Fri, Sep 5, 2008 at 12:28 PM, Robert Iakobashvili
+<coroberti@gmail.com> wrote:
+> Hi Johann,
+>
+> On Tue, Sep 2, 2008 at 9:27 PM, Johann Baudy <johaahn@gmail.com> wrote:
+>> I've made lot of tests, playing with jumbo frames, raw sockets, ...
+>> I've never exceeded ~25Mbytes/s. So I've decided to analyze deeply the
+>> packet socket transmission process.
+>>
+>> The main blocking point was the memcpy_fromiovec() function that is
+>> located in the packet_sendmsg() of af_packet.c.
+>> It was consuming all my CPU resources to copy data from user space to
+>> socket buffer.
+>> Then I've started to work on a hack that makes this transfer possible
+>> without any memcpys.
+>>
+>> Mainly, the hack is the implementation of two "features":
+>>
+>>    *  Sending packet through a circular buffer between user and
+>> kernel space that minimizes the number of system calls. (Feature
+>> actually implemented for capture process, libpcap ..).
+>
+> Something like this has been done in PF_RING socket,
+> which is a part of ntop project infra.
+>
+> Take care.
+>
+> Truly,
+> Robert Iakobashvili
+> ......................................................................
+> www.ghotit.com
+> Assistive technology that understands you
+> ......................................................................
+>
+
+
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+Johann Baudy
+johaahn@gmail.com
