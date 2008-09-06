@@ -1,120 +1,142 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 2/2] netns bridge: cleanup bridges during netns stop
-Date: Sat, 6 Sep 2008 10:44:08 +0400
-Message-ID: <20080906064408.GB7810@x200.localdomain>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/2] ipvs: load balance IPv4 connections from a local
+	process
+Date: Sat, 6 Sep 2008 17:43:54 +1000
+Message-ID: <20080906074352.GA22998@verge.net.au>
+References: <20080905013609.GD14128@verge.net.au> <Pine.LNX.4.58.0809050750550.2831@u.domain.uli> <60dee71e238f7fa03da7bc5338ec4bf5.squirrel@p6drad-teel.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, containers@osdl.org
-To: davem@davemloft.net, shemminger@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.188]:8546 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602AbYIFGmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2008 02:42:24 -0400
-Received: by mu-out-0910.google.com with SMTP id g7so590692muf.1
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2008 23:42:22 -0700 (PDT)
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Julius Volz <juliusv@google.com>,
+	Vince Busam <vbusam@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <60dee71e238f7fa03da7bc5338ec4bf5.squirrel@p6drad-teel.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+On Fri, Sep 05, 2008 at 08:49:52AM +0300, Siim P=F5der wrote:
+> Hi
+>=20
+> > 	TCP checksum is not optional, why this change appeared?
+>=20
+> The new packets that we handle are on the loopback device and no chec=
+ksums
+> appear to be generated there. I initially changed the condition to ch=
+eck
+> for loopback device (which we could do), but checking udp code found =
+that
+> it already handled it by checking zero checksum, hence the same
+> implementation in tcp code.
 
- net/bridge/br.c         |   22 ++++++++++++++++------
- net/bridge/br_if.c      |    4 ++--
- net/bridge/br_private.h |    2 +-
- 3 files changed, 19 insertions(+), 9 deletions(-)
+I checked with Herbert Xu and its not legal for the checksum to be miss=
+ing
+for TCP. However it is possible for there to be a partial checksum for
+loopback traffic. That is, only the pseudo-header is summed.
 
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -28,6 +28,10 @@ static const struct stp_proto br_stp_proto = {
- 	.rcv	= br_stp_rcv,
- };
- 
-+static struct pernet_operations br_net_ops = {
-+	.exit	= br_net_exit,
-+};
-+
- static int __init br_init(void)
- {
- 	int err;
-@@ -42,18 +46,22 @@ static int __init br_init(void)
- 	if (err)
- 		goto err_out;
- 
--	err = br_netfilter_init();
-+	err = register_pernet_subsys(&br_net_ops);
- 	if (err)
- 		goto err_out1;
- 
--	err = register_netdevice_notifier(&br_device_notifier);
-+	err = br_netfilter_init();
- 	if (err)
- 		goto err_out2;
- 
--	err = br_netlink_init();
-+	err = register_netdevice_notifier(&br_device_notifier);
- 	if (err)
- 		goto err_out3;
- 
-+	err = br_netlink_init();
-+	if (err)
-+		goto err_out4;
-+
- 	brioctl_set(br_ioctl_deviceless_stub);
- 	br_handle_frame_hook = br_handle_frame;
- 
-@@ -61,10 +69,12 @@ static int __init br_init(void)
- 	br_fdb_put_hook = br_fdb_put;
- 
- 	return 0;
--err_out3:
-+err_out4:
- 	unregister_netdevice_notifier(&br_device_notifier);
--err_out2:
-+err_out3:
- 	br_netfilter_fini();
-+err_out2:
-+	unregister_pernet_subsys(&br_net_ops);
- err_out1:
- 	br_fdb_fini();
- err_out:
-@@ -80,7 +90,7 @@ static void __exit br_deinit(void)
- 	unregister_netdevice_notifier(&br_device_notifier);
- 	brioctl_set(NULL);
- 
--	br_cleanup_bridges();
-+	unregister_pernet_subsys(&br_net_ops);
- 
- 	synchronize_net();
- 
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -446,13 +446,13 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
- 	return 0;
+The patch outlines a fix for this problem using the existing
+structure of ip_vs_proto_tcp.c. I believe that a similar fix
+is also required for UDP. I am posting it now so people can comment
+on its correctness.
+
+
+Moving forward tcp_partial_csum_update() and tcp_fast_csum_update()
+could be implemented in terms of inet_proto_csum_replace* if
+inet_proto_csum_replace16 was added. I will work on coding this up.
+
+
+diff --git a/net/ipv4/ipvs/ip_vs_proto_tcp.c b/net/ipv4/ipvs/ip_vs_prot=
+o_tcp.c
+index 808e8be..537f616 100644
+--- a/net/ipv4/ipvs/ip_vs_proto_tcp.c
++++ b/net/ipv4/ipvs/ip_vs_proto_tcp.c
+@@ -134,12 +134,34 @@ tcp_fast_csum_update(int af, struct tcphdr *tcph,
  }
- 
--void __exit br_cleanup_bridges(void)
-+void br_net_exit(struct net *net)
+=20
+=20
++static inline void
++tcp_partial_csum_update(int af, struct tcphdr *tcph,
++		     const union nf_inet_addr *oldip,
++		     const union nf_inet_addr *newip,
++		     __be16 oldlen, __be16 newlen)
++{
++#ifdef CONFIG_IP_VS_IPV6
++	if (af =3D=3D AF_INET6)
++		tcph->check =3D
++			csum_fold(ip_vs_check_diff16(oldip->ip6, newip->ip6,
++					 ip_vs_check_diff2(oldlen, newlen,
++						~csum_unfold(tcph->check))));
++	else
++#endif
++	tcph->check =3D
++		csum_fold(ip_vs_check_diff4(oldip->ip, newip->ip,
++				ip_vs_check_diff2(oldlen, newlen,
++						~csum_unfold(tcph->check))));
++}
++
++
+ static int
+ tcp_snat_handler(struct sk_buff *skb,
+ 		 struct ip_vs_protocol *pp, struct ip_vs_conn *cp)
  {
- 	struct net_device *dev;
- 
- 	rtnl_lock();
- restart:
--	for_each_netdev(&init_net, dev) {
-+	for_each_netdev(net, dev) {
- 		if (dev->priv_flags & IFF_EBRIDGE) {
- 			del_br(dev->priv);
- 			goto restart;
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -180,7 +180,7 @@ extern void br_flood_forward(struct net_bridge *br, struct sk_buff *skb);
- extern void br_port_carrier_check(struct net_bridge_port *p);
- extern int br_add_bridge(struct net *net, const char *name);
- extern int br_del_bridge(struct net *net, const char *name);
--extern void br_cleanup_bridges(void);
-+extern void br_net_exit(struct net *net);
- extern int br_add_if(struct net_bridge *br,
- 	      struct net_device *dev);
- extern int br_del_if(struct net_bridge *br,
-
+ 	struct tcphdr *tcph;
+ 	unsigned int tcphoff;
++	int oldlen;
+=20
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (cp->af =3D=3D AF_INET6)
+@@ -147,6 +169,7 @@ tcp_snat_handler(struct sk_buff *skb,
+ 	else
+ #endif
+ 		tcphoff =3D ip_hdrlen(skb);
++	oldlen =3D skb->len - tcphoff;
+=20
+ 	/* csum_check requires unshared skb */
+ 	if (!skb_make_writable(skb, tcphoff+sizeof(*tcph)))
+@@ -166,7 +189,11 @@ tcp_snat_handler(struct sk_buff *skb,
+ 	tcph->source =3D cp->vport;
+=20
+ 	/* Adjust TCP checksums */
+-	if (!cp->app && (tcph->check !=3D 0)) {
++	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
++		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
++					htonl(oldlen),
++					htonl(skb->len - tcphoff));
++	} else if (!cp->app) {
+ 		/* Only port and addr are changed, do fast csum update */
+ 		tcp_fast_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
+ 				     cp->dport, cp->vport);
+@@ -204,6 +231,7 @@ tcp_dnat_handler(struct sk_buff *skb,
+ {
+ 	struct tcphdr *tcph;
+ 	unsigned int tcphoff;
++	int oldlen;
+=20
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (cp->af =3D=3D AF_INET6)
+@@ -211,6 +239,7 @@ tcp_dnat_handler(struct sk_buff *skb,
+ 	else
+ #endif
+ 		tcphoff =3D ip_hdrlen(skb);
++	oldlen =3D skb->len - tcphoff;
+=20
+ 	/* csum_check requires unshared skb */
+ 	if (!skb_make_writable(skb, tcphoff+sizeof(*tcph)))
+@@ -235,7 +264,11 @@ tcp_dnat_handler(struct sk_buff *skb,
+ 	/*
+ 	 *	Adjust TCP checksums
+ 	 */
+-	if (!cp->app && (tcph->check !=3D 0)) {
++	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
++		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
++					htonl(oldlen),
++					htonl(skb->len - tcphoff));
++	} else if (!cp->app) {
+ 		/* Only port and addr are changed, do fast csum update */
+ 		tcp_fast_csum_update(cp->af, tcph, &cp->vaddr, &cp->daddr,
+ 				     cp->vport, cp->dport);
