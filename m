@@ -1,59 +1,43 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [RFC PATCH v5 05/14] smack: Fix missing calls to netlbl_skbuff_err()
-Date: Fri, 05 Sep 2008 19:10:34 -0700
-Message-ID: <48C1E69A.2050002@schaufler-ca.com>
-References: <20080905231853.31840.57880.stgit@flek.lan> <20080905232344.31840.60714.stgit@flek.lan>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/2] ipvs: load balance IPv4 connections from a local
+	process
+Date: Sat, 6 Sep 2008 13:56:26 +1000
+Message-ID: <20080906035624.GA21521@verge.net.au>
+References: <20080905013609.GD14128@verge.net.au> <f4845fc0809050402x5552f526pc8511026d7faa359@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp108.prem.mail.sp1.yahoo.com ([98.136.44.63]:34325 "HELO
-	smtp108.prem.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752103AbYIFCKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2008 22:10:44 -0400
-In-Reply-To: <20080905232344.31840.60714.stgit@flek.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>,
+	Vince Busam <vbusam@google.com>
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f4845fc0809050402x5552f526pc8511026d7faa359@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Paul Moore wrote:
-> Smack needs to call netlbl_skbuff_err() to let NetLabel do the necessary
-> protocol specific error handling.
->
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
->   
-Acked-by: Casey Schaufler <casey@schaufler-ca.com>
+On Fri, Sep 05, 2008 at 01:02:44PM +0200, Julius Volz wrote:
+> On Fri, Sep 5, 2008 at 3:36 AM, Simon Horman <horms@verge.net.au> wrote:
+> > @@ -1244,11 +1278,12 @@ ip_vs_in(unsigned int hooknum, struct sk
+> >        ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+> >
+> >        /*
+> > -        *      Big tappo: only PACKET_HOST (neither loopback nor mcasts)
+> > -        *      ... don't know why 1st test DOES NOT include 2nd (?)
+> > +        *      Big tappo: only PACKET_HOST, including loopback for local client
+> > +        *      Don't handle local packets on IPv6 for now
+> >         */
+> > -       if (unlikely(skb->pkt_type != PACKET_HOST
+> > -                    || skb->dev->flags & IFF_LOOPBACK || skb->sk)) {
+> > +       if (unlikely(skb->pkt_type != PACKET_HOST ||
+> > +                    (af == AF_INET6 || (skb->dev->flags & IFF_LOOPBACK ||
+> > +                                        skb->sk)))) {
+> 
+> Hm, shouldn't this be (af == AF_INET6 && ...) instead of "||"? The
+> current expression just NF_ACCEPTs _any_ incoming IPv6 packets, even
+> non-local ones.
 
-> ---
->
->  security/smack/smack_lsm.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
->
-> diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
-> index 87d7541..6e2dc0b 100644
-> --- a/security/smack/smack_lsm.c
-> +++ b/security/smack/smack_lsm.c
-> @@ -2179,7 +2179,10 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
->  	 * This is the simplist possible security model
->  	 * for networking.
->  	 */
-> -	return smk_access(smack, ssp->smk_in, MAY_WRITE);
-> +	rc = smk_access(smack, ssp->smk_in, MAY_WRITE);
-> +	if (rc != 0)
-> +		netlbl_skbuff_err(skb, rc, 0);
-> +	return rc;
->  }
->  
->  /**
->
->
-> --
-> This message was distributed to subscribers of the selinux mailing list.
-> If you no longer wish to subscribe, send mail to majordomo@tycho.nsa.gov with
-> the words "unsubscribe selinux" without quotes as the message.
->
->
->   
+Yes, sorry about that. It should have been &&.
+This check was removed alltogether by the subsequent patch.
 
