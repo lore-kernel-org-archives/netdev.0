@@ -1,42 +1,68 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [Bugme-new] [Bug 11469] New: TUN with 1024 neighbours: ip6_dst_lookup_tail NULL crash
-Date: Sun, 7 Sep 2008 21:19:49 +0300
-Message-ID: <200809072119.50307.rdenis@simphalempin.com>
-References: <bug-11469-10286@http.bugzilla.kernel.org/> <20080831111304.d57b9f5a.akpm@linux-foundation.org> <20080907181109.GA2466@2ka.mipt.ru>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: [PATCH] hrtimer: convert net::sched_cbq to the new hrtimer apis
+Date: Sun, 7 Sep 2008 11:25:26 -0700
+Message-ID: <20080907112526.47718231@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:39822 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754138AbYIGSTy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 14:19:54 -0400
-In-Reply-To: <20080907181109.GA2466@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from casper.infradead.org ([85.118.1.10]:55003 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754108AbYIGSZT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 14:25:19 -0400
+Received: from c-71-193-193-226.hsd1.or.comcast.net ([71.193.193.226] helo=localhost.localdomain)
+	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
+	id 1KcOwn-0005Mj-6l
+	for netdev@vger.kernel.org; Sun, 07 Sep 2008 18:25:17 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 7 septembre 2008 21:11:09 Evgeniy Polyakov, vous avez =E9cr=
-it=A0:
-> Since dst entry is allowed not to have neighbour entry, flush it just
-> like with incomplete one. This drops performance of your application
-> with more than 1024 neighbours to 1024 messages, to fix it you should
-> tune ipv6 routing parameters (gc intervals, gc threshold, maximum num=
-ber
-> of entries and so on). There may be another problem with perfomance
-> though, at least I was able to bump it 10 times with different settin=
-gs,
-> but still two times smaller than with 4k neighbours.
+Hi,
 
-That looks like a trivial local DoS against the IPv6 stack though?
+as part of a rework of select/poll and hrtimers, I needed to make a slight
+API adjustment to networking code; the patch for this is below.
 
-Especially in the case that the interface has IFF_NOARP, that seems lik=
-e a=20
-weird limitation. Oh well...
+Is it ok to carry this patch as part of the hrtimer tree?
+(if not it's going to be .. interesting in terms of sequencing the
+introduction of new apis versus this patch versus the rest)
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+
+
+
+
+>From ae2c9cc58e636751128a760a3b7a586abd0ff91b Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Mon, 1 Sep 2008 15:00:54 -0700
+Subject: [PATCH] hrtimer: convert net::sched_cbq to the new hrtimer apis
+
+In order to be able to do range hrtimers we need to use accessor functions
+to the "expire" member of the hrtimer struct.
+This patch converts sched_cbq to these accessors.
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ net/sched/sch_cbq.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 8b06fa9..03e389e 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -545,9 +545,10 @@ static void cbq_ovl_delay(struct cbq_class *cl)
+ 			expires = ktime_set(0, 0);
+ 			expires = ktime_add_ns(expires, PSCHED_US2NS(sched));
+ 			if (hrtimer_try_to_cancel(&q->delay_timer) &&
+-			    ktime_to_ns(ktime_sub(q->delay_timer.expires,
+-						  expires)) > 0)
+-				q->delay_timer.expires = expires;
++			    ktime_to_ns(ktime_sub(
++					hrtimer_get_expires(&q->delay_timer),
++					expires)) > 0)
++				hrtimer_set_expires(&q->delay_timer, expires);
+ 			hrtimer_restart(&q->delay_timer);
+ 			cl->delayed = 1;
+ 			cl->xstats.overactions++;
+-- 
+1.5.5.1
+
