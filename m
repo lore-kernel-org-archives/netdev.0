@@ -1,56 +1,61 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Sun, 7 Sep 2008 05:17:18 -0300
-Message-ID: <20080907051718.58bf133d@tux>
-References: <20080819213417.45133573@tux>
-	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
-	<20080822183224.2d52f16c@tux>
-	<20080822.143709.65615512.davem@davemloft.net>
-	<20080823111446.06a350a2@tux>
-	<Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
-	<20080824163843.33b4f890@tux>
-	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
-	<20080826141812.589848a0@tux>
-	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
-	<20080828184919.611dd578@tux>
-	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
-	<20080830035650.42be37d7@tux>
-	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
+From: "Rami Rosen" <roszenrami@gmail.com>
+Subject: Re: add/delete VLANs programatically
+Date: Sun, 7 Sep 2008 13:58:20 +0300
+Message-ID: <b25312890809070358t6a4b7296x778c2de01412ab6e@mail.gmail.com>
+References: <20080907071246.GA12270@mtls03>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Eli Cohen" <eli@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.173]:39560 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752973AbYIGK6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 06:58:20 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so1139934wfd.4
+        for <netdev@vger.kernel.org>; Sun, 07 Sep 2008 03:58:20 -0700 (PDT)
+In-Reply-To: <20080907071246.GA12270@mtls03>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 1 Sep 2008 10:11:25 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+Hi,
+  -It seems to me that it is possible.
 
-> That's one option. If you do that, you could try catching two flies a=
-t the=20
-> same time by selecting something else than tickless.
+  - If  you look at the ordinary way in which user space add/deletes
+VLAN, you will see that this is performed by ioctls (SIOCSIFVLAN for
+adding /removing with ADD_VLAN_CMD or DEL_VLAN_CMD).
+- It is in performed by user space vconfig - VLAN (802.1q)
+configuration program.
 
-	Hi Ilpo. I *think* I discovered the source of the problem. It's
-not related to gcc, neither dynticks.
+- When looking  at how these IOCTLs are handled in the kernel, you
+will see that this is done by  vlan_ioctl_handler() in net/8021q/vlan.c.
 
-	I'm almost sure it's related to *High Resolution Timer*. I
-simply disabled this option and the problems disappeared.
+ -If you look there, you will see that eventually adding a vlan is
+done in the kernel by
+register_vlan_device(net_device, VLAN ID);
+end deleing a vlan is done in the kernel by calling
+unregister_vlan_dev(net_device)
 
-	I'd like to ask you if it does make sense, based on the
-problem we've being discussing over these weeks. What's your opinion?
+So it seems to me possible, though I did not try it.
 
-	Thank you.
+Regards,
+Rami Rosen
 
---=20
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+On Sun, Sep 7, 2008 at 10:12 AM, Eli Cohen <eli@dev.mellanox.co.il> wrote:
+> Hi,
+> I need to find a way to manipulate VLANs from a kernel module;
+> specifically, I need to add and remove VLANs. Is that possible at all?
+> How?
+>
+> Thanks,
+> Eli
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
