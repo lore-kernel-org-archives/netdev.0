@@ -1,86 +1,144 @@
-From: "Johann Baudy" <johaahn@gmail.com>
-Subject: Re: Fwd: Packet mmap: TX RING and zero copy
-Date: Mon, 8 Sep 2008 12:21:16 +0200
-Message-ID: <7e0dd21a0809080321p6b9e2bc7m73e2cdd57a8d58b8@mail.gmail.com>
-References: <20080905131618.GB12246@2ka.mipt.ru>
-	 <20080905133748.GA28656@2ka.mipt.ru>
-	 <7e0dd21a0809050655n176ec32bo2bf4febe4e0fc363@mail.gmail.com>
-	 <20080905141911.GA16586@2ka.mipt.ru>
-	 <7e0dd21a0809050745w692328b7v6dd4e0adf59e9535@mail.gmail.com>
-	 <20080905145902.GA12762@2ka.mipt.ru>
-	 <7e0dd21a0809050830o7c1dcc2do68da5df9900fcfe8@mail.gmail.com>
-	 <20080905153811.GA3596@2ka.mipt.ru>
-	 <7e0dd21a0809050901q23d0b16xa1a9d0df2f36f6d8@mail.gmail.com>
-	 <20080905163446.GB10078@2ka.mipt.ru>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [PATCH] bnx2x: EEH recovery fix
+Date: Mon, 8 Sep 2008 03:22:32 -0700
+Message-ID: <BD3F7F1EFBA6D54DB056C4FFA45140080334A46036@SJEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Content-Type: multipart/mixed;
+ boundary=_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A46036SJEXCHCCR01co_
+Cc: "Yitchak Gertner" <yitchak.gertner@broadcom.com>
+To: "David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:33420 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502AbYIHKVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 06:21:17 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so1390906rvb.1
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 03:21:16 -0700 (PDT)
-In-Reply-To: <20080905163446.GB10078@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from mms2.broadcom.com ([216.31.210.18]:3287 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752168AbYIHKWs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2008 06:22:48 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Evgeniy,
 
-I've made a test with below patch (with and without UDP fragmentation):
+--_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A46036SJEXCHCCR01co_
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
 
-without UDP fragmentation, packet size are almost always equal to
-PAGE_SIZE due to my mtu limit (2*PACKET_SIZE > mtu).
-with UDP fragmentation, kernel is sending multiple fragmented packets
-of 61448Kbytes.
+Hi Dave,
 
-Unfortunately, in both case, bitrate is still 15-20 MB/s :(
-According to wireshark, kernel sends 60KB over 9 packets, nothing
-during ~5ms, 60KB and so on. strange ... kernel seems to spend its
-time during push(). Is there a blocking call somewhere ?
+The EEH mechanism caused a fatal error when using the bnx2x since the drive=
+r attempted accessing the device after it was reset by the EEH. This patch =
+sets a proper unload when EEH error is detected without accessing the devic=
+e.
 
-Thanks in advance,
-Johann
+Since the current implementation causes a fatal error, I ask that you will =
+consider applying this patch.
 
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
+Thanks,
+Eilon
 
-@@ -743,7 +743,28 @@ int udp_sendpage(struct sock *sk, struct page
-*page, int offset,
-                 size_t size, int flags)
- {
-        struct udp_sock *up = udp_sk(sk);
-+       struct inet_sock *inet = inet_sk(sk);
-        int ret;
-+       int mtu = inet->cork.fragsize;
-+       int fragheaderlen;
-+       struct ip_options *opt = NULL;
-+
-+       if (inet->cork.flags & IPCORK_OPT)
-+               opt = inet->cork.opt;
-+
-+       fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
-+
-+       // With UDP fragmentation
-+       if (inet->cork.length + size >= 0xFFFF - fragheaderlen) {
-+       // Without UDP fragmentation
-+       //  if( (inet->cork.length + size) > mtu) {
-+               lock_sock(sk);
-+               ret = udp_push_pending_frames(sk);
-+               release_sock(sk);
-+               if (ret) {
-+                       return 0;
-+               }
-+       }
+--_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A46036SJEXCHCCR01co_
+Content-Type: application/octet-stream;
+ name=0001-EEH-unload.patch
+Content-Description: 0001-EEH-unload.patch
+Content-Disposition: attachment;
+ filename=0001-EEH-unload.patch;
+ size=5200;
+ creation-date="Mon, 08 Sep 2008 03:08:08 GMT";
+ modification-date="Mon, 08 Sep 2008 03:15:08 GMT"
+Content-Transfer-Encoding: base64
 
+V2hlbiBFRUggZGV0ZWN0cyBhbiBpL28gZXJyb3IgaXQgcmVzZXRzIHRoZSBkZXZpY2UgdGh1cyBp
+dCBjYW5ub3QgYmUgYWNjZXNzZWQuCkluIHRoaXMgY2FzZSB0aGUgZHJpdmVyIG5lZWRzIHRvIHVu
+bG9hZCBpdHMgaW50ZXJmYWNlIG9ubHkgd2l0aCBPUywga2VybmVsIGFuZApuZXR3b3JrIHN0YWNr
+IGJ1dCBub3Qgd2l0aCB0aGUgZGV2aWNlLgpBZnRlciBzdWNjZXNzZnVsIHJlY292ZXJ5LCB0aGUg
+ZHJpdmVyIGNhbiBsb2FkIG5vcm1hbGx5LgoKU2lnbmVkLW9mZi1ieTogWWl0Y2hhayBHZXJ0bmVy
+IDxnZXJ0bmVyQGJyb2FkY29tLmNvbT4KU2lnbmVkLW9mZi1ieTogRWlsb24gR3JlZW5zdGVpbiA8
+ZWlsb25nQGJyb2FkY29tLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9ibngyeF9tYWluLmMgfCAgIDk1
+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0KIDEgZmlsZXMg
+Y2hhbmdlZCwgODMgaW5zZXJ0aW9ucygrKSwgMTIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9uZXQvYm54MnhfbWFpbi5jIGIvZHJpdmVycy9uZXQvYm54MnhfbWFpbi5jCmluZGV4
+IGE4ZWIzYzQuLjY0NjQ5ZGYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2JueDJ4X21haW4uYwor
+KysgYi9kcml2ZXJzL25ldC9ibngyeF9tYWluLmMKQEAgLTU5LDggKzU5LDggQEAKICNpbmNsdWRl
+ICJibngyeC5oIgogI2luY2x1ZGUgImJueDJ4X2luaXQuaCIKIAotI2RlZmluZSBEUlZfTU9EVUxF
+X1ZFUlNJT04JIjEuNDUuMjEiCi0jZGVmaW5lIERSVl9NT0RVTEVfUkVMREFURQkiMjAwOC8wOS8w
+MyIKKyNkZWZpbmUgRFJWX01PRFVMRV9WRVJTSU9OCSIxLjQ1LjIyIgorI2RlZmluZSBEUlZfTU9E
+VUxFX1JFTERBVEUJIjIwMDgvMDkvMDciCiAjZGVmaW5lIEJOWDJYX0JDX1ZFUgkJMHgwNDAyMDAK
+IAogLyogVGltZSBpbiBqaWZmaWVzIGJlZm9yZSBjb25jbHVkaW5nIHRoZSB0cmFuc21pdHRlciBp
+cyBodW5nICovCkBAIC02NDksMTUgKzY0OSwxNiBAQCBzdGF0aWMgdm9pZCBibngyeF9pbnRfZGlz
+YWJsZShzdHJ1Y3QgYm54MnggKmJwKQogCQlCTlgyWF9FUlIoIkJVRyEgcHJvcGVyIHZhbCBub3Qg
+cmVhZCBmcm9tIElHVSFcbiIpOwogfQogCi1zdGF0aWMgdm9pZCBibngyeF9pbnRfZGlzYWJsZV9z
+eW5jKHN0cnVjdCBibngyeCAqYnApCitzdGF0aWMgdm9pZCBibngyeF9pbnRfZGlzYWJsZV9zeW5j
+KHN0cnVjdCBibngyeCAqYnAsIGludCBkaXNhYmxlX2h3KQogewogCWludCBtc2l4ID0gKGJwLT5m
+bGFncyAmIFVTSU5HX01TSVhfRkxBRykgPyAxIDogMDsKIAlpbnQgaTsKIAogCS8qIGRpc2FibGUg
+aW50ZXJydXB0IGhhbmRsaW5nICovCiAJYXRvbWljX2luYygmYnAtPmludHJfc2VtKTsKLQkvKiBw
+cmV2ZW50IHRoZSBIVyBmcm9tIHNlbmRpbmcgaW50ZXJydXB0cyAqLwotCWJueDJ4X2ludF9kaXNh
+YmxlKGJwKTsKKwlpZiAoZGlzYWJsZV9odykKKwkJLyogcHJldmVudCB0aGUgSFcgZnJvbSBzZW5k
+aW5nIGludGVycnVwdHMgKi8KKwkJYm54MnhfaW50X2Rpc2FibGUoYnApOwogCiAJLyogbWFrZSBz
+dXJlIGFsbCBJU1JzIGFyZSBkb25lICovCiAJaWYgKG1zaXgpIHsKQEAgLTYwODYsOSArNjA4Nyw5
+IEBAIHN0YXRpYyB2b2lkIGJueDJ4X25ldGlmX3N0YXJ0KHN0cnVjdCBibngyeCAqYnApCiAJfQog
+fQogCi1zdGF0aWMgdm9pZCBibngyeF9uZXRpZl9zdG9wKHN0cnVjdCBibngyeCAqYnApCitzdGF0
+aWMgdm9pZCBibngyeF9uZXRpZl9zdG9wKHN0cnVjdCBibngyeCAqYnAsIGludCBkaXNhYmxlX2h3
+KQogewotCWJueDJ4X2ludF9kaXNhYmxlX3N5bmMoYnApOworCWJueDJ4X2ludF9kaXNhYmxlX3N5
+bmMoYnAsIGRpc2FibGVfaHcpOwogCWlmIChuZXRpZl9ydW5uaW5nKGJwLT5kZXYpKSB7CiAJCWJu
+eDJ4X25hcGlfZGlzYWJsZShicCk7CiAJCW5ldGlmX3R4X2Rpc2FibGUoYnAtPmRldik7CkBAIC02
+NDc1LDcgKzY0NzYsNyBAQCBsb2FkX3JpbmdzX2ZyZWU6CiAJZm9yX2VhY2hfcXVldWUoYnAsIGkp
+CiAJCWJueDJ4X2ZyZWVfcnhfc2dlX3JhbmdlKGJwLCBicC0+ZnAgKyBpLCBOVU1fUlhfU0dFKTsK
+IGxvYWRfaW50X2Rpc2FibGU6Ci0JYm54MnhfaW50X2Rpc2FibGVfc3luYyhicCk7CisJYm54Mnhf
+aW50X2Rpc2FibGVfc3luYyhicCwgMSk7CiAJLyogUmVsZWFzZSBJUlFzICovCiAJYm54MnhfZnJl
+ZV9pcnEoYnApOwogbG9hZF9lcnJvcjoKQEAgLTY2NTAsNyArNjY1MSw3IEBAIHN0YXRpYyBpbnQg
+Ym54MnhfbmljX3VubG9hZChzdHJ1Y3QgYm54MnggKmJwLCBpbnQgdW5sb2FkX21vZGUpCiAJYnAt
+PnJ4X21vZGUgPSBCTlgyWF9SWF9NT0RFX05PTkU7CiAJYm54Mnhfc2V0X3N0b3JtX3J4X21vZGUo
+YnApOwogCi0JYm54MnhfbmV0aWZfc3RvcChicCk7CisJYm54MnhfbmV0aWZfc3RvcChicCwgMSk7
+CiAJaWYgKCFuZXRpZl9ydW5uaW5nKGJwLT5kZXYpKQogCQlibngyeF9uYXBpX2Rpc2FibGUoYnAp
+OwogCWRlbF90aW1lcl9zeW5jKCZicC0+dGltZXIpOwpAQCAtODc5MSw3ICs4NzkyLDcgQEAgc3Rh
+dGljIGludCBibngyeF90ZXN0X2xvb3BiYWNrKHN0cnVjdCBibngyeCAqYnAsIHU4IGxpbmtfdXAp
+CiAJaWYgKCFuZXRpZl9ydW5uaW5nKGJwLT5kZXYpKQogCQlyZXR1cm4gQk5YMlhfTE9PUEJBQ0tf
+RkFJTEVEOwogCi0JYm54MnhfbmV0aWZfc3RvcChicCk7CisJYm54MnhfbmV0aWZfc3RvcChicCwg
+MSk7CiAKIAlpZiAoYm54MnhfcnVuX2xvb3BiYWNrKGJwLCBCTlgyWF9NQUNfTE9PUEJBQ0ssIGxp
+bmtfdXApKSB7CiAJCURQKE5FVElGX01TR19QUk9CRSwgIk1BQyBsb29wYmFjayBmYWlsZWRcbiIp
+OwpAQCAtMTAzNDYsNiArMTAzNDcsNzQgQEAgc3RhdGljIGludCBibngyeF9yZXN1bWUoc3RydWN0
+IHBjaV9kZXYgKnBkZXYpCiAJcmV0dXJuIHJjOwogfQogCitzdGF0aWMgaW50IGJueDJ4X2VlaF9u
+aWNfdW5sb2FkKHN0cnVjdCBibngyeCAqYnApCit7CisJaW50IGk7CisKKwlicC0+c3RhdGUgPSBC
+TlgyWF9TVEFURV9FUlJPUjsKKworCWJwLT5yeF9tb2RlID0gQk5YMlhfUlhfTU9ERV9OT05FOwor
+CisJYm54MnhfbmV0aWZfc3RvcChicCwgMCk7CisKKwlkZWxfdGltZXJfc3luYygmYnAtPnRpbWVy
+KTsKKwlicC0+c3RhdHNfc3RhdGUgPSBTVEFUU19TVEFURV9ESVNBQkxFRDsKKwlEUChCTlgyWF9N
+U0dfU1RBVFMsICJzdGF0c19zdGF0ZSAtIERJU0FCTEVEXG4iKTsKKworCS8qIFJlbGVhc2UgSVJR
+cyAqLworCWJueDJ4X2ZyZWVfaXJxKGJwKTsKKworCWlmIChDSElQX0lTX0UxKGJwKSkgeworCQlz
+dHJ1Y3QgbWFjX2NvbmZpZ3VyYXRpb25fY21kICpjb25maWcgPQorCQkJCQkJYm54Mnhfc3AoYnAs
+IG1jYXN0X2NvbmZpZyk7CisKKwkJZm9yIChpID0gMDsgaSA8IGNvbmZpZy0+aGRyLmxlbmd0aF82
+YjsgaSsrKQorCQkJQ0FNX0lOVkFMSURBVEUoY29uZmlnLT5jb25maWdfdGFibGVbaV0pOworCX0K
+KworCS8qIEZyZWUgU0tCcywgU0dFcywgVFBBIHBvb2wgYW5kIGRyaXZlciBpbnRlcm5hbHMgKi8K
+KwlibngyeF9mcmVlX3NrYnMoYnApOworCWZvcl9lYWNoX3F1ZXVlKGJwLCBpKQorCQlibngyeF9m
+cmVlX3J4X3NnZV9yYW5nZShicCwgYnAtPmZwICsgaSwgTlVNX1JYX1NHRSk7CisJYm54MnhfZnJl
+ZV9tZW0oYnApOworCisJYnAtPnN0YXRlID0gQk5YMlhfU1RBVEVfQ0xPU0VEOworCisJbmV0aWZf
+Y2Fycmllcl9vZmYoYnAtPmRldik7CisKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIHZvaWQgYm54
+MnhfZWVoX3JlY292ZXIoc3RydWN0IGJueDJ4ICpicCkKK3sKKwl1MzIgdmFsOworCisJbXV0ZXhf
+aW5pdCgmYnAtPnBvcnQucGh5X211dGV4KTsKKworCWJwLT5jb21tb24uc2htZW1fYmFzZSA9IFJF
+R19SRChicCwgTUlTQ19SRUdfU0hBUkVEX01FTV9BRERSKTsKKwlicC0+bGlua19wYXJhbXMuc2ht
+ZW1fYmFzZSA9IGJwLT5jb21tb24uc2htZW1fYmFzZTsKKwlCTlgyWF9ERVZfSU5GTygic2htZW0g
+b2Zmc2V0IGlzIDB4JXhcbiIsIGJwLT5jb21tb24uc2htZW1fYmFzZSk7CisKKwlpZiAoIWJwLT5j
+b21tb24uc2htZW1fYmFzZSB8fAorCSAgICAoYnAtPmNvbW1vbi5zaG1lbV9iYXNlIDwgMHhBMDAw
+MCkgfHwKKwkgICAgKGJwLT5jb21tb24uc2htZW1fYmFzZSA+PSAweEMwMDAwKSkgeworCQlCTlgy
+WF9ERVZfSU5GTygiTUNQIG5vdCBhY3RpdmVcbiIpOworCQlicC0+ZmxhZ3MgfD0gTk9fTUNQX0ZM
+QUc7CisJCXJldHVybjsKKwl9CisKKwl2YWwgPSBTSE1FTV9SRChicCwgdmFsaWRpdHlfbWFwW0JQ
+X1BPUlQoYnApXSk7CisJaWYgKCh2YWwgJiAoU0hSX01FTV9WQUxJRElUWV9ERVZfSU5GTyB8IFNI
+Ul9NRU1fVkFMSURJVFlfTUIpKQorCQkhPSAoU0hSX01FTV9WQUxJRElUWV9ERVZfSU5GTyB8IFNI
+Ul9NRU1fVkFMSURJVFlfTUIpKQorCQlCTlgyWF9FUlIoIkJBRCBNQ1AgdmFsaWRpdHkgc2lnbmF0
+dXJlXG4iKTsKKworCWlmICghQlBfTk9NQ1AoYnApKSB7CisJCWJwLT5md19zZXEgPSAoU0hNRU1f
+UkQoYnAsIGZ1bmNfbWJbQlBfRlVOQyhicCldLmRydl9tYl9oZWFkZXIpCisJCQkgICAgICAmIERS
+Vl9NU0dfU0VRX05VTUJFUl9NQVNLKTsKKwkJQk5YMlhfREVWX0lORk8oImZ3X3NlcSAweCUwOHhc
+biIsIGJwLT5md19zZXEpOworCX0KK30KKwogLyoqCiAgKiBibngyeF9pb19lcnJvcl9kZXRlY3Rl
+ZCAtIGNhbGxlZCB3aGVuIFBDSSBlcnJvciBpcyBkZXRlY3RlZAogICogQHBkZXY6IFBvaW50ZXIg
+dG8gUENJIGRldmljZQpAQCAtMTAzNjUsNyArMTA0MzQsNyBAQCBzdGF0aWMgcGNpX2Vyc19yZXN1
+bHRfdCBibngyeF9pb19lcnJvcl9kZXRlY3RlZChzdHJ1Y3QgcGNpX2RldiAqcGRldiwKIAluZXRp
+Zl9kZXZpY2VfZGV0YWNoKGRldik7CiAKIAlpZiAobmV0aWZfcnVubmluZyhkZXYpKQotCQlibngy
+eF9uaWNfdW5sb2FkKGJwLCBVTkxPQURfQ0xPU0UpOworCQlibngyeF9lZWhfbmljX3VubG9hZChi
+cCk7CiAKIAlwY2lfZGlzYWJsZV9kZXZpY2UocGRldik7CiAKQEAgLTEwNDIwLDggKzEwNDg5LDEw
+IEBAIHN0YXRpYyB2b2lkIGJueDJ4X2lvX3Jlc3VtZShzdHJ1Y3QgcGNpX2RldiAqcGRldikKIAog
+CXJ0bmxfbG9jaygpOwogCisJYm54MnhfZWVoX3JlY292ZXIoYnApOworCiAJaWYgKG5ldGlmX3J1
+bm5pbmcoZGV2KSkKLQkJYm54MnhfbmljX2xvYWQoYnAsIExPQURfT1BFTik7CisJCWJueDJ4X25p
+Y19sb2FkKGJwLCBMT0FEX05PUk1BTCk7CiAKIAluZXRpZl9kZXZpY2VfYXR0YWNoKGRldik7CiAK
+LS0gCjEuNS4zLjIKCg==
 
+--_002_BD3F7F1EFBA6D54DB056C4FFA45140080334A46036SJEXCHCCR01co_--
 
-
-
--- 
-Johann Baudy
-johaahn@gmail.com
