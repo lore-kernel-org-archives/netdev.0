@@ -1,309 +1,175 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 17/33] netns ct: final init_net tweaks
-Date: Mon,  8 Sep 2008 07:02:55 +0400
-Message-ID: <1220842990-30500-18-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 21/33] netns ct: per-netns net.netfilter.nf_conntrack_checksum sysctl
+Date: Mon,  8 Sep 2008 07:02:58 +0400
+Message-ID: <1220842990-30500-21-git-send-email-adobriyan@gmail.com>
 References: <48C01046.2070704@trash.net>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	containers@lists.linux-foundation.org
 To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.190]:60034 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752624AbYIHDCe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 23:02:34 -0400
-Received: by mu-out-0910.google.com with SMTP id g7so1162882muf.1
-        for <netdev@vger.kernel.org>; Sun, 07 Sep 2008 20:02:33 -0700 (PDT)
+Received: from gv-out-0910.google.com ([216.239.58.185]:64313 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752705AbYIHDCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 23:02:46 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so91841gvc.37
+        for <netdev@vger.kernel.org>; Sun, 07 Sep 2008 20:02:46 -0700 (PDT)
 In-Reply-To: <48C01046.2070704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For now just counted separatedly, not shown.
-
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
 diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index f5447f1..c955610 100644
+index c955610..b76a868 100644
 --- a/include/net/netfilter/nf_conntrack.h
 +++ b/include/net/netfilter/nf_conntrack.h
-@@ -290,12 +290,12 @@ extern unsigned int nf_conntrack_htable_size;
- extern int nf_conntrack_checksum;
+@@ -287,7 +287,6 @@ static inline int nf_ct_is_untracked(const struct sk_buff *skb)
+ 
+ extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+ extern unsigned int nf_conntrack_htable_size;
+-extern int nf_conntrack_checksum;
  extern int nf_conntrack_max;
  
--DECLARE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
--#define NF_CT_STAT_INC(count) (__get_cpu_var(nf_conntrack_stat).count++)
--#define NF_CT_STAT_INC_ATOMIC(count)			\
-+#define NF_CT_STAT_INC(net, count)	\
-+	(per_cpu_ptr((net)->ct.stat, raw_smp_processor_id())->count++)
-+#define NF_CT_STAT_INC_ATOMIC(net, count)		\
- do {							\
- 	local_bh_disable();				\
--	__get_cpu_var(nf_conntrack_stat).count++;	\
-+	per_cpu_ptr((net)->ct.stat, raw_smp_processor_id())->count++;	\
- 	local_bh_enable();				\
- } while (0)
- 
+ #define NF_CT_STAT_INC(net, count)	\
 diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index 9d5c162..fc0a46d 100644
+index 2b50758..38b6dae 100644
 --- a/include/net/netns/conntrack.h
 +++ b/include/net/netns/conntrack.h
-@@ -12,6 +12,7 @@ struct netns_ct {
- 	struct hlist_head	*hash;
- 	struct hlist_head	*expect_hash;
- 	struct hlist_head	unconfirmed;
-+	struct ip_conntrack_stat *stat;
+@@ -17,6 +17,7 @@ struct netns_ct {
  #ifdef CONFIG_NF_CONNTRACK_EVENTS
  	struct nf_conntrack_ecache *ecache;
  #endif
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-index b294083..fdc85b3 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-@@ -294,7 +294,7 @@ static void *ct_cpu_seq_start(struct seq_file *seq, loff_t *pos)
- 		if (!cpu_possible(cpu))
- 			continue;
- 		*pos = cpu+1;
--		return &per_cpu(nf_conntrack_stat, cpu);
-+		return per_cpu_ptr(init_net.ct.stat, cpu);
- 	}
- 
- 	return NULL;
-@@ -308,7 +308,7 @@ static void *ct_cpu_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 		if (!cpu_possible(cpu))
- 			continue;
- 		*pos = cpu+1;
--		return &per_cpu(nf_conntrack_stat, cpu);
-+		return per_cpu_ptr(init_net.ct.stat, cpu);
- 	}
- 
- 	return NULL;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 52d0663..342a1f3 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -56,9 +56,6 @@ EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
- unsigned int nf_ct_log_invalid __read_mostly;
- static struct kmem_cache *nf_conntrack_cachep __read_mostly;
- 
--DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
--EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
--
- static int nf_conntrack_hash_rnd_initted;
- static unsigned int nf_conntrack_hash_rnd;
- 
-@@ -203,7 +200,7 @@ destroy_conntrack(struct nf_conntrack *nfct)
- 		hlist_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode);
- 	}
- 
--	NF_CT_STAT_INC(delete);
-+	NF_CT_STAT_INC(nf_ct_net(ct), delete);
- 	spin_unlock_bh(&nf_conntrack_lock);
- 
- 	if (ct->master)
-@@ -230,7 +227,7 @@ static void death_by_timeout(unsigned long ul_conntrack)
- 	spin_lock_bh(&nf_conntrack_lock);
- 	/* Inside lock so preempt is disabled on module removal path.
- 	 * Otherwise we can get spurious warnings. */
--	NF_CT_STAT_INC(delete_list);
-+	NF_CT_STAT_INC(nf_ct_net(ct), delete_list);
- 	clean_from_lists(ct);
- 	spin_unlock_bh(&nf_conntrack_lock);
- 	nf_ct_put(ct);
-@@ -249,11 +246,11 @@ __nf_conntrack_find(struct net *net, const struct nf_conntrack_tuple *tuple)
- 	local_bh_disable();
- 	hlist_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnode) {
- 		if (nf_ct_tuple_equal(tuple, &h->tuple)) {
--			NF_CT_STAT_INC(found);
-+			NF_CT_STAT_INC(net, found);
- 			local_bh_enable();
- 			return h;
- 		}
--		NF_CT_STAT_INC(searched);
-+		NF_CT_STAT_INC(net, searched);
- 	}
- 	local_bh_enable();
- 
-@@ -366,7 +363,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	add_timer(&ct->timeout);
- 	atomic_inc(&ct->ct_general.use);
- 	set_bit(IPS_CONFIRMED_BIT, &ct->status);
--	NF_CT_STAT_INC(insert);
-+	NF_CT_STAT_INC(net, insert);
- 	spin_unlock_bh(&nf_conntrack_lock);
- 	help = nfct_help(ct);
- 	if (help && help->helper)
-@@ -381,7 +378,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	return NF_ACCEPT;
- 
- out:
--	NF_CT_STAT_INC(insert_failed);
-+	NF_CT_STAT_INC(net, insert_failed);
- 	spin_unlock_bh(&nf_conntrack_lock);
- 	return NF_DROP;
- }
-@@ -405,11 +402,11 @@ nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
- 	hlist_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnode) {
- 		if (nf_ct_tuplehash_to_ctrack(h) != ignored_conntrack &&
- 		    nf_ct_tuple_equal(tuple, &h->tuple)) {
--			NF_CT_STAT_INC(found);
-+			NF_CT_STAT_INC(net, found);
- 			rcu_read_unlock_bh();
- 			return 1;
- 		}
--		NF_CT_STAT_INC(searched);
-+		NF_CT_STAT_INC(net, searched);
- 	}
- 	rcu_read_unlock_bh();
- 
-@@ -454,7 +451,7 @@ static noinline int early_drop(struct net *net, unsigned int hash)
- 	if (del_timer(&ct->timeout)) {
- 		death_by_timeout((unsigned long)ct);
- 		dropped = 1;
--		NF_CT_STAT_INC_ATOMIC(early_drop);
-+		NF_CT_STAT_INC_ATOMIC(net, early_drop);
- 	}
- 	nf_ct_put(ct);
- 	return dropped;
-@@ -581,7 +578,7 @@ init_conntrack(struct net *net,
- 		ct->secmark = exp->master->secmark;
++	int			sysctl_checksum;
+ #ifdef CONFIG_SYSCTL
+ 	struct ctl_table_header	*sysctl_header;
  #endif
- 		nf_conntrack_get(&ct->master->ct_general);
--		NF_CT_STAT_INC(expect_new);
-+		NF_CT_STAT_INC(net, expect_new);
- 	} else {
- 		struct nf_conntrack_helper *helper;
- 
-@@ -591,7 +588,7 @@ init_conntrack(struct net *net,
- 			if (help)
- 				rcu_assign_pointer(help->helper, helper);
- 		}
--		NF_CT_STAT_INC(new);
-+		NF_CT_STAT_INC(net, new);
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 2e4dd3f..75871b1 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -270,7 +270,7 @@ static ctl_table ip_ct_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_NF_CONNTRACK_CHECKSUM,
+ 		.procname	= "ip_conntrack_checksum",
+-		.data		= &nf_conntrack_checksum,
++		.data		= &init_net.ct.sysctl_checksum,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec,
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index 205ba39..ace66cb 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -188,7 +188,7 @@ icmp_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
  	}
  
- 	/* Overload tuple linked list to put us in unconfirmed list. */
-@@ -683,7 +680,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 
- 	/* Previously seen (loopback or untracked)?  Ignore. */
- 	if (skb->nfct) {
--		NF_CT_STAT_INC_ATOMIC(ignore);
-+		NF_CT_STAT_INC_ATOMIC(net, ignore);
- 		return NF_ACCEPT;
+ 	/* See ip_conntrack_proto_tcp.c */
+-	if (nf_conntrack_checksum && hooknum == NF_INET_PRE_ROUTING &&
++	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
+ 	    nf_ip_checksum(skb, hooknum, dataoff, 0)) {
+ 		if (LOG_INVALID(IPPROTO_ICMP))
+ 			nf_log_packet(PF_INET, 0, skb, NULL, NULL, NULL,
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index df04de9..fa12e57 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -187,7 +187,7 @@ icmpv6_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+ 		return -NF_ACCEPT;
  	}
  
-@@ -693,8 +690,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 				   &dataoff, &protonum);
- 	if (ret <= 0) {
- 		pr_debug("not prepared to track yet or error occured\n");
--		NF_CT_STAT_INC_ATOMIC(error);
--		NF_CT_STAT_INC_ATOMIC(invalid);
-+		NF_CT_STAT_INC_ATOMIC(net, error);
-+		NF_CT_STAT_INC_ATOMIC(net, invalid);
- 		return -ret;
- 	}
- 
-@@ -706,8 +703,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 	if (l4proto->error != NULL) {
- 		ret = l4proto->error(net, skb, dataoff, &ctinfo, pf, hooknum);
- 		if (ret <= 0) {
--			NF_CT_STAT_INC_ATOMIC(error);
--			NF_CT_STAT_INC_ATOMIC(invalid);
-+			NF_CT_STAT_INC_ATOMIC(net, error);
-+			NF_CT_STAT_INC_ATOMIC(net, invalid);
- 			return -ret;
- 		}
- 	}
-@@ -716,13 +713,13 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 			       l3proto, l4proto, &set_reply, &ctinfo);
- 	if (!ct) {
- 		/* Not valid part of a connection */
--		NF_CT_STAT_INC_ATOMIC(invalid);
-+		NF_CT_STAT_INC_ATOMIC(net, invalid);
- 		return NF_ACCEPT;
- 	}
- 
- 	if (IS_ERR(ct)) {
- 		/* Too stressed to deal. */
--		NF_CT_STAT_INC_ATOMIC(drop);
-+		NF_CT_STAT_INC_ATOMIC(net, drop);
- 		return NF_DROP;
- 	}
- 
-@@ -735,7 +732,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 		pr_debug("nf_conntrack_in: Can't track with proto module\n");
- 		nf_conntrack_put(skb->nfct);
- 		skb->nfct = NULL;
--		NF_CT_STAT_INC_ATOMIC(invalid);
-+		NF_CT_STAT_INC_ATOMIC(net, invalid);
- 		return -ret;
- 	}
- 
-@@ -1047,6 +1044,7 @@ void nf_conntrack_cleanup(struct net *net)
- 	if (net_eq(net, &init_net))
- 		nf_conntrack_acct_fini();
- 	nf_conntrack_expect_fini(net);
-+	free_percpu(net->ct.stat);
- 	if (net_eq(net, &init_net)) {
- 		nf_conntrack_helper_fini();
- 		nf_conntrack_proto_fini();
-@@ -1164,6 +1162,9 @@ int nf_conntrack_init(struct net *net)
+-	if (nf_conntrack_checksum && hooknum == NF_INET_PRE_ROUTING &&
++	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
+ 	    nf_ip6_checksum(skb, hooknum, dataoff, IPPROTO_ICMPV6)) {
+ 		nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
+ 			      "nf_ct_icmpv6: ICMPv6 checksum failed\n");
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index 6ead8da..769680e 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -575,7 +575,7 @@ static int dccp_error(struct net *net, struct sk_buff *skb,
  		}
  	}
- 	atomic_set(&net->ct.count, 0);
-+	net->ct.stat = alloc_percpu(struct ip_conntrack_stat);
-+	if (!net->ct.stat)
-+		goto err_stat;
- 	ret = nf_conntrack_ecache_init(net);
- 	if (ret < 0)
- 		goto err_ecache;
-@@ -1241,5 +1242,7 @@ err_free_hash:
- err_hash:
- 	nf_conntrack_ecache_fini(net);
- err_ecache:
-+	free_percpu(net->ct.stat);
-+err_stat:
- 	return -ENOMEM;
- }
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index be08c87..37a703b 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -53,7 +53,7 @@ void nf_ct_unlink_expect(struct nf_conntrack_expect *exp)
- 	master_help->expecting[exp->class]--;
- 	nf_ct_expect_put(exp);
  
--	NF_CT_STAT_INC(expect_delete);
-+	NF_CT_STAT_INC(net, expect_delete);
- }
- EXPORT_SYMBOL_GPL(nf_ct_unlink_expect);
+-	if (nf_conntrack_checksum && hooknum == NF_INET_PRE_ROUTING &&
++	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
+ 	    nf_checksum_partial(skb, hooknum, dataoff, cscov, IPPROTO_DCCP,
+ 				pf)) {
+ 		msg = "nf_ct_dccp: bad checksum ";
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index b5d62d6..131c9be 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -780,7 +780,7 @@ static int tcp_error(struct net *net,
+ 	 * because the checksum is assumed to be correct.
+ 	 */
+ 	/* FIXME: Source route IP option packets --RR */
+-	if (nf_conntrack_checksum && hooknum == NF_INET_PRE_ROUTING &&
++	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
+ 	    nf_checksum(skb, hooknum, dataoff, IPPROTO_TCP, pf)) {
+ 		if (LOG_INVALID(IPPROTO_TCP))
+ 			nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+index e0ee89e..3d3fffe 100644
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -123,7 +123,7 @@ static int udp_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+ 	 * We skip checking packets on the outgoing path
+ 	 * because the checksum is assumed to be correct.
+ 	 * FIXME: Source route IP option packets --RR */
+-	if (nf_conntrack_checksum && hooknum == NF_INET_PRE_ROUTING &&
++	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
+ 	    nf_checksum(skb, hooknum, dataoff, IPPROTO_UDP, pf)) {
+ 		if (LOG_INVALID(IPPROTO_UDP))
+ 			nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
+diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
+index c5b77c8..3d1697c 100644
+--- a/net/netfilter/nf_conntrack_proto_udplite.c
++++ b/net/netfilter/nf_conntrack_proto_udplite.c
+@@ -129,7 +129,7 @@ static int udplite_error(struct net *net,
+ 	}
  
-@@ -326,7 +326,7 @@ static void nf_ct_expect_insert(struct nf_conntrack_expect *exp)
- 	add_timer(&exp->timeout);
- 
- 	atomic_inc(&exp->use);
--	NF_CT_STAT_INC(expect_create);
-+	NF_CT_STAT_INC(net, expect_create);
- }
- 
- /* Race with expectations being used means we could have none to find; OK. */
+ 	/* Checksum invalid? Ignore. */
+-	if (nf_conntrack_checksum && hooknum == NF_INET_PRE_ROUTING &&
++	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
+ 	    nf_checksum_partial(skb, hooknum, dataoff, cscov, IPPROTO_UDP,
+ 	    			pf)) {
+ 		if (LOG_INVALID(IPPROTO_UDPLITE))
 diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 02eaf87..a4fdbbf 100644
+index 64b4f95..5cd0663 100644
 --- a/net/netfilter/nf_conntrack_standalone.c
 +++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -203,7 +203,7 @@ static void *ct_cpu_seq_start(struct seq_file *seq, loff_t *pos)
- 		if (!cpu_possible(cpu))
- 			continue;
- 		*pos = cpu + 1;
--		return &per_cpu(nf_conntrack_stat, cpu);
-+		return per_cpu_ptr(init_net.ct.stat, cpu);
- 	}
+@@ -322,9 +322,6 @@ static void nf_conntrack_standalone_fini_proc(struct net *net)
  
- 	return NULL;
-@@ -217,7 +217,7 @@ static void *ct_cpu_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 		if (!cpu_possible(cpu))
- 			continue;
- 		*pos = cpu + 1;
--		return &per_cpu(nf_conntrack_stat, cpu);
-+		return per_cpu_ptr(init_net.ct.stat, cpu);
- 	}
+ /* Sysctl support */
  
- 	return NULL;
+-int nf_conntrack_checksum __read_mostly = 1;
+-EXPORT_SYMBOL_GPL(nf_conntrack_checksum);
+-
+ #ifdef CONFIG_SYSCTL
+ /* Log invalid packets of a given protocol */
+ static int log_invalid_proto_min = 0;
+@@ -360,7 +357,7 @@ static ctl_table nf_ct_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_NF_CONNTRACK_CHECKSUM,
+ 		.procname	= "nf_conntrack_checksum",
+-		.data		= &nf_conntrack_checksum,
++		.data		= &init_net.ct.sysctl_checksum,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec,
+@@ -425,6 +422,7 @@ static int nf_conntrack_standalone_init_sysctl(struct net *net)
+ 		goto out_kmemdup;
+ 
+ 	table[1].data = &net->ct.count;
++	table[3].data = &net->ct.sysctl_checksum;
+ 
+ 	net->ct.sysctl_header = register_net_sysctl_table(net,
+ 					nf_net_netfilter_sysctl_path, table);
+@@ -474,6 +472,7 @@ static int nf_conntrack_net_init(struct net *net)
+ 	ret = nf_conntrack_standalone_init_proc(net);
+ 	if (ret < 0)
+ 		goto out_proc;
++	net->ct.sysctl_checksum = 1;
+ 	ret = nf_conntrack_standalone_init_sysctl(net);
+ 	if (ret < 0)
+ 		goto out_sysctl;
