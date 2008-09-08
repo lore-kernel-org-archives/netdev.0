@@ -1,49 +1,53 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Mon, 8 Sep 2008 11:36:17 -0700
-Message-ID: <200809081136.17766.david-b@pacbell.net>
-References: <1220611890-6477-1-git-send-email-steve.glendinning@smsc.com> <20080906150932.630C.40F06B3A@sm.sony.co.jp>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: Channel bonding with e1000
+Date: Mon, 8 Sep 2008 11:37:47 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.1.10.0809081133290.7512@jbrandeb-MOBL1.amr.corp.intel.com>
+References: <48C0EF8A.9070103@aei.mpg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
-	Catalin Marinas <catalin.marinas@arm.com>
-To: Masakazu Mokuno <mokuno@sm.sony.co.jp>,
-	Steve Glendinning <steve.glendinning@smsc.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp121.sbc.mail.sp1.yahoo.com ([69.147.64.94]:37409 "HELO
-	smtp121.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751713AbYIHSgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 14:36:20 -0400
-In-Reply-To: <20080906150932.630C.40F06B3A@sm.sony.co.jp>
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:46467 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750973AbYIHShx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2008 14:37:53 -0400
+In-Reply-To: <48C0EF8A.9070103@aei.mpg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 08 September 2008, Masakazu Mokuno wrote:
-> > +=A0=A0=A0=A0=A0/* 40ms total */
-> As smsc95xx_read_reg() uses the synchronous urb call and AFAIR ehci
-> would defer the interrupts until 8 micro-frames by default, so I gues=
-s this
-> loop would take more than 40ms?
+On Fri, 5 Sep 2008, Carsten Aulbert wrote:
+> I have a brief problem and would ask for a little assistance:
+> 
+> On a few data servers we intend to do channel bonding. The boxes have
+> two NICs on the motherboard and two extra ones on an expansion card:
+> 
+> 04:00.0 Ethernet controller: Intel Corporation 631xESB/632xESB DPT LAN
+> Controller Copper (rev 01)
+> 04:00.1 Ethernet controller: Intel Corporation 631xESB/632xESB DPT LAN
+> Controller Copper (rev 01)
 
-Don't assume this always works with EHCI ... there are systems
-that will use it with full speed host controllers.  And for that
-matter, an increasing number of non-EHCI high speed hosts.
+To help you with your consideration: this chip is embedded in the ESB2 
+southbridge, and is connected (technically) over PCIe.
 
-And on Linux, we override that slow default setting and tell
-EHCI to interrupt us as soon as the transfer is done.  (There
-are better interrupt mitigation schemes in place.  For example
-the "usbnet" framework avoids IRQs after most packets and
-the mass storage driver can read or write hundreds of KBytes
-with a single IRQ.)
+> 05:02.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet
+> Controller (rev 03)
+> 05:02.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet
+> Controller (rev 03)
 
-In general, calling udelay() in this level of USB driver should
-be avoided in favor of msleep() or similar.  Spinning the CPU
-will just waste power.
+This chip is connected over PCI-X and should be significantly slower 
+and/or higher CPU utilization than the ESB2 based chip.
 
+Both have 64kB of internal FIFO per port, split between tx and rx.
 
-I suggest you cc linux-usb@vger to get more usb-aware review
-of this code...=20
+> My simple question would be: Does it matter which two ports I can use to
+> channel together when using in a set-up with MTU=9000?
 
-- Dave
+It shouldn't matter, but I would take into consideration that the ESB2 
+ports should be faster.
+
+Jesse
+
+PS in the future questions like this could be cc:'d to 
+e1000-devel@lists.sourceforge.net where all the Intel wired developers 
+hang out (in addition to netdev)
