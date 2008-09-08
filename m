@@ -1,55 +1,82 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Mon, 8 Sep 2008 14:17:42 +0100
-Message-ID: <OF4A15F580.3A8DD1DE-ON802574BE.0047659A-802574BE.0049088D@smsc.com>
-References: <20080906150932.630C.40F06B3A@sm.sony.co.jp>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [rfc 0/3] IPVS: checksum updates
+Date: Mon, 8 Sep 2008 15:42:17 +0200
+Message-ID: <f4845fc0809080642t1629ed27ld9087d788828d24d@mail.gmail.com>
+References: <20080908020420.313463898@vergenet.net>
+	 <f4845fc0809080303s53094205kc045e6003014cd24@mail.gmail.com>
+	 <20080908104120.GB5795@verge.net.au>
+	 <20080908114258.GA29477@google.com>
+	 <20080908115734.GA24228@verge.net.au>
+	 <20080908120413.GB24228@verge.net.au>
+	 <f4845fc0809080514i6118cc4bt6510da3d93483156@mail.gmail.com>
+	 <20080908123450.GC24228@verge.net.au>
+	 <f4845fc0809080612n77a77791v8ccbac8178ecf1f4@mail.gmail.com>
+	 <20080908132049.GA11119@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	ian.saturley@smsc.com, netdev@vger.kernel.org
-To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:2549 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751811AbYIHNdN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2008 09:33:13 -0400
-In-Reply-To: <20080906150932.630C.40F06B3A@sm.sony.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	"=?ISO-8859-1?Q?Siim_P=F5der?=" <siim@p6drad-teel.net>,
+	"Julian Anastasov" <ja@ssi.bg>,
+	"Malcolm Turnbull" <malcolm@loadbalancer.org>,
+	"Vince Busam" <vbusam@google.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080908132049.GA11119@verge.net.au>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Masakazu,
+On Mon, Sep 8, 2008 at 3:20 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Mon, Sep 08, 2008 at 03:12:39PM +0200, Julius Volz wrote:
+>> On Mon, Sep 8, 2008 at 2:34 PM, Simon Horman <horms@verge.net.au> wrote:
+>> > On Mon, Sep 08, 2008 at 02:14:12PM +0200, Julius Volz wrote:
+>> >> I'm actually looking at that case now (4856c84c1358b, but with the fix
+>> >> above). It seems that the NAT isn't working (DR works, by the way!).
+>> >> At least the first packet arriving at the real server still has the
+>> >> client's IP as the source (in the v6 case)...
+>> >
+>> > Ok, I'm looking at NAT with 4856c84c1358b + that fix too too,
+>> > but on v4 :-)
+>> >
+>> >> Let's wait with reverting the local client patches until tomorrow...
+>> >> maybe I can find the problem until then.
+>> >
+>> > Ok, I was just concerned that this might hold up merging
+>> > your code into Dave's tree for too long, thats all.
+>>
+>> Ok, with my last patch (and your two/three last ones reverted), I get
+>> everything working except IPv6 with a local client...
+>
+> Ok, that is good news :-)
+>
+> Sorry for the stuff up. That bugus ip_route_me_harder() call
+> was caused by me trying to merge the IPv6 patches with the local
+> client patches.
 
-Thanks for the valuable feedback, I'll re-submit another attempt shortly.
+No problem!
 
-> > +static int smsc95xx_eeprom_is_busy(struct usbnet *dev)
-> > +{
-> > +   u32 val;
-> > +   int i;
-> > +
-> > +   /* 40ms total */
-> As smsc95xx_read_reg() uses the synchronous urb call and AFAIR ehci
-> would defer the interrupts until 8 micro-frames by default, so I guess 
-this
-> loop would take more than 40ms?
-> 
-> > +   for (i = 0; i < 1000; i++) {
-> > +      smsc95xx_read_reg(dev, E2P_CMD, &val);
-> > +      if (!(val & E2P_CMD_BUSY_) || (val & E2P_CMD_TIMEOUT_))
-> > +         break;
-> > +      udelay(40);
-> > +   }
+> I'm not so concerned about IPv6 local not working for now -
+> its a combination of two new features. And hopefully we
+> can iron it out in the not to distant future anyway.
 
-Yes, if no EEPROM is connected (or if the device has timed out) the loop 
-will
-run for longer than 40ms.  After 30ms the device TIMEOUT bit should go 
-high,
-so we should only hit the end of the loop counter if something is quite 
-broken.
+Yes, probably just some minor bug...
 
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
+> I'll drop CSUM2/3 and 3/3 for now, they aren't essential and
+> it really ought to be a matter of (me) sitting down and fixing
+> some correctness issues.
+
+Ok!
+
+> Its the end of my day now. I'll try and update lvs-next-2.6 into
+> a working state in the morning.
+
+Yes, let's stabilize it a bit... have a nice evening!
+
+Julius
+
+-- 
+Julius Volz - Corporate Operations - SysOps
+
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
