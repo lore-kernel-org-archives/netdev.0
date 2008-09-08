@@ -1,1709 +1,385 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [PATCH] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Mon, 08 Sep 2008 19:52:41 +0900
-Message-ID: <20080906150932.630C.40F06B3A@sm.sony.co.jp>
-References: <1220611890-6477-1-git-send-email-steve.glendinning@smsc.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [RFC] Control Group Classifier
+Date: Mon, 8 Sep 2008 13:51:01 +0200
+Message-ID: <20080908115101.GE20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Steve Glendinning <steve.glendinning@smsc.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms13.Sony.CO.JP ([211.125.136.230]:44917 "EHLO ms13.sony.co.jp"
+Received: from postel.suug.ch ([194.88.212.233]:36474 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751122AbYIHLrz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2008 07:47:55 -0400
-Received: from ms5.sony.co.jp (ms5.Sony.CO.JP [211.125.136.201])
- by ms13.sony.co.jp (R8/Sony) with ESMTP id m88AtKY0024521
- for <netdev@vger.kernel.org>; Mon, 8 Sep 2008 19:56:27 +0900 (JST)
-In-Reply-To: <1220611890-6477-1-git-send-email-steve.glendinning@smsc.com>
+	id S1751502AbYIHLun (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2008 07:50:43 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch implements a very basic cgroup subsystem which allows
+assigning classids to cgroups. It also adds a trivial classifier
+to filter packets based on that classid and map them to classes.
 
-My comments inlined. 
+The classifier should cover the most common use case and will work
+without any configuration.  Additionaly it might make sense to add
+a cgroup meta ematch to allow  for more sophisticated setups.
 
-On Fri,  5 Sep 2008 11:51:30 +0100
-Steve Glendinning <steve.glendinning@smsc.com> wrote:
+I've taken over the idea of inheriting the classid of cgroup parents
+from the patchset posted by Ranjit Manomohan <ranjitm@google.com>.
 
-> Attached is a driver for SMSC's LAN9500 USB2.0 10/100 ethernet
-> adapter.
-> 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
-> ---
->  MAINTAINERS                |    6 +
->  drivers/net/usb/Kconfig    |    8 +
->  drivers/net/usb/Makefile   |    1 +
->  drivers/net/usb/smsc95xx.c | 1248 ++++++++++++++++++++++++++++++++++++++++++++
->  drivers/net/usb/smsc95xx.h |  253 +++++++++
->  5 files changed, 1516 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/usb/smsc95xx.c
->  create mode 100644 drivers/net/usb/smsc95xx.h
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index ced3c20..054396c 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -4332,6 +4332,12 @@ L:      linux-usb@vger.kernel.org
->  W:	http://www.connecttech.com
->  S:	Supported
->  
-> +USB SMSC95XX ETHERNET DRIVER
-> +P:	Steve Glendinning
-> +M:	steve.glendinning@smsc.com
-> +L:	netdev@vger.kernel.org
-> +S:	Supported
-> +
->  USB SN9C1xx DRIVER
->  P:	Luca Risolia
->  M:	luca.risolia@studio.unibo.it
-> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-> index 0973b6e..8ee2103 100644
-> --- a/drivers/net/usb/Kconfig
-> +++ b/drivers/net/usb/Kconfig
-> @@ -188,6 +188,14 @@ config USB_NET_DM9601
->  	  This option adds support for Davicom DM9601 based USB 1.1
->  	  10/100 Ethernet adapters.
->  
-> +config USB_NET_SMSC95XX
-> +	tristate "SMSC LAN95XX based USB 2.0 10/100 ethernet devices"
-> +	depends on USB_USBNET
-> +	select CRC32
-> +	help
-> +	  This option adds support for SMSC LAN95XX based USB 2.0
-> +	  10/100 Ethernet adapters.
-> +
->  config USB_NET_GL620A
->  	tristate "GeneSys GL620USB-A based cables"
->  	depends on USB_USBNET
-> diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
-> index 24800c1..6ce218d 100644
-> --- a/drivers/net/usb/Makefile
-> +++ b/drivers/net/usb/Makefile
-> @@ -10,6 +10,7 @@ obj-$(CONFIG_USB_HSO)		+= hso.o
->  obj-$(CONFIG_USB_NET_AX8817X)	+= asix.o
->  obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o
->  obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
-> +obj-$(CONFIG_USB_NET_SMSC95XX)	+= smsc95xx.o
->  obj-$(CONFIG_USB_NET_GL620A)	+= gl620a.o
->  obj-$(CONFIG_USB_NET_NET1080)	+= net1080.o
->  obj-$(CONFIG_USB_NET_PLUSB)	+= plusb.o
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> new file mode 100644
-> index 0000000..4808cdb
-> --- /dev/null
-> +++ b/drivers/net/usb/smsc95xx.c
-> @@ -0,0 +1,1248 @@
-> + /***************************************************************************
-> + *
-> + * Copyright (C) 2007-2008 SMSC
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * as published by the Free Software Foundation; either version 2
-> + * of the License, or (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-> + *
-> + *****************************************************************************/
-> +
-> +#include <linux/module.h>
-> +#include <linux/kmod.h>
-> +#include <linux/init.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/ethtool.h>
-> +#include <linux/mii.h>
-> +#include <linux/usb.h>
-> +#include <linux/crc32.h>
-> +#include <linux/usb/usbnet.h>
-> +#include "smsc95xx.h"
-> +
-> +#define SMSC_CHIPNAME		"smsc95xx"
-> +#define SMSC_DRIVER_VERSION	"1.0.0"
-> +
-> +#define USE_DEBUG
-> +
-> +#define SMSC_WARNING(msg, args...) \
-> +	printk(KERN_WARNING "%s: WARNING: " msg "\n", __func__, ## args)
-> +
-> +#ifdef USE_DEBUG
-> +#define SMSC_TRACE(debug_bit, msg, args...) \
-> +	if (debug_mode & debug_bit) { \
-> +		printk(KERN_WARNING "%s: " msg "\n", __func__, ## args); \
-> +	}
-> +#else
-> +#define SMSC_TRACE(dbgBit, msg, args...)   ({ do {} while (0); 0; })
-> +#endif
-> +
-> +#define DBG_INIT			(NETIF_MSG_IFUP)
-> +#define DBG_CLOSE			(NETIF_MSG_IFDOWN)
-> +#define DBG_INTR			(NETIF_MSG_INTR)
-> +#define DBG_PWR				(NETIF_MSG_WOL)
-> +#define DBG_IOCTL			(NETIF_MSG_HW)
-> +#define DBG_LINK			(NETIF_MSG_LINK)
-> +#define DBG_RX				(NETIF_MSG_RX_ERR)
-> +#define DBG_TX				(NETIF_MSG_TX_ERR)
-> +#define DBG_MCAST			(NETIF_MSG_DRV)
-> +
-> +#define HS_USB_PKT_SIZE			(512)
-> +#define FS_USB_PKT_SIZE			(64)
-> +#define DEFAULT_HS_BURST_CAP_SIZE	(16 * 1024 + 5 * HS_USB_PKT_SIZE)
-> +#define DEFAULT_FS_BURST_CAP_SIZE	(6 * 1024 + 33 * FS_USB_PKT_SIZE)
-> +#define DEFAULT_BULK_IN_DELAY		(0x00002000)
-> +#define MAX_SINGLE_PACKET_SIZE		(2048)
-> +#define LAN95XX_EEPROM_MAGIC		(0x9500)
-> +#define EEPROM_MAC_OFFSET		(0x01)
-> +#define DEFAULT_RX_CSUM_ENABLE		(true)
-> +#define SMSC95XX_INTERNAL_PHY_ID	(1)
-> +#define SMSC95XX_TX_OVERHEAD		(8)
-> +
-> +struct smsc95xx_priv {
-> +	u32 mac_cr;
-> +	spinlock_t mac_cr_lock;
-> +	bool use_rx_csum;
-> +};
-> +
-> +struct usb_context {
-> +	struct usb_ctrlrequest req;
-> +	struct completion notify;
-> +};
-> +
-> +u32 debug_mode;
-> +module_param(debug_mode, uint, 0);
-> +MODULE_PARM_DESC(debug_mode, "enable/disable debug messages");
-> +
-> +int turbo_mode = true;
-> +module_param(turbo_mode, bool, 0);
-> +MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
-> +
-> +static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
-> +{
-> +	u32 *buf = kmalloc(4, GFP_KERNEL);
-> +	int ret;
-> +
-> +	BUG_ON(!dev);
-> +
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> +		USB_VENDOR_REQUEST_READ_REGISTER,
-> +		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> +		00, index, buf,	4, USB_CTRL_GET_TIMEOUT);
-                               ^ 
-TAB inserted?
+Comments welcome.
 
-> +
-> +	if (unlikely(ret < 0))
-> +		SMSC_WARNING("Failed to read register index 0x%08x", index);
-> +
-> +	le32_to_cpus(buf);
-> +	*data = *buf;
-> +	kfree(buf);
-> +
-> +	return ret;
-> +}
-> +
-> +static int smsc95xx_write_reg(struct usbnet *dev, u32 index, u32 *data)
-
-Most users of this function pass the pointer of their local variables
-for 'data'.   So we may want to define the last parameter just as 'u32'
-instead of 'u32 *'.  I think it would help the compiler to generate
-better codes.
-
-> +{
-> +	u32 *buf = kmalloc(4, GFP_KERNEL);
-> +	int ret;
-> +
-> +	BUG_ON(!dev);
-> +
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	*buf = *data;
-> +	cpu_to_le32s(buf);
-> +
-> +	ret = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
-> +		USB_VENDOR_REQUEST_WRITE_REGISTER,
-> +		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> +		00, index, buf, 4, USB_CTRL_SET_TIMEOUT);
-> +
-> +	if (unlikely(ret < 0))
-> +		SMSC_WARNING("Failed to write register index 0x%08x", index);
-> +
-
-Needs kfree(buf)
-
-> +	return ret;
-> +}
-> +
-> +/* Loop until the read is completed with timeout
-> + * called with phy_mutex held */
-> +static int smsc95xx_phy_wait_not_busy(struct usbnet *dev)
-> +{
-> +	int i;
-> +	u32 val;
-> +
-> +	for (i = 0; i < 100; i++) {
-> +		smsc95xx_read_reg(dev, MII_ADDR, &val);
-> +		if (!(val & MII_BUSY_))
-> +			return 0;
-> +		udelay(1);
-> +	}
-> +
-> +	return -EIO;
-> +}
-> +
-> +static int smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +	u32 val, addr;
-> +
-> +	mutex_lock(&dev->phy_mutex);
-> +
-> +	/* confirm MII not busy */
-> +	if (smsc95xx_phy_wait_not_busy(dev)) {
-> +		SMSC_WARNING("MII is busy in smsc95xx_mdio_read");
-> +		mutex_unlock(&dev->phy_mutex);
-> +		return -EIO;
-> +	}
-> +
-> +	/* set the address, index & direction (read from PHY) */
-> +	phy_id &= 0x1F;
-> +	idx &= 0x1F;
-
-phy_id &= dev->mii.phy_id_mask;
-idx &= dev->mii.id_num_mask;
-
-Or we may want to #define the masks and use them here and in
-smsc95xx_phy_initialize().
-
-Also note that generic_mii_ioctl() does this as well.  But I'm not sure
-if there are any other paths which call these mii callbacks directly
-
-> +	addr = (phy_id << 11) | (idx << 6) | MII_READ_;
-> +	smsc95xx_write_reg(dev, MII_ADDR, &addr);
-> +
-> +	if (smsc95xx_phy_wait_not_busy(dev)) {
-> +		SMSC_WARNING("Timed out reading MII register %02X", idx);
-> +		mutex_unlock(&dev->phy_mutex);
-> +		return -EIO;
-> +	}
-> +
-> +	smsc95xx_read_reg(dev, MII_DATA, &val);
-> +
-> +	mutex_unlock(&dev->phy_mutex);
-> +
-> +	return (u16)(val & 0xFFFF);
-> +}
-> +
-> +static void smsc95xx_mdio_write(struct net_device *netdev, int phy_id, int idx,
-> +				int regval)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +	u32 val, addr;
-> +
-> +	mutex_lock(&dev->phy_mutex);
-> +
-> +	/* confirm MII not busy */
-> +	if (smsc95xx_phy_wait_not_busy(dev)) {
-> +		SMSC_WARNING("MII is busy in smsc95xx_mdio_write");
-> +		mutex_unlock(&dev->phy_mutex);
-> +		return;
-> +	}
-> +
-> +	val = regval;
-> +	smsc95xx_write_reg(dev, MII_DATA, &val);
-> +
-> +	/* set the address, index & direction (write to PHY) */
-> +	phy_id &= 0x1F;
-> +	idx &= 0x1F;
-
-ditto
-
-> +	addr = (phy_id << 11) | (idx << 6) | MII_WRITE_;
-> +	smsc95xx_write_reg(dev, MII_ADDR, &addr);
-> +
-> +	if (smsc95xx_phy_wait_not_busy(dev))
-> +		SMSC_WARNING("Timed out writing MII register %02X", idx);
-> +
-> +	mutex_unlock(&dev->phy_mutex);
-> +	return;
-> +}
-> +
-> +static int smsc95xx_eeprom_is_busy(struct usbnet *dev)
-> +{
-> +	u32 val;
-> +	int i;
-> +
-> +	/* 40ms total */
-As smsc95xx_read_reg() uses the synchronous urb call and AFAIR ehci
-would defer the interrupts until 8 micro-frames by default, so I guess this
-loop would take more than 40ms?
-
-> +	for (i = 0; i < 1000; i++) {
-> +		smsc95xx_read_reg(dev, E2P_CMD, &val);
-> +		if (!(val & E2P_CMD_BUSY_) || (val & E2P_CMD_TIMEOUT_))
-> +			break;
-> +		udelay(40);
-> +	}
-> +
-> +	if (val & (E2P_CMD_TIMEOUT_ | E2P_CMD_BUSY_)) {
-> +		SMSC_WARNING(KERN_WARNING "EEPROM read operation timeout");
-> +		return -EIO;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int smsc95xx_read_eeprom(struct usbnet *dev, u32 offset, u32 length,
-> +				u8 *data)
-> +{
-> +	u32 val;
-> +	int i, ret;
-> +
-> +	BUG_ON(!dev);
-> +	BUG_ON(!data);
-> +
-> +	if ((offset + length) > MAX_EEPROM_SIZE)
-> +		SMSC_WARNING("EEPROM: out of eeprom space range");
-
-Please see the comment in smsc95xx_ethtool_get_eeprom().
-
-> +
-> +	/* confirm eeprom not busy */
-> +	for (i = 0; i < 100; i++) {
-> +		smsc95xx_read_reg(dev, E2P_CMD, &val);
-> +		if (!(val & E2P_CMD_BUSY_) || !(val & E2P_CMD_LOADED_))
-> +			break;
-> +		udelay(40);
-> +	}
-
-smsc95xx_eeprom_is_busy() would wait for 40ms.  You wait for 4ms here. Is
-it enough?
-
-> +
-> +	if (!(val & E2P_CMD_LOADED_)) {
-> +		SMSC_WARNING("No EEPROM present");
-> +		return -EIO;
-> +	}
-> +
-> +	if (val & E2P_CMD_BUSY_) {
-> +		SMSC_WARNING("EEPROM is busy");
-> +		return -EIO;
-> +	}
-> +
-> +	for (i = 0; i < length; i++) {
-> +		val = E2P_CMD_BUSY_ | E2P_CMD_READ_ | (offset & E2P_CMD_ADDR_);
-> +		smsc95xx_write_reg(dev, E2P_CMD, &val);
-> +
-> +		ret = smsc95xx_eeprom_is_busy(dev);
-> +		if (ret < 0)
-> +			return ret;
-> +
-> +		smsc95xx_read_reg(dev, E2P_DATA, &val);
-> +
-> +		data[i] = val & 0xFF;
-> +		offset++;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
-> +				 u8 *data)
-> +{
-> +	u32 val;
-> +	int i, ret;
-> +
-> +	BUG_ON(!dev);
-> +	BUG_ON(!data);
-> +
-> +	if (offset + length > MAX_EEPROM_SIZE)
-> +		SMSC_WARNING("EEPROM: out of eeprom space range");
-
-Please see the comment smsc95xx_read_eeprom()
-
-> +
-> +	/* confirm eeprom not busy */
-> +	for (i = 0; i < 100; i++) {
-> +		smsc95xx_read_reg(dev, E2P_CMD, &val);
-> +		if (!(val & E2P_CMD_BUSY_))
-> +			break;
-> +		udelay(40);
-> +	}
-
-ditto
-
-> +
-> +	if (val & E2P_CMD_BUSY_) {
-> +		SMSC_WARNING("EEPROM is busy");
-> +		return -EIO;
-> +	}
-> +
-> +	/* Issue write/erase enable command */
-> +	val = E2P_CMD_BUSY_ | E2P_CMD_EWEN_;
-> +	smsc95xx_write_reg(dev, E2P_CMD, &val);
-> +
-> +	ret = smsc95xx_eeprom_is_busy(dev);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	for (i = 0; i < length; i++) {
-> +
-> +		/* Fill data register */
-> +		val = data[i];
-> +		smsc95xx_write_reg(dev, E2P_DATA, &val);
-> +
-> +		/* Send "write" command */
-> +		val = E2P_CMD_BUSY_ | E2P_CMD_WRITE_ | (offset & E2P_CMD_ADDR_);
-> +		smsc95xx_write_reg(dev, E2P_CMD, &val);
-> +
-> +		ret = smsc95xx_eeprom_is_busy(dev);
-> +		if (ret < 0)
-> +			return ret;
-> +
-> +		offset++;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static void smsc95xx_async_cmd_callback(struct urb *urb, struct pt_regs *regs)
-> +{
-> +	struct usb_context *usb_context = urb->context;
-> +
-> +	if (urb->status < 0)
-> +		SMSC_WARNING("async callback failed with %d", urb->status);
-> +
-> +	complete(&usb_context->notify);
-> +
-> +	kfree(&usb_context->req);
-
-I think kfree(usb_context) is better.
-
-> +	usb_free_urb(urb);
-> +}
-> +
-> +static int smsc95xx_write_reg_async(struct usbnet *dev, u32 index,
-> +				    u32 *data, bool wait)
-> +{
-> +	struct usb_context *usb_context;
-> +	int status;
-> +	struct urb *urb;
-> +	const u32 size = 4;
-> +
-> +	urb = usb_alloc_urb(0, GFP_ATOMIC);
-> +	if (urb == NULL) {
-> +		SMSC_WARNING("Error allocating URB in write_cmd_async!");
-> +		return -ENOMEM;
-> +	}
-
-smsc95xx_read_reg() uses 'if (!buf)' style for NULL check. We may want
-to do in the consistent way?
-
-> +
-> +	usb_context = kmalloc(sizeof(struct usb_context), GFP_ATOMIC);
-> +	if (usb_context == NULL) {
-> +		SMSC_WARNING("Failed to allocate memory for control request");
-> +		usb_free_urb(urb);
-> +		return -ENOMEM;
-> +	}
-> +
-> +	usb_context->req.bRequestType =
-> +		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE;
-> +	usb_context->req.bRequest = USB_VENDOR_REQUEST_WRITE_REGISTER;
-> +	usb_context->req.wValue = 00;
-> +	usb_context->req.wIndex = cpu_to_le32(index);
-> +	usb_context->req.wLength = cpu_to_le32(size);
-> +	init_completion(&usb_context->notify);
-> +
-> +	usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
-> +		(void *)&usb_context->req, data, size,
-> +		(usb_complete_t)smsc95xx_async_cmd_callback,
-> +		(void *)usb_context);
-> +
-> +	status = usb_submit_urb(urb, GFP_ATOMIC);
-> +	if (status < 0) {
-> +		SMSC_WARNING("Error submitting the control message: status=%d",
-> +			status);
-> +		kfree(usb_context);
-> +		usb_free_urb(urb);
-> +	}
-> +
-> +	if (wait) {
-> +		int expire = msecs_to_jiffies(USB_CTRL_SET_TIMEOUT);
-> +		if (!wait_for_completion_timeout(&usb_context->notify,
-> +			expire)) {
-> +			SMSC_WARNING("urb timeout");
-> +			kfree(usb_context);
-> +			usb_free_urb(urb);
-> +			return -EBUSY;
-> +		}
-> +	}
-
-There seems to be no callers which set the 'wait' parameter.  Could we
-eliminate this 'if' statement and the 'wait' parameter?
-
-> +
-> +	return 0;
-
-For the case when usb_submit_urb() returns error, we should:
-
-	return status;
-
-> +}
-
-
-> +
-> +/* returns hash bit number for given MAC address
-> + * example:
-> + * 01 00 5E 00 00 01 -> returns bit number 31 */
-> +static unsigned int smsc95xx_hash(char addr[ETH_ALEN])
-> +{
-> +	return (ether_crc(ETH_ALEN, addr) >> 26) & 0x3f;
-> +}
-> +
-> +static void smsc95xx_set_multicast(struct net_device *netdev)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +	u32 hash_hi = 0;
-> +	u32 hash_lo = 0;
-> +	unsigned long flags;
-> +
-> +	SMSC_TRACE(DBG_MCAST, "---------->in smsc95xx_set_multicast");
-> +
-> +	spin_lock_irqsave(&pdata->mac_cr_lock, flags);
-> +
-> +	if (dev->net->flags & IFF_PROMISC) {
-> +		SMSC_TRACE(DBG_MCAST, "Promiscuous Mode Enabled");
-> +		pdata->mac_cr |= MAC_CR_PRMS_;
-> +		pdata->mac_cr &= ~(MAC_CR_MCPAS_ | MAC_CR_HPFILT_);
-> +	} else if (dev->net->flags & IFF_ALLMULTI) {
-> +		SMSC_TRACE(DBG_MCAST, "Receive all Multicast Enabled");
-> +		pdata->mac_cr |= MAC_CR_MCPAS_;
-> +		pdata->mac_cr &= ~(MAC_CR_PRMS_ | MAC_CR_HPFILT_);
-> +	} else if (dev->net->mc_count > 0) {
-> +		struct dev_mc_list *mc_list = dev->net->mc_list;
-> +		int count = 0;
-> +
-> +		pdata->mac_cr |= MAC_CR_HPFILT_;
-> +		pdata->mac_cr &= ~(MAC_CR_PRMS_ | MAC_CR_MCPAS_);
-> +
-> +		while (mc_list) {
-> +			count++;
-> +			if (mc_list->dmi_addrlen == ETH_ALEN) {
-> +				u32 bitnum = smsc95xx_hash(mc_list->dmi_addr);
-> +				u32 mask = 0x01 << (bitnum & 0x1F);
-> +				if (bitnum & 0x20)
-> +					hash_hi |= mask;
-> +				else
-> +					hash_lo |= mask;
-> +			} else {
-> +				SMSC_WARNING("dmi_addrlen != 6");
-> +			}
-> +			mc_list = mc_list->next;
-> +		}
-> +
-> +		if (count != ((u32)dev->net->mc_count))
-> +			SMSC_WARNING("mc_count != dev->mc_count");
-> +
-> +		SMSC_TRACE(DBG_MCAST, "Multicast: HASHH=0x%08X,HASHL=0x%08X",
-> +			hash_hi, hash_lo);
-> +	} else {
-> +		SMSC_TRACE(DBG_MCAST, "Receive own packets only");
-> +		pdata->mac_cr &=
-> +			~(MAC_CR_PRMS_ | MAC_CR_MCPAS_ | MAC_CR_HPFILT_);
-> +	}
-> +
-> +	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
-> +
-> +	/* Initiate async writes, as we can't wait for completion here */
-> +	smsc95xx_write_reg_async(dev, HASHH, &hash_hi, false);
-> +	smsc95xx_write_reg_async(dev, HASHL, &hash_lo, false);
-> +	smsc95xx_write_reg_async(dev, MAC_CR, &pdata->mac_cr, false);
-> +
-> +	SMSC_TRACE(DBG_MCAST, "<---------out of smsc95xx_set_multicast");
-> +}
-> +
-> +static void smsc95xx_phy_update_flowcontrol(struct usbnet *dev,
-> +					    struct ethtool_cmd *ecmd)
-> +{
-> +	u32 flow, afc_cfg = 0;
-> +
-> +	smsc95xx_read_reg(dev, AFC_CFG, &afc_cfg);
-
-We can go through the reset of this function even if smsc95xx_read_reg()
-returns an error?  Is there no case that smsc95xx_read_reg() sets the
-garbage to afc_cfg?
-
-> +
-> +	if (ecmd->duplex == DUPLEX_FULL) {
-> +		if (ecmd->advertising & ADVERTISED_Pause) {
-> +			/* Both ends support symmetric pause, enable
-> +			 * PAUSE receive and transmit */
-> +			SMSC_TRACE(DBG_LINK, "full duplex symmetric pause");
-> +			flow = 0xFFFF0002;
-> +			afc_cfg |= 0xF;
-> +		} else if (ecmd->advertising & ADVERTISED_Asym_Pause) {
-> +			/* Both ends support asymmetric pause, Enable PAUSE
-> +			 * receive, disable PAUSE transmit */
-> +			SMSC_TRACE(DBG_LINK, "full duplex asymmetric pause");
-> +			flow = 0xFFFF0002;
-> +			afc_cfg &= ~0xF;
-> +		} else {
-> +			/* Disable PAUSE receive and transmit */
-> +			SMSC_TRACE(DBG_LINK, "full duplex no pause");
-> +			flow = 0;
-> +			afc_cfg &= ~0xF;
-> +		}
-> +	} else {
-> +		SMSC_TRACE(DBG_LINK, "half duplex");
-> +		flow = 0;
-> +		afc_cfg |= 0xF;
-> +	}
-> +
-> +	smsc95xx_write_reg(dev, FLOW, &flow);
-> +	smsc95xx_write_reg(dev,	AFC_CFG, &afc_cfg);
-> +}
-> +
-> +static int smsc95xx_link_reset(struct usbnet *dev)
-> +{
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +	struct ethtool_cmd ecmd;
-> +	unsigned long flags;
-> +	int intdata;
-
-u32 intdata;
-
-> +
-> +	/* clear interrupt status */
-> +	smsc95xx_mdio_read(dev->net, dev->mii.phy_id, PHY_INT_SRC);
-> +	intdata = 0xFFFFFFFF;
-> +	smsc95xx_write_reg(dev, INT_STS, &intdata);
-> +
-> +	mii_check_media(&dev->mii, 1, 1);
-> +	mii_ethtool_gset(&dev->mii, &ecmd);
-> +
-> +	SMSC_TRACE(DBG_LINK, "speed: %d duplex: %d", ecmd.speed, ecmd.duplex);
-> +
-> +	spin_lock_irqsave(&pdata->mac_cr_lock, flags);
-> +	if (ecmd.duplex != DUPLEX_FULL) {
-> +		pdata->mac_cr &= ~MAC_CR_FDPX_;
-> +		pdata->mac_cr |= MAC_CR_RCVOWN_;
-> +	} else {
-> +		pdata->mac_cr &= ~MAC_CR_RCVOWN_;
-> +		pdata->mac_cr |= MAC_CR_FDPX_;
-> +	}
-> +	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
-> +
-> +	smsc95xx_write_reg(dev, MAC_CR, &pdata->mac_cr);
-> +
-> +	smsc95xx_phy_update_flowcontrol(dev, &ecmd);
-> +
-> +	return 0;
-> +}
-> +
-> +static void smsc95xx_status(struct usbnet *dev, struct urb *urb)
-> +{
-> +	u32 intdata;
-
-The real user for 'intdata' here is only SMSC_TRACE().  So if USE_DEBUG
-is undefined, 'intdata' will not be needed.
-
-> +
-> +	if (urb->actual_length != 4) {
-> +		SMSC_WARNING("unexpected urb length %d", urb->actual_length);
-> +		return;
-> +	}
-> +
-> +	memcpy(&intdata, urb->transfer_buffer, 4);
-> +	le32_to_cpus(intdata);
-> +
-> +	SMSC_TRACE(DBG_LINK, "intdata: 0x%08X", intdata);
-> +
-> +	usbnet_defer_kevent(dev, EVENT_LINK_RESET);
-> +}
-> +
-> +/* Enable or disable Rx checksum offload engine */
-> +static int smsc95xx_set_rx_csum(struct usbnet *dev, bool enable)
-> +{
-> +	u32 read_buf;
-> +	int ret = smsc95xx_read_reg(dev, COE_CR, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read COE_CR: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	if (enable)
-> +		read_buf |= Rx_COE_EN_;
-> +	else
-> +		read_buf &= ~Rx_COE_EN_;
-> +
-> +	ret = smsc95xx_write_reg(dev, COE_CR, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write COE_CR: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = smsc95xx_read_reg(dev, COE_CR, &read_buf);
-
-Need to read again?  Just for SMSC_TRACE()?
-
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read COE_CR: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	SMSC_TRACE(DBG_INIT, "COE_CR = 0x%08x", read_buf);
-> +	return 0;
-> +}
-> +
-> +static int smsc95xx_ethtool_get_eeprom_len(struct net_device *net)
-> +{
-> +	return MAX_EEPROM_SIZE;
-> +}
-> +
-> +static int smsc95xx_ethtool_get_eeprom(struct net_device *netdev,
-> +				       struct ethtool_eeprom *ee, u8 *data)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +	int offset = ee->offset;
-> +	int len = ee->len;
-> +
-> +	ee->magic = LAN95XX_EEPROM_MAGIC;
-> +
-> +	if (len == 0)
-> +		return 0;
-> +
-> +	if (offset + len > MAX_EEPROM_SIZE) {
-> +		SMSC_WARNING("EEPROM address is out of range");
-> +		return -EFAULT;
-> +	}
-
-This boundary check is already done in ethtool_get_eeprom().
-
-> +
-> +	return smsc95xx_read_eeprom(dev, offset, len, data);
-> +}
-> +
-> +static int smsc95xx_ethtool_set_eeprom(struct net_device *netdev,
-> +				       struct ethtool_eeprom *ee, u8 *data)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +	int offset = ee->offset;
-> +	int len = ee->len;
-> +
-> +	if (len == 0)
-> +		return 0;
-> +
-> +	if (offset + len > MAX_EEPROM_SIZE) {
-> +		SMSC_WARNING("EEPROM address is out of range");
-> +		return -EFAULT;
-> +	}
-
-This boundary check is already done in ethtool_set_eeprom().
-
-> +
-> +	if (ee->magic != LAN95XX_EEPROM_MAGIC) {
-> +		SMSC_WARNING("EEPROM: magic value mismatch, writing fail, "
-> +			"magic = 0x%x", ee->magic);
-> +		return -EFAULT;
-
-return -EINVAL?
-
-> +	}
-> +
-> +	return smsc95xx_write_eeprom(dev, offset, len, data);
-> +}
-> +
-> +static u32 smsc95xx_ethtool_get_rx_csum(struct net_device *netdev)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +
-> +	return pdata->use_rx_csum ? true : false;
-> +}
-> +
-> +static int smsc95xx_ethtool_set_rx_csum(struct net_device *netdev, u32 val)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +
-> +	pdata->use_rx_csum = val ? true : false;
-> +
-> +	return smsc95xx_set_rx_csum(dev, pdata->use_rx_csum);
-> +}
-> +
-> +static struct ethtool_ops smsc95xx_ethtool_ops = {
-> +	.get_link	= usbnet_get_link,
-> +	.nway_reset	= usbnet_nway_reset,
-> +	.get_drvinfo	= usbnet_get_drvinfo,
-> +	.get_msglevel	= usbnet_get_msglevel,
-> +	.set_msglevel	= usbnet_set_msglevel,
-> +	.get_settings	= usbnet_get_settings,
-> +	.set_settings	= usbnet_set_settings,
-> +	.get_eeprom_len	= smsc95xx_ethtool_get_eeprom_len,
-> +	.get_eeprom	= smsc95xx_ethtool_get_eeprom,
-> +	.set_eeprom	= smsc95xx_ethtool_set_eeprom,
-> +	.get_rx_csum	= smsc95xx_ethtool_get_rx_csum,
-> +	.set_rx_csum	= smsc95xx_ethtool_set_rx_csum,
-> +};
-> +
-> +static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
-> +{
-> +	struct usbnet *dev = netdev_priv(netdev);
-> +
-> +	if (!netif_running(netdev))
-> +		return -EINVAL;
-> +
-> +	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
-> +}
-> +
-> +static void smsc95xx_validate_mac(struct usbnet *dev)
-> +{
-> +	/* try reading mac address from EEPROM */
-> +	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
-> +			dev->net->dev_addr) == 0) {
-> +		if (is_valid_ether_addr(dev->net->dev_addr)) {
-> +			/* eeprom values are valid so use them */
-> +			SMSC_TRACE(DBG_INIT, "Mac Address read from EEPROM");
-> +			return;
-> +		}
-> +	}
-> +
-> +	/* no eeprom, or eeprom values are invalid. generate random MAC */
-> +	random_ether_addr(dev->net->dev_addr);
-> +	SMSC_TRACE(DBG_INIT, "MAC Address set to random_ether_addr");
-> +}
-> +
-> +static int smsc95xx_set_mac_address(struct usbnet *dev)
-> +{
-> +	u32 addr_lo = dev->net->dev_addr[0] | dev->net->dev_addr[1] << 8 |
-> +		dev->net->dev_addr[2] << 16 | dev->net->dev_addr[3] << 24;
-> +	u32 addr_hi = dev->net->dev_addr[4] | dev->net->dev_addr[5] << 8;
-> +	int ret;
-> +
-> +	ret = smsc95xx_write_reg(dev, ADDRL, &addr_lo);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write ADDRL: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = smsc95xx_write_reg(dev, ADDRH, &addr_hi);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write ADDRH: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +/* starts the TX path */
-> +static void smsc95xx_start_tx_path(struct usbnet *dev)
-> +{
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +	unsigned long flags;
-> +	u32 reg_val;
-> +
-> +	/* Enable Tx at MAC */
-> +	spin_lock_irqsave(&pdata->mac_cr_lock, flags);
-> +	pdata->mac_cr |= MAC_CR_TXEN_;
-> +	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
-> +
-> +	smsc95xx_write_reg(dev, MAC_CR, &pdata->mac_cr);
-> +
-> +	/* Enable Tx at SCSRs */
-> +	reg_val = TX_CFG_ON_;
-> +	smsc95xx_write_reg(dev, TX_CFG, &reg_val);
-> +}
-> +
-> +/* Starts the Receive path */
-> +static void smsc95xx_start_rx_path(struct usbnet *dev)
-> +{
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&pdata->mac_cr_lock, flags);
-> +	pdata->mac_cr |= MAC_CR_RXEN_;
-> +	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
-> +
-> +	smsc95xx_write_reg(dev, MAC_CR, &pdata->mac_cr);
-> +}
-> +
-> +static int smsc95xx_phy_initialize(struct usbnet *dev)
-> +{
-> +	/* Initialize MII structure */
-> +	dev->mii.dev = dev->net;
-> +	dev->mii.mdio_read = smsc95xx_mdio_read;
-> +	dev->mii.mdio_write = smsc95xx_mdio_write;
-> +	dev->mii.phy_id_mask = 0x1f;
-> +	dev->mii.reg_num_mask = 0x1f;
-> +	dev->mii.phy_id = SMSC95XX_INTERNAL_PHY_ID;
-> +
-> +	smsc95xx_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR, BMCR_RESET);
-> +	smsc95xx_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
-> +		ADVERTISE_ALL | ADVERTISE_CSMA | ADVERTISE_PAUSE_CAP |
-> +		ADVERTISE_PAUSE_ASYM);
-> +
-> +	/* read to clear */
-> +	smsc95xx_mdio_read(dev->net, dev->mii.phy_id, PHY_INT_SRC);
-> +
-> +	smsc95xx_mdio_write(dev->net, dev->mii.phy_id, PHY_INT_MASK,
-> +		PHY_INT_MASK_DEFAULT_);
-> +	mii_nway_restart(&dev->mii);
-> +
-> +	SMSC_TRACE(DBG_INIT, "phy initialised succesfully");
-> +	return 0;
-> +}
-> +
-> +static int smsc95xx_reset(struct usbnet *dev)
-> +{
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +	u32 read_buf, write_buf, burst_cap;
-> +	int ret = 0, timeout;
-> +	DECLARE_MAC_BUF(mac);
-> +
-> +	SMSC_TRACE(DBG_INIT, "---------->smsc95xx_reset");
-> +
-> +	write_buf = HW_CFG_LRST_;
-> +	ret = smsc95xx_write_reg(dev, HW_CFG, &write_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write HW_CFG_LRST_ bit in HW_CFG "
-> +			"register, ret = %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	timeout = 0;
-> +	do {
-> +		ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
-> +		if (ret < 0) {
-> +			SMSC_WARNING("Failed to read HW_CFG: %d", ret);
-> +			return ret;
-> +		}
-> +		msleep(10);
-> +		timeout++;
-> +	} while ((read_buf & HW_CFG_LRST_) && (timeout < 100));
-> +
-> +	if (timeout >= 100) {
-> +		SMSC_WARNING("timeout waiting for completion of Lite Reset");
-> +		return ret;
-> +	}
-> +
-> +	write_buf = PM_CTL_PHY_RST_;
-> +	ret = smsc95xx_write_reg(dev, PM_CTRL, &write_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write PM_CTRL: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	timeout = 0;
-> +	do {
-> +		ret = smsc95xx_read_reg(dev, PM_CTRL, &read_buf);
-> +		if (ret < 0) {
-> +			SMSC_WARNING("Failed to read PM_CTRL: %d", ret);
-> +			return ret;
-> +		}
-> +		msleep(10);
-> +		timeout++;
-> +	} while ((read_buf & PM_CTL_PHY_RST_) && (timeout < 100));
-> +
-> +	if (timeout >= 100) {
-> +		SMSC_WARNING("timeout waiting for PHY Reset");
-> +		return ret;
-> +	}
-> +
-> +	smsc95xx_validate_mac(dev);
-> +
-> +	ret = smsc95xx_set_mac_address(dev);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	dev_info(&dev->net->dev, "MAC Address: %s\n",
-> +		print_mac(mac, dev->net->dev_addr));
-> +
-> +	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read HW_CFG: %d", ret);
-> +		return ret;
-> +	}
-> +	SMSC_TRACE(DBG_INIT, "Read Value from HW_CFG : 0x%08x", read_buf);
-> +
-> +	read_buf |= HW_CFG_BIR_;
-> +
-> +	ret = smsc95xx_write_reg(dev, HW_CFG, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write HW_CFG_BIR_ bit in HW_CFG "
-> +			"register, ret = %d \n", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read HW_CFG: %d", ret);
-> +		return ret;
-> +	}
-> +	SMSC_TRACE(DBG_INIT, "Read Value from HW_CFG after writing "
-> +		"HW_CFG_BIR_: 0x%08x", read_buf);
-> +
-> +	if (!turbo_mode) {
-> +		burst_cap = 0;
-> +		dev->rx_urb_size = MAX_SINGLE_PACKET_SIZE;
-> +	} else if (dev->udev->speed == USB_SPEED_HIGH) {
-> +		burst_cap = DEFAULT_HS_BURST_CAP_SIZE / HS_USB_PKT_SIZE;
-> +		dev->rx_urb_size = DEFAULT_HS_BURST_CAP_SIZE;
-> +	} else {
-> +		burst_cap = DEFAULT_FS_BURST_CAP_SIZE / FS_USB_PKT_SIZE;
-> +		dev->rx_urb_size = DEFAULT_FS_BURST_CAP_SIZE;
-> +	}
-> +
-> +	SMSC_TRACE(DBG_INIT, "rx_urb_size=%ld", (ulong)dev->rx_urb_size);
-> +
-> +	ret = smsc95xx_write_reg(dev, BURST_CAP, &burst_cap);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("ret = %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = smsc95xx_read_reg(dev, BURST_CAP, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read BURST_CAP: %d", ret);
-> +		return ret;
-> +	}
-> +	SMSC_TRACE(DBG_INIT, "Read Value from BURST_CAP after writing: 0x%08x",
-> +		read_buf);
-> +
-> +	read_buf = DEFAULT_BULK_IN_DELAY;
-> +	ret = smsc95xx_write_reg(dev, BULK_IN_DLY, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("ret = %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = smsc95xx_read_reg(dev, BULK_IN_DLY, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read BULK_IN_DLY: %d", ret);
-> +		return ret;
-> +	}
-> +	SMSC_TRACE(DBG_INIT, "Read Value from BULK_IN_DLY after writing: "
-> +		"0x%08x", read_buf);
-> +
-> +	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read HW_CFG: %d", ret);
-> +		return ret;
-> +	}
-> +	SMSC_TRACE(DBG_INIT, "Read Value from HW_CFG: 0x%08x", read_buf);
-> +
-> +	if (turbo_mode)
-> +		read_buf |= (HW_CFG_MEF_ | HW_CFG_BCE_);
-> +
-> +	read_buf &= ~HW_CFG_RXDOFF_;
-> +
-> +	/* set Rx data offset=2, Make IP header aligns on word boundary. */
-> +	read_buf |= NET_IP_ALIGN << 9;
-> +
-> +	ret = smsc95xx_write_reg(dev, HW_CFG, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write HW_CFG register, ret=%d", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read HW_CFG: %d", ret);
-> +		return ret;
-> +	}
-> +	SMSC_TRACE(DBG_INIT, "Read Value from HW_CFG after writing: 0x%08x",
-> +		read_buf);
-> +
-> +	write_buf = 0xFFFFFFFF;
-> +	ret = smsc95xx_write_reg(dev, INT_STS, &write_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write INT_STS register, ret=%d", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = smsc95xx_read_reg(dev, ID_REV, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read ID_REV: %d", ret);
-> +		return ret;
-> +	}
-> +	SMSC_TRACE(DBG_INIT, "ID_REV = 0x%08x", read_buf);
-> +
-> +	/* Init Tx */
-> +	write_buf = 0;
-> +	ret = smsc95xx_write_reg(dev, FLOW, &write_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write FLOW: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	read_buf = AFC_CFG_DEFAULT;
-> +	ret = smsc95xx_write_reg(dev, AFC_CFG, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write AFC_CFG: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	/* Don't need mac_cr_lock during initialisation */
-> +	ret = smsc95xx_read_reg(dev, MAC_CR, &pdata->mac_cr);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read MAC_CR: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	smsc95xx_start_tx_path(dev);
-> +
-> +	/* Init Rx */
-> +	/* Set Vlan */
-> +	write_buf = (u32)ETH_P_8021Q;
-> +	ret = smsc95xx_write_reg(dev, VLAN1, &write_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write VAN1: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	/* Enable or disable Rx checksum offload engine */
-> +	ret = smsc95xx_set_rx_csum(dev, pdata->use_rx_csum);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to set Rx csum offload: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	smsc95xx_start_rx_path(dev);
-> +
-> +	smsc95xx_set_multicast(dev->net);
-> +
-> +	if (smsc95xx_phy_initialize(dev) < 0)
-> +		return -EIO;
-> +
-> +	ret = smsc95xx_read_reg(dev, INT_EP_CTL, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to read INT_EP_CTL: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	/* enable PHY interrupts */
-> +	read_buf |= INT_EP_CTL_PHY_INT_;
-> +
-> +	ret = smsc95xx_write_reg(dev, INT_EP_CTL, &read_buf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("Failed to write INT_EP_CTL: %d", ret);
-> +		return ret;
-> +	}
-> +
-> +	SMSC_TRACE(DBG_INIT, "<--------out of smsc95xx_reset, return 0");
-> +	return 0;
-> +}
-> +
-> +static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
-> +{
-> +	struct smsc95xx_priv *pdata = NULL;
-> +	int ret;
-> +
-> +	SMSC_TRACE(DBG_INIT, "---------->in smsc95xx_bind");
-> +	printk(KERN_INFO SMSC_CHIPNAME " v" SMSC_DRIVER_VERSION "\n");
-> +
-> +	ret = usbnet_get_endpoints(dev, intf);
-> +	if (ret < 0) {
-> +		SMSC_WARNING("smscusbnet_get_endpoints failed, ret=%d", ret);
-> +		return ret;
-> +	}
-> +
-> +	dev->data[0] = (unsigned long)kzalloc(sizeof(struct smsc95xx_priv),
-> +		GFP_KERNEL);
-> +
-> +	pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +	if (!pdata) {
-> +		SMSC_WARNING("Unable to allocate struct smsc95xx_priv");
-> +		return -ENOMEM;
-> +	}
-> +
-> +	spin_lock_init(&pdata->mac_cr_lock);
-> +
-> +	pdata->use_rx_csum = DEFAULT_RX_CSUM_ENABLE;
-> +
-> +	/* Init all registers */
-> +	ret = smsc95xx_reset(dev);
-> +
-> +	dev->net->do_ioctl = smsc95xx_ioctl;
-> +	dev->net->ethtool_ops = &smsc95xx_ethtool_ops;
-> +	dev->net->set_multicast_list = smsc95xx_set_multicast;
-> +	dev->net->flags |= IFF_MULTICAST;
-> +	dev->net->hard_header_len += SMSC95XX_TX_OVERHEAD;
-> +
-> +	SMSC_TRACE(DBG_INIT, "<--------out of smsc95xx_bind");
-> +	return 0;
-> +}
-> +
-> +static void smsc95xx_unbind(struct usbnet *dev, struct usb_interface *intf)
-> +{
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +	SMSC_TRACE(DBG_CLOSE, "------->in smsc95xx_unbind");
-> +	if (pdata) {
-> +		SMSC_TRACE(DBG_CLOSE, "free pdata");
-> +		kfree(pdata);
-> +		pdata = NULL;
-> +		dev->data[0] = 0;
-> +	}
-> +	SMSC_TRACE(DBG_CLOSE, "<-------in smsc95xx_unbind");
-                                       ^^
-out?
-
-> +}
-> +
-> +static void smsc95xx_rx_csum_offload(struct sk_buff *skb)
-> +{
-> +	skb->csum = *(u16 *)(skb_tail_pointer(skb) - 2);
-> +	skb->ip_summed = CHECKSUM_COMPLETE;
-> +	skb_trim(skb, skb->len - 2);
-> +}
-> +
-> +static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-> +{
-> +	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-> +
-> +	while (skb->len > 0) {
-> +		u32 header, align_count;
-> +		struct sk_buff *ax_skb;
-> +		unsigned char *packet;
-> +		u16 size;
-> +
-> +		memcpy(&header, skb->data, sizeof(header));
-> +		le32_to_cpus(&header);
-> +		skb_pull(skb, 4 + NET_IP_ALIGN);
-> +		packet = skb->data;
-> +
-> +		/* get the packet length */
-> +		size = (u16)((header & RX_STS_FL_) >> 16);
-> +		align_count = (4 - ((size + NET_IP_ALIGN) % 4)) % 4;
-> +
-> +		if (unlikely(header & RX_STS_ES_)) {
-> +			SMSC_TRACE(DBG_RX, "Error frame header=0x%08x", header);
-> +			dev->stats.rx_errors++;
-> +			dev->stats.rx_dropped++;
-> +
-> +			if (header & RX_STS_CRC_) {
-> +				dev->stats.rx_crc_errors++;
-> +			} else {
-> +				if (header & (RX_STS_TL_ | RX_STS_RF_))
-> +					dev->stats.rx_frame_errors++;
-> +
-> +				if ((header & RX_STS_LE_) &&
-> +					(!(header & RX_STS_FT_)))
-> +					dev->stats.rx_length_errors++;
-> +			}
-> +		} else {
-> +			/* ETH_FRAME_LEN + 4(CRC) + 2(COE) + 4(Vlan) */
-> +			if (unlikely(size > (ETH_FRAME_LEN + 12))) {
-> +				SMSC_TRACE(DBG_RX, "size > (ETH_FRAME_LEN+12), "
-> +					"header=0x%08x", header);
-> +				return 0;
-> +			}
-> +
-> +			/* last frame in this batch */
-> +			if (skb->len == size) {
-> +				if (pdata->use_rx_csum)
-> +					smsc95xx_rx_csum_offload(skb);
-> +
-> +				skb->truesize = size + sizeof(struct sk_buff);
-> +
-> +				return 1;
-> +			}
-> +
-> +			ax_skb = skb_clone(skb, GFP_ATOMIC);
-> +			if (unlikely(!ax_skb)) {
-> +				SMSC_WARNING("Error allocating skb");
-> +				return 0;
-> +			}
-> +
-> +			ax_skb->len = size;
-> +			ax_skb->data = packet;
-> +			skb_set_tail_pointer(ax_skb, size);
-> +
-> +			if (pdata->use_rx_csum)
-> +				smsc95xx_rx_csum_offload(ax_skb);
-> +
-> +			ax_skb->truesize = size + sizeof(struct sk_buff);
-> +
-> +			usbnet_skb_return(dev, ax_skb);
-> +		}
-> +
-> +		skb_pull(skb, size);
-> +
-> +		/* padding bytes before the next frame starts */
-> +		if (skb->len)
-> +			skb_pull(skb, align_count);
-> +	}
-> +
-> +	if (unlikely(skb->len < 0)) {
-> +		SMSC_WARNING("invalid rx length<0 %d", skb->len);
-> +		return 0;
-> +	}
-> +
-> +	return 1;
-> +}
-> +
-> +static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
-> +					 struct sk_buff *skb, gfp_t flags)
-> +{
-> +	u32 tx_cmd_a, tx_cmd_b;
-> +
-> +	if (skb_headroom(skb) < SMSC95XX_TX_OVERHEAD) {
-> +		struct sk_buff *skb2 = skb_copy_expand(skb,
-> +			SMSC95XX_TX_OVERHEAD, 0, flags);
-> +		dev_kfree_skb_any(skb);
-> +		skb = skb2;
-> +		if (!skb)
-> +			return NULL;
-> +	}
-> +
-> +	skb_push(skb, 4);
-> +	tx_cmd_b = (u32)(skb->len - 4);
-> +	cpu_to_le32s(&tx_cmd_b);
-> +	memcpy(skb->data, &tx_cmd_b, 4);
-> +
-> +	skb_push(skb, 4);
-> +	tx_cmd_a = (u32)(skb->len - 8) | TX_CMD_A_FIRST_SEG_ |
-> +		TX_CMD_A_LAST_SEG_;
-> +	cpu_to_le32s(&tx_cmd_a);
-> +	memcpy(skb->data, &tx_cmd_a, 4);
-> +
-> +	return skb;
-> +}
-> +
-> +static const struct driver_info smsc95xx_info = {
-> +	.description	= "smsc95xx USB 2.0 Ethernet",
-> +	.bind		= smsc95xx_bind,
-> +	.unbind		= smsc95xx_unbind,
-> +	.link_reset	= smsc95xx_link_reset,
-> +	.reset		= smsc95xx_reset,
-> +	.rx_fixup	= smsc95xx_rx_fixup,
-> +	.tx_fixup	= smsc95xx_tx_fixup,
-> +	.status		= smsc95xx_status,
-> +	.flags		= FLAG_ETHER,
-> +};
-> +
-> +static const struct usb_device_id products[] = {
-> +	{
-> +		/* SMSC9500 USB Ethernet Device */
-> +		USB_DEVICE(0x0424, 0x9500),
-> +		.driver_info = (unsigned long) &smsc95xx_info,
-> +	},
-> +	{ },		/* END */
-> +};
-> +MODULE_DEVICE_TABLE(usb, products);
-> +
-> +static struct usb_driver smsc95xx_driver = {
-> +	.name		= "smsc95xx",
-> +	.id_table	= products,
-> +	.probe		= usbnet_probe,
-> +	.suspend	= usbnet_suspend,
-> +	.resume		= usbnet_resume,
-> +	.disconnect	= usbnet_disconnect,
-> +};
-> +
-> +static int __init smsc95xx_init(void)
-> +{
-> +	return usb_register(&smsc95xx_driver);
-> +}
-> +module_init(smsc95xx_init);
-> +
-> +static void __exit smsc95xx_exit(void)
-> +{
-> +	usb_deregister(&smsc95xx_driver);
-> +}
-> +module_exit(smsc95xx_exit);
-> +
-> +MODULE_AUTHOR("Nancy Lin");
-> +MODULE_AUTHOR("Steve Glendinning <steve.glendinning@smsc.com>");
-> +MODULE_DESCRIPTION("SMSC95XX USB 2.0 Ethernet Devices");
-> +MODULE_LICENSE("GPL");
-> diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
-> new file mode 100644
-> index 0000000..e955480
-> --- /dev/null
-> +++ b/drivers/net/usb/smsc95xx.h
-> @@ -0,0 +1,253 @@
-> + /***************************************************************************
-> + *
-> + * Copyright (C) 2007-2008 SMSC
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * as published by the Free Software Foundation; either version 2
-> + * of the License, or (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-> + *
-> + *****************************************************************************/
-> +
-> +#ifndef _LAN95XX_H
-> +#define _LAN95XX_H
-
-#ifndef _SMSC95XX_H
-#define _SMSC95XX_H
-
-> +
-> +/* Tx command words */
-> +#define TX_CMD_A_DATA_OFFSET_		(0x001F0000)
-> +#define TX_CMD_A_FIRST_SEG_		(0x00002000)
-> +#define TX_CMD_A_LAST_SEG_		(0x00001000)
-> +#define TX_CMD_A_BUF_SIZE_		(0x000007FF)
-> +
-> +#define TX_CMD_B_CSUM_ENABLE		(0x00004000)
-> +#define TX_CMD_B_ADD_CRC_DISABLE_	(0x00002000)
-> +#define TX_CMD_B_DISABLE_PADDING_	(0x00001000)
-> +#define TX_CMD_B_PKT_BYTE_LENGTH_	(0x000007FF)
-> +
-> +/* Rx status word */
-> +#define RX_STS_FF_			(0x40000000)	/* Filter Fail */
-> +#define RX_STS_FL_			(0x3FFF0000)	/* Frame Length */
-> +#define RX_STS_ES_			(0x00008000)	/* Error Summary */
-> +#define RX_STS_BF_			(0x00002000)	/* Broadcast Frame */
-> +#define RX_STS_LE_			(0x00001000)	/* Length Error */
-> +#define RX_STS_RF_			(0x00000800)	/* Runt Frame */
-> +#define RX_STS_MF_			(0x00000400)	/* Multicast Frame */
-> +#define RX_STS_TL_			(0x00000080)	/* Frame too long */
-> +#define RX_STS_CS_			(0x00000040)	/* Collision Seen */
-> +#define RX_STS_FT_			(0x00000020)	/* Frame Type */
-> +#define RX_STS_RW_			(0x00000010)	/* Receive Watchdog */
-> +#define RX_STS_ME_			(0x00000008)	/* Mii Error */
-> +#define RX_STS_DB_			(0x00000004)	/* Dribbling */
-> +#define RX_STS_CRC_			(0x00000002)	/* CRC Error */
-> +
-> +/* SCSRs */
-> +#define ID_REV				(0x00)
-> +#define ID_REV_CHIP_ID_MASK_		(0xFFFF0000)
-> +#define ID_REV_CHIP_REV_MASK_		(0x0000FFFF)
-> +#define ID_REV_CHIP_ID_9500_		(0x9500)
-> +
-> +#define INT_STS				(0x08)
-> +#define INT_STS_TX_STOP_		(0x00020000)
-> +#define INT_STS_RX_STOP_		(0x00010000)
-> +#define INT_STS_PHY_INT_		(0x00008000)
-> +#define INT_STS_TXE_			(0x00004000)
-> +#define INT_STS_TDFU_			(0x00002000)
-> +#define INT_STS_TDFO_			(0x00001000)
-> +#define INT_STS_RXDF_			(0x00000800)
-> +#define INT_STS_GPIOS_			(0x000007FF)
-> +
-> +#define RX_CFG				(0x0C)
-> +#define RX_FIFO_FLUSH_			(0x00000001)
-> +
-> +#define TX_CFG				(0x10)
-> +#define TX_CFG_ON_			(0x00000004)
-> +#define TX_CFG_STOP_			(0x00000002)
-> +#define TX_CFG_FIFO_FLUSH_		(0x00000001)
-> +
-> +#define HW_CFG				(0x14)
-> +#define HW_CFG_BIR_			(0x00001000)
-> +#define HW_CFG_LEDB_			(0x00000800)
-> +#define HW_CFG_RXDOFF_			(0x00000600)
-> +#define HW_CFG_DRP_			(0x00000040)
-> +#define HW_CFG_MEF_			(0x00000020)
-> +#define HW_CFG_LRST_			(0x00000008)
-> +#define HW_CFG_PSEL_			(0x00000004)
-> +#define HW_CFG_BCE_			(0x00000002)
-> +#define HW_CFG_SRST_			(0x00000001)
-> +
-> +#define PM_CTRL				(0x20)
-> +#define PM_CTL_DEV_RDY_			(0x00000080)
-> +#define PM_CTL_SUS_MODE_		(0x00000060)
-> +#define PM_CTL_SUS_MODE_0		(0x00000000)
-> +#define PM_CTL_SUS_MODE_1		(0x00000020)
-> +#define PM_CTL_SUS_MODE_2		(0x00000060)
-> +#define PM_CTL_PHY_RST_			(0x00000010)
-> +#define PM_CTL_WOL_EN_			(0x00000008)
-> +#define PM_CTL_ED_EN_			(0x00000004)
-> +#define PM_CTL_WUPS_			(0x00000003)
-> +#define PM_CTL_WUPS_NO_			(0x00000000)
-> +#define PM_CTL_WUPS_ED_			(0x00000001)
-> +#define PM_CTL_WUPS_WOL_		(0x00000002)
-> +#define PM_CTL_WUPS_MULTI_		(0x00000003)
-> +
-> +#define LED_GPIO_CFG			(0x24)
-> +
-> +#define GPIO_CFG			(0x28)
-> +
-> +#define AFC_CFG				(0x2C)
-> +
-> +/* Hi watermark = 15.5Kb (~10 mtu pkts) */
-> +/* low watermark = 3k (~2 mtu pkts) */
-> +/* backpressure duration = ~ 350us */
-> +/* Apply FC on any frame. */
-> +#define AFC_CFG_DEFAULT			(0x00F830A1)
-> +
-> +#define E2P_CMD				(0x30)
-> +#define E2P_CMD_BUSY_			(0x80000000)
-> +#define E2P_CMD_MASK_			(0x70000000)
-> +#define E2P_CMD_READ_			(0x00000000)
-> +#define E2P_CMD_EWDS_			(0x10000000)
-> +#define E2P_CMD_EWEN_			(0x20000000)
-> +#define E2P_CMD_WRITE_			(0x30000000)
-> +#define E2P_CMD_WRAL_			(0x40000000)
-> +#define E2P_CMD_ERASE_			(0x50000000)
-> +#define E2P_CMD_ERAL_			(0x60000000)
-> +#define E2P_CMD_RELOAD_			(0x70000000)
-> +#define E2P_CMD_TIMEOUT_		(0x00000400)
-> +#define E2P_CMD_LOADED_			(0x00000200)
-> +#define E2P_CMD_ADDR_			(0x000001FF)
-> +
-> +#define MAX_EEPROM_SIZE			(512)
-> +
-> +#define E2P_DATA			(0x34)
-> +#define E2P_DATA_MASK_			(0x000000FF)
-> +
-> +#define BURST_CAP			(0x38)
-> +
-> +#define GPIO_WAKE			(0x64)
-> +
-> +#define INT_EP_CTL			(0x68)
-> +#define INT_EP_CTL_INTEP_		(0x80000000)
-> +#define INT_EP_CTL_MACRTO_		(0x00080000)
-> +#define INT_EP_CTL_TX_STOP_		(0x00020000)
-> +#define INT_EP_CTL_RX_STOP_		(0x00010000)
-> +#define INT_EP_CTL_PHY_INT_		(0x00008000)
-> +#define INT_EP_CTL_TXE_			(0x00004000)
-> +#define INT_EP_CTL_TDFU_		(0x00002000)
-> +#define INT_EP_CTL_TDFO_		(0x00001000)
-> +#define INT_EP_CTL_RXDF_		(0x00000800)
-> +#define INT_EP_CTL_GPIOS_		(0x000007FF)
-> +
-> +#define BULK_IN_DLY			(0x6C)
-> +
-> +/* MAC CSRs */
-> +#define MAC_CR				(0x100)
-> +#define MAC_CR_RXALL_			(0x80000000)
-> +#define MAC_CR_RCVOWN_			(0x00800000)
-> +#define MAC_CR_LOOPBK_			(0x00200000)
-> +#define MAC_CR_FDPX_			(0x00100000)
-> +#define MAC_CR_MCPAS_			(0x00080000)
-> +#define MAC_CR_PRMS_			(0x00040000)
-> +#define MAC_CR_INVFILT_			(0x00020000)
-> +#define MAC_CR_PASSBAD_			(0x00010000)
-> +#define MAC_CR_HFILT_			(0x00008000)
-> +#define MAC_CR_HPFILT_			(0x00002000)
-> +#define MAC_CR_LCOLL_			(0x00001000)
-> +#define MAC_CR_BCAST_			(0x00000800)
-> +#define MAC_CR_DISRTY_			(0x00000400)
-> +#define MAC_CR_PADSTR_			(0x00000100)
-> +#define MAC_CR_BOLMT_MASK		(0x000000C0)
-> +#define MAC_CR_DFCHK_			(0x00000020)
-> +#define MAC_CR_TXEN_			(0x00000008)
-> +#define MAC_CR_RXEN_			(0x00000004)
-> +
-> +#define ADDRH				(0x104)
-> +
-> +#define ADDRL				(0x108)
-> +
-> +#define HASHH				(0x10C)
-> +
-> +#define HASHL				(0x110)
-> +
-> +#define MII_ADDR			(0x114)
-> +#define MII_WRITE_			(0x02)
-> +#define MII_BUSY_			(0x01)
-> +#define MII_READ_			(0x00) /* ~of MII Write bit */
-> +
-> +#define MII_DATA			(0x118)
-> +
-> +#define FLOW				(0x11C)
-> +#define FLOW_FCPT_			(0xFFFF0000)
-> +#define FLOW_FCPASS_			(0x00000004)
-> +#define FLOW_FCEN_			(0x00000002)
-> +#define FLOW_FCBSY_			(0x00000001)
-> +
-> +#define VLAN1				(0x120)
-> +
-> +#define VLAN2				(0x124)
-> +
-> +#define WUFF				(0x128)
-> +
-> +#define WUCSR				(0x12C)
-> +
-> +#define COE_CR				(0x130)
-> +#define Tx_COE_EN_			(0x00010000)
-> +#define Rx_COE_MODE_			(0x00000002)
-> +#define Rx_COE_EN_			(0x00000001)
-> +
-> +/* Vendor-specific PHY Definitions */
-> +
-> +/* Mode Control/Status Register */
-> +#define PHY_MODE_CTRL_STS		(17)
-> +#define MODE_CTRL_STS_EDPWRDOWN_	((u16)0x2000)
-> +#define MODE_CTRL_STS_ENERGYON_		((u16)0x0002)
-> +
-> +#define SPECIAL_CTRL_STS		(27)
-> +#define SPECIAL_CTRL_STS_OVRRD_AMDIX_	((u16)0x8000)
-> +#define SPECIAL_CTRL_STS_AMDIX_ENABLE_	((u16)0x4000)
-> +#define SPECIAL_CTRL_STS_AMDIX_STATE_	((u16)0x2000)
-> +
-> +#define PHY_INT_SRC			(29)
-> +#define PHY_INT_SRC_ENERGY_ON_		((u16)0x0080)
-> +#define PHY_INT_SRC_ANEG_COMP_		((u16)0x0040)
-> +#define PHY_INT_SRC_REMOTE_FAULT_	((u16)0x0020)
-> +#define PHY_INT_SRC_LINK_DOWN_		((u16)0x0010)
-> +
-> +#define PHY_INT_MASK			(30)
-> +#define PHY_INT_MASK_ENERGY_ON_		((u16)0x0080)
-> +#define PHY_INT_MASK_ANEG_COMP_		((u16)0x0040)
-> +#define PHY_INT_MASK_REMOTE_FAULT_	((u16)0x0020)
-> +#define PHY_INT_MASK_LINK_DOWN_		((u16)0x0010)
-> +#define PHY_INT_MASK_DEFAULT_		(PHY_INT_MASK_ANEG_COMP_ | \
-> +					 PHY_INT_MASK_LINK_DOWN_)
-> +
-> +#define PHY_SPECIAL			(31)
-> +#define PHY_SPECIAL_SPD_		((u16)0x001C)
-> +#define PHY_SPECIAL_SPD_10HALF_		((u16)0x0004)
-> +#define PHY_SPECIAL_SPD_10FULL_		((u16)0x0014)
-> +#define PHY_SPECIAL_SPD_100HALF_	((u16)0x0008)
-> +#define PHY_SPECIAL_SPD_100FULL_	((u16)0x0018)
-> +
-> +/* USB Vendor Requests */
-> +#define USB_VENDOR_REQUEST_WRITE_REGISTER	0xA0
-> +#define USB_VENDOR_REQUEST_READ_REGISTER	0xA1
-> +#define USB_VENDOR_REQUEST_GET_STATS		0xA2
-> +
-> +/* Interrupt Endpoint status word bitfields */
-> +#define INT_ENP_TX_STOP_		((u32)BIT(17))
-> +#define INT_ENP_RX_STOP_		((u32)BIT(16))
-> +#define INT_ENP_PHY_INT_		((u32)BIT(15))
-> +#define INT_ENP_TXE_			((u32)BIT(14))
-> +#define INT_ENP_TDFU_			((u32)BIT(13))
-> +#define INT_ENP_TDFO_			((u32)BIT(12))
-> +#define INT_ENP_RXDF_			((u32)BIT(11))
-> +
-> +#endif /* _LAN95XX_H */
-> -- 
-> 1.5.5.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
--- 
-Masakazu Mokuno
-
+Index: net-2.6-next/include/linux/cgroup_subsys.h
+===================================================================
+--- net-2.6-next.orig/include/linux/cgroup_subsys.h	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/include/linux/cgroup_subsys.h	2008-09-08 13:38:47.000000000 +0200
+@@ -48,3 +48,9 @@
+ #endif
+ 
+ /* */
++
++#ifdef CONFIG_NET_CLS_CGROUP
++SUBSYS(net_cls)
++#endif
++
++/* */
+Index: net-2.6-next/include/linux/pkt_cls.h
+===================================================================
+--- net-2.6-next.orig/include/linux/pkt_cls.h	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/include/linux/pkt_cls.h	2008-09-08 13:38:47.000000000 +0200
+@@ -394,6 +394,20 @@
+ 
+ #define TCA_BASIC_MAX (__TCA_BASIC_MAX - 1)
+ 
++
++/* Cgroup classifier */
++
++enum
++{
++	TCA_CGROUP_UNSPEC,
++	TCA_CGROUP_ACT,
++	TCA_CGROUP_POLICE,
++	TCA_CGROUP_EMATCHES,
++	__TCA_CGROUP_MAX,
++};
++
++#define TCA_CGROUP_MAX (__TCA_CGROUP_MAX - 1)
++
+ /* Extended Matches */
+ 
+ struct tcf_ematch_tree_hdr
+Index: net-2.6-next/net/sched/Kconfig
+===================================================================
+--- net-2.6-next.orig/net/sched/Kconfig	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/net/sched/Kconfig	2008-09-08 13:38:47.000000000 +0200
+@@ -307,6 +307,17 @@
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called cls_flow.
+ 
++config NET_CLS_CGROUP
++	tristate "Control Group Classifier"
++	select NET_CLS
++	depends on CGROUPS
++	---help---
++	  Say Y here if you want to classify packets based on the control
++	  cgroup of their process.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called cls_cgroup.
++
+ config NET_EMATCH
+ 	bool "Extended Matches"
+ 	select NET_CLS
+Index: net-2.6-next/net/sched/Makefile
+===================================================================
+--- net-2.6-next.orig/net/sched/Makefile	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/net/sched/Makefile	2008-09-08 13:38:47.000000000 +0200
+@@ -36,6 +36,7 @@
+ obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
+ obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
+ obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
++obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
+ obj-$(CONFIG_NET_EMATCH)	+= ematch.o
+ obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
+ obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
+Index: net-2.6-next/net/sched/cls_cgroup.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6-next/net/sched/cls_cgroup.c	2008-09-08 13:39:32.000000000 +0200
+@@ -0,0 +1,278 @@
++/*
++ * net/sched/cls_cgroup.c	Control Group Classifier
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Thomas Graf <tgraf@suug.ch>
++ */
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <linux/cgroup.h>
++#include <net/rtnetlink.h>
++#include <net/pkt_cls.h>
++
++struct cgroup_cls_state
++{
++	struct cgroup_subsys_state css;
++	u32 classid;
++};
++
++static inline struct cgroup_cls_state *net_cls_state(struct cgroup *cgrp)
++{
++	return (struct cgroup_cls_state *)
++		cgroup_subsys_state(cgrp, net_cls_subsys_id);
++}
++
++static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
++						 struct cgroup *cgrp)
++{
++	struct cgroup_cls_state *cs;
++
++	if (!(cs = kzalloc(sizeof(*cs), GFP_KERNEL)))
++		return ERR_PTR(-ENOMEM);
++
++	if (cgrp->parent)
++		cs->classid = net_cls_state(cgrp)->classid;
++
++	return &cs->css;
++}
++
++static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp)
++{
++	kfree(ss);
++}
++
++static u64 read_classid(struct cgroup *cgrp, struct cftype *cft)
++{
++	return net_cls_state(cgrp)->classid;
++}
++
++static int write_classid(struct cgroup *cgrp, struct cftype *cft, u64 value)
++{
++	if (!cgroup_lock_live_group(cgrp))
++		return -ENODEV;
++
++	net_cls_state(cgrp)->classid = (u32) value;
++
++	cgroup_unlock();
++
++	return 0;
++}
++
++static struct cftype ss_files[] = {
++	{
++		.name = "classid",
++		.read_u64 = read_classid,
++		.write_u64 = write_classid,
++	},
++};
++
++static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp)
++{
++	return cgroup_add_files(cgrp, ss, ss_files, ARRAY_SIZE(ss_files));
++}
++
++struct cgroup_subsys net_cls_subsys = {
++	.name		= "net_cls",
++	.create		= cgrp_create,
++	.destroy	= cgrp_destroy,
++	.populate	= cgrp_populate,
++	.subsys_id	= net_cls_subsys_id,
++};
++
++struct cls_cgroup_head
++{
++	u32			handle;
++	struct tcf_exts		exts;
++	struct tcf_ematch_tree	ematches;
++};
++
++static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
++			       struct tcf_result *res)
++{
++	struct cls_cgroup_head *head = tp->root;
++	struct cgroup_cls_state *cs;
++	int ret = 0;
++
++	rcu_read_lock();
++
++	cs = (struct cgroup_cls_state *) task_subsys_state(current,
++							   net_cls_subsys_id);
++	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
++		res->classid = cs->classid;
++		res->class = 0;
++		ret = tcf_exts_exec(skb, &head->exts, res);
++	} else
++		ret = -1;
++
++	rcu_read_unlock();
++
++	return ret;
++}
++
++static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
++{
++	return 0UL;
++}
++
++static void cls_cgroup_put(struct tcf_proto *tp, unsigned long f)
++{
++}
++
++static int cls_cgroup_init(struct tcf_proto *tp)
++{
++	return 0;
++}
++
++static const struct tcf_ext_map cgroup_ext_map = {
++	.action = TCA_CGROUP_ACT,
++	.police = TCA_CGROUP_POLICE,
++};
++
++static const struct nla_policy cgroup_policy[TCA_CGROUP_MAX + 1] = {
++	[TCA_CGROUP_EMATCHES]	= { .type = NLA_NESTED },
++};
++
++static int cls_cgroup_change(struct tcf_proto *tp, unsigned long base,
++			     u32 handle, struct nlattr **tca,
++			     unsigned long *arg)
++{
++	struct nlattr *tb[TCA_CGROUP_MAX+1];
++	struct cls_cgroup_head *head = tp->root;
++	struct tcf_ematch_tree t;
++	struct tcf_exts e;
++	int err;
++
++	if (head == NULL) {
++		if (!handle)
++			return -EINVAL;
++
++		head = kzalloc(sizeof(*head), GFP_KERNEL);
++		if (head == NULL)
++			return -ENOBUFS;
++
++		head->handle = handle;
++
++		tcf_tree_lock(tp);
++		tp->root = head;
++		tcf_tree_unlock(tp);
++	}
++
++	if (handle != head->handle)
++		return -ENOENT;
++
++	err = nla_parse_nested(tb, TCA_CGROUP_MAX, tca[TCA_OPTIONS],
++			       cgroup_policy);
++	if (err < 0)
++		return err;
++
++	err = tcf_exts_validate(tp, tb, tca[TCA_RATE], &e, &cgroup_ext_map);
++	if (err < 0)
++		return err;
++
++	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
++	if (err < 0)
++		return err;
++
++	tcf_exts_change(tp, &head->exts, &e);
++	tcf_em_tree_change(tp, &head->ematches, &t);
++
++	return 0;
++}
++
++static void cls_cgroup_destroy(struct tcf_proto *tp)
++{
++	struct cls_cgroup_head *head;
++
++	head = (struct cls_cgroup_head *)xchg(&tp->root, NULL);
++
++	if (head) {
++		tcf_exts_destroy(tp, &head->exts);
++		tcf_em_tree_destroy(tp, &head->ematches);
++		kfree(head);
++	}
++}
++
++static int cls_cgroup_delete(struct tcf_proto *tp, unsigned long arg)
++{
++	return -EOPNOTSUPP;
++}
++
++static void cls_cgroup_walk(struct tcf_proto *tp, struct tcf_walker *arg)
++{
++	struct cls_cgroup_head *head = tp->root;
++
++	if (arg->count < arg->skip)
++		goto skip;
++
++	if (arg->fn(tp, (unsigned long) head, arg) < 0) {
++		arg->stop = 1;
++		return;
++	}
++skip:
++	arg->count++;
++}
++
++static int cls_cgroup_dump(struct tcf_proto *tp, unsigned long fh,
++			   struct sk_buff *skb, struct tcmsg *t)
++{
++	struct cls_cgroup_head *head = tp->root;
++	unsigned char *b = skb_tail_pointer(skb);
++	struct nlattr *nest;
++
++	t->tcm_handle = head->handle;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
++
++	if (tcf_exts_dump(skb, &head->exts, &cgroup_ext_map) < 0 ||
++	    tcf_em_tree_dump(skb, &head->ematches, TCA_CGROUP_EMATCHES) < 0)
++		goto nla_put_failure;
++
++	nla_nest_end(skb, nest);
++
++	if (tcf_exts_dump_stats(skb, &head->exts, &cgroup_ext_map) < 0)
++		goto nla_put_failure;
++
++	return skb->len;
++
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
++	.kind		=	"cgroup",
++	.init		=	cls_cgroup_init,
++	.change		=	cls_cgroup_change,
++	.classify	=	cls_cgroup_classify,
++	.destroy	=	cls_cgroup_destroy,
++	.get		=	cls_cgroup_get,
++	.put		=	cls_cgroup_put,
++	.delete		=	cls_cgroup_delete,
++	.walk		=	cls_cgroup_walk,
++	.dump		=	cls_cgroup_dump,
++	.owner		=	THIS_MODULE,
++};
++
++static int __init init_cgroup_cls(void)
++{
++	return register_tcf_proto_ops(&cls_cgroup_ops);
++}
++
++static void __exit exit_cgroup_cls(void)
++{
++	unregister_tcf_proto_ops(&cls_cgroup_ops);
++}
++
++module_init(init_cgroup_cls);
++module_exit(exit_cgroup_cls);
++MODULE_LICENSE("GPL");
