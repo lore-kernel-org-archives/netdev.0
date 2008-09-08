@@ -1,31 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-09-08
-Date: Mon, 08 Sep 2008 16:11:17 -0700 (PDT)
-Message-ID: <20080908.161117.222936148.davem@davemloft.net>
-References: <20080908190431.GB24557@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] warn: Turn the netdev timeout WARN_ON() into a WARN()
+Date: Mon, 08 Sep 2008 16:18:05 -0700 (PDT)
+Message-ID: <20080908.161805.198239001.davem@davemloft.net>
+References: <20080907092804.12be0ae7@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080908190431.GB24557-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: arjan@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41258
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751663AbYIHXSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 19:18:11 -0400
+In-Reply-To: <20080907092804.12be0ae7@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 8 Sep 2008 15:04:32 -0400
+From: Arjan van de Ven <arjan@infradead.org>
+Date: Sun, 7 Sep 2008 09:28:04 -0700
 
-> Here is another round intended for 2.6.28.  There are some
-> big cleanups, etc. for ath5k and b43 as well as a smattering of
-> fixes/updates for p54 and iwlwifi, and a few other bits.  There is
-> also a toshiba_acpi patch that depends on some of the rfkill patches
-> that have come through my tree.
+> warn: Turn the netdev timeout WARN_ON() into a WARN()
+> 
+> this patch turns the netdev timeout WARN_ON_ONCE() into a WARN_ONCE(),
+> so that the device and driver names are inside the warning message.
+> This helps automated tools like kerneloops.org to collect the data
+> and do statistics, as well as making it more likely that humans
+> cut-n-paste the important message as part of a bugreport.
+> 
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
 
-Pulled, thanks John.
-
-I'll push back out after my build tests...
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
