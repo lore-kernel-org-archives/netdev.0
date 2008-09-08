@@ -1,182 +1,159 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 09/33] netns ct: per-netns /proc/net/nf_conntrack, /proc/net/stat/nf_conntrack
-Date: Mon,  8 Sep 2008 07:02:46 +0400
-Message-ID: <1220842990-30500-9-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 07/33] netns ct: pass netns pointer to nf_conntrack_in()
+Date: Mon,  8 Sep 2008 07:02:44 +0400
+Message-ID: <1220842990-30500-7-git-send-email-adobriyan@gmail.com>
 References: <48C01046.2070704@trash.net>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	containers@lists.linux-foundation.org
 To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.190]:60034 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752387AbYIHDB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 23:01:56 -0400
-Received: by mu-out-0910.google.com with SMTP id g7so1162882muf.1
-        for <netdev@vger.kernel.org>; Sun, 07 Sep 2008 20:01:55 -0700 (PDT)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <48C01046.2070704@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+It's deducible from skb->dev or skb->dst->dev, but we know netns at
+the moment of call, so pass it down and use for finding and creating
+conntracks.
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 5456e4b..02eaf87 100644
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -40,18 +40,20 @@ print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
- EXPORT_SYMBOL_GPL(print_tuple);
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index b4b45c5..e78afe7 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -20,7 +20,8 @@
+ /* This header is used to share core functionality between the
+    standalone connection tracking module, and the compatibility layer's use
+    of connection tracking. */
+-extern unsigned int nf_conntrack_in(u_int8_t pf,
++extern unsigned int nf_conntrack_in(struct net *net,
++				    u_int8_t pf,
+ 				    unsigned int hooknum,
+ 				    struct sk_buff *skb);
  
- struct ct_iter_state {
-+	struct seq_net_private p;
- 	unsigned int bucket;
- };
- 
- static struct hlist_node *ct_get_first(struct seq_file *seq)
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 03dd108..2e4dd3f 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -172,7 +172,7 @@ static unsigned int ipv4_conntrack_in(unsigned int hooknum,
+ 				      const struct net_device *out,
+ 				      int (*okfn)(struct sk_buff *))
  {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_iter_state *st = seq->private;
- 	struct hlist_node *n;
+-	return nf_conntrack_in(PF_INET, hooknum, skb);
++	return nf_conntrack_in(dev_net(in), PF_INET, hooknum, skb);
+ }
  
- 	for (st->bucket = 0;
- 	     st->bucket < nf_conntrack_htable_size;
- 	     st->bucket++) {
--		n = rcu_dereference(init_net.ct.hash[st->bucket].first);
-+		n = rcu_dereference(net->ct.hash[st->bucket].first);
- 		if (n)
- 			return n;
+ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
+@@ -188,7 +188,7 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
+ 			printk("ipt_hook: happy cracking.\n");
+ 		return NF_ACCEPT;
  	}
-@@ -61,13 +63,14 @@ static struct hlist_node *ct_get_first(struct seq_file *seq)
- static struct hlist_node *ct_get_next(struct seq_file *seq,
- 				      struct hlist_node *head)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_iter_state *st = seq->private;
+-	return nf_conntrack_in(PF_INET, hooknum, skb);
++	return nf_conntrack_in(dev_net(out), PF_INET, hooknum, skb);
+ }
  
- 	head = rcu_dereference(head->next);
- 	while (head == NULL) {
- 		if (++st->bucket >= nf_conntrack_htable_size)
+ /* Connection tracking may drop packets, but never alters them, so
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 85050c0..e91db16 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -211,11 +211,10 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
+ 	return NF_STOLEN;
+ }
+ 
+-static unsigned int ipv6_conntrack_in(unsigned int hooknum,
+-				      struct sk_buff *skb,
+-				      const struct net_device *in,
+-				      const struct net_device *out,
+-				      int (*okfn)(struct sk_buff *))
++static unsigned int __ipv6_conntrack_in(struct net *net,
++					unsigned int hooknum,
++					struct sk_buff *skb,
++					int (*okfn)(struct sk_buff *))
+ {
+ 	struct sk_buff *reasm = skb->nfct_reasm;
+ 
+@@ -225,7 +224,7 @@ static unsigned int ipv6_conntrack_in(unsigned int hooknum,
+ 		if (!reasm->nfct) {
+ 			unsigned int ret;
+ 
+-			ret = nf_conntrack_in(PF_INET6, hooknum, reasm);
++			ret = nf_conntrack_in(net, PF_INET6, hooknum, reasm);
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
+ 		}
+@@ -235,7 +234,16 @@ static unsigned int ipv6_conntrack_in(unsigned int hooknum,
+ 		return NF_ACCEPT;
+ 	}
+ 
+-	return nf_conntrack_in(PF_INET6, hooknum, skb);
++	return nf_conntrack_in(net, PF_INET6, hooknum, skb);
++}
++
++static unsigned int ipv6_conntrack_in(unsigned int hooknum,
++				      struct sk_buff *skb,
++				      const struct net_device *in,
++				      const struct net_device *out,
++				      int (*okfn)(struct sk_buff *))
++{
++	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, okfn);
+ }
+ 
+ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
+@@ -250,7 +258,7 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
+ 			printk("ipv6_conntrack_local: packet too short\n");
+ 		return NF_ACCEPT;
+ 	}
+-	return ipv6_conntrack_in(hooknum, skb, in, out, okfn);
++	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, okfn);
+ }
+ 
+ static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 2a105db..5c96d97 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -611,7 +611,8 @@ init_conntrack(struct net *net,
+ 
+ /* On success, returns conntrack ptr, sets skb->nfct and ctinfo */
+ static inline struct nf_conn *
+-resolve_normal_ct(struct sk_buff *skb,
++resolve_normal_ct(struct net *net,
++		  struct sk_buff *skb,
+ 		  unsigned int dataoff,
+ 		  u_int16_t l3num,
+ 		  u_int8_t protonum,
+@@ -632,10 +633,9 @@ resolve_normal_ct(struct sk_buff *skb,
+ 	}
+ 
+ 	/* look for tuple match */
+-	h = nf_conntrack_find_get(&init_net, &tuple);
++	h = nf_conntrack_find_get(net, &tuple);
+ 	if (!h) {
+-		h = init_conntrack(&init_net, &tuple, l3proto, l4proto, skb,
+-				   dataoff);
++		h = init_conntrack(net, &tuple, l3proto, l4proto, skb, dataoff);
+ 		if (!h)
  			return NULL;
--		head = rcu_dereference(init_net.ct.hash[st->bucket].first);
-+		head = rcu_dereference(net->ct.hash[st->bucket].first);
+ 		if (IS_ERR(h))
+@@ -669,7 +669,8 @@ resolve_normal_ct(struct sk_buff *skb,
+ }
+ 
+ unsigned int
+-nf_conntrack_in(u_int8_t pf, unsigned int hooknum, struct sk_buff *skb)
++nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
++		struct sk_buff *skb)
+ {
+ 	struct nf_conn *ct;
+ 	enum ip_conntrack_info ctinfo;
+@@ -709,8 +710,8 @@ nf_conntrack_in(u_int8_t pf, unsigned int hooknum, struct sk_buff *skb)
+ 		return -ret;
  	}
- 	return head;
- }
-@@ -177,7 +180,7 @@ static const struct seq_operations ct_seq_ops = {
  
- static int ct_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &ct_seq_ops,
-+	return seq_open_net(inode, file, &ct_seq_ops,
- 			sizeof(struct ct_iter_state));
- }
- 
-@@ -186,7 +189,7 @@ static const struct file_operations ct_file_ops = {
- 	.open    = ct_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- 
- static void *ct_cpu_seq_start(struct seq_file *seq, loff_t *pos)
-@@ -277,38 +280,38 @@ static const struct file_operations ct_cpu_seq_fops = {
- 	.release = seq_release,
- };
- 
--static int nf_conntrack_standalone_init_proc(void)
-+static int nf_conntrack_standalone_init_proc(struct net *net)
- {
- 	struct proc_dir_entry *pde;
- 
--	pde = proc_net_fops_create(&init_net, "nf_conntrack", 0440, &ct_file_ops);
-+	pde = proc_net_fops_create(net, "nf_conntrack", 0440, &ct_file_ops);
- 	if (!pde)
- 		goto out_nf_conntrack;
- 
--	pde = proc_create("nf_conntrack", S_IRUGO, init_net.proc_net_stat,
-+	pde = proc_create("nf_conntrack", S_IRUGO, net->proc_net_stat,
- 			  &ct_cpu_seq_fops);
- 	if (!pde)
- 		goto out_stat_nf_conntrack;
- 	return 0;
- 
- out_stat_nf_conntrack:
--	proc_net_remove(&init_net, "nf_conntrack");
-+	proc_net_remove(net, "nf_conntrack");
- out_nf_conntrack:
- 	return -ENOMEM;
- }
- 
--static void nf_conntrack_standalone_fini_proc(void)
-+static void nf_conntrack_standalone_fini_proc(struct net *net)
- {
--	remove_proc_entry("nf_conntrack", init_net.proc_net_stat);
--	proc_net_remove(&init_net, "nf_conntrack");
-+	remove_proc_entry("nf_conntrack", net->proc_net_stat);
-+	proc_net_remove(net, "nf_conntrack");
- }
- #else
--static int nf_conntrack_standalone_init_proc(void)
-+static int nf_conntrack_standalone_init_proc(struct net *net)
- {
- 	return 0;
- }
- 
--static void nf_conntrack_standalone_fini_proc(void)
-+static void nf_conntrack_standalone_fini_proc(struct net *net)
- {
- }
- #endif /* CONFIG_PROC_FS */
-@@ -442,11 +445,25 @@ static void nf_conntrack_standalone_fini_sysctl(void)
- 
- static int nf_conntrack_net_init(struct net *net)
- {
--	return nf_conntrack_init(net);
-+	int ret;
-+
-+	ret = nf_conntrack_init(net);
-+	if (ret < 0)
-+		goto out_init;
-+	ret = nf_conntrack_standalone_init_proc(net);
-+	if (ret < 0)
-+		goto out_proc;
-+	return 0;
-+
-+out_proc:
-+	nf_conntrack_cleanup(net);
-+out_init:
-+	return ret;
- }
- 
- static void nf_conntrack_net_exit(struct net *net)
- {
-+	nf_conntrack_standalone_fini_proc(net);
- 	nf_conntrack_cleanup(net);
- }
- 
-@@ -462,17 +479,12 @@ static int __init nf_conntrack_standalone_init(void)
- 	ret = register_pernet_subsys(&nf_conntrack_net_ops);
- 	if (ret < 0)
- 		goto out;
--	ret = nf_conntrack_standalone_init_proc();
--	if (ret < 0)
--		goto out_proc;
- 	ret = nf_conntrack_standalone_init_sysctl();
- 	if (ret < 0)
- 		goto out_sysctl;
- 	return 0;
- 
- out_sysctl:
--	nf_conntrack_standalone_fini_proc();
--out_proc:
- 	unregister_pernet_subsys(&nf_conntrack_net_ops);
- out:
- 	return ret;
-@@ -481,7 +493,6 @@ out:
- static void __exit nf_conntrack_standalone_fini(void)
- {
- 	nf_conntrack_standalone_fini_sysctl();
--	nf_conntrack_standalone_fini_proc();
- 	unregister_pernet_subsys(&nf_conntrack_net_ops);
- }
- 
+-	ct = resolve_normal_ct(skb, dataoff, pf, protonum, l3proto, l4proto,
+-			       &set_reply, &ctinfo);
++	ct = resolve_normal_ct(net, skb, dataoff, pf, protonum,
++			       l3proto, l4proto, &set_reply, &ctinfo);
+ 	if (!ct) {
+ 		/* Not valid part of a connection */
+ 		NF_CT_STAT_INC_ATOMIC(invalid);
