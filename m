@@ -1,38 +1,53 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: [PATCH 0/3 v2] ibm_newemac: Various fixes and additions for
-	PPC405EZ
-Date: Mon, 8 Sep 2008 08:44:59 -0400
-Message-ID: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [rfc 0/3] IPVS: checksum updates
+Date: Mon, 8 Sep 2008 15:12:39 +0200
+Message-ID: <f4845fc0809080612n77a77791v8ccbac8178ecf1f4@mail.gmail.com>
+References: <20080908020420.313463898@vergenet.net>
+	 <f4845fc0809080303s53094205kc045e6003014cd24@mail.gmail.com>
+	 <20080908104120.GB5795@verge.net.au>
+	 <20080908114258.GA29477@google.com>
+	 <20080908115734.GA24228@verge.net.au>
+	 <20080908120413.GB24228@verge.net.au>
+	 <f4845fc0809080514i6118cc4bt6510da3d93483156@mail.gmail.com>
+	 <20080908123450.GC24228@verge.net.au>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org
-To: benh@kernel.crashing.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:41688 "EHLO
-	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752110AbYIHNEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 09:04:55 -0400
-Received: by gxk9 with SMTP id 9so7667305gxk.13
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 06:04:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	"=?ISO-8859-1?Q?Siim_P=F5der?=" <siim@p6drad-teel.net>,
+	"Julian Anastasov" <ja@ssi.bg>,
+	"Malcolm Turnbull" <malcolm@loadbalancer.org>,
+	"Vince Busam" <vbusam@google.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080908123450.GC24228@verge.net.au>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The following patch series adds things needed to support the PowerPC 405EZ
-SoC.  I've incorporated the suggestions and fixes from the previous round
-of patches and barring any further comments these should be ready to go.
+On Mon, Sep 8, 2008 at 2:34 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Mon, Sep 08, 2008 at 02:14:12PM +0200, Julius Volz wrote:
+>> I'm actually looking at that case now (4856c84c1358b, but with the fix
+>> above). It seems that the NAT isn't working (DR works, by the way!).
+>> At least the first packet arriving at the real server still has the
+>> client's IP as the source (in the v6 case)...
+>
+> Ok, I'm looking at NAT with 4856c84c1358b + that fix too too,
+> but on v4 :-)
+>
+>> Let's wait with reverting the local client patches until tomorrow...
+>> maybe I can find the problem until then.
+>
+> Ok, I was just concerned that this might hold up merging
+> your code into Dave's tree for too long, thats all.
 
-josh
+Ok, with my last patch (and your two/three last ones reverted), I get
+everything working except IPv6 with a local client...
 
-Josh Boyer (3):
-  ibm_newemac: Allow the "no flow control" EMAC feature to work
-  ibm_newemac: Introduce mal_has_feature
-  ibm_newemac: MAL support for PowerPC 405EZ
+Julius
 
- arch/powerpc/include/asm/dcr-regs.h |    7 ++++
- drivers/net/ibm_newemac/Kconfig     |   12 +++++++
- drivers/net/ibm_newemac/core.c      |    2 +
- drivers/net/ibm_newemac/core.h      |    3 ++
- drivers/net/ibm_newemac/mal.c       |   60 ++++++++++++++++++++++++++++++++---
- drivers/net/ibm_newemac/mal.h       |   34 ++++++++++++++++++++
- 6 files changed, 113 insertions(+), 5 deletions(-)
+-- 
+Julius Volz - Corporate Operations - SysOps
 
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
