@@ -1,45 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Fix qdisc state in net_tx_action()
-Date: Sun, 07 Sep 2008 18:41:35 -0700 (PDT)
-Message-ID: <20080907.184135.193694179.davem@davemloft.net>
-References: <20080905082915.GA7320@ff.dom.local>
-	<200809060141.17121.denys@visp.net.lb>
-	<20080906120217.GA2571@ami.dom.local>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: Use pointer to address from sync message
+Date: Mon, 8 Sep 2008 11:47:32 +1000
+Message-ID: <20080908014731.GA16096@verge.net.au>
+References: <1220363755-9854-1-git-send-email-juliusv@google.com> <1220363755-9854-13-git-send-email-juliusv@google.com> <alpine.LNX.2.00.0809051342360.18192@titan.stealer.net> <f4845fc0809050528q253789fbi60ca6c229a08d8ab@mail.gmail.com> <20080906042610.GC21521@verge.net.au> <f4845fc0809060204j37b1201eh82b1c8fa8c6a91c7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60143
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751605AbYIHBlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 21:41:42 -0400
-In-Reply-To: <20080906120217.GA2571@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sven Wegener <sven.wegener@stealer.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f4845fc0809060204j37b1201eh82b1c8fa8c6a91c7@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 6 Sep 2008 14:02:17 +0200
-
-> On Sat, Sep 06, 2008 at 01:41:17AM +0300, Denys Fedoryshchenko wrote:
-> > On Friday 05 September 2008, Jarek Poplawski wrote:
-> > > ------------>
-> > >
-> > > pkt_sched: Fix qdisc state in net_tx_action()
-> > >
-> > > net_tx_action() can skip __QDISC_STATE_SCHED bit clearing while qdisc
-> > > is neither ran nor rescheduled, which may cause endless loop in
-> > > dev_deactivate().
-> > >
-> > > Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> > > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> > Tested, working fine, bug fixed.
-> > 
+On Sat, Sep 06, 2008 at 11:04:54AM +0200, Julius Volz wrote:
+> On Sat, Sep 6, 2008 at 6:26 AM, Simon Horman <horms@verge.net.au> wrote:
+> > Julius, can I take that as an Acked-by for the follwing changes?
+> >
+> > [PATCH] ipvs: Use pointer to address from sync message
+> > [PATCH] ipvs: Return negative error values from
+> > [PATCH] ipvs: Mark tcp/udp v4 and v6 debug functions static
+> > [PATCH] ipvs: Reject ipv6 link-local addresses for destinations
 > 
-> So, I guess, David could treat this as your "Tested-by:".
+> Yes, they all look good to me! Thanks, Sven.
 
-Yep.
-
-Applied, thanks everyone.
+Thanks Seven, Thanks Julius. Applied.
