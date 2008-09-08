@@ -1,59 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: net: Enable TSO if supported by at least one device
-Date: Mon, 8 Sep 2008 18:42:03 +1000
-Message-ID: <20080908084203.GA14168@gondor.apana.org.au>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc 1/3] ipvs: handle PARTIAL_CHECKSUM
+Date: Mon, 8 Sep 2008 19:05:27 +1000
+Message-ID: <20080908090525.GA855@verge.net.au>
+References: <20080908020420.313463898@vergenet.net> <20080908021535.063462678@vergenet.net> <20080908072439.GA27257@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Siim =?iso-8859-1?B?UMO1ZGVy?= <siim@p6drad-teel.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Julius Volz <juliusv@google.com>,
+	Vince Busam <vbusam@google.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57462 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750971AbYIHImG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 04:42:06 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:59662 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766AbYIHJF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 05:05:29 -0400
 Content-Disposition: inline
+In-Reply-To: <20080908072439.GA27257@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+On Mon, Sep 08, 2008 at 05:24:40PM +1000, Herbert Xu wrote:
+> On Mon, Sep 08, 2008 at 12:04:21PM +1000, Simon Horman wrote:
+> >
+> >  	/* Adjust TCP checksums */
+> > -	if (!cp->app && (tcph->check != 0)) {
+> > +	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> > +		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
+> > +					htonl(oldlen),
+> > +					htonl(skb->len - tcphoff));
+> 
+> I don't know what cp->app is but should we be updating the checksum
+> when it's set? The previous code seems to want to compute a full
+> checksum instead.
 
-net: Enable TSO if supported by at least one device
+Hi Herbert,
 
-As it stands users of netdev_compute_features (e.g., bridges/bonding)
-will only enable TSO if all consituent devices support it.  This
-is unnecessarily pessimistic since even on devices that do not
-support hardware TSO and SG, emulated TSO still performs to a par
-with TSO off.
+If cp->app is not present, then only the destiantion IP address
+and possibly port will have been altered. If it is present,
+then other parts of the packet may also have been altered.
 
-This patch enables TSO if at least on constituent device supports
-it in hardware.
+In the case where (skb->ip_summed == CHECKSUM_PARTIAL)
+as we are only concerned with checkumming the pseudo header,
+the only changes that nat could make that we care about are the
+address or the length. The latter may change if cp->app is set,
+but I think that my code handles this in tcp_partial_csum_update().
 
-The direct beneficiaries will be virtualisation that uses bridging
-since this means that TSO will always be enabled for communication
-from the host to the guests.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 60c51f7..abef86e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4663,6 +4663,12 @@ int netdev_compute_features(unsigned long all, unsigned long one)
- 		one |= NETIF_F_GSO_SOFTWARE;
- 	one |= NETIF_F_GSO;
- 
-+	/*
-+	 * If even one device supports a GSO protocol with software fallback,
-+	 * enable it for all.
-+	 */
-+	all |= one & NETIF_F_GSO_SOFTWARE;
-+
- 	/* If even one device supports robust GSO, enable it for all. */
- 	if (one & NETIF_F_GSO_ROBUST)
- 		all |= NETIF_F_GSO_ROBUST;
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+So I think that is safe to use tcp_partial_csum_update() if
+(skb->ip_summed == CHECKSUM_PARTIAL), regarless of if cp->app is set or not.
