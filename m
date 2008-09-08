@@ -1,79 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Fwd: Packet mmap: TX RING and zero copy
-Date: Mon, 8 Sep 2008 15:26:29 +0400
-Message-ID: <20080908112629.GA26488@2ka.mipt.ru>
-References: <20080905133748.GA28656@2ka.mipt.ru> <7e0dd21a0809050655n176ec32bo2bf4febe4e0fc363@mail.gmail.com> <20080905141911.GA16586@2ka.mipt.ru> <7e0dd21a0809050745w692328b7v6dd4e0adf59e9535@mail.gmail.com> <20080905145902.GA12762@2ka.mipt.ru> <7e0dd21a0809050830o7c1dcc2do68da5df9900fcfe8@mail.gmail.com> <20080905153811.GA3596@2ka.mipt.ru> <7e0dd21a0809050901q23d0b16xa1a9d0df2f36f6d8@mail.gmail.com> <20080905163446.GB10078@2ka.mipt.ru> <7e0dd21a0809080321p6b9e2bc7m73e2cdd57a8d58b8@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [ INFO: inconsistent lock state ]  2.6.25.10
+Date: Mon, 8 Sep 2008 11:32:18 +0000
+Message-ID: <20080908113218.GA6169@ff.dom.local>
+References: <48C3CEE0.6040308@upmc.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Johann Baudy <johaahn@gmail.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Bernard Pidoux <bernard.pidoux@upmc.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:47318 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753556AbYIHL1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2008 07:27:00 -0400
+Received: from fg-out-1718.google.com ([72.14.220.153]:25502 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbYIHLc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 07:32:26 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1450169fgg.17
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 04:32:24 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <7e0dd21a0809080321p6b9e2bc7m73e2cdd57a8d58b8@mail.gmail.com>
+In-Reply-To: <48C3CEE0.6040308@upmc.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johann.
-
-On Mon, Sep 08, 2008 at 12:21:16PM +0200, Johann Baudy (johaahn@gmail.com) wrote:
-> I've made a test with below patch (with and without UDP fragmentation):
+On 07-09-2008 14:53, Bernard Pidoux wrote:
+> Hi,
 > 
-> without UDP fragmentation, packet size are almost always equal to
-> PAGE_SIZE due to my mtu limit (2*PACKET_SIZE > mtu).
-> with UDP fragmentation, kernel is sending multiple fragmented packets
-> of 61448Kbytes.
+> I observed this message recently on a system with acpi=off for
+> the bios is quite old.
 > 
-> Unfortunately, in both case, bitrate is still 15-20 MB/s :(
-> According to wireshark, kernel sends 60KB over 9 packets, nothing
-> during ~5ms, 60KB and so on. strange ... kernel seems to spend its
-> time during push(). Is there a blocking call somewhere ?
-
-Are you sure that it is udp_push_pending_frames() and not some splice
-waiting?
-
-> Thanks in advance,
-> Johann
+> Apparently listen application and console are involved.
 > 
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
+> Is there anything I can try to resolve this situation ,
 > 
-> @@ -743,7 +743,28 @@ int udp_sendpage(struct sock *sk, struct page
-> *page, int offset,
->                  size_t size, int flags)
->  {
->         struct udp_sock *up = udp_sk(sk);
-> +       struct inet_sock *inet = inet_sk(sk);
->         int ret;
-> +       int mtu = inet->cork.fragsize;
-> +       int fragheaderlen;
-> +       struct ip_options *opt = NULL;
-> +
-> +       if (inet->cork.flags & IPCORK_OPT)
-> +               opt = inet->cork.opt;
+> 
+> =================================
+> [ INFO: inconsistent lock state ]
+> 2.6.25.10-patched-ax25 #1
+> ---------------------------------
+> inconsistent {in-softirq-W} -> {softirq-on-W} usage.
+> listen/7202 [HC0[0]:SC0[0]:HE1:SE1] takes:
+>  (_xmit_ETHER){-+..}, at: [<c0262f08>] netpoll_send_skb+0x118/0x180
 
-This has to be checked under socket lock.
+Hi Bernard,
 
-> +       fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
-> +
-> +       // With UDP fragmentation
-> +       if (inet->cork.length + size >= 0xFFFF - fragheaderlen) {
-> +       // Without UDP fragmentation
-> +       //  if( (inet->cork.length + size) > mtu) {
+These warnings usually mean there is some local_irq_disable/enable()
+instead of local_irq_save/restore() etc. on the xmit path (maybe in a
+network driver used for netconsole). Anyway, as usual, it would be
+nice to test it with some more current kernel, and if it's still
+there, add some info about this driver and additional patches.
 
-This also should be protected. Two threads can simultaneously check
-inet->cork.length and both suceed.
-
-> +               lock_sock(sk);
-> +               ret = udp_push_pending_frames(sk);
-> +               release_sock(sk);
-> +               if (ret) {
-> +                       return 0;
-> +               }
-> +       }
-
--- 
-	Evgeniy Polyakov
+Thanks,
+Jarek P.
