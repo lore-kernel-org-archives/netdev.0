@@ -1,113 +1,38 @@
 From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: [PATCH 2/3 v2] ibm_newemac: Introduce mal_has_feature
-Date: Thu, 4 Sep 2008 10:03:45 -0400
-Message-ID: <e22122be022eb8d93b4eead4d9967769a4a139a6.1220877899.git.jwboyer@linux.vnet.ibm.com>
-References: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
+Subject: [PATCH 0/3 v2] ibm_newemac: Various fixes and additions for
+	PPC405EZ
+Date: Mon, 8 Sep 2008 08:44:59 -0400
+Message-ID: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Cc: linuxppc-dev@ozlabs.org
 To: benh@kernel.crashing.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:28221 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbYIHNEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 09:04:37 -0400
-Received: by py-out-1112.google.com with SMTP id p76so870772pyb.10
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 06:04:37 -0700 (PDT)
-In-Reply-To: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:41688 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110AbYIHNEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 09:04:55 -0400
+Received: by gxk9 with SMTP id 9so7667305gxk.13
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 06:04:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are some PowerPC SoCs that do odd things with the MAL handling.  In
-order to accommodate them, we need to introduce a feature mechanism that is
-similar to the existing emac_has_feature function.
+The following patch series adds things needed to support the PowerPC 405EZ
+SoC.  I've incorporated the suggestions and fixes from the previous round
+of patches and barring any further comments these should be ready to go.
 
-This adds a feature variable to the mal_instance structure, and adds a
-mal_has_feature function.  Two features are defined and are guarded
-by Kconfig options that are selected by the affected platforms.
+josh
 
-MAL_FTR_CLEAR_ICINSTAT is used for platforms that need to clear the
-interrupt bits in the ICINTSTAT SDR for txeob/rxeob.  This is common
-on MAL implementations that have interrupt coalescing.
+Josh Boyer (3):
+  ibm_newemac: Allow the "no flow control" EMAC feature to work
+  ibm_newemac: Introduce mal_has_feature
+  ibm_newemac: MAL support for PowerPC 405EZ
 
-MAL_FTR_COMMON_ERR_INT is used for platforms that have SERR, TXDE,
-and RXDE OR'd into a single interrupt bit.
-
-Signed-of-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
----
- drivers/net/ibm_newemac/Kconfig |    8 ++++++++
- drivers/net/ibm_newemac/mal.h   |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ibm_newemac/Kconfig b/drivers/net/ibm_newemac/Kconfig
-index dfb6547..44e5a0e 100644
---- a/drivers/net/ibm_newemac/Kconfig
-+++ b/drivers/net/ibm_newemac/Kconfig
-@@ -66,3 +66,11 @@ config IBM_NEW_EMAC_EMAC4
- config IBM_NEW_EMAC_NO_FLOW_CTRL
- 	bool
- 	default n
-+
-+config IBM_NEW_EMAC_MAL_CLR_ICINTSTAT
-+	bool
-+	default n
-+
-+config IBM_NEW_EMAC_MAL_COMMON_ERR
-+	bool
-+	default n
-diff --git a/drivers/net/ibm_newemac/mal.h b/drivers/net/ibm_newemac/mal.h
-index eaa7262..0b24138 100644
---- a/drivers/net/ibm_newemac/mal.h
-+++ b/drivers/net/ibm_newemac/mal.h
-@@ -213,6 +213,8 @@ struct mal_instance {
- 	struct of_device	*ofdev;
- 	int			index;
- 	spinlock_t		lock;
-+
-+	unsigned int features;
- };
- 
- static inline u32 get_mal_dcrn(struct mal_instance *mal, int reg)
-@@ -225,6 +227,38 @@ static inline void set_mal_dcrn(struct mal_instance *mal, int reg, u32 val)
- 	dcr_write(mal->dcr_host, reg, val);
- }
- 
-+/* Features of various MAL implementations */
-+
-+/* Set if you have interrupt coalescing and you have to clear the SDR
-+ * register for TXEOB and RXEOB interrupts to work
-+ */
-+#define MAL_FTR_CLEAR_ICINTSTAT	0x00000001
-+
-+/* Set if your MAL has SERR, TXDE, and RXDE OR'd into a single UIC
-+ * interrupt
-+ */
-+#define MAL_FTR_COMMON_ERR_INT	0x00000002
-+
-+enum {
-+	MAL_FTRS_ALWAYS = 0,
-+
-+	MAL_FTRS_POSSIBLE =
-+#ifdef CONFIG_IBM_NEW_EMAC_MAL_CLR_ICINTSTAT
-+		MAL_FTR_CLEAR_ICINTSTAT |
-+#endif
-+#ifdef CONFIG_IBM_NEW_EMAC_MAL_COMMON_ERR
-+		MAL_FTR_COMMON_ERR_INT |
-+#endif
-+		0,
-+};
-+
-+static inline int mal_has_feature(struct mal_instance *dev,
-+		unsigned long feature)
-+{
-+	return (MAL_FTRS_ALWAYS & feature) ||
-+		(MAL_FTRS_POSSIBLE & dev->features & feature);
-+}
-+
- /* Register MAL devices */
- int mal_init(void);
- void mal_exit(void);
--- 
-1.5.5.1
-
+ arch/powerpc/include/asm/dcr-regs.h |    7 ++++
+ drivers/net/ibm_newemac/Kconfig     |   12 +++++++
+ drivers/net/ibm_newemac/core.c      |    2 +
+ drivers/net/ibm_newemac/core.h      |    3 ++
+ drivers/net/ibm_newemac/mal.c       |   60 ++++++++++++++++++++++++++++++++---
+ drivers/net/ibm_newemac/mal.h       |   34 ++++++++++++++++++++
+ 6 files changed, 113 insertions(+), 5 deletions(-)
 
