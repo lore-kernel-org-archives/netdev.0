@@ -1,52 +1,38 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] ipvs: load balance ipv6 connections from a local
-	process
-Date: Mon, 8 Sep 2008 19:50:33 +1000
-Message-ID: <20080908095032.GA5795@verge.net.au>
-References: <20080905013609.GD14128@verge.net.au> <20080905013755.GE14128@verge.net.au> <f4845fc0809050440g24f304d9xec7982e984830c6e@mail.gmail.com> <20080906041436.GB21521@verge.net.au> <f4845fc0809060226g4ee00f4fs210ba76309130be7@mail.gmail.com> <20080908014806.GB16096@verge.net.au> <f4845fc0809080230o653cd743ib26544f2ccf6d36a@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [rfc 1/3] ipvs: handle PARTIAL_CHECKSUM
+Date: Mon, 8 Sep 2008 19:54:04 +1000
+Message-ID: <20080908095403.GA14746@gondor.apana.org.au>
+References: <20080908020420.313463898@vergenet.net> <20080908021535.063462678@vergenet.net> <20080908072439.GA27257@gondor.apana.org.au> <20080908090525.GA855@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Siim =?iso-8859-1?B?UMO1ZGVy?= <siim@p6drad-teel.net>,
+	Julian Anastasov <ja@ssi.bg>,
 	Malcolm Turnbull <malcolm@loadbalancer.org>,
-	Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>,
+	Julius Volz <juliusv@google.com>,
 	Vince Busam <vbusam@google.com>
-To: Julius Volz <juliusv@google.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <f4845fc0809080230o653cd743ib26544f2ccf6d36a@mail.gmail.com>
+In-Reply-To: <20080908090525.GA855@verge.net.au>
 Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 08, 2008 at 11:30:08AM +0200, Julius Volz wrote:
-> On Mon, Sep 8, 2008 at 3:48 AM, Simon Horman <horms@verge.net.au> wrote:
-> > On Sat, Sep 06, 2008 at 11:26:29AM +0200, Julius Volz wrote:
-> >> On Sat, Sep 6, 2008 at 6:14 AM, Simon Horman <horms@verge.net.au> wrote:
-> >> > On Fri, Sep 05, 2008 at 01:40:31PM +0200, Julius Volz wrote:
-> >> >> Hi,
-> >> >>
-> >> >> Just some minor things:
-> >> >
-> >> > Hi Julius,
-> >> >
-> >> > thanks for pointing these out. I will send patches to fix these problems ASAP.
-> >>
-> >> Thanks, looking good!
-> >
-> > I took the liberty of taking that response as an Acked-by.
-> > I've applied these minor changes now.
-> >
+On Mon, Sep 08, 2008 at 07:05:27PM +1000, Simon Horman wrote:
 > 
-> Thanks! I'll remember to add an explicit Acked-by in the future.
-> 
-> I'll try out your new checksumming patches now and see if everything
-> works for me (for both remote connections and ones from the
-> director)...
+> If cp->app is not present, then only the destiantion IP address
+> and possibly port will have been altered. If it is present,
+> then other parts of the packet may also have been altered.
 
-Thanks, much appericated.
+Right, when cp->app is present, and we're using partial checksums,
+you don't need to update anything apart from the IP address because
+the hardware will compute the checksum later.
 
-I'm also a little concerned about the handling of IPv6 ICMP in
-this patch. In particular, we need to ensure that the pseudo-header
-is included in the checksum. Which it may not be, as I based
-the code on the IPv4 version.
+Thanks for the explanation!
 
-http://rfc-ref.org/RFC-TEXTS/1883/chapter8.html#d4e447886
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
