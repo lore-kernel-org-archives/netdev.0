@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 27/33] netns ct: PPTP conntracking in netns
-Date: Mon,  8 Sep 2008 07:03:04 +0400
-Message-ID: <1220842990-30500-27-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 30/33] netns nat: per-netns bysource hash
+Date: Mon,  8 Sep 2008 07:03:07 +0400
+Message-ID: <1220842990-30500-30-git-send-email-adobriyan@gmail.com>
 References: <48C01046.2070704@trash.net>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	containers@lists.linux-foundation.org
@@ -13,113 +13,165 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
-index e47d5de..373e51e 100644
---- a/net/netfilter/nf_conntrack_pptp.c
-+++ b/net/netfilter/nf_conntrack_pptp.c
-@@ -98,6 +98,7 @@ EXPORT_SYMBOL(pptp_msg_name);
- static void pptp_expectfn(struct nf_conn *ct,
- 			 struct nf_conntrack_expect *exp)
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index b286b84..ece1c92 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -39,6 +39,8 @@ struct netns_ipv4 {
+ 	struct xt_table		*arptable_filter;
+ 	struct xt_table		*iptable_security;
+ 	struct xt_table		*nat_table;
++	struct hlist_head	*nat_bysource;
++	int			nat_vmalloced;
+ #endif
+ 
+ 	int sysctl_icmp_echo_ignore_all;
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index 5d4a5b7..2ac9eaf 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -37,9 +37,6 @@ static struct nf_conntrack_l3proto *l3proto __read_mostly;
+ 
+ /* Calculated at init based on memory size */
+ static unsigned int nf_nat_htable_size __read_mostly;
+-static int nf_nat_vmalloced;
+-
+-static struct hlist_head *bysource __read_mostly;
+ 
+ #define MAX_IP_NAT_PROTO 256
+ static const struct nf_nat_protocol *nf_nat_protos[MAX_IP_NAT_PROTO]
+@@ -145,7 +142,8 @@ same_src(const struct nf_conn *ct,
+ 
+ /* Only called for SRC manip */
+ static int
+-find_appropriate_src(const struct nf_conntrack_tuple *tuple,
++find_appropriate_src(struct net *net,
++		     const struct nf_conntrack_tuple *tuple,
+ 		     struct nf_conntrack_tuple *result,
+ 		     const struct nf_nat_range *range)
+ {
+@@ -155,7 +153,7 @@ find_appropriate_src(const struct nf_conntrack_tuple *tuple,
+ 	const struct hlist_node *n;
+ 
+ 	rcu_read_lock();
+-	hlist_for_each_entry_rcu(nat, n, &bysource[h], bysource) {
++	hlist_for_each_entry_rcu(nat, n, &net->ipv4.nat_bysource[h], bysource) {
+ 		ct = nat->ct;
+ 		if (same_src(ct, tuple)) {
+ 			/* Copy source part from reply tuple. */
+@@ -231,6 +229,7 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		 struct nf_conn *ct,
+ 		 enum nf_nat_manip_type maniptype)
  {
 +	struct net *net = nf_ct_net(ct);
- 	typeof(nf_nat_pptp_hook_expectfn) nf_nat_pptp_expectfn;
- 	pr_debug("increasing timeouts\n");
+ 	const struct nf_nat_protocol *proto;
  
-@@ -121,7 +122,7 @@ static void pptp_expectfn(struct nf_conn *ct,
- 		pr_debug("trying to unexpect other dir: ");
- 		nf_ct_dump_tuple(&inv_t);
- 
--		exp_other = nf_ct_expect_find_get(&init_net, &inv_t);
-+		exp_other = nf_ct_expect_find_get(net, &inv_t);
- 		if (exp_other) {
- 			/* delete other expectation.  */
- 			pr_debug("found\n");
-@@ -134,7 +135,8 @@ static void pptp_expectfn(struct nf_conn *ct,
- 	rcu_read_unlock();
- }
- 
--static int destroy_sibling_or_exp(const struct nf_conntrack_tuple *t)
-+static int destroy_sibling_or_exp(struct net *net,
-+				  const struct nf_conntrack_tuple *t)
- {
- 	const struct nf_conntrack_tuple_hash *h;
- 	struct nf_conntrack_expect *exp;
-@@ -143,7 +145,7 @@ static int destroy_sibling_or_exp(const struct nf_conntrack_tuple *t)
- 	pr_debug("trying to timeout ct or exp for tuple ");
- 	nf_ct_dump_tuple(t);
- 
--	h = nf_conntrack_find_get(&init_net, t);
-+	h = nf_conntrack_find_get(net, t);
- 	if (h)  {
- 		sibling = nf_ct_tuplehash_to_ctrack(h);
- 		pr_debug("setting timeout of conntrack %p to 0\n", sibling);
-@@ -154,7 +156,7 @@ static int destroy_sibling_or_exp(const struct nf_conntrack_tuple *t)
- 		nf_ct_put(sibling);
- 		return 1;
- 	} else {
--		exp = nf_ct_expect_find_get(&init_net, t);
-+		exp = nf_ct_expect_find_get(net, t);
- 		if (exp) {
- 			pr_debug("unexpect_related of expect %p\n", exp);
- 			nf_ct_unexpect_related(exp);
-@@ -168,6 +170,7 @@ static int destroy_sibling_or_exp(const struct nf_conntrack_tuple *t)
- /* timeout GRE data connections */
- static void pptp_destroy_siblings(struct nf_conn *ct)
+ 	/* 1) If this srcip/proto/src-proto-part is currently mapped,
+@@ -242,7 +241,7 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	   manips not an issue.  */
+ 	if (maniptype == IP_NAT_MANIP_SRC &&
+ 	    !(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
+-		if (find_appropriate_src(orig_tuple, tuple, range)) {
++		if (find_appropriate_src(net, orig_tuple, tuple, range)) {
+ 			pr_debug("get_unique_tuple: Found current src map\n");
+ 			if (!nf_nat_used_tuple(tuple, ct))
+ 				return;
+@@ -283,6 +282,7 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 		  const struct nf_nat_range *range,
+ 		  enum nf_nat_manip_type maniptype)
  {
 +	struct net *net = nf_ct_net(ct);
- 	const struct nf_conn_help *help = nfct_help(ct);
- 	struct nf_conntrack_tuple t;
+ 	struct nf_conntrack_tuple curr_tuple, new_tuple;
+ 	struct nf_conn_nat *nat;
+ 	int have_to_hash = !(ct->status & IPS_NAT_DONE_MASK);
+@@ -334,7 +334,8 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 		/* nf_conntrack_alter_reply might re-allocate exntension aera */
+ 		nat = nfct_nat(ct);
+ 		nat->ct = ct;
+-		hlist_add_head_rcu(&nat->bysource, &bysource[srchash]);
++		hlist_add_head_rcu(&nat->bysource,
++				   &net->ipv4.nat_bysource[srchash]);
+ 		spin_unlock_bh(&nf_nat_lock);
+ 	}
  
-@@ -178,7 +181,7 @@ static void pptp_destroy_siblings(struct nf_conn *ct)
- 	t.dst.protonum = IPPROTO_GRE;
- 	t.src.u.gre.key = help->help.ct_pptp_info.pns_call_id;
- 	t.dst.u.gre.key = help->help.ct_pptp_info.pac_call_id;
--	if (!destroy_sibling_or_exp(&t))
-+	if (!destroy_sibling_or_exp(net, &t))
- 		pr_debug("failed to timeout original pns->pac ct/exp\n");
- 
- 	/* try reply (pac->pns) tuple */
-@@ -186,7 +189,7 @@ static void pptp_destroy_siblings(struct nf_conn *ct)
- 	t.dst.protonum = IPPROTO_GRE;
- 	t.src.u.gre.key = help->help.ct_pptp_info.pac_call_id;
- 	t.dst.u.gre.key = help->help.ct_pptp_info.pns_call_id;
--	if (!destroy_sibling_or_exp(&t))
-+	if (!destroy_sibling_or_exp(net, &t))
- 		pr_debug("failed to timeout reply pac->pns ct/exp\n");
- }
- 
-@@ -594,15 +597,32 @@ static struct nf_conntrack_helper pptp __read_mostly = {
- 	.expect_policy		= &pptp_exp_policy,
+@@ -583,6 +584,40 @@ static struct nf_ct_ext_type nat_extend __read_mostly = {
+ 	.flags		= NF_CT_EXT_F_PREALLOC,
  };
  
-+static void nf_conntrack_pptp_net_exit(struct net *net)
++static int __net_init nf_nat_net_init(struct net *net)
 +{
-+	nf_ct_gre_keymap_flush(net);
++	net->ipv4.nat_bysource = nf_ct_alloc_hashtable(&nf_nat_htable_size,
++						      &net->ipv4.nat_vmalloced);
++	if (!net->ipv4.nat_bysource)
++		return -ENOMEM;
++	return 0;
 +}
 +
-+static struct pernet_operations nf_conntrack_pptp_net_ops = {
-+	.exit = nf_conntrack_pptp_net_exit,
++/* Clear NAT section of all conntracks, in case we're loaded again. */
++static int clean_nat(struct nf_conn *i, void *data)
++{
++	struct nf_conn_nat *nat = nfct_nat(i);
++
++	if (!nat)
++		return 0;
++	memset(nat, 0, sizeof(*nat));
++	i->status &= ~(IPS_NAT_MASK | IPS_NAT_DONE_MASK | IPS_SEQ_ADJUST);
++	return 0;
++}
++
++static void __net_exit nf_nat_net_exit(struct net *net)
++{
++	nf_ct_iterate_cleanup(net, &clean_nat, NULL);
++	synchronize_rcu();
++	nf_ct_free_hashtable(net->ipv4.nat_bysource, net->ipv4.nat_vmalloced,
++			     nf_nat_htable_size);
++}
++
++static struct pernet_operations nf_nat_net_ops = {
++	.init = nf_nat_net_init,
++	.exit = nf_nat_net_exit,
 +};
 +
- static int __init nf_conntrack_pptp_init(void)
+ static int __init nf_nat_init(void)
  {
--	return nf_conntrack_helper_register(&pptp);
-+	int rv;
-+
-+	rv = nf_conntrack_helper_register(&pptp);
-+	if (rv < 0)
-+		return rv;
-+	rv = register_pernet_subsys(&nf_conntrack_pptp_net_ops);
-+	if (rv < 0)
-+		nf_conntrack_helper_unregister(&pptp);
-+	return rv;
+ 	size_t i;
+@@ -599,12 +634,9 @@ static int __init nf_nat_init(void)
+ 	/* Leave them the same for the moment. */
+ 	nf_nat_htable_size = nf_conntrack_htable_size;
+ 
+-	bysource = nf_ct_alloc_hashtable(&nf_nat_htable_size,
+-					 &nf_nat_vmalloced);
+-	if (!bysource) {
+-		ret = -ENOMEM;
++	ret = register_pernet_subsys(&nf_nat_net_ops);
++	if (ret < 0)
+ 		goto cleanup_extend;
+-	}
+ 
+ 	/* Sew in builtin protocols. */
+ 	spin_lock_bh(&nf_nat_lock);
+@@ -629,23 +661,9 @@ static int __init nf_nat_init(void)
+ 	return ret;
  }
  
- static void __exit nf_conntrack_pptp_fini(void)
+-/* Clear NAT section of all conntracks, in case we're loaded again. */
+-static int clean_nat(struct nf_conn *i, void *data)
+-{
+-	struct nf_conn_nat *nat = nfct_nat(i);
+-
+-	if (!nat)
+-		return 0;
+-	memset(nat, 0, sizeof(*nat));
+-	i->status &= ~(IPS_NAT_MASK | IPS_NAT_DONE_MASK | IPS_SEQ_ADJUST);
+-	return 0;
+-}
+-
+ static void __exit nf_nat_cleanup(void)
  {
- 	nf_conntrack_helper_unregister(&pptp);
--	nf_ct_gre_keymap_flush(&init_net);
-+	unregister_pernet_subsys(&nf_conntrack_pptp_net_ops);
- }
- 
- module_init(nf_conntrack_pptp_init);
+-	nf_ct_iterate_cleanup(&init_net, &clean_nat, NULL);
+-	synchronize_rcu();
+-	nf_ct_free_hashtable(bysource, nf_nat_vmalloced, nf_nat_htable_size);
++	unregister_pernet_subsys(&nf_nat_net_ops);
+ 	nf_ct_l3proto_put(l3proto);
+ 	nf_ct_extend_unregister(&nat_extend);
+ 	rcu_assign_pointer(nf_nat_seq_adjust_hook, NULL);
