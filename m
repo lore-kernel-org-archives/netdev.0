@@ -1,43 +1,28 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: Restrict connection table size via Kconfig
-Date: Tue, 9 Sep 2008 09:52:33 +1000
-Message-ID: <20080908235232.GH13048@verge.net.au>
-References: <alpine.LNX.2.00.0809081332270.18192@titan.stealer.net> <f4845fc0809080713u3da3d7d7g5df8810a19c9306c@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: syncing net GIT trees with upstream...
+Date: Mon, 08 Sep 2008 16:53:07 -0700 (PDT)
+Message-ID: <20080908.165307.164971165.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sven Wegener <sven.wegener@stealer.net>,
-	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>
-To: Julius Volz <juliusv@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:50750 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753023AbYIHXwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 19:52:35 -0400
-Content-Disposition: inline
-In-Reply-To: <f4845fc0809080713u3da3d7d7g5df8810a19c9306c@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56665
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753402AbYIHXxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 19:53:16 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 4AE0DC8C17E
+	for <netdev@vger.kernel.org>; Mon,  8 Sep 2008 16:53:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 08, 2008 at 04:13:54PM +0200, Julius Volz wrote:
-> On Mon, Sep 8, 2008 at 1:38 PM, Sven Wegener wrote:
-> > Instead of checking the value in include/net/ip_vs.h, we can just
-> > restrict the range in our Kconfig file. This will prevent values outside
-> > of the range early.
-> >
-> > Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> > ---
-> >  include/net/ip_vs.h   |   10 +---------
-> >  net/ipv4/ipvs/Kconfig |    3 ++-
-> >  2 files changed, 3 insertions(+), 10 deletions(-)
-> >
-> > Don't know if we really should remove the check in ip_vs.h, but to some
-> > part we should trust our own code.
-> 
-> Seems ok!
 
-I agree, this sounds entirely reasonable to me.
+Since Linus has pulled in everything in net-2.6, I'm using this
+opportunity to sync all of the networking GIT trees.
 
-> > Based on lvs-next.
+1) I've pulled Linus's tree into net-2.6 and pushed back out.
 
-Thanks, applied.
+2) I'm in the process of doing the same for net-next-2.6
+
+Just a heads up.
