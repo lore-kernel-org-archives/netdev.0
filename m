@@ -1,332 +1,293 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH] ipvs: Embed user stats structure into kernel stats structure
-Date: Mon, 8 Sep 2008 16:07:10 +0200
-Message-ID: <f4845fc0809080707i3751e5a4o45da7b7b16f50c4e@mail.gmail.com>
-References: <alpine.LNX.2.00.0809081338130.18192@titan.stealer.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH] Fix no-IPv6 warnings and errors in the netlabel code
+Date: Mon, 8 Sep 2008 10:10:41 -0400
+Message-ID: <200809081010.41760.paul.moore@hp.com>
+References: <20080908132723.27379.69655.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Julian Anastasov" <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, "Simon Horman" <horms@verge.net.au>,
-	"Wensong Zhang" <wensong@linux-vs.org>
-To: "Sven Wegener" <sven.wegener@stealer.net>
+Cc: netdev@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:39757 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752008AbYIHOHc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 10:07:32 -0400
-Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
-	by smtp-out.google.com with ESMTP id m88E7CW3003377
-	for <netdev@vger.kernel.org>; Mon, 8 Sep 2008 15:07:12 +0100
-Received: from gxk12 (gxk12.prod.google.com [10.202.11.12])
-	by wpaz37.hot.corp.google.com with ESMTP id m88E6MaW013883
-	for <netdev@vger.kernel.org>; Mon, 8 Sep 2008 07:07:11 -0700
-Received: by gxk12 with SMTP id 12so7722913gxk.10
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 07:07:11 -0700 (PDT)
-In-Reply-To: <alpine.LNX.2.00.0809081338130.18192@titan.stealer.net>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:42353 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbYIHOKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 10:10:46 -0400
+In-Reply-To: <20080908132723.27379.69655.stgit@warthog.procyon.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 8, 2008 at 1:39 PM, Sven Wegener wrote:
-> Instead of duplicating the fields, integrate a user stats structure into
-> the kernel stats structure. This is more robust when the members are
-> changed, because they are now automatically kept in sync.
+On Monday 08 September 2008 9:27:23 am David Howells wrote:
+> Fix warnings and errors in the netlabel code when compiled with
+> CONFIG_IPV6=n.
 >
-> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> ---
->  include/net/ip_vs.h        |   21 +---------------
->  net/ipv4/ipvs/ip_vs_core.c |   30 ++++++++++++------------
->  net/ipv4/ipvs/ip_vs_ctl.c  |   53 +++++++++++++++++--------------------------
->  net/ipv4/ipvs/ip_vs_est.c  |   40 ++++++++++++++++----------------
->  4 files changed, 58 insertions(+), 86 deletions(-)
->
-> Based on lvs-next.
->
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index 38f4f69..33e2ac6 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -254,27 +254,10 @@ struct ip_vs_estimator {
->
->  struct ip_vs_stats
->  {
-> -       __u32                   conns;          /* connections scheduled */
-> -       __u32                   inpkts;         /* incoming packets */
-> -       __u32                   outpkts;        /* outgoing packets */
-> -       __u64                   inbytes;        /* incoming bytes */
-> -       __u64                   outbytes;       /* outgoing bytes */
-> -
-> -       __u32                   cps;            /* current connection rate */
-> -       __u32                   inpps;          /* current in packet rate */
-> -       __u32                   outpps;         /* current out packet rate */
-> -       __u32                   inbps;          /* current in byte rate */
-> -       __u32                   outbps;         /* current out byte rate */
-> -
-> -       /*
-> -        * Don't add anything before the lock, because we use memcpy() to copy
-> -        * the members before the lock to struct ip_vs_stats_user in
-> -        * ip_vs_ctl.c.
-> -        */
-> +       struct ip_vs_stats_user ustats;         /* statistics */
-> +       struct ip_vs_estimator  est;            /* estimator */
->
->        spinlock_t              lock;           /* spin lock */
-> -
-> -       struct ip_vs_estimator  est;            /* estimator */
->  };
->
->  struct dst_entry;
-> diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-> index f5180ac..be42635 100644
-> --- a/net/ipv4/ipvs/ip_vs_core.c
-> +++ b/net/ipv4/ipvs/ip_vs_core.c
-> @@ -102,18 +102,18 @@ ip_vs_in_stats(struct ip_vs_conn *cp, struct sk_buff *skb)
->        struct ip_vs_dest *dest = cp->dest;
->        if (dest && (dest->flags & IP_VS_DEST_F_AVAILABLE)) {
->                spin_lock(&dest->stats.lock);
-> -               dest->stats.inpkts++;
-> -               dest->stats.inbytes += skb->len;
-> +               dest->stats.ustats.inpkts++;
-> +               dest->stats.ustats.inbytes += skb->len;
->                spin_unlock(&dest->stats.lock);
->
->                spin_lock(&dest->svc->stats.lock);
-> -               dest->svc->stats.inpkts++;
-> -               dest->svc->stats.inbytes += skb->len;
-> +               dest->svc->stats.ustats.inpkts++;
-> +               dest->svc->stats.ustats.inbytes += skb->len;
->                spin_unlock(&dest->svc->stats.lock);
->
->                spin_lock(&ip_vs_stats.lock);
-> -               ip_vs_stats.inpkts++;
-> -               ip_vs_stats.inbytes += skb->len;
-> +               ip_vs_stats.ustats.inpkts++;
-> +               ip_vs_stats.ustats.inbytes += skb->len;
->                spin_unlock(&ip_vs_stats.lock);
->        }
->  }
-> @@ -125,18 +125,18 @@ ip_vs_out_stats(struct ip_vs_conn *cp, struct sk_buff *skb)
->        struct ip_vs_dest *dest = cp->dest;
->        if (dest && (dest->flags & IP_VS_DEST_F_AVAILABLE)) {
->                spin_lock(&dest->stats.lock);
-> -               dest->stats.outpkts++;
-> -               dest->stats.outbytes += skb->len;
-> +               dest->stats.ustats.outpkts++;
-> +               dest->stats.ustats.outbytes += skb->len;
->                spin_unlock(&dest->stats.lock);
->
->                spin_lock(&dest->svc->stats.lock);
-> -               dest->svc->stats.outpkts++;
-> -               dest->svc->stats.outbytes += skb->len;
-> +               dest->svc->stats.ustats.outpkts++;
-> +               dest->svc->stats.ustats.outbytes += skb->len;
->                spin_unlock(&dest->svc->stats.lock);
->
->                spin_lock(&ip_vs_stats.lock);
-> -               ip_vs_stats.outpkts++;
-> -               ip_vs_stats.outbytes += skb->len;
-> +               ip_vs_stats.ustats.outpkts++;
-> +               ip_vs_stats.ustats.outbytes += skb->len;
->                spin_unlock(&ip_vs_stats.lock);
->        }
->  }
-> @@ -146,15 +146,15 @@ static inline void
->  ip_vs_conn_stats(struct ip_vs_conn *cp, struct ip_vs_service *svc)
->  {
->        spin_lock(&cp->dest->stats.lock);
-> -       cp->dest->stats.conns++;
-> +       cp->dest->stats.ustats.conns++;
->        spin_unlock(&cp->dest->stats.lock);
->
->        spin_lock(&svc->stats.lock);
-> -       svc->stats.conns++;
-> +       svc->stats.ustats.conns++;
->        spin_unlock(&svc->stats.lock);
->
->        spin_lock(&ip_vs_stats.lock);
-> -       ip_vs_stats.conns++;
-> +       ip_vs_stats.ustats.conns++;
->        spin_unlock(&ip_vs_stats.lock);
->  }
->
-> diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-> index e53efe4..993a83f 100644
-> --- a/net/ipv4/ipvs/ip_vs_ctl.c
-> +++ b/net/ipv4/ipvs/ip_vs_ctl.c
-> @@ -744,18 +744,7 @@ ip_vs_zero_stats(struct ip_vs_stats *stats)
->  {
->        spin_lock_bh(&stats->lock);
->
-> -       stats->conns = 0;
-> -       stats->inpkts = 0;
-> -       stats->outpkts = 0;
-> -       stats->inbytes = 0;
-> -       stats->outbytes = 0;
-> -
-> -       stats->cps = 0;
-> -       stats->inpps = 0;
-> -       stats->outpps = 0;
-> -       stats->inbps = 0;
-> -       stats->outbps = 0;
-> -
-> +       memset(&stats->ustats, 0, sizeof(stats->ustats));
->        ip_vs_zero_estimator(stats);
->
->        spin_unlock_bh(&stats->lock);
-> @@ -1964,20 +1953,20 @@ static int ip_vs_stats_show(struct seq_file *seq, void *v)
->                   "   Conns  Packets  Packets            Bytes            Bytes\n");
->
->        spin_lock_bh(&ip_vs_stats.lock);
-> -       seq_printf(seq, "%8X %8X %8X %16LX %16LX\n\n", ip_vs_stats.conns,
-> -                  ip_vs_stats.inpkts, ip_vs_stats.outpkts,
-> -                  (unsigned long long) ip_vs_stats.inbytes,
-> -                  (unsigned long long) ip_vs_stats.outbytes);
-> +       seq_printf(seq, "%8X %8X %8X %16LX %16LX\n\n", ip_vs_stats.ustats.conns,
-> +                  ip_vs_stats.ustats.inpkts, ip_vs_stats.ustats.outpkts,
-> +                  (unsigned long long) ip_vs_stats.ustats.inbytes,
-> +                  (unsigned long long) ip_vs_stats.ustats.outbytes);
->
->  /*                 01234567 01234567 01234567 0123456701234567 0123456701234567 */
->        seq_puts(seq,
->                   " Conns/s   Pkts/s   Pkts/s          Bytes/s          Bytes/s\n");
->        seq_printf(seq,"%8X %8X %8X %16X %16X\n",
-> -                       ip_vs_stats.cps,
-> -                       ip_vs_stats.inpps,
-> -                       ip_vs_stats.outpps,
-> -                       ip_vs_stats.inbps,
-> -                       ip_vs_stats.outbps);
-> +                       ip_vs_stats.ustats.cps,
-> +                       ip_vs_stats.ustats.inpps,
-> +                       ip_vs_stats.ustats.outpps,
-> +                       ip_vs_stats.ustats.inbps,
-> +                       ip_vs_stats.ustats.outbps);
->        spin_unlock_bh(&ip_vs_stats.lock);
->
->        return 0;
-> @@ -2215,7 +2204,7 @@ static void
->  ip_vs_copy_stats(struct ip_vs_stats_user *dst, struct ip_vs_stats *src)
->  {
->        spin_lock_bh(&src->lock);
-> -       memcpy(dst, src, (char*)&src->lock - (char*)src);
-> +       memcpy(dst, &src->ustats, sizeof(*dst));
->        spin_unlock_bh(&src->lock);
->  }
->
-> @@ -2591,16 +2580,16 @@ static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
->
->        spin_lock_bh(&stats->lock);
->
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_CONNS, stats->conns);
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPKTS, stats->inpkts);
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPKTS, stats->outpkts);
-> -       NLA_PUT_U64(skb, IPVS_STATS_ATTR_INBYTES, stats->inbytes);
-> -       NLA_PUT_U64(skb, IPVS_STATS_ATTR_OUTBYTES, stats->outbytes);
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_CPS, stats->cps);
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPPS, stats->inpps);
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPPS, stats->outpps);
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_INBPS, stats->inbps);
-> -       NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTBPS, stats->outbps);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_CONNS, stats->ustats.conns);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPKTS, stats->ustats.inpkts);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPKTS, stats->ustats.outpkts);
-> +       NLA_PUT_U64(skb, IPVS_STATS_ATTR_INBYTES, stats->ustats.inbytes);
-> +       NLA_PUT_U64(skb, IPVS_STATS_ATTR_OUTBYTES, stats->ustats.outbytes);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_CPS, stats->ustats.cps);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPPS, stats->ustats.inpps);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPPS, stats->ustats.outpps);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_INBPS, stats->ustats.inbps);
-> +       NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTBPS, stats->ustats.outbps);
->
->        spin_unlock_bh(&stats->lock);
->
-> diff --git a/net/ipv4/ipvs/ip_vs_est.c b/net/ipv4/ipvs/ip_vs_est.c
-> index 4fb620e..2eb2860 100644
-> --- a/net/ipv4/ipvs/ip_vs_est.c
-> +++ b/net/ipv4/ipvs/ip_vs_est.c
-> @@ -65,37 +65,37 @@ static void estimation_timer(unsigned long arg)
->                s = container_of(e, struct ip_vs_stats, est);
->
->                spin_lock(&s->lock);
-> -               n_conns = s->conns;
-> -               n_inpkts = s->inpkts;
-> -               n_outpkts = s->outpkts;
-> -               n_inbytes = s->inbytes;
-> -               n_outbytes = s->outbytes;
-> +               n_conns = s->ustats.conns;
-> +               n_inpkts = s->ustats.inpkts;
-> +               n_outpkts = s->ustats.outpkts;
-> +               n_inbytes = s->ustats.inbytes;
-> +               n_outbytes = s->ustats.outbytes;
->
->                /* scaled by 2^10, but divided 2 seconds */
->                rate = (n_conns - e->last_conns)<<9;
->                e->last_conns = n_conns;
->                e->cps += ((long)rate - (long)e->cps)>>2;
-> -               s->cps = (e->cps+0x1FF)>>10;
-> +               s->ustats.cps = (e->cps+0x1FF)>>10;
->
->                rate = (n_inpkts - e->last_inpkts)<<9;
->                e->last_inpkts = n_inpkts;
->                e->inpps += ((long)rate - (long)e->inpps)>>2;
-> -               s->inpps = (e->inpps+0x1FF)>>10;
-> +               s->ustats.inpps = (e->inpps+0x1FF)>>10;
->
->                rate = (n_outpkts - e->last_outpkts)<<9;
->                e->last_outpkts = n_outpkts;
->                e->outpps += ((long)rate - (long)e->outpps)>>2;
-> -               s->outpps = (e->outpps+0x1FF)>>10;
-> +               s->ustats.outpps = (e->outpps+0x1FF)>>10;
->
->                rate = (n_inbytes - e->last_inbytes)<<4;
->                e->last_inbytes = n_inbytes;
->                e->inbps += ((long)rate - (long)e->inbps)>>2;
-> -               s->inbps = (e->inbps+0xF)>>5;
-> +               s->ustats.inbps = (e->inbps+0xF)>>5;
->
->                rate = (n_outbytes - e->last_outbytes)<<4;
->                e->last_outbytes = n_outbytes;
->                e->outbps += ((long)rate - (long)e->outbps)>>2;
-> -               s->outbps = (e->outbps+0xF)>>5;
-> +               s->ustats.outbps = (e->outbps+0xF)>>5;
->                spin_unlock(&s->lock);
->        }
->        spin_unlock(&est_lock);
-> @@ -108,20 +108,20 @@ void ip_vs_new_estimator(struct ip_vs_stats *stats)
->
->        INIT_LIST_HEAD(&est->list);
->
-> -       est->last_conns = stats->conns;
-> -       est->cps = stats->cps<<10;
-> +       est->last_conns = stats->ustats.conns;
-> +       est->cps = stats->ustats.cps<<10;
->
-> -       est->last_inpkts = stats->inpkts;
-> -       est->inpps = stats->inpps<<10;
-> +       est->last_inpkts = stats->ustats.inpkts;
-> +       est->inpps = stats->ustats.inpps<<10;
->
-> -       est->last_outpkts = stats->outpkts;
-> -       est->outpps = stats->outpps<<10;
-> +       est->last_outpkts = stats->ustats.outpkts;
-> +       est->outpps = stats->ustats.outpps<<10;
->
-> -       est->last_inbytes = stats->inbytes;
-> -       est->inbps = stats->inbps<<5;
-> +       est->last_inbytes = stats->ustats.inbytes;
-> +       est->inbps = stats->ustats.inbps<<5;
->
-> -       est->last_outbytes = stats->outbytes;
-> -       est->outbps = stats->outbps<<5;
-> +       est->last_outbytes = stats->ustats.outbytes;
-> +       est->outbps = stats->ustats.outbps<<5;
->
->        spin_lock_bh(&est_lock);
->        list_add(&est->list, &est_list);
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Reviewed-by: Julius Volz <juliusv@google.com>
+Hi David,
+
+Thanks for the patch but I fixed these problems last week (late Friday I 
+believe) in version 5 of the patches, they should be in today's 
+linux-next tree but in the meantime you can find updates in the git 
+tree below:
+
+ * git://git.infradead.org/users/pcmoore/lblnet-2.6_testing
+
+> ---
+>
+>  net/netlabel/netlabel_domainhash.c |   10 +++++++++-
+>  net/netlabel/netlabel_mgmt.c       |   22 ++++++++++++++++++----
+>  net/netlabel/netlabel_unlabeled.c  |   28
+> +++++++++++++++++++++++++--- 3 files changed, 52 insertions(+), 8
+> deletions(-)
+>
+>
+> diff --git a/net/netlabel/netlabel_domainhash.c
+> b/net/netlabel/netlabel_domainhash.c index 25d17d2..a15160f 100644
+> --- a/net/netlabel/netlabel_domainhash.c
+> +++ b/net/netlabel/netlabel_domainhash.c
+> @@ -75,8 +75,10 @@ static void netlbl_domhsh_free_entry(struct
+> rcu_head *entry) struct netlbl_dom_map *ptr;
+>  	struct netlbl_af4list *iter4;
+>  	struct netlbl_af4list *tmp4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	struct netlbl_af6list *iter6;
+>  	struct netlbl_af6list *tmp6;
+> +#endif
+>
+>  	ptr = container_of(entry, struct netlbl_dom_map, rcu);
+>  	if (ptr->type == NETLBL_NLTYPE_ADDRSELECT) {
+> @@ -298,7 +300,9 @@ int netlbl_domhsh_add(struct netlbl_dom_map
+> *entry, int ret_val = 0;
+>  	struct netlbl_dom_map *entry_old;
+>  	struct netlbl_af4list *iter4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	struct netlbl_af6list *iter6;
+> +#endif
+>
+>  	rcu_read_lock();
+>
+> @@ -337,12 +341,16 @@ int netlbl_domhsh_add(struct netlbl_dom_map
+> *entry, } else if (entry_old->type == NETLBL_NLTYPE_ADDRSELECT &&
+>  		   entry->type == NETLBL_NLTYPE_ADDRSELECT) {
+>  		struct netlbl_af4list *tmp4;
+> -		struct netlbl_af6list *tmp6;
+>  		struct list_head *old_list4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +		struct netlbl_af6list *tmp6;
+>  		struct list_head *old_list6;
+> +#endif
+>
+>  		old_list4 = &entry_old->type_def.addrsel->list4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  		old_list6 = &entry_old->type_def.addrsel->list6;
+> +#endif
+>
+>  		/* we only allow the addition of address selectors if all of
+>  		 * the selectors do not exist in the existing domain map */
+> diff --git a/net/netlabel/netlabel_mgmt.c
+> b/net/netlabel/netlabel_mgmt.c index 5dc7d0f..f8d2b44 100644
+> --- a/net/netlabel/netlabel_mgmt.c
+> +++ b/net/netlabel/netlabel_mgmt.c
+> @@ -137,9 +137,13 @@ static int netlbl_mgmt_add_common(struct
+> genl_info *info, goto add_failure;
+>  	}
+>  	if ((info->attrs[NLBL_MGMT_A_IPV4ADDR] &&
+> -	     info->attrs[NLBL_MGMT_A_IPV4MASK]) ||
+> +	     info->attrs[NLBL_MGMT_A_IPV4MASK])
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +	    ||
+>  	    (info->attrs[NLBL_MGMT_A_IPV6ADDR] &&
+> -	     info->attrs[NLBL_MGMT_A_IPV6MASK])) {
+> +	     info->attrs[NLBL_MGMT_A_IPV6MASK])
+> +#endif
+> +	    ) {
+>  		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
+>  		if (addrmap == NULL) {
+>  			ret_val = -ENOMEM;
+> @@ -148,7 +152,10 @@ static int netlbl_mgmt_add_common(struct
+> genl_info *info, INIT_LIST_HEAD(&addrmap->list4);
+>  		INIT_LIST_HEAD(&addrmap->list6);
+>
+> -		if (info->attrs[NLBL_MGMT_A_IPV4ADDR]) {
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +		if (info->attrs[NLBL_MGMT_A_IPV4ADDR])
+> +#endif
+> +		{
+>  			struct in_addr *addr;
+>  			struct in_addr *mask;
+>  			struct netlbl_domaddr4_map *map;
+> @@ -184,7 +191,9 @@ static int netlbl_mgmt_add_common(struct
+> genl_info *info, kfree(map);
+>  				goto add_failure;
+>  			}
+> -		} else {
+> +		}
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +		else {
+>  			struct in6_addr *addr;
+>  			struct in6_addr *mask;
+>  			struct netlbl_domaddr6_map *map;
+> @@ -223,6 +232,7 @@ static int netlbl_mgmt_add_common(struct
+> genl_info *info, goto add_failure;
+>  			}
+>  		}
+> +#endif
+>
+>  		entry->type = NETLBL_NLTYPE_ADDRSELECT;
+>  		entry->type_def.addrsel = addrmap;
+> @@ -262,7 +272,9 @@ static int netlbl_mgmt_listentry(struct sk_buff
+> *skb, struct nlattr *nla_a;
+>  	struct nlattr *nla_b;
+>  	struct netlbl_af4list *iter4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	struct netlbl_af6list *iter6;
+> +#endif
+>
+>  	if (entry->domain != NULL) {
+>  		ret_val = nla_put_string(skb,
+> @@ -314,6 +326,7 @@ static int netlbl_mgmt_listentry(struct sk_buff
+> *skb,
+>
+>  			nla_nest_end(skb, nla_b);
+>  		}
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  		netlbl_af6list_foreach_rcu(iter6,
+>  					   &entry->type_def.addrsel->list6) {
+>  			struct netlbl_domaddr6_map *map6;
+> @@ -340,6 +353,7 @@ static int netlbl_mgmt_listentry(struct sk_buff
+> *skb,
+>
+>  			nla_nest_end(skb, nla_b);
+>  		}
+> +#endif
+>
+>  		nla_nest_end(skb, nla_a);
+>  		break;
+> diff --git a/net/netlabel/netlabel_unlabeled.c
+> b/net/netlabel/netlabel_unlabeled.c index 8a87378..349fb47 100644
+> --- a/net/netlabel/netlabel_unlabeled.c
+> +++ b/net/netlabel/netlabel_unlabeled.c
+> @@ -205,8 +205,10 @@ static void netlbl_unlhsh_free_iface(struct
+> rcu_head *entry) struct netlbl_unlhsh_iface *iface;
+>  	struct netlbl_af4list *iter4;
+>  	struct netlbl_af4list *tmp4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	struct netlbl_af6list *iter6;
+>  	struct netlbl_af6list *tmp6;
+> +#endif
+>
+>  	iface = container_of(entry, struct netlbl_unlhsh_iface, rcu);
+>
+> @@ -217,10 +219,12 @@ static void netlbl_unlhsh_free_iface(struct
+> rcu_head *entry) netlbl_af4list_remove_entry(iter4);
+>  		kfree(netlbl_unlhsh_addr4_entry(iter4));
+>  	}
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	netlbl_af6list_foreach_safe(iter6, tmp6, &iface->addr6_list) {
+>  		netlbl_af6list_remove_entry(iter6);
+>  		kfree(netlbl_unlhsh_addr6_entry(iter6));
+>  	}
+> +#endif
+>  	kfree(iface);
+>  }
+>
+> @@ -672,13 +676,17 @@ static int netlbl_unlhsh_remove_addr6(struct
+> net *net, static void netlbl_unlhsh_condremove_iface(struct
+> netlbl_unlhsh_iface *iface) {
+>  	struct netlbl_af4list *iter4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	struct netlbl_af6list *iter6;
+> +#endif
+>
+>  	spin_lock(&netlbl_unlhsh_lock);
+>  	netlbl_af4list_foreach_rcu(iter4, &iface->addr4_list)
+>  		goto unlhsh_condremove_failure;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	netlbl_af6list_foreach_rcu(iter6, &iface->addr6_list)
+>  		goto unlhsh_condremove_failure;
+> +#endif
+>  	iface->valid = 0;
+>  	if (iface->ifindex > 0)
+>  		list_del_rcu(&iface->list);
+> @@ -1256,10 +1264,13 @@ static int netlbl_unlabel_staticlist(struct
+> sk_buff *skb, u32 skip_addr4 = cb->args[2];
+>  	u32 skip_addr6 = cb->args[3];
+>  	u32 iter_bkt;
+> -	u32 iter_chain = 0, iter_addr4 = 0, iter_addr6 = 0;
+> +	u32 iter_chain = 0, iter_addr4 = 0;
+>  	struct netlbl_unlhsh_iface *iface;
+>  	struct netlbl_af4list *addr4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	struct netlbl_af6list *addr6;
+> +	u32 iter_addr6 = 0;
+> +#endif
+>
+>  	cb_arg.nl_cb = cb;
+>  	cb_arg.skb = skb;
+> @@ -1268,7 +1279,11 @@ static int netlbl_unlabel_staticlist(struct
+> sk_buff *skb, rcu_read_lock();
+>  	for (iter_bkt = skip_bkt;
+>  	     iter_bkt < rcu_dereference(netlbl_unlhsh)->size;
+> -	     iter_bkt++, iter_chain = 0, iter_addr4 = 0, iter_addr6 = 0) {
+> +	     iter_bkt++, iter_chain = 0, iter_addr4 = 0
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +		     , iter_addr6 = 0
+> +#endif
+> +	     ) {
+>  		list_for_each_entry_rcu(iface,
+>  			        &rcu_dereference(netlbl_unlhsh)->tbl[iter_bkt],
+>  				list) {
+> @@ -1290,6 +1305,7 @@ static int netlbl_unlabel_staticlist(struct
+> sk_buff *skb, goto unlabel_staticlist_return;
+>  				}
+>  			}
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  			netlbl_af6list_foreach_rcu(addr6,
+>  						   &iface->addr6_list) {
+>  				if (iter_addr6++ < skip_addr6)
+> @@ -1305,6 +1321,7 @@ static int netlbl_unlabel_staticlist(struct
+> sk_buff *skb, goto unlabel_staticlist_return;
+>  				}
+>  			}
+> +#endif
+>  		}
+>  	}
+>
+> @@ -1335,9 +1352,12 @@ static int netlbl_unlabel_staticlistdef(struct
+> sk_buff *skb, struct netlbl_unlhsh_iface *iface;
+>  	u32 skip_addr4 = cb->args[0];
+>  	u32 skip_addr6 = cb->args[1];
+> -	u32 iter_addr4 = 0, iter_addr6 = 0;
+> +	u32 iter_addr4 = 0;
+>  	struct netlbl_af4list *addr4;
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +	u32 iter_addr6 = 0;
+>  	struct netlbl_af6list *addr6;
+> +#endif
+>
+>  	cb_arg.nl_cb = cb;
+>  	cb_arg.skb = skb;
+> @@ -1360,6 +1380,7 @@ static int netlbl_unlabel_staticlistdef(struct
+> sk_buff *skb, goto unlabel_staticlistdef_return;
+>  		}
+>  	}
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>  	netlbl_af6list_foreach_rcu(addr6, &iface->addr6_list) {
+>  		if (iter_addr6++ < skip_addr6)
+>  			continue;
+> @@ -1372,6 +1393,7 @@ static int netlbl_unlabel_staticlistdef(struct
+> sk_buff *skb, goto unlabel_staticlistdef_return;
+>  		}
+>  	}
+> +#endif
+>
+>  unlabel_staticlistdef_return:
+>  	rcu_read_unlock();
+
+
 
 -- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+paul moore
+linux @ hp
