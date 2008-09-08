@@ -1,53 +1,120 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: Channel bonding with e1000
-Date: Mon, 8 Sep 2008 11:37:47 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.1.10.0809081133290.7512@jbrandeb-MOBL1.amr.corp.intel.com>
-References: <48C0EF8A.9070103@aei.mpg.de>
+From: "Mark Ryden" <markryde@gmail.com>
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Mon, 8 Sep 2008 21:39:06 +0300
+Message-ID: <dac45060809081139u31c1570bm13ff39ac97bef11@mail.gmail.com>
+References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>
+	 <20080820021754.GA25182@kroah.com>
+	 <m1od3m282j.fsf_-_@frodo.ebiederm.org>
+	 <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net>
+	 <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
+	 <48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
+	 <31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
+	 <48BF83E1.5040000@bull.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David Shwatrz" <dshwatrz@gmail.com>, "Greg KH" <gregkh@suse.de>,
+	"Greg KH" <greg@kroah.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Tejun Heo" <htejun@gmail.com>,
+	"Daniel Lezcano" <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, "Al Viro" <viro@ftp.linux.org.uk>,
+	"Linux Containers" <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Benjamin Thery" <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:46467 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750973AbYIHShx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2008 14:37:53 -0400
-In-Reply-To: <48C0EF8A.9070103@aei.mpg.de>
+Received: from py-out-1112.google.com ([64.233.166.177]:20516 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753021AbYIHSjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 14:39:08 -0400
+Received: by py-out-1112.google.com with SMTP id p76so958145pyb.10
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 11:39:06 -0700 (PDT)
+In-Reply-To: <48BF83E1.5040000@bull.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 5 Sep 2008, Carsten Aulbert wrote:
-> I have a brief problem and would ask for a little assistance:
-> 
-> On a few data servers we intend to do channel bonding. The boxes have
-> two NICs on the motherboard and two extra ones on an expansion card:
-> 
-> 04:00.0 Ethernet controller: Intel Corporation 631xESB/632xESB DPT LAN
-> Controller Copper (rev 01)
-> 04:00.1 Ethernet controller: Intel Corporation 631xESB/632xESB DPT LAN
-> Controller Copper (rev 01)
+Hi,
+Well, I believe that again it was somehow forgotten or was not applied for
+other reasons, since polling the following URL several times in last
+days did not
+show this patch (url:
+git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/patches.git)
 
-To help you with your consideration: this chip is embedded in the ESB2 
-southbridge, and is connected (technically) over PCIe.
+Regards,
+MR
 
-> 05:02.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet
-> Controller (rev 03)
-> 05:02.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet
-> Controller (rev 03)
 
-This chip is connected over PCI-X and should be significantly slower 
-and/or higher CPU utilization than the ESB2 based chip.
 
-Both have 64kB of internal FIFO per port, split between tx and rx.
 
-> My simple question would be: Does it matter which two ports I can use to
-> channel together when using in a set-up with MTU=9000?
-
-It shouldn't matter, but I would take into consideration that the ESB2 
-ports should be faster.
-
-Jesse
-
-PS in the future questions like this could be cc:'d to 
-e1000-devel@lists.sourceforge.net where all the Intel wired developers 
-hang out (in addition to netdev)
+On Thu, Sep 4, 2008 at 9:44 AM, Benjamin Thery <benjamin.thery@bull.net> wrote:
+> David Shwatrz wrote:
+>>
+>> Hi,
+>>>
+>>> go into my tree this week,
+>>
+>> I am also interested in this patch; may I ask  - what do you mean by
+>> "my  tree" ?I am a little newbie in the kernel, as you might understand.
+>> I looked into
+>> http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/
+>> for candidates for this git tree you are talking about.
+>>
+>>  May I ask: what is the **exact** URL for this git tree you are talking
+>> about ?
+>
+> Greg's tree is there:
+> http://git.kernel.org/?p=linux/kernel/git/gregkh/patches.git;a=summary
+>
+> You can clone it from here:
+> git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/patches.git
+>
+> It contains the patches serie to be applied on top of
+> linux-2.6 (with 'quilt' for example).
+>
+> Benjamin
+>
+>>
+>> Thanks,
+>>
+>> Regards,
+>> DS
+>>
+>>
+>> On Tue, Sep 2, 2008 at 8:01 PM, Greg KH <gregkh@suse.de> wrote:
+>>>
+>>> On Tue, Sep 02, 2008 at 04:03:20PM +0200, Benjamin Thery wrote:
+>>>>
+>>>> Mark Ryden wrote:
+>>>>>
+>>>>> Hello,
+>>>>>  I hope that this patch (from 4.7.08) was not forgetten... I don't see
+>>>>> it for example in linux-net (I have an up-to-date linux-next git
+>>>>> tree).
+>>>>
+>>>> I was about to ask the same thing.
+>>>>
+>>>> Greg, what is the plan with these remaining patches for sysfs tagged
+>>>> dirs? Will you have some time to merge them in your tree soon?
+>>>
+>>> Yes, they should go into my tree this week, sorry been busy with 2.6.27
+>>> work and Novell's Hackweek.
+>>>
+>>> thanks,
+>>>
+>>> greg k-h
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>
+>>
+>
+>
+> --
+> B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+>
+>   http://www.bull.com
+>
