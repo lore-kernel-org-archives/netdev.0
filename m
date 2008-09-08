@@ -1,79 +1,26 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH] ipvs: Restrict connection table size via Kconfig
-Date: Mon, 8 Sep 2008 16:13:54 +0200
-Message-ID: <f4845fc0809080713u3da3d7d7g5df8810a19c9306c@mail.gmail.com>
-References: <alpine.LNX.2.00.0809081332270.18192@titan.stealer.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Julian Anastasov" <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, "Simon Horman" <horms@verge.net.au>,
-	"Wensong Zhang" <wensong@linux-vs.org>
-To: "Sven Wegener" <sven.wegener@stealer.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.0809081332270.18192@titan.stealer.net>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] Fix no-IPv6 warnings and errors in the netlabel code
+Date: Mon, 08 Sep 2008 15:23:15 +0100
+Message-ID: <29492.1220883795@redhat.com>
+References: <200809081010.41760.paul.moore@hp.com> <20080908132723.27379.69655.stgit@warthog.procyon.org.uk>
+Cc: dhowells@redhat.com, netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:40091 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750986AbYIHOXT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2008 10:23:19 -0400
+In-Reply-To: <200809081010.41760.paul.moore@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 8, 2008 at 1:38 PM, Sven Wegener wrote:
-> Instead of checking the value in include/net/ip_vs.h, we can just
-> restrict the range in our Kconfig file. This will prevent values outside
-> of the range early.
->
-> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> ---
->  include/net/ip_vs.h   |   10 +---------
->  net/ipv4/ipvs/Kconfig |    3 ++-
->  2 files changed, 3 insertions(+), 10 deletions(-)
->
-> Don't know if we really should remove the check in ip_vs.h, but to some
-> part we should trust our own code.
+Paul Moore <paul.moore@hp.com> wrote:
 
-Seems ok!
+> Thanks for the patch but I fixed these problems last week (late Friday I 
+> believe) in version 5 of the patches, they should be in today's 
+> linux-next tree but in the meantime you can find updates in the git 
+> tree below:
 
-> Based on lvs-next.
->
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index 1b13cef..38f4f69 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -621,16 +621,8 @@ extern void ip_vs_init_hash_table(struct list_head *table, int rows);
->  #ifndef CONFIG_IP_VS_TAB_BITS
->  #define CONFIG_IP_VS_TAB_BITS   12
->  #endif
-> -/* make sure that IP_VS_CONN_TAB_BITS is located in [8, 20] */
-> -#if CONFIG_IP_VS_TAB_BITS < 8
-> -#define IP_VS_CONN_TAB_BITS    8
-> -#endif
-> -#if CONFIG_IP_VS_TAB_BITS > 20
-> -#define IP_VS_CONN_TAB_BITS    20
-> -#endif
-> -#if 8 <= CONFIG_IP_VS_TAB_BITS && CONFIG_IP_VS_TAB_BITS <= 20
-> +
->  #define IP_VS_CONN_TAB_BITS    CONFIG_IP_VS_TAB_BITS
-> -#endif
->  #define IP_VS_CONN_TAB_SIZE     (1 << IP_VS_CONN_TAB_BITS)
->  #define IP_VS_CONN_TAB_MASK     (IP_VS_CONN_TAB_SIZE - 1)
->
-> diff --git a/net/ipv4/ipvs/Kconfig b/net/ipv4/ipvs/Kconfig
-> index 794cecb..de6004d 100644
-> --- a/net/ipv4/ipvs/Kconfig
-> +++ b/net/ipv4/ipvs/Kconfig
-> @@ -41,7 +41,8 @@ config        IP_VS_DEBUG
->
->  config IP_VS_TAB_BITS
->        int "IPVS connection table size (the Nth power of 2)"
-> -       default "12"
-> +       range 8 20
-> +       default 12
->        ---help---
->          The IPVS connection hash table uses the chaining scheme to handle
->          hash collisions. Using a big IPVS connection hash table will greatly
+Thanks.  There doesn't appear to be a linux-next tree for today as yet.
 
-Reviewed-by: Julius Volz <juliusv@google.com>
-
--- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+David
