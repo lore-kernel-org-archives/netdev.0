@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Reduce structures when XFRM=n
-Date: Mon, 08 Sep 2008 16:22:07 -0700 (PDT)
-Message-ID: <20080908.162207.138343845.davem@davemloft.net>
-References: <20080907194449.GA3764@x200.localdomain>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc 0/3] IPVS: checksum updates
+Date: Tue, 9 Sep 2008 09:40:29 +1000
+Message-ID: <20080908234028.GF13048@verge.net.au>
+References: <20080908020420.313463898@vergenet.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58766
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754319AbYIHXWN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 19:22:13 -0400
-In-Reply-To: <20080907194449.GA3764@x200.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Julius Volz <juliusv@google.com>,
+	Vince Busam <vbusam@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080908020420.313463898@vergenet.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Sun, 7 Sep 2008 23:44:49 +0400
-
-> #ifdef out
-> * struct sk_buff::sp		(pointer)
-> * struct dst_entry::xfrm	(pointer)
-> * struct sock::sk_policy	(2 pointers)
+On Mon, Sep 08, 2008 at 12:04:20PM +1000, Simon Horman wrote:
+> Hi,
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> The impetus for this series of patches is Julian Anastasov noting
+> that "load balance IPv4 connections from a local process" checks
+> for 0 TCP checksums. Herbert Xu confirmed that this is not legal,
+> even on loopback traffic, but that rather partial checksums are
+> possible.
+> 
+> The first patch in this series is a proposed solution to handle
+> partial checksums for both TCP and UDP.
+> 
+> The other two patches clean things up a bit.
+> 
+> I have not tested this code beyond compilation yet.
 
-Please do not plaster XFRM ifdefs all over code code like net/ipv4/icmp.c
-and friends, instead make the xfrm*() interfaces inline nops when XFRM
-is turned off.
+After extensive testing by Julius Volz and limited testing by myself, I
+have applied the first patch, which does indeed allow packets with
+PARTIAL_CHECKSUM to work, to lvs-next-2.6. I have dropped the second two
+patches which produce bogus checksums.
+
+I will revisit the second to patches at some point and try and produce
+versions that work.
+
