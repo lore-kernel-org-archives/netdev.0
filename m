@@ -1,40 +1,45 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] igmp: allow IPPROTO_IGMP sockets in netns
-Date: Mon, 8 Sep 2008 05:29:19 +0400
-Message-ID: <20080908012919.GD575@x200.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: Fix qdisc state in net_tx_action()
+Date: Sun, 07 Sep 2008 18:41:35 -0700 (PDT)
+Message-ID: <20080907.184135.193694179.davem@davemloft.net>
+References: <20080905082915.GA7320@ff.dom.local>
+	<200809060141.17121.denys@visp.net.lb>
+	<20080906120217.GA2571@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: denys@visp.net.lb, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.191]:59660 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751674AbYIHB1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 21:27:32 -0400
-Received: by gv-out-0910.google.com with SMTP id e6so81720gvc.37
-        for <netdev@vger.kernel.org>; Sun, 07 Sep 2008 18:27:31 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60143
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751605AbYIHBlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2008 21:41:42 -0400
+In-Reply-To: <20080906120217.GA2571@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks like everything is already ready.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sat, 6 Sep 2008 14:02:17 +0200
 
-Required for ebtables(8) for one thing.
+> On Sat, Sep 06, 2008 at 01:41:17AM +0300, Denys Fedoryshchenko wrote:
+> > On Friday 05 September 2008, Jarek Poplawski wrote:
+> > > ------------>
+> > >
+> > > pkt_sched: Fix qdisc state in net_tx_action()
+> > >
+> > > net_tx_action() can skip __QDISC_STATE_SCHED bit clearing while qdisc
+> > > is neither ran nor rescheduled, which may cause endless loop in
+> > > dev_deactivate().
+> > >
+> > > Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> > > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> > Tested, working fine, bug fixed.
+> > 
+> 
+> So, I guess, David could treat this as your "Tested-by:".
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+Yep.
 
- net/ipv4/af_inet.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1310,6 +1310,7 @@ EXPORT_SYMBOL_GPL(snmp_mib_free);
- #ifdef CONFIG_IP_MULTICAST
- static struct net_protocol igmp_protocol = {
- 	.handler =	igmp_rcv,
-+	.netns_ok =	1,
- };
- #endif
- 
-
+Applied, thanks everyone.
