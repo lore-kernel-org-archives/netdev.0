@@ -1,39 +1,55 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [rfc 1/3] ipvs: handle PARTIAL_CHECKSUM
-Date: Mon, 8 Sep 2008 17:24:40 +1000
-Message-ID: <20080908072439.GA27257@gondor.apana.org.au>
-References: <20080908020420.313463898@vergenet.net> <20080908021535.063462678@vergenet.net>
+Subject: net: Enable TSO if supported by at least one device
+Date: Mon, 8 Sep 2008 18:42:03 +1000
+Message-ID: <20080908084203.GA14168@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Siim =?iso-8859-1?B?UMO1ZGVy?= <siim@p6drad-teel.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Malcolm Turnbull <malcolm@loadbalancer.org>,
-	Julius Volz <juliusv@google.com>,
-	Vince Busam <vbusam@google.com>
-To: Simon Horman <horms@verge.net.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42595 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:57462 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752031AbYIHHYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 03:24:46 -0400
+	with ESMTP id S1750971AbYIHImG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 04:42:06 -0400
 Content-Disposition: inline
-In-Reply-To: <20080908021535.063462678@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 08, 2008 at 12:04:21PM +1000, Simon Horman wrote:
->
->  	/* Adjust TCP checksums */
-> -	if (!cp->app && (tcph->check != 0)) {
-> +	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-> +		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
-> +					htonl(oldlen),
-> +					htonl(skb->len - tcphoff));
+Hi:
 
-I don't know what cp->app is but should we be updating the checksum
-when it's set? The previous code seems to want to compute a full
-checksum instead.
+net: Enable TSO if supported by at least one device
+
+As it stands users of netdev_compute_features (e.g., bridges/bonding)
+will only enable TSO if all consituent devices support it.  This
+is unnecessarily pessimistic since even on devices that do not
+support hardware TSO and SG, emulated TSO still performs to a par
+with TSO off.
+
+This patch enables TSO if at least on constituent device supports
+it in hardware.
+
+The direct beneficiaries will be virtualisation that uses bridging
+since this means that TSO will always be enabled for communication
+from the host to the guests.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 60c51f7..abef86e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4663,6 +4663,12 @@ int netdev_compute_features(unsigned long all, unsigned long one)
+ 		one |= NETIF_F_GSO_SOFTWARE;
+ 	one |= NETIF_F_GSO;
+ 
++	/*
++	 * If even one device supports a GSO protocol with software fallback,
++	 * enable it for all.
++	 */
++	all |= one & NETIF_F_GSO_SOFTWARE;
++
+ 	/* If even one device supports robust GSO, enable it for all. */
+ 	if (one & NETIF_F_GSO_ROBUST)
+ 		all |= NETIF_F_GSO_ROBUST;
 
 Cheers,
 -- 
