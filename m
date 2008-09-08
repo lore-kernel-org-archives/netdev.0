@@ -1,47 +1,89 @@
-From: Julius Volz <juliusv@google.com>
-Subject: [PATCH] IPVS: Remove incorrect ip_route_me_harder(), fix IPv6
-Date: Mon,  8 Sep 2008 14:55:42 +0200
-Message-ID: <1220878542-1864-1-git-send-email-juliusv@google.com>
-Cc: horms@verge.net.au, siim@p6drad-teel.net, ja@ssi.bg,
-	malcolm@loadbalancer.org, vbusam@google.com,
-	herbert@gondor.apana.org.au, Julius Volz <juliusv@google.com>
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+From: "Johann Baudy" <johaahn@gmail.com>
+Subject: Re: Fwd: Packet mmap: TX RING and zero copy
+Date: Mon, 8 Sep 2008 15:01:04 +0200
+Message-ID: <7e0dd21a0809080601lc250197wde17733522d03125@mail.gmail.com>
+References: <20080905133748.GA28656@2ka.mipt.ru>
+	 <20080905141911.GA16586@2ka.mipt.ru>
+	 <7e0dd21a0809050745w692328b7v6dd4e0adf59e9535@mail.gmail.com>
+	 <20080905145902.GA12762@2ka.mipt.ru>
+	 <7e0dd21a0809050830o7c1dcc2do68da5df9900fcfe8@mail.gmail.com>
+	 <20080905153811.GA3596@2ka.mipt.ru>
+	 <7e0dd21a0809050901q23d0b16xa1a9d0df2f36f6d8@mail.gmail.com>
+	 <20080905163446.GB10078@2ka.mipt.ru>
+	 <7e0dd21a0809080321p6b9e2bc7m73e2cdd57a8d58b8@mail.gmail.com>
+	 <20080908112629.GA26488@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:25413 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbYIHM4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 08:56:13 -0400
+Received: from rv-out-0506.google.com ([209.85.198.236]:47202 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752755AbYIHNBF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 09:01:05 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1439850rvb.1
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 06:01:04 -0700 (PDT)
+In-Reply-To: <20080908112629.GA26488@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove an incorrect ip_route_me_harder() that was probably a result of
-merging my IPv6 patches with the local client patches. With this, IPv6+NAT
-are working again.
+Hi Evgeniy,
 
-Signed-off-by: Julius Volz <juliusv@google.com>
+> Are you sure that it is udp_push_pending_frames() and not some splice
+> waiting?
+>
+No, I'm not sure.
+Are there any queue or allocator limits that can slow the bitrate
+through this function?
+I mean something that will need end of transfer to start a new one.
 
- 1 files changed, 0 insertions(+), 9 deletions(-)
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -743,7 +743,29 @@ int udp_sendpage(struct sock *sk, struct page
+*page, int offset,
+                 size_t size, int flags)
+ {
+        struct udp_sock *up = udp_sk(sk);
++       struct inet_sock *inet = inet_sk(sk);
+        int ret;
++       int mtu, fragheaderlen;
++       struct ip_options *opt = NULL;
++
++       lock_sock(sk);
++       mtu = inet->cork.fragsize;
++
++       if (inet->cork.flags & IPCORK_OPT)
++               opt = inet->cork.opt;
++
++       fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
++
++       // With UDP fragmentation
++       if (inet->cork.length + size >= 0xFFFF - fragheaderlen) {
++       // Without UDP fragmentation
++       //  if( (inet->cork.length + size) > mtu) {
++               ret = udp_push_pending_frames(sk);
++               if (ret) {
++                       return 0;
++               }
++       }
++       release_sock(sk);
 
-diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-index f5180ac..bdc92d7 100644
---- a/net/ipv4/ipvs/ip_vs_core.c
-+++ b/net/ipv4/ipvs/ip_vs_core.c
-@@ -904,15 +904,6 @@ handle_response(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
- 		if (ip_route_me_harder(skb, RTN_LOCAL) != 0)
- 			goto drop;
- 
--	/* For policy routing, packets originating from this
--	 * machine itself may be routed differently to packets
--	 * passing through.  We want this packet to be routed as
--	 * if it came from this machine itself.  So re-compute
--	 * the routing information.
--	 */
--	if (ip_route_me_harder(skb, RTN_LOCAL) != 0)
--		goto drop;
--
- 	IP_VS_DBG_PKT(10, pp, skb, 0, "After SNAT");
- 
- 	ip_vs_out_stats(cp, skb);
+        if (!up->pending) {
+                struct msghdr msg = {   .msg_flags = flags|MSG_MORE };
+
+Please find above, patch with your rectifications.
+Do we must use MTU limit instead offset limit? As you said that UDP
+split over IP must be avoided.
+If yes, can I force size value forwarded to ip_append_page() in order
+to fill the whole packet? Or this will not be handled properly by all
+callers?
+
+Thanks in advance,
+Johann
+
+
 -- 
-1.5.4.5
-
+Johann Baudy
+johaahn@gmail.com
