@@ -1,91 +1,73 @@
-From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Subject: Re: + ehea-fix-dlpar-memory-handling.patch added to -mm tree
-Date: Tue, 9 Sep 2008 09:58:47 +0200
-Message-ID: <200809090958.47358.hannes.hering@linux.vnet.ibm.com>
-References: <200809082225.m88MPu89013383@imap1.linux-foundation.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+	feature-negotiation patches
+Date: Tue, 9 Sep 2008 10:09:11 +0200
+Message-ID: <20080909080911.GA9176@gerrit.erg.abdn.ac.uk>
+References: <20080902.230655.89921076.davem@davemloft.net> <20080903081839.GA9001@gerrit.erg.abdn.ac.uk> <20080904061511.GA30756@gerrit.erg.abdn.ac.uk> <20080908.173250.204419507.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, themann@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, raisch@de.ibm.com,
-	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
-	ossthema@de.ibm.com, osstklei@de.ibm.com
-To: akpm@linux-foundation.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <200809082225.m88MPu89013383@imap1.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59976 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753596AbYIIIJb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 04:09:31 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080908.173250.204419507.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+| > This is an update with regard to Wei's comments. I have re-synched 
+| > 
+| > 	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[subtree `dccp']
+| > 	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=shortlog;h=dccp
+| > 
+| > Also did some testing with a client that only supports CCID 2/3 talking to a client supporting
+| > CCID 2/3/4. They could still negotiate and settle for a common CCID.
+| 
+Sorry the above includes the whole dccp test tree, over and above the
+feature negotiation. We have been waiting for Arnaldo and there was a
+phase where people sent comments about this patch set, so I had not
+prepared a second net-next-2.6 pull request for this patch set yet.
 
-please consider the ehea-fix-dlpar-memory-handling.patch as critical bug fix,
-as it fixes a potential firmware error causing the driver to get inoperable
-when system memory is sparse. Therefore please include this fix into 2.6.27.
+If you want to revert this, I will prepare a net-next-2.6 clone with
+just the revised 37 patches from this set.
 
-Regards
+Otherwise some parts (as below) need to be modified.
 
-Hannes
 
-On Tuesday 09 September 2008 00:25:56 you wrote:
-> 
-> The patch titled
->      ehea: fix DLPAR memory handling
-> has been added to the -mm tree.  Its filename is
->      ehea-fix-dlpar-memory-handling.patch
-> 
-> Before you just go and hit "reply", please:
->    a) Consider who else should be cc'ed
->    b) Prefer to cc a suitable mailing list as well
->    c) Ideally: find the original patch on the mailing list and do a
->       reply-to-all to that, adding suitable additional cc's
-> 
-> *** Remember to use Documentation/SubmitChecklist when testing your code ***
-> 
-> See http://www.zip.com.au/~akpm/linux/patches/stuff/added-to-mm.txt to find
-> out what to do about this
-> 
-> The current -mm tree may be found at http://userweb.kernel.org/~akpm/mmotm/
-> 
-> ------------------------------------------------------
-> Subject: ehea: fix DLPAR memory handling
-> From: Hannes Hering <hannes.hering@gmx.de>
-> 
-> The ehea busmap must be allocated only once in the first of many calls of the
-> ehea_create_busmap_callback.
-> 
-> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/ehea/ehea_qmr.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff -puN drivers/net/ehea/ehea_qmr.c~ehea-fix-dlpar-memory-handling drivers/net/ehea/ehea_qmr.c
-> --- a/drivers/net/ehea/ehea_qmr.c~ehea-fix-dlpar-memory-handling
-> +++ a/drivers/net/ehea/ehea_qmr.c
-> @@ -595,7 +595,8 @@ static int ehea_create_busmap_callback(u
->  	end_section = start_section + ((nr_pages * PAGE_SIZE) / EHEA_SECTSIZE);
->  	mr_len = *(unsigned long *)arg;
->  
-> -	ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
-> +	if (!ehea_bmap)
-> +		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
->  	if (!ehea_bmap)
->  		return -ENOMEM;
->  
-> _
-> 
-> Patches currently in -mm which might be from hannes.hering@gmx.de are
-> 
-> ehea-fix-dlpar-memory-handling.patch
-> ehea-enable-dlpar-memory-remove.patch
->
+| #if (HZ >= 500)
+| # define TFRC_T_DELTA		   USEC_PER_MSEC
+| #else
+| # define TFRC_T_DELTA		   (USEC_PER_SEC / (2 * HZ))
+| #warning Coarse CONFIG_HZ resolution -- higher value recommended for TFRC.
+| #endif
+| 
+| Don't warn about crap like this, instead convert the code over to hrtimers.
+| 
+| This kernel being built, even with HZ=100, can do nanosecond timers on
+| my systems, but that's only if you would make proper use of them.
+| 
+The present sk_timer implementation uses the algorithm from RFC 3448. I
+did not want to blindly port it to hrtimer since so far the following
+difficulties were in the way:
+
+ * when using the algorithm from RFC 3448, 4.6 directly with hrtimers,
+   a large burst of activity will result, especially on fast links;
+
+ * I have doubts whether it will help: each time the precision is improved,
+   more frantic high-frequency noise results in CCID-3:
+   - at some time socket timestamps were suggested for better RTT measurement,
+     it proved better to reduce the precision to taking timestamps within the
+     DCCP module (smoother response and also includes slow receiver);
+   - even with that, on Gigabit Ethernet zero-RTT samples still occur;
+   - one of the above patches updates CCID-3 to track the sending rate X_recv 
+     with higher frequency. There seems to be not much benefit, when comparing
+     the sender plots, the amount of high-frequency noise in X_recv has
+     increased after increasing the frequency of updating;
+
+ * some people have suggested to use a timerless algorithm instead which 
+   would just control the number of packets per time. This would require
+   rewriting some of the infrastructure (with benefits), it would use
+   hrtimers for measuring the time intervals. 
