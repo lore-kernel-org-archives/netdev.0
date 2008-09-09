@@ -1,69 +1,47 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth fixes for 2.6.27
-Date: Tue, 9 Sep 2008 04:04:02 +0200
-Message-ID: <0E7517ED-A2C3-4DFB-9733-0DAEA82F3815@holtmann.org>
-References: <1220910837.11655.28.camel@californication> <20080908.170516.176909371.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v928.1)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: + e1000e-prevent-corruption-of-eeprom-nvm.patch added to -mmtree
+Date: Mon, 8 Sep 2008 19:20:37 -0700
+Message-ID: <B27EBC40D200ED48A3F4CC2EBEABAE0B1505CCBE@orsmsx501.amr.corp.intel.com>
+References: <200809021919.m82JJweC008488@imap1.linux-foundation.org>
+ <36D9DB17C6DE9E40B059440DB8D95F5206051BF7@orsmsx418.amr.corp.intel.com>
+ <1220429845.32688.182.camel@bodhitayantram.eng.vmware.com>
+ <200809032104.49092.arvidjaar@mail.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Qicheng Christopher Li <chrisl@vmware.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrey Borzenkov <arvidjaar@mail.ru>,
+	Zachary Amsden <zach@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54820 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbYIICEI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 22:04:08 -0400
-In-Reply-To: <20080908.170516.176909371.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:43457 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751412AbYIICVA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 22:21:00 -0400
+In-Reply-To: <200809032104.49092.arvidjaar@mail.ru>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+8254x is not supported in e1000e however it is supported in e1000.  It is understandable that such a fix is needed (in e1000) for these older parts that did not have anyway of protecting EEPROM reads/writes as Jesse described in a previous email, but newer parts (supported in e1000e) have alternate methods of protection making the spinlock unnecessary.  There is no evidence the recent NVM/EEPROM corruptions on ICHx-based platforms (in e1000e) are due to the same issue resolved by the proposed fix used in VMware for 8254x parts.
 
->> The second patch fixes the authentication requirements. We do have to
->> separate between service discovery and actual profile channels.  
->> This is
->> a clear requirement of the Bluetooth Security Mode 4 introduced  
->> with the
->> addition of the Simple Pairing support. Not fixing this will result  
->> in
->> broken behavior when doing service discovery with Simple Pairing  
->> enabled
->> devices.
->
-> What regression reported by a user is fixed by this?
->
-> This does not look like it is appropriate outside of the merge window.
+I'm currently investigating this issue and hope to have something soon.
 
-the regression is that with Bluetooth 2.0 and before we always were  
-allowing service discovery (SDP) connection without any bonding  
-requirement. This is still true, but with Bluetooth 2.1 enabled  
-devices it can now happen that we have to do a full pairing procedure.  
-For SDP it should be at least using pairing with a just-works model  
-with the no bonding requirement, while the other PSM channels (RFCOMM,  
-BNEP etc.) should use generic bonding. We would now always use generic  
-bonding (even for SDP).
+-----Original Message-----
+From: Andrey Borzenkov [mailto:arvidjaar@mail.ru]
+Sent: Wednesday, September 03, 2008 10:05 AM
+To: Zachary Amsden
+Cc: Brandeburg, Jesse; Qicheng Christopher Li; akpm@linux-foundation.org; Allan, Bruce W; jeff@garzik.org; Kirsher, Jeffrey T; Ronciak, John; Waskiewicz Jr, Peter P; netdev@vger.kernel.org
+Subject: Re: + e1000e-prevent-corruption-of-eeprom-nvm.patch added to -mmtree
 
-The number of users are still limited to a few people actually testing  
-with 2.1 hardware. These are mainly people working on 2.1 enabled  
-products. However with the new MacBooks and the EeePC 901 we do have  
-devices with Bluetooth 2.1 chips available for everybody.
+On Wednesday 03 September 2008, Zachary Amsden wrote:
+> I'm sorry, we have no way to reproduce this, don't know anything about
+> the hardware the customer was using
 
-This is clearly an oversight on my hand when developing the initial  
-Simple Pairing patches that I submitted for 2.6.27-rc1 and I only  
-found it when we tested against the official Bluetooth 2.1 test system.
-
-This patch also fixes the issue when we for example wanna connect a  
-BNEP connection with a 2.1 device. The requirement is that this has to  
-be secure. However without this patch it pairs it during ACL  
-connection setup and then again to ensure the man-in-the-middle  
-protection. This decreases the connection setup time since the 2.1 key  
-generation procedure takes 3-5 seconds and doing this twice is an  
-significant penalty compared to 2.0 and before devices.
-
-I think it is appropriate outside the merge window, but if you don't  
-think so, I gonna pull that patch and only submit the other two.
-
-Regards
-
-Marcel
-
+According to my information bug affects LAN controllers based on Intel 8254x GBe chipset. Of course, I do not claim it is exhaustive list.
