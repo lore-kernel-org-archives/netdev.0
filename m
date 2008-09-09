@@ -1,50 +1,51 @@
-From: David Miller <davem@davemloft.net>
+From: Chris Snook <csnook@redhat.com>
 Subject: Re: RFC: Nagle latency tuning
-Date: Mon, 08 Sep 2008 22:17:42 -0700 (PDT)
-Message-ID: <20080908.221742.02572583.davem@davemloft.net>
-References: <48C59F75.6030504@redhat.com>
-	<48C5A9A9.9040503@hp.com>
-	<48C6052D.2080203@redhat.com>
+Date: Tue, 09 Sep 2008 01:22:43 -0400
+Message-ID: <48C60823.9000505@redhat.com>
+References: <48C59F75.6030504@redhat.com> <87ljy2tfgi.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
-To: csnook@redhat.com
+Cc: Netdev <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48475
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751571AbYIIFRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 01:17:48 -0400
-In-Reply-To: <48C6052D.2080203@redhat.com>
+Received: from mx2.redhat.com ([66.187.237.31]:33944 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750861AbYIIFYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 01:24:22 -0400
+In-Reply-To: <87ljy2tfgi.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Snook <csnook@redhat.com>
-Date: Tue, 09 Sep 2008 01:10:05 -0400
+Andi Kleen wrote:
+> Christopher Snook <csnook@redhat.com> writes:
+>> I'm afraid I don't know the TCP stack intimately enough to understand
+>> what side effects this might have.  Can someone more familiar with the
+>> nagle implementations please enlighten me on how this could be done,
+>> or why it shouldn't be?
+> 
+> The nagle delay you're seeing is really the delayed ack delay which
+> is variable on Linux (unlike a lot of other stacks). Unfortunately
+> due to the way delayed ack works on other stacks (especially traditional
+> BSD with its fixed 200ms delay) there are nasty interactions with that. 
+> Making it too short could lead to a lot more packets even in non nagle 
+> situations.
 
-> This is open to debate, but there are certainly a great many apps
-> doing a great deal of very important business that are subject to
-> this problem to some degree.
+How variable is it?  I've never seen any value other than 40 ms, from 
+2.4.21 to the latest rt kernel.  I've tweaked every TCP tunable in 
+/proc/sys/net/ipv4, to no effect.
 
-Let's be frank and be honest that we're talking about message passing
-financial service applications.
+The people who would care enough to tweak this would be more than happy 
+to accept an increase in the number of packets.  They're usually asking 
+us to disable the behavior completely, so if we can let them tune the 
+middle-ground, they can test in their environments to decide what values 
+their network peers will tolerate.  I have no interest in foisting this 
+on the unsuspecting public.
 
-And I specifically know that the problem they run into is that the
-congestion window doesn't open up because of Nagle _AND_ the fact that
-congestion control is done using packet counts rather that data byte
-totals.  So if you send lots of small stuff, the window doesn't open.
-Nagle just makes this problem worse, rather than create it.
+> Ok in theory you could split the two, but that would likely have
+> other issues and also make nagle be a lot less useful.
 
-And we have a workaround for them, which is a combination of the
-tcp_slow_start_after_idle sysctl in combination with route metrics
-specifying the initial congestion window value to use.
+Perhaps a messaging-optimized non-default congestion control algorithm 
+would be a suitable way of addressing this?
 
-I specifically added that sysctl for this specific situation.
-
-Really, the situation here is well established and I highly encourage
-you to take a deeper look into the actual problems being hit, and show
-us some specific traces we can analyze properly if the problem is still
-there.
-
-Otherwise we're just shooting into the wind without any specifics to
-work on whatsoever.
+-- Chris
