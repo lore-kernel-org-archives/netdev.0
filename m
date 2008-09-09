@@ -1,59 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
- feature-negotiation patches
-Date: Tue, 09 Sep 2008 05:15:46 -0700 (PDT)
-Message-ID: <20080909.051546.193801654.davem@davemloft.net>
-References: <20080909080911.GA9176@gerrit.erg.abdn.ac.uk>
-	<20080909.015720.204027435.davem@davemloft.net>
-	<20080909115948.GA3551@gerrit.erg.abdn.ac.uk>
+Subject: Re: RFC: Nagle latency tuning
+Date: Tue, 09 Sep 2008 05:19:45 -0700 (PDT)
+Message-ID: <20080909.051945.161060171.davem@davemloft.net>
+References: <20080909103137.GD31314@sirena.org.uk>
+	<20080909.050500.200863990.davem@davemloft.net>
+	<20080909120933.GE31314@sirena.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: csnook@redhat.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: broonie@sirena.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35597
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39585
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753325AbYIIMPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 08:15:53 -0400
-In-Reply-To: <20080909115948.GA3551@gerrit.erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1751606AbYIIMTw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 08:19:52 -0400
+In-Reply-To: <20080909120933.GE31314@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Tue, 9 Sep 2008 13:59:48 +0200
+From: Mark Brown <broonie@sirena.org.uk>
+Date: Tue, 9 Sep 2008 13:09:34 +0100
 
-> Let's keep this clean and simple. There has been a mistake here and it
-> needs to be fixed. It does not help to argue loudly whose fault it was.
+> On Tue, Sep 09, 2008 at 05:05:00AM -0700, David Miller wrote:
+> > From: Mark Brown <broonie@sirena.org.uk>
 > 
-> Please consider pulling from
+> > > FWIW the problem with this and some other mails you raised this on
+> > > recently is that they're sent with format=folowed which tells the
+> > > receiving MUA that it's OK to reflow the text to fit the display.
 > 
-> 	git://eden-feed.erg.abdn.ac.uk/net-next-2.6	 [subtree `master']
-> 	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-next-2.6.git;a=summary
+> > I'll have to see why MEW isn't handling that correctly then,
+> > it even claims to support this in the version I am using :)
 > 
-> where I have reverted the pull and compile-tested the result. 
+> Handling it correctly is probably the problem - if it's working as
+> expected then when your window is wide enough to display lines longer
+> than 80 columns it'll go ahead and reflow the text to fill the window.
 
-I hate to have a turd like this in the history, but fine I pulled this :-/
+I'm using a VC console screen ~160 characters long, and many lines
+were wrapped instead of flowed.
 
-I may have to rebase net-next-2.6 after all, this is revoltingly ugly...
+Emacs puts a special character at the end of the line when it has to be
+wrapped, and I saw those when viewing the mails in quesiton.
 
-This is exactly what I didn't want Gerrit, a royally screwed up GIT
-history because of the mistake.  It's WORSE now with the revert.
-Can't you see that?  That's why I asked for fixup changesets, rather
-than a revert.
-
-I would have rather you sent me a small set of fixup patches that
-cured whatever problems were in those changes.  That would have shown
-the development history.
-
-Now we're just going to have crap.  A large set of changes going in, then
-one huge revert, and nobody will ever get to see exactly what happened
-in between.
-
-I've had enough.
-
-I'd like to get the DCCP changes through someone else, please.
-Someone willing to learn to use GIT properly.  Someone who understands
-how important it is to keep the GIT history clean and not put a lot of
-noise into the tree.  Someone who has the time to do this right and I
-can trust.
+When I see that character when reading emails, my blood starts to boil :)
