@@ -1,35 +1,29 @@
-From: "Zsolt SZALAI" <zs.szalai@gmail.com>
-Subject: [IPSEC] confused about IPSEC_MANUAL_REQID_MAX
-Date: Tue, 9 Sep 2008 13:00:25 +0200
-Message-ID: <dffc28000809090400l9617cfejc2607c6b3767417@mail.gmail.com>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: Re: RFC: Nagle latency tuning
+Date: Tue, 9 Sep 2008 11:31:38 +0100
+Message-ID: <20080909103137.GD31314@sirena.org.uk>
+References: <48C6052D.2080203@redhat.com> <20080908.221742.02572583.davem@davemloft.net> <48C60FFC.8090109@redhat.com> <20080908.230221.101659829.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: csnook@redhat.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:35803 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751038AbYIILA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 07:00:26 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1978331wfd.4
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2008 04:00:26 -0700 (PDT)
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:1456 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751977AbYIILK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 07:10:56 -0400
 Content-Disposition: inline
+In-Reply-To: <20080908.230221.101659829.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Mon, Sep 08, 2008 at 11:02:21PM -0700, David Miller wrote:
+> From: Chris Snook <csnook@redhat.com>
+> Date: Tue, 09 Sep 2008 01:56:12 -0400
 
-ipsec.h defines IPSEC_MANUAL_REQID_MAX as 0x3fff (16383) and only
-af_key.c, the PF_KEY implementation uses that. When configuring a
-policy with a higher reqid, the kernel drops the manually given reqid
-and generates a new one.
-Contrarily, XFRM allows one to create policies with higher reqid-s and
-this is some inconsistency i guess.
-I could not find any note on generating reqids in the pf_key rfc. From
-where is that come from? Is it really necessary?
+> [ Please hit enter every 80 columns or so, your emails are
+>   unreadable until I reformat your text by hand, thanks. ]
 
-As XFRM allows, is it safe to increase this value or even bypass the
-checking of the reqid beeing higher than that?
-
-Thanks,
-Zsolt Szalai
+FWIW the problem with this and some other mails you raised this on
+recently is that they're sent with format=folowed which tells the
+receiving MUA that it's OK to reflow the text to fit the display.
