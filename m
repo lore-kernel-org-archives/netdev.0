@@ -1,34 +1,51 @@
-From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after some time
-Date: Tue, 09 Sep 2008 08:52:05 +0200
-Message-ID: <63ca0b47d6921cd641bb3ca26ab20baa@chewa.net>
-References: <20080902150008.GD7289@schleppi.birkenwald.de> <OF604A6380.9CF7D18A-ON882574BF.000171B8-882574BF.00031DB5@us.ibm.com> <20080909003852.GA20315@pest>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 05/33] netns ct: per-netns expectations
+Date: Tue, 9 Sep 2008 11:07:26 +0400
+Message-ID: <20080909070726.GD5786@x200.localdomain>
+References: <48C01046.2070704@trash.net> <1220842990-30500-5-git-send-email-adobriyan@gmail.com> <48C60E6E.5080905@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
-To: Bernhard Schmidt <berni@birkenwald.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:41805 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755159AbYIIGwG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 02:52:06 -0400
-In-Reply-To: <20080909003852.GA20315@pest>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <48C60E6E.5080905@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Sep 09, 2008 at 07:49:34AM +0200, Patrick McHardy wrote:
+> Alexey Dobriyan wrote:
+>> Make per-netns a) expectation hash and b) expectations count.
+>>
+>> Expectations always belongs to netns to which it's master conntrack belong.
+>> This is natural and doesn't bloat expectation.
+>>
+>> Proc files and leaf users are stubbed to init_net, this is temporary.
+>
+> Looks fine, applied.
+>
+>> @@ -406,7 +404,7 @@ int nf_ct_expect_related(struct nf_conntrack_expect *expect)
+>>  		}
+>>  	}
+>>  -	if (nf_ct_expect_count >= nf_ct_expect_max) {
+>> +	if (net->ct.expect_count >= nf_ct_expect_max) {
+>>  		if (net_ratelimit())
+>>  			printk(KERN_WARNING
+>>  			       "nf_conntrack: expectation table full\n");
+>
+> I assume these message are globally visible even with namespaces?
+> Can we make this (and the corresponding ct hash message) refer to
+> the namespace? Otherwise it might be a bit confusing.
 
-On Tue, 9 Sep 2008 02:38:53 +0200, Bernhard Schmidt <berni@birkenwald.d=
-e>=0D
-wrote:=0D
-> ff00::/8 dev teredo  metric 256  mtu 1280 advmss 1220 hoplimit 429496=
-7295=0D
-               ^^^^^^=0D
-Uho... that interface is not multicast-capable. Not sure how the kernel=
-=0D
-handles the conflicting routes.=0D
-=0D
--- =0D
-R=C3=A9mi Denis-Courmont
+This is somewhat peculiar situation.
 
+netns doesn't have unique ID like, say, ifindex.
+
+The only number related to netns is "struct net *". They can be
+distinguised by pointer value, but userspace when does clone(CLONE_NEWNET)
+do not, obviously, control it and after creation doesn't have a way to find
+it out.
+
+And if we print with "%p, net" kernelspace pointer get exposed which is
+not nice.
