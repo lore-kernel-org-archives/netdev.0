@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: Nagle latency tuning
-Date: Tue, 09 Sep 2008 12:59:34 -0700 (PDT)
-Message-ID: <20080909.125934.150042096.davem@davemloft.net>
-References: <48C6052D.2080203@redhat.com>
-	<87zlmhs7we.fsf@basil.nowhere.org>
-	<48C6C300.4050102@redhat.com>
+Subject: Re: Internet-Draft on Port Randomisation
+Date: Tue, 09 Sep 2008 13:04:24 -0700 (PDT)
+Message-ID: <20080909.130424.170861701.davem@davemloft.net>
+References: <28fa9c5e0809082107p7a33dc4fod344fde212e1d710@mail.gmail.com>
+	<48C60284.2070402@vyatta.com>
+	<878wu1tmup.fsf@basil.nowhere.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, rick.jones2@hp.com, netdev@vger.kernel.org
-To: csnook@redhat.com
+Cc: stephen.hemminger@vyatta.com, eugeneteo@kernel.sg,
+	netdev@vger.kernel.org, eteo@redhat.com
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41792
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51749
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757194AbYIIT7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 15:59:40 -0400
-In-Reply-To: <48C6C300.4050102@redhat.com>
+	by vger.kernel.org with ESMTP id S1755059AbYIIUEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 16:04:30 -0400
+In-Reply-To: <878wu1tmup.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andi Kleen <andi@firstfloor.org>
+Date: Tue, 09 Sep 2008 16:28:30 +0200
 
-Still waiting for your test program and example traces Chris.
+> [haven't read the draft] But you don't necessarily need a full global
+> lock for such a scheme. What works too is to access global state only
+> ever N accesses and pre-allocate a small range per CPU. While there's
+> still some global overhead then, it happens significantly less. My old
+> alternative ipid setup algorithm worked this way.
 
-Until I see that there really isn't anything more I can contribute
-concretely to this discussion.
+Should work well on a 64K cpu system.
