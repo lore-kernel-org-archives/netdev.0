@@ -1,47 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth fixes for 2.6.27
-Date: Mon, 08 Sep 2008 17:05:16 -0700 (PDT)
-Message-ID: <20080908.170516.176909371.davem@davemloft.net>
-References: <1220910837.11655.28.camel@californication>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] Control Group Classifier
+Date: Tue, 9 Sep 2008 02:06:27 +0200
+Message-ID: <20080909000627.GF20815@postel.suug.ch>
+References: <20080908115101.GE20815@postel.suug.ch> <166fe7950809081428k2e1ba24crd54e66aa027f9998@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Paul Menage <menage@google.com>
+To: Ranjit Manomohan <ranjitm@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38813
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753904AbYIIAFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 20:05:23 -0400
-In-Reply-To: <1220910837.11655.28.camel@californication>
+Received: from postel.suug.ch ([194.88.212.233]:55336 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754606AbYIIAGI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2008 20:06:08 -0400
+Content-Disposition: inline
+In-Reply-To: <166fe7950809081428k2e1ba24crd54e66aa027f9998@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Mon, 08 Sep 2008 23:53:57 +0200
+* Ranjit Manomohan <ranjitm@google.com> 2008-09-08 14:28
+> Wouldn't this cause a lot of packets (like acks)  to be incorrectly
+> classifed to the current tasks cgroup although it may not have
+> anything to do with them? That is the reason I chose to put the
+> classid into the socket at creation time.
 
-> The first patch is a clear regression that got introduced with
-> 2.6.27-rc1 when adding Simple Pairing support. I forgot to decrease the
-> reference count on an incoming ACL link. This patch actually makes the
-> code simpler.
+In its current form, it does not work if the packet is rescheduled
+or not sent in the context of a process. Such packets simply end
+up not being classified at all. In the most common case, the packet
+is not queued before it hits the qdisc so this takes away a lot of
+complexity and is very fast but should still be sufficient.
 
-This is OK.
-
-> The second patch fixes the authentication requirements. We do have to
-> separate between service discovery and actual profile channels. This is
-> a clear requirement of the Bluetooth Security Mode 4 introduced with the
-> addition of the Simple Pairing support. Not fixing this will result in
-> broken behavior when doing service discovery with Simple Pairing enabled
-> devices.
-
-What regression reported by a user is fixed by this?
-
-This does not look like it is appropriate outside of the merge window.
-
-> The third patch rejects insecure incoming connections. This is a clear
-> security issues since we can't rely on the initiator doing the right
-> thing and establishing an encrypted link. Malicious devices would just
-> skip that step and in that case we have to reject connection attempt
-> without going into the connection phase at all.
-
-This is OK.
+Alternatively I also thought about doing a socket lookup in the
+classifier (if !skb->sk) and store the classid in the socket. This
+would add more flexibility and work for ingress traffic whitout
+adding pollution to the sk_buff. It adds a heavy operation to the
+classification process though as it would probably require a lock.
