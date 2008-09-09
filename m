@@ -1,29 +1,39 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 04/33] Fix {ip,6}_route_me_harder() in netns
-Date: Tue, 09 Sep 2008 07:44:30 +0200
-Message-ID: <48C60D3E.1060802@trash.net>
-References: <48C01046.2070704@trash.net> <1220842990-30500-4-git-send-email-adobriyan@gmail.com>
+Subject: Re: [PATCH 05/33] netns ct: per-netns expectations
+Date: Tue, 09 Sep 2008 07:49:34 +0200
+Message-ID: <48C60E6E.5080905@trash.net>
+References: <48C01046.2070704@trash.net> <1220842990-30500-5-git-send-email-adobriyan@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	containers@lists.linux-foundation.org
 To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62155 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925AbYIIFod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 01:44:33 -0400
-In-Reply-To: <1220842990-30500-4-git-send-email-adobriyan@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1220842990-30500-5-git-send-email-adobriyan@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Alexey Dobriyan wrote:
-> Take netns from skb->dst->dev. It should be safe because, they are called
-> from LOCAL_OUT hook where dst is valid (though, I'm not exactly sure about
-> IPVS and queueing packets to userspace).
+> Make per-netns a) expectation hash and b) expectations count.
+> 
+> Expectations always belongs to netns to which it's master conntrack belong.
+> This is natural and doesn't bloat expectation.
+> 
+> Proc files and leaf users are stubbed to init_net, this is temporary.
 
-Its safe in all cases since they already expect to only get
-called when skb->dst is valid.
+Looks fine, applied.
 
-Applied, thanks.
+> @@ -406,7 +404,7 @@ int nf_ct_expect_related(struct nf_conntrack_expect *expect)
+>  		}
+>  	}
+>  
+> -	if (nf_ct_expect_count >= nf_ct_expect_max) {
+> +	if (net->ct.expect_count >= nf_ct_expect_max) {
+>  		if (net_ratelimit())
+>  			printk(KERN_WARNING
+>  			       "nf_conntrack: expectation table full\n");
+
+I assume these message are globally visible even with namespaces?
+Can we make this (and the corresponding ct hash message) refer to
+the namespace? Otherwise it might be a bit confusing.
