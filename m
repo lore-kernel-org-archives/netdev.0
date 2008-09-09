@@ -1,74 +1,132 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: Extend smc911x to support LAN921x chips - differences?
-Date: Tue, 9 Sep 2008 16:26:35 +0100
-Message-ID: <OFFEAB9876.D4A121DB-ON802574BF.0052D905-802574BF.0054D4AE@smsc.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Bugme-new] [Bug 11469] New: TUN with 1024 neighbours:
+	ip6_dst_lookup_tail NULL crash
+Date: Tue, 9 Sep 2008 11:39:55 -0400
+Message-ID: <20080909153955.GD5991@hmsreliant.think-freely.org>
+References: <20080831111304.d57b9f5a.akpm@linux-foundation.org> <20080907181109.GA2466@2ka.mipt.ru> <200809072119.50307.rdenis@simphalempin.com> <20080908.131547.26037628.davem@davemloft.net> <20080909113215.GB5991@hmsreliant.think-freely.org> <20080909143105.GA24239@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, Ian.Saturley@smsc.com
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, rdenis@simphalempin.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:1264 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754786AbYIIP1D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 11:27:03 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56111 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753128AbYIIPmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 11:42:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20080909143105.GA24239@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Guennadi,
-
-> I have to support the LAN9215 chip from SMSC under Linux. Of course, 
-there 
-> is the manufacturer provided smsc911x driver, that supports both chip 
-> families, but I would prefer to extend the mainline smc911x driver to 
-also 
-> support 921x. I have both datasheets, they are freely downloadable from 
-> SMSC site, and I have both drivers, but they are absolutely different. 
-To 
-> make my decision and the work easier - maybe someone knows from the top 
-of 
-> their head, what the relevant differences between the chips are?
+On Tue, Sep 09, 2008 at 06:31:05PM +0400, Evgeniy Polyakov wrote:
+> Hi.
 > 
-> The vendor driver does not really differentiate between the chips. It 
-does 
-> read the chip version, and sets the "generation" variable, but then that 
+> On Tue, Sep 09, 2008 at 07:32:15AM -0400, Neil Horman (nhorman@tuxdriver.com) wrote:
+> > +	/*
+> > +	 * Here if the dst entry we've looked up
+> > +	 * has a neighbour entry that is in the INCOMPLETE
+> > +	 * state and the src address from the flow is
+> > +	 * marked as OPTIMISTIC, we release the found
+> > +	 * dst entry and replace it instead with the
+> > +	 * dst entry of the nexthop router
+> > +	 */
+> > +	if (dst->neighbour && !((*dst)->neighbour->nud_state & NUD_VALID)) {
+>             ^^^
+> This should be (*dst)->neighbour, isn't it?
+> 
+Dang it, yes it should.  Sorry.
 
-> variable is only used once to rule out the oldest chips, which anyway 
-are 
-> not supported by smc911x. So I tried the in-kernel driver with only 
-added 
-> chip IDs added, it can access registers, read and write the MAC-address, 
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-> interrupts are generated too, but so far I see nothing on the wire, and 
-> the PHY reports "link down".
 
-Did you have the in-tree driver succesfully working with LAN9115?
+ ip6_output.c |   64 +++++++++++++++++++++++++++++------------------------------
+ 1 file changed, 32 insertions(+), 32 deletions(-)
 
-The only hardware difference between the two is that LAN921[5678] has an
-Auto-MDIX PHY.  This adds a configuration bit in one of the 
-vendor-specific
-PHY registers to force the feature off, but it defaults to Auto-MDIX 
-enabled.
-All of the SCR and MAC registers (and the remaining PHY registers) are 
-*identical*, so any working driver should just need the ID register
-changing to recognise the newer part.
 
-Early revisions of LAN911X had a hardware bug which is most commonly
-experienced when joining/leaving multicast groups.  The smsc911x driver
-contains a workaround for this, but the in-tree driver does not.  LAN921X
-came after this was fixed in hardware, so this workaround is not 
-necessary.
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index a4402de..e6671bd 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -943,39 +943,39 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 	}
+ 
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+-		/*
+-		 * Here if the dst entry we've looked up
+-		 * has a neighbour entry that is in the INCOMPLETE
+-		 * state and the src address from the flow is
+-		 * marked as OPTIMISTIC, we release the found
+-		 * dst entry and replace it instead with the
+-		 * dst entry of the nexthop router
+-		 */
+-		if (!((*dst)->neighbour->nud_state & NUD_VALID)) {
+-			struct inet6_ifaddr *ifp;
+-			struct flowi fl_gw;
+-			int redirect;
+-
+-			ifp = ipv6_get_ifaddr(net, &fl->fl6_src,
+-					      (*dst)->dev, 1);
+-
+-			redirect = (ifp && ifp->flags & IFA_F_OPTIMISTIC);
+-			if (ifp)
+-				in6_ifa_put(ifp);
+-
+-			if (redirect) {
+-				/*
+-				 * We need to get the dst entry for the
+-				 * default router instead
+-				 */
+-				dst_release(*dst);
+-				memcpy(&fl_gw, fl, sizeof(struct flowi));
+-				memset(&fl_gw.fl6_dst, 0, sizeof(struct in6_addr));
+-				*dst = ip6_route_output(net, sk, &fl_gw);
+-				if ((err = (*dst)->error))
+-					goto out_err_release;
+-			}
++	/*
++	 * Here if the dst entry we've looked up
++	 * has a neighbour entry that is in the INCOMPLETE
++	 * state and the src address from the flow is
++	 * marked as OPTIMISTIC, we release the found
++	 * dst entry and replace it instead with the
++	 * dst entry of the nexthop router
++	 */
++	if ((*dst)->neighbour && !((*dst)->neighbour->nud_state & NUD_VALID)) {
++		struct inet6_ifaddr *ifp;
++		struct flowi fl_gw;
++		int redirect;
++
++		ifp = ipv6_get_ifaddr(net, &fl->fl6_src,
++				      (*dst)->dev, 1);
++
++		redirect = (ifp && ifp->flags & IFA_F_OPTIMISTIC);
++		if (ifp)
++			in6_ifa_put(ifp);
++
++		if (redirect) {
++			/*
++			 * We need to get the dst entry for the
++			 * default router instead
++			 */
++			dst_release(*dst);
++			memcpy(&fl_gw, fl, sizeof(struct flowi));
++			memset(&fl_gw.fl6_dst, 0, sizeof(struct in6_addr));
++			*dst = ip6_route_output(net, sk, &fl_gw);
++			if ((err = (*dst)->error))
++				goto out_err_release;
+ 		}
++	}
+ #endif
+ 
+ 	return 0;
+> -- 
+> 	Evgeniy Polyakov
+> 
 
-The vast majority of users i've worked with have ended up using the
-out-of-tree smsc911x driver, as it "just works" on many platforms.
-I'll be re-submitting another candidate when I've finished working on the
-LAN9500 USB ethernet driver, but for now the latest submission:
-
-http://marc.info/?l=linux-netdev&m=121240395122475&w=2
-
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
