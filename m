@@ -1,120 +1,397 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
- feature-negotiation patches
-Date: Tue, 09 Sep 2008 01:57:20 -0700 (PDT)
-Message-ID: <20080909.015720.204027435.davem@davemloft.net>
-References: <20080904061511.GA30756@gerrit.erg.abdn.ac.uk>
-	<20080908.173250.204419507.davem@davemloft.net>
-	<20080909080911.GA9176@gerrit.erg.abdn.ac.uk>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] Control Group Classifier
+Date: Tue, 9 Sep 2008 10:58:40 +0200
+Message-ID: <20080909085840.GG20815@postel.suug.ch>
+References: <20080908115101.GE20815@postel.suug.ch> <166fe7950809081428k2e1ba24crd54e66aa027f9998@mail.gmail.com> <20080909000627.GF20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Paul Menage <menage@google.com>
+To: Ranjit Manomohan <ranjitm@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60514
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753951AbYIII51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 04:57:27 -0400
-In-Reply-To: <20080909080911.GA9176@gerrit.erg.abdn.ac.uk>
+Received: from postel.suug.ch ([194.88.212.233]:40328 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753471AbYIII6U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 04:58:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20080909000627.GF20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Tue, 9 Sep 2008 10:09:11 +0200
-
-> | > This is an update with regard to Wei's comments. I have re-synched 
-> | > 
-> | > 	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[subtree `dccp']
-> | > 	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=shortlog;h=dccp
-> | > 
-> | > Also did some testing with a client that only supports CCID 2/3 talking to a client supporting
-> | > CCID 2/3/4. They could still negotiate and settle for a common CCID.
-> | 
-> Sorry the above includes the whole dccp test tree, over and above the
-> feature negotiation. We have been waiting for Arnaldo and there was a
-> phase where people sent comments about this patch set, so I had not
-> prepared a second net-next-2.6 pull request for this patch set yet.
+* Thomas Graf <tgraf@suug.ch> 2008-09-09 02:06
+> * Ranjit Manomohan <ranjitm@google.com> 2008-09-08 14:28
+> > Wouldn't this cause a lot of packets (like acks)  to be incorrectly
+> > classifed to the current tasks cgroup although it may not have
+> > anything to do with them? That is the reason I chose to put the
+> > classid into the socket at creation time.
 > 
-> If you want to revert this, I will prepare a net-next-2.6 clone with
-> just the revised 37 patches from this set.
-> 
-> Otherwise some parts (as below) need to be modified.
+> In its current form, it does not work if the packet is rescheduled
+> or not sent in the context of a process. Such packets simply end
+> up not being classified at all. In the most common case, the packet
+> is not queued before it hits the qdisc so this takes away a lot of
+> complexity and is very fast but should still be sufficient.
 
-Just send me whatever fixup patches are needed as another pull request.
+Sorry, I just noticed that I actually missed to add the in_softirq()
+check to the classification function. It only existed in my mind ;-)
+Thanks for pointing this out!
 
-I realize your time is limited, but SO IS MINE, and this bogon GIT
-tree you asked me to pull from is just one in a long line of time
-consuming exercises you've put me through ever since taking over DCCP
-maintainence.
+Here is an updated patch with the classify function slightly changed.
 
-And when you crap up net-next-2.6 you effect other people doing
-networking work too, not just me and you.  You also effect everyone
-trying to test the -next tree since net-next-2.6 gets sucked into
-there every day.
-
-You can't seem to get the whole review process right, yet it's the
-most important aspect of getting changes into the tree.  It's 1,000
-times more important that implementing the code in the first place.
-
-For starters, you don't dump 30 or 40 patches on people's laps for
-review.  You give them 5, maybe 10, at a time.  And you submit them
-when you write them, so that you don't have to rewrite everything
-after the ones that need fixups.
-
-And once you've submitted a large chunk of changes like you did this
-time, you've worn out your reviewer pool, and they'll need a long
-recovery period before they can devote time to looking at this stuff
-again.
-
-> | Don't warn about crap like this, instead convert the code over to hrtimers.
-> | 
-> | This kernel being built, even with HZ=100, can do nanosecond timers on
-> | my systems, but that's only if you would make proper use of them.
-> | 
-> The present sk_timer implementation uses the algorithm from RFC 3448. I
-> did not want to blindly port it to hrtimer since so far the following
-> difficulties were in the way:
-> 
->  * when using the algorithm from RFC 3448, 4.6 directly with hrtimers,
->    a large burst of activity will result, especially on fast links;
-> 
->  * I have doubts whether it will help: each time the precision is improved,
->    more frantic high-frequency noise results in CCID-3:
-
-To me this is just pure bullshit, I'm sorry to say.
-
-A warning gets added that barks at the person compiling this stuff
-saying: "YOUR TIMER ISN'T ACCURATE ENOUGH" and now you're telling me
-your concerned that hrtimers might give too much accuracy.
-
-Which is it?
-
-Lower limit the hrtimer interval, or make it as course as you damn
-well need, anything but this pile of excuses.
-
-HZ=100 is extremely common, and there is no reason to bark at people
-about something they can do absolutely nothing about.  Who in the
-world is supposed to act upon that warning?
-
-Yet now everyone building the linux -next tree will see it if their HZ
-is choosen to be low enough and we'll thus get piles of "what's this?"
-queries on all the lists.
-
-Look...
-
-This whole process isn't going smoothly.  You are time limited, and
-the place you are short changing, time wise, appears to be the whole
-submission and review process.  Yet this should be your highest
-priority, far and above implementing even one single line of code.
-
-Now net-next-2.6 is crapped up with an unintentional DCCP pull.  And I
-pushed it out, so I can't just revert this junk, other people use
-net-next-2.6 as their development base.  So if I rebase it, I screw up
-their work.
-
-I totally trusted you, fixed up the merge errors, and figured you
-really must have meant to send me all of that stuff.
-
-This is what happens when you try to manage a huge chunk of changes that
-needed review, all at once.
+Index: net-2.6-next/include/linux/cgroup_subsys.h
+===================================================================
+--- net-2.6-next.orig/include/linux/cgroup_subsys.h	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/include/linux/cgroup_subsys.h	2008-09-08 13:38:47.000000000 +0200
+@@ -48,3 +48,9 @@
+ #endif
+ 
+ /* */
++
++#ifdef CONFIG_NET_CLS_CGROUP
++SUBSYS(net_cls)
++#endif
++
++/* */
+Index: net-2.6-next/include/linux/pkt_cls.h
+===================================================================
+--- net-2.6-next.orig/include/linux/pkt_cls.h	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/include/linux/pkt_cls.h	2008-09-08 13:38:47.000000000 +0200
+@@ -394,6 +394,20 @@
+ 
+ #define TCA_BASIC_MAX (__TCA_BASIC_MAX - 1)
+ 
++
++/* Cgroup classifier */
++
++enum
++{
++	TCA_CGROUP_UNSPEC,
++	TCA_CGROUP_ACT,
++	TCA_CGROUP_POLICE,
++	TCA_CGROUP_EMATCHES,
++	__TCA_CGROUP_MAX,
++};
++
++#define TCA_CGROUP_MAX (__TCA_CGROUP_MAX - 1)
++
+ /* Extended Matches */
+ 
+ struct tcf_ematch_tree_hdr
+Index: net-2.6-next/net/sched/Kconfig
+===================================================================
+--- net-2.6-next.orig/net/sched/Kconfig	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/net/sched/Kconfig	2008-09-08 13:38:47.000000000 +0200
+@@ -307,6 +307,17 @@
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called cls_flow.
+ 
++config NET_CLS_CGROUP
++	tristate "Control Group Classifier"
++	select NET_CLS
++	depends on CGROUPS
++	---help---
++	  Say Y here if you want to classify packets based on the control
++	  cgroup of their process.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called cls_cgroup.
++
+ config NET_EMATCH
+ 	bool "Extended Matches"
+ 	select NET_CLS
+Index: net-2.6-next/net/sched/Makefile
+===================================================================
+--- net-2.6-next.orig/net/sched/Makefile	2008-09-08 13:38:07.000000000 +0200
++++ net-2.6-next/net/sched/Makefile	2008-09-08 13:38:47.000000000 +0200
+@@ -36,6 +36,7 @@
+ obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
+ obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
+ obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
++obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
+ obj-$(CONFIG_NET_EMATCH)	+= ematch.o
+ obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
+ obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
+Index: net-2.6-next/net/sched/cls_cgroup.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6-next/net/sched/cls_cgroup.c	2008-09-09 10:54:06.000000000 +0200
+@@ -0,0 +1,281 @@
++/*
++ * net/sched/cls_cgroup.c	Control Group Classifier
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Thomas Graf <tgraf@suug.ch>
++ */
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <linux/cgroup.h>
++#include <net/rtnetlink.h>
++#include <net/pkt_cls.h>
++
++struct cgroup_cls_state
++{
++	struct cgroup_subsys_state css;
++	u32 classid;
++};
++
++static inline struct cgroup_cls_state *net_cls_state(struct cgroup *cgrp)
++{
++	return (struct cgroup_cls_state *)
++		cgroup_subsys_state(cgrp, net_cls_subsys_id);
++}
++
++static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
++						 struct cgroup *cgrp)
++{
++	struct cgroup_cls_state *cs;
++
++	if (!(cs = kzalloc(sizeof(*cs), GFP_KERNEL)))
++		return ERR_PTR(-ENOMEM);
++
++	if (cgrp->parent)
++		cs->classid = net_cls_state(cgrp)->classid;
++
++	return &cs->css;
++}
++
++static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp)
++{
++	kfree(ss);
++}
++
++static u64 read_classid(struct cgroup *cgrp, struct cftype *cft)
++{
++	return net_cls_state(cgrp)->classid;
++}
++
++static int write_classid(struct cgroup *cgrp, struct cftype *cft, u64 value)
++{
++	if (!cgroup_lock_live_group(cgrp))
++		return -ENODEV;
++
++	net_cls_state(cgrp)->classid = (u32) value;
++
++	cgroup_unlock();
++
++	return 0;
++}
++
++static struct cftype ss_files[] = {
++	{
++		.name = "classid",
++		.read_u64 = read_classid,
++		.write_u64 = write_classid,
++	},
++};
++
++static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp)
++{
++	return cgroup_add_files(cgrp, ss, ss_files, ARRAY_SIZE(ss_files));
++}
++
++struct cgroup_subsys net_cls_subsys = {
++	.name		= "net_cls",
++	.create		= cgrp_create,
++	.destroy	= cgrp_destroy,
++	.populate	= cgrp_populate,
++	.subsys_id	= net_cls_subsys_id,
++};
++
++struct cls_cgroup_head
++{
++	u32			handle;
++	struct tcf_exts		exts;
++	struct tcf_ematch_tree	ematches;
++};
++
++static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
++			       struct tcf_result *res)
++{
++	struct cls_cgroup_head *head = tp->root;
++	struct cgroup_cls_state *cs;
++	int ret = 0;
++
++	if (in_softirq())
++		return -1;
++
++	rcu_read_lock();
++
++	cs = (struct cgroup_cls_state *) task_subsys_state(current,
++							   net_cls_subsys_id);
++	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
++		res->classid = cs->classid;
++		res->class = 0;
++		ret = tcf_exts_exec(skb, &head->exts, res);
++	} else
++		ret = -1;
++
++	rcu_read_unlock();
++
++	return ret;
++}
++
++static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
++{
++	return 0UL;
++}
++
++static void cls_cgroup_put(struct tcf_proto *tp, unsigned long f)
++{
++}
++
++static int cls_cgroup_init(struct tcf_proto *tp)
++{
++	return 0;
++}
++
++static const struct tcf_ext_map cgroup_ext_map = {
++	.action = TCA_CGROUP_ACT,
++	.police = TCA_CGROUP_POLICE,
++};
++
++static const struct nla_policy cgroup_policy[TCA_CGROUP_MAX + 1] = {
++	[TCA_CGROUP_EMATCHES]	= { .type = NLA_NESTED },
++};
++
++static int cls_cgroup_change(struct tcf_proto *tp, unsigned long base,
++			     u32 handle, struct nlattr **tca,
++			     unsigned long *arg)
++{
++	struct nlattr *tb[TCA_CGROUP_MAX+1];
++	struct cls_cgroup_head *head = tp->root;
++	struct tcf_ematch_tree t;
++	struct tcf_exts e;
++	int err;
++
++	if (head == NULL) {
++		if (!handle)
++			return -EINVAL;
++
++		head = kzalloc(sizeof(*head), GFP_KERNEL);
++		if (head == NULL)
++			return -ENOBUFS;
++
++		head->handle = handle;
++
++		tcf_tree_lock(tp);
++		tp->root = head;
++		tcf_tree_unlock(tp);
++	}
++
++	if (handle != head->handle)
++		return -ENOENT;
++
++	err = nla_parse_nested(tb, TCA_CGROUP_MAX, tca[TCA_OPTIONS],
++			       cgroup_policy);
++	if (err < 0)
++		return err;
++
++	err = tcf_exts_validate(tp, tb, tca[TCA_RATE], &e, &cgroup_ext_map);
++	if (err < 0)
++		return err;
++
++	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
++	if (err < 0)
++		return err;
++
++	tcf_exts_change(tp, &head->exts, &e);
++	tcf_em_tree_change(tp, &head->ematches, &t);
++
++	return 0;
++}
++
++static void cls_cgroup_destroy(struct tcf_proto *tp)
++{
++	struct cls_cgroup_head *head;
++
++	head = (struct cls_cgroup_head *)xchg(&tp->root, NULL);
++
++	if (head) {
++		tcf_exts_destroy(tp, &head->exts);
++		tcf_em_tree_destroy(tp, &head->ematches);
++		kfree(head);
++	}
++}
++
++static int cls_cgroup_delete(struct tcf_proto *tp, unsigned long arg)
++{
++	return -EOPNOTSUPP;
++}
++
++static void cls_cgroup_walk(struct tcf_proto *tp, struct tcf_walker *arg)
++{
++	struct cls_cgroup_head *head = tp->root;
++
++	if (arg->count < arg->skip)
++		goto skip;
++
++	if (arg->fn(tp, (unsigned long) head, arg) < 0) {
++		arg->stop = 1;
++		return;
++	}
++skip:
++	arg->count++;
++}
++
++static int cls_cgroup_dump(struct tcf_proto *tp, unsigned long fh,
++			   struct sk_buff *skb, struct tcmsg *t)
++{
++	struct cls_cgroup_head *head = tp->root;
++	unsigned char *b = skb_tail_pointer(skb);
++	struct nlattr *nest;
++
++	t->tcm_handle = head->handle;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
++
++	if (tcf_exts_dump(skb, &head->exts, &cgroup_ext_map) < 0 ||
++	    tcf_em_tree_dump(skb, &head->ematches, TCA_CGROUP_EMATCHES) < 0)
++		goto nla_put_failure;
++
++	nla_nest_end(skb, nest);
++
++	if (tcf_exts_dump_stats(skb, &head->exts, &cgroup_ext_map) < 0)
++		goto nla_put_failure;
++
++	return skb->len;
++
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
++	.kind		=	"cgroup",
++	.init		=	cls_cgroup_init,
++	.change		=	cls_cgroup_change,
++	.classify	=	cls_cgroup_classify,
++	.destroy	=	cls_cgroup_destroy,
++	.get		=	cls_cgroup_get,
++	.put		=	cls_cgroup_put,
++	.delete		=	cls_cgroup_delete,
++	.walk		=	cls_cgroup_walk,
++	.dump		=	cls_cgroup_dump,
++	.owner		=	THIS_MODULE,
++};
++
++static int __init init_cgroup_cls(void)
++{
++	return register_tcf_proto_ops(&cls_cgroup_ops);
++}
++
++static void __exit exit_cgroup_cls(void)
++{
++	unregister_tcf_proto_ops(&cls_cgroup_ops);
++}
++
++module_init(init_cgroup_cls);
++module_exit(exit_cgroup_cls);
++MODULE_LICENSE("GPL");
