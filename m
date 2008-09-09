@@ -1,81 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Tue, 09 Sep 2008 15:30:10 +0100
-Message-ID: <1220970610.2381.64.camel@achroite>
-References: <1220960196-4209-1-git-send-email-steve.glendinning@smsc.com>
-	 <1220960196-4209-2-git-send-email-steve.glendinning@smsc.com>
-	 <1220966387.2381.42.camel@achroite>  <20080909140224.GA3095@kroah.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Bugme-new] [Bug 11469] New: TUN with 1024 neighbours: ip6_dst_lookup_tail NULL crash
+Date: Tue, 9 Sep 2008 18:31:05 +0400
+Message-ID: <20080909143105.GA24239@2ka.mipt.ru>
+References: <20080831111304.d57b9f5a.akpm@linux-foundation.org> <20080907181109.GA2466@2ka.mipt.ru> <200809072119.50307.rdenis@simphalempin.com> <20080908.131547.26037628.davem@davemloft.net> <20080909113215.GB5991@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Steve Glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	linux-usb@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, rdenis@simphalempin.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:51554 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751442AbYIIOaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 10:30:17 -0400
-In-Reply-To: <20080909140224.GA3095@kroah.com>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:39148 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753390AbYIIOcv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 10:32:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20080909113215.GB5991@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-09-09 at 07:02 -0700, Greg KH wrote:
-> On Tue, Sep 09, 2008 at 02:19:47PM +0100, Ben Hutchings wrote:
-> > On Tue, 2008-09-09 at 12:36 +0100, Steve Glendinning wrote:
-> > [...]
-> > > diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> > > new file mode 100644
-> > > index 0000000..60ffd90
-> > > --- /dev/null
-> > > +++ b/drivers/net/usb/smsc95xx.c
-> > [...]
-> > > +static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
-> > > +{
-> > > +	u32 *buf = kmalloc(4, GFP_KERNEL);
-> > > +	int ret;
-> > > +
-> > > +	BUG_ON(!dev);
-> > > +
-> > > +	if (!buf)
-> > > +		return -ENOMEM;
-> > > +
-> > > +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> > > +		USB_VENDOR_REQUEST_READ_REGISTER,
-> > > +		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> > > +		00, index, buf, 4, USB_CTRL_GET_TIMEOUT);
-> > > +
-> > > +	if (unlikely(ret < 0))
-> > > +		SMSC_WARNING("Failed to read register index 0x%08x", index);
-> > > +
-> > > +	le32_to_cpus(buf);
-> > > +	*data = *buf;
-> > > +	kfree(buf);
-> > > +
-> > > +	return ret;
-> > > +}
-> > 
-> > Why are you allocating a buffer on the heap?  What's wrong with
-> 
-> USB requires data to be allocated off of the heap when you use it to
-> send or receive data.
+Hi.
 
-I don't really know USB (it's not very useful for 1G/10G networking :-)
-which is why I asked.  Is this because the data may be transferred by
-DMA and the stack might not be DMA-mappable?
-
-I'd be inclined to allocate a persistent buffer for register reads and
-writes, but then that seems to introduce the need for another lock.
-Presumably the heap allocation is reckoned to add very little overhead
-compared to the inherent cost of synchronous USB requests?
-
-Ben.
+On Tue, Sep 09, 2008 at 07:32:15AM -0400, Neil Horman (nhorman@tuxdriver.com) wrote:
+> +	/*
+> +	 * Here if the dst entry we've looked up
+> +	 * has a neighbour entry that is in the INCOMPLETE
+> +	 * state and the src address from the flow is
+> +	 * marked as OPTIMISTIC, we release the found
+> +	 * dst entry and replace it instead with the
+> +	 * dst entry of the nexthop router
+> +	 */
+> +	if (dst->neighbour && !((*dst)->neighbour->nud_state & NUD_VALID)) {
+            ^^^
+This should be (*dst)->neighbour, isn't it?
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+	Evgeniy Polyakov
