@@ -1,55 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: RFC: Nagle latency tuning
-Date: Tue, 9 Sep 2008 14:21:30 -0300
-Message-ID: <20080909172130.GG12726@ghostprotocols.net>
-References: <48C59F75.6030504@redhat.com> <48C5A9A9.9040503@hp.com> <48C6052D.2080203@redhat.com> <48C6A553.2070901@hp.com> <732BEAC4-63ED-413B-8BE6-E194DFA6DD7B@oracle.com>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after some
+ time
+Date: Tue, 9 Sep 2008 20:16:24 +0300 (EEST)
+Message-ID: <alpine.LRH.1.10.0809091947560.17070@netcore.fi>
+References: <20080902150008.GD7289@schleppi.birkenwald.de> <OF604A6380.9CF7D18A-ON882574BF.000171B8-882574BF.00031DB5@us.ibm.com> <20080909003852.GA20315@pest>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>, Chris Snook <csnook@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
+To: Bernhard Schmidt <berni@birkenwald.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:50317 "EHLO mx2.redhat.com"
+Received: from netcore.fi ([193.94.160.1]:38722 "EHLO netcore.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753570AbYIIRaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 13:30:00 -0400
-Content-Disposition: inline
-In-Reply-To: <732BEAC4-63ED-413B-8BE6-E194DFA6DD7B@oracle.com>
+	id S1753788AbYIIRje (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 13:39:34 -0400
+In-Reply-To: <20080909003852.GA20315@pest>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Sep 09, 2008 at 12:54:31PM -0400, Chuck Lever escreveu:
-> On Sep 9, 2008, at Sep 9, 2008, 12:33 PM, Rick Jones wrote:
->>> Most of the apps where people care about this enough to complain to  
->>> their vendor (the cases I hear about) are in messaging apps, where  
->>> they're relaying a stream of events that have little to do with each 
->>> other, and they want TCP to maintain the integrity of the connection 
->>> and do a modicum of bandwidth management, but 40 ms stalls greatly 
->>> exceed their latency tolerances.
->>
->> What _are_ their latency tolerances?  How often are they willing to  
->> tolerate a modicum of TCP bandwidth management?  Do they go ape when  
->> TCP sits waiting not just for 40ms, but for an entire RTO timer?
->>
->>> Using TCP_NODELAY is often the least bad option, but sometimes it's
->>> infeasible because of its effect on the network, and it certainly
->>> adds to the network stack overhead.  A more tunable Nagle delay would
->>> probably serve many of these apps much better.
->>
->> If the applications are sending streams of logically unrelated sends  
->> down the same socket, then setting TCP_NODELAY is IMO fine.  Where it 
->> isn't fine is where these applications are generating their logically 
->> associated data in two or more small sends.  One send per message good. 
->> Two sends per message bad.
+On Tue, 9 Sep 2008, Bernhard Schmidt wrote:
+> Working (all-hosts):
+> sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58), inet_pton(AF_INET6, "ff02::1", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, msg_iov(1)=[{"\200\0\0\0\25S\0\3\0\305\305H\212/\r\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30\31\32\33\34\35\36\37 !\"#$%&'()*+,-./01234567"..., 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, ...}, msg_flags=0}, MSG_CONFIRM) = 64
 >
-> Can the same be said of the Linux kernel's RPC client, which uses  
-> MSG_MORE and multiple sends to construct a single RPC request on a TCP  
-> socket?
->
-> See net/sunrpc/xprtsock.c:xs_send_pagedata() for details.
+> Non-working (RIPng group):
+> sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58), inet_pton(AF_INET6, "ff02::9", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, msg_iov(1)=[{"\200\0\0\0MS\0\0012\305\305HCA\r\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30\31\32\33\34\35\36\37 !\"#$%&'()*+,-./01234567"..., 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, ...}, msg_flags=0}, 0) = -1 EINVAL (Invalid argument)
+> sendmsg(3, {msg_name(28)={sa_family=AF_INET6, sin6_port=htons(58), inet_pton(AF_INET6, "ff02::9", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, msg_iov(1)=[{"\200\0\0\0MS\0\0012\305\305H\36F\r\0\10\t\n\v\f\r\16\17\20\21\22\23\24\25\26\27\30\31\32\33\34\35\36\37 !\"#$%&'()*+,-./01234567"..., 64}], msg_controllen=32, {cmsg_len=32, cmsg_level=SOL_IPV6, cmsg_type=, ...}, msg_flags=0}, 0) = -1 EINVAL (Invalid argument)
 
-That is not a problem, it should be equivalent to corking the socket.
-I.e. the uncorking operation will be the last part of the buffer, where
-'more' will be 0.
+I wonder if it's relevant that msg_iov in working case has MSG_CONFIRM 
+but in non-working case this is zero?  I guess not but apart from the 
+contents of msg_iov, that's the only difference..
 
-- Arnaldo
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
