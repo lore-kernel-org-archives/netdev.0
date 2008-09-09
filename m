@@ -1,95 +1,53 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH] e100: Use pci_pme_active for clearing wake-up events and disabling PME# (was: Re: [regression] e100: PCI wake-up handling rework causes "Error clearing wake event")
-Date: Tue, 9 Sep 2008 15:14:22 +0200
-Message-ID: <200809091514.23817.rjw@sisk.pl>
-References: <200809090812.37649.elendil@planet.nl>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: RFC: Nagle latency tuning
+Date: Tue, 9 Sep 2008 10:00:29 -0300
+Message-ID: <20080909130029.GA12726@ghostprotocols.net>
+References: <48C59F75.6030504@redhat.com> <48C5A9A9.9040503@hp.com> <48C6052D.2080203@redhat.com> <20080908.221742.02572583.davem@davemloft.net> <48C60FFC.8090109@redhat.com> <20080909062208.GB30385@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, kernel-testers@vger.kernel.org,
-	jesse.brandeburg@intel.com,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Frans Pop <elendil@planet.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Snook <csnook@redhat.com>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:51288 "EHLO ogre.sisk.pl"
+Received: from mx2.redhat.com ([66.187.237.31]:45793 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751606AbYIINJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 09:09:57 -0400
-In-Reply-To: <200809090812.37649.elendil@planet.nl>
+	id S1756285AbYIINKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 09:10:33 -0400
 Content-Disposition: inline
+In-Reply-To: <20080909062208.GB30385@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, 9 of September 2008, Frans Pop wrote:
-> (Resending because of error in mail headers in previous attempt; sorry)
+Em Tue, Sep 09, 2008 at 10:22:08AM +0400, Evgeniy Polyakov escreveu:
+> Hi.
 > 
-> On my Toshiba Satellite A40 with 2.6.27-rc4/5 I noticed the following 
-> error in the boot log (not there with 2.6.26):
-> e100: 0000:01:08.0: e100_probe: Error clearing wake event
+> On Tue, Sep 09, 2008 at 01:56:12AM -0400, Chris Snook (csnook@redhat.com) wrote:
+> > The easiest way to see the problem is to open a TCP socket to an echo 
+> > daemon on loopback, make a bunch of small writes totaling less than your 
+> > loopback MTU (accounting for overhead), and see how long it takes to get 
+> > your echoes.  You can probably do this with netcat, though I haven't 
+> > tried.  People don't expect loopback to have 40 ms latency when the box 
+> > is lightly loaded, so they'd really like to tweak that down when it's 
+> > hurting them.
 > 
-> Bisection has fingered the following patch as the cause of the message.
-> 
-> commit eb9d0fe40e313c0a74115ef456a2e43a6c8da72f
-> Author: Rafael J. Wysocki <rjw@sisk.pl>
-> Date:   Mon Jul 7 03:34:48 2008 +0200
->     PCI ACPI: Rework PCI handling of wake-up
-> 
-> The test this error originates from in drivers/net/e100.c is old and has 
-> not changed recently.
-> 
-> Surrounding messages (full dmesg attached):
-> e100: Intel(R) PRO/100 Network Driver, 3.5.23-k4-NAPI
-> e100: Copyright(c) 1999-2006 Intel Corporation
-> e100 0000:01:08.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
-> e100: 0000:01:08.0: e100_probe: Error clearing wake event
-> e100: eth0: e100_probe: addr 0xcffff000, irq 20, MAC addr 
-> 00:08:0d:17:bf:f5
-> 
-> The NIC is:
-> 01:08.0 Ethernet controller [0200]: Intel Corporation 82801DB PRO/100 VE 
-> (MOB) Ethernet Controller [8086:103d] (rev 83)
->         Kernel driver in use: e100
+> Isn't Nagle without corking a very bad idea? Or you can not change the
+> application?
 
-The message is actually harmless, but I agree that it's confusing.
+In one such case, finantial app building logical packets via several
+small buffer send calls I got it working with a "autocorking" LD_PRELOAD
+library, libautocork:
 
-The appended patch should fix the problem (ISTR sending it some time ago
-already).
+http://git.kernel.org/?p=linux/kernel/git/acme/libautocork.git
 
-Thanks,
-Rafael
+git://git.kernel.org/pub/scm/linux/kernel/git/acme/libautocork.git
 
----
-From: Rafael J. Wysocki <rjw@sisk.pl>
+Details/test cases:
 
-e100: Use pci_pme_active for clearing wake-up events and disabling PME#
+http://git.kernel.org/?p=linux/kernel/git/acme/libautocork.git;a=blob_plain;f=tcp_nodelay.txt
 
-Currently e100 uses pci_enable_wake() to clear pending wake-up events
-and disable PME# during intitialization, but that function is not
-suitable for this purpose, because it immediately returns error code
-if device_may_wakeup() returns false for given device.
+How to use it, what you get from using it:
 
-Make e100 use pci_pme_active(), which carries out exactly the
-required operations, instead.
+http://git.kernel.org/?p=linux/kernel/git/acme/libautocork.git;a=blob_plain;f=libautocork.txt
 
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
----
- drivers/net/e100.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-Index: linux-2.6/drivers/net/e100.c
-===================================================================
---- linux-2.6.orig/drivers/net/e100.c
-+++ linux-2.6/drivers/net/e100.c
-@@ -2738,9 +2738,7 @@ static int __devinit e100_probe(struct p
- 		nic->flags |= wol_magic;
- 
- 	/* ack any pending wake events, disable PME */
--	err = pci_enable_wake(pdev, 0, 0);
--	if (err)
--		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
-+	pci_pme_active(pdev, false);
- 
- 	strcpy(netdev->name, "eth%d");
- 	if((err = register_netdev(netdev))) {
+- Arnaldo
