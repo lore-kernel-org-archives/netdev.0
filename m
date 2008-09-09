@@ -1,47 +1,37 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: + e1000e-prevent-corruption-of-eeprom-nvm.patch added to -mmtree
-Date: Mon, 8 Sep 2008 19:20:37 -0700
-Message-ID: <B27EBC40D200ED48A3F4CC2EBEABAE0B1505CCBE@orsmsx501.amr.corp.intel.com>
-References: <200809021919.m82JJweC008488@imap1.linux-foundation.org>
- <36D9DB17C6DE9E40B059440DB8D95F5206051BF7@orsmsx418.amr.corp.intel.com>
- <1220429845.32688.182.camel@bodhitayantram.eng.vmware.com>
- <200809032104.49092.arvidjaar@mail.ru>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after	some time
+Date: Mon, 8 Sep 2008 19:26:00 -0700
+Message-ID: <OF2B044257.7CFC8C8A-ON882574BF.000BDAA8-882574BF.000D5E4E@us.ibm.com>
+References: <20080909003852.GA20315@pest>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Qicheng Christopher Li <chrisl@vmware.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrey Borzenkov <arvidjaar@mail.ru>,
-	Zachary Amsden <zach@vmware.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Bernhard Schmidt <berni@birkenwald.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43457 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751412AbYIICVA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 22:21:00 -0400
-In-Reply-To: <200809032104.49092.arvidjaar@mail.ru>
-Content-Language: en-US
+Received: from e35.co.us.ibm.com ([32.97.110.153]:51408 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032AbYIIC01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 22:26:27 -0400
+In-Reply-To: <20080909003852.GA20315@pest>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-8254x is not supported in e1000e however it is supported in e1000.  It is understandable that such a fix is needed (in e1000) for these older parts that did not have anyway of protecting EEPROM reads/writes as Jesse described in a previous email, but newer parts (supported in e1000e) have alternate methods of protection making the spinlock unnecessary.  There is no evidence the recent NVM/EEPROM corruptions on ICHx-based platforms (in e1000e) are due to the same issue resolved by the proposed fix used in VMware for 8254x parts.
+Did you specify the interface on those?
 
-I'm currently investigating this issue and hope to have something soon.
+I don't know whether or not I should trust that sin_scope_id==0,
+which Brian also mentioned.
 
------Original Message-----
-From: Andrey Borzenkov [mailto:arvidjaar@mail.ru]
-Sent: Wednesday, September 03, 2008 10:05 AM
-To: Zachary Amsden
-Cc: Brandeburg, Jesse; Qicheng Christopher Li; akpm@linux-foundation.org; Allan, Bruce W; jeff@garzik.org; Kirsher, Jeffrey T; Ronciak, John; Waskiewicz Jr, Peter P; netdev@vger.kernel.org
-Subject: Re: + e1000e-prevent-corruption-of-eeprom-nvm.patch added to -mmtree
+For link-local addresses, it must be specified, though you can
+get there from an SO_BINDTODEVICE too. The error if it isn't
+there is EINVAL, but sin_scope_id is showing as 0 for both cases.
+The send side shouldn't actually care anything about the group
+number unless they matched different routes, which I don't see
+in your routing table.
 
-On Wednesday 03 September 2008, Zachary Amsden wrote:
-> I'm sorry, we have no way to reproduce this, don't know anything about
-> the hardware the customer was using
+So, I think it's back to running it on a debug kernel that prints
+something distinguishing from the different EINVAL cases
+to narrow it down.
 
-According to my information bug affects LAN controllers based on Intel 8254x GBe chipset. Of course, I do not claim it is exhaustive list.
+                                        +-DLS
+
