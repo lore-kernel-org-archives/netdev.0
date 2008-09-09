@@ -1,32 +1,74 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: Re: RFC: Nagle latency tuning
-Date: Tue, 9 Sep 2008 13:09:34 +0100
-Message-ID: <20080909120933.GE31314@sirena.org.uk>
-References: <48C60FFC.8090109@redhat.com> <20080908.230221.101659829.davem@davemloft.net> <20080909103137.GD31314@sirena.org.uk> <20080909.050500.200863990.davem@davemloft.net>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: 2 bugs found in Cisco vpnclient-4.8.02.0030
+Date: Tue, 09 Sep 2008 14:11:25 +0200
+Message-ID: <48C667ED.9060206@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: csnook@redhat.com, rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:2294 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753081AbYIIMJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 08:09:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20080909.050500.200863990.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------040607010905010605050706"
+Cc: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: =?ISO-8859-1?Q?N=E9meth_Tam=E1s?= <nice-OZwXound/Z2+mM1/5BeW/g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 09, 2008 at 05:05:00AM -0700, David Miller wrote:
-> From: Mark Brown <broonie@sirena.org.uk>
+This is a multi-part message in MIME format.
+--------------040607010905010605050706
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-> > FWIW the problem with this and some other mails you raised this on
-> > recently is that they're sent with format=folowed which tells the
-> > receiving MUA that it's OK to reflow the text to fit the display.
+Hi Tamas,
+I've got the vpn client going over ethernet but not yet over the hso device.
+I found 2 idiotic substantial bugs in the vpn client one which caused
+the crash in linuxcniapi.c as you were seeing
+You'll note that in some places the code was looping to <MAX_INTERFACES
+& other places to <=MAX_INTERFACES, this was flying over the edge
+of the array.
+These bugs are not unique to the hso driver they just happened to
+manifest there.
 
-> I'll have to see why MEW isn't handling that correctly then,
-> it even claims to support this in the version I am using :)
+Let me know if you still find crashes somehow, post them to me & more importantly
+let me know if you get hso going over vpn.
 
-Handling it correctly is probably the problem - if it's working as
-expected then when your window is wide enough to display lines longer
-than 80 columns it'll go ahead and reflow the text to fill the window.
+Please find some way to get the bugfixes back to Cisco.
+
+-- 
+best regards,
+D.J. Barrow
+
+--------------040607010905010605050706
+Content-Type: text/x-diff;
+ name="vpnclient.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="vpnclient.patch"
+
+--- cisco-vpn-client.orig/vpnclient-4.8.02.0030/interceptor.c	2008-06-23 18:59:12.000000000 +0200
++++ cisco-vpn-client/vpnclient-4.8.02.0030/interceptor.c	2008-09-09 13:54:02.000000000 +0200
+@@ -502,7 +502,7 @@
+ {
+     int i;
+     
+-    for (i=0; i <= MAX_INTERFACES; i++)
++    for (i=0; i < MAX_INTERFACES; i++)
+     {
+         BINDING *b = &Bindings[i];
+         if (b->pDevice && (dev->ifindex == b->pDevice->ifindex))
+--- cisco-vpn-client.orig/vpnclient-4.8.02.0030/linuxcniapi.c	2008-06-23 18:59:12.000000000 +0200
++++ cisco-vpn-client/vpnclient-4.8.02.0030/linuxcniapi.c	2008-09-09 13:37:33.000000000 +0200
+@@ -577,7 +577,7 @@
+ {
+     int i;
+     
+-    for (i=0; i <= MAX_INTERFACES; i++)
++    for (i=0; i < MAX_INTERFACES; i++)
+     {
+         BINDING *b = &Bindings[i];
+         if (b->pDevice && (iIndex == b->pDevice->ifindex))
+
+--------------040607010905010605050706--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
