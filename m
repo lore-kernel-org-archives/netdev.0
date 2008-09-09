@@ -1,43 +1,91 @@
-From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: Extend smc911x to support LAN921x chips - differences?
-Date: Tue, 9 Sep 2008 16:00:18 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0809091307160.6470@axis700.grange>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 1/1] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
+Date: Tue, 9 Sep 2008 14:56:19 +0100
+Message-ID: <OF87B42A84.257AB13C-ON802574BF.004BC77A-802574BF.004C9105@smsc.com>
+References: <1220966387.2381.42.camel@achroite>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Catalin Marinas <catalin.marinas@arm.com>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	ian.saturley@smsc.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:48549 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751594AbYIINvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 09:51:51 -0400
-Received: from lyakh (helo=localhost)
-	by axis700.grange with local-esmtp (Exim 4.63)
-	(envelope-from <g.liakhovetski@gmx.de>)
-	id 1Kd3lS-00029u-Jo
-	for netdev@vger.kernel.org; Tue, 09 Sep 2008 16:00:18 +0200
+Received: from mail.smsc.com ([170.129.50.11]:1739 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751617AbYIIN4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 09:56:49 -0400
+In-Reply-To: <1220966387.2381.42.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Ben,
 
-I have to support the LAN9215 chip from SMSC under Linux. Of course, there 
-is the manufacturer provided smsc911x driver, that supports both chip 
-families, but I would prefer to extend the mainline smc911x driver to also 
-support 921x. I have both datasheets, they are freely downloadable from 
-SMSC site, and I have both drivers, but they are absolutely different. To 
-make my decision and the work easier - maybe someone knows from the top of 
-their head, what the relevant differences between the chips are?
+Thanks for your feedback, many really good points there.
 
-The vendor driver does not really differentiate between the chips. It does 
-read the chip version, and sets the "generation" variable, but then that 
-variable is only used once to rule out the oldest chips, which anyway are 
-not supported by smc911x. So I tried the in-kernel driver with only added 
-chip IDs added, it can access registers, read and write the MAC-address, 
-interrupts are generated too, but so far I see nothing on the wire, and 
-the PHY reports "link down".
+> > +static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 
+*data)
+> > +{
+> > +   u32 *buf = kmalloc(4, GFP_KERNEL);
+> > +   int ret;
+> > +
+> > +   BUG_ON(!dev);
+> > +
+> > +   if (!buf)
+> > +      return -ENOMEM;
+> > +
+> > +   ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+> > +      USB_VENDOR_REQUEST_READ_REGISTER,
+> > +      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+> > +      00, index, buf, 4, USB_CTRL_GET_TIMEOUT);
+> > +
+> > +   if (unlikely(ret < 0))
+> > +      SMSC_WARNING("Failed to read register index 0x%08x", index);
+> > +
+> > +   le32_to_cpus(buf);
+> > +   *data = *buf;
+> > +   kfree(buf);
+> > +
+> > +   return ret;
+> > +}
+> 
+> Why are you allocating a buffer on the heap?  What's wrong with
+> 
+> static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
+> {
+>    int ret;
+> 
+>    BUG_ON(!dev);
+> 
+>    ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+>       USB_VENDOR_REQUEST_READ_REGISTER,
+>       USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+>       00, index, data, 4, USB_CTRL_GET_TIMEOUT);
+> 
+>    if (unlikely(ret < 0))
+>       SMSC_WARNING("Failed to read register index 0x%08x", index);
+> 
+>    le32_to_cpus(data);
+> 
+>    return ret;
+> }
+> 
+> ?
 
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
-Freelance Open-Source Software Developer
+For the same reason dm9601.c and asix.c do - we're not allowed to do
+usb transfers of data on stack.  It works on some architectures, but
+breaks badly on others.
+
+Peter Korsgaard fixed dm9601 for it here:
+
+http://kerneltrap.org/mailarchive/linux-netdev/2008/7/14/2452854
+
+As with dm9601, this is only used for config registers - nothing in
+the fast path.
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
