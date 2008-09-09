@@ -1,8 +1,8 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 05/33] netns ct: per-netns expectations
-Date: Tue, 9 Sep 2008 11:07:26 +0400
-Message-ID: <20080909070726.GD5786@x200.localdomain>
-References: <48C01046.2070704@trash.net> <1220842990-30500-5-git-send-email-adobriyan@gmail.com> <48C60E6E.5080905@trash.net>
+Subject: Re: [PATCH 16/33] netns ct: per-netns event cache
+Date: Tue, 9 Sep 2008 11:07:42 +0400
+Message-ID: <20080909070742.GE5786@x200.localdomain>
+References: <48C01046.2070704@trash.net> <1220842990-30500-16-git-send-email-adobriyan@gmail.com> <48C613CB.5000303@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -10,42 +10,39 @@ Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <48C60E6E.5080905@trash.net>
+In-Reply-To: <48C613CB.5000303@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 09, 2008 at 07:49:34AM +0200, Patrick McHardy wrote:
+On Tue, Sep 09, 2008 at 08:12:27AM +0200, Patrick McHardy wrote:
 > Alexey Dobriyan wrote:
->> Make per-netns a) expectation hash and b) expectations count.
+>> Heh, last minute proof-reading of this patch made me think,
+>> that this is actually unneeded, simply because "ct" pointers will be
+>> different for different conntracks in different netns, just like they
+>> are different in one netns.
 >>
->> Expectations always belongs to netns to which it's master conntrack belong.
->> This is natural and doesn't bloat expectation.
->>
->> Proc files and leaf users are stubbed to init_net, this is temporary.
+>> Not so sure anymore.
 >
-> Looks fine, applied.
+> Its necessary because the cache needs to be flushed on netns exit
+> and this is only allowed while its not in use anymore.
 >
->> @@ -406,7 +404,7 @@ int nf_ct_expect_related(struct nf_conntrack_expect *expect)
->>  		}
->>  	}
->>  -	if (nf_ct_expect_count >= nf_ct_expect_max) {
->> +	if (net->ct.expect_count >= nf_ct_expect_max) {
->>  		if (net_ratelimit())
->>  			printk(KERN_WARNING
->>  			       "nf_conntrack: expectation table full\n");
+> I don't see anything in this series actually making sure nothing
+> hits the cache on exit though. Am I missing something?
+
+When netns refcount hits zero, netdevices in it will start dropping packets.
+And there is synchronize_net() call before cache flush.
+
+I think this is enough.
+
+> Additionally (I might have missed a following patch moving it
+> out though) this doesn't belong in the netns exit path:
 >
-> I assume these message are globally visible even with namespaces?
-> Can we make this (and the corresponding ct hash message) refer to
-> the namespace? Otherwise it might be a bit confusing.
+> void nf_conntrack_cleanup(struct net *net)
+> {
+> 	rcu_assign_pointer(ip_ct_attach, NULL);
+> ...
+> 	rcu_assign_pointer(nf_ct_destroy, NULL);
 
-This is somewhat peculiar situation.
+This is dealt with in 17/33
 
-netns doesn't have unique ID like, say, ifindex.
-
-The only number related to netns is "struct net *". They can be
-distinguised by pointer value, but userspace when does clone(CLONE_NEWNET)
-do not, obviously, control it and after creation doesn't have a way to find
-it out.
-
-And if we print with "%p, net" kernelspace pointer get exposed which is
-not nice.
+Have you got 18/33, archives show it's missing?
