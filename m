@@ -1,63 +1,50 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after
-	some time
-Date: Tue, 9 Sep 2008 12:06:20 +0200
-Message-ID: <20080909100620.GA18584@pest>
-References: <63ca0b47d6921cd641bb3ca26ab20baa@chewa.net> <OF3335B3DD.83510AA3-ON882574BF.00275BAF-882574BF.00281037@us.ibm.com>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/3 v2] ibm_newemac: Various fixes and additions for
+ PPC405EZ
+Date: Tue, 9 Sep 2008 06:30:08 -0400
+Message-ID: <20080909063008.15dfa6d0@zod.rchland.ibm.com>
+References: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
+	<1220944283.4879.323.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>,
-	Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs02.svr02.mucip.net ([83.170.6.69]:49446 "EHLO
-	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbYIIKGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 06:06:24 -0400
-Content-Disposition: inline
-In-Reply-To: <OF3335B3DD.83510AA3-ON882574BF.00275BAF-882574BF.00281037@us.ibm.com>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:37737 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752625AbYIIKaY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 06:30:24 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m89AUObc030071
+	for <netdev@vger.kernel.org>; Tue, 9 Sep 2008 06:30:24 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m89AUKIR238640
+	for <netdev@vger.kernel.org>; Tue, 9 Sep 2008 06:30:21 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m89AUKxg011283
+	for <netdev@vger.kernel.org>; Tue, 9 Sep 2008 06:30:20 -0400
+In-Reply-To: <1220944283.4879.323.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2008 at 12:17:35AM -0700, David Stevens wrote:
-> netdev-owner@vger.kernel.org wrote on 09/08/2008 11:52:05 PM:
+On Tue, 09 Sep 2008 17:11:23 +1000
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+
+> On Mon, 2008-09-08 at 08:44 -0400, Josh Boyer wrote:
+> > The following patch series adds things needed to support the PowerPC 405EZ
+> > SoC.  I've incorporated the suggestions and fixes from the previous round
+> > of patches and barring any further comments these should be ready to go.
 > 
-> > 
-> > On Tue, 9 Sep 2008 02:38:53 +0200, Bernhard Schmidt 
-> <berni@birkenwald.de>
-> > 
-> > wrote:
-> > 
-> > > ff00::/8 dev teredo  metric 256  mtu 1280 advmss 1220 hoplimit 
-> 4294967295
-> > 
-> >                ^^^^^^
-> > 
-> > Uho... that interface is not multicast-capable. Not sure how the kernel
-> > handles the conflicting routes.
-> 
->         Multicast programs shouldn't rely on the routing
-> table at all, IMAO. Unicast routing has nothing at all
-> to do with multicast routing, where a single address
-> means copying and forwarding to multiple different
-> segments, and the address has nothing at all to do with
-> the routing topology.
+> For some reason, I got this email but not the 3 following patch ones...
 
-I agree with you that it should not rely on it. However, it obviously
-did (in some way):
+Erm.. odd.
 
-miredo:~# ip -6 route del ff00::/8 dev teredo  metric 256  mtu 1280 advmss 1220 hoplimit 4294967295                           
-miredo:~# ping6 -I eth0 ff02::9
-PING ff02::9(ff02::9) from fe80::216:3eff:feb9:29f5 eth0: 56 data bytes
-64 bytes from fe80::216:3eff:feb9:29f5: icmp_seq=1 ttl=64 time=0.098 ms
-64 bytes from fe80::2c0:9fff:fe4b:8ccf: icmp_seq=1 ttl=64 time=0.453 ms (DUP!)
-64 bytes from fe80::20c:86ff:fe9a:3819: icmp_seq=1 ttl=64 time=0.467 ms (DUP!)
-64 bytes from fe80::20c:86ff:fe9a:2819: icmp_seq=1 ttl=64 time=0.472 ms (DUP!)
+http://patchwork.ozlabs.org/patch/208/
+http://patchwork.ozlabs.org/patch/209/
+http://patchwork.ozlabs.org/patch/210/
 
-I'm not convinced that this route was the culprit though, I think it
-might be related to some sort of routing-table locking foo that got
-resolved when I changed something. I'll keep it running (will take one
-or two days max to reappear) and try deleting an arbitrary route when it
-happens again.
+All of them were addressed to you and netdev, with linuxppc-dev on CC.
+You should have gotten them..
 
-Bernhard
+josh
