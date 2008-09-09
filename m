@@ -1,43 +1,34 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 0/4] atlx: add atl2 support
-Date: Tue, 09 Sep 2008 02:32:12 -0400
-Message-ID: <48C6186C.4010600@redhat.com>
-References: <20080909061247.GA17834@file.rdu.redhat.com>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after some time
+Date: Tue, 09 Sep 2008 08:52:05 +0200
+Message-ID: <63ca0b47d6921cd641bb3ca26ab20baa@chewa.net>
+References: <20080902150008.GD7289@schleppi.birkenwald.de> <OF604A6380.9CF7D18A-ON882574BF.000171B8-882574BF.00031DB5@us.ibm.com> <20080909003852.GA20315@pest>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com
-To: jeff@garzik.org, netdev@vger.kernel.org,
-	atl2-test@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
+To: Bernhard Schmidt <berni@birkenwald.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:43888 "EHLO mx2.redhat.com"
+Received: from yop.chewa.net ([91.121.105.214]:41805 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751584AbYIIGhL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 02:37:11 -0400
-In-Reply-To: <20080909061247.GA17834@file.rdu.redhat.com>
+	id S1755159AbYIIGwG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 02:52:06 -0400
+In-Reply-To: <20080909003852.GA20315@pest>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Snook wrote:
-> This patchset adds support for atl2 hardware to the atlx codebase.  It is
-> functionally very similar to the out-of-tree 2.0.4 version that many distros
-> have been shipping for a few months, though it adds a fix from Atheros to fix
-> the problem of device resets under heavy bidirectional load.
-> 
-> The code needs a lot of janitorial work, and there's a lot of low-hanging fruit
-> for merging similar atl1 code into the shared atlx code, but I think that work
-> will go much faster once this is in-tree.  The driver is known to work well for
-> laptop and desktop use.  The only major bugs are device initialization problems
-> that manifest themselves immediately and obviously (the NIC doesn't work) with
-> certain motherboards.
-> 
-> Please consider this for the 2.6.28 merge window.
-> 
-> -- Chris
 
-Forgot to mention, this has been tested with no problems on an EeePC 701 
-with the 2.6.26 kernel.  Some x86_64 and SMP testing would be nice, but 
-this is based heavily on the atl1 code, which works fine with x86_64 and 
-SMP.
+On Tue, 9 Sep 2008 02:38:53 +0200, Bernhard Schmidt <berni@birkenwald.d=
+e>=0D
+wrote:=0D
+> ff00::/8 dev teredo  metric 256  mtu 1280 advmss 1220 hoplimit 429496=
+7295=0D
+               ^^^^^^=0D
+Uho... that interface is not multicast-capable. Not sure how the kernel=
+=0D
+handles the conflicting routes.=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont
 
--- Chris
