@@ -1,84 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH -mm] Fix dev_load() compilation again
-Date: Tue, 09 Sep 2008 08:27:55 +0200
-Message-ID: <1220941675.31304.93.camel@johannes.berg>
-References: <20080904224004.d3dd3076.akpm@linux-foundation.org>
-	 <20080905193244.GD11569@x200.localdomain> <48C18E8B.9050201@ct.jp.nec.com>
-	 <20080908151707.21cd1c6c.akpm@linux-foundation.org>
+From: "Eugene Teo" <eugeneteo@kernel.sg>
+Subject: Re: Internet-Draft on Port Randomisation
+Date: Tue, 9 Sep 2008 14:31:19 +0800
+Message-ID: <28fa9c5e0809082331g33ca66a4se49ed11b3e037c0b@mail.gmail.com>
+References: <28fa9c5e0809082107p7a33dc4fod344fde212e1d710@mail.gmail.com>
+	 <48C60284.2070402@vyatta.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3MZwQMh/GmiqTKFD4EbJ"
-Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>, adobriyan@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au, Rusty Russell <rusty@rustcorp.com.au>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Stephen Hemminger" <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:40906 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753454AbYIIG2K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 02:28:10 -0400
-In-Reply-To: <20080908151707.21cd1c6c.akpm@linux-foundation.org>
+Received: from rv-out-0506.google.com ([209.85.198.237]:62165 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753820AbYIIGbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 02:31:19 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1776570rvb.1
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 23:31:19 -0700 (PDT)
+In-Reply-To: <48C60284.2070402@vyatta.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Sep 9, 2008 at 12:58 PM, Stephen Hemminger
+<stephen.hemminger@vyatta.com> wrote:
+> Eugene Teo wrote:
+>>
+>> Has anyone read this Internet-Draft?
+>>
+>> http://www.gont.com.ar/drafts/port-randomization/draft-ietf-tsvwg-port-randomization-02.txt
+>>
+>> In this memo, there are descriptions of four different ephemeral port
+>> randomisation algorithms (see page 17).
+>>
+>> Algo #1 and #2 are simple port randomisation algorithms. Algo #3 is
+>> what we have in Linux. The memo suggested algorithm #4, double-hash
+>> randomisation algorithm, which is an improvement to algo #3 (see page
+>> 15).
+>>
+>> Does anyone have any thought about the improved algorithm? Is this
+>> worth implementing,
+>
+> No the added lock overhead of a global next free port array is not worth it.
+> Think of big web server under
+> DoS pressure. The existing port search can run in parallel, Algo #4 was
+> suggested by people
+> who don't work on a real SMP OS.
 
---=-3MZwQMh/GmiqTKFD4EbJ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Thanks Stephen.
 
-Hi,
-
-On Mon, 2008-09-08 at 15:17 -0700, Andrew Morton wrote:
-> On Fri, 05 Sep 2008 12:54:51 -0700
-> Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com> wrote:
-
-> > in -next tree, this patch fixes the compilation error instead of
-> > my patch. So, there is a conflict.
-
-I think I like this patch better than Stephen's, but despite causing the
-problem I'm not sure what I can do at this point.
-
-> Give that there's already a fix in linux-next, I can't do anything here.
->=20
-> Rusty, the regression was introduced by
->=20
-> commit 4cb9da6ecc2b0e25056b45981239475f8509d59d
-> Author:     Johannes Berg <johannes@sipsolutions.net>
-> AuthorDate: Wed Jul 9 10:28:42 2008 +0200
-> Commit:     Stephen Rothwell <sfr@canb.auug.org.au>
-> CommitDate: Tue Aug 26 10:19:47 2008 +1000
->=20
->     remove CONFIG_KMOD from net
-
-Rusty, can you take
-http://www.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.27-rc5/2=
-.6.27-rc5-mm1/broken-out/net-fix-compilation-ng-when-config_module.patch
-
-(although I'd rather see the blank line stay) and fold it into that
-patch or put it into the tree that Stephen pulls?
-
-johannes
-
---=-3MZwQMh/GmiqTKFD4EbJ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJIxhdnAAoJEKVg1VMiehFYYwgP/2YAUFjHttLEf/3ZgOHfeAeh
-L0xJynfz9CnIs4yC9S93PzlBudbOUt1YZdJ61wKwzaXegskd/PFsLqIoGFQWOwcE
-qb2678+zREmL8cbSukTUFZ58CIxoLVqirlHxzff1rPcr6QFwcDS2EUwGNVA4Avd/
-BU+9bNFW7OSEpoavQuREhhZ7ukeBktXk48v9JL3D2S2r7sEHlok0aC0yh/3fCTP0
-ZtfomPP2TKyYPhw6UJm6/oziz9JGYIU/bupXL5GD0exq2CJ7ATrsBgBUnHuI6GwH
-oPVnhsJvqjRDXJ5jC+Plt7BPA4OgTxq5i/k/WCc+sML88v06j99cQK1GFFrK7rT3
-fikW8m6kPICSna1xIn40zz9ao5JFgXP7MAa/583o4Qu/edkDjciDaS4ZqcE/JnAS
-Au0jBMCPhDAnaLhhHoj/GhQqVoIIekRUgLnC2q2WP3bt36q+SdAy3LPsxbcuzl7n
-SsmYBdxq+/WFW7YlVNIxJi2Nfh4kMHtN1IdRdldVvkdetzzt1E0SBlg39vYq2SmH
-tXFMo4YCtr46VmeBluUZwhRvKghQlW0CZ/iXu5nCRZToaGuL0st28Ed2gbc/Z2r4
-KGS2wvTL7ViOnuQNGOYUDLL4Qc2XU0tGKuuBMAVn2956QnTBX6QsPyNhiARuxo35
-WBsQ66w3+yTdZ5c0WJ5+
-=gffD
------END PGP SIGNATURE-----
-
---=-3MZwQMh/GmiqTKFD4EbJ--
-
+Eugene
