@@ -1,45 +1,91 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 17/33] netns ct: final init_net tweaks
-Date: Tue, 09 Sep 2008 09:51:56 +0200
-Message-ID: <48C62B1C.7070104@trash.net>
-References: <48C01046.2070704@trash.net> <1220842990-30500-17-git-send-email-adobriyan@gmail.com> <48C623CA.9060803@trash.net> <20080909073245.GA7307@x200.localdomain>
+From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
+Subject: Re: + ehea-fix-dlpar-memory-handling.patch added to -mm tree
+Date: Tue, 9 Sep 2008 09:58:47 +0200
+Message-ID: <200809090958.47358.hannes.hering@linux.vnet.ibm.com>
+References: <200809082225.m88MPu89013383@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65431 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753657AbYIIHwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 03:52:01 -0400
-In-Reply-To: <20080909073245.GA7307@x200.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeff@garzik.org, themann@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, raisch@de.ibm.com,
+	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
+	ossthema@de.ibm.com, osstklei@de.ibm.com
+To: akpm@linux-foundation.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200809082225.m88MPu89013383@imap1.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
-> On Tue, Sep 09, 2008 at 09:20:42AM +0200, Patrick McHardy wrote:
->> Having multiple of these net_eq checks per function (14 total) is
->> not a very nice way to do this.
+Hello,
+
+please consider the ehea-fix-dlpar-memory-handling.patch as critical bug fix,
+as it fixes a potential firmware error causing the driver to get inoperable
+when system memory is sparse. Therefore please include this fix into 2.6.27.
+
+Regards
+
+Hannes
+
+On Tuesday 09 September 2008 00:25:56 you wrote:
 > 
-> Yep, I was just afraid of some subtle ordering rules and to keep
-> potential init_net breakage to minimum.
-
-Me too, but I still prefer to do it properly once.
-
->> How about splitting the code into a netns and a global part instead?
+> The patch titled
+>      ehea: fix DLPAR memory handling
+> has been added to the -mm tree.  Its filename is
+>      ehea-fix-dlpar-memory-handling.patch
 > 
-> Prebably they aren't strict at all.
-
-Not particulary. For cleanup a three stage approach with
-
-1. init_net deactivation (ip_ct_attach = NULL)
-2. generic netns cleanup
-3. init_net specific final cleanup (slab cache, nf_conntrack_cachep,
-    accounting, helpers, protocols, ...)
-
-should work fine.
-
-The initialization should be OK with just a init_net part
-and a generic netns part.
+> Before you just go and hit "reply", please:
+>    a) Consider who else should be cc'ed
+>    b) Prefer to cc a suitable mailing list as well
+>    c) Ideally: find the original patch on the mailing list and do a
+>       reply-to-all to that, adding suitable additional cc's
+> 
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
+> 
+> See http://www.zip.com.au/~akpm/linux/patches/stuff/added-to-mm.txt to find
+> out what to do about this
+> 
+> The current -mm tree may be found at http://userweb.kernel.org/~akpm/mmotm/
+> 
+> ------------------------------------------------------
+> Subject: ehea: fix DLPAR memory handling
+> From: Hannes Hering <hannes.hering@gmx.de>
+> 
+> The ehea busmap must be allocated only once in the first of many calls of the
+> ehea_create_busmap_callback.
+> 
+> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/ehea/ehea_qmr.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff -puN drivers/net/ehea/ehea_qmr.c~ehea-fix-dlpar-memory-handling drivers/net/ehea/ehea_qmr.c
+> --- a/drivers/net/ehea/ehea_qmr.c~ehea-fix-dlpar-memory-handling
+> +++ a/drivers/net/ehea/ehea_qmr.c
+> @@ -595,7 +595,8 @@ static int ehea_create_busmap_callback(u
+>  	end_section = start_section + ((nr_pages * PAGE_SIZE) / EHEA_SECTSIZE);
+>  	mr_len = *(unsigned long *)arg;
+>  
+> -	ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
+> +	if (!ehea_bmap)
+> +		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
+>  	if (!ehea_bmap)
+>  		return -ENOMEM;
+>  
+> _
+> 
+> Patches currently in -mm which might be from hannes.hering@gmx.de are
+> 
+> ehea-fix-dlpar-memory-handling.patch
+> ehea-enable-dlpar-memory-remove.patch
+>
