@@ -1,32 +1,43 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 17/18] netdevice pc300: Convert directly reference of netdev->priv to netdev->ml_priv
-Date: Tue, 09 Sep 2008 15:23:19 +0200
-Message-ID: <m38wu1tpvc.fsf@maximus.localdomain>
-References: <48C0A219.2030004@cn.fujitsu.com>
-	<48C0A7D9.8090306@cn.fujitsu.com>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Extend smc911x to support LAN921x chips - differences?
+Date: Tue, 9 Sep 2008 16:00:18 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0809091307160.6470@axis700.grange>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:35073 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753774AbYIINXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 09:23:21 -0400
-In-Reply-To: <48C0A7D9.8090306@cn.fujitsu.com> (Wang Chen's message of "Fri\, 05 Sep 2008 11\:30\:33 +0800")
+Received: from mail.gmx.net ([213.165.64.20]:48549 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751594AbYIINvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 09:51:51 -0400
+Received: from lyakh (helo=localhost)
+	by axis700.grange with local-esmtp (Exim 4.63)
+	(envelope-from <g.liakhovetski@gmx.de>)
+	id 1Kd3lS-00029u-Jo
+	for netdev@vger.kernel.org; Tue, 09 Sep 2008 16:00:18 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen <wangchen@cn.fujitsu.com> writes:
+Hi,
 
->  drivers/net/wan/pc300_drv.c |   17 +++++++++--------
->  1 files changed, 9 insertions(+), 8 deletions(-)
+I have to support the LAN9215 chip from SMSC under Linux. Of course, there 
+is the manufacturer provided smsc911x driver, that supports both chip 
+families, but I would prefer to extend the mainline smc911x driver to also 
+support 921x. I have both datasheets, they are freely downloadable from 
+SMSC site, and I have both drivers, but they are absolutely different. To 
+make my decision and the work easier - maybe someone knows from the top of 
+their head, what the relevant differences between the chips are?
 
-I think I'll also take this. Though I don't yet know what to do with
-this driver. Perhaps I should fix it somehow or merge with pc300too.
+The vendor driver does not really differentiate between the chips. It does 
+read the chip version, and sets the "generation" variable, but then that 
+variable is only used once to rule out the oldest chips, which anyway are 
+not supported by smc911x. So I tried the in-kernel driver with only added 
+chip IDs added, it can access registers, read and write the MAC-address, 
+interrupts are generated too, but so far I see nothing on the wire, and 
+the PHY reports "link down".
 
-Thanks.
--- 
-Krzysztof Halasa
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
