@@ -1,36 +1,59 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] Control Group Classifier
-Date: Tue, 9 Sep 2008 02:06:27 +0200
-Message-ID: <20080909000627.GF20815@postel.suug.ch>
-References: <20080908115101.GE20815@postel.suug.ch> <166fe7950809081428k2e1ba24crd54e66aa027f9998@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: xfrm_state locking regression...
+Date: Mon, 08 Sep 2008 17:09:07 -0700 (PDT)
+Message-ID: <20080908.170907.242316059.davem@davemloft.net>
+References: <48BE329C.2010209@iki.fi>
+	<20080902.234723.163403187.davem@davemloft.net>
+	<20080905115506.GA26179@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Paul Menage <menage@google.com>
-To: Ranjit Manomohan <ranjitm@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:55336 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754606AbYIIAGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2008 20:06:08 -0400
-Content-Disposition: inline
-In-Reply-To: <166fe7950809081428k2e1ba24crd54e66aa027f9998@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38816
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754068AbYIIAJO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 20:09:14 -0400
+In-Reply-To: <20080905115506.GA26179@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Ranjit Manomohan <ranjitm@google.com> 2008-09-08 14:28
-> Wouldn't this cause a lot of packets (like acks)  to be incorrectly
-> classifed to the current tasks cgroup although it may not have
-> anything to do with them? That is the reason I chose to put the
-> classid into the socket at creation time.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 5 Sep 2008 21:55:07 +1000
 
-In its current form, it does not work if the packet is rescheduled
-or not sent in the context of a process. Such packets simply end
-up not being classified at all. In the most common case, the packet
-is not queued before it hits the qdisc so this takes away a lot of
-complexity and is very fast but should still be sufficient.
+> @@ -403,17 +408,23 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
+>  
+>  static void xfrm_state_gc_task(struct work_struct *data)
+>  {
+> -	struct xfrm_state *x;
+> -	struct hlist_node *entry, *tmp;
+> -	struct hlist_head gc_list;
+> +	struct xfrm_state *x, *tmp;
+> +	static LIST_HEAD(gc_list);
+> +	unsigned long completed;
+>  
+>  	spin_lock_bh(&xfrm_state_gc_lock);
+> -	gc_list.first = xfrm_state_gc_list.first;
+> -	INIT_HLIST_HEAD(&xfrm_state_gc_list);
+> +	list_splice_tail_init(&xfrm_state_gc_list, &gc_list);
+>  	spin_unlock_bh(&xfrm_state_gc_lock);
+>  
+> -	hlist_for_each_entry_safe(x, entry, tmp, &gc_list, bydst)
+> +	mutex_lock(&xfrm_cfg_mutex);
+> +	completed = xfrm_state_walk_completed;
+> +	mutex_unlock(&xfrm_cfg_mutex);
+> +
+> +	list_for_each_entry_safe(x, tmp, &gc_list, gclist) {
+> +		if ((long)(x->lastused - completed) > 0)
+> +			break;
+>  		xfrm_state_gc_destroy(x);
+> +	}
+>  
+>  	wake_up(&km_waitq);
+>  }
 
-Alternatively I also thought about doing a socket lookup in the
-classifier (if !skb->sk) and store the classid in the socket. This
-would add more flexibility and work for ingress traffic whitout
-adding pollution to the sk_buff. It adds a heavy operation to the
-classification process though as it would probably require a lock.
+What happens to all of the entries on the local gc_list which you
+will be skipping when you break out of that last loop?
+
+It looks like they will never get processed.
