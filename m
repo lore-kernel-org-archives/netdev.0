@@ -1,51 +1,43 @@
-From: "Eugene Teo" <eugeneteo@kernel.sg>
-Subject: Re: Internet-Draft on Port Randomisation
-Date: Tue, 9 Sep 2008 14:31:19 +0800
-Message-ID: <28fa9c5e0809082331g33ca66a4se49ed11b3e037c0b@mail.gmail.com>
-References: <28fa9c5e0809082107p7a33dc4fod344fde212e1d710@mail.gmail.com>
-	 <48C60284.2070402@vyatta.com>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: RFC: Nagle latency tuning
+Date: Tue, 09 Sep 2008 02:28:37 -0400
+Message-ID: <48C61795.70806@redhat.com>
+References: <48C59F75.6030504@redhat.com> <48C5A9A9.9040503@hp.com> <48C6052D.2080203@redhat.com> <20080908.221742.02572583.davem@davemloft.net> <48C60FFC.8090109@redhat.com> <20080909062208.GB30385@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Stephen Hemminger" <stephen.hemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.237]:62165 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753820AbYIIGbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 02:31:19 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so1776570rvb.1
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 23:31:19 -0700 (PDT)
-In-Reply-To: <48C60284.2070402@vyatta.com>
-Content-Disposition: inline
+Received: from mx2.redhat.com ([66.187.237.31]:58705 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753647AbYIIGbf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 02:31:35 -0400
+In-Reply-To: <20080909062208.GB30385@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 9, 2008 at 12:58 PM, Stephen Hemminger
-<stephen.hemminger@vyatta.com> wrote:
-> Eugene Teo wrote:
->>
->> Has anyone read this Internet-Draft?
->>
->> http://www.gont.com.ar/drafts/port-randomization/draft-ietf-tsvwg-port-randomization-02.txt
->>
->> In this memo, there are descriptions of four different ephemeral port
->> randomisation algorithms (see page 17).
->>
->> Algo #1 and #2 are simple port randomisation algorithms. Algo #3 is
->> what we have in Linux. The memo suggested algorithm #4, double-hash
->> randomisation algorithm, which is an improvement to algo #3 (see page
->> 15).
->>
->> Does anyone have any thought about the improved algorithm? Is this
->> worth implementing,
->
-> No the added lock overhead of a global next free port array is not worth it.
-> Think of big web server under
-> DoS pressure. The existing port search can run in parallel, Algo #4 was
-> suggested by people
-> who don't work on a real SMP OS.
+Evgeniy Polyakov wrote:
+> Hi.
+> 
+> On Tue, Sep 09, 2008 at 01:56:12AM -0400, Chris Snook (csnook@redhat.com) wrote:
+>> The easiest way to see the problem is to open a TCP socket to an echo 
+>> daemon on loopback, make a bunch of small writes totaling less than your 
+>> loopback MTU (accounting for overhead), and see how long it takes to get 
+>> your echoes.  You can probably do this with netcat, though I haven't 
+>> tried.  People don't expect loopback to have 40 ms latency when the box 
+>> is lightly loaded, so they'd really like to tweak that down when it's 
+>> hurting them.
+> 
+> Isn't Nagle without corking a very bad idea? Or you can not change the
+> application?
+> 
 
-Thanks Stephen.
+Yes, it is a bad idea.  We want to make the corking tunable, so people 
+don't disable it completely to avoid these 40 ms latencies.  Also, we 
+often can't change the application, so tuning this system-wide would be 
+nice, and would be a lot less dangerous than turning on TCP_NODELAY 
+system-wide the way people often do with solaris.
 
-Eugene
+-- Chris
