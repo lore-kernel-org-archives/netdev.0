@@ -1,131 +1,160 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 8/9] skge: add VPD display into debug interface
-Date: Tue, 09 Sep 2008 11:20:48 -0700
-Message-ID: <20080909182057.551994557@vyatta.com>
+Subject: [PATCH 6/9] sky2: remove VPD eeprom
+Date: Tue, 09 Sep 2008 11:20:46 -0700
+Message-ID: <20080909182057.369126262@vyatta.com>
 References: <20080909182040.246073057@vyatta.com>
 Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org
 To: Jesse Barnes <jbarnes@virtuousgeek.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from suva.vyatta.com ([76.74.103.44]:37565 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754441AbYIIT3X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 15:29:23 -0400
-Content-Disposition: inline; filename=skge-vpd-debug.patch
+	id S1754308AbYIIT30 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 15:29:26 -0400
+Content-Disposition: inline; filename=sky2-no-eeprom.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VPD stuff has more data and useful only when debugging.
+The VPD is not really the firmware EEPROM. The real EEPROM is behind
+an SPI interface, that maybe supported in later version.
+Programming the VPD through the ethtool interface doesn't work
+(doesn't really change firmware). Now that the interesting bits are
+available through the debug interface and raw data is available through sysfs,
+the old interface can go.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/skge.c	2008-09-09 11:19:31.000000000 -0700
-+++ b/drivers/net/skge.c	2008-09-09 11:19:33.000000000 -0700
-@@ -3656,19 +3656,102 @@ static int skge_reset(struct skge_hw *hw
+
+--- a/drivers/net/sky2.c	2008-09-09 11:19:26.000000000 -0700
++++ b/drivers/net/sky2.c	2008-09-09 11:19:30.000000000 -0700
+@@ -75,8 +75,6 @@
+ #define NAPI_WEIGHT		64
+ #define PHY_RETRIES		1000
  
- static struct dentry *skge_debug;
+-#define SKY2_EEPROM_MAGIC	0x9955aabb
+-
  
-+/*
-+ * Read and parse the first part of Vital Product Data
-+ */
-+#define VPD_SIZE	128
-+#define VPD_MAGIC	0x82
-+
-+static const struct vpd_tag {
-+	char tag[2];
-+	char *label;
-+} vpd_tags[] = {
-+	{ "PN",	"Part Number" },
-+	{ "EC", "Engineering Level" },
-+	{ "MN", "Manufacturer" },
-+	{ "SN", "Serial Number" },
-+	{ "YA", "Asset Tag" },
-+	{ "VL", "First Error Log Message" },
-+	{ "VF", "Second Error Log Message" },
-+	{ "VB", "Boot Agent ROM Configuration" },
-+	{ "VE", "EFI UNDI Configuration" },
-+};
-+
-+static void skge_show_vpd(struct seq_file *seq, struct skge_hw *hw)
-+{
-+	size_t vpd_size;
-+	loff_t offs;
-+	u8 len;
-+	unsigned char *buf;
-+	u32 reg2;
-+
-+	pci_read_config_dword(hw->pdev, PCI_DEV_REG2, &reg2);
-+	vpd_size = 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
-+
-+	seq_printf(seq, "%s Product Data\n", pci_name(hw->pdev));
-+	buf = kmalloc(vpd_size, GFP_KERNEL);
-+	if (!buf) {
-+		seq_puts(seq, "no memory!\n");
-+		return;
-+	}
-+
-+	if (pci_read_vpd(hw->pdev, 0, vpd_size, buf) < 0) {
-+		seq_puts(seq, "VPD read failed\n");
-+		goto out;
-+	}
-+
-+	if (buf[0] != VPD_MAGIC) {
-+		seq_printf(seq, "VPD tag mismatch: %#x\n", buf[0]);
-+		goto out;
-+	}
-+	len = buf[1];
-+	if (len == 0 || len > vpd_size - 4) {
-+		seq_printf(seq, "Invalid id length: %d\n", len);
-+		goto out;
-+	}
-+
-+	seq_printf(seq, "%.*s\n", len, buf + 3);
-+	offs = len + 3;
-+
-+	while (offs < vpd_size - 4) {
-+		int i;
-+
-+		if (!memcmp("RW", buf + offs, 2))	/* end marker */
-+			break;
-+		len = buf[offs + 2];
-+		if (offs + len + 3 >= vpd_size)
-+			break;
-+
-+		for (i = 0; i < ARRAY_SIZE(vpd_tags); i++) {
-+			if (!memcmp(vpd_tags[i].tag, buf + offs, 2)) {
-+				seq_printf(seq, " %s: %.*s\n",
-+					   vpd_tags[i].label, len, buf + offs + 3);
-+				break;
-+			}
-+		}
-+		offs += len + 3;
-+	}
-+out:
-+	kfree(buf);
-+}
-+
- static int skge_debug_show(struct seq_file *seq, void *v)
- {
- 	struct net_device *dev = seq->private;
- 	const struct skge_port *skge = netdev_priv(dev);
--	const struct skge_hw *hw = skge->hw;
-+	struct skge_hw *hw = skge->hw;
- 	const struct skge_element *e;
+ #define RING_NEXT(x,s)	(((x)+1) & ((s)-1))
  
--	if (!netif_running(dev))
--		return -ENETDOWN;
-+	skge_show_vpd(seq, hw);
+@@ -3722,109 +3720,6 @@ static int sky2_set_tso(struct net_devic
+ 	return ethtool_op_set_tso(dev, data);
+ }
  
- 	seq_printf(seq, "IRQ src=%x mask=%x\n", skge_read32(hw, B0_ISRC),
- 		   skge_read32(hw, B0_IMSK));
- 
-+	if (!netif_running(dev)) {
-+		seq_printf(seq, "network not running\n");
-+		return 0;
-+	}
-+
- 	seq_printf(seq, "Tx Ring: (%d)\n", skge_avail(&skge->tx_ring));
- 	for (e = skge->tx_ring.to_clean; e != skge->tx_ring.to_use; e = e->next) {
- 		const struct skge_tx_desc *t = e->desc;
+-static int sky2_get_eeprom_len(struct net_device *dev)
+-{
+-	struct sky2_port *sky2 = netdev_priv(dev);
+-	struct sky2_hw *hw = sky2->hw;
+-	u16 reg2;
+-
+-	reg2 = sky2_pci_read16(hw, PCI_DEV_REG2);
+-	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
+-}
+-
+-static int sky2_vpd_wait(const struct sky2_hw *hw, int cap, u16 busy)
+-{
+-	unsigned long start = jiffies;
+-
+-	while ( (sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F) == busy) {
+-		/* Can take up to 10.6 ms for write */
+-		if (time_after(jiffies, start + HZ/4)) {
+-			dev_err(&hw->pdev->dev, PFX "VPD cycle timed out");
+-			return -ETIMEDOUT;
+-		}
+-		mdelay(1);
+-	}
+-
+-	return 0;
+-}
+-
+-static int sky2_vpd_read(struct sky2_hw *hw, int cap, void *data,
+-			 u16 offset, size_t length)
+-{
+-	int rc = 0;
+-
+-	while (length > 0) {
+-		u32 val;
+-
+-		sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset);
+-		rc = sky2_vpd_wait(hw, cap, 0);
+-		if (rc)
+-			break;
+-
+-		val = sky2_pci_read32(hw, cap + PCI_VPD_DATA);
+-
+-		memcpy(data, &val, min(sizeof(val), length));
+-		offset += sizeof(u32);
+-		data += sizeof(u32);
+-		length -= sizeof(u32);
+-	}
+-
+-	return rc;
+-}
+-
+-static int sky2_vpd_write(struct sky2_hw *hw, int cap, const void *data,
+-			  u16 offset, unsigned int length)
+-{
+-	unsigned int i;
+-	int rc = 0;
+-
+-	for (i = 0; i < length; i += sizeof(u32)) {
+-		u32 val = *(u32 *)(data + i);
+-
+-		sky2_pci_write32(hw, cap + PCI_VPD_DATA, val);
+-		sky2_pci_write32(hw, cap + PCI_VPD_ADDR, offset | PCI_VPD_ADDR_F);
+-
+-		rc = sky2_vpd_wait(hw, cap, PCI_VPD_ADDR_F);
+-		if (rc)
+-			break;
+-	}
+-	return rc;
+-}
+-
+-static int sky2_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+-			   u8 *data)
+-{
+-	struct sky2_port *sky2 = netdev_priv(dev);
+-	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
+-
+-	if (!cap)
+-		return -EINVAL;
+-
+-	eeprom->magic = SKY2_EEPROM_MAGIC;
+-
+-	return sky2_vpd_read(sky2->hw, cap, data, eeprom->offset, eeprom->len);
+-}
+-
+-static int sky2_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+-			   u8 *data)
+-{
+-	struct sky2_port *sky2 = netdev_priv(dev);
+-	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
+-
+-	if (!cap)
+-		return -EINVAL;
+-
+-	if (eeprom->magic != SKY2_EEPROM_MAGIC)
+-		return -EINVAL;
+-
+-	/* Partial writes not supported */
+-	if ((eeprom->offset & 3) || (eeprom->len & 3))
+-		return -EINVAL;
+-
+-	return sky2_vpd_write(sky2->hw, cap, data, eeprom->offset, eeprom->len);
+-}
+-
+-
+ static const struct ethtool_ops sky2_ethtool_ops = {
+ 	.get_settings	= sky2_get_settings,
+ 	.set_settings	= sky2_set_settings,
+@@ -3837,9 +3732,6 @@ static const struct ethtool_ops sky2_eth
+ 	.get_regs_len	= sky2_get_regs_len,
+ 	.get_regs	= sky2_get_regs,
+ 	.get_link	= ethtool_op_get_link,
+-	.get_eeprom_len	= sky2_get_eeprom_len,
+-	.get_eeprom	= sky2_get_eeprom,
+-	.set_eeprom	= sky2_set_eeprom,
+ 	.set_sg 	= ethtool_op_set_sg,
+ 	.set_tx_csum	= sky2_set_tx_csum,
+ 	.set_tso	= sky2_set_tso,
 
 -- 
 
