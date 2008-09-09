@@ -1,46 +1,36 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 0/3 v2] ibm_newemac: Various fixes and additions for
-	PPC405EZ
-Date: Tue, 09 Sep 2008 17:11:23 +1000
-Message-ID: <1220944283.4879.323.camel@pasglop>
-References: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
-Reply-To: benh@kernel.crashing.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 17/33] netns ct: final init_net tweaks
+Date: Tue, 09 Sep 2008 09:20:42 +0200
+Message-ID: <48C623CA.9060803@trash.net>
+References: <48C01046.2070704@trash.net> <1220842990-30500-17-git-send-email-adobriyan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:49509 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753261AbYIIHTn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 03:19:43 -0400
-In-Reply-To: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1220842990-30500-17-git-send-email-adobriyan@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-09-08 at 08:44 -0400, Josh Boyer wrote:
-> The following patch series adds things needed to support the PowerPC 405EZ
-> SoC.  I've incorporated the suggestions and fixes from the previous round
-> of patches and barring any further comments these should be ready to go.
-
-For some reason, I got this email but not the 3 following patch ones...
-
-Cheers,
-Ben.
-
-> josh
+Alexey Dobriyan wrote:
+> Add checks for init_net to not create kmem caches twice and so on.
 > 
-> Josh Boyer (3):
->   ibm_newemac: Allow the "no flow control" EMAC feature to work
->   ibm_newemac: Introduce mal_has_feature
->   ibm_newemac: MAL support for PowerPC 405EZ
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 > 
->  arch/powerpc/include/asm/dcr-regs.h |    7 ++++
->  drivers/net/ibm_newemac/Kconfig     |   12 +++++++
->  drivers/net/ibm_newemac/core.c      |    2 +
->  drivers/net/ibm_newemac/core.h      |    3 ++
->  drivers/net/ibm_newemac/mal.c       |   60 ++++++++++++++++++++++++++++++++---
->  drivers/net/ibm_newemac/mal.h       |   34 ++++++++++++++++++++
->  6 files changed, 113 insertions(+), 5 deletions(-)
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index b55944e..52d0663 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1016,7 +1016,8 @@ EXPORT_SYMBOL_GPL(nf_conntrack_flush);
+>     supposed to kill the mall. */
+>  void nf_conntrack_cleanup(struct net *net)
+>  {
+> -	rcu_assign_pointer(ip_ct_attach, NULL);
+> +	if (net_eq(net, &init_net))
+> +		rcu_assign_pointer(ip_ct_attach, NULL);
 
+Having multiple of these net_eq checks per function (14 total) is
+not a very nice way to do this. How about splitting the code into
+a netns and a global part instead?
