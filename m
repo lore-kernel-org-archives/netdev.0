@@ -1,29 +1,54 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: Re: RFC: Nagle latency tuning
-Date: Tue, 9 Sep 2008 11:31:38 +0100
-Message-ID: <20080909103137.GD31314@sirena.org.uk>
-References: <48C6052D.2080203@redhat.com> <20080908.221742.02572583.davem@davemloft.net> <48C60FFC.8090109@redhat.com> <20080908.230221.101659829.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc 0/3] IPVS: checksum updates
+Date: Tue, 9 Sep 2008 21:31:33 +1000
+Message-ID: <20080909113131.GA3605@verge.net.au>
+References: <20080908020420.313463898@vergenet.net> <20080908234028.GF13048@verge.net.au> <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: csnook@redhat.com, rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Vince Busam <vbusam@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:1456 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751977AbYIILK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 07:10:56 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:56381 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238AbYIILbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 07:31:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20080908.230221.101659829.davem@davemloft.net>
+In-Reply-To: <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 08, 2008 at 11:02:21PM -0700, David Miller wrote:
-> From: Chris Snook <csnook@redhat.com>
-> Date: Tue, 09 Sep 2008 01:56:12 -0400
+On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
+> On Tue, Sep 9, 2008 at 1:40 AM, Simon Horman <horms@verge.net.au> wrote:
+> > On Mon, Sep 08, 2008 at 12:04:20PM +1000, Simon Horman wrote:
+> >> Hi,
+> >>
+> >> The impetus for this series of patches is Julian Anastasov noting
+> >> that "load balance IPv4 connections from a local process" checks
+> >> for 0 TCP checksums. Herbert Xu confirmed that this is not legal,
+> >> even on loopback traffic, but that rather partial checksums are
+> >> possible.
+> >>
+> >> The first patch in this series is a proposed solution to handle
+> >> partial checksums for both TCP and UDP.
+> >>
+> >> The other two patches clean things up a bit.
+> >>
+> >> I have not tested this code beyond compilation yet.
+> >
+> > After extensive testing by Julius Volz and limited testing by myself, I
+> > have applied the first patch, which does indeed allow packets with
+> > PARTIAL_CHECKSUM to work, to lvs-next-2.6. I have dropped the second two
+> > patches which produce bogus checksums.
+> 
+> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
+> NAT+DSR+TUN in all combinations that are expected to be working and
+> found no problems.
 
-> [ Please hit enter every 80 columns or so, your emails are
->   unreadable until I reformat your text by hand, thanks. ]
+Thanks once again for your testing. I'll send a pull request to Dave in
+the morning.
 
-FWIW the problem with this and some other mails you raised this on
-recently is that they're sent with format=folowed which tells the
-receiving MUA that it's OK to reflow the text to fit the display.
