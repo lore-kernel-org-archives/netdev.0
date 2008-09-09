@@ -1,54 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
- feature-negotiation patches
-Date: Mon, 08 Sep 2008 17:32:50 -0700 (PDT)
-Message-ID: <20080908.173250.204419507.davem@davemloft.net>
-References: <20080902.230655.89921076.davem@davemloft.net>
-	<20080903081839.GA9001@gerrit.erg.abdn.ac.uk>
-	<20080904061511.GA30756@gerrit.erg.abdn.ac.uk>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after	some time
+Date: Mon, 8 Sep 2008 17:34:00 -0700
+Message-ID: <OF604A6380.9CF7D18A-ON882574BF.000171B8-882574BF.00031DB5@us.ibm.com>
+References: <20080902150008.GD7289@schleppi.birkenwald.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
+To: Bernhard Schmidt <berni@birkenwald.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36185
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752867AbYIIAc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 20:32:56 -0400
-In-Reply-To: <20080904061511.GA30756@gerrit.erg.abdn.ac.uk>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:43697 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754506AbYIIAeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 20:34:13 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m890Y4bR028117
+	for <netdev@vger.kernel.org>; Mon, 8 Sep 2008 20:34:04 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m890Y3rd204522
+	for <netdev@vger.kernel.org>; Mon, 8 Sep 2008 18:34:03 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m890Y39T005193
+	for <netdev@vger.kernel.org>; Mon, 8 Sep 2008 18:34:03 -0600
+Received: from d03nm121.boulder.ibm.com (d03nm121.boulder.ibm.com [9.17.195.147])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id m890Y3pc005190
+	for <netdev@vger.kernel.org>; Mon, 8 Sep 2008 18:34:03 -0600
+In-Reply-To: <20080902150008.GD7289@schleppi.birkenwald.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 4 Sep 2008 08:15:11 +0200
+Bernhard,
+        I looked at this some more and didn't see anything obvious.
+The send side doesn't need group membership to send, or anything
+special, really. The only thing that comes to mind is that maybe you
+have a bogus route installed (since you don't have a bogus interface
+flag :-)).
+        Can you do an "ip -6 route list" when it's happening?
 
-> This is an update with regard to Wei's comments. I have re-synched 
-> 
-> 	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[subtree `dccp']
-> 	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=shortlog;h=dccp
-> 
-> Also did some testing with a client that only supports CCID 2/3 talking to a client supporting
-> CCID 2/3/4. They could still negotiate and settle for a common CCID.
+        Also might be worthwhile to see the entire arg list, so
+maybe using the "-s" option to strace to increase it, and we
+probably only need sendmsg(), so maybe:
 
-I pulled and resolved all of the conflicts, but this build warning I'm
-now getting from ccid3.h has got to go:
+strace -s 1024 -e trace=sendmsg -e verbose=sendmsg ping6 -I eth0 ....
 
-/*
- * The t_delta parameter (RFC 3448, 4.6): delays of less than %USEC_PER_MSEC are
- * rounded down to 0, since sk_reset_timer() here uses millisecond granularity.
- * Hence we can use a constant t_delta = %USEC_PER_MSEC when HZ >= 500. A coarse
- * resolution of HZ < 500 means that the error is below one timer tick (t_gran)
- * when using the constant t_delta  =  t_gran / 2  =  %USEC_PER_SEC / (2 * HZ).
- */
-#if (HZ >= 500)
-# define TFRC_T_DELTA		   USEC_PER_MSEC
-#else
-# define TFRC_T_DELTA		   (USEC_PER_SEC / (2 * HZ))
-#warning Coarse CONFIG_HZ resolution -- higher value recommended for TFRC.
-#endif
+I wanted to see more detail than strace could fit in the default length. 
+:-)
 
-Don't warn about crap like this, instead convert the code over to hrtimers.
+                                        +-DLS
 
-This kernel being built, even with HZ=100, can do nanosecond timers on
-my systems, but that's only if you would make proper use of them.
