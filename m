@@ -1,77 +1,44 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: RE: [PATCH] ibm_newemac: Add support for GPCS, SGMII and
-	M88E1112PHY
-Date: Tue, 09 Sep 2008 17:12:40 +1000
-Message-ID: <1220944360.4879.326.camel@pasglop>
-References: <1220658734-13944-1-git-send-email-vgallardo@amcc.com>
-	 <1220833754.4879.228.camel@pasglop>
-	 <0CA0A16855646F4FA96D25A158E299D602C8135D@SDCEXCHANGE01.ad.amcc.com>
-Reply-To: benh@kernel.crashing.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 16/33] netns ct: per-netns event cache
+Date: Tue, 09 Sep 2008 09:16:42 +0200
+Message-ID: <48C622DA.1070609@trash.net>
+References: <48C01046.2070704@trash.net> <1220842990-30500-16-git-send-email-adobriyan@gmail.com> <48C613CB.5000303@trash.net> <20080909070742.GE5786@x200.localdomain> <48C6209F.6090804@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Feng Kan <fkan@amcc.com>,
-	netdev@vger.kernel.org
-To: Victor Gallardo <vgallardo@amcc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57109 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755431AbYIIHMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 03:12:54 -0400
-In-Reply-To: <0CA0A16855646F4FA96D25A158E299D602C8135D@SDCEXCHANGE01.ad.amcc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <48C6209F.6090804@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2008-09-07 at 22:57 -0700, Victor Gallardo wrote:
-> Hello Benjamin,
->  
-> On the 460EX/GT in SGMII mode, GPCS access is needed for communication with the internal SGMII SerDes. It is possible that there is still a PHY. So we need a way to access both addresses.
->  
-> For Example on the AMCC Arches Board.
->  
-> EMAC 0 has only a GPCS PHY (address 0xA)
-> EMAC 1 has M88E1112 PHY (address 0x0) and GPCS PHY (address 0xB)
-> EMAC 2 has M88E1112 PHY (address 0x1) and GPCS PHY (address 0xC)
+Patrick McHardy wrote:
+> Alexey Dobriyan wrote:
+>> On Tue, Sep 09, 2008 at 08:12:27AM +0200, Patrick McHardy wrote:
+>>> Alexey Dobriyan wrote:
+>>>> Heh, last minute proof-reading of this patch made me think,
+>>>> that this is actually unneeded, simply because "ct" pointers will be
+>>>> different for different conntracks in different netns, just like they
+>>>> are different in one netns.
+>>>>
+>>>> Not so sure anymore.
+>>> Its necessary because the cache needs to be flushed on netns exit
+>>> and this is only allowed while its not in use anymore.
+>>>
+>>> I don't see anything in this series actually making sure nothing
+>>> hits the cache on exit though. Am I missing something?
+>>
+>> When netns refcount hits zero, netdevices in it will start dropping 
+>> packets.
+>> And there is synchronize_net() call before cache flush.
+>>
+>> I think this is enough.
+> 
+> Thanks for the explanation, I have a closer look at this.
 
-Ok. Thanks. I need to review your patch a bit better, hopefully later
-this week. I'll let you know. Ping me if you get no news by next monday.
+Yes, that looks fine. Applied, thanks.
 
-Cheers,
-Ben.
-
-> Regards,
->  
-> Victor Gallardo
-> 
-> ________________________________
-> 
-> From: Benjamin Herrenschmidt [mailto:benh@kernel.crashing.org]
-> Sent: Sun 9/7/2008 5:29 PM
-> To: Victor Gallardo
-> Cc: linuxppc-dev@ozlabs.org; Feng Kan
-> Subject: Re: [PATCH] ibm_newemac: Add support for GPCS, SGMII and M88E1112PHY
-> 
-> 
-> 
-> On Fri, 2008-09-05 at 16:52 -0700, Victor Gallardo wrote:
-> > From: Victor Gallardo <vgallardo@amcc.com>
-> >
-> > This patch adds GPCS, SGMII and M88E1112 PHY support
-> > for the AMCC PPC460GT/EX processors.
-> 
-> So if I understand the patch correctly, either there is an *MII PHY in
-> which case phy_address is used, or there's a GPCS one and phy_address is
-> -1 and gpcs_address is used right ?
-> 
-> Why not instead always use phy_address, and have a flag indicating
-> whether it's an MII or GPCS PHY ? This would avoid the added
-> gpcs_read/write functions, among other things, and I believe would look
-> cleaner... Or am I missing something ?
-> 
-> Cheers,
-> Ben.
-> 
-> 
-> 
-> 
-
+BTW, doesn't __vlan_hwaccel_rx() also needs a netns_alive() check
+to avoid passing packets to AF_PACKET sockets in dead namespaces?
