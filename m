@@ -1,68 +1,36 @@
-From: David Fries <david@fries.net>
-Subject: [PATCH 2/2] ne.c Fix suspend and resume for ISA PnP cards.
-Date: Mon, 8 Sep 2008 22:01:14 -0500
-Message-ID: <20080909030114.GC28469@spacedout.fries.net>
-References: <20080904030212.GA23493@spacedout.fries.net> <7d1d9c250809050101v9ab3907l649781ee38a5a243@mail.gmail.com> <20080909025434.GB28469@spacedout.fries.net>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: Re: [GIT]: Networking
+Date: Mon, 08 Sep 2008 21:08:08 -0600
+Message-ID: <1220929688.7265.4.camel@2710p.home>
+References: <20080827.164649.87042354.davem@davemloft.net>
+	 <1220627292.7260.3.camel@2710p.home>  <48C5E2FC.4090304@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	Paul Gortmaker <p_gortmaker@yahoo.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	j@w1.fi
+To: Jouni Malinen <jouni.malinen@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SpacedOut.fries.net ([67.64.210.234]:40093 "EHLO
-	SpacedOut.fries.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbYIIDCV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 23:02:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20080909025434.GB28469@spacedout.fries.net>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:13798 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584AbYIIDIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2008 23:08:13 -0400
+In-Reply-To: <48C5E2FC.4090304@atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Fries <david@fries.net>
+On Tue, 2008-09-09 at 05:44 +0300, Jouni Malinen wrote:
+> 
+> What exactly does "breaks wireless" mean here?
 
-A call to pnp_stop_dev and pnp_start_dev now shuts down and
-initializes plug and play devices for suspend and resume.
+NetworkManager can see access points, but doesn't get much further than
+that.  From an end user perspective, similar to how it behaved in
+2.6.26, before Dave's wext compat fixes.
 
-Signed-off-by: David Fries <david@fries.net>
-Cc: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Cc: Paul Gortmaker <p_gortmaker@yahoo.com>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Cc: Jeff Garzik <jeff@garzik.org>
----
- drivers/net/ne.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+Alex
 
-diff --git a/drivers/net/ne.c b/drivers/net/ne.c
-index 2bece66..cd31e77 100644
---- a/drivers/net/ne.c
-+++ b/drivers/net/ne.c
-@@ -876,8 +876,12 @@ static int ne_drv_suspend(struct platform_device *pdev, pm_message_t state)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 
--	if (netif_running(dev))
-+	if (netif_running(dev)) {
-+		struct pnp_dev *idev = (struct pnp_dev *)ei_status.priv;
- 		netif_device_detach(dev);
-+		if (idev)
-+			pnp_stop_dev(idev);
-+	}
- 	return 0;
- }
- 
-@@ -886,6 +890,9 @@ static int ne_drv_resume(struct platform_device *pdev)
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 
- 	if (netif_running(dev)) {
-+		struct pnp_dev *idev = (struct pnp_dev *)ei_status.priv;
-+		if (idev)
-+			pnp_start_dev(idev);
- 		ne_reset_8390(dev);
- 		NS8390p_init(dev, 1);
- 		netif_device_attach(dev);
--- 
-1.4.4.4
+
