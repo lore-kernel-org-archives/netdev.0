@@ -1,33 +1,37 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
-	feature-negotiation patches
-Date: Tue, 9 Sep 2008 13:59:48 +0200
-Message-ID: <20080909115948.GA3551@gerrit.erg.abdn.ac.uk>
-References: <20080904061511.GA30756@gerrit.erg.abdn.ac.uk> <20080908.173250.204419507.davem@davemloft.net> <20080909080911.GA9176@gerrit.erg.abdn.ac.uk> <20080909.015720.204027435.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: Nagle latency tuning
+Date: Tue, 09 Sep 2008 05:05:00 -0700 (PDT)
+Message-ID: <20080909.050500.200863990.davem@davemloft.net>
+References: <48C60FFC.8090109@redhat.com>
+	<20080908.230221.101659829.davem@davemloft.net>
+	<20080909103137.GD31314@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: broonie@sirena.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43924 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753345AbYIIMCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 08:02:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20080909.015720.204027435.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34502
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753081AbYIIMFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 08:05:07 -0400
+In-Reply-To: <20080909103137.GD31314@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Let's keep this clean and simple. There has been a mistake here and it
-needs to be fixed. It does not help to argue loudly whose fault it was.
+From: Mark Brown <broonie@sirena.org.uk>
+Date: Tue, 9 Sep 2008 11:31:38 +0100
 
-Please consider pulling from
+> On Mon, Sep 08, 2008 at 11:02:21PM -0700, David Miller wrote:
+> > From: Chris Snook <csnook@redhat.com>
+> > Date: Tue, 09 Sep 2008 01:56:12 -0400
+> 
+> > [ Please hit enter every 80 columns or so, your emails are
+> >   unreadable until I reformat your text by hand, thanks. ]
+> 
+> FWIW the problem with this and some other mails you raised this on
+> recently is that they're sent with format=folowed which tells the
+> receiving MUA that it's OK to reflow the text to fit the display.
 
-	git://eden-feed.erg.abdn.ac.uk/net-next-2.6	 [subtree `master']
-	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-next-2.6.git;a=summary
-
-where I have reverted the pull and compile-tested the result. 
-
-We can talk about the rest once you have cooled down.
-
-Gerrit
+I'll have to see why MEW isn't handling that correctly then,
+it even claims to support this in the version I am using :)
