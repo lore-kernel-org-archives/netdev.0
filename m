@@ -1,51 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: ipsec: Make xfrm_larval_drop default to 1.
-Date: Tue, 09 Sep 2008 16:09:24 -0700 (PDT)
-Message-ID: <20080909.160924.203522684.davem@davemloft.net>
+From: "Johann Baudy" <johaahn@gmail.com>
+Subject: Re: Fwd: Packet mmap: TX RING and zero copy
+Date: Wed, 10 Sep 2008 01:11:31 +0200
+Message-ID: <7e0dd21a0809091611q74b032ffw734d031a4def894b@mail.gmail.com>
+References: <7e0dd21a0809050745w692328b7v6dd4e0adf59e9535@mail.gmail.com>
+	 <7e0dd21a0809050830o7c1dcc2do68da5df9900fcfe8@mail.gmail.com>
+	 <20080905153811.GA3596@2ka.mipt.ru>
+	 <7e0dd21a0809050901q23d0b16xa1a9d0df2f36f6d8@mail.gmail.com>
+	 <20080905163446.GB10078@2ka.mipt.ru>
+	 <7e0dd21a0809080321p6b9e2bc7m73e2cdd57a8d58b8@mail.gmail.com>
+	 <20080908112629.GA26488@2ka.mipt.ru>
+	 <7e0dd21a0809080601lc250197wde17733522d03125@mail.gmail.com>
+	 <20080908152835.GA16834@2ka.mipt.ru>
+	 <20080908153841.GA24683@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33024
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753375AbYIIXJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 19:09:30 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 6138DC8C17E
-	for <netdev@vger.kernel.org>; Tue,  9 Sep 2008 16:09:24 -0700 (PDT)
+Received: from rv-out-0506.google.com ([209.85.198.230]:10862 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754311AbYIIXLc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 19:11:32 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2105531rvb.1
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2008 16:11:31 -0700 (PDT)
+In-Reply-To: <20080908153841.GA24683@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Evgeniy,
 
-I've threatened to do this in the past, now I finally pulled
-the trigger.  :-) Pushed to net-next-2.6
+We've performed more tests with additional and mandatory processes of
+our system. Bitrate and CPU performance were very very low. This
+result leads us to brainstorm on a new system design that meets
+specifications target. I'll continue these tests once new design
+ready.
 
-ipsec: Make xfrm_larval_drop default to 1.
+Concerning udp_sendpage() patch, if you agree, I will suggest this
+patch to the community in a new thread.
 
-The previous default behavior is definitely the least user
-friendly.  Hanging there forever just because the keying
-daemon is wedged or the refreshing of the policy can't move
-forward is anti-social to say the least.
+Many thanks for your help,
+Johann
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/xfrm/xfrm_policy.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 46914b7..638bb5f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -34,7 +34,7 @@
- 
- #include "xfrm_hash.h"
- 
--int sysctl_xfrm_larval_drop __read_mostly;
-+int sysctl_xfrm_larval_drop __read_mostly = 1;
- 
- #ifdef CONFIG_XFRM_STATISTICS
- DEFINE_SNMP_STAT(struct linux_xfrm_mib, xfrm_statistics) __read_mostly;
+
+On Mon, Sep 8, 2008 at 5:38 PM, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> On Mon, Sep 08, 2008 at 07:28:35PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+>> What is CPU usage on sender when it sends data via UDP sendfile()?
+>
+> Actually we can determine the culprit via putting a loop into
+> udp_sendpage(), which will send the same data. if receiver will see the
+> same delayes, problem in the udp sending path, otherwise in splice code.
+>
+> --
+>        Evgeniy Polyakov
+>
+
+
+
 -- 
-1.5.6.5.GIT
-
+Johann Baudy
+johaahn@gmail.com
