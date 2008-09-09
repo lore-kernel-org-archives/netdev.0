@@ -1,72 +1,84 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/9] PCI: add interface to set visible size of VPD (rev3)
-Date: Tue, 09 Sep 2008 11:20:43 -0700
-Message-ID: <20080909182057.103624821@vyatta.com>
+Subject: [PATCH 4/9] sky2: set VPD size
+Date: Tue, 09 Sep 2008 11:20:44 -0700
+Message-ID: <20080909182057.186048873@vyatta.com>
 References: <20080909182040.246073057@vyatta.com>
 Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org
 To: Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:37565 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753976AbYIIT3V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2008 15:29:21 -0400
-Content-Disposition: inline; filename=vpd-size.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline; filename=sky2-vpd-size.patch
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The VPD on all devices may not be 32K. Unfortunately, there is no
-generic way to find the size, so this adds a simple API hook
-to reset it.
+Read configuration register during probe and use it to size the
+available VPD. Move existing code using same register slightly
+earlier in probe handling.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- drivers/pci/access.c |   23 +++++++++++++++++++++++
- include/linux/pci.h  |    1 +
- 2 files changed, 24 insertions(+)
-
---- a/drivers/pci/access.c	2008-09-09 11:00:09.000000000 -0700
-+++ b/drivers/pci/access.c	2008-09-09 11:18:05.000000000 -0700
-@@ -339,6 +339,29 @@ int pci_vpd_pci22_init(struct pci_dev *d
- }
+--- a/drivers/net/sky2.c	2008-09-09 10:08:37.000000000 -0700
++++ b/drivers/net/sky2.c	2008-09-09 11:19:19.000000000 -0700
+@@ -4281,6 +4281,7 @@ static int __devinit sky2_probe(struct p
+ 	struct net_device *dev;
+ 	struct sky2_hw *hw;
+ 	int err, using_dac = 0, wol_default;
++	u32 reg;
+ 	char buf1[16];
  
- /**
-+ * pci_vpd_truncate - Set available Vital Product Data size
-+ * @dev:	pci device struct
-+ * @size:	available memory in bytes
-+ *
-+ * Adjust size of available VPD area.
-+ */
-+int pci_vpd_truncate(struct pci_dev *dev, size_t size)
-+{
-+	if (!dev->vpd)
-+		return -EINVAL;
-+
-+	/* limited by the access method */
-+	if (size > dev->vpd->len)
-+		return -EINVAL;
-+
-+	dev->vpd->len = size;
-+	dev->vpd->attr->size = size;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(pci_vpd_truncate);
-+
-+/**
-  * pci_block_user_cfg_access - Block userspace PCI config reads/writes
-  * @dev:	pci device struct
-  *
---- a/include/linux/pci.h	2008-09-09 11:01:07.000000000 -0700
-+++ b/include/linux/pci.h	2008-09-09 11:17:49.000000000 -0700
-@@ -653,6 +653,7 @@ int pci_bus_find_capability(struct pci_b
- /* Vital product data routines */
- ssize_t pci_read_vpd(struct pci_dev *dev, loff_t pos, size_t count, void *buf);
- ssize_t pci_write_vpd(struct pci_dev *dev, loff_t pos, size_t count, const void *buf);
-+int pci_vpd_truncate(struct pci_dev *dev, size_t size);
+ 	err = pci_enable_device(pdev);
+@@ -4314,6 +4315,34 @@ static int __devinit sky2_probe(struct p
+ 		}
+ 	}
  
- /* Helper functions for low-level code (drivers/pci/setup-[bus,res].c) */
- void pci_bus_assign_resources(struct pci_bus *bus);
++	/* Get configuration information
++	 * Note: only use regular PCI config access once to test for HW issues
++	 *       other PCI access through shared memory for speed and to
++	 *	 avoid MMCONFIG problems.
++	 */
++	err = pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
++	if (err) {
++		dev_err(&pdev->dev, "PCI read config failed\n");
++		goto err_out_free_regions;
++	}
++
++	/* size of available VPD, only impact sysfs */
++	err = pci_vpd_truncate(pdev, 1ul << (((reg & PCI_VPD_ROM_SZ) >> 14) + 8));
++	if (err)
++		dev_warn(&pdev->dev, "Can't set VPD size\n");
++
++#ifdef __BIG_ENDIAN
++	/* The sk98lin vendor driver uses hardware byte swapping but
++	 * this driver uses software swapping.
++	 */
++	reg &= ~PCI_REV_DESC;
++	err = pci_write_config_dword(pdev,PCI_DEV_REG2, reg);
++	if (err) {
++		dev_err(&pdev->dev, "PCI write config failed\n");
++		goto err_out_free_regions;
++	}
++#endif
++
+ 	wol_default = pci_wake_enabled(pdev) ? WAKE_MAGIC : 0;
+ 
+ 	err = -ENOMEM;
+@@ -4331,18 +4360,6 @@ static int __devinit sky2_probe(struct p
+ 		goto err_out_free_hw;
+ 	}
+ 
+-#ifdef __BIG_ENDIAN
+-	/* The sk98lin vendor driver uses hardware byte swapping but
+-	 * this driver uses software swapping.
+-	 */
+-	{
+-		u32 reg;
+-		reg = sky2_pci_read32(hw, PCI_DEV_REG2);
+-		reg &= ~PCI_REV_DESC;
+-		sky2_pci_write32(hw, PCI_DEV_REG2, reg);
+-	}
+-#endif
+-
+ 	/* ring for status responses */
+ 	hw->st_le = pci_alloc_consistent(pdev, STATUS_LE_BYTES, &hw->st_dma);
+ 	if (!hw->st_le)
 
 -- 
-
