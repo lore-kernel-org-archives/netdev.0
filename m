@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 17/24] ixgbe: add clean rx many routine
-Date: Mon, 08 Sep 2008 21:48:17 -0700
-Message-ID: <20080909044817.18904.24592.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [NET-NEXT PATCH 23/24] ixgbe: xmit frame refactor
+Date: Mon, 08 Sep 2008 21:48:33 -0700
+Message-ID: <20080909044833.18904.36431.stgit@jtkirshe-mobile.jf.intel.com>
 References: <20080909044734.18904.93208.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,123 +11,148 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:34578 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752653AbYIIEsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 00:48:20 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so1027474yxm.1
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 21:48:19 -0700 (PDT)
+Received: from wa-out-1112.google.com ([209.85.146.181]:15187 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752682AbYIIEsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 00:48:35 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so1350307waf.23
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 21:48:35 -0700 (PDT)
 In-Reply-To: <20080909044734.18904.93208.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-in some configurations there can be more than one rx queue per vector
-in msi-x mode.  Add functionality to be able to clean this without
-changing the performance path single-rx-queue cleanup.
+ixgbe_xmit_frame can be refactored to use fewer locals and better
+utilize common kernel macros.
+
+also fixed minor buglet with internal to driver vlan flag variable being
+passed incorrectly.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   62 +++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 60 insertions(+), 2 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   42 ++++++++++++++++------------------------
+ 1 files changed, 17 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 27d69e4..49e0987 100644
+index 3f529b9..5efb072 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1024,13 +1024,15 @@ static irqreturn_t ixgbe_msix_clean_many(int irq, void *data)
-  * @napi: napi struct with our devices info in it
-  * @budget: amount of work driver is allowed to do this pass, in packets
-  *
-+ * This function is optimized for cleaning one queue only on a single
-+ * q_vector!!!
-  **/
- static int ixgbe_clean_rxonly(struct napi_struct *napi, int budget)
- {
- 	struct ixgbe_q_vector *q_vector =
- 			       container_of(napi, struct ixgbe_q_vector, napi);
- 	struct ixgbe_adapter *adapter = q_vector->adapter;
--	struct ixgbe_ring *rx_ring;
-+	struct ixgbe_ring *rx_ring = NULL;
- 	int work_done = 0;
- 	long r_idx;
+@@ -3219,8 +3219,8 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 	unsigned int i;
+ 	int err;
+ 	struct ixgbe_tx_buffer *tx_buffer_info;
+-	u32 vlan_macip_lens = 0, type_tucmd_mlhl = 0;
+-	u32 mss_l4len_idx = 0, l4len;
++	u32 vlan_macip_lens = 0, type_tucmd_mlhl;
++	u32 mss_l4len_idx, l4len;
  
-@@ -1055,6 +1057,56 @@ static int ixgbe_clean_rxonly(struct napi_struct *napi, int budget)
- 	return work_done;
- }
+ 	if (skb_is_gso(skb)) {
+ 		if (skb_header_cloned(skb)) {
+@@ -3269,7 +3269,7 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 		context_desc->seqnum_seed = 0;
  
-+/**
-+ * ixgbe_clean_rxonly_many - msix (aka one shot) rx clean routine
-+ * @napi: napi struct with our devices info in it
-+ * @budget: amount of work driver is allowed to do this pass, in packets
-+ *
-+ * This function will clean more than one rx queue associated with a
-+ * q_vector.
-+ **/
-+static int ixgbe_clean_rxonly_many(struct napi_struct *napi, int budget)
-+{
-+	struct ixgbe_q_vector *q_vector =
-+	                       container_of(napi, struct ixgbe_q_vector, napi);
-+	struct ixgbe_adapter *adapter = q_vector->adapter;
-+	struct net_device *netdev = adapter->netdev;
-+	struct ixgbe_ring *rx_ring = NULL;
-+	int work_done = 0, i;
-+	long r_idx;
-+	u16 enable_mask = 0;
-+
-+	/* attempt to distribute budget to each queue fairly, but don't allow
-+	 * the budget to go below 1 because we'll exit polling */
-+	budget /= (q_vector->rxr_count ?: 1);
-+	budget = max(budget, 1);
-+	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
-+	for (i = 0; i < q_vector->rxr_count; i++) {
-+		rx_ring = &(adapter->rx_ring[r_idx]);
-+#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+		if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
-+			ixgbe_update_rx_dca(adapter, rx_ring);
-+#endif
-+		ixgbe_clean_rx_irq(adapter, rx_ring, &work_done, budget);
-+		enable_mask |= rx_ring->v_idx;
-+		r_idx = find_next_bit(q_vector->rxr_idx, adapter->num_rx_queues,
-+		                      r_idx + 1);
-+	}
-+
-+	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
-+	rx_ring = &(adapter->rx_ring[r_idx]);
-+	/* If all Rx work done, exit the polling mode */
-+	if ((work_done == 0) || !netif_running(netdev)) {
-+		netif_rx_complete(netdev, napi);
-+		if (adapter->itr_setting & 3)
-+			ixgbe_set_itr_msix(q_vector);
-+		if (!test_bit(__IXGBE_DOWN, &adapter->state))
-+			IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, enable_mask);
-+		return 0;
-+	}
-+
-+	return work_done;
-+}
- static inline void map_vector_to_rxq(struct ixgbe_adapter *a, int v_idx,
- 				     int r_idx)
- {
-@@ -1813,10 +1865,16 @@ static void ixgbe_napi_enable_all(struct ixgbe_adapter *adapter)
- 		q_vectors = 1;
+ 		/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+-		type_tucmd_mlhl |= (IXGBE_TXD_CMD_DEXT |
++		type_tucmd_mlhl = (IXGBE_TXD_CMD_DEXT |
+ 				    IXGBE_ADVTXD_DTYP_CTXT);
  
- 	for (q_idx = 0; q_idx < q_vectors; q_idx++) {
-+		struct napi_struct *napi;
- 		q_vector = &adapter->q_vector[q_idx];
- 		if (!q_vector->rxr_count)
- 			continue;
--		napi_enable(&q_vector->napi);
-+		napi = &q_vector->napi;
-+		if ((adapter->flags & IXGBE_FLAG_MSIX_ENABLED) &&
-+		    (q_vector->rxr_count > 1))
-+			napi->poll = &ixgbe_clean_rxonly_many;
+ 		if (skb->protocol == htons(ETH_P_IP))
+@@ -3278,7 +3278,7 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 		context_desc->type_tucmd_mlhl = cpu_to_le32(type_tucmd_mlhl);
+ 
+ 		/* MSS L4LEN IDX */
+-		mss_l4len_idx |=
++		mss_l4len_idx =
+ 		    (skb_shinfo(skb)->gso_size << IXGBE_ADVTXD_MSS_SHIFT);
+ 		mss_l4len_idx |= (l4len << IXGBE_ADVTXD_L4LEN_SHIFT);
+ 		/* use index 1 for TSO */
+@@ -3336,14 +3336,12 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 					type_tucmd_mlhl |=
+ 						IXGBE_ADVTXD_TUCMD_L4T_TCP;
+ 				break;
+-
+ 			case __constant_htons(ETH_P_IPV6):
+ 				/* XXX what about other V6 headers?? */
+ 				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+ 					type_tucmd_mlhl |=
+ 						IXGBE_ADVTXD_TUCMD_L4T_TCP;
+ 				break;
+-
+ 			default:
+ 				if (unlikely(net_ratelimit())) {
+ 					DPRINTK(PROBE, WARNING,
+@@ -3360,6 +3358,7 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 
+ 		tx_buffer_info->time_stamp = jiffies;
+ 		tx_buffer_info->next_to_watch = i;
 +
-+		napi_enable(napi);
+ 		adapter->hw_csum_tx_good++;
+ 		i++;
+ 		if (i == tx_ring->count)
+@@ -3368,6 +3367,7 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 
+ 		return true;
  	}
++
+ 	return false;
  }
  
+@@ -3539,43 +3539,35 @@ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_ring *tx_ring;
+-	unsigned int len = skb->len;
+ 	unsigned int first;
+ 	unsigned int tx_flags = 0;
+ 	u8 hdr_len = 0;
+ 	int r_idx = 0, tso;
+-	unsigned int mss = 0;
+ 	int count = 0;
+ 	unsigned int f;
+-	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
+-	len -= skb->data_len;
++
+ 	r_idx = (adapter->num_tx_queues - 1) & skb->queue_mapping;
+ 	tx_ring = &adapter->tx_ring[r_idx];
+ 
+-
+-	if (skb->len <= 0) {
+-		dev_kfree_skb(skb);
+-		return NETDEV_TX_OK;
++	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++		tx_flags |= vlan_tx_tag_get(skb);
++		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
++		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+ 	}
+-	mss = skb_shinfo(skb)->gso_size;
+-
+-	if (mss)
+-		count++;
+-	else if (skb->ip_summed == CHECKSUM_PARTIAL)
++	/* three things can cause us to need a context descriptor */
++	if (skb_is_gso(skb) ||
++	    (skb->ip_summed == CHECKSUM_PARTIAL) ||
++	    (tx_flags & IXGBE_TX_FLAGS_VLAN))
+ 		count++;
+ 
+-	count += TXD_USE_COUNT(len);
+-	for (f = 0; f < nr_frags; f++)
++	count += TXD_USE_COUNT(skb_headlen(skb));
++	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
+ 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
+ 
+ 	if (ixgbe_maybe_stop_tx(netdev, tx_ring, count)) {
+ 		adapter->tx_busy++;
+ 		return NETDEV_TX_BUSY;
+ 	}
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
+-		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+-		tx_flags |= (vlan_tx_tag_get(skb) << IXGBE_TX_FLAGS_VLAN_SHIFT);
+-	}
+ 
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		tx_flags |= IXGBE_TX_FLAGS_IPV4;
 
