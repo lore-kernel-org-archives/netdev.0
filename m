@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 08/24] ixgbe: fix ethtool register dump
-Date: Mon, 08 Sep 2008 21:47:53 -0700
-Message-ID: <20080909044753.18904.80121.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [NET-NEXT PATCH 13/24] ixgbe: recycle pages in packet split mode
+Date: Mon, 08 Sep 2008 21:48:06 -0700
+Message-ID: <20080909044806.18904.56939.stgit@jtkirshe-mobile.jf.intel.com>
 References: <20080909044734.18904.93208.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,111 +13,144 @@ To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wf-out-1314.google.com ([209.85.200.168]:57666 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754844AbYIIErz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 00:47:55 -0400
+	with ESMTP id S1752618AbYIIEsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 00:48:08 -0400
 Received: by wf-out-1314.google.com with SMTP id 27so1867513wfd.4
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 21:47:54 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2008 21:48:08 -0700 (PDT)
 In-Reply-To: <20080909044734.18904.93208.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-1) reading some of the registers in our hardware causes them to clear,
-so don't read ICR in the ethtool register dump function.
-2) several register iterators were not iterating
+most of the time we only need 1500 bytes for a packet which means
+we don't need a whole 4k page for each packet.  Share the allocation
+by using a reference count to the page and giving half to two
+receive descriptors.  This can enable us to use packet split mode
+all the time due to the performance increase of allocating half
+the pages.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_ethtool.c |   23 ++++++++++-------------
- drivers/net/ixgbe/ixgbe_type.h    |   10 ++--------
- 2 files changed, 12 insertions(+), 21 deletions(-)
+ drivers/net/ixgbe/ixgbe.h      |    1 +
+ drivers/net/ixgbe/ixgbe_main.c |   49 +++++++++++++++++++++++++---------------
+ 2 files changed, 32 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 8f0e3f9..64460b4 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -315,7 +315,9 @@ static void ixgbe_get_regs(struct net_device *netdev,
- 	regs_buff[17] = IXGBE_READ_REG(hw, IXGBE_GRC);
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 064af67..71ddac6 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -114,6 +114,7 @@ struct ixgbe_rx_buffer {
+ 	dma_addr_t dma;
+ 	struct page *page;
+ 	dma_addr_t page_dma;
++	unsigned int page_offset;
+ };
  
- 	/* Interrupt */
--	regs_buff[18] = IXGBE_READ_REG(hw, IXGBE_EICR);
-+	/* don't read EICR because it can clear interrupt causes, instead
-+	 * read EICS which is a shadow but doesn't clear EICR */
-+	regs_buff[18] = IXGBE_READ_REG(hw, IXGBE_EICS);
- 	regs_buff[19] = IXGBE_READ_REG(hw, IXGBE_EICS);
- 	regs_buff[20] = IXGBE_READ_REG(hw, IXGBE_EIMS);
- 	regs_buff[21] = IXGBE_READ_REG(hw, IXGBE_EIMC);
-@@ -419,7 +421,6 @@ static void ixgbe_get_regs(struct net_device *netdev,
- 	regs_buff[827] = IXGBE_READ_REG(hw, IXGBE_WUPM);
- 	regs_buff[828] = IXGBE_READ_REG(hw, IXGBE_FHFT);
+ struct ixgbe_queue_stats {
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index a78be56..e277cc5 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -493,16 +493,24 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 	while (cleaned_count--) {
+ 		rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
  
--	/* DCE */
- 	regs_buff[829] = IXGBE_READ_REG(hw, IXGBE_RMCS);
- 	regs_buff[830] = IXGBE_READ_REG(hw, IXGBE_DPMCS);
- 	regs_buff[831] = IXGBE_READ_REG(hw, IXGBE_PDPMCS);
-@@ -539,21 +540,17 @@ static void ixgbe_get_regs(struct net_device *netdev,
- 	/* Diagnostic */
- 	regs_buff[1071] = IXGBE_READ_REG(hw, IXGBE_RDSTATCTL);
- 	for (i = 0; i < 8; i++)
--		regs_buff[1072] = IXGBE_READ_REG(hw, IXGBE_RDSTAT(i));
-+		regs_buff[1072 + i] = IXGBE_READ_REG(hw, IXGBE_RDSTAT(i));
- 	regs_buff[1080] = IXGBE_READ_REG(hw, IXGBE_RDHMPN);
--	regs_buff[1081] = IXGBE_READ_REG(hw, IXGBE_RIC_DW0);
--	regs_buff[1082] = IXGBE_READ_REG(hw, IXGBE_RIC_DW1);
--	regs_buff[1083] = IXGBE_READ_REG(hw, IXGBE_RIC_DW2);
--	regs_buff[1084] = IXGBE_READ_REG(hw, IXGBE_RIC_DW3);
-+	for (i = 0; i < 4; i++)
-+		regs_buff[1081 + i] = IXGBE_READ_REG(hw, IXGBE_RIC_DW(i));
- 	regs_buff[1085] = IXGBE_READ_REG(hw, IXGBE_RDPROBE);
- 	regs_buff[1086] = IXGBE_READ_REG(hw, IXGBE_TDSTATCTL);
- 	for (i = 0; i < 8; i++)
--		regs_buff[1087] = IXGBE_READ_REG(hw, IXGBE_TDSTAT(i));
-+		regs_buff[1087 + i] = IXGBE_READ_REG(hw, IXGBE_TDSTAT(i));
- 	regs_buff[1095] = IXGBE_READ_REG(hw, IXGBE_TDHMPN);
--	regs_buff[1096] = IXGBE_READ_REG(hw, IXGBE_TIC_DW0);
--	regs_buff[1097] = IXGBE_READ_REG(hw, IXGBE_TIC_DW1);
--	regs_buff[1098] = IXGBE_READ_REG(hw, IXGBE_TIC_DW2);
--	regs_buff[1099] = IXGBE_READ_REG(hw, IXGBE_TIC_DW3);
-+	for (i = 0; i < 4; i++)
-+		regs_buff[1096 + i] = IXGBE_READ_REG(hw, IXGBE_TIC_DW(i));
- 	regs_buff[1100] = IXGBE_READ_REG(hw, IXGBE_TDPROBE);
- 	regs_buff[1101] = IXGBE_READ_REG(hw, IXGBE_TXBUFCTRL);
- 	regs_buff[1102] = IXGBE_READ_REG(hw, IXGBE_TXBUFDATA0);
-@@ -566,7 +563,7 @@ static void ixgbe_get_regs(struct net_device *netdev,
- 	regs_buff[1109] = IXGBE_READ_REG(hw, IXGBE_RXBUFDATA2);
- 	regs_buff[1110] = IXGBE_READ_REG(hw, IXGBE_RXBUFDATA3);
- 	for (i = 0; i < 8; i++)
--		regs_buff[1111] = IXGBE_READ_REG(hw, IXGBE_PCIE_DIAG(i));
-+		regs_buff[1111 + i] = IXGBE_READ_REG(hw, IXGBE_PCIE_DIAG(i));
- 	regs_buff[1119] = IXGBE_READ_REG(hw, IXGBE_RFVAL);
- 	regs_buff[1120] = IXGBE_READ_REG(hw, IXGBE_MDFTC1);
- 	regs_buff[1121] = IXGBE_READ_REG(hw, IXGBE_MDFTC2);
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 172f766..196841b 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -278,18 +278,12 @@
- #define IXGBE_RDSTATCTL 0x02C20
- #define IXGBE_RDSTAT(_i) (0x02C00 + ((_i) * 4)) /* 0x02C00-0x02C1C */
- #define IXGBE_RDHMPN    0x02F08
--#define IXGBE_RIC_DW0   0x02F10
--#define IXGBE_RIC_DW1   0x02F14
--#define IXGBE_RIC_DW2   0x02F18
--#define IXGBE_RIC_DW3   0x02F1C
-+#define IXGBE_RIC_DW(_i)  (0x02F10 + ((_i) * 4))
- #define IXGBE_RDPROBE   0x02F20
- #define IXGBE_TDSTATCTL 0x07C20
- #define IXGBE_TDSTAT(_i) (0x07C00 + ((_i) * 4)) /* 0x07C00 - 0x07C1C */
- #define IXGBE_TDHMPN    0x07F08
--#define IXGBE_TIC_DW0   0x07F10
--#define IXGBE_TIC_DW1   0x07F14
--#define IXGBE_TIC_DW2   0x07F18
--#define IXGBE_TIC_DW3   0x07F1C
-+#define IXGBE_TIC_DW(_i)  (0x07F10 + ((_i) * 4))
- #define IXGBE_TDPROBE   0x07F20
- #define IXGBE_TXBUFCTRL 0x0C600
- #define IXGBE_TXBUFDATA0  0x0C610
+-		if (!bi->page &&
++		if (!bi->page_dma &&
+ 		    (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)) {
+-			bi->page = alloc_page(GFP_ATOMIC);
+ 			if (!bi->page) {
+-				adapter->alloc_rx_page_failed++;
+-				goto no_buffers;
++				bi->page = alloc_page(GFP_ATOMIC);
++				if (!bi->page) {
++					adapter->alloc_rx_page_failed++;
++					goto no_buffers;
++				}
++				bi->page_offset = 0;
++			} else {
++				/* use a half page if we're re-using */
++				bi->page_offset ^= (PAGE_SIZE / 2);
+ 			}
+-			bi->page_dma = pci_map_page(pdev, bi->page, 0,
+-	                                            PAGE_SIZE,
+-	                                            PCI_DMA_FROMDEVICE);
++
++			bi->page_dma = pci_map_page(pdev, bi->page,
++			                            bi->page_offset,
++			                            (PAGE_SIZE / 2),
++			                            PCI_DMA_FROMDEVICE);
+ 		}
+ 
+ 		if (!bi->skb) {
+@@ -596,7 +604,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 		if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
+ 			hdr_info = le16_to_cpu(ixgbe_get_hdr_info(rx_desc));
+ 			len = (hdr_info & IXGBE_RXDADV_HDRBUFLEN_MASK) >>
+-	                       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
++			       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
+ 			if (hdr_info & IXGBE_RXDADV_SPH)
+ 				adapter->rx_hdr_split++;
+ 			if (len > IXGBE_RX_HDR_SIZE)
+@@ -620,11 +628,18 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 
+ 		if (upper_len) {
+ 			pci_unmap_page(pdev, rx_buffer_info->page_dma,
+-				       PAGE_SIZE, PCI_DMA_FROMDEVICE);
++			               PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
+ 			rx_buffer_info->page_dma = 0;
+ 			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+-					   rx_buffer_info->page, 0, upper_len);
+-			rx_buffer_info->page = NULL;
++			                   rx_buffer_info->page,
++			                   rx_buffer_info->page_offset,
++			                   upper_len);
++
++			if ((rx_ring->rx_buf_len > (PAGE_SIZE / 2)) ||
++			    (page_count(rx_buffer_info->page) != 1))
++				rx_buffer_info->page = NULL;
++			else
++				get_page(rx_buffer_info->page);
+ 
+ 			skb->len += upper_len;
+ 			skb->data_len += upper_len;
+@@ -647,6 +662,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 			rx_buffer_info->skb = next_buffer->skb;
+ 			rx_buffer_info->dma = next_buffer->dma;
+ 			next_buffer->skb = skb;
++			next_buffer->dma = 0;
+ 			adapter->non_eop_descs++;
+ 			goto next_desc;
+ 		}
+@@ -1534,10 +1550,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	int rx_buf_len;
+ 
+ 	/* Decide whether to use packet split mode or not */
+-	if (netdev->mtu > ETH_DATA_LEN)
+-		adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
+-	else
+-		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
++	adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
+ 
+ 	/* Set the RX buffer length according to the mode */
+ 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
+@@ -2018,12 +2031,12 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
+ 		}
+ 		if (!rx_buffer_info->page)
+ 			continue;
+-		pci_unmap_page(pdev, rx_buffer_info->page_dma, PAGE_SIZE,
+-			       PCI_DMA_FROMDEVICE);
++		pci_unmap_page(pdev, rx_buffer_info->page_dma, PAGE_SIZE / 2,
++		               PCI_DMA_FROMDEVICE);
+ 		rx_buffer_info->page_dma = 0;
+-
+ 		put_page(rx_buffer_info->page);
+ 		rx_buffer_info->page = NULL;
++		rx_buffer_info->page_offset = 0;
+ 	}
+ 
+ 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
 
