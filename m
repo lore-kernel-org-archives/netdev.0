@@ -1,81 +1,58 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/1] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Tue, 9 Sep 2008 22:07:25 -0700
-Message-ID: <20080910050725.GD2897@kroah.com>
-References: <1220960196-4209-1-git-send-email-steve.glendinning@smsc.com> <1220960196-4209-2-git-send-email-steve.glendinning@smsc.com> <1220966387.2381.42.camel@achroite> <20080909140224.GA3095@kroah.com> <1220970610.2381.64.camel@achroite>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+ feature-negotiation patches
+Date: Tue, 09 Sep 2008 22:19:14 -0700 (PDT)
+Message-ID: <20080909.221914.193697907.davem@davemloft.net>
+References: <20080909115948.GA3551@gerrit.erg.abdn.ac.uk>
+	<20080909.051546.193801654.davem@davemloft.net>
+	<20080910050115.GA3642@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ian Saturley <ian.saturley-sdUf+H5yV5I@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1220970610.2381.64.camel@achroite>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50640
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750859AbYIJFTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 01:19:20 -0400
+In-Reply-To: <20080910050115.GA3642@gerrit.erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2008 at 03:30:10PM +0100, Ben Hutchings wrote:
-> On Tue, 2008-09-09 at 07:02 -0700, Greg KH wrote:
-> > On Tue, Sep 09, 2008 at 02:19:47PM +0100, Ben Hutchings wrote:
-> > > On Tue, 2008-09-09 at 12:36 +0100, Steve Glendinning wrote:
-> > > [...]
-> > > > diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> > > > new file mode 100644
-> > > > index 0000000..60ffd90
-> > > > --- /dev/null
-> > > > +++ b/drivers/net/usb/smsc95xx.c
-> > > [...]
-> > > > +static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
-> > > > +{
-> > > > +	u32 *buf = kmalloc(4, GFP_KERNEL);
-> > > > +	int ret;
-> > > > +
-> > > > +	BUG_ON(!dev);
-> > > > +
-> > > > +	if (!buf)
-> > > > +		return -ENOMEM;
-> > > > +
-> > > > +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> > > > +		USB_VENDOR_REQUEST_READ_REGISTER,
-> > > > +		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> > > > +		00, index, buf, 4, USB_CTRL_GET_TIMEOUT);
-> > > > +
-> > > > +	if (unlikely(ret < 0))
-> > > > +		SMSC_WARNING("Failed to read register index 0x%08x", index);
-> > > > +
-> > > > +	le32_to_cpus(buf);
-> > > > +	*data = *buf;
-> > > > +	kfree(buf);
-> > > > +
-> > > > +	return ret;
-> > > > +}
-> > > 
-> > > Why are you allocating a buffer on the heap?  What's wrong with
-> > 
-> > USB requires data to be allocated off of the heap when you use it to
-> > send or receive data.
-> 
-> I don't really know USB (it's not very useful for 1G/10G networking :-)
-> which is why I asked.  Is this because the data may be transferred by
-> DMA and the stack might not be DMA-mappable?
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Wed, 10 Sep 2008 07:01:15 +0200
 
-Exactly.
+> Not only are you lacking the courage to admit that it was your own fault
+> to pull a tree no one had asked you to pull, now you are trying to make 
+> me look foolish to cover your own mistake. 
 
-> I'd be inclined to allocate a persistent buffer for register reads and
-> writes, but then that seems to introduce the need for another lock.
-> Presumably the heap allocation is reckoned to add very little overhead
-> compared to the inherent cost of synchronous USB requests?
+Your subject line said, and it's still being used in this thread:
+"net-next-2.6 [pull-request]"
 
-Exactly.  Control messages like this are also very slow so it really
-isn't a big deal at all to dynamically allocate the data.
+What the heck should I take that to mean exactly?
 
-thanks,
+> It further did not even occur to you to check the provided gitweb link, nor
+> did you recognise that you had pulled about 100 instead of 37 patches. And
+> you seem not to have looked at the diffstats either - what has a change in
+> tcp_input.c got to do with a DCCP-only patch set?
+>
+> Not to mention the conflicts which you silently fixed instead of looking at
+> their cause.
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I did look at the merge conflicts I fixed up, code moved from one place
+to another or got handled by new helper routines which were being
+called, so I picked the appropriate hunk and validated the build.
+
+If I wasn't all that sure of the result I would have replied to you
+instead saying "this tree is messed up, I'm not pulling"  And I do
+that all the time.
+
+The shorter answer is I did my best and I TRUSTED YOU to only point
+a GIT URL my way that was explicitly ready.  Else, you'd say "don't
+pull this" rather than have "net-next-2.6 pull request" in the subject
+line.
+
+> What you are saying here has little authority. It is just foolish vanity.
+
+Gerrit, it's over.  The only one in vain is you.
