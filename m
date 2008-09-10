@@ -1,73 +1,67 @@
-From: "Paul Menage" <menage@google.com>
+From: "Ranjit Manomohan" <ranjitm@google.com>
 Subject: Re: [PATCH 1/2] Traffic control cgroups subsystem
-Date: Wed, 10 Sep 2008 16:04:43 -0700
-Message-ID: <6599ad830809101604o71b2fb82k2aca1eb0fd8ab6d8@mail.gmail.com>
+Date: Wed, 10 Sep 2008 16:14:42 -0700
+Message-ID: <166fe7950809101614y20b60745t652183e32703ccc9@mail.gmail.com>
 References: <Pine.LNX.4.64.0809101040280.7050@ranjit.corp.google.com>
 	 <20080910220115.GH20815@postel.suug.ch>
 	 <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
+	 <20080910.160026.31554352.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Thomas Graf" <tgraf@suug.ch>, davem@davemloft.net,
-	akpm@linux-foundation.org, kaber@trash.net, lizf@cn.fujitsu.com,
+Cc: tgraf@suug.ch, akpm@linux-foundation.org, kaber@trash.net,
+	lizf@cn.fujitsu.com, menage@google.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Ranjit Manomohan" <ranjitm@google.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:3320 "EHLO
-	smtp-out3.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751945AbYIJXEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:04:53 -0400
-Received: from spaceape9.eur.corp.google.com (spaceape9.eur.corp.google.com [172.28.16.143])
-	by smtp-out3.google.com with ESMTP id m8AN4j8T007205
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:04:45 +0100
-Received: from gxk12 (gxk12.prod.google.com [10.202.11.12])
-	by spaceape9.eur.corp.google.com with ESMTP id m8AN19Vr031911
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:04:44 -0700
-Received: by gxk12 with SMTP id 12so14899331gxk.10
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:04:44 -0700 (PDT)
-In-Reply-To: <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
+Received: from smtp-out.google.com ([216.239.33.17]:4965 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751057AbYIJXO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:14:58 -0400
+Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
+	by smtp-out.google.com with ESMTP id m8ANEhDW022805
+	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:14:44 +0100
+Received: from rv-out-0708.google.com (rvbk29.prod.google.com [10.140.87.29])
+	by zps75.corp.google.com with ESMTP id m8ANEgYj017187
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:14:43 -0700
+Received: by rv-out-0708.google.com with SMTP id k29so75622rvb.4
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:14:42 -0700 (PDT)
+In-Reply-To: <20080910.160026.31554352.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2008 at 3:56 PM, Ranjit Manomohan <ranjitm@google.com> wrote:
->>
->> The big disadvantage of this method is that it does not allow to change
->> the classid for sockets which already exist. It inherits the classid
->> at socket creation time and then sticks to it. So if you want to follow
->> this approach I'd suggest to at least store a reference to the cgroup
->> state and reference count it properly.
->>
+On Wed, Sep 10, 2008 at 4:00 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Ranjit Manomohan" <ranjitm@google.com>
+> Date: Wed, 10 Sep 2008 15:56:55 -0700
 >
-> I had considered adding support for moving tasks between cgroups by
-> going through all the open fds of the task and updating the sockets
-> (in the cgroup attach method). It is a very heavy weight operation and
-> not considered a common use case (and even undesirable at times) so I
-> dropped the idea. I can add it back in if it is considered essential.
+>> That is correct for ingress, for egress the sk is already available in
+>> the skb so should be fine.
 >
+> That is not something you can rely upon, even for egress, %100 of the time.
+>
+> Some forms of reallocation and mangling might decide to orphan the SKB
+> and thus drop the skb->sk reference before you see the packet.  And they
+> are absolutely free to do this.
+>
+> Just grep for skb_orphan().
+>
+> Therefore, it is absolutely something you should not rely upon for
+> correct operation.
 
-That's a bit different from what Thomas is suggesting (I think).
+Thats fine and we do not rely on this. Those packets would just not be
+classified, the cgroup classid is only a hint and used when available
+(which is most of the time).
 
-There are three options:
+>
+> Like I said from the beginning, Thomas's approach is the superior one.
 
-a) socket acquires class id at creation time from its creator task or
-its parent socket. So the class id is fixed for the lifetime of the
-socket
+It would leave a lot of packets (like acks) unaccounted for and these
+do take up a significant portion of network packets transmitted on a
+high speed link). I am ok with Thomas' simpler approach too, just
+pointing out that it is not as accurate as the proposed alternative.
 
-b) socket acquires a reference to a cgroup at creation time, from its
-creator task or its parent socket. So the class id can be updated by
-changing the cgroup's class id, but the cgroup of the socket can't be
-changed. This can prevent the cgroup from being properly destroyed.
+-Thanks,
+Ranjit
 
-c) socket acquires a reference to a cgroup at creation time, and can
-be moved to a different cgroup when tasks that reference it move
-between cgroups.
-
-Our patches use option a. Option c is too heavyweight IMO, and has
-vague semantics for exactly when movement should occur. Option b
-*could* be useful, if you wanted to be able to share class ids between
-cgroups, *and* shuffle the sharing relationships around on the fly. I
-think that Thomas is suggestion option b. I'm not sure that I see a
-concrete use case for it though - Thomas, what use cases did you see?
-
-Paul
+>
