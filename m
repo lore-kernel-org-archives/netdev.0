@@ -1,103 +1,63 @@
-From: Denis Joseph Barrow <D.Barow@option.com>
-Subject: Re: hso: remove usb_driver_claim_interface()
-Date: Wed, 10 Sep 2008 13:56:56 +0200
-Message-ID: <48C7B608.70305@option.com>
-References: <48C78E15.9030603@teltonika.lt> <48C7A4F5.2070607@option.com> <48C7AEDC.8060902@teltonika.lt> <48C7B0B9.7020608@option.com> <48C7B33B.5050900@teltonika.lt>
+From: "Johann Baudy" <johaahn@gmail.com>
+Subject: [PATCH] sendfile() and UDP socket
+Date: Wed, 10 Sep 2008 14:39:55 +0200
+Message-ID: <7e0dd21a0809100539r6fb7857cm3c74601bb8a29aa7@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	Greg Kroah-Hartman <gregkh@suse.de>
+Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.option.com ([81.246.70.162]:61406 "EHLO
-	mailer1.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbYIJL46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 07:56:58 -0400
-In-Reply-To: <48C7B33B.5050900@teltonika.lt>
+Received: from wf-out-1314.google.com ([209.85.200.170]:60357 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744AbYIJMj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 08:39:56 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so2498642wfd.4
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 05:39:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Paulius,
-The patch worked for me,
-If it gets Gregs blessing it's in.
+Hi All,
 
+Sendfile() over UDP socket are currently limited to ~ 64KBytes file
+(max cork.length).
+Indeed, if you run sendfile() with a file size > 64KBytes over UDP
+socket, system call will stop and return ~64KBytes without sending
+anything on the network.
+This patch is pushing ongoing frames when frames buffer is full, to
+prevent overflow.
 
-Paulius Zaleckas wrote:
-> Denis Joseph Barrow wrote:
->> Paulius Zaleckas wrote:
->> Have you a hso device to test this on.
->> If you have & it works it gets my blessing.
-> 
-> Yes, I have couple different hso devices.
-> This "usb_driver_claim_interface" patch was tested long ago,
-> but somehow I didn't post to the mailing-lists :)
-> 
-> I'll make patch for usb_driver_release_interface and
-> retest both patches.
-> 
->>> Denis Joseph Barrow wrote:
->>>> Hi Paulius,
->>>> I'm not in a position yet to know if this patch is good, yet at least.
->>>> hso_probe gets called once for each serial ttyHSx device
->>>> usually four per usb stick modem & once for the hsox network device
->>>> per modem.
->>>>  
->>>> From the comment on usb_driver_claim_interface
->>>>  * This is used by usb device drivers that need to claim more than one
->>>>  * interface on a device when probing (audio and acm are current
->>>> examples).
->>>>
->>>> I'm not used to USB terminology
->>>> From my understanding of the code
->>>> we are claiming more than one interface on the usb modem multiple
->>>> ttyHSx devices
->>>> & one network device. However we get probed once for each interface
->>> usb_driver_claim_interface() is needed only when you want to claim
->>> additional interface.
->>>
->>>> We are also calling usb_driver_release_interface from hso_disconnect.
->>>> This looks a little asymmetrical to me.
->>> Nice catch. usb_driver_release_interface() is not needed there too.
->>> This is some code from usb_driver_release_interface():
->>>
->>>         /* don't release from within disconnect() */
->>>         if (iface->condition != USB_INTERFACE_BOUND)
->>>                 return;
->>>
->>> So since hso_disconnect is usb disconnect(), function call to
->>> usb_driver_release_interface() just returns without any action.
->>> I will prepare patch for this one too.
->>>
->>> Greg: Maybe we should put warning in this check to catch other
->>> driver from misusing this function?
->>>
->>>> Greg is this patch good? I've no problem with it if it gets your guys
->>>> blessing.
->>>>
->>>>
->>>> Index: linux-2.6/drivers/net/usb/hso.c
->>>> ===================================================================
->>>> --- linux-2.6.orig/drivers/net/usb/hso.c
->>>> +++ linux-2.6/drivers/net/usb/hso.c
->>>> @@ -2487,8 +2487,6 @@ static int hso_probe(struct usb_interfac
->>>>          goto exit;
->>>>      }
->>>>  
->>>> -    usb_driver_claim_interface(&hso_driver, interface, hso_dev);
->>>> -
->>>>      /* save our data pointer in this device */
->>>>      usb_set_intfdata(interface, hso_dev);
->>>>  
->>>>
->>>>
->>>>
->>>> Paulius Zaleckas wrote:
->>>>
->>
->>
+Signed-off-by: Johann Baudy <johann.baudy@gmail.com>
 
+ net/ipv4/udp.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
--- 
-best regards,
-D.J. Barrow
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 56fcda3..d019e13 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -743,7 +743,22 @@ int udp_sendpage(struct sock *sk, struct page
+*page, int offset,
+                 size_t size, int flags)
+ {
+        struct udp_sock *up = udp_sk(sk);
++       struct inet_sock *inet = inet_sk(sk);
+        int ret;
++       int fragheaderlen;
++       struct ip_options *opt = NULL;
++
++       lock_sock(sk);
++       if (inet->cork.flags & IPCORK_OPT)
++               opt = inet->cork.opt;
++       fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
++
++       if (inet->cork.length + size >= 0xFFFF - fragheaderlen) {
++               ret = udp_push_pending_frames(sk);
++               if (ret)
++                       goto out;
++       }
++       release_sock(sk);
+
+        if (!up->pending) {
+                struct msghdr msg = {   .msg_flags = flags|MSG_MORE };
