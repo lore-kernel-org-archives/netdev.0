@@ -1,7 +1,7 @@
 From: Jay Cliburn <jcliburn@gmail.com>
 Subject: Re: [PATCH 0/4] atlx: add atl2 support
-Date: Tue, 9 Sep 2008 20:49:12 -0500
-Message-ID: <20080909204912.7c043f65@osprey.hogchain.net>
+Date: Tue, 9 Sep 2008 20:58:23 -0500
+Message-ID: <20080909205823.4d733492@osprey.hogchain.net>
 References: <20080909061247.GA17834@file.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -10,12 +10,12 @@ Cc: jeff@garzik.org, netdev@vger.kernel.org,
 	atl2-test@lists.sourceforge.net, csnook@redhat.com
 To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:41064 "EHLO
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:36972 "EHLO
 	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569AbYIJBti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 21:49:38 -0400
-Received: by mail-gx0-f16.google.com with SMTP id 9so12469757gxk.13
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2008 18:49:37 -0700 (PDT)
+	with ESMTP id S1751550AbYIJB6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 21:58:50 -0400
+Received: by gxk9 with SMTP id 9so12485923gxk.13
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2008 18:58:49 -0700 (PDT)
 In-Reply-To: <20080909061247.GA17834@file.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -36,45 +36,51 @@ Chris Snook <csnook@redhat.com> wrote:
 > use.  The only major bugs are device initialization problems that
 > manifest themselves immediately and obviously (the NIC doesn't work)
 > with certain motherboards.
-> 
-> Please consider this for the 2.6.28 merge window.
-> 
-> -- Chris
-> 
->  drivers/net/Kconfig       |   17
->  drivers/net/Makefile      |    1
->  drivers/net/atlx/Makefile |    1
->  drivers/net/atlx/atl2.c   | 3101
-> ++++++++++++++++++++++++++++++++++++++++++++++
-> drivers/net/atlx/atl2.h   |  482 +++++++ include/linux/pci_ids.h
-> |    1 6 files changed, 3600 insertions(+), 3 deletions(-)
 
-There's a compiler warning.  This patch fixes it.
+Good job. Haven't spena a lot of time with it, but after the two patchs
+provided elswhere, the driver builds cleanly and seems to work with my
+Core2 Duo setup running 2.6.27-rc5 on an Asus P5X-ML.
 
-commit 1deec1774c18a46dbd89bf5ef8a3dc5be270fa2d
-Author: Jay Cliburn <jacliburn@bellsouth.net>
-Date:   Tue Sep 9 20:38:18 2008 -0500
+lspci -vvxxx
+03:00.0 Ethernet controller: Attansic Technology Corp. L2 100 Mbit Ethernet Adapter (rev a0)
+	Subsystem: Attansic Technology Corp. L2 100 Mbit Ethernet Adapter
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 16 bytes
+	Interrupt: pin A routed to IRQ 1276
+	Region 0: Memory at dbfc0000 (64-bit, non-prefetchable) [size=256K]
+	Expansion ROM at dbfa0000 [disabled] [size=128K]
+	Capabilities: <access denied>
+	Kernel driver in use: atl2
+	Kernel modules: atl2
+00: 69 19 48 20 06 04 10 00 a0 00 00 02 04 00 00 00
+10: 04 00 fc db 00 00 00 00 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 69 19 48 20
+30: 00 00 fa db 40 00 00 00 00 00 00 00 0b 01 00 00
 
-    atl2: eliminate compiler warning
-    
-    Eliminate compiler warning.
-    
-    drivers/net/atlx/atl2.c:2928: warning: useless storage class
-    specifier in empty declaration
-    
-    Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-index 8ba4a98..c4c98c7 100644
---- a/drivers/net/atlx/atl2.c
-+++ b/drivers/net/atlx/atl2.c
-@@ -2910,7 +2910,7 @@ ATL2_PARAM(FlashVendor, "SPI Flash Vendor");
- #define FLASH_VENDOR_MIN       0
- #define FLASH_VENDOR_MAX       2
- 
--static struct atl2_option {
-+struct atl2_option {
-        enum { enable_option, range_option, list_option } type;
-        char *name;
-        char *err;
-
+jcliburn@osprey:/proc$ cat /proc/interrupts
+           CPU0       CPU1       
+  0:         66          0   IO-APIC-edge      timer
+  1:       3973          0   IO-APIC-edge      i8042
+  4:         10          0   IO-APIC-edge      serial
+  6:          5          0   IO-APIC-edge      floppy
+  7:          0          0   IO-APIC-edge      parport0
+  8:          1          0   IO-APIC-edge      rtc
+  9:          0          0   IO-APIC-fasteoi   acpi
+ 12:        115      57091   IO-APIC-edge      i8042
+ 14:      24813          0   IO-APIC-edge      ata_piix
+ 15:          0          0   IO-APIC-edge      ata_piix
+ 17:          0          0   IO-APIC-fasteoi   uhci_hcd:usb3
+ 18:          0          0   IO-APIC-fasteoi   uhci_hcd:usb4
+ 19:       1387          0   IO-APIC-fasteoi   uhci_hcd:usb5, HDA Intel
+ 20:          0          0   IO-APIC-fasteoi   ehci_hcd:usb1, uhci_hcd:usb2
+ 23:       4227      32298   IO-APIC-fasteoi   ata_piix
+1276:       2636          0   PCI-MSI-edge      eth1
+NMI:          0          0   Non-maskable interrupts
+LOC:     219900     218553   Local timer interrupts
+RES:       4619       5277   Rescheduling interrupts
+CAL:       7098       7434   function call interrupts
+TLB:       1404       1361   TLB shootdowns
+TRM:          0          0   Thermal event interrupts
+THR:          0          0   Threshold APIC interrupts
+SPU:          0          0   Spurious interrupts
