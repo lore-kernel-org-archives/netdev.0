@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Please pull updates for IPVS
-Date: Tue, 09 Sep 2008 19:57:17 -0700 (PDT)
-Message-ID: <20080909.195717.143018843.davem@davemloft.net>
-References: <20080909234538.GA12883@verge.net.au>
+Subject: Re: xfrm_state locking regression...
+Date: Tue, 09 Sep 2008 20:01:51 -0700 (PDT)
+Message-ID: <20080909.200151.116401721.davem@davemloft.net>
+References: <20080905115506.GA26179@gondor.apana.org.au>
+	<20080908.172513.162820960.davem@davemloft.net>
+	<20080909143312.GA29952@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, sven.wegener@stealer.net,
-	juliusv@google.com, vbusam@google.com, malcolm@loadbalancer.org,
-	siim@p6drad-teel.net, wensong@linux-vs.org, ja@ssi.bg
-To: horms@verge.net.au
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080909234538.GA12883@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36983
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751779AbYIJDB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 23:01:58 -0400
+In-Reply-To: <20080909143312.GA29952@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Wed, 10 Sep 2008 09:45:40 +1000
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 10 Sep 2008 00:33:12 +1000
 
-> Sorry for not sending a pull-request for a while. There are two new
-> features, IPv6 and local process load balancing. Unfortunately there were
-> some conflicts to shake out. And even more unfortunately some errors were
-> introduced along the way. In hindsight I should have merged IPv6 first and
-> sent you that. But I think that things are in order now.
- ...
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-2.6.git lvs-next-2.6
+> ipsec: Use RCU-like construct for saved state within a walk
 
-Pulled and pushed back out to net-next-2.6, thanks Simon.
+Applied, thanks Herbert.
