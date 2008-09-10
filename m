@@ -1,417 +1,135 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 7/8] [RFC] qlge: Add ethtool module qlge_ethtool.c
-Date: Wed, 10 Sep 2008 13:59:01 -0700
-Message-ID: <1221080343304-git-send-email-ron.mercer@qlogic.com>
-References: <20080910205813.GA13266@susedev.qlogic.org>
-Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
-	ron.mercer@qlogic.com
-To: jeff@garzik.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: ipv6 neighbour code keeps interfaces held
+Date: Wed, 10 Sep 2008 23:18:59 +0200
+Message-ID: <1221081539.3804.33.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:29388 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446AbYIJU77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 16:59:59 -0400
-In-Reply-To: <20080910205813.GA13266@susedev.qlogic.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:49341 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137AbYIJVek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 17:34:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+Every once a while when the stars align right, I'll run into this
+message:
+
+[22350.676116] unregister_netdevice: waiting for wlan0 to become free. Usage count = 3
+
+when rmmod'ing b43 and mac80211.
+
+In trying to debug it, I have created the patch you can find at the end
+of this email. I'm not sure it's generally useful, but I now found it
+useful to pinpoint what's going on and to confirm that mac80211 isn't at
+fault :)
+
+The patch will WARN_ON() when a netdev reference is released via
+dev_put() after the message above has already appeared at least once.
+For me, I got this dump out of it:
+
+[22369.076490] Badness at include/linux/netdevice.h:1255
+[22369.076493] NIP: c0301aac LR: c0306b6c CTR: c0306b28
+[22369.076497] REGS: efff5e40 TRAP: 0700   Tainted: G        W  (2.6.27-rc5-wl-00855-gebb8706-dirty)
+[22369.076500] MSR: 00029032 <EE,ME,IR,DR>  CR: 28428442  XER: 20000000
+[22369.076509] TASK = ed1da3a0[17998] 'cc1' THREAD: ee68a000
+[22369.076512] GPR00: 00000001 efff5ef0 ed1da3a0 efb9a000 bbbbbbbb 00000004 ef8f54bc ef8f54e4 
+[22369.076522] GPR08: 0000005a edb174b0 ffffffff edb172a0 28428442 10756ca4 c064ee04 eefb5494 
+[22369.076532] GPR16: 00000000 1074f028 105ebb0c 00200200 00000000 c0870ff8 c0870df8 c0870bf8 
+[22369.076542] GPR24: efff4000 c08709f8 c064461c efff5f78 00000000 00000000 ef8f5400 efb9a000 
+[22369.076559] NIP [c0301aac] in6_dev_finish_destroy+0x50/0xb0
+[22369.076565] LR [c0306b6c] ip6_dst_destroy+0x44/0x54
+[22369.076567] Call Trace:
+[22369.076571] [efff5ef0] [c028f984] neigh_destroy+0x16c/0x1b8 (unreliable)
+[22369.076577] [efff5f00] [c0306b6c] ip6_dst_destroy+0x44/0x54
+[22369.076582] [efff5f10] [c028c304] dst_destroy+0x78/0x154
+[22369.076586] [efff5f30] [c030a270] icmp6_dst_gc+0xa4/0xd4
+[22369.076591] [efff5f50] [c030b084] fib6_run_gc+0x50/0x110
+[22369.076596] [efff5f70] [c003b040] run_timer_softirq+0x170/0x22c
+[22369.076602] [efff5fc0] [c0035e7c] __do_softirq+0x8c/0xfc
+[22369.076607] [efff5ff0] [c00120c4] call_do_softirq+0x14/0x24
+[22369.076612] [ee68bd00] [c0007000] do_softirq+0x78/0x88
+[22369.076616] [ee68bd20] [c0035ae4] irq_exit+0x60/0x80
+[22369.076621] [ee68bd30] [c000fde0] timer_interrupt+0x11c/0x16c
+[22369.076626] [ee68bd50] [c0012e78] ret_from_except+0x0/0x14
+[22369.076632] --- Exception: 901 at __flush_dcache_icache+0x24/0x40
+[22369.076634]     LR = update_mmu_cache+0x124/0x128
+[22369.076644] [ee68be10] [ed6a0000] 0xed6a0000 (unreliable)
+[22369.076649] [ee68be30] [c0085378] handle_mm_fault+0x774/0xb10
+[22369.076653] [ee68be90] [c0332ba4] do_page_fault+0x3a8/0x540
+[22369.076658] [ee68bf40] [c0012bfc] handle_page_fault+0xc/0x80
+[22369.076663] --- Exception: 301 at 0x10383868
+[22369.076665]     LR = 0x10383858
+[22369.076667] Instruction dump:
+[22369.076670] 7c0a4910 0f000000 81230008 3149ffff 7c0a4910 0f000000 392b0210 7c004828 
+[22369.076680] 3000ffff 7c00492d 40a2fff4 880b0430 <0f000000> 812300a0 2f890000 419e0040 
+
+
+Having never looked at the code I'll spare you any speculation, but I
+don't see why I should be getting this once a while, no less on an
+interface that's not even seeing traffic.
+
+johannes
 ---
- drivers/net/qlge/qlge_ethtool.c |  384 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 384 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/qlge/qlge_ethtool.c
+ include/linux/netdevice.h |    7 +++++++
+ net/Kconfig               |    6 ++++++
+ net/core/dev.c            |    3 +++
+ 3 files changed, 16 insertions(+)
 
-diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
-new file mode 100644
-index 0000000..f4d3880
---- /dev/null
-+++ b/drivers/net/qlge/qlge_ethtool.c
-@@ -0,0 +1,384 @@
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/types.h>
-+#include <linux/module.h>
-+#include <linux/list.h>
-+#include <linux/pci.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/pagemap.h>
-+#include <linux/sched.h>
-+#include <linux/slab.h>
-+#include <linux/dmapool.h>
-+#include <linux/mempool.h>
-+#include <linux/spinlock.h>
-+#include <linux/kthread.h>
-+#include <linux/interrupt.h>
-+#include <linux/errno.h>
-+#include <linux/ioport.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <net/ipv6.h>
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
-+#include <linux/if_arp.h>
-+#include <linux/if_ether.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/if_vlan.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/mm.h>
-+#include <linux/vmalloc.h>
+--- everything.orig/include/linux/netdevice.h	2008-09-10 11:06:31.000000000 +0200
++++ everything/include/linux/netdevice.h	2008-09-10 11:10:55.000000000 +0200
+@@ -749,6 +749,10 @@ struct net_device
+ 	/* for setting kernel sock attribute on TCP connection setup */
+ #define GSO_MAX_SIZE		65536
+ 	unsigned int		gso_max_size;
 +
-+#include <linux/version.h>
++#ifdef CONFIG_NET_HOLD_DBG
++	bool			held_warning;
++#endif
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+@@ -1247,6 +1251,9 @@ extern void netdev_run_todo(void);
+ static inline void dev_put(struct net_device *dev)
+ {
+ 	atomic_dec(&dev->refcnt);
++#ifdef CONFIG_NET_HOLD_DBG
++	WARN_ON(dev->held_warning);
++#endif
+ }
+ 
+ /**
+--- everything.orig/net/core/dev.c	2008-09-10 11:06:42.000000000 +0200
++++ everything/net/core/dev.c	2008-09-10 11:11:31.000000000 +0200
+@@ -4117,6 +4117,9 @@ static void netdev_wait_allrefs(struct n
+ 			       "count = %d\n",
+ 			       dev->name, atomic_read(&dev->refcnt));
+ 			warning_time = jiffies;
++#ifdef CONFIG_NET_HOLD_DBG
++			dev->held_warning = true;
++#endif
+ 		}
+ 	}
+ }
+--- everything.orig/net/Kconfig	2008-09-10 11:11:36.000000000 +0200
++++ everything/net/Kconfig	2008-09-10 11:13:29.000000000 +0200
+@@ -24,6 +24,12 @@ if NET
+ 
+ menu "Networking options"
+ 
++config NET_HOLD_DBG
++	bool "Network device refcount debugging"
++	default n
++	help
++	  Enable this option to have the kernel WARN too late dev_put().
 +
-+#include "qlge.h"
-+
-+static int ql_update_ring_coalescing(struct ql_adapter *qdev)
-+{
-+	int i, err = 0;
-+	struct rx_ring *rx_ring;
-+	struct cqicb *cqicb;
-+
-+	spin_lock(&qdev->hw_lock);
-+	/* Skip the default queue, and update the outbound handler
-+	 * queues if they changed.
-+	 */
-+	cqicb = (struct cqicb *)&qdev->rx_ring[1];
-+	if (le16_to_cpu(cqicb->irq_delay) != qdev->tx_coalesce_usecs ||
-+	    le16_to_cpu(cqicb->pkt_delay) != qdev->tx_max_coalesced_frames) {
-+		for (i = 1; i < qdev->rss_ring_first_cq_id; i++, rx_ring++) {
-+			rx_ring = &qdev->rx_ring[i];
-+			cqicb = (struct cqicb *)rx_ring;
-+			cqicb->irq_delay = le16_to_cpu(qdev->tx_coalesce_usecs);
-+			cqicb->pkt_delay =
-+			    le16_to_cpu(qdev->tx_max_coalesced_frames);
-+			cqicb->flags = FLAGS_LI;
-+			err = ql_write_cfg(qdev, cqicb, sizeof(cqicb),
-+						CFG_LCQ, rx_ring->cq_id);
-+			if (err) {
-+				QPRINTK(qdev, IFUP, ERR,
-+					"Failed to load CQICB.\n");
-+				goto exit;
-+			}
-+		}
-+	}
-+
-+	/* Update the inbound (RSS) handler queues if they changed. */
-+	cqicb = (struct cqicb *)&qdev->rx_ring[qdev->rss_ring_first_cq_id];
-+	if (le16_to_cpu(cqicb->irq_delay) != qdev->rx_coalesce_usecs ||
-+	    le16_to_cpu(cqicb->pkt_delay) != qdev->rx_max_coalesced_frames) {
-+		for (i = qdev->rss_ring_first_cq_id;
-+		     i <= qdev->rss_ring_first_cq_id + qdev->rss_ring_count;
-+		     i++) {
-+			rx_ring = &qdev->rx_ring[i];
-+			cqicb = (struct cqicb *)rx_ring;
-+			cqicb->irq_delay = le16_to_cpu(qdev->rx_coalesce_usecs);
-+			cqicb->pkt_delay =
-+			    le16_to_cpu(qdev->rx_max_coalesced_frames);
-+			cqicb->flags = FLAGS_LI;
-+			err = ql_write_cfg(qdev, cqicb, sizeof(cqicb),
-+						CFG_LCQ, rx_ring->cq_id);
-+			if (err) {
-+				QPRINTK(qdev, IFUP, ERR,
-+					"Failed to load CQICB.\n");
-+				goto exit;
-+			}
-+		}
-+	}
-+exit:
-+	spin_unlock(&qdev->hw_lock);
-+	return err;
-+}
-+
-+void ql_update_stats(struct ql_adapter *qdev)
-+{
-+	u32 i;
-+	u64 data;
-+	u64 *iter = &qdev->nic_stats.tx_pkts;
-+
-+	spin_lock(&qdev->stats_lock);
-+	if (ql_sem_spinlock(qdev, qdev->xg_sem_mask)) {
-+		printk(KERN_ERR "%s: Couldn't get xgmac sem.\n", __func__);
-+		goto quit;
-+	}
-+	/*
-+	 * Get TX statistics.
-+	 */
-+	for (i = 0x200; i < 0x280; i += 8) {
-+		if (ql_read_xgmac_reg64(qdev, i, &data)) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"Error reading status register 0x%.04x.\n", i);
-+			goto end;
-+		} else
-+			*iter = data;
-+		iter++;
-+	}
-+
-+	/*
-+	 * Get RX statistics.
-+	 */
-+	for (i = 0x300; i < 0x3d0; i += 8) {
-+		if (ql_read_xgmac_reg64(qdev, i, &data)) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"Error reading status register 0x%.04x.\n", i);
-+			goto end;
-+		} else
-+			*iter = data;
-+		iter++;
-+	}
-+
-+end:
-+	ql_sem_unlock(qdev, qdev->xg_sem_mask);
-+quit:
-+	spin_unlock(&qdev->stats_lock);
-+
-+	QL_DUMP_STAT(qdev);
-+
-+	return;
-+}
-+
-+static char ql_stats_str_arr[][ETH_GSTRING_LEN] = {
-+	{"tx_pkts"},
-+	{"tx_bytes"},
-+	{"tx_mcast_pkts"},
-+	{"tx_bcast_pkts"},
-+	{"tx_ucast_pkts"},
-+	{"tx_ctl_pkts"},
-+	{"tx_pause_pkts"},
-+	{"tx_64_pkts"},
-+	{"tx_65_to_127_pkts"},
-+	{"tx_128_to_255_pkts"},
-+	{"tx_256_511_pkts"},
-+	{"tx_512_to_1023_pkts"},
-+	{"tx_1024_to_1518_pkts"},
-+	{"tx_1519_to_max_pkts"},
-+	{"tx_undersize_pkts"},
-+	{"tx_oversize_pkts"},
-+	{"rx_bytes"},
-+	{"rx_bytes_ok"},
-+	{"rx_pkts"},
-+	{"rx_pkts_ok"},
-+	{"rx_bcast_pkts"},
-+	{"rx_mcast_pkts"},
-+	{"rx_ucast_pkts"},
-+	{"rx_undersize_pkts"},
-+	{"rx_oversize_pkts"},
-+	{"rx_jabber_pkts"},
-+	{"rx_undersize_fcerr_pkts"},
-+	{"rx_drop_events"},
-+	{"rx_fcerr_pkts"},
-+	{"rx_align_err"},
-+	{"rx_symbol_err"},
-+	{"rx_mac_err"},
-+	{"rx_ctl_pkts"},
-+	{"rx_pause_pkts"},
-+	{"rx_64_pkts"},
-+	{"rx_65_to_127_pkts"},
-+	{"rx_128_255_pkts"},
-+	{"rx_256_511_pkts"},
-+	{"rx_512_to_1023_pkts"},
-+	{"rx_1024_to_1518_pkts"},
-+	{"rx_1519_to_max_pkts"},
-+	{"rx_len_err_pkts"},
-+};
-+
-+static void ql_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
-+{
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		memcpy(buf, ql_stats_str_arr, sizeof(ql_stats_str_arr));
-+		break;
-+	}
-+}
-+
-+static int ql_get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(ql_stats_str_arr);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void
-+ql_get_ethtool_stats(struct net_device *ndev,
-+		     struct ethtool_stats *stats, u64 *data)
-+{
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+	struct nic_stats *s = &qdev->nic_stats;
-+
-+	ql_update_stats(qdev);
-+
-+	*data++ = s->tx_pkts;
-+	*data++ = s->tx_bytes;
-+	*data++ = s->tx_mcast_pkts;
-+	*data++ = s->tx_bcast_pkts;
-+	*data++ = s->tx_ucast_pkts;
-+	*data++ = s->tx_ctl_pkts;
-+	*data++ = s->tx_pause_pkts;
-+	*data++ = s->tx_64_pkt;
-+	*data++ = s->tx_65_to_127_pkt;
-+	*data++ = s->tx_128_to_255_pkt;
-+	*data++ = s->tx_256_511_pkt;
-+	*data++ = s->tx_512_to_1023_pkt;
-+	*data++ = s->tx_1024_to_1518_pkt;
-+	*data++ = s->tx_1519_to_max_pkt;
-+	*data++ = s->tx_undersize_pkt;
-+	*data++ = s->tx_oversize_pkt;
-+	*data++ = s->rx_bytes;
-+	*data++ = s->rx_bytes_ok;
-+	*data++ = s->rx_pkts;
-+	*data++ = s->rx_pkts_ok;
-+	*data++ = s->rx_bcast_pkts;
-+	*data++ = s->rx_mcast_pkts;
-+	*data++ = s->rx_ucast_pkts;
-+	*data++ = s->rx_undersize_pkts;
-+	*data++ = s->rx_oversize_pkts;
-+	*data++ = s->rx_jabber_pkts;
-+	*data++ = s->rx_undersize_fcerr_pkts;
-+	*data++ = s->rx_drop_events;
-+	*data++ = s->rx_fcerr_pkts;
-+	*data++ = s->rx_align_err;
-+	*data++ = s->rx_symbol_err;
-+	*data++ = s->rx_mac_err;
-+	*data++ = s->rx_ctl_pkts;
-+	*data++ = s->rx_pause_pkts;
-+	*data++ = s->rx_64_pkts;
-+	*data++ = s->rx_65_to_127_pkts;
-+	*data++ = s->rx_128_255_pkts;
-+	*data++ = s->rx_256_511_pkts;
-+	*data++ = s->rx_512_to_1023_pkts;
-+	*data++ = s->rx_1024_to_1518_pkts;
-+	*data++ = s->rx_1519_to_max_pkts;
-+	*data++ = s->rx_len_err_pkts;
-+}
-+
-+static void ql_get_drvinfo(struct net_device *ndev,
-+			   struct ethtool_drvinfo *drvinfo)
-+{
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+	strncpy(drvinfo->driver, qlge_driver_name, 32);
-+	strncpy(drvinfo->version, qlge_driver_version, 32);
-+	strncpy(drvinfo->fw_version, "N/A", 32);
-+	strncpy(drvinfo->bus_info, pci_name(qdev->pdev), 32);
-+	drvinfo->n_stats = 0;
-+	drvinfo->testinfo_len = 0;
-+	drvinfo->regdump_len = 0;
-+	drvinfo->eedump_len = 0;
-+}
-+
-+static int ql_get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
-+{
-+	struct ql_adapter *qdev = netdev_priv(dev);
-+
-+	c->rx_coalesce_usecs = qdev->rx_coalesce_usecs;
-+	c->tx_coalesce_usecs = qdev->tx_coalesce_usecs;
-+
-+	/* This chip coalesces as follows:
-+	 * If a packet arrives, hold off interrupts until
-+	 * cqicb->int_delay expires, but if no other packets arrive don't
-+	 * wait longer than cqicb->pkt_int_delay. But ethtool doesn't use a
-+	 * timer to coalesce on a frame basis.  So, we have to take ethtool's
-+	 * max_coalesced_frames value and convert it to a delay in microseconds.
-+	 * We do this by using a basic thoughput of 1,000,000 frames per
-+	 * second @ (1024 bytes).  This means one frame per usec. So it's a
-+	 * simple one to one ratio.
-+	 */
-+	c->rx_max_coalesced_frames = qdev->rx_max_coalesced_frames;
-+	c->tx_max_coalesced_frames = qdev->tx_max_coalesced_frames;
-+
-+	return 0;
-+}
-+
-+static int ql_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *c)
-+{
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+
-+	/* Validate user parameters. */
-+	if (c->rx_coalesce_usecs > qdev->rx_ring_size / 2)
-+		return -EINVAL;
-+       /* Don't wait more than 10 usec. */
-+	if (c->rx_max_coalesced_frames > MAX_INTER_FRAME_WAIT)
-+		return -EINVAL;
-+	if (c->tx_coalesce_usecs > qdev->tx_ring_size / 2)
-+		return -EINVAL;
-+	if (c->tx_max_coalesced_frames > MAX_INTER_FRAME_WAIT)
-+		return -EINVAL;
-+
-+	/* Verify a change took place before updating the hardware. */
-+	if (qdev->rx_coalesce_usecs == c->rx_coalesce_usecs &&
-+	    qdev->tx_coalesce_usecs == c->tx_coalesce_usecs &&
-+	    qdev->rx_max_coalesced_frames == c->rx_max_coalesced_frames &&
-+	    qdev->tx_max_coalesced_frames == c->tx_max_coalesced_frames)
-+		return 0;
-+
-+	qdev->rx_coalesce_usecs = c->rx_coalesce_usecs;
-+	qdev->tx_coalesce_usecs = c->tx_coalesce_usecs;
-+	qdev->rx_max_coalesced_frames = c->rx_max_coalesced_frames;
-+	qdev->tx_max_coalesced_frames = c->tx_max_coalesced_frames;
-+
-+	return ql_update_ring_coalescing(qdev);
-+}
-+
-+static u32 ql_get_rx_csum(struct net_device *netdev)
-+{
-+	struct ql_adapter *qdev = netdev_priv(netdev);
-+	return qdev->rx_csum;
-+}
-+
-+static int ql_set_rx_csum(struct net_device *netdev, uint32_t data)
-+{
-+	struct ql_adapter *qdev = netdev_priv(netdev);
-+	qdev->rx_csum = data;
-+	return 0;
-+}
-+
-+static int ql_set_tso(struct net_device *ndev, uint32_t data)
-+{
-+
-+	if (data) {
-+		ndev->features |= NETIF_F_TSO;
-+		ndev->features |= NETIF_F_TSO6;
-+	} else {
-+		ndev->features &= ~NETIF_F_TSO;
-+		ndev->features &= ~NETIF_F_TSO6;
-+	}
-+	return 0;
-+}
-+
-+static u32 ql_get_msglevel(struct net_device *ndev)
-+{
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+	return qdev->msg_enable;
-+}
-+
-+static void ql_set_msglevel(struct net_device *ndev, u32 value)
-+{
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+	qdev->msg_enable = value;
-+}
-+
-+const struct ethtool_ops qlge_ethtool_ops = {
-+	.get_drvinfo = ql_get_drvinfo,
-+	.get_msglevel = ql_get_msglevel,
-+	.set_msglevel = ql_set_msglevel,
-+	.get_rx_csum = ql_get_rx_csum,
-+	.set_rx_csum = ql_set_rx_csum,
-+	.get_tx_csum = ethtool_op_get_tx_csum,
-+	.get_sg = ethtool_op_get_sg,
-+	.set_sg = ethtool_op_set_sg,
-+	.get_tso = ethtool_op_get_tso,
-+	.set_tso = ql_set_tso,
-+	.get_coalesce = ql_get_coalesce,
-+	.set_coalesce = ql_set_coalesce,
-+	.get_sset_count = ql_get_sset_count,
-+	.get_strings = ql_get_strings,
-+	.get_ethtool_stats = ql_get_ethtool_stats,
-+};
-+
--- 
-1.5.0.rc4.16.g9e258
+ config NET_NS
+ 	bool "Network namespace support"
+ 	default n
+
 
