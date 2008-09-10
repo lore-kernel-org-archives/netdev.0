@@ -1,73 +1,58 @@
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Subject: Re: [PATCH 1/1] niu: panic on reset
-Date: Wed, 10 Sep 2008 10:01:42 -0700
-Message-ID: <48C7FD76.2000206@sun.com>
-References: <48C07564.3060306@Sun.COM>
- <20080908.132031.65821182.davem@davemloft.net>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [rfc 0/3] IPVS: checksum updates
+Date: Wed, 10 Sep 2008 19:30:52 +0200
+Message-ID: <f4845fc0809101030u2bd4dec4jb478ecc65240ea74@mail.gmail.com>
+References: <20080908020420.313463898@vergenet.net>
+	 <20080908234028.GF13048@verge.net.au>
+	 <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com>
+	 <20080909113131.GA3605@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: Santwona.Behera@Sun.COM, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	"Vince Busam" <vbusam@google.com>, wensong@linux-vs.org
+To: "Simon Horman" <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:34462 "EHLO
-	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbYIJRD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 13:03:27 -0400
-Received: from fe-sfbay-09.sun.com ([192.18.43.129])
-	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m8AH3PPQ029946
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 10:03:26 -0700 (PDT)
-Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- id <0K6Z00601NQIVR00@fe-sfbay-09.sun.com>
- (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Wed,
- 10 Sep 2008 10:03:25 -0700 (PDT)
-In-reply-to: <20080908.132031.65821182.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.33.17]:54004 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753920AbYIJRbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 13:31:04 -0400
+Received: from spaceape24.eur.corp.google.com (spaceape24.eur.corp.google.com [172.28.16.76])
+	by smtp-out.google.com with ESMTP id m8AHUsYf020983
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 18:30:54 +0100
+Received: from yw-out-2324.google.com (ywj3.prod.google.com [10.192.10.3])
+	by spaceape24.eur.corp.google.com with ESMTP id m8AHUrjA002609
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 10:30:53 -0700
+Received: by yw-out-2324.google.com with SMTP id 3so518824ywj.47
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 10:30:53 -0700 (PDT)
+In-Reply-To: <20080909113131.GA3605@verge.net.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
+On Tue, Sep 9, 2008 at 1:31 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
+>> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
+>> NAT+DSR+TUN in all combinations that are expected to be working and
+>> found no problems.
+>
+> Thanks once again for your testing. I'll send a pull request to Dave in
+> the morning.
 
->From: Santwona.Behera@Sun.COM
->Date: Thu, 04 Sep 2008 16:55:16 -0700
->
->[ Please learn how to hit the return key every 80 characters or so,
->  long lines are very difficult to read on text-only email clients
->  like the one I use.  Expecting auto-formatting and other beautifications
->  in email readers amongst kernel developers is a very bad idea. ]
->
->  
->
->>The reset_task function in the niu driver does not reset the
->>hardware fully. The buffer addresses and pointers are not being
->>reset/updated in the hardware and that leads to panic on reset.
->>
->>Signed-off-by: santwona.behera@sun.com <santwona.behera@sun.com>
->>    
->>
->
->This is way overkill just to fix this bug and it adds a new failure
->mode for the driver which is a seriously negative aspect to this fix.
->  
->
-Dave,
+Thanks very much!
 
-Thanks for the feedback.
-Instead of creating a new function, Santwona was borrowing an existing
-logic from niu_change_mtu function. Rather than introducing a new
-function and possibly a new failure mode, we were trying to re-use existing
-logic, reducing the probability of a new bug.
+(CC: Wensong)
+I guess it would make sense to start hosting the new ipvsadm version
+somewhere on http://www.linuxvirtualserver.org/ soon. It could still
+be marked as unstable and saying, "If you intend to use the
+experimental IPv6 support for IPVS introduced in kernel 2.6.XX, you
+will need this new version of ipvsadm: ...". Also, we can then point
+to it in the Kconfig help text in CONFIG_IP_VS_IPV6. What do you
+think?
 
-Regards,
-Matheos
+Julius
 
->Instead, simply write a function which reloads the buffers addresses
->properly instead of calling the functions to free and reallocate all
->of these dynamic datastructures just to get those side effects.
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->  
->
+-- 
+Julius Volz - Corporate Operations - SysOps
 
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
