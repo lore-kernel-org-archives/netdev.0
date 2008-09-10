@@ -1,40 +1,48 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Fwd: Packet mmap: TX RING and zero copy
-Date: Wed, 10 Sep 2008 10:09:01 +0400
-Message-ID: <20080910060900.GA12158@2ka.mipt.ru>
-References: <7e0dd21a0809050830o7c1dcc2do68da5df9900fcfe8@mail.gmail.com> <20080905153811.GA3596@2ka.mipt.ru> <7e0dd21a0809050901q23d0b16xa1a9d0df2f36f6d8@mail.gmail.com> <20080905163446.GB10078@2ka.mipt.ru> <7e0dd21a0809080321p6b9e2bc7m73e2cdd57a8d58b8@mail.gmail.com> <20080908112629.GA26488@2ka.mipt.ru> <7e0dd21a0809080601lc250197wde17733522d03125@mail.gmail.com> <20080908152835.GA16834@2ka.mipt.ru> <20080908153841.GA24683@2ka.mipt.ru> <7e0dd21a0809091611q74b032ffw734d031a4def894b@mail.gmail.com>
+From: "Magnus Damm" <magnus.damm@gmail.com>
+Subject: Re: [PATCH] smc91x: SMC_IO_SHIFT platform data support for default case
+Date: Wed, 10 Sep 2008 16:44:14 +0900
+Message-ID: <aec7e5c30809100044g1a51e7bfj240bdd67c5cb3012@mail.gmail.com>
+References: <20080908050234.11554.10123.sendpatchset@rx1.opensource.se>
+	 <20080908111922.GA15553@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Johann Baudy <johaahn@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.miao@marvell.com,
+	luca.santini@spesonline.com, nico@cam.org, linux-sh@vger.kernel.org
+To: "Simon Horman" <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:39584 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751145AbYIJGJf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2008 02:09:35 -0400
+Received: from rv-out-0506.google.com ([209.85.198.230]:51678 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751019AbYIJHoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 03:44:15 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2277395rvb.1
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 00:44:14 -0700 (PDT)
+In-Reply-To: <20080908111922.GA15553@verge.net.au>
 Content-Disposition: inline
-In-Reply-To: <7e0dd21a0809091611q74b032ffw734d031a4def894b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johann.
+Hi Simon!
 
-On Wed, Sep 10, 2008 at 01:11:31AM +0200, Johann Baudy (johaahn@gmail.com) wrote:
-> We've performed more tests with additional and mandatory processes of
-> our system. Bitrate and CPU performance were very very low. This
-> result leads us to brainstorm on a new system design that meets
-> specifications target. I'll continue these tests once new design
-> ready.
+On Mon, Sep 8, 2008 at 8:19 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Mon, Sep 08, 2008 at 02:02:34PM +0900, Magnus Damm wrote:
+>> From: Magnus Damm <damm@igel.co.jp>
+>>
+>> Commit 159198862adad7109bb347bb30a620f67beac45f added SMC_IO_SHIFT
+>> platform data support. After that ARM board support was added.
+>>
+>> The default case is still missing though, so on SuperH SMC_IO_SHIFT
+>> is constantly zero regardless of what you pass as platform data.
+>
+> I beleive that its now common practice to include the subject
+> of a commit along with its id, as the latter can change as
+> it moves from tree to tree.
 
-If CPU usage was small, something slept somewhere, but so far we do not
-know what and where. It would be great to understand, why sendfile() is
-so slow with UDP especially when mempry bandwidth is very small, and
-particulary understand if it is udp sending path itself or splice code.
+Oh, thanks for pointing that out. I should really do that next time.
 
-> Concerning udp_sendpage() patch, if you agree, I will suggest this
-> patch to the community in a new thread.
+In this case the commit id is from the linux-2.6 git, so shouldn't it
+be stable enough? Isn't it the final destination? =)
 
-Sure, but please remove commented code lines instead of commenting them.
+Thanks!
 
--- 
-	Evgeniy Polyakov
+/ magnus
