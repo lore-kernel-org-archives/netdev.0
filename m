@@ -1,139 +1,73 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [PATCH] e100: Use pci_pme_active for clearing wake-up events and disabling PME# (was: Re: [regression] e100: PCI wake-up handling rework causes "Error clearing wake event")
-Date: Thu, 11 Sep 2008 01:07:13 +0200
-Message-ID: <200809110107.14545.rjw@sisk.pl>
-References: <200809090812.37649.elendil@planet.nl> <200809091514.23817.rjw@sisk.pl> <20080910153124.8536a7db.akpm@linux-foundation.org>
+From: "Paul Menage" <menage@google.com>
+Subject: Re: [PATCH 1/2] Traffic control cgroups subsystem
+Date: Wed, 10 Sep 2008 16:04:43 -0700
+Message-ID: <6599ad830809101604o71b2fb82k2aca1eb0fd8ab6d8@mail.gmail.com>
+References: <Pine.LNX.4.64.0809101040280.7050@ranjit.corp.google.com>
+	 <20080910220115.GH20815@postel.suug.ch>
+	 <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080910153124.8536a7db.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Cc: "Thomas Graf" <tgraf@suug.ch>, davem@davemloft.net,
+	akpm@linux-foundation.org, kaber@trash.net, lizf@cn.fujitsu.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Ranjit Manomohan" <ranjitm@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:3320 "EHLO
+	smtp-out3.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751945AbYIJXEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:04:53 -0400
+Received: from spaceape9.eur.corp.google.com (spaceape9.eur.corp.google.com [172.28.16.143])
+	by smtp-out3.google.com with ESMTP id m8AN4j8T007205
+	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:04:45 +0100
+Received: from gxk12 (gxk12.prod.google.com [10.202.11.12])
+	by spaceape9.eur.corp.google.com with ESMTP id m8AN19Vr031911
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:04:44 -0700
+Received: by gxk12 with SMTP id 12so14899331gxk.10
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:04:44 -0700 (PDT)
+In-Reply-To: <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, 11 of September 2008, Andrew Morton wrote:
-> On Tue, 9 Sep 2008 15:14:22 +0200
-> "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-> 
-> > On Tuesday, 9 of September 2008, Frans Pop wrote:
-> > > (Resending because of error in mail headers in previous attempt; sorry)
-> > > 
-> > > On my Toshiba Satellite A40 with 2.6.27-rc4/5 I noticed the following 
-> > > error in the boot log (not there with 2.6.26):
-> > > e100: 0000:01:08.0: e100_probe: Error clearing wake event
-> > > 
-> > > Bisection has fingered the following patch as the cause of the message.
-> > > 
-> > > commit eb9d0fe40e313c0a74115ef456a2e43a6c8da72f
-> > > Author: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-> > > Date:   Mon Jul 7 03:34:48 2008 +0200
-> > >     PCI ACPI: Rework PCI handling of wake-up
-> > > 
-> > > The test this error originates from in drivers/net/e100.c is old and has 
-> > > not changed recently.
-> > > 
-> > > Surrounding messages (full dmesg attached):
-> > > e100: Intel(R) PRO/100 Network Driver, 3.5.23-k4-NAPI
-> > > e100: Copyright(c) 1999-2006 Intel Corporation
-> > > e100 0000:01:08.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
-> > > e100: 0000:01:08.0: e100_probe: Error clearing wake event
-> > > e100: eth0: e100_probe: addr 0xcffff000, irq 20, MAC addr 
-> > > 00:08:0d:17:bf:f5
-> > > 
-> > > The NIC is:
-> > > 01:08.0 Ethernet controller [0200]: Intel Corporation 82801DB PRO/100 VE 
-> > > (MOB) Ethernet Controller [8086:103d] (rev 83)
-> > >         Kernel driver in use: e100
-> > 
-> > The message is actually harmless, but I agree that it's confusing.
-> > 
-> > The appended patch should fix the problem (ISTR sending it some time ago
-> > already).
-> > 
-> > Thanks,
-> > Rafael
-> > 
-> > ---
-> > From: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-> > 
-> > e100: Use pci_pme_active for clearing wake-up events and disabling PME#
-> > 
-> > Currently e100 uses pci_enable_wake() to clear pending wake-up events
-> > and disable PME# during intitialization, but that function is not
-> > suitable for this purpose, because it immediately returns error code
-> > if device_may_wakeup() returns false for given device.
-> > 
-> > Make e100 use pci_pme_active(), which carries out exactly the
-> > required operations, instead.
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-> > ---
-> >  drivers/net/e100.c |    4 +---
-> >  1 file changed, 1 insertion(+), 3 deletions(-)
-> > 
-> > Index: linux-2.6/drivers/net/e100.c
-> > ===================================================================
-> > --- linux-2.6.orig/drivers/net/e100.c
-> > +++ linux-2.6/drivers/net/e100.c
-> > @@ -2738,9 +2738,7 @@ static int __devinit e100_probe(struct p
-> >  		nic->flags |= wol_magic;
-> >  
-> >  	/* ack any pending wake events, disable PME */
-> > -	err = pci_enable_wake(pdev, 0, 0);
-> > -	if (err)
-> > -		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
-> > +	pci_pme_active(pdev, false);
-> >  
-> >  	strcpy(netdev->name, "eth%d");
-> >  	if((err = register_netdev(netdev))) {
-> 
-> This change is already included in
-> 
-> e100-adapt-to-the-reworked-pci-pm.patch:
+On Wed, Sep 10, 2008 at 3:56 PM, Ranjit Manomohan <ranjitm@google.com> wrote:
+>>
+>> The big disadvantage of this method is that it does not allow to change
+>> the classid for sockets which already exist. It inherits the classid
+>> at socket creation time and then sticks to it. So if you want to follow
+>> this approach I'd suggest to at least store a reference to the cgroup
+>> state and reference count it properly.
+>>
+>
+> I had considered adding support for moving tasks between cgroups by
+> going through all the open fds of the task and updating the sockets
+> (in the cgroup attach method). It is a very heavy weight operation and
+> not considered a common use case (and even undesirable at times) so I
+> dropped the idea. I can add it back in if it is considered essential.
+>
 
-Yes, it is.
+That's a bit different from what Thomas is suggesting (I think).
 
->   From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
->   
->   Adapt the e100 driver to the reworked PCI PM
->   
->   * Use device_set_wakeup_enable() and friends as needed
->   * Use pci_pme_active() to clear PME_Status and disable PME#
->   * Use the observation that it is sufficient to call pci_enable_wake()
->     once, unless it fails
->   
->   Signed-off-by: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
->   Tested-by: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->   Acked-by: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->   Cc: Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>
->   Cc: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
->   Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
->   
-> 
-> which I sent to Jeff on Aug 20 as a for-2.6.28 thing.
-> 
-> Maybe I should just mark e100-adapt-to-the-reworked-pci-pm.patch as a
-> for-2.6.27 thing next time I send that (large) pile of maybe-for-2.6.27
-> netdev patches.
-> 
-> e100-adapt-to-the-reworked-pci-pm.patch
+There are three options:
 
-This one shouldn't hurt, it has been tested by people with relevant hardware.
+a) socket acquires class id at creation time from its creator task or
+its parent socket. So the class id is fixed for the lifetime of the
+socket
 
-> drivers-net-skfp-pmfc-use-offsetof-macro.patch
-> drivers-net-atl1e-dont-take-the-mdio_lock-in-atl1e_probe.patch
-> e1000e-prevent-corruption-of-eeprom-nvm.patch
-> drivers-net-mlx4-allocc-needs-mmh.patch
-> net-forcedeth-call-restore-mac-addr-in-nv_shutdown-path-v2.patch
+b) socket acquires a reference to a cgroup at creation time, from its
+creator task or its parent socket. So the class id can be updated by
+changing the cgroup's class id, but the cgroup of the socket can't be
+changed. This can prevent the cgroup from being properly destroyed.
 
-This is a (listed) regression fix that Jeff promised to have a look at.
+c) socket acquires a reference to a cgroup at creation time, and can
+be moved to a different cgroup when tasks that reference it move
+between cgroups.
 
-> ehea-fix-dlpar-memory-handling.patch
-> nec-fix-rmmod-platform-driver-improvements.patch
-> nec-fix-suspend-and-resume-for-isa-pnp-cards.patch
+Our patches use option a. Option c is too heavyweight IMO, and has
+vague semantics for exactly when movement should occur. Option b
+*could* be useful, if you wanted to be able to share class ids between
+cgroups, *and* shuffle the sharing relationships around on the fly. I
+think that Thomas is suggestion option b. I'm not sure that I see a
+concrete use case for it though - Thomas, what use cases did you see?
+
+Paul
