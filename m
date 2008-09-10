@@ -1,58 +1,57 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [rfc 0/3] IPVS: checksum updates
-Date: Wed, 10 Sep 2008 19:30:52 +0200
-Message-ID: <f4845fc0809101030u2bd4dec4jb478ecc65240ea74@mail.gmail.com>
-References: <20080908020420.313463898@vergenet.net>
-	 <20080908234028.GF13048@verge.net.au>
-	 <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com>
-	 <20080909113131.GA3605@verge.net.au>
+From: Ranjit Manomohan <ranjitm@google.com>
+Subject: [PATCH 0/2] Traffic control cgroups subsystem
+Date: Wed, 10 Sep 2008 10:40:26 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0809101026190.7050@ranjit.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	"Vince Busam" <vbusam@google.com>, wensong@linux-vs.org
-To: "Simon Horman" <horms@verge.net.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net, kaber@trash.net, akpm@linux-foundation.org,
+	lizf@cn.fujitsu.com, menage@google.com, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:54004 "EHLO
+Received: from smtp-out.google.com ([216.239.33.17]:56521 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753920AbYIJRbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 13:31:04 -0400
-Received: from spaceape24.eur.corp.google.com (spaceape24.eur.corp.google.com [172.28.16.76])
-	by smtp-out.google.com with ESMTP id m8AHUsYf020983
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 18:30:54 +0100
-Received: from yw-out-2324.google.com (ywj3.prod.google.com [10.192.10.3])
-	by spaceape24.eur.corp.google.com with ESMTP id m8AHUrjA002609
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 10:30:53 -0700
-Received: by yw-out-2324.google.com with SMTP id 3so518824ywj.47
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 10:30:53 -0700 (PDT)
-In-Reply-To: <20080909113131.GA3605@verge.net.au>
-Content-Disposition: inline
+	with ESMTP id S1751744AbYIJRlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 13:41:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 9, 2008 at 1:31 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
->> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
->> NAT+DSR+TUN in all combinations that are expected to be working and
->> found no problems.
->
-> Thanks once again for your testing. I'll send a pull request to Dave in
-> the morning.
+Incorporated fixes suggested by Li Zefan.
 
-Thanks very much!
+Please consider for net-next-2.6.
 
-(CC: Wensong)
-I guess it would make sense to start hosting the new ipvsadm version
-somewhere on http://www.linuxvirtualserver.org/ soon. It could still
-be marked as unstable and saying, "If you intend to use the
-experimental IPv6 support for IPVS introduced in kernel 2.6.XX, you
-will need this new version of ipvsadm: ...". Also, we can then point
-to it in the Kconfig help text in CONFIG_IP_VS_IPV6. What do you
-think?
+This patch provides a simple resource controller (cgroup_tc) based on the
+cgroups infrastructure to manage network traffic. The cgroup_tc resource
+controller can be used to schedule and shape traffic belonging to the task(s)
+in a particular cgroup.
 
-Julius
+The implementation consists of two parts:
 
--- 
-Julius Volz - Corporate Operations - SysOps
+1) A resource controller (cgroup_tc) that is used to associate packets from
+   a particular task belonging to a cgroup with a traffic control class id (
+   tc_classid). This tc_classid is propagated to all sockets created by tasks
+   in the cgroup and will be used for classifying packets at the link layer.
 
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+2) A new traffic control classifier (cls_cgroup) that can classify packets
+   based on the tc_classid field in the socket to specific destination classes.
+
+An example of the use of this resource controller would be to limit
+the traffic from all tasks from a file_server cgroup to 100Mbps. We could
+achieve this by doing:
+
+# make a cgroup of file transfer processes and assign it a arbitrary unique
+# classid of 0x1234 - this will be used later to direct packets.
+mkdir -p /dev/cgroup
+mount -t cgroup tc -otc /dev/cgroup
+mkdir /dev/cgroup/file_transfer
+echo 0x1234 > /dev/cgroup/file_transfer/tc.classid
+echo $PID_OF_FILE_XFER_PROCESS > /dev/cgroup/file_transfer/tasks
+
+# Now create a HTB class that rate limits traffic to 100mbits and attach
+# a filter to direct all traffic from cgroup file_transfer to this new class.
+tc qdisc add dev eth0 root handle 1: htb
+tc class add dev eth0 parent 1: classid 1:10 htb rate 100mbit ceil 100mbit
+tc filter add dev eth0 parent 1: handle 800 protocol ip prio 1 cgroup value 0x1234 classid 1:10
+
+Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
+
+---
