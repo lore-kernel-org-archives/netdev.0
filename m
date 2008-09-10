@@ -1,35 +1,58 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: xfrm_state locking regression...
-Date: Tue, 09 Sep 2008 22:21:27 -0700 (PDT)
-Message-ID: <20080909.222127.40980994.davem@davemloft.net>
-References: <20080909.212426.193696271.davem@davemloft.net>
-	<20080909.214829.193700357.davem@davemloft.net>
-	<20080910045350.GA3060@gondor.apana.org.au>
+Date: Tue, 09 Sep 2008 22:23:30 -0700 (PDT)
+Message-ID: <20080909.222330.172681301.davem@davemloft.net>
+References: <20080910040107.GA29695@gondor.apana.org.au>
+	<20080909.210654.159776216.davem@davemloft.net>
+	<48C7581C.1080800@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50644
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57374
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751288AbYIJFVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 01:21:33 -0400
-In-Reply-To: <20080910045350.GA3060@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751209AbYIJFXh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2008 01:23:37 -0400
+In-Reply-To: <48C7581C.1080800@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 10 Sep 2008 14:53:50 +1000
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Wed, 10 Sep 2008 08:16:12 +0300
 
-> On Tue, Sep 09, 2008 at 09:48:29PM -0700, David Miller wrote:
-> > 
-> > I can't see what does the list delete from the GC leftover list?  Entries
-> > seem to stay on there forever.  We even kfree() the object.
-> 
-> Doh! Yes there's supposed to be a list_del in there.
+> David Miller wrote:
+> > ipsec: Restore hash based xfrm_state dumping.
+> >=20
+> > Get rid of ->all member of struct xfrm_state, and just use a hash
+> > iteration like we used before.
+> >=20
+> > This shrinks the size of struct xfrm_state, and also restores the
+> > dump ordering of 2.6.25 and previous.
+>=20
+> I think bad things will happen if the hash gets resized between
+> xfrm_state_walk() calls. Since it assumes that the walk->state
+> entry has remained in walk->chain bucket.
+>=20
+> The dumping order shouldn't really make any difference. But
+> reducing struct xfrm_state is definitely good. The only downside
+> is that when an entry is inserted to the beginning of the hash
+> while dump is ongoing, it won't be dumped at all. But that is
+> not really a problem since you get a notification about that
+> entry separately.
 
-Your original change was already in net-next-2.6 so I commited the
-one-liner fix.
+That's a good point, the hash resizing case.
 
-Thanks.
+If the hash grows, we'll see some entries again.
+
+If it shrinks, we might skip some instead, which is very undesirable.
+
+Actually, thinking about it some more, both possibilities (skipping
+and dups) seem to be possible in both situations (growing and
+shrinking).
+
+Ehm... I think we should put this patch and idea aside for a little bit=
+=2E
+:-)
