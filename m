@@ -1,7 +1,7 @@
 From: "Paul Menage" <menage@google.com>
 Subject: Re: [PATCH 1/2] Traffic control cgroups subsystem
-Date: Wed, 10 Sep 2008 16:53:16 -0700
-Message-ID: <6599ad830809101653p5688d9b8xad0772af875a92e4@mail.gmail.com>
+Date: Wed, 10 Sep 2008 16:51:55 -0700
+Message-ID: <6599ad830809101651u79a0efb7y8fa7288de6e48c8a@mail.gmail.com>
 References: <Pine.LNX.4.64.0809101040280.7050@ranjit.corp.google.com>
 	 <20080910220115.GH20815@postel.suug.ch>
 	 <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
@@ -19,15 +19,15 @@ To: "Thomas Graf" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp-out.google.com ([216.239.33.17]:9607 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681AbYIJXxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:53:25 -0400
-Received: from spaceape14.eur.corp.google.com (spaceape14.eur.corp.google.com [172.28.16.148])
-	by smtp-out.google.com with ESMTP id m8ANrHNb023980
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:53:18 +0100
-Received: from wf-out-1314.google.com (wfd26.prod.google.com [10.142.4.26])
-	by spaceape14.eur.corp.google.com with ESMTP id m8ANr7xo006918
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:53:17 -0700
-Received: by wf-out-1314.google.com with SMTP id 26so132276wfd.13
+	with ESMTP id S1752150AbYIJXxX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:53:23 -0400
+Received: from spaceape12.eur.corp.google.com (spaceape12.eur.corp.google.com [172.28.16.146])
+	by smtp-out.google.com with ESMTP id m8ANrH1h023964
+	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:53:17 +0100
+Received: from yx-out-1718.google.com (yxi3.prod.google.com [10.190.3.3])
+	by spaceape12.eur.corp.google.com with ESMTP id m8ANrGkn030254
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:53:16 -0700
+Received: by yx-out-1718.google.com with SMTP id 3so35424yxi.80
         for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:53:16 -0700 (PDT)
 In-Reply-To: <20080910234523.GK20815@postel.suug.ch>
 Content-Disposition: inline
