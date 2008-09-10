@@ -1,47 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Wed, 10 Sep 2008 13:15:59 +1000
-Message-ID: <20080910031559.GA27430@gondor.apana.org.au>
-References: <20080903053935.GA8428@gondor.apana.org.au> <48BE245D.3060905@iki.fi> <20080903055041.GA8547@gondor.apana.org.au> <20080909.200400.96645840.davem@davemloft.net>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: Suggested patch: Sending the FQDN when booting via DHCP
+Date: Tue, 09 Sep 2008 23:16:37 -0400
+Message-ID: <48C73C15.2000103@redhat.com>
+References: <48C6B3DA.3040904@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thierry <thierry.bultel@wanadoo.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53108 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751779AbYIJDQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2008 23:16:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20080909.200400.96645840.davem@davemloft.net>
+Received: from mx2.redhat.com ([66.187.237.31]:43003 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751949AbYIJDSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2008 23:18:09 -0400
+In-Reply-To: <48C6B3DA.3040904@wanadoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2008 at 08:04:00PM -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 3 Sep 2008 15:50:41 +1000
+Thierry wrote:
+> [re-sent without HTML encoding, and to the right aliases ...]
 > 
-> > ipsec: Move state dump list unlinking into GC
-> > 
-> > This patch moves the unlinking of x->all (for dumping) into the
-> > GC so that we know for sure what locks we hold when we unlink the
-> > entry.
-> > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Hi all,
 > 
-> After your patch I just applied, things are a bit different now.
+> the following patch can be useful, in order to let the DHCP server 
+> accordingly update the DNS, when booting via DHCP.
 > 
-> Are you going to respin this or is it not relevant any longer?
+> This can be useful for 2 reasons:
+> 1) on small systems, the embedded filesystem may even not have udhcpd
+> 2) when booting nfsroot, the nfs server does not like when udhcpd in 
+> invoked, even when requested the same IP address.
+> 
+> Here is the patch, for 2.6.27-rc5. (Notice that it is the very first 
+> time I deliver a patch for Linux, and I may
+> have missed some points on the procedure, if it is the case I apologize 
+> for that). What do you think about it ?
+> 
+> Any ideas or comments are welcome.
 
-This patch is now redundant.
+This should probably be a kernel command-line option, rather than a static 
+config option.
 
-What could be done though is to remove x->all and restore the
-original walking by hashing.  This would eliminate a list node
-from xfrm_state, and would also restore the original dump ordering.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-- Chris
