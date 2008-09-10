@@ -1,59 +1,35 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: Distributed storage release.
-Date: Thu, 11 Sep 2008 01:51:44 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.0809110054020.1542@titan.stealer.net>
-References: <20080909113817.GA14005@2ka.mipt.ru>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 0/2] Traffic control cgroups subsystem
+Date: Thu, 11 Sep 2008 01:52:50 +0200
+Message-ID: <20080910235250.GL20815@postel.suug.ch>
+References: <Pine.LNX.4.64.0809101026190.7050@ranjit.corp.google.com> <20080910.132251.73509521.davem@davemloft.net> <166fe7950809101344l7a5e2b7pfba8b2a7c03814a1@mail.gmail.com> <20080910221206.GI20815@postel.suug.ch> <166fe7950809101637o1bf22869g4939707a35a3c93b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20080909113817.GA14005@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	akpm@linux-foundation.org, lizf@cn.fujitsu.com, menage@google.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ranjit Manomohan <ranjitm@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:45704 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752297AbYIJXwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2008 19:52:30 -0400
+Content-Disposition: inline
+In-Reply-To: <166fe7950809101637o1bf22869g4939707a35a3c93b@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 9 Sep 2008, Evgeniy Polyakov wrote:
+* Ranjit Manomohan <ranjitm@google.com> 2008-09-10 16:37
+> Could you elaborate on the failure cases? We have found this to be
+> useful in practice to prevent applications from reading large amounts
+> of data off the network so it would be nice if it were supported.
 
-> I am pleased to announce new Distributed Storage (DST) project release.
+It works fairly well for a small number of bulk streams when no packets
+need to be dropped. The results get very inaccurate for higher number
+of smaller streams when packets start getting dropped. The problem is
+simply that currently none of the congestion notification mechanism
+work in (internet) practice.
 
-Hi,
-
-I just had another quick random look over it and found a small memory
-leak in an error path, that was already present in your last post, but I
-didn't notice. Also there still seem to be some non-critical style
-issues, like an explicit continue at then end of a loop, but I didn't
-bother to catch them this time.
-
-Sven
-
-> +static void *dst_crypto_thread_init(void *data)
-> +{
-> +	struct dst_node *n = data;
-> +	struct dst_crypto_engine *e;
-> +	int err = -ENOMEM;
-> +
-> +	e = kzalloc(sizeof(struct dst_crypto_engine), GFP_KERNEL);
-> +	if (!e)
-> +		goto err_out_exit;
-> +	e->src = kzalloc(sizeof(struct scatterlist) * 2 * n->max_pages,
-> +			GFP_KERNEL);
-> +	if (!e->src)
-> +		goto err_out_free;
-> +
-> +	e->dst = e->src + n->max_pages;
-> +
-> +	err = dst_crypto_engine_init(e, n);
-> +	if (err)
-> +		goto err_out_free;
-> +
-> +	return e;
-> +
-> +err_out_free:
-> +	kfree(e->src);
-
-You leak the memory allocated for e here.
-
-> +err_out_exit:
-> +	return ERR_PTR(err);
-> +}
+Therefore I think that it is not worth the effort. If you think
+diffrently, I will be more than glad to review code. So far I haven't
+seen anything that would work on ingress.
