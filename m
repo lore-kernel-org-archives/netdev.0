@@ -1,82 +1,67 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
-	feature-negotiation patches
-Date: Wed, 10 Sep 2008 07:01:15 +0200
-Message-ID: <20080910050115.GA3642@gerrit.erg.abdn.ac.uk>
-References: <20080909080911.GA9176@gerrit.erg.abdn.ac.uk> <20080909.015720.204027435.davem@davemloft.net> <20080909115948.GA3551@gerrit.erg.abdn.ac.uk> <20080909.051546.193801654.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: xfrm_state locking regression...
+Date: Wed, 10 Sep 2008 08:16:12 +0300
+Message-ID: <48C7581C.1080800@iki.fi>
+References: <20080910032304.GA28580@gondor.apana.org.au>	<20080909.203808.112347106.davem@davemloft.net>	<20080910040107.GA29695@gondor.apana.org.au> <20080909.210654.159776216.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43681 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750767AbYIJFBl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2008 01:01:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20080909.051546.193801654.davem@davemloft.net>
+Received: from nf-out-0910.google.com ([64.233.182.189]:6993 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751145AbYIJFQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 01:16:06 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so840908nfc.21
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2008 22:16:03 -0700 (PDT)
+In-Reply-To: <20080909.210654.159776216.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > Please consider pulling from
-| > 
-| > 	git://eden-feed.erg.abdn.ac.uk/net-next-2.6	 [subtree `master']
-| > 	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-next-2.6.git;a=summary
-| > 
-| > where I have reverted the pull and compile-tested the result. 
-| 
-| I hate to have a turd like this in the history, but fine I pulled this :-/
-| 
-| I may have to rebase net-next-2.6 after all, this is revoltingly ugly...
-| 
-| This is exactly what I didn't want Gerrit, a royally screwed up GIT
-| history because of the mistake.  It's WORSE now with the revert.
-| Can't you see that?  That's why I asked for fixup changesets, rather
-| than a revert.
-| 
-| I would have rather you sent me a small set of fixup patches that
-| cured whatever problems were in those changes.  That would have shown
-| the development history.
-| 
-| Now we're just going to have crap.  A large set of changes going in, then
-| one huge revert, and nobody will ever get to see exactly what happened
-| in between.
-| 
-| I've had enough.
-| 
-| I'd like to get the DCCP changes through someone else, please.
-| Someone willing to learn to use GIT properly.  Someone who understands
-| how important it is to keep the GIT history clean and not put a lot of
-| noise into the tree.  Someone who has the time to do this right and I
-| can trust.
-| 
-I had hoped that you would regain your senses but it does not seem so.
+David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 10 Sep 2008 14:01:07 +1000
+> 
+>> On Tue, Sep 09, 2008 at 08:38:08PM -0700, David Miller wrote:
+>>> No problem.  It might be a little bit of a chore because this new
+>>> walker design is intimately tied to the af_key non-atomic dump
+>>> changes.
+>> Actually I was mistaken as to how the original dump worked.  I'd
+>> thought that it actually kept track of which bucket it was in and
+>> resumed from that bucket.  However in reality it only had a global
+>> counter and would always start walking from the beginning up until
+>> the counted value.  So it isn't as easy as just copying the old
+>> code across :)
+> 
+> Only AF_KEY gave an error, and this ended the dump.  This was
+> one of Timo's goals, to make AF_KEY continue where it left
+> off in subsequent dump calls done by the user, when we hit the
+> socket limit.
 
-Not only are you lacking the courage to admit that it was your own fault
-to pull a tree no one had asked you to pull, now you are trying to make 
-me look foolish to cover your own mistake. 
+Yes, this was the other goal. The other goal was to speed up
+dumping in netlink from O(n^2) to O(n). And fixing the problem that
+netlink might miss to dump some entries (if an entry was removed
+from the beginning of the hash when dumping was ongoing).
 
-Remember, it was you who asked for another review period, neither I nor
-Arnaldo, nor anyone else had asked you to pull again.
+> ipsec: Restore hash based xfrm_state dumping.
+> 
+> Get rid of ->all member of struct xfrm_state, and just use a hash
+> iteration like we used before.
+> 
+> This shrinks the size of struct xfrm_state, and also restores the
+> dump ordering of 2.6.25 and previous.
 
-It further did not even occur to you to check the provided gitweb link, nor
-did you recognise that you had pulled about 100 instead of 37 patches. And
-you seem not to have looked at the diffstats either - what has a change in
-tcp_input.c got to do with a DCCP-only patch set?
+I think bad things will happen if the hash gets resized between
+xfrm_state_walk() calls. Since it assumes that the walk->state
+entry has remained in walk->chain bucket.
 
-Not to mention the conflicts which you silently fixed instead of looking at
-their cause.
+The dumping order shouldn't really make any difference. But
+reducing struct xfrm_state is definitely good. The only downside
+is that when an entry is inserted to the beginning of the hash
+while dump is ongoing, it won't be dumped at all. But that is
+not really a problem since you get a notification about that
+entry separately.
 
-You don't check the results of your own work and now you are trying to 
-lecture others about maintainership? Look at yourself.
-
-And to top this up now you are even asking me for "fixup patches" to fix the
-about 60 patches that were accidentally sucked in, only a day after giving
-us a lecture on the importance of review. What you are asking for here is to
-wave through 60 patches without giving people a chance at all to review them.
-
-I am not going to send patches to fix/cover this up. Either we want people to
-review patches fairly or we don't.
-
-What you are saying here has little authority. It is just foolish vanity.
-I am really sorry for you and hope that you come back to your senses soon.
+Cheers,
+  Timo
