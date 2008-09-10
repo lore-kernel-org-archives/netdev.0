@@ -1,98 +1,50 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Wed, 10 Sep 2008 09:15:14 +0100
-Message-ID: <OF26A16F1A.7E5C696A-ON802574BF.003B849F-802574C0.002D5A79@smsc.com>
-References: <200809081154.05512.david-b@pacbell.net>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: hso: remove usb_driver_claim_interface()
+Date: Wed, 10 Sep 2008 12:06:29 +0300
+Message-ID: <48C78E15.9030603@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Catalin Marinas <catalin.marinas@arm.com>, ian.saturley@smsc.com,
-	netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: multipart/mixed;
+ boundary="------------050606010906040609040906"
+Cc: D.Barow@option.com
+To: linux-usb@vger.kernel.org, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:2840 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751171AbYIJIPy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2008 04:15:54 -0400
-In-Reply-To: <200809081154.05512.david-b@pacbell.net>
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:48902 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752926AbYIJJGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2008 05:06:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+This is a multi-part message in MIME format.
+--------------050606010906040609040906
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thanks for the feedback.
 
-> > +#define SMSC_WARNING(msg, args...) \
-> > +       printk(KERN_WARNING "%s: WARNING: " msg "\n", __func__, ## 
-args)
-> > +
-> > +#ifdef USE_DEBUG
-> > +#define SMSC_TRACE(debug_bit, msg, args...) \
-> > +       if (debug_mode & debug_bit) { \
-> > +               printk(KERN_WARNING "%s: " msg "\n", __func__, ## 
-args); \
-> > +       }
-> > +#else
-> > +#define SMSC_TRACE(dbgBit, msg, args...)   ({ do {} while (0); 0; })
-> > +#endif
-> 
-> Standard feedback for such stuff:
-> 
->  - avoid printk() for diagnostics, use dev_*() driver model calls
->  - ... or in this case, pr_warning() if you really must
->  - provide better messages and avoid passing __func__ 
->  - use inline functions instead of CPP macros
->  - make dead code elimination remove debug code, not #ifdefs
-> 
-> And specific to network devices:
-> 
->  - use the ethtool message level flags not private debug_mode
+--------------050606010906040609040906
+Content-Type: text/x-patch;
+ name="hso-no-claim-interface.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso-no-claim-interface.patch"
 
-There's quite a bit of variation on the debugging style across existing 
-drivers.  Is there any driver you would suggest to use as an example of 
-how to do things right?
+No need to reclaim the same USB interface beeing probed.
 
-> > +int turbo_mode = true;
-> > +module_param(turbo_mode, bool, 0);
-> > +MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx 
-transaction");
-> 
-> I'm curious ... does this actually improve things on Linux?
-> 
-> My understanding is that on MS-Windows the costs of sending
-> a transaction through the USB stack are so high that their
-> APIs encourage such batching, and this has in some cases
-> extended down to wire protocols and (as seems true here)
-> even to hardware.
-> 
-> The approach Linux prefers is just to ensure that a queue
-> of transactions works efficiently ... so that for example
-> each Ethernet frame maps directly to one URB, and there's
-> no time wasted batching/unbatching.  (Neither in Linux,
-> nor in the peripheral.)
-> 
-> Last time I had any measurements on such issues, the
-> Linux stack outperformed MS-Windows in terms of per-packet
-> latency and also throughput, indicating that batching was
-> not necessary for performance on most network loads.  But
-> maybe that's not the case with your particular hardware,
-> or in certain significant/common use cases?
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Cc: Denis Joseph Barrow <D.Barow@option.com>
 
-On my test workstation both single and multi frame modes achieve 
-wire-speed at 100Mbps, and packing multiple frames shows a slight CPU 
-utilisation benefit under load.  This is much more pronounced on a slower 
-platform, for example on a 533MHz ppc platform we saw a TCP RX netperf 
-test drop from 59% to 30% CPU.
+Index: linux-2.6/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.orig/drivers/net/usb/hso.c
++++ linux-2.6/drivers/net/usb/hso.c
+@@ -2487,8 +2487,6 @@ static int hso_probe(struct usb_interfac
+ 		goto exit;
+ 	}
+ 
+-	usb_driver_claim_interface(&hso_driver, interface, hso_dev);
+-
+ 	/* save our data pointer in this device */
+ 	usb_set_intfdata(interface, hso_dev);
+ 
 
-In multi frame mode the driver configures the device to apply a small 
-hardware delay to the transaction, so it can group frames.  This delay is 
-carefully chosen so the maximum additional latency (if no more frames 
-arrive during the delay period) isn't significant for most applications. 
-If a specific application is extremely latency sensitive the delay can be 
-removed by switching to single packet mode.
-
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
+--------------050606010906040609040906--
