@@ -1,204 +1,82 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Wed, 10 Sep 2008 14:53:50 +1000
-Message-ID: <20080910045350.GA3060@gondor.apana.org.au>
-References: <20080909.210654.159776216.davem@davemloft.net> <20080910042247.GA2544@gondor.apana.org.au> <20080909.212426.193696271.davem@davemloft.net> <20080909.214829.193700357.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+	feature-negotiation patches
+Date: Wed, 10 Sep 2008 07:01:15 +0200
+Message-ID: <20080910050115.GA3642@gerrit.erg.abdn.ac.uk>
+References: <20080909080911.GA9176@gerrit.erg.abdn.ac.uk> <20080909.015720.204027435.davem@davemloft.net> <20080909115948.GA3551@gerrit.erg.abdn.ac.uk> <20080909.051546.193801654.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55653 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750767AbYIJEx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 00:53:57 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43681 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750767AbYIJFBl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2008 01:01:41 -0400
 Content-Disposition: inline
-In-Reply-To: <20080909.214829.193700357.davem@davemloft.net>
+In-Reply-To: <20080909.051546.193801654.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2008 at 09:48:29PM -0700, David Miller wrote:
-> 
-> I can't see what does the list delete from the GC leftover list?  Entries
-> seem to stay on there forever.  We even kfree() the object.
+| > Please consider pulling from
+| > 
+| > 	git://eden-feed.erg.abdn.ac.uk/net-next-2.6	 [subtree `master']
+| > 	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-next-2.6.git;a=summary
+| > 
+| > where I have reverted the pull and compile-tested the result. 
+| 
+| I hate to have a turd like this in the history, but fine I pulled this :-/
+| 
+| I may have to rebase net-next-2.6 after all, this is revoltingly ugly...
+| 
+| This is exactly what I didn't want Gerrit, a royally screwed up GIT
+| history because of the mistake.  It's WORSE now with the revert.
+| Can't you see that?  That's why I asked for fixup changesets, rather
+| than a revert.
+| 
+| I would have rather you sent me a small set of fixup patches that
+| cured whatever problems were in those changes.  That would have shown
+| the development history.
+| 
+| Now we're just going to have crap.  A large set of changes going in, then
+| one huge revert, and nobody will ever get to see exactly what happened
+| in between.
+| 
+| I've had enough.
+| 
+| I'd like to get the DCCP changes through someone else, please.
+| Someone willing to learn to use GIT properly.  Someone who understands
+| how important it is to keep the GIT history clean and not put a lot of
+| noise into the tree.  Someone who has the time to do this right and I
+| can trust.
+| 
+I had hoped that you would regain your senses but it does not seem so.
 
-Doh! Yes there's supposed to be a list_del in there.
+Not only are you lacking the courage to admit that it was your own fault
+to pull a tree no one had asked you to pull, now you are trying to make 
+me look foolish to cover your own mistake. 
 
-Here's a fixed patch:
+Remember, it was you who asked for another review period, neither I nor
+Arnaldo, nor anyone else had asked you to pull again.
 
-ipsec: Use RCU-like construct for saved state within a walk
+It further did not even occur to you to check the provided gitweb link, nor
+did you recognise that you had pulled about 100 instead of 37 patches. And
+you seem not to have looked at the diffstats either - what has a change in
+tcp_input.c got to do with a DCCP-only patch set?
 
-Now that we save states within a walk we need synchronisation
-so that the list the saved state is on doesn't disappear from
-under us.
+Not to mention the conflicts which you silently fixed instead of looking at
+their cause.
 
-As it stands this is done by keeping the state on the list which
-is bad because it gets in the way of the management of the state
-life-cycle.
+You don't check the results of your own work and now you are trying to 
+lecture others about maintainership? Look at yourself.
 
-An alternative is to make our own pseudo-RCU system where we use
-counters to indicate which state can't be freed immediately as
-it may be referenced by an ongoing walk when that resumes.
+And to top this up now you are even asking me for "fixup patches" to fix the
+about 60 patches that were accidentally sucked in, only a day after giving
+us a lecture on the importance of review. What you are asking for here is to
+wave through 60 patches without giving people a chance at all to review them.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I am not going to send patches to fix/cover this up. Either we want people to
+review patches fairly or we don't.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 2933d74..4bb9499 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -120,9 +120,11 @@ extern struct mutex xfrm_cfg_mutex;
- /* Full description of state of transformer. */
- struct xfrm_state
- {
--	/* Note: bydst is re-used during gc */
- 	struct list_head	all;
--	struct hlist_node	bydst;
-+	union {
-+		struct list_head	gclist;
-+		struct hlist_node	bydst;
-+	};
- 	struct hlist_node	bysrc;
- 	struct hlist_node	byspi;
- 
-@@ -1286,16 +1288,9 @@ static inline void xfrm_state_walk_init(struct xfrm_state_walk *walk, u8 proto)
- 	walk->count = 0;
- }
- 
--static inline void xfrm_state_walk_done(struct xfrm_state_walk *walk)
--{
--	if (walk->state != NULL) {
--		xfrm_state_put(walk->state);
--		walk->state = NULL;
--	}
--}
--
- extern int xfrm_state_walk(struct xfrm_state_walk *walk,
- 			   int (*func)(struct xfrm_state *, int, void*), void *);
-+extern void xfrm_state_walk_done(struct xfrm_state_walk *walk);
- extern struct xfrm_state *xfrm_state_alloc(void);
- extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 					  struct flowi *fl, struct xfrm_tmpl *tmpl,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 7bd62f6..fe84a46 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -59,6 +59,11 @@ static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
- static unsigned int xfrm_state_num;
- static unsigned int xfrm_state_genid;
- 
-+/* Counter indicating ongoing walk, protected by xfrm_state_lock. */
-+static unsigned long xfrm_state_walk_ongoing;
-+/* Counter indicating walk completion, protected by xfrm_cfg_mutex. */
-+static unsigned long xfrm_state_walk_completed;
-+
- static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
- static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
- 
-@@ -191,7 +196,8 @@ static DEFINE_RWLOCK(xfrm_state_afinfo_lock);
- static struct xfrm_state_afinfo *xfrm_state_afinfo[NPROTO];
- 
- static struct work_struct xfrm_state_gc_work;
--static HLIST_HEAD(xfrm_state_gc_list);
-+static LIST_HEAD(xfrm_state_gc_leftovers);
-+static LIST_HEAD(xfrm_state_gc_list);
- static DEFINE_SPINLOCK(xfrm_state_gc_lock);
- 
- int __xfrm_state_delete(struct xfrm_state *x);
-@@ -403,17 +409,23 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
- 
- static void xfrm_state_gc_task(struct work_struct *data)
- {
--	struct xfrm_state *x;
--	struct hlist_node *entry, *tmp;
--	struct hlist_head gc_list;
-+	struct xfrm_state *x, *tmp;
-+	unsigned long completed;
- 
-+	mutex_lock(&xfrm_cfg_mutex);
- 	spin_lock_bh(&xfrm_state_gc_lock);
--	gc_list.first = xfrm_state_gc_list.first;
--	INIT_HLIST_HEAD(&xfrm_state_gc_list);
-+	list_splice_tail_init(&xfrm_state_gc_list, &xfrm_state_gc_leftovers);
- 	spin_unlock_bh(&xfrm_state_gc_lock);
- 
--	hlist_for_each_entry_safe(x, entry, tmp, &gc_list, bydst)
-+	completed = xfrm_state_walk_completed;
-+	mutex_unlock(&xfrm_cfg_mutex);
-+
-+	list_for_each_entry_safe(x, tmp, &xfrm_state_gc_leftovers, gclist) {
-+		if ((long)(x->lastused - completed) > 0)
-+			break;
-+		list_del(&x->all);
- 		xfrm_state_gc_destroy(x);
-+	}
- 
- 	wake_up(&km_waitq);
- }
-@@ -540,12 +552,8 @@ void __xfrm_state_destroy(struct xfrm_state *x)
- {
- 	WARN_ON(x->km.state != XFRM_STATE_DEAD);
- 
--	spin_lock_bh(&xfrm_state_lock);
--	list_del(&x->all);
--	spin_unlock_bh(&xfrm_state_lock);
--
- 	spin_lock_bh(&xfrm_state_gc_lock);
--	hlist_add_head(&x->bydst, &xfrm_state_gc_list);
-+	list_add_tail(&x->gclist, &xfrm_state_gc_list);
- 	spin_unlock_bh(&xfrm_state_gc_lock);
- 	schedule_work(&xfrm_state_gc_work);
- }
-@@ -558,6 +566,8 @@ int __xfrm_state_delete(struct xfrm_state *x)
- 	if (x->km.state != XFRM_STATE_DEAD) {
- 		x->km.state = XFRM_STATE_DEAD;
- 		spin_lock(&xfrm_state_lock);
-+		x->lastused = xfrm_state_walk_ongoing;
-+		list_del_rcu(&x->all);
- 		hlist_del(&x->bydst);
- 		hlist_del(&x->bysrc);
- 		if (x->id.spi)
-@@ -1572,6 +1582,7 @@ int xfrm_state_walk(struct xfrm_state_walk *walk,
- 			if (err) {
- 				xfrm_state_hold(last);
- 				walk->state = last;
-+				xfrm_state_walk_ongoing++;
- 				goto out;
- 			}
- 		}
-@@ -1586,12 +1597,28 @@ int xfrm_state_walk(struct xfrm_state_walk *walk,
- 		err = func(last, 0, data);
- out:
- 	spin_unlock_bh(&xfrm_state_lock);
--	if (old != NULL)
-+	if (old != NULL) {
- 		xfrm_state_put(old);
-+		xfrm_state_walk_completed++;
-+		if (!list_empty(&xfrm_state_gc_leftovers))
-+			schedule_work(&xfrm_state_gc_work);
-+	}
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_state_walk);
- 
-+void xfrm_state_walk_done(struct xfrm_state_walk *walk)
-+{
-+	if (walk->state != NULL) {
-+		xfrm_state_put(walk->state);
-+		walk->state = NULL;
-+		xfrm_state_walk_completed++;
-+		if (!list_empty(&xfrm_state_gc_leftovers))
-+			schedule_work(&xfrm_state_gc_work);
-+	}
-+}
-+EXPORT_SYMBOL(xfrm_state_walk_done);
-+
- 
- void xfrm_replay_notify(struct xfrm_state *x, int event)
- {
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+What you are saying here has little authority. It is just foolish vanity.
+I am really sorry for you and hope that you come back to your senses soon.
