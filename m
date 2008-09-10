@@ -1,37 +1,111 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] niu: panic on reset
-Date: Wed, 10 Sep 2008 13:28:08 -0700 (PDT)
-Message-ID: <20080910.132808.242997035.davem@davemloft.net>
-References: <48C07564.3060306@Sun.COM>
-	<20080908.132031.65821182.davem@davemloft.net>
-	<48C7FD76.2000206@sun.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] r8169: fix RxMissed register access
+Date: Wed, 10 Sep 2008 22:28:56 +0200
+Message-ID: <20080910202856.GA22884@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Santwona.Behera@Sun.COM, netdev@vger.kernel.org
-To: Matheos.Worku@Sun.COM
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Adam Huffman <bloch@verdurin.com>,
+	Hermann Gausterer <kernel-bug-tracker@mrq1.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ivan Vecera <ivecera@redhat.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60813
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751901AbYIJU2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 16:28:15 -0400
-In-Reply-To: <48C7FD76.2000206@sun.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41268 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752086AbYIJUbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 16:31:05 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Date: Wed, 10 Sep 2008 10:01:42 -0700
+- the register is defined for the 8169 chipset only and there is
+  no 8169 beyond RTL_GIGA_MAC_VER_06.
+- only the lower 3 bytes of the register are valid
 
-> Instead of creating a new function, Santwona was borrowing an existing
-> logic from niu_change_mtu function. Rather than introducing a new
-> function and possibly a new failure mode, we were trying to re-use existing
-> logic, reducing the probability of a new bug.
+Fixes:
+1. http://bugzilla.kernel.org/show_bug.cgi?id=10180
+2. http://bugzilla.kernel.org/show_bug.cgi?id=11062 (bits of)
 
-But in essence the patch does add a new failure mode.  It now can fail
-if a memory allocation cannot succeed at the current point in time.
+Tested by Hermann Gausterer and Adam Huffman.
 
-That was not true previously, and if you just fix up the buffer pointers
-or whatever state to be reset, you won't have this possible failure mode
-either.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |   25 ++++++++++++++-----------
+ 1 files changed, 14 insertions(+), 11 deletions(-)
 
-We should fix this correctly.
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 0f6f974..4190ee7 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2099,8 +2099,6 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 
+ 	RTL_R8(IntrMask);
+ 
+-	RTL_W32(RxMissed, 0);
+-
+ 	rtl_set_rx_mode(dev);
+ 
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+@@ -2143,8 +2141,6 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 
+ 	RTL_R8(IntrMask);
+ 
+-	RTL_W32(RxMissed, 0);
+-
+ 	rtl_set_rx_mode(dev);
+ 
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+@@ -2922,6 +2918,17 @@ static int rtl8169_poll(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
++static void rtl8169_rx_missed(struct net_device *dev, void __iomem *ioaddr)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++
++	if (tp->mac_version > RTL_GIGA_MAC_VER_06)
++		return;
++
++	dev->stats.rx_missed_errors += (RTL_R32(RxMissed) & 0xffffff);
++	RTL_W32(RxMissed, 0);
++}
++
+ static void rtl8169_down(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -2939,9 +2946,7 @@ core_down:
+ 
+ 	rtl8169_asic_down(ioaddr);
+ 
+-	/* Update the error counts. */
+-	dev->stats.rx_missed_errors += RTL_R32(RxMissed);
+-	RTL_W32(RxMissed, 0);
++	rtl8169_rx_missed(dev, ioaddr);
+ 
+ 	spin_unlock_irq(&tp->lock);
+ 
+@@ -3063,8 +3068,7 @@ static struct net_device_stats *rtl8169_get_stats(struct net_device *dev)
+ 
+ 	if (netif_running(dev)) {
+ 		spin_lock_irqsave(&tp->lock, flags);
+-		dev->stats.rx_missed_errors += RTL_R32(RxMissed);
+-		RTL_W32(RxMissed, 0);
++		rtl8169_rx_missed(dev, ioaddr);
+ 		spin_unlock_irqrestore(&tp->lock, flags);
+ 	}
+ 
+@@ -3089,8 +3093,7 @@ static int rtl8169_suspend(struct pci_dev *pdev, pm_message_t state)
+ 
+ 	rtl8169_asic_down(ioaddr);
+ 
+-	dev->stats.rx_missed_errors += RTL_R32(RxMissed);
+-	RTL_W32(RxMissed, 0);
++	rtl8169_rx_missed(dev, ioaddr);
+ 
+ 	spin_unlock_irq(&tp->lock);
+ 
+-- 
+1.5.3.3
