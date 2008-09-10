@@ -1,48 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Suggested patch: Sending the FQDN when booting via DHCP
-Date: Wed, 10 Sep 2008 15:35:17 -0700 (PDT)
-Message-ID: <20080910.153517.23060861.davem@davemloft.net>
-References: <48C6B3DA.3040904@wanadoo.fr>
-	<48C73C15.2000103@redhat.com>
+From: "Ranjit Manomohan" <ranjitm@google.com>
+Subject: Re: [PATCH 1/2] Traffic control cgroups subsystem
+Date: Wed, 10 Sep 2008 15:56:55 -0700
+Message-ID: <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
+References: <Pine.LNX.4.64.0809101040280.7050@ranjit.corp.google.com>
+	 <20080910220115.GH20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: thierry.bultel@wanadoo.fr, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: csnook@redhat.com
+Cc: davem@davemloft.net, akpm@linux-foundation.org, kaber@trash.net,
+	lizf@cn.fujitsu.com, menage@google.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Thomas Graf" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42733
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751963AbYIJWfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 18:35:23 -0400
-In-Reply-To: <48C73C15.2000103@redhat.com>
+Received: from smtp-out.google.com ([216.239.33.17]:1991 "EHLO
+	smtp-out3.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752581AbYIJW5G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 18:57:06 -0400
+Received: from spaceape9.eur.corp.google.com (spaceape9.eur.corp.google.com [172.28.16.143])
+	by smtp-out3.google.com with ESMTP id m8AMuuRh031905
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 23:56:56 +0100
+Received: from rv-out-0708.google.com (rvfb17.prod.google.com [10.140.179.17])
+	by spaceape9.eur.corp.google.com with ESMTP id m8AMufXd028785
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 15:56:55 -0700
+Received: by rv-out-0708.google.com with SMTP id b17so65860rvf.38
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 15:56:55 -0700 (PDT)
+In-Reply-To: <20080910220115.GH20815@postel.suug.ch>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Snook <csnook@redhat.com>
-Date: Tue, 09 Sep 2008 23:16:37 -0400
+On Wed, Sep 10, 2008 at 3:01 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> * Ranjit Manomohan <ranjitm@google.com> 2008-09-10 10:42
+>> +void cgroup_tc_set_sock_classid(struct sock *sk)
+>> +{
+>> +     if (sk)
+>> +             sk->sk_cgroup_classid = cgroup_tc_classid(current);
+>> +}
+>> +
+>> @@ -1170,6 +1171,8 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
+>>       if (err < 0)
+>>               goto out_module_put;
+>>
+>> +     cgroup_tc_set_sock_classid(sock->sk);
+>> +
+>>       /*
+>>        * Now to bump the refcnt of the [loadable] module that owns this
+>>        * socket at sock_release time we decrement its refcnt.
+>> @@ -1444,6 +1447,8 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+>>       if (err < 0)
+>>               goto out_fd;
+>>
+>> +     cgroup_tc_set_sock_classid(newsock->sk);
+>> +
+>>       if (upeer_sockaddr) {
+>>               if (newsock->ops->getname(newsock, (struct sockaddr *)address,
+>>                                         &len, 2) < 0) {
+>
+> The big disadvantage of this method is that it does not allow to change
+> the classid for sockets which already exist. It inherits the classid
+> at socket creation time and then sticks to it. So if you want to follow
+> this approach I'd suggest to at least store a reference to the cgroup
+> state and reference count it properly.
+>
 
-> Thierry wrote:
-> > [re-sent without HTML encoding, and to the right aliases ...]
-> > Hi all,
-> > the following patch can be useful, in order to let the DHCP server accordingly update the DNS, when booting via DHCP.
-> > This can be useful for 2 reasons:
-> > 1) on small systems, the embedded filesystem may even not have udhcpd
-> > 2) when booting nfsroot, the nfs server does not like when udhcpd in invoked, even when requested the same IP address.
-> > Here is the patch, for 2.6.27-rc5. (Notice that it is the very first time I deliver a patch for Linux, and I may
-> > have missed some points on the procedure, if it is the case I apologize for that). What do you think about it ?
-> > Any ideas or comments are welcome.
-> 
-> This should probably be a kernel command-line option, rather than a static config option.
+I had considered adding support for moving tasks between cgroups by
+going through all the open fds of the task and updating the sockets
+(in the cgroup attach method). It is a very heavy weight operation and
+not considered a common use case (and even undesirable at times) so I
+dropped the idea. I can add it back in if it is considered essential.
 
-Also:
 
-1) The submitter's email client corrupted the patch making it unusable anyways,
-   it munged tabs into spaces etc.
+> As for the locking that you mentioned in the other thread. IMHO it is
+> not possible to lookup a socket without taking at least one lock, but
+> I might be wrong there. Actually I think it will take even more locks
+> as different locks are used to f.e. protect listening and established
+> tcp sockets.
 
-2) At this point in time ->nodename is going to be something like "(none)" and
-   therefore not very useful.  This only gets set after userland has started
-   up.
+That is correct for ingress, for egress the sk is already available in
+the skb so should be fine.
 
-So really, the nodename would need to be specified as well as a command line
-option for this to really be useful.
+-Thanks,
+Ranjit
+
+>
