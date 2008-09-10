@@ -1,55 +1,61 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: hso: remove usb_driver_claim_interface()
-Date: Wed, 10 Sep 2008 09:55:31 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0809100949410.2408-100000@iolanthe.rowland.org>
-References: <48C7A4F5.2070607@option.com>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
+Date: Wed, 10 Sep 2008 09:47:36 -0700
+Message-ID: <200809100947.36480.david-b@pacbell.net>
+References: <OF26A16F1A.7E5C696A-ON802574BF.003B849F-802574C0.002D5A79@smsc.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	<linux-usb@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: Denis Joseph Barrow <D.Barow@option.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Catalin Marinas <catalin.marinas@arm.com>, ian.saturley@smsc.com,
+	netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:33422 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751781AbYIJNzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 09:55:33 -0400
-In-Reply-To: <48C7A4F5.2070607@option.com>
+Received: from smtp118.sbc.mail.sp1.yahoo.com ([69.147.64.91]:43555 "HELO
+	smtp118.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751148AbYIJQrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 12:47:39 -0400
+In-Reply-To: <OF26A16F1A.7E5C696A-ON802574BF.003B849F-802574C0.002D5A79@smsc.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Sep 2008, Denis Joseph Barrow wrote:
+On Wednesday 10 September 2008, Steve.Glendinning@smsc.com wrote:
+>=20
+> > Standard feedback for such stuff:
+> >=20
+> > =A0- avoid printk() for diagnostics, use dev_*() driver model calls
+> > =A0- ... or in this case, pr_warning() if you really must
+> > =A0- provide better messages and avoid passing __func__=20
+> > =A0- use inline functions instead of CPP macros
+> > =A0- make dead code elimination remove debug code, not #ifdefs
+> >=20
+> > And specific to network devices:
+> >=20
+> > =A0- use the ethtool message level flags not private debug_mode
+>=20
+> There's quite a bit of variation on the debugging style across existi=
+ng=20
+> drivers. =A0Is there any driver you would suggest to use as an exampl=
+e of=20
+> how to do things right?
 
-> Hi Paulius,
-> I'm not in a position yet to know if this patch is good, yet at least.
-> hso_probe gets called once for each serial ttyHSx device
-> usually four per usb stick modem & once for the hsox network device
-> per modem.
->  
-> From the comment on usb_driver_claim_interface
->  * This is used by usb device drivers that need to claim more than one
->  * interface on a device when probing (audio and acm are current examples).
-> 
-> I'm not used to USB terminology
-> From my understanding of the code
-> we are claiming more than one interface on the usb modem multiple ttyHSx devices
-> & one network device. However we get probed once for each interface
+Not without searching through a lot of code ... though you
+can have a look at <linux/devices.h> dev_dbg() to see how
+to use inlines to make sure diagnostic code always gets
+type checked and make dead code elimination behave.
 
-The idea behind usb_driver_claim_interface() is that it allows a driver
-to bind to an arbitrary interface, generally because the driver needs
-control of multiple interfaces in order to manage the device.  For
-example, an audio device might include both a control interface and a
-data interface -- the driver would claim the data interface when it is
-probed for the control interface, since both are needed to run the
-device.
+So then it'd be "if (netif_msg_FOO(...)) dev_dbg(...)" for
+debug messages; or pr_debug; etc.  The thing that's truly
+bad about most printk/pr_* type diagnostics is that they
+usually don't identify the relevant device, or if they do
+then it's not done consistently.
 
-But if the interfaces are independent and the driver is going to be 
-probed for both of them anyway then there is no need to claim either 
-one.  Just let the usual probing mechanism do its job.
+Last time I did a network driver I found that I only wanted
+to use those driver model calls before the network device
+was set up ... a message tagged with the interface name was
+a lot more useful than one tagged with the physical device,
+so long as there was an initial banner coupling the two (a
+dev_info message printing the interface name along with a
+hardware summary).
 
-And there is never any need to claim the interface for which the driver 
-is being probed, since the driver is already getting bound to that 
-interface.
-
-Alan Stern
-
+- Dave
