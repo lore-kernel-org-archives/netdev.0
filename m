@@ -1,254 +1,419 @@
 From: Ranjit Manomohan <ranjitm@google.com>
-Subject: [PATCH 1/2] Traffic control cgroups subsystem
-Date: Wed, 10 Sep 2008 10:42:16 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0809101040280.7050@ranjit.corp.google.com>
+Subject: [PATCH 2/2] Traffic control cgroups subsystem
+Date: Wed, 10 Sep 2008 10:43:53 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0809101042180.7050@ranjit.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net, akpm@linux-foundation.org, kaber@trash.net,
-	lizf@cn.fujitsu.com, menage@google.com, tgraf@suug.ch
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, akpm@linux-foundation.org, tgraf@suug.ch,
+	kaber@trash.net, menage@google.com, lizf@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:56986 "EHLO
+Received: from smtp-out.google.com ([216.239.33.17]:57525 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754387AbYIJRmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 13:42:55 -0400
+	with ESMTP id S1751584AbYIJRpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 13:45:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a traffic control cgroup subsystem that is used
-to associate all packets originating from tasks in this cgroup with a
-specific identifier (tc_classid).
+This patch implements a filter that classifies packets based upon
+the cgroup_classid of the packet.
 
 Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
 
 ---
 
-diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
-index e287745..4b12372 100644
---- a/include/linux/cgroup_subsys.h
-+++ b/include/linux/cgroup_subsys.h
-@@ -48,3 +48,9 @@ SUBSYS(devices)
- #endif
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index 99efbed..53348a3 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -379,6 +379,21 @@ enum
 
- /* */
+ #define TCA_FLOW_MAX	(__TCA_FLOW_MAX - 1)
+
++/* Cgroups filter */
 +
-+#ifdef CONFIG_CGROUP_TC
-+SUBSYS(tc)
-+#endif
++enum {
++	TCA_CGROUP_UNSPEC,
++	TCA_CGROUP_CLASSID,
++	TCA_CGROUP_MASK,
++	TCA_CGROUP_VALUE,
++	TCA_CGROUP_ACT,
++	TCA_CGROUP_POLICE,
++	TCA_CGROUP_EMATCHES,
++	__TCA_CGROUP_MAX
++};
 +
-+/* */
-diff --git a/include/linux/cgroup_tc.h b/include/linux/cgroup_tc.h
++#define TCA_CGROUP_MAX	(__TCA_CGROUP_MAX - 1)
++
+ /* Basic filter */
+
+ enum
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 82adfe6..844837f 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -318,6 +318,16 @@ config NET_CLS_FLOW
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called cls_flow.
+
++config NET_CLS_CGROUP
++	tristate "Cgroups tc classifier"
++	select NET_CLS
++	---help---
++	  If you say Y here, you will be able to classify packets based on
++	  cgroup membership of the task originating the packet.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called cls_cgroup.
++
+ config NET_EMATCH
+ 	bool "Extended Matches"
+ 	select NET_CLS
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 1d2b0f7..91e9ee0 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -36,6 +36,7 @@ obj-$(CONFIG_NET_CLS_TCINDEX)	+= cls_tcindex.o
+ obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
+ obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
+ obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
++obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
+ obj-$(CONFIG_NET_EMATCH)	+= ematch.o
+ obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
+ obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
 new file mode 100644
-index 0000000..e4ba6a1
+index 0000000..70a363f
 --- /dev/null
-+++ b/include/linux/cgroup_tc.h
-@@ -0,0 +1,20 @@
-+#ifndef __LINUX_CGROUP_TC_H
-+#define __LINUX_CGROUP_TC_H
-+
-+/* Interface to obtain tasks cgroup identifier. */
-+
-+#include <linux/cgroup.h>
-+#include <linux/skbuff.h>
-+#include <net/sock.h>
-+
-+#ifdef CONFIG_CGROUP_TC
-+
-+void cgroup_tc_set_sock_classid(struct sock *sk);
-+
-+#else
-+
-+#define cgroup_tc_set_sock_classid(sk)
-+
-+#endif /* CONFIG_CGROUP_TC */
-+
-+#endif /* __LINUX_CGROUP_TC_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index dc42b44..7a4e09c 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -271,6 +271,9 @@ struct sock {
- 	int			sk_write_pending;
- 	void			*sk_security;
- 	__u32			sk_mark;
-+#ifdef CONFIG_CGROUP_TC
-+	__u32			sk_cgroup_classid;
-+#endif
- 	/* XXX 4 bytes hole on 64 bit */
- 	void			(*sk_state_change)(struct sock *sk);
- 	void			(*sk_data_ready)(struct sock *sk, int bytes);
-diff --git a/init/Kconfig b/init/Kconfig
-index 6135d07..c28fde8 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -289,6 +289,17 @@ config CGROUP_DEBUG
-
- 	  Say N if unsure
-
-+config CGROUP_TC
-+	bool "Traffic control cgroup subsystem"
-+	depends on CGROUPS
-+	default n
-+	help
-+	  This option enables a simple cgroup subsystem that
-+	  allows network traffic to be classified based on the
-+	  cgroup of the task originating the traffic.
-+
-+	  Say N if unsure
-+
- config CGROUP_NS
-         bool "Namespace cgroup subsystem"
-         depends on CGROUPS
-diff --git a/kernel/Makefile b/kernel/Makefile
-index 1c9938a..08b217b 100644
---- a/kernel/Makefile
-+++ b/kernel/Makefile
-@@ -42,6 +42,7 @@ obj-$(CONFIG_CGROUPS) += cgroup.o
- obj-$(CONFIG_CGROUP_DEBUG) += cgroup_debug.o
- obj-$(CONFIG_CPUSETS) += cpuset.o
- obj-$(CONFIG_CGROUP_NS) += ns_cgroup.o
-+obj-$(CONFIG_CGROUP_TC) += tc_cgroup.o
- obj-$(CONFIG_UTS_NS) += utsname.o
- obj-$(CONFIG_USER_NS) += user_namespace.o
- obj-$(CONFIG_PID_NS) += pid_namespace.o
-diff --git a/kernel/tc_cgroup.c b/kernel/tc_cgroup.c
-new file mode 100644
-index 0000000..9286fb2
---- /dev/null
-+++ b/kernel/tc_cgroup.c
-@@ -0,0 +1,105 @@
++++ b/net/sched/cls_cgroup.c
+@@ -0,0 +1,330 @@
 +/*
-+ * tc_cgroup.c - traffic control cgroup subsystem
++ * net/sched/cls_cgroup.c	Simple packet classifier which can filter
++ * 				packets based on the cgroups they belong to.
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
 + *
 + */
 +
-+#include <linux/module.h>
-+#include <linux/cgroup.h>
-+#include <linux/fs.h>
-+#include <linux/slab.h>
-+#include <linux/cgroup_tc.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <net/pkt_cls.h>
++#include <net/netlink.h>
++#include <net/sock.h>
 +
-+struct tc_cgroup {
-+	struct cgroup_subsys_state css;
-+	unsigned int classid;
++struct cgroup_head {
++	struct list_head	flist;		/* Head of filter list */
 +};
 +
-+struct cgroup_subsys tc_subsys;
++struct cgroup_filter {
++	u32			handle;		/* Unique filter handle */
++	struct tcf_exts		exts;
++	struct tcf_ematch_tree	ematches;
++	struct tcf_result	res;
++	struct list_head	link;
++	u32			mask;
++	u32			value;
++};
 +
-+static inline struct tc_cgroup *cgroup_to_tc(
-+		struct cgroup *cgroup)
++static const struct tcf_ext_map cgroup_ext_map = {
++	.action	= TCA_CGROUP_ACT,
++	.police	= TCA_CGROUP_POLICE,
++};
++
++/* This function is called from the qdisc to classify a particular packet
++ * contained in the skb to the appropriate sub-classes. It returns the
++ * classid of the target class. This filter will match if the cgroup_classid
++ * in the skb matches the value in the filter.
++ */
++static int cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
++			  struct tcf_result *res)
 +{
-+	return container_of(cgroup_subsys_state(cgroup, tc_subsys_id),
-+			    struct tc_cgroup, css);
++	struct cgroup_head *head = (struct cgroup_head *)tp->root;
++	struct cgroup_filter *f;
++	uint32_t cgroup_classid = 0;
++	int r;
++
++#ifdef CONFIG_CGROUP_TC
++	if (skb->sk)
++		cgroup_classid =  skb->sk->sk_cgroup_classid;
++#endif
++
++	list_for_each_entry(f, &head->flist, link) {
++
++		if (!tcf_em_tree_match(skb, &f->ematches, NULL))
++			continue;
++
++		if ((cgroup_classid & f->mask) == f->value) {
++			*res = f->res;
++			r = tcf_exts_exec(skb, &f->exts, res);
++			if (r < 0)
++				continue;
++			return r;
++		}
++	}
++	return -1;
 +}
 +
-+static unsigned int cgroup_tc_classid(struct task_struct *tsk)
++/* Returns pointer to filter matching the handle passed into the function.*/
++static unsigned long cgroup_get(struct tcf_proto *tp, u32 handle)
 +{
-+	unsigned int tc_classid;
++	unsigned long l = 0UL;
++	struct cgroup_head *head = (struct cgroup_head *) tp->root;
++	struct cgroup_filter *f;
 +
-+	rcu_read_lock();
-+	tc_classid = container_of(task_subsys_state(tsk, tc_subsys_id),
-+					 struct tc_cgroup, css)->classid;
-+	rcu_read_unlock();
-+	return tc_classid;
++	if (head == NULL)
++		return 0UL;
++
++	list_for_each_entry(f, &head->flist, link)
++		if (f->handle == handle)
++			l = (unsigned long) f;
++
++	return l;
 +}
 +
-+void cgroup_tc_set_sock_classid(struct sock *sk)
++/* Does not seem to be used for classifiers. */
++static void cgroup_put(struct tcf_proto *tp, unsigned long f)
 +{
-+	if (sk)
-+		sk->sk_cgroup_classid = cgroup_tc_classid(current);
 +}
 +
-+static struct cgroup_subsys_state *tc_create(struct cgroup_subsys *ss,
-+						struct cgroup *cgroup)
++/* Initializer function called when tp is created. */
++static int cgroup_init(struct tcf_proto *tp)
 +{
-+	struct tc_cgroup *tc_cgroup;
++	struct cgroup_head *head = kzalloc(sizeof(*head), GFP_KERNEL);
++	if (head == NULL)
++		return -ENOBUFS;
 +
-+	tc_cgroup = kzalloc(sizeof(*tc_cgroup), GFP_KERNEL);
-+
-+	if (!tc_cgroup)
-+		return ERR_PTR(-ENOMEM);
-+
-+	/* Copy parent's class id if present */
-+	if (cgroup->parent)
-+		tc_cgroup->classid = cgroup_to_tc(cgroup->parent)->classid;
-+
-+	return &tc_cgroup->css;
-+}
-+
-+static void tc_destroy(struct cgroup_subsys *ss,
-+			struct cgroup *cgroup)
-+{
-+	kfree(cgroup_to_tc(cgroup));
-+}
-+
-+static int tc_write_u64(struct cgroup *cgroup, struct cftype *cft, u64 val)
-+{
-+	struct tc_cgroup *tc = cgroup_to_tc(cgroup);
-+
-+	if (!cgroup_lock_live_group(cgroup))
-+		return -ENODEV;
-+
-+	tc->classid = (unsigned int) (val & 0xffffffff);
-+	cgroup_unlock();
++	INIT_LIST_HEAD(&head->flist);
++	tp->root = head;
 +	return 0;
 +}
 +
-+static u64 tc_read_u64(struct cgroup *cgroup, struct cftype *cft)
++/* Simple delete function called when filter is deleted */
++static inline void cgroup_delete_filter(struct tcf_proto *tp,
++				       struct cgroup_filter *f)
 +{
-+	struct tc_cgroup *tc = cgroup_to_tc(cgroup);
-+	return tc->classid;
++	tcf_unbind_filter(tp, &f->res);
++	tcf_exts_destroy(tp, &f->exts);
++	tcf_em_tree_destroy(tp, &f->ematches);
++	kfree(f);
 +}
 +
-+static struct cftype tc_files[] = {
-+	{
-+		.name = "classid",
-+		.read_u64 = tc_read_u64,
-+		.write_u64 = tc_write_u64,
-+	}
-+};
-+
-+static int tc_populate(struct cgroup_subsys *ss, struct cgroup *cgroup)
++/* Destroy the entire tp structure.*/
++static void cgroup_destroy(struct tcf_proto *tp)
 +{
-+	int err;
-+	err = cgroup_add_files(cgroup, ss, tc_files, ARRAY_SIZE(tc_files));
++	struct cgroup_head *head = (struct cgroup_head *) xchg(&tp->root, NULL);
++	struct cgroup_filter *f, *n;
++
++	list_for_each_entry_safe(f, n, &head->flist, link) {
++		list_del(&f->link);
++		cgroup_delete_filter(tp, f);
++	}
++	kfree(head);
++}
++
++/* Delete one filter entry */
++static int cgroup_delete(struct tcf_proto *tp, unsigned long arg)
++{
++	struct cgroup_head *head = (struct cgroup_head *) tp->root;
++	struct cgroup_filter *t, *f = (struct cgroup_filter *) arg;
++
++	list_for_each_entry(t, &head->flist, link)
++		if (t == f) {
++			tcf_tree_lock(tp);
++			list_del(&t->link);
++			tcf_tree_unlock(tp);
++			cgroup_delete_filter(tp, t);
++			return 0;
++		}
++
++	return -ENOENT;
++}
++
++/* Set the mask and value parameters in the tp structure. */
++static inline int cgroup_set_parms(struct tcf_proto *tp,
++			unsigned long base,
++			struct cgroup_filter *f, struct nlattr **tb)
++{
++	int err = -EINVAL;
++
++	if (tb[TCA_CGROUP_MASK]) {
++		if (nla_len(tb[TCA_CGROUP_MASK]) < sizeof(u32))
++			return err;
++		f->mask =  nla_get_u32(tb[TCA_CGROUP_MASK]);
++	} else
++		f->mask = UINT_MAX;
++
++	if (tb[TCA_CGROUP_VALUE]) {
++		if (nla_len(tb[TCA_CGROUP_VALUE]) < sizeof(u32))
++			return err;
++		f->value = nla_get_u32(tb[TCA_CGROUP_VALUE]);
++	} else
++		return err;
++
++	if (tb[TCA_CGROUP_CLASSID]) {
++		if (nla_len(tb[TCA_CGROUP_CLASSID]) < sizeof(u32))
++			return err;
++		f->res.classid = nla_get_u32(tb[TCA_CGROUP_CLASSID]);
++		tcf_bind_filter(tp, &f->res, base);
++	} else
++		return err;
++
++	return 0;
++}
++
++/* Change the mask and value parameters in the current settings. */
++static int cgroup_change(struct tcf_proto *tp, unsigned long base, u32 handle,
++				struct nlattr **tca, unsigned long *arg)
++{
++	int err = -EINVAL;
++	struct cgroup_head *head = (struct cgroup_head *) tp->root;
++	struct nlattr *tb[TCA_CGROUP_MAX];
++	struct cgroup_filter *f = (struct cgroup_filter *) *arg;
++	struct tcf_exts e;
++	struct tcf_ematch_tree t;
++
++	if (tca[TCA_OPTIONS] == NULL)
++		return -EINVAL;
++
++	if (nla_parse_nested(tb, TCA_CGROUP_MAX, tca[TCA_OPTIONS], NULL) < 0)
++		return -EINVAL;
++
++	err = tcf_exts_validate(tp, tb, tca[TCA_RATE], &e, &cgroup_ext_map);
++	if (err < 0)
++		return err;
++
++	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
++	if (err < 0)
++		goto error1;
++
++	if (f != NULL) {
++		if (handle && f->handle != handle)
++			goto error2;
++	} else {
++		if (!handle)
++			goto error2;
++		f = kzalloc(sizeof(*f), GFP_KERNEL);
++		if (f == NULL)
++			goto error2;
++		f->handle = handle;
++	}
++
++	err = cgroup_set_parms(tp, base, f, tb);
++	if (err < 0)
++		goto error3;
++
++	tcf_exts_change(tp, &f->exts, &e);
++	tcf_em_tree_change(tp, &f->ematches, &t);
++
++	if (*arg == 0) {
++		tcf_tree_lock(tp);
++		list_add(&f->link, &head->flist);
++		tcf_tree_unlock(tp);
++	}
++
++	*arg = (unsigned long)f;
++	return 0;
++
++error3:
++	if (*arg == 0)
++		kfree(f);
++error2:
++	tcf_em_tree_destroy(tp, &t);
++error1:
++	tcf_exts_destroy(tp, &e);
++
 +	return err;
 +}
 +
-+struct cgroup_subsys tc_subsys = {
-+	.name = "tc",
-+	.create = tc_create,
-+	.destroy  = tc_destroy,
-+	.populate = tc_populate,
-+	.subsys_id = tc_subsys_id,
++/* Walk the filter list for things like displaying contents.*/
++static void cgroup_walk(struct tcf_proto *tp, struct tcf_walker *arg)
++{
++	struct cgroup_head *head = (struct cgroup_head *) tp->root;
++	struct cgroup_filter *f;
++
++	list_for_each_entry(f, &head->flist, link) {
++		if (arg->count < arg->skip)
++			goto skip;
++
++		if (arg->fn(tp, (unsigned long) f, arg) < 0) {
++			arg->stop = 1;
++			break;
++		}
++skip:
++		arg->count++;
++	}
++}
++
++/* Retreive current settings in the filter */
++static int cgroup_dump(struct tcf_proto *tp, unsigned long fh,
++		      struct sk_buff *skb, struct tcmsg *t)
++{
++	struct cgroup_filter *f = (struct cgroup_filter *) fh;
++	struct nlattr *nest;
++
++	if (f == NULL)
++		return skb->len;
++
++	t->tcm_handle = f->handle;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
++
++	NLA_PUT_U32(skb, TCA_CGROUP_CLASSID, f->res.classid);
++	NLA_PUT_U32(skb, TCA_CGROUP_MASK, f->mask);
++	NLA_PUT_U32(skb, TCA_CGROUP_VALUE, f->value);
++
++	if (tcf_exts_dump(skb, &f->exts, &cgroup_ext_map) < 0)
++		goto nla_put_failure;
++
++#ifdef CONFIG_NET_EMATCH
++	if (f->ematches.hdr.nmatches &&
++	  tcf_em_tree_dump(skb, &f->ematches, TCA_CGROUP_EMATCHES) < 0)
++		goto nla_put_failure;
++#endif
++
++	if (tcf_exts_dump_stats(skb, &f->exts, &cgroup_ext_map) < 0)
++		goto nla_put_failure;
++
++	nla_nest_end(skb, nest);
++	return skb->len;
++
++nla_put_failure:
++	nla_nest_cancel(skb, nest);
++	return -1;
++}
++
++static struct tcf_proto_ops cls_cgroup_ops = {
++	.kind		=	"cgroup",
++	.classify	=	cgroup_classify,
++	.init		=	cgroup_init,
++	.destroy	=	cgroup_destroy,
++	.get		=	cgroup_get,
++	.put		=	cgroup_put,
++	.change		=	cgroup_change,
++	.delete		=	cgroup_delete,
++	.walk		=	cgroup_walk,
++	.dump		=	cgroup_dump,
++	.owner		=	THIS_MODULE,
 +};
-diff --git a/net/socket.c b/net/socket.c
-index 66c4a8c..b7421ec 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -93,6 +93,7 @@
-
- #include <net/sock.h>
- #include <linux/netfilter.h>
-+#include <linux/cgroup_tc.h>
-
- static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
- static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
-@@ -1170,6 +1171,8 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
- 	if (err < 0)
- 		goto out_module_put;
-
-+	cgroup_tc_set_sock_classid(sock->sk);
 +
- 	/*
- 	 * Now to bump the refcnt of the [loadable] module that owns this
- 	 * socket at sock_release time we decrement its refcnt.
-@@ -1444,6 +1447,8 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
- 	if (err < 0)
- 		goto out_fd;
-
-+	cgroup_tc_set_sock_classid(newsock->sk);
++static int __init init_cgroup(void)
++{
++	return register_tcf_proto_ops(&cls_cgroup_ops);
++}
 +
- 	if (upeer_sockaddr) {
- 		if (newsock->ops->getname(newsock, (struct sockaddr *)address,
- 					  &len, 2) < 0) {
++static void __exit exit_cgroup(void)
++{
++	unregister_tcf_proto_ops(&cls_cgroup_ops);
++}
++
++module_init(init_cgroup)
++module_exit(exit_cgroup)
++MODULE_LICENSE("GPL");
++
