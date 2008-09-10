@@ -1,48 +1,98 @@
-From: "Magnus Damm" <magnus.damm@gmail.com>
-Subject: Re: [PATCH] smc91x: SMC_IO_SHIFT platform data support for default case
-Date: Wed, 10 Sep 2008 16:44:14 +0900
-Message-ID: <aec7e5c30809100044g1a51e7bfj240bdd67c5cb3012@mail.gmail.com>
-References: <20080908050234.11554.10123.sendpatchset@rx1.opensource.se>
-	 <20080908111922.GA15553@verge.net.au>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
+Date: Wed, 10 Sep 2008 09:15:14 +0100
+Message-ID: <OF26A16F1A.7E5C696A-ON802574BF.003B849F-802574C0.002D5A79@smsc.com>
+References: <200809081154.05512.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.miao@marvell.com,
-	luca.santini@spesonline.com, nico@cam.org, linux-sh@vger.kernel.org
-To: "Simon Horman" <horms@verge.net.au>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Catalin Marinas <catalin.marinas@arm.com>, ian.saturley@smsc.com,
+	netdev@vger.kernel.org
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.230]:51678 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751019AbYIJHoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 03:44:15 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2277395rvb.1
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 00:44:14 -0700 (PDT)
-In-Reply-To: <20080908111922.GA15553@verge.net.au>
-Content-Disposition: inline
+Received: from mail.smsc.com ([170.129.50.11]:2840 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751171AbYIJIPy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2008 04:15:54 -0400
+In-Reply-To: <200809081154.05512.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Simon!
+Hi David,
 
-On Mon, Sep 8, 2008 at 8:19 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Mon, Sep 08, 2008 at 02:02:34PM +0900, Magnus Damm wrote:
->> From: Magnus Damm <damm@igel.co.jp>
->>
->> Commit 159198862adad7109bb347bb30a620f67beac45f added SMC_IO_SHIFT
->> platform data support. After that ARM board support was added.
->>
->> The default case is still missing though, so on SuperH SMC_IO_SHIFT
->> is constantly zero regardless of what you pass as platform data.
->
-> I beleive that its now common practice to include the subject
-> of a commit along with its id, as the latter can change as
-> it moves from tree to tree.
+Thanks for the feedback.
 
-Oh, thanks for pointing that out. I should really do that next time.
+> > +#define SMSC_WARNING(msg, args...) \
+> > +       printk(KERN_WARNING "%s: WARNING: " msg "\n", __func__, ## 
+args)
+> > +
+> > +#ifdef USE_DEBUG
+> > +#define SMSC_TRACE(debug_bit, msg, args...) \
+> > +       if (debug_mode & debug_bit) { \
+> > +               printk(KERN_WARNING "%s: " msg "\n", __func__, ## 
+args); \
+> > +       }
+> > +#else
+> > +#define SMSC_TRACE(dbgBit, msg, args...)   ({ do {} while (0); 0; })
+> > +#endif
+> 
+> Standard feedback for such stuff:
+> 
+>  - avoid printk() for diagnostics, use dev_*() driver model calls
+>  - ... or in this case, pr_warning() if you really must
+>  - provide better messages and avoid passing __func__ 
+>  - use inline functions instead of CPP macros
+>  - make dead code elimination remove debug code, not #ifdefs
+> 
+> And specific to network devices:
+> 
+>  - use the ethtool message level flags not private debug_mode
 
-In this case the commit id is from the linux-2.6 git, so shouldn't it
-be stable enough? Isn't it the final destination? =)
+There's quite a bit of variation on the debugging style across existing 
+drivers.  Is there any driver you would suggest to use as an example of 
+how to do things right?
 
-Thanks!
+> > +int turbo_mode = true;
+> > +module_param(turbo_mode, bool, 0);
+> > +MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx 
+transaction");
+> 
+> I'm curious ... does this actually improve things on Linux?
+> 
+> My understanding is that on MS-Windows the costs of sending
+> a transaction through the USB stack are so high that their
+> APIs encourage such batching, and this has in some cases
+> extended down to wire protocols and (as seems true here)
+> even to hardware.
+> 
+> The approach Linux prefers is just to ensure that a queue
+> of transactions works efficiently ... so that for example
+> each Ethernet frame maps directly to one URB, and there's
+> no time wasted batching/unbatching.  (Neither in Linux,
+> nor in the peripheral.)
+> 
+> Last time I had any measurements on such issues, the
+> Linux stack outperformed MS-Windows in terms of per-packet
+> latency and also throughput, indicating that batching was
+> not necessary for performance on most network loads.  But
+> maybe that's not the case with your particular hardware,
+> or in certain significant/common use cases?
 
-/ magnus
+On my test workstation both single and multi frame modes achieve 
+wire-speed at 100Mbps, and packing multiple frames shows a slight CPU 
+utilisation benefit under load.  This is much more pronounced on a slower 
+platform, for example on a 533MHz ppc platform we saw a TCP RX netperf 
+test drop from 59% to 30% CPU.
+
+In multi frame mode the driver configures the device to apply a small 
+hardware delay to the transaction, so it can group frames.  This delay is 
+carefully chosen so the maximum additional latency (if no more frames 
+arrive during the delay period) isn't significant for most applications. 
+If a specific application is extremely latency sensitive the delay can be 
+removed by switching to single packet mode.
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
