@@ -1,61 +1,73 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Wed, 10 Sep 2008 09:47:36 -0700
-Message-ID: <200809100947.36480.david-b@pacbell.net>
-References: <OF26A16F1A.7E5C696A-ON802574BF.003B849F-802574C0.002D5A79@smsc.com>
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Subject: Re: [PATCH 1/1] niu: panic on reset
+Date: Wed, 10 Sep 2008 10:01:42 -0700
+Message-ID: <48C7FD76.2000206@sun.com>
+References: <48C07564.3060306@Sun.COM>
+ <20080908.132031.65821182.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Catalin Marinas <catalin.marinas@arm.com>, ian.saturley@smsc.com,
-	netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
+Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: Santwona.Behera@Sun.COM, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp118.sbc.mail.sp1.yahoo.com ([69.147.64.91]:43555 "HELO
-	smtp118.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751148AbYIJQrj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 12:47:39 -0400
-In-Reply-To: <OF26A16F1A.7E5C696A-ON802574BF.003B849F-802574C0.002D5A79@smsc.com>
-Content-Disposition: inline
+Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:34462 "EHLO
+	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751425AbYIJRD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 13:03:27 -0400
+Received: from fe-sfbay-09.sun.com ([192.18.43.129])
+	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m8AH3PPQ029946
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 10:03:26 -0700 (PDT)
+Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
+ (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
+ id <0K6Z00601NQIVR00@fe-sfbay-09.sun.com>
+ (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Wed,
+ 10 Sep 2008 10:03:25 -0700 (PDT)
+In-reply-to: <20080908.132031.65821182.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 September 2008, Steve.Glendinning@smsc.com wrote:
->=20
-> > Standard feedback for such stuff:
-> >=20
-> > =A0- avoid printk() for diagnostics, use dev_*() driver model calls
-> > =A0- ... or in this case, pr_warning() if you really must
-> > =A0- provide better messages and avoid passing __func__=20
-> > =A0- use inline functions instead of CPP macros
-> > =A0- make dead code elimination remove debug code, not #ifdefs
-> >=20
-> > And specific to network devices:
-> >=20
-> > =A0- use the ethtool message level flags not private debug_mode
->=20
-> There's quite a bit of variation on the debugging style across existi=
-ng=20
-> drivers. =A0Is there any driver you would suggest to use as an exampl=
-e of=20
-> how to do things right?
+David Miller wrote:
 
-Not without searching through a lot of code ... though you
-can have a look at <linux/devices.h> dev_dbg() to see how
-to use inlines to make sure diagnostic code always gets
-type checked and make dead code elimination behave.
+>From: Santwona.Behera@Sun.COM
+>Date: Thu, 04 Sep 2008 16:55:16 -0700
+>
+>[ Please learn how to hit the return key every 80 characters or so,
+>  long lines are very difficult to read on text-only email clients
+>  like the one I use.  Expecting auto-formatting and other beautifications
+>  in email readers amongst kernel developers is a very bad idea. ]
+>
+>  
+>
+>>The reset_task function in the niu driver does not reset the
+>>hardware fully. The buffer addresses and pointers are not being
+>>reset/updated in the hardware and that leads to panic on reset.
+>>
+>>Signed-off-by: santwona.behera@sun.com <santwona.behera@sun.com>
+>>    
+>>
+>
+>This is way overkill just to fix this bug and it adds a new failure
+>mode for the driver which is a seriously negative aspect to this fix.
+>  
+>
+Dave,
 
-So then it'd be "if (netif_msg_FOO(...)) dev_dbg(...)" for
-debug messages; or pr_debug; etc.  The thing that's truly
-bad about most printk/pr_* type diagnostics is that they
-usually don't identify the relevant device, or if they do
-then it's not done consistently.
+Thanks for the feedback.
+Instead of creating a new function, Santwona was borrowing an existing
+logic from niu_change_mtu function. Rather than introducing a new
+function and possibly a new failure mode, we were trying to re-use existing
+logic, reducing the probability of a new bug.
 
-Last time I did a network driver I found that I only wanted
-to use those driver model calls before the network device
-was set up ... a message tagged with the interface name was
-a lot more useful than one tagged with the physical device,
-so long as there was an initial banner coupling the two (a
-dev_info message printing the interface name along with a
-hardware summary).
+Regards,
+Matheos
 
-- Dave
+>Instead, simply write a function which reloads the buffers addresses
+>properly instead of calling the functions to free and reallocate all
+>of these dynamic datastructures just to get those side effects.
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  
+>
+
