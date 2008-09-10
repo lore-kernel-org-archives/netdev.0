@@ -1,53 +1,80 @@
-From: "Paul Menage" <menage@google.com>
-Subject: Re: [PATCH 1/2] Traffic control cgroups subsystem
-Date: Wed, 10 Sep 2008 16:51:55 -0700
-Message-ID: <6599ad830809101651u79a0efb7y8fa7288de6e48c8a@mail.gmail.com>
-References: <Pine.LNX.4.64.0809101040280.7050@ranjit.corp.google.com>
-	 <20080910220115.GH20815@postel.suug.ch>
-	 <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
-	 <6599ad830809101604o71b2fb82k2aca1eb0fd8ab6d8@mail.gmail.com>
-	 <20080910232413.GJ20815@postel.suug.ch>
-	 <6599ad830809101631q51371f75w2ab9f73ef2414f90@mail.gmail.com>
-	 <20080910234523.GK20815@postel.suug.ch>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: ipv6 neighbour code keeps interfaces held
+Date: Thu, 11 Sep 2008 01:57:33 +0200
+Message-ID: <1221091053.3804.53.camel@johannes.berg>
+References: <1221081539.3804.33.camel@johannes.berg>
+	 <20080910.164009.92497081.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Ranjit Manomohan" <ranjitm@google.com>, davem@davemloft.net,
-	akpm@linux-foundation.org, kaber@trash.net, lizf@cn.fujitsu.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Thomas Graf" <tgraf@suug.ch>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-zIOdv2IOZ8UguoN4lZuP"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:9607 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbYIJXxX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:53:23 -0400
-Received: from spaceape12.eur.corp.google.com (spaceape12.eur.corp.google.com [172.28.16.146])
-	by smtp-out.google.com with ESMTP id m8ANrH1h023964
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:53:17 +0100
-Received: from yx-out-1718.google.com (yxi3.prod.google.com [10.190.3.3])
-	by spaceape12.eur.corp.google.com with ESMTP id m8ANrGkn030254
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:53:16 -0700
-Received: by yx-out-1718.google.com with SMTP id 3so35424yxi.80
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:53:16 -0700 (PDT)
-In-Reply-To: <20080910234523.GK20815@postel.suug.ch>
-Content-Disposition: inline
+Received: from xc.sipsolutions.net ([83.246.72.84]:49927 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751946AbYIJX6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:58:12 -0400
+In-Reply-To: <20080910.164009.92497081.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2008 at 4:45 PM, Thomas Graf <tgraf@suug.ch> wrote:
->
-> That's argueable I guess. Likely or not, it doesn't make sense to
-> add such restrictions if not required, especially not when it is
-> trivial to just look at the cgroup of the task directly.
 
-Isn't a very large fraction of outgoing network traffic driven from
-net_tx_action(), which doesn't execute in the context of the sending
-process? Or am I missing something?
+--=-zIOdv2IOZ8UguoN4lZuP
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-You claimed "In the most common case, the packet is not queued before
-it hits the qdisc so this takes away a lot of complexity and is very
-fast but should still be sufficient.". But is that really true on a
-system where the network is busy? (Which is after all exactly the case
-where you care about accurate traffic accounting/policing)
+On Wed, 2008-09-10 at 16:40 -0700, David Miller wrote:
 
-Paul
+> This is yet another side effect of how ipv6 handles ICMP routes
+> seperately from "real" ipv6 routes.
+
+I have no idea :) I just had never seen this on a wired interface and
+wanted to see if it was mac80211's fault although I couldn't see how it
+could have been.
+
+> Anyways, what happens is that when a device goes down a notifier
+> goes out, and in IPV6's case it has a notifier registered in
+> net/ipv6/addrconf.c that ends up calling rt6_ifdown() on
+> the device.
+>=20
+> This is supposed to purge routes from the tree so that the device
+> references can be dropped (eventually).
+>=20
+> This is done in ipv6 by fib6_clean_all() but that only handles
+> normal routes.  The seperate ICMP6 routes are not purged properly
+> in this situation.
+
+And then they time out after 30 seconds? I see the message exactly three
+times and then it gets removed.
+
+> Here is a quick patch that might resolve this specific situation.
+> Let me know how it works for you:
+
+I'll add it to my tree, but I cannot reproduce the issue at will. It
+just happens occasionally when I'm developing.
+
+johannes
+
+--=-zIOdv2IOZ8UguoN4lZuP
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJIyF7pAAoJEKVg1VMiehFYsSAQAK/yMf4fwJV6I41F3oZD95d1
+FYha2wks/a3ACbwUiHzZB0uYgkBNO9dQxHB1wlNTjm11SVn8oR/jsu9ttc0c0Rm9
+txlQFaPebpmx93no/tV1tfWoa7AHgyeUOectAmVP/r+xOdz10ic/7lO70IyoZKIz
+1djdw+ZGg3sUORFAcqovuERtzAfIlzMxa4+CXdY3dZxC+BTgL/I5G31Ilrd5GLYc
+DgK6Tr1vQtdKla/j344HkwdiGd2WUiltC2xf7rWrjbSeVgtC6+CvFn9qp638C9g1
+vGLgbSHJF/7merLiTSxICS5VqANUHMXuO5Wnt3AP4SJE/xJSt3/p8hunIJ+mJNnf
+DotWMTZkTof6OCsS+2/TC45oV0iQvJmZEn3tzdlyfbLH+9SE1Lbui2yWImHg+l9j
+zQMN6zqXVP7xqv2/XH1lAjaftTmGuknbgrq8lj8z9khGfly97ZQ9fT+BmhYa22ZR
+jQ4jB3pm3jopYfzocaEtXKosDejeRNC3ZCqMIsJWfJx9Eal84iR5habYuHKdKrdT
+FM2kz3ekESevauL7rswqNi9NqvmlNrOHIOxLKHxDpJYywqpeMBpBmtOopSCHdW/r
+696fIDlgvYMZv9KijgQt/NU+NmETx9hy9cSaJhd6tv2WLr8fW64CZob1F2qIXeW6
+SWNVhd6xGvtlFL41PC5m
+=3+Tx
+-----END PGP SIGNATURE-----
+
+--=-zIOdv2IOZ8UguoN4lZuP--
+
