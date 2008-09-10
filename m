@@ -1,75 +1,88 @@
-From: "Ranjit Manomohan" <ranjitm@google.com>
-Subject: Re: [PATCH 0/2] Traffic control cgroups subsystem
-Date: Wed, 10 Sep 2008 16:37:57 -0700
-Message-ID: <166fe7950809101637o1bf22869g4939707a35a3c93b@mail.gmail.com>
-References: <Pine.LNX.4.64.0809101026190.7050@ranjit.corp.google.com>
-	 <20080910.132251.73509521.davem@davemloft.net>
-	 <166fe7950809101344l7a5e2b7pfba8b2a7c03814a1@mail.gmail.com>
-	 <20080910221206.GI20815@postel.suug.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv6 neighbour code keeps interfaces held
+Date: Wed, 10 Sep 2008 16:40:09 -0700 (PDT)
+Message-ID: <20080910.164009.92497081.davem@davemloft.net>
+References: <1221081539.3804.33.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, kaber@trash.net,
-	akpm@linux-foundation.org, lizf@cn.fujitsu.com, menage@google.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Thomas Graf" <tgraf@suug.ch>
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:7430 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752220AbYIJXiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:38:09 -0400
-Received: from spaceape13.eur.corp.google.com (spaceape13.eur.corp.google.com [172.28.16.147])
-	by smtp-out.google.com with ESMTP id m8ANbxfR008344
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:37:59 +0100
-Received: from rv-out-0708.google.com (rvbk29.prod.google.com [10.140.87.29])
-	by spaceape13.eur.corp.google.com with ESMTP id m8ANbvgA013564
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:37:58 -0700
-Received: by rv-out-0708.google.com with SMTP id k29so83898rvb.0
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 16:37:57 -0700 (PDT)
-In-Reply-To: <20080910221206.GI20815@postel.suug.ch>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44243
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752168AbYIJXkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 19:40:16 -0400
+In-Reply-To: <1221081539.3804.33.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2008 at 3:12 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> * Ranjit Manomohan <ranjitm@google.com> 2008-09-10 13:44
->> On Wed, Sep 10, 2008 at 1:22 PM, David Miller <davem@davemloft.net> wrote:
->> >
->> > I definitely prefer Thomas Graf's work, this stuff is very ugly
->> > and way overengineered.
->> >
->>
->> Could you be more specific? Thomas' work is almost identical to this
->> (except that he does not store the cgroup id into the socket which is
->> a trivial change which has downsides which I have pointed out).
->>
->> Additionally this approach has only minor modifications to the core
->> networking stack. What portions do you consider ugly and over
->> engineered and what alternative implementations would you prefer?
->> Please see the follow up I have sent to Thomas' proposal about why we
->> need this design approach to handle the inbound case.
->
-> WRT the inbound case, after some experiments I decided to dismiss the
-> ingress case at all and stick to something as simple as possible for
-> egress. The reason for this is that it is a very expensive operation
-> to associate a packet with a task on classifier level. Taking this
-> cost, it does not add up with the very limited capabilities of ingress
-> shaping. Ingress shaping is best effort at best. It works fairly well
-> with a very limited number of bulk data streams but usualy fails
-> miserably in common congestion situations where a cgroup classifier
-> would be useful.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 10 Sep 2008 23:18:59 +0200
 
-Could you elaborate on the failure cases? We have found this to be
-useful in practice to prevent applications from reading large amounts
-of data off the network so it would be nice if it were supported.
+> [22369.076567] Call Trace:
+> [22369.076571] [efff5ef0] [c028f984] neigh_destroy+0x16c/0x1b8 (unreliable)
+> [22369.076577] [efff5f00] [c0306b6c] ip6_dst_destroy+0x44/0x54
+> [22369.076582] [efff5f10] [c028c304] dst_destroy+0x78/0x154
+> [22369.076586] [efff5f30] [c030a270] icmp6_dst_gc+0xa4/0xd4
+> [22369.076591] [efff5f50] [c030b084] fib6_run_gc+0x50/0x110
 
--Thanks,
-Ranjit
->
->> I'd be ok if you accepted either change since  we just want a standard
->> kernel mechanism to do this.
->
-> Agreed. I think your approach is very reasonable but considering the
-> reasons I've given above and in the other thread I found it could be done
-> in a more simple and direct way.
->
+This is yet another side effect of how ipv6 handles ICMP routes
+seperately from "real" ipv6 routes.
+
+And this seperation has been responsible for a large number of
+bugs over the years.
+
+Anyways, what happens is that when a device goes down a notifier
+goes out, and in IPV6's case it has a notifier registered in
+net/ipv6/addrconf.c that ends up calling rt6_ifdown() on
+the device.
+
+This is supposed to purge routes from the tree so that the device
+references can be dropped (eventually).
+
+This is done in ipv6 by fib6_clean_all() but that only handles
+normal routes.  The seperate ICMP6 routes are not purged properly
+in this situation.
+
+Here is a quick patch that might resolve this specific situation.
+Let me know how it works for you:
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 9af6115..776871e 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1003,6 +1003,25 @@ int icmp6_dst_gc(void)
+ 	return more;
+ }
+ 
++static void icmp6_clean_all(int (*func)(struct rt6_info *rt, void *arg),
++			    void *arg)
++{
++	struct dst_entry *dst, **pprev;
++
++	spin_lock_bh(&icmp6_dst_lock);
++	pprev = &icmp6_dst_gc_list;
++	while ((dst = *pprev) != NULL) {
++		struct rt6_info *rt = (struct rt6_info *) dst;
++		if (func(rt, arg)) {
++			*pprev = dst->next;
++			dst_free(dst);
++		} else {
++			pprev = &dst->next;
++		}
++	}
++	spin_unlock_bh(&icmp6_dst_lock);
++}
++
+ static int ip6_dst_gc(struct dst_ops *ops)
+ {
+ 	unsigned long now = jiffies;
+@@ -1930,6 +1949,7 @@ void rt6_ifdown(struct net *net, struct net_device *dev)
+ 	};
+ 
+ 	fib6_clean_all(net, fib6_ifdown, 0, &adn);
++	icmp6_clean_all(fib6_ifdown, &adn);
+ }
+ 
+ struct rt6_mtu_change_arg
