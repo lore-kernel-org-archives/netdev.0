@@ -1,65 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [rfc 0/3] IPVS: checksum updates
-Date: Thu, 11 Sep 2008 23:45:46 +1000
-Message-ID: <20080911134543.GA4427@verge.net.au>
-References: <20080908020420.313463898@vergenet.net> <20080908234028.GF13048@verge.net.au> <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com> <20080909113131.GA3605@verge.net.au> <f4845fc0809101030u2bd4dec4jb478ecc65240ea74@mail.gmail.com> <20080910232904.GD12291@verge.net.au> <48C9180A.10103@linux-vs.org>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] ne.c fix for hibernate and rmmod oops fix
+Date: Thu, 11 Sep 2008 22:50:48 +0900 (JST)
+Message-ID: <20080911.225048.25909971.anemo@mba.ocn.ne.jp>
+References: <20080904030212.GA23493@spacedout.fries.net>
+	<7d1d9c250809050101v9ab3907l649781ee38a5a243@mail.gmail.com>
+	<20080909025434.GB28469@spacedout.fries.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Vince Busam <vbusam@google.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <48C9180A.10103@linux-vs.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paul.gortmaker@gmail.com, akpm@linux-foundation.org,
+	p_gortmaker@yahoo.com, alan@lxorguk.ukuu.org.uk, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: david@fries.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mba.ocn.ne.jp ([122.1.235.107]:53052 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755706AbYIKNup (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2008 09:50:45 -0400
+In-Reply-To: <20080909025434.GB28469@spacedout.fries.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2008 at 09:07:22PM +0800, Wensong Zhang wrote:
-> Simon Horman wrote:
->> On Wed, Sep 10, 2008 at 07:30:52PM +0200, Julius Volz wrote:
->>   
->>> On Tue, Sep 9, 2008 at 1:31 PM, Simon Horman <horms@verge.net.au> wrote:
->>>     
->>>> On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
->>>>       
->>>>> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
->>>>> NAT+DSR+TUN in all combinations that are expected to be working and
->>>>> found no problems.
->>>>>         
->>>> Thanks once again for your testing. I'll send a pull request to Dave in
->>>> the morning.
->>>>       
->>> Thanks very much!
->>>
->>> (CC: Wensong)
->>> I guess it would make sense to start hosting the new ipvsadm version
->>> somewhere on http://www.linuxvirtualserver.org/ soon. It could still
->>> be marked as unstable and saying, "If you intend to use the
->>> experimental IPv6 support for IPVS introduced in kernel 2.6.XX, you
->>> will need this new version of ipvsadm: ...". Also, we can then point
->>> to it in the Kconfig help text in CONFIG_IP_VS_IPV6. What do you
->>> think?
->>>     
->>
->> Yes I agree. It would be good to start hosting tarballs of the
->> new/unstable/experimental version of ipvsadm on www.linuxvirtualserver.org.
->>
->> Wensong, can we also host some sort of repository for ipvsadm on
->> linuxvirtualserver.org? If not, I guess the next most logical choice
->> would be to use kernel.org.
->>
->>   
-> Hi Horms and Julius,
->
-> I have created a svn repository for ipvsadm at  
-> http://svn.linuxvirtualserver.org/repos/ipvsadm/ before, will create the  
-> check-in accounts for you right now.
+On Mon, 8 Sep 2008 21:54:34 -0500, David Fries <david@fries.net> wrote:
+> Now that the io port and irq can be looked up in the arrays the probe
+> code doesn't even need the resources passed by the platform device.
+> The ne.c driver already registers the resources it needs and there
+> isn't any good way to update the resources when the io port or irq are
+> zero and probed at runtime.
 
-Great. I think that Vince needs an account too, he has done most (all?)
-of the relevant work so far.
+No, please don't.  This breaks current users of ne platform driver.
+For example, please look at rbtx4927_ne_init() in
+arch/mips/txx9/rbtx4927/setup.c file.
 
--- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
-
+---
+Atsushi Nemoto
