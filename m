@@ -1,71 +1,83 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Thu, 11 Sep 2008 14:30:06 -0300
-Message-ID: <20080911143006.2f516569@tux>
-References: <20080819213417.45133573@tux>
-	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
-	<20080822183224.2d52f16c@tux>
-	<20080822.143709.65615512.davem@davemloft.net>
-	<20080823111446.06a350a2@tux>
-	<Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
-	<20080824163843.33b4f890@tux>
-	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
-	<20080826141812.589848a0@tux>
-	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
-	<20080828184919.611dd578@tux>
-	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
-	<20080830035650.42be37d7@tux>
-	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
-	<20080907051718.58bf133d@tux>
-	<Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
-	<20080908172043.0d25a427@tux>
-	<Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 3/3]: tg3: Use SKB DMA helper functions for TX.
+Date: Thu, 11 Sep 2008 10:58:41 -0700
+Message-ID: <1221155921.12785.9.camel@HP1>
+References: <20080911.050311.57379088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Thu, 11 Sep 2008 16:44:20 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-
-> ...I guess it would be possible to remove SCHED_FEAT_HRTICK from
-> /proc/sys/kernel/sched_features then while keeping the hrtimers
-> otherwise enabled to test this.
->=20
-> It's possible that hrtimers just affect on how easy it is to trigger
-> but at least it seems an useful lead until proven otherwise.
-
-	You're right Ilpo. After days and days without the problem,
-today it triggered (but I wasn't online at the time, so I couldn't grab
-any data).
-
-	So, you're correct. HRtimers just affect on how easy it is to
-trigger the issue. In other words: with high resolution timer enabled,
-the problem appears more frequently.
-
-	At least if we discovered a way how to trigger this, we could
-test it more easily. The problem is to wait a long time for it to
-happen.
-
-	Just a curiosity: on your servers, do you use x86_64? It seems
-this problem is very specific to x86_64 or appear more often on x86_64
-than x86_32. It never happens on my x86_32 bit servers.
-
-=09
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2702 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752608AbYIKSAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2008 14:00:03 -0400
+In-Reply-To: <20080911.050311.57379088.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=20
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2008-09-11 at 05:03 -0700, David Miller wrote:
+> tg3: Use SKB DMA helper functions for TX.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/tg3.c |   88 ++++++++++++++++++----------------------------------
+>  drivers/net/tg3.h |    1 -
+>  2 files changed, 31 insertions(+), 58 deletions(-)
+> 
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 71d2c5c..355e8bc 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -3861,10 +3861,7 @@ static void tg3_tx(struct tg3 *tp)
+>                         return;
+>                 }
+> 
+> -               pci_unmap_single(tp->pdev,
+> -                                pci_unmap_addr(ri, mapping),
+> -                                skb_headlen(skb),
+> -                                PCI_DMA_TODEVICE);
+> +               skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
+> 
+>                 ri->skb = NULL;
+> 
+> @@ -3874,12 +3871,6 @@ static void tg3_tx(struct tg3 *tp)
+>                         ri = &tp->tx_buffers[sw_idx];
+>                         if (unlikely(ri->skb != NULL || sw_idx == hw_idx))
+>                                 tx_bug = 1;
+> -
+> -                       pci_unmap_page(tp->pdev,
+> -                                      pci_unmap_addr(ri, mapping),
+> -                                      skb_shinfo(skb)->frags[i].size,
+> -                                      PCI_DMA_TODEVICE);
+> -
+>                         sw_idx = NEXT_TX(sw_idx);
+>                 }
+> 
+> @@ -4633,12 +4624,13 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
+>         } else {
+>                 /* New SKB is guaranteed to be linear. */
+>                 entry = *start;
+> -               new_addr = pci_map_single(tp->pdev, new_skb->data, new_skb->len,
+> -                                         PCI_DMA_TODEVICE);
+> +               ret = skb_dma_map(&tp->pdev->dev, new_skb, DMA_TO_DEVICE);
+> +               new_addr = skb_shinfo(new_skb)->dma_maps[0];
+> +
+>                 /* Make sure new skb does not cross any 4G boundaries.
+>                  * Drop the packet if it does.
+>                  */
+> -               if (tg3_4g_overflow_test(new_addr, new_skb->len)) {
+> +               if (ret || tg3_4g_overflow_test(new_addr, new_skb->len)) {
+>                         ret = -1;
+
+Looks like we are missing an unmap call here even in the original code.
+If skb_dma_map() returns 0 but overflow test fails, we need to call
+unmap here.
+
+>                         dev_kfree_skb(new_skb);
+>                         new_skb = NULL;
+
+
+
