@@ -1,41 +1,35 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH 1/1] r8169: fix RxMissed register access
-Date: Thu, 11 Sep 2008 09:44:22 +0200
-Message-ID: <48C8CC56.5010802@redhat.com>
-References: <20080910202856.GA22884@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Adam Huffman <bloch@verdurin.com>,
-	Hermann Gausterer <kernel-bug-tracker@mrq1.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC] confused about IPSEC_MANUAL_REQID_MAX
+Date: Thu, 11 Sep 2008 17:58:48 +1000
+Message-ID: <E1Kdh4i-0005Om-Qc@gondolin.me.apana.org.au>
+References: <dffc28000809090400l9617cfejc2607c6b3767417@mail.gmail.com>
+Cc: netdev@vger.kernel.org
+To: zs.szalai@gmail.com (Zsolt SZALAI)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:53842 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751806AbYIKHxH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Sep 2008 03:53:07 -0400
-In-Reply-To: <20080910202856.GA22884@electric-eye.fr.zoreil.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:38578 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751876AbYIKH6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 03:58:52 -0400
+In-Reply-To: <dffc28000809090400l9617cfejc2607c6b3767417@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> - the register is defined for the 8169 chipset only and there is
->   no 8169 beyond RTL_GIGA_MAC_VER_06.
-> - only the lower 3 bytes of the register are valid
-> 
-> Fixes:
-> 1. http://bugzilla.kernel.org/show_bug.cgi?id=10180
-> 2. http://bugzilla.kernel.org/show_bug.cgi?id=11062 (bits of)
-> 
-> Tested by Hermann Gausterer and Adam Huffman.
-I can confirm it works great for my RTL8102el and RTL8168b.
+Zsolt SZALAI <zs.szalai@gmail.com> wrote:
+>
+> As XFRM allows, is it safe to increase this value or even bypass the
+> checking of the reqid beeing higher than that?
 
-Ivan
+Please stop using the af_key interface.  The part dealing with
+policies (which is the only place where reqids are generated) is
+just as unportable as xfrm.
 
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+In any case changing an interface should be avoided unless there
+is a really good reason.  In this case I don't see any good reasons
+since you can instead switch to xfrm.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
