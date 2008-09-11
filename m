@@ -1,78 +1,56 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [rfc 0/3] IPVS: checksum updates
-Date: Thu, 11 Sep 2008 15:55:06 +0200
-Message-ID: <f4845fc0809110655y3120f799nf8d7ea4fd9e42041@mail.gmail.com>
-References: <20080908020420.313463898@vergenet.net>
-	 <20080908234028.GF13048@verge.net.au>
-	 <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com>
-	 <20080909113131.GA3605@verge.net.au>
-	 <f4845fc0809101030u2bd4dec4jb478ecc65240ea74@mail.gmail.com>
-	 <20080910232904.GD12291@verge.net.au> <48C9180A.10103@linux-vs.org>
-	 <20080911134543.GA4427@verge.net.au>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+	feature-negotiation patches
+Date: Thu, 11 Sep 2008 11:02:10 -0300
+Message-ID: <20080911140210.GE8078@ghostprotocols.net>
+References: <20080910050115.GA3642@gerrit.erg.abdn.ac.uk> <20080909.221914.193697907.davem@davemloft.net> <20080911054104.GA3707@gerrit.erg.abdn.ac.uk> <20080910.225100.188112311.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Wensong Zhang" <wensong@linux-vs.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, "Vince Busam" <vbusam@google.com>
-To: "Simon Horman" <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080911134543.GA4427@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:50351 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751689AbYIKOKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2008 10:10:25 -0400
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080910.225100.188112311.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2008 at 3:45 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Thu, Sep 11, 2008 at 09:07:22PM +0800, Wensong Zhang wrote:
->> Simon Horman wrote:
->>> On Wed, Sep 10, 2008 at 07:30:52PM +0200, Julius Volz wrote:
->>>
->>>> On Tue, Sep 9, 2008 at 1:31 PM, Simon Horman <horms@verge.net.au> wrote:
->>>>
->>>>> On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
->>>>>
->>>>>> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
->>>>>> NAT+DSR+TUN in all combinations that are expected to be working and
->>>>>> found no problems.
->>>>>>
->>>>> Thanks once again for your testing. I'll send a pull request to Dave in
->>>>> the morning.
->>>>>
->>>> Thanks very much!
->>>>
->>>> (CC: Wensong)
->>>> I guess it would make sense to start hosting the new ipvsadm version
->>>> somewhere on http://www.linuxvirtualserver.org/ soon. It could still
->>>> be marked as unstable and saying, "If you intend to use the
->>>> experimental IPv6 support for IPVS introduced in kernel 2.6.XX, you
->>>> will need this new version of ipvsadm: ...". Also, we can then point
->>>> to it in the Kconfig help text in CONFIG_IP_VS_IPV6. What do you
->>>> think?
->>>>
->>>
->>> Yes I agree. It would be good to start hosting tarballs of the
->>> new/unstable/experimental version of ipvsadm on www.linuxvirtualserver.org.
->>>
->>> Wensong, can we also host some sort of repository for ipvsadm on
->>> linuxvirtualserver.org? If not, I guess the next most logical choice
->>> would be to use kernel.org.
->>>
->>>
->> Hi Horms and Julius,
->>
->> I have created a svn repository for ipvsadm at
->> http://svn.linuxvirtualserver.org/repos/ipvsadm/ before, will create the
->> check-in accounts for you right now.
+Em Wed, Sep 10, 2008 at 10:51:00PM -0700, David Miller escreveu:
+> From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Date: Thu, 11 Sep 2008 07:41:04 +0200
+> 
+> > Meanwhile I had contacted you and Arnaldo privately to ask what to do
+> > with DCCP in general. I had emailed you twice, there was no reply,
+> > instead the tree was pulled without further discussion. 
+> 
+> I simply had nothing to add to that discussion.
+> 
+> I don't know what I could possibly say above and beyond what Arnaldo
+> did.  There is nobody in the wings to take over and you don't have the
+> time.  The only logical conclusion is that DCCP just sits and rots
+> until someone suitably capable and who has the time shows up.   And,
+> that's exactly what Arnaldo said.
 
-Thanks, cool!
+I was afraid that at some point I would lose the energy or the free time
+needed to get DCCP to a conclusion, if there is ever a conclusion in the
+life of such a complex piece of software as is a transport protocol.
+That is why I worked hard to share as much code with TCP as possible,
+and I think there are still opportunities to share even more code.
 
-> Great. I think that Vince needs an account too, he has done most (all?)
-> of the relevant work so far.
+But right now I think that the situation is way better than when I was
+mostly alone working on it, Ian and Andrea contributed lots of code,
+Gerrit came up and did lots, lots more, Leandro worked on it, Tommi as
+well, there is the work that Tomasz did on policies and now Wei is
+testing it and providing analisys, so its not how, say, IPv6 stayed for
+a long time.
 
-Yes, Vince did all of the ipvsadm porting!
+So don't worry too much, at some point things will get to a better
+shape.
 
-Julius
-
--- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+The time it takes for a new protocol to get in shape and used is indeed
+long.
+ 
+- Arnaldo
