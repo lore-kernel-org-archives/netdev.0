@@ -1,80 +1,65 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Thu, 11 Sep 2008 16:44:20 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
-References: <20080819213417.45133573@tux> <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
- <20080822183224.2d52f16c@tux> <20080822.143709.65615512.davem@davemloft.net>
- <20080823111446.06a350a2@tux> <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
- <20080824163843.33b4f890@tux> <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
- <20080826141812.589848a0@tux> <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
- <20080828184919.611dd578@tux> <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
- <20080830035650.42be37d7@tux> <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
- <20080907051718.58bf133d@tux> <Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
- <20080908172043.0d25a427@tux>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc 0/3] IPVS: checksum updates
+Date: Thu, 11 Sep 2008 23:45:46 +1000
+Message-ID: <20080911134543.GA4427@verge.net.au>
+References: <20080908020420.313463898@vergenet.net> <20080908234028.GF13048@verge.net.au> <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com> <20080909113131.GA3605@verge.net.au> <f4845fc0809101030u2bd4dec4jb478ecc65240ea74@mail.gmail.com> <20080910232904.GD12291@verge.net.au> <48C9180A.10103@linux-vs.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-1835775364-1221029381=:24708"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080908172043.0d25a427@tux>
-Content-ID: <Pine.LNX.4.64.0809111637380.1034@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Vince Busam <vbusam@google.com>
+To: Wensong Zhang <wensong@linux-vs.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <48C9180A.10103@linux-vs.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1835775364-1221029381=:24708
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0809111637381.1034@wrl-59.cs.helsinki.fi>
-
-On Mon, 8 Sep 2008, Dâniel Fraga wrote:
-
-> On Mon, 8 Sep 2008 13:27:43 +0300 (EEST)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-> 
-> > It could well be possible, accept seems to call schedule_timeout if 
-> > nothing is immediately available (but I don't know well enough what 
-> > end up being hrtimer'ed when you enable them and what will not)... 
-> > Anyway, how long did you test for that to confirm it?
-> 
-> 	It has been five days since I disable high resolution timer and
-> have not got any problems anymore.
-> 
-> > Does this explain the 2.6.24->2.6.25 change in behavior as well (ie., 
-> > did they got enabled there)?
-> 
-> 	Well, as far as I know, high res timer related, what changed
-> in 2.6.25 is the following:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=8f4d37ec073c17e2d4aa8851df5837d798606d6f
-> 
-> 	(although if I disable dynticks, the problem persists)
-> 
-> 	Although in 2.6.24 we already had, for example the x86-32/64
-> arch reunification and I don't know if it has anything to do with my
-> problem in 2.6.25... just some thoughts... I wrote that because the
-> problem doesn't happen in 32 bit machines, but only in x86_64...
+On Thu, Sep 11, 2008 at 09:07:22PM +0800, Wensong Zhang wrote:
+> Simon Horman wrote:
+>> On Wed, Sep 10, 2008 at 07:30:52PM +0200, Julius Volz wrote:
+>>   
+>>> On Tue, Sep 9, 2008 at 1:31 PM, Simon Horman <horms@verge.net.au> wrote:
+>>>     
+>>>> On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
+>>>>       
+>>>>> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
+>>>>> NAT+DSR+TUN in all combinations that are expected to be working and
+>>>>> found no problems.
+>>>>>         
+>>>> Thanks once again for your testing. I'll send a pull request to Dave in
+>>>> the morning.
+>>>>       
+>>> Thanks very much!
+>>>
+>>> (CC: Wensong)
+>>> I guess it would make sense to start hosting the new ipvsadm version
+>>> somewhere on http://www.linuxvirtualserver.org/ soon. It could still
+>>> be marked as unstable and saying, "If you intend to use the
+>>> experimental IPv6 support for IPVS introduced in kernel 2.6.XX, you
+>>> will need this new version of ipvsadm: ...". Also, we can then point
+>>> to it in the Kconfig help text in CONFIG_IP_VS_IPV6. What do you
+>>> think?
+>>>     
+>>
+>> Yes I agree. It would be good to start hosting tarballs of the
+>> new/unstable/experimental version of ipvsadm on www.linuxvirtualserver.org.
+>>
+>> Wensong, can we also host some sort of repository for ipvsadm on
+>> linuxvirtualserver.org? If not, I guess the next most logical choice
+>> would be to use kernel.org.
+>>
+>>   
+> Hi Horms and Julius,
 >
-> 	Of course I'm not saying for sure that the high res timer is
-> causing this. Maybe, as you said before, the problem is much more
-> complex and realy don't know what in fact uses high res timer.
-> 
-> 	Anyway, I'll leave high res timer disabled for now until we
-> discover something new.
+> I have created a svn repository for ipvsadm at  
+> http://svn.linuxvirtualserver.org/repos/ipvsadm/ before, will create the  
+> check-in accounts for you right now.
 
-...I guess it would be possible to remove SCHED_FEAT_HRTICK from
-/proc/sys/kernel/sched_features then while keeping the hrtimers
-otherwise enabled to test this.
-
-It's possible that hrtimers just affect on how easy it is to trigger
-but at least it seems an useful lead until proven otherwise.
-
+Great. I think that Vince needs an account too, he has done most (all?)
+of the relevant work so far.
 
 -- 
- i.
----696208474-1835775364-1221029381=:24708--
+Simon Horman
+  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
+  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+
