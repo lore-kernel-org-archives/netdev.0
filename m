@@ -1,90 +1,59 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: Re: [rfc 0/3] IPVS: checksum updates
-Date: Thu, 11 Sep 2008 22:43:18 +0800
-Message-ID: <48C92E86.1090903@linux-vs.org>
-References: <20080908020420.313463898@vergenet.net>	 <20080908234028.GF13048@verge.net.au>	 <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com>	 <20080909113131.GA3605@verge.net.au>	 <f4845fc0809101030u2bd4dec4jb478ecc65240ea74@mail.gmail.com>	 <20080910232904.GD12291@verge.net.au> <48C9180A.10103@linux-vs.org>	 <20080911134543.GA4427@verge.net.au> <f4845fc0809110655y3120f799nf8d7ea4fd9e42041@mail.gmail.com>
+From: Denis Joseph Barrow <D.Barow@option.com>
+Subject: a new problem with the hso driver
+Date: Thu, 11 Sep 2008 17:55:33 +0200
+Message-ID: <48C93F75.4000703@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Vince Busam <vbusam@google.com>
-To: Julius Volz <juliusv@google.com>
+To: Linux USB kernel mailing list <linux-usb@vger.kernel.org>,
+	Linux netdev Mailing list <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Andrew Bird <ajb@spheresystems.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [202.109.113.90] ([202.109.113.90]:38746 "EHLO
-	dragon.linux-vs.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751355AbYIKOnW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 10:43:22 -0400
-In-Reply-To: <f4845fc0809110655y3120f799nf8d7ea4fd9e42041@mail.gmail.com>
+Received: from mailer1.option.com ([81.246.70.162]:28024 "EHLO
+	mailer1.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007AbYIKPzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 11:55:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> On Thu, Sep 11, 2008 at 3:45 PM, Simon Horman <horms@verge.net.au> wrote:
->   
->> On Thu, Sep 11, 2008 at 09:07:22PM +0800, Wensong Zhang wrote:
->>     
->>> Simon Horman wrote:
->>>       
->>>> On Wed, Sep 10, 2008 at 07:30:52PM +0200, Julius Volz wrote:
->>>>
->>>>         
->>>>> On Tue, Sep 9, 2008 at 1:31 PM, Simon Horman <horms@verge.net.au> wrote:
->>>>>
->>>>>           
->>>>>> On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
->>>>>>
->>>>>>             
->>>>>>> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
->>>>>>> NAT+DSR+TUN in all combinations that are expected to be working and
->>>>>>> found no problems.
->>>>>>>
->>>>>>>               
->>>>>> Thanks once again for your testing. I'll send a pull request to Dave in
->>>>>> the morning.
->>>>>>
->>>>>>             
->>>>> Thanks very much!
->>>>>
->>>>> (CC: Wensong)
->>>>> I guess it would make sense to start hosting the new ipvsadm version
->>>>> somewhere on http://www.linuxvirtualserver.org/ soon. It could still
->>>>> be marked as unstable and saying, "If you intend to use the
->>>>> experimental IPv6 support for IPVS introduced in kernel 2.6.XX, you
->>>>> will need this new version of ipvsadm: ...". Also, we can then point
->>>>> to it in the Kconfig help text in CONFIG_IP_VS_IPV6. What do you
->>>>> think?
->>>>>
->>>>>           
->>>> Yes I agree. It would be good to start hosting tarballs of the
->>>> new/unstable/experimental version of ipvsadm on www.linuxvirtualserver.org.
->>>>
->>>> Wensong, can we also host some sort of repository for ipvsadm on
->>>> linuxvirtualserver.org? If not, I guess the next most logical choice
->>>> would be to use kernel.org.
->>>>
->>>>
->>>>         
->>> Hi Horms and Julius,
->>>
->>> I have created a svn repository for ipvsadm at
->>> http://svn.linuxvirtualserver.org/repos/ipvsadm/ before, will create the
->>> check-in accounts for you right now.
->>>       
->
-> Thanks, cool!
->
->   
->> Great. I think that Vince needs an account too, he has done most (all?)
->> of the relevant work so far.
->>     
->
-> Yes, Vince did all of the ipvsadm porting!
->
-> Julius
->
->   
-I'll create an account for Vince right now.
+Hi Greg/Andrew,
+I've a minor problem.
+If you put the hso driver into powersave mode
+by going into /sysfs
 
-Thank you very much,
+cd /sys/
+ find . -name idVendor | xargs -n 1 | grep -H af0
+ cd ./devices/pci0000:00/0000:00:1d.7/usb5/5-4/
+ or wherever the idVendor is at.
+ cd power/
+echo auto > level
 
-Wensong
+Then let the driver sleep for about 2 minutes.a
+
+It can't be woken up, it appears that the 
+usb layer is looking for a reset_resume
+function to be implemented. 
+
+We get the following messages from the kernel
+[12518.790072] hso 2-2:1.0: no reset_resume for driver hso?
+[12518.790081] hso 2-2:1.1: no reset_resume for driver hso?
+[12518.790085] hso 2-2:1.2: no reset_resume for driver hso?
+
+How do I implement a reset resume function?
+could somebody tell me & put in a few comments in include/linux/usb.h
+Our customer says the device has gone into an S3 sleep
+whatever the difference between this & the reduced power mode
+it goes into after 2 seconds when it calls hso_suspend I don't know.
+
+On a slightly related issue
+we get an error -22 ie -EINVAL from usb_submit_urb
+this though I haven't investigated properly appears to happen when the device is suspended
+but appears to have no adverse effect on the driver
+it still seems to work, I haven't really investigated this, whats happening?
+but would greatly appreciate being pointed in the right direction.
+
+
+-- 
+best regards,
+D.J. Barrow
