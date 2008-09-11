@@ -1,68 +1,72 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: a new problem with the hso driver
-Date: Thu, 11 Sep 2008 18:39:47 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0809111835350.3949-100000@iolanthe.rowland.org>
-References: <48C93F75.4000703@option.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3]: tg3: Use SKB DMA helper functions for TX.
+Date: Thu, 11 Sep 2008 15:45:31 -0700 (PDT)
+Message-ID: <20080911.154531.136830945.davem@davemloft.net>
+References: <20080911.050311.57379088.davem@davemloft.net>
+	<1221155921.12785.9.camel@HP1>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48C93F75.4000703-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59225
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752634AbYIKWph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 18:45:37 -0400
+In-Reply-To: <1221155921.12785.9.camel@HP1>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Sep 2008, Denis Joseph Barrow wrote:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 11 Sep 2008 10:58:41 -0700
 
-> Hi Greg/Andrew,
-> I've a minor problem.
-> If you put the hso driver into powersave mode
-> by going into /sysfs
+> On Thu, 2008-09-11 at 05:03 -0700, David Miller wrote:
+> > @@ -4633,12 +4624,13 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
+> >         } else {
+> >                 /* New SKB is guaranteed to be linear. */
+> >                 entry = *start;
+> > -               new_addr = pci_map_single(tp->pdev, new_skb->data, new_skb->len,
+> > -                                         PCI_DMA_TODEVICE);
+> > +               ret = skb_dma_map(&tp->pdev->dev, new_skb, DMA_TO_DEVICE);
+> > +               new_addr = skb_shinfo(new_skb)->dma_maps[0];
+> > +
+> >                 /* Make sure new skb does not cross any 4G boundaries.
+> >                  * Drop the packet if it does.
+> >                  */
+> > -               if (tg3_4g_overflow_test(new_addr, new_skb->len)) {
+> > +               if (ret || tg3_4g_overflow_test(new_addr, new_skb->len)) {
+> >                         ret = -1;
 > 
-> cd /sys/
->  find . -name idVendor | xargs -n 1 | grep -H af0
->  cd ./devices/pci0000:00/0000:00:1d.7/usb5/5-4/
->  or wherever the idVendor is at.
->  cd power/
-> echo auto > level
-> 
-> Then let the driver sleep for about 2 minutes.a
-> 
-> It can't be woken up, it appears that the 
-> usb layer is looking for a reset_resume
-> function to be implemented. 
-> 
-> We get the following messages from the kernel
-> [12518.790072] hso 2-2:1.0: no reset_resume for driver hso?
-> [12518.790081] hso 2-2:1.1: no reset_resume for driver hso?
-> [12518.790085] hso 2-2:1.2: no reset_resume for driver hso?
-> 
-> How do I implement a reset resume function?
-> could somebody tell me & put in a few comments in include/linux/usb.h
+> Looks like we are missing an unmap call here even in the original code.
+> If skb_dma_map() returns 0 but overflow test fails, we need to call
+> unmap here.
 
-See Documentation/usb/power-management.txt.
+Good catch, I'll fix it as follows:
 
-> Our customer says the device has gone into an S3 sleep
-> whatever the difference between this & the reduced power mode
-> it goes into after 2 seconds when it calls hso_suspend I don't know.
-> 
-> On a slightly related issue
-> we get an error -22 ie -EINVAL from usb_submit_urb
-> this though I haven't investigated properly appears to happen when the device is suspended
-> but appears to have no adverse effect on the driver
-> it still seems to work, I haven't really investigated this, whats happening?
-> but would greatly appreciate being pointed in the right direction.
+tg3: Fix DMA mapping leak in tigon3_dma_hwbug_workaround().
 
--EINVAL can indicate several possible errors, but as far as I remember, 
-none of them are associated with the device being suspended.  If you 
-try to submit an URB to a suspended device, you'll get -EHOSTUNREACH.
+Noticed by Michael Chan.
 
-Alan Stern
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/tg3.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 355e8bc..1239207 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -4631,6 +4631,9 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
+ 		 * Drop the packet if it does.
+ 		 */
+ 		if (ret || tg3_4g_overflow_test(new_addr, new_skb->len)) {
++			if (!ret)
++				skb_dma_unmap(&tp->pdev->dev, new_skb,
++					      DMA_TO_DEVICE);
+ 			ret = -1;
+ 			dev_kfree_skb(new_skb);
+ 			new_skb = NULL;
+-- 
+1.5.6.5.GIT
+
