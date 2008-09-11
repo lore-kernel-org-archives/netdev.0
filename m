@@ -1,72 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3]: tg3: Use SKB DMA helper functions for TX.
-Date: Thu, 11 Sep 2008 15:45:31 -0700 (PDT)
-Message-ID: <20080911.154531.136830945.davem@davemloft.net>
-References: <20080911.050311.57379088.davem@davemloft.net>
-	<1221155921.12785.9.camel@HP1>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 1/1] tg3: Avoid Send BD corruption
+Date: Thu, 11 Sep 2008 15:55:58 -0700
+Message-ID: <1221173758.12785.32.camel@HP1>
+References: <20080911051244.GA27384@xw6200.broadcom.net>
+ <20080910.224618.113269063.davem@davemloft.net>
+ <20080911165913.GA27725@xw6200.broadcom.net>
+ <20080911.145154.112457696.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"andy@greyhouse.net" <andy@greyhouse.net>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59225
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752634AbYIKWph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 18:45:37 -0400
-In-Reply-To: <1221155921.12785.9.camel@HP1>
+Received: from mms2.broadcom.com ([216.31.210.18]:3717 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752819AbYIKW5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2008 18:57:24 -0400
+In-Reply-To: <20080911.145154.112457696.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 11 Sep 2008 10:58:41 -0700
 
-> On Thu, 2008-09-11 at 05:03 -0700, David Miller wrote:
-> > @@ -4633,12 +4624,13 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
-> >         } else {
-> >                 /* New SKB is guaranteed to be linear. */
-> >                 entry = *start;
-> > -               new_addr = pci_map_single(tp->pdev, new_skb->data, new_skb->len,
-> > -                                         PCI_DMA_TODEVICE);
-> > +               ret = skb_dma_map(&tp->pdev->dev, new_skb, DMA_TO_DEVICE);
-> > +               new_addr = skb_shinfo(new_skb)->dma_maps[0];
-> > +
-> >                 /* Make sure new skb does not cross any 4G boundaries.
-> >                  * Drop the packet if it does.
-> >                  */
-> > -               if (tg3_4g_overflow_test(new_addr, new_skb->len)) {
-> > +               if (ret || tg3_4g_overflow_test(new_addr, new_skb->len)) {
-> >                         ret = -1;
+On Thu, 2008-09-11 at 14:51 -0700, David Miller wrote:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Thu, 11 Sep 2008 09:59:13 -0700
 > 
-> Looks like we are missing an unmap call here even in the original code.
-> If skb_dma_map() returns 0 but overflow test fails, we need to call
-> unmap here.
+> > On Wed, Sep 10, 2008 at 10:46:18PM -0700, David Miller wrote:
+> > > Are users really hitting this or was this discovered by your own
+> > > internal testing and verification?
+> >
+> > The bug was discovered by our own internal testing, but this bug is
+> > severe enough to warrant submission to the net-2.6 kernel.  I'll be
+> > sending a patch to stable as well.
+> >
+> > These chips are relatively new so there isn't a whole lot of opportunity
+> > for users to experience the problem yet.  As the chips are distributed,
+> > the likelyhood that users will encounter this problem is pretty high.
+> 
+> That doesn't matter.  That isn't the criteria for inclusion outside of
+> the merge window, or into -stable.
 
-Good catch, I'll fix it as follows:
+Send BD corruption is quite serious as it can cause tg3_tx() to crash.
+We've seen a number of similar crashes over the years caused by
+re-ordered IOs and the nr_frags getting modified by HTB.
 
-tg3: Fix DMA mapping leak in tigon3_dma_hwbug_workaround().
+Since regression/security/oops fixes are allowed, shouldn't this qualify
+since it prevents a crash in tg3_tx()?
 
-Noticed by Michael Chan.
+> 
+> You should read postings such as the following one and the other ones
+> in it's thread so that you can become familiar with the criteria:
+> 
+>         http://marc.info/?l=linux-netdev&m=122048757705315&w=2
+> 
+> And by those descriptions, this patch is not appropriate and I'm
+> therefore not going to try and submit it for 2.6.27 and risk getting
+> my head chopped off by Linus again in public.
+> 
+> 
+> 
+> 
+> 
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/tg3.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 355e8bc..1239207 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4631,6 +4631,9 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
- 		 * Drop the packet if it does.
- 		 */
- 		if (ret || tg3_4g_overflow_test(new_addr, new_skb->len)) {
-+			if (!ret)
-+				skb_dma_unmap(&tp->pdev->dev, new_skb,
-+					      DMA_TO_DEVICE);
- 			ret = -1;
- 			dev_kfree_skb(new_skb);
- 			new_skb = NULL;
--- 
-1.5.6.5.GIT
 
