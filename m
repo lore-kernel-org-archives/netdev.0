@@ -1,131 +1,33 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: What to do with DCCP (was:  net-next-2.6 [pull-request] [PATCH
-	0/37]...)
-Date: Thu, 11 Sep 2008 07:45:26 +0200
-Message-ID: <20080911054526.GB3707@gerrit.erg.abdn.ac.uk>
-References: <20080904061511.GA30756@gerrit.erg.abdn.ac.uk> <20080908.173250.204419507.davem@davemloft.net> <20080909080911.GA9176@gerrit.erg.abdn.ac.uk> <20080909.015720.204027435.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] tg3: Avoid Send BD corruption
+Date: Wed, 10 Sep 2008 22:46:18 -0700 (PDT)
+Message-ID: <20080910.224618.113269063.davem@davemloft.net>
+References: <20080911051244.GA27384@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mchan@broadcom.com, andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45356 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751589AbYIKFpk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Sep 2008 01:45:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20080909.015720.204027435.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46937
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751682AbYIKFqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 01:46:24 -0400
+In-Reply-To: <20080911051244.GA27384@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a reply to the earlier email, the question of what to
-do with DCCP is at the end. Basically I would be ok if someone
-else familiar with DCCP wanted to take over. 
-What then still may cause problems is that DCCP is still a
-work-in-progress, please see at end of message.
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Wed, 10 Sep 2008 22:12:45 -0700
 
-| You can't seem to get the whole review process right, yet it's the
-| most important aspect of getting changes into the tree.  It's 1,000
-| times more important that implementing the code in the first place.
-| 
-This is simply not true. For this request the review process began
-a year ago, the patches have been resubmitted several times and have 
-been available in a test tree which gets updated almost daily. We tested
-this code ourselves extensively in the EU Satsix project. Also, the
-publicly available gstreamer DCCP plugin has been using this API.
+> On 5761 and 5784 ASIC revision chips, there is a chance that send BDs
+> can be corrupted when CLKREQ is enabled.  This patch turns CLKREQ off
+> while the driver is in control of the device.
+> 
+> This patch also bumps up the version to 3.95.
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-| For starters, you don't dump 30 or 40 patches on people's laps for
-| review.  You give them 5, maybe 10, at a time.  And you submit them
-| when you write them, so that you don't have to rewrite everything
-| after the ones that need fixups.
-| 
-This is only possible when using huge patches and then people will complain
-that the patches contain too many different things. You yourself said
-something like this earlier.
-
-I am happy to change the format, but it seems there is no way to make it
-right to everyone - either I get accused of putting too much into one patch,
-or I get accused of sending too many patches of a finer granularity.
-
-
-| And once you've submitted a large chunk of changes like you did this
-| time, you've worn out your reviewer pool, and they'll need a long
-| recovery period before they can devote time to looking at this stuff
-| again.
-| 
-Ack.
-
-
-| > | Don't warn about crap like this, instead convert the code over to hrtimers.
-| > | 
-| > | This kernel being built, even with HZ=100, can do nanosecond timers on
-| > | my systems, but that's only if you would make proper use of them.
-| > | 
-| > The present sk_timer implementation uses the algorithm from RFC 3448. I
-| > did not want to blindly port it to hrtimer since so far the following
-| > difficulties were in the way:
-| > 
-| >  * when using the algorithm from RFC 3448, 4.6 directly with hrtimers,
-| >    a large burst of activity will result, especially on fast links;
-| > 
-| >  * I have doubts whether it will help: each time the precision is improved,
-| >    more frantic high-frequency noise results in CCID-3:
-| 
-| To me this is just pure bullshit, I'm sorry to say.
-| 
-| A warning gets added that barks at the person compiling this stuff
-| saying: "YOUR TIMER ISN'T ACCURATE ENOUGH" and now you're telling me
-| your concerned that hrtimers might give too much accuracy.
-| 
-| Which is it?
-| 
-| Lower limit the hrtimer interval, or make it as course as you damn
-| well need, anything but this pile of excuses.
-| 
-| HZ=100 is extremely common, and there is no reason to bark at people
-| about something they can do absolutely nothing about.  Who in the
-| world is supposed to act upon that warning?
-| 
-The warning is enabled only if DCCP is configured into the kernel or as
-module. It is interesting to see someone else suggesting hrtimers here.
-When hrtimers became available I had suggested this on dccp@vger, but
-there was a lot of opposition/disagreement about it.
-
-It is easy to make strong words. If you are really convinced that it is
-so easy then without making CCID-3 oscillate, please let's see a patch.
-I have laboured for 2 years on making CCID-3 less unpredictable/frantic
-and doubt it is so easy.
-
-
-| Yet now everyone building the linux -next tree will see it if their HZ
-| is choosen to be low enough and we'll thus get piles of "what's this?"
-| queries on all the lists.
-| 
-If it becomes a bother please feel free to forward the stuff to this inbox.
-
-
-| Look...
-| 
-| This whole process isn't going smoothly.  You are time limited, and
-| the place you are short changing, time wise, appears to be the whole
-| submission and review process.  Yet this should be your highest
-| priority, far and above implementing even one single line of code.
-| 
-You have convinced me that this `time-limited' point really is invalid.
-
-It leads to annoyances and the wrong choices. I will stick around and
-find some time until this part has been resolved. And if people want to
-take longer for their review, fine. It is just that this review phase
-has taken almost a year now.
-
-It is also not possible to make the review process much easier, since
-DCCP is a largely untested research protocol. Many of its features and
-algorithms have only been tested in simulation, and there are lots
-of little algorithms and later-added-features, all interacting with
-one another. This is labour-intensive for writers and reviewers of
-patches, but convenient for writers of specs, who get bugs in their
-documents fixed for them at no expense.
-
-To free your energy for more important work, one might consider doing
-all of the DCCP stuff in an experimental tree and merge it back later,
-once all the long-discussion issues have been resolved.
+Are users really hitting this or was this discovered by your own
+internal testing and verification?
