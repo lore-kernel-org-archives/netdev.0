@@ -1,76 +1,71 @@
-From: architecture_aishwarya Moderator
-	<architecture_aishwarya-owner@yahoogroups.com>
-Subject: Welcome to the architecture_aishwarya group
-Date: 11 Sep 2008 17:17:07 -0000
-Message-ID: <1221153427.495.30866.w125@yahoogroups.com>
-Reply-To: architecture_aishwarya-unsubscribe@yahoogroups.com
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Thu, 11 Sep 2008 14:30:06 -0300
+Message-ID: <20080911143006.2f516569@tux>
+References: <20080819213417.45133573@tux>
+	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
+	<20080822183224.2d52f16c@tux>
+	<20080822.143709.65615512.davem@davemloft.net>
+	<20080823111446.06a350a2@tux>
+	<Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
+	<20080824163843.33b4f890@tux>
+	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
+	<20080826141812.589848a0@tux>
+	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+	<20080828184919.611dd578@tux>
+	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
+	<20080830035650.42be37d7@tux>
+	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
+	<20080907051718.58bf133d@tux>
+	<Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
+	<20080908172043.0d25a427@tux>
+	<Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from n12c.bullet.scd.yahoo.com ([66.218.67.49]:34156 "HELO
-	n12c.bullet.scd.yahoo.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751643AbYIKRSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 13:18:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Thu, 11 Sep 2008 16:44:20 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+
+> ...I guess it would be possible to remove SCHED_FEAT_HRTICK from
+> /proc/sys/kernel/sched_features then while keeping the hrtimers
+> otherwise enabled to test this.
+>=20
+> It's possible that hrtimers just affect on how easy it is to trigger
+> but at least it seems an useful lead until proven otherwise.
+
+	You're right Ilpo. After days and days without the problem,
+today it triggered (but I wasn't online at the time, so I couldn't grab
+any data).
+
+	So, you're correct. HRtimers just affect on how easy it is to
+trigger the issue. In other words: with high resolution timer enabled,
+the problem appears more frequently.
+
+	At least if we discovered a way how to trigger this, we could
+test it more easily. The problem is to wait a long time for it to
+happen.
+
+	Just a curiosity: on your servers, do you use x86_64? It seems
+this problem is very specific to x86_64 or appear more often on x86_64
+than x86_32. It never happens on my x86_32 bit servers.
+
+=09
 
 
-Hello,
-
-I've added you to my architecture_aishwarya group at Yahoo! Groups, a free, 
-easy-to-use service. Yahoo! Groups makes it easy to send and receive
-group messages, coordinate events, share photos and files, and more.
-
-
-Description of the group:
-------------------------------------------------------------------------
-Aishwarya was an architecture student before she entered modeling
-as her part-time job. She was best known for her Pepsi commercial
-with Mahima Chaudhry. With her green-grey eyes, she was already
-approached by big names in India's film industry, where they
-offered her starring roles. She rejected the film offers since
-she aimed to be an architect. However, fate had other things in
-store for her after she was crowned Miss World 1994. 
-
-Complete your Yahoo! Groups account:
-----------------------------------------------------------------------
-Your email address has been added to the email list of a Yahoo! Group.
-To gain access to all of your group's web features (previous messages,
-photos, files, calendar, etc.) and easier control of your message
-delivery options, we highly recommend that you complete your account
-by connecting your email address to a Yahoo account. It is easy and free.
-Please visit:
-http://groups.yahoo.com/convacct?email=netdev%40vger.kernel.org&list=architecture_aishwarya
-
-Important information about the architecture_aishwarya group
-------------------------------------------------------------------------
-* To send a message to the members of this group, send an email to:
-  architecture_aishwarya@yahoogroups.com 
-  
-* To leave the group, you can unsubscribe by replying to this message,
-  or by sending an email to:
-  architecture_aishwarya-unsubscribe@yahoogroups.com 
-
-Regards,
-
-Moderator, architecture_aishwarya 
-
-Report abuse:
-------------------------------------------------------------------------
-Because Yahoo! Groups values your privacy, it is a violation of our 
-service rules for moderators to add subscribers to a group against
-their wishes. If you feel this has happened, please notify us:
-http://help.yahoo.com/fast/help/us/groups/cgi_abuse 
-
-You may also change your email preferences to prevent group owners from
-adding you to their groups. To do so, please go here:
-http://groups.yahoo.com/s?tag=epIKPAYkjAdlCMd_27z786CLLOg8_1U3R5kNtvjlZ9R1HL5W65Y0V4CFmYVudILQJmdehvwNvBavJ1A2692ATGI
-
-Your use of Yahoo! Groups is subject to:
-http://docs.yahoo.com/info/terms/
- 
-
-
-
+--=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
