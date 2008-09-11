@@ -1,122 +1,104 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2008-09-11
-Date: Thu, 11 Sep 2008 16:13:09 -0400
-Message-ID: <20080911201308.GJ3423@tuxdriver.com>
+From: Kandukuru_Suresh@emc.com
+Subject: ifconfig: page allocation failure. order:2, mode:0x20 while enabling Jumbo frame
+Date: Thu, 11 Sep 2008 16:42:22 -0400
+Message-ID: <473F5AEA857EA644A9AD7693EBA8D9A203449248@CORPUSMX20B.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43783 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753122AbYIKUlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 16:41:35 -0400
-Content-Disposition: inline
+Received: from mexforward.lss.emc.com ([128.222.32.20]:49018 "EHLO
+	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754687AbYIKUmd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 16:42:33 -0400
+Received: from hop04-l1d11-si02.isus.emc.com (HOP04-L1D11-SI02.isus.emc.com [10.254.111.55])
+	by mexforward.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m8BKgVj2001910
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 16:42:31 -0400 (EDT)
+Received: from mailhub.lss.emc.com (nirah.lss.emc.com [10.254.144.13]) by hop04-l1d11-si02.isus.emc.com (Tablus Interceptor) for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 16:44:28 -0400
+Received: from corpussmtp4.corp.emc.com (corpussmtp4.corp.emc.com [10.254.64.54])
+	by mailhub.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m8BKg6Kh024783
+	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 16:42:24 -0400 (EDT)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Hi
+ On my Nas device (Linux kernel 2.6.22.7)  when I try enable to jumbo
+frame the following error is coming. I  did not find enough information
+from the net. So I  am mailing this. Please guide me  what is happening
+here and How to resolve this error?
 
-Here is one fix for 2.6.27.  It is a backport of a patch that is already
-in net-next-2.6.  Since it is for a new driver (ath9k) and since it
-fixes a reported bug (http://bugzilla.kernel.org/show_bug.cgi?id=11394)
-I think it should be OK to pass it to Linus for the current cycle.
+eth0: change mtu 1500 (buffer-size 1520) to 9004 (buffer-size 9024)
+ifconfig: page allocation failure. order:2, mode:0x20
+[<c00cd864>] (dump_stack+0x0/0x14) from [<c0025420>]
+(__alloc_pages+0x2ac/0x2c0)
+[<c0025174>] (__alloc_pages+0x0/0x2c0) from [<c0137c20>]
+(cache_alloc_refill+0x294/0x550)
+[<c013798c>] (cache_alloc_refill+0x0/0x550) from [<c00257e0>]
+(__kmalloc+0x70/0x8c)
+[<c0025770>] (__kmalloc+0x0/0x8c) from [<c028de90>]
+(__alloc_skb+0x4c/0xf4)
+ r4:c261baa0
+[<c028de44>] (__alloc_skb+0x0/0xf4) from [<c0215234>]
+(eth_rx_fill+0x64/0x1fc)
+ r8:00000000 r7:00000018 r6:c046f380 r5:c046f380 r4:c261bb40
+[<c02151d0>] (eth_rx_fill+0x0/0x1fc) from [<c0216090>]
+(eth_start+0xb0/0x294)
+[<c0215fe0>] (eth_start+0x0/0x294) from [<c021647c>]
+(eth_open+0x3c/0x68)
+ r8:c260bed8 r7:00000000 r6:00001002 r5:00000000 r4:c046f000
+[<c0216440>] (eth_open+0x0/0x68) from [<c02939ac>] (dev_open+0x64/0xc8)
+ r4:c046f000
+[<c0293948>] (dev_open+0x0/0xc8) from [<c0294db4>]
+(dev_change_flags+0x60/0x128)
+ r5:00001043 r4:c046f000
+[<c0294d54>] (dev_change_flags+0x0/0x128) from [<c02c7cbc>]
+(devinet_ioctl+0x2dc/0x6cc)
+ r7:bec44e6c r6:c1368380 r5:00000000 r4:ffffff9d
+[<c02c79e0>] (devinet_ioctl+0x0/0x6cc) from [<c02c9bac>]
+(inet_ioctl+0xcc/0x100)
+[<c02c9ae0>] (inet_ioctl+0x0/0x100) from [<c0289be8>]
+(sock_ioctl+0x1d4/0x22c)
+[<c0289a14>] (sock_ioctl+0x0/0x22c) from [<c0145f54>]
+(do_ioctl+0x3c/0x88)
+ r7:00000000 r6:bec44e6c r5:ffffffe7 r4:c1208f20
+[<c0145f18>] (do_ioctl+0x0/0x88) from [<c0146224>]
+(vfs_ioctl+0x284/0x2a4)
+ r6:00000003 r5:bec44e6c r4:c1208f20
+[<c0145fa0>] (vfs_ioctl+0x0/0x2a4) from [<c0146284>]
+(sys_ioctl+0x40/0x5c)
+ r7:00000036 r6:00008914 r5:fffffff7 r4:c1208f20
+[<c0146244>] (sys_ioctl+0x0/0x5c) from [<c003efa0>]
+(ret_fast_syscall+0x0/0x2c)
+ r6:00000000 r5:bec44efc r4:0006887c
+Mem-info:
+DMA per-cpu:
+CPU    0: Hot: hi:   42, btch:   7 usd:   5   Cold: hi:   14, btch:   3
+usd: 
+11
+Active:1697 inactive:27943 dirty:1130 writeback:0 unstable:0
+ free:135 slab:1316 mapped:228 pagetables:50 bounce:0
+DMA free:540kB min:1440kB low:1800kB high:2160kB active:6788kB
+inactive:111772kB present:130048kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0
+DMA: 1*4kB 1*8kB 1*16kB 0*32kB 0*64kB 0*128kB 0*256kB 1*512kB 0*1024kB
+0*2048kB
+0*4096kB = 540kB
+Swap cache: add 0, delete 0, find 0/0, race 0+0
+Free swap  = 0kB
+Total swap = 0kB
+Free swap:            0kB
+32768 pages of RAM
+231 free pages
+1113 reserved pages
+1316 slab pages
+13082 pages shared
+0 pages swap cached
 
-John
+Thank you very much
+Suresh
 
----
-
-Individual patch is available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit e550dfb0c2c31b6363aa463a035fc9f8dcaa3c9b:
-  Neil Horman (1):
-        ipv6: Fix OOPS in ip6_dst_lookup_tail().
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Jouni Malinen (1):
-      ath9k: Assign seq# when mac80211 requests this
-
- drivers/net/wireless/ath9k/beacon.c |   13 +++++++++++++
- drivers/net/wireless/ath9k/core.h   |    1 +
- drivers/net/wireless/ath9k/main.c   |   14 ++++++++++++++
- 3 files changed, 28 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/wireless/ath9k/beacon.c b/drivers/net/wireless/ath9k/beacon.c
-index caf5694..00a0eaa 100644
---- a/drivers/net/wireless/ath9k/beacon.c
-+++ b/drivers/net/wireless/ath9k/beacon.c
-@@ -209,6 +209,7 @@ static struct ath_buf *ath_beacon_generate(struct ath_softc *sc, int if_id)
- 	unsigned int curlen;
- 	struct ath_txq *cabq;
- 	struct ath_txq *mcastq;
-+	struct ieee80211_tx_info *info;
- 	avp = sc->sc_vaps[if_id];
  
- 	mcastq = &avp->av_mcastq;
-@@ -232,6 +233,18 @@ static struct ath_buf *ath_beacon_generate(struct ath_softc *sc, int if_id)
- 	 */
- 	curlen = skb->len;
- 
-+	info = IEEE80211_SKB_CB(skb);
-+	if (info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ) {
-+		/*
-+		 * TODO: make sure the seq# gets assigned properly (vs. other
-+		 * TX frames)
-+		 */
-+		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
-+		sc->seq_no += 0x10;
-+		hdr->seq_ctrl &= cpu_to_le16(IEEE80211_SCTL_FRAG);
-+		hdr->seq_ctrl |= cpu_to_le16(sc->seq_no);
-+	}
-+
- 	/* XXX: spin_lock_bh should not be used here, but sparse bitches
- 	 * otherwise. We should fix sparse :) */
- 	spin_lock_bh(&mcastq->axq_lock);
-diff --git a/drivers/net/wireless/ath9k/core.h b/drivers/net/wireless/ath9k/core.h
-index 673b3d8..4ee695b 100644
---- a/drivers/net/wireless/ath9k/core.h
-+++ b/drivers/net/wireless/ath9k/core.h
-@@ -992,6 +992,7 @@ struct ath_softc {
- 	u32 sc_txintrperiod;	/* tx interrupt batching */
- 	int sc_haltype2q[ATH9K_WME_AC_VO+1]; /* HAL WME	AC -> h/w qnum */
- 	u32 sc_ant_tx[8];	/* recent tx frames/antenna */
-+	u16 seq_no; /* TX sequence number */
- 
- 	/* Beacon */
- 	struct ath9k_tx_queue_info sc_beacon_qi;
-diff --git a/drivers/net/wireless/ath9k/main.c b/drivers/net/wireless/ath9k/main.c
-index c5107f2..99badf1 100644
---- a/drivers/net/wireless/ath9k/main.c
-+++ b/drivers/net/wireless/ath9k/main.c
-@@ -369,6 +369,20 @@ static int ath9k_tx(struct ieee80211_hw *hw,
- {
- 	struct ath_softc *sc = hw->priv;
- 	int hdrlen, padsize;
-+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-+
-+	/*
-+	 * As a temporary workaround, assign seq# here; this will likely need
-+	 * to be cleaned up to work better with Beacon transmission and virtual
-+	 * BSSes.
-+	 */
-+	if (info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ) {
-+		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
-+		if (info->flags & IEEE80211_TX_CTL_FIRST_FRAGMENT)
-+			sc->seq_no += 0x10;
-+		hdr->seq_ctrl &= cpu_to_le16(IEEE80211_SCTL_FRAG);
-+		hdr->seq_ctrl |= cpu_to_le16(sc->seq_no);
-+	}
- 
- 	/* Add the padding after the header if this is not already done */
- 	hdrlen = ieee80211_get_hdrlen_from_skb(skb);
--- 
-John W. Linville
-linville@tuxdriver.com
+
