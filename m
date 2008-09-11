@@ -1,104 +1,111 @@
-From: Kandukuru_Suresh@emc.com
-Subject: ifconfig: page allocation failure. order:2, mode:0x20 while enabling Jumbo frame
-Date: Thu, 11 Sep 2008 16:42:22 -0400
-Message-ID: <473F5AEA857EA644A9AD7693EBA8D9A203449248@CORPUSMX20B.corp.emc.com>
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Subject: [PATCH] netlink: fix overrun in attribute iteration
+Date: Thu, 11 Sep 2008 22:59:33 +0200
+Message-ID: <20080911205933.GA20032@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, Pekka Enberg <penberg@cs.helsinki.fi>,
+	Ingo Molnar <mingo@elte.hu>, Al Viro <viro@zeniv.linux.org.uk>,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mexforward.lss.emc.com ([128.222.32.20]:49018 "EHLO
-	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754687AbYIKUmd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 16:42:33 -0400
-Received: from hop04-l1d11-si02.isus.emc.com (HOP04-L1D11-SI02.isus.emc.com [10.254.111.55])
-	by mexforward.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m8BKgVj2001910
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 16:42:31 -0400 (EDT)
-Received: from mailhub.lss.emc.com (nirah.lss.emc.com [10.254.144.13]) by hop04-l1d11-si02.isus.emc.com (Tablus Interceptor) for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 16:44:28 -0400
-Received: from corpussmtp4.corp.emc.com (corpussmtp4.corp.emc.com [10.254.64.54])
-	by mailhub.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m8BKg6Kh024783
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 16:42:24 -0400 (EDT)
-Content-class: urn:content-classes:message
+Received: from gv-out-0910.google.com ([216.239.58.186]:19724 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751893AbYIKU7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 16:59:38 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so332579gvc.37
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 13:59:36 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
- On my Nas device (Linux kernel 2.6.22.7)  when I try enable to jumbo
-frame the following error is coming. I  did not find enough information
-from the net. So I  am mailing this. Please guide me  what is happening
-here and How to resolve this error?
+>From ca63375e8ed91d73d0c2abd1cb64a8b022ce2af8 Mon Sep 17 00:00:00 2001
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Date: Thu, 11 Sep 2008 22:37:13 +0200
+Subject: [PATCH] netlink: fix overrun in attribute iteration
 
-eth0: change mtu 1500 (buffer-size 1520) to 9004 (buffer-size 9024)
-ifconfig: page allocation failure. order:2, mode:0x20
-[<c00cd864>] (dump_stack+0x0/0x14) from [<c0025420>]
-(__alloc_pages+0x2ac/0x2c0)
-[<c0025174>] (__alloc_pages+0x0/0x2c0) from [<c0137c20>]
-(cache_alloc_refill+0x294/0x550)
-[<c013798c>] (cache_alloc_refill+0x0/0x550) from [<c00257e0>]
-(__kmalloc+0x70/0x8c)
-[<c0025770>] (__kmalloc+0x0/0x8c) from [<c028de90>]
-(__alloc_skb+0x4c/0xf4)
- r4:c261baa0
-[<c028de44>] (__alloc_skb+0x0/0xf4) from [<c0215234>]
-(eth_rx_fill+0x64/0x1fc)
- r8:00000000 r7:00000018 r6:c046f380 r5:c046f380 r4:c261bb40
-[<c02151d0>] (eth_rx_fill+0x0/0x1fc) from [<c0216090>]
-(eth_start+0xb0/0x294)
-[<c0215fe0>] (eth_start+0x0/0x294) from [<c021647c>]
-(eth_open+0x3c/0x68)
- r8:c260bed8 r7:00000000 r6:00001002 r5:00000000 r4:c046f000
-[<c0216440>] (eth_open+0x0/0x68) from [<c02939ac>] (dev_open+0x64/0xc8)
- r4:c046f000
-[<c0293948>] (dev_open+0x0/0xc8) from [<c0294db4>]
-(dev_change_flags+0x60/0x128)
- r5:00001043 r4:c046f000
-[<c0294d54>] (dev_change_flags+0x0/0x128) from [<c02c7cbc>]
-(devinet_ioctl+0x2dc/0x6cc)
- r7:bec44e6c r6:c1368380 r5:00000000 r4:ffffff9d
-[<c02c79e0>] (devinet_ioctl+0x0/0x6cc) from [<c02c9bac>]
-(inet_ioctl+0xcc/0x100)
-[<c02c9ae0>] (inet_ioctl+0x0/0x100) from [<c0289be8>]
-(sock_ioctl+0x1d4/0x22c)
-[<c0289a14>] (sock_ioctl+0x0/0x22c) from [<c0145f54>]
-(do_ioctl+0x3c/0x88)
- r7:00000000 r6:bec44e6c r5:ffffffe7 r4:c1208f20
-[<c0145f18>] (do_ioctl+0x0/0x88) from [<c0146224>]
-(vfs_ioctl+0x284/0x2a4)
- r6:00000003 r5:bec44e6c r4:c1208f20
-[<c0145fa0>] (vfs_ioctl+0x0/0x2a4) from [<c0146284>]
-(sys_ioctl+0x40/0x5c)
- r7:00000036 r6:00008914 r5:fffffff7 r4:c1208f20
-[<c0146244>] (sys_ioctl+0x0/0x5c) from [<c003efa0>]
-(ret_fast_syscall+0x0/0x2c)
- r6:00000000 r5:bec44efc r4:0006887c
-Mem-info:
-DMA per-cpu:
-CPU    0: Hot: hi:   42, btch:   7 usd:   5   Cold: hi:   14, btch:   3
-usd: 
-11
-Active:1697 inactive:27943 dirty:1130 writeback:0 unstable:0
- free:135 slab:1316 mapped:228 pagetables:50 bounce:0
-DMA free:540kB min:1440kB low:1800kB high:2160kB active:6788kB
-inactive:111772kB present:130048kB pages_scanned:0 all_unreclaimable? no
-lowmem_reserve[]: 0 0
-DMA: 1*4kB 1*8kB 1*16kB 0*32kB 0*64kB 0*128kB 0*256kB 1*512kB 0*1024kB
-0*2048kB
-0*4096kB = 540kB
-Swap cache: add 0, delete 0, find 0/0, race 0+0
-Free swap  = 0kB
-Total swap = 0kB
-Free swap:            0kB
-32768 pages of RAM
-231 free pages
-1113 reserved pages
-1316 slab pages
-13082 pages shared
-0 pages swap cached
+kmemcheck reported this:
 
-Thank you very much
-Suresh
+  kmemcheck: Caught 16-bit read from uninitialized memory (f6c1ba30)
+  0500110001508abf050010000500000002017300140000006f72672e66726565
+   i i i i i i i i i i i i i u u u u u u u u u u u u u u u u u u u
+                                   ^
 
- 
+  Pid: 3462, comm: wpa_supplicant Not tainted (2.6.27-rc3-00054-g6397ab9-dirty #13)
+  EIP: 0060:[<c05de64a>] EFLAGS: 00010296 CPU: 0
+  EIP is at nla_parse+0x5a/0xf0
+  EAX: 00000008 EBX: fffffffd ECX: c06f16c0 EDX: 00000005
+  ESI: 00000010 EDI: f6c1ba30 EBP: f6367c6c ESP: c0a11e88
+   DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+  CR0: 8005003b CR2: f781cc84 CR3: 3632f000 CR4: 000006d0
+  DR0: c0ead9bc DR1: 00000000 DR2: 00000000 DR3: 00000000
+  DR6: ffff4ff0 DR7: 00000400
+   [<c05d4b23>] rtnl_setlink+0x63/0x130
+   [<c05d5f75>] rtnetlink_rcv_msg+0x165/0x200
+   [<c05ddf66>] netlink_rcv_skb+0x76/0xa0
+   [<c05d5dfe>] rtnetlink_rcv+0x1e/0x30
+   [<c05dda21>] netlink_unicast+0x281/0x290
+   [<c05ddbe9>] netlink_sendmsg+0x1b9/0x2b0
+   [<c05beef2>] sock_sendmsg+0xd2/0x100
+   [<c05bf945>] sys_sendto+0xa5/0xd0
+   [<c05bf9a6>] sys_send+0x36/0x40
+   [<c05c03d6>] sys_socketcall+0x1e6/0x2c0
+   [<c020353b>] sysenter_do_call+0x12/0x3f
+   [<ffffffff>] 0xffffffff
+
+This is the line in nla_ok():
+
+  /**
+   * nla_ok - check if the netlink attribute fits into the remaining bytes
+   * @nla: netlink attribute
+   * @remaining: number of bytes remaining in attribute stream
+   */
+  static inline int nla_ok(const struct nlattr *nla, int remaining)
+  {
+          return remaining >= sizeof(*nla) &&
+                 nla->nla_len >= sizeof(*nla) &&
+                 nla->nla_len <= remaining;
+  }
+
+It turns out that remaining can become negative due to alignment in
+nla_next(). But GCC promotes "remaining" to unsigned in the test
+against sizeof(*nla) above. Therefore the test succeeds, and the
+nla_for_each_attr() may access memory outside the received buffer.
+
+A short example illustrating this point is here:
+
+  #include <stdio.h>
+
+  main(void)
+  {
+          printf("%d\n", -1 >= sizeof(int));
+  }
+
+...which prints "1".
+
+This patch adds a cast in front of the sizeof so that GCC will make
+a signed comparison and fix the illegal memory dereference. With the
+patch applied, there is no kmemcheck report.
+
+Cc: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
+---
+ include/net/netlink.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 18024b8..208fe5a 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -702,7 +702,7 @@ static inline int nla_len(const struct nlattr *nla)
+  */
+ static inline int nla_ok(const struct nlattr *nla, int remaining)
+ {
+-	return remaining >= sizeof(*nla) &&
++	return remaining >= (int) sizeof(*nla) &&
+ 	       nla->nla_len >= sizeof(*nla) &&
+ 	       nla->nla_len <= remaining;
+ }
+-- 
+1.5.5.1
 
