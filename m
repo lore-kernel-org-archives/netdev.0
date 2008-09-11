@@ -1,51 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tg3: Avoid Send BD corruption
-Date: Thu, 11 Sep 2008 14:51:54 -0700 (PDT)
-Message-ID: <20080911.145154.112457696.davem@davemloft.net>
-References: <20080911051244.GA27384@xw6200.broadcom.net>
-	<20080910.224618.113269063.davem@davemloft.net>
-	<20080911165913.GA27725@xw6200.broadcom.net>
+Subject: Re: [PATCH] RDS: Add AF and PF defines for RDS sockets
+Date: Thu, 11 Sep 2008 14:54:41 -0700 (PDT)
+Message-ID: <20080911.145441.258824332.davem@davemloft.net>
+References: <1219907200.7107.228.camel@pmac.infradead.org>
+	<20080828.002457.26700892.davem@davemloft.net>
+	<c0a09e5c0809111144v7f7db03es963aa222147dc3a3@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, andy@greyhouse.net
-To: mcarlson@broadcom.com
+Cc: dwmw2@infradead.org, marcel@holtmann.org, netdev@vger.kernel.org
+To: andy.grover@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40257
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37957
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752312AbYIKVwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 17:52:00 -0400
-In-Reply-To: <20080911165913.GA27725@xw6200.broadcom.net>
+	by vger.kernel.org with ESMTP id S1753439AbYIKVys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 17:54:48 -0400
+In-Reply-To: <c0a09e5c0809111144v7f7db03es963aa222147dc3a3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Thu, 11 Sep 2008 09:59:13 -0700
+From: "Andrew Grover" <andy.grover@gmail.com>
+Date: Thu, 11 Sep 2008 11:44:39 -0700
 
-> On Wed, Sep 10, 2008 at 10:46:18PM -0700, David Miller wrote:
-> > Are users really hitting this or was this discovered by your own
-> > internal testing and verification?
+> (reviving an old thread, new comments at bottom)
 > 
-> The bug was discovered by our own internal testing, but this bug is
-> severe enough to warrant submission to the net-2.6 kernel.  I'll be
-> sending a patch to stable as well.
+> On Thu, Aug 28, 2008 at 12:24 AM, David Miller <davem@davemloft.net> wrote:
+> > From: David Woodhouse <dwmw2@infradead.org>
+> > Date: Thu, 28 Aug 2008 08:06:40 +0100
+> >
+> >> On Mon, 2008-08-25 at 21:29 -0700, David Miller wrote:
+> >> > From: Marcel Holtmann <marcel@holtmann.org>
+> >> > Date: Tue, 26 Aug 2008 06:16:28 +0200
+> >> >
+> >> > > and where is the protocol? Adding new constants without posting the
+> >> > > implementation normally doesn't fly anymore.
+> >> >
+> >> > That's correct :)
+> >>
+> >> That's kind of unfortunate, and leads to the problems we have with
+> >> compatibility for AF_ISDN, where userspace built for the _older_
+> >> versions has a different value.
+> >>
+> >> Is there really any harm in reserving it up-front?
+> >
+> > If you're commiting a userspace to a kernel component
+> > that hasn't been blessed upstream yet, you're already
+> > up the creek without a paddle.
 > 
-> These chips are relatively new so there isn't a whole lot of opportunity
-> for users to experience the problem yet.  As the chips are distributed,
-> the likelyhood that users will encounter this problem is pretty high.
+> The RDS protocol is already in production use by Oracle, and has been
+> in the OFED distribution for a long time. It's under active
+> development, and we'll be submitting it soon for mainline.
 
-That doesn't matter.  That isn't the criteria for inclusion outside of
-the merge window, or into -stable.
+So?!??!  Upstream doesn't give a crap about what someone is happening
+internally.  It doesn't matter, it's irrelevant.
 
-You should read postings such as the following one and the other ones
-in it's thread so that you can become familiar with the criteria:
+> We just want a number now so userspace can start doing things
+> correctly right away.
 
-	http://marc.info/?l=linux-netdev&m=122048757705315&w=2
-
-And by those descriptions, this patch is not appropriate and I'm
-therefore not going to try and submit it for 2.6.27 and risk getting
-my head chopped off by Linus again in public.
-
-
-
-
+N-O spells "no".
