@@ -1,37 +1,43 @@
-From: David Miller <davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
- dev_deactivate() race
-Date: Thu, 11 Sep 2008 04:47:17 -0700 (PDT)
-Message-ID: <20080911.044717.265303740.davem@davemloft.net>
-References: <20080911110035.GA22065@gondor.apana.org.au>
-	<20080911.044255.245121628.davem@davemloft.net>
-	<20080911114502.GA22698@gondor.apana.org.au>
+	dev_deactivate() race
+Date: Thu, 11 Sep 2008 11:51:32 +0000
+Message-ID: <20080911115132.GA5765@ff.dom.local>
+References: <20080821.005250.117238212.davem@davemloft.net> <20080911.033956.233317469.davem@davemloft.net> <20080911104531.GA21913@gondor.apana.org.au> <20080911.034955.111797743.davem@davemloft.net> <20080911110035.GA22065@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34632
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752321AbYIKLrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 07:47:24 -0400
-In-Reply-To: <20080911114502.GA22698@gondor.apana.org.au>
+Received: from yx-out-2324.google.com ([74.125.44.30]:63497 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252AbYIKLvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 07:51:39 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so101055yxm.1
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 04:51:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080911110035.GA22065@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 11 Sep 2008 21:45:02 +1000
-
-> On Thu, Sep 11, 2008 at 04:42:55AM -0700, David Miller wrote:
-> > And we don't have the qdisc lock here, taking it is undesirable,
-> > and if we do take it we have to transfer that lock down into
-> > __qdisc_run() which means adjusting all the other __qdisc_run()
-> > callers.
+On Thu, Sep 11, 2008 at 09:00:35PM +1000, Herbert Xu wrote:
+> On Thu, Sep 11, 2008 at 03:49:55AM -0700, David Miller wrote:
+> > 
+> > Well some kind of check has to be there.
+> > 
+> > I _did_ remove it during my initial implementation, and that
+> > turned into a reported performance regression.
 > 
-> Last I checked qdisc_run did run under the root lock...
+> I see.  How about looking at the queue that the head-of-qdisc
+> packet maps to? That should be fairly cheap to compute.
+> 
 
-That certainly changes things :)
+Very good point: "That can't be right"! But I'm not sure I got the
+above idea: e.g. this new sch_multiq can have different packets
+depending just on some unstopped tx_queue.
 
-Ok, so implementing ->peek() is the first step in dealing
-with this.
+IMHO, the most reasonable test here is for all tx_queues of a qdisc
+beeing stopped, but since this is quite heavy, probably we need an
+additional qdisc flag for such an occasion.
+
+Jarek P.
