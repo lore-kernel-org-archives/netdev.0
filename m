@@ -1,42 +1,57 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: a new problem with the hso driver
-Date: Fri, 12 Sep 2008 01:18:26 +0200
-Message-ID: <200809120118.26815.oliver@neukum.org>
-References: <Pine.LNX.4.44L0.0809111835350.3949-100000@iolanthe.rowland.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 1/1] tg3: Avoid Send BD corruption
+Date: Thu, 11 Sep 2008 16:19:28 -0700
+Message-ID: <1221175168.12785.40.camel@HP1>
+References: <20080911165913.GA27725@xw6200.broadcom.net>
+ <20080911.145154.112457696.davem@davemloft.net>
+ <1221173758.12785.32.camel@HP1>
+ <20080911.160117.118147467.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Greg Kroah-Hartman" <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.44L0.0809111835350.3949-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"andy@greyhouse.net" <andy@greyhouse.net>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1613 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754502AbYIKXUu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2008 19:20:50 -0400
+In-Reply-To: <20080911.160117.118147467.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> > On a slightly related issue
-> > we get an error -22 ie -EINVAL from usb_submit_urb
-> > this though I haven't investigated properly appears to happen when the device is suspended
+On Thu, 2008-09-11 at 16:01 -0700, David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Thu, 11 Sep 2008 15:55:58 -0700
+> 
+> > Send BD corruption is quite serious as it can cause tg3_tx() to crash.
+> > We've seen a number of similar crashes over the years caused by
+> > re-ordered IOs and the nr_frags getting modified by HTB.
+> >
+> > Since regression/security/oops fixes are allowed, shouldn't this qualify
+> > since it prevents a crash in tg3_tx()?
+> 
+> It's at best borderline, since tg3_tx() has reordering detection logic
+> which will reset and recover the card.
 
-suspend? Are you sure it doesn't come from resume?
+The re-ordering detection logic will allow corruption to happen once
+only.  It will then enable flushing of IOs and if it detects corruption
+again, it will hit BUG().  That's why it wasn't able to prevent the
+crash caused by HTB.
 
-BTW:
-	if (serial->shared_int) {
-		mutex_lock(&serial->shared_int->shared_int_lock);
-		if (serial->shared_int->use_count &&
-		    (--serial->shared_int->use_count == 0)) {
+> 
+> Until I see a real user trigger this I'm still leaning towards no.
+> 
+> Otherwise any driver maintainer can give me this spiel to get their
+> changes installed outside of the merge window, and that subverts the
+> entire purpose of the rules.
+> 
 
-This code deserves a honourable mentioning in the obfuscated C contest.
+OK, we'll resubmit this for net-next then.  But I still think this one
+should qualify.  We do internal testing to find as many problems as
+possible so that real users don't see too many of them.
 
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
