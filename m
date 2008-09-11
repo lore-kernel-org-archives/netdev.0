@@ -1,305 +1,186 @@
-From: Franco Fichtner <franco@marian.de>
-Subject: Re: [PATCH 6/8] [RFC] qlge: Add mgmt port xface file qlge_mpi.c
-Date: Thu, 11 Sep 2008 10:03:19 +0200
-Message-ID: <48C8D0C7.6060706@marian.de>
-References: <20080910205813.GA13266@susedev.qlogic.org> <12210803432864-git-send-email-ron.mercer@qlogic.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11536] New: WARNING: at
+ net/ipv4/tcp_input.c:2569 tcp_ack+0xcd9/0x1f90()
+Date: Thu, 11 Sep 2008 01:17:47 -0700
+Message-ID: <20080911011747.7866aa73.akpm@linux-foundation.org>
+References: <bug-11536-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-driver@qlogic.com
-To: Ron Mercer <ron.mercer@qlogic.com>
+Cc: bugme-daemon@bugzilla.kernel.org, lexpublic@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:51389 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751583AbYIKIFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 04:05:03 -0400
-In-Reply-To: <12210803432864-git-send-email-ron.mercer@qlogic.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58881 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751893AbYIKIST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 04:18:19 -0400
+In-Reply-To: <bug-11536-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ron Mercer wrote:
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-> ---
->  drivers/net/qlge/qlge_mpi.c |  228 +++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 228 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/qlge/qlge_mpi.c
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Thu, 11 Sep 2008 01:12:54 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=11536
 > 
-> diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
-> new file mode 100644
-> index 0000000..f235fc5
-> --- /dev/null
-> +++ b/drivers/net/qlge/qlge_mpi.c
-> @@ -0,0 +1,228 @@
-> +#include "qlge.h"
-> +
-> +/*
-> + * Returns zero on success.
-> + */
-> +static int ql_wait_mbx_cmd_cmplt(struct ql_adapter *qdev)
-> +{
-> +	int count = 50;
-> +	u32 temp;
-> +
-> +	while (count) {
-> +		temp = ql_read32(qdev, STS);
-> +		if (temp & STS_PI)
-> +			return 0;
-> +		mdelay(5);
+>            Summary: WARNING: at net/ipv4/tcp_input.c:2569
+>                     tcp_ack+0xcd9/0x1f90()
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.26.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Netfilter/Iptables
+>         AssignedTo: networking_netfilter-iptables@kernel-bugs.osdl.org
+>         ReportedBy: lexpublic@gmail.com
+> 
+> 
+> Latest working kernel version: unknown
+> Earliest failing kernel version: unknown
+> Distribution: gentoo x86-64
+> Hardware Environment: 
+> #1 2xQuadra opteron, mcp55 nvidia, forcedeth gigabit network
+> #2 2xQuadra xeon, intel 5000 series, e1000e gigabit network
+> 
+> Software Environment:
+> nginx+haproxy
+> 
+> Problem Description:
+> after 5-10 hours network load I have this backtrace in dmesg:
+> 
+> ------------[ cut here ]------------
+> WARNING: at net/ipv4/tcp_input.c:2569 tcp_ack+0xcd9/0x1f90()
+> Modules linked in:                                          
+> Pid: 0, comm: swapper Tainted: G        W 2.6.26.5 #5       
+> 
+> Call Trace:
+>  <IRQ>  [<ffffffff80234504>] warn_on_slowpath+0x64/0xc0
+>  [<ffffffff8040f778>] dev_queue_xmit+0xc8/0x3b0
+>  [<ffffffff8049a5d9>] _spin_lock_bh+0x9/0x20
+>  [<ffffffff80426f09>] __nf_ct_refresh_acct+0x29/0xf0
+>  [<ffffffff80286c3f>] add_partial+0x1f/0x80
+>  [<ffffffff8023ec74>] lock_timer_base+0x34/0x70
+>  [<ffffffff8044fa6e>] tcp_init_tso_segs+0x2e/0x50
+>  [<ffffffff8044fab7>] tcp_snd_test+0x27/0x170
+>  [<ffffffff8044fc53>] tcp_may_send_now+0x53/0x80
+>  [<ffffffff8044a779>] tcp_ack+0xcd9/0x1f90
+>  [<ffffffff8044eda7>] tcp_rcv_established+0x587/0xdd0
+>  [<ffffffff80455fad>] tcp_v4_do_rcv+0xdd/0x240
+>  [<ffffffff8045670e>] tcp_v4_rcv+0x5fe/0x810
+>  [<ffffffff80437e20>] ip_rcv_finish+0x0/0x360
+>  [<ffffffff80438506>] ip_local_deliver_finish+0xa6/0x1f0
+>  [<ffffffff80437f9a>] ip_rcv_finish+0x17a/0x360
+>  [<ffffffff804383c6>] ip_rcv+0x246/0x2e0
+>  [<ffffffff803af093>] e1000_receive_skb+0x53/0x1f0
+>  [<ffffffff803af334>] e1000_clean_rx_irq+0x104/0x360
+>  [<ffffffff803ad661>] e1000_clean+0xe1/0x210
+>  [<ffffffff8040d842>] net_rx_action+0xe2/0x220
+>  [<ffffffff8023a3ca>] __do_softirq+0x7a/0xf0
+>  [<ffffffff8020c89c>] call_softirq+0x1c/0x30
+>  [<ffffffff8020e8e5>] do_softirq+0x35/0x70
+>  [<ffffffff8020e9d1>] do_IRQ+0x81/0x100
+>  [<ffffffff80212a80>] mwait_idle+0x0/0x50
+>  [<ffffffff8020bc21>] ret_from_intr+0x0/0xa
+>  <EOI>  [<ffffffff80209410>] default_idle+0x0/0x50
+>  [<ffffffff80212abc>] mwait_idle+0x3c/0x50
+>  [<ffffffff8020a720>] cpu_idle+0x60/0xa0
+> 
+> ---[ end trace 8bcf9abf1f67c29e ]---
+> 
+> Steps to reproduce:
+> 
+> sysctl.conf:
+> net.ipv4.ip_forward = 0                         
+> net.ipv4.conf.default.log_martians = 1          
+> net.ipv4.conf.all.log_martians = 1              
+> net.ipv4.conf.default.send_redirects = 0        
+> net.ipv4.ip_dynaddr = 0                         
+> net.ipv4.tcp_ecn = 0                            
+> net.ipv4.conf.default.rp_filter = 1             
+> net.ipv4.conf.all.rp_filter = 1                 
+> net.ipv4.tcp_syncookies = 1                                                 
+> net.ipv4.tcp_tw_recycle = 1                                                 
+> net.ipv4.tcp_tw_reuse = 1                                                   
+> net.ipv4.tcp_timestamps = 1
+> net.ipv4.tcp_synack_retries = 5
+> net.ipv4.conf.all.accept_source_route = 0
+> net.ipv4.conf.default.accept_source_route = 0
+> net.ipv4.conf.all.accept_redirects = 0
+> net.ipv4.conf.default.accept_redirects = 0
+> net.ipv4.conf.all.secure_redirects = 0
+> net.ipv4.conf.default.secure_redirects = 0
+> net.ipv4.icmp_echo_ignore_broadcasts = 1
+> kernel.panic = 5
+> net.ipv4.tcp_max_syn_backlog = 14096
+> net.ipv4.tcp_synack_retries = 5
+> net.ipv4.tcp_syn_retries = 5
+> net.ipv4.tcp_fin_timeout = 5
+> net.ipv4.tcp_keepalive_time = 7200
+> net.core.optmem_max = 655360
+> net.core.netdev_max_backlog = 40000
+> net.core.somaxconn = 40000
+> net.ipv4.tcp_max_tw_buckets = 580000
+> net.core.rmem_default = 262141
+> net.core.wmem_default = 262141
+> net.core.rmem_max = 25165824
+> net.core.wmem_max = 25165824
+> net.ipv4.tcp_rmem =  4096 262141 25165824
+> net.ipv4.tcp_wmem =  4096 262141 25165824
+> net.ipv4.tcp_no_metrics_save = 1
+> net.ipv4.tcp_mtu_probing = 1
+> net.ipv4.tcp_sack = 1
+> net.ipv4.tcp_dsack = 1
+> 
+> iptables rules-save:
+> # Generated by iptables-save v1.4.1.1 on Wed Sep 10 22:43:18 2008
+> *nat                                                             
+> :PREROUTING ACCEPT [72621:4808515]                               
+> :POSTROUTING ACCEPT [191712:11662324]                            
+> :OUTPUT ACCEPT [191712:11662324]                                 
+> COMMIT                                                           
+> # Completed on Wed Sep 10 22:43:18 2008                          
+> # Generated by iptables-save v1.4.1.1 on Wed Sep 10 22:43:18 2008
+> *mangle
+> :PREROUTING ACCEPT [16013862:7579402727]
+> :INPUT ACCEPT [16013694:7579367635]
+> :FORWARD ACCEPT [0:0]
+> :OUTPUT ACCEPT [9821064:22219526681]
+> :POSTROUTING ACCEPT [9821064:22219526681]
+> COMMIT
+> # Completed on Wed Sep 10 22:43:18 2008
+> # Generated by iptables-save v1.4.1.1 on Wed Sep 10 22:43:18 2008
+> *filter
+> :INPUT DROP [0:0]
+> :FORWARD ACCEPT [0:0]
+> :OUTPUT ACCEPT [12899:31686989]
+> :black - [0:0]
+> :block - [0:0]
+> :ddos - [0:0]
+> :synflood - [0:0]
+> :white - [0:0]
+> [18730:7560663] -A INPUT -j white
+> [0:0] -A INPUT -p icmp -j ACCEPT
+> [66:3612] -A INPUT -j block
+> [66:3612] -A INPUT -p tcp -m multiport --dports 80,22,443 -j ACCEPT
+> [66:3612] -A block -j black
+> [66:3612] -A block -j ddos
+> [19:1128] -A block -p tcp -m state --state NEW -j synflood
+> [0:0] -A synflood -p tcp -m multiport --dports ! 80,443 -m recent --set --name
+> BRUTE --rsource
+> [0:0] -A synflood -p tcp -m multiport --dports ! 80,443 -m recent --update
+> --seconds 10 --hitcount 15 --name BRUTE --rsource -j DROP
+> [2332:1074647] -A white -i lo -j ACCEPT
+> [16285:6479584] -A white -m state --state RELATED,ESTABLISHED -j ACCEPT
+> [47:2820] -A white -s 192.168.0.1/32 -j ACCEPT
+> [0:0] -A white -s 192.168.0.2/32 -j ACCEPT
+> COMMIT
+> # Completed on Wed Sep 10 22:43:18 2008
+> 
 
-Do you really want to delay execution for 250ms in worst case (timeout)
-scenarios? A msleep() would be more graceful.
-
-> +		count--;
-> +	}
-> +	return -ETIMEDOUT;
-> +}
-> +
-> +static int ql_write_mbox_reg(struct ql_adapter *qdev, u32 reg, u32 data)
-> +{
-> +	int status = 0;
-> +	/* wait for reg to come ready */
-> +	status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY);
-> +	if (status)
-> +		goto exit;
-> +	/* write the data to the data reg */
-> +	ql_write32(qdev, PROC_DATA, data);
-> +	/* trigger the write */
-> +	ql_write32(qdev, PROC_ADDR, reg);
-> +	/* wait for reg to come ready */
-> +	status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY);
-> +	if (status)
-> +		goto exit;
-
-These two lines above are redundant. You cold also avoid the goto with
-opening a new block after the first if. Or how about just...
-
-static int ql_write_mbox_reg(struct ql_adapter *qdev, u32 reg, u32 data)
-{
-	/* wait for reg to come ready */
-	if (ql_wait_addr_reg(qdev_ PROC_ADDR, PROC_ADDR_RDY)) {
-		/* write the data to the data reg */
-		ql_write32(qdev, PROC_DATA, data);
-		/* trigger the write */
-		ql_write32(qdev, PROC_ADDR, reg);
-	}
-
-	/* wait for reg to come ready */
-	return ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY);
-}
-
-... omitting the need for the status variable altogether.
-
-> +exit:
-> +	return status;
-> +}
-> +
-> +static int ql_read_mbox_reg(struct ql_adapter *qdev, u32 reg, u32 *data)
-> +{
-> +	int status = 0;
-
-Same here for the goto. And no need to initialize status with a constant
-which must be pulled from memory when there is no path using this
-default value anyway.
-
-> +	/* wait for reg to come ready */
-> +	status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY);
-> +	if (status)
-> +		goto exit;
-> +	/* set up for reg read */
-> +	ql_write32(qdev, PROC_ADDR, reg | PROC_ADDR_R);
-> +	/* wait for reg to come ready */
-> +	status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY);
-> +	if (status)
-> +		goto exit;
-> +	/* get the data */
-> +	*data = ql_read32(qdev, PROC_DATA);
-> +exit:
-> +	return status;
-> +}
-> +
-> +static int ql_exec_mb_cmd(struct ql_adapter *qdev, struct mbox_params *mbcp)
-> +{
-> +	int i, status;
-> +
-> +	/*
-> +	 * Make sure there's nothing pending.
-> +	 * This shouldn't happen.
-> +	 */
-> +	if (ql_read32(qdev, CSR) & CSR_HRI)
-> +		return -EBUSY;
-> +
-> +	status = ql_sem_spinlock(qdev, SEM_PROC_REG_MASK);
-> +	if (status)
-> +		return -EBUSY;
-> +	/*
-> +	 * Fill the outbound mailboxes.
-> +	 */
-> +	for (i = 0; i < mbcp->in_count; i++) {
-> +		status =
-> +		    ql_write_mbox_reg(qdev, qdev->mailbox_in + i,
-> +				      mbcp->mbox_in[i]);
-> +		if (status)
-> +			goto end;
-> +	}
-> +	/*
-> +	 * Wake up the MPI firmware.
-> +	 */
-> +	ql_write32(qdev, CSR, CSR_CMD_SET_H2R_INT);
-> +end:
-> +	ql_sem_unlock(qdev, SEM_PROC_REG_MASK);	/* does flush too */
-> +	return status;
-> +}
-> +
-> +int ql_get_mb_sts(struct ql_adapter *qdev, struct mbox_params *mbcp)
-> +{
-> +	int i, status = 0;
-
-Again, default value never used.
-
-> +
-> +	status = ql_sem_spinlock(qdev, SEM_PROC_REG_MASK);
-> +	if (status)
-> +		return -EBUSY;
-> +	for (i = 0; i < mbcp->out_count; i++) {
-> +		status =
-> +		    ql_read_mbox_reg(qdev, qdev->mailbox_out + i,
-> +				     &mbcp->mbox_out[i]);
-> +		if (status) {
-> +			QPRINTK(qdev, DRV, ERR, "Failed mailbox read.\n");
-> +			break;
-> +		}
-> +	}
-> +	ql_sem_unlock(qdev, SEM_PROC_REG_MASK);	/* does flush too */
-> +	return status;
-> +}
-> +
-> +static void ql_link_up(struct ql_adapter *qdev)
-> +{
-> +	struct mbox_params mbc;
-> +	struct mbox_params *mbcp = &mbc;
-> +	mbcp->out_count = 2;
-> +
-> +	if (ql_get_mb_sts(qdev, mbcp))
-> +		goto exit;
-> +
-> +	qdev->link_status = mbcp->mbox_out[1];
-> +	QPRINTK(qdev, DRV, ERR, "Link Up.\n");
-> +	QPRINTK(qdev, DRV, ERR, "Link Status = 0x%.08x.\n", mbcp->mbox_out[1]);
-> +	if (!netif_carrier_ok(qdev->ndev)) {
-> +		QPRINTK(qdev, LINK, INFO, "Link is Up.\n");
-> +		netif_carrier_on(qdev->ndev);
-> +		netif_wake_queue(qdev->ndev);
-> +	}
-> +exit:
-> +	/* Clear the MPI firmware status. */
-> +	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
-> +}
-> +
-> +static void ql_link_down(struct ql_adapter *qdev)
-> +{
-> +	struct mbox_params mbc;
-> +	struct mbox_params *mbcp = &mbc;
-> +	mbcp->out_count = 3;
-> +
-> +	if (ql_get_mb_sts(qdev, mbcp)) {
-> +		QPRINTK(qdev, DRV, ERR, "Firmware did not initialize!\n");
-> +		goto exit;
-> +	}
-> +
-> +	if (netif_carrier_ok(qdev->ndev)) {
-> +		QPRINTK(qdev, LINK, INFO, "Link is Down.\n");
-> +		netif_carrier_off(qdev->ndev);
-> +		netif_stop_queue(qdev->ndev);
-> +	}
-> +	QPRINTK(qdev, DRV, ERR, "Link Down.\n");
-> +	QPRINTK(qdev, DRV, ERR, "Link Status = 0x%.08x.\n", mbcp->mbox_out[1]);
-> +exit:
-> +	/* Clear the MPI firmware status. */
-> +	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
-> +}
-> +
-> +static void ql_init_fw_done(struct ql_adapter *qdev)
-> +{
-> +	struct mbox_params mbc;
-> +	struct mbox_params *mbcp = &mbc;
-> +	mbcp->out_count = 2;
-> +
-> +	if (ql_get_mb_sts(qdev, mbcp)) {
-> +		QPRINTK(qdev, DRV, ERR, "Firmware did not initialize!\n");
-> +		goto exit;
-> +	}
-> +	QPRINTK(qdev, DRV, ERR, "Firmware initialized!\n");
-> +	QPRINTK(qdev, DRV, ERR, "Firmware status = 0x%.08x.\n",
-> +		mbcp->mbox_out[0]);
-> +	QPRINTK(qdev, DRV, ERR, "Firmware Revision  = 0x%.08x.\n",
-> +		mbcp->mbox_out[1]);
-> +exit:
-> +	/* Clear the MPI firmware status. */
-> +	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
-> +}
-> +
-> +void ql_mpi_work(struct work_struct *work)
-> +{
-> +	struct ql_adapter *qdev =
-> +	    container_of(work, struct ql_adapter, mpi_work.work);
-> +	struct mbox_params mbc;
-> +	struct mbox_params *mbcp = &mbc;
-> +	mbcp->out_count = 1;
-> +
-> +	while (ql_read32(qdev, STS) & STS_PI) {
-> +		if (ql_get_mb_sts(qdev, mbcp)) {
-> +			QPRINTK(qdev, DRV, ERR,
-> +				"Could not read MPI, resetting ASIC!\n");
-> +			ql_queue_asic_error(qdev);
-> +		}
-> +
-> +		switch (mbcp->mbox_out[0]) {
-> +		case AEN_LINK_UP:
-> +			ql_link_up(qdev);
-> +			break;
-> +		case AEN_LINK_DOWN:
-> +			ql_link_down(qdev);
-> +			break;
-> +		case AEN_FW_INIT_DONE:
-> +#ifdef PALLADIUM
-> +/* Palladium Workaround Start */
-> +		case 0:
-> +/* Palladium Workaround End */
-> +#endif
-> +			ql_init_fw_done(qdev);
-> +			break;
-> +		case AEN_FW_INIT_FAIL:
-> +			break;
-
-No breaking here...
-
-> +		case AEN_SYS_ERR:
-> +			break;
-
-...and here necessary to make things more consistent with the lines
-below. (Having no default seems ok here.)
-
-> +		case MB_CMD_STS_GOOD:
-> +		case MB_CMD_STS_INTRMDT:
-> +		case MB_CMD_STS_ERR:
-> +		case AEN_IDC_CMPLT:
-> +		case AEN_IDC_REQ:
-> +			break;
-> +
-> +		}
-> +	}
-> +	ql_enable_completion_interrupt(qdev, 0);
-> +}
-> +
-> +void ql_mpi_reset_work(struct work_struct *work)
-> +{
-> +	struct ql_adapter *qdev =
-> +	    container_of(work, struct ql_adapter, mpi_reset_work.work);
-> +	printk(KERN_ERR "%s: Enter, qdev = %p..\n", __func__, qdev);
-> +}
-
-Another inconsistency: you're not using QPRINTK() like before. Is this
-intended?
-
-
-Franco
