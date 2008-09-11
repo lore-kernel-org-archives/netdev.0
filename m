@@ -1,67 +1,69 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Thu, 11 Sep 2008 15:12:22 -0300
-Message-ID: <20080911151222.0ce12158@tux>
-References: <20080819213417.45133573@tux>
-	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
-	<20080822183224.2d52f16c@tux>
-	<20080822.143709.65615512.davem@davemloft.net>
-	<20080823111446.06a350a2@tux>
-	<Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
-	<20080824163843.33b4f890@tux>
-	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
-	<20080826141812.589848a0@tux>
-	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
-	<20080828184919.611dd578@tux>
-	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
-	<20080830035650.42be37d7@tux>
-	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
-	<20080907051718.58bf133d@tux>
-	<Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
-	<20080908172043.0d25a427@tux>
-	<Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
+From: "Andrew Grover" <andy.grover@gmail.com>
+Subject: Re: [PATCH] RDS: Add AF and PF defines for RDS sockets
+Date: Thu, 11 Sep 2008 11:44:39 -0700
+Message-ID: <c0a09e5c0809111144v7f7db03es963aa222147dc3a3@mail.gmail.com>
+References: <75428E88-423C-492F-AE72-3157D968DC04@holtmann.org>
+	 <20080825.212914.197506339.davem@davemloft.net>
+	 <1219907200.7107.228.camel@pmac.infradead.org>
+	 <20080828.002457.26700892.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: dwmw2@infradead.org, marcel@holtmann.org, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:38711 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752661AbYIKSol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 14:44:41 -0400
+Received: by gxk9 with SMTP id 9so17198579gxk.13
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 11:44:40 -0700 (PDT)
+In-Reply-To: <20080828.002457.26700892.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Sep 2008 16:44:20 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+(reviving an old thread, new comments at bottom)
 
-> ...I guess it would be possible to remove SCHED_FEAT_HRTICK from
-> /proc/sys/kernel/sched_features then while keeping the hrtimers
-> otherwise enabled to test this.
->=20
-> It's possible that hrtimers just affect on how easy it is to trigger
-> but at least it seems an useful lead until proven otherwise.
+On Thu, Aug 28, 2008 at 12:24 AM, David Miller <davem@davemloft.net> wrote:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Thu, 28 Aug 2008 08:06:40 +0100
+>
+>> On Mon, 2008-08-25 at 21:29 -0700, David Miller wrote:
+>> > From: Marcel Holtmann <marcel@holtmann.org>
+>> > Date: Tue, 26 Aug 2008 06:16:28 +0200
+>> >
+>> > > and where is the protocol? Adding new constants without posting the
+>> > > implementation normally doesn't fly anymore.
+>> >
+>> > That's correct :)
+>>
+>> That's kind of unfortunate, and leads to the problems we have with
+>> compatibility for AF_ISDN, where userspace built for the _older_
+>> versions has a different value.
+>>
+>> Is there really any harm in reserving it up-front?
+>
+> If you're commiting a userspace to a kernel component
+> that hasn't been blessed upstream yet, you're already
+> up the creek without a paddle.
 
-	Well, I have a new suspect now: ntpd. It seems that when ntpd
-syncs the clock, the problem happens (just a guess):
+The RDS protocol is already in production use by Oracle, and has been
+in the OFED distribution for a long time. It's under active
+development, and we'll be submitting it soon for mainline.
 
-Sep 11 13:55:31 tux ntpd[2652]: synchronized to 143.107.255.15, stratum=
- 2=20
-Sep 11 13:55:31 tux ntpd[2652]: kernel time sync enabled 0001
+So userspace is already committed to a kernel component that isn't in
+mainline, and we *are* up a creek a little bit. User code has to do
+some hacky things to determine RDS's protocol number (it's variable).
+The sooner we get an actual number allocated, the sooner userspace can
+start using it, and start the clock ticking on when it can remove the
+old variable protocol num hack.
 
-	I disabled ntpd (and I'll just sync the clock with ntpdate just one=20
-time at the boot) and see what happens. I think the problem could be re=
-lated
-to this, since "sudo" is affected too and as far as I know, sudo is ver=
-y=20
-sensible to timer.
+Basically: we're gonna submit the code. Who knows how many rounds of
+reviews it will take before it goes in, but we're committed to getting
+it in. We just want a number now so userspace can start doing things
+correctly right away.
 
+Let me know and I can repost the patch.
 
---=20
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards -- Andy
