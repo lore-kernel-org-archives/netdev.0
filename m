@@ -1,39 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tg3: Avoid Send BD corruption
-Date: Thu, 11 Sep 2008 16:01:17 -0700 (PDT)
-Message-ID: <20080911.160117.118147467.davem@davemloft.net>
-References: <20080911165913.GA27725@xw6200.broadcom.net>
-	<20080911.145154.112457696.davem@davemloft.net>
-	<1221173758.12785.32.camel@HP1>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2008-09-11
+Date: Thu, 11 Sep 2008 16:04:12 -0700 (PDT)
+Message-ID: <20080911.160412.204624680.davem@davemloft.net>
+References: <20080911203205.GK3423@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org, andy@greyhouse.net
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57547
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753439AbYIKXBX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 19:01:23 -0400
-In-Reply-To: <1221173758.12785.32.camel@HP1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080911203205.GK3423-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 11 Sep 2008 15:55:58 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 11 Sep 2008 16:32:05 -0400
 
-> Send BD corruption is quite serious as it can cause tg3_tx() to crash.
-> We've seen a number of similar crashes over the years caused by
-> re-ordered IOs and the nr_frags getting modified by HTB.
+> The latest round of patches intended for 2.6.28.  Johannes has returned,
+> so there is of course a ton of mac80211 stuff (mostly cleanups, etc).  :-)
 > 
-> Since regression/security/oops fixes are allowed, shouldn't this qualify
-> since it prevents a crash in tg3_tx()?
+> Please let me know if there are problems!
 
-It's at best borderline, since tg3_tx() has reordering detection logic
-which will reset and recover the card.
+Pulled and pushed back out to net-next-2.6, thanks John.  I'll
+deal with the merge conflict you mentioned next.
 
-Until I see a real user trigger this I'm still leaning towards no.
+Wireless is accumulating lots more warnings during the build for
+me, please look into this.
 
-Otherwise any driver maintainer can give me this spiel to get their
-changes installed outside of the merge window, and that subverts the
-entire purpose of the rules.
+Thanks again.
+
+drivers/net/wireless/orinoco.c: In function 'orinoco_ioctl_get_encodeext':
+drivers/net/wireless/orinoco.c:4780: warning: comparison of distinct pointer types lacks a cast
+drivers/net/wireless/orinoco.c: In function 'orinoco_translate_ext_scan':
+drivers/net/wireless/orinoco.c:5691: warning: format '%016llx' expects type 'long long unsigned int', but argument 4 has type 'long unsigned int'
+drivers/net/wireless/orinoco.c:5691: warning: format '%016llx' expects type 'long long unsigned int', but argument 4 has type 'long unsigned int'
+drivers/net/wireless/b43/phy_g.c: In function 'b43_gphy_op_recalc_txpower':
+drivers/net/wireless/b43/phy_g.c:3191: warning: unused variable 'dbm'
+drivers/net/wireless/iwlwifi/iwl-scan.c:92: warning: 'iwl_escape_essid' defined but not used
+drivers/net/wireless/libertas/cmd.c: In function 'lbs_set_channel':
+drivers/net/wireless/libertas/cmd.c:861: warning: unused variable 'old_channel'
+drivers/net/wireless/libertas_tf/if_usb.c: In function '__if_usb_submit_rx_urb':
+drivers/net/wireless/libertas_tf/if_usb.c:334: warning: cast to pointer from integer of different size
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
