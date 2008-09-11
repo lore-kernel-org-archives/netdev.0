@@ -1,60 +1,245 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [BUG?] sendfile / distcc
-Date: Thu, 11 Sep 2008 10:26:47 +0200
-Message-ID: <1221121607.4415.1073.camel@twins.programming.kicks-ass.net>
-References: <1221038871.2442.86.camel@twins.programming.kicks-ass.net>
-	 <20080910234429.1a8bfa1f.akpm@linux-foundation.org>
+From: Franco Fichtner <franco@marian.de>
+Subject: Re: [PATCH 5/8] [RFC] qlge: Add main source module qlge_main.c
+Date: Thu, 11 Sep 2008 10:39:19 +0200
+Message-ID: <48C8D937.5020708@marian.de>
+References: <20080910205813.GA13266@susedev.qlogic.org> <12210803433594-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-driver@qlogic.com
+To: Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:43365 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806AbYIKI0u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 04:26:50 -0400
-In-Reply-To: <20080910234429.1a8bfa1f.akpm@linux-foundation.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:58588 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751595AbYIKIj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 04:39:58 -0400
+In-Reply-To: <12210803433594-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-09-10 at 23:44 -0700, Andrew Morton wrote:
-> On Wed, 10 Sep 2008 11:27:51 +0200 Peter Zijlstra <peterz@infradead.org> wrote:
-> 
-> > Hi,
-> > 
-> > I've been seeing this for a while now, but its still present with -rc5+
-> > kernels. Its always the local machine failing, never the remotes.
-> > 
-> > [root@twins linux-2.6-rt]# nice ./k opteron build
-> > time distmake x86_64 O=opteron-build ARCH=x86_64
-> > testing twins:    distccd running
-> > testing opteron:  DOWN
-> > testing taijtu:   distccd running
-> > testing dyad:     distccd running
-> > testing lappy:    host running
-> > testing ubuntu:   host running
-> > DISTCC_HOSTS= twins/8 taijtu/32 dyad/32
-> > DISTCC_DIR=/dev/shm/distcc
-> > DISTCC_SLOTS=72
-> > 
-> > ...
-> > 
-> > distcc[9931] (dcc_writex) ERROR: failed to write: Connection reset by peer
-> > distcc[9931] Warning: failed to distribute /mnt/build/linux-2.6-rt/kernel/fork.c to twins/8, running locally instead
-> > 
-> > ...
-> > 
-> > distcc[12078] (dcc_pump_sendfile) ERROR: sendfile failed: Connection reset by peer
-> > distcc[12078] (dcc_readx) ERROR: unexpected eof on fd4
-> > distcc[12078] (dcc_r_token_int) ERROR: read failed while waiting for token "DONE"
-> > distcc[12078] Warning: failed to distribute /mnt/build/linux-2.6-rt/init/version.c to twins/8, running locally instead
-> > 
-> 
-> distcc is very good at breaking networking.  I assume 2.6.26 is OK?
+Ron Mercer wrote:
 
-I think it was - whew .26 was a long time ago already ;-)
+[snipped some code]
 
-I'll build and boot one today to confirm.
+> +static int ql_wait_port_init_cmplt(struct ql_adapter *qdev)
+> +{
+> +	int count = 100;
+> +	u32 temp;
+> +
+> +	while (count) {
+> +		temp = ql_read32(qdev, STS);
+> +		if (temp & qdev->port_init)
+> +			return 0;
+> +		mdelay(5);
 
+Wrost case: delaying for 500ms... msleep() here please.
+
+> +		QPRINTK(qdev, LINK, INFO, "Wait for MAC Port to Initialize.\n");
+
+I don't know what QPRINTK does, but it gets executed 100 times. That
+can't possibly be intended?
+
+> +		count--;
+> +	}
+> +	return -ETIMEDOUT;
+> +}
+> +
+> +/* The CFG register is used to download TX and RX control blocks
+> + * to the chip. This function waits for an operation to complete.
+> + */
+> +static int ql_wait_cfg(struct ql_adapter *qdev, u32 bit)
+> +{
+> +	int count = MSLEEP_COUNT;
+> +	u32 temp;
+> +
+> +	while (count) {
+> +		temp = ql_read32(qdev, CFG);
+> +		if (!(temp & bit))
+> +			return 0;
+> +		if (temp & CFG_LE)
+> +			return -EIO;
+> +		spin_unlock(&qdev->hw_lock);
+> +		msleep(MSLEEP_DELAY);
+> +		spin_lock(&qdev->hw_lock);
+
+If this is why mdelay() is used in the other places... keeping the locks
+shouldn't hurt when changing them to msleep()? I don't see how a
+possible deadlock could occur in the mdelay() scenarios. And besides, 
+you seem to operate your spinlocks on a higher level than e.g. this
+function? Wouldn't that render multi-cpu usage pratically useless?
+
+> +		count--;
+> +	}
+> +	return -ETIMEDOUT;
+> +}
+> +
+> +/* Used to issue init control blocks to hw. Maps control block,
+> + * sets address, triggers download, waits for completion.
+> + */
+> +int ql_write_cfg(struct ql_adapter *qdev, void *ptr, int size, u32 bit,
+> +		 u16 q_id)
+> +{
+> +	u64 map;
+> +	int status = 0;
+> +	int direction;
+> +	u32 mask;
+> +	u32 value;
+> +
+> +	direction =
+> +	    (bit & (CFG_LRQ | CFG_LR | CFG_LCQ)) ? PCI_DMA_TODEVICE :
+> +	    PCI_DMA_FROMDEVICE;
+> +
+> +	map = pci_map_single(qdev->pdev, ptr, size, direction);
+> +	if (pci_dma_mapping_error(map)) {
+> +		QPRINTK(qdev, IFUP, ERR, "Couldn't map DMA area.\n");
+> +		return -ENOMEM;
+> +	}
+> +
+> +	status = ql_wait_cfg(qdev, bit);
+> +	if (status) {
+> +		QPRINTK(qdev, IFUP, ERR,
+> +			"Timed out waiting for CFG to come ready.\n");
+> +		goto exit;
+> +	}
+> +
+> +	status = ql_sem_spinlock(qdev, SEM_ICB_MASK);
+> +	if (status)
+> +		goto exit;
+> +	ql_write32(qdev, ICB_L, (u32) map);
+> +	ql_write32(qdev, ICB_H, (u32) (map >> 32));
+> +	ql_sem_unlock(qdev, SEM_ICB_MASK);	/* does flush too */
+> +
+> +	mask = CFG_Q_MASK | (bit << 16);
+> +	value = bit | (q_id << CFG_Q_SHIFT);
+> +	ql_write32(qdev, CFG, (mask | value));
+> +
+> +	/*
+> +	 * Wait for the bit to clear after signaling hw.
+> +	 */
+> +	status = ql_wait_cfg(qdev, bit);
+> +exit:
+> +	pci_unmap_single(qdev->pdev, map, size, direction);
+> +	return status;
+> +}
+> +
+> +/* This chip has several addr/data register pairs that are used
+> + * to index into another set of registers.  This function waits
+> + * for a specified register set to be ready for access.
+> + * Examples would be setting up the CAM with MAC addresses, setting
+> + * up the frame routing table.
+> + */
+> +static int ql_wait_idx_reg(struct ql_adapter *qdev, u32 reg, u32 flag)
+> +{
+> +	int count = 200;
+> +	u32 temp;
+> +
+> +	while (count) {
+> +		temp = ql_read32(qdev, reg);
+> +		if (temp & flag)
+> +			return 0;
+> +		mdelay(5);
+
+Delaying for a 1000ms worst case.
+
+> +		count--;
+> +	}
+> +	return -ETIMEDOUT;
+> +}
+
+[snipped more code]
+
+> +static int ql_port_initialize(struct ql_adapter *qdev)
+> +{
+> +	int status = 0;
+> +	u32 data;
+> +
+> +	if (ql_sem_trylock(qdev, qdev->xg_sem_mask)) {
+> +		/* Another function has the semaphore, so
+> +		 * wait for the port init bit to come ready.
+> +		 */
+> +		QPRINTK(qdev, LINK, INFO,
+> +			"Another function has the semaphore, so wait for the port init bit to come ready.\n");
+> +		status = ql_wait_port_init_cmplt(qdev);
+> +		if (status) {
+> +			QPRINTK(qdev, LINK, CRIT,
+> +				"Port initialize timed out.\n");
+> +		}
+> +		return status;
+> +	}
+> +
+> +	QPRINTK(qdev, LINK, INFO, "Got xgmac semaphore!.\n");
+> +	/* Set the core reset. */
+> +	status = ql_read_xgmac_reg(qdev, GLOBAL_CFG, &data);
+> +	if (status)
+> +		goto end;
+> +	data |= GLOBAL_CFG_RESET;
+> +	status = ql_write_xgmac_reg(qdev, GLOBAL_CFG, data);
+> +	if (status)
+> +		goto end;
+> +
+> +	mdelay(100);
+
+Again.
+
+> +
+> +	/* Clear the core reset and turn on jumbo for receiver. */
+> +	data &= ~GLOBAL_CFG_RESET;	/* Clear core reset. */
+> +	data |= GLOBAL_CFG_JUMBO;	/* Turn on jumbo. */
+> +	data |= GLOBAL_CFG_TX_STAT_EN;
+> +	data |= GLOBAL_CFG_RX_STAT_EN;
+> +	status = ql_write_xgmac_reg(qdev, GLOBAL_CFG, data);
+> +	if (status)
+> +		goto end;
+> +
+> +	/* Enable transmitter, and clear it's reset. */
+> +	status = ql_read_xgmac_reg(qdev, TX_CFG, &data);
+> +	if (status)
+> +		goto end;
+> +	data &= ~TX_CFG_RESET;	/* Clear the TX MAC reset. */
+> +	data |= TX_CFG_EN;	/* Enable the transmitter. */
+> +	status = ql_write_xgmac_reg(qdev, TX_CFG, data);
+> +	if (status)
+> +		goto end;
+> +
+> +	/* Enable receiver and clear it's reset. */
+> +	status = ql_read_xgmac_reg(qdev, RX_CFG, &data);
+> +	if (status)
+> +		goto end;
+> +	data &= ~RX_CFG_RESET;	/* Clear the RX MAC reset. */
+> +	data |= RX_CFG_EN;	/* Enable the receiver. */
+> +	status = ql_write_xgmac_reg(qdev, RX_CFG, data);
+> +	if (status)
+> +		goto end;
+> +
+> +	/* Turn on jumbo. */
+> +	status =
+> +	    ql_write_xgmac_reg(qdev, MAC_TX_PARAMS, MAC_TX_PARAMS_JUMBO | (0x2580 << 16));
+> +	if (status)
+> +		goto end;
+> +	status =
+> +	    ql_write_xgmac_reg(qdev, MAC_RX_PARAMS, 0x2580);
+> +	if (status)
+> +		goto end;
+> +
+> +	/* Signal to the world that the port is enabled.        */
+> +	ql_write32(qdev, STS, ((qdev->port_init << 16) | qdev->port_init));
+> +end:
+> +	ql_sem_unlock(qdev, qdev->xg_sem_mask);
+> +	return status;
+> +}
+> +
+> +/* Get the next large buffer. */
+> +struct bq_desc *ql_get_curr_lbuf(struct rx_ring *rx_ring)
+> +{
+> +	struct bq_desc *lbq_desc = &rx_ring->lbq[rx_ring->lbq_curr_idx];
+> +	rx_ring->lbq_curr_idx++;
+> +	if (rx_ring->lbq_curr_idx == rx_ring->lbq_len)
+> +		rx_ring->lbq_curr_idx = 0;
+> +	rx_ring->lbq_free_cnt++;
+> +	return lbq_desc;
+> +}
+
+[ remaining code snipped, a bit too much for today ]
+
+
+Franco
