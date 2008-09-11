@@ -1,60 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] RDS: Add AF and PF defines for RDS sockets
-Date: Thu, 11 Sep 2008 14:54:41 -0700 (PDT)
-Message-ID: <20080911.145441.258824332.davem@davemloft.net>
-References: <1219907200.7107.228.camel@pmac.infradead.org>
-	<20080828.002457.26700892.davem@davemloft.net>
-	<c0a09e5c0809111144v7f7db03es963aa222147dc3a3@mail.gmail.com>
+Subject: Re: xfrm_state locking regression...
+Date: Thu, 11 Sep 2008 15:00:06 -0700 (PDT)
+Message-ID: <20080911.150006.53056393.davem@davemloft.net>
+References: <20080908.172513.162820960.davem@davemloft.net>
+	<20080909143312.GA29952@gondor.apana.org.au>
+	<20080911212459.GL6693@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dwmw2@infradead.org, marcel@holtmann.org, netdev@vger.kernel.org
-To: andy.grover@gmail.com
+Cc: herbert@gondor.apana.org.au, timo.teras@iki.fi,
+	netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37957
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38588
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753439AbYIKVys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 17:54:48 -0400
-In-Reply-To: <c0a09e5c0809111144v7f7db03es963aa222147dc3a3@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752384AbYIKWAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 18:00:12 -0400
+In-Reply-To: <20080911212459.GL6693@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Andrew Grover" <andy.grover@gmail.com>
-Date: Thu, 11 Sep 2008 11:44:39 -0700
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Thu, 11 Sep 2008 14:24:59 -0700
 
-> (reviving an old thread, new comments at bottom)
+> On Wed, Sep 10, 2008 at 12:33:12AM +1000, Herbert Xu wrote:
+> > On Mon, Sep 08, 2008 at 05:25:13PM -0700, David Miller wrote:
+> > > 
+> > > The only comment I would make is that maybe it's a bit excessive
+> > > to trigger the GC worker every time we walk the states.
+> > 
+> > Good point!
+> > 
+> > I've avoided the memory barrier by simply extending the mutexed
+> > section in the GC to cover the list splicing.  Here's the updated
+> > patch:
+> > 
+> > ipsec: Use RCU-like construct for saved state within a walk
+> > 
+> > Now that we save states within a walk we need synchronisation
+> > so that the list the saved state is on doesn't disappear from
+> > under us.
+> > 
+> > As it stands this is done by keeping the state on the list which
+> > is bad because it gets in the way of the management of the state
+> > life-cycle.
+> > 
+> > An alternative is to make our own pseudo-RCU system where we use
+> > counters to indicate which state can't be freed immediately as
+> > it may be referenced by an ongoing walk when that resumes.
 > 
-> On Thu, Aug 28, 2008 at 12:24 AM, David Miller <davem@davemloft.net> wrote:
-> > From: David Woodhouse <dwmw2@infradead.org>
-> > Date: Thu, 28 Aug 2008 08:06:40 +0100
-> >
-> >> On Mon, 2008-08-25 at 21:29 -0700, David Miller wrote:
-> >> > From: Marcel Holtmann <marcel@holtmann.org>
-> >> > Date: Tue, 26 Aug 2008 06:16:28 +0200
-> >> >
-> >> > > and where is the protocol? Adding new constants without posting the
-> >> > > implementation normally doesn't fly anymore.
-> >> >
-> >> > That's correct :)
-> >>
-> >> That's kind of unfortunate, and leads to the problems we have with
-> >> compatibility for AF_ISDN, where userspace built for the _older_
-> >> versions has a different value.
-> >>
-> >> Is there really any harm in reserving it up-front?
-> >
-> > If you're commiting a userspace to a kernel component
-> > that hasn't been blessed upstream yet, you're already
-> > up the creek without a paddle.
-> 
-> The RDS protocol is already in production use by Oracle, and has been
-> in the OFED distribution for a long time. It's under active
-> development, and we'll be submitting it soon for mainline.
+> There is only one reader at a time, right?  Otherwise, I don't see how
+> the increments and reads of xfrm_state_walk_completed line up.
 
-So?!??!  Upstream doesn't give a crap about what someone is happening
-internally.  It doesn't matter, it's irrelevant.
-
-> We just want a number now so userspace can start doing things
-> correctly right away.
-
-N-O spells "no".
+The RTNL semaphore is held across the modifications of the counters.
