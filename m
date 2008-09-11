@@ -1,37 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
-	dev_deactivate() race
-Date: Thu, 11 Sep 2008 20:45:31 +1000
-Message-ID: <20080911104531.GA21913@gondor.apana.org.au>
-References: <20080821064941.GA2764@ff.dom.local> <20080821071634.GA1269@gondor.apana.org.au> <20080821.005250.117238212.davem@davemloft.net> <20080911.033956.233317469.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] XFRM: MIGRATE enhancements
+Date: Thu, 11 Sep 2008 03:47:41 -0700 (PDT)
+Message-ID: <20080911.034741.263645111.davem@davemloft.net>
+References: <8763puwrm8.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shinta@sfc.wide.ad.jp,
+	nakam@linux-ipv6.org, yoshfuji@linux-ipv6.org
+To: arno@natisbad.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48948 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752223AbYIKKpi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 06:45:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20080911.033956.233317469.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47465
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752406AbYIKKrr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 06:47:47 -0400
+In-Reply-To: <8763puwrm8.fsf@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2008 at 03:39:56AM -0700, David Miller wrote:
->
-> I got to looking into this and we do need the qdisc->dev_queue member,
-> see qdisc_run().  So it's not like we can get rid of it if we replace
-> it with ->netdevdev and add a ->root_qdisc backpointer as well.
+From: arno@natisbad.org (Arnaud Ebalard)
+Date: Thu, 21 Aug 2008 13:10:39 +0200
 
-That can't be right.  Let's I've got a single qdisc shared by
-n queues.  It makes no sense for qdisc_run to decide to whether
-it should process the qdisc depending on the status of a single
-one out of the n queues.
+> XFRM: MIGRATE enhancements (draft-ebalard-mext-pfkey-enhanced-migrate)
+> 
+> Provides implementation of the enhancements of XFRM/PF_KEY MIGRATE mechanism
+> specified in draft-ebalard-mext-pfkey-enhanced-migrate-00. Defines associated
+> PF_KEY SADB_X_EXT_KMADDRESS extension XFMR/netlink XFRMA_KMADDRESS attribute.
+> 
+> Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm mostly ok with this, but:
+
+> @@ -1745,18 +1753,19 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  {
+>  	struct xfrm_userpolicy_id *pi = nlmsg_data(nlh);
+>  	struct xfrm_migrate m[XFRM_MAX_DEPTH];
+> +	struct xfrm_kmaddress km;
+>  	u8 type;
+>  	int err;
+>  	int n = 0;
+>  
+> -	if (attrs[XFRMA_MIGRATE] == NULL)
+> +	if (attrs[XFRMA_MIGRATE] == NULL || attrs[XFRMA_KMADDRESS] == NULL)
+>  		return -EINVAL;
+
+This part I don't like.
+
+This is a new restriction and will break old binaries.
+
+Can't we cook up some kind of default kmaddress object it none is
+specified by the user?  Alternatively, if we are in an environment
+where the tools don't understand this facility, they won't care
+what the kmaddress even is.
+
+Generally speaking, when extending existing facilities with new
+attributes, you cannot make their existence suddenly a requirement.
+That breaks stuff.
