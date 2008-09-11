@@ -1,184 +1,80 @@
-From: Sebastien Dugue <sebastien.dugue@bull.net>
-Subject: [PATCH 2/2] ehea: fix mutex and spinlock use
-Date: Thu, 11 Sep 2008 15:34:40 +0200
-Message-ID: <1221140080-9853-3-git-send-email-sebastien.dugue@bull.net>
-References: <1221140080-9853-1-git-send-email-sebastien.dugue@bull.net>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	themann@de.ibm.com, tklein@de.ibm.com, raisch@de.ibm.com,
-	jeff@garzik.org, jean-pierre.dion@bull.net,
-	gilles.carry@ext.bull.net, tinytim@us.ibm.com,
-	sebastien.dugue@bull.net
-To: linuxppc-dev@ozlabs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:37221 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753135AbYIKNfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 09:35:00 -0400
-In-Reply-To: <1221140080-9853-1-git-send-email-sebastien.dugue@bull.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+Date: Thu, 11 Sep 2008 16:44:20 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
+References: <20080819213417.45133573@tux> <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
+ <20080822183224.2d52f16c@tux> <20080822.143709.65615512.davem@davemloft.net>
+ <20080823111446.06a350a2@tux> <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
+ <20080824163843.33b4f890@tux> <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
+ <20080826141812.589848a0@tux> <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+ <20080828184919.611dd578@tux> <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
+ <20080830035650.42be37d7@tux> <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
+ <20080907051718.58bf133d@tux> <Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
+ <20080908172043.0d25a427@tux>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1835775364-1221029381=:24708"
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080908172043.0d25a427@tux>
+Content-ID: <Pine.LNX.4.64.0809111637380.1034@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  Looks like to me that the ehea_fw_handles.lock mutex and the
-ehea_bcmc_regs.lock spinlock are taken much longer than necessary and could
-as well be pushed inside the functions that need them
-(ehea_update_firmware_handles() and ehea_update_bcmc_registrations())
-rather than at each callsite.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Sebastien Dugue <sebastien.dugue@bull.net>
----
- drivers/net/ehea/ehea_main.c |   26 ++++----------------------
- 1 files changed, 4 insertions(+), 22 deletions(-)
+---696208474-1835775364-1221029381=:24708
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0809111637381.1034@wrl-59.cs.helsinki.fi>
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index b70c531..c765ec6 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -219,9 +219,11 @@ static void ehea_update_firmware_handles(void)
- 	}
- 
- out_update:
-+	mutex_lock(&ehea_fw_handles.lock);
- 	kfree(ehea_fw_handles.arr);
- 	ehea_fw_handles.arr = arr;
- 	ehea_fw_handles.num_entries = i;
-+	mutex_unlock(&ehea_fw_handles.lock);
- }
- 
- static void ehea_update_bcmc_registrations(void)
-@@ -293,9 +295,11 @@ static void ehea_update_bcmc_registrations(void)
- 	}
- 
- out_update:
-+	spin_lock(&ehea_bcmc_regs.lock);
- 	kfree(ehea_bcmc_regs.arr);
- 	ehea_bcmc_regs.arr = arr;
- 	ehea_bcmc_regs.num_entries = i;
-+	spin_unlock(&ehea_bcmc_regs.lock);
- }
- 
- static struct net_device_stats *ehea_get_stats(struct net_device *dev)
-@@ -1770,8 +1774,6 @@ static int ehea_set_mac_addr(struct net_device *dev, void *sa)
- 
- 	memcpy(dev->dev_addr, mac_addr->sa_data, dev->addr_len);
- 
--	spin_lock(&ehea_bcmc_regs.lock);
--
- 	/* Deregister old MAC in pHYP */
- 	if (port->state == EHEA_PORT_UP) {
- 		ret = ehea_broadcast_reg_helper(port, H_DEREG_BCMC);
-@@ -1792,7 +1794,6 @@ static int ehea_set_mac_addr(struct net_device *dev, void *sa)
- 
- out_upregs:
- 	ehea_update_bcmc_registrations();
--	spin_unlock(&ehea_bcmc_regs.lock);
- out_free:
- 	kfree(cb0);
- out:
-@@ -1954,8 +1955,6 @@ static void ehea_set_multicast_list(struct net_device *dev)
- 	}
- 	ehea_promiscuous(dev, 0);
- 
--	spin_lock(&ehea_bcmc_regs.lock);
--
- 	if (dev->flags & IFF_ALLMULTI) {
- 		ehea_allmulti(dev, 1);
- 		goto out;
-@@ -1985,7 +1984,6 @@ static void ehea_set_multicast_list(struct net_device *dev)
- 	}
- out:
- 	ehea_update_bcmc_registrations();
--	spin_unlock(&ehea_bcmc_regs.lock);
- 	return;
- }
- 
-@@ -2466,8 +2464,6 @@ static int ehea_up(struct net_device *dev)
- 	if (port->state == EHEA_PORT_UP)
- 		return 0;
- 
--	mutex_lock(&ehea_fw_handles.lock);
--
- 	ret = ehea_port_res_setup(port, port->num_def_qps,
- 				  port->num_add_tx_qps);
- 	if (ret) {
-@@ -2504,8 +2500,6 @@ static int ehea_up(struct net_device *dev)
- 		}
- 	}
- 
--	spin_lock(&ehea_bcmc_regs.lock);
--
- 	ret = ehea_broadcast_reg_helper(port, H_REG_BCMC);
- 	if (ret) {
- 		ret = -EIO;
-@@ -2527,10 +2521,8 @@ out:
- 		ehea_info("Failed starting %s. ret=%i", dev->name, ret);
- 
- 	ehea_update_bcmc_registrations();
--	spin_unlock(&ehea_bcmc_regs.lock);
- 
- 	ehea_update_firmware_handles();
--	mutex_unlock(&ehea_fw_handles.lock);
- 
- 	return ret;
- }
-@@ -2580,9 +2572,6 @@ static int ehea_down(struct net_device *dev)
- 	if (port->state == EHEA_PORT_DOWN)
- 		return 0;
- 
--	mutex_lock(&ehea_fw_handles.lock);
--
--	spin_lock(&ehea_bcmc_regs.lock);
- 	ehea_drop_multicast_list(dev);
- 	ehea_broadcast_reg_helper(port, H_DEREG_BCMC);
- 
-@@ -2591,7 +2580,6 @@ static int ehea_down(struct net_device *dev)
- 	port->state = EHEA_PORT_DOWN;
- 
- 	ehea_update_bcmc_registrations();
--	spin_unlock(&ehea_bcmc_regs.lock);
- 
- 	ret = ehea_clean_all_portres(port);
- 	if (ret)
-@@ -2599,7 +2587,6 @@ static int ehea_down(struct net_device *dev)
- 			  dev->name, ret);
- 
- 	ehea_update_firmware_handles();
--	mutex_unlock(&ehea_fw_handles.lock);
- 
- 	return ret;
- }
-@@ -3378,7 +3365,6 @@ static int __devinit ehea_probe_adapter(struct of_device *dev,
- 		ehea_error("Invalid ibmebus device probed");
- 		return -EINVAL;
- 	}
--	mutex_lock(&ehea_fw_handles.lock);
- 
- 	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
- 	if (!adapter) {
-@@ -3462,7 +3448,6 @@ out_free_ad:
- 
- out:
- 	ehea_update_firmware_handles();
--	mutex_unlock(&ehea_fw_handles.lock);
- 	return ret;
- }
- 
-@@ -3481,8 +3466,6 @@ static int __devexit ehea_remove(struct of_device *dev)
- 
- 	flush_scheduled_work();
- 
--	mutex_lock(&ehea_fw_handles.lock);
--
- 	ibmebus_free_irq(adapter->neq->attr.ist1, adapter);
- 	tasklet_kill(&adapter->neq_tasklet);
- 
-@@ -3492,7 +3475,6 @@ static int __devexit ehea_remove(struct of_device *dev)
- 	kfree(adapter);
- 
- 	ehea_update_firmware_handles();
--	mutex_unlock(&ehea_fw_handles.lock);
- 
- 	return 0;
- }
+On Mon, 8 Sep 2008, Dâniel Fraga wrote:
+
+> On Mon, 8 Sep 2008 13:27:43 +0300 (EEST)
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+> 
+> > It could well be possible, accept seems to call schedule_timeout if 
+> > nothing is immediately available (but I don't know well enough what 
+> > end up being hrtimer'ed when you enable them and what will not)... 
+> > Anyway, how long did you test for that to confirm it?
+> 
+> 	It has been five days since I disable high resolution timer and
+> have not got any problems anymore.
+> 
+> > Does this explain the 2.6.24->2.6.25 change in behavior as well (ie., 
+> > did they got enabled there)?
+> 
+> 	Well, as far as I know, high res timer related, what changed
+> in 2.6.25 is the following:
+> 
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=8f4d37ec073c17e2d4aa8851df5837d798606d6f
+> 
+> 	(although if I disable dynticks, the problem persists)
+> 
+> 	Although in 2.6.24 we already had, for example the x86-32/64
+> arch reunification and I don't know if it has anything to do with my
+> problem in 2.6.25... just some thoughts... I wrote that because the
+> problem doesn't happen in 32 bit machines, but only in x86_64...
+>
+> 	Of course I'm not saying for sure that the high res timer is
+> causing this. Maybe, as you said before, the problem is much more
+> complex and realy don't know what in fact uses high res timer.
+> 
+> 	Anyway, I'll leave high res timer disabled for now until we
+> discover something new.
+
+...I guess it would be possible to remove SCHED_FEAT_HRTICK from
+/proc/sys/kernel/sched_features then while keeping the hrtimers
+otherwise enabled to test this.
+
+It's possible that hrtimers just affect on how easy it is to trigger
+but at least it seems an useful lead until proven otherwise.
+
+
 -- 
-1.6.0.1.308.gede4c
-
+ i.
+---696208474-1835775364-1221029381=:24708--
