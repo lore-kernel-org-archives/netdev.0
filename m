@@ -1,34 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-09-11
-Date: Thu, 11 Sep 2008 16:09:52 -0700 (PDT)
-Message-ID: <20080911.160952.107319416.davem@davemloft.net>
-References: <20080911201308.GJ3423@tuxdriver.com>
-	<20080911203552.GL3423@tuxdriver.com>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: a new problem with the hso driver
+Date: Fri, 12 Sep 2008 01:18:26 +0200
+Message-ID: <200809120118.26815.oliver@neukum.org>
+References: <Pine.LNX.4.44L0.0809111835350.3949-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080911203552.GL3423-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Greg Kroah-Hartman" <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
+To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.44L0.0809111835350.3949-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 11 Sep 2008 16:35:53 -0400
 
-> BTW, this (obviously) introduces a merge conflict between
-> wireless-2.6 and wireless-next-2.6.  The solution is trivial -- just
-> take the wireless-next-2.6 version of the affected files.  Still, I
-> have a sample merge available here:
->
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git merge-test
+> > On a slightly related issue
+> > we get an error -22 ie -EINVAL from usb_submit_urb
+> > this though I haven't investigated properly appears to happen when the device is suspended
 
-Ok, I just did the merge, please double check my work.
+suspend? Are you sure it doesn't come from resume?
 
-Thanks!
+BTW:
+	if (serial->shared_int) {
+		mutex_lock(&serial->shared_int->shared_int_lock);
+		if (serial->shared_int->use_count &&
+		    (--serial->shared_int->use_count == 0)) {
+
+This code deserves a honourable mentioning in the obfuscated C contest.
+
+	Regards
+		Oliver
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
