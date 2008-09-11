@@ -1,37 +1,61 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
-	dev_deactivate() race
-Date: Thu, 11 Sep 2008 12:34:07 +0000
-Message-ID: <20080911123406.GC5765@ff.dom.local>
-References: <20080821.005250.117238212.davem@davemloft.net> <20080911.033956.233317469.davem@davemloft.net> <20080911104531.GA21913@gondor.apana.org.au> <20080911.034955.111797743.davem@davemloft.net> <20080911110035.GA22065@gondor.apana.org.au> <20080911115132.GA5765@ff.dom.local> <20080911115449.GA22860@gondor.apana.org.au>
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: Re: [rfc 0/3] IPVS: checksum updates
+Date: Thu, 11 Sep 2008 21:07:22 +0800
+Message-ID: <48C9180A.10103@linux-vs.org>
+References: <20080908020420.313463898@vergenet.net> <20080908234028.GF13048@verge.net.au> <f4845fc0809090230h1cbc01ev45c6ab4bdba61955@mail.gmail.com> <20080909113131.GA3605@verge.net.au> <f4845fc0809101030u2bd4dec4jb478ecc65240ea74@mail.gmail.com> <20080910232904.GD12291@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:58747 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755347AbYIKMeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 08:34:16 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so209078fgg.17
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 05:34:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080911115449.GA22860@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Vince Busam <vbusam@google.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080910232904.GD12291@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 11, 2008 at 09:54:49PM +1000, Herbert Xu wrote:
-> On Thu, Sep 11, 2008 at 11:51:32AM +0000, Jarek Poplawski wrote:
-> > 
-> > IMHO, the most reasonable test here is for all tx_queues of a qdisc
-> > beeing stopped, but since this is quite heavy, probably we need an
-> > additional qdisc flag for such an occasion.
-...
-> So I don't think there's anything inherently advantageous in
-> checking all the queues.
+Simon Horman wrote:
+> On Wed, Sep 10, 2008 at 07:30:52PM +0200, Julius Volz wrote:
+>   
+>> On Tue, Sep 9, 2008 at 1:31 PM, Simon Horman <horms@verge.net.au> wrote:
+>>     
+>>> On Tue, Sep 09, 2008 at 11:30:29AM +0200, Julius Volz wrote:
+>>>       
+>>>> Great, thanks! I have tested TCP+UDP, local+remote clients, v4+v6,
+>>>> NAT+DSR+TUN in all combinations that are expected to be working and
+>>>> found no problems.
+>>>>         
+>>> Thanks once again for your testing. I'll send a pull request to Dave in
+>>> the morning.
+>>>       
+>> Thanks very much!
+>>
+>> (CC: Wensong)
+>> I guess it would make sense to start hosting the new ipvsadm version
+>> somewhere on http://www.linuxvirtualserver.org/ soon. It could still
+>> be marked as unstable and saying, "If you intend to use the
+>> experimental IPv6 support for IPVS introduced in kernel 2.6.XX, you
+>> will need this new version of ipvsadm: ...". Also, we can then point
+>> to it in the Kconfig help text in CONFIG_IP_VS_IPV6. What do you
+>> think?
+>>     
+>
+> Yes I agree. It would be good to start hosting tarballs of the
+> new/unstable/experimental version of ipvsadm on www.linuxvirtualserver.org.
+>
+> Wensong, can we also host some sort of repository for ipvsadm on
+> linuxvirtualserver.org? If not, I guess the next most logical choice
+> would be to use kernel.org.
+>
+>   
+Hi Horms and Julius,
 
-BTW, I hope I wasn't misunderstood here. I don't mean any additional
-checking of all the queues anywhere. It's only about setting such
-a flag at the end of netif_stop_all_queues() and netif_stop_queue().
+I have created a svn repository for ipvsadm at 
+http://svn.linuxvirtualserver.org/repos/ipvsadm/ before, will create the 
+check-in accounts for you right now.
 
-Jarek P.
+Thanks,
+
+Wensong
+
+
