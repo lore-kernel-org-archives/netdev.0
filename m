@@ -1,59 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: ipv6 neighbour code keeps interfaces held
-Date: Thu, 11 Sep 2008 18:12:38 +0200
-Message-ID: <1221149559.6986.30.camel@johannes.berg>
-References: <1221081539.3804.33.camel@johannes.berg>
-	 <20080910.164009.92497081.davem@davemloft.net>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 1/1] tg3: Avoid Send BD corruption
+Date: Thu, 11 Sep 2008 09:59:13 -0700
+Message-ID: <20080911165913.GA27725@xw6200.broadcom.net>
+References: <20080911051244.GA27384@xw6200.broadcom.net>
+ <20080910.224618.113269063.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-MpwxJTPizpWbtvh7mViM"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"andy@greyhouse.net" <andy@greyhouse.net>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:53264 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751167AbYIKQNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 12:13:14 -0400
-In-Reply-To: <20080910.164009.92497081.davem@davemloft.net>
+Received: from mms2.broadcom.com ([216.31.210.18]:2933 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754648AbYIKQ4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2008 12:56:19 -0400
+In-Reply-To: <20080910.224618.113269063.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Sep 10, 2008 at 10:46:18PM -0700, David Miller wrote:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Wed, 10 Sep 2008 22:12:45 -0700
+> 
+> > On 5761 and 5784 ASIC revision chips, there is a chance that send BDs
+> > can be corrupted when CLKREQ is enabled.  This patch turns CLKREQ off
+> > while the driver is in control of the device.
+> >
+> > This patch also bumps up the version to 3.95.
+> >
+> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> 
+> Are users really hitting this or was this discovered by your own
+> internal testing and verification?
 
---=-MpwxJTPizpWbtvh7mViM
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+The bug was discovered by our own internal testing, but this bug is
+severe enough to warrant submission to the net-2.6 kernel.  I'll be
+sending a patch to stable as well.
 
-On Wed, 2008-09-10 at 16:40 -0700, David Miller wrote:
+These chips are relatively new so there isn't a whole lot of opportunity
+for users to experience the problem yet.  As the chips are distributed,
+the likelyhood that users will encounter this problem is pretty high.
 
-> Here is a quick patch that might resolve this specific situation.
-> Let me know how it works for you:
-
-I haven't seen it again so far, but it's not necessarily an indication
-that it worked. But normally I think I probably would have seen it
-already by now.
-
-johannes
-
---=-MpwxJTPizpWbtvh7mViM
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJIyUNxAAoJEKVg1VMiehFYXwMQAKco6TuiCBOzQVKLzfimauo5
-u+jXZNxiKCPpo7QYQTQsMvVleoa8DvZmCL5EgOgb6YLkdMZp9VlIH4r9hxoMtryq
-p4Y4FMheVs19y4XeH6LS2A0ksuWvYxG9p6k9cP11vW9HfKwfSRq/ExKjshoyrWv1
-0lzlww4qwPbn584k3RNiUELW1Vu2weffROqJQSLiMI96CmYh+rnPzMBzmz1MyxoL
-EV5Y/HG+z8iZTzXGNMEaAthVZ+mplmWO/6YOrpaOdz6GCQMckF/+P7IkqadNkJ6n
-8TyIxgmBJfxsOf5yG3AqIx1VJQoesgj2/VYSBEiZWYfkLoVo/2q1dw9wKEwTYp40
-EXLVn/pKDa4pDR5xrGYc0l8p/1AsM76UsNf+rFdv+DlzCn1rPx3hxdPbbpSmI65z
-z/L0EJfdaJPr39Vezjn+EUTPWDyHebZO2rdhMduxHHYGGdUfiX8jIF7ZyHkP9J58
-E2rBmP9KJHA2YAStp+dEXh9uMvHwTaDR8n72tw2zsdvrql41M4xt0Osyj2JDhtBQ
-Iprs/ziRecVkUiZe20ql5EpFUzcK3WYPOwEEVoEC6GH2YBalAKHV8iZJwq8HWdtf
-gW+ry1oYN8H3xrhCfYM/YhTJNIBgBPK/RfIG8YdXsk4IWSS/o0sOUgCp9WXauyz0
-odjxYVIfZN71cPg9iFt9
-=KBsF
------END PGP SIGNATURE-----
-
---=-MpwxJTPizpWbtvh7mViM--
 
