@@ -1,51 +1,48 @@
-From: "Paul Menage" <menage@google.com>
-Subject: Re: [PATCH 1/2] Traffic control cgroups subsystem
-Date: Wed, 10 Sep 2008 17:09:49 -0700
-Message-ID: <6599ad830809101709k5bf10e6y2399235c68e59548@mail.gmail.com>
-References: <Pine.LNX.4.64.0809101040280.7050@ranjit.corp.google.com>
-	 <20080910220115.GH20815@postel.suug.ch>
-	 <166fe7950809101556q61cb7e30m2d5e758304618f61@mail.gmail.com>
-	 <6599ad830809101604o71b2fb82k2aca1eb0fd8ab6d8@mail.gmail.com>
-	 <20080910232413.GJ20815@postel.suug.ch>
-	 <6599ad830809101631q51371f75w2ab9f73ef2414f90@mail.gmail.com>
-	 <20080910234523.GK20815@postel.suug.ch>
-	 <6599ad830809101651u79a0efb7y8fa7288de6e48c8a@mail.gmail.com>
-	 <20080911000726.GM20815@postel.suug.ch>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/3 v2] ibm_newemac: Various fixes and additions for
+ PPC405EZ
+Date: Wed, 10 Sep 2008 23:21:03 -0400
+Message-ID: <20080910232103.15a9b87e@zod.rchland.ibm.com>
+References: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Ranjit Manomohan" <ranjitm@google.com>, davem@davemloft.net,
-	akpm@linux-foundation.org, kaber@trash.net, lizf@cn.fujitsu.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Thomas Graf" <tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, jeff@garzik.org, linuxppc-dev@ozlabs.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:12447 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753192AbYIKAKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2008 20:10:00 -0400
-Received: from spaceape9.eur.corp.google.com (spaceape9.eur.corp.google.com [172.28.16.143])
-	by smtp-out.google.com with ESMTP id m8B09oZm012768
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 01:09:50 +0100
-Received: from rv-out-0708.google.com (rvbf25.prod.google.com [10.140.82.25])
-	by spaceape9.eur.corp.google.com with ESMTP id m8B08oqC010927
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 17:09:50 -0700
-Received: by rv-out-0708.google.com with SMTP id f25so86142rvb.26
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 17:09:49 -0700 (PDT)
-In-Reply-To: <20080911000726.GM20815@postel.suug.ch>
-Content-Disposition: inline
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:38687 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751713AbYIKDVN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2008 23:21:13 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m8B3L7ep018181
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 23:21:07 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m8B3L7DS235740
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 23:21:07 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m8B3L7iG021953
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2008 23:21:07 -0400
+In-Reply-To: <cover.1220877899.git.jwboyer@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2008 at 5:07 PM, Thomas Graf <tgraf@suug.ch> wrote:
->> Isn't a very large fraction of outgoing network traffic driven from
->> net_tx_action(), which doesn't execute in the context of the sending
->> process? Or am I missing something?
->
-> net_tx_action() dequeues from the qdisc. The classification is done
-> before the packets is enqueued onto the qdisc.
+On Mon, 8 Sep 2008 08:44:59 -0400
+Josh Boyer <jwboyer@linux.vnet.ibm.com> wrote:
 
-Ah, good point.
+> The following patch series adds things needed to support the PowerPC 405EZ
+> SoC.  I've incorporated the suggestions and fixes from the previous round
+> of patches and barring any further comments these should be ready to go.
+> 
+> josh
+> 
+> Josh Boyer (3):
+>   ibm_newemac: Allow the "no flow control" EMAC feature to work
+>   ibm_newemac: Introduce mal_has_feature
+>   ibm_newemac: MAL support for PowerPC 405EZ
 
-Thanks,
+I should mention that I have a platform support patch series that
+depends on these for working ethernet.  I can bring this set in through
+my tree at the same time if the patches look fine and Jeff acks that.
 
-Paul
+josh
