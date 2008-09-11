@@ -1,54 +1,47 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [BUG?] sendfile / distcc
-Date: Wed, 10 Sep 2008 23:44:29 -0700
-Message-ID: <20080910234429.1a8bfa1f.akpm@linux-foundation.org>
-References: <1221038871.2442.86.camel@twins.programming.kicks-ass.net>
+From: "Rami Rosen" <roszenrami@gmail.com>
+Subject: Re: ipv6 neighbour code keeps interfaces held
+Date: Thu, 11 Sep 2008 10:11:48 +0300
+Message-ID: <b25312890809110011j4f8827aam23175e2e650b0d4b@mail.gmail.com>
+References: <1221081539.3804.33.camel@johannes.berg>
+	 <20080910.164009.92497081.davem@davemloft.net>
+	 <1221091053.3804.53.camel@johannes.berg>
+	 <20080910.170006.65586950.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43998 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751483AbYIKGpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 02:45:03 -0400
-In-Reply-To: <1221038871.2442.86.camel@twins.programming.kicks-ass.net>
+Received: from py-out-1112.google.com ([64.233.166.182]:2627 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751491AbYIKHLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 03:11:49 -0400
+Received: by py-out-1112.google.com with SMTP id p76so191741pyb.10
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 00:11:48 -0700 (PDT)
+In-Reply-To: <20080910.170006.65586950.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Sep 2008 11:27:51 +0200 Peter Zijlstra <peterz@infradead.org> wrote:
+>That's how often garbage collection runs on ICMP6 routes.
 
-> Hi,
-> 
-> I've been seeing this for a while now, but its still present with -rc5+
-> kernels. Its always the local machine failing, never the remotes.
-> 
-> [root@twins linux-2.6-rt]# nice ./k opteron build
-> time distmake x86_64 O=opteron-build ARCH=x86_64
-> testing twins:    distccd running
-> testing opteron:  DOWN
-> testing taijtu:   distccd running
-> testing dyad:     distccd running
-> testing lappy:    host running
-> testing ubuntu:   host running
-> DISTCC_HOSTS= twins/8 taijtu/32 dyad/32
-> DISTCC_DIR=/dev/shm/distcc
-> DISTCC_SLOTS=72
-> 
-> ...
-> 
-> distcc[9931] (dcc_writex) ERROR: failed to write: Connection reset by peer
-> distcc[9931] Warning: failed to distribute /mnt/build/linux-2.6-rt/kernel/fork.c to twins/8, running locally instead
-> 
-> ...
-> 
-> distcc[12078] (dcc_pump_sendfile) ERROR: sendfile failed: Connection reset by peer
-> distcc[12078] (dcc_readx) ERROR: unexpected eof on fd4
-> distcc[12078] (dcc_r_token_int) ERROR: read failed while waiting for token "DONE"
-> distcc[12078] Warning: failed to distribute /mnt/build/linux-2.6-rt/init/version.c to twins/8, running locally instead
-> 
+And which, BTW, can be configured through:
+ /proc/sys/net/ipv6/route/gc_interval
 
-distcc is very good at breaking networking.  I assume 2.6.26 is OK?
+Regards,
+Rami Rosen
 
+
+On Thu, Sep 11, 2008 at 3:00 AM, David Miller <davem@davemloft.net> wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Thu, 11 Sep 2008 01:57:33 +0200
+>
+>> And then they time out after 30 seconds? I see the message exactly three
+>> times and then it gets removed.
+>
+> That's how often garbage collection runs on ICMP6 routes.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
