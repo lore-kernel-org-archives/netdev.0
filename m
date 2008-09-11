@@ -1,43 +1,40 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
 	dev_deactivate() race
-Date: Thu, 11 Sep 2008 11:51:32 +0000
-Message-ID: <20080911115132.GA5765@ff.dom.local>
-References: <20080821.005250.117238212.davem@davemloft.net> <20080911.033956.233317469.davem@davemloft.net> <20080911104531.GA21913@gondor.apana.org.au> <20080911.034955.111797743.davem@davemloft.net> <20080911110035.GA22065@gondor.apana.org.au>
+Date: Thu, 11 Sep 2008 21:54:49 +1000
+Message-ID: <20080911115449.GA22860@gondor.apana.org.au>
+References: <20080821.005250.117238212.davem@davemloft.net> <20080911.033956.233317469.davem@davemloft.net> <20080911104531.GA21913@gondor.apana.org.au> <20080911.034955.111797743.davem@davemloft.net> <20080911110035.GA22065@gondor.apana.org.au> <20080911115132.GA5765@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:63497 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752252AbYIKLvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 07:51:39 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so101055yxm.1
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 04:51:38 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:45734 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752210AbYIKLyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 07:54:55 -0400
 Content-Disposition: inline
-In-Reply-To: <20080911110035.GA22065@gondor.apana.org.au>
+In-Reply-To: <20080911115132.GA5765@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2008 at 09:00:35PM +1000, Herbert Xu wrote:
-> On Thu, Sep 11, 2008 at 03:49:55AM -0700, David Miller wrote:
-> > 
-> > Well some kind of check has to be there.
-> > 
-> > I _did_ remove it during my initial implementation, and that
-> > turned into a reported performance regression.
+On Thu, Sep 11, 2008 at 11:51:32AM +0000, Jarek Poplawski wrote:
 > 
-> I see.  How about looking at the queue that the head-of-qdisc
-> packet maps to? That should be fairly cheap to compute.
-> 
+> IMHO, the most reasonable test here is for all tx_queues of a qdisc
+> beeing stopped, but since this is quite heavy, probably we need an
+> additional qdisc flag for such an occasion.
 
-Very good point: "That can't be right"! But I'm not sure I got the
-above idea: e.g. this new sch_multiq can have different packets
-depending just on some unstopped tx_queue.
+Yes we could do that too.  Although the head-of-qdisc approach
+will eventually lead to the same result.  That is, as you pop
+things off the head eventually you'll hit a packet that belongs
+to the stopped queue and that'll then block the whole qdisc.
 
-IMHO, the most reasonable test here is for all tx_queues of a qdisc
-beeing stopped, but since this is quite heavy, probably we need an
-additional qdisc flag for such an occasion.
+So I don't think there's anything inherently advantageous in
+checking all the queues.
 
-Jarek P.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
