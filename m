@@ -1,407 +1,88 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 3/3][UPDATED] pkt_action: add new action skbedit
-Date: Thu, 11 Sep 2008 20:08:56 -0700
-Message-ID: <20080912030834.6982.61621.stgit@jtkirshe-mobile.jf.intel.com>
-References: <20080912030733.6982.49986.stgit@jtkirshe-mobile.jf.intel.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [stable] regression in iptables: recent filter
+Date: Fri, 12 Sep 2008 07:11:32 +0400
+Message-ID: <20080912031132.GA6443@x200.localdomain>
+References: <ejijc4dc92n75s2el334e7dgdanngs7qv3@4ax.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Grant Coady <gcoady.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.233]:18899 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752013AbYILDI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:08:59 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so616610rvb.1
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 20:08:58 -0700 (PDT)
-In-Reply-To: <20080912030733.6982.49986.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from gv-out-0910.google.com ([216.239.58.187]:40070 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752013AbYILDJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:09:40 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so418146gvc.37
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 20:09:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <ejijc4dc92n75s2el334e7dgdanngs7qv3@4ax.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Fri, Sep 12, 2008 at 11:53:35AM +1000, Grant Coady wrote:
+> Last known good kernel: 2.6.24.7
+> 
+> # iptables -N calmrate
+> # iptables -A calmrate -p tcp -m state --state NEW \
+> 	-m recent --name listrate --update --rttl \
+> 	--seconds 60 --hitcount 60 -j DROP
+> iptables: Unknown error 4294967295
+> 
+> Fails for 2.6.25.17 and 2.6.26.5
+> 
+> dmesg + config: http://bugsplatter.id.au/kernel/boxen/deltree/
 
-This new action will have the ability to change the priority and/or
-queue_mapping fields on an sk_buff.
+You were einvaled by the following commit:
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Reloading module with ip_pkt_list_tot=60 should fix it.
 
- Documentation/networking/multiqueue.txt |    9 +
- include/linux/tc_act/Kbuild             |    1 
- include/linux/tc_act/tc_skbedit.h       |   44 +++++++
- include/net/tc_act/tc_skbedit.h         |   34 +++++
- net/sched/Kconfig                       |   11 ++
- net/sched/Makefile                      |    1 
- net/sched/act_skbedit.c                 |  203 +++++++++++++++++++++++++++++++
- 7 files changed, 302 insertions(+), 1 deletions(-)
- create mode 100644 include/linux/tc_act/tc_skbedit.h
- create mode 100644 include/net/tc_act/tc_skbedit.h
- create mode 100644 net/sched/act_skbedit.c
+commit d0ebf133590abdc035af6e19a6568667af0ab3b0
+Author: Daniel Hokka Zakrisson <daniel@hozac.com>
+Date:   Thu Mar 20 15:07:10 2008 -0700
 
-diff --git a/Documentation/networking/multiqueue.txt b/Documentation/networking/multiqueue.txt
-index 5787ee6..10113ff 100644
---- a/Documentation/networking/multiqueue.txt
-+++ b/Documentation/networking/multiqueue.txt
-@@ -66,7 +66,14 @@ band 3 => queue 3
- Traffic will begin flowing through each queue if your base device has either
- the default simple_tx_hash or a custom netdev->select_queue() defined.
- 
--The behavior of tc filters remains the same.
-+The behavior of tc filters remains the same.  However a new tc action,
-+skbedit, has been added.  Assuming you wanted to route all traffic to a
-+specific host, for example 192.168.0.3, though a specific queue you could use
-+this action and establish a filter such as:
-+
-+tc filter add dev eth0 parent 1: protocol ip prio 1 u32 \
-+	match ip dst 192.168.0.3 \
-+	action skbedit queue_mapping 3
- 
- Author: Alexander Duyck <alexander.h.duyck@intel.com>
- Original Author: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
-diff --git a/include/linux/tc_act/Kbuild b/include/linux/tc_act/Kbuild
-index 6dac0d7..7699093 100644
---- a/include/linux/tc_act/Kbuild
-+++ b/include/linux/tc_act/Kbuild
-@@ -3,3 +3,4 @@ header-y += tc_ipt.h
- header-y += tc_mirred.h
- header-y += tc_pedit.h
- header-y += tc_nat.h
-+header-y += tc_skbedit.h
-diff --git a/include/linux/tc_act/tc_skbedit.h b/include/linux/tc_act/tc_skbedit.h
-new file mode 100644
-index 0000000..a14e461
---- /dev/null
-+++ b/include/linux/tc_act/tc_skbedit.h
-@@ -0,0 +1,44 @@
-+/*
-+ * Copyright (c) 2008, Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-+ * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ *
-+ * Author: Alexander Duyck <alexander.h.duyck@intel.com>
-+ */
-+
-+#ifndef __LINUX_TC_SKBEDIT_H
-+#define __LINUX_TC_SKBEDIT_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_SKBEDIT 11
-+
-+#define SKBEDIT_F_PRIORITY		0x1
-+#define SKBEDIT_F_QUEUE_MAPPING		0x2
-+
-+struct tc_skbedit {
-+	tc_gen;
-+};
-+
-+enum {
-+	TCA_SKBEDIT_UNSPEC,
-+	TCA_SKBEDIT_TM,
-+	TCA_SKBEDIT_PARMS,
-+	TCA_SKBEDIT_PRIORITY,
-+	TCA_SKBEDIT_QUEUE_MAPPING,
-+	__TCA_SKBEDIT_MAX
-+};
-+#define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-+
-+#endif
-diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
-new file mode 100644
-index 0000000..6abb3ed
---- /dev/null
-+++ b/include/net/tc_act/tc_skbedit.h
-@@ -0,0 +1,34 @@
-+/*
-+ * Copyright (c) 2008, Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-+ * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ *
-+ * Author: Alexander Duyck <alexander.h.duyck@intel.com>
-+ */
-+
-+#ifndef __NET_TC_SKBEDIT_H
-+#define __NET_TC_SKBEDIT_H
-+
-+#include <net/act_api.h>
-+
-+struct tcf_skbedit {
-+	struct tcf_common	common;
-+	u32			flags;
-+	u32     		priority;
-+	u16			queue_mapping;
-+};
-+#define to_skbedit(pc) \
-+	container_of(pc, struct tcf_skbedit, common)
-+
-+#endif /* __NET_TC_SKBEDIT_H */
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index efaa7a7..6767e54 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -485,6 +485,17 @@ config NET_ACT_SIMP
- 	  To compile this code as a module, choose M here: the
- 	  module will be called simple.
- 
-+config NET_ACT_SKBEDIT
-+        tristate "SKB Editing"
-+        depends on NET_CLS_ACT
-+        ---help---
-+	  Say Y here to change skb priority or queue_mapping settings.
-+
-+	  If unsure, say N.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called skbedit.
-+
- config NET_CLS_IND
- 	bool "Incoming device classification"
- 	depends on NET_CLS_U32 || NET_CLS_FW
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 3d9b953..e60c992 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -14,6 +14,7 @@ obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
- obj-$(CONFIG_NET_ACT_NAT)	+= act_nat.o
- obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
- obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
-+obj-$(CONFIG_NET_ACT_SKBEDIT)	+= act_skbedit.o
- obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
- obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-new file mode 100644
-index 0000000..fe9777e
---- /dev/null
-+++ b/net/sched/act_skbedit.c
-@@ -0,0 +1,203 @@
-+/*
-+ * Copyright (c) 2008, Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-+ * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ *
-+ * Author: Alexander Duyck <alexander.h.duyck@intel.com>
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+
-+#include <linux/tc_act/tc_skbedit.h>
-+#include <net/tc_act/tc_skbedit.h>
-+
-+#define SKBEDIT_TAB_MASK     15
-+static struct tcf_common *tcf_skbedit_ht[SKBEDIT_TAB_MASK + 1];
-+static u32 skbedit_idx_gen;
-+static DEFINE_RWLOCK(skbedit_lock);
-+
-+static struct tcf_hashinfo skbedit_hash_info = {
-+	.htab	=	tcf_skbedit_ht,
-+	.hmask	=	SKBEDIT_TAB_MASK,
-+	.lock	=	&skbedit_lock,
-+};
-+
-+static int tcf_skbedit(struct sk_buff *skb, struct tc_action *a,
-+		       struct tcf_result *res)
-+{
-+	struct tcf_skbedit *d = a->priv;
-+
-+	spin_lock(&d->tcf_lock);
-+	d->tcf_tm.lastuse = jiffies;
-+	d->tcf_bstats.bytes += qdisc_pkt_len(skb);
-+	d->tcf_bstats.packets++;
-+
-+	if (d->flags & SKBEDIT_F_PRIORITY)
-+		skb->priority = d->priority;
-+	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
-+	    skb->dev->real_num_tx_queues > d->queue_mapping)
-+		skb_set_queue_mapping(skb, d->queue_mapping);
-+
-+	spin_unlock(&d->tcf_lock);
-+	return d->tcf_action;
-+}
-+
-+static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
-+	[TCA_SKBEDIT_PARMS]		= { .len = sizeof(struct tc_skbedit) },
-+	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
-+	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
-+};
-+
-+static int tcf_skbedit_init(struct nlattr *nla, struct nlattr *est,
-+			 struct tc_action *a, int ovr, int bind)
-+{
-+	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
-+	struct tc_skbedit *parm;
-+	struct tcf_skbedit *d;
-+	struct tcf_common *pc;
-+	u32 flags = 0, *priority = NULL;
-+	u16 *queue_mapping = NULL;
-+	int ret = 0, err;
-+
-+	if (nla == NULL)
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(tb, TCA_SKBEDIT_MAX, nla, skbedit_policy);
-+	if (err < 0)
-+		return err;
-+
-+	if (tb[TCA_SKBEDIT_PARMS] == NULL)
-+		return -EINVAL;
-+
-+	if (tb[TCA_SKBEDIT_PRIORITY] != NULL) {
-+		flags |= SKBEDIT_F_PRIORITY;
-+		priority = nla_data(tb[TCA_SKBEDIT_PRIORITY]);
-+	}
-+
-+	if (tb[TCA_SKBEDIT_QUEUE_MAPPING] != NULL) {
-+		flags |= SKBEDIT_F_QUEUE_MAPPING;
-+		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
-+	}
-+	if (!flags)
-+		return -EINVAL;
-+
-+	parm = nla_data(tb[TCA_SKBEDIT_PARMS]);
-+
-+	pc = tcf_hash_check(parm->index, a, bind, &skbedit_hash_info);
-+	if (!pc) {
-+		pc = tcf_hash_create(parm->index, est, a, sizeof(*d), bind,
-+				     &skbedit_idx_gen, &skbedit_hash_info);
-+		if (unlikely(!pc))
-+			return -ENOMEM;
-+
-+		d = to_skbedit(pc);
-+		ret = ACT_P_CREATED;
-+	} else {
-+		d = to_skbedit(pc);
-+		if (!ovr) {
-+			tcf_hash_release(pc, bind, &skbedit_hash_info);
-+			return -EEXIST;
-+		}
-+	}
-+
-+	spin_lock_bh(&d->tcf_lock);
-+
-+	d->flags = flags;
-+	if (flags & SKBEDIT_F_PRIORITY)
-+		d->priority = *priority;
-+	if (flags & SKBEDIT_F_QUEUE_MAPPING)
-+		d->queue_mapping = *queue_mapping;
-+	d->tcf_action = parm->action;
-+
-+	spin_unlock_bh(&d->tcf_lock);
-+
-+	if (ret == ACT_P_CREATED)
-+		tcf_hash_insert(pc, &skbedit_hash_info);
-+	return ret;
-+}
-+
-+static inline int tcf_skbedit_cleanup(struct tc_action *a, int bind)
-+{
-+	struct tcf_skbedit *d = a->priv;
-+
-+	if (d)
-+		return tcf_hash_release(&d->common, bind, &skbedit_hash_info);
-+	return 0;
-+}
-+
-+static inline int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
-+				int bind, int ref)
-+{
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct tcf_skbedit *d = a->priv;
-+	struct tc_skbedit opt;
-+	struct tcf_t t;
-+
-+	opt.index = d->tcf_index;
-+	opt.refcnt = d->tcf_refcnt - ref;
-+	opt.bindcnt = d->tcf_bindcnt - bind;
-+	opt.action = d->tcf_action;
-+	NLA_PUT(skb, TCA_SKBEDIT_PARMS, sizeof(opt), &opt);
-+	if (d->flags & SKBEDIT_F_PRIORITY)
-+		NLA_PUT(skb, TCA_SKBEDIT_PRIORITY, sizeof(d->priority),
-+			&d->priority);
-+	if (d->flags & SKBEDIT_F_QUEUE_MAPPING)
-+		NLA_PUT(skb, TCA_SKBEDIT_QUEUE_MAPPING,
-+			sizeof(d->queue_mapping), &d->queue_mapping);
-+	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
-+	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
-+	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
-+	NLA_PUT(skb, TCA_SKBEDIT_TM, sizeof(t), &t);
-+	return skb->len;
-+
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+static struct tc_action_ops act_skbedit_ops = {
-+	.kind		=	"skbedit",
-+	.hinfo		=	&skbedit_hash_info,
-+	.type		=	TCA_ACT_SKBEDIT,
-+	.capab		=	TCA_CAP_NONE,
-+	.owner		=	THIS_MODULE,
-+	.act		=	tcf_skbedit,
-+	.dump		=	tcf_skbedit_dump,
-+	.cleanup	=	tcf_skbedit_cleanup,
-+	.init		=	tcf_skbedit_init,
-+	.walk		=	tcf_generic_walker,
-+};
-+
-+MODULE_AUTHOR("Alexander Duyck, <alexander.h.duyck@intel.com>");
-+MODULE_DESCRIPTION("SKB Editing");
-+MODULE_LICENSE("GPL");
-+
-+static int __init skbedit_init_module(void)
-+{
-+	return tcf_register_action(&act_skbedit_ops);
-+}
-+
-+static void __exit skbedit_cleanup_module(void)
-+{
-+	tcf_unregister_action(&act_skbedit_ops);
-+}
-+
-+module_init(skbedit_init_module);
-+module_exit(skbedit_cleanup_module);
+    [NETFILTER]: ipt_recent: sanity check hit count
+    
+    If a rule using ipt_recent is created with a hit count greater than
+    ip_pkt_list_tot, the rule will never match as it cannot keep track
+    of enough timestamps. This patch makes ipt_recent refuse to create such
+    rules.
+    
+    With ip_pkt_list_tot's default value of 20, the following can be used
+    to reproduce the problem.
+    
+    nc -u -l 0.0.0.0 1234 &
+    for i in `seq 1 100`; do echo $i | nc -w 1 -u 127.0.0.1 1234; done
+    
+    This limits it to 20 packets:
+    iptables -A OUTPUT -p udp --dport 1234 -m recent --set --name test \
+             --rsource
+    iptables -A OUTPUT -p udp --dport 1234 -m recent --update --seconds \
+             60 --hitcount 20 --name test --rsource -j DROP
+    
+    While this is unlimited:
+    iptables -A OUTPUT -p udp --dport 1234 -m recent --set --name test \
+             --rsource
+    iptables -A OUTPUT -p udp --dport 1234 -m recent --update --seconds \
+             60 --hitcount 21 --name test --rsource -j DROP
+    
+    With the patch the second rule-set will throw an EINVAL.
+    
+    Reported-by: Sean Kennedy <skennedy@vcn.com>
+    Signed-off-by: Daniel Hokka Zakrisson <daniel@hozac.com>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
+diff --git a/net/ipv4/netfilter/ipt_recent.c b/net/ipv4/netfilter/ipt_recent.c
+index 68cbe3c..8e8f042 100644
+--- a/net/ipv4/netfilter/ipt_recent.c
++++ b/net/ipv4/netfilter/ipt_recent.c
+@@ -252,6 +252,8 @@ recent_mt_check(const char *tablename, const void *ip,
+ 	if ((info->check_set & (IPT_RECENT_SET | IPT_RECENT_REMOVE)) &&
+ 	    (info->seconds || info->hit_count))
+ 		return false;
++	if (info->hit_count > ip_pkt_list_tot)
++		return false;
+ 	if (info->name[0] == '\0' ||
+ 	    strnlen(info->name, IPT_RECENT_NAME_LEN) == IPT_RECENT_NAME_LEN)
+ 		return false;
