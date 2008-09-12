@@ -1,47 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: fix overrun in attribute iteration
-Date: Thu, 11 Sep 2008 19:05:39 -0700 (PDT)
-Message-ID: <20080911.190539.47210177.davem@davemloft.net>
-References: <20080911205933.GA20032@localhost.localdomain>
-	<20080911.150434.99620481.davem@davemloft.net>
-	<20080912003522.GN20815@postel.suug.ch>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Small Bluetooth fix for 2.6.27-rc6
+Date: Fri, 12 Sep 2008 04:11:32 +0200
+Message-ID: <1221185492.6695.2.camel@californication>
+References: <1221191805.11498.14.camel@californication>
+	 <20080911.190153.04577110.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: vegard.nossum@gmail.com, netdev@vger.kernel.org,
-	penberg@cs.helsinki.fi, mingo@elte.hu, viro@zeniv.linux.org.uk,
-	linux-kernel@vger.kernel.org
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58984
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754213AbYILCFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:05:45 -0400
-In-Reply-To: <20080912003522.GN20815@postel.suug.ch>
+Received: from senator.holtmann.net ([87.106.208.187]:42324 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753830AbYILCLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:11:01 -0400
+In-Reply-To: <20080911.190153.04577110.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Fri, 12 Sep 2008 02:35:23 +0200
+Hi Dave,
 
-> * David Miller <davem@davemloft.net> 2008-09-11 15:04
-> > From: Vegard Nossum <vegard.nossum@gmail.com>
-> > Thomas, please review.
+> > Please pull from
 > > 
-> > > diff --git a/include/net/netlink.h b/include/net/netlink.h
-> > > index 18024b8..208fe5a 100644
-> > > --- a/include/net/netlink.h
-> > > +++ b/include/net/netlink.h
-> > > @@ -702,7 +702,7 @@ static inline int nla_len(const struct nlattr *nla)
-> > >   */
-> > >  static inline int nla_ok(const struct nlattr *nla, int remaining)
-> > >  {
-> > > -	return remaining >= sizeof(*nla) &&
-> > > +	return remaining >= (int) sizeof(*nla) &&
-> > >  	       nla->nla_len >= sizeof(*nla) &&
-> > >  	       nla->nla_len <= remaining;
-> > >  }
+> >     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
 > 
-> Very nice catch, would never have thought of that.
+> You did your work against Linus's tree, so I can't pull this,
+> it will bring in tons of irrelevant stuff into net-2.6.
+> 
+> Please send me pull requests using net-2.6 as your base.
 
-Applied, thanks everyone.
+I re-based the tree on net-2.6 now. Please pull.
+
+Regards
+
+Marcel
+
+
