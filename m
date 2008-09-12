@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [stable] regression in iptables: recent filter
-Date: Thu, 11 Sep 2008 20:04:38 -0700 (PDT)
-Message-ID: <20080911.200438.01253897.davem@davemloft.net>
-References: <ejijc4dc92n75s2el334e7dgdanngs7qv3@4ax.com>
-	<20080911200133.48be32fa.akpm@linux-foundation.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [RESEND][NET-NEXT PATCH 24/29] ixgbe: bump version
+Date: Thu, 11 Sep 2008 20:03:55 -0700
+Message-ID: <20080912030339.6234.577.stgit@jtkirshe-mobile.jf.intel.com>
+References: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gcoady.lk@gmail.com, grant_lkml@dodo.com.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080911200133.48be32fa.akpm@linux-foundation.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.178]:44217 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755014AbYILDD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:03:58 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so394015waf.23
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 20:03:57 -0700 (PDT)
+In-Reply-To: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 11 Sep 2008 20:01:33 -0700
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+---
 
-> On Fri, 12 Sep 2008 11:53:35 +1000 Grant Coady <grant_lkml@dodo.com.au> wrote:
-> 
-> > Hi there,
-> > 
-> > Last known good kernel: 2.6.24.7
-> > 
-> > # iptables -N calmrate
-> > # iptables -A calmrate -p tcp -m state --state NEW \
-> > 	-m recent --name listrate --update --rttl \
-> > 	--seconds 60 --hitcount 60 -j DROP
-> > iptables: Unknown error 4294967295
-> > 
-> > Fails for 2.6.25.17 and 2.6.26.5
-> > 
-> > dmesg + config: http://bugsplatter.id.au/kernel/boxen/deltree/
-> > 
-> 
-> (cc netdev)
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-(cc netfilter-devel)
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 41aede5..b513911 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -48,7 +48,7 @@ char ixgbe_driver_name[] = "ixgbe";
+ static const char ixgbe_driver_string[] =
+ 	"Intel(R) 10 Gigabit PCI Express Network Driver";
+ 
+-#define DRV_VERSION "1.3.18-k4"
++#define DRV_VERSION "1.3.30-k2"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+ 	 "Copyright (c) 1999-2007 Intel Corporation.";
 
-For those playing at home, 4294967295 is 32-bit -1.
