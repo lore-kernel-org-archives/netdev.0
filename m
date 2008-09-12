@@ -1,68 +1,76 @@
-From: Vegard Nossum <vegard.nossum@gmail.com>
-Subject: [PATCH 2.6.28] tcp_ipv6: fix use of uninitialized memory
-Date: Fri, 12 Sep 2008 09:05:25 +0200
-Message-ID: <20080912070525.GA22276@damson.getinternet.no>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: a new problem with the hso driver
+Date: Fri, 12 Sep 2008 09:26:06 +0200
+Message-ID: <48CA198E.60300@option.com>
+References: <Pine.LNX.4.44L0.0809111835350.3949-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:34210 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750704AbYILHFd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 03:05:33 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1048995ugf.37
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2008 00:05:31 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
+To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.44L0.0809111835350.3949-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->From 6544c4074aa5dde2e3f4d3e02f5601c1c33b770e Mon Sep 17 00:00:00 2001
-From: Vegard Nossum <vegard.nossum@gmail.com>
-Date: Tue, 9 Sep 2008 07:17:32 +0200
-Subject: [PATCH] tcp_ipv6: fix use of uninitialized memory
+Thank you Alan
 
-inet6_rsk() is called on a struct request_sock * before we
-have checked whether the socket is an ipv6 socket or a ipv6-
-mapped ipv4 socket. The access that triggers this is the
-inet_rsk(rsk)->inet6_rsk_offset dereference in inet6_rsk().
+Alan Stern wrote:
+> On Thu, 11 Sep 2008, Denis Joseph Barrow wrote:
+> 
+>> Hi Greg/Andrew,
+>> I've a minor problem.
+>> If you put the hso driver into powersave mode
+>> by going into /sysfs
+>>
+>> cd /sys/
+>>  find . -name idVendor | xargs -n 1 | grep -H af0
+>>  cd ./devices/pci0000:00/0000:00:1d.7/usb5/5-4/
+>>  or wherever the idVendor is at.
+>>  cd power/
+>> echo auto > level
+>>
+>> Then let the driver sleep for about 2 minutes.a
+>>
+>> It can't be woken up, it appears that the 
+>> usb layer is looking for a reset_resume
+>> function to be implemented. 
+>>
+>> We get the following messages from the kernel
+>> [12518.790072] hso 2-2:1.0: no reset_resume for driver hso?
+>> [12518.790081] hso 2-2:1.1: no reset_resume for driver hso?
+>> [12518.790085] hso 2-2:1.2: no reset_resume for driver hso?
+>>
+>> How do I implement a reset resume function?
+>> could somebody tell me & put in a few comments in include/linux/usb.h
+> 
+> See Documentation/usb/power-management.txt.
+> 
+>> Our customer says the device has gone into an S3 sleep
+>> whatever the difference between this & the reduced power mode
+>> it goes into after 2 seconds when it calls hso_suspend I don't know.
+>>
+>> On a slightly related issue
+>> we get an error -22 ie -EINVAL from usb_submit_urb
+>> this though I haven't investigated properly appears to happen when the device is suspended
+>> but appears to have no adverse effect on the driver
+>> it still seems to work, I haven't really investigated this, whats happening?
+>> but would greatly appreciate being pointed in the right direction.
+> 
+> -EINVAL can indicate several possible errors, but as far as I remember, 
+> none of them are associated with the device being suspended.  If you 
+> try to submit an URB to a suspended device, you'll get -EHOSTUNREACH.
+> 
+> Alan Stern
 
-This is arguably not a critical error as the inet6_rsk_offset
-is only used to compute a pointer which is never really used
-(in the code path in question) anyway. But it might be a
-latent error, so let's fix it.
 
-Spotted by kmemcheck.
-
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
----
- net/ipv6/tcp_ipv6.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5b90b36..c9b6c13 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1286,7 +1286,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 					  struct request_sock *req,
- 					  struct dst_entry *dst)
- {
--	struct inet6_request_sock *treq = inet6_rsk(req);
-+	struct inet6_request_sock *treq;
- 	struct ipv6_pinfo *newnp, *np = inet6_sk(sk);
- 	struct tcp6_sock *newtcp6sk;
- 	struct inet_sock *newinet;
-@@ -1350,6 +1350,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		return newsk;
- 	}
- 
-+	treq = inet6_rsk(req);
- 	opt = np->opt;
- 
- 	if (sk_acceptq_is_full(sk))
 -- 
-1.5.5.1
-
+best regards,
+D.J. Barrow
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
