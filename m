@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RESEND][NET-NEXT PATCH 06/29] ixgbe: fix bug with shared interrupts
-Date: Thu, 11 Sep 2008 19:56:14 -0700
-Message-ID: <20080912025601.6234.70683.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [RESEND][NET-NEXT PATCH 07/29] ixgbe: limit small mtu to minimum for
+	ipv4 support
+Date: Thu, 11 Sep 2008 19:56:28 -0700
+Message-ID: <20080912025617.6234.35543.stgit@jtkirshe-mobile.jf.intel.com>
 References: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,42 +15,36 @@ To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wf-out-1314.google.com ([209.85.200.170]:15725 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754776AbYILC4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:56:16 -0400
+	with ESMTP id S1754799AbYILC4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:56:30 -0400
 Received: by wf-out-1314.google.com with SMTP id 27so620997wfd.4
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 19:56:16 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 19:56:30 -0700 (PDT)
 In-Reply-To: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-fix ixgbe bug reported with shared legacy interrupts
-
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 11bf86b..cfaa3ca 100644
+index cfaa3ca..2c8895e 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1245,8 +1245,13 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
- 	/* for NAPI, using EIAM to auto-mask tx/rx interrupt bits on read
- 	 * therefore no explict interrupt disable is necessary */
- 	eicr = IXGBE_READ_REG(hw, IXGBE_EICR);
--	if (!eicr)
-+	if (!eicr) {
-+		/* shared interrupt alert!
-+		 * make sure interrupts are enabled because the read will
-+		 * have disabled interrupts due to EIAM */
-+		ixgbe_irq_enable(adapter);
- 		return IRQ_NONE;	/* Not our interrupt */
-+	}
+@@ -2839,8 +2839,8 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
  
- 	if (eicr & IXGBE_EICR_LSC)
- 		ixgbe_check_lsc(adapter);
+-	if ((max_frame < (ETH_ZLEN + ETH_FCS_LEN)) ||
+-	    (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE))
++	/* MTU < 68 is an error and causes problems on some kernels */
++	if ((new_mtu < 68) || (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE))
+ 		return -EINVAL;
+ 
+ 	DPRINTK(PROBE, INFO, "changing MTU from %d to %d\n",
 
