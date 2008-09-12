@@ -1,87 +1,74 @@
-From: Franco Fichtner <franco@marian.de>
-Subject: Re: [PATCH 5/8] [RFC] qlge: Add main source module qlge_main.c
-Date: Fri, 12 Sep 2008 10:15:36 +0200
-Message-ID: <48CA2528.2010201@marian.de>
-References: <20080910205813.GA13266@susedev.qlogic.org> <12210803433594-git-send-email-ron.mercer@qlogic.com> <48C8D937.5020708@marian.de> <20080912005837.GB23939@susedev.qlogic.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [Bugme-new] [Bug 11536] New: WARNING: at net/ipv4/tcp_input.c:2569
+ tcp_ack+0xcd9/0x1f90()
+Date: Fri, 12 Sep 2008 13:01:13 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0809121254310.1034@wrl-59.cs.helsinki.fi>
+References: <bug-11536-10286@http.bugzilla.kernel.org/>
+ <20080911011747.7866aa73.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Franco Fichtner <franco@marian.de>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-driver@qlogic.com
+Cc: Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org,
+	lexpublic@gmail.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:55552 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbYILIPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 04:15:42 -0400
-In-Reply-To: <20080912005837.GB23939@susedev.qlogic.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:52210 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753274AbYILKB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 06:01:26 -0400
+In-Reply-To: <20080911011747.7866aa73.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ron,
+On Thu, 11 Sep 2008, Andrew Morton wrote:
 
-Thanks for the clarification. 4000 lines of code are just too much to
-grasp at the first glance. :)
+> 
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Thu, 11 Sep 2008 01:12:54 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=11536
+> > 
+> >            Summary: WARNING: at net/ipv4/tcp_input.c:2569
+> >                     tcp_ack+0xcd9/0x1f90()
+> >            Product: Networking
+> >            Version: 2.5
+> >      KernelVersion: 2.6.26.5
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Netfilter/Iptables
+> >         AssignedTo: networking_netfilter-iptables@kernel-bugs.osdl.org
+> >         ReportedBy: lexpublic@gmail.com
+> > 
+> > 
+> > Latest working kernel version: unknown
+> > Earliest failing kernel version: unknown
+> > Distribution: gentoo x86-64
+> > Hardware Environment: 
+> > #1 2xQuadra opteron, mcp55 nvidia, forcedeth gigabit network
+> > #2 2xQuadra xeon, intel 5000 series, e1000e gigabit network
+> > 
+> > Software Environment:
+> > nginx+haproxy
+> > 
+> > Problem Description:
+> > after 5-10 hours network load I have this backtrace in dmesg:
+> > 
+> > ------------[ cut here ]------------
+> > WARNING: at net/ipv4/tcp_input.c:2569 tcp_ack+0xcd9/0x1f90()
 
-> Regarding ql_wait_idx_reg() and ql_wait_addr_reg() they provide waiting
-> while gaining access for read/writes to/from a secondary set of
-> registers.
+This occurs due to miscount in fackets_out, when detected the state 
+inconsistency gets corrected. Even though it's not very dangerous event at 
+all I'd like to track it down to keep state clean, I hope you can 
+reproduce it at least semi-regularily? ...otherwise we're still out of 
+luck with it.
 
-These registers are once per hardware, right? Then your spinlocking
-would do nothing on single CPU systems, because it won't get into the
-binaries. Meaning: your registers are NOT protected the way you would
-have hoped. And even with SMP systems... if another CPU hits a locked
-spinlock it does nothing but wait, quite synchronously to your mdelay()
-loop. So both scenarios are rather suboptimal. If that's how things are,
-you're better off using a semaphore.
+Thanks for the report anyway.
 
-On non-SMP systems, you're gonna put another access on the waiting list
-by using a semaphore, which in return will give you time to finish your
-operations on the registers and free the semaphore. And, last but not
-least, SMP systems will do work they otherwise would not be able to do.
-
-There is just the slight problem of ql_wait_idx_reg() and
-ql_wait_addr_reg() being executed from interrupt context? If that is the
-case, then you can't use the standard semaphores, because sleeping isn't
-allowed. I do hope that is not the case...
-
-> To my understanding, you can't sleep while holding a
-> spinlock.  I tried this before and saw massive warnings.  I have
-> "Spinlock debugging: sleep-inside-spinlock checking" turned on in my
-> kernel and perhaps that's why I saw them.
-
-You'd normally use spinlocks in interrupt context where you just have to
-make sure no other CPU mangles with your variables or hardware registers
-the fastest way possible. You don't keep a spinlock forever, not even
-for the course of a few function calls, which will make the code harder
-to read, thus harder to understand, and thus harder to debug.
-
-The warning messages are right, but (I think) they are intended to avoid 
-deadlocks as early as possible. Though, with msleep() I don't think
-you'll get into any more serious problems than before, because unless 
-the Kernel is really not doing what it should, you should always get
-back to your loop. Using schedule() and wait queues in spinlocked 
-scenarios is a whole other thing. (Anyone, please correct me if I'm wrong.)
-
-> At that point I changed from msleep to mdelay.
-> After reviewing your comments I've reduced and standardized the mdelay
-> wait to 5ms with a count of 50.
-
-It may help introduce defines to get rid of magic numbers inside the
-code as well. Something like:
-
-#define QLGE_TIMEOUT_COUNT	50
-#define QLGE_TIMEOUT_DELAY	5
-
-That will help maintaining code and makes it more easily readable (and
-consistent as a bonus... less lines to update).
-
-> These secondary registers are
-> accessed only during open(), reset(), and a few
-> netdev-API like set_multi and add_vlan_vid.
-
-Okay, I see. But still, I get the vibe that this is already a bit too
-much to justify keeping the current way of locking in the code. Sooner
-or later someone else will complain about this. ;)
-
-
-Franco
+-- 
+ i.
