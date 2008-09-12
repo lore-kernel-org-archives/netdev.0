@@ -1,62 +1,158 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Small Bluetooth fix for 2.6.27-rc6
-Date: Fri, 12 Sep 2008 04:59:10 +0200
-Message-ID: <1221188350.6695.7.camel@californication>
-References: <1221185492.6695.2.camel@californication>
-	 <20080911.191234.248780619.davem@davemloft.net>
-	 <1221185702.6695.4.camel@californication>
-	 <20080911.195147.81650729.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [RESEND][NET-NEXT PATCH 13/29] ixgbe: recycle pages in packet split
+	mode
+Date: Thu, 11 Sep 2008 19:58:43 -0700
+Message-ID: <20080912025831.6234.71580.stgit@jtkirshe-mobile.jf.intel.com>
+References: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:60807 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756964AbYILC6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:58:39 -0400
-In-Reply-To: <20080911.195147.81650729.davem@davemloft.net>
+Received: from wa-out-1112.google.com ([209.85.146.176]:45474 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357AbYILC6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:58:46 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so392897waf.23
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 19:58:46 -0700 (PDT)
+In-Reply-To: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-> > > > > > Please pull from
-> > > > > >=20
-> > > > > >     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/=
-bluetooth-2.6.git master
-> > > > >=20
-> > > > > You did your work against Linus's tree, so I can't pull this,
-> > > > > it will bring in tons of irrelevant stuff into net-2.6.
-> > > > >=20
-> > > > > Please send me pull requests using net-2.6 as your base.
-> > > >=20
-> > > > I re-based the tree on net-2.6 now. Please pull.
-> > >=20
-> > > Pulled, thanks.
-> >=20
-> > I assume you want me to queue the compiler warning fix for the next
-> > merge window, right?
->=20
-> Which one?
+most of the time we only need 1500 bytes for a packet which means
+we don't need a whole 4k page for each packet.  Share the allocation
+by using a reference count to the page and giving half to two
+receive descriptors.  This can enable us to use packet split mode
+all the time due to the performance increase of allocating half
+the pages.
 
-the one for this warning:
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-  CC [M]  net/bluetooth/af_bluetooth.o
-net/bluetooth/af_bluetooth.c:60: warning: =E2=80=98bt_key_strings=E2=80=
-=99 defined but not used
-net/bluetooth/af_bluetooth.c:71: warning: =E2=80=98bt_slock_key_strings=
-=E2=80=99 defined but not used
+ drivers/net/ixgbe/ixgbe.h      |    1 +
+ drivers/net/ixgbe/ixgbe_main.c |   49 +++++++++++++++++++++++++---------------
+ 2 files changed, 32 insertions(+), 18 deletions(-)
 
-It is not a new one, it just got ignored by everybody and now I got
-annoyed enough to fix it. I just don't know what's that take on compile=
-r
-warning fixes after the merge window. Do we want them or not. I can
-queue this up for 2.6.28.
-
-Regards
-
-Marcel
-
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 064af67..71ddac6 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -114,6 +114,7 @@ struct ixgbe_rx_buffer {
+ 	dma_addr_t dma;
+ 	struct page *page;
+ 	dma_addr_t page_dma;
++	unsigned int page_offset;
+ };
+ 
+ struct ixgbe_queue_stats {
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index ef965c9..5858ab2 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -493,16 +493,24 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 	while (cleaned_count--) {
+ 		rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
+ 
+-		if (!bi->page &&
++		if (!bi->page_dma &&
+ 		    (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)) {
+-			bi->page = alloc_page(GFP_ATOMIC);
+ 			if (!bi->page) {
+-				adapter->alloc_rx_page_failed++;
+-				goto no_buffers;
++				bi->page = alloc_page(GFP_ATOMIC);
++				if (!bi->page) {
++					adapter->alloc_rx_page_failed++;
++					goto no_buffers;
++				}
++				bi->page_offset = 0;
++			} else {
++				/* use a half page if we're re-using */
++				bi->page_offset ^= (PAGE_SIZE / 2);
+ 			}
+-			bi->page_dma = pci_map_page(pdev, bi->page, 0,
+-	                                            PAGE_SIZE,
+-	                                            PCI_DMA_FROMDEVICE);
++
++			bi->page_dma = pci_map_page(pdev, bi->page,
++			                            bi->page_offset,
++			                            (PAGE_SIZE / 2),
++			                            PCI_DMA_FROMDEVICE);
+ 		}
+ 
+ 		if (!bi->skb) {
+@@ -596,7 +604,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 		if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
+ 			hdr_info = le16_to_cpu(ixgbe_get_hdr_info(rx_desc));
+ 			len = (hdr_info & IXGBE_RXDADV_HDRBUFLEN_MASK) >>
+-	                       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
++			       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
+ 			if (hdr_info & IXGBE_RXDADV_SPH)
+ 				adapter->rx_hdr_split++;
+ 			if (len > IXGBE_RX_HDR_SIZE)
+@@ -620,11 +628,18 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 
+ 		if (upper_len) {
+ 			pci_unmap_page(pdev, rx_buffer_info->page_dma,
+-				       PAGE_SIZE, PCI_DMA_FROMDEVICE);
++			               PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
+ 			rx_buffer_info->page_dma = 0;
+ 			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+-					   rx_buffer_info->page, 0, upper_len);
+-			rx_buffer_info->page = NULL;
++			                   rx_buffer_info->page,
++			                   rx_buffer_info->page_offset,
++			                   upper_len);
++
++			if ((rx_ring->rx_buf_len > (PAGE_SIZE / 2)) ||
++			    (page_count(rx_buffer_info->page) != 1))
++				rx_buffer_info->page = NULL;
++			else
++				get_page(rx_buffer_info->page);
+ 
+ 			skb->len += upper_len;
+ 			skb->data_len += upper_len;
+@@ -647,6 +662,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 			rx_buffer_info->skb = next_buffer->skb;
+ 			rx_buffer_info->dma = next_buffer->dma;
+ 			next_buffer->skb = skb;
++			next_buffer->dma = 0;
+ 			adapter->non_eop_descs++;
+ 			goto next_desc;
+ 		}
+@@ -1534,10 +1550,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	int rx_buf_len;
+ 
+ 	/* Decide whether to use packet split mode or not */
+-	if (netdev->mtu > ETH_DATA_LEN)
+-		adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
+-	else
+-		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
++	adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
+ 
+ 	/* Set the RX buffer length according to the mode */
+ 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
+@@ -2018,12 +2031,12 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
+ 		}
+ 		if (!rx_buffer_info->page)
+ 			continue;
+-		pci_unmap_page(pdev, rx_buffer_info->page_dma, PAGE_SIZE,
+-			       PCI_DMA_FROMDEVICE);
++		pci_unmap_page(pdev, rx_buffer_info->page_dma, PAGE_SIZE / 2,
++		               PCI_DMA_FROMDEVICE);
+ 		rx_buffer_info->page_dma = 0;
+-
+ 		put_page(rx_buffer_info->page);
+ 		rx_buffer_info->page = NULL;
++		rx_buffer_info->page_offset = 0;
+ 	}
+ 
+ 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
 
