@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RESEND][NET-NEXT PATCH 16/29] ixgbe: lro stats were not counted on
-	first ethtool -Scall
-Date: Thu, 11 Sep 2008 19:59:29 -0700
-Message-ID: <20080912025918.6234.56634.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [RESEND][NET-NEXT PATCH 17/29] ixgbe: add clean rx many routine
+Date: Thu, 11 Sep 2008 19:59:42 -0700
+Message-ID: <20080912025931.6234.69308.stgit@jtkirshe-mobile.jf.intel.com>
 References: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,58 +14,121 @@ To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wa-out-1112.google.com ([209.85.146.176]:45474 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755283AbYILC7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:59:31 -0400
+	with ESMTP id S1755087AbYILC7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:59:44 -0400
 Received: by wa-out-1112.google.com with SMTP id j37so392897waf.23
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 19:59:31 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 19:59:44 -0700 (PDT)
 In-Reply-To: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
+in some configurations there can be more than one rx queue per vector
+in msi-x mode.  Add functionality to be able to clean this without
+changing the performance path single-rx-queue cleanup.
+
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_ethtool.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   62 +++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 60 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 928b97c..4701abf 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -774,6 +774,14 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 	int j, k;
- 	int i;
- 	u64 aggregated = 0, flushed = 0, no_desc = 0;
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		aggregated += adapter->rx_ring[i].lro_mgr.stats.aggregated;
-+		flushed += adapter->rx_ring[i].lro_mgr.stats.flushed;
-+		no_desc += adapter->rx_ring[i].lro_mgr.stats.no_desc;
-+	}
-+	adapter->lro_aggregated = aggregated;
-+	adapter->lro_flushed = flushed;
-+	adapter->lro_no_desc = no_desc;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index cde5d5a..e18afa4 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1024,13 +1024,15 @@ static irqreturn_t ixgbe_msix_clean_many(int irq, void *data)
+  * @napi: napi struct with our devices info in it
+  * @budget: amount of work driver is allowed to do this pass, in packets
+  *
++ * This function is optimized for cleaning one queue only on a single
++ * q_vector!!!
+  **/
+ static int ixgbe_clean_rxonly(struct napi_struct *napi, int budget)
+ {
+ 	struct ixgbe_q_vector *q_vector =
+ 			       container_of(napi, struct ixgbe_q_vector, napi);
+ 	struct ixgbe_adapter *adapter = q_vector->adapter;
+-	struct ixgbe_ring *rx_ring;
++	struct ixgbe_ring *rx_ring = NULL;
+ 	int work_done = 0;
+ 	long r_idx;
  
- 	ixgbe_update_stats(adapter);
- 	for (i = 0; i < IXGBE_GLOBAL_STATS_LEN; i++) {
-@@ -788,17 +796,11 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 		i += k;
- 	}
- 	for (j = 0; j < adapter->num_rx_queues; j++) {
--		aggregated += adapter->rx_ring[j].lro_mgr.stats.aggregated;
--		flushed += adapter->rx_ring[j].lro_mgr.stats.flushed;
--		no_desc += adapter->rx_ring[j].lro_mgr.stats.no_desc;
- 		queue_stat = (u64 *)&adapter->rx_ring[j].stats;
- 		for (k = 0; k < stat_count; k++)
- 			data[i + k] = queue_stat[k];
- 		i += k;
- 	}
--	adapter->lro_aggregated = aggregated;
--	adapter->lro_flushed = flushed;
--	adapter->lro_no_desc = no_desc;
+@@ -1055,6 +1057,56 @@ static int ixgbe_clean_rxonly(struct napi_struct *napi, int budget)
+ 	return work_done;
  }
  
- static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
++/**
++ * ixgbe_clean_rxonly_many - msix (aka one shot) rx clean routine
++ * @napi: napi struct with our devices info in it
++ * @budget: amount of work driver is allowed to do this pass, in packets
++ *
++ * This function will clean more than one rx queue associated with a
++ * q_vector.
++ **/
++static int ixgbe_clean_rxonly_many(struct napi_struct *napi, int budget)
++{
++	struct ixgbe_q_vector *q_vector =
++	                       container_of(napi, struct ixgbe_q_vector, napi);
++	struct ixgbe_adapter *adapter = q_vector->adapter;
++	struct net_device *netdev = adapter->netdev;
++	struct ixgbe_ring *rx_ring = NULL;
++	int work_done = 0, i;
++	long r_idx;
++	u16 enable_mask = 0;
++
++	/* attempt to distribute budget to each queue fairly, but don't allow
++	 * the budget to go below 1 because we'll exit polling */
++	budget /= (q_vector->rxr_count ?: 1);
++	budget = max(budget, 1);
++	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
++	for (i = 0; i < q_vector->rxr_count; i++) {
++		rx_ring = &(adapter->rx_ring[r_idx]);
++#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
++		if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
++			ixgbe_update_rx_dca(adapter, rx_ring);
++#endif
++		ixgbe_clean_rx_irq(adapter, rx_ring, &work_done, budget);
++		enable_mask |= rx_ring->v_idx;
++		r_idx = find_next_bit(q_vector->rxr_idx, adapter->num_rx_queues,
++		                      r_idx + 1);
++	}
++
++	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
++	rx_ring = &(adapter->rx_ring[r_idx]);
++	/* If all Rx work done, exit the polling mode */
++	if ((work_done == 0) || !netif_running(netdev)) {
++		netif_rx_complete(netdev, napi);
++		if (adapter->itr_setting & 3)
++			ixgbe_set_itr_msix(q_vector);
++		if (!test_bit(__IXGBE_DOWN, &adapter->state))
++			IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, enable_mask);
++		return 0;
++	}
++
++	return work_done;
++}
+ static inline void map_vector_to_rxq(struct ixgbe_adapter *a, int v_idx,
+ 				     int r_idx)
+ {
+@@ -1813,10 +1865,16 @@ static void ixgbe_napi_enable_all(struct ixgbe_adapter *adapter)
+ 		q_vectors = 1;
+ 
+ 	for (q_idx = 0; q_idx < q_vectors; q_idx++) {
++		struct napi_struct *napi;
+ 		q_vector = &adapter->q_vector[q_idx];
+ 		if (!q_vector->rxr_count)
+ 			continue;
+-		napi_enable(&q_vector->napi);
++		napi = &q_vector->napi;
++		if ((adapter->flags & IXGBE_FLAG_MSIX_ENABLED) &&
++		    (q_vector->rxr_count > 1))
++			napi->poll = &ixgbe_clean_rxonly_many;
++
++		napi_enable(napi);
+ 	}
+ }
+ 
 
