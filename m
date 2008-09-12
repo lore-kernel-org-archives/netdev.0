@@ -1,59 +1,68 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] netlink: fix overrun in attribute iteration
-Date: Thu, 11 Sep 2008 23:02:44 -0700
-Message-ID: <20080911230244.d76a7310.akpm@linux-foundation.org>
-References: <20080911205933.GA20032@localhost.localdomain>
-	<20080911165243.125a74cc.akpm@linux-foundation.org>
-	<19f34abd0809112242p27928541ydbfbb60ed84e34d2@mail.gmail.com>
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Subject: [PATCH 2.6.28] tcp_ipv6: fix use of uninitialized memory
+Date: Fri, 12 Sep 2008 09:05:25 +0200
+Message-ID: <20080912070525.GA22276@damson.getinternet.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
-	penberg@cs.helsinki.fi, mingo@elte.hu, viro@zeniv.linux.org.uk,
-	linux-kernel@vger.kernel.org
-To: "Vegard Nossum" <vegard.nossum@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59544 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751441AbYILGDL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 02:03:11 -0400
-In-Reply-To: <19f34abd0809112242p27928541ydbfbb60ed84e34d2@mail.gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.173]:34210 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704AbYILHFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 03:05:33 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so1048995ugf.37
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2008 00:05:31 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Sep 2008 07:42:36 +0200 "Vegard Nossum" <vegard.nossum@gmail.com> wrote:
+>From 6544c4074aa5dde2e3f4d3e02f5601c1c33b770e Mon Sep 17 00:00:00 2001
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Date: Tue, 9 Sep 2008 07:17:32 +0200
+Subject: [PATCH] tcp_ipv6: fix use of uninitialized memory
 
-> On Fri, Sep 12, 2008 at 1:52 AM, Andrew Morton
-> <akpm@linux-foundation.org> wrote:
-> > On Thu, 11 Sep 2008 22:59:33 +0200
-> > Vegard Nossum <vegard.nossum@gmail.com> wrote:
-> >
-> >>   #include <stdio.h>
-> >>
-> >>   main(void)
-> >>   {
-> >>           printf("%d\n", -1 >= sizeof(int));
-> >>   }
-> >>
-> >
-> > akpm:/home/akpm> gcc -W t.c
-> > t.c: In function 'main':
-> > t.c:5: warning: comparison between signed and unsigned
-> >
-> > Make of that what you will :)
-> 
-> It doesn't show up with -Wall and the kernel isn't compiled with -W
-> (aka. -Wextra) as far as I can see. Should it be turned on?
-> 
+inet6_rsk() is called on a struct request_sock * before we
+have checked whether the socket is an ipv6 socket or a ipv6-
+mapped ipv4 socket. The access that triggers this is the
+inet_rsk(rsk)->inet6_rsk_offset dereference in inet6_rsk().
 
-Last time I turned on -W, a full kernel build emitted nearly 10MB of
-warnings.
+This is arguably not a critical error as the inet6_rsk_offset
+is only used to compute a pointer which is never really used
+(in the code path in question) anyway. But it might be a
+latent error, so let's fix it.
 
-Alas, some of them are useful, as we see here.  They can be turned on
-piecemeal - this one is -Wsign-compare, I think.
+Spotted by kmemcheck.
 
-I think it would be good if owners of particular parts of the kernel
-were to occasionally build their stuff with -W and spend half an hour
-contemplating the result.  Ditto `make C=1', to see what sparse thinks.
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
+---
+ net/ipv6/tcp_ipv6.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5b90b36..c9b6c13 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1286,7 +1286,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 					  struct request_sock *req,
+ 					  struct dst_entry *dst)
+ {
+-	struct inet6_request_sock *treq = inet6_rsk(req);
++	struct inet6_request_sock *treq;
+ 	struct ipv6_pinfo *newnp, *np = inet6_sk(sk);
+ 	struct tcp6_sock *newtcp6sk;
+ 	struct inet_sock *newinet;
+@@ -1350,6 +1350,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		return newsk;
+ 	}
+ 
++	treq = inet6_rsk(req);
+ 	opt = np->opt;
+ 
+ 	if (sk_acceptq_is_full(sk))
+-- 
+1.5.5.1
 
