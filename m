@@ -1,77 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: fix scheduling of dst_gc_task by __dst_free
-Date: Fri, 12 Sep 2008 16:14:52 -0700 (PDT)
-Message-ID: <20080912.161452.04603170.davem@davemloft.net>
-References: <20080912123113.770453085@theryb.frec.bull.fr>
-	<20080912123118.993434427@theryb.frec.bull.fr>
-	<48CA80DC.9040408@cosmosbay.com>
+Subject: Re: [PATCH 2.6.28] tcp_ipv6: fix use of uninitialized memory
+Date: Fri, 12 Sep 2008 16:17:11 -0700 (PDT)
+Message-ID: <20080912.161711.206773065.davem@davemloft.net>
+References: <20080912070525.GA22276@damson.getinternet.no>
+	<20080912124405.GF8935@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: benjamin.thery@bull.net, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vegard.nossum@gmail.com, netdev@vger.kernel.org,
+	penberg@cs.helsinki.fi, mingo@elte.hu, linux-kernel@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37997
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60895
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755650AbYILXO6 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2008 19:14:58 -0400
-In-Reply-To: <48CA80DC.9040408@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1754836AbYILXRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 19:17:17 -0400
+In-Reply-To: <20080912124405.GF8935@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 12 Sep 2008 16:46:52 +0200
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Fri, 12 Sep 2008 09:44:05 -0300
 
-> Benjamin Thery a =E9crit :
-> > The dst garbage collector dst_gc_task() may not be scheduled as we
-> > expect it to be in __dst_free().
-> > Indeed, when the dst_gc_timer was replaced by the delayed_work
-> > dst_gc_work, the mod_timer() call used to schedule the garbage
-> > collector at an earlier date was replaced by a schedule_delayed_wor=
-k()
-> > (see commit 86bba269d08f0c545ae76c90b56727f65d62d57f).
-> > But, the behaviour of mod_timer() and schedule_delayed_work() is
-> > different in the way they handle the delay. mod_timer() stops the t=
-imer and re-arm it with the new given delay,
-> > whereas schedule_delayed_work() only check if the work is already
-> > queued in the workqueue (and queue it (with delay) if it is not)
-> > BUT it does NOT take into account the new delay (even if the new de=
-lay
-> > is earlier in time).
-> > schedule_delayed_work() returns 0 if it didn't queue the work,
-> > but we don't check the return code in __dst_free().
-> > If I understand the code in __dst_free() correctly, we want dst_gc_=
-task
-> > to be queued after DST_GC_INC jiffies if we pass the test (and not =
-in
-> > some undetermined time in the future), so I think we should add a c=
-all
-> > to cancel_delayed_work() before schedule_delayed_work(). Patch belo=
-w.
-> >=20
->=20
-> Well, you are right that time is undetermined (but < ~120 seconds), s=
-o your patch
-> makes sense.
->=20
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+> Em Fri, Sep 12, 2008 at 09:05:25AM +0200, Vegard Nossum escreveu:
+> > >From 6544c4074aa5dde2e3f4d3e02f5601c1c33b770e Mon Sep 17 00:00:00 2001
+> > From: Vegard Nossum <vegard.nossum@gmail.com>
+> > Date: Tue, 9 Sep 2008 07:17:32 +0200
+> > Subject: [PATCH] tcp_ipv6: fix use of uninitialized memory
+> > 
+> > inet6_rsk() is called on a struct request_sock * before we
+> > have checked whether the socket is an ipv6 socket or a ipv6-
+> > mapped ipv4 socket. The access that triggers this is the
+> > inet_rsk(rsk)->inet6_rsk_offset dereference in inet6_rsk().
+> > 
+> > This is arguably not a critical error as the inet6_rsk_offset
+> > is only used to compute a pointer which is never really used
+> > (in the code path in question) anyway. But it might be a
+> > latent error, so let's fix it.
+> > 
+> > Spotted by kmemcheck.
+> 
+> Humm, so this was poisoned at allocation and then when inet6_rsk_offset
+> was accessed it noticed, interesting, thanks!
+> 
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-I'll add this to net-next-2.6 for now.  Benjamin, do you know of any
-real cases where users are being tripped up by our not using the
-shorter scheduling of the workqueue?
-
-> Then we should ask why we reset the timer back to its minimum value
-> every time we call __dst_free(). On machines with many dormant tcp
-> sessions, dst_garbage.list can contain huge number of non freeable
-> entries :(
->
-> Maybe we should count the entries and change the timer only if really=
- needed.
-
-Yet another area of black magic in our routing cache :)
-
-> > (Sorry, I think I've been a bit verbose to expose this simple issue=
- :)
-
-No, do not apologize, I wish every commit message were this verbose.
+Good find :)  I'll add this to net-next-2.6, thanks!
