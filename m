@@ -1,96 +1,75 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Fri, 12 Sep 2008 13:16:19 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
-References: <20080819213417.45133573@tux> <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
- <20080822183224.2d52f16c@tux> <20080822.143709.65615512.davem@davemloft.net>
- <20080823111446.06a350a2@tux> <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
- <20080824163843.33b4f890@tux> <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
- <20080826141812.589848a0@tux> <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
- <20080828184919.611dd578@tux> <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
- <20080830035650.42be37d7@tux> <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
- <20080907051718.58bf133d@tux> <Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
- <20080908172043.0d25a427@tux> <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
- <20080911143006.2f516569@tux>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-1650166014-1221158589=:26799"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080911143006.2f516569@tux>
-Content-ID: <Pine.LNX.4.64.0809121303340.1034@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: [PATCH 1/1] net: fix scheduling of dst_gc_task by __dst_free
+Date: Fri, 12 Sep 2008 14:31:23 +0200
+Message-ID: <20080912123118.993434427@theryb.frec.bull.fr>
+References: <20080912123113.770453085@theryb.frec.bull.fr>
+Cc: netdev@vger.kernel.org, Benjamin Thery <benjamin.thery@bull.net>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:41604 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752739AbYILMcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 08:32:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+The dst garbage collector dst_gc_task() may not be scheduled as we
+expect it to be in __dst_free().
 
----696208474-1650166014-1221158589=:26799
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0809121303341.1034@wrl-59.cs.helsinki.fi>
+Indeed, when the dst_gc_timer was replaced by the delayed_work
+dst_gc_work, the mod_timer() call used to schedule the garbage
+collector at an earlier date was replaced by a schedule_delayed_work()
+(see commit 86bba269d08f0c545ae76c90b56727f65d62d57f).
 
-On Thu, 11 Sep 2008, Dâniel Fraga wrote:
+But, the behaviour of mod_timer() and schedule_delayed_work() is
+different in the way they handle the delay. 
 
-> On Thu, 11 Sep 2008 16:44:20 +0300 (EEST)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-> 
-> > ...I guess it would be possible to remove SCHED_FEAT_HRTICK from
-> > /proc/sys/kernel/sched_features then while keeping the hrtimers
-> > otherwise enabled to test this.
-> > 
-> > It's possible that hrtimers just affect on how easy it is to trigger
-> > but at least it seems an useful lead until proven otherwise.
-> 
-> 	You're right Ilpo. After days and days without the problem,
-> today it triggered (but I wasn't online at the time, so I couldn't grab
-> any data).
+mod_timer() stops the timer and re-arm it with the new given delay,
+whereas schedule_delayed_work() only check if the work is already
+queued in the workqueue (and queue it (with delay) if it is not)
+BUT it does NOT take into account the new delay (even if the new delay
+is earlier in time).
+schedule_delayed_work() returns 0 if it didn't queue the work,
+but we don't check the return code in __dst_free().
 
-Thanks. Once we know what the userspace at the server is doing, it might 
-make the problem immediately obvious, though I'm a bit afraid that e.g., 
-strace might interfere with the problem so that it resolves right away and 
-we're again left with nothing...
+If I understand the code in __dst_free() correctly, we want dst_gc_task
+to be queued after DST_GC_INC jiffies if we pass the test (and not in
+some undetermined time in the future), so I think we should add a call
+to cancel_delayed_work() before schedule_delayed_work(). Patch below.
 
-> 	So, you're correct. HRtimers just affect on how easy it is to
-> trigger the issue. In other words: with high resolution timer enabled,
-> the problem appears more frequently.
-> 
-> 	At least if we discovered a way how to trigger this, we could
-> test it more easily. The problem is to wait a long time for it to
-> happen.
-> 
-> 	Just a curiosity: on your servers,
+Or we should at least test the return code of schedule_delayed_work(),
+and reset the values of dst_garbage.timer_inc and dst_garbage.timer_expires
+back to their former values if schedule_delayed_work() failed.
+Otherwise the subsequent calls to __dst_free will test the wrong values
+and assume wrong thing about when the garbage collector is supposed to
+be scheduled.
 
-I don't really have any I would call "server" in the sense you mean, I 
-might occassionally set up one for test from time to time for a very 
-limited period but normally it's just ssh and some other which I use so 
-rarely that I'd hardly notice, and that's it. I was planning, however,
-to setup some day a distcc stress test using all my spare cpu cycles 
-(I'd like to put it under kvm but that got stalled due to some timing 
-issue at the guest making it to go into an infinite loop), once I get
-that working I could probably easily put other test-only stuff to that 
-framework as well.
+dst_gc_task() also calls schedule_delayed_work() without checking
+its return code (or calling cancel_scheduled_work() first), but it
+should fine there: dst_gc_task is the routine of the delayed_work, so
+no dst_gc_work should be pending in the queue when it's running.
+ 
+This patch applies on top of net-2.6.
 
-But but, there are other people around the world besides us :-), and 
-afaict this is the only (outstanding) report which relates to ceasing of 
-accept() so I doubt it's something very regularly occuring thing or we 
-would have heard of it.
+(Sorry, I think I've been a bit verbose to expose this simple issue :)
 
-> do you use x86_64?
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+---
+ net/core/dst.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-At least on some machines, but like you have discovered it seems to 
-service dependant, so that some processes never got stuck, I might only 
-run such or so, who knows...
-
-> It seems
-> this problem is very specific to x86_64 or appear more often on x86_64
-> than x86_32. It never happens on my x86_32 bit servers.
-
-Ok.
+Index: net-2.6/net/core/dst.c
+===================================================================
+--- net-2.6.orig/net/core/dst.c
++++ net-2.6/net/core/dst.c
+@@ -203,6 +203,7 @@ void __dst_free(struct dst_entry * dst)
+ 	if (dst_garbage.timer_inc > DST_GC_INC) {
+ 		dst_garbage.timer_inc = DST_GC_INC;
+ 		dst_garbage.timer_expires = DST_GC_MIN;
++		cancel_delayed_work(&dst_gc_work);
+ 		schedule_delayed_work(&dst_gc_work, dst_garbage.timer_expires);
+ 	}
+ 	spin_unlock_bh(&dst_garbage.lock);
 
 -- 
- i.
----696208474-1650166014-1221158589=:26799--
