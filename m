@@ -1,35 +1,59 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: ifconfig: page allocation failure. order:2, mode:0x20 while enabling Jumbo frame
-Date: Fri, 12 Sep 2008 09:59:03 +0400
-Message-ID: <20080912055903.GA27431@2ka.mipt.ru>
-References: <473F5AEA857EA644A9AD7693EBA8D9A203449248@CORPUSMX20B.corp.emc.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] netlink: fix overrun in attribute iteration
+Date: Thu, 11 Sep 2008 23:02:44 -0700
+Message-ID: <20080911230244.d76a7310.akpm@linux-foundation.org>
+References: <20080911205933.GA20032@localhost.localdomain>
+	<20080911165243.125a74cc.akpm@linux-foundation.org>
+	<19f34abd0809112242p27928541ydbfbb60ed84e34d2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Kandukuru_Suresh@emc.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
+	penberg@cs.helsinki.fi, mingo@elte.hu, viro@zeniv.linux.org.uk,
+	linux-kernel@vger.kernel.org
+To: "Vegard Nossum" <vegard.nossum@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:53368 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750701AbYILF7j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2008 01:59:39 -0400
-Content-Disposition: inline
-In-Reply-To: <473F5AEA857EA644A9AD7693EBA8D9A203449248@CORPUSMX20B.corp.emc.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59544 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751441AbYILGDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 02:03:11 -0400
+In-Reply-To: <19f34abd0809112242p27928541ydbfbb60ed84e34d2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+On Fri, 12 Sep 2008 07:42:36 +0200 "Vegard Nossum" <vegard.nossum@gmail.com> wrote:
 
-On Thu, Sep 11, 2008 at 04:42:22PM -0400, Kandukuru_Suresh@emc.com (Kandukuru_Suresh@emc.com) wrote:
->  On my Nas device (Linux kernel 2.6.22.7)  when I try enable to jumbo
-> frame the following error is coming. I  did not find enough information
-> from the net. So I  am mailing this. Please guide me  what is happening
-> here and How to resolve this error?
+> On Fri, Sep 12, 2008 at 1:52 AM, Andrew Morton
+> <akpm@linux-foundation.org> wrote:
+> > On Thu, 11 Sep 2008 22:59:33 +0200
+> > Vegard Nossum <vegard.nossum@gmail.com> wrote:
+> >
+> >>   #include <stdio.h>
+> >>
+> >>   main(void)
+> >>   {
+> >>           printf("%d\n", -1 >= sizeof(int));
+> >>   }
+> >>
+> >
+> > akpm:/home/akpm> gcc -W t.c
+> > t.c: In function 'main':
+> > t.c:5: warning: comparison between signed and unsigned
+> >
+> > Make of that what you will :)
+> 
+> It doesn't show up with -Wall and the kernel isn't compiled with -W
+> (aka. -Wextra) as far as I can see. Should it be turned on?
+> 
 
-Device or driver does not support multiple page network buffers, so it
-tries to allocate huge buffer (4 pages) for each packet.
-I can not find eth_rx_fill() function in a recent kernel, so maybe
-driver was rewritten after .22 release and now supports per-page split
-of the packet, so it will happily live with jumbo frames.
+Last time I turned on -W, a full kernel build emitted nearly 10MB of
+warnings.
 
--- 
-	Evgeniy Polyakov
+Alas, some of them are useful, as we see here.  They can be turned on
+piecemeal - this one is -Wsign-compare, I think.
+
+I think it would be good if owners of particular parts of the kernel
+were to occasionally build their stuff with -W and spend half an hour
+contemplating the result.  Ditto `make C=1', to see what sparse thinks.
+
+
