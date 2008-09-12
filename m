@@ -1,58 +1,30 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Small Bluetooth fix for 2.6.27-rc6
-Date: Fri, 12 Sep 2008 05:56:44 +0200
-Message-ID: <1221191805.11498.14.camel@californication>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Small Bluetooth fix for 2.6.27-rc6
+Date: Thu, 11 Sep 2008 19:01:53 -0700 (PDT)
+Message-ID: <20080911.190153.04577110.davem@davemloft.net>
+References: <1221191805.11498.14.camel@californication>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:48916 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753830AbYILB4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 21:56:16 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36297
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753458AbYILCB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 22:01:59 -0400
+In-Reply-To: <1221191805.11498.14.camel@californication>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Fri, 12 Sep 2008 05:56:44 +0200
 
-we discovered one tiny regression that was introduced with the default
-link policy change in 2.6.27-rc1. This small patch fixes it and I hope
-the commit message is detailed and clear enough to understand what went
-wrong.
+> Please pull from
+> 
+>     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
 
-I also got pretty much annoyed by the following compiler warning:
+You did your work against Linus's tree, so I can't pull this,
+it will bring in tons of irrelevant stuff into net-2.6.
 
-  CC [M]  net/bluetooth/af_bluetooth.o
-net/bluetooth/af_bluetooth.c:60: warning: =E2=80=98bt_key_strings=E2=80=
-=99 defined but not used
-net/bluetooth/af_bluetooth.c:71: warning: =E2=80=98bt_slock_key_strings=
-=E2=80=99 defined but not used
-
-So I finally fixed it (even if I didn't cause it), but I don't know
-what's your take on fixing compiler warnings in -rc phase. It can
-certainly wait for the next merge window.
-
-Regards
-
-Marcel
-
-
-Please pull from
-
-    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.=
-6.git master
-
-This will update the following files:
-
- net/bluetooth/hci_core.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-through these ChangeSets:
-
-Marcel Holtmann (1):
-    [Bluetooth] Fix regression from using default link policy
-
-
-
+Please send me pull requests using net-2.6 as your base.
