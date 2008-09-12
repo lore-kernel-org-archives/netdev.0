@@ -1,64 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Fri, 12 Sep 2008 16:26:53 -0700 (PDT)
-Message-ID: <20080912.162653.14833095.davem@davemloft.net>
+Subject: Re: [UPDATE][NET-NEXT PATCH 1/2] pkt_sched: Add multiqueue
+ scheduler support
+Date: Fri, 12 Sep 2008 16:29:56 -0700 (PDT)
+Message-ID: <20080912.162956.79825710.davem@davemloft.net>
+References: <20080912224438.6940.77624.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55557
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55559
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751788AbYILX07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 19:26:59 -0400
+	by vger.kernel.org with ESMTP id S1753696AbYILXaC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 19:30:02 -0400
+In-Reply-To: <20080912224438.6940.77624.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 12 Sep 2008 15:44:55 -0700
 
-1) When NIU driver resets the chip after an error, it doesn't
-   reset the buffer pointers in the TX and RX rings, which
-   hangs the machine.  Fix from Santwona Behera
+> This patch is intended to add a qdisc to support the new tx multiqueue
+> architecture by providing a band for each hardware queue.  By doing
+> this it is possible to support a different qdisc per physical hardware
+> queue.
+> 
+> This qdisc uses the skb->queue_mapping to select which band to place
+> the traffic onto.  It then uses a round robin w/ a check to see if the
+> subqueue is stopped to determine which band to dequeue the packet from.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-2) nla_ok() has a signedness bug that causes us to reference
-   memory past the end of the attribute array in certain
-   circumstances.  Fix from Vegard Nossum.
-
-3) Bluetooth link policy regression fix from Marcel Holtmann.
-
-4) ATH9K wireless sequence number handling bug fix from Jouni Malinen.
-
-Please pull, thanks a lot!
-
-The following changes since commit e550dfb0c2c31b6363aa463a035fc9f8dcaa3c9b:
-  Neil Horman (1):
-        ipv6: Fix OOPS in ip6_dst_lookup_tail().
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-David S. Miller (1):
-      Merge branch 'master' of git://git.kernel.org/.../holtmann/bluetooth-2.6
-
-Jouni Malinen (1):
-      ath9k: Assign seq# when mac80211 requests this
-
-Marcel Holtmann (1):
-      [Bluetooth] Fix regression from using default link policy
-
-Santwona Behera (1):
-      niu: panic on reset
-
-Vegard Nossum (1):
-      netlink: fix overrun in attribute iteration
-
- drivers/net/niu.c                   |   56 +++++++++++++++++++++++++++++++++++
- drivers/net/wireless/ath9k/beacon.c |   13 ++++++++
- drivers/net/wireless/ath9k/core.h   |    1 +
- drivers/net/wireless/ath9k/main.c   |   14 +++++++++
- include/net/netlink.h               |    2 +-
- net/bluetooth/hci_core.c            |    3 ++
- 6 files changed, 88 insertions(+), 1 deletions(-)
-
+Applied, but I'd like to see Jarek's documentation feedback addressed
+in followon patches.
