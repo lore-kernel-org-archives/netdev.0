@@ -1,307 +1,234 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 26/29] ixgbe: correctly add and remove napi queues
-Date: Thu, 11 Sep 2008 20:04:56 -0700
-Message-ID: <20080912030450.6234.71019.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [NET-NEXT PATCH 27/29] ixgbe: whitespace/formatting cleanup
+Date: Thu, 11 Sep 2008 20:05:39 -0700
+Message-ID: <20080912030459.6234.69311.stgit@jtkirshe-mobile.jf.intel.com>
 References: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	akpm@linux-foundation.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.227]:22815 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.230]:19077 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756799AbYILDE7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:04:59 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so615228rvb.1
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 20:04:58 -0700 (PDT)
+	with ESMTP id S1757131AbYILDFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:05:43 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so615516rvb.1
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 20:05:42 -0700 (PDT)
 In-Reply-To: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch corrects support for NAPI so that queues are correctly added and
-removed during suspend/resume in the event that the number of MSI-X vectors
-changes.
+This patch cleans up some whitespace items, reorders a couple of functions, and removes some outdated comments.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |  230 +++++++++++++++++++++++-----------------
- 1 files changed, 130 insertions(+), 100 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |  125 +++++++++++++++++-----------------------
+ 1 files changed, 54 insertions(+), 71 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 2980a37..a8edbad 100644
+index a8edbad..ca17af4 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2023,43 +2023,6 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
- 
+@@ -117,19 +117,6 @@ static void ixgbe_get_hw_control(struct ixgbe_adapter *adapter)
+ 	                ctrl_ext | IXGBE_CTRL_EXT_DRV_LOAD);
  }
  
--#ifdef CONFIG_PM
--static int ixgbe_resume(struct pci_dev *pdev)
+-#ifdef DEBUG
+-/**
+- * ixgbe_get_hw_dev_name - return device name string
+- * used by hardware layer to print debugging information
+- **/
+-char *ixgbe_get_hw_dev_name(struct ixgbe_hw *hw)
 -{
--	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	u32 err;
--
--	pci_set_power_state(pdev, PCI_D0);
--	pci_restore_state(pdev);
--	err = pci_enable_device(pdev);
--	if (err) {
--		printk(KERN_ERR "ixgbe: Cannot enable PCI device from " \
--		       "suspend\n");
--		return err;
--	}
--	pci_set_master(pdev);
--
--	pci_enable_wake(pdev, PCI_D3hot, 0);
--	pci_enable_wake(pdev, PCI_D3cold, 0);
--
--	if (netif_running(netdev)) {
--		err = ixgbe_request_irq(adapter);
--		if (err)
--			return err;
--	}
--
--	ixgbe_reset(adapter);
--
--	if (netif_running(netdev))
--		ixgbe_up(adapter);
--
--	netif_device_attach(netdev);
--
--	return 0;
+-	struct ixgbe_adapter *adapter = hw->back;
+-	struct net_device *netdev = adapter->netdev;
+-	return netdev->name;
 -}
 -#endif
 -
- /**
-  * ixgbe_clean_rx_ring - Free Rx Buffers per Queue
-  * @adapter: board private structure
-@@ -2230,44 +2193,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- #endif
- }
+ static void ixgbe_set_ivar(struct ixgbe_adapter *adapter, u16 int_alloc_entry,
+                            u8 msix_vector)
+ {
+@@ -1315,7 +1302,6 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 eicr;
  
--static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
--{
--	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--#ifdef CONFIG_PM
--	int retval = 0;
--#endif
 -
--	netif_device_detach(netdev);
--
--	if (netif_running(netdev)) {
--		ixgbe_down(adapter);
--		ixgbe_free_irq(adapter);
--	}
--
--#ifdef CONFIG_PM
--	retval = pci_save_state(pdev);
--	if (retval)
--		return retval;
--#endif
--
--	pci_enable_wake(pdev, PCI_D3hot, 0);
--	pci_enable_wake(pdev, PCI_D3cold, 0);
--
--	ixgbe_release_hw_control(adapter);
--
--	pci_disable_device(pdev);
--
--	pci_set_power_state(pdev, pci_choose_state(pdev, state));
--
--	return 0;
--}
--
--static void ixgbe_shutdown(struct pci_dev *pdev)
--{
--	ixgbe_suspend(pdev, PMSG_SUSPEND);
--}
--
- /**
-  * ixgbe_poll - NAPI Rx polling callback
-  * @napi: structure for representing this polling device
-@@ -3023,6 +2948,135 @@ static int ixgbe_close(struct net_device *netdev)
+ 	/* for NAPI, using EIAM to auto-mask tx/rx interrupt bits on read
+ 	 * therefore no explict interrupt disable is necessary */
+ 	eicr = IXGBE_READ_REG(hw, IXGBE_EICR);
+@@ -2659,6 +2645,31 @@ err:
  }
  
  /**
-+ * ixgbe_napi_add_all - prep napi structs for use
-+ * @adapter: private struct
-+ * helper function to napi_add each possible q_vector->napi
-+ */
-+static void ixgbe_napi_add_all(struct ixgbe_adapter *adapter)
++ * ixgbe_setup_all_tx_resources - allocate all queues Tx resources
++ * @adapter: board private structure
++ *
++ * If this function returns with an error, then it's possible one or
++ * more of the rings is populated (while the rest are not).  It is the
++ * callers duty to clean those orphaned rings.
++ *
++ * Return 0 on success, negative on failure
++ **/
++static int ixgbe_setup_all_tx_resources(struct ixgbe_adapter *adapter)
 +{
-+	int q_idx, q_vectors;
-+	int (*poll)(struct napi_struct *, int);
++	int i, err = 0;
 +
-+	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
-+		poll = &ixgbe_clean_rxonly;
-+		/* Only enable as many vectors as we have rx queues. */
-+		q_vectors = adapter->num_rx_queues;
-+	} else {
-+		poll = &ixgbe_poll;
-+		/* only one q_vector for legacy modes */
-+		q_vectors = 1;
-+	}
-+
-+	for (q_idx = 0; q_idx < q_vectors; q_idx++) {
-+		struct ixgbe_q_vector *q_vector = &adapter->q_vector[q_idx];
-+		netif_napi_add(adapter->netdev, &q_vector->napi, (*poll), 64);
-+	}
-+}
-+
-+static void ixgbe_napi_del_all(struct ixgbe_adapter *adapter)
-+{
-+	int q_idx;
-+	int q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
-+
-+	/* legacy and MSI only use one vector */
-+	if (!(adapter->flags & IXGBE_FLAG_MSIX_ENABLED))
-+		q_vectors = 1;
-+
-+	for (q_idx = 0; q_idx < q_vectors; q_idx++) {
-+		struct ixgbe_q_vector *q_vector = &adapter->q_vector[q_idx];
-+		if (!q_vector->rxr_count)
++	for (i = 0; i < adapter->num_tx_queues; i++) {
++		err = ixgbe_setup_tx_resources(adapter, &adapter->tx_ring[i]);
++		if (!err)
 +			continue;
-+		netif_napi_del(&q_vector->napi);
-+	}
-+}
-+
-+#ifdef CONFIG_PM
-+static int ixgbe_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	u32 err;
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+	err = pci_enable_device(pdev);
-+	if (err) {
-+		printk(KERN_ERR "ixgbe: Cannot enable PCI device from " \
-+				"suspend\n");
-+		return err;
-+	}
-+	pci_set_master(pdev);
-+
-+	pci_enable_wake(pdev, PCI_D3hot, 0);
-+	pci_enable_wake(pdev, PCI_D3cold, 0);
-+
-+	err = ixgbe_init_interrupt_scheme(adapter);
-+	if (err) {
-+		printk(KERN_ERR "ixgbe: Cannot initialize interrupts for "
-+		                "device\n");
-+		return err;
++		DPRINTK(PROBE, ERR, "Allocation for Tx Queue %u failed\n", i);
++		break;
 +	}
 +
-+	ixgbe_napi_add_all(adapter);
-+	ixgbe_reset(adapter);
-+
-+	if (netif_running(netdev)) {
-+		err = ixgbe_open(adapter->netdev);
-+		if (err)
-+			return err;
-+	}
-+
-+	netif_device_attach(netdev);
-+
-+	return 0;
-+}
-+
-+#endif /* CONFIG_PM */
-+static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+#ifdef CONFIG_PM
-+	int retval = 0;
-+#endif
-+
-+	netif_device_detach(netdev);
-+
-+	if (netif_running(netdev)) {
-+		ixgbe_down(adapter);
-+		ixgbe_free_irq(adapter);
-+		ixgbe_free_all_tx_resources(adapter);
-+		ixgbe_free_all_rx_resources(adapter);
-+	}
-+	ixgbe_reset_interrupt_capability(adapter);
-+	ixgbe_napi_del_all(adapter);
-+	kfree(adapter->tx_ring);
-+	kfree(adapter->rx_ring);
-+
-+#ifdef CONFIG_PM
-+	retval = pci_save_state(pdev);
-+	if (retval)
-+		return retval;
-+#endif
-+
-+	pci_enable_wake(pdev, PCI_D3hot, 0);
-+	pci_enable_wake(pdev, PCI_D3cold, 0);
-+
-+	ixgbe_release_hw_control(adapter);
-+
-+	pci_disable_device(pdev);
-+
-+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+
-+	return 0;
-+}
-+
-+static void ixgbe_shutdown(struct pci_dev *pdev)
-+{
-+	ixgbe_suspend(pdev, PMSG_SUSPEND);
++	return err;
 +}
 +
 +/**
-  * ixgbe_update_stats - Update the board statistics counters.
+  * ixgbe_setup_rx_resources - allocate Rx resources (Descriptors)
   * @adapter: board private structure
-  **/
-@@ -3657,31 +3711,6 @@ static int ixgbe_link_config(struct ixgbe_hw *hw)
+  * @rx_ring:    rx descriptor ring (for a specific queue) to setup
+@@ -2711,6 +2722,32 @@ alloc_failed:
  }
  
  /**
-- * ixgbe_napi_add_all - prep napi structs for use
-- * @adapter: private struct
-- * helper function to napi_add each possible q_vector->napi
-- */
--static void ixgbe_napi_add_all(struct ixgbe_adapter *adapter)
++ * ixgbe_setup_all_rx_resources - allocate all queues Rx resources
++ * @adapter: board private structure
++ *
++ * If this function returns with an error, then it's possible one or
++ * more of the rings is populated (while the rest are not).  It is the
++ * callers duty to clean those orphaned rings.
++ *
++ * Return 0 on success, negative on failure
++ **/
++
++static int ixgbe_setup_all_rx_resources(struct ixgbe_adapter *adapter)
++{
++	int i, err = 0;
++
++	for (i = 0; i < adapter->num_rx_queues; i++) {
++		err = ixgbe_setup_rx_resources(adapter, &adapter->rx_ring[i]);
++		if (!err)
++			continue;
++		DPRINTK(PROBE, ERR, "Allocation for Rx Queue %u failed\n", i);
++		break;
++	}
++
++	return err;
++}
++
++/**
+  * ixgbe_free_tx_resources - Free Tx Resources per Queue
+  * @adapter: board private structure
+  * @tx_ring: Tx descriptor ring for a specific queue
+@@ -2786,57 +2823,6 @@ static void ixgbe_free_all_rx_resources(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
+- * ixgbe_setup_all_tx_resources - allocate all queues Tx resources
+- * @adapter: board private structure
+- *
+- * If this function returns with an error, then it's possible one or
+- * more of the rings is populated (while the rest are not).  It is the
+- * callers duty to clean those orphaned rings.
+- *
+- * Return 0 on success, negative on failure
+- **/
+-static int ixgbe_setup_all_tx_resources(struct ixgbe_adapter *adapter)
 -{
--	int i, q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
--	int (*poll)(struct napi_struct *, int);
+-	int i, err = 0;
 -
--	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
--		poll = &ixgbe_clean_rxonly;
--	} else {
--		poll = &ixgbe_poll;
--		/* only one q_vector for legacy modes */
--		q_vectors = 1;
+-	for (i = 0; i < adapter->num_tx_queues; i++) {
+-		err = ixgbe_setup_tx_resources(adapter, &adapter->tx_ring[i]);
+-		if (!err)
+-			continue;
+-		DPRINTK(PROBE, ERR, "Allocation for Tx Queue %u failed\n", i);
+-		break;
 -	}
 -
--	for (i = 0; i < q_vectors; i++) {
--		struct ixgbe_q_vector *q_vector = &adapter->q_vector[i];
--		netif_napi_add(adapter->netdev, &q_vector->napi,
--		               (*poll), 64);
--	}
+-	return err;
 -}
 -
 -/**
-  * ixgbe_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-  * @ent: entry in ixgbe_pci_tbl
-@@ -3977,6 +4006,7 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
- 	pci_release_regions(pdev);
+- * ixgbe_setup_all_rx_resources - allocate all queues Rx resources
+- * @adapter: board private structure
+- *
+- * If this function returns with an error, then it's possible one or
+- * more of the rings is populated (while the rest are not).  It is the
+- * callers duty to clean those orphaned rings.
+- *
+- * Return 0 on success, negative on failure
+- **/
+-
+-static int ixgbe_setup_all_rx_resources(struct ixgbe_adapter *adapter)
+-{
+-	int i, err = 0;
+-
+-	for (i = 0; i < adapter->num_rx_queues; i++) {
+-		err = ixgbe_setup_rx_resources(adapter, &adapter->rx_ring[i]);
+-		if (!err)
+-			continue;
+-		DPRINTK(PROBE, ERR, "Allocation for Rx Queue %u failed\n", i);
+-		break;
+-	}
+-
+-	return err;
+-}
+-
+-/**
+  * ixgbe_change_mtu - Change the Maximum Transfer Unit
+  * @netdev: network interface device structure
+  * @new_mtu: new value for maximum frame size
+@@ -3001,7 +2987,7 @@ static int ixgbe_resume(struct pci_dev *pdev)
+ 	pci_restore_state(pdev);
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+-		printk(KERN_ERR "ixgbe: Cannot enable PCI device from " \
++		printk(KERN_ERR "ixgbe: Cannot enable PCI device from "
+ 				"suspend\n");
+ 		return err;
+ 	}
+@@ -3189,8 +3175,8 @@ static void ixgbe_watchdog(unsigned long data)
+ }
  
- 	DPRINTK(PROBE, INFO, "complete\n");
-+	ixgbe_napi_del_all(adapter);
- 	kfree(adapter->tx_ring);
- 	kfree(adapter->rx_ring);
+ /**
+- *  ixgbe_watchdog_task - worker thread to bring link up
+- *  @work: pointer to work_struct containing our data
++ * ixgbe_watchdog_task - worker thread to bring link up
++ * @work: pointer to work_struct containing our data
+  **/
+ static void ixgbe_watchdog_task(struct work_struct *work)
+ {
+@@ -3526,7 +3512,6 @@ static void ixgbe_tx_queue(struct ixgbe_adapter *adapter,
+ 		tx_desc->read.cmd_type_len =
+ 		        cpu_to_le32(cmd_type_len | tx_buffer_info->length);
+ 		tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
+-
+ 		i++;
+ 		if (i == tx_ring->count)
+ 			i = 0;
+@@ -3576,7 +3561,6 @@ static int ixgbe_maybe_stop_tx(struct net_device *netdev,
+ 	return __ixgbe_maybe_stop_tx(netdev, tx_ring, size);
+ }
  
+-
+ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+@@ -4086,7 +4070,6 @@ static void ixgbe_io_resume(struct pci_dev *pdev)
+ 	}
+ 
+ 	netif_device_attach(netdev);
+-
+ }
+ 
+ static struct pci_error_handlers ixgbe_err_handler = {
 
