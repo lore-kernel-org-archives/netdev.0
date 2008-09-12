@@ -1,38 +1,46 @@
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: [PATCH] Fix dead 21041 ethernet after ifconfig down
-Date: Fri, 12 Sep 2008 23:19:19 +0200 (CEST)
-Message-ID: <20080912211919.1C36FC2AFD@solo.franken.de>
-Cc: grundler@parisc-linux.org, kyle@parisc-linux.org, tbm@cyrius.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] retain ABI definitions for obsolete multi-queue packet
+ schedulers
+Date: Fri, 12 Sep 2008 15:30:33 -0700 (PDT)
+Message-ID: <20080912.153033.157394228.davem@davemloft.net>
+References: <20080912100011.10c5c6b8@extreme>
+	<20080912122548.48945e11@extreme>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elvis.franken.de ([193.175.24.41]:45784 "EHLO elvis.franken.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752558AbYILW3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2008 18:29:38 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60304
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755567AbYILWak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 18:30:40 -0400
+In-Reply-To: <20080912122548.48945e11@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The de2104x did a pci_disable_device() in it's close function, but
-the open function never does a pci_enable_device() and assumes that
-the device is already enabled. Considering that downing the interface
-is just a temporary thing the pci_disable_device() isn't a pretty good
-idea and removing it from the close function just fixes the bug.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 12 Sep 2008 12:25:48 -0700
 
-Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
----
+> On Fri, 12 Sep 2008 10:00:11 -0700
+> Stephen Hemminger <shemminger@vyatta.com> wrote:
+> 
+> > Even though the sch_rr qdisc is now gone in 2.6.27, the kernel
+> > definitions for the attributes need to be maintained because applications
+> > like iproute need to be compatible with older kernels and use santized
+> > kernel headers.
+ ...
+> This should be applied for 2.6.27 since it is a build regression.
 
- drivers/net/tulip/de2104x.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+You use a local copy of this header file in iproute2, you don't even
+use the kernel header itself.  It's the worst possible example and
+excuse for this change.
 
-diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
-index 9281d06..f54c450 100644
---- a/drivers/net/tulip/de2104x.c
-+++ b/drivers/net/tulip/de2104x.c
-@@ -1418,7 +1418,6 @@ static int de_close (struct net_device *dev)
- 
- 	de_free_rings(de);
- 	de_adapter_sleep(de);
--	pci_disable_device(de->pdev);
- 	return 0;
- }
- 
+Nobody references this header directly for these definitions.
+The one and only use is using a local copy.
+
+iproute2 is the only thing even remotely referencing this stuff.
+
+So there is no breakage.  The only breakage is if you, Stephen, decide
+to copy the kernel header into iproute2 as-is, and that is your
+choice.  :-)
