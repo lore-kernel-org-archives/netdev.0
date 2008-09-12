@@ -1,47 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT PATCH 2/3][UPDATED] pkt_sched: Add multiqueue
- scheduler support
-Date: Thu, 11 Sep 2008 20:19:40 -0700 (PDT)
-Message-ID: <20080911.201940.04283963.davem@davemloft.net>
-References: <20080912030733.6982.49986.stgit@jtkirshe-mobile.jf.intel.com>
-	<20080912030750.6982.26892.stgit@jtkirshe-mobile.jf.intel.com>
+From: Grant Coady <grant_lkml@dodo.com.au>
+Subject: Re: [stable] regression in iptables: recent filter
+Date: Fri, 12 Sep 2008 13:29:43 +1000
+Message-ID: <a4ojc4l86ro7kstsefumugi56s88v3fm91@4ax.com>
+References: <ejijc4dc92n75s2el334e7dgdanngs7qv3@4ax.com> <20080912031132.GA6443@x200.localdomain>
+Reply-To: Grant Coady <gcoady.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: Grant Coady <gcoady.lk@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54932
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751852AbYILDTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:19:46 -0400
-In-Reply-To: <20080912030750.6982.26892.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from relay03.mail-hub.dodo.com.au ([123.2.6.238]:39333 "EHLO
+	relay03.mail-hub.dodo.com.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751852AbYILD3y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:29:54 -0400
+In-Reply-To: <20080912031132.GA6443@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 11 Sep 2008 20:08:31 -0700
+On Fri, 12 Sep 2008 07:11:32 +0400, Alexey Dobriyan <adobriyan@gmail.com> wrote:
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch is intended to add a qdisc to support the new tx multiqueue
-> architecture by providing a band for each hardware queue.  By doing
-> this it is possible to support a different qdisc per physical hardware
-> queue.
-> 
-> This qdisc uses the skb->queue_mapping to select which band to place
-> the traffic onto.  It then uses a round robin w/ a check to see if the
-> subqueue is stopped to determine which band to dequeue the packet from.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>On Fri, Sep 12, 2008 at 11:53:35AM +1000, Grant Coady wrote:
+>> Last known good kernel: 2.6.24.7
+>> 
+>> # iptables -N calmrate
+>> # iptables -A calmrate -p tcp -m state --state NEW \
+>> 	-m recent --name listrate --update --rttl \
+>> 	--seconds 60 --hitcount 60 -j DROP
+>> iptables: Unknown error 4294967295
+>> 
+>> Fails for 2.6.25.17 and 2.6.26.5
+>> 
+>> dmesg + config: http://bugsplatter.id.au/kernel/boxen/deltree/
+>
+>You were einvaled by the following commit:
+>
+>Reloading module with ip_pkt_list_tot=60 should fix it.
 
-I'm more and more agreeing with Jarek that the root-only restriction
-is rediculious.
+Thanks, I just been through the sources and reached the same 
+conclusion -- yes, okay with the ip_pkt_list_tot=60 :)
 
-What if I want to do PRIO multiqueue for certain classes of traffic?
+Not a very informative error message :(  The source needs some 
+whitespace fixing too, but who cares?
 
-If I want to shoot myself in the foot trying to use a setup like that,
-this thing damn well better let me.  You don't unilaterally know better
-than the user.
+Grant.
