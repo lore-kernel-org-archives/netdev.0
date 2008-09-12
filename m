@@ -1,48 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.28] tcp_ipv6: fix use of uninitialized memory
-Date: Fri, 12 Sep 2008 16:17:11 -0700 (PDT)
-Message-ID: <20080912.161711.206773065.davem@davemloft.net>
-References: <20080912070525.GA22276@damson.getinternet.no>
-	<20080912124405.GF8935@ghostprotocols.net>
+Subject: [GIT]: Networking
+Date: Fri, 12 Sep 2008 16:26:53 -0700 (PDT)
+Message-ID: <20080912.162653.14833095.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vegard.nossum@gmail.com, netdev@vger.kernel.org,
-	penberg@cs.helsinki.fi, mingo@elte.hu, linux-kernel@vger.kernel.org
-To: acme@redhat.com
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60895
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55557
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754836AbYILXRR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 19:17:17 -0400
-In-Reply-To: <20080912124405.GF8935@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1751788AbYILX07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 19:26:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Fri, 12 Sep 2008 09:44:05 -0300
 
-> Em Fri, Sep 12, 2008 at 09:05:25AM +0200, Vegard Nossum escreveu:
-> > >From 6544c4074aa5dde2e3f4d3e02f5601c1c33b770e Mon Sep 17 00:00:00 2001
-> > From: Vegard Nossum <vegard.nossum@gmail.com>
-> > Date: Tue, 9 Sep 2008 07:17:32 +0200
-> > Subject: [PATCH] tcp_ipv6: fix use of uninitialized memory
-> > 
-> > inet6_rsk() is called on a struct request_sock * before we
-> > have checked whether the socket is an ipv6 socket or a ipv6-
-> > mapped ipv4 socket. The access that triggers this is the
-> > inet_rsk(rsk)->inet6_rsk_offset dereference in inet6_rsk().
-> > 
-> > This is arguably not a critical error as the inet6_rsk_offset
-> > is only used to compute a pointer which is never really used
-> > (in the code path in question) anyway. But it might be a
-> > latent error, so let's fix it.
-> > 
-> > Spotted by kmemcheck.
-> 
-> Humm, so this was poisoned at allocation and then when inet6_rsk_offset
-> was accessed it noticed, interesting, thanks!
-> 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+1) When NIU driver resets the chip after an error, it doesn't
+   reset the buffer pointers in the TX and RX rings, which
+   hangs the machine.  Fix from Santwona Behera
 
-Good find :)  I'll add this to net-next-2.6, thanks!
+2) nla_ok() has a signedness bug that causes us to reference
+   memory past the end of the attribute array in certain
+   circumstances.  Fix from Vegard Nossum.
+
+3) Bluetooth link policy regression fix from Marcel Holtmann.
+
+4) ATH9K wireless sequence number handling bug fix from Jouni Malinen.
+
+Please pull, thanks a lot!
+
+The following changes since commit e550dfb0c2c31b6363aa463a035fc9f8dcaa3c9b:
+  Neil Horman (1):
+        ipv6: Fix OOPS in ip6_dst_lookup_tail().
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+David S. Miller (1):
+      Merge branch 'master' of git://git.kernel.org/.../holtmann/bluetooth-2.6
+
+Jouni Malinen (1):
+      ath9k: Assign seq# when mac80211 requests this
+
+Marcel Holtmann (1):
+      [Bluetooth] Fix regression from using default link policy
+
+Santwona Behera (1):
+      niu: panic on reset
+
+Vegard Nossum (1):
+      netlink: fix overrun in attribute iteration
+
+ drivers/net/niu.c                   |   56 +++++++++++++++++++++++++++++++++++
+ drivers/net/wireless/ath9k/beacon.c |   13 ++++++++
+ drivers/net/wireless/ath9k/core.h   |    1 +
+ drivers/net/wireless/ath9k/main.c   |   14 +++++++++
+ include/net/netlink.h               |    2 +-
+ net/bluetooth/hci_core.c            |    3 ++
+ 6 files changed, 88 insertions(+), 1 deletions(-)
+
