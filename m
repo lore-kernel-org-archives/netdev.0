@@ -1,174 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RESEND][NET-NEXT PATCH 20/29] ixgbe: move set_num_queues and call it
-	after msix failure
-Date: Thu, 11 Sep 2008 20:00:29 -0700
-Message-ID: <20080912030019.6234.42858.stgit@jtkirshe-mobile.jf.intel.com>
-References: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [stable] regression in iptables: recent filter
+Date: Thu, 11 Sep 2008 20:01:33 -0700
+Message-ID: <20080911200133.48be32fa.akpm@linux-foundation.org>
+References: <ejijc4dc92n75s2el334e7dgdanngs7qv3@4ax.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org
+Cc: Grant Coady <grant_lkml@dodo.com.au>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Grant Coady <gcoady.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:19724 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755061AbYILDAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:00:32 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so622269wfd.4
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 20:00:31 -0700 (PDT)
-In-Reply-To: <20080912025404.6234.83037.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60710 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754849AbYILDCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:02:09 -0400
+In-Reply-To: <ejijc4dc92n75s2el334e7dgdanngs7qv3@4ax.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Fri, 12 Sep 2008 11:53:35 +1000 Grant Coady <grant_lkml@dodo.com.au> wrote:
 
-This is partial preparation for a future patch which will extend
-ixgbe_set_num_queues
+> Hi there,
+> 
+> Last known good kernel: 2.6.24.7
+> 
+> # iptables -N calmrate
+> # iptables -A calmrate -p tcp -m state --state NEW \
+> 	-m recent --name listrate --update --rttl \
+> 	--seconds 60 --hitcount 60 -j DROP
+> iptables: Unknown error 4294967295
+> 
+> Fails for 2.6.25.17 and 2.6.26.5
+> 
+> dmesg + config: http://bugsplatter.id.au/kernel/boxen/deltree/
+> 
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/ixgbe/ixgbe_ethtool.c |    2 -
- drivers/net/ixgbe/ixgbe_main.c    |   88 +++++++++++++++++++------------------
- 2 files changed, 45 insertions(+), 45 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index ff4fac3..020b0c7 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -947,7 +947,7 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
- }
- 
- 
--static struct ethtool_ops ixgbe_ethtool_ops = {
-+static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
- 	.get_drvinfo            = ixgbe_get_drvinfo,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index cafb915..257866b 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2333,6 +2333,46 @@ static void ixgbe_reset_task(struct work_struct *work)
- 	ixgbe_reinit_locked(adapter);
- }
- 
-+static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
-+{
-+	int nrq = 1, ntq = 1;
-+	int feature_mask = 0, rss_i, rss_m;
-+
-+	/* Number of supported queues */
-+	switch (adapter->hw.mac.type) {
-+	case ixgbe_mac_82598EB:
-+		rss_i = adapter->ring_feature[RING_F_RSS].indices;
-+		rss_m = 0;
-+		feature_mask |= IXGBE_FLAG_RSS_ENABLED;
-+
-+		switch (adapter->flags & feature_mask) {
-+		case (IXGBE_FLAG_RSS_ENABLED):
-+			rss_m = 0xF;
-+			nrq = rss_i;
-+			ntq = rss_i;
-+			break;
-+		case 0:
-+		default:
-+			rss_i = 0;
-+			rss_m = 0;
-+			nrq = 1;
-+			ntq = 1;
-+			break;
-+		}
-+
-+		adapter->ring_feature[RING_F_RSS].indices = rss_i;
-+		adapter->ring_feature[RING_F_RSS].mask = rss_m;
-+		break;
-+	default:
-+		nrq = 1;
-+		ntq = 1;
-+		break;
-+	}
-+
-+	adapter->num_rx_queues = nrq;
-+	adapter->num_tx_queues = ntq;
-+}
-+
- static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 				       int vectors)
- {
-@@ -2372,54 +2412,13 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 		kfree(adapter->msix_entries);
- 		adapter->msix_entries = NULL;
- 		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
--		adapter->num_tx_queues = 1;
--		adapter->num_rx_queues = 1;
-+		ixgbe_set_num_queues(adapter);
- 	} else {
- 		adapter->flags |= IXGBE_FLAG_MSIX_ENABLED; /* Woot! */
- 		adapter->num_msix_vectors = vectors;
- 	}
- }
- 
--static void __devinit ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
--{
--	int nrq, ntq;
--	int feature_mask = 0, rss_i, rss_m;
--
--	/* Number of supported queues */
--	switch (adapter->hw.mac.type) {
--	case ixgbe_mac_82598EB:
--		rss_i = adapter->ring_feature[RING_F_RSS].indices;
--		rss_m = 0;
--		feature_mask |= IXGBE_FLAG_RSS_ENABLED;
--
--		switch (adapter->flags & feature_mask) {
--		case (IXGBE_FLAG_RSS_ENABLED):
--			rss_m = 0xF;
--			nrq = rss_i;
--			ntq = rss_i;
--			break;
--		case 0:
--		default:
--			rss_i = 0;
--			rss_m = 0;
--			nrq = 1;
--			ntq = 1;
--			break;
--		}
--
--		adapter->ring_feature[RING_F_RSS].indices = rss_i;
--		adapter->ring_feature[RING_F_RSS].mask = rss_m;
--		break;
--	default:
--		nrq = 1;
--		ntq = 1;
--		break;
--	}
--
--	adapter->num_rx_queues = nrq;
--	adapter->num_tx_queues = ntq;
--}
--
- /**
-  * ixgbe_cache_ring_register - Descriptor ring to register mapping
-  * @adapter: board private structure to initialize
-@@ -2482,11 +2481,12 @@ static int __devinit ixgbe_alloc_queues(struct ixgbe_adapter *adapter)
- 		goto err_rx_ring_allocation;
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
--		adapter->tx_ring[i].count = IXGBE_DEFAULT_TXD;
-+		adapter->tx_ring[i].count = adapter->tx_ring_count;
- 		adapter->tx_ring[i].queue_index = i;
- 	}
-+
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		adapter->rx_ring[i].count = IXGBE_DEFAULT_RXD;
-+		adapter->rx_ring[i].count = adapter->rx_ring_count;
- 		adapter->rx_ring[i].queue_index = i;
- 	}
- 
-
+(cc netdev)
