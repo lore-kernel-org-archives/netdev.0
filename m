@@ -1,37 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Sat, 13 Sep 2008 02:08:25 +1000
-Message-ID: <20080912160825.GA5690@gondor.apana.org.au>
-References: <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <20080911212459.GL6693@linux.vnet.ibm.com> <20080911.150006.53056393.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] retain ABI definitions for obsolete multi-queue packet
+ schedulers
+Date: Fri, 12 Sep 2008 10:00:11 -0700
+Message-ID: <20080912100011.10c5c6b8@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com, timo.teras@iki.fi,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:32990 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753529AbYILQIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 12:08:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20080911.150006.53056393.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:44980 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756958AbYILRJw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2008 13:09:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2008 at 03:00:06PM -0700, David Miller wrote:
->
-> > There is only one reader at a time, right?  Otherwise, I don't see how
-> > the increments and reads of xfrm_state_walk_completed line up.
-> 
-> The RTNL semaphore is held across the modifications of the counters.
+Even though the sch_rr qdisc is now gone in 2.6.27, the kernel
+definitions for the attributes need to be maintained because applications
+like iproute need to be compatible with older kernels and use santized
+kernel headers.
 
-s/RTNL/xfrm_cfg_mutex/
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-but otherwise what Dave said :)
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--- a/include/linux/pkt_sched.h	2008-09-12 09:56:39.000000000 -0700
++++ b/include/linux/pkt_sched.h	2008-09-12 09:57:49.000000000 -0700
+@@ -123,6 +123,16 @@ struct tc_prio_qopt
+ 	__u8	priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> PRIO band */
+ };
+ 
++/* Obsolete option from original multiqueue */
++enum
++{
++	TCA_PRIO_UNSPEC,
++	TCA_PRIO_MQ,
++	__TCA_PRIO_MAX
++};
++
++#define TCA_PRIO_MAX    (__TCA_PRIO_MAX - 1)
++
+ /* TBF section */
+ 
+ struct tc_tbf_qopt
