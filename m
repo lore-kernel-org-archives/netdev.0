@@ -1,56 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] retain ABI definitions for obsolete multi-queue packet
- schedulers
-Date: Fri, 12 Sep 2008 15:58:30 -0700
-Message-ID: <20080912155830.5ff50c59@extreme>
-References: <20080912100011.10c5c6b8@extreme>
-	<20080912122548.48945e11@extreme>
-	<20080912.153033.157394228.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33215 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753482AbYILW6e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2008 18:58:34 -0400
-In-Reply-To: <20080912.153033.157394228.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: UDP and Raw packet output not scaling with number of cores (10G, ixgbe and bnx2x)
+Date: Fri, 12 Sep 2008 16:00:02 -0700
+Message-ID: <E1KeHcQ-0002T8-R7@gondolin.me.apana.org.au>
+References: <20080911.203450.29338239.davem@davemloft.net>
+Cc: wurzel@ccpu.com, linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net (David Miller)
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20080911.203450.29338239.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Sep 2008 15:30:33 -0700 (PDT)
 David Miller <davem@davemloft.net> wrote:
+>
+>> I'm not trying to do anything fancy with QOS or egress rates; basically 
+>> I just want a program that does
+>>       fd = socket()   // either UDP or Raw
+>>       while (1)  send(fd, buf, 1024)
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Fri, 12 Sep 2008 12:25:48 -0700
-> 
-> > On Fri, 12 Sep 2008 10:00:11 -0700
-> > Stephen Hemminger <shemminger@vyatta.com> wrote:
-> > 
-> > > Even though the sch_rr qdisc is now gone in 2.6.27, the kernel
-> > > definitions for the attributes need to be maintained because applications
-> > > like iproute need to be compatible with older kernels and use santized
-> > > kernel headers.
->  ...
-> > This should be applied for 2.6.27 since it is a build regression.
-> 
-> You use a local copy of this header file in iproute2, you don't even
-> use the kernel header itself.  It's the worst possible example and
-> excuse for this change.
-> 
-> Nobody references this header directly for these definitions.
-> The one and only use is using a local copy.
-> 
-> iproute2 is the only thing even remotely referencing this stuff.
-> 
-> So there is no breakage.  The only breakage is if you, Stephen, decide
-> to copy the kernel header into iproute2 as-is, and that is your
-> choice.  :-)
+Please post the actual program as the current queue selection is
+flow based so how you construct your sockets matter.
 
-Every release I copy the sanitized kernel headers resulting
-from 'make headers_install'.  That is how they have been maintained and
-up until now it worked.  The sch_rr configuration portion was referencing
-this.  The point of the sanitized headers was to avoid this nonsense.
+Also are you sure you're CPU-bound? If the bottleneck is elsewhere
+then increasing threads isn't going to do anything.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
