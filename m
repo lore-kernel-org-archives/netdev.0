@@ -1,44 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [UPDATED] [NET-NEXT PATCH 1/2] pkt_sched: Add multiqueue
- scheduler support
-Date: Thu, 11 Sep 2008 20:11:22 -0700 (PDT)
-Message-ID: <20080911.201122.121295266.davem@davemloft.net>
-References: <20080830072119.7479.8724.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: Re: [PATCH RESEND] ipv6: return with appropriate error code when
+ sending RH0 using setsockopt()
+Date: Thu, 11 Sep 2008 20:14:58 -0700 (PDT)
+Message-ID: <20080911.201458.162553481.davem@davemloft.net>
+References: <48BE4DA2.20800@cn.fujitsu.com>
+	<48BED93E.2000204@hp.com>
+	<48BF598A.6020702@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=gb2312
+Content-Transfer-Encoding: base64
+Cc: brian.haley@hp.com, netdev@vger.kernel.org
+To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56271
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40755
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752926AbYILDL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:11:28 -0400
-In-Reply-To: <20080830072119.7479.8724.stgit@jtkirshe-mobile.jf.intel.com>
+	by vger.kernel.org with ESMTP id S1752340AbYILDPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 23:15:04 -0400
+In-Reply-To: <48BF598A.6020702@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 30 Aug 2008 00:21:37 -0700
-
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch is intended to add a qdisc to support the new tx multiqueue
-> architecture by providing a band for each hardware queue.  By doing
-> this it is possible to support a different qdisc per physical hardware
-> queue.
-> 
-> This qdisc uses the skb->queue_mapping to select which band to place
-> the traffic onto.  It then uses a round robin w/ a check to see if the
-> subqueue is stopped to determine which band to dequeue the packet from.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-Jarek provided a bunch of feedback on these changes, some of which
-Alexander stated he would integrate, so I'm waiting for the next
-submission of these two changes.
-
-Just FYI.
-
+RnJvbTogU2hhbiBXZWkgPHNoYW53ZWlAY24uZnVqaXRzdS5jb20+DQpEYXRlOiBUaHUsIDA0IFNl
+cCAyMDA4IDExOjQ0OjEwICswODAwDQoNCj4gQnJpYW4gSGFsZXkg0LS1wDoNCj4gPiBTaGFuIFdl
+aSB3cm90ZToNCj4gPj4gZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYyBiL25l
+dC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KPiA+PiBpbmRleCA0ZTVlYWMzLi43YTU4NTk3IDEwMDY0
+NA0KPiA+PiAtLS0gYS9uZXQvaXB2Ni9pcHY2X3NvY2tnbHVlLmMNCj4gPj4gKysrIGIvbmV0L2lw
+djYvaXB2Nl9zb2NrZ2x1ZS5jDQo+ID4+IEBAIC0zNTMsOSArMzUzLDEwIEBAIHN0YXRpYyBpbnQg
+ZG9faXB2Nl9zZXRzb2Nrb3B0KHN0cnVjdCBzb2NrICpzaywgaW50IGxldmVsLCBpbnQgb3B0bmFt
+ZSwNCj4gPj4gIAkJCWdvdG8gZV9pbnZhbDsNCj4gPj4gIA0KPiA+PiAgCQkvKiBob3AtYnktaG9w
+IC8gZGVzdGluYXRpb24gb3B0aW9ucyBhcmUgcHJpdmlsZWdlZCBvcHRpb24gKi8NCj4gPj4gLQkJ
+cmV0diA9IC1FUEVSTTsNCj4gPj4gLQkJaWYgKG9wdG5hbWUgIT0gSVBWNl9SVEhEUiAmJiAhY2Fw
+YWJsZShDQVBfTkVUX1JBVykpDQo+ID4+ICsJCWlmIChvcHRuYW1lICE9IElQVjZfUlRIRFIgJiYg
+IWNhcGFibGUoQ0FQX05FVF9SQVcpKSB7DQo+ID4+ICsJCQlyZXR2ID0gLUVQRVJNOw0KPiA+PiAg
+CQkJYnJlYWs7DQo+ID4+ICsJCX0NCj4gPiANCj4gPiBJJ20gbm90IHN1cmUgeW91IG5lZWQgdGhp
+cyBzaW5jZSBpdCBkb2Vzbid0IGFjdHVhbGx5IGNoYW5nZSBhbnl0aGluZywNCj4gPiBzZXR0aW5n
+IHRoZSBlcnJvciBiZWZvcmUgdGhlIGNoZWNrIGp1c3Qgc2VlbXMgbGlrZSB0aGUgc3R5bGUgaW4g
+dGhpcw0KPiA+IGZ1bmN0aW9uLiAgSXQgd2lsbCBnZXQgc2V0IHRvIC1FSU5WQUwgYmVsb3cuLi4N
+Cj4gPiANCj4gRm9yIHVuY29tbW9uIGV4cGVjdGlvbiwgaWYgdGhlIGNoZWNrIGlzIHRydWUsIHdl
+IHNldCB0aGUgZXJyb3IuIA0KPiBpdCB3aWxsIHJlZHVjZSB0aGUgbnVtYmVyIG9mIHNldHRpbmcg
+cmV0diB2YWx1ZS4NCg0KRG8geW91IGhhdmUgc29tZSBlbW90aW9uYWwgYXR0YWNobWVudCB0byB0
+aGlzIGNoYW5nZT8gOi0vDQoNClRoZSBjb21waWxlciBvcHRpbWl6ZXIgd2lsbCBtYWtlIHRoZSB0
+cmFuc2Zvcm1hdGlvbiB5b3UgY2xhaW0gaXMNCm5vdyBwb3NzaWJsZSwgYWxsIGJ5IGl0c2VsZiwg
+aWYgaXQgaXMgZGVlbWVkIG1vcmUgb3B0aW1hbC4NCg0KTmV2ZXIgbWFrZSBhbnkgY2xhaW1zIGFi
+b3V0IGhvdyBtYW55IHRpbWVzIHNvbWV0aGluZyB3aWxsIG9yIHdpbGwgbm90DQpoYXBwZW4gaW4g
+dGhlIGNvbXBpbGVkIG91dHB1dCB3aXRob3V0IGNvbnN1bHRpbmcgYW5kIHByb3ZpZGluZw0KZXhh
+bXBsZXMgb2YgdGhlIHJlc3VsdGluZyBhc3NlbWJsZXIuICBPdGhlcndpc2UgeW91IGFyZSBqdXN0
+IGd1ZXNzaW5nLg0KDQpUaGlzIGlzIGp1c3QgYSBwb2ludGxlc3MgY2hhbmdlLCBhbmQgYXMgQnJp
+YW4gc2FpZCBpdCBkaXNhZ3JlZXMgd2l0aA0KdGhlIHdheSB0aGlzIGNvbnN0cnVjdCBpcyBtYWRl
+IGluIHRoZSByZXN0IG9mIHRoaXMgZnVuY3Rpb24uICBTbw0KcGxlYXNlIHRha2UgaXQgb3V0IG9m
+IHlvdXIgcGF0Y2guDQo=
