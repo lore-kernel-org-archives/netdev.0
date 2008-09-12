@@ -1,76 +1,66 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: Re: a new problem with the hso driver
-Date: Fri, 12 Sep 2008 09:26:06 +0200
-Message-ID: <48CA198E.60300@option.com>
-References: <Pine.LNX.4.44L0.0809111835350.3949-100000@iolanthe.rowland.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [BUG?] sendfile / distcc
+Date: Fri, 12 Sep 2008 09:45:58 +0200
+Message-ID: <1221205558.6407.3.camel@twins.programming.kicks-ass.net>
+References: <1221038871.2442.86.camel@twins.programming.kicks-ass.net>
+	 <20080910234429.1a8bfa1f.akpm@linux-foundation.org>
+	 <1221121607.4415.1073.camel@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.44L0.0809111835350.3949-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:53903 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845AbYILHqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 03:46:03 -0400
+In-Reply-To: <1221121607.4415.1073.camel@twins.programming.kicks-ass.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thank you Alan
+On Thu, 2008-09-11 at 10:26 +0200, Peter Zijlstra wrote:
+> On Wed, 2008-09-10 at 23:44 -0700, Andrew Morton wrote:
+> > On Wed, 10 Sep 2008 11:27:51 +0200 Peter Zijlstra <peterz@infradead.org> wrote:
+> > 
+> > > Hi,
+> > > 
+> > > I've been seeing this for a while now, but its still present with -rc5+
+> > > kernels. Its always the local machine failing, never the remotes.
+> > > 
+> > > [root@twins linux-2.6-rt]# nice ./k opteron build
+> > > time distmake x86_64 O=opteron-build ARCH=x86_64
+> > > testing twins:    distccd running
+> > > testing opteron:  DOWN
+> > > testing taijtu:   distccd running
+> > > testing dyad:     distccd running
+> > > testing lappy:    host running
+> > > testing ubuntu:   host running
+> > > DISTCC_HOSTS= twins/8 taijtu/32 dyad/32
+> > > DISTCC_DIR=/dev/shm/distcc
+> > > DISTCC_SLOTS=72
+> > > 
+> > > ...
+> > > 
+> > > distcc[9931] (dcc_writex) ERROR: failed to write: Connection reset by peer
+> > > distcc[9931] Warning: failed to distribute /mnt/build/linux-2.6-rt/kernel/fork.c to twins/8, running locally instead
+> > > 
+> > > ...
+> > > 
+> > > distcc[12078] (dcc_pump_sendfile) ERROR: sendfile failed: Connection reset by peer
+> > > distcc[12078] (dcc_readx) ERROR: unexpected eof on fd4
+> > > distcc[12078] (dcc_r_token_int) ERROR: read failed while waiting for token "DONE"
+> > > distcc[12078] Warning: failed to distribute /mnt/build/linux-2.6-rt/init/version.c to twins/8, running locally instead
+> > > 
+> > 
+> > distcc is very good at breaking networking.  I assume 2.6.26 is OK?
+> 
+> I think it was - whew .26 was a long time ago already ;-)
+> 
+> I'll build and boot one today to confirm.
 
-Alan Stern wrote:
-> On Thu, 11 Sep 2008, Denis Joseph Barrow wrote:
-> 
->> Hi Greg/Andrew,
->> I've a minor problem.
->> If you put the hso driver into powersave mode
->> by going into /sysfs
->>
->> cd /sys/
->>  find . -name idVendor | xargs -n 1 | grep -H af0
->>  cd ./devices/pci0000:00/0000:00:1d.7/usb5/5-4/
->>  or wherever the idVendor is at.
->>  cd power/
->> echo auto > level
->>
->> Then let the driver sleep for about 2 minutes.a
->>
->> It can't be woken up, it appears that the 
->> usb layer is looking for a reset_resume
->> function to be implemented. 
->>
->> We get the following messages from the kernel
->> [12518.790072] hso 2-2:1.0: no reset_resume for driver hso?
->> [12518.790081] hso 2-2:1.1: no reset_resume for driver hso?
->> [12518.790085] hso 2-2:1.2: no reset_resume for driver hso?
->>
->> How do I implement a reset resume function?
->> could somebody tell me & put in a few comments in include/linux/usb.h
-> 
-> See Documentation/usb/power-management.txt.
-> 
->> Our customer says the device has gone into an S3 sleep
->> whatever the difference between this & the reduced power mode
->> it goes into after 2 seconds when it calls hso_suspend I don't know.
->>
->> On a slightly related issue
->> we get an error -22 ie -EINVAL from usb_submit_urb
->> this though I haven't investigated properly appears to happen when the device is suspended
->> but appears to have no adverse effect on the driver
->> it still seems to work, I haven't really investigated this, whats happening?
->> but would greatly appreciate being pointed in the right direction.
-> 
-> -EINVAL can indicate several possible errors, but as far as I remember, 
-> none of them are associated with the device being suspended.  If you 
-> try to submit an URB to a suspended device, you'll get -EHOSTUNREACH.
-> 
-> Alan Stern
+It seems I can reproduce similar errors with .26 - I'll be traveling
+soon and this box is one of those without serial console so It'll have
+to wait until I get back.
 
-
--- 
-best regards,
-D.J. Barrow
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
