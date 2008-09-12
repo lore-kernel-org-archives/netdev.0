@@ -1,76 +1,87 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
-	dev_deactivate() race
-Date: Fri, 12 Sep 2008 08:02:49 +0000
-Message-ID: <20080912080249.GA3971@ff.dom.local>
-References: <20080911.044255.245121628.davem@davemloft.net> <20080911114502.GA22698@gondor.apana.org.au> <20080911.044717.265303740.davem@davemloft.net> <20080911.214929.152271268.davem@davemloft.net>
+From: Franco Fichtner <franco@marian.de>
+Subject: Re: [PATCH 5/8] [RFC] qlge: Add main source module qlge_main.c
+Date: Fri, 12 Sep 2008 10:15:36 +0200
+Message-ID: <48CA2528.2010201@marian.de>
+References: <20080910205813.GA13266@susedev.qlogic.org> <12210803433594-git-send-email-ron.mercer@qlogic.com> <48C8D937.5020708@marian.de> <20080912005837.GB23939@susedev.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Franco Fichtner <franco@marian.de>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-driver@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.240]:1479 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbYILIC4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 04:02:56 -0400
-Received: by hs-out-0708.google.com with SMTP id 4so280714hsl.5
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2008 01:02:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080911.214929.152271268.davem@davemloft.net>
+Received: from moutng.kundenserver.de ([212.227.126.183]:55552 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163AbYILIPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 04:15:42 -0400
+In-Reply-To: <20080912005837.GB23939@susedev.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2008 at 09:49:29PM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 11 Sep 2008 04:47:17 -0700 (PDT)
-> 
-> > Ok, so implementing ->peek() is the first step in dealing
-> > with this.
-> 
-> Ok, here's a first cut at this.
-> 
-> Most of it is simple and straightforward.
-> 
-> As usual, though, CBQ, HFSC, and HTB are complicated.
+Hi Ron,
 
-I guess not for Patrick... (so CCed)
+Thanks for the clarification. 4000 lines of code are just too much to
+grasp at the first glance. :)
 
-> 
-> Most of the peek implementations just skb_peek() in their
-> downstream queue or iterate over their prio array doing
-> the same looking for a non-empty list.
-> 
-> But CBQ, HFSC, and HTB have complicated class iterators and
-> internal time state machine things.  I tried to do my best
-> in these cases.
-> 
-> I didn't want these things firing off class watchdog timers and
-> stuff like this.  Just see if there is any packet ready now
-> and return it.
-> 
-> The one exception is that I allow CBQ to advance it's time
-> state machine.
+> Regarding ql_wait_idx_reg() and ql_wait_addr_reg() they provide waiting
+> while gaining access for read/writes to/from a secondary set of
+> registers.
 
-Alas I'm still not sure how this whole peek idea is going to be
-implemented (dequeuing after peeking doesn't have to give us the
-same skb since in the meantime e.g. in HTB some other class with
-higher prio can get enough tokens etc., and if there is a break
-for transmit in the meantime with possible enqueuing, or we can
-deal with something like sch_multiq, which depends on the current
-state of the tx_queues, this all looks even more interesting).
+These registers are once per hardware, right? Then your spinlocking
+would do nothing on single CPU systems, because it won't get into the
+binaries. Meaning: your registers are NOT protected the way you would
+have hoped. And even with SMP systems... if another CPU hits a locked
+spinlock it does nothing but wait, quite synchronously to your mdelay()
+loop. So both scenarios are rather suboptimal. If that's how things are,
+you're better off using a semaphore.
 
-So, until there is some example, even in pseudocode, for qdisc_run()
-vs. some_classful_sched interaction, I think, I'm not able to give
-more feedback now, but mabe only one doubt if this wrapper below is
-really needed, since skb_peek() is more readable and it's used
-directly in a few places anyway.
+On non-SMP systems, you're gonna put another access on the waiting list
+by using a semaphore, which in return will give you time to finish your
+operations on the registers and free the semaphore. And, last but not
+least, SMP systems will do work they otherwise would not be able to do.
 
-> +static inline struct sk_buff *__qdisc_peek_head(struct Qdisc *sch,
-> +						struct sk_buff_head *list)
-> +{
-> +	return skb_peek(list);
-> +}
+There is just the slight problem of ql_wait_idx_reg() and
+ql_wait_addr_reg() being executed from interrupt context? If that is the
+case, then you can't use the standard semaphores, because sleeping isn't
+allowed. I do hope that is not the case...
 
-Thanks,
-Jarek P.
+> To my understanding, you can't sleep while holding a
+> spinlock.  I tried this before and saw massive warnings.  I have
+> "Spinlock debugging: sleep-inside-spinlock checking" turned on in my
+> kernel and perhaps that's why I saw them.
+
+You'd normally use spinlocks in interrupt context where you just have to
+make sure no other CPU mangles with your variables or hardware registers
+the fastest way possible. You don't keep a spinlock forever, not even
+for the course of a few function calls, which will make the code harder
+to read, thus harder to understand, and thus harder to debug.
+
+The warning messages are right, but (I think) they are intended to avoid 
+deadlocks as early as possible. Though, with msleep() I don't think
+you'll get into any more serious problems than before, because unless 
+the Kernel is really not doing what it should, you should always get
+back to your loop. Using schedule() and wait queues in spinlocked 
+scenarios is a whole other thing. (Anyone, please correct me if I'm wrong.)
+
+> At that point I changed from msleep to mdelay.
+> After reviewing your comments I've reduced and standardized the mdelay
+> wait to 5ms with a count of 50.
+
+It may help introduce defines to get rid of magic numbers inside the
+code as well. Something like:
+
+#define QLGE_TIMEOUT_COUNT	50
+#define QLGE_TIMEOUT_DELAY	5
+
+That will help maintaining code and makes it more easily readable (and
+consistent as a bonus... less lines to update).
+
+> These secondary registers are
+> accessed only during open(), reset(), and a few
+> netdev-API like set_multi and add_vlan_vid.
+
+Okay, I see. But still, I get the vibe that this is already a bit too
+much to justify keeping the current way of locking in the code. Sooner
+or later someone else will complain about this. ;)
+
+
+Franco
