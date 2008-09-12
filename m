@@ -1,80 +1,51 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: add pci ids
-Date: Fri, 12 Sep 2008 06:55:14 -0700
-Message-ID: <1221227714-8382-1-git-send-email-dhananjay@netxen.com>
-Cc: jeff@garzik.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:43239 "EHLO unm84.unminc.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751521AbYILNzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2008 09:55:17 -0400
-In-Reply-To: <>
-References: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Elad Lahav <elahav@uwaterloo.ca>
+Subject: Re: Performance degradration 2.6.25->2.6.26
+Date: Fri, 12 Sep 2008 10:58:37 -0400
+Message-ID: <48CA839D.308@uwaterloo.ca>
+References: <489C0F2C.9040101@users.sourceforge.net>
+	<alpine.WNT.1.10.0808080906590.5428@jbrandeb-MOBL1.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Elad Lahav <elad_lahav@users.sourceforge.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <alpine.WNT.1.10.0808080906590.5428@jbrandeb-MOBL1.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Define old and new pci vendor and device ids.
+>> HyperThreading, for a total of 4 logical processors, and 4 Intel Gigabit
+>>   NICs on a PCI 64/66 bus (82546EB). In the experiments, I am pinning
+>> four sending processes (one per NIC) to logical processors 0 and 2, and
+>> the NIC interrupts to logical processors 1 and 3, such that interrupts
+>> are serviced by the sibling logical processor of the one sending the
+>> packets. I have used both the driver that comes with the Linux kernel
+>> (7.3.20-k2-NAPI), as well as a more recent one (7.6.15.5).
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_main.c |   18 +++++++++---------
- include/linux/pci_ids.h              |   10 ++++++++++
- 2 files changed, 19 insertions(+), 9 deletions(-)
+I believe I have found the problem, and it has nothing to do with the driver.
+Up to the latest kernel, logical processors on the same chip had sequential CPU IDs. So 
+CPU 0 and CPU 1 were two logical processors on the first physical one, 2 and 3 on the 
+second physical one, etc.
+It seems that now this ordering has changed. I was running my experiments on logical 
+processors 0 and 2, assuming they were on different physical processors, when, in fact, 
+they were sharing the same one. When pinning the processes to logical processor 0 and 1, I 
+get at least as good a performance as I do on previous kernels.
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 008fd66..0f8ea2c 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -77,18 +77,18 @@ static irqreturn_t netxen_msi_intr(int irq, void *data);
- 
- /*  PCI Device ID Table  */
- #define ENTRY(device) \
--	{PCI_DEVICE(0x4040, (device)), \
-+	{PCI_DEVICE(PCI_VENDOR_ID_NETXEN, (device)), \
- 	.class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
- 
- static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
--	ENTRY(0x0001),
--	ENTRY(0x0002),
--	ENTRY(0x0003),
--	ENTRY(0x0004),
--	ENTRY(0x0005),
--	ENTRY(0x0024),
--	ENTRY(0x0025),
--	ENTRY(0x0100),
-+	ENTRY(PCI_DEVICE_ID_NX2031_10GXSR),
-+	ENTRY(PCI_DEVICE_ID_NX2031_10GCX4),
-+	ENTRY(PCI_DEVICE_ID_NX2031_4GCU),
-+	ENTRY(PCI_DEVICE_ID_NX2031_IMEZ),
-+	ENTRY(PCI_DEVICE_ID_NX2031_HMEZ),
-+	ENTRY(PCI_DEVICE_ID_NX2031_XG_MGMT),
-+	ENTRY(PCI_DEVICE_ID_NX2031_XG_MGMT2),
-+	ENTRY(PCI_DEVICE_ID_NX3031),
- 	{0,}
- };
- 
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index f1624b3..97dfb11 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -2244,6 +2244,16 @@
- #define PCI_DEVICE_ID_3DLABS_PERMEDIA2	0x0007
- #define PCI_DEVICE_ID_3DLABS_PERMEDIA2V	0x0009
- 
-+#define PCI_VENDOR_ID_NETXEN		0x4040
-+#define PCI_DEVICE_ID_NX2031_10GXSR	0x0001
-+#define PCI_DEVICE_ID_NX2031_10GCX4	0x0002
-+#define PCI_DEVICE_ID_NX2031_4GCU	0x0003
-+#define PCI_DEVICE_ID_NX2031_IMEZ	0x0004
-+#define PCI_DEVICE_ID_NX2031_HMEZ	0x0005
-+#define PCI_DEVICE_ID_NX2031_XG_MGMT	0x0024
-+#define PCI_DEVICE_ID_NX2031_XG_MGMT2	0x0025
-+#define PCI_DEVICE_ID_NX3031		0x0100
-+
- #define PCI_VENDOR_ID_AKS		0x416c
- #define PCI_DEVICE_ID_AKS_ALADDINCARD	0x0100
- 
--- 
-1.5.4.3
+Thanks,
+Elad
 
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
