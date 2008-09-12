@@ -1,55 +1,39 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: Re: [PATCH] netlink: fix overrun in attribute iteration
-Date: Fri, 12 Sep 2008 07:42:36 +0200
-Message-ID: <19f34abd0809112242p27928541ydbfbb60ed84e34d2@mail.gmail.com>
-References: <20080911205933.GA20032@localhost.localdomain>
-	 <20080911165243.125a74cc.akpm@linux-foundation.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [stable] regression in iptables: recent filter
+Date: Fri, 12 Sep 2008 01:46:27 -0400 (EDT)
+Message-ID: <alpine.LNX.1.10.0809120145220.24265@fbirervta.pbzchgretzou.qr>
+References: <ejijc4dc92n75s2el334e7dgdanngs7qv3@4ax.com> <20080912031132.GA6443@x200.localdomain> <a4ojc4l86ro7kstsefumugi56s88v3fm91@4ax.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
-	penberg@cs.helsinki.fi, mingo@elte.hu, viro@zeniv.linux.org.uk,
-	linux-kernel@vger.kernel.org
-To: "Andrew Morton" <akpm@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Grant Coady <gcoady.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:60240 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbYILFmh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 01:42:37 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so426200waf.23
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2008 22:42:36 -0700 (PDT)
-In-Reply-To: <20080911165243.125a74cc.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from sovereign.computergmbh.de ([85.214.69.204]:60780 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643AbYILFq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 01:46:29 -0400
+In-Reply-To: <a4ojc4l86ro7kstsefumugi56s88v3fm91@4ax.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 12, 2008 at 1:52 AM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
-> On Thu, 11 Sep 2008 22:59:33 +0200
-> Vegard Nossum <vegard.nossum@gmail.com> wrote:
->
->>   #include <stdio.h>
->>
->>   main(void)
->>   {
->>           printf("%d\n", -1 >= sizeof(int));
->>   }
->>
->
-> akpm:/home/akpm> gcc -W t.c
-> t.c: In function 'main':
-> t.c:5: warning: comparison between signed and unsigned
->
-> Make of that what you will :)
 
-It doesn't show up with -Wall and the kernel isn't compiled with -W
-(aka. -Wextra) as far as I can see. Should it be turned on?
+On Thursday 2008-09-11 23:29, Grant Coady wrote:
+>On Fri, 12 Sep 2008 07:11:32 +0400, Alexey Dobriyan <adobriyan@gmail.com> wrote:
+>>On Fri, Sep 12, 2008 at 11:53:35AM +1000, Grant Coady wrote:
+>>> Last known good kernel: 2.6.24.7
+>>> 
+>>> # iptables -N calmrate
+>>> # iptables -A calmrate -p tcp -m state --state NEW \
+>>> 	-m recent --name listrate --update --rttl \
+>>> 	--seconds 60 --hitcount 60 -j DROP
+>>> iptables: Unknown error 4294967295
 
+Try upgrading the iptables binary as a freetime project.
+Because if the match check returned false, and the Xtables
+core subsequently -EINVAL, you would get
 
-Vegard
-
--- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
+iptables: Invalid argument
