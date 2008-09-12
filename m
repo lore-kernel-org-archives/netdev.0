@@ -1,37 +1,36 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH] netlink: fix overrun in attribute iteration
-Date: Thu, 11 Sep 2008 16:52:43 -0700
-Message-ID: <20080911165243.125a74cc.akpm@linux-foundation.org>
-References: <20080911205933.GA20032@localhost.localdomain>
+Date: Fri, 12 Sep 2008 02:35:23 +0200
+Message-ID: <20080912003522.GN20815@postel.suug.ch>
+References: <20080911205933.GA20032@localhost.localdomain> <20080911.150434.99620481.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
+Content-Type: text/plain; charset=us-ascii
+Cc: vegard.nossum@gmail.com, netdev@vger.kernel.org,
 	penberg@cs.helsinki.fi, mingo@elte.hu, viro@zeniv.linux.org.uk,
 	linux-kernel@vger.kernel.org
-To: Vegard Nossum <vegard.nossum@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51671 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751810AbYIKXxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2008 19:53:17 -0400
-In-Reply-To: <20080911205933.GA20032@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755795AbYILAfV@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080911.150434.99620481.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Sep 2008 22:59:33 +0200
-Vegard Nossum <vegard.nossum@gmail.com> wrote:
-
->   #include <stdio.h>
+* David Miller <davem@davemloft.net> 2008-09-11 15:04
+> From: Vegard Nossum <vegard.nossum@gmail.com>
+> Thomas, please review.
 > 
->   main(void)
->   {
->           printf("%d\n", -1 >= sizeof(int));
->   }
-> 
+> > diff --git a/include/net/netlink.h b/include/net/netlink.h
+> > index 18024b8..208fe5a 100644
+> > --- a/include/net/netlink.h
+> > +++ b/include/net/netlink.h
+> > @@ -702,7 +702,7 @@ static inline int nla_len(const struct nlattr *nla)
+> >   */
+> >  static inline int nla_ok(const struct nlattr *nla, int remaining)
+> >  {
+> > -	return remaining >= sizeof(*nla) &&
+> > +	return remaining >= (int) sizeof(*nla) &&
+> >  	       nla->nla_len >= sizeof(*nla) &&
+> >  	       nla->nla_len <= remaining;
+> >  }
 
-akpm:/home/akpm> gcc -W t.c
-t.c: In function 'main':
-t.c:5: warning: comparison between signed and unsigned
-
-Make of that what you will :)
+Very nice catch, would never have thought of that.
