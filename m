@@ -1,42 +1,83 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] cs89x0: fix warning release_irq label
-Date: Sat, 13 Sep 2008 15:56:20 -0400
-Message-ID: <48CC1AE4.60205@garzik.org>
-References: <20080825233736.e7a17376.yoichi_yuasa@tripeaks.co.jp>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [2.6 patch] hso_create_bulk_serial_device(): fix a double free
+Date: Sat, 13 Sep 2008 15:56:13 -0400
+Message-ID: <48CC1ADD.7070101@pobox.com>
+References: <20080827220236.GL11734@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+Cc: gregkh@suse.de, linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52834 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52830 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753068AbYIMT4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 15:56:24 -0400
-In-Reply-To: <20080825233736.e7a17376.yoichi_yuasa@tripeaks.co.jp>
+	id S1753599AbYIMT4S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 15:56:18 -0400
+In-Reply-To: <20080827220236.GL11734@cs181140183.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yoichi Yuasa wrote:
-> release_irq label is only used when ALLOW_DMA is defined.
+Adrian Bunk wrote:
+> hso_serial_common_free() mustn't be called if
+> hso_serial_common_create() fails.
 > 
-> drivers/net/cs89x0.c: In function 'net_open':
-> drivers/net/cs89x0.c:1401: warning: label 'release_irq' defined but not used
+> Reported-by: Adrian Bunk <bunk@kernel.org>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 > 
-> Signed-off-by: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+> ---
 > 
-> diff -pruN -X /home/yuasa/Memo/dontdiff linux-orig/drivers/net/cs89x0.c linux/drivers/net/cs89x0.c
-> --- linux-orig/drivers/net/cs89x0.c	2008-08-07 13:14:59.904521743 +0900
-> +++ linux/drivers/net/cs89x0.c	2008-08-07 16:11:31.469037245 +0900
-> @@ -1397,9 +1397,7 @@ net_open(struct net_device *dev)
->  release_dma:
->  #if ALLOW_DMA
->  		free_dma(dev->dma);
-> -#endif
->  release_irq:
-> -#if ALLOW_DMA
->  		release_dma_buff(lp);
->  #endif
+>  drivers/net/usb/hso.c |    9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+> 
+> d7557f8eda806e6888232bae1b86dfdd8b6cf330 
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index 1b7cac7..8c11295 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -2206,39 +2206,40 @@ static struct hso_device *hso_create_bulk_serial_device(
+>  	if (hso_serial_common_create(serial, num_urbs, BULK_URB_RX_SIZE,
+>  				     BULK_URB_TX_SIZE))
+>  		goto exit;
+>  
+>  	serial->in_endp = hso_get_ep(interface, USB_ENDPOINT_XFER_BULK,
+>  				     USB_DIR_IN);
+>  	if (!serial->in_endp) {
+>  		dev_err(&interface->dev, "Failed to find BULK IN ep\n");
+> -		goto exit;
+> +		goto exit2;
+>  	}
+>  
+>  	if (!
+>  	    (serial->out_endp =
+>  	     hso_get_ep(interface, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT))) {
+>  		dev_err(&interface->dev, "Failed to find BULK IN ep\n");
+> -		goto exit;
+> +		goto exit2;
+>  	}
+>  
+>  	serial->write_data = hso_std_serial_write_data;
+>  
+>  	/* and record this serial */
+>  	set_serial_by_index(serial->minor, serial);
+>  
+>  	/* setup the proc dirs and files if needed */
+>  	hso_log_port(hso_dev);
+>  
+>  	/* done, return it */
+>  	return hso_dev;
+> +
+> +exit2:
+> +	hso_serial_common_free(serial);
+>  exit:
+> -	if (hso_dev && serial)
+> -		hso_serial_common_free(serial);
+>  	kfree(serial);
+>  	hso_free_device(hso_dev);
+>  	return NULL;
+>  }
+>  
+>  /* Creates a multiplexed AT channel */
+>  static
 
 applied
 
