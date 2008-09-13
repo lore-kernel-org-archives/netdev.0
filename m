@@ -1,44 +1,50 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/2] ne.c Fix suspend and resume for ISA PnP cards.
-Date: Sat, 13 Sep 2008 15:55:40 -0400
-Message-ID: <48CC1ABC.3090903@garzik.org>
-References: <20080904030212.GA23493@spacedout.fries.net> <7d1d9c250809050101v9ab3907l649781ee38a5a243@mail.gmail.com> <20080909025434.GB28469@spacedout.fries.net> <20080909030114.GC28469@spacedout.fries.net>
+Subject: Re: [PATCH] Don't take the mdio_lock in atl1e_probe
+Date: Sat, 13 Sep 2008 15:55:54 -0400
+Message-ID: <48CC1ACA.6070101@garzik.org>
+References: <20080812131314.GZ8618@parisc-linux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	Paul Gortmaker <p_gortmaker@yahoo.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Fries <david@fries.net>
+Cc: xiong.huang@atheros.com, jie.yang@atheros.com,
+	netdev@vger.kernel.org
+To: Matthew Wilcox <matthew@wil.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52800 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52813 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752639AbYIMTzv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 15:55:51 -0400
-In-Reply-To: <20080909030114.GC28469@spacedout.fries.net>
+	id S1753372AbYIMTz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 15:55:59 -0400
+In-Reply-To: <20080812131314.GZ8618@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Fries wrote:
-> From: David Fries <david@fries.net>
+Matthew Wilcox wrote:
+> Lockdep warns about the mdio_lock taken with interrupts enabled then later
+> taken from interrupt context.  Initially, I considered changing these
+> to spin_lock_irq/spin_unlock_irq, but then I looked at atl1e_phy_init()
+> and saw that it calls msleep().  Sleeping while holding a spinlock is
+> not allowed either.
 > 
-> A call to pnp_stop_dev and pnp_start_dev now shuts down and
-> initializes plug and play devices for suspend and resume.
+> In the probe path, we haven't registered the interrupt handler, so
+> it can't poke at this card yet.  It's before we call register_netdev(),
+> so I don't think any other threads can reach this card either.  If I'm
+> right, we don't need a spinlock at all.
 > 
-> Signed-off-by: David Fries <david@fries.net>
-> Cc: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> Cc: Paul Gortmaker <p_gortmaker@yahoo.com>
-> Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> ---
->  drivers/net/ne.c |    9 ++++++++-
->  1 files changed, 8 insertions(+), 1 deletions(-)
+> Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
 > 
-> diff --git a/drivers/net/ne.c b/drivers/net/ne.c
-> index 2bece66..cd31e77 100644
+> diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+> index 82d7be1..ba22a51 100644
+> --- a/drivers/net/atl1e/atl1e_main.c
+> +++ b/drivers/net/atl1e/atl1e_main.c
+> @@ -2389,9 +2389,7 @@ static int __devinit atl1e_probe(struct pci_dev *pdev,
+>  	}
+>  
+>  	/* Init GPHY as early as possible due to power saving issue  */
+> -	spin_lock(&adapter->mdio_lock);
+>  	atl1e_phy_init(&adapter->hw);
+> -	spin_unlock(&adapter->mdio_lock);
+>  	/* reset the controller to
+>  	 * put the device in a known good starting state */
 
 applied
 
