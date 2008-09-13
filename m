@@ -1,46 +1,44 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch for 2.6.27? 4/6] drivers/net/mlx4/alloc.c needs mm.h
-Date: Sat, 13 Sep 2008 15:13:23 -0400
-Message-ID: <48CC10D3.3010704@garzik.org>
-References: <200809052104.m85L47vw020360@imap1.linux-foundation.org>
+Subject: Re: [patch for 2.6.27? 1/6] drivers/net/skfp/pmf.c: Use offsetof()
+ macro
+Date: Sat, 13 Sep 2008 15:13:13 -0400
+Message-ID: <48CC10C9.1090705@garzik.org>
+References: <200809052104.m85L44gQ020346@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org, tiwai@suse.de, alan@redhat.com
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59944 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59938 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752660AbYIMTN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 15:13:26 -0400
-In-Reply-To: <200809052104.m85L47vw020360@imap1.linux-foundation.org>
+	id S1753356AbYIMTNS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 15:13:18 -0400
+In-Reply-To: <200809052104.m85L44gQ020346@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 akpm@linux-foundation.org wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
+> From: Takashi Iwai <tiwai@suse.de>
 > 
-> sparc32 allmodconfig with linux-next:
+> Self-baked macros cause bunch of compile warnings like below:
 > 
-> drivers/net/mlx4/alloc.c: In function 'mlx4_buf_alloc':
-> drivers/net/mlx4/alloc.c:164: error: 'PAGE_KERNEL' undeclared (first use in this function)
-> drivers/net/mlx4/alloc.c:164: error: (Each undeclared identifier is reported only once
-> drivers/net/mlx4/alloc.c:164: error: for each function it appears in.)
+>   CC [M]  drivers/net/skfp/pmf.o
+>   CC      net/ipv4/fib_semantics.o
+> drivers/net/skfp/pmf.c:86: warning: cast from pointer to integer of different size
+> drivers/net/skfp/pmf.c:87: warning: cast from pointer to integer of different size
+> ...
 > 
-> this is due to some header shuffle in linux-next.  I didn't look to see what
-> it was.  I'd sugges that this patch be merged ahead of a linux-next merge to
-> avoid bisection breaks.
+> Use the standard offsetof() macro instead.
 > 
-> We strictly only need asm/pgtable.h, but going direct to asm includes always
-> seems grubby.
-> 
+> Signed-off-by: Takashi Iwai <tiwai@suse.de>
+> Acked-by: Alan Cox <alan@redhat.com>
 > Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
 > 
->  drivers/net/mlx4/alloc.c |    1 +
->  1 file changed, 1 insertion(+)
+>  drivers/net/skfp/pmf.c |   29 +++++++++++------------------
+>  1 file changed, 11 insertions(+), 18 deletions(-)
 
 applied
 
