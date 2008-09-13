@@ -1,69 +1,56 @@
-From: David Fries <david@fries.net>
-Subject: [PATCH 2/2] ne.c Fix suspend and resume for ISA PnP cards.
-Date: Sat, 13 Sep 2008 11:54:01 -0500
-Message-ID: <20080913165401.GI28469@spacedout.fries.net>
-References: <20080913144457.GE28469@spacedout.fries.net> <20080914.001300.15242170.anemo@mba.ocn.ne.jp> <20080913151906.GG28469@spacedout.fries.net> <20080914.002906.48532607.anemo@mba.ocn.ne.jp> <20080913164736.GH28469@spacedout.fries.net>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [PATCH] Fix dead 21041 ethernet after ifconfig down
+Date: Sat, 13 Sep 2008 12:05:09 -0600
+Message-ID: <20080913180509.GA8392@colo.lackof.org>
+References: <20080912211919.1C36FC2AFD@solo.franken.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: paul.gortmaker@gmail.com, akpm@linux-foundation.org,
-	p_gortmaker@yahoo.com, alan@lxorguk.ukuu.org.uk, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Cc: netdev@vger.kernel.org, grundler@parisc-linux.org,
+	kyle@parisc-linux.org, tbm@cyrius.com
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SpacedOut.fries.net ([67.64.210.234]:60347 "EHLO
-	SpacedOut.fries.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751744AbYIMQy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2008 12:54:57 -0400
+Received: from colo.lackof.org ([198.49.126.79]:34569 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752199AbYIMSFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 14:05:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20080913164736.GH28469@spacedout.fries.net>
+In-Reply-To: <20080912211919.1C36FC2AFD@solo.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Fries <david@fries.net>
+On Fri, Sep 12, 2008 at 11:19:19PM +0200, Thomas Bogendoerfer wrote:
+> The de2104x did a pci_disable_device() in it's close function, but
+> the open function never does a pci_enable_device() and assumes that
+> the device is already enabled. Considering that downing the interface
+> is just a temporary thing the pci_disable_device() isn't a pretty good
+> idea and removing it from the close function just fixes the bug.
 
-A call to pnp_stop_dev and pnp_start_dev now shuts down and
-initializes plug and play devices for suspend and resume.
+Thomas,
+Thanks for the patch!
 
-Signed-off-by: David Fries <david@fries.net>
-Cc: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Cc: Paul Gortmaker <p_gortmaker@yahoo.com>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Cc: Jeff Garzik <jeff@garzik.org>
----
-This version is the same as the last PATCH 2/2, only with updated line
-offsets.
+The de2104 driver is calling pci_enable_device() in it's .probe routine
+and calls pci_disable_device in it's .remove function.
+It never occurred to me a NIC driver would call either pci function
+from someplace else as well.
 
- drivers/net/ne.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-diff --git a/drivers/net/ne.c b/drivers/net/ne.c
-index 4cb9c11..f9da162 100644
---- a/drivers/net/ne.c
-+++ b/drivers/net/ne.c
-@@ -895,8 +895,12 @@ static int ne_drv_suspend(struct platform_device *pdev, pm_message_t state)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 
--	if (netif_running(dev))
-+	if (netif_running(dev)) {
-+		struct pnp_dev *idev = (struct pnp_dev *)ei_status.priv;
- 		netif_device_detach(dev);
-+		if (idev)
-+			pnp_stop_dev(idev);
-+	}
- 	return 0;
- }
- 
-@@ -905,6 +909,9 @@ static int ne_drv_resume(struct platform_device *pdev)
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 
- 	if (netif_running(dev)) {
-+		struct pnp_dev *idev = (struct pnp_dev *)ei_status.priv;
-+		if (idev)
-+			pnp_start_dev(idev);
- 		ne_reset_8390(dev);
- 		NS8390p_init(dev, 1);
- 		netif_device_attach(dev);
--- 
-1.4.4.4
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
+> ---
+> 
+>  drivers/net/tulip/de2104x.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
+> index 9281d06..f54c450 100644
+> --- a/drivers/net/tulip/de2104x.c
+> +++ b/drivers/net/tulip/de2104x.c
+> @@ -1418,7 +1418,6 @@ static int de_close (struct net_device *dev)
+>  
+>  	de_free_rings(de);
+>  	de_adapter_sleep(de);
+> -	pci_disable_device(de->pdev);
+>  	return 0;
+>  }
+>  
