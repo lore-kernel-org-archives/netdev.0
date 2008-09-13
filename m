@@ -1,46 +1,53 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] ehea: Fix DLPAR memory handling
-Date: Sat, 13 Sep 2008 15:55:47 -0400
-Message-ID: <48CC1AC3.7090406@garzik.org>
-References: <200809051636.26545.hannes.hering@gmx.de>
+Subject: Re: wan/hdlc_x25.c: fix a NULL dereference
+Date: Sat, 13 Sep 2008 15:56:07 -0400
+Message-ID: <48CC1AD7.6000909@garzik.org>
+References: <20080827220549.GS11734@cs181140183.pp.htv.fi>	<m3bpz9glik.fsf@maximus.localdomain> <48BE9B52.8050003@garzik.org>	<m3bpz5kxzj.fsf@maximus.localdomain> <m37i9tkxnf.fsf_-_@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: themann@de.ibm.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	raisch@de.ibm.com, ossrosch@linux.vnet.ibm.com,
-	linuxppc-dev@ozlabs.org, ossthema@de.ibm.com, osstklei@de.ibm.com
-To: Hannes Hering <hannes.hering@gmx.de>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <200809051636.26545.hannes.hering@gmx.de>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: Adrian Bunk <bunk@kernel.org>, netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:52824 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753531AbYIMT4N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 15:56:13 -0400
+In-Reply-To: <m37i9tkxnf.fsf_-_@maximus.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hannes Hering wrote:
-> The ehea busmap must be allocated only once in the first of many calls of the
-> ehea_create_busmap_callback.
+Krzysztof Halasa wrote:
+> WAN: fixes a NULL dereference in hdlc_x25.
 > 
-> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
-> ---
+> Reported-by: Adrian Bunk <bunk@kernel.org>.
+> Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 > 
-> diff -Nurp -X dontdiff linux-2.6.27-rc5/drivers/net/ehea/ehea_qmr.c patched_kernel/drivers/net/ehea/ehea_qmr.c
-> --- linux-2.6.27-rc5/drivers/net/ehea/ehea_qmr.c	2008-08-29 00:52:02.000000000 +0200
-> +++ patched_kernel/drivers/net/ehea/ehea_qmr.c	2008-09-05 15:31:30.000000000 +0200
-> @@ -595,7 +595,8 @@ static int ehea_create_busmap_callback(u
->  	end_section = start_section + ((nr_pages * PAGE_SIZE) / EHEA_SECTSIZE);
->  	mr_len = *(unsigned long *)arg;
+> diff --git a/drivers/net/wan/hdlc_x25.c b/drivers/net/wan/hdlc_x25.c
+> index 8b7e5d2..cbcbf6f 100644
+> --- a/drivers/net/wan/hdlc_x25.c
+> +++ b/drivers/net/wan/hdlc_x25.c
+> @@ -163,15 +163,17 @@ static void x25_close(struct net_device *dev)
 >  
-> -	ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
-> +	if (!ehea_bmap)
-> +		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
->  	if (!ehea_bmap)
->  		return -ENOMEM;
+>  static int x25_rx(struct sk_buff *skb)
+>  {
+> +	struct net_device *dev = skb->dev;
+> +
+>  	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL) {
+> -		skb->dev->stats.rx_dropped++;
+> +		dev->stats.rx_dropped++;
+>  		return NET_RX_DROP;
+>  	}
+>  
+> -	if (lapb_data_received(skb->dev, skb) == LAPB_OK)
+> +	if (lapb_data_received(dev, skb) == LAPB_OK)
+>  		return NET_RX_SUCCESS;
+>  
+> -	skb->dev->stats.rx_errors++;
+> +	dev->stats.rx_errors++;
+>  	dev_kfree_skb_any(skb);
+>  	return NET_RX_DROP;
 
 applied
+
+
