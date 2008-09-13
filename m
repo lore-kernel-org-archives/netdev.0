@@ -1,102 +1,410 @@
-From: "Jaswinder Singh" <jaswinderlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #11271] BUG: fealnx in 2.6.27-rc1
-Date: Sat, 13 Sep 2008 04:47:04 -0400
-Message-ID: <3f9a31f40809130147w5b89cde0of87adbfc0193a441@mail.gmail.com>
-References: <j3zWxt-CgYL.A.WTF.bbsyIB@albercik>
-	 <SpS7rta8n4.A.DCB.IfsyIB@albercik>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: kernel panic in conntrack
+Date: Sat, 13 Sep 2008 12:03:55 +0300
+Message-ID: <200809131203.55135.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Kernel Mailing List" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Kernel Testers List" <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Francois Romieu" <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
-	"Jeff Garzik" <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <SpS7rta8n4.A.DCB.IfsyIB@albercik>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay2.globalproof.net ([194.146.153.25]:55437 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754946AbYIMJF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2008 05:05:57 -0400
+Received: from [195.69.208.252] (unknown [195.69.208.252])
+	by relay2.globalproof.net (Postfix) with ESMTP id 36B39131211
+	for <netdev@vger.kernel.org>; Sat, 13 Sep 2008 12:06:38 +0300 (EEST)
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello all,
+I cannot be absolutely sure, that it is not hardware failure, but maybe worth to check. Because support report to me weird things happening with this pc.
 
-On Fri, Sep 12, 2008 at 3:06 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-
-> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=11271
-> Subject         : BUG: fealnx in 2.6.27-rc1
-> Submitter       : Jaswinder Singh <jaswinderlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date            : 2008-08-05 14:58 (39 days old)
-> References      : http://marc.info/?l=linux-netdev&m=121794762016830&w=4
->                  http://lkml.org/lkml/2008/8/10/98
-
-I am sorry for delay.
-
-Now I am testing for same problem with  2.6.27-rc6.:
-1. On different MYSON Technology Inc SURECOM EP-320X-S 100/10M
-Ethernet PCI Adapters
-2. On different Linux PCs
-3. With different Ethernet switches which supports 100 Mb
-4. With different CAT 5 ethernet cables which supports 100 Mb
-5. Also checking old patches on fealnx as per Jeff.
-
-And it seems, I am getting following error, with few ethernet switches
-and cables and when I switch ethernet cables  :
-"NETDEV WATCHDOG: eth0 (fealnx): transmit timed out
-eth0: Transmit timed out, status 00000000, resetting..."
-
-Now I am trying to confirm that problem is coming from ethernet
-switches and cables.
-
-I am also facing one more Issue :
-
-With same 100 Mb ethernet switch and cable my another NIC run at 100
-Mb/s and full duplex but MYSON Technology Inc SURECOM EP-320X-S
-100/10M runs on 10 Mb/s and half duplex.
-
-I debug fealnx it says : PHYType 1 duplex_mode : 2 line_speed : 2
-crvalue : 0xe40e61 bcrvalue : 0x10 imrvalue : 0x46c flags : 0x1
-
-So it is saying duplex_mode : 2 (full duplex) and line_speed = 2
-(100M) then why I am getting 10MB half duplex ?
-
-#lspci -vv
-02:02.0 Ethernet controller: MYSON Technology Inc SURECOM EP-320X-S
-100/10M Ethernet PCI Adapter
-        Subsystem: MYSON Technology Inc SURECOM EP-320X-S 100/10M
-Ethernet PCI Adapter
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
-ParErr- Stepping- SERR- FastB2B- DisINTx-
-        Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium
->TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 32 (8000ns min, 16000ns max), Cache Line Size: 64 bytes
-        Interrupt: pin A routed to IRQ 17
-        Region 0: I/O ports at b800 [size=256]
-        Region 1: Memory at ff9ffc00 (32-bit, non-prefetchable) [size=1K]
-        Expansion ROM at 50000000 [disabled] [size=64K]
-        Capabilities: [88] Power Management version 2
-                Flags: PMEClk- DSI- D1+ D2- AuxCurrent=375mA
-PME(D0-,D1+,D2-,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-        Kernel driver in use: fealnx
-
-#/sbin/ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  Not reported
-        Advertised auto-negotiation: No
-        Speed: 10Mb/s
-        Duplex: Half
-        Port: MII
-        PHYAD: 32
-        Transceiver: internal
-        Auto-negotiation: off
-        Current message level: 0x00000000 (0)
-        Link detected: no
-
-Thank you,
-
-Jaswinder Singh.
+Sep 13 12:00:19 194.146.153.20 kernel: [690849.624462] ctnetlink v0.93: registering with nfnetlink.
+Sep 13 12:00:27 194.146.153.20 [690849.629462] BUG: unable to handle kernel
+Sep 13 12:00:27 194.146.153.20 paging request
+Sep 13 12:00:27 194.146.153.20 at dead4ead
+Sep 13 12:00:27 194.146.153.20 [690849.629523] IP:
+Sep 13 12:00:27 194.146.153.20 [<d09badc8>] :nf_conntrack_netlink:ctnetlink_dump_table+0xed/0x163
+Sep 13 12:00:27 194.146.153.20 [690849.629642] Oops: 0000 [#1]
+Sep 13 12:00:27 194.146.153.20 SMP
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.629670] Modules linked in:
+Sep 13 12:00:27 194.146.153.20 nf_conntrack_netlink
+Sep 13 12:00:27 194.146.153.20 nfnetlink
+Sep 13 12:00:27 194.146.153.20 ipt_LOG
+Sep 13 12:00:27 194.146.153.20 ts_bm
+Sep 13 12:00:27 194.146.153.20 xt_string
+Sep 13 12:00:27 194.146.153.20 netconsole
+Sep 13 12:00:27 194.146.153.20 configfs
+Sep 13 12:00:27 194.146.153.20 xt_tcpudp
+Sep 13 12:00:27 194.146.153.20 ipt_MASQUERADE
+Sep 13 12:00:27 194.146.153.20 iptable_nat
+Sep 13 12:00:27 194.146.153.20 nf_nat
+Sep 13 12:00:27 194.146.153.20 nf_conntrack_ipv4
+Sep 13 12:00:27 194.146.153.20 nf_conntrack
+Sep 13 12:00:27 194.146.153.20 rtc_cmos
+Sep 13 12:00:27 194.146.153.20 rtc_core
+Sep 13 12:00:27 194.146.153.20 rtc_lib
+Sep 13 12:00:27 194.146.153.20 iptable_filter
+Sep 13 12:00:27 194.146.153.20 ip_tables
+Sep 13 12:00:27 194.146.153.20 x_tables
+Sep 13 12:00:27 194.146.153.20 8021q
+Sep 13 12:00:27 194.146.153.20 garp
+Sep 13 12:00:27 194.146.153.20 stp
+Sep 13 12:00:27 194.146.153.20 llc
+Sep 13 12:00:27 194.146.153.20 tun
+Sep 13 12:00:27 194.146.153.20 loop
+Sep 13 12:00:27 194.146.153.20 tulip
+Sep 13 12:00:27 194.146.153.20 r8169
+Sep 13 12:00:27 194.146.153.20 sky2
+Sep 13 12:00:27 194.146.153.20 via_velocity
+Sep 13 12:00:27 194.146.153.20 via_rhine
+Sep 13 12:00:27 194.146.153.20 sis900
+Sep 13 12:00:27 194.146.153.20 ne2k_pci
+Sep 13 12:00:27 194.146.153.20 8390
+Sep 13 12:00:27 194.146.153.20 skge
+Sep 13 12:00:27 194.146.153.20 tg3
+Sep 13 12:00:27 194.146.153.20 libphy
+Sep 13 12:00:27 194.146.153.20 8139too
+Sep 13 12:00:27 194.146.153.20 e1000
+Sep 13 12:00:27 194.146.153.20 e100
+Sep 13 12:00:27 194.146.153.20 usb_storage
+Sep 13 12:00:27 194.146.153.20 mtdblock
+Sep 13 12:00:27 194.146.153.20 mtd_blkdevs
+Sep 13 12:00:27 194.146.153.20 usbhid
+Sep 13 12:00:27 194.146.153.20 ohci_hcd
+Sep 13 12:00:27 194.146.153.20 uhci_hcd
+Sep 13 12:00:27 194.146.153.20 ehci_hcd
+Sep 13 12:00:27 194.146.153.20 usbcore
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.630214]
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Pid: 1498, comm: conntrack Not tainted (2.6.27-rc5-build-0034-00131-g5f17cfc-dirty #16)
+Sep 13 12:00:27 194.146.153.20 [690849.630214] EIP: 0060:[<d09badc8>] EFLAGS: 00010282 CPU: 0
+Sep 13 12:00:27 194.146.153.20 [690849.630214] EIP is at ctnetlink_dump_table+0xed/0x163 [nf_conntrack_netlink]
+Sep 13 12:00:27 194.146.153.20 [690849.630214] EAX: dead0002 EBX: ce48ddc0 ECX: ce47caf0 EDX: cdbb651c
+Sep 13 12:00:27 194.146.153.20 [690849.630214] ESI: dead4ead EDI: ce463030 EBP: ce486d64 ESP: ce486d40
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Process conntrack (pid: 1498, ti=ce486000 task=ce4d5c00 task.ti=ce486000)
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Stack:
+Sep 13 12:00:27 194.146.153.20 ce47b6d8
+Sep 13 12:00:27 194.146.153.20 22222222
+Sep 13 12:00:27 194.146.153.20 00022222
+Sep 13 12:00:27 194.146.153.20 ce462e00
+Sep 13 12:00:27 194.146.153.20 ce4744b0
+Sep 13 12:00:27 194.146.153.20 02222222
+Sep 13 12:00:27 194.146.153.20 ce462e00
+Sep 13 12:00:27 194.146.153.20 ce48ddc0
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.630214]
+Sep 13 12:00:27 194.146.153.20 ce47b400
+Sep 13 12:00:27 194.146.153.20 ce486d84
+Sep 13 12:00:27 194.146.153.20 c0274fa1
+Sep 13 12:00:27 194.146.153.20 ce47b400
+Sep 13 12:00:27 194.146.153.20 ce486d78
+Sep 13 12:00:27 194.146.153.20 c025d8fd
+Sep 13 12:00:27 194.146.153.20 ce462e00
+Sep 13 12:00:27 194.146.153.20 ce462e2c
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.630214]
+Sep 13 12:00:27 194.146.153.20 ce486db4
+Sep 13 12:00:27 194.146.153.20 ce486dd0
+Sep 13 12:00:27 194.146.153.20 c0275347
+Sep 13 12:00:27 194.146.153.20 ce4d5c00
+Sep 13 12:00:27 194.146.153.20 ce486e04
+Sep 13 12:00:27 194.146.153.20 ce486f3c
+Sep 13 12:00:27 194.146.153.20 cf6f4f00
+Sep 13 12:00:27 194.146.153.20 ce47b400
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Call Trace:
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0274fa1>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 netlink_dump+0x4e/0x177
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c025d8fd>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 kfree_skb+0x29/0x2b
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0275347>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 netlink_recvmsg+0x167/0x221
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c025877e>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 sock_recvmsg+0xd1/0xe9
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0131211>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 autoremove_wake_function+0x0/0x33
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02be322>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 _spin_unlock+0x1d/0x20
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c017c405>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 mnt_drop_write+0x5d/0xbd
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01783bf>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 file_update_time+0x87/0xa8
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c025931b>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 sys_recvfrom+0x7b/0xba
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01681d7>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 do_sync_write+0xab/0xe9
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0134df4>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 __atomic_notifier_call_chain+0x52/0x5c
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02597e1>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 sys_socketcall+0x109/0x180
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01038b9>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 sysenter_do_call+0x12/0x35
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  =======================
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Code:
+Sep 13 12:00:27 194.146.153.20 75
+Sep 13 12:00:27 194.146.153.20 23
+Sep 13 12:00:27 194.146.153.20 8b
+Sep 13 12:00:27 194.146.153.20 97
+Sep 13 12:00:27 194.146.153.20 bc
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 85
+Sep 13 12:00:27 194.146.153.20 d2
+Sep 13 12:00:27 194.146.153.20 74
+Sep 13 12:00:27 194.146.153.20 19
+Sep 13 12:00:27 194.146.153.20 8a
+Sep 13 12:00:27 194.146.153.20 42
+Sep 13 12:00:27 194.146.153.20 0a
+Sep 13 12:00:27 194.146.153.20 84
+Sep 13 12:00:27 194.146.153.20 c0
+Sep 13 12:00:27 194.146.153.20 74
+Sep 13 12:00:27 194.146.153.20 12
+Sep 13 12:00:27 194.146.153.20 0f
+Sep 13 12:00:27 194.146.153.20 b6
+Sep 13 12:00:27 194.146.153.20 c0
+Sep 13 12:00:27 194.146.153.20 89
+Sep 13 12:00:27 194.146.153.20 d7
+Sep 13 12:00:27 194.146.153.20 01
+Sep 13 12:00:27 194.146.153.20 c7
+Sep 13 12:00:27 194.146.153.20 74
+Sep 13 12:00:27 194.146.153.20 09
+Sep 13 12:00:27 194.146.153.20 b9
+Sep 13 12:00:27 194.146.153.20 08
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 31
+Sep 13 12:00:27 194.146.153.20 c0
+Sep 13 12:00:27 194.146.153.20 f3
+Sep 13 12:00:27 194.146.153.20 ab
+Sep 13 12:00:27 194.146.153.20 8b
+Sep 13 12:00:27 194.146.153.20 36
+Sep 13 12:00:27 194.146.153.20 85
+Sep 13 12:00:27 194.146.153.20 f6
+Sep 13 12:00:27 194.146.153.20 74
+Sep 13 12:00:27 194.146.153.20 11
+Sep 13 12:00:27 194.146.153.20 unparseable log message: "<8b> "
+Sep 13 12:00:27 194.146.153.20 06
+Sep 13 12:00:27 194.146.153.20 0f
+Sep 13 12:00:27 194.146.153.20 18
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 90
+Sep 13 12:00:27 194.146.153.20 80
+Sep 13 12:00:27 194.146.153.20 7e
+Sep 13 12:00:27 194.146.153.20 2f
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20 75
+Sep 13 12:00:27 194.146.153.20 ee
+Sep 13 12:00:27 194.146.153.20 e9
+Sep 13 12:00:27 194.146.153.20 5b
+Sep 13 12:00:27 194.146.153.20 ff
+Sep 13 12:00:27 194.146.153.20 ff
+Sep 13 12:00:27 194.146.153.20 ff
+Sep 13 12:00:27 194.146.153.20 83
+Sep 13 12:00:27 194.146.153.20 7b
+Sep 13 12:00:27 194.146.153.20 18
+Sep 13 12:00:27 194.146.153.20 00
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.630214] EIP: [<d09badc8>]
+Sep 13 12:00:27 194.146.153.20 ctnetlink_dump_table+0xed/0x163 [nf_conntrack_netlink]
+Sep 13 12:00:27 194.146.153.20 SS:ESP 0068:ce486d40
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Kernel panic - not syncing: Fatal exception
+Sep 13 12:00:27 194.146.153.20 [690849.630214] ------------[ cut here ]------------
+Sep 13 12:00:27 194.146.153.20 [690849.630214] WARNING: at kernel/smp.c:332 smp_call_function_mask+0x28/0x181()
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Modules linked in:
+Sep 13 12:00:27 194.146.153.20 nf_conntrack_netlink
+Sep 13 12:00:27 194.146.153.20 nfnetlink
+Sep 13 12:00:27 194.146.153.20 ipt_LOG
+Sep 13 12:00:27 194.146.153.20 ts_bm
+Sep 13 12:00:27 194.146.153.20 xt_string
+Sep 13 12:00:27 194.146.153.20 netconsole
+Sep 13 12:00:27 194.146.153.20 configfs
+Sep 13 12:00:27 194.146.153.20 xt_tcpudp
+Sep 13 12:00:27 194.146.153.20 ipt_MASQUERADE
+Sep 13 12:00:27 194.146.153.20 iptable_nat
+Sep 13 12:00:27 194.146.153.20 nf_nat
+Sep 13 12:00:27 194.146.153.20 nf_conntrack_ipv4
+Sep 13 12:00:27 194.146.153.20 nf_conntrack
+Sep 13 12:00:27 194.146.153.20 rtc_cmos
+Sep 13 12:00:27 194.146.153.20 rtc_core
+Sep 13 12:00:27 194.146.153.20 rtc_lib
+Sep 13 12:00:27 194.146.153.20 iptable_filter
+Sep 13 12:00:27 194.146.153.20 ip_tables
+Sep 13 12:00:27 194.146.153.20 x_tables
+Sep 13 12:00:27 194.146.153.20 8021q
+Sep 13 12:00:27 194.146.153.20 garp
+Sep 13 12:00:27 194.146.153.20 stp
+Sep 13 12:00:27 194.146.153.20 llc
+Sep 13 12:00:27 194.146.153.20 tun
+Sep 13 12:00:27 194.146.153.20 loop
+Sep 13 12:00:27 194.146.153.20 tulip
+Sep 13 12:00:27 194.146.153.20 r8169
+Sep 13 12:00:27 194.146.153.20 sky2
+Sep 13 12:00:27 194.146.153.20 via_velocity
+Sep 13 12:00:27 194.146.153.20 via_rhine
+Sep 13 12:00:27 194.146.153.20 sis900
+Sep 13 12:00:27 194.146.153.20 ne2k_pci
+Sep 13 12:00:27 194.146.153.20 8390
+Sep 13 12:00:27 194.146.153.20 skge
+Sep 13 12:00:27 194.146.153.20 tg3
+Sep 13 12:00:27 194.146.153.20 libphy
+Sep 13 12:00:27 194.146.153.20 8139too
+Sep 13 12:00:27 194.146.153.20 e1000
+Sep 13 12:00:27 194.146.153.20 e100
+Sep 13 12:00:27 194.146.153.20 usb_storage
+Sep 13 12:00:27 194.146.153.20 mtdblock
+Sep 13 12:00:27 194.146.153.20 mtd_blkdevs
+Sep 13 12:00:27 194.146.153.20 usbhid
+Sep 13 12:00:27 194.146.153.20 ohci_hcd
+Sep 13 12:00:27 194.146.153.20 uhci_hcd
+Sep 13 12:00:27 194.146.153.20 ehci_hcd
+Sep 13 12:00:27 194.146.153.20 usbcore
+Sep 13 12:00:27 194.146.153.20
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Pid: 1498, comm: conntrack Tainted: G      D   2.6.27-rc5-build-0034-00131-g5f17cfc-dirty #16
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02bbe50>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 printk+0xf/0x17
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0120d20>]
+Sep 13 12:00:27 194.146.153.20 warn_on_slowpath+0x41/0x65
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<d08e2647>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 rtl8139_start_xmit+0xe6/0x10c [8139too]
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c013b0fe>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 trace_hardirqs_off+0xb/0xd
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c026e06e>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 netpoll_send_skb+0xdc/0x15b
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c026e2be>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 netpoll_send_udp+0x1d1/0x1db
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<d09b6178>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 write_msg+0xb1/0xb9 [netconsole]
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01431ec>]
+Sep 13 12:00:27 194.146.153.20 smp_call_function_mask+0x28/0x181
+Sep 13 12:00:27 194.146.153.20 [6908
+Sep 13 12:00:27 194.146.153.20 49.630214]  [<c010f405>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 stop_this_cpu+0x0/0x3b
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c013b0fe>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 trace_hardirqs_off+0xb/0xd
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02bd425>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 __mutex_unlock_slowpath+0xd7/0xe8
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02bd43e>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 mutex_unlock+0x8/0xa
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c014802a>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 crash_kexec+0x9f/0xa7
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02bd43e>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 mutex_unlock+0x8/0xa
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c014802a>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 crash_kexec+0x9f/0xa7
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01f3837>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 vgacon_cursor+0x170/0x177
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0143357>]
+Sep 13 12:00:27 194.146.153.20 smp_call_function+0x12/0x14
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c010f45b>]
+Sep 13 12:00:27 194.146.153.20 native_smp_send_stop+0x1b/0x40
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02bbda9>]
+Sep 13 12:00:27 194.146.153.20 panic+0x48/0xe0
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c010499d>]
+Sep 13 12:00:27 194.146.153.20 oops_end+0x73/0x87
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0105190>]
+Sep 13 12:00:27 194.146.153.20 die+0x5b/0x63
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0114512>]
+Sep 13 12:00:27 194.146.153.20 do_page_fault+0x532/0x624
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c013afc8>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 find_usage_backwards+0xb5/0xd6
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c013b0fe>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 trace_hardirqs_off+0xb/0xd
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c013b0fe>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 trace_hardirqs_off+0xb/0xd
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c013cce9>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 mark_held_locks+0x53/0x6a
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c013ce8c>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 trace_hardirqs_on+0xb/0xd
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0276ed6>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 __nla_reserve+0x1b/0x4f
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0276f17>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 __nla_put+0xd/0x28
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0276f6f>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 nla_put+0x3d/0x4a
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0113fe0>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 do_page_fault+0x0/0x624
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02be95a>]
+Sep 13 12:00:27 194.146.153.20 error_code+0x72/0x78
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<d09badc8>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 ctnetlink_dump_table+0xed/0x163 [nf_conntrack_netlink]
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0274fa1>]
+Sep 13 12:00:27 194.146.153.20 netlink_dump+0x4e/0x177
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c025d8fd>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 kfree_skb+0x29/0x2b
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0275347>]
+Sep 13 12:00:27 194.146.153.20 netlink_recvmsg+0x167/0x221
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c025877e>]
+Sep 13 12:00:27 194.146.153.20 sock_recvmsg+0xd1/0xe9
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0131211>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 autoremove_wake_function+0x0/0x33
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02be322>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 _spin_unlock+0x1d/0x20
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c017c405>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 mnt_drop_write+0x5d/0xbd
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01783bf>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 file_update_time+0x87/0xa8
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c025931b>]
+Sep 13 12:00:27 194.146.153.20 sys_recvfrom+0x7b/0xba
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01681d7>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 do_sync_write+0xab/0xe9
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c0134df4>]
+Sep 13 12:00:27 194.146.153.20 ?
+Sep 13 12:00:27 194.146.153.20 __atomic_notifier_call_chain+0x52/0x5c
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c02597e1>]
+Sep 13 12:00:27 194.146.153.20 sys_socketcall+0x109/0x180
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  [<c01038b9>]
+Sep 13 12:00:27 194.146.153.20 sysenter_do_call+0x12/0x35
+Sep 13 12:00:27 194.146.153.20 [690849.630214]  =======================
+Sep 13 12:00:27 194.146.153.20 [690849.630214] ---[ end trace 52b884ce125b53d9 ]---
+Sep 13 12:00:27 194.146.153.20 [690849.630214] Rebooting in 5 seconds..
