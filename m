@@ -1,53 +1,50 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
- dev_deactivate() race
-Date: Fri, 12 Sep 2008 18:22:59 -0700 (PDT)
-Message-ID: <20080912.182259.238925690.davem@davemloft.net>
-References: <20080912080249.GA3971@ff.dom.local>
-	<20080912.161005.91061839.davem@davemloft.net>
-	<20080913011018.GA10242@gondor.apana.org.au>
+	dev_deactivate() race
+Date: Fri, 12 Sep 2008 18:27:58 -0700
+Message-ID: <20080913012758.GA10459@gondor.apana.org.au>
+References: <20080912080249.GA3971@ff.dom.local> <20080912.161005.91061839.davem@davemloft.net> <20080913011018.GA10242@gondor.apana.org.au> <20080912.182259.238925690.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: jarkao2@gmail.com, netdev@vger.kernel.org, kaber@trash.net
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52528
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754364AbYIMBXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 21:23:06 -0400
-In-Reply-To: <20080913011018.GA10242@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:54943 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755373AbYIMB2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 21:28:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20080912.182259.238925690.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 12 Sep 2008 18:10:18 -0700
-
-> On Fri, Sep 12, 2008 at 04:10:05PM -0700, David Miller wrote:
-> > Well, once that is discussed and resolved, at least the patch I
-> > posted can be used as a base for implementation :-)
+On Fri, Sep 12, 2008 at 06:22:59PM -0700, David Miller wrote:
 > 
-> Well we should remember the skb returned by peek, and then return
-> it on the next dequeue.  If peek hasn't been called since the
-> last dequeue then it's equivalent to the current dequeue.
+> This requires state, for the unlink.  And that unlink point could be
+> several levels deep into the tree.
 > 
-> This works for the two scenarios where we're planning to use
-> peek since they'll both call dequeue immediately.
+> There is also currently no restriction on how a packet scheduler
+> maintains it's queue of SKBs.
 > 
-> It'd even work if there was a large gap (i.e., a sleep) after
-> the peek since we'd just peek again after waking up.
+> So, if the idea is to keep track of the skb_queue_head pointer to
+> unlink from at the root, I don't think that's a good idea.
 
-This requires state, for the unlink.  And that unlink point could be
-several levels deep into the tree.
+No non-leaf qdiscs would remember remember the child qdisc where
+it peeked from.
 
-There is also currently no restriction on how a packet scheduler
-maintains it's queue of SKBs.
+> And then there are all of these complicated pieces of state the
+> classful qdiscs modify when a SKB is removed from their visibility.
+> So, the unlink isn't just a simple list delete operation.  There
+> are queue lengths that need to be updated, watchdog timers to
+> manage, etc.
 
-So, if the idea is to keep track of the skb_queue_head pointer to
-unlink from at the root, I don't think that's a good idea.
+The decision really comes down to whether it's harder to requeue
+a seemingly arbitrary packet or whether it's harder to dequeue the
+packet that was last peeked.
 
-And then there are all of these complicated pieces of state the
-classful qdiscs modify when a SKB is removed from their visibility.
-So, the unlink isn't just a simple list delete operation.  There
-are queue lengths that need to be updated, watchdog timers to
-manage, etc.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
