@@ -1,27 +1,47 @@
-From: Steffen Kiupel <floppflopp@arcor.de>
-Subject: (kein Betreff)
-Date: Sat, 13 Sep 2008 13:43:19 +0200
-Message-ID: <48CBA757.3000803@arcor.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH davem-next 1/1] r8169: select MII in Kconfig
+Date: Sat, 13 Sep 2008 15:04:38 +0200
+Message-ID: <20080913130438.GA8375@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Hugh Dickins <hugh@veritas.com>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ivan Vecera <ivecera@redhat.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-09.arcor-online.net ([151.189.21.49]:53152 "EHLO
-	mail-in-09.arcor-online.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752369AbYIMLn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2008 07:43:29 -0400
-Received: from mail-in-11-z2.arcor-online.net (mail-in-11-z2.arcor-online.net [151.189.8.28])
-	by mail-in-09.arcor-online.net (Postfix) with ESMTP id D13C230285C
-	for <netdev@vger.kernel.org>; Sat, 13 Sep 2008 13:43:27 +0200 (CEST)
-Received: from mail-in-17.arcor-online.net (mail-in-17.arcor-online.net [151.189.21.57])
-	by mail-in-11-z2.arcor-online.net (Postfix) with ESMTP id BF8D13465A8
-	for <netdev@vger.kernel.org>; Sat, 13 Sep 2008 13:43:27 +0200 (CEST)
-Received: from [192.168.178.29] (dslb-084-059-196-013.pools.arcor-ip.net [84.59.196.13])
-	(Authenticated sender: floppflopp@arcor.de)
-	by mail-in-17.arcor-online.net (Postfix) with ESMTP id A7C1E2BD979
-	for <netdev@vger.kernel.org>; Sat, 13 Sep 2008 13:43:27 +0200 (CEST)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45218 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752714AbYIMNGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2008 09:06:04 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-linux-wireless
+drivers/built-in.o: In function `rtl8169_gset_xmii':
+r8169.c:(.text+0x82259): undefined reference to `mii_ethtool_gset'
+
+Signed-off-by: Hugh Dickins <hugh@veritas.com>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 4a11296..60a0453 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2046,6 +2046,7 @@ config R8169
+ 	tristate "Realtek 8169 gigabit ethernet support"
+ 	depends on PCI
+ 	select CRC32
++	select MII
+ 	---help---
+ 	  Say Y here if you have a Realtek 8169 PCI Gigabit Ethernet adapter.
+ 
+-- 
+1.5.3.3
+
