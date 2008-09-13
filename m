@@ -1,31 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT PATCH 2/2] multiq: Further multiqueue cleanup
-Date: Fri, 12 Sep 2008 17:57:48 -0700 (PDT)
-Message-ID: <20080912.175748.81446430.davem@davemloft.net>
-References: <20080913004547.5342.9954.stgit@jtkirshe-mobile.jf.intel.com>
-	<20080913004549.5342.39819.stgit@jtkirshe-mobile.jf.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Fri, 12 Sep 2008 18:10:18 -0700
+Message-ID: <20080913011018.GA10242@gondor.apana.org.au>
+References: <20080911.044717.265303740.davem@davemloft.net> <20080911.214929.152271268.davem@davemloft.net> <20080912080249.GA3971@ff.dom.local> <20080912.161005.91061839.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarkao2@gmail.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43461
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756963AbYIMA5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 20:57:54 -0400
-In-Reply-To: <20080913004549.5342.39819.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:53179 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756562AbYIMBK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2008 21:10:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20080912.161005.91061839.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 12 Sep 2008 17:45:49 -0700
-
-> This patch resolves a few issues found with multiq including wording
-> suggestions and a problem seen in the allocation of queues.
+On Fri, Sep 12, 2008 at 04:10:05PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Fri, 12 Sep 2008 08:02:49 +0000
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > Alas I'm still not sure how this whole peek idea is going to be
+> > implemented (dequeuing after peeking doesn't have to give us the
+> > same skb since in the meantime e.g. in HTB some other class with
+> > higher prio can get enough tokens etc., and if there is a break
+> > for transmit in the meantime with possible enqueuing, or we can
+> > deal with something like sch_multiq, which depends on the current
+> > state of the tx_queues, this all looks even more interesting).
+> 
+> That's a good point.
+> 
+> Well, once that is discussed and resolved, at least the patch I
+> posted can be used as a base for implementation :-)
 
-Also applied, thanks.
+Well we should remember the skb returned by peek, and then return
+it on the next dequeue.  If peek hasn't been called since the
+last dequeue then it's equivalent to the current dequeue.
+
+This works for the two scenarios where we're planning to use
+peek since they'll both call dequeue immediately.
+
+It'd even work if there was a large gap (i.e., a sleep) after
+the peek since we'd just peek again after waking up.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
