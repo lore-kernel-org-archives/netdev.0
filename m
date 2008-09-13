@@ -1,73 +1,52 @@
-From: Jochen Voss <voss@seehuhn.de>
-Subject: dead code in tc/m_ematch.c
-Date: Sat, 13 Sep 2008 18:58:12 +0100
-Message-ID: <20080913175812.GA7365@seehuhn.de>
+From: Graeme Fowler <graeme@graemef.net>
+Subject: Re: Adding SNAT support to LVS/NAT
+Date: Sat, 13 Sep 2008 19:55:09 +0100
+Message-ID: <1221332109.4327.25.camel@ernie.internal.graemef.net>
+References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
+	 <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="d6Gm4EdcadzBjdND"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from seehuhn.de ([80.68.93.199]:3878 "EHLO seehuhn.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752386AbYIMSeg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 14:34:36 -0400
-Received: from vburmah.vpn.seehuhn.de ([10.98.27.6] helo=burmah.maths.warwick.ac.uk)
-	by seehuhn.de with esmtps (TLS-1.0:RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.63)
-	(envelope-from <voss@seehuhn.de>)
-	id 1KeZNt-0007BK-63
-	for netdev@vger.kernel.org; Sat, 13 Sep 2008 18:58:13 +0100
-Received: from voss by burmah.maths.warwick.ac.uk with local (Exim 4.69)
-	(envelope-from <voss@seehuhn.de>)
-	id 1KeZNs-0001uz-Ms
-	for netdev@vger.kernel.org; Sat, 13 Sep 2008 18:58:12 +0100
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp
+To: Joseph Mack NA3T <jmack@wm7d.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi
 
---d6Gm4EdcadzBjdND
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Sat, 2008-09-13 at 11:17 -0700, Joseph Mack NA3T wrote:
+> when we've discussed it before, the packets will appear to 
+> come from the DIP, a private IP (or whatever IP the servers 
+> were using for their default route before they were put into 
+> an LVS).
 
-Hi,
+I'm a bit late to the party, but...
 
-while looking through the source for the Debian package
-iproute-20080725, I found the following bit of code (file
-tc/m_ematch.c, lines 163-173):
+Ideally, the packets would appear to come from the "inside face" of the
+director - usually (and in the most basic case) the NIC with an address
+on the same layer 3 network as the real servers. This way the default
+route would be ignored as there would normally be a more specific route
+for that network, namely straight out of the device the packets arrived
+on. Of course, if that coincides with the default gateway address, it'll
+still work anyway.
 
-    static struct ematch_util *get_ematch_kind_num(__u16 kind)
-    {
-	    char name[32];
+> more importantly, people who are bound by serious IT rules 
+> setup by managers, can duplicate their (real) servers only 
+> with a change in RIP on each server and can keep the default 
+> route.
 
-	    if (lookup_map(kind, name, sizeof(name), EMATCH_MAP) < 0)
-		    return NULL;
+This is the single most compelling thing about this setup.
 
-	    return get_ematch_kind(name);
+It's simultaneously a problem in that for (say) an HTTP server, all the
+requests will appear to be sourced from the director's internal address.
+For many applications this won't be acceptable, not least in that for
+the webserver case log processing will be an irrelevance!
 
-	    return NULL;
-    }
+Anyone know how the F5 hardware gets around this? I can't get my hands
+on any to test...
 
-Obviously the second return statement has no effect.  Probably it
-should be removed.
+Graeme
 
-I hope this helps,
-Jochen
---=20
-http://seehuhn.de/
-
---d6Gm4EdcadzBjdND
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkjL/zQACgkQf+iD8yEbECX65QCfSxsiA8zyUjIh0Eklj1gXvnYe
-/XcAn1uFw0JahAlBf/p46K6siwaWKVDS
-=8qI2
------END PGP SIGNATURE-----
-
---d6Gm4EdcadzBjdND--
