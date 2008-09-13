@@ -1,45 +1,48 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch for 2.6.27? 1/6] drivers/net/skfp/pmf.c: Use offsetof()
- macro
-Date: Sat, 13 Sep 2008 15:13:13 -0400
-Message-ID: <48CC10C9.1090705@garzik.org>
-References: <200809052104.m85L44gQ020346@imap1.linux-foundation.org>
+Subject: Re: [patch for 2.6.27? 4/4] e1000e: prevent corruption of EEPROM/NVM
+Date: Sat, 13 Sep 2008 15:15:02 -0400
+Message-ID: <48CC1136.2090005@garzik.org>
+References: <200809022148.m82LmKQu014384@imap1.linux-foundation.org> <36D9DB17C6DE9E40B059440DB8D95F52060519E7@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tiwai@suse.de, alan@redhat.com
-To: akpm@linux-foundation.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	chrisl@vmware.com, arvidjaar@mail.ru,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	pratap@vmware.com, zach@vmware.com
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59938 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36751 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753356AbYIMTNS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 15:13:18 -0400
-In-Reply-To: <200809052104.m85L44gQ020346@imap1.linux-foundation.org>
+	id S1752540AbYIMTPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 15:15:09 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52060519E7@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Takashi Iwai <tiwai@suse.de>
+Brandeburg, Jesse wrote:
+> akpm@linux-foundation.org wrote:
+>> From: Christopher Li <chrisl@vmware.com>
+>>
+>> Andrey reports e1000e corruption, and that a patch in vmware's ESX
+>> fixed 
+>> it.
+>>
+>> The EEPROM corruption is triggered by concurrent access of the EEPROM
+>> read/write. Putting a lock around it solve the problem.
+>>
 > 
-> Self-baked macros cause bunch of compile warnings like below:
+> NAK.  Please do not apply this patch, for reasons mentioned in my other
+> reply just sent to netdev.
 > 
->   CC [M]  drivers/net/skfp/pmf.o
->   CC      net/ipv4/fib_semantics.o
-> drivers/net/skfp/pmf.c:86: warning: cast from pointer to integer of different size
-> drivers/net/skfp/pmf.c:87: warning: cast from pointer to integer of different size
-> ...
-> 
-> Use the standard offsetof() macro instead.
-> 
-> Signed-off-by: Takashi Iwai <tiwai@suse.de>
-> Acked-by: Alan Cox <alan@redhat.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/skfp/pmf.c |   29 +++++++++++------------------
->  1 file changed, 11 insertions(+), 18 deletions(-)
+> The RTNL should be preventing this from being a possible bug in *Linux*
+> and if it is not we have much larger problems, not the least of which is
+> that this patch doesn't lock against the driver accessing the eeprom
+> simultaneously.
 
-applied
+Ping.  A problem still occurs, regardless of what should be prevented?
 
 
