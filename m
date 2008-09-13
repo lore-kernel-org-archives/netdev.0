@@ -1,47 +1,46 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] smc91x: SMC_IO_SHIFT platform data support for default
- case
-Date: Sat, 13 Sep 2008 15:13:04 -0400
-Message-ID: <48CC10C0.6040607@garzik.org>
-References: <20080908050234.11554.10123.sendpatchset@rx1.opensource.se>
+Subject: Re: [patch for 2.6.27? 4/6] drivers/net/mlx4/alloc.c needs mm.h
+Date: Sat, 13 Sep 2008 15:13:23 -0400
+Message-ID: <48CC10D3.3010704@garzik.org>
+References: <200809052104.m85L47vw020360@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.miao@marvell.com,
-	luca.santini@spesonline.com, nico@cam.org, linux-sh@vger.kernel.org
-To: Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20080908050234.11554.10123.sendpatchset@rx1.opensource.se>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:59944 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752660AbYIMTN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 15:13:26 -0400
+In-Reply-To: <200809052104.m85L47vw020360@imap1.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Magnus Damm wrote:
-> From: Magnus Damm <damm@igel.co.jp>
+akpm@linux-foundation.org wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
 > 
-> Commit 159198862adad7109bb347bb30a620f67beac45f added SMC_IO_SHIFT
-> platform data support. After that ARM board support was added.
+> sparc32 allmodconfig with linux-next:
 > 
-> The default case is still missing though, so on SuperH SMC_IO_SHIFT
-> is constantly zero regardless of what you pass as platform data.
+> drivers/net/mlx4/alloc.c: In function 'mlx4_buf_alloc':
+> drivers/net/mlx4/alloc.c:164: error: 'PAGE_KERNEL' undeclared (first use in this function)
+> drivers/net/mlx4/alloc.c:164: error: (Each undeclared identifier is reported only once
+> drivers/net/mlx4/alloc.c:164: error: for each function it appears in.)
 > 
-> Signed-off-by: Magnus Damm <damm@igel.co.jp>
-> Test-by: Luca Santini <luca.santini@spesonline.com>
+> this is due to some header shuffle in linux-next.  I didn't look to see what
+> it was.  I'd sugges that this patch be merged ahead of a linux-next merge to
+> avoid bisection breaks.
+> 
+> We strictly only need asm/pgtable.h, but going direct to asm includes always
+> seems grubby.
+> 
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
 > 
->  drivers/net/smc91x.h |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> --- 0001/drivers/net/smc91x.h
-> +++ work/drivers/net/smc91x.h	2008-08-28 20:43:03.000000000 +0900
-> @@ -446,6 +446,8 @@ static inline void LPD7_SMC_outsw (unsig
->  #define SMC_CAN_USE_32BIT	1
->  #define SMC_NOWAIT		1
->  
-> +#define SMC_IO_SHIFT		(lp->io_shift)
-> +
->  #define SMC_inb(a, r)		readb((a) + (r))
->  #define SMC_inw(a, r)		readw((a) + (r))
->  #define SMC_inl(a, r)		readl((a) + (r))
+>  drivers/net/mlx4/alloc.c |    1 +
+>  1 file changed, 1 insertion(+)
 
 applied
 
