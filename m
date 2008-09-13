@@ -1,84 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] hso_create_bulk_serial_device(): fix a double free
-Date: Sat, 13 Sep 2008 15:56:13 -0400
-Message-ID: <48CC1ADD.7070101@pobox.com>
-References: <20080827220236.GL11734@cs181140183.pp.htv.fi>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e100: Use pci_pme_active to clear PME_Status and disable
+ PME#
+Date: Sat, 13 Sep 2008 16:15:56 -0400
+Message-ID: <48CC1F7C.7050908@garzik.org>
+References: <200808051730.27599.alessandro.guido@gmail.com> <200808080000.07156.rjw@sisk.pl> <200808080014.25493.rjw@sisk.pl> <200808080018.05887.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>,
+	Alessandro Guido <alessandro.guido@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	pm list <linux-pm@lists.linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52830 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34873 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753599AbYIMT4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 15:56:18 -0400
-In-Reply-To: <20080827220236.GL11734@cs181140183.pp.htv.fi>
+	id S1752625AbYIMUQH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 16:16:07 -0400
+In-Reply-To: <200808080018.05887.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> hso_serial_common_free() mustn't be called if
-> hso_serial_common_create() fails.
+Rafael J. Wysocki wrote:
+> e100: Use pci_pme_active to clear PME_Status and disable PME#
 > 
-> Reported-by: Adrian Bunk <bunk@kernel.org>
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 > 
 > ---
+>  drivers/net/e100.c |    4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
 > 
->  drivers/net/usb/hso.c |    9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> d7557f8eda806e6888232bae1b86dfdd8b6cf330 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index 1b7cac7..8c11295 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -2206,39 +2206,40 @@ static struct hso_device *hso_create_bulk_serial_device(
->  	if (hso_serial_common_create(serial, num_urbs, BULK_URB_RX_SIZE,
->  				     BULK_URB_TX_SIZE))
->  		goto exit;
+> Index: linux-2.6/drivers/net/e100.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/e100.c
+> +++ linux-2.6/drivers/net/e100.c
+> @@ -2738,9 +2738,7 @@ static int __devinit e100_probe(struct p
+>  		nic->flags |= wol_magic;
 >  
->  	serial->in_endp = hso_get_ep(interface, USB_ENDPOINT_XFER_BULK,
->  				     USB_DIR_IN);
->  	if (!serial->in_endp) {
->  		dev_err(&interface->dev, "Failed to find BULK IN ep\n");
-> -		goto exit;
-> +		goto exit2;
->  	}
->  
->  	if (!
->  	    (serial->out_endp =
->  	     hso_get_ep(interface, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT))) {
->  		dev_err(&interface->dev, "Failed to find BULK IN ep\n");
-> -		goto exit;
-> +		goto exit2;
->  	}
->  
->  	serial->write_data = hso_std_serial_write_data;
->  
->  	/* and record this serial */
->  	set_serial_by_index(serial->minor, serial);
->  
->  	/* setup the proc dirs and files if needed */
->  	hso_log_port(hso_dev);
->  
->  	/* done, return it */
->  	return hso_dev;
-> +
-> +exit2:
-> +	hso_serial_common_free(serial);
->  exit:
-> -	if (hso_dev && serial)
-> -		hso_serial_common_free(serial);
->  	kfree(serial);
->  	hso_free_device(hso_dev);
->  	return NULL;
->  }
->  
->  /* Creates a multiplexed AT channel */
->  static
+>  	/* ack any pending wake events, disable PME */
+> -	err = pci_enable_wake(pdev, 0, 0);
+> -	if (err)
+> -		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
+> +	pci_pme_active(pdev, false);
 
-applied
+Since I am rusty on my PCI...  why is this needed?
 
 
