@@ -1,74 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
-Date: Sun, 14 Sep 2008 12:58:41 -0700
-Message-ID: <20080914125841.1310c390@speedy>
-References: <20080821115849.GA2126@x200.localdomain>
-	<20080821.045910.61585911.davem@davemloft.net>
-	<20080821120409.GA2226@x200.localdomain>
-	<20080821.050857.131314665.davem@davemloft.net>
-	<20080914142654.3114cb3a@osprey.hogchain.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Sun, 14 Sep 2008 22:27:15 +0200
+Message-ID: <20080914202715.GA2540@ami.dom.local>
+References: <20080913011018.GA10242@gondor.apana.org.au> <20080912.182259.238925690.davem@davemloft.net> <20080913012758.GA10459@gondor.apana.org.au> <20080912.184008.74354363.davem@davemloft.net> <20080913014800.GA10611@gondor.apana.org.au> <20080913205408.GA2545@ami.dom.local> <20080914061610.GA20571@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, adobriyan@gmail.com,
-	csnook@redhat.com, netdev@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56104 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753827AbYINT6q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Sep 2008 15:58:46 -0400
-In-Reply-To: <20080914142654.3114cb3a@osprey.hogchain.net>
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:51754 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753736AbYINU01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 16:26:27 -0400
+Received: by gxk9 with SMTP id 9so23081175gxk.13
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2008 13:26:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080914061610.GA20571@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 14 Sep 2008 14:26:54 -0500
-Jay Cliburn <jacliburn@bellsouth.net> wrote:
+On Sat, Sep 13, 2008 at 11:16:10PM -0700, Herbert Xu wrote:
+> On Sat, Sep 13, 2008 at 10:54:08PM +0200, Jarek Poplawski wrote:
+> >
+> > If I get it right peek + dequeue should do all current dequeue logic
+> > plus additionally write down the child qdisc or skb (leaves) info,
+> > plus, probably, some ifs btw., which looks like a bit of overhead,
+> > if we consider requeuing as something exceptional. Unless we don't -
+> > then of course something like this could be useful.
+> 
+> I don't see the overhead in writing down something that we alrady
+> have.  In any case, do you have an alternative solution to the
+> current problem that qdisc_run looks at an arbitrary queue's
+> status to decide whether it should process a qdisc that empties
+> into n queues?
 
-> On Thu, 21 Aug 2008 05:08:57 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: adobriyan@gmail.com
-> > Date: Thu, 21 Aug 2008 16:04:09 +0400
-> > 
-> > > On Thu, Aug 21, 2008 at 04:59:10AM -0700, David Miller wrote:
-> > > > From: adobriyan@gmail.com
-> > > > Date: Thu, 21 Aug 2008 15:58:49 +0400
-> > > > 
-> > > > > This message happens more or less every reboot, sometimes cable
-> > > > > unplug/plug is needed to restore connectivity, otherwise card
-> > > > > is working fine.
-> > > > 
-> > > > What kernel version.... no, I can figure it out via osmosis never
-> > > > mind! :-)
-> > > 
-> > > WARN already prints kernel version. ;-)
-> > > 
-> > > [ 2086.052503] Pid: 0, comm: swapper Not tainted
-> > > 2.6.27-rc4-netns-nf #4 ^^^^^^^^^^^^^^^^^^^
-> > > 
-> > > And before you ask, "-netns-nf" part doesn't matter, it happens with
-> > > strictly mainline kernels too and started around multiqueue TX
-> > > changes, IIRC.
-> > 
-> > It's a simple transmit timeout error.
-> > 
-> > Perhaps atl1 doesn't call netif_carrier_off() in all the places that
-> > it should.
-> 
-> For reference, the original report from Alexey on this matter is here:
-> 
-> http://marc.info/?l=linux-netdev&m=121931988219314&w=2
-> 
-> To which Dave responded above, "It's a simple transmit timeout error."
-> 
-> Should a netdev driver be coded such that a watchdog transmit timeout
-> never occurs?
-> 
-> [ 2086.049998] NETDEV WATCHDOG: eth0 (atl1): transmit timed out
-> 
-> Or is a watchdog timeout an expected occurrence if a cable is
-> unplugged/plugged?
+If it's only for this initial check I still think my earlier proposal
+should be enough:
+http://marc.info/?l=linux-netdev&m=122113717013988&w=2
 
-Any transmit timeout is driver or hardware bug. The driver should be
-shutting down transmit correctly on cable pull.
+Anyway, the main problem here was a high cpu load despite stopped
+queue. Are you sure this peek, which is almost full dequeue, can
+really help for this? BTW, since after current fix there were no
+later complains I guess it's just about full netif_stop or non-mq
+device.
+
+Cheers,
+Jarek P.
