@@ -1,63 +1,86 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 0/4] atlx: add atl2 support
-Date: Sun, 14 Sep 2008 18:14:10 -0400
-Message-ID: <48CD8CB2.2080406@redhat.com>
-References: <20080909061247.GA17834@file.rdu.redhat.com> <48CC1718.50508@garzik.org>
+From: Ingo Oeser <ioe-lkml@rameria.de>
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 15 Sep 2008 00:51:08 +0200
+Message-ID: <200809150051.10293.ioe-lkml@rameria.de>
+References: <20080913203548.GA2989@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, atl2-test@lists.sourceforge.net,
-	jcliburn@gmail.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
 To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42412 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753705AbYINWRt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Sep 2008 18:17:49 -0400
-In-Reply-To: <48CC1718.50508@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755863AbYINWvY@vger.kernel.org>
+In-Reply-To: <20080913203548.GA2989@havoc.gtf.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Chris Snook wrote:
->> This patchset adds support for atl2 hardware to the atlx codebase.  It is
->> functionally very similar to the out-of-tree 2.0.4 version that many 
->> distros
->> have been shipping for a few months, though it adds a fix from Atheros 
->> to fix
->> the problem of device resets under heavy bidirectional load.
->>
->> The code needs a lot of janitorial work, and there's a lot of 
->> low-hanging fruit
->> for merging similar atl1 code into the shared atlx code, but I think 
->> that work
->> will go much faster once this is in-tree.  The driver is known to work 
->> well for
->> laptop and desktop use.  The only major bugs are device initialization 
->> problems
->> that manifest themselves immediately and obviously (the NIC doesn't 
->> work) with
->> certain motherboards.
->>
->> Please consider this for the 2.6.28 merge window.
->>
->> -- Chris
->>
->>  drivers/net/Kconfig       |   17
->>  drivers/net/Makefile      |    1
->>  drivers/net/atlx/Makefile |    1
->>  drivers/net/atlx/atl2.c   | 3101 
->> ++++++++++++++++++++++++++++++++++++++++++++++
->>  drivers/net/atlx/atl2.h   |  482 +++++++
->>  include/linux/pci_ids.h   |    1
->>  6 files changed, 3600 insertions(+), 3 deletions(-)
-> 
-> Send as one big patch, please?
-> 
-> 
+Hi Jeff,
 
-It's too big for vger as one patch.  There's a lot of code that can be whittled 
-down, but this driver has been delayed for months already waiting for that to be 
-finished.  Would you prefer a gzipped One Big Patch?
 
--- Chris
+On Saturday 13 September 2008, Jeff Garzik wrote:
+> Vlad Yasevich (1):
+>       bonding: Do not tx-balance some IPv6 packets on ALB/TLB bonds
+
+Regarding this change and include/linux/etherdevice.h
+
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index b211486..c219262 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -38,6 +38,7 @@
+>  #include <linux/in.h>
+>  #include <net/ipx.h>
+>  #include <net/arp.h>
+> +#include <net/ipv6.h>
+>  #include <asm/byteorder.h>
+>  #include "bonding.h"
+>  #include "bond_alb.h"
+> @@ -81,6 +82,7 @@
+>  #define RLB_PROMISC_TIMEOUT	10*ALB_TIMER_TICKS_PER_SEC
+>  
+>  static const u8 mac_bcast[ETH_ALEN] = {0xff,0xff,0xff,0xff,0xff,0xff};
+> +static const u8 mac_v6_allmcast[ETH_ALEN] = {0x33,0x33,0x00,0x00,0x00,0x01};
+>  static const int alb_delta_in_ticks = HZ / ALB_TIMER_TICKS_PER_SEC;
+>  
+>  #pragma pack(1)
+> @@ -1290,6 +1292,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>  	u32 hash_index = 0;
+>  	const u8 *hash_start = NULL;
+>  	int res = 1;
+> +	struct ipv6hdr *ip6hdr;
+>  
+>  	skb_reset_mac_header(skb);
+>  	eth_data = eth_hdr(skb);
+> @@ -1319,11 +1322,32 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>  	}
+>  		break;
+>  	case ETH_P_IPV6:
+> +		/* IPv6 doesn't really use broadcast mac address, but leave
+> +		 * that here just in case.
+> +		 */
+>  		if (memcmp(eth_data->h_dest, mac_bcast, ETH_ALEN) == 0) {
+
+Didn't someone introduce compare_ether_addr() just for this?
+
+>  			do_tx_balance = 0;
+>  			break;
+>  		}
+>  
+> +		/* IPv6 uses all-nodes multicast as an equivalent to
+> +		 * broadcasts in IPv4.
+> +		 */
+> +		if (memcmp(eth_data->h_dest, mac_v6_allmcast, ETH_ALEN) == 0) {
+> +			do_tx_balance = 0;
+> +			break;
+> +		}
+
+compare_ether_addr()
+
+Maybe fix this in a followup patch?
+
+
+Best Regards
+
+Ingo Oeser
