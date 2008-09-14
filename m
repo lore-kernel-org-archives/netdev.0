@@ -1,92 +1,77 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch v2] net: add Gigabit Ethernet Switch for PCI driver gesp
-Date: Sat, 13 Sep 2008 20:28:59 -0400
-Message-ID: <48CC5ACB.6030203@pobox.com>
-References: <ca0148c30807210325j3cbff1f6i59404171089c82f5@mail.gmail.com> <489A95EA.8000702@pobox.com> <ca0148c30808120512re132edercfebbbd4c97fc2dc@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] cs89x0: add support for i.MX31ADS ARM board
+Date: Sat, 13 Sep 2008 20:29:55 -0400
+Message-ID: <48CC5B03.2020003@garzik.org>
+References: <489DD049.6020106@xenomai.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Matti Linnanvuori <mattilinn@gmail.com>
+Cc: netdev@vger.kernel.org, Russell King <rmk@arm.linux.org.uk>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51101 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:54730 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752527AbYINA3C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 20:29:02 -0400
-In-Reply-To: <ca0148c30808120512re132edercfebbbd4c97fc2dc@mail.gmail.com>
+	id S1753126AbYINAaB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 20:30:01 -0400
+In-Reply-To: <489DD049.6020106@xenomai.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matti Linnanvuori wrote:
-> From: Matti Linnanvuori <matti.linnanvuori@ascom.com>
-> 
-> Add GESP Gigabit Ethernet Switch for PCI driver.
-> 
-> Signed-off-by: Matti Linnanvuori <matti.linnanvuori@ascom.com>
-> 
+Gilles Chanteperdrix wrote:
+> Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
 > ---
-> 
-> --- linux-2.6.26/drivers/net/gesp/e1000_82540.c	1970-01-01
-> 02:00:00.000000000 +0200
-> +++ linux-next/drivers/net/gesp/e1000_82540.c	2008-07-21
-> 12:19:29.893549294 +0300
-> @@ -0,0 +1,685 @@
-> +/*******************************************************************************
-> +
-> +  Intel PRO/1000 Linux driver
-> +  Copyright(c) 1999 - 2008 Intel Corporation.
-> +
-> +  This program is free software; you can redistribute it and/or modify it
-> +  under the terms and conditions of the GNU General Public License,
-> +  version 2, as published by the Free Software Foundation.
-> +
-> +  This program is distributed in the hope it will be useful, but WITHOUT
-> +  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-> +  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-> +  more details.
-> +
-> +  You should have received a copy of the GNU General Public License along with
-> +  this program; if not, write to the Free Software Foundation, Inc.,
-> +  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-> +
-> +  The full GNU General Public License is included in this distribution in
-> +  the file called "COPYING".
-> +
-> +  Contact Information:
-> +  Linux NICS <linux.nics@intel.com>
-> +  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-> +  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-> +
-> +*******************************************************************************/
-> +
-> +/* e1000_82540
-> + * e1000_82545
-> + * e1000_82546
-> + * e1000_82545_rev_3
-> + * e1000_82546_rev_3
-> + */
-> +
-> +#include "e1000_api.h"
-> +
-> +static s32  e1000_init_phy_params_82540(struct e1000_hw *hw);
-> +static s32  e1000_init_nvm_params_82540(struct e1000_hw *hw);
-> +static s32  e1000_init_mac_params_82540(struct e1000_hw *hw);
-> +static s32  e1000_adjust_serdes_amplitude_82540(struct e1000_hw *hw);
-> +static void e1000_clear_hw_cntrs_82540(struct e1000_hw *hw);
-> +static s32  e1000_init_hw_82540(struct e1000_hw *hw);
-> +static s32  e1000_reset_hw_82540(struct e1000_hw *hw);
-> +static s32  e1000_set_phy_mode_82540(struct e1000_hw *hw);
-> +static s32  e1000_set_vco_speed_82540(struct e1000_hw *hw);
-> +static s32  e1000_setup_copper_link_82540(struct e1000_hw *hw);
-> +static s32  e1000_setup_fiber_serdes_link_82540(struct e1000_hw *hw);
-> +static void e1000_power_down_phy_copper_82540(struct e1000_hw *hw);
+> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+> index ea6144a..875a43d 100644
+> --- a/drivers/net/cs89x0.c
+> +++ b/drivers/net/cs89x0.c
+> @@ -194,6 +194,12 @@ static unsigned int cs8900_irq_map[] = {IRQ_IXDP2X01_CS8900, 0, 0, 0};
+>  #define CIRRUS_DEFAULT_IRQ	VH_INTC_INT_NUM_CASCADED_INTERRUPT_1 /* Event inputs bank 1 - ID 35/bit 3 */
+>  static unsigned int netcard_portlist[] __used __initdata = {CIRRUS_DEFAULT_BASE, 0};
+>  static unsigned int cs8900_irq_map[] = {CIRRUS_DEFAULT_IRQ, 0, 0, 0};
+> +#elif defined(CONFIG_MACH_MX31ADS)
+> +#include <mach/board-mx31ads.h>
+> +static unsigned int netcard_portlist[] __used __initdata = {
+> +	PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
+> +};
+> +static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
+>  #else
+>  static unsigned int netcard_portlist[] __used __initdata =
+>     { 0x300, 0x320, 0x340, 0x360, 0x200, 0x220, 0x240, 0x260, 0x280, 0x2a0, 0x2c0, 0x2e0, 0};
+> @@ -802,7 +808,7 @@ cs89x0_probe1(struct net_device *dev, int ioaddr, int modular)
+>  	} else {
+>  		i = lp->isa_config & INT_NO_MASK;
+>  		if (lp->chip_type == CS8900) {
+> -#if defined(CONFIG_MACH_IXDP2351) || defined(CONFIG_ARCH_IXDP2X01) || defined(CONFIG_ARCH_PNX010X)
+> +#if defined(CONFIG_MACH_IXDP2351) || defined(CONFIG_ARCH_IXDP2X01) || defined(CONFIG_ARCH_PNX010X) || defined(CONFIG_MACH_MX31ADS)
+>  		        i = cs8900_irq_map[0];
+>  #else
+>  			/* Translate the IRQ using the IRQ mapping table. */
+> @@ -1029,6 +1035,7 @@ skip_this_frame:
+>  
+>  void  __init reset_chip(struct net_device *dev)
+>  {
+> +#if !defined(CONFIG_MACH_MX31ADS)
+>  #if !defined(CONFIG_MACH_IXDP2351) && !defined(CONFIG_ARCH_IXDP2X01)
+>  	struct net_local *lp = netdev_priv(dev);
+>  	int ioaddr = dev->base_addr;
+> @@ -1057,6 +1064,7 @@ void  __init reset_chip(struct net_device *dev)
+>  	reset_start_time = jiffies;
+>  	while( (readreg(dev, PP_SelfST) & INIT_DONE) == 0 && jiffies - reset_start_time < 2)
+>  		;
+> +#endif /* !CONFIG_MACH_MX31ADS */
+>  }
+>  
+>  
+> @@ -1304,7 +1312,7 @@ net_open(struct net_device *dev)
+>  	else
+>  #endif
+>  	{
+> -#if !defined(CONFIG_MACH_IXDP2351) && !defined(CONFIG_ARCH_IXDP2X01) && !defined(CONFIG_ARCH_PNX010X)
+> +#if !defined(CONFIG_MACH_IXDP2351) && !defined(CONFIG_ARCH_IXDP2X01) && !defined(CONFIG_ARCH_PNX010X) && !defined(CONFIG_MACH_MX31ADS)
+>  		if (((1 << dev->irq) & lp->irq_map) == 0) {
+>  			printk(KERN_ERR "%s: IRQ %d is not in our map of allowable IRQs, which is %x\n",
 
-Need a little bit more information here.
-
-How close is this hardware to e1000?
-
-Is this driver really from Intel, as the contact information implies?
-
-Is there documentation on the hardware anywhere?
-
+I don't know enough about the arch to be able to ACK or NAK...  pass 
+this through the appropriate arch maintainer tree please?
 
