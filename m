@@ -1,40 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] ethtool: command line support for lro
-Date: Sat, 13 Sep 2008 22:09:05 -0400
-Message-ID: <48CC7241.3080008@pobox.com>
-References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com> <20080307082538.1a674ae1@extreme> <1204909575.4220.71.camel@moonstone.uk.level5networks.com> <20080307134312.037e2cf6@extreme> <20080310180706.GF12660@solarflare.com> <20080417121119.GI21637@solarflare.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Re: ep93xx_eth PHY problems
+Date: Sat, 13 Sep 2008 22:11:32 -0400
+Message-ID: <48CC72D4.1020001@garzik.org>
+References: <47CD4857.2060406@student.tuwien.ac.at> <20080321202202.129c1239@ors>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Kieran Mansley <kmansley@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, hvr@gnu.org, buytenh@wantstofly.org
+To: Oliver Martin <oliver.martin@student.tuwien.ac.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51741 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36699 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751566AbYINCJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 22:09:10 -0400
-In-Reply-To: <20080417121119.GI21637@solarflare.com>
+	id S1753226AbYINCLg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 22:11:36 -0400
+In-Reply-To: <20080321202202.129c1239@ors>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> Add lro support to command in similar manner to TSO, GSO, etc.
-> The file ethtool-copy.h is updated to be sanitised version of
-> ethtool.h from 2.6.25-rc4 (ie make headers_install)
+Oliver Martin wrote:
+> Am Tue, 04 Mar 2008 14:02:15 +0100
+> schrieb Oliver Martin <oliver.martin@student.tuwien.ac.at>:
+>> Now I'm having different problems: When auto-negotiation is enabled,
+>> it sometimes randomly changes the link state:
+>>
+>> PHY: 0:01 - Link is Down
+>> PHY: 0:01 - Link is Up - 100/Full
+>>
 > 
-> Based on patch by Stephen Hemminger
-> <http://article.gmane.org/gmane.linux.network/88124>.
+> I've found at least one part of the problem. The MDIO clock divisor
+> wasn't set again after the reset in ep93xx_start_hw. It was left at the
+> default, resulting in a 12.5 MHz clock, which the PHY (Micrel KSZ8721BL)
+> didn't like too much. Calling ep93xx_mdio_reset after the reset fixed
+> it, the link is now perfectly stable in auto-negotiation mode.
 > 
-> My changes:
-> - Changed error return codes for setting LRO to be unique.
-> - Report failure to get device flags, consistent with other offload settings.
-> - Fixed code spacing.
+> There still seems to be another bug with auto-negotiation disabled: It
+> doesn't switch to 1000 Mbps any more, but most times it doesn't stay in
+> the intended configuration either. I haven't done any extensive
+> testing of this yet, though.
 > 
-> Tested with the sfc driver.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Oliver Martin <oliver.martin@student.tuwien.ac.at>
 
-applied
+Testing feedback?  Lennert ack?
 
 
