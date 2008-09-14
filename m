@@ -1,38 +1,57 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: UDP and Raw packet output not scaling with number of cores
- (10G, ixgbe and bnx2x)
-Date: Sun, 14 Sep 2008 13:06:07 +0300
-Message-ID: <1221386767.15079.8.camel@lb-tlvb-eliezer>
-References: <C499405203244F4F8ECC637C6A8F498B07D8E9ED@sd-exchange>
- <20080911.203450.29338239.davem@davemloft.net>
+From: Johann Baudy <johaahn@gmail.com>
+Subject: [PATCH] sendfile() and UDP socket
+Date: Sun, 14 Sep 2008 12:25:56 +0200
+Message-ID: <1221387956.9204.7.camel@fry>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "wurzel@ccpu.com" <wurzel@ccpu.com>,
-	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <20080911.203450.29338239.davem@davemloft.net>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp7-g19.free.fr ([212.27.42.64]:39053 "EHLO smtp7-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751992AbYINKZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Sep 2008 06:25:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi All,
 
-On Thu, 2008-09-11 at 20:34 -0700, David Miller wrote:
-> From: "wurzel parsons-keir" <wurzel@ccpu.com>
-> Date: Thu, 11 Sep 2008 20:21:36 -0700
-> 
-> > I read posts from Dave Miller from July 3 about making the tx path
-> > multiqueue aware, and also a paper by Zhu Yi and another by Redhat
-> > on how all this should make the TX path totally parallel/scalable
-> > across my 8 cores, if I understand correctly.
-> >
-Hi,
+Sendfile() over UDP socket are currently limited to ~ 64KBytes file (max cork.length).
+Indeed, if you run sendfile() with a file size > 64KBytes over UDP socket, system call will stop and return ~64KBytes without sending anything on the network.
+This patch is pushing ongoing frames when frames buffer is full, to prevent overflow.
 
-The bnx2x still does not support the Tx multiqueue. A patch is planned
-in the near future for it.
+Signed-off-by: Johann Baudy <johann.baudy@gmail.com>
 
-Regards,
-Eilon
+ net/ipv4/udp.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8e42fbb..64e0857 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -743,7 +743,22 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ 		 size_t size, int flags)
+ {
+ 	struct udp_sock *up = udp_sk(sk);
++	struct inet_sock *inet = inet_sk(sk);
+ 	int ret;
++	int fragheaderlen;
++	struct ip_options *opt = NULL;
++
++	lock_sock(sk);
++	if (inet->cork.flags & IPCORK_OPT)
++		opt = inet->cork.opt;
++	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
++
++	if (inet->cork.length + size >= 0xFFFF - fragheaderlen) {
++		ret = udp_push_pending_frames(sk);
++		if (ret)
++			goto out;
++	}
++	release_sock(sk);
+ 
+ 	if (!up->pending) {
+ 		struct msghdr msg = {	.msg_flags = flags|MSG_MORE };
 
 
