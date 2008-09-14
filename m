@@ -1,32 +1,51 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] WAN: add drivers dslp and sdfe4_cfg
-Date: Sat, 13 Sep 2008 20:58:12 -0400
-Message-ID: <48CC61A4.1080309@pobox.com>
-References: <OF1EE0C80B.F23B6ED2-ONC225749F.004126AD-C225749F.00479E77@CHASCOM.INT>
+Subject: Re: [PATCH] bonding: add more ethtool support
+Date: Sat, 13 Sep 2008 21:17:30 -0400
+Message-ID: <48CC662A.6060100@pobox.com>
+References: <20080811113416.178e7446@extreme> <10549.1218841133@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Matti Linnanvuori <matti.linnanvuori@ascom.com>
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42943 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42651 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753100AbYINA6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 20:58:17 -0400
-In-Reply-To: <OF1EE0C80B.F23B6ED2-ONC225749F.004126AD-C225749F.00479E77@CHASCOM.INT>
+	id S1753202AbYINBRi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 21:17:38 -0400
+In-Reply-To: <10549.1218841133@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matti Linnanvuori wrote:
+Jay Vosburgh wrote:
+> Stephen Hemminger <stephen.hemminger@vyatta.com> wrote:
 > 
-> From: Matti Linnanvuori <matti.linnanvuori@ascom.com>
+>> This patch allows reporting the link, checksum, and feature settings
+>> of bonded device by using generic hooks.
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> --- a/drivers/net/bonding/bond_main.c	2008-08-11 11:22:42.000000000 -0700
+>> +++ b/drivers/net/bonding/bond_main.c	2008-08-11 11:26:07.000000000 -0700
+>> @@ -4493,6 +4493,12 @@ static void bond_ethtool_get_drvinfo(str
+>>
+>> static const struct ethtool_ops bond_ethtool_ops = {
+>> 	.get_drvinfo		= bond_ethtool_get_drvinfo,
+>> +	.get_link		= ethtool_op_get_link,
+>> +	.get_tx_csum		= ethtool_op_get_tx_csum,
+>> +	.get_sg			= ethtool_op_get_sg,
+>> +	.get_tso		= ethtool_op_get_tso,
+>> +	.get_ufo		= ethtool_op_get_ufo,
+>> +	.get_flags		= ethtool_op_get_flags,
+>> };
+>>
+>> /*
 > 
-> Adding dslp and sdfe4-cfg G.SHDSL drivers.
+> 	Jeff, please apply.
 > 
-> Signed-off-by: Matti Linnanvuori <matti.linnanvuori@ascom.com>
+> Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+
+applied
 
 
-I am having trouble applying this, etp and retina patches.  Both git-am 
-and patch(1) report that they are malformed.
-
-They look pretty clean and sane on a first quick review.
