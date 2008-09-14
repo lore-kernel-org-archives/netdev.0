@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 4/5] mv643xx_eth: avoid reading ->byte_cnt twice during receive processing
-Date: Sun, 14 Sep 2008 19:14:49 +0200
-Message-ID: <20080914171449.GF28798@xi.wantstofly.org>
+Subject: [PATCH 5/5] mv643xx_eth: add support for chips without transmit bandwidth control
+Date: Sun, 14 Sep 2008 19:14:59 +0200
+Message-ID: <20080914171459.GG28798@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dale Farnsworth <dale@farnsworth.org>,
@@ -9,63 +9,163 @@ Cc: Dale Farnsworth <dale@farnsworth.org>,
 	Nicolas Pitre <nico@cam.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:47777 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:47787 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754127AbYINROu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 13:14:50 -0400
+	with ESMTP id S1754127AbYINRPB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 13:15:01 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the receive processing reads ->byte_cnt twice (once to
-update interface statistics and once to properly size the data area
-of the received skb), but since receive descriptors live in uncached
-memory, caching this value in a local variable saves one uncached
-access, and increases routing performance a tiny little bit more.
+Add support for mv643xx_eth versions that have no transmit bandwidth
+control registers at all, such as the ethernet block found in the
+Marvell 88F6183 ARM SoC.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/mv643xx_eth.c |   89 +++++++++++++++++++++++++++++----------------
+ 1 files changed, 58 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 4fbd62e..6564be1 100644
+index 6564be1..408827d 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -477,6 +477,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
- 		struct rx_desc *rx_desc;
- 		unsigned int cmd_sts;
- 		struct sk_buff *skb;
-+		u16 byte_cnt;
+@@ -271,9 +271,13 @@ struct mv643xx_eth_shared_private {
+ 	 */
+ 	unsigned int t_clk;
+ 	int extended_rx_coal_limit;
+-	int tx_bw_control_moved;
++	int tx_bw_control;
+ };
  
- 		rx_desc = &rxq->rx_desc_area[rxq->rx_curr_desc];
- 
-@@ -499,6 +500,8 @@ static int rxq_process(struct rx_queue *rxq, int budget)
- 
- 		mp->work_rx_refill |= 1 << rxq->index;
- 
-+		byte_cnt = rx_desc->byte_cnt;
++#define TX_BW_CONTROL_ABSENT		0
++#define TX_BW_CONTROL_OLD_LAYOUT	1
++#define TX_BW_CONTROL_NEW_LAYOUT	2
 +
- 		/*
- 		 * Update statistics.
- 		 *
-@@ -508,7 +511,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
- 		 * byte CRC at the end of the packet (which we do count).
- 		 */
- 		stats->rx_packets++;
--		stats->rx_bytes += rx_desc->byte_cnt - 2;
-+		stats->rx_bytes += byte_cnt - 2;
  
- 		/*
- 		 * In case we received a packet without first / last bits
-@@ -537,7 +540,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
- 			 * The -4 is for the CRC in the trailer of the
- 			 * received packet
- 			 */
--			skb_put(skb, rx_desc->byte_cnt - 2 - 4);
-+			skb_put(skb, byte_cnt - 2 - 4);
+ /* per-port *****************************************************************/
+ struct mib_counters {
+@@ -938,14 +942,17 @@ static void tx_set_rate(struct mv643xx_eth_private *mp, int rate, int burst)
+ 	if (bucket_size > 65535)
+ 		bucket_size = 65535;
  
- 			if (cmd_sts & LAYER_4_CHECKSUM_OK) {
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	if (mp->shared->tx_bw_control_moved) {
+-		wrl(mp, TX_BW_RATE_MOVED(mp->port_num), token_rate);
+-		wrl(mp, TX_BW_MTU_MOVED(mp->port_num), mtu);
+-		wrl(mp, TX_BW_BURST_MOVED(mp->port_num), bucket_size);
+-	} else {
++	switch (mp->shared->tx_bw_control) {
++	case TX_BW_CONTROL_OLD_LAYOUT:
+ 		wrl(mp, TX_BW_RATE(mp->port_num), token_rate);
+ 		wrl(mp, TX_BW_MTU(mp->port_num), mtu);
+ 		wrl(mp, TX_BW_BURST(mp->port_num), bucket_size);
++		break;
++	case TX_BW_CONTROL_NEW_LAYOUT:
++		wrl(mp, TX_BW_RATE_MOVED(mp->port_num), token_rate);
++		wrl(mp, TX_BW_MTU_MOVED(mp->port_num), mtu);
++		wrl(mp, TX_BW_BURST_MOVED(mp->port_num), bucket_size);
++		break;
+ 	}
+ }
+ 
+@@ -977,14 +984,21 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
+ 	/*
+ 	 * Turn on fixed priority mode.
+ 	 */
+-	if (mp->shared->tx_bw_control_moved)
+-		off = TXQ_FIX_PRIO_CONF_MOVED(mp->port_num);
+-	else
++	off = 0;
++	switch (mp->shared->tx_bw_control) {
++	case TX_BW_CONTROL_OLD_LAYOUT:
+ 		off = TXQ_FIX_PRIO_CONF(mp->port_num);
++		break;
++	case TX_BW_CONTROL_NEW_LAYOUT:
++		off = TXQ_FIX_PRIO_CONF_MOVED(mp->port_num);
++		break;
++	}
+ 
+-	val = rdl(mp, off);
+-	val |= 1 << txq->index;
+-	wrl(mp, off, val);
++	if (off) {
++		val = rdl(mp, off);
++		val |= 1 << txq->index;
++		wrl(mp, off, val);
++	}
+ }
+ 
+ static void txq_set_wrr(struct tx_queue *txq, int weight)
+@@ -996,23 +1010,30 @@ static void txq_set_wrr(struct tx_queue *txq, int weight)
+ 	/*
+ 	 * Turn off fixed priority mode.
+ 	 */
+-	if (mp->shared->tx_bw_control_moved)
+-		off = TXQ_FIX_PRIO_CONF_MOVED(mp->port_num);
+-	else
++	off = 0;
++	switch (mp->shared->tx_bw_control) {
++	case TX_BW_CONTROL_OLD_LAYOUT:
+ 		off = TXQ_FIX_PRIO_CONF(mp->port_num);
++		break;
++	case TX_BW_CONTROL_NEW_LAYOUT:
++		off = TXQ_FIX_PRIO_CONF_MOVED(mp->port_num);
++		break;
++	}
+ 
+-	val = rdl(mp, off);
+-	val &= ~(1 << txq->index);
+-	wrl(mp, off, val);
++	if (off) {
++		val = rdl(mp, off);
++		val &= ~(1 << txq->index);
++		wrl(mp, off, val);
+ 
+-	/*
+-	 * Configure WRR weight for this queue.
+-	 */
+-	off = TXQ_BW_WRR_CONF(mp->port_num, txq->index);
++		/*
++		 * Configure WRR weight for this queue.
++		 */
++		off = TXQ_BW_WRR_CONF(mp->port_num, txq->index);
+ 
+-	val = rdl(mp, off);
+-	val = (val & ~0xff) | (weight & 0xff);
+-	wrl(mp, off, val);
++		val = rdl(mp, off);
++		val = (val & ~0xff) | (weight & 0xff);
++		wrl(mp, off, val);
++	}
+ }
+ 
+ 
+@@ -2288,14 +2309,20 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
+ 		msp->extended_rx_coal_limit = 0;
+ 
+ 	/*
+-	 * Check whether the TX rate control registers are in the
+-	 * old or the new place.
++	 * Check whether the MAC supports TX rate control, and if
++	 * yes, whether its associated registers are in the old or
++	 * the new place.
+ 	 */
+ 	writel(1, msp->base + TX_BW_MTU_MOVED(0));
+-	if (readl(msp->base + TX_BW_MTU_MOVED(0)) & 1)
+-		msp->tx_bw_control_moved = 1;
+-	else
+-		msp->tx_bw_control_moved = 0;
++	if (readl(msp->base + TX_BW_MTU_MOVED(0)) & 1) {
++		msp->tx_bw_control = TX_BW_CONTROL_NEW_LAYOUT;
++	} else {
++		writel(7, msp->base + TX_BW_RATE(0));
++		if (readl(msp->base + TX_BW_RATE(0)) & 7)
++			msp->tx_bw_control = TX_BW_CONTROL_OLD_LAYOUT;
++		else
++			msp->tx_bw_control = TX_BW_CONTROL_ABSENT;
++	}
+ }
+ 
+ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
 -- 
 1.5.6.4
