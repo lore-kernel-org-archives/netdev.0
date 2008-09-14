@@ -1,50 +1,55 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: Adding SNAT support to LVS/NAT
-Date: Sun, 14 Sep 2008 16:47:51 +0200
-Message-ID: <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
-References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
-	 <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
-	 <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
-	 <Pine.LNX.4.64.0809131835001.12375@wm7d.net>
-	 <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 2.6.28] tcp_ipv6: fix use of uninitialized memory
+Date: Sun, 14 Sep 2008 16:48:49 +0200
+Message-ID: <20080914144849.GI12522@elte.hu>
+References: <20080912070525.GA22276@damson.getinternet.no> <20080912124405.GF8935@ghostprotocols.net> <20080912.161711.206773065.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	j.stubbs@linkthink.co.jp
-To: "Joseph Mack NA3T" <jmack@wm7d.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, vegard.nossum@gmail.com, netdev@vger.kernel.org,
+	penberg@cs.helsinki.fi, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:59686 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752672AbYINOtK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Sep 2008 10:49:10 -0400
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080912.161711.206773065.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 14, 2008 at 12:39 PM, Julius Volz <juliusv@google.com> wrote:
-> On Sun, Sep 14, 2008 at 3:37 AM, Joseph Mack NA3T <jmack@wm7d.net> wrote:
->> On Sun, 14 Sep 2008, Julius Volz wrote:
->>
->>> So maybe it would already work? ;)
->>
->> No. Some highly motivated people tried doing SNAT on OUTPUT in an attempt to
->> do F5-SNAT and it didn't work. This lead to the write up in
->>
->> http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.non-modified_realservers.html#F5_snat
->>
->> which brings us to where we are now.
->
-> Thanks for the info! Right, I even said myself in the previous reply
-> that ip_vs_postrouting() stops further processing in the POSTROUTING
-> chain, so it never reaches netfilter NAT code.
 
-Actually, what if we modify or remove that function to allow further
-processing in POSTROUTING? Could SNAT work with IPVS then?
+* David Miller <davem@davemloft.net> wrote:
 
-The comment above it says that the function specifically wants to
-avoid further NAT by netfilter. But is this always a problem?
+> From: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Date: Fri, 12 Sep 2008 09:44:05 -0300
+> 
+> > Em Fri, Sep 12, 2008 at 09:05:25AM +0200, Vegard Nossum escreveu:
+> > > >From 6544c4074aa5dde2e3f4d3e02f5601c1c33b770e Mon Sep 17 00:00:00 2001
+> > > From: Vegard Nossum <vegard.nossum@gmail.com>
+> > > Date: Tue, 9 Sep 2008 07:17:32 +0200
+> > > Subject: [PATCH] tcp_ipv6: fix use of uninitialized memory
+> > > 
+> > > inet6_rsk() is called on a struct request_sock * before we
+> > > have checked whether the socket is an ipv6 socket or a ipv6-
+> > > mapped ipv4 socket. The access that triggers this is the
+> > > inet_rsk(rsk)->inet6_rsk_offset dereference in inet6_rsk().
+> > > 
+> > > This is arguably not a critical error as the inet6_rsk_offset
+> > > is only used to compute a pointer which is never really used
+> > > (in the code path in question) anyway. But it might be a
+> > > latent error, so let's fix it.
+> > > 
+> > > Spotted by kmemcheck.
+> > 
+> > Humm, so this was poisoned at allocation and then when inet6_rsk_offset
+> > was accessed it noticed, interesting, thanks!
+> > 
+> > Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> 
+> Good find :)  I'll add this to net-next-2.6, thanks!
 
-Julius
+nice - i think kmemcheck is starting to build up a healthy list of 
+references :-)
 
--- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+	Ingo
