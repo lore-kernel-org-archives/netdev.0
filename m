@@ -1,41 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
-	dev_deactivate() race
-Date: Sat, 13 Sep 2008 23:16:10 -0700
-Message-ID: <20080914061610.GA20571@gondor.apana.org.au>
-References: <20080913011018.GA10242@gondor.apana.org.au> <20080912.182259.238925690.davem@davemloft.net> <20080913012758.GA10459@gondor.apana.org.au> <20080912.184008.74354363.davem@davemloft.net> <20080913014800.GA10611@gondor.apana.org.au> <20080913205408.GA2545@ami.dom.local>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: UDP and Raw packet output not scaling with number of cores
+ (10G, ixgbe and bnx2x)
+Date: Sun, 14 Sep 2008 13:06:07 +0300
+Message-ID: <1221386767.15079.8.camel@lb-tlvb-eliezer>
+References: <C499405203244F4F8ECC637C6A8F498B07D8E9ED@sd-exchange>
+ <20080911.203450.29338239.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33235 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751297AbYINGQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 02:16:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20080913205408.GA2545@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "wurzel@ccpu.com" <wurzel@ccpu.com>,
+	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20080911.203450.29338239.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 13, 2008 at 10:54:08PM +0200, Jarek Poplawski wrote:
->
-> If I get it right peek + dequeue should do all current dequeue logic
-> plus additionally write down the child qdisc or skb (leaves) info,
-> plus, probably, some ifs btw., which looks like a bit of overhead,
-> if we consider requeuing as something exceptional. Unless we don't -
-> then of course something like this could be useful.
 
-I don't see the overhead in writing down something that we alrady
-have.  In any case, do you have an alternative solution to the
-current problem that qdisc_run looks at an arbitrary queue's
-status to decide whether it should process a qdisc that empties
-into n queues?
+On Thu, 2008-09-11 at 20:34 -0700, David Miller wrote:
+> From: "wurzel parsons-keir" <wurzel@ccpu.com>
+> Date: Thu, 11 Sep 2008 20:21:36 -0700
+> 
+> > I read posts from Dave Miller from July 3 about making the tx path
+> > multiqueue aware, and also a paper by Zhu Yi and another by Redhat
+> > on how all this should make the TX path totally parallel/scalable
+> > across my 8 cores, if I understand correctly.
+> >
+Hi,
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The bnx2x still does not support the Tx multiqueue. A patch is planned
+in the near future for it.
+
+Regards,
+Eilon
+
+
