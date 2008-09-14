@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 3/5] mv643xx_eth: shrink default receive and transmit queue sizes
-Date: Sun, 14 Sep 2008 19:14:27 +0200
-Message-ID: <20080914171427.GE28798@xi.wantstofly.org>
+Subject: [PATCH 4/5] mv643xx_eth: avoid reading ->byte_cnt twice during receive processing
+Date: Sun, 14 Sep 2008 19:14:49 +0200
+Message-ID: <20080914171449.GF28798@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dale Farnsworth <dale@farnsworth.org>,
@@ -9,42 +9,63 @@ Cc: Dale Farnsworth <dale@farnsworth.org>,
 	Nicolas Pitre <nico@cam.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:39749 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:47777 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754000AbYINRO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 13:14:28 -0400
+	with ESMTP id S1754127AbYINROu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 13:14:50 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the size of the receive queue is directly related to the data
-cache footprint of the driver (between refilling a receive ring entry
-with a fresh skb and receiving a packet in that entry, queue_size - 1
-other skbs will have been touched), shrink the default receive queue
-size to a saner number of entries, as 400 is definite overkill for
-almost all workloads.
-
-While we are at it, trim the default transmit queue size a bit as well.
+Currently, the receive processing reads ->byte_cnt twice (once to
+update interface statistics and once to properly size the data area
+of the received skb), but since receive descriptors live in uncached
+memory, caching this value in a local variable saves one uncached
+access, and increases routing performance a tiny little bit more.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/mv643xx_eth.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 099e0be..4fbd62e 100644
+index 4fbd62e..6564be1 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -165,8 +165,8 @@ static char mv643xx_eth_driver_version[] = "1.3";
- #define FORCE_LINK_PASS				(1 << 1)
- #define SERIAL_PORT_ENABLE			(1 << 0)
+@@ -477,6 +477,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
+ 		struct rx_desc *rx_desc;
+ 		unsigned int cmd_sts;
+ 		struct sk_buff *skb;
++		u16 byte_cnt;
  
--#define DEFAULT_RX_QUEUE_SIZE		400
--#define DEFAULT_TX_QUEUE_SIZE		800
-+#define DEFAULT_RX_QUEUE_SIZE		128
-+#define DEFAULT_TX_QUEUE_SIZE		256
+ 		rx_desc = &rxq->rx_desc_area[rxq->rx_curr_desc];
  
+@@ -499,6 +500,8 @@ static int rxq_process(struct rx_queue *rxq, int budget)
  
- /*
+ 		mp->work_rx_refill |= 1 << rxq->index;
+ 
++		byte_cnt = rx_desc->byte_cnt;
++
+ 		/*
+ 		 * Update statistics.
+ 		 *
+@@ -508,7 +511,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
+ 		 * byte CRC at the end of the packet (which we do count).
+ 		 */
+ 		stats->rx_packets++;
+-		stats->rx_bytes += rx_desc->byte_cnt - 2;
++		stats->rx_bytes += byte_cnt - 2;
+ 
+ 		/*
+ 		 * In case we received a packet without first / last bits
+@@ -537,7 +540,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
+ 			 * The -4 is for the CRC in the trailer of the
+ 			 * received packet
+ 			 */
+-			skb_put(skb, rx_desc->byte_cnt - 2 - 4);
++			skb_put(skb, byte_cnt - 2 - 4);
+ 
+ 			if (cmd_sts & LAYER_4_CHECKSUM_OK) {
+ 				skb->ip_summed = CHECKSUM_UNNECESSARY;
 -- 
 1.5.6.4
