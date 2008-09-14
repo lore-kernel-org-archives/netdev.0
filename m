@@ -1,36 +1,40 @@
-From: Joseph Mack NA3T <jmack@wm7d.net>
-Subject: Re: Adding SNAT support to LVS/NAT
-Date: Sat, 13 Sep 2008 18:37:59 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0809131835001.12375@wm7d.net>
-References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
- <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
- <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] ethtool: command line support for lro
+Date: Sat, 13 Sep 2008 22:09:05 -0400
+Message-ID: <48CC7241.3080008@pobox.com>
+References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com> <20080307082538.1a674ae1@extreme> <1204909575.4220.71.camel@moonstone.uk.level5networks.com> <20080307134312.037e2cf6@extreme> <20080310180706.GF12660@solarflare.com> <20080417121119.GI21637@solarflare.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	j.stubbs@linkthink.co.jp
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Kieran Mansley <kmansley@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:51741 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751566AbYINCJK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 22:09:10 -0400
+In-Reply-To: <20080417121119.GI21637@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 14 Sep 2008, Julius Volz wrote:
+Ben Hutchings wrote:
+> Add lro support to command in similar manner to TSO, GSO, etc.
+> The file ethtool-copy.h is updated to be sanitised version of
+> ethtool.h from 2.6.25-rc4 (ie make headers_install)
+> 
+> Based on patch by Stephen Hemminger
+> <http://article.gmane.org/gmane.linux.network/88124>.
+> 
+> My changes:
+> - Changed error return codes for setting LRO to be unique.
+> - Report failure to get device flags, consistent with other offload settings.
+> - Fixed code spacing.
+> 
+> Tested with the sfc driver.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-> So maybe it would already work? ;)
+applied
 
-No. Some highly motivated people tried doing SNAT on OUTPUT 
-in an attempt to do F5-SNAT and it didn't work. This lead to 
-the write up in
 
-http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.non-modified_realservers.html#F5_snat
-
-which brings us to where we are now.
-
-Joe
-
--- 
-Joseph Mack NA3T EME(B,D), FM05lw North Carolina
-jmack (at) wm7d (dot) net - azimuthal equidistant map
-generator at http://www.wm7d.net/azproj.shtml
-Homepage http://www.austintek.com/ It's GNU/Linux!
