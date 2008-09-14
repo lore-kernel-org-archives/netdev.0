@@ -1,86 +1,87 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 15 Sep 2008 00:51:08 +0200
-Message-ID: <200809150051.10293.ioe-lkml@rameria.de>
-References: <20080913203548.GA2989@havoc.gtf.org>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
+Date: Sun, 14 Sep 2008 18:17:14 -0500
+Message-ID: <20080914181714.34935d9c@osprey.hogchain.net>
+References: <20080821115849.GA2126@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755863AbYINWvY@vger.kernel.org>
-In-Reply-To: <20080913203548.GA2989@havoc.gtf.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: csnook@redhat.com, netdev@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmailhost03.isp.att.net ([207.115.11.53]:53745 "EHLO
+	fmailhost03.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752738AbYINXRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 19:17:16 -0400
+In-Reply-To: <20080821115849.GA2126@x200.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+On Thu, 21 Aug 2008 15:58:49 +0400
+adobriyan@gmail.com wrote:
 
+> This message happens more or less every reboot, sometimes cable
+> unplug/plug is needed to restore connectivity, otherwise card is
+> working fine.
+> 
+> 
+> [   22.570010] eth1: link up, 100Mbps, full-duplex, lpa 0x45E1
+> [   26.570011] NET: Registered protocol family 10
+> [   37.551934] eth0: no IPv6 routers present
+> 
+> 	[rebooted box which is directly connected to a box with atl1]
+> 
+> [ 2078.740004] atl1 0000:03:00.0: eth0 link is down
+> [ 2080.790004] atl1 0000:03:00.0: eth0 link is up 1000 Mbps full
+> duplex [ 2086.049998] NETDEV WATCHDOG: eth0 (atl1): transmit timed out
+> [ 2086.050004] ------------[ cut here ]------------
+> [ 2086.050004] WARNING: at net/sched/sch_generic.c:221
+[...]
 
-On Saturday 13 September 2008, Jeff Garzik wrote:
-> Vlad Yasevich (1):
->       bonding: Do not tx-balance some IPv6 packets on ALB/TLB bonds
+Alexey,
 
-Regarding this change and include/linux/etherdevice.h
+Can you please try this patch?
 
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index b211486..c219262 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -38,6 +38,7 @@
->  #include <linux/in.h>
->  #include <net/ipx.h>
->  #include <net/arp.h>
-> +#include <net/ipv6.h>
->  #include <asm/byteorder.h>
->  #include "bonding.h"
->  #include "bond_alb.h"
-> @@ -81,6 +82,7 @@
->  #define RLB_PROMISC_TIMEOUT	10*ALB_TIMER_TICKS_PER_SEC
->  
->  static const u8 mac_bcast[ETH_ALEN] = {0xff,0xff,0xff,0xff,0xff,0xff};
-> +static const u8 mac_v6_allmcast[ETH_ALEN] = {0x33,0x33,0x00,0x00,0x00,0x01};
->  static const int alb_delta_in_ticks = HZ / ALB_TIMER_TICKS_PER_SEC;
->  
->  #pragma pack(1)
-> @@ -1290,6 +1292,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
->  	u32 hash_index = 0;
->  	const u8 *hash_start = NULL;
->  	int res = 1;
-> +	struct ipv6hdr *ip6hdr;
->  
->  	skb_reset_mac_header(skb);
->  	eth_data = eth_hdr(skb);
-> @@ -1319,11 +1322,32 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
->  	}
->  		break;
->  	case ETH_P_IPV6:
-> +		/* IPv6 doesn't really use broadcast mac address, but leave
-> +		 * that here just in case.
-> +		 */
->  		if (memcmp(eth_data->h_dest, mac_bcast, ETH_ALEN) == 0) {
-
-Didn't someone introduce compare_ether_addr() just for this?
-
->  			do_tx_balance = 0;
->  			break;
->  		}
->  
-> +		/* IPv6 uses all-nodes multicast as an equivalent to
-> +		 * broadcasts in IPv4.
-> +		 */
-> +		if (memcmp(eth_data->h_dest, mac_v6_allmcast, ETH_ALEN) == 0) {
-> +			do_tx_balance = 0;
-> +			break;
-> +		}
-
-compare_ether_addr()
-
-Maybe fix this in a followup patch?
-
-
-Best Regards
-
-Ingo Oeser
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index e23ce77..e00a986 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -2642,6 +2642,7 @@ static void atl1_down(struct atl1_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 
++	netif_stop_queue(netdev);
+ 	del_timer_sync(&adapter->watchdog_timer);
+ 	del_timer_sync(&adapter->phy_config_timer);
+ 	adapter->phy_timer_pending = false;
+@@ -2655,7 +2656,6 @@ static void atl1_down(struct atl1_adapter *adapter)
+ 	adapter->link_speed = SPEED_0;
+ 	adapter->link_duplex = -1;
+ 	netif_carrier_off(netdev);
+-	netif_stop_queue(netdev);
+ 
+ 	atl1_clean_tx_ring(adapter);
+ 	atl1_clean_rx_ring(adapter);
+@@ -2724,6 +2724,8 @@ static int atl1_open(struct net_device *netdev)
+ 	struct atl1_adapter *adapter = netdev_priv(netdev);
+ 	int err;
+ 
++	netif_carrier_off(netdev);
++
+ 	/* allocate transmit descriptors */
+ 	err = atl1_setup_ring_resources(adapter);
+ 	if (err)
+diff --git a/drivers/net/atlx/atlx.c b/drivers/net/atlx/atlx.c
+index b3e7fcf..3cc9d10 100644
+--- a/drivers/net/atlx/atlx.c
++++ b/drivers/net/atlx/atlx.c
+@@ -105,7 +105,6 @@ static void atlx_check_for_link(struct atlx_adapter *adapter)
+ 				netdev->name);
+ 			adapter->link_speed = SPEED_0;
+ 			netif_carrier_off(netdev);
+-			netif_stop_queue(netdev);
+ 		}
+ 	}
+ 	schedule_work(&adapter->link_chg_task);
+-- 
+1.5.5.1
