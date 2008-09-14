@@ -1,41 +1,40 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] netxen: enable msi-x for quad-gig boards
-Date: Sat, 13 Sep 2008 20:13:24 -0400
-Message-ID: <48CC5724.4020407@garzik.org>
-References: <> <1219265568-28298-1-git-send-email-dhananjay@netxen.com>
+Subject: Re: [patch 03/12] sundance: set carrier status on link change events
+Date: Sat, 13 Sep 2008 20:13:34 -0400
+Message-ID: <48CC572E.40604@garzik.org>
+References: <200808202351.m7KNpxBh006024@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dhananjay Phadke <dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org, dbn.lists@gmail.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38137 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38141 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752937AbYINAN1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2008 20:13:27 -0400
-In-Reply-To: <1219265568-28298-1-git-send-email-dhananjay@netxen.com>
+	id S1753040AbYINANh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 20:13:37 -0400
+In-Reply-To: <200808202351.m7KNpxBh006024@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dhananjay Phadke wrote:
-> NX3031 firmware now supports MSI-X interrupts on Quad GbE boards.
+akpm@linux-foundation.org wrote:
+> From: Dan Nicholson <dbn.lists@gmail.com>
 > 
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> Check if the link is available when a changed interrupt has been received and
+> set the carrier status appropriately.  The code is copied nearly verbatim from
+> the dl2k module.  The link status could be used in more places in the driver,
+> but this is enough to get the carrier status reported to userspace.  Fixes
+> kernel bug #7487:
+> 
+>     http://bugzilla.kernel.org/show_bug.cgi?id=7487
+> 
+> [akpm@linux-foundation.org: coding-style fixes]
+> Signed-off-by: Dan Nicholson <dbn.lists@gmail.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
->  drivers/net/netxen/netxen_nic_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-> index 32bb47a..59d6521 100644
-> --- a/drivers/net/netxen/netxen_nic_main.c
-> +++ b/drivers/net/netxen/netxen_nic_main.c
-> @@ -241,7 +241,7 @@ static void netxen_check_options(struct netxen_adapter *adapter)
->  	case NETXEN_BRDTYPE_P3_REF_QG:
->  	case NETXEN_BRDTYPE_P3_4_GB:
->  	case NETXEN_BRDTYPE_P3_4_GB_MM:
-> -		adapter->msix_supported = 0;
-> +		adapter->msix_supported = !!use_msi_x;
->  		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_10G;
+>  drivers/net/sundance.c |   95 +++++++++++++++++++++++++--------------
+>  1 file changed, 62 insertions(+), 33 deletions(-)
 
 applied
 
