@@ -1,52 +1,46 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] Re: ep93xx_eth PHY problems
-Date: Sun, 14 Sep 2008 13:47:48 +0200
-Message-ID: <20080914114748.GA26704@xi.wantstofly.org>
-References: <47CD4857.2060406@student.tuwien.ac.at> <20080321202202.129c1239@ors> <48CC72D4.1020001@garzik.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Sun, 14 Sep 2008 07:56:58 -0400
+Message-ID: <1221393419.4675.66.camel@localhost>
+References: <20080913011018.GA10242@gondor.apana.org.au>
+	 <20080912.182259.238925690.davem@davemloft.net>
+	 <20080913012758.GA10459@gondor.apana.org.au>
+	 <20080912.184008.74354363.davem@davemloft.net>
+	 <20080913014800.GA10611@gondor.apana.org.au>
+	 <20080913205408.GA2545@ami.dom.local>
+	 <20080914061610.GA20571@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Martin <oliver.martin@student.tuwien.ac.at>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>, Herbert Valerio Riedel <hvr@gnu.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:60619 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752836AbYINLrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 07:47:52 -0400
-Content-Disposition: inline
-In-Reply-To: <48CC72D4.1020001@garzik.org>
+Received: from rv-out-0506.google.com ([209.85.198.239]:51634 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752876AbYINL5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 07:57:05 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1682923rvb.1
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2008 04:57:03 -0700 (PDT)
+In-Reply-To: <20080914061610.GA20571@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 13, 2008 at 10:11:32PM -0400, Jeff Garzik wrote:
+On Sat, 2008-13-09 at 23:16 -0700, Herbert Xu wrote:
+> In any case, do you have an alternative solution to the
+> current problem that qdisc_run looks at an arbitrary queue's
+> status to decide whether it should process a qdisc that empties
+> into n queues?
 
-> >Am Tue, 04 Mar 2008 14:02:15 +0100
-> >schrieb Oliver Martin <oliver.martin@student.tuwien.ac.at>:
-> >>Now I'm having different problems: When auto-negotiation is enabled,
-> >>it sometimes randomly changes the link state:
-> >>
-> >>PHY: 0:01 - Link is Down
-> >>PHY: 0:01 - Link is Up - 100/Full
-> >
-> >I've found at least one part of the problem. The MDIO clock divisor
-> >wasn't set again after the reset in ep93xx_start_hw. It was left at the
-> >default, resulting in a 12.5 MHz clock, which the PHY (Micrel KSZ8721BL)
-> >didn't like too much. Calling ep93xx_mdio_reset after the reset fixed
-> >it, the link is now perfectly stable in auto-negotiation mode.
-> >
-> >There still seems to be another bug with auto-negotiation disabled: It
-> >doesn't switch to 1000 Mbps any more, but most times it doesn't stay in
-> >the intended configuration either. I haven't done any extensive
-> >testing of this yet, though.
-> >
-> >Signed-off-by: Oliver Martin <oliver.martin@student.tuwien.ac.at>
-> 
-> Testing feedback?  Lennert ack?
+What about something that would be cheaper than a peek - just check some
+driver per-hwq variable? variable is set at netif_stop and unset at
+netif_wake and should tell you if the driver infact can send if you gave
+it a packet (way before you dequeue from qdisc, assuming you know which
+hardware queue it is going to).
 
-ACKed on March 29.  Since this patch depends on Herbert Valerio
-Riedel's ep93xx_eth phylib conversion, I asked Herbert to resend his
-latest version of those patches at that time, but I didn't see that
-yet.
+cheers,
+jamal
 
-Herbert, have you made changes to the ep93xx_eth phylib patch since
-you last posted it and/or what is the latest version?
