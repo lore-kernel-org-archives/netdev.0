@@ -1,65 +1,32 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: Adding SNAT support to LVS/NAT
-Date: Sun, 14 Sep 2008 02:41:30 +0200
-Message-ID: <f4845fc0809131741w15fd73d7w298b7e7c5dd4956a@mail.gmail.com>
-References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
-	 <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
-	 <1221332109.4327.25.camel@ernie.internal.graemef.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch] WAN: add drivers dslp and sdfe4_cfg
+Date: Sat, 13 Sep 2008 20:58:12 -0400
+Message-ID: <48CC61A4.1080309@pobox.com>
+References: <OF1EE0C80B.F23B6ED2-ONC225749F.004126AD-C225749F.00479E77@CHASCOM.INT>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Joseph Mack NA3T" <jmack@wm7d.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp
-To: "Graeme Fowler" <graeme@graemef.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1221332109.4327.25.camel@ernie.internal.graemef.net>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Matti Linnanvuori <matti.linnanvuori@ascom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:42943 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753100AbYINA6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2008 20:58:17 -0400
+In-Reply-To: <OF1EE0C80B.F23B6ED2-ONC225749F.004126AD-C225749F.00479E77@CHASCOM.INT>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 13, 2008 at 8:55 PM, Graeme Fowler <graeme@graemef.net> wrote:
-> Hi
->
-> On Sat, 2008-09-13 at 11:17 -0700, Joseph Mack NA3T wrote:
->> when we've discussed it before, the packets will appear to
->> come from the DIP, a private IP (or whatever IP the servers
->> were using for their default route before they were put into
->> an LVS).
->
-> I'm a bit late to the party, but...
->
-> Ideally, the packets would appear to come from the "inside face" of the
-> director - usually (and in the most basic case) the NIC with an address
-> on the same layer 3 network as the real servers. This way the default
-> route would be ignored as there would normally be a more specific route
-> for that network, namely straight out of the device the packets arrived
-> on. Of course, if that coincides with the default gateway address, it'll
-> still work anyway.
+Matti Linnanvuori wrote:
+> 
+> From: Matti Linnanvuori <matti.linnanvuori@ascom.com>
+> 
+> Adding dslp and sdfe4-cfg G.SHDSL drivers.
+> 
+> Signed-off-by: Matti Linnanvuori <matti.linnanvuori@ascom.com>
 
-Yes. I think this is what I meant in my previous answer to Joe.
 
->> more importantly, people who are bound by serious IT rules
->> setup by managers, can duplicate their (real) servers only
->> with a change in RIP on each server and can keep the default
->> route.
->
-> This is the single most compelling thing about this setup.
->
-> It's simultaneously a problem in that for (say) an HTTP server, all the
-> requests will appear to be sourced from the director's internal address.
-> For many applications this won't be acceptable, not least in that for
-> the webserver case log processing will be an irrelevance!
->
-> Anyone know how the F5 hardware gets around this? I can't get my hands
-> on any to test...
+I am having trouble applying this, etp and retina patches.  Both git-am 
+and patch(1) report that they are malformed.
 
-Yes, this is a known issue that is usually handled by injecting
-something like an X-User-IP header into the HTTP request. Hard to do
-in IPVS (could be done in an app helper though, I assume).
-
-Julius
-
--- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+They look pretty clean and sane on a first quick review.
