@@ -1,43 +1,31 @@
-From: Joseph Mack NA3T <jmack@wm7d.net>
-Subject: Re: Adding SNAT support to LVS/NAT
-Date: Mon, 15 Sep 2008 08:24:38 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0809150815580.32594@wm7d.net>
-References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
- <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
- <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
- <Pine.LNX.4.64.0809131835001.12375@wm7d.net>
- <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com>
- <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
- <20080915014337.GA10026@verge.net.au>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp,
-	Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080915014337.GA10026@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH 0/1] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
+Date: Mon, 15 Sep 2008 16:33:36 +0100
+Message-ID: <1221492817-29427-1-git-send-email-steve.glendinning@smsc.com>
+Cc: Ian Saturley <ian.saturley@smsc.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	linux-usb@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [86.54.240.113] ([86.54.240.113]:42656 "EHLO drevil.shawell.net"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753738AbYIOPdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2008 11:33:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Sep 2008, Simon Horman wrote:
+Attached is a driver for SMSC's LAN9500 USB2.0 10/100 ethernet
+adapter, incorporating feedback from netdev.  Please consider for 
+inclusion in 2.6.28.
 
-> Well, it would be a problem if it gets DNATed a second time.
+ MAINTAINERS                |    6 +
+ drivers/net/usb/Kconfig    |    8 +
+ drivers/net/usb/Makefile   |    1 +
+ drivers/net/usb/smsc95xx.c | 1211 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/usb/smsc95xx.h |  253 +++++++++
+ 5 files changed, 1479 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/usb/smsc95xx.c
+ create mode 100644 drivers/net/usb/smsc95xx.h
 
-Are you just being really safe? Are you trying to prevent 
-someone from adding DNAT rules to OUTPUT?
-
-Would it be better (as much as possible) for LVS to appear 
-to be just another netfilter module, in which case if 
-someone wants to DNAT in OUTPUT, this should be allowed 
-(whether it's sensible or not). Currently LVS-NAT doesn't 
-allow SNAT on OUTPUT, which no-one thought about when 
-LVS-NAT was first written and it turns out to be useful.
-
-Joe
-
--- 
-Joseph Mack NA3T EME(B,D), FM05lw North Carolina
-jmack (at) wm7d (dot) net - azimuthal equidistant map
-generator at http://www.wm7d.net/azproj.shtml
-Homepage http://www.austintek.com/ It's GNU/Linux!
