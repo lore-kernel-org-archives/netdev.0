@@ -1,204 +1,101 @@
-From: Sebastien Dugue <sebastien.dugue@bull.net>
-Subject: Re: [PATCH HACK] powerpc: quick hack to get a functional eHEA with
- hardirq preemption
-Date: Mon, 15 Sep 2008 15:13:32 +0200
-Message-ID: <20080915151332.6a3a7c80@bull.net>
-References: <20080915100406.342e027a@bull.net>
-	<48CE5684.4000506@de.ibm.com>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [PATCH 1/1] net: fix scheduling of dst_gc_task by __dst_free
+Date: Mon, 15 Sep 2008 15:26:01 +0200
+Message-ID: <48CE6269.4050006@bull.net>
+References: <20080912123113.770453085@theryb.frec.bull.fr>	<20080912123118.993434427@theryb.frec.bull.fr>	<48CA80DC.9040408@cosmosbay.com> <20080912.161452.04603170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-ppc <linuxppc-dev@ozlabs.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Linux-rt <linux-rt-users@vger.kernel.org>,
-	netdev@vger.kernel.org, themann@de.ibm.com, tklein@de.ibm.com,
-	raisch@de.ibm.com, jean-pierre.dion@bull.net,
-	gilles.carry@ext.bull.net, tinytim@us.ibm.com
-To: Thomas Klein <osstklei@de.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:34229 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:40555 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753290AbYIONNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 09:13:45 -0400
-In-Reply-To: <48CE5684.4000506@de.ibm.com>
+	with ESMTP id S1753730AbYION13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 09:27:29 -0400
+In-Reply-To: <20080912.161452.04603170.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Fri, 12 Sep 2008 16:46:52 +0200
+>=20
+>> Benjamin Thery a =E9crit :
+>>> The dst garbage collector dst_gc_task() may not be scheduled as we
+>>> expect it to be in __dst_free().
+>>> Indeed, when the dst_gc_timer was replaced by the delayed_work
+>>> dst_gc_work, the mod_timer() call used to schedule the garbage
+>>> collector at an earlier date was replaced by a schedule_delayed_wor=
+k()
+>>> (see commit 86bba269d08f0c545ae76c90b56727f65d62d57f).
+>>> But, the behaviour of mod_timer() and schedule_delayed_work() is
+>>> different in the way they handle the delay. mod_timer() stops the t=
+imer and re-arm it with the new given delay,
+>>> whereas schedule_delayed_work() only check if the work is already
+>>> queued in the workqueue (and queue it (with delay) if it is not)
+>>> BUT it does NOT take into account the new delay (even if the new de=
+lay
+>>> is earlier in time).
+>>> schedule_delayed_work() returns 0 if it didn't queue the work,
+>>> but we don't check the return code in __dst_free().
+>>> If I understand the code in __dst_free() correctly, we want dst_gc_=
+task
+>>> to be queued after DST_GC_INC jiffies if we pass the test (and not =
+in
+>>> some undetermined time in the future), so I think we should add a c=
+all
+>>> to cancel_delayed_work() before schedule_delayed_work(). Patch belo=
+w.
+>>>
+>> Well, you are right that time is undetermined (but < ~120 seconds), =
+so your patch
+>> makes sense.
+>>
+>> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> I'll add this to net-next-2.6 for now.  Benjamin, do you know of any
+> real cases where users are being tripped up by our not using the
+> shorter scheduling of the workqueue?
 
-  Hi Thomas, Jan-Bernd, Christoph,
+I found this issue while tracking an issue that sometimes occurs at=20
+network namespace exit.
 
-On Mon, 15 Sep 2008 14:35:16 +0200 Thomas Klein <osstklei@de.ibm.com> wrote:
+When a network namespace exits, the routes need to be freed as fast as=20
+possible to complete the unregistration of the net devices present in=20
+the namespace (ie. the loopback).
 
-> Hi,
-> 
-> we are a bit worried about putting this into the mainstream part of non real
-> time linux.
+Sometimes, the routes garbage collection gets delayed (because of the=20
+issue described here) and the refcount on the device isn't decremented=20
+as expected when we reach netdev_wait_allrefs() and we get the infamous=
+=20
+"unregister_netdevice: waiting for lo to become free."
 
-  Heck, I sure do not want this to be applied mainstream nor into any tree.
-The sole purpose of this patch was to trigger some reaction from the people who
-know the hardware and try to understand where the problem lies.
+This fix in __dst_free() fixes part of the problem.
 
-> There interrupts work perfectly fine, and it was a bit of a
-> challenge to get there for all cases / configurations / machines.
+Benjamin
 
-  Agreed, but the fact that it fails with hardirq preemption leads me to
-believe (without any more knowledge about the harware) that there might be
-something amiss with this driver (or the code concerning the XICS)
-nevertheless.
-
-> 
-> Could you try to enable these changes only for RT-Linux via a real-time
-> kconfig switch?
-
-  Nope, this is just a quick hack that allows me to have a functional eHEA under
-the rt kernel. I want to understand what the problem is:
-
-  - Is the eHEA really delivering level interrupts to the XICS?
-
-  - Is the XICS loosing interrupts when they are masked?
-
-  - ...?
-
-> This way we make sure we don't break the scheme for
-> eHEA / eHCA.
-
-  Sure, I do not want to break anything, quite the opposite in fact ;-)
+>=20
+>> Then we should ask why we reset the timer back to its minimum value
+>> every time we call __dst_free(). On machines with many dormant tcp
+>> sessions, dst_garbage.list can contain huge number of non freeable
+>> entries :(
+>>
+>> Maybe we should count the entries and change the timer only if reall=
+y needed.
+>=20
+> Yet another area of black magic in our routing cache :)
+>=20
+>>> (Sorry, I think I've been a bit verbose to expose this simple issue=
+ :)
+>=20
+> No, do not apologize, I wish every commit message were this verbose.
+>=20
+>=20
 
 
-  Thanks,
+--=20
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
 
-  Sebastien.
-
-> 
-> Regards,
-> Jan-Bernd, Christoph
-> 
-> 
-> Sebastien Dugue wrote:
-> > WARNING: HACK - HACK - HACK
-> > 
-> >   Under the RT kernel (with hardirq preemption) the eHEA driver hangs right
-> > after booting. Fiddling with the hardirqs and softirqs priorities allows to
-> > run a bit longer but as soon as the network gets under load, the hang
-> > returns. After investigating, it appears that the driver is loosing interrupts.
-> > 
-> >   To make a long story short, looking at the code, it appears that the XICS
-> > maps all its interrupts to level sensitive interrupts (I don't know if it's the
-> > reality or if it's due to an incomplete implementation - no datasheets
-> > available to check) and use the fasteoi processing flow.
-> > 
-> >   When entering the low level handler, level sensitive interrupts are masked,
-> > then eio'd in interrupt context and then unmasked at the end of hardirq
-> > processing.
-> > That's fine as any interrupt comming in-between will still be processed since
-> > the kernel replays those pending interrupts.
-> > 
-> >   However, it appears that the eHEA interrupts are behaving as edge sensitive
-> > interrupts and are routed through the XICS which process those as level
-> > sensitive using the fasteoi handler __OR__ the XICS loses interrupts when they
-> > are masked.
-> > 
-> >   Therefore the masking done in the handler causes any interrupt happening while
-> > in the handler to be lost.
-> > 
-> >   So this patch maps the interrupts being requested through
-> > ibmebus_request_irq() as edge sensitive interrupts (this concerns both the eHEA
-> > and the eHCA - only users of ibmebus_request_irq()) and changes the way edge
-> > interrupts are processed by the fasteoi handler.
-> > 
-> >   It works for the eHEA, dunno for the eHCA.
-> > 
-> >   So, unless all the designers of the XICS & eHEA have been shot to keep it
-> > a secret, could someone knowledgeable shed some light on this issue.
-> > 
-> >   Thanks,
-> > 
-> >   Sebastien.
-> > 
-> > Not-Signed-off-by: Sebastien Dugue <sebastien.dugue@bull.net>
-> > ---
-> >  arch/powerpc/kernel/ibmebus.c |   11 ++++++++++-
-> >  kernel/irq/chip.c             |    5 +++--
-> >  kernel/irq/manage.c           |    9 ++++++---
-> >  3 files changed, 19 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/arch/powerpc/kernel/ibmebus.c b/arch/powerpc/kernel/ibmebus.c
-> > index 9971159..5200323 100644
-> > --- a/arch/powerpc/kernel/ibmebus.c
-> > +++ b/arch/powerpc/kernel/ibmebus.c
-> > @@ -41,6 +41,7 @@
-> >  #include <linux/kobject.h>
-> >  #include <linux/dma-mapping.h>
-> >  #include <linux/interrupt.h>
-> > +#include <linux/irq.h>
-> >  #include <linux/of.h>
-> >  #include <linux/of_platform.h>
-> >  #include <asm/ibmebus.h>
-> > @@ -213,11 +214,19 @@ int ibmebus_request_irq(u32 ist, irq_handler_t handler,
-> >  			void *dev_id)
-> >  {
-> >  	unsigned int irq = irq_create_mapping(NULL, ist);
-> > +	struct irq_desc *desc;
-> > +	int ret;
-> >  
-> >  	if (irq == NO_IRQ)
-> >  		return -EINVAL;
-> >  
-> > -	return request_irq(irq, handler, irq_flags, devname, dev_id);
-> > +	ret = request_irq(irq, handler, irq_flags, devname, dev_id);
-> > +
-> > +	desc = irq_desc + irq;
-> > +	desc->status &= ~(IRQ_TYPE_SENSE_MASK | IRQ_LEVEL);
-> > +	desc->status |= IRQ_TYPE_EDGE_RISING;
-> > +
-> > +	return ret;
-> >  }
-> >  EXPORT_SYMBOL(ibmebus_request_irq);
-> >  
-> > diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
-> > index b7b397a..6d366ca 100644
-> > --- a/kernel/irq/chip.c
-> > +++ b/kernel/irq/chip.c
-> > @@ -430,7 +430,7 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
-> >  	action = desc->action;
-> >  	if (unlikely(!action || (desc->status & (IRQ_INPROGRESS |
-> >  						 IRQ_DISABLED)))) {
-> > -		desc->status |= IRQ_PENDING;
-> > +		desc->status |= IRQ_PENDING | IRQ_MASKED;
-> >  		if (desc->chip->mask)
-> >  			desc->chip->mask(irq);
-> >  		goto out;
-> > @@ -439,9 +439,10 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
-> >  	desc->status |= IRQ_INPROGRESS;
-> >  	/*
-> >  	 * In the threaded case we fall back to a mask+eoi sequence:
-> > +	 * excepted for edge interrupts which are not masked.
-> >  	 */
-> >  	if (redirect_hardirq(desc)) {
-> > -		if (desc->chip->mask)
-> > +		if (desc->chip->mask && !(desc->status & IRQ_TYPE_EDGE_BOTH))
-> >  			desc->chip->mask(irq);
-> >  		goto out;
-> >  	}
-> > diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-> > index 3bffa20..3e39c71 100644
-> > --- a/kernel/irq/manage.c
-> > +++ b/kernel/irq/manage.c
-> > @@ -788,9 +788,12 @@ static void do_hardirq(struct irq_desc *desc)
-> >  		thread_simple_irq(desc);
-> >  	else if (desc->handle_irq == handle_level_irq)
-> >  		thread_level_irq(desc);
-> > -	else if (desc->handle_irq == handle_fasteoi_irq)
-> > -		thread_fasteoi_irq(desc);
-> > -	else if (desc->handle_irq == handle_edge_irq)
-> > +	else if (desc->handle_irq == handle_fasteoi_irq) {
-> > +		if (desc->status & IRQ_TYPE_EDGE_BOTH)
-> > +			thread_edge_irq(desc);
-> > +		else
-> > +			thread_fasteoi_irq(desc);
-> > +	} else if (desc->handle_irq == handle_edge_irq)
-> >  		thread_edge_irq(desc);
-> >  	else
-> >  		thread_do_irq(desc);
-> 
-> 
+    http://www.bull.com
