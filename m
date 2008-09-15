@@ -1,58 +1,37 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: Re: autotest question
-Date: Mon, 15 Sep 2008 14:38:13 -0700
-Message-ID: <97949e3e0809151438w17e68c50pdc4cba68dc4ec7b1@mail.gmail.com>
-References: <97949e3e0809151337r4dc69f8cydd92074bb10088d8@mail.gmail.com>
-	 <Pine.LNX.4.64.0809151433001.7365@shark.he.net>
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 15 Sep 2008 23:53:08 +0200
+Message-ID: <20080915215307.GA10340@alpha.franken.de>
+References: <20080915201749.GB3994@havoc.gtf.org> <20080915.132716.267218808.davem@davemloft.net> <20080915204543.GD3994@havoc.gtf.org> <20080915.141442.139271313.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Mandeep Singh Baines" <msb@google.com>, netdev@vger.kernel.org
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:36333 "EHLO
-	smtp-out3.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753404AbYIOViU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 17:38:20 -0400
-Received: from spaceape10.eur.corp.google.com (spaceape10.eur.corp.google.com [172.28.16.144])
-	by smtp-out3.google.com with ESMTP id m8FLcE1s020019
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 22:38:14 +0100
-Received: from rv-out-0506.google.com (rvbg37.prod.google.com [10.140.83.37])
-	by spaceape10.eur.corp.google.com with ESMTP id m8FLbk5c016492
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 14:38:14 -0700
-Received: by rv-out-0506.google.com with SMTP id g37so2215429rvb.35
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 14:38:13 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0809151433001.7365@shark.he.net>
+Received: from elvis.franken.de ([193.175.24.41]:50061 "EHLO elvis.franken.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752855AbYIOVxS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2008 17:53:18 -0400
 Content-Disposition: inline
+In-Reply-To: <20080915.141442.139271313.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sorry, typed (spammed) the wrong mailing list.
+On Mon, Sep 15, 2008 at 02:14:42PM -0700, David Miller wrote:
+> Most of those changes were complete and utter CRAP.
 
+thank you, but the fix I've sent (de2104x) isn't crap. The bug breaks the 
+current debian-installer for Cobalt Qube1, when it tries to get an
+IP address via dhcp. 
 
-On Mon, Sep 15, 2008 at 2:33 PM, Randy.Dunlap <rdunlap@xenotime.net> wrote:
-> On Mon, 15 Sep 2008, Laurent Chavey wrote:
->
->> how many control file can we have per sub directories.
->> I would like to have a glag_test/ directory with multiple testes (lldp
->> test, af_pkt)
->> each tests are independent of each other and use to verify a CL.
->>
->>
->>
->> example:
->>   /depot/autotest/client/site_tests/glag_tests
->>     control
->>     glag_lldp_test.py
->>     glag_afpacket_test.py
->>     glag_linkup_test.py
->>
->>     etc...
->> --
->
-> Does the netdev mailing list care about this question?
-> I.e., seems like the wrong mailing list to me.
->
-> --
-> ~Randy
->
+In my eyes it's a clean and good fix, but I don't care whether it appears
+in 2.6.27 or 2.6.28, because debian needs to backport it to 2.6.26
+anyway. But declaring bugfixes, which just fixes an very old bug, as
+utter crap isn't really nice.
+
+Thomas.
+
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessary a
+good idea.                                                [ RFC1925, 2.3 ]
