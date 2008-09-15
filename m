@@ -1,50 +1,116 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Adding SNAT support to LVS/NAT
-Date: Tue, 16 Sep 2008 01:56:31 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0809160103160.3009@u.domain.uli>
-References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
- <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
- <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
- <Pine.LNX.4.64.0809131835001.12375@wm7d.net>
- <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com>
- <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joseph Mack NA3T <jmack@wm7d.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH 2/3] phylib: add missing _{check_gmii_support,link_ok,nway_restart}
+Date: Mon, 15 Sep 2008 18:03:24 -0500
+Message-ID: <3661904F-A16E-4B85-8525-33F72257D1A3@freescale.com>
+References: <1220448012-20347-1-git-send-email-buytenh@wantstofly.org> <1220448012-20347-3-git-send-email-buytenh@wantstofly.org>
+Mime-Version: 1.0 (Apple Message framework v928.1)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:36041 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753324AbYIOXDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 19:03:53 -0400
+In-Reply-To: <1220448012-20347-3-git-send-email-buytenh@wantstofly.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
+On Sep 3, 2008, at 08:20, Lennert Buytenhek wrote:
 
-On Sun, 14 Sep 2008, Julius Volz wrote:
+> drivers/net/mii.c provides a couple of routines which currently have
+> no phylib equivalents.  This patch provides those phylib equivalents.
+>
+> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 
-> > Thanks for the info! Right, I even said myself in the previous reply
-> > that ip_vs_postrouting() stops further processing in the POSTROUTING
-> > chain, so it never reaches netfilter NAT code.
-> 
-> Actually, what if we modify or remove that function to allow further
-> processing in POSTROUTING? Could SNAT work with IPVS then?
-> 
-> The comment above it says that the function specifically wants to
-> avoid further NAT by netfilter. But is this always a problem?
+I think all of this functionality is provided by other parts of the  
+phylib.  See below.
 
-	This check (now flag ipvs_property) was implemented to avoid
-netfilter to modify packet which was already changed by IPVS.
-What happened was that FTP commands (TCP header and payload) were
-modified first by ip_vs_ftp and then by netfilter. The result:
-packet with wrong SEQ number. Later, after some Netfilter 
-changes (2.6.11), TCP payload was modified always in POST_ROUTING
-while address can be  modified in PRE_ROUTING. Not sure what happens
-now, Netfilter code was reorganized and new code review and tests
-are needed, may be such double manipulation (if ipvs_property is
-not set) still can cause problems.
 
-Regards
+> /**
+> + * phy_check_gmii_support - check if the PHY supports (R)GMII
+> + * @phydev: the phy_device struct
+> + */
+> +int phy_check_gmii_support(struct phy_device *phydev)
+> +{
+> +	int retval;
+> +
+> +	retval = phy_read(phydev, MII_BMSR);
+> +	if (retval < 0 || (retval & BMSR_ESTATEN) == 0)
+> +		return 0;
+> +
+> +	retval = phy_read(phydev, MII_ESTATUS);
+> +	if (retval < 0)
+> +		return 0;
+> +
+> +	return !!(retval & (ESTATUS_1000_TFULL | ESTATUS_1000_THALF));
+> +}
+> +EXPORT_SYMBOL(phy_check_gmii_support);
 
---
-Julian Anastasov <ja@ssi.bg>
+
+If you look in genphy_config_init() in drivers/net/phy/phy_device.c,  
+you'll see that it fills in phydev->supported based on ESTATUS.  So  
+this function could be reduced to:
+
+return !!(phydev->supported & (SUPPORTED_1000baseT_Full |  
+SUPPORTED_1000baseT_Half));
+
+
+> +
+> +/**
+> + * phy_link_ok - is link status up/ok
+> + * @phydev: the phy_device struct
+> + *
+> + * Returns 1 if the PHY reports link status up/ok, 0 otherwise.
+> + */
+> +int phy_link_ok(struct phy_device *phydev)
+> +{
+> +	int retval;
+> +
+> +	/* first, a dummy read, needed to latch some MII phys */
+> +	phy_read(phydev, MII_BMSR);
+> +
+> +	retval = phy_read(phydev, MII_BMSR);
+> +	if (retval < 0 || (retval & BMSR_LSTATUS) == 0)
+> +		return 0;
+> +
+> +	return 1;
+> +}
+> +EXPORT_SYMBOL(phy_link_ok);
+
+
+genphy_update_link() does everything here except return 0/1.  But it  
+fills in phydev->link, which is meant to reflect the current link  
+status.
+
+
+> +
+> +/**
+> + * phy_nway_restart - restart NWay (autonegotiation) for this  
+> interface
+> + * @phydev: the phy_device struct
+> + *
+> + * Returns 0 on success, negative on error.
+> + */
+> +int phy_nway_restart(struct phy_device *phydev)
+> +{
+> +	int bmcr;
+> +
+> +	/* if autoneg is off, it's an error */
+> +	bmcr = phy_read(phydev, MII_BMCR);
+> +	if (bmcr < 0 || (bmcr & BMCR_ANENABLE) == 0)
+> +		return -EINVAL;
+> +
+> +	if (phy_write(phydev, MII_BMCR, bmcr | BMCR_ANRESTART) < 0)
+> +		return -EINVAL;
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(phy_nway_restart);
+
+
+genphy_restart_aneg() does this, though that's the low-level API for it.
+
+Andy
