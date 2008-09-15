@@ -1,69 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
 Subject: Re: [git patches] net driver fixes
-Date: Mon, 15 Sep 2008 17:24:59 -0400
-Message-ID: <20080915212459.GE3994@havoc.gtf.org>
-References: <20080915.120917.36004302.davem@davemloft.net> <20080915201749.GB3994@havoc.gtf.org> <20080915.132716.267218808.davem@davemloft.net> <20080915.141159.181213705.davem@davemloft.net>
+Date: Mon, 15 Sep 2008 23:30:19 +0200
+Message-ID: <m3od2p3xn8.fsf@maximus.localdomain>
+References: <20080915201749.GB3994@havoc.gtf.org>
+	<20080915.132716.267218808.davem@davemloft.net>
+	<20080915204543.GD3994@havoc.gtf.org>
+	<20080915.141442.139271313.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:37085 "EHLO havoc.gtf.org"
+Received: from khc.piap.pl ([195.187.100.11]:58720 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753386AbYIOVZA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2008 17:25:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20080915.141159.181213705.davem@davemloft.net>
+	id S1754132AbYIOVaX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2008 17:30:23 -0400
+In-Reply-To: <20080915.141442.139271313.davem@davemloft.net> (David Miller's message of "Mon\, 15 Sep 2008 14\:14\:42 -0700 \(PDT\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2008 at 02:11:59PM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 15 Sep 2008 13:27:16 -0700 (PDT)
-> 
-> > I'll take another look at the queue and try to give you some
-> > more specific feedback.
-> 
-> 	Thomas Bogendoerfer (1):
-> 	      tulip: Fix dead 21041 ethernet after ifconfig down
-> 
-> Not a regression, that problem has been there forever.
+David Miller <davem@davemloft.net> writes:
 
-> 	Hannes Hering (1):
-> 	      ehea: Fix DLPAR memory handling
-> 
-> No kernel bugzilla, no regression list entry, no way.
-> 
-> 	Krzysztof Halasa (1):
-> 	      wan/hdlc_x25.c: fix a NULL dereference
-> 
-> Not a 2.6.27 regression, this problem has been there forever.
+> Maybe a OOPS fix for common hardware.  But not for something
+> like obscure WAN stuff.
 
-> So, as I said, the vast majority of this stuff is absolulte not
-> appropriate.  Most of it can totally wait for 2.6.28, and not
-> be merged now.
-> 
-> You can accelerate this process by making sure that every
-> commit message has a reference to the regression list entry
-> or a kernel bugzilla that the patch fixes.
-
-So, my takeaway from this is...
-
-1) Creating a bugzilla entry magically makes a bug fix acceptable?
-
-2) We no longer want "this kills the driver" fixes?
-
-I disagree with that logic, and I seriously doubt Linus wants to turn
-away serious fixes to serious problems.  Many of these are clearly
-needed, just read the extended patch description and the patch itself.
-
-You just rejected patches that (a) fixed dead ethernet [de2104x], (b) fixed an
-oops [WAN], and (c) fixed memory corruption [ehea].
-
-I feel like I have just stepped into Odd World, if you don't want fixes
-as serious as these.
-
-	Jeff
-
-
-
+FYI: the WAN bit was actually a regression, 2.6.26 doesn't have this
+bug. Nevertheless generic HDLC especially with X.25 is not the
+mainstream code so I guess it's probably perfectly acceptable to delay
+the fix to minimize the patch flow.
+-- 
+Krzysztof Halasa
