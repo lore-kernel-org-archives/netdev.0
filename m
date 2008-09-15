@@ -1,33 +1,43 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 15 Sep 2008 23:30:19 +0200
-Message-ID: <m3od2p3xn8.fsf@maximus.localdomain>
-References: <20080915201749.GB3994@havoc.gtf.org>
-	<20080915.132716.267218808.davem@davemloft.net>
-	<20080915204543.GD3994@havoc.gtf.org>
-	<20080915.141442.139271313.davem@davemloft.net>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: autotest question
+Date: Mon, 15 Sep 2008 14:33:48 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0809151433001.7365@shark.he.net>
+References: <97949e3e0809151337r4dc69f8cydd92074bb10088d8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Mandeep Singh Baines <msb@google.com>, netdev@vger.kernel.org
+To: Laurent Chavey <chavey@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:58720 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754132AbYIOVaX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2008 17:30:23 -0400
-In-Reply-To: <20080915.141442.139271313.davem@davemloft.net> (David Miller's message of "Mon\, 15 Sep 2008 14\:14\:42 -0700 \(PDT\)")
+Received: from xenotime.net ([66.160.160.81]:52411 "HELO xenotime.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757392AbYIOVdw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2008 17:33:52 -0400
+Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 14:33:48 -0700
+In-Reply-To: <97949e3e0809151337r4dc69f8cydd92074bb10088d8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Mon, 15 Sep 2008, Laurent Chavey wrote:
 
-> Maybe a OOPS fix for common hardware.  But not for something
-> like obscure WAN stuff.
+> how many control file can we have per sub directories.
+> I would like to have a glag_test/ directory with multiple testes (lldp
+> test, af_pkt)
+> each tests are independent of each other and use to verify a CL.
+> 
+> 
+> 
+> example:
+>   /depot/autotest/client/site_tests/glag_tests
+>     control
+>     glag_lldp_test.py
+>     glag_afpacket_test.py
+>     glag_linkup_test.py
+> 
+>     etc...
+> --
 
-FYI: the WAN bit was actually a regression, 2.6.26 doesn't have this
-bug. Nevertheless generic HDLC especially with X.25 is not the
-mainstream code so I guess it's probably perfectly acceptable to delay
-the fix to minimize the patch flow.
+Does the netdev mailing list care about this question?
+I.e., seems like the wrong mailing list to me.
+
 -- 
-Krzysztof Halasa
+~Randy
