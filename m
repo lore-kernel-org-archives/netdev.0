@@ -1,59 +1,41 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [git patches] net driver fixes
-Date: Mon, 15 Sep 2008 15:07:46 -0700 (PDT)
-Message-ID: <20080915.150746.24873255.davem@davemloft.net>
-References: <20080915.132716.267218808.davem@davemloft.net>
-	<20080915.141159.181213705.davem@davemloft.net>
-	<20080915212459.GE3994@havoc.gtf.org>
+Date: Mon, 15 Sep 2008 15:11:25 -0700 (PDT)
+Message-ID: <20080915.151125.93659986.davem@davemloft.net>
+References: <20080915204543.GD3994@havoc.gtf.org>
+	<20080915.141442.139271313.davem@davemloft.net>
+	<20080915215307.GA10340@alpha.franken.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tsbogend@alpha.franken.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54211
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46047
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752671AbYIOWHw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 18:07:52 -0400
-In-Reply-To: <20080915212459.GE3994@havoc.gtf.org>
+	by vger.kernel.org with ESMTP id S1756072AbYIOWLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 18:11:31 -0400
+In-Reply-To: <20080915215307.GA10340@alpha.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Mon, 15 Sep 2008 17:24:59 -0400
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Date: Mon, 15 Sep 2008 23:53:08 +0200
 
-> So, my takeaway from this is...
+> On Mon, Sep 15, 2008 at 02:14:42PM -0700, David Miller wrote:
+> > Most of those changes were complete and utter CRAP.
 > 
-> 1) Creating a bugzilla entry magically makes a bug fix acceptable?
+> thank you, but the fix I've sent (de2104x) isn't crap. The bug breaks the 
+> current debian-installer for Cobalt Qube1, when it tries to get an
+> IP address via dhcp. 
 
-It adds more credence to the bug.  Because it's usually reported
-by a user.
+And why is this bug that has been there for YEARS is appropriate
+to fix outside of the merge window?
 
-> 2) We no longer want "this kills the driver" fixes?
+> In my eyes it's a clean and good fix,
 
-I don't take that away from what I said.
+There are a lot of clean and good fixes, but that is not the
+criteria for outside-of-the merge-window submissions right now.
 
-Why is it so important to fix something "RIGHT NOW" that
-has existed forever?  Where were these fixes during the
-merge window?
-
-> I disagree with that logic, and I seriously doubt Linus wants to turn
-> away serious fixes to serious problems.
-
-He wants the time outside of the merge window to work on fixing
-regressions and exploitable problems.  This is so that the process
-actually ends at some point.
-
-> You just rejected patches that (a) fixed dead ethernet [de2104x],
-
-And it's getting submitted now, because?!?
-
- (b) fixed an
-> oops [WAN], and
-
-It's WAN, it's been there forever, who cares and why now?
-
-> (c) fixed memory corruption [ehea].
-
-Again, it's been there for quite some time, why is it "now"
-all of sudden now important to integrate this fix?
+Linus has made this clear.
