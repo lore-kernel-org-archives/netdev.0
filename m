@@ -1,31 +1,40 @@
-From: ACCOUNT UPGRADING TEAM <account@webmaster.com>
-Subject: DEAR: EMAIL ACCOUNT OWNER.
-Date: Mon, 15 Sep 2008 21:09:02 +0200
-Message-ID: <20080915210902.t9uan9ak0og88k0s@webmail.versatel.nl>
-Reply-To: accountverification@mail2webmaster.com
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -mm] hp-plus: fix build error
+Date: Mon, 15 Sep 2008 12:16:01 -0700
+Message-ID: <20080915121601.416f5f78.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	format="flowed"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: jgarzik <jgarzik@pobox.com>, akpm <akpm@linux-foundation.org>,
+	alan@lxorguk.ukuu.org.uk
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.versatel.nl ([62.58.50.88]:35621 "EHLO smtp1.versatel.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756180AbYIOTJn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2008 15:09:43 -0400
-Content-Disposition: inline
+Received: from rgminet01.oracle.com ([148.87.113.118]:52126 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753499AbYIOTQr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 15:16:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DEAR: EMAIL ACCOUNT OWNER.
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-We wish to inform you that we are undergoing account data upgrading, in 
-  order for your email account to be verify and remain active,you are 
-to  reply this message and enter your email ID and password in the 
-space  provided (...............), You are required to do this before 
-the next  72hrs of receipt of this e-mail, Your email Account will be 
-de-activated  and erased from our database. Send Your account upgrading 
-information.
+Fix hp-plus build error (yet again; will it ever end?):
 
-Thank you for using our Webmail Service
+hp-plus.c:(.init.text+0xa2cd): undefined reference to `NS8390p_init'
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/hp-plus.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-2.6.27-rc5-mm1.orig/drivers/net/hp-plus.c
++++ linux-2.6.27-rc5-mm1/drivers/net/hp-plus.c
+@@ -262,7 +262,7 @@ static int __init hpp_probe1(struct net_
+ 	}
+ 
+ 	outw(Perf_Page, ioaddr + HP_PAGING);
+-	NS8390p_init(dev, 0);
++	NS8390_init(dev, 0);
+ 	/* Leave the 8390 and HP chip reset. */
+ 	outw(inw(ioaddr + HPP_OPTION) & ~EnableIRQ, ioaddr + HPP_OPTION);
+ 
