@@ -1,72 +1,44 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 0/4] atlx: add atl2 support
-Date: Sun, 14 Sep 2008 23:26:53 -0400
-Message-ID: <48CDD5FD.1040503@redhat.com>
-References: <20080909061247.GA17834@file.rdu.redhat.com> <48CC1718.50508@garzik.org> <48CD8CB2.2080406@redhat.com> <20080915032102.GB3028@havoc.gtf.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Mon, 15 Sep 2008 06:07:58 +0000
+Message-ID: <20080915060758.GA4112@ff.dom.local>
+References: <20080913011018.GA10242@gondor.apana.org.au> <20080912.182259.238925690.davem@davemloft.net> <20080913012758.GA10459@gondor.apana.org.au> <20080912.184008.74354363.davem@davemloft.net> <20080913014800.GA10611@gondor.apana.org.au> <20080913205408.GA2545@ami.dom.local> <20080914061610.GA20571@gondor.apana.org.au> <5f2db9d90809140331k434b9944mf5edf16e3094f12c@mail.gmail.com> <20080914214331.GB2540@ami.dom.local> <20080914221341.GA1684@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, atl2-test@lists.sourceforge.net,
-	jcliburn@gmail.com
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:53774 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753431AbYIODaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Sep 2008 23:30:20 -0400
-In-Reply-To: <20080915032102.GB3028@havoc.gtf.org>
+Received: from mu-out-0910.google.com ([209.85.134.188]:44090 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750721AbYIOGIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 02:08:04 -0400
+Received: by mu-out-0910.google.com with SMTP id g7so1484911muf.1
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2008 23:08:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080914221341.GA1684@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> On Sun, Sep 14, 2008 at 06:14:10PM -0400, Chris Snook wrote:
->> Jeff Garzik wrote:
->>> Chris Snook wrote:
->>>> This patchset adds support for atl2 hardware to the atlx codebase.  It is
->>>> functionally very similar to the out-of-tree 2.0.4 version that many  
->>>> distros
->>>> have been shipping for a few months, though it adds a fix from 
->>>> Atheros to fix
->>>> the problem of device resets under heavy bidirectional load.
->>>>
->>>> The code needs a lot of janitorial work, and there's a lot of  
->>>> low-hanging fruit
->>>> for merging similar atl1 code into the shared atlx code, but I think  
->>>> that work
->>>> will go much faster once this is in-tree.  The driver is known to 
->>>> work well for
->>>> laptop and desktop use.  The only major bugs are device 
->>>> initialization problems
->>>> that manifest themselves immediately and obviously (the NIC doesn't  
->>>> work) with
->>>> certain motherboards.
->>>>
->>>> Please consider this for the 2.6.28 merge window.
->>>>
->>>> -- Chris
->>>>
->>>>  drivers/net/Kconfig       |   17
->>>>  drivers/net/Makefile      |    1
->>>>  drivers/net/atlx/Makefile |    1
->>>>  drivers/net/atlx/atl2.c   | 3101  
->>>> ++++++++++++++++++++++++++++++++++++++++++++++
->>>>  drivers/net/atlx/atl2.h   |  482 +++++++
->>>>  include/linux/pci_ids.h   |    1
->>>>  6 files changed, 3600 insertions(+), 3 deletions(-)
->>> Send as one big patch, please?
->>>
->>>
->> It's too big for vger as one patch.  There's a lot of code that can be 
->> whittled down, but this driver has been delayed for months already 
->> waiting for that to be finished.  Would you prefer a gzipped One Big 
->> Patch?
+On Sun, Sep 14, 2008 at 03:13:41PM -0700, Herbert Xu wrote:
+> On Sun, Sep 14, 2008 at 11:43:31PM +0200, Jarek Poplawski wrote:
+> >
+> > On the other hand, I wondered about a possibility of rehashing to other
+> > queues in some cases during requeuing, which would be impossible after
+> > such change.
 > 
-> _I_ need it in standard patch format, as one big patch.  No MIME
-> encoding, no gzip, no URLs, just a patch like any other.
-> 
-> 	Jeff
+> Why would you want to do that? Just because people have abused
+> requeue in the psat doesn't mean that we need to support such
+> abuses for perpetuity.
 
-See Jay's post, in single-patch form, with some additional cosmetic cleanups and 
-my signoff.
-
--- Chris
+Well, it was only wondering, and probably you are right this is wrong.
+On the other hand, simple_tx_hash() choices are "probabilistic": user
+doesn't care if it goes through tx_queue #1 or #11. And here, in some
+cases, some tx_queues could be always full while other always empty,
+so some dynamic rehashing could be thought of, but I understand it's
+not trivial.
+ 
+Cheers,
+Jarek P.
