@@ -1,42 +1,37 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [patch v2] net: add Gigabit Ethernet Switch for PCI driver gesp
-Date: Mon, 15 Sep 2008 13:16:50 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5206294A82@orsmsx418.amr.corp.intel.com>
-References: <ca0148c30807210325j3cbff1f6i59404171089c82f5@mail.gmail.com> <489A95EA.8000702@pobox.com> <ca0148c30808120512re132edercfebbbd4c97fc2dc@mail.gmail.com> <48CC5ACB.6030203@pobox.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 15 Sep 2008 16:17:50 -0400
+Message-ID: <20080915201749.GB3994@havoc.gtf.org>
+References: <20080913203548.GA2989@havoc.gtf.org> <20080915.120917.36004302.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: "Jeff Garzik" <jgarzik@pobox.com>,
-	"Matti Linnanvuori" <mattilinn@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:51872 "EHLO mga11.intel.com"
+Received: from havoc.gtf.org ([69.61.125.42]:40497 "EHLO havoc.gtf.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753563AbYIOUQw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 16:16:52 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <48CC5ACB.6030203@pobox.com>
+	id S1753597AbYIOURw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2008 16:17:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20080915.120917.36004302.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Matti Linnanvuori wrote:
->> From: Matti Linnanvuori <matti.linnanvuori@ascom.com>
->> 
->> Add GESP Gigabit Ethernet Switch for PCI driver.
->> 
->> Signed-off-by: Matti Linnanvuori <matti.linnanvuori@ascom.com>
-
-> Need a little bit more information here.
+On Mon, Sep 15, 2008 at 12:09:17PM -0700, David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Sat, 13 Sep 2008 16:35:48 -0400
 > 
-> How close is this hardware to e1000?
+> > Includes several fixes from my slice of the akpm patch pie.
 > 
-> Is this driver really from Intel, as the contact information implies?
+> Which of these have regression and/or bugzilla entries?
+> 
+> This is too much and I want to see it trimmed down.
 
-Not from us, it may be derived from our driver however, but AFAIK we (I)
-haven't been contacted about it.
- 
-> Is there documentation on the hardware anywhere?
+What do you not want?  The two warning fixes (mlx4, cs89x0) akpm seemed
+to want in 2.6.27, the 8139too change is cosmetic.  The other stuff is
+critical AFAICS.
+
+	Jeff
+
+
 
