@@ -1,61 +1,32 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 15 Sep 2008 18:34:07 -0400
-Message-ID: <20080915223407.GB15421@havoc.gtf.org>
-References: <20080915.132716.267218808.davem@davemloft.net> <20080915.141159.181213705.davem@davemloft.net> <20080915212459.GE3994@havoc.gtf.org> <20080915.150746.24873255.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH 1/3] phylib: allow incremental scanning of an mii bus
+Date: Mon, 15 Sep 2008 17:33:56 -0500
+Message-ID: <4CEE2275-95FC-456B-A9F9-14BE79CBD681@freescale.com>
+References: <1220448012-20347-1-git-send-email-buytenh@wantstofly.org> <1220448012-20347-2-git-send-email-buytenh@wantstofly.org>
+Mime-Version: 1.0 (Apple Message framework v928.1)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:56538 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753273AbYIOWeI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2008 18:34:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20080915.150746.24873255.davem@davemloft.net>
+Received: from az33egw02.freescale.net ([192.88.158.103]:48213 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753207AbYIOWeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 18:34:08 -0400
+In-Reply-To: <1220448012-20347-2-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2008 at 03:07:46PM -0700, David Miller wrote:
-> > You just rejected patches that (a) fixed dead ethernet [de2104x],
-> 
-> And it's getting submitted now, because?!?
-> 
->  (b) fixed an
-> > oops [WAN], and
-> 
-> It's WAN, it's been there forever, who cares and why now?
-> 
-> > (c) fixed memory corruption [ehea].
-> 
-> Again, it's been there for quite some time, why is it "now"
-> all of sudden now important to integrate this fix?
 
-Because users should not be forced to wait 3 months for fixes, for
-admittedly serious bugs, which are ready for them right now.  Small,
-self-contained, tested, obvious fixes.
+On Sep 3, 2008, at 08:20, Lennert Buytenhek wrote:
 
-There is just something horribly wrong if you are not taking two-line
-fixes for memory corruption, even if the problem existed since
-kernel 1.2.13.
+> This patch splits the bus scanning code in mdiobus_register() off
+> into a separate function, and makes this function available for
+> calling from external code.  This allows incrementally scanning an
+> mii bus, e.g. as information about which addresses are 'safe' to
+> scan becomes available.
+>
+> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 
-	July 13:	2.6.26 released, merge window opens
-	July 29:	2.6.27-rc1 released, merge window closes
-	Sept 20?	2.6.27 release (wild guess)
-	Dec 25?		2.6.28 release (wild guess)
-
-So if a small, easily-mergable fix for a major bug like an oops
-appears on July 30, being strict to your plan has this fix waiting
-until almost 2009 (2.6.28 release), a wait of over five months.
-
-That is not serving Linux users, our primary customers.
-
-Complaining about the 8139too change, I can see that (even though
-Linus takes that stuff via libata all the time).  But about memory
-corruption and oopses?  Come on.
-
-	Jeff
-
-
+Acked-by: Andy Fleming <afleming@freescale.com>
 
