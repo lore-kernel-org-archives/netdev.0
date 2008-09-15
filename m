@@ -1,70 +1,59 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Mon, 15 Sep 2008 16:42:46 -0300
-Message-ID: <20080915164246.6ea1698d@tux>
-References: <20080819213417.45133573@tux>
-	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
-	<20080822183224.2d52f16c@tux>
-	<20080822.143709.65615512.davem@davemloft.net>
-	<20080823111446.06a350a2@tux>
-	<Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
-	<20080824163843.33b4f890@tux>
-	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
-	<20080826141812.589848a0@tux>
-	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
-	<20080828184919.611dd578@tux>
-	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
-	<20080830035650.42be37d7@tux>
-	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
-	<20080907051718.58bf133d@tux>
-	<Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
-	<20080908172043.0d25a427@tux>
-	<Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
-	<20080911143006.2f516569@tux>
-	<Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 15 Sep 2008 15:07:46 -0700 (PDT)
+Message-ID: <20080915.150746.24873255.davem@davemloft.net>
+References: <20080915.132716.267218808.davem@davemloft.net>
+	<20080915.141159.181213705.davem@davemloft.net>
+	<20080915212459.GE3994@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54211
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752671AbYIOWHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 18:07:52 -0400
+In-Reply-To: <20080915212459.GE3994@havoc.gtf.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Sep 2008 13:16:19 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+From: Jeff Garzik <jeff@garzik.org>
+Date: Mon, 15 Sep 2008 17:24:59 -0400
 
-> Ok.
+> So, my takeaway from this is...
+> 
+> 1) Creating a bugzilla entry magically makes a bug fix acceptable?
 
-Sep 15 09:22:38 teleporto vmunix: 600 RC00 T=3D4 D337POOIM YE3CD=3D3[R=3D=
-93.812DT1210624LN4 O=3Dx0PE=3Dx0TL5 D0D RT=3DC NOPEE[ ye]]
-Sep 15 09:53:49 teleporto vmunix: 6DO IPT:I=3Dt0OT A=3Dff:ff:ff:05:36:b=
-50:0SC13192522DT25252525LN4 O=3Dx0PE=3Dx0TL12I=3D
-=46POOTPST51 P=3D31 IDW650RS00 C Y RP0
+It adds more credence to the bug.  Because it's usually reported
+by a user.
 
-	This strange kernel messages are normal or is this clearly something b=
-uggy? This is logged whenever the connection=20
-is stalled.
+> 2) We no longer want "this kills the driver" fixes?
 
-	Anyway, I'm 50% almost sure that it's something related to ntpd adjust=
-ing time. I do not mean that whenever ntpd syncs=20
-the time, the connection is stalled but I need a few more weeks to assu=
-re this.
+I don't take that away from what I said.
 
-	Basically without ntpd, everything is fine, but when ntpd is running, =
-the stall happens. Maybe the kernel gets confused when=20
-ntpd changes the time? It shouldn't happen of course. I'll reply in a f=
-ew weeks. Thanks.
+Why is it so important to fix something "RIGHT NOW" that
+has existed forever?  Where were these fixes during the
+merge window?
 
+> I disagree with that logic, and I seriously doubt Linus wants to turn
+> away serious fixes to serious problems.
 
---=20
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+He wants the time outside of the merge window to work on fixing
+regressions and exploitable problems.  This is so that the process
+actually ends at some point.
+
+> You just rejected patches that (a) fixed dead ethernet [de2104x],
+
+And it's getting submitted now, because?!?
+
+ (b) fixed an
+> oops [WAN], and
+
+It's WAN, it's been there forever, who cares and why now?
+
+> (c) fixed memory corruption [ehea].
+
+Again, it's been there for quite some time, why is it "now"
+all of sudden now important to integrate this fix?
