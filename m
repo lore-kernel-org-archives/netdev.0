@@ -1,40 +1,42 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -mm] hp-plus: fix build error
-Date: Mon, 15 Sep 2008 12:16:01 -0700
-Message-ID: <20080915121601.416f5f78.randy.dunlap@oracle.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [patch v2] net: add Gigabit Ethernet Switch for PCI driver gesp
+Date: Mon, 15 Sep 2008 13:16:50 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5206294A82@orsmsx418.amr.corp.intel.com>
+References: <ca0148c30807210325j3cbff1f6i59404171089c82f5@mail.gmail.com> <489A95EA.8000702@pobox.com> <ca0148c30808120512re132edercfebbbd4c97fc2dc@mail.gmail.com> <48CC5ACB.6030203@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>, akpm <akpm@linux-foundation.org>,
-	alan@lxorguk.ukuu.org.uk
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Jeff Garzik" <jgarzik@pobox.com>,
+	"Matti Linnanvuori" <mattilinn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:52126 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753499AbYIOTQr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 15:16:47 -0400
+Received: from mga11.intel.com ([192.55.52.93]:51872 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753563AbYIOUQw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 16:16:52 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <48CC5ACB.6030203@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+Jeff Garzik wrote:
+> Matti Linnanvuori wrote:
+>> From: Matti Linnanvuori <matti.linnanvuori@ascom.com>
+>> 
+>> Add GESP Gigabit Ethernet Switch for PCI driver.
+>> 
+>> Signed-off-by: Matti Linnanvuori <matti.linnanvuori@ascom.com>
 
-Fix hp-plus build error (yet again; will it ever end?):
+> Need a little bit more information here.
+> 
+> How close is this hardware to e1000?
+> 
+> Is this driver really from Intel, as the contact information implies?
 
-hp-plus.c:(.init.text+0xa2cd): undefined reference to `NS8390p_init'
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/hp-plus.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2.6.27-rc5-mm1.orig/drivers/net/hp-plus.c
-+++ linux-2.6.27-rc5-mm1/drivers/net/hp-plus.c
-@@ -262,7 +262,7 @@ static int __init hpp_probe1(struct net_
- 	}
+Not from us, it may be derived from our driver however, but AFAIK we (I)
+haven't been contacted about it.
  
- 	outw(Perf_Page, ioaddr + HP_PAGING);
--	NS8390p_init(dev, 0);
-+	NS8390_init(dev, 0);
- 	/* Leave the 8390 and HP chip reset. */
- 	outw(inw(ioaddr + HPP_OPTION) & ~EnableIRQ, ioaddr + HPP_OPTION);
- 
+> Is there documentation on the hardware anywhere?
+
