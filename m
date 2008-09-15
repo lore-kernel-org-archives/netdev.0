@@ -1,89 +1,50 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
-Date: Tue, 16 Sep 2008 02:45:22 +0400
-Message-ID: <20080915224522.GA21012@x200.localdomain>
-References: <20080821115849.GA2126@x200.localdomain> <20080914181714.34935d9c@osprey.hogchain.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Adding SNAT support to LVS/NAT
+Date: Tue, 16 Sep 2008 01:56:31 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0809160103160.3009@u.domain.uli>
+References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
+ <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
+ <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
+ <Pine.LNX.4.64.0809131835001.12375@wm7d.net>
+ <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com>
+ <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: csnook@redhat.com, netdev@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:51281 "EHLO
-	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605AbYIOWnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 18:43:23 -0400
-Received: by gxk9 with SMTP id 9so26149058gxk.13
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 15:43:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080914181714.34935d9c@osprey.hogchain.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joseph Mack NA3T <jmack@wm7d.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 14, 2008 at 06:17:14PM -0500, Jay Cliburn wrote:
-> On Thu, 21 Aug 2008 15:58:49 +0400
-> adobriyan@gmail.com wrote:
-> 
-> > This message happens more or less every reboot, sometimes cable
-> > unplug/plug is needed to restore connectivity, otherwise card is
-> > working fine.
-> > 
-> > 
-> > [   22.570010] eth1: link up, 100Mbps, full-duplex, lpa 0x45E1
-> > [   26.570011] NET: Registered protocol family 10
-> > [   37.551934] eth0: no IPv6 routers present
-> > 
-> > 	[rebooted box which is directly connected to a box with atl1]
-> > 
-> > [ 2078.740004] atl1 0000:03:00.0: eth0 link is down
-> > [ 2080.790004] atl1 0000:03:00.0: eth0 link is up 1000 Mbps full
-> > duplex [ 2086.049998] NETDEV WATCHDOG: eth0 (atl1): transmit timed out
-> > [ 2086.050004] ------------[ cut here ]------------
-> > [ 2086.050004] WARNING: at net/sched/sch_generic.c:221
-> [...]
-> 
-> Alexey,
-> 
-> Can you please try this patch?
 
-Seems to help (no more messages), still sometimes no networking until after
-cable replug. Stay tuned.
+	Hello,
 
-> --- a/drivers/net/atlx/atl1.c
-> +++ b/drivers/net/atlx/atl1.c
-> @@ -2642,6 +2642,7 @@ static void atl1_down(struct atl1_adapter *adapter)
->  {
->  	struct net_device *netdev = adapter->netdev;
->  
-> +	netif_stop_queue(netdev);
->  	del_timer_sync(&adapter->watchdog_timer);
->  	del_timer_sync(&adapter->phy_config_timer);
->  	adapter->phy_timer_pending = false;
-> @@ -2655,7 +2656,6 @@ static void atl1_down(struct atl1_adapter *adapter)
->  	adapter->link_speed = SPEED_0;
->  	adapter->link_duplex = -1;
->  	netif_carrier_off(netdev);
-> -	netif_stop_queue(netdev);
->  
->  	atl1_clean_tx_ring(adapter);
->  	atl1_clean_rx_ring(adapter);
-> @@ -2724,6 +2724,8 @@ static int atl1_open(struct net_device *netdev)
->  	struct atl1_adapter *adapter = netdev_priv(netdev);
->  	int err;
->  
-> +	netif_carrier_off(netdev);
-> +
->  	/* allocate transmit descriptors */
->  	err = atl1_setup_ring_resources(adapter);
->  	if (err)
-> diff --git a/drivers/net/atlx/atlx.c b/drivers/net/atlx/atlx.c
-> index b3e7fcf..3cc9d10 100644
-> --- a/drivers/net/atlx/atlx.c
-> +++ b/drivers/net/atlx/atlx.c
-> @@ -105,7 +105,6 @@ static void atlx_check_for_link(struct atlx_adapter *adapter)
->  				netdev->name);
->  			adapter->link_speed = SPEED_0;
->  			netif_carrier_off(netdev);
-> -			netif_stop_queue(netdev);
->  		}
->  	}
->  	schedule_work(&adapter->link_chg_task);
+On Sun, 14 Sep 2008, Julius Volz wrote:
+
+> > Thanks for the info! Right, I even said myself in the previous reply
+> > that ip_vs_postrouting() stops further processing in the POSTROUTING
+> > chain, so it never reaches netfilter NAT code.
+> 
+> Actually, what if we modify or remove that function to allow further
+> processing in POSTROUTING? Could SNAT work with IPVS then?
+> 
+> The comment above it says that the function specifically wants to
+> avoid further NAT by netfilter. But is this always a problem?
+
+	This check (now flag ipvs_property) was implemented to avoid
+netfilter to modify packet which was already changed by IPVS.
+What happened was that FTP commands (TCP header and payload) were
+modified first by ip_vs_ftp and then by netfilter. The result:
+packet with wrong SEQ number. Later, after some Netfilter 
+changes (2.6.11), TCP payload was modified always in POST_ROUTING
+while address can be  modified in PRE_ROUTING. Not sure what happens
+now, Netfilter code was reorganized and new code review and tests
+are needed, may be such double manipulation (if ipvs_property is
+not set) still can cause problems.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
