@@ -1,102 +1,182 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [PATCH 5/8] [RFC] qlge: Add main source module qlge_main.c
-Date: Mon, 15 Sep 2008 11:28:01 -0700
-Message-ID: <20080915182801.GC23939@susedev.qlogic.org>
-References: <20080910205813.GA13266@susedev.qlogic.org> <12210803433594-git-send-email-ron.mercer@qlogic.com> <48C8D937.5020708@marian.de> <20080912005837.GB23939@susedev.qlogic.org> <48CA2528.2010201@marian.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bug 11572] New: udp: unbalanced unlock bug in
+	udp_queue_rcv_skb with ipsec
+Date: Mon, 15 Sep 2008 11:34:20 -0700
+Message-ID: <20080915183419.GA12978@gondor.apana.org.au>
+References: <bug-11572-2647@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-driver@qlogic.com
-To: Franco Fichtner <franco@marian.de>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: bugme-daemon@bugzilla.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:28086 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752697AbYIOS3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 14:29:03 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:55220 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752569AbYIOSe1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 14:34:27 -0400
 Content-Disposition: inline
-In-Reply-To: <48CA2528.2010201@marian.de>
+In-Reply-To: <bug-11572-2647@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Franco,
+On Mon, Sep 15, 2008 at 07:04:24AM -0700, bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> after upgrading our production firewall to kernel 2.6.26.4, it freezed numerous
+> times out of the blue. First problem was isolated and now fixed in bug #11142,
+> but the box still freezed every two days. Yesterday night it crashed during
+> setup of ipsec connections, so I've built a test box setting up over 25 ipsec
+> connections to invalid peers. This will issue the following backtrace:
+> 
+> ====================================
+> [ BUG: bad unlock balance detected! ]
+> -------------------------------------
+> pluto/2943 is trying to release lock (slock-AF_INET) at:
+> [<c02b660f>] udp_queue_rcv_skb+0xa3/0x210
+> but there are no more locks to release!
+> 
+> other info that might help us debug this:
+> no locks held by pluto/2943.
+> 
+> stack backtrace:
+> Pid: 2943, comm: pluto Not tainted 2.6.26-2.i2nsmp #2
+>  [<c013ebb9>] print_unlock_inbalance_bug+0xd7/0xe1
+>  [<c02c73a5>] ? xfrm_sk_policy_lookup+0x44/0x4b
+>  [<c02c7d7b>] ? __xfrm_policy_check+0x19b/0x4a2
+>  [<c02b660f>] ? udp_queue_rcv_skb+0xa3/0x210
+>  [<c013ed95>] lock_release+0xad/0x15c
+>  [<c02e1056>] _spin_unlock+0x16/0x20
+>  [<c02b660f>] udp_queue_rcv_skb+0xa3/0x210
+>  [<c0279ce0>] release_sock+0x5e/0xab
 
-I have cleaned up a lot of the code per your suggestions in this thread and will
-do another submission this afternoon.
-Regarding the delay/sleep, I've changed from mdelay to udelay and reduced the loop
-into the 10s of microseconds instead of the hundreds of milliseconds.
-I found out the milliseconds was intended for an emulated test
-environment and not for the silicon.  Thanks again for bringing this to
-my attention.
+Sorry my previous fix is simply bogus.  The real problem is that
+we added the socket lock in the wrong place.  It should be around
+the socket queueing only.
 
-Regards,
-Ron Mercer
+udp: Fix rcv socket locking
 
+The previous patch in response to the recursive locking on IPsec
+reception is broken as it tries to drop the BH socket lock while in
+user context.
 
-On Fri, Sep 12, 2008 at 10:15:36AM +0200, Franco Fichtner wrote:
-> Hi Ron,
-> 
-> Thanks for the clarification. 4000 lines of code are just too much to
-> grasp at the first glance. :)
-> 
-> >Regarding ql_wait_idx_reg() and ql_wait_addr_reg() they provide waiting
-> >while gaining access for read/writes to/from a secondary set of
-> >registers.
-> 
-> These registers are once per hardware, right? Then your spinlocking
-> would do nothing on single CPU systems, because it won't get into the
-> binaries. Meaning: your registers are NOT protected the way you would
-> have hoped. And even with SMP systems... if another CPU hits a locked
-> spinlock it does nothing but wait, quite synchronously to your mdelay()
-> loop. So both scenarios are rather suboptimal. If that's how things are,
-> you're better off using a semaphore.
-> 
-> On non-SMP systems, you're gonna put another access on the waiting list
-> by using a semaphore, which in return will give you time to finish your
-> operations on the registers and free the semaphore. And, last but not
-> least, SMP systems will do work they otherwise would not be able to do.
-> 
-> There is just the slight problem of ql_wait_idx_reg() and
-> ql_wait_addr_reg() being executed from interrupt context? If that is the
-> case, then you can't use the standard semaphores, because sleeping isn't
-> allowed. I do hope that is not the case...
-> 
-> >To my understanding, you can't sleep while holding a
-> >spinlock.  I tried this before and saw massive warnings.  I have
-> >"Spinlock debugging: sleep-inside-spinlock checking" turned on in my
-> >kernel and perhaps that's why I saw them.
-> 
-> You'd normally use spinlocks in interrupt context where you just have to
-> make sure no other CPU mangles with your variables or hardware registers
-> the fastest way possible. You don't keep a spinlock forever, not even
-> for the course of a few function calls, which will make the code harder
-> to read, thus harder to understand, and thus harder to debug.
-> 
-> The warning messages are right, but (I think) they are intended to avoid 
-> deadlocks as early as possible. Though, with msleep() I don't think
-> you'll get into any more serious problems than before, because unless 
-> the Kernel is really not doing what it should, you should always get
-> back to your loop. Using schedule() and wait queues in spinlocked 
-> scenarios is a whole other thing. (Anyone, please correct me if I'm wrong.)
-> 
-> >At that point I changed from msleep to mdelay.
-> >After reviewing your comments I've reduced and standardized the mdelay
-> >wait to 5ms with a count of 50.
-> 
-> It may help introduce defines to get rid of magic numbers inside the
-> code as well. Something like:
-> 
-> #define QLGE_TIMEOUT_COUNT	50
-> #define QLGE_TIMEOUT_DELAY	5
-> 
-> That will help maintaining code and makes it more easily readable (and
-> consistent as a bonus... less lines to update).
-> 
-> >These secondary registers are
-> >accessed only during open(), reset(), and a few
-> >netdev-API like set_multi and add_vlan_vid.
-> 
-> Okay, I see. But still, I get the vibe that this is already a bit too
-> much to justify keeping the current way of locking in the code. Sooner
-> or later someone else will complain about this. ;)
-> 
-> 
-> Franco
+This patch fixes it by shrinking the section protected by the
+socket lock to sock_queue_rcv_skb only.  The only reason we added
+the lock is for the accounting which happens in that function.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8e42fbb..57e26fa 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -951,6 +951,27 @@ int udp_disconnect(struct sock *sk, int flags)
+ 	return 0;
+ }
+ 
++static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++{
++	int is_udplite = IS_UDPLITE(sk);
++	int rc;
++
++	if ((rc = sock_queue_rcv_skb(sk, skb)) < 0) {
++		/* Note that an ENOMEM error is charged twice */
++		if (rc == -ENOMEM)
++			UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
++					 is_udplite);
++		goto drop;
++	}
++
++	return 0;
++
++drop:
++	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
++	kfree_skb(skb);
++	return -1;
++}
++
+ /* returns:
+  *  -1: error
+  *   0: success
+@@ -989,9 +1010,7 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+ 		    up->encap_rcv != NULL) {
+ 			int ret;
+ 
+-			bh_unlock_sock(sk);
+ 			ret = (*up->encap_rcv)(sk, skb);
+-			bh_lock_sock(sk);
+ 			if (ret <= 0) {
+ 				UDP_INC_STATS_BH(sock_net(sk),
+ 						 UDP_MIB_INDATAGRAMS,
+@@ -1044,17 +1063,16 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+ 			goto drop;
+ 	}
+ 
+-	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
+-		/* Note that an ENOMEM error is charged twice */
+-		if (rc == -ENOMEM) {
+-			UDP_INC_STATS_BH(sock_net(sk),
+-					UDP_MIB_RCVBUFERRORS, is_udplite);
+-			atomic_inc(&sk->sk_drops);
+-		}
+-		goto drop;
+-	}
++	rc = 0;
+ 
+-	return 0;
++	bh_lock_sock(sk);
++	if (!sock_owned_by_user(sk))
++		rc = __udp_queue_rcv_skb(sk, skb);
++	else
++		sk_add_backlog(sk, skb);
++	bh_unlock_sock(sk);
++
++	return rc;
+ 
+ drop:
+ 	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+@@ -1092,15 +1110,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 				skb1 = skb_clone(skb, GFP_ATOMIC);
+ 
+ 			if (skb1) {
+-				int ret = 0;
+-
+-				bh_lock_sock(sk);
+-				if (!sock_owned_by_user(sk))
+-					ret = udp_queue_rcv_skb(sk, skb1);
+-				else
+-					sk_add_backlog(sk, skb1);
+-				bh_unlock_sock(sk);
+-
++				int ret = udp_queue_rcv_skb(sk, skb1);
+ 				if (ret > 0)
+ 					/* we should probably re-process instead
+ 					 * of dropping packets here. */
+@@ -1195,13 +1205,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 			uh->dest, inet_iif(skb), udptable);
+ 
+ 	if (sk != NULL) {
+-		int ret = 0;
+-		bh_lock_sock(sk);
+-		if (!sock_owned_by_user(sk))
+-			ret = udp_queue_rcv_skb(sk, skb);
+-		else
+-			sk_add_backlog(sk, skb);
+-		bh_unlock_sock(sk);
++		int ret = udp_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
+ 
+ 		/* a return value > 0 means to resubmit the input, but
+@@ -1494,7 +1498,7 @@ struct proto udp_prot = {
+ 	.sendmsg	   = udp_sendmsg,
+ 	.recvmsg	   = udp_recvmsg,
+ 	.sendpage	   = udp_sendpage,
+-	.backlog_rcv	   = udp_queue_rcv_skb,
++	.backlog_rcv	   = __udp_queue_rcv_skb,
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v4_get_port,
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
