@@ -1,44 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 15 Sep 2008 13:27:16 -0700 (PDT)
-Message-ID: <20080915.132716.267218808.davem@davemloft.net>
-References: <20080913203548.GA2989@havoc.gtf.org>
-	<20080915.120917.36004302.davem@davemloft.net>
-	<20080915201749.GB3994@havoc.gtf.org>
+From: "Laurent Chavey" <chavey@google.com>
+Subject: autotest question
+Date: Mon, 15 Sep 2008 13:37:23 -0700
+Message-ID: <97949e3e0809151337r4dc69f8cydd92074bb10088d8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+To: "Mandeep Singh Baines" <msb@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48686
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754453AbYIOU1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 16:27:22 -0400
-In-Reply-To: <20080915201749.GB3994@havoc.gtf.org>
+Received: from smtp-out.google.com ([216.239.33.17]:24005 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752225AbYIOUh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 16:37:29 -0400
+Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
+	by smtp-out.google.com with ESMTP id m8FKbO8l005085
+	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 21:37:24 +0100
+Received: from rv-out-0708.google.com (rvbk29.prod.google.com [10.140.87.29])
+	by zps75.corp.google.com with ESMTP id m8FKaS4M018119
+	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 13:37:23 -0700
+Received: by rv-out-0708.google.com with SMTP id k29so2322735rvb.0
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 13:37:23 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Mon, 15 Sep 2008 16:17:50 -0400
+how many control file can we have per sub directories.
+I would like to have a glag_test/ directory with multiple testes (lldp
+test, af_pkt)
+each tests are independent of each other and use to verify a CL.
 
-> On Mon, Sep 15, 2008 at 12:09:17PM -0700, David Miller wrote:
-> > From: Jeff Garzik <jeff@garzik.org>
-> > Date: Sat, 13 Sep 2008 16:35:48 -0400
-> > 
-> > > Includes several fixes from my slice of the akpm patch pie.
-> > 
-> > Which of these have regression and/or bugzilla entries?
-> > 
-> > This is too much and I want to see it trimmed down.
-> 
-> What do you not want?  The two warning fixes (mlx4, cs89x0) akpm seemed
-> to want in 2.6.27, the 8139too change is cosmetic.  The other stuff is
-> critical AFAICS.
 
-I'll take another look at the queue and try to give you some
-more specific feedback.
 
-I can think of about 3 or 4 entries on the posted regression
-list that might be appropriate, so I essentially expected to
-see that many commits, give or take one or two.
+example:
+  /depot/autotest/client/site_tests/glag_tests
+    control
+    glag_lldp_test.py
+    glag_afpacket_test.py
+    glag_linkup_test.py
+
+    etc...
