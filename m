@@ -1,65 +1,44 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Adding SNAT support to LVS/NAT
-Date: Mon, 15 Sep 2008 11:43:39 +1000
-Message-ID: <20080915014337.GA10026@verge.net.au>
-References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com> <Pine.LNX.4.64.0809131100320.20936@wm7d.net> <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com> <Pine.LNX.4.64.0809131835001.12375@wm7d.net> <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com> <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
+Date: Sun, 14 Sep 2008 23:14:14 -0400
+Message-ID: <20080915031414.GA3028@havoc.gtf.org>
+References: <20080821120409.GA2226@x200.localdomain> <20080821.050857.131314665.davem@davemloft.net> <20080914142654.3114cb3a@osprey.hogchain.net> <20080914.165655.193720725.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joseph Mack NA3T <jmack@wm7d.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp,
-	Siim =?iso-8859-1?Q?P=F5der?= <siim@p6drad-teel.net>
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jacliburn@bellsouth.net, adobriyan@gmail.com, csnook@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from havoc.gtf.org ([69.61.125.42]:51444 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753431AbYIODOP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Sep 2008 23:14:15 -0400
 Content-Disposition: inline
-In-Reply-To: <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080914.165655.193720725.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 14, 2008 at 04:47:51PM +0200, Julius Volz wrote:
-> On Sun, Sep 14, 2008 at 12:39 PM, Julius Volz <juliusv@google.com> wr=
-ote:
-> > On Sun, Sep 14, 2008 at 3:37 AM, Joseph Mack NA3T <jmack@wm7d.net> =
-wrote:
-> >> On Sun, 14 Sep 2008, Julius Volz wrote:
-> >>
-> >>> So maybe it would already work? ;)
-> >>
-> >> No. Some highly motivated people tried doing SNAT on OUTPUT in an =
-attempt to
-> >> do F5-SNAT and it didn't work. This lead to the write up in
-> >>
-> >> http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.non-modifie=
-d_realservers.html#F5_snat
-> >>
-> >> which brings us to where we are now.
-> >
-> > Thanks for the info! Right, I even said myself in the previous repl=
-y
-> > that ip_vs_postrouting() stops further processing in the POSTROUTIN=
-G
-> > chain, so it never reaches netfilter NAT code.
->=20
-> Actually, what if we modify or remove that function to allow further
-> processing in POSTROUTING? Could SNAT work with IPVS then?
->=20
-> The comment above it says that the function specifically wants to
-> avoid further NAT by netfilter. But is this always a problem?
+On Sun, Sep 14, 2008 at 04:56:55PM -0700, David Miller wrote:
+> From: Jay Cliburn <jacliburn@bellsouth.net>
+> Date: Sun, 14 Sep 2008 14:26:54 -0500
+> 
+> > Should a netdev driver be coded such that a watchdog transmit timeout
+> > never occurs?
+> > 
+> > [ 2086.049998] NETDEV WATCHDOG: eth0 (atl1): transmit timed out
+> > 
+> > Or is a watchdog timeout an expected occurrence if a cable is
+> > unplugged/plugged?
+> 
+> If the cable is unplugged, netif_carrier_off() will be (or should
+> be) invoked by the driver, and that cancels the watchdog timer.
 
-Well, it would be a problem if it gets DNATed a second time.
-But perhaps we can take a slightly different approach such that
-we protect against DNAT while allowing SNAT.
+100% correct :)
+
+As Stephen noted, a transmit timeout is an unhandled condition plain and
+simple -- either unhandled by the driver or unhandled by the hardware.
+
+	Jeff
 
 
-Perhaps it might just be easier to allow iptables to explictly match
-packets that have been mangled by LVS-NAT. Perhaps by poviding
-a match rule for skb->ipvs_property? Or by using Siim P=F5der's match
-against connections in the LVS connection table.
-
-http://lists.graemef.net/pipermail/lvs-users/2008-July/021081.html
-
---=20
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
 
