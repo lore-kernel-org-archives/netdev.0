@@ -1,34 +1,29 @@
-From: "Jerry Chu" <hkchu@google.com>
-Subject: how to add seq_file based entry under /proc/sys?
-Date: Mon, 15 Sep 2008 12:02:49 -0700
-Message-ID: <d1c2719f0809151202r44acd4f5q57bfb3a16c26fcb5@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 15 Sep 2008 12:09:17 -0700 (PDT)
+Message-ID: <20080915.120917.36004302.davem@davemloft.net>
+References: <20080913203548.GA2989@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:5853 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753392AbYIOTC4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 15:02:56 -0400
-Received: from zps78.corp.google.com (zps78.corp.google.com [172.25.146.78])
-	by smtp-out.google.com with ESMTP id m8FJ2odx002647
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 20:02:50 +0100
-Received: from gxk6 (gxk6.prod.google.com [10.202.11.6])
-	by zps78.corp.google.com with ESMTP id m8FJ0b88003207
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 12:02:49 -0700
-Received: by gxk6 with SMTP id 6so28805563gxk.16
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 12:02:49 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52067
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754657AbYIOTJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 15:09:23 -0400
+In-Reply-To: <20080913203548.GA2989@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Jeff Garzik <jeff@garzik.org>
+Date: Sat, 13 Sep 2008 16:35:48 -0400
 
-I'm trying to add an entry with a seq_file type interface under
-/proc/sys/net/ipv4.
-I just discovered proc_sysctl related changes in 2.6.26 seems to demand a
-ctl_table interface on all entries hence disallowing seq_file. Am I missing
-something here? Any clue will be much appreciated.
+> Includes several fixes from my slice of the akpm patch pie.
 
-Jerry
+Which of these have regression and/or bugzilla entries?
+
+This is too much and I want to see it trimmed down.
+
+Thanks.
