@@ -1,32 +1,45 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH 1/3] phylib: allow incremental scanning of an mii bus
-Date: Mon, 15 Sep 2008 17:33:56 -0500
-Message-ID: <4CEE2275-95FC-456B-A9F9-14BE79CBD681@freescale.com>
-References: <1220448012-20347-1-git-send-email-buytenh@wantstofly.org> <1220448012-20347-2-git-send-email-buytenh@wantstofly.org>
-Mime-Version: 1.0 (Apple Message framework v928.1)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 15 Sep 2008 18:38:07 -0400
+Message-ID: <20080915223807.GC15421@havoc.gtf.org>
+References: <20080915204543.GD3994@havoc.gtf.org> <20080915.141442.139271313.davem@davemloft.net> <20080915215307.GA10340@alpha.franken.de> <20080915.151125.93659986.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: tsbogend@alpha.franken.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:48213 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753207AbYIOWeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 18:34:08 -0400
-In-Reply-To: <1220448012-20347-2-git-send-email-buytenh@wantstofly.org>
+Received: from havoc.gtf.org ([69.61.125.42]:38368 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753273AbYIOWiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2008 18:38:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20080915.151125.93659986.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Sep 15, 2008 at 03:11:25PM -0700, David Miller wrote:
+> There are a lot of clean and good fixes, but that is not the
+> criteria for outside-of-the merge-window submissions right now.
+> 
+> Linus has made this clear.
 
-On Sep 3, 2008, at 08:20, Lennert Buytenhek wrote:
+He continues to take non-regression fixes and minor cosmetic commits
+from other trees.
 
-> This patch splits the bus scanning code in mdiobus_register() off
-> into a separate function, and makes this function available for
-> calling from external code.  This allows incrementally scanning an
-> mii bus, e.g. as information about which addresses are 'safe' to
-> scan becomes available.
->
-> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+The basic idea is to BALANCE the lateness of -rc with the seriousness of
+the problem being fixed, and the technical complexity of the fix itself.
 
-Acked-by: Andy Fleming <afleming@freescale.com>
+The later the -rc, the more you need to take into account how likely it
+is to create additional problems.  But did you READ the patches and
+extended commit descriptions, to see if additional problems were likely?
+
+Late -rc does not mean "no bug fixes at all except regressions" if you
+look at the commits going into the kernel tree.
+
+Late -rc does not mean putting off memory corruption fixes for 6 months.
+
+	Jeff
+
+
 
