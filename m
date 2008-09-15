@@ -1,18 +1,17 @@
 From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH] atl2: add atl2 driver
-Date: Sun, 14 Sep 2008 19:49:12 -0500
-Message-ID: <20080914194912.286c30b8@osprey.hogchain.net>
+Subject: [PATCH][CORRECTED] atl2: add atl2 driver
+Date: Sun, 14 Sep 2008 19:56:10 -0500
+Message-ID: <20080914195610.1fd9dab8@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Chris Snook <csnook@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+To: jeff@garzik.org, Chris Snook <csnook@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost01.isp.att.net ([204.127.217.101]:39123 "EHLO
-	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750924AbYIOAtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 20:49:21 -0400
+Received: from fmailhost02.isp.att.net ([204.127.217.102]:40121 "EHLO
+	fmailhost02.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389AbYIOA4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2008 20:56:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,9 +20,11 @@ From: Chris Snook <csnook@redhat.com>
 Driver for Atheros L2 10/100 network device. Includes necessary
 changes for Kconfig, Makefile, and pci_ids.h.
 
-Sighed-off-by: Chris Snook <csnook@redhat.com>
+Signed-off-by: Chris Snook <csnook@redhat.com>
 Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 ---
+
+Changed "Sighed-off-by" to "Signed-off-by" for Chris' entry.
 
 If this file is too large for vger, the full patch may be obtained from
 ftp://ftp.hogchain.net/pub/linux/attansic/atlx/0001-atl2-add-atl2-driver.patch
