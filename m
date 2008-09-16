@@ -1,55 +1,64 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
-Date: Mon, 15 Sep 2008 19:24:45 -0500
-Message-ID: <1221524685-25968-1-git-send-email-afleming@freescale.com>
-Cc: netdev@vger.kernel.org,
-	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-To: jeff@garzik.org
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
+Date: Mon, 15 Sep 2008 20:44:31 -0500
+Message-ID: <20080915204431.45201beb@osprey.hogchain.net>
+References: <20080821115849.GA2126@x200.localdomain>
+	<20080914181714.34935d9c@osprey.hogchain.net>
+	<20080915224522.GA21012@x200.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:56481 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754228AbYIPAYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 20:24:49 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by de01egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m8G0OkPV017248
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 17:24:46 -0700 (MST)
-Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m8G0OkT2029123
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 19:24:46 -0500 (CDT)
+Received: from fmailhost03.isp.att.net ([204.127.217.103]:63121 "EHLO
+	fmailhost03.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbYIPBoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 21:44:34 -0400
+In-Reply-To: <20080915224522.GA21012@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+On Tue, 16 Sep 2008 02:45:22 +0400
+Alexey Dobriyan <adobriyan@gmail.com> wrote:
 
-Creating a VLAN interface on top of ucc_geth adds 4 bytes
-to the frame and the HW controller is not prepared to
-TX a frame bigger than 1518 bytes which is 4 bytes too
-small for a full VLAN frame. Also add 4 extra bytes for future
-expansion.
+> On Sun, Sep 14, 2008 at 06:17:14PM -0500, Jay Cliburn wrote:
+> > On Thu, 21 Aug 2008 15:58:49 +0400
+> > adobriyan@gmail.com wrote:
+> > 
+> > > This message happens more or less every reboot, sometimes cable
+> > > unplug/plug is needed to restore connectivity, otherwise card is
+> > > working fine.
+> > > 
+> > > 
+> > > [   22.570010] eth1: link up, 100Mbps, full-duplex, lpa 0x45E1
+> > > [   26.570011] NET: Registered protocol family 10
+> > > [   37.551934] eth0: no IPv6 routers present
+> > > 
+> > > 	[rebooted box which is directly connected to a box with
+> > > atl1]
+> > > 
+> > > [ 2078.740004] atl1 0000:03:00.0: eth0 link is down
+> > > [ 2080.790004] atl1 0000:03:00.0: eth0 link is up 1000 Mbps full
+> > > duplex [ 2086.049998] NETDEV WATCHDOG: eth0 (atl1): transmit
+> > > timed out [ 2086.050004] ------------[ cut here ]------------
+> > > [ 2086.050004] WARNING: at net/sched/sch_generic.c:221
+> > [...]
+> > 
+> > Alexey,
+> > 
+> > Can you please try this patch?
+> 
+> Seems to help (no more messages), still sometimes no networking until
+> after cable replug. Stay tuned.
 
-Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
----
- drivers/net/ucc_geth.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Does this stay tuned mean, "Jay, hold off while I (Alexey) troubleshoot
+this further."  Or does it mean, "Jay, you've not completely solved the
+problem yet and you need to continue working on it."  If it's the
+latter, can you please describe your setup and how you reproduce the
+problem?  Is the box you have connected directly to the atl1 box used
+as a netconsole?
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 8f944e5..8fed4bb 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -113,10 +113,10 @@ static struct ucc_geth_info ugeth_primary_info = {
- 	.maxGroupAddrInHash = 4,
- 	.maxIndAddrInHash = 4,
- 	.prel = 7,
--	.maxFrameLength = 1518,
-+	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags and 4 extra bytes */
- 	.minFrameLength = 64,
--	.maxD1Length = 1520,
--	.maxD2Length = 1520,
-+	.maxD1Length = 1520+8,
-+	.maxD2Length = 1520+8,
- 	.vlantype = 0x8100,
- 	.ecamptr = ((uint32_t) NULL),
- 	.eventRegMask = UCCE_OTHER,
--- 
-1.5.4.GIT
+Thanks for your help.
 
+Jay
