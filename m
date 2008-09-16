@@ -1,78 +1,65 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 09/14] Phonet: allocate and initialize new sockets
-Date: Tue, 16 Sep 2008 18:08:09 +0300
-Message-ID: <1221577694-4513-9-git-send-email-remi.denis-courmont@nokia.com>
-References: <200809161757.38571.remi.denis-courmont@nokia.com>
-To: netdev@vger.kernel.org
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] ipvs: change some __constant_htons() to htons()
+Date: Tue, 16 Sep 2008 11:11:11 -0400
+Message-ID: <48CFCC8F.1040702@hp.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------000809030502090009010403"
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:52822 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389AbYIPPI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 11:08:28 -0400
-Received: from esebh105.NOE.Nokia.com (esebh105.ntc.nokia.com [172.21.138.211])
-	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8GF8AVu031651
-	for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 18:08:26 +0300
-In-Reply-To: <200809161757.38571.remi.denis-courmont@nokia.com>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:14677 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753081AbYIPPLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 11:11:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+This is a multi-part message in MIME format.
+--------------000809030502090009010403
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Change __contant_htons() to htons() in the IPVS code when not in an 
+initializer.
+
+-Brian
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 ---
- include/net/phonet/phonet.h |    1 +
- net/phonet/af_phonet.c      |   20 ++++++++++++++++++--
- 2 files changed, 19 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-index 8e7e42d..1131833 100644
---- a/include/net/phonet/phonet.h
-+++ b/include/net/phonet/phonet.h
-@@ -81,6 +81,7 @@ void pn_skb_get_dst_sockaddr(struct sk_buff *skb, struct sockaddr_pn *sa)
- 
- /* Protocols in Phonet protocol family. */
- struct phonet_protocol {
-+	const struct proto_ops	*ops;
- 	struct proto		*prot;
- 	int			sock_type;
- };
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index 317f30c..1628e7c 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -41,6 +41,8 @@ static inline void phonet_proto_put(struct phonet_protocol *pp);
- 
- static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
+--------------000809030502090009010403
+Content-Type: text/x-patch;
+ name="ipvs.htons.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ipvs.htons.patch"
+
+diff --git a/net/ipv4/ipvs/ip_vs_proto.c b/net/ipv4/ipvs/ip_vs_proto.c
+index b06da1c..0791f9e 100644
+--- a/net/ipv4/ipvs/ip_vs_proto.c
++++ b/net/ipv4/ipvs/ip_vs_proto.c
+@@ -237,7 +237,7 @@ ip_vs_tcpudp_debug_packet(struct ip_vs_protocol *pp,
+ 			  const char *msg)
  {
-+	struct sock *sk;
-+	struct pn_sock *pn;
- 	struct phonet_protocol *pnp;
- 	int err;
- 
-@@ -71,8 +73,22 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
- 		goto out;
- 	}
- 
--	/* TODO: create and init the struct sock */
--	err = -EPROTONOSUPPORT;
-+	sk = sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
-+	if (sk == NULL) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	sock_init_data(sock, sk);
-+	sock->state = SS_UNCONNECTED;
-+	sock->ops = pnp->ops;
-+	sk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
-+	sk->sk_protocol = protocol;
-+	pn = pn_sk(sk);
-+	pn->sobject = 0;
-+	pn->resource = 0;
-+	sk->sk_prot->init(sk);
-+	err = 0;
- 
- out:
- 	phonet_proto_put(pnp);
--- 
-1.5.4.3
+ #ifdef CONFIG_IP_VS_IPV6
+-	if (skb->protocol == __constant_htons(ETH_P_IPV6))
++	if (skb->protocol == htons(ETH_P_IPV6))
+ 		ip_vs_tcpudp_debug_packet_v6(pp, skb, offset, msg);
+ 	else
+ #endif
+diff --git a/net/ipv4/ipvs/ip_vs_proto_ah_esp.c b/net/ipv4/ipvs/ip_vs_proto_ah_esp.c
+index 2b18a78..80ab0c8 100644
+--- a/net/ipv4/ipvs/ip_vs_proto_ah_esp.c
++++ b/net/ipv4/ipvs/ip_vs_proto_ah_esp.c
+@@ -167,7 +167,7 @@ ah_esp_debug_packet(struct ip_vs_protocol *pp, const struct sk_buff *skb,
+ 		    int offset, const char *msg)
+ {
+ #ifdef CONFIG_IP_VS_IPV6
+-	if (skb->protocol == __constant_htons(ETH_P_IPV6))
++	if (skb->protocol == htons(ETH_P_IPV6))
+ 		ah_esp_debug_packet_v6(pp, skb, offset, msg);
+ 	else
+ #endif
 
+--------------000809030502090009010403--
