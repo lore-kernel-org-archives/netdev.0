@@ -1,44 +1,49 @@
-From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
-Subject: Re: [git patches] net driver fixes
-Date: Tue, 16 Sep 2008 17:21:48 +0200
-Message-ID: <20080916152148.GA7617@alpha.franken.de>
-References: <20080916104811.GC7397@cs181140183.pp.htv.fi> <20080916114305.GB10965@ff.dom.local> <20080916121528.GD7397@cs181140183.pp.htv.fi> <20080916135408.GB13388@mit.edu> <20080916070241.3e8d5202@infradead.org> <20080916143408.GA1400@cs181140183.pp.htv.fi> <20080916074802.200c8a43@infradead.org>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: LRO num of frags limit
+Date: Tue, 16 Sep 2008 18:25:34 +0300
+Message-ID: <20080916152534.GA28609@mtls03>
+References: <20080916073632.GA25226@mtls03> <1221561617.3244.78.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@kernel.org>, Theodore Tso <tytso@mit.edu>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Arjan van de Ven <arjan@infradead.org>
+Cc: netdev@vger.kernel.org, themann@de.ibm.com,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elvis.franken.de ([193.175.24.41]:35186 "EHLO elvis.franken.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751844AbYIPPWE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2008 11:22:04 -0400
+Received: from mail.mellanox.co.il ([194.90.237.43]:35147 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752190AbYIPPY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2008 11:24:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20080916074802.200c8a43@infradead.org>
+In-Reply-To: <1221561617.3244.78.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2008 at 07:48:02AM -0700, Arjan van de Ven wrote:
-> not sure; just we need to catch doing pci_disable_device on a
-> non-enabled device as a WARN_ON.
-
-the pci_disable_device() is done on an enabled device, so your
-new WARN_ON wouldn't trigger.
-
-> and the patch looks quite wrong, the real answer should be to do the
-> enable in open() :-)
-
-I thought about the solution, but the pci device is completely setup
-and enabled in the init function so disabling it at that point and
-enabling it in open() again sounds silly to me. pci_enable_enable/disable
-is already done in .init/.remove and .suspend/.resume, so it looked
-more obviuos to not let close() do the pci_disable_device().
-
-Thomas.
-
--- 
-Crap can work. Given enough thrust pigs will fly, but it's not necessary a
-good idea.                                                [ RFC1925, 2.3 ]
+On Tue, Sep 16, 2008 at 11:40:17AM +0100, Ben Hutchings wrote:
+> On Tue, 2008-09-16 at 10:36 +0300, Eli Cohen wrote:
+> > Hi,
+> > 
+> > looking at the LRO code, at __lro_proc_segment(), it seems that the
+> > network driver can configure lro_mgr->max_aggr to any value it wants
+> > while the number of fragments aggregated must not exceed MAX_SKB_FRAGS
+> 
+> Correct.
+> 
+> > (since we only use a single SKB to aggregate fragments, allocated by
+> > lro_gen_skb()). Moreover, even if the driver does limit
+> > lro_mgr->max_aggr to MAX_SKB_FRAGS, it might still cause overflow
+> > since subsequent aggregations are done at lro_add_frags() which is
+> > called before checking whether we overflow.
+> 
+> So you must set max_aggr to
+> MAX_SKB_FRAGS - max number of frags added at once + 1.
+> 
+> > If the above observation is correct, I can send a patch.
+> 
+> I would be interested to see that, anyway.
+> 
+By the way, we need to introduce two kinds of "max_aggr" fields to
+struct net_lro_mgr. The reason is that when LRO is used in the mode in
+which SKBs are linked, the above limitation does not exist. One will
+be used for drivers which use lro_receive_skb() (which does not have a
+limit) and one for drivers which use lro_receive_frags(). This will
+require changing all the drivers that use LRO.
