@@ -1,183 +1,182 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 13/14] Phonet: emit errors when a packet cannot be
-	delivered locally
-Date: Tue, 16 Sep 2008 14:11:05 -0300
-Message-ID: <20080916171105.GN8702@ghostprotocols.net>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-13-git-send-email-remi.denis-courmont@nokia.com>
+From: Victor NOEL <victor.noel@crazydwarves.org>
+Subject: zd1211rw (2.6.26.5) and ipv6
+Date: Tue, 16 Sep 2008 19:50:09 +0200
+Message-ID: <20080916175008.GR4610@crazydwarves.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="o6aug3O60clXg2rj"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:55860 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751678AbYIPRUI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2008 13:20:08 -0400
+Received: from crazydwarves.org ([82.233.236.81]:35953 "HELO
+	mail.crazydwarves.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753105AbYIPR5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 13:57:33 -0400
 Content-Disposition: inline
-In-Reply-To: <1221577694-4513-13-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Sep 16, 2008 at 06:08:13PM +0300, R=E9mi Denis-Courmont escreve=
-u:
-> When there is no listener socket for a received packet, send an error
-> back to the sender.
->=20
-> Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-> ---
->  net/phonet/af_phonet.c |   82 ++++++++++++++++++++++++++++++++++++++=
-+++++++--
->  1 files changed, 78 insertions(+), 4 deletions(-)
->=20
-> diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-> index c18664d..3962969 100644
-> --- a/net/phonet/af_phonet.c
-> +++ b/net/phonet/af_phonet.c
-> @@ -134,7 +134,7 @@ EXPORT_SYMBOL(phonet_header_ops);
->   * Prepends an ISI header and sends a datagram.
->   */
->  static int pn_send(struct sk_buff *skb, struct net_device *dev,
-> -			u16 dst, u16 src, u8 res)
-> +			u16 dst, u16 src, u8 res, u8 irq)
->  {
->  	struct phonethdr *ph;
->  	int err;
-> @@ -163,7 +163,10 @@ static int pn_send(struct sk_buff *skb, struct n=
-et_device *dev,
->  		skb_reset_mac_header(skb);
->  		skb->pkt_type =3D PACKET_LOOPBACK;
->  		skb_orphan(skb);
-> -		netif_rx_ni(skb);
-> +		if (irq)
-> +			netif_rx(skb);
-> +		else
-> +			netif_rx_ni(skb);
->  		err =3D 0;
->  	} else {
->  		err =3D dev_hard_header(skb, dev, ntohs(skb->protocol),
-> @@ -181,6 +184,18 @@ drop:
->  	return err;
->  }
-> =20
-> +static int pn_raw_send(const void *data, int len, struct net_device =
-*dev,
-> +			u16 dst, u16 src, u8 res)
-> +{
-> +	struct sk_buff *skb =3D alloc_skb(MAX_PHONET_HEADER + len, GFP_ATOM=
-IC);
-> +	if (skb =3D=3D NULL)
-> +		return -ENOMEM;
-> +
-> +	skb_reserve(skb, MAX_PHONET_HEADER);
-> +	memcpy(skb_put(skb, len), data, len);
 
-Check if you shouldn't be using skb_copy_to_linear_data
+--o6aug3O60clXg2rj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> +	return pn_send(skb, dev, dst, src, res, 1);
-> +}
-> +
->  /*
->   * Create a Phonet header for the skb and send it out. Returns
->   * non-zero error code if failed. The skb is freed then.
-> @@ -221,7 +236,7 @@ int pn_skb_send(struct sock *sk, struct sk_buff *=
-skb,
->  	spin_unlock_bh(&pndevs.lock);
-> =20
->  	err =3D pn_send(skb, dev, pn_sockaddr_get_object(target),
-> -			src, pn_sockaddr_get_resource(target));
-> +			src, pn_sockaddr_get_resource(target), 0);
->  	dev_put(dev);
->  	return err;
-> =20
-> @@ -231,6 +246,60 @@ drop:
->  }
->  EXPORT_SYMBOL(pn_skb_send);
-> =20
-> +static inline int can_respond(struct sk_buff *skb)
-> +{
-> +	const struct phonethdr *ph =3D pn_hdr(skb);
-> +	struct phonet_device *pnd;
-> +
-> +	if (!pskb_may_pull(skb, 3))
-> +		return 0;
-> +	if (skb->data[1] =3D=3D 0xF0)
-> +		return 0;
-> +	if (skb->data[2] =3D=3D 0x01 || skb->data[2] =3D=3D 0x14)
-> +		return 0;
+Hello,
 
-Try not to access skb->data directly, probably you would be better off
-using some pn_hdr() like accessor that peeked at the mac_header, etc
+After a little investigation (see after), I came to the conclusion
+there was something strange with the zd1211rw wifi driver (or
+maybe mac80211-based ones like it happened in the past ?) and ipv6
+(at least with autoconfiguration).
 
-> +	spin_lock(&pndevs.lock);
-> +	pnd =3D __phonet_get_by_index(skb->dev->ifindex);
-> +	if (!pnd
-> +	 || !phonet_dev2addr(pnd, ph->rdev & 0xFC, PN_FIND_EXACT)) {
-> +		spin_unlock(&pndevs.lock);
-> +		return 0;
-> +	}
-> +	spin_unlock(&pndevs.lock);
-> +	return 1;
-> +}
-> +
-> +static int send_obj_unreachable(struct sk_buff *rskb)
-> +{
-> +	struct phonethdr *oph =3D pn_hdr(rskb);
-> +	uint8_t data[8];
-> +
-> +	BUG_ON(skb_headlen(rskb) < 2);
-> +	data[0] =3D rskb->data[0];
-> +	data[1] =3D 0xF0;
-> +	data[2] =3D 0x14;
-> +	data[3] =3D rskb->data[1];
-> +	data[4] =3D 0x00;
-> +	data[5] =3D 0x00;
-> +	data[6] =3D 0x00;
-> +	data[7] =3D 0x00;
+I am on Archlinux with kernel 2.6.26.5 kernel behind a router
+connecting me to internet by ipv4 and ipv6.
 
-Couldn't this be built using some relevant struct, etc?
+After a little discussion with John W. Linville on irc, he
+redirected me to this mailing list.
 
-> +	return pn_raw_send(data, sizeof(data), rskb->dev,
-> +				pn_object(oph->sdev, oph->sobj),
-> +				pn_object(oph->rdev, oph->robj),
-> +				oph->function);
-> +}
-> +
-> +static int send_reset_indications(struct sk_buff *rskb)
-> +{
-> +	struct phonethdr *oph =3D pn_hdr(rskb);
-> +	uint8_t data[4] =3D { 0x00, 0x10, 0x00, 0x00 };
-> +
-> +	return pn_raw_send(data, sizeof(data), rskb->dev,
-> +				pn_object(oph->sdev, 0x00),
-> +				pn_object(oph->rdev, oph->robj), 0x10);
-> +}
-> +
-> +
->  /* packet type functions */
-> =20
->  /*
-> @@ -269,8 +338,13 @@ static int phonet_rcv(struct sk_buff *skb, struc=
-t net_device *dev,
->  		goto out; /* currently, we cannot be device 0 */
-> =20
->  	sk =3D pn_find_sock_by_sa(&sa);
-> -	if (sk =3D=3D NULL)
-> +	if (sk =3D=3D NULL) {
-> +		if (can_respond(skb)) {
-> +			send_obj_unreachable(skb);
-> +			send_reset_indications(skb);
-> +		}
->  		goto out;
-> +	}
-> =20
->  	/* Push data to the socket (or other sockets connected to it). */
->  	err =3D pn_sk(sk)->handler(sk, skb);
-> --=20
-> 1.5.4.3
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The idea is that I connect to a wireless network with wpa
+protection, get my ipv4 address by dhcp and my ipv6 address by
+autoconfiguration : the ip is ok, the routes are goods, I can
+ping6 myself, I can ping6 the router (the next hop for default
+route) but I can't go out of this network.
+
+If I do the same but with ethernet (same router serving both
+ethernet and wifi), all the ip configuration, routes, neighbors
+are the same, but I can go out on the net.
+
+Nothing in dmesg.
+
+Of course ipv6 works on other boxes (I tried a windows on a
+laptop, and the routes used are the same too)
+
+This is what I have with both ethernet and wifi :
+First wifi :
+[victor@pistache ~]$ ip -6 route
+2a01:e35:2f1f:8f10::/64 dev wlan0  proto kernel  metric 256 expires 86386se=
+c mtu 1480 advmss 1420 hoplimit 4294967295
+fe80::/64 dev wlan0  metric 256  mtu 1480 advmss 1420 hoplimit 4294967295  =
+                                          =20
+default via fe80::207:cbff:fec8:d1d2 dev wlan0  proto kernel metric 1024  e=
+xpires 1797sec mtu 1480 advmss 1420 hoplimit 64
+
+[victor@pistache ~]$ ifconfig
+lo        Link encap:Local Loopback                                        =
+                                             =20
+          inet addr:127.0.0.1  Mask:255.0.0.0                              =
+                                             =20
+          inet6 addr: ::1/128 Scope:Host                                   =
+                                             =20
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1                         =
+                                             =20
+          RX packets:12 errors:0 dropped:0 overruns:0 frame:0              =
+                                             =20
+          TX packets:12 errors:0 dropped:0 overruns:0 carrier:0            =
+                                             =20
+          collisions:0 txqueuelen:0
+          RX bytes:748 (748.0 b)  TX bytes:748 (748.0 b)
+
+wlan0     Link encap:Ethernet  HWaddr 00:60:B3:EA:19:97
+          inet addr:192.168.0.1  Bcast:192.168.0.255 Mask:255.255.255.0
+          inet6 addr: 2a01:e35:2f1f:8f10:5:2b83:18cf:89f1/64 Scope:Global
+          inet6 addr: 2a01:e35:2f1f:8f10:260:b3ff:feea:1997/64 Scope:Global
+          inet6 addr: fe80::260:b3ff:feea:1997/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:18242 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:19472 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:16047994 (15.3 Mb)  TX bytes:2862642 (2.7 Mb)
+
+wmaster0  Link encap:UNSPEC  HWaddr 00-60-B3-EA-19-97-00-00-00-00-00-00-00-=
+00-00-00
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+[victor@pistache ~]$ ping6 www.kame.net
+PING www.kame.net(orange.kame.net) 56 data bytes
+^C
+--- www.kame.net ping statistics ---
+5 packets transmitted, 0 received, 100% packet loss, time 4011ms
+
+[victor@pistache ~]$ tracepath6 www.kame.net
+ 1?: [LOCALHOST]                      pmtu 1480
+ 1:  no reply
+^C
+
+[victor@pistache ~]$ ip -6 neigh show
+fe80::207:cbff:fec8:d1d2 dev wlan0 lladdr 00:07:cb:c8:d1:d2 router STALE
+
+
+And ethernet :
+[victor@pistache ~]$ ifconfig
+eth0      Link encap:Ethernet  HWaddr 00:0E:A6:AA:D4:55
+          inet addr:192.168.0.21  Bcast:192.168.0.255 Mask:255.255.255.0
+          inet6 addr: 2a01:e35:2f1f:8f10:20e:a6ff:feaa:d455/64 Scope:Global
+          inet6 addr: fe80::20e:a6ff:feaa:d455/64 Scope:Link
+          inet6 addr: 2a01:e35:2f1f:8f10:c8bc:d444:cd3:ca45/64 Scope:Global
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:6 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:36 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:1548 (1.5 Kb)  TX bytes:7671 (7.4 Kb)
+          Interrupt:22
+
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:12 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:12 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:748 (748.0 b)  TX bytes:748 (748.0 b)
+
+[victor@pistache ~]$ ip -6 route
+2a01:e35:2f1f:8f10::/64 dev eth0  proto kernel  metric 256 expires 86369sec=
+ mtu 1480 advmss 1420 hoplimit 4294967295
+fe80::/64 dev eth0  metric 256  mtu 1480 advmss 1420 hoplimit 4294967295
+default via fe80::207:cbff:fec8:d1d2 dev eth0  proto kernel metric 1024  ex=
+pires 1780sec mtu 1480 advmss 1420 hoplimit 64
+
+[victor@pistache ~]$ ping6 www.kame.net
+PING www.kame.net(orange.kame.net) 56 data bytes
+64 bytes from orange.kame.net: icmp_seq=3D1 ttl=3D50 time=3D283 ms
+^C
+--- www.kame.net ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev =3D 283.337/283.337/283.337/0.000 ms
+
+[victor@pistache ~]$ tracepath6 www.kame.net
+ 1?: [LOCALHOST]                      pmtu 1480
+ 1:  2a01:e35:2f1f:8f10::1                      1.078ms
+ 2:  6to4-b8-e3.intf.routers.proxad.net        30.465ms
+ 3:  bzn-crs16-1-te1-1-0-7.intf.routers.proxad.net  32.224ms
+ 4:  2001:5a0:0:300::25                        31.212ms
+ 5:  2001:5a0:0:300::2a                       107.376ms
+ 6:  if-1-0.core2.nto-newyork.ipv6.teleglobe.net 108.126ms
+ 7:  p16-0-1-1.r20.nycmny01.us.bb.gin.ntt.net asymm  8 107.843ms
+^C
+
+[victor@pistache ~]$ ip -6 neigh show
+fe80::207:cbff:fec8:d1d2 dev eth0 lladdr 00:07:cb:c8:d1:d2 router STALE
+
+That's all for now, I hope nothing is missing.
+
+Thanks you for your help,
+
+Victor
+
+--o6aug3O60clXg2rj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFIz/HQQ7uDv7gIkeURApTuAKChCp3TwiCKHVhSz2OaLBdGKbFlRQCfQMhi
+molaLvOLQQ3rFyM90Tg4p5E=
+=tA8/
+-----END PGP SIGNATURE-----
+
+--o6aug3O60clXg2rj--
