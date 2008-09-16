@@ -1,50 +1,49 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [git patches] net driver fixes
-Date: Tue, 16 Sep 2008 12:01:18 +1000
-Message-ID: <20080916020100.GA23389@verge.net.au>
-References: <20080915.120917.36004302.davem@davemloft.net> <20080915201749.GB3994@havoc.gtf.org> <20080915.132716.267218808.davem@davemloft.net> <20080915.141159.181213705.davem@davemloft.net>
+From: Jason Stubbs <j.stubbs@linkthink.co.jp>
+Subject: Re: Adding SNAT support to LVS/NAT
+Date: Tue, 16 Sep 2008 10:31:58 +0900
+Message-ID: <200809161031.58743.j.stubbs@linkthink.co.jp>
+References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com> <20080915014337.GA10026@verge.net.au> <Pine.LNX.4.64.0809150815580.32594@wm7d.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Simon Horman <horms@verge.net.au>,
+	Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Siim =?utf-8?q?P=C3=B5der?= <siim@p6drad-teel.net>
+To: Joseph Mack NA3T <jmack@wm7d.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:42681 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbYIPCBU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 22:01:20 -0400
+Received: from smtp.blogtoy.net ([202.177.195.2]:34435 "EHLO smtp.blogtoy.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752718AbYIPCEy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 22:04:54 -0400
+In-Reply-To: <Pine.LNX.4.64.0809150815580.32594@wm7d.net>
 Content-Disposition: inline
-In-Reply-To: <20080915.141159.181213705.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2008 at 02:11:59PM -0700, David Miller wrote:
+On Tuesday 16 September 2008 00:24:38 Joseph Mack NA3T wrote:
+> On Mon, 15 Sep 2008, Simon Horman wrote:
+>=20
+> > Well, it would be a problem if it gets DNATed a second time.
+>=20
+> Are you just being really safe? Are you trying to prevent=20
+> someone from adding DNAT rules to OUTPUT?
+>=20
+> Would it be better (as much as possible) for LVS to appear=20
+> to be just another netfilter module, in which case if=20
+> someone wants to DNAT in OUTPUT, this should be allowed=20
+> (whether it's sensible or not). Currently LVS-NAT doesn't=20
+> allow SNAT on OUTPUT, which no-one thought about when=20
+> LVS-NAT was first written and it turns out to be useful.
 
-[snip]
-> 
-> Not a 2.6.27 regression, this problem has been there forever.
-> 
-> 	Magnus Damm (2):
-> 	      smc91x: fix nowait printout
-> 
-> This one is good but the commit message needs to be fixed up.
-> It references a raw SHA1 ID but does not give the commit message
-> header line as well, which is a requirement.
-> 
->       smc91x: SMC_IO_SHIFT platform data support for default case
-> 
-> Ok, but needs commit header line text for referenced commit.
+=46or what it's worth, I'm currently using DNAT alongside LVS-NAT
+for certain connections. It only serves a secondary purpose and
+there are other ways (although not as simple) to achieve the
+purpose, but it has proven useful.
 
-[snip]
-
-Hi Dave,
-
-can you confirm that the commit message requirement stands even
-if the SHA1 ID references Linus' tree? I personally think that is
-reasonable, I just want to confirm that is the requirement.
-
--- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
-
+--=20
+Jason Stubbs <j.stubbs@linkthink.co.jp>
+LINKTHINK INC.
+=E6=9D=B1=E4=BA=AC=E9=83=BD=E6=B8=8B=E8=B0=B7=E5=8C=BA=E6=A1=9C=E3=83=B6=
+=E4=B8=98=E7=94=BA22-14 N.E.S S=E6=A3=9F 3F
+TEL 03-5728-4772  FAX 03-5728-4773
