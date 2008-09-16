@@ -1,47 +1,69 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v6 00/16] Labeled networking patches for 2.6.28
-Date: Tue, 16 Sep 2008 09:15:19 -0400
-Message-ID: <200809160915.19843.paul.moore@hp.com>
-References: <20080916124722.17132.38741.stgit@flek.lan>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: [git patches] net driver fixes
+Date: Tue, 16 Sep 2008 09:54:08 -0400
+Message-ID: <20080916135408.GB13388@mit.edu>
+References: <20080916104811.GC7397@cs181140183.pp.htv.fi> <20080916114305.GB10965@ff.dom.local> <20080916121528.GD7397@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080916124722.17132.38741.stgit@flek.lan>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+	David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755217AbYIPNyh@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
+In-Reply-To: <20080916121528.GD7397@cs181140183.pp.htv.fi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 16 September 2008 8:55:48 am Paul Moore wrote:
-> Another revision to the patchset to fix two issues, one trivial, the
-> other not so much.  The trivial fix was to add some locking around
-> the connection labeling operations, we're messing with the socket so
-> we should make sure we lock it like we do everywhere else.  The
-> second fix was to ensure that we sync up a stream socket's MSS value
-> when we add IP options to the socket. We were doing everything
-> correctly on the client side, but the server side was a bit of a
-> mess; I'm pretty happy with this fix as I think it actually makes the
-> code a bit cleaner in some respects and I believe actually shrinks
-> the size of the diff slightly (a good sign).
->
-> A special thanks to Joe Nall and John Wiseman for helping debug the
-> MSS problem.
->
-> I've updated both the git trees earlier today so hopefully the next
-> cut of the linux-next tree should have the latest bits.
->
->  * git://git.infradead.org/users/pcmoore/lblnet-2.6_testing
+On Tue, Sep 16, 2008 at 03:15:28PM +0300, Adrian Bunk wrote:
+> 
+> More seriously, there's a difference between Linus' "another random 
+> improvement" and an "is even suitable for -stable".
+> 
+> I'm not reading Linus' (Cc'ed) statement the way that a patch that is 
+> appropriate for 2.6.27.1 is not appropriate for -rc now.
 
-I forgot to add, there is also a small fix to the 
-cipso_v4_sock_delattr() function so that it correctly removes the CIPSO 
-option and either adjust the option padding correctly or removes the 
-options struct entirely from the socket if it is no longer needed.
+Well, remember that patches that get published for -stable do have to
+go through an extra review process.  It's not true that any "obviously
+correct" bug fix gets automatically published in -stable.  Sometimes
+bug fixes do get rejected for -stable because they are too risky, or
+require more time for testing in the -rc series before they are deemed
+suitable for -stable.
 
-Thanks to Casey Schaufler for finding this bug.
+Looking at 2.6.26, there is currently about 195 patches queued up,
+which is certainly not all of the bugs fixed during the 2.6.27
+development cycle.  Some of it is that some developers aren't as
+aggressive about nominating patches for backporting to 2.6.26, and
+some of it is that only the really *important* bugs get this treatment.
 
--- 
-paul moore
-linux @ hp
+But, I bet that if there was a major embarassing problem where someone
+abused the process by submitting an "obviously correct" patch that
+ended up breaking things for a others, the end result would be that
+the -stable team would start cracking down and start using more strict
+criteria about what would be considered allowable for publishing in
+-stable.
+
+I'll remind people that the original rule was that new features were
+only allowed in -rc1, and bug fixes in -rc1 and -rc2.  But because
+that got abused, Linus is now saying that only regression bug fixes
+are allowed post -rc1.  My belief is that part of the reason for this
+is that Linus is a self-described soft touch, and by stating a
+draconian rule, he's hoping that subsystem maintainers like David will
+lay done the law, and prevent the really serious abuses (where people
+starting submitting "obvious bug fixes" in -rc5 and -rc6 that caused
+regressions which in turn ends up extending the release cycle).
+
+If it's a really important bug, and it affects a huge number of users,
+or it's really bad security bug, the reality is that exceptions will
+be made to the rules.  But exceptions need to remain exceptions for
+extraordinary situations, not everyday occurrences.  And of course, if
+the bug does affect a huge number of users, someone should be asking
+the question why it wasn't detected sooner, say before the last merge
+window --- and to ask the question how many users is this bug really
+going to affect anyway?
+
+At least, that's my take on things,
+
+						- Ted
