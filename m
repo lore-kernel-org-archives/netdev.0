@@ -1,27 +1,44 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [patch 0/3] ipvs: sparse fixes
-Date: Tue, 16 Sep 2008 11:28:37 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.0809161126070.3805@titan.stealer.net>
-References: <20080916071318.939200044@vergenet.net>
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Subject: Re: [git patches] net driver fixes
+Date: Tue, 16 Sep 2008 11:18:08 +0200
+Message-ID: <20080916091808.GA5938@alpha.franken.de>
+References: <20080915204543.GD3994@havoc.gtf.org> <20080915.141442.139271313.davem@davemloft.net> <20080915215307.GA10340@alpha.franken.de> <20080915.151125.93659986.davem@davemloft.net> <20080916083934.GA7397@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Julius Volz <juliusv@google.com>,
-	Vince Busam <vbusam@google.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.stealer.net ([88.198.224.204]:57311 "EHLO
-	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754AbYIPJ3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 05:29:20 -0400
-In-Reply-To: <20080916071318.939200044@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753849AbYIPJaW@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080916083934.GA7397@cs181140183.pp.htv.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Sep 2008, Simon Horman wrote:
+On Tue, Sep 16, 2008 at 11:39:34AM +0300, Adrian Bunk wrote:
+> On Mon, Sep 15, 2008 at 03:11:25PM -0700, David Miller wrote:
+> > From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+> > Date: Mon, 15 Sep 2008 23:53:08 +0200
+> > 
+> > > On Mon, Sep 15, 2008 at 02:14:42PM -0700, David Miller wrote:
+> > > > Most of those changes were complete and utter CRAP.
+> > > 
+> > > thank you, but the fix I've sent (de2104x) isn't crap. The bug breaks the 
+> > > current debian-installer for Cobalt Qube1, when it tries to get an
+> > > IP address via dhcp. 
+> > 
+> > And why is this bug that has been there for YEARS is appropriate
+> > to fix outside of the merge window?
+> >...
+> 
+> Such a fix is even suitable for -stable.
 
-> Some fixes and annotations for sparse warnings.
+that was my feeling as well, but if David wants to see it in the next
+merge window, it's his decision. It's not a important fix as the user
+base is obviuosly pretty small. And I didn't know about that bug, when
+the merge windows was open, so I couldn't fix it "in time".
 
-All look good to me.
+Thomas.
+
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessary a
+good idea.                                                [ RFC1925, 2.3 ]
