@@ -1,63 +1,69 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v6 05/16] selinux: Fix a problem in
-	security_netlbl_sid_to_secattr()
-Date: Tue, 16 Sep 2008 08:56:20 -0400
-Message-ID: <20080916125620.17132.60664.stgit@flek.lan>
-References: <20080916124722.17132.38741.stgit@flek.lan>
+From: Oleg Nesterov <oleg@tv-sign.ru>
+Subject: Re: sys_paccept: disable paccept() until API design is resolved
+Date: Tue, 16 Sep 2008 17:04:38 +0400
+Message-ID: <20080916130438.GA261@tv-sign.ru>
+References: <48CFA10D.2010106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080916124722.17132.38741.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Alan Cox <alan@redhat.com>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Jakub Jelinek <jakub@redhat.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	Roland McGrath <roland@redhat.com>,
+	Christoph Hellwig <hch@lst.de>
+To: Michael Kerrisk <mtk.manpages@googlemail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754893AbYIPM7a@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <48CFA10D.2010106@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently when SELinux fails to allocate memory in
-security_netlbl_sid_to_secattr() the NetLabel LSM domain field is set to
-NULL which triggers the default NetLabel LSM domain mapping which may not
-always be the desired mapping.  This patch fixes this by returning an error
-when the kernel is unable to allocate memory.  This could result in more
-failures on a system with heavy memory pressure but it is the "correct"
-thing to do.
+On 09/16, Michael Kerrisk wrote:
+>
+> * The behavior of paccept() when interrupted by a signal is IMO
+>   strange: the kernel restarts the system call if SA_RESTART was set
+>   for the handler.  I think that it should not do this -- that it
+>   should behave consistently with paccept()/ppoll()/epoll_pwait(),
+>   which never restart, regardless of SA_RESTART.  The reasoning here
+>   is that the very purpose of paccept() is to wait for a connection
+>   or a signal, and that restarting in the latter case is probably
+>   never useful.  (Note: Roland disagrees on this point, believing
+>   that rather paccept() should be consistent with accept() in its
+>   behavior wrt EINTR
+>   (http://thread.gmane.org/gmane.linux.kernel/723953/focus=732255).)
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
-Acked-by: James Morris <jmorris@namei.org>
----
+Also, the implementation of sys_paccept() is not "perfect", imho.
 
- security/selinux/ss/services.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+	sys_paccept:
 
-diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
-index d11a815..8d17dfb 100644
---- a/security/selinux/ss/services.c
-+++ b/security/selinux/ss/services.c
-@@ -2788,7 +2788,7 @@ netlbl_secattr_to_sid_return_cleanup:
-  */
- int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
- {
--	int rc = -ENOENT;
-+	int rc;
- 	struct context *ctx;
- 
- 	if (!ss_initialized)
-@@ -2796,10 +2796,16 @@ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
- 
- 	read_lock(&policy_rwlock);
- 	ctx = sidtab_search(&sidtab, sid);
--	if (ctx == NULL)
-+	if (ctx == NULL) {
-+		rc = -ENOENT;
- 		goto netlbl_sid_to_secattr_failure;
-+	}
- 	secattr->domain = kstrdup(policydb.p_type_val_to_name[ctx->type - 1],
- 				  GFP_ATOMIC);
-+	if (secattr->domain == NULL) {
-+		rc = -ENOMEM;
-+		goto netlbl_sid_to_secattr_failure;
-+	}
- 	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY;
- 	mls_export_netlbl_lvl(ctx, secattr);
- 	rc = mls_export_netlbl_cat(ctx, secattr);
+		ret = do_accept(...);
 
+		if (ret < 0 && signal_pending()) {
+			set_restore_sigmask();
+			return ret;
+		}
+
+It doesn't check that ret == ERESTARTSYS/EINTR. I can't say this
+is bug, but let's suppose that do_accept() returns (say) -EINVAL,
+and then the task is interrupted by the signal.
+
+Now, if the signal comes after sys_paccept() checks signal_pending(),
+we return -EINVAL, and the signal handler runs with the original
+current->blocked mask, as expected.
+
+However, if the signal happens in the window before signal_pending(),
+we still return -EINVAL, but the signal handler runs with
+->blocked == sigmask. A bit odd, but probably harmless.
+
+
+Note also that unless I misread the code, do_paccept() returns
+ERESTARTSYS or EINTR depending on ->sk_rcvtimeo. Yes, it is very
+clear why sock_intr_errno() does this, but this doesn't make the
+behaviour of paccept() more understandable.
+
+Oleg.
