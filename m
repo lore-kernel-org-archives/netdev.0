@@ -1,136 +1,383 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Warning/Oops report of the week of September 16th, 2008
-Date: Tue, 16 Sep 2008 09:22:06 -0700
-Message-ID: <20080916092206.6342c498@infradead.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 04/14] Phonet: PF_PHONET protocol family support
+Date: Tue, 16 Sep 2008 13:17:47 -0300
+Message-ID: <20080916161747.GH8702@ghostprotocols.net>
+References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-4-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	tglx@tglx.de, mingo@elte.hu, linux-acpi@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:49797 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755188AbYIPQ0o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2008 12:26:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1221577694-4513-4-git-send-email-remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is the first report where I've dropped oopses that happened to 2.6.25 or earlier kernels.
-I've also changed the format of the report to split it in "fixed" and "not yet fixed" sections;
-I hope that makes the report more useful for developers.
+Em Tue, Sep 16, 2008 at 06:08:04PM +0300, R=E9mi Denis-Courmont escreve=
+u:
+> This is the basis for the Phonet protocol families, and introduces
+> the ETH_P_PHONET packet type and the PF_PHONET socket family.
+>=20
+> Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+> ---
+>  include/net/phonet/phonet.h |   71 ++++++++++++++
+>  net/phonet/Makefile         |    3 +-
+>  net/phonet/af_phonet.c      |  218 +++++++++++++++++++++++++++++++++=
+++++++++++
+>  3 files changed, 291 insertions(+), 1 deletions(-)
+>  create mode 100644 include/net/phonet/phonet.h
+>  create mode 100644 net/phonet/af_phonet.c
+>=20
+> diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.=
+h
+> new file mode 100644
+> index 0000000..be02ee9
+> --- /dev/null
+> +++ b/include/net/phonet/phonet.h
+> @@ -0,0 +1,71 @@
+> +/*
+> + * File: af_phonet.h
+> + *
+> + * Phonet sockets kernel definitions
+> + *
+> + * Copyright (C) 2008 Nokia Corporation.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * version 2 as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful, b=
+ut
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+> + * General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+> + * 02110-1301 USA
+> + */
+> +
+> +#ifndef AF_PHONET_H
+> +#define AF_PHONET_H
+> +
+> +/*
+> + * The lower layers may not require more space, ever. Make sure it's
+> + * enough.
+> + */
+> +#define MAX_PHONET_HEADER	8
+> +
+> +#define pn_hdr(skb) ((struct phonethdr *)skb_network_header(skb))
+> +
+> +/*
+> + * Get the other party's sockaddr from received skb. The skb begins
+> + * with a Phonet header.
+> + */
+> +static inline
+> +void pn_skb_get_src_sockaddr(struct sk_buff *skb, struct sockaddr_pn=
+ *sa)
+> +{
+> +	struct phonethdr *ph =3D pn_hdr(skb);
+> +	uint16_t obj =3D pn_object(ph->sdev, ph->sobj);
+> +
+> +	sa->spn_family =3D AF_PHONET;
+> +	pn_sockaddr_set_object(sa, obj);
+> +	pn_sockaddr_set_resource(sa, ph->function);
+> +	memset(sa->spn_zero, 0, sizeof(sa->spn_zero));
+> +}
+> +
+> +static inline
+> +void pn_skb_get_dst_sockaddr(struct sk_buff *skb, struct sockaddr_pn=
+ *sa)
+> +{
+> +	struct phonethdr *ph =3D pn_hdr(skb);
+> +	uint16_t obj =3D pn_object(ph->rdev, ph->robj);
+> +
+> +	sa->spn_family =3D AF_PHONET;
+> +	pn_sockaddr_set_object(sa, obj);
+> +	pn_sockaddr_set_resource(sa, ph->function);
+> +	memset(sa->spn_zero, 0, sizeof(sa->spn_zero));
+> +}
+> +
+> +/* Protocols in Phonet protocol family. */
+> +struct phonet_protocol {
+> +	struct proto		*prot;
+> +	int			sock_type;
+> +};
 
+Without looking in detail, first reaction is: don't we have sk_type in
+struct sock? Can't it be used or what you would have in
+ponet_protocol->sock_type be mapped to it?
 
+Lemme continue, perhaps phonet_proto_register can tell me...
 
-This week, a total of 1730 oopses and warnings have been reported,
-compared to 626 reports in the previous week.
+> +int phonet_proto_register(int protocol, struct phonet_protocol *pp);
+> +void phonet_proto_unregister(int protocol, struct phonet_protocol *p=
+p);
+> +
+> +#endif
+> diff --git a/net/phonet/Makefile b/net/phonet/Makefile
+> index 4ced746..5dbff68 100644
+> --- a/net/phonet/Makefile
+> +++ b/net/phonet/Makefile
+> @@ -1,3 +1,4 @@
+>  obj-$(CONFIG_PHONET) +=3D phonet.o
+> =20
+> -phonet-objs :=3D
+> +phonet-objs :=3D \
+> +	af_phonet.o
+> diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+> new file mode 100644
+> index 0000000..ed66a81
+> --- /dev/null
+> +++ b/net/phonet/af_phonet.c
+> @@ -0,0 +1,218 @@
+> +/*
+> + * File: af_phonet.c
+> + *
+> + * Phonet protocols family
+> + *
+> + * Copyright (C) 2008 Nokia Corporation.
+> + *
+> + * Contact: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+> + * Original author: Sakari Ailus <sakari.ailus@nokia.com>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * version 2 as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful, b=
+ut
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+> + * General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+> + * 02110-1301 USA
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <asm/unaligned.h>
+> +#include <net/sock.h>
+> +
+> +#include <linux/if_phonet.h>
+> +#include <linux/phonet.h>
+> +#include <net/phonet/phonet.h>
+> +
+> +static struct net_proto_family phonet_proto_family;
+> +static struct phonet_protocol *phonet_proto_get(int protocol);
+> +static inline void phonet_proto_put(struct phonet_protocol *pp);
+> +
+> +/* protocol family functions */
+> +
+> +static int pn_socket_create(struct net *net, struct socket *sock, in=
+t protocol)
+> +{
+> +	struct phonet_protocol *pnp;
+> +	int err;
+> +
+> +	if (net !=3D &init_net)
+> +		return -EAFNOSUPPORT;
+> +
+> +	if (!capable(CAP_SYS_ADMIN))
+> +		return -EPERM;
+> +
+> +	if (protocol =3D=3D 0) {
+> +		/* Default protocol selection */
+> +		switch (sock->type) {
+> +		case SOCK_RDM:
+> +		case SOCK_DGRAM:
+> +			protocol =3D PN_PROTO_PHONET;
+> +			break;
 
+Here, the mapping, and we even have struct socket sock->type in additio=
+n
+to struct sock->sk_type
 
-Per file statistics
-266	net/sched/sch_generic.c
-260	kernel/timer/tglx.c
-167	drivers/ata/libata-sff.c
-154	external/utrace
-80	net/core/dev.c
-62	drivers/parport/procfs.c
-54	external/fireglx/binary (P)
-45	fs/jbd/journal.c
-38	kernel/timer.c
-34	drivers/base/power/main.c
-27	lib/scatterlist.c
-25	kernel/sched.c
-23	include/asm-x86/irqflags.h
+> +		default:
+> +			return -EPROTONOSUPPORT;
+> +		}
+> +	}
+> +
+> +	pnp =3D phonet_proto_get(protocol);
+> +	if (pnp =3D=3D NULL)
+> +		return -EPROTONOSUPPORT;
+> +	if (sock->type !=3D pnp->sock_type &&
+> +	    (protocol !=3D PN_PROTO_PHONET || sock->type !=3D SOCK_RDM)) {
+> +		err =3D -EPROTONOSUPPORT;
+> +		goto out;
+> +	}
+> +
+> +	/* TODO: create and init the struct sock */
 
+I see, you're ot using struct sock at all :-)
 
-Not yet fixed issues
-====================
+> +	err =3D -EPROTONOSUPPORT;
+> +
+> +out:
+> +	phonet_proto_put(pnp);
+> +	return err;
+> +}
+> +
+> +static struct net_proto_family phonet_proto_family =3D {
+> +	.family =3D AF_PHONET,
+> +	.create =3D pn_socket_create,
+> +	.owner =3D THIS_MODULE,
+> +};
+> +
+> +/* packet type functions */
+> +
+> +/*
+> + * Stuff received packets to associated sockets.
+> + * On error, returns non-zero and releases the skb.
+> + */
+> +static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
+> +			struct packet_type *pkttype,
+> +			struct net_device *orig_dev)
+> +{
+> +	struct phonethdr *ph;
+> +	struct sockaddr_pn sa;
+> +	u16 len;
+> +
+> +	if (dev_net(dev) !=3D &init_net)
+> +		goto out;
+> +
+> +	/* check we have at least a full Phonet header */
+> +	if (!pskb_pull(skb, sizeof(struct phonethdr)))
+> +		goto out;
+> +
+> +	/* check that the advertised length is correct */
+> +	ph =3D pn_hdr(skb);
+> +	len =3D get_unaligned_be16(&ph->length);
+> +	if (len < 2)
+> +		goto out;
+> +	len -=3D 2;
+> +	if ((len > skb->len) || pskb_trim(skb, len))
+> +		goto out;
+> +	skb_reset_transport_header(skb);
+> +
+> +	pn_skb_get_dst_sockaddr(skb, &sa);
+> +	if (pn_sockaddr_get_addr(&sa) =3D=3D 0)
+> +		goto out; /* currently, we cannot be device 0 */
+> +
+> +	/* TODO: put packets to sockets backlog */
 
-Rank 1: dev_watchdog (warning)
-	Reported 263 times (495 total reports)
-	Network card timeout; this error is currently not specific enough, a patch
-	is pending to get this reported per driver, with some luck this gets merged soon.
-	This warning was last seen in version 2.6.27-rc6, and first seen in 2.6.26-rc3.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog
+I guess this will be done in the next patches, interesting way of
+breaking up the patches...
 
-Rank 4: utrace_control (oops)
-	Reported 149 times (152 total reports)
-	[fedora] Fedora merged a broken utrace patch
-	This oops was last seen in version 2.6.26.3, and first seen in 2.6.26.1.
-	More info: http://www.kerneloops.org/searchweek.php?search=utrace_control
+> +out:
+> +	kfree_skb(skb);
+> +	return NET_RX_DROP;
+> +}
+> +
+> +static struct packet_type phonet_packet_type =3D {
+> +	.type =3D __constant_htons(ETH_P_PHONET),
+> +	.dev =3D NULL,
+> +	.func =3D phonet_rcv,
+> +};
+> +
+> +/* Transport protocol registration */
+> +static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostl=
+y;
+> +static DEFINE_SPINLOCK(proto_tab_lock);
+> +
+> +int __init_or_module phonet_proto_register(int protocol,
+> +						struct phonet_protocol *pp)
+> +{
+> +	int err =3D 0;
+> +
+> +	if (protocol >=3D PHONET_NPROTO)
+> +		return -EINVAL;
+> +
+> +	err =3D proto_register(pp->prot, 1);
 
-Rank 6: parport_device_proc_register (warning)
-	Reported 62 times (3942 total reports)
-	Duplicate /proc registration in the parport driver
-	This warning was last seen in version 2.6.26.3, and first seen in 2.6.24-rc5.
-	More info: http://www.kerneloops.org/searchweek.php?search=parport_device_proc_register
+Cool, it uses proto_register :-)
 
-Rank 7: firegl_ioctl (warning)
-	Reported 50 times (2479 total reports)
-	[external] Bug in the proprietary fireglx driver
-	warning only shows up in tainted kernels
-	This warning was last seen in version 2.6.26.5, and first seen in 2.6.25.
-	More info: http://www.kerneloops.org/searchweek.php?search=firegl_ioctl
-
-Rank 8: journal_update_superblock (warning)
-	Reported 44 times (3767 total reports)
-	Likely caused by the user removing a USB stick while mounted
-	This warning was last seen in version 2.6.27-rc6, and first seen in 2.6.24-rc6-git1.
-	More info: http://www.kerneloops.org/searchweek.php?search=journal_update_superblock
-
-Rank 9: run_timer_softirq (oops)
-	Reported 36 times (76 total reports)
-	softlockup; might be fixed by Thomas' HPET fixes
-	This oops was last seen in version 2.6.27-rc1-git4, and first seen in 2.6.25.
-	More info: http://www.kerneloops.org/searchweek.php?search=run_timer_softirq
-
-Rank 10: device_pm_add (warning)
-	Reported 29 times (122 total reports)
-	This warning was last seen in version 2.6.27-rc4, and first seen in 2.6.26-rc5.
-	More info: http://www.kerneloops.org/searchweek.php?search=device_pm_add
-
-Rank 12: native_safe_halt (oops)
-	Reported 23 times (122 total reports)
-	This oops was last seen in version 2.6.27-rc5, and first seen in 2.6.24.
-	More info: http://www.kerneloops.org/searchweek.php?search=native_safe_halt
-
-Rank 13: account (warning)
-	Reported 13 times (16 total reports)
-	This warning was last seen in version 2.6.26.3, and first seen in 2.6.26.
-	More info: http://www.kerneloops.org/searchweek.php?search=account
-
-Rank 14: lock_page (warning)
-	Reported 12 times (31 total reports)
-	This warning was last seen in version 2.6.27-rc6, and first seen in 2.6.27-rc1-git2.
-	More info: http://www.kerneloops.org/searchweek.php?search=lock_page
-
-Fixed issues
-============
-
-
-Rank 2: tick_dev_program_event (warning)
-	Reported 260 times (282 total reports)
-	[debug] temporary WARN_ON() inserted in -rc5 for diagnostics purposes, removed for -rc6
-	This warning was last seen in version 2.6.27-rc5-git10, and first seen in 2.6.27-rc5.
-	More info: http://www.kerneloops.org/searchweek.php?search=tick_dev_program_event
-
-Rank 3: ata_sff_hsm_move (warning)
-	Reported 167 times (300 total reports)
-	[fixed] redundant WARN_ON; fixed in 9c2676b61a5a4b6d99e65fb2f438fb3914302eda
-	This warning was last seen in version 2.6.27-rc2-git1, and first seen in 2.6.25.4.
-	More info: http://www.kerneloops.org/searchweek.php?search=ata_sff_hsm_move
-
-Rank 5: __netif_schedule (warning)
-	Reported 74 times (559 total reports)
-	[fixed] issue as a result of the multiqueue feature, fixed for 2.6.27-rc1
-	This warning was last seen in version 2.6.27-rc0-git11, and first seen in 2.6.26-rc8-git.
-	More info: http://www.kerneloops.org/searchweek.php?search=__netif_schedule
-
-Rank 11: sg_copy_buffer (warning)
-	Reported 27 times (29 total reports)
-	[fixed] by making the locks _irqsave (and backported to -stable)
-	This warning was last seen in version 2.6.26.5, and first seen in 2.6.26-rc6.
-	More info: http://www.kerneloops.org/searchweek.php?search=sg_copy_buffer
-
-
-
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+> +	if (err)
+> +		return err;
+> +
+> +	spin_lock(&proto_tab_lock);
+> +	if (proto_tab[protocol])
+> +		err =3D -EBUSY;
+> +	else
+> +		proto_tab[protocol] =3D pp;
+> +	spin_unlock(&proto_tab_lock);
+> +
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(phonet_proto_register);
+> +
+> +void phonet_proto_unregister(int protocol, struct phonet_protocol *p=
+p)
+> +{
+> +	spin_lock(&proto_tab_lock);
+> +	BUG_ON(proto_tab[protocol] !=3D pp);
+> +	proto_tab[protocol] =3D NULL;
+> +	spin_unlock(&proto_tab_lock);
+> +	proto_unregister(pp->prot);
+> +}
+> +EXPORT_SYMBOL(phonet_proto_unregister);
+> +
+> +static struct phonet_protocol *phonet_proto_get(int protocol)
+> +{
+> +	struct phonet_protocol *pp;
+> +
+> +	if (protocol >=3D PHONET_NPROTO)
+> +		return NULL;
+> +
+> +	spin_lock(&proto_tab_lock);
+> +	pp =3D proto_tab[protocol];
+> +	if (pp && !try_module_get(pp->prot->owner))
+> +		pp =3D NULL;
+> +	spin_unlock(&proto_tab_lock);
+> +
+> +	return pp;
+> +}
+> +
+> +static inline void phonet_proto_put(struct phonet_protocol *pp)
+> +{
+> +	module_put(pp->prot->owner);
+> +}
+> +
+> +/* Module registration */
+> +static int __init phonet_init(void)
+> +{
+> +	int err;
+> +
+> +	err =3D sock_register(&phonet_proto_family);
+> +	if (err) {
+> +		printk(KERN_ALERT
+> +			"phonet protocol family initialization failed\n");
+> +		return err;
+> +	}
+> +
+> +	dev_add_pack(&phonet_packet_type);
+> +	return 0;
+> +}
+> +
+> +static void __exit phonet_exit(void)
+> +{
+> +	sock_unregister(AF_PHONET);
+> +	dev_remove_pack(&phonet_packet_type);
+> +}
+> +
+> +module_init(phonet_init);
+> +module_exit(phonet_exit);
+> +MODULE_DESCRIPTION("Phonet protocol stack for Linux");
+> +MODULE_LICENSE("GPL");
+> --=20
+> 1.5.4.3
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
