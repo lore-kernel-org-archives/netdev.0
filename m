@@ -1,67 +1,55 @@
-From: "Bosko Radivojevic" <bosko.radivojevic@gmail.com>
-Subject: Re: GRE keepalives, again
-Date: Tue, 16 Sep 2008 02:20:53 +0200
-Message-ID: <d6c8ef150809151720o73528dcfqcc7358c244005fa6@mail.gmail.com>
-References: <d6c8ef150809141549m52289f1cr7b4da508b311af1f@mail.gmail.com>
-	 <20080914.170302.132520341.davem@davemloft.net>
-	 <d6c8ef150809150445qbd16c5ap7923468008477705@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <d6c8ef150809150445qbd16c5ap7923468008477705@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
+Date: Mon, 15 Sep 2008 19:24:45 -0500
+Message-ID: <1221524685-25968-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org,
+	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from de01egw01.freescale.net ([192.88.165.102]:56481 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754228AbYIPAYt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2008 20:24:49 -0400
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by de01egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m8G0OkPV017248
+	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 17:24:46 -0700 (MST)
+Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m8G0OkT2029123
+	for <netdev@vger.kernel.org>; Mon, 15 Sep 2008 19:24:46 -0500 (CDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi again.
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 
-Problem is - fib_validate_source() explicitly doesn't allow any local
-address to be specified as source address. I figured out I'm not the
-first in need for different behavior. One of the solutions I've found
-is forward_shared patch
-[http://www.ssi.bg/~ja/forward_shared-2.6.25-2.diff] which exists for
-centuries. Actually, it is not working for me but it is addressing the
-same thing - forwarding packets with local addresses.
+Creating a VLAN interface on top of ucc_geth adds 4 bytes
+to the frame and the HW controller is not prepared to
+TX a frame bigger than 1518 bytes which is 4 bytes too
+small for a full VLAN frame. Also add 4 extra bytes for future
+expansion.
 
-I've solved my problem (Cisco's GRE keepalive and Linux) with this small change:
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
+ drivers/net/ucc_geth.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
---- linux-2.6.26.3/net/ipv4/fib_frontend.c-orig	2008-09-16
-01:50:07.000000000 +0200
-+++ linux-2.6.26.3/net/ipv4/fib_frontend.c	2008-09-16 01:50:27.000000000 +0200
-@@ -260,7 +260,7 @@ int fib_validate_source(__be32 src, __be
- 	net = dev_net(dev);
- 	if (fib_lookup(net, &fl, &res))
- 		goto last_resort;
--	if (res.type != RTN_UNICAST)
-+	if ((res.type != RTN_UNICAST) && !((res.type == RTN_LOCAL) &&
-(dev->type == ARPHRD_IPGRE))) {
- 		goto e_inval_res;
- 	*spec_dst = FIB_RES_PREFSRC(res);
- 	fib_combine_itag(itag, &res);
-----------------------------------------------------------------------
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 8f944e5..8fed4bb 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -113,10 +113,10 @@ static struct ucc_geth_info ugeth_primary_info = {
+ 	.maxGroupAddrInHash = 4,
+ 	.maxIndAddrInHash = 4,
+ 	.prel = 7,
+-	.maxFrameLength = 1518,
++	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags and 4 extra bytes */
+ 	.minFrameLength = 64,
+-	.maxD1Length = 1520,
+-	.maxD2Length = 1520,
++	.maxD1Length = 1520+8,
++	.maxD2Length = 1520+8,
+ 	.vlantype = 0x8100,
+ 	.ecamptr = ((uint32_t) NULL),
+ 	.eventRegMask = UCCE_OTHER,
+-- 
+1.5.4.GIT
 
-I'm pretty sure this is not the right solution, if there is a need for
-'solution' at all. Maybe this behavior is what we need and there is no
-real need to ever forward packets coming with local source address. I
-failed to find a way to test if destination address is remote end of
-GRE tunnel.
-
-I found another strange (for me, at least) thing -
-ip_route_input_slow() is discarding packets if "IP is not enabled" on
-the device. The only way to "enable IP" on IP_GRE interface is to
-assign it an IP. Is there another way of "enabling IP" on IP_GRE
-interface? I think there is no much need for assigning an IP address
-to GRE interface. Am I wrong here? IP should be 'enabled' by default
-for IP_GRE interfaces.
-
-PS. Of course, I order this forwarding of encapsulated packets with
-local source address to work, GRE tunnel must be created, GRE
-interface have to be UP with IP address assigned and with forwarding
-enabled.
-
-Sincerely,
-Bosko
