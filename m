@@ -1,131 +1,210 @@
 From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 04/14] Phonet: PF_PHONET protocol family support
-Date: Tue, 16 Sep 2008 18:08:04 +0300
-Message-ID: <1221577694-4513-4-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 10/14] Phonet: Phonet datagram transport protocol
+Date: Tue, 16 Sep 2008 18:08:10 +0300
+Message-ID: <1221577694-4513-10-git-send-email-remi.denis-courmont@nokia.com>
 References: <200809161757.38571.remi.denis-courmont@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:52836 "EHLO
+Received: from smtp.nokia.com ([192.100.122.230]:52828 "EHLO
 	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754182AbYIPPIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 11:08:32 -0400
-Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
-	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8GF86XX031623
-	for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 18:08:29 +0300
+	with ESMTP id S1752721AbYIPPI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 11:08:29 -0400
+Received: from esebh105.NOE.Nokia.com (esebh105.ntc.nokia.com [172.21.138.211])
+	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8GF88JL031631
+	for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 18:08:27 +0300
 In-Reply-To: <200809161757.38571.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the basis for the Phonet protocol families, and introduces
-the ETH_P_PHONET packet type and the PF_PHONET socket family.
+This provides the basic SOCK_DGRAM transport protocol for Phonet.
 
 Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- include/net/phonet/phonet.h |   71 ++++++++++++++
- net/phonet/Makefile         |    3 +-
- net/phonet/af_phonet.c      |  218 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 291 insertions(+), 1 deletions(-)
- create mode 100644 include/net/phonet/phonet.h
- create mode 100644 net/phonet/af_phonet.c
+ include/net/phonet/phonet.h |    6 ++
+ net/phonet/Makefile         |    1 +
+ net/phonet/af_phonet.c      |  108 +++++++++++++++++++++++
+ net/phonet/datagram.c       |  198 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 313 insertions(+), 0 deletions(-)
+ create mode 100644 net/phonet/datagram.c
 
 diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-new file mode 100644
-index 0000000..be02ee9
---- /dev/null
+index 1131833..ead764d 100644
+--- a/include/net/phonet/phonet.h
 +++ b/include/net/phonet/phonet.h
-@@ -0,0 +1,71 @@
-+/*
-+ * File: af_phonet.h
-+ *
-+ * Phonet sockets kernel definitions
-+ *
-+ * Copyright (C) 2008 Nokia Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-+ * 02110-1301 USA
-+ */
+@@ -49,6 +49,9 @@ void pn_sock_hash(struct sock *sk);
+ void pn_sock_unhash(struct sock *sk);
+ int pn_sock_get_port(struct sock *sk, unsigned short sport);
+ 
++int pn_skb_send(struct sock *sk, struct sk_buff *skb,
++		const struct sockaddr_pn *target);
 +
-+#ifndef AF_PHONET_H
-+#define AF_PHONET_H
+ #define pn_hdr(skb) ((struct phonethdr *)skb_network_header(skb))
+ 
+ /*
+@@ -91,4 +94,7 @@ void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
+ 
+ void phonet_socket_init(void);
+ void phonet_netlink_register(void);
++int isi_register(void);
++void isi_unregister(void);
 +
-+/*
-+ * The lower layers may not require more space, ever. Make sure it's
-+ * enough.
-+ */
-+#define MAX_PHONET_HEADER	8
-+
-+#define pn_hdr(skb) ((struct phonethdr *)skb_network_header(skb))
-+
-+/*
-+ * Get the other party's sockaddr from received skb. The skb begins
-+ * with a Phonet header.
-+ */
-+static inline
-+void pn_skb_get_src_sockaddr(struct sk_buff *skb, struct sockaddr_pn *sa)
-+{
-+	struct phonethdr *ph = pn_hdr(skb);
-+	uint16_t obj = pn_object(ph->sdev, ph->sobj);
-+
-+	sa->spn_family = AF_PHONET;
-+	pn_sockaddr_set_object(sa, obj);
-+	pn_sockaddr_set_resource(sa, ph->function);
-+	memset(sa->spn_zero, 0, sizeof(sa->spn_zero));
-+}
-+
-+static inline
-+void pn_skb_get_dst_sockaddr(struct sk_buff *skb, struct sockaddr_pn *sa)
-+{
-+	struct phonethdr *ph = pn_hdr(skb);
-+	uint16_t obj = pn_object(ph->rdev, ph->robj);
-+
-+	sa->spn_family = AF_PHONET;
-+	pn_sockaddr_set_object(sa, obj);
-+	pn_sockaddr_set_resource(sa, ph->function);
-+	memset(sa->spn_zero, 0, sizeof(sa->spn_zero));
-+}
-+
-+/* Protocols in Phonet protocol family. */
-+struct phonet_protocol {
-+	struct proto		*prot;
-+	int			sock_type;
-+};
-+
-+int phonet_proto_register(int protocol, struct phonet_protocol *pp);
-+void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
-+
-+#endif
+ #endif
 diff --git a/net/phonet/Makefile b/net/phonet/Makefile
-index 4ced746..5dbff68 100644
+index c1d671d..d218abc 100644
 --- a/net/phonet/Makefile
 +++ b/net/phonet/Makefile
-@@ -1,3 +1,4 @@
- obj-$(CONFIG_PHONET) += phonet.o
- 
--phonet-objs :=
-+phonet-objs := \
-+	af_phonet.o
+@@ -4,4 +4,5 @@ phonet-objs := \
+ 	pn_dev.o \
+ 	pn_netlink.o \
+ 	socket.o \
++	datagram.o \
+ 	af_phonet.o
 diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-new file mode 100644
-index 0000000..ed66a81
---- /dev/null
+index 1628e7c..ec99413 100644
+--- a/net/phonet/af_phonet.c
 +++ b/net/phonet/af_phonet.c
-@@ -0,0 +1,218 @@
+@@ -101,6 +101,107 @@ static struct net_proto_family phonet_proto_family = {
+ 	.owner = THIS_MODULE,
+ };
+ 
 +/*
-+ * File: af_phonet.c
++ * Prepends an ISI header and sends a datagram.
++ */
++static int pn_send(struct sk_buff *skb, struct net_device *dev,
++			u16 dst, u16 src, u8 res)
++{
++	struct phonethdr *ph;
++	int err;
++
++	if (skb->len > 0xfffd) {
++		err = -EMSGSIZE;
++		goto drop;
++	}
++
++	skb_reset_transport_header(skb);
++	WARN_ON(skb_headroom(skb) & 1); /* HW assumes word alignment */
++	ph = (struct phonethdr *)skb_push(skb, sizeof(struct phonethdr));
++	skb_reset_network_header(skb);
++	ph->rdev = pn_dev(dst);
++	ph->sdev = pn_dev(src);
++	ph->function = res;
++	ph->length = __cpu_to_be16(skb->len + 2 - sizeof(*ph));
++	ph->robj = pn_obj(dst);
++	ph->sobj = pn_obj(src);
++
++	skb->protocol = __constant_htons(ETH_P_PHONET);
++	skb->priority = 0;
++	skb->dev = dev;
++
++	if (pn_addr(src) == pn_addr(dst)) {
++		skb_reset_mac_header(skb);
++		skb->pkt_type = PACKET_LOOPBACK;
++		skb_orphan(skb);
++		netif_rx_ni(skb);
++		err = 0;
++	} else {
++		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
++					NULL, NULL, skb->len);
++		if (err < 0) {
++			err = -EHOSTUNREACH;
++			goto drop;
++		}
++		err = dev_queue_xmit(skb);
++	}
++
++	return err;
++drop:
++	kfree_skb(skb);
++	return err;
++}
++
++/*
++ * Create a Phonet header for the skb and send it out. Returns
++ * non-zero error code if failed. The skb is freed then.
++ */
++int pn_skb_send(struct sock *sk, struct sk_buff *skb,
++		const struct sockaddr_pn *target)
++{
++	struct net_device *dev;
++	struct phonet_address *pna = NULL;
++	struct pn_sock *pn = pn_sk(sk);
++	int err;
++	uint16_t src;
++	uint8_t addr = pn_sockaddr_get_addr(target);
++
++	spin_lock_bh(&pndevs.lock);
++	if (sk->sk_bound_dev_if) {
++		struct phonet_device *pnd;
++
++		pnd = __phonet_get_by_index(sk->sk_bound_dev_if);
++		if (pnd && (pnd->netdev->flags & IFF_UP))
++			pna = phonet_dev2addr(pnd, addr, 0);
++	} else {
++		pna = phonet_addr2addr(pn_sockaddr_get_addr(target), 0);
++	}
++
++	if (pna == NULL) {
++		spin_unlock_bh(&pndevs.lock);
++		err = -EHOSTUNREACH;
++		goto drop;
++	}
++
++	src = pn->sobject;
++	if (!pn_addr(src))
++		src = pn_object(pna->addr, pn_obj(src));
++
++	dev = pna->pnd->netdev;
++	dev_hold(dev);
++	spin_unlock_bh(&pndevs.lock);
++
++	err = pn_send(skb, dev, pn_sockaddr_get_object(target),
++			src, pn_sockaddr_get_resource(target));
++	dev_put(dev);
++	return err;
++
++drop:
++	kfree_skb(skb);
++	return err;
++}
++EXPORT_SYMBOL(pn_skb_send);
++
+ /* packet type functions */
+ 
+ /*
+@@ -238,8 +339,14 @@ static int __init phonet_init(void)
+ 
+ 	dev_add_pack(&phonet_packet_type);
+ 	phonet_netlink_register();
++
++	err = isi_register();
++	if (err)
++		goto err2;
+ 	return 0;
+ 
++err2:
++	phonet_device_exit();
+ unregister:
+ 	sock_unregister(AF_PHONET);
+ 	return err;
+@@ -247,6 +354,7 @@ unregister:
+ 
+ static void __exit phonet_exit(void)
+ {
++	isi_unregister();
+ 	sock_unregister(AF_PHONET);
+ 	dev_remove_pack(&phonet_packet_type);
+ 	phonet_device_exit();
+diff --git a/net/phonet/datagram.c b/net/phonet/datagram.c
+new file mode 100644
+index 0000000..5d8e701
+--- /dev/null
++++ b/net/phonet/datagram.c
+@@ -0,0 +1,198 @@
++/*
++ * File: datagram.c
 + *
-+ * Phonet protocols family
++ * Datagram (ISI) Phonet sockets
 + *
 + * Copyright (C) 2008 Nokia Corporation.
 + *
@@ -148,198 +227,178 @@ index 0000000..ed66a81
 + */
 +
 +#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <asm/unaligned.h>
++#include <linux/socket.h>
++#include <asm/ioctls.h>
 +#include <net/sock.h>
 +
-+#include <linux/if_phonet.h>
 +#include <linux/phonet.h>
 +#include <net/phonet/phonet.h>
 +
-+static struct net_proto_family phonet_proto_family;
-+static struct phonet_protocol *phonet_proto_get(int protocol);
-+static inline void phonet_proto_put(struct phonet_protocol *pp);
++static int pn_backlog_rcv(struct sock *sk, struct sk_buff *skb);
 +
-+/* protocol family functions */
-+
-+static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
++/* associated socket ceases to exist */
++static void pn_sock_close(struct sock *sk, long timeout)
 +{
-+	struct phonet_protocol *pnp;
-+	int err;
++	sk_common_release(sk);
++}
 +
-+	if (net != &init_net)
-+		return -EAFNOSUPPORT;
++static int pn_ioctl(struct sock *sk, int cmd, unsigned long arg)
++{
++	struct sk_buff *skb;
++	int answ;
 +
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
-+
-+	if (protocol == 0) {
-+		/* Default protocol selection */
-+		switch (sock->type) {
-+		case SOCK_RDM:
-+		case SOCK_DGRAM:
-+			protocol = PN_PROTO_PHONET;
-+			break;
-+		default:
-+			return -EPROTONOSUPPORT;
-+		}
++	switch (cmd) {
++	case SIOCINQ:
++		spin_lock_bh(&sk->sk_receive_queue.lock);
++		skb = skb_peek(&sk->sk_receive_queue);
++		answ = skb ? skb->len : 0;
++		spin_unlock_bh(&sk->sk_receive_queue.lock);
++		return put_user(answ, (int __user *)arg);
 +	}
 +
-+	pnp = phonet_proto_get(protocol);
-+	if (pnp == NULL)
-+		return -EPROTONOSUPPORT;
-+	if (sock->type != pnp->sock_type &&
-+	    (protocol != PN_PROTO_PHONET || sock->type != SOCK_RDM)) {
-+		err = -EPROTONOSUPPORT;
-+		goto out;
-+	}
-+
-+	/* TODO: create and init the struct sock */
-+	err = -EPROTONOSUPPORT;
-+
-+out:
-+	phonet_proto_put(pnp);
-+	return err;
++	return -ENOIOCTLCMD;
 +}
 +
-+static struct net_proto_family phonet_proto_family = {
-+	.family = AF_PHONET,
-+	.create = pn_socket_create,
-+	.owner = THIS_MODULE,
-+};
-+
-+/* packet type functions */
-+
-+/*
-+ * Stuff received packets to associated sockets.
-+ * On error, returns non-zero and releases the skb.
-+ */
-+static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
-+			struct packet_type *pkttype,
-+			struct net_device *orig_dev)
++/* Destroy socket. All references are gone. */
++static void pn_destruct(struct sock *sk)
 +{
-+	struct phonethdr *ph;
-+	struct sockaddr_pn sa;
-+	u16 len;
-+
-+	if (dev_net(dev) != &init_net)
-+		goto out;
-+
-+	/* check we have at least a full Phonet header */
-+	if (!pskb_pull(skb, sizeof(struct phonethdr)))
-+		goto out;
-+
-+	/* check that the advertised length is correct */
-+	ph = pn_hdr(skb);
-+	len = get_unaligned_be16(&ph->length);
-+	if (len < 2)
-+		goto out;
-+	len -= 2;
-+	if ((len > skb->len) || pskb_trim(skb, len))
-+		goto out;
-+	skb_reset_transport_header(skb);
-+
-+	pn_skb_get_dst_sockaddr(skb, &sa);
-+	if (pn_sockaddr_get_addr(&sa) == 0)
-+		goto out; /* currently, we cannot be device 0 */
-+
-+	/* TODO: put packets to sockets backlog */
-+
-+out:
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
++	skb_queue_purge(&sk->sk_receive_queue);
 +}
 +
-+static struct packet_type phonet_packet_type = {
-+	.type = __constant_htons(ETH_P_PHONET),
-+	.dev = NULL,
-+	.func = phonet_rcv,
-+};
-+
-+/* Transport protocol registration */
-+static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
-+static DEFINE_SPINLOCK(proto_tab_lock);
-+
-+int __init_or_module phonet_proto_register(int protocol,
-+						struct phonet_protocol *pp)
++static int pn_init(struct sock *sk)
 +{
-+	int err = 0;
-+
-+	if (protocol >= PHONET_NPROTO)
-+		return -EINVAL;
-+
-+	err = proto_register(pp->prot, 1);
-+	if (err)
-+		return err;
-+
-+	spin_lock(&proto_tab_lock);
-+	if (proto_tab[protocol])
-+		err = -EBUSY;
-+	else
-+		proto_tab[protocol] = pp;
-+	spin_unlock(&proto_tab_lock);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(phonet_proto_register);
-+
-+void phonet_proto_unregister(int protocol, struct phonet_protocol *pp)
-+{
-+	spin_lock(&proto_tab_lock);
-+	BUG_ON(proto_tab[protocol] != pp);
-+	proto_tab[protocol] = NULL;
-+	spin_unlock(&proto_tab_lock);
-+	proto_unregister(pp->prot);
-+}
-+EXPORT_SYMBOL(phonet_proto_unregister);
-+
-+static struct phonet_protocol *phonet_proto_get(int protocol)
-+{
-+	struct phonet_protocol *pp;
-+
-+	if (protocol >= PHONET_NPROTO)
-+		return NULL;
-+
-+	spin_lock(&proto_tab_lock);
-+	pp = proto_tab[protocol];
-+	if (pp && !try_module_get(pp->prot->owner))
-+		pp = NULL;
-+	spin_unlock(&proto_tab_lock);
-+
-+	return pp;
-+}
-+
-+static inline void phonet_proto_put(struct phonet_protocol *pp)
-+{
-+	module_put(pp->prot->owner);
-+}
-+
-+/* Module registration */
-+static int __init phonet_init(void)
-+{
-+	int err;
-+
-+	err = sock_register(&phonet_proto_family);
-+	if (err) {
-+		printk(KERN_ALERT
-+			"phonet protocol family initialization failed\n");
-+		return err;
-+	}
-+
-+	dev_add_pack(&phonet_packet_type);
++	sk->sk_destruct = pn_destruct;
++	pn_sk(sk)->handler = pn_backlog_rcv;
 +	return 0;
 +}
 +
-+static void __exit phonet_exit(void)
++static int pn_sendmsg(struct kiocb *iocb, struct sock *sk,
++			struct msghdr *msg, size_t len)
 +{
-+	sock_unregister(AF_PHONET);
-+	dev_remove_pack(&phonet_packet_type);
++	struct sockaddr_pn *target;
++	struct sk_buff *skb;
++	int err;
++
++	if (msg->msg_flags & MSG_OOB)
++		return -EOPNOTSUPP;
++
++	if (msg->msg_name == NULL)
++		return -EDESTADDRREQ;
++
++	if (msg->msg_namelen < sizeof(struct sockaddr_pn))
++		return -EINVAL;
++
++	target = (struct sockaddr_pn *)msg->msg_name;
++	if (target->spn_family != AF_PHONET)
++		return -EAFNOSUPPORT;
++
++	skb = sock_alloc_send_skb(sk, MAX_PHONET_HEADER + len,
++					msg->msg_flags & MSG_DONTWAIT, &err);
++	if (skb == NULL)
++		return err;
++	skb_reserve(skb, MAX_PHONET_HEADER);
++
++	err = memcpy_fromiovec((void *)skb_put(skb, len), msg->msg_iov, len);
++	if (err < 0) {
++		kfree_skb(skb);
++		return err;
++	}
++
++	/*
++	 * Fill in the Phonet header and
++	 * finally pass the packet forwards.
++	 */
++	err = pn_skb_send(sk, skb, target);
++
++	/* If ok, return len. */
++	return (err >= 0) ? len : err;
 +}
 +
-+module_init(phonet_init);
-+module_exit(phonet_exit);
-+MODULE_DESCRIPTION("Phonet protocol stack for Linux");
-+MODULE_LICENSE("GPL");
++static int pn_recvmsg(struct kiocb *iocb, struct sock *sk,
++			struct msghdr *msg, size_t len, int noblock,
++			int flags, int *addr_len)
++{
++	struct sk_buff *skb = NULL;
++	struct sockaddr_pn sa;
++	int rval = -EOPNOTSUPP;
++	int copylen;
++
++	if (flags & MSG_OOB)
++		goto out_nofree;
++
++	if (addr_len)
++		*addr_len = sizeof(sa);
++
++	skb = skb_recv_datagram(sk, flags, noblock, &rval);
++	if (skb == NULL)
++		goto out_nofree;
++
++	pn_skb_get_src_sockaddr(skb, &sa);
++
++	copylen = skb->len;
++	if (len < copylen) {
++		msg->msg_flags |= MSG_TRUNC;
++		copylen = len;
++	}
++
++	rval = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copylen);
++	if (rval) {
++		rval = -EFAULT;
++		goto out;
++	}
++
++	rval = (flags & MSG_TRUNC) ? skb->len : copylen;
++
++	if (msg->msg_name != NULL)
++		memcpy(msg->msg_name, &sa, sizeof(struct sockaddr_pn));
++
++out:
++	skb_free_datagram(sk, skb);
++
++out_nofree:
++	return rval;
++}
++
++/* Queue an skb for a sock. */
++static int pn_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	int err = sock_queue_rcv_skb(sk, skb);
++	if (err < 0)
++		kfree_skb(skb);
++	return err;
++}
++
++/* Module registration */
++static struct proto pn_proto = {
++	.close		= pn_sock_close,
++	.ioctl		= pn_ioctl,
++	.init		= pn_init,
++	.sendmsg	= pn_sendmsg,
++	.recvmsg	= pn_recvmsg,
++	.backlog_rcv	= pn_backlog_rcv,
++	.hash		= pn_sock_hash,
++	.unhash		= pn_sock_unhash,
++	.get_port	= pn_sock_get_port,
++	.obj_size	= sizeof(struct pn_sock),
++	.owner		= THIS_MODULE,
++	.name		= "PHONET",
++};
++
++static struct phonet_protocol pn_dgram_proto = {
++	.ops		= &phonet_dgram_ops,
++	.prot		= &pn_proto,
++	.sock_type	= SOCK_DGRAM,
++};
++
++int __init isi_register(void)
++{
++	return phonet_proto_register(PN_PROTO_PHONET, &pn_dgram_proto);
++}
++
++void __exit isi_unregister(void)
++{
++	phonet_proto_unregister(PN_PROTO_PHONET, &pn_dgram_proto);
++}
 -- 
 1.5.4.3
 
