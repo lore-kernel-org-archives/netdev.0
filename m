@@ -1,63 +1,92 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH HACK] powerpc: quick hack to get a functional eHEA with
-	hardirq preemption
-Date: Tue, 16 Sep 2008 15:59:47 +0400
-Message-ID: <20080916115947.GA6995@oksana.dev.rtsoft.ru>
-References: <20080915100406.342e027a@bull.net> <48CE5684.4000506@de.ibm.com> <20080915151332.6a3a7c80@bull.net>
-Reply-To: avorontsov@ru.mvista.com
+From: Hirokazu Takahashi <taka@valinux.co.jp>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Tue, 16 Sep 2008 21:01:17 +0900 (JST)
+Message-ID: <20080916.210117.31865904.taka@valinux.co.jp>
+References: <1221387956.9204.7.camel@fry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Cc: Thomas Klein <osstklei@de.ibm.com>, tklein@de.ibm.com,
-	tinytim@us.ibm.com, Linux-rt <linux-rt-users@vger.kernel.org>,
-	themann@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	jean-pierre.dion@bull.net, linux-ppc <linuxppc-dev@ozlabs.org>,
-	raisch@de.ibm.com, gilles.carry@ext.bull.net
-To: Sebastien Dugue <sebastien.dugue@bull.net>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080915151332.6a3a7c80@bull.net>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: johaahn@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fms-01.valinux.co.jp ([210.128.90.1]:44506 "EHLO
+	mail.valinux.co.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751665AbYIPMBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 08:01:21 -0400
+In-Reply-To: <1221387956.9204.7.camel@fry>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2008 at 03:13:32PM +0200, Sebastien Dugue wrote:
-[...]
-> > we are a bit worried about putting this into the mainstream part of non real
-> > time linux.
-> 
->   Heck, I sure do not want this to be applied mainstream nor into any tree.
-> The sole purpose of this patch was to trigger some reaction from the people who
-> know the hardware and try to understand where the problem lies.
-> 
-> > There interrupts work perfectly fine, and it was a bit of a
-> > challenge to get there for all cases / configurations / machines.
-> 
->   Agreed, but the fact that it fails with hardirq preemption leads me to
-> believe (without any more knowledge about the harware) that there might be
-> something amiss with this driver (or the code concerning the XICS)
-> nevertheless.
-> 
-> > 
-> > Could you try to enable these changes only for RT-Linux via a real-time
-> > kconfig switch?
-> 
->   Nope, this is just a quick hack that allows me to have a functional eHEA under
-> the rt kernel. I want to understand what the problem is:
-> 
->   - Is the eHEA really delivering level interrupts to the XICS?
-> 
->   - Is the XICS loosing interrupts when they are masked?
+Hi, Johann,
 
-There is a known bug in the -rt kernels, the bug causes handlers
-to lose edge interrupts.
+> Hi All,
+> 
+> Sendfile() over UDP socket are currently limited to ~ 64KBytes file (max cork.length).
+> Indeed, if you run sendfile() with a file size > 64KBytes over UDP socket, system call will stop and return ~64KBytes without sending anything on the network.
+> This patch is pushing ongoing frames when frames buffer is full, to prevent overflow.
 
-See this patch:
+UDP is a datagram protocol, so I think applications using UDP should
+care about the size of packets they are going to send rather than
+expecting that the messages will be split into several packets automatically.
+If some of the packets have lost, it will be really hard for the
+applications to re-create the same ones to send again.
 
-http://lkml.org/lkml/2008/6/30/372
+You can pass "offset" of the file you are going to send and "count"
+to be sent to sendfile systemcall, so you can split the file into
+several pieces and send each of them.
 
->   - ...?
+If you want send a large file over UDP, the typical code will be like:
 
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+while (...) {
+        setsockopt(fd, UDP_CORK, 1);
+        sendmsg(fd, &apl_header, sizeof(apl_header));
+        offset += sendfile(fd, offset, count);
+        setsockopt(fd, UDP_CORK, 0);
+}
+
+or:
+
+while (...) {
+        sendmsg(fd, &apl_header, sizeof(apl_header), MSG_MORE);
+        offset += sendfile(fd, offset, count);
+}
+
+
+> Signed-off-by: Johann Baudy <johann.baudy@gmail.com>
+> 
+>  net/ipv4/udp.c |   15 +++++++++++++++
+>  1 files changed, 15 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 8e42fbb..64e0857 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -743,7 +743,22 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+>  		 size_t size, int flags)
+>  {
+>  	struct udp_sock *up = udp_sk(sk);
+> +	struct inet_sock *inet = inet_sk(sk);
+>  	int ret;
+> +	int fragheaderlen;
+> +	struct ip_options *opt = NULL;
+> +
+> +	lock_sock(sk);
+> +	if (inet->cork.flags & IPCORK_OPT)
+> +		opt = inet->cork.opt;
+> +	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
+> +
+> +	if (inet->cork.length + size >= 0xFFFF - fragheaderlen) {
+> +		ret = udp_push_pending_frames(sk);
+> +		if (ret)
+> +			goto out;
+> +	}
+> +	release_sock(sk);
+>  
+>  	if (!up->pending) {
+>  		struct msghdr msg = {	.msg_flags = flags|MSG_MORE };
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
