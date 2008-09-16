@@ -1,44 +1,37 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 09/14] Phonet: allocate and initialize new sockets
-Date: Tue, 16 Sep 2008 22:42:52 +0400
-Message-ID: <48CFFE2C.7050908@openvz.org>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-9-git-send-email-remi.denis-courmont@nokia.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 0/5][RFC]qlge: New Qlogic 10Gb Ethernet Driver
+Date: Tue, 16 Sep 2008 11:52:06 -0700
+Message-ID: <20080916185206.GA26395@susedev.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	ron.mercer@qlogic.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58668 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754581AbYIPSnL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2008 14:43:11 -0400
-In-Reply-To: <1221577694-4513-9-git-send-email-remi.denis-courmont@nokia.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:17508 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754386AbYIPSxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 14:53:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> @@ -71,8 +73,22 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
->  		goto out;
->  	}
->  
-> -	/* TODO: create and init the struct sock */
-> -	err = -EPROTONOSUPPORT;
-> +	sk = sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
-> +	if (sk == NULL) {
-> +		err = -ENOMEM;
-> +		goto out;
-> +	}
+Jeff,
 
-This turns to be a little bit messy wrt net namespaces.
-Look - you allow for sockets to be created (and isolated from each
-other) in each namespace, the list of devices is global, whilst
-the sysctls are visible in init_net only...
+The following patches are for further RFC for the Qlogic 10Gb driver.
 
-I'd propose to either make this protocol namespaces aware from the
-very beginning or to explicitly prohibit any operations with it in
-the non-init netns not to forget to fix it in the future (just like
-it was done for all the protocols and is still true for most of them).
+I believe this address all outstanding issues from RFC.
 
-Thanks,
-Pavel
+1) Get rid of millisecond register waits during open.
+2) Implemented flash reading for MAC address.
+3) Clean up error path for open() and close().
+4) Add Ron Mercer as maintainer.
+5) Get rid of all debug junk.
+6) Added ethtool ops get_settings() and get_link().
+7) Clean up and complete mgmnt port xface file qlge_mpi.c.
+
+
+Regards,
+Ron Mercer
+Qlogic Corporation
+
