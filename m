@@ -1,94 +1,100 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Tue, 16 Sep 2008 15:10:33 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809140722460.17271@wrl-59.cs.helsinki.fi>
-References: <20080819213417.45133573@tux> <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
- <20080822183224.2d52f16c@tux> <20080822.143709.65615512.davem@davemloft.net>
- <20080823111446.06a350a2@tux> <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
- <20080824163843.33b4f890@tux> <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
- <20080826141812.589848a0@tux> <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
- <20080828184919.611dd578@tux> <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
- <20080830035650.42be37d7@tux> <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
- <20080907051718.58bf133d@tux> <Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
- <20080908172043.0d25a427@tux> <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
- <20080911143006.2f516569@tux> <Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
- <20080913203117.2a55ea2c@tux>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [git patches] net driver fixes
+Date: Tue, 16 Sep 2008 15:15:28 +0300
+Message-ID: <20080916121528.GD7397@cs181140183.pp.htv.fi>
+References: <20080916104811.GC7397@cs181140183.pp.htv.fi> <20080916114305.GB10965@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-1332387434-1221366290=:17271"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080913203117.2a55ea2c@tux>
-Content-ID: <Pine.LNX.4.64.0809161503240.1034@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+	David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754557AbYIPMP7@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080916114305.GB10965@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1332387434-1221366290=:17271
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0809160942301.18199@wrl-59.cs.helsinki.fi>
-
-I've copied stuff from the other mail to here... Sorry for the delay, I 
-had already looked into it but left it as postponed and I've been busy in 
-other things...
-
-On Sat, 13 Sep 2008, Dâniel Fraga wrote:
-
-> 	Ilpo, except for DROP [INPUT] lines, does the log below means something to you?
+On Tue, Sep 16, 2008 at 11:43:05AM +0000, Jarek Poplawski wrote:
+> On 16-09-2008 12:48, Adrian Bunk wrote:
+> > On Tue, Sep 16, 2008 at 12:40:14PM +0300, Adrian Bunk wrote:
+> >> On Tue, Sep 16, 2008 at 11:18:08AM +0200, Thomas Bogendoerfer wrote:
+> >>> On Tue, Sep 16, 2008 at 11:39:34AM +0300, Adrian Bunk wrote:
+> >>>> On Mon, Sep 15, 2008 at 03:11:25PM -0700, David Miller wrote:
+> >>>>> From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+> >>>>> Date: Mon, 15 Sep 2008 23:53:08 +0200
+> >>>>>
+> >>>>>> On Mon, Sep 15, 2008 at 02:14:42PM -0700, David Miller wrote:
+> >>>>>>> Most of those changes were complete and utter CRAP.
+> >>>>>> thank you, but the fix I've sent (de2104x) isn't crap. The bug breaks the 
+> >>>>>> current debian-installer for Cobalt Qube1, when it tries to get an
+> >>>>>> IP address via dhcp. 
+> >>>>> And why is this bug that has been there for YEARS is appropriate
+> >>>>> to fix outside of the merge window?
+> >>>>> ...
+> >>>> Such a fix is even suitable for -stable.
+> >>> that was my feeling as well, but if David wants to see it in the next
+> >>> merge window, it's his decision. It's not a important fix as the user
+> >>> base is obviuosly pretty small. And I didn't know about that bug, when
+> >>> the merge windows was open, so I couldn't fix it "in time".
+> >> And if it goes in during the next merge window it can immediately go 
+> >> into 2.6.27.1 (and even 2.6.26.y if it's still maintained), since the 
+> >> fix fulfills Documentation/stable_kernel_rules.txt .
+> >>
+> >> That doesn't make sense.
+> > 
+> > Note that my emails are not meant against David personally - he just 
+> > seems to have gotten from pushing too much to pushing too few, with
+> > such illogical results.
+> > 
+> > cu
+> > Adrian
 > 
-> Sep 13 20:01:21 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20607 DF PROTO=TCP SPT=4038 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
-> Sep 13 20:01:21 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20616 DF PROTO=TCP SPT=4054 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
-> Sep 13 20:01:21 teleporto vmunix: C193.8. S=5.5.5.5 E=8TS00 RC00 T=1 D262DF PROTO=TCP SPT=4146 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
-> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20690 DF PROTO=TCP SPT=4179 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
-> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20698 DF PROTO=TCP SPT=4201 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
-> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20707 DF PROTO=TCP SPT=4231 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
-> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20725 DF PROTO=TCP SPT=4294 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
-> Sep 13 20:01:22 teleporto vmunix: OOTPST45 P=89WNO=53 E=x0SNUG= 
+> Probably he can read.
+
+
+I'm eagerly awaiting to slap this at Linus the next time he dares to 
+directly apply a patch that only fixes a sparse warning outside of a 
+merge window...  ;-)
+
+
+More seriously, there's a difference between Linus' "another random 
+improvement" and an "is even suitable for -stable".
+
+I'm not reading Linus' (Cc'ed) statement the way that a patch that is 
+appropriate for 2.6.27.1 is not appropriate for -rc now.
+
+If I'm misreading Linus on this it might make sense if they'd discuss 
+it at their current cabal meeting.
+
+
+> Jarek P.
 > 
-> 	I mean these lines:
+> PS:
 > 
-> SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20616
-> C193.8. S=5.5.5.5 E=8TS00 RC00 T=1 D262
+> On 04-09-2008 01:24, Linus Torvalds wrote:
+> > 
+> > On Wed, 3 Sep 2008, Linus Torvalds wrote:
+> >> What's so hard to understand about this?
+> > 
+> > Here's a simple rule of thumb:
+> >  - if it's not on the regression list
+> >  - if it's not a reported security hole
+> >  - if it's not on the reported oopses list
+> > then why are people sending it to me?
+> > 
+> > IOW, if it's just another random improvement, and you send it to me 
+> > outside of the merge window, then what is the point of the merge window? 
+> > 
+> > 		Linus
 
-...Funny, it's printing every second character of a correct line. How 
-that can happen, other people are much more qualified to give a meaningful 
-answer...
-
-> Sep 13 20:01:22 teleporto vmunix: OOTPST45 P=89WNO=53 E=x0SNUG= 
-> 
-> This strange kernel messages are normal or is this clearly something
-> buggy? This is logged whenever the connection is stalled.
-
-I've no idea how they get generated.
-
->        Anyway, I'm 50% almost sure that it's something related to ntpd
-> adjusting time. I do not mean that whenever ntpd syncs 
-> the time, the connection is stalled but I need a few more weeks to 
-> assure this.
-
-How positive you actually are that it's exactly at that time? Ie., have 
-you really check that the timing really matches as ntp syncs time every 
-now and then, I wouldn't be surprised if it would happen "always" close 
-enough to give a false alarm.
-
-"50% almost sure" didn't sound that convincing (whatever it means in the 
-first place).
-
->        Basically without ntpd, everything is fine, but when ntpd is
-> running, the stall happens. Maybe the kernel gets confused when 
-> ntpd changes the time? It shouldn't happen of course. I'll reply in a 
-> few weeks. Thanks.
-
-Only thing I know to ask is, do you have any idea if your ntpd is 
-hard-stepping the time instead of adjusting the clock's rate a bit (the 
-latter should keep the clock monotonious besides potential bugs)?
+cu
+Adrian
 
 -- 
- i.
----696208474-1332387434-1221366290=:17271--
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
