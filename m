@@ -1,65 +1,92 @@
 From: "Andrew Victor" <avictor.za@gmail.com>
-Subject: [PATCH] at91_ether: late collistions are counted twice (resubmit)
-Date: Tue, 16 Sep 2008 22:48:07 +0200
-Message-ID: <cd73a99e0809161348p42f702ck678dbf7aa7093eeb@mail.gmail.com>
+Subject: [PATCH] at91_ether: Add Micrel KSZ8041 PHY support
+Date: Tue, 16 Sep 2008 22:53:00 +0200
+Message-ID: <cd73a99e0809161352s770e29fbs50b1b6995378211b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_10572_18166146.1221598087524"
-Cc: marc.pignat@hevs.ch
+	boundary="----=_Part_10632_2892733.1221598380391"
+Cc: gustavo@zacarias.com.ar
 To: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.237]:43035 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbYIPUsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 16:48:12 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so1495253wri.5
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 13:48:08 -0700 (PDT)
+Received: from yw-out-2324.google.com ([74.125.46.29]:45329 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbYIPUxC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 16:53:02 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so865120ywe.1
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 13:53:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_10572_18166146.1221598087524
+------=_Part_10632_2892733.1221598380391
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-According to the at91rm9200 datasheet, table 36-6, late collisions
-(AT91_EMAC_LCOL) are already counted in the collision register (in scol, mcol or
-ecol , depending on the type of error).
+Add support for Micrel's KSZ8041 PHY in the Atmel AT91RM9200 Ethernet driver.
+The PHY is similar to the KS8721 (configuration registers differ a
+bit, like LED function and a new PHY Control 2 register and LinkMD
+control/status register, which aren't used by the at91_ether driver
+anyway). The chip has a different pin layout so it's no good for a
+drop in replacement anyway.
 
-So don't count them twice in stats.collisions.
-
-Signed-off-by: Marc Pignat <marc.pignat@hevs.ch>
+Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
 Signed-off-by: Andrew Victor <linux@maxim.org.za>
 
-------=_Part_10572_18166146.1221598087524
-Content-Type: text/x-patch; name=7-ethernet_lcol.patch
+------=_Part_10632_2892733.1221598380391
+Content-Type: text/x-patch; name=8-ethernet_ksz8041.patch
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fl6zqn040
-Content-Disposition: attachment; filename=7-ethernet_lcol.patch
+X-Attachment-Id: f_fl6zwxk50
+Content-Disposition: attachment; filename=8-ethernet_ksz8041.patch
 
 ZGlmZiAtdXJOIGxpbnV4LTIuNi4yNy1yYzYub3JpZy9kcml2ZXJzL25ldC9hcm0vYXQ5MV9ldGhl
 ci5jIGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9uZXQvYXJtL2F0OTFfZXRoZXIuYwotLS0gbGlu
 dXgtMi42LjI3LXJjNi5vcmlnL2RyaXZlcnMvbmV0L2FybS9hdDkxX2V0aGVyLmMJMjAwOC0wOS0x
-NiAyMToxMTozOS4wMDAwMDAwMDAgKzAyMDAKKysrIGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9u
-ZXQvYXJtL2F0OTFfZXRoZXIuYwkyMDA4LTA5LTE2IDIxOjEzOjQ4LjAwMDAwMDAwMCArMDIwMApA
-QCAtODQzLDcgKzg0Myw3IEBACiAgKi8KIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAq
-YXQ5MWV0aGVyX3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiB7Ci0JaW50IGFsZSwgbGVu
-ZXJyLCBzZXFlLCBsY29sLCBlY29sOworCWludCBhbGUsIGxlbmVyciwgc2VxZSwgZWNvbDsKIAog
-CWlmIChuZXRpZl9ydW5uaW5nKGRldikpIHsKIAkJZGV2LT5zdGF0cy5yeF9wYWNrZXRzICs9IGF0
-OTFfZW1hY19yZWFkKEFUOTFfRU1BQ19PSyk7CQkvKiBHb29kIGZyYW1lcyByZWNlaXZlZCAqLwpA
-QCAtODYyLDEyICs4NjIsMTEgQEAKIAkJZGV2LT5zdGF0cy50eF9jYXJyaWVyX2Vycm9ycyArPSBh
-dDkxX2VtYWNfcmVhZChBVDkxX0VNQUNfQ1NFKTsJLyogQ2FycmllciBTZW5zZSBlcnJvcnMgKi8K
-IAkJZGV2LT5zdGF0cy50eF9oZWFydGJlYXRfZXJyb3JzICs9IGF0OTFfZW1hY19yZWFkKEFUOTFf
-RU1BQ19TUUVFKTsvKiBIZWFydGJlYXQgZXJyb3IgKi8KIAotCQlsY29sID0gYXQ5MV9lbWFjX3Jl
-YWQoQVQ5MV9FTUFDX0xDT0wpOworCQlkZXYtPnN0YXRzLnR4X3dpbmRvd19lcnJvcnMgKz0gYXQ5
-MV9lbWFjX3JlYWQoQVQ5MV9FTUFDX0xDT0wpOwkvKiBMYXRlIGNvbGxpc2lvbnMgKi8KIAkJZWNv
-bCA9IGF0OTFfZW1hY19yZWFkKEFUOTFfRU1BQ19FQ09MKTsKLQkJZGV2LT5zdGF0cy50eF93aW5k
-b3dfZXJyb3JzICs9IGxjb2w7CQkJLyogTGF0ZSBjb2xsaXNpb25zICovCi0JCWRldi0+c3RhdHMu
-dHhfYWJvcnRlZF9lcnJvcnMgKz0gZWNvbDsJCQkvKiAxNiBjb2xsaXNpb25zICovCisJCWRldi0+
-c3RhdHMudHhfYWJvcnRlZF9lcnJvcnMgKz0gZWNvbDsJCQkJLyogMTYgY29sbGlzaW9ucyAqLwog
-Ci0JCWRldi0+c3RhdHMuY29sbGlzaW9ucyArPSAoYXQ5MV9lbWFjX3JlYWQoQVQ5MV9FTUFDX1ND
-T0wpICsgYXQ5MV9lbWFjX3JlYWQoQVQ5MV9FTUFDX01DT0wpICsgbGNvbCArIGVjb2wpOworCQlk
-ZXYtPnN0YXRzLmNvbGxpc2lvbnMgKz0gKGF0OTFfZW1hY19yZWFkKEFUOTFfRU1BQ19TQ09MKSAr
-IGF0OTFfZW1hY19yZWFkKEFUOTFfRU1BQ19NQ09MKSArIGVjb2wpOwogCX0KIAlyZXR1cm4gJmRl
-di0+c3RhdHM7CiB9Cg==
-------=_Part_10572_18166146.1221598087524--
+NiAyMToxNTo1My4wMDAwMDAwMDAgKzAyMDAKKysrIGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9u
+ZXQvYXJtL2F0OTFfZXRoZXIuYwkyMDA4LTA5LTE2IDIxOjE1OjU5LjAwMDAwMDAwMCArMDIwMApA
+QCAtMjIwLDcgKzIyMCw3IEBACiAJCWlmICghKHBoeSAmICgxIDw8IDApKSkKIAkJCWdvdG8gZG9u
+ZTsKIAl9Ci0JZWxzZSBpZiAobHAtPnBoeV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHsKKwllbHNl
+IGlmICgobHAtPnBoeV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHx8IChscC0+cGh5X3R5cGUgPT0g
+TUlJX0tTWjgwNDFfSUQpKSB7CiAJCXJlYWRfcGh5KGxwLT5waHlfYWRkcmVzcywgTUlJX1RQSVNU
+QVRVUywgJnBoeSk7CQkvKiBhY2sgaW50ZXJydXB0IGluIE1pY3JlbCBQSFkgKi8KIAkJaWYgKCEo
+cGh5ICYgKCgxIDw8IDIpIHwgMSkpKQogCQkJZ290byBkb25lOwpAQCAtMjg2LDcgKzI4Niw3IEBA
+CiAJCWRzaW50ciA9ICgxIDw8IDE1KSB8ICggMSA8PCAxNCk7CiAJCXdyaXRlX3BoeShscC0+cGh5
+X2FkZHJlc3MsIE1JSV9CQ01JTlRSX1JFRywgZHNpbnRyKTsKIAl9Ci0JZWxzZSBpZiAobHAtPnBo
+eV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHsJLyogZm9yIE1pY3JlbCBQSFkgKi8KKwllbHNlIGlm
+ICgobHAtPnBoeV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHx8IChscC0+cGh5X3R5cGUgPT0gTUlJ
+X0tTWjgwNDFfSUQpKSB7CS8qIGZvciBNaWNyZWwgUEhZICovCiAJCWRzaW50ciA9ICgxIDw8IDEw
+KSB8ICggMSA8PCA4KTsKIAkJd3JpdGVfcGh5KGxwLT5waHlfYWRkcmVzcywgTUlJX1RQSVNUQVRV
+UywgZHNpbnRyKTsKIAl9CkBAIC0zNDEsNyArMzQxLDcgQEAKIAkJZHNpbnRyID0gfigxIDw8IDE0
+KTsKIAkJd3JpdGVfcGh5KGxwLT5waHlfYWRkcmVzcywgTUlJX0JDTUlOVFJfUkVHLCBkc2ludHIp
+OwogCX0KLQllbHNlIGlmIChscC0+cGh5X3R5cGUgPT0gTUlJX0tTODcyMV9JRCkgewkvKiBmb3Ig
+TWljcmVsIFBIWSAqLworCWVsc2UgaWYgKChscC0+cGh5X3R5cGUgPT0gTUlJX0tTODcyMV9JRCkg
+fHwgKGxwLT5waHlfdHlwZSA9PSBNSUlfS1NaODA0MV9JRCkpIHsJLyogZm9yIE1pY3JlbCBQSFkg
+Ki8KIAkJcmVhZF9waHkobHAtPnBoeV9hZGRyZXNzLCBNSUlfVFBJU1RBVFVTLCAmZHNpbnRyKTsK
+IAkJZHNpbnRyID0gfigoMSA8PCAxMCkgfCAoMSA8PCA4KSk7CiAJCXdyaXRlX3BoeShscC0+cGh5
+X2FkZHJlc3MsIE1JSV9UUElTVEFUVVMsIGRzaW50cik7CkBAIC0xMTAyLDYgKzExMDIsOCBAQAog
+CQlwcmludGsoS0VSTl9JTkZPICIlczogTmF0aW9uYWwgU2VtaWNvbmR1Y3RvciBEUDgzODQ4IFBI
+WVxuIiwgZGV2LT5uYW1lKTsKIAllbHNlIGlmIChwaHlfdHlwZSA9PSBNSUlfQUMxMDFMX0lEKQog
+CQlwcmludGsoS0VSTl9JTkZPICIlczogQWx0aW1hIEFDMTAxTCBQSFlcbiIsIGRldi0+bmFtZSk7
+CisJZWxzZSBpZiAocGh5X3R5cGUgPT0gTUlJX0tTWjgwNDFfSUQpCisJCXByaW50ayhLRVJOX0lO
+Rk8gIiVzOiBNaWNyZWwgS1NaODA0MSBQSFlcbiIsIGRldi0+bmFtZSk7CiAJZWxzZSBpZiAocGh5
+X3R5cGUgPT0gTUlJX0tTODcyMV9JRCkKIAkJcHJpbnRrKEtFUk5fSU5GTyAiJXM6IE1pY3JlbCBL
+Uzg3MjEgUEhZXG4iLCBkZXYtPm5hbWUpOwogCWVsc2UgaWYgKHBoeV90eXBlID09IE1JSV9UNzhR
+MjF4M19JRCkKQEAgLTExNDcsNiArMTE0OSw3IEBACiAJCQljYXNlIE1JSV9EUDgzODQ3X0lEOgkJ
+LyogTmF0aW9uYWwgU2VtaWNvbmR1Y3RvciBEUDgzODQ3OiAgKi8KIAkJCWNhc2UgTUlJX0RQODM4
+NDhfSUQ6CQkvKiBOYXRpb25hbCBTZW1pY29uZHVjdG9yIERQODM4NDg6ICAqLwogCQkJY2FzZSBN
+SUlfQUMxMDFMX0lEOgkJLyogQWx0aW1hIEFDMTAxTDogUEhZX0lEMSA9IDB4MjIsIFBIWV9JRDIg
+PSAweDU1MjAgKi8KKwkJCWNhc2UgTUlJX0tTWjgwNDFfSUQ6CQkvKiBNaWNyZWwgS1NaODA0MTog
+UEhZX0lEMSA9IDB4MjIsIFBIWV9JRDIgPSAweDE1MTIgKi8KIAkJCWNhc2UgTUlJX0tTODcyMV9J
+RDoJCS8qIE1pY3JlbCBLUzg3MjE6IFBIWV9JRDEgPSAweDIyLCBQSFlfSUQyID0gMHgxNjEwICov
+CiAJCQljYXNlIE1JSV9UNzhRMjF4M19JRDoJCS8qIFRlcmlkaWFuIDc4UTIxeDM6IFBIWV9JRDEg
+PSAweDBFLCBQSFlfSUQyID0gNzIzNyAqLwogCQkJY2FzZSBNSUlfTEFOODNDMTg1X0lEOgkJLyog
+U01TQyBMQU44M0MxODU6IFBIWV9JRDEgPSAweDAwMDcsIFBIWV9JRDIgPSAweEMwQTEgKi8KZGlm
+ZiAtdXJOIGxpbnV4LTIuNi4yNy1yYzYub3JpZy9kcml2ZXJzL25ldC9hcm0vYXQ5MV9ldGhlci5o
+IGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9uZXQvYXJtL2F0OTFfZXRoZXIuaAotLS0gbGludXgt
+Mi42LjI3LXJjNi5vcmlnL2RyaXZlcnMvbmV0L2FybS9hdDkxX2V0aGVyLmgJMjAwOC0wOS0xNCAy
+MDoxNToyNy4wMDAwMDAwMDAgKzAyMDAKKysrIGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9uZXQv
+YXJtL2F0OTFfZXRoZXIuaAkyMDA4LTA5LTE2IDIxOjE1OjU5LjAwMDAwMDAwMCArMDIwMApAQCAt
+NDgsNiArNDgsOSBAQAogLyogQWx0aW1hIEFDMTAxTCBQSFkgKi8KICNkZWZpbmUgTUlJX0FDMTAx
+TF9JRAkJMHgwMDIyNTUyMAogCisvKiBNaWNyZWwgS1NaODA0MSBQSFkgKi8KKyNkZWZpbmUgTUlJ
+X0tTWjgwNDFfSUQJCTB4MDAyMjE1MTAKKwogLyogTWljcmVsIEtTODcyMSBQSFkgKi8KICNkZWZp
+bmUgTUlJX0tTODcyMV9JRAkJMHgwMDIyMTYxMAogCg==
+------=_Part_10632_2892733.1221598380391--
