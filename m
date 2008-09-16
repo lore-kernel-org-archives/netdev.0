@@ -1,94 +1,57 @@
-From: Sebastien Dugue <sebastien.dugue@bull.net>
-Subject: Re: [PATCH HACK] powerpc: quick hack to get a functional eHEA with
- hardirq preemption
-Date: Tue, 16 Sep 2008 14:22:37 +0200
-Message-ID: <20080916142237.0dc5d024@bull.net>
-References: <20080915100406.342e027a@bull.net>
-	<48CE5684.4000506@de.ibm.com>
-	<20080915151332.6a3a7c80@bull.net>
-	<20080916115947.GA6995@oksana.dev.rtsoft.ru>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] cs89x0: add support for i.MX31ADS ARM board
+Date: Tue, 16 Sep 2008 14:44:22 +0200
+Message-ID: <20080916124422.GC18556@xi.wantstofly.org>
+References: <489DD049.6020106@xenomai.org> <48CC5B03.2020003@garzik.org> <20080914120358.GA26748@xi.wantstofly.org> <48CD1C19.60803@xenomai.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <osstklei@de.ibm.com>, tklein@de.ibm.com,
-	tinytim@us.ibm.com, Linux-rt <linux-rt-users@vger.kernel.org>,
-	themann@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	jean-pierre.dion@bull.net, linux-ppc <linuxppc-dev@ozlabs.org>,
-	raisch@de.ibm.com, gilles.carry@ext.bull.net
-To: avorontsov@ru.mvista.com
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <20080916115947.GA6995@oksana.dev.rtsoft.ru>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Russell King <rmk@arm.linux.org.uk>
+To: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xi.wantstofly.org ([83.160.184.112]:46519 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929AbYIPMo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 08:44:28 -0400
+Content-Disposition: inline
+In-Reply-To: <48CD1C19.60803@xenomai.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, Sep 14, 2008 at 04:13:45PM +0200, Gilles Chanteperdrix wrote:
 
-  Hi Anton,
-
-On Tue, 16 Sep 2008 15:59:47 +0400 Anton Vorontsov <avorontsov@ru.mvista.com> wrote:
-
-> On Mon, Sep 15, 2008 at 03:13:32PM +0200, Sebastien Dugue wrote:
-> [...]
-> > > we are a bit worried about putting this into the mainstream part of non real
-> > > time linux.
+> > I don't have the original patch in my netdev box anymore, but what
+> > seems to me should be done is to add a platform driver interface to
+> > the cs89x0 driver, like how most other non-PCI non-other-autoconf-
+> > supporting-bus net drivers do it.  (There aren't too many -- grep
+> > for platform_driver_register in drivers/net/*)
 > > 
-> >   Heck, I sure do not want this to be applied mainstream nor into any tree.
-> > The sole purpose of this patch was to trigger some reaction from the people who
-> > know the hardware and try to understand where the problem lies.
+> > Then the knowledge about I/O addresses and IRQ lines can live in the
+> > platform code (where it belongs) instead of having it all in the driver
+> > (where it doesn't belong).  And all the IXDP2351 and IXDP2X01 ifdefs
+> > can disappear as well.  And the ->readword()/->writeword() hacks that
+> > need to be done for IXDP2351 and IXDP2X01 and PNX can then just be an
+> > (optional) set of platform data methods, with a fallback to the default
+> > one if they aren't passed in.
 > > 
-> > > There interrupts work perfectly fine, and it was a bit of a
-> > > challenge to get there for all cases / configurations / machines.
+> > The question is whether someone wants to step up and do that work.
+> > cs89x0 has seen a lot of drive-by patching by people looking to satisfy
+> > their needs, but noone has stepped up to give it the proper love and
+> > care that it deserves.
 > > 
-> >   Agreed, but the fact that it fails with hardirq preemption leads me to
-> > believe (without any more knowledge about the harware) that there might be
-> > something amiss with this driver (or the code concerning the XICS)
-> > nevertheless.
-> > 
-> > > 
-> > > Could you try to enable these changes only for RT-Linux via a real-time
-> > > kconfig switch?
-> > 
-> >   Nope, this is just a quick hack that allows me to have a functional eHEA under
-> > the rt kernel. I want to understand what the problem is:
-> > 
-> >   - Is the eHEA really delivering level interrupts to the XICS?
-> > 
-> >   - Is the XICS loosing interrupts when they are masked?
+> > Gilles, are you willing to do the platform driver conversion?  If not,
+> > then I guess we should just merge this patch as-is (after you explain
+> > why you need to stub out reset_chip() on your board, as no other board
+> > seems to need this?).
 > 
-> There is a known bug in the -rt kernels, the bug causes handlers
-> to lose edge interrupts.
+> Hi Lennert,
 > 
-> See this patch:
+> When I published this patch, I had access to an i.MX31ADS board, and
+> getting Linux to work on this board was just a necessity to get my job
+> done. I did this by copying the parts I needed working (the serial
+> console and ethernet driver) from the Freescale tree.
 > 
-> http://lkml.org/lkml/2008/6/30/372
+> Now, I am no longer working on this, so I can not test any modification.
+> And I do not even know why people at Freescale did what they did.
 
-  Yes, I've been following that thread back then and my hack is based on your
-patch. So yes, it seems to be the same problem and it lies in the way -rt handles
-the fasteoi flow.
-
-  But looking at the comments from the XICS code, it seems that its wired for
-level only interrupts. Therefore without any more specs, it's still not clear to
-me that there's not a bug with the way the xics handles eHEA interrupts.
-
-  Are the eHEA interrupts really level interrupts? If so why do they get lost
-when masked?
-
-  I just found that not masking that particular interrupt in the fasteoi path
-makes the thing work!
-
-  Thanks,
-
-  Sebastien.
-
-> 
-> >   - ...?
-> 
-> -- 
-> Anton Vorontsov
-> email: cbouatmailru@gmail.com
-> irc://irc.freenode.net/bd2
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rt-users" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+I guess then we should just wait until the Freescale people submit it.
