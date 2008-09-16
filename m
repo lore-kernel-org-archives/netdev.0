@@ -1,129 +1,63 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] Re: ep93xx_eth PHY problems
-Date: Tue, 16 Sep 2008 14:51:25 +0200
-Message-ID: <20080916125125.GA18961@xi.wantstofly.org>
-References: <47CD4857.2060406@student.tuwien.ac.at> <20080321202202.129c1239@ors> <48CC72D4.1020001@garzik.org> <20080914141110.18b42a42@ors.home>
+Subject: Re: [PATCH] cs89x0: add support for i.MX31ADS ARM board
+Date: Tue, 16 Sep 2008 14:52:28 +0200
+Message-ID: <20080916125228.GA19104@xi.wantstofly.org>
+References: <489DD049.6020106@xenomai.org> <48CC5B03.2020003@garzik.org> <20080914120358.GA26748@xi.wantstofly.org> <48CD1C19.60803@xenomai.org> <20080916124422.GC18556@xi.wantstofly.org> <48CFAAE5.80805@xenomai.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org, hvr@gnu.org
-To: Oliver Martin <oliver.martin@student.tuwien.ac.at>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Russell King <rmk@arm.linux.org.uk>
+To: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:41829 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:41842 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbYIPMv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 08:51:26 -0400
+	with ESMTP id S1751257AbYIPMw3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 08:52:29 -0400
 Content-Disposition: inline
-In-Reply-To: <20080914141110.18b42a42@ors.home>
+In-Reply-To: <48CFAAE5.80805@xenomai.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 14, 2008 at 02:11:10PM +0200, Oliver Martin wrote:
+On Tue, Sep 16, 2008 at 02:47:33PM +0200, Gilles Chanteperdrix wrote:
 
-> > > Am Tue, 04 Mar 2008 14:02:15 +0100
-> > > schrieb Oliver Martin <oliver.martin@student.tuwien.ac.at>:
-> > >> Now I'm having different problems: When auto-negotiation is
-> > >> enabled, it sometimes randomly changes the link state:
-> > >>
-> > >> PHY: 0:01 - Link is Down
-> > >> PHY: 0:01 - Link is Up - 100/Full
-> > >>
-> > > 
-> > > I've found at least one part of the problem. The MDIO clock divisor
-> > > wasn't set again after the reset in ep93xx_start_hw. It was left at
-> > > the default, resulting in a 12.5 MHz clock, which the PHY (Micrel
-> > > KSZ8721BL) didn't like too much. Calling ep93xx_mdio_reset after
-> > > the reset fixed it, the link is now perfectly stable in
-> > > auto-negotiation mode.
-> > > 
-> > > There still seems to be another bug with auto-negotiation disabled:
-> > > It doesn't switch to 1000 Mbps any more, but most times it doesn't
-> > > stay in the intended configuration either. I haven't done any
-> > > extensive testing of this yet, though.
-> > > 
-> > > Signed-off-by: Oliver Martin <oliver.martin@student.tuwien.ac.at>
+> >>> I don't have the original patch in my netdev box anymore, but what
+> >>> seems to me should be done is to add a platform driver interface to
+> >>> the cs89x0 driver, like how most other non-PCI non-other-autoconf-
+> >>> supporting-bus net drivers do it.  (There aren't too many -- grep
+> >>> for platform_driver_register in drivers/net/*)
+> >>>
+> >>> Then the knowledge about I/O addresses and IRQ lines can live in the
+> >>> platform code (where it belongs) instead of having it all in the driver
+> >>> (where it doesn't belong).  And all the IXDP2351 and IXDP2X01 ifdefs
+> >>> can disappear as well.  And the ->readword()/->writeword() hacks that
+> >>> need to be done for IXDP2351 and IXDP2X01 and PNX can then just be an
+> >>> (optional) set of platform data methods, with a fallback to the default
+> >>> one if they aren't passed in.
+> >>>
+> >>> The question is whether someone wants to step up and do that work.
+> >>> cs89x0 has seen a lot of drive-by patching by people looking to satisfy
+> >>> their needs, but noone has stepped up to give it the proper love and
+> >>> care that it deserves.
+> >>>
+> >>> Gilles, are you willing to do the platform driver conversion?  If not,
+> >>> then I guess we should just merge this patch as-is (after you explain
+> >>> why you need to stub out reset_chip() on your board, as no other board
+> >>> seems to need this?).
+> >> Hi Lennert,
+> >>
+> >> When I published this patch, I had access to an i.MX31ADS board, and
+> >> getting Linux to work on this board was just a necessity to get my job
+> >> done. I did this by copying the parts I needed working (the serial
+> >> console and ethernet driver) from the Freescale tree.
+> >>
+> >> Now, I am no longer working on this, so I can not test any modification.
+> >> And I do not even know why people at Freescale did what they did.
 > > 
-> > Testing feedback?  Lennert ack?
+> > I guess then we should just wait until the Freescale people submit it.
 > 
-> We're currently using a variation of my original patch, which didn't
-> handle ifdown correctly (there's a similar reset there). With the
-> current setup, everything seems stable, but we still have some rather
-> hackish workarounds for the original issue in our startup scripts.
-> I don't have the hardware right now, but we'll specifically test
-> without them both with and without auto-negotiation next week and
-> report the results.
+> I will be able to test the modification soon. I will repost the patch on
+> linux-arm-kernel after this test.
 
-OK, can you provide a commit message for this so that I can add it to
-http://git.wantstofly.org/?p=ep93xx_eth.git/.git;a=summary and ask Jeff
-to pull it?
-
-
-> Index: linux-2.6.26/drivers/net/arm/ep93xx_eth.c
-> ===================================================================
-> --- linux-2.6.26.orig/drivers/net/arm/ep93xx_eth.c	2008-07-25 03:13:33.000000000 +0200
-> +++ linux-2.6.26/drivers/net/arm/ep93xx_eth.c	2008-07-25 03:14:52.000000000 +0200
-> @@ -535,6 +535,22 @@
->  	return 1;
->  }
->  
-> +static int ep93xx_mdio_reset(struct mii_bus *bus)
-> +{
-> +	struct ep93xx_priv *ep = bus->priv;
-> +
-> +	u32 selfctl = rdl(ep, REG_SELFCTL);
-> +
-> +	selfctl &= ~(REG_SELFCTL_MDCDIV_MSK | REG_SELFCTL_PSPRS);
-> +
-> +	selfctl |= (ep->mdc_divisor - 1) << REG_SELFCTL_MDCDIV_OFS;
-> +	selfctl |= REG_SELFCTL_PSPRS;
-> +
-> +	wrl(ep, REG_SELFCTL, selfctl);
-> +
-> +	return 0;
-> +}
-> +
->  static int ep93xx_start_hw(struct net_device *dev)
->  {
->  	struct ep93xx_priv *ep = netdev_priv(dev);
-> @@ -553,6 +569,9 @@
->  		return 1;
->  	}
->  
-> +	/* The reset cleared REG_SELFCTL, so set the MDC divisor again */
-> +	ep93xx_mdio_reset(&ep->mii_bus);
-> +
->  	/* Receive descriptor ring.  */
->  	addr = ep->descs_dma_addr + offsetof(struct ep93xx_descs, rdesc);
->  	wrl(ep, REG_RXDQBADD, addr);
-> @@ -625,6 +644,9 @@
->  
->  	if (i == 10)
->  		printk(KERN_CRIT DRV_MODULE_NAME ": hw failed to reset\n");
-> +
-> +	/* The reset cleared REG_SELFCTL, so set the MDC divisor again */
-> +	ep93xx_mdio_reset(&ep->mii_bus);
->  }
->  
->  static int ep93xx_open(struct net_device *dev)
-> @@ -776,22 +798,6 @@
->  	return 0;
->  }
->  
-> -static int ep93xx_mdio_reset(struct mii_bus *bus)
-> -{
-> -	struct ep93xx_priv *ep = bus->priv;
-> -
-> -	u32 selfctl = rdl(ep, REG_SELFCTL);
-> -
-> -	selfctl &= ~(REG_SELFCTL_MDCDIV_MSK | REG_SELFCTL_PSPRS);
-> -
-> -	selfctl |= (ep->mdc_divisor - 1) << REG_SELFCTL_MDCDIV_OFS;
-> -	selfctl |= REG_SELFCTL_PSPRS;
-> -
-> -	wrl(ep, REG_SELFCTL, selfctl);
-> -
-> -	return 0;
-> -}
-> -
->  
->  static void ep93xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
->  {
+OK.  Please also try leaving reset_chip() as it is and see if it still
+works like that -- I suspect that that part of the patch might have been
+a debug leftover.
