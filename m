@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 05/14] Phonet: network device and address handling
-Date: Tue, 16 Sep 2008 13:41:26 -0300
-Message-ID: <20080916164126.GI8702@ghostprotocols.net>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-5-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 07/14] Phonet: common socket glue
+Date: Tue, 16 Sep 2008 13:50:17 -0300
+Message-ID: <20080916165017.GJ8702@ghostprotocols.net>
+References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-7-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -10,162 +10,108 @@ Cc: netdev@vger.kernel.org
 To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
 	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:41259 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:48440 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754653AbYIPQuU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2008 12:50:20 -0400
+	id S1750903AbYIPQ7S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2008 12:59:18 -0400
 Content-Disposition: inline
-In-Reply-To: <1221577694-4513-5-git-send-email-remi.denis-courmont@nokia.com>
+In-Reply-To: <1221577694-4513-7-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Sep 16, 2008 at 06:08:05PM +0300, R=E9mi Denis-Courmont escreve=
+Em Tue, Sep 16, 2008 at 06:08:07PM +0300, R=E9mi Denis-Courmont escreve=
 u:
-> This provides support for adding Phonet addresses to and removing
-> Phonet addresses from network devices.
+> This provides the socket API for the Phonet protocols family.
 >=20
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 > ---
->  include/net/phonet/pn_dev.h |   63 ++++++++++++
+>  include/linux/phonet.h      |    3 +
+>  include/net/phonet/phonet.h |   20 +++
 >  net/phonet/Makefile         |    1 +
->  net/phonet/af_phonet.c      |   12 ++
->  net/phonet/pn_dev.c         |  233 +++++++++++++++++++++++++++++++++=
+>  net/phonet/socket.c         |  312 +++++++++++++++++++++++++++++++++=
 ++++++++++
->  4 files changed, 309 insertions(+), 0 deletions(-)
->  create mode 100644 include/net/phonet/pn_dev.h
->  create mode 100644 net/phonet/pn_dev.c
+>  4 files changed, 336 insertions(+), 0 deletions(-)
+>  create mode 100644 net/phonet/socket.c
 >=20
-> diff --git a/include/net/phonet/pn_dev.h b/include/net/phonet/pn_dev.=
+> diff --git a/include/linux/phonet.h b/include/linux/phonet.h
+> index 000b6d7..4510458 100644
+> --- a/include/linux/phonet.h
+> +++ b/include/linux/phonet.h
+> @@ -32,6 +32,9 @@
+>  #define PNADDR_ANY		0
+>  #define PNPORT_RESOURCE_ROUTING	0
+> =20
+> +/* ioctls */
+> +#define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
+> +
+>  /* Phonet protocol header */
+>  struct phonethdr {
+>  	uint8_t rdev;
+> diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.=
 h
-> new file mode 100644
-> index 0000000..c53d364
-> --- /dev/null
-> +++ b/include/net/phonet/pn_dev.h
-> @@ -0,0 +1,63 @@
+> index d62883c..e0fa080 100644
+> --- a/include/net/phonet/phonet.h
+> +++ b/include/net/phonet/phonet.h
+> @@ -29,6 +29,25 @@
+>   */
+>  #define MAX_PHONET_HEADER	8
+> =20
 > +/*
-> + * File: pn_dev.h
-> + *
-> + * Phonet network device
-> + *
-> + * Copyright (C) 2008 Nokia Corporation.
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * version 2 as published by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope that it will be useful, b=
-ut
-> + * WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-> + * General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-> + * 02110-1301 USA
+> + * Every Phonet* socket has this structure first in its
+> + * protocol-specific structure under name c.
 > + */
-> +
-> +#ifndef PN_DEV_H
-> +#define PN_DEV_H
-> +
-> +struct phonet_device_list {
-> +	struct list_head list;
-> +	spinlock_t lock;
+> +struct pn_sock {
+> +	struct sock	sk;
+> +	u16		sobject;
+> +	u8		resource;
 > +};
 > +
-> +extern struct phonet_device_list pndevs;
+> +#define pn_sk(sk) ((struct pn_sock *)(sk))
+
+Why do this as a define and not like, say, tcp_sk(), that way you at
+least guarantee that you will not end up using some non-sock pointer
+as your pn_sock :)
+
+> +extern const struct proto_ops phonet_dgram_ops;
 > +
-> +struct phonet_device {
-> +	struct list_head list;
-> +	struct net_device *netdev;
-> +	struct list_head own;
-> +};
+> +struct sock *pn_find_sock_by_sa(const struct sockaddr_pn *sa);
+> +void pn_sock_hash(struct sock *sk);
+> +void pn_sock_unhash(struct sock *sk);
+> +int pn_sock_get_port(struct sock *sk, unsigned short sport);
 > +
-> +struct phonet_address {
-> +	struct list_head list;
-> +	struct phonet_device *pnd;
-> +	uint8_t addr;
-> +	unsigned char prefix;
-> +};
-> +
-> +int phonet_device_init(void);
-> +void phonet_device_exit(void);
-> +struct phonet_device *phonet_device_alloc(struct net_device *dev);
-> +struct phonet_device *__phonet_get_by_index(unsigned ifindex);
-> +void phonet_device_free(struct phonet_device *pnd);
-> +
-> +struct phonet_address *phonet_address_alloc(void);
-> +void phonet_address_add(struct list_head *list, struct phonet_addres=
-s *pna);
-> +void phonet_address_free(struct phonet_address *pna);
-> +struct phonet_address *phonet_addr2addr(uint8_t addr, int mode);
-> +struct phonet_address *phonet_dev2addr(struct phonet_device *pnd, ui=
-nt8_t addr,
-> +					int mode);
-> +
-> +#define PN_FIND_EXACT	(1 << 0)
-> +
-> +#define MKMASK(a)	((1 << (a)) - 1)
-> +
-> +#endif
+>  #define pn_hdr(skb) ((struct phonethdr *)skb_network_header(skb))
+
+At least here skb_network_header() will do the typechecking for you.
+
+>  /*
+> @@ -68,5 +87,6 @@ struct phonet_protocol {
+>  int phonet_proto_register(int protocol, struct phonet_protocol *pp);
+>  void phonet_proto_unregister(int protocol, struct phonet_protocol *p=
+p);
+> =20
+> +void phonet_socket_init(void);
+>  void phonet_netlink_register(void);
+>  #endif
 > diff --git a/net/phonet/Makefile b/net/phonet/Makefile
-> index 5dbff68..980a386 100644
+> index 4143c3e..c1d671d 100644
 > --- a/net/phonet/Makefile
 > +++ b/net/phonet/Makefile
-> @@ -1,4 +1,5 @@
->  obj-$(CONFIG_PHONET) +=3D phonet.o
-> =20
+> @@ -3,4 +3,5 @@ obj-$(CONFIG_PHONET) +=3D phonet.o
 >  phonet-objs :=3D \
-> +	pn_dev.o \
+>  	pn_dev.o \
+>  	pn_netlink.o \
+> +	socket.o \
 >  	af_phonet.o
-> diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-> index ed66a81..744b47f 100644
-> --- a/net/phonet/af_phonet.c
-> +++ b/net/phonet/af_phonet.c
-> @@ -31,6 +31,7 @@
->  #include <linux/if_phonet.h>
->  #include <linux/phonet.h>
->  #include <net/phonet/phonet.h>
-> +#include <net/phonet/pn_dev.h>
-> =20
->  static struct net_proto_family phonet_proto_family;
->  static struct phonet_protocol *phonet_proto_get(int protocol);
-> @@ -202,14 +203,25 @@ static int __init phonet_init(void)
->  		return err;
->  	}
-> =20
-> +	err =3D phonet_device_init();
-> +	if (err) {
-> +		printk(KERN_ALERT "phonet devices initialization failed\n");
-> +		goto unregister;
-> +	}
-> +
->  	dev_add_pack(&phonet_packet_type);
->  	return 0;
-> +
-> +unregister:
-> +	sock_unregister(AF_PHONET);
-> +	return err;
->  }
-> =20
->  static void __exit phonet_exit(void)
->  {
->  	sock_unregister(AF_PHONET);
->  	dev_remove_pack(&phonet_packet_type);
-> +	phonet_device_exit();
->  }
-> =20
->  module_init(phonet_init);
-> diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+> diff --git a/net/phonet/socket.c b/net/phonet/socket.c
 > new file mode 100644
-> index 0000000..cae37a6
+> index 0000000..0e28327
 > --- /dev/null
-> +++ b/net/phonet/pn_dev.c
-> @@ -0,0 +1,233 @@
+> +++ b/net/phonet/socket.c
+> @@ -0,0 +1,312 @@
 > +/*
-> + * File: pn_dev.c
+> + * File: socket.c
 > + *
-> + * Phonet network device
+> + * Phonet sockets
 > + *
 > + * Copyright (C) 2008 Nokia Corporation.
 > + *
@@ -190,254 +136,304 @@ ut
 > +
 > +#include <linux/kernel.h>
 > +#include <linux/net.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/phonet.h>
 > +#include <net/sock.h>
+> +#include <net/tcp_states.h>
+> +
+> +#include <linux/phonet.h>
+> +#include <net/phonet/phonet.h>
 > +#include <net/phonet/pn_dev.h>
 > +
-> +static int phonet_device_notify(struct notifier_block *self, unsigne=
-d long what,
-> +				void *dev);
-> +
-> +/* when accessing, remember to lock with spin_lock(&pndevs.lock); */
-> +struct phonet_device_list pndevs;
-
-Please look at net/ipv4/tcp_minisocks.c to see how tcp_death_row is
-initialized, that way you don't have to first initialize it to zeros
-(BSS as it is static and uninitialized) and then, at phonet_device_init
-time, again.
-
-> +static struct notifier_block phonet_device_notifier =3D {
-> +	.notifier_call =3D &phonet_device_notify,
-> +	.priority =3D 0,
-> +};
-> +
-> +/* initialise Phonet device list */
-> +int phonet_device_init(void)
+> +static int pn_socket_release(struct socket *sock)
 > +{
-> +	INIT_LIST_HEAD(&pndevs.list);
-> +	spin_lock_init(&pndevs.lock);
-> +	register_netdevice_notifier(&phonet_device_notifier);
+> +	struct sock *sk =3D sock->sk;
 > +
+> +	if (sk) {
+> +		sock->sk =3D NULL;
+> +		sk->sk_prot->close(sk, 0);
+> +	}
 > +	return 0;
 > +}
 > +
-> +void phonet_device_exit(void)
-> +{
-> +	struct list_head *ptr;
-> +
-> +	rtnl_unregister_all(PF_PHONET);
-> +	rtnl_lock();
-> +	spin_lock_bh(&pndevs.lock);
-> +
-> +	for (ptr =3D pndevs.list.next; ptr !=3D &pndevs.list;
-> +		ptr =3D pndevs.list.next) {
+> +static struct  {
+> +	struct hlist_head hlist;
+> +	spinlock_t lock;
+> +} pnsocks;
 
-Perhaps a phone_for_each_dev() macro like for_each_netdev() in
-linux/netdevice.h?
+See tcp_death_row on how to initialize it right here and not at some
+init function.
 
-> +		struct phonet_device *pnd =3D list_entry(ptr,
-> +						struct phonet_device, list);
-> +		phonet_device_free(pnd);
-> +	}
-> +
-> +	spin_unlock_bh(&pndevs.lock);
-> +	rtnl_unlock();
-> +	unregister_netdevice_notifier(&phonet_device_notifier);
-> +}
-> +
-> +struct phonet_address *phonet_address_alloc(void)
-> +{
-> +	struct phonet_address *pna;
-> +
-> +	pna =3D kmalloc(sizeof(struct phonet_address), GFP_KERNEL);
-> +
-> +	if (pna =3D=3D NULL)
-> +		return NULL;
-> +
-> +	INIT_LIST_HEAD(&pna->list);
-
-
-minor nitpick:
-
-	if (pna !=3D NULL)
-		INIT_LIST_HEAD(&pna->list);
-
-shorter :)
-
-> +
-> +	return pna;
-> +}
-> +
-> +/* add Phonet address to list */
-> +void phonet_address_add(struct list_head *list, struct phonet_addres=
-s *pna)
-> +{
-> +	list_add(&pna->list, list);
-> +}
-> +
-> +/* remove Phonet address from list and free it */
-> +void phonet_address_free(struct phonet_address *pna)
-> +{
-> +	list_del(&pna->list);
-> +	kfree(pna);
-> +}
-
-Not symetric, i.e. you have a list_add operation and not a list_del,
-only one that in addition to removing from the list also destroys the
-address, confusing.
-
-> +/* Allocate new Phonet device. */
-> +struct phonet_device *phonet_device_alloc(struct net_device *dev)
-> +{
-> +	struct phonet_device *pnd;
-> +
-> +	pnd =3D kmalloc(sizeof(struct phonet_device), GFP_ATOMIC);
-> +
-> +	if (pnd =3D=3D NULL)
-> +		return NULL;
-> +
-> +	INIT_LIST_HEAD(&pnd->own);
-> +	pnd->netdev =3D dev;
-> +	list_add(&pnd->list, &pndevs.list);
-> +	return pnd;
-> +}
-> +
-> +struct phonet_device *__phonet_get_by_index(unsigned ifindex)
-> +{
-> +	struct list_head *p;
-> +
-> +	list_for_each(p, &pndevs.list) {
-> +		struct phonet_device *pnd;
-> +
-> +		pnd =3D list_entry(p, struct phonet_device, list);
-> +		BUG_ON(!pnd->netdev);
-> +
-> +		if (pnd->netdev->ifindex =3D=3D ifindex)
-> +			return pnd;
-> +	}
-> +	return NULL;
-> +}
-> +
-> +void phonet_device_free(struct phonet_device *pnd)
-> +{
-> +	struct list_head *ptr;
-> +
-> +	/* remove device from list */
-> +	list_del(&pnd->list);
-> +
-> +	for (ptr =3D pnd->own.next; ptr !=3D &pnd->own; ptr =3D pnd->own.ne=
-xt) {
-> +		struct phonet_address *pna =3D
-> +			list_entry(ptr, struct phonet_address, list);
-> +		phonet_address_free(pna);
-
-Why not use list_for_each_entry()? _safe() even, since
-phonet_address_free also messes with this list, no?
-
-> +	}
-> +
-> +	kfree(pnd);
-> +}
-> +
 > +/*
-> + * Find the address from the device's address list having the given =
-address
+> + * Find address based on socket address, match only certain fields.
+> + * Also grab sock if it was found. Remember to sock_put it later.
 > + */
-> +struct phonet_address *phonet_dev2addr(struct phonet_device *pnd,
-> +					uint8_t addr, int mode)
+> +struct sock *pn_find_sock_by_sa(const struct sockaddr_pn *spn)
 > +{
-> +	struct list_head *list =3D &pnd->own, *ptr;
-> +	struct phonet_address *best =3D NULL;
+> +	struct hlist_node *node;
+> +	struct sock *sknode;
+> +	struct sock *rval =3D NULL;
+> +	uint16_t obj =3D pn_sockaddr_get_object(spn);
+> +	uint8_t res =3D spn->spn_resource;
 > +
-> +	for (ptr =3D list->next; ptr !=3D list; ptr =3D ptr->next) {
-> +		struct phonet_address *pna =3D
-> +			list_entry(ptr, struct phonet_address, list);
-
-list_for_each_entry()
-
-> +		if (mode & PN_FIND_EXACT) {
-> +			/* try to find exact address */
-> +			if (pna->addr =3D=3D addr) {
-> +				best =3D pna;
-> +				break;
-> +			}
-> +		} else if (best =3D=3D NULL ||
-> +			   best->prefix < pna->prefix) {
-> +			if ((pna->addr & MKMASK(pna->prefix)) =3D=3D
-> +					(addr & MKMASK(pna->prefix))) {
-> +				best =3D pna;
-> +			}
+> +	spin_lock_bh(&pnsocks.lock);
+> +
+> +	sk_for_each(sknode, node, &pnsocks.hlist) {
+> +		struct pn_sock *pn =3D pn_sk(sknode);
+> +		BUG_ON(!pn->sobject); /* unbound socket */
+> +
+> +		if (pn_port(obj)) {
+> +			/* Look up socket by port */
+> +			if (pn_port(pn->sobject) !=3D pn_port(obj))
+> +				continue;
+> +		} else {
+> +			/* If port is zero, look up by resource */
+> +			if (pn->resource !=3D res)
+> +				continue;
 > +		}
-> +	}
-> +
-> +	return best;
-> +}
-> +
-> +/*
-> + * Find the device having a given address (remember locking!!)
-> + */
-> +struct phonet_address *phonet_addr2addr(uint8_t addr, int mode)
-> +{
-> +	struct list_head *ptr;
-> +	struct phonet_address *best =3D NULL;
-> +
-> +	for (ptr =3D pndevs.list.next; ptr !=3D &pndevs.list; ptr =3D ptr->=
-next) {
-> +		struct phonet_address *pna =3D NULL;
-> +		struct phonet_device *pnd =3D
-> +		    list_entry(ptr, struct phonet_device, list);
+> +		if (pn_addr(pn->sobject)
+> +		 && pn_addr(pn->sobject) !=3D pn_addr(obj))
 
-Ditto
+Please && at the end of previous line
 
-> +
-> +		/* Don't allow unregistering devices! */
-> +		if ((pnd->netdev->reg_state !=3D NETREG_REGISTERED) ||
-> +			((pnd->netdev->flags & IFF_UP)) !=3D IFF_UP)
 > +			continue;
 > +
-> +		pna =3D phonet_dev2addr(pnd, addr, mode);
-> +
-> +		if (pna !=3D NULL) {
-> +			if (best =3D=3D NULL || best->prefix < pna->prefix)
-> +				best =3D pna;
-> +		}
+> +		rval =3D sknode;
+> +		sock_hold(sknode);
+> +		break;
 > +	}
 > +
-> +	return best;
+> +	spin_unlock_bh(&pnsocks.lock);
+> +
+> +	return rval;
+> +
 > +}
 > +
-> +/* notify Phonet of device events */
-> +static int phonet_device_notify(struct notifier_block *self, unsigne=
-d long what,
-> +				void *_dev)
+> +void pn_sock_hash(struct sock *sk)
 > +{
-> +	struct net_device *dev =3D _dev;
-> +	struct phonet_device *pnd;
+> +	spin_lock_bh(&pnsocks.lock);
+> +	sk_add_node(sk, &pnsocks.hlist);
+> +	spin_unlock_bh(&pnsocks.lock);
+> +}
+> +EXPORT_SYMBOL(pn_sock_hash);
 > +
-> +	spin_lock_bh(&pndevs.lock);
-> +	pnd =3D __phonet_get_by_index(dev->ifindex);
+> +void pn_sock_unhash(struct sock *sk)
+> +{
+> +	spin_lock_bh(&pnsocks.lock);
+> +	sk_del_node_init(sk);
+> +	spin_unlock_bh(&pnsocks.lock);
+> +}
+> +EXPORT_SYMBOL(pn_sock_unhash);
 > +
-> +	switch (what) {
-> +	case NETDEV_UNREGISTER:
-> +		if (pnd =3D=3D NULL)
-> +			break;
-> +		phonet_device_free(pnd);
-> +		break;
-> +	default:
-> +		break;
+> +static int pn_socket_bind(struct socket *sock, struct sockaddr *addr=
+, int len)
+> +{
+> +	struct sock *sk =3D sock->sk;
+> +	struct pn_sock *pn =3D pn_sk(sk);
+> +	struct sockaddr_pn *spn =3D (struct sockaddr_pn *)addr;
+> +	int err;
+> +	uint16_t handle;
+> +	uint8_t saddr;
+> +
+> +	if (sk->sk_prot->bind)
+> +		return sk->sk_prot->bind(sk, addr, len);
+> +
+> +	if (len < sizeof(struct sockaddr_pn))
+> +		return -EINVAL;
+> +	if (spn->spn_family !=3D AF_PHONET)
+> +		return -EAFNOSUPPORT;
+> +
+> +	handle =3D pn_sockaddr_get_object((struct sockaddr_pn *)addr);
+> +	saddr =3D pn_addr(handle);
+> +	if (saddr) {
+> +		struct phonet_address *pna;
+> +
+> +		spin_lock_bh(&pndevs.lock);
+> +		pna =3D phonet_addr2addr(pn_addr(handle), PN_FIND_EXACT);
+> +		spin_unlock_bh(&pndevs.lock);
+> +		if (pna =3D=3D NULL)
+> +			return -EADDRNOTAVAIL;
 > +	}
-
-	if (what =3D=3D NETDEV_UNREGISTER && pnd !=3D NULL)
-		phonet_device_free(pnd);
-
-Shorter, no? :)
-
 > +
-> +	spin_unlock_bh(&pndevs.lock);
+> +	lock_sock(sk);
+> +	if (sk->sk_state !=3D TCP_CLOSE || pn_port(pn->sobject)) {
+> +		err =3D -EINVAL; /* attempt to rebind */
+> +		goto out;
+> +	}
+> +	err =3D sk->sk_prot->get_port(sk, pn_port(handle));
+> +	if (err)
+> +		goto out;
 > +
+> +	/* get_port() sets the port, bind() sets the address if applicable =
+*/
+> +	pn->sobject =3D pn_object(saddr, pn_port(pn->sobject));
+> +	pn->resource =3D spn->spn_resource;
+> +
+> +	/* Enable RX on the socket */
+> +	sk->sk_prot->hash(sk);
+> +out:
+> +	release_sock(sk);
+> +	return err;
+> +}
+> +
+> +static int pn_socket_autobind(struct socket *sock)
+> +{
+> +	struct sockaddr_pn sa;
+> +	int err;
+> +
+> +	memset(&sa, 0, sizeof(sa));
+> +	sa.spn_family =3D AF_PHONET;
+> +	err =3D pn_socket_bind(sock, (struct sockaddr *)&sa,
+> +				sizeof(struct sockaddr_pn));
+> +	if (err !=3D -EINVAL)
+> +		return err;
+> +	BUG_ON(!pn_port(pn_sk(sock->sk)->sobject));
+> +	return 0; /* socket was already bound */
+> +}
+> +
+> +static int pn_socket_getname(struct socket *sock, struct sockaddr *a=
+ddr,
+> +				int *sockaddr_len, int peer)
+> +{
+> +	struct sock *sk =3D sock->sk;
+> +	struct pn_sock *pn =3D pn_sk(sk);
+> +
+> +	memset(addr, 0, sizeof(struct sockaddr_pn));
+> +	addr->sa_family =3D AF_PHONET;
+> +	if (!peer) /* Race with bind() here is userland's problem. */
+> +		pn_sockaddr_set_object((struct sockaddr_pn *)addr,
+> +					pn->sobject);
+> +
+> +	*sockaddr_len =3D sizeof(struct sockaddr_pn);
 > +	return 0;
+> +}
 > +
+> +static int pn_socket_ioctl(struct socket *sock, unsigned int cmd,
+> +				unsigned long arg)
+> +{
+> +	struct sock *sk =3D sock->sk;
+> +	struct pn_sock *pn =3D pn_sk(sk);
+> +
+> +	if (cmd =3D=3D SIOCPNGETOBJECT) {
+> +		struct phonet_address *pna;
+> +		uint16_t handle;
+> +		uint8_t rdev;
+> +
+> +		if (get_user(handle, (uint16_t __user *)arg))
+> +			return -EFAULT;
+> +
+> +		rdev =3D pn_dev(handle);
+> +		spin_lock_bh(&pndevs.lock);
+> +		pna =3D phonet_addr2addr(rdev, 0);
+> +		if (pna)
+> +			handle =3D pn_object(pna->addr, pn_port(pn->sobject));
+> +		spin_unlock_bh(&pndevs.lock);
+> +
+> +		if (!pna)
+> +			return -EHOSTUNREACH;
+> +		return put_user(handle, (uint16_t __user *)arg);
+> +	}
+> +
+> +	return sk->sk_prot->ioctl(sk, cmd, arg);
+
+I guess it is a requirement that each protocol will provide an ioctl
+handler.
+
+> +}
+> +
+> +static int pn_socket_sendmsg(struct kiocb *iocb, struct socket *sock=
+,
+> +				struct msghdr *m, size_t total_len)
+> +{
+> +	struct sock *sk =3D sock->sk;
+> +
+> +	if (pn_socket_autobind(sock))
+> +		return -EAGAIN;
+> +
+> +	return sk->sk_prot->sendmsg(iocb, sk, m, total_len);
+> +}
+> +
+> +const struct proto_ops phonet_dgram_ops =3D {
+> +	.family		=3D AF_PHONET,
+> +	.owner		=3D THIS_MODULE,
+> +	.release	=3D pn_socket_release,
+> +	.bind		=3D pn_socket_bind,
+> +	.connect	=3D sock_no_connect,
+> +	.socketpair	=3D sock_no_socketpair,
+> +	.accept		=3D sock_no_accept,
+> +	.getname	=3D pn_socket_getname,
+> +	.poll		=3D datagram_poll,
+> +	.ioctl		=3D pn_socket_ioctl,
+> +	.listen		=3D sock_no_listen,
+> +	.shutdown	=3D sock_no_shutdown,
+> +	.setsockopt	=3D sock_no_setsockopt,
+> +	.getsockopt	=3D sock_no_getsockopt,
+> +#ifdef CONFIG_COMPAT
+> +	.compat_setsockopt =3D sock_no_setsockopt,
+> +	.compat_getsockopt =3D sock_no_getsockopt,
+> +#endif
+> +	.sendmsg	=3D pn_socket_sendmsg,
+> +	.recvmsg	=3D sock_common_recvmsg,
+> +	.mmap		=3D sock_no_mmap,
+> +	.sendpage	=3D sock_no_sendpage,
+> +};
+> +
+> +static DEFINE_MUTEX(port_mutex);
+> +
+> +/* allocate port for a socket */
+> +int pn_sock_get_port(struct sock *sk, unsigned short sport)
+> +{
+> +	static int port_cur;
+> +	struct pn_sock *pn =3D pn_sk(sk);
+> +	struct sockaddr_pn try_sa;
+> +	struct sock *tmpsk;
+> +
+> +	memset(&try_sa, 0, sizeof(struct sockaddr_pn));
+> +	try_sa.spn_family =3D AF_PHONET;
+> +
+> +	mutex_lock(&port_mutex);
+> +
+> +	if (!sport) {
+> +		/* search free port */
+> +		int port, pmin =3D 0x40, pmax =3D 0x7f;
+> +
+> +		for (port =3D pmin; port <=3D pmax; port++) {
+> +			port_cur++;
+> +			if (port_cur < pmin || port_cur > pmax)
+> +				port_cur =3D pmin;
+> +
+> +			pn_sockaddr_set_port(&try_sa, port_cur);
+> +			tmpsk =3D pn_find_sock_by_sa(&try_sa);
+> +			if (tmpsk =3D=3D NULL) {
+> +				sport =3D port_cur;
+> +				goto found;
+> +			} else
+> +				sock_put(tmpsk);
+> +		}
+> +	} else {
+> +		/* try to find specific port */
+> +		pn_sockaddr_set_port(&try_sa, sport);
+> +		tmpsk =3D pn_find_sock_by_sa(&try_sa);
+> +		if (tmpsk =3D=3D NULL)
+> +			/* No sock there! We can use that port... */
+> +			goto found;
+> +		else
+> +			sock_put(tmpsk);
+> +	}
+> +	mutex_unlock(&port_mutex);
+> +
+> +	/* the port must be in use already */
+> +	return -EADDRINUSE;
+> +
+> +found:
+> +	mutex_unlock(&port_mutex);
+> +	pn->sobject =3D pn_object(pn_addr(pn->sobject), sport);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(pn_sock_get_port);
+> +
+> +void __init phonet_socket_init(void)
+> +{
+> +	INIT_HLIST_HEAD(&pnsocks.hlist);
+> +	spin_lock_init(&pnsocks.lock);
 > +}
 > --=20
 > 1.5.4.3
