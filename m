@@ -1,69 +1,58 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [git patches] net driver fixes
-Date: Tue, 16 Sep 2008 18:43:42 +0300
-Message-ID: <20080916154342.GD1400@cs181140183.pp.htv.fi>
-References: <20080916104811.GC7397@cs181140183.pp.htv.fi> <20080916114305.GB10965@ff.dom.local> <20080916121528.GD7397@cs181140183.pp.htv.fi> <20080916135408.GB13388@mit.edu> <20080916070241.3e8d5202@infradead.org> <20080916143408.GA1400@cs181140183.pp.htv.fi> <20080916074802.200c8a43@infradead.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 02/14] Phonet: add CONFIG_PHONET
+Date: Tue, 16 Sep 2008 13:06:12 -0300
+Message-ID: <20080916160612.GF8702@ghostprotocols.net>
+References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-2-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Theodore Tso <tytso@mit.edu>, Jarek Poplawski <jarkao2@gmail.com>,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	David Miller <davem@davemloft.net>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Arjan van de Ven <arjan@infradead.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:48398 "EHLO smtp4.pp.htv.fi"
+Received: from mx2.redhat.com ([66.187.237.31]:33338 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752064AbYIPPoA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2008 11:44:00 -0400
+	id S1751127AbYIPQPP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2008 12:15:15 -0400
 Content-Disposition: inline
-In-Reply-To: <20080916074802.200c8a43@infradead.org>
+In-Reply-To: <1221577694-4513-2-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2008 at 07:48:02AM -0700, Arjan van de Ven wrote:
-> On Tue, 16 Sep 2008 17:34:10 +0300
-> Adrian Bunk <bunk@kernel.org> wrote:
->...
-> > And the same also e.g. goes for bugs where your machine is completely 
-> > dead (no SysRq possible) with nothing in the logs.
-> 
-> that's being worked on, by storing the crash data in some non-volatile
-> piece of memory
+Em Tue, Sep 16, 2008 at 06:08:02PM +0300, R=E9mi Denis-Courmont escreve=
+u:
+> Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+> ---
+>  net/phonet/Kconfig  |   11 +++++++++++
+>  net/phonet/Makefile |    3 +++
+>  2 files changed, 14 insertions(+), 0 deletions(-)
+>  create mode 100644 net/phonet/Kconfig
+>  create mode 100644 net/phonet/Makefile
+>=20
+> diff --git a/net/phonet/Kconfig b/net/phonet/Kconfig
+> new file mode 100644
+> index 0000000..02f8921
+> --- /dev/null
+> +++ b/net/phonet/Kconfig
+> @@ -0,0 +1,11 @@
+> +#
+> +# Phonet protocol
+> +#
+> +
+> +config PHONET
+> +	tristate "Phonet protocols family"
+> +	help
+> +	  Phonet is a communication protocol used by Nokia modems.
+> +
+> +	  To compile this driver as a module, choose M here: the module
+> +	  will be called phonet. If unsure, say N.
 
-The kerneloops list is helpful, and improving it is great, but it will 
-never be able to cover 100% of all problems on 100% of all computers.
+I think you could expand this a bit, no? Telling in which platforms thi=
+s
+would be used, i.e. nokia devices such as the N8x0 and not on a desktop
+with a Nokia modem attached, etc.
 
-> > The kerneloops lists are quite valuable, but they can never cover all 
-> > classes of fatal bugs.
-> 
-> if you want perfection, you're not going to get it.
-> 
-> "Perfect is the enemy of good"
-> 
-> If you want to help make things better (as opposed to perfect), you're
-> very welcome to help out, be it with suggestions on how to improve
-> or with actual code. 
+Recently there were complaints about Kconfig help entries being too
+terse, lets not add more of these.
 
-You miss my point:
-
-We agree that the kerneloops list is not perfect.
-
-And usually the bugs with a trace that go into the list are the
-ones that are easier to debug and fix, while the others might be
-much harder to debug.
-
-If one takes Linus' "simple rule of thumb" literally then a hard to 
-debug bug without any messages anywhere mustn't be fixed outside of
-a merge window. This literal reading is what doesn't make sense.
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+- Arnaldo
