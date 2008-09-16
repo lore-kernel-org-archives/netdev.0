@@ -1,153 +1,159 @@
 From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 14/14] Phonet: kernel documentation
-Date: Tue, 16 Sep 2008 18:08:14 +0300
-Message-ID: <1221577694-4513-14-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 13/14] Phonet: emit errors when a packet cannot be delivered locally
+Date: Tue, 16 Sep 2008 18:08:13 +0300
+Message-ID: <1221577694-4513-13-git-send-email-remi.denis-courmont@nokia.com>
 References: <200809161757.38571.remi.denis-courmont@nokia.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:44507 "EHLO
+Received: from smtp.nokia.com ([192.100.122.233]:44501 "EHLO
 	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389AbYIPPIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 11:08:35 -0400
+	with ESMTP id S1754227AbYIPPIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 11:08:34 -0400
 Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
-	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8GF8KFe000538
+	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8GF8Gn2000506
 	for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 18:08:32 +0300
 In-Reply-To: <200809161757.38571.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- Documentation/networking/phonet.txt |  111 +++++++++++++++++++++++++++=
-++++++++
- 1 files changed, 111 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/networking/phonet.txt
+When there is no listener socket for a received packet, send an error
+back to the sender.
 
-diff --git a/Documentation/networking/phonet.txt b/Documentation/networ=
-king/phonet.txt
-new file mode 100644
-index 0000000..f3c72e0
---- /dev/null
-+++ b/Documentation/networking/phonet.txt
-@@ -0,0 +1,111 @@
-+Linux Phonet protocol family
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
+Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/af_phonet.c |   82 +++++++++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 78 insertions(+), 4 deletions(-)
+
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index c18664d..3962969 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -134,7 +134,7 @@ EXPORT_SYMBOL(phonet_header_ops);
+  * Prepends an ISI header and sends a datagram.
+  */
+ static int pn_send(struct sk_buff *skb, struct net_device *dev,
+-			u16 dst, u16 src, u8 res)
++			u16 dst, u16 src, u8 res, u8 irq)
+ {
+ 	struct phonethdr *ph;
+ 	int err;
+@@ -163,7 +163,10 @@ static int pn_send(struct sk_buff *skb, struct net_device *dev,
+ 		skb_reset_mac_header(skb);
+ 		skb->pkt_type = PACKET_LOOPBACK;
+ 		skb_orphan(skb);
+-		netif_rx_ni(skb);
++		if (irq)
++			netif_rx(skb);
++		else
++			netif_rx_ni(skb);
+ 		err = 0;
+ 	} else {
+ 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+@@ -181,6 +184,18 @@ drop:
+ 	return err;
+ }
+ 
++static int pn_raw_send(const void *data, int len, struct net_device *dev,
++			u16 dst, u16 src, u8 res)
++{
++	struct sk_buff *skb = alloc_skb(MAX_PHONET_HEADER + len, GFP_ATOMIC);
++	if (skb == NULL)
++		return -ENOMEM;
 +
-+Introduction
-+------------
++	skb_reserve(skb, MAX_PHONET_HEADER);
++	memcpy(skb_put(skb, len), data, len);
++	return pn_send(skb, dev, dst, src, res, 1);
++}
 +
-+Phonet is a packet protocol used by Nokia cellular modems for both IPC
-+and RPC. With the Linux Phonet socket family, Linux host processes can
-+receive and send messages from/to the modem, or any other external
-+device attached to the modem. The modem takes care of routing.
+ /*
+  * Create a Phonet header for the skb and send it out. Returns
+  * non-zero error code if failed. The skb is freed then.
+@@ -221,7 +236,7 @@ int pn_skb_send(struct sock *sk, struct sk_buff *skb,
+ 	spin_unlock_bh(&pndevs.lock);
+ 
+ 	err = pn_send(skb, dev, pn_sockaddr_get_object(target),
+-			src, pn_sockaddr_get_resource(target));
++			src, pn_sockaddr_get_resource(target), 0);
+ 	dev_put(dev);
+ 	return err;
+ 
+@@ -231,6 +246,60 @@ drop:
+ }
+ EXPORT_SYMBOL(pn_skb_send);
+ 
++static inline int can_respond(struct sk_buff *skb)
++{
++	const struct phonethdr *ph = pn_hdr(skb);
++	struct phonet_device *pnd;
 +
-+Phonet packets can be exchanged through various hardware connections
-+depending on the device, such as:
-+  - USB with the CDC Phonet interface,
-+  - infrared,
-+  - Bluetooth,
-+  - an RS232 serial port (with a dedicated "FBUS" line discipline),
-+  - the SSI bus with some TI OMAP processors.
++	if (!pskb_may_pull(skb, 3))
++		return 0;
++	if (skb->data[1] == 0xF0)
++		return 0;
++	if (skb->data[2] == 0x01 || skb->data[2] == 0x14)
++		return 0;
 +
++	spin_lock(&pndevs.lock);
++	pnd = __phonet_get_by_index(skb->dev->ifindex);
++	if (!pnd
++	 || !phonet_dev2addr(pnd, ph->rdev & 0xFC, PN_FIND_EXACT)) {
++		spin_unlock(&pndevs.lock);
++		return 0;
++	}
++	spin_unlock(&pndevs.lock);
++	return 1;
++}
 +
-+Packets format
-+--------------
++static int send_obj_unreachable(struct sk_buff *rskb)
++{
++	struct phonethdr *oph = pn_hdr(rskb);
++	uint8_t data[8];
 +
-+Phonet packet have a common header as follow:
++	BUG_ON(skb_headlen(rskb) < 2);
++	data[0] = rskb->data[0];
++	data[1] = 0xF0;
++	data[2] = 0x14;
++	data[3] = rskb->data[1];
++	data[4] = 0x00;
++	data[5] = 0x00;
++	data[6] = 0x00;
++	data[7] = 0x00;
++	return pn_raw_send(data, sizeof(data), rskb->dev,
++				pn_object(oph->sdev, oph->sobj),
++				pn_object(oph->rdev, oph->robj),
++				oph->function);
++}
 +
-+  struct phonethdr {
-+    uint8_t  pn_media;  /* Media type (link-layer identifier) */
-+    uint8_t  pn_rdev;   /* Receiver device ID */
-+    uint8_t  pn_sdev;   /* Sender device ID */
-+    uint8_t  pn_res;    /* Resource ID or function */
-+    uint16_t pn_length; /* Big-endian message byte length (minus 6) */
-+    uint8_t  pn_robj;   /* Receiver object ID */
-+    uint8_t  pn_sobj;   /* Sender object ID */
-+  };
++static int send_reset_indications(struct sk_buff *rskb)
++{
++	struct phonethdr *oph = pn_hdr(rskb);
++	uint8_t data[4] = { 0x00, 0x10, 0x00, 0x00 };
 +
-+The device ID is split: the 6 higher order bits consitutes the device
-+address, while the 2 lower order bits are used for multiplexing, as ar=
-e
-+the 8-bits object identifiers. As such, Phonet can be considered as a
-+network layer with 6 bits of address space and 10 bits for transport
-+protocol (much like port numbers in IP world).
-+
-+The modem always has address number zero. Each other device has a its
-+own 6-bits address.
-+
-+
-+Link layer
-+----------
-+
-+Phonet links are always point-to-point links. The link layer header
-+consists of a single Phonet media type byte. It uniquely identifies th=
-e
-+link through which the packet is transmitted, from the modem's
-+perspective.
-+
-+Linux Phonet network interfaces use a dedicated link layer type
-+(ETH_P_PHONET) which is out of the Ethernet type range. They can only
-+send and receive Phonet packets.
-+
-+Note that Phonet interfaces are not allowed to re-order packets, so
-+only the (default) Linux FIFO qdisc should be used with them.
-+
-+
-+Network layer
-+-------------
-+
-+The Phonet socket address family maps the Phonet packet header:
-+
-+  struct sockaddr_pn {
-+    sa_family_t spn_family;    /* AF_PHONET */
-+    uint8_t     spn_obj;       /* Object ID */
-+    uint8_t     spn_dev;       /* Device ID */
-+    uint8_t     spn_resource;  /* Resource or function */
-+    uint8_t     spn_zero[...]; /* Padding */
-+  };
-+
-+The resource field is only used when sending and receiving;
-+It is ignored by bind() and getsockname().
++	return pn_raw_send(data, sizeof(data), rskb->dev,
++				pn_object(oph->sdev, 0x00),
++				pn_object(oph->rdev, oph->robj), 0x10);
++}
 +
 +
-+Low-level datagram protocol
-+---------------------------
-+
-+Applications can send Phonet messages using the Phonet datagram socket
-+protocol from the PF_PHONET family. Each socket is bound to one of the
-+2^10 object IDs available, and can send and receive packets with any
-+other peer.
-+
-+  struct sockaddr_pn addr =3D { .spn_family =3D AF_PHONET, };
-+  ssize_t len;
-+  socklen_t addrlen =3D sizeof(addr);
-+  int fd;
-+
-+  fd =3D socket(PF_PHONET, SOCK_DGRAM, 0);
-+  bind(fd, (struct sockaddr *)&addr, sizeof(addr));
-+  /* ... */
-+
-+  sendto(fd, msg, msglen, 0, (struct sockaddr *)&addr, sizeof(addr));
-+  len =3D recvfrom(fd, buf, sizeof(buf), 0,
-+                 (struct sockaddr *)&addr, &addrlen);
-+
-+This protocol follows the SOCK_DGRAM connection-less semantics.
-+However, connect() and getpeername() are not supported, as they did
-+not seem useful with Phonet usages (could be added easily).
-+
-+
-+Authors
-+-------
-+
-+Linux Phonet was initially written by Sakari Ailus.
-+Other contributors include Mik=C3=A4 Liljeberg, Andras Domokos,
-+Carlos Chinea and R=C3=A9mi Denis-Courmont.
-+Copyright (C) 2008 Nokia Corporation.
---=20
+ /* packet type functions */
+ 
+ /*
+@@ -269,8 +338,13 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		goto out; /* currently, we cannot be device 0 */
+ 
+ 	sk = pn_find_sock_by_sa(&sa);
+-	if (sk == NULL)
++	if (sk == NULL) {
++		if (can_respond(skb)) {
++			send_obj_unreachable(skb);
++			send_reset_indications(skb);
++		}
+ 		goto out;
++	}
+ 
+ 	/* Push data to the socket (or other sockets connected to it). */
+ 	err = pn_sk(sk)->handler(sk, skb);
+-- 
 1.5.4.3
 
