@@ -1,103 +1,94 @@
-From: Michael Kerrisk <mtk.manpages@googlemail.com>
-Subject: sys_paccept: disable paccept() until API design is resolved
-Date: Tue, 16 Sep 2008 14:05:33 +0200
-Message-ID: <48CFA10D.2010106@gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+Date: Tue, 16 Sep 2008 15:10:33 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0809140722460.17271@wrl-59.cs.helsinki.fi>
+References: <20080819213417.45133573@tux> <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
+ <20080822183224.2d52f16c@tux> <20080822.143709.65615512.davem@davemloft.net>
+ <20080823111446.06a350a2@tux> <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
+ <20080824163843.33b4f890@tux> <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
+ <20080826141812.589848a0@tux> <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+ <20080828184919.611dd578@tux> <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
+ <20080830035650.42be37d7@tux> <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
+ <20080907051718.58bf133d@tux> <Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
+ <20080908172043.0d25a427@tux> <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
+ <20080911143006.2f516569@tux> <Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
+ <20080913203117.2a55ea2c@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Alan Cox <alan@redhat.com>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Jakub Jelinek <jakub@redhat.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	Roland McGrath <roland@redhat.com>,
-	Oleg Nesterov <oleg@tv-sign.ru>, Christoph Hellwig <hch@lst.de>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.232]:33896 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751348AbYIPMF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 08:05:58 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2659904rvb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 05:05:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1332387434-1221366290=:17271"
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080913203117.2a55ea2c@tux>
+Content-ID: <Pine.LNX.4.64.0809161503240.1034@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-The patch below disables the new sys_paccept() for now.  Please
-apply for 2.6.27-rc, so that we do not release this API into
-the wild before a conclusion has been reached about its design.
+---696208474-1332387434-1221366290=:17271
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0809160942301.18199@wrl-59.cs.helsinki.fi>
 
-The reasons for disabling paccept() are as follows:
+I've copied stuff from the other mail to here... Sorry for the delay, I 
+had already looked into it but left it as postponed and I've been busy in 
+other things...
 
-* The API is more complex than needed.  There is AFAICS no demonstrated
-   use case that the sigset argument of this syscall serves that
-   couldn't equally be served by the use of pselect/ppoll/epoll_pwait +
-   traditional accept().  Roland seems to concur with this opinion
-   (http://thread.gmane.org/gmane.linux.kernel/723953/focus=732255).
-   I have (more than once) asked Ulrich to explain otherwise
-   (http://thread.gmane.org/gmane.linux.kernel/723952/focus=731018),
-   but he does not respond, so one is left to assume that he doesn't
-   know of such a case.
+On Sat, 13 Sep 2008, Dâniel Fraga wrote:
 
-* The use of a sigset argument is not consistent with other I/O APIs
-   that can block on a single file descriptor (e.g., read(), recv(),
-   connect()).
+> 	Ilpo, except for DROP [INPUT] lines, does the log below means something to you?
+> 
+> Sep 13 20:01:21 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20607 DF PROTO=TCP SPT=4038 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
+> Sep 13 20:01:21 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20616 DF PROTO=TCP SPT=4054 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
+> Sep 13 20:01:21 teleporto vmunix: C193.8. S=5.5.5.5 E=8TS00 RC00 T=1 D262DF PROTO=TCP SPT=4146 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
+> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20690 DF PROTO=TCP SPT=4179 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
+> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20698 DF PROTO=TCP SPT=4201 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
+> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20707 DF PROTO=TCP SPT=4231 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
+> Sep 13 20:01:22 teleporto vmunix: DROP [INPUT]: IN=eth0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:50:73:6c:4b:e5:08:00 SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20725 DF PROTO=TCP SPT=4294 DPT=4899 WINDOW=65535 RES=0x00 SYN URGP=0 
+> Sep 13 20:01:22 teleporto vmunix: OOTPST45 P=89WNO=53 E=x0SNUG= 
+> 
+> 	I mean these lines:
+> 
+> SRC=189.31.180.2 DST=255.255.255.255 LEN=48 TOS=0x00 PREC=0x00 TTL=116 ID=20616
+> C193.8. S=5.5.5.5 E=8TS00 RC00 T=1 D262
 
-* The behavior of paccept() when interrupted by a signal is IMO
-   strange: the kernel restarts the system call if SA_RESTART was set
-   for the handler.  I think that it should not do this -- that it
-   should behave consistently with paccept()/ppoll()/epoll_pwait(),
-   which never restart, regardless of SA_RESTART.  The reasoning here
-   is that the very purpose of paccept() is to wait for a connection
-   or a signal, and that restarting in the latter case is probably
-   never useful.  (Note: Roland disagrees on this point, believing
-   that rather paccept() should be consistent with accept() in its
-   behavior wrt EINTR
-   (http://thread.gmane.org/gmane.linux.kernel/723953/focus=732255).)
+...Funny, it's printing every second character of a correct line. How 
+that can happen, other people are much more qualified to give a meaningful 
+answer...
 
-I believe that instead, a simpler API, consistent with Ulrich's
-other recent additions, is preferable:
+> Sep 13 20:01:22 teleporto vmunix: OOTPST45 P=89WNO=53 E=x0SNUG= 
+> 
+> This strange kernel messages are normal or is this clearly something
+> buggy? This is logged whenever the connection is stalled.
 
-accept4(int fd, struct sockaddr *sa, socklen_t *salen, ind flags);
+I've no idea how they get generated.
 
-(This simpler API was originally proposed by Ulrich:
-http://thread.gmane.org/gmane.linux.network/92072)
+>        Anyway, I'm 50% almost sure that it's something related to ntpd
+> adjusting time. I do not mean that whenever ntpd syncs 
+> the time, the connection is stalled but I need a few more weeks to 
+> assure this.
 
-If this simpler API is added, then if we later decide that the sigset
-argument really is required, then a suitable bit in 'flags' could
-be added to indicate the presence of the sigset argument.
+How positive you actually are that it's exactly at that time? Ie., have 
+you really check that the timing really matches as ntp syncs time every 
+now and then, I wouldn't be surprised if it would happen "always" close 
+enough to give a false alarm.
 
-At this point, I am hoping we either will get a counter-argument
-from Ulrich about why we really do need paccept()'s sigset argument,
-or that he will resubmit the original accept4() patch.
+"50% almost sure" didn't sound that convincing (whatever it means in the 
+first place).
 
-Cheers,
+>        Basically without ntpd, everything is fine, but when ntpd is
+> running, the stall happens. Maybe the kernel gets confused when 
+> ntpd changes the time? It shouldn't happen of course. I'll reply in a 
+> few weeks. Thanks.
 
-Michael
+Only thing I know to ask is, do you have any idea if your ntpd is 
+hard-stepping the time instead of adjusting the clock's rate a bit (the 
+latter should keep the clock monotonious besides potential bugs)?
 
-Signed-off-by: Michael Kerrisk <mtk.manpages@gmail.com>
-
-
---- linux-2.6.27-rc6/net/socket.c.orig	2008-09-16 12:38:15.000000000 +0200
-+++ linux-2.6.27-rc6/net/socket.c	2008-09-16 13:07:51.000000000 +0200
-@@ -1511,6 +1511,7 @@
-  	goto out_put;
-  }
-
-+#if 0
-  #ifdef HAVE_SET_RESTORE_SIGMASK
-  asmlinkage long sys_paccept(int fd, struct sockaddr __user *upeer_sockaddr,
-  			    int __user *upeer_addrlen,
-@@ -1564,6 +1565,7 @@
-  	return do_accept(fd, upeer_sockaddr, upeer_addrlen, flags);
-  }
-  #endif
-+#endif
-
-  asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
-  			   int __user *upeer_addrlen)
+-- 
+ i.
+---696208474-1332387434-1221366290=:17271--
