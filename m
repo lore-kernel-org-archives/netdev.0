@@ -1,93 +1,239 @@
-From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [RESEND] benet: BladeEngine 10Gb NIC driver
-Date: Tue, 16 Sep 2008 02:00:21 -0700
-Message-ID: <20080916090021.c4a58c42@mailhost.serverengines.com>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: Re: [PATCH 2/2] ehea: fix mutex and spinlock use
+Date: Tue, 16 Sep 2008 11:13:13 +0200
+Message-ID: <48CF78A9.9080907@de.ibm.com>
+References: <1221140080-9853-1-git-send-email-sebastien.dugue@bull.net>	<1221140080-9853-3-git-send-email-sebastien.dugue@bull.net>	<48CE7CC3.8040902@de.ibm.com>
+	<20080916085746.194c1510@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org, jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:36396 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbYIPJAW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 05:00:22 -0400
-Received: from 124.30.166.146 ([124.30.166.146])
-	by mailhost.serverengines.com
-	for netdev@vger.kernel.org;
-	Tue, 16 Sep 2008 02:00:21 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: tklein@de.ibm.com, tinytim@us.ibm.com, jeff@garzik.org, hering2@de.ibm.com,
+	netdev@vger.kernel.org, themann@de.ibm.com,
+	linux-kernel@vger.kernel.org, jean-pierre.dion@bull.net,
+	linuxppc-dev@ozlabs.org, raisch@de.ibm.com, gilles.carry@ext.bull.net
+To: Sebastien Dugue <sebastien.dugue@bull.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20080916085746.194c1510@bull.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Jeff,
+Sebastien Dugue wrote:
+> On Mon, 15 Sep 2008 17:18:27 +0200 Thomas Klein <osstklei@de.ibm.com> wrote:
+> 
+>> NACK!
+>>
+>> I regret but this patch is wrong. It is not sufficient to only lock
+>> the replacement of an old list with a new list. Building up those
+>> lists is a 3-step process:
+>>
+>> 1. Count the number of entries a list will contain and allocate mem
+>> 2. Fill the list
+>> 3. Replace old list with updated list
+>>
+>> It's obvious that the contents of the list may not change during this
+>> procedure. That means that not only the list build-up procedure must
+>> be locked. It must be assured that no function that modifies the list's
+>> content can be called while another list update is in progress.
+>>
+>> Jeff, please revert this patch.
+> 
+>   OK, your call, you know the code better than I do.
+> 
+>   But the locking could at least be pushed into ehea_update_firmware_handles()
+> and ehea_update_bcmc_registrations() instead of being at each call site.
+> 
+>   Thanks,
+> 
+>   Sebastien.
+> 
 
-It is more than two months since the benet driver patch was made available as a single file as suggeted by you :
+It unfortunately can't. As I already mentioned "it must be assured that no
+function that modifies the list's content can be called while another list
+update is in progress". This means that for example ehea_broadcast_reg_helper()
+may not run during a list update. That's why the locks surround these function
+calls as well.
 
-ftp://ftp.serverengines.com/0001.benet.patch
-
-I have not seen this applied.  Is there any reason for not applying this  patch ?  Do you want a patch against the latest git tree ?
-
-Thanks.
-
-Subbu
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-Behalf Of Subbu Seetharaman
-Sent: Wednesday, July 09, 2008 7:25 AM
-To: Jeff Garzik
-Cc: 'Randy Dunlap'; 'Bill Fink'; netdev@vger.kernel.org
-Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
-
-Jeff,
-
-The benet driver patch with this Kconfig change is available 
-as one file under under :
-
-ftp://ftp.serverengines.com/0001.benet.patch
-
-Thanks.
-
-Subbu
-
------ Original Message -----
-From: Jeff Garzik [mailto:jeff@garzik.org]
-To: subbu [mailto:subbus@serverengines.com]
-Cc: 'Randy Dunlap' [mailto:randy.dunlap@oracle.com], 'Bill Fink'
-[mailto:billfink@mindspring.com], netdev@vger.kernel.org
-Sent: Mon, 07 Jul 2008 06:57:48 -0700
-Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
+Thomas
 
 
-subbu wrote:
-> Thanks Randy and Bill.  I will wait couple more
-> days for any more comments before sending the updated patch.
-
-Also, if you have a link to a patch that provides everything in one 
-file, that would be useful for me.
-
-	Jeff
-
-____________________________________________________________________________
-_______
-This message, together with any attachment(s), contains confidential and
-proprietary information of
-ServerEngines Corporation and is intended only for the designated
-recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly
-prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by
-reply email message and
-delete all copies of this message and any attachment(s). Thank you.
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
-
+>> Thanks
+>> Thomas
+>>
+>>
+>>
+>> Sebastien Dugue wrote:
+>>>   Looks like to me that the ehea_fw_handles.lock mutex and the
+>>> ehea_bcmc_regs.lock spinlock are taken much longer than necessary and could
+>>> as well be pushed inside the functions that need them
+>>> (ehea_update_firmware_handles() and ehea_update_bcmc_registrations())
+>>> rather than at each callsite.
+>>>
+>>> Signed-off-by: Sebastien Dugue <sebastien.dugue@bull.net>
+>>> ---
+>>>  drivers/net/ehea/ehea_main.c |   26 ++++----------------------
+>>>  1 files changed, 4 insertions(+), 22 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+>>> index b70c531..c765ec6 100644
+>>> --- a/drivers/net/ehea/ehea_main.c
+>>> +++ b/drivers/net/ehea/ehea_main.c
+>>> @@ -219,9 +219,11 @@ static void ehea_update_firmware_handles(void)
+>>>  	}
+>>>  
+>>>  out_update:
+>>> +	mutex_lock(&ehea_fw_handles.lock);
+>>>  	kfree(ehea_fw_handles.arr);
+>>>  	ehea_fw_handles.arr = arr;
+>>>  	ehea_fw_handles.num_entries = i;
+>>> +	mutex_unlock(&ehea_fw_handles.lock);
+>>>  }
+>>>  
+>>>  static void ehea_update_bcmc_registrations(void)
+>>> @@ -293,9 +295,11 @@ static void ehea_update_bcmc_registrations(void)
+>>>  	}
+>>>  
+>>>  out_update:
+>>> +	spin_lock(&ehea_bcmc_regs.lock);
+>>>  	kfree(ehea_bcmc_regs.arr);
+>>>  	ehea_bcmc_regs.arr = arr;
+>>>  	ehea_bcmc_regs.num_entries = i;
+>>> +	spin_unlock(&ehea_bcmc_regs.lock);
+>>>  }
+>>>  
+>>>  static struct net_device_stats *ehea_get_stats(struct net_device *dev)
+>>> @@ -1770,8 +1774,6 @@ static int ehea_set_mac_addr(struct net_device *dev, void *sa)
+>>>  
+>>>  	memcpy(dev->dev_addr, mac_addr->sa_data, dev->addr_len);
+>>>  
+>>> -	spin_lock(&ehea_bcmc_regs.lock);
+>>> -
+>>>  	/* Deregister old MAC in pHYP */
+>>>  	if (port->state == EHEA_PORT_UP) {
+>>>  		ret = ehea_broadcast_reg_helper(port, H_DEREG_BCMC);
+>>> @@ -1792,7 +1794,6 @@ static int ehea_set_mac_addr(struct net_device *dev, void *sa)
+>>>  
+>>>  out_upregs:
+>>>  	ehea_update_bcmc_registrations();
+>>> -	spin_unlock(&ehea_bcmc_regs.lock);
+>>>  out_free:
+>>>  	kfree(cb0);
+>>>  out:
+>>> @@ -1954,8 +1955,6 @@ static void ehea_set_multicast_list(struct net_device *dev)
+>>>  	}
+>>>  	ehea_promiscuous(dev, 0);
+>>>  
+>>> -	spin_lock(&ehea_bcmc_regs.lock);
+>>> -
+>>>  	if (dev->flags & IFF_ALLMULTI) {
+>>>  		ehea_allmulti(dev, 1);
+>>>  		goto out;
+>>> @@ -1985,7 +1984,6 @@ static void ehea_set_multicast_list(struct net_device *dev)
+>>>  	}
+>>>  out:
+>>>  	ehea_update_bcmc_registrations();
+>>> -	spin_unlock(&ehea_bcmc_regs.lock);
+>>>  	return;
+>>>  }
+>>>  
+>>> @@ -2466,8 +2464,6 @@ static int ehea_up(struct net_device *dev)
+>>>  	if (port->state == EHEA_PORT_UP)
+>>>  		return 0;
+>>>  
+>>> -	mutex_lock(&ehea_fw_handles.lock);
+>>> -
+>>>  	ret = ehea_port_res_setup(port, port->num_def_qps,
+>>>  				  port->num_add_tx_qps);
+>>>  	if (ret) {
+>>> @@ -2504,8 +2500,6 @@ static int ehea_up(struct net_device *dev)
+>>>  		}
+>>>  	}
+>>>  
+>>> -	spin_lock(&ehea_bcmc_regs.lock);
+>>> -
+>>>  	ret = ehea_broadcast_reg_helper(port, H_REG_BCMC);
+>>>  	if (ret) {
+>>>  		ret = -EIO;
+>>> @@ -2527,10 +2521,8 @@ out:
+>>>  		ehea_info("Failed starting %s. ret=%i", dev->name, ret);
+>>>  
+>>>  	ehea_update_bcmc_registrations();
+>>> -	spin_unlock(&ehea_bcmc_regs.lock);
+>>>  
+>>>  	ehea_update_firmware_handles();
+>>> -	mutex_unlock(&ehea_fw_handles.lock);
+>>>  
+>>>  	return ret;
+>>>  }
+>>> @@ -2580,9 +2572,6 @@ static int ehea_down(struct net_device *dev)
+>>>  	if (port->state == EHEA_PORT_DOWN)
+>>>  		return 0;
+>>>  
+>>> -	mutex_lock(&ehea_fw_handles.lock);
+>>> -
+>>> -	spin_lock(&ehea_bcmc_regs.lock);
+>>>  	ehea_drop_multicast_list(dev);
+>>>  	ehea_broadcast_reg_helper(port, H_DEREG_BCMC);
+>>>  
+>>> @@ -2591,7 +2580,6 @@ static int ehea_down(struct net_device *dev)
+>>>  	port->state = EHEA_PORT_DOWN;
+>>>  
+>>>  	ehea_update_bcmc_registrations();
+>>> -	spin_unlock(&ehea_bcmc_regs.lock);
+>>>  
+>>>  	ret = ehea_clean_all_portres(port);
+>>>  	if (ret)
+>>> @@ -2599,7 +2587,6 @@ static int ehea_down(struct net_device *dev)
+>>>  			  dev->name, ret);
+>>>  
+>>>  	ehea_update_firmware_handles();
+>>> -	mutex_unlock(&ehea_fw_handles.lock);
+>>>  
+>>>  	return ret;
+>>>  }
+>>> @@ -3378,7 +3365,6 @@ static int __devinit ehea_probe_adapter(struct of_device *dev,
+>>>  		ehea_error("Invalid ibmebus device probed");
+>>>  		return -EINVAL;
+>>>  	}
+>>> -	mutex_lock(&ehea_fw_handles.lock);
+>>>  
+>>>  	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
+>>>  	if (!adapter) {
+>>> @@ -3462,7 +3448,6 @@ out_free_ad:
+>>>  
+>>>  out:
+>>>  	ehea_update_firmware_handles();
+>>> -	mutex_unlock(&ehea_fw_handles.lock);
+>>>  	return ret;
+>>>  }
+>>>  
+>>> @@ -3481,8 +3466,6 @@ static int __devexit ehea_remove(struct of_device *dev)
+>>>  
+>>>  	flush_scheduled_work();
+>>>  
+>>> -	mutex_lock(&ehea_fw_handles.lock);
+>>> -
+>>>  	ibmebus_free_irq(adapter->neq->attr.ist1, adapter);
+>>>  	tasklet_kill(&adapter->neq_tasklet);
+>>>  
+>>> @@ -3492,7 +3475,6 @@ static int __devexit ehea_remove(struct of_device *dev)
+>>>  	kfree(adapter);
+>>>  
+>>>  	ehea_update_firmware_handles();
+>>> -	mutex_unlock(&ehea_fw_handles.lock);
+>>>  
+>>>  	return 0;
+>>>  }
+>>
+>> _______________________________________________
+>> Linuxppc-dev mailing list
+>> Linuxppc-dev@ozlabs.org
+>> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+>>
