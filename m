@@ -1,35 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: btusb suspend/resume bug...
-Date: Tue, 16 Sep 2008 15:51:23 -0700 (PDT)
-Message-ID: <20080916.155123.181085856.davem@davemloft.net>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: sys_paccept: disable paccept() until API design is resolved
+Date: Tue, 16 Sep 2008 16:17:25 -0700
+Message-ID: <48D03E85.9030808@redhat.com>
+References: <48CFA10D.2010106@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: marcel@holtmann.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Alan Cox <alan@redhat.com>, Jakub Jelinek <jakub@redhat.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	Roland McGrath <roland@redhat.com>,
+	Oleg Nesterov <oleg@tv-sign.ru>, Christoph Hellwig <hch@lst.de>
+To: Michael Kerrisk <mtk.manpages@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59720
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750915AbYIPWv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 18:51:29 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:33568 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752371AbYIPXVH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2008 19:21:07 -0400
+In-Reply-To: <48CFA10D.2010106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Marcel, others, please bring some kind of closure to this
-regression list entry:
+Michael Kerrisk wrote:
+> The patch below disables the new sys_paccept() for now.  Please
+> apply for 2.6.27-rc, so that we do not release this API into
+> the wild before a conclusion has been reached about its design.
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=11442
-Subject		: btusb hibernation/suspend breakage in current -git
-Submitter	: Rafael J. Wysocki <rjw@sisk.pl>
-Date		: 2008-08-25 11:37 (19 days old)
-References	: http://marc.info/?l=linux-bluetooth&m=121966402012074&w=4
-Handled-By	: Oliver Neukum <oliver@neukum.org>
-Patch		: http://marc.info/?l=linux-bluetooth&m=121967226027323&w=4
+There is no reason for that.
 
-There is a patch, it is tested, so the only course of action at
-this point is to merge the fix or declare that this really isn't
-a regression.
 
-My impression is the later, because the driver btusb is replacing
-doesn't handle suspend/resume either.  Isn't that right?
+> The reasons for disabling paccept() are as follows:
+>=20
+> * The API is more complex than needed.  There is AFAICS no demonstrat=
+ed
+>   use case that the sigset argument of this syscall serves that
+>   couldn't equally be served by the use of pselect/ppoll/epoll_pwait =
++
+
+It would unnecessarily require programs to be changed.  I've explained
+that programs cannot efficiently use accept() and poll() when multiple
+threads are involved.  This means in these situations you'll find a
+single thread handling only the accept() calls.
+
+
+> * The use of a sigset argument is not consistent with other I/O APIs
+>   that can block on a single file descriptor (e.g., read(), recv(),
+>   connect()).
+
+This is because none of the other interfaces had (so far) be revised.
+With this flawed argumentation you'd prevent any program ever to be mad=
+e.
+
+
+> * The behavior of paccept() when interrupted by a signal is IMO
+>   strange:
+
+You use your own opinion as the deciding factor?  The behavior differs
+from other uses but is consistent with the accept() behavior.
+
+
+> I believe that instead, a simpler API, consistent with Ulrich's
+> other recent additions, is preferable:
+>=20
+> accept4(int fd, struct sockaddr *sa, socklen_t *salen, ind flags);
+
+The signal set wasn't actually my idea.  See:
+
+http://marc.info/?l=3Dlinux-kernel&m=3D120909788728078&w=3D2
+
+
+> At this point, I am hoping we either will get a counter-argument
+> from Ulrich about why we really do need paccept()'s sigset argument,
+> or that he will resubmit the original accept4() patch.
+
+I have explained the need already. you just chose to ignore it.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkjQPoQACgkQ2ijCOnn/RHTNZwCfaXdw5Yhy/chAUMqR2kZE8Rsm
+wzUAnA7PtvODGyAMeahl44+mqasqGS1U
+=3DGh2E
+-----END PGP SIGNATURE-----
