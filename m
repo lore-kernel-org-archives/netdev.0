@@ -1,67 +1,31 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch 1/3] ipvs: only unlock in ip_vs_edit_service() if already locked
-Date: Tue, 16 Sep 2008 17:13:19 +1000
-Message-ID: <20080916071610.390873215@vergenet.net>
-References: <20080916071318.939200044@vergenet.net>
-Cc: Julius Volz <juliusv@google.com>, Vince Busam <vbusam@google.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Sven Wegener <sven.wegener@stealer.net>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: LRO num of frags limit
+Date: Tue, 16 Sep 2008 10:36:32 +0300
+Message-ID: <20080916073632.GA25226@mtls03>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, themann@de.ibm.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:42540 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068AbYIPHRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 03:17:35 -0400
-Content-Disposition: inline; filename=ip_vs_edit_service-out_unlock.patch
+Received: from mail.mellanox.co.il ([194.90.237.43]:34512 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752760AbYIPHf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2008 03:35:29 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jumping to out unlocks __ip_vs_svc_lock, but that lock is not taken until
-after code that may jump to out.
+Hi,
 
-This problem was detected by sparse.
+looking at the LRO code, at __lro_proc_segment(), it seems that the
+network driver can configure lro_mgr->max_aggr to any value it wants
+while the number of fragments aggregated must not exceed MAX_SKB_FRAGS
+(since we only use a single SKB to aggregate fragments, allocated by
+lro_gen_skb()). Moreover, even if the driver does limit
+lro_mgr->max_aggr to MAX_SKB_FRAGS, it might still cause overflow
+since subsequent aggregations are done at lro_add_frags() which is
+called before checking whether we overflow.
+If the above observation is correct, I can send a patch.
 
-make C=1
-  CHECK   net/ipv4/ipvs/ip_vs_ctl.c
-net/ipv4/ipvs/ip_vs_ctl.c:1332:2: warning: context imbalance in 'ip_vs_edit_service' - unexpected unlock
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
-Index: lvs-2.6/net/ipv4/ipvs/ip_vs_ctl.c
-===================================================================
---- lvs-2.6.orig/net/ipv4/ipvs/ip_vs_ctl.c	2008-09-16 15:16:01.000000000 +1000
-+++ lvs-2.6/net/ipv4/ipvs/ip_vs_ctl.c	2008-09-16 15:16:06.000000000 +1000
-@@ -1305,7 +1305,7 @@ ip_vs_edit_service(struct ip_vs_service 
- 		 */
- 		if ((ret = ip_vs_unbind_scheduler(svc))) {
- 			old_sched = sched;
--			goto out;
-+			goto out_unlock;
- 		}
- 
- 		/*
-@@ -1324,12 +1324,13 @@ ip_vs_edit_service(struct ip_vs_service 
- 			 */
- 			ip_vs_bind_scheduler(svc, old_sched);
- 			old_sched = sched;
--			goto out;
-+			goto out_unlock;
- 		}
- 	}
- 
--  out:
-+  out_unlock:
- 	write_unlock_bh(&__ip_vs_svc_lock);
-+  out:
- 
- 	if (old_sched)
- 		ip_vs_scheduler_put(old_sched);
-
--- 
-
--- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
-
+Thanks,
+Eli
