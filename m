@@ -1,99 +1,136 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 11571] New: u32_classify Kernel Panic
-Date: Tue, 16 Sep 2008 09:15:08 -0700
-Message-ID: <20080916091508.a0cd830e.akpm@linux-foundation.org>
-References: <bug-11571-10286@http.bugzilla.kernel.org/>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Warning/Oops report of the week of September 16th, 2008
+Date: Tue, 16 Sep 2008 09:22:06 -0700
+Message-ID: <20080916092206.6342c498@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, m0sia@plotinka.ru
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47350 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753187AbYIPQUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 12:20:19 -0400
-In-Reply-To: <bug-11571-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	tglx@tglx.de, mingo@elte.hu, linux-acpi@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is the first report where I've dropped oopses that happened to 2.6.25 or earlier kernels.
+I've also changed the format of the report to split it in "fixed" and "not yet fixed" sections;
+I hope that makes the report more useful for developers.
 
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
 
-On Mon, 15 Sep 2008 03:35:16 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+This week, a total of 1730 oopses and warnings have been reported,
+compared to 626 reports in the previous week.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=11571
-> 
->            Summary: u32_classify Kernel Panic
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.26.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: m0sia@plotinka.ru
-> 
-> 
-> Distribution: Debian
-> 
-> Problem Description:
-> Kernel panic
-> [<c023f2d8>]    dev_queue_xmit+0x175/0x2a1
-> [<c0243861>]    neigh_resolve_output+0x1f8/0x2la
-> [<c025a784>]    ip_finish_output+0x1d7/0x200
-> [<c025aa2f>]    ip_output+0x6f/0x81
-> [<c0258218>]    ip_forwardjinish+0x2c/0x2e
-> [<c0257223>]    ip_rcv_f inish+0x263/0x27f
-> [<c023cc62>]    netif_receive_skb+0x2c1/0x32b
-> [<f886f26d>]    e1000_clean_rx_irq+0x395/0x46f [e1000]
-> [<f886f5f7>]    e1000_clean+0x52/0x1db [e1000]
-> [<c013e8e4>]    net_rx_action+0x8a/0x153
-> [<c0128bfa>]    __do_softirq+0x5d/0xc1
-> [<c0128c98>]    do_softirq+0x32/0x36
-> [<c0185cb8>]    do_IRQ+0x52/0x66
-> [<c01887fa>]    mwait_idle+0x8/0x32
-> [<c018418b>]    common_interrupt+0x23/0x28
-> [<c01887fa>]    mwait_idle+0xB/0x32
-> [<c0188829>]    muait_idle+0x2f/0x32
-> [<c0182545>]    cpu_ i d1e+0x88/0x9c
-> 
-> 
-> Code: 0c 8b 80 90 00 00 00 c7 44 24 14 00 00 00 00 c7 44 24 18 00 00 00 00 89
-> 44 
-> 24 18 8b 54 24 0c 8b 74 aa 18 85 f6 0f 84 a0 01 00 00 <8b> 46 38 83 00 01 83 50 
-> 04 00 8b 4c 24 04 8b 46 38 23 81 88 00
-> EIP: [<f8bf3670>] u32_classify+0x41/0x23f [cls_u32] SS:ESP 8868:f746fd44
-> Kernel panic - not syncing: Fatal exception in interrupt
-> 
-> Steps to reproduce:
-> 
-> tc qdisc add dev eth1 root handle 1: htb 
-> 
-> tc class add dev eth1 parent 1: classid 1:1 htb rate 3600Kbit
-> tc class add dev eth1 parent 1:1 classid 1:11 htb rate 2800Kbit prio 0
-> tc class add dev eth1 parent 1:1 classid 1:15 htb rate 100Kbit ceil 2800Kbit
-> prio 0
-> tc class add dev eth1 parent 1:1 classid 1:19 htb rate 100Kbit ceil 500Kbit
-> prio 2
-> 
-> 
-> N from 10 to 2000
-> tc class add dev eth1 parent 1:{11,15,19} classid 1:$N htb rate 1Kbit ceil
-> {$SPEED}Kbit
-> tc filter add dev eth1 parent 1: protocol ip pref $N u32 match ip dst $IP
-> flowid 1:$N
-> 
-> Everything worked with N smaller then 2000. The problem first acquired with
-> kernel 2.6.18-6-686 and is still present in 2.6.26.5
-> 
-> 
-> -- 
-> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+
+Per file statistics
+266	net/sched/sch_generic.c
+260	kernel/timer/tglx.c
+167	drivers/ata/libata-sff.c
+154	external/utrace
+80	net/core/dev.c
+62	drivers/parport/procfs.c
+54	external/fireglx/binary (P)
+45	fs/jbd/journal.c
+38	kernel/timer.c
+34	drivers/base/power/main.c
+27	lib/scatterlist.c
+25	kernel/sched.c
+23	include/asm-x86/irqflags.h
+
+
+Not yet fixed issues
+====================
+
+Rank 1: dev_watchdog (warning)
+	Reported 263 times (495 total reports)
+	Network card timeout; this error is currently not specific enough, a patch
+	is pending to get this reported per driver, with some luck this gets merged soon.
+	This warning was last seen in version 2.6.27-rc6, and first seen in 2.6.26-rc3.
+	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog
+
+Rank 4: utrace_control (oops)
+	Reported 149 times (152 total reports)
+	[fedora] Fedora merged a broken utrace patch
+	This oops was last seen in version 2.6.26.3, and first seen in 2.6.26.1.
+	More info: http://www.kerneloops.org/searchweek.php?search=utrace_control
+
+Rank 6: parport_device_proc_register (warning)
+	Reported 62 times (3942 total reports)
+	Duplicate /proc registration in the parport driver
+	This warning was last seen in version 2.6.26.3, and first seen in 2.6.24-rc5.
+	More info: http://www.kerneloops.org/searchweek.php?search=parport_device_proc_register
+
+Rank 7: firegl_ioctl (warning)
+	Reported 50 times (2479 total reports)
+	[external] Bug in the proprietary fireglx driver
+	warning only shows up in tainted kernels
+	This warning was last seen in version 2.6.26.5, and first seen in 2.6.25.
+	More info: http://www.kerneloops.org/searchweek.php?search=firegl_ioctl
+
+Rank 8: journal_update_superblock (warning)
+	Reported 44 times (3767 total reports)
+	Likely caused by the user removing a USB stick while mounted
+	This warning was last seen in version 2.6.27-rc6, and first seen in 2.6.24-rc6-git1.
+	More info: http://www.kerneloops.org/searchweek.php?search=journal_update_superblock
+
+Rank 9: run_timer_softirq (oops)
+	Reported 36 times (76 total reports)
+	softlockup; might be fixed by Thomas' HPET fixes
+	This oops was last seen in version 2.6.27-rc1-git4, and first seen in 2.6.25.
+	More info: http://www.kerneloops.org/searchweek.php?search=run_timer_softirq
+
+Rank 10: device_pm_add (warning)
+	Reported 29 times (122 total reports)
+	This warning was last seen in version 2.6.27-rc4, and first seen in 2.6.26-rc5.
+	More info: http://www.kerneloops.org/searchweek.php?search=device_pm_add
+
+Rank 12: native_safe_halt (oops)
+	Reported 23 times (122 total reports)
+	This oops was last seen in version 2.6.27-rc5, and first seen in 2.6.24.
+	More info: http://www.kerneloops.org/searchweek.php?search=native_safe_halt
+
+Rank 13: account (warning)
+	Reported 13 times (16 total reports)
+	This warning was last seen in version 2.6.26.3, and first seen in 2.6.26.
+	More info: http://www.kerneloops.org/searchweek.php?search=account
+
+Rank 14: lock_page (warning)
+	Reported 12 times (31 total reports)
+	This warning was last seen in version 2.6.27-rc6, and first seen in 2.6.27-rc1-git2.
+	More info: http://www.kerneloops.org/searchweek.php?search=lock_page
+
+Fixed issues
+============
+
+
+Rank 2: tick_dev_program_event (warning)
+	Reported 260 times (282 total reports)
+	[debug] temporary WARN_ON() inserted in -rc5 for diagnostics purposes, removed for -rc6
+	This warning was last seen in version 2.6.27-rc5-git10, and first seen in 2.6.27-rc5.
+	More info: http://www.kerneloops.org/searchweek.php?search=tick_dev_program_event
+
+Rank 3: ata_sff_hsm_move (warning)
+	Reported 167 times (300 total reports)
+	[fixed] redundant WARN_ON; fixed in 9c2676b61a5a4b6d99e65fb2f438fb3914302eda
+	This warning was last seen in version 2.6.27-rc2-git1, and first seen in 2.6.25.4.
+	More info: http://www.kerneloops.org/searchweek.php?search=ata_sff_hsm_move
+
+Rank 5: __netif_schedule (warning)
+	Reported 74 times (559 total reports)
+	[fixed] issue as a result of the multiqueue feature, fixed for 2.6.27-rc1
+	This warning was last seen in version 2.6.27-rc0-git11, and first seen in 2.6.26-rc8-git.
+	More info: http://www.kerneloops.org/searchweek.php?search=__netif_schedule
+
+Rank 11: sg_copy_buffer (warning)
+	Reported 27 times (29 total reports)
+	[fixed] by making the locks _irqsave (and backported to -stable)
+	This warning was last seen in version 2.6.26.5, and first seen in 2.6.26-rc6.
+	More info: http://www.kerneloops.org/searchweek.php?search=sg_copy_buffer
+
+
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
