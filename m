@@ -1,92 +1,32 @@
-From: "Andrew Victor" <avictor.za@gmail.com>
-Subject: [PATCH] at91_ether: Add Micrel KSZ8041 PHY support
-Date: Tue, 16 Sep 2008 22:53:00 +0200
-Message-ID: <cd73a99e0809161352s770e29fbs50b1b6995378211b@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: nvidia driver fix
+Date: Tue, 16 Sep 2008 15:38:05 -0700 (PDT)
+Message-ID: <20080916.153805.83330716.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_10632_2892733.1221598380391"
-Cc: gustavo@zacarias.com.ar
-To: jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.29]:45329 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbYIPUxC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 16:53:02 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so865120ywe.1
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2008 13:53:01 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50035
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750884AbYIPWiL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2008 18:38:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_10632_2892733.1221598380391
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-Add support for Micrel's KSZ8041 PHY in the Atmel AT91RM9200 Ethernet driver.
-The PHY is similar to the KS8721 (configuration registers differ a
-bit, like LED function and a new PHY Control 2 register and LinkMD
-control/status register, which aren't used by the at91_ether driver
-anyway). The chip has a different pin layout so it's no good for a
-drop in replacement anyway.
+Jeff please make sure the following makes it's way into
+your next bug fix pull request to me as it's fixes
+a regression list entry:
 
-Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
-Signed-off-by: Andrew Victor <linux@maxim.org.za>
+http://marc.info/?l=linux-kernel&m=121894416718874&w=4
 
-------=_Part_10632_2892733.1221598380391
-Content-Type: text/x-patch; name=8-ethernet_ksz8041.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fl6zwxk50
-Content-Disposition: attachment; filename=8-ethernet_ksz8041.patch
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=11358
+Subject		: net: forcedeth call restore mac addr in nv_shutdown path
+Submitter	: Yinghai Lu <yhlu.kernel@gmail.com>
+Date		: 2008-08-17 3:30 (27 days old)
+References	: http://marc.info/?l=linux-kernel&m=121894389018584&w=4
+Handled-By	: Yinghai Lu <yhlu.kernel@gmail.com>
+Patch		: http://marc.info/?l=linux-kernel&m=121894389018584&w=4
 
-ZGlmZiAtdXJOIGxpbnV4LTIuNi4yNy1yYzYub3JpZy9kcml2ZXJzL25ldC9hcm0vYXQ5MV9ldGhl
-ci5jIGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9uZXQvYXJtL2F0OTFfZXRoZXIuYwotLS0gbGlu
-dXgtMi42LjI3LXJjNi5vcmlnL2RyaXZlcnMvbmV0L2FybS9hdDkxX2V0aGVyLmMJMjAwOC0wOS0x
-NiAyMToxNTo1My4wMDAwMDAwMDAgKzAyMDAKKysrIGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9u
-ZXQvYXJtL2F0OTFfZXRoZXIuYwkyMDA4LTA5LTE2IDIxOjE1OjU5LjAwMDAwMDAwMCArMDIwMApA
-QCAtMjIwLDcgKzIyMCw3IEBACiAJCWlmICghKHBoeSAmICgxIDw8IDApKSkKIAkJCWdvdG8gZG9u
-ZTsKIAl9Ci0JZWxzZSBpZiAobHAtPnBoeV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHsKKwllbHNl
-IGlmICgobHAtPnBoeV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHx8IChscC0+cGh5X3R5cGUgPT0g
-TUlJX0tTWjgwNDFfSUQpKSB7CiAJCXJlYWRfcGh5KGxwLT5waHlfYWRkcmVzcywgTUlJX1RQSVNU
-QVRVUywgJnBoeSk7CQkvKiBhY2sgaW50ZXJydXB0IGluIE1pY3JlbCBQSFkgKi8KIAkJaWYgKCEo
-cGh5ICYgKCgxIDw8IDIpIHwgMSkpKQogCQkJZ290byBkb25lOwpAQCAtMjg2LDcgKzI4Niw3IEBA
-CiAJCWRzaW50ciA9ICgxIDw8IDE1KSB8ICggMSA8PCAxNCk7CiAJCXdyaXRlX3BoeShscC0+cGh5
-X2FkZHJlc3MsIE1JSV9CQ01JTlRSX1JFRywgZHNpbnRyKTsKIAl9Ci0JZWxzZSBpZiAobHAtPnBo
-eV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHsJLyogZm9yIE1pY3JlbCBQSFkgKi8KKwllbHNlIGlm
-ICgobHAtPnBoeV90eXBlID09IE1JSV9LUzg3MjFfSUQpIHx8IChscC0+cGh5X3R5cGUgPT0gTUlJ
-X0tTWjgwNDFfSUQpKSB7CS8qIGZvciBNaWNyZWwgUEhZICovCiAJCWRzaW50ciA9ICgxIDw8IDEw
-KSB8ICggMSA8PCA4KTsKIAkJd3JpdGVfcGh5KGxwLT5waHlfYWRkcmVzcywgTUlJX1RQSVNUQVRV
-UywgZHNpbnRyKTsKIAl9CkBAIC0zNDEsNyArMzQxLDcgQEAKIAkJZHNpbnRyID0gfigxIDw8IDE0
-KTsKIAkJd3JpdGVfcGh5KGxwLT5waHlfYWRkcmVzcywgTUlJX0JDTUlOVFJfUkVHLCBkc2ludHIp
-OwogCX0KLQllbHNlIGlmIChscC0+cGh5X3R5cGUgPT0gTUlJX0tTODcyMV9JRCkgewkvKiBmb3Ig
-TWljcmVsIFBIWSAqLworCWVsc2UgaWYgKChscC0+cGh5X3R5cGUgPT0gTUlJX0tTODcyMV9JRCkg
-fHwgKGxwLT5waHlfdHlwZSA9PSBNSUlfS1NaODA0MV9JRCkpIHsJLyogZm9yIE1pY3JlbCBQSFkg
-Ki8KIAkJcmVhZF9waHkobHAtPnBoeV9hZGRyZXNzLCBNSUlfVFBJU1RBVFVTLCAmZHNpbnRyKTsK
-IAkJZHNpbnRyID0gfigoMSA8PCAxMCkgfCAoMSA8PCA4KSk7CiAJCXdyaXRlX3BoeShscC0+cGh5
-X2FkZHJlc3MsIE1JSV9UUElTVEFUVVMsIGRzaW50cik7CkBAIC0xMTAyLDYgKzExMDIsOCBAQAog
-CQlwcmludGsoS0VSTl9JTkZPICIlczogTmF0aW9uYWwgU2VtaWNvbmR1Y3RvciBEUDgzODQ4IFBI
-WVxuIiwgZGV2LT5uYW1lKTsKIAllbHNlIGlmIChwaHlfdHlwZSA9PSBNSUlfQUMxMDFMX0lEKQog
-CQlwcmludGsoS0VSTl9JTkZPICIlczogQWx0aW1hIEFDMTAxTCBQSFlcbiIsIGRldi0+bmFtZSk7
-CisJZWxzZSBpZiAocGh5X3R5cGUgPT0gTUlJX0tTWjgwNDFfSUQpCisJCXByaW50ayhLRVJOX0lO
-Rk8gIiVzOiBNaWNyZWwgS1NaODA0MSBQSFlcbiIsIGRldi0+bmFtZSk7CiAJZWxzZSBpZiAocGh5
-X3R5cGUgPT0gTUlJX0tTODcyMV9JRCkKIAkJcHJpbnRrKEtFUk5fSU5GTyAiJXM6IE1pY3JlbCBL
-Uzg3MjEgUEhZXG4iLCBkZXYtPm5hbWUpOwogCWVsc2UgaWYgKHBoeV90eXBlID09IE1JSV9UNzhR
-MjF4M19JRCkKQEAgLTExNDcsNiArMTE0OSw3IEBACiAJCQljYXNlIE1JSV9EUDgzODQ3X0lEOgkJ
-LyogTmF0aW9uYWwgU2VtaWNvbmR1Y3RvciBEUDgzODQ3OiAgKi8KIAkJCWNhc2UgTUlJX0RQODM4
-NDhfSUQ6CQkvKiBOYXRpb25hbCBTZW1pY29uZHVjdG9yIERQODM4NDg6ICAqLwogCQkJY2FzZSBN
-SUlfQUMxMDFMX0lEOgkJLyogQWx0aW1hIEFDMTAxTDogUEhZX0lEMSA9IDB4MjIsIFBIWV9JRDIg
-PSAweDU1MjAgKi8KKwkJCWNhc2UgTUlJX0tTWjgwNDFfSUQ6CQkvKiBNaWNyZWwgS1NaODA0MTog
-UEhZX0lEMSA9IDB4MjIsIFBIWV9JRDIgPSAweDE1MTIgKi8KIAkJCWNhc2UgTUlJX0tTODcyMV9J
-RDoJCS8qIE1pY3JlbCBLUzg3MjE6IFBIWV9JRDEgPSAweDIyLCBQSFlfSUQyID0gMHgxNjEwICov
-CiAJCQljYXNlIE1JSV9UNzhRMjF4M19JRDoJCS8qIFRlcmlkaWFuIDc4UTIxeDM6IFBIWV9JRDEg
-PSAweDBFLCBQSFlfSUQyID0gNzIzNyAqLwogCQkJY2FzZSBNSUlfTEFOODNDMTg1X0lEOgkJLyog
-U01TQyBMQU44M0MxODU6IFBIWV9JRDEgPSAweDAwMDcsIFBIWV9JRDIgPSAweEMwQTEgKi8KZGlm
-ZiAtdXJOIGxpbnV4LTIuNi4yNy1yYzYub3JpZy9kcml2ZXJzL25ldC9hcm0vYXQ5MV9ldGhlci5o
-IGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9uZXQvYXJtL2F0OTFfZXRoZXIuaAotLS0gbGludXgt
-Mi42LjI3LXJjNi5vcmlnL2RyaXZlcnMvbmV0L2FybS9hdDkxX2V0aGVyLmgJMjAwOC0wOS0xNCAy
-MDoxNToyNy4wMDAwMDAwMDAgKzAyMDAKKysrIGxpbnV4LTIuNi4yNy1yYzYvZHJpdmVycy9uZXQv
-YXJtL2F0OTFfZXRoZXIuaAkyMDA4LTA5LTE2IDIxOjE1OjU5LjAwMDAwMDAwMCArMDIwMApAQCAt
-NDgsNiArNDgsOSBAQAogLyogQWx0aW1hIEFDMTAxTCBQSFkgKi8KICNkZWZpbmUgTUlJX0FDMTAx
-TF9JRAkJMHgwMDIyNTUyMAogCisvKiBNaWNyZWwgS1NaODA0MSBQSFkgKi8KKyNkZWZpbmUgTUlJ
-X0tTWjgwNDFfSUQJCTB4MDAyMjE1MTAKKwogLyogTWljcmVsIEtTODcyMSBQSFkgKi8KICNkZWZp
-bmUgTUlJX0tTODcyMV9JRAkJMHgwMDIyMTYxMAogCg==
-------=_Part_10632_2892733.1221598380391--
