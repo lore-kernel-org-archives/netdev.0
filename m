@@ -1,43 +1,75 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 03/14] Phonet: build the net/phonet/ directory
-Date: Wed, 17 Sep 2008 14:52:25 +1000
-Message-ID: <20080917045224.GC7265@verge.net.au>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-3-git-send-email-remi.denis-courmont@nokia.com> <20080916160655.GG8702@ghostprotocols.net>
+From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: sys_paccept: disable paccept() until API design is resolved
+Date: Wed, 17 Sep 2008 09:50:58 +0300
+Message-ID: <200809170950.58844.remi.denis-courmont@nokia.com>
+References: <48CFA10D.2010106@gmail.com> <48D03E85.9030808@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>, netdev@vger.kernel.org
+Cc: Michael Kerrisk <mtk.manpages@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Alan Cox <alan@redhat.com>, Jakub Jelinek <jakub@redhat.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	Roland McGrath <roland@redhat.com>,
+	Oleg Nesterov <oleg@tv-sign.ru>, Christoph Hellwig <hch@lst.de>
+To: "ext Ulrich Drepper" <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59682 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbYIQEw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 00:52:27 -0400
+Received: from smtp.nokia.com ([192.100.122.230]:37310 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751357AbYIQGvn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 02:51:43 -0400
+In-Reply-To: <48D03E85.9030808@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20080916160655.GG8702@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2008 at 01:06:55PM -0300, Arnaldo Carvalho de Melo wrot=
-e:
-> Em Tue, Sep 16, 2008 at 06:08:03PM +0300, R=E9mi Denis-Courmont escre=
-veu:
-> > Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-> > ---
-> >  net/Kconfig  |    1 +
-> >  net/Makefile |    1 +
-> >  2 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> Can't this be combined with 2/14?
+On Wednesday 17 September 2008 02:17:25 ext Ulrich Drepper, you wrote:
+> It would unnecessarily require programs to be changed.  I've explaine=
+d
+> that programs cannot efficiently use accept() and poll() when multipl=
+e
+> threads are involved.  This means in these situations you'll find a
+> single thread handling only the accept() calls.
 
-Also, I think that the patches need to be re-ordered somehow.
-As things stand, applying patches (1,) 2 & 3 and setting
-CONFIG_PHONET=3Dy will try and build net/phonet/phonet.o,
-but there is no source for that object at that point.
+Hmm. In a multithreaded program, it makes a lot of sense to use blockin=
+g I/O=20
+in general - not just blocking accept(). Of course, this assumes that t=
+here=20
+is only one file descriptor to wait on at a time. This is not necessari=
+ly=20
+true for I/O, nor is it for accept(). For instance, modern TCP servers =
+should=20
+have an IPv4 and an IPv6 socket to accept() from...
+
+If the code path is such that only one file descriptor is being waited =
+on at a=20
+time, then using blocking I/O halves the number of syscalls, and thirds=
+ the=20
+number of context switch between hardware packet reception, and userlan=
+d data=20
+deliver (3 to 1).
+
+> > * The use of a sigset argument is not consistent with other I/O API=
+s
+> >   that can block on a single file descriptor (e.g., read(), recv(),
+> >   connect()).
+>
+> This is because none of the other interfaces had (so far) be revised.
+> With this flawed argumentation you'd prevent any program ever to be m=
+ade.
+
+Right.
+
+Then again... Why not recommend threaded programs to use sigwait() in a=
+=20
+dedicated task and give up on the asynchronous signal handlers complete=
+ly?
 
 --=20
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
-
+R=C3=A9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
