@@ -1,75 +1,71 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: sys_paccept: disable paccept() until API design is resolved
-Date: Wed, 17 Sep 2008 09:50:58 +0300
-Message-ID: <200809170950.58844.remi.denis-courmont@nokia.com>
-References: <48CFA10D.2010106@gmail.com> <48D03E85.9030808@redhat.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
+Date: Wed, 17 Sep 2008 11:44:46 +0400
+Message-ID: <20080917074446.GB3770@x200.localdomain>
+References: <20080821115849.GA2126@x200.localdomain> <20080914181714.34935d9c@osprey.hogchain.net> <20080915224522.GA21012@x200.localdomain> <20080915204431.45201beb@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Kerrisk <mtk.manpages@googlemail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Alan Cox <alan@redhat.com>, Jakub Jelinek <jakub@redhat.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	Roland McGrath <roland@redhat.com>,
-	Oleg Nesterov <oleg@tv-sign.ru>, Christoph Hellwig <hch@lst.de>
-To: "ext Ulrich Drepper" <drepper@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: csnook@redhat.com, netdev@vger.kernel.org
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:37310 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357AbYIQGvn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 02:51:43 -0400
-In-Reply-To: <48D03E85.9030808@redhat.com>
+Received: from gv-out-0910.google.com ([216.239.58.187]:38031 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879AbYIQHmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 03:42:43 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so1506661gvc.37
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2008 00:42:41 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20080915204431.45201beb@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 17 September 2008 02:17:25 ext Ulrich Drepper, you wrote:
-> It would unnecessarily require programs to be changed.  I've explaine=
-d
-> that programs cannot efficiently use accept() and poll() when multipl=
-e
-> threads are involved.  This means in these situations you'll find a
-> single thread handling only the accept() calls.
+On Mon, Sep 15, 2008 at 08:44:31PM -0500, Jay Cliburn wrote:
+> On Tue, 16 Sep 2008 02:45:22 +0400
+> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> > On Sun, Sep 14, 2008 at 06:17:14PM -0500, Jay Cliburn wrote:
+> > > On Thu, 21 Aug 2008 15:58:49 +0400
+> > > adobriyan@gmail.com wrote:
+> > > 
+> > > > This message happens more or less every reboot, sometimes cable
+> > > > unplug/plug is needed to restore connectivity, otherwise card is
+> > > > working fine.
+> > > > 
+> > > > 
+> > > > [   22.570010] eth1: link up, 100Mbps, full-duplex, lpa 0x45E1
+> > > > [   26.570011] NET: Registered protocol family 10
+> > > > [   37.551934] eth0: no IPv6 routers present
+> > > > 
+> > > > 	[rebooted box which is directly connected to a box with
+> > > > atl1]
+> > > > 
+> > > > [ 2078.740004] atl1 0000:03:00.0: eth0 link is down
+> > > > [ 2080.790004] atl1 0000:03:00.0: eth0 link is up 1000 Mbps full
+> > > > duplex [ 2086.049998] NETDEV WATCHDOG: eth0 (atl1): transmit
+> > > > timed out [ 2086.050004] ------------[ cut here ]------------
+> > > > [ 2086.050004] WARNING: at net/sched/sch_generic.c:221
+> > > [...]
+> > > 
+> > > Alexey,
+> > > 
+> > > Can you please try this patch?
+> > 
+> > Seems to help (no more messages), still sometimes no networking until
+> > after cable replug. Stay tuned.
+> 
+> Does this stay tuned mean, "Jay, hold off while I (Alexey) troubleshoot
+> this further."  Or does it mean, "Jay, you've not completely solved the
+> problem yet and you need to continue working on it."
 
-Hmm. In a multithreaded program, it makes a lot of sense to use blockin=
-g I/O=20
-in general - not just blocking accept(). Of course, this assumes that t=
-here=20
-is only one file descriptor to wait on at a time. This is not necessari=
-ly=20
-true for I/O, nor is it for accept(). For instance, modern TCP servers =
-should=20
-have an IPv4 and an IPv6 socket to accept() from...
+I don't know.
 
-If the code path is such that only one file descriptor is being waited =
-on at a=20
-time, then using blocking I/O halves the number of syscalls, and thirds=
- the=20
-number of context switch between hardware packet reception, and userlan=
-d data=20
-deliver (3 to 1).
+Transmit timeout messages definitely dissapeared, no network until cable
+replug a) happened earlier, b) much more rare than transmit timeouts.
 
-> > * The use of a sigset argument is not consistent with other I/O API=
-s
-> >   that can block on a single file descriptor (e.g., read(), recv(),
-> >   connect()).
->
-> This is because none of the other interfaces had (so far) be revised.
-> With this flawed argumentation you'd prevent any program ever to be m=
-ade.
+> If it's the latter, can you please describe your setup and how you reproduce
+> the problem?  Is the box you have connected directly to the atl1 box used
+> as a netconsole?
 
-Right.
+atl1 netconsoles to r8169, connected directly without any switches.
 
-Then again... Why not recommend threaded programs to use sigwait() in a=
-=20
-dedicated task and give up on the asynchronous signal handlers complete=
-ly?
-
---=20
-R=C3=A9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+It usually happens after one of the boxes reboots (well, obviously)
