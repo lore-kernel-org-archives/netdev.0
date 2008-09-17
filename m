@@ -1,62 +1,53 @@
-From: "Benjamin Li" <benli@broadcom.com>
-Subject: NET-NEXT PATCH] bnx2: In bnx2_set_mac_link() return void rather
- then int
-Date: Wed, 17 Sep 2008 16:02:18 -0700
-Message-ID: <a93511dbe76cb994f3dbd16c3ad820617d4187e9.1219454143.git.benli@broadcom.com>
-References: <cover.1219454143.git.benli@broadcom.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [Bug #11500] /proc/net bug related to selinux
+Date: Wed, 17 Sep 2008 15:53:42 -0700
+Message-ID: <m1wshawfih.fsf@frodo.ebiederm.org>
+References: <j3zWxt-CgYL.A.WTF.bbsyIB@albercik>
+	<200809171724.36269.paul.moore@hp.com>
+	<20080917144842.7df59f9e.akpm@linux-foundation.org>
+	<200809171812.59693.paul.moore@hp.com>
+	<20080917152407.76230f0c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: benli@broadcom.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1621 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753721AbYIQXCg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2008 19:02:36 -0400
-Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.11.18.52]) by
- mail-irva-10.broadcom.com (Postfix) with ESMTP id 1653D2B0 for
- <netdev@vger.kernel.org>; Wed, 17 Sep 2008 16:02:24 -0700 (PDT)
-In-Reply-To: <cover.1219454143.git.benli@broadcom.com>
-In-Reply-To: <cover.1219454143.git.benli@broadcom.com>
-References: <cover.1219454143.git.benli@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul.moore-VXdhtT5mjnY@public.gmane.org>, sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org,
+	jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080917152407.76230f0c.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> (Andrew
+	Morton's message of "Wed, 17 Sep 2008 15:24:07 -0700")
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-bnx2_set_mac_link() doesn't need to return any error codes.  And
-all the callers don't check the return code. It is safe to 
-change the return type to a void.
+Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> writes:
 
-Signed-off-by: Benjamin Li <benli@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+> On Wed, 17 Sep 2008 18:12:59 -0400
+> Paul Moore <paul.moore-VXdhtT5mjnY@public.gmane.org> wrote:
+>
+>> > We don't even know the extent of the damage yet.  Which distros were
+>> > affected? With which versions of which userspace packages?
+>> 
+>> Can I assume that the "right" thing to do would be to find the problem 
+>> and revert whatever change caused the issue, yes?  Or are we happy to 
+>> wait and see since the fallout so far has been minimal?
+>
+> I don't think a revert is justified after all this time.  afaik I'm the
+> first person to notice the problem, and it's been out there for
+> multiple months.
+>
+> However it would be good if we could find some not-completely-stinky
+> way of making the old userspace work.
+>
+> otoh, people who are shipping 2.6.25- and 2.6.26-based distros probably
+> wouldn't want such a patch in their kernels anyway.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 2486a65..192a24e 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -1127,7 +1127,7 @@ bnx2_init_all_rx_contexts(struct bnx2 *bp)
- 	}
- }
- 
--static int
-+static void
- bnx2_set_mac_link(struct bnx2 *bp)
- {
- 	u32 val;
-@@ -1193,8 +1193,6 @@ bnx2_set_mac_link(struct bnx2 *bp)
- 
- 	if (CHIP_NUM(bp) == CHIP_NUM_5709)
- 		bnx2_init_all_rx_contexts(bp);
--
--	return 0;
- }
- 
- static void
--- 
-1.5.6.4
+Disable selinux?
 
+Get a selinux mystic to update that selinux policy.  I bet it is a one line
+change to each the policy about /proc/net as a symlink.
 
+Although I am puzzled why we don't get the same label as /proc/net as a directory
+had.
+
+Eric
