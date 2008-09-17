@@ -1,48 +1,73 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [RFC PATCH v6 00/16] Labeled networking patches for 2.6.28
-Date: Tue, 16 Sep 2008 21:01:29 -0700
-Message-ID: <48D08119.9050009@schaufler-ca.com>
-References: <20080916124722.17132.38741.stgit@flek.lan> <200809160915.19843.paul.moore@hp.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 00/14] [RFC] Phonet protocol stack
+Date: Wed, 17 Sep 2008 00:15:48 -0400
+Message-ID: <1221624949.23335.11.camel@localhost.localdomain>
+References: <200809161757.38571.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <200809160915.19843.paul.moore@hp.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:44949 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750807AbYIQEPS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2008 00:15:18 -0400
+In-Reply-To: <200809161757.38571.remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paul Moore wrote:
-> On Tuesday 16 September 2008 8:55:48 am Paul Moore wrote:
->   
->> Another revision to the patchset to fix two issues, one trivial, the
->> other not so much.  The trivial fix was to add some locking around
->> the connection labeling operations, we're messing with the socket so
->> we should make sure we lock it like we do everywhere else.  The
->> second fix was to ensure that we sync up a stream socket's MSS value
->> when we add IP options to the socket. We were doing everything
->> correctly on the client side, but the server side was a bit of a
->> mess; I'm pretty happy with this fix as I think it actually makes the
->> code a bit cleaner in some respects and I believe actually shrinks
->> the size of the diff slightly (a good sign).
->>
->> A special thanks to Joe Nall and John Wiseman for helping debug the
->> MSS problem.
->>
->> I've updated both the git trees earlier today so hopefully the next
->> cut of the linux-next tree should have the latest bits.
->>
->>  * git://git.infradead.org/users/pcmoore/lblnet-2.6_testing
->>     
->
-> I forgot to add, there is also a small fix to the 
-> cipso_v4_sock_delattr() function so that it correctly removes the CIPSO 
-> option and either adjust the option padding correctly or removes the 
-> options struct entirely from the socket if it is no longer needed.
->
-> Thanks to Casey Schaufler for finding this bug
+On Tue, 2008-09-16 at 17:57 +0300, R=C3=A9mi Denis-Courmont wrote:
+> 	Hello,
+>=20
+> This patch series introduces support for PhoNet,
+> the "Phone Network protocol". This protocol is the primary interface
+> to Nokia cellular modem engines. We are integrating it to the Linux
+> kernel in order to support HSPA cellular data connectivity on the
+> Maemo Software platform.
 
-Testing in progress. Thank you.
+Do you have any documentation or examples of how userspace uses this
+interface?  I'm starting to see a proliferation of methods by which
+userspace now has to talk to cellular modems and I'd like to keep a
+handle on them, despite the fact that they all pretty much do the same
+thing and thus you'd think they'd expose about the same interface...
+
+Dan
+
+> This patchset provides a simple datagram socket=20
+> independent of the underlying hardware (network interface) through
+> which the modem is attached. We are in the process of contributing
+> a lower-layer driver through Linux OMAP.
+>=20
+> This series is based on net-next-2.6, plus the tiny MISDN lockdep fix
+> I posted to netdev yesterday.
+>=20
+> Any comments welcome.
+>=20
+> --
+>  Documentation/networking/phonet.txt |  111 ++++++++
+>  include/linux/if_ether.h            |    1
+>  include/linux/if_phonet.h           |   16 +
+>  include/linux/phonet.h              |  136 ++++++++++
+>  include/linux/rtnetlink.h           |    4
+>  include/linux/socket.h              |    4
+>  include/net/phonet/phonet.h         |  103 +++++++
+>  include/net/phonet/pn_dev.h         |   63 ++++
+>  net/Kconfig                         |    1
+>  net/Makefile                        |    1
+>  net/core/sock.c                     |    9
+>  net/phonet/Kconfig                  |   11
+>  net/phonet/Makefile                 |   11
+>  net/phonet/af_phonet.c              |  485 +++++++++++++++++++++++++=
+++++++++++-
+>  net/phonet/datagram.c               |  197 ++++++++++++++
+>  net/phonet/pn_dev.c                 |  232 +++++++++++++++++
+>  net/phonet/pn_netlink.c             |  239 +++++++++++++++++
+>  net/phonet/socket.c                 |  314 +++++++++++++++++++++++
+>  net/phonet/sysctl.c                 |  111 ++++++++
+>  19 files changed, 2036 insertions(+), 13 deletions(-)
+>=20
+> Regards,
+>=20
 
