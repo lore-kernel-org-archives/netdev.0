@@ -1,51 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 11571] New: u32_classify Kernel Panic
-Date: Thu, 18 Sep 2008 00:08:11 +0200
-Message-ID: <20080917220811.GA10893@ami.dom.local>
-References: <20080916091508.a0cd830e.akpm@linux-foundation.org> <20080917193832.GA2623@ami.dom.local>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [Bug #11500] /proc/net bug related to selinux
+Date: Wed, 17 Sep 2008 15:11:43 -0700
+Message-ID: <20080917151143.debb6adc.akpm@linux-foundation.org>
+References: <j3zWxt-CgYL.A.WTF.bbsyIB@albercik>
+	<1221483926.30816.18.camel@moss-spartans.epoch.ncsc.mil>
+	<20080917125053.1f9ecf37.akpm@linux-foundation.org>
+	<200809171724.36269.paul.moore@hp.com>
+	<m1vdwu4fku.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	m0sia@plotinka.ru
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:63300 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752821AbYIQWHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 18:07:00 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1883747nfc.21
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2008 15:06:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080917193832.GA2623@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: paul.moore-VXdhtT5mjnY@public.gmane.org, sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+	rjw-KKrjLPT3xs0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <m1vdwu4fku.fsf-B27657KtZYmhTnVgQlOflh2eb7JE58TQ@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 17, 2008 at 09:38:32PM +0200, Jarek Poplawski wrote:
-...
-> >> http://bugzilla.kernel.org/show_bug.cgi?id=11571
-> Does this happen while creating or deleting something and is this
-> easy to reproduce?
+On Wed, 17 Sep 2008 14:39:45 -0700
+ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman) wrote:
 
-If accidentally there is any deleting around try this patch, please.
+> Paul Moore <paul.moore-VXdhtT5mjnY@public.gmane.org> writes:
+> 
+> > We suck?  Maybe, but some explanation about why we suck in this 
+> > particular case would be helpful as far as I'm concerned.  I don't 
+> > really care about identifying the guilty suckees, I'm more interested 
+> > in finding out what happened to cause us to suck because of this.
+> 
+> Agreed.  I believe we carefully gave selinux the same paths for /proc/net
+> that it had before so I don't know why this affects user space.
+> 
+> I know we had some selinux review when we made the change.
+> 
+> Eric
 
-Jarek P.
+It's back up-thread somewhere.  umm...
 
----
+On Mon, 15 Sep 2008 09:05:26 -0400
+Stephen Smalley <sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org> wrote:
 
- net/sched/cls_u32.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 246f906..9912ad5 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -433,7 +433,9 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
- 
- 	if (ht->refcnt == 1) {
- 		ht->refcnt--;
-+		tcf_tree_lock(tp);
- 		u32_destroy_hnode(tp, ht);
-+		tcf_tree_unlock(tp);
- 	} else {
- 		return -EBUSY;
- 	}
+> However, the most likely explanation is simply that when /proc/net was
+> changed from being a directory to being a symlink to /proc/self/net,
+> that introduced an additional permission check on accesses
+> of /proc/net/<whatever>, namely the read check on the symlink itself.
+> And since that check wasn't happening on /proc/net accesses with older
+> kernels, older policies didn't allow it.
