@@ -1,42 +1,45 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [Bug #11500] /proc/net bug related to selinux
-Date: Wed, 17 Sep 2008 15:32:49 -0700
-Message-ID: <m17i9axv1q.fsf@frodo.ebiederm.org>
-References: <j3zWxt-CgYL.A.WTF.bbsyIB@albercik>
-	<1221483926.30816.18.camel@moss-spartans.epoch.ncsc.mil>
-	<20080917125053.1f9ecf37.akpm@linux-foundation.org>
-	<200809171724.36269.paul.moore@hp.com>
-	<20080917144842.7df59f9e.akpm@linux-foundation.org>
+From: Joseph Mack NA3T <jmack@wm7d.net>
+Subject: Re: Adding SNAT support to LVS/NAT
+Date: Wed, 17 Sep 2008 15:53:15 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0809171552030.9336@wm7d.net>
+References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
+ <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
+ <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
+ <Pine.LNX.4.64.0809131835001.12375@wm7d.net>
+ <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com>
+ <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
+ <20080915014337.GA10026@verge.net.au> <f4845fc0809161345r2f24cfa4sf33bd9173f50041b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Moore <paul.moore-VXdhtT5mjnY@public.gmane.org>, sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org,
-	jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080917144842.7df59f9e.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> (Andrew
-	Morton's message of "Wed, 17 Sep 2008 14:48:42 -0700")
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp,
+	=?ISO-8859-1?Q?Siim_P=F5der?= <siim@p6drad-teel.net>,
+	Vince Busam <vbusam@google.com>
+To: Julius Volz <juliusv@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wm7d.net ([216.23.171.251]:37322 "EHLO wm7d.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752987AbYIQWxU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2008 18:53:20 -0400
+In-Reply-To: <f4845fc0809161345r2f24cfa4sf33bd9173f50041b@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> writes:
+On Tue, 16 Sep 2008, Julius Volz wrote:
 
-> We don't even know the extent of the damage yet.  Which distros were
-> affected? With which versions of which userspace packages?
+> Amazingly, the first SYN and the SYN/ACK of a TCP connection to the
+> VIP:vport do not traverse the NAT chain in POSTROUTING at all
 
-This seems to me to be an extremely fragile selinux user space policy.
-In their code that derives security labels from path names.
-Why don't we have AppArmor in the kernel again?
+:-(
 
-Further I don't see how we could have possibly have supported that user space
-policy.  How can we apply a user space defined label required by the selinux
-policy to a symlink that did not exist?
+> (verified by LOG target),
 
-I expect cd /proc/self/net would work.  In your situation and you can
-see /proc/self/net/dev.
+you didn't see the packets in the logs?
 
-Everything here sounds to me like that selinux policy is impossibly brittle.
-And anything that is that brittle I have no intention in claiming is a bug
-in proc.
+Joe
 
-Eric
+-- 
+Joseph Mack NA3T EME(B,D), FM05lw North Carolina
+jmack (at) wm7d (dot) net - azimuthal equidistant map
+generator at http://www.wm7d.net/azproj.shtml
+Homepage http://www.austintek.com/ It's GNU/Linux!
