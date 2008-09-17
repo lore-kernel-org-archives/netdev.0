@@ -1,48 +1,28 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: btusb suspend/resume bug...
-Date: Wed, 17 Sep 2008 18:17:49 +0200
-Message-ID: <1221668269.6782.8.camel@californication>
-References: <20080916.155123.181085856.davem@davemloft.net>
+From: CLAIMS OFFICE <ringfs@nb.sympatico.ca>
+Subject: 2008 WINNERS.....
+Date: Wed, 17 Sep 2008 12:34:24 -0400
+Message-ID: <20080917163444.VHM1779.simmts7-srv.bellnexxia.net@simip11-ac.srvr.bell.ca>
+Reply-To: mr.michaellouis22@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080916.155123.181085856.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@bnl.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from simmts7-srv.bellnexxia.net ([206.47.199.165]:40121 "EHLO
+	simmts7-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752922AbYIQQeq convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2008 12:34:46 -0400
+Received: from simip11-ac.srvr.bell.ca ([206.47.199.91])
+          by simmts7-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20080917163444.VHM1779.simmts7-srv.bellnexxia.net@simip11-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Wed, 17 Sep 2008 12:34:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Contact:Mr.Michael Louis (info.michaellouis@btinternet.com) Tel:+44-703=
+-195-5988 for a lump sum pay out of =A31,500,000.00 pounds.Provide him =
+with the information  below: 1.Full Name: 2.Full Address:3.sex.4.Occupa=
+tion.5.Phone/Fax:6.Age.7.Country.8.Nationality.
 
-> Marcel, others, please bring some kind of closure to this
-> regression list entry:
-> 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=11442
-> Subject		: btusb hibernation/suspend breakage in current -git
-> Submitter	: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-> Date		: 2008-08-25 11:37 (19 days old)
-> References	: http://marc.info/?l=linux-bluetooth&m=121966402012074&w=4
-> Handled-By	: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-> Patch		: http://marc.info/?l=linux-bluetooth&m=121967226027323&w=4
-> 
-> There is a patch, it is tested, so the only course of action at
-> this point is to merge the fix or declare that this really isn't
-> a regression.
-> 
-> My impression is the later, because the driver btusb is replacing
-> doesn't handle suspend/resume either.  Isn't that right?
-
-the original patch that I had was expecting changes in the USB subsystem
-that I deemed to much at this point. However Oliver got a patch that
-would make it work without the USB changes. I am still testing it.
-
-Let me see if I get some free minutes during the PlumbersConf to get
-this fully tested.
-
-Actually hci_usb is handling suspend/resume to some degree. So we could
-count this as regression.
-
-Regards
-
-Marcel
