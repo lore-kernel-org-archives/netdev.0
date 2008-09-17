@@ -1,45 +1,44 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH] sctp: set the skb->ip_summed correctly when sending over loopback.
-Date: Wed, 17 Sep 2008 16:03:01 -0400
-Message-ID: <1221681781-1904-1-git-send-email-vladislav.yasevich@hp.com>
-References: <20080917101130.GU6798@shell>
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
-	linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT]: Networking (WEXT events and 64/32 compat)
+Date: Wed, 17 Sep 2008 13:11:33 -0700 (PDT)
+Message-ID: <20080917.131133.135282530.davem@davemloft.net>
+References: <20080908.204323.04156464.davem@davemloft.net>
+	<20080909040525.GA26151@hostap.isc.org>
+	<20080917191128.GA23239@hostap.isc.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jouni.malinen@atheros.com, alex.williamson@hp.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: j@w1.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:11561 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752879AbYIQUDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 16:03:05 -0400
-In-Reply-To: <20080917101130.GU6798@shell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55146
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752454AbYIQULp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 16:11:45 -0400
+In-Reply-To: <20080917191128.GA23239@hostap.isc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Loopback used to clobber the ip_summed filed which sctp then used
-to figure out if it needed to do checksumming or not.  Now that
-loopback doesn't do that any more, sctp needs to set the ip_summed
-field correctly.
+From: Jouni Malinen <j@w1.fi>
+Date: Wed, 17 Sep 2008 12:11:28 -0700
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/output.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+> Would it be acceptable to ever enable use of IWEVASSOCREQIE /
+> IWEVSSOCRESPIE in kernel if the workaround were available in new
+> wpa_supplicant versions? Or should we try to add a new WEXT event
+> type that uses fixed size for the length field and then replace the old
+> IWEVCUSTOM with the new type since IWEVCUSTOM does not work with
+> 64/32-bit case (wpa_supplicant just knows how to avoid processing that
+> bogus event data)?
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 0dc4a7d..225c712 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -533,7 +533,8 @@ int sctp_packet_transmit(struct sctp_packet *packet)
- 	if (!(dst->dev->features & NETIF_F_NO_CSUM)) {
- 		crc32 = sctp_start_cksum((__u8 *)sh, cksum_buf_len);
- 		crc32 = sctp_end_cksum(crc32);
--	}
-+	} else
-+		nskb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 	/* 3) Put the resultant value into the checksum field in the
- 	 *    common header, and leave the rest of the bits unchanged.
--- 
-1.5.3.5
+Moving to a new event with a strictly sized datastructure, instead of
+one that has variable sized members like pointers and crap which are
+impossible to compat layer'ify, is indeed my preference.
 
+But in that case, we might as well make nl80211 usable instead.
+
+We'll always have those existing wpa_supplicant binaries out there, we
+can't break them.  And the size checks wpa_supplicant makes is a BOGUS
+and REDICULIOUS way to get these malformed objects "supported" and
+"usable".
