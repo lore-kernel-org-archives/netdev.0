@@ -1,63 +1,37 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH 09/14] Phonet: allocate and initialize new sockets
-Date: Wed, 17 Sep 2008 11:30:47 +0300
-Message-ID: <200809171130.47361.remi.denis-courmont@nokia.com>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-9-git-send-email-remi.denis-courmont@nokia.com> <48CFFE2C.7050908@openvz.org>
+From: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
+Subject: Re: [PATCH] at91_ether: Add Micrel KSZ8041 PHY support
+Date: Wed, 17 Sep 2008 10:42:18 +0200
+Message-ID: <20080917104218.08cee02e@atmel.com>
+References: <cd73a99e0809161352s770e29fbs50b1b6995378211b@mail.gmail.com>
+	<48D0BA01.3060104@marian.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "ext Pavel Emelyanov" <xemul@openvz.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Victor <avictor.za@gmail.com>, netdev@vger.kernel.org,
+	jgarzik@pobox.com, gustavo@zacarias.com.ar, kernel@avr32linux.org
+To: Franco Fichtner <franco@marian.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:61216 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbYIQIbQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 04:31:16 -0400
-In-Reply-To: <48CFFE2C.7050908@openvz.org>
-Content-Disposition: inline
+Received: from nat-132.atmel.no ([80.232.32.132]:64888 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751549AbYIQIm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2008 04:42:58 -0400
+In-Reply-To: <48D0BA01.3060104@marian.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 17 Sep 2008 10:04:17 +0200
+Franco Fichtner <franco@marian.de> wrote:
 
-	Hello,
+> Andrew Victor wrote:
 
-On Tuesday 16 September 2008 21:42:52 ext Pavel Emelyanov, you wrote:
-> > @@ -71,8 +73,22 @@ static int pn_socket_create(struct net *net, str=
-uct
-> > socket *sock, int protocol) goto out;
-> >  	}
-> >
-> > -	/* TODO: create and init the struct sock */
-> > -	err =3D -EPROTONOSUPPORT;
-> > +	sk =3D sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
-> > +	if (sk =3D=3D NULL) {
-> > +		err =3D -ENOMEM;
-> > +		goto out;
-> > +	}
->
-> This turns to be a little bit messy wrt net namespaces.
-> Look - you allow for sockets to be created (and isolated from each
-> other) in each namespace,
+<snipp changelog for adding addition PHY support in AT91RM9200 driver>
 
-I expect pn_socket_create() should forbid this, no?
+> Added avr32 kernel list as CC.
+> 
 
-    if (net !=3D &init_net)
-            return -EAFNOSUPPORT;
-    /* ... */
-    sk =3D sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
+Hmm, for our information? AVR32 devices uses the drivers/net/macb.c
+driver. And this driver uses the kernel PHY library.
 
-> the list of devices is global,
-
-Hmmm, good point. Should I forbid adding an address to devices outside =
-the=20
-initial namespace? what about a device with an existing address being=20
-migrated?
-
-> whilst the sysctls are visible in init_net only...
-
-Regards,
-
---=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+-- 
+Best regards,
+Hans-Christian Egtvedt
