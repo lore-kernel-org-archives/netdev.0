@@ -1,37 +1,45 @@
-From: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
-Subject: Re: [PATCH] at91_ether: Add Micrel KSZ8041 PHY support
-Date: Wed, 17 Sep 2008 10:42:18 +0200
-Message-ID: <20080917104218.08cee02e@atmel.com>
-References: <cd73a99e0809161352s770e29fbs50b1b6995378211b@mail.gmail.com>
-	<48D0BA01.3060104@marian.de>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 03/14] Phonet: build the net/phonet/ directory
+Date: Wed, 17 Sep 2008 11:44:19 +0300
+Message-ID: <200809171144.19494.remi.denis-courmont@nokia.com>
+References: <200809161757.38571.remi.denis-courmont@nokia.com> <20080916160655.GG8702@ghostprotocols.net> <20080917045224.GC7265@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Victor <avictor.za@gmail.com>, netdev@vger.kernel.org,
-	jgarzik@pobox.com, gustavo@zacarias.com.ar, kernel@avr32linux.org
-To: Franco Fichtner <franco@marian.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org
+To: "ext Simon Horman" <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:64888 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751549AbYIQIm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2008 04:42:58 -0400
-In-Reply-To: <48D0BA01.3060104@marian.de>
+Received: from smtp.nokia.com ([192.100.105.134]:31524 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752866AbYIQIpu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 04:45:50 -0400
+In-Reply-To: <20080917045224.GC7265@verge.net.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 17 Sep 2008 10:04:17 +0200
-Franco Fichtner <franco@marian.de> wrote:
+On Wednesday 17 September 2008 07:52:25 ext Simon Horman, you wrote:
+> On Tue, Sep 16, 2008 at 01:06:55PM -0300, Arnaldo Carvalho de Melo wr=
+ote:
+> > Em Tue, Sep 16, 2008 at 06:08:03PM +0300, R=E9mi Denis-Courmont esc=
+reveu:
+> > > Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com=
+>
+> > > ---
+> > >  net/Kconfig  |    1 +
+> > >  net/Makefile |    1 +
+> > >  2 files changed, 2 insertions(+), 0 deletions(-)
+> >
+> > Can't this be combined with 2/14?
+>
+> Also, I think that the patches need to be re-ordered somehow.
+> As things stand, applying patches (1,) 2 & 3 and setting
+> CONFIG_PHONET=3Dy will try and build net/phonet/phonet.o,
+> but there is no source for that object at that point.
 
-> Andrew Victor wrote:
+Woops. I'll switch to 1, 4, 2+3, 5...
 
-<snipp changelog for adding addition PHY support in AT91RM9200 driver>
-
-> Added avr32 kernel list as CC.
-> 
-
-Hmm, for our information? AVR32 devices uses the drivers/net/macb.c
-driver. And this driver uses the kernel PHY library.
-
--- 
-Best regards,
-Hans-Christian Egtvedt
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
