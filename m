@@ -1,45 +1,39 @@
-From: Joseph Mack NA3T <jmack@wm7d.net>
-Subject: Re: Adding SNAT support to LVS/NAT
-Date: Wed, 17 Sep 2008 15:53:15 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0809171552030.9336@wm7d.net>
-References: <f4845fc0809130412n41967d79l1240558492c84cb7@mail.gmail.com>
- <Pine.LNX.4.64.0809131100320.20936@wm7d.net>
- <f4845fc0809131731g7f953b21t57aa226ebdc9641e@mail.gmail.com>
- <Pine.LNX.4.64.0809131835001.12375@wm7d.net>
- <f4845fc0809140339p1d3be327j98ddcb02c4efc786@mail.gmail.com>
- <f4845fc0809140747u63f6ad63m43877bbbf09c4778@mail.gmail.com>
- <20080915014337.GA10026@verge.net.au> <f4845fc0809161345r2f24cfa4sf33bd9173f50041b@mail.gmail.com>
+From: "Benjamin Li" <benli@broadcom.com>
+Subject: [NET-NEXT PATCH] Minor bnx2 patches
+Date: Wed, 17 Sep 2008 16:02:17 -0700
+Message-ID: <cover.1219454143.git.benli@broadcom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, j.stubbs@linkthink.co.jp,
-	=?ISO-8859-1?Q?Siim_P=F5der?= <siim@p6drad-teel.net>,
-	Vince Busam <vbusam@google.com>
-To: Julius Volz <juliusv@google.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: benli@broadcom.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wm7d.net ([216.23.171.251]:37322 "EHLO wm7d.net"
+Received: from mms3.broadcom.com ([216.31.210.19]:1621 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752987AbYIQWxU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2008 18:53:20 -0400
-In-Reply-To: <f4845fc0809161345r2f24cfa4sf33bd9173f50041b@mail.gmail.com>
+	id S1753466AbYIQXCb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2008 19:02:31 -0400
+Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.11.18.52]) by
+ mail-irva-10.broadcom.com (Postfix) with ESMTP id 0A8E92B0 for
+ <netdev@vger.kernel.org>; Wed, 17 Sep 2008 16:02:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Sep 2008, Julius Volz wrote:
+These patches are some minor code cleanups.  Nothing
+major.
 
-> Amazingly, the first SYN and the SYN/ACK of a TCP connection to the
-> VIP:vport do not traverse the NAT chain in POSTROUTING at all
+Please feel free to comment.  Thanks again.
 
-:-(
+-Ben
 
-> (verified by LOG target),
+Benjamin Li (4):
+  bnx2: In bnx2_set_mac_link() return void rather then int
+  bnx2: Update MODULE_DESCRIPTION to include the 5716
+  bnx2: Remove name field from bnx2 structure
+  bnx2: Remove timer_interval field from the bnx2 structure
 
-you didn't see the packets in the logs?
+ drivers/net/bnx2.c |   20 ++++++++------------
+ drivers/net/bnx2.h |    4 +---
+ 2 files changed, 9 insertions(+), 15 deletions(-)
 
-Joe
 
--- 
-Joseph Mack NA3T EME(B,D), FM05lw North Carolina
-jmack (at) wm7d (dot) net - azimuthal equidistant map
-generator at http://www.wm7d.net/azproj.shtml
-Homepage http://www.austintek.com/ It's GNU/Linux!
