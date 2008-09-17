@@ -1,43 +1,47 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: Should we move IPVS out of net/ipv4 now?
-Date: Wed, 17 Sep 2008 14:37:33 -0400
-Message-ID: <48D14E6D.4020407@redhat.com>
-References: <f4845fc0809170600s28495494l128f7dd6f00e34e3@mail.gmail.com>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: [PATCH 2/3] enic: add main netdev file withmoduleinfrastructure
+Date: Wed, 17 Sep 2008 11:51:50 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0809171144580.4552@palito_client100.nuovasystems.com>
+References: <1221652058.3244.84.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0809170600s28495494l128f7dd6f00e34e3@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Scott Feldman <scofeldm@cisco.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nuova-ex1.nuovasystems.com ([67.91.200.196]:48300 "EHLO
+	nuova-ex1.nuovasystems.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754903AbYIQSwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 14:52:06 -0400
+In-Reply-To: <1221652058.3244.84.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> Since IPVS now does partial IPv6, should we finally move it from
-> "net/ipv4/ipvs" to "net" or to "net/netfilter"? I posted that patch a
-> long time ago, but that was before any of the actual v6 features, so
-> there was probably no interest.
+On Wed, 17 Sep 2008, Ben Hutchings wrote:
 
-Whatever the netfilter people want is fine with me.
+> On Tue, 2008-09-16 at 18:49 -0700, Scott Feldman wrote:
+>>>> +static void enic_notify_timer(unsigned long data)
+>>>> +{
+>>>> +	struct enic *enic = (struct enic *)data;
+>>>> +
+>>>> +	enic_notify_check(enic);
+>>>> +
+>>>> +	mod_timer(&enic->notify_timer, round_jiffies(ENIC_NOTIFY_TIMER_PERIOD));
+>>>
+>>> You want round_jiffies_relative() not round_jiffies().
+>>
+>> No, I want round_jiffies().
+> [...]
+>
+> The kernel-doc says:
+> "round_jiffies() rounds an absolute time in the future (in jiffies)
+> up or down to (approximately) full seconds. This is useful for timers
+> for which the exact time they fire does not matter too much, as long as
+> they fire approximately every X seconds."
+>
+> You're passing in ENIC_NOTIFY_TIMER_PERIOD which is a relative time.
 
-> Also, the tunables in /proc/sys/net/ipv4/vs/... apply to both v4 and
-> v6. Should we just duplicate them into /proc/sys/net/ipv6/vs? Or will
-> people be confused that setting a value in one directory changes the
-> value in the other and affects both IP versions?
+I tried both and round_jiffies(2) gave the desired result of calling the timer
+every two seconds.  Using round_jiffies_relative(2) called the timer
+continuously.
 
-If we do any duplication of sysctl tunables under net.ipv4 into net.ipv6, we 
-need to follow the same policy for all of them.  Since the tcp tunables in 
-net.ipv4 are among the most documented and used, and have been for a decade, we 
-need to be conservative with that.  Having two different writable tunables for 
-the same variable is certain to confuse.  Having read-only aliases under 
-net.ipv6 wouldn't terrify me, but the last time I went to do tcp tuning, and saw 
-that the tunables in net.ipv4 weren't duplicated under net.ipv6, it was obvious 
-what was going on at first glance, without needing to do an ls -l to figure out 
-what was going on.  People who prefer to use sysctl rather than manually 
-tweaking pseudofiles might not notice the permissions right away.  By the 
-principle of least confusion, I think omitting them entirely is probably the way 
-to go.
-
--- Chris
+-scott
