@@ -1,45 +1,111 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH 03/14] Phonet: build the net/phonet/ directory
-Date: Wed, 17 Sep 2008 11:44:19 +0300
-Message-ID: <200809171144.19494.remi.denis-courmont@nokia.com>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <20080916160655.GG8702@ghostprotocols.net> <20080917045224.GC7265@verge.net.au>
+From: Oliver Martin <oliver.martin@student.tuwien.ac.at>
+Subject: Re: [PATCH] Re: ep93xx_eth PHY problems
+Date: Wed, 17 Sep 2008 11:13:52 +0200
+Message-ID: <20080917111352.6810d370@ors.home>
+References: <47CD4857.2060406@student.tuwien.ac.at>
+	<20080321202202.129c1239@ors>
+	<48CC72D4.1020001@garzik.org>
+	<20080914141110.18b42a42@ors.home>
+	<20080916125125.GA18961@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org
-To: "ext Simon Horman" <horms@verge.net.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org, hvr@gnu.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:31524 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752866AbYIQIpu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 04:45:50 -0400
-In-Reply-To: <20080917045224.GC7265@verge.net.au>
-Content-Disposition: inline
+Received: from gv-out-0910.google.com ([216.239.58.185]:45207 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751397AbYIQJN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2008 05:13:58 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so1524981gvc.37
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2008 02:13:56 -0700 (PDT)
+In-Reply-To: <20080916125125.GA18961@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 17 September 2008 07:52:25 ext Simon Horman, you wrote:
-> On Tue, Sep 16, 2008 at 01:06:55PM -0300, Arnaldo Carvalho de Melo wr=
-ote:
-> > Em Tue, Sep 16, 2008 at 06:08:03PM +0300, R=E9mi Denis-Courmont esc=
-reveu:
-> > > Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com=
->
-> > > ---
-> > >  net/Kconfig  |    1 +
-> > >  net/Makefile |    1 +
-> > >  2 files changed, 2 insertions(+), 0 deletions(-)
-> >
-> > Can't this be combined with 2/14?
->
-> Also, I think that the patches need to be re-ordered somehow.
-> As things stand, applying patches (1,) 2 & 3 and setting
-> CONFIG_PHONET=3Dy will try and build net/phonet/phonet.o,
-> but there is no source for that object at that point.
+Am Tue, 16 Sep 2008 14:51:25 +0200 schrieb Lennert Buytenhek:
+> 
+> OK, can you provide a commit message for this so that I can add it to
+> http://git.wantstofly.org/?p=ep93xx_eth.git/.git;a=summary and ask
+> Jeff to pull it?
+> 
 
-Woops. I'll switch to 1, 4, 2+3, 5...
+Previously, the MDIO clock divisor wasn't set again after the reset in
+ep93xx_start_hw. It was left at the default, resulting in a 12.5 MHz
+clock, which the PHY on our TS-7260 (Micrel KSZ8721BL) didn't like too
+much. Calling ep93xx_mdio_reset after the reset fixed the problems we
+were having. This small update to the previous patch also adds a call to
+ep93xx_mdio_reset in ep93xx_stop_hw.
 
---=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+Signed-off-by: Oliver Martin <oliver.martin@student.tuwien.ac.at>
+
+Index: linux-2.6.26/drivers/net/arm/ep93xx_eth.c
+===================================================================
+--- linux-2.6.26.orig/drivers/net/arm/ep93xx_eth.c	2008-07-25 03:13:33.000000000 +0200
++++ linux-2.6.26/drivers/net/arm/ep93xx_eth.c	2008-07-25 03:14:52.000000000 +0200
+@@ -535,6 +535,22 @@
+ 	return 1;
+ }
+ 
++static int ep93xx_mdio_reset(struct mii_bus *bus)
++{
++	struct ep93xx_priv *ep = bus->priv;
++
++	u32 selfctl = rdl(ep, REG_SELFCTL);
++
++	selfctl &= ~(REG_SELFCTL_MDCDIV_MSK | REG_SELFCTL_PSPRS);
++
++	selfctl |= (ep->mdc_divisor - 1) << REG_SELFCTL_MDCDIV_OFS;
++	selfctl |= REG_SELFCTL_PSPRS;
++
++	wrl(ep, REG_SELFCTL, selfctl);
++
++	return 0;
++}
++
+ static int ep93xx_start_hw(struct net_device *dev)
+ {
+ 	struct ep93xx_priv *ep = netdev_priv(dev);
+@@ -553,6 +569,9 @@
+ 		return 1;
+ 	}
+ 
++	/* The reset cleared REG_SELFCTL, so set the MDC divisor again */
++	ep93xx_mdio_reset(&ep->mii_bus);
++
+ 	/* Receive descriptor ring.  */
+ 	addr = ep->descs_dma_addr + offsetof(struct ep93xx_descs, rdesc);
+ 	wrl(ep, REG_RXDQBADD, addr);
+@@ -625,6 +644,9 @@
+ 
+ 	if (i == 10)
+ 		printk(KERN_CRIT DRV_MODULE_NAME ": hw failed to reset\n");
++
++	/* The reset cleared REG_SELFCTL, so set the MDC divisor again */
++	ep93xx_mdio_reset(&ep->mii_bus);
+ }
+ 
+ static int ep93xx_open(struct net_device *dev)
+@@ -776,22 +798,6 @@
+ 	return 0;
+ }
+ 
+-static int ep93xx_mdio_reset(struct mii_bus *bus)
+-{
+-	struct ep93xx_priv *ep = bus->priv;
+-
+-	u32 selfctl = rdl(ep, REG_SELFCTL);
+-
+-	selfctl &= ~(REG_SELFCTL_MDCDIV_MSK | REG_SELFCTL_PSPRS);
+-
+-	selfctl |= (ep->mdc_divisor - 1) << REG_SELFCTL_MDCDIV_OFS;
+-	selfctl |= REG_SELFCTL_PSPRS;
+-
+-	wrl(ep, REG_SELFCTL, selfctl);
+-
+-	return 0;
+-}
+-
+ 
+ static void ep93xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
