@@ -1,46 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH][CORRECTED] atl2: add atl2 driver
-Date: Thu, 18 Sep 2008 12:05:55 -0400
-Message-ID: <48D27C63.10204@garzik.org>
-References: <20080914195610.1fd9dab8@osprey.hogchain.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH netdev-2.6] jme: JMicron Gigabit Ethernet Driver
+Date: Thu, 18 Sep 2008 12:07:54 -0400
+Message-ID: <48D27CDA.50501@pobox.com>
+References: <20080915165101.M68109@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Chris Snook <csnook@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: netdev@vger.kernel.org, Ethan <ethanhsiao@jmicron.com>,
+	akeemting <akeem@jmicron.com>
+To: cooldavid@cooldavid.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44526 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44537 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754093AbYIRQGA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2008 12:06:00 -0400
-In-Reply-To: <20080914195610.1fd9dab8@osprey.hogchain.net>
+	id S1753482AbYIRQH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2008 12:07:59 -0400
+In-Reply-To: <20080915165101.M68109@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Cliburn wrote:
-> From: Chris Snook <csnook@redhat.com>
+Guo-Fu Tseng wrote:
+> Dear Jeff:
 > 
-> Driver for Atheros L2 10/100 network device. Includes necessary
-> changes for Kconfig, Makefile, and pci_ids.h.
+> Here is full patch for the JMicron Gigabit Ethernet driver.
+> Supporting JMC250, and JMC260.
 > 
-> Signed-off-by: Chris Snook <csnook@redhat.com>
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-> ---
+> The patch is also available at:
+> http://cooldavid.org/download/jme.netdev-2.6.20080916.patch
 > 
-> Changed "Sighed-off-by" to "Signed-off-by" for Chris' entry.
-> 
-> If this file is too large for vger, the full patch may be obtained from
-> ftp://ftp.hogchain.net/pub/linux/attansic/atlx/0001-atl2-add-atl2-driver.patch
-> 
->  drivers/net/Kconfig       |   11 +
->  drivers/net/Makefile      |    1 +
->  drivers/net/atlx/Makefile |    2 +
->  drivers/net/atlx/atl2.c   | 3127 +++++++++++++++++++++++++++++++++++++++++++++
->  drivers/net/atlx/atl2.h   |  530 ++++++++
->  include/linux/pci_ids.h   |    1 +
->  6 files changed, 3672 insertions(+), 0 deletions(-)
+> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
 applied
-
 
