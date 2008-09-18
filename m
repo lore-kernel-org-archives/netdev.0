@@ -1,9 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sctp: do not enable peer features if we can't do
- them.
-Date: Thu, 18 Sep 2008 16:29:41 -0700 (PDT)
-Message-ID: <20080918.162941.157950819.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] sctp: Fix oops when INIT-ACK indicates that peer
+ doesn't support AUTH
+Date: Thu, 18 Sep 2008 16:29:48 -0700 (PDT)
+Message-ID: <20080918.162948.150019388.davem@davemloft.net>
 References: <1221773464-28845-1-git-send-email-vladislav.yasevich@hp.com>
+	<1221773464-28845-2-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,30 +12,32 @@ Cc: linux-sctp@vger.kernel.org,
 	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
 To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39882
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39886
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755018AbYIRX3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:29:53 -0400
-In-Reply-To: <1221773464-28845-1-git-send-email-vladislav.yasevich@hp.com>
+	by vger.kernel.org with ESMTP id S1755473AbYIRXaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:30:00 -0400
+In-Reply-To: <1221773464-28845-2-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Thu, 18 Sep 2008 17:31:03 -0400
+Date: Thu, 18 Sep 2008 17:31:04 -0400
 
-> Do not enable peer features like addip and auth, if they
-> are administratively disabled localy.  If the peer resports
-> that he supports something that we don't, neither end can
-> use it so enabling it is pointless.  This solves a problem
-> when talking to a peer that has auth and addip enabled while
-> we do not.  Found by Andrei Pelinescu-Onciul <andrei@iptel.org>.
+> If INIT-ACK is received with SupportedExtensions parameter which
+> indicates that the peer does not support AUTH, the packet will be
+> silently ignore, and sctp_process_init() do cleanup all of the
+> transports in the association.
+> When T1-Init timer is expires, OOPS happen while we try to choose
+> a different init transport.
+> 
+> The solution is to only clean up the non-active transports, i.e
+> the ones that the peer added.  However, that introduces a problem
+> with sctp_connectx(), because we don't mark the proper state for
+> the transports provided by the user.  So, we'll simply mark
+> user-provided transports as ACTIVE.  That will allow INIT
+> retransmissions to work properly in the sctp_connectx() context
+> and prevent the crash.
 > 
 > Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-I applied this, but it is at best borderline for outside the
-merge window.  It doesn't fix an OOPS nor a security issue nor
-an entry in the 2.6.x regression list, therefore strictly speaking
-this fix is not appropriate at this time.
-
-Please apply this criteria when deciding whether to submit future
-fixes for net-2.6 inclusion.
+Applied, thanks.
