@@ -1,39 +1,61 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: Re: [PATCH HACK] powerpc: quick hack to get a functional eHEA with hardirq
- preemption, eHCA is close
-Date: Thu, 18 Sep 2008 12:42:05 +0200
-Message-ID: <OFD7842B7A.ADC47EED-ONC12574C8.003A2CB3-C12574C8.003AC948@de.ibm.com>
-References: <20080915100406.342e027a@bull.net>	<OF39C3BF0F.17B60FAA-ONC12574C8.002AE138-C12574C8.002B6422@de.ibm.com> <20080918112713.75872c95@bull.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 2/3] phylib: add missing _{check_gmii_support,link_ok,nway_restart}
+Date: Thu, 18 Sep 2008 14:20:45 +0200
+Message-ID: <20080918122045.GA9157@xi.wantstofly.org>
+References: <1220448012-20347-1-git-send-email-buytenh@wantstofly.org> <1220448012-20347-3-git-send-email-buytenh@wantstofly.org> <3661904F-A16E-4B85-8525-33F72257D1A3@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Benjamin Herrenschmidt <bherren@au1.ibm.com>,
-	gilles.carry@ext.bull.net, Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	jean-pierre.dion@bull.net,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Linux-rt <linux-rt-users@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
-	Thomas Q Klein <TKLEIN@de.ibm.com>, tinytim@us.ibm.com,
-	Hoang-Nam Nguyen <HNGUYEN@de.ibm.com>
-To: Sebastien Dugue <sebastien.dugue@bull.net>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <20080918112713.75872c95@bull.net>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andy Fleming <afleming@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xi.wantstofly.org ([83.160.184.112]:41806 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbYIRMUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 08:20:49 -0400
+Content-Disposition: inline
+In-Reply-To: <3661904F-A16E-4B85-8525-33F72257D1A3@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Sep 15, 2008 at 06:03:24PM -0500, Andy Fleming wrote:
 
-Sebastien Dugue <sebastien.dugue@bull.net> wrote on 18.09.2008 11:27:13:
+> >drivers/net/mii.c provides a couple of routines which currently have
+> >no phylib equivalents.  This patch provides those phylib equivalents.
+> >
+> >Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> 
+> I think all of this functionality is provided by other parts of the  
+> phylib.  See below.
+> 
+> 
+> >/**
+> >+ * phy_check_gmii_support - check if the PHY supports (R)GMII
+> >+ * @phydev: the phy_device struct
+> >+ */
+> >+int phy_check_gmii_support(struct phy_device *phydev)
+> >+{
+> >+	int retval;
+> >+
+> >+	retval = phy_read(phydev, MII_BMSR);
+> >+	if (retval < 0 || (retval & BMSR_ESTATEN) == 0)
+> >+		return 0;
+> >+
+> >+	retval = phy_read(phydev, MII_ESTATUS);
+> >+	if (retval < 0)
+> >+		return 0;
+> >+
+> >+	return !!(retval & (ESTATUS_1000_TFULL | ESTATUS_1000_THALF));
+> >+}
+> >+EXPORT_SYMBOL(phy_check_gmii_support);
+> 
+> If you look in genphy_config_init() in drivers/net/phy/phy_device.c,  
+> you'll see that it fills in phydev->supported based on ESTATUS.  So  
+> this function could be reduced to:
+> 
+> return !!(phydev->supported & (SUPPORTED_1000baseT_Full |  
+> SUPPORTED_1000baseT_Half));
 
->
->   It would be really interresting to know if the eHCA exhibits the same
-> problem under -rt as it's the only other user of the ibmebus.
-> Unfortunately I don't have the hardware to test.
->
+Right.  Actually, I can probably just replace the relevant code in
+mv643xx_eth with:
 
-eHCA is very close from the interrupt generation and handling perspective,
-so yes, could be an issue there as well.
-
-
-Gruss / Regards
-Christoph Raisch
-
-
+	phy->advertising = phy->supported | ADVERTISED_Autoneg;
