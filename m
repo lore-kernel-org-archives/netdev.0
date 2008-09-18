@@ -1,62 +1,39 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH] ISDN sockets: add missing lockdep strings
-Date: Thu, 18 Sep 2008 13:33:17 +0300
-Message-ID: <1221733997-6352-1-git-send-email-remi.denis-courmont@nokia.com>
+From: Christoph Raisch <RAISCH@de.ibm.com>
+Subject: Re: [PATCH HACK] powerpc: quick hack to get a functional eHEA with hardirq
+ preemption, eHCA is close
+Date: Thu, 18 Sep 2008 12:42:05 +0200
+Message-ID: <OFD7842B7A.ADC47EED-ONC12574C8.003A2CB3-C12574C8.003AC948@de.ibm.com>
+References: <20080915100406.342e027a@bull.net>	<OF39C3BF0F.17B60FAA-ONC12574C8.002AE138-C12574C8.002B6422@de.ibm.com> <20080918112713.75872c95@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:16535 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460AbYIRKd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 06:33:56 -0400
-In-Reply-To: <>
-References: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Benjamin Herrenschmidt <bherren@au1.ibm.com>,
+	gilles.carry@ext.bull.net, Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	jean-pierre.dion@bull.net,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Linux-rt <linux-rt-users@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
+	Thomas Q Klein <TKLEIN@de.ibm.com>, tinytim@us.ibm.com,
+	Hoang-Nam Nguyen <HNGUYEN@de.ibm.com>
+To: Sebastien Dugue <sebastien.dugue@bull.net>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <20080918112713.75872c95@bull.net>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- net/core/sock.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 91f8bbc..23b8b9d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -154,7 +154,7 @@ static const char *af_family_key_strings[AF_MAX+1] =
-=3D {
-   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
-   "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
-   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
--  "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
-+  "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_MAX"
- };
- static const char *af_family_slock_key_strings[AF_MAX+1] =3D {
-   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
-@@ -168,7 +168,7 @@ static const char *af_family_slock_key_strings[AF_M=
-AX+1] =3D {
-   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
-   "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
-   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
--  "slock-AF_RXRPC" , "slock-AF_MAX"
-+  "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_MAX"
- };
- static const char *af_family_clock_key_strings[AF_MAX+1] =3D {
-   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
-@@ -182,7 +182,7 @@ static const char *af_family_clock_key_strings[AF_M=
-AX+1] =3D {
-   "clock-AF_PPPOX" , "clock-AF_WANPIPE"  , "clock-AF_LLC"      ,
-   "clock-27"       , "clock-28"          , "clock-AF_CAN"      ,
-   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
--  "clock-AF_RXRPC" , "clock-AF_MAX"
-+  "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_MAX"
- };
- #endif
-=20
---=20
-1.5.4.3
+Sebastien Dugue <sebastien.dugue@bull.net> wrote on 18.09.2008 11:27:13:
+
+>
+>   It would be really interresting to know if the eHCA exhibits the same
+> problem under -rt as it's the only other user of the ibmebus.
+> Unfortunately I don't have the hardware to test.
+>
+
+eHCA is very close from the interrupt generation and handling perspective,
+so yes, could be an issue there as well.
+
+
+Gruss / Regards
+Christoph Raisch
+
 
