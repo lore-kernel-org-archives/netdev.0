@@ -1,61 +1,66 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 1/2] sctp: do not enable peer features if we can't do them.
-Date: Thu, 18 Sep 2008 17:31:03 -0400
-Message-ID: <1221773464-28845-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: linux-sctp@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH] gianfar: Free/iounmap memory after an error in mii bus initialization
+Date: Thu, 18 Sep 2008 16:37:54 -0500
+Message-ID: <1221773874-3273-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org, danielm77@spray.se,
+	akpm@linux-foundation.org, Andy Fleming <afleming@freescale.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:32527 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754356AbYIRVbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 17:31:09 -0400
+Received: from de01egw01.freescale.net ([192.88.165.102]:37580 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754631AbYIRVh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 17:37:59 -0400
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by de01egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m8ILbtvx007264
+	for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 14:37:56 -0700 (MST)
+Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id m8ILbsOt006512
+	for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 16:37:55 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not enable peer features like addip and auth, if they
-are administratively disabled localy.  If the peer resports
-that he supports something that we don't, neither end can
-use it so enabling it is pointless.  This solves a problem
-when talking to a peer that has auth and addip enabled while
-we do not.  Found by Andrei Pelinescu-Onciul <andrei@iptel.org>.
+Recent changes to MII bus initialization code added exit points which
+didn't free or iounmap the bus before returning.
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+This was reported as bug #11372
+
+Signed-off-by: Andy Fleming <afleming@freescale.com>
 ---
- net/sctp/sm_make_chunk.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/gianfar_mii.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index e8ca4e5..fe94f42 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1886,11 +1886,13 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
- 			    /* if the peer reports AUTH, assume that he
- 			     * supports AUTH.
- 			     */
--			    asoc->peer.auth_capable = 1;
-+			    if (sctp_auth_enable)
-+				    asoc->peer.auth_capable = 1;
- 			    break;
- 		    case SCTP_CID_ASCONF:
- 		    case SCTP_CID_ASCONF_ACK:
--			    asoc->peer.asconf_capable = 1;
-+			    if (sctp_addip_enable)
-+				    asoc->peer.asconf_capable = 1;
- 			    break;
- 		    default:
- 			    break;
-@@ -2460,6 +2462,9 @@ do_addr_param:
- 		break;
+diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+index ebcfb27..4804ec1 100644
+--- a/drivers/net/gianfar_mii.c
++++ b/drivers/net/gianfar_mii.c
+@@ -211,19 +211,21 @@ static int gfar_mdio_probe(struct device *dev)
+ 	gfar_write(&enet_regs->tbipa, 0);
+ 	for (i = PHY_MAX_ADDR; i > 0; i--) {
+ 		u32 phy_id;
+-		int r;
  
- 	case SCTP_PARAM_SET_PRIMARY:
-+		if (!sctp_addip_enable)
-+			goto fall_through;
+-		r = get_phy_id(new_bus, i, &phy_id);
+-		if (r)
+-			return r;
++		err = get_phy_id(new_bus, i, &phy_id);
++		if (err)
++			goto bus_register_fail;
+ 
+ 		if (phy_id == 0xffffffff)
+ 			break;
+ 	}
+ 
+ 	/* The bus is full.  We don't support using 31 PHYs, sorry */
+-	if (i == 0)
+-		return -EBUSY;
++	if (i == 0) {
++		err = -EBUSY;
 +
- 		addr_param = param.v + sizeof(sctp_addip_param_t);
++		goto bus_register_fail;
++	}
  
- 		af = sctp_get_af_specific(param_type2af(param.p->type));
+ 	gfar_write(&enet_regs->tbipa, i);
+ 
 -- 
-1.5.3.5
+1.5.4.GIT
 
