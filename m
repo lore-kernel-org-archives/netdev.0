@@ -1,33 +1,47 @@
-From: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-Subject: Re: clarify code intent
-Date: Thu, 18 Sep 2008 16:53:40 -0700
-Message-ID: <1221782020.23007.37.camel@ns-test>
-References: <1221757668.23007.12.camel@ns-test>
-	 <20080918.163633.223533656.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: patchwork for netdev
+Date: Thu, 18 Sep 2008 16:56:07 -0700 (PDT)
+Message-ID: <20080918.165607.55765591.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: jeff@garzik.org, linville@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:51953 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754452AbYIRXxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:53:00 -0400
-In-Reply-To: <20080918.163633.223533656.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44209
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755022AbYIRX4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:56:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-09-18 at 16:36 -0700, David Miller wrote:
 
-> This is just syntactic masterbation, sa_family_t is typedef'd
-> "unsigned short".
+During the kernel summit, Paul Mackerras gave an excellent presention
+on the patchwork web based tool they are using for powerpc platform
+development.
 
-Would you take a patch to remove sa_family_t from the kernel code and
-headers ? Otherwise, I suspect that you can understand that it is a bit
-hard for others to figure out where it is appropriate to use it and
-where it is not.
+In a nutshell, it's a web tool that gets fed by a mailing list and
+records patches.  Administrators for a "project" can change the
+state of the patches, edit them, put them into bundles, etc.
+And everyone can look at the state of the patch queue and also
+look up older patches that were rejected, deferred, accepted, etc.
 
-regards,
-Mathieu
+It looks like it can streamline our workflow as well as give people
+a place to see what state their patch is in.  So I've asked the
+ozlabs folks to create a "netdev" project.
 
+See for yourself:
+
+	http://patchwork.ozlabs.org/project/netdev/list/
+
+Currently I am the admin for this project.
+
+It might be nice if Jeff Garzik created an account for himself,
+so I can get him marked as an admin as well, since driver patches
+get funneled there too.
+
+John Linville, on the other hand, may wish to ask the ozlabs folks
+to add a linux-wireless project and admin that project.
+
+John, I'll send you a contact under private cover that you can use
+if interested.
