@@ -1,59 +1,44 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] r8169: read MAC address from EEPROM on init
-Date: Thu, 18 Sep 2008 22:53:20 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809182235550.4742@wrl-59.cs.helsinki.fi>
-References: <48D25BA2.6070008@redhat.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: Should we move IPVS out of net/ipv4 now?
+Date: Thu, 18 Sep 2008 22:04:28 +0200
+Message-ID: <f4845fc0809181304y25e3df07xfde0f23406b519a2@mail.gmail.com>
+References: <f4845fc0809170600s28495494l128f7dd6f00e34e3@mail.gmail.com>
+	 <48D14E6D.4020407@redhat.com>
+	 <20080917.131445.19943427.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Ivan Vecera <ivecera@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35112 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754575AbYIRTxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 15:53:22 -0400
-In-Reply-To: <48D25BA2.6070008@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: csnook@redhat.com, horms@verge.net.au, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080917.131445.19943427.davem@davemloft.net>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Sep 2008, Ivan Vecera wrote:
-> This fixes the problem when MAC address is set by ifconfig or by
-> ip link commands and this address is stored in the device after
-> reboot. The power-off is needed to get right MAC address.
-> This is problem when Xen daemon is running because it renames the device
-> name from ethX to pethX and sets its MAC address to FE:FF:FF:FF:FF:FF.
-> After reboot the device is still using FE:FF:FF:FF:FF:FF.
-> 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  drivers/net/r8169.c |   80 ++++++++++++++++++++++++++++++++++++++++++++++++++-
->  1 files changed, 79 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index befc927..b09a4ec 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
+On Wed, Sep 17, 2008 at 10:14 PM, David Miller wrote:
+> From: Chris Snook <csnook@redhat.com>
+> Date: Wed, 17 Sep 2008 14:37:33 -0400
+>
+>> Julius Volz wrote:
+>> > Since IPVS now does partial IPv6, should we finally move it from
+>> > "net/ipv4/ipvs" to "net" or to "net/netfilter"? I posted that patch a
+>> > long time ago, but that was before any of the actual v6 features, so
+>> > there was probably no interest.
+>>
+>> Whatever the netfilter people want is fine with me.
+>
+> I think, especially in the long term, putting IPVS under net/netfilter/
+> is the right thing to do.
 
-...
+Ok thanks, I'll send the patch for that once lvs-next-2.6 or
+net-next-2.6 builds for ARCH=um again (there seems to be some breakage
+at the moment)...
 
-> +	 * is always consecutive 4-byte data starting from the VPD address
-> +	 * specified."
-> +	 */
-> +	if (rtl_eeprom_read(tp->pci_dev, vpd_cap, 0x000e, &low) < 0 ||
-> +	    rtl_eeprom_read(tp->pci_dev, vpd_cap, 0x0012, &high) < 0) {
-> +		dprintk("Reading MAC address from EEPROM failed\n");
-> +		return;
-> +	}
-> +
-> +	/* Mask hi-word */
-> +	high &= 0xffff;
-
-...Hmm, and besides fixing sparse printouts, this looks like a real 
-endianness bug.
-
+Julius
 
 -- 
- i.
+Julius Volz - Corporate Operations - SysOps
+
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
