@@ -1,69 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [UPDATED][NET-NEXT PATCH 0/4] Minor bnx2 patches
-Date: Thu, 18 Sep 2008 13:04:02 -0400
-Message-ID: <48D28A02.6030403@garzik.org>
-References: <20080918063933.GA8027@verge.net.au> <1221757033-4874-1-git-send-email-benli@broadcom.com>
+From: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+Subject: clarify code intent
+Date: Thu, 18 Sep 2008 10:07:48 -0700
+Message-ID: <1221757668.23007.12.camel@ns-test>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Benjamin Li <benli@broadcom.com>
+Content-Type: multipart/mixed; boundary="=-5ZIWZpeoWDcOCjb10Cvn"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51711 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752789AbYIRREF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2008 13:04:05 -0400
-In-Reply-To: <1221757033-4874-1-git-send-email-benli@broadcom.com>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:35173 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752266AbYIRRRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 13:17:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Li wrote:
-> Thanks for the comments Simon.  I have integrated the changes that you have suggested.  I have reposted the entire patch set in numbered form so that it could be merged in easier.
-> 
-> Thanks again.
-> 
-> -Ben
-> 
->> @@ -7514,7 +7514,6 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
->>>       bp->stats_ticks = USEC_PER_SEC & BNX2_HC_STATS_TICKS_HC_STAT_TICKS;
->>>
->>> -     bp->timer_interval =  HZ;
->>>       bp->current_interval =  HZ;
->> Would it make sense to set current_interval to BNX2_TIMER_INTERVAL?
-> 
-> Changed.
-> 
->>> diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
->>> index cb47c98..e534c1d 100644
->>> --- a/drivers/net/bnx2.h
->>> +++ b/drivers/net/bnx2.h
->>> @@ -6701,7 +6701,7 @@ struct bnx2 {
->>>
->>>       /* End of fields used in the performance code paths. */
->>>
->>> -     int                     timer_interval;
->>> +#define BNX2_TIMER_INTERVAL                  HZ
->> Perhaps its just me, but would it be nicer to define BNX2_TIMER_INTERVAL
->> somewhere other than in the middle of this structure?
->>
-> Moved outside of the bnx2 structure.
-> 
-> --------------------
-> 
-> Benjamin Li (4):
->   bnx2: In bnx2_set_mac_link() return void rather then int
->   bnx2: Update MODULE_DESCRIPTION to include the 5716
->   bnx2: Remove name field from bnx2 structure
->   bnx2: Remove timer_interval field from the bnx2 structure
-> 
->  drivers/net/bnx2.c |   22 +++++++++-------------
->  drivers/net/bnx2.h |    5 ++---
->  2 files changed, 11 insertions(+), 16 deletions(-)
 
-Patches 1-4 Acked-by: Jeff Garzik <jgarzik@redhat.com>
+--=-5ZIWZpeoWDcOCjb10Cvn
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Unlike most net drivers, as a special case, davem usually applies 
-patches to this net driver (and tg3), rather than me.  So I'll let him 
-pick these up (CC'd).
+hi,
+
+The attached patch hopefully clarifies the intent of the unix_bind
+function in net/unix/af_unix.c. That 'feature' (the ability to delegate
+the endpoint allocation to the kernel with bind by sending a
+sockaddr_un.sun_family = AF_UNIX rather than have to wait until the
+autobind is triggered by a later call to send) would be nice to document
+in the unix '7' manpage but, I have no idea where these are maintained.
+I also have no idea whether that specific 'feature' is common among
+other unixes. It is quite useful though.
+
+Mathieu
+
+--=-5ZIWZpeoWDcOCjb10Cvn
+Content-Disposition: attachment; filename=p
+Content-Type: text/x-patch; name=p; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 015606b..efa725e 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -777,7 +777,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	if (sunaddr->sun_family != AF_UNIX)
+ 		goto out;
+ 
+-	if (addr_len==sizeof(short)) {
++	if (addr_len==sizeof(sa_family_t)) {
+ 		err = unix_autobind(sock);
+ 		goto out;
+ 	}
+
+--=-5ZIWZpeoWDcOCjb10Cvn--
 
