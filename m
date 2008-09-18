@@ -1,64 +1,114 @@
-From: "Alexander Duyck" <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH] sched: only dequeue if packet can be queued to hardware queue.
-Date: Thu, 18 Sep 2008 07:51:13 -0700
-Message-ID: <5f2db9d90809180751h2b62f9f2m1462ca65b2a612bf@mail.gmail.com>
-References: <20080918063036.27934.91273.stgit@localhost.localdomain>
-	 <20080918.024655.22661052.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] new network drivers for net-next
+Date: Thu, 18 Sep 2008 12:00:05 -0400
+Message-ID: <20080918160005.GA24281@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-	jarkao2@gmail.com, herbert@gondor.apana.org.au, kaber@trash.net
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:25144 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753066AbYIROvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 10:51:14 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so1062035yxm.1
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 07:51:13 -0700 (PDT)
-In-Reply-To: <20080918.024655.22661052.davem@davemloft.net>
+Received: from havoc.gtf.org ([69.61.125.42]:54494 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753534AbYIRQAW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2008 12:00:22 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2008 at 2:46 AM, David Miller <davem@davemloft.net> wrote:
-> So what is the difference between qdisc->dequeue and qdisc->ops->dequeue?
-> The same applies to ->enqueue.
->
-> qdisc->{dequeue,enqueue} are given the value of ops->{dequeue,enqueue}
-> at the time of qdisc creation.  I can only see two reasons for their
-> existence:
->
-> 1) We used to allow overriding ->enqueue and ->dequeue by certain
->   modules.  I see no such use like this in the current tree.
->
-> 2) For performance it's kept as a copy in the qdisc.
->
-> Either way, changing ->ops->dequeue into ->dequeue doesn't seem to be
-> correct, unless you have some explanation.
->
-> This is done in a few other places in your patch.
 
-I redefined qdisc->dequeue to be set to smart_dequeue in sch_generic.c:
-@@ -475,7 +491,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
-       skb_queue_head_init(&sch->q);
-       sch->ops = ops;
-       sch->enqueue = ops->enqueue;
--       sch->dequeue = ops->dequeue;
-+       sch->dequeue = ops->smart_dequeue;
-       sch->dev_queue = dev_queue;
-       dev_hold(qdisc_dev(sch));
-       atomic_set(&sch->refcnt, 1);
+Please pull from 'new-drivers' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git new-drivers
 
-Most of the changes from qdisc->dequeue to qdisc->ops->dequeue are to have the
-standard dequeue call use nothing but standard dequeue calls in it's
-path.  I needed
-to maintain qdisc->ops->dequeue because there are several functions throughout
-the qdisc code that require the ability to dequeue a packet regardless
-of hw queue
-state.
+to receive the following updates:
 
-Thanks,
+ Documentation/networking/LICENSE.qlge |   46 +
+ MAINTAINERS                           |   20 +
+ drivers/net/Kconfig                   |   39 +
+ drivers/net/Makefile                  |    4 +
+ drivers/net/atlx/Makefile             |    2 +
+ drivers/net/atlx/atl2.c               | 3127 ++++++++++++++++++++++++++
+ drivers/net/atlx/atl2.h               |  530 +++++
+ drivers/net/enic/Makefile             |    5 +
+ drivers/net/enic/cq_desc.h            |   79 +
+ drivers/net/enic/cq_enet_desc.h       |  169 ++
+ drivers/net/enic/enic.h               |  115 +
+ drivers/net/enic/enic_main.c          | 1949 ++++++++++++++++
+ drivers/net/enic/enic_res.c           |  370 +++
+ drivers/net/enic/enic_res.h           |  151 ++
+ drivers/net/enic/rq_enet_desc.h       |   60 +
+ drivers/net/enic/vnic_cq.c            |   89 +
+ drivers/net/enic/vnic_cq.h            |  113 +
+ drivers/net/enic/vnic_dev.c           |  674 ++++++
+ drivers/net/enic/vnic_dev.h           |  106 +
+ drivers/net/enic/vnic_devcmd.h        |  282 +++
+ drivers/net/enic/vnic_enet.h          |   47 +
+ drivers/net/enic/vnic_intr.c          |   62 +
+ drivers/net/enic/vnic_intr.h          |   92 +
+ drivers/net/enic/vnic_nic.h           |   65 +
+ drivers/net/enic/vnic_resource.h      |   63 +
+ drivers/net/enic/vnic_rq.c            |  199 ++
+ drivers/net/enic/vnic_rq.h            |  204 ++
+ drivers/net/enic/vnic_rss.h           |   32 +
+ drivers/net/enic/vnic_stats.h         |   70 +
+ drivers/net/enic/vnic_wq.c            |  184 ++
+ drivers/net/enic/vnic_wq.h            |  154 ++
+ drivers/net/enic/wq_enet_desc.h       |   98 +
+ drivers/net/jme.c                     | 3019 +++++++++++++++++++++++++
+ drivers/net/jme.h                     | 1199 ++++++++++
+ drivers/net/qlge/Makefile             |    7 +
+ drivers/net/qlge/qlge.h               | 1593 +++++++++++++
+ drivers/net/qlge/qlge_dbg.c           |  858 +++++++
+ drivers/net/qlge/qlge_ethtool.c       |  415 ++++
+ drivers/net/qlge/qlge_main.c          | 3954 +++++++++++++++++++++++++++++++++
+ drivers/net/qlge/qlge_mpi.c           |  150 ++
+ include/linux/pci_ids.h               |    3 +
+ 41 files changed, 20398 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/LICENSE.qlge
+ create mode 100644 drivers/net/atlx/atl2.c
+ create mode 100644 drivers/net/atlx/atl2.h
+ create mode 100644 drivers/net/enic/Makefile
+ create mode 100644 drivers/net/enic/cq_desc.h
+ create mode 100644 drivers/net/enic/cq_enet_desc.h
+ create mode 100644 drivers/net/enic/enic.h
+ create mode 100644 drivers/net/enic/enic_main.c
+ create mode 100644 drivers/net/enic/enic_res.c
+ create mode 100644 drivers/net/enic/enic_res.h
+ create mode 100644 drivers/net/enic/rq_enet_desc.h
+ create mode 100644 drivers/net/enic/vnic_cq.c
+ create mode 100644 drivers/net/enic/vnic_cq.h
+ create mode 100644 drivers/net/enic/vnic_dev.c
+ create mode 100644 drivers/net/enic/vnic_dev.h
+ create mode 100644 drivers/net/enic/vnic_devcmd.h
+ create mode 100644 drivers/net/enic/vnic_enet.h
+ create mode 100644 drivers/net/enic/vnic_intr.c
+ create mode 100644 drivers/net/enic/vnic_intr.h
+ create mode 100644 drivers/net/enic/vnic_nic.h
+ create mode 100644 drivers/net/enic/vnic_resource.h
+ create mode 100644 drivers/net/enic/vnic_rq.c
+ create mode 100644 drivers/net/enic/vnic_rq.h
+ create mode 100644 drivers/net/enic/vnic_rss.h
+ create mode 100644 drivers/net/enic/vnic_stats.h
+ create mode 100644 drivers/net/enic/vnic_wq.c
+ create mode 100644 drivers/net/enic/vnic_wq.h
+ create mode 100644 drivers/net/enic/wq_enet_desc.h
+ create mode 100644 drivers/net/jme.c
+ create mode 100644 drivers/net/jme.h
+ create mode 100644 drivers/net/qlge/Makefile
+ create mode 100644 drivers/net/qlge/qlge.h
+ create mode 100644 drivers/net/qlge/qlge_dbg.c
+ create mode 100644 drivers/net/qlge/qlge_ethtool.c
+ create mode 100644 drivers/net/qlge/qlge_main.c
+ create mode 100644 drivers/net/qlge/qlge_mpi.c
 
-Alex
+Chris Snook (1):
+      atl2: add atl2 driver
+
+Guo-Fu Tseng (1):
+      jme: JMicron Gigabit Ethernet Driver
+
+Ron Mercer (1):
+      qlge: New Qlogic 10Gb Ethernet Driver.
+
+Scott Feldman (1):
+      enic: add Cisco 10G Ethernet NIC driver
+
+[patch snipped, for mailing list; see git for patch]
