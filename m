@@ -1,113 +1,86 @@
-From: Victor Gallardo <vgallardo@amcc.com>
-Subject: [PATCH] ibm_newemac: Fix EMAC soft reset on 460EX/GT
-Date: Thu, 18 Sep 2008 15:41:26 -0700
-Message-ID: <1221777686-6181-1-git-send-email-vgallardo@amcc.com>
-Cc: benh@kernel.crashing.org, jwboyer@linux.vnet.ibm.com,
-	fkan@amcc.com, Victor Gallardo <vgallardo@amcc.com>
-To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+From: "Andy Fleming" <afleming@gmail.com>
+Subject: Re: [PATCH 3/3] mv643xx_eth: convert to phylib
+Date: Thu, 18 Sep 2008 17:47:03 -0500
+Message-ID: <2acbd3e40809181547m3ed512b8jd744f4b8a8a3bd59@mail.gmail.com>
+References: <1220448012-20347-1-git-send-email-buytenh@wantstofly.org>
+	 <1220448012-20347-4-git-send-email-buytenh@wantstofly.org>
+	 <A8E7D979-2540-456E-818C-A419D7BE4166@freescale.com>
+	 <20080918124428.GB9157@xi.wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Andy Fleming" <afleming@freescale.com>, netdev@vger.kernel.org
+To: "Lennert Buytenhek" <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sdcmail02.amcc.com ([198.137.200.73]:9880 "EHLO
-	sdcmail02.amcc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755014AbYIRWle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 18:41:34 -0400
+Received: from wf-out-1314.google.com ([209.85.200.171]:65420 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754741AbYIRWrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 18:47:05 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so165442wfd.4
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 15:47:04 -0700 (PDT)
+In-Reply-To: <20080918124428.GB9157@xi.wantstofly.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes EMAC soft reset on 460EX/GT when no external clock is
-available.
+>
+> I'll make this function:
+>
+>        static void phy_init(struct mv643xx_eth_private *mp, int speed, int duplex)
+>        {
+>                struct phy_device *phy = mp->phy;
+>
+>                phy_reset(mp);
+>
+>                phy_attach(mp->dev, phy->dev.bus_id, 0, PHY_INTERFACE_MODE_GMII);
+>
+>                phy->state = PHY_HALTED;
+>
+>                if (speed == 0) {
+>                        phy->autoneg = AUTONEG_ENABLE;
+>                        phy->speed = 0;
+>                        phy->duplex = 0;
+>                        phy->advertising = phy->supported | ADVERTISED_Autoneg;
+>                } else {
+>                        phy->autoneg = AUTONEG_DISABLE;
+>                        phy->advertising = 0;
+>                        phy->speed = speed;
+>                        phy->duplex = duplex;
+>                }
+>                phy_start_aneg(phy);
+>        }
+>
+> OK?  (PHY_HALTED because that seems to be the way to stop the state
+> machine from running at all.  Or should I call phy_stop() once?)
 
-Signed-off-by: Victor Gallardo <vgallardo@amcc.com>
----
- arch/powerpc/include/asm/dcr-regs.h |    4 ++++
- drivers/net/ibm_newemac/core.c      |   18 ++++++++++++++++++
- drivers/net/ibm_newemac/core.h      |    5 +++++
- 3 files changed, 27 insertions(+), 0 deletions(-)
+You don't need to disable the state machine.  With phy_attach, it
+won't start unless you call phy_start_machine().  So the state changes
+won't cause the state machine to run.  If the state information is
+interfering with things, let me know.  We might have to create a state
+for "state machine is not actually running".
 
-diff --git a/arch/powerpc/include/asm/dcr-regs.h b/arch/powerpc/include/asm/dcr-regs.h
-index 29b0ece..f15296c 100644
---- a/arch/powerpc/include/asm/dcr-regs.h
-+++ b/arch/powerpc/include/asm/dcr-regs.h
-@@ -68,6 +68,10 @@
- #define SDR0_UART3		0x0123
- #define SDR0_CUST0		0x4000
- 
-+/* SDRs (460EX/460GT) */
-+#define SDR0_ETH_CFG		0x4103
-+#define SDR0_ETH_CFG_ECS	0x00000100	/* EMAC int clk source */
-+
- /*
-  * All those DCR register addresses are offsets from the base address
-  * for the SRAM0 controller (e.g. 0x20 on 440GX). The base address is
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-index 2e720f2..f6871ba 100644
---- a/drivers/net/ibm_newemac/core.c
-+++ b/drivers/net/ibm_newemac/core.c
-@@ -130,6 +130,7 @@ static inline void emac_report_timeout_error(struct emac_instance *dev,
- 					     const char *error)
- {
- 	if (emac_has_feature(dev, EMAC_FTR_440GX_PHY_CLK_FIX |
-+				  EMAC_FTR_460EX_PHY_CLK_FIX |
- 				  EMAC_FTR_440EP_PHY_CLK_FIX))
- 		DBG(dev, "%s" NL, error);
- 	else if (net_ratelimit())
-@@ -351,10 +352,24 @@ static int emac_reset(struct emac_instance *dev)
- 		emac_tx_disable(dev);
- 	}
- 
-+#ifdef CONFIG_PPC_DCR_NATIVE
-+	/* Enable internal clock source */
-+	if (emac_has_feature(dev, EMAC_FTR_460EX_PHY_CLK_FIX))
-+		dcri_clrset(SDR0, SDR0_ETH_CFG,
-+			    0, SDR0_ETH_CFG_ECS << dev->cell_index);
-+#endif
-+
- 	out_be32(&p->mr0, EMAC_MR0_SRST);
- 	while ((in_be32(&p->mr0) & EMAC_MR0_SRST) && n)
- 		--n;
- 
-+#ifdef CONFIG_PPC_DCR_NATIVE
-+	 /* Enable external clock source */
-+	if (emac_has_feature(dev, EMAC_FTR_460EX_PHY_CLK_FIX))
-+		dcri_clrset(SDR0, SDR0_ETH_CFG,
-+			    SDR0_ETH_CFG_ECS << dev->cell_index, 0);
-+#endif
-+
- 	if (n) {
- 		dev->reset_failed = 0;
- 		return 0;
-@@ -2559,6 +2574,9 @@ static int __devinit emac_init_config(struct emac_instance *dev)
- 	/* Check EMAC version */
- 	if (of_device_is_compatible(np, "ibm,emac4sync")) {
- 		dev->features |= (EMAC_FTR_EMAC4 | EMAC_FTR_EMAC4SYNC);
-+		if (of_device_is_compatible(np, "ibm,emac-460ex") ||
-+		    of_device_is_compatible(np, "ibm,emac-460gt"))
-+			dev->features |= EMAC_FTR_460EX_PHY_CLK_FIX;
- 	} else if (of_device_is_compatible(np, "ibm,emac4")) {
- 		dev->features |= EMAC_FTR_EMAC4;
- 		if (of_device_is_compatible(np, "ibm,emac-440gx"))
-diff --git a/drivers/net/ibm_newemac/core.h b/drivers/net/ibm_newemac/core.h
-index 6545e69..5ca70e5 100644
---- a/drivers/net/ibm_newemac/core.h
-+++ b/drivers/net/ibm_newemac/core.h
-@@ -317,6 +317,10 @@ struct emac_instance {
-  * The 405EX and 460EX contain the EMAC4SYNC core
-  */
- #define EMAC_FTR_EMAC4SYNC		0x00000200
-+/*
-+ * Set if we need phy clock workaround for 460ex or 460gt
-+ */
-+#define EMAC_FTR_460EX_PHY_CLK_FIX	0x00000400
- 
- 
- /* Right now, we don't quite handle the always/possible masks on the
-@@ -341,6 +345,7 @@ enum {
- #ifdef CONFIG_IBM_NEW_EMAC_RGMII
- 	    EMAC_FTR_HAS_RGMII	|
- #endif
-+	EMAC_FTR_460EX_PHY_CLK_FIX |
- 	EMAC_FTR_440EP_PHY_CLK_FIX,
- };
- 
--- 
-1.5.5
+>
+>
+>> You will, however, need to
+>> figure out how best to read out the status for the PHY, and how to
+>> know when autonegotiation is done.  I'm assuming that your controller
+>> tracks that information, and that you can manually pull that
+>> information from local register space (rather than the SMI bus).
+>
+> I don't really need to access it all during normal operation -- the
+> controller just reads the link up/down and speed and duplex bits from
+> the PHY automatically and then configures itself accordingly.  The
+> only time I need to access this information is when someone asks for
+> it via ethtool (or if I want to print a link status message).  I.e. I
+> don't need any state machine, be it phylib's or my own.
 
+Right, but doesn't your driver react to the link going up and down by
+changing the carrier state?  If so, then it costs nothing to cache
+that state in the phydev->link, and then a request for link status can
+just return phydev->link.  Those are decisions you can make, though,
+as I'm not familiar with your device and your driver.
+
+If you could check those things, you can submit the patch with:
+
+Acked-by: Andy Fleming <afleming@freescale.com>
+Andy
