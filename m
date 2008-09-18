@@ -1,35 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: set the skb->ip_summed correctly when sending
- over loopback.
-Date: Thu, 18 Sep 2008 02:49:07 -0700 (PDT)
-Message-ID: <20080918.024907.185077492.davem@davemloft.net>
-References: <20080917101130.GU6798@shell>
-	<1221681781-1904-1-git-send-email-vladislav.yasevich@hp.com>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH] ISDN sockets: add missing lockdep strings
+Date: Thu, 18 Sep 2008 13:33:17 +0300
+Message-ID: <1221733997-6352-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
-	linux-sctp@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32820
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750954AbYIRJtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 05:49:19 -0400
-In-Reply-To: <1221681781-1904-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from smtp.nokia.com ([192.100.105.134]:16535 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752460AbYIRKd4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 06:33:56 -0400
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Wed, 17 Sep 2008 16:03:01 -0400
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/core/sock.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-> Loopback used to clobber the ip_summed filed which sctp then used
-> to figure out if it needed to do checksumming or not.  Now that
-> loopback doesn't do that any more, sctp needs to set the ip_summed
-> field correctly.
-> 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 91f8bbc..23b8b9d 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -154,7 +154,7 @@ static const char *af_family_key_strings[AF_MAX+1] =
+=3D {
+   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
+   "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+-  "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
++  "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_MAX"
+ };
+ static const char *af_family_slock_key_strings[AF_MAX+1] =3D {
+   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
+@@ -168,7 +168,7 @@ static const char *af_family_slock_key_strings[AF_M=
+AX+1] =3D {
+   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
+   "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+-  "slock-AF_RXRPC" , "slock-AF_MAX"
++  "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_MAX"
+ };
+ static const char *af_family_clock_key_strings[AF_MAX+1] =3D {
+   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
+@@ -182,7 +182,7 @@ static const char *af_family_clock_key_strings[AF_M=
+AX+1] =3D {
+   "clock-AF_PPPOX" , "clock-AF_WANPIPE"  , "clock-AF_LLC"      ,
+   "clock-27"       , "clock-28"          , "clock-AF_CAN"      ,
+   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
+-  "clock-AF_RXRPC" , "clock-AF_MAX"
++  "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_MAX"
+ };
+ #endif
+=20
+--=20
+1.5.4.3
 
-That's a silly regression, sorry about that Vlad.
-
-Applied to net-2.6, thanks!
