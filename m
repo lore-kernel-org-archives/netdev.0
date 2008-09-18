@@ -1,72 +1,82 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Fri, 19 Sep 2008 00:04:23 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809182349410.4742@wrl-59.cs.helsinki.fi>
-References: <20080819213417.45133573@tux> <20080823111446.06a350a2@tux>
- <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi> <20080824163843.33b4f890@tux>
- <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi> <20080826141812.589848a0@tux>
- <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi> <20080828184919.611dd578@tux>
- <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi> <20080830035650.42be37d7@tux>
- <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi> <20080907051718.58bf133d@tux>
- <Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi> <20080908172043.0d25a427@tux>
- <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi> <20080911143006.2f516569@tux>
- <Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi> <20080913203117.2a55ea2c@tux>
- <Pine.LNX.4.64.0809140722460.17271@wrl-59.cs.helsinki.fi> <20080916112411.062fa615@tux>
- <Pine.LNX.4.64.0809161726250.1034@wrl-59.cs.helsinki.fi> <20080918173554.1f874238@tux>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-1183167713-1221770992=:4742"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH 2/2] sctp: Fix oops when INIT-ACK indicates that peer doesn't support AUTH
+Date: Thu, 18 Sep 2008 17:31:04 -0400
+Message-ID: <1221773464-28845-2-git-send-email-vladislav.yasevich@hp.com>
+References: <1221773464-28845-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: linux-sctp@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43170 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752714AbYIRVEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 17:04:25 -0400
-In-Reply-To: <20080918173554.1f874238@tux>
-Content-ID: <Pine.LNX.4.64.0809182350130.4742@wrl-59.cs.helsinki.fi>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:14434 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754741AbYIRVbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 17:31:10 -0400
+In-Reply-To: <1221773464-28845-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+If INIT-ACK is received with SupportedExtensions parameter which
+indicates that the peer does not support AUTH, the packet will be
+silently ignore, and sctp_process_init() do cleanup all of the
+transports in the association.
+When T1-Init timer is expires, OOPS happen while we try to choose
+a different init transport.
 
----696208474-1183167713-1221770992=:4742
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0809182350131.4742@wrl-59.cs.helsinki.fi>
+The solution is to only clean up the non-active transports, i.e
+the ones that the peer added.  However, that introduces a problem
+with sctp_connectx(), because we don't mark the proper state for
+the transports provided by the user.  So, we'll simply mark
+user-provided transports as ACTIVE.  That will allow INIT
+retransmissions to work properly in the sctp_connectx() context
+and prevent the crash.
 
-On Thu, 18 Sep 2008, Dâniel Fraga wrote:
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/associola.c     |    9 +++++----
+ net/sctp/sm_make_chunk.c |    6 ++----
+ 2 files changed, 7 insertions(+), 8 deletions(-)
 
-> On Wed, 17 Sep 2008 13:23:28 +0300 (EEST)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-> 
-> > There were some other timer related complications in 2.6.25 but it's so 
-> > long time ago that I hardly remember anything about those anymore (and 
-> > I'm not an expert on those things anyway). And it's still very open issue 
-> > how that would cause the problem you're seeing.
-> 
-> 	I opened a bug report to timer developers...
-> let's see if they can help:
-> 
-> http://bugzilla.kernel.org/show_bug.cgi?id=11588
-
-Ok. Another potential candidate might be scheduler (my wording was sloppy 
-when I used "timer related complications" while time related was my main 
-intention)...
-
-Anyway, if/when you succeed collecting some strace of the server 
-processes, please let me know (though putting a full one available might 
-not be wise thing like I said earlier). After I thought it a bit, it might 
-be enough the start the strace with -p for all server processes of a 
-service during a stall and then resolve it after some amount of waiting 
-with nmap (and hope that strace doesn't resolve it by interfering 
-something relevant :-), you will see that from the fact that it resolves 
-without nmap then). That would probably reveal if the processes where 
-waiting in accept() or not, and if not, where they were.
-
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 8472b8b..abd51ce 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -599,11 +599,12 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+ 	/* Check to see if this is a duplicate. */
+ 	peer = sctp_assoc_lookup_paddr(asoc, addr);
+ 	if (peer) {
++		/* An UNKNOWN state is only set on transports added by
++		 * user in sctp_connectx() call.  Such transports should be
++		 * considered CONFIRMED per RFC 4960, Section 5.4.
++		 */
+ 		if (peer->state == SCTP_UNKNOWN) {
+-			if (peer_state == SCTP_ACTIVE)
+-				peer->state = SCTP_ACTIVE;
+-			if (peer_state == SCTP_UNCONFIRMED)
+-				peer->state = SCTP_UNCONFIRMED;
++			peer->state = SCTP_ACTIVE;
+ 		}
+ 		return peer;
+ 	}
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index fe94f42..b599cbb 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2321,12 +2321,10 @@ clean_up:
+ 	/* Release the transport structures. */
+ 	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+ 		transport = list_entry(pos, struct sctp_transport, transports);
+-		list_del_init(pos);
+-		sctp_transport_free(transport);
++		if (transport->state != SCTP_ACTIVE)
++			sctp_assoc_rm_peer(asoc, transport);
+ 	}
+ 
+-	asoc->peer.transport_count = 0;
+-
+ nomem:
+ 	return 0;
+ }
 -- 
- i.
----696208474-1183167713-1221770992=:4742--
+1.5.3.5
+
