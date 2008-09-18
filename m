@@ -1,40 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] new network drivers for net-next
-Date: Thu, 18 Sep 2008 16:48:48 -0700 (PDT)
-Message-ID: <20080918.164848.21252659.davem@davemloft.net>
-References: <20080918160005.GA24281@havoc.gtf.org>
-	<20080918.164255.120405140.davem@davemloft.net>
-	<48D2E7C9.3090509@garzik.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Should we move IPVS out of net/ipv4 now?
+Date: Fri, 19 Sep 2008 09:52:22 +1000
+Message-ID: <20080918235220.GD13536@verge.net.au>
+References: <f4845fc0809170600s28495494l128f7dd6f00e34e3@mail.gmail.com> <48D14E6D.4020407@redhat.com> <20080917.131445.19943427.davem@davemloft.net> <f4845fc0809181304y25e3df07xfde0f23406b519a2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, csnook@redhat.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59150
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754944AbYIRXtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:49:01 -0400
-In-Reply-To: <48D2E7C9.3090509@garzik.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:48993 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754452AbYIRXwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:52:24 -0400
+Content-Disposition: inline
+In-Reply-To: <f4845fc0809181304y25e3df07xfde0f23406b519a2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Thu, 18 Sep 2008 19:44:09 -0400
-
-> David Miller wrote:
-> > So, new-drivers destined for net-2.6 right?
-> > Just making sure :-)
+On Thu, Sep 18, 2008 at 10:04:28PM +0200, Julius Volz wrote:
+> On Wed, Sep 17, 2008 at 10:14 PM, David Miller wrote:
+> > From: Chris Snook <csnook@redhat.com>
+> > Date: Wed, 17 Sep 2008 14:37:33 -0400
+> >
+> >> Julius Volz wrote:
+> >> > Since IPVS now does partial IPv6, should we finally move it from
+> >> > "net/ipv4/ipvs" to "net" or to "net/netfilter"? I posted that patch a
+> >> > long time ago, but that was before any of the actual v6 features, so
+> >> > there was probably no interest.
+> >>
+> >> Whatever the netfilter people want is fine with me.
+> >
+> > I think, especially in the long term, putting IPVS under net/netfilter/
+> > is the right thing to do.
 > 
-> I based it on top of net-next for 2.6.28, but can easily retarget it for net-2.6...
+> Ok thanks, I'll send the patch for that once lvs-next-2.6 or
+> net-next-2.6 builds for ARCH=um again (there seems to be some breakage
+> at the moment)...
 
-Since I really want to concentrate on killing as many regression list
-network driver entries as possible, I'd much rather:
+Once net-next-2.6 is working again, let me know and I'll pull it
+into lvs-next-2.6.
 
-1) You concentrate on building that net-2.6 bug fix tree for me
+-- 
+Simon Horman
+  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
+  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
 
-2) I pull these new drivers into net-next-2.6 for now and we can
-   think about putting these into net-2.6 for a subsequent push
-   to Linus, rather than the current one.
-
-Sound good to you?
