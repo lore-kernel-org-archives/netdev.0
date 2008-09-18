@@ -1,40 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2]: softirq: Add support for triggering softirq work
- on softirqs.
-Date: Wed, 17 Sep 2008 21:50:53 -0700 (PDT)
-Message-ID: <20080917.215053.116422969.davem@davemloft.net>
-References: <20080917.193439.125137565.davem@davemloft.net>
-	<20080918043542.GJ20055@kernel.dk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2 and aead
+Date: Wed, 17 Sep 2008 22:09:45 -0700
+Message-ID: <20080917220945.1277dad6@extreme>
+References: <61362e760808131459l1548c956s47b4e5d3c67144fa@mail.gmail.com>
+	<20080830045710.GA17501@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nickpiggin@yahoo.com.au
-To: jens.axboe@oracle.com
+Cc: Barry G <mr.scada@gmail.com>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35399
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750781AbYIREvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 00:51:07 -0400
-In-Reply-To: <20080918043542.GJ20055@kernel.dk>
+Received: from mail.vyatta.com ([76.74.103.46]:43557 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750710AbYIRFJr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2008 01:09:47 -0400
+In-Reply-To: <20080830045710.GA17501@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jens Axboe <jens.axboe@oracle.com>
-Date: Thu, 18 Sep 2008 06:35:42 +0200
+On Sat, 30 Aug 2008 14:57:10 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Wed, Sep 17 2008, David Miller wrote:
-> > 
-> > softirq: Add support for triggering softirq work on softirqs.
-> > 
-> > This is basically a genericization of Jens Axboe's block layer
-> > remote softirq changes.
+> ip: xfrm: Add AEAD support
 > 
-> Looks good Dave! One small comment - instead of using 32, how about just
-> adding a NR_SOFTIRQ at the bottom of the softirq enum and use that for
-> the softirq_work_list sizing?
-
-Good idea.
-
-> Apart from that, you can add my Signed-off-by.
-
-Great, thanks for looking at this.
+> This patch allows the user to create/manage AEAD algorithms with
+> the ip xfrm command.  AEAD algorithms are also known as combined-
+> mode algorithms.  They provide the functionality of encryption
+> algorithms as well as authentication algorithms.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+applied (had do some manual merge fixing)
