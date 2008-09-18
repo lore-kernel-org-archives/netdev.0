@@ -1,69 +1,63 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: Should we move IPVS out of net/ipv4 now?
-Date: Thu, 18 Sep 2008 22:05:19 +0200
-Message-ID: <f4845fc0809181305s4221efe6r1a6614a56a28cfa8@mail.gmail.com>
-References: <f4845fc0809170600s28495494l128f7dd6f00e34e3@mail.gmail.com>
-	 <48D14E6D.4020407@redhat.com> <20080918042436.GB32516@verge.net.au>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Thu, 18 Sep 2008 17:35:54 -0300
+Message-ID: <20080918173554.1f874238@tux>
+References: <20080819213417.45133573@tux>
+	<20080822.143709.65615512.davem@davemloft.net>
+	<20080823111446.06a350a2@tux>
+	<Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
+	<20080824163843.33b4f890@tux>
+	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
+	<20080826141812.589848a0@tux>
+	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+	<20080828184919.611dd578@tux>
+	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
+	<20080830035650.42be37d7@tux>
+	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
+	<20080907051718.58bf133d@tux>
+	<Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
+	<20080908172043.0d25a427@tux>
+	<Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
+	<20080911143006.2f516569@tux>
+	<Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
+	<20080913203117.2a55ea2c@tux>
+	<Pine.LNX.4.64.0809140722460.17271@wrl-59.cs.helsinki.fi>
+	<20080916112411.062fa615@tux>
+	<Pine.LNX.4.64.0809161726250.1034@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Chris Snook" <csnook@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Simon Horman" <horms@verge.net.au>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:60997 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754929AbYIRUFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 16:05:25 -0400
-Received: from wpaz17.hot.corp.google.com (wpaz17.hot.corp.google.com [172.24.198.81])
-	by smtp-out.google.com with ESMTP id m8IK5M56004568
-	for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 21:05:22 +0100
-Received: from ey-out-2122.google.com (eyd9.prod.google.com [10.208.4.9])
-	by wpaz17.hot.corp.google.com with ESMTP id m8IK5KCc023870
-	for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 13:05:21 -0700
-Received: by ey-out-2122.google.com with SMTP id 9so30547eyd.63
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 13:05:20 -0700 (PDT)
-In-Reply-To: <20080918042436.GB32516@verge.net.au>
-Content-Disposition: inline
+Received: from an-out-0708.google.com ([209.85.132.247]:23934 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755065AbYIRUgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 16:36:05 -0400
+Received: by an-out-0708.google.com with SMTP id d40so6467and.103
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 13:36:02 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0809161726250.1034@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2008 at 6:24 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Wed, Sep 17, 2008 at 02:37:33PM -0400, Chris Snook wrote:
->> Julius Volz wrote:
->>> Since IPVS now does partial IPv6, should we finally move it from
->>> "net/ipv4/ipvs" to "net" or to "net/netfilter"? I posted that patch a
->>> long time ago, but that was before any of the actual v6 features, so
->>> there was probably no interest.
->>
->> Whatever the netfilter people want is fine with me.
->>
->>> Also, the tunables in /proc/sys/net/ipv4/vs/... apply to both v4 and
->>> v6. Should we just duplicate them into /proc/sys/net/ipv6/vs? Or will
->>> people be confused that setting a value in one directory changes the
->>> value in the other and affects both IP versions?
->>
->> If we do any duplication of sysctl tunables under net.ipv4 into net.ipv6,
->> we need to follow the same policy for all of them.  Since the tcp
->> tunables in net.ipv4 are among the most documented and used, and have
->> been for a decade, we need to be conservative with that.  Having two
->> different writable tunables for the same variable is certain to confuse.
->> Having read-only aliases under net.ipv6 wouldn't terrify me, but the last
->> time I went to do tcp tuning, and saw that the tunables in net.ipv4
->> weren't duplicated under net.ipv6, it was obvious what was going on at
->> first glance, without needing to do an ls -l to figure out what was going
->> on.  People who prefer to use sysctl rather than manually tweaking
->> pseudofiles might not notice the permissions right away.  By the
->> principle of least confusion, I think omitting them entirely is probably
->> the way to go.
->
-> If thats a standard practice, than that sounds reasonable to me.
+On Wed, 17 Sep 2008 13:23:28 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-Ok, so no change for now.
+> There were some other timer related complications in 2.6.25 but it's =
+so=20
+> long time ago that I hardly remember anything about those anymore (an=
+d=20
+> I'm not an expert on those things anyway). And it's still very open i=
+ssue=20
+> how that would cause the problem you're seeing.
 
-Julius
+	I opened a bug report to timer developers...
+let's see if they can help:
 
--- 
-Julius Volz - Corporate Operations - SysOps
+http://bugzilla.kernel.org/show_bug.cgi?id=3D11588
 
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+--=20
