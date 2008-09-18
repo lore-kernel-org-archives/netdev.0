@@ -1,48 +1,33 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Should we move IPVS out of net/ipv4 now?
-Date: Fri, 19 Sep 2008 09:52:22 +1000
-Message-ID: <20080918235220.GD13536@verge.net.au>
-References: <f4845fc0809170600s28495494l128f7dd6f00e34e3@mail.gmail.com> <48D14E6D.4020407@redhat.com> <20080917.131445.19943427.davem@davemloft.net> <f4845fc0809181304y25e3df07xfde0f23406b519a2@mail.gmail.com>
+From: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+Subject: Re: clarify code intent
+Date: Thu, 18 Sep 2008 16:53:40 -0700
+Message-ID: <1221782020.23007.37.camel@ns-test>
+References: <1221757668.23007.12.camel@ns-test>
+	 <20080918.163633.223533656.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, csnook@redhat.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:48993 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754452AbYIRXwY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:52:24 -0400
-Content-Disposition: inline
-In-Reply-To: <f4845fc0809181304y25e3df07xfde0f23406b519a2@mail.gmail.com>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:51953 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754452AbYIRXxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 19:53:00 -0400
+In-Reply-To: <20080918.163633.223533656.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2008 at 10:04:28PM +0200, Julius Volz wrote:
-> On Wed, Sep 17, 2008 at 10:14 PM, David Miller wrote:
-> > From: Chris Snook <csnook@redhat.com>
-> > Date: Wed, 17 Sep 2008 14:37:33 -0400
-> >
-> >> Julius Volz wrote:
-> >> > Since IPVS now does partial IPv6, should we finally move it from
-> >> > "net/ipv4/ipvs" to "net" or to "net/netfilter"? I posted that patch a
-> >> > long time ago, but that was before any of the actual v6 features, so
-> >> > there was probably no interest.
-> >>
-> >> Whatever the netfilter people want is fine with me.
-> >
-> > I think, especially in the long term, putting IPVS under net/netfilter/
-> > is the right thing to do.
-> 
-> Ok thanks, I'll send the patch for that once lvs-next-2.6 or
-> net-next-2.6 builds for ARCH=um again (there seems to be some breakage
-> at the moment)...
+On Thu, 2008-09-18 at 16:36 -0700, David Miller wrote:
 
-Once net-next-2.6 is working again, let me know and I'll pull it
-into lvs-next-2.6.
+> This is just syntactic masterbation, sa_family_t is typedef'd
+> "unsigned short".
 
--- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+Would you take a patch to remove sa_family_t from the kernel code and
+headers ? Otherwise, I suspect that you can understand that it is a bit
+hard for others to figure out where it is appropriate to use it and
+where it is not.
+
+regards,
+Mathieu
 
