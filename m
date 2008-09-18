@@ -1,37 +1,69 @@
-From: "Nadav Shemer" <nadav.shemer@gmail.com>
-Subject: iputils: ping.c - using -I for both interface and address
-Date: Thu, 18 Sep 2008 20:00:39 +0300
-Message-ID: <a60ec8830809181000s928a4drbd0b166be23abcee@mail.gmail.com>
-Reply-To: nadav@camelot.myftp.org
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [UPDATED][NET-NEXT PATCH 0/4] Minor bnx2 patches
+Date: Thu, 18 Sep 2008 13:04:02 -0400
+Message-ID: <48D28A02.6030403@garzik.org>
+References: <20080918063933.GA8027@verge.net.au> <1221757033-4874-1-git-send-email-benli@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Benjamin Li <benli@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:49809 "EHLO
-	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753833AbYIRRAl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 13:00:41 -0400
-Received: by gxk9 with SMTP id 9so31509012gxk.13
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 10:00:40 -0700 (PDT)
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:51711 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752789AbYIRREF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2008 13:04:05 -0400
+In-Reply-To: <1221757033-4874-1-git-send-email-benli@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When I use 'ping 1.2.3.4 -I eth1 -I 2.3.4.5' the packets come out with
-eth1's address anyway.
-It seems to me that IP_PKTINFO is set for every packet, with
-ipi_spec_dst set to 0. This overrides the inet->saddr set by bind.
+Benjamin Li wrote:
+> Thanks for the comments Simon.  I have integrated the changes that you have suggested.  I have reposted the entire patch set in numbered form so that it could be merged in easier.
+> 
+> Thanks again.
+> 
+> -Ben
+> 
+>> @@ -7514,7 +7514,6 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+>>>       bp->stats_ticks = USEC_PER_SEC & BNX2_HC_STATS_TICKS_HC_STAT_TICKS;
+>>>
+>>> -     bp->timer_interval =  HZ;
+>>>       bp->current_interval =  HZ;
+>> Would it make sense to set current_interval to BNX2_TIMER_INTERVAL?
+> 
+> Changed.
+> 
+>>> diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+>>> index cb47c98..e534c1d 100644
+>>> --- a/drivers/net/bnx2.h
+>>> +++ b/drivers/net/bnx2.h
+>>> @@ -6701,7 +6701,7 @@ struct bnx2 {
+>>>
+>>>       /* End of fields used in the performance code paths. */
+>>>
+>>> -     int                     timer_interval;
+>>> +#define BNX2_TIMER_INTERVAL                  HZ
+>> Perhaps its just me, but would it be nicer to define BNX2_TIMER_INTERVAL
+>> somewhere other than in the middle of this structure?
+>>
+> Moved outside of the bnx2 structure.
+> 
+> --------------------
+> 
+> Benjamin Li (4):
+>   bnx2: In bnx2_set_mac_link() return void rather then int
+>   bnx2: Update MODULE_DESCRIPTION to include the 5716
+>   bnx2: Remove name field from bnx2 structure
+>   bnx2: Remove timer_interval field from the bnx2 structure
+> 
+>  drivers/net/bnx2.c |   22 +++++++++-------------
+>  drivers/net/bnx2.h |    5 ++---
+>  2 files changed, 11 insertions(+), 16 deletions(-)
 
-Here's a fix:
---- ping.c	2007-11-27 02:57:27.000000000 +0200
-+++ ping.c.patched	2008-09-18 19:59:45.000000000 +0300
-@@ -350,6 +350,8 @@
- 			fprintf(stderr, "ping: unknown iface %s\n", device);
- 			exit(2);
- 		}
-+		if (options & F_STRICTSOURCE)
-+			cmsg.ipi.ipi_spec_dst.s_addr = source.sin_addr.s_addr;
- 		cmsg.ipi.ipi_ifindex = ifr.ifr_ifindex;
- 		cmsg_len = sizeof(cmsg);
- 	}
+Patches 1-4 Acked-by: Jeff Garzik <jgarzik@redhat.com>
+
+Unlike most net drivers, as a special case, davem usually applies 
+patches to this net driver (and tg3), rather than me.  So I'll let him 
+pick these up (CC'd).
+
