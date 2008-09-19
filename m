@@ -1,31 +1,77 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: patchwork for netdev
-Date: Fri, 19 Sep 2008 03:13:07 -0400
-Message-ID: <20080919071307.GA22242@infradead.org>
-References: <20080918.165607.55765591.davem@davemloft.net> <Pine.LNX.4.64.0809181700110.18136@shark.he.net> <20080918.170547.114615421.davem@davemloft.net> <Pine.LNX.4.64.0809181706200.18136@shark.he.net>
+From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 00/14] [RFC] Phonet protocol stack
+Date: Fri, 19 Sep 2008 10:25:17 +0300
+Message-ID: <200809191025.17790.remi.denis-courmont@nokia.com>
+References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221624949.23335.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jeff@garzik.org, linville@tuxdriver.com
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "ext Dan Williams" <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:53709 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756441AbYISHNL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 03:13:11 -0400
+Received: from smtp.nokia.com ([192.100.122.230]:34803 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbYISH0T convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 03:26:19 -0400
+In-Reply-To: <1221624949.23335.11.camel@localhost.localdomain>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0809181706200.18136@shark.he.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2008 at 05:09:14PM -0700, Randy.Dunlap wrote:
-> > I was hoping those ACK emails would be one of the things I could stop
-> > doing if patchwork is effective.  Not immediately, but eventually.
-> 
-> Well, that's a reasonable goal.  OTOH, if everyone wants to know
-> if their patch was applied, then having 50 people look at a web page
-> (or at a git tree) is more total overhead than one person generating
-> an email.  IMHO.  But maybe it depends on which side is being optimized.
 
-Could patchworks please generate the ACK mail automatically? 
+	Hello,
 
+On Wednesday 17 September 2008 07:15:48 ext Dan Williams, you wrote:
+> Do you have any documentation or examples of how userspace uses this
+> interface?
+
+On top of this patchset, a modem-to-Linux congestion control protocol, =
+and of=20
+course, a netif would be needed:
+
+ +--------------+=20
+ | TCP/IP stack |
+ +--------------+
+ |  GPRS netif  | (point-to-point IP network interface)
+ +--------------+
+ | Phonet pipe  | (PF_PHONET, SOCK_SEQPACKET)
+ +--------------+
+ | Phonet stack | <--- this patchset
+ +--------------+=20
+ |  HW driver   | <--- sent to linux-omap
+ +--------------+
+
+I still need to polish the Phonet pipe and GPRS netif code.
+
+This is somewhat similar to the UDP-encapsulation already in the kernel=
+ (L2TP,=20
+IPsec). In userland, that would look something like:
+
+ int lfd, fd, val =3D PNPIPE_ENCAP_IP, ifindex;
+ lfd =3D socket(PF_PHONET, SOCK_SEQPACKET, 0);
+ listen(lfd, 1);
+ /* Wait for modem */
+ fd =3D accept(lfd, NULL, NULL);
+ setsockopt(fd, SOL_PNPIPE, PNPIPE_ENCAP, &val, sizeof(val));
+ getsockopt(fd, SOL_PNPIPE, PNPIPE_IFINDEX, &ifindex, sizeof(ifindex));
+ printf("Created GPRS interface %s\n", if_indextoname(ifindex, buf));
+ /* Configure and use IP interface */
+ close(fd);
+ printf("Destroyed GPRS interface\n");
+
+I am all for using a more generic and/or cleaner userland API if there =
+is a=20
+better alternative.
+
+> I'm starting to see a proliferation of methods by which=20
+> userspace now has to talk to cellular modems and I'd like to keep a
+> handle on them, despite the fact that they all pretty much do the sam=
+e
+> thing and thus you'd think they'd expose about the same interface...
+
+Regards,
+
+--=20
+R=C3=A9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
