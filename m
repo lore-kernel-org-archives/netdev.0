@@ -1,22 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 0/2]: qlge build warning fixes
-Date: Fri, 19 Sep 2008 16:16:31 -0700 (PDT)
-Message-ID: <20080919.161631.151754976.davem@davemloft.net>
+Subject: [PATCH 2/2]: qlge: Protect qlge_resume() with CONFIG_PM
+Date: Fri, 19 Sep 2008 16:16:34 -0700 (PDT)
+Message-ID: <20080919.161634.03610958.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
 Cc: ron.mercer@qlogic.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41675
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41682
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750846AbYISXQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 19:16:43 -0400
+	by vger.kernel.org with ESMTP id S1752482AbYISXQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 19:16:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-I just checked the following two build warning fixes to
-net-next-2.6
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+DQpxbGdlOiBQcm90ZWN0IHFsZ2VfcmVzdW1lKCkgd2l0aCBDT05GSUdfUE0NCg0KRml4ZXMgdGhl
+IGZvbGxvd2luZyBidWlsZCB3YXJuaW5nOg0KDQpkcml2ZXJzL25ldC9xbGdlL3FsZ2VfbWFpbi5j
+OjM4OTc6IHdhcm5pbmc6IOKAmHFsZ2VfcmVzdW1l4oCZIGRlZmluZWQgYnV0IG5vdCB1c2VkDQoN
+ClNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0t
+LQ0KIGRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmMgfCAgICAyICsrDQogMSBmaWxlcyBjaGFu
+Z2VkLCAyIGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC9xbGdlL3FsZ2VfbWFpbi5jIGIvZHJpdmVycy9uZXQvcWxnZS9xbGdlX21haW4uYw0K
+aW5kZXggYWQ4NzhlMi4uM2FmODIyYiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3FsZ2UvcWxn
+ZV9tYWluLmMNCisrKyBiL2RyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmMNCkBAIC0zODkzLDYg
+KzM4OTMsNyBAQCBzdGF0aWMgaW50IHFsZ2Vfc3VzcGVuZChzdHJ1Y3QgcGNpX2RldiAqcGRldiwg
+cG1fbWVzc2FnZV90IHN0YXRlKQ0KIAlyZXR1cm4gMDsNCiB9DQogDQorI2lmZGVmIENPTkZJR19Q
+TQ0KIHN0YXRpYyBpbnQgcWxnZV9yZXN1bWUoc3RydWN0IHBjaV9kZXYgKnBkZXYpDQogew0KIAlz
+dHJ1Y3QgbmV0X2RldmljZSAqbmRldiA9IHBjaV9nZXRfZHJ2ZGF0YShwZGV2KTsNCkBAIC0zOTIx
+LDYgKzM5MjIsNyBAQCBzdGF0aWMgaW50IHFsZ2VfcmVzdW1lKHN0cnVjdCBwY2lfZGV2ICpwZGV2
+KQ0KIA0KIAlyZXR1cm4gMDsNCiB9DQorI2VuZGlmIC8qIENPTkZJR19QTSAqLw0KIA0KIHN0YXRp
+YyB2b2lkIHFsZ2Vfc2h1dGRvd24oc3RydWN0IHBjaV9kZXYgKnBkZXYpDQogew0KLS0gDQoxLjUu
+Ni41DQoNCg==
