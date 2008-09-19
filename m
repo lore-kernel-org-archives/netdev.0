@@ -1,90 +1,96 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Fri, 19 Sep 2008 16:14:12 +0300
-Message-ID: <200809191614.14763.rdenis@simphalempin.com>
-References: <1221387956.9204.7.camel@fry> <200809182031.01291.rdenis@simphalempin.com> <20080919.212854.19019802.taka@valinux.co.jp>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] MIPS checksum fix
+Date: Fri, 19 Sep 2008 23:09:52 +0900 (JST)
+Message-ID: <20080919.230952.128619158.anemo@mba.ocn.ne.jp>
+References: <20080919112304.GB13440@linux-mips.org>
+	<20080919114743.GA19359@linux-mips.org>
+	<20080919120752.GA19877@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: johaahn@gmail.com, netdev@vger.kernel.org
-To: Hirokazu Takahashi <taka@valinux.co.jp>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: macro@linux-mips.org, u1@terran.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: ralf@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:46579 "EHLO yop.chewa.net"
+Received: from mba.ocn.ne.jp ([122.1.235.107]:61878 "EHLO smtp.mba.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751309AbYISNOR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 09:14:17 -0400
-In-Reply-To: <20080919.212854.19019802.taka@valinux.co.jp>
-Content-Disposition: inline
+	id S1750846AbYISOJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Sep 2008 10:09:34 -0400
+In-Reply-To: <20080919120752.GA19877@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 19 septembre 2008 15:28:54 Hirokazu Takahashi, vous avez =E9=
-crit=A0:
-> > > UDP is a datagram protocol, so I think applications using UDP sho=
-uld
-> > > care about the size of packets they are going to send rather than
-> > > expecting that the messages will be split into several packets
-> > > automatically. If some of the packets have lost, it will be reall=
-y hard
-> > > for the applications to re-create the same ones to send again.
-> >
-> > Also, why use UDP for this... If you want stream semantics, why not=
- use
-> > TCP or SCTP instead?
->
-> I think a lot of VoIP and video streaming services are working on UDP=
-=2E
+On Fri, 19 Sep 2008 14:07:52 +0200, Ralf Baechle <ralf@linux-mips.org> wrote:
+> From 97ad23f4696a322cb3bc379a25a8c0f6526751d6 Mon Sep 17 00:00:00 2001
+> From: Ralf Baechle <ralf@linux-mips.org>
+> Date: Fri, 19 Sep 2008 14:05:53 +0200
+> Subject: [PATCH] [MIPS] Fix 64-bit csum_partial, __csum_partial_copy_user and csum_partial_copy
 
-VoIP uses lots of small packets, considering the typical packetization =
-times.=20
-Using send(MSG_MORE) + sendfile would definitely be slower than a singl=
-e=20
-sendmsg() in such case, because the per-packet memcpy() will be quite s=
-hort.
+... and __csum_partial_copy_nocheck, you mean? ;)
 
-Video streaming typically does send lots of large packets, and might we=
-ll read=20
-the data from a mmap-able file. But video streaming protocols such as R=
-TP=20
-typically try to avoid fragmentation, so large sendfile() won't work.
+> On 64-bit machines it wouldn't handle a possible carry when adding the
+> 32-bit folded checksum and checksum argument.
+> 
+> While at it, add a few trivial optimizations, also for R2 processors.
 
-> > > If you want send a large file over UDP, the typical code will be =
-like:
-> > >
-> > > while (...) {
-> > >         sendmsg(fd, &apl_header, sizeof(apl_header), MSG_MORE);
-> > >         offset +=3D sendfile(fd, offset, count);
-> > > }
-> >
-> > Correct me if I am wrong, but... Unless you have a big MTU (as _not=
-_ in
-> > 1500 bytes :D), doing an extra syscall might be slower than copying=
- data
-> > in a single vectorized sendmsg() syscall.
->
-> That's not true.
-> Even if the MTU is small, you can send a UDP message whose size can b=
-e
-> up to 64KB at once. They will be split into several IP packets withou=
-t
-> any copies.
+I think it would be better splitting bugfix and optimization.  This
+code is too complex to do many things at a time, isn't it?
 
-And you will encounter fragmentation, which sucks at high data rates.
-As for low rates, you typically would not bother to optimize memcpy. Bu=
-t more=20
-importantly, you should not assume that the other end is only talking t=
-o=20
-you - it might as well be talking to many different people and not appr=
-eciate=20
-if all of them send lots of fragments.
+> @@ -53,12 +53,14 @@
+>  #define UNIT(unit)  ((unit)*NBYTES)
+>  
+>  #define ADDC(sum,reg)						\
+> -	.set	push;						\
+> -	.set	noat;						\
+>  	ADD	sum, reg;					\
+>  	sltu	v1, sum, reg;					\
+>  	ADD	sum, v1;					\
+> -	.set	pop
 
-And lets not get into how poorly fragmentation works through middleboxe=
-s...
+Is this required?  Just a cleanup?
 
-> And more, copying data will pollute the cache memory much, which cann=
-ot
-> be ignored if you want send tons of data of files.
+> @@ -254,8 +256,6 @@ LEAF(csum_partial)
+>  1:	ADDC(sum, t1)
+>  
+>  	/* fold checksum */
+> -	.set	push
+> -	.set	noat
+>  #ifdef USE_DOUBLE
+>  	dsll32	v1, sum, 0
+>  	daddu	sum, v1
+> @@ -263,24 +263,25 @@ LEAF(csum_partial)
+>  	dsra32	sum, sum, 0
+>  	addu	sum, v1
+>  #endif
+> -	sll	v1, sum, 16
+> -	addu	sum, v1
+> -	sltu	v1, sum, v1
+> -	srl	sum, sum, 16
+> -	addu	sum, v1
+>  
+>  	/* odd buffer alignment? */
+> -	beqz	t7, 1f
+> -	 nop
+> -	sll	v1, sum, 8
+> +#ifdef CPU_MIPSR2
+> +	wsbh	v1, sum	
+> +	movn	sum, v1, t7
+> +#else
+> +	beqz	t7, 1f			/* odd buffer alignment? */
+> +	 lui	v1, 0x00ff
+> +	addu	v1, 0x00ff
+> +	and	t0, sum, v1
+> +	sll	t0, t0, 8
+>  	srl	sum, sum, 8
+> -	or	sum, v1
+> -	andi	sum, 0xffff
+> -	.set	pop
+> +	and	sum, sum, v1
+> +	or	sum, sum, t0
+>  1:
+> +#endif
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+Is this just an optimization?  or contain any fixes?
+
+---
+Atsushi Nemoto
