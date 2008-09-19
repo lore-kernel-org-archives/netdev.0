@@ -1,52 +1,56 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: multiqueue interrupts...
-Date: Fri, 19 Sep 2008 13:12:54 -0700 (PDT)
-Message-ID: <20080919.131254.44610374.davem@davemloft.net>
+Date: Fri, 19 Sep 2008 13:14:02 -0700 (PDT)
+Message-ID: <20080919.131402.157398113.davem@davemloft.net>
 References: <20080918.193815.175549834.davem@davemloft.net>
-	<1221824281.3103.8.camel@achroite>
-	<48D39B13.60401@myri.com>
+	<41b516cb0809191050t6c9783dele8926f697854bb1@mail.gmail.com>
+	<20080919181840.GE30956@parisc-linux.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: brice@myri.com
+Cc: netdev@vger.kernel.org, arjan@infradead.org
+To: matthew@wil.cx
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43097
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43102
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751371AbYISUNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 16:13:08 -0400
-In-Reply-To: <48D39B13.60401@myri.com>
+	by vger.kernel.org with ESMTP id S1752719AbYISUOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 16:14:14 -0400
+In-Reply-To: <20080919181840.GE30956@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brice Goglin <brice@myri.com>
-Date: Fri, 19 Sep 2008 14:29:07 +0200
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Fri, 19 Sep 2008 12:18:41 -0600
 
-> Ben Hutchings wrote:
-> > On Thu, 2008-09-18 at 19:38 -0700, David Miller wrote:
-> > [...]
-> >   
-> >> So on a multiqueue card with 2 RX queues and 2 TX queues we'd
-> >> have names like:
-> >>
-> >> 	eth0-rx-0
-> >> 	eth0-rx-1
-> >> 	eth0-tx-0
-> >> 	eth0-tx-1
-> >>
-> >> So let's make an effort to get this done right in 2.6.28 and meanwhile
-> >> Arjan can add the irqbalanced code.
-> >>     
-> >
-> > What about the case where an interrupt is shared between RX and TX
-> > completions?  Our hardware is very flexible in this regard, but based on
-> > performance testing prior to the introduction of TX multiqueue we
-> > currently allocate multiple interrupts for RX completions and share the
-> > first with TX completions.
-> >   
+> On Thu, Sep 18, 2008 at 7:38 PM, David Miller wrote:
+> > During kernel summit I was speaking with Arjan van de Ven
+> > about irqbalanced and networking card multiqueue interrupts.
+> > 
+> > In order for irqbalanaced to make smart decisions, what needs to
+> > happen in drivers is that the individual interrupts need to be
+> > named in such a way that he can tell by looking at /proc/interrupts
+> > output that these interrupts are related.
+> > 
+> > So on a multiqueue card with 2 RX queues and 2 TX queues we'd
+> > have names like:
+> > 
+> >        eth0-rx-0
+> >        eth0-rx-1
+> >        eth0-tx-0
+> >        eth0-tx-1
+> > 
+> > So let's make an effort to get this done right in 2.6.28 and meanwhile
+> > Arjan can add the irqbalanced code.
 > 
-> myri10ge uses the same interrupts for TX and RX. The current name is
-> eth%d:slice-%d but we could change it if there's a consensus.
+> Instead of having magic names, how about we put something in
+> /proc/irq/nnn/ that lets us tell which interrupts are connected to which
+> queues?
 
-You might be OK as-is.  If we make irqbalanced look for X-%d, you'll
-likely be fine.
+More code for irqbalanced to write, to look for the files and
+directories under there, etc.  Harder to make work with simple
+individual driver backports, which you know dists are going to
+want to do.
+
+That's why.
+
+No, this new subdirectory thing isn't a good idea.
