@@ -1,64 +1,233 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 09/14] Phonet: allocate and initialize new sockets
-Date: Fri, 19 Sep 2008 14:14:08 +0400
-Message-ID: <48D37B70.2010702@openvz.org>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-9-git-send-email-remi.denis-courmont@nokia.com> <48CFFE2C.7050908@openvz.org> <200809171130.47361.remi.denis-courmont@nokia.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [take 2] Re: [RFC PATCH] sched: only dequeue if packet can be
+	queued to hardware queue.
+Date: Fri, 19 Sep 2008 10:32:25 +0000
+Message-ID: <20080919103225.GB9135@ff.dom.local>
+References: <20080918063036.27934.91273.stgit@localhost.localdomain> <20080918194419.GA2982@ami.dom.local> <5f2db9d90809181811q74c3211fp9a099acb8e895fd4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	davem@davemloft.net, kaber@trash.net
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:37578 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751104AbYISKOR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2008 06:14:17 -0400
-In-Reply-To: <200809171130.47361.remi.denis-courmont@nokia.com>
+Received: from fg-out-1718.google.com ([72.14.220.152]:38819 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbYISKcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 06:32:43 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so521143fgg.17
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 03:32:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5f2db9d90809181811q74c3211fp9a099acb8e895fd4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-R=E9mi Denis-Courmont wrote:
-> 	Hello,
->=20
-> On Tuesday 16 September 2008 21:42:52 ext Pavel Emelyanov, you wrote:
->>> @@ -71,8 +73,22 @@ static int pn_socket_create(struct net *net, str=
-uct
->>> socket *sock, int protocol) goto out;
->>>  	}
->>>
->>> -	/* TODO: create and init the struct sock */
->>> -	err =3D -EPROTONOSUPPORT;
->>> +	sk =3D sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
->>> +	if (sk =3D=3D NULL) {
->>> +		err =3D -ENOMEM;
->>> +		goto out;
->>> +	}
->> This turns to be a little bit messy wrt net namespaces.
->> Look - you allow for sockets to be created (and isolated from each
->> other) in each namespace,
->=20
-> I expect pn_socket_create() should forbid this, no?
+Take 2:
+I missed __netif_schedule() in my patch, so the update below.
 
-Well, to be honest, I'd prefer making this ns aware from the very
-beginning, but not to force you make things you (probably) don't want
-to, I will answer - yes, please, ban this protocol for !init_ns :)
+But, because of this a little change of mind: there is no reason to
+repeat __netif_schedule() if there is a full stop or freeze of all
+queues, so it seems we need additional check for this anyway. I'll
+send my proposal of this test soon.
 
->     if (net !=3D &init_net)
->             return -EAFNOSUPPORT;
->     /* ... */
->     sk =3D sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
->=20
->> the list of devices is global,
->=20
-> Hmmm, good point. Should I forbid adding an address to devices outsid=
-e the=20
-> initial namespace? what about a device with an existing address being=
-=20
-> migrated?
->=20
->> whilst the sysctls are visible in init_net only...
->=20
-> Regards,
->=20
+Jarek P.
 
+On Thu, Sep 18, 2008 at 06:11:45PM -0700, Alexander Duyck wrote:
+> Once again if you have a suggestion on approach feel free to modify
+> the patch and see how it works for you.  My only concern is that there
+> are several qdiscs which won't give you the same packet twice and so
+> you don't know what is going to pop out until you go in and check.
+...
+
+Actually, here is my suggestion: I think, that your obviously more
+complex solution should be compared with something simple which IMHO
+has similar feature, i.e. limited overhead of requeuing.
+
+My proposal is to use partly David's idea of killing ->ops->requeue(),
+for now only the first two patches, so don't requeue back to the
+qdiscs, but leave qdisc->ops->requeue() for internal usage (like in
+HFSC's qdisc_peek_len() hack). Additionaly I use your idea of early
+checking the state of tx queue to make this even lighter after
+possibly removing the entry check from qdisc_run().
+
+I attach my patch at the end, after original David's two patches.
+
+Thanks,
+Jarek P.
+
+---------------> patch 1/3
+Subject: [PATCH 1/9]: pkt_sched: Make qdisc->gso_skb a list.
+Date: Mon, 18 Aug 2008 01:36:47 -0700 (PDT)
+From: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+CC: jarkao2@gmail.com
+Newsgroups: gmane.linux.network
+
+
+pkt_sched: Make qdisc->gso_skb a list.
+
+The idea is that we can use this to get rid of
+->requeue().
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/sch_generic.h |    2 +-
+ net/sched/sch_generic.c   |   12 +++++++-----
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 84d25f2..140c48b 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -52,7 +52,7 @@ struct Qdisc
+ 	u32			parent;
+ 	atomic_t		refcnt;
+ 	unsigned long		state;
+-	struct sk_buff		*gso_skb;
++	struct sk_buff_head	requeue;
+ 	struct sk_buff_head	q;
+ 	struct netdev_queue	*dev_queue;
+ 	struct Qdisc		*next_sched;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 6f96b7b..39d969e 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -45,7 +45,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
+ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
+ {
+ 	if (unlikely(skb->next))
+-		q->gso_skb = skb;
++		__skb_queue_head(&q->requeue, skb);
+ 	else
+ 		q->ops->requeue(skb, q);
+ 
+@@ -57,9 +57,8 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+ {
+ 	struct sk_buff *skb;
+ 
+-	if ((skb = q->gso_skb))
+-		q->gso_skb = NULL;
+-	else
++	skb = __skb_dequeue(&q->requeue);
++	if (!skb)
+ 		skb = q->dequeue(q);
+ 
+ 	return skb;
+@@ -328,6 +327,7 @@ struct Qdisc noop_qdisc = {
+ 	.flags		=	TCQ_F_BUILTIN,
+ 	.ops		=	&noop_qdisc_ops,
+ 	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
++	.requeue.lock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
+ 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
+ 	.dev_queue	=	&noop_netdev_queue,
+ };
+@@ -353,6 +353,7 @@ static struct Qdisc noqueue_qdisc = {
+ 	.flags		=	TCQ_F_BUILTIN,
+ 	.ops		=	&noqueue_qdisc_ops,
+ 	.list		=	LIST_HEAD_INIT(noqueue_qdisc.list),
++	.requeue.lock	=	__SPIN_LOCK_UNLOCKED(noqueue_qdisc.q.lock),
+ 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noqueue_qdisc.q.lock),
+ 	.dev_queue	=	&noqueue_netdev_queue,
+ };
+@@ -473,6 +474,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	sch->padded = (char *) sch - (char *) p;
+ 
+ 	INIT_LIST_HEAD(&sch->list);
++	skb_queue_head_init(&sch->requeue);
+ 	skb_queue_head_init(&sch->q);
+ 	sch->ops = ops;
+ 	sch->enqueue = ops->enqueue;
+@@ -543,7 +545,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 	module_put(ops->owner);
+ 	dev_put(qdisc_dev(qdisc));
+ 
+-	kfree_skb(qdisc->gso_skb);
++	__skb_queue_purge(&qdisc->requeue);
+ 
+ 	kfree((char *) qdisc - qdisc->padded);
+ }
+
+
+-------------> patch 2/3
+Subject: [PATCH 2/9]: pkt_sched: Always use q->requeue in dev_requeue_skb().
+Date: Mon, 18 Aug 2008 01:36:50 -0700 (PDT)
+From: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+CC: jarkao2@gmail.com
+Newsgroups: gmane.linux.network
+
+
+pkt_sched: Always use q->requeue in dev_requeue_skb().
+
+There is no reason to call into the complicated qdiscs
+just to remember the last SKB where we found the device
+blocked.
+
+The SKB is outside of the qdiscs realm at this point.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sched/sch_generic.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 39d969e..96d7d08 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -44,10 +44,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
+ 
+ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
+ {
+-	if (unlikely(skb->next))
+-		__skb_queue_head(&q->requeue, skb);
+-	else
+-		q->ops->requeue(skb, q);
++	__skb_queue_head(&q->requeue, skb);
+ 
+ 	__netif_schedule(q);
+ 	return 0;
+
+
+----------------> patch 3/3 (take 2)
+
+pkt_sched: Check the state of tx_queue in dequeue_skb()
+
+Check in dequeue_skb() the state of tx_queue for requeued skb to save
+on locking and re-requeuing, and possibly remove the current check in
+qdisc_run(). Based on the idea of Alexander Duyck.
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+diff -Nurp net-next-2.6-/net/sched/sch_generic.c net-next-2.6+/net/sched/sch_generic.c
+--- net-next-2.6-/net/sched/sch_generic.c	2008-09-19 07:21:44.000000000 +0000
++++ net-next-2.6+/net/sched/sch_generic.c	2008-09-19 10:11:04.000000000 +0000
+@@ -52,11 +52,24 @@ static inline int dev_requeue_skb(struct
+ 
+ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+ {
+-	struct sk_buff *skb;
++	struct sk_buff *skb = skb_peek(&q->requeue);
+ 
+-	skb = __skb_dequeue(&q->requeue);
+-	if (!skb)
++	if (unlikely(skb)) {
++		struct net_device *dev = qdisc_dev(q);
++		struct netdev_queue *txq;
++
++		/* check the reason of requeuing without tx lock first */
++		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
++		if (!netif_tx_queue_stopped(txq) &&
++		    !netif_tx_queue_frozen(txq)) {
++			__skb_unlink(skb, &q->requeue);
++		} else {
++			skb = NULL;
++			__netif_schedule(q);
++		}
++	} else {
+ 		skb = q->dequeue(q);
++	}
+ 
+ 	return skb;
+ }
