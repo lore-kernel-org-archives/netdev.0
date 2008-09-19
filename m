@@ -1,141 +1,90 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH] r8169: read MAC address from EEPROM on init
-Date: Fri, 19 Sep 2008 15:05:05 +0200
-Message-ID: <48D3A381.1080500@redhat.com>
-References: <48D25BA2.6070008@redhat.com> <Pine.LNX.4.64.0809182235550.4742@wrl-59.cs.helsinki.fi>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Fri, 19 Sep 2008 16:14:12 +0300
+Message-ID: <200809191614.14763.rdenis@simphalempin.com>
+References: <1221387956.9204.7.camel@fry> <200809182031.01291.rdenis@simphalempin.com> <20080919.212854.19019802.taka@valinux.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Francois Romieu <romieu@fr.zoreil.com>
+Cc: johaahn@gmail.com, netdev@vger.kernel.org
+To: Hirokazu Takahashi <taka@valinux.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:46159 "EHLO mx2.redhat.com"
+Received: from yop.chewa.net ([91.121.105.214]:46579 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751373AbYISNIc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2008 09:08:32 -0400
-In-Reply-To: <Pine.LNX.4.64.0809182235550.4742@wrl-59.cs.helsinki.fi>
+	id S1751309AbYISNOR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 09:14:17 -0400
+In-Reply-To: <20080919.212854.19019802.taka@valinux.co.jp>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen wrote:
->> +	 * is always consecutive 4-byte data starting from the VPD address
->> +	 * specified."
->> +	 */
->> +	if (rtl_eeprom_read(tp->pci_dev, vpd_cap, 0x000e, &low) < 0 ||
->> +	    rtl_eeprom_read(tp->pci_dev, vpd_cap, 0x0012, &high) < 0) {
->> +		dprintk("Reading MAC address from EEPROM failed\n");
->> +		return;
->> +	}
->> +
->> +	/* Mask hi-word */
->> +	high &=3D 0xffff;
->=20
-> ..Hmm, and besides fixing sparse printouts, this looks like a real=20
-> endianness bug.
+Le vendredi 19 septembre 2008 15:28:54 Hirokazu Takahashi, vous avez =E9=
+crit=A0:
+> > > UDP is a datagram protocol, so I think applications using UDP sho=
+uld
+> > > care about the size of packets they are going to send rather than
+> > > expecting that the messages will be split into several packets
+> > > automatically. If some of the packets have lost, it will be reall=
+y hard
+> > > for the applications to re-create the same ones to send again.
+> >
+> > Also, why use UDP for this... If you want stream semantics, why not=
+ use
+> > TCP or SCTP instead?
+>
+> I think a lot of VoIP and video streaming services are working on UDP=
+=2E
 
-Yes it is, my mistake. The patch below will be better.
+VoIP uses lots of small packets, considering the typical packetization =
+times.=20
+Using send(MSG_MORE) + sendfile would definitely be slower than a singl=
+e=20
+sendmsg() in such case, because the per-packet memcpy() will be quite s=
+hort.
 
----
- drivers/net/r8169.c |   74 +++++++++++++++++++++++++++++++++++++++++++=
-+++++++-
- 1 files changed, 73 insertions(+), 1 deletions(-)
+Video streaming typically does send lots of large packets, and might we=
+ll read=20
+the data from a mmap-able file. But video streaming protocols such as R=
+TP=20
+typically try to avoid fragmentation, so large sendfile() won't work.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index befc927..cff8dd6 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1910,6 +1910,75 @@ static void rtl_disable_msi(struct pci_dev *pdev=
-, struct rtl8169_private *tp)
- 	}
- }
+> > > If you want send a large file over UDP, the typical code will be =
+like:
+> > >
+> > > while (...) {
+> > >         sendmsg(fd, &apl_header, sizeof(apl_header), MSG_MORE);
+> > >         offset +=3D sendfile(fd, offset, count);
+> > > }
+> >
+> > Correct me if I am wrong, but... Unless you have a big MTU (as _not=
+_ in
+> > 1500 bytes :D), doing an extra syscall might be slower than copying=
+ data
+> > in a single vectorized sendmsg() syscall.
+>
+> That's not true.
+> Even if the MTU is small, you can send a UDP message whose size can b=
+e
+> up to 64KB at once. They will be split into several IP packets withou=
+t
+> any copies.
 
-+static int rtl_eeprom_read(struct pci_dev *pdev, int cap, int addr, __=
-le32 *val)
-+{
-+	int ret, count =3D 100;
-+	u16 status =3D 0;
-+	u32 value;
-+
-+	ret =3D pci_write_config_word(pdev, cap + PCI_VPD_ADDR, addr);
-+	if (ret < 0)
-+		return ret;
-+
-+	do {
-+		udelay(10);
-+		ret =3D pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &status);
-+		if (ret < 0)
-+			return ret;
-+	} while (!(status & PCI_VPD_ADDR_F) && --count);
-+
-+	if (!(status & PCI_VPD_ADDR_F))
-+		return -ETIMEDOUT;
-+
-+	ret =3D pci_read_config_dword(pdev, cap + PCI_VPD_DATA, &value);
-+	if (ret < 0)
-+		return ret;
-+
-+	*val =3D cpu_to_le32(value);
-+
-+	return 0;
-+}
-+
-+static void rtl_init_mac_address(struct rtl8169_private *tp,
-+				 void __iomem *ioaddr)
-+{
-+	struct pci_dev *pdev =3D tp->pci_dev;
-+	u8 cfg1;
-+	int vpd_cap;
-+	u8 mac[8];
-+
-+	cfg1 =3D RTL_R8(Config1);
-+	if (!(cfg1  & VPD)) {
-+		dprintk("VPD access not enabled, enabling\n");
-+		RTL_W8(Cfg9346, Cfg9346_Unlock);
-+		RTL_W8(Config1, cfg1 | VPD);
-+		RTL_W8(Cfg9346, Cfg9346_Lock);
-+	}
-+
-+	vpd_cap =3D pci_find_capability(pdev, PCI_CAP_ID_VPD);
-+	if (!vpd_cap)
-+		return;
-+
-+	/* MAC address is stored in EEPROM at offset 0x0e
-+	 * Realtek says: "The VPD address does not have to be a DWORD-aligned
-+	 * address as defined in the PCI 2.2 Specifications, but the VPD data
-+	 * is always consecutive 4-byte data starting from the VPD address
-+	 * specified."
-+	 */
-+	if (rtl_eeprom_read(pdev, vpd_cap, 0x000e, (__le32*)&mac[0]) < 0 ||
-+	    rtl_eeprom_read(pdev, vpd_cap, 0x0012, (__le32*)&mac[4]) < 0) {
-+		dprintk("Reading MAC address from EEPROM failed\n");
-+		return;
-+	}
-+
-+	dprintk("MAC address found in EEPROM: "
-+		"%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
-+		mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], mac[6]);
-+
-+	/* Write MAC address */
-+	rtl_rar_set(tp, mac);
-+}
-+
- static int __devinit
- rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent=
-)
- {
-@@ -2079,7 +2148,10 @@ rtl8169_init_one(struct pci_dev *pdev, const str=
-uct pci_device_id *ent)
- 		dev->do_ioctl =3D rtl8169_ioctl;
- 	}
+And you will encounter fragmentation, which sucks at high data rates.
+As for low rates, you typically would not bother to optimize memcpy. Bu=
+t more=20
+importantly, you should not assume that the other end is only talking t=
+o=20
+you - it might as well be talking to many different people and not appr=
+eciate=20
+if all of them send lots of fragments.
 
--	/* Get MAC address.  FIXME: read EEPROM */
-+	/* Read MAC address from EEPROM */
-+	rtl_init_mac_address(tp, ioaddr);
-+
-+	/* Get MAC address */
- 	for (i =3D 0; i < MAC_ADDR_LEN; i++)
- 		dev->dev_addr[i] =3D RTL_R8(MAC0 + i);
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+And lets not get into how poorly fragmentation works through middleboxe=
+s...
 
+> And more, copying data will pollute the cache memory much, which cann=
+ot
+> be ignored if you want send tons of data of files.
+
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
