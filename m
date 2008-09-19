@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: patchwork for netdev
-Date: Thu, 18 Sep 2008 19:11:25 -0700 (PDT)
-Message-ID: <20080918.191125.197691273.davem@davemloft.net>
-References: <Pine.LNX.4.64.0809181700110.18136@shark.he.net>
-	<20080918.170547.114615421.davem@davemloft.net>
-	<48D2F212.50407@hp.com>
+Subject: Re: [git patches] regression fixes for .27-rc
+Date: Thu, 18 Sep 2008 19:17:42 -0700 (PDT)
+Message-ID: <20080918.191742.193683501.davem@davemloft.net>
+References: <20080919015209.GA21268@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdunlap@xenotime.net, netdev@vger.kernel.org, jeff@garzik.org,
-	linville@tuxdriver.com
-To: rick.jones2@hp.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44841
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35852
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755271AbYISCLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 22:11:38 -0400
-In-Reply-To: <48D2F212.50407@hp.com>
+	by vger.kernel.org with ESMTP id S1755720AbYISCR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 22:17:56 -0400
+In-Reply-To: <20080919015209.GA21268@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Thu, 18 Sep 2008 17:28:02 -0700
+From: Jeff Garzik <jeff@garzik.org>
+Date: Thu, 18 Sep 2008 21:52:09 -0400
 
-> > I was hoping those ACK emails would be one of the things I could stop
-> > doing if patchwork is effective.  Not immediately, but eventually.
+> This is all the net driver-related regressions AFAICS.
 > 
-> Can't patchwork do that as those clicks to change state take place?
+> Please pull from 'davem-fixes' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
+> 
+> to receive the following updates:
 
-I honestly don't know, but my guess would be know.
-
-We could ask the patchwork author for this feature, as this
-stuff is actively maintained.
+Pulled, thanks a lot Jeff.
