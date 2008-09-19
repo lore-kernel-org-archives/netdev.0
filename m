@@ -1,220 +1,94 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC PATCH] sched: only dequeue if packet can be queued to
-	hardware queue.
-Date: Fri, 19 Sep 2008 09:17:53 +0000
-Message-ID: <20080919091752.GA9135@ff.dom.local>
-References: <20080918063036.27934.91273.stgit@localhost.localdomain> <20080918194419.GA2982@ami.dom.local> <5f2db9d90809181811q74c3211fp9a099acb8e895fd4@mail.gmail.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: Should we move IPVS out of net/ipv4 now?
+Date: Fri, 19 Sep 2008 11:47:13 +0200
+Message-ID: <f4845fc0809190247l631c2a56se956f46078b41ef3@mail.gmail.com>
+References: <20080917.131445.19943427.davem@davemloft.net>
+	 <f4845fc0809181304y25e3df07xfde0f23406b519a2@mail.gmail.com>
+	 <20080918235220.GD13536@verge.net.au>
+	 <20080918.170030.32445027.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	davem@davemloft.net, kaber@trash.net
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, csnook@redhat.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:15162 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbYISJSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 05:18:11 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so503227fgg.17
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 02:18:09 -0700 (PDT)
+Received: from smtp-out.google.com ([216.239.33.17]:37771 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbYISJrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 05:47:22 -0400
+Received: from spaceape10.eur.corp.google.com (spaceape10.eur.corp.google.com [172.28.16.144])
+	by smtp-out.google.com with ESMTP id m8J9lF5e004381
+	for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 10:47:15 +0100
+Received: from mu-out-0910.google.com (muew1.prod.google.com [10.102.174.1])
+	by spaceape10.eur.corp.google.com with ESMTP id m8J9lE5F025630
+	for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 02:47:14 -0700
+Received: by mu-out-0910.google.com with SMTP id w1so281238mue.9
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 02:47:13 -0700 (PDT)
+In-Reply-To: <20080918.170030.32445027.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <5f2db9d90809181811q74c3211fp9a099acb8e895fd4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2008 at 06:11:45PM -0700, Alexander Duyck wrote:
-> Once again if you have a suggestion on approach feel free to modify
-> the patch and see how it works for you.  My only concern is that there
-> are several qdiscs which won't give you the same packet twice and so
-> you don't know what is going to pop out until you go in and check.
-...
+On Fri, Sep 19, 2008 at 2:00 AM, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Fri, 19 Sep 2008 09:52:22 +1000
+>
+>> On Thu, Sep 18, 2008 at 10:04:28PM +0200, Julius Volz wrote:
+>> > On Wed, Sep 17, 2008 at 10:14 PM, David Miller wrote:
+>> > > From: Chris Snook <csnook@redhat.com>
+>> > > Date: Wed, 17 Sep 2008 14:37:33 -0400
+>> > >
+>> > >> Julius Volz wrote:
+>> > >> > Since IPVS now does partial IPv6, should we finally move it from
+>> > >> > "net/ipv4/ipvs" to "net" or to "net/netfilter"? I posted that patch a
+>> > >> > long time ago, but that was before any of the actual v6 features, so
+>> > >> > there was probably no interest.
+>> > >>
+>> > >> Whatever the netfilter people want is fine with me.
+>> > >
+>> > > I think, especially in the long term, putting IPVS under net/netfilter/
+>> > > is the right thing to do.
+>> >
+>> > Ok thanks, I'll send the patch for that once lvs-next-2.6 or
+>> > net-next-2.6 builds for ARCH=um again (there seems to be some breakage
+>> > at the moment)...
+>>
+>> Once net-next-2.6 is working again, let me know and I'll pull it
+>> into lvs-next-2.6.
+>
+> I can't fix this if people don't tell me what the problem is.
 
-Actually, here is my suggestion: I think, that your obviously more
-complex solution should be compared with something simple which IMHO
-has similar feature, i.e. limited overhead of requeuing.
+Sorry, I sent this from an environment where I didn't have the
+information and just wanted to give a quick ACK on the IPVS move
+decision.
 
-My proposal is to use partly David's idea of killing ->ops->requeue(),
-for now only the first two patches, so don't requeue back to the
-qdiscs, but leave qdisc->ops->requeue() for internal usage (like in
-HFSC's qdisc_peek_len() hack). Additionaly I use your idea of early
-checking the state of tx queue to make this even lighter after
-possibly removing the entry check from qdisc_run().
+The build with ARCH=um seems to have a problem with the
+architecture-specific headers:
 
-I attach my patch at the end, after original David's two patches.
+net/core/skb_dma_map.c: In function 'skb_dma_map':
+net/core/skb_dma_map.c:20: error: implicit declaration of function
+'dma_mapping_error'
 
-Thanks,
-Jarek P.
+The bad commit that introduces the skb_dma_map.c file (and this error)
+is a40c24a1336. Previous versions build fine.
 
----------------> patch 1/3
-Subject: [PATCH 1/9]: pkt_sched: Make qdisc->gso_skb a list.
-Date: Mon, 18 Aug 2008 01:36:47 -0700 (PDT)
-From: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-CC: jarkao2@gmail.com
-Newsgroups: gmane.linux.network
+> Is there some upstream fix and cures this and all I need to do is
+> sync net-next-2.6 up with Linus's tree?  Is there some external
+> fix?
 
+Linus' linux-2.6 (he doesn't have a linux-next-2.6, right?) works, but
+that doesn't even contain the file that has the build problem.
 
-pkt_sched: Make qdisc->gso_skb a list.
+> It's totally stupid to stall development because of an issue like this
+> yet give no direction or diagnostics we can use as a path to resolve
+> it.
 
-The idea is that we can use this to get rid of
-->requeue().
+Yes, I'll give a better report next time.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/sch_generic.h |    2 +-
- net/sched/sch_generic.c   |   12 +++++++-----
- 2 files changed, 8 insertions(+), 6 deletions(-)
+Julius
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 84d25f2..140c48b 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -52,7 +52,7 @@ struct Qdisc
- 	u32			parent;
- 	atomic_t		refcnt;
- 	unsigned long		state;
--	struct sk_buff		*gso_skb;
-+	struct sk_buff_head	requeue;
- 	struct sk_buff_head	q;
- 	struct netdev_queue	*dev_queue;
- 	struct Qdisc		*next_sched;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 6f96b7b..39d969e 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -45,7 +45,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
- static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- {
- 	if (unlikely(skb->next))
--		q->gso_skb = skb;
-+		__skb_queue_head(&q->requeue, skb);
- 	else
- 		q->ops->requeue(skb, q);
- 
-@@ -57,9 +57,8 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
- {
- 	struct sk_buff *skb;
- 
--	if ((skb = q->gso_skb))
--		q->gso_skb = NULL;
--	else
-+	skb = __skb_dequeue(&q->requeue);
-+	if (!skb)
- 		skb = q->dequeue(q);
- 
- 	return skb;
-@@ -328,6 +327,7 @@ struct Qdisc noop_qdisc = {
- 	.flags		=	TCQ_F_BUILTIN,
- 	.ops		=	&noop_qdisc_ops,
- 	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
-+	.requeue.lock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
- 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
- 	.dev_queue	=	&noop_netdev_queue,
- };
-@@ -353,6 +353,7 @@ static struct Qdisc noqueue_qdisc = {
- 	.flags		=	TCQ_F_BUILTIN,
- 	.ops		=	&noqueue_qdisc_ops,
- 	.list		=	LIST_HEAD_INIT(noqueue_qdisc.list),
-+	.requeue.lock	=	__SPIN_LOCK_UNLOCKED(noqueue_qdisc.q.lock),
- 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noqueue_qdisc.q.lock),
- 	.dev_queue	=	&noqueue_netdev_queue,
- };
-@@ -473,6 +474,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
- 	sch->padded = (char *) sch - (char *) p;
- 
- 	INIT_LIST_HEAD(&sch->list);
-+	skb_queue_head_init(&sch->requeue);
- 	skb_queue_head_init(&sch->q);
- 	sch->ops = ops;
- 	sch->enqueue = ops->enqueue;
-@@ -543,7 +545,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
- 	module_put(ops->owner);
- 	dev_put(qdisc_dev(qdisc));
- 
--	kfree_skb(qdisc->gso_skb);
-+	__skb_queue_purge(&qdisc->requeue);
- 
- 	kfree((char *) qdisc - qdisc->padded);
- }
+-- 
+Julius Volz - Corporate Operations - SysOps
 
-
--------------> patch 2/3
-Subject: [PATCH 2/9]: pkt_sched: Always use q->requeue in dev_requeue_skb().
-Date: Mon, 18 Aug 2008 01:36:50 -0700 (PDT)
-From: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-CC: jarkao2@gmail.com
-Newsgroups: gmane.linux.network
-
-
-pkt_sched: Always use q->requeue in dev_requeue_skb().
-
-There is no reason to call into the complicated qdiscs
-just to remember the last SKB where we found the device
-blocked.
-
-The SKB is outside of the qdiscs realm at this point.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/sched/sch_generic.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
-
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 39d969e..96d7d08 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -44,10 +44,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
- 
- static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- {
--	if (unlikely(skb->next))
--		__skb_queue_head(&q->requeue, skb);
--	else
--		q->ops->requeue(skb, q);
-+	__skb_queue_head(&q->requeue, skb);
- 
- 	__netif_schedule(q);
- 	return 0;
-
-
-----------------> patch 3/3
-
-pkt_sched: Check the state of tx_queue in dequeue_skb()
-
-Check in dequeue_skb() the state of tx_queue for requeued skb to save
-on locking and re-requeuing, and possibly remove the current check in
-qdisc_run(). Based on the idea of Alexander Duyck.
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
----
-
-diff -Nurp net-next-2.6-/net/sched/sch_generic.c net-next-2.6+/net/sched/sch_generic.c
---- net-next-2.6-/net/sched/sch_generic.c	2008-09-19 07:21:44.000000000 +0000
-+++ net-next-2.6+/net/sched/sch_generic.c	2008-09-19 07:49:15.000000000 +0000
-@@ -52,11 +52,21 @@ static inline int dev_requeue_skb(struct
- 
- static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
- {
--	struct sk_buff *skb;
-+	struct sk_buff *skb = skb_peek(&q->requeue);
- 
--	skb = __skb_dequeue(&q->requeue);
--	if (!skb)
-+	if (unlikely(skb)) {
-+		struct net_device *dev = qdisc_dev(q);
-+		struct netdev_queue *txq;
-+
-+		/* check the reason of requeuing without tx lock first */
-+		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-+		if (!netif_tx_queue_stopped(txq) && !netif_tx_queue_frozen(txq))
-+			__skb_unlink(skb, &q->requeue);
-+		else
-+			skb = NULL;
-+	} else {
- 		skb = q->dequeue(q);
-+	}
- 
- 	return skb;
- }
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
