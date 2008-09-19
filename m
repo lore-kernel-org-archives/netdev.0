@@ -1,94 +1,64 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: Should we move IPVS out of net/ipv4 now?
-Date: Fri, 19 Sep 2008 11:47:13 +0200
-Message-ID: <f4845fc0809190247l631c2a56se956f46078b41ef3@mail.gmail.com>
-References: <20080917.131445.19943427.davem@davemloft.net>
-	 <f4845fc0809181304y25e3df07xfde0f23406b519a2@mail.gmail.com>
-	 <20080918235220.GD13536@verge.net.au>
-	 <20080918.170030.32445027.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 09/14] Phonet: allocate and initialize new sockets
+Date: Fri, 19 Sep 2008 14:14:08 +0400
+Message-ID: <48D37B70.2010702@openvz.org>
+References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221577694-4513-9-git-send-email-remi.denis-courmont@nokia.com> <48CFFE2C.7050908@openvz.org> <200809171130.47361.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, csnook@redhat.com, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:37771 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbYISJrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 05:47:22 -0400
-Received: from spaceape10.eur.corp.google.com (spaceape10.eur.corp.google.com [172.28.16.144])
-	by smtp-out.google.com with ESMTP id m8J9lF5e004381
-	for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 10:47:15 +0100
-Received: from mu-out-0910.google.com (muew1.prod.google.com [10.102.174.1])
-	by spaceape10.eur.corp.google.com with ESMTP id m8J9lE5F025630
-	for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 02:47:14 -0700
-Received: by mu-out-0910.google.com with SMTP id w1so281238mue.9
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 02:47:13 -0700 (PDT)
-In-Reply-To: <20080918.170030.32445027.davem@davemloft.net>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:37578 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751104AbYISKOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Sep 2008 06:14:17 -0400
+In-Reply-To: <200809171130.47361.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 19, 2008 at 2:00 AM, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Fri, 19 Sep 2008 09:52:22 +1000
->
->> On Thu, Sep 18, 2008 at 10:04:28PM +0200, Julius Volz wrote:
->> > On Wed, Sep 17, 2008 at 10:14 PM, David Miller wrote:
->> > > From: Chris Snook <csnook@redhat.com>
->> > > Date: Wed, 17 Sep 2008 14:37:33 -0400
->> > >
->> > >> Julius Volz wrote:
->> > >> > Since IPVS now does partial IPv6, should we finally move it from
->> > >> > "net/ipv4/ipvs" to "net" or to "net/netfilter"? I posted that patch a
->> > >> > long time ago, but that was before any of the actual v6 features, so
->> > >> > there was probably no interest.
->> > >>
->> > >> Whatever the netfilter people want is fine with me.
->> > >
->> > > I think, especially in the long term, putting IPVS under net/netfilter/
->> > > is the right thing to do.
->> >
->> > Ok thanks, I'll send the patch for that once lvs-next-2.6 or
->> > net-next-2.6 builds for ARCH=um again (there seems to be some breakage
->> > at the moment)...
->>
->> Once net-next-2.6 is working again, let me know and I'll pull it
->> into lvs-next-2.6.
->
-> I can't fix this if people don't tell me what the problem is.
+R=E9mi Denis-Courmont wrote:
+> 	Hello,
+>=20
+> On Tuesday 16 September 2008 21:42:52 ext Pavel Emelyanov, you wrote:
+>>> @@ -71,8 +73,22 @@ static int pn_socket_create(struct net *net, str=
+uct
+>>> socket *sock, int protocol) goto out;
+>>>  	}
+>>>
+>>> -	/* TODO: create and init the struct sock */
+>>> -	err =3D -EPROTONOSUPPORT;
+>>> +	sk =3D sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
+>>> +	if (sk =3D=3D NULL) {
+>>> +		err =3D -ENOMEM;
+>>> +		goto out;
+>>> +	}
+>> This turns to be a little bit messy wrt net namespaces.
+>> Look - you allow for sockets to be created (and isolated from each
+>> other) in each namespace,
+>=20
+> I expect pn_socket_create() should forbid this, no?
 
-Sorry, I sent this from an environment where I didn't have the
-information and just wanted to give a quick ACK on the IPVS move
-decision.
+Well, to be honest, I'd prefer making this ns aware from the very
+beginning, but not to force you make things you (probably) don't want
+to, I will answer - yes, please, ban this protocol for !init_ns :)
 
-The build with ARCH=um seems to have a problem with the
-architecture-specific headers:
+>     if (net !=3D &init_net)
+>             return -EAFNOSUPPORT;
+>     /* ... */
+>     sk =3D sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
+>=20
+>> the list of devices is global,
+>=20
+> Hmmm, good point. Should I forbid adding an address to devices outsid=
+e the=20
+> initial namespace? what about a device with an existing address being=
+=20
+> migrated?
+>=20
+>> whilst the sysctls are visible in init_net only...
+>=20
+> Regards,
+>=20
 
-net/core/skb_dma_map.c: In function 'skb_dma_map':
-net/core/skb_dma_map.c:20: error: implicit declaration of function
-'dma_mapping_error'
-
-The bad commit that introduces the skb_dma_map.c file (and this error)
-is a40c24a1336. Previous versions build fine.
-
-> Is there some upstream fix and cures this and all I need to do is
-> sync net-next-2.6 up with Linus's tree?  Is there some external
-> fix?
-
-Linus' linux-2.6 (he doesn't have a linux-next-2.6, right?) works, but
-that doesn't even contain the file that has the build problem.
-
-> It's totally stupid to stall development because of an issue like this
-> yet give no direction or diagnostics we can use as a path to resolve
-> it.
-
-Yes, I'll give a better report next time.
-
-Julius
-
--- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
