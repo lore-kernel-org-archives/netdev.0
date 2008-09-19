@@ -1,47 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: multiqueue interrupts...
-Date: Thu, 18 Sep 2008 19:38:15 -0700 (PDT)
-Message-ID: <20080918.193815.175549834.davem@davemloft.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 1/2] sctp: do not enable peer features if we can't do
+ them.
+Date: Thu, 18 Sep 2008 23:01:29 -0400
+Message-ID: <48D31609.2090406@hp.com>
+References: <1221773464-28845-1-git-send-email-vladislav.yasevich@hp.com> <20080918.162941.157950819.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-sctp@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36029
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753268AbYISCi1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 22:38:27 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 4F42FC8C181
-	for <netdev@vger.kernel.org>; Thu, 18 Sep 2008 19:38:15 -0700 (PDT)
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:48837 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755324AbYISDBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2008 23:01:32 -0400
+In-Reply-To: <20080918.162941.157950819.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Thu, 18 Sep 2008 17:31:03 -0400
+> 
+>> Do not enable peer features like addip and auth, if they
+>> are administratively disabled localy.  If the peer resports
+>> that he supports something that we don't, neither end can
+>> use it so enabling it is pointless.  This solves a problem
+>> when talking to a peer that has auth and addip enabled while
+>> we do not.  Found by Andrei Pelinescu-Onciul <andrei@iptel.org>.
+>>
+>> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> 
+> I applied this, but it is at best borderline for outside the
+> merge window.  It doesn't fix an OOPS nor a security issue nor
+> an entry in the 2.6.x regression list, therefore strictly speaking
+> this fix is not appropriate at this time.
+> 
+> Please apply this criteria when deciding whether to submit future
+> fixes for net-2.6 inclusion.
+> 
 
-During kernel summit I was speaking with Arjan van de Ven
-about irqbalanced and networking card multiqueue interrupts.
+It is a major interoperability issue.  With the default sysctl settings,
+we can not establish connection to BSD systems.  Yes, there is a workaround
+of turning on the 2 required sysctl settings, but that is totally suboptimal.
 
-In order for irqbalanaced to make smart decisions, what needs to
-happen in drivers is that the individual interrupts need to be
-named in such a way that he can tell by looking at /proc/interrupts
-output that these interrupts are related.
+I've thought about this fix for a while, and in my opinion, the interoperability
+problem is large enough to warrant the fix at this time and the backport to
+table.
 
-I would suggest that people use something like:
+Of course you are free to not include this in net-2.6, but I hope you will.
 
-	char buf[IFNAMSIZ+6];
-
-	sprintf(buf, "%s-%s-%d",
-	        netdev->name,
-		(RX_INTERRUPT ? "rx" : "tx"),
-		queue->index);
-
-So on a multiqueue card with 2 RX queues and 2 TX queues we'd
-have names like:
-
-	eth0-rx-0
-	eth0-rx-1
-	eth0-tx-0
-	eth0-tx-1
-
-So let's make an effort to get this done right in 2.6.28 and meanwhile
-Arjan can add the irqbalanced code.
+Thanks
+-vlad
