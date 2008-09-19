@@ -1,75 +1,74 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [Bug #11500] /proc/net bug related to selinux
-Date: Fri, 19 Sep 2008 13:07:45 -0400
-Message-ID: <1221844065.25857.69.camel@moss-spartans.epoch.ncsc.mil>
-References: <j3zWxt-CgYL.A.WTF.bbsyIB@albercik>
-	 <1221483926.30816.18.camel@moss-spartans.epoch.ncsc.mil>
-	 <20080917125053.1f9ecf37.akpm@linux-foundation.org>
-	 <200809171724.36269.paul.moore@hp.com>
-	 <20080917144842.7df59f9e.akpm@linux-foundation.org>
-	 <m17i9axv1q.fsf@frodo.ebiederm.org>
-	 <1221741521.24048.17.camel@moss-spartans.epoch.ncsc.mil>
-	 <1221742980.24048.26.camel@moss-spartans.epoch.ncsc.mil>
-	 <m18wtpuy04.fsf@frodo.ebiederm.org>
-	 <1221762850.24048.107.camel@moss-spartans.epoch.ncsc.mil>
-	 <alpine.DEB.1.10.0809190958070.26104@asgard.lang.hm>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC PATCH] sched: only dequeue if packet can be queued to
+	hardware queue.
+Date: Fri, 19 Sep 2008 19:35:23 +0200
+Message-ID: <20080919173523.GA2888@ami.dom.local>
+References: <20080918063036.27934.91273.stgit@localhost.localdomain> <20080918194419.GA2982@ami.dom.local> <20080919151632.GB2646@ami.dom.local> <80769D7B14936844A23C0C43D9FBCF0F1598E4A3@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Paul Moore <paul.moore@hp.com>, jmorris@namei.org, rjw@sisk.pl,
-	linux-kernel@vger.kernel.org, kernel-testers@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Paris <eparis@parisplace.org>
-To: david@lang.hm
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zombie2.ncsc.mil ([144.51.88.133]:44804 "EHLO zombie2.ncsc.mil"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750945AbYISRJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2008 13:09:07 -0400
-In-Reply-To: <alpine.DEB.1.10.0809190958070.26104@asgard.lang.hm>
+Received: from nf-out-0910.google.com ([64.233.182.187]:34107 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbYISReG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 13:34:06 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so210310nfc.21
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 10:34:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F1598E4A3@orsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Sep 19, 2008 at 09:26:29AM -0700, Duyck, Alexander H wrote:
+...
+> Actually most of that is handled in the fact that netif_tx_wake_queue
+> will call __netif_schedule when it decides to wake up a queue that has
+> been stopped.  Putting it in skb_dequeue is unnecessary,
 
-On Fri, 2008-09-19 at 09:58 -0700, david@lang.hm wrote:
-> On Thu, 18 Sep 2008, Stephen Smalley wrote:
-> 
-> > On Thu, 2008-09-18 at 11:09 -0700, Eric W. Biederman wrote:
-> >> Stephen Smalley <sds@tycho.nsa.gov> writes:
-> >>
-> >>> On Thu, 2008-09-18 at 08:38 -0400, Stephen Smalley wrote:
-> >>>> I do however think that the mantra that we can't require users to update
-> >>>> policy for kernel changes is unsupportable in general.  The precise set
-> >>>> of permission checks on a given operation is not set in stone and it is
-> >>>> not part of the kernel/userland interface/contract.  Policy isn't
-> >>>> "userspace"; it governs what userspace can do, and it has to adapt to
-> >>>> kernel changes.
-> >>>
-> >>> I should note here that for changes to SELinux, we have gone out of our
-> >>> way to avoid such breakage to date through the introduction of
-> >>> compatibility switches, policy flags to enable any new checks, etc
-> >>> (albeit at a cost in complexity and ever creeping compatibility code).
-> >>> But changes to the rest of the kernel can just as easily alter the set
-> >>> of permission checks that get applied on a given operation, and I don't
-> >>> think we are always going to be able to guarantee that new kernel + old
-> >>> policy will Just Work.
-> >>
-> >> I know of at least 2 more directories that I intend to turn into
-> >> symlinks into somewhere under /proc/self.  How do we keep from
-> >> breaking selinux policies when I do that?
-> >
-> > I suspect we could tweak the logic in selinux_proc_get_sid() to always
-> > label all symlinks under /proc with the base proc_t type already used
-> > for e.g. /proc/self, at which point existing policies would be ok.
-> 
-> so if proc is mounted anywhere other then /proc the selinux policy would 
-> do odd things?
+You are right, I've just noticed this too, and I'll withdraw this change.
 
-No, the logic doesn't care where proc is mounted.  Only the name
-relative to the root of proc is used.
+> and the way
+> you did it would cause issues because you should be scheduling the root
+> qdisc, not the one currently doing the dequeue.
 
--- 
-Stephen Smalley
-National Security Agency
+I think, this is the right way (but useless here).
 
+> My bigger concern is the fact one queue is back to stopping all queues.
+> By using one global XOFF state, you create head-of-line blocking.  I can
+> see the merit in this approach but the problem is for multiqueue the
+> queues really should be independent.  What your change does is reduce the
+> benefit of having multiqueue by throwing in a new state which pretty much
+> matches what netif_stop/wake_queue used to do in the 2.6.26 version of tx
+> multiqueue.
+
+Do you mean netif_tx_stop_all_queues() and then netif_tx_wake_queue()
+before netif_tx_wake_all_queues()? OK, I'll withdraw this patch too.
+
+> Also changing dequeue_skb will likely cause additional issues for
+> several qdiscs as it doesn't report anything up to parent queues, as a
+> result you will end up with qdiscs like prio acting more like multiq
+> because they won't know if a queue is empty, stopped, or throttled.
+> Also I believe this will cause a panic on pfifo_fast and several other
+> qdiscs because some check to see if there are packets in the queue and
+> if so dequeue with the assumption that they will get a packet out.  You
+> will need to add checks for this to resolve this issue.
+
+I really can't get your point. Don't you mean skb_dequeue()?
+dequeue_skb() is used only by qdisc_restart()...
+
+> The one thing I liked about my approach was that after I was done you
+> could have prio as a parent of multiq leaves or multiq as the parent of
+> prio leaves and all the hardware queues would receive the packets in the
+> same order as the result.
+
+I'm not against your approach, but I'd like to be sure these
+complications are really worth of it. Of course, if my proposal, the
+first take of 3 patches, doesn't work as you predict (and I doubt),
+then we can forget about it.
+
+Thanks,
+Jarek P.
