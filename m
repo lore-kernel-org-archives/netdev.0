@@ -1,26 +1,45 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 0/2] s390: qeth fixes 2.6.27-rc6
-Date: Fri, 19 Sep 2008 12:56:01 +0200
-Message-ID: <20080919105601.986966000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: jgarzik@pobox.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: multiqueue interrupts...
+Date: Fri, 19 Sep 2008 12:38:01 +0100
+Message-ID: <1221824281.3103.8.camel@achroite>
+References: <20080918.193815.175549834.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.de.ibm.com ([195.212.29.156]:32921 "EHLO
-	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751476AbYISK6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 06:58:18 -0400
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:33713 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751734AbYISLiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 07:38:09 -0400
+In-Reply-To: <20080918.193815.175549834.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+On Thu, 2008-09-18 at 19:38 -0700, David Miller wrote:
+[...]
+> So on a multiqueue card with 2 RX queues and 2 TX queues we'd
+> have names like:
+> 
+> 	eth0-rx-0
+> 	eth0-rx-1
+> 	eth0-tx-0
+> 	eth0-tx-1
+> 
+> So let's make an effort to get this done right in 2.6.28 and meanwhile
+> Arjan can add the irqbalanced code.
 
-our internal regression found 2 more qeth bugs.
+What about the case where an interrupt is shared between RX and TX
+completions?  Our hardware is very flexible in this regard, but based on
+performance testing prior to the introduction of TX multiqueue we
+currently allocate multiple interrupts for RX completions and share the
+first with TX completions.
 
-shortlog:
-Ursula Braun (2)
-qeth: use firmware MAC-address for layer2 hsi-devices
-qeth: avoid qeth recovery problems
+Ben.
 
-Thanks,
-        Frank
 -- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
