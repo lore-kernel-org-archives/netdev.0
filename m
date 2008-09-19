@@ -1,41 +1,50 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] MIPS checksum fix
-Date: Fri, 19 Sep 2008 13:47:43 +0200
-Message-ID: <20080919114743.GA19359@linux-mips.org>
-References: <Pine.LNX.4.55.0809171104290.17103@cliff.in.clinika.pl> <20080917.222350.41199051.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171501450.17103@cliff.in.clinika.pl> <20080918.002705.78730226.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171917580.17103@cliff.in.clinika.pl> <20080918220734.GA19222@linux-mips.org> <Pine.LNX.4.55.0809190112090.22686@cliff.in.clinika.pl> <20080919112304.GB13440@linux-mips.org>
+Subject: Re: [PATCH] MIPS checksum fix
+Date: Fri, 19 Sep 2008 14:07:52 +0200
+Message-ID: <20080919120752.GA19877@linux-mips.org>
+References: <Pine.LNX.4.55.0809171104290.17103@cliff.in.clinika.pl> <20080917.222350.41199051.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171501450.17103@cliff.in.clinika.pl> <20080918.002705.78730226.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171917580.17103@cliff.in.clinika.pl> <20080918220734.GA19222@linux-mips.org> <Pine.LNX.4.55.0809190112090.22686@cliff.in.clinika.pl> <20080919112304.GB13440@linux-mips.org> <20080919114743.GA19359@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Atsushi Nemoto <anemo@mba.ocn.ne.jp>, u1@terran.org,
 	linux-mips@linux-mips.org, netdev@vger.kernel.org
 To: "Maciej W. Rozycki" <macro@linux-mips.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ftp.linux-mips.org ([213.58.128.207]:51003 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750987AbYISMJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 08:09:53 -0400
+Received: from localhost.localdomain ([127.0.0.1]:51421 "EHLO
+	ditditdahdahdah-dahdahdahditdit.dl5rb.org.uk") by ftp.linux-mips.org
+	with ESMTP id S20316669AbYISMH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 13:07:58 +0100
 Content-Disposition: inline
-In-Reply-To: <20080919112304.GB13440@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080919114743.GA19359@linux-mips.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 19, 2008 at 01:23:04PM +0200, Ralf Baechle wrote:
+On Fri, Sep 19, 2008 at 01:47:43PM +0200, Ralf Baechle wrote:
 
-> >  I can see you have done the microoptimisation I had in mind meanwhile --
-> > thanks for saving me the effort. ;)  There is a delay slot to fill left
-> > though -- will you take care of it too?
-> 
-> Will do - just couldn't be bothered (too) late last night ...
+> I'm interested in test reports of this on all sorts of configurations -
+> 32-bit, 64-bit, big / little endian, R2 processors and pre-R2.  In
+> particular Cavium being the only MIPS64 R2 implementation would be
+> interesting.  This definately is stuff which should go upstream for 2.6.27.
 
-Voila.
+There was a trivial bug in the R2 code.
 
-I'm interested in test reports of this on all sorts of configurations -
-32-bit, 64-bit, big / little endian, R2 processors and pre-R2.  In
-particular Cavium being the only MIPS64 R2 implementation would be
-interesting.  This definately is stuff which should go upstream for 2.6.27.
+>From 97ad23f4696a322cb3bc379a25a8c0f6526751d6 Mon Sep 17 00:00:00 2001
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Fri, 19 Sep 2008 14:05:53 +0200
+Subject: [PATCH] [MIPS] Fix 64-bit csum_partial, __csum_partial_copy_user and csum_partial_copy
 
-  Ralf
+On 64-bit machines it wouldn't handle a possible carry when adding the
+32-bit folded checksum and checksum argument.
+
+While at it, add a few trivial optimizations, also for R2 processors.
 
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
 diff --git a/arch/mips/lib/csum_partial.S b/arch/mips/lib/csum_partial.S
-index 8d77841..eac0d61 100644
+index 8d77841..c77a7a0 100644
 --- a/arch/mips/lib/csum_partial.S
 +++ b/arch/mips/lib/csum_partial.S
 @@ -53,12 +53,14 @@
@@ -80,7 +89,7 @@ index 8d77841..eac0d61 100644
 -	 nop
 -	sll	v1, sum, 8
 +#ifdef CPU_MIPSR2
-+	wsbh	sum, sum	
++	wsbh	v1, sum	
 +	movn	sum, v1, t7
 +#else
 +	beqz	t7, 1f			/* odd buffer alignment? */
