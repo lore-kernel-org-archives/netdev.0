@@ -1,39 +1,60 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: zd1211rw (2.6.26.5) and ipv6
-Date: Fri, 19 Sep 2008 19:02:45 +0300 (EEST)
-Message-ID: <alpine.LRH.2.00.0809191853330.2297@netcore.fi>
-References: <20080916175008.GR4610@crazydwarves.org> <20080919141229.GA1177@crazydwarves.org>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [patch for 2.6.27? 3/6] e1000: prevent corruption of EEPROM/NVM
+Date: Fri, 19 Sep 2008 09:20:23 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F520632F7B7@orsmsx418.amr.corp.intel.com>
+References: <200809052104.m85L46VE020352@imap1.linux-foundation.org> <48D30335.1070908@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Victor NOEL <victor.noel@crazydwarves.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <chrisl@vmware.com>, <arvidjaar@mail.ru>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	<pratap@vmware.com>, <zach@vmware.com>
+To: "Jeff Garzik" <jeff@garzik.org>, <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:50215 "EHLO netcore.fi"
+Received: from mga02.intel.com ([134.134.136.20]:40194 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754730AbYISQDD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2008 12:03:03 -0400
-In-Reply-To: <20080919141229.GA1177@crazydwarves.org>
+	id S1751299AbYISQUs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 12:20:48 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <48D30335.1070908@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Sep 2008, Victor NOEL wrote:
-> It looks like no one is interested in this, but I found something
-> else about this problem and maybe this will interest someone :)
->
-> I find a way to make it work : when I do, for example, a ping6
-> www.kame.net, like I said, nothing happens, but if, at the same
-> time, in another terminal I run "tcpdump -i wlan0 ip6" to see
-> what is happening, then the ping6 just starts to work !
+Jeff Garzik wrote:
+> akpm@linux-foundation.org wrote:
+>> From: Christopher Li <chrisl@vmware.com>
+>> 
+>> Andrey reports e1000 corruption, and that a patch in vmware's ESX
+>> fixed it. 
+>> 
+>> The EEPROM corruption is triggered by concurrent access of the EEPROM
+>> read/write. Putting a lock around it solve the problem.
+>> 
+>> [akpm@linux-foundation.org: use DEFINE_SPINLOCK to avoid confusing
+>> lockdep] Signed-off-by: Christopher Li <chrisl@vmware.com>
+>> Reported-by: Andrey Borzenkov <arvidjaar@mail.ru>
+>> Cc: Zach Amsden <zach@vmware.com>
+>> Cc: Pratap Subrahmanyam <pratap@vmware.com>
+>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Cc: Bruce Allan <bruce.w.allan@intel.com>
+>> Cc: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+>> Cc: John Ronciak <john.ronciak@intel.com>
+>> Cc: Jeff Garzik <jeff@garzik.org>
+>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org> ---
+>> 
+>>  drivers/net/e1000/e1000_hw.c |   23 +++++++++++++++++++++++
+>>  1 file changed, 23 insertions(+)
+> 
+> No further reply from Intel to my ping, and this regression needs to
+> be addressed, so, applied.
 
-Yeah, this seems to happen from time to time. :-(
+My apologies Jeff.  I know it is late, but to close the loop, I agree
+this is okay, in at least I don't believe it will harm anything, other
+than adding un-necessary bloat at the worst.
 
-Earlier this year, zd1211rw (all mac80211 stack users, really) were 
-broken in a similar fashion, and you could workaround this by running 
-tcpdump like you described:
-
-http://www.mail-archive.com/git-commits-head@vger.kernel.org/msg41572.html
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
