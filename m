@@ -1,56 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: multiqueue interrupts...
-Date: Fri, 19 Sep 2008 13:14:02 -0700 (PDT)
-Message-ID: <20080919.131402.157398113.davem@davemloft.net>
-References: <20080918.193815.175549834.davem@davemloft.net>
-	<41b516cb0809191050t6c9783dele8926f697854bb1@mail.gmail.com>
-	<20080919181840.GE30956@parisc-linux.org>
+Subject: Re: Full IPv6 client and server support (kernel and user commands)
+Date: Fri, 19 Sep 2008 13:26:55 -0700 (PDT)
+Message-ID: <20080919.132655.215431178.davem@davemloft.net>
+References: <48D39FBF.80607@bull.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arjan@infradead.org
-To: matthew@wil.cx
+Cc: netdev@vger.kernel.org
+To: aime.le-rouzic@bull.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43102
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54447
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752719AbYISUOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 16:14:14 -0400
-In-Reply-To: <20080919181840.GE30956@parisc-linux.org>
+	by vger.kernel.org with ESMTP id S1752851AbYISU1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 16:27:07 -0400
+In-Reply-To: <48D39FBF.80607@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Fri, 19 Sep 2008 12:18:41 -0600
+From: Le Rouzic <aime.le-rouzic@bull.net>
+Date: Fri, 19 Sep 2008 14:49:03 +0200
 
-> On Thu, Sep 18, 2008 at 7:38 PM, David Miller wrote:
-> > During kernel summit I was speaking with Arjan van de Ven
-> > about irqbalanced and networking card multiqueue interrupts.
-> > 
-> > In order for irqbalanaced to make smart decisions, what needs to
-> > happen in drivers is that the individual interrupts need to be
-> > named in such a way that he can tell by looking at /proc/interrupts
-> > output that these interrupts are related.
-> > 
-> > So on a multiqueue card with 2 RX queues and 2 TX queues we'd
-> > have names like:
-> > 
-> >        eth0-rx-0
-> >        eth0-rx-1
-> >        eth0-tx-0
-> >        eth0-tx-1
-> > 
-> > So let's make an effort to get this done right in 2.6.28 and meanwhile
-> > Arjan can add the irqbalanced code.
+> I have just posted at http://nfsv4.bullopensource.org/ a full IPV6 client and server NFSV4 support
+> based on linux-2.6.27-rc3 and nfs-utils.1.1.2.
+> It is experimental and not fully tested but it allows to have a IPV6 NFSV4 linux configuration to
+> play with.
 > 
-> Instead of having magic names, how about we put something in
-> /proc/irq/nnn/ that lets us tell which interrupts are connected to which
-> queues?
+> Let me know if any issues to get this delivery and to run it.
 
-More code for irqbalanced to write, to look for the files and
-directories under there, etc.  Harder to make work with simple
-individual driver backports, which you know dists are going to
-want to do.
+Generally, if you just point people at some web site instead of
+posting your code as well partitioned patches against the current
+kernel to this mailing list, people aren't even going to look at your
+stuff.
 
-That's why.
+Myself included.
 
-No, this new subdirectory thing isn't a good idea.
+If it doesn't get posted to the mailing list, it might as well not exist.
+
+You're making people go through extra effort to see your work.
