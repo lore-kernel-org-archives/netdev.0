@@ -1,45 +1,151 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: multiqueue interrupts...
-Date: Fri, 19 Sep 2008 12:38:01 +0100
-Message-ID: <1221824281.3103.8.camel@achroite>
-References: <20080918.193815.175549834.davem@davemloft.net>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] MIPS checksum fix
+Date: Fri, 19 Sep 2008 13:47:43 +0200
+Message-ID: <20080919114743.GA19359@linux-mips.org>
+References: <Pine.LNX.4.55.0809171104290.17103@cliff.in.clinika.pl> <20080917.222350.41199051.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171501450.17103@cliff.in.clinika.pl> <20080918.002705.78730226.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171917580.17103@cliff.in.clinika.pl> <20080918220734.GA19222@linux-mips.org> <Pine.LNX.4.55.0809190112090.22686@cliff.in.clinika.pl> <20080919112304.GB13440@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:33713 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751734AbYISLiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 07:38:09 -0400
-In-Reply-To: <20080918.193815.175549834.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Atsushi Nemoto <anemo@mba.ocn.ne.jp>, u1@terran.org,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20080919112304.GB13440@linux-mips.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2008-09-18 at 19:38 -0700, David Miller wrote:
-[...]
-> So on a multiqueue card with 2 RX queues and 2 TX queues we'd
-> have names like:
+On Fri, Sep 19, 2008 at 01:23:04PM +0200, Ralf Baechle wrote:
+
+> >  I can see you have done the microoptimisation I had in mind meanwhile --
+> > thanks for saving me the effort. ;)  There is a delay slot to fill left
+> > though -- will you take care of it too?
 > 
-> 	eth0-rx-0
-> 	eth0-rx-1
-> 	eth0-tx-0
-> 	eth0-tx-1
-> 
-> So let's make an effort to get this done right in 2.6.28 and meanwhile
-> Arjan can add the irqbalanced code.
+> Will do - just couldn't be bothered (too) late last night ...
 
-What about the case where an interrupt is shared between RX and TX
-completions?  Our hardware is very flexible in this regard, but based on
-performance testing prior to the introduction of TX multiqueue we
-currently allocate multiple interrupts for RX completions and share the
-first with TX completions.
+Voila.
 
-Ben.
+I'm interested in test reports of this on all sorts of configurations -
+32-bit, 64-bit, big / little endian, R2 processors and pre-R2.  In
+particular Cavium being the only MIPS64 R2 implementation would be
+interesting.  This definately is stuff which should go upstream for 2.6.27.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+  Ralf
 
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+diff --git a/arch/mips/lib/csum_partial.S b/arch/mips/lib/csum_partial.S
+index 8d77841..eac0d61 100644
+--- a/arch/mips/lib/csum_partial.S
++++ b/arch/mips/lib/csum_partial.S
+@@ -53,12 +53,14 @@
+ #define UNIT(unit)  ((unit)*NBYTES)
+ 
+ #define ADDC(sum,reg)						\
+-	.set	push;						\
+-	.set	noat;						\
+ 	ADD	sum, reg;					\
+ 	sltu	v1, sum, reg;					\
+ 	ADD	sum, v1;					\
+-	.set	pop
++
++#define ADDC32(sum,reg)						\
++	addu	sum, reg;					\
++	sltu	v1, sum, reg;					\
++	addu	sum, v1;					\
+ 
+ #define CSUM_BIGCHUNK1(src, offset, sum, _t0, _t1, _t2, _t3)	\
+ 	LOAD	_t0, (offset + UNIT(0))(src);			\
+@@ -254,8 +256,6 @@ LEAF(csum_partial)
+ 1:	ADDC(sum, t1)
+ 
+ 	/* fold checksum */
+-	.set	push
+-	.set	noat
+ #ifdef USE_DOUBLE
+ 	dsll32	v1, sum, 0
+ 	daddu	sum, v1
+@@ -263,24 +263,25 @@ LEAF(csum_partial)
+ 	dsra32	sum, sum, 0
+ 	addu	sum, v1
+ #endif
+-	sll	v1, sum, 16
+-	addu	sum, v1
+-	sltu	v1, sum, v1
+-	srl	sum, sum, 16
+-	addu	sum, v1
+ 
+ 	/* odd buffer alignment? */
+-	beqz	t7, 1f
+-	 nop
+-	sll	v1, sum, 8
++#ifdef CPU_MIPSR2
++	wsbh	sum, sum	
++	movn	sum, v1, t7
++#else
++	beqz	t7, 1f			/* odd buffer alignment? */
++	 lui	v1, 0x00ff
++	addu	v1, 0x00ff
++	and	t0, sum, v1
++	sll	t0, t0, 8
+ 	srl	sum, sum, 8
+-	or	sum, v1
+-	andi	sum, 0xffff
+-	.set	pop
++	and	sum, sum, v1
++	or	sum, sum, t0
+ 1:
++#endif
+ 	.set	reorder
+ 	/* Add the passed partial csum.  */
+-	ADDC(sum, a2)
++	ADDC32(sum, a2)
+ 	jr	ra
+ 	.set	noreorder
+ 	END(csum_partial)
+@@ -656,8 +657,6 @@ EXC(	sb	t0, NBYTES-2(dst), .Ls_exc)
+ 	ADDC(sum, t2)
+ .Ldone:
+ 	/* fold checksum */
+-	.set	push
+-	.set	noat
+ #ifdef USE_DOUBLE
+ 	dsll32	v1, sum, 0
+ 	daddu	sum, v1
+@@ -665,23 +664,23 @@ EXC(	sb	t0, NBYTES-2(dst), .Ls_exc)
+ 	dsra32	sum, sum, 0
+ 	addu	sum, v1
+ #endif
+-	sll	v1, sum, 16
+-	addu	sum, v1
+-	sltu	v1, sum, v1
+-	srl	sum, sum, 16
+-	addu	sum, v1
+ 
+-	/* odd buffer alignment? */
+-	beqz	odd, 1f
+-	 nop
+-	sll	v1, sum, 8
++#ifdef CPU_MIPSR2
++	wsbh	v1, sum
++	movn	sum, v1, odd
++#else
++	beqz	odd, 1f			/* odd buffer alignment? */
++	 lui	v1, 0x00ff
++	addu	v1, 0x00ff
++	and	t0, sum, v1
++	sll	t0, t0, 8
+ 	srl	sum, sum, 8
+-	or	sum, v1
+-	andi	sum, 0xffff
+-	.set	pop
++	and	sum, sum, v1
++	or	sum, sum, t0
+ 1:
++#endif
+ 	.set reorder
+-	ADDC(sum, psum)
++	ADDC32(sum, psum)
+ 	jr	ra
+ 	.set noreorder
+ 
