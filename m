@@ -1,57 +1,52 @@
-From: Hirokazu Takahashi <taka@valinux.co.jp>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Fri, 19 Sep 2008 21:28:54 +0900 (JST)
-Message-ID: <20080919.212854.19019802.taka@valinux.co.jp>
-References: <1221387956.9204.7.camel@fry>
-	<20080916.210117.31865904.taka@valinux.co.jp>
-	<200809182031.01291.rdenis@simphalempin.com>
+From: Le Rouzic <aime.le-rouzic@bull.net>
+Subject: Full IPv6 client and server support (kernel and user commands)
+Date: Fri, 19 Sep 2008 14:49:03 +0200
+Message-ID: <48D39FBF.80607@bull.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johaahn@gmail.com, netdev@vger.kernel.org
-To: rdenis@simphalempin.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fms-01.valinux.co.jp ([210.128.90.1]:55042 "EHLO
-	mail.valinux.co.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751495AbYISM27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 08:28:59 -0400
-In-Reply-To: <200809182031.01291.rdenis@simphalempin.com>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:54572 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751093AbYISMu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 08:50:27 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by ecfrec.frec.bull.fr (Postfix) with ESMTP id 6AAF71A159F
+	for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 14:50:21 +0200 (CEST)
+Received: from ecfrec.frec.bull.fr ([127.0.0.1])
+ by localhost (ecfrec.frec.bull.fr [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 08250-10 for <netdev@vger.kernel.org>;
+ Fri, 19 Sep 2008 14:50:18 +0200 (CEST)
+Received: from cyclope.frec.bull.fr (cyclope.frec.bull.fr [129.183.4.9])
+	by ecfrec.frec.bull.fr (Postfix) with ESMTP id 4B8491A1576
+	for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 14:50:18 +0200 (CEST)
+Received: from bull.net (frecb000661.frec.bull.fr [129.183.101.91])
+	by cyclope.frec.bull.fr (Postfix) with ESMTP id DCD742728D
+	for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 14:50:15 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-> > UDP is a datagram protocol, so I think applications using UDP should
-> > care about the size of packets they are going to send rather than
-> > expecting that the messages will be split into several packets
-> > automatically. If some of the packets have lost, it will be really hard for
-> > the applications to re-create the same ones to send again.
-> 
-> Also, why use UDP for this... If you want stream semantics, why not use TCP or 
-> SCTP instead?
+I have just posted at http://nfsv4.bullopensource.org/ a full IPV6 
+client and server NFSV4 support
+based on linux-2.6.27-rc3 and nfs-utils.1.1.2.
+It is experimental and not fully tested but it allows to have a IPV6 
+NFSV4 linux configuration to
+play with.
 
-I think a lot of VoIP and video streaming services are working on UDP.
-Linux NFS over UDP also uses this feature.
+Let me know if any issues to get this delivery and to run it.
 
-> > If you want send a large file over UDP, the typical code will be like:
-> 
-> > while (...) {
-> >         sendmsg(fd, &apl_header, sizeof(apl_header), MSG_MORE);
-> >         offset += sendfile(fd, offset, count);
-> > }
-> 
-> Correct me if I am wrong, but... Unless you have a big MTU (as _not_ in 1500 
-> bytes :D), doing an extra syscall might be slower than copying data in a 
-> single vectorized sendmsg() syscall.
+Best Regards
 
-That's not true.
-Even if the MTU is small, you can send a UDP message whose size can be
-up to 64KB at once. They will be split into several IP packets without
-any copies.
+-- 
+-----------------------------------------------------------------
+Company : Bull, Architect of an Open World TM (www.bull.com)
+Name    : Aime Le Rouzic 
+Mail    : Bull - BP 208 - 38432 Echirolles Cedex - France
+E-Mail  : aime.le-rouzic@bull.net
+Phone   : 33 (4) 76.29.75.51
+Fax     : 33 (4) 76.29.75.18
+----------------------------------------------------------------- 
 
-And more, copying data will pollute the cache memory much, which cannot
-be ignored if you want send tons of data of files.
-
-
-Thanks,
-Hirokazu Takahashi.
