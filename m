@@ -1,77 +1,54 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH 00/14] [RFC] Phonet protocol stack
-Date: Fri, 19 Sep 2008 10:25:17 +0300
-Message-ID: <200809191025.17790.remi.denis-courmont@nokia.com>
-References: <200809161757.38571.remi.denis-courmont@nokia.com> <1221624949.23335.11.camel@localhost.localdomain>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: NFS root + iptables in 2.6.25
+Date: Fri, 19 Sep 2008 02:00:57 -0700
+Message-ID: <20080919020057.f2f256fe.akpm@linux-foundation.org>
+References: <48D3451D.1080807@dgt.com.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "ext Dan Williams" <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:34803 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbYISH0T convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 03:26:19 -0400
-In-Reply-To: <1221624949.23335.11.camel@localhost.localdomain>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wojciech Kromer <wojciech.kromer-m/c5HOfTwvjVItvQsEIGlw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48D3451D.1080807-m/c5HOfTwvjVItvQsEIGlw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 19 Sep 2008 08:22:21 +0200 Wojciech Kromer <wojciech.kromer-m/c5HOfTwvjVItvQsEIGlw@public.gmane.org> wrote:
 
-	Hello,
+> Hi.
+> 
+> I'm using nfs root filesystem for developing.
+> On 2.6.23 everything works fine, but on 2.6.25 loading any iptables
+> module causes problems:
+> 
+> 
+> # modprobe iptable_nat
+> nf_conntrack version 0.5.0 (1024 buckets, 4096 max)
+> nfs: RPC call returned error 1
+> nfs: RPC call returned error 1
+> nfs: RPC call returned error 1
+> nfs: RPC call returned error 1
+> nfs: RPC call returned error 1
+> nfs: RPC call returned error 1
+> 
+> 
+> Probably iptables changed it's default behavior from "allow all" to
+> "deny all" at startup.
+> Is there any way to change it back?
+> I can't change anything after loading any iptable module, because all
+> programs on filesystem are not accessible after loading...
+> 
+> 
 
-On Wednesday 17 September 2008 07:15:48 ext Dan Williams, you wrote:
-> Do you have any documentation or examples of how userspace uses this
-> interface?
+(cc's added)
 
-On top of this patchset, a modem-to-Linux congestion control protocol, =
-and of=20
-course, a netif would be needed:
+(googles "nfs: RPC call returned error 1")
 
- +--------------+=20
- | TCP/IP stack |
- +--------------+
- |  GPRS netif  | (point-to-point IP network interface)
- +--------------+
- | Phonet pipe  | (PF_PHONET, SOCK_SEQPACKET)
- +--------------+
- | Phonet stack | <--- this patchset
- +--------------+=20
- |  HW driver   | <--- sent to linux-omap
- +--------------+
+hm, there has been a dribble of reports going back several years, but
+nothing conclusive afaict.
 
-I still need to polish the Phonet pipe and GPRS netif code.
-
-This is somewhat similar to the UDP-encapsulation already in the kernel=
- (L2TP,=20
-IPsec). In userland, that would look something like:
-
- int lfd, fd, val =3D PNPIPE_ENCAP_IP, ifindex;
- lfd =3D socket(PF_PHONET, SOCK_SEQPACKET, 0);
- listen(lfd, 1);
- /* Wait for modem */
- fd =3D accept(lfd, NULL, NULL);
- setsockopt(fd, SOL_PNPIPE, PNPIPE_ENCAP, &val, sizeof(val));
- getsockopt(fd, SOL_PNPIPE, PNPIPE_IFINDEX, &ifindex, sizeof(ifindex));
- printf("Created GPRS interface %s\n", if_indextoname(ifindex, buf));
- /* Configure and use IP interface */
- close(fd);
- printf("Destroyed GPRS interface\n");
-
-I am all for using a more generic and/or cleaner userland API if there =
-is a=20
-better alternative.
-
-> I'm starting to see a proliferation of methods by which=20
-> userspace now has to talk to cellular modems and I'd like to keep a
-> handle on them, despite the fact that they all pretty much do the sam=
-e
-> thing and thus you'd think they'd expose about the same interface...
-
-Regards,
-
---=20
-R=C3=A9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
