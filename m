@@ -1,32 +1,45 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: [PATCH] IPVS: Move IPVS to net/netfilter/ipvs
-Date: Fri, 19 Sep 2008 12:45:47 +0200
-Message-ID: <f4845fc0809190345k1d9f8ba6i53d891548ddb0565@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: "Simon Horman" <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 1/2] qeth: use firmware MAC-address for layer2 hsi-devices
+Date: Fri, 19 Sep 2008 12:56:02 +0200
+Message-ID: <20080919105702.427694000@de.ibm.com>
+References: <20080919105601.986966000@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: jgarzik@pobox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:51299 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750927AbYISK5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 06:57:35 -0400
+Content-Disposition: inline; filename=600-qeth-mac.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Horms,
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-I worked around the unrelated UML build problems for now and did the
-IPVS move from net/ipv4/ipvs to net/netfilter/ipvs, as discussed.
-Since the patch is huge (732K), I uploaded it rather than trying to
-include it in the mail:
+Real HiperSocket devices in layer2 mode have a firmware-created
+MAC-address. This change enables the qeth driver to use this
+firmware MAC-address for layer2 HiperSocket devices.
 
-http://www.mindbasket.com/ipvs/0001-IPVS-Move-IPVS-to-net-netfilter-ipvs.patch
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
-The menuconfig option for IPVS is now also in the Netfilter submenu.
-Everything builds and runs ok here...
+ drivers/s390/net/qeth_l2_main.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Julius
+diff -urpN linux-2.6/drivers/s390/net/qeth_l2_main.c linux-2.6-patched/drivers/s390/net/qeth_l2_main.c
+--- linux-2.6/drivers/s390/net/qeth_l2_main.c	2008-09-19 00:08:20.000000000 +0200
++++ linux-2.6-patched/drivers/s390/net/qeth_l2_main.c	2008-09-19 00:08:39.000000000 +0200
+@@ -559,7 +559,8 @@ static int qeth_l2_request_initial_mac(s
+ 			"device %s: x%x\n", CARD_BUS_ID(card), rc);
+ 	}
+ 
+-	if (card->info.guestlan) {
++	if ((card->info.type == QETH_CARD_TYPE_IQD) || 
++	    (card->info.guestlan)) {
+ 		rc = qeth_setadpparms_change_macaddr(card);
+ 		if (rc) {
+ 			QETH_DBF_MESSAGE(2, "couldn't get MAC address on "
 
 -- 
-Julius Volz - Corporate Operations - SysOps
-
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
