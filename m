@@ -1,65 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Should we move IPVS out of net/ipv4 now?
-Date: Fri, 19 Sep 2008 12:45:53 -0700 (PDT)
-Message-ID: <20080919.124553.193698159.davem@davemloft.net>
-References: <20080918235220.GD13536@verge.net.au>
-	<20080918.170030.32445027.davem@davemloft.net>
-	<f4845fc0809190247l631c2a56se956f46078b41ef3@mail.gmail.com>
+Subject: Re: multiqueue interrupts...
+Date: Fri, 19 Sep 2008 13:12:24 -0700 (PDT)
+Message-ID: <20080919.131224.193729733.davem@davemloft.net>
+References: <20080918.193815.175549834.davem@davemloft.net>
+	<1221824281.3103.8.camel@achroite>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, csnook@redhat.com, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: juliusv@google.com
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0809190247l631c2a56se956f46078b41ef3@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43094
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752176AbYISUMg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 16:12:36 -0400
+In-Reply-To: <1221824281.3103.8.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Julius Volz" <juliusv@google.com>
-Date: Fri, 19 Sep 2008 11:47:13 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 19 Sep 2008 12:38:01 +0100
 
-> The build with ARCH=um seems to have a problem with the
-> architecture-specific headers:
+> On Thu, 2008-09-18 at 19:38 -0700, David Miller wrote:
+> [...]
+> > So on a multiqueue card with 2 RX queues and 2 TX queues we'd
+> > have names like:
+> > 
+> > 	eth0-rx-0
+> > 	eth0-rx-1
+> > 	eth0-tx-0
+> > 	eth0-tx-1
+> > 
+> > So let's make an effort to get this done right in 2.6.28 and meanwhile
+> > Arjan can add the irqbalanced code.
 > 
-> net/core/skb_dma_map.c: In function 'skb_dma_map':
-> net/core/skb_dma_map.c:20: error: implicit declaration of function
-> 'dma_mapping_error'
-> 
-> The bad commit that introduces the skb_dma_map.c file (and this error)
-> is a40c24a1336. Previous versions build fine.
+> What about the case where an interrupt is shared between RX and TX
+> completions?  Our hardware is very flexible in this regard, but based on
+> performance testing prior to the introduction of TX multiqueue we
+> currently allocate multiple interrupts for RX completions and share the
+> first with TX completions.
 
-I'll commit the following to net-next-2.6, let me know if it doesn't
-take care of the problem:
-
-net: Fix build with ARCH=um
-
-If UM is going to claim that it supports DMA by setting
-HAS_DMA, it should provide a dma_mapping_error() implementation.
-
-Based upon a report by Julius Volz.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/asm-um/dma-mapping.h |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/include/asm-um/dma-mapping.h b/include/asm-um/dma-mapping.h
-index f0ee4fb..90fc708 100644
---- a/include/asm-um/dma-mapping.h
-+++ b/include/asm-um/dma-mapping.h
-@@ -118,4 +118,11 @@ dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 	BUG();
- }
- 
-+static inline int
-+dma_mapping_error(struct device *dev, dma_addr_t dma_handle)
-+{
-+	BUG();
-+	return 0;
-+}
-+
- #endif
--- 
-1.5.6.5
-
+Probably it would be sufficient to purely use eth0-N, it's just so
+that irqbalanced knows that the interrupts are related.
