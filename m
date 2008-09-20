@@ -1,40 +1,31 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: [PATCH] ipvs: Fix unused label warning
-Date: Sat, 20 Sep 2008 11:48:33 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.0809201142570.22510@titan.stealer.net>
-References: <20080916071318.939200044@vergenet.net> <20080916071610.390873215@vergenet.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver updates for .28
+Date: Sat, 20 Sep 2008 03:33:36 -0700 (PDT)
+Message-ID: <20080920.033336.39652163.davem@davemloft.net>
+References: <20080914022236.GA15673@havoc.gtf.org>
+	<20080920.000914.219711773.davem@davemloft.net>
+	<48D4A618.5080403@myri.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Julius Volz <juliusv@google.com>,
-	Vince Busam <vbusam@google.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080916071610.390873215@vergenet.net>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: brice@myri.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753744AbYITKeG@vger.kernel.org>
+In-Reply-To: <48D4A618.5080403@myri.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
----
- net/ipv4/ipvs/ip_vs_ctl.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+From: Brice Goglin <brice@myri.com>
+Date: Sat, 20 Sep 2008 09:28:24 +0200
 
-Simon, small fixup patch for your patch. It wasn't obvious from the patch, 
-that now only the IPV6 support needs this label.
+> Ok, I'll resend without the select_queue stuff. But you should really
+> document the above explanation. The only documentation we found was
+> "Devices or device layers can set this to control the queue selection
+> performed by dev_pick_tx()." in the git-log...
 
-diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-index 771551d..0302cf3 100644
---- a/net/ipv4/ipvs/ip_vs_ctl.c
-+++ b/net/ipv4/ipvs/ip_vs_ctl.c
-@@ -1330,7 +1330,9 @@ ip_vs_edit_service(struct ip_vs_service *svc, struct ip_vs_service_user_kern *u)
- 
-   out_unlock:
- 	write_unlock_bh(&__ip_vs_svc_lock);
-+#ifdef CONFIG_IP_VS_IPV6
-   out:
-+#endif
- 
- 	if (old_sched)
- 		ip_vs_scheduler_put(old_sched);
+Sure.
+
+On your part, I would suggest that when you run into a problem that
+many other multiqueue drivers will likely face, that you bring it up
+here for discussion instead of implementing localized solutions :-)
