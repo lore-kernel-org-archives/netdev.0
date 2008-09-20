@@ -1,7 +1,7 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-next 15/15] tcp: back retransmit_high when it over-estimated
-Date: Sat, 20 Sep 2008 20:52:33 +0300
-Message-ID: <1221933153-11874-16-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-next 07/15] tcp: add tcp_can_forward_retransmit
+Date: Sat, 20 Sep 2008 20:52:25 +0300
+Message-ID: <1221933153-11874-8-git-send-email-ilpo.jarvinen@helsinki.fi>
 References: <1221933153-11874-1-git-send-email-ilpo.jarvinen@helsinki.fi>
  <1221933153-11874-2-git-send-email-ilpo.jarvinen@helsinki.fi>
  <1221933153-11874-3-git-send-email-ilpo.jarvinen@helsinki.fi>
@@ -9,14 +9,6 @@ References: <1221933153-11874-1-git-send-email-ilpo.jarvinen@helsinki.fi>
  <1221933153-11874-5-git-send-email-ilpo.jarvinen@helsinki.fi>
  <1221933153-11874-6-git-send-email-ilpo.jarvinen@helsinki.fi>
  <1221933153-11874-7-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-8-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-9-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-10-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-11-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-12-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-13-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-14-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1221933153-11874-15-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -26,68 +18,85 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from courier.cs.helsinki.fi ([128.214.9.1]:39329 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751112AbYITRwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 13:52:39 -0400
-In-Reply-To: <1221933153-11874-15-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1750884AbYITRwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 13:52:38 -0400
+In-Reply-To: <1221933153-11874-7-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If lost skb is sacked, we might have nothing to retransmit
-as high as the retransmit_high is pointing to, so place
-it lower to avoid unnecessary walking.
-
-This is mainly for the case where high L'ed skbs gets sacked.
-
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv4/tcp_output.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ net/ipv4/tcp_output.c |   46 ++++++++++++++++++++++++++++-------------=
+-----
+ 1 files changed, 28 insertions(+), 18 deletions(-)
 
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 01fb610..727522c 100644
+index fbe10f4..2cec9b2 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -2037,16 +2037,22 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 	struct tcp_sock *tp =3D tcp_sk(sk);
- 	struct sk_buff *skb;
- 	struct sk_buff *hole =3D NULL;
-+	u32 last_lost;
- 	int mib_idx;
- 	int fwd_rexmitting =3D 0;
+@@ -1994,6 +1994,33 @@ int tcp_retransmit_skb(struct sock *sk, struct s=
+k_buff *skb)
+ 	return err;
+ }
 =20
- 	if (!tp->lost_out)
- 		tp->retransmit_high =3D tp->snd_una;
++static int tcp_can_forward_retransmit(struct sock *sk)
++{
++	const struct inet_connection_sock *icsk =3D inet_csk(sk);
++	struct tcp_sock *tp =3D tcp_sk(sk);
++
++	/* Forward retransmissions are possible only during Recovery. */
++	if (icsk->icsk_ca_state !=3D TCP_CA_Recovery)
++		return 0;
++
++	/* No forward retransmissions in Reno are possible. */
++	if (tcp_is_reno(tp))
++		return 0;
++
++	/* Yeah, we have to make difficult choice between forward transmissio=
+n
++	 * and retransmission... Both ways have their merits...
++	 *
++	 * For now we do not retransmit anything, while we have some new
++	 * segments to send. In the other cases, follow rule 3 for
++	 * NextSeg() specified in RFC3517.
++	 */
++
++	if (tcp_may_send_now(sk))
++		return 0;
++
++	return 1;
++}
++
+ /* This gets called after a retransmit timeout, and the initially
+  * retransmitted data is acknowledged.  It tries to continue
+  * resending the rest of the retransmit queue, until either
+@@ -2059,24 +2086,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+ 	}
 =20
--	if (tp->retransmit_skb_hint)
-+	if (tp->retransmit_skb_hint) {
- 		skb =3D tp->retransmit_skb_hint;
--	else
-+		last_lost =3D TCP_SKB_CB(skb)->end_seq;
-+		if (after(last_lost, tp->retransmit_high))
-+			last_lost =3D tp->retransmit_high;
-+	} else {
- 		skb =3D tcp_write_queue_head(sk);
-+		last_lost =3D tp->snd_una;
-+	}
+ 	/* OK, demanded retransmission is finished. */
+-
+-	/* Forward retransmissions are possible only during Recovery. */
+-	if (icsk->icsk_ca_state !=3D TCP_CA_Recovery)
+-		return;
+-
+-	/* No forward retransmissions in Reno are possible. */
+-	if (tcp_is_reno(tp))
+-		return;
+-
+-	/* Yeah, we have to make difficult choice between forward transmissio=
+n
+-	 * and retransmission... Both ways have their merits...
+-	 *
+-	 * For now we do not retransmit anything, while we have some new
+-	 * segments to send. In the other cases, follow rule 3 for
+-	 * NextSeg() specified in RFC3517.
+-	 */
+-
+-	if (tcp_may_send_now(sk))
++	if (!tcp_can_forward_retransmit(sk))
+ 		return;
 =20
- 	/* First pass: retransmit lost packets. */
- 	tcp_for_write_queue_from(skb, sk) {
-@@ -2075,6 +2081,7 @@ begin_fwd:
- 			mib_idx =3D LINUX_MIB_TCPFORWARDRETRANS;
-=20
- 		} else if (!before(TCP_SKB_CB(skb)->seq, tp->retransmit_high)) {
-+			tp->retransmit_high =3D last_lost;
- 			if (!tcp_can_forward_retransmit(sk))
- 				break;
- 			/* Backtrack if necessary to non-L'ed skb */
-@@ -2091,6 +2098,7 @@ begin_fwd:
- 			continue;
-=20
- 		} else {
-+			last_lost =3D TCP_SKB_CB(skb)->end_seq;
- 			if (icsk->icsk_ca_state !=3D TCP_CA_Loss)
- 				mib_idx =3D LINUX_MIB_TCPFASTRETRANS;
- 			else
+ 	/* If nothing is SACKed, highest_sack in the loop won't be valid */
 --=20
 1.5.2.2
 
