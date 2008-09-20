@@ -1,30 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
-Date: Sat, 20 Sep 2008 13:04:30 -0700 (PDT)
-Message-ID: <20080920.130430.267667082.davem@davemloft.net>
-References: <1221932404.1343.196.camel@localhost.localdomain>
-	<20080920110952.05da49ab@infradead.org>
-	<1221936751.1343.226.camel@localhost.localdomain>
+From: Daniel Walker <dwalker@mvista.com>
+Subject: Re: [PATCH 2/2]: softirq: Add support for triggering softirq work
+	on softirqs.
+Date: Sat, 20 Sep 2008 13:16:49 -0700
+Message-ID: <1221941809.1343.229.camel@localhost.localdomain>
+References: <20080919.234832.127229997.davem@davemloft.net>
+	 <1221925413.1343.132.camel@localhost.localdomain>
+	 <20080920.130325.56429707.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: arjan@infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com,
-	steffen.klassert@secunet.com
-To: dwalker@mvista.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com, steffen.klassert@secunet.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34257
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751112AbYITUEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 16:04:42 -0400
-In-Reply-To: <1221936751.1343.226.camel@localhost.localdomain>
+Received: from homer.mvista.com ([63.81.120.158]:48524 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751266AbYITUQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 16:16:55 -0400
+In-Reply-To: <20080920.130325.56429707.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Walker <dwalker@mvista.com>
-Date: Sat, 20 Sep 2008 11:52:31 -0700
+On Sat, 2008-09-20 at 13:03 -0700, David Miller wrote:
 
-> All that vs. bouncing data around the caches.. To what degree has all
-> that been handled or thought about?
+> On UP we get a single queue, which the layer needs anyways.
+> It just always queues to the one queue.
+> 
+> Unlike Andrew's, your review comments have been completely and utterly
+> useless, as well as a total waste of my time.
 
-Give concrete things to discuss or just be quiet.
+If you don't want your code reviewed, _don't send it_ .. Don't start an
+argument with me cause you don't want deal with reviewers..
+
+Daniel
+
