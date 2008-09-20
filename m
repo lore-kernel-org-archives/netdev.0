@@ -1,37 +1,42 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] convert sbmac tx to spin_lock_irqsave to prevent early
-	IRQ enable
-Date: Sat, 20 Sep 2008 22:18:39 +0200
-Message-ID: <20080920201839.GA27700@linux-mips.org>
-References: <6781da3918e3c34d23e5f7e9cf777ab463a17d5e.1221613284.git.weiwei.wang@windriver.com> <20080917114051.GA30734@shell.devel.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 04/15] tcp: convert retransmit_cnt_hint to
+ seqno
+Date: Sat, 20 Sep 2008 13:36:48 -0700 (PDT)
+Message-ID: <20080920.133648.12203243.davem@davemloft.net>
+References: <1221933153-11874-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1221933153-11874-5-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<Pine.LNX.4.64.0809202055270.6906@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Weiwei Wang <weiwei.wang@windriver.com>, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@redhat.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <20080917114051.GA30734@shell.devel.redhat.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33125
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751289AbYITUhA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2008 16:37:00 -0400
+In-Reply-To: <Pine.LNX.4.64.0809202055270.6906@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 17, 2008 at 07:40:51AM -0400, Jeff Garzik wrote:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 20 Sep 2008 20:59:29 +0300 (EEST)
 
-> On Wed, Sep 17, 2008 at 10:25:37AM +0800, Weiwei Wang wrote:
-> > Netpoll will call the interrupt handler with interrupts
-> > disabled when using kgdboe, so spin_lock_irqsave() should
-> > be used instead of spin_lock_irq() to prevent interrupts
-> > from being incorrectly enabled.
-> > 
-> > Signed-off-by: Weiwei Wang <weiwei.wang@windriver.com>
-> > ---
-> >  drivers/net/sb1250-mac.c |   12 +++++++-----
-> >  1 files changed, 7 insertions(+), 5 deletions(-)
-> 
-> Please send to jeff@garzik.org or jgarzik@pobox.com.
+> On Sat, 20 Sep 2008, Ilpo J=E4rvinen wrote:
+>=20
+> > +
+> > +	if (!tp->lost_out ||
+>=20
+> Never-mind about this patchset, this is a broken to begin with in cer=
+tain=20
+> cases where we weren't that lucky (once a again the right after posti=
+ng I=20
+> notice a problem :-)). The problem is basically that we do increments=
+ for=20
+> lost_out in many place before calling the verify. I'll fix it and rep=
+ost=20
+> once I get that done.
 
-Jeff - I haven't looked at kgdboe but if he's right half of drivers/net
-will need to be fixed ...
-
-  Ralf
+Ok, I'll drop these patches :)
