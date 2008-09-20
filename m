@@ -1,55 +1,44 @@
-From: Greg Fitzgerald <netzdamon@gmail.com>
-Subject: sky2 hangs
-Date: Fri, 19 Sep 2008 20:23:27 -0400
-Message-ID: <20080920002324.GA3939@betsy>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] gianfar: Free/iounmap memory after an error in mii bus
+ initialization
+Date: Fri, 19 Sep 2008 17:24:31 -0700
+Message-ID: <20080919172431.7be41b16.akpm@linux-foundation.org>
+References: <1221773874-3273-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, danielm77@spray.se,
+	afleming@freescale.com
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:53703 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752138AbYITAXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 20:23:34 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so525807waf.23
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2008 17:23:33 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:57188 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752011AbYITAZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2008 20:25:17 -0400
+In-Reply-To: <1221773874-3273-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hope I am sending this to the right place. Have the sky2 network card.
-Internet will die out randomly, re-probing the sky2 module usually solves
-the problem. According to dmesg the receiver is hanging.
+On Thu, 18 Sep 2008 16:37:54 -0500
+Andy Fleming <afleming@freescale.com> wrote:
 
-sky2 eth0: hung mac 0:81 fifo 3 (86:89)
-sky2 eth0: receiver hang detected
-sky2 eth0: disabling interface
-sky2 eth0: enabling interface
-sky2 eth0: Link is up at 10 Mbps, half duplex, flow control none
-sky2 eth0: hung mac 0:11 fifo 194 (51:45)
-sky2 eth0: receiver hang detected
+> Recent changes to MII bus initialization code added exit points which
+> didn't free or iounmap the bus before returning.
+> 
+> This was reported as bug #11372
+> 
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 
-This top half happens 3 or 4 times, then I'll start to get this extra
-output in dmesg after that.
+administrivia:
 
-sky2 eth0: disabling interface
-ACPI: PCI interrupt for device 0000:02:00.0 disabled
-ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 19 (level, low) -> IRQ 19
-PCI: Setting latency timer of device 0000:02:00.0 to 64
-sky2 0000:02:00.0: v1.21 addr 0xcdefc000 irq 19 Yukon-EC (0xb6) rev 2
-sky2 eth0: addr 00:17:31:9b:ca:89
-sky2 eth0: enabling interface
-sky2 eth0: Link is up at 10 Mbps, half duplex, flow control none
-sky2 eth0: disabling interface
-sky2 eth0: enabling interface
-sky2 eth0: Link is up at 10 Mbps, half duplex, flow control none
+- Adding a
 
-Some where in between all this, it actually gets to the point where I
-totally loose my connection. Sometimes it will come back up and I'm
-perfectly fine.
+	Reported-by: Daniel Marjamki <danielm77@spray.se>
 
-If I can provide any other information please let me know.
+  would be nice.
 
-Oh, been having this problem for some time now. Current version of the
-my kernel is 2.6.26.5.
+- When referencing a bugzilla report in the changelog I like to use
+  the full URL.  Because there are people who periodically troll the
+  mainline commits closing off bugzilla reports.  Using the full
+  URL minimises the chance that they will miss something.
 
---Greg
