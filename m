@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2]: softirq: Add support for triggering softirq work
- on softirqs.
-Date: Sat, 20 Sep 2008 13:19:15 -0700 (PDT)
-Message-ID: <20080920.131915.143583562.davem@davemloft.net>
-References: <1221925413.1343.132.camel@localhost.localdomain>
-	<20080920.130325.56429707.davem@davemloft.net>
-	<1221941809.1343.229.camel@localhost.localdomain>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] convert sbmac tx to spin_lock_irqsave to prevent early
+	IRQ enable
+Date: Sat, 20 Sep 2008 22:18:39 +0200
+Message-ID: <20080920201839.GA27700@linux-mips.org>
+References: <6781da3918e3c34d23e5f7e9cf777ab463a17d5e.1221613284.git.weiwei.wang@windriver.com> <20080917114051.GA30734@shell.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com, steffen.klassert@secunet.com
-To: dwalker@mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37018
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751397AbYITUT2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 16:19:28 -0400
-In-Reply-To: <1221941809.1343.229.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Weiwei Wang <weiwei.wang@windriver.com>, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@redhat.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20080917114051.GA30734@shell.devel.redhat.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Walker <dwalker@mvista.com>
-Date: Sat, 20 Sep 2008 13:16:49 -0700
+On Wed, Sep 17, 2008 at 07:40:51AM -0400, Jeff Garzik wrote:
 
-> On Sat, 2008-09-20 at 13:03 -0700, David Miller wrote:
-> 
-> > On UP we get a single queue, which the layer needs anyways.
-> > It just always queues to the one queue.
+> On Wed, Sep 17, 2008 at 10:25:37AM +0800, Weiwei Wang wrote:
+> > Netpoll will call the interrupt handler with interrupts
+> > disabled when using kgdboe, so spin_lock_irqsave() should
+> > be used instead of spin_lock_irq() to prevent interrupts
+> > from being incorrectly enabled.
 > > 
-> > Unlike Andrew's, your review comments have been completely and utterly
-> > useless, as well as a total waste of my time.
+> > Signed-off-by: Weiwei Wang <weiwei.wang@windriver.com>
+> > ---
+> >  drivers/net/sb1250-mac.c |   12 +++++++-----
+> >  1 files changed, 7 insertions(+), 5 deletions(-)
 > 
-> If you don't want your code reviewed, _don't send it_
+> Please send to jeff@garzik.org or jgarzik@pobox.com.
 
-Sounds like a plan.
+Jeff - I haven't looked at kgdboe but if he's right half of drivers/net
+will need to be fixed ...
 
+  Ralf
