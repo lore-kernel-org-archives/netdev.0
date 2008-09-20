@@ -1,292 +1,128 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2]: softirq: Add support for triggering softirq work
- on softirqs.
-Date: Sat, 20 Sep 2008 03:56:02 -0700 (PDT)
-Message-ID: <20080920.035602.226564809.davem@davemloft.net>
-References: <20080919.234832.127229997.davem@davemloft.net>
-	<20080920004608.a3123052.akpm@linux-foundation.org>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: NetDev! Please help!
+Date: Sat, 20 Sep 2008 17:19:24 +0400
+Message-ID: <48D4F85C.8090709@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com, steffen.klassert@secunet.com
-To: akpm@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42899
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751510AbYITK4P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 06:56:15 -0400
-In-Reply-To: <20080920004608.a3123052.akpm@linux-foundation.org>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:54436 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751869AbYITN3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 09:29:38 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 08BC3A6C623
+	for <netdev@vger.kernel.org>; Sat, 20 Sep 2008 17:19:31 +0400 (MSD)
+Received: from mail.bigtelecom.ru ([127.0.0.1])
+	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id mi5+HSSaj6yg for <netdev@vger.kernel.org>;
+	Sat, 20 Sep 2008 17:19:24 +0400 (MSD)
+Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 5B969A6C2EB
+	for <netdev@vger.kernel.org>; Sat, 20 Sep 2008 17:19:24 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Sat, 20 Sep 2008 00:46:08 -0700
+Hello all.
 
-> Took a little staring to work out what that test is doing.  Adding
-> 
-> 	/* If the list was previouly empty, trigger a softirq run */
-> 
-> would be nice.
+We buy 10 Intel servers and paste it to shape traffic. After 5-15 hours
+all PC is was freeze!  Kernel not see TCO watchdog at this platform and
+can't reboot it!. Soft Watchdog not reboot pc in this situation.  =(
 
-Ok.
+At screen we see messages like this (when it freeze and i was near monitor):
 
-> CONFIG_USE_GENERIC_SMP_HELPERS=y, CONFIG_SMP=n shouldn't be possible,
-> if we care..
+http://www.kerneloops.org/guilty.php?guilty=dev_watchdog&version=2.6.26-release&start=1736704&end=1769471&class=warn
 
-Sure.
+Also by netconsole we was get this one time:
 
-> OK, now what's going on with call_single_data.flags?
+[ 1352.245851] netconsole: network logging started
+[ 1458.400133] 802.1Q VLAN Support v1.8 Ben Greear <greearb@candelatech.com>
+[ 1458.400133] All bugs added by David S. Miller <davem@redhat.com>
+[ 4956.420298] CPU 1: Machine Check Exception: 0000000000000005
+[ 4956.420298] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+[ 4956.420300]   Tx Queue             <0>
+[ 4956.420300]   TDH                  <81>
+[ 4956.420301]   TDT                  <81>
+[ 4956.420302]   next_to_use          <81>
+[ 4956.420302]   next_to_clean        <d6>
+[ 4956.420303] buffer_info[next_to_clean]
+[ 4956.420303]   time_stamp           <15498d>
+[ 4956.420304]   next_to_watch        <d6>
+[ 4956.420304]   jiffies              <15511c>
+[ 4956.420305]   next_to_watch.status <1>
+[ 4956.420537] eth1: Detected Tx Unit Hang:
+[ 4956.420538]   TDH                  <b0>
+[ 4956.420538]   TDT                  <b0>
+[ 4956.420539]   next_to_use          <b0>
+[ 4956.420539]   next_to_clean        <5>
+[ 4956.420540] buffer_info[next_to_clean]:
+[ 4956.420540]   time_stamp           <15498e>
+[ 4956.420541]   next_to_watch        <5>
+[ 4956.420542]   jiffies              <15511c>
+[ 4956.420542]   next_to_watch.status <1>
+[ 4956.423064] CPU 1: Bank 0: 3200004000000800
+[ 4956.423190] CPU 1: Bank 5: 3200220024080400
+[ 4956.423315] Kernel panic - not syncing: CPU context corrupt
+[ 4956.423933] Rebooting in 3 seconds..[  531.843998] CPU 2: Machine
+Check Exception: 0000000000000005
+[  531.843998] CPU 0: Machine Check Exception: 0000000000000004
+[  531.844000] CPU 0: Bank 0: 3200004000000800
+[  531.844001] CPU 0: Bank 5: 3200121014040400
+[  531.844002] Kernel panic - not syncing: CPU context corrupt
+[  531.844916] Rebooting in 3 seconds..
 
-I've split flags into "priv" and "flags" u16's.
+This out of lspci:
 
-> Is locking needed to keep that CPU online after this test?
+00:00.0 Host bridge: Intel Corporation Server DRAM Controller
+00:19.0 Ethernet controller: Intel Corporation 82566DM-2 Gigabit Network
+Connection (rev 02)
+00:1a.0 USB Controller: Intel Corporation USB UHCI Controller #4 (rev 02)
+00:1a.1 USB Controller: Intel Corporation USB UHCI Controller #5 (rev 02)
+00:1a.2 USB Controller: Intel Corporation USB UHCI Controller #6 (rev 02)
+00:1a.7 USB Controller: Intel Corporation USB2 EHCI Controller #2 (rev 02)
+00:1c.0 PCI bridge: Intel Corporation PCI Express Port 1 (rev 02)
+00:1c.4 PCI bridge: Intel Corporation PCI Express Port 5 (rev 02)
+00:1d.0 USB Controller: Intel Corporation USB UHCI Controller #1 (rev 02)
+00:1d.1 USB Controller: Intel Corporation USB UHCI Controller #2 (rev 02)
+00:1d.2 USB Controller: Intel Corporation USB UHCI Controller #3 (rev 02)
+00:1d.7 USB Controller: Intel Corporation USB2 EHCI Controller #1 (rev 02)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 92)
+00:1f.0 ISA bridge: Intel Corporation LPC Interface Controller (rev 02)
+00:1f.2 SATA controller: Intel Corporation 6 port SATA AHCI Controller
+(rev 02)
+00:1f.3 SMBus: Intel Corporation SMBus Controller (rev 02)
+02:00.0 VGA compatible controller: Matrox Graphics, Inc. MGA G200e
+[Pilot] ServerEngines (SEP1) (rev 02)
+03:02.0 Ethernet controller: Intel Corporation 82541GI Gigabit Ethernet
+Controller (rev 05)
 
-You already know :)
+lspci -tv
+-[0000:00]-+-00.0  Intel Corporation Server DRAM Controller
+           +-19.0  Intel Corporation 82566DM-2 Gigabit Network Connection
+           +-1a.0  Intel Corporation USB UHCI Controller #4
+           +-1a.1  Intel Corporation USB UHCI Controller #5
+           +-1a.2  Intel Corporation USB UHCI Controller #6
+           +-1a.7  Intel Corporation USB2 EHCI Controller #2
+           +-1c.0-[0000:01]--
+           +-1c.4-[0000:02]----00.0  Matrox Graphics, Inc. MGA G200e
+[Pilot] ServerEngines (SEP1)
+           +-1d.0  Intel Corporation USB UHCI Controller #1
+           +-1d.1  Intel Corporation USB UHCI Controller #2
+           +-1d.2  Intel Corporation USB UHCI Controller #3
+           +-1d.7  Intel Corporation USB2 EHCI Controller #1
+           +-1e.0-[0000:03]----02.0  Intel Corporation 82541GI Gigabit
+Ethernet Controller
+           +-1f.0  Intel Corporation LPC Interface Controller
+           +-1f.2  Intel Corporation 6 port SATA AHCI Controller
+           \-1f.3  Intel Corporation SMBus Controller
 
-> Ah.  So it is required that the __send_remote_softirq() caller disable
-> local interrupts.  There's my locking.  It's worth a mention in the
-> interface description, if not a WARN_ON().
+All tests in 2.6.26.2 kernel... now i try compile 2.6.26.5 kernel, but
+if KernelOops is right - its not  will help.
 
-Fair enough.
+I hope NetDev help!
+If any information or test is needed - please write!
 
-> It's best to provide some documentation for global, exported-to-modules
-> functions please.
+Thanks for anyone!
 
-I've got your kerneldoc right here buddy boy...
-
-> Could use __local_trigger() here I think, although that wouldn't really
-> improve anything much.
-
-This is a splice, so we'd need to iterate which would be cumbersome
-and error prone.
-
-Here is the updated patch.
-
-softirq: Add support for triggering softirq work on softirqs.
-
-This is basically a genericization of Jens Axboe's block layer
-remote softirq changes.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
----
- include/linux/interrupt.h |   13 +++++
- include/linux/smp.h       |    4 +-
- kernel/softirq.c          |  128 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 144 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index fdd7b90..d8713c7 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -11,6 +11,8 @@
- #include <linux/hardirq.h>
- #include <linux/sched.h>
- #include <linux/irqflags.h>
-+#include <linux/smp.h>
-+#include <linux/percpu.h>
- #include <asm/atomic.h>
- #include <asm/ptrace.h>
- #include <asm/system.h>
-@@ -271,7 +273,18 @@ extern void softirq_init(void);
- #define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
- extern void raise_softirq_irqoff(unsigned int nr);
- extern void raise_softirq(unsigned int nr);
-+DECLARE_PER_CPU(struct list_head, softirq_work_list[NR_SOFTIRQ]);
- 
-+/* Try to send a softirq to a remote cpu.  If this cannot be done, the
-+ * work will be queued to the local cpu.
-+ */
-+extern void send_remote_softirq(struct call_single_data *cp, int cpu, int softirq);
-+
-+/* Like send_remote_softirq(), but the caller must disable local cpu interrupts
-+ * and compute the current cpu, passed in as 'this_cpu'.
-+ */
-+extern void __send_remote_softirq(struct call_single_data *cp, int cpu,
-+				  int this_cpu, int softirq);
- 
- /* Tasklets --- multithreaded analogue of BHs.
- 
-diff --git a/include/linux/smp.h b/include/linux/smp.h
-index 66484d4..2e4d58b 100644
---- a/include/linux/smp.h
-+++ b/include/linux/smp.h
-@@ -7,6 +7,7 @@
-  */
- 
- #include <linux/errno.h>
-+#include <linux/types.h>
- #include <linux/list.h>
- #include <linux/cpumask.h>
- 
-@@ -16,7 +17,8 @@ struct call_single_data {
- 	struct list_head list;
- 	void (*func) (void *info);
- 	void *info;
--	unsigned int flags;
-+	u16 flags;
-+	u16 priv;
- };
- 
- #ifdef CONFIG_SMP
-diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 27642a2..6c7b226 100644
---- a/kernel/softirq.c
-+++ b/kernel/softirq.c
-@@ -6,6 +6,8 @@
-  *	Distribute under GPLv2.
-  *
-  *	Rewritten. Old one was good in 2.2, but in 2.3 it was immoral. --ANK (990903)
-+ *
-+ *	Remote softirq infrastructure is by Jens Axboe.
-  */
- 
- #include <linux/module.h>
-@@ -463,17 +465,143 @@ void tasklet_kill(struct tasklet_struct *t)
- 
- EXPORT_SYMBOL(tasklet_kill);
- 
-+DEFINE_PER_CPU(struct list_head, softirq_work_list[NR_SOFTIRQ]);
-+
-+static void __local_trigger(struct call_single_data *cp, int softirq)
-+{
-+	struct list_head *head = &__get_cpu_var(softirq_work_list[softirq]);
-+
-+	list_add_tail(&cp->list, head);
-+
-+	/* Trigger the softirq only if the list was previously empty.  */
-+	if (head->next == &cp->list)
-+		raise_softirq_irqoff(softirq);
-+}
-+
-+#ifdef CONFIG_USE_GENERIC_SMP_HELPERS
-+static void remote_softirq_receive(void *data)
-+{
-+	struct call_single_data *cp = data;
-+	unsigned long flags;
-+	int softirq;
-+
-+	softirq = cp->priv;
-+
-+	local_irq_save(flags);
-+	__local_trigger(cp, softirq);
-+	local_irq_restore(flags);
-+}
-+
-+static int __try_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
-+{
-+	if (cpu_online(cpu)) {
-+		cp->func = remote_softirq_receive;
-+		cp->info = cp;
-+		cp->flags = 0;
-+		cp->priv = softirq;
-+
-+		__smp_call_function_single(cpu, cp);
-+		return 0;
-+	}
-+	return 1;
-+}
-+#else /* CONFIG_USE_GENERIC_SMP_HELPERS */
-+static int __try_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
-+{
-+	return 1;
-+}
-+#endif
-+
-+/***
-+ * __send_remote_softirq - try to schedule softirq work on a remote cpu
-+ * @cp: private SMP call function data area
-+ * @cpu: the remote cpu
-+ * @this_cpu: the currently executing cpu
-+ * @softirq: the softirq for the work
-+ *
-+ * Attempt to schedule softirq work on a remote cpu.  If this cannot be
-+ * done, the work is instead queued up on the local cpu.
-+ *
-+ * Interrupts must be disabled.
-+ */
-+void __send_remote_softirq(struct call_single_data *cp, int cpu, int this_cpu, int softirq)
-+{
-+	if (cpu == this_cpu || __try_remote_softirq(cp, cpu, softirq))
-+		__local_trigger(cp, softirq);
-+}
-+EXPORT_SYMBOL(__send_remote_softirq);
-+
-+/***
-+ * send_remote_softirq - try to schedule softirq work on a remote cpu
-+ * @cp: private SMP call function data area
-+ * @cpu: the remote cpu
-+ * @softirq: the softirq for the work
-+ *
-+ * Like __send_remote_softirq except that disabling interrupts and
-+ * computing the current cpu is done for the caller.
-+ */
-+void send_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
-+{
-+	unsigned long flags;
-+	int this_cpu;
-+
-+	local_irq_save(flags);
-+	this_cpu = smp_processor_id();
-+	__send_remote_softirq(cp, cpu, this_cpu, softirq);
-+	local_irq_restore(flags);
-+}
-+EXPORT_SYMBOL(send_remote_softirq);
-+
-+static int __cpuinit remote_softirq_cpu_notify(struct notifier_block *self,
-+					       unsigned long action, void *hcpu)
-+{
-+	/*
-+	 * If a CPU goes away, splice its entries to the current CPU
-+	 * and trigger a run of the softirq
-+	 */
-+	if (action == CPU_DEAD || action == CPU_DEAD_FROZEN) {
-+		int cpu = (unsigned long) hcpu;
-+		int i;
-+
-+		local_irq_disable();
-+		for (i = 0; i < NR_SOFTIRQ; i++) {
-+			struct list_head *head = &per_cpu(softirq_work_list[i], cpu);
-+			struct list_head *local_head;
-+
-+			if (list_empty(head))
-+				continue;
-+
-+			local_head = &__get_cpu_var(softirq_work_list[i]);
-+			list_splice_init(head, local_head);
-+			raise_softirq_irqoff(i);
-+		}
-+		local_irq_enable();
-+	}
-+
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block __cpuinitdata remote_softirq_cpu_notifier = {
-+	.notifier_call	= remote_softirq_cpu_notify,
-+};
-+
- void __init softirq_init(void)
- {
- 	int cpu;
- 
- 	for_each_possible_cpu(cpu) {
-+		int i;
-+
- 		per_cpu(tasklet_vec, cpu).tail =
- 			&per_cpu(tasklet_vec, cpu).head;
- 		per_cpu(tasklet_hi_vec, cpu).tail =
- 			&per_cpu(tasklet_hi_vec, cpu).head;
-+		for (i = 0; i < NR_SOFTIRQ; i++)
-+			INIT_LIST_HEAD(&per_cpu(softirq_work_list[i], cpu));
- 	}
- 
-+	register_hotcpu_notifier(&remote_softirq_cpu_notifier);
-+
- 	open_softirq(TASKLET_SOFTIRQ, tasklet_action);
- 	open_softirq(HI_SOFTIRQ, tasklet_hi_action);
- }
--- 
-1.5.6.5
-
+Badalian Vyacheslav.
