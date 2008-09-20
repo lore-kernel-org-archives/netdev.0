@@ -1,98 +1,76 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver updates for .28
-Date: Sat, 20 Sep 2008 00:09:14 -0700 (PDT)
-Message-ID: <20080920.000914.219711773.davem@davemloft.net>
-References: <20080914022236.GA15673@havoc.gtf.org>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+ dev_deactivate() race
+Date: Sat, 20 Sep 2008 00:21:37 -0700 (PDT)
+Message-ID: <20080920.002137.108837580.davem@davemloft.net>
+References: <20080913205408.GA2545@ami.dom.local>
+	<20080914061610.GA20571@gondor.apana.org.au>
+	<20080914202715.GA2540@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	brice@myri.com
-To: jeff@garzik.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	kaber@trash.net
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53208
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34795
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750816AbYITHJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 03:09:26 -0400
-In-Reply-To: <20080914022236.GA15673@havoc.gtf.org>
+	by vger.kernel.org with ESMTP id S1750922AbYITHVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 03:21:49 -0400
+In-Reply-To: <20080914202715.GA2540@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Sat, 13 Sep 2008 22:22:36 -0400
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sun, 14 Sep 2008 22:27:15 +0200
 
-> Please pull from 'davem-next' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
-> 
-> to receive the following updates:
+[ I'm just picking one posting out of several in this thread.  ]
 
-Jeff, I pulled this and I was going to push back out but I couldn't
-because there are two or three changes in here I think have major
-problems.
+> Anyway, the main problem here was a high cpu load despite stopped
+> queue. Are you sure this peek, which is almost full dequeue, can
+> really help for this? BTW, since after current fix there were no
+> later complains I guess it's just about full netif_stop or non-mq
+> device.
 
-First, the two myri10ge patches that do the Toeplitz TX hashing
-stuff.
+I think we are overengineering this situation.
 
---------------------
-myri10ge: Add Toeplitz-hashing related routines
+Let's look at what actually matters for cpu utilization.  These
+__qdisc_run() things are invoked in two situations where we might
+block on the hw queue being stopped:
 
-myri10ge uses a Toeplitz hashing. Add the corresponding select_queue()
-method without using it yet.
+1) When feeding packets into the qdisc in dev_queue_xmit().
 
-Signed-off-by: Brice Goglin <brice@myri.com>
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+   Guess what?  We _know_ the queue this packet is going to
+   hit.
 
-myri10ge: Add multiqueue TX support
+   The only new thing we can possible trigger and be interested
+   in at this specific point is if _this_ packet can be sent at
+   this time.
 
-Add multiqueue TX support to myri10ge, using Toeplitz hashing.
+   And we can check that queue mapping after the qdisc_enqueue_root()
+   call, so that multiq aware qdiscs can have made their changes.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
---------------------
+2) When waking up a queue.  And here we should schedule the qdisc_run
+   _unconditionally_.
 
-No, that is crap.  I didn't create the ->select_tx_queue() callback so
-that each and every damn multiqueue driver will override the generic
-TX hash function in order to try and make the TX hashing match the RX
-hashing.
+   If the queue was full, it is extremely likely that new packets
+   are bound for that device queue.  There is no real savings to
+   be had by doing this peek/requeue/dequeue stuff.
 
-That's not what it's for.
+The cpu utilization savings exist for case #1 only, and we can
+implement the bypass logic _perfectly_ as described above.
 
-The callback exists for things like wireless where the queues have
-a meaning other than flow seperation.
+For #2 there is nothing to check, just do it and see what comes
+out of the qdisc.
 
-We (specifically Herbert Xu and myself) know that for routing and
-firewalling applications matching the TX queue to the same hashing
-namespace of the RX multiqueueing is desirable for best performance.
+I would suggest adding an skb pointer argument to qdisc_run().
+If it's NULL, unconditionally schedule __qdisc_run().  Else,
+only schedule if the TX queue indicated by skb_queue_mapping()
+is not stopped.
 
-But we will do that generically by allowing the driver on the receive
-side to record the RX hash used (or alternatively, if the exact RSS
-hash isn't obtainable, the RX queue index itself) and on TX we will
-use this information to select the TX queue properly.
+dev_queue_xmit() will use the "pass the skb" case, but only if
+qdisc_enqueue_root()'s return value doesn't indicate that there
+is a potential drop.  On potential drop, we'll pass NULL to
+make sure we don't potentially reference a free'd SKB.
 
-Next, a bad IXGBE change:
-
---------------------
-ixgbe: make compilation with LRO optional
-
-The current ixgbe forces LRO to always be enabled.  This patch makes this
-optional due to the fact so that LRO can be disabled in cases where it is
-not desirable such as routing or bridging.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
---------------------
-
-Ummm, no.  This is completely unnecessary and it's another thing we
-don't want every damn driver doing.  It is almost as bad as making
-NAPI configurable.
-
-If the user enables forwarding or bridging, the kernel automatically
-disable LRO on the appropriate interfaces.
-
-Jeff, please rebuild your tree with those three patches removed and I'll
-repull.  Those patches were near or at the end of the group of changes
-for their effected drivers, so there should be absolutely zero conflicts
-or merge windows when you do this tree rebuild.
-
-Thanks!
+The other case in net_tx_action() can always pass NULL to qdisc_run().
