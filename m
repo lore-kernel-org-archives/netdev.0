@@ -1,106 +1,77 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
-Date: Sat, 20 Sep 2008 11:09:52 -0700
-Message-ID: <20080920110952.05da49ab@infradead.org>
-References: <20080919.234824.223177211.davem@davemloft.net>
-	<1221924561.1343.121.camel@localhost.localdomain>
-	<20080920084512.58f7fb08@infradead.org>
-	<1221926529.1343.140.camel@localhost.localdomain>
-	<20080920091918.0ffaef8c@infradead.org>
-	<1221932404.1343.196.camel@localhost.localdomain>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: NetDev! Please help!
+Date: Sat, 20 Sep 2008 21:11:01 +0300
+Message-ID: <200809202111.01256.denys@visp.net.lb>
+References: <48D4F85C.8090709@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com,
-	steffen.klassert@secunet.com
-To: Daniel Walker <dwalker@mvista.com>
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41207 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbYITSJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 14:09:52 -0400
-In-Reply-To: <1221932404.1343.196.camel@localhost.localdomain>
+Received: from relay2.globalproof.net ([194.146.153.25]:48981 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751335AbYITSNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 14:13:05 -0400
+In-Reply-To: <48D4F85C.8090709@bigtelecom.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 20 Sep 2008 10:40:04 -0700
-Daniel Walker <dwalker@mvista.com> wrote:
+On Saturday 20 September 2008, Badalian Vyacheslav wrote:
+> Hello all.
+>
+> We buy 10 Intel servers and paste it to shape traffic. After 5-15 hours
+> all PC is was freeze!  Kernel not see TCO watchdog at this platform and
+> can't reboot it!. Soft Watchdog not reboot pc in this situation.  =(
+>
+> At screen we see messages like this (when it freeze and i was near
+> monitor):
+Maybe try nmi_watchdog=1 ?
+Also try http://www.nongnu.org/dmidecode/ - to check if it has IPMI.
+Mine for example:
+....
+Handle 0x003F, DMI type 38, 16 bytes
+IPMI Device Information
+        Interface Type: KCS (Keyboard Control Style)
+        Specification Version: 2.0
+        I2C Slave Address: 0x10
+        NV Storage Device Address: 0
+        Base Address: 0x0000000000000CA2 (I/O)
 
-> On Sat, 2008-09-20 at 09:19 -0700, Arjan van de Ven wrote:
-> > On Sat, 20 Sep 2008 09:02:09 -0700
-> > Daniel Walker <dwalker@mvista.com> wrote:
-> > 
-> > > On Sat, 2008-09-20 at 08:45 -0700, Arjan van de Ven wrote:
-> > > > On Sat, 20 Sep 2008 08:29:21 -0700
-> > > > > 
-> > > > > > Jen's, as stated, has block layer uses for this.  I intend
-> > > > > > to use this for receive side flow seperation on
-> > > > > > non-multiqueue network cards.  And Steffen Klassert has a
-> > > > > > set of IPSEC parallelization changes that can very likely
-> > > > > > make use of this.
-> > > > > 
-> > > > > What's the benefit that you (or Jens) sees from migrating
-> > > > > softirqs from specific cpu's to others?
-> > > > 
-> > > > it means you do all the processing on the CPU that submitted
-> > > > the IO in the first place, and likely still has the various
-> > > > metadata pieces in its CPU cache (or at least you know you
-> > > > won't need to bounce them over)
-> > > 
-> > > 
-> > > In the case of networking and block I would think a lot of the
-> > > softirq activity is asserted from userspace.. Maybe the scheduler
-> > > shouldn't be migrating these tasks, or could take this softirq
-> > > activity into account ..
-> > 
-> > well a lot of it comes from completion interrupts.
-> 
-> Yeah, partly I would think.
+Also important to change it to newer 2.6.26.5 , because for example 2.6.26.4 
+have fix: 
 
-completions trigger the next send as well (for both block and net) so
-it's quite common
-> 
-> > and moving userspace isn't a good option; think of the case of 1 nic
-> > but 4 apache processes doing the work...
-> > 
-> 
-> One nic, so one interrupt ? I guess we're talking about an SMP
-> machine?
+http://www.kernel.org/pub/linux/kernel/v2.6/ChangeLog-2.6.26.4
+....
 
-or multicore
+commit 685f605a498b73759cbcbc816089e804710fcc48
+Author: David S. Miller <davem@davemloft.net>
+Date:   Wed Aug 27 22:35:56 2008 -0700
 
-doing IPI's for this on an UP machine is a rather boring exercise
-
-> 
-> Dave didn't supply the users of his code, or what kind of improvement
-> was seen, or the case in which it would be needed. I think Dave knowns
-> his subsystem, but the code on the surface looks like an end run
-> around some other problem area..
-
-it's very fundamental, and has been talked about at various conferences
-as well.
-
-the basic problem is that the submitter of the IO (be it block or net)
-creates a ton of metadata state on submit, and ideally the completion
-processing happens on the same CPU, for two reasons
-1) to use the state in the cache
-2) for the case where you touch userland data/structures, we assume the
-scheduler kept affinity
-
-it's a Moses-to-the-Mountain problem, except we have four Moses' but
-only one Mountain. 
-
-Or in CS terms: we move the work to the CPU where the userland is
-rather than moving the userland to the IRQ CPU, since there is usually
-only one IRQ but many userlands and many cpu cores.
-
-(for the UP case this is all very irrelevant obviously)
-
-I assume Dave will pipe in if he disagrees with me ;-)
+    pkt_sched: Fix return value corruption in HTB and TBF.
+    
+    [ Upstream commit 69747650c814a8a79fef412c7416adf823293a3e ]
+    
+    Based upon a bug report by Josip Rodin.
+    
+    Packet schedulers should only return NET_XMIT_DROP iff
+    the packet really was dropped.  If the packet does reach
+    the device after we return NET_XMIT_DROP then TCP can
+    crash because it depends upon the enqueue path return
+    values being accurate.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+    Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+....
 
 
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+P.S. For netdev, i have one more friend - who is complaining that shapers is 
+crashing on Intel machines (who uses TSC, he have two different "Core" based 
+servers, and both is crashing). With HPET i dont have any problem on high 
+performance shapers (except, that it is CPU expensive). It happens on latest 
+2.6.26.5 too. Machine getting hard lockup, and nothing than hardware watchdog 
+able to recover it. They dont have experience to get actual reason of this 
+issue and they dont know english well to report this issue.
+
