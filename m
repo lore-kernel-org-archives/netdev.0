@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver updates for .28
-Date: Sat, 20 Sep 2008 03:33:36 -0700 (PDT)
-Message-ID: <20080920.033336.39652163.davem@davemloft.net>
-References: <20080914022236.GA15673@havoc.gtf.org>
-	<20080920.000914.219711773.davem@davemloft.net>
-	<48D4A618.5080403@myri.com>
+Subject: Re: [PATCH 2/2]: softirq: Add support for triggering softirq work
+ on softirqs.
+Date: Sat, 20 Sep 2008 03:35:45 -0700 (PDT)
+Message-ID: <20080920.033545.171821293.davem@davemloft.net>
+References: <20080919.234832.127229997.davem@davemloft.net>
+	<20080920004608.a3123052.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: brice@myri.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753744AbYITKeG@vger.kernel.org>
-In-Reply-To: <48D4A618.5080403@myri.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com, steffen.klassert@secunet.com
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39066
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751382AbYITKf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 06:35:58 -0400
+In-Reply-To: <20080920004608.a3123052.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Brice Goglin <brice@myri.com>
-Date: Sat, 20 Sep 2008 09:28:24 +0200
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Sat, 20 Sep 2008 00:46:08 -0700
 
-> Ok, I'll resend without the select_queue stuff. But you should really
-> document the above explanation. The only documentation we found was
-> "Devices or device layers can set this to control the queue selection
-> performed by dev_pick_tx()." in the git-log...
+> Seems from the above `>> 16' you're stuffing the softirq ID into the
+> upper 16 bits of call_single_data.flags.  Is it needed?  Another u32
+> can be added to call_single_data for free on 64-bit, or it could be
+> split into two u16's.
 
-Sure.
+call_single_data is already too large, simply adding it to
+struct sk_buff had negative performance impacts that are
+forcing me to trim the size of the existing structure a bit.
 
-On your part, I would suggest that when you run into a problem that
-many other multiqueue drivers will likely face, that you bring it up
-here for discussion instead of implementing localized solutions :-)
+I think just documenting the usage of the bits is better, and
+I'll do that in my next rev.
