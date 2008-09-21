@@ -1,48 +1,51 @@
-From: Arjan van de Ven <arjan@infradead.org>
+From: Marcel Holtmann <holtmann@linux.intel.com>
 Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware
- restart.
-Date: Sun, 21 Sep 2008 12:20:48 -0700
-Message-ID: <20080921122048.2bd52541@infradead.org>
+	restart.
+Date: Sun, 21 Sep 2008 21:35:31 +0200
+Message-ID: <1222025731.6782.117.camel@californication>
 References: <20080921172316.GA6306@2ka.mipt.ru>
-	<20080921110422.1d010b96@infradead.org>
-	<20080921182835.GA11473@2ka.mipt.ru>
-	<20080921113513.16677c4e@infradead.org>
-	<48D697F5.9050802@acedsl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ipw2100-devel@lists.sourceforge.net,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ipw2100-devel@lists.sourceforge.net,
 	linux-wireless@vger.kernel.org, yi.zhu@intel.com,
 	reinette.chatre@intel.com, jgarzik@pobox.com,
 	linville@tuxdriver.com, davem@davemloft.net
-To: Wei Weng <wweng@acedsl.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39905 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbYIUTVD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 15:21:03 -0400
-In-Reply-To: <48D697F5.9050802@acedsl.com>
+Received: from senator.holtmann.net ([87.106.208.187]:54213 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbYIUTej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 15:34:39 -0400
+In-Reply-To: <20080921172316.GA6306@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 21 Sep 2008 14:52:37 -0400
-Wei Weng <wweng@acedsl.com> wrote:
-> > again.. so how about you detect this condition and do, in the driver
-> > code, the equivalent of rmmod/insmod to the hardware. I'm sure
-> > people who have the hardware would appreciate that type of patch a
-> > lot more than the one you sent out.
-> > 
+Hi Evgeniy,
+
+> Following bug exists in the ipw2100 driver/firmware for years and Intel
+> folks never responded to zillions bugzilla entries and forum notices in
+> the internet with some patch or firmware update (although did request
+> dmesg and debug info, and received them).
 > 
-> I guess it is your way of "middle finger" to all the IPW2100
-> customers who try to use it on a Linux machine.
+> ipw2100: Fatal interrupt. Scheduling firmware restart.
+> 
+> I believe it is a firmware bug because after driver is unloaded and
+> loaded back again wireless adapter usually starts working (for small
+> amount of time though). My conspiracy feeling can suggest, that it may
+> be kind of a force to buy a new one, or trivial error in the firmware,
+> when it writes to the same place in the flash and essentially given cell
+> became dead or whatever else.
 
-if suggesting a workaround is giving the middle finger in your mind, 
-then I don't think it's worth my time to discuss this further with you.
+I don't know if it is for this bug or a different one, but Matthew
+Garrett seem to have some pending patches. At least that is what he told
+me at PlumbersConf. Lets see if these patches do help. And please follow
+up with Arjan's suggestion and put a WARN_ON in the upstream code
+instead of waving CONFIG_BROKEN around.
+
+Regards
+
+Marcel
 
 
-
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
