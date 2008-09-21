@@ -1,47 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Sun, 21 Sep 2008 01:04:58 -0700 (PDT)
-Message-ID: <20080921.010458.216237442.davem@davemloft.net>
-References: <1221387956.9204.7.camel@fry>
+From: James Courtier-Dutton <James@superbug.co.uk>
+Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
+Date: Sun, 21 Sep 2008 10:13:47 +0100
+Message-ID: <48D6104B.9040304@superbug.co.uk>
+References: <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johaahn@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60299
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751272AbYIUIFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 04:05:11 -0400
-In-Reply-To: <1221387956.9204.7.camel@fry>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, dwalker@mvista.com,
+	arjan@infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com,
+	steffen.klassert@secunet.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752687AbYIUJOL@vger.kernel.org>
+In-Reply-To: <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johann Baudy <johaahn@gmail.com>
-Date: Sun, 14 Sep 2008 12:25:56 +0200
+Herbert Xu wrote:
+> David Miller <davem@davemloft.net> wrote:
+>> receive using multiple RX queues and MSI-X interrupts.  It's
+>> also for things like IPSEC where the per-packet cpu usage
+>> is so huge (to do the crypto) that it makes sense to even
+>> split up the work to multiple cpus within the same flow.
+> 
+> Unfortunately doing this with IPsec is going to be non-trivial
+> since we still want to maintain packet ordering inside IPsec
+> and you don't get the inner flow information until you decrypt
+> the packet.
+> 
 
-> Sendfile() over UDP socket are currently limited to ~ 64KBytes file
-> (max cork.length).  Indeed, if you run sendfile() with a file size >
-> 64KBytes over UDP socket, system call will stop and return ~64KBytes
-> without sending anything on the network.  This patch is pushing
-> ongoing frames when frames buffer is full, to prevent overflow.
->
-> Signed-off-by: Johann Baudy <johann.baudy@gmail.com>
+Why do you have to preserve packet ordering?
+TCP/IP does not preserve packet ordering across the network.
+IPSEC uses a sliding window for anti-relay detection precisely because
+it has to be able to handle out-of-order packets.
 
-Applications which work over datagram protocols must perform their own
-segmentation.  It is not like doing a send over a stream protocol like
-TCP, where you can use whatever length you want for send calls and
-segmentation is done for the application.
+Sharing the sliding window between CPUs might be interesting!
 
-If you look, this is what things like NFS using SUNRPC over UDP do.
-They have a transmission unit for the data transfer and use that for
-each "send".
-
-A sendfile() with length >= 64K is the same as a sendmsg() with such a
-length, which is defined as:
-
-	if (len > 0xFFFF)
-		return -EMSGSIZE;
-
-So we could technically even return an error for this sendfile() over
-UDP case.
+James
