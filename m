@@ -1,37 +1,61 @@
-From: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
-Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware restart.
-Date: Mon, 22 Sep 2008 01:12:21 +0400
-Message-ID: <20080921211221.GD2135@2ka.mipt.ru>
-References: <20080921172316.GA6306@2ka.mipt.ru> <1222025731.6782.117.camel@californication>
+From: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware
+ restart.
+Date: Sun, 21 Sep 2008 14:14:51 -0700
+Message-ID: <20080921141451.77a7172c@infradead.org>
+References: <20080921182835.GA11473@2ka.mipt.ru>
+	<20080921113513.16677c4e@infradead.org>
+	<20080921190050.GA20484@2ka.mipt.ru>
+	<1222024444.3023.53.camel@johannes.berg>
+	<20080921193809.GA8735@2ka.mipt.ru>
+	<20080921124332.67ddc13a@infradead.org>
+	<20080921202057.GB25052@2ka.mipt.ru>
+	<20080921132753.5689b564@infradead.org>
+	<20080921205706.GA24545@2ka.mipt.ru>
+	<20080921140203.4698a2ee@infradead.org>
+	<20080921210554.GA2135@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
 	reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
 	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Marcel Holtmann <holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1222025731.6782.117.camel@californication>
+In-Reply-To: <20080921210554.GA2135-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marcel.
+On Mon, 22 Sep 2008 01:05:55 +0400
+Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org> wrote:
 
-On Sun, Sep 21, 2008 at 09:35:31PM +0200, Marcel Holtmann (holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org) wrote:
-> I don't know if it is for this bug or a different one, but Matthew
-> Garrett seem to have some pending patches. At least that is what he told
-> me at PlumbersConf. Lets see if these patches do help. And please follow
-> up with Arjan's suggestion and put a WARN_ON in the upstream code
-> instead of waving CONFIG_BROKEN around.
+> On Sun, Sep 21, 2008 at 02:02:03PM -0700, Arjan van de Ven
+> (arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org) wrote:
+> > > That allows to dump whatever number of warnings you want. The
+> > > more we have, the louder will be customers scream.
+> > 
+> > artificially increasing numbers isn't going to do that; it just
+> > shows you're more interested in making a stink than in getting
+> > something improved ;(
+> 
+> As practice shows, I'm the only one who is interested in getting
+> something improved, and Intel, as we see right now, is not interested
+> in it at all, since you ask me not only decrease error verbosity, but
+> also do not work towards fixing the bug by trying to understand where
+> it lives.
 
-I expect it is something new, since this bug exists at least from the
-1.2 firmware version and .11 kernel. It was also reproduced (long ago
-though) on 2.4.
+I did no such thing and you know it.
+
+I'm sorry, I'm not going to waste time on this if you keep acting
+this dishonest; welcome to my mail filter...
+
 
 -- 
-	Evgeniy Polyakov
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
