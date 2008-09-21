@@ -1,72 +1,41 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Sun, 21 Sep 2008 00:02:31 -0300
-Message-ID: <20080921000231.7ab3c7aa@tux>
-References: <20080819213417.45133573@tux>
-	<20080824163843.33b4f890@tux>
-	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
-	<20080826141812.589848a0@tux>
-	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
-	<20080828184919.611dd578@tux>
-	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
-	<20080830035650.42be37d7@tux>
-	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
-	<20080907051718.58bf133d@tux>
-	<Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
-	<20080908172043.0d25a427@tux>
-	<Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
-	<20080911143006.2f516569@tux>
-	<Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
-	<20080913203117.2a55ea2c@tux>
-	<Pine.LNX.4.64.0809140722460.17271@wrl-59.cs.helsinki.fi>
-	<20080916112411.062fa615@tux>
-	<Pine.LNX.4.64.0809161726250.1034@wrl-59.cs.helsinki.fi>
-	<20080918173554.1f874238@tux>
-	<Pine.LNX.4.64.0809182349410.4742@wrl-59.cs.helsinki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 00/15]: TCP rexmit changes
+Date: Sat, 20 Sep 2008 21:32:32 -0700 (PDT)
+Message-ID: <20080920.213232.115194384.davem@davemloft.net>
+References: <1221947278-16715-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0809182349410.4742@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51027
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750735AbYIUEco convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Sep 2008 00:32:44 -0400
+In-Reply-To: <1221947278-16715-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Sep 2008 00:04:23 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sun, 21 Sep 2008 00:47:43 +0300
 
-> Anyway, if/when you succeed collecting some strace of the server=20
-> processes, please let me know (though putting a full one available mi=
-ght=20
-> not be wise thing like I said earlier). After I thought it a bit, it =
-might=20
-> be enough the start the strace with -p for all server processes of a=20
-> service during a stall and then resolve it after some amount of waiti=
-ng=20
-> with nmap (and hope that strace doesn't resolve it by interfering=20
-> something relevant :-), you will see that from the fact that it resol=
-ves=20
-> without nmap then). That would probably reveal if the processes where=
-=20
-> waiting in accept() or not, and if not, where they were.
+> John Heffner noted ages ago that TCP does O(n^2) processing
+> during recovery. SACKtag part was solved earlier, making
+> duplicate ACKs to avoid scanning the write queue unnecessarily.
+> This change is intented to (mostly) solve the periods when
+> cumulative ACKs occur during a recovery, ie., basically when
+> the situation starts to resolve.
+>=20
+> v2 fixes !tp->lost_out detection in case we went already more
+> than 2^31 from the previous retransmit_high.
+>=20
+> I played again with it a bit, this time I also went to see the
+> counters using systemtap and afaict the counters matched what
+> I expected to see (fwd-rexmits and some other cases related to
+> collapse/fragment weren't covered by my simple transfer).
 
-	I got a stall, tried to use strace but even strace couldn't
-trace nothing. Everything which uses some kind of network connection is
-stalled (or because everything is stalled, strace couldn't trace
-anything).
-=09
-	I'll try to leave strace running all the time, but I'm afraid
-it could prevent the stall. Anyway, I'll test and return soon.
+These changes look great, all applied to net-next-2.6
 
-
---=20
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks a lot!
