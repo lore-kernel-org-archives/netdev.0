@@ -1,39 +1,34 @@
-From: Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>
-Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware restart.
-Date: Sun, 21 Sep 2008 23:45:06 +0100
-Message-ID: <20080921224506.GB24461@srcf.ucam.org>
-References: <20080921172316.GA6306@2ka.mipt.ru> <1222025731.6782.117.camel@californication>
+From: "=?ISO-8859-1?Q?Ra=FAl_Hern=E1ndez?=" <rauhersu@gmail.com>
+Subject: routing PF_PACKET sockets
+Date: Mon, 22 Sep 2008 01:10:54 +0200
+Message-ID: <3f847c820809211610n731b0090wb6a9f94a3514f455@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Marcel Holtmann <holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.233]:63060 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753188AbYIUXKz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 19:10:55 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1316466rvb.1
+        for <netdev@vger.kernel.org>; Sun, 21 Sep 2008 16:10:54 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1222025731.6782.117.camel@californication>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 21, 2008 at 09:35:31PM +0200, Marcel Holtmann wrote:
+Hi there,
 
-> I don't know if it is for this bug or a different one, but Matthew
-> Garrett seem to have some pending patches. At least that is what he told
-> me at PlumbersConf. Lets see if these patches do help. And please follow
-> up with Arjan's suggestion and put a WARN_ON in the upstream code
-> instead of waving CONFIG_BROKEN around.
+I am trying to understand the possible options on dealing with
+PF_PACKET and routing schemas: does the packet bypass the linux
+routing table (as it is opened directly over a 'dev'). Might this
+behaviour be configurable ? Thanks !
 
-The fix I had for this was actually for ipw2200, but it ought to be 
-applicable for 2100 as well. The ideal fix is probably to ensure that 
-ipw*_down D3s the card and *_up D0s it, which brings enhanced runtime 
-power saving and also has the nice side effect of actually resetting the 
-damned POS in error cases.
+Best regards,
+Ra=FAl
 
--- 
-Matthew Garrett | mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Security is mostly a superstition. It does not exist in nature nor do
+the children of man as a whole experience it. Avoiding danger is no
+safer in the long run than outright exposure. Life is either a daring
+adventure, or nothing - Helen Keller
