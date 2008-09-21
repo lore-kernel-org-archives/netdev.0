@@ -1,70 +1,73 @@
-From: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
-Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware restart.
-Date: Sun, 21 Sep 2008 23:00:50 +0400
-Message-ID: <20080921190050.GA20484@2ka.mipt.ru>
-References: <20080921172316.GA6306@2ka.mipt.ru> <20080921110422.1d010b96@infradead.org> <20080921182835.GA11473@2ka.mipt.ru> <20080921113513.16677c4e@infradead.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware
+	restart.
+Date: Sun, 21 Sep 2008 21:14:04 +0200
+Message-ID: <1222024444.3023.53.camel@johannes.berg>
+References: <20080921172316.GA6306@2ka.mipt.ru>
+	 <20080921110422.1d010b96@infradead.org>
+	 <20080921182835.GA11473@2ka.mipt.ru>
+	 <20080921113513.16677c4e@infradead.org>
+	 <20080921190050.GA20484@2ka.mipt.ru> (sfid-20080921_210242_482049_43D40C50)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-P4pWs/jhFbewJryBGqCD"
+Cc: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
 	reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
 	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+To: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080921113513.16677c4e-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+In-Reply-To: <20080921190050.GA20484-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org> (sfid-20080921_210242_482049_43D40C50)
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 21, 2008 at 11:35:13AM -0700, Arjan van de Ven (arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org) wrote:
-> > And how else user can get attention to the problem which is not fixed
-> > by the vendor? 
-> 
-> ... or the community
 
-Which does not have access to the firmware... Which IMO is failing and
-not the driver itself.
+--=-P4pWs/jhFbewJryBGqCD
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> > It stops after several seconds (or packets?). Sometimes (but rarely)
-> > it works several minutes, sometimes it fires above dmesg line and
-> > continues to work, sometimes it fires it for a while and then stops
-> > writing it, although driver does not send or receive anything (at
-> > least ifconfig counters do not change).
-> 
-> again.. so how about you detect this condition and do, in the driver
-> code, the equivalent of rmmod/insmod to the hardware. I'm sure people
-> who have the hardware would appreciate that type of patch a lot more
-> than the one you sent out.
- 
-Reset task does efectively ipw2100_up(), so the difference is power
-cycles over the PCI bus and enable/disable/request commands. Like this
-stuff:
-	/* We disable the RETRY_TIMEOUT register (0x41) to keep
-	 * PCI Tx retries from interfering with C3 CPU state */
-	pci_read_config_dword(pci_dev, 0x40, &val);
-	if ((val & 0x0000ff00) != 0)
-		pci_write_config_dword(pci_dev, 0x40, val & 0xffff00ff);
+On Sun, 2008-09-21 at 23:00 +0400, Evgeniy Polyakov wrote:
 
-I do remember I had a tibet monk course of decoding ipw2100 PCI
-config address space, just need to find my kimono.
+> Do you want me to implement ipw2100 driver as a big work structure
+> which will run ipw2100_init()/wait/ipw2100_exit() in a loop?
+> And that will be the fix suggested by Intel? That would explain a lot.
 
-Do you want me to implement ipw2100 driver as a big work structure
-which will run ipw2100_init()/wait/ipw2100_exit() in a loop?
-And that will be the fix suggested by Intel? That would explain a lot.
+I think what Arjan is saying is that it would be better to put pressure
+on the responsible folks (I don't think Arjan is anywhere near them at
+all) if you'd put in a WARN_ON() for this error and that would make the
+top entry on kerneloops.org all the time... And additionally put in a
+workaround for yourself for now.
 
-P.S. And some people tell that asking for bug bisection is a hard
-pressure on user. Vendor has to ask him to fix bug himself instead,
-and that will be a solution!
+And can we keep the flames off this list please? That comment from Wei
+Weng was absolutely uncalled for, and inciting a flamewar (as you have
+already blogged) was not really productive either.
 
-Getting the fact, that rmmod/insmod does not always fix the problem (but
-most of the time for a short period of time), I again want to point,
-that it looks like a firmware problem related to some inner timings. You
-ask me to fix the driver and do not even listen to what I said
-previously and do not get that into account and analyze.
+johannes
 
--- 
-	Evgeniy Polyakov
+--=-P4pWs/jhFbewJryBGqCD
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJI1pz3AAoJEKVg1VMiehFYFTUQAMXGPaS6Ec7oPwiOp2SGm2Om
+o8hTLtj+ZpIkBVdVLrm+gukxsEh3NENUdBHWaRuA5BKeOL8yXzTAFoBxGp6RhJfU
+4wLIY0ju3BQIpnau6a1LIe5PHaQXKUs/B70zfrY7WC+/bEbUCB5cBYklhzIVCtih
+PjSbtE4Ljrv4Mb8AzNVNm6ZKvRZ57HA0gycWirziD5LbbbssIvupIJ3mXA5jtmJ6
+s8ljlkcp2UXT+jTDaFHUeBhzNVYnJQ+M+F2E0ZMW9/v/S5an+dq5zVFqQ7f/Icp5
+Pr6W6ZwGjfx9w+BQuvKMKtT+8UeEuRzAcSFi23x1BVtV776/ZoH9J5t6SnhXZpJ9
+hNCxruP8vdlP9bp6izJlrSNA3qEDhnxwZQqbr1h6e65uzcwNO/d9qTXgzpu0MDpp
+9WX6j6A5VmHTQ2R+YGRXRSRiSKsXa5ADLqcQncMJs7jIgfoHHtXGfleUhy/3JTU4
+iD9rBXh5sHoviIzmtfaj72JGeflPjDOvOWdEBTfL3KuVfVcYN4PaAGAT96yXUwpp
+SB7129nIDLDwbu/mm+7TkIHCRK2q/mvz4e499uiLt6eIhYmopXKmS/+KK7SLRDi1
+nqu3ztZhSJrKceHpjMlgaadVRv3oTi3xADwhsm6sW3xuCko8uJs33jS3m7oN4PuS
+1U9xyn52TP88ON++vREd
+=i2O6
+-----END PGP SIGNATURE-----
+
+--=-P4pWs/jhFbewJryBGqCD--
+
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
