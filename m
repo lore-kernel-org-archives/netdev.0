@@ -1,51 +1,75 @@
-From: Marcel Holtmann <holtmann@linux.intel.com>
+From: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
 Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware
-	restart.
-Date: Sun, 21 Sep 2008 21:35:31 +0200
-Message-ID: <1222025731.6782.117.camel@californication>
+ restart.
+Date: Sun, 21 Sep 2008 12:43:32 -0700
+Message-ID: <20080921124332.67ddc13a@infradead.org>
 References: <20080921172316.GA6306@2ka.mipt.ru>
+	<20080921110422.1d010b96@infradead.org>
+	<20080921182835.GA11473@2ka.mipt.ru>
+	<20080921113513.16677c4e@infradead.org>
+	<20080921190050.GA20484@2ka.mipt.ru>
+	<1222024444.3023.53.camel@johannes.berg>
+	<20080921193809.GA8735@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ipw2100-devel@lists.sourceforge.net,
-	linux-wireless@vger.kernel.org, yi.zhu@intel.com,
-	reinette.chatre@intel.com, jgarzik@pobox.com,
-	linville@tuxdriver.com, davem@davemloft.net
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54213 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877AbYIUTej (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 15:34:39 -0400
-In-Reply-To: <20080921172316.GA6306@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080921193809.GA8735-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Evgeniy,
+On Sun, 21 Sep 2008 23:38:09 +0400
+Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org> wrote:
 
-> Following bug exists in the ipw2100 driver/firmware for years and Intel
-> folks never responded to zillions bugzilla entries and forum notices in
-> the internet with some patch or firmware update (although did request
-> dmesg and debug info, and received them).
 > 
-> ipw2100: Fatal interrupt. Scheduling firmware restart.
+> As I pointed, I can rewrite the whole driver's initialization process,
+> so that it looked like init/wait/exit loop, which can be processed at
+> the module load and when fatal interrupt fires. 
+
+yes please do this.
+
 > 
-> I believe it is a firmware bug because after driver is unloaded and
-> loaded back again wireless adapter usually starts working (for small
-> amount of time though). My conspiracy feeling can suggest, that it may
-> be kind of a force to buy a new one, or trivial error in the firmware,
-> when it writes to the same place in the flash and essentially given cell
-> became dead or whatever else.
+> I do hope this will result in a progress. Arjan, do you aggree to add
+> this patch to the current tree?
+> 
+> diff --git a/drivers/net/wireless/ipw2100.c
+> b/drivers/net/wireless/ipw2100.c index 19a401c..9a7b64c 100644
+> --- a/drivers/net/wireless/ipw2100.c
+> +++ b/drivers/net/wireless/ipw2100.c
+> @@ -206,6 +206,8 @@ MODULE_PARM_DESC(disable, "manually disable the
+> radio (default 0 [radio on])"); 
+>  static u32 ipw2100_debug_level = IPW_DL_NONE;
+>  
+> +static int ipw2100_max_fatal_ints = 10;
+> +
+>  #ifdef CONFIG_IPW2100_DEBUG
+>  #define IPW_DEBUG(level, message...) \
+>  do { \
+> @@ -3174,6 +3176,10 @@ static void ipw2100_irq_tasklet(struct
+> ipw2100_priv *priv) if (inta & IPW2100_INTA_FATAL_ERROR) {
+>  		printk(KERN_WARNING DRV_NAME
+>  		       ": Fatal interrupt. Scheduling firmware
+> restart.\n");
+> +		WARN_ON(1);
+> +
+> +		BUG_ON(ipw2100_max_fatal_ints-- <= 0);
 
-I don't know if it is for this bug or a different one, but Matthew
-Garrett seem to have some pending patches. At least that is what he told
-me at PlumbersConf. Lets see if these patches do help. And please follow
-up with Arjan's suggestion and put a WARN_ON in the upstream code
-instead of waving CONFIG_BROKEN around.
+BUG_ON in interrupt context is just extremely hostile, since it means
+the box is dead.
 
-Regards
+also I would suggest using WARN_ON_ONCE() 
 
-Marcel
-
-
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
