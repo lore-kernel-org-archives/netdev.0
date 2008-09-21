@@ -1,65 +1,50 @@
-From: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware
- restart.
-Date: Sun, 21 Sep 2008 13:27:53 -0700
-Message-ID: <20080921132753.5689b564@infradead.org>
-References: <20080921172316.GA6306@2ka.mipt.ru>
-	<20080921110422.1d010b96@infradead.org>
-	<20080921182835.GA11473@2ka.mipt.ru>
-	<20080921113513.16677c4e@infradead.org>
-	<20080921190050.GA20484@2ka.mipt.ru>
-	<1222024444.3023.53.camel@johannes.berg>
-	<20080921193809.GA8735@2ka.mipt.ru>
-	<20080921124332.67ddc13a@infradead.org>
-	<20080921202057.GB25052@2ka.mipt.ru>
+From: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
+Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware restart.
+Date: Mon, 22 Sep 2008 00:26:56 +0400
+Message-ID: <20080921202656.GC25052@2ka.mipt.ru>
+References: <20080921172316.GA6306@2ka.mipt.ru> <20080921110422.1d010b96@infradead.org> <20080921182835.GA11473@2ka.mipt.ru> <20080921113513.16677c4e@infradead.org> <20080921190050.GA20484@2ka.mipt.ru> <1222024444.3023.53.camel@johannes.berg> <20080921193809.GA8735@2ka.mipt.ru> <20080921200518.GK7736@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
 	reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
 	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
+To: Cyrill Gorcunov <gorcunov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080921202057.GB25052-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080921200518.GK7736@localhost>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 22 Sep 2008 00:20:57 +0400
-Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org> wrote:
-
-> On Sun, Sep 21, 2008 at 12:43:32PM -0700, Arjan van de Ven
-> (arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org) wrote:
-> > > @@ -3174,6 +3176,10 @@ static void ipw2100_irq_tasklet(struct
-> > > ipw2100_priv *priv) if (inta & IPW2100_INTA_FATAL_ERROR) {
-> > >  		printk(KERN_WARNING DRV_NAME
-> > >  		       ": Fatal interrupt. Scheduling firmware
-> > > restart.\n");
-> > > +		WARN_ON(1);
-> > > +
-> > > +		BUG_ON(ipw2100_max_fatal_ints-- <= 0);
-> > 
-> > BUG_ON in interrupt context is just extremely hostile, since it
-> > means the box is dead.
-> >
-> > also I would suggest using WARN_ON_ONCE() 
+On Mon, Sep 22, 2008 at 12:05:18AM +0400, Cyrill Gorcunov (gorcunov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+> Since it's that serious maybe we should change
 > 
-> Well, I actually wanted to have a bug there because of it, but now I
-> think that annoying repeated warning is enough to bring attention to
-> the problem by putting bug information into some magic special place
-> called kerneloops collection.
-
-are you more interested in bringing attention than finding something
-that makes the driver work ? I sort of am getting that impression and
-I'd be disappointed if that is the case.
-
-
+> 		IPW_DEBUG_INFO("%s: Fatal error value: 0x%08X\n",
+> 			       priv->net_dev->name, priv->fatal_error);
 > 
-> Consider for inclusing for the upcoming kernel to get wider
-> notifications. Yes, it is not a bugfix, I know.
+> to printk(KERN_WARN)? And here is why - as I see now we can't say what
+> exactly is wrong - Evgeniy said he has a suspicious about firmware so
+> this WARNS will be collected by Arjan thru kerneloops and we could not
+> ask users to change debug level and repost problem - oops will have it
+> by default - and if it really firmware problem - firmware engineers could
+> find this _additional_ info usefull and resolve it (probably).
 
-still more complex than needed; a WARN_ON_ONCE() will be enough.
+The only reason for this change is to make a mark at the kerneloops.
+I.e. users know, there is a bug. Developers know, there is a bug.
+Everyone knows that there is a bug, but until it is at the special place
+we look to each other just like there is no bug.
+
+Here are dumps for example:
+http://www.intellinuxwireless.org/bugzilla/show_bug.cgi?id=245
+
+Bug existed even with 1.2 firmware and .11 kernel.
+Intel, that's a great marketing slogan: stability everywhere!
+
+-- 
+	Evgeniy Polyakov
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
