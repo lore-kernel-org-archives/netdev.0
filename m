@@ -1,48 +1,72 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH] atl2: add tx bytes statistic
-Date: Sat, 20 Sep 2008 18:47:05 -0500
-Message-ID: <20080920184705.46ba1669@osprey.hogchain.net>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Sun, 21 Sep 2008 00:02:31 -0300
+Message-ID: <20080921000231.7ab3c7aa@tux>
+References: <20080819213417.45133573@tux>
+	<20080824163843.33b4f890@tux>
+	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
+	<20080826141812.589848a0@tux>
+	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+	<20080828184919.611dd578@tux>
+	<Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi>
+	<20080830035650.42be37d7@tux>
+	<Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi>
+	<20080907051718.58bf133d@tux>
+	<Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi>
+	<20080908172043.0d25a427@tux>
+	<Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi>
+	<20080911143006.2f516569@tux>
+	<Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi>
+	<20080913203117.2a55ea2c@tux>
+	<Pine.LNX.4.64.0809140722460.17271@wrl-59.cs.helsinki.fi>
+	<20080916112411.062fa615@tux>
+	<Pine.LNX.4.64.0809161726250.1034@wrl-59.cs.helsinki.fi>
+	<20080918173554.1f874238@tux>
+	<Pine.LNX.4.64.0809182349410.4742@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Chris Snook <csnook@redhat.com>, jie.yang@atheros.com,
-	netdev@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost01.isp.att.net ([204.127.217.101]:34193 "EHLO
-	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751714AbYITXrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2008 19:47:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0809182349410.4742@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Date: Sat, 20 Sep 2008 17:37:05 -0500
-Subject: [PATCH] atl2: add tx bytes statistic
+On Fri, 19 Sep 2008 00:04:23 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-Let's see how many bytes have been transmitted.
+> Anyway, if/when you succeed collecting some strace of the server=20
+> processes, please let me know (though putting a full one available mi=
+ght=20
+> not be wise thing like I said earlier). After I thought it a bit, it =
+might=20
+> be enough the start the strace with -p for all server processes of a=20
+> service during a stall and then resolve it after some amount of waiti=
+ng=20
+> with nmap (and hope that strace doesn't resolve it by interfering=20
+> something relevant :-), you will see that from the fact that it resol=
+ves=20
+> without nmap then). That would probably reveal if the processes where=
+=20
+> waiting in accept() or not, and if not, where they were.
 
-Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
----
- drivers/net/atlx/atl2.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+	I got a stall, tried to use strace but even strace couldn't
+trace nothing. Everything which uses some kind of network connection is
+stalled (or because everything is stalled, strace couldn't trace
+anything).
+=09
+	I'll try to leave strace running all the time, but I'm afraid
+it could prevent the stall. Anyway, I'll test and return soon.
 
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-index b2995ac..4f82f66 100644
---- a/drivers/net/atlx/atl2.c
-+++ b/drivers/net/atlx/atl2.c
-@@ -522,8 +522,10 @@ static void atl2_intr_tx(struct atl2_adapter *adapter)
- 		atomic_set(&adapter->txd_read_ptr, (int)txd_read_ptr);
- 
- 		/* tx statistics: */
--		if (txs->ok)
-+		if (txs->ok) {
-+			adapter->net_stats.tx_bytes += txs->pkt_size;
- 			adapter->net_stats.tx_packets++;
-+		}
- 		else
- 			adapter->net_stats.tx_errors++;
- 
--- 
-1.5.5.1
 
+--=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
