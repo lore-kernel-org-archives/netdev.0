@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 00/15]: TCP rexmit changes
-Date: Sat, 20 Sep 2008 21:32:32 -0700 (PDT)
-Message-ID: <20080920.213232.115194384.davem@davemloft.net>
-References: <1221947278-16715-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] netdev: simple_tx_hash shouldn't hash inside fragments
+Date: Sat, 20 Sep 2008 22:06:24 -0700 (PDT)
+Message-ID: <20080920.220624.177591478.davem@davemloft.net>
+References: <20080919004337.10035.3409.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51027
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46211
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750735AbYIUEco convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Sep 2008 00:32:44 -0400
-In-Reply-To: <1221947278-16715-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+	by vger.kernel.org with ESMTP id S1750735AbYIUFGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 01:06:36 -0400
+In-Reply-To: <20080919004337.10035.3409.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Sun, 21 Sep 2008 00:47:43 +0300
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Thu, 18 Sep 2008 17:43:37 -0700
 
-> John Heffner noted ages ago that TCP does O(n^2) processing
-> during recovery. SACKtag part was solved earlier, making
-> duplicate ACKs to avoid scanning the write queue unnecessarily.
-> This change is intented to (mostly) solve the periods when
-> cumulative ACKs occur during a recovery, ie., basically when
-> the situation starts to resolve.
->=20
-> v2 fixes !tp->lost_out detection in case we went already more
-> than 2^31 from the previous retransmit_high.
->=20
-> I played again with it a bit, this time I also went to see the
-> counters using systemtap and afaict the counters matched what
-> I expected to see (fwd-rexmits and some other cases related to
-> collapse/fragment weren't covered by my simple transfer).
+> Currently simple_tx_hash is hashing inside of udp fragments.  As a result
+> packets are getting getting sent to all queues when they shouldn't be.
+> This causes a serious performance regression which can be seen by sending
+> UDP frames larger than mtu on multiqueue devices.  This change will make
+> it so that fragments are hashed only as IP datagrams w/o any protocol
+> information.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-These changes look great, all applied to net-next-2.6
+As we discussed on IRC this fixes a pretty serious performance regression
+compared to previous releases, so I added this to net-2.6 and will push
+to Linus.
 
-Thanks a lot!
+Thanks!
