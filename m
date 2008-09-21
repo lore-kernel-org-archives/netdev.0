@@ -1,39 +1,38 @@
-From: James Courtier-Dutton <James@superbug.co.uk>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
-Date: Sun, 21 Sep 2008 10:13:47 +0100
-Message-ID: <48D6104B.9040304@superbug.co.uk>
+Date: Sun, 21 Sep 2008 02:17:02 -0700 (PDT)
+Message-ID: <20080921.021702.37632261.davem@davemloft.net>
 References: <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au>
+	<48D6104B.9040304@superbug.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, dwalker@mvista.com,
+Cc: herbert@gondor.apana.org.au, dwalker@mvista.com,
 	arjan@infradead.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, jens.axboe@oracle.com,
 	steffen.klassert@secunet.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752687AbYIUJOL@vger.kernel.org>
-In-Reply-To: <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: James@superbug.co.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46633
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750733AbYIUJRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 05:17:15 -0400
+In-Reply-To: <48D6104B.9040304@superbug.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> David Miller <davem@davemloft.net> wrote:
->> receive using multiple RX queues and MSI-X interrupts.  It's
->> also for things like IPSEC where the per-packet cpu usage
->> is so huge (to do the crypto) that it makes sense to even
->> split up the work to multiple cpus within the same flow.
-> 
-> Unfortunately doing this with IPsec is going to be non-trivial
-> since we still want to maintain packet ordering inside IPsec
-> and you don't get the inner flow information until you decrypt
-> the packet.
-> 
+From: James Courtier-Dutton <James@superbug.co.uk>
+Date: Sun, 21 Sep 2008 10:13:47 +0100
 
-Why do you have to preserve packet ordering?
-TCP/IP does not preserve packet ordering across the network.
-IPSEC uses a sliding window for anti-relay detection precisely because
-it has to be able to handle out-of-order packets.
+> Why do you have to preserve packet ordering?
+> TCP/IP does not preserve packet ordering across the network.
 
-Sharing the sliding window between CPUs might be interesting!
+Yes, but we should preserve per-flow ordering as much as
+possible within the local system for optimal performance.
 
-James
+Things fall apart completely, even with TCP, once you reorder more
+than 2 or 3 packets deep.
+
+> Sharing the sliding window between CPUs might be interesting!
+
+Again, Steffen's patches take care of this issue.
