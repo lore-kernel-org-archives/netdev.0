@@ -1,72 +1,110 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: xfrm_state locking regression...
-Date: Sun, 21 Sep 2008 18:21:27 +0300
-Message-ID: <48D66677.2040309@iki.fi>
-References: <48BE329C.2010209@iki.fi> <20080902.234723.163403187.davem@davemloft.net> <20080905115506.GA26179@gondor.apana.org.au> <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <48D63E3A.90301@iki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Sun, 21 Sep 2008 17:25:38 +0200
+Message-ID: <20080921152538.GC2551@ami.dom.local>
+References: <20080920.002137.108837580.davem@davemloft.net> <20080920234843.GA2531@ami.dom.local> <20080920.223538.130375517.davem@davemloft.net> <20080920.225033.261544815.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:52778 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751877AbYIUPVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 11:21:32 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so325905eyi.37
-        for <netdev@vger.kernel.org>; Sun, 21 Sep 2008 08:21:30 -0700 (PDT)
-In-Reply-To: <48D63E3A.90301@iki.fi>
+Received: from fg-out-1718.google.com ([72.14.220.152]:4371 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751954AbYIUPWI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 11:22:08 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1087122fgg.17
+        for <netdev@vger.kernel.org>; Sun, 21 Sep 2008 08:22:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080920.225033.261544815.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timo Ter=E4s wrote:
-> Herbert Xu wrote:
->> On Mon, Sep 08, 2008 at 05:25:13PM -0700, David Miller wrote:
->> I've avoided the memory barrier by simply extending the mutexed
->> section in the GC to cover the list splicing.  Here's the updated
->> patch:
->>
->> ipsec: Use RCU-like construct for saved state within a walk
->>
->> Now that we save states within a walk we need synchronisation
->> so that the list the saved state is on doesn't disappear from
->> under us.
->>
->> As it stands this is done by keeping the state on the list which
->> is bad because it gets in the way of the management of the state
->> life-cycle.
->>
->> An alternative is to make our own pseudo-RCU system where we use
->> counters to indicate which state can't be freed immediately as
->> it may be referenced by an ongoing walk when that resumes.
->=20
-> Does not this logic fail if:
-> 1. completed =3D ongoing
-> 2. 1st walk started and iterator kept (a->lastused =3D ongoing, ongoi=
-ng++)
-> 3. 2nd walk started and iterator kept (b->lastused =3D ongoing, ongoi=
-ng++)
-> 4. 2nd walk finished (completed++)
-> 5. gc triggered: a gets deleted since a->lastused =3D=3D completed
-> 6. 1st walk continued but freed memory accessed as a was deleted
->=20
-> Though currently it does not affect, since xfrm_state_hold/_put
-> are still called when keeping the iterator, so the entries won't
-> actually get garbage collected anyway. So the completed/ongoing
-> counting is basically useless. Or am I missing something?
+On Sat, Sep 20, 2008 at 10:50:33PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Sat, 20 Sep 2008 22:35:38 -0700 (PDT)
+> 
+> > Therefore it seems logical that what really needs to happen is that
+> > we simply pick some new local special token value for 'ret' so that
+> > we can handle that case.  "-1" would probably work fine.
+>  ...
+> > I also think the qdisc_run() test needs to be there.  When the TX
+> > queue fills up, we will doing tons of completely useless work going:
+> 
+> Ok, here is the kind of thing I'm suggesting in all of this.
+> 
+> It gets rid of bouncing unnecessarily into __qdisc_run() when
+> dev_queue_xmit()'s finally selected TXQ is stopped.
+> 
+> It also gets rid of the dev_requeue_skb() looping case Jarek
+> discovered.
+> 
+> diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+> index b786a5b..4082f39 100644
+> --- a/include/net/pkt_sched.h
+> +++ b/include/net/pkt_sched.h
+> @@ -90,10 +90,7 @@ extern void __qdisc_run(struct Qdisc *q);
+>  
+>  static inline void qdisc_run(struct Qdisc *q)
+>  {
+> -	struct netdev_queue *txq = q->dev_queue;
+> -
+> -	if (!netif_tx_queue_stopped(txq) &&
+> -	    !test_and_set_bit(__QDISC_STATE_RUNNING, &q->state))
+> +	if (!test_and_set_bit(__QDISC_STATE_RUNNING, &q->state))
+>  		__qdisc_run(q);
+>  }
+>  
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index fdfc4b6..4654127 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1809,7 +1809,15 @@ gso:
+>  			rc = NET_XMIT_DROP;
+>  		} else {
+>  			rc = qdisc_enqueue_root(skb, q);
+> -			qdisc_run(q);
+> +
+> +			txq = NULL;
+> +			if (rc == NET_XMIT_SUCCESS) {
+> +				int map = skb_get_queue_mapping(skb);
 
-Obviously I missed the fact that it prevents deletion of the entries
-which the iterator held list node might still point to.
+Deja vu? How about e.g. blackhole_enqueue()?
 
-But the flaw still exists: the entries which interator->next points
-can be deleted if there is a walking that takes a long time and
-meanwhile we get walks that complete fast.
+> +				txq = netdev_get_tx_queue(dev, map);
+> +			}
+> +
+> +			if (!txq || !netif_tx_queue_stopped(txq))
+> +				qdisc_run(q);
+>  		}
+>  		spin_unlock(root_lock);
+>  
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index ec0a083..b6e6926 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -117,7 +117,7 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+>  static inline int qdisc_restart(struct Qdisc *q)
+>  {
+>  	struct netdev_queue *txq;
+> -	int ret = NETDEV_TX_BUSY;
+> +	int ret = -2;
+>  	struct net_device *dev;
+>  	spinlock_t *root_lock;
+>  	struct sk_buff *skb;
+> @@ -158,7 +158,7 @@ static inline int qdisc_restart(struct Qdisc *q)
+>  		if (unlikely (ret != NETDEV_TX_BUSY && net_ratelimit()))
+>  			printk(KERN_WARNING "BUG %s code %d qlen %d\n",
+>  			       dev->name, ret, q->q.qlen);
+> -
+> +	case -2:
+>  		ret = dev_requeue_skb(skb, q);
 
-> Wouldn't it be enough to do the list_del_rcu on delete? And
-> just keep reference as previously?
+Hmm... I really can't see any difference - except getting rid of this
+if sometimes.
 
-So if we do list_del_rcu() on delete, could we also xfrm_state_hold()
-the entry pointed to by that list entry. And then on GC we could
-xfrm_state_put() the next entry.
+>  		break;
+>  	}
 
-- Timo
+Jarek P.
