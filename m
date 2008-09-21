@@ -1,80 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
-	dev_deactivate() race
-Date: Sun, 21 Sep 2008 15:38:21 +0900
-Message-ID: <20080921063821.GA8677@gondor.apana.org.au>
-References: <20080920.002137.108837580.davem@davemloft.net> <20080920234843.GA2531@ami.dom.local> <20080920.223538.130375517.davem@davemloft.net> <20080920.225033.261544815.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
+Date: Sat, 20 Sep 2008 23:57:27 -0700 (PDT)
+Message-ID: <20080920.235727.247411045.davem@davemloft.net>
+References: <20080920.125949.193703969.davem@davemloft.net>
+	<E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
-	alexander.h.duyck@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dwalker@mvista.com, arjan@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com, steffen.klassert@secunet.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37131 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750997AbYIUGi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 02:38:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20080920.225033.261544815.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59948
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750997AbYIUG5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 02:57:39 -0400
+In-Reply-To: <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 20, 2008 at 10:50:33PM -0700, David Miller wrote:
->
-> Ok, here is the kind of thing I'm suggesting in all of this.
-> 
-> It gets rid of bouncing unnecessarily into __qdisc_run() when
-> dev_queue_xmit()'s finally selected TXQ is stopped.
-> 
-> It also gets rid of the dev_requeue_skb() looping case Jarek
-> discovered.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 21 Sep 2008 15:05:45 +0900
 
-Looks good to me.
+> Unfortunately doing this with IPsec is going to be non-trivial
+> since we still want to maintain packet ordering inside IPsec
+> and you don't get the inner flow information until you decrypt
+> the packet.
 
-However, I've changed my mind about letting this thread die :)
+Steffen has mechanisms by which to deal with this in his patches.
 
-Let's go back to the basic requirements.  I claim that there
-are exactly two different ways for which multiple TX queues are
-useful:  SMP scaling and QOS.  In the first case we stuff different
-flows into different queues to reduce contention between CPUs.
-In the latter case we put packets of different priorities into
-different queues in order to prevent a storm of lower priority
-packets from starving higher priority ones that arrive later.
+> So if we want to process IPsec packets in parallel it's best to
+> implement that from within the crypto API where we can queue the
+> result in order to ensure proper ordering.
 
-Despite the different motivations, these two scenarios have
-one thing in common, we can structure it such that there is
-a one-to-one correspondence between the qdisc/software queues
-and the hardware queues.  I know that this isn't currently the
-case for prio but I'll get to that later in the message.
+That's another option, of course.  And crypto could use remote
+softirqs even for that :-)
 
-What I'm trying to say is that we shouldn't ever support cases
-where a single qdisc empties into multiple TX queues.  It just
-doesn't make sense.
+> Of course, we need to balance any effort spent on this with the
+> likelihood that hardware improvements will soon make this obsolete
+> (for IPsec anyway).
 
-For example, if you were using a qdisc like TBF, multiple queues
-buy you absolutely nothing.  All it does is give you a longer queue
-to stuff packets into but you can already get that in software.
+True, but old hardware will always exist.
 
-Why am I saying all this? It's because a lot of the complexity
-in the current code comes from supporting the case of one qdisc
-queue mapping onto n hardware queues.  If we didn't do that then
-handling stopped queues becomes trivial (or at least as easy as
-it was before).
-
-Put it another way, it makes absolutely no sense to map packets
-onto different queues after you've dequeued them from a single
-qdisc queue.  The mapping by hashing is for SMP scalability only
-and if you've already gone through a single qdisc queue you can
-stop worrying about it because it will suck on SMP :)
-
-Going back to the case of prio, I think what we should do is to
-create a separate qdisc queue for each band.  The qdisc selection
-should be done before the packet is queued, just as we do in the
-TX hashing case.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+A lot of very reasonable machines out there will benefit from software
+RX flow seperation.
