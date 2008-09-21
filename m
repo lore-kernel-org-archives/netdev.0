@@ -1,11 +1,11 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
  dev_deactivate() race
-Date: Sat, 20 Sep 2008 22:35:38 -0700 (PDT)
-Message-ID: <20080920.223538.130375517.davem@davemloft.net>
-References: <20080914202715.GA2540@ami.dom.local>
-	<20080920.002137.108837580.davem@davemloft.net>
+Date: Sat, 20 Sep 2008 22:50:33 -0700 (PDT)
+Message-ID: <20080920.225033.261544815.davem@davemloft.net>
+References: <20080920.002137.108837580.davem@davemloft.net>
 	<20080920234843.GA2531@ami.dom.local>
+	<20080920.223538.130375517.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,77 +13,88 @@ Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
 	kaber@trash.net
 To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58709
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39756
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750886AbYIUFfu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 01:35:50 -0400
-In-Reply-To: <20080920234843.GA2531@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1750997AbYIUFup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 01:50:45 -0400
+In-Reply-To: <20080920.223538.130375517.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sun, 21 Sep 2008 01:48:43 +0200
+From: David Miller <davem@davemloft.net>
+Date: Sat, 20 Sep 2008 22:35:38 -0700 (PDT)
 
-> On Sat, Sep 20, 2008 at 12:21:37AM -0700, David Miller wrote:
-> ...
-> > Let's look at what actually matters for cpu utilization.  These
-> > __qdisc_run() things are invoked in two situations where we might
-> > block on the hw queue being stopped:
-> > 
-> > 1) When feeding packets into the qdisc in dev_queue_xmit().
+> Therefore it seems logical that what really needs to happen is that
+> we simply pick some new local special token value for 'ret' so that
+> we can handle that case.  "-1" would probably work fine.
  ...
-> > 2) When waking up a queue.  And here we should schedule the qdisc_run
-> >    _unconditionally_.
- ...
-> > The cpu utilization savings exist for case #1 only, and we can
-> > implement the bypass logic _perfectly_ as described above.
-> > 
-> > For #2 there is nothing to check, just do it and see what comes
-> > out of the qdisc.
-> 
-> Right, unless __netif_schedule() wasn't done when waking up. I've
-> thought about this because of another thread/patch around this
-> problem, and got misled by dev_requeue_skb() scheduling. Now, I think
-> this could be the main reason for this high load. Anyway, if we want
-> to skip this check for #2 I think something like the patch below is
-> needed.
+> I also think the qdisc_run() test needs to be there.  When the TX
+> queue fills up, we will doing tons of completely useless work going:
 
-Hmmm, looking at your patch....
+Ok, here is the kind of thing I'm suggesting in all of this.
 
-It's only doing something new when the driver returns NETDEV_TX_BUSY
-from ->hard_start_xmit().
+It gets rid of bouncing unnecessarily into __qdisc_run() when
+dev_queue_xmit()'s finally selected TXQ is stopped.
 
-That _never_ happens in any sane driver.  That case is for buggy
-devices that do not maintain their TX queue state properly.  And
-in fact it's a case for which I advocate we just drop the packet
-instead of requeueing.  :-)
+It also gets rid of the dev_requeue_skb() looping case Jarek
+discovered.
 
-Oh I see, you're concerned about that cases where qdisc_restart() ends
-up using the default initialization of the 'ret' variable.
-
-Really, for the case where the driver actually returns NETDEV_TX_BUSY
-we _do_ want to unconditionally __netif_schedule(), since the device
-doesn't maintain it's queue state in the normal way.
-
-Therefore it seems logical that what really needs to happen is that
-we simply pick some new local special token value for 'ret' so that
-we can handle that case.  "-1" would probably work fine.
-
-So I'm dropping your patch.
-
-I also think the qdisc_run() test needs to be there.  When the TX
-queue fills up, we will doing tons of completely useless work going:
-
-1) ->dequeue
-2) qdisc unlock
-3) TXQ lock
-4) test state
-5) TXQ unlock
-6) qdisc lock
-7) ->requeue
-
-for EVERY SINGLE packet that is generated towards that device.
-
-That has to be expensive, and I am still very much convinced that
-this was the original regression cause that made me put that TXQ
-state test back into qdisc_run().
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index b786a5b..4082f39 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -90,10 +90,7 @@ extern void __qdisc_run(struct Qdisc *q);
+ 
+ static inline void qdisc_run(struct Qdisc *q)
+ {
+-	struct netdev_queue *txq = q->dev_queue;
+-
+-	if (!netif_tx_queue_stopped(txq) &&
+-	    !test_and_set_bit(__QDISC_STATE_RUNNING, &q->state))
++	if (!test_and_set_bit(__QDISC_STATE_RUNNING, &q->state))
+ 		__qdisc_run(q);
+ }
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fdfc4b6..4654127 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1809,7 +1809,15 @@ gso:
+ 			rc = NET_XMIT_DROP;
+ 		} else {
+ 			rc = qdisc_enqueue_root(skb, q);
+-			qdisc_run(q);
++
++			txq = NULL;
++			if (rc == NET_XMIT_SUCCESS) {
++				int map = skb_get_queue_mapping(skb);
++				txq = netdev_get_tx_queue(dev, map);
++			}
++
++			if (!txq || !netif_tx_queue_stopped(txq))
++				qdisc_run(q);
+ 		}
+ 		spin_unlock(root_lock);
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index ec0a083..b6e6926 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -117,7 +117,7 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+ static inline int qdisc_restart(struct Qdisc *q)
+ {
+ 	struct netdev_queue *txq;
+-	int ret = NETDEV_TX_BUSY;
++	int ret = -2;
+ 	struct net_device *dev;
+ 	spinlock_t *root_lock;
+ 	struct sk_buff *skb;
+@@ -158,7 +158,7 @@ static inline int qdisc_restart(struct Qdisc *q)
+ 		if (unlikely (ret != NETDEV_TX_BUSY && net_ratelimit()))
+ 			printk(KERN_WARNING "BUG %s code %d qlen %d\n",
+ 			       dev->name, ret, q->q.qlen);
+-
++	case -2:
+ 		ret = dev_requeue_skb(skb, q);
+ 		break;
+ 	}
