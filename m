@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH take2] pkt_sched: Fix TX state checking in qdisc_run()
-Date: Sat, 20 Sep 2008 22:18:57 -0700 (PDT)
-Message-ID: <20080920.221857.263162197.davem@davemloft.net>
-References: <20080919103225.GB9135@ff.dom.local>
-	<20080919144450.GA2646@ami.dom.local>
+Subject: Re: [PATCH]: net: Use hton[sl]() was Re: [PATCH 10/14] Phonet:
+ Phonet datagram transport protocol
+Date: Sat, 20 Sep 2008 22:21:51 -0700 (PDT)
+Message-ID: <20080920.222151.90057082.davem@davemloft.net>
+References: <20080916170644.GM8702@ghostprotocols.net>
+	<200809190933.33638.remi.denis-courmont@nokia.com>
+	<20080919152448.GB29403@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kaber@trash.net
-To: jarkao2@gmail.com
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48794
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54776
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750743AbYIUFTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 01:19:09 -0400
-In-Reply-To: <20080919144450.GA2646@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1751119AbYIUFWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2008 01:22:03 -0400
+In-Reply-To: <20080919152448.GB29403@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 19 Sep 2008 16:44:50 +0200
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Fri, 19 Sep 2008 12:24:48 -0300
 
-> pkt_sched: Fix TX state checking in qdisc_run()
-> 
-> Current check wrongly uses the state of the first tx queue for all tx
-> queues in case of non-default qdiscs. This patch brings back per dev
-> __LINK_STATE_XOFF flag, which is set when all tx queues are stopped.
-> This check is needed in qdisc_run() to avoid useless __netif_schedule()
-> calls. The wrongness of this check was first noticed by Herbert Xu.
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> David, the following patch converts what is in net-next-2.6 net/ now:
+ ...
+>     net: Use hton[sl]() instead of __constant_hton[sl]() where applicable
+>     
+>     Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-I'm dropping this and the patches in the ->smart_requeue thread as well.
-
-It simply isn't crystal clear how to proceed at this point.
+Applied, thanks Arnaldo.
