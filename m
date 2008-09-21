@@ -1,47 +1,40 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Mark IPW2100 as BROKEN: Fatal interrupt. Scheduling firmware restart.
-Date: Mon, 22 Sep 2008 00:43:07 +0300
-Message-ID: <200809220043.07345.denys@visp.net.lb>
-References: <20080921182835.GA11473@2ka.mipt.ru> <20080921140203.4698a2ee@infradead.org> <20080921210554.GA2135@2ka.mipt.ru>
+From: Alexey Starikovskiy <aystarik@gmail.com>
+Subject: Re: 2.6.27-rc6-git6: Reported regressions from 2.6.26
+Date: Mon, 22 Sep 2008 01:57:35 +0400
+Message-ID: <48D6C34F.8070700@gmail.com>
+References: <PJz8fNrJNHG.A.65F.wzq1IB@albercik>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ipw2100-devel@lists.sourceforge.net,
-	linux-wireless@vger.kernel.org, yi.zhu@intel.com,
-	reinette.chatre@intel.com, jgarzik@pobox.com,
-	linville@tuxdriver.com, davem@davemloft.net
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753628AbYIUVpl@vger.kernel.org>
-In-Reply-To: <20080921210554.GA2135@2ka.mipt.ru>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <PJz8fNrJNHG.A.65F.wzq1IB@albercik>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 22 September 2008, Evgeniy Polyakov wrote:
-> On Sun, Sep 21, 2008 at 02:02:03PM -0700, Arjan van de Ven 
-(arjan@infradead.org) wrote:
-> > > That allows to dump whatever number of warnings you want. The more we
-> > > have, the louder will be customers scream.
-> >
-> > artificially increasing numbers isn't going to do that; it just shows
-> > you're more interested in making a stink than in getting something
-> > improved ;(
->
-> As practice shows, I'm the only one who is interested in getting
-> something improved, and Intel, as we see right now, is not interested in
-> it at all, since you ask me not only decrease error verbosity, but also
-> do not work towards fixing the bug by trying to understand where it
-> lives.
+Hi Rafael,
+Correct patch is the one attached to bugzilla entry,
+not the one you mention.
 
-You are not right. I had totaly disfunctional Intel driver on two laptops and 
-reported about issue to Intel. Yes it took time, they took all debugs and 
-went coma mode (i was thinking that), but suddently i got mail from them, and 
-next kernel/firmware release worked for me flawlessly. So they did perfect 
-job.
+Regards,
+Alex.
 
-Don't be negative and prepare yourself for giving long debug outputs. Patience 
-and only patience.
+Rafael J. Wysocki wrote:
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=11549
+> Subject		: 2.6.27-rc5 acpi: EC Storm error message on bootup
+> Submitter	: <jmerkey@wolfmountaingroup.com>
+> Date		: 2008-09-02 21:27 (20 days old)
+> References	: http://marc.info/?l=linux-kernel&m=122039255517586&w=4
+> Handled-By	: Alexey Starikovskiy <astarikovskiy@suse.de>
+> Patch		: http://marc.info/?l=linux-kernel&m=122098180019264&w=4
+>   
