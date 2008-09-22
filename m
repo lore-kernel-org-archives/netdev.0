@@ -1,170 +1,77 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/5] dccp: List management for new feature negotiation
-Date: Mon, 22 Sep 2008 09:21:55 +0200
-Message-ID: <1222068117-13401-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/5] dccp: Cleanup routines for feature negotiation
+Date: Mon, 22 Sep 2008 09:21:57 +0200
+Message-ID: <1222068117-13401-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20080921.235853.223987556.davem@davemloft.net>
  <1222068117-13401-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1222068117-13401-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1222068117-13401-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40415 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40432 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751165AbYIVHWM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2008 03:22:12 -0400
-In-Reply-To: <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751655AbYIVHWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 03:22:16 -0400
+In-Reply-To: <1222068117-13401-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds list fields and list management functions for the new feature
-negotiation implementation. The new code is kept in parallel to the old
-code, until removed at the end of the patch set.
-
-Thanks to Arnaldo for suggestions to improve the code.
+This inserts the required de-allocation routines for memory allocated by
+feature negotiation in the socket destructors, replacing dccp_feat_clean()
+in one instance.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/feat.c |  129 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 129 insertions(+), 0 deletions(-)
+ net/dccp/dccp.h  |    2 ++
+ net/dccp/ipv4.c  |    1 +
+ net/dccp/ipv6.c  |    1 +
+ net/dccp/proto.c |    2 +-
+ 4 files changed, 5 insertions(+), 1 deletions(-)
 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -150,6 +150,135 @@ static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
- 	}
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -442,6 +442,8 @@ static inline int dccp_ack_pending(const struct sock *sk)
+ 	       inet_csk_ack_scheduled(sk);
  }
  
-+/*
-+ * List management functions
-+ *
-+ * Feature negotiation lists rely on and maintain the following invariants:
-+ * - each feat_num in the list is known, i.e. we know its type and default value
-+ * - each feat_num/is_local combination is unique (old entries are overwritten)
-+ * - SP values are always freshly allocated
-+ * - list is sorted in increasing order of feature number (faster lookup)
-+ */
-+static struct dccp_feat_entry *dccp_feat_list_lookup(struct list_head *fn_list,
-+						     u8 feat_num, bool is_local)
-+{
-+	struct dccp_feat_entry *entry;
++extern void dccp_feat_list_purge(struct list_head *fn_list);
 +
-+	list_for_each_entry(entry, fn_list, node)
-+		if (entry->feat_num == feat_num && entry->is_local == is_local)
-+			return entry;
-+		else if (entry->feat_num > feat_num)
-+			break;
-+	return NULL;
-+}
-+
-+/**
-+ * dccp_feat_entry_new  -  Central list update routine (called by all others)
-+ * @head:  list to add to
-+ * @feat:  feature number
-+ * @local: whether the local (1) or remote feature with number @feat is meant
-+ * This is the only constructor and serves to ensure the above invariants.
-+ */
-+static struct dccp_feat_entry *
-+	      dccp_feat_entry_new(struct list_head *head, u8 feat, bool local)
-+{
-+	struct dccp_feat_entry *entry;
-+
-+	list_for_each_entry(entry, head, node)
-+		if (entry->feat_num == feat && entry->is_local == local) {
-+			dccp_feat_val_destructor(entry->feat_num, &entry->val);
-+			return entry;
-+		} else if (entry->feat_num > feat) {
-+			head = &entry->node;
-+			break;
-+		}
-+
-+	entry = kmalloc(sizeof(*entry), gfp_any());
-+	if (entry != NULL) {
-+		entry->feat_num = feat;
-+		entry->is_local = local;
-+		list_add_tail(&entry->node, head);
-+	}
-+	return entry;
-+}
-+
-+/**
-+ * dccp_feat_push_change  -  Add/overwrite a Change option in the list
-+ * @fn_list: feature-negotiation list to update
-+ * @feat: one of %dccp_feature_numbers
-+ * @local: whether local (1) or remote (0) @feat_num is meant
-+ * @needs_mandatory: whether to use Mandatory feature negotiation options
-+ * @fval: pointer to NN/SP value to be inserted (will be copied)
-+ */
-+static int dccp_feat_push_change(struct list_head *fn_list, u8 feat, u8 local,
-+				 u8 mandatory, dccp_feat_val *fval)
-+{
-+	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
-+
-+	if (new == NULL)
-+		return -ENOMEM;
-+
-+	new->feat_num	     = feat;
-+	new->is_local	     = local;
-+	new->state	     = FEAT_INITIALISING;
-+	new->needs_confirm   = 0;
-+	new->empty_confirm   = 0;
-+	new->val	     = *fval;
-+	new->needs_mandatory = mandatory;
-+
-+	return 0;
-+}
-+
-+/**
-+ * dccp_feat_push_confirm  -  Add a Confirm entry to the FN list
-+ * @fn_list: feature-negotiation list to add to
-+ * @feat: one of %dccp_feature_numbers
-+ * @local: whether local (1) or remote (0) @feat_num is being confirmed
-+ * @fval: pointer to NN/SP value to be inserted or NULL
-+ * Returns 0 on success, a Reset code for further processing otherwise.
-+ */
-+static int dccp_feat_push_confirm(struct list_head *fn_list, u8 feat, u8 local,
-+				  dccp_feat_val *fval)
-+{
-+	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
-+
-+	if (new == NULL)
-+		return DCCP_RESET_CODE_TOO_BUSY;
-+
-+	new->feat_num	     = feat;
-+	new->is_local	     = local;
-+	new->state	     = FEAT_STABLE;	/* transition in 6.6.2 */
-+	new->needs_confirm   = 1;
-+	new->empty_confirm   = (fval == NULL);
-+	new->val.nn	     = 0;		/* zeroes the whole structure */
-+	if (!new->empty_confirm)
-+		new->val     = *fval;
-+	new->needs_mandatory = 0;
-+
-+	return 0;
-+}
-+
-+static int dccp_push_empty_confirm(struct list_head *fn_list, u8 feat, u8 local)
-+{
-+	return dccp_feat_push_confirm(fn_list, feat, local, NULL);
-+}
-+
-+static inline void dccp_feat_list_pop(struct dccp_feat_entry *entry)
-+{
-+	list_del(&entry->node);
-+	dccp_feat_entry_destructor(entry);
-+}
-+
-+void dccp_feat_list_purge(struct list_head *fn_list)
-+{
-+	struct dccp_feat_entry *entry, *next;
-+
-+	list_for_each_entry_safe(entry, next, fn_list, node)
-+		dccp_feat_entry_destructor(entry);
-+	INIT_LIST_HEAD(fn_list);
-+}
-+EXPORT_SYMBOL_GPL(dccp_feat_list_purge);
-+
- int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
- 		     u8 *val, u8 len, gfp_t gfp)
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+ extern int dccp_insert_options_rsk(struct dccp_request_sock*, struct sk_buff*);
+ extern int dccp_insert_option_elapsed_time(struct sock *sk,
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -545,6 +545,7 @@ out:
+ 
+ static void dccp_v4_reqsk_destructor(struct request_sock *req)
  {
++	dccp_feat_list_purge(&dccp_rsk(req)->dreq_featneg);
+ 	kfree(inet_rsk(req)->opt);
+ }
+ 
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -302,6 +302,7 @@ done:
+ 
+ static void dccp_v6_reqsk_destructor(struct request_sock *req)
+ {
++	dccp_feat_list_purge(&dccp_rsk(req)->dreq_featneg);
+ 	if (inet6_rsk(req)->pktopts != NULL)
+ 		kfree_skb(inet6_rsk(req)->pktopts);
+ }
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -268,7 +268,7 @@ void dccp_destroy_sock(struct sock *sk)
+ 	dp->dccps_hc_rx_ccid = dp->dccps_hc_tx_ccid = NULL;
+ 
+ 	/* clean up feature negotiation state */
+-	dccp_feat_clean(dmsk);
++	dccp_feat_list_purge(&dp->dccps_featneg);
+ }
+ 
+ EXPORT_SYMBOL_GPL(dccp_destroy_sock);
