@@ -1,88 +1,132 @@
 From: akpm@linux-foundation.org
-Subject: [patch 01/21] forcedeth: power down phy when interface is down
-Date: Mon, 22 Sep 2008 14:52:07 -0700
-Message-ID: <200809222152.m8MLq7rr031935@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com, ajones@riverbed.com
+Subject: [patch 04/21] skge: adapt skge to use reworked PCI PM
+Date: Mon, 22 Sep 2008 14:52:11 -0700
+Message-ID: <200809222152.m8MLqBHL031945@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, rjw@sisk.pl,
+	jbarnes@virtuousgeek.org, shemminger@linux-foundation.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54514 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33077 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753421AbYIVVxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:53:14 -0400
+	by vger.kernel.org with ESMTP id S1753315AbYIVVxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:53:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ed Swierk" <eswierk@arastra.com>
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-Bring the physical link down when the interface is down by placing the PHY
-in power-down state, unless WOL is enabled.  This mirrors the behavior of
-other drivers including e1000 and tg3.
+Adapt the skge driver to the reworked PCI PM
 
-Without the patch, ifconfig down leaves the physical link up, which confuses
-datacenter users who expect the link lights both on the NIC and the switch to
-go out when they bring an interface down.
+* Use device_set_wakeup_enable() and friends as needed
+* Remove an open-coded reference to the standard PCI PM registers
+* Use pci_prepare_to_sleep() and pci_back_from_sleep() in the
+  ->suspend() and ->resume() callbacks
+* Use the observation that it is sufficient to call pci_enable_wake()
+  once, unless it fails
 
-Furthermore, even though the phy is powered on, autonegotiation stops working,
-so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
-interface goes down, and become gigabit when it comes up again.
+Tested on Asus L5D (Yukon-Lite rev 7).
 
-Ayaz said:
-
-  I would not include this patch until further testing is performed.  NVIDIA
-  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
-  have adverse affects on certain phys.
-
-Arthur Jones said:
-
-  I just ran across this patch.  Tested on a Marvell 88E1121R (GigE PHY)
-  and works great.  This is a very important feature for me.
-
-Signed-off-by: Ed Swierk <eswierk@arastra.com>
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Tested-by: Arthur Jones <ajones@riverbed.com>
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/skge.c |   38 +++++++++++---------------------------
+ 1 file changed, 11 insertions(+), 27 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-+++ a/drivers/net/forcedeth.c
-@@ -1446,9 +1446,9 @@ static int phy_init(struct net_device *d
- 	/* some phys clear out pause advertisment on reset, set it back */
- 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+diff -puN drivers/net/skge.c~skge-adapt-skge-to-use-reworked-pci-pm drivers/net/skge.c
+--- a/drivers/net/skge.c~skge-adapt-skge-to-use-reworked-pci-pm
++++ a/drivers/net/skge.c
+@@ -149,24 +149,6 @@ static u32 wol_supported(const struct sk
+ 	return WAKE_MAGIC | WAKE_PHY;
+ }
  
--	/* restart auto negotiation */
-+	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
- 	}
-@@ -5210,6 +5210,10 @@ static int nv_open(struct net_device *de
+-static u32 pci_wake_enabled(struct pci_dev *dev)
+-{
+-	int pm = pci_find_capability(dev, PCI_CAP_ID_PM);
+-	u16 value;
+-
+-	/* If device doesn't support PM Capabilities, but request is to disable
+-	 * wake events, it's a nop; otherwise fail */
+-	if (!pm)
+-		return 0;
+-
+-	pci_read_config_word(dev, pm + PCI_PM_PMC, &value);
+-
+-	value &= PCI_PM_CAP_PME_MASK;
+-	value >>= ffs(PCI_PM_CAP_PME_MASK) - 1;   /* First bit of mask */
+-
+-	return value != 0;
+-}
+-
+ static void skge_wol_init(struct skge_port *skge)
+ {
+ 	struct skge_hw *hw = skge->hw;
+@@ -254,10 +236,14 @@ static int skge_set_wol(struct net_devic
+ 	struct skge_port *skge = netdev_priv(dev);
+ 	struct skge_hw *hw = skge->hw;
  
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
+-	if (wol->wolopts & ~wol_supported(hw))
++	if ((wol->wolopts & ~wol_supported(hw))
++	    || !device_can_wakeup(&hw->pdev->dev))
+ 		return -EOPNOTSUPP;
  
-+	/* power up phy */
-+	mii_rw(dev, np->phyaddr, MII_BMCR,
-+	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
+ 	skge->wol = wol->wolopts;
 +
- 	/* erase previous misconfiguration */
- 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
- 		nv_mac_reset(dev);
-@@ -5403,6 +5407,10 @@ static int nv_close(struct net_device *d
- 	if (np->wolenabled) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	} else {
-+		/* power down phy */
-+		mii_rw(dev, np->phyaddr, MII_BMCR,
-+		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
++	device_set_wakeup_enable(&hw->pdev->dev, skge->wol);
++
+ 	return 0;
+ }
+ 
+@@ -3842,7 +3828,7 @@ static struct net_device *skge_devinit(s
+ 	skge->speed = -1;
+ 	skge->advertising = skge_supported_modes(hw);
+ 
+-	if (pci_wake_enabled(hw->pdev))
++	if (device_may_wakeup(&hw->pdev->dev))
+ 		skge->wol = wol_supported(hw) & WAKE_MAGIC;
+ 
+ 	hw->dev[port] = dev;
+@@ -4068,8 +4054,8 @@ static int skge_suspend(struct pci_dev *
  	}
  
- 	/* FIXME: power down nic */
+ 	skge_write32(hw, B0_IMSK, 0);
+-	pci_enable_wake(pdev, pci_choose_state(pdev, state), wol);
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++
++	pci_prepare_to_sleep(pdev);
+ 
+ 	return 0;
+ }
+@@ -4082,7 +4068,7 @@ static int skge_resume(struct pci_dev *p
+ 	if (!hw)
+ 		return 0;
+ 
+-	err = pci_set_power_state(pdev, PCI_D0);
++	err = pci_back_from_sleep(pdev);
+ 	if (err)
+ 		goto out;
+ 
+@@ -4090,8 +4076,6 @@ static int skge_resume(struct pci_dev *p
+ 	if (err)
+ 		goto out;
+ 
+-	pci_enable_wake(pdev, PCI_D0, 0);
+-
+ 	err = skge_reset(hw);
+ 	if (err)
+ 		goto out;
+@@ -4132,8 +4116,8 @@ static void skge_shutdown(struct pci_dev
+ 		wol |= skge->wol;
+ 	}
+ 
+-	pci_enable_wake(pdev, PCI_D3hot, wol);
+-	pci_enable_wake(pdev, PCI_D3cold, wol);
++	if (pci_enable_wake(pdev, PCI_D3cold, wol))
++		pci_enable_wake(pdev, PCI_D3hot, wol);
+ 
+ 	pci_disable_device(pdev);
+ 	pci_set_power_state(pdev, PCI_D3hot);
 _
