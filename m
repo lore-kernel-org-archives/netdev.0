@@ -1,57 +1,83 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: Nagle latency tuning
-Date: Mon, 22 Sep 2008 22:30:42 +0200
-Message-ID: <20080922203042.GY25711@one.firstfloor.org>
-References: <48C6C300.4050102@redhat.com> <20080909.125934.150042096.davem@davemloft.net> <20080922.034933.119934091.davem@davemloft.net> <20080922.040912.193700258.davem@davemloft.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: SCTP checksum patch for 2.6.26.5
+Date: Mon, 22 Sep 2008 16:36:58 -0400
+Message-ID: <48D801EA.7060308@hp.com>
+References: <48D7C0A2.9090406@protei.ru> <20080922.131245.193705447.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: csnook@redhat.com, andi@firstfloor.org, rick.jones2@hp.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: nickolay@protei.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:60784 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031AbYIVUZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 16:25:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20080922.040912.193700258.davem@davemloft.net>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:9317 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648AbYIVUhD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 16:37:03 -0400
+In-Reply-To: <20080922.131245.193705447.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2008 at 04:09:12AM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 22 Sep 2008 03:49:33 -0700 (PDT)
+David Miller wrote:
+> From: Nickolay Vinogradov <nickolay@protei.ru>
+> Date: Mon, 22 Sep 2008 19:58:26 +0400
 > 
-> > I'll try to figure out why Andi's patch doesn't behave as expected.
+> CC:'ing correct mailing lists...
 > 
-> Andi's patch uses proc_dointvec_jiffies, which is for sysctl values
-> stored as seconds, whereas these things are used to record values with
-> smaller granulatiry, are stored in jiffies, and that's why we get zero
-> on read and writes have crazy effects.
+>> SCTP checksum calculation fix for BigEndian.
+>> ntohl() doesn't do anything on BigEndian.
+>>
+>> diff --git a/Makefile b/Makefile
+>> diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
+>> index ba75c67..2f0ed64 100644
+>> --- a/include/net/sctp/checksum.h
+>> +++ b/include/net/sctp/checksum.h
+>> @@ -74,5 +74,19 @@ static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
+>>
+>>   static inline __u32 sctp_end_cksum(__u32 crc32)
+>>   {
+>> -       return ntohl(~crc32);
+>> +       __u32 result;
+>> +       __u8 byte0, byte1, byte2, byte3;
+>> +
+>> +       result = ~crc32;
+>> +
+>> +       byte0 = result & 0xff;
+>> +       byte1 = (result>>8) & 0xff;
+>> +       byte2 = (result>>16) & 0xff;
+>> +       byte3 = (result>>24) & 0xff;
+>> +
+>> +       crc32 = ((byte0 << 24) |
+>> +                (byte1 << 16) |
+>> +                (byte2 << 8)  |
+>> +                byte3);
+>> +       return crc32;
+>>   }
+>> diff --git a/net/sctp/output.c b/net/sctp/output.c
 
-Oops. Assume me with brown paper bag etc.etc.
 
-It was a typo for proc_dointvec_ms_jiffies
+Was this tested?  I remember running tests with that code between
+big and little endian arches and it worked.  So, the old code worked
+correclty.
 
+I changed in 2.6.27 series to do all the calculations in network order anyway.
 
+-vlad
+
+>>
+>>
+>> -- Nickolay Vinogradov
+>> Protei Research and Development Center
+>> St.Petersburg, 194044, Russia
+>> Tel.: +7 812 449 47 27
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> Also, as Andi stated, this is not the way to deal with this problem.
-> 
-> So we have a broken patch, which even if implemented properly isn't the
-> way forward, so I consider this discussion dead in the water until we
-> have some test cases.
 
-The patch is easy to fix with a s/_jiffies/_ms_jiffies/g
-
-Also it was more intended for him to play around and get some data
-points. I guess for that it's still useful.
-
-Also while for that it's probably not the right solution, but 
-I could imagine in some other situations where it might be useful
-to tune these values. After all they are not written down in stone.
-I wonder if it would even make sense to consider hr timers for TCP
-now.
-
-=Andi
--- 
-ak@linux.intel.com
