@@ -1,195 +1,201 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/5] dccp: Implement lookup table for feature-negotiation information
-Date: Mon, 22 Sep 2008 09:21:54 +0200
-Message-ID: <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/5] dccp: Per-socket initialisation of feature negotiation
+Date: Mon, 22 Sep 2008 09:21:56 +0200
+Message-ID: <1222068117-13401-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20080921.235853.223987556.davem@davemloft.net>
  <1222068117-13401-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1222068117-13401-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40415 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751709AbYIVHWS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2008 03:22:18 -0400
-In-Reply-To: <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751753AbYIVHWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 03:22:21 -0400
+In-Reply-To: <1222068117-13401-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A lookup table for feature-negotiation information, extracted from RFC 4340/42,
-is provided by this patch. All currently known features can be found in this
-table, along with their feature location, their default value, and type.
+This provides feature-negotiation initialisation for both DCCP sockets and
+DCCP request_sockets, to support feature negotiation during connection setup.
+
+It also resolves a FIXME regarding the congestion control initialisation.
+
+Thanks to Wei Yongjun for help with the IPv6 side of this patch.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- include/linux/dccp.h |    9 ++--
- net/dccp/feat.c      |  115 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 120 insertions(+), 4 deletions(-)
+ include/linux/dccp.h |    4 ++++
+ net/dccp/dccp.h      |    3 ++-
+ net/dccp/feat.c      |   19 +++++++++++++++++++
+ net/dccp/feat.h      |    1 +
+ net/dccp/input.c     |    2 --
+ net/dccp/ipv4.c      |    3 ++-
+ net/dccp/ipv6.c      |    3 ++-
+ net/dccp/minisocks.c |    7 ++++++-
+ net/dccp/proto.c     |    1 +
+ 9 files changed, 37 insertions(+), 6 deletions(-)
 
 --- a/include/linux/dccp.h
 +++ b/include/linux/dccp.h
-@@ -176,19 +176,20 @@ enum {
+@@ -412,6 +412,7 @@ extern void dccp_minisock_init(struct dccp_minisock *dmsk);
+  * @dreq_iss: initial sequence number sent on the Response (RFC 4340, 7.1)
+  * @dreq_isr: initial sequence number received on the Request
+  * @dreq_service: service code present on the Request (there is just one)
++ * @dreq_featneg: feature negotiation options for this connection
+  * The following two fields are analogous to the ones in dccp_sock:
+  * @dreq_timestamp_echo: last received timestamp to echo (13.1)
+  * @dreq_timestamp_echo: the time of receiving the last @dreq_timestamp_echo
+@@ -421,6 +422,7 @@ struct dccp_request_sock {
+ 	__u64			 dreq_iss;
+ 	__u64			 dreq_isr;
+ 	__be32			 dreq_service;
++	struct list_head	 dreq_featneg;
+ 	__u32			 dreq_timestamp_echo;
+ 	__u32			 dreq_timestamp_time;
  };
+@@ -498,6 +500,7 @@ struct dccp_ackvec;
+  * @dccps_mss_cache - current value of MSS (path MTU minus header sizes)
+  * @dccps_rate_last - timestamp for rate-limiting DCCP-Sync (RFC 4340, 7.5.4)
+  * @dccps_minisock - associated minisock (accessed via dccp_msk)
++ * @dccps_featneg - tracks feature-negotiation state (mostly during handshake)
+  * @dccps_hc_rx_ackvec - rx half connection ack vector
+  * @dccps_hc_rx_ccid - CCID used for the receiver (or receiving half-connection)
+  * @dccps_hc_tx_ccid - CCID used for the sender (or sending half-connection)
+@@ -535,6 +538,7 @@ struct dccp_sock {
+ 	__u64				dccps_ndp_count:48;
+ 	unsigned long			dccps_rate_last;
+ 	struct dccp_minisock		dccps_minisock;
++	struct list_head		dccps_featneg;
+ 	struct dccp_ackvec		*dccps_hc_rx_ackvec;
+ 	struct ccid			*dccps_hc_rx_ccid;
+ 	struct ccid			*dccps_hc_tx_ccid;
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -252,7 +252,8 @@ extern const char *dccp_state_name(const int state);
+ extern void dccp_set_state(struct sock *sk, const int state);
+ extern void dccp_done(struct sock *sk);
  
- /* DCCP features (RFC 4340 section 6.4) */
--enum {
-+enum dccp_feature_numbers {
- 	DCCPF_RESERVED = 0,
- 	DCCPF_CCID = 1,
--	DCCPF_SHORT_SEQNOS = 2,		/* XXX: not yet implemented */
-+	DCCPF_SHORT_SEQNOS = 2,
- 	DCCPF_SEQUENCE_WINDOW = 3,
--	DCCPF_ECN_INCAPABLE = 4,	/* XXX: not yet implemented */
-+	DCCPF_ECN_INCAPABLE = 4,
- 	DCCPF_ACK_RATIO = 5,
- 	DCCPF_SEND_ACK_VECTOR = 6,
- 	DCCPF_SEND_NDP_COUNT = 7,
- 	DCCPF_MIN_CSUM_COVER = 8,
--	DCCPF_DATA_CHECKSUM = 9,	/* XXX: not yet implemented */
-+	DCCPF_DATA_CHECKSUM = 9,
- 	/* 10-127 reserved */
- 	DCCPF_MIN_CCID_SPECIFIC = 128,
-+	DCCPF_SEND_LEV_RATE = 192,	/* RFC 4342, sec. 8.4 */
- 	DCCPF_MAX_CCID_SPECIFIC = 255,
- };
+-extern void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb);
++extern int  dccp_reqsk_init(struct request_sock *rq, struct dccp_sock const *dp,
++			    struct sk_buff const *skb);
+ 
+ extern int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
  
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -23,6 +23,80 @@
- 
- #define DCCP_FEAT_SP_NOAGREE (-123)
- 
-+static const struct {
-+	u8			feat_num;		/* DCCPF_xxx */
-+	enum dccp_feat_type	rxtx;			/* RX or TX  */
-+	enum dccp_feat_type	reconciliation;		/* SP or NN  */
-+	u8			default_value;		/* as in 6.4 */
-+/*
-+ *    Lookup table for location and type of features (from RFC 4340/4342)
-+ *  +--------------------------+----+-----+----+----+---------+-----------+
-+ *  | Feature                  | Location | Reconc. | Initial |  Section  |
-+ *  |                          | RX | TX  | SP | NN |  Value  | Reference |
-+ *  +--------------------------+----+-----+----+----+---------+-----------+
-+ *  | DCCPF_CCID               |    |  X  | X  |    |   2     | 10        |
-+ *  | DCCPF_SHORT_SEQNOS       |    |  X  | X  |    |   0     |  7.6.1    |
-+ *  | DCCPF_SEQUENCE_WINDOW    |    |  X  |    | X  | 100     |  7.5.2    |
-+ *  | DCCPF_ECN_INCAPABLE      | X  |     | X  |    |   0     | 12.1      |
-+ *  | DCCPF_ACK_RATIO          |    |  X  |    | X  |   2     | 11.3      |
-+ *  | DCCPF_SEND_ACK_VECTOR    | X  |     | X  |    |   0     | 11.5      |
-+ *  | DCCPF_SEND_NDP_COUNT     |    |  X  | X  |    |   0     |  7.7.2    |
-+ *  | DCCPF_MIN_CSUM_COVER     | X  |     | X  |    |   0     |  9.2.1    |
-+ *  | DCCPF_DATA_CHECKSUM      | X  |     | X  |    |   0     |  9.3.1    |
-+ *  | DCCPF_SEND_LEV_RATE      | X  |     | X  |    |   0     | 4342/8.4  |
-+ *  +--------------------------+----+-----+----+----+---------+-----------+
-+ */
-+} dccp_feat_table[] = {
-+	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2 },
-+	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0 },
-+	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100 },
-+	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2 },
-+	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0 },
-+	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0 },
-+};
-+#define DCCP_FEAT_SUPPORTED_MAX		ARRAY_SIZE(dccp_feat_table)
-+
-+/**
-+ * dccp_feat_index  -  Hash function to map feature number into array position
-+ * Returns consecutive array index or -1 if the feature is not understood.
-+ */
-+static int dccp_feat_index(u8 feat_num)
-+{
-+	/* The first 9 entries are occupied by the types from RFC 4340, 6.4 */
-+	if (feat_num > DCCPF_RESERVED && feat_num <= DCCPF_DATA_CHECKSUM)
-+		return feat_num - 1;
-+
-+	/*
-+	 * Other features: add cases for new feature types here after adding
-+	 * them to the above table.
-+	 */
-+	switch (feat_num) {
-+	case DCCPF_SEND_LEV_RATE:
-+			return DCCP_FEAT_SUPPORTED_MAX - 1;
-+	}
-+	return -1;
-+}
-+
-+static u8 dccp_feat_type(u8 feat_num)
-+{
-+	int idx = dccp_feat_index(feat_num);
-+
-+	if (idx < 0)
-+		return FEAT_UNKNOWN;
-+	return dccp_feat_table[idx].reconciliation;
-+}
-+
-+static int dccp_feat_default_value(u8 feat_num)
-+{
-+	int idx = dccp_feat_index(feat_num);
-+
-+	return idx < 0 ? : dccp_feat_table[idx].default_value;
-+}
-+
- /* copy constructor, fval must not already contain allocated memory */
- static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
- {
-@@ -37,6 +111,45 @@ static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
- 	return 0;
+@@ -279,6 +279,25 @@ void dccp_feat_list_purge(struct list_head *fn_list)
  }
+ EXPORT_SYMBOL_GPL(dccp_feat_list_purge);
  
-+static void dccp_feat_val_destructor(u8 feat_num, dccp_feat_val *val)
++/* generate @to as full clone of @from - @to must not contain any nodes */
++int dccp_feat_clone_list(struct list_head const *from, struct list_head *to)
 +{
-+	if (unlikely(val == NULL))
-+		return;
-+	if (dccp_feat_type(feat_num) == FEAT_SP)
-+		kfree(val->sp.vec);
-+	memset(val, 0, sizeof(*val));
-+}
++	struct dccp_feat_entry *entry, *new;
 +
-+static struct dccp_feat_entry *
-+	      dccp_feat_clone_entry(struct dccp_feat_entry const *original)
-+{
-+	struct dccp_feat_entry *new;
-+	u8 type = dccp_feat_type(original->feat_num);
-+
-+	if (type == FEAT_UNKNOWN)
-+		return NULL;
-+
-+	new = kmemdup(original, sizeof(struct dccp_feat_entry), gfp_any());
-+	if (new == NULL)
-+		return NULL;
-+
-+	if (type == FEAT_SP && dccp_feat_clone_sp_val(&new->val,
-+						      original->val.sp.vec,
-+						      original->val.sp.len)) {
-+		kfree(new);
-+		return NULL;
++	INIT_LIST_HEAD(to);
++	list_for_each_entry(entry, from, node) {
++		new = dccp_feat_clone_entry(entry);
++		if (new == NULL)
++			goto cloning_failed;
++		list_add_tail(&new->node, to);
 +	}
-+	return new;
-+}
++	return 0;
 +
-+static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
-+{
-+	if (entry != NULL) {
-+		dccp_feat_val_destructor(entry->feat_num, &entry->val);
-+		kfree(entry);
-+	}
++cloning_failed:
++	dccp_feat_list_purge(to);
++	return -ENOMEM;
 +}
 +
  int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
  		     u8 *val, u8 len, gfp_t gfp)
  {
-@@ -653,6 +766,8 @@ const char *dccp_feat_name(const u8 feat)
- 	if (feat > DCCPF_DATA_CHECKSUM && feat < DCCPF_MIN_CCID_SPECIFIC)
- 		return feature_names[DCCPF_RESERVED];
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -95,6 +95,7 @@ extern int  dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
+ 				   u8 *val, u8 len);
+ extern void dccp_feat_clean(struct dccp_minisock *dmsk);
+ extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
++extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
+ extern int  dccp_feat_init(struct dccp_minisock *dmsk);
  
-+	if (feat ==  DCCPF_SEND_LEV_RATE)
-+		return "Send Loss Event Rate";
- 	if (feat >= DCCPF_MIN_CCID_SPECIFIC)
- 		return "CCID-specific";
+ #endif /* _DCCP_FEAT_H */
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -590,8 +590,6 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 			if (inet_csk(sk)->icsk_af_ops->conn_request(sk,
+ 								    skb) < 0)
+ 				return 1;
+-
+-			/* FIXME: do congestion control initialization */
+ 			goto discard;
+ 		}
+ 		if (dh->dccph_type == DCCP_PKT_RESET)
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -595,7 +595,8 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (req == NULL)
+ 		goto drop;
  
+-	dccp_reqsk_init(req, skb);
++	if (dccp_reqsk_init(req, dccp_sk(sk), skb))
++		goto drop_and_free;
+ 
+ 	dreq = dccp_rsk(req);
+ 	if (dccp_parse_options(sk, dreq, skb))
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -424,7 +424,8 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (req == NULL)
+ 		goto drop;
+ 
+-	dccp_reqsk_init(req, skb);
++	if (dccp_reqsk_init(req, dccp_sk(sk), skb))
++		goto drop_and_free;
+ 
+ 	dreq = dccp_rsk(req);
+ 	if (dccp_parse_options(sk, dreq, skb))
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -125,6 +125,7 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
+ 		newdp->dccps_timestamp_time = dreq->dreq_timestamp_time;
+ 		newicsk->icsk_rto	    = DCCP_TIMEOUT_INIT;
+ 
++		INIT_LIST_HEAD(&newdp->dccps_featneg);
+ 		if (dccp_feat_clone(sk, newsk))
+ 			goto out_free;
+ 
+@@ -304,7 +305,8 @@ void dccp_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+ 
+ EXPORT_SYMBOL_GPL(dccp_reqsk_send_ack);
+ 
+-void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb)
++int dccp_reqsk_init(struct request_sock *req,
++		    struct dccp_sock const *dp, struct sk_buff const *skb)
+ {
+ 	struct dccp_request_sock *dreq = dccp_rsk(req);
+ 
+@@ -312,6 +314,9 @@ void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb)
+ 	inet_rsk(req)->acked	  = 0;
+ 	req->rcv_wnd		  = sysctl_dccp_feat_sequence_window;
+ 	dreq->dreq_timestamp_echo = 0;
++
++	/* inherit feature negotiation options from listening socket */
++	return dccp_feat_clone_list(&dp->dccps_featneg, &dreq->dreq_featneg);
+ }
+ 
+ EXPORT_SYMBOL_GPL(dccp_reqsk_init);
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -193,6 +193,7 @@ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
+ 
+ 	dccp_init_xmit_timers(sk);
+ 
++	INIT_LIST_HEAD(&dp->dccps_featneg);
+ 	/*
+ 	 * FIXME: We're hardcoding the CCID, and doing this at this point makes
+ 	 * the listening (master) sock get CCID control blocks, which is not
