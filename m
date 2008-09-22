@@ -1,83 +1,66 @@
 From: akpm@linux-foundation.org
-Subject: [patch 02/21] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
-Date: Mon, 22 Sep 2008 14:52:09 -0700
-Message-ID: <200809222152.m8MLq9N3031938@imap1.linux-foundation.org>
+Subject: [patch 21/21] drivers/net/sfc/falcon.c: fix min() warnings
+Date: Mon, 22 Sep 2008 14:52:29 -0700
+Message-ID: <200809222152.m8MLqTQ9032000@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
-	stable@kernel.org
+	bhutchings@solarflare.com, jgarzik@redhat.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35293 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59063 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753154AbYIVVyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:54:02 -0400
+	by vger.kernel.org with ESMTP id S1753462AbYIVVyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:54:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Pyne <michael.pyne@kdemail.net>
+From: Andrew Morton <akpm@linux-foundation.org>
 
-Partially revert a change to mac address detection introduced to the forcedeth
-driver.  The change was intended to correct mac address detection for newer
-nVidia chipsets where the mac address was stored in reverse order.  One of
-those chipsets appears to still have the mac address in reverse order (or at
-least, it does on my system).
+drivers/net/sfc/falcon.c: In function 'falcon_spi_write_limit':
+drivers/net/sfc/falcon.c:1679: warning: comparison of distinct pointer types lacks a cast
+drivers/net/sfc/falcon.c: In function 'falcon_spi_read':
+drivers/net/sfc/falcon.c:1720: warning: comparison of distinct pointer types lacks a cast
 
-The change that broke mac address detection for my card was commit
-ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
+Driver seems rather confused about types.  Try to help it.
 
-My network card is an nVidia built-in Ethernet card, output from lspci as
-follows (with text and numeric ids):
-$ lspci | grep Ethernet
-00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
-$ lspci -n | grep 07.0
-00:07.0 0680: 10de:03ef (rev a2)
-
-The vendor id is, of course, nVidia.  The device id corresponds to the
-NVIDIA_NVENET_19 entry.
-
-The included patch fixes the MAC address detection on my system.
-Interestingly, the MAC address appears to be in the range reserved for my
-motherboard manufacturer (Gigabyte) and not nVidia.
-
-Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Cc: <stable@kernel.org>
-
-On Wed, 21 Nov 2007 15:34:52 -0800
-"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
-
-> The solution is to get the OEM to update their BIOS (instead of
-> integrating this patch) since the MCP61 specs indicate that the MAC
-> Address should be in correct order from BIOS.
-> 
-> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
-> could cause it to break on other OEM systems who have implemented it
-> correctly.
-> 
-
-On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
-> NAK - this fixes one set of users, and breaks a working set of users.
-> 
-> Need to add DMI check for the specific motherboard (dmi_check_system), 
-> and flip flag according to success/failure of that check.
-
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Jeff Garzik <jgarzik@redhat.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/sfc/falcon.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
-+++ a/drivers/net/forcedeth.c
-@@ -6069,7 +6069,7 @@ static struct pci_device_id pci_tbl[] = 
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
+diff -puN drivers/net/sfc/falcon.c~drivers-net-sfc-falconc-fix-min-warnings drivers/net/sfc/falcon.c
+--- a/drivers/net/sfc/falcon.c~drivers-net-sfc-falconc-fix-min-warnings
++++ a/drivers/net/sfc/falcon.c
+@@ -1673,8 +1673,8 @@ static int falcon_spi_cmd(const struct e
+ 	return 0;
+ }
+ 
+-static unsigned int
+-falcon_spi_write_limit(const struct efx_spi_device *spi, unsigned int start)
++static size_t
++falcon_spi_write_limit(const struct efx_spi_device *spi, size_t start)
+ {
+ 	return min(FALCON_SPI_MAX_LEN,
+ 		   (spi->block_size - (start & (spi->block_size - 1))));
+@@ -1717,8 +1717,7 @@ int falcon_spi_read(const struct efx_spi
+ 	int rc = 0;
+ 
+ 	while (pos < len) {
+-		block_len = min((unsigned int)len - pos,
+-				FALCON_SPI_MAX_LEN);
++		block_len = min(len - pos, FALCON_SPI_MAX_LEN);
+ 
+ 		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
+ 		rc = falcon_spi_cmd(spi, command, start + pos, NULL,
+@@ -1752,7 +1751,7 @@ int falcon_spi_write(const struct efx_sp
+ 		if (rc)
+ 			break;
+ 
+-		block_len = min((unsigned int)len - pos,
++		block_len = min(len - pos,
+ 				falcon_spi_write_limit(spi, start + pos));
+ 		command = efx_spi_munge_command(spi, SPI_WRITE, start + pos);
+ 		rc = falcon_spi_cmd(spi, command, start + pos,
 _
