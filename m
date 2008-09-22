@@ -1,174 +1,125 @@
 From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 06/11] Phonet: common socket glue
-Date: Mon, 22 Sep 2008 18:47:20 +0300
-Message-ID: <1222098445-26175-6-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 09/11] Phonet: proc interface for port range
+Date: Mon, 22 Sep 2008 18:47:23 +0300
+Message-ID: <1222098445-26175-9-git-send-email-remi.denis-courmont@nokia.com>
 References: <200809221845.54736.remi.denis-courmont@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:53004 "EHLO
+Received: from smtp.nokia.com ([192.100.122.233]:53006 "EHLO
 	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753462AbYIVPrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 11:47:45 -0400
+	with ESMTP id S1753527AbYIVPrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 11:47:46 -0400
 Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
-	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8MFlZFZ027641
-	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 18:47:42 +0300
+	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8MFlZFb027641
+	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 18:47:43 +0300
 In-Reply-To: <200809221845.54736.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides the socket API for the Phonet protocols family.
+Phonet endpoints are bound to individual ports.
+This provides a /proc/sys/net/phonet (or sysctl) interface for
+selecting the range of automatically allocated ports (much like the
+ip_local_port_range with IPv4).
 
 Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- include/linux/phonet.h      |    3 +
- include/net/phonet/phonet.h |   23 +++
+ include/net/phonet/phonet.h |    3 +
  net/phonet/Makefile         |    1 +
- net/phonet/af_phonet.c      |   28 ++++-
- net/phonet/socket.c         |  311 +++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 363 insertions(+), 3 deletions(-)
- create mode 100644 net/phonet/socket.c
+ net/phonet/af_phonet.c      |    3 +
+ net/phonet/socket.c         |    3 +-
+ net/phonet/sysctl.c         |  113 +++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 122 insertions(+), 1 deletions(-)
+ create mode 100644 net/phonet/sysctl.c
 
-diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-index 6a764f8..001c0e6 100644
---- a/include/linux/phonet.h
-+++ b/include/linux/phonet.h
-@@ -32,6 +32,9 @@
- #define PNADDR_ANY		0
- #define PNPORT_RESOURCE_ROUTING	0
- 
-+/* ioctls */
-+#define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
-+
- /* Phonet protocol header */
- struct phonethdr {
- 	__u8	pn_rdev;
 diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-index 8b77794..2ae5cbb 100644
+index d3957d3..1c6f7e7 100644
 --- a/include/net/phonet/phonet.h
 +++ b/include/net/phonet/phonet.h
-@@ -29,6 +29,28 @@
-  */
- #define MAX_PHONET_HEADER	8
+@@ -47,6 +47,7 @@ static inline struct pn_sock *pn_sk(struct sock *sk)
+ extern const struct proto_ops phonet_dgram_ops;
  
-+/*
-+ * Every Phonet* socket has this structure first in its
-+ * protocol-specific structure under name c.
-+ */
-+struct pn_sock {
-+	struct sock	sk;
-+	u16		sobject;
-+	u8		resource;
-+};
-+
-+static inline struct pn_sock *pn_sk(struct sock *sk)
-+{
-+	return (struct pn_sock *)sk;
-+}
-+
-+extern const struct proto_ops phonet_dgram_ops;
-+
-+struct sock *pn_find_sock_by_sa(const struct sockaddr_pn *sa);
-+void pn_sock_hash(struct sock *sk);
-+void pn_sock_unhash(struct sock *sk);
-+int pn_sock_get_port(struct sock *sk, unsigned short sport);
-+
- static inline struct phonethdr *pn_hdr(struct sk_buff *skb)
- {
- 	return (struct phonethdr *)skb_network_header(skb);
-@@ -64,6 +86,7 @@ void pn_skb_get_dst_sockaddr(struct sk_buff *skb, struct sockaddr_pn *sa)
+ struct sock *pn_find_sock_by_sa(const struct sockaddr_pn *sa);
++void phonet_get_local_port_range(int *min, int *max);
+ void pn_sock_hash(struct sock *sk);
+ void pn_sock_unhash(struct sock *sk);
+ int pn_sock_get_port(struct sock *sk, unsigned short sport);
+@@ -97,6 +98,8 @@ struct phonet_protocol {
+ int phonet_proto_register(int protocol, struct phonet_protocol *pp);
+ void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
  
- /* Protocols in Phonet protocol family. */
- struct phonet_protocol {
-+	const struct proto_ops	*ops;
- 	struct proto		*prot;
- 	int			sock_type;
- };
++int phonet_sysctl_init(void);
++void phonet_sysctl_exit(void);
+ void phonet_netlink_register(void);
+ int isi_register(void);
+ void isi_unregister(void);
 diff --git a/net/phonet/Makefile b/net/phonet/Makefile
-index 4143c3e..c1d671d 100644
+index d218abc..ae9c3ed 100644
 --- a/net/phonet/Makefile
 +++ b/net/phonet/Makefile
-@@ -3,4 +3,5 @@ obj-$(CONFIG_PHONET) += phonet.o
- phonet-objs := \
- 	pn_dev.o \
+@@ -5,4 +5,5 @@ phonet-objs := \
  	pn_netlink.o \
-+	socket.o \
+ 	socket.o \
+ 	datagram.o \
++	sysctl.o \
  	af_phonet.o
 diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index 5c729ba..ba54d53 100644
+index 51397ff..50dc258 100644
 --- a/net/phonet/af_phonet.c
 +++ b/net/phonet/af_phonet.c
-@@ -41,6 +41,8 @@ static inline void phonet_proto_put(struct phonet_protocol *pp);
+@@ -350,6 +350,7 @@ static int __init phonet_init(void)
+ 	phonet_device_init();
+ 	dev_add_pack(&phonet_packet_type);
+ 	phonet_netlink_register();
++	phonet_sysctl_init();
  
- static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
+ 	err = isi_register();
+ 	if (err)
+@@ -357,6 +358,7 @@ static int __init phonet_init(void)
+ 	return 0;
+ 
+ err:
++	phonet_sysctl_exit();
+ 	sock_unregister(AF_PHONET);
+ 	dev_remove_pack(&phonet_packet_type);
+ 	phonet_device_exit();
+@@ -366,6 +368,7 @@ err:
+ static void __exit phonet_exit(void)
  {
-+	struct sock *sk;
-+	struct pn_sock *pn;
- 	struct phonet_protocol *pnp;
- 	int err;
- 
-@@ -69,8 +71,22 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
- 		goto out;
- 	}
- 
--	/* TODO: create and init the struct sock */
--	err = -EPROTONOSUPPORT;
-+	sk = sk_alloc(net, PF_PHONET, GFP_KERNEL, pnp->prot);
-+	if (sk == NULL) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	sock_init_data(sock, sk);
-+	sock->state = SS_UNCONNECTED;
-+	sock->ops = pnp->ops;
-+	sk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
-+	sk->sk_protocol = protocol;
-+	pn = pn_sk(sk);
-+	pn->sobject = 0;
-+	pn->resource = 0;
-+	sk->sk_prot->init(sk);
-+	err = 0;
- 
- out:
- 	phonet_proto_put(pnp);
-@@ -94,6 +110,7 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
- 			struct net_device *orig_dev)
- {
- 	struct phonethdr *ph;
-+	struct sock *sk;
- 	struct sockaddr_pn sa;
- 	u16 len;
- 
-@@ -118,7 +135,12 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (pn_sockaddr_get_addr(&sa) == 0)
- 		goto out; /* currently, we cannot be device 0 */
- 
--	/* TODO: put packets to sockets backlog */
-+	sk = pn_find_sock_by_sa(&sa);
-+	if (sk == NULL)
-+		goto out;
-+
-+	/* Push data to the socket (or other sockets connected to it). */
-+	return sk_receive_skb(sk, skb, 0);
- 
- out:
- 	kfree_skb(skb);
+ 	isi_unregister();
++	phonet_sysctl_exit();
+ 	sock_unregister(AF_PHONET);
+ 	dev_remove_pack(&phonet_packet_type);
+ 	phonet_device_exit();
 diff --git a/net/phonet/socket.c b/net/phonet/socket.c
-new file mode 100644
-index 0000000..99a4945
---- /dev/null
+index 99a4945..dfd4061 100644
+--- a/net/phonet/socket.c
 +++ b/net/phonet/socket.c
-@@ -0,0 +1,311 @@
+@@ -273,8 +273,9 @@ int pn_sock_get_port(struct sock *sk, unsigned short sport)
+ 
+ 	if (!sport) {
+ 		/* search free port */
+-		int port, pmin = 0x40, pmax = 0x7f;
++		int port, pmin, pmax;
+ 
++		phonet_get_local_port_range(&pmin, &pmax);
+ 		for (port = pmin; port <= pmax; port++) {
+ 			port_cur++;
+ 			if (port_cur < pmin || port_cur > pmax)
+diff --git a/net/phonet/sysctl.c b/net/phonet/sysctl.c
+new file mode 100644
+index 0000000..600a430
+--- /dev/null
++++ b/net/phonet/sysctl.c
+@@ -0,0 +1,113 @@
 +/*
-+ * File: socket.c
++ * File: sysctl.c
 + *
-+ * Phonet sockets
++ * Phonet /proc/sys/net/phonet interface implementation
 + *
 + * Copyright (C) 2008 Nokia Corporation.
 + *
 + * Contact: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-+ * Original author: Sakari Ailus <sakari.ailus@nokia.com>
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of the GNU General Public License
@@ -185,292 +136,95 @@ index 0000000..99a4945
 + * 02110-1301 USA
 + */
 +
-+#include <linux/kernel.h>
-+#include <linux/net.h>
-+#include <net/sock.h>
-+#include <net/tcp_states.h>
++#include <linux/seqlock.h>
++#include <linux/sysctl.h>
++#include <linux/errno.h>
++#include <linux/init.h>
 +
-+#include <linux/phonet.h>
-+#include <net/phonet/phonet.h>
-+#include <net/phonet/pn_dev.h>
++#define DYNAMIC_PORT_MIN	0x40
++#define DYNAMIC_PORT_MAX	0x7f
 +
-+static int pn_socket_release(struct socket *sock)
++static DEFINE_SEQLOCK(local_port_range_lock);
++static int local_port_range_min[2] = {0, 0};
++static int local_port_range_max[2] = {1023, 1023};
++static int local_port_range[2] = {DYNAMIC_PORT_MIN, DYNAMIC_PORT_MAX};
++static struct ctl_table_header *phonet_table_hrd;
++
++static void set_local_port_range(int range[2])
 +{
-+	struct sock *sk = sock->sk;
-+
-+	if (sk) {
-+		sock->sk = NULL;
-+		sk->sk_prot->close(sk, 0);
-+	}
-+	return 0;
++	write_seqlock(&local_port_range_lock);
++	local_port_range[0] = range[0];
++	local_port_range[1] = range[1];
++	write_sequnlock(&local_port_range_lock);
 +}
 +
-+static struct  {
-+	struct hlist_head hlist;
-+	spinlock_t lock;
-+} pnsocks = {
-+	.hlist = HLIST_HEAD_INIT,
-+	.lock = __SPIN_LOCK_UNLOCKED(pnsocks.lock),
++void phonet_get_local_port_range(int *min, int *max)
++{
++	unsigned seq;
++	do {
++		seq = read_seqbegin(&local_port_range_lock);
++		if (min)
++			*min = local_port_range[0];
++		if (max)
++			*max = local_port_range[1];
++	} while (read_seqretry(&local_port_range_lock, seq));
++}
++
++static int proc_local_port_range(ctl_table *table, int write, struct file *filp,
++				void __user *buffer,
++				size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int range[2] = {local_port_range[0], local_port_range[1]};
++	ctl_table tmp = {
++		.data = &range,
++		.maxlen = sizeof(range),
++		.mode = table->mode,
++		.extra1 = &local_port_range_min,
++		.extra2 = &local_port_range_max,
++	};
++
++	ret = proc_dointvec_minmax(&tmp, write, filp, buffer, lenp, ppos);
++
++	if (write && ret == 0) {
++		if (range[1] < range[0])
++			ret = -EINVAL;
++		else
++			set_local_port_range(range);
++	}
++
++	return ret;
++}
++
++static struct ctl_table phonet_table[] = {
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "local_port_range",
++		.data		= &local_port_range,
++		.maxlen		= sizeof(local_port_range),
++		.mode		= 0644,
++		.proc_handler	= &proc_local_port_range,
++		.strategy	= NULL,
++	},
++	{ .ctl_name = 0 }
 +};
 +
-+/*
-+ * Find address based on socket address, match only certain fields.
-+ * Also grab sock if it was found. Remember to sock_put it later.
-+ */
-+struct sock *pn_find_sock_by_sa(const struct sockaddr_pn *spn)
-+{
-+	struct hlist_node *node;
-+	struct sock *sknode;
-+	struct sock *rval = NULL;
-+	u16 obj = pn_sockaddr_get_object(spn);
-+	u8 res = spn->spn_resource;
-+
-+	spin_lock_bh(&pnsocks.lock);
-+
-+	sk_for_each(sknode, node, &pnsocks.hlist) {
-+		struct pn_sock *pn = pn_sk(sknode);
-+		BUG_ON(!pn->sobject); /* unbound socket */
-+
-+		if (pn_port(obj)) {
-+			/* Look up socket by port */
-+			if (pn_port(pn->sobject) != pn_port(obj))
-+				continue;
-+		} else {
-+			/* If port is zero, look up by resource */
-+			if (pn->resource != res)
-+				continue;
-+		}
-+		if (pn_addr(pn->sobject)
-+		 && pn_addr(pn->sobject) != pn_addr(obj))
-+			continue;
-+
-+		rval = sknode;
-+		sock_hold(sknode);
-+		break;
-+	}
-+
-+	spin_unlock_bh(&pnsocks.lock);
-+
-+	return rval;
-+
-+}
-+
-+void pn_sock_hash(struct sock *sk)
-+{
-+	spin_lock_bh(&pnsocks.lock);
-+	sk_add_node(sk, &pnsocks.hlist);
-+	spin_unlock_bh(&pnsocks.lock);
-+}
-+EXPORT_SYMBOL(pn_sock_hash);
-+
-+void pn_sock_unhash(struct sock *sk)
-+{
-+	spin_lock_bh(&pnsocks.lock);
-+	sk_del_node_init(sk);
-+	spin_unlock_bh(&pnsocks.lock);
-+}
-+EXPORT_SYMBOL(pn_sock_unhash);
-+
-+static int pn_socket_bind(struct socket *sock, struct sockaddr *addr, int len)
-+{
-+	struct sock *sk = sock->sk;
-+	struct pn_sock *pn = pn_sk(sk);
-+	struct sockaddr_pn *spn = (struct sockaddr_pn *)addr;
-+	int err;
-+	u16 handle;
-+	u8 saddr;
-+
-+	if (sk->sk_prot->bind)
-+		return sk->sk_prot->bind(sk, addr, len);
-+
-+	if (len < sizeof(struct sockaddr_pn))
-+		return -EINVAL;
-+	if (spn->spn_family != AF_PHONET)
-+		return -EAFNOSUPPORT;
-+
-+	handle = pn_sockaddr_get_object((struct sockaddr_pn *)addr);
-+	saddr = pn_addr(handle);
-+	if (saddr && phonet_address_lookup(saddr))
-+		return -EADDRNOTAVAIL;
-+
-+	lock_sock(sk);
-+	if (sk->sk_state != TCP_CLOSE || pn_port(pn->sobject)) {
-+		err = -EINVAL; /* attempt to rebind */
-+		goto out;
-+	}
-+	err = sk->sk_prot->get_port(sk, pn_port(handle));
-+	if (err)
-+		goto out;
-+
-+	/* get_port() sets the port, bind() sets the address if applicable */
-+	pn->sobject = pn_object(saddr, pn_port(pn->sobject));
-+	pn->resource = spn->spn_resource;
-+
-+	/* Enable RX on the socket */
-+	sk->sk_prot->hash(sk);
-+out:
-+	release_sock(sk);
-+	return err;
-+}
-+
-+static int pn_socket_autobind(struct socket *sock)
-+{
-+	struct sockaddr_pn sa;
-+	int err;
-+
-+	memset(&sa, 0, sizeof(sa));
-+	sa.spn_family = AF_PHONET;
-+	err = pn_socket_bind(sock, (struct sockaddr *)&sa,
-+				sizeof(struct sockaddr_pn));
-+	if (err != -EINVAL)
-+		return err;
-+	BUG_ON(!pn_port(pn_sk(sock->sk)->sobject));
-+	return 0; /* socket was already bound */
-+}
-+
-+static int pn_socket_getname(struct socket *sock, struct sockaddr *addr,
-+				int *sockaddr_len, int peer)
-+{
-+	struct sock *sk = sock->sk;
-+	struct pn_sock *pn = pn_sk(sk);
-+
-+	memset(addr, 0, sizeof(struct sockaddr_pn));
-+	addr->sa_family = AF_PHONET;
-+	if (!peer) /* Race with bind() here is userland's problem. */
-+		pn_sockaddr_set_object((struct sockaddr_pn *)addr,
-+					pn->sobject);
-+
-+	*sockaddr_len = sizeof(struct sockaddr_pn);
-+	return 0;
-+}
-+
-+static int pn_socket_ioctl(struct socket *sock, unsigned int cmd,
-+				unsigned long arg)
-+{
-+	struct sock *sk = sock->sk;
-+	struct pn_sock *pn = pn_sk(sk);
-+
-+	if (cmd == SIOCPNGETOBJECT) {
-+		struct net_device *dev;
-+		u16 handle;
-+		u8 saddr;
-+
-+		if (get_user(handle, (__u16 __user *)arg))
-+			return -EFAULT;
-+
-+		lock_sock(sk);
-+		if (sk->sk_bound_dev_if)
-+			dev = dev_get_by_index(sock_net(sk),
-+						sk->sk_bound_dev_if);
-+		else
-+			dev = phonet_device_get(sock_net(sk));
-+		if (dev && (dev->flags & IFF_UP))
-+			saddr = phonet_address_get(dev, pn_addr(handle));
-+		else
-+			saddr = PN_NO_ADDR;
-+		release_sock(sk);
-+
-+		if (dev)
-+			dev_put(dev);
-+		if (saddr == PN_NO_ADDR)
-+			return -EHOSTUNREACH;
-+
-+		handle = pn_object(saddr, pn_port(pn->sobject));
-+		return put_user(handle, (__u16 __user *)arg);
-+	}
-+
-+	return sk->sk_prot->ioctl(sk, cmd, arg);
-+}
-+
-+static int pn_socket_sendmsg(struct kiocb *iocb, struct socket *sock,
-+				struct msghdr *m, size_t total_len)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	if (pn_socket_autobind(sock))
-+		return -EAGAIN;
-+
-+	return sk->sk_prot->sendmsg(iocb, sk, m, total_len);
-+}
-+
-+const struct proto_ops phonet_dgram_ops = {
-+	.family		= AF_PHONET,
-+	.owner		= THIS_MODULE,
-+	.release	= pn_socket_release,
-+	.bind		= pn_socket_bind,
-+	.connect	= sock_no_connect,
-+	.socketpair	= sock_no_socketpair,
-+	.accept		= sock_no_accept,
-+	.getname	= pn_socket_getname,
-+	.poll		= datagram_poll,
-+	.ioctl		= pn_socket_ioctl,
-+	.listen		= sock_no_listen,
-+	.shutdown	= sock_no_shutdown,
-+	.setsockopt	= sock_no_setsockopt,
-+	.getsockopt	= sock_no_getsockopt,
-+#ifdef CONFIG_COMPAT
-+	.compat_setsockopt = sock_no_setsockopt,
-+	.compat_getsockopt = sock_no_getsockopt,
-+#endif
-+	.sendmsg	= pn_socket_sendmsg,
-+	.recvmsg	= sock_common_recvmsg,
-+	.mmap		= sock_no_mmap,
-+	.sendpage	= sock_no_sendpage,
++struct ctl_path phonet_ctl_path[] = {
++	{ .procname = "net", .ctl_name = CTL_NET, },
++	{ .procname = "phonet", .ctl_name = CTL_UNNUMBERED, },
++	{ },
 +};
 +
-+static DEFINE_MUTEX(port_mutex);
-+
-+/* allocate port for a socket */
-+int pn_sock_get_port(struct sock *sk, unsigned short sport)
++int __init phonet_sysctl_init(void)
 +{
-+	static int port_cur;
-+	struct pn_sock *pn = pn_sk(sk);
-+	struct sockaddr_pn try_sa;
-+	struct sock *tmpsk;
-+
-+	memset(&try_sa, 0, sizeof(struct sockaddr_pn));
-+	try_sa.spn_family = AF_PHONET;
-+
-+	mutex_lock(&port_mutex);
-+
-+	if (!sport) {
-+		/* search free port */
-+		int port, pmin = 0x40, pmax = 0x7f;
-+
-+		for (port = pmin; port <= pmax; port++) {
-+			port_cur++;
-+			if (port_cur < pmin || port_cur > pmax)
-+				port_cur = pmin;
-+
-+			pn_sockaddr_set_port(&try_sa, port_cur);
-+			tmpsk = pn_find_sock_by_sa(&try_sa);
-+			if (tmpsk == NULL) {
-+				sport = port_cur;
-+				goto found;
-+			} else
-+				sock_put(tmpsk);
-+		}
-+	} else {
-+		/* try to find specific port */
-+		pn_sockaddr_set_port(&try_sa, sport);
-+		tmpsk = pn_find_sock_by_sa(&try_sa);
-+		if (tmpsk == NULL)
-+			/* No sock there! We can use that port... */
-+			goto found;
-+		else
-+			sock_put(tmpsk);
-+	}
-+	mutex_unlock(&port_mutex);
-+
-+	/* the port must be in use already */
-+	return -EADDRINUSE;
-+
-+found:
-+	mutex_unlock(&port_mutex);
-+	pn->sobject = pn_object(pn_addr(pn->sobject), sport);
-+	return 0;
++	phonet_table_hrd = register_sysctl_paths(phonet_ctl_path, phonet_table);
++	return phonet_table_hrd == NULL ? -ENOMEM : 0;
 +}
-+EXPORT_SYMBOL(pn_sock_get_port);
++
++void phonet_sysctl_exit(void)
++{
++	unregister_sysctl_table(phonet_table_hrd);
++}
 -- 
 1.5.4.3
 
