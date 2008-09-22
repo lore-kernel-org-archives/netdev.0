@@ -1,52 +1,56 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/8] net: fix compilation NG when !CONFIG_MODULE
-Date: Mon, 22 Sep 2008 14:50:35 -0700
-Message-ID: <200809222150.m8MLoZdf031857@imap1.linux-foundation.org>
+Subject: [patch 2/8] netfilter: xt_time gives a wrong monthday in a leap year
+Date: Mon, 22 Sep 2008 14:50:36 -0700
+Message-ID: <200809222150.m8MLoaXW031860@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	h-shimamoto@ct.jp.nec.com
+	kaih.luo@gmail.com, jengelh@computergmbh.de, kaber@trash.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36871 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54831 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753387AbYIVVvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:51:09 -0400
+	by vger.kernel.org with ESMTP id S1753448AbYIVVvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:51:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+From: Kaihui Luo <kaih.luo@gmail.com>
 
-  CC      net/core/dev.o
-net/core/dev.c:1001: error: redefinition of 'dev_load'
-include/linux/netdevice.h:1645: error: previous definition of 'dev_load' was here
-make[2]: *** [net/core/dev.o] Error 1
+The function localtime_3 in xt_time.c gives a wrong monthday in a leap
+year after 28th 2.  calculating monthday should use the array
+days_since_leapyear[] not days_since_year[] in a leap year.
 
-dev_load() is not used when CONFIG_MODULE disabled.
-
-Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Signed-off-by: Kaihui Luo <kaih.luo@gmail.com>
+Acked-by: Jan Engelhardt <jengelh@computergmbh.de>
+Cc: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/core/dev.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/netfilter/xt_time.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff -puN net/core/dev.c~net-fix-compilation-ng-when-config_module net/core/dev.c
---- a/net/core/dev.c~net-fix-compilation-ng-when-config_module
-+++ a/net/core/dev.c
-@@ -997,7 +997,7 @@ EXPORT_SYMBOL(netdev_bonding_change);
-  *	privileges this function loads the module. If module loading is not
-  *	available in this kernel then it becomes a nop.
-  */
--
-+#ifdef CONFIG_MODULES
- void dev_load(struct net *net, const char *name)
- {
- 	struct net_device *dev;
-@@ -1009,6 +1009,7 @@ void dev_load(struct net *net, const cha
- 	if (!dev && capable(CAP_SYS_MODULE))
- 		request_module("%s", name);
- }
-+#endif
+diff -puN net/netfilter/xt_time.c~netfilter-xt_time-gives-a-wrong-monthday-in-a-leap-year net/netfilter/xt_time.c
+--- a/net/netfilter/xt_time.c~netfilter-xt_time-gives-a-wrong-monthday-in-a-leap-year
++++ a/net/netfilter/xt_time.c
+@@ -136,17 +136,19 @@ static void localtime_3(struct xtm *r, t
+ 	 * from w repeatedly while counting.)
+ 	 */
+ 	if (is_leap(year)) {
++		/* use days_since_leapyear[] in a leap year */
+ 		for (i = ARRAY_SIZE(days_since_leapyear) - 1;
+-		    i > 0 && days_since_year[i] > w; --i)
++		    i > 0 && days_since_leapyear[i] > w; --i)
+ 			/* just loop */;
++		r->monthday = w - days_since_leapyear[i] + 1;
+ 	} else {
+ 		for (i = ARRAY_SIZE(days_since_year) - 1;
+ 		    i > 0 && days_since_year[i] > w; --i)
+ 			/* just loop */;
++		r->monthday = w - days_since_year[i] + 1;
+ 	}
  
- /**
-  *	dev_open	- prepare an interface for use.
+ 	r->month    = i + 1;
+-	r->monthday = w - days_since_year[i] + 1;
+ 	return;
+ }
+ 
 _
