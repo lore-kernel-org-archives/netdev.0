@@ -1,47 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
- feature-negotiation patches
-Date: Sun, 21 Sep 2008 22:09:48 -0700 (PDT)
-Message-ID: <20080921.220948.140018058.davem@davemloft.net>
-References: <20080903042450.GA4105@gerrit.erg.abdn.ac.uk>
-	<20080902.230655.89921076.davem@davemloft.net>
-	<20080922045744.GA6889@gerrit.erg.abdn.ac.uk>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Mon, 22 Sep 2008 09:49:20 +0400
+Message-ID: <20080922054918.GA31099@2ka.mipt.ru>
+References: <20080922041929.GA20165@2ka.mipt.ru> <20080921.212724.193719407.davem@davemloft.net> <20080922044051.GA583@2ka.mipt.ru> <20080921.220605.129235191.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: johaahn@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46452
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751347AbYIVFKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 01:10:00 -0400
-In-Reply-To: <20080922045744.GA6889@gerrit.erg.abdn.ac.uk>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:45269 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751481AbYIVFuD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 01:50:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20080921.220605.129235191.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 22 Sep 2008 06:57:44 +0200
-
-> I have put the set of 37 patches (complete list below) onto a freshly cloned
-> net-next-2.6 (from today), compile-tested (it is bisectable), and uploaded to
+On Sun, Sep 21, 2008 at 10:06:05PM -0700, David Miller (davem@davemloft.net) wrote:
+> Because datagram sockets are completely different from stream sockets.
 > 
-> 	git://eden-feed.erg.abdn.ac.uk/net-next-2.6 	[subtree `master']
+> You program them differently, segmentation is made by the socket user
+> not within by the protocol itself.
+> 
+> sendfile() should behave in a way congruent to the other data transfer
+> APIs of the BSD socket layer.
 
-Gerrit, I said it's over.  I really meant this.
+So effectively you are saying, that sendfile() is just a pure send(),
+but with diferent arguments? I.e. it is not supposed to send the whole
+data it points to, but as much as possible according to send() standard?
 
-I'm not taking GIT pulls from you any more.
+Well, it may be a right or wrong decision, and in my opinion sendfile()
+is very diferent than send() since it should require the whole data to
+be sent, i.e. being like a loop of send()s, but since sendfile() is
+effectively a very new approach, it could have different behaviour
+rules.
 
-There are two paths forward at the current point in time.
+Because of this, Johann, this patch will not be applied, but thanks a
+lot for your work, we made a clear meaning on interface usage.
 
-1) You submit a very small group of patches at a time to me.
-   I'm talking like 5 or 6 patches at a time, maximum.
-
-   And I'm going to give extra amounts of personal review to
-   these, so it will take even more time than usual.
-
-2) Someone else steps up to run the DCCP git stuff.
-
-I absolutely do not trust you any more, and you're behavior and
-expectations of me during that last mistake pull didn't help that
-cause at all.
+-- 
+	Evgeniy Polyakov
