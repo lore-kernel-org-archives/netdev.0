@@ -1,64 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Sun, 21 Sep 2008 23:54:44 -0700 (PDT)
-Message-ID: <20080921.235444.156373854.davem@davemloft.net>
-References: <20080922044051.GA583@2ka.mipt.ru>
-	<20080921.220605.129235191.davem@davemloft.net>
-	<20080922054918.GA31099@2ka.mipt.ru>
+Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+ feature-negotiation patches
+Date: Sun, 21 Sep 2008 23:58:53 -0700 (PDT)
+Message-ID: <20080921.235853.223987556.davem@davemloft.net>
+References: <20080922045744.GA6889@gerrit.erg.abdn.ac.uk>
+	<20080921.220948.140018058.davem@davemloft.net>
+	<20080922062807.GA12068@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johaahn@gmail.com, netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34167
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34174
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751181AbYIVGy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 02:54:56 -0400
-In-Reply-To: <20080922054918.GA31099@2ka.mipt.ru>
+	by vger.kernel.org with ESMTP id S1751050AbYIVG7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 02:59:05 -0400
+In-Reply-To: <20080922062807.GA12068@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Mon, 22 Sep 2008 09:49:20 +0400
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Mon, 22 Sep 2008 08:28:07 +0200
 
-> On Sun, Sep 21, 2008 at 10:06:05PM -0700, David Miller (davem@davemloft.net) wrote:
-> > Because datagram sockets are completely different from stream sockets.
-> > 
-> > You program them differently, segmentation is made by the socket user
-> > not within by the protocol itself.
-> > 
-> > sendfile() should behave in a way congruent to the other data transfer
-> > APIs of the BSD socket layer.
+> | There are two paths forward at the current point in time.
+> | 
+> | 1) You submit a very small group of patches at a time to me.
+> |    I'm talking like 5 or 6 patches at a time, maximum.
+> | 
+> |    And I'm going to give extra amounts of personal review to
+> |    these, so it will take even more time than usual.
+> | 
+> Further review can never harm, so I am sure this will be good.
 > 
-> So effectively you are saying, that sendfile() is just a pure send(),
-> but with diferent arguments? I.e. it is not supposed to send the whole
-> data it points to, but as much as possible according to send() standard?
+> I have a question regarding granularity - the current granularity is
+> meant to be logical, but is low.
+> It is easy to get distracted by the details since at the end of
+> the day the 37 patches achieve a rewriting of feat.c in small steps.
+> 
+> Would you therefore be ok with me combining some of the patches or would
+> you prefer to review the set at its current granularity?
 
-It already makes this, guess what happens when socket error occurs
-midstream during sendfile(), even for TCP?
+Current granularity.
 
-First, we return length successfully sent.
-
-User has to retry sendfile() call with remaining length, and at this
-point they will immediately get the socket error return value.
-
-This was broken at one point and I remember applying the fix for this
-several years ago :-)
-
-> Well, it may be a right or wrong decision, and in my opinion sendfile()
-> is very diferent than send() since it should require the whole data to
-> be sent, i.e. being like a loop of send()s, but since sendfile() is
-> effectively a very new approach, it could have different behaviour
-> rules.
-
-It is in fact exactly and precisely like send().  It must even give
-the same error return semantics as other socket data transfer calls
-do.  See above.
-
-The user has to have a resending loop _anyways_, in order to do
-correct error handling.
-
-Nothing is gained from the proposal, really.  It can only harm application
-developers into thinking that segmentation over datagram sockets is not
-their responsibility, when it absolutely is.
+So, submit about 5 pieces at a time, you can say at the beginning of
+the series (in the [PATCH 0/X]: email) something like "this is phase N
+in the rewriting of feat.c which will achieve X Y and Z"
