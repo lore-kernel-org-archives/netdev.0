@@ -1,57 +1,102 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Wireless Networking
-Date: Mon, 22 Sep 2008 16:17:01 -0700 (PDT)
-Message-ID: <20080922.161701.159153918.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11620] New: tun device's speed is set to ony
+ 10mbps
+Date: Mon, 22 Sep 2008 16:17:12 -0700
+Message-ID: <20080922161712.f4deeda4.akpm@linux-foundation.org>
+References: <bug-11620-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linville@tuxdriver.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: bugme-daemon@bugzilla.kernel.org, maxk@qualcomm.com
+To: netdev@vger.kernel.org, vtun@office.satix.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51471
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753543AbYIVXRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 19:17:13 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34148 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754075AbYIVXRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 19:17:45 -0400
+In-Reply-To: <bug-11620-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Here are three wireless changes for 2.6.27.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-The first two are critical fixes for the ATH9K driver that have been
-making the rounds a lot lately (Linus, you even forwarded a reference
-to at least one of them to John Linville and myself a few days ago).
+On Mon, 22 Sep 2008 03:56:08 -0700 (PDT)
+bugme-daemon@bugzilla.kernel.org wrote:
 
-And the third change is the addition of a new zd1121rw UDB device ID.
+> http://bugzilla.kernel.org/show_bug.cgi?id=11620
+> 
+>            Summary: tun device's speed is set to ony 10mbps
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.24-19-generic
 
-Linus, we also saw the zd1121rw OOPS you forward to us.  That bug is
-only present in 2.6.26 and John Linville is getting the fix for that
-one pushed to -stable.
+2.6.24-19-generic fails
 
-Please pull, thanks a lot!
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: dayasankar@movik.net
+> 
+> 
+> Latest working kernel version:2.6.24-19-generic
 
-The following changes since commit cec5eb7be3a104fffd27ca967ee8e15a123050e2:
-  Alan Cox (1):
-        pcmcia: Fix broken abuse of dev->driver_data
+2.6.24-19-generic does not fail.
 
-are available in the git repository at:
+Please clarify: which kernel version failed and whcih version did not?
 
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+Thanks.
 
-David S. Miller (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+> Earliest failing kernel version:
+> Distribution:
+> Hardware Environment:
+> Software Environment:linux- ubuntu
+> Problem Description: When I open tun device, speed is set to 10mbps and I am
+> not able to change it to 100 Mbps
+> 
+> Steps to reproduce:
+> 
+> 1) here is ioctl stuff my tun device
+> 
+>         if (device) strncpy(tun->ifr.ifr_name, device, IFNAMSIZ);
+>         tun->ifr.ifr_flags=(flags)?flags:IFF_TUN|IFF_NO_PI;
+>         tun->fd=open("/dev/net/tun", O_RDWR);
+>         //#ioctl(tun->fd, TUNSETIFF, (void *) &(tun->ifr));
+>         ioctl(tun->fd, TUNSETIFF, (void *) &(tun->ifr));
+>         ioctl(tun->fd,TUNSETPERSIST,1);
+>         ioctl(tun->fd,TUNSETOWNER,500);
+>         return (PyObject *)tun;
+> 
+> 2) Once I create tun device, here are properties of my tun device
+> 
+> root@daya-desktop:/home/daya/tuntap-0.1# ethtool tun0
+> Settings for tun0:
+>         Supported ports: [ ]
+>         Supported link modes:   
+>         Supports auto-negotiation: No
+>         Advertised link modes:  Not reported
+>         Advertised auto-negotiation: No
+>         Speed: 10Mb/s
+>         Duplex: Full
+>         Port: Twisted Pair
+>         PHYAD: 0
+>         Transceiver: internal
+>         Auto-negotiation: off
+>         Current message level: 0xffffffa1 (-95)
+>         Link detected: no
+> 
+> 3) When I tried to change the speed, it is throwing the following error
+> 
+> root@daya-desktop:/home/daya/tuntap-0.1# ethtool -s tun0 speed 100
+> Cannot set new settings: Operation not supported
+>   not setting speed
+> 
+> root@daya-desktop:/home/daya/tuntap-0.1# ifconfig tun0 media 100
+> port: SIOCSIFMAP: Operation not supported
 
-Senthil Balasubramanian (2):
-      ath9k: connectivity is lost after Group rekeying is done
-      ath9k: Fix IRQ nobody cared issue with ath9k
-
-born.into.silence@gmail.com (1):
-      wireless: zd1211rw: add device ID fix wifi dongle "trust nw-3100"
-
- drivers/net/wireless/ath9k/core.c      |    4 ++--
- drivers/net/wireless/ath9k/core.h      |    1 -
- drivers/net/wireless/ath9k/main.c      |   12 ++++++++----
- drivers/net/wireless/ath9k/xmit.c      |    6 +++---
- drivers/net/wireless/zd1211rw/zd_usb.c |    1 +
- 5 files changed, 14 insertions(+), 10 deletions(-)
