@@ -1,41 +1,114 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Mon, 22 Sep 2008 08:40:52 +0400
-Message-ID: <20080922044051.GA583@2ka.mipt.ru>
-References: <20080922010834.GB3059@2ka.mipt.ru> <20080921.190715.144340989.davem@davemloft.net> <20080922041929.GA20165@2ka.mipt.ru> <20080921.212724.193719407.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
+	feature-negotiation patches
+Date: Mon, 22 Sep 2008 06:57:44 +0200
+Message-ID: <20080922045744.GA6889@gerrit.erg.abdn.ac.uk>
+References: <20080901.142055.193705447.davem@davemloft.net> <20080902135055.GB8346@ghostprotocols.net> <20080903042450.GA4105@gerrit.erg.abdn.ac.uk> <20080902.230655.89921076.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: johaahn@gmail.com, netdev@vger.kernel.org
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:33791 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750764AbYIVEle (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2008 00:41:34 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37734 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750764AbYIVE6j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 00:58:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20080921.212724.193719407.davem@davemloft.net>
+In-Reply-To: <20080902.230655.89921076.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 21, 2008 at 09:27:24PM -0700, David Miller (davem@davemloft.net) wrote:
-> > Datagram just preservs the boundaries and that's what we have with this
-> > patch.
-> 
-> Not exactly.
-> 
-> Each and every send() operation on a datagram socket must result in
-> exactly one packet.  sendfile() was following this rule, when it
-> returned successfully only one single packet was emitted.
->
-> The new sendfile() semantics are outside of this model.
+Hi Dave,
 
-That's for send(), not sendfile(). The latter now works like lots of
-sends() while previously it worked as single send().
+it has been unfortunate that there had been an error in the submission
+of the DCCP feature negotiation patch set.
 
-Why sendfile() should be completely different compared to stream case?
-Obviously send() has to be different and it is, but sendfile() is just a
-bunch of sends over the pages in the cache, so let's allow it to be
-multiple sends and not only single packet send.
+I would like to return to the submission of the original set of patches,
+i.e. those 37 that were discussed and for which fixes had been uploaded.
 
--- 
-	Evgeniy Polyakov
+The changeset provides infrastructure for doing end-to-end feature negotiation,
+is self-contained, has been tested for a long while, and is free from
+duct-tape fixes.  
+(Just for reference - the count of `XXX'-es in the current feat.c is 15,
+plus 2 FIXMEs.)
+
+There is a benefit of using this patch set, as it will make it easier
+for other people to add code (new CCIDs) to DCCP. 
+Only 2 CCIDs exist so far, whose performance and scope is somewhat limited.
+There is room for about 250 more CCIDs, for different and completely new
+algorithms.
+
+To plug in new CCIDs, feature negotiation at the endpoints is necessary.
+
+The extensions that Arnaldo had suggested are also much easier to
+construct with this set. With the present code I think it is nearly impossible.
+
+If you would like to reopen review and discussion, I am willing to address
+any further comments.
+
+I have put the set of 37 patches (complete list below) onto a freshly cloned
+net-next-2.6 (from today), compile-tested (it is bisectable), and uploaded to
+
+	git://eden-feed.erg.abdn.ac.uk/net-next-2.6 	[subtree `master']
+
+The revised changeset can be also be viewed at:
+	http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-next-2.6.git
+
+
+Best regards	
+Gerrit
+
+
+List of patches in this set
+---------------------------
+Patch #1: Provides the basic datastructure for feature negotiation. It gets 
+          around the problem that feature-negotiation values have no uniform
+	  type - they can be 48-bit numbers, single characters, 2-byte integers
+	  or a list of unsigned chars.
+Patch #2: Provides a lookup-table for the different negotiable features.
+Patch #3: Adds list management for the list keeping the negotiation-options.
+Patch #4: Initialisation routines (for request sockets and normal sockets).
+Patch #5: Analogous to #4, this provides the cleanup routines.	  
+Patch #6: Changes the existing policy to allow anytime changes as that lead
+          to unpredictable results.
+Patch #7: Adds registration routines. These form part of the user interface
+          and are later used by the socket API to set individual preferences.
+Patch #8: CCIDs are a negotiable feature. This patch adds support to query the
+          supported CCIDs, so as to advertise only the locally supported ones.
+Patch #9: The choice of CCID in turn creates new feature dependencies. The patch
+          adds automatic tracking of such dependencies to avoid later failure.
+
+Patch #10: Provides a mechanism to then resolve CCID-dependent features. Since
+           CCIDs are a server-priority feature, this is done by the server.
+Patch #11: Deprecates old featneg API, as it was dangerous/clumsy.
+Patch #12: Support to negotiate checksum-coverage values (as in UDP-Lite).
+Patch #13: Deprecates Ack Ratio sysctl, to enable automatic updating.
+Patch #14: Tidies up the setsockopt interface for new additions.
+Patch #15: Set/getsockopt support to negotiate CCIDs with the peer.
+Patch #16: Socket API to query the current CCID from userspace.
+Patch #17: Prepares the variable-length htonl/ntohl functions for 48 bits.
+           Such a length is needed by e.g. the Sequence Window feature.
+Patch #18: Support for DCCP `Mandatory' type options (RFC 4340, 5.8.2).
+Patch #19: Routine to insert feature-negotiation header options.
+Patch #20: Complements #19, to add feature-negotiation options onto the skb.
+Patch #21: Complements #20 and completes the insertion of featneg options.
+Patch #22: Logic/algorithm to actually reconcile negotiation options.
+Patch #23: Receiver support to process incoming Change L/R options. 
+Patch #24: Receiver support to process incoming Confirm R/L options.
+Patch #25: Handlers for activating successfully negotiated features.
+
+Patch #26: Integration of dynamic negotiation, part I (socket setup).
+Patch #27: Integration of dynamic negotiation, part II (server side).
+Patch #28: Integration of dynamic negotiation, part III (client side).
+
+Patch #29: Cleans up the older infrastructure.
+Patch #30: Removes obsolete parts of the old CCID interface.
+Patch #31: Removes manual intervention on NDP count (now automatic).
+Patch #32: Removes Ack Vector sysctl (handled automatically now).
+
+Patch #33: Initialisation framework for the supported features.
+Patch #34: Auto-loading of CCID modules so that the modules are available
+           when the negotiation is completed.
+Patch #35: Adds full support for local/remote Sequence Window.
+Patch #36: Initialisation and type-checking of involved sysctls.
+Patch #37: A set of (useful) debugging/printing helper functions.
