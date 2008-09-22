@@ -1,51 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Mon, 22 Sep 2008 05:21:11 -0700 (PDT)
-Message-ID: <20080922.052111.260555210.davem@davemloft.net>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: Machine Check Exception Re: NetDev! Please help!
+Date: Mon, 22 Sep 2008 17:00:57 +0400
+Message-ID: <48D79709.80400@bigtelecom.ru>
+References: <48D4F85C.8090709@bigtelecom.ru> <200809202111.01256.denys@visp.net.lb> <48D67239.9040006@gmail.com> <48D7385D.40107@bigtelecom.ru> <20080922065339.GA4399@ff.dom.local> <48D76813.9000603@bigtelecom.ru> <20080922112452.GB5314@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50826
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751669AbYIVMVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 08:21:22 -0400
+Received: from mail.bigtelecom.ru ([87.255.0.61]:47429 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751393AbYIVNBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 09:01:06 -0400
+In-Reply-To: <20080922112452.GB5314@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Just one regression fix here.
+> BTW: could you try to trigger this bug with one network card off?
+>   
 
-When we are doing multiqueue TX, we accidently try to fetch the
-protocol inside of IP fragments when computing the hash.
 
-This completely kills performance since what we use for the ports is
-essentially random garbage, and as a result this causes lots of packet
-reordering and other nasties.
+Shire! I stop eth1 and do "/etc/init.d/bgpd stop" (this pc not get route
+traffic anymore)....
 
-For drivers that have TX multiqueue support, this creates a serious
-performance regression against 2.6.26
+run "emerge portage" 2 times and get:
 
-I know of at least one piece of hardware which has this same bug in
-it's silicon for doing RX multiqueue hashing :-)
+[25492.187405] CPU 3: Machine Check Exception: 0000000000000005
+[25492.187405] MCE: The hardware reports a non fatal, correctable
+incident occurred on CPU 1.
+[25492.187405] Bank 0: b200004000000800
+[25492.187405] MCE: The hardware reports a non fatal, correctable
+incident occurred on CPU 1.
+[25492.187405] Bank 5: b200120014040400
+[25497.124884] CPU 1: Machine Check Exception: 0000000000000004
+[25497.124884] Kernel panic - not syncing: Unable to continue
+[25497.124884] Rebooting in 3 seconds..
 
-Noticed and fixed by Alexander Duyck.
+bugtracker updated.... i can get (reproduce) error on all 10 servers at
+2.6.26.5... I use TC and not wont test 2.6.27-rc because its have (if i
+understand) multiqueue feature that not tested...
 
-Please pull, thanks a lot!
-
-The following changes since commit e7272403d2f9be3dbb7cc185fcc390e781b1af6b:
-  Rafael J. Wysocki (1):
-        e100: Use pci_pme_active to clear PME_Status and disable PME#
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alexander Duyck (1):
-      netdev: simple_tx_hash shouldn't hash inside fragments
-
- net/core/dev.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+Thanks!
