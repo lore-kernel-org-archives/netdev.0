@@ -1,66 +1,50 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 2/5] dccp: Implement lookup table for
-	feature-negotiation information
-Date: Mon, 22 Sep 2008 14:00:13 -0300
-Message-ID: <20080922170013.GF16625@ghostprotocols.net>
-References: <20080921.235853.223987556.davem@davemloft.net> <1222068117-13401-1-git-send-email-gerrit@erg.abdn.ac.uk> <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk> <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net> <20080922154554.GA3521@gerrit.erg.abdn.ac.uk>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth fix: take phy out of reset during power up
+Date: Mon, 22 Sep 2008 09:55:35 -0400
+Message-ID: <48D7A3D7.2010602@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------040201010907040207010402"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:45791 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751415AbYIVRJR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2008 13:09:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20080922154554.GA3521@gerrit.erg.abdn.ac.uk>
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:16076 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751011AbYIVRLc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 13:11:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Mon, Sep 22, 2008 at 05:45:54PM +0200, Gerrit Renker escreveu:
-> | > --- a/include/linux/dccp.h
-> | > +++ b/include/linux/dccp.h
-> | >  
-> | > +
-> | > +static int dccp_feat_default_value(u8 feat_num)
-> | > +{
-> | > +	int idx = dccp_feat_index(feat_num);
-> | > +
-> | > +	return idx < 0 ? : dccp_feat_table[idx].default_value;
-> | > +}
-> | 
-> | [acme@doppio ~]$ cat dd.c
-> | #include <stdio.h>
-> | 
-> | int main(void)
-> | {
-> | 	int idx = -2;
-> | 
-> | 	printf("%d\n", idx < 0 ? : 10);
-> | 	printf("%d\n", idx < 0 ? idx : 10);
-> | 	return 0;
-> | }
-> | [acme@doppio ~]$ ./dd
-> | 1
-> | -2
-> | [acme@doppio ~]$
-> | 
-> | Which one do you want? The boolean result as the value to be returned or
-> | the index if it is < 0?
-> | 
-> It is the first value. The test is only there to avoid accessing the
-> array with an invalid index, which would happen if an unknown `feat_num'
-> is passed - as for unknown features there is no default value.
+This is a multi-part message in MIME format.
+--------------040201010907040207010402
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The above explanation would be good to have as a comment, as it was not
-so obvious from a first sight. I think that even having it explicit
-would be clearer:
+This patch will add the phy reset bit into the power up mask which is 
+used during power up. Certain BIOSes will place the phy in reset and 
+therefore the driver must take the phy out of reset when it loads.
 
-return idx < 0 ? 1 : dccp_feat_table[idx].default_value;
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
-But then, if an unknown feat num is passed shouldn't the code bailout in
-some other fashion than returning the result of a boolean expression and
-not accessing the defaults table?
 
-- Arnaldo
+--------------040201010907040207010402
+Content-Type: text/plain;
+ name="patch-forcedeth-phyreset-powerup"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-phyreset-powerup"
+
+--- old/drivers/net/forcedeth.c	2008-09-22 09:46:17.000000000 -0400
++++ new/drivers/net/forcedeth.c	2008-09-22 09:46:20.000000000 -0400
+@@ -337,7 +337,7 @@
+ 	NvRegMSIXIrqStatus = 0x3f0,
+ 
+ 	NvRegPowerState2 = 0x600,
+-#define NVREG_POWERSTATE2_POWERUP_MASK		0x0F11
++#define NVREG_POWERSTATE2_POWERUP_MASK		0x0F15
+ #define NVREG_POWERSTATE2_POWERUP_REV_A3	0x0001
+ #define NVREG_POWERSTATE2_PHY_RESET		0x0004
+ };
+
+--------------040201010907040207010402--
