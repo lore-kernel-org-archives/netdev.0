@@ -1,47 +1,40 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
-Date: Mon, 22 Sep 2008 15:54:40 +0200
-Message-ID: <20080922135440.GC9549@secunet.com>
-References: <20080920.125949.193703969.davem@davemloft.net> <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au> <20080921094628.GA22453@secunet.com> <20080922082309.GA25739@gondor.apana.org.au>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: routing PF_PACKET sockets
+Date: Mon, 22 Sep 2008 17:04:09 +0300
+Message-ID: <200809221704.09530.remi.denis-courmont@nokia.com>
+References: <3f847c820809211610n731b0090wb6a9f94a3514f455@mail.gmail.com> <5c4c427193d751928b131d43ab66879f@chewa.net> <3f847c820809220639y609470b6x9b2602cba24a0589@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, dwalker@mvista.com,
-	arjan@infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ext =?iso-8859-1?q?Ra=FAl_Hern=E1ndez?= <rauhersu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:53600 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752191AbYIVNyk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2008 09:54:40 -0400
+Received: from smtp.nokia.com ([192.100.122.233]:44280 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751971AbYIVOEZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 10:04:25 -0400
+In-Reply-To: <3f847c820809220639y609470b6x9b2602cba24a0589@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20080922082309.GA25739@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2008 at 04:23:09PM +0800, Herbert Xu wrote:
-> 
-> > With my test environment (two quad core boxes) I get with IPSEC
-> > aes192-sha1 and one tcp stream a throughput of about 600 Mbit/s
-> > compared to about 200 Mbit/s without the parallel processing. 
-> 
-> Yes this would definitely help IPsec.  However, I'm not so sure
-> of its benefit to routing and other parts of networking.  That's
-> why I'd rather have this sort of hack stay in the crypto system
-> where it's isolated rather than having it proliferate throughout
-> the network stack.
+On Monday 22 September 2008 16:39:59 ext Ra=FAl Hern=E1ndez, you wrote:
+> Just to clarify it a bit more; Suppose that a user app has two
+> PF_PACKET sockets (SOCK_RAW) over eth0 and eth1 (to ensure redundancy=
+)
+> to send data to the network. In case eth0 is down, it would be
+> useless, for example, move the routing table entries which reference
+> eth0 to eth1 as the app which sends data to the network bypasses any
+> routing policy (I think this would do if my app used standard tcp
+> sockets).
 
-The crypto benefits the most of course, but routing and xfrm lookups
-could benefit on bigger networks too. However, the method to bring
-the packets back to order is quite generic and could be used
-even in the crypto system. The important thing for me is that we
-can run in parallel even if we have just one flow.
+If eth0 really goes down, your eth0 socket will receive ENETDOWN error.
 
-> 
-> When the time comes to weed out this because all CPUs that matter
-> have encryption in hardware then it'll be much easier to delete a
-> crypto algorithm as opposed to removing parts of the network
-> infrastructure :)
-> 
+Routing tables entries for a down interface are automatically disabled,=
+ but=20
+you would not care since your PF_PACKET sockets bypass these.
 
-Yes, if you think about how to remove it I agree here.
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
