@@ -1,42 +1,67 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 00/11] PhoNet protocols stack v2
-Date: Mon, 22 Sep 2008 18:45:54 +0300
-Message-ID: <200809221845.54736.remi.denis-courmont@nokia.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 2/5] dccp: Implement lookup table for
+	feature-negotiation information
+Date: Mon, 22 Sep 2008 17:45:54 +0200
+Message-ID: <20080922154554.GA3521@gerrit.erg.abdn.ac.uk>
+References: <20080921.235853.223987556.davem@davemloft.net> <1222068117-13401-1-git-send-email-gerrit@erg.abdn.ac.uk> <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk> <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, davem@davemloft.net,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:52848 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752726AbYIVPqG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 11:46:06 -0400
-Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
-	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8MFjkwH026207
-	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 18:46:03 +0300
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53867 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752586AbYIVPqF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 11:46:05 -0400
 Content-Disposition: inline
+In-Reply-To: <20080922142105.GB16625@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=A0=A0=A0=A0=A0=A0=A0=A0Hello,
+| > --- a/include/linux/dccp.h
+| > +++ b/include/linux/dccp.h
+| >  
+| > +
+| > +static int dccp_feat_default_value(u8 feat_num)
+| > +{
+| > +	int idx = dccp_feat_index(feat_num);
+| > +
+| > +	return idx < 0 ? : dccp_feat_table[idx].default_value;
+| > +}
+| 
+| [acme@doppio ~]$ cat dd.c
+| #include <stdio.h>
+| 
+| int main(void)
+| {
+| 	int idx = -2;
+| 
+| 	printf("%d\n", idx < 0 ? : 10);
+| 	printf("%d\n", idx < 0 ? idx : 10);
+| 	return 0;
+| }
+| [acme@doppio ~]$ ./dd
+| 1
+| -2
+| [acme@doppio ~]$
+| 
+| Which one do you want? The boolean result as the value to be returned or
+| the index if it is < 0?
+| 
+It is the first value. The test is only there to avoid accessing the
+array with an invalid index, which would happen if an unknown `feat_num'
+is passed - as for unknown features there is no default value.
 
-This patch series is the second attempt at support for PhoNet network p=
-rotocol=20
-stack in the Linux kernel and trying to address various comments alread=
-y=20
-received on the mailing list. This protocol is the primary interface to=
- Nokia=20
-cellular modem engines. We are integrating it to the Linux kernel in or=
-der to=20
-support HSPA cellular data connectivity on the Maemo Software platform.
+| I tried to check on the other 4 patches on this series to check if usage
+| clarified if it was correct, but there is no use of
+| dccp_feat_default_value() on this 5 patches, perhaps it could be
+| deferred to when it actually gets used?
+| 
+Yes thanks, while I have ensured that all patches are bisectable, a few
+functions may be declared where the logical fit was better. I will place
+it where it is first used, in the patch entitled "dccp: Registration
+routines for changing feature values"
 
-This patchset provides a "raw" datagram protocol as a starting point, a=
-nd is=20
-based on the current net-next-2.6.
+I am waiting before resubmitting - please take a look at patches 3-5 as well.
 
-Any comments welcome.
-
---=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+Gerrit
