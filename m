@@ -1,82 +1,84 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Mon, 22 Sep 2008 14:22:12 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809221112140.1950@wrl-59.cs.helsinki.fi>
-References: <20080819213417.45133573@tux> <20080824163843.33b4f890@tux>
- <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi> <20080826141812.589848a0@tux>
- <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi> <20080828184919.611dd578@tux>
- <Pine.LNX.4.64.0808291045430.7971@wrl-59.cs.helsinki.fi> <20080830035650.42be37d7@tux>
- <Pine.LNX.4.64.0808301000180.12388@wrl-59.cs.helsinki.fi> <20080907051718.58bf133d@tux>
- <Pine.LNX.4.64.0809071341310.8991@wrl-59.cs.helsinki.fi> <20080908172043.0d25a427@tux>
- <Pine.LNX.4.64.0809100942370.24708@wrl-59.cs.helsinki.fi> <20080911143006.2f516569@tux>
- <Pine.LNX.4.64.0809112140250.26799@wrl-59.cs.helsinki.fi> <20080913203117.2a55ea2c@tux>
- <Pine.LNX.4.64.0809140722460.17271@wrl-59.cs.helsinki.fi> <20080916112411.062fa615@tux>
- <Pine.LNX.4.64.0809161726250.1034@wrl-59.cs.helsinki.fi> <20080918173554.1f874238@tux>
- <Pine.LNX.4.64.0809182349410.4742@wrl-59.cs.helsinki.fi> <20080922012338.694d30b0@tux>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Machine Check Exception Re: NetDev! Please help!
+Date: Mon, 22 Sep 2008 11:24:52 +0000
+Message-ID: <20080922112452.GB5314@ff.dom.local>
+References: <48D4F85C.8090709@bigtelecom.ru> <200809202111.01256.denys@visp.net.lb> <48D67239.9040006@gmail.com> <48D7385D.40107@bigtelecom.ru> <20080922065339.GA4399@ff.dom.local> <48D76813.9000603@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-632985311-1222071466=:1950"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080922012338.694d30b0@tux>
-Content-ID: <Pine.LNX.4.64.0809221408150.1034@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.157]:20696 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751168AbYIVLY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 07:24:59 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1334340fgg.17
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 04:24:57 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <48D76813.9000603@bigtelecom.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-632985311-1222071466=:1950
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0809221352081.1034@wrl-59.cs.helsinki.fi>
-
-On Mon, 22 Sep 2008, Dâniel Fraga wrote:
-
-> On Fri, 19 Sep 2008 00:04:23 +0300 (EEST)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Mon, Sep 22, 2008 at 01:40:35PM +0400, Badalian Vyacheslav wrote:
+> Thanks for answer Jarek!
+> I post it is bugtrack - http://bugzilla.kernel.org/show_bug.cgi?id=11618
 > 
-> > Anyway, if/when you succeed collecting some strace of the server 
-> > processes, please let me know (though putting a full one available might 
-> > not be wise thing like I said earlier). After I thought it a bit, it might 
-> > be enough the start the strace with -p for all server processes of a 
-> > service during a stall and then resolve it after some amount of waiting 
-> > with nmap (and hope that strace doesn't resolve it by interfering 
-> > something relevant :-), you will see that from the fact that it resolves 
-> > without nmap then). That would probably reveal if the processes where 
-> > waiting in accept() or not, and if not, where they were.
+> I not think that its hardware error because this problem we have in 10
+> servers on 2.6.26.2 kernel +)
+> On Friday night i compile 2.6.26.5 and have 2 panic on 1 pc what have
+> max load and 1 panic on other pc.
+> I write to netdev list because first messages looks like:
 > 
-> 	Hi again Ilpo, I waited the whole day for a stall, and
-> fortunatelly it happened while I was stracing dovecot and child
-> processes. The stall happened at 01:11 (at the end). I hope that it
-> has something useful.
+> [ 4956.420298] CPU 1: Machine Check Exception: 0000000000000005
+> [ 4956.420298] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+> [ 4956.420300]   Tx Queue             <0>
+> [ 4956.420300]   TDH                  <81>
+> [ 4956.420301]   TDT                  <81>
+> [ 4956.420302]   next_to_use          <81>
+> [ 4956.420302]   next_to_clean        <d6>
+> [ 4956.420303] buffer_info[next_to_clean]
+> [ 4956.420303]   time_stamp           <15498d>
+> [ 4956.420304]   next_to_watch        <d6>
+> [ 4956.420304]   jiffies              <15511c>
+> [ 4956.420305]   next_to_watch.status <1>
+> [ 4956.420537] eth1: Detected Tx Unit Hang:
+> [ 4956.420538]   TDH                  <b0>
+> [ 4956.420538]   TDT                  <b0>
+> [ 4956.420539]   next_to_use          <b0>
+> [ 4956.420539]   next_to_clean        <5>
+> [ 4956.420540] buffer_info[next_to_clean]:
+> [ 4956.420540]   time_stamp           <15498e>
+> [ 4956.420541]   next_to_watch        <5>
+> [ 4956.420542]   jiffies              <15511c>
+> [ 4956.420542]   next_to_watch.status <1>
+> [ 4956.423064] CPU 1: Bank 0: 3200004000000800
+> [ 4956.423190] CPU 1: Bank 5: 3200220024080400
+> [ 4956.423315] Kernel panic - not syncing: CPU context corrupt
+> [ 4956.423933] Rebooting in 3 seconds..
 
-It definately shows a stall, there are _no_ events between 0:53 and 1:11 
-while there isn't any other period like that, every other minute since the 
-start has some activity going on :-). So this might not be related to 
-networking at all like we've kind of already figured out (definately 
-accept() has very little to do here). There weren't close()'es there 
-either so it looks very stuck on something that's outside of the syscalls 
-we listed in -e, I suppose...
+Yes, similar messages are often netdev problems, but not with
+this Machine Check Exception with this CPU context corrupt,
+which should mean some severe hardware problem (unless some bug,
+probably not netdev, triggers them).
 
-It seems that next sensible step is to just obtain a full strace to see 
-what actually took place during those long minutes if anything (it's 
-better that you keep that log private and just use grep over it on 
-request). ...A full strace might grow huge though. Also, for strace use 
--tt instead of -t to get more accurate timestamps and add -T.
+> 
+> But in 2.6.26.5 i not see errors like this 2 days... Also if system not have network load - i can't do panic by cpuburn or compiling sources...
+> Anyone i think its good that my message also go to general mail-list and bugzilla...
+> 
+> I try get more info... if you or anyone have idea how test this bug - i can do it)
 
-When you get the stall next time, please also check that the processes are 
-actually sleeping instead of looping like crazy in some buggy userspace 
-code :-) (obviously before resolving it with nmap).
+I see you have some advice in bugzilla. These people really know more
+about these things, so you should try this first. I think, they expect
+you to compile the most current kernel version (tip) using git for
+this. You can do this using the instructions from Ingo Molnar's README.
+Make a script from this: from the beginning to the "git checkout ...".
+Of course you have to install git before. After running the commands
+it will download the kernel sources to a subdir (takes time). Copy your
+config there, make oldconfig, make etc. Then send them dmesg after
+rebooting. If you have any problems - write. Alternatively, I guess,
+you could try the current 2.6.27-rc7 kernel at least.
 
-When using nmap to resolve, take note on exact timestamp (including 
-seconds). E.g., 
-$ date > nmap.ts; nmap ...
+Jarek P.
 
-
--- 
- i.
----696208474-632985311-1222071466=:1950--
+BTW: could you try to trigger this bug with one network card off?
