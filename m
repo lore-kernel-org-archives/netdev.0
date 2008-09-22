@@ -1,30 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-09-22
-Date: Mon, 22 Sep 2008 15:47:02 -0700 (PDT)
-Message-ID: <20080922.154702.251968919.davem@davemloft.net>
-References: <20080922220619.GD3660@tuxdriver.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: RFC: Nagle latency tuning
+Date: Mon, 22 Sep 2008 15:47:30 -0700
+Message-ID: <48D82082.7010803@hp.com>
+References: <48C6C300.4050102@redhat.com>	<20080909.125934.150042096.davem@davemloft.net>	<20080922.034933.119934091.davem@davemloft.net>	<20080922.040912.193700258.davem@davemloft.net>	<20080922203042.GY25711@one.firstfloor.org> <48D81A95.5080207@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080922220619.GD3660-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Chris Snook <csnook@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:9765 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753908AbYIVWro (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 18:47:44 -0400
+In-Reply-To: <48D81A95.5080207@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 22 Sep 2008 18:06:19 -0400
+> Indeed.  Setting tcp_delack_min to 0 completely eliminated the undesired 
+> latencies, though of course that would be a bit dangerous with naive 
+> apps talking across the network. 
 
-> Here are a few more for 2.6.27.  The ath9k patches fix an oops and a
-> kernel.org bugzilla (11570).  The zd1211rw patch is just a PCI ID --
-> hopefully that is not still outside the lines even at this stage.
-> 
-> Please let me know if there are problems!
+What did it do to the packets per second or per unit of work?  Depending 
+on the nature of the race between the ACK returning from the remote and 
+the application pushing more bytes into the socket, I'd think that 
+setting the delayed ack timer to zero could result in more traffic on 
+the network (those bare ACKs) than simply setting TCP_NODELAY at the source.
 
-Looks good, pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And since with small packets and/or copy avoidance an ACK is 
+(handwaving) just as many CPU cycles at either end as a data segment 
+that also means a bump in CPU utilization.
+
+rick jones
