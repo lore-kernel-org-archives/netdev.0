@@ -1,65 +1,77 @@
 From: akpm@linux-foundation.org
-Subject: [patch 7/8] hci_usb: replace mb with smp_mb
+Subject: [patch 6/8] drivers/net/wan: Use DIV_ROUND_UP
 Date: Mon, 22 Sep 2008 14:50:42 -0700
-Message-ID: <200809222150.m8MLog27031875@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	tom.leiming@gmail.com, hidave.darkstar@gmail.com,
-	marcel@holtmann.org
+Message-ID: <200809222150.m8MLogbY031872@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk,
+	chas@cmf.nrl.navy.mil
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58971 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34596 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753919AbYIVV5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:57:39 -0400
+	by vger.kernel.org with ESMTP id S1753929AbYIVV5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:57:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ming Lei <tom.leiming@gmail.com>
+From: Julia Lawall <julia@diku.dk>
 
-smp_mb is enough for ordering memory operations among processors,and mb is
-more expensive than smp_mb for UP machine, so replace it with smp_mb().
+The kernel.h macro DIV_ROUND_UP performs the computation (((n) + (d) - 1) /
+(d)) but is perhaps more readable.
 
-Signed-off-by: Ming Lei <tom.leiming@gmail.com>
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
-Cc: Dave Young <hidave.darkstar@gmail.com>
+An extract of the semantic patch that makes this change is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
+
+// <smpl>
+@haskernel@
+@@
+
+#include <linux/kernel.h>
+
+@depends on haskernel@
+expression n,d;
+@@
+
+(
+- (n + d - 1) / d
++ DIV_ROUND_UP(n,d)
+|
+- (n + (d - 1)) / d
++ DIV_ROUND_UP(n,d)
+)
+
+@depends on haskernel@
+expression n,d;
+@@
+
+- DIV_ROUND_UP((n),d)
++ DIV_ROUND_UP(n,d)
+
+@depends on haskernel@
+expression n,d;
+@@
+
+- DIV_ROUND_UP(n,(d))
++ DIV_ROUND_UP(n,d)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/bluetooth/hci_usb.h |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/wan/sbni.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/bluetooth/hci_usb.h~hci_usb-replace-mb-with-smp_mb drivers/bluetooth/hci_usb.h
---- a/drivers/bluetooth/hci_usb.h~hci_usb-replace-mb-with-smp_mb
-+++ a/drivers/bluetooth/hci_usb.h
-@@ -70,8 +70,8 @@ static inline void _urb_queue_head(struc
- {
- 	unsigned long flags;
- 	spin_lock_irqsave(&q->lock, flags);
--	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
--	_urb->queue = q; mb(); list_add(&_urb->list, &q->head);
-+	/* _urb_unlink needs to know which spinlock to use, thus smp_mb(). */
-+	_urb->queue = q; smp_mb(); list_add(&_urb->list, &q->head);
- 	spin_unlock_irqrestore(&q->lock, flags);
- }
+diff -puN drivers/net/wan/sbni.c~drivers-net-wan-use-div_round_up drivers/net/wan/sbni.c
+--- a/drivers/net/wan/sbni.c~drivers-net-wan-use-div_round_up
++++ a/drivers/net/wan/sbni.c
+@@ -856,7 +856,7 @@ prepare_to_send( struct sk_buff  *skb,  
+ 		len = SBNI_MIN_LEN;
  
-@@ -79,8 +79,8 @@ static inline void _urb_queue_tail(struc
- {
- 	unsigned long flags;
- 	spin_lock_irqsave(&q->lock, flags);
--	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
--	_urb->queue = q; mb(); list_add_tail(&_urb->list, &q->head);
-+	/* _urb_unlink needs to know which spinlock to use, thus smp_mb(). */
-+	_urb->queue = q; smp_mb(); list_add_tail(&_urb->list, &q->head);
- 	spin_unlock_irqrestore(&q->lock, flags);
- }
+ 	nl->tx_buf_p	= skb;
+-	nl->tx_frameno	= (len + nl->maxframe - 1) / nl->maxframe;
++	nl->tx_frameno	= DIV_ROUND_UP(len, nl->maxframe);
+ 	nl->framelen	= len < nl->maxframe  ?  len  :  nl->maxframe;
  
-@@ -89,7 +89,7 @@ static inline void _urb_unlink(struct _u
- 	struct _urb_queue *q;
- 	unsigned long flags;
- 
--	mb();
-+	smp_mb();
- 	q = _urb->queue;
- 	/* If q is NULL, it will die at easy-to-debug NULL pointer dereference.
- 	   No need to BUG(). */
+ 	outb( inb( dev->base_addr + CSR0 ) | TR_REQ,  dev->base_addr + CSR0 );
 _
