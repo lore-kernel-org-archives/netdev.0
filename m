@@ -1,483 +1,394 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
-Date: Mon, 22 Sep 2008 15:12:33 -0700 (PDT)
-Message-ID: <20080922.151233.229805934.davem@davemloft.net>
-References: <20080919.234824.223177211.davem@davemloft.net>
-	<48D80C9C.2070108@nortel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: OOPS bug KERNEL LINUX- Version 2.6.26
+Date: Mon, 22 Sep 2008 15:16:35 -0700 (PDT)
+Message-ID: <20080922.151635.200306286.davem@davemloft.net>
+References: <K7M9ZI$69A44BBF23D86D612A80B0EA98EEEE6B@libero.it>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com, steffen.klassert@secunet.com
-To: cfriesen@nortel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54929
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754190AbYIVWMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 18:12:45 -0400
-In-Reply-To: <48D80C9C.2070108@nortel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: andrea_monta-e7mAqy1nzl5eoWH0uzbU5w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <K7M9ZI$69A44BBF23D86D612A80B0EA98EEEE6B-VGgt2q2+T+FeoWH0uzbU5w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Chris Friesen" <cfriesen@nortel.com>
-Date: Mon, 22 Sep 2008 15:22:36 -0600
+From: "andrea_monta\@inwind\.it" <andrea_monta-e7mAqy1nzl5eoWH0uzbU5w@public.gmane.org>
+Date: Mon, 22 Sep 2008 23:50:06 +0200
 
-> I'm not sure this belongs in this particular thread but I was
-> interested in how you're planning on doing this?
+CC:'ing the correct mailing lists...
 
-Something like this patch which I posted last week on
-netdev.
-
-net: Do software flow seperation on receive.
-
-Push netif_receive_skb() work to remote cpus via flow
-hashing and remove softirqs.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/linux/interrupt.h |    1 +
- include/linux/netdevice.h |    2 -
- include/linux/skbuff.h    |    3 +
- net/core/dev.c            |  273 +++++++++++++++++++++++++--------------------
- 4 files changed, 157 insertions(+), 122 deletions(-)
-
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 806b38f..223e68f 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -247,6 +247,7 @@ enum
- 	TIMER_SOFTIRQ,
- 	NET_TX_SOFTIRQ,
- 	NET_RX_SOFTIRQ,
-+	NET_RECEIVE_SOFTIRQ,
- 	BLOCK_SOFTIRQ,
- 	TASKLET_SOFTIRQ,
- 	SCHED_SOFTIRQ,
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 488c56e..a044caa 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -965,11 +965,9 @@ static inline int unregister_gifconf(unsigned int family)
- struct softnet_data
- {
- 	struct Qdisc		*output_queue;
--	struct sk_buff_head	input_pkt_queue;
- 	struct list_head	poll_list;
- 	struct sk_buff		*completion_queue;
- 
--	struct napi_struct	backlog;
- #ifdef CONFIG_NET_DMA
- 	struct dma_chan		*net_dma;
- #endif
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 9099237..e36bc86 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -18,6 +18,7 @@
- #include <linux/compiler.h>
- #include <linux/time.h>
- #include <linux/cache.h>
-+#include <linux/smp.h>
- 
- #include <asm/atomic.h>
- #include <asm/types.h>
-@@ -255,6 +256,8 @@ struct sk_buff {
- 	struct sk_buff		*next;
- 	struct sk_buff		*prev;
- 
-+	struct call_single_data	csd;
-+
- 	struct sock		*sk;
- 	ktime_t			tstamp;
- 	struct net_device	*dev;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e719ed2..09827c7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1660,8 +1660,8 @@ out_kfree_skb:
- 	return 0;
- }
- 
--static u32 simple_tx_hashrnd;
--static int simple_tx_hashrnd_initialized = 0;
-+static u32 simple_hashrnd;
-+static int simple_hashrnd_initialized = 0;
- 
- static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
- {
-@@ -1669,9 +1669,9 @@ static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
- 	u32 hash, ihl;
- 	u8 ip_proto;
- 
--	if (unlikely(!simple_tx_hashrnd_initialized)) {
--		get_random_bytes(&simple_tx_hashrnd, 4);
--		simple_tx_hashrnd_initialized = 1;
-+	if (unlikely(!simple_hashrnd_initialized)) {
-+		get_random_bytes(&simple_hashrnd, 4);
-+		simple_hashrnd_initialized = 1;
- 	}
- 
- 	switch (skb->protocol) {
-@@ -1708,7 +1708,7 @@ static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
- 		break;
- 	}
- 
--	hash = jhash_3words(addr1, addr2, ports, simple_tx_hashrnd);
-+	hash = jhash_3words(addr1, addr2, ports, simple_hashrnd);
- 
- 	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
- }
-@@ -1878,75 +1878,6 @@ int weight_p __read_mostly = 64;            /* old backlog weight */
- DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
- 
- 
--/**
-- *	netif_rx	-	post buffer to the network code
-- *	@skb: buffer to post
-- *
-- *	This function receives a packet from a device driver and queues it for
-- *	the upper (protocol) levels to process.  It always succeeds. The buffer
-- *	may be dropped during processing for congestion control or by the
-- *	protocol layers.
-- *
-- *	return values:
-- *	NET_RX_SUCCESS	(no congestion)
-- *	NET_RX_DROP     (packet was dropped)
-- *
-- */
--
--int netif_rx(struct sk_buff *skb)
--{
--	struct softnet_data *queue;
--	unsigned long flags;
--
--	/* if netpoll wants it, pretend we never saw it */
--	if (netpoll_rx(skb))
--		return NET_RX_DROP;
--
--	if (!skb->tstamp.tv64)
--		net_timestamp(skb);
--
--	/*
--	 * The code is rearranged so that the path is the most
--	 * short when CPU is congested, but is still operating.
--	 */
--	local_irq_save(flags);
--	queue = &__get_cpu_var(softnet_data);
--
--	__get_cpu_var(netdev_rx_stat).total++;
--	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
--		if (queue->input_pkt_queue.qlen) {
--enqueue:
--			__skb_queue_tail(&queue->input_pkt_queue, skb);
--			local_irq_restore(flags);
--			return NET_RX_SUCCESS;
--		}
--
--		napi_schedule(&queue->backlog);
--		goto enqueue;
--	}
--
--	__get_cpu_var(netdev_rx_stat).dropped++;
--	local_irq_restore(flags);
--
--	kfree_skb(skb);
--	return NET_RX_DROP;
--}
--
--int netif_rx_ni(struct sk_buff *skb)
--{
--	int err;
--
--	preempt_disable();
--	err = netif_rx(skb);
--	if (local_softirq_pending())
--		do_softirq();
--	preempt_enable();
--
--	return err;
--}
--
--EXPORT_SYMBOL(netif_rx_ni);
--
- static void net_tx_action(struct softirq_action *h)
- {
- 	struct softnet_data *sd = &__get_cpu_var(softnet_data);
-@@ -2177,7 +2108,7 @@ void netif_nit_deliver(struct sk_buff *skb)
-  *	NET_RX_SUCCESS: no congestion
-  *	NET_RX_DROP: packet was dropped
-  */
--int netif_receive_skb(struct sk_buff *skb)
-+static int __netif_receive_skb(struct sk_buff *skb)
- {
- 	struct packet_type *ptype, *pt_prev;
- 	struct net_device *orig_dev;
-@@ -2185,10 +2116,6 @@ int netif_receive_skb(struct sk_buff *skb)
- 	int ret = NET_RX_DROP;
- 	__be16 type;
- 
--	/* if we've gotten here through NAPI, check netpoll */
--	if (netpoll_receive_skb(skb))
--		return NET_RX_DROP;
--
- 	if (!skb->tstamp.tv64)
- 		net_timestamp(skb);
- 
-@@ -2275,45 +2202,152 @@ out:
- 	return ret;
- }
- 
--/* Network device is going away, flush any packets still pending  */
--static void flush_backlog(void *arg)
-+static void net_receive_action(struct softirq_action *h)
- {
--	struct net_device *dev = arg;
--	struct softnet_data *queue = &__get_cpu_var(softnet_data);
--	struct sk_buff *skb, *tmp;
-+	struct list_head *cpu_list, local_list;
- 
--	skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
--		if (skb->dev == dev) {
--			__skb_unlink(skb, &queue->input_pkt_queue);
--			kfree_skb(skb);
--		}
-+	local_irq_disable();
-+	cpu_list = &__get_cpu_var(softirq_work_list[NET_RECEIVE_SOFTIRQ]);
-+	list_replace_init(cpu_list, &local_list);
-+	local_irq_enable();
-+
-+	while (!list_empty(&local_list)) {
-+		struct sk_buff *skb;
-+
-+		skb = list_entry(local_list.next, struct sk_buff, csd.list);
-+		list_del_init(&skb->csd.list);
-+		__netif_receive_skb(skb);
-+	}
- }
- 
--static int process_backlog(struct napi_struct *napi, int quota)
-+static u16 *rxflow_cpu_map;
-+static int rxflow_num_cpus;
-+
-+/* skb->data points at the network header, but that is the only thing
-+ * we can rely upon.
-+ */
-+static u16 simple_rx_hash(struct sk_buff *skb)
- {
--	int work = 0;
--	struct softnet_data *queue = &__get_cpu_var(softnet_data);
--	unsigned long start_time = jiffies;
-+	u32 addr1, addr2, ports;
-+	struct ipv6hdr *ip6;
-+	struct iphdr *ip;
-+	u32 hash, ihl;
-+	u8 ip_proto;
- 
--	napi->weight = weight_p;
--	do {
--		struct sk_buff *skb;
-+	if (unlikely(!simple_hashrnd_initialized)) {
-+		get_random_bytes(&simple_hashrnd, 4);
-+		simple_hashrnd_initialized = 1;
-+	}
- 
--		local_irq_disable();
--		skb = __skb_dequeue(&queue->input_pkt_queue);
--		if (!skb) {
--			__napi_complete(napi);
--			local_irq_enable();
--			break;
--		}
--		local_irq_enable();
-+	switch (skb->protocol) {
-+	case __constant_htons(ETH_P_IP):
-+		if (!pskb_may_pull(skb, sizeof(*ip)))
-+			return 0;
- 
--		netif_receive_skb(skb);
--	} while (++work < quota && jiffies == start_time);
-+		ip = (struct iphdr *) skb->data;
-+		ip_proto = ip->protocol;
-+		addr1 = ip->saddr;
-+		addr2 = ip->daddr;
-+		ihl = ip->ihl;
-+		break;
-+	case __constant_htons(ETH_P_IPV6):
-+		if (!pskb_may_pull(skb, sizeof(*ip6)))
-+			return 0;
-+
-+		ip6 = (struct ipv6hdr *) skb->data;
-+		ip_proto = ip6->nexthdr;
-+		addr1 = ip6->saddr.s6_addr32[3];
-+		addr2 = ip6->daddr.s6_addr32[3];
-+		ihl = (40 >> 2);
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	ports = 0;
-+	switch (ip_proto) {
-+	case IPPROTO_TCP:
-+	case IPPROTO_UDP:
-+	case IPPROTO_DCCP:
-+	case IPPROTO_ESP:
-+	case IPPROTO_AH:
-+	case IPPROTO_SCTP:
-+	case IPPROTO_UDPLITE:
-+		if (pskb_may_pull(skb, (ihl * 4) + 4))
-+			ports = *((u32 *) (skb->data + (ihl * 4)));
-+		break;
- 
--	return work;
-+	default:
-+		break;
-+	}
-+
-+	hash = jhash_3words(addr1, addr2, ports, simple_hashrnd);
-+
-+	return (u16) (((u64) hash * rxflow_num_cpus) >> 32);
- }
- 
-+/* Since we are already in softirq context via NAPI, it makes no
-+ * sense to reschedule a softirq locally, so we optimize that case.
-+ */
-+int netif_receive_skb(struct sk_buff *skb)
-+{
-+	int target_cpu, this_cpu, do_direct;
-+	unsigned long flags;
-+
-+	/* If we've gotten here through NAPI, check netpoll.  This part
-+	 * has to be synchronous and not get pushed to remote softirq
-+	 * receive packet processing.
-+	 */
-+	if (netpoll_receive_skb(skb))
-+		return NET_RX_DROP;
-+
-+	target_cpu = rxflow_cpu_map[simple_rx_hash(skb)];
-+
-+	local_irq_save(flags);
-+	this_cpu = smp_processor_id();
-+	do_direct = 0;
-+	if (target_cpu != this_cpu)
-+		__send_remote_softirq(&skb->csd, target_cpu, this_cpu, NET_RECEIVE_SOFTIRQ);
-+	else
-+		do_direct = 1;
-+
-+	local_irq_restore(flags);
-+
-+	if (do_direct)
-+		return __netif_receive_skb(skb);
-+
-+	return NET_RX_SUCCESS;
-+}
-+
-+int netif_rx(struct sk_buff *skb)
-+{
-+	int target_cpu;
-+
-+	/* if netpoll wants it, pretend we never saw it */
-+	if (netpoll_rx(skb))
-+		return NET_RX_DROP;
-+
-+	target_cpu = rxflow_cpu_map[simple_rx_hash(skb)];
-+	send_remote_softirq(&skb->csd, target_cpu, NET_RECEIVE_SOFTIRQ);
-+
-+	return NET_RX_SUCCESS;
-+}
-+
-+int netif_rx_ni(struct sk_buff *skb)
-+{
-+	int err;
-+
-+	preempt_disable();
-+	err = netif_rx(skb);
-+	if (local_softirq_pending())
-+		do_softirq();
-+	preempt_enable();
-+
-+	return err;
-+}
-+
-+EXPORT_SYMBOL(netif_rx_ni);
-+
- /**
-  * __napi_schedule - schedule for receive
-  * @n: entry to schedule
-@@ -4182,8 +4216,6 @@ void netdev_run_todo(void)
- 
- 		dev->reg_state = NETREG_UNREGISTERED;
- 
--		on_each_cpu(flush_backlog, dev, 1);
--
- 		netdev_wait_allrefs(dev);
- 
- 		/* paranoia */
-@@ -4489,7 +4521,6 @@ static int dev_cpu_callback(struct notifier_block *nfb,
- {
- 	struct sk_buff **list_skb;
- 	struct Qdisc **list_net;
--	struct sk_buff *skb;
- 	unsigned int cpu, oldcpu = (unsigned long)ocpu;
- 	struct softnet_data *sd, *oldsd;
- 
-@@ -4520,10 +4551,6 @@ static int dev_cpu_callback(struct notifier_block *nfb,
- 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
- 	local_irq_enable();
- 
--	/* Process offline CPU's input_pkt_queue */
--	while ((skb = __skb_dequeue(&oldsd->input_pkt_queue)))
--		netif_rx(skb);
--
- 	return NOTIFY_OK;
- }
- 
-@@ -4793,7 +4820,7 @@ static struct pernet_operations __net_initdata default_device_ops = {
-  */
- static int __init net_dev_init(void)
- {
--	int i, rc = -ENOMEM;
-+	int i, index, rc = -ENOMEM;
- 
- 	BUG_ON(!dev_boot_phase);
- 
-@@ -4813,6 +4840,15 @@ static int __init net_dev_init(void)
- 	if (register_pernet_device(&default_device_ops))
- 		goto out;
- 
-+	rxflow_cpu_map = kzalloc(sizeof(u16) * num_possible_cpus(), GFP_KERNEL);
-+	if (!rxflow_cpu_map)
-+		goto out;
-+	rxflow_num_cpus = num_online_cpus();
-+
-+	index = 0;
-+	for_each_online_cpu(i)
-+		rxflow_cpu_map[index++] = i;
-+
- 	/*
- 	 *	Initialise the packet receive queues.
- 	 */
-@@ -4821,12 +4857,8 @@ static int __init net_dev_init(void)
- 		struct softnet_data *queue;
- 
- 		queue = &per_cpu(softnet_data, i);
--		skb_queue_head_init(&queue->input_pkt_queue);
- 		queue->completion_queue = NULL;
- 		INIT_LIST_HEAD(&queue->poll_list);
--
--		queue->backlog.poll = process_backlog;
--		queue->backlog.weight = weight_p;
- 	}
- 
- 	netdev_dma_register();
-@@ -4835,6 +4867,7 @@ static int __init net_dev_init(void)
- 
- 	open_softirq(NET_TX_SOFTIRQ, net_tx_action);
- 	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
-+	open_softirq(NET_RECEIVE_SOFTIRQ, net_receive_action);
- 
- 	hotcpu_notifier(dev_cpu_callback, 0);
- 	dst_init();
--- 
-1.5.6.5
-
+> 1. Problem with usb-wireless-key 
+> 2. I can't find my device typing ifconfig -a or iwconfig I don't find any wireless attached device. But I have my usb wireless connected. A belkin usb wireless key.Before, with the kernel 2.6.25 all worked well
+> 3. nothing
+> 4. Linux version 2.6.26 (root@clementino) (gcc version 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)) #1 PREEMPT Mon Sep 22 15:57:45 CEST 2008
+> 5.
+> BUG: unable to handle kernel NULL pointer dereference at 0000001c
+> IP: [<c01406d3>] __lock_acquire+0x1d3/0xfd0
+> *pde = 00000000
+> Oops: 0000 [#1] PREEMPT
+> Modules linked in: rt73usb(+) crc_itu_t rt2x00usb rt2x00lib rfkill led_class input_polldev usbhid p54usb p54common mac80211 cfg80211 snd_via82xx i2c_viapro gameport snd_ac97_codec ac97_bus snd_mpu401_uart tuner_simple tuner_types snd_rawmidi tuner tvaudio via_rhine msp3400 snd_bt87x snd_pcm_oss snd_mixer_oss bttv videodev v4l1_compat ir_common snd_pcm compat_ioctl32 i2c_algo_bit uhci_hcd via_ircc v4l2_common videobuf_dma_sg videobuf_core ehci_hcd btcx_risc irda thermal button snd_timer snd_page_alloc tveeprom usbcore i2c_core shpchp pci_hotplug via_agp evdev
+> 
+> Pid: 2137, comm: modprobe Not tainted (2.6.26 #1)
+> EIP: 0060:[<c01406d3>] EFLAGS: 00010046 CPU: 0
+> EIP is at __lock_acquire+0x1d3/0xfd0
+> EAX: 00000000 EBX: 00000246 ECX: 00000000 EDX: 00000018
+> ESI: 00000000 EDI: 00000000 EBP: edc07cb4 ESP: edc07c48
+>  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+> Process modprobe (pid: 2137, ti=edc06000 task=ef9fe030 task.ti=edc06000)
+> Stack: ef9fe030 c049283a 00000246 00000000 00000213 c068b262 ee9cf374 00000043
+>        00000000 00000000 00000018 00000004 ef9fe030 edc07c84 c04928d8 edc07cb4
+>        f0a766a4 00003000 edc07cf4 00001618 ee9cf160 00000002 edc07cb4 c011fa5b
+> Call Trace:
+>  [<c049283a>] ? __mutex_unlock_slowpath+0xaa/0x140
+>  [<c04928d8>] ? mutex_unlock+0x8/0x10
+>  [<f0a766a4>] ? rt2x00usb_vendor_request_buff+0x64/0x80 [rt2x00usb]
+>  [<c011fa5b>] ? printk+0x1b/0x20
+>  [<c0141548>] ? lock_acquire+0x78/0xa0
+>  [<c012f6e0>] ? flush_workqueue+0x0/0x60
+>  [<c012f715>] ? flush_workqueue+0x35/0x60
+>  [<c012f6e0>] ? flush_workqueue+0x0/0x60
+>  [<f0a7b2b3>] ? rt2x00lib_remove_dev+0x33/0x60 [rt2x00lib]
+>  [<f0a7bbda>] ? rt2x00lib_probe_dev+0x5a/0x3e0 [rt2x00lib]
+>  [<f0a760ac>] ? rt2x00usb_alloc_reg+0x4c/0xa0 [rt2x00usb]
+>  [<c0135483>] ? __mutex_init+0x43/0x60
+>  [<f0a76b0b>] ? rt2x00usb_probe+0xcb/0x150 [rt2x00usb]
+>  [<f087b97a>] ? usb_match_one_id+0x2a/0xb0 [usbcore]
+>  [<f087c719>] ? usb_probe_interface+0x69/0xe0 [usbcore]
+>  [<c0341ebb>] ? driver_sysfs_add+0x5b/0x80
+>  [<c0341fe3>] ? driver_probe_device+0x83/0x180
+>  [<c0494409>] ? _spin_unlock_irqrestore+0x39/0x70
+>  [<c0342155>] ? __driver_attach+0x75/0x80
+>  [<c0341693>] ? bus_for_each_dev+0x43/0x70
+>  [<c0341e59>] ? driver_attach+0x19/0x20
+>  [<c03420e0>] ? __driver_attach+0x0/0x80
+>  [<c0341aef>] ? bus_add_driver+0xaf/0x220
+>  [<c03422ef>] ? driver_register+0x4f/0x130
+>  [<c02c5cc2>] ? __spin_lock_init+0x32/0x60
+>  [<f087c2a2>] ? usb_register_driver+0x82/0x100 [usbcore]
+>  [<f08ae017>] ? rt73usb_init+0x17/0x19 [rt73usb]
+>  [<c0147e03>] ? sys_init_module+0x123/0x1a10
+>  [<f0a7c710>] ? rt2x00mac_bss_info_changed+0x0/0x100 [rt2x00lib]
+>  [<c0104189>] ? sysenter_past_esp+0x6a/0xb1
+>  =======================
+> Code: 24 a4 82 56 c0 e8 8e f3 fd ff 8d b4 26 00 00 00 00 8d bc 27 00 00 00 00 31 d2 83 c4 60 89 d0 5b 5e 5f 5d c3 8d 74 26 00 8b 55 bc <8b> 7a 04 85 ff 0f 84 7a fe ff ff ff 87 c0 00 00 00 89 f8 e8 95
+> EIP: [<c01406d3>] __lock_acquire+0x1d3/0xfd0 SS:ESP 0068:edc07c48
+> ---[ end trace 69bb391af1abff2a ]---
+> eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+> NET: Registered protocol family 17
+> NET: Registered protocol family 10
+> lo: Disabled Privacy Extensions
+> warning: `avahi-daemon' uses 32-bit capabilities (legacy support in use)
+> eth0: no IPv6 routers present
+> 6.
+> 7. Linux debian
+> 7.2 processor       : 0
+> vendor_id       : GenuineIntel
+> cpu family      : 15
+> model           : 2
+> model name      : Intel(R) Celeron(R) CPU 2.60GHz
+> stepping        : 9
+> cpu MHz         : 2599.925
+> cache size      : 128 KB
+> fdiv_bug        : no
+> hlt_bug         : no
+> f00f_bug        : no
+> coma_bug        : no
+> fpu             : yes
+> fpu_exception   : yes
+> cpuid level     : 2
+> wp              : yes
+> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe pebs bts cid xtpr
+> bogomips        : 5206.37
+> clflush size    : 64
+> power management:
+> 7.3 modules
+> ipv6 269652 8 - Live 0xf0b26000
+> af_packet 16400 2 - Live 0xf0a95000
+> rt73usb 25625 1 - Loading 0xf0a8d000
+> crc_itu_t 2176 1 rt73usb, Live 0xf0964000
+> rt2x00usb 10632 1 rt73usb, Live 0xf0a76000
+> rt2x00lib 26032 2 rt73usb,rt2x00usb, Live 0xf0a7b000
+> rfkill 6812 1 rt2x00lib, Live 0xf082c000
+> led_class 4108 1 rt2x00lib, Live 0xf0a6e000
+> input_polldev 4248 1 rt2x00lib, Live 0xf0a6b000
+> usbhid 28608 0 - Live 0xf098f000
+> p54usb 12680 0 - Live 0xf0977000
+> p54common 11272 1 p54usb, Live 0xf097c000
+> mac80211 172716 4 rt2x00usb,rt2x00lib,p54usb,p54common, Live 0xf0aa2000
+> cfg80211 24344 2 rt2x00lib,mac80211, Live 0xf0988000
+> snd_via82xx 23088 0 - Live 0xf0981000
+> i2c_viapro 7956 0 - Live 0xf0923000
+> gameport 12312 1 snd_via82xx, Live 0xf08a2000
+> snd_ac97_codec 98884 1 snd_via82xx, Live 0xf09da000
+> ac97_bus 1920 1 snd_ac97_codec, Live 0xf095d000
+> snd_mpu401_uart 7320 1 snd_via82xx, Live 0xf0927000
+> tuner_simple 13840 1 - Live 0xf0972000
+> tuner_types 13952 1 tuner_simple, Live 0xf096d000
+> snd_rawmidi 20672 1 snd_mpu401_uart, Live 0xf0966000
+> tuner 26440 0 - Live 0xf091b000
+> tvaudio 22076 0 - Live 0xf0956000
+> via_rhine 21784 0 - Live 0xf08d9000
+> msp3400 29644 0 - Live 0xf0908000
+> snd_bt87x 12260 0 - Live 0xf0904000
+> snd_pcm_oss 36800 0 - Live 0xf0911000
+> snd_mixer_oss 13960 1 snd_pcm_oss, Live 0xf08ff000
+> bttv 174580 0 - Live 0xf092a000
+> videodev 31648 3 tuner,msp3400,bttv, Live 0xf08b0000
+> v4l1_compat 14084 1 videodev, Live 0xf08d4000
+> ir_common 40068 1 bttv, Live 0xf08e0000
+> snd_pcm 72492 4 snd_via82xx,snd_ac97_codec,snd_bt87x,snd_pcm_oss, Live 0xf08ec000
+> compat_ioctl32 1280 1 bttv, Live 0xf08a7000
+> i2c_algo_bit 6020 1 bttv, Live 0xf08a9000
+> uhci_hcd 21652 0 - Live 0xf089b000
+> via_ircc 18972 0 - Live 0xf085e000
+> v4l2_common 11264 4 tuner,tvaudio,msp3400,bttv, Live 0xf084e000
+> videobuf_dma_sg 12420 1 bttv, Live 0xf0864000
+> videobuf_core 17932 2 bttv,videobuf_dma_sg, Live 0xf0895000
+> ehci_hcd 32404 0 - Live 0xf086a000
+> btcx_risc 4616 1 bttv, Live 0xf085b000
+> irda 106476 1 via_ircc, Live 0xf08b9000
+> thermal 15524 0 - Live 0xf0837000
+> button 6288 0 - Live 0xf084b000
+> snd_timer 21148 1 snd_pcm, Live 0xf0854000
+> snd_page_alloc 8584 3 snd_via82xx,snd_bt87x,snd_pcm, Live 0xf083c000
+> tveeprom 12164 1 bttv, Live 0xf0847000
+> usbcore 133808 7 rt73usb,rt2x00usb,usbhid,p54usb,uhci_hcd,ehci_hcd, Live 0xf0873000
+> i2c_core 22672 9 i2c_viapro,tuner_simple,tuner,tvaudio,msp3400,bttv,i2c_algo_bit,v4l2_common,tveeprom, Live 0xf0840000
+> shpchp 31056 0 - Live 0xf0823000
+> pci_hotplug 27812 1 shpchp, Live 0xf082f000
+> via_agp 8192 1 - Live 0xf0820000
+> evdev 9760 0 - Live 0xf081c000
+> 7.4 
+> 0000-001f : dma1
+> 0020-0021 : pic1
+> 0040-0043 : timer0
+> 0050-0053 : timer1
+> 0060-0060 : keyboard
+> 0064-0064 : keyboard
+> 0070-0077 : rtc
+> 0080-008f : dma page reg
+> 00a0-00a1 : pic2
+> 00c0-00df : dma2
+> 00f0-00ff : fpu
+> 0170-0177 : 0000:00:11.1
+>   0170-0177 : VP_IDE
+> 01f0-01f7 : 0000:00:11.1
+>   01f0-01f7 : VP_IDE
+> 0376-0376 : 0000:00:11.1
+>   0376-0376 : VP_IDE
+> 03c0-03df : vga+
+> 03f2-03f5 : floppy
+> 03f6-03f6 : 0000:00:11.1
+>   03f6-03f6 : VP_IDE
+> 03f7-03f7 : floppy DIR
+> 03f8-03ff : serial
+> 0400-040f : 0000:00:11.0
+>   0400-0407 : vt596_smbus
+> 0800-087f : 0000:00:11.0
+>   0800-0803 : ACPI PM1a_EVT_BLK
+>   0804-0805 : ACPI PM1a_CNT_BLK
+>   0808-080b : ACPI PM_TMR
+>   0810-0815 : ACPI CPU throttle
+>   0820-0823 : ACPI GPE0_BLK
+> 0cf8-0cff : PCI conf1
+> dc00-dcff : 0000:00:12.0
+>   dc00-dcff : via-rhine
+> e000-e0ff : 0000:00:11.5
+>   e000-e0ff : VIA8233
+> e400-e41f : 0000:00:10.0
+>   e400-e41f : uhci_hcd
+> e800-e81f : 0000:00:10.1
+>   e800-e81f : uhci_hcd
+> ec00-ec1f : 0000:00:10.2
+>   ec00-ec1f : uhci_hcd
+> fc00-fc0f : 0000:00:11.1
+>   fc00-fc0f : VP_IDE
+> -------------------------------
+> 00000000-0009fbff : System RAM
+> 0009fc00-0009ffff : reserved
+> 000a0000-000bffff : Video RAM area
+> 000c0000-000cf7ff : Video ROM
+> 000d4000-000d9fff : reserved
+> 000f0000-000fffff : System ROM
+> 00100000-2ffeffff : System RAM
+>   00100000-00494ed6 : Kernel code
+>   00494ed7-0061f797 : Kernel data
+>   0067a000-008c5f57 : Kernel bss
+> 2fff0000-2fff7fff : ACPI Tables
+> 2fff8000-2fffffff : ACPI Non-volatile Storage
+> cdc00000-ddcfffff : PCI Bus 0000:01
+>   d0000000-d7ffffff : 0000:01:00.0
+> dddfe000-dddfefff : 0000:00:09.0
+>   dddfe000-dddfefff : bttv0
+> dddff000-dddfffff : 0000:00:09.1
+>   dddff000-dddfffff : Bt87x audio
+> dde00000-dfefffff : PCI Bus 0000:01
+>   de000000-deffffff : 0000:01:00.0
+>   dfee0000-dfefffff : 0000:01:00.0
+> dffffe00-dffffeff : 0000:00:12.0
+>   dffffe00-dffffeff : via-rhine
+> dfffff00-dfffffff : 0000:00:10.3
+>   dfffff00-dfffffff : ehci_hcd
+> e0000000-e3ffffff : 0000:00:00.0
+> fec00000-fec00fff : reserved
+> fee00000-fee00fff : reserved
+> fff80000-ffffffff : reserved
+> 7.5 lspci -vvv
+> 00:00.0 Host bridge: VIA Technologies, Inc. P4M266 Host Bridge
+>         Subsystem: VIA Technologies, Inc. Unknown device 0000
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ >SERR- <PERR-
+>         Latency: 8
+>         Region 0: Memory at e0000000 (32-bit, prefetchable) [size=64M]
+>         Capabilities: [a0] AGP version 2.0
+>                 Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW- AGP3- Rate=x1,x2,x4
+>                 Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8633 [Apollo Pro266 AGP] (prog-if 00 [Normal decode])
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+>         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ >SERR- <PERR-
+>         Latency: 0
+>         Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
+>         I/O behind bridge: 0000f000-00000fff
+>         Memory behind bridge: dde00000-dfefffff
+>         Prefetchable memory behind bridge: cdc00000-ddcfffff
+>         Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- <SERR- <PERR-
+>         BridgeCtl: Parity- SERR- NoISA+ VGA+ MAbort- >Reset- FastB2B-
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:09.0 Multimedia video controller: Brooktree Corporation Bt878 Video Capture (rev 02)
+>         Subsystem: Hauppauge computer works Inc. WinTV Series
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+>         Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32 (4000ns min, 10000ns max)
+>         Interrupt: pin A routed to IRQ 10
+>         Region 0: Memory at dddfe000 (32-bit, prefetchable) [size=4K]
+> 
+> 00:09.1 Multimedia controller: Brooktree Corporation Bt878 Audio Capture (rev 02)
+>         Subsystem: Hauppauge computer works Inc. WinTV Series
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+>         Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32 (1000ns min, 63750ns max)
+>         Interrupt: pin A routed to IRQ 10
+>         Region 0: Memory at dddff000 (32-bit, prefetchable) [size=4K]
+> 
+> 00:10.0 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 80) (prog-if 00 [UHCI])
+>         Subsystem: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32, Cache Line Size: 32 bytes
+>         Interrupt: pin A routed to IRQ 11
+>         Region 4: I/O ports at e400 [size=32]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 80) (prog-if 00 [UHCI])
+>         Subsystem: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32, Cache Line Size: 32 bytes
+>         Interrupt: pin B routed to IRQ 10
+>         Region 4: I/O ports at e800 [size=32]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 80) (prog-if 00 [UHCI])
+>         Subsystem: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32, Cache Line Size: 32 bytes
+>         Interrupt: pin C routed to IRQ 5
+>         Region 4: I/O ports at ec00 [size=32]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.3 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 82) (prog-if 20 [EHCI])
+>         Subsystem: VIA Technologies, Inc. USB 2.0
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32, Cache Line Size: 128 bytes
+>         Interrupt: pin D routed to IRQ 12
+>         Region 0: Memory at dfffff00 (32-bit, non-prefetchable) [size=256]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8235 ISA Bridge
+>         Subsystem: VIA Technologies, Inc. Unknown device 0000
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping+ SERR- FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 0
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:11.1 IDE interface: VIA Technologies, Inc. VT82C586A/B/VT82C686/A/B/VT823x/A/C PIPC Bus Master IDE (rev 06) (prog-if 8a [Master SecP PriP])
+>         Subsystem: VIA Technologies, Inc. VT82C586/B/VT82C686/A/B/VT8233/A/C/VT8235 PIPC Bus Master IDE
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32
+>         Interrupt: pin A routed to IRQ 255
+>         Region 0: [virtual] Memory at 000001f0 (32-bit, non-prefetchable) [size=8]
+>         Region 1: [virtual] Memory at 000003f0 (type 3, non-prefetchable) [size=1]
+>         Region 2: [virtual] Memory at 00000170 (32-bit, non-prefetchable) [size=8]
+>         Region 3: [virtual] Memory at 00000370 (type 3, non-prefetchable) [size=1]
+>         Region 4: I/O ports at fc00 [size=16]
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:11.5 Multimedia audio controller: VIA Technologies, Inc. VT8233/A/8235/8237 AC97 Audio Controller (rev 50)
+>         Subsystem: VIA Technologies, Inc. K7VT2 motherboard
+>         Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Interrupt: pin C routed to IRQ 5
+>         Region 0: I/O ports at e000 [size=256]
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:12.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II] (rev 74)
+>         Subsystem: VIA Technologies, Inc. VT6102 [Rhine II] Embeded Ethernet Controller on VT8235
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32 (750ns min, 2000ns max), Cache Line Size: 32 bytes
+>         Interrupt: pin A routed to IRQ 11
+>         Region 0: I/O ports at dc00 [size=256]
+>         Region 1: Memory at dffffe00 (32-bit, non-prefetchable) [size=256]
+>         Capabilities: [40] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 01:00.0 VGA compatible controller: nVidia Corporation NV34 [GeForce FX 5200] (rev a1) (prog-if 00 [VGA])
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 8180
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 32 (1250ns min, 250ns max)
+>         Interrupt: pin A routed to IRQ 11
+>         Region 0: Memory at de000000 (32-bit, non-prefetchable) [size=16M]
+>         Region 1: Memory at d0000000 (32-bit, prefetchable) [size=128M]
+>         Expansion ROM at dfee0000 [disabled] [size=128K]
+>         Capabilities: [60] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Capabilities: [44] AGP version 3.0
+>                 Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW+ AGP3- Rate=x1,x2,x4
+>                 Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
+> 7.6 Nothing
+> 7.7 nothing
+>  
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
