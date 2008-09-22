@@ -1,42 +1,63 @@
 From: akpm@linux-foundation.org
-Subject: [patch for 2.6.27? 09/10] drivers/net/hp-plus.c: fix build error
-Date: Mon, 22 Sep 2008 14:10:24 -0700
-Message-ID: <200809222110.m8MLAOQQ029900@imap1.linux-foundation.org>
+Subject: [patch for 2.6.27? 10/10] gianfar: free/iounmap memory after an error in mii bus initialization
+Date: Mon, 22 Sep 2008 14:10:25 -0700
+Message-ID: <200809222110.m8MLAPWg029903@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	randy.dunlap@oracle.com
+	afleming@freescale.com, danielm77@spray.se
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:42482 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49506 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753104AbYIVVOm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:14:42 -0400
+	by vger.kernel.org with ESMTP id S1752350AbYIVVPr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:15:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+From: Andy Fleming <afleming@freescale.com>
 
-Fix hp-plus build error (yet again; will it ever end?):
+Recent changes to MII bus initialization code added exit points which
+didn't free or iounmap the bus before returning.
 
-hp-plus.c:(.init.text+0xa2cd): undefined reference to `NS8390p_init'
+Addresses http://bugzilla.kernel.org/show_bug.cgi?id=11372.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+Reported-by: Daniel Marjamki <danielm77@spray.se>
 Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/hp-plus.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/gianfar_mii.c |   14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-diff -puN drivers/net/hp-plus.c~drivers-net-hp-plusc-fix-build-error drivers/net/hp-plus.c
---- a/drivers/net/hp-plus.c~drivers-net-hp-plusc-fix-build-error
-+++ a/drivers/net/hp-plus.c
-@@ -262,7 +262,7 @@ static int __init hpp_probe1(struct net_
+diff -puN drivers/net/gianfar_mii.c~gianfar-free-iounmap-memory-after-an-error-in-mii-bus-initialization drivers/net/gianfar_mii.c
+--- a/drivers/net/gianfar_mii.c~gianfar-free-iounmap-memory-after-an-error-in-mii-bus-initialization
++++ a/drivers/net/gianfar_mii.c
+@@ -211,19 +211,21 @@ static int gfar_mdio_probe(struct device
+ 	gfar_write(&enet_regs->tbipa, 0);
+ 	for (i = PHY_MAX_ADDR; i > 0; i--) {
+ 		u32 phy_id;
+-		int r;
+ 
+-		r = get_phy_id(new_bus, i, &phy_id);
+-		if (r)
+-			return r;
++		err = get_phy_id(new_bus, i, &phy_id);
++		if (err)
++			goto bus_register_fail;
+ 
+ 		if (phy_id == 0xffffffff)
+ 			break;
  	}
  
- 	outw(Perf_Page, ioaddr + HP_PAGING);
--	NS8390p_init(dev, 0);
-+	NS8390_init(dev, 0);
- 	/* Leave the 8390 and HP chip reset. */
- 	outw(inw(ioaddr + HPP_OPTION) & ~EnableIRQ, ioaddr + HPP_OPTION);
+ 	/* The bus is full.  We don't support using 31 PHYs, sorry */
+-	if (i == 0)
+-		return -EBUSY;
++	if (i == 0) {
++		err = -EBUSY;
++
++		goto bus_register_fail;
++	}
+ 
+ 	gfar_write(&enet_regs->tbipa, i);
  
 _
