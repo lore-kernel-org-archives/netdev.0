@@ -1,40 +1,40 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
-Date: Mon, 22 Sep 2008 13:36:24 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809221329140.1034@wrl-59.cs.helsinki.fi>
-References: <20080920.125949.193703969.davem@davemloft.net>
- <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au> <20080920.235727.247411045.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: Nagle latency tuning
+Date: Mon, 22 Sep 2008 03:49:33 -0700 (PDT)
+Message-ID: <20080922.034933.119934091.davem@davemloft.net>
+References: <87zlmhs7we.fsf@basil.nowhere.org>
+	<48C6C300.4050102@redhat.com>
+	<20080909.125934.150042096.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, dwalker@mvista.com,
-	arjan@infradead.org, LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, jens.axboe@oracle.com,
-	steffen.klassert@secunet.com
-To: David Miller <davem@davemloft.net>
+Cc: andi@firstfloor.org, rick.jones2@hp.com, netdev@vger.kernel.org
+To: csnook@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35017 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497AbYIVKg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 06:36:29 -0400
-In-Reply-To: <20080920.235727.247411045.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57112
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753025AbYIVKtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 06:49:46 -0400
+In-Reply-To: <20080909.125934.150042096.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 20 Sep 2008, David Miller wrote:
+From: David Miller <davem@davemloft.net>
+Date: Tue, 09 Sep 2008 12:59:34 -0700 (PDT)
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Sun, 21 Sep 2008 15:05:45 +0900
 > 
-> > Of course, we need to balance any effort spent on this with the
-> > likelihood that hardware improvements will soon make this obsolete
-> > (for IPsec anyway).
+> Still waiting for your test program and example traces Chris.
 > 
-> True, but old hardware will always exist.
+> Until I see that there really isn't anything more I can contribute
+> concretely to this discussion.
 
-...Also, producing buggy hardware will not suddently just vanish either 
-("can you please turn of ipsec offloading and see if you can still
-reproduce" :-))...
+Ping, still waiting for this...  Can you provide the test case,
+perhaps sometime this year? :-)
 
--- 
- i.
+I'll try to figure out why Andi's patch doesn't behave as expected.
+I suspect you may have a bum build if the sysctl values are coming
+up as zero as that's completely impossible as far as I can tell.
+
+If something so fundamental as that isn't behaving properly, all
+bets are off for anything else you try to use when having that
+patch applied.
