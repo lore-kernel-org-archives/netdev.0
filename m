@@ -1,230 +1,153 @@
 From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 09/11] Phonet: proc interface for port range
-Date: Mon, 22 Sep 2008 18:47:23 +0300
-Message-ID: <1222098445-26175-9-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 11/11] Phonet: kernel documentation
+Date: Mon, 22 Sep 2008 18:47:25 +0300
+Message-ID: <1222098445-26175-11-git-send-email-remi.denis-courmont@nokia.com>
 References: <200809221845.54736.remi.denis-courmont@nokia.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:53006 "EHLO
+Received: from smtp.nokia.com ([192.100.122.233]:53013 "EHLO
 	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753527AbYIVPrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 11:47:46 -0400
+	with ESMTP id S1753619AbYIVPru (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 11:47:50 -0400
 Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
-	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8MFlZFb027641
-	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 18:47:43 +0300
+	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m8MFlZFj027641
+	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 18:47:47 +0300
 In-Reply-To: <200809221845.54736.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phonet endpoints are bound to individual ports.
-This provides a /proc/sys/net/phonet (or sysctl) interface for
-selecting the range of automatically allocated ports (much like the
-ip_local_port_range with IPv4).
-
-Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- include/net/phonet/phonet.h |    3 +
- net/phonet/Makefile         |    1 +
- net/phonet/af_phonet.c      |    3 +
- net/phonet/socket.c         |    3 +-
- net/phonet/sysctl.c         |  113 +++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 122 insertions(+), 1 deletions(-)
- create mode 100644 net/phonet/sysctl.c
+ Documentation/networking/phonet.txt |  111 +++++++++++++++++++++++++++=
+++++++++
+ 1 files changed, 111 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/phonet.txt
 
-diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-index d3957d3..1c6f7e7 100644
---- a/include/net/phonet/phonet.h
-+++ b/include/net/phonet/phonet.h
-@@ -47,6 +47,7 @@ static inline struct pn_sock *pn_sk(struct sock *sk)
- extern const struct proto_ops phonet_dgram_ops;
- 
- struct sock *pn_find_sock_by_sa(const struct sockaddr_pn *sa);
-+void phonet_get_local_port_range(int *min, int *max);
- void pn_sock_hash(struct sock *sk);
- void pn_sock_unhash(struct sock *sk);
- int pn_sock_get_port(struct sock *sk, unsigned short sport);
-@@ -97,6 +98,8 @@ struct phonet_protocol {
- int phonet_proto_register(int protocol, struct phonet_protocol *pp);
- void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
- 
-+int phonet_sysctl_init(void);
-+void phonet_sysctl_exit(void);
- void phonet_netlink_register(void);
- int isi_register(void);
- void isi_unregister(void);
-diff --git a/net/phonet/Makefile b/net/phonet/Makefile
-index d218abc..ae9c3ed 100644
---- a/net/phonet/Makefile
-+++ b/net/phonet/Makefile
-@@ -5,4 +5,5 @@ phonet-objs := \
- 	pn_netlink.o \
- 	socket.o \
- 	datagram.o \
-+	sysctl.o \
- 	af_phonet.o
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index 51397ff..50dc258 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -350,6 +350,7 @@ static int __init phonet_init(void)
- 	phonet_device_init();
- 	dev_add_pack(&phonet_packet_type);
- 	phonet_netlink_register();
-+	phonet_sysctl_init();
- 
- 	err = isi_register();
- 	if (err)
-@@ -357,6 +358,7 @@ static int __init phonet_init(void)
- 	return 0;
- 
- err:
-+	phonet_sysctl_exit();
- 	sock_unregister(AF_PHONET);
- 	dev_remove_pack(&phonet_packet_type);
- 	phonet_device_exit();
-@@ -366,6 +368,7 @@ err:
- static void __exit phonet_exit(void)
- {
- 	isi_unregister();
-+	phonet_sysctl_exit();
- 	sock_unregister(AF_PHONET);
- 	dev_remove_pack(&phonet_packet_type);
- 	phonet_device_exit();
-diff --git a/net/phonet/socket.c b/net/phonet/socket.c
-index 99a4945..dfd4061 100644
---- a/net/phonet/socket.c
-+++ b/net/phonet/socket.c
-@@ -273,8 +273,9 @@ int pn_sock_get_port(struct sock *sk, unsigned short sport)
- 
- 	if (!sport) {
- 		/* search free port */
--		int port, pmin = 0x40, pmax = 0x7f;
-+		int port, pmin, pmax;
- 
-+		phonet_get_local_port_range(&pmin, &pmax);
- 		for (port = pmin; port <= pmax; port++) {
- 			port_cur++;
- 			if (port_cur < pmin || port_cur > pmax)
-diff --git a/net/phonet/sysctl.c b/net/phonet/sysctl.c
+diff --git a/Documentation/networking/phonet.txt b/Documentation/networ=
+king/phonet.txt
 new file mode 100644
-index 0000000..600a430
+index 0000000..f3c72e0
 --- /dev/null
-+++ b/net/phonet/sysctl.c
-@@ -0,0 +1,113 @@
-+/*
-+ * File: sysctl.c
-+ *
-+ * Phonet /proc/sys/net/phonet interface implementation
-+ *
-+ * Copyright (C) 2008 Nokia Corporation.
-+ *
-+ * Contact: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-+ * 02110-1301 USA
-+ */
++++ b/Documentation/networking/phonet.txt
+@@ -0,0 +1,111 @@
++Linux Phonet protocol family
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
 +
-+#include <linux/seqlock.h>
-+#include <linux/sysctl.h>
-+#include <linux/errno.h>
-+#include <linux/init.h>
++Introduction
++------------
 +
-+#define DYNAMIC_PORT_MIN	0x40
-+#define DYNAMIC_PORT_MAX	0x7f
++Phonet is a packet protocol used by Nokia cellular modems for both IPC
++and RPC. With the Linux Phonet socket family, Linux host processes can
++receive and send messages from/to the modem, or any other external
++device attached to the modem. The modem takes care of routing.
 +
-+static DEFINE_SEQLOCK(local_port_range_lock);
-+static int local_port_range_min[2] = {0, 0};
-+static int local_port_range_max[2] = {1023, 1023};
-+static int local_port_range[2] = {DYNAMIC_PORT_MIN, DYNAMIC_PORT_MAX};
-+static struct ctl_table_header *phonet_table_hrd;
++Phonet packets can be exchanged through various hardware connections
++depending on the device, such as:
++  - USB with the CDC Phonet interface,
++  - infrared,
++  - Bluetooth,
++  - an RS232 serial port (with a dedicated "FBUS" line discipline),
++  - the SSI bus with some TI OMAP processors.
 +
-+static void set_local_port_range(int range[2])
-+{
-+	write_seqlock(&local_port_range_lock);
-+	local_port_range[0] = range[0];
-+	local_port_range[1] = range[1];
-+	write_sequnlock(&local_port_range_lock);
-+}
 +
-+void phonet_get_local_port_range(int *min, int *max)
-+{
-+	unsigned seq;
-+	do {
-+		seq = read_seqbegin(&local_port_range_lock);
-+		if (min)
-+			*min = local_port_range[0];
-+		if (max)
-+			*max = local_port_range[1];
-+	} while (read_seqretry(&local_port_range_lock, seq));
-+}
++Packets format
++--------------
 +
-+static int proc_local_port_range(ctl_table *table, int write, struct file *filp,
-+				void __user *buffer,
-+				size_t *lenp, loff_t *ppos)
-+{
-+	int ret;
-+	int range[2] = {local_port_range[0], local_port_range[1]};
-+	ctl_table tmp = {
-+		.data = &range,
-+		.maxlen = sizeof(range),
-+		.mode = table->mode,
-+		.extra1 = &local_port_range_min,
-+		.extra2 = &local_port_range_max,
-+	};
++Phonet packet have a common header as follow:
 +
-+	ret = proc_dointvec_minmax(&tmp, write, filp, buffer, lenp, ppos);
++  struct phonethdr {
++    uint8_t  pn_media;  /* Media type (link-layer identifier) */
++    uint8_t  pn_rdev;   /* Receiver device ID */
++    uint8_t  pn_sdev;   /* Sender device ID */
++    uint8_t  pn_res;    /* Resource ID or function */
++    uint16_t pn_length; /* Big-endian message byte length (minus 6) */
++    uint8_t  pn_robj;   /* Receiver object ID */
++    uint8_t  pn_sobj;   /* Sender object ID */
++  };
 +
-+	if (write && ret == 0) {
-+		if (range[1] < range[0])
-+			ret = -EINVAL;
-+		else
-+			set_local_port_range(range);
-+	}
++The device ID is split: the 6 higher order bits consitutes the device
++address, while the 2 lower order bits are used for multiplexing, as ar=
+e
++the 8-bits object identifiers. As such, Phonet can be considered as a
++network layer with 6 bits of address space and 10 bits for transport
++protocol (much like port numbers in IP world).
 +
-+	return ret;
-+}
++The modem always has address number zero. Each other device has a its
++own 6-bits address.
 +
-+static struct ctl_table phonet_table[] = {
-+	{
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "local_port_range",
-+		.data		= &local_port_range,
-+		.maxlen		= sizeof(local_port_range),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_local_port_range,
-+		.strategy	= NULL,
-+	},
-+	{ .ctl_name = 0 }
-+};
 +
-+struct ctl_path phonet_ctl_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "phonet", .ctl_name = CTL_UNNUMBERED, },
-+	{ },
-+};
++Link layer
++----------
 +
-+int __init phonet_sysctl_init(void)
-+{
-+	phonet_table_hrd = register_sysctl_paths(phonet_ctl_path, phonet_table);
-+	return phonet_table_hrd == NULL ? -ENOMEM : 0;
-+}
++Phonet links are always point-to-point links. The link layer header
++consists of a single Phonet media type byte. It uniquely identifies th=
+e
++link through which the packet is transmitted, from the modem's
++perspective.
 +
-+void phonet_sysctl_exit(void)
-+{
-+	unregister_sysctl_table(phonet_table_hrd);
-+}
--- 
++Linux Phonet network interfaces use a dedicated link layer type
++(ETH_P_PHONET) which is out of the Ethernet type range. They can only
++send and receive Phonet packets.
++
++Note that Phonet interfaces are not allowed to re-order packets, so
++only the (default) Linux FIFO qdisc should be used with them.
++
++
++Network layer
++-------------
++
++The Phonet socket address family maps the Phonet packet header:
++
++  struct sockaddr_pn {
++    sa_family_t spn_family;    /* AF_PHONET */
++    uint8_t     spn_obj;       /* Object ID */
++    uint8_t     spn_dev;       /* Device ID */
++    uint8_t     spn_resource;  /* Resource or function */
++    uint8_t     spn_zero[...]; /* Padding */
++  };
++
++The resource field is only used when sending and receiving;
++It is ignored by bind() and getsockname().
++
++
++Low-level datagram protocol
++---------------------------
++
++Applications can send Phonet messages using the Phonet datagram socket
++protocol from the PF_PHONET family. Each socket is bound to one of the
++2^10 object IDs available, and can send and receive packets with any
++other peer.
++
++  struct sockaddr_pn addr =3D { .spn_family =3D AF_PHONET, };
++  ssize_t len;
++  socklen_t addrlen =3D sizeof(addr);
++  int fd;
++
++  fd =3D socket(PF_PHONET, SOCK_DGRAM, 0);
++  bind(fd, (struct sockaddr *)&addr, sizeof(addr));
++  /* ... */
++
++  sendto(fd, msg, msglen, 0, (struct sockaddr *)&addr, sizeof(addr));
++  len =3D recvfrom(fd, buf, sizeof(buf), 0,
++                 (struct sockaddr *)&addr, &addrlen);
++
++This protocol follows the SOCK_DGRAM connection-less semantics.
++However, connect() and getpeername() are not supported, as they did
++not seem useful with Phonet usages (could be added easily).
++
++
++Authors
++-------
++
++Linux Phonet was initially written by Sakari Ailus.
++Other contributors include Mik=C3=A4 Liljeberg, Andras Domokos,
++Carlos Chinea and R=C3=A9mi Denis-Courmont.
++Copyright (C) 2008 Nokia Corporation.
+--=20
 1.5.4.3
 
