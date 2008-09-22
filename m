@@ -1,37 +1,75 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: Receiving decrypted IPsec Packets including MAC source address
-Date: Mon, 22 Sep 2008 11:37:21 +0300
-Message-ID: <200809221137.21326.remi.denis-courmont@nokia.com>
-References: <769319.35656.qm@web51402.mail.re2.yahoo.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: Should we move IPVS out of net/ipv4 now?
+Date: Mon, 22 Sep 2008 11:16:10 +0200
+Message-ID: <f4845fc0809220216p543af0fcu9ee486feba287c12@mail.gmail.com>
+References: <20080918235220.GD13536@verge.net.au>
+	 <20080918.170030.32445027.davem@davemloft.net>
+	 <f4845fc0809190247l631c2a56se956f46078b41ef3@mail.gmail.com>
+	 <20080919.124553.193698159.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: pommnitz@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:27012 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbYIVIhq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 04:37:46 -0400
-In-Reply-To: <769319.35656.qm@web51402.mail.re2.yahoo.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, csnook@redhat.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080919.124553.193698159.davem@davemloft.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 22 September 2008 11:25:11 ext Joerg Pommnitz, you wrote:
-> Hello all,
-> is there a way to get the source MAC address for a decrypted IPsec
-> protected UDP packet? For unencrypted data I would use RAW sockets, b=
-ut
-> this obviously fails for encrypted data.
+On Fri, Sep 19, 2008 at 9:45 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Julius Volz" <juliusv@google.com>
+> Date: Fri, 19 Sep 2008 11:47:13 +0200
+>
+>> The build with ARCH=um seems to have a problem with the
+>> architecture-specific headers:
+>>
+>> net/core/skb_dma_map.c: In function 'skb_dma_map':
+>> net/core/skb_dma_map.c:20: error: implicit declaration of function
+>> 'dma_mapping_error'
+>>
+>> The bad commit that introduces the skb_dma_map.c file (and this error)
+>> is a40c24a1336. Previous versions build fine.
+>
+> I'll commit the following to net-next-2.6, let me know if it doesn't
+> take care of the problem:
+>
+> net: Fix build with ARCH=um
+>
+> If UM is going to claim that it supports DMA by setting
+> HAS_DMA, it should provide a dma_mapping_error() implementation.
+>
+> Based upon a report by Julius Volz.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/asm-um/dma-mapping.h |    7 +++++++
+>  1 files changed, 7 insertions(+), 0 deletions(-)
+>
+> diff --git a/include/asm-um/dma-mapping.h b/include/asm-um/dma-mapping.h
+> index f0ee4fb..90fc708 100644
+> --- a/include/asm-um/dma-mapping.h
+> +++ b/include/asm-um/dma-mapping.h
+> @@ -118,4 +118,11 @@ dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+>        BUG();
+>  }
+>
+> +static inline int
+> +dma_mapping_error(struct device *dev, dma_addr_t dma_handle)
+> +{
+> +       BUG();
+> +       return 0;
+> +}
+> +
+>  #endif
+> --
 
-In either case, you would have to use PACKET sockets as INET raw socket=
-s won't=20
-give you the link-layer headers. But yeah, that would mean deciphering =
-the=20
-packets in userland.
+Thanks, that got rid of the problem!
 
---=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+Julius
+
+-- 
+Julius Volz - Corporate Operations - SysOps
+
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
