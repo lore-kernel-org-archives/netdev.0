@@ -1,68 +1,71 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Mon, 22 Sep 2008 11:04:25 +0400
-Message-ID: <20080922070425.GA14572@2ka.mipt.ru>
-References: <20080922044051.GA583@2ka.mipt.ru> <20080921.220605.129235191.davem@davemloft.net> <20080922054918.GA31099@2ka.mipt.ru> <20080921.235444.156373854.davem@davemloft.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [V#2 PATCH 0/18] netdevice: Fix directly reference of netdev->priv
+Date: Mon, 22 Sep 2008 15:04:01 +0800
+Message-ID: <48D74361.7010603@cn.fujitsu.com>
+References: <48C0A219.2030004@cn.fujitsu.com>	<48D4B1B0.2030803@cn.fujitsu.com> <20080920.033700.257291582.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johaahn@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com, dcbw@redhat.com
+To: David Miller <davem@davemloft.net>, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:55518 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751165AbYIVHFM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2008 03:05:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20080921.235444.156373854.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:63418 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751166AbYIVHGy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 03:06:54 -0400
+In-Reply-To: <20080920.033700.257291582.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 21, 2008 at 11:54:44PM -0700, David Miller (davem@davemloft.net) wrote:
-> > So effectively you are saying, that sendfile() is just a pure send(),
-> > but with diferent arguments? I.e. it is not supposed to send the whole
-> > data it points to, but as much as possible according to send() standard?
+David Miller said the following on 2008-9-20 18:37:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Sat, 20 Sep 2008 16:17:52 +0800
 > 
-> It already makes this, guess what happens when socket error occurs
-> midstream during sendfile(), even for TCP?
+>> Dave said:
+>>> I'll see what I can do.
+>>>
+>>> I know this is going to create conflicts in a few places, including sparc-next-2.6
+>>> where I already made this fix while cleaning up all of the SBUS device drivers.
+>>>
+>>> So I guess I'm saying that I'm being lazy. :)
+>>>
+>>> I'll try to look into this next week as I'm going to be busy and also away for
+>>> a few days.
+>>>
+>> Dave, seems nobody give any opposite comments.
 > 
-> First, we return length successfully sent.
+> Actually, I did see such comments which is why I totally dropped this set from
+> my inbox. 
 > 
-> User has to retry sendfile() call with remaining length, and at this
-> point they will immediately get the socket error return value.
+
+Dave, do you mean these comments?
+
+------
+John W. Linville:
+However, I do not understand why you didn't
+simply replace netdev->priv with netdev_priv()?  Can you explain?
+
+Dan Williams:
+Yeah, that would have been my first choice too...
+------
+
+I think I have answered their question as:
+------
+1. Why I don't use netdev_priv() to replace netdev->priv here?
+Because, netdev->priv was changed here, but it shouldn't, 
+the memory was allocated when alloc_netdev and
+netdev->priv should always pointed to that memory.
+
+2. Why I use netdev->ml_priv here to replace netdev->priv?
+In this driver, netdev->priv are shared by multi wifidevs, that means wifidevs need
+mid-layer private data, which are all same as their parent netdev.
+This usage is same as Dave's commit "syncppp: Fix crashes."
+------
+
+After my answer, their didn't give feedback, so I think there is no opposite comments.
+
+> Besides, it's Jeff's territory technically :-)
 > 
-> This was broken at one point and I remember applying the fix for this
-> several years ago :-)
 
-Well, still tcp errors are completely different from udp ones: the
-former ony result in a real problem or interrupt/timeout in the simple
-case. UDP adds 'it is too big to be transferred' one. And instead of
-just send the previous frame and start new one, we return error so that
-user could do the same with additional syscall.
+OK. Jeff, will you look at my patch?
 
-> > Well, it may be a right or wrong decision, and in my opinion sendfile()
-> > is very diferent than send() since it should require the whole data to
-> > be sent, i.e. being like a loop of send()s, but since sendfile() is
-> > effectively a very new approach, it could have different behaviour
-> > rules.
-> 
-> It is in fact exactly and precisely like send().  It must even give
-> the same error return semantics as other socket data transfer calls
-> do.  See above.
-
-That's the main difference on how you and me look at sendfile().
-
-> The user has to have a resending loop _anyways_, in order to do
-> correct error handling.
-> 
-> Nothing is gained from the proposal, really.  It can only harm application
-> developers into thinking that segmentation over datagram sockets is not
-> their responsibility, when it absolutely is.
-
-Which basically means that sendfile() for udp is exactly send() of the
-mapped data. And it is not about segmentation, since packets are
-correctly segmented with this proposal: packet is rounded to the
-submitted page. This is about optimization compared to send() of the
-data. You basically draw a line, that with UDP it is impossible to do.
-
--- 
-	Evgeniy Polyakov
