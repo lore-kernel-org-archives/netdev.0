@@ -1,41 +1,65 @@
 From: akpm@linux-foundation.org
-Subject: [patch 8/8] irda: follow lspci device/vendor style
-Date: Mon, 22 Sep 2008 14:50:43 -0700
-Message-ID: <200809222150.m8MLohVg031878@imap1.linux-foundation.org>
+Subject: [patch 7/8] hci_usb: replace mb with smp_mb
+Date: Mon, 22 Sep 2008 14:50:42 -0700
+Message-ID: <200809222150.m8MLog27031875@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	bjorn.helgaas@hp.com, samuel@sortiz.org
+	tom.leiming@gmail.com, hidave.darkstar@gmail.com,
+	marcel@holtmann.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38679 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58971 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753848AbYIVV5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:57:36 -0400
+	by vger.kernel.org with ESMTP id S1753919AbYIVV5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:57:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+From: Ming Lei <tom.leiming@gmail.com>
 
-Use "[%04x:%04x]" for PCI vendor/device IDs to follow the format used by
-lspci(8).
+smp_mb is enough for ordering memory operations among processors,and mb is
+more expensive than smp_mb for UP machine, so replace it with smp_mb().
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>
+Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
+Cc: Dave Young <hidave.darkstar@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/irda/vlsi_ir.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/bluetooth/hci_usb.h |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff -puN drivers/net/irda/vlsi_ir.c~irda-follow-lspci-device-vendor-style drivers/net/irda/vlsi_ir.c
---- a/drivers/net/irda/vlsi_ir.c~irda-follow-lspci-device-vendor-style
-+++ a/drivers/net/irda/vlsi_ir.c
-@@ -165,7 +165,7 @@ static void vlsi_proc_pdev(struct seq_fi
- 	unsigned iobase = pci_resource_start(pdev, 0);
- 	unsigned i;
+diff -puN drivers/bluetooth/hci_usb.h~hci_usb-replace-mb-with-smp_mb drivers/bluetooth/hci_usb.h
+--- a/drivers/bluetooth/hci_usb.h~hci_usb-replace-mb-with-smp_mb
++++ a/drivers/bluetooth/hci_usb.h
+@@ -70,8 +70,8 @@ static inline void _urb_queue_head(struc
+ {
+ 	unsigned long flags;
+ 	spin_lock_irqsave(&q->lock, flags);
+-	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
+-	_urb->queue = q; mb(); list_add(&_urb->list, &q->head);
++	/* _urb_unlink needs to know which spinlock to use, thus smp_mb(). */
++	_urb->queue = q; smp_mb(); list_add(&_urb->list, &q->head);
+ 	spin_unlock_irqrestore(&q->lock, flags);
+ }
  
--	seq_printf(seq, "\n%s (vid/did: %04x/%04x)\n",
-+	seq_printf(seq, "\n%s (vid/did: [%04x:%04x])\n",
- 		   pci_name(pdev), (int)pdev->vendor, (int)pdev->device);
- 	seq_printf(seq, "pci-power-state: %u\n", (unsigned) pdev->current_state);
- 	seq_printf(seq, "resources: irq=%u / io=0x%04x / dma_mask=0x%016Lx\n",
+@@ -79,8 +79,8 @@ static inline void _urb_queue_tail(struc
+ {
+ 	unsigned long flags;
+ 	spin_lock_irqsave(&q->lock, flags);
+-	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
+-	_urb->queue = q; mb(); list_add_tail(&_urb->list, &q->head);
++	/* _urb_unlink needs to know which spinlock to use, thus smp_mb(). */
++	_urb->queue = q; smp_mb(); list_add_tail(&_urb->list, &q->head);
+ 	spin_unlock_irqrestore(&q->lock, flags);
+ }
+ 
+@@ -89,7 +89,7 @@ static inline void _urb_unlink(struct _u
+ 	struct _urb_queue *q;
+ 	unsigned long flags;
+ 
+-	mb();
++	smp_mb();
+ 	q = _urb->queue;
+ 	/* If q is NULL, it will die at easy-to-debug NULL pointer dereference.
+ 	   No need to BUG(). */
 _
