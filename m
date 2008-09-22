@@ -1,52 +1,51 @@
 From: akpm@linux-foundation.org
-Subject: [patch for 2.6.27? 04/10] drivers/net/mlx4/alloc.c needs mm.h
-Date: Mon, 22 Sep 2008 14:10:18 -0700
-Message-ID: <200809222110.m8MLAJCC029877@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, rdreier@cisco.com
+Subject: [patch for 2.6.27? 03/10] drivers/net/atl1e/: don't take the mdio_lock in atl1e_probe
+Date: Mon, 22 Sep 2008 14:10:17 -0700
+Message-ID: <200809222110.m8MLAHl1029870@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, matthew@wil.cx,
+	jie.yang@atheros.com, willy@linux.intel.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50272 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60312 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752259AbYIVVMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:12:05 -0400
+	by vger.kernel.org with ESMTP id S1751424AbYIVVMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:12:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Matthew Wilcox <matthew@wil.cx>
 
-sparc32 allmodconfig with linux-next:
+Lockdep warns about the mdio_lock taken with interrupts enabled then later
+taken from interrupt context.  Initially, I considered changing these to
+spin_lock_irq/spin_unlock_irq, but then I looked at atl1e_phy_init() and
+saw that it calls msleep().  Sleeping while holding a spinlock is not
+allowed either.
 
-drivers/net/mlx4/alloc.c: In function 'mlx4_buf_alloc':
-drivers/net/mlx4/alloc.c:164: error: 'PAGE_KERNEL' undeclared (first use in this function)
-drivers/net/mlx4/alloc.c:164: error: (Each undeclared identifier is reported only once
-drivers/net/mlx4/alloc.c:164: error: for each function it appears in.)
+In the probe path, we haven't registered the interrupt handler, so it
+can't poke at this card yet.  It's before we call register_netdev(), so I
+don't think any other threads can reach this card either.  If I'm right,
+we don't need a spinlock at all.
 
-this is due to some header shuffle in linux-next.  I didn't look to see what
-it was.  I'd sugges that this patch be merged ahead of a linux-next merge to
-avoid bisection breaks.
-
-We strictly only need asm/pgtable.h, but going direct to asm includes always
-seems grubby.
-
+Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
+Acked-by: Jie Yang <jie.yang@atheros.com>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Acked-by: Roland Dreier <rdreier@cisco.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/mlx4/alloc.c |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/atl1e/atl1e_main.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-diff -puN drivers/net/mlx4/alloc.c~drivers-net-mlx4-allocc-needs-mmh drivers/net/mlx4/alloc.c
---- a/drivers/net/mlx4/alloc.c~drivers-net-mlx4-allocc-needs-mmh
-+++ a/drivers/net/mlx4/alloc.c
-@@ -33,6 +33,7 @@
+diff -puN drivers/net/atl1e/atl1e_main.c~drivers-net-atl1e-dont-take-the-mdio_lock-in-atl1e_probe drivers/net/atl1e/atl1e_main.c
+--- a/drivers/net/atl1e/atl1e_main.c~drivers-net-atl1e-dont-take-the-mdio_lock-in-atl1e_probe
++++ a/drivers/net/atl1e/atl1e_main.c
+@@ -2390,9 +2390,7 @@ static int __devinit atl1e_probe(struct 
+ 	}
  
- #include <linux/errno.h>
- #include <linux/slab.h>
-+#include <linux/mm.h>
- #include <linux/bitmap.h>
- #include <linux/dma-mapping.h>
- #include <linux/vmalloc.h>
+ 	/* Init GPHY as early as possible due to power saving issue  */
+-	spin_lock(&adapter->mdio_lock);
+ 	atl1e_phy_init(&adapter->hw);
+-	spin_unlock(&adapter->mdio_lock);
+ 	/* reset the controller to
+ 	 * put the device in a known good starting state */
+ 	err = atl1e_reset_hw(&adapter->hw);
 _
