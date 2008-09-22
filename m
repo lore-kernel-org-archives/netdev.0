@@ -1,84 +1,109 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/4] mISDN: endian annotations for struct zt
-Date: Mon, 22 Sep 2008 14:51:02 -0700
-Message-ID: <200809222151.m8MLp2iv031898@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	harvey.harrison@gmail.com
+Subject: [patch 1/4] drivers/isdn/capi/kcapi.c: Adjust error handling code involving capi_ctr_put
+Date: Mon, 22 Sep 2008 14:51:01 -0700
+Message-ID: <200809222151.m8MLp1S9031895@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk,
+	davem@davemloft.net
 To: kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51938 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39608 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753478AbYIVVvi (ORCPT
+	by vger.kernel.org with ESMTP id S1753465AbYIVVvi (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:51:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
+From: Julia Lawall <julia@diku.dk>
 
-Found two possible bugs where the z1 value was used directly without
-byteswapping.
+After calling capi_ctr_get, error handling code should call capi_ctr_put.
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+The semantic match that finds this problem is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
+
+// <smpl>
+@r@
+expression x,E;
+statement S;
+position p1,p2,p3;
+@@
+
+(
+if ((x = capi_ctr_get@p1(...)) == NULL || ...) S
+|
+x = capi_ctr_get@p1(...)
+... when != x
+if (x == NULL || ...) S
+)
+<...
+if@p3 (...) { ... when != capi_ctr_put(x)
+                  when != if (x) { ... capi_ctr_put(x); ...}
+    return@p2 ...;
+}
+...>
+(
+return x;
+|
+return 0;
+|
+x = E
+|
+E = x
+|
+capi_ctr_put(x)
+)
+
+@exists@
+position r.p1,r.p2,r.p3;
+expression x;
+int ret != 0;
+statement S;
+@@
+
+* x = capi_ctr_get@p1(...)
+  <...
+* if@p3 (...)
+  S
+  ...>
+* return@p2 \(NULL\|ret\);
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
 Cc: Karsten Keil <kkeil@suse.de>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/hardware/mISDN/hfc_pci.h |    4 ++--
- drivers/isdn/hardware/mISDN/hfcpci.c  |    9 ++++-----
- 2 files changed, 6 insertions(+), 7 deletions(-)
+ drivers/isdn/capi/kcapi.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff -puN drivers/isdn/hardware/mISDN/hfc_pci.h~misdn-endian-annotations-for-struct-zt drivers/isdn/hardware/mISDN/hfc_pci.h
---- a/drivers/isdn/hardware/mISDN/hfc_pci.h~misdn-endian-annotations-for-struct-zt
-+++ a/drivers/isdn/hardware/mISDN/hfc_pci.h
-@@ -183,8 +183,8 @@
- #define D_FREG_MASK  0xF
+diff -puN drivers/isdn/capi/kcapi.c~drivers-isdn-capi-kcapic-adjust-error-handling-code-involving-capi_ctr_put drivers/isdn/capi/kcapi.c
+--- a/drivers/isdn/capi/kcapi.c~drivers-isdn-capi-kcapic-adjust-error-handling-code-involving-capi_ctr_put
++++ a/drivers/isdn/capi/kcapi.c
+@@ -828,15 +828,18 @@ static int old_capi_manufacturer(unsigne
+ 			return -ESRCH;
+ 		if (card->load_firmware == NULL) {
+ 			printk(KERN_DEBUG "kcapi: load: no load function\n");
++			capi_ctr_put(card);
+ 			return -ESRCH;
+ 		}
  
- struct zt {
--	unsigned short z1;  /* Z1 pointer 16 Bit */
--	unsigned short z2;  /* Z2 pointer 16 Bit */
-+	__le16 z1;  /* Z1 pointer 16 Bit */
-+	__le16 z2;  /* Z2 pointer 16 Bit */
- };
+ 		if (ldef.t4file.len <= 0) {
+ 			printk(KERN_DEBUG "kcapi: load: invalid parameter: length of t4file is %d ?\n", ldef.t4file.len);
++			capi_ctr_put(card);
+ 			return -EINVAL;
+ 		}
+ 		if (ldef.t4file.data == NULL) {
+ 			printk(KERN_DEBUG "kcapi: load: invalid parameter: dataptr is 0\n");
++			capi_ctr_put(card);
+ 			return -EINVAL;
+ 		}
  
- struct dfifo {
-diff -puN drivers/isdn/hardware/mISDN/hfcpci.c~misdn-endian-annotations-for-struct-zt drivers/isdn/hardware/mISDN/hfcpci.c
---- a/drivers/isdn/hardware/mISDN/hfcpci.c~misdn-endian-annotations-for-struct-zt
-+++ a/drivers/isdn/hardware/mISDN/hfcpci.c
-@@ -366,8 +366,7 @@ static void hfcpci_clear_fifo_tx(struct 
- 	bzt->f2 = MAX_B_FRAMES;
- 	bzt->f1 = bzt->f2;	/* init F pointers to remain constant */
- 	bzt->za[MAX_B_FRAMES].z1 = cpu_to_le16(B_FIFO_SIZE + B_SUB_VAL - 1);
--	bzt->za[MAX_B_FRAMES].z2 = cpu_to_le16(
--	    le16_to_cpu(bzt->za[MAX_B_FRAMES].z1 - 1));
-+	bzt->za[MAX_B_FRAMES].z2 = cpu_to_le16(B_FIFO_SIZE + B_SUB_VAL - 2);
- 	if (fifo_state)
- 		hc->hw.fifo_en |= fifo_state;
- 	Write_hfc(hc, HFCPCI_FIFO_EN, hc->hw.fifo_en);
-@@ -482,7 +481,7 @@ receive_dmsg(struct hfc_pci *hc)
- 			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) |
- 			    (MAX_D_FRAMES + 1);	/* next buffer */
- 			df->za[df->f2 & D_FREG_MASK].z2 =
--			    cpu_to_le16((zp->z2 + rcnt) & (D_FIFO_SIZE - 1));
-+			    cpu_to_le16((le16_to_cpu(zp->z2) + rcnt) & (D_FIFO_SIZE - 1));
- 		} else {
- 			dch->rx_skb = mI_alloc_skb(rcnt - 3, GFP_ATOMIC);
- 			if (!dch->rx_skb) {
-@@ -526,7 +525,7 @@ receive_dmsg(struct hfc_pci *hc)
- int
- hfcpci_empty_fifo_trans(struct bchannel *bch, struct bzfifo *bz, u_char *bdata)
- {
--	unsigned short	*z1r, *z2r;
-+	 __le16 *z1r, *z2r;
- 	int		new_z2, fcnt, maxlen;
- 	u_char		*ptr, *ptr1;
+@@ -849,6 +852,7 @@ static int old_capi_manufacturer(unsigne
  
-@@ -724,7 +723,7 @@ hfcpci_fill_fifo(struct bchannel *bch)
- 	struct bzfifo	*bz;
- 	u_char		*bdata;
- 	u_char		new_f1, *src, *dst;
--	unsigned short	*z1t, *z2t;
-+	__le16 *z1t, *z2t;
- 
- 	if ((bch->debug & DEBUG_HW_BCHANNEL) && !(bch->debug & DEBUG_HW_BFIFO))
- 		printk(KERN_DEBUG "%s\n", __func__);
+ 		if (card->cardstate != CARD_DETECTED) {
+ 			printk(KERN_INFO "kcapi: load: contr=%d not in detect state\n", ldef.contr);
++			capi_ctr_put(card);
+ 			return -EBUSY;
+ 		}
+ 		card->cardstate = CARD_LOADING;
 _
