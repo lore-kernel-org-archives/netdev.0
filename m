@@ -1,109 +1,92 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/4] drivers/isdn/capi/kcapi.c: Adjust error handling code involving capi_ctr_put
-Date: Mon, 22 Sep 2008 14:51:01 -0700
-Message-ID: <200809222151.m8MLp1S9031895@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk,
-	davem@davemloft.net
+Subject: [patch 3/4] mISDN: annotate iomem pointer and add statics
+Date: Mon, 22 Sep 2008 14:51:02 -0700
+Message-ID: <200809222151.m8MLp3PH031901@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	harvey.harrison@gmail.com
 To: kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39608 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:37338 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753465AbYIVVvi (ORCPT
+	by vger.kernel.org with ESMTP id S1753379AbYIVVvi (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 17:51:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+From: Harvey Harrison <harvey.harrison@gmail.com>
 
-After calling capi_ctr_get, error handling code should call capi_ctr_put.
-
-The semantic match that finds this problem is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
-
-// <smpl>
-@r@
-expression x,E;
-statement S;
-position p1,p2,p3;
-@@
-
-(
-if ((x = capi_ctr_get@p1(...)) == NULL || ...) S
-|
-x = capi_ctr_get@p1(...)
-... when != x
-if (x == NULL || ...) S
-)
-<...
-if@p3 (...) { ... when != capi_ctr_put(x)
-                  when != if (x) { ... capi_ctr_put(x); ...}
-    return@p2 ...;
-}
-...>
-(
-return x;
-|
-return 0;
-|
-x = E
-|
-E = x
-|
-capi_ctr_put(x)
-)
-
-@exists@
-position r.p1,r.p2,r.p3;
-expression x;
-int ret != 0;
-statement S;
-@@
-
-* x = capi_ctr_get@p1(...)
-  <...
-* if@p3 (...)
-  S
-  ...>
-* return@p2 \(NULL\|ret\);
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 Cc: Karsten Keil <kkeil@suse.de>
-Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/capi/kcapi.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/isdn/hardware/mISDN/hfcpci.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff -puN drivers/isdn/capi/kcapi.c~drivers-isdn-capi-kcapic-adjust-error-handling-code-involving-capi_ctr_put drivers/isdn/capi/kcapi.c
---- a/drivers/isdn/capi/kcapi.c~drivers-isdn-capi-kcapic-adjust-error-handling-code-involving-capi_ctr_put
-+++ a/drivers/isdn/capi/kcapi.c
-@@ -828,15 +828,18 @@ static int old_capi_manufacturer(unsigne
- 			return -ESRCH;
- 		if (card->load_firmware == NULL) {
- 			printk(KERN_DEBUG "kcapi: load: no load function\n");
-+			capi_ctr_put(card);
- 			return -ESRCH;
- 		}
+diff -puN drivers/isdn/hardware/mISDN/hfcpci.c~misdn-annotate-iomem-pointer-and-add-statics drivers/isdn/hardware/mISDN/hfcpci.c
+--- a/drivers/isdn/hardware/mISDN/hfcpci.c~misdn-annotate-iomem-pointer-and-add-statics
++++ a/drivers/isdn/hardware/mISDN/hfcpci.c
+@@ -43,7 +43,7 @@ MODULE_LICENSE("GPL");
+ module_param(debug, uint, 0);
  
- 		if (ldef.t4file.len <= 0) {
- 			printk(KERN_DEBUG "kcapi: load: invalid parameter: length of t4file is %d ?\n", ldef.t4file.len);
-+			capi_ctr_put(card);
- 			return -EINVAL;
- 		}
- 		if (ldef.t4file.data == NULL) {
- 			printk(KERN_DEBUG "kcapi: load: invalid parameter: dataptr is 0\n");
-+			capi_ctr_put(card);
- 			return -EINVAL;
- 		}
+ static LIST_HEAD(HFClist);
+-DEFINE_RWLOCK(HFClock);
++static DEFINE_RWLOCK(HFClock);
  
-@@ -849,6 +852,7 @@ static int old_capi_manufacturer(unsigne
+ enum {
+ 	HFC_CCD_2BD0,
+@@ -88,7 +88,7 @@ struct hfcPCI_hw {
+ 	unsigned char		bswapped;
+ 	unsigned char		protocol;
+ 	int			nt_timer;
+-	unsigned char		*pci_io; /* start of PCI IO memory */
++	unsigned char __iomem 	*pci_io; /* start of PCI IO memory */
+ 	dma_addr_t		dmahandle;
+ 	void			*fifos; /* FIFO memory */
+ 	int			last_bfifo_cnt[2];
+@@ -153,7 +153,7 @@ release_io_hfcpci(struct hfc_pci *hc)
+ 	pci_write_config_word(hc->pdev, PCI_COMMAND, 0);
+ 	del_timer(&hc->hw.timer);
+ 	pci_free_consistent(hc->pdev, 0x8000, hc->hw.fifos, hc->hw.dmahandle);
+-	iounmap((void *)hc->hw.pci_io);
++	iounmap(hc->hw.pci_io);
+ }
  
- 		if (card->cardstate != CARD_DETECTED) {
- 			printk(KERN_INFO "kcapi: load: contr=%d not in detect state\n", ldef.contr);
-+			capi_ctr_put(card);
- 			return -EBUSY;
- 		}
- 		card->cardstate = CARD_LOADING;
+ /*
+@@ -522,7 +522,7 @@ receive_dmsg(struct hfc_pci *hc)
+ /*
+  * check for transparent receive data and read max one threshold size if avail
+  */
+-int
++static int
+ hfcpci_empty_fifo_trans(struct bchannel *bch, struct bzfifo *bz, u_char *bdata)
+ {
+ 	 __le16 *z1r, *z2r;
+@@ -575,7 +575,7 @@ hfcpci_empty_fifo_trans(struct bchannel 
+ /*
+  * B-channel main receive routine
+  */
+-void
++static void
+ main_rec_hfcpci(struct bchannel *bch)
+ {
+ 	struct hfc_pci	*hc = bch->hw;
+@@ -1678,7 +1678,7 @@ hfcpci_l2l1B(struct mISDNchannel *ch, st
+  * called for card init message
+  */
+ 
+-void
++static void
+ inithfcpci(struct hfc_pci *hc)
+ {
+ 	printk(KERN_DEBUG "inithfcpci: entered\n");
+@@ -1965,7 +1965,7 @@ setup_hw(struct hfc_pci *hc)
+ 		printk(KERN_WARNING "HFC-PCI: No IRQ for PCI card found\n");
+ 		return 1;
+ 	}
+-	hc->hw.pci_io = (char *)(ulong)hc->pdev->resource[1].start;
++	hc->hw.pci_io = (char __iomem *)(unsigned long)hc->pdev->resource[1].start;
+ 
+ 	if (!hc->hw.pci_io) {
+ 		printk(KERN_WARNING "HFC-PCI: No IO-Mem for PCI card found\n");
 _
