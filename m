@@ -1,40 +1,188 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: routing PF_PACKET sockets
-Date: Mon, 22 Sep 2008 17:04:09 +0300
-Message-ID: <200809221704.09530.remi.denis-courmont@nokia.com>
-References: <3f847c820809211610n731b0090wb6a9f94a3514f455@mail.gmail.com> <5c4c427193d751928b131d43ab66879f@chewa.net> <3f847c820809220639y609470b6x9b2602cba24a0589@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 1/5] dccp: Basic data structure for feature negotiation
+Date: Mon, 22 Sep 2008 11:10:55 -0300
+Message-ID: <20080922141055.GA16625@ghostprotocols.net>
+References: <20080921.235853.223987556.davem@davemloft.net> <1222068117-13401-1-git-send-email-gerrit@erg.abdn.ac.uk> <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ext =?iso-8859-1?q?Ra=FAl_Hern=E1ndez?= <rauhersu@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:44280 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751971AbYIVOEZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 10:04:25 -0400
-In-Reply-To: <3f847c820809220639y609470b6x9b2602cba24a0589@mail.gmail.com>
+Received: from mx2.redhat.com ([66.187.237.31]:39226 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752010AbYIVOUA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 10:20:00 -0400
 Content-Disposition: inline
+In-Reply-To: <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 22 September 2008 16:39:59 ext Ra=FAl Hern=E1ndez, you wrote:
-> Just to clarify it a bit more; Suppose that a user app has two
-> PF_PACKET sockets (SOCK_RAW) over eth0 and eth1 (to ensure redundancy=
-)
-> to send data to the network. In case eth0 is down, it would be
-> useless, for example, move the routing table entries which reference
-> eth0 to eth1 as the app which sends data to the network bypasses any
-> routing policy (I think this would do if my app used standard tcp
-> sockets).
+Em Mon, Sep 22, 2008 at 09:21:53AM +0200, Gerrit Renker escreveu:
+> This patch prepares for the new and extended feature-negotiation routines.
+> 
+> The following feature-negotiation data structures are provided:
+> 	* a container for the various (SP or NN) values,
+> 	* symbolic state names to track feature states,
+> 	* an entry struct which holds all current information together,
+> 	* elementary functions to fill in and process these structures.
+> 
+> Entry structs are arranged as FIFO for the following reason: RFC 4340 specifies
+> that if multiple options of the same type are present, they are processed in the
+> order of their appearance in the packet; which means that this order needs to be
+> preserved in the local data structure (the later insertion code also respects
+> this order).
+> 
+> The struct list_head has been chosen for the following reasons: the most
+> frequent operations are
+>  * add new entry at tail (when receiving Change or setting socket options);
+>  * delete entry (when Confirm has been received);
+>  * deep copy of entire list (cloning from listening socket onto request socket).
+> 
+> The NN value has been set to 64 bit, which is a currently sufficient upper limit
+> (Sequence Window feature has 48 bit).
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+> ---
+>  net/dccp/feat.c |   14 ++++++++++++
+>  net/dccp/feat.h |   60 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 74 insertions(+), 0 deletions(-)
+> 
+> --- a/net/dccp/feat.c
+> +++ b/net/dccp/feat.c
+> @@ -23,6 +23,20 @@
+>  
+>  #define DCCP_FEAT_SP_NOAGREE (-123)
+>  
+> +/* copy constructor, fval must not already contain allocated memory */
+> +static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
+> +{
+> +	fval->sp.len = len;
+> +	if (fval->sp.len > 0) {
+> +		fval->sp.vec = kmemdup(val, len, gfp_any());
+> +		if (fval->sp.vec == NULL) {
+> +			fval->sp.len = 0;
+> +			return -ENOBUFS;
+> +		}
+> +	}
+> +	return 0;
+> +}
+> +
+>  int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+>  		     u8 *val, u8 len, gfp_t gfp)
+>  {
+> --- a/net/dccp/feat.h
+> +++ b/net/dccp/feat.h
+> @@ -14,6 +14,66 @@
+>  #include <linux/types.h>
+>  #include "dccp.h"
+>  
+> +enum dccp_feat_type {
+> +	FEAT_AT_RX   = 1,	/* located at RX side of half-connection  */
+> +	FEAT_AT_TX   = 2,	/* located at TX side of half-connection  */
+> +	FEAT_SP      = 4,	/* server-priority reconciliation (6.3.1) */
+> +	FEAT_NN	     = 8,	/* non-negotiable reconciliation (6.3.2)  */
+> +	FEAT_UNKNOWN = 0xFF	/* not understood or invalid feature	  */
+> +};
+> +
+> +enum dccp_feat_state {
+> +	FEAT_DEFAULT = 0,	/* using default values from 6.4 */
+> +	FEAT_INITIALISING,	/* feature is being initialised  */
+> +	FEAT_CHANGING,		/* Change sent but not confirmed yet */
+> +	FEAT_UNSTABLE,		/* local modification in state CHANGING */
+> +	FEAT_STABLE		/* both ends (think they) agree */
+> +};
+> +
+> +/**
+> + * dccp_feat_val  -  Container for SP or NN feature values
+> + * @nn:     single NN value
+> + * @sp.vec: single SP value plus optional preference list
+> + * @sp.len: length of @sp.vec in bytes
+> + */
+> +typedef union {
+> +	u64 nn;
+> +	struct {
+> +		u8	*vec;
+> +		u8	len;
+> +	}   sp;
+> +} dccp_feat_val;
+> +
+> +/**
+> + * struct feat_entry  -  Data structure to perform feature negotiation
+> + * @feat_num: one of %dccp_feature_numbers
+> + * @val: feature's current value (SP features may have preference list)
+> + * @state: feature's current state
+> + * @needs_mandatory: whether Mandatory options should be sent
+> + * @needs_confirm: whether to send a Confirm instead of a Change
+> + * @empty_confirm: whether to send an empty Confirm (depends on @needs_confirm)
+> + * @is_local: feature location (1) or feature-remote (0)
+> + * @node: list pointers, entries arranged in FIFO order
+> + */
+> +struct dccp_feat_entry {
+> +	u8                      feat_num;
+> +	dccp_feat_val           val;
+> +	enum dccp_feat_state    state:8;
+> +	bool			needs_mandatory:1,
+> +				needs_confirm:1,
+> +				empty_confirm:1,
+> +				is_local:1;
+> +
+> +	struct list_head	node;
+> +};
 
-If eth0 really goes down, your eth0 socket will receive ENETDOWN error.
+As above:
 
-Routing tables entries for a down interface are automatically disabled,=
- but=20
-you would not care since your PF_PACKET sockets bypass these.
+[acme@doppio ~]$ pahole -C dccp_feat_entry dccp
+struct dccp_feat_entry {
+	u8                    feat_num;             /*     0     1 */
 
---=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+	/* XXX 7 bytes hole, try to pack */
+
+	dccp_feat_val         val;                  /*     8    16 */
+	enum dccp_feat_state  state:8;              /*    24:24  4 */
+
+	/* Bitfield combined with next fields */
+
+	_Bool                 needs_mandatory:1;    /*    25: 7  1 */
+	_Bool                 needs_confirm:1;      /*    25: 6  1 */
+	_Bool                 empty_confirm:1;      /*    25: 5  1 */
+	_Bool                 is_local:1;           /*    25: 4  1 */
+
+	/* XXX 4 bits hole, try to pack */
+	/* XXX 6 bytes hole, try to pack */
+
+	struct list_head      node;                 /*    32    16 */
+
+	/* size: 48, cachelines: 1, members: 8 */
+	/* sum members: 35, holes: 2, sum holes: 13 */
+	/* bit holes: 1, sum bit holes: 4 bits */
+	/* last cacheline: 48 bytes */
+};
+
+In this case, unless you plan to put more stuff into this struct in the
+future, using a bitfield for the bool members is a pessimization, as we
+will use the same amount of memory and generate more complex code. So I
+suggest:
+
+struct dccp_feat_entry {
+	dccp_feat_val         val;                  /*     0    16 */
+	enum dccp_feat_state  state:8;              /*    16:24  4 */
+
+	/* Bitfield combined with next fields */
+
+	u8                    feat_num;             /*    17     1 */
+	_Bool                 needs_mandatory;      /*    18     1 */
+	_Bool                 needs_confirm;        /*    19     1 */
+	_Bool                 empty_confirm;        /*    20     1 */
+	_Bool                 is_local;             /*    21     1 */
+
+	/* XXX 2 bytes hole, try to pack */
+
+	struct list_head      node;                 /*    24    16 */
+
+	/* size: 40, cachelines: 1, members: 8 */
+	/* sum members: 38, holes: 1, sum holes: 2 */
+	/* last cacheline: 40 bytes */
+};
+
+- Arnaldo
