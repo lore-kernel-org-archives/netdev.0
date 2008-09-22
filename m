@@ -1,45 +1,37 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Move IPVS to net/netfilter/ipvs
-Date: Mon, 22 Sep 2008 10:07:50 +1000
-Message-ID: <20080922000748.GE1342@verge.net.au>
-References: <f4845fc0809190345k1d9f8ba6i53d891548ddb0565@mail.gmail.com> <20080921235355.GA1342@verge.net.au>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Mon, 22 Sep 2008 04:21:57 +0400
+Message-ID: <20080922002153.GC1878@2ka.mipt.ru>
+References: <1221387956.9204.7.camel@fry> <20080921.010458.216237442.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Patrick Hardy <kaber@trash.net>
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: johaahn@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:56708 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752585AbYIVAXC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Sep 2008 20:23:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20080921235355.GA1342@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080921.010458.216237442.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2008 at 09:53:56AM +1000, Simon Horman wrote:
-> On Fri, Sep 19, 2008 at 12:45:47PM +0200, Julius Volz wrote:
-> > Hi Horms,
-> > 
-> > I worked around the unrelated UML build problems for now and did the
-> > IPVS move from net/ipv4/ipvs to net/netfilter/ipvs, as discussed.
-> > Since the patch is huge (732K), I uploaded it rather than trying to
-> > include it in the mail:
-> > 
-> > http://www.mindbasket.com/ipvs/0001-IPVS-Move-IPVS-to-net-netfilter-ipvs.patch
-> > 
-> > The menuconfig option for IPVS is now also in the Netfilter submenu.
-> > Everything builds and runs ok here...
-> 
-> Hi Julius, this seems fine to me. Dave, Patrick, are you ok with this
-> change? If so I'll suck it into lvs-2.6 and send a pull request.
+On Sun, Sep 21, 2008 at 01:04:58AM -0700, David Miller (davem@davemloft.net) wrote:
+> Applications which work over datagram protocols must perform their own
+> segmentation.  It is not like doing a send over a stream protocol like
+> TCP, where you can use whatever length you want for send calls and
+> segmentation is done for the application.
 
-Here is the version of the patch that I have that applies
-against the lvs-next-2.6 branch of lvs-2.6, changeset
-"ipvs: Fix unused label warning" (8d5803bf6fbe5264000afc8c34bff08e8ecc023b)
+But isn't the whole idea of the sendfile() is to send a file no matter
+what underlying media is?
 
-http://www.vergenet.net/~horms/tmp/0001-IPVS-Move-IPVS-to-net-netfilter-ipvs.2.patch
+> If you look, this is what things like NFS using SUNRPC over UDP do.
+> They have a transmission unit for the data transfer and use that for
+> each "send".
+
+That's maybe because udp_sendpage() does not support sending pending
+data if new packet is too big to attach?
 
 -- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
-
+	Evgeniy Polyakov
