@@ -1,48 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [pull-request] [PATCH 0/37] dccp: Revised set of
- feature-negotiation patches
-Date: Sun, 21 Sep 2008 23:58:53 -0700 (PDT)
-Message-ID: <20080921.235853.223987556.davem@davemloft.net>
-References: <20080922045744.GA6889@gerrit.erg.abdn.ac.uk>
-	<20080921.220948.140018058.davem@davemloft.net>
-	<20080922062807.GA12068@gerrit.erg.abdn.ac.uk>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Mon, 22 Sep 2008 11:04:25 +0400
+Message-ID: <20080922070425.GA14572@2ka.mipt.ru>
+References: <20080922044051.GA583@2ka.mipt.ru> <20080921.220605.129235191.davem@davemloft.net> <20080922054918.GA31099@2ka.mipt.ru> <20080921.235444.156373854.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: johaahn@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34174
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751050AbYIVG7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 02:59:05 -0400
-In-Reply-To: <20080922062807.GA12068@gerrit.erg.abdn.ac.uk>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:55518 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751165AbYIVHFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2008 03:05:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20080921.235444.156373854.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 22 Sep 2008 08:28:07 +0200
-
-> | There are two paths forward at the current point in time.
-> | 
-> | 1) You submit a very small group of patches at a time to me.
-> |    I'm talking like 5 or 6 patches at a time, maximum.
-> | 
-> |    And I'm going to give extra amounts of personal review to
-> |    these, so it will take even more time than usual.
-> | 
-> Further review can never harm, so I am sure this will be good.
+On Sun, Sep 21, 2008 at 11:54:44PM -0700, David Miller (davem@davemloft.net) wrote:
+> > So effectively you are saying, that sendfile() is just a pure send(),
+> > but with diferent arguments? I.e. it is not supposed to send the whole
+> > data it points to, but as much as possible according to send() standard?
 > 
-> I have a question regarding granularity - the current granularity is
-> meant to be logical, but is low.
-> It is easy to get distracted by the details since at the end of
-> the day the 37 patches achieve a rewriting of feat.c in small steps.
+> It already makes this, guess what happens when socket error occurs
+> midstream during sendfile(), even for TCP?
 > 
-> Would you therefore be ok with me combining some of the patches or would
-> you prefer to review the set at its current granularity?
+> First, we return length successfully sent.
+> 
+> User has to retry sendfile() call with remaining length, and at this
+> point they will immediately get the socket error return value.
+> 
+> This was broken at one point and I remember applying the fix for this
+> several years ago :-)
 
-Current granularity.
+Well, still tcp errors are completely different from udp ones: the
+former ony result in a real problem or interrupt/timeout in the simple
+case. UDP adds 'it is too big to be transferred' one. And instead of
+just send the previous frame and start new one, we return error so that
+user could do the same with additional syscall.
 
-So, submit about 5 pieces at a time, you can say at the beginning of
-the series (in the [PATCH 0/X]: email) something like "this is phase N
-in the rewriting of feat.c which will achieve X Y and Z"
+> > Well, it may be a right or wrong decision, and in my opinion sendfile()
+> > is very diferent than send() since it should require the whole data to
+> > be sent, i.e. being like a loop of send()s, but since sendfile() is
+> > effectively a very new approach, it could have different behaviour
+> > rules.
+> 
+> It is in fact exactly and precisely like send().  It must even give
+> the same error return semantics as other socket data transfer calls
+> do.  See above.
+
+That's the main difference on how you and me look at sendfile().
+
+> The user has to have a resending loop _anyways_, in order to do
+> correct error handling.
+> 
+> Nothing is gained from the proposal, really.  It can only harm application
+> developers into thinking that segmentation over datagram sockets is not
+> their responsibility, when it absolutely is.
+
+Which basically means that sendfile() for udp is exactly send() of the
+mapped data. And it is not about segmentation, since packets are
+correctly segmented with this proposal: packet is rounded to the
+submitted page. This is about optimization compared to send() of the
+data. You basically draw a line, that with UDP it is impossible to do.
+
+-- 
+	Evgeniy Polyakov
