@@ -1,82 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Machine Check Exception Re: NetDev! Please help!
-Date: Tue, 23 Sep 2008 11:57:08 +0000
-Message-ID: <20080923115708.GC4692@ff.dom.local>
-References: <48D67239.9040006@gmail.com> <48D7385D.40107@bigtelecom.ru> <20080922065339.GA4399@ff.dom.local> <48D76813.9000603@bigtelecom.ru> <20080922112452.GB5314@ff.dom.local> <48D79709.80400@bigtelecom.ru> <20080922172349.GA2545@ami.dom.local> <48D89E0C.9040407@bigtelecom.ru> <20080923092504.GB4692@ff.dom.local> <48D8C695.2020302@bigtelecom.ru>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [patch 4/4] mISDN: misc timerdev fixes
+Date: Tue, 23 Sep 2008 14:00:30 +0200
+Message-ID: <20080923120029.GA14012@pingi.kke.suse.de>
+References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org> <20080923104026.GA12535@infradead.org> <20080923043005.358e19e7.akpm@linux-foundation.org> <20080923114530.GA568@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Cc: Andrew Morton <akpm@linux-foundation.org>, kkeil@suse.de,
+	netdev@vger.kernel.org, andi@firstfloor.org, ak@linux.intel.com
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:55183 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752175AbYIWL5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 07:57:16 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1588362ugf.37
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 04:57:14 -0700 (PDT)
+Received: from ns1.suse.de ([195.135.220.2]:46500 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751002AbYIWMAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 08:00:32 -0400
 Content-Disposition: inline
-In-Reply-To: <48D8C695.2020302@bigtelecom.ru>
+In-Reply-To: <20080923114530.GA568@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 02:36:05PM +0400, Badalian Vyacheslav wrote:
+On Tue, Sep 23, 2008 at 07:45:34AM -0400, Christoph Hellwig wrote:
+> On Tue, Sep 23, 2008 at 04:30:05AM -0700, Andrew Morton wrote:
+> > so.. this?
 > 
-> > 2) Non-default qdiscs (any qdiscs added with tc): there is only one
-> > root qdisc (with its tree) as before, dequeued to all tx queues (if
-> > available). Since there is only one qdisc lock, and additional flag
-> > preventing other processes to run the qdisc at the same time, there
-> > is not so much advantage of SMP, except on tx locking. All previous
-> > tc configs should work without changes (except sch_prio and sch_rr
-> > used for multiqueuing, replaced by sch_multiq and act_skbedit now).
-> > Probably in some cases adding sch_multiq to a tree for separating
-> > qdisc queues per tx queues could be useful.
-> >   
-> Very thanks for detailed information!
-> Yeh! Its sound great for me. I also can stress test this feature in our
-> network if you will needed it.
-
-Actually, I don't use these things too much, but I guess, you'll need
-this more. Main issues were tested and fixed, but there could be always
-some details not used, not noticed or not reported until you decide to
-use this.
-
+> Much better.
 > 
-> Only i have 2 question ...
+> > --- a/drivers/isdn/mISDN/timerdev.c~misdn-misc-timerdev-fixes-fix
+> > +++ a/drivers/isdn/mISDN/timerdev.c
+> > @@ -61,7 +61,7 @@ mISDN_open(struct inode *ino, struct fil
+> >  	init_waitqueue_head(&dev->wait);
+> >  	filep->private_data = dev;
+> >  	__module_get(THIS_MODULE);
+> > -	return 0;
+> > +	return nonseekable_open(ino, filep);
 > 
-> 1. If kernel use default situation (no tc user create rules, simple
-> autocreate by network card driver/module) its will normal work with
-> traffic what must delivered "as is" (not shape)... like IPTV or other
-> multicast/unicast video stream...
-> If i understand logic
-> we have 8 cpu/core and 4 TX queue and 4 RX... one cpu linked to 1
-> TX/RX.... but if 1 cpu is burned by some process - this cpu will send
-> its packet later when other cpu and packet is shape... but streams must
-> go packet by packet to receive device... I understand that it simple
-> need use hash function for TX queue, but if i understand - RX can't
-> separate packets to different queues (its doing by hardware?) by hash
-> function and packets may shape in rx stage because one CPU get it letter
-> when nedded?
-> I do not wish to spend your time... only say if it will work normal by
-> default and i will sleep easy :)
-
-Yes, I'm not sure I understand question, but I think you shouldn't
-expect too much, at least in 2.6.27. There is many work now in drivers
-around this multiqueing (and RX hashing), which should be available in
-next kernels, but I'm not tracking this too much... Anyway, with the
-basic support (which really isn't common for drivers in 2.6.27 yet),
-this separation is done only for TX just before enqueuing.
-
+> But this also shows that mISDN is kinda stuck in a different century.
+> Doing __module_get(THIS_MODULE) at the end of ->open is utterly racy,
+> it really needs to set a owner field in file_operations and rip this
+> cruft out.
 > 
-> 2. I can locate module like sch_multiq at last 2.6.27-rc tree and not
-> have information of it in google... I need to know only one thing - what
-> params for hashing was planned for it?
+> Btw, can anyone explain WTF this timerdev module is doing?  It's not
+> using any functionality from the rest of mISDN, it's not exporting
+> any functionality to it either but just provides a really awkward way
+> to expose dumb timers to userspace.  What does it provide that the
+> normal timer syscalls can't provide?
 
-sch_multiq doesn't use any params for hashing now - it uses mapping
-in packets to separate them to different bands/queues. So, by default
-it'll respect common hashing. You can change this using any filter with
-act_skbedit (Documentation/networking/multiqueue.txt).
+This version only makes the programing of upper ISDN layers easier,
+you only need to watch /dev/mISDNtimer together with the sockets in one
+select call.
+The next version will have a option to synchronise the timer with
+the ISDN hardware clock which would avoid additional jitter if you need to
+bridge channels in software.
 
-> Thanks and thanks again! And again sorry for my English.
-Don't worry, English should understand...
-
-Jarek P.
+-- 
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
