@@ -1,205 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] net: network device name ifalias support
-Date: Mon, 22 Sep 2008 17:43:46 -0700
-Message-ID: <20080922174346.2ad15d26@extreme>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: patchwork for netdev
+Date: Tue, 23 Sep 2008 11:08:16 +1000
+Message-ID: <20080923010814.GD10472@verge.net.au>
+References: <Pine.LNX.4.64.0809181700110.18136@shark.he.net> <20080918.170547.114615421.davem@davemloft.net> <48D2F212.50407@hp.com> <20080918.191125.197691273.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rick.jones2@hp.com, rdunlap@xenotime.net, netdev@vger.kernel.org,
+	jeff@garzik.org, linville@tuxdriver.com,
+	Andrew Morton <akpm@linux-foundation.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44209 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753496AbYIWAns (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2008 20:43:48 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:49440 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656AbYIWBIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 21:08:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20080918.191125.197691273.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add support for keeping an additional character alias associated with
-an network interface. This is useful for maintaining the SNMP ifAlias value
-which is a user defined value. Routers use this to hold information like which
-circuit or line it is connected to. It is just an arbitrary text label
-on the network device.
+On Thu, Sep 18, 2008 at 07:11:25PM -0700, David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Thu, 18 Sep 2008 17:28:02 -0700
+> 
+> > > I was hoping those ACK emails would be one of the things I could stop
+> > > doing if patchwork is effective.  Not immediately, but eventually.
+> > 
+> > Can't patchwork do that as those clicks to change state take place?
+> 
+> I honestly don't know, but my guess would be know.
+> 
+> We could ask the patchwork author for this feature, as this
+> stuff is actively maintained.
 
-There are two exposed interfaces with this patch, the value can be read/written
-either via netlink or sysfs.
+I think that the "thanks applied" feedback that occurs on netdev
+is quite useful, as is the kind of automated feedback that
+goes on from Andrew Morton's scripts in mm. To be honest I find
+it quite frustrating when other maintainers in other arenas just
+silently drop/ignore/apply-later (who knows which, or when?).
 
-This could be maintained just by the snmp daemon, but it is more generally
-useful for other management tools, and the kernel is good place to act as
-an agreed upon interface to store it.
+By all means I think that streamlining processes is good.
+But if a change could be made to patchwork allow the "thanks applied"
+feedback to continue, that would be doubly good.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+-- 
+Simon Horman
+  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
+  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
 
----
-Note: this is not IP alias which is something completely different.
-
-
---- a/include/linux/if.h	2008-09-22 11:54:10.000000000 -0700
-+++ b/include/linux/if.h	2008-09-22 16:22:24.000000000 -0700
-@@ -24,6 +24,7 @@
- #include <linux/compiler.h>		/* for "__user" et al           */
- 
- #define	IFNAMSIZ	16
-+#define	IFALIASZ	256
- #include <linux/hdlc/ioctl.h>
- 
- /* Standard interface flags (netdevice->flags). */
---- a/include/linux/if_link.h	2008-09-22 11:50:28.000000000 -0700
-+++ b/include/linux/if_link.h	2008-09-22 11:54:32.000000000 -0700
-@@ -79,6 +79,7 @@ enum
- 	IFLA_LINKINFO,
- #define IFLA_LINKINFO IFLA_LINKINFO
- 	IFLA_NET_NS_PID,
-+	IFLA_IFALIAS,
- 	__IFLA_MAX
- };
- 
---- a/include/linux/netdevice.h	2008-09-22 11:46:10.000000000 -0700
-+++ b/include/linux/netdevice.h	2008-09-22 16:04:24.000000000 -0700
-@@ -471,6 +471,8 @@ struct net_device
- 	char			name[IFNAMSIZ];
- 	/* device name hash chain */
- 	struct hlist_node	name_hlist;
-+	/* snmp alias */
-+	char 			*ifalias;
- 
- 	/*
- 	 *	I/O specific fields
-@@ -1224,6 +1226,7 @@ extern int		dev_ethtool(struct net *net,
- extern unsigned		dev_get_flags(const struct net_device *);
- extern int		dev_change_flags(struct net_device *, unsigned);
- extern int		dev_change_name(struct net_device *, char *);
-+extern int		dev_set_alias(struct net_device *, const char *, size_t);
- extern int		dev_change_net_namespace(struct net_device *,
- 						 struct net *, const char *);
- extern int		dev_set_mtu(struct net_device *, int);
---- a/net/core/dev.c	2008-09-22 11:58:17.000000000 -0700
-+++ b/net/core/dev.c	2008-09-22 17:26:57.000000000 -0700
-@@ -954,6 +954,29 @@ rollback:
- }
- 
- /**
-+ *	dev_set_alias - change ifalias of a device
-+ *	@dev: device
-+ *	@alias: name up to IFALIASZ
-+ *
-+ *	Set ifalias for a device,
-+ */
-+int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
-+{
-+	ASSERT_RTNL();
-+
-+	if (len >= IFALIASZ)
-+		return -EINVAL;
-+
-+	dev->ifalias = krealloc(dev->ifalias, len+1, GFP_KERNEL);
-+	if (!dev->ifalias)
-+		return -ENOMEM;
-+
-+	strlcpy(dev->ifalias, alias, len+1);
-+	return len;
-+}
-+
-+
-+/**
-  *	netdev_features_change - device changes features
-  *	@dev: device to cause notification
-  *
---- a/net/core/net-sysfs.c	2008-09-22 12:03:34.000000000 -0700
-+++ b/net/core/net-sysfs.c	2008-09-22 17:27:14.000000000 -0700
-@@ -209,9 +209,44 @@ static ssize_t store_tx_queue_len(struct
- 	return netdev_store(dev, attr, buf, len, change_tx_queue_len);
- }
- 
-+static ssize_t store_ifalias(struct device *dev, struct device_attribute *attr,
-+			     const char *buf, size_t len)
-+{
-+	struct net_device *netdev = to_net_dev(dev);
-+	size_t count = len;
-+	ssize_t ret;
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	/* ignore trailing newline */
-+	if (len >  0 && buf[len - 1] == '\n')
-+		--count;
-+
-+	rtnl_lock();
-+	ret = dev_set_alias(netdev, buf, count);
-+	rtnl_unlock();
-+
-+	return ret < 0 ? ret : len;
-+}
-+
-+static ssize_t show_ifalias(struct device *dev,
-+			    struct device_attribute *attr, char *buf)
-+{
-+	const struct net_device *netdev = to_net_dev(dev);
-+	ssize_t ret = 0;
-+
-+	rtnl_lock();
-+	if (netdev->ifalias)
-+		ret = sprintf(buf, "%s\n", netdev->ifalias);
-+	rtnl_unlock();
-+	return ret;
-+}
-+
- static struct device_attribute net_class_attributes[] = {
- 	__ATTR(addr_len, S_IRUGO, show_addr_len, NULL),
- 	__ATTR(dev_id, S_IRUGO, show_dev_id, NULL),
-+	__ATTR(ifalias, S_IRUGO | S_IWUSR, show_ifalias, store_ifalias),
- 	__ATTR(iflink, S_IRUGO, show_iflink, NULL),
- 	__ATTR(ifindex, S_IRUGO, show_ifindex, NULL),
- 	__ATTR(features, S_IRUGO, show_features, NULL),
-@@ -418,6 +453,7 @@ static void netdev_release(struct device
- 
- 	BUG_ON(dev->reg_state != NETREG_RELEASED);
- 
-+	kfree(dev->ifalias);
- 	kfree((char *)dev - dev->padded);
- }
- 
---- a/net/core/rtnetlink.c	2008-09-22 11:48:30.000000000 -0700
-+++ b/net/core/rtnetlink.c	2008-09-22 16:23:56.000000000 -0700
-@@ -586,6 +586,7 @@ static inline size_t if_nlmsg_size(const
- {
- 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
- 	       + nla_total_size(IFNAMSIZ) /* IFLA_IFNAME */
-+	       + nla_total_size(IFALIASZ) /* IFLA_IFALIAS */
- 	       + nla_total_size(IFNAMSIZ) /* IFLA_QDISC */
- 	       + nla_total_size(sizeof(struct rtnl_link_ifmap))
- 	       + nla_total_size(sizeof(struct rtnl_link_stats))
-@@ -640,6 +641,9 @@ static int rtnl_fill_ifinfo(struct sk_bu
- 	if (txq->qdisc_sleeping)
- 		NLA_PUT_STRING(skb, IFLA_QDISC, txq->qdisc_sleeping->ops->id);
- 
-+	if (dev->ifalias)
-+		NLA_PUT_STRING(skb, IFLA_IFALIAS, dev->ifalias);
-+
- 	if (1) {
- 		struct rtnl_link_ifmap map = {
- 			.mem_start   = dev->mem_start,
-@@ -713,6 +717,7 @@ const struct nla_policy ifla_policy[IFLA
- 	[IFLA_LINKMODE]		= { .type = NLA_U8 },
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
-+	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
- };
- 
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
-@@ -853,6 +858,14 @@ static int do_setlink(struct net_device 
- 		modified = 1;
- 	}
- 
-+	if (tb[IFLA_IFALIAS]) {
-+		err = dev_set_alias(dev, nla_data(tb[IFLA_IFALIAS]),
-+				    nla_len(tb[IFLA_IFALIAS]));
-+		if (err < 0)
-+			goto errout;
-+		modified = 1;
-+	}
-+
- 	if (tb[IFLA_BROADCAST]) {
- 		nla_memcpy(dev->broadcast, tb[IFLA_BROADCAST], dev->addr_len);
- 		send_addr_notify = 1;
