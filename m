@@ -1,121 +1,65 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH]: can: Add documentation for virtual CAN driver usage
-Date: Tue, 23 Sep 2008 19:28:42 +0200
-Message-ID: <48D9274A.407@hartkopp.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 4/4] mISDN: misc timerdev fixes
+Date: Tue, 23 Sep 2008 10:31:40 -0700
+Message-ID: <20080923103140.402cd9e7.akpm@linux-foundation.org>
+References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org>
+	<20080923104026.GA12535@infradead.org>
+	<20080923043005.358e19e7.akpm@linux-foundation.org>
+	<20080923114530.GA568@infradead.org>
+	<20080923120029.GA14012@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020809060703090006060500"
-Cc: Urs Thuermann <urs@isnogud.escape.de>
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
+	andi@firstfloor.org, ak@linux.intel.com
+To: Karsten Keil <kkeil@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:52598 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751388AbYIWR3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 13:29:12 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52209 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752468AbYIWRck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 13:32:40 -0400
+In-Reply-To: <20080923120029.GA14012@pingi.kke.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020809060703090006060500
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, 23 Sep 2008 14:00:30 +0200 Karsten Keil <kkeil@suse.de> wrote:
 
-From: Oliver Hartkopp <oliver@hartkopp.net>
+> On Tue, Sep 23, 2008 at 07:45:34AM -0400, Christoph Hellwig wrote:
+> > On Tue, Sep 23, 2008 at 04:30:05AM -0700, Andrew Morton wrote:
+> > > so.. this?
+> > 
+> > Much better.
+> > 
+> > > --- a/drivers/isdn/mISDN/timerdev.c~misdn-misc-timerdev-fixes-fix
+> > > +++ a/drivers/isdn/mISDN/timerdev.c
+> > > @@ -61,7 +61,7 @@ mISDN_open(struct inode *ino, struct fil
+> > >  	init_waitqueue_head(&dev->wait);
+> > >  	filep->private_data = dev;
+> > >  	__module_get(THIS_MODULE);
+> > > -	return 0;
+> > > +	return nonseekable_open(ino, filep);
+> > 
+> > But this also shows that mISDN is kinda stuck in a different century.
+> > Doing __module_get(THIS_MODULE) at the end of ->open is utterly racy,
+> > it really needs to set a owner field in file_operations and rip this
+> > cruft out.
+> > 
+> > Btw, can anyone explain WTF this timerdev module is doing?  It's not
+> > using any functionality from the rest of mISDN, it's not exporting
+> > any functionality to it either but just provides a really awkward way
+> > to expose dumb timers to userspace.  What does it provide that the
+> > normal timer syscalls can't provide?
+> 
+> This version only makes the programing of upper ISDN layers easier,
+> you only need to watch /dev/mISDNtimer together with the sockets in one
+> select call.
 
-This patch adds a usage documentation for the virtual CAN driver (vcan).
+sys_timerfd_create() can do this?
 
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
----
+> The next version will have a option to synchronise the timer with
+> the ISDN hardware clock which would avoid additional jitter if you need to
+> bridge channels in software.
 
-Hello Dave,
+hrm.  If that's really really useful and actually works then I guess it
+might then be justifiable.
 
-the virtual CAN netdevices are created via the netlink interface since 
-Kerenel 2.6.24.
-This patch adds some examples how to create and remove vcans via the 
-ip(8) tool.
-Please consider for net-next-2.6
-
-Thanks,
-Oliver
-
-
-
---------------020809060703090006060500
-Content-Type: text/x-patch;
- name="vcan-documentation.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="vcan-documentation.patch"
-
-diff --git a/Documentation/networking/can.txt b/Documentation/networking/can.txt
-index 297ba7b..2035bc4 100644
---- a/Documentation/networking/can.txt
-+++ b/Documentation/networking/can.txt
-@@ -35,8 +35,9 @@ This file contains
-     6.1 general settings
-     6.2 local loopback of sent frames
-     6.3 CAN controller hardware filters
--    6.4 currently supported CAN hardware
--    6.5 todo
-+    6.4 The virtual CAN driver (vcan)
-+    6.5 currently supported CAN hardware
-+    6.6 todo
- 
-   7 Credits
- 
-@@ -584,7 +585,42 @@ solution for a couple of reasons:
-   @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
-   load without any problems ...
- 
--  6.4 currently supported CAN hardware (September 2007)
-+  6.4 The virtual CAN driver (vcan)
-+
-+  Similar to the network loopback devices, vcan offers a virtual local
-+  CAN interface. A full qualified address on CAN consists of
-+
-+  - a unique CAN Identifier (CAN ID)
-+  - the CAN bus this CAN ID is transmitted on (e.g. can0)
-+
-+  so in common use cases more than one virtual CAN interface is needed.
-+
-+  The virtual CAN interfaces allow the transmission and reception of CAN
-+  frames without real CAN controller hardware. Virtual CAN network
-+  devices are usually named 'vcanX', like vcan0 vcan1 vcan2 ...
-+  When compiled as a module the virtual CAN driver module is called vcan.ko
-+
-+  Since Linux Kernel version 2.6.24 the vcan driver supports the Kernel
-+  netlink interface to create vcan network devices. The creation and
-+  removal of vcan network devices can be managed with the ip(8) tool:
-+
-+  - Create a virtual CAN network interface:
-+       ip link add type vcan
-+
-+  - Create a virtual CAN network interface with a specific name 'vcan42':
-+       ip link add dev vcan42 type vcan
-+
-+  - Remove a (virtual CAN) network interface 'vcan42':
-+       ip link del vcan42
-+
-+  The tool 'vcan' from the SocketCAN SVN repository on BerliOS is obsolete.
-+
-+  Virtual CAN network device creation in older Kernels:
-+  In Linux Kernel versions < 2.6.24 the vcan driver creates 4 vcan
-+  netdevices at module load time by default. This value can be changed
-+  with the module parameter 'numdev'. E.g. 'modprobe vcan numdev=8'
-+
-+  6.5 currently supported CAN hardware
- 
-   On the project website http://developer.berlios.de/projects/socketcan
-   there are different drivers available:
-@@ -603,7 +639,7 @@ solution for a couple of reasons:
- 
-   Please check the Mailing Lists on the berlios OSS project website.
- 
--  6.5 todo (September 2007)
-+  6.6 todo
- 
-   The configuration interface for CAN network drivers is still an open
-   issue that has not been finalized in the socketcan project. Also the
-
---------------020809060703090006060500--
