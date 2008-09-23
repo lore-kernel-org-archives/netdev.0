@@ -1,52 +1,64 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: SCTP checksum patch for 2.6.26.5
-Date: Mon, 22 Sep 2008 22:45:18 -0700
-Message-ID: <1222148718.16003.1.camel@brick>
-References: <48D7C0A2.9090406@protei.ru>
-	 <20080922.131245.193705447.davem@davemloft.net>
-	 <20080923051920.GD24654@1wt.eu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Tue, 23 Sep 2008 14:23:33 +0800
+Message-ID: <20080923062333.GA26595@gondor.apana.org.au>
+References: <20080920.223538.130375517.davem@davemloft.net> <20080920.225033.261544815.davem@davemloft.net> <20080921063821.GA8677@gondor.apana.org.au> <20080921.000301.198672963.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, nickolay@protei.ru,
-	linux-kernel@vger.kernel.org, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
+	alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:33884 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751912AbYIWFpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 01:45:23 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so2038297wfd.4
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 22:45:22 -0700 (PDT)
-In-Reply-To: <20080923051920.GD24654@1wt.eu>
+Received: from rhun.apana.org.au ([64.62.148.172]:34223 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752000AbYIWGXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 02:23:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20080921.000301.198672963.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-09-23 at 07:19 +0200, Willy Tarreau wrote:
-> On Mon, Sep 22, 2008 at 01:12:45PM -0700, David Miller wrote:
-> > From: Nickolay Vinogradov <nickolay@protei.ru>
-> > Date: Mon, 22 Sep 2008 19:58:26 +0400
-> > 
-> > CC:'ing correct mailing lists...
-> > 
-> Nickolay,
-> 
-> you should use swab32(~crc32) instead. It will make use of arch-specific
-> optimisations when available (eg: bswap on x86).
-> 
-> Willy
+On Sun, Sep 21, 2008 at 12:03:01AM -0700, David Miller wrote:
+>
+> This works if you want it at the root, but what if you only wanted to
+> prio at a leaf?  I think that case has value too.
 
-Or look at:
-commit 336d3262df71fcd2661180bb35d5ea41b4cbca58
-Author: Harvey Harrison <harvey.harrison@gmail.com>
-Date:   Fri Jul 18 23:07:09 2008 -0700
+Good question :)
 
-    sctp: remove unnecessary byteshifting, calculate directly in big-endian
+I think what we should do is to pass some token that rerepsents
+the TX queue that's being run down into the dequeue function.
 
-In Linus' tree.
+Then each qdisc can decide which child to recursively dequeue
+based on that token (or ignore it for non-prio qdiscs such as
+HTB).  When the token reaches the leaf then we have two cases:
+
+1) A prio-like qdisc that has separate queues based on priorities.
+In this case we dequeue the respective queue based on the token.
+
+2) Any other qdisc.  We dequeue the first packet that hashes
+into the queue given by the token.  Ideally these qdiscs should
+have separate queues already so that this would be trivial.
+
+> I tend to also disagree with another mentioned assertion.  The one
+> where having a shared qdisc sucks on SMP.  It doesn't.  The TX queue
+> lock is held much longer than the qdisc lock.
+
+Yes I was exaggerating :)
+
+However, after answering your question above I'm even more convinced
+that we should be separating the traffic at the point of enqueueing,
+and not after we dequeue it in qdisc_run.
+
+The only reason to do the separation after dequeueing would be to
+allow the TX queue selction to change in the time being.  However,
+since I see absolutely no reason why we'd need that, it's just so
+much simpler to separate them at qdisc_enqueue, and actually have
+the same number of software queues as there are hardware queues.
 
 Cheers,
-
-Harvey
-
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
