@@ -1,34 +1,71 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch 4/4] mISDN: misc timerdev fixes II
-Date: Tue, 23 Sep 2008 11:58:44 -0400
-Message-ID: <20080923155844.GA30526@infradead.org>
-References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org> <20080923104026.GA12535@infradead.org> <20080923043005.358e19e7.akpm@linux-foundation.org> <20080923141740.GJ25711@one.firstfloor.org>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: [PATCH 2/2] netdev: docbook comment update
+Date: Tue, 23 Sep 2008 09:19:36 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0809230917020.27041@shark.he.net>
+References: <20080923083750.59eaac97@extreme> <20080923091035.102d4106@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, kkeil@suse.de,
-	netdev@vger.kernel.org, ak@linux.intel.com
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Randy.Dunlap" <rdunlap@xenotime.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:49008 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbYIWP6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 11:58:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20080923141740.GJ25711@one.firstfloor.org>
+Received: from xenotime.net ([66.160.160.81]:33518 "HELO xenotime.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751550AbYIWQTp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 12:19:45 -0400
+Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 09:19:36 -0700
+In-Reply-To: <20080923091035.102d4106@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 04:17:40PM +0200, Andi Kleen wrote:
-> > > >  static struct file_operations mISDN_fops = {
-> > > > -	.llseek		= mISDN_llseek,
-> > > 
-> > > This is wrong.  no llseek means we use default_llseek, which is
-> > > different from returning -ESPIPE.
-> > 
-> > so.. this?
-> 
-> Hmm actually on double checking it's really needed, sorry.
+On Tue, 23 Sep 2008, Stephen Hemminger wrote:
 
-Yes, unfortunately the only way it's cleared currently is through using
-nonseekable_open, but I've started preparing a war plan to sort this whole
-mess out.
+> Add more docbook comments to network device functions and cleanup
+> the comments.
+
+Thanks!
+
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> 
+> --- a/net/core/dev.c	2008-09-23 08:32:48.000000000 -0700
+> +++ b/net/core/dev.c	2008-09-23 08:36:09.000000000 -0700
+> @@ -3322,6 +3323,12 @@ static void dev_addr_discard(struct net_
+>  	netif_addr_unlock_bh(dev);
+>  }
+>  
+> +/**
+> + *	dev_get_flags - get flags reported to userspace
+> + *	@dev: device
+> + *
+> + *	Get the combination of flag bits exported throug API's to userspace.
+
+                                                  through
+and preferably                                            APIs
+
+
+> + */
+>  unsigned dev_get_flags(const struct net_device *dev)
+>  {
+>  	unsigned flags;
+> @@ -3439,6 +3461,13 @@ int dev_set_mtu(struct net_device *dev, 
+>  	return err;
+>  }
+>  
+> +/**
+> + *	dev_set_mtu - Change Media Access Control Address
+
+Wrong func name.
+
+> + *	@dev: device
+> + *	@sa: new address
+> + *
+> + *	Change the hardware (MAC) address of the device
+> + */
+>  int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+>  {
+>  	int err;
+
+cya,
+-- 
+~Randy
