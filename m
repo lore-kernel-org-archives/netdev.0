@@ -1,59 +1,77 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH HACK] powerpc: quick hack to get a functional eHEA with hardirq preemption, eHCA is close
-Date: Tue, 23 Sep 2008 17:43:23 +0200
-Message-ID: <200809231743.23828.ossthema@de.ibm.com>
-References: <20080915100406.342e027a@bull.net> <OFD7842B7A.ADC47EED-ONC12574C8.003A2CB3-C12574C8.003AC948@de.ibm.com> <20080918143146.77db81d5@bull.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/2] netdev: use const for some name functions
+Date: Tue, 23 Sep 2008 08:39:34 -0700
+Message-ID: <20080923083934.032d6098@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <RAISCH@de.ibm.com>,
-	Benjamin Herrenschmidt <bherren@au1.ibm.com>,
-	gilles.carry@ext.bull.net, Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	jean-pierre.dion@bull.net,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Linux-rt <linux-rt-users@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
-	Thomas Q Klein <TKLEIN@de.ibm.com>, tinytim@us.ibm.com,
-	Hoang-Nam Nguyen <HNGUYEN@de.ibm.com>
-To: Sebastien Dugue <sebastien.dugue@bull.net>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <20080918143146.77db81d5@bull.net>
-Content-Disposition: inline
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52479 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751459AbYIWPq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 11:46:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+dev_change_name and netdev_drivername should use const char on parameters
+that are read-only input values. The strcpy to newname is not needed since
+newname is not used later in function.
 
-I think these are the "functional" changes that need to be included in
-the ibmebus driver. We'll add a RT flag in the final version to enable
-these changes only for RT-Linux for now. 
-Ben, can you / your team look into the implementation
-of the set_irq_type functionality needed for XICS?
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Regards,
-Jan-Bernd & Christoph
 
-diff -Nurp b/arch/powerpc/kernel/ibmebus.c a/arch/powerpc/kernel/ibmebus.c
---- b/arch/powerpc/kernel/ibmebus.c	2008-09-22 00:29:55.000000000 +0200
-+++ a/arch/powerpc/kernel/ibmebus.c	2008-09-23 12:04:53.000000000 +0200
-@@ -216,12 +216,16 @@ int ibmebus_request_irq(u32 ist, irq_han
- 			unsigned long irq_flags, const char *devname,
- 			void *dev_id)
+--- a/include/linux/netdevice.h	2008-09-23 08:29:15.000000000 -0700
++++ b/include/linux/netdevice.h	2008-09-23 08:29:16.000000000 -0700
+@@ -1225,7 +1225,7 @@ extern int		dev_ioctl(struct net *net, u
+ extern int		dev_ethtool(struct net *net, struct ifreq *);
+ extern unsigned		dev_get_flags(const struct net_device *);
+ extern int		dev_change_flags(struct net_device *, unsigned);
+-extern int		dev_change_name(struct net_device *, char *);
++extern int		dev_change_name(struct net_device *, const char *);
+ extern int		dev_set_alias(struct net_device *, const char *, size_t);
+ extern int		dev_change_net_namespace(struct net_device *,
+ 						 struct net *, const char *);
+@@ -1670,7 +1670,7 @@ extern void dev_seq_stop(struct seq_file
+ extern int netdev_class_create_file(struct class_attribute *class_attr);
+ extern void netdev_class_remove_file(struct class_attribute *class_attr);
+ 
+-extern char *netdev_drivername(struct net_device *dev, char *buffer, int len);
++extern char *netdev_drivername(const struct net_device *dev, char *buffer, int len);
+ 
+ extern void linkwatch_run_queue(void);
+ 
+--- a/net/core/dev.c	2008-09-23 08:29:15.000000000 -0700
++++ b/net/core/dev.c	2008-09-23 08:32:48.000000000 -0700
+@@ -890,7 +890,7 @@ int dev_alloc_name(struct net_device *de
+  *	Change name of a device, can pass format strings "eth%d".
+  *	for wildcarding.
+  */
+-int dev_change_name(struct net_device *dev, char *newname)
++int dev_change_name(struct net_device *dev, const char *newname)
  {
-+	int ret;
- 	unsigned int irq = irq_create_mapping(NULL, ist);
- 
- 	if (irq == NO_IRQ)
- 		return -EINVAL;
- 
--	return request_irq(irq, handler, irq_flags, devname, dev_id);
-+	ret = request_irq(irq, handler, irq_flags, devname, dev_id);
-+	set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
-+
-+	return ret;
+ 	char oldname[IFNAMSIZ];
+ 	int err = 0;
+@@ -916,7 +916,6 @@ int dev_change_name(struct net_device *d
+ 		err = dev_alloc_name(dev, newname);
+ 		if (err < 0)
+ 			return err;
+-		strcpy(newname, dev->name);
+ 	}
+ 	else if (__dev_get_by_name(net, newname))
+ 		return -EEXIST;
+@@ -4746,10 +4745,10 @@ err_name:
+ 	return -ENOMEM;
  }
- EXPORT_SYMBOL(ibmebus_request_irq);
  
-
-
+-char *netdev_drivername(struct net_device *dev, char *buffer, int len)
++char *netdev_drivername(const struct net_device *dev, char *buffer, int len)
+ {
+-	struct device_driver *driver;
+-	struct device *parent;
++	const struct device_driver *driver;
++	const struct device *parent;
+ 
+ 	if (len <= 0 || !buffer)
+ 		return buffer;
