@@ -1,63 +1,40 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: SCTP checksum patch for 2.6.26.5
-Date: Tue, 23 Sep 2008 07:19:20 +0200
-Message-ID: <20080923051920.GD24654@1wt.eu>
-References: <48D7C0A2.9090406@protei.ru> <20080922.131245.193705447.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: xfrm_state locking regression...
+Date: Tue, 23 Sep 2008 13:22:39 +0800
+Message-ID: <20080923052239.GA26233@gondor.apana.org.au>
+References: <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi> <20080923045951.GA26048@gondor.apana.org.au> <48D87BDA.8040804@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nickolay@protei.ru, linux-kernel@vger.kernel.org,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:4441 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751465AbYIWFTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2008 01:19:37 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:42465 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751524AbYIWFWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 01:22:48 -0400
 Content-Disposition: inline
-In-Reply-To: <20080922.131245.193705447.davem@davemloft.net>
+In-Reply-To: <48D87BDA.8040804@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2008 at 01:12:45PM -0700, David Miller wrote:
-> From: Nickolay Vinogradov <nickolay@protei.ru>
-> Date: Mon, 22 Sep 2008 19:58:26 +0400
-> 
-> CC:'ing correct mailing lists...
-> 
-> > SCTP checksum calculation fix for BigEndian.
-> > ntohl() doesn't do anything on BigEndian.
-> > 
-> > diff --git a/Makefile b/Makefile
-> > diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
-> > index ba75c67..2f0ed64 100644
-> > --- a/include/net/sctp/checksum.h
-> > +++ b/include/net/sctp/checksum.h
-> > @@ -74,5 +74,19 @@ static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
-> > 
-> >   static inline __u32 sctp_end_cksum(__u32 crc32)
-> >   {
-> > -       return ntohl(~crc32);
-> > +       __u32 result;
-> > +       __u8 byte0, byte1, byte2, byte3;
-> > +
-> > +       result = ~crc32;
-> > +
-> > +       byte0 = result & 0xff;
-> > +       byte1 = (result>>8) & 0xff;
-> > +       byte2 = (result>>16) & 0xff;
-> > +       byte3 = (result>>24) & 0xff;
-> > +
-> > +       crc32 = ((byte0 << 24) |
-> > +                (byte1 << 16) |
-> > +                (byte2 << 8)  |
-> > +                byte3);
-> > +       return crc32;
-> >   }
+On Tue, Sep 23, 2008 at 08:17:14AM +0300, Timo Ter=E4s wrote:
+>
+> The extra step there wold be a hold call. The recursive _put on a
+> _put of some entry can happen only on dump path. As otherwise the
+> ->next entry is first held in state delete, but would be immediately
+> _put on the _put as the final step of _delete().
+>=20
+> So basically one additional atomic_inc() and one atomic_dec() on the
+> normal _delete() path.
 
-Nickolay,
+Can you post a patch? If this can be done locklessly then yes
+it would probably be a good way to go.  However, I'm not sure
+whether I understand your lockless proposal yet.
 
-you should use swab32(~crc32) instead. It will make use of arch-specific
-optimisations when available (eg: bswap on x86).
-
-Willy
-
+Thanks,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
