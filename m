@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: [PATCH 0/3] e1000e: protect NVM from corruption
-Date: Tue, 23 Sep 2008 15:36:04 -0700
-Message-ID: <20080923223517.15567.94071.stgit@gitlost.lost>
+Date: Tue, 23 Sep 2008 15:41:33 -0700
+Message-ID: <20080923224106.15640.28678.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,12 +9,12 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	jesse.brandeburg@intel.com, john.ronciak@intel.com
 To: jeff@garzik.org, davem@davemloft.net, mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.232]:48177 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.237]:49660 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbYIWWgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 18:36:16 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2386478rvb.1
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 15:36:15 -0700 (PDT)
+	with ESMTP id S1750884AbYIWWlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 18:41:45 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2388625rvb.1
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 15:41:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
