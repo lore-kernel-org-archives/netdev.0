@@ -1,31 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 4/4] mISDN: misc timerdev fixes
-Date: Mon, 22 Sep 2008 19:18:26 -0700 (PDT)
-Message-ID: <20080922.191826.16007223.davem@davemloft.net>
-References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: RFC: Nagle latency tuning
+Date: Tue, 23 Sep 2008 04:23:29 +0200
+Message-ID: <20080923022329.GD25711@one.firstfloor.org>
+References: <20080922232428.GA25711@one.firstfloor.org> <20080922.162158.223213897.davem@davemloft.net> <20080923001409.GB25711@one.firstfloor.org> <20080922.184012.212424947.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kkeil@suse.de, netdev@vger.kernel.org, andi@firstfloor.org,
-	ak@linux.intel.com
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, csnook@redhat.com, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54430
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754033AbYIWCSi (ORCPT
+Received: from one.firstfloor.org ([213.235.205.2]:41039 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754131AbYIWCSi (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 22:18:38 -0400
-In-Reply-To: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20080922.184012.212424947.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Mon, 22 Sep 2008 14:51:03 -0700
+> There are many cases where perfectly acceptible heuristics
 
-> - Remove noop VFS stubs. The VFS does that on a NULL pointer anyways.
-> - Fix timer handler prototype to be correct
-> - Comment ugly SMP race I didn't fix.
+For very low values of "perfect" :)
+
+> don't perform optimally, this doesn't mean we disable them
+> by default.
+
+Well they're just broken on a larger and larger fraction
+of the internet.  Router technology more and more often
+knows something about ports these days and handles flows
+differently. Assuming they do not is more and more 
+wrong. It's one of these things which looks cool on first
+look but when you dig deeper is just a bad idea.
+
+How should we call a heuristics that is often
+wrong. A "wrongistic"?  :)
+
+> > NAT.
 > 
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> I am more than aware of this, however this doesn't mean it is
+> sane 
 
-Applied to net-next-2.6
+I agree with you that they're not sane, but they should still 
+be supported. Technically at least they don't violate any standards
+afaik.
+
+Linux should work well even with such setups. In fact it has
+no other choice because they're so common. "Be liberal
+what you accept, be conservative what you send". This violates
+the second principle.
+
+> and this kind of setup makes many useful internet services
+> inaccessible.
+
+Sure, in fact that's usually why they were done in the first place,
+but Linux shouldn't make it unnecessarily worse.
+
+Anyways enough said. I guess we have to agree to disagree on
+this. For completeness I'll still send the patch to set the sysctl
+by default though just in case you reconsider.
+
+-Andi
+
+-- 
+ak@linux.intel.com
