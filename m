@@ -1,48 +1,35 @@
-From: Jeremy Kerr <jk@ozlabs.org>
-Subject: Re: patchwork for netdev
-Date: Tue, 23 Sep 2008 20:44:43 +1000
-Message-ID: <200809232044.44472.jk@ozlabs.org>
-References: <48D2F212.50407@hp.com> <20080922.194454.05906989.davem@davemloft.net> <1222158292.12085.134.camel@pasglop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: xfrm_state locking regression...
+Date: Tue, 23 Sep 2008 19:24:16 +0800
+Message-ID: <20080923112416.GA28946@gondor.apana.org.au>
+References: <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi> <20080923045951.GA26048@gondor.apana.org.au> <48D87BDA.8040804@iki.fi> <20080923052239.GA26233@gondor.apana.org.au> <48D88BCC.5030806@iki.fi> <20080923064707.GA26836@gondor.apana.org.au> <48D8B967.8000107@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, horms@verge.net.au,
-	rick.jones2@hp.com, rdunlap@xenotime.net, netdev@vger.kernel.org,
-	jeff@garzik.org, linville@tuxdriver.com, akpm@linux-foundation.org
-To: benh@kernel.crashing.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:36888 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751181AbYIWKqm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2008 06:46:42 -0400
-In-Reply-To: <1222158292.12085.134.camel@pasglop>
+Received: from rhun.apana.org.au ([64.62.148.172]:46567 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750899AbYIWLY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 07:24:26 -0400
 Content-Disposition: inline
+In-Reply-To: <48D8B967.8000107@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+On Tue, Sep 23, 2008 at 12:39:51PM +0300, Timo Ter=E4s wrote:
+>
+> This would make it possibly to reclaim the deleted entries right
+> away.
+>=20
+> Does this sound better?
 
-> Jeremy, I CC'ed you but you may want to catch up with the whole
-> thread first.
+Yep this sounds pretty good to me.
 
-Yep, I'd like to get patchwork extended to allow 'feedback' posts to the 
-lists. This is what I'm thinking:
-
- * Add an 'Ack' (and possibly 'Nack' and 'Comment') button for all
-   logged-in users, which will send an appropriate message to the list.
-
- * When a maintainer uses this functionality, patchwork can update the
-   state accordingly.
-
-However, I still need to work out the exact implementation - Ideally, 
-the message could be constructed with the user's own mail client (and 
-saved in the standard 'sent' folder). This requires a little 
-integration hackery though.
-
-But yeah - I'm workin' on it! :)
-
-Cheers,
-
-
-Jeremy
+Thanks,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
