@@ -1,61 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Tue, 23 Sep 2008 07:50:12 +0800
-Message-ID: <20080922235012.GA23658@gondor.apana.org.au>
-References: <48BE329C.2010209@iki.fi> <20080902.234723.163403187.davem@davemloft.net> <20080905115506.GA26179@gondor.apana.org.au> <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: RFC: Nagle latency tuning
+Date: Tue, 23 Sep 2008 02:14:09 +0200
+Message-ID: <20080923001409.GB25711@one.firstfloor.org>
+References: <48D82378.4000306@redhat.com> <20080922.161323.108280715.davem@davemloft.net> <20080922232428.GA25711@one.firstfloor.org> <20080922.162158.223213897.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, csnook@redhat.com, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34726 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754483AbYIVXuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 19:50:19 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:56360 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbYIWAJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 20:09:19 -0400
 Content-Disposition: inline
-In-Reply-To: <48D7971A.5050107@iki.fi>
+In-Reply-To: <20080922.162158.223213897.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2008 at 04:01:14PM +0300, Timo Ter=E4s wrote:
->
-> > Unfortunately it's not that simple since we'll be in the same
-> > bind if the entry after the next entry gets deleted as well as
-> > the next entry.
->=20
-> Well, I was thinking that we hold the next pointer. And when
-> continuing the dump, we can first skip all entries that are marked
-> as dead (each next pointer is valid since each of the next pointers
-> are held once). When we find the first valid entry to dump we
-> _put() the originally held entry. That would recursively _put() all
-> the next entries which were held.
+> It is not an invalid estimate even in the NAT case, 
 
-No that doesn't work.  Let's say we store the entry X in walk->state,
-and we hold X as well as X->next.  Now X, X->next, and X->next->next
-get deleted from the list.  What'll happen is that X and X->next
-will stick around but X->next->next will be freed.  So when we
-resume from X we'll dump X and X->next correctly, but then hit
-X->next->next and be in the same shithole.
+Typical case: you got a large company network behind a NAT.
+First user has a very crappy wireless connection behind a slow
+intercontinental link talking to the outgoing NAT router. He connectes to 
+your internet server first and the window, slow start etc. parameters 
+for him are saved in the dst_entry.  
 
-Really, the only way to do what you want here is to hold everything
-from X to the very end of the list.  The problem with that is that
-you can no longer drop the reference counts when we resume.
+The next guy behind the same NAT is in the same building
+as the router who connects the company to the internet. He
+has a much faster line. He connects to the same server. 
+They will share the same dst and inetpeer entries.
 
-You can see why even if we only hold X and X->next.  Should X->next
-be deleted from the list, when we resume from X we'll no longer be
-able to drop the reference count on the original X->next since it
-now points to a new entry.
+The parameters saved earlier for the same IP are clearly invalid
+for the second case. The link characteristics are completely 
+different.
 
-> Not sure which one would be faster. I guess the holding of
-> individual entries would be at least more memory efficient.
+Also did you know there are there are whole countries behind
+NAT. e.g. I was told that all of Saudi Arabia only comes from
+a small handfull of IP addresses. It would surprise me if 
+all of KSA has the same link characteristics? @)
 
-I think this is a lot more efficient than storing every single
-entry from X to the end of the list :)
+Ah I see there's a sysctl now to disable this. How about
+setting it by default?
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-Andi
