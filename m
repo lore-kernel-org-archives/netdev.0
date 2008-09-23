@@ -1,41 +1,36 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [patch 7/8] hci_usb: replace mb with smp_mb
-Date: Tue, 23 Sep 2008 06:54:18 +0200
-Message-ID: <1222145658.13064.18.camel@californication>
-References: <200809222150.m8MLog27031875@imap1.linux-foundation.org>
-	 <20080922.192207.178559086.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	tom.leiming@gmail.com, hidave.darkstar@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Tue, 23 Sep 2008 12:54:27 +0800
+Message-ID: <E1Khzut-0006lv-Co@gondolin.me.apana.org.au>
+References: <20080922070425.GA14572@2ka.mipt.ru>
+Cc: davem@davemloft.net, johaahn@gmail.com, netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru (Evgeniy Polyakov)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:49234 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbYIWExV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 00:53:21 -0400
-In-Reply-To: <20080922.192207.178559086.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:50786 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751091AbYIWEyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 00:54:39 -0400
+In-Reply-To: <20080922070425.GA14572@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-> > smp_mb is enough for ordering memory operations among processors,and mb is
-> > more expensive than smp_mb for UP machine, so replace it with smp_mb().
-> > 
-> > Signed-off-by: Ming Lei <tom.leiming@gmail.com>
-> > Acked-by: Marcel Holtmann <marcel@holtmann.org>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> On Sun, Sep 21, 2008 at 11:54:44PM -0700, David Miller (davem@davemloft.net) wrote:
+>
+>> It is in fact exactly and precisely like send().  It must even give
+>> the same error return semantics as other socket data transfer calls
+>> do.  See above.
 > 
-> Since this already ACK'd by Marcel, I've added this to net-next-2.6
+> That's the main difference on how you and me look at sendfile().
 
-that is absolutely fine by me. The hci_usb driver is a dead end and we
-do have multiple people now looking at and testing btusb. So expect the
-hci_usb driver to go away soon. Either 2.6.28 or 2.6.29.
+I think this dicussion is moot since the only time you want to use
+sendfile is for bulk transfers and these days anybody designing new
+applications that does bulk transfers over UDP should be taken out
+and shot.
 
-Regards
-
-Marcel
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
