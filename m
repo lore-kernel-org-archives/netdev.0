@@ -1,48 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: tcp: Use skb_queue_is_last() instead of by-hand version.
-Date: Tue, 23 Sep 2008 00:36:12 -0700 (PDT)
-Message-ID: <20080923.003612.02645173.davem@davemloft.net>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: Machine Check Exception Re: NetDev! Please help!
+Date: Tue, 23 Sep 2008 11:43:08 +0400
+Message-ID: <48D89E0C.9040407@bigtelecom.ru>
+References: <48D4F85C.8090709@bigtelecom.ru> <200809202111.01256.denys@visp.net.lb> <48D67239.9040006@gmail.com> <48D7385D.40107@bigtelecom.ru> <20080922065339.GA4399@ff.dom.local> <48D76813.9000603@bigtelecom.ru> <20080922112452.GB5314@ff.dom.local> <48D79709.80400@bigtelecom.ru> <20080922172349.GA2545@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35501
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754187AbYIWHgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 03:36:23 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 364F8C8C181
-	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 00:36:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754281AbYIWHnZ@vger.kernel.org>
+In-Reply-To: <20080922172349.GA2545@ami.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello
 
-tcp: Use skb_queue_is_last() instead of by-hand version.
+I stop eth1 and eth0 and run "emegre portage" and get exception. Now i
+think its not problem in network part.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/tcp.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+I miss situation in 2.6.27 about multiqueue and traffic shaper because i
+was have many work and was can't read all netdev list =(
+As i understand 2.6.27-rc have support multiqueue, but how it will work
+with HTB/SFQ?
+Is tc rules must have in 2.6.27 one root queue (and all queue go to this
+tree) or need to do many qdiscs and settings it to device queues (i was
+read some about queue2band)?
+If it is simple for you - can  you sort describe this part of changes?
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f857c3e..5c5327e 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1284,10 +1284,10 @@ static inline void tcp_unlink_write_queue(struct sk_buff *skb, struct sock *sk)
- 	__skb_unlink(skb, &sk->sk_write_queue);
- }
- 
--static inline int tcp_skb_is_last(const struct sock *sk,
--				  const struct sk_buff *skb)
-+static inline bool tcp_skb_is_last(const struct sock *sk,
-+				   const struct sk_buff *skb)
- {
--	return skb->next == (struct sk_buff *)&sk->sk_write_queue;
-+	return skb_queue_is_last(&sk->sk_write_queue, skb);
- }
- 
- static inline int tcp_write_queue_empty(struct sock *sk)
--- 
-1.5.6.5
+P.S. I think now that problem not in network part of kernel and i think
+i stop CC netdev and Denys Fedoryshchenko. Thanks for you doing and
+thanks for help!
 
+Thanks.
+
+> Actually, it's quite well tested, especially by Denys, and I doubt it
+> will be much better in 2.6.27. BTW, maybe start eth1, stop eth0 yet?
+>
+> Thanks,
+> Jarek P.
+>
+>   
