@@ -1,37 +1,48 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch 4/4] mISDN: misc timerdev fixes
-Date: Tue, 23 Sep 2008 06:40:26 -0400
-Message-ID: <20080923104026.GA12535@infradead.org>
-References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org>
+From: Jeremy Kerr <jk@ozlabs.org>
+Subject: Re: patchwork for netdev
+Date: Tue, 23 Sep 2008 20:44:43 +1000
+Message-ID: <200809232044.44472.jk@ozlabs.org>
+References: <48D2F212.50407@hp.com> <20080922.194454.05906989.davem@davemloft.net> <1222158292.12085.134.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kkeil@suse.de, netdev@vger.kernel.org, andi@firstfloor.org,
-	ak@linux.intel.com
-To: akpm@linux-foundation.org
+Content-Type: text/plain;
+  charset="iso-8859-6"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, horms@verge.net.au,
+	rick.jones2@hp.com, rdunlap@xenotime.net, netdev@vger.kernel.org,
+	jeff@garzik.org, linville@tuxdriver.com, akpm@linux-foundation.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:56137 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920AbYIWKkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 06:40:31 -0400
+Received: from ozlabs.org ([203.10.76.45]:36888 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751181AbYIWKqm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 06:46:42 -0400
+In-Reply-To: <1222158292.12085.134.camel@pasglop>
 Content-Disposition: inline
-In-Reply-To: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2008 at 02:51:03PM -0700, akpm@linux-foundation.org wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> 
-> - Remove noop VFS stubs. The VFS does that on a NULL pointer anyways.
+Hi folks,
 
-> -static loff_t
-> -mISDN_llseek(struct file *filep, loff_t offset, int orig)
-> -{
-> -	return -ESPIPE;
-> -}
+> Jeremy, I CC'ed you but you may want to catch up with the whole
+> thread first.
 
->  static struct file_operations mISDN_fops = {
-> -	.llseek		= mISDN_llseek,
+Yep, I'd like to get patchwork extended to allow 'feedback' posts to the 
+lists. This is what I'm thinking:
 
-This is wrong.  no llseek means we use default_llseek, which is
-different from returning -ESPIPE.
+ * Add an 'Ack' (and possibly 'Nack' and 'Comment') button for all
+   logged-in users, which will send an appropriate message to the list.
 
+ * When a maintainer uses this functionality, patchwork can update the
+   state accordingly.
+
+However, I still need to work out the exact implementation - Ideally, 
+the message could be constructed with the user's own mail client (and 
+saved in the standard 'sent' folder). This requires a little 
+integration hackery though.
+
+But yeah - I'm workin' on it! :)
+
+Cheers,
+
+
+Jeremy
