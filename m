@@ -1,66 +1,55 @@
-From: Karsten Keil <kkeil@suse.de>
-Subject: Re: [patch 4/4] mISDN: misc timerdev fixes
-Date: Tue, 23 Sep 2008 08:34:07 +0200
-Message-ID: <20080923063407.GB23815@pingi.kke.suse.de>
-References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org> <20080922.191826.16007223.davem@davemloft.net> <20080923022731.GE25711@one.firstfloor.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: xfrm_state locking regression...
+Date: Tue, 23 Sep 2008 14:47:07 +0800
+Message-ID: <20080923064707.GA26836@gondor.apana.org.au>
+References: <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi> <20080923045951.GA26048@gondor.apana.org.au> <48D87BDA.8040804@iki.fi> <20080923052239.GA26233@gondor.apana.org.au> <48D88BCC.5030806@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	kkeil@suse.de, netdev@vger.kernel.org, ak@linux.intel.com
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:40703 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752824AbYIWGeL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2008 02:34:11 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:36977 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752056AbYIWGrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 02:47:14 -0400
 Content-Disposition: inline
-In-Reply-To: <20080923022731.GE25711@one.firstfloor.org>
+In-Reply-To: <48D88BCC.5030806@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 04:27:32AM +0200, Andi Kleen wrote:
-> On Mon, Sep 22, 2008 at 07:18:26PM -0700, David Miller wrote:
-> > From: akpm@linux-foundation.org
-> > Date: Mon, 22 Sep 2008 14:51:03 -0700
-> > 
-> > > - Remove noop VFS stubs. The VFS does that on a NULL pointer anyways.
-> > > - Fix timer handler prototype to be correct
-> > > - Comment ugly SMP race I didn't fix.
-> > > 
-> > > Signed-off-by: Andi Kleen <ak@linux.intel.com>
-> > > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > 
-> > Applied to net-next-2.6
-> 
-> I'm hoping someone takes care of the SMP race. I think the timers
-> need all reference counting similar to other network objects to
-> handle this cleanly.
+On Tue, Sep 23, 2008 at 09:25:16AM +0300, Timo Ter=E4s wrote:
+>
+> Something like this. I just compile tested, so I'm not sure if it
+> actually works.
 
-Yes I already have some idea without refcounting, checking how much time is left
-if it is more as some treshhold (maybe 2 or 10 jiffies) delete the timer,
-if not mark it for deletion only and delete it during the run function without
-triggering the device. In the race case it would trigger the device too but
-this is not critical.
-Another easier implementation could mark it only, without trying to delete
-it imediately. But in this case unneeded timers would hang around (on big busy PBX
-boxes this can be some 100) for some time.
+It is quite clever :)
+=20
+> The corresponding put is in _destroy(). Added it as a final thing
+> to do so hopefully compiler optimizes tail recursion to iteration.
+> (Seemed to do that in my case.)
 
-What do you think ?
+Yeah we should open code this to be absolutely sure that we don't
+get killed by a stupid compiler.
 
-> 
-> It might be a good idea to mark it BROKEN_ON_SMP in the meantime.
+However, I think this is still open to the same problem that my
+patch had, i.e., if a dumper goes to sleep during the dump we may
+prevent entries from being freed indefinitely.  Yes your idea
+is better in that we may only withhold say a fraction (depending
+on the order of deletion it could be anywhere from none to every
+entry) of the entries instead of all of them, but fundamentally
+the same issue is still there.
 
-No really needed, normally the timers deleted long time before running out
-or never so it should never see such a race, maybe if the application is
-aborted and cleanup all timers this could happen but also this should be no
-normal case, since usually you do not kill a PBX if any connections are
-active.
-Yes it could be used to do some deny on service kind of attack, so it should
-be fixed at all.
+Considering the fact that dumps require root privileges I'm not
+convinced as of yet that this is worth it.
 
+Hmm, could we perhaps go back to your original scheme of keeping
+everything on the list and see if we can use RCU to make it lockless
+instead?
 
--- 
-Karsten Keil
-SuSE Labs
-ISDN and VOIP development
-SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
