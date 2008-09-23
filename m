@@ -1,53 +1,41 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: OOPS bug KERNEL LINUX- Version 2.6.26
-Date: Tue, 23 Sep 2008 09:04:31 +0200
-Message-ID: <200809230904.31382.IvDoorn@gmail.com>
-References: <K7M9ZI$69A44BBF23D86D612A80B0EA98EEEE6B@libero.it> <200809230032.37255.IvDoorn@gmail.com> <20080922234649.GA26219@tuxdriver.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Tue, 23 Sep 2008 11:07:58 +0400
+Message-ID: <20080923070758.GD25231@2ka.mipt.ru>
+References: <20080922070425.GA14572@2ka.mipt.ru> <E1Khzut-0006lv-Co@gondolin.me.apana.org.au> <20080923062709.GA7886@2ka.mipt.ru> <20080923070133.GB26836@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, andrea_monta@inwind.it,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, stable@kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754487AbYIWHEv@vger.kernel.org>
-In-Reply-To: <20080922234649.GA26219@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, johaahn@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:44934 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753092AbYIWHI6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 03:08:58 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080923070133.GB26836@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 23 September 2008, John W. Linville wrote:
-> On Tue, Sep 23, 2008 at 12:32:36AM +0200, Ivo van Doorn wrote:
-> > On Tuesday 23 September 2008, John W. Linville wrote:
-> > > On Tue, Sep 23, 2008 at 12:25:03AM +0200, Ivo van Doorn wrote:
-> > > > Hi,
-> > > > 
-> > > > > > 1. Problem with usb-wireless-key 
-> > > > > > 2. I can't find my device typing ifconfig -a or iwconfig I don't find any wireless attached device. But I have my usb wireless connected. A belkin usb wireless key.Before, with the kernel 2.6.25 all worked well
-> > > > > > 3. nothing
-> > > > > > 4. Linux version 2.6.26 (root@clementino) (gcc version 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)) #1 PREEMPT Mon Sep 22 15:57:45 CEST 2008
-> > > > > > 5.
-> > > > 
-> > > > You missed the message from rt2x00 2 lines above this trace, which undoubtly have said something like:
-> > > > 	"Invalid RT chipset detected."
-> > > > which is triggered when rt73usb is loaded for a device it does not support
-> > > > 
-> > > > The current workaround for this issue is blacklisting rt73usb and making sure the driver
-> > > > which is required for your driver is loaded instead.
-> > > > 
-> > > > I'll look into the reason why this actually triggers a NULL pointer, since that is obviously a nasty bug.
-> > > 
-> > > -stable needs a patch similar to the one here:
-> > > 
-> > > 	http://people.redhat.com/linville/kernels/rhel5/patches/jwltest-rt2x00lib-probe-fail.patch
-> > 
-> > Ah yes, that would be a good one.
-> > I kind of assumed it was already merged, and hadn't actually verified that yet. ;)
-> 
-> Well the code in 2.6.27 is different, this patch is no longer necessary
-> (and doesn't apply).
+On Tue, Sep 23, 2008 at 03:01:33PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> Yes but bulk transfers over UDP is a bad idea regardless of how
+> slow your bus is :)
 
-Yeah, but it was send to stable@kernel.org as merge request for 2.6.26 stable only. :)
+It still deserves living if it is not highly priority traffic like video
+dataflow.
 
-Ivo
+> So what application needs this?
+
+Johann did not show his exact usage scenario, but from what I got I
+concluded, that it is kind of a video sensor (or some other data which
+is allowed to be lost), which has to add a header
+to the frame and submit it to the network without any copy because of
+hardware limitation for the memory bus. Sensor can put data via DMA to
+the needed location. His first (and parallel to this one) idea was to
+extend packet socket to allow send of the mapped data.
+I proposed to do the same with sendfile, i.e. dma data to the mapped
+area of some file in the ramdisk, add header, do it for multiple frames
+and then send given file using sendfile().
+
+-- 
+	Evgeniy Polyakov
