@@ -1,34 +1,47 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 5/7]: bluetooth: hci_bcsp: Use SKB list interfaces
-	instead of home-grown stuff.
-Date: Tue, 23 Sep 2008 06:59:34 +0200
-Message-ID: <1222145974.13064.22.camel@californication>
-References: <20080922.191241.229288039.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: xfrm_state locking regression...
+Date: Tue, 23 Sep 2008 12:59:51 +0800
+Message-ID: <20080923045951.GA26048@gondor.apana.org.au>
+References: <20080902.234723.163403187.davem@davemloft.net> <20080905115506.GA26179@gondor.apana.org.au> <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:35317 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051AbYIWE6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 00:58:36 -0400
-In-Reply-To: <20080922.191241.229288039.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:50165 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751051AbYIWE75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 00:59:57 -0400
+Content-Disposition: inline
+In-Reply-To: <48D8763E.4030607@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Tue, Sep 23, 2008 at 07:53:18AM +0300, Timo Ter=E4s wrote:
+>
+> So the idea was to hold X->next from deletion function, not from
+> the walking function. That would be, we always hold deleted->next whe=
+n
+> there are ongoing walks. And on final _put() we _put() the ->next
+> entry.
+>=20
+> I think that would work.
 
-> bluetooth: hci_bcsp: Use SKB list interfaces instead of home-grown stuff.
+Right, this would work.
 
-the change looks good. However, I have no hardware to actually test it
-with at the moment. And actually might not have for another month or so.
+However, now you're again slowing down the relatively fast path of
+state deletion by moving extra work there from the non-critical
+dump path.
 
->From code review, Acked-by: Marcel Holtmann <marcel@holtmann.org>
+When we optimise code for time, we don't necessarily try to minimise
+the work overall.  We instead try to minimise the amount of work on
+the critical paths.  It's OK to let the other paths such as dumping
+do a bit more work if it improves the fast paths.
 
-Regards
-
-Marcel
-
-
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
