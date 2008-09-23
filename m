@@ -1,43 +1,77 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: Machine Check Exception Re: NetDev! Please help!
-Date: Tue, 23 Sep 2008 11:43:08 +0400
-Message-ID: <48D89E0C.9040407@bigtelecom.ru>
-References: <48D4F85C.8090709@bigtelecom.ru> <200809202111.01256.denys@visp.net.lb> <48D67239.9040006@gmail.com> <48D7385D.40107@bigtelecom.ru> <20080922065339.GA4399@ff.dom.local> <48D76813.9000603@bigtelecom.ru> <20080922112452.GB5314@ff.dom.local> <48D79709.80400@bigtelecom.ru> <20080922172349.GA2545@ami.dom.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Tue, 23 Sep 2008 08:02:40 +0000
+Message-ID: <20080923080240.GA4692@ff.dom.local>
+References: <20080921095705.GA2551@ami.dom.local> <20080921.031829.86500526.davem@davemloft.net> <20080921111551.GB2551@ami.dom.local> <20080922.221658.221283630.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754281AbYIWHnZ@vger.kernel.org>
-In-Reply-To: <20080922172349.GA2545@ami.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.156]:47171 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbYIWICs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 04:02:48 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1648281fgg.17
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 01:02:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080922.221658.221283630.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello
+On Mon, Sep 22, 2008 at 10:16:58PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Sun, 21 Sep 2008 13:15:51 +0200
+> 
+> > That's why I think you should reconsider this simple solution for now,
+> > until somebody proves this is wrong or something else is better.
+> 
+> Ok, that sounds reasonable.  I've added those three patches to net-next-2.6
+> and will push those out after some build tests.
 
-I stop eth1 and eth0 and run "emegre portage" and get exception. Now i
-think its not problem in network part.
+OK, then we have to say B and try this all. BTW, I guess, after this
+change we could have similar effect as reported by Alexander Duyck
+while testing his solution for this problem, namely the higher drop
+rate in some cases, which I can only explain as: less time in
+requeuing more time for new enqueuing. Of course, if I'm right, this
+"bug" should be rather "fixed" with longer queues or some other
+throttle mechanism.
 
-I miss situation in 2.6.27 about multiqueue and traffic shaper because i
-was have many work and was can't read all netdev list =(
-As i understand 2.6.27-rc have support multiqueue, but how it will work
-with HTB/SFQ?
-Is tc rules must have in 2.6.27 one root queue (and all queue go to this
-tree) or need to do many qdiscs and settings it to device queues (i was
-read some about queue2band)?
-If it is simple for you - can  you sort describe this part of changes?
+Thanks,
+Jarek P.
 
-P.S. I think now that problem not in network part of kernel and i think
-i stop CC netdev and Denys Fedoryshchenko. Thanks for you doing and
-thanks for help!
+-------------------->
 
-Thanks.
+pkt_sched: Remove the tx queue state check in qdisc_run()
 
-> Actually, it's quite well tested, especially by Denys, and I doubt it
-> will be much better in 2.6.27. BTW, maybe start eth1, stop eth0 yet?
->
-> Thanks,
-> Jarek P.
->
->   
+The current check wrongly uses the state of one (currently the first)
+tx queue for all tx queues in case of non-default qdiscs. This check
+mainly prevented requeuing loop with __netif_schedule(), but now it's
+controlled inside __qdisc_run(), while dequeuing. The wrongness of
+this check was first noticed by Herbert Xu.
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ include/net/pkt_sched.h |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index b786a5b..4082f39 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -90,10 +90,7 @@ extern void __qdisc_run(struct Qdisc *q);
+ 
+ static inline void qdisc_run(struct Qdisc *q)
+ {
+-	struct netdev_queue *txq = q->dev_queue;
+-
+-	if (!netif_tx_queue_stopped(txq) &&
+-	    !test_and_set_bit(__QDISC_STATE_RUNNING, &q->state))
++	if (!test_and_set_bit(__QDISC_STATE_RUNNING, &q->state))
+ 		__qdisc_run(q);
+ }
+ 
