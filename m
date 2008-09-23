@@ -1,50 +1,57 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: patchwork for netdev
-Date: Tue, 23 Sep 2008 11:08:16 +1000
-Message-ID: <20080923010814.GD10472@verge.net.au>
-References: <Pine.LNX.4.64.0809181700110.18136@shark.he.net> <20080918.170547.114615421.davem@davemloft.net> <48D2F212.50407@hp.com> <20080918.191125.197691273.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: Nagle latency tuning
+Date: Mon, 22 Sep 2008 18:40:12 -0700 (PDT)
+Message-ID: <20080922.184012.212424947.davem@davemloft.net>
+References: <20080922232428.GA25711@one.firstfloor.org>
+	<20080922.162158.223213897.davem@davemloft.net>
+	<20080923001409.GB25711@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, rdunlap@xenotime.net, netdev@vger.kernel.org,
-	jeff@garzik.org, linville@tuxdriver.com,
-	Andrew Morton <akpm@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:49440 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752656AbYIWBIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 21:08:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20080918.191125.197691273.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58817
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753870AbYIWBkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 21:40:24 -0400
+In-Reply-To: <20080923001409.GB25711@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2008 at 07:11:25PM -0700, David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Thu, 18 Sep 2008 17:28:02 -0700
+From: Andi Kleen <andi@firstfloor.org>
+Date: Tue, 23 Sep 2008 02:14:09 +0200
+
+> Typical case: you got a large company network behind a NAT.
+> First user has a very crappy wireless connection behind a slow
+> intercontinental link talking to the outgoing NAT router. He connectes to 
+> your internet server first and the window, slow start etc. parameters 
+> for him are saved in the dst_entry.  
 > 
-> > > I was hoping those ACK emails would be one of the things I could stop
-> > > doing if patchwork is effective.  Not immediately, but eventually.
-> > 
-> > Can't patchwork do that as those clicks to change state take place?
+> The next guy behind the same NAT is in the same building
+> as the router who connects the company to the internet. He
+> has a much faster line. He connects to the same server. 
+> They will share the same dst and inetpeer entries.
 > 
-> I honestly don't know, but my guess would be know.
-> 
-> We could ask the patchwork author for this feature, as this
-> stuff is actively maintained.
+> The parameters saved earlier for the same IP are clearly invalid
+> for the second case. The link characteristics are completely 
+> different.
 
-I think that the "thanks applied" feedback that occurs on netdev
-is quite useful, as is the kind of automated feedback that
-goes on from Andrew Morton's scripts in mm. To be honest I find
-it quite frustrating when other maintainers in other arenas just
-silently drop/ignore/apply-later (who knows which, or when?).
+Just as typical are setups where the NAT clients are 1 or 2
+fast hops behind the firewall.
 
-By all means I think that streamlining processes is good.
-But if a change could be made to patchwork allow the "thanks applied"
-feedback to continue, that would be doubly good.
+There are many cases where perfectly acceptible heuristics
+don't perform optimally, this doesn't mean we disable them
+by default.
 
--- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+> Also did you know there are there are whole countries behind
+> NAT.
 
+I am more than aware of this, however this doesn't mean it is
+sane and this kind of setup makes many useful internet services
+inaccessible.
+
+> Ah I see there's a sysctl now to disable this. How about
+> setting it by default?
+
+It's for debugging.
