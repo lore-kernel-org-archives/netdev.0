@@ -1,33 +1,41 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] MIPS checksum fix
-Date: Wed, 24 Sep 2008 00:06:14 +0200
-Message-ID: <20080923220614.GA10590@linux-mips.org>
-References: <20080917.222350.41199051.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171501450.17103@cliff.in.clinika.pl> <20080918.002705.78730226.anemo@mba.ocn.ne.jp> <Pine.LNX.4.55.0809171917580.17103@cliff.in.clinika.pl> <20080918220734.GA19222@linux-mips.org> <Pine.LNX.4.55.0809190112090.22686@cliff.in.clinika.pl> <20080919112304.GB13440@linux-mips.org> <20080919114743.GA19359@linux-mips.org> <20080919120752.GA19877@linux-mips.org> <BFB5F5A7-2980-4BCB-A14D-9EB6114B031B@terran.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 0/3] e1000e: protect NVM from corruption
+Date: Tue, 23 Sep 2008 15:25:37 -0700
+Message-ID: <20080923222320.6075.90496.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Bryan Phillippe <u1@terran.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com
+To: jeff@garzik.org, mingo@elte.hu, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([213.58.128.207]:33659 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751424AbYIWWS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 18:18:27 -0400
-Received: from localhost.localdomain ([127.0.0.1]:60606 "EHLO
-	ditditdahdahdah-dahdahdahditdit.dl5rb.org.uk") by ftp.linux-mips.org
-	with ESMTP id S28657010AbYIWWGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 23:06:24 +0100
-Content-Disposition: inline
-In-Reply-To: <BFB5F5A7-2980-4BCB-A14D-9EB6114B031B@terran.org>
+Received: from rv-out-0506.google.com ([209.85.198.229]:50009 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbYIWWZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 18:25:32 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2382258rvb.1
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 15:25:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 02:52:24PM -0700, Bryan Phillippe wrote:
+These patches apply against commit e002bcc2f8e766a96472379e3b4a8a4e8938a93e of Linus's latest tree.
 
-> If anyone would like to send me an updated unified diff for this issue, I 
-> can re-test today within the next day.
+These patches have had some basic tested run against them.  These patches are intended to prevent the NVM corruption being reported and will hopefully help in finding a root cause for the NVM corruption.
 
-An updated fix is already in the lmo and kernel.org git repositories.
+---
 
-  Ralf
+Bruce Allan (3):
+      e1000e: remove failed request for sw/fw/hw flag
+      e1000e: Useset_memory_ro()/set_memory_rw() to protect flash memory
+      x86: export set_memory_ro() and set_memory_rw() calls
+
+
+ arch/x86/mm/pageattr.c       |    2 ++
+ drivers/net/e1000e/e1000.h   |    1 +
+ drivers/net/e1000e/hw.h      |    1 +
+ drivers/net/e1000e/ich8lan.c |   18 ++++++++++++++++++
+ drivers/net/e1000e/netdev.c  |   11 +++++++----
+ 5 files changed, 29 insertions(+), 4 deletions(-)
+
+-- 
+Signature
