@@ -1,60 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Machine Check Exception Re: NetDev! Please help!
-Date: Tue, 23 Sep 2008 09:25:04 +0000
-Message-ID: <20080923092504.GB4692@ff.dom.local>
-References: <48D4F85C.8090709@bigtelecom.ru> <200809202111.01256.denys@visp.net.lb> <48D67239.9040006@gmail.com> <48D7385D.40107@bigtelecom.ru> <20080922065339.GA4399@ff.dom.local> <48D76813.9000603@bigtelecom.ru> <20080922112452.GB5314@ff.dom.local> <48D79709.80400@bigtelecom.ru> <20080922172349.GA2545@ami.dom.local> <48D89E0C.9040407@bigtelecom.ru>
+From: Antonio Gallo <agx@linux.it>
+Subject: r8169, linux kernel 2.6.22.9, broken negotiation
+Date: Tue, 23 Sep 2008 11:25:35 +0200
+Message-ID: <48D8B60F.8060102@linux.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+To: shuchen@realtek.com.tw, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:10763 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbYIWJZL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 05:25:11 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1669084fgg.17
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 02:25:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <48D89E0C.9040407@bigtelecom.ru>
+Received: from smtpd4.aruba.it ([62.149.128.209]:39268 "HELO smtp4.aruba.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1750829AbYIWJZg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 05:25:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 11:43:08AM +0400, Badalian Vyacheslav wrote:
-> Hello
-> 
-> I stop eth1 and eth0 and run "emegre portage" and get exception. Now i
-> think its not problem in network part.
-> 
-> I miss situation in 2.6.27 about multiqueue and traffic shaper because i
-> was have many work and was can't read all netdev list =(
-> As i understand 2.6.27-rc have support multiqueue, but how it will work
-> with HTB/SFQ?
-> Is tc rules must have in 2.6.27 one root queue (and all queue go to this
-> tree) or need to do many qdiscs and settings it to device queues (i was
-> read some about queue2band)?
-> If it is simple for you - can  you sort describe this part of changes?
+On this card using the r8169:
 
-There are two main cases:
+Device: 02:00.0
+Class:  0200
+Vendor: 10ec
+Device: 8168
+SVendor:        1458
+SDevice:        e000
+Rev:    02
 
-1) The default qdiscs (created while activating a new net device):
-depending on a driver (most drivers are still uniqueue), there are
-created independent pfifo_fast_qdiscs for each supported tx queue;
-if a driver doesn't change this, packets are directed to them
-automatically, according to some hash function, which tries to
-separate different flows. This should be the fastest solution because
-there are separate qdisc and transmit locks, which could be taken by
-different cpus at the same time.
+I've a strange problem. No kernel messages but the card is functioning 
+only for a few second every 20 seconds.
+Ethtool reported the card as connected using the FIBRE port at 1000 
+speed as available only.
 
-2) Non-default qdiscs (any qdiscs added with tc): there is only one
-root qdisc (with its tree) as before, dequeued to all tx queues (if
-available). Since there is only one qdisc lock, and additional flag
-preventing other processes to run the qdisc at the same time, there
-is not so much advantage of SMP, except on tx locking. All previous
-tc configs should work without changes (except sch_prio and sch_rr
-used for multiqueuing, replaced by sch_multiq and act_skbedit now).
-Probably in some cases adding sch_multiq to a tree for separating
-qdisc queues per tx queues could be useful.
+I tried both ethtool v5 and v6 to change card port from fibre to tp or 
+mii and from 1000 to 100 or 10 but
+everytime it says card is not supported.
 
-Cheers,
-Jarek P.
+I've also tried all the fancy kernel parameters about msi, acpi, apic, 
+apm, etc.
+
+Should i try the r8168.ko from the realtek web site instead of the 
+kernel module r8169 ?
+
