@@ -1,16 +1,16 @@
 From: Antonio Gallo <agx@linux.it>
-Subject: r8169, linux kernel 2.6.22.9, broken negotiation
-Date: Tue, 23 Sep 2008 11:25:35 +0200
-Message-ID: <48D8B60F.8060102@linux.it>
+Subject: r8169, broken supported ports FIBRE
+Date: Tue, 23 Sep 2008 11:32:38 +0200
+Message-ID: <48D8B7B6.3020108@linux.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 To: shuchen@realtek.com.tw, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpd4.aruba.it ([62.149.128.209]:39268 "HELO smtp4.aruba.it"
+Received: from smtpd4.aruba.it ([62.149.128.209]:44838 "HELO smtp3.aruba.it"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750829AbYIWJZg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2008 05:25:36 -0400
+	id S1751459AbYIWJcj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 05:32:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,6 +28,23 @@ I've a strange problem. No kernel messages but the card is functioning
 only for a few second every 20 seconds.
 Ethtool reported the card as connected using the FIBRE port at 1000 
 speed as available only.
+
+Settings for eth0:
+        Supported ports: [ FIBRE ]
+        Supported link modes:   1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  Not reported
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: FIBRE
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pumbg
+        Wake-on: g
+        Current message level: 0x00000033 (51)
+        Link detected: yes
 
 I tried both ethtool v5 and v6 to change card port from fibre to tp or 
 mii and from 1000 to 100 or 10 but
