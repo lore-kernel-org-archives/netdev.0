@@ -1,113 +1,76 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: tcp: Use SKB queue handling interfaces instead of by-hand
- versions.
-Date: Tue, 23 Sep 2008 01:07:07 -0700 (PDT)
-Message-ID: <20080923.010707.209241926.davem@davemloft.net>
+Subject: [PATCH]: neigh: Remove by-hand SKB queue handling.
+Date: Tue, 23 Sep 2008 01:11:52 -0700 (PDT)
+Message-ID: <20080923.011152.193685128.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52464
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45822
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751573AbYIWIHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 04:07:18 -0400
+	by vger.kernel.org with ESMTP id S1751357AbYIWIME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 04:12:04 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 50AC8C8C181
-	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 01:07:07 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 92D11C8C181
+	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 01:11:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-tcp: Use SKB queue handling interfaces instead of by-hand versions.
+neigh: Remove by-hand SKB queue handling.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/tcp.h |   40 +++++++++++++++-------------------------
- 1 files changed, 15 insertions(+), 25 deletions(-)
+ net/core/neighbour.c |   21 ++++++++-------------
+ 1 files changed, 8 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 5c5327e..12c9b4f 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1181,49 +1181,45 @@ static inline void tcp_write_queue_purge(struct sock *sk)
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 9d92e41..1dc728b 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -927,8 +927,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+ 			if (skb_queue_len(&neigh->arp_queue) >=
+ 			    neigh->parms->queue_len) {
+ 				struct sk_buff *buff;
+-				buff = neigh->arp_queue.next;
+-				__skb_unlink(buff, &neigh->arp_queue);
++				buff = __skb_dequeue(&neigh->arp_queue);
+ 				kfree_skb(buff);
+ 				NEIGH_CACHE_STAT_INC(neigh->tbl, unres_discards);
+ 			}
+@@ -1259,24 +1258,20 @@ static void neigh_proxy_process(unsigned long arg)
+ 	struct neigh_table *tbl = (struct neigh_table *)arg;
+ 	long sched_next = 0;
+ 	unsigned long now = jiffies;
+-	struct sk_buff *skb;
++	struct sk_buff *skb, *n;
  
- static inline struct sk_buff *tcp_write_queue_head(struct sock *sk)
- {
--	struct sk_buff *skb = sk->sk_write_queue.next;
--	if (skb == (struct sk_buff *) &sk->sk_write_queue)
--		return NULL;
--	return skb;
-+	return skb_peek(&sk->sk_write_queue);
- }
+ 	spin_lock(&tbl->proxy_queue.lock);
  
- static inline struct sk_buff *tcp_write_queue_tail(struct sock *sk)
- {
--	struct sk_buff *skb = sk->sk_write_queue.prev;
--	if (skb == (struct sk_buff *) &sk->sk_write_queue)
--		return NULL;
--	return skb;
-+	return skb_peek_tail(&sk->sk_write_queue);
- }
- 
- static inline struct sk_buff *tcp_write_queue_next(struct sock *sk, struct sk_buff *skb)
- {
--	return skb->next;
-+	return skb_queue_next(&sk->sk_write_queue, skb);
- }
- 
- #define tcp_for_write_queue(skb, sk)					\
--		for (skb = (sk)->sk_write_queue.next;			\
--		     (skb != (struct sk_buff *)&(sk)->sk_write_queue);	\
--		     skb = skb->next)
-+	skb_queue_walk(&(sk)->sk_write_queue, skb)
- 
- #define tcp_for_write_queue_from(skb, sk)				\
--		for (; (skb != (struct sk_buff *)&(sk)->sk_write_queue);\
--		     skb = skb->next)
-+	skb_queue_walk_from(&(sk)->sk_write_queue, skb)
- 
- #define tcp_for_write_queue_from_safe(skb, tmp, sk)			\
--		for (tmp = skb->next;					\
--		     (skb != (struct sk_buff *)&(sk)->sk_write_queue);	\
--		     skb = tmp, tmp = skb->next)
-+	skb_queue_walk_from_safe(&(sk)->sk_write_queue, skb, tmp)
- 
- static inline struct sk_buff *tcp_send_head(struct sock *sk)
- {
- 	return sk->sk_send_head;
- }
- 
-+static inline bool tcp_skb_is_last(const struct sock *sk,
-+				   const struct sk_buff *skb)
-+{
-+	return skb_queue_is_last(&sk->sk_write_queue, skb);
-+}
-+
- static inline void tcp_advance_send_head(struct sock *sk, struct sk_buff *skb)
- {
--	sk->sk_send_head = skb->next;
--	if (sk->sk_send_head == (struct sk_buff *)&sk->sk_write_queue)
-+	if (tcp_skb_is_last(sk, skb))
- 		sk->sk_send_head = NULL;
-+	else
-+		sk->sk_send_head = tcp_write_queue_next(sk, skb);
- }
- 
- static inline void tcp_check_send_head(struct sock *sk, struct sk_buff *skb_unlinked)
-@@ -1284,12 +1280,6 @@ static inline void tcp_unlink_write_queue(struct sk_buff *skb, struct sock *sk)
- 	__skb_unlink(skb, &sk->sk_write_queue);
- }
- 
--static inline bool tcp_skb_is_last(const struct sock *sk,
--				   const struct sk_buff *skb)
--{
--	return skb_queue_is_last(&sk->sk_write_queue, skb);
--}
+-	skb = tbl->proxy_queue.next;
 -
- static inline int tcp_write_queue_empty(struct sock *sk)
- {
- 	return skb_queue_empty(&sk->sk_write_queue);
+-	while (skb != (struct sk_buff *)&tbl->proxy_queue) {
+-		struct sk_buff *back = skb;
+-		long tdif = NEIGH_CB(back)->sched_next - now;
++	skb_queue_walk_safe(&tbl->proxy_queue, skb, n) {
++		long tdif = NEIGH_CB(skb)->sched_next - now;
+ 
+-		skb = skb->next;
+ 		if (tdif <= 0) {
+-			struct net_device *dev = back->dev;
+-			__skb_unlink(back, &tbl->proxy_queue);
++			struct net_device *dev = skb->dev;
++			__skb_unlink(skb, &tbl->proxy_queue);
+ 			if (tbl->proxy_redo && netif_running(dev))
+-				tbl->proxy_redo(back);
++				tbl->proxy_redo(skb);
+ 			else
+-				kfree_skb(back);
++				kfree_skb(skb);
+ 
+ 			dev_put(dev);
+ 		} else if (!sched_next || tdif < sched_next)
 -- 
 1.5.6.5
 
