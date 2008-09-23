@@ -1,40 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Tue, 23 Sep 2008 13:22:39 +0800
-Message-ID: <20080923052239.GA26233@gondor.apana.org.au>
-References: <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi> <20080923045951.GA26048@gondor.apana.org.au> <48D87BDA.8040804@iki.fi>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: SCTP checksum patch for 2.6.26.5
+Date: Mon, 22 Sep 2008 22:45:18 -0700
+Message-ID: <1222148718.16003.1.camel@brick>
+References: <48D7C0A2.9090406@protei.ru>
+	 <20080922.131245.193705447.davem@davemloft.net>
+	 <20080923051920.GD24654@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, nickolay@protei.ru,
+	linux-kernel@vger.kernel.org, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42465 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751524AbYIWFWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 01:22:48 -0400
-Content-Disposition: inline
-In-Reply-To: <48D87BDA.8040804@iki.fi>
+Received: from wf-out-1314.google.com ([209.85.200.172]:33884 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912AbYIWFpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 01:45:23 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so2038297wfd.4
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 22:45:22 -0700 (PDT)
+In-Reply-To: <20080923051920.GD24654@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 08:17:14AM +0300, Timo Ter=E4s wrote:
->
-> The extra step there wold be a hold call. The recursive _put on a
-> _put of some entry can happen only on dump path. As otherwise the
-> ->next entry is first held in state delete, but would be immediately
-> _put on the _put as the final step of _delete().
->=20
-> So basically one additional atomic_inc() and one atomic_dec() on the
-> normal _delete() path.
+On Tue, 2008-09-23 at 07:19 +0200, Willy Tarreau wrote:
+> On Mon, Sep 22, 2008 at 01:12:45PM -0700, David Miller wrote:
+> > From: Nickolay Vinogradov <nickolay@protei.ru>
+> > Date: Mon, 22 Sep 2008 19:58:26 +0400
+> > 
+> > CC:'ing correct mailing lists...
+> > 
+> Nickolay,
+> 
+> you should use swab32(~crc32) instead. It will make use of arch-specific
+> optimisations when available (eg: bswap on x86).
+> 
+> Willy
 
-Can you post a patch? If this can be done locklessly then yes
-it would probably be a good way to go.  However, I'm not sure
-whether I understand your lockless proposal yet.
+Or look at:
+commit 336d3262df71fcd2661180bb35d5ea41b4cbca58
+Author: Harvey Harrison <harvey.harrison@gmail.com>
+Date:   Fri Jul 18 23:07:09 2008 -0700
 
-Thanks,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+    sctp: remove unnecessary byteshifting, calculate directly in big-endian
+
+In Linus' tree.
+
+Cheers,
+
+Harvey
+
