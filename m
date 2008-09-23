@@ -1,49 +1,65 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH 2/2] netdev: docbook comment update (revised)
-Date: Tue, 23 Sep 2008 10:12:04 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0809231010280.27041@shark.he.net>
-References: <20080923083750.59eaac97@extreme> <20080923091035.102d4106@extreme>
- <Pine.LNX.4.64.0809230917020.27041@shark.he.net> <20080923100240.5168d861@extreme>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: dhcp/bonding interaction question
+Date: Tue, 23 Sep 2008 11:17:25 -0600
+Message-ID: <48D924A5.4070701@nortel.com>
+References: <48D90A30.8000701@nortel.com> <6323.1222188151@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Randy.Dunlap" <rdunlap@xenotime.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:53305 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751216AbYIWRMK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2008 13:12:10 -0400
-Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 10:12:04 -0700
-In-Reply-To: <20080923100240.5168d861@extreme>
+Received: from zcars04e.nortel.com ([47.129.242.56]:58034 "EHLO
+	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbYIWRRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 13:17:43 -0400
+In-Reply-To: <6323.1222188151@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Sep 2008, Stephen Hemminger wrote:
-
-> Add more docbook comments to network device functions and cleanup
-> the comments.
+Jay Vosburgh wrote:
+> Chris Friesen <cfriesen@nortel.com> wrote:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> --- a/net/core/dev.c	2008-09-23 08:32:48.000000000 -0700
-> +++ b/net/core/dev.c	2008-09-23 10:00:10.000000000 -0700
-> @@ -3322,6 +3323,12 @@ static void dev_addr_discard(struct net_
->  	netif_addr_unlock_bh(dev);
->  }
->  
-> +/**
-> + *	dev_get_flags - get flags reported to userspace
-> + *	@dev: device
-> + *
-> + *	Get the combination of flag bits exported throug APIs to userspace.
+>> On the
+>> booting blade the xid in the packet doesn't match the xid for the device
+>> on which the packet was received, so the packet is dropped.
+> 
+> 	Presumably the blade is matching xid on a per-interface basis.
 
+Yes, the dhcp code in the kernel does this.
 
-still needs:                                      through
+> 	I'm guessing your problem is really due to the nature of the
+> intra-chassis network on the blade system.  If it's like the ones I'm
+> familiar with (eth0 of all blades to a single switch, eth1 of all blades
+> to a different switch, etc), then you can't configure the switches into
+> an etherchannel group as can be done with the usual configuration
+> (multiple ports on one switch).
 
-> + */
->  unsigned dev_get_flags(const struct net_device *dev)
->  {
->  	unsigned flags;
+This has been handled already.  The two switches are a single 
+etherchannel group and all blades (except the booting one) have 
+etherchannel enabled.
 
--- 
-~Randy
+>> What's the proper solution here?  Should dhcpd be forcing reply packets
+>> out the slave on which the packet was received?
+> 
+> 	Why is the blade issuing DHCP before the bond is configured?
+
+The blade is net-booting.  The BIOS does DHCP to download the kernel, 
+and this works.  The kernel comes up and does DHCP to obtain an IP 
+address so it can download the boot image, and this fails as described.
+
+The etherchannel/bond link isn't set up until userspace is loaded and 
+the bonding driver is insmodded (under multiple aliases with different 
+sets of slaves).
+
+> I'm unsure as to whether dhcpd should force replies as suggested, but
+> recent changes to bonding/net core would probably permit dhcpd to run
+> directly on the slave (it might need tweaking, I'm not sure) and
+> accomplish that result. I don't think it would work on older versions
+> of bonding, since there's no way to tell which slave a packet arrived
+> on.
+
+That's not a problem.  We've got an older version, but support for 
+querying which slave a packet arrived on has been added.
+
+Chris
