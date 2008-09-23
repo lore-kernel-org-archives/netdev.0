@@ -1,47 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Tue, 23 Sep 2008 12:59:51 +0800
-Message-ID: <20080923045951.GA26048@gondor.apana.org.au>
-References: <20080902.234723.163403187.davem@davemloft.net> <20080905115506.GA26179@gondor.apana.org.au> <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+ dev_deactivate() race
+Date: Mon, 22 Sep 2008 22:16:58 -0700 (PDT)
+Message-ID: <20080922.221658.221283630.davem@davemloft.net>
+References: <20080921095705.GA2551@ami.dom.local>
+	<20080921.031829.86500526.davem@davemloft.net>
+	<20080921111551.GB2551@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	kaber@trash.net
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50165 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751051AbYIWE75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 00:59:57 -0400
-Content-Disposition: inline
-In-Reply-To: <48D8763E.4030607@iki.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56849
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751124AbYIWFRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 01:17:16 -0400
+In-Reply-To: <20080921111551.GB2551@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 07:53:18AM +0300, Timo Ter=E4s wrote:
->
-> So the idea was to hold X->next from deletion function, not from
-> the walking function. That would be, we always hold deleted->next whe=
-n
-> there are ongoing walks. And on final _put() we _put() the ->next
-> entry.
->=20
-> I think that would work.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sun, 21 Sep 2008 13:15:51 +0200
 
-Right, this would work.
+> That's why I think you should reconsider this simple solution for now,
+> until somebody proves this is wrong or something else is better.
 
-However, now you're again slowing down the relatively fast path of
-state deletion by moving extra work there from the non-critical
-dump path.
-
-When we optimise code for time, we don't necessarily try to minimise
-the work overall.  We instead try to minimise the amount of work on
-the critical paths.  It's OK to let the other paths such as dumping
-do a bit more work if it improves the fast paths.
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ok, that sounds reasonable.  I've added those three patches to net-next-2.6
+and will push those out after some build tests.
