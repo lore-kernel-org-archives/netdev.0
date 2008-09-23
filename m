@@ -1,35 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Tue, 23 Sep 2008 19:24:16 +0800
-Message-ID: <20080923112416.GA28946@gondor.apana.org.au>
-References: <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi> <20080923045951.GA26048@gondor.apana.org.au> <48D87BDA.8040804@iki.fi> <20080923052239.GA26233@gondor.apana.org.au> <48D88BCC.5030806@iki.fi> <20080923064707.GA26836@gondor.apana.org.au> <48D8B967.8000107@iki.fi>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 4/4] mISDN: misc timerdev fixes
+Date: Tue, 23 Sep 2008 04:30:05 -0700
+Message-ID: <20080923043005.358e19e7.akpm@linux-foundation.org>
+References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org>
+	<20080923104026.GA12535@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kkeil@suse.de, netdev@vger.kernel.org, andi@firstfloor.org,
+	ak@linux.intel.com
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46567 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750899AbYIWLY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 07:24:26 -0400
-Content-Disposition: inline
-In-Reply-To: <48D8B967.8000107@iki.fi>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41196 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750869AbYIWLav (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 07:30:51 -0400
+In-Reply-To: <20080923104026.GA12535@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2008 at 12:39:51PM +0300, Timo Ter=E4s wrote:
->
-> This would make it possibly to reclaim the deleted entries right
-> away.
->=20
-> Does this sound better?
+On Tue, 23 Sep 2008 06:40:26 -0400 Christoph Hellwig <hch@infradead.org> wrote:
 
-Yep this sounds pretty good to me.
+> On Mon, Sep 22, 2008 at 02:51:03PM -0700, akpm@linux-foundation.org wrote:
+> > From: Andi Kleen <andi@firstfloor.org>
+> > 
+> > - Remove noop VFS stubs. The VFS does that on a NULL pointer anyways.
+> 
+> > -static loff_t
+> > -mISDN_llseek(struct file *filep, loff_t offset, int orig)
+> > -{
+> > -	return -ESPIPE;
+> > -}
+> 
+> >  static struct file_operations mISDN_fops = {
+> > -	.llseek		= mISDN_llseek,
+> 
+> This is wrong.  no llseek means we use default_llseek, which is
+> different from returning -ESPIPE.
 
-Thanks,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+so.. this?
+
+--- a/drivers/isdn/mISDN/timerdev.c~misdn-misc-timerdev-fixes-fix
++++ a/drivers/isdn/mISDN/timerdev.c
+@@ -61,7 +61,7 @@ mISDN_open(struct inode *ino, struct fil
+ 	init_waitqueue_head(&dev->wait);
+ 	filep->private_data = dev;
+ 	__module_get(THIS_MODULE);
+-	return 0;
++	return nonseekable_open(ino, filep);
+ }
+ 
+ static int
+_
+
