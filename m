@@ -1,26 +1,32 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: AIM9 regression
-Date: Tue, 23 Sep 2008 15:43:15 -0500
-Message-ID: <48D954E3.9000007@linux-foundation.org>
-References: <48D93203.2050204@linux-foundation.org> <20080923133616.7d51c953@extreme> <48D95447.2010701@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169, linux kernel 2.6.22.9, broken negotiation
+Date: Tue, 23 Sep 2008 22:44:53 +0200
+Message-ID: <20080923204453.GA12519@electric-eye.fr.zoreil.com>
+References: <48D8B60F.8060102@linux.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shuchen@realtek.com.tw, netdev@vger.kernel.org
+To: Antonio Gallo <agx@linux.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50911 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752122AbYIWUn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 16:43:56 -0400
-In-Reply-To: <48D95447.2010701@linux-foundation.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40358 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752536AbYIWUpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 16:45:06 -0400
+Content-Disposition: inline
+In-Reply-To: <48D8B60F.8060102@linux.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter wrote:
+Antonio Gallo <agx@linux.it> :
+[...]
+> Should i try the r8168.ko from the realtek web site instead of the kernel 
+> module r8169 ?
 
-> Dual Processor 4 core 8G, Xeon X5460  @ 3.16GHz, 667Mhz memory.
+I think that it is fixed by commit 66ec5d4fb1ce6f0bd9df4bc4b758f0916d9f37ab
+in mainline (merged between 2.6.23 and 2.6.24).
 
-So 8G Ram, 8 processors total.
+You can either use Realtek's driver or try a recent 2.6.27-rc, optionally
+patched with http://userweb.kernel.org/~romieu/r8169/2.6.27-rc6/
+
+-- 
+Ueimor
