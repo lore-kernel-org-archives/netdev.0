@@ -1,63 +1,76 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: xfrm_state locking regression...
-Date: Tue, 23 Sep 2008 08:17:14 +0300
-Message-ID: <48D87BDA.8040804@iki.fi>
-References: <20080902.234723.163403187.davem@davemloft.net> <20080905115506.GA26179@gondor.apana.org.au> <20080908.172513.162820960.davem@davemloft.net> <20080909143312.GA29952@gondor.apana.org.au> <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi> <20080923045951.GA26048@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: Fix bug in skb list splicing.
+Date: Mon, 22 Sep 2008 22:17:52 -0700 (PDT)
+Message-ID: <20080922.221752.07789780.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.180]:62258 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbYIWFRT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 01:17:19 -0400
-Received: by ik-out-1112.google.com with SMTP id c30so1079557ika.5
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 22:17:17 -0700 (PDT)
-In-Reply-To: <20080923045951.GA26048@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56853
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751005AbYIWFSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 01:18:04 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 5CE1AC8C181
+	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 22:17:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Tue, Sep 23, 2008 at 07:53:18AM +0300, Timo Ter=E4s wrote:
->> So the idea was to hold X->next from deletion function, not from
->> the walking function. That would be, we always hold deleted->next wh=
-en
->> there are ongoing walks. And on final _put() we _put() the ->next
->> entry.
->>
->> I think that would work.
->=20
-> Right, this would work.
->=20
-> However, now you're again slowing down the relatively fast path of
-> state deletion by moving extra work there from the non-critical
-> dump path.
 
-The extra step there wold be a hold call. The recursive _put on a
-_put of some entry can happen only on dump path. As otherwise the
-->next entry is first held in state delete, but would be immediately
-_put on the _put as the final step of _delete().
+We don't update the qlen correctly when 'head' is
+non-empty.
 
-So basically one additional atomic_inc() and one atomic_dec() on the
-normal _delete() path.
+net: Fix bus in SKB queue splicing interfaces.
 
-> When we optimise code for time, we don't necessarily try to minimise
-> the work overall.  We instead try to minimise the amount of work on
-> the critical paths.  It's OK to let the other paths such as dumping
-> do a bit more work if it improves the fast paths.
+Handle the case of head being non-empty, by adding list->qlen
+to head->qlen instead of using direct assignment.
 
-Not sure about the overall penalty, but yes I know it would have some
-penalty. But at least there would be no locking.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/skbuff.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Particularly the thing that can happen on your approach is that if
-there is a user land process that gets suspended during a dump
-processing, it would prevent the garbage collection of all entries
-for all eternity until that process is continued or killed.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 027b061..4a144e8 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -738,7 +738,7 @@ static inline void skb_queue_splice(const struct sk_buff_head *list,
+ {
+ 	if (!skb_queue_empty(list)) {
+ 		__skb_queue_splice(list, (struct sk_buff *) head, head->next);
+-		head->qlen = list->qlen;
++		head->qlen += list->qlen;
+ 	}
+ }
+ 
+@@ -754,7 +754,7 @@ static inline void skb_queue_splice_init(struct sk_buff_head *list,
+ {
+ 	if (!skb_queue_empty(list)) {
+ 		__skb_queue_splice(list, (struct sk_buff *) head, head->next);
+-		head->qlen = list->qlen;
++		head->qlen += list->qlen;
+ 		__skb_queue_head_init(list);
+ 	}
+ }
+@@ -769,7 +769,7 @@ static inline void skb_queue_splice_tail(const struct sk_buff_head *list,
+ {
+ 	if (!skb_queue_empty(list)) {
+ 		__skb_queue_splice(list, head->prev, (struct sk_buff *) head);
+-		head->qlen = list->qlen;
++		head->qlen += list->qlen;
+ 	}
+ }
+ 
+@@ -786,7 +786,7 @@ static inline void skb_queue_splice_tail_init(struct sk_buff_head *list,
+ {
+ 	if (!skb_queue_empty(list)) {
+ 		__skb_queue_splice(list, head->prev, (struct sk_buff *) head);
+-		head->qlen = list->qlen;
++		head->qlen += list->qlen;
+ 		__skb_queue_head_init(list);
+ 	}
+ }
+-- 
+1.5.6.5
 
-So this would allow deletion and GC of entries even during walking.
-But this was just a thought. Maybe it's not worth trying.
-
-Cheers,
-  Timo
