@@ -1,35 +1,59 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: dhcp/bonding interaction question
-Date: Tue, 23 Sep 2008 09:24:32 -0600
-Message-ID: <48D90A30.8000701@nortel.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH HACK] powerpc: quick hack to get a functional eHEA with hardirq preemption, eHCA is close
+Date: Tue, 23 Sep 2008 17:43:23 +0200
+Message-ID: <200809231743.23828.ossthema@de.ibm.com>
+References: <20080915100406.342e027a@bull.net> <OFD7842B7A.ADC47EED-ONC12574C8.003A2CB3-C12574C8.003AC948@de.ibm.com> <20080918143146.77db81d5@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04f.nortel.com ([47.129.242.57]:63642 "EHLO
-	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751248AbYIWPc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 11:32:29 -0400
-Received: from zcarhxs1.corp.nortel.com (zcarhxs1.corp.nortel.com [47.129.230.89])
-	by zcars04f.nortel.com (Switch-2.2.6/Switch-2.2.0) with ESMTP id m8NFOme20391
-	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 15:24:48 GMT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Christoph Raisch <RAISCH@de.ibm.com>,
+	Benjamin Herrenschmidt <bherren@au1.ibm.com>,
+	gilles.carry@ext.bull.net, Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	jean-pierre.dion@bull.net,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Linux-rt <linux-rt-users@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
+	Thomas Q Klein <TKLEIN@de.ibm.com>, tinytim@us.ibm.com,
+	Hoang-Nam Nguyen <HNGUYEN@de.ibm.com>
+To: Sebastien Dugue <sebastien.dugue@bull.net>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <20080918143146.77db81d5@bull.net>
+Content-Disposition: inline
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We've recently run into an interesting issue, and I was hoping to get 
-some suggestions.
+Hi,
 
-We've got a boot server configured with two bonded links using the XOR 
-tx mode.  Another board comes up.  It's got two links which will 
-eventually be bonded.  It issues a DHCP request to the server over one 
-of the links, which arrives on one of the bonded slaves.  The server 
-sends a reply, but the XOR results in the packet being sent back via the 
-other slave.  On the booting blade the xid in the packet doesn't match 
-the xid for the device on which the packet was received, so the packet 
-is dropped.
+I think these are the "functional" changes that need to be included in
+the ibmebus driver. We'll add a RT flag in the final version to enable
+these changes only for RT-Linux for now. 
+Ben, can you / your team look into the implementation
+of the set_irq_type functionality needed for XICS?
 
-What's the proper solution here?  Should dhcpd be forcing reply packets 
-out the slave on which the packet was received?
+Regards,
+Jan-Bernd & Christoph
 
-Chris
+diff -Nurp b/arch/powerpc/kernel/ibmebus.c a/arch/powerpc/kernel/ibmebus.c
+--- b/arch/powerpc/kernel/ibmebus.c	2008-09-22 00:29:55.000000000 +0200
++++ a/arch/powerpc/kernel/ibmebus.c	2008-09-23 12:04:53.000000000 +0200
+@@ -216,12 +216,16 @@ int ibmebus_request_irq(u32 ist, irq_han
+ 			unsigned long irq_flags, const char *devname,
+ 			void *dev_id)
+ {
++	int ret;
+ 	unsigned int irq = irq_create_mapping(NULL, ist);
+ 
+ 	if (irq == NO_IRQ)
+ 		return -EINVAL;
+ 
+-	return request_irq(irq, handler, irq_flags, devname, dev_id);
++	ret = request_irq(irq, handler, irq_flags, devname, dev_id);
++	set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
++
++	return ret;
+ }
+ EXPORT_SYMBOL(ibmebus_request_irq);
+ 
+
+
