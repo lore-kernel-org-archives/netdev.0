@@ -1,39 +1,68 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: AIM9 regression
-Date: Tue, 23 Sep 2008 13:14:27 -0500
-Message-ID: <48D93203.2050204@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: dhcp/bonding interaction question
+Date: Tue, 23 Sep 2008 11:17:14 -0700
+Message-ID: <21694.1222193834@death.nxdomain.ibm.com>
+References: <48D90A30.8000701@nortel.com> <6323.1222188151@death.nxdomain.ibm.com> <48D924A5.4070701@nortel.com>
+Cc: netdev@vger.kernel.org
+To: "Chris Friesen" <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38758 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751103AbYIWSPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 14:15:44 -0400
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:46769 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752533AbYIWSSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2008 14:18:37 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m8NIIanS006828
+	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 14:18:36 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m8NIHKjm234526
+	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 14:17:20 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m8NIHJm2001446
+	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 14:17:19 -0400
+In-reply-to: <48D924A5.4070701@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I just dont seem to be able to get 2.6.27 to behave in a speedy way network
-wise. Configured out various components (netfilter, etc etc) but I still keep
-getting these aim9 result against 2.6.22:
+Chris Friesen <cfriesen@nortel.com> wrote:
 
-47 misc_rtns_1  448038.00 430118.00  -17920.00 -4.00% Auxiliary Loops/second
-48 dir_rtns_1   2412587.41 2723000.00  310412.59 12.87% Directory
-Operations/second
-49 shell_rtns_1 364.30 345.80     -18.50 -5.08% Shell Scripts/second
-50 shell_rtns_2 364.20 355.34      -8.86 -2.43% Shell Scripts/second
-51 shell_rtns_3 363.30 353.60      -9.70 -2.67% Shell Scripts/second
-52 series_1     6694290.00 6706690.00   12400.00  0.19% Series Evaluations/second
-53 shared_memory 1042900.00 1080630.00   37730.00  3.62% Shared Memory
-Operations/second
-54 tcp_test     352035.00 278442.00  -73593.00 -20.91% TCP/IP Messages/second
-55 udp_test     640940.00 585570.00  -55370.00 -8.64% UDP/IP DataGrams/second
-56 fifo_test    772440.00 932330.00  159890.00 20.70% FIFO Messages/second
-57 stream_pipe  1222870.00 1230140.00    7270.00  0.59% Stream Pipe
-Messages/second
-58 dgram_pipe   1143106.89 1152730.00    9623.11  0.84% DataGram Pipe
-Messages/second
-59 pipe_cpy     867850.00 1065430.00  197580.00 22.77% Pipe Messages/second
+>Jay Vosburgh wrote:
+>> Chris Friesen <cfriesen@nortel.com> wrote:
+[...]
+>Yes, the dhcp code in the kernel does this.
+
+	Ah, I didn't know that.
+
+>> 	I'm guessing your problem is really due to the nature of the
+>> intra-chassis network on the blade system.  If it's like the ones I'm
+>> familiar with (eth0 of all blades to a single switch, eth1 of all blades
+>> to a different switch, etc), then you can't configure the switches into
+>> an etherchannel group as can be done with the usual configuration
+>> (multiple ports on one switch).
+>
+>This has been handled already.  The two switches are a single etherchannel
+>group and all blades (except the booting one) have etherchannel enabled.
+
+	Ok, so your problem (if I'm understanding things correctly) is
+really a chicken-and-egg type of deal.  Your entire network is all
+etherchannel, except for this blade, which needs to connect,
+temporarily, in a non-etherchannel manner in order to boot up and become
+etherchannel-ified (at which point it'll work).
+
+	One possible problem with hacking the dhcpd to send back out on
+the receiving interface is that (because of the etherchannel) there's no
+general guarantee that the switch paths are symmetrical, particularly if
+a port is down somewhere.
+
+>That's not a problem.  We've got an older version, but support for
+>querying which slave a packet arrived on has been added.
+
+	If you're already rolling your own kernels, would it be easier
+to remove the xid interface check from the kernel's dhcp client (i.e.,
+accept the DHCP reply as if it had arrived on the proper interface for
+its xid)?  You could make it into some kind of "netboot_on_etherchannel"
+option.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
