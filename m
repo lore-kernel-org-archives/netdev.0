@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: [PATCH 1/3] x86: export set_memory_ro() and set_memory_rw() calls
-Date: Tue, 23 Sep 2008 15:28:48 -0700
-Message-ID: <20080923222848.6281.23319.stgit@jtkirshe-mobile.jf.intel.com>
+Date: Tue, 23 Sep 2008 15:30:42 -0700
+Message-ID: <20080923223042.6448.30999.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,12 +11,12 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org, mingo@elte.hu, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.229]:50256 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.234]:44663 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752181AbYIWW2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 18:28:43 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2383420rvb.1
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 15:28:43 -0700 (PDT)
+	with ESMTP id S1752268AbYIWWah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 18:30:37 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2384274rvb.1
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 15:30:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
