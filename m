@@ -1,36 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Tue, 23 Sep 2008 12:54:27 +0800
-Message-ID: <E1Khzut-0006lv-Co@gondolin.me.apana.org.au>
-References: <20080922070425.GA14572@2ka.mipt.ru>
-Cc: davem@davemloft.net, johaahn@gmail.com, netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru (Evgeniy Polyakov)
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 5/7]: bluetooth: hci_bcsp: Use SKB list interfaces
+	instead of home-grown stuff.
+Date: Tue, 23 Sep 2008 06:59:34 +0200
+Message-ID: <1222145974.13064.22.camel@californication>
+References: <20080922.191241.229288039.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50786 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751091AbYIWEyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 00:54:39 -0400
-In-Reply-To: <20080922070425.GA14572@2ka.mipt.ru>
+Received: from senator.holtmann.net ([87.106.208.187]:35317 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbYIWE6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 00:58:36 -0400
+In-Reply-To: <20080922.191241.229288039.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Sun, Sep 21, 2008 at 11:54:44PM -0700, David Miller (davem@davemloft.net) wrote:
->
->> It is in fact exactly and precisely like send().  It must even give
->> the same error return semantics as other socket data transfer calls
->> do.  See above.
-> 
-> That's the main difference on how you and me look at sendfile().
+Hi Dave,
 
-I think this dicussion is moot since the only time you want to use
-sendfile is for bulk transfers and these days anybody designing new
-applications that does bulk transfers over UDP should be taken out
-and shot.
+> bluetooth: hci_bcsp: Use SKB list interfaces instead of home-grown stuff.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+the change looks good. However, I have no hardware to actually test it
+with at the moment. And actually might not have for another month or so.
+
+>From code review, Acked-by: Marcel Holtmann <marcel@holtmann.org>
+
+Regards
+
+Marcel
+
+
