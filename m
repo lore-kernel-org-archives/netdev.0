@@ -1,119 +1,213 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: [PATCH] XFRM,IPv6: initialize ip6_dst_blackhole_ops.kmem_cachep
-Date: Tue, 23 Sep 2008 18:21:46 +0200
-Message-ID: <87prmuvnmt.fsf@natisbad.org>
+From: Gertjan Hofman <gertjan_hofman@yahoo.com>
+Subject: Re: VLAN & ARP requests fail for ARM EABI (2.6.24)
+Date: Tue, 23 Sep 2008 09:34:22 -0700 (PDT)
+Message-ID: <593214.47348.qm@web32602.mail.mud.yahoo.com>
+Reply-To: gertjan_hofman@yahoo.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux?=
-	 =?utf-8?B?5piO?= <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moog.chdir.org ([88.191.42.160]:41179 "EHLO moog.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbYIWQXk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2008 12:23:40 -0400
+Received: from web32602.mail.mud.yahoo.com ([68.142.207.229]:40268 "HELO
+	web32602.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752043AbYIWQlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 12:41:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-With the switch to a default value of 1 for xfrm_larval_drop in commit
-28faa979746b2352cd78a376bf9f52db953bda46 (ipsec: Make xfrm_larval_drop
-default to 1), what seems to be a bug manage to surface on one of my
-test box running today's net-next (*).
+This e-mail is for completeness only and to stop anyone from wrongly going down this debugging route
 
-When xfrm_tmpl_resolve() returns -EAGAIN in __xfrm_lookup(), the caller
-is returned -EREMOTE and is expected to install a blackhole route. For
-IPv6, the call to dst_alloc(&ip6_dst_blackhole_ops) performed by
-ip6_dst_blackhole() produces the error provided below, because
-kmem_cachep attribute seems to be uninitialized. This does not happen
-when xfrm_larval_drop is set to 0.
+The ARM EABI/OABI VLAN & ARP  bug discussed was real - however, it was also resolved.
+A new multicast address structure had been introduced without proper initialization. See 
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=12aa343add3eced38a44bdb612b35fdf634d918c
+Not entirely sure why this happened to cause issue only with EABI compilers, but it did.
+Unfortunately, the 3 months when this bug existed in 2.6.24 was exactly the time we froze our kernel. Perhaps our fault - I should have included patches as they came out
 
-The patch below againt today's net-next fixes the issue but I am unable
-to tell if it is the best way (or even a decent way) to do it.
+Cheers
 
-Note that I am able to reproduce the issue on current 2.6.27-rc7 by
-forcing xfrm_larval_drop to 1. The patch below solves the problem,
-i.e. this may be a candidate for 2.6.27-rc8 (if correct).
+G
 
-I may have missed something. Comments welcome.
+--- On Sat, 4/12/08, Gertjan Hofman <gertjan_hofman@yahoo.com> wrote:
 
-Cheers,
+> From: Gertjan Hofman <gertjan_hofman@yahoo.com>
+> Subject: Re: VLAN & ARP requests fail for ARM EABI (2.6.24)
+> To: "Patrick McHardy" <kaber@trash.net>
+> Cc: netdev@vger.kernel.org
+> Date: Saturday, April 12, 2008, 10:58 AM
+> Patrick,
+> 
+> Ben mentioned you might be the person to talk to. Just to
+> make sure I did what you suggested:
+> 
+> From: 
+> http://devresources.linux-foundation.org/dev/iproute2/download/
+>   I downloaded:
+> iproute2-2.6.24-rc7.tar.bz2       08-Jan-2008 09:06  336K 
+> and cross compiled EABI.
+> 
+> I created the VLAN with:
+> 
+>  ./ip link add link eth0 eth0.0  type vlan id 0   (did I
+> get the syntax correct  ?)
+> 
+> /proc/net/vlan/ indicated eth0.0 is there and looks fine.
+> 
+> 
+> Unfortunately pinging through a VLAN to this VLAN fails as
+> before withthe same symptoms - ARP requests are received but
+> not answered.
+> 
+> About OABI/EABI incompatibilities - I didnt explicitly
+> mention it but when testing the EABI, the entire file system
+> is EABI and when testingOABI  the entire filesystem is also
+> OABI - so it should not be theproblem.
+> 
+> 
+> We spent quite of bit of time tracking this problem deeper
+> down thestack but with limited results.  It looks like  the
+> calling sequence is:
+> 
+> driver-->
+>   -- ?
+>    - ---> vlan.c 
+>         ---> ifnet_tx
+>            --->  ?
+>               ---->  arp.c
+>                     ---> (arp_process)
+>                       ----> ip_route_input 
+>                         ----> ip_route_input_slow
+>                           ----> fib_validate_source
+> 
+> 
+> Its in fib_validate_source that things go wrong.
+> 
+> In the EABI (faulty kernel), we print values of the device
+> pointers, which are considered in fib_validate_source()
+>  FIB_RES_DEV(res) : 0xC3C77000 
+>  dev                          : 0xC3E2E800
+> 
+> These are not the same,  so the variable rpf is checked and
+> it bails returning  -EINVAL. You can fake it, by setting
+> rpf=0 using  echo 0>  
+> /proc/sys/net/ipv4/conf/eth2.0/rp_filter --> 0 and then
+> pingsfrom the foreign PC to the ARM work.  Still, pings from
+> ARM to PC  dontwork - the ARP request goes out, but the
+> response (which gets to arp.c)is ignored. Presumable for a
+> similar reason - some device pointer check fails.
+> 
+> My guess is that there is a problem with the dev pointer
+> all  the wayback in the vlan.c code, which only manifest
+> itself with the EABIcompiler.
+> If you run the working kernel version, in  
+> fib_validate_source:
+> 
+> if (in_dev) {
+>         no_addr = in_dev->ifa_list == NULL;
+>         rpf = IN_DEV_RPFILTER(in_dev);          ----> 
+> rpfreturns 0 here eventhough the
+> proc/sys/net/ipv4/conf/eth2.0/rp_filteris set to 1.
+> 
+>         if (DEBUG_XXX == 0xDEADBEEF)
+>           printk(KERN_INFO "*********rpf =
+> 0x%X\n", rpf);
+>     }
+> 
+> 
+> If EABI  rpf =1 , in OABI rpf=0.  So there is something
+> different about  the in_dev. pointer
+> 
+> Do you know what IN_DEV_RPFILTER(in_dev) does exactly ?   
+> 
+> I think I need to check the validity of the device pointer
+> already at the VLAN level, but I am not sure how to do this.
+> Any tips ?
+> 
+> Thanks
+> 
+> Gertjan
+> 
+> 
+> 
+> 
+> 
+> 
+> ----- Original Message ----
+> From: Patrick McHardy <kaber@trash.net>
+> To: Gertjan Hofman <gertjan_hofman@yahoo.com>
+> Cc: netdev@vger.kernel.org
+> Sent: Wednesday, April 9, 2008 5:40:45 PM
+> Subject: Re: VLAN & ARP requests fail for ARM EABI
+> (2.6.24)
+> 
+> Gertjan Hofman wrote:
+> > Dear Sirs,
+> > 
+> > Since the VLAN mailing list is closed, its author
+> suggested I post here. 
+> > We have an ARM920T processor based system. When
+> compiling the kernel 2.6.24 using OABI (and appropiate 4.1.1
+> cross toolchain), VLAN functionality is fine. When setting
+> the CONFIG_EABI flag and using  the 4.2.2 toolchain (created
+> by the OpenEmbedded project) a VLAN device fails to respond.
+> > 
+> > When pinging through the ARM VLAN device to a (PC
+> based) VLAN device, the following is seen in the vlan
+> driver:
+> > The ping request is sent out, followed by an ARP
+> request. The PC returns the ARP reply and it is seen by the
+> VLAN driver (vlan_skb_recv) which calls netif_rx(). This
+> repeats a couple of pings later i.e. the arp reply is not
+> used or received properly.
+> > 
+> > Similarly, when pinging from the PC, the ARP request
+> is seen by vlan_skb_recv() but there is no ARP reply from
+> the ARM cascading through the vlan driver.
+> > 
+> > It seems to me that either the issue is with the code
+> that handles the ARP request when compiling in EABI format,
+> or that VLAN doesnt process the frame properly and sends it
+> on incorrectly. Recompile the kernel with OABI and
+> everything is fine.
+> > 
+> > Note that communication works fine on either OABI or
+> EABI when using 'normal' devices (eth0 etc). This
+> puts the suspicion back on vlan.
+> > 
+> > 
+> > Since EABI changes structure packing and other things,
+> I suspect the cause is some networking code that knows a bit
+> too much about its size & packing.
+> > 
+> > I am happy to troubleshoot, but I am no kernel expert.
+> Tips would be appreciated. Like how to dump the sbk buffer
+> in both cases..
+> 
+> 
+> I actually have no idea about the differences between
+> OABI and EABI, but I know a mix of both broke some
+> iptables setups (kernel EABI/userspace OABI or something
+> like that). Could you fetch the latest iproute and try
+> again with adding your VLANs using iproute?
+> 
+> The syntax is:
+> 
+> ip link add link <lowerdev> [name] <name> type
+> vlan id VID
+> 
+> If that works the problem is most likely an inappropriate
+> ABI mix.
+> 
+> 
+> 
+> 
+> 
+> 
+> __________________________________________________
+> Do You Yahoo!?
+> Tired of spam?  Yahoo! Mail has the best spam protection
+> around 
+> http://mail.yahoo.com
 
-a+
 
-(*): with the small MIGRATE patch David commented some days ago applied
-     on top of it. No interaction expected.
-
-
-
-From: Arnaud Ebalard <arno@natisbad.org>
-Date: Tue, 23 Sep 2008 16:59:04 +0200
-Subject: [PATCH] XFRM,IPv6: initialize ip6_dst_blackhole_ops.kmem_cachep
-
-ip6_dst_blackhole_ops.kmem_cachep is not expected to be NULL (i.e. to
-be initialized) when dst_alloc() is called from ip6_dst_blackhole().
-Otherwise, it results in the following (xfrm_larval_drop is now set to
-1 by default): 
-
-[   78.697642] Unable to handle kernel paging request for data at address 0x0000004c
-[   78.703449] Faulting instruction address: 0xc0097f54
-[   78.786896] Oops: Kernel access of bad area, sig: 11 [#1]
-[   78.792791] PowerMac
-[   78.798383] Modules linked in: btusb usbhid bluetooth b43 mac80211 cfg80211 ehci_hcd ohci_hcd sungem sungem_phy usbcore ssb
-[   78.804263] NIP: c0097f54 LR: c0334a28 CTR: c002d430
-[   78.809997] REGS: eef19ad0 TRAP: 0300   Not tainted  (2.6.27-rc5)
-[   78.815743] MSR: 00001032 <ME,IR,DR>  CR: 22242482  XER: 20000000
-[   78.821550] DAR: 0000004c, DSISR: 40000000
-[   78.827278] TASK = eef0df40[3035] 'mip6d' THREAD: eef18000
-[   78.827408] GPR00: 00001032 eef19b80 eef0df40 00000000 00008020 eef19c30 00000001 00000000 
-[   78.833249] GPR08: eee5101c c05a5c10 ef9ad500 00000000 24242422 1005787c 00000000 1004f960 
-[   78.839151] GPR16: 00000000 10024e90 10050040 48030018 0fe44150 00000000 00000000 eef19c30 
-[   78.845046] GPR24: eef19e44 00000000 eef19bf8 efb37c14 eef19bf8 00008020 00009032 c0596064 
-[   78.856671] NIP [c0097f54] kmem_cache_alloc+0x20/0x94
-[   78.862581] LR [c0334a28] dst_alloc+0x40/0xc4
-[   78.868451] Call Trace:
-[   78.874252] [eef19b80] [c03c1810] ip6_dst_lookup_tail+0x1c8/0x1dc (unreliable)
-[   78.880222] [eef19ba0] [c0334a28] dst_alloc+0x40/0xc4
-[   78.886164] [eef19bb0] [c03cd698] ip6_dst_blackhole+0x28/0x1cc
-[   78.892090] [eef19be0] [c03d9be8] rawv6_sendmsg+0x75c/0xc88
-[   78.897999] [eef19cb0] [c038bca4] inet_sendmsg+0x4c/0x78
-[   78.903907] [eef19cd0] [c03207c8] sock_sendmsg+0xac/0xe4
-[   78.909734] [eef19db0] [c03209e4] sys_sendmsg+0x1e4/0x2a0
-[   78.915540] [eef19f00] [c03220a8] sys_socketcall+0xfc/0x210
-[   78.921406] [eef19f40] [c0014b3c] ret_from_syscall+0x0/0x38
-[   78.927295] --- Exception: c01 at 0xfe2d730
-[   78.927297]     LR = 0xfe2d71c
-[   78.939019] Instruction dump:
-[   78.944835] 91640018 9144001c 900a0000 4bffff44 9421ffe0 7c0802a6 bf810010 7c9d2378 
-[   78.950694] 90010024 7fc000a6 57c0045e 7c000124 <83e3004c> 8383005c 2f9f0000 419e0050 
-[   78.956464] ---[ end trace 05fa1ed7972487a1 ]---
-
-Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
----
- net/ipv6/route.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 776871e..f4385a6 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2708,6 +2708,8 @@ int __init ip6_route_init(void)
- 	if (ret)
- 		goto out_kmem_cache;
- 
-+	ip6_dst_blackhole_ops.kmem_cachep = ip6_dst_ops_template.kmem_cachep;
-+
- 	/* Registering of the loopback is done before this portion of code,
- 	 * the loopback reference in rt6_info will not be taken, do it
- 	 * manually for init_net */
--- 
-1.5.6.3
-
-
-
-
-
-
+      
