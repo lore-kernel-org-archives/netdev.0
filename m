@@ -1,52 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Machine Check Exception Re: NetDev! Please help!
-Date: Tue, 23 Sep 2008 20:26:08 +0200
-Message-ID: <20080923182607.GA2992@ami.dom.local>
-References: <48D8DE33.6000605@bigtelecom.ru>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH]: tcp: Fix queue traversal in tcp_use_frto().
+Date: Tue, 23 Sep 2008 22:18:33 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0809232214320.14360@wrl-59.cs.helsinki.fi>
+References: <20080923.025542.193703353.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.191]:16469 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751524AbYIWSZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 14:25:38 -0400
-Received: by gv-out-0910.google.com with SMTP id e6so179253gvc.37
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 11:25:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <48D8DE33.6000605@bigtelecom.ru>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:53237 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553AbYIWTSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 15:18:36 -0400
+In-Reply-To: <20080923.025542.193703353.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Badalian Vyacheslav wrote, On 09/23/2008 02:16 PM:
-...
-> I simple hope that after divide to bands/queues and go back to network
-> all packets save "First in and First Out" logic that needed in services
-> like video streaming...
+On Tue, 23 Sep 2008, David Miller wrote:
 
-Of course this is aimed at, and if it's really first in per flow, and
-flows are bound to devs/irqs, after hashing should be the same. But...
-shit happens - e.g. recently there has been fixed a bug in the hash
-which could change this order. And you should remember this default
-qdisc is prioritized fifo, so you should be careful with TOS etc. 
+> 
+> One more skb_queue_next() BUG trigger.  I double audited the
+> remaining tcp_write_queue_next() cases and they should all
+> be good.
+> 
+> tcp: Fix queue traversal in tcp_use_frto().
+> 
+> We must check tcp_skb_is_last() before doing a tcp_write_queue_next().
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/ipv4/tcp_input.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index cbfe13d..3b76bce 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1746,6 +1746,8 @@ int tcp_use_frto(struct sock *sk)
+>  		return 0;
+>  
+>  	skb = tcp_write_queue_head(sk);
+> +	if (tcp_skb_is_last(sk, skb))
+> +		return 1;
+>  	skb = tcp_write_queue_next(sk, skb);	/* Skips head */
+>  	tcp_for_write_queue_from(skb, sk) {
+>  		if (skb == tcp_send_head(sk))
+> 
 
->> sch_multiq doesn't use any params for hashing now - it uses mapping
->> in packets to separate them to different bands/queues. So, by default
->> it'll respect common hashing. You can change this using any filter with
->> act_skbedit (Documentation/networking/multiqueue.txt).
->>
->>   
-> Ok! I will read all related information and rewrite all tc generate
-> scripts to test it!
+For the record (as you probably know it already), this wasn't actually
+a real bug though it hits your BUG_ON since tcp_for_write_queue_from exits
+immediately, no garbage gets dereferenced.
 
-Do you mean net-next? I think you should first do some tests if you
-really need this.
-
-...
-> not to worry ;) Thanks again. I try last -next git after someone fix
-> Intel exception issue ;)
-
-I think, maybe you could try what Ingo Molnar asked: -tip git, for now?
-
-Jarek P.
+-- 
+ i.
