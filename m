@@ -1,65 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 4/4] mISDN: misc timerdev fixes
-Date: Tue, 23 Sep 2008 10:31:40 -0700
-Message-ID: <20080923103140.402cd9e7.akpm@linux-foundation.org>
-References: <200809222151.m8MLp3tb031906@imap1.linux-foundation.org>
-	<20080923104026.GA12535@infradead.org>
-	<20080923043005.358e19e7.akpm@linux-foundation.org>
-	<20080923114530.GA568@infradead.org>
-	<20080923120029.GA14012@pingi.kke.suse.de>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: AIM9 regression
+Date: Tue, 23 Sep 2008 13:14:27 -0500
+Message-ID: <48D93203.2050204@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
-	andi@firstfloor.org, ak@linux.intel.com
-To: Karsten Keil <kkeil@suse.de>
+Cc: Netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:52209 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38758 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752468AbYIWRck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 13:32:40 -0400
-In-Reply-To: <20080923120029.GA14012@pingi.kke.suse.de>
+	by vger.kernel.org with ESMTP id S1751103AbYIWSPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 14:15:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Sep 2008 14:00:30 +0200 Karsten Keil <kkeil@suse.de> wrote:
+I just dont seem to be able to get 2.6.27 to behave in a speedy way network
+wise. Configured out various components (netfilter, etc etc) but I still keep
+getting these aim9 result against 2.6.22:
 
-> On Tue, Sep 23, 2008 at 07:45:34AM -0400, Christoph Hellwig wrote:
-> > On Tue, Sep 23, 2008 at 04:30:05AM -0700, Andrew Morton wrote:
-> > > so.. this?
-> > 
-> > Much better.
-> > 
-> > > --- a/drivers/isdn/mISDN/timerdev.c~misdn-misc-timerdev-fixes-fix
-> > > +++ a/drivers/isdn/mISDN/timerdev.c
-> > > @@ -61,7 +61,7 @@ mISDN_open(struct inode *ino, struct fil
-> > >  	init_waitqueue_head(&dev->wait);
-> > >  	filep->private_data = dev;
-> > >  	__module_get(THIS_MODULE);
-> > > -	return 0;
-> > > +	return nonseekable_open(ino, filep);
-> > 
-> > But this also shows that mISDN is kinda stuck in a different century.
-> > Doing __module_get(THIS_MODULE) at the end of ->open is utterly racy,
-> > it really needs to set a owner field in file_operations and rip this
-> > cruft out.
-> > 
-> > Btw, can anyone explain WTF this timerdev module is doing?  It's not
-> > using any functionality from the rest of mISDN, it's not exporting
-> > any functionality to it either but just provides a really awkward way
-> > to expose dumb timers to userspace.  What does it provide that the
-> > normal timer syscalls can't provide?
-> 
-> This version only makes the programing of upper ISDN layers easier,
-> you only need to watch /dev/mISDNtimer together with the sockets in one
-> select call.
-
-sys_timerfd_create() can do this?
-
-> The next version will have a option to synchronise the timer with
-> the ISDN hardware clock which would avoid additional jitter if you need to
-> bridge channels in software.
-
-hrm.  If that's really really useful and actually works then I guess it
-might then be justifiable.
-
+47 misc_rtns_1  448038.00 430118.00  -17920.00 -4.00% Auxiliary Loops/second
+48 dir_rtns_1   2412587.41 2723000.00  310412.59 12.87% Directory
+Operations/second
+49 shell_rtns_1 364.30 345.80     -18.50 -5.08% Shell Scripts/second
+50 shell_rtns_2 364.20 355.34      -8.86 -2.43% Shell Scripts/second
+51 shell_rtns_3 363.30 353.60      -9.70 -2.67% Shell Scripts/second
+52 series_1     6694290.00 6706690.00   12400.00  0.19% Series Evaluations/second
+53 shared_memory 1042900.00 1080630.00   37730.00  3.62% Shared Memory
+Operations/second
+54 tcp_test     352035.00 278442.00  -73593.00 -20.91% TCP/IP Messages/second
+55 udp_test     640940.00 585570.00  -55370.00 -8.64% UDP/IP DataGrams/second
+56 fifo_test    772440.00 932330.00  159890.00 20.70% FIFO Messages/second
+57 stream_pipe  1222870.00 1230140.00    7270.00  0.59% Stream Pipe
+Messages/second
+58 dgram_pipe   1143106.89 1152730.00    9623.11  0.84% DataGram Pipe
+Messages/second
+59 pipe_cpy     867850.00 1065430.00  197580.00 22.77% Pipe Messages/second
