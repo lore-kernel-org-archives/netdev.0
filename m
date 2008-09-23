@@ -1,550 +1,265 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 6/7]: isdn: isdn_ppp: Use SKB list facilities instead of
- home-grown implementation.
-Date: Mon, 22 Sep 2008 19:12:43 -0700 (PDT)
-Message-ID: <20080922.191243.177666844.davem@davemloft.net>
+Subject: [PATCH 7/7]: cxgb3: Use SKB list interfaces instead of home-grown
+ implementation.
+Date: Mon, 22 Sep 2008 19:12:45 -0700 (PDT)
+Message-ID: <20080922.191245.120692142.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37181
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37183
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754069AbYIWCMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 22:12:55 -0400
+	by vger.kernel.org with ESMTP id S1754134AbYIWCM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2008 22:12:57 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id AF5E2C8C181
-	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 19:12:43 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id B577EC8C185
+	for <netdev@vger.kernel.org>; Mon, 22 Sep 2008 19:12:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-isdn: isdn_ppp: Use SKB list facilities instead of home-grown implementation.
+cxgb3: Use SKB list interfaces instead of home-grown implementation.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/isdn/i4l/isdn_ppp.c |  352 +++++++++++++++++++++++--------------------
- include/linux/isdn_ppp.h    |    2 +-
- 2 files changed, 190 insertions(+), 164 deletions(-)
+ drivers/net/cxgb3/adapter.h |    3 +-
+ drivers/net/cxgb3/l2t.c     |   39 ++++++++++++++++---------------------
+ drivers/net/cxgb3/l2t.h     |    3 +-
+ drivers/net/cxgb3/sge.c     |   45 ++++++++++++++++++++++---------------------
+ 4 files changed, 42 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
-index 127cfda..77c280e 100644
---- a/drivers/isdn/i4l/isdn_ppp.c
-+++ b/drivers/isdn/i4l/isdn_ppp.c
-@@ -1533,8 +1533,10 @@ static int isdn_ppp_mp_bundle_array_init(void)
- 	int sz = ISDN_MAX_CHANNELS*sizeof(ippp_bundle);
- 	if( (isdn_ppp_bundle_arr = kzalloc(sz, GFP_KERNEL)) == NULL )
- 		return -ENOMEM;
--	for( i = 0; i < ISDN_MAX_CHANNELS; i++ )
-+	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
- 		spin_lock_init(&isdn_ppp_bundle_arr[i].lock);
-+		skb_queue_head_init(&isdn_ppp_bundle_arr[i].frags);
-+	}
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
+index 2711404..4f5cc69 100644
+--- a/drivers/net/cxgb3/adapter.h
++++ b/drivers/net/cxgb3/adapter.h
+@@ -124,8 +124,7 @@ struct sge_rspq {		/* state for an SGE response queue */
+ 	dma_addr_t phys_addr;	/* physical address of the ring */
+ 	unsigned int cntxt_id;	/* SGE context id for the response q */
+ 	spinlock_t lock;	/* guards response processing */
+-	struct sk_buff *rx_head;	/* offload packet receive queue head */
+-	struct sk_buff *rx_tail;	/* offload packet receive queue tail */
++	struct sk_buff_head rx_queue; /* offload packet receive queue */
+ 	struct sk_buff *pg_skb; /* used to build frag list in napi handler */
+ 
+ 	unsigned long offload_pkts;
+diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/cxgb3/l2t.c
+index 825e510..b2c5314 100644
+--- a/drivers/net/cxgb3/l2t.c
++++ b/drivers/net/cxgb3/l2t.c
+@@ -86,6 +86,7 @@ static int setup_l2e_send_pending(struct t3cdev *dev, struct sk_buff *skb,
+ 				  struct l2t_entry *e)
+ {
+ 	struct cpl_l2t_write_req *req;
++	struct sk_buff *tmp;
+ 
+ 	if (!skb) {
+ 		skb = alloc_skb(sizeof(*req), GFP_ATOMIC);
+@@ -103,13 +104,11 @@ static int setup_l2e_send_pending(struct t3cdev *dev, struct sk_buff *skb,
+ 	memcpy(req->dst_mac, e->dmac, sizeof(req->dst_mac));
+ 	skb->priority = CPL_PRIORITY_CONTROL;
+ 	cxgb3_ofld_send(dev, skb);
+-	while (e->arpq_head) {
+-		skb = e->arpq_head;
+-		e->arpq_head = skb->next;
+-		skb->next = NULL;
++
++	skb_queue_walk_safe(&e->arpq, skb, tmp) {
++		__skb_unlink(skb, &e->arpq);
+ 		cxgb3_ofld_send(dev, skb);
+ 	}
+-	e->arpq_tail = NULL;
+ 	e->state = L2T_STATE_VALID;
+ 
  	return 0;
+@@ -121,12 +120,7 @@ static int setup_l2e_send_pending(struct t3cdev *dev, struct sk_buff *skb,
+  */
+ static inline void arpq_enqueue(struct l2t_entry *e, struct sk_buff *skb)
+ {
+-	skb->next = NULL;
+-	if (e->arpq_head)
+-		e->arpq_tail->next = skb;
+-	else
+-		e->arpq_head = skb;
+-	e->arpq_tail = skb;
++	__skb_queue_tail(&e->arpq, skb);
  }
  
-@@ -1567,7 +1569,7 @@ static int isdn_ppp_mp_init( isdn_net_local * lp, ippp_bundle * add_to )
- 		if ((lp->netdev->pb = isdn_ppp_mp_bundle_alloc()) == NULL)
- 			return -ENOMEM;
- 		lp->next = lp->last = lp;	/* nobody else in a queue */
--		lp->netdev->pb->frags = NULL;
-+		skb_queue_head_init(&lp->netdev->pb->frags);
- 		lp->netdev->pb->frames = 0;
- 		lp->netdev->pb->seq = UINT_MAX;
- 	}
-@@ -1579,28 +1581,29 @@ static int isdn_ppp_mp_init( isdn_net_local * lp, ippp_bundle * add_to )
+ int t3_l2t_send_slow(struct t3cdev *dev, struct sk_buff *skb,
+@@ -167,7 +161,7 @@ again:
+ 				break;
  
- static u32 isdn_ppp_mp_get_seq( int short_seq, 
- 					struct sk_buff * skb, u32 last_seq );
--static struct sk_buff * isdn_ppp_mp_discard( ippp_bundle * mp,
--			struct sk_buff * from, struct sk_buff * to );
--static void isdn_ppp_mp_reassembly( isdn_net_dev * net_dev, isdn_net_local * lp,
--				struct sk_buff * from, struct sk_buff * to );
--static void isdn_ppp_mp_free_skb( ippp_bundle * mp, struct sk_buff * skb );
-+static void isdn_ppp_mp_discard(ippp_bundle *mp, struct sk_buff *from,
-+				struct sk_buff *to);
-+static void isdn_ppp_mp_reassembly(isdn_net_dev *net_dev, isdn_net_local *lp,
-+				   struct sk_buff *from, struct sk_buff *to,
-+				   u32 lastseq);
-+static void isdn_ppp_mp_free_skb(ippp_bundle *mp, struct sk_buff *skb);
- static void isdn_ppp_mp_print_recv_pkt( int slot, struct sk_buff * skb );
- 
- static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, 
--							struct sk_buff *skb)
-+				struct sk_buff *skb)
+ 			spin_lock_bh(&e->lock);
+-			if (e->arpq_head)
++			if (!skb_queue_empty(&e->arpq))
+ 				setup_l2e_send_pending(dev, skb, e);
+ 			else	/* we lost the race */
+ 				__kfree_skb(skb);
+@@ -357,14 +351,14 @@ EXPORT_SYMBOL(t3_l2t_get);
+  * XXX: maybe we should abandon the latter behavior and just require a failure
+  * handler.
+  */
+-static void handle_failed_resolution(struct t3cdev *dev, struct sk_buff *arpq)
++static void handle_failed_resolution(struct t3cdev *dev, struct sk_buff_head *arpq)
  {
--	struct ippp_struct *is;
--	isdn_net_local * lpq;
--	ippp_bundle * mp;
--	isdn_mppp_stats * stats;
--	struct sk_buff * newfrag, * frag, * start, *nextf;
-+	struct sk_buff *newfrag, *frag, *start, *nextf;
- 	u32 newseq, minseq, thisseq;
-+	isdn_mppp_stats *stats;
-+	struct ippp_struct *is;
- 	unsigned long flags;
-+	isdn_net_local *lpq;
-+	ippp_bundle *mp;
- 	int slot;
- 
- 	spin_lock_irqsave(&net_dev->pb->lock, flags);
--    	mp = net_dev->pb;
--        stats = &mp->stats;
-+	mp = net_dev->pb;
-+	stats = &mp->stats;
- 	slot = lp->ppp_slot;
- 	if (slot < 0 || slot >= ISDN_MAX_CHANNELS) {
- 		printk(KERN_ERR "%s: lp->ppp_slot(%d)\n",
-@@ -1611,20 +1614,19 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
- 		return;
- 	}
- 	is = ippp_table[slot];
--    	if( ++mp->frames > stats->max_queue_len )
-+	if (++mp->frames > stats->max_queue_len)
- 		stats->max_queue_len = mp->frames;
--	
-+
- 	if (is->debug & 0x8)
- 		isdn_ppp_mp_print_recv_pkt(lp->ppp_slot, skb);
- 
--	newseq = isdn_ppp_mp_get_seq(is->mpppcfg & SC_IN_SHORT_SEQ, 
--						skb, is->last_link_seqno);
--
-+	newseq = isdn_ppp_mp_get_seq(is->mpppcfg & SC_IN_SHORT_SEQ,
-+				     skb, is->last_link_seqno);
- 
- 	/* if this packet seq # is less than last already processed one,
- 	 * toss it right away, but check for sequence start case first 
- 	 */
--	if( mp->seq > MP_LONGSEQ_MAX && (newseq & MP_LONGSEQ_MAXBIT) ) {
-+	if (mp->seq > MP_LONGSEQ_MAX && (newseq & MP_LONGSEQ_MAXBIT)) {
- 		mp->seq = newseq;	/* the first packet: required for
- 					 * rfc1990 non-compliant clients --
- 					 * prevents constant packet toss */
-@@ -1634,7 +1636,7 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
- 		spin_unlock_irqrestore(&mp->lock, flags);
- 		return;
- 	}
--	
-+
- 	/* find the minimum received sequence number over all links */
- 	is->last_link_seqno = minseq = newseq;
- 	for (lpq = net_dev->queue;;) {
-@@ -1655,22 +1657,31 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
- 					 * packets */
- 	newfrag = skb;
- 
--  	/* if this new fragment is before the first one, then enqueue it now. */
--  	if ((frag = mp->frags) == NULL || MP_LT(newseq, MP_SEQ(frag))) {
--		newfrag->next = frag;
--    		mp->frags = frag = newfrag;
--    		newfrag = NULL;
--  	}
-+	/* Insert new fragment into the proper sequence slot.  */
-+	skb_queue_walk(&mp->frags, frag) {
-+		if (MP_SEQ(frag) == newseq) {
-+			isdn_ppp_mp_free_skb(mp, newfrag);
-+			newfrag = NULL;
-+			break;
-+		}
-+		if (MP_LT(newseq, MP_SEQ(frag))) {
-+			__skb_queue_before(&mp->frags, frag, newfrag);
-+			newfrag = NULL;
-+			break;
-+		}
-+	}
-+	if (newfrag)
-+		__skb_queue_tail(&mp->frags, newfrag);
- 
--  	start = MP_FLAGS(frag) & MP_BEGIN_FRAG &&
--				MP_SEQ(frag) == mp->seq ? frag : NULL;
-+	frag = skb_peek(&mp->frags);
-+	start = ((MP_FLAGS(frag) & MP_BEGIN_FRAG) &&
-+		 (MP_SEQ(frag) == mp->seq)) ? frag : NULL;
-+	if (!start)
-+		goto check_overflow;
- 
--	/* 
--	 * main fragment traversing loop
-+	/* main fragment traversing loop
- 	 *
- 	 * try to accomplish several tasks:
--	 * - insert new fragment into the proper sequence slot (once that's done
--	 *   newfrag will be set to NULL)
- 	 * - reassemble any complete fragment sequence (non-null 'start'
- 	 *   indicates there is a continguous sequence present)
- 	 * - discard any incomplete sequences that are below minseq -- due
-@@ -1679,71 +1690,46 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
- 	 *   come to complete such sequence and it should be discarded
- 	 *
- 	 * loop completes when we accomplished the following tasks:
--	 * - new fragment is inserted in the proper sequence ('newfrag' is 
--	 *   set to NULL)
- 	 * - we hit a gap in the sequence, so no reassembly/processing is 
- 	 *   possible ('start' would be set to NULL)
- 	 *
- 	 * algorithm for this code is derived from code in the book
- 	 * 'PPP Design And Debugging' by James Carlson (Addison-Wesley)
- 	 */
--  	while (start != NULL || newfrag != NULL) {
--
--    		thisseq = MP_SEQ(frag);
--    		nextf = frag->next;
--
--    		/* drop any duplicate fragments */
--    		if (newfrag != NULL && thisseq == newseq) {
--      			isdn_ppp_mp_free_skb(mp, newfrag);
--      			newfrag = NULL;
--    		}
--
--    		/* insert new fragment before next element if possible. */
--    		if (newfrag != NULL && (nextf == NULL || 
--						MP_LT(newseq, MP_SEQ(nextf)))) {
--      			newfrag->next = nextf;
--      			frag->next = nextf = newfrag;
--      			newfrag = NULL;
--    		}
--
--    		if (start != NULL) {
--	    		/* check for misplaced start */
--      			if (start != frag && (MP_FLAGS(frag) & MP_BEGIN_FRAG)) {
--				printk(KERN_WARNING"isdn_mppp(seq %d): new "
--				      "BEGIN flag with no prior END", thisseq);
--				stats->seqerrs++;
--				stats->frame_drops++;
--				start = isdn_ppp_mp_discard(mp, start,frag);
--				nextf = frag->next;
--      			}
--    		} else if (MP_LE(thisseq, minseq)) {		
--      			if (MP_FLAGS(frag) & MP_BEGIN_FRAG)
-+	skb_queue_walk_safe(&mp->frags, frag, nextf) {
-+		thisseq = MP_SEQ(frag);
-+
-+		/* check for misplaced start */
-+		if (start != frag && (MP_FLAGS(frag) & MP_BEGIN_FRAG)) {
-+			printk(KERN_WARNING"isdn_mppp(seq %d): new "
-+			       "BEGIN flag with no prior END", thisseq);
-+			stats->seqerrs++;
-+			stats->frame_drops++;
-+			isdn_ppp_mp_discard(mp, start, frag);
-+			start = frag;
-+		} else if (MP_LE(thisseq, minseq)) {		
-+			if (MP_FLAGS(frag) & MP_BEGIN_FRAG)
- 				start = frag;
--      			else {
-+			else {
- 				if (MP_FLAGS(frag) & MP_END_FRAG)
--	  				stats->frame_drops++;
--				if( mp->frags == frag )
--					mp->frags = nextf;	
-+					stats->frame_drops++;
-+				__skb_unlink(skb, &mp->frags);
- 				isdn_ppp_mp_free_skb(mp, frag);
--				frag = nextf;
- 				continue;
--      			}
-+			}
- 		}
--		
--		/* if start is non-null and we have end fragment, then
--		 * we have full reassembly sequence -- reassemble 
--		 * and process packet now
-+
-+		/* if we have end fragment, then we have full reassembly
-+		 * sequence -- reassemble and process packet now
- 		 */
--    		if (start != NULL && (MP_FLAGS(frag) & MP_END_FRAG)) {
--      			minseq = mp->seq = (thisseq+1) & MP_LONGSEQ_MASK;
--      			/* Reassemble the packet then dispatch it */
--			isdn_ppp_mp_reassembly(net_dev, lp, start, nextf);
--      
--      			start = NULL;
--      			frag = NULL;
-+		if (MP_FLAGS(frag) & MP_END_FRAG) {
-+			minseq = mp->seq = (thisseq+1) & MP_LONGSEQ_MASK;
-+			/* Reassemble the packet then dispatch it */
-+			isdn_ppp_mp_reassembly(net_dev, lp, start, frag, thisseq);
- 
--      			mp->frags = nextf;
--    		}
-+			start = NULL;
-+			frag = NULL;
-+		}
- 
- 		/* check if need to update start pointer: if we just
- 		 * reassembled the packet and sequence is contiguous
-@@ -1754,26 +1740,25 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
- 		 * below low watermark and set start to the next frag or
- 		 * clear start ptr.
- 		 */ 
--    		if (nextf != NULL && 
-+		if (nextf != (struct sk_buff *)&mp->frags && 
- 		    ((thisseq+1) & MP_LONGSEQ_MASK) == MP_SEQ(nextf)) {
--      			/* if we just reassembled and the next one is here, 
--			 * then start another reassembly. */
--
--      			if (frag == NULL) {
-+			/* if we just reassembled and the next one is here, 
-+			 * then start another reassembly.
-+			 */
-+			if (frag == NULL) {
- 				if (MP_FLAGS(nextf) & MP_BEGIN_FRAG)
--	  				start = nextf;
--				else
--				{
--	  				printk(KERN_WARNING"isdn_mppp(seq %d):"
--						" END flag with no following "
--						"BEGIN", thisseq);
-+					start = nextf;
-+				else {
-+					printk(KERN_WARNING"isdn_mppp(seq %d):"
-+					       " END flag with no following "
-+					       "BEGIN", thisseq);
- 					stats->seqerrs++;
- 				}
- 			}
--
--    		} else {
--			if ( nextf != NULL && frag != NULL &&
--						MP_LT(thisseq, minseq)) {
-+		} else {
-+			if (nextf != (struct sk_buff *)&mp->frags &&
-+			    frag != NULL &&
-+			    MP_LT(thisseq, minseq)) {
- 				/* we've got a break in the sequence
- 				 * and we not at the end yet
- 				 * and we did not just reassembled
-@@ -1782,41 +1767,39 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
- 			 	 * discard all the frames below low watermark 
- 				 * and start over */
- 				stats->frame_drops++;
--				mp->frags = isdn_ppp_mp_discard(mp,start,nextf);
-+				isdn_ppp_mp_discard(mp, start, nextf);
- 			}
- 			/* break in the sequence, no reassembly */
--      			start = NULL;
--    		}
--	  			
--    		frag = nextf;
--  	}	/* while -- main loop */
--	
--  	if (mp->frags == NULL)
--    		mp->frags = frag;
--		
-+			start = NULL;
-+		}
-+		if (!start)
-+			break;
-+	}
-+
-+check_overflow:
- 	/* rather straighforward way to deal with (not very) possible 
--	 * queue overflow */
-+	 * queue overflow
-+	 */
- 	if (mp->frames > MP_MAX_QUEUE_LEN) {
- 		stats->overflows++;
--		while (mp->frames > MP_MAX_QUEUE_LEN) {
--			frag = mp->frags->next;
--			isdn_ppp_mp_free_skb(mp, mp->frags);
--			mp->frags = frag;
-+		skb_queue_walk_safe(&mp->frags, frag, nextf) {
-+			if (mp->frames <= MP_MAX_QUEUE_LEN)
-+				break;
-+			__skb_unlink(frag, &mp->frags);
-+			isdn_ppp_mp_free_skb(mp, frag);
- 		}
- 	}
- 	spin_unlock_irqrestore(&mp->lock, flags);
- }
- 
--static void isdn_ppp_mp_cleanup( isdn_net_local * lp )
-+static void isdn_ppp_mp_cleanup(isdn_net_local *lp)
- {
--	struct sk_buff * frag = lp->netdev->pb->frags;
--	struct sk_buff * nextfrag;
--    	while( frag ) {
--		nextfrag = frag->next;
--		isdn_ppp_mp_free_skb(lp->netdev->pb, frag);
--		frag = nextfrag;
--	}
--	lp->netdev->pb->frags = NULL;
+-	while (arpq) {
+-		struct sk_buff *skb = arpq;
 +	struct sk_buff *skb, *tmp;
 +
-+	skb_queue_walk_safe(&lp->netdev->pb->frags, skb, tmp) {
-+		__skb_unlink(skb, &lp->netdev->pb->frags);
-+		isdn_ppp_mp_free_skb(lp->netdev->pb, skb);
-+	}
- }
++	skb_queue_walk_safe(arpq, skb, tmp) {
+ 		struct l2t_skb_cb *cb = L2T_SKB_CB(skb);
  
- static u32 isdn_ppp_mp_get_seq( int short_seq, 
-@@ -1853,72 +1836,115 @@ static u32 isdn_ppp_mp_get_seq( int short_seq,
- 	return seq;
- }
- 
--struct sk_buff * isdn_ppp_mp_discard( ippp_bundle * mp,
--			struct sk_buff * from, struct sk_buff * to )
-+static void isdn_ppp_mp_discard(ippp_bundle *mp, struct sk_buff *from,
-+				struct sk_buff *to)
+-		arpq = skb->next;
+-		skb->next = NULL;
++		__skb_unlink(skb, arpq);
+ 		if (cb->arp_failure_handler)
+ 			cb->arp_failure_handler(dev, skb);
+ 		else
+@@ -378,8 +372,8 @@ static void handle_failed_resolution(struct t3cdev *dev, struct sk_buff *arpq)
+  */
+ void t3_l2t_update(struct t3cdev *dev, struct neighbour *neigh)
  {
--	if( from )
--		while (from != to) {
--	  		struct sk_buff * next = from->next;
--			isdn_ppp_mp_free_skb(mp, from);
--	  		from = next;
-+	if (from) {
-+		struct sk_buff *skb, *tmp;
-+		int freeing = 0;
-+
-+		skb_queue_walk_safe(&mp->frags, skb, tmp) {
-+			if (skb == to)
-+				break;
-+			if (skb == from)
-+				freeing = 1;
-+			if (!freeing)
-+				continue;
-+			__skb_unlink(skb, &mp->frags);
-+			isdn_ppp_mp_free_skb(mp, skb);
- 		}
--	return from;
-+	}
- }
++	struct sk_buff_head arpq;
+ 	struct l2t_entry *e;
+-	struct sk_buff *arpq = NULL;
+ 	struct l2t_data *d = L2DATA(dev);
+ 	u32 addr = *(u32 *) neigh->primary_key;
+ 	int ifidx = neigh->dev->ifindex;
+@@ -395,6 +389,8 @@ void t3_l2t_update(struct t3cdev *dev, struct neighbour *neigh)
+ 	return;
  
--void isdn_ppp_mp_reassembly( isdn_net_dev * net_dev, isdn_net_local * lp,
--				struct sk_buff * from, struct sk_buff * to )
-+static unsigned int calc_tot_len(struct sk_buff_head *queue,
-+				 struct sk_buff *from, struct sk_buff *to)
- {
--	ippp_bundle * mp = net_dev->pb;
--	int proto;
--	struct sk_buff * skb;
-+	unsigned int tot_len = 0;
-+	struct sk_buff *skb;
-+	int found_start = 0;
+ found:
++	__skb_queue_head_init(&arpq);
 +
-+	skb_queue_walk(queue, skb) {
-+		if (skb == from)
-+			found_start = 1;
-+		if (!found_start)
-+			continue;
-+		tot_len += skb->len - MP_HEADER_LEN;
-+		if (skb == to)
-+			break;
-+	}
-+	return tot_len;
-+}
-+
-+/* Reassemble packet using fragments in the reassembly queue from
-+ * 'from' until 'to', inclusive.
-+ */
-+static void isdn_ppp_mp_reassembly(isdn_net_dev *net_dev, isdn_net_local *lp,
-+				   struct sk_buff *from, struct sk_buff *to,
-+				   u32 lastseq)
-+{
-+	ippp_bundle *mp = net_dev->pb;
- 	unsigned int tot_len;
-+	struct sk_buff *skb;
-+	int proto;
+ 	read_unlock(&d->lock);
+ 	if (atomic_read(&e->refcnt)) {
+ 		if (neigh != e->neigh)
+@@ -402,8 +398,7 @@ found:
  
- 	if (lp->ppp_slot < 0 || lp->ppp_slot >= ISDN_MAX_CHANNELS) {
- 		printk(KERN_ERR "%s: lp->ppp_slot(%d) out of range\n",
- 			__func__, lp->ppp_slot);
- 		return;
+ 		if (e->state == L2T_STATE_RESOLVING) {
+ 			if (neigh->nud_state & NUD_FAILED) {
+-				arpq = e->arpq_head;
+-				e->arpq_head = e->arpq_tail = NULL;
++				skb_queue_splice_init(&e->arpq, &arpq);
+ 			} else if (neigh->nud_state & (NUD_CONNECTED|NUD_STALE))
+ 				setup_l2e_send_pending(dev, NULL, e);
+ 		} else {
+@@ -415,8 +410,8 @@ found:
  	}
--	if( MP_FLAGS(from) == (MP_BEGIN_FRAG | MP_END_FRAG) ) {
--		if( ippp_table[lp->ppp_slot]->debug & 0x40 )
-+
-+	tot_len = calc_tot_len(&mp->frags, from, to);
-+
-+	if (MP_FLAGS(from) == (MP_BEGIN_FRAG | MP_END_FRAG)) {
-+		if (ippp_table[lp->ppp_slot]->debug & 0x40)
- 			printk(KERN_DEBUG "isdn_mppp: reassembly: frame %d, "
--					"len %d\n", MP_SEQ(from), from->len );
-+			       "len %d\n", MP_SEQ(from), from->len);
- 		skb = from;
- 		skb_pull(skb, MP_HEADER_LEN);
-+		__skb_unlink(skb, &mp->frags);
- 		mp->frames--;	
- 	} else {
--		struct sk_buff * frag;
--		int n;
-+		struct sk_buff *walk, *tmp;
-+		int found_start = 0;
+ 	spin_unlock_bh(&e->lock);
  
--		for(tot_len=n=0, frag=from; frag != to; frag=frag->next, n++)
--			tot_len += frag->len - MP_HEADER_LEN;
+-	if (arpq)
+-		handle_failed_resolution(dev, arpq);
++	if (!skb_queue_empty(&arpq))
++		handle_failed_resolution(dev, &arpq);
+ }
+ 
+ struct l2t_data *t3_init_l2t(unsigned int l2t_capacity)
+diff --git a/drivers/net/cxgb3/l2t.h b/drivers/net/cxgb3/l2t.h
+index d790013..42ce65f 100644
+--- a/drivers/net/cxgb3/l2t.h
++++ b/drivers/net/cxgb3/l2t.h
+@@ -64,8 +64,7 @@ struct l2t_entry {
+ 	struct neighbour *neigh;	/* associated neighbour */
+ 	struct l2t_entry *first;	/* start of hash chain */
+ 	struct l2t_entry *next;	/* next l2t_entry on chain */
+-	struct sk_buff *arpq_head;	/* queue of packets awaiting resolution */
+-	struct sk_buff *arpq_tail;
++	struct sk_buff_head arpq;	/* queue of packets awaiting resolution */
+ 	spinlock_t lock;
+ 	atomic_t refcnt;	/* entry reference count */
+ 	u8 dmac[6];		/* neighbour's MAC address */
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 1b0861d..6990c0d 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -1704,16 +1704,15 @@ int t3_offload_tx(struct t3cdev *tdev, struct sk_buff *skb)
+  */
+ static inline void offload_enqueue(struct sge_rspq *q, struct sk_buff *skb)
+ {
+-	skb->next = skb->prev = NULL;
+-	if (q->rx_tail)
+-		q->rx_tail->next = skb;
+-	else {
++	int was_empty = skb_queue_empty(&q->rx_queue);
++
++	__skb_queue_tail(&q->rx_queue, skb);
++
++	if (was_empty) {
+ 		struct sge_qset *qs = rspq_to_qset(q);
+ 
+ 		napi_schedule(&qs->napi);
+-		q->rx_head = skb;
+ 	}
+-	q->rx_tail = skb;
+ }
+ 
+ /**
+@@ -1754,26 +1753,29 @@ static int ofld_poll(struct napi_struct *napi, int budget)
+ 	int work_done = 0;
+ 
+ 	while (work_done < budget) {
+-		struct sk_buff *head, *tail, *skbs[RX_BUNDLE_SIZE];
++		struct sk_buff *skb, *tmp, *skbs[RX_BUNDLE_SIZE];
++		struct sk_buff_head queue;
+ 		int ngathered;
+ 
+ 		spin_lock_irq(&q->lock);
+-		head = q->rx_head;
+-		if (!head) {
++		__skb_queue_head_init(&queue);
++		skb_queue_splice_init(&q->rx_queue, &queue);
++		if (skb_queue_empty(&queue)) {
+ 			napi_complete(napi);
+ 			spin_unlock_irq(&q->lock);
+ 			return work_done;
+ 		}
 -
--		if( ippp_table[lp->ppp_slot]->debug & 0x40 )
-+		if (ippp_table[lp->ppp_slot]->debug & 0x40)
- 			printk(KERN_DEBUG"isdn_mppp: reassembling frames %d "
--				"to %d, len %d\n", MP_SEQ(from), 
--				(MP_SEQ(from)+n-1) & MP_LONGSEQ_MASK, tot_len );
--		if( (skb = dev_alloc_skb(tot_len)) == NULL ) {
-+			       "to %d, len %d\n", MP_SEQ(from), lastseq,
-+			       tot_len);
-+
-+		skb = dev_alloc_skb(tot_len);
-+		if (!skb)
- 			printk(KERN_ERR "isdn_mppp: cannot allocate sk buff "
--					"of size %d\n", tot_len);
--			isdn_ppp_mp_discard(mp, from, to);
--			return;
--		}
-+			       "of size %d\n", tot_len);
-+
-+		found_start = 0;
-+		skb_queue_walk_safe(&mp->frags, walk, tmp) {
-+			if (walk == from)
-+				found_start = 1;
-+			if (!found_start)
-+				continue;
+-		tail = q->rx_tail;
+-		q->rx_head = q->rx_tail = NULL;
+ 		spin_unlock_irq(&q->lock);
  
--		while( from != to ) {
--			unsigned int len = from->len - MP_HEADER_LEN;
-+			if (skb) {
-+				unsigned int len = walk->len - MP_HEADER_LEN;
-+				skb_copy_from_linear_data_offset(walk, MP_HEADER_LEN,
-+								 skb_put(skb, len),
-+								 len);
-+			}
-+			__skb_unlink(walk, &mp->frags);
-+			isdn_ppp_mp_free_skb(mp, walk);
- 
--			skb_copy_from_linear_data_offset(from, MP_HEADER_LEN,
--							 skb_put(skb,len),
--							 len);
--			frag = from->next;
--			isdn_ppp_mp_free_skb(mp, from);
--			from = frag; 
-+			if (walk == to)
+-		for (ngathered = 0; work_done < budget && head; work_done++) {
+-			prefetch(head->data);
+-			skbs[ngathered] = head;
+-			head = head->next;
+-			skbs[ngathered]->next = NULL;
++		ngathered = 0;
++		skb_queue_walk_safe(&queue, skb, tmp) {
++			if (work_done >= budget)
 +				break;
- 		}
- 	}
-+	if (!skb)
-+		return;
++			work_done++;
 +
-    	proto = isdn_ppp_strip_proto(skb);
- 	isdn_ppp_push_higher(net_dev, lp, skb, proto);
- }
++			__skb_unlink(skb, &queue);
++			prefetch(skb->data);
++			skbs[ngathered] = skb;
+ 			if (++ngathered == RX_BUNDLE_SIZE) {
+ 				q->offload_bundles++;
+ 				adapter->tdev.recv(&adapter->tdev, skbs,
+@@ -1781,12 +1783,10 @@ static int ofld_poll(struct napi_struct *napi, int budget)
+ 				ngathered = 0;
+ 			}
+ 		}
+-		if (head) {	/* splice remaining packets back onto Rx queue */
++		if (!skb_queue_empty(&queue)) {
++			/* splice remaining packets back onto Rx queue */
+ 			spin_lock_irq(&q->lock);
+-			tail->next = q->rx_head;
+-			if (!q->rx_head)
+-				q->rx_tail = tail;
+-			q->rx_head = head;
++			skb_queue_splice(&queue, &q->rx_queue);
+ 			spin_unlock_irq(&q->lock);
+ 		}
+ 		deliver_partial_bundle(&adapter->tdev, q, skbs, ngathered);
+@@ -2934,6 +2934,7 @@ int t3_sge_alloc_qset(struct adapter *adapter, unsigned int id, int nports,
+ 	q->rspq.gen = 1;
+ 	q->rspq.size = p->rspq_size;
+ 	spin_lock_init(&q->rspq.lock);
++	skb_queue_head_init(&q->rspq.rx_queue);
  
--static void isdn_ppp_mp_free_skb(ippp_bundle * mp, struct sk_buff * skb)
-+static void isdn_ppp_mp_free_skb(ippp_bundle *mp, struct sk_buff *skb)
- {
- 	dev_kfree_skb(skb);
- 	mp->frames--;
-diff --git a/include/linux/isdn_ppp.h b/include/linux/isdn_ppp.h
-index 8687a7d..4c218ee 100644
---- a/include/linux/isdn_ppp.h
-+++ b/include/linux/isdn_ppp.h
-@@ -157,7 +157,7 @@ typedef struct {
- 
- typedef struct {
-   int mp_mrru;                        /* unused                             */
--  struct sk_buff * frags;	/* fragments sl list -- use skb->next */
-+  struct sk_buff_head frags;	/* fragments sl list */
-   long frames;			/* number of frames in the frame list */
-   unsigned int seq;		/* last processed packet seq #: any packets
-   				 * with smaller seq # will be dropped
+ 	q->txq[TXQ_ETH].stop_thres = nports *
+ 	    flits_to_desc(sgl_len(MAX_SKB_FRAGS + 1) + 3);
 -- 
 1.5.6.5
 
