@@ -1,57 +1,49 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: xfrm_state locking regression...
-Date: Tue, 23 Sep 2008 12:39:51 +0300
-Message-ID: <48D8B967.8000107@iki.fi>
-References: <48D63E3A.90301@iki.fi> <48D66677.2040309@iki.fi> <20080922114256.GA27055@gondor.apana.org.au> <48D7971A.5050107@iki.fi> <20080922235012.GA23658@gondor.apana.org.au> <48D8763E.4030607@iki.fi> <20080923045951.GA26048@gondor.apana.org.au> <48D87BDA.8040804@iki.fi> <20080923052239.GA26233@gondor.apana.org.au> <48D88BCC.5030806@iki.fi> <20080923064707.GA26836@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: tcp: Fix queue traversal in tcp_use_frto().
+Date: Tue, 23 Sep 2008 02:55:42 -0700 (PDT)
+Message-ID: <20080923.025542.193703353.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:6712 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbYIWJj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 05:39:56 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so1997041fkq.5
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 02:39:54 -0700 (PDT)
-In-Reply-To: <20080923064707.GA26836@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49693
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751007AbYIWJzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2008 05:55:55 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 14AFEC8C185
+	for <netdev@vger.kernel.org>; Tue, 23 Sep 2008 02:55:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> However, I think this is still open to the same problem that my
-> patch had, i.e., if a dumper goes to sleep during the dump we may
-> prevent entries from being freed indefinitely.  Yes your idea
-> is better in that we may only withhold say a fraction (depending
-> on the order of deletion it could be anywhere from none to every
-> entry) of the entries instead of all of them, but fundamentally
-> the same issue is still there.
-> 
-> Considering the fact that dumps require root privileges I'm not
-> convinced as of yet that this is worth it.
-> 
-> Hmm, could we perhaps go back to your original scheme of keeping
-> everything on the list and see if we can use RCU to make it lockless
-> instead?
 
-How about this: we keep list of walks as your latest patch does.
-When walking is interrupted, we do not hold the entry, we just store
-the pointer to walk iterator. When the entry is deleted from the lists
-we go through the walk contexts, and if someone is pointing to
-the entry being deleted, we just update it to next.
+One more skb_queue_next() BUG trigger.  I double audited the
+remaining tcp_write_queue_next() cases and they should all
+be good.
 
-The list of walkers can be protected by xfrm_state_lock. That
-needs to be taken anyway for accessing/modifying the other lists.
+tcp: Fix queue traversal in tcp_use_frto().
 
-During most of the time, there is no walks active, so the penalty
-for _destroy() is minimal.
+We must check tcp_skb_is_last() before doing a tcp_write_queue_next().
 
-This would make it possibly to reclaim the deleted entries right
-away.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/tcp_input.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Does this sound better?
-
-Cheers,
-  Timo
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index cbfe13d..3b76bce 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1746,6 +1746,8 @@ int tcp_use_frto(struct sock *sk)
+ 		return 0;
+ 
+ 	skb = tcp_write_queue_head(sk);
++	if (tcp_skb_is_last(sk, skb))
++		return 1;
+ 	skb = tcp_write_queue_next(sk, skb);	/* Skips head */
+ 	tcp_for_write_queue_from(skb, sk) {
+ 		if (skb == tcp_send_head(sk))
+-- 
+1.5.6.5
 
