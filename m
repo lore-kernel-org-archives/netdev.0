@@ -1,37 +1,52 @@
-From: Christoph Lameter <cl@linux-foundation.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: AIM9 regression
-Date: Wed, 24 Sep 2008 09:20:17 -0500
-Message-ID: <48DA4CA1.2000102@linux-foundation.org>
-References: <20080923133616.7d51c953@extreme>	<48D95447.2010701@linux-foundation.org>	<48D995E8.1090802@garzik.org> <20080923.201132.247222254.davem@davemloft.net>
+Date: Wed, 24 Sep 2008 08:16:03 -0700
+Message-ID: <20080924081603.08a5f808@extreme>
+References: <48D93203.2050204@linux-foundation.org>
+	<20080924051237.GA6173@gondor.apana.org.au>
+	<20080923.221831.126801015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, shemminger@vyatta.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
+Cc: herbert@gondor.apana.org.au, cl@linux-foundation.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44223 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751280AbYIXOWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 10:22:05 -0400
-In-Reply-To: <20080923.201132.247222254.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:55396 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751510AbYIXPQK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 11:16:10 -0400
+In-Reply-To: <20080923.221831.126801015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jeff Garzik <jeff@garzik.org>
-> Date: Tue, 23 Sep 2008 21:20:40 -0400
-> 
->> Christoph Lameter wrote:
->>> Stephen Hemminger wrote:
->>>
->>>> Hardware configuration please?
->>> Dual Processor 4 core 8G, Xeon X5460  @ 3.16GHz, 667Mhz memory.
->> Network hardware configuration?
->>
->> Or is the TCP test over loopback?
-> 
-> I'm pretty sure it's over loopback :-)
+On Tue, 23 Sep 2008 22:18:31 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Correct.
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 24 Sep 2008 13:12:37 +0800
+> 
+> > On Tue, Sep 23, 2008 at 01:14:27PM -0500, Christoph Lameter wrote:
+> > > I just dont seem to be able to get 2.6.27 to behave in a speedy way network
+> > > wise. Configured out various components (netfilter, etc etc) but I still keep
+> > > getting these aim9 result against 2.6.22:
+> > 
+> > Could you please compare this against something less ancient,
+> > like 2.6.26 perhaps?
+> 
+> Herbert, this is part of the tbench regression issues.  Christoph
+> took tbench from 2.6.22 until 2.6.27 and at basically every release
+> tbench performance suffered noticably.
+> 
+> Now, he's taking the AIM9 benchmark networking numbers and showing
+> that the same exact effect is seen there too.
+> 
+> It really behooves us to start doing something proactive about this
+> blindingly obvious set of networking performance regressions through
+> the past 6 or so releases instead of barking at the reporters saying
+> things like "try this, try that, what's your config" etc.
+> 
+> :-)
 
+These loopback benchmarks are often more sensitive to scheduler than networking
+changes.
