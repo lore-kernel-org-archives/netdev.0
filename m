@@ -1,37 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Wed, 24 Sep 2008 14:21:38 +0800
-Message-ID: <20080924062138.GA6764@gondor.apana.org.au>
-References: <20080923133234.GA30370@gondor.apana.org.au> <48D8F337.2050103@iki.fi> <20080924042349.GA5419@gondor.apana.org.au> <48D9CCA3.2040500@iki.fi> <20080924051555.GA6218@gondor.apana.org.au> <48D9D421.9050500@iki.fi> <20080924055550.GA6506@gondor.apana.org.au> <48D9D86E.7020205@iki.fi> <20080924061349.GA6679@gondor.apana.org.au> <48D9DC1A.10903@iki.fi>
+From: Antonio Gallo <agx@linux.it>
+Subject: Re: r8169, linux kernel 2.6.22.9, broken negotiation
+Date: Wed, 24 Sep 2008 09:01:14 +0200
+Message-ID: <48D9E5BA.6050406@linux.it>
+References: <48D8B60F.8060102@linux.it> <20080923204453.GA12519@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shuchen@realtek.com.tw, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52141 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750937AbYIXGVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 02:21:44 -0400
-Content-Disposition: inline
-In-Reply-To: <48D9DC1A.10903@iki.fi>
+Received: from smtpd4.aruba.it ([62.149.128.209]:37191 "HELO smtp3.aruba.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752792AbYIXHBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 03:01:19 -0400
+In-Reply-To: <20080923204453.GA12519@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 24, 2008 at 09:20:10AM +0300, Timo Ter=E4s wrote:
->
-> Just saying that the code easily misleads the reader. And in
-> this kind of non-obvious places we should have some comments.
-> Or make the code more readable by adding the intermediate struct.
+Francois Romieu ha scritto:
+> Antonio Gallo <agx@linux.it> :
+> [...]
+>> Should i try the r8168.ko from the realtek web site instead of the kernel 
+>> module r8169 ?
+> 
+> I think that it is fixed by commit 66ec5d4fb1ce6f0bd9df4bc4b758f0916d9f37ab
+> in mainline (merged between 2.6.23 and 2.6.24).
+> 
+> You can either use Realtek's driver or try a recent 2.6.27-rc, optionally
+> patched with http://userweb.kernel.org/~romieu/r8169/2.6.27-rc6/
+> 
 
-=46air enough.  Feel free to reformat the patch and add the struct
-to make it more bullet-proof.  I'm sorry I've got some paid work
-to do now :)
+Thanks i've tryed r8168.ko meanwhile, ethtool is perfect but the problem
+is the same.
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'll try to check the commit/patches you mentioned.
+
+Thank you so much for answering, Antonio Gallo
+
+
