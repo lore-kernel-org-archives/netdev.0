@@ -1,40 +1,52 @@
-From: Antonio Gallo <agx@linux.it>
-Subject: Re: r8169, linux kernel 2.6.22.9, broken negotiation
-Date: Wed, 24 Sep 2008 09:01:14 +0200
-Message-ID: <48D9E5BA.6050406@linux.it>
-References: <48D8B60F.8060102@linux.it> <20080923204453.GA12519@electric-eye.fr.zoreil.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
+	dev_deactivate() race
+Date: Wed, 24 Sep 2008 07:15:21 +0000
+Message-ID: <20080924071521.GA4838@ff.dom.local>
+References: <20080920.223538.130375517.davem@davemloft.net> <20080920.225033.261544815.davem@davemloft.net> <20080921063821.GA8677@gondor.apana.org.au> <20080921.000301.198672963.davem@davemloft.net> <20080923062333.GA26595@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shuchen@realtek.com.tw, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net, alexander.h.duyck@intel.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpd4.aruba.it ([62.149.128.209]:37191 "HELO smtp3.aruba.it"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752792AbYIXHBT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 03:01:19 -0400
-In-Reply-To: <20080923204453.GA12519@electric-eye.fr.zoreil.com>
+Received: from fg-out-1718.google.com ([72.14.220.153]:53589 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751234AbYIXHP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 03:15:28 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1990709fgg.17
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 00:15:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080923062333.GA26595@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu ha scritto:
-> Antonio Gallo <agx@linux.it> :
-> [...]
->> Should i try the r8168.ko from the realtek web site instead of the kernel 
->> module r8169 ?
+On Tue, Sep 23, 2008 at 02:23:33PM +0800, Herbert Xu wrote:
+> On Sun, Sep 21, 2008 at 12:03:01AM -0700, David Miller wrote:
+> >
+> > This works if you want it at the root, but what if you only wanted to
+> > prio at a leaf?  I think that case has value too.
 > 
-> I think that it is fixed by commit 66ec5d4fb1ce6f0bd9df4bc4b758f0916d9f37ab
-> in mainline (merged between 2.6.23 and 2.6.24).
+> Good question :)
 > 
-> You can either use Realtek's driver or try a recent 2.6.27-rc, optionally
-> patched with http://userweb.kernel.org/~romieu/r8169/2.6.27-rc6/
+> I think what we should do is to pass some token that rerepsents
+> the TX queue that's being run down into the dequeue function.
 > 
+> Then each qdisc can decide which child to recursively dequeue
+> based on that token (or ignore it for non-prio qdiscs such as
+> HTB).
 
-Thanks i've tryed r8168.ko meanwhile, ethtool is perfect but the problem
-is the same.
+I don't think HTB could be considered as a non-prio qdisc.
 
-I'll try to check the commit/patches you mentioned.
+> When the token reaches the leaf then we have two cases:
+> 1) A prio-like qdisc that has separate queues based on priorities.
+> In this case we dequeue the respective queue based on the token.
 
-Thank you so much for answering, Antonio Gallo
+As matter of fact I can't figure out this idea of a prio at the root
+or leaf either. Could you explain in which point do you expect the
+gain? If it's about the locks, what kind of synchronization would be
+used to assure packets from lower prio queues (or qdiscs?)  aren't
+sent to free tx queues, while higher prio wait on stopped ones?
 
-
+Thanks,
+Jarek P.
