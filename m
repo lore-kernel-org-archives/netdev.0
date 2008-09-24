@@ -1,41 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 2/8] netfilter: xt_time gives a wrong monthday in a leap
- year
-Date: Wed, 24 Sep 2008 11:29:32 +0200
-Message-ID: <48DA087C.4080300@trash.net>
-References: <200809222150.m8MLoaXW031860@imap1.linux-foundation.org> <20080922.190350.63489376.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH]: tcp: Fix queue traversal in tcp_use_frto().
+Date: Wed, 24 Sep 2008 13:08:04 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0809241248560.1034@wrl-59.cs.helsinki.fi>
+References: <20080923.025542.193703353.davem@davemloft.net>
+ <Pine.LNX.4.64.0809232214320.14360@wrl-59.cs.helsinki.fi>
+ <20080923.150034.74273991.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	kaih.luo@gmail.com, jengelh@computergmbh.de
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2113557826-1222250884=:1034"
+Cc: Netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63271 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467AbYIXJ3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 05:29:35 -0400
-In-Reply-To: <20080922.190350.63489376.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56088 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751359AbYIXKII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 06:08:08 -0400
+In-Reply-To: <20080923.150034.74273991.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: akpm@linux-foundation.org
-> Date: Mon, 22 Sep 2008 14:50:36 -0700
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-2113557826-1222250884=:1034
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 23 Sep 2008, David Miller wrote:
+
+> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Tue, 23 Sep 2008 22:18:33 +0300 (EEST)
 > 
->> From: Kaihui Luo <kaih.luo@gmail.com>
->>
->> The function localtime_3 in xt_time.c gives a wrong monthday in a leap
->> year after 28th 2.  calculating monthday should use the array
->> days_since_leapyear[] not days_since_year[] in a leap year.
->>
->> Signed-off-by: Kaihui Luo <kaih.luo@gmail.com>
->> Acked-by: Jan Engelhardt <jengelh@computergmbh.de>
->> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> > For the record (as you probably know it already), this wasn't actually
+> > a real bug though it hits your BUG_ON since tcp_for_write_queue_from exits
+> > immediately, no garbage gets dereferenced.
 > 
-> Patrick, this seems pretty straightforward so I applied it
-> to net-next-2.6
+> Yes, that is correct.
+>
+> It is actually disappointing for me, I thought maybe it would catch
+> a real bug somewhere :-)
 
+Rest assured, it will definately do that once some rewrite or so 
+happens... :-)
 
-Thanks Dave.
-
+-- 
+ i.
+---696208474-2113557826-1222250884=:1034--
