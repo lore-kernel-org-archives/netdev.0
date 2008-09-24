@@ -1,145 +1,58 @@
-From: Trent Piepho <tpiepho@freescale.com>
-Subject: [PATCH] PHY: Avoid unnecessary aneg restarts
-Date: Wed, 24 Sep 2008 13:55:46 -0700
-Message-ID: <1222289746-17837-1-git-send-email-tpiepho@freescale.com>
-Cc: afleming@freescale.com, Trent Piepho <tpiepho@freescale.com>
-To: netdev@vger.kernel.org
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Regression in 2.6.27-rc7: Wake On LAN with sky2 broken
+Date: Wed, 24 Sep 2008 23:10:22 +0200
+Message-ID: <200809242310.23477.rjw@sisk.pl>
+References: <20080924080546.GA21108@x61> <200809242113.52256.rjw@sisk.pl> <20080924194906.GA25874@x61>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Tino Keitel <tino.keitel@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:49480 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752293AbYIXU6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 16:58:31 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m8OKwTn8004137
-	for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 13:58:29 -0700 (MST)
+Received: from ogre.sisk.pl ([217.79.144.158]:49471 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751652AbYIXVEu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 17:04:50 -0400
+In-Reply-To: <20080924194906.GA25874@x61>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY's aneg is configured and restarted whenever the link is brought up,
-e.g. when DHCP is started after the kernel has booted.  This can take the
-link down for several seconds while auto-negotiation is redone.
+On Wednesday, 24 of September 2008, Tino Keitel wrote:
+> On Wed, Sep 24, 2008 at 21:13:51 +0200, Rafael J. Wysocki wrote:
+> > On Wednesday, 24 of September 2008, Tino Keitel wrote:
+> > > Hi,
+> > > 
+> > > Wake On LAN from suspend to RAM doesn't work on my Mac mini Core Duo
+> > > with 2.6.27-rc7. I tested the same configuration with 2.6.26.3, and it
+> > > worked. With 2.6.27-rc7, the computer stays in suspended state. I can
+> > > still wake it up using the keyboard or power switch.
+> > > 
+> > > In my suspend script, I use the command "ethtool -s eth0 wol g" to
+> > > enable WOL even if it was disabled before.
+> > > 
+> > > Any hints what commit I should try to revert, before I start bisecting?
+> > 
+> > Please try the appended patch.
+> 
+> With this patch, the computer hangs during suspend.
 
-If the advertised features haven't changed, then it shouldn't be necessary
-to bring down the link and start auto-negotiation over again.
+This is not good.  It probably means that it actually tries to set up the NIC
+for waking up the system, but something broke _that_ for you.
 
-genphy_config_advert() is enhanced to return 0 when the advertised features
-haven't been changed and >0 when they have been.
+FWIW, I tried it on my test machine with sky2 and it worked.
 
-genphy_config_aneg() then uses this information to not call
-genphy_restart_aneg() if there has been no change.
+Can you try:
 
-Signed-off-by: Trent Piepho <tpiepho@freescale.com>
-Acked-by: Andy Fleming <afleming@freescale.com>
----
- drivers/net/phy/phy_device.c |   49 +++++++++++++++++++++++++----------------
- 1 files changed, 30 insertions(+), 19 deletions(-)
+# ethtool -s eth0 wol g
+# echo devices > /sys/power/pm_test
+# echo mem > /sys/power/state
+(this should wait for 5 seconds and return to the command line)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 16a0e7d..1716274 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -419,13 +419,14 @@ EXPORT_SYMBOL(phy_detach);
-  *
-  * Description: Writes MII_ADVERTISE with the appropriate values,
-  *   after sanitizing the values to make sure we only advertise
-- *   what is supported.
-+ *   what is supported.  Returns < 0 on error, 0 if the PHY's advertisement
-+ *   hasn't changed, and > 0 if it has changed.
-  */
- int genphy_config_advert(struct phy_device *phydev)
- {
- 	u32 advertise;
--	int adv;
--	int err;
-+	int oldadv, adv;
-+	int err, changed = 0;
- 
- 	/* Only allow advertising what
- 	 * this PHY supports */
-@@ -433,7 +434,7 @@ int genphy_config_advert(struct phy_device *phydev)
- 	advertise = phydev->advertising;
- 
- 	/* Setup standard advertisement */
--	adv = phy_read(phydev, MII_ADVERTISE);
-+	oldadv = adv = phy_read(phydev, MII_ADVERTISE);
- 
- 	if (adv < 0)
- 		return adv;
-@@ -453,15 +454,18 @@ int genphy_config_advert(struct phy_device *phydev)
- 	if (advertise & ADVERTISED_Asym_Pause)
- 		adv |= ADVERTISE_PAUSE_ASYM;
- 
--	err = phy_write(phydev, MII_ADVERTISE, adv);
-+	if (adv != oldadv) {
-+		err = phy_write(phydev, MII_ADVERTISE, adv);
- 
--	if (err < 0)
--		return err;
-+		if (err < 0)
-+			return err;
-+		changed = 1;
-+	}
- 
- 	/* Configure gigabit if it's supported */
- 	if (phydev->supported & (SUPPORTED_1000baseT_Half |
- 				SUPPORTED_1000baseT_Full)) {
--		adv = phy_read(phydev, MII_CTRL1000);
-+		oldadv = adv = phy_read(phydev, MII_CTRL1000);
- 
- 		if (adv < 0)
- 			return adv;
-@@ -471,13 +475,17 @@ int genphy_config_advert(struct phy_device *phydev)
- 			adv |= ADVERTISE_1000HALF;
- 		if (advertise & SUPPORTED_1000baseT_Full)
- 			adv |= ADVERTISE_1000FULL;
--		err = phy_write(phydev, MII_CTRL1000, adv);
- 
--		if (err < 0)
--			return err;
-+		if (adv != oldadv) {
-+			err = phy_write(phydev, MII_CTRL1000, adv);
-+
-+			if (err < 0)
-+				return err;
-+			changed = 1;
-+		}
- 	}
- 
--	return adv;
-+	return changed;
- }
- EXPORT_SYMBOL(genphy_config_advert);
- 
-@@ -561,19 +569,22 @@ int genphy_restart_aneg(struct phy_device *phydev)
-  */
- int genphy_config_aneg(struct phy_device *phydev)
- {
--	int err = 0;
-+	int result = 0;
- 
- 	if (AUTONEG_ENABLE == phydev->autoneg) {
--		err = genphy_config_advert(phydev);
-+		int result = genphy_config_advert(phydev);
- 
--		if (err < 0)
--			return err;
-+		if (result < 0) /* error */
-+			return result;
- 
--		err = genphy_restart_aneg(phydev);
-+		/* Only restart aneg if we are advertising something different
-+		 * than we were before.	 */
-+		if (result > 0)
-+			result = genphy_restart_aneg(phydev);
- 	} else
--		err = genphy_setup_forced(phydev);
-+		result = genphy_setup_forced(phydev);
- 
--	return err;
-+	return result;
- }
- EXPORT_SYMBOL(genphy_config_aneg);
- 
--- 
-1.5.4.1
+and see if the machine hangs during this operation?
 
+Please also attach the boot log from your system.
+
+Thanks,
+Rafael
