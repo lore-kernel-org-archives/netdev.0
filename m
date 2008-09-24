@@ -1,60 +1,51 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: Bonding and Neighbour Discovery on IPv6-only devices
-Date: Wed, 24 Sep 2008 12:58:16 -0400
-Message-ID: <48DA71A8.5050900@hp.com>
-References: <200809151335.16817.asid@hp.com> <20080915180015.GB1078@havoc.gtf.org> <200809151416.49447.alexandre.sidorenko@hp.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: /proc/net/igmp group address encoding
+Date: Wed, 24 Sep 2008 10:52:03 -0700
+Message-ID: <OFF76F11EC.DE83396F-ON882574CE.00619859-882574CE.00622571@us.ibm.com>
+References: <alpine.LRH.2.00.0809241418060.31969@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alex Sidorenko <alexandre.sidorenko@hp.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Pekka Savola <pekkas@netcore.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:19002 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754949AbYIXQ6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 12:58:18 -0400
-In-Reply-To: <200809151416.49447.alexandre.sidorenko@hp.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:52500 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752136AbYIXRwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 13:52:04 -0400
+In-Reply-To: <alpine.LRH.2.00.0809241418060.31969@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alex Sidorenko wrote:
-> On September 15, 2008 02:00:15 pm Jeff Garzik wrote:
->> On Mon, Sep 15, 2008 at 01:35:16PM -0400, Alex Sidorenko wrote:
->>> Hello,
->>>
->>> I suspect that there are some problems while switching slaves manually on
->>> IPv6-only bonds. I have tested that this does not work on 2.6.18 kernel
->>> (RHEL5). I looked at recent sources (2.6.26) and even though there were
->>> multiple changes in bonding code, I still don't see how this could work.
->>>
->>> Testing setup
->>> -------------
->>>
->>> Two ethernets enslaved (eth2 and eh3), active-backup bond has IPv6-only
->>> address (no IPv4)
->>>
->>> Everything works fine, but if we switch the slave doing
->>>
->>> # ifenslave -c bond0 eth3
->>>
->>> the incoming ping6 to this host stops for up to several minutes (waiting
->>> until the switch updates its caches).
->> We _just_ put in an IPv6 fix, FWIW...
->>
+netdev-owner@vger.kernel.org wrote on 09/24/2008 04:20:48 AM:
+
+> On Wed, 24 Sep 2008, Pekka Savola wrote:
+> > [psavola@lapps ~]$ more /proc/net/igmp
+> > Idx   Device    : Count Querier   Group    Users Timer   Reporter
+> > 1   lo        :     0      V3
+> >             010000E0     1 0:00000000      0
+> > 2   eth0      :     2      V3
+> >             010000E0     1 0:00000000      0
+> > 3   wmaster0  :     3      V3
+> >             010000E0     1 0:00000000      0
+> > 4   wlan0     :     3      V3
+> >              010000E0     1 0:00000000      0
+> >
+> > (The header and the fields seem to be a little off in the output..)
+> >
+> > [psavola@lapps ~]$ netstat -gn | grep eth0
+> > eth0            1      224.0.0.1
+> > eth0            1      ff02::1
 > 
-> Hi Jeff,
-> 
-> do you mean the patch for ALB/TLB bonds? I looked at it but I still don't 
-> understand how this helps for active-backup case.
+> Another observation here:  the "Count" field appears to correspond to 
+> 'netstat -gn | wc -l' output.  But this includes both IPv4 and IPv6 
+> groups.  Is this intentional?  Shouldn't this only count the v4 
+> entries, just like /proc/net/igmp6 only includes v6 entries?
 
-It doesn't.  What appears to happen in the active-backup case the MLD reports
-are not generated on all of the slave devices, just the active one.  Thus the
-switch knows only about the active device.
+I'm guessing this is Alan Cox's code, but it's at least 8 years
+old, so I'm not sure original intent is easy to establish. :-)
 
-When you force the failover, no reports happen because the device believes that
-the MLD group was already reported.  Thus there needs to be some trigger after
-the failover to tell the switch that the mac address and multicast group have
-moved to a different port.
+I agree it'd be a good idea to separate the counts. Are you
+planning to do a patch?
 
--vlad
+                                                                +-DLS
+
