@@ -1,51 +1,46 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: /proc/net/igmp group address encoding
-Date: Wed, 24 Sep 2008 10:52:03 -0700
-Message-ID: <OFF76F11EC.DE83396F-ON882574CE.00619859-882574CE.00622571@us.ibm.com>
-References: <alpine.LRH.2.00.0809241418060.31969@netcore.fi>
+From: Kyle McMartin <kyle@redhat.com>
+Subject: Re: [PATCH 2/3] e1000e: Useset_memory_ro()/set_memory_rw() to
+	protect flash memory
+Date: Wed, 24 Sep 2008 13:53:58 -0400
+Message-ID: <20080924175358.GA2591@phobos.i.cabal.ca>
+References: <20080923224535.6869.76210.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Pekka Savola <pekkas@netcore.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, mingo@elte.hu, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:52500 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752136AbYIXRwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 13:52:04 -0400
-In-Reply-To: <alpine.LRH.2.00.0809241418060.31969@netcore.fi>
+Received: from 206-248-169-182.dsl.ncf.ca ([206.248.169.182]:52383 "EHLO
+	phobos.cabal.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751899AbYIXRx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 13:53:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20080923224535.6869.76210.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 09/24/2008 04:20:48 AM:
+On Tue, Sep 23, 2008 at 03:45:54PM -0700, Jeff Kirsher wrote:
+> +#ifdef _ASM_X86_CACHEFLUSH_H
+> +	set_memory_rw((unsigned long)hw->flash_address,
+> +	              hw->flash_len >> PAGE_SHIFT);
+> +#endif
+>  	writew(val, hw->flash_address + reg);
+> +#ifdef _ASM_X86_CACHEFLUSH_H
+> +	set_memory_ro((unsigned long)hw->flash_address,
+> +	              hw->flash_len >> PAGE_SHIFT);
+> +#endif
+>  }
 
-> On Wed, 24 Sep 2008, Pekka Savola wrote:
-> > [psavola@lapps ~]$ more /proc/net/igmp
-> > Idx   Device    : Count Querier   Group    Users Timer   Reporter
-> > 1   lo        :     0      V3
-> >             010000E0     1 0:00000000      0
-> > 2   eth0      :     2      V3
-> >             010000E0     1 0:00000000      0
-> > 3   wmaster0  :     3      V3
-> >             010000E0     1 0:00000000      0
-> > 4   wlan0     :     3      V3
-> >              010000E0     1 0:00000000      0
-> >
-> > (The header and the fields seem to be a little off in the output..)
-> >
-> > [psavola@lapps ~]$ netstat -gn | grep eth0
-> > eth0            1      224.0.0.1
-> > eth0            1      ff02::1
-> 
-> Another observation here:  the "Count" field appears to correspond to 
-> 'netstat -gn | wc -l' output.  But this includes both IPv4 and IPv6 
-> groups.  Is this intentional?  Shouldn't this only count the v4 
-> entries, just like /proc/net/igmp6 only includes v6 entries?
+Hi Jeff,
 
-I'm guessing this is Alan Cox's code, but it's at least 8 years
-old, so I'm not sure original intent is easy to establish. :-)
+You're making the entire read-only mapping read-write for the single
+writel call... why not just limit it to the page that the writel is
+targetting?
 
-I agree it'd be a good idea to separate the counts. Are you
-planning to do a patch?
-
-                                                                +-DLS
-
+regards, Kyle
+[sorry, I've only been following this at a glance, but it's somewhat
+ important for rawhide... does someone have a way to reproduce this at
+ whim? Has someone tried catching it using an IOMMU on one of the newer
+ Intel boxes, if it is a DMA going awry?]
