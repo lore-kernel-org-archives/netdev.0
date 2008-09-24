@@ -1,58 +1,41 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: v2 [PATCH 1/5] dccp: Basic data structure for feature
-	negotiation
-Date: Wed, 24 Sep 2008 10:59:54 -0300
-Message-ID: <20080924135954.GJ9588@ghostprotocols.net>
-References: <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net> <20080922154554.GA3521@gerrit.erg.abdn.ac.uk> <20080922.202056.218746153.davem@davemloft.net> <20080924051823.GB4944@gerrit.erg.abdn.ac.uk> <20080924052305.GC4944@gerrit.erg.abdn.ac.uk>
+Subject: Re: v2 [PATCH 2/5] dccp: Implement lookup table for
+	feature-negotiation information
+Date: Wed, 24 Sep 2008 11:01:21 -0300
+Message-ID: <20080924140121.GK9588@ghostprotocols.net>
+References: <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net> <20080922154554.GA3521@gerrit.erg.abdn.ac.uk> <20080922.202056.218746153.davem@davemloft.net> <20080924051823.GB4944@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:41385 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:41422 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751681AbYIXOAO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 10:00:14 -0400
+	id S1753478AbYIXOBl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 10:01:41 -0400
 Content-Disposition: inline
-In-Reply-To: <20080924052305.GC4944@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <20080924051823.GB4944@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Sep 24, 2008 at 07:23:05AM +0200, Gerrit Renker escreveu:
-> This is the second/other revised patch for this set [v2 of 1/5].
+Em Wed, Sep 24, 2008 at 07:18:23AM +0200, Gerrit Renker escreveu:
+> This is the first revised patch, the second follows subsequently.
 > 
-> Changes relative to v1: copied Arnaldos suggested layout and updated the
-> struct documentation accordingly. Compile-tested the result.
+> Changes relative to v1: 
+> migrated function `dccp_default_value' moved to where it is first used 
 > 
-> >>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-> dccp: Basic data structure for feature negotiation
+> >>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+> dccp: Implement lookup table for feature-negotiation information
 > 
-> This patch prepares for the new and extended feature-negotiation routines.
-> 
-> The following feature-negotiation data structures are provided:
-> 	* a container for the various (SP or NN) values,
-> 	* symbolic state names to track feature states,
-> 	* an entry struct which holds all current information together,
-> 	* elementary functions to fill in and process these structures.
-> 
-> Entry structs are arranged as FIFO for the following reason: RFC 4340 specifies
-> that if multiple options of the same type are present, they are processed in the
-> order of their appearance in the packet; which means that this order needs to be
-> preserved in the local data structure (the later insertion code also respects
-> this order).
-> 
-> The struct list_head has been chosen for the following reasons: the most 
-> frequent operations are
->  * add new entry at tail (when receiving Change or setting socket options);
->  * delete entry (when Confirm has been received);
->  * deep copy of entire list (cloning from listening socket onto request socket).
-> 
-> The NN value has been set to 64 bit, which is a currently sufficient upper limit
-> (Sequence Window feature has 48 bit).
-> 
-> Thanks to Arnaldo who streamlined the field layout of the entry struct.
+> A lookup table for feature-negotiation information, extracted from RFC 4340/42,
+> is provided by this patch. All currently known features can be found in this 
+> table, along with their feature location, their default value, and type.
 > 
 > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+
+Lets make progress, in the future lets try and remove hardcoded specific CCID
+tests.
 
 Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
