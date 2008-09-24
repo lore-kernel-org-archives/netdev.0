@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth btusb fixes for 2.6.27-rc7
-Date: Wed, 24 Sep 2008 15:52:43 -0700 (PDT)
-Message-ID: <20080924.155243.238396640.davem@davemloft.net>
-References: <1222128650.13064.16.camel@californication>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH 2/3] e1000e: Useset_memory_ro()/set_memory_rw() to protect
+ flash memory
+Date: Thu, 25 Sep 2008 00:55:57 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0809250054080.27884@twin.jikos.cz>
+References: <20080923224535.6869.76210.stgit@jtkirshe-mobile.jf.intel.com>
+ <20080924175358.GA2591@phobos.i.cabal.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, jeff@garzik.org,
+	mingo@elte.hu, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, Bruce Allan <bruce.w.allan@intel.com>
+To: Kyle McMartin <kyle@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42027
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbYIXWwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 18:52:55 -0400
-In-Reply-To: <1222128650.13064.16.camel@californication>
+Received: from twin.jikos.cz ([213.151.79.26]:60530 "EHLO twin.jikos.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751945AbYIXW4z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 18:56:55 -0400
+In-Reply-To: <20080924175358.GA2591@phobos.i.cabal.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Tue, 23 Sep 2008 02:10:50 +0200
+On Wed, 24 Sep 2008, Kyle McMartin wrote:
 
-> Please pull from
-> 
->     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
+> [sorry, I've only been following this at a glance, but it's somewhat
+>  important for rawhide... does someone have a way to reproduce this at
+>  whim? Has someone tried catching it using an IOMMU on one of the newer
+>  Intel boxes, if it is a DMA going awry?]
 
-Pulled, thanks Marcel.
+We have a few machines in-house that are affected by this, and they 
+currently have EEPROMs of their ethernet cards filled all over with 0xff. 
+After Karsten finishes writing the tool to restore the original contents 
+of the EEPROM, we will immediately start debugging this.
+
+-- 
+Jiri Kosina
+SUSE Labs
+
