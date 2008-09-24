@@ -1,48 +1,62 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH] r6040: fix wrong assignment in r6040_free_txbufs
-Date: Wed, 24 Sep 2008 21:16:40 +0200
-Message-ID: <200809242116.40855.florian@openwrt.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: AIM9 regression
+Date: Wed, 24 Sep 2008 12:36:57 -0700 (PDT)
+Message-ID: <20080924.123657.217162945.davem@davemloft.net>
+References: <20080924051237.GA6173@gondor.apana.org.au>
+	<20080923.221831.126801015.davem@davemloft.net>
+	<20080924081603.08a5f808@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: herbert@gondor.apana.org.au, cl@linux-foundation.org,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:52380 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751517AbYIXTQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 15:16:55 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so31442ugf.37
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 12:16:53 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38998
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752040AbYIXThI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 15:37:08 -0400
+In-Reply-To: <20080924081603.08a5f808@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jeff, Francois,
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 24 Sep 2008 08:16:03 -0700
 
-This is 2.6.27 material but should be applied to your -next branch as well. Thank you.
---
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH] r6040: fix wrong assignment in r6040_free_txbufs
+> On Tue, 23 Sep 2008 22:18:31 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Wed, 24 Sep 2008 13:12:37 +0800
+> > 
+> > > On Tue, Sep 23, 2008 at 01:14:27PM -0500, Christoph Lameter wrote:
+> > > > I just dont seem to be able to get 2.6.27 to behave in a speedy way network
+> > > > wise. Configured out various components (netfilter, etc etc) but I still keep
+> > > > getting these aim9 result against 2.6.22:
+> > > 
+> > > Could you please compare this against something less ancient,
+> > > like 2.6.26 perhaps?
+> > 
+> > Herbert, this is part of the tbench regression issues.  Christoph
+> > took tbench from 2.6.22 until 2.6.27 and at basically every release
+> > tbench performance suffered noticably.
+> > 
+> > Now, he's taking the AIM9 benchmark networking numbers and showing
+> > that the same exact effect is seen there too.
+> > 
+> > It really behooves us to start doing something proactive about this
+> > blindingly obvious set of networking performance regressions through
+> > the past 6 or so releases instead of barking at the reporters saying
+> > things like "try this, try that, what's your config" etc.
+> > 
+> > :-)
+> 
+> These loopback benchmarks are often more sensitive to scheduler than networking
+> changes.
 
-This patch fixes a wrong assignment in r6040_free_txbufs
-on a receive skb pointer while we should actually do this
-on the transmit skb pointer.
+When it gets to %20, I strong start to doubt that, and this is exactly
+what's happening here.
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 396f0e4..5aff7c8 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -261,7 +261,7 @@ static void r6040_free_txbufs(struct net_device *dev)
- 				le32_to_cpu(lp->tx_insert_ptr->buf),
- 				MAX_BUF_SIZE, PCI_DMA_TODEVICE);
- 			dev_kfree_skb(lp->tx_insert_ptr->skb_ptr);
--			lp->rx_insert_ptr->skb_ptr = NULL;
-+			lp->tx_insert_ptr->skb_ptr = NULL;
- 		}
- 		lp->tx_insert_ptr = lp->tx_insert_ptr->vndescp;
- 	}
+What is it going to take to actually get someone to start profiling and
+analyzing this?  :-)
 
