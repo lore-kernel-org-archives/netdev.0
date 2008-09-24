@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: AIM9 regression
-Date: Wed, 24 Sep 2008 12:53:46 -0700 (PDT)
-Message-ID: <20080924.125346.178957726.davem@davemloft.net>
-References: <20080923.221831.126801015.davem@davemloft.net>
-	<20080924081603.08a5f808@extreme>
-	<48DA90BE.5090208@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: D945GCLF  intel atom board & r8169 ethernet broken in
+	linux-2.6.27-rc5??
+Date: Wed, 24 Sep 2008 22:19:03 +0200
+Message-ID: <20080924201903.GA10546@electric-eye.fr.zoreil.com>
+References: <9F6ACAE02B6DD040A1E259977622CFDB03F5BCCB@oslexcp1.eu.tandberg.int>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: cl@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>
+To: John Gumb <john.gumb@tandberg.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54521
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753159AbYIXTx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 15:53:58 -0400
-In-Reply-To: <48DA90BE.5090208@linux-foundation.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35023 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752160AbYIXUT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 16:19:27 -0400
+Content-Disposition: inline
+In-Reply-To: <9F6ACAE02B6DD040A1E259977622CFDB03F5BCCB@oslexcp1.eu.tandberg.int>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Lameter <cl@linux-foundation.org>
-Date: Wed, 24 Sep 2008 14:10:54 -0500
-
-> Stephen Hemminger wrote:
+John Gumb <john.gumb@tandberg.com> :
+[...]
+> With linux-2.6.27-rc5, "ifconfig eth0" just hangs. lspci -vvx reports,
+> after loading the driver,
 > 
-> > These loopback benchmarks are often more sensitive to scheduler than networking
-> > changes.
+> > 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E
+> PCI Express Fast Ethernet controller (rev ff) (prog-if ff)
+> >       !!! Unknown header type 7f
+> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  
 > 
-> Just ran a test with real NICs which show the same issues. I guess I need to
-> get familiar with the network stack and start hacking on it. Sigh.
+> Before I load the driver lspci -vvx looks OK.
 
-I feel your pain, I think people are being very unreasonable in their
-analysis of your numbers, and for this I want to personally apologize.
+It is probably the driver's responsibility then.
 
-It's clearly a networking issue in my eyes, and I wish my co-developers
-in networking would treat it as such instead of pushing the blame under
-the carpet and saying "scheduler", "SLUB", and all kinds of other bullshit
-without any facts on this specific case to back up such accusations.
+> I do not have (much) time to look into this any further but hopefully
+> this might help someone.
+
+Can you try patches #0001 .. #0008 at
+http://userweb.kernel.org/~romieu/r8169/2.6.27-rc6/20080913/ ?
+
+-- 
+Ueimor
