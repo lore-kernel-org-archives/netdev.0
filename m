@@ -1,58 +1,136 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs.
-	dev_deactivate() race
-Date: Wed, 24 Sep 2008 08:28:10 +0000
-Message-ID: <20080924082810.GB4838@ff.dom.local>
-References: <20080920.223538.130375517.davem@davemloft.net> <20080920.225033.261544815.davem@davemloft.net> <20080921063821.GA8677@gondor.apana.org.au> <20080921.000301.198672963.davem@davemloft.net> <20080923062333.GA26595@gondor.apana.org.au> <20080924071521.GA4838@ff.dom.local> <20080924080427.GB7391@gondor.apana.org.au>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH] r8169: read MAC address from EEPROM on init
+Date: Wed, 24 Sep 2008 10:46:29 +0200
+Message-ID: <48D9FE65.40709@redhat.com>
+References: <48D25BA2.6070008@redhat.com> <Pine.LNX.4.64.0809182235550.4742@wrl-59.cs.helsinki.fi> <48D3A381.1080500@redhat.com> <Pine.LNX.4.64.0809210100020.16838@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, alexander.h.duyck@intel.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:20215 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbYIXI2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 04:28:16 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so2478153fkq.5
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 01:28:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080924080427.GB7391@gondor.apana.org.au>
+Received: from mx2.redhat.com ([66.187.237.31]:53917 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751573AbYIXIr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 04:47:28 -0400
+In-Reply-To: <Pine.LNX.4.64.0809210100020.16838@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 24, 2008 at 04:04:27PM +0800, Herbert Xu wrote:
-> On Wed, Sep 24, 2008 at 07:15:21AM +0000, Jarek Poplawski wrote:
-> >
-> > > Then each qdisc can decide which child to recursively dequeue
-> > > based on that token (or ignore it for non-prio qdiscs such as
-> > > HTB).
-> > 
-> > I don't think HTB could be considered as a non-prio qdisc.
-> 
-> It is non-prio in the sense that it has other criteria for deciding
-> which child qdisc to enqueue into.
-> 
-> > As matter of fact I can't figure out this idea of a prio at the root
-> > or leaf either. Could you explain in which point do you expect the
-> > gain? If it's about the locks, what kind of synchronization would be
-> > used to assure packets from lower prio queues (or qdiscs?)  aren't
-> > sent to free tx queues, while higher prio wait on stopped ones?
-> 
-> It's very simple really.  For a non-leaf prio you determine which
-> child qdisc to enqueue into using the priority.  For a leaf prio
-> you determine which software queue to enqueue into based on the
-> priority.
+Ilpo J=E4rvinen wrote:
+> Aa, one more thing here, there's nowadays print_mac() and=20
+> DECLARE_MAC_BUF() for printing MAC-addresses using %s. Since this is=20
+> not perf-critical in anyway here, it will save some bytes when used i=
+n=20
+> kernel-wide scale.
+>=20
+>=20
+> Reviewed-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+OK :-), I hope the patch below is finally the right one.
 
-OK, it's too simple then. Could you make this more complex and
-show me the gain.
+Ivan
 
-> To put it another way, what I'm saying is that instead of duplicating
-> the qdiscs as we do now for pfifo_fast, we should make the leaf
-> qdiscs duplicate its software queues to match the hardware queues
-> it's feeding into.
+---
+ drivers/net/r8169.c |   73 +++++++++++++++++++++++++++++++++++++++++++=
++++++++-
+ 1 files changed, 72 insertions(+), 1 deletions(-)
 
-It looks like sch_multiq, but you probably mean something else...
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index befc927..e979cf5 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1910,6 +1910,74 @@ static void rtl_disable_msi(struct pci_dev *pdev=
+, struct rtl8169_private *tp)
+ 	}
+ }
 
-Cheers,
-Jarek P.
++static int rtl_eeprom_read(struct pci_dev *pdev, int cap, int addr, __=
+le32 *val)
++{
++	int ret, count =3D 100;
++	u16 status =3D 0;
++	u32 value;
++
++	ret =3D pci_write_config_word(pdev, cap + PCI_VPD_ADDR, addr);
++	if (ret < 0)
++		return ret;
++
++	do {
++		udelay(10);
++		ret =3D pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &status);
++		if (ret < 0)
++			return ret;
++	} while (!(status & PCI_VPD_ADDR_F) && --count);
++
++	if (!(status & PCI_VPD_ADDR_F))
++		return -ETIMEDOUT;
++
++	ret =3D pci_read_config_dword(pdev, cap + PCI_VPD_DATA, &value);
++	if (ret < 0)
++		return ret;
++
++	*val =3D cpu_to_le32(value);
++
++	return 0;
++}
++
++static void rtl_init_mac_address(struct rtl8169_private *tp,
++				 void __iomem *ioaddr)
++{
++	struct pci_dev *pdev =3D tp->pci_dev;
++	u8 cfg1;
++	int vpd_cap;
++	u8 mac[8];
++	DECLARE_MAC_BUF(buf);
++
++	cfg1 =3D RTL_R8(Config1);
++	if (!(cfg1  & VPD)) {
++		dprintk("VPD access not enabled, enabling\n");
++		RTL_W8(Cfg9346, Cfg9346_Unlock);
++		RTL_W8(Config1, cfg1 | VPD);
++		RTL_W8(Cfg9346, Cfg9346_Lock);
++	}
++
++	vpd_cap =3D pci_find_capability(pdev, PCI_CAP_ID_VPD);
++	if (!vpd_cap)
++		return;
++
++	/* MAC address is stored in EEPROM at offset 0x0e
++	 * Realtek says: "The VPD address does not have to be a DWORD-aligned
++	 * address as defined in the PCI 2.2 Specifications, but the VPD data
++	 * is always consecutive 4-byte data starting from the VPD address
++	 * specified."
++	 */
++	if (rtl_eeprom_read(pdev, vpd_cap, 0x000e, (__le32*)&mac[0]) < 0 ||
++	    rtl_eeprom_read(pdev, vpd_cap, 0x0012, (__le32*)&mac[4]) < 0) {
++		dprintk("Reading MAC address from EEPROM failed\n");
++		return;
++	}
++
++	dprintk("MAC address found in EEPROM: %s\n", print_mac(buf, mac));
++
++	/* Write MAC address */
++	rtl_rar_set(tp, mac);
++}
++
+ static int __devinit
+ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent=
+)
+ {
+@@ -2079,7 +2147,10 @@ rtl8169_init_one(struct pci_dev *pdev, const str=
+uct pci_device_id *ent)
+ 		dev->do_ioctl =3D rtl8169_ioctl;
+ 	}
+
+-	/* Get MAC address.  FIXME: read EEPROM */
++	/* Read MAC address from EEPROM */
++	rtl_init_mac_address(tp, ioaddr);
++
++	/* Get MAC address */
+ 	for (i =3D 0; i < MAC_ADDR_LEN; i++)
+ 		dev->dev_addr[i] =3D RTL_R8(MAC0 + i);
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+--=20
+1.5.4.3
