@@ -1,358 +1,275 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: xfrm_state locking regression...
-Date: Wed, 24 Sep 2008 10:29:15 +0300
-Message-ID: <48D9EC4B.4050804@iki.fi>
-References: <20080923133234.GA30370@gondor.apana.org.au> <48D8F337.2050103@iki.fi> <20080924042349.GA5419@gondor.apana.org.au> <48D9CCA3.2040500@iki.fi> <20080924051555.GA6218@gondor.apana.org.au> <48D9D421.9050500@iki.fi> <20080924055550.GA6506@gondor.apana.org.au> <48D9D86E.7020205@iki.fi> <20080924061349.GA6679@gondor.apana.org.au> <48D9DC1A.10903@iki.fi> <20080924062138.GA6764@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
+Date: Wed, 24 Sep 2008 00:42:47 -0700 (PDT)
+Message-ID: <20080924.004247.193721529.davem@davemloft.net>
+References: <20080919.234824.223177211.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jens.axboe@oracle.com,
+	steffen.klassert@secunet.com
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:36748 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750875AbYIXH3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 03:29:24 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so725099eyi.37
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 00:29:22 -0700 (PDT)
-In-Reply-To: <20080924062138.GA6764@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33976
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751834AbYIXHm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 03:42:59 -0400
+In-Reply-To: <20080919.234824.223177211.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Wed, Sep 24, 2008 at 09:20:10AM +0300, Timo Ter=E4s wrote:
->> Just saying that the code easily misleads the reader. And in
->> this kind of non-obvious places we should have some comments.
->> Or make the code more readable by adding the intermediate struct.
->=20
-> Fair enough.  Feel free to reformat the patch and add the struct
-> to make it more bullet-proof.  I'm sorry I've got some paid work
-> to do now :)
+From: David Miller <davem@davemloft.net>
+Date: Fri, 19 Sep 2008 23:48:24 -0700 (PDT)
 
-Ok, here's one try. I also updated the list_add() calls introduced
-in commit "ipsec: Restore larval states and socket policies in
-dump".
+> Jens Axboe has written some hacks for the block layer that allow
+> queueing softirq work to remote cpus.  In the context of the block
+> layer he used this facility to trigger the softirq block I/O
+> completion on the same cpu where the I/O was submitted.
 
-Same warning still applies: only compile tested.
+As a followup to this, I've refreshed my patches and put them
+in a tree cloned from Linus's current GIT tree:
 
-We should probably do similar fix for the SPD dumping. I can make
-a patch for that later today.
+	master.kernel.org:/pub/scm/linux/kernel/git/davem/softirq-2.6.git
 
-- Timo
+I made minor touchups to the second patch, such as adding a few more
+descriptive comments, and adding the missing export of the softirq_work
+list array.
 
-ipsec: Put dumpers on the dump list
+Updated version below for reference:
 
-Based on Herbert Xu's patch and idea. Improved the original patch
-to apply cleanly and modified iteration code to be more readable
-by using a common struct for entries in all list.
+softirq: Add support for triggering softirq work on softirqs.
 
-As it is we go to extraordinary lengths to ensure that states
-don't go away while dumpers go to sleep.  It's much easier if
-we just put the dumpers themselves on the list since they can't
-go away while they're going.
+This is basically a genericization of Jens Axboe's block layer
+remote softirq changes.
 
-I've also changed the order of addition on new states to prevent
-a never-ending dump.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+---
+ include/linux/interrupt.h |   21 +++++++
+ include/linux/smp.h       |    4 +-
+ kernel/softirq.c          |  129 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 153 insertions(+), 1 deletions(-)
 
-=46inally the obsolete last optimisation is now gone.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index cbba776..9ff1b54 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -220,7 +220,7 @@ struct netlink_callback
- 	int		(*dump)(struct sk_buff * skb, struct netlink_callback *cb);
- 	int		(*done)(struct netlink_callback *cb);
- 	int		family;
--	long		args[7];
-+	long		args[6];
- };
-=20
- struct netlink_notify
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 48630b2..becaa1e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -117,12 +117,21 @@ extern struct mutex xfrm_cfg_mutex;
-       metrics. Plus, it will be made via sk->sk_dst_cache. Solved.
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index fdd7b90..0a7a14b 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -11,6 +11,8 @@
+ #include <linux/hardirq.h>
+ #include <linux/sched.h>
+ #include <linux/irqflags.h>
++#include <linux/smp.h>
++#include <linux/percpu.h>
+ #include <asm/atomic.h>
+ #include <asm/ptrace.h>
+ #include <asm/system.h>
+@@ -272,6 +274,25 @@ extern void softirq_init(void);
+ extern void raise_softirq_irqoff(unsigned int nr);
+ extern void raise_softirq(unsigned int nr);
+ 
++/* This is the worklist that queues up per-cpu softirq work.
++ *
++ * send_remote_sendirq() adds work to these lists, and
++ * the softirq handler itself dequeues from them.  The queues
++ * are protected by disabling local cpu interrupts and they must
++ * only be accessed by the local cpu that they are for.
++ */
++DECLARE_PER_CPU(struct list_head [NR_SOFTIRQ], softirq_work_list);
++
++/* Try to send a softirq to a remote cpu.  If this cannot be done, the
++ * work will be queued to the local cpu.
++ */
++extern void send_remote_softirq(struct call_single_data *cp, int cpu, int softirq);
++
++/* Like send_remote_softirq(), but the caller must disable local cpu interrupts
++ * and compute the current cpu, passed in as 'this_cpu'.
++ */
++extern void __send_remote_softirq(struct call_single_data *cp, int cpu,
++				  int this_cpu, int softirq);
+ 
+ /* Tasklets --- multithreaded analogue of BHs.
+ 
+diff --git a/include/linux/smp.h b/include/linux/smp.h
+index 66484d4..2e4d58b 100644
+--- a/include/linux/smp.h
++++ b/include/linux/smp.h
+@@ -7,6 +7,7 @@
   */
-=20
-+struct xfrm_state_walk {
-+	struct list_head	all;
-+	u8			state;
-+	union {
-+		u8		dying;
-+		u8		proto;
-+	};
-+	u32			seq;
+ 
+ #include <linux/errno.h>
++#include <linux/types.h>
+ #include <linux/list.h>
+ #include <linux/cpumask.h>
+ 
+@@ -16,7 +17,8 @@ struct call_single_data {
+ 	struct list_head list;
+ 	void (*func) (void *info);
+ 	void *info;
+-	unsigned int flags;
++	u16 flags;
++	u16 priv;
+ };
+ 
+ #ifdef CONFIG_SMP
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 27642a2..77aba5e 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -6,6 +6,8 @@
+  *	Distribute under GPLv2.
+  *
+  *	Rewritten. Old one was good in 2.2, but in 2.3 it was immoral. --ANK (990903)
++ *
++ *	Remote softirq infrastructure is by Jens Axboe.
+  */
+ 
+ #include <linux/module.h>
+@@ -463,17 +465,144 @@ void tasklet_kill(struct tasklet_struct *t)
+ 
+ EXPORT_SYMBOL(tasklet_kill);
+ 
++DEFINE_PER_CPU(struct list_head [NR_SOFTIRQ], softirq_work_list);
++EXPORT_PER_CPU_SYMBOL(softirq_work_list);
++
++static void __local_trigger(struct call_single_data *cp, int softirq)
++{
++	struct list_head *head = &__get_cpu_var(softirq_work_list[softirq]);
++
++	list_add_tail(&cp->list, head);
++
++	/* Trigger the softirq only if the list was previously empty.  */
++	if (head->next == &cp->list)
++		raise_softirq_irqoff(softirq);
++}
++
++#ifdef CONFIG_USE_GENERIC_SMP_HELPERS
++static void remote_softirq_receive(void *data)
++{
++	struct call_single_data *cp = data;
++	unsigned long flags;
++	int softirq;
++
++	softirq = cp->priv;
++
++	local_irq_save(flags);
++	__local_trigger(cp, softirq);
++	local_irq_restore(flags);
++}
++
++static int __try_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
++{
++	if (cpu_online(cpu)) {
++		cp->func = remote_softirq_receive;
++		cp->info = cp;
++		cp->flags = 0;
++		cp->priv = softirq;
++
++		__smp_call_function_single(cpu, cp);
++		return 0;
++	}
++	return 1;
++}
++#else /* CONFIG_USE_GENERIC_SMP_HELPERS */
++static int __try_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
++{
++	return 1;
++}
++#endif
++
++/**
++ * __send_remote_softirq - try to schedule softirq work on a remote cpu
++ * @cp: private SMP call function data area
++ * @cpu: the remote cpu
++ * @this_cpu: the currently executing cpu
++ * @softirq: the softirq for the work
++ *
++ * Attempt to schedule softirq work on a remote cpu.  If this cannot be
++ * done, the work is instead queued up on the local cpu.
++ *
++ * Interrupts must be disabled.
++ */
++void __send_remote_softirq(struct call_single_data *cp, int cpu, int this_cpu, int softirq)
++{
++	if (cpu == this_cpu || __try_remote_softirq(cp, cpu, softirq))
++		__local_trigger(cp, softirq);
++}
++EXPORT_SYMBOL(__send_remote_softirq);
++
++/**
++ * send_remote_softirq - try to schedule softirq work on a remote cpu
++ * @cp: private SMP call function data area
++ * @cpu: the remote cpu
++ * @softirq: the softirq for the work
++ *
++ * Like __send_remote_softirq except that disabling interrupts and
++ * computing the current cpu is done for the caller.
++ */
++void send_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
++{
++	unsigned long flags;
++	int this_cpu;
++
++	local_irq_save(flags);
++	this_cpu = smp_processor_id();
++	__send_remote_softirq(cp, cpu, this_cpu, softirq);
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL(send_remote_softirq);
++
++static int __cpuinit remote_softirq_cpu_notify(struct notifier_block *self,
++					       unsigned long action, void *hcpu)
++{
++	/*
++	 * If a CPU goes away, splice its entries to the current CPU
++	 * and trigger a run of the softirq
++	 */
++	if (action == CPU_DEAD || action == CPU_DEAD_FROZEN) {
++		int cpu = (unsigned long) hcpu;
++		int i;
++
++		local_irq_disable();
++		for (i = 0; i < NR_SOFTIRQ; i++) {
++			struct list_head *head = &per_cpu(softirq_work_list[i], cpu);
++			struct list_head *local_head;
++
++			if (list_empty(head))
++				continue;
++
++			local_head = &__get_cpu_var(softirq_work_list[i]);
++			list_splice_init(head, local_head);
++			raise_softirq_irqoff(i);
++		}
++		local_irq_enable();
++	}
++
++	return NOTIFY_OK;
++}
++
++static struct notifier_block __cpuinitdata remote_softirq_cpu_notifier = {
++	.notifier_call	= remote_softirq_cpu_notify,
 +};
 +
- /* Full description of state of transformer. */
- struct xfrm_state
+ void __init softirq_init(void)
  {
--	struct list_head	all;
- 	union {
--		struct list_head	gclist;
-+		struct hlist_node	gclist;
- 		struct hlist_node	bydst;
- 	};
- 	struct hlist_node	bysrc;
-@@ -136,12 +145,8 @@ struct xfrm_state
-=20
- 	u32			genid;
-=20
--	/* Key manger bits */
--	struct {
--		u8		state;
--		u8		dying;
--		u32		seq;
--	} km;
-+	/* Key manager bits */
-+	struct xfrm_state_walk	km;
-=20
- 	/* Parameters of this state. */
- 	struct {
-@@ -1245,14 +1250,6 @@ struct xfrm6_tunnel {
- 	int priority;
- };
-=20
--struct xfrm_state_walk {
--	struct list_head list;
--	unsigned long genid;
--	struct xfrm_state *state;
--	int count;
--	u8 proto;
--};
--
- struct xfrm_policy_walk {
- 	struct xfrm_policy *policy;
- 	int count;
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 053970e..f2deae0 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -59,14 +59,6 @@ static unsigned int xfrm_state_hashmax __read_mostly=
- =3D 1 * 1024 * 1024;
- static unsigned int xfrm_state_num;
- static unsigned int xfrm_state_genid;
-=20
--/* Counter indicating ongoing walk, protected by xfrm_state_lock. */
--static unsigned long xfrm_state_walk_ongoing;
--/* Counter indicating walk completion, protected by xfrm_cfg_mutex. */
--static unsigned long xfrm_state_walk_completed;
--
--/* List of outstanding state walks used to set the completed counter. =
- */
--static LIST_HEAD(xfrm_state_walks);
--
- static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int fa=
-mily);
- static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
-=20
-@@ -199,8 +191,7 @@ static DEFINE_RWLOCK(xfrm_state_afinfo_lock);
- static struct xfrm_state_afinfo *xfrm_state_afinfo[NPROTO];
-=20
- static struct work_struct xfrm_state_gc_work;
--static LIST_HEAD(xfrm_state_gc_leftovers);
--static LIST_HEAD(xfrm_state_gc_list);
-+static HLIST_HEAD(xfrm_state_gc_list);
- static DEFINE_SPINLOCK(xfrm_state_gc_lock);
-=20
- int __xfrm_state_delete(struct xfrm_state *x);
-@@ -412,23 +403,16 @@ static void xfrm_state_gc_destroy(struct xfrm_sta=
-te *x)
-=20
- static void xfrm_state_gc_task(struct work_struct *data)
- {
--	struct xfrm_state *x, *tmp;
--	unsigned long completed;
-+	struct xfrm_state *x;
-+	struct hlist_node *entry, *tmp;
-+	struct hlist_head gc_list;
-=20
--	mutex_lock(&xfrm_cfg_mutex);
- 	spin_lock_bh(&xfrm_state_gc_lock);
--	list_splice_tail_init(&xfrm_state_gc_list, &xfrm_state_gc_leftovers);
-+	hlist_move_list(&xfrm_state_gc_list, &gc_list);
- 	spin_unlock_bh(&xfrm_state_gc_lock);
-=20
--	completed =3D xfrm_state_walk_completed;
--	mutex_unlock(&xfrm_cfg_mutex);
--
--	list_for_each_entry_safe(x, tmp, &xfrm_state_gc_leftovers, gclist) {
--		if ((long)(x->lastused - completed) > 0)
--			break;
--		list_del(&x->gclist);
-+	hlist_for_each_entry_safe(x, entry, tmp, &gc_list, gclist)
- 		xfrm_state_gc_destroy(x);
--	}
-=20
- 	wake_up(&km_waitq);
- }
-@@ -529,7 +513,7 @@ struct xfrm_state *xfrm_state_alloc(void)
- 	if (x) {
- 		atomic_set(&x->refcnt, 1);
- 		atomic_set(&x->tunnel_users, 0);
--		INIT_LIST_HEAD(&x->all);
-+		INIT_LIST_HEAD(&x->km.all);
- 		INIT_HLIST_NODE(&x->bydst);
- 		INIT_HLIST_NODE(&x->bysrc);
- 		INIT_HLIST_NODE(&x->byspi);
-@@ -556,7 +540,7 @@ void __xfrm_state_destroy(struct xfrm_state *x)
- 	WARN_ON(x->km.state !=3D XFRM_STATE_DEAD);
-=20
- 	spin_lock_bh(&xfrm_state_gc_lock);
--	list_add_tail(&x->gclist, &xfrm_state_gc_list);
-+	hlist_add_head(&x->gclist, &xfrm_state_gc_list);
- 	spin_unlock_bh(&xfrm_state_gc_lock);
- 	schedule_work(&xfrm_state_gc_work);
- }
-@@ -569,8 +553,7 @@ int __xfrm_state_delete(struct xfrm_state *x)
- 	if (x->km.state !=3D XFRM_STATE_DEAD) {
- 		x->km.state =3D XFRM_STATE_DEAD;
- 		spin_lock(&xfrm_state_lock);
--		x->lastused =3D xfrm_state_walk_ongoing;
--		list_del_rcu(&x->all);
-+		list_del(&x->km.all);
- 		hlist_del(&x->bydst);
- 		hlist_del(&x->bysrc);
- 		if (x->id.spi)
-@@ -871,7 +854,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address=
-_t *saddr,
-=20
- 		if (km_query(x, tmpl, pol) =3D=3D 0) {
- 			x->km.state =3D XFRM_STATE_ACQ;
--			list_add_tail(&x->all, &xfrm_state_all);
-+			list_add(&x->km.all, &xfrm_state_all);
- 			hlist_add_head(&x->bydst, xfrm_state_bydst+h);
- 			h =3D xfrm_src_hash(daddr, saddr, family);
- 			hlist_add_head(&x->bysrc, xfrm_state_bysrc+h);
-@@ -940,7 +923,7 @@ static void __xfrm_state_insert(struct xfrm_state *=
-x)
-=20
- 	x->genid =3D ++xfrm_state_genid;
-=20
--	list_add_tail(&x->all, &xfrm_state_all);
-+	list_add(&x->km.all, &xfrm_state_all);
-=20
- 	h =3D xfrm_dst_hash(&x->id.daddr, &x->props.saddr,
- 			  x->props.reqid, x->props.family);
-@@ -1069,7 +1052,7 @@ static struct xfrm_state *__find_acq_core(unsigne=
-d short family, u8 mode, u32 re
- 		xfrm_state_hold(x);
- 		x->timer.expires =3D jiffies + sysctl_xfrm_acq_expires*HZ;
- 		add_timer(&x->timer);
--		list_add_tail(&x->all, &xfrm_state_all);
-+		list_add(&x->km.all, &xfrm_state_all);
- 		hlist_add_head(&x->bydst, xfrm_state_bydst+h);
- 		h =3D xfrm_src_hash(daddr, saddr, family);
- 		hlist_add_head(&x->bysrc, xfrm_state_bysrc+h);
-@@ -1566,79 +1549,56 @@ int xfrm_state_walk(struct xfrm_state_walk *wal=
-k,
- 		    int (*func)(struct xfrm_state *, int, void*),
- 		    void *data)
- {
--	struct xfrm_state *old, *x, *last =3D NULL;
-+	struct xfrm_state *state;
-+	struct xfrm_state_walk *x;
- 	int err =3D 0;
-=20
--	if (walk->state =3D=3D NULL && walk->count !=3D 0)
--		return 0;
--
--	old =3D x =3D walk->state;
--	walk->state =3D NULL;
- 	spin_lock_bh(&xfrm_state_lock);
--	if (x =3D=3D NULL)
--		x =3D list_first_entry(&xfrm_state_all, struct xfrm_state, all);
-+	if (list_empty(&walk->all))
-+		x =3D list_first_entry(&xfrm_state_all, struct xfrm_state_walk, all)=
-;
-+	else
-+		x =3D list_entry(&walk->all, struct xfrm_state_walk, all);
- 	list_for_each_entry_from(x, &xfrm_state_all, all) {
--		if (x->km.state =3D=3D XFRM_STATE_DEAD)
-+		if (x->state =3D=3D XFRM_STATE_DEAD)
- 			continue;
--		if (!xfrm_id_proto_match(x->id.proto, walk->proto))
-+		state =3D container_of(x, struct xfrm_state, km);
-+		if (!xfrm_id_proto_match(state->id.proto, walk->proto))
- 			continue;
--		if (last) {
--			err =3D func(last, walk->count, data);
--			if (err) {
--				xfrm_state_hold(last);
--				walk->state =3D last;
--				goto out;
--			}
-+		err =3D func(state, walk->seq, data);
-+		if (err) {
-+			list_move_tail(&walk->all, &x->all);
-+			goto out;
- 		}
--		last =3D x;
--		walk->count++;
-+		walk->seq++;
+ 	int cpu;
+ 
+ 	for_each_possible_cpu(cpu) {
++		int i;
++
+ 		per_cpu(tasklet_vec, cpu).tail =
+ 			&per_cpu(tasklet_vec, cpu).head;
+ 		per_cpu(tasklet_hi_vec, cpu).tail =
+ 			&per_cpu(tasklet_hi_vec, cpu).head;
++		for (i = 0; i < NR_SOFTIRQ; i++)
++			INIT_LIST_HEAD(&per_cpu(softirq_work_list[i], cpu));
  	}
--	if (walk->count =3D=3D 0) {
-+	if (walk->seq =3D=3D 0) {
- 		err =3D -ENOENT;
- 		goto out;
- 	}
--	if (last)
--		err =3D func(last, 0, data);
-+	list_del_init(&walk->all);
- out:
- 	spin_unlock_bh(&xfrm_state_lock);
--	if (old !=3D NULL)
--		xfrm_state_put(old);
- 	return err;
+ 
++	register_hotcpu_notifier(&remote_softirq_cpu_notifier);
++
+ 	open_softirq(TASKLET_SOFTIRQ, tasklet_action);
+ 	open_softirq(HI_SOFTIRQ, tasklet_hi_action);
  }
- EXPORT_SYMBOL(xfrm_state_walk);
-=20
- void xfrm_state_walk_init(struct xfrm_state_walk *walk, u8 proto)
- {
-+	INIT_LIST_HEAD(&walk->all);
- 	walk->proto =3D proto;
--	walk->state =3D NULL;
--	walk->count =3D 0;
--	list_add_tail(&walk->list, &xfrm_state_walks);
--	walk->genid =3D ++xfrm_state_walk_ongoing;
-+	walk->state =3D XFRM_STATE_DEAD;
-+	walk->seq =3D 0;
- }
- EXPORT_SYMBOL(xfrm_state_walk_init);
-=20
- void xfrm_state_walk_done(struct xfrm_state_walk *walk)
- {
--	struct list_head *prev;
--
--	if (walk->state !=3D NULL) {
--		xfrm_state_put(walk->state);
--		walk->state =3D NULL;
--	}
--
--	prev =3D walk->list.prev;
--	list_del(&walk->list);
--
--	if (prev !=3D &xfrm_state_walks) {
--		list_entry(prev, struct xfrm_state_walk, list)->genid =3D
--			walk->genid;
-+	if (list_empty(&walk->all))
- 		return;
--	}
--
--	xfrm_state_walk_completed =3D walk->genid;
-=20
--	if (!list_empty(&xfrm_state_gc_leftovers))
--		schedule_work(&xfrm_state_gc_work);
-+	spin_lock_bh(&xfrm_state_lock);
-+	list_del(&walk->all);
-+	spin_lock_bh(&xfrm_state_lock);
- }
- EXPORT_SYMBOL(xfrm_state_walk_done);
-=20
+-- 
+1.5.6.5
+
+
