@@ -1,62 +1,355 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: [PATCH 3/4] enic: Bug fix: Free MSI intr with correct data handle
-Date: Wed, 24 Sep 2008 11:23:42 -0700
-Message-ID: <20080924182342.22778.94916.stgit@palito_client100.nuovasystems.com>
-References: <20080924182154.22778.76605.stgit@palito_client100.nuovasystems.com>
+From: Corey Minyard <minyard@acm.org>
+Subject: [PATCH 1/1] Use RCU for the UDP hash lock
+Date: Wed, 24 Sep 2008 12:28:27 -0500
+Message-ID: <20080924172827.GA1573@minyard.local>
+Reply-To: minyard@acm.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+To: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:22077 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867AbYIXSYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 14:24:33 -0400
-In-Reply-To: <20080924182154.22778.76605.stgit@palito_client100.nuovasystems.com>
+Received: from vms173003pub.verizon.net ([206.46.173.3]:60707 "EHLO
+	vms173003pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751550AbYIXSeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 14:34:50 -0400
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-enic: Bug fix: Free MSI intr with correct data handle
+From: Corey Minyard <cminyard@mvista.com>
 
-Bug fix: Free MSI intr with correct data handle
-Use davem proposed naming for MSI-X tx/rx vectors (ethX-tx-0, ethX-rx-0)
+Convert access to the udp_hash table to use RCU.
 
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+Signed-off-by: Corey Minyard <cminyard@mvista.com>
 ---
- drivers/net/enic/enic_main.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ include/linux/rculist.h |   19 +++++++++++++++++++
+ include/net/sock.h      |   39 +++++++++++++++++++++++++++++++++++++++
+ include/net/udp.h       |    9 +++++----
+ net/ipv4/udp.c          |   36 +++++++++++++++++++++---------------
+ net/ipv6/udp.c          |   13 +++++++------
+ 5 files changed, 91 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index c741bbf..14e59a7 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1134,9 +1134,11 @@ static void enic_free_intr(struct enic *enic)
- 
- 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
- 	case VNIC_DEV_INTR_MODE_INTX:
--	case VNIC_DEV_INTR_MODE_MSI:
- 		free_irq(enic->pdev->irq, netdev);
- 		break;
-+	case VNIC_DEV_INTR_MODE_MSI:
-+		free_irq(enic->pdev->irq, enic);
-+		break;
- 	case VNIC_DEV_INTR_MODE_MSIX:
- 		for (i = 0; i < ARRAY_SIZE(enic->msix); i++)
- 			if (enic->msix[i].requested)
-@@ -1171,12 +1173,12 @@ static int enic_request_intr(struct enic *enic)
- 	case VNIC_DEV_INTR_MODE_MSIX:
- 
- 		sprintf(enic->msix[ENIC_MSIX_RQ].devname,
--			"%.11s-rx", netdev->name);
-+			"%.11s-rx-0", netdev->name);
- 		enic->msix[ENIC_MSIX_RQ].isr = enic_isr_msix_rq;
- 		enic->msix[ENIC_MSIX_RQ].devid = enic;
- 
- 		sprintf(enic->msix[ENIC_MSIX_WQ].devname,
--			"%.11s-tx", netdev->name);
-+			"%.11s-tx-0", netdev->name);
- 		enic->msix[ENIC_MSIX_WQ].isr = enic_isr_msix_wq;
- 		enic->msix[ENIC_MSIX_WQ].devid = enic;
- 
+This patch is pretty straightforward; I've tested it a while and it
+seems to work properly with a test program that constantly creates and
+destroys UDP sockets while sending and receiving large numbers of
+packets on an SMP box.  I think I've covered all the bases, though RCU
+is subtle.
 
+This doesn't make much difference when using no preempt or desktop,
+but it makes a huge difference when used with PREEMPT_RT.  More than
+10 times more UDP throughput on a 16-way machine.
+
+So I'm not sure if this belongs in the RT patch or in the mainstream
+kernel.
+
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index eb4443c..4d3cc58 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -397,5 +397,24 @@ static inline void hlist_add_after_rcu(struct hlist_node *prev,
+ 		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
+ 		pos = rcu_dereference(pos->next))
+ 
++
++/**
++ * hlist_for_each_entry_from_rcu - iterate over rcu list starting from pos
++ * @tpos:      the type * to use as a loop cursor.
++ * @pos:       the &struct hlist_node to use as a loop cursor.
++ * @head:      the head for your list.
++ * @member:    the name of the hlist_node within the struct.
++ *
++ * This list-traversal primitive may safely run concurrently with
++ * the _rcu list-mutation primitives such as hlist_add_head_rcu()
++ * as long as the traversal is guarded by rcu_read_lock().
++ */
++#define hlist_for_each_entry_from_rcu(tpos, pos, member)                \
++	for (;                                                          \
++	     rcu_dereference(pos) && ({ prefetch(pos->next); 1; }) &&    \
++	       ({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
++	     pos = pos->next)
++
++
+ #endif	/* __KERNEL__ */
+ #endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 06c5259..ada44ad 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -42,6 +42,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/list.h>
++#include <linux/rculist.h>
+ #include <linux/timer.h>
+ #include <linux/cache.h>
+ #include <linux/module.h>
+@@ -361,6 +362,27 @@ static __inline__ int sk_del_node_init(struct sock *sk)
+ 	return rc;
+ }
+ 
++static inline int __sk_del_node_rcu(struct sock *sk)
++{
++	if (sk_hashed(sk)) {
++		hlist_del_rcu(&sk->sk_node);
++		return 1;
++	}
++	return 0;
++}
++
++static inline int sk_del_node_rcu(struct sock *sk)
++{
++	int rc = __sk_del_node_rcu(sk);
++
++	if (rc) {
++		/* paranoid for a while -acme */
++		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
++		__sock_put(sk);
++	}
++	return rc;
++}
++
+ static __inline__ void __sk_add_node(struct sock *sk, struct hlist_head *list)
+ {
+ 	hlist_add_head(&sk->sk_node, list);
+@@ -372,6 +394,18 @@ static __inline__ void sk_add_node(struct sock *sk, struct hlist_head *list)
+ 	__sk_add_node(sk, list);
+ }
+ 
++static inline void __sk_add_node_rcu(struct sock *sk,
++					 struct hlist_head *list)
++{
++	hlist_add_head_rcu(&sk->sk_node, list);
++}
++
++static inline void sk_add_node_rcu(struct sock *sk, struct hlist_head *list)
++{
++	sock_hold(sk);
++	__sk_add_node_rcu(sk, list);
++}
++
+ static __inline__ void __sk_del_bind_node(struct sock *sk)
+ {
+ 	__hlist_del(&sk->sk_bind_node);
+@@ -385,9 +419,14 @@ static __inline__ void sk_add_bind_node(struct sock *sk,
+ 
+ #define sk_for_each(__sk, node, list) \
+ 	hlist_for_each_entry(__sk, node, list, sk_node)
++#define sk_for_each_rcu(__sk, node, list) \
++	hlist_for_each_entry_rcu(__sk, node, list, sk_node)
+ #define sk_for_each_from(__sk, node) \
+ 	if (__sk && ({ node = &(__sk)->sk_node; 1; })) \
+ 		hlist_for_each_entry_from(__sk, node, sk_node)
++#define sk_for_each_from_rcu(__sk, node) \
++	if (__sk && ({ node = &(__sk)->sk_node; 1; })) \
++		hlist_for_each_entry_from_rcu(__sk, node, sk_node)
+ #define sk_for_each_continue(__sk, node) \
+ 	if (__sk && ({ node = &(__sk)->sk_node; 1; })) \
+ 		hlist_for_each_entry_continue(__sk, node, sk_node)
+diff --git a/include/net/udp.h b/include/net/udp.h
+index addcdc6..04181f8 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -51,7 +51,7 @@ struct udp_skb_cb {
+ #define UDP_SKB_CB(__skb)	((struct udp_skb_cb *)((__skb)->cb))
+ 
+ extern struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+-extern rwlock_t udp_hash_lock;
++extern spinlock_t udp_hash_wlock;
+ 
+ 
+ /* Note: this must match 'valbool' in sock_setsockopt */
+@@ -112,12 +112,13 @@ static inline void udp_lib_hash(struct sock *sk)
+ 
+ static inline void udp_lib_unhash(struct sock *sk)
+ {
+-	write_lock_bh(&udp_hash_lock);
+-	if (sk_del_node_init(sk)) {
++	spin_lock_bh(&udp_hash_wlock);
++	if (sk_del_node_rcu(sk)) {
+ 		inet_sk(sk)->num = 0;
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+ 	}
+-	write_unlock_bh(&udp_hash_lock);
++	spin_unlock_bh(&udp_hash_wlock);
++	synchronize_sched();
+ }
+ 
+ static inline void udp_lib_close(struct sock *sk, long timeout)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 57e26fa..3aa04da 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -112,7 +112,8 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
+ EXPORT_SYMBOL(udp_stats_in6);
+ 
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+-DEFINE_RWLOCK(udp_hash_lock);
++DEFINE_SPINLOCK(udp_hash_wlock);
++EXPORT_SYMBOL(udp_hash_wlock);
+ 
+ int sysctl_udp_mem[3] __read_mostly;
+ int sysctl_udp_rmem_min __read_mostly;
+@@ -155,7 +156,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 	int    error = 1;
+ 	struct net *net = sock_net(sk);
+ 
+-	write_lock_bh(&udp_hash_lock);
++	spin_lock_bh(&udp_hash_wlock);
+ 
+ 	if (!snum) {
+ 		int i, low, high, remaining;
+@@ -225,12 +226,12 @@ gotit:
+ 	sk->sk_hash = snum;
+ 	if (sk_unhashed(sk)) {
+ 		head = &udptable[udp_hashfn(net, snum)];
+-		sk_add_node(sk, head);
++		sk_add_node_rcu(sk, head);
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
+ 	}
+ 	error = 0;
+ fail:
+-	write_unlock_bh(&udp_hash_lock);
++	spin_unlock_bh(&udp_hash_wlock);
+ 	return error;
+ }
+ 
+@@ -260,8 +261,8 @@ static struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 	unsigned short hnum = ntohs(dport);
+ 	int badness = -1;
+ 
+-	read_lock(&udp_hash_lock);
+-	sk_for_each(sk, node, &udptable[udp_hashfn(net, hnum)]) {
++	rcu_read_lock();
++	sk_for_each_rcu(sk, node, &udptable[udp_hashfn(net, hnum)]) {
+ 		struct inet_sock *inet = inet_sk(sk);
+ 
+ 		if (net_eq(sock_net(sk), net) && sk->sk_hash == hnum &&
+@@ -296,9 +297,17 @@ static struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 			}
+ 		}
+ 	}
++	/*
++	 * Note that this is safe, even with an RCU lock.
++	 * udp_lib_unhash() is the removal function, it calls
++	 * synchronize_sched() and the socket counter cannot go to
++	 * zero until it returns.  So if we increment it inside the
++	 * RCU read lock, it should never go to zero and then be
++	 * incremented again.
++	 */
+ 	if (result)
+ 		sock_hold(result);
+-	read_unlock(&udp_hash_lock);
++	rcu_read_unlock();
+ 	return result;
+ }
+ 
+@@ -311,7 +320,7 @@ static inline struct sock *udp_v4_mcast_next(struct sock *sk,
+ 	struct sock *s = sk;
+ 	unsigned short hnum = ntohs(loc_port);
+ 
+-	sk_for_each_from(s, node) {
++	sk_for_each_from_rcu(s, node) {
+ 		struct inet_sock *inet = inet_sk(s);
+ 
+ 		if (s->sk_hash != hnum					||
+@@ -1094,7 +1103,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	struct sock *sk;
+ 	int dif;
+ 
+-	read_lock(&udp_hash_lock);
++	rcu_read_lock();
+ 	sk = sk_head(&udptable[udp_hashfn(net, ntohs(uh->dest))]);
+ 	dif = skb->dev->ifindex;
+ 	sk = udp_v4_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
+@@ -1120,7 +1129,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		} while (sknext);
+ 	} else
+ 		kfree_skb(skb);
+-	read_unlock(&udp_hash_lock);
++	rcu_read_unlock();
+ 	return 0;
+ }
+ 
+@@ -1566,9 +1575,8 @@ static struct sock *udp_get_idx(struct seq_file *seq, loff_t pos)
+ }
+ 
+ static void *udp_seq_start(struct seq_file *seq, loff_t *pos)
+-	__acquires(udp_hash_lock)
+ {
+-	read_lock(&udp_hash_lock);
++	rcu_read_lock();
+ 	return *pos ? udp_get_idx(seq, *pos-1) : SEQ_START_TOKEN;
+ }
+ 
+@@ -1586,9 +1594,8 @@ static void *udp_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ }
+ 
+ static void udp_seq_stop(struct seq_file *seq, void *v)
+-	__releases(udp_hash_lock)
+ {
+-	read_unlock(&udp_hash_lock);
++	rcu_read_unlock();
+ }
+ 
+ static int udp_seq_open(struct inode *inode, struct file *file)
+@@ -1732,7 +1739,6 @@ void __init udp_init(void)
+ 
+ EXPORT_SYMBOL(udp_disconnect);
+ EXPORT_SYMBOL(udp_hash);
+-EXPORT_SYMBOL(udp_hash_lock);
+ EXPORT_SYMBOL(udp_ioctl);
+ EXPORT_SYMBOL(udp_prot);
+ EXPORT_SYMBOL(udp_sendmsg);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index a6aecf7..d9822ac 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -64,8 +64,8 @@ static struct sock *__udp6_lib_lookup(struct net *net,
+ 	unsigned short hnum = ntohs(dport);
+ 	int badness = -1;
+ 
+-	read_lock(&udp_hash_lock);
+-	sk_for_each(sk, node, &udptable[udp_hashfn(net, hnum)]) {
++	rcu_read_lock();
++	sk_for_each_rcu(sk, node, &udptable[udp_hashfn(net, hnum)]) {
+ 		struct inet_sock *inet = inet_sk(sk);
+ 
+ 		if (net_eq(sock_net(sk), net) && sk->sk_hash == hnum &&
+@@ -101,9 +101,10 @@ static struct sock *__udp6_lib_lookup(struct net *net,
+ 			}
+ 		}
+ 	}
++	/* See comment in __udp4_lib_lookup on why this is safe. */
+ 	if (result)
+ 		sock_hold(result);
+-	read_unlock(&udp_hash_lock);
++	rcu_read_unlock();
+ 	return result;
+ }
+ 
+@@ -322,7 +323,7 @@ static struct sock *udp_v6_mcast_next(struct sock *sk,
+ 	struct sock *s = sk;
+ 	unsigned short num = ntohs(loc_port);
+ 
+-	sk_for_each_from(s, node) {
++	sk_for_each_from_rcu(s, node) {
+ 		struct inet_sock *inet = inet_sk(s);
+ 
+ 		if (sock_net(s) != sock_net(sk))
+@@ -365,7 +366,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	const struct udphdr *uh = udp_hdr(skb);
+ 	int dif;
+ 
+-	read_lock(&udp_hash_lock);
++	rcu_read_lock();
+ 	sk = sk_head(&udptable[udp_hashfn(net, ntohs(uh->dest))]);
+ 	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
+@@ -394,7 +395,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		sk_add_backlog(sk, skb);
+ 	bh_unlock_sock(sk);
+ out:
+-	read_unlock(&udp_hash_lock);
++	rcu_read_unlock();
+ 	return 0;
+ }
+ 
