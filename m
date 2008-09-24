@@ -1,47 +1,56 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH]: tcp: Fix queue traversal in tcp_use_frto().
-Date: Wed, 24 Sep 2008 13:08:04 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0809241248560.1034@wrl-59.cs.helsinki.fi>
-References: <20080923.025542.193703353.davem@davemloft.net>
- <Pine.LNX.4.64.0809232214320.14360@wrl-59.cs.helsinki.fi>
- <20080923.150034.74273991.davem@davemloft.net>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: /proc/net/igmp group address encoding
+Date: Wed, 24 Sep 2008 13:31:32 +0300 (EEST)
+Message-ID: <alpine.LRH.2.00.0809241326070.30892@netcore.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2113557826-1222250884=:1034"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56088 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751359AbYIXKII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 06:08:08 -0400
-In-Reply-To: <20080923.150034.74273991.davem@davemloft.net>
+Received: from netcore.fi ([193.94.160.1]:46560 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752181AbYIXKbg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 06:31:36 -0400
+Received: from netcore.fi (localhost [127.0.0.1])
+	by netcore.fi (8.13.8/8.13.8) with ESMTP id m8OAVXt7031024
+	for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 13:31:33 +0300
+Received: from localhost (pekkas@localhost)
+	by netcore.fi (8.13.8/8.13.8/Submit) with ESMTP id m8OAVWmA031021
+	for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 13:31:33 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi,
 
----696208474-2113557826-1222250884=:1034
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+I've spotted some irritating IGMPv3/v2 compat problems on RHEL4, and 
+I'm working on trying to see if these are due to bugs already fixed in 
+latest kernels.  In the process, I started wondering about 
+/proc/net/igmp format (on 2.6.26.5-39.fc9.i686):
 
-On Tue, 23 Sep 2008, David Miller wrote:
+[psavola@lapps ~]$ more /proc/net/igmp
+Idx	Device    : Count Querier	Group    Users Timer	Reporter
+1	lo        :     0      V3
+ 				010000E0     1 0:00000000		0
+2	eth0      :     2      V3
+ 				010000E0     1 0:00000000		0
+3	wmaster0  :     3      V3
+ 				010000E0     1 0:00000000		0
+4	wlan0     :     3      V3
+ 				010000E0     1 0:00000000		0
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Tue, 23 Sep 2008 22:18:33 +0300 (EEST)
-> 
-> > For the record (as you probably know it already), this wasn't actually
-> > a real bug though it hits your BUG_ON since tcp_for_write_queue_from exits
-> > immediately, no garbage gets dereferenced.
-> 
-> Yes, that is correct.
->
-> It is actually disappointing for me, I thought maybe it would catch
-> a real bug somewhere :-)
+(The header and the fields seem to be a little off in the output..)
 
-Rest assured, it will definately do that once some rewrite or so 
-happens... :-)
+[psavola@lapps ~]$ netstat -gn | grep eth0
+eth0            1      224.0.0.1
+eth0            1      ff02::1
+
+It appears "010000E0" is 224.0.0.1 encoded in in hex but 
+right-to-left.  Other groups are similarly encoded.  /proc/net/igmp6 
+is encoded in a human-friendly format.
+
+Is this intentional?  Should this be changed, e.g. to flow 
+left-to-right and use the dotted quad IP address format?
 
 -- 
- i.
----696208474-2113557826-1222250884=:1034--
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
