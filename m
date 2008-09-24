@@ -1,51 +1,58 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Bonding and Neighbour Discovery on IPv6-only devices
-Date: Wed, 24 Sep 2008 13:29:48 -0700
-Message-ID: <7958.1222288188@death.nxdomain.ibm.com>
-References: <200809151335.16817.asid@hp.com> <20080915180015.GB1078@havoc.gtf.org> <200809151416.49447.alexandre.sidorenko@hp.com> <48DA71A8.5050900@hp.com>
-Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: /proc/net/igmp group address encoding
+Date: Wed, 24 Sep 2008 23:12:17 +0300 (EEST)
+Message-ID: <alpine.LRH.2.00.0809242310100.9495@netcore.fi>
+References: <OFF76F11EC.DE83396F-ON882574CE.00619859-882574CE.00622571@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:33512 "EHLO e6.ny.us.ibm.com"
+Received: from netcore.fi ([193.94.160.1]:39056 "EHLO netcore.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752202AbYIXUaX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 16:30:23 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m8OKWqgY021693
-	for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 16:32:52 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m8OKU6Zf288206
-	for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 16:30:06 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m8OKU6kq001099
-	for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 16:30:06 -0400
-In-reply-to: <48DA71A8.5050900@hp.com>
+	id S1751652AbYIXUcG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 16:32:06 -0400
+In-Reply-To: <OFF76F11EC.DE83396F-ON882574CE.00619859-882574CE.00622571@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
-[...]
->It doesn't.  What appears to happen in the active-backup case the MLD reports
->are not generated on all of the slave devices, just the active one.  Thus the
->switch knows only about the active device.
+On Wed, 24 Sep 2008, David Stevens wrote:
+> netdev-owner@vger.kernel.org wrote on 09/24/2008 04:20:48 AM:
+>> On Wed, 24 Sep 2008, Pekka Savola wrote:
+>>> [psavola@lapps ~]$ more /proc/net/igmp
+>>> Idx   Device    : Count Querier   Group    Users Timer   Reporter
+>>> 1   lo        :     0      V3
+>>>             010000E0     1 0:00000000      0
+>>> 2   eth0      :     2      V3
+>>>             010000E0     1 0:00000000      0
+>>> 3   wmaster0  :     3      V3
+>>>             010000E0     1 0:00000000      0
+>>> 4   wlan0     :     3      V3
+>>>              010000E0     1 0:00000000      0
+>>>
+>>> (The header and the fields seem to be a little off in the output..)
+>>>
+>>> [psavola@lapps ~]$ netstat -gn | grep eth0
+>>> eth0            1      224.0.0.1
+>>> eth0            1      ff02::1
+>>
+>> Another observation here:  the "Count" field appears to correspond to
+>> 'netstat -gn | wc -l' output.  But this includes both IPv4 and IPv6
+>> groups.  Is this intentional?  Shouldn't this only count the v4
+>> entries, just like /proc/net/igmp6 only includes v6 entries?
+>
+> I'm guessing this is Alan Cox's code, but it's at least 8 years
+> old, so I'm not sure original intent is easy to establish. :-)
+>
+> I agree it'd be a good idea to separate the counts. Are you
+> planning to do a patch?
 
-	This behavior is by design.  Previously, it worked the other way
-(every slave did IPv6 addrconf stuff, etc), but that confused the
-switches because they'd snoop the addrconf traffic whenever a backup
-slave came up, and update the switch forwarding table.
+I'm less than familiar with the code in question and not best placed 
+to work on this, so if you (or someone else) would be 
+interested/willing to do this, great.  If nothing happens, I may need 
+to reconsider my options..
 
->When you force the failover, no reports happen because the device believes that
->the MLD group was already reported.  Thus there needs to be some trigger after
->the failover to tell the switch that the mac address and multicast group have
->moved to a different port.
-
-	Yes, there needs to be an ipv6 equivalent of the gratuitous ARP
-and IGMP rejoin that's done for ipv4.  I haven't figured out how to
-accomplish that yet; suggestions are welcome.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
