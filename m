@@ -1,27 +1,36 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: /proc/net/igmp group address encoding
-Date: Wed, 24 Sep 2008 13:49:34 -0700
-Message-ID: <OFD09BFACD.5BF3314E-ON882574CE.00725332-882574CE.007265EF@us.ibm.com>
-References: <alpine.LRH.2.00.0809242310100.9495@netcore.fi>
+From: Chris Leech <christopher.leech@intel.com>
+Subject: Question about supporting non-IP offloads (FCoE)
+Date: Wed, 24 Sep 2008 13:55:26 -0700
+Message-ID: <48DAA93E.5010102@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Pekka Savola <pekkas@netcore.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:38149 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755897AbYIXUtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 16:49:43 -0400
-In-Reply-To: <alpine.LRH.2.00.0809242310100.9495@netcore.fi>
+Received: from mga01.intel.com ([192.55.52.88]:59246 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752254AbYIXUz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 16:55:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I'm less than familiar with the code in question and not best placed 
-> to work on this, so if you (or someone else) would be 
-> interested/willing to do this, great.  If nothing happens, I may need 
-> to reconsider my options..
+I'm looking at adding support for stateless offloads to the Fibre
+Channel over Ethernet stack at open-fcoe.org that roughly match
+currently supported TCP offloads:  Fibre Channel CRC offload on Tx and
+Rx, and sequencing offload (GSO) on Tx.
 
-        Sure, I'll have a look, though probably not immediately.
+>From the net_device all I see the need for is two feature flags bits for
+the transmit path, one for FC-CRC and one for FCoE GSO.
 
-                                                        +-DLS
+In the skb, the FCoE needs match up well with the existing CRC and GSO
+fields.  I would like to reuse the ip_summed bits rather than add to the
+skb, but I suspect this will be the most controversial part of the FCoE
+offloads.
 
+Are there any objections to the idea of adding checks for FCoE protocol
+to the dev_queue_xmit/dev_can_checksum/can_checksum_protocol path?
+Obviously skb_checksum_help isn't going to work as a software fallback
+and a protocol check would need to be added there as well, or a
+per-protocol helper like is done for gso_segment.
+
+- Chris
