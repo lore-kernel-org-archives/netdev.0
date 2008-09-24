@@ -1,55 +1,47 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 2/5] dccp: Implement lookup table for
-	feature-negotiation information
-Date: Wed, 24 Sep 2008 06:41:20 +0200
-Message-ID: <20080924044120.GA4944@gerrit.erg.abdn.ac.uk>
-References: <20080921.235853.223987556.davem@davemloft.net> <1222068117-13401-1-git-send-email-gerrit@erg.abdn.ac.uk> <1222068117-13401-2-git-send-email-gerrit@erg.abdn.ac.uk> <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net> <20080922154554.GA3521@gerrit.erg.abdn.ac.uk> <20080922170013.GF16625@ghostprotocols.net>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] sendfile() and UDP socket
+Date: Wed, 24 Sep 2008 00:53:35 -0400
+Message-ID: <20080924005335.0117c536.billfink@mindspring.com>
+References: <20080922070425.GA14572@2ka.mipt.ru>
+	<E1Khzut-0006lv-Co@gondolin.me.apana.org.au>
+	<20080923062709.GA7886@2ka.mipt.ru>
+	<20080923070133.GB26836@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, davem@davemloft.net,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, davem@davemloft.net,
+	johaahn@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38179 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750884AbYIXEmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 00:42:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20080922170013.GF16625@ghostprotocols.net>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:37207 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750937AbYIXEyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 00:54:04 -0400
+In-Reply-To: <20080923070133.GB26836@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > | > --- a/include/linux/dccp.h
-| > | > +++ b/include/linux/dccp.h
-| > | >  
-| > | > +
-| > | > +static int dccp_feat_default_value(u8 feat_num)
-| > | > +{
-| > | > +	int idx = dccp_feat_index(feat_num);
-| > | > +
-| > | > +	return idx < 0 ? : dccp_feat_table[idx].default_value;
-| > | > +}
-<snip>
-| > | 
-| > It is the first value. The test is only there to avoid accessing the
-| > array with an invalid index, which would happen if an unknown `feat_num'
-| > is passed - as for unknown features there is no default value.
-| 
-| The above explanation would be good to have as a comment, as it was not
-| so obvious from a first sight. I think that even having it explicit
-| would be clearer:
-| 
-| return idx < 0 ? 1 : dccp_feat_table[idx].default_value;
-| 
-| But then, if an unknown feat num is passed shouldn't the code bailout in
-| some other fashion than returning the result of a boolean expression and
-| not accessing the defaults table?
-| 
-Yes thank you. It is necessary to check this, since only in the current
-state of code the use of the function is consistent.  If the code gets
-changed later on then there will be no warning.
+On Tue, 23 Sep 2008, Herbert Xu wrote:
 
-I have worked on this function yesterday evening with regard to above
-feedback. If you could either check again when the patch is submitted
-later, or have a look at the online version in the test tree on
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=b0708121bfeb309db88e1b3a97cf851069bcafe1
+> On Tue, Sep 23, 2008 at 10:27:10AM +0400, Evgeniy Polyakov wrote:
+> > On Tue, Sep 23, 2008 at 12:54:27PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > > I think this dicussion is moot since the only time you want to use
+> > > sendfile is for bulk transfers and these days anybody designing new
+> > > applications that does bulk transfers over UDP should be taken out
+> > > and shot.
+> > 
+> > One can protect himself pointing how slow may be memory bus in some
+> > hardware setup, which completely does not allow to perform any copy.
+> 
+> Yes but bulk transfers over UDP is a bad idea regardless of how
+> slow your bus is :)
+> 
+> So what application needs this?
 
+It seems it might be useful for a video server.  The one thing that
+seems to be missing from the sendfile() semantics is a message size
+to be used for splitting the file into UDP datagrams, but this could
+be provided by a separate ioctl(), and could default to the largest
+message size that would fit in the MTU.
+
+						-Bill
