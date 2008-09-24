@@ -1,47 +1,53 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Wed, 24 Sep 2008 00:53:35 -0400
-Message-ID: <20080924005335.0117c536.billfink@mindspring.com>
-References: <20080922070425.GA14572@2ka.mipt.ru>
-	<E1Khzut-0006lv-Co@gondolin.me.apana.org.au>
-	<20080923062709.GA7886@2ka.mipt.ru>
-	<20080923070133.GB26836@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/2]: Remote softirq invocation infrastructure.
+Date: Wed, 24 Sep 2008 12:54:04 +0800
+Message-ID: <20080924045404.GA6010@gondor.apana.org.au>
+References: <20080920.125949.193703969.davem@davemloft.net> <E1KhI4n-0002Fk-7C@gondolin.me.apana.org.au> <20080920.235727.247411045.davem@davemloft.net> <Pine.LNX.4.64.0809221329140.1034@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, davem@davemloft.net,
-	johaahn@gmail.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, dwalker@mvista.com,
+	arjan@infradead.org, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, jens.axboe@oracle.com,
+	steffen.klassert@secunet.com
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:37207 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750937AbYIXEyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 00:54:04 -0400
-In-Reply-To: <20080923070133.GB26836@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:50973 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751318AbYIXEyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 00:54:41 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0809221329140.1034@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Sep 2008, Herbert Xu wrote:
+On Mon, Sep 22, 2008 at 01:36:24PM +0300, Ilpo J=E4rvinen wrote:
+> On Sat, 20 Sep 2008, David Miller wrote:
+>=20
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Sun, 21 Sep 2008 15:05:45 +0900
+> >=20
+> > > Of course, we need to balance any effort spent on this with the
+> > > likelihood that hardware improvements will soon make this obsolet=
+e
+> > > (for IPsec anyway).
+> >=20
+> > True, but old hardware will always exist.
+>=20
+> ...Also, producing buggy hardware will not suddently just vanish eith=
+er=20
+> ("can you please turn of ipsec offloading and see if you can still
+> reproduce" :-))...
 
-> On Tue, Sep 23, 2008 at 10:27:10AM +0400, Evgeniy Polyakov wrote:
-> > On Tue, Sep 23, 2008 at 12:54:27PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > > I think this dicussion is moot since the only time you want to use
-> > > sendfile is for bulk transfers and these days anybody designing new
-> > > applications that does bulk transfers over UDP should be taken out
-> > > and shot.
-> > 
-> > One can protect himself pointing how slow may be memory bus in some
-> > hardware setup, which completely does not allow to perform any copy.
-> 
-> Yes but bulk transfers over UDP is a bad idea regardless of how
-> slow your bus is :)
-> 
-> So what application needs this?
+That's fine.  If your AES hardware is buggy you just fall back
+to using the software version.
 
-It seems it might be useful for a video server.  The one thing that
-seems to be missing from the sendfile() semantics is a message size
-to be used for splitting the file into UDP datagrams, but this could
-be provided by a separate ioctl(), and could default to the largest
-message size that would fit in the MTU.
+In fact if this was done through the crypto API it would even
+happen automatically.
 
-						-Bill
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
