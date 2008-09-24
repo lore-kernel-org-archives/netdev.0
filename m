@@ -1,34 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: read MAC address from EEPROM on init
-Date: Wed, 24 Sep 2008 23:10:21 +0200
-Message-ID: <20080924211021.GB9746@electric-eye.fr.zoreil.com>
-References: <48D25BA2.6070008@redhat.com> <Pine.LNX.4.64.0809182235550.4742@wrl-59.cs.helsinki.fi> <48D3A381.1080500@redhat.com> <Pine.LNX.4.64.0809210100020.16838@wrl-59.cs.helsinki.fi> <48D9FE65.40709@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Ivan Vecera <ivecera@redhat.com>
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: [PATCH 7/9] [ETH]: Start net device with carrier down
+Date: Wed, 24 Sep 2008 14:20:55 -0700
+Message-ID: <ebb4b9e34a594b9ca0fda9042bfa12bff9e9fac2.1221537369.git.tpiepho@freescale.com>
+References: <e665d9ff8b50796ce65c503604453056217bfc8a.1221537369.git.tpiepho@freescale.com>
+Cc: Trent Piepho <tpiepho@freescale.com>,
+	Andy Fleming <afleming@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54327 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752231AbYIXVKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 17:10:46 -0400
-Content-Disposition: inline
-In-Reply-To: <48D9FE65.40709@redhat.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:61862 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875AbYIXVXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 17:23:40 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m8OLNcXT017723
+	for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 14:23:38 -0700 (MST)
+In-Reply-To: <e665d9ff8b50796ce65c503604453056217bfc8a.1221537369.git.tpiepho@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ivan Vecera <ivecera@redhat.com> :
-[...]
-> OK :-), I hope the patch below is finally the right one.
+Because it _is_ down when the device starts.
 
-My approval ratings won't surge today.
+The device's carrier status is controlled via the functions
+netif_carrier_on() and netif_carrier_off().  These set or clear a bit
+indicating the lower level link aka carrier is down, and if the state
+changed, they fire off a routing netlink event.
 
-Is there a specific explanation for the 10 us delay ?
+The problem is that when the device is first created and opened, the state
+bit indicating the carrier is down isn't set, i.e. the state is wrong.
+When the carrier comes up for the first time no netlink event is sent,
+since the device state indicated the carrier was already up.
 
-Realtek's 8168 / 8169 / 8101 drivers all use a (wildly copy'pasted ?)
-10 ms delay. I would not mind a 10 ms sleep.
+Signed-off-by: Trent Piepho <tpiepho@freescale.com>
+CC: Andy Fleming <afleming@freescale.com>
+---
+ net/ethernet/eth.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index a80839b..cdba6d0 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -333,6 +333,7 @@ void ether_setup(struct net_device *dev)
+ 	dev->addr_len		= ETH_ALEN;
+ 	dev->tx_queue_len	= 1000;	/* Ethernet wants good queues */
+ 	dev->flags		= IFF_BROADCAST|IFF_MULTICAST;
++	dev->state		= 1 << __LINK_STATE_NOCARRIER;
+ 
+ 	memset(dev->broadcast, 0xFF, ETH_ALEN);
+ 
 -- 
-Ueimor
+1.5.4.1
+
