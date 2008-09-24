@@ -1,41 +1,37 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: v2 [PATCH 2/5] dccp: Implement lookup table for
-	feature-negotiation information
-Date: Wed, 24 Sep 2008 11:01:21 -0300
-Message-ID: <20080924140121.GK9588@ghostprotocols.net>
-References: <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net> <20080922154554.GA3521@gerrit.erg.abdn.ac.uk> <20080922.202056.218746153.davem@davemloft.net> <20080924051823.GB4944@gerrit.erg.abdn.ac.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: xfrm_state locking regression...
+Date: Wed, 24 Sep 2008 22:08:19 +0800
+Message-ID: <20080924140819.GA10022@gondor.apana.org.au>
+References: <20080924051555.GA6218@gondor.apana.org.au> <48D9D421.9050500@iki.fi> <20080924055550.GA6506@gondor.apana.org.au> <48D9D86E.7020205@iki.fi> <20080924061349.GA6679@gondor.apana.org.au> <48D9DC1A.10903@iki.fi> <20080924062138.GA6764@gondor.apana.org.au> <48D9EC4B.4050804@iki.fi> <20080924075441.GA7391@gondor.apana.org.au> <48DA3E2D.4070909@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:41422 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753478AbYIXOBl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 10:01:41 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:57800 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752095AbYIXOI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 10:08:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20080924051823.GB4944@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <48DA3E2D.4070909@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Sep 24, 2008 at 07:18:23AM +0200, Gerrit Renker escreveu:
-> This is the first revised patch, the second follows subsequently.
-> 
-> Changes relative to v1: 
-> migrated function `dccp_default_value' moved to where it is first used 
-> 
-> >>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-> dccp: Implement lookup table for feature-negotiation information
-> 
-> A lookup table for feature-negotiation information, extracted from RFC 4340/42,
-> is provided by this patch. All currently known features can be found in this 
-> table, along with their feature location, their default value, and type.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+On Wed, Sep 24, 2008 at 04:18:37PM +0300, Timo Ter=E4s wrote:
+>
+> Gave it a test spin and found one bug. The walking routine will
+> get called one extra time when it has successfully dumped
+> everything so we need to check for that in the beginning; the
+> earlier version would start all over from the beginning resulting
+> never ending dumps.
 
-Lets make progress, in the future lets try and remove hardcoded specific CCID
-tests.
+Aha, that's why the if statement was there :)
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Thanks for all the work!
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
