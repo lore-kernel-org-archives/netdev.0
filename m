@@ -1,58 +1,47 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Regression in 2.6.27-rc7: Wake On LAN with sky2 broken
-Date: Wed, 24 Sep 2008 23:10:22 +0200
-Message-ID: <200809242310.23477.rjw@sisk.pl>
-References: <20080924080546.GA21108@x61> <200809242113.52256.rjw@sisk.pl> <20080924194906.GA25874@x61>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: Bonding and Neighbour Discovery on IPv6-only devices
+Date: Wed, 24 Sep 2008 17:07:53 -0400
+Message-ID: <48DAAC29.6000108@hp.com>
+References: <200809151335.16817.asid@hp.com> <20080915180015.GB1078@havoc.gtf.org> <200809151416.49447.alexandre.sidorenko@hp.com> <48DA71A8.5050900@hp.com> <7958.1222288188@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tino Keitel <tino.keitel@gmx.de>
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:49471 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751652AbYIXVEu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 17:04:50 -0400
-In-Reply-To: <20080924194906.GA25874@x61>
-Content-Disposition: inline
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:35642 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436AbYIXVH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 17:07:57 -0400
+In-Reply-To: <7958.1222288188@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, 24 of September 2008, Tino Keitel wrote:
-> On Wed, Sep 24, 2008 at 21:13:51 +0200, Rafael J. Wysocki wrote:
-> > On Wednesday, 24 of September 2008, Tino Keitel wrote:
-> > > Hi,
-> > > 
-> > > Wake On LAN from suspend to RAM doesn't work on my Mac mini Core Duo
-> > > with 2.6.27-rc7. I tested the same configuration with 2.6.26.3, and it
-> > > worked. With 2.6.27-rc7, the computer stays in suspended state. I can
-> > > still wake it up using the keyboard or power switch.
-> > > 
-> > > In my suspend script, I use the command "ethtool -s eth0 wol g" to
-> > > enable WOL even if it was disabled before.
-> > > 
-> > > Any hints what commit I should try to revert, before I start bisecting?
-> > 
-> > Please try the appended patch.
+Jay Vosburgh wrote:
+> Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
+> [...]
+>> It doesn't.  What appears to happen in the active-backup case the MLD reports
+>> are not generated on all of the slave devices, just the active one.  Thus the
+>> switch knows only about the active device.
 > 
-> With this patch, the computer hangs during suspend.
+> 	This behavior is by design.  Previously, it worked the other way
+> (every slave did IPv6 addrconf stuff, etc), but that confused the
+> switches because they'd snoop the addrconf traffic whenever a backup
+> slave came up, and update the switch forwarding table.
+> 
+>> When you force the failover, no reports happen because the device believes that
+>> the MLD group was already reported.  Thus there needs to be some trigger after
+>> the failover to tell the switch that the mac address and multicast group have
+>> moved to a different port.
+> 
+> 	Yes, there needs to be an ipv6 equivalent of the gratuitous ARP
+> and IGMP rejoin that's done for ipv4.  I haven't figured out how to
+> accomplish that yet; suggestions are welcome.
 
-This is not good.  It probably means that it actually tries to set up the NIC
-for waking up the system, but something broke _that_ for you.
+I have a patch that does it, just doing some final testing before 
+sending it out, hopefully later today...
 
-FWIW, I tried it on my test machine with sky2 and it worked.
-
-Can you try:
-
-# ethtool -s eth0 wol g
-# echo devices > /sys/power/pm_test
-# echo mem > /sys/power/state
-(this should wait for 5 seconds and return to the command line)
-
-and see if the machine hangs during this operation?
-
-Please also attach the boot log from your system.
-
-Thanks,
-Rafael
+-Brian
