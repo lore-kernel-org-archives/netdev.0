@@ -1,44 +1,151 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: AIM9 regression
-Date: Tue, 23 Sep 2008 22:18:31 -0700 (PDT)
-Message-ID: <20080923.221831.126801015.davem@davemloft.net>
-References: <48D93203.2050204@linux-foundation.org>
-	<20080924051237.GA6173@gondor.apana.org.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: v2 [PATCH 1/5] dccp: Basic data structure for feature negotiation
+Date: Wed, 24 Sep 2008 07:23:05 +0200
+Message-ID: <20080924052305.GC4944@gerrit.erg.abdn.ac.uk>
+References: <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net> <20080922154554.GA3521@gerrit.erg.abdn.ac.uk> <20080922.202056.218746153.davem@davemloft.net> <20080924051823.GB4944@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+To: David Miller <davem@davemloft.net>, acme@redhat.com,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47615
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751514AbYIXFSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 01:18:43 -0400
-In-Reply-To: <20080924051237.GA6173@gondor.apana.org.au>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39211 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751280AbYIXFX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 01:23:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20080924051823.GB4944@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 24 Sep 2008 13:12:37 +0800
+This is the second/other revised patch for this set [v2 of 1/5].
 
-> On Tue, Sep 23, 2008 at 01:14:27PM -0500, Christoph Lameter wrote:
-> > I just dont seem to be able to get 2.6.27 to behave in a speedy way network
-> > wise. Configured out various components (netfilter, etc etc) but I still keep
-> > getting these aim9 result against 2.6.22:
-> 
-> Could you please compare this against something less ancient,
-> like 2.6.26 perhaps?
+Changes relative to v1: copied Arnaldos suggested layout and updated the
+struct documentation accordingly. Compile-tested the result.
 
-Herbert, this is part of the tbench regression issues.  Christoph
-took tbench from 2.6.22 until 2.6.27 and at basically every release
-tbench performance suffered noticably.
+>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: Basic data structure for feature negotiation
 
-Now, he's taking the AIM9 benchmark networking numbers and showing
-that the same exact effect is seen there too.
+This patch prepares for the new and extended feature-negotiation routines.
 
-It really behooves us to start doing something proactive about this
-blindingly obvious set of networking performance regressions through
-the past 6 or so releases instead of barking at the reporters saying
-things like "try this, try that, what's your config" etc.
+The following feature-negotiation data structures are provided:
+	* a container for the various (SP or NN) values,
+	* symbolic state names to track feature states,
+	* an entry struct which holds all current information together,
+	* elementary functions to fill in and process these structures.
 
-:-)
+Entry structs are arranged as FIFO for the following reason: RFC 4340 specifies
+that if multiple options of the same type are present, they are processed in the
+order of their appearance in the packet; which means that this order needs to be
+preserved in the local data structure (the later insertion code also respects
+this order).
+
+The struct list_head has been chosen for the following reasons: the most 
+frequent operations are
+ * add new entry at tail (when receiving Change or setting socket options);
+ * delete entry (when Confirm has been received);
+ * deep copy of entire list (cloning from listening socket onto request socket).
+
+The NN value has been set to 64 bit, which is a currently sufficient upper limit
+(Sequence Window feature has 48 bit).
+
+Thanks to Arnaldo who streamlined the field layout of the entry struct.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/feat.c |   14 ++++++++++++
+ net/dccp/feat.h |   61 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 75 insertions(+)
+
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -14,6 +14,67 @@
+ #include <linux/types.h>
+ #include "dccp.h"
+ 
++enum dccp_feat_type {
++	FEAT_AT_RX   = 1,	/* located at RX side of half-connection  */
++	FEAT_AT_TX   = 2,	/* located at TX side of half-connection  */
++	FEAT_SP      = 4,	/* server-priority reconciliation (6.3.1) */
++	FEAT_NN	     = 8,	/* non-negotiable reconciliation (6.3.2)  */
++	FEAT_UNKNOWN = 0xFF	/* not understood or invalid feature	  */
++};
++
++enum dccp_feat_state {
++	FEAT_DEFAULT = 0,	/* using default values from 6.4 */
++	FEAT_INITIALISING,	/* feature is being initialised  */
++	FEAT_CHANGING,		/* Change sent but not confirmed yet */
++	FEAT_UNSTABLE,		/* local modification in state CHANGING */
++	FEAT_STABLE		/* both ends (think they) agree */
++};
++
++/**
++ * dccp_feat_val  -  Container for SP or NN feature values
++ * @nn:     single NN value
++ * @sp.vec: single SP value plus optional preference list
++ * @sp.len: length of @sp.vec in bytes
++ */
++typedef union {
++	u64 nn;
++	struct {
++		u8	*vec;
++		u8	len;
++	}   sp;
++} dccp_feat_val;
++
++/**
++ * struct feat_entry  -  Data structure to perform feature negotiation
++ * @val: feature's current value (SP features may have preference list)
++ * @state: feature's current state
++ * @feat_num: one of %dccp_feature_numbers
++ * @needs_mandatory: whether Mandatory options should be sent
++ * @needs_confirm: whether to send a Confirm instead of a Change
++ * @empty_confirm: whether to send an empty Confirm (depends on @needs_confirm)
++ * @is_local: feature location (1) or feature-remote (0)
++ * @node: list pointers, entries arranged in FIFO order
++ */
++struct dccp_feat_entry {
++	dccp_feat_val           val;
++	enum dccp_feat_state    state:8;
++	u8                      feat_num;
++
++	bool			needs_mandatory,
++				needs_confirm,
++				empty_confirm,
++				is_local;
++
++	struct list_head	node;
++};
++
++static inline u8 dccp_feat_genopt(struct dccp_feat_entry *entry)
++{
++	if (entry->needs_confirm)
++		return entry->is_local ? DCCPO_CONFIRM_L : DCCPO_CONFIRM_R;
++	return entry->is_local ? DCCPO_CHANGE_L : DCCPO_CHANGE_R;
++}
++
+ #ifdef CONFIG_IP_DCCP_DEBUG
+ extern const char *dccp_feat_typename(const u8 type);
+ extern const char *dccp_feat_name(const u8 feat);
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -23,6 +23,20 @@
+ 
+ #define DCCP_FEAT_SP_NOAGREE (-123)
+ 
++/* copy constructor, fval must not already contain allocated memory */
++static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
++{
++	fval->sp.len = len;
++	if (fval->sp.len > 0) {
++		fval->sp.vec = kmemdup(val, len, gfp_any());
++		if (fval->sp.vec == NULL) {
++			fval->sp.len = 0;
++			return -ENOBUFS;
++		}
++	}
++	return 0;
++}
++
+ int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+ 		     u8 *val, u8 len, gfp_t gfp)
+ {
