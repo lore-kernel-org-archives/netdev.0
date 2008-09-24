@@ -1,52 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: AIM9 regression
-Date: Wed, 24 Sep 2008 15:26:21 -0700 (PDT)
-Message-ID: <20080924.152621.129282055.davem@davemloft.net>
-References: <48DA90BE.5090208@linux-foundation.org>
-	<20080924.125346.178957726.davem@davemloft.net>
-	<20080924143419.467e0e76@extreme>
+From: Jiri Kosina <jikos@jikos.cz>
+Subject: Re: D945GCLF  intel atom board & r8169 ethernet broken in
+ linux-2.6.27-rc5??
+Date: Thu, 25 Sep 2008 00:26:32 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0809250024000.27884@twin.jikos.cz>
+References: <9F6ACAE02B6DD040A1E259977622CFDB03F5BCCB@oslexcp1.eu.tandberg.int>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: John Gumb <john.gumb@tandberg.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40289
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752192AbYIXW0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 18:26:32 -0400
-In-Reply-To: <20080924143419.467e0e76@extreme>
+Received: from twin.jikos.cz ([213.151.79.26]:58754 "EHLO twin.jikos.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752254AbYIXW04 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 18:26:56 -0400
+In-Reply-To: <9F6ACAE02B6DD040A1E259977622CFDB03F5BCCB@oslexcp1.eu.tandberg.int>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 24 Sep 2008 14:34:19 -0700
+On Wed, 24 Sep 2008, John Gumb wrote:
 
-> On Wed, 24 Sep 2008 12:53:46 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+> With linux-2.6.27-rc5, "ifconfig eth0" just hangs. lspci -vvx reports,
+> after loading the driver,
+> > 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E
+> PCI Express Fast Ethernet controller (rev ff) (prog-if ff)
+> >       !!! Unknown header type 7f
+> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
 > 
-> > From: Christoph Lameter <cl@linux-foundation.org>
-> > Date: Wed, 24 Sep 2008 14:10:54 -0500
-> > 
-> > > Stephen Hemminger wrote:
-> > > 
-> > > > These loopback benchmarks are often more sensitive to scheduler than networking
-> > > > changes.
-> > > 
-> > > Just ran a test with real NICs which show the same issues. I guess I need to
-> > > get familiar with the network stack and start hacking on it. Sigh.
-> > 
-> > I feel your pain, I think people are being very unreasonable in their
-> > analysis of your numbers, and for this I want to personally apologize.
-> > 
-> > It's clearly a networking issue in my eyes, and I wish my co-developers
-> > in networking would treat it as such instead of pushing the blame under
-> > the carpet and saying "scheduler", "SLUB", and all kinds of other bullshit
-> > without any facts on this specific case to back up such accusations.
+> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
 > 
-> Is this a one time change, or has networking been getting slower over time?
+> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 
+> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  
 
-As per the tbench thread, it's been getting slower and slower, every
-single release, since as far back as people have tested, which seems
-to be 2.6.22 or thereabouts.
+Hmm, probably a lot of 0xff stored in NVRAM of the card? There seems to be 
+some similarity to the problem that seemed to be e1000e-specific so far.
+
+        http://lkml.org/lkml/2008/8/8/123
+        http://lkml.org/lkml/2008/9/22/23
+        http://bugzilla.kernel.org/show_bug.cgi?id=11382
+	https://bugzilla.novell.com/show_bug.cgi?id=425480
+
+-- 
+Jiri Kosina
