@@ -1,7 +1,7 @@
 From: Scott Feldman <scofeldm@cisco.com>
-Subject: [PATCH 2/4] enic: fixes for review items from Ben Hutchings
-Date: Wed, 24 Sep 2008 11:23:32 -0700
-Message-ID: <20080924182332.22778.55520.stgit@palito_client100.nuovasystems.com>
+Subject: [PATCH 4/4] enic: bug fix: don't set netdev->name too early
+Date: Wed, 24 Sep 2008 11:23:53 -0700
+Message-ID: <20080924182353.22778.83553.stgit@palito_client100.nuovasystems.com>
 References: <20080924182154.22778.76605.stgit@palito_client100.nuovasystems.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,181 +9,320 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:1317 "EHLO
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:1456 "EHLO
 	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754545AbYIXSYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 14:24:23 -0400
+	with ESMTP id S1753088AbYIXSYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 14:24:48 -0400
 In-Reply-To: <20080924182154.22778.76605.stgit@palito_client100.nuovasystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-enic: fixes for review items from Ben Hutchings
+enic: bug fix: don't set netdev->name too early
 
-Fixes for review items from Ben Hutchings:
- - use netdev->net_stats rather than private net_stats
- - use ethtool op .get_sset_count rather than .get_stats_count
- - err out if setting Tx/Rx csum or TSO using ethtool and setting is
-   not enabled for device.
- - pass in jiffies + constant to round_jiffies
- - return err if new MTU is out-of-bounds
+Bug fix: don't set netdev->name early before netdev registration.  Setting
+netdev->name early with dev_alloc_name() would occasionally cause netdev
+registration to fail returning error that device was already registered.
+Since we're using netdev->name to name MSI-X vectors, we now need to 
+move the request_irq after netdev registartion, so move it to ->open.
 
 Signed-off-by: Scott Feldman <scofeldm@cisco.com>
 ---
- drivers/net/enic/enic.h      |    1 -
- drivers/net/enic/enic_main.c |   62 +++++++++++++++++++++++++-----------------
- 2 files changed, 37 insertions(+), 26 deletions(-)
+ drivers/net/enic/enic.h      |    2 -
+ drivers/net/enic/enic_main.c |  121 ++++++++++++++++--------------------------
+ 2 files changed, 47 insertions(+), 76 deletions(-)
 
 diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index fb83c92..9e0d484 100644
+index 9e0d484..7f677e8 100644
 --- a/drivers/net/enic/enic.h
 +++ b/drivers/net/enic/enic.h
-@@ -75,7 +75,6 @@ struct enic {
- 	struct vnic_enet_config config;
- 	struct vnic_dev_bar bar0;
- 	struct vnic_dev *vdev;
--	struct net_device_stats net_stats;
- 	struct timer_list notify_timer;
- 	struct work_struct reset;
- 	struct msix_entry msix_entry[ENIC_MSIX_MAX];
+@@ -33,7 +33,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco 10G Ethernet Driver"
+-#define DRV_VERSION		"0.0.1.18163.472"
++#define DRV_VERSION		"0.0.1-18163.472-k1"
+ #define DRV_COPYRIGHT		"Copyright 2008 Cisco Systems, Inc"
+ #define PFX			DRV_NAME ": "
+ 
 diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 6284594..c741bbf 100644
+index 14e59a7..180e968 100644
 --- a/drivers/net/enic/enic_main.c
 +++ b/drivers/net/enic/enic_main.c
-@@ -44,7 +44,6 @@
- #include "enic.h"
+@@ -1251,13 +1251,28 @@ static int enic_open(struct net_device *netdev)
+ 	unsigned int i;
+ 	int err;
  
- #define ENIC_NOTIFY_TIMER_PERIOD	(2 * HZ)
--#define ENIC_JUMBO_FIRST_BUF_SIZE	256
- 
- /* Supported devices */
- static struct pci_device_id enic_id_table[] = {
-@@ -168,9 +167,14 @@ static void enic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 	}
- }
- 
--static int enic_get_stats_count(struct net_device *netdev)
-+static int enic_get_sset_count(struct net_device *netdev, int sset)
- {
--	return enic_n_tx_stats + enic_n_rx_stats;
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return enic_n_tx_stats + enic_n_rx_stats;
-+	default:
-+		return -EOPNOTSUPP;
++	err = enic_request_intr(enic);
++	if (err) {
++		printk(KERN_ERR PFX "%s: Unable to request irq.\n",
++			netdev->name);
++		return err;
 +	}
- }
- 
- static void enic_get_ethtool_stats(struct net_device *netdev,
-@@ -200,8 +204,10 @@ static int enic_set_rx_csum(struct net_device *netdev, u32 data)
- {
- 	struct enic *enic = netdev_priv(netdev);
- 
--	enic->csum_rx_enabled =
--		(data && ENIC_SETTING(enic, RXCSUM)) ? 1 : 0;
-+	if (data && !ENIC_SETTING(enic, RXCSUM))
-+		return -EINVAL;
 +
-+	enic->csum_rx_enabled = !!data;
++	err = enic_notify_set(enic);
++	if (err) {
++		printk(KERN_ERR PFX
++			"%s: Failed to alloc notify buffer, aborting.\n",
++			netdev->name);
++		goto err_out_free_intr;
++	}
++
+ 	for (i = 0; i < enic->rq_count; i++) {
+ 		err = vnic_rq_fill(&enic->rq[i], enic_rq_alloc_buf);
+ 		if (err) {
+ 			printk(KERN_ERR PFX
+ 				"%s: Unable to alloc receive buffers.\n",
+ 				netdev->name);
+-			return err;
++			goto err_out_notify_unset;
+ 		}
+ 	}
+ 
+@@ -1279,6 +1294,13 @@ static int enic_open(struct net_device *netdev)
+ 	enic_notify_timer_start(enic);
  
  	return 0;
- }
-@@ -210,7 +216,10 @@ static int enic_set_tx_csum(struct net_device *netdev, u32 data)
- {
- 	struct enic *enic = netdev_priv(netdev);
- 
--	if (data && ENIC_SETTING(enic, TXCSUM))
-+	if (data && !ENIC_SETTING(enic, TXCSUM))
-+		return -EINVAL;
 +
-+	if (data)
- 		netdev->features |= NETIF_F_HW_CSUM;
- 	else
- 		netdev->features &= ~NETIF_F_HW_CSUM;
-@@ -222,7 +231,10 @@ static int enic_set_tso(struct net_device *netdev, u32 data)
- {
- 	struct enic *enic = netdev_priv(netdev);
- 
--	if (data && ENIC_SETTING(enic, TSO))
-+	if (data && !ENIC_SETTING(enic, TSO))
-+		return -EINVAL;
++err_out_notify_unset:
++	vnic_dev_notify_unset(enic->vdev);
++err_out_free_intr:
++	enic_free_intr(enic);
 +
-+	if (data)
- 		netdev->features |=
- 			NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN;
- 	else
-@@ -251,7 +263,7 @@ static struct ethtool_ops enic_ethtool_ops = {
- 	.set_msglevel = enic_set_msglevel,
- 	.get_link = ethtool_op_get_link,
- 	.get_strings = enic_get_strings,
--	.get_stats_count = enic_get_stats_count,
-+	.get_sset_count = enic_get_sset_count,
- 	.get_ethtool_stats = enic_get_ethtool_stats,
- 	.get_rx_csum = enic_get_rx_csum,
- 	.set_rx_csum = enic_set_rx_csum,
-@@ -653,25 +665,26 @@ static int enic_hard_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- static struct net_device_stats *enic_get_stats(struct net_device *netdev)
- {
- 	struct enic *enic = netdev_priv(netdev);
-+	struct net_device_stats *net_stats = &netdev->stats;
- 	struct vnic_stats *stats;
- 
- 	spin_lock(&enic->devcmd_lock);
- 	vnic_dev_stats_dump(enic->vdev, &stats);
- 	spin_unlock(&enic->devcmd_lock);
- 
--	enic->net_stats.tx_packets = stats->tx.tx_frames_ok;
--	enic->net_stats.tx_bytes = stats->tx.tx_bytes_ok;
--	enic->net_stats.tx_errors = stats->tx.tx_errors;
--	enic->net_stats.tx_dropped = stats->tx.tx_drops;
-+	net_stats->tx_packets = stats->tx.tx_frames_ok;
-+	net_stats->tx_bytes = stats->tx.tx_bytes_ok;
-+	net_stats->tx_errors = stats->tx.tx_errors;
-+	net_stats->tx_dropped = stats->tx.tx_drops;
- 
--	enic->net_stats.rx_packets = stats->rx.rx_frames_ok;
--	enic->net_stats.rx_bytes = stats->rx.rx_bytes_ok;
--	enic->net_stats.rx_errors = stats->rx.rx_errors;
--	enic->net_stats.multicast = stats->rx.rx_multicast_frames_ok;
--	enic->net_stats.rx_crc_errors = stats->rx.rx_crc_errors;
--	enic->net_stats.rx_dropped = stats->rx.rx_no_bufs;
-+	net_stats->rx_packets = stats->rx.rx_frames_ok;
-+	net_stats->rx_bytes = stats->rx.rx_bytes_ok;
-+	net_stats->rx_errors = stats->rx.rx_errors;
-+	net_stats->multicast = stats->rx.rx_multicast_frames_ok;
-+	net_stats->rx_crc_errors = stats->rx.rx_crc_errors;
-+	net_stats->rx_dropped = stats->rx.rx_no_bufs;
- 
--	return &enic->net_stats;
-+	return net_stats;
++	return err;
  }
  
- static void enic_reset_mcaddrs(struct enic *enic)
-@@ -1110,7 +1123,8 @@ static void enic_notify_timer(unsigned long data)
+ /* rtnl lock is held, process context */
+@@ -1308,6 +1330,9 @@ static int enic_stop(struct net_device *netdev)
+ 			return err;
+ 	}
  
- 	enic_notify_check(enic);
- 
--	mod_timer(&enic->notify_timer, round_jiffies(ENIC_NOTIFY_TIMER_PERIOD));
-+	mod_timer(&enic->notify_timer,
-+		round_jiffies(jiffies + ENIC_NOTIFY_TIMER_PERIOD));
- }
- 
- static void enic_free_intr(struct enic *enic)
-@@ -1314,14 +1328,12 @@ static int enic_change_mtu(struct net_device *netdev, int new_mtu)
- 	struct enic *enic = netdev_priv(netdev);
- 	int running = netif_running(netdev);
- 
-+	if (new_mtu < ENIC_MIN_MTU || new_mtu > ENIC_MAX_MTU)
-+		return -EINVAL;
++	vnic_dev_notify_unset(enic->vdev);
++	enic_free_intr(enic);
 +
- 	if (running)
- 		enic_stop(netdev);
+ 	(void)vnic_cq_service(&enic->cq[ENIC_CQ_RQ],
+ 		-1, enic_rq_service_drop, NULL);
+ 	(void)vnic_cq_service(&enic->cq[ENIC_CQ_WQ],
+@@ -1593,18 +1618,6 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 		return -ENOMEM;
+ 	}
  
--	if (new_mtu < ENIC_MIN_MTU)
--		new_mtu = ENIC_MIN_MTU;
--	if (new_mtu > ENIC_MAX_MTU)
--		new_mtu = ENIC_MAX_MTU;
+-	/* Set the netdev name early so intr vectors are properly
+-	 * named and any error msgs can include netdev->name
+-	 */
 -
- 	netdev->mtu = new_mtu;
+-	rtnl_lock();
+-	err = dev_alloc_name(netdev, netdev->name);
+-	rtnl_unlock();
+-	if (err < 0) {
+-		printk(KERN_ERR PFX "Unable to allocate netdev name.\n");
+-		goto err_out_free_netdev;
+-	}
+-
+ 	pci_set_drvdata(pdev, netdev);
  
- 	if (netdev->mtu > enic->port_mtu)
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+@@ -1619,16 +1632,14 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Cannot enable PCI device, aborting.\n",
+-			netdev->name);
++			"Cannot enable PCI device, aborting.\n");
+ 		goto err_out_free_netdev;
+ 	}
+ 
+ 	err = pci_request_regions(pdev, DRV_NAME);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Cannot request PCI regions, aborting.\n",
+-			netdev->name);
++			"Cannot request PCI regions, aborting.\n");
+ 		goto err_out_disable_device;
+ 	}
+ 
+@@ -1644,25 +1655,22 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 		err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+ 		if (err) {
+ 			printk(KERN_ERR PFX
+-				"%s: No usable DMA configuration, aborting.\n",
+-				netdev->name);
++				"No usable DMA configuration, aborting.\n");
+ 			goto err_out_release_regions;
+ 		}
+ 		err = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK);
+ 		if (err) {
+ 			printk(KERN_ERR PFX
+-				"%s: Unable to obtain 32-bit DMA "
+-				"for consistent allocations, aborting.\n",
+-				netdev->name);
++				"Unable to obtain 32-bit DMA "
++				"for consistent allocations, aborting.\n");
+ 			goto err_out_release_regions;
+ 		}
+ 	} else {
+ 		err = pci_set_consistent_dma_mask(pdev, DMA_40BIT_MASK);
+ 		if (err) {
+ 			printk(KERN_ERR PFX
+-				"%s: Unable to obtain 40-bit DMA "
+-				"for consistent allocations, aborting.\n",
+-				netdev->name);
++				"Unable to obtain 40-bit DMA "
++				"for consistent allocations, aborting.\n");
+ 			goto err_out_release_regions;
+ 		}
+ 		using_dac = 1;
+@@ -1673,8 +1681,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 
+ 	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
+ 		printk(KERN_ERR PFX
+-			"%s: BAR0 not memory-map'able, aborting.\n",
+-			netdev->name);
++			"BAR0 not memory-map'able, aborting.\n");
+ 		err = -ENODEV;
+ 		goto err_out_release_regions;
+ 	}
+@@ -1685,8 +1692,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 
+ 	if (!enic->bar0.vaddr) {
+ 		printk(KERN_ERR PFX
+-			"%s: Cannot memory-map BAR0 res hdr, aborting.\n",
+-			netdev->name);
++			"Cannot memory-map BAR0 res hdr, aborting.\n");
+ 		err = -ENODEV;
+ 		goto err_out_release_regions;
+ 	}
+@@ -1697,8 +1703,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	enic->vdev = vnic_dev_register(NULL, enic, pdev, &enic->bar0);
+ 	if (!enic->vdev) {
+ 		printk(KERN_ERR PFX
+-			"%s: vNIC registration failed, aborting.\n",
+-			netdev->name);
++			"vNIC registration failed, aborting.\n");
+ 		err = -ENODEV;
+ 		goto err_out_iounmap;
+ 	}
+@@ -1709,8 +1714,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = enic_dev_open(enic);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: vNIC dev open failed, aborting.\n",
+-			netdev->name);
++			"vNIC dev open failed, aborting.\n");
+ 		goto err_out_vnic_unregister;
+ 	}
+ 
+@@ -1727,8 +1731,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = vnic_dev_init(enic->vdev, 0);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: vNIC dev init failed, aborting.\n",
+-			netdev->name);
++			"vNIC dev init failed, aborting.\n");
+ 		goto err_out_dev_close;
+ 	}
+ 
+@@ -1738,8 +1741,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = enic_get_vnic_config(enic);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Get vNIC configuration failed, aborting.\n",
+-			netdev->name);
++			"Get vNIC configuration failed, aborting.\n");
+ 		goto err_out_dev_close;
+ 	}
+ 
+@@ -1755,18 +1757,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = enic_set_intr_mode(enic);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Failed to set intr mode, aborting.\n",
+-			netdev->name);
+-		goto err_out_dev_close;
+-	}
+-
+-	/* Request interrupt vector(s)
+-	*/
+-
+-	err = enic_request_intr(enic);
+-	if (err) {
+-		printk(KERN_ERR PFX "%s: Unable to request irq.\n",
+-			netdev->name);
++			"Failed to set intr mode, aborting.\n");
+ 		goto err_out_dev_close;
+ 	}
+ 
+@@ -1776,8 +1767,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = enic_alloc_vnic_resources(enic);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Failed to alloc vNIC resources, aborting.\n",
+-			netdev->name);
++			"Failed to alloc vNIC resources, aborting.\n");
+ 		goto err_out_free_vnic_resources;
+ 	}
+ 
+@@ -1793,19 +1783,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 		ig_vlan_strip_en);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Failed to config nic, aborting.\n",
+-			netdev->name);
+-		goto err_out_free_vnic_resources;
+-	}
+-
+-	/* Setup notification buffer area
+-	 */
+-
+-	err = enic_notify_set(enic);
+-	if (err) {
+-		printk(KERN_ERR PFX
+-			"%s: Failed to alloc notify buffer, aborting.\n",
+-			netdev->name);
++			"Failed to config nic, aborting.\n");
+ 		goto err_out_free_vnic_resources;
+ 	}
+ 
+@@ -1832,9 +1810,8 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = enic_set_mac_addr(netdev, enic->mac_addr);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Invalid MAC address, aborting.\n",
+-			netdev->name);
+-		goto err_out_notify_unset;
++			"Invalid MAC address, aborting.\n");
++		goto err_out_free_vnic_resources;
+ 	}
+ 
+ 	netdev->open = enic_open;
+@@ -1888,18 +1865,14 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	err = register_netdev(netdev);
+ 	if (err) {
+ 		printk(KERN_ERR PFX
+-			"%s: Cannot register net device, aborting.\n",
+-			netdev->name);
+-		goto err_out_notify_unset;
++			"Cannot register net device, aborting.\n");
++		goto err_out_free_vnic_resources;
+ 	}
+ 
+ 	return 0;
+ 
+-err_out_notify_unset:
+-	vnic_dev_notify_unset(enic->vdev);
+ err_out_free_vnic_resources:
+ 	enic_free_vnic_resources(enic);
+-	enic_free_intr(enic);
+ err_out_dev_close:
+ 	vnic_dev_close(enic->vdev);
+ err_out_vnic_unregister:
+@@ -1927,9 +1900,7 @@ static void __devexit enic_remove(struct pci_dev *pdev)
+ 
+ 		flush_scheduled_work();
+ 		unregister_netdev(netdev);
+-		vnic_dev_notify_unset(enic->vdev);
+ 		enic_free_vnic_resources(enic);
+-		enic_free_intr(enic);
+ 		vnic_dev_close(enic->vdev);
+ 		enic_clear_intr_mode(enic);
+ 		vnic_dev_unregister(enic->vdev);
 
