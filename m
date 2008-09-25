@@ -1,29 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] further net driver updates for .28
-Date: Wed, 24 Sep 2008 19:57:57 -0700 (PDT)
-Message-ID: <20080924.195757.266960507.davem@davemloft.net>
-References: <20080925022722.GA32005@havoc.gtf.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bug 11633] Kernel panic after patch
+	f3994eceebf64cf356a82ffb2718ef538eb8d4f4
+Date: Thu, 25 Sep 2008 11:25:54 +0800
+Message-ID: <20080925032554.GA16155@gondor.apana.org.au>
+References: <20080925011035.GA15055@gondor.apana.org.au> <20080925012105.GA15241@gondor.apana.org.au> <20080925023622.GA15800@gondor.apana.org.au> <20080924.194955.209981542.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36614
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752082AbYIYC6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 22:58:09 -0400
-In-Reply-To: <20080925022722.GA32005@havoc.gtf.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:50281 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752499AbYIYDZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2008 23:25:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20080924.194955.209981542.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Wed, 24 Sep 2008 22:27:22 -0400
-
+On Wed, Sep 24, 2008 at 07:49:55PM -0700, David Miller wrote:
 > 
-> Please pull from 'davem-next' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
-> 
-> to receive the following updates:
+> I'll integrate this when I next get a chance.
 
-Pulled and pushed back out to net-next-2.6, thanks Jeff!
+Thanks!
+
+Oh and to make it more obvious in future:
+
+net: BUG instead of corrupting memory in pskb_expand_head
+
+If the caller of pskb_expand_head specifies a negative nhead
+we'll silently overwrite other people's memory.  This patch
+makes it BUG instead.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ca1ccdf..3fad166 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -701,6 +701,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ #endif
+ 	long off;
+ 
++	BUG_ON(nhead < 0);
++
+ 	if (skb_shared(skb))
+ 		BUG();
+ 
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
