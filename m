@@ -1,69 +1,62 @@
-From: Trent Piepho <tpiepho@freescale.com>
-Subject: Re: [PATCH] gianfar: Don't reset TBI<->SerDes link if it's already
- up
-Date: Thu, 25 Sep 2008 16:06:54 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0809251605030.7680@t2.domain.actdsltmp>
-References: <1222287839-6545-1-git-send-email-tpiepho@freescale.com>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: [PATCH] net: add net poll support for atl2 driver
+Date: Thu, 25 Sep 2008 18:45:09 -0500
+Message-ID: <20080925184509.42bfabc2@osprey.hogchain.net>
+References: <1221897404-20290-1-git-send-email-kexin.hao@windriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Fleming Andy <afleming@freescale.com>
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@redhat.com>, Chris Snook <csnook@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kevin Hao <kexin.hao@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:48236 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753343AbYIYXKZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 19:10:25 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m8PNAN1d000518
-	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 16:10:23 -0700 (MST)
-In-Reply-To: <1222287839-6545-1-git-send-email-tpiepho@freescale.com>
+Received: from fmailhost05.isp.att.net ([204.127.217.105]:36333 "EHLO
+	fmailhost05.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752077AbYIYXpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 19:45:13 -0400
+In-Reply-To: <1221897404-20290-1-git-send-email-kexin.hao@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I just realized that this patch won't apply cleanly without another patch that
-I haven't sent yet.
+On Sat, 20 Sep 2008 15:56:44 +0800
+Kevin Hao <kexin.hao@windriver.com> wrote:
 
-Please ignore, I'll repost both patches as a series when I get an ack for the
-one not posted yet.
-
-On Wed, 24 Sep 2008, Trent Piepho wrote:
-> The link may be up already via the chip's reset strapping, or though action
-> of U-Boot, or from the last time the interface was brought up.  Resetting
-> the link causes it to go down for several seconds.  This can significantly
-> increase the time from power-on to DHCP completion and a device being
-> accessible to the network.
->
-> Signed-off-by: Trent Piepho <tpiepho@freescale.com>
-> Acked-by: Andy Fleming <afleming@freescale.com>
+> Add netconsole support for Atheros L2 10/100 network device.
+> 
+> Signed-off-by: Kevin Hao <kexin.hao@windriver.com>
 > ---
-> drivers/net/gianfar.c |    9 +++++++++
-> 1 files changed, 9 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-> index 1a4a85b..dd7d8e5 100644
-> --- a/drivers/net/gianfar.c
-> +++ b/drivers/net/gianfar.c
-> @@ -578,6 +578,14 @@ static void gfar_configure_serdes(struct net_device *dev)
-> 	if (bus)
-> 		mutex_lock(&bus->mdio_lock);
->
-> +	/* If the link is already up, we must already be ok, and don't need to
-> +	 * configure and reset the TBI<->SerDes link.  Maybe U-Boot configured
-> +	 * everything for us?  Resetting it takes the link down and requires
-> +	 * several seconds for it to come back.
-> +	 */
-> +	if (gfar_local_mdio_read(regs, tbipa, MII_BMSR) & BMSR_LSTATUS)
-> +		goto done;
+>  drivers/net/atlx/atl2.c |   12 ++++++++++++
+>  1 files changed, 12 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
+> index d548a67..b2995ac 100644
+> --- a/drivers/net/atlx/atl2.c
+> +++ b/drivers/net/atlx/atl2.c
+> @@ -1327,6 +1327,15 @@ static void atl2_setup_pcicmd(struct pci_dev
+> *pdev) pci_write_config_dword(pdev, REG_PM_CTRLSTAT, 0);
+>  }
+>  
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +static void atl2_poll_controller(struct net_device *netdev)
+> +{
+> +	disable_irq(netdev->irq);
+> +	atl2_intr(netdev->irq, netdev);
+> +	enable_irq(netdev->irq);
+> +}
+> +#endif
 > +
-> 	/* Single clk mode, mii mode off(for serdes communication) */
-> 	gfar_local_mdio_write(regs, tbipa, MII_TBICON, TBICON_CLK_SELECT);
->
-> @@ -588,6 +596,7 @@ static void gfar_configure_serdes(struct net_device *dev)
-> 	gfar_local_mdio_write(regs, tbipa, MII_BMCR, BMCR_ANENABLE |
-> 			BMCR_ANRESTART | BMCR_FULLDPLX | BMCR_SPEED1000);
->
-> +	done:
-> 	if (bus)
-> 		mutex_unlock(&bus->mdio_lock);
-> }
->
+>  /*
+>   * atl2_probe - Device Initialization Routine
+>   * @pdev: PCI device information struct
+> @@ -1410,6 +1419,9 @@ static int __devinit atl2_probe(struct pci_dev
+> *pdev, netdev->do_ioctl = &atl2_ioctl;
+>  	atl2_set_ethtool_ops(netdev);
+>  
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +	netdev->poll_controller = atl2_poll_controller;
+> +#endif
+>  #ifdef HAVE_TX_TIMEOUT
+>  	netdev->tx_timeout = &atl2_tx_timeout;
+>  	netdev->watchdog_timeo = 5 * HZ;
+
+Acked-by: Jay Cliburn <jacliburn@bellsouth.net>
