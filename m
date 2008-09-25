@@ -1,324 +1,423 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 4/4] enic: bug fix: don't set netdev->name too early
-Date: Wed, 24 Sep 2008 20:51:29 -0400
-Message-ID: <48DAE091.70507@pobox.com>
-References: <20080924182154.22778.76605.stgit@palito_client100.nuovasystems.com> <20080924182353.22778.83553.stgit@palito_client100.nuovasystems.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RESEND][PATCH 2.6.28] myri10ge: Add multiqueue TX support
+Date: Wed, 24 Sep 2008 20:51:51 -0400
+Message-ID: <48DAE0A7.7020400@garzik.org>
+References: <48D536CF.5030503@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Scott Feldman <scofeldm@cisco.com>
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47064 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47072 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752777AbYIYAvf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 20:51:35 -0400
-In-Reply-To: <20080924182353.22778.83553.stgit@palito_client100.nuovasystems.com>
+	id S1752819AbYIYAv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 20:51:56 -0400
+In-Reply-To: <48D536CF.5030503@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Scott Feldman wrote:
-> enic: bug fix: don't set netdev->name too early
+Brice Goglin wrote:
+> Add multiqueue TX support to myri10ge.
+>     
+> Signed-off-by: Brice Goglin <brice@myri.com>
 > 
-> Bug fix: don't set netdev->name early before netdev registration.  Setting
-> netdev->name early with dev_alloc_name() would occasionally cause netdev
-> registration to fail returning error that device was already registered.
-> Since we're using netdev->name to name MSI-X vectors, we now need to 
-> move the request_irq after netdev registartion, so move it to ->open.
-> 
-> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
-> ---
->  drivers/net/enic/enic.h      |    2 -
->  drivers/net/enic/enic_main.c |  121 ++++++++++++++++--------------------------
->  2 files changed, 47 insertions(+), 76 deletions(-)
-> 
-> diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-> index 9e0d484..7f677e8 100644
-> --- a/drivers/net/enic/enic.h
-> +++ b/drivers/net/enic/enic.h
-> @@ -33,7 +33,7 @@
+> --- a/drivers/net/myri10ge/myri10ge.c
+> +++ b/drivers/net/myri10ge/myri10ge.c
+> @@ -102,6 +102,9 @@ MODULE_LICENSE("Dual BSD/GPL");
+>  #define MYRI10GE_ALLOC_SIZE ((1 << MYRI10GE_ALLOC_ORDER) * PAGE_SIZE)
+>  #define MYRI10GE_MAX_FRAGS_PER_FRAME (MYRI10GE_MAX_ETHER_MTU/MYRI10GE_ALLOC_SIZE + 1)
 >  
->  #define DRV_NAME		"enic"
->  #define DRV_DESCRIPTION		"Cisco 10G Ethernet Driver"
-> -#define DRV_VERSION		"0.0.1.18163.472"
-> +#define DRV_VERSION		"0.0.1-18163.472-k1"
->  #define DRV_COPYRIGHT		"Copyright 2008 Cisco Systems, Inc"
->  #define PFX			DRV_NAME ": "
->  
-> diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-> index 14e59a7..180e968 100644
-> --- a/drivers/net/enic/enic_main.c
-> +++ b/drivers/net/enic/enic_main.c
-> @@ -1251,13 +1251,28 @@ static int enic_open(struct net_device *netdev)
->  	unsigned int i;
->  	int err;
->  
-> +	err = enic_request_intr(enic);
-> +	if (err) {
-> +		printk(KERN_ERR PFX "%s: Unable to request irq.\n",
-> +			netdev->name);
-> +		return err;
-> +	}
+> +#define MYRI10GE_MAX_SLICES 32
 > +
-> +	err = enic_notify_set(enic);
-> +	if (err) {
-> +		printk(KERN_ERR PFX
-> +			"%s: Failed to alloc notify buffer, aborting.\n",
-> +			netdev->name);
-> +		goto err_out_free_intr;
-> +	}
+>  struct myri10ge_rx_buffer_state {
+>  	struct page *page;
+>  	int page_offset;
+> @@ -138,6 +141,8 @@ struct myri10ge_rx_buf {
+>  
+>  struct myri10ge_tx_buf {
+>  	struct mcp_kreq_ether_send __iomem *lanai;	/* lanai ptr for sendq */
+> +	__be32 __iomem *send_go;	/* "go" doorbell ptr */
+> +	__be32 __iomem *send_stop;	/* "stop" doorbell ptr */
+>  	struct mcp_kreq_ether_send *req_list;	/* host shadow of sendq */
+>  	char *req_bytes;
+>  	struct myri10ge_tx_buffer_state *info;
+> @@ -149,6 +154,7 @@ struct myri10ge_tx_buf {
+>  	int done ____cacheline_aligned;	/* transmit slots completed     */
+>  	int pkt_done;		/* packets completed */
+>  	int wake_queue;
+> +	int queue_active;
+>  };
+>  
+>  struct myri10ge_rx_done {
+> @@ -420,6 +426,12 @@ myri10ge_send_cmd(struct myri10ge_priv *mgp, u32 cmd,
+>  			return -ENOSYS;
+>  		} else if (result == MXGEFW_CMD_ERROR_UNALIGNED) {
+>  			return -E2BIG;
+> +		} else if (result == MXGEFW_CMD_ERROR_RANGE &&
+> +			   cmd == MXGEFW_CMD_ENABLE_RSS_QUEUES &&
+> +			   (data->
+> +			    data1 & MXGEFW_SLICE_ENABLE_MULTIPLE_TX_QUEUES) !=
+> +			   0) {
+> +			return -ERANGE;
+>  		} else {
+>  			dev_err(&mgp->pdev->dev,
+>  				"command %d failed, result = %d\n",
+> @@ -949,9 +961,24 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+>  		 */
+>  
+>  		cmd.data0 = mgp->num_slices;
+> -		cmd.data1 = 1;	/* use MSI-X */
+> +		cmd.data1 = MXGEFW_SLICE_INTR_MODE_ONE_PER_SLICE;
+> +		if (mgp->dev->real_num_tx_queues > 1)
+> +			cmd.data1 |= MXGEFW_SLICE_ENABLE_MULTIPLE_TX_QUEUES;
+>  		status = myri10ge_send_cmd(mgp, MXGEFW_CMD_ENABLE_RSS_QUEUES,
+>  					   &cmd, 0);
 > +
->  	for (i = 0; i < enic->rq_count; i++) {
->  		err = vnic_rq_fill(&enic->rq[i], enic_rq_alloc_buf);
->  		if (err) {
->  			printk(KERN_ERR PFX
->  				"%s: Unable to alloc receive buffers.\n",
->  				netdev->name);
-> -			return err;
-> +			goto err_out_notify_unset;
+> +		/* Firmware older than 1.4.32 only supports multiple
+> +		 * RX queues, so if we get an error, first retry using a
+> +		 * single TX queue before giving up */
+> +		if (status != 0 && mgp->dev->real_num_tx_queues > 1) {
+> +			mgp->dev->real_num_tx_queues = 1;
+> +			cmd.data0 = mgp->num_slices;
+> +			cmd.data1 = MXGEFW_SLICE_INTR_MODE_ONE_PER_SLICE;
+> +			status = myri10ge_send_cmd(mgp,
+> +						   MXGEFW_CMD_ENABLE_RSS_QUEUES,
+> +						   &cmd, 0);
+> +		}
+> +
+>  		if (status != 0) {
+>  			dev_err(&mgp->pdev->dev,
+>  				"failed to set number of slices\n");
+> @@ -1319,6 +1346,7 @@ myri10ge_tx_done(struct myri10ge_slice_state *ss, int mcp_index)
+>  {
+>  	struct pci_dev *pdev = ss->mgp->pdev;
+>  	struct myri10ge_tx_buf *tx = &ss->tx;
+> +	struct netdev_queue *dev_queue;
+>  	struct sk_buff *skb;
+>  	int idx, len;
+>  
+> @@ -1352,11 +1380,31 @@ myri10ge_tx_done(struct myri10ge_slice_state *ss, int mcp_index)
+>  					       PCI_DMA_TODEVICE);
 >  		}
 >  	}
->  
-> @@ -1279,6 +1294,13 @@ static int enic_open(struct net_device *netdev)
->  	enic_notify_timer_start(enic);
->  
->  	return 0;
 > +
-> +err_out_notify_unset:
-> +	vnic_dev_notify_unset(enic->vdev);
-> +err_out_free_intr:
-> +	enic_free_intr(enic);
+> +	dev_queue = netdev_get_tx_queue(ss->dev, ss - ss->mgp->ss);
+> +	/*
+> +	 * Make a minimal effort to prevent the NIC from polling an
+> +	 * idle tx queue.  If we can't get the lock we leave the queue
+> +	 * active. In this case, either a thread was about to start
+> +	 * using the queue anyway, or we lost a race and the NIC will
+> +	 * waste some of its resources polling an inactive queue for a
+> +	 * while.
+> +	 */
 > +
-> +	return err;
+> +	if ((ss->mgp->dev->real_num_tx_queues > 1) &&
+> +	    __netif_tx_trylock(dev_queue)) {
+> +		if (tx->req == tx->done) {
+> +			tx->queue_active = 0;
+> +			put_be32(htonl(1), tx->send_stop);
+> +		}
+> +		__netif_tx_unlock(dev_queue);
+> +	}
+> +
+>  	/* start the queue if we've stopped it */
+> -	if (netif_queue_stopped(ss->dev)
+> +	if (netif_tx_queue_stopped(dev_queue)
+>  	    && tx->req - tx->done < (tx->mask >> 1)) {
+>  		tx->wake_queue++;
+> -		netif_wake_queue(ss->dev);
+> +		netif_tx_wake_queue(dev_queue);
+>  	}
 >  }
 >  
->  /* rtnl lock is held, process context */
-> @@ -1308,6 +1330,9 @@ static int enic_stop(struct net_device *netdev)
->  			return err;
+> @@ -1484,9 +1532,9 @@ static irqreturn_t myri10ge_intr(int irq, void *arg)
+>  	u32 send_done_count;
+>  	int i;
+>  
+> -	/* an interrupt on a non-zero slice is implicitly valid
+> -	 * since MSI-X irqs are not shared */
+> -	if (ss != mgp->ss) {
+> +	/* an interrupt on a non-zero receive-only slice is implicitly
+> +	 * valid  since MSI-X irqs are not shared */
+> +	if ((mgp->dev->real_num_tx_queues == 1) && (ss != mgp->ss)) {
+>  		netif_rx_schedule(ss->dev, &ss->napi);
+>  		return (IRQ_HANDLED);
+>  	}
+> @@ -1528,7 +1576,9 @@ static irqreturn_t myri10ge_intr(int irq, void *arg)
+>  		barrier();
 >  	}
 >  
-> +	vnic_dev_notify_unset(enic->vdev);
-> +	enic_free_intr(enic);
+> -	myri10ge_check_statblock(mgp);
+> +	/* Only slice 0 updates stats */
+> +	if (ss == mgp->ss)
+> +		myri10ge_check_statblock(mgp);
+>  
+>  	put_be32(htonl(3), ss->irq_claim + 1);
+>  	return (IRQ_HANDLED);
+> @@ -1886,6 +1936,7 @@ static int myri10ge_allocate_rings(struct myri10ge_slice_state *ss)
+>  	/* ensure req_list entries are aligned to 8 bytes */
+>  	ss->tx.req_list = (struct mcp_kreq_ether_send *)
+>  	    ALIGN((unsigned long)ss->tx.req_bytes, 8);
+> +	ss->tx.queue_active = 0;
+>  
+>  	bytes = rx_ring_entries * sizeof(*ss->rx_small.shadow);
+>  	ss->rx_small.shadow = kzalloc(bytes, GFP_KERNEL);
+> @@ -2366,11 +2417,14 @@ static int myri10ge_get_txrx(struct myri10ge_priv *mgp, int slice)
+>  	int status;
+>  
+>  	ss = &mgp->ss[slice];
+> -	cmd.data0 = 0;		/* single slice for now */
+> -	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_SEND_OFFSET, &cmd, 0);
+> -	ss->tx.lanai = (struct mcp_kreq_ether_send __iomem *)
+> -	    (mgp->sram + cmd.data0);
+> -
+> +	status = 0;
+> +	if (slice == 0 || (mgp->dev->real_num_tx_queues > 1)) {
+> +		cmd.data0 = slice;
+> +		status = myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_SEND_OFFSET,
+> +					   &cmd, 0);
+> +		ss->tx.lanai = (struct mcp_kreq_ether_send __iomem *)
+> +		    (mgp->sram + cmd.data0);
+> +	}
+>  	cmd.data0 = slice;
+>  	status |= myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_SMALL_RX_OFFSET,
+>  				    &cmd, 0);
+> @@ -2382,6 +2436,10 @@ static int myri10ge_get_txrx(struct myri10ge_priv *mgp, int slice)
+>  	ss->rx_big.lanai = (struct mcp_kreq_ether_recv __iomem *)
+>  	    (mgp->sram + cmd.data0);
+>  
+> +	ss->tx.send_go = (__iomem __be32 *)
+> +	    (mgp->sram + MXGEFW_ETH_SEND_GO + 64 * slice);
+> +	ss->tx.send_stop = (__iomem __be32 *)
+> +	    (mgp->sram + MXGEFW_ETH_SEND_STOP + 64 * slice);
+>  	return status;
+>  
+>  }
+> @@ -2395,7 +2453,7 @@ static int myri10ge_set_stats(struct myri10ge_priv *mgp, int slice)
+>  	ss = &mgp->ss[slice];
+>  	cmd.data0 = MYRI10GE_LOWPART_TO_U32(ss->fw_stats_bus);
+>  	cmd.data1 = MYRI10GE_HIGHPART_TO_U32(ss->fw_stats_bus);
+> -	cmd.data2 = sizeof(struct mcp_irq_data);
+> +	cmd.data2 = sizeof(struct mcp_irq_data) | (slice << 16);
+>  	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_SET_STATS_DMA_V2, &cmd, 0);
+>  	if (status == -ENOSYS) {
+>  		dma_addr_t bus = ss->fw_stats_bus;
+> @@ -2436,7 +2494,9 @@ static int myri10ge_open(struct net_device *dev)
+>  
+>  	if (mgp->num_slices > 1) {
+>  		cmd.data0 = mgp->num_slices;
+> -		cmd.data1 = 1;	/* use MSI-X */
+> +		cmd.data1 = MXGEFW_SLICE_INTR_MODE_ONE_PER_SLICE;
+> +		if (mgp->dev->real_num_tx_queues > 1)
+> +			cmd.data1 |= MXGEFW_SLICE_ENABLE_MULTIPLE_TX_QUEUES;
+>  		status = myri10ge_send_cmd(mgp, MXGEFW_CMD_ENABLE_RSS_QUEUES,
+>  					   &cmd, 0);
+>  		if (status != 0) {
+> @@ -2457,6 +2517,7 @@ static int myri10ge_open(struct net_device *dev)
+>  			printk(KERN_ERR
+>  			       "myri10ge: %s: failed to setup rss tables\n",
+>  			       dev->name);
+> +			goto abort_with_nothing;
+>  		}
+>  
+>  		/* just enable an identity mapping */
+> @@ -2527,7 +2602,11 @@ static int myri10ge_open(struct net_device *dev)
+>  		status = myri10ge_allocate_rings(ss);
+>  		if (status != 0)
+>  			goto abort_with_rings;
+> -		if (slice == 0)
 > +
->  	(void)vnic_cq_service(&enic->cq[ENIC_CQ_RQ],
->  		-1, enic_rq_service_drop, NULL);
->  	(void)vnic_cq_service(&enic->cq[ENIC_CQ_WQ],
-> @@ -1593,18 +1618,6 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  		return -ENOMEM;
->  	}
->  
-> -	/* Set the netdev name early so intr vectors are properly
-> -	 * named and any error msgs can include netdev->name
-> -	 */
-> -
-> -	rtnl_lock();
-> -	err = dev_alloc_name(netdev, netdev->name);
-> -	rtnl_unlock();
-> -	if (err < 0) {
-> -		printk(KERN_ERR PFX "Unable to allocate netdev name.\n");
-> -		goto err_out_free_netdev;
-> -	}
-> -
->  	pci_set_drvdata(pdev, netdev);
->  
->  	SET_NETDEV_DEV(netdev, &pdev->dev);
-> @@ -1619,16 +1632,14 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = pci_enable_device(pdev);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Cannot enable PCI device, aborting.\n",
-> -			netdev->name);
-> +			"Cannot enable PCI device, aborting.\n");
->  		goto err_out_free_netdev;
->  	}
->  
->  	err = pci_request_regions(pdev, DRV_NAME);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Cannot request PCI regions, aborting.\n",
-> -			netdev->name);
-> +			"Cannot request PCI regions, aborting.\n");
->  		goto err_out_disable_device;
->  	}
->  
-> @@ -1644,25 +1655,22 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  		err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
->  		if (err) {
->  			printk(KERN_ERR PFX
-> -				"%s: No usable DMA configuration, aborting.\n",
-> -				netdev->name);
-> +				"No usable DMA configuration, aborting.\n");
->  			goto err_out_release_regions;
->  		}
->  		err = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK);
->  		if (err) {
->  			printk(KERN_ERR PFX
-> -				"%s: Unable to obtain 32-bit DMA "
-> -				"for consistent allocations, aborting.\n",
-> -				netdev->name);
-> +				"Unable to obtain 32-bit DMA "
-> +				"for consistent allocations, aborting.\n");
->  			goto err_out_release_regions;
->  		}
->  	} else {
->  		err = pci_set_consistent_dma_mask(pdev, DMA_40BIT_MASK);
->  		if (err) {
->  			printk(KERN_ERR PFX
-> -				"%s: Unable to obtain 40-bit DMA "
-> -				"for consistent allocations, aborting.\n",
-> -				netdev->name);
-> +				"Unable to obtain 40-bit DMA "
-> +				"for consistent allocations, aborting.\n");
->  			goto err_out_release_regions;
->  		}
->  		using_dac = 1;
-> @@ -1673,8 +1681,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  
->  	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
->  		printk(KERN_ERR PFX
-> -			"%s: BAR0 not memory-map'able, aborting.\n",
-> -			netdev->name);
-> +			"BAR0 not memory-map'able, aborting.\n");
->  		err = -ENODEV;
->  		goto err_out_release_regions;
->  	}
-> @@ -1685,8 +1692,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  
->  	if (!enic->bar0.vaddr) {
->  		printk(KERN_ERR PFX
-> -			"%s: Cannot memory-map BAR0 res hdr, aborting.\n",
-> -			netdev->name);
-> +			"Cannot memory-map BAR0 res hdr, aborting.\n");
->  		err = -ENODEV;
->  		goto err_out_release_regions;
->  	}
-> @@ -1697,8 +1703,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	enic->vdev = vnic_dev_register(NULL, enic, pdev, &enic->bar0);
->  	if (!enic->vdev) {
->  		printk(KERN_ERR PFX
-> -			"%s: vNIC registration failed, aborting.\n",
-> -			netdev->name);
-> +			"vNIC registration failed, aborting.\n");
->  		err = -ENODEV;
->  		goto err_out_iounmap;
->  	}
-> @@ -1709,8 +1714,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = enic_dev_open(enic);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: vNIC dev open failed, aborting.\n",
-> -			netdev->name);
-> +			"vNIC dev open failed, aborting.\n");
->  		goto err_out_vnic_unregister;
->  	}
->  
-> @@ -1727,8 +1731,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = vnic_dev_init(enic->vdev, 0);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: vNIC dev init failed, aborting.\n",
-> -			netdev->name);
-> +			"vNIC dev init failed, aborting.\n");
->  		goto err_out_dev_close;
->  	}
->  
-> @@ -1738,8 +1741,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = enic_get_vnic_config(enic);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Get vNIC configuration failed, aborting.\n",
-> -			netdev->name);
-> +			"Get vNIC configuration failed, aborting.\n");
->  		goto err_out_dev_close;
->  	}
->  
-> @@ -1755,18 +1757,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = enic_set_intr_mode(enic);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Failed to set intr mode, aborting.\n",
-> -			netdev->name);
-> -		goto err_out_dev_close;
-> -	}
-> -
-> -	/* Request interrupt vector(s)
-> -	*/
-> -
-> -	err = enic_request_intr(enic);
-> -	if (err) {
-> -		printk(KERN_ERR PFX "%s: Unable to request irq.\n",
-> -			netdev->name);
-> +			"Failed to set intr mode, aborting.\n");
->  		goto err_out_dev_close;
->  	}
->  
-> @@ -1776,8 +1767,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = enic_alloc_vnic_resources(enic);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Failed to alloc vNIC resources, aborting.\n",
-> -			netdev->name);
-> +			"Failed to alloc vNIC resources, aborting.\n");
->  		goto err_out_free_vnic_resources;
->  	}
->  
-> @@ -1793,19 +1783,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  		ig_vlan_strip_en);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Failed to config nic, aborting.\n",
-> -			netdev->name);
-> -		goto err_out_free_vnic_resources;
-> -	}
-> -
-> -	/* Setup notification buffer area
-> -	 */
-> -
-> -	err = enic_notify_set(enic);
-> -	if (err) {
-> -		printk(KERN_ERR PFX
-> -			"%s: Failed to alloc notify buffer, aborting.\n",
-> -			netdev->name);
-> +			"Failed to config nic, aborting.\n");
->  		goto err_out_free_vnic_resources;
->  	}
->  
-> @@ -1832,9 +1810,8 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = enic_set_mac_addr(netdev, enic->mac_addr);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Invalid MAC address, aborting.\n",
-> -			netdev->name);
-> -		goto err_out_notify_unset;
-> +			"Invalid MAC address, aborting.\n");
-> +		goto err_out_free_vnic_resources;
->  	}
->  
->  	netdev->open = enic_open;
-> @@ -1888,18 +1865,14 @@ static int __devinit enic_probe(struct pci_dev *pdev,
->  	err = register_netdev(netdev);
->  	if (err) {
->  		printk(KERN_ERR PFX
-> -			"%s: Cannot register net device, aborting.\n",
-> -			netdev->name);
-> -		goto err_out_notify_unset;
-> +			"Cannot register net device, aborting.\n");
-> +		goto err_out_free_vnic_resources;
->  	}
->  
+> +		/* only firmware which supports multiple TX queues
+> +		 * supports setting up the tx stats on non-zero
+> +		 * slices */
+> +		if (slice == 0 || mgp->dev->real_num_tx_queues > 1)
+>  			status = myri10ge_set_stats(mgp, slice);
+>  		if (status) {
+>  			printk(KERN_ERR
+> @@ -2593,7 +2672,8 @@ static int myri10ge_open(struct net_device *dev)
+>  	mgp->running = MYRI10GE_ETH_RUNNING;
+>  	mgp->watchdog_timer.expires = jiffies + myri10ge_watchdog_timeout * HZ;
+>  	add_timer(&mgp->watchdog_timer);
+> -	netif_wake_queue(dev);
+> +	netif_tx_wake_all_queues(dev);
+> +
 >  	return 0;
 >  
-> -err_out_notify_unset:
-> -	vnic_dev_notify_unset(enic->vdev);
->  err_out_free_vnic_resources:
->  	enic_free_vnic_resources(enic);
-> -	enic_free_intr(enic);
->  err_out_dev_close:
->  	vnic_dev_close(enic->vdev);
->  err_out_vnic_unregister:
-> @@ -1927,9 +1900,7 @@ static void __devexit enic_remove(struct pci_dev *pdev)
+>  abort_with_rings:
+> @@ -2620,13 +2705,15 @@ static int myri10ge_close(struct net_device *dev)
+>  	if (mgp->ss[0].tx.req_bytes == NULL)
+>  		return 0;
 >  
+> +	dev->select_queue = NULL;
+>  	del_timer_sync(&mgp->watchdog_timer);
+>  	mgp->running = MYRI10GE_ETH_STOPPING;
+>  	for (i = 0; i < mgp->num_slices; i++) {
+>  		napi_disable(&mgp->ss[i].napi);
+>  	}
+>  	netif_carrier_off(dev);
+> -	netif_stop_queue(dev);
+> +
+> +	netif_tx_stop_all_queues(dev);
+>  	old_down_cnt = mgp->down_cnt;
+>  	mb();
+>  	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_ETHERNET_DOWN, &cmd, 0);
+> @@ -2731,18 +2823,23 @@ static int myri10ge_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	struct mcp_kreq_ether_send *req;
+>  	struct myri10ge_tx_buf *tx;
+>  	struct skb_frag_struct *frag;
+> +	struct netdev_queue *netdev_queue;
+>  	dma_addr_t bus;
+>  	u32 low;
+>  	__be32 high_swapped;
+>  	unsigned int len;
+>  	int idx, last_idx, avail, frag_cnt, frag_idx, count, mss, max_segments;
+> -	u16 pseudo_hdr_offset, cksum_offset;
+> +	u16 pseudo_hdr_offset, cksum_offset, queue;
+>  	int cum_len, seglen, boundary, rdma_count;
+>  	u8 flags, odd_flag;
+>  
+> -	/* always transmit through slot 0 */
+> -	ss = mgp->ss;
+> +	queue = skb_get_queue_mapping(skb);
+> +	queue &= (mgp->num_slices - 1);
+> +
+> +	ss = &mgp->ss[queue];
+> +	netdev_queue = netdev_get_tx_queue(mgp->dev, queue);
+>  	tx = &ss->tx;
+> +
+>  again:
+>  	req = tx->req_list;
+>  	avail = tx->mask - 1 - (tx->req - tx->done);
+> @@ -2758,7 +2855,7 @@ again:
+>  	if ((unlikely(avail < max_segments))) {
+>  		/* we are out of transmit resources */
+>  		tx->stop_queue++;
+> -		netif_stop_queue(dev);
+> +		netif_tx_stop_queue(netdev_queue);
+>  		return 1;
+>  	}
+>  
+> @@ -2951,10 +3048,16 @@ again:
+>  	idx = ((count - 1) + tx->req) & tx->mask;
+>  	tx->info[idx].last = 1;
+>  	myri10ge_submit_req(tx, tx->req_list, count);
+> +	/* if using multiple tx queues, make sure NIC polls the
+> +	 * current slice */
+> +	if ((mgp->dev->real_num_tx_queues > 1) && tx->queue_active == 0) {
+> +		tx->queue_active = 1;
+> +		put_be32(htonl(1), tx->send_go);
+> +	}
+>  	tx->pkt_start++;
+>  	if ((avail - count) < MXGEFW_MAX_SEND_DESC) {
+>  		tx->stop_queue++;
+> -		netif_stop_queue(dev);
+> +		netif_tx_stop_queue(netdev_queue);
+>  	}
+>  	dev->trans_start = jiffies;
+>  	return 0;
+> @@ -3532,20 +3635,21 @@ static void myri10ge_watchdog(struct work_struct *work)
+>  		for (i = 0; i < mgp->num_slices; i++) {
+>  			tx = &mgp->ss[i].tx;
+>  			printk(KERN_INFO
+> -			       "myri10ge: %s: (%d): %d %d %d %d %d\n",
+> -			       mgp->dev->name, i, tx->req, tx->done,
+> -			       tx->pkt_start, tx->pkt_done,
+> +			       "myri10ge: %s: (%d): %d %d %d %d %d %d\n",
+> +			       mgp->dev->name, i, tx->queue_active, tx->req,
+> +			       tx->done, tx->pkt_start, tx->pkt_done,
+>  			       (int)ntohl(mgp->ss[i].fw_stats->
+>  					  send_done_count));
+>  			msleep(2000);
+>  			printk(KERN_INFO
+> -			       "myri10ge: %s: (%d): %d %d %d %d %d\n",
+> -			       mgp->dev->name, i, tx->req, tx->done,
+> -			       tx->pkt_start, tx->pkt_done,
+> +			       "myri10ge: %s: (%d): %d %d %d %d %d %d\n",
+> +			       mgp->dev->name, i, tx->queue_active, tx->req,
+> +			       tx->done, tx->pkt_start, tx->pkt_done,
+>  			       (int)ntohl(mgp->ss[i].fw_stats->
+>  					  send_done_count));
+>  		}
+>  	}
+> +
+>  	rtnl_lock();
+>  	myri10ge_close(mgp->dev);
+>  	status = myri10ge_load_firmware(mgp, 1);
+> @@ -3600,10 +3704,14 @@ static void myri10ge_watchdog_timer(unsigned long arg)
+>  			/* nic seems like it might be stuck.. */
+>  			if (rx_pause_cnt != mgp->watchdog_pause) {
+>  				if (net_ratelimit())
+> -					printk(KERN_WARNING "myri10ge %s:"
+> +					printk(KERN_WARNING
+> +					       "myri10ge %s slice %d:"
+>  					       "TX paused, check link partner\n",
+> -					       mgp->dev->name);
+> +					       mgp->dev->name, i);
+>  			} else {
+> +				printk(KERN_WARNING
+> +				       "myri10ge %s slice %d stuck:",
+> +				       mgp->dev->name, i);
+>  				reset_needed = 1;
+>  			}
+>  		}
+> @@ -3789,6 +3897,9 @@ static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
+>  					 mgp->num_slices);
+>  		if (status == 0) {
+>  			pci_disable_msix(pdev);
+> +#ifdef CONFIG_NETDEVICES_MULTIQUEUE
+> +			mgp->features |= NETIF_F_MULTI_QUEUE;
+> +#endif
+>  			return;
+>  		}
+>  		if (status > 0)
+> @@ -3818,7 +3929,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	int status = -ENXIO;
+>  	int dac_enabled;
+>  
+> -	netdev = alloc_etherdev(sizeof(*mgp));
+> +	netdev = alloc_etherdev_mq(sizeof(*mgp), MYRI10GE_MAX_SLICES);
+>  	if (netdev == NULL) {
+>  		dev_err(dev, "Could not allocate ethernet device\n");
+>  		return -ENOMEM;
+> @@ -3923,7 +4034,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  		dev_err(&pdev->dev, "failed to alloc slice state\n");
+>  		goto abort_with_firmware;
+>  	}
+> -
+> +	netdev->real_num_tx_queues = mgp->num_slices;
+>  	status = myri10ge_reset(mgp);
+>  	if (status != 0) {
+>  		dev_err(&pdev->dev, "failed reset\n");
+> @@ -3947,6 +4058,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	netdev->set_multicast_list = myri10ge_set_multicast_list;
+>  	netdev->set_mac_address = myri10ge_set_mac_address;
+>  	netdev->features = mgp->features;
+> +
+>  	if (dac_enabled)
+>  		netdev->features |= NETIF_F_HIGHDMA;
+>  
+> @@ -4102,8 +4214,7 @@ static __init int myri10ge_init_module(void)
+>  	printk(KERN_INFO "%s: Version %s\n", myri10ge_driver.name,
+>  	       MYRI10GE_VERSION_STR);
+>  
+> -	if (myri10ge_rss_hash > MXGEFW_RSS_HASH_TYPE_SRC_PORT ||
+> -	    myri10ge_rss_hash < MXGEFW_RSS_HASH_TYPE_IPV4) {
+> +	if (myri10ge_rss_hash > MXGEFW_RSS_HASH_TYPE_MAX) {
+>  		printk(KERN_ERR
+>  		       "%s: Illegal rssh hash type %d, defaulting to source port\n",
+>  		       myri10ge_driver.name, myri10ge_rss_hash);
+> @@ -4112,6 +4223,8 @@ static __init int myri10ge_init_module(void)
+>  #ifdef CONFIG_DCA
+>  	dca_register_notify(&myri10ge_dca_notifier);
+>  #endif
+> +	if (myri10ge_max_slices > MYRI10GE_MAX_SLICES)
+> +		myri10ge_max_slices = MYRI10GE_MAX_SLICES;
+>  
+>  	return pci_register_driver(&myri10ge_driver);
+>  }
+> 
 
-applied 1-4
+doesn't seem to apply to net-next...
 
 
