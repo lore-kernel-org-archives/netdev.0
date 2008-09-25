@@ -1,52 +1,206 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] net: remove LLTX in atl2 driver
-Date: Thu, 25 Sep 2008 16:55:17 -0400
-Message-ID: <48DBFAB5.2010709@garzik.org>
-References: <1222302922-13200-1-git-send-email-kexin.hao@windriver.com> <48DBF4DD.8060908@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Hao <kexin.hao@windriver.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Snook <csnook@redhat.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH] sctp: Fix kernel panic while process protocol violation parameter
+Date: Thu, 25 Sep 2008 17:14:20 -0400
+Message-ID: <1222377260-11088-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55661 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752503AbYIYUzY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 16:55:24 -0400
-In-Reply-To: <48DBF4DD.8060908@redhat.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:25803 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753800AbYIYVOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 17:14:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Snook wrote:
-> Kevin Hao wrote:
->> When NETIF_F_LLTX is set, the atlx driver will use a private lock.
->> But in recent kernels this implementation seems redundant and
->> can cause problems where AF_PACKET sees things twice. Since
->> NETIF_F_LLTX is marked as deprecated and shouldn't be used in
->> new driver, this patch removes NETIF_F_LLTX and adds a mmiowb
->> before sending packet.
->>
->> Signed-off-by: Kevin Hao <kexin.hao@windriver.com>
-> 
-> Can you explain a bit more concretely the problem this solves, and your 
-> testing?  Ultimately we'll want to merge this code with the atl1 code, 
-> so we need to be confident that we can and should make the same change 
-> there.
-> 
-> -- Chris
-> 
->> ---
->>  drivers/net/atlx/atl2.c |   24 +-----------------------
->>  drivers/net/atlx/atl2.h |    1 -
->>  2 files changed, 1 insertions(+), 24 deletions(-)
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-Not directly addressing your question, but LLTX is indeed deprecated and 
-in general we want to move away from it.
+Since call to function sctp_sf_abort_violation() need paramter 'arg' with
+'struct sctp_chunk' type, it will read the chunk type and chunk length from
+the chunk_hdr member of chunk. But call to sctp_sf_violation_paramlen()
+always with 'struct sctp_paramhdr' type's parameter, it will be passed to
+sctp_sf_abort_violation(). This may cause kernel panic.
 
-	Jeff
+   sctp_sf_violation_paramlen()
+     |-- sctp_sf_abort_violation()
+        |-- sctp_make_abort_violation()
 
+This patch fixed this problem. This patch also fix two place which called
+sctp_sf_violation_paramlen() with wrong paramter type.
 
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ include/net/sctp/sm.h    |    3 ++
+ net/sctp/sm_make_chunk.c |   37 +++++++++++++++++++++++------------
+ net/sctp/sm_statefuns.c  |   48 +++++++++++++++++++++++++++++++++++----------
+ 3 files changed, 64 insertions(+), 24 deletions(-)
+
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index 2481173..029a54a 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -227,6 +227,9 @@ struct sctp_chunk *sctp_make_abort_violation(const struct sctp_association *,
+ 				   const struct sctp_chunk *,
+ 				   const __u8 *,
+ 				   const size_t );
++struct sctp_chunk *sctp_make_violation_paramlen(const struct sctp_association *,
++				   const struct sctp_chunk *,
++				   struct sctp_paramhdr *);
+ struct sctp_chunk *sctp_make_heartbeat(const struct sctp_association *,
+ 				  const struct sctp_transport *,
+ 				  const void *payload,
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index fe94f42..1f882bb 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1012,6 +1012,29 @@ end:
+ 	return retval;
+ }
+ 
++struct sctp_chunk *sctp_make_violation_paramlen(
++	const struct sctp_association *asoc,
++	const struct sctp_chunk *chunk,
++	struct sctp_paramhdr *param)
++{
++	struct sctp_chunk *retval;
++	static const char error[] = "The following parameter had invalid length:";
++	size_t payload_len = sizeof(error) + sizeof(sctp_errhdr_t) +
++				sizeof(sctp_paramhdr_t);
++
++	retval = sctp_make_abort(asoc, chunk, payload_len);
++	if (!retval)
++		goto nodata;
++
++	sctp_init_cause(retval, SCTP_ERROR_PROTO_VIOLATION,
++			sizeof(error) + sizeof(sctp_paramhdr_t));
++	sctp_addto_chunk(retval, sizeof(error), error);
++	sctp_addto_param(retval, sizeof(sctp_paramhdr_t), param);
++
++nodata:
++	return retval;
++}
++
+ /* Make a HEARTBEAT chunk.  */
+ struct sctp_chunk *sctp_make_heartbeat(const struct sctp_association *asoc,
+ 				  const struct sctp_transport *transport,
+@@ -1782,11 +1805,6 @@ static int sctp_process_inv_paramlength(const struct sctp_association *asoc,
+ 					const struct sctp_chunk *chunk,
+ 					struct sctp_chunk **errp)
+ {
+-	static const char error[] = "The following parameter had invalid length:";
+-	size_t		payload_len = WORD_ROUND(sizeof(error)) +
+-						sizeof(sctp_paramhdr_t);
+-
+-
+ 	/* This is a fatal error.  Any accumulated non-fatal errors are
+ 	 * not reported.
+ 	 */
+@@ -1794,14 +1812,7 @@ static int sctp_process_inv_paramlength(const struct sctp_association *asoc,
+ 		sctp_chunk_free(*errp);
+ 
+ 	/* Create an error chunk and fill it in with our payload. */
+-	*errp = sctp_make_op_error_space(asoc, chunk, payload_len);
+-
+-	if (*errp) {
+-		sctp_init_cause(*errp, SCTP_ERROR_PROTO_VIOLATION,
+-				sizeof(error) + sizeof(sctp_paramhdr_t));
+-		sctp_addto_chunk(*errp, sizeof(error), error);
+-		sctp_addto_param(*errp, sizeof(sctp_paramhdr_t), param);
+-	}
++	*errp = sctp_make_violation_paramlen(asoc, chunk, param);
+ 
+ 	return 0;
+ }
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 8848d32..7c622af 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -119,7 +119,7 @@ static sctp_disposition_t sctp_sf_violation_paramlen(
+ 				     const struct sctp_endpoint *ep,
+ 				     const struct sctp_association *asoc,
+ 				     const sctp_subtype_t type,
+-				     void *arg,
++				     void *arg, void *ext,
+ 				     sctp_cmd_seq_t *commands);
+ 
+ static sctp_disposition_t sctp_sf_violation_ctsn(
+@@ -3425,7 +3425,7 @@ sctp_disposition_t sctp_sf_do_asconf(const struct sctp_endpoint *ep,
+ 	addr_param = (union sctp_addr_param *)hdr->params;
+ 	length = ntohs(addr_param->p.length);
+ 	if (length < sizeof(sctp_paramhdr_t))
+-		return sctp_sf_violation_paramlen(ep, asoc, type,
++		return sctp_sf_violation_paramlen(ep, asoc, type, arg,
+ 			   (void *)addr_param, commands);
+ 
+ 	/* Verify the ASCONF chunk before processing it. */
+@@ -3433,8 +3433,8 @@ sctp_disposition_t sctp_sf_do_asconf(const struct sctp_endpoint *ep,
+ 			    (sctp_paramhdr_t *)((void *)addr_param + length),
+ 			    (void *)chunk->chunk_end,
+ 			    &err_param))
+-		return sctp_sf_violation_paramlen(ep, asoc, type,
+-						  (void *)&err_param, commands);
++		return sctp_sf_violation_paramlen(ep, asoc, type, arg,
++						  (void *)err_param, commands);
+ 
+ 	/* ADDIP 5.2 E1) Compare the value of the serial number to the value
+ 	 * the endpoint stored in a new association variable
+@@ -3542,8 +3542,8 @@ sctp_disposition_t sctp_sf_do_asconf_ack(const struct sctp_endpoint *ep,
+ 	    (sctp_paramhdr_t *)addip_hdr->params,
+ 	    (void *)asconf_ack->chunk_end,
+ 	    &err_param))
+-		return sctp_sf_violation_paramlen(ep, asoc, type,
+-			   (void *)&err_param, commands);
++		return sctp_sf_violation_paramlen(ep, asoc, type, arg,
++			   (void *)err_param, commands);
+ 
+ 	if (last_asconf) {
+ 		addip_hdr = (sctp_addiphdr_t *)last_asconf->subh.addip_hdr;
+@@ -4240,12 +4240,38 @@ static sctp_disposition_t sctp_sf_violation_paramlen(
+ 				     const struct sctp_endpoint *ep,
+ 				     const struct sctp_association *asoc,
+ 				     const sctp_subtype_t type,
+-				     void *arg,
+-				     sctp_cmd_seq_t *commands) {
+-	static const char err_str[] = "The following parameter had invalid length:";
++				     void *arg, void *ext,
++				     sctp_cmd_seq_t *commands)
++{
++	struct sctp_chunk *chunk =  arg;
++	struct sctp_paramhdr *param = ext;
++	struct sctp_chunk *abort = NULL;
+ 
+-	return sctp_sf_abort_violation(ep, asoc, arg, commands, err_str,
+-					sizeof(err_str));
++	if (sctp_auth_recv_cid(SCTP_CID_ABORT, asoc))
++		goto discard;
++
++	/* Make the abort chunk. */
++	abort = sctp_make_violation_paramlen(asoc, chunk, param);
++	if (!abort)
++		goto nomem;
++
++	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
++	SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
++
++	sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
++			SCTP_ERROR(ECONNABORTED));
++	sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_FAILED,
++			SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
++	SCTP_DEC_STATS(SCTP_MIB_CURRESTAB);
++
++discard:
++	sctp_sf_pdiscard(ep, asoc, SCTP_ST_CHUNK(0), arg, commands);
++
++	SCTP_INC_STATS(SCTP_MIB_ABORTEDS);
++
++	return SCTP_DISPOSITION_ABORT;
++nomem:
++	return SCTP_DISPOSITION_NOMEM;
+ }
+ 
+ /* Handle a protocol violation when the peer trying to advance the
+-- 
+1.5.3.5
 
