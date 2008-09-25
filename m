@@ -1,83 +1,69 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC] bonding: add better ipv6 failover support
-Date: Thu, 25 Sep 2008 08:07:22 -0700
-Message-ID: <17219.1222355242@death.nxdomain.ibm.com>
-References: <200809151335.16817.asid@hp.com> <20080915180015.GB1078@havoc.gtf.org> <200809151416.49447.alexandre.sidorenko@hp.com> <48DA71A8.5050900@hp.com> <7958.1222288188@death.nxdomain.ibm.com> <48DAFB92.7040904@hp.com>
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:39408 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750733AbYIYPId (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 11:08:33 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m8PF8WSh022472
-	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 11:08:32 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m8PF7WH9252678
-	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 11:07:32 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m8PF7W3a008813
-	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 11:07:32 -0400
-In-reply-to: <48DAFB92.7040904@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/1] Use RCU for the UDP hash lock
+Date: Thu, 25 Sep 2008 08:29:36 -0700
+Message-ID: <20080925152936.GF6725@linux.vnet.ibm.com>
+References: <20080924172827.GA1573@minyard.local> <20080924124006.6bb41b49@extreme> <48DAA71C.5030000@acm.org>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Corey Minyard <minyard@acm.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754392AbYIYPaK@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <48DAA71C.5030000@acm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brian Haley <brian.haley@hp.com> wrote:
+On Wed, Sep 24, 2008 at 03:46:20PM -0500, Corey Minyard wrote:
+> Stephen Hemminger wrote:
+>>   
+>>>   static inline void udp_lib_unhash(struct sock *sk)
+>>>  {
+>>> -	write_lock_bh(&udp_hash_lock);
+>>> -	if (sk_del_node_init(sk)) {
+>>> +	spin_lock_bh(&udp_hash_wlock);
+>>> +	if (sk_del_node_rcu(sk)) {
+>>>  		inet_sk(sk)->num = 0;
+>>>  		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+>>>  	}
+>>> -	write_unlock_bh(&udp_hash_lock);
+>>> +	spin_unlock_bh(&udp_hash_wlock);
+>>> +	synchronize_sched();
+>>>     
+>>
+>> Could this be synchronize_rcu? You are using rcu_read_lock() protected 
+>> sections.
+>>   
+> I meant to comment on that.  I wasn't sure which to use, so I chose the 
+> more conservative approach.  synchronize_rcu() might be appropriate.
 
->This is an RFC patch to add better IPv6 failover support for bonding
->devices, especially when in active-backup mode, as reported by Alex
->Sidorenko.
->
->What this patch does:
->
->- Creates a new Kconfig option in the IPv6 Networking section to
->  compile-in the support in the bonding driver.  This also forces
->  IPV6=y since that's required to link everything.
+You do indeed need to match the update-side and read-side primitives:
 
-	I think it's probably better to have the IPV6 dependent bits
-somehow depend on CONFIG_IPV6 rather than having a Kconfig entry.  I
-doubt that many real-world users will say yes to IPv6 and bonding, but
-no to the bonding IPv6 support.  I also suspect that the IPV6=y
-requirement won't fly with distros.
+	Update-side				Read-side
 
->- Creates a new file, net/drivers/bonding/bond_ipv6.c, for the
->  IPv6-specific routines.
+	synchronize_rcu()			rcu_read_lock()
+	call_rcu()				rcu_read_unlock()
 
-	Handy.
+	call_rcu_bh()				rcu_read_lock_bh()
+						rcu_read_unlock_bh()
 
->- Adds a new master_ipv6 address member to the bonding struct to
->  hold a copy of the primary IPv6 address on the bond.
+	synchronize_sched()			preempt_disable()
+						preempt_enable()
+						[and anything else
+						 that disables either
+						 preemption or irqs]
 
-	Do we need to issue an NS for each ipv6 address, or is one
-sufficient?
+	synchronize_srcu()			srcu_read_lock()
+						srcu_read_unlock()
 
-	Do ipv6 addresses configured on VLANs need one (or more) NS per
-VLAN?
 
->- Adds a new tunable, num_grat_ns, to limit the number of gratuitous
->  Neighbor Solicitations that are sent on a failover event.  Default
->  is 1.
->
->On failover, this new code will generate two packets:
->
->- An MLD report for the bond, on the current active slave.
->
->- An IPv6 "gratuitous" Neighbor Solicitation, which helps the switch
->  learn that the address has moved to the new slave.
->
->Testing has shown that sending just the NS results in pretty good behavior
->when in active-back mode, I saw no lost ping packets for example.  Sending
->just the MLD packet didn't seem to have the same effect.  Sending both
->seems like the right thing to do.
+Mixing RCU or RCU-SCHED with RCU-BH will fail in Classic RCU systems,
+while mixing RCU or RCU-BH with RCU-SCHED will fail in preemptable RCU
+systems.  Mixing SRCU with any of the other flavors of RCU will fail
+on any system.
 
-	 I haven't tried the patch yet, so I'll comment further once
-I've had a chance to test it (which may not be until tomorrow).
+So please match them up correctly!
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+							Thanx, Paul
