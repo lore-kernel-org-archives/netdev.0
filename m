@@ -1,34 +1,30 @@
-From: Tino Keitel <tino.keitel@gmx.de>
-Subject: Re: Regression in 2.6.27-rc7: Wake On LAN with sky2 broken
-Date: Thu, 25 Sep 2008 22:03:11 +0200
-Message-ID: <20080925200311.GA4582@dose.home.local>
-References: <20080924080546.GA21108@x61> <200809242113.52256.rjw@sisk.pl> <20080924194906.GA25874@x61> <200809242310.23477.rjw@sisk.pl> <20080925194253.GA2783@dose.home.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver updates for .28
+Date: Thu, 25 Sep 2008 13:07:49 -0700 (PDT)
+Message-ID: <20080925.130749.220797021.davem@davemloft.net>
+References: <20080924230710.GA22856@havoc.gtf.org>
+	<20080925085556.4c430028@bull.net>
+	<48DBCC8D.7060709@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sebastien.dugue@bull.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@gtf.org,
+	akpm@linux-foundation.org, osstklei@de.ibm.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:53837 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389AbYIYUCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 16:02:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20080925194253.GA2783@dose.home.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50346
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753457AbYIYUIB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 16:08:01 -0400
+In-Reply-To: <48DBCC8D.7060709@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Jeff Garzik <jeff@garzik.org>
+Date: Thu, 25 Sep 2008 13:38:21 -0400
 
-I just found a method how I can enable WOL again:
+> David, please revert 2eefbd63d0c85daa1317636474c226e236beba81 by
+> request of author, maintainer, and maintainer's maintainer :)
 
-echo enabled >
-/sys/devices/pci0000:00/0000:00:1c.0/0000:01:00.0/power/wakeup
-
-This device is the NIC device, of cause.
-
-I already had another case (EHCI) where I needed to do this to be able
-to wake the computer up with the USB keyboard. It seems like 2.6.27
-behaves different here compared to 2.6.26, and things that worked with
-2.6.26 need manual fixing to work again. Or did I make something wrong?
-
-Regards,
-Tino
+Done.
