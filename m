@@ -1,72 +1,53 @@
-From: "Rami Rosen" <roszenrami@gmail.com>
-Subject: Re: /proc/net/igmp group address encoding
-Date: Thu, 25 Sep 2008 10:59:13 +0300
-Message-ID: <b25312890809250059y2528ec00leb95574508eb52e@mail.gmail.com>
-References: <b25312890809242344n11e61c80w1bf761c55c29a65e@mail.gmail.com>
-	 <OFC83E5520.1D27DF52-ON882574CF.0028A6D4-882574CF.0029B829@us.ibm.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: xfrm_state locking regression...
+Date: Thu, 25 Sep 2008 11:42:15 +0300
+Message-ID: <48DB4EE7.2030109@iki.fi>
+References: <20080924055550.GA6506@gondor.apana.org.au> <48D9D86E.7020205@iki.fi> <20080924061349.GA6679@gondor.apana.org.au> <48D9DC1A.10903@iki.fi> <20080924062138.GA6764@gondor.apana.org.au> <48D9EC4B.4050804@iki.fi> <20080924075441.GA7391@gondor.apana.org.au> <48DA3E2D.4070909@iki.fi> <20080924140819.GA10022@gondor.apana.org.au> <48DB29A9.2090204@iki.fi> <20080925075715.GA18101@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	"Pekka Savola" <pekkas@netcore.fi>
-To: "David Stevens" <dlstevens@us.ibm.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:35826 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751592AbYIYH7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 03:59:13 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so335325rvb.1
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 00:59:13 -0700 (PDT)
-In-Reply-To: <OFC83E5520.1D27DF52-ON882574CF.0028A6D4-882574CF.0029B829@us.ibm.com>
-Content-Disposition: inline
+Received: from nf-out-0910.google.com ([64.233.182.186]:12625 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750715AbYIYImV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 04:42:21 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so118819nfc.21
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 01:42:19 -0700 (PDT)
+In-Reply-To: <20080925075715.GA18101@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-> since I believe netstat expects to see this the way it is.
-Thanks  for drawing my attention to this; due to this , displaying in
-quad format should not be implemented.
-
-I am working on a patch for the mc_counter according to your
-suggestion putting it in inet6_dev and in_device).
-
-Thanks,
-
-Regards,
-Rami Rosen
-
-
-On Thu, Sep 25, 2008 at 10:35 AM, David Stevens <dlstevens@us.ibm.com> wrote:
-> netdev-owner@vger.kernel.org wrote on 09/24/2008 11:44:45 PM:
->
->> Hi,
+Herbert Xu wrote:
+> On Thu, Sep 25, 2008 at 09:03:21AM +0300, Timo Ter=E4s wrote:
+>> I forgot to test pf_key support. And remembered why the "last"
+>> thingy was in the walking routines. In pf_key dumps, the dump
+>> is terminated when an entry with seq zero is received; that's
+>> why the final entry received special treatment. And now that
+>> breaks. The first entry is zero so pf_key dumps only one entry.
 >>
->> - I had noticed a long ago that the IP addresses under
->>  /proc/net/igmp are in Hexa format. I am preparing a patch to fix it
->> and it will be send very soon.
->
-> I don't think we can do that, since I believe netstat expects
-> to see this the way it is. Maybe if we change netstat to support
-> both and wait a year for all distros to get it... :-)
->
->
->> So indeed , the count (mc_count of netdevice) shows both IPv4 and IPv6
-> igmp
->> groups, but in current implementation it is not immediate
->> to change it. Currently, net_device struct does not have specific
->> fields for ipv4 or ipv6.  One way of preparing a patch
->> is to change net_device to have mc_count4 and mc_count6;
->> I am really willing to prepare such a patch, but I am not sure such a
->> change in net_device is a proper and a justified
->> change to do.
->
->        These belong with mc_list in inet6_dev and in_device. Really,
-> I'd just add "mc_count" as a field right next to mc_list and inc/dec
-> it when calling the group join/leave functions-- use the list lock
-> to protect it. The structure it's in distinguishes the protocol,
-> and the names are otherwise common.
->
->                                                                +-DLS
->
->
+>> Not sure if we should fix this in pf_key or in the walking routines.
+>=20
+> This is part of the user-space ABI (and an RFC) so wecan't change
+> it.  I've put the last stuff back and fixed up the error handling
+> on the very last entry.
+
+I was just figuring if we need to change seq in pf_key.c kernel code
+or in xfrm_state.c. But I guess it's good if the walking walks as
+previously.
+
+Now there is a new problem: if dumping is interrupted and meanwhile
+all the remaining entries get deleted, there is no entry to dump
+with seq zero when dumping is eventually continued.
+
+Since xfrm_user does not care for the seq as end-of-message, this
+problem appears only in af_key.
+
+Maybe we should make af_key.c code instead cache one entry before
+sending it to user space. We could then get rid of the last hack
+inside xfrm core walking code.
+
+Cheers,
+  Timo
