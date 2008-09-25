@@ -1,26 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 0/9] PCI vpd patches (rev4)
-Date: Thu, 25 Sep 2008 09:48:51 -0700
-Message-ID: <20080925164851.694359776@vyatta.com>
-Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:59990 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753781AbYIYRCH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 13:02:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <holtmann@linux.intel.com>
+Subject: Re: pull request: wireless-2.6 2008-09-24
+Date: Thu, 25 Sep 2008 21:09:01 +0200
+Message-ID: <1222369742.6442.0.camel@californication>
+References: <20080924231720.GD3639@tuxdriver.com>
+	 <1222321622.2510.455.camel@debian.sh.intel.com>
+	 <20080925114133.GA5044@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Zhu Yi <yi.zhu@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754617AbYIYRIV@vger.kernel.org>
+In-Reply-To: <20080925114133.GA5044@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is update to VPD access patches.  These fix the VPD routines
-to have a sufficient timeout, and modify the skge/sky2 drivers to
-not use their own VPD access code.
+Hi John,
 
-Since only network drivers are impacted, these should go through
-the net-next tree for 2.6.28.
+> > > One more for 2.6.27 -- a fix for a possible interrupt storm.  There is
+> > > even a link in the commit log to a youtube video of the storm in
+> > > progress. :-)
+> > > 
+> > > Let me know if there are problems!
+> > 
+> > Can you also add this one? It doesn't panic the kernel when a frame from
+> > firmware is invalid.
+> > 
+> > http://marc.info/?l=linux-wireless&m=122219037706528&w=2
+> 
+> Is there an open bug report for that anywhere?  Is this something
+> that real users (no offense to Johannes) are likely to hit?
 
--- 
+I was hitting this one a frequent basis on a 64-bit Linux running on an
+off-the-shelf X61.
 
+Regards
+
+Marcel
