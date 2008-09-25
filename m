@@ -1,32 +1,70 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH 1/4] [NET] Distributed Switch Architecture protocol support
-Date: Thu, 25 Sep 2008 18:52:16 +0200
-Message-ID: <20080925165216.GA25461@xi.wantstofly.org>
-References: <20080925163845.GB25190@xi.wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Fleming <afleming@freescale.com>,
-	Imre Kaloz <kaloz@openwrt.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Nicolas Pitre <nico@cam.org>, Dirk Teurlings <dirk@upexia.nl>,
-	Peter van Valderen <p.v.valderen@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:37481 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751369AbYIYQwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 12:52:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20080925163845.GB25190@xi.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 3/9] PCI: add interface to set visible size of VPD (rev3)
+Date: Thu, 25 Sep 2008 09:48:54 -0700
+Message-ID: <20080925165223.366942933@vyatta.com>
+References: <20080925164851.694359776@vyatta.com>
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Ivan Vecera <ivecera@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline; filename=vpd-size.patch
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 25, 2008 at 06:38:45PM +0200, Lennert Buytenhek wrote:
+The VPD on all devices may not be 32K. Unfortunately, there is no
+generic way to find the size, so this adds a simple API hook
+to reset it.
 
-> +#define to_mii_bus(d) container_of(d, struct mii_bus, dev)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I just realised that this patch depends on a phylib patch in my
-tree (which I haven't submitted yet) which gives struct mii_bus a
-struct device and hooks it up into the device tree, so that the
-DSA driver can find the mii_bus given a struct device for it.
-Please ignore this bit for now.
+---
+ drivers/pci/access.c |   23 +++++++++++++++++++++++
+ include/linux/pci.h  |    1 +
+ 2 files changed, 24 insertions(+)
+
+--- a/drivers/pci/access.c	2008-09-09 13:57:05.000000000 -0700
++++ b/drivers/pci/access.c	2008-09-09 13:57:06.000000000 -0700
+@@ -340,6 +340,29 @@ int pci_vpd_pci22_init(struct pci_dev *d
+ }
+ 
+ /**
++ * pci_vpd_truncate - Set available Vital Product Data size
++ * @dev:	pci device struct
++ * @size:	available memory in bytes
++ *
++ * Adjust size of available VPD area.
++ */
++int pci_vpd_truncate(struct pci_dev *dev, size_t size)
++{
++	if (!dev->vpd)
++		return -EINVAL;
++
++	/* limited by the access method */
++	if (size > dev->vpd->len)
++		return -EINVAL;
++
++	dev->vpd->len = size;
++	dev->vpd->attr->size = size;
++
++	return 0;
++}
++EXPORT_SYMBOL(pci_vpd_truncate);
++
++/**
+  * pci_block_user_cfg_access - Block userspace PCI config reads/writes
+  * @dev:	pci device struct
+  *
+--- a/include/linux/pci.h	2008-09-09 13:57:05.000000000 -0700
++++ b/include/linux/pci.h	2008-09-09 13:57:06.000000000 -0700
+@@ -653,6 +653,7 @@ int pci_bus_find_capability(struct pci_b
+ /* Vital product data routines */
+ ssize_t pci_read_vpd(struct pci_dev *dev, loff_t pos, size_t count, void *buf);
+ ssize_t pci_write_vpd(struct pci_dev *dev, loff_t pos, size_t count, const void *buf);
++int pci_vpd_truncate(struct pci_dev *dev, size_t size);
+ 
+ /* Helper functions for low-level code (drivers/pci/setup-[bus,res].c) */
+ void pci_bus_assign_resources(struct pci_bus *bus);
+
+-- 
