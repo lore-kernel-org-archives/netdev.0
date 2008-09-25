@@ -1,66 +1,58 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [NET-NEXT PATCH] e1000: remove unused Kconfig option for disabling
- packet split
-Date: Wed, 24 Sep 2008 22:14:37 -0400
-Message-ID: <48DAF40D.3040005@garzik.org>
-References: <20080827081956.11114.152.stgit@jtkirshe-mobile.jf.intel.com> <48BE982C.20705@garzik.org> <Pine.WNT.4.63.0809161258170.3244@jbrandeb-desk.amr.corp.intel.com>
+Subject: Re: [patch 1/2] drivers/net/bonding: sparse fixes for exported tables
+Date: Wed, 24 Sep 2008 22:15:00 -0400
+Message-ID: <48DAF424.2060808@garzik.org>
+References: <20080914155611.272940975@fluff.org.uk> <20080914155714.793765032@fluff.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, mingo@elte.hu,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, akpm@linux-foundation.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56506 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55402 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752407AbYIYCOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 22:14:45 -0400
-In-Reply-To: <Pine.WNT.4.63.0809161258170.3244@jbrandeb-desk.amr.corp.intel.com>
+	id S1753002AbYIYCPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 22:15:04 -0400
+In-Reply-To: <20080914155714.793765032@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brandeburg, Jesse wrote:
-> On Wed, 3 Sep 2008, Jeff Garzik wrote:
->>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->>>
->>> Since the e1000/e1000e split, no hardware supported by e1000
->>> supports packet split, just remove the Kconfig option and associated
->>> code from arch/* and the driver.
->>>
->>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> ---
->>>
->>>  arch/arm/configs/iop13xx_defconfig              |    1
->>> arch/arm/configs/iop32x_defconfig               |    1
->> ACK, except for the defconfig changes.  arch maintainers usually prefer to do
->> that themselves.
->>
->> We'd be continually patch defconfig files, if we did so every time it was
->> likely one would be updated by a Kconfig patch.
+Ben Dooks wrote:
+> The following sparse warnings are being generated
+> because bonding.h is missing definitons for items
+> declared in bond_main.c but also used in bond_sysfs.h
 > 
-> Here is an updated patch without the defconfig changes
+> Also export bond_dev_list as this is also declared
+> in bond_main but used elsewhere in drivers/net/bonding.
 > 
-> == cut here ==
+> bond_main.c:105:20: warning: symbol 'bonding_defaults' was not declared. Should it be static?
+> bond_main.c:148:1: warning: symbol 'bond_dev_list' was not declared. Should it be static?
+> bond_main.c:162:22: warning: symbol 'bond_lacp_tbl' was not declared. Should it be static?
+> bond_main.c:168:22: warning: symbol 'bond_mode_tbl' was not declared. Should it be static?
+> bond_main.c:179:22: warning: symbol 'xmit_hashtype_tbl' was not declared. Should it be static?
+> bond_main.c:186:22: warning: symbol 'arp_validate_tbl' was not declared. Should it be static?
+> bond_main.c:194:22: warning: symbol 'fail_over_mac_tbl' was not declared. Should it be static?
 > 
-> e1000: remove Kconfig option for packet split and e1000 related code
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 > 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> Since the e1000/e1000e split, no hardware supported by e1000
-> supports packet split, just remove the Kconfig option and associated
-> code from the driver.
-> 
-> reposted without the defconfig changes, should apply to net-next
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> ---
->  drivers/net/Kconfig            |    9 -
->  drivers/net/e1000/e1000.h      |   17 --
->  drivers/net/e1000/e1000_main.c |  416 +---------------------------------------
->  3 files changed, 9 insertions(+), 433 deletions(-)
+> Index: linux-git-test-next-cats/drivers/net/bonding/bonding.h
+> ===================================================================
+> --- linux-git-test-next-cats.orig/drivers/net/bonding/bonding.h	2008-09-14 16:39:30.000000000 +0100
+> +++ linux-git-test-next-cats/drivers/net/bonding/bonding.h	2008-09-14 16:44:24.000000000 +0100
+> @@ -333,5 +333,13 @@ void bond_change_active_slave(struct bon
+>  void bond_register_arp(struct bonding *);
+>  void bond_unregister_arp(struct bonding *);
+>  
+> +/* exported from bond_main.c */
+> +extern struct list_head bond_dev_list;
+> +extern struct bond_parm_tbl bond_lacp_tbl[];
+> +extern struct bond_parm_tbl bond_mode_tbl[];
+> +extern struct bond_parm_tbl xmit_hashtype_tbl[];
+> +extern struct bond_parm_tbl arp_validate_tbl[];
+> +extern struct bond_parm_tbl fail_over_mac_tbl[];
 
 applied
+
+patch #2 failed to apply
 
 
