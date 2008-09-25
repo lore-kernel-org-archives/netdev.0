@@ -1,32 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 8/9] skge: add VPD display into debug interface
-Date: Thu, 25 Sep 2008 13:23:33 -0400
-Message-ID: <48DBC915.4000903@pobox.com>
-References: <20080925164851.694359776@vyatta.com> <20080925165223.832863939@vyatta.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver updates for .28
+Date: Thu, 25 Sep 2008 13:38:21 -0400
+Message-ID: <48DBCC8D.7060709@garzik.org>
+References: <20080924230710.GA22856@havoc.gtf.org> <20080925085556.4c430028@bull.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Barnes <jbarnes@virtuousgeek.org>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Sebastien Dugue <sebastien.dugue@bull.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, torvalds@gtf.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Klein <osstklei@de.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39154 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55883 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751486AbYIYRXh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 13:23:37 -0400
-In-Reply-To: <20080925165223.832863939@vyatta.com>
+	id S1752822AbYIYRic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2008 13:38:32 -0400
+In-Reply-To: <20080925085556.4c430028@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> The VPD stuff has more data and useful only when debugging.
+Sebastien Dugue wrote:
+>   Hi Jeff,
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> On Wed, 24 Sep 2008 19:07:10 -0400 Jeff Garzik <jeff@garzik.org> wrote:
+> 
+> 
+>> Sebastien Dugue (2):
+>>       ehea: fix phyp debugging typo
+> 
+> 
+>>       ehea: fix mutex and spinlock use
+> 
+>         ^^^^^^
+> 
+>   That last one was NACKed by Thomas Klein (http://lkml.org/lkml/2008/9/15/81)
+> who asked for it to be reverted.
 
-Acked-by: Jeff Garzik <jgarzik@redhat.com>
 
-for all the net driver pieces.
+David, please revert 2eefbd63d0c85daa1317636474c226e236beba81 by request 
+of author, maintainer, and maintainer's maintainer :)
+
+	Jeff
+
+
 
 
