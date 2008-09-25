@@ -1,98 +1,34 @@
-From: Corey Minyard <minyard@acm.org>
-Subject: Re: [PATCH 1/1] Use RCU for the UDP hash lock
-Date: Thu, 25 Sep 2008 14:21:55 -0500
-Message-ID: <48DBE4D3.9060809@acm.org>
-References: <20080924172827.GA1573@minyard.local>
- <20080924124006.6bb41b49@extreme>	<48DAA71C.5030000@acm.org>
- <20080925152936.GF6725@linux.vnet.ibm.com> <20080925083431.3fa0f9c3@extreme>
+From: Tino Keitel <tino.keitel@gmx.de>
+Subject: Re: Regression in 2.6.27-rc7: Wake On LAN with sky2 broken
+Date: Thu, 25 Sep 2008 22:03:11 +0200
+Message-ID: <20080925200311.GA4582@dose.home.local>
+References: <20080924080546.GA21108@x61> <200809242113.52256.rjw@sisk.pl> <20080924194906.GA25874@x61> <200809242310.23477.rjw@sisk.pl> <20080925194253.GA2783@dose.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173001pub.verizon.net ([206.46.173.1]:40051 "EHLO
-	vms173001pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658AbYIYTrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 15:47:32 -0400
-In-reply-to: <20080925083431.3fa0f9c3@extreme>
+Received: from eazy.amigager.de ([213.239.192.238]:53837 "EHLO
+	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389AbYIYUCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 16:02:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20080925194253.GA2783@dose.home.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Thu, 25 Sep 2008 08:29:36 -0700
-> "Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
->
->   
->> On Wed, Sep 24, 2008 at 03:46:20PM -0500, Corey Minyard wrote:
->>     
->>> Stephen Hemminger wrote:
->>>       
->>>>   
->>>>         
->>>>>   static inline void udp_lib_unhash(struct sock *sk)
->>>>>  {
->>>>> -	write_lock_bh(&udp_hash_lock);
->>>>> -	if (sk_del_node_init(sk)) {
->>>>> +	spin_lock_bh(&udp_hash_wlock);
->>>>> +	if (sk_del_node_rcu(sk)) {
->>>>>  		inet_sk(sk)->num = 0;
->>>>>  		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
->>>>>  	}
->>>>> -	write_unlock_bh(&udp_hash_lock);
->>>>> +	spin_unlock_bh(&udp_hash_wlock);
->>>>> +	synchronize_sched();
->>>>>     
->>>>>           
->>>> Could this be synchronize_rcu? You are using rcu_read_lock() protected 
->>>> sections.
->>>>   
->>>>         
->>> I meant to comment on that.  I wasn't sure which to use, so I chose the 
->>> more conservative approach.  synchronize_rcu() might be appropriate.
->>>       
->> You do indeed need to match the update-side and read-side primitives:
->>
->> 	Update-side				Read-side
->>
->> 	synchronize_rcu()			rcu_read_lock()
->> 	call_rcu()				rcu_read_unlock()
->>
->> 	call_rcu_bh()				rcu_read_lock_bh()
->> 						rcu_read_unlock_bh()
->>
->> 	synchronize_sched()			preempt_disable()
->> 						preempt_enable()
->> 						[and anything else
->> 						 that disables either
->> 						 preemption or irqs]
->>
->> 	synchronize_srcu()			srcu_read_lock()
->> 						srcu_read_unlock()
->>
->>
->> Mixing RCU or RCU-SCHED with RCU-BH will fail in Classic RCU systems,
->> while mixing RCU or RCU-BH with RCU-SCHED will fail in preemptable RCU
->> systems.  Mixing SRCU with any of the other flavors of RCU will fail
->> on any system.
->>
->> So please match them up correctly!
->>     
-Ok, will do.  I read more on this, and I think I understand the issues 
-better.
+Hi,
 
->>     
->
-> Also, for consistency with other parts of networking code, don't introduce
-> the synchronize_sched() or synchronize_srcu() pattern to network protocols
-> unless there is a no other way to achieve the desired result.
->   
-Do you mean synchronize_rcu(), too?  It seems to be used in the net 
-code.  To avoid that I'd need to add a struct rcu_head to struct sock.  
-Would that be preferable?
+I just found a method how I can enable WOL again:
 
-Thanks,
+echo enabled >
+/sys/devices/pci0000:00/0000:00:1c.0/0000:01:00.0/power/wakeup
 
--corey
+This device is the NIC device, of cause.
+
+I already had another case (EHCI) where I needed to do this to be able
+to wake the computer up with the USB keyboard. It seems like 2.6.27
+behaves different here compared to 2.6.26, and things that worked with
+2.6.26 need manual fixing to work again. Or did I make something wrong?
+
+Regards,
+Tino
