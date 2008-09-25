@@ -1,60 +1,48 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] hso for error -22 (-EINVAL) printk's
-Date: Wed, 24 Sep 2008 22:10:31 -0400
-Message-ID: <48DAF317.4040704@garzik.org>
-References: <48CFC7C1.6020301@option.com>
+Subject: Re: [PATCH 1/1] usbnet: allow type check of devdbg arguments in non-debug
+ build
+Date: Wed, 24 Sep 2008 22:14:45 -0400
+Message-ID: <48DAF415.8000307@garzik.org>
+References: <1221493664-544-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux USB kernel mailing list <linux-usb@vger.kernel.org>,
-	Linux netdev Mailing list <netdev@vger.kernel.org>
-To: Denis Joseph Barrow <D.Barow@option.com>
+Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
+	David Brownell <dbrownell@users.sourceforge.net>
+To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56471 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:56512 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753104AbYIYCKf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 22:10:35 -0400
-In-Reply-To: <48CFC7C1.6020301@option.com>
+	id S1753195AbYIYCOt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 22:14:49 -0400
+In-Reply-To: <1221493664-544-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denis Joseph Barrow wrote:
-> Added check for IFF_UP in hso_resume, this should eliminate -EINVAL (-22)
-> errors caused from urb's being submitted twice, once by hso_resume
-> & once in hso_net_open, if suspend/resume USB power saving  mode is enabled
-> Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
+Steve Glendinning wrote:
+> improve usbnet's devdbg to always type-check diagnostic arguments,
+> like dev_dbg (device.h).  This makes no change to the resulting size of
+> usbnet modules.
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 > ---
-> Index: linux-2.6.27-rc6/drivers/net/usb/hso.c
-> ===================================================================
-> --- linux-2.6.27-rc6.orig/drivers/net/usb/hso.c	2008-09-16 16:17:11.000000000 +0200
-> +++ linux-2.6.27-rc6/drivers/net/usb/hso.c	2008-09-16 16:32:05.000000000 +0200
-> @@ -2606,18 +2606,21 @@
->  		if (network_table[i] &&
->  		    (network_table[i]->interface == iface)) {
->  			hso_net = dev2net(network_table[i]);
-> -			/* First transmit any lingering data, then restart the
-> -			 * device. */
-> -			if (hso_net->skb_tx_buf) {
-> -				dev_dbg(&iface->dev,
-> -					"Transmitting lingering data\n");
-> -				hso_net_start_xmit(hso_net->skb_tx_buf,
-> -						   hso_net->net);
-> -				hso_net->skb_tx_buf = NULL;
-> +			if (hso_net->flags & IFF_UP) {
-> +				/* First transmit any lingering data,
-> +				   then restart the device. */
-> +				if (hso_net->skb_tx_buf) {
-> +					dev_dbg(&iface->dev,
-> +						"Transmitting"
-> +						" lingering data\n");
-> +					hso_net_start_xmit(hso_net->skb_tx_buf,
-> +							   hso_net->net);
-> +					hso_net->skb_tx_buf = NULL;
-> +				}
-> +				result = hso_start_net_device(network_table[i]);
-> +				if (result)
-> +					goto out;
+>  include/linux/usb/usbnet.h |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+> index ba09fe8..7d38222 100644
+> --- a/include/linux/usb/usbnet.h
+> +++ b/include/linux/usb/usbnet.h
+> @@ -197,7 +197,9 @@ extern int usbnet_nway_reset(struct net_device *net);
+>  #define devdbg(usbnet, fmt, arg...) \
+>  	printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , ## arg)
+>  #else
+> -#define devdbg(usbnet, fmt, arg...) do {} while(0)
+> +#define devdbg(usbnet, fmt, arg...) \
+> +	({ if (0) printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , \
+> +		## arg); 0; })
+>  #endif
 
-you should be checking netif_running() not IFF_UP
+applied
 
 
