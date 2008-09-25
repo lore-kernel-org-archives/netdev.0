@@ -1,122 +1,122 @@
-From: Kevin Hao <kexin.hao@windriver.com>
-Subject: [PATCH] net: remove LLTX in atl2 driver
-Date: Thu, 25 Sep 2008 08:35:22 +0800
-Message-ID: <1222302922-13200-1-git-send-email-kexin.hao@windriver.com>
-To: Jeff Garzik <jgarzik@redhat.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>,
-	Chris Snook <csnook@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: mv643xx_eth pull request for 2.6.28
+Date: Wed, 24 Sep 2008 20:41:14 -0400
+Message-ID: <48DADE2A.3010206@garzik.org>
+References: <20080922031931.GA7678@xi.wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Nicolas Pitre <nico@cam.org>,
+	Ashish Karkare <akarkare@marvell.com>,
+	Dale Farnsworth <dale@farnsworth.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:65515 "EHLO mail.wrs.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:49949 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbYIYAfm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 20:35:42 -0400
+	id S1752995AbYIYAlW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 20:41:22 -0400
+In-Reply-To: <20080922031931.GA7678@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When NETIF_F_LLTX is set, the atlx driver will use a private lock.
-But in recent kernels this implementation seems redundant and
-can cause problems where AF_PACKET sees things twice. Since
-NETIF_F_LLTX is marked as deprecated and shouldn't be used in
-new driver, this patch removes NETIF_F_LLTX and adds a mmiowb
-before sending packet.
+Lennert Buytenhek wrote:
+> Hi Jeff,
+> 
+> This is the set of mv643xx_eth patches intended for 2.6.28.  It has
+> most of the patches posted to the list in the last couple of weeks,
+> plus three more fixes:
+> - Unless we tell the hardware to include the pseudo-header when
+>   checksumming, all packets will be received with the hardware
+>   indicating a bad checksum, causing the driver to set CHECKSUM_NONE
+>   on all packets, i.e. hardware receive checksum offload won't be
+>   used at all.  We need to set the bit that tells the hardware to
+>   include the pseudo-header when checksumming.
+> - The driver would corrupt the packet on transmit if the L3 header
+>   didn't start 14, 18, 22 or 26 bytes into the packet.  Now it'll
+>   just call skb_checksum_help() to do checksumming in software if
+>   this happens.
+> - Due to a hardware bug, the 64 bit hardware byte counters are
+>   effectively only 32 bit, which necessitates polling them at least
+>   once every ~30 seconds to prevent them from overflowing.
+> 
+> I've also included the mv643xx_eth phylib conversion, as Andy Fleming
+> ACKed it.  The skb recycling bits aren't included (need more discussion),
+> and neither are the Pegasos SRAM bits, since I didn't receive any tester
+> feedback on them.
+> 
+> I've tested this series extensively on all mv643xx_eth hardware I have
+> available, and it all looks good.  Please pull.
+> 
+> 
+> thanks,
+> Lennert
+> 
+> 
+> 
+> The following changes since commit 24342c34a022ee90839873d91396045e12ef1090:
+>   Linus Torvalds (1):
+>         Linux 2.6.27-rc5
+> 
+> are available in the git repository at:
+> 
+>   git://git.marvell.com/mv643xx_eth.git for-2.6.28
+>   http://git.marvell.com/?p=mv643xx_eth.git;a=shortlog;h=for-2.6.28
+> 
+> Lennert Buytenhek (28):
+>       mv643xx_eth: fix 'netdev_priv(dev) == dev->priv' assumption
+>       mv643xx_eth: fix receive buffer DMA unmapping
+>       mv643xx_eth: get rid of IRQF_SAMPLE_RANDOM
+>       mv643xx_eth: get rid of modulo operations
+>       mv643xx_eth: switch ->phy_lock from a spinlock to a mutex
+>       mv643xx_eth: use the SMI done interrupt to wait for SMI access completion
+>       mv643xx_eth: make napi unconditional
+>       mv643xx_eth: get rid of receive-side locking
+>       mv643xx_eth: get rid of compile-time configurable transmit checksumming
+>       mv643xx_eth: require contiguous receive and transmit queue numbering
+>       mv643xx_eth: smi sharing is a per-unit property, not a per-port one
+>       mv643xx_eth: remove force_phy_addr field
+>       mv643xx_eth: get rid of netif_{stop,wake}_queue() calls on link down/up
+>       mv643xx_eth: delete unused and uninteresting interrupt source mask bits
+>       mv643xx_eth: transmit multiqueue support
+>       mv643xx_eth: move all work to the napi poll handler
+>       mv643xx_eth: switch to netif tx queue lock, get rid of private spinlock
+>       mv643xx_eth: avoid dropping tx lock during transmit reclaim
+>       mv643xx_eth: replace array of skbs awaiting transmit completion with a queue
+>       mv643xx_eth: shrink default receive and transmit queue sizes
+>       mv643xx_eth: avoid reading ->byte_cnt twice during receive processing
+>       mv643xx_eth: add support for chips without transmit bandwidth control
+>       mv643xx_eth: fix receive checksumming
+>       mv643xx_eth: deal with unexpected ethernet header sizes
+>       mv643xx_eth: enforce frequent hardware statistics polling
+>       phylib: allow incremental scanning of an mii bus
+>       mv643xx_eth: convert to phylib
+>       mv643xx_eth: bump version to 1.4
+> 
+>  arch/arm/mach-kirkwood/db88f6281-bp-setup.c  |    2 +-
+>  arch/arm/mach-kirkwood/rd88f6192-nas-setup.c |    2 +-
+>  arch/arm/mach-kirkwood/rd88f6281-setup.c     |    2 +-
+>  arch/arm/mach-loki/lb88rc8480-setup.c        |    2 +-
+>  arch/arm/mach-mv78xx0/common.c               |    6 +-
+>  arch/arm/mach-mv78xx0/db78x00-bp-setup.c     |    8 +-
+>  arch/arm/mach-orion5x/db88f5281-setup.c      |    2 +-
+>  arch/arm/mach-orion5x/dns323-setup.c         |    2 +-
+>  arch/arm/mach-orion5x/kurobox_pro-setup.c    |    2 +-
+>  arch/arm/mach-orion5x/mss2-setup.c           |    2 +-
+>  arch/arm/mach-orion5x/mv2120-setup.c         |    2 +-
+>  arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |    2 +-
+>  arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |    2 +-
+>  arch/arm/mach-orion5x/rd88f5182-setup.c      |    2 +-
+>  arch/arm/mach-orion5x/ts78xx-setup.c         |    3 +-
+>  arch/arm/mach-orion5x/tsx09-common.c         |    2 +-
+>  arch/arm/mach-orion5x/wnr854t-setup.c        |    2 +-
+>  arch/arm/mach-orion5x/wrt350n-v2-setup.c     |    2 +-
+>  arch/powerpc/sysdev/mv64x60_dev.c            |    6 +-
+>  drivers/net/Kconfig                          |    2 +-
+>  drivers/net/mv643xx_eth.c                    | 1438 +++++++++++++-------------
+>  drivers/net/phy/mdio_bus.c                   |   89 +-
+>  include/linux/mv643xx_eth.h                  |   13 +-
+>  include/linux/phy.h                          |    2 +
 
-Signed-off-by: Kevin Hao <kexin.hao@windriver.com>
----
- drivers/net/atlx/atl2.c |   24 +-----------------------
- drivers/net/atlx/atl2.h |    1 -
- 2 files changed, 1 insertions(+), 24 deletions(-)
+pulled
 
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-index b2995ac..3df4ee1 100644
---- a/drivers/net/atlx/atl2.c
-+++ b/drivers/net/atlx/atl2.c
-@@ -116,7 +116,6 @@ static int __devinit atl2_sw_init(struct atl2_adapter *adapter)
- 	hw->max_frame_size = adapter->netdev->mtu;
- 
- 	spin_lock_init(&adapter->stats_lock);
--	spin_lock_init(&adapter->tx_lock);
- 
- 	set_bit(__ATL2_DOWN, &adapter->flags);
- 
-@@ -749,11 +748,7 @@ static void atl2_down(struct atl2_adapter *adapter)
- 	 * reschedule our watchdog timer */
- 	set_bit(__ATL2_DOWN, &adapter->flags);
- 
--#ifdef NETIF_F_LLTX
--	netif_stop_queue(netdev);
--#else
- 	netif_tx_disable(netdev);
--#endif
- 
- 	/* reset MAC to disable all RX/TX */
- 	atl2_reset_hw(&adapter->hw);
-@@ -829,7 +824,6 @@ static inline int TxdFreeBytes(struct atl2_adapter *adapter)
- static int atl2_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct atl2_adapter *adapter = netdev_priv(netdev);
--	unsigned long flags;
- 	struct tx_pkt_header *txph;
- 	u32 offset, copy_len;
- 	int txs_unused;
-@@ -845,16 +839,6 @@ static int atl2_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		return NETDEV_TX_OK;
- 	}
- 
--#ifdef NETIF_F_LLTX
--	local_irq_save(flags);
--	if (!spin_trylock(&adapter->tx_lock)) {
--		/* Collision - tell upper layer to requeue */
--		local_irq_restore(flags);
--		return NETDEV_TX_LOCKED;
--	}
--#else
--	spin_lock_irqsave(&adapter->tx_lock, flags);
--#endif
- 	txs_unused = TxsFreeUnit(adapter);
- 	txbuf_unused = TxdFreeBytes(adapter);
- 
-@@ -862,7 +846,6 @@ static int atl2_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		txs_unused < 1) {
- 		/* not enough resources */
- 		netif_stop_queue(netdev);
--		spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -908,8 +891,7 @@ static int atl2_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	ATL2_WRITE_REGW(&adapter->hw, REG_MB_TXD_WR_IDX,
- 		(adapter->txd_write_ptr >> 2));
- 
--	spin_unlock_irqrestore(&adapter->tx_lock, flags);
--
-+	mmiowb();
- 	netdev->trans_start = jiffies;
- 	dev_kfree_skb_any(skb);
- 	return NETDEV_TX_OK;
-@@ -1447,10 +1429,6 @@ static int __devinit atl2_probe(struct pci_dev *pdev,
- 	netdev->features |= (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
- #endif
- 
--#ifdef NETIF_F_LLTX
--	netdev->features |= NETIF_F_LLTX;
--#endif
--
- 	/* Init PHY as early as possible due to power saving issue  */
- 	atl2_phy_init(&adapter->hw);
- 
-diff --git a/drivers/net/atlx/atl2.h b/drivers/net/atlx/atl2.h
-index 6e1f28f..09974df 100644
---- a/drivers/net/atlx/atl2.h
-+++ b/drivers/net/atlx/atl2.h
-@@ -462,7 +462,6 @@ struct atl2_adapter {
- 	u16 link_duplex;
- 
- 	spinlock_t stats_lock;
--	spinlock_t tx_lock;
- 
- 	struct work_struct reset_task;
- 	struct work_struct link_chg_task;
--- 
-1.5.6.2.220.g44701
 
