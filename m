@@ -1,134 +1,167 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 8/9] skge: add VPD display into debug interface
-Date: Thu, 25 Sep 2008 09:48:59 -0700
-Message-ID: <20080925165223.832863939@vyatta.com>
+Subject: [PATCH 1/9] PCI: vpd handle longer delays in access (rev3)
+Date: Thu, 25 Sep 2008 09:48:52 -0700
+Message-ID: <20080925165223.168847327@vyatta.com>
 References: <20080925164851.694359776@vyatta.com>
 Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Ivan Vecera <ivecera@redhat.com>
 To: Jeff Garzik <jgarzik@pobox.com>,
 	Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:33951 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755231AbYIYQ4s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 12:56:48 -0400
-Content-Disposition: inline; filename=skge-vpd-debug.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline; filename=vpd-delay.patch
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The VPD stuff has more data and useful only when debugging.
+Accessing the VPD area can take a long time.  The existing 
+VPD access code fails consistently on my hardware. There are comments
+in the Marvell vendor driver that it can take up to 13ms per word. 
+
+Change the access routines to:
+  * use a mutex rather than spinning with IRQ's disabled and lock held
+  * have a much longer timeout
+  * call cond_resched while spinning
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/skge.c	2008-09-09 11:19:31.000000000 -0700
-+++ b/drivers/net/skge.c	2008-09-09 11:19:33.000000000 -0700
-@@ -3656,19 +3656,102 @@ static int skge_reset(struct skge_hw *hw
+--- a/drivers/pci/access.c	2008-09-09 13:56:10.000000000 -0700
++++ b/drivers/pci/access.c	2008-09-09 13:56:56.000000000 -0700
+@@ -133,39 +133,46 @@ PCI_USER_WRITE_CONFIG(dword, u32)
  
- static struct dentry *skge_debug;
+ struct pci_vpd_pci22 {
+ 	struct pci_vpd base;
+-	spinlock_t lock; /* controls access to hardware and the flags */
+-	u8	cap;
++	struct mutex lock;
++	u16	flag;
+ 	bool	busy;
+-	bool	flag; /* value of F bit to wait for */
++	u8	cap;
+ };
  
+-/* Wait for last operation to complete */
 +/*
-+ * Read and parse the first part of Vital Product Data
++ * Wait for last operation to complete.
++ * This code has to spin since there is no other notification from the PCI
++ * hardware. Since the VPD is often implemented by serial attachment to an
++ * EEPROM, it may take many milliseconds to complete.
 + */
-+#define VPD_SIZE	128
-+#define VPD_MAGIC	0x82
-+
-+static const struct vpd_tag {
-+	char tag[2];
-+	char *label;
-+} vpd_tags[] = {
-+	{ "PN",	"Part Number" },
-+	{ "EC", "Engineering Level" },
-+	{ "MN", "Manufacturer" },
-+	{ "SN", "Serial Number" },
-+	{ "YA", "Asset Tag" },
-+	{ "VL", "First Error Log Message" },
-+	{ "VF", "Second Error Log Message" },
-+	{ "VB", "Boot Agent ROM Configuration" },
-+	{ "VE", "EFI UNDI Configuration" },
-+};
-+
-+static void skge_show_vpd(struct seq_file *seq, struct skge_hw *hw)
-+{
-+	size_t vpd_size;
-+	loff_t offs;
-+	u8 len;
-+	unsigned char *buf;
-+	u32 reg2;
-+
-+	pci_read_config_dword(hw->pdev, PCI_DEV_REG2, &reg2);
-+	vpd_size = 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
-+
-+	seq_printf(seq, "%s Product Data\n", pci_name(hw->pdev));
-+	buf = kmalloc(vpd_size, GFP_KERNEL);
-+	if (!buf) {
-+		seq_puts(seq, "no memory!\n");
-+		return;
-+	}
-+
-+	if (pci_read_vpd(hw->pdev, 0, vpd_size, buf) < 0) {
-+		seq_puts(seq, "VPD read failed\n");
-+		goto out;
-+	}
-+
-+	if (buf[0] != VPD_MAGIC) {
-+		seq_printf(seq, "VPD tag mismatch: %#x\n", buf[0]);
-+		goto out;
-+	}
-+	len = buf[1];
-+	if (len == 0 || len > vpd_size - 4) {
-+		seq_printf(seq, "Invalid id length: %d\n", len);
-+		goto out;
-+	}
-+
-+	seq_printf(seq, "%.*s\n", len, buf + 3);
-+	offs = len + 3;
-+
-+	while (offs < vpd_size - 4) {
-+		int i;
-+
-+		if (!memcmp("RW", buf + offs, 2))	/* end marker */
-+			break;
-+		len = buf[offs + 2];
-+		if (offs + len + 3 >= vpd_size)
-+			break;
-+
-+		for (i = 0; i < ARRAY_SIZE(vpd_tags); i++) {
-+			if (!memcmp(vpd_tags[i].tag, buf + offs, 2)) {
-+				seq_printf(seq, " %s: %.*s\n",
-+					   vpd_tags[i].label, len, buf + offs + 3);
-+				break;
-+			}
-+		}
-+		offs += len + 3;
-+	}
-+out:
-+	kfree(buf);
-+}
-+
- static int skge_debug_show(struct seq_file *seq, void *v)
+ static int pci_vpd_pci22_wait(struct pci_dev *dev)
  {
- 	struct net_device *dev = seq->private;
- 	const struct skge_port *skge = netdev_priv(dev);
--	const struct skge_hw *hw = skge->hw;
-+	struct skge_hw *hw = skge->hw;
- 	const struct skge_element *e;
+ 	struct pci_vpd_pci22 *vpd =
+ 		container_of(dev->vpd, struct pci_vpd_pci22, base);
+-	u16 flag, status;
+-	int wait;
++	unsigned long timeout = jiffies + HZ/20 + 2;
++	u16 status;
+ 	int ret;
  
--	if (!netif_running(dev))
--		return -ENETDOWN;
-+	skge_show_vpd(seq, hw);
+ 	if (!vpd->busy)
+ 		return 0;
  
- 	seq_printf(seq, "IRQ src=%x mask=%x\n", skge_read32(hw, B0_ISRC),
- 		   skge_read32(hw, B0_IMSK));
- 
-+	if (!netif_running(dev)) {
-+		seq_printf(seq, "network not running\n");
-+		return 0;
-+	}
+-	flag = vpd->flag ? PCI_VPD_ADDR_F : 0;
+-	wait = vpd->flag ? 10 : 1000; /* read: 100 us; write: 10 ms */
+ 	for (;;) {
+-		ret = pci_user_read_config_word(dev,
+-						vpd->cap + PCI_VPD_ADDR,
++		ret = pci_user_read_config_word(dev, vpd->cap + PCI_VPD_ADDR,
+ 						&status);
+-		if (ret < 0)
++		if (ret)
+ 			return ret;
+-		if ((status & PCI_VPD_ADDR_F) == flag) {
 +
- 	seq_printf(seq, "Tx Ring: (%d)\n", skge_avail(&skge->tx_ring));
- 	for (e = skge->tx_ring.to_clean; e != skge->tx_ring.to_use; e = e->next) {
- 		const struct skge_tx_desc *t = e->desc;
++		if ((status & PCI_VPD_ADDR_F) == vpd->flag) {
+ 			vpd->busy = false;
+ 			return 0;
+ 		}
+-		if (wait-- == 0)
++
++		if (time_after(jiffies, timeout))
+ 			return -ETIMEDOUT;
+-		udelay(10);
++		if (fatal_signal_pending(current))
++			return -EINTR;
++		if(!cond_resched())
++			udelay(10);
+ 	}
+ }
+ 
+@@ -175,7 +182,7 @@ static int pci_vpd_pci22_read(struct pci
+ 	struct pci_vpd_pci22 *vpd =
+ 		container_of(dev->vpd, struct pci_vpd_pci22, base);
+ 	u32 val;
+-	int ret;
++	int ret = 0;
+ 	int begin, end, i;
+ 
+ 	if (pos < 0 || pos > vpd->base.len || size > vpd->base.len  - pos)
+@@ -183,7 +190,9 @@ static int pci_vpd_pci22_read(struct pci
+ 	if (size == 0)
+ 		return 0;
+ 
+-	spin_lock_irq(&vpd->lock);
++	if (mutex_lock_killable(&vpd->lock))
++		return -EINTR;
++
+ 	ret = pci_vpd_pci22_wait(dev);
+ 	if (ret < 0)
+ 		goto out;
+@@ -191,15 +200,16 @@ static int pci_vpd_pci22_read(struct pci
+ 					 pos & ~3);
+ 	if (ret < 0)
+ 		goto out;
++
+ 	vpd->busy = true;
+-	vpd->flag = 1;
++	vpd->flag = PCI_VPD_ADDR_F;
+ 	ret = pci_vpd_pci22_wait(dev);
+ 	if (ret < 0)
+ 		goto out;
+ 	ret = pci_user_read_config_dword(dev, vpd->cap + PCI_VPD_DATA,
+ 					 &val);
+ out:
+-	spin_unlock_irq(&vpd->lock);
++	mutex_unlock(&vpd->lock);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -220,7 +230,7 @@ static int pci_vpd_pci22_write(struct pc
+ 	struct pci_vpd_pci22 *vpd =
+ 		container_of(dev->vpd, struct pci_vpd_pci22, base);
+ 	u32 val;
+-	int ret;
++	int ret = 0;
+ 
+ 	if (pos < 0 || pos > vpd->base.len || pos & 3 ||
+ 	    size > vpd->base.len - pos || size < 4)
+@@ -231,7 +241,8 @@ static int pci_vpd_pci22_write(struct pc
+ 	val |= ((u8) *buf++) << 16;
+ 	val |= ((u32)(u8) *buf++) << 24;
+ 
+-	spin_lock_irq(&vpd->lock);
++	if (mutex_lock_killable(&vpd->lock))
++		return -EINTR;
+ 	ret = pci_vpd_pci22_wait(dev);
+ 	if (ret < 0)
+ 		goto out;
+@@ -247,7 +258,7 @@ static int pci_vpd_pci22_write(struct pc
+ 	vpd->flag = 0;
+ 	ret = pci_vpd_pci22_wait(dev);
+ out:
+-	spin_unlock_irq(&vpd->lock);
++	mutex_unlock(&vpd->lock);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -279,7 +290,7 @@ int pci_vpd_pci22_init(struct pci_dev *d
+ 
+ 	vpd->base.len = PCI_VPD_PCI22_SIZE;
+ 	vpd->base.ops = &pci_vpd_pci22_ops;
+-	spin_lock_init(&vpd->lock);
++	mutex_init(&vpd->lock);
+ 	vpd->cap = cap;
+ 	vpd->busy = false;
+ 	dev->vpd = &vpd->base;
 
 -- 
-
