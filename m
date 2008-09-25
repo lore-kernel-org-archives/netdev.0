@@ -1,40 +1,52 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: xfrm_state locking regression...
-Date: Thu, 25 Sep 2008 15:36:04 +0300
-Message-ID: <48DB85B4.10104@iki.fi>
-References: <20080924062138.GA6764@gondor.apana.org.au> <48D9EC4B.4050804@iki.fi> <20080924075441.GA7391@gondor.apana.org.au> <48DA3E2D.4070909@iki.fi> <20080924140819.GA10022@gondor.apana.org.au> <48DB29A9.2090204@iki.fi> <20080925075715.GA18101@gondor.apana.org.au> <48DB4EE7.2030109@iki.fi> <20080925085634.GA18853@gondor.apana.org.au> <48DB536A.7020209@iki.fi> <20080925094905.GA19180@gondor.apana.org.au> <48DB801E.90500@iki.fi>
+From: Ram.Natarajan@Emulex.Com
+Subject: Using skb_get() to recycle skbs
+Date: Thu, 25 Sep 2008 06:03:03 -0700
+Message-ID: <A4114C1019D2F34CA5D6CDF8A4D1890178BEB834A0@EXMAIL.ad.emulex.com>
+References: <20080922002153.GC1878@2ka.mipt.ru>
+ <20080921.174450.20349529.davem@davemloft.net>
+ <20080922010834.GB3059@2ka.mipt.ru>
+ <20080921.190715.144340989.davem@davemloft.net>
+ <20080922041929.GA20165@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:11228 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669AbYIYMgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 08:36:09 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so398924fkq.5
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 05:36:07 -0700 (PDT)
-In-Reply-To: <48DB801E.90500@iki.fi>
+Received: from emulex.emulex.com ([138.239.112.1]:40278 "EHLO
+	emulex.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752965AbYIYNDG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 09:03:06 -0400
+Received: from xcm.ad.emulex.com (xcm.emulex.com [138.239.112.69])
+	by emulex.emulex.com (8.13.6/8.13.6) with ESMTP id m8PD35f7028481
+	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 06:03:05 -0700 (PDT)
+In-Reply-To: <20080922041929.GA20165@2ka.mipt.ru>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timo Ter=E4s wrote:
-> Herbert Xu wrote:
->> Thanks! I've got some other work to do so feel free to post this
->> tomorrow.
->=20
-> It was simpler than I thought (and I thought I would be more busy
-> with other things). Anyway, here goes. This is a single patch that
-> modifies both xfrm_state and xfrm_policy dumping. This was to get
-> af_key patch nicer (the final skb patching/sending is common code).
 
-One more thing I noticed. If the af_key socket is closed while
-dumping is ongoing the current code can leak stuff. We should call
-the .done. And also in the new patch, release the stored skb.
+In our netdev driver, we preallocate a pool of skb which are
+used by our h/w to DMA frames.
 
-The right place to do that would be pfkey_release, I assume?
+Normally, when we indicate a packet to stack (netif_rx),
+the stack ends up freeing it. If we do a skb_get() prior
+to that, then the stack just reduces the use_count,
+and our driver is able to re-use it. We do have to use
+caution to see that stack has dropped it's reference
+(atomic_read(skb->users) <= 1) prior to returning
+the buffer to our h/w.
 
-- Timo
+Is this a valid approach? It so it could save some
+CPU cycles which are used in alloc_skb(). If this
+can be done, how come more drivers in tree are not
+doing it, is there any flip side to it? One could be
+that stack may not free it in time (we could starve
+the hardware of free buffers), but in that case
+we can drop our reference, and let the stack
+free it up, and force an allocation instead of
+reuse.
 
+Thanks for your response.
+
+Ram Natarajan
+Emulex Corporation
