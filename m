@@ -1,17 +1,17 @@
-From: Brice Goglin <Brice.Goglin@ens-lyon.org>
+From: Brice Goglin <brice@myri.com>
 Subject: [RESEND][PATCH 2.6.28] myri10ge: Add multiqueue TX support
-Date: Thu, 25 Sep 2008 05:42:35 +0200
-Message-ID: <48DB08AB.60909@ens-lyon.org>
+Date: Thu, 25 Sep 2008 06:15:18 +0200
+Message-ID: <48DB1056.5040206@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iona.labri.fr ([147.210.8.143]:57660 "EHLO iona.labri.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751684AbYIYELr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 00:11:47 -0400
+Received: from mailbox2.myri.com ([64.172.73.26]:1920 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750962AbYIYEQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2008 00:16:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
