@@ -1,19 +1,24 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 9/9] skge: remove VPD eeprom
-Date: Thu, 25 Sep 2008 09:49:00 -0700
-Message-ID: <20080925165223.930366451@vyatta.com>
+Subject: [PATCH 6/9] sky2: remove VPD eeprom
+Date: Thu, 25 Sep 2008 09:48:57 -0700
+Message-ID: <20080925165223.655806857@vyatta.com>
 References: <20080925164851.694359776@vyatta.com>
 Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Ivan Vecera <ivecera@redhat.com>
 To: Jeff Garzik <jgarzik@pobox.com>,
 	Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline; filename=skge-no-eeprom.patch
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from suva.vyatta.com ([76.74.103.44]:33959 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755176AbYIYQ4y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2008 12:56:54 -0400
+Content-Disposition: inline; filename=sky2-no-eeprom.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The VPD is not really the firmware EEPROM.
+The VPD is not really the firmware EEPROM. The real EEPROM is behind
+an SPI interface, that maybe supported in later version.
 Programming the VPD through the ethtool interface doesn't work
 (doesn't really change firmware). Now that the interesting bits are
 available through the debug interface and raw data is available through sysfs,
@@ -21,126 +26,138 @@ the old interface can go.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/skge.c	2008-09-09 11:19:33.000000000 -0700
-+++ b/drivers/net/skge.c	2008-09-09 11:19:34.000000000 -0700
-@@ -61,9 +61,6 @@
- #define BLINK_MS		250
- #define LINK_HZ			HZ
+
+--- a/drivers/net/sky2.c	2008-09-09 11:19:26.000000000 -0700
++++ b/drivers/net/sky2.c	2008-09-09 11:19:30.000000000 -0700
+@@ -75,8 +75,6 @@
+ #define NAPI_WEIGHT		64
+ #define PHY_RETRIES		1000
  
--#define SKGE_EEPROM_MAGIC	0x9933aabb
+-#define SKY2_EEPROM_MAGIC	0x9955aabb
 -
--
- MODULE_DESCRIPTION("SysKonnect Gigabit Ethernet driver");
- MODULE_AUTHOR("Stephen Hemminger <shemminger@linux-foundation.org>");
- MODULE_LICENSE("GPL");
-@@ -803,98 +800,6 @@ static int skge_phys_id(struct net_devic
- 	return 0;
+ 
+ #define RING_NEXT(x,s)	(((x)+1) & ((s)-1))
+ 
+@@ -3722,109 +3720,6 @@ static int sky2_set_tso(struct net_devic
+ 	return ethtool_op_set_tso(dev, data);
  }
  
--static int skge_get_eeprom_len(struct net_device *dev)
+-static int sky2_get_eeprom_len(struct net_device *dev)
 -{
--	struct skge_port *skge = netdev_priv(dev);
--	u32 reg2;
+-	struct sky2_port *sky2 = netdev_priv(dev);
+-	struct sky2_hw *hw = sky2->hw;
+-	u16 reg2;
 -
--	pci_read_config_dword(skge->hw->pdev, PCI_DEV_REG2, &reg2);
+-	reg2 = sky2_pci_read16(hw, PCI_DEV_REG2);
 -	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
 -}
 -
--static u32 skge_vpd_read(struct pci_dev *pdev, int cap, u16 offset)
+-static int sky2_vpd_wait(const struct sky2_hw *hw, int cap, u16 busy)
 -{
--	u32 val;
+-	unsigned long start = jiffies;
 -
--	pci_write_config_word(pdev, cap + PCI_VPD_ADDR, offset);
--
--	do {
--		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
--	} while (!(offset & PCI_VPD_ADDR_F));
--
--	pci_read_config_dword(pdev, cap + PCI_VPD_DATA, &val);
--	return val;
--}
--
--static void skge_vpd_write(struct pci_dev *pdev, int cap, u16 offset, u32 val)
--{
--	pci_write_config_dword(pdev, cap + PCI_VPD_DATA, val);
--	pci_write_config_word(pdev, cap + PCI_VPD_ADDR,
--			      offset | PCI_VPD_ADDR_F);
--
--	do {
--		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
--	} while (offset & PCI_VPD_ADDR_F);
--}
--
--static int skge_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
--			   u8 *data)
--{
--	struct skge_port *skge = netdev_priv(dev);
--	struct pci_dev *pdev = skge->hw->pdev;
--	int cap = pci_find_capability(pdev, PCI_CAP_ID_VPD);
--	int length = eeprom->len;
--	u16 offset = eeprom->offset;
--
--	if (!cap)
--		return -EINVAL;
--
--	eeprom->magic = SKGE_EEPROM_MAGIC;
--
--	while (length > 0) {
--		u32 val = skge_vpd_read(pdev, cap, offset);
--		int n = min_t(int, length, sizeof(val));
--
--		memcpy(data, &val, n);
--		length -= n;
--		data += n;
--		offset += n;
+-	while ( (sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F) == busy) {
+-		/* Can take up to 10.6 ms for write */
+-		if (time_after(jiffies, start + HZ/4)) {
+-			dev_err(&hw->pdev->dev, PFX "VPD cycle timed out");
+-			return -ETIMEDOUT;
+-		}
+-		mdelay(1);
 -	}
+-
 -	return 0;
 -}
 -
--static int skge_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
--			   u8 *data)
+-static int sky2_vpd_read(struct sky2_hw *hw, int cap, void *data,
+-			 u16 offset, size_t length)
 -{
--	struct skge_port *skge = netdev_priv(dev);
--	struct pci_dev *pdev = skge->hw->pdev;
--	int cap = pci_find_capability(pdev, PCI_CAP_ID_VPD);
--	int length = eeprom->len;
--	u16 offset = eeprom->offset;
--
--	if (!cap)
--		return -EINVAL;
--
--	if (eeprom->magic != SKGE_EEPROM_MAGIC)
--		return -EINVAL;
+-	int rc = 0;
 -
 -	while (length > 0) {
 -		u32 val;
--		int n = min_t(int, length, sizeof(val));
 -
--		if (n < sizeof(val))
--			val = skge_vpd_read(pdev, cap, offset);
--		memcpy(&val, data, n);
+-		sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset);
+-		rc = sky2_vpd_wait(hw, cap, 0);
+-		if (rc)
+-			break;
 -
--		skge_vpd_write(pdev, cap, offset, val);
+-		val = sky2_pci_read32(hw, cap + PCI_VPD_DATA);
 -
--		length -= n;
--		data += n;
--		offset += n;
+-		memcpy(data, &val, min(sizeof(val), length));
+-		offset += sizeof(u32);
+-		data += sizeof(u32);
+-		length -= sizeof(u32);
 -	}
--	return 0;
+-
+-	return rc;
 -}
 -
- static const struct ethtool_ops skge_ethtool_ops = {
- 	.get_settings	= skge_get_settings,
- 	.set_settings	= skge_set_settings,
-@@ -907,9 +812,6 @@ static const struct ethtool_ops skge_eth
- 	.set_msglevel	= skge_set_msglevel,
- 	.nway_reset	= skge_nway_reset,
+-static int sky2_vpd_write(struct sky2_hw *hw, int cap, const void *data,
+-			  u16 offset, unsigned int length)
+-{
+-	unsigned int i;
+-	int rc = 0;
+-
+-	for (i = 0; i < length; i += sizeof(u32)) {
+-		u32 val = *(u32 *)(data + i);
+-
+-		sky2_pci_write32(hw, cap + PCI_VPD_DATA, val);
+-		sky2_pci_write32(hw, cap + PCI_VPD_ADDR, offset | PCI_VPD_ADDR_F);
+-
+-		rc = sky2_vpd_wait(hw, cap, PCI_VPD_ADDR_F);
+-		if (rc)
+-			break;
+-	}
+-	return rc;
+-}
+-
+-static int sky2_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+-			   u8 *data)
+-{
+-	struct sky2_port *sky2 = netdev_priv(dev);
+-	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
+-
+-	if (!cap)
+-		return -EINVAL;
+-
+-	eeprom->magic = SKY2_EEPROM_MAGIC;
+-
+-	return sky2_vpd_read(sky2->hw, cap, data, eeprom->offset, eeprom->len);
+-}
+-
+-static int sky2_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+-			   u8 *data)
+-{
+-	struct sky2_port *sky2 = netdev_priv(dev);
+-	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
+-
+-	if (!cap)
+-		return -EINVAL;
+-
+-	if (eeprom->magic != SKY2_EEPROM_MAGIC)
+-		return -EINVAL;
+-
+-	/* Partial writes not supported */
+-	if ((eeprom->offset & 3) || (eeprom->len & 3))
+-		return -EINVAL;
+-
+-	return sky2_vpd_write(sky2->hw, cap, data, eeprom->offset, eeprom->len);
+-}
+-
+-
+ static const struct ethtool_ops sky2_ethtool_ops = {
+ 	.get_settings	= sky2_get_settings,
+ 	.set_settings	= sky2_set_settings,
+@@ -3837,9 +3732,6 @@ static const struct ethtool_ops sky2_eth
+ 	.get_regs_len	= sky2_get_regs_len,
+ 	.get_regs	= sky2_get_regs,
  	.get_link	= ethtool_op_get_link,
--	.get_eeprom_len	= skge_get_eeprom_len,
--	.get_eeprom	= skge_get_eeprom,
--	.set_eeprom	= skge_set_eeprom,
- 	.get_ringparam	= skge_get_ring_param,
- 	.set_ringparam	= skge_set_ring_param,
- 	.get_pauseparam = skge_get_pauseparam,
+-	.get_eeprom_len	= sky2_get_eeprom_len,
+-	.get_eeprom	= sky2_get_eeprom,
+-	.set_eeprom	= sky2_set_eeprom,
+ 	.set_sg 	= ethtool_op_set_sg,
+ 	.set_tx_csum	= sky2_set_tx_csum,
+ 	.set_tso	= sky2_set_tso,
 
 -- 
+
