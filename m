@@ -1,35 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm_state locking regression...
-Date: Thu, 25 Sep 2008 17:49:05 +0800
-Message-ID: <20080925094905.GA19180@gondor.apana.org.au>
-References: <20080924062138.GA6764@gondor.apana.org.au> <48D9EC4B.4050804@iki.fi> <20080924075441.GA7391@gondor.apana.org.au> <48DA3E2D.4070909@iki.fi> <20080924140819.GA10022@gondor.apana.org.au> <48DB29A9.2090204@iki.fi> <20080925075715.GA18101@gondor.apana.org.au> <48DB4EE7.2030109@iki.fi> <20080925085634.GA18853@gondor.apana.org.au> <48DB536A.7020209@iki.fi>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] r8169: read MAC address from EEPROM on init
+Date: Thu, 25 Sep 2008 11:24:10 +0100
+Message-ID: <1222338250.8641.61.camel@achroite>
+References: <48D25BA2.6070008@redhat.com>
+	 <Pine.LNX.4.64.0809182235550.4742@wrl-59.cs.helsinki.fi>
+	 <48D3A381.1080500@redhat.com>
+	 <Pine.LNX.4.64.0809210100020.16838@wrl-59.cs.helsinki.fi>
+	 <48D9FE65.40709@redhat.com>
+	 <20080924211021.GB9746@electric-eye.fr.zoreil.com>
+	 <48DB5C04.9050308@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59679 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752929AbYIYKXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 06:23:31 -0400
-Content-Disposition: inline
-In-Reply-To: <48DB536A.7020209@iki.fi>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:32805 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753102AbYIYKYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 06:24:21 -0400
+In-Reply-To: <48DB5C04.9050308@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 25, 2008 at 12:01:30PM +0300, Timo Ter=E4s wrote:
->
-> Not sure if I can finish it today, but I think I should have the
-> time by tomorrow. Unless you have time to do it before that, I'll
-> post a patch later this week. Will update the similar xfrm_policy
-> patch for that too, before sending it.
+On Thu, 2008-09-25 at 11:38 +0200, Ivan Vecera wrote:
+> Francois Romieu wrote:
+> > Ivan Vecera <ivecera@redhat.com> :
+> > [...]
+> >> OK :-), I hope the patch below is finally the right one.
+> > 
+> > My approval ratings won't surge today.
+> > 
+> > Is there a specific explanation for the 10 us delay ?
+> > 
+> > Realtek's 8168 / 8169 / 8101 drivers all use a (wildly copy'pasted ?)
+> > 10 ms delay. I would not mind a 10 ms sleep.
+> 'pci_vpd_pci22_wait' uses 100us(10x10us delay) for reading, there is 1ms
+> (100x10us delay) in my patch, because 100us max. delay was too little for
+> Realtek.
 
-Thanks! I've got some other work to do so feel free to post this
-tomorrow.
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If the maximum delay there is too short, it should be increased.  As
+I've said before, I picked a timeout that worked for me in the absence
+of any time limit in the PCI specification.  I thought Stephen Hemminger
+had modified it to work for sky2 but it looks like that change was
+blocked by quibbling about how best to poll.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
