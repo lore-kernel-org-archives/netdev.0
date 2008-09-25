@@ -1,54 +1,56 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: via-velocity warnings on sparc64
-Date: Thu, 25 Sep 2008 23:37:14 +0200
-Message-ID: <20080925213714.GA13178@electric-eye.fr.zoreil.com>
-References: <Pine.SOC.4.64.0809251007180.6342@math.ut.ee>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH] net: remove LLTX in atl2 driver
+Date: Thu, 25 Sep 2008 18:34:29 -0400
+Message-ID: <48DC11F5.20900@redhat.com>
+References: <1222302922-13200-1-git-send-email-kexin.hao@windriver.com> <48DBF4DD.8060908@redhat.com> <48DBFAB5.2010709@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Meelis Roos <mroos@linux.ee>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kevin Hao <kexin.hao@windriver.com>,
+	Jeff Garzik <jgarzik@redhat.com>,
+	Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:33639 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754051AbYIYVhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 17:37:18 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.SOC.4.64.0809251007180.6342@math.ut.ee>
+Received: from mx2.redhat.com ([66.187.237.31]:60876 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752819AbYIYWfr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2008 18:35:47 -0400
+In-Reply-To: <48DBFAB5.2010709@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Meelis Roos <mroos@linux.ee> :
-> Noticed this while compiling 2.6.27-rc7+git on sparc64 - maybe it is of 
-> interest.
+Jeff Garzik wrote:
+> Chris Snook wrote:
+>> Kevin Hao wrote:
+>>> When NETIF_F_LLTX is set, the atlx driver will use a private lock.
+>>> But in recent kernels this implementation seems redundant and
+>>> can cause problems where AF_PACKET sees things twice. Since
+>>> NETIF_F_LLTX is marked as deprecated and shouldn't be used in
+>>> new driver, this patch removes NETIF_F_LLTX and adds a mmiowb
+>>> before sending packet.
+>>>
+>>> Signed-off-by: Kevin Hao <kexin.hao@windriver.com>
+>>
+>> Can you explain a bit more concretely the problem this solves, and 
+>> your testing?  Ultimately we'll want to merge this code with the atl1 
+>> code, so we need to be confident that we can and should make the same 
+>> change there.
+>>
+>> -- Chris
+>>
+>>> ---
+>>>  drivers/net/atlx/atl2.c |   24 +-----------------------
+>>>  drivers/net/atlx/atl2.h |    1 -
+>>>  2 files changed, 1 insertions(+), 24 deletions(-)
 > 
->   CC [M]  drivers/net/via-velocity.o
-> drivers/net/via-velocity.c: In function 'velocity_free_rd_ring':
-> drivers/net/via-velocity.c:1275: warning: cast from pointer to integer of different size
-> drivers/net/via-velocity.c: In function 'velocity_free_td_ring_entry':
-> drivers/net/via-velocity.c:1336: warning: cast from pointer to integer of different size
+> Not directly addressing your question, but LLTX is indeed deprecated and 
+> in general we want to move away from it.
+> 
+>     Jeff
 
-Something like the patch below maybe ?
+I'm all in favor of removing legacy cruft.  I want to know a little more about 
+it so we can remove it from the atl1 code as well.  Ultimately most of this will 
+be shared code.
 
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index 007c129..ad20f96 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -1272,7 +1272,7 @@ static void velocity_free_rd_ring(struct velocity_info *vptr)
- 			continue;
- 		pci_unmap_single(vptr->pdev, rd_info->skb_dma, vptr->rx.buf_sz,
- 				 PCI_DMA_FROMDEVICE);
--		rd_info->skb_dma = (dma_addr_t) NULL;
-+		rd_info->skb_dma = 0;
- 
- 		dev_kfree_skb(rd_info->skb);
- 		rd_info->skb = NULL;
-@@ -1333,7 +1333,7 @@ static void velocity_free_td_ring_entry(struct velocity_info *vptr,
- 			if (td_info->skb_dma[i]) {
- 				pci_unmap_single(vptr->pdev, td_info->skb_dma[i],
- 					td_info->skb->len, PCI_DMA_TODEVICE);
--				td_info->skb_dma[i] = (dma_addr_t) NULL;
-+				td_info->skb_dma[i] = 0;
- 			}
- 		}
- 		dev_kfree_skb(td_info->skb);
-
+-- Chris
