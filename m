@@ -1,66 +1,70 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 16/21] atl1e: remove the unneeded (struct atl1e_adapter
- *)
-Date: Wed, 24 Sep 2008 20:49:52 -0400
-Message-ID: <48DAE030.5050003@garzik.org>
-References: <200809222152.m8MLqPYL031984@imap1.linux-foundation.org>
+Subject: Re: [patch for 2.6.27? 10/10] gianfar: free/iounmap memory after
+ an error in mii bus initialization
+Date: Wed, 24 Sep 2008 20:49:59 -0400
+Message-ID: <48DAE037.4040501@garzik.org>
+References: <200809222110.m8MLAPWg029903@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jie.yang@atheros.com
+Cc: netdev@vger.kernel.org, afleming@freescale.com, danielm77@spray.se
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47013 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47018 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbYIYAt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 20:49:57 -0400
-In-Reply-To: <200809222152.m8MLqPYL031984@imap1.linux-foundation.org>
+	id S1752258AbYIYAuE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 20:50:04 -0400
+In-Reply-To: <200809222110.m8MLAPWg029903@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 akpm@linux-foundation.org wrote:
-> From: Jie Yang <jie.yang@atheros.com>
+> From: Andy Fleming <afleming@freescale.com>
 > 
-> Remove the unneeded (struct atl1e_adapter *) casts, for hw->adapter
-> already has type atl1e_adapter *.
+> Recent changes to MII bus initialization code added exit points which
+> didn't free or iounmap the bus before returning.
 > 
-> Signed-off-by: Jie Yang <jie.yang@atheros.com>
+> Addresses http://bugzilla.kernel.org/show_bug.cgi?id=11372.
+> 
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
+> Reported-by: Daniel Marjamki <danielm77@spray.se>
+> Cc: Jeff Garzik <jeff@garzik.org>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
 > 
->  drivers/net/atl1e/atl1e_hw.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+>  drivers/net/gianfar_mii.c |   14 ++++++++------
+>  1 file changed, 8 insertions(+), 6 deletions(-)
 > 
-> diff -puN drivers/net/atl1e/atl1e_hw.c~atl1e-remove-the-unneeded-struct-atl1e_adapter drivers/net/atl1e/atl1e_hw.c
-> --- a/drivers/net/atl1e/atl1e_hw.c~atl1e-remove-the-unneeded-struct-atl1e_adapter
-> +++ a/drivers/net/atl1e/atl1e_hw.c
-> @@ -397,7 +397,7 @@ static int atl1e_phy_setup_autoneg_adv(s
->   */
->  int atl1e_phy_commit(struct atl1e_hw *hw)
->  {
-> -	struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
-> +	struct atl1e_adapter *adapter = hw->adapter;
->  	struct pci_dev *pdev = adapter->pdev;
->  	int ret_val;
->  	u16 phy_data;
-> @@ -431,7 +431,7 @@ int atl1e_phy_commit(struct atl1e_hw *hw
+> diff -puN drivers/net/gianfar_mii.c~gianfar-free-iounmap-memory-after-an-error-in-mii-bus-initialization drivers/net/gianfar_mii.c
+> --- a/drivers/net/gianfar_mii.c~gianfar-free-iounmap-memory-after-an-error-in-mii-bus-initialization
+> +++ a/drivers/net/gianfar_mii.c
+> @@ -211,19 +211,21 @@ static int gfar_mdio_probe(struct device
+>  	gfar_write(&enet_regs->tbipa, 0);
+>  	for (i = PHY_MAX_ADDR; i > 0; i--) {
+>  		u32 phy_id;
+> -		int r;
 >  
->  int atl1e_phy_init(struct atl1e_hw *hw)
->  {
-> -	struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
-> +	struct atl1e_adapter *adapter = hw->adapter;
->  	struct pci_dev *pdev = adapter->pdev;
->  	s32 ret_val;
->  	u16 phy_val;
-> @@ -525,7 +525,7 @@ int atl1e_phy_init(struct atl1e_hw *hw)
->   */
->  int atl1e_reset_hw(struct atl1e_hw *hw)
->  {
-> -	struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
-> +	struct atl1e_adapter *adapter = hw->adapter;
->  	struct pci_dev *pdev = adapter->pdev;
+> -		r = get_phy_id(new_bus, i, &phy_id);
+> -		if (r)
+> -			return r;
+> +		err = get_phy_id(new_bus, i, &phy_id);
+> +		if (err)
+> +			goto bus_register_fail;
 >  
->  	u32 idle_status_data = 0;
+>  		if (phy_id == 0xffffffff)
+>  			break;
+>  	}
+>  
+>  	/* The bus is full.  We don't support using 31 PHYs, sorry */
+> -	if (i == 0)
+> -		return -EBUSY;
+> +	if (i == 0) {
+> +		err = -EBUSY;
+> +
+> +		goto bus_register_fail;
+> +	}
+>  
+>  	gfar_write(&enet_regs->tbipa, i);
 
 applied
 
