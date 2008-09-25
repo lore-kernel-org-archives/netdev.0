@@ -1,122 +1,67 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: mv643xx_eth pull request for 2.6.28
-Date: Wed, 24 Sep 2008 20:41:14 -0400
-Message-ID: <48DADE2A.3010206@garzik.org>
-References: <20080922031931.GA7678@xi.wantstofly.org>
+Subject: Re: [patch 16/21] atl1e: remove the unneeded (struct atl1e_adapter
+ *)
+Date: Wed, 24 Sep 2008 20:49:52 -0400
+Message-ID: <48DAE030.5050003@garzik.org>
+References: <200809222152.m8MLqPYL031984@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas Pitre <nico@cam.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Dale Farnsworth <dale@farnsworth.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: netdev@vger.kernel.org, jie.yang@atheros.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49949 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47013 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752995AbYIYAlW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 20:41:22 -0400
-In-Reply-To: <20080922031931.GA7678@xi.wantstofly.org>
+	id S1752000AbYIYAt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 20:49:57 -0400
+In-Reply-To: <200809222152.m8MLqPYL031984@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennert Buytenhek wrote:
-> Hi Jeff,
+akpm@linux-foundation.org wrote:
+> From: Jie Yang <jie.yang@atheros.com>
 > 
-> This is the set of mv643xx_eth patches intended for 2.6.28.  It has
-> most of the patches posted to the list in the last couple of weeks,
-> plus three more fixes:
-> - Unless we tell the hardware to include the pseudo-header when
->   checksumming, all packets will be received with the hardware
->   indicating a bad checksum, causing the driver to set CHECKSUM_NONE
->   on all packets, i.e. hardware receive checksum offload won't be
->   used at all.  We need to set the bit that tells the hardware to
->   include the pseudo-header when checksumming.
-> - The driver would corrupt the packet on transmit if the L3 header
->   didn't start 14, 18, 22 or 26 bytes into the packet.  Now it'll
->   just call skb_checksum_help() to do checksumming in software if
->   this happens.
-> - Due to a hardware bug, the 64 bit hardware byte counters are
->   effectively only 32 bit, which necessitates polling them at least
->   once every ~30 seconds to prevent them from overflowing.
+> Remove the unneeded (struct atl1e_adapter *) casts, for hw->adapter
+> already has type atl1e_adapter *.
 > 
-> I've also included the mv643xx_eth phylib conversion, as Andy Fleming
-> ACKed it.  The skb recycling bits aren't included (need more discussion),
-> and neither are the Pegasos SRAM bits, since I didn't receive any tester
-> feedback on them.
+> Signed-off-by: Jie Yang <jie.yang@atheros.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
 > 
-> I've tested this series extensively on all mv643xx_eth hardware I have
-> available, and it all looks good.  Please pull.
+>  drivers/net/atl1e/atl1e_hw.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
 > 
-> 
-> thanks,
-> Lennert
-> 
-> 
-> 
-> The following changes since commit 24342c34a022ee90839873d91396045e12ef1090:
->   Linus Torvalds (1):
->         Linux 2.6.27-rc5
-> 
-> are available in the git repository at:
-> 
->   git://git.marvell.com/mv643xx_eth.git for-2.6.28
->   http://git.marvell.com/?p=mv643xx_eth.git;a=shortlog;h=for-2.6.28
-> 
-> Lennert Buytenhek (28):
->       mv643xx_eth: fix 'netdev_priv(dev) == dev->priv' assumption
->       mv643xx_eth: fix receive buffer DMA unmapping
->       mv643xx_eth: get rid of IRQF_SAMPLE_RANDOM
->       mv643xx_eth: get rid of modulo operations
->       mv643xx_eth: switch ->phy_lock from a spinlock to a mutex
->       mv643xx_eth: use the SMI done interrupt to wait for SMI access completion
->       mv643xx_eth: make napi unconditional
->       mv643xx_eth: get rid of receive-side locking
->       mv643xx_eth: get rid of compile-time configurable transmit checksumming
->       mv643xx_eth: require contiguous receive and transmit queue numbering
->       mv643xx_eth: smi sharing is a per-unit property, not a per-port one
->       mv643xx_eth: remove force_phy_addr field
->       mv643xx_eth: get rid of netif_{stop,wake}_queue() calls on link down/up
->       mv643xx_eth: delete unused and uninteresting interrupt source mask bits
->       mv643xx_eth: transmit multiqueue support
->       mv643xx_eth: move all work to the napi poll handler
->       mv643xx_eth: switch to netif tx queue lock, get rid of private spinlock
->       mv643xx_eth: avoid dropping tx lock during transmit reclaim
->       mv643xx_eth: replace array of skbs awaiting transmit completion with a queue
->       mv643xx_eth: shrink default receive and transmit queue sizes
->       mv643xx_eth: avoid reading ->byte_cnt twice during receive processing
->       mv643xx_eth: add support for chips without transmit bandwidth control
->       mv643xx_eth: fix receive checksumming
->       mv643xx_eth: deal with unexpected ethernet header sizes
->       mv643xx_eth: enforce frequent hardware statistics polling
->       phylib: allow incremental scanning of an mii bus
->       mv643xx_eth: convert to phylib
->       mv643xx_eth: bump version to 1.4
-> 
->  arch/arm/mach-kirkwood/db88f6281-bp-setup.c  |    2 +-
->  arch/arm/mach-kirkwood/rd88f6192-nas-setup.c |    2 +-
->  arch/arm/mach-kirkwood/rd88f6281-setup.c     |    2 +-
->  arch/arm/mach-loki/lb88rc8480-setup.c        |    2 +-
->  arch/arm/mach-mv78xx0/common.c               |    6 +-
->  arch/arm/mach-mv78xx0/db78x00-bp-setup.c     |    8 +-
->  arch/arm/mach-orion5x/db88f5281-setup.c      |    2 +-
->  arch/arm/mach-orion5x/dns323-setup.c         |    2 +-
->  arch/arm/mach-orion5x/kurobox_pro-setup.c    |    2 +-
->  arch/arm/mach-orion5x/mss2-setup.c           |    2 +-
->  arch/arm/mach-orion5x/mv2120-setup.c         |    2 +-
->  arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |    2 +-
->  arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |    2 +-
->  arch/arm/mach-orion5x/rd88f5182-setup.c      |    2 +-
->  arch/arm/mach-orion5x/ts78xx-setup.c         |    3 +-
->  arch/arm/mach-orion5x/tsx09-common.c         |    2 +-
->  arch/arm/mach-orion5x/wnr854t-setup.c        |    2 +-
->  arch/arm/mach-orion5x/wrt350n-v2-setup.c     |    2 +-
->  arch/powerpc/sysdev/mv64x60_dev.c            |    6 +-
->  drivers/net/Kconfig                          |    2 +-
->  drivers/net/mv643xx_eth.c                    | 1438 +++++++++++++-------------
->  drivers/net/phy/mdio_bus.c                   |   89 +-
->  include/linux/mv643xx_eth.h                  |   13 +-
->  include/linux/phy.h                          |    2 +
+> diff -puN drivers/net/atl1e/atl1e_hw.c~atl1e-remove-the-unneeded-struct-atl1e_adapter drivers/net/atl1e/atl1e_hw.c
+> --- a/drivers/net/atl1e/atl1e_hw.c~atl1e-remove-the-unneeded-struct-atl1e_adapter
+> +++ a/drivers/net/atl1e/atl1e_hw.c
+> @@ -397,7 +397,7 @@ static int atl1e_phy_setup_autoneg_adv(s
+>   */
+>  int atl1e_phy_commit(struct atl1e_hw *hw)
+>  {
+> -	struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
+> +	struct atl1e_adapter *adapter = hw->adapter;
+>  	struct pci_dev *pdev = adapter->pdev;
+>  	int ret_val;
+>  	u16 phy_data;
+> @@ -431,7 +431,7 @@ int atl1e_phy_commit(struct atl1e_hw *hw
+>  
+>  int atl1e_phy_init(struct atl1e_hw *hw)
+>  {
+> -	struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
+> +	struct atl1e_adapter *adapter = hw->adapter;
+>  	struct pci_dev *pdev = adapter->pdev;
+>  	s32 ret_val;
+>  	u16 phy_val;
+> @@ -525,7 +525,7 @@ int atl1e_phy_init(struct atl1e_hw *hw)
+>   */
+>  int atl1e_reset_hw(struct atl1e_hw *hw)
+>  {
+> -	struct atl1e_adapter *adapter = (struct atl1e_adapter *)hw->adapter;
+> +	struct atl1e_adapter *adapter = hw->adapter;
+>  	struct pci_dev *pdev = adapter->pdev;
+>  
+>  	u32 idle_status_data = 0;
 
-pulled
+applied
 
 
