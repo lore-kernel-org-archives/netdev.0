@@ -1,50 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] r6040: fix wrong assignment in r6040_free_txbufs
-Date: Wed, 24 Sep 2008 20:52:01 -0400
-Message-ID: <48DAE0B1.4000706@garzik.org>
-References: <200809242116.40855.florian@openwrt.org>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH 3/3] e1000e: remove failed request for sw/fw/hw flag
+Date: Thu, 25 Sep 2008 03:00:14 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0809250257070.27884@twin.jikos.cz>
+References: <20080923224630.6927.28967.stgit@jtkirshe-mobile.jf.intel.com>
+ <48DAE089.20307@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ingo Molnar <mingo@elte.hu>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47079 "EHLO mail.dvmed.net"
+Received: from twin.jikos.cz ([213.151.79.26]:40175 "EHLO twin.jikos.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752819AbYIYAwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 20:52:09 -0400
-In-Reply-To: <200809242116.40855.florian@openwrt.org>
+	id S1752547AbYIYBCh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 21:02:37 -0400
+In-Reply-To: <48DAE089.20307@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli wrote:
-> Hello Jeff, Francois,
-> 
-> This is 2.6.27 material but should be applied to your -next branch as well. Thank you.
-> --
-> From: Florian Fainelli <florian@openwrt.org>
-> Subject: [PATCH] r6040: fix wrong assignment in r6040_free_txbufs
-> 
-> This patch fixes a wrong assignment in r6040_free_txbufs
-> on a receive skb pointer while we should actually do this
-> on the transmit skb pointer.
-> 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> ---
-> diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-> index 396f0e4..5aff7c8 100644
-> --- a/drivers/net/r6040.c
-> +++ b/drivers/net/r6040.c
-> @@ -261,7 +261,7 @@ static void r6040_free_txbufs(struct net_device *dev)
->  				le32_to_cpu(lp->tx_insert_ptr->buf),
->  				MAX_BUF_SIZE, PCI_DMA_TODEVICE);
->  			dev_kfree_skb(lp->tx_insert_ptr->skb_ptr);
-> -			lp->rx_insert_ptr->skb_ptr = NULL;
-> +			lp->tx_insert_ptr->skb_ptr = NULL;
->  		}
->  		lp->tx_insert_ptr = lp->tx_insert_ptr->vndescp;
->  	}
+On Wed, 24 Sep 2008, Jeff Garzik wrote:
 
-applied
+> > When the driver fails to acquire the control flag used to serialize
+> > NVM and PHY accesses between the driver, firmware and hardware, remove the
+> > request for the flag otherwise the hardware might grant the flag when it
+> > becomes available but the driver will not release the flag.  This could
+> > cause the firmware to prevent the driver getting the flag for all future
+> > attempts.
+> applied
 
+BTW are you going to take the whole series, or just this fix?
+
+I don't think that the other patches should be really applied to upstream 
+(they could be very handy for debugging this horrible issue, once we could 
+do any debugging of it, thoug), as they don't protect against anyone 
+creating a new rw mapping, which can then be freely used to still 
+overwrite the mmio area without any problems.
+
+-- 
+Jiri Kosina
+SUSE Labs
 
