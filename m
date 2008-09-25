@@ -1,50 +1,41 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: /proc/net/igmp group address encoding
-Date: Thu, 25 Sep 2008 00:35:40 -0700
-Message-ID: <OFC83E5520.1D27DF52-ON882574CF.0028A6D4-882574CF.0029B829@us.ibm.com>
-References: <b25312890809242344n11e61c80w1bf761c55c29a65e@mail.gmail.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: NBMA GRE over IPsec behind NAT
+Date: Thu, 25 Sep 2008 10:51:32 +0300
+Message-ID: <48DB4304.4050801@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	"Pekka Savola" <pekkas@netcore.fi>
-To: "Rami Rosen" <roszenrami@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:38135 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752023AbYIYHfn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 03:35:43 -0400
-In-Reply-To: <b25312890809242344n11e61c80w1bf761c55c29a65e@mail.gmail.com>
+Received: from ey-out-2122.google.com ([74.125.78.24]:45557 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752105AbYIYHvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 03:51:40 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so96469eyi.37
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 00:51:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 09/24/2008 11:44:45 PM:
+I've been working on OpenNHRP (http://opennhrp.sf.net) to get Cisco DMVPN
+support for Linux boxes. Basically it is NBMA GRE over IPsec. And the GRE
+level private IP-public IP mapping is done via NHRP protocol. OpenNHRP does
+this by talking to kernel neighbor cache.
 
-> Hi,
-> 
-> - I had noticed a long ago that the IP addresses under
->  /proc/net/igmp are in Hexa format. I am preparing a patch to fix it
-> and it will be send very soon.
+I haven't still bumped into this problem (and probably won't for a while),
+but it'd be good to solve it anyway. The problem is that, if I have multiple
+IPsec nodes behind same NAT box, that is both have same public-ip, but
+different NAT original address, the NHRP private ip to public ip mapping is
+not enough. Since NHRP knows the NAT-OA it could indicate that back to kernel
+to the neighbor cache. ip_gre could then pass that information to xfrm layer
+which could using that decide the correct IPsec SA to use.
 
-I don't think we can do that, since I believe netstat expects
-to see this the way it is. Maybe if we change netstat to support
-both and wait a year for all distros to get it... :-)
+Now trying to figure out how this should be done. Maybe a new attribute to
+neighbor cache message? Or give both IP addresses in the NDA_LLADDR
+attribute? And how could ip_gre pass that info to xfrm? Or maybe IP gre
+would not have to be touched, just make xfrm get the extra info from
+neighbor cache?
 
-
-> So indeed , the count (mc_count of netdevice) shows both IPv4 and IPv6 
-igmp
-> groups, but in current implementation it is not immediate
-> to change it. Currently, net_device struct does not have specific
-> fields for ipv4 or ipv6.  One way of preparing a patch
-> is to change net_device to have mc_count4 and mc_count6;
-> I am really willing to prepare such a patch, but I am not sure such a
-> change in net_device is a proper and a justified
-> change to do.
-
-        These belong with mc_list in inet6_dev and in_device. Really,
-I'd just add "mc_count" as a field right next to mc_list and inc/dec
-it when calling the group join/leave functions-- use the list lock
-to protect it. The structure it's in distinguishes the protocol,
-and the names are otherwise common.
-
-                                                                +-DLS
-
+Thanks,
+  Timo
