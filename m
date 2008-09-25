@@ -1,71 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/9] PCI: revise VPD access interface (rev3)
-Date: Thu, 25 Sep 2008 18:58:52 +0100
-Message-ID: <1222365532.8641.86.camel@achroite>
-References: <20080925164851.694359776@vyatta.com>
-	 <20080925165223.268510251@vyatta.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: [PATCH 1/9] PCI: vpd handle longer delays in access (rev3)
+Date: Thu, 25 Sep 2008 12:54:26 -0600
+Message-ID: <20080925185426.GT27204@parisc-linux.org>
+References: <20080925164851.694359776@vyatta.com> <20080925165223.168847327@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Jesse Barnes <jbarnes@virtuousgeek.org>,
 	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
 	Ivan Vecera <ivecera@redhat.com>
 To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:56580 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753198AbYIYR67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 13:58:59 -0400
-In-Reply-To: <20080925165223.268510251@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080925165223.168847327@vyatta.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2008-09-25 at 09:48 -0700, Stephen Hemminger wrote:
-[...]
-> -static int pci_vpd_pci22_write(struct pci_dev *dev, int pos, int size,
-> -			       const char *buf)
-> +static ssize_t pci_vpd_pci22_write(struct pci_dev *dev, loff_t pos, size_t count,
-> +				   const void *arg)
->  {
->  	struct pci_vpd_pci22 *vpd =
->  		container_of(dev->vpd, struct pci_vpd_pci22, base);
-> -	u32 val;
-> +	const u8 *buf = arg;
-> +	loff_t end = pos + count;
+On Thu, Sep 25, 2008 at 09:48:52AM -0700, Stephen Hemminger wrote:
+> +		if(!cond_resched())
 
-count should be (count & ~3)
+Style nit (did you run checkpatch?)
 
->  	int ret = 0;
->  
-> -	if (pos < 0 || pos > vpd->base.len || pos & 3 ||
-> -	    size > vpd->base.len - pos || size < 4)
-> +	if (pos > vpd->base.len || pos & 3)
->  		return -EINVAL;
+I think I've commented on the previous versions of this patch enough for
+it to be worth adding:
 
-Why did you remove the tests for pos < 0 and size > vpd->base.len - pos?
-I know write_vpd_attr() checks these but you're about to add other
-callers.
-
-[...]
->  out:
->  	mutex_unlock(&vpd->lock);
-> -	if (ret < 0)
-> -		return ret;
-> -
-> -	return 4;
-> +	return ret ? ret : count;
->  }
-[...]
-
-count should be (count & ~3)
-
-Alternately you could treat (count & 3) != 0 as invalid.
-
-Ben.
+Reviwed-by: Matthew Wilcox <willy@linux.intel.com>
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Matthew Wilcox				Intel Open Source Technology Centre
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
