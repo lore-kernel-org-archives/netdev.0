@@ -1,45 +1,74 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: xfrm_state locking regression...
-Date: Thu, 25 Sep 2008 09:03:21 +0300
-Message-ID: <48DB29A9.2090204@iki.fi>
-References: <20080924051555.GA6218@gondor.apana.org.au> <48D9D421.9050500@iki.fi> <20080924055550.GA6506@gondor.apana.org.au> <48D9D86E.7020205@iki.fi> <20080924061349.GA6679@gondor.apana.org.au> <48D9DC1A.10903@iki.fi> <20080924062138.GA6764@gondor.apana.org.au> <48D9EC4B.4050804@iki.fi> <20080924075441.GA7391@gondor.apana.org.au> <48DA3E2D.4070909@iki.fi> <20080924140819.GA10022@gondor.apana.org.au>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: support force_igmp_version=3 and force_mld_version=2 ?
+Date: Thu, 25 Sep 2008 09:40:37 +0300 (EEST)
+Message-ID: <alpine.LRH.2.00.0809250908590.21286@netcore.fi>
+References: <alpine.LRH.2.00.0809241326070.30892@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:13973 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751784AbYIYGDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 02:03:34 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so88871eyi.37
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 23:03:32 -0700 (PDT)
-In-Reply-To: <20080924140819.GA10022@gondor.apana.org.au>
+Received: from netcore.fi ([193.94.160.1]:54274 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750802AbYIYGkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2008 02:40:42 -0400
+Received: from netcore.fi (localhost [127.0.0.1])
+	by netcore.fi (8.13.8/8.13.8) with ESMTP id m8P6ecRJ021791
+	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 09:40:38 +0300
+Received: from localhost (pekkas@localhost)
+	by netcore.fi (8.13.8/8.13.8/Submit) with ESMTP id m8P6ebD3021787
+	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 09:40:38 +0300
+In-Reply-To: <alpine.LRH.2.00.0809241326070.30892@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Wed, Sep 24, 2008 at 04:18:37PM +0300, Timo Ter=E4s wrote:
->> Gave it a test spin and found one bug. The walking routine will
->> get called one extra time when it has successfully dumped
->> everything so we need to check for that in the beginning; the
->> earlier version would start all over from the beginning resulting
->> never ending dumps.
->=20
-> Aha, that's why the if statement was there :)
+On Wed, 24 Sep 2008, Pekka Savola wrote:
+> I've spotted some irritating IGMPv3/v2 compat problems on RHEL4, and 
+> I'm working on trying to see if these are due to bugs already fixed 
+> in latest kernels.
 
-Yup.
+OK, I've done some tests.
 
-I forgot to test pf_key support. And remembered why the "last"
-thingy was in the walking routines. In pf_key dumps, the dump
-is terminated when an entry with seq zero is received; that's
-why the final entry received special treatment. And now that
-breaks. The first entry is zero so pf_key dumps only one entry.
+1) in a RHEL4 2.6.8 kernel, the logic of timeouting seeing a V2
+    querier earlier seems to be broken -- even if there are no IGMPv2
+    reports or queries on the LAN for a long time, the system (as seen
+    by /proc/net/igmp) doesn't go back to V3.  I tested that this works
+    in 2.6.26.5 so this is OK.
 
-Not sure if we should fix this in pf_key or in the walking routines.
+2) only force_igmp_version=[12] is supported.  It might be useful to
+    support "force_igmp_version=3" as well, where the system will not
+    fall back to IGMPv1 or IGMPv2 compat mode even if it thinks it sees
+    or has seen an IGMPv1/v2 query.
 
-Cheers,
-  Timo
+    This behaviour would be useful for example in scenarios where you
+    know that the router is IGMPv3/MLDv2 capable, and you want to
+    ignore queries sent by other routers, snooping switches or rogue
+    hosts, or membership reports by other hosts (but Linux currently
+    doesn't seem to support group-specific IGMP downgrade so this is
+    not a problem right now) [see e.g. RFC4604 for more on various
+    other things, e.g. warning errors, that could be added].
 
+    What I refer to something like the follows (not tested, whitespace
+    probably broken due to cut'n'pasting), or some similar changes in
+    the logic where IGMP_Vx_SEEN is used (similar with MLD_V1_SEEN):
+
+--- igmp.c.orig 2008-09-25 09:33:00.000000000 +0300
++++ igmp.c      2008-09-25 09:35:20.000000000 +0300
+@@ -2,9 +2,13 @@
+           (IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) == 1 || \
+            IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) == 1 || \
+            ((in_dev)->mr_v1_seen && \
++           IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) != 3 && \
++           IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) != 3 && \
+             time_before(jiffies, (in_dev)->mr_v1_seen)))
+  #define IGMP_V2_SEEN(in_dev) \
+           (IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) == 2 || \
+            IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) == 2 || \
+            ((in_dev)->mr_v2_seen && \
++           IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) != 3 && \
++           IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) != 3 && \
+             time_before(jiffies, (in_dev)->mr_v2_seen)))
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
