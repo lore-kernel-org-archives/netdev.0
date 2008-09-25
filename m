@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 2/4] [NET] dsa: add support for original DSA tagging format
-Date: Thu, 25 Sep 2008 18:41:24 +0200
-Message-ID: <20080925164124.GC25190@xi.wantstofly.org>
+Subject: [PATCH 3/4] [NET] dsa: add support for the Marvell 88E6131 switch chip
+Date: Thu, 25 Sep 2008 18:42:35 +0200
+Message-ID: <20080925164235.GD25190@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Andy Fleming <afleming@freescale.com>,
@@ -11,480 +11,583 @@ Cc: Andy Fleming <afleming@freescale.com>,
 	Peter van Valderen <p.v.valderen@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:36138 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:37907 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754231AbYIYQl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 12:41:26 -0400
+	with ESMTP id S1755417AbYIYQmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 12:42:37 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most of the DSA switches currently in the field do not support the
-Ethertype DSA tagging format that one of the previous patches added
-support for, but only the older, original DSA tagging format.
+Add support for the older Marvell 88E6131 switch chip.  This chip
+only supports the original (ethertype-less) DSA tagging format.
 
-The original DSA tagging format carries the same information as the
-Ethertype DSA tagging format, but with the difference that it does not
-have an ethertype field.  In other words, when receiving a packet that
-is tagged with an original DSA tag, there is no way of telling in
-eth_type_trans() that this packet is in fact a DSA-tagged packet.
+On the 88E6131, there is a PHY Polling Unit (PPU) which has exclusive
+access to each of the PHY's MII management registers.  If we want to
+talk to the PHYs from software, we have to disable the PPU and wait
+for it to complete its current transaction before we can do so, and we
+need to re-enable the PPU afterwards to make sure that the switch will
+notice changes in link state and speed on the individual ports as they
+occur.
 
-This patch adds a hook into eth_type_trans() which is only compiled in
-if support for an older switch chip (one that doesn't support Ethertype
-DSA) is selected, which checks whether there is a DSA switch driver
-instance attached to this network device which uses the old tag format.
-If so, it sets the protocol field to ETH_P_DSA without looking at the
-packet, so that the packet ends up in the right place.
+Since disabling the PPU is rather slow, and since MII management
+accesses are typically done in bursts, this patch keeps the PPU disabled
+for 10ms after a software access completes.  This makes handling the
+PPU slightly more complex, but speeds up something like running ethtool
+on one of the switch slave interfaces from ~300ms to ~30ms on typical
+hardware.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- include/linux/if_ether.h  |    1 +
- include/linux/netdevice.h |   11 +++
- include/net/dsa.h         |    2 +
- net/dsa/Kconfig           |    4 +
- net/dsa/Makefile          |    1 +
- net/dsa/dsa.c             |   13 +++
- net/dsa/dsa_priv.h        |    6 +-
- net/dsa/marvell.c         |   23 +++--
- net/dsa/slave.c           |    5 +
- net/dsa/tag_dsa.c         |  203 +++++++++++++++++++++++++++++++++++++++++++++
- net/ethernet/eth.c        |    8 ++
- 11 files changed, 266 insertions(+), 11 deletions(-)
- create mode 100644 net/dsa/tag_dsa.c
+ net/dsa/Kconfig   |   13 ++
+ net/dsa/marvell.c |  490 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 503 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index a85f5a2..864982b 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -100,6 +100,7 @@
- #define ETH_P_ECONET	0x0018		/* Acorn Econet			*/
- #define ETH_P_HDLC	0x0019		/* HDLC frames			*/
- #define ETH_P_ARCNET	0x001A		/* 1A for ArcNet :-)            */
-+#define ETH_P_DSA	0x001B		/* Distributed Switch Arch.	*/
- 
- /*
-  *	This is an Ethernet frame header.
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f67435d..d3bdf3b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -42,6 +42,7 @@
- #include <linux/workqueue.h>
- 
- #include <net/net_namespace.h>
-+#include <net/dsa.h>
- 
- struct vlan_group;
- struct ethtool_ops;
-@@ -801,6 +802,16 @@ void dev_net_set(struct net_device *dev, struct net *net)
- #endif
- }
- 
-+static inline int netdev_uses_ethertypeless_dsa_tags(struct net_device *dev)
-+{
-+#ifdef CONFIG_NET_DSA_TAG_DSA
-+	if (dev->dsa_ptr != NULL)
-+		return dsa_uses_ethertypeless_tags(dev->dsa_ptr);
-+#endif
-+
-+	return 0;
-+}
-+
- /**
-  *	netdev_priv - access network device private data
-  *	@dev: network device
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 4839894..b706e29 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -20,5 +20,7 @@ struct dsa_platform_data {
- 	char		*port_names[DSA_MAX_PORTS];
- };
- 
-+int dsa_uses_ethertypeless_tags(void *dsa_ptr);
-+
- 
- #endif
 diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 8618508..e8937f0 100644
+index e8937f0..90ed791 100644
 --- a/net/dsa/Kconfig
 +++ b/net/dsa/Kconfig
-@@ -10,6 +10,10 @@ menuconfig NET_DSA
- if NET_DSA
+@@ -24,6 +24,19 @@ config NET_DSA_MARVELL
+ 	bool
+ 	default n
  
- # tagging formats
-+config NET_DSA_TAG_DSA
++config NET_DSA_MARVELL_HAVE_PPU
 +	bool
 +	default n
 +
- config NET_DSA_TAG_EDSA
- 	bool
- 	default n
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 6c36d10..42d0e46 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -1,4 +1,5 @@
- # tagging formats
-+obj-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
- obj-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
- 
- # switch drivers
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index e94bfe6..e2528a4 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -187,6 +187,19 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 	BUG();
- }
- 
-+int dsa_uses_ethertypeless_tags(void *dsa_ptr)
-+{
-+	struct dsa_switch *ds = dsa_ptr;
++config NET_DSA_ZEPHYR
++	bool "Marvell 88E6131 ethernet switch chip support"
++	select NET_DSA_TAG_DSA
++	select NET_DSA_MARVELL
++	select NET_DSA_MARVELL_HAVE_PPU
++	---help---
++	  This enables support for the Marvell 88E6131 ethernet switch
++	  chip.
 +
-+	/*
-+	 * The original DSA tag format has no ethertype, which means
-+	 * that we need to add a little hack to the receive path to
-+	 * make sure that received frames get the right ->protocol
-+	 * assigned to them.
-+	 */
-+	return !!(ds->tag_type == TAG_DSA_MASK);
-+}
-+
- 
- /* link polling *************************************************************/
- static void dsa_link_poll_work(struct work_struct *ugly)
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 78246bf..6b34c2e 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -6,7 +6,8 @@
- #include <linux/netdevice.h>
- 
- enum dsa_tag_type {
--	TAG_EDSA_MASK = 1,
-+	TAG_DSA_MASK = 1,
-+	TAG_EDSA_MASK = 2,
- };
- 
- struct dsa_switch {
-@@ -91,6 +92,9 @@ void unregister_switch_driver(struct dsa_switch_driver *type);
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
- struct net_device *dsa_slave_create(struct dsa_switch *ds, int port);
- 
-+/* tag_dsa.c */
-+int dsa_xmit(struct sk_buff *skb, struct net_device *dev);
-+
- /* tag_edsa.c */
- int edsa_xmit(struct sk_buff *skb, struct net_device *dev);
- 
+ config NET_DSA_EMERALD
+ 	bool "Marvell 88E6123/6161/6165 ethernet switch chip support"
+ 	select NET_DSA_TAG_EDSA
 diff --git a/net/dsa/marvell.c b/net/dsa/marvell.c
-index 7f571ab..9b89f0b 100644
+index 9b89f0b..d425994 100644
 --- a/net/dsa/marvell.c
 +++ b/net/dsa/marvell.c
-@@ -668,15 +668,18 @@ static int emerald_setup_port(struct dsa_switch *ds, int p)
+@@ -26,6 +26,15 @@ struct priv_state {
+ 	struct mutex	smi_mutex;
  
  	/*
- 	 * Port Control: disable Drop-on-Unlock, disable Drop-on-Lock,
--	 * configure the EDSA tagging mode if this is the CPU port,
--	 * disable Header mode, enable IGMP/MLD snooping, disable VLAN
--	 * tunneling, determine priority by looking at 802.1p and IP
--	 * priority fields (IP prio has precedence), and set STP state
--	 * to Forwarding.  Finally, if this is the CPU port, additionally
--	 * enable forwarding of unknown unicast and multicast addresses.
-+	 * configure the requested (DSA/EDSA) tagging mode if this is
-+	 * the CPU port, disable Header mode, enable IGMP/MLD snooping,
-+	 * disable VLAN tunneling, determine priority by looking at
-+	 * 802.1p and IP priority fields (IP prio has precedence), and
-+	 * set STP state to Forwarding.  Finally, if this is the CPU
-+	 * port, additionally enable forwarding of unknown unicast and
-+	 * multicast addresses.
++	 * Handles automatic disabling and re-enabling of the PHY
++	 * polling unit.
++	 */
++	struct mutex		ppu_mutex;
++	int			ppu_disabled;
++	struct work_struct	ppu_work;
++	struct timer_list	ppu_timer;
++
++	/*
+ 	 * This mutex serialises access to the statistics unit.
+ 	 * Hold this mutex over snapshot + dump sequences.
  	 */
- 	ret = reg_write(ds, addr, 0x04,
--			(p == ds->cpu_port) ? 0x373f : 0x0433);
-+			(p == ds->cpu_port) ?
-+			 (ds->tag_type == TAG_DSA_MASK) ? 0x053f : 0x373f :
-+			 0x0433);
- 	if (ret < 0)
- 		return ret;
+@@ -178,6 +187,146 @@ static int mii_write(struct dsa_switch *ds, int addr, int regnum, u16 val)
+ 	return reg_write(ds, addr, regnum, val);
+ }
  
-@@ -895,7 +898,7 @@ static struct dsa_switch_driver marvell_switch_drivers[] = {
++#ifdef CONFIG_NET_DSA_MARVELL_HAVE_PPU
++static int ppu_disable(struct dsa_switch *ds)
++{
++	int ret;
++	int i;
++
++	ret = reg_read(ds, REG_GLOBAL, 0x04);
++	if (ret < 0)
++		return ret;
++
++	ret = reg_write(ds, REG_GLOBAL, 0x04, ret & ~0x4000);
++	if (ret < 0)
++		return ret;
++
++	for (i = 0; i < 1000; i++) {
++		ret = reg_read(ds, REG_GLOBAL, 0x00);
++		if (ret < 0)
++			return ret;
++
++		msleep(1);
++		if ((ret & 0xc000) != 0xc000)
++			return 0;
++	}
++
++	return -ETIMEDOUT;
++}
++
++static int ppu_enable(struct dsa_switch *ds)
++{
++	int ret;
++	int i;
++
++	ret = reg_read(ds, REG_GLOBAL, 0x04);
++	if (ret < 0)
++		return ret;
++
++	ret = reg_write(ds, REG_GLOBAL, 0x04, ret | 0x4000);
++	if (ret < 0)
++		return ret;
++
++	for (i = 0; i < 1000; i++) {
++		ret = reg_read(ds, REG_GLOBAL, 0x00);
++		if (ret < 0)
++			return ret;
++
++		msleep(1);
++		if ((ret & 0xc000) == 0xc000)
++			return 0;
++	}
++
++	return -ETIMEDOUT;
++}
++
++static void ppu_reenable_work(struct work_struct *ugly)
++{
++	struct priv_state *ps;
++
++	ps = container_of(ugly, struct priv_state, ppu_work);
++	if (mutex_trylock(&ps->ppu_mutex)) {
++		struct dsa_switch *ds = ((struct dsa_switch *)ps) - 1;
++
++		if (ppu_enable(ds) == 0)
++			ps->ppu_disabled = 0;
++		mutex_unlock(&ps->ppu_mutex);
++	}
++}
++
++static void ppu_reenable_timer(unsigned long _ps)
++{
++	struct priv_state *ps = (void *)_ps;
++
++	schedule_work(&ps->ppu_work);
++}
++
++static int ppu_access_get(struct dsa_switch *ds)
++{
++	struct priv_state *ps = (void *)(ds + 1);
++	int ret;
++
++	mutex_lock(&ps->ppu_mutex);
++
++	/*
++	 * If the PHY polling unit is enabled, disable it so that
++	 * we can access the PHY registers.  If it was already
++	 * disabled, cancel the timer that is going to re-enable
++	 * it.
++	 */
++	if (!ps->ppu_disabled) {
++		ret = ppu_disable(ds);
++		if (ret < 0) {
++			mutex_unlock(&ps->ppu_mutex);
++			return ret;
++		}
++		ps->ppu_disabled = 1;
++	} else {
++		del_timer(&ps->ppu_timer);
++		ret = 0;
++	}
++
++	return ret;
++}
++
++static void ppu_access_put(struct dsa_switch *ds)
++{
++	struct priv_state *ps = (void *)(ds + 1);
++
++	/*
++	 * Schedule a timer to re-enable the PHY polling unit.
++	 */
++	mod_timer(&ps->ppu_timer, jiffies + msecs_to_jiffies(10));
++	mutex_unlock(&ps->ppu_mutex);
++}
++
++static int mii_read_ppu(struct dsa_switch *ds, int addr, int regnum)
++{
++	int ret;
++
++	ret = ppu_access_get(ds);
++	if (ret >= 0) {
++		ret = reg_read(ds, addr, regnum);
++		ppu_access_put(ds);
++	}
++
++	return ret;
++}
++
++static int mii_write_ppu(struct dsa_switch *ds, int addr, int regnum, u16 val)
++{
++	int ret;
++
++	ret = ppu_access_get(ds);
++	if (ret >= 0) {
++		ret = reg_write(ds, addr, regnum, val);
++		ppu_access_put(ds);
++	}
++
++	return ret;
++}
++#endif
++
+ 
+ /* shared functions *********************************************************/
+ static int marvell_switch_reset(struct dsa_switch *ds)
+@@ -483,6 +632,331 @@ static int marvell_get_sset_count(struct dsa_switch *ds)
+ }
+ 
+ 
++#ifdef CONFIG_NET_DSA_ZEPHYR
++/* zephyr *******************************************************************/
++static int zephyr_probe(struct mii_bus *bus, int sw_addr)
++{
++	if ((__reg_read(bus, sw_addr, REG_PORT(0), 0x03) & 0xfff0) == 0x1060)
++		return 1;
++
++	return 0;
++}
++
++static int zephyr_setup_global(struct dsa_switch *ds)
++{
++	int ret;
++	int i;
++
++	/*
++	 * Enable the PHY polling unit, don't discard packets with
++	 * excessive collisions, use a weighted fair queueing scheme
++	 * to arbitrate between packet queues, set the maximum frame
++	 * size to 1632, and mask all interrupt sources.
++	 */
++	ret = reg_write(ds, REG_GLOBAL, 0x04, 0x4400);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Set the default address aging time to 5 minutes, and
++	 * enable address learn messages to be sent to all message
++	 * ports.
++	 */
++	ret = reg_write(ds, REG_GLOBAL, 0x0a, 0x0148);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Configure the priority mapping registers.
++	 */
++	ret = marvell_config_prio(ds);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Set the VLAN ethertype to 0x8100.
++	 */
++	ret = reg_write(ds, REG_GLOBAL, 0x19, 0x8100);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Disable ARP mirroring, and configure the cpu port as the
++	 * port to which ingress and egress monitor frames are to be
++	 * sent.
++	 */
++	ret = reg_write(ds, REG_GLOBAL, 0x1a, (ds->cpu_port * 0x1100) | 0x00f0);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Disable cascade port functionality, and set the switch's
++	 * DSA device number to zero.
++	 */
++	ret = reg_write(ds, REG_GLOBAL, 0x1c, 0xe000);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Send all frames with destination addresses matching
++	 * 01:80:c2:00:00:0x to the CPU port.
++	 */
++	ret = reg_write(ds, REG_GLOBAL2, 0x03, 0xffff);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Ignore removed tag data on doubly tagged packets, disable
++	 * flow control messages, force flow control priority to the
++	 * highest, and send all special multicast frames to the CPU
++	 * port at the higest priority.
++	 */
++	ret = reg_write(ds, REG_GLOBAL2, 0x05, 0x00ff);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Map all DSA device IDs to the CPU port.
++	 */
++	for (i = 0; i < 32; i++) {
++		ret = reg_write(ds, REG_GLOBAL2, 0x06,
++				0x8000 | (i << 8) | ds->cpu_port);
++		if (ret < 0)
++			return ret;
++	}
++
++	/*
++	 * Clear all trunk masks.
++	 */
++	for (i = 0; i < 8; i++) {
++		ret = reg_write(ds, REG_GLOBAL2, 0x07,
++				0x8000 | (i << 12) | 0xff);
++		if (ret < 0)
++			return ret;
++	}
++
++	/*
++	 * Clear all trunk mappings.
++	 */
++	for (i = 0; i < 16; i++) {
++		ret = reg_write(ds, REG_GLOBAL2, 0x08, 0x8000 | (i << 11));
++		if (ret < 0)
++			return ret;
++	}
++
++	/*
++	 * Force the priority of IGMP/MLD snoop frames and ARP frames
++	 * to the highest setting.
++	 */
++	ret = reg_write(ds, REG_GLOBAL2, 0x0f, 0x00ff);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static int zephyr_setup_port(struct dsa_switch *ds, int p)
++{
++	int addr = REG_PORT(p);
++	int ret;
++
++	/*
++	 * MAC Forcing register: don't force link, speed, duplex
++	 * or flow control state to any particular values.
++	 */
++	ret = reg_write(ds, addr, 0x01, 0x0003);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Port Control: disable Core Tag, disable Drop-on-Lock,
++	 * transmit frames unmodified, disable Header mode,
++	 * enable IGMP/MLD snoop, disable DoubleTag, disable VLAN
++	 * tunneling, determine priority by looking at 802.1p and
++	 * IP priority fields (IP prio has precedence), and set STP
++	 * state to Forwarding.  Finally, if this is the CPU port,
++	 * additionally enable DSA tagging and forwarding of unknown
++	 * unicast addresses.
++	 */
++	ret = reg_write(ds, addr, 0x04, (p == ds->cpu_port) ? 0x0537 : 0x0433);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Port Control 1: disable trunking.  Also, if this is the
++	 * CPU port, enable learn messages to be sent to this port.
++	 */
++	ret = reg_write(ds, addr, 0x05, (p == ds->cpu_port) ? 0x8000 : 0x0000);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Port based VLAN map: give each port its own address
++	 * database, allow the CPU port to talk to each of the 'real'
++	 * ports, and allow each of the 'real' ports to only talk to
++	 * the CPU port.
++	 */
++	ret = reg_write(ds, addr, 0x06,
++			((p & 0xf) << 12) |
++			 ((p == ds->cpu_port) ?
++				ds->valid_port_mask :
++				(1 << ds->cpu_port)));
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Default VLAN ID and priority: don't set a default VLAN
++	 * ID, and set the default packet priority to zero.
++	 */
++	ret = reg_write(ds, addr, 0x07, 0x0000);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Port Control 2: don't force a good FCS, don't use
++	 * VLAN-based, source address-based or destination
++	 * address-based priority overrides, don't let the switch
++	 * add or strip 802.1q tags, don't discard tagged or
++	 * untagged frames on this port, do a destination address
++	 * lookup on received packets as usual, don't send a copy
++	 * of all transmitted/received frames on this port to the
++	 * CPU, and configure the CPU port number.  Also, if this
++	 * is the CPU port, enable forwarding of unknown multicast
++	 * addresses.
++	 */
++	ret = reg_write(ds, addr, 0x08,
++			((p == ds->cpu_port) ? 0x00c0 : 0x0080) |
++			 ds->cpu_port);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Rate Control: disable ingress rate limiting.
++	 */
++	ret = reg_write(ds, addr, 0x09, 0x0000);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Rate Control 2: disable egress rate limiting.
++	 */
++	ret = reg_write(ds, addr, 0x0a, 0x0000);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Port Association Vector: when learning source addresses
++	 * of packets, add the address to the address database using
++	 * a port bitmap that has only the bit for this port set and
++	 * the other bits clear.
++	 */
++	ret = reg_write(ds, addr, 0x0b, 1 << p);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Tag Remap: use an identity 802.1p prio -> switch prio
++	 * mapping.
++	 */
++	ret = reg_write(ds, addr, 0x18, 0x3210);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Tag Remap 2: use an identity 802.1p prio -> switch prio
++	 * mapping.
++	 */
++	ret = reg_write(ds, addr, 0x19, 0x7654);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static int zephyr_setup(struct dsa_switch *ds)
++{
++	struct priv_state *ps = (void *)(ds + 1);
++	int i;
++	int ret;
++
++	mutex_init(&ps->smi_mutex);
++	mutex_init(&ps->ppu_mutex);
++	INIT_WORK(&ps->ppu_work, ppu_reenable_work);
++	init_timer(&ps->ppu_timer);
++	ps->ppu_timer.data = (unsigned long)ps;
++	ps->ppu_timer.function = ppu_reenable_timer;
++	mutex_init(&ps->stats_mutex);
++
++	ret = marvell_switch_reset(ds);
++	if (ret < 0)
++		return ret;
++
++	/* @@@ initialise vtu and atu */
++
++	ret = zephyr_setup_global(ds);
++	if (ret < 0)
++		return ret;
++
++	for (i = 0; i < 8; i++) {
++		ret = zephyr_setup_port(ds, i);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int zephyr_set_addr(struct dsa_switch *ds, u8 *addr)
++{
++	int ret;
++
++	ret = reg_write(ds, REG_GLOBAL, 0x01, (addr[0] << 8) | addr[1]);
++	if (ret < 0)
++		return ret;
++
++	ret = reg_write(ds, REG_GLOBAL, 0x02, (addr[2] << 8) | addr[3]);
++	if (ret < 0)
++		return ret;
++
++	ret = reg_write(ds, REG_GLOBAL, 0x03, (addr[4] << 8) | addr[5]);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static int zephyr_port_to_phy_addr(int port)
++{
++	if (port >= 0 && port != 3 && port <= 7)
++		return port;
++	return -1;
++}
++
++static int zephyr_mii_read(struct dsa_switch *ds, int port, int regnum)
++{
++	int addr;
++
++	addr = zephyr_port_to_phy_addr(port);
++	if (addr == -1)
++		return 0xffff;
++
++	return mii_read_ppu(ds, addr, regnum);
++}
++
++static int
++zephyr_mii_write(struct dsa_switch *ds, int port, int regnum, u16 val)
++{
++	int addr;
++
++	addr = zephyr_port_to_phy_addr(port);
++	if (addr == -1)
++		return 0xffff;
++
++	return mii_write_ppu(ds, addr, regnum, val);
++}
++#endif
++
++
+ #ifdef CONFIG_NET_DSA_EMERALD
+ /* emerald ******************************************************************/
+ static int emerald6123_probe(struct mii_bus *bus, int sw_addr)
+@@ -895,6 +1369,22 @@ static int emerald_set_addr(struct dsa_switch *ds, u8 *addr)
+ 
+ /* main *********************************************************************/
+ static struct dsa_switch_driver marvell_switch_drivers[] = {
++#ifdef CONFIG_NET_DSA_ZEPHYR
++	{
++		.name			= "Marvell 88E6131",
++		.tag_methods		= TAG_DSA_MASK,
++		.priv_size		= sizeof(struct priv_state),
++		.probe			= zephyr_probe,
++		.setup			= zephyr_setup,
++		.set_addr		= zephyr_set_addr,
++		.mii_read		= zephyr_mii_read,
++		.mii_write		= zephyr_mii_write,
++		.poll_link		= marvell_poll_link,
++		.get_strings		= marvell_get_strings,
++		.get_ethtool_stats	= marvell_get_ethtool_stats,
++		.get_sset_count		= marvell_get_sset_count,
++	},
++#endif
  #ifdef CONFIG_NET_DSA_EMERALD
  	{
  		.name			= "Marvell 88E6123",
--		.tag_methods		= TAG_EDSA_MASK,
-+		.tag_methods		= TAG_DSA_MASK | TAG_EDSA_MASK,
- 		.priv_size		= sizeof(struct priv_state),
- 		.probe			= emerald6123_probe,
- 		.setup			= emerald_setup,
-@@ -908,7 +911,7 @@ static struct dsa_switch_driver marvell_switch_drivers[] = {
- 		.get_sset_count		= marvell_get_sset_count,
- 	}, {
- 		.name			= "Marvell 88E6161",
--		.tag_methods		= TAG_EDSA_MASK,
-+		.tag_methods		= TAG_DSA_MASK | TAG_EDSA_MASK,
- 		.priv_size		= sizeof(struct priv_state),
- 		.probe			= emerald6161_probe,
- 		.setup			= emerald_setup,
-@@ -921,7 +924,7 @@ static struct dsa_switch_driver marvell_switch_drivers[] = {
- 		.get_sset_count		= marvell_get_sset_count,
- 	}, {
- 		.name			= "Marvell 88E6165",
--		.tag_methods		= TAG_EDSA_MASK,
-+		.tag_methods		= TAG_DSA_MASK | TAG_EDSA_MASK,
- 		.priv_size		= sizeof(struct priv_state),
- 		.probe			= emerald6165_probe,
- 		.setup			= emerald_setup,
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 8273e15..b0b9498 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -232,6 +232,11 @@ struct net_device *dsa_slave_create(struct dsa_switch *ds, int port)
- 	slave_dev->open = dsa_slave_open;
- 	slave_dev->stop = dsa_slave_close;
- 	switch (ds->tag_type) {
-+#ifdef CONFIG_NET_DSA_TAG_DSA
-+	case TAG_DSA_MASK:
-+		slave_dev->hard_start_xmit = dsa_xmit;
-+		break;
-+#endif
- #ifdef CONFIG_NET_DSA_TAG_EDSA
- 	case TAG_EDSA_MASK:
- 		slave_dev->hard_start_xmit = edsa_xmit;
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-new file mode 100644
-index 0000000..5357165
---- /dev/null
-+++ b/net/dsa/tag_dsa.c
-@@ -0,0 +1,203 @@
-+/*
-+ * net/dsa/dsa.c - (Non-ethertype) DSA tagging
-+ * Copyright (c) 2008 Marvell Semiconductor
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/etherdevice.h>
-+#include <linux/ip.h>
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+#include <linux/rtnetlink.h>
-+#include <net/dsa.h>
-+#include "dsa_priv.h"
-+
-+#define DSA_HLEN	4
-+
-+int dsa_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	char *dsa_header;
-+
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
-+
-+	/*
-+	 * Convert the outermost 802.1q tag to a DSA tag for tagged
-+	 * packets, or insert a DSA tag between the addresses and
-+	 * the ethertype field for untagged packets.
-+	 */
-+	if (skb->protocol == htons(ETH_P_8021Q)) {
-+		if (skb_cow_head(skb, 0) < 0)
-+			goto out_free;
-+
-+		/*
-+		 * Construct tagged FROM_CPU DSA tag from 802.1q tag.
-+		 */
-+		dsa_header = skb->data + 2 * ETH_ALEN;
-+		dsa_header[0] = 0x60;
-+		dsa_header[1] = p->port << 3;
-+
-+		/*
-+		 * Move CFI field from byte 2 to byte 1.
-+		 */
-+		if (dsa_header[2] & 0x10) {
-+			dsa_header[1] |= 0x01;
-+			dsa_header[2] &= ~0x10;
-+		}
-+	} else {
-+		if (skb_cow_head(skb, DSA_HLEN) < 0)
-+			goto out_free;
-+		skb_push(skb, DSA_HLEN);
-+
-+		memmove(skb->data, skb->data + DSA_HLEN, 2 * ETH_ALEN);
-+
-+		/*
-+		 * Construct untagged FROM_CPU DSA tag.
-+		 */
-+		dsa_header = skb->data + 2 * ETH_ALEN;
-+		dsa_header[0] = 0x40;
-+		dsa_header[1] = p->port << 3;
-+		dsa_header[2] = 0x00;
-+		dsa_header[3] = 0x00;
-+	}
-+
-+	skb->protocol = htons(ETH_P_DSA);
-+
-+	skb->dev = p->parent->master_dev;
-+	dev_queue_xmit(skb);
-+
-+	return NETDEV_TX_OK;
-+
-+out_free:
-+	kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+}
-+
-+static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
-+		   struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	struct dsa_switch *ds = dev->dsa_ptr;
-+	u8 *dsa_header;
-+	int source_port;
-+
-+	if (unlikely(ds == NULL))
-+		goto out_drop;
-+
-+	skb = skb_unshare(skb, GFP_ATOMIC);
-+	if (skb == NULL)
-+		goto out;
-+
-+	if (unlikely(!pskb_may_pull(skb, DSA_HLEN)))
-+		goto out_drop;
-+
-+	/*
-+	 * The ethertype field is part of the DSA header.
-+	 */
-+	dsa_header = skb->data - 2;
-+
-+	/*
-+	 * Check that frame type is either TO_CPU or FORWARD, and
-+	 * that the source device is zero.
-+	 */
-+	if ((dsa_header[0] & 0xdf) != 0x00 && (dsa_header[0] & 0xdf) != 0xc0)
-+		goto out_drop;
-+
-+	/*
-+	 * Check that the source port is a registered DSA port.
-+	 */
-+	source_port = (dsa_header[1] >> 3) & 0x1f;
-+	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
-+		goto out_drop;
-+
-+	/*
-+	 * Convert the DSA header to an 802.1q header if the 'tagged'
-+	 * bit in the DSA header is set.  If the 'tagged' bit is clear,
-+	 * delete the DSA header entirely.
-+	 */
-+	if (dsa_header[0] & 0x20) {
-+		u8 new_header[4];
-+
-+		/*
-+		 * Insert 802.1q ethertype and copy the VLAN-related
-+		 * fields, but clear the bit that will hold CFI (since
-+		 * DSA uses that bit location for another purpose).
-+		 */
-+		new_header[0] = (ETH_P_8021Q >> 8) & 0xff;
-+		new_header[1] = ETH_P_8021Q & 0xff;
-+		new_header[2] = dsa_header[2] & ~0x10;
-+		new_header[3] = dsa_header[3];
-+
-+		/*
-+		 * Move CFI bit from its place in the DSA header to
-+		 * its 802.1q-designated place.
-+		 */
-+		if (dsa_header[1] & 0x01)
-+			new_header[2] |= 0x10;
-+
-+		/*
-+		 * Update packet checksum if skb is CHECKSUM_COMPLETE.
-+		 */
-+		if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+			__wsum c = skb->csum;
-+			c = csum_add(c, csum_partial(new_header + 2, 2, 0));
-+			c = csum_sub(c, csum_partial(dsa_header + 2, 2, 0));
-+			skb->csum = c;
-+		}
-+
-+		memcpy(dsa_header, new_header, DSA_HLEN);
-+	} else {
-+		/*
-+		 * Remove DSA tag and update checksum.
-+		 */
-+		skb_pull_rcsum(skb, DSA_HLEN);
-+		memmove(skb->data - ETH_HLEN,
-+			skb->data - ETH_HLEN - DSA_HLEN,
-+			2 * ETH_ALEN);
-+	}
-+
-+	skb->dev = ds->ports[source_port];
-+	skb_push(skb, ETH_HLEN);
-+	skb->protocol = eth_type_trans(skb, skb->dev);
-+
-+	skb->dev->last_rx = jiffies;
-+	skb->dev->stats.rx_packets++;
-+	skb->dev->stats.rx_bytes += skb->len;
-+
-+	netif_receive_skb(skb);
-+
-+	return 0;
-+
-+out_drop:
-+	kfree_skb(skb);
-+out:
-+	return 0;
-+}
-+
-+static struct packet_type dsa_packet_type = {
-+	.type	= __constant_htons(ETH_P_DSA),
-+	.func	= dsa_rcv,
-+};
-+
-+static int __init dsa_init_module(void)
-+{
-+	dev_add_pack(&dsa_packet_type);
-+	return 0;
-+}
-+module_init(dsa_init_module);
-+
-+static void __exit dsa_cleanup_module(void)
-+{
-+	dev_remove_pack(&dsa_packet_type);
-+}
-+module_exit(dsa_cleanup_module);
-+
-+MODULE_AUTHOR("Lennert Buytenhek <buytenh@wantstofly.org>");
-+MODULE_DESCRIPTION("DSA tagging");
-+MODULE_LICENSE("GPL");
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index a80839b..0db59e7 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -57,6 +57,7 @@
- #include <net/sock.h>
- #include <net/ipv6.h>
- #include <net/ip.h>
-+#include <net/dsa.h>
- #include <asm/uaccess.h>
- #include <asm/system.h>
- 
-@@ -184,6 +185,13 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- 			skb->pkt_type = PACKET_OTHERHOST;
- 	}
- 
-+	/*
-+	 * Some variants of DSA tagging don't have an ethertype
-+	 * field at all.
-+	 */
-+	if (netdev_uses_ethertypeless_dsa_tags(dev))
-+		return htons(ETH_P_DSA);
-+
- 	if (ntohs(eth->h_proto) >= 1536)
- 		return eth->h_proto;
- 
 -- 
 1.5.6.4
