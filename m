@@ -1,97 +1,101 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Regression in 2.6.27-rc7: Wake On LAN with sky2 broken
-Date: Thu, 25 Sep 2008 22:38:01 +0200
-Message-ID: <200809252238.01656.rjw@sisk.pl>
-References: <20080924080546.GA21108@x61> <20080925194253.GA2783@dose.home.local> <20080925200311.GA4582@dose.home.local>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/1] Use RCU for the UDP hash lock
+Date: Thu, 25 Sep 2008 13:34:03 -0700
+Message-ID: <20080925133403.400be032@speedy>
+References: <20080924172827.GA1573@minyard.local>
+	<20080924124006.6bb41b49@extreme>
+	<48DAA71C.5030000@acm.org>
+	<20080925152936.GF6725@linux.vnet.ibm.com>
+	<20080925083431.3fa0f9c3@extreme>
+	<48DBE4D3.9060809@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tino Keitel <tino.keitel@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:56314 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755947AbYIYUc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 16:32:29 -0400
-In-Reply-To: <20080925200311.GA4582@dose.home.local>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paulmck@linux.vnet.ibm.com,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Corey Minyard <minyard@acm.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756069AbYIYUeZ@vger.kernel.org>
+In-Reply-To: <48DBE4D3.9060809@acm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday, 25 of September 2008, Tino Keitel wrote:
-> Hi,
+On Thu, 25 Sep 2008 14:21:55 -0500
+Corey Minyard <minyard@acm.org> wrote:
+
+> Stephen Hemminger wrote:
+> > On Thu, 25 Sep 2008 08:29:36 -0700
+> > "Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
+> >
+> >   
+> >> On Wed, Sep 24, 2008 at 03:46:20PM -0500, Corey Minyard wrote:
+> >>     
+> >>> Stephen Hemminger wrote:
+> >>>       
+> >>>>   
+> >>>>         
+> >>>>>   static inline void udp_lib_unhash(struct sock *sk)
+> >>>>>  {
+> >>>>> -	write_lock_bh(&udp_hash_lock);
+> >>>>> -	if (sk_del_node_init(sk)) {
+> >>>>> +	spin_lock_bh(&udp_hash_wlock);
+> >>>>> +	if (sk_del_node_rcu(sk)) {
+> >>>>>  		inet_sk(sk)->num = 0;
+> >>>>>  		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+> >>>>>  	}
+> >>>>> -	write_unlock_bh(&udp_hash_lock);
+> >>>>> +	spin_unlock_bh(&udp_hash_wlock);
+> >>>>> +	synchronize_sched();
+> >>>>>     
+> >>>>>           
+> >>>> Could this be synchronize_rcu? You are using rcu_read_lock() protected 
+> >>>> sections.
+> >>>>   
+> >>>>         
+> >>> I meant to comment on that.  I wasn't sure which to use, so I chose the 
+> >>> more conservative approach.  synchronize_rcu() might be appropriate.
+> >>>       
+> >> You do indeed need to match the update-side and read-side primitives:
+> >>
+> >> 	Update-side				Read-side
+> >>
+> >> 	synchronize_rcu()			rcu_read_lock()
+> >> 	call_rcu()				rcu_read_unlock()
+> >>
+> >> 	call_rcu_bh()				rcu_read_lock_bh()
+> >> 						rcu_read_unlock_bh()
+> >>
+> >> 	synchronize_sched()			preempt_disable()
+> >> 						preempt_enable()
+> >> 						[and anything else
+> >> 						 that disables either
+> >> 						 preemption or irqs]
+> >>
+> >> 	synchronize_srcu()			srcu_read_lock()
+> >> 						srcu_read_unlock()
+> >>
+> >>
+> >> Mixing RCU or RCU-SCHED with RCU-BH will fail in Classic RCU systems,
+> >> while mixing RCU or RCU-BH with RCU-SCHED will fail in preemptable RCU
+> >> systems.  Mixing SRCU with any of the other flavors of RCU will fail
+> >> on any system.
+> >>
+> >> So please match them up correctly!
+> >>     
+> Ok, will do.  I read more on this, and I think I understand the issues 
+> better.
 > 
-> I just found a method how I can enable WOL again:
+> >>     
+> >
+> > Also, for consistency with other parts of networking code, don't introduce
+> > the synchronize_sched() or synchronize_srcu() pattern to network protocols
+> > unless there is a no other way to achieve the desired result.
+> >   
+> Do you mean synchronize_rcu(), too?  It seems to be used in the net 
+> code.  To avoid that I'd need to add a struct rcu_head to struct sock.  
+> Would that be preferable?
 > 
-> echo enabled >
-> /sys/devices/pci0000:00/0000:00:1c.0/0000:01:00.0/power/wakeup
-> 
-> This device is the NIC device, of cause.
 
-I guess the box didn't hang during suspend with this setting?
-
-If that's correct, please test the patch below.
-
-> I already had another case (EHCI) where I needed to do this to be able
-> to wake the computer up with the USB keyboard. It seems like 2.6.27
-> behaves different here compared to 2.6.26, and things that worked with
-> 2.6.26 need manual fixing to work again. Or did I make something wrong?
-
-No, you didn't.
-
-The behavior was changed by the PCI wake-up patches that fixed a couple of
-problems and I'd like to fix all of the cases when the new behavior causes
-issues like this to happen.
-
-I'll send you a patch for the EHCI case later today.
-
-Thanks,
-Rafael
-
----
-sky2: Fix WOL regression
-
-Since dev->power.should_wakeup bit is used by the PCI core to
-decide whether the device should wake up the system from sleep
-states, set/unset this bit whenever WOL is enabled/disabled using
-sky2_set_wol().
-
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
----
-
- drivers/net/sky2.c |   34 ++++++++++------------------------
- 1 file changed, 10 insertions(+), 24 deletions(-)
-
-diff -puN drivers/net/sky2.c~skty2-adapt-to-the-reworked-pci-pm drivers/net/sky2.c
---- a/drivers/net/sky2.c~skty2-adapt-to-the-reworked-pci-pm
-+++ a/drivers/net/sky2.c
-@@ -3034,7 +3034,8 @@ static int sky2_set_wol(struct net_devic
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	struct sky2_hw *hw = sky2->hw;
- 
--	if (wol->wolopts & ~sky2_wol_supported(sky2->hw))
-+	if ((wol->wolopts & ~sky2_wol_supported(sky2->hw))
-+	    || !device_can_wakeup(&hw->pdev->dev))
- 		return -EOPNOTSUPP;
- 
- 	sky2->wol = wol->wolopts;
-@@ -3045,6 +3046,8 @@ static int sky2_set_wol(struct net_devic
- 		sky2_write32(hw, B0_CTST, sky2->wol
- 			     ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
- 
-+	device_set_wakeup_enable(&hw->pdev->dev, sky2->wol);
-+
- 	if (!netif_running(dev))
- 		sky2_wol_init(sky2);
- 	return 0;
-@@ -4314,7 +4305,7 @@ static int __devinit sky2_probe(struct p
- 		}
- 	}
- 
--	wol_default = pci_wake_enabled(pdev) ? WAKE_MAGIC : 0;
-+	wol_default = device_may_wakeup(&pdev->dev) ? WAKE_MAGIC : 0;
- 
- 	err = -ENOMEM;
- 	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
-
+synchhonize_rcu or call_rcu_bh is fine. But I worry that if the other
+stricter types are used, then we would have to audit all the other RCU
+usage in networking to make sure nesting was correct.
