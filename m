@@ -1,74 +1,81 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: support force_igmp_version=3 and force_mld_version=2 ?
-Date: Thu, 25 Sep 2008 09:40:37 +0300 (EEST)
-Message-ID: <alpine.LRH.2.00.0809250908590.21286@netcore.fi>
-References: <alpine.LRH.2.00.0809241326070.30892@netcore.fi>
+From: "Rami Rosen" <roszenrami@gmail.com>
+Subject: Re: /proc/net/igmp group address encoding
+Date: Thu, 25 Sep 2008 09:44:45 +0300
+Message-ID: <b25312890809242344n11e61c80w1bf761c55c29a65e@mail.gmail.com>
+References: <alpine.LRH.2.00.0809242310100.9495@netcore.fi>
+	 <OFD09BFACD.5BF3314E-ON882574CE.00725332-882574CE.007265EF@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Pekka Savola" <pekkas@netcore.fi>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: "David Stevens" <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:54274 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750802AbYIYGkm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 02:40:42 -0400
-Received: from netcore.fi (localhost [127.0.0.1])
-	by netcore.fi (8.13.8/8.13.8) with ESMTP id m8P6ecRJ021791
-	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 09:40:38 +0300
-Received: from localhost (pekkas@localhost)
-	by netcore.fi (8.13.8/8.13.8/Submit) with ESMTP id m8P6ebD3021787
-	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 09:40:38 +0300
-In-Reply-To: <alpine.LRH.2.00.0809241326070.30892@netcore.fi>
+Received: from wf-out-1314.google.com ([209.85.200.169]:37431 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752061AbYIYGop (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 02:44:45 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so343916wfd.4
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2008 23:44:45 -0700 (PDT)
+In-Reply-To: <OFD09BFACD.5BF3314E-ON882574CE.00725332-882574CE.007265EF@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Sep 2008, Pekka Savola wrote:
-> I've spotted some irritating IGMPv3/v2 compat problems on RHEL4, and 
-> I'm working on trying to see if these are due to bugs already fixed 
-> in latest kernels.
+Hi,
 
-OK, I've done some tests.
+- I had noticed a long ago that the IP addresses under
+ /proc/net/igmp are in Hexa format. I am preparing a patch to fix it
+and it will be send very soon.
 
-1) in a RHEL4 2.6.8 kernel, the logic of timeouting seeing a V2
-    querier earlier seems to be broken -- even if there are no IGMPv2
-    reports or queries on the LAN for a long time, the system (as seen
-    by /proc/net/igmp) doesn't go back to V3.  I tested that this works
-    in 2.6.26.5 so this is OK.
+On this occasion -
+Regarding "count" column of  /proc/net/igmp :
+This is simply a display the mc_count field of the device (number of
+installed mcasts on the net_device instance).
+Whenever you join an igmp group, you should specify on which
+device you wish to join this igmp group. As a result, the counter of
+the corresponding device (mc_count of the corresponding net_device) is
+incremented.
+See; dev_mc_add() in core/dev_mcast.c and
+__dev_addr_add() in core/dev.c
 
-2) only force_igmp_version=[12] is supported.  It might be useful to
-    support "force_igmp_version=3" as well, where the system will not
-    fall back to IGMPv1 or IGMPv2 compat mode even if it thinks it sees
-    or has seen an IGMPv1/v2 query.
+As far as I know, there is no difference in current implementation in
+this regards when you join an igmp group in IPv4 or in IPv6;
+the same dev_mc_add() is called by
+igmp6_group_added() (see net/ipv6/mcast.c).
 
-    This behaviour would be useful for example in scenarios where you
-    know that the router is IGMPv3/MLDv2 capable, and you want to
-    ignore queries sent by other routers, snooping switches or rogue
-    hosts, or membership reports by other hosts (but Linux currently
-    doesn't seem to support group-specific IGMP downgrade so this is
-    not a problem right now) [see e.g. RFC4604 for more on various
-    other things, e.g. warning errors, that could be added].
+So indeed , the count (mc_count of netdevice) shows both IPv4 and IPv6 igmp
+groups, but in current implementation it is not immediate
+to change it. Currently, net_device struct does not have specific
+fields for ipv4 or ipv6.  One way of preparing a patch
+is to change net_device to have mc_count4 and mc_count6;
+I am really willing to prepare such a patch, but I am not sure such a
+change in net_device is a proper and a justified
+change to do.
 
-    What I refer to something like the follows (not tested, whitespace
-    probably broken due to cut'n'pasting), or some similar changes in
-    the logic where IGMP_Vx_SEEN is used (similar with MLD_V1_SEEN):
+Any ideas?
 
---- igmp.c.orig 2008-09-25 09:33:00.000000000 +0300
-+++ igmp.c      2008-09-25 09:35:20.000000000 +0300
-@@ -2,9 +2,13 @@
-           (IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) == 1 || \
-            IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) == 1 || \
-            ((in_dev)->mr_v1_seen && \
-+           IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) != 3 && \
-+           IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) != 3 && \
-             time_before(jiffies, (in_dev)->mr_v1_seen)))
-  #define IGMP_V2_SEEN(in_dev) \
-           (IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) == 2 || \
-            IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) == 2 || \
-            ((in_dev)->mr_v2_seen && \
-+           IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) != 3 && \
-+           IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) != 3 && \
-             time_before(jiffies, (in_dev)->mr_v2_seen)))
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+
+Regards,
+Rami Rosen
+
+
+
+ I am preparing a patch which
+
+On Wed, Sep 24, 2008 at 11:49 PM, David Stevens <dlstevens@us.ibm.com> wrote:
+>> I'm less than familiar with the code in question and not best placed
+>> to work on this, so if you (or someone else) would be
+>> interested/willing to do this, great.  If nothing happens, I may need
+>> to reconsider my options..
+>
+>        Sure, I'll have a look, though probably not immediately.
+>
+>                                                        +-DLS
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
