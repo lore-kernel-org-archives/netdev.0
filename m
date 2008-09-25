@@ -1,56 +1,40 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: support force_igmp_version=3 and force_mld_version=2 ?
-Date: Thu, 25 Sep 2008 12:18:02 +0300 (EEST)
-Message-ID: <alpine.LRH.2.00.0809251206180.26899@netcore.fi>
-References: <OF447111C0.BCE492D0-ON882574CF.00250EFC-882574CF.00276685@us.ibm.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH] r8169: read MAC address from EEPROM on init
+Date: Thu, 25 Sep 2008 11:38:12 +0200
+Message-ID: <48DB5C04.9050308@redhat.com>
+References: <48D25BA2.6070008@redhat.com> <Pine.LNX.4.64.0809182235550.4742@wrl-59.cs.helsinki.fi> <48D3A381.1080500@redhat.com> <Pine.LNX.4.64.0809210100020.16838@wrl-59.cs.helsinki.fi> <48D9FE65.40709@redhat.com> <20080924211021.GB9746@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:51420 "EHLO netcore.fi"
+Received: from mx2.redhat.com ([66.187.237.31]:56995 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752034AbYIYJdP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 05:33:15 -0400
-In-Reply-To: <OF447111C0.BCE492D0-ON882574CF.00250EFC-882574CF.00276685@us.ibm.com>
+	id S1751669AbYIYJi2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2008 05:38:28 -0400
+In-Reply-To: <20080924211021.GB9746@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Sep 2008, David Stevens wrote:
->> 2) only force_igmp_version=[12] is supported.  It might be useful to
->>     support "force_igmp_version=3" as well, where the system will not
->>     fall back to IGMPv1 or IGMPv2 compat mode even if it thinks it sees
->>     or has seen an IGMPv1/v2 query.
-...
->        Logging an error, as suggested in RFC 4604, is ok, but it
-> really is only a performance issue. Without the filter information,
-> the group memberships may be bigger than they need to be, but
-> the filters will still be applied on the receiver. Ignoring queries
-> or answering them with v3 are both broken, at least for the v2
-> querier.
+Francois Romieu wrote:
+> Ivan Vecera <ivecera@redhat.com> :
+> [...]
+>> OK :-), I hope the patch below is finally the right one.
+> 
+> My approval ratings won't surge today.
+> 
+> Is there a specific explanation for the 10 us delay ?
+> 
+> Realtek's 8168 / 8169 / 8101 drivers all use a (wildly copy'pasted ?)
+> 10 ms delay. I would not mind a 10 ms sleep.
+'pci_vpd_pci22_wait' uses 100us(10x10us delay) for reading, there is 1ms
+(100x10us delay) in my patch, because 100us max. delay was too little for
+Realtek. I tried the patch (with 1ms) on 8169,8168b and 8102e HW without
+any problem. IMHO Realtek's 10ms delay (usually used for VPD write access)
+is too much...
 
-Note that it's not just a performance issue if the host would want to 
-report an (S,G) for an SSM group.  This requires IGMPv3/MLDv2.  Then 
-if it falls back to IGMPv2, it can only report (*,G), and it can no 
-longer get the SSM transmission.  If a malicious host would send an 
-IGMPv2 query on an otherwise IGMPv3-capable network segment, that 
-packet would be a trivial DoS.
+Ivan
 
-What I'm saying is that the compatibility mode is required in a 
-scenario where you don't know which IGMP versions the legitimate nodes 
-in the LAN support, but it also a DoS vector.  But in a managed 
-network where you know the IGMP versions supported, forcing it may 
-make sense.  This is why when you use sysctl toggles to change default 
-behaviour, you're supposed to know what you're doing.
-
->        So, I don't think forcing IGMPv3 makes much sense. If you
-> really cared about it, you could always add an iptables entry to
-> drop them, right?
-
-It's a bit tricky to figure out the correct rules to use if you want 
-to drop all IGMPv1 and IGMPv2 traffic.
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
