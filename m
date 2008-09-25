@@ -1,47 +1,65 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] usbnet: allow type check of devdbg arguments in non-debug
- build
-Date: Wed, 24 Sep 2008 22:14:45 -0400
-Message-ID: <48DAF415.8000307@garzik.org>
-References: <1221493664-544-1-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [NET-NEXT PATCH] e1000: remove unused Kconfig option for disabling
+ packet split
+Date: Wed, 24 Sep 2008 22:14:37 -0400
+Message-ID: <48DAF40D.3040005@garzik.org>
+References: <20080827081956.11114.152.stgit@jtkirshe-mobile.jf.intel.com> <48BE982C.20705@garzik.org> <Pine.WNT.4.63.0809161258170.3244@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Steve Glendinning <steve.glendinning@smsc.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, mingo@elte.hu,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, akpm@linux-foundation.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56512 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:56506 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753195AbYIYCOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 22:14:49 -0400
-In-Reply-To: <1221493664-544-1-git-send-email-steve.glendinning@smsc.com>
+	id S1752407AbYIYCOp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 22:14:45 -0400
+In-Reply-To: <Pine.WNT.4.63.0809161258170.3244@jbrandeb-desk.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steve Glendinning wrote:
-> improve usbnet's devdbg to always type-check diagnostic arguments,
-> like dev_dbg (device.h).  This makes no change to the resulting size of
-> usbnet modules.
+Brandeburg, Jesse wrote:
+> On Wed, 3 Sep 2008, Jeff Garzik wrote:
+>>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>>
+>>> Since the e1000/e1000e split, no hardware supported by e1000
+>>> supports packet split, just remove the Kconfig option and associated
+>>> code from arch/* and the driver.
+>>>
+>>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>> ---
+>>>
+>>>  arch/arm/configs/iop13xx_defconfig              |    1
+>>> arch/arm/configs/iop32x_defconfig               |    1
+>> ACK, except for the defconfig changes.  arch maintainers usually prefer to do
+>> that themselves.
+>>
+>> We'd be continually patch defconfig files, if we did so every time it was
+>> likely one would be updated by a Kconfig patch.
 > 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> Here is an updated patch without the defconfig changes
+> 
+> == cut here ==
+> 
+> e1000: remove Kconfig option for packet split and e1000 related code
+> 
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> 
+> Since the e1000/e1000e split, no hardware supported by e1000
+> supports packet split, just remove the Kconfig option and associated
+> code from the driver.
+> 
+> reposted without the defconfig changes, should apply to net-next
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > ---
->  include/linux/usb/usbnet.h |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-> index ba09fe8..7d38222 100644
-> --- a/include/linux/usb/usbnet.h
-> +++ b/include/linux/usb/usbnet.h
-> @@ -197,7 +197,9 @@ extern int usbnet_nway_reset(struct net_device *net);
->  #define devdbg(usbnet, fmt, arg...) \
->  	printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , ## arg)
->  #else
-> -#define devdbg(usbnet, fmt, arg...) do {} while(0)
-> +#define devdbg(usbnet, fmt, arg...) \
-> +	({ if (0) printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , \
-> +		## arg); 0; })
->  #endif
+>  drivers/net/Kconfig            |    9 -
+>  drivers/net/e1000/e1000.h      |   17 --
+>  drivers/net/e1000/e1000_main.c |  416 +---------------------------------------
+>  3 files changed, 9 insertions(+), 433 deletions(-)
 
 applied
 
