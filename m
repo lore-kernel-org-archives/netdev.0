@@ -1,48 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] net driver updates for .28
-Date: Thu, 25 Sep 2008 13:38:21 -0400
-Message-ID: <48DBCC8D.7060709@garzik.org>
-References: <20080924230710.GA22856@havoc.gtf.org> <20080925085556.4c430028@bull.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/9] PCI: add interface to set visible size of VPD
+	(rev3)
+Date: Thu, 25 Sep 2008 18:49:05 +0100
+Message-ID: <1222364945.8641.76.camel@achroite>
+References: <20080925164851.694359776@vyatta.com>
+	 <20080925165223.366942933@vyatta.com>  <48DBC8D8.2080207@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sebastien Dugue <sebastien.dugue@bull.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, torvalds@gtf.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Thomas Klein <osstklei@de.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55883 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752822AbYIYRic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 13:38:32 -0400
-In-Reply-To: <20080925085556.4c430028@bull.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	Ivan Vecera <ivecera@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <48DBC8D8.2080207@pobox.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sebastien Dugue wrote:
->   Hi Jeff,
+On Thu, 2008-09-25 at 13:22 -0400, Jeff Garzik wrote:
+[...]
+> What is the initial size?
 > 
-> On Wed, 24 Sep 2008 19:07:10 -0400 Jeff Garzik <jeff@garzik.org> wrote:
+> It seems like a bad idea to start out assuming the max, and reduce once 
+> a knowledgeable driver appears.
 > 
-> 
->> Sebastien Dugue (2):
->>       ehea: fix phyp debugging typo
-> 
-> 
->>       ehea: fix mutex and spinlock use
-> 
->         ^^^^^^
-> 
->   That last one was NACKed by Thomas Klein (http://lkml.org/lkml/2008/9/15/81)
-> who asked for it to be reverted.
+> It seems more safe to start out at zero, and let a driver increase it?
 
+VPD is meant to be usable even without a driver - that's why it's a
+(somewhat) standard capability and not device-specific.
 
-David, please revert 2eefbd63d0c85daa1317636474c226e236beba81 by request 
-of author, maintainer, and maintainer's maintainer :)
+> That way, by design, you eliminate the possibility (later, if not now) 
+> of someone assuming that the full 32k can be read as soon as the 
+> interface is available.
 
-	Jeff
+I believe that's generally true, though it may be slow.
 
+Maybe we could read as much as we need to find the real length when the
+sysfs file is first opened?
 
+Ben.
 
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
