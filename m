@@ -1,34 +1,35 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [PATCH 1/9] PCI: vpd handle longer delays in access (rev3)
-Date: Thu, 25 Sep 2008 12:54:26 -0600
-Message-ID: <20080925185426.GT27204@parisc-linux.org>
-References: <20080925164851.694359776@vyatta.com> <20080925165223.168847327@vyatta.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RESEND][PATCH 2.6.28] myri10ge: Add multiqueue TX support
+Date: Thu, 25 Sep 2008 15:07:44 -0400
+Message-ID: <48DBE180.9090508@garzik.org>
+References: <48DB1056.5040206@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080925165223.168847327@vyatta.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:51027 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751030AbYIYTHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2008 15:07:48 -0400
+In-Reply-To: <48DB1056.5040206@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 25, 2008 at 09:48:52AM -0700, Stephen Hemminger wrote:
-> +		if(!cond_resched())
+Brice Goglin wrote:
+> Add multiqueue TX support to myri10ge.
+>     
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-Style nit (did you run checkpatch?)
+Did not apply to net-next successfully...  I dropped the two patches you 
+submitted, as discussed in the thread where DaveM replied.  Maybe that 
+drop is tripping us up?
 
-I think I've commented on the previous versions of this patch enough for
-it to be worth adding:
+Let's resync based on DaveM's current net-next, ok?
 
-Reviwed-by: Matthew Wilcox <willy@linux.intel.com>
+	Jeff
 
--- 
-Matthew Wilcox				Intel Open Source Technology Centre
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+
+
+
