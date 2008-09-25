@@ -1,47 +1,29 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] atl2: add tx bytes statistic
-Date: Wed, 24 Sep 2008 22:15:40 -0400
-Message-ID: <48DAF44C.40701@garzik.org>
-References: <20080920184705.46ba1669@osprey.hogchain.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] forcedeth fix: take phy out of reset during power up
+Date: Wed, 24 Sep 2008 22:15:47 -0400
+Message-ID: <48DAF453.9010706@pobox.com>
+References: <48D7A3D7.2010602@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Chris Snook <csnook@redhat.com>, jie.yang@atheros.com,
-	netdev@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55436 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55438 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752671AbYIYCPw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2008 22:15:52 -0400
-In-Reply-To: <20080920184705.46ba1669@osprey.hogchain.net>
+	id S1752916AbYIYCP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2008 22:15:56 -0400
+In-Reply-To: <48D7A3D7.2010602@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Cliburn wrote:
-> From: Jay Cliburn <jacliburn@bellsouth.net>
-> Date: Sat, 20 Sep 2008 17:37:05 -0500
-> Subject: [PATCH] atl2: add tx bytes statistic
+Ayaz Abdulla wrote:
+> This patch will add the phy reset bit into the power up mask which is 
+> used during power up. Certain BIOSes will place the phy in reset and 
+> therefore the driver must take the phy out of reset when it loads.
 > 
-> Let's see how many bytes have been transmitted.
-> 
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-> ---
->  drivers/net/atlx/atl2.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-> index b2995ac..4f82f66 100644
-> --- a/drivers/net/atlx/atl2.c
-> +++ b/drivers/net/atlx/atl2.c
-> @@ -522,8 +522,10 @@ static void atl2_intr_tx(struct atl2_adapter *adapter)
->  		atomic_set(&adapter->txd_read_ptr, (int)txd_read_ptr);
->  
->  		/* tx statistics: */
-> -		if (txs->ok)
-> +		if (txs->ok) {
-> +			adapter->net_stats.tx_bytes += txs->pkt_size;
->  			adapter->net_stats.tx_packets++;
+> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 applied
 
