@@ -1,56 +1,69 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH] net: remove LLTX in atl2 driver
-Date: Thu, 25 Sep 2008 18:34:29 -0400
-Message-ID: <48DC11F5.20900@redhat.com>
-References: <1222302922-13200-1-git-send-email-kexin.hao@windriver.com> <48DBF4DD.8060908@redhat.com> <48DBFAB5.2010709@garzik.org>
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: Re: [PATCH] gianfar: Don't reset TBI<->SerDes link if it's already
+ up
+Date: Thu, 25 Sep 2008 16:06:54 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0809251605030.7680@t2.domain.actdsltmp>
+References: <1222287839-6545-1-git-send-email-tpiepho@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Hao <kexin.hao@windriver.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Fleming Andy <afleming@freescale.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:60876 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752819AbYIYWfr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2008 18:35:47 -0400
-In-Reply-To: <48DBFAB5.2010709@garzik.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:48236 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753343AbYIYXKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 19:10:25 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m8PNAN1d000518
+	for <netdev@vger.kernel.org>; Thu, 25 Sep 2008 16:10:23 -0700 (MST)
+In-Reply-To: <1222287839-6545-1-git-send-email-tpiepho@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Chris Snook wrote:
->> Kevin Hao wrote:
->>> When NETIF_F_LLTX is set, the atlx driver will use a private lock.
->>> But in recent kernels this implementation seems redundant and
->>> can cause problems where AF_PACKET sees things twice. Since
->>> NETIF_F_LLTX is marked as deprecated and shouldn't be used in
->>> new driver, this patch removes NETIF_F_LLTX and adds a mmiowb
->>> before sending packet.
->>>
->>> Signed-off-by: Kevin Hao <kexin.hao@windriver.com>
->>
->> Can you explain a bit more concretely the problem this solves, and 
->> your testing?  Ultimately we'll want to merge this code with the atl1 
->> code, so we need to be confident that we can and should make the same 
->> change there.
->>
->> -- Chris
->>
->>> ---
->>>  drivers/net/atlx/atl2.c |   24 +-----------------------
->>>  drivers/net/atlx/atl2.h |    1 -
->>>  2 files changed, 1 insertions(+), 24 deletions(-)
-> 
-> Not directly addressing your question, but LLTX is indeed deprecated and 
-> in general we want to move away from it.
-> 
->     Jeff
+I just realized that this patch won't apply cleanly without another patch that
+I haven't sent yet.
 
-I'm all in favor of removing legacy cruft.  I want to know a little more about 
-it so we can remove it from the atl1 code as well.  Ultimately most of this will 
-be shared code.
+Please ignore, I'll repost both patches as a series when I get an ack for the
+one not posted yet.
 
--- Chris
+On Wed, 24 Sep 2008, Trent Piepho wrote:
+> The link may be up already via the chip's reset strapping, or though action
+> of U-Boot, or from the last time the interface was brought up.  Resetting
+> the link causes it to go down for several seconds.  This can significantly
+> increase the time from power-on to DHCP completion and a device being
+> accessible to the network.
+>
+> Signed-off-by: Trent Piepho <tpiepho@freescale.com>
+> Acked-by: Andy Fleming <afleming@freescale.com>
+> ---
+> drivers/net/gianfar.c |    9 +++++++++
+> 1 files changed, 9 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index 1a4a85b..dd7d8e5 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -578,6 +578,14 @@ static void gfar_configure_serdes(struct net_device *dev)
+> 	if (bus)
+> 		mutex_lock(&bus->mdio_lock);
+>
+> +	/* If the link is already up, we must already be ok, and don't need to
+> +	 * configure and reset the TBI<->SerDes link.  Maybe U-Boot configured
+> +	 * everything for us?  Resetting it takes the link down and requires
+> +	 * several seconds for it to come back.
+> +	 */
+> +	if (gfar_local_mdio_read(regs, tbipa, MII_BMSR) & BMSR_LSTATUS)
+> +		goto done;
+> +
+> 	/* Single clk mode, mii mode off(for serdes communication) */
+> 	gfar_local_mdio_write(regs, tbipa, MII_TBICON, TBICON_CLK_SELECT);
+>
+> @@ -588,6 +596,7 @@ static void gfar_configure_serdes(struct net_device *dev)
+> 	gfar_local_mdio_write(regs, tbipa, MII_BMCR, BMCR_ANENABLE |
+> 			BMCR_ANRESTART | BMCR_FULLDPLX | BMCR_SPEED1000);
+>
+> +	done:
+> 	if (bus)
+> 		mutex_unlock(&bus->mdio_lock);
+> }
+>
