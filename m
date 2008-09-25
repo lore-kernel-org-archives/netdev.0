@@ -1,43 +1,66 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/9] PCI: add interface to set visible size of VPD
-	(rev3)
-Date: Thu, 25 Sep 2008 18:49:05 +0100
-Message-ID: <1222364945.8641.76.camel@achroite>
+Subject: Re: [PATCH 2/9] PCI: revise VPD access interface (rev3)
+Date: Thu, 25 Sep 2008 18:58:52 +0100
+Message-ID: <1222365532.8641.86.camel@achroite>
 References: <20080925164851.694359776@vyatta.com>
-	 <20080925165223.366942933@vyatta.com>  <48DBC8D8.2080207@pobox.com>
+	 <20080925165223.268510251@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
+Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Jesse Barnes <jbarnes@virtuousgeek.org>,
 	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
 	Ivan Vecera <ivecera@redhat.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <48DBC8D8.2080207@pobox.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:56580 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753198AbYIYR67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 13:58:59 -0400
+In-Reply-To: <20080925165223.268510251@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-09-25 at 13:22 -0400, Jeff Garzik wrote:
+On Thu, 2008-09-25 at 09:48 -0700, Stephen Hemminger wrote:
 [...]
-> What is the initial size?
-> 
-> It seems like a bad idea to start out assuming the max, and reduce once 
-> a knowledgeable driver appears.
-> 
-> It seems more safe to start out at zero, and let a driver increase it?
+> -static int pci_vpd_pci22_write(struct pci_dev *dev, int pos, int size,
+> -			       const char *buf)
+> +static ssize_t pci_vpd_pci22_write(struct pci_dev *dev, loff_t pos, size_t count,
+> +				   const void *arg)
+>  {
+>  	struct pci_vpd_pci22 *vpd =
+>  		container_of(dev->vpd, struct pci_vpd_pci22, base);
+> -	u32 val;
+> +	const u8 *buf = arg;
+> +	loff_t end = pos + count;
 
-VPD is meant to be usable even without a driver - that's why it's a
-(somewhat) standard capability and not device-specific.
+count should be (count & ~3)
 
-> That way, by design, you eliminate the possibility (later, if not now) 
-> of someone assuming that the full 32k can be read as soon as the 
-> interface is available.
+>  	int ret = 0;
+>  
+> -	if (pos < 0 || pos > vpd->base.len || pos & 3 ||
+> -	    size > vpd->base.len - pos || size < 4)
+> +	if (pos > vpd->base.len || pos & 3)
+>  		return -EINVAL;
 
-I believe that's generally true, though it may be slow.
+Why did you remove the tests for pos < 0 and size > vpd->base.len - pos?
+I know write_vpd_attr() checks these but you're about to add other
+callers.
 
-Maybe we could read as much as we need to find the real length when the
-sysfs file is first opened?
+[...]
+>  out:
+>  	mutex_unlock(&vpd->lock);
+> -	if (ret < 0)
+> -		return ret;
+> -
+> -	return 4;
+> +	return ret ? ret : count;
+>  }
+[...]
+
+count should be (count & ~3)
+
+Alternately you could treat (count & 3) != 0 as invalid.
 
 Ben.
 
@@ -45,3 +68,4 @@ Ben.
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
+
