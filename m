@@ -1,67 +1,58 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [RFC] bonding: add better ipv6 failover support
-Date: Thu, 25 Sep 2008 11:42:57 -0400
-Message-ID: <48DBB181.9050205@hp.com>
-References: <200809151335.16817.asid@hp.com> <20080915180015.GB1078@havoc.gtf.org> <200809151416.49447.alexandre.sidorenko@hp.com> <48DA71A8.5050900@hp.com> <7958.1222288188@death.nxdomain.ibm.com> <48DAFB92.7040904@hp.com> <17219.1222355242@death.nxdomain.ibm.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-09-24
+Date: Thu, 25 Sep 2008 11:47:54 -0400
+Message-ID: <20080925154753.GA3277@tuxdriver.com>
+References: <20080924231720.GD3639@tuxdriver.com> <1222321622.2510.455.camel@debian.sh.intel.com> <20080925114133.GA5044@tuxdriver.com> <1ba2fa240809250757x32aa450k523d71e555c221e4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:32571 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752105AbYIYPnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 11:43:00 -0400
-In-Reply-To: <17219.1222355242@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1ba2fa240809250757x32aa450k523d71e555c221e4-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Brian Haley <brian.haley@hp.com> wrote:
+On Thu, Sep 25, 2008 at 05:57:33PM +0300, Tomas Winkler wrote:
+> On Thu, Sep 25, 2008 at 2:41 PM, John W. Linville
+> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> > On Thu, Sep 25, 2008 at 01:47:02PM +0800, Zhu Yi wrote:
+> >> On Wed, 2008-09-24 at 17:17 -0600, John W. Linville wrote:
+> >> > Dave,
+> >> >
+> >> > One more for 2.6.27 -- a fix for a possible interrupt storm.  There is
+> >> > even a link in the commit log to a youtube video of the storm in
+> >> > progress. :-)
+> >> >
+> >> > Let me know if there are problems!
+> >>
+> >> Can you also add this one? It doesn't panic the kernel when a frame from
+> >> firmware is invalid.
+> >>
+> >> http://marc.info/?l=linux-wireless&m=122219037706528&w=2
+> >
+> > Is there an open bug report for that anywhere?  Is this something
+> > that real users (no offense to Johannes) are likely to hit?
 > 
->> This is an RFC patch to add better IPv6 failover support for bonding
->> devices, especially when in active-backup mode, as reported by Alex
->> Sidorenko.
->>
->> What this patch does:
->>
->> - Creates a new Kconfig option in the IPv6 Networking section to
->>  compile-in the support in the bonding driver.  This also forces
->>  IPV6=y since that's required to link everything.
+> I'm just exporting the major bugs from our internal database to
+> buzilla, 5000 is new so
+> we are hitting the problems during testing  before users report them.
 > 
-> 	I think it's probably better to have the IPV6 dependent bits
-> somehow depend on CONFIG_IPV6 rather than having a Kconfig entry.  I
-> doubt that many real-world users will say yes to IPv6 and bonding, but
-> no to the bonding IPv6 support.  I also suspect that the IPV6=y
-> requirement won't fly with distros.
+> Now I don't know if it was good idea to push the driver upstream same
+> time as it hits the market.
 
-I'm sure there's a way to do this better, for example, SCTP can be built 
-as a module with IPv6 support and have IPV6=m.  I'll try to make it work 
-without the option when IPV6=y or m.
+You're right -- pushing it sooner rather than sitting on it internally
+probably would have helped to give it more visibility sooner.
 
->> - Adds a new master_ipv6 address member to the bonding struct to
->>  hold a copy of the primary IPv6 address on the bond.
-> 
-> 	Do we need to issue an NS for each ipv6 address, or is one
-> sufficient?
-
-It didn't seem like it from my testing, that single NS was enough to 
-wake-up the switch when pinging either the link-local or global.  I'd 
-have to add another global with a different prefix and re-test.
-
-> 	Do ipv6 addresses configured on VLANs need one (or more) NS per
-> VLAN?
-
-I didn't test with VLANs, there would probably need to be some 
-additional work there.
-
-> 	 I haven't tried the patch yet, so I'll comment further once
-> I've had a chance to test it (which may not be until tomorrow).
-
-Thanks,
-
--Brian
+John
+-- 
+John W. Linville		Linux should be at the core
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			of your literate lifestyle.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
