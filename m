@@ -1,43 +1,113 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH] net: remove LLTX in atl2 driver
-Date: Thu, 25 Sep 2008 18:58:49 -0500
-Message-ID: <20080925185849.0df482e2@osprey.hogchain.net>
-References: <1222302922-13200-1-git-send-email-kexin.hao@windriver.com>
-	<48DBF4DD.8060908@redhat.com>
-	<48DBFAB5.2010709@garzik.org>
-	<48DC11F5.20900@redhat.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 2.6.28 1/1] cxgb3 - fix race in EEH
+Date: Thu, 25 Sep 2008 17:05:28 -0700
+Message-ID: <20080926000528.11959.63712.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Kevin Hao <kexin.hao@windriver.com>,
-	Jeff Garzik <jgarzik@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Snook <csnook@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754371AbYIYX7P@vger.kernel.org>
-In-Reply-To: <48DC11F5.20900@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:14022 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751707AbYIZAGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2008 20:06:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Sep 2008 18:34:29 -0400
-Chris Snook <csnook@redhat.com> wrote:
+From: Divy Le Ray <divy@chelsio.com>
 
-> 
-> I'm all in favor of removing legacy cruft.  I want to know a little
-> more about it so we can remove it from the atl1 code as well.
-> Ultimately most of this will be shared code.
+A SGE queue set timer might access registers while in EEH recovery,
+triggering an EEH error loop. Stop all timers early in EEH process.
 
-Yes, LLTX can (and should) be removed from the atl1 code.  I had an
-exchange with Herbert Xu and David Miller on LKML a few weeks ago, and
-they gave me a few tips on how to do it, but I haven't yet had the
-time.  What takes an experienced netdev warrior about a half hour to
-implement unfortunately takes me days of after-dayjob time as I track
-through all the calls that that are affected and test the modified
-driver.
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-Now back to atl2...  I'd like to hear from Kevin also whether he tested
-the LLTX removal.  I'm building the driver with his patch as we speak,
-and I'll test it myself this weekend, but Kevin I'd still like to know
-if you tested the patch.
+ drivers/net/cxgb3/adapter.h    |    1 +
+ drivers/net/cxgb3/cxgb3_main.c |    5 +++++
+ drivers/net/cxgb3/sge.c        |   21 ++++++++++++++++++---
+ 3 files changed, 24 insertions(+), 3 deletions(-)
 
-Thanks,
-Jay
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
+index 2711404..b1a694b 100644
+--- a/drivers/net/cxgb3/adapter.h
++++ b/drivers/net/cxgb3/adapter.h
+@@ -285,6 +285,7 @@ void t3_os_link_changed(struct adapter *adapter, int port_id, int link_status,
+ 
+ void t3_sge_start(struct adapter *adap);
+ void t3_sge_stop(struct adapter *adap);
++void t3_stop_sge_timers(struct adapter *adap);
+ void t3_free_sge_resources(struct adapter *adap);
+ void t3_sge_err_intr_handler(struct adapter *adapter);
+ irq_handler_t t3_intr_handler(struct adapter *adap, int polling);
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 5447f3e..d355c82 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -479,6 +479,7 @@ static int setup_sge_qsets(struct adapter *adap)
+ 							     irq_idx,
+ 				&adap->params.sge.qset[qset_idx], ntxq, dev);
+ 			if (err) {
++				t3_stop_sge_timers(adap);
+ 				t3_free_sge_resources(adap);
+ 				return err;
+ 			}
+@@ -2449,6 +2450,9 @@ static pci_ers_result_t t3_io_error_detected(struct pci_dev *pdev,
+ 	    test_bit(OFFLOAD_DEVMAP_BIT, &adapter->open_device_map))
+ 		offload_close(&adapter->tdev);
+ 
++	/* Stop SGE timers */
++	t3_stop_sge_timers(adapter);
++
+ 	adapter->flags &= ~FULL_INIT_DONE;
+ 
+ 	pci_disable_device(pdev);
+@@ -2801,6 +2805,7 @@ static void __devexit remove_one(struct pci_dev *pdev)
+ 		    if (test_bit(i, &adapter->registered_device_map))
+ 			unregister_netdev(adapter->port[i]);
+ 
++		t3_stop_sge_timers(adapter);
+ 		t3_free_sge_resources(adapter);
+ 		cxgb_disable_msi(adapter);
+ 
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index f78a42c..52f4138 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -603,9 +603,6 @@ static void t3_free_qset(struct adapter *adapter, struct sge_qset *q)
+ 	int i;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
+-	if (q->tx_reclaim_timer.function)
+-		del_timer_sync(&q->tx_reclaim_timer);
+-
+ 	for (i = 0; i < SGE_RXQ_PER_SET; ++i)
+ 		if (q->fl[i].desc) {
+ 			spin_lock_irq(&adapter->sge.reg_lock);
+@@ -3008,6 +3005,24 @@ err:
+ }
+ 
+ /**
++ *	t3_stop_sge_timers - stop SGE timer call backs
++ *	@adap: the adapter
++ *
++ *	Stops each SGE queue set's timer call back
++ */
++void t3_stop_sge_timers(struct adapter *adap)
++{
++	int i;
++
++	for (i = 0; i < SGE_QSETS; ++i) {
++		struct sge_qset *q = &adap->sge.qs[i];
++
++		if (q->tx_reclaim_timer.function)
++			del_timer_sync(&q->tx_reclaim_timer);
++	}
++}
++
++/**
+  *	t3_free_sge_resources - free SGE resources
+  *	@adap: the adapter
+  *
+
