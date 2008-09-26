@@ -1,89 +1,56 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC] bonding: add better ipv6 failover support
-Date: Fri, 26 Sep 2008 12:09:17 -0700
-Message-ID: <21283.1222456157@death.nxdomain.ibm.com>
-References: <OFE12AA65F.345E597C-ON882574D0.00637542-882574D0.00679AFC@us.ibm.com>
-Cc: Brian Haley <brian.haley@hp.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: David Stevens <dlstevens@us.ibm.com>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: Re: Bisect'ed BUG in VLAN promisc mode (6c78dcbd47)
+Date: Fri, 26 Sep 2008 21:22:13 +0200
+Message-ID: <1222456933.2381.3.camel@localhost.localdomain>
+References: <1222437636.7598.14.camel@localhost.localdomain>
+	 <48DD0A4F.6020703@trash.net>
+Reply-To: jdb@comx.dk
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:59983 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752103AbYIZTKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 15:10:16 -0400
-In-reply-to: <OFE12AA65F.345E597C-ON882574D0.00637542-882574D0.00679AFC@us.ibm.com>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:49401 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752437AbYIZTWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 15:22:14 -0400
+In-Reply-To: <48DD0A4F.6020703@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2008-09-26 at 18:14 +0200, Patrick McHardy wrote:
+> Jesper Dangaard Brouer wrote:
+> > Hi Patrick,
+> > 
+> > Bisected me down to one of you changes
+> >  commit 6c78dcbd47a68a
+> >  [VLAN]: Fix promiscous/allmulti synchronization races
+> > 
+> > Description:
+> > ------------
+> >  All other VLAN interfaces stop working, if a vlan is taken down
+> >  (ifconfig eth1.1025 down) _while_ there is a tcpdump running on that
+> >  interface.
+> > 
+> >  The problem is a result of promisc mode being removed on the
+> >  real-device (eth1), when the vlan interface is taken down.  This
+> >  should not happen as other vlan devices exists that still need
+> >  promisc mode on the real-device (eth1).
+> 
+> I'm pretty sure we fixed this already in commit 0ed21b32.
 
-David Stevens <dlstevens@us.ibm.com> wrote:
->1) You're calling mld_send_report() directly, which will send the MLD
->        report synchronously. It should use the randomized timer (see 
->igmp6_join_group).
->        A mass failover (e.g., a power event in a cluster) would blast all 
->of these at once,
->        which is why the randomized timer is required for gratuitous 
->reports. This
->        should use a randomized timer, like mld_ifc_start_timer(), but 
->joining the
->        group all by itself will do that.
+I think that I have tested including this commit.  The first thing I did
+was to test with latest DaveM net-2.6 git tree.
 
-	I need to do some more reading to have an informed response on
-this one (not that I don't believe you; I'm just not familiar with the
-MLD specs).
+I'll test it later... perhaps during the hacking days...
 
->2) There is already a configurable and code for unsolicited neighbor 
->advertisements
->        when adding an address-- why not use that? In fact, wouldn't just 
->moving the
->        failing device's address list to the new device do everything you 
->want, since
->        adding an address already sends unsolicited neighbor 
->advertisements,
->        joins the solicited node address, etc.? Or am I missing something?
-
-	Ooh, ooh, I can answer this one: The protocol addresses don't
-move, they're attached to the bonding master.  The slaves have no
-protocol level addresses of their own, so some kind of extra magic has
-to take place.
-
->3) MLD has a lot of state and it's all associated with the device. 
->Changing the sending
->        device out from under it seems risky to me. I don't know enough 
->about
->        bonding, but I think you really just want all the group 
->memberships and
->        MLD state to be with the master device and the master should just 
->go
->        through the multicast list for the master and join those groups on 
->the
->        new slave. The MLD code will already resolve the filters 
->appropriately
->        for joins and filters already done directly on the new slave that 
->way.
-
-	This sound analagous to the IPv4 multicast address handling,
-wherein the multicast address list is moved from one slave to another.
-Is that a reasonable parallel?
-
->                Actually, I thought that's what Jay's prior patch was all 
->about, and
->        those joins should trigger MLD reports where needed, so I'm 
->definitely
->        confused on what the problem with multicasts is beyond the 
->solicited-node
->        addresses (which just needs to mimic the address add code, or use 
->it
->        directly).
-
-	I haven't posted any prior patch for this, so I'm not sure what
-you're talking about here.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Need to pack.. See you soon!
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
