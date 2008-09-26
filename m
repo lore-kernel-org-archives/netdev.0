@@ -1,32 +1,38 @@
-From: wins-lg.2@comcast.net (LG)
-Subject: Fantastic Prize
-Date: Fri, 26 Sep 2008 15:13:02 +0000
-Message-ID: <092620081513.8297.48DCFBFD00043FEB000020692200758942CDD20904D39C020799@comcast.net>
-To: unlisted-recipients:; (no To-header on input)
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Bisect'ed BUG in VLAN promisc mode (6c78dcbd47)
+Date: Fri, 26 Sep 2008 18:14:07 +0200
+Message-ID: <48DD0A4F.6020703@trash.net>
+References: <1222437636.7598.14.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:44319 "EHLO
-	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751925AbYIZPSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 11:18:42 -0400
+Received: from stinky.trash.net ([213.144.137.162]:41728 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753136AbYIZQOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 12:14:12 -0400
+In-Reply-To: <1222437636.7598.14.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fantastic Prize
+Jesper Dangaard Brouer wrote:
+> Hi Patrick,
+> 
+> Bisected me down to one of you changes
+>  commit 6c78dcbd47a68a
+>  [VLAN]: Fix promiscous/allmulti synchronization races
+> 
+> Description:
+> ------------
+>  All other VLAN interfaces stop working, if a vlan is taken down
+>  (ifconfig eth1.1025 down) _while_ there is a tcpdump running on that
+>  interface.
+> 
+>  The problem is a result of promisc mode being removed on the
+>  real-device (eth1), when the vlan interface is taken down.  This
+>  should not happen as other vlan devices exists that still need
+>  promisc mode on the real-device (eth1).
 
-Congratulations,Your E-mail is among our lucky winners of 700,000GBP in LG PROMOTION. This is to promote the use Lg Products as a global village around the World. To claim your prize contact our PRIZE SUPERVISOR below with your ticket no 12/5B/3LGE
-
-CALL OR E-MAIL(LG.CLAIMS@GMAIL.COM)  PRIZE SUPERVISOR BELOW WITH YOUR TICKET NUMBER FOR CLAIM
-
-Name: Mr James Keegan
-Email: LG.CLAIMS@GMAIL.COM
-Tel #: +44-703-192-5646 
-
-To ensure that you NEVER miss this important prize,contact the above officer immediately
-
-Sincerely,
-Sr. Roger Barnett
-
-
-
-
-
+I'm pretty sure we fixed this already in commit 0ed21b32.
