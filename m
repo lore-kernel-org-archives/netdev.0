@@ -1,217 +1,32 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Bisect'ed BUG in VLAN promisc mode (6c78dcbd47)
-Date: Fri, 26 Sep 2008 16:00:36 +0200
-Message-ID: <1222437636.7598.14.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-KJYCMGR9JKuaZAjRt49L"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+From: wins-lg.2@comcast.net (LG)
+Subject: Fantastic Prize
+Date: Fri, 26 Sep 2008 15:13:02 +0000
+Message-ID: <092620081513.8297.48DCFBFD00043FEB000020692200758942CDD20904D39C020799@comcast.net>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:54017 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752497AbYIZOcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 10:32:54 -0400
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:44319 "EHLO
+	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751925AbYIZPSm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 11:18:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fantastic Prize
 
---=-KJYCMGR9JKuaZAjRt49L
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Congratulations,Your E-mail is among our lucky winners of 700,000GBP in LG PROMOTION. This is to promote the use Lg Products as a global village around the World. To claim your prize contact our PRIZE SUPERVISOR below with your ticket no 12/5B/3LGE
 
-Hi Patrick,
+CALL OR E-MAIL(LG.CLAIMS@GMAIL.COM)  PRIZE SUPERVISOR BELOW WITH YOUR TICKET NUMBER FOR CLAIM
 
-Bisected me down to one of you changes
- commit 6c78dcbd47a68a
- [VLAN]: Fix promiscous/allmulti synchronization races
+Name: Mr James Keegan
+Email: LG.CLAIMS@GMAIL.COM
+Tel #: +44-703-192-5646 
 
-Description:
-------------
- All other VLAN interfaces stop working, if a vlan is taken down
- (ifconfig eth1.1025 down) _while_ there is a tcpdump running on that
- interface.
+To ensure that you NEVER miss this important prize,contact the above officer immediately
 
- The problem is a result of promisc mode being removed on the
- real-device (eth1), when the vlan interface is taken down.  This
- should not happen as other vlan devices exists that still need
- promisc mode on the real-device (eth1).
-
-Setup:
-------
-  eth1      - the real-device
-  eth1.1013 - VLAN device
-  eth1.1025 - VLAN device
-
- Both VLAN devices has assigned ether address 00:11:22:33:44:55 (which
- is different from the real-device).
-
-Reproduce / test:
------------------
-Lookfor "promiscuous mode" changes in kern.log
-# tail -n 40 -f /var/log/kern.log | grep "promiscuous mode"
-
-Start a tcpdump on VLAN device
-# tcpdump -ni eth1.1025
-
-# LOG:
-#   kernel: device eth1.1025 entered promiscuous mode
-
-Take VLAN device down
-# ifconfig eth1.1025 down
-
-Tcpdump dies, the problem is that promisc mode is removed from both
-the real-device and the VLAN device.  That should NOT happen, as there
-are other VLAN devices up (eth1.1013).
-
-# LOG:
-#   kernel: device eth1.1025 left promiscuous mode
-#   kernel: device eth1 left promiscuous mode
-
-Bisect log: Attached
-
-Commit 6c78dcbd47: Attached
-
-
-See you in Paris!
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---=-KJYCMGR9JKuaZAjRt49L
-Content-Disposition: attachment; filename=bisect03-found-bug.log
-Content-Type: text/x-log; name=bisect03-found-bug.log; charset=us-ascii
-Content-Transfer-Encoding: base64
-
-Z2l0LWJpc2VjdCBzdGFydA0KIyBnb29kOiBbZGU0NmMzMzc0NWY1ZTJhZDU5NGM3MmYyY2Y1ZjQ5
-MDg2MWIxNmNlMV0gTGludXggMi42LjIxDQpnaXQtYmlzZWN0IGdvb2QgZGU0NmMzMzc0NWY1ZTJh
-ZDU5NGM3MmYyY2Y1ZjQ5MDg2MWIxNmNlMQ0KIyBiYWQ6IFtiYmYyNTAxMGYxYTZiNzYxOTE0NDMw
-ZjVmY2EwODFlYzhjN2FjY2QxXSBMaW51eCAyLjYuMjMNCmdpdC1iaXNlY3QgYmFkIGJiZjI1MDEw
-ZjFhNmI3NjE5MTQ0MzBmNWZjYTA4MWVjOGM3YWNjZDENCiMgZ29vZDogWzcxYmEyMmZhNzM5MDI5
-YmIxNTgxNDQ4MTNiOWU4MmMwMDMyNjQ5N2NdIE1lcmdlIGJyYW5jaCAndXBzdHJlYW0tbGludXMn
-IG9mIG1hc3Rlci5rZXJuZWwub3JnOi9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvamdhcnppay9u
-ZXRkZXYtMi42DQpnaXQtYmlzZWN0IGdvb2QgNzFiYTIyZmE3MzkwMjliYjE1ODE0NDgxM2I5ZTgy
-YzAwMzI2NDk3Yw0KIyBiYWQ6IFsyZDljZTE3N2U2ODY0NTk0NWUzMzY2Y2ZlMmQ2NmVlM2MyOGNk
-NGYyXSBpMzg2OiBBbGxvdyBLVk0gb24gaTM4NiBub25wYWUNCmdpdC1iaXNlY3QgYmFkIDJkOWNl
-MTc3ZTY4NjQ1OTQ1ZTMzNjZjZmUyZDY2ZWUzYzI4Y2Q0ZjINCiMgYmFkOiBbZGE1OGExNjE3MzQz
-ZTM0NWQ0MzU5NTNhMGYzMjAyNDk5N2E5NTE2NF0gL3Byb2MvKi9lbnZpcm9uOiB3cm9uZyBwbGFj
-aW5nIG9mIHB0cmFjZV9tYXlfYXR0YWNoKCkgY2hlY2sNCmdpdC1iaXNlY3QgYmFkIGRhNThhMTYx
-NzM0M2UzNDVkNDM1OTUzYTBmMzIwMjQ5OTdhOTUxNjQNCiMgZ29vZDogWzc5ZTE1YWU0MjRhZmEw
-YTQwYjFhMGM0NDc4MDQ2ZDZiYTBiNzFlMjBdIGRtOiBiaW9fbGlzdCBwcmVmZXRjaCByZW1vdmFs
-DQpnaXQtYmlzZWN0IGdvb2QgNzllMTVhZTQyNGFmYTBhNDBiMWEwYzQ0NzgwNDZkNmJhMGI3MWUy
-MA0KIyBnb29kOiBbZTQ2NjYyYmU3ZmRkZGUzNDY0YmYyMDgzMTc1NDJjMmY4ZGYxM2QwYl0gbmV0
-LzlwOiBjaGFuZ2UgbmV0LzlwIG1vZHVsZSBuYW1lIHRvIDlwbmV0DQpnaXQtYmlzZWN0IGdvb2Qg
-ZTQ2NjYyYmU3ZmRkZGUzNDY0YmYyMDgzMTc1NDJjMmY4ZGYxM2QwYg0KIyBiYWQ6IFtiM2IwYjY4
-MWIxMjQ3OGE3YWZhN2QxZjNkNThiZTk2ODMwZTE2YzdkXSBbVENQXTogdGNwIHByb2JlIGFkZCBi
-YWNrIHNzdGhyZXNoIGZpZWxkDQpnaXQtYmlzZWN0IGJhZCBiM2IwYjY4MWIxMjQ3OGE3YWZhN2Qx
-ZjNkNThiZTk2ODMwZTE2YzdkDQojIGJhZDogWzZjNzhkY2JkNDdhNjhhN2QyNWQyYmVlN2E2Yzc0
-YjkxMzZjYjVmZGVdIFtWTEFOXTogRml4IHByb21pc2NvdXMvYWxsbXVsdGkgc3luY2hyb25pemF0
-aW9uIHJhY2VzDQpnaXQtYmlzZWN0IGJhZCA2Yzc4ZGNiZDQ3YTY4YTdkMjVkMmJlZTdhNmM3NGI5
-MTM2Y2I1ZmRlDQojIGdvb2Q6IFsyNDAyMzQ1MWM4ZGY3MjY2OTJlMmY1MjI4OGEyMDg3MGQxM2I1
-MDFmXSBbTkVUXTogQWRkIG5ldF9kZXZpY2UgY2hhbmdlX3J4X21vZGUgY2FsbGJhY2sNCmdpdC1i
-aXNlY3QgZ29vZCAyNDAyMzQ1MWM4ZGY3MjY2OTJlMmY1MjI4OGEyMDg3MGQxM2I1MDFmDQojIGdv
-b2Q6IFthMGE0MDBkNzllM2RkNzg0M2U3ZTgxYmFhM2VmMjk1N2JkYzI5MmQwXSBbTkVUXTogZGV2
-X21jYXN0OiBhZGQgbXVsdGljYXN0IGxpc3Qgc3luY2hyb25pemF0aW9uIGhlbHBlcnMNCmdpdC1i
-aXNlY3QgZ29vZCBhMGE0MDBkNzllM2RkNzg0M2U3ZTgxYmFhM2VmMjk1N2JkYzI5MmQwDQo=
-
-
---=-KJYCMGR9JKuaZAjRt49L
-Content-Disposition: attachment; filename=bisect03-found-bug.patch
-Content-Type: text/x-patch; name=bisect03-found-bug.patch; charset=us-ascii
-Content-Transfer-Encoding: base64
-
-Y29tbWl0IDZjNzhkY2JkNDdhNjhhN2QyNWQyYmVlN2E2Yzc0YjkxMzZjYjVmZGUNCkF1dGhvcjog
-UGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+DQpEYXRlOiAgIFNhdCBKdWwgMTQgMTg6
-NTI6NTYgMjAwNyAtMDcwMA0KDQogICAgW1ZMQU5dOiBGaXggcHJvbWlzY291cy9hbGxtdWx0aSBz
-eW5jaHJvbml6YXRpb24gcmFjZXMNCiAgICANCiAgICBUaGUgc2V0X211bHRpY2FzdF9saXN0IGZ1
-bmN0aW9uIG1heSBiZSBjYWxsZWQgd2l0aG91dCBob2xkaW5nIHRoZSBydG5sDQogICAgbXV0ZXgs
-IHJlc3VsdGluZyBpbiByYWNlcyB3aGVuIGNoYW5naW5nIHRoZSB1bmRlcmx5aW5nIGRldmljZSdz
-IHByb21pc2NvdXMNCiAgICBhbmQgYWxsbXVsdGkgc3RhdGUuIFVzZSB0aGUgY2hhbmdlX3J4X21v
-ZGUgaG9vaywgd2hpY2ggaXMgYWx3YXlzIGludm9rZWQNCiAgICB1bmRlciB0aGUgcnRubC4NCiAg
-ICANCiAgICBTaWduZWQtb2ZmLWJ5OiBQYXRyaWNrIE1jSGFyZHkgPGthYmVyQHRyYXNoLm5ldD4N
-CiAgICBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+
-DQoNCmRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2lmX3ZsYW4uaCBiL2luY2x1ZGUvbGludXgv
-aWZfdmxhbi5oDQppbmRleCA2MWE1N2RjLi43ZjcxZGY0IDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9s
-aW51eC9pZl92bGFuLmgNCisrKyBiL2luY2x1ZGUvbGludXgvaWZfdmxhbi5oDQpAQCAtMTMyLDgg
-KzEzMiw2IEBAIHN0cnVjdCB2bGFuX2Rldl9pbmZvIHsNCiAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgKiBtYWRlLCBpbiBvcmRlciB0byBmZWVkIHRoZSByaWdodCBj
-aGFuZ2VzIGRvd24NCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-KiB0byB0aGUgcmVhbCBoYXJkd2FyZS4uLg0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAqLw0KLQlpbnQgb2xkX2FsbG11bHRpOyAgICAgICAgICAgICAgIC8qIHNp
-bWlsYXIgdG8gYWJvdmUuICovDQotCWludCBvbGRfcHJvbWlzY3VpdHk7ICAgICAgICAgICAgLyog
-c2ltaWxhciB0byBhYm92ZS4gKi8NCiAJc3RydWN0IG5ldF9kZXZpY2UgKnJlYWxfZGV2OyAgICAv
-KiB0aGUgdW5kZXJseWluZyBkZXZpY2UvaW50ZXJmYWNlICovDQogCXVuc2lnbmVkIGNoYXIgcmVh
-bF9kZXZfYWRkcltFVEhfQUxFTl07DQogCXN0cnVjdCBwcm9jX2Rpcl9lbnRyeSAqZGVudDsgICAg
-LyogSG9sZHMgdGhlIHByb2MgZGF0YSAqLw0KZGlmZiAtLWdpdCBhL25ldC84MDIxcS92bGFuLmMg
-Yi9uZXQvODAyMXEvdmxhbi5jDQppbmRleCBhYmI5OTAwLi4zOWJkY2MyIDEwMDY0NA0KLS0tIGEv
-bmV0LzgwMjFxL3ZsYW4uYw0KKysrIGIvbmV0LzgwMjFxL3ZsYW4uYw0KQEAgLTM3Myw2ICszNzMs
-NyBAQCB2b2lkIHZsYW5fc2V0dXAoc3RydWN0IG5ldF9kZXZpY2UgKm5ld19kZXYpDQogCW5ld19k
-ZXYtPm9wZW4gPSB2bGFuX2Rldl9vcGVuOw0KIAluZXdfZGV2LT5zdG9wID0gdmxhbl9kZXZfc3Rv
-cDsNCiAJbmV3X2Rldi0+c2V0X211bHRpY2FzdF9saXN0ID0gdmxhbl9kZXZfc2V0X211bHRpY2Fz
-dF9saXN0Ow0KKwluZXdfZGV2LT5jaGFuZ2VfcnhfZmxhZ3MgPSB2bGFuX2NoYW5nZV9yeF9mbGFn
-czsNCiAJbmV3X2Rldi0+ZGVzdHJ1Y3RvciA9IGZyZWVfbmV0ZGV2Ow0KIAluZXdfZGV2LT5kb19p
-b2N0bCA9IHZsYW5fZGV2X2lvY3RsOw0KIA0KZGlmZiAtLWdpdCBhL25ldC84MDIxcS92bGFuLmgg
-Yi9uZXQvODAyMXEvdmxhbi5oDQppbmRleCA2MmNlMWM1Li43ZGY1YjI5IDEwMDY0NA0KLS0tIGEv
-bmV0LzgwMjFxL3ZsYW4uaA0KKysrIGIvbmV0LzgwMjFxL3ZsYW4uaA0KQEAgLTY5LDYgKzY5LDcg
-QEAgaW50IHZsYW5fZGV2X3NldF92bGFuX2ZsYWcoY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRl
-diwNCiAJCQkgICB1MzIgZmxhZywgc2hvcnQgZmxhZ192YWwpOw0KIHZvaWQgdmxhbl9kZXZfZ2V0
-X3JlYWxkZXZfbmFtZShjb25zdCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBjaGFyICpyZXN1bHQp
-Ow0KIHZvaWQgdmxhbl9kZXZfZ2V0X3ZpZChjb25zdCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1
-bnNpZ25lZCBzaG9ydCAqcmVzdWx0KTsNCit2b2lkIHZsYW5fY2hhbmdlX3J4X2ZsYWdzKHN0cnVj
-dCBuZXRfZGV2aWNlICpkZXYsIGludCBjaGFuZ2UpOw0KIHZvaWQgdmxhbl9kZXZfc2V0X211bHRp
-Y2FzdF9saXN0KHN0cnVjdCBuZXRfZGV2aWNlICp2bGFuX2Rldik7DQogDQogaW50IHZsYW5fY2hl
-Y2tfcmVhbF9kZXYoc3RydWN0IG5ldF9kZXZpY2UgKnJlYWxfZGV2LCB1bnNpZ25lZCBzaG9ydCB2
-bGFuX2lkKTsNCmRpZmYgLS1naXQgYS9uZXQvODAyMXEvdmxhbl9kZXYuYyBiL25ldC84MDIxcS92
-bGFuX2Rldi5jDQppbmRleCBkNGE2MmQxLi5kZWM3ZTYyIDEwMDY0NA0KLS0tIGEvbmV0LzgwMjFx
-L3ZsYW5fZGV2LmMNCisrKyBiL25ldC84MDIxcS92bGFuX2Rldi5jDQpAQCAtNzEyLDYgKzcxMiwx
-MSBAQCBpbnQgdmxhbl9kZXZfb3BlbihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KIAl9DQogCW1l
-bWNweSh2bGFuLT5yZWFsX2Rldl9hZGRyLCByZWFsX2Rldi0+ZGV2X2FkZHIsIEVUSF9BTEVOKTsN
-CiANCisJaWYgKGRldi0+ZmxhZ3MgJiBJRkZfQUxMTVVMVEkpDQorCQlkZXZfc2V0X2FsbG11bHRp
-KHJlYWxfZGV2LCAxKTsNCisJaWYgKGRldi0+ZmxhZ3MgJiBJRkZfUFJPTUlTQykNCisJCWRldl9z
-ZXRfcHJvbWlzY3VpdHkocmVhbF9kZXYsIDEpOw0KKw0KIAlyZXR1cm4gMDsNCiB9DQogDQpAQCAt
-NzIxLDYgKzcyNiwxMSBAQCBpbnQgdmxhbl9kZXZfc3RvcChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
-KQ0KIA0KIAl2bGFuX2ZsdXNoX21jX2xpc3QoZGV2KTsNCiANCisJaWYgKGRldi0+ZmxhZ3MgJiBJ
-RkZfQUxMTVVMVEkpDQorCQlkZXZfc2V0X2FsbG11bHRpKHJlYWxfZGV2LCAtMSk7DQorCWlmIChk
-ZXYtPmZsYWdzICYgSUZGX1BST01JU0MpDQorCQlkZXZfc2V0X3Byb21pc2N1aXR5KHJlYWxfZGV2
-LCAtMSk7DQorDQogCWlmIChjb21wYXJlX2V0aGVyX2FkZHIoZGV2LT5kZXZfYWRkciwgcmVhbF9k
-ZXYtPmRldl9hZGRyKSkNCiAJCWRldl91bmljYXN0X2RlbGV0ZShyZWFsX2RldiwgZGV2LT5kZXZf
-YWRkciwgZGV2LT5hZGRyX2xlbik7DQogDQpAQCAtNzU0LDM0ICs3NjQsMjYgQEAgaW50IHZsYW5f
-ZGV2X2lvY3RsKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVjdCBpZnJlcSAqaWZyLCBpbnQg
-Y21kKQ0KIAlyZXR1cm4gZXJyOw0KIH0NCiANCit2b2lkIHZsYW5fY2hhbmdlX3J4X2ZsYWdzKHN0
-cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBjaGFuZ2UpDQorew0KKwlzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqcmVhbF9kZXYgPSBWTEFOX0RFVl9JTkZPKGRldiktPnJlYWxfZGV2Ow0KKw0KKwlpZiAoY2hh
-bmdlICYgSUZGX0FMTE1VTFRJKQ0KKwkJZGV2X3NldF9hbGxtdWx0aShyZWFsX2RldiwgZGV2LT5m
-bGFncyAmIElGRl9BTExNVUxUSSA/IDEgOiAtMSk7DQorCWlmIChjaGFuZ2UgJiBJRkZfUFJPTUlT
-QykNCisJCWRldl9zZXRfcHJvbWlzY3VpdHkocmVhbF9kZXYsIGRldi0+ZmxhZ3MgJiBJRkZfUFJP
-TUlTQyA/IDEgOiAtMSk7DQorfQ0KKw0KIC8qKiBUYWtlbiBmcm9tIEdsZWIgKyBMZW5uZXJ0J3Mg
-VkxBTiBjb2RlLCBhbmQgbW9kaWZpZWQuLi4gKi8NCiB2b2lkIHZsYW5fZGV2X3NldF9tdWx0aWNh
-c3RfbGlzdChzdHJ1Y3QgbmV0X2RldmljZSAqdmxhbl9kZXYpDQogew0KIAlzdHJ1Y3QgZGV2X21j
-X2xpc3QgKmRtaTsNCiAJc3RydWN0IG5ldF9kZXZpY2UgKnJlYWxfZGV2Ow0KLQlpbnQgaW5jOw0K
-IA0KIAlpZiAodmxhbl9kZXYgJiYgKHZsYW5fZGV2LT5wcml2X2ZsYWdzICYgSUZGXzgwMl8xUV9W
-TEFOKSkgew0KIAkJLyogVGhlbiBpdCdzIGEgcmVhbCB2bGFuIGRldmljZSwgYXMgZmFyIGFzIHdl
-IGNhbiB0ZWxsLi4gKi8NCiAJCXJlYWxfZGV2ID0gVkxBTl9ERVZfSU5GTyh2bGFuX2RldiktPnJl
-YWxfZGV2Ow0KIA0KLQkJLyogY29tcGFyZSB0aGUgY3VycmVudCBwcm9taXNjdWl0eSB0byB0aGUg
-bGFzdCBwcm9taXNjIHdlIGhhZC4uICovDQotCQlpbmMgPSB2bGFuX2Rldi0+cHJvbWlzY3VpdHkg
-LSBWTEFOX0RFVl9JTkZPKHZsYW5fZGV2KS0+b2xkX3Byb21pc2N1aXR5Ow0KLQkJaWYgKGluYykg
-ew0KLQkJCXByaW50ayhLRVJOX0lORk8gIiVzOiBkZXZfc2V0X3Byb21pc2N1aXR5KG1hc3Rlciwg
-JWQpXG4iLA0KLQkJCSAgICAgICB2bGFuX2Rldi0+bmFtZSwgaW5jKTsNCi0JCQlkZXZfc2V0X3By
-b21pc2N1aXR5KHJlYWxfZGV2LCBpbmMpOyAvKiBmb3VuZCBpbiBkZXYuYyAqLw0KLQkJCVZMQU5f
-REVWX0lORk8odmxhbl9kZXYpLT5vbGRfcHJvbWlzY3VpdHkgPSB2bGFuX2Rldi0+cHJvbWlzY3Vp
-dHk7DQotCQl9DQotDQotCQlpbmMgPSB2bGFuX2Rldi0+YWxsbXVsdGkgLSBWTEFOX0RFVl9JTkZP
-KHZsYW5fZGV2KS0+b2xkX2FsbG11bHRpOw0KLQkJaWYgKGluYykgew0KLQkJCXByaW50ayhLRVJO
-X0lORk8gIiVzOiBkZXZfc2V0X2FsbG11bHRpKG1hc3RlciwgJWQpXG4iLA0KLQkJCSAgICAgICB2
-bGFuX2Rldi0+bmFtZSwgaW5jKTsNCi0JCQlkZXZfc2V0X2FsbG11bHRpKHJlYWxfZGV2LCBpbmMp
-OyAvKiBkZXYuYyAqLw0KLQkJCVZMQU5fREVWX0lORk8odmxhbl9kZXYpLT5vbGRfYWxsbXVsdGkg
-PSB2bGFuX2Rldi0+YWxsbXVsdGk7DQotCQl9DQotDQogCQkvKiBsb29raW5nIGZvciBhZGRyZXNz
-ZXMgdG8gYWRkIHRvIG1hc3RlcidzIGxpc3QgKi8NCiAJCWZvciAoZG1pID0gdmxhbl9kZXYtPm1j
-X2xpc3Q7IGRtaSAhPSBOVUxMOyBkbWkgPSBkbWktPm5leHQpIHsNCiAJCQlpZiAodmxhbl9zaG91
-bGRfYWRkX21jKGRtaSwgVkxBTl9ERVZfSU5GTyh2bGFuX2RldiktPm9sZF9tY19saXN0KSkgew0K
+Sincerely,
+Sr. Roger Barnett
 
 
 
---=-KJYCMGR9JKuaZAjRt49L--
+
+
