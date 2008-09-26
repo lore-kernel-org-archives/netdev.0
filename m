@@ -1,68 +1,82 @@
-From: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH 14/18] netdevice airo: Convert directly reference of	netdev->priv
- to netdev->ml_priv
-Date: Fri, 26 Sep 2008 16:37:05 +0800
-Message-ID: <48DC9F31.4010807@cn.fujitsu.com>
-References: <48C0A219.2030004@cn.fujitsu.com>	 <48C0A72B.9050407@cn.fujitsu.com>  <20080905125036.GA3027@tuxdriver.com> <1220634383.6430.14.camel@localhost.localdomain> <48C24F66.1090803@cn.fujitsu.com>
+From: Corey Minyard <minyard@acm.org>
+Subject: Re: [PATCH 1/1] Use RCU for the UDP hash lock
+Date: Fri, 26 Sep 2008 08:37:33 -0500
+Message-ID: <48DCE59D.6060003@acm.org>
+References: <20080926031832.GA27289@minyard.local>
+ <20080926054600.GA4141@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	NETDEV <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48C24F66.1090803-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	shemminger@vyatta.com
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vms046pub.verizon.net ([206.46.252.46]:60742 "EHLO
+	vms046pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbYIZNhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 09:37:45 -0400
+In-reply-to: <20080926054600.GA4141@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wang Chen said the following on 2008-9-6 17:37:
->>>> We have some reasons to kill netdev->priv:
->>>> 1. netdev->priv is equal to netdev_priv().
->>>> 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
->>>>    netdev_priv() is more flexible than netdev->priv.
->>>> But we cann't kill netdev->priv, because so many drivers reference to it
->>>> directly.
->>>>
->>>> OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
->>>> and I want to kill netdev->priv later, I decided to convert all the direct
->>>> reference of netdev->priv first.
->>>>
->>>> Different to readonly reference of netdev->priv, in this driver, netdev->priv
->>>> was changed. I use netdev->ml_priv to replace netdev->priv.
->>>>
->>>> Signed-off-by: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
->>> Thank you for your patch.  However, I do not understand why you didn't
->>> simply replace netdev->priv with netdev_priv()?  Can you explain?
->> Yeah, that would have been my first choice too...
->>
-> 
-> 1. Why I don't use netdev_priv() to replace netdev->priv here?
-> Because, here
->> @@ -2665,7 +2666,7 @@ static struct net_device *init_wifidev(struct airo_info *ai,
->>  	struct net_device *dev = alloc_netdev(0, "wifi%d", wifi_setup);
->>  	if (!dev)
->>  		return NULL;
->> -	dev->priv = ethdev->priv;
->> +	dev->ml_priv = ethdev->ml_priv;
->> @@ -2766,7 +2767,7 @@ static struct net_device *_init_airo_card( unsigned short irq, int port,
->>  		return NULL;
->>  	}
+Jarek Poplawski wrote:
+> On Thu, Sep 25, 2008 at 10:18:33PM -0500, Corey Minyard wrote:
+> ...
+>   
+>> This patch is the second try; I believe I fixed all issues that people
+>> raised.
+>>     
+>
+> Actually, you've skipped my first question, so I still don't know, why
+> you don't use an _init version of sk_del_node (even if it's safe in the
+> current implementation), while the non-rcu code uses only this?
+>   
+I guess it didn't matter, but it doesn't matter and consistency is 
+important, so I've changed it.
+
+-corey
+
+> ...
+>   
+>> diff --git a/include/net/sock.h b/include/net/sock.h
+>> index 06c5259..65110a6 100644
+>> --- a/include/net/sock.h
+>> +++ b/include/net/sock.h
+>>     
+> ...
+>   
+>>  static inline int sk_unhashed(const struct sock *sk)
+>>  {
+>>  	return hlist_unhashed(&sk->sk_node);
+>> @@ -361,6 +374,27 @@ static __inline__ int sk_del_node_init(struct sock *sk)
+>>  	return rc;
+>>  }
 >>  
->> -	ai = dev->priv;
->> +	ai = dev->ml_priv = netdev_priv(dev);
-> netdev->priv was changed here, but it shouldn't, the memory was allocated when alloc_netdev and
-> netdev->priv should always pointed to that memory.
-> 
-> 2. Why I use netdev->ml_priv here to replace netdev->priv?
-> In this driver, netdev->priv are shared by multi wifidevs, that means wifidevs need
-> mid-layer private data, which are all same as their parent netdev.
-> This usage is same as Dave's commit "syncppp: Fix crashes."
-> 
+>> +static inline int __sk_del_node_rcu(struct sock *sk)
+>> +{
+>> +	if (sk_hashed(sk)) {
+>> +		hlist_del_rcu(&sk->sk_node);
+>> +		return 1;
+>> +	}
+>> +	return 0;
+>> +}
+>> +
+>> +static inline int sk_del_node_rcu(struct sock *sk)
+>> +{
+>> +	int rc = __sk_del_node_rcu(sk);
+>> +
+>> +	if (rc) {
+>> +		/* paranoid for a while -acme */
+>> +		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
+>> +		__sock_put(sk);
+>> +	}
+>> +	return rc;
+>> +}
+>>     
+> ...
+>
+> Jarek P.
+>
+>   
 
-John, do you have any comments about my answer?
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
