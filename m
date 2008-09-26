@@ -1,35 +1,51 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Vacation in October
-Date: Fri, 26 Sep 2008 16:11:48 -0400
-Message-ID: <48DD4204.6050404@garzik.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: D945GCLF  intel atom board & r8169 ethernet broken in linux-2.6.27-rc5??
+Date: Fri, 26 Sep 2008 23:45:46 +0200
+Message-ID: <200809262345.47373.rjw@sisk.pl>
+References: <9F6ACAE02B6DD040A1E259977622CFDB03F5BCCB@oslexcp1.eu.tandberg.int> <20080924201903.GA10546@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: John Gumb <john.gumb@tandberg.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "Kok, Auke" <auke-jan.h.kok@intel.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34221 "EHLO mail.dvmed.net"
+Received: from ogre.sisk.pl ([217.79.144.158]:35131 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752593AbYIZULw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2008 16:11:52 -0400
-Received: from cpe-069-134-153-115.nc.res.rr.com ([69.134.153.115] helo=core.yyz.us)
-	by mail.dvmed.net with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
-	id 1KjJfJ-0007Js-8C
-	for netdev@vger.kernel.org; Fri, 26 Sep 2008 20:11:51 +0000
+	id S1752050AbYIZVkL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Sep 2008 17:40:11 -0400
+In-Reply-To: <20080924201903.GA10546@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FWIW, I'm on vacation from Sept 29 through October 12.
+On Wednesday, 24 of September 2008, Francois Romieu wrote:
+> John Gumb <john.gumb@tandberg.com> :
+> [...]
+> > With linux-2.6.27-rc5, "ifconfig eth0" just hangs. lspci -vvx reports,
+> > after loading the driver,
+> > 
+> > > 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E
+> > PCI Express Fast Ethernet controller (rev ff) (prog-if ff)
+> > >       !!! Unknown header type 7f
+> > 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> > 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> > 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> > 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  
+> > 
+> > Before I load the driver lspci -vvx looks OK.
+> 
+> It is probably the driver's responsibility then.
+> 
+> > I do not have (much) time to look into this any further but hopefully
+> > this might help someone.
+> 
+> Can you try patches #0001 .. #0008 at
+> http://userweb.kernel.org/~romieu/r8169/2.6.27-rc6/20080913/ ?
 
-Make sure to post or CC your patches to netdev, and patchworks[1] will 
-make sure they do not get lost.
+FWIW, these patches make the Ethernet card in the MSI Wind I've been recently
+testing work much much more reliably. :-)
 
-I'm hoping Francois, Stephen, Ben and others will step (and they often 
-do already) and review posted patched, and David, after returning from 
-his own trip, can apply the reviewed patches.
-
-	Jeff
-
-
-
-[1] http://patchwork.ozlabs.org/project/netdev/list/
-
+Thanks,
+Rafael
