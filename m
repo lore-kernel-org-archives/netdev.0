@@ -1,39 +1,72 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Bisect'ed BUG in VLAN promisc mode (6c78dcbd47)
-Date: Fri, 26 Sep 2008 21:41:09 +0200
-Message-ID: <48DD3AD5.80800@trash.net>
-References: <1222437636.7598.14.camel@localhost.localdomain>	 <48DD0A4F.6020703@trash.net>	 <1222456933.2381.3.camel@localhost.localdomain> <48DD36D2.90103@trash.net>	 <48DD37E3.9090706@trash.net> <1222457670.2381.8.camel@localhost.localdomain>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [RFC] bonding: add better ipv6 failover support
+Date: Fri, 26 Sep 2008 15:46:37 -0400
+Message-ID: <48DD3C1D.3020403@hp.com>
+References: <OFE12AA65F.345E597C-ON882574D0.00637542-882574D0.00679AFC@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: jdb@comx.dk
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	fubar@linux.vnet.ibm.com, Jeff Garzik <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46483 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbYIZTlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 15:41:12 -0400
-In-Reply-To: <1222457670.2381.8.camel@localhost.localdomain>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:20972 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753106AbYIZTqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 15:46:40 -0400
+In-Reply-To: <OFE12AA65F.345E597C-ON882574D0.00637542-882574D0.00679AFC@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer wrote:
-> On Fri, 2008-09-26 at 21:28 +0200, Patrick McHardy wrote:
->> Actually - one question: you're saying you're using different MAC
->> addresses on the VLAN devices, so I guess thats why you're expecting
->> the underlying device to still be in promiscous mode after you set
->> eth1.1025 down. For devices that support multiple unicast addresses
->> in hardware, we don't put the device in promiscous mode anymore.
->> So the question is: is something actually not working, or did you
->> just notice that the real device is no longer in promiscous mode?
-> 
-> It stopped working!  In the test setup I do have a machine connected to
-> eth1.1013, where I have a ping running, that stop working...
+David Stevens wrote:
+> 1) You're calling mld_send_report() directly, which will send the MLD
+>         report synchronously. It should use the randomized timer (see 
+> igmp6_join_group).
+>         A mass failover (e.g., a power event in a cluster) would blast all 
+> of these at once,
+>         which is why the randomized timer is required for gratuitous 
+> reports. This
+>         should use a randomized timer, like mld_ifc_start_timer(), but 
+> joining the
+>         group all by itself will do that.
 
-Found it in the bugreport :) OK, I'll try to reproduce it now.
+To add to what David said, looks like mld_send_report will always send a
+Version 2 report.  This should honor correctly V1 or v2 configuration.
 
-> I use the tg3 driver for both netcards. Don't know if it supports it?
+However, to address the random delay, this would have to be static delay
+of at most 1 sec.  Otherwise any NUD probes would be lost.
 
-The driver doesn't support it.
 
+> 3) MLD has a lot of state and it's all associated with the device. 
+> Changing the sending device out from under it seems risky to me. I don't know enough 
+> about bonding, but I think you really just want all the group 
+> memberships and MLD state to be with the master device and the master should just 
+> go through the multicast list for the master and join those groups on 
+> the new slave. The MLD code will already resolve the filters 
+> appropriately for joins and filters already done directly on the new slave that 
+> way.  Actually, I thought that's what Jay's prior patch was all 
+> about, and those joins should trigger MLD reports where needed, so I'm 
+> definitely confused on what the problem with multicasts is beyond the 
+> solicited-node addresses (which just needs to mimic the address add code, or use 
+> it directly).
 
+Yes, I think this needs a little more thought.  The multicast addresses are
+already on the master and also on the active slave.  However, at failover time,
+I think those memberships needs to be removed from the old slave, and added
+to the new slave.  Alex mentioned that there were some refcounts that didn't
+allow for this to happen, but I don't see any.
+
+The trouble I see is that the MLD/IGMPv6 is only sent when an IPv6 multicast
+address is added.  In the failover scenario, since IPv6 address is joined on
+the bond, we only move the link multicast address from one interface to
+another.  This doesn't normally trigger and new report, but this is just what
+we want.
+
+Additionally, I think the code should be using an unsolicited NA instead of the
+NS, since we do really want to trigger a rediscovery the address and
+the associated MAC to make sure that all forwarding state is updated on link.
+
+-vlad
