@@ -1,54 +1,68 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH] skge: Fix skge_set_ring_param() losing error return
-Date: Fri, 26 Sep 2008 16:32:50 +0800
-Message-ID: <48DC9E32.503@cn.fujitsu.com>
+From: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH 14/18] netdevice airo: Convert directly reference of	netdev->priv
+ to netdev->ml_priv
+Date: Fri, 26 Sep 2008 16:37:05 +0800
+Message-ID: <48DC9F31.4010807@cn.fujitsu.com>
+References: <48C0A219.2030004@cn.fujitsu.com>	 <48C0A72B.9050407@cn.fujitsu.com>  <20080905125036.GA3027@tuxdriver.com> <1220634383.6430.14.camel@localhost.localdomain> <48C24F66.1090803@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	NETDEV <netdev@vger.kernel.org>
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60269 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751790AbYIZIfm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2008 04:35:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	NETDEV <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48C24F66.1090803-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Fri, 26 Sep 2008 16:20:32 +0800
-Subject: [PATCH] skge: Fix skge_set_ring_param() losing error return
+Wang Chen said the following on 2008-9-6 17:37:
+>>>> We have some reasons to kill netdev->priv:
+>>>> 1. netdev->priv is equal to netdev_priv().
+>>>> 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
+>>>>    netdev_priv() is more flexible than netdev->priv.
+>>>> But we cann't kill netdev->priv, because so many drivers reference to it
+>>>> directly.
+>>>>
+>>>> OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
+>>>> and I want to kill netdev->priv later, I decided to convert all the direct
+>>>> reference of netdev->priv first.
+>>>>
+>>>> Different to readonly reference of netdev->priv, in this driver, netdev->priv
+>>>> was changed. I use netdev->ml_priv to replace netdev->priv.
+>>>>
+>>>> Signed-off-by: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+>>> Thank you for your patch.  However, I do not understand why you didn't
+>>> simply replace netdev->priv with netdev_priv()?  Can you explain?
+>> Yeah, that would have been my first choice too...
+>>
+> 
+> 1. Why I don't use netdev_priv() to replace netdev->priv here?
+> Because, here
+>> @@ -2665,7 +2666,7 @@ static struct net_device *init_wifidev(struct airo_info *ai,
+>>  	struct net_device *dev = alloc_netdev(0, "wifi%d", wifi_setup);
+>>  	if (!dev)
+>>  		return NULL;
+>> -	dev->priv = ethdev->priv;
+>> +	dev->ml_priv = ethdev->ml_priv;
+>> @@ -2766,7 +2767,7 @@ static struct net_device *_init_airo_card( unsigned short irq, int port,
+>>  		return NULL;
+>>  	}
+>>  
+>> -	ai = dev->priv;
+>> +	ai = dev->ml_priv = netdev_priv(dev);
+> netdev->priv was changed here, but it shouldn't, the memory was allocated when alloc_netdev and
+> netdev->priv should always pointed to that memory.
+> 
+> 2. Why I use netdev->ml_priv here to replace netdev->priv?
+> In this driver, netdev->priv are shared by multi wifidevs, that means wifidevs need
+> mid-layer private data, which are all same as their parent netdev.
+> This usage is same as Dave's commit "syncppp: Fix crashes."
+> 
 
-The error return is useful to caller, driver shouldn't miss it.
-
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/net/skge.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 2e26dce..4c333a1 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -494,7 +494,7 @@ static int skge_set_ring_param(struct net_device *dev,
- 			       struct ethtool_ringparam *p)
- {
- 	struct skge_port *skge = netdev_priv(dev);
--	int err;
-+	int err = 0;
- 
- 	if (p->rx_pending == 0 || p->rx_pending > MAX_RX_RING_SIZE ||
- 	    p->tx_pending < TX_LOW_WATER || p->tx_pending > MAX_TX_RING_SIZE)
-@@ -510,7 +510,7 @@ static int skge_set_ring_param(struct net_device *dev,
- 			dev_close(dev);
- 	}
- 
--	return 0;
-+	return err;
- }
- 
- static u32 skge_get_msglevel(struct net_device *netdev)
--- 
-1.5.5.1
-
+John, do you have any comments about my answer?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
