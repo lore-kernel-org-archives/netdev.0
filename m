@@ -1,87 +1,166 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: wireless vs. network namespaces (part II)
-Date: Sat, 27 Sep 2008 12:01:25 +0200
-Message-ID: <1222509685.3798.59.camel@johannes.berg>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: [Bug 11442] btusb suspend/resume bug...
+Date: Sat, 27 Sep 2008 15:41:15 +0200
+Message-ID: <200809271541.15963.rjw@sisk.pl>
+References: <20080916.155123.181085856.davem@davemloft.net> <200809222342.46735.rjw@sisk.pl> <8C4643EC-E6D9-47D3-8A27-04A2B3CDC6CC@holtmann.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sKARt9uUGGt7Q4El8lIZ"
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jouni Malinen <j@w1.fi>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8C4643EC-E6D9-47D3-8A27-04A2B3CDC6CC-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Tuesday, 23 of September 2008, Marcel Holtmann wrote:
+> Hi Rafael,
+> 
+> >>>> Marcel, others, please bring some kind of closure to this
+> >>>> regression list entry:
+> >>>>
+> >>>> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=11442
+> >>>> Subject		: btusb hibernation/suspend breakage in current -git
+> >>>> Submitter	: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
+> >>>> Date		: 2008-08-25 11:37 (19 days old)
+> >>>> References	: http://marc.info/?l=linux-bluetooth&m=121966402012074&w=4
+> >>>> Handled-By	: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+> >>>> Patch		: http://marc.info/?l=linux-bluetooth&m=121967226027323&w=4
+> >>>>
+> >>>> There is a patch, it is tested, so the only course of action at
+> >>>> this point is to merge the fix or declare that this really isn't
+> >>>> a regression.
+> >>>>
+> >>>> My impression is the later, because the driver btusb is replacing
+> >>>> doesn't handle suspend/resume either.  Isn't that right?
+> >>>
+> >>> the original patch that I had was expecting changes in the USB  
+> >>> subsystem
+> >>> that I deemed to much at this point. However Oliver got a patch that
+> >>> would make it work without the USB changes. I am still testing it.
+> >>>
+> >>> Let me see if I get some free minutes during the PlumbersConf to get
+> >>> this fully tested.
+> >>
+> >> so I took the patch apart and actually found a few more issues. I  
+> >> am not
+> >> sure if they should be applied this late in -rc phase.
+> >>
+> >> Rafael, can you pull from my tree and test the changes:
+> >>
+> >> git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/ 
+> >> bluetooth-2.6.git
+> >>
+> >> It would be interesting if these fixes are enough.
+> >
+> > They appear to be enough.  I haven't had any suspend/resume failures  
+> > with them
+> > applied.
+> 
+> so it works _without_ applying patch-btusb-suspend.
 
---=-sKARt9uUGGt7Q4El8lIZ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Well, unfortunately I spoke too soon.
 
-Eric,
+I'm still seeing post-hibernation crashes triggered by the bluetooth user land
+trying to use the device handled by btusb.  They happen every second
+hibernation, more or less, and apparently they are oopses in various code
+paths not directly related to bluetooth, like ext3 (memory corruption or
+what?).
 
-You wrote, over a year ago:
+With patch-btusb-suspend applied I don't see them (actually I have to use
+a slightly modified version of the patch which is appended).
 
-> 2) Advanced routing.  Where someone is doing some weird thing like=20
->    testing sending packets and receiving them on the same machine.
+Interestingly enough, suspend to RAM works without any visible problems.
 
-and I was just thinking of doing exactly that :)
+---
+ drivers/bluetooth/btusb.c |   62 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
 
-When looking into it, though, I noticed that you can generate some
-breakage with wireless and network namespaces: you can move a wireless
-netdev to a different namespace and then things will break down because
-we internally use init_net to find it.
-
-What I'd like to do in wireless is not allow moving netdevs between
-namespaces, but rather move entire hardware devices between namespaces,
-I see little value and great pain in trying to support virtual
-interfaces from a single physical device showing up in different
-namespaces, but I do see value in binding a physical device (wiphy) to a
-namespace.
-
-As far as I understand, to disallow moving them, I should set the
-NETIF_F_NETNS_LOCAL flag on all devices, although that is sort of a
-misnomer then because I'd be using it to indicate 'cannot switch
-namespace'.=20
-
-To really support this though, it seems we need to
- * put the wiphy list into struct net (this is currently a simple
-   list_head, no fancy hashing)
- * give each struct wiphy a backpointer to the struct net, like netdev
-   in the netdev struct
- * ensure that all netdevs created for this wiphy will have the right
-   netns.
-
-The latter part I'm unsure on, alloc_netdev_mq seems to always use
-init_net so I can't put them into the right namespace to start with, but
-because they're all "in there together" I can't allow switching
-namespaces either.. Ideas?
-
-johannes
-
---=-sKARt9uUGGt7Q4El8lIZ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJI3gRxAAoJEKVg1VMiehFYyykQALBygrWuPrtzGv9SmdfyBI2j
-sVl86IWX8Sxz6eYp4PtKbCgf5P+F/cPTkN9XlqZ7nkHPSErR4+8zaxt4vzmlLyvm
-CsJ0918CvgL+chGGxqndhgYDDOXHKiB27XLykg/u71YXEqfSK/rKZUSyAkQZOuoX
-/1I6HZmE4YjMis/BzV21nIPnddIUKFnH8+begMRV3JermsO4Cm68m39j7sEMXl9Z
-NSAR6ZzVT2fX+Bs/MI518ns9jqFQurULam+F99lFr6a9tTt7ow6x+u5n/veVEA0J
-77POmndeaR6q/UzF8Mz3Jm63h2r5vLAqp9g1DEgxncrTvPqyq2oiZmM7mgo5U+yP
-5PgF4STAc+nyJYuwzgU0SG1iRk8EMbwSAMM0L1HInV7GkW9EDmxX3a9EKZ1SZQmH
-Qn8dgkw2XwESAW+VYMDZEupem/fcfBfbbQoOQPC/a2tSaZqwIV/dHr49zgD2PJQD
-2+HIsk19eFe7HuE2NRavAf2paKpS1jB8o+097ik4BzQ0vWbKB98uj2mwmDfrqcAD
-4sAAM2sehReP4mBIYCW3i1Hq3YdxAiCh3gD3rQorlRVdsF8nk99qo5UyjUpVjKpi
-XPnf/+8xmcp1OF2OwaTu5xMWBjx20PzgvQyog32DqfVP+/Z1+BU6QvwGHtVhHKSY
-+FYls1zj3bdBDdKx0pHy
-=jjOE
------END PGP SIGNATURE-----
-
---=-sKARt9uUGGt7Q4El8lIZ--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Index: linux-2.6/drivers/bluetooth/btusb.c
+===================================================================
+--- linux-2.6.orig/drivers/bluetooth/btusb.c
++++ linux-2.6/drivers/bluetooth/btusb.c
+@@ -193,6 +193,7 @@ struct btusb_data {
+ 	struct usb_endpoint_descriptor *isoc_rx_ep;
+ 
+ 	int isoc_altsetting;
++	int suspend_count;
+ };
+ 
+ static void btusb_intr_complete(struct urb *urb)
+@@ -947,10 +948,71 @@ static void btusb_disconnect(struct usb_
+ 	hci_free_dev(hdev);
+ }
+ 
++static int btusb_suspend(struct usb_interface *intf, pm_message_t message)
++{
++	struct btusb_data *data = usb_get_intfdata(intf);
++
++	BT_DBG("intf %p", intf);
++
++	if (data->suspend_count++)
++		return 0;
++
++	cancel_work_sync(&data->work);
++
++	usb_kill_anchored_urbs(&data->tx_anchor);
++
++	usb_kill_anchored_urbs(&data->isoc_anchor);
++	usb_kill_anchored_urbs(&data->bulk_anchor);
++	usb_kill_anchored_urbs(&data->intr_anchor);
++
++	return 0;
++}
++
++static int btusb_resume(struct usb_interface *intf)
++{
++	struct btusb_data *data = usb_get_intfdata(intf);
++	struct hci_dev *hdev = data->hdev;
++	int err;
++
++	BT_DBG("intf %p", intf);
++
++	if (--data->suspend_count)
++		return 0;
++
++	if (!test_bit(HCI_RUNNING, &hdev->flags))
++		return 0;
++
++	if (test_bit(BTUSB_INTR_RUNNING, &data->flags)) {
++		err = btusb_submit_intr_urb(hdev);
++		if (err < 0) {
++			clear_bit(BTUSB_INTR_RUNNING, &data->flags);
++			return err;
++		}
++	}
++
++	if (test_bit(BTUSB_BULK_RUNNING, &data->flags)) {
++		if (btusb_submit_bulk_urb(hdev) < 0)
++			clear_bit(BTUSB_BULK_RUNNING, &data->flags);
++		else
++			btusb_submit_bulk_urb(hdev);
++	}
++
++	if (test_bit(BTUSB_ISOC_RUNNING, &data->flags)) {
++		if (btusb_submit_isoc_urb(hdev) < 0)
++			clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
++		else
++			btusb_submit_isoc_urb(hdev);
++	}
++
++	return 0;
++}
++
+ static struct usb_driver btusb_driver = {
+ 	.name		= "btusb",
+ 	.probe		= btusb_probe,
+ 	.disconnect	= btusb_disconnect,
++	.suspend	= btusb_suspend,
++	.resume		= btusb_resume,
+ 	.id_table	= btusb_table,
+ };
+ 
