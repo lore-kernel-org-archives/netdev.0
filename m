@@ -1,166 +1,51 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [Bug 11442] btusb suspend/resume bug...
-Date: Sat, 27 Sep 2008 15:41:15 +0200
-Message-ID: <200809271541.15963.rjw@sisk.pl>
-References: <20080916.155123.181085856.davem@davemloft.net> <200809222342.46735.rjw@sisk.pl> <8C4643EC-E6D9-47D3-8A27-04A2B3CDC6CC@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8C4643EC-E6D9-47D3-8A27-04A2B3CDC6CC-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH 3/4] atl1: remove EXPERIMENTAL label
+Date: Sat, 27 Sep 2008 09:17:22 -0500
+Message-ID: <1222525043-4648-4-git-send-email-jacliburn@bellsouth.net>
+References: <1222525043-4648-1-git-send-email-jacliburn@bellsouth.net>
+Cc: csnook@redhat.com, jie.yang@atheros.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jay Cliburn <jacliburn@bellsouth.net>
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmailhost05.isp.att.net ([207.115.11.55]:46811 "EHLO
+	fmailhost05.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751603AbYI0OW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2008 10:22:26 -0400
+In-Reply-To: <1222525043-4648-1-git-send-email-jacliburn@bellsouth.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, 23 of September 2008, Marcel Holtmann wrote:
-> Hi Rafael,
-> 
-> >>>> Marcel, others, please bring some kind of closure to this
-> >>>> regression list entry:
-> >>>>
-> >>>> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=11442
-> >>>> Subject		: btusb hibernation/suspend breakage in current -git
-> >>>> Submitter	: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-> >>>> Date		: 2008-08-25 11:37 (19 days old)
-> >>>> References	: http://marc.info/?l=linux-bluetooth&m=121966402012074&w=4
-> >>>> Handled-By	: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-> >>>> Patch		: http://marc.info/?l=linux-bluetooth&m=121967226027323&w=4
-> >>>>
-> >>>> There is a patch, it is tested, so the only course of action at
-> >>>> this point is to merge the fix or declare that this really isn't
-> >>>> a regression.
-> >>>>
-> >>>> My impression is the later, because the driver btusb is replacing
-> >>>> doesn't handle suspend/resume either.  Isn't that right?
-> >>>
-> >>> the original patch that I had was expecting changes in the USB  
-> >>> subsystem
-> >>> that I deemed to much at this point. However Oliver got a patch that
-> >>> would make it work without the USB changes. I am still testing it.
-> >>>
-> >>> Let me see if I get some free minutes during the PlumbersConf to get
-> >>> this fully tested.
-> >>
-> >> so I took the patch apart and actually found a few more issues. I  
-> >> am not
-> >> sure if they should be applied this late in -rc phase.
-> >>
-> >> Rafael, can you pull from my tree and test the changes:
-> >>
-> >> git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/ 
-> >> bluetooth-2.6.git
-> >>
-> >> It would be interesting if these fixes are enough.
-> >
-> > They appear to be enough.  I haven't had any suspend/resume failures  
-> > with them
-> > applied.
-> 
-> so it works _without_ applying patch-btusb-suspend.
+Remove the EXPERIMENTAL label from the atl1 driver and change the vendor
+name to include Attansic's successor, Atheros.  We'll leave Attansic in
+the name since Attansic's PCI ID (1969) is encoded in the PCI config and
+is what users encounter on their systems.
 
-Well, unfortunately I spoke too soon.
-
-I'm still seeing post-hibernation crashes triggered by the bluetooth user land
-trying to use the device handled by btusb.  They happen every second
-hibernation, more or less, and apparently they are oopses in various code
-paths not directly related to bluetooth, like ext3 (memory corruption or
-what?).
-
-With patch-btusb-suspend applied I don't see them (actually I have to use
-a slightly modified version of the patch which is appended).
-
-Interestingly enough, suspend to RAM works without any visible problems.
-
+Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 ---
- drivers/bluetooth/btusb.c |   62 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 62 insertions(+)
+ drivers/net/Kconfig |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/drivers/bluetooth/btusb.c
-===================================================================
---- linux-2.6.orig/drivers/bluetooth/btusb.c
-+++ linux-2.6/drivers/bluetooth/btusb.c
-@@ -193,6 +193,7 @@ struct btusb_data {
- 	struct usb_endpoint_descriptor *isoc_rx_ep;
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 4a11296..1c8addf 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2281,12 +2281,13 @@ config QLA3XXX
+ 	  will be called qla3xxx.
  
- 	int isoc_altsetting;
-+	int suspend_count;
- };
+ config ATL1
+-	tristate "Attansic L1 Gigabit Ethernet support (EXPERIMENTAL)"
+-	depends on PCI && EXPERIMENTAL
++	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
++	depends on PCI
+ 	select CRC32
+ 	select MII
+ 	help
+-	  This driver supports the Attansic L1 gigabit ethernet adapter.
++	  This driver supports the Atheros/Attansic L1 gigabit ethernet
++	  adapter.
  
- static void btusb_intr_complete(struct urb *urb)
-@@ -947,10 +948,71 @@ static void btusb_disconnect(struct usb_
- 	hci_free_dev(hdev);
- }
- 
-+static int btusb_suspend(struct usb_interface *intf, pm_message_t message)
-+{
-+	struct btusb_data *data = usb_get_intfdata(intf);
-+
-+	BT_DBG("intf %p", intf);
-+
-+	if (data->suspend_count++)
-+		return 0;
-+
-+	cancel_work_sync(&data->work);
-+
-+	usb_kill_anchored_urbs(&data->tx_anchor);
-+
-+	usb_kill_anchored_urbs(&data->isoc_anchor);
-+	usb_kill_anchored_urbs(&data->bulk_anchor);
-+	usb_kill_anchored_urbs(&data->intr_anchor);
-+
-+	return 0;
-+}
-+
-+static int btusb_resume(struct usb_interface *intf)
-+{
-+	struct btusb_data *data = usb_get_intfdata(intf);
-+	struct hci_dev *hdev = data->hdev;
-+	int err;
-+
-+	BT_DBG("intf %p", intf);
-+
-+	if (--data->suspend_count)
-+		return 0;
-+
-+	if (!test_bit(HCI_RUNNING, &hdev->flags))
-+		return 0;
-+
-+	if (test_bit(BTUSB_INTR_RUNNING, &data->flags)) {
-+		err = btusb_submit_intr_urb(hdev);
-+		if (err < 0) {
-+			clear_bit(BTUSB_INTR_RUNNING, &data->flags);
-+			return err;
-+		}
-+	}
-+
-+	if (test_bit(BTUSB_BULK_RUNNING, &data->flags)) {
-+		if (btusb_submit_bulk_urb(hdev) < 0)
-+			clear_bit(BTUSB_BULK_RUNNING, &data->flags);
-+		else
-+			btusb_submit_bulk_urb(hdev);
-+	}
-+
-+	if (test_bit(BTUSB_ISOC_RUNNING, &data->flags)) {
-+		if (btusb_submit_isoc_urb(hdev) < 0)
-+			clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
-+		else
-+			btusb_submit_isoc_urb(hdev);
-+	}
-+
-+	return 0;
-+}
-+
- static struct usb_driver btusb_driver = {
- 	.name		= "btusb",
- 	.probe		= btusb_probe,
- 	.disconnect	= btusb_disconnect,
-+	.suspend	= btusb_suspend,
-+	.resume		= btusb_resume,
- 	.id_table	= btusb_table,
- };
- 
+ 	  To compile this driver as a module, choose M here.  The module
+ 	  will be called atl1.
+-- 
+1.5.5.1
+
