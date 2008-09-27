@@ -1,66 +1,87 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 17/33] netns ct: final init_net tweaks
-Date: Sat, 27 Sep 2008 04:00:00 +0400
-Message-ID: <20080927000000.GB10489@x200.localdomain>
-References: <48C01046.2070704@trash.net> <1220842990-30500-17-git-send-email-adobriyan@gmail.com> <48C623CA.9060803@trash.net> <20080909073245.GA7307@x200.localdomain> <48C62B1C.7070104@trash.net> <20080913104515.GA7440@x200.localdomain>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: wireless vs. network namespaces (part II)
+Date: Sat, 27 Sep 2008 12:01:25 +0200
+Message-ID: <1222509685.3798.59.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:60987 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752723AbYIZX5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2008 19:57:40 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so1125078fkq.5
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2008 16:57:38 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080913104515.GA7440@x200.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sKARt9uUGGt7Q4El8lIZ"
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jouni Malinen <j@w1.fi>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 13, 2008 at 02:45:15PM +0400, Alexey Dobriyan wrote:
-> On Tue, Sep 09, 2008 at 09:51:56AM +0200, Patrick McHardy wrote:
-> > Alexey Dobriyan wrote:
-> >> On Tue, Sep 09, 2008 at 09:20:42AM +0200, Patrick McHardy wrote:
-> >>> Having multiple of these net_eq checks per function (14 total) is
-> >>> not a very nice way to do this.
-> >>
-> >> Yep, I was just afraid of some subtle ordering rules and to keep
-> >> potential init_net breakage to minimum.
-> >
-> > Me too, but I still prefer to do it properly once.
-> >
-> >>> How about splitting the code into a netns and a global part instead?
-> >>
-> >> Prebably they aren't strict at all.
-> >
-> > Not particulary. For cleanup a three stage approach with
-> >
-> > 1. init_net deactivation (ip_ct_attach = NULL)
-> > 2. generic netns cleanup
-> > 3. init_net specific final cleanup (slab cache, nf_conntrack_cachep,
-> >    accounting, helpers, protocols, ...)
-> >
-> > should work fine.
-> >
-> > The initialization should be OK with just a init_net part
-> > and a generic netns part.
-> 
-> Ugh, I'm still finding the least ugly way to put init_net checks, and
-> it's better to do it at the very end.
-> 
-> So, slight reordering.
-> 
-> See per-netns statistics, nf_conntrack_count, nf_conntrack_checksum,
-> nf_conntrack_log_invalid and accounting.
-> 
-> The rest (SIP, H323, GRE, PPTP, per-netns NAT) remains the same and can
-> be applied independently of init_net checks.
 
-Ping!
+--=-sKARt9uUGGt7Q4El8lIZ
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I've just sent patch which adds init_net checks in somewhat nicer way.
+Eric,
 
-Please, review and apply the rest.
+You wrote, over a year ago:
+
+> 2) Advanced routing.  Where someone is doing some weird thing like=20
+>    testing sending packets and receiving them on the same machine.
+
+and I was just thinking of doing exactly that :)
+
+When looking into it, though, I noticed that you can generate some
+breakage with wireless and network namespaces: you can move a wireless
+netdev to a different namespace and then things will break down because
+we internally use init_net to find it.
+
+What I'd like to do in wireless is not allow moving netdevs between
+namespaces, but rather move entire hardware devices between namespaces,
+I see little value and great pain in trying to support virtual
+interfaces from a single physical device showing up in different
+namespaces, but I do see value in binding a physical device (wiphy) to a
+namespace.
+
+As far as I understand, to disallow moving them, I should set the
+NETIF_F_NETNS_LOCAL flag on all devices, although that is sort of a
+misnomer then because I'd be using it to indicate 'cannot switch
+namespace'.=20
+
+To really support this though, it seems we need to
+ * put the wiphy list into struct net (this is currently a simple
+   list_head, no fancy hashing)
+ * give each struct wiphy a backpointer to the struct net, like netdev
+   in the netdev struct
+ * ensure that all netdevs created for this wiphy will have the right
+   netns.
+
+The latter part I'm unsure on, alloc_netdev_mq seems to always use
+init_net so I can't put them into the right namespace to start with, but
+because they're all "in there together" I can't allow switching
+namespaces either.. Ideas?
+
+johannes
+
+--=-sKARt9uUGGt7Q4El8lIZ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJI3gRxAAoJEKVg1VMiehFYyykQALBygrWuPrtzGv9SmdfyBI2j
+sVl86IWX8Sxz6eYp4PtKbCgf5P+F/cPTkN9XlqZ7nkHPSErR4+8zaxt4vzmlLyvm
+CsJ0918CvgL+chGGxqndhgYDDOXHKiB27XLykg/u71YXEqfSK/rKZUSyAkQZOuoX
+/1I6HZmE4YjMis/BzV21nIPnddIUKFnH8+begMRV3JermsO4Cm68m39j7sEMXl9Z
+NSAR6ZzVT2fX+Bs/MI518ns9jqFQurULam+F99lFr6a9tTt7ow6x+u5n/veVEA0J
+77POmndeaR6q/UzF8Mz3Jm63h2r5vLAqp9g1DEgxncrTvPqyq2oiZmM7mgo5U+yP
+5PgF4STAc+nyJYuwzgU0SG1iRk8EMbwSAMM0L1HInV7GkW9EDmxX3a9EKZ1SZQmH
+Qn8dgkw2XwESAW+VYMDZEupem/fcfBfbbQoOQPC/a2tSaZqwIV/dHr49zgD2PJQD
+2+HIsk19eFe7HuE2NRavAf2paKpS1jB8o+097ik4BzQ0vWbKB98uj2mwmDfrqcAD
+4sAAM2sehReP4mBIYCW3i1Hq3YdxAiCh3gD3rQorlRVdsF8nk99qo5UyjUpVjKpi
+XPnf/+8xmcp1OF2OwaTu5xMWBjx20PzgvQyog32DqfVP+/Z1+BU6QvwGHtVhHKSY
++FYls1zj3bdBDdKx0pHy
+=jjOE
+-----END PGP SIGNATURE-----
+
+--=-sKARt9uUGGt7Q4El8lIZ--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
