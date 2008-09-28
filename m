@@ -1,28 +1,22 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 17/33] netns ct: final init_net tweaks
-Date: Sun, 28 Sep 2008 12:31:55 +0200
-Message-ID: <48DF5D1B.30406@trash.net>
-References: <48C01046.2070704@trash.net> <1220842990-30500-17-git-send-email-adobriyan@gmail.com> <48C623CA.9060803@trash.net> <20080909073245.GA7307@x200.localdomain> <48C62B1C.7070104@trash.net> <20080913104515.GA7440@x200.localdomain> <20080927000000.GB10489@x200.localdomain>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: ipset from netfilter ?
+Date: Sun, 28 Sep 2008 13:46:47 +0300
+Message-ID: <200809281346.48008.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080927000000.GB10489@x200.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay2.globalproof.net ([194.146.153.25]:51575 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075AbYI1KtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 06:49:06 -0400
+Received: from [195.69.208.252] (unknown [195.69.208.252])
+	by relay2.globalproof.net (Postfix) with ESMTP id 5758B131138
+	for <netdev@vger.kernel.org>; Sun, 28 Sep 2008 13:49:03 +0300 (EEST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> Ping!
-> 
-> I've just sent patch which adds init_net checks in somewhat nicer way.
-
-Thanks.
-
-> Please, review and apply the rest.
-
-I'll do that this week during the netfilter workshop.
-
-
+Is there any plans to include ipset to mainline kernel?
