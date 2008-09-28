@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver skb recycling
-Date: Sun, 28 Sep 2008 22:46:33 +0200
-Message-ID: <20080928204633.GB19070@xi.wantstofly.org>
+Subject: [PATCHv2 2/2] mv643xx_eth: hook up skb recycling
+Date: Sun, 28 Sep 2008 22:47:12 +0200
+Message-ID: <20080928204712.GC19070@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Ram.Natarajan@Emulex.Com, Eric Dumazet <dada1@cosmosbay.com>,
@@ -9,108 +9,157 @@ Cc: Ram.Natarajan@Emulex.Com, Eric Dumazet <dada1@cosmosbay.com>,
 	Nicolas Pitre <nico@cam.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:38182 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:38194 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbYI1Uqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 16:46:34 -0400
+	with ESMTP id S1752783AbYI1UrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 16:47:13 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds skb_recycle_check(), which can be used by a network
-driver after transmitting an skb to check whether this skb can be
-recycled as a receive buffer.
-
-skb_recycle_check() checks that the skb is not shared or cloned, and
-that it is linear and its head portion large enough (as determined by
-the driver) to be recycled as a receive buffer.  If these conditions
-are met, it does any necessary reference count dropping and cleans
-up the skbuff as if it just came from __alloc_skb().
+This gives a nice increase in the maximum loss-free packet forwarding
+rate in routing workloads.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- include/linux/skbuff.h |    2 ++
- net/core/skbuff.c      |   41 +++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 41 insertions(+), 2 deletions(-)
+ drivers/net/mv643xx_eth.c |   66 ++++++++++++++++++++++++++++++--------------
+ 1 files changed, 45 insertions(+), 21 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 9099237..b8a5ac7 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -369,6 +369,8 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 	return __alloc_skb(size, priority, 1, -1);
- }
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 55aa8ba..372811a 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -370,6 +370,9 @@ struct mv643xx_eth_private {
+ 	u8 work_rx_refill;
+ 	u8 work_rx_oom;
  
-+extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
++	int skb_size;
++	struct sk_buff_head rx_recycle;
 +
- extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
- extern struct sk_buff *skb_clone(struct sk_buff *skb,
- 				 gfp_t priority);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index ca1ccdf..2c218a0 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -363,8 +363,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 	/*
+ 	 * RX state.
+ 	 */
+@@ -566,31 +569,19 @@ static int rxq_process(struct rx_queue *rxq, int budget)
+ static int rxq_refill(struct rx_queue *rxq, int budget)
+ {
+ 	struct mv643xx_eth_private *mp = rxq_to_mp(rxq);
+-	int skb_size;
+ 	int refilled;
+ 
+-	/*
+-	 * Reserve 2+14 bytes for an ethernet header (the hardware
+-	 * automatically prepends 2 bytes of dummy data to each
+-	 * received packet), 16 bytes for up to four VLAN tags, and
+-	 * 4 bytes for the trailing FCS -- 36 bytes total.
+-	 */
+-	skb_size = rxq_to_mp(rxq)->dev->mtu + 36;
+-
+-	/*
+-	 * Make sure that the skb size is a multiple of 8 bytes, as
+-	 * the lower three bits of the receive descriptor's buffer
+-	 * size field are ignored by the hardware.
+-	 */
+-	skb_size = (skb_size + 7) & ~7;
+-
+ 	refilled = 0;
+ 	while (refilled < budget && rxq->rx_desc_count < rxq->rx_ring_size) {
+ 		struct sk_buff *skb;
+ 		int unaligned;
+ 		int rx;
+ 
+-		skb = dev_alloc_skb(skb_size + dma_get_cache_alignment() - 1);
++		skb = __skb_dequeue(&mp->rx_recycle);
++		if (skb == NULL)
++			skb = dev_alloc_skb(mp->skb_size +
++					    dma_get_cache_alignment() - 1);
++
+ 		if (skb == NULL) {
+ 			mp->work_rx_oom |= 1 << rxq->index;
+ 			goto oom;
+@@ -608,8 +599,8 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
+ 			rxq->rx_used_desc = 0;
+ 
+ 		rxq->rx_desc_area[rx].buf_ptr = dma_map_single(NULL, skb->data,
+-						skb_size, DMA_FROM_DEVICE);
+-		rxq->rx_desc_area[rx].buf_size = skb_size;
++						mp->skb_size, DMA_FROM_DEVICE);
++		rxq->rx_desc_area[rx].buf_size = mp->skb_size;
+ 		rxq->rx_skb[rx] = skb;
+ 		wmb();
+ 		rxq->rx_desc_area[rx].cmd_sts = BUFFER_OWNED_BY_DMA |
+@@ -904,8 +895,14 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+ 				       desc->byte_cnt, DMA_TO_DEVICE);
+ 		}
+ 
+-		if (skb)
+-			dev_kfree_skb(skb);
++		if (skb != NULL) {
++			if (skb_queue_len(&mp->rx_recycle) <
++					mp->default_rx_ring_size &&
++			    skb_recycle_check(skb, mp->skb_size))
++				__skb_queue_head(&mp->rx_recycle, skb);
++			else
++				dev_kfree_skb(skb);
++		}
  	}
+ 
+ 	__netif_tx_unlock(nq);
+@@ -2042,6 +2039,26 @@ static void set_tx_coal(struct mv643xx_eth_private *mp, unsigned int delay)
+ 	wrl(mp, TX_FIFO_URGENT_THRESHOLD(mp->port_num), (coal & 0x3fff) << 4);
  }
  
--/* Free everything but the sk_buff shell. */
--static void skb_release_all(struct sk_buff *skb)
-+static void skb_release_head_state(struct sk_buff *skb)
- {
- 	dst_release(skb->dst);
- #ifdef CONFIG_XFRM
-@@ -388,6 +387,12 @@ static void skb_release_all(struct sk_buff *skb)
- 	skb->tc_verd = 0;
- #endif
- #endif
++static void mv643xx_eth_recalc_skb_size(struct mv643xx_eth_private *mp)
++{
++	int skb_size;
++
++	/*
++	 * Reserve 2+14 bytes for an ethernet header (the hardware
++	 * automatically prepends 2 bytes of dummy data to each
++	 * received packet), 16 bytes for up to four VLAN tags, and
++	 * 4 bytes for the trailing FCS -- 36 bytes total.
++	 */
++	skb_size = mp->dev->mtu + 36;
++
++	/*
++	 * Make sure that the skb size is a multiple of 8 bytes, as
++	 * the lower three bits of the receive descriptor's buffer
++	 * size field are ignored by the hardware.
++	 */
++	mp->skb_size = (skb_size + 7) & ~7;
 +}
 +
-+/* Free everything but the sk_buff shell. */
-+static void skb_release_all(struct sk_buff *skb)
-+{
-+	skb_release_head_state(skb);
- 	skb_release_data(skb);
- }
- 
-@@ -424,6 +429,38 @@ void kfree_skb(struct sk_buff *skb)
- 	__kfree_skb(skb);
- }
- 
-+int skb_recycle_check(struct sk_buff *skb, int skb_size)
-+{
-+	struct skb_shared_info *shinfo;
-+
-+	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
-+		return 0;
-+
-+	skb_size = SKB_DATA_ALIGN(skb_size + NET_SKB_PAD);
-+	if (skb_end_pointer(skb) - skb->head < skb_size)
-+		return 0;
-+
-+	if (skb_shared(skb) || skb_cloned(skb))
-+		return 0;
-+
-+	skb_release_head_state(skb);
-+	shinfo = skb_shinfo(skb);
-+	atomic_set(&shinfo->dataref, 1);
-+	shinfo->nr_frags = 0;
-+	shinfo->gso_size = 0;
-+	shinfo->gso_segs = 0;
-+	shinfo->gso_type = 0;
-+	shinfo->ip6_frag_id = 0;
-+	shinfo->frag_list = NULL;
-+
-+	memset(skb, 0, offsetof(struct sk_buff, tail));
-+	skb_reset_tail_pointer(skb);
-+	skb->data = skb->head + NET_SKB_PAD;
-+
-+	return 1;
-+}
-+EXPORT_SYMBOL(skb_recycle_check);
-+
- static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ static int mv643xx_eth_open(struct net_device *dev)
  {
- 	new->tstamp		= old->tstamp;
+ 	struct mv643xx_eth_private *mp = netdev_priv(dev);
+@@ -2061,8 +2078,12 @@ static int mv643xx_eth_open(struct net_device *dev)
+ 
+ 	init_mac_tables(mp);
+ 
++	mv643xx_eth_recalc_skb_size(mp);
++
+ 	napi_enable(&mp->napi);
+ 
++	skb_queue_head_init(&mp->rx_recycle);
++
+ 	for (i = 0; i < mp->rxq_count; i++) {
+ 		err = rxq_init(mp, i);
+ 		if (err) {
+@@ -2158,6 +2179,8 @@ static int mv643xx_eth_stop(struct net_device *dev)
+ 	mv643xx_eth_get_stats(dev);
+ 	mib_counters_update(mp);
+ 
++	skb_queue_purge(&mp->rx_recycle);
++
+ 	for (i = 0; i < mp->rxq_count; i++)
+ 		rxq_deinit(mp->rxq + i);
+ 	for (i = 0; i < mp->txq_count; i++)
+@@ -2184,6 +2207,7 @@ static int mv643xx_eth_change_mtu(struct net_device *dev, int new_mtu)
+ 		return -EINVAL;
+ 
+ 	dev->mtu = new_mtu;
++	mv643xx_eth_recalc_skb_size(mp);
+ 	tx_set_rate(mp, 1000000000, 16777216);
+ 
+ 	if (!netif_running(dev))
 -- 
 1.5.6.4
