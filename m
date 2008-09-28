@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCHv2 0/2] skb recycling
-Date: Sun, 28 Sep 2008 22:46:16 +0200
-Message-ID: <20080928204616.GA19070@xi.wantstofly.org>
+Subject: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver skb recycling
+Date: Sun, 28 Sep 2008 22:46:33 +0200
+Message-ID: <20080928204633.GB19070@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Ram.Natarajan@Emulex.Com, Eric Dumazet <dada1@cosmosbay.com>,
@@ -9,32 +9,108 @@ Cc: Ram.Natarajan@Emulex.Com, Eric Dumazet <dada1@cosmosbay.com>,
 	Nicolas Pitre <nico@cam.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:60270 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:38182 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734AbYI1UqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 16:46:20 -0400
+	with ESMTP id S1751816AbYI1Uqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 16:46:34 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements skb recycling, which is basically just reusing skbuffs
-that have finished transmitting as receive buffers, avoiding skbuff
-freeing/reallocation overhead.  This is done by having the networking
-provide skb_recycle_check(), which drivers can then use in their tx
-ring cleanup (example implementation for mv643xx_eth included).
+This patch adds skb_recycle_check(), which can be used by a network
+driver after transmitting an skb to check whether this skb can be
+recycled as a receive buffer.
 
-This is v2, incorporating feedback from Eric Dumazet to limit the size
-of the recycle list to the size of the receive ring, and to manage the
-recycle list in LIFO rather than FIFO mode for an extra bit of speedup.
+skb_recycle_check() checks that the skb is not shared or cloned, and
+that it is linear and its head portion large enough (as determined by
+the driver) to be recycled as a receive buffer.  If these conditions
+are met, it does any necessary reference count dropping and cleans
+up the skbuff as if it just came from __alloc_skb().
 
-Packet-per-second routing rates on mv643xx_eth without recycling, with
-the IP stack cut out of the loop:
-- 322165 322165 336022 343407 332447
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+---
+ include/linux/skbuff.h |    2 ++
+ net/core/skbuff.c      |   41 +++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 41 insertions(+), 2 deletions(-)
 
-Packet-per-second routing rates on mv643xx_eth with recycling (i.e.
-with these two patches), with the IP stack cut out of the loop:
-- 428082 422297 428082 428082 422297
-
-So a ~30% speedup on synthetic benchmark.  On a 'real' benchmark (i.e.
-routing using the IP stack without hacks in the driver), the speedup
-is on the order of 20% (~230 -> ~270 kpps).
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 9099237..b8a5ac7 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -369,6 +369,8 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+ 	return __alloc_skb(size, priority, 1, -1);
+ }
+ 
++extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
++
+ extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+ extern struct sk_buff *skb_clone(struct sk_buff *skb,
+ 				 gfp_t priority);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ca1ccdf..2c218a0 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -363,8 +363,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 	}
+ }
+ 
+-/* Free everything but the sk_buff shell. */
+-static void skb_release_all(struct sk_buff *skb)
++static void skb_release_head_state(struct sk_buff *skb)
+ {
+ 	dst_release(skb->dst);
+ #ifdef CONFIG_XFRM
+@@ -388,6 +387,12 @@ static void skb_release_all(struct sk_buff *skb)
+ 	skb->tc_verd = 0;
+ #endif
+ #endif
++}
++
++/* Free everything but the sk_buff shell. */
++static void skb_release_all(struct sk_buff *skb)
++{
++	skb_release_head_state(skb);
+ 	skb_release_data(skb);
+ }
+ 
+@@ -424,6 +429,38 @@ void kfree_skb(struct sk_buff *skb)
+ 	__kfree_skb(skb);
+ }
+ 
++int skb_recycle_check(struct sk_buff *skb, int skb_size)
++{
++	struct skb_shared_info *shinfo;
++
++	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
++		return 0;
++
++	skb_size = SKB_DATA_ALIGN(skb_size + NET_SKB_PAD);
++	if (skb_end_pointer(skb) - skb->head < skb_size)
++		return 0;
++
++	if (skb_shared(skb) || skb_cloned(skb))
++		return 0;
++
++	skb_release_head_state(skb);
++	shinfo = skb_shinfo(skb);
++	atomic_set(&shinfo->dataref, 1);
++	shinfo->nr_frags = 0;
++	shinfo->gso_size = 0;
++	shinfo->gso_segs = 0;
++	shinfo->gso_type = 0;
++	shinfo->ip6_frag_id = 0;
++	shinfo->frag_list = NULL;
++
++	memset(skb, 0, offsetof(struct sk_buff, tail));
++	skb_reset_tail_pointer(skb);
++	skb->data = skb->head + NET_SKB_PAD;
++
++	return 1;
++}
++EXPORT_SYMBOL(skb_recycle_check);
++
+ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ {
+ 	new->tstamp		= old->tstamp;
+-- 
+1.5.6.4
