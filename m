@@ -1,49 +1,34 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver skb recycling
-Date: Sun, 28 Sep 2008 23:50:35 +0200
-Message-ID: <20080928215035.GG19070@xi.wantstofly.org>
-References: <20080928204633.GB19070@xi.wantstofly.org> <20080928213824.GA25298@2ka.mipt.ru>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/3] myri10ge updates for 2.6.28
+Date: Mon, 29 Sep 2008 03:30:57 +0200
+Message-ID: <48E02FD1.2010502@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ram.Natarajan@Emulex.Com,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Nicolas Pitre <nico@cam.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:46385 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751670AbYI1Vuj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 17:50:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20080928213824.GA25298@2ka.mipt.ru>
+Received: from mailbox2.myri.com ([64.172.73.26]:1880 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752463AbYI2Baf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Sep 2008 21:30:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2008 at 01:38:24AM +0400, Evgeniy Polyakov wrote:
+Hello Jeff and Dave or whoever is not on a trip :)
 
-> Hi Lennert.
+Here's the multiqueue TX patch for myri10ge again. And it is followed by
+2 patches splitting the huge myri10ge.c into pieces (no functional
+changes at all there). It's my first time sending a "git rename" patch,
+I hope I did well :)
 
-Hi,
+Please apply for 2.6.28.
+thanks,
+Brice
 
+PS: These patches are against Dave's net-next tree. So, if you get yet
+another strange conflict, I'd like to see the actual conflict. I still
+don't understand what could have conflicted in the previous submission,
+it did apply fine as well here :/
 
-> > This patch adds skb_recycle_check(), which can be used by a network
-> > driver after transmitting an skb to check whether this skb can be
-> > recycled as a receive buffer.
-> > 
-> > skb_recycle_check() checks that the skb is not shared or cloned, and
-> > that it is linear and its head portion large enough (as determined by
-> > the driver) to be recycled as a receive buffer.  If these conditions
-> > are met, it does any necessary reference count dropping and cleans
-> > up the skbuff as if it just came from __alloc_skb().
-> 
-> Shouldn't it also perfrom all actions kfree_skb() does except actual
-> freeing, since given skb can be from socket, so it may leak dst entries
-> and break socket memory accounting?
-
-Doesn't it?  It calls skb_release_head_state() (new function), which
-should do that.
-
-
-cheers,
-Lennert
