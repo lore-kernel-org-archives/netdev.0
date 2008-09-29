@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 5/6] [NET] dsa: add support for Trailer tagging format
-Date: Mon, 29 Sep 2008 04:39:36 +0200
-Message-ID: <20080929023936.GK21560@xi.wantstofly.org>
+Subject: [PATCH 6/6] [NET] dsa: add support for the Marvell 88E6060 switch chip
+Date: Mon, 29 Sep 2008 04:39:53 +0200
+Message-ID: <20080929023953.GL21560@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Byron Bradley <byron.bbradley@gmail.com>,
@@ -13,171 +13,68 @@ Cc: Byron Bradley <byron.bbradley@gmail.com>,
 	Peter van Valderen <p.v.valderen@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:49036 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:49047 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751556AbYI2Cjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 22:39:37 -0400
+	with ESMTP id S1752116AbYI2Cjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 22:39:54 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for the Trailer switch tagging format.  This is
-another tagging that doesn't explicitly mark tagged packets with a
-distinct ethertype, so that we need to add a similar hack in the
-receive path as for the Original DSA tagging format.
+Add support for the Marvell 88E6060 switch chip.  This chip only
+supports the Header and Trailer tagging formats.  We don't support the
+Header tagging format, since that format doesn't provide enough control
+over where outgoing packets will be sent, so we use the chip in Trailer
+tagging mode.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 Tested-by: Byron Bradley <byron.bbradley@gmail.com>
 Semi-tested-by: Tim Ellis <tim.ellis@mac.com>
 ---
- include/linux/if_ether.h  |    1 +
- include/linux/netdevice.h |   10 ++++
- include/net/dsa.h         |    1 +
- net/dsa/Kconfig           |    4 ++
- net/dsa/Makefile          |    1 +
- net/dsa/dsa.c             |    7 +++
- net/dsa/dsa_priv.h        |    4 ++
- net/dsa/slave.c           |    5 ++
- net/dsa/tag_trailer.c     |  129 +++++++++++++++++++++++++++++++++++++++++++++
- net/ethernet/eth.c        |    2 +
- 10 files changed, 164 insertions(+), 0 deletions(-)
- create mode 100644 net/dsa/tag_trailer.c
+ net/dsa/Kconfig     |    7 ++
+ net/dsa/Makefile    |    1 +
+ net/dsa/mv88e6060.c |  293 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 301 insertions(+), 0 deletions(-)
+ create mode 100644 net/dsa/mv88e6060.c
 
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 864982b..23707d4 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -101,6 +101,7 @@
- #define ETH_P_HDLC	0x0019		/* HDLC frames			*/
- #define ETH_P_ARCNET	0x001A		/* 1A for ArcNet :-)            */
- #define ETH_P_DSA	0x001B		/* Distributed Switch Arch.	*/
-+#define ETH_P_TRAILER	0x001C		/* Trailer switch tagging	*/
- 
- /*
-  *	This is an Ethernet frame header.
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5226308..169ce79 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -812,6 +812,16 @@ static inline int netdev_uses_dsa_tags(struct net_device *dev)
- 	return 0;
- }
- 
-+static inline int netdev_uses_trailer_tags(struct net_device *dev)
-+{
-+#ifdef CONFIG_NET_DSA_TAG_TRAILER
-+	if (dev->dsa_ptr != NULL)
-+		return dsa_uses_trailer_tags(dev->dsa_ptr);
-+#endif
-+
-+	return 0;
-+}
-+
- /**
-  *	netdev_priv - access network device private data
-  *	@dev: network device
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index a331f64..d78b95a 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -21,6 +21,7 @@ struct dsa_platform_data {
- };
- 
- int dsa_uses_dsa_tags(void *dsa_ptr);
-+int dsa_uses_trailer_tags(void *dsa_ptr);
- 
- 
- #endif
 diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 79bcd76..505aa14 100644
+index 505aa14..3f2fd39 100644
 --- a/net/dsa/Kconfig
 +++ b/net/dsa/Kconfig
-@@ -18,6 +18,10 @@ config NET_DSA_TAG_EDSA
+@@ -28,6 +28,13 @@ config NET_DSA_MV88E6XXX
  	bool
  	default n
  
-+config NET_DSA_TAG_TRAILER
-+	bool
-+	default n
++config NET_DSA_MV88E6060
++	bool "Marvell 88E6060 ethernet switch chip support"
++	select NET_DSA_TAG_TRAILER
++	---help---
++	  This enables support for the Marvell 88E6060 ethernet switch
++	  chip.
 +
- 
- # switch drivers
- config NET_DSA_MV88E6XXX
+ config NET_DSA_MV88E6XXX_NEED_PPU
+ 	bool
+ 	default n
 diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 7fb6f85..63d3c44 100644
+index 63d3c44..2374faf 100644
 --- a/net/dsa/Makefile
 +++ b/net/dsa/Makefile
-@@ -1,6 +1,7 @@
- # tagging formats
- obj-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
- obj-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
-+obj-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+@@ -5,6 +5,7 @@ obj-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
  
  # switch drivers
  obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index d16a66e..abf69cf 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -218,6 +218,13 @@ int dsa_uses_dsa_tags(void *dsa_ptr)
- 	return !!(ds->tag_type == TAG_TYPE_DSA);
- }
++obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
+ obj-$(CONFIG_NET_DSA_MV88E6123_61_65) += mv88e6123_61_65.o
+ obj-$(CONFIG_NET_DSA_MV88E6131) += mv88e6131.o
  
-+int dsa_uses_trailer_tags(void *dsa_ptr)
-+{
-+	struct dsa_switch *ds = dsa_ptr;
-+
-+	return !!(ds->tag_type == TAG_TYPE_TRAILER);
-+}
-+
- 
- /* link polling *************************************************************/
- static void dsa_link_poll_work(struct work_struct *ugly)
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 385a380..17897fe 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -20,6 +20,7 @@
- enum dsa_tag_type {
- 	TAG_TYPE_DSA,
- 	TAG_TYPE_EDSA,
-+	TAG_TYPE_TRAILER,
- };
- 
- struct dsa_switch {
-@@ -108,5 +109,8 @@ int dsa_xmit(struct sk_buff *skb, struct net_device *dev);
- /* tag_edsa.c */
- int edsa_xmit(struct sk_buff *skb, struct net_device *dev);
- 
-+/* tag_trailer.c */
-+int trailer_xmit(struct sk_buff *skb, struct net_device *dev);
-+
- 
- #endif
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index ac8ed09..db3185a 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -248,6 +248,11 @@ struct net_device *dsa_slave_create(struct dsa_switch *ds, int port)
- 		slave_dev->hard_start_xmit = edsa_xmit;
- 		break;
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_TRAILER
-+	case TAG_TYPE_TRAILER:
-+		slave_dev->hard_start_xmit = trailer_xmit;
-+		break;
-+#endif
- 	default:
- 		BUG();
- 	}
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
+diff --git a/net/dsa/mv88e6060.c b/net/dsa/mv88e6060.c
 new file mode 100644
-index 0000000..abb993c
+index 0000000..cee4683
 --- /dev/null
-+++ b/net/dsa/tag_trailer.c
-@@ -0,0 +1,129 @@
++++ b/net/dsa/mv88e6060.c
+@@ -0,0 +1,293 @@
 +/*
-+ * net/dsa/tag_trailer.c - Trailer tag format handling
++ * net/dsa/mv88e6060.c - Driver for Marvell 88e6060 switch chips
 + * Copyright (c) 2008 Marvell Semiconductor
 + *
 + * This program is free software; you can redistribute it and/or modify
@@ -186,137 +83,288 @@ index 0000000..abb993c
 + * (at your option) any later version.
 + */
 +
-+#include <linux/etherdevice.h>
 +#include <linux/list.h>
 +#include <linux/netdevice.h>
++#include <linux/phy.h>
 +#include "dsa_priv.h"
 +
-+int trailer_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct sk_buff *nskb;
-+	int padlen;
-+	char *trailer;
++#define REG_PORT(p)		(8 + (p))
++#define REG_GLOBAL		0x0f
 +
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
++
++/* mdio accessors ***********************************************************/
++static int reg_read(struct dsa_switch *ds, int addr, int reg)
++{
++	return mdiobus_read(ds->mii_bus, addr, reg);
++}
++
++#define REG_READ(addr, reg)					\
++	({							\
++		int __ret;					\
++								\
++		__ret = reg_read(ds, addr, reg);		\
++		if (__ret < 0)					\
++			return __ret;				\
++		__ret;						\
++	})
++
++
++static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
++{
++	return mdiobus_write(ds->mii_bus, addr, reg, val);
++}
++
++#define REG_WRITE(addr, reg, val)				\
++	({							\
++		int __ret;					\
++								\
++		__ret = reg_write(ds, addr, reg, val);		\
++		if (__ret < 0)					\
++			return __ret;				\
++	})
++
++
++/* 88e6060 ******************************************************************/
++static char *mv88e6060_probe(struct mii_bus *bus, int sw_addr)
++{
++	int ret;
++
++	ret = mdiobus_read(bus, REG_PORT(0), 0x03);
++	if (ret >= 0) {
++		ret &= 0xfff0;
++		if (ret == 0x0600)
++			return "Marvell 88E6060";
++	}
++
++	return NULL;
++}
++
++static int mv88e6060_switch_reset(struct dsa_switch *ds)
++{
++	int i;
++	int ret;
 +
 +	/*
-+	 * We have to make sure that the trailer ends up as the very
-+	 * last 4 bytes of the packet.  This means that we have to pad
-+	 * the packet to the minimum ethernet frame size, if necessary,
-+	 * before adding the trailer.
++	 * Set all ports to the disabled state.
 +	 */
-+	padlen = 0;
-+	if (skb->len < 60)
-+		padlen = 60 - skb->len;
-+
-+	nskb = alloc_skb(NET_IP_ALIGN + skb->len + padlen + 4, GFP_ATOMIC);
-+	if (nskb == NULL) {
-+		kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
-+	skb_reserve(nskb, NET_IP_ALIGN);
-+
-+	skb_reset_mac_header(nskb);
-+	skb_set_network_header(nskb, skb_network_header(skb) - skb->head);
-+	skb_set_transport_header(nskb, skb_transport_header(skb) - skb->head);
-+	skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
-+	kfree_skb(skb);
-+
-+	if (padlen) {
-+		char *pad = skb_put(nskb, padlen);
-+		memset(pad, 0, padlen);
++	for (i = 0; i < 6; i++) {
++		ret = REG_READ(REG_PORT(i), 0x04);
++		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
 +	}
 +
-+	trailer = skb_put(nskb, 4);
-+	trailer[0] = 0x80;
-+	trailer[1] = 1 << p->port;
-+	trailer[2] = 0x10;
-+	trailer[3] = 0x00;
++	/*
++	 * Wait for transmit queues to drain.
++	 */
++	msleep(2);
 +
-+	nskb->protocol = htons(ETH_P_TRAILER);
-+	nskb->dev = p->parent->master_dev;
-+	dev_queue_xmit(nskb);
++	/*
++	 * Reset the switch.
++	 */
++	REG_WRITE(REG_GLOBAL, 0x0A, 0xa130);
 +
-+	return NETDEV_TX_OK;
++	/*
++	 * Wait up to one second for reset to complete.
++	 */
++	for (i = 0; i < 1000; i++) {
++		ret = REG_READ(REG_GLOBAL, 0x00);
++		if ((ret & 0x8000) == 0x0000)
++			break;
++
++		msleep(1);
++	}
++	if (i == 1000)
++		return -ETIMEDOUT;
++
++	return 0;
 +}
 +
-+static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
-+		       struct packet_type *pt, struct net_device *orig_dev)
++static int mv88e6060_setup_global(struct dsa_switch *ds)
 +{
-+	struct dsa_switch *ds = dev->dsa_ptr;
-+	u8 *trailer;
-+	int source_port;
++	/*
++	 * Disable discarding of frames with excessive collisions,
++	 * set the maximum frame size to 1536 bytes, and mask all
++	 * interrupt sources.
++	 */
++	REG_WRITE(REG_GLOBAL, 0x04, 0x0800);
 +
-+	if (unlikely(ds == NULL))
-+		goto out_drop;
++	/*
++	 * Enable automatic address learning, set the address
++	 * database size to 1024 entries, and set the default aging
++	 * time to 5 minutes.
++	 */
++	REG_WRITE(REG_GLOBAL, 0x0a, 0x2130);
 +
-+	skb = skb_unshare(skb, GFP_ATOMIC);
-+	if (skb == NULL)
-+		goto out;
-+
-+	if (skb_linearize(skb))
-+		goto out_drop;
-+
-+	trailer = skb_tail_pointer(skb) - 4;
-+	if (trailer[0] != 0x80 || (trailer[1] & 0xf8) != 0x00 ||
-+	    (trailer[3] & 0xef) != 0x00 || trailer[3] != 0x00)
-+		goto out_drop;
-+
-+	source_port = trailer[1] & 7;
-+	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
-+		goto out_drop;
-+
-+	pskb_trim_rcsum(skb, skb->len - 4);
-+
-+	skb->dev = ds->ports[source_port];
-+	skb_push(skb, ETH_HLEN);
-+	skb->protocol = eth_type_trans(skb, skb->dev);
-+
-+	skb->dev->last_rx = jiffies;
-+	skb->dev->stats.rx_packets++;
-+	skb->dev->stats.rx_bytes += skb->len;
-+
-+	netif_receive_skb(skb);
-+
-+	return 0;
-+
-+out_drop:
-+	kfree_skb(skb);
-+out:
 +	return 0;
 +}
 +
-+static struct packet_type trailer_packet_type = {
-+	.type	= __constant_htons(ETH_P_TRAILER),
-+	.func	= trailer_rcv,
++static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
++{
++	int addr = REG_PORT(p);
++
++	/*
++	 * Do not force flow control, disable Ingress and Egress
++	 * Header tagging, disable VLAN tunneling, and set the port
++	 * state to Forwarding.  Additionally, if this is the CPU
++	 * port, enable Ingress and Egress Trailer tagging mode.
++	 */
++	REG_WRITE(addr, 0x04, (p == ds->cpu_port) ? 0x4103 : 0x0003);
++
++	/*
++	 * Port based VLAN map: give each port its own address
++	 * database, allow the CPU port to talk to each of the 'real'
++	 * ports, and allow each of the 'real' ports to only talk to
++	 * the CPU port.
++	 */
++	REG_WRITE(addr, 0x06,
++			((p & 0xf) << 12) |
++			 ((p == ds->cpu_port) ?
++				ds->valid_port_mask :
++				(1 << ds->cpu_port)));
++
++	/*
++	 * Port Association Vector: when learning source addresses
++	 * of packets, add the address to the address database using
++	 * a port bitmap that has only the bit for this port set and
++	 * the other bits clear.
++	 */
++	REG_WRITE(addr, 0x0b, 1 << p);
++
++	return 0;
++}
++
++static int mv88e6060_setup(struct dsa_switch *ds)
++{
++	int i;
++	int ret;
++
++	ret = mv88e6060_switch_reset(ds);
++	if (ret < 0)
++		return ret;
++
++	/* @@@ initialise atu */
++
++	ret = mv88e6060_setup_global(ds);
++	if (ret < 0)
++		return ret;
++
++	for (i = 0; i < 6; i++) {
++		ret = mv88e6060_setup_port(ds, i);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int mv88e6060_set_addr(struct dsa_switch *ds, u8 *addr)
++{
++	REG_WRITE(REG_GLOBAL, 0x01, (addr[0] << 8) | addr[1]);
++	REG_WRITE(REG_GLOBAL, 0x02, (addr[2] << 8) | addr[3]);
++	REG_WRITE(REG_GLOBAL, 0x03, (addr[4] << 8) | addr[5]);
++
++	return 0;
++}
++
++static int mv88e6060_port_to_phy_addr(int port)
++{
++	if (port >= 0 && port <= 5)
++		return port;
++	return -1;
++}
++
++static int mv88e6060_phy_read(struct dsa_switch *ds, int port, int regnum)
++{
++	int addr;
++
++	addr = mv88e6060_port_to_phy_addr(port);
++	if (addr == -1)
++		return 0xffff;
++
++	return reg_read(ds, addr, regnum);
++}
++
++static int
++mv88e6060_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
++{
++	int addr;
++
++	addr = mv88e6060_port_to_phy_addr(port);
++	if (addr == -1)
++		return 0xffff;
++
++	return reg_write(ds, addr, regnum, val);
++}
++
++static void mv88e6060_poll_link(struct dsa_switch *ds)
++{
++	int i;
++
++	for (i = 0; i < DSA_MAX_PORTS; i++) {
++		struct net_device *dev;
++		int port_status;
++		int link;
++		int speed;
++		int duplex;
++		int fc;
++
++		dev = ds->ports[i];
++		if (dev == NULL)
++			continue;
++
++		link = 0;
++		if (dev->flags & IFF_UP) {
++			port_status = reg_read(ds, REG_PORT(i), 0x00);
++			if (port_status < 0)
++				continue;
++
++			link = !!(port_status & 0x1000);
++		}
++
++		if (!link) {
++			if (netif_carrier_ok(dev)) {
++				printk(KERN_INFO "%s: link down\n", dev->name);
++				netif_carrier_off(dev);
++			}
++			continue;
++		}
++
++		speed = (port_status & 0x0100) ? 100 : 10;
++		duplex = (port_status & 0x0200) ? 1 : 0;
++		fc = ((port_status & 0xc000) == 0xc000) ? 1 : 0;
++
++		if (!netif_carrier_ok(dev)) {
++			printk(KERN_INFO "%s: link up, %d Mb/s, %s duplex, "
++					 "flow control %sabled\n", dev->name,
++					 speed, duplex ? "full" : "half",
++					 fc ? "en" : "dis");
++			netif_carrier_on(dev);
++		}
++	}
++}
++
++
++/* main *********************************************************************/
++static struct dsa_switch_driver mv88e6060_switch_driver = {
++	.tag_type		= TAG_TYPE_TRAILER,
++	.probe			= mv88e6060_probe,
++	.setup			= mv88e6060_setup,
++	.set_addr		= mv88e6060_set_addr,
++	.phy_read		= mv88e6060_phy_read,
++	.phy_write		= mv88e6060_phy_write,
++	.poll_link		= mv88e6060_poll_link,
 +};
 +
-+static int __init trailer_init_module(void)
++int __init mv88e6060_init(void)
 +{
-+	dev_add_pack(&trailer_packet_type);
++	register_switch_driver(&mv88e6060_switch_driver);
 +	return 0;
 +}
-+module_init(trailer_init_module);
++module_init(mv88e6060_init);
 +
-+static void __exit trailer_cleanup_module(void)
++void __exit mv88e6060_cleanup(void)
 +{
-+	dev_remove_pack(&trailer_packet_type);
++	unregister_switch_driver(&mv88e6060_switch_driver);
 +}
-+module_exit(trailer_cleanup_module);
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index e0aca95..9a9dd28 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -193,6 +193,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (netdev_uses_dsa_tags(dev))
- 		return htons(ETH_P_DSA);
-+	if (netdev_uses_trailer_tags(dev))
-+		return htons(ETH_P_TRAILER);
- 
- 	if (ntohs(eth->h_proto) >= 1536)
- 		return eth->h_proto;
++module_exit(mv88e6060_cleanup);
 -- 
 1.5.6.4
