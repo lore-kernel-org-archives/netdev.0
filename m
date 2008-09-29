@@ -1,49 +1,74 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Patch for tbench regression.
-Date: Mon, 29 Sep 2008 10:07:12 -0700
-Message-ID: <48E10B40.4000205@hp.com>
-References: <20080928211530.GA9341@2ka.mipt.ru>	<20080929031244.GA22619@gondor.apana.org.au>	<20080929053605.GA21663@2ka.mipt.ru>	<20080929054052.GA23600@gondor.apana.org.au>	<20080929055203.GA3460@2ka.mipt.ru>	<20080929064006.GA23967@gondor.apana.org.au>	<20080929064518.GA10653@2ka.mipt.ru>	<20080929070213.GA24146@gondor.apana.org.au>	<20080929094352.GA25273@gondor.apana.org.au> <20080929095126.GA25371@gondor.apana.org.au>
+From: Santwona.Behera@Sun.COM
+Subject: Interface proposal for rx classification using ethtool
+Date: Mon, 29 Sep 2008 10:28:07 -0700
+Message-ID: <48E11027.3060400@Sun.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Mel Gorman <mel@csn.ul.ie>, David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@marvell.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; format=flowed; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
+	Santwona Behera <Santwona.Behera@Sun.COM>
+To: netdev@vger.kernel.org, gkernel-commit@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:44100 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751355AbYI2RHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 13:07:23 -0400
-In-Reply-To: <20080929095126.GA25371@gondor.apana.org.au>
+Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:37076 "EHLO
+	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbYI2R2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 13:28:21 -0400
+Received: from fe-sfbay-10.sun.com ([192.18.43.129])
+	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m8THSArs022275
+	for <netdev@vger.kernel.org>; Mon, 29 Sep 2008 10:28:21 -0700 (PDT)
+Received: from conversion-daemon.fe-sfbay-10.sun.com by fe-sfbay-10.sun.com
+ (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
+ id <0K7Y00M01WBX4400@fe-sfbay-10.sun.com>
+ (original mail from Santwona.Behera@Sun.COM) for netdev@vger.kernel.org; Mon,
+ 29 Sep 2008 10:28:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sigh - email reading timing....  anyway
+Here is the proposed design for implementing an interface to add, delete 
+and
+manage rules for RX packet classification on ethertool with niu as the 
+first
+target hardware. This is the second installment of network flow 
+classification
+support (the first one was for rx flow distribution based on hashing 
+that was
+added in June). Please review and send your feedback.
 
-> It seems that netperf is issuing 16384-byte writes and as such
-> we're sending the packets out immediately so TSO doesn't get a
-> chance to merge the data.  Running netperf with -m 65536 makes
-> TSO beat non-TSO by 6293Mb/s to 4761Mb/s.
+1. The ethertool application will have an interface to add a 
+classification rule
+and the target RX ring for packets that match the rule. The rules are added
+on a per port basis. Each new rule that is added is represented by a 
+unique ID.
+This ID can be used by the user to delete the rule or query the details 
+of the
+rule (both interfaces provided via ethertool).
 
-By default, netperf's TCP_STREAM test will use whatever 
-getsockopt(SO_SNDBUF) reports just after the data socket is created. 
-The choice was completely arbitrary and burried deep in the history of 
-netperf.
+2. Here is the list of cmds/interfaces that will be added to ethertool (as
+suboptions in the rx_classification option) to achieve this:
 
-For evaluating changes, it would probably be a good idea to test a 
-number of settings for the test-specific -m option.  Of course I have no 
-good idea what those values should be.  There is the tcp_range_script 
-(might be a bit dusty today) but those values are again pretty arbitrary.
+   - get the number of RX rings available to this port.
+   - add a rule (flow-tuple/mask to RX ring mapping)
+   - delete a rule
+   - query a particular rule or all rules for this port
 
-It would probably be a good idea to include the TCP_RR test.
+3. Within ethertool, there will be a manager for these rules that will 
+order
+the rules on a per port basis according to the policy chosen by the 
+user. In
+the first cut, the policy will be hardcoded as longest prefix first 
+ordering.
+Before adding any rules to the hardware, the rule manager will first query
+the hardware for the ordering that it implements for matching, e.g., 
+low-to-high
+(as in case of niu TCAM). This information will be taken into account while
+writing to the rule-manager and to the hardware.
 
-happy benchmarking,
+4. In the niu driver, there will be a local array of the tcam_entries (for
+supporting queries from ethertool).
 
-rick jones
+5. There is no protection against inconsistencies between the tcam entries
+and the user view of it that can arise if multiple instances of ethertool
+happen to write the same rule (tcam_entry).
 
-As an asside - I would be interested in hearing peoples' opinions 
-(offline) on a future version of netperf possibly violating the 
-principle of least surprise and automatically including CPU utilization 
-if the code is running on a system which does not require calibration...
+thanks,
+--santwona
