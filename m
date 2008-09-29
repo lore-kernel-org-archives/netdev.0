@@ -1,60 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Patch for tbench regression.
-Date: Mon, 29 Sep 2008 11:12:44 +0800
-Message-ID: <20080929031244.GA22619@gondor.apana.org.au>
-References: <20080928211530.GA9341@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Mel Gorman <mel@csn.ul.ie>, David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@marvell.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Ali Saidi <saidi@engin.umich.edu>
+Subject: Re: [PATCH] Fix possible double-ack w/ user dma
+Date: Sun, 28 Sep 2008 22:45:51 -0500
+Message-ID: <DCA6A06C-CE49-453F-91D8-23A6C4187FD6@engin.umich.edu>
+References: <0298B280-C0E8-4A30-90B6-DD25A4054CF0@engin.umich.edu>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: multipart/mixed; boundary=Apple-Mail-54--460384669
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52546 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751171AbYI2DMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 23:12:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20080928211530.GA9341@2ka.mipt.ru>
+Received: from smtp.mail.umich.edu ([141.211.14.82]:56514 "EHLO
+	hellskitchen.mr.itd.umich.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753996AbYI2Dx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 23:53:28 -0400
+In-Reply-To: <0298B280-C0E8-4A30-90B6-DD25A4054CF0@engin.umich.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2008 at 01:15:30AM +0400, Evgeniy Polyakov wrote:
+
+--Apple-Mail-54--460384669
+Content-Type: text/plain;
+	charset=US-ASCII;
+	format=flowed;
+	delsp=yes
+Content-Transfer-Encoding: 7bit
+
+I attached a broken patch. This one is correct, although there are  
+probably other ways to fix the issue.
+
+Ali
+
+
+
+--Apple-Mail-54--460384669
+Content-Disposition: attachment;
+	filename=fix_double_ack.diff
+Content-Type: application/octet-stream;
+	x-unix-mode=0660;
+	name="fix_double_ack.diff"
+Content-Transfer-Encoding: 7bit
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4879,7 +4879,8 @@ int tcp_rcv_established(struct sock *sk,
+ 					goto no_ack;
+ 			}
+ 
+-			__tcp_ack_snd_check(sk, 0);
++			if (!copied_early || tp->rcv_nxt != tp->rcv_wup)
++				__tcp_ack_snd_check(sk, 0);
+ no_ack:
+ #ifdef CONFIG_NET_DMA
+ 			if (copied_early)
+
+--Apple-Mail-54--460384669
+Content-Type: text/plain;
+	charset=US-ASCII;
+	format=flowed;
+	delsp=yes
+Content-Transfer-Encoding: 7bit
+
+
+On Sep 28, 2008, at 9:13 PM, Ali Saidi wrote:
+
+> When TCP receive copy offload is enabled it's possible that   
+> tcp_rcv_established() will cause two acks to be sent for a single  
+> packet. In the case that a tcp_dma_early_copy() is successful,  
+> copied_early is set to true which causes tcp_cleanup_rbuf() to be  
+> called early which can send an ack. Further along in  
+> tcp_rcv_established(),  __tcp_ack_snd_check() is called and will  
+> schedule a delayed ACK. If no packets are processed before the  
+> delayed ack timer expires the packet will be acked twice.
 >
-> Idea is rather trivial: disable TSO and GSO on loopback. The latter was
+> Attached is a patch that addresses the problem.
+>
+> Ali
+>
+>
+>
+> <fix_double_ack.diff>
 
-Weird.  That's the very first thing I tried but for me it goes
-the other way.
 
-With TSO/GSO:
-
-Throughput 169.19 MB/sec 1 procs
-
-Without:
-
-Throughput 24.0079 MB/sec 1 procs
-
-Note that I only disabled TSO/GSO using ethtool:
-
-etch1:~# ethtool -k lo
-Offload parameters for lo:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
-etch1:~# 
-
-Can you see if reverting the patch but using ethtool gives you the
-same results?
-
-PS I'm using FV Xen.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--Apple-Mail-54--460384669--
