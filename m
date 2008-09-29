@@ -1,109 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] net: implement emergency route cache rebulds when
-	gc_elasticity is exceeded
-Date: Mon, 29 Sep 2008 15:12:54 -0400
-Message-ID: <20080929191254.GA20074@hmsreliant.think-freely.org>
+From: "Andy Fleming" <afleming@gmail.com>
+Subject: Re: drivers/net/phy/marvell.c: 88e1111 can't get out sleep mode
+Date: Mon, 29 Sep 2008 15:14:10 -0500
+Message-ID: <2acbd3e40809291314t41b6f765k9aa7809ca21bd88d@mail.gmail.com>
+References: <20080929133305.GA10554@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, davem@davemloft.net, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Andy Fleming" <afleming@freescale.com>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Alexandr Smirnov" <asmirnov@ru.mvista.com>
+To: "Wang Jian" <lark@linux.net.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37322 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141AbYI2TPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 15:15:05 -0400
+Received: from wf-out-1314.google.com ([209.85.200.170]:62134 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752021AbYI2UOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 16:14:12 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so2287090wfd.4
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2008 13:14:11 -0700 (PDT)
+In-Reply-To: <20080929133305.GA10554@debian>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey all-
-	We currently have the ability to disable our route cache secret interval
-rebuild timer (by setting it to zero), but if we do that its possible for an
-attacker (if they guess our route cache hash secret, to fill our system with
-routes that all hash to the same bucket, destroying our performance.  This patch
-provides a backstop for that issues.  In the event that our rebuild interval is
-disabled (or very large), if any hash chain exceeds ip_rt_gc_elasticity, we do
-an emergency hash rebuild.  During the hash rebuild we:
-1) warn the user of the emergency
-2) disable the rebuild timer
-3) invalidate the route caches
-4) re-enable the rebuild timer with its old value
-
-Regards
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- route.c |   36 +++++++++++++++++++++++++++++++++++-
- 1 file changed, 35 insertions(+), 1 deletion(-)
+On Mon, Sep 29, 2008 at 8:33 AM, Wang Jian <lark@linux.net.cn> wrote:
+> Hi,
+>
+> During my testing, I found that 88e1111 can't get out of sleep mode
+> (Energy detect+) in certain condition.
+>
+> I am working on a mpc8541 board, with TSEC (gianfar) connected to 88e1111
+> phy chip. The kenrel is 2.6.26-rc8 with several patches.
+>
+> The following steps can 100% trigger the problem
+>
+> 1. unplug cable from tsec interfaces (eth0/eth1 in my case)
+> 2. boot up and waiting for 6+ seconds
+> 3. ifconfig eth0 up
+> 4. plug in cable, the link can't be established and no way to bring it
+>   up
 
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 6ee5354..b95e02a 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -145,7 +145,7 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
- static void		 ipv4_link_failure(struct sk_buff *skb);
- static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
- static int rt_garbage_collect(struct dst_ops *ops);
--
-+static void rt_emergency_hash_rebuild(void);
- 
- static struct dst_ops ipv4_dst_ops = {
- 	.family =		AF_INET,
-@@ -1056,6 +1056,15 @@ restart:
- 			*candp = cand->u.dst.rt_next;
- 			rt_free(cand);
- 		}
-+	} else if (chain_length > ip_rt_gc_elasticity) {
-+		/*
-+		 * We didn't find a route entry we could safely free,
-+		 * yet our chain length is over our elasticity value.
-+		 * Someone may have guessed our hash secret and is artifically
-+		 * filling up our route cache.  Lets do an emergency rebuild
-+		 * to be safe
-+		 */
-+		rt_emergency_hash_rebuild();
- 	}
- 
- 	/* Try to bind route to arp only if it is output
-@@ -2946,6 +2955,31 @@ static void rt_secret_reschedule(int old)
- 	rtnl_unlock();
- }
- 
-+static void rt_secret_rebuild_oneshot(void) {
-+	struct net *net;
-+	int old_interval = ip_rt_secret_interval;
-+
-+	ip_rt_secret_interval = 0;
-+
-+	rt_secret_reschedule(old_interval);
-+
-+	for_each_net(net) 
-+		rt_cache_invalidate(net);
-+
-+	ip_rt_secret_interval = old_interval;
-+
-+	rt_secret_reschedule(0);
-+}
-+
-+static void rt_emergency_hash_rebuild(void) {
-+	if (net_ratelimit()) {
-+		printk(KERN_WARNING "Route hash chain too long!\n");
-+		printk(KERN_WARNING "Adjust your secret_interval!\n");
-+	}
-+
-+	rt_secret_rebuild_oneshot();
-+}
-+
- static int ipv4_sysctl_rt_secret_interval(ctl_table *ctl, int write,
- 					  struct file *filp,
- 					  void __user *buffer, size_t *lenp,
--- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+Is anything printed out to the log?
+
+Are you polling or using an interrupt?
+
+If you are using an interrupt, is it firing?
+
+If you are polling, can you print out some debug information to see if
+it is successfully reading the PHY status?
+
+
+Andy
