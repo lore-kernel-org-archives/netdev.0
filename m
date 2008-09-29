@@ -1,41 +1,28 @@
-From: Tim Ellis <tim.ellis@mac.com>
-Subject: Re: [RFC,PATCHv2 0/6] support for DSA hardware ethernet switch
- chips
-Date: Mon, 29 Sep 2008 13:53:30 +0100
-Message-ID: <122189293646033115734044366977420726540-Webmail2@me.com>
-References: <200509300011.j8U0Bin09458@image.techtracker.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: Patch for tbench regression.
+Date: Mon, 29 Sep 2008 08:34:50 -0500
+Message-ID: <48E0D97A.8000305@linux-foundation.org>
+References: <20080928211530.GA9341@2ka.mipt.ru> <20080929031244.GA22619@gondor.apana.org.au> <20080929053605.GA21663@2ka.mipt.ru> <20080929054052.GA23600@gondor.apana.org.au> <20080929055203.GA3460@2ka.mipt.ru> <20080929064006.GA23967@gondor.apana.org.au> <20080929064518.GA10653@2ka.mipt.ru> <20080929070213.GA24146@gondor.apana.org.au> <20080929094352.GA25273@gondor.apana.org.au> <20080929103437.GD14943@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
-	Jesper Dangaard Brouer <jdb@comx.dk>,
-	Andy Fleming <afleming@freescale.com>,
-	Imre Kaloz <kaloz@openwrt.org>, Nicolas Pitre <nico@cam.org>,
-	Dirk Teurlings <dirk@upexia.nl>,
-	Peter van Valderen <p.v.valderen@gmail.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	Mel Gorman <mel@csn.ul.ie>, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@marvell.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpoutw.mac.com ([17.250.248.177]:58450 "EHLO smtpoutw.mac.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751968AbYI2Mx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2008 08:53:56 -0400
-in-reply-to: <200509300011.j8U0Bin09458@image.techtracker.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59458 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750910AbYI2Ngw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 09:36:52 -0400
+In-Reply-To: <20080929103437.GD14943@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-On Monday, September 29, 2008, at 03:37AM, "Lennert Buytenhek" <buytenh@wantstofly.org> wrote:
+I did some graphs of the time that each pass through the network stack takes
+and from what I see we still have measurements where we get the optimal
+performance with 2.6.27 that 2.6.22 does. However, the time differentials vary
+much more with 2.6.27. 2.6.22 times results cluster around the minimum. 2.6.27
+has periods where the time increases by around 30usec. It dips down repeatedly
+to 2.6.22 performance.
 
->
->- Add support for the Marvell 88E6060 ethernet switch register set,
->  and the tagging format it uses (Trailer).  Tested on a Thecus n1200
->  (http://www.thecus.com/products_over.php?cid=12&pid=24
->  http://thecus.nas-central.org/index.php/Category:N1200), where the
->  switch chip is hooked up to a Freescale mpc8347 using the gianfar
->  driver.  (I.e. it works with ethernet drivers other than mv643xx_eth.)
->  (There _is_ an issue with the gianfar hooking up to the PHY for the
->  first switch port, and refusing to send/receive data to ports 2-4 if
->  port 1 isn't up.)
->
-
-I can confirm this works as described above on a Thecus N1200. Thanks Lennert!
