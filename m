@@ -1,370 +1,60 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 6/6] [NET] dsa: add support for the Marvell 88E6060 switch chip
-Date: Mon, 29 Sep 2008 04:39:53 +0200
-Message-ID: <20080929023953.GL21560@xi.wantstofly.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Patch for tbench regression.
+Date: Mon, 29 Sep 2008 11:12:44 +0800
+Message-ID: <20080929031244.GA22619@gondor.apana.org.au>
+References: <20080928211530.GA9341@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Byron Bradley <byron.bbradley@gmail.com>,
-	Jesper Dangaard Brouer <jdb@comx.dk>,
-	Tim Ellis <tim.ellis@mac.com>,
-	Andy Fleming <afleming@freescale.com>,
-	Imre Kaloz <kaloz@openwrt.org>, Nicolas Pitre <nico@cam.org>,
-	Dirk Teurlings <dirk@upexia.nl>,
-	Peter van Valderen <p.v.valderen@gmail.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Mel Gorman <mel@csn.ul.ie>, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@marvell.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:49047 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752116AbYI2Cjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 22:39:54 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:52546 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751171AbYI2DMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2008 23:12:54 -0400
 Content-Disposition: inline
+In-Reply-To: <20080928211530.GA9341@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the Marvell 88E6060 switch chip.  This chip only
-supports the Header and Trailer tagging formats.  We don't support the
-Header tagging format, since that format doesn't provide enough control
-over where outgoing packets will be sent, so we use the chip in Trailer
-tagging mode.
+On Mon, Sep 29, 2008 at 01:15:30AM +0400, Evgeniy Polyakov wrote:
+>
+> Idea is rather trivial: disable TSO and GSO on loopback. The latter was
 
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-Tested-by: Byron Bradley <byron.bbradley@gmail.com>
-Semi-tested-by: Tim Ellis <tim.ellis@mac.com>
----
- net/dsa/Kconfig     |    7 ++
- net/dsa/Makefile    |    1 +
- net/dsa/mv88e6060.c |  293 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 301 insertions(+), 0 deletions(-)
- create mode 100644 net/dsa/mv88e6060.c
+Weird.  That's the very first thing I tried but for me it goes
+the other way.
 
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 505aa14..3f2fd39 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -28,6 +28,13 @@ config NET_DSA_MV88E6XXX
- 	bool
- 	default n
- 
-+config NET_DSA_MV88E6060
-+	bool "Marvell 88E6060 ethernet switch chip support"
-+	select NET_DSA_TAG_TRAILER
-+	---help---
-+	  This enables support for the Marvell 88E6060 ethernet switch
-+	  chip.
-+
- config NET_DSA_MV88E6XXX_NEED_PPU
- 	bool
- 	default n
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 63d3c44..2374faf 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -5,6 +5,7 @@ obj-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
- 
- # switch drivers
- obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx.o
-+obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
- obj-$(CONFIG_NET_DSA_MV88E6123_61_65) += mv88e6123_61_65.o
- obj-$(CONFIG_NET_DSA_MV88E6131) += mv88e6131.o
- 
-diff --git a/net/dsa/mv88e6060.c b/net/dsa/mv88e6060.c
-new file mode 100644
-index 0000000..cee4683
---- /dev/null
-+++ b/net/dsa/mv88e6060.c
-@@ -0,0 +1,293 @@
-+/*
-+ * net/dsa/mv88e6060.c - Driver for Marvell 88e6060 switch chips
-+ * Copyright (c) 2008 Marvell Semiconductor
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/phy.h>
-+#include "dsa_priv.h"
-+
-+#define REG_PORT(p)		(8 + (p))
-+#define REG_GLOBAL		0x0f
-+
-+
-+/* mdio accessors ***********************************************************/
-+static int reg_read(struct dsa_switch *ds, int addr, int reg)
-+{
-+	return mdiobus_read(ds->mii_bus, addr, reg);
-+}
-+
-+#define REG_READ(addr, reg)					\
-+	({							\
-+		int __ret;					\
-+								\
-+		__ret = reg_read(ds, addr, reg);		\
-+		if (__ret < 0)					\
-+			return __ret;				\
-+		__ret;						\
-+	})
-+
-+
-+static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
-+{
-+	return mdiobus_write(ds->mii_bus, addr, reg, val);
-+}
-+
-+#define REG_WRITE(addr, reg, val)				\
-+	({							\
-+		int __ret;					\
-+								\
-+		__ret = reg_write(ds, addr, reg, val);		\
-+		if (__ret < 0)					\
-+			return __ret;				\
-+	})
-+
-+
-+/* 88e6060 ******************************************************************/
-+static char *mv88e6060_probe(struct mii_bus *bus, int sw_addr)
-+{
-+	int ret;
-+
-+	ret = mdiobus_read(bus, REG_PORT(0), 0x03);
-+	if (ret >= 0) {
-+		ret &= 0xfff0;
-+		if (ret == 0x0600)
-+			return "Marvell 88E6060";
-+	}
-+
-+	return NULL;
-+}
-+
-+static int mv88e6060_switch_reset(struct dsa_switch *ds)
-+{
-+	int i;
-+	int ret;
-+
-+	/*
-+	 * Set all ports to the disabled state.
-+	 */
-+	for (i = 0; i < 6; i++) {
-+		ret = REG_READ(REG_PORT(i), 0x04);
-+		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
-+	}
-+
-+	/*
-+	 * Wait for transmit queues to drain.
-+	 */
-+	msleep(2);
-+
-+	/*
-+	 * Reset the switch.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x0A, 0xa130);
-+
-+	/*
-+	 * Wait up to one second for reset to complete.
-+	 */
-+	for (i = 0; i < 1000; i++) {
-+		ret = REG_READ(REG_GLOBAL, 0x00);
-+		if ((ret & 0x8000) == 0x0000)
-+			break;
-+
-+		msleep(1);
-+	}
-+	if (i == 1000)
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_setup_global(struct dsa_switch *ds)
-+{
-+	/*
-+	 * Disable discarding of frames with excessive collisions,
-+	 * set the maximum frame size to 1536 bytes, and mask all
-+	 * interrupt sources.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x04, 0x0800);
-+
-+	/*
-+	 * Enable automatic address learning, set the address
-+	 * database size to 1024 entries, and set the default aging
-+	 * time to 5 minutes.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x0a, 0x2130);
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
-+{
-+	int addr = REG_PORT(p);
-+
-+	/*
-+	 * Do not force flow control, disable Ingress and Egress
-+	 * Header tagging, disable VLAN tunneling, and set the port
-+	 * state to Forwarding.  Additionally, if this is the CPU
-+	 * port, enable Ingress and Egress Trailer tagging mode.
-+	 */
-+	REG_WRITE(addr, 0x04, (p == ds->cpu_port) ? 0x4103 : 0x0003);
-+
-+	/*
-+	 * Port based VLAN map: give each port its own address
-+	 * database, allow the CPU port to talk to each of the 'real'
-+	 * ports, and allow each of the 'real' ports to only talk to
-+	 * the CPU port.
-+	 */
-+	REG_WRITE(addr, 0x06,
-+			((p & 0xf) << 12) |
-+			 ((p == ds->cpu_port) ?
-+				ds->valid_port_mask :
-+				(1 << ds->cpu_port)));
-+
-+	/*
-+	 * Port Association Vector: when learning source addresses
-+	 * of packets, add the address to the address database using
-+	 * a port bitmap that has only the bit for this port set and
-+	 * the other bits clear.
-+	 */
-+	REG_WRITE(addr, 0x0b, 1 << p);
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_setup(struct dsa_switch *ds)
-+{
-+	int i;
-+	int ret;
-+
-+	ret = mv88e6060_switch_reset(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* @@@ initialise atu */
-+
-+	ret = mv88e6060_setup_global(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	for (i = 0; i < 6; i++) {
-+		ret = mv88e6060_setup_port(ds, i);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_set_addr(struct dsa_switch *ds, u8 *addr)
-+{
-+	REG_WRITE(REG_GLOBAL, 0x01, (addr[0] << 8) | addr[1]);
-+	REG_WRITE(REG_GLOBAL, 0x02, (addr[2] << 8) | addr[3]);
-+	REG_WRITE(REG_GLOBAL, 0x03, (addr[4] << 8) | addr[5]);
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_port_to_phy_addr(int port)
-+{
-+	if (port >= 0 && port <= 5)
-+		return port;
-+	return -1;
-+}
-+
-+static int mv88e6060_phy_read(struct dsa_switch *ds, int port, int regnum)
-+{
-+	int addr;
-+
-+	addr = mv88e6060_port_to_phy_addr(port);
-+	if (addr == -1)
-+		return 0xffff;
-+
-+	return reg_read(ds, addr, regnum);
-+}
-+
-+static int
-+mv88e6060_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
-+{
-+	int addr;
-+
-+	addr = mv88e6060_port_to_phy_addr(port);
-+	if (addr == -1)
-+		return 0xffff;
-+
-+	return reg_write(ds, addr, regnum, val);
-+}
-+
-+static void mv88e6060_poll_link(struct dsa_switch *ds)
-+{
-+	int i;
-+
-+	for (i = 0; i < DSA_MAX_PORTS; i++) {
-+		struct net_device *dev;
-+		int port_status;
-+		int link;
-+		int speed;
-+		int duplex;
-+		int fc;
-+
-+		dev = ds->ports[i];
-+		if (dev == NULL)
-+			continue;
-+
-+		link = 0;
-+		if (dev->flags & IFF_UP) {
-+			port_status = reg_read(ds, REG_PORT(i), 0x00);
-+			if (port_status < 0)
-+				continue;
-+
-+			link = !!(port_status & 0x1000);
-+		}
-+
-+		if (!link) {
-+			if (netif_carrier_ok(dev)) {
-+				printk(KERN_INFO "%s: link down\n", dev->name);
-+				netif_carrier_off(dev);
-+			}
-+			continue;
-+		}
-+
-+		speed = (port_status & 0x0100) ? 100 : 10;
-+		duplex = (port_status & 0x0200) ? 1 : 0;
-+		fc = ((port_status & 0xc000) == 0xc000) ? 1 : 0;
-+
-+		if (!netif_carrier_ok(dev)) {
-+			printk(KERN_INFO "%s: link up, %d Mb/s, %s duplex, "
-+					 "flow control %sabled\n", dev->name,
-+					 speed, duplex ? "full" : "half",
-+					 fc ? "en" : "dis");
-+			netif_carrier_on(dev);
-+		}
-+	}
-+}
-+
-+
-+/* main *********************************************************************/
-+static struct dsa_switch_driver mv88e6060_switch_driver = {
-+	.tag_type		= TAG_TYPE_TRAILER,
-+	.probe			= mv88e6060_probe,
-+	.setup			= mv88e6060_setup,
-+	.set_addr		= mv88e6060_set_addr,
-+	.phy_read		= mv88e6060_phy_read,
-+	.phy_write		= mv88e6060_phy_write,
-+	.poll_link		= mv88e6060_poll_link,
-+};
-+
-+int __init mv88e6060_init(void)
-+{
-+	register_switch_driver(&mv88e6060_switch_driver);
-+	return 0;
-+}
-+module_init(mv88e6060_init);
-+
-+void __exit mv88e6060_cleanup(void)
-+{
-+	unregister_switch_driver(&mv88e6060_switch_driver);
-+}
-+module_exit(mv88e6060_cleanup);
+With TSO/GSO:
+
+Throughput 169.19 MB/sec 1 procs
+
+Without:
+
+Throughput 24.0079 MB/sec 1 procs
+
+Note that I only disabled TSO/GSO using ethtool:
+
+etch1:~# ethtool -k lo
+Offload parameters for lo:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+etch1:~# 
+
+Can you see if reverting the patch but using ethtool gives you the
+same results?
+
+PS I'm using FV Xen.
+
+Thanks,
 -- 
-1.5.6.4
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
