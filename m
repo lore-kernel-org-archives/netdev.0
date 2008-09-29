@@ -1,76 +1,41 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: AIM9 regression
-Date: Mon, 29 Sep 2008 08:36:21 -0700 (PDT)
-Message-ID: <31318813.77411222702581550.JavaMail.root@tahiti.vyatta.com>
-References: <48E0EC13.3060907@linux-foundation.org>
+From: Wang Jian <lark@linux.net.cn>
+Subject: Re: drivers/net/phy/marvell.c: 88e1111 can't get out sleep mode
+Date: Tue, 30 Sep 2008 00:28:26 +0800
+Message-ID: <48E1022A.4000308@linux.net.cn>
+References: <20080929133305.GA10554@debian> <1222699540.4579.7.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org,
-	=?utf-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Alexandr Smirnov <asmirnov@ru.mvista.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33832 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751569AbYI2PgX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 11:36:23 -0400
-In-Reply-To: <48E0EC13.3060907@linux-foundation.org>
+Received: from [210.82.31.146] ([210.82.31.146]:54278 "EHLO mx.linux.net.cn"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751482AbYI2Q23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2008 12:28:29 -0400
+In-Reply-To: <1222699540.4579.7.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+According to datasheet, fiber/copper auto detect & auto switch depend on
+energy detect.
 
------ Original Message -----
-=46rom: "Christoph Lameter" <cl@linux-foundation.org>
-To: "Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi>
-Cc: "David Miller" <davem@davemloft.net>, shemminger@vyatta.com, herber=
-t@gondor.apana.org.au, netdev@vger.kernel.org
-Sent: Monday, September 29, 2008 4:54:11 PM GMT +01:00 Amsterdam / Berl=
-in / Bern / Rome / Stockholm / Vienna
-Subject: Re: AIM9 regression
+Or I misunderstand DIS_FC & DIS_SLEEP? When DIS_SLEEP is set, fiber/copper
+auto detect & auto switch still work?
 
-Ilpo J=C3=A4rvinen wrote:
-
-> ...I was thinking earlier to answer "time?", but now once been there,=
- it=20
-> seems that more time is more appropriate... So far I haven't been abl=
-e to=20
-> find a way to create a reproducable serie of result numbers with aim9=
-=20
-> tcp_test... it seems that the results vary within that (at least) 20%=
-=20
-> margin. Can Christoph actually get stable numbers out of it with 27-r=
-cs
-> (I haven't extensively tested .22 yet with long test durations but it=
-=20
-> seems that same problem occurs with it as well if short tests were us=
-ed)?
-
-Results fluctuate between 10 - 25%. The problem occurs with the short
-durations as well. If this is due to the additional code complexity in =
-later
-kernels as we suspect then it may be an issue with cpu cache effectiven=
-ess.
-
-Going to 64 bit binaries also yields a significant hit (as high as 30%)=
- which
-also indicates caching issues.
-
-Both 64 bit kernels and later kernels cause the variability of results =
-to
-increase. 64 bit has double the effect than a 2.6.27 kernel. All indica=
-tions
-of cpu caching issues. The L1 cache may become ineffective due to the
-increased cache footprint.
-
--------------
-One of the items showing up in the profile is the local side port alloc=
-ation.
-Is the ephemeral port range getting full? If it is then the random port=
- scan
-could take a long time to find the next free slot, especially now that =
-source
-ports are randomized.
-
-
+Ben Hutchings wrote:
+> On Mon, 2008-09-29 at 21:33 +0800, Wang Jian wrote:
+>> Hi,
+>>
+>> During my testing, I found that 88e1111 can't get out of sleep mode
+>> (Energy detect+) in certain condition.
+> [...]
+> 
+> We had the same problem with development boards using that PHY and we
+> stopped using the energy detect mode.
+> 
+> Ben.
+> 
 
