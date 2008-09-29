@@ -1,32 +1,33 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 0/1] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Mon, 29 Sep 2008 15:30:23 +0100
-Message-ID: <1222698624-3689-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Ian Saturley <ian.saturley@smsc.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver skb recycling
+Date: Mon, 29 Sep 2008 18:33:27 +0400
+Message-ID: <20080929143327.GA27601@2ka.mipt.ru>
+References: <20080928204633.GB19070@xi.wantstofly.org> <20080928213824.GA25298@2ka.mipt.ru> <20080928215035.GG19070@xi.wantstofly.org> <20080929053931.GB21663@2ka.mipt.ru> <20080929094650.GA26097@xi.wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ram.Natarajan@Emulex.Com,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Ashish Karkare <akarkare@marvell.com>,
+	Nicolas Pitre <nico@cam.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [86.54.240.115] ([86.54.240.115]:36783 "EHLO drevil.shawell.net"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750940AbYI2Oa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2008 10:30:29 -0400
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:42721 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751556AbYI2Oeb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2008 10:34:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20080929094650.GA26097@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Attached is a driver for SMSC's LAN9500 USB2.0 10/100 ethernet adapter, 
-incorporating feedback from netdev.  Please consider for inclusion in 
-2.6.28.
+Hi Lennert.
 
-Reposting for inclusion in patchwork.
+On Mon, Sep 29, 2008 at 11:46:50AM +0200, Lennert Buytenhek (buytenh@wantstofly.org) wrote:
+> Could you (or anyone else) try this patch on one of your boxes and
+> see what kind of effect it has on performance?
 
- MAINTAINERS                |    6 +
- drivers/net/usb/Kconfig    |    8 +
- drivers/net/usb/Makefile   |    1 +
- drivers/net/usb/smsc95xx.c | 1211 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/usb/smsc95xx.h |  253 +++++++++
- 5 files changed, 1479 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/usb/smsc95xx.c
- create mode 100644 drivers/net/usb/smsc95xx.h
+Well, this one does not have any effect, since it is not used in any
+datapath, and I do not have mv643 boards :)
 
+-- 
+	Evgeniy Polyakov
