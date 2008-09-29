@@ -1,37 +1,38 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver skb recycling
-Date: Mon, 29 Sep 2008 09:39:31 +0400
-Message-ID: <20080929053931.GB21663@2ka.mipt.ru>
-References: <20080928204633.GB19070@xi.wantstofly.org> <20080928213824.GA25298@2ka.mipt.ru> <20080928215035.GG19070@xi.wantstofly.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Patch for tbench regression.
+Date: Mon, 29 Sep 2008 13:40:52 +0800
+Message-ID: <20080929054052.GA23600@gondor.apana.org.au>
+References: <20080928211530.GA9341@2ka.mipt.ru> <20080929031244.GA22619@gondor.apana.org.au> <20080929053605.GA21663@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ram.Natarajan@Emulex.Com,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Nicolas Pitre <nico@cam.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: netdev@vger.kernel.org,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Mel Gorman <mel@csn.ul.ie>, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@marvell.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:48103 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754159AbYI2Fl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2008 01:41:27 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:43180 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752198AbYI2FlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 01:41:07 -0400
 Content-Disposition: inline
-In-Reply-To: <20080928215035.GG19070@xi.wantstofly.org>
+In-Reply-To: <20080929053605.GA21663@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Lennert.
+On Mon, Sep 29, 2008 at 09:36:06AM +0400, Evgeniy Polyakov wrote:
+> On Mon, Sep 29, 2008 at 11:12:44AM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > Can you see if reverting the patch but using ethtool gives you the
+> > same results?
+> 
+> Yes, I disabled gso and tso on vanilla 2.6.27-rc7 via ethtools and
+> got the same results:
 
-On Sun, Sep 28, 2008 at 11:50:35PM +0200, Lennert Buytenhek (buytenh@wantstofly.org) wrote:
-> Doesn't it?  It calls skb_release_head_state() (new function), which
-> should do that.
+Are you using Xen FV or PV? What processor?
 
-Argh, you are right, I missed this hunk:
--/* Free everything but the sk_buff shell. */
--static void skb_release_all(struct sk_buff *skb)
-+static void skb_release_head_state(struct sk_buff *skb) 
-
-Patches look good.
-
+Thanks,
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
