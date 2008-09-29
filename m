@@ -1,70 +1,88 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Patch for tbench regression.
-Date: Mon, 29 Sep 2008 15:20:17 +0800
-Message-ID: <20080929072017.GA24300@gondor.apana.org.au>
-References: <20080928211530.GA9341@2ka.mipt.ru> <20080929031244.GA22619@gondor.apana.org.au> <20080929053605.GA21663@2ka.mipt.ru> <20080929054052.GA23600@gondor.apana.org.au> <20080929055203.GA3460@2ka.mipt.ru> <20080929064006.GA23967@gondor.apana.org.au> <20080929064518.GA10653@2ka.mipt.ru> <20080929070213.GA24146@gondor.apana.org.au> <20080929071119.GA29076@2ka.mipt.ru>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: wireless vs. network namespaces (part II)
+Date: Mon, 29 Sep 2008 10:19:21 +0200
+Message-ID: <1222676361.7064.11.camel@johannes.berg>
+References: <1222509685.3798.59.camel@johannes.berg>
+	 <m1r675aw0l.fsf@frodo.ebiederm.org>
+	 <1222587651.3798.72.camel@johannes.berg>
+	 <m1y71b8q1d.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Mel Gorman <mel@csn.ul.ie>, David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@marvell.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-PUl5E4QTTd2YBIeCOK38"
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Jouni Malinen <j@w1.fi>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35946 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751063AbYI2HUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 03:20:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20080929071119.GA29076@2ka.mipt.ru>
+Received: from xc.sipsolutions.net ([83.246.72.84]:50233 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751642AbYI2ITh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2008 04:19:37 -0400
+In-Reply-To: <m1y71b8q1d.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2008 at 11:11:19AM +0400, Evgeniy Polyakov wrote:
->
-> How did you find that? :)
 
-Because your PIC looks normal.  You'll know when you're in PV
-Xen because it looks like this:
+--=-PUl5E4QTTd2YBIeCOK38
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-           CPU0              CPU1              
-  1:          2          0        Phys-irq  i8042
-  7:          0          0        Phys-irq  parport0
-  8:          0          0        Phys-irq  rtc
-  9:          0          0        Phys-irq  acpi
- 12:          4          0        Phys-irq  i8042
- 14:   14710832   47935559        Phys-irq  ide0
- 15:   11484815   42035535        Phys-irq  ide1
- 16:          0          0        Phys-irq  uhci_hcd:usb1
- 17:          0          0        Phys-irq  libata
- 18:          0          0        Phys-irq  uhci_hcd:usb5, ehci_hcd:usb6
- 19:        212         90        Phys-irq  uhci_hcd:usb4, libata
- 20:          0          0        Phys-irq  uhci_hcd:usb2
- 21:          2          0        Phys-irq  uhci_hcd:usb3, ehci_hcd:usb7
- 22: 1038949859          0        Phys-irq  peth0
- 23:        216          0        Phys-irq  HDA Intel
-256: 1006488099          0     Dynamic-irq  timer0
-257:   64033545          0     Dynamic-irq  resched0
-258:         98          0     Dynamic-irq  callfunc0
-259:          0   85739450     Dynamic-irq  resched1
-260:          0        183     Dynamic-irq  callfunc1
-261:          0  271431605     Dynamic-irq  timer1
-262:       6778      16816     Dynamic-irq  xenbus
-263:          0          0     Dynamic-irq  console
-NMI:          0          0 
-LOC:          0          0 
-ERR:          0
-MIS:          0
+On Sun, 2008-09-28 at 22:44 -0700, Eric W. Biederman wrote:
 
-> Yes, of course, even single empty syscall may potentially force process
-> the be scheduled away, bit still performance will not be with 24/190
-> ratio... Weird.
+> So you are looking at using NETIF_F_NETNS_LOCAL to indicate that you can'=
+t move
+> one of the devices?
 
-I don't think PV/FV is the issue anyway since we're both on FV :)
+Yes.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> There is an UNREGISTER_NETDEV event and a REGISTER_NETDEV event sent when=
+ a device
+> is moved between namespaces.  See:  dev_change_net_namespace.
+
+Yeah, I know.
+
+> I think you would want to look onto those and move one network device whe=
+n you
+> move the other, without using NETIF_F_NETNS_LOCAL.
+>=20
+> Deletion and creation we have definitely done with paired veth devices.  =
+I haven't
+> looked at the migration case, but I with a little bit of guarding against=
+ recursion
+> it looks like it probably can be handled. =20
+>=20
+> Say trigger when your parnter device calls REGISTER_NETDEV in a different=
+ network
+> namespace?
+
+Well, the's no inherent limit on the number of sibling devices, but
+various conditions that the core code cannot fulfil because mac80211
+also creates this master netdev (though it doesn't actually matter much
+which ns it is in I guess). Right now I feel this is just too much to
+ask. If anything, then I might want to allow moving a whole radio
+("struct wiphy") at some point.
+
+johannes
+
+--=-PUl5E4QTTd2YBIeCOK38
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJI4I9+AAoJEKVg1VMiehFYciYQAI1LWFWfMJK9OKodWMlJ2IHS
+LV9L4Bbvzuajd7TCn4gwzRjG0t0edxt5A6Lk15KJ1JYvbL1jpTVt0S3IcFBrdN6S
+XFMawql0dtiC/YmTYFxEn5hKhSFxsePqCEqyzwLlJhtMGj3xSkU9FjhZBFGV0/0A
+ctLwOr7WvU1nCmiGqaZNYMBKJeLq8QCp0gDIRSYFAYJjM17AKOVfhYP5TZeWKSyZ
+B3a2Qq0b2H7kaiXm1P6Zfg18VFXunJL4/3nnH5D1svfPEA0RLA0tbOb0eYfW3jc1
+5Bf1saBT62lScotvWdHW8wzNyE3N3mWitZOIQ4gsItKspbyYwhfTY5bHxY3Dv20/
+uujOH7Iv5nsrq/YqG7Lsu07iIqBDWYFbUqoED4kmBLo+l3kIA3opsGw9FsbTnLP7
+Y3/UC4oibdsMZnjw9Og9NBEh9v0yHgTqi/kDbtMo2rw0MjMFu+Z5bvbTfwWXZ/DH
+ifa0VY8XgjPbcGsp8uDFFfG47ZFbl2CJXK3OYhzneNqCPrIAjVmZ52nRTjEvI2T8
+6O1lwH3Yoj84E9uuh9SeKn8eQvTmu0jxk8w9IfUMccC4RVjo0YGC2wArEnyfeFx4
+KwTWF7U4/69Zqh/HfZSG5+O0Px4EEdsCEf5VrKOMzjXN8+IW6RjOQ6e1PVWaO5s0
+DhcsQV+cNa4FQM39ltdx
+=bupr
+-----END PGP SIGNATURE-----
+
+--=-PUl5E4QTTd2YBIeCOK38--
+
