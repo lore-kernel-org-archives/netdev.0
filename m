@@ -1,29 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] Phonet: declare headers
-Date: Tue, 30 Sep 2008 02:59:57 -0700 (PDT)
-Message-ID: <20080930.025957.261573022.davem@davemloft.net>
-References: <1222272700-28232-3-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] iucv: Fix mismerge again.
+Date: Tue, 30 Sep 2008 03:06:55 -0700 (PDT)
+Message-ID: <20080930.030655.205785115.davem@davemloft.net>
+References: <20080925110907.GA22433@osiris.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: frank.blaschka@de.ibm.com, braunu@de.ibm.com,
+	peter.oberparleiter@de.ibm.com, schwidefsky@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: heiko.carstens@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60962
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41563
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751838AbYI3KAI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Sep 2008 06:00:08 -0400
-In-Reply-To: <1222272700-28232-3-git-send-email-remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1752559AbYI3KHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 06:07:07 -0400
+In-Reply-To: <20080925110907.GA22433@osiris.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-Date: Wed, 24 Sep 2008 19:11:40 +0300
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Date: Thu, 25 Sep 2008 13:09:07 +0200
 
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> iucv: Fix mismerge again.
+ ...
+> fb65a7c091529bfffb1262515252c0d0f6241c5c ("iucv: Fix bad merging.") fixed
+> a merge error, but in a wrong way. We now end up with the bug below.
+> This patch corrects the mismerge like it was intended.
+> 
+> BUG: scheduling while atomic: swapper/1/0x00000000
+ ...
+> initcall netiucv_init+0x0/0x2c8 returned with preemption imbalance
+> 
+> Cc: Peter Oberparleiter <peter.oberparleiter@de.ibm.com>
+> Cc: Ursula Braun <braunu@de.ibm.com>
+> Cc: Frank Blaschka <frank.blaschka@de.ibm.com>
+> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
 
-Applied.
-
-I took a look and noticed that if_phonet.h needs some top-level
-ifdef multiple inclusion protection.
+Applied to net-2.6, thanks.
