@@ -1,74 +1,78 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: tg3 + HP iLO2 -> IPv6 broken
-Date: Tue, 30 Sep 2008 20:09:02 +0000 (UTC)
-Message-ID: <gbu10u$uvr$1@ger.gmane.org>
+From: Bernard Pidoux F6BVP <f6bvp@free.fr>
+Subject: Re: ax25 rose Re: kernel panic linux-2.6.27-rc7
+Date: Tue, 30 Sep 2008 22:59:35 +0200
+Message-ID: <48E29337.2080400@free.fr>
+References: <48DF7D51.1010507@free.fr> <20080929123036.GA16954@ff.dom.local> <48E1F417.7080304@free.fr> <20080930101030.GA6290@ff.dom.local> <20080930111733.GB6290@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Ralf Baechle DL5RB <ralf@linux-mips.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:45307 "EHLO ciao.gmane.org"
+Received: from smtp1-g19.free.fr ([212.27.42.27]:60547 "EHLO smtp1-g19.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753125AbYI3UKG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Sep 2008 16:10:06 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1KklXn-0008Ks-6e
-	for netdev@vger.kernel.org; Tue, 30 Sep 2008 20:10:03 +0000
-Received: from ppp-88-217-17-205.dynamic.mnet-online.de ([88.217.17.205])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2008 20:10:03 +0000
-Received: from berni by ppp-88-217-17-205.dynamic.mnet-online.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2008 20:10:03 +0000
+	id S1751983AbYI3U7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2008 16:59:43 -0400
+In-Reply-To: <20080930111733.GB6290@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Jarek,
 
-I have an interesting bug here which I just can't put my finger on. 
+Yes I am using n2kpci/8390 driver.
+The second patch seems to have removed the inconsistent lock state.
+But the kernel panic still occured systematically.
+However I did not catch netconsole messages since the patch prevented 
+transmission to remote console via ethernet.
 
-I have just bought a HP Proliant DL320 G5p. It features an integrated
-out-of-band controller called iLO2, which shares a physical ethernet
-connection with one of the two BCM5715 GigE ports of the system. 
+Before the machine rebooted I only noted the following information at 
+the bottom of the local console page :
 
-Basic problem:
-I cannot get native IPv6 to work on the first (shared) GigE port.
-The system does not autoconfigure an address and does not respond to
-incoming neighbor solicitations for it's link-local address. Unless I
-either
+EIP: [<.....>] datagram_poll + 0xe9/0xf0
 
-a) reboot the iLO2 by e.g. adjusting anything in the network settings
-   (just switching the "use WINS servers from DHCP reply" is enough to
-   restart it). This fixes my issues up until the next reboot of Linux,
-   which breaks things again
+Does it help ?
 
-_OR_
-
-b) set the port to promiscous mode and leave it set.
-
-The second GigE port using the same network chip does not have this
-problem. 
-
-Now I think this points to an issue with the iLO2, and indeed HP has
-recently announced version 1.60 of the iLO2 firmware which is supposed
-to fix an issue with dualstacked IPv4/IPv6 operation of the host, but
-this version is installed. And IMHO, if the iLO2 would be the (sole)
-culprit setting promisc mode should not help, should it?
-
-Problem exists with both 2.6.26-1-amd64 from Debian lenny and vanilla
-2.6.27-rc8 from kernel.org (same config). 
-
-Does anyone have enough insight into how this ethernet port and the iLO
-are connected which could help blaming either the driver or the iLO (or
-both)?  I'll try to kick HP as well but since I don't have a support
-contract for this (private) system other than the hardware warranty it
-might take a while.
-
-.config and dmesg available on request, I don't think they are helpful
-here.
-
-Regards,
-Bernhard
+Bernard
 
 
+Jarek Poplawski wrote:
+> On Tue, Sep 30, 2008 at 10:10:30AM +0000, Jarek Poplawski wrote:
+>> On Tue, Sep 30, 2008 at 11:40:39AM +0200, Bernard Pidoux F6BVP wrote:
+>>> Hi Jarek,
+>> Hi Bernard,
+>>
+>>> Yes this is a vanilla kernel, which makes it interesting to debug.
+>>> I forgot to Cc: Ralf and put it now on copy of this message.
+>>> Thank you for the patch I applied.
+>>> Collected data includes both events I already reported, first the  
+>>> inconsistent lock state,
+>> I guess this netconsole is on ne2k_pci/8390 driver?
+> 
+> If so, try this patch, please.
+> 
+> Jarek P.
+> 
+> ---
+> 
+>  drivers/net/lib8390.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
+> index 00d59ab..f80dcc1 100644
+> --- a/drivers/net/lib8390.c
+> +++ b/drivers/net/lib8390.c
+> @@ -530,9 +530,9 @@ static irqreturn_t __ei_interrupt(int irq, void *dev_id)
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  static void __ei_poll(struct net_device *dev)
+>  {
+> -	disable_irq_lockdep(dev->irq);
+> +	disable_irq(dev->irq);
+>  	__ei_interrupt(dev->irq, dev);
+> -	enable_irq_lockdep(dev->irq);
+> +	enable_irq(dev->irq);
+>  }
+>  #endif
+>  
+> 
+> 
