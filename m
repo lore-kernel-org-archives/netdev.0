@@ -1,55 +1,36 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: [PATCH] net: deadlock during net device unregistration
-Date: Tue, 30 Sep 2008 16:07:43 +0200
-Message-ID: <48E232AF.7060501@bull.net>
-References: <20080930063231.GA4792@ff.dom.local>	<48E212FF.1060409@bull.net> <20080930.065852.116510157.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when
+ gc_elasticity is exceeded
+Date: Tue, 30 Sep 2008 07:08:49 -0700 (PDT)
+Message-ID: <20080930.070849.257248719.davem@davemloft.net>
+References: <20080929191254.GA20074@hmsreliant.think-freely.org>
+	<48E138EB.1080001@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org, dlezcano@fr.ibm.com,
-	dada1@cosmobay.com
-To: David Miller <davem@davemloft.net>
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:34352 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752601AbYI3OIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 10:08:32 -0400
-In-Reply-To: <20080930.065852.116510157.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60277
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753584AbYI3OJA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 10:09:00 -0400
+In-Reply-To: <48E138EB.1080001@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Benjamin Thery <benjamin.thery@bull.net>
-> Date: Tue, 30 Sep 2008 13:52:31 +0200
-> 
->> BTW, in the past (last year) dst_gc_task() was run as a timer
->> handler and this situation (deadlock with linkwatch_event())
->> couldn't occur.
-> 
-> September 12th to be exact :-)  That's when Eric Dumazet's
-> change went in:
-> 
-> commit 86bba269d08f0c545ae76c90b56727f65d62d57f
-> Author: Eric Dumazet <dada1@cosmosbay.com>
-> Date:   Wed Sep 12 14:29:01 2007 +0200
-> 
->     [PATCH] NET : convert IP route cache garbage collection from softirq processing to a workqueue
-> 
-> 
-> But this change went into 2.6.24, so I wonder why it's taken
-> so long to hit this.
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Mon, 29 Sep 2008 22:22:03 +0200
 
-Maybe because we manage to reproduce it only with network namespaces so
-far and there isn't much netns users at the moment (and netns is still
-incomplete in mainline).
-
-Benjamin
-
+> This sounds not good at all to me.
 > 
+> 1) Dont set ip_rt_secret_interval to zero, this is plain silly, since
+>    you give attackers infinite time to break your machine.
 > 
 
+It makes a ton of sense, even by default, if we set things up so that
+we turn it back on when necessary.
 
--- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
-
-    http://www.bull.com
+And that's the final intended idea, to do exactly that.
