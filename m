@@ -1,65 +1,40 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-2.6] ip: NULL pointer dereferrence in tcp_v(4|6)_send_ack
-Date: Tue, 30 Sep 2008 20:29:11 +0400
-Message-ID: <1222792151-11861-1-git-send-email-den@openvz.org>
-References: <200809302013.30051.vgusev@openvz.org>
-Cc: xemul@openvz.org, vgusev@openvz.org, netdev@vger.kernel.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH] netxen: add sub vendor/device ids.
+Date: Tue, 30 Sep 2008 09:05:48 -0700
+Message-ID: <1222790748-31209-1-git-send-email-dhananjay@netxen.com>
+Cc: jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:31777 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752208AbYI3Q3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Sep 2008 12:29:08 -0400
-In-Reply-To: <200809302013.30051.vgusev@openvz.org>
+Received: from [69.105.43.10] ([69.105.43.10]:53525 "EHLO unm84.unminc.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751213AbYI3Qgx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2008 12:36:53 -0400
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following actions are possible:
-tcp_v4_rcv
-  skb->dev = NULL;
-  tcp_v4_do_rcv
-    tcp_v4_hnd_req
-      tcp_check_req
-        req->rsk_ops->send_ack == tcp_v4_send_ack
-
-So, skb->dev can be NULL in tcp_v4_send_ack. We must obtain namespace
-from dst entry. IPv6 codepath is similar.
-
-Thanks to Vitaliy Gusev <vgusev@openvz.org> for initial oops decoding.
-
-Signed-off-by: Denis V. Lunev <den@openvz.org>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- net/ipv4/tcp_ipv4.c |    2 +-
- net/ipv6/tcp_ipv6.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/linux/pci_ids.h |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 1b4fee2..011478e 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -618,7 +618,7 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
- 			];
- 	} rep;
- 	struct ip_reply_arg arg;
--	struct net *net = dev_net(skb->dev);
-+	struct net *net = dev_net(skb->dst->dev);
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index a65b082..6954096 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2256,6 +2256,11 @@
+ #define PCI_DEVICE_ID_NX2031_XG_MGMT	0x0024
+ #define PCI_DEVICE_ID_NX2031_XG_MGMT2	0x0025
+ #define PCI_DEVICE_ID_NX3031		0x0100
++#define PCI_SUBVENDOR_ID_HP			0x103c
++#define PCI_SUBDEVICE_ID_HP_NC522M		0x171b
++#define PCI_SUBDEVICE_ID_HP_NC375I_NC524SFP	0x3251
++#define PCI_SUBDEVICE_ID_HP_NC375I		0x705a
++#define PCI_SUBDEVICE_ID_HP_NC522SFP		0x705b
  
- 	memset(&rep.th, 0, sizeof(struct tcphdr));
- 	memset(&arg, 0, sizeof(arg));
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index b585c85..10e22fd 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1050,7 +1050,7 @@ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack, u32 win, u32
- 	struct tcphdr *th = tcp_hdr(skb), *t1;
- 	struct sk_buff *buff;
- 	struct flowi fl;
--	struct net *net = dev_net(skb->dev);
-+	struct net *net = dev_net(skb->dst->dev);
- 	struct sock *ctl_sk = net->ipv6.tcp_sk;
- 	unsigned int tot_len = sizeof(struct tcphdr);
- 	__be32 *topt;
+ #define PCI_VENDOR_ID_AKS		0x416c
+ #define PCI_DEVICE_ID_AKS_ALADDINCARD	0x0100
 -- 
-1.5.6.4
+1.5.4.3
 
