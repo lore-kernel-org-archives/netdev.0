@@ -1,68 +1,50 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [Bug 11442] btusb suspend/resume bug...
-Date: Tue, 30 Sep 2008 23:44:42 +0200
-Message-ID: <200809302344.42615.rjw@sisk.pl>
-References: <20080916.155123.181085856.davem@davemloft.net> <200809271541.15963.rjw@sisk.pl> <1222754141.1825.55.camel@violet.holtmann.net>
+From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2008-09-30
+Date: Wed, 1 Oct 2008 00:57:35 +0300
+Message-ID: <1ba2fa240809301457n427b0fe7o28ec9e43bcfcca7c@mail.gmail.com>
+References: <20080930183938.GE3765@tuxdriver.com>
+	 <1ba2fa240809301258o34b77ce2p737c229be7c0a2e9@mail.gmail.com>
+	 <20080930200640.GG3765@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1222754141.1825.55.camel-Q5NHXjiL5LzjRizqIHwDm9HuzzzSOjJt@public.gmane.org>
+Cc: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080930200640.GG3765-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, 30 of September 2008, Marcel Holtmann wrote:
-> Hi Rafael,
-> 
-> > > >> Rafael, can you pull from my tree and test the changes:
-> > > >>
-> > > >> git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/ 
-> > > >> bluetooth-2.6.git
-> > > >>
-> > > >> It would be interesting if these fixes are enough.
-> > > >
-> > > > They appear to be enough.  I haven't had any suspend/resume failures  
-> > > > with them
-> > > > applied.
-> > > 
-> > > so it works _without_ applying patch-btusb-suspend.
-> > 
-> > Well, unfortunately I spoke too soon.
-> > 
-> > I'm still seeing post-hibernation crashes triggered by the bluetooth user land
-> > trying to use the device handled by btusb.  They happen every second
-> > hibernation, more or less, and apparently they are oopses in various code
-> > paths not directly related to bluetooth, like ext3 (memory corruption or
-> > what?).
-> 
-> I pushed two extra patches to my bluetooth-2.6 repository:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
-> 
-> One is fixing a double-free in the error path. This error path can be
-> triggered during suspend/resume if the USB core just disconnects the
-> device. Please check if that fixes it for you.
-> 
-> > With patch-btusb-suspend applied I don't see them (actually I have to use
-> > a slightly modified version of the patch which is appended).
-> > 
-> > Interestingly enough, suspend to RAM works without any visible problems.
-> 
-> As Oliver said, the USB core should do the right thing when no suspend
-> and resume callbacks are provided. I looked through the code so many
-> times now and I am running out of ideas what can happen.
-> 
-> Lets try it one last time without the suspend patch, but the double free
-> fix and see if that works. Otherwise I really give up.
+On Tue, Sep 30, 2008 at 11:06 PM, John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> On Tue, Sep 30, 2008 at 10:58:28PM +0300, Tomas Winkler wrote:
+>> On Tue, Sep 30, 2008 at 9:39 PM, John W. Linville
+>> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+>> > Dave,
+>> >
+>> > Here is the latest round of wireless bits intended for 2.6.28.  Among
+>> > them is the first round of new stuff learned from the release of the
+>> > Atheros HAL sources...
+>> >
+>> > Let me know if there are problems!
+>> >
+>> > Thanks,
+>> >
+>> > John
+>>
+>> What about this one
+>> http://marc.info/?l=linux-wireless&m=122254550901882&w=2
+>> It removes compilation warnings.
+>
+> Just didn't get to it yet, sorry.
 
-This time I cannot reproduce the hibernation issue without the suspend patch,
-so it appears that your double-free fix works for me.
+It's not a real problem I just think we should at least strive for
+clean compilation when merging upstream.
 
-Thanks,
-Rafael
+Tomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
