@@ -1,54 +1,144 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Can't build net-next-2.6 without CONFIG_MAC80211_MESH
-Date: Tue, 30 Sep 2008 10:43:22 -0400
-Message-ID: <20080930144322.GC3386@tuxdriver.com>
-References: <48E2394A.3010707@hp.com>
+From: "Denis V. Lunev" <den@parallels.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when
+	gc_elasticity is exceeded
+Date: Tue, 30 Sep 2008 18:49:22 +0400
+Message-ID: <1222786162.23573.38.camel@iris.sw.ru>
+References: <20080929191254.GA20074@hmsreliant.think-freely.org>
+	 <1222784232.23573.22.camel@iris.sw.ru>
+	 <20080930143523.GB6496@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes@sipsolutions.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, davem@davemloft.net,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40433 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbYI3OoC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 10:44:02 -0400
-Content-Disposition: inline
-In-Reply-To: <48E2394A.3010707@hp.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:21081 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753691AbYI3OtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2008 10:49:14 -0400
+In-Reply-To: <20080930143523.GB6496@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 30, 2008 at 10:35:54AM -0400, Brian Haley wrote:
-> Sorry if this has been discussed/fixed already, but I just noticed last  
-> night I couldn't build net-next-2.6:
->
-> Kernel: arch/x86/boot/bzImage is ready  (#71)
-> ERROR: "mpp_path_lookup" [net/mac80211/mac80211.ko] undefined!
-> ERROR: "mpp_path_add" [net/mac80211/mac80211.ko] undefined!
->
-> These are defined in net/mac80211/mesh_pathtbl.c, but being called from  
-> rx.c and tx.c, but I'm not building the mesh files:
->
-> --> grep CONFIG_MAC80211 .config
-> CONFIG_MAC80211=m
-> CONFIG_MAC80211_RC_PID=y
-> CONFIG_MAC80211_RC_DEFAULT_PID=y
-> CONFIG_MAC80211_RC_DEFAULT="pid"
-> # CONFIG_MAC80211_MESH is not set
-> # CONFIG_MAC80211_LEDS is not set
-> # CONFIG_MAC80211_DEBUGFS is not set
-> # CONFIG_MAC80211_DEBUG_MENU is not set
->
-> make oldconfig didn't make any changes, so I think the config is valid.
+On Tue, 2008-09-30 at 10:35 -0400, Neil Horman wrote:
+> On Tue, Sep 30, 2008 at 06:17:12PM +0400, Denis V. Lunev wrote:
+> > The patch is wrong in respect to
+> >   for_each_net
+> > usage.
+> > 
+> > It should be used under rtnl. It is not held at the moment :(
+> > 
+> Thank you, I'll be sure to take that into consideration when we determine what
+> the proper algorithm to implement here is.
+> 
+> Although, I used the rt_secret_rebuild timer function as my guide here, and it
+> doesn't hold the rtnl lock either, or is that because its running in a softirq
+> context?
+no. There is no lock as there is no iteration over net namespace list.
+Each namespace has its own timer.
 
-I have the fix queued in wireless-testing -- I think/thought Dave
-is/was traveling, so I didn't rush to push it to net-next-2.6.
-I'll get that pull request assembled today.  In the meantime, just
-enable CONFIG_MAC80211_MESH.
+The simplest approach I see right now is to re-iterate over current dst
+cache chain and mark only those namespaces. This is at least fair as
+only one namespace can be attacked (not entire node).
 
-Thanks,
+All locking for this is in place.
 
-John
--- 
-John W. Linville		Linux should be at the core
-linville@tuxdriver.com			of your literate lifestyle.
+Regards,
+	Den
+
+> Neil
+> 
+> > Regards,
+> > 	Den
+> > 
+> > On Mon, 2008-09-29 at 15:12 -0400, Neil Horman wrote:
+> > > Hey all-
+> > > 	We currently have the ability to disable our route cache secret interval
+> > > rebuild timer (by setting it to zero), but if we do that its possible for an
+> > > attacker (if they guess our route cache hash secret, to fill our system with
+> > > routes that all hash to the same bucket, destroying our performance.  This patch
+> > > provides a backstop for that issues.  In the event that our rebuild interval is
+> > > disabled (or very large), if any hash chain exceeds ip_rt_gc_elasticity, we do
+> > > an emergency hash rebuild.  During the hash rebuild we:
+> > > 1) warn the user of the emergency
+> > > 2) disable the rebuild timer
+> > > 3) invalidate the route caches
+> > > 4) re-enable the rebuild timer with its old value
+> > > 
+> > > Regards
+> > > Neil
+> > > 
+> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > > 
+> > > 
+> > >  route.c |   36 +++++++++++++++++++++++++++++++++++-
+> > >  1 file changed, 35 insertions(+), 1 deletion(-)
+> > > 
+> > > 
+> > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > > index 6ee5354..b95e02a 100644
+> > > --- a/net/ipv4/route.c
+> > > +++ b/net/ipv4/route.c
+> > > @@ -145,7 +145,7 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
+> > >  static void		 ipv4_link_failure(struct sk_buff *skb);
+> > >  static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
+> > >  static int rt_garbage_collect(struct dst_ops *ops);
+> > > -
+> > > +static void rt_emergency_hash_rebuild(void);
+> > >  
+> > >  static struct dst_ops ipv4_dst_ops = {
+> > >  	.family =		AF_INET,
+> > > @@ -1056,6 +1056,15 @@ restart:
+> > >  			*candp = cand->u.dst.rt_next;
+> > >  			rt_free(cand);
+> > >  		}
+> > > +	} else if (chain_length > ip_rt_gc_elasticity) {
+> > > +		/*
+> > > +		 * We didn't find a route entry we could safely free,
+> > > +		 * yet our chain length is over our elasticity value.
+> > > +		 * Someone may have guessed our hash secret and is artifically
+> > > +		 * filling up our route cache.  Lets do an emergency rebuild
+> > > +		 * to be safe
+> > > +		 */
+> > > +		rt_emergency_hash_rebuild();
+> > >  	}
+> > >  
+> > >  	/* Try to bind route to arp only if it is output
+> > > @@ -2946,6 +2955,31 @@ static void rt_secret_reschedule(int old)
+> > >  	rtnl_unlock();
+> > >  }
+> > >  
+> > > +static void rt_secret_rebuild_oneshot(void) {
+> > > +	struct net *net;
+> > > +	int old_interval = ip_rt_secret_interval;
+> > > +
+> > > +	ip_rt_secret_interval = 0;
+> > > +
+> > > +	rt_secret_reschedule(old_interval);
+> > > +
+> > > +	for_each_net(net) 
+> > > +		rt_cache_invalidate(net);
+> > > +
+> > > +	ip_rt_secret_interval = old_interval;
+> > > +
+> > > +	rt_secret_reschedule(0);
+> > > +}
+> > > +
+> > > +static void rt_emergency_hash_rebuild(void) {
+> > > +	if (net_ratelimit()) {
+> > > +		printk(KERN_WARNING "Route hash chain too long!\n");
+> > > +		printk(KERN_WARNING "Adjust your secret_interval!\n");
+> > > +	}
+> > > +
+> > > +	rt_secret_rebuild_oneshot();
+> > > +}
+> > > +
+> > >  static int ipv4_sysctl_rt_secret_interval(ctl_table *ctl, int write,
+> > >  					  struct file *filp,
+> > >  					  void __user *buffer, size_t *lenp,
+> > 
+> > 
+> 
+
