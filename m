@@ -1,87 +1,83 @@
-From: Riccardo Losselli <riccardo@e4a.it>
-Subject: Problem on ipv6 side of the lan.
-Date: Tue, 30 Sep 2008 17:26:46 +0200
-Message-ID: <48E24536.5040508@e4a.it>
+From: Vitaliy Gusev <vgusev@openvz.org>
+Subject: [PATCH] Fix NULL dereference in tcp_4_send_ack()
+Date: Tue, 30 Sep 2008 20:13:29 +0400
+Message-ID: <200809302013.30051.vgusev@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>,
+	Denis Lunev <den@openvz.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from io.e4a.it ([80.79.48.55]:32929 "EHLO io.e4a.it"
+Received: from mailhub.sw.ru ([195.214.232.25]:29133 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753426AbYI3PzO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Sep 2008 11:55:14 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by io.e4a.it (Postfix) with ESMTP id 0CCA87005C
-	for <netdev@vger.kernel.org>; Tue, 30 Sep 2008 15:48:20 +0000 (UTC)
-Received: from io.e4a.it ([127.0.0.1])
-	by localhost (io.e4a.i [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 29xAkA8ey+m0 for <netdev@vger.kernel.org>;
-	Tue, 30 Sep 2008 15:48:14 +0000 (UTC)
-Received: from [79.137.0.3] (unknown [79.137.0.3])
-	by io.e4a.it (Postfix) with ESMTP id 8377A70083
-	for <netdev@vger.kernel.org>; Tue, 30 Sep 2008 15:48:14 +0000 (UTC)
+	id S1752444AbYI3QFv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2008 12:05:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all, i would like to request a hint to sort out a problem is driving 
-me crazy since the last two days..
-i'm running a small network of 8 linux boxes, each one of them acting as 
-a router.
-I used a /64 as peering lan, configured the network interfaces, set up 
-the peerings and all went smooth for about one week.
-Two days ago one of the machines rebooted, and since then i have a very 
-strange behaviour of the network.
-Network is made of box1,2,3,4,5,6,7 and box200, which is a xen machine 
-hosted by box5, box4 really is a Mikrotik box...
+Fix NULL dereference in tcp_4_send_ack().
 
-"Box1" and "Box200" can reach all other boxes as expected.
-"Box2" can reach all boxes except 4,5 and 6
-"box3" can reach all boxes except 4,5 and 6
-"box4" can reach box1 and 200 only
-"box5" can reach box1 and 200 only
-"box6" can reach box 1 and 200 only
-"box7" can reach all boxes except 4,5 and 6
+As skb->dev is reset to NULL in tcp_v4_rcv() thus OOPS occurs:
 
-i tried to check with tcpdump, pinging box7 from box6.. what i get is, 
-from box6
-14:13:57.662327 IP6 xxxx:xxxx::6 > xxxx:xxxx::7: ICMP6, echo request, 
-seq 234, length 64
-as expected, but  no reply..
+BUG: unable to handle kernel NULL pointer dereference at 00000000000004d0
+IP: [<ffffffff80498503>] tcp_v4_send_ack+0x203/0x250
 
-ip neighbor shows
+Stack:  ffff810005dbb000 ffff810015c8acc0 e77b2c6e5f861600 a01610802e90cb6d
+ 0a08010100000000 88afffff88afffff 0000000080762be8 0000000115c872e8
+ 0004122000000000 0000000000000001 ffffffff80762b88 0000000000000020
+Call Trace:
+ <IRQ>  [<ffffffff80499c33>] tcp_v4_reqsk_send_ack+0x20/0x22
+ [<ffffffff8049bce5>] tcp_check_req+0x108/0x14c
+ [<ffffffff8047aaf7>] ? rt_intern_hash+0x322/0x33c
+ [<ffffffff80499846>] tcp_v4_do_rcv+0x399/0x4ec
+ [<ffffffff8045ce4b>] ? skb_checksum+0x4f/0x272
+ [<ffffffff80485b74>] ? __inet_lookup_listener+0x14a/0x15c
+ [<ffffffff8049babc>] tcp_v4_rcv+0x6a1/0x701
+ [<ffffffff8047e739>] ip_local_deliver_finish+0x157/0x24a
+ [<ffffffff8047ec9a>] ip_local_deliver+0x72/0x7c
+ [<ffffffff8047e5bd>] ip_rcv_finish+0x38d/0x3b2
+ [<ffffffff803d3548>] ? scsi_io_completion+0x19d/0x39e
+ [<ffffffff8047ebe5>] ip_rcv+0x2a2/0x2e5
+ [<ffffffff80462faa>] netif_receive_skb+0x293/0x303
+ [<ffffffff80465a9b>] process_backlog+0x80/0xd0
+ [<ffffffff802630b4>] ? __rcu_process_callbacks+0x125/0x1b4
+ [<ffffffff8046560e>] net_rx_action+0xb9/0x17f
+ [<ffffffff80234cc5>] __do_softirq+0xa3/0x164
+ [<ffffffff8020c52c>] call_softirq+0x1c/0x28
+ <EOI>  [<ffffffff8020de1c>] do_softirq+0x34/0x72
+ [<ffffffff80234b8e>] local_bh_enable_ip+0x3f/0x50
+ [<ffffffff804d43ca>] _spin_unlock_bh+0x12/0x14
+ [<ffffffff804599cd>] release_sock+0xb8/0xc1
+ [<ffffffff804a6f9a>] inet_stream_connect+0x146/0x25c
+ [<ffffffff80243078>] ? autoremove_wake_function+0x0/0x38
+ [<ffffffff8045751f>] sys_connect+0x68/0x8e
+ [<ffffffff80291818>] ? fd_install+0x5f/0x68
+ [<ffffffff80457784>] ? sock_map_fd+0x55/0x62
+ [<ffffffff8020b39b>] system_call_after_swapgs+0x7b/0x80
 
-xxxx:xxxx::7 dev eth0 lladdr 00:0e:0c:b8:70:a4 router REACHABLE
-
-On box7 tcpdump i see no requests coming..
-
-If i try to ping from box7 to box6 i get, on box7
-
-16:21:14.891742 IP6 xxxx:xxxx::7 > xxxx:xxxx::6: ICMP6, echo request, 
-seq 47, length 64
-
-and on box6
-
-14:19:51.765354 IP6 xxxx:xxxx::7 > 2001:4c00::6: ICMP6, echo request, 
-seq 2, length 64
-14:19:51.765366 IP6 xxxx:xxxx::6 > 2001:4c00::7: ICMP6, echo reply, seq 
-2, length 64
-
-but i can see no reply on box7
-
-ip neig , on box 7 reports no entry for box6
-
-xxxx:xxxx::6 dev eth2 lladdr 00:30:48:98:5d:84 DELAY
-
-network interfaces are correct.
-
-or... i can se the echo request on both boxes (when pinging from the 
-box) and no reply (but no "unreachable" either)
-
-I'm pretty confused, as the same boxes work with ipv4 without problems 
-and worked pretty fine with ipv6 too for about one week.
+Code: 41 10 11 d0 83 d0 00 4d 85 ed 89 45 c0 c7 45 c4 08 00 00 00 74 07 41 8b 45 04 89 45 c8 48 8b 43 20 8b 4d b8 48 8d 55 b0 48 89 de <48> 8b 80 d0 04 00 00 48 8b b8 60 01 00 00 e8 20 ae fe ff 65 48
+RIP  [<ffffffff80498503>] tcp_v4_send_ack+0x203/0x250
+ RSP <ffffffff80762b78>
+CR2: 00000000000004d0
 
 
-Any hint?
-Thank you very much,
-ricky
+Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
+
+---
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 1b4fee2..011478e 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -618,7 +618,7 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
+ 			];
+ 	} rep;
+ 	struct ip_reply_arg arg;
+-	struct net *net = dev_net(skb->dev);
++	struct net *net = dev_net(skb->dst->dev);
+ 
+ 	memset(&rep.th, 0, sizeof(struct tcphdr));
+ 	memset(&arg, 0, sizeof(arg));
+
