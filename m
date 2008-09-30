@@ -1,43 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: Fix kernel panic while process protocol
- violation parameter
-Date: Tue, 30 Sep 2008 05:33:31 -0700 (PDT)
-Message-ID: <20080930.053331.193692654.davem@davemloft.net>
-References: <1222377260-11088-1-git-send-email-vladislav.yasevich@hp.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 00/30] Swap over NFS -v18
+Date: Tue, 30 Sep 2008 14:41:16 +0200
+Message-ID: <1222778476.9044.1.camel@twins>
+References: <20080724140042.408642539@chello.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	yjwei@cn.fujitsu.com
-To: vladislav.yasevich@hp.com
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Neil Brown <neilb@suse.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54094
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752788AbYI3Mdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 08:33:43 -0400
-In-Reply-To: <1222377260-11088-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from viefep18-int.chello.at ([213.46.255.22]:9303 "EHLO
+	viefep14-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753289AbYI3Mlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 08:41:31 -0400
+In-Reply-To: <20080724140042.408642539@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Thu, 25 Sep 2008 17:14:20 -0400
+On Thu, 2008-07-24 at 16:00 +0200, Peter Zijlstra wrote:
+> Latest version of the swap over nfs work.
+> 
+> Patches are against: v2.6.26-rc8-mm1
+> 
+> I still need to write some more comments in the reservation code.
+> 
+> Pekka, it uses ksize(), please have a look.
+> 
+> This version also deals with network namespaces.
+> Two things where I could do with some suggestsion:
+> 
+>   - currently the sysctl code uses current->nrproxy.net_ns to obtain
+>     the current network namespace
+> 
+>   - the ipv6 route cache code has some initialization order issues
 
-> From: Wei Yongjun <yjwei@cn.fujitsu.com>
-> 
-> Since call to function sctp_sf_abort_violation() need paramter 'arg' with
-> 'struct sctp_chunk' type, it will read the chunk type and chunk length from
-> the chunk_hdr member of chunk. But call to sctp_sf_violation_paramlen()
-> always with 'struct sctp_paramhdr' type's parameter, it will be passed to
-> sctp_sf_abort_violation(). This may cause kernel panic.
-> 
->    sctp_sf_violation_paramlen()
->      |-- sctp_sf_abort_violation()
->         |-- sctp_make_abort_violation()
-> 
-> This patch fixed this problem. This patch also fix two place which called
-> sctp_sf_violation_paramlen() with wrong paramter type.
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Daniel, have you ever found time to look at my namespace issues?
 
-Applied to net-2.6, thanks.
