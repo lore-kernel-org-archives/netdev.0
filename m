@@ -1,43 +1,40 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/30] Swap over NFS -v18
-Date: Tue, 30 Sep 2008 14:41:16 +0200
-Message-ID: <1222778476.9044.1.camel@twins>
-References: <20080724140042.408642539@chello.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: deadlock during net device unregistration
+Date: Tue, 30 Sep 2008 06:58:52 -0700 (PDT)
+Message-ID: <20080930.065852.116510157.davem@davemloft.net>
+References: <20080930063231.GA4792@ff.dom.local>
+	<48E212FF.1060409@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Neil Brown <neilb@suse.de>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org, dlezcano@fr.ibm.com,
+	dada1@cosmobay.com
+To: benjamin.thery@bull.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:9303 "EHLO
-	viefep14-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753289AbYI3Mlb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 08:41:31 -0400
-In-Reply-To: <20080724140042.408642539@chello.nl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37738
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751838AbYI3N7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 09:59:05 -0400
+In-Reply-To: <48E212FF.1060409@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-07-24 at 16:00 +0200, Peter Zijlstra wrote:
-> Latest version of the swap over nfs work.
-> 
-> Patches are against: v2.6.26-rc8-mm1
-> 
-> I still need to write some more comments in the reservation code.
-> 
-> Pekka, it uses ksize(), please have a look.
-> 
-> This version also deals with network namespaces.
-> Two things where I could do with some suggestsion:
-> 
->   - currently the sysctl code uses current->nrproxy.net_ns to obtain
->     the current network namespace
-> 
->   - the ipv6 route cache code has some initialization order issues
+From: Benjamin Thery <benjamin.thery@bull.net>
+Date: Tue, 30 Sep 2008 13:52:31 +0200
 
-Daniel, have you ever found time to look at my namespace issues?
+> BTW, in the past (last year) dst_gc_task() was run as a timer
+> handler and this situation (deadlock with linkwatch_event())
+> couldn't occur.
 
+September 12th to be exact :-)  That's when Eric Dumazet's
+change went in:
+
+commit 86bba269d08f0c545ae76c90b56727f65d62d57f
+Author: Eric Dumazet <dada1@cosmosbay.com>
+Date:   Wed Sep 12 14:29:01 2007 +0200
+
+    [PATCH] NET : convert IP route cache garbage collection from softirq processing to a workqueue
+
+
+But this change went into 2.6.24, so I wonder why it's taken
+so long to hit this.
