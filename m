@@ -1,144 +1,37 @@
-From: "Denis V. Lunev" <den@parallels.com>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when
-	gc_elasticity is exceeded
-Date: Tue, 30 Sep 2008 18:49:22 +0400
-Message-ID: <1222786162.23573.38.camel@iris.sw.ru>
-References: <20080929191254.GA20074@hmsreliant.think-freely.org>
-	 <1222784232.23573.22.camel@iris.sw.ru>
-	 <20080930143523.GB6496@hmsreliant.think-freely.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net: deadlock during net device unregistration
+Date: Tue, 30 Sep 2008 16:57:10 +0200
+Message-ID: <20080930145710.GB2511@ami.dom.local>
+References: <48E212FF.1060409@bull.net> <20080930144203.GA2511@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, davem@davemloft.net,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:21081 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753691AbYI3OtO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Sep 2008 10:49:14 -0400
-In-Reply-To: <20080930143523.GB6496@hmsreliant.think-freely.org>
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:57475 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751999AbYI3O45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 10:56:57 -0400
+Received: by gxk9 with SMTP id 9so11813584gxk.13
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2008 07:56:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080930144203.GA2511@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-09-30 at 10:35 -0400, Neil Horman wrote:
-> On Tue, Sep 30, 2008 at 06:17:12PM +0400, Denis V. Lunev wrote:
-> > The patch is wrong in respect to
-> >   for_each_net
-> > usage.
-> > 
-> > It should be used under rtnl. It is not held at the moment :(
-> > 
-> Thank you, I'll be sure to take that into consideration when we determine what
-> the proper algorithm to implement here is.
+On Tue, Sep 30, 2008 at 04:42:04PM +0200, Jarek Poplawski wrote:
+> Benjamin Thery wrote, On 09/30/2008 01:52 PM:
+...
+> > I'm still looking at why the first dst_free() on those particular routes 
+> > doesn't call dst_destroy() immediately but defers it (another refcount
+> > on the route itself).
 > 
-> Although, I used the rt_secret_rebuild timer function as my guide here, and it
-> doesn't hold the rtnl lock either, or is that because its running in a softirq
-> context?
-no. There is no lock as there is no iteration over net namespace list.
-Each namespace has its own timer.
+> Yes, finding/fixing this, if possible, in this place looks like the
+> most consistent with the way netdev_wait_allrefs() is handling this.
 
-The simplest approach I see right now is to re-iterate over current dst
-cache chain and mark only those namespaces. This is at least fair as
-only one namespace can be attacked (not entire node).
+Actually, I wonder, why we can't simply run this dst_gc_task() from
+dst_dev_event() (after cancelling the work) when needed.
 
-All locking for this is in place.
-
-Regards,
-	Den
-
-> Neil
-> 
-> > Regards,
-> > 	Den
-> > 
-> > On Mon, 2008-09-29 at 15:12 -0400, Neil Horman wrote:
-> > > Hey all-
-> > > 	We currently have the ability to disable our route cache secret interval
-> > > rebuild timer (by setting it to zero), but if we do that its possible for an
-> > > attacker (if they guess our route cache hash secret, to fill our system with
-> > > routes that all hash to the same bucket, destroying our performance.  This patch
-> > > provides a backstop for that issues.  In the event that our rebuild interval is
-> > > disabled (or very large), if any hash chain exceeds ip_rt_gc_elasticity, we do
-> > > an emergency hash rebuild.  During the hash rebuild we:
-> > > 1) warn the user of the emergency
-> > > 2) disable the rebuild timer
-> > > 3) invalidate the route caches
-> > > 4) re-enable the rebuild timer with its old value
-> > > 
-> > > Regards
-> > > Neil
-> > > 
-> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > > 
-> > > 
-> > >  route.c |   36 +++++++++++++++++++++++++++++++++++-
-> > >  1 file changed, 35 insertions(+), 1 deletion(-)
-> > > 
-> > > 
-> > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > > index 6ee5354..b95e02a 100644
-> > > --- a/net/ipv4/route.c
-> > > +++ b/net/ipv4/route.c
-> > > @@ -145,7 +145,7 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
-> > >  static void		 ipv4_link_failure(struct sk_buff *skb);
-> > >  static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
-> > >  static int rt_garbage_collect(struct dst_ops *ops);
-> > > -
-> > > +static void rt_emergency_hash_rebuild(void);
-> > >  
-> > >  static struct dst_ops ipv4_dst_ops = {
-> > >  	.family =		AF_INET,
-> > > @@ -1056,6 +1056,15 @@ restart:
-> > >  			*candp = cand->u.dst.rt_next;
-> > >  			rt_free(cand);
-> > >  		}
-> > > +	} else if (chain_length > ip_rt_gc_elasticity) {
-> > > +		/*
-> > > +		 * We didn't find a route entry we could safely free,
-> > > +		 * yet our chain length is over our elasticity value.
-> > > +		 * Someone may have guessed our hash secret and is artifically
-> > > +		 * filling up our route cache.  Lets do an emergency rebuild
-> > > +		 * to be safe
-> > > +		 */
-> > > +		rt_emergency_hash_rebuild();
-> > >  	}
-> > >  
-> > >  	/* Try to bind route to arp only if it is output
-> > > @@ -2946,6 +2955,31 @@ static void rt_secret_reschedule(int old)
-> > >  	rtnl_unlock();
-> > >  }
-> > >  
-> > > +static void rt_secret_rebuild_oneshot(void) {
-> > > +	struct net *net;
-> > > +	int old_interval = ip_rt_secret_interval;
-> > > +
-> > > +	ip_rt_secret_interval = 0;
-> > > +
-> > > +	rt_secret_reschedule(old_interval);
-> > > +
-> > > +	for_each_net(net) 
-> > > +		rt_cache_invalidate(net);
-> > > +
-> > > +	ip_rt_secret_interval = old_interval;
-> > > +
-> > > +	rt_secret_reschedule(0);
-> > > +}
-> > > +
-> > > +static void rt_emergency_hash_rebuild(void) {
-> > > +	if (net_ratelimit()) {
-> > > +		printk(KERN_WARNING "Route hash chain too long!\n");
-> > > +		printk(KERN_WARNING "Adjust your secret_interval!\n");
-> > > +	}
-> > > +
-> > > +	rt_secret_rebuild_oneshot();
-> > > +}
-> > > +
-> > >  static int ipv4_sysctl_rt_secret_interval(ctl_table *ctl, int write,
-> > >  					  struct file *filp,
-> > >  					  void __user *buffer, size_t *lenp,
-> > 
-> > 
-> 
-
+Jarek P.
