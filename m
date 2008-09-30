@@ -1,41 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] iucv: Fix mismerge again.
-Date: Tue, 30 Sep 2008 03:06:55 -0700 (PDT)
-Message-ID: <20080930.030655.205785115.davem@davemloft.net>
-References: <20080925110907.GA22433@osiris.boeblingen.de.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: ax25 rose Re: kernel panic linux-2.6.27-rc7
+Date: Tue, 30 Sep 2008 10:10:30 +0000
+Message-ID: <20080930101030.GA6290@ff.dom.local>
+References: <48DF7D51.1010507@free.fr> <20080929123036.GA16954@ff.dom.local> <48E1F417.7080304@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: frank.blaschka@de.ibm.com, braunu@de.ibm.com,
-	peter.oberparleiter@de.ibm.com, schwidefsky@de.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: heiko.carstens@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Ralf Baechle DL5RB <ralf@linux-mips.org>
+To: Bernard Pidoux F6BVP <f6bvp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41563
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752559AbYI3KHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 06:07:07 -0400
-In-Reply-To: <20080925110907.GA22433@osiris.boeblingen.de.ibm.com>
+Received: from mu-out-0910.google.com ([209.85.134.190]:43166 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752532AbYI3KKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2008 06:10:38 -0400
+Received: by mu-out-0910.google.com with SMTP id g7so2103066muf.1
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2008 03:10:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <48E1F417.7080304@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Date: Thu, 25 Sep 2008 13:09:07 +0200
+On Tue, Sep 30, 2008 at 11:40:39AM +0200, Bernard Pidoux F6BVP wrote:
+> Hi Jarek,
+Hi Bernard,
 
-> iucv: Fix mismerge again.
- ...
-> fb65a7c091529bfffb1262515252c0d0f6241c5c ("iucv: Fix bad merging.") fixed
-> a merge error, but in a wrong way. We now end up with the bug below.
-> This patch corrects the mismerge like it was intended.
-> 
-> BUG: scheduling while atomic: swapper/1/0x00000000
- ...
-> initcall netiucv_init+0x0/0x2c8 returned with preemption imbalance
-> 
-> Cc: Peter Oberparleiter <peter.oberparleiter@de.ibm.com>
-> Cc: Ursula Braun <braunu@de.ibm.com>
-> Cc: Frank Blaschka <frank.blaschka@de.ibm.com>
-> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+>
+> Yes this is a vanilla kernel, which makes it interesting to debug.
+> I forgot to Cc: Ralf and put it now on copy of this message.
+> Thank you for the patch I applied.
+> Collected data includes both events I already reported, first the  
+> inconsistent lock state,
 
-Applied to net-2.6, thanks.
+I guess this netconsole is on ne2k_pci/8390 driver?
+
+> second the kernel bug followed by a kernel  
+> panic. The second event only occured after I intentionally started,  
+> after a while, FPAC application using rose protocole .
+
+BTW, the main question: is this second bug something new or happens
+with previous kernels (especially 2.6.26) too?
+
+Thanks,
+Jarek P.
