@@ -1,103 +1,35 @@
-From: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-Subject: [PATCH 6/6] Phonet: pipe end-point protocol documentation
-Date: Wed,  1 Oct 2008 13:13:05 +0300
-Message-ID: <1222855985-22859-6-git-send-email-remi.denis-courmont@nokia.com>
-References: <200810011312.17288.remi.denis-courmont@nokia.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC PATCH v6 16/16] netlabel: Add configuration support for
+ local labeling
+Date: Wed, 1 Oct 2008 20:13:39 +1000 (EST)
+Message-ID: <alpine.LRH.1.10.0810012011050.6732@tundra.namei.org>
+References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125737.17132.50669.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:38253 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753319AbYJAKNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:13:32 -0400
-Received: from esebh107.NOE.Nokia.com (esebh107.ntc.nokia.com [172.21.143.143])
-	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m91ADG2d022099
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 13:13:30 +0300
-In-Reply-To: <200810011312.17288.remi.denis-courmont@nokia.com>
+Received: from tundra.namei.org ([65.99.196.166]:60565 "EHLO tundra.namei.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753573AbYJAKNl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 06:13:41 -0400
+In-Reply-To: <20080916125737.17132.50669.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+On Tue, 16 Sep 2008, Paul Moore wrote:
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- Documentation/networking/phonet.txt |   54 +++++++++++++++++++++++++++=
-++++++++
- 1 files changed, 54 insertions(+), 0 deletions(-)
+> Add the necessary NetLabel support for the new CIPSO mapping,
+> CIPSO_V4_MAP_LOCAL, which allows full LSM label/context support.
 
-diff --git a/Documentation/networking/phonet.txt b/Documentation/networ=
-king/phonet.txt
-index 57d3e59..9c38cdf 100644
---- a/Documentation/networking/phonet.txt
-+++ b/Documentation/networking/phonet.txt
-@@ -112,6 +112,60 @@ However, connect() and getpeername() are not suppo=
-rted, as they did
- not seem useful with Phonet usages (could be added easily).
-=20
-=20
-+Phonet Pipe protocol
-+--------------------
-+
-+The Phonet Pipe protocol is a simple sequenced packets protocol
-+with end-to-end congestion control. It uses the passive listening
-+socket paradigm. The listening socket is bound to an unique free objec=
-t
-+ID. Each listening socket can handle up to 255 simultaneous
-+connections, one per accept()'d socket.
-+
-+  int lfd, cfd;
-+
-+  lfd =3D socket(PF_PHONET, SOCK_SEQPACKET, PN_PROTO_PIPE);
-+  listen (lfd, INT_MAX);
-+
-+  /* ... */
-+  cfd =3D accept(lfd, NULL, NULL);
-+  for (;;)
-+  {
-+    char buf[...];
-+    ssize_t len =3D read(cfd, buf, sizeof(buf));
-+
-+    /* ... */
-+
-+    write(cfd, msg, msglen);
-+  }
-+
-+Connections are established between two endpoints by a "third party"
-+application. This means that both endpoints are passive; so connect()
-+is not possible.
-+
-+WARNING:
-+When polling a connected pipe socket for writability, there is an
-+intrinsic race condition whereby writability might be lost between the
-+polling and the writing system calls. In this case, the socket will
-+block until write because possible again, unless non-blocking mode is
-+enabled.
-+
-+
-+The pipe protocol provides two socket options at the SOL_PNPIPE level:
-+
-+  PNPIPE_ENCAP accepts one integer value (int) of:
-+
-+    PNPIPE_ENCAP_NONE: The socket operates normally (default).
-+
-+    PNPIPE_ENCAP_IP: The socket is used as a backend for a virtual IP
-+      interface. This requires CAP_NET_ADMIN capability. GPRS data
-+      support on Nokia modems can use this. Note that the socket canno=
-t
-+      be reliably poll()'d or read() from while in this mode.
-+
-+  PNPIPE_IFINDEX is a read-only integer value. It contains the
-+    interface index of the network interface created by PNPIPE_ENCAP,
-+    or zero if encapsulation is off.
-+
-+
- Authors
- -------
-=20
---=20
-1.5.4.3
+Now, CIPSO is useful :-)
 
+
+Reviewed-by: James Morris <jmorris@namei.org>
+
+
+
+-- 
+James Morris
+<jmorris@namei.org>
