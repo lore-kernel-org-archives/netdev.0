@@ -1,7 +1,7 @@
 From: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-Subject: [PATCH 3/6] Phonet: Pipe End Point for Phonet Pipes protocol
-Date: Wed,  1 Oct 2008 13:13:02 +0300
-Message-ID: <1222855985-22859-3-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 5/6] Phonet: implement GPRS virtual interface over PEP socket
+Date: Wed,  1 Oct 2008 13:13:04 +0300
+Message-ID: <1222855985-22859-5-git-send-email-remi.denis-courmont@nokia.com>
 References: <200810011312.17288.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -10,224 +10,144 @@ Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:38244 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753159AbYJAKNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:13:31 -0400
+Received: from smtp.nokia.com ([192.100.105.134]:48194 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753293AbYJAKNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:13:32 -0400
 Received: from esebh107.NOE.Nokia.com (esebh107.ntc.nokia.com [172.21.143.143])
-	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m91ADG2Z022099
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 13:13:27 +0300
+	by mgw-mx09.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m91ADEaR017183
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 05:13:30 -0500
 In-Reply-To: <200810011312.17288.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-This protocol provides some connection handling and negotiated
-congestion control. Nokia cellular modems use it for bulk transfers.
-It provides packet boundaries (hence SOCK_SEQPACKET). Congestion
-control is per packet rather per byte, so we do not re-use the
-generic socket memory accounting.
-
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- include/linux/phonet.h   |    4 +-
- include/net/phonet/pep.h |  110 ++++++
- net/phonet/Makefile      |    4 +-
- net/phonet/af_phonet.c   |    3 +
- net/phonet/pep.c         |  904 ++++++++++++++++++++++++++++++++++++++=
+ include/linux/phonet.h    |    8 +
+ include/linux/socket.h    |    1 +
+ include/net/phonet/gprs.h |   38 +++++
+ include/net/phonet/pep.h  |    1 +
+ net/phonet/Makefile       |    2 +-
+ net/phonet/pep-gprs.c     |  341 +++++++++++++++++++++++++++++++++++++=
 ++++++++
- 5 files changed, 1023 insertions(+), 2 deletions(-)
- create mode 100644 net/phonet/pep.c
+ net/phonet/pep.c          |  157 ++++++++++++++++++++--
+ net/phonet/socket.c       |    8 +-
+ 8 files changed, 542 insertions(+), 14 deletions(-)
+ create mode 100644 include/net/phonet/gprs.h
+ create mode 100644 net/phonet/pep-gprs.c
 
 diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-index 3a027f5..f921852 100644
+index f921852..c9609f9 100644
 --- a/include/linux/phonet.h
 +++ b/include/linux/phonet.h
-@@ -27,7 +27,9 @@
- #define PN_PROTO_TRANSPORT	0
- /* Phonet datagram socket */
- #define PN_PROTO_PHONET		1
--#define PHONET_NPROTO		2
-+/* Phonet pipe */
-+#define PN_PROTO_PIPE		2
-+#define PHONET_NPROTO		3
+@@ -31,9 +31,17 @@
+ #define PN_PROTO_PIPE		2
+ #define PHONET_NPROTO		3
 =20
++/* Socket options for SOL_PNPIPE level */
++#define PNPIPE_ENCAP		1
++#define PNPIPE_IFINDEX		2
++
  #define PNADDR_ANY		0
  #define PNPORT_RESOURCE_ROUTING	0
+=20
++/* Values for PNPIPE_ENCAP option */
++#define PNPIPE_ENCAP_NONE	0
++#define PNPIPE_ENCAP_IP		1
++
+ /* ioctls */
+ #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
+=20
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 818ca33..20fc4bb 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -297,6 +297,7 @@ struct ucred {
+ #define SOL_RXRPC	272
+ #define SOL_PPPOL2TP	273
+ #define SOL_BLUETOOTH	274
++#define SOL_PNPIPE	275
+=20
+ /* IPX options */
+ #define IPX_TYPE	1
+diff --git a/include/net/phonet/gprs.h b/include/net/phonet/gprs.h
+new file mode 100644
+index 0000000..928daf5
+--- /dev/null
++++ b/include/net/phonet/gprs.h
+@@ -0,0 +1,38 @@
++/*
++ * File: pep_gprs.h
++ *
++ * GPRS over Phonet pipe end point socket
++ *
++ * Copyright (C) 2008 Nokia Corporation.
++ *
++ * Author: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
++ * 02110-1301 USA
++ */
++
++#ifndef NET_PHONET_GPRS_H
++#define NET_PHONET_GPRS_H
++
++struct sock;
++struct sk_buff;
++
++int pep_writeable(struct sock *sk);
++int pep_write(struct sock *sk, struct sk_buff *skb);
++struct sk_buff *pep_read(struct sock *sk);
++
++int gprs_attach(struct sock *sk);
++void gprs_detach(struct sock *sk);
++
++#endif
 diff --git a/include/net/phonet/pep.h b/include/net/phonet/pep.h
-index b2f8c54..6b89d12 100644
+index b06852b..a202adc 100644
 --- a/include/net/phonet/pep.h
 +++ b/include/net/phonet/pep.h
-@@ -26,11 +26,21 @@
- struct pep_sock {
- 	struct pn_sock		pn_sk;
+@@ -35,6 +35,7 @@ struct pep_sock {
+ 	struct sock		*listener;
+ 	struct sk_buff_head	ctrlreq_queue;
+ #define PNPIPE_CTRLREQ_MAX	10
++	int			ifindex;
+ 	u16			peer_type;	/* peer type/subtype */
+ 	u8			pipe_handle;
 =20
-+	/* XXX: union-ify listening/connect stuff ? */
- 	/* Listening socket stuff: */
- 	struct hlist_head	ackq;
-+	struct hlist_head	hlist;
-=20
- 	/* Connected socket stuff: */
-+	struct sock		*listener;
-+	u16			peer_type;	/* peer type/subtype */
-+	u8			pipe_handle;
-+
-+	u8			rx_credits;
- 	u8			tx_credits;
-+	unsigned		rx_fc:2;	/* RX flow control */
-+	unsigned		tx_fc:2;	/* TX flow control */
-+	unsigned		init_enable:1;	/* auto-enable at creation */
- };
-=20
- static inline struct pep_sock *pep_sk(struct sock *sk)
-@@ -40,4 +50,104 @@ static inline struct pep_sock *pep_sk(struct sock *=
-sk)
-=20
- extern const struct proto_ops phonet_stream_ops;
-=20
-+/* Pipe protocol definitions */
-+struct pnpipehdr {
-+	u8			utid; /* transaction ID */
-+	u8			message_id;
-+	u8			pipe_handle;
-+	u8			data[1];
-+};
-+#define state_after_connect	data[0]
-+#define other_pep_type		data[1]
-+#define state_after_reset	data[0]
-+
-+static inline struct pnpipehdr *pnp_hdr(struct sk_buff *skb)
-+{
-+	return (struct pnpipehdr *)skb_transport_header(skb);
-+}
-+
-+#define MAX_PNPIPE_HEADER (MAX_PHONET_HEADER + 4)
-+
-+enum {
-+	PNS_PIPE_DATA =3D 0x20,
-+
-+	PNS_PEP_CONNECT_REQ =3D 0x40,
-+	PNS_PEP_CONNECT_RESP,
-+	PNS_PEP_DISCONNECT_REQ,
-+	PNS_PEP_DISCONNECT_RESP,
-+	PNS_PEP_RESET_REQ,
-+	PNS_PEP_RESET_RESP,
-+	PNS_PEP_ENABLE_REQ,
-+	PNS_PEP_ENABLE_RESP,
-+	PNS_PEP_CTRL_REQ,
-+	PNS_PEP_CTRL_RESP,
-+	PNS_PEP_DISABLE_REQ =3D 0x4C,
-+	PNS_PEP_DISABLE_RESP,
-+
-+	PNS_PEP_STATUS_IND =3D 0x60,
-+	PNS_PIPE_CREATED_IND,
-+	PNS_PIPE_RESET_IND =3D 0x63,
-+	PNS_PIPE_ENABLED_IND,
-+	PNS_PIPE_REDIRECTED_IND,
-+	PNS_PIPE_DISABLED_IND =3D 0x66,
-+};
-+
-+#define PN_PIPE_INVALID_HANDLE	0xff
-+#define PN_PEP_TYPE_COMMON	0x00
-+
-+/* Phonet pipe status indication */
-+enum {
-+	PN_PEP_IND_FLOW_CONTROL,
-+	PN_PEP_IND_ID_MCFC_GRANT_CREDITS,
-+};
-+
-+/* Phonet pipe error codes */
-+enum {
-+	PN_PIPE_NO_ERROR,
-+	PN_PIPE_ERR_INVALID_PARAM,
-+	PN_PIPE_ERR_INVALID_HANDLE,
-+	PN_PIPE_ERR_INVALID_CTRL_ID,
-+	PN_PIPE_ERR_NOT_ALLOWED,
-+	PN_PIPE_ERR_PEP_IN_USE,
-+	PN_PIPE_ERR_OVERLOAD,
-+	PN_PIPE_ERR_DEV_DISCONNECTED,
-+	PN_PIPE_ERR_TIMEOUT,
-+	PN_PIPE_ERR_ALL_PIPES_IN_USE,
-+	PN_PIPE_ERR_GENERAL,
-+	PN_PIPE_ERR_NOT_SUPPORTED,
-+};
-+
-+/* Phonet pipe states */
-+enum {
-+	PN_PIPE_DISABLE,
-+	PN_PIPE_ENABLE,
-+};
-+
-+/* Phonet pipe sub-block types */
-+enum {
-+	PN_PIPE_SB_CREATE_REQ_PEP_SUB_TYPE,
-+	PN_PIPE_SB_CONNECT_REQ_PEP_SUB_TYPE,
-+	PN_PIPE_SB_REDIRECT_REQ_PEP_SUB_TYPE,
-+	PN_PIPE_SB_NEGOTIATED_FC,
-+	PN_PIPE_SB_REQUIRED_FC_TX,
-+	PN_PIPE_SB_PREFERRED_FC_RX,
-+};
-+
-+/* Phonet pipe flow control models */
-+enum {
-+	PN_NO_FLOW_CONTROL,
-+	PN_LEGACY_FLOW_CONTROL,
-+	PN_ONE_CREDIT_FLOW_CONTROL,
-+	PN_MULTI_CREDIT_FLOW_CONTROL,
-+};
-+
-+#define pn_flow_safe(fc) ((fc) >> 1)
-+
-+/* Phonet pipe flow control states */
-+enum {
-+	PEP_IND_EMPTY,
-+	PEP_IND_BUSY,
-+	PEP_IND_READY,
-+};
-+
- #endif
 diff --git a/net/phonet/Makefile b/net/phonet/Makefile
-index ae9c3ed..505df2a 100644
+index 505df2a..d62bbba 100644
 --- a/net/phonet/Makefile
 +++ b/net/phonet/Makefile
-@@ -1,4 +1,4 @@
--obj-$(CONFIG_PHONET) +=3D phonet.o
-+obj-$(CONFIG_PHONET) +=3D phonet.o pn_pep.o
-=20
- phonet-objs :=3D \
- 	pn_dev.o \
-@@ -7,3 +7,5 @@ phonet-objs :=3D \
- 	datagram.o \
+@@ -8,4 +8,4 @@ phonet-objs :=3D \
  	sysctl.o \
  	af_phonet.o
-+
-+pn_pep-objs :=3D pep.o
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index 06627d3..126dd73 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -58,6 +58,9 @@ static int pn_socket_create(struct net *net, struct s=
-ocket *sock, int protocol)
- 		case SOCK_DGRAM:
- 			protocol =3D PN_PROTO_PHONET;
- 			break;
-+		case SOCK_SEQPACKET:
-+			protocol =3D PN_PROTO_PIPE;
-+			break;
- 		default:
- 			return -EPROTONOSUPPORT;
- 		}
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+=20
+-pn_pep-objs :=3D pep.o
++pn_pep-objs :=3D pep.o pep-gprs.o
+diff --git a/net/phonet/pep-gprs.c b/net/phonet/pep-gprs.c
 new file mode 100644
-index 0000000..0c1f19f
+index 0000000..3341346
 --- /dev/null
-+++ b/net/phonet/pep.c
-@@ -0,0 +1,904 @@
++++ b/net/phonet/pep-gprs.c
+@@ -0,0 +1,341 @@
 +/*
-+ * File: pep.c
++ * File: pep-gprs.c
 + *
-+ * Phonet pipe protocol end point socket
++ * GPRS over Phonet pipe end point socket
 + *
 + * Copyright (C) 2008 Nokia Corporation.
 + *
@@ -249,894 +169,561 @@ index 0000000..0c1f19f
 + */
 +
 +#include <linux/kernel.h>
-+#include <linux/socket.h>
++#include <linux/netdevice.h>
++#include <linux/if_ether.h>
++#include <linux/if_arp.h>
 +#include <net/sock.h>
++
++#include <linux/if_phonet.h>
 +#include <net/tcp_states.h>
-+#include <asm/ioctls.h>
++#include <net/phonet/gprs.h>
 +
-+#include <linux/phonet.h>
-+#include <net/phonet/phonet.h>
-+#include <net/phonet/pep.h>
++#define GPRS_DEFAULT_MTU 1400
 +
-+/* sk_state values:
-+ * TCP_CLOSE		sock not in use yet
-+ * TCP_CLOSE_WAIT	disconnected pipe
-+ * TCP_LISTEN		listening pipe endpoint
-+ * TCP_SYN_RECV		connected pipe in disabled state
-+ * TCP_ESTABLISHED	connected pipe in enabled state
-+ *
-+ * pep_sock locking:
-+ *  - sk_state, ackq, hlist: sock lock needed
-+ *  - listener: read only
-+ *  - pipe_handle: read only
-+ */
++struct gprs_dev {
++	struct sock		*sk;
++	void			(*old_state_change)(struct sock *);
++	void			(*old_data_ready)(struct sock *, int);
++	void			(*old_write_space)(struct sock *);
 +
-+#define CREDITS_MAX	10
-+#define CREDITS_THR	7
++	struct net_device	*net;
++	struct net_device_stats	stats;
 +
-+static const struct sockaddr_pn pipe_srv =3D {
-+	.spn_family =3D AF_PHONET,
-+	.spn_resource =3D 0xD9, /* pipe service */
++	struct sk_buff_head	tx_queue;
++	struct work_struct	tx_work;
++	spinlock_t		tx_lock;
++	unsigned		tx_max;
 +};
 +
-+#define pep_sb_size(s) (((s) + 5) & ~3) /* 2-bytes head, 32-bits align=
-ed */
++/*
++ * Socket callbacks
++ */
 +
-+/* Get the next TLV sub-block. */
-+static unsigned char *pep_get_sb(struct sk_buff *skb, u8 *ptype, u8 *p=
-len,
-+					void *buf)
++static void gprs_state_change(struct sock *sk)
 +{
-+	void *data =3D NULL;
-+	struct {
-+		u8 sb_type;
-+		u8 sb_len;
-+	} *ph, h;
-+	int buflen =3D *plen;
++	struct gprs_dev *dev =3D sk->sk_user_data;
 +
-+	ph =3D skb_header_pointer(skb, 0, 2, &h);
-+	if (ph =3D=3D NULL || ph->sb_len < 2 || !pskb_may_pull(skb, ph->sb_le=
-n))
-+		return NULL;
-+	ph->sb_len -=3D 2;
-+	*ptype =3D ph->sb_type;
-+	*plen =3D ph->sb_len;
-+
-+	if (buflen > ph->sb_len)
-+		buflen =3D ph->sb_len;
-+	data =3D skb_header_pointer(skb, 2, buflen, buf);
-+	__skb_pull(skb, 2 + ph->sb_len);
-+	return data;
-+}
-+
-+static int pep_reply(struct sock *sk, struct sk_buff *oskb,
-+			u8 code, const void *data, int len, gfp_t priority)
-+{
-+	const struct pnpipehdr *oph =3D pnp_hdr(oskb);
-+	struct pnpipehdr *ph;
-+	struct sk_buff *skb;
-+
-+	skb =3D alloc_skb(MAX_PNPIPE_HEADER + len, priority);
-+	if (!skb)
-+		return -ENOMEM;
-+	skb_set_owner_w(skb, sk);
-+
-+	skb_reserve(skb, MAX_PNPIPE_HEADER);
-+	__skb_put(skb, len);
-+	skb_copy_to_linear_data(skb, data, len);
-+	ph =3D (void *)__skb_push(skb, sizeof(*ph));
-+	ph->utid =3D oph->utid;
-+	ph->message_id =3D oph->message_id + 1; /* REQ -> RESP */
-+	ph->pipe_handle =3D oph->pipe_handle;
-+	ph->data[0] =3D code;	/* error code */
-+
-+	return pn_skb_send(sk, skb, &pipe_srv);
-+}
-+
-+#define PAD 0x00
-+static int pep_accept_conn(struct sock *sk, struct sk_buff *skb)
-+{
-+	static const u8 data[20] =3D {
-+		PAD, PAD, PAD, 2 /* sub-blocks */,
-+		PN_PIPE_SB_REQUIRED_FC_TX, pep_sb_size(5), 3, PAD,
-+			PN_MULTI_CREDIT_FLOW_CONTROL,
-+			PN_ONE_CREDIT_FLOW_CONTROL,
-+			PN_LEGACY_FLOW_CONTROL,
-+			PAD,
-+		PN_PIPE_SB_PREFERRED_FC_RX, pep_sb_size(5), 3, PAD,
-+			PN_MULTI_CREDIT_FLOW_CONTROL,
-+			PN_ONE_CREDIT_FLOW_CONTROL,
-+			PN_LEGACY_FLOW_CONTROL,
-+			PAD,
-+	};
-+
-+	might_sleep();
-+	return pep_reply(sk, skb, PN_PIPE_NO_ERROR, data, sizeof(data),
-+				GFP_KERNEL);
-+}
-+
-+static int pep_reject_conn(struct sock *sk, struct sk_buff *skb, u8 co=
-de)
-+{
-+	static const u8 data[4] =3D { PAD, PAD, PAD, 0 /* sub-blocks */ };
-+	WARN_ON(code =3D=3D PN_PIPE_NO_ERROR);
-+	return pep_reply(sk, skb, code, data, sizeof(data), GFP_ATOMIC);
-+}
-+
-+/* Control requests are not sent by the pipe service and have a specif=
-ic
-+ * message format. */
-+static int pep_ctrlreq_error(struct sock *sk, struct sk_buff *oskb, u8=
- code)
-+{
-+	const struct pnpipehdr *oph =3D pnp_hdr(oskb);
-+	struct sk_buff *skb;
-+	struct pnpipehdr *ph;
-+	struct sockaddr_pn dst;
-+
-+	skb =3D alloc_skb(MAX_PNPIPE_HEADER + 4, GFP_ATOMIC);
-+	if (!skb)
-+		return -ENOMEM;
-+	skb_set_owner_w(skb, sk);
-+
-+	skb_reserve(skb, MAX_PHONET_HEADER);
-+	ph =3D (struct pnpipehdr *)skb_put(skb, sizeof(*ph) + 4);
-+
-+	ph->utid =3D oph->utid;
-+	ph->message_id =3D PNS_PEP_CTRL_RESP;
-+	ph->pipe_handle =3D oph->pipe_handle;
-+	ph->data[0] =3D oph->data[1]; /* CTRL id */
-+	ph->data[1] =3D oph->data[0]; /* PEP type */
-+	ph->data[2] =3D code; /* error code, at an usual offset */
-+	ph->data[3] =3D PAD;
-+	ph->data[4] =3D PAD;
-+
-+	pn_skb_get_src_sockaddr(oskb, &dst);
-+	return pn_skb_send(sk, skb, &dst);
-+}
-+
-+static int pipe_snd_status(struct sock *sk, u8 type, u8 status, gfp_t =
-priority)
-+{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+	struct pnpipehdr *ph;
-+	struct sk_buff *skb;
-+
-+	skb =3D alloc_skb(MAX_PNPIPE_HEADER + 4, priority);
-+	if (!skb)
-+		return -ENOMEM;
-+	skb_set_owner_w(skb, sk);
-+
-+	skb_reserve(skb, MAX_PNPIPE_HEADER + 4);
-+	ph =3D (void *)__skb_push(skb, sizeof(*ph) + 4);
-+	ph->utid =3D 0;
-+	ph->message_id =3D PNS_PEP_STATUS_IND;
-+	ph->pipe_handle =3D pn->pipe_handle;
-+	ph->data[0] =3D PN_PEP_TYPE_COMMON;
-+	ph->data[1] =3D type;
-+	ph->data[2] =3D PAD;
-+	ph->data[3] =3D PAD;
-+	ph->data[4] =3D status;
-+
-+	return pn_skb_send(sk, skb, &pipe_srv);
-+}
-+
-+/* Send our RX flow control information to the sender.
-+ * Socket must be locked. */
-+static void pipe_grant_credits(struct sock *sk)
-+{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+
-+	BUG_ON(sk->sk_state !=3D TCP_ESTABLISHED);
-+
-+	switch (pn->rx_fc) {
-+	case PN_LEGACY_FLOW_CONTROL: /* TODO */
-+		break;
-+	case PN_ONE_CREDIT_FLOW_CONTROL:
-+		pipe_snd_status(sk, PN_PEP_IND_FLOW_CONTROL,
-+				PEP_IND_READY, GFP_ATOMIC);
-+		pn->rx_credits =3D 1;
-+		break;
-+	case PN_MULTI_CREDIT_FLOW_CONTROL:
-+		if ((pn->rx_credits + CREDITS_THR) > CREDITS_MAX)
-+			break;
-+		if (pipe_snd_status(sk, PN_PEP_IND_ID_MCFC_GRANT_CREDITS,
-+					CREDITS_MAX - pn->rx_credits,
-+					GFP_ATOMIC) =3D=3D 0)
-+			pn->rx_credits =3D CREDITS_MAX;
-+		break;
++	if (sk->sk_state =3D=3D TCP_CLOSE_WAIT) {
++		netif_stop_queue(dev->net);
++		netif_carrier_off(dev->net);
 +	}
 +}
 +
-+static int pipe_rcv_status(struct sock *sk, struct sk_buff *skb)
++static int gprs_recv(struct gprs_dev *dev, struct sk_buff *skb)
 +{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+	struct pnpipehdr *hdr =3D pnp_hdr(skb);
-+
-+	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
-+		return -EINVAL;
-+
-+	if (hdr->data[0] !=3D PN_PEP_TYPE_COMMON) {
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG"Phonet unknown PEP type: %u\n",
-+				(unsigned)hdr->data[0]);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	switch (hdr->data[1]) {
-+	case PN_PEP_IND_FLOW_CONTROL:
-+		switch (pn->tx_fc) {
-+		case PN_LEGACY_FLOW_CONTROL:
-+			switch (hdr->data[4]) {
-+			case PEP_IND_BUSY:
-+				pn->tx_credits =3D 0;
-+				break;
-+			case PEP_IND_READY:
-+				pn->tx_credits =3D 1;
-+				break;
-+			}
-+			break;
-+		case PN_ONE_CREDIT_FLOW_CONTROL:
-+			if (hdr->data[4] =3D=3D PEP_IND_READY)
-+				pn->tx_credits =3D 1;
-+			break;
-+		}
-+		break;
-+
-+	case PN_PEP_IND_ID_MCFC_GRANT_CREDITS:
-+		if (pn->tx_fc !=3D PN_MULTI_CREDIT_FLOW_CONTROL)
-+			break;
-+		if (pn->tx_credits + hdr->data[4] > 0xff)
-+			pn->tx_credits =3D 0xff;
-+		else
-+			pn->tx_credits +=3D hdr->data[4];
-+		break;
-+
-+	default:
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG"Phonet unknown PEP indication: %u\n",
-+				(unsigned)hdr->data[1]);
-+		return -EOPNOTSUPP;
-+	}
-+	if (pn->tx_credits)
-+		sk->sk_write_space(sk);
-+	return 0;
-+}
-+
-+static int pipe_rcv_created(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+	struct pnpipehdr *hdr =3D pnp_hdr(skb);
-+	u8 n_sb =3D hdr->data[0];
-+
-+	pn->rx_fc =3D pn->tx_fc =3D PN_LEGACY_FLOW_CONTROL;
-+	__skb_pull(skb, sizeof(*hdr));
-+	while (n_sb > 0) {
-+		u8 type, buf[2], len =3D sizeof(buf);
-+		u8 *data =3D pep_get_sb(skb, &type, &len, buf);
-+
-+		if (data =3D=3D NULL)
-+			return -EINVAL;
-+		switch (type) {
-+		case PN_PIPE_SB_NEGOTIATED_FC:
-+			if (len < 2 || (data[0] | data[1]) > 3)
-+				break;
-+			pn->tx_fc =3D data[0] & 3;
-+			pn->rx_fc =3D data[1] & 3;
-+			break;
-+		}
-+		n_sb--;
-+	}
-+	return 0;
-+}
-+
-+/* Queue an skb to a connected sock.
-+ * Socket lock must be held. */
-+static int pipe_do_rcv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+	struct pnpipehdr *hdr =3D pnp_hdr(skb);
 +	int err =3D 0;
++	u16 protocol;
 +
-+	BUG_ON(sk->sk_state =3D=3D TCP_CLOSE_WAIT);
++	if (!pskb_may_pull(skb, 1))
++		goto drop;
 +
-+	switch (hdr->message_id) {
-+	case PNS_PEP_CONNECT_REQ:
-+		pep_reject_conn(sk, skb, PN_PIPE_ERR_PEP_IN_USE);
++	/* Look at IP version field */
++	switch (skb->data[0] >> 4) {
++	case 4:
++		protocol =3D htons(ETH_P_IP);
 +		break;
-+
-+	case PNS_PEP_DISCONNECT_REQ:
-+		pep_reply(sk, skb, PN_PIPE_NO_ERROR, NULL, 0, GFP_ATOMIC);
-+		sk->sk_state =3D TCP_CLOSE_WAIT;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_state_change(sk);
++	case 6:
++		protocol =3D htons(ETH_P_IPV6);
 +		break;
-+
-+	case PNS_PEP_ENABLE_REQ:
-+		/* Wait for PNS_PIPE_(ENABLED|REDIRECTED)_IND */
-+		pep_reply(sk, skb, PN_PIPE_NO_ERROR, NULL, 0, GFP_ATOMIC);
-+		break;
-+
-+	case PNS_PEP_RESET_REQ:
-+		switch (hdr->state_after_reset) {
-+		case PN_PIPE_DISABLE:
-+			pn->init_enable =3D 0;
-+			break;
-+		case PN_PIPE_ENABLE:
-+			pn->init_enable =3D 1;
-+			break;
-+		default: /* not allowed to send an error here!? */
-+			err =3D -EINVAL;
-+			goto out;
-+		}
-+		/* fall through */
-+	case PNS_PEP_DISABLE_REQ:
-+		pn->tx_credits =3D 0;
-+		pep_reply(sk, skb, PN_PIPE_NO_ERROR, NULL, 0, GFP_ATOMIC);
-+		break;
-+
-+	case PNS_PEP_CTRL_REQ:
-+		/* TODO */
-+		pep_ctrlreq_error(sk, skb, PN_PIPE_NO_ERROR);
-+		break;
-+
-+	case PNS_PIPE_DATA:
-+		__skb_pull(skb, 3); /* Pipe data header */
-+		if (!pn_flow_safe(pn->rx_fc)) {
-+			err =3D sock_queue_rcv_skb(sk, skb);
-+			if (!err)
-+				return 0;
-+			break;
-+		}
-+
-+		if (pn->rx_credits =3D=3D 0) {
-+			err =3D -ENOBUFS;
-+			break;
-+		}
-+		pn->rx_credits--;
-+		skb->dev =3D NULL;
-+		skb_set_owner_r(skb, sk);
-+		err =3D skb->len;
-+		skb_queue_tail(&sk->sk_receive_queue, skb);
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_data_ready(sk, err);
-+		return 0;
-+
-+	case PNS_PEP_STATUS_IND:
-+		pipe_rcv_status(sk, skb);
-+		break;
-+
-+	case PNS_PIPE_REDIRECTED_IND:
-+		err =3D pipe_rcv_created(sk, skb);
-+		break;
-+
-+	case PNS_PIPE_CREATED_IND:
-+		err =3D pipe_rcv_created(sk, skb);
-+		if (err)
-+			break;
-+		/* fall through */
-+	case PNS_PIPE_RESET_IND:
-+		if (!pn->init_enable)
-+			break;
-+		/* fall through */
-+	case PNS_PIPE_ENABLED_IND:
-+		if (!pn_flow_safe(pn->tx_fc)) {
-+			pn->tx_credits =3D 1;
-+			sk->sk_write_space(sk);
-+		}
-+		if (sk->sk_state =3D=3D TCP_ESTABLISHED)
-+			break; /* Nothing to do */
-+		sk->sk_state =3D TCP_ESTABLISHED;
-+		pipe_grant_credits(sk);
-+		break;
-+
-+	case PNS_PIPE_DISABLED_IND:
-+		sk->sk_state =3D TCP_SYN_RECV;
-+		pn->rx_credits =3D 0;
-+		break;
-+
 +	default:
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG"Phonet unknown PEP message: %u\n",
-+				hdr->message_id);
 +		err =3D -EINVAL;
++		goto drop;
 +	}
-+out:
-+	kfree_skb(skb);
++
++	if (likely(skb_headroom(skb) & 3)) {
++		struct sk_buff *rskb, *fs;
++		int flen =3D 0;
++
++		/* Phonet Pipe data header is misaligned (3 bytes),
++		 * so wrap the IP packet as a single fragment of an head-less
++		 * socket buffer. The network stack will pull what it needs,
++		 * but at least, the whole IP payload is not memcpy'd. */
++		rskb =3D netdev_alloc_skb(dev->net, 0);
++		if (!rskb) {
++			err =3D -ENOBUFS;
++			goto drop;
++		}
++		skb_shinfo(rskb)->frag_list =3D skb;
++		rskb->len +=3D skb->len;
++		rskb->data_len +=3D rskb->len;
++		rskb->truesize +=3D rskb->len;
++
++		/* Avoid nested fragments */
++		for (fs =3D skb_shinfo(skb)->frag_list; fs; fs =3D fs->next)
++			flen +=3D fs->len;
++		skb->next =3D skb_shinfo(skb)->frag_list;
++		skb_shinfo(skb)->frag_list =3D NULL;
++		skb->len -=3D flen;
++		skb->data_len -=3D flen;
++		skb->truesize -=3D flen;
++
++		skb =3D rskb;
++	}
++
++	skb->protocol =3D protocol;
++	skb_reset_mac_header(skb);
++	skb->dev =3D dev->net;
++
++	if (likely(dev->net->flags & IFF_UP)) {
++		dev->stats.rx_packets++;
++		dev->stats.rx_bytes +=3D skb->len;
++		netif_rx(skb);
++		skb =3D NULL;
++	} else
++		err =3D -ENODEV;
++
++drop:
++	if (skb) {
++		dev_kfree_skb(skb);
++		dev->stats.rx_dropped++;
++	}
 +	return err;
 +}
 +
-+/* Destroy connected sock. */
-+static void pipe_destruct(struct sock *sk)
++static void gprs_data_ready(struct sock *sk, int len)
 +{
-+	skb_queue_purge(&sk->sk_receive_queue);
++	struct gprs_dev *dev =3D sk->sk_user_data;
++	struct sk_buff *skb;
++
++	while ((skb =3D pep_read(sk)) !=3D NULL) {
++		skb_orphan(skb);
++		gprs_recv(dev, skb);
++	}
 +}
 +
-+static int pep_connreq_rcv(struct sock *sk, struct sk_buff *skb)
++static void gprs_write_space(struct sock *sk)
 +{
-+	struct sock *newsk;
-+	struct pep_sock *newpn, *pn =3D pep_sk(sk);
-+	struct pnpipehdr *hdr;
-+	struct sockaddr_pn dst;
-+	u16 peer_type;
-+	u8 pipe_handle, enabled, n_sb;
++	struct gprs_dev *dev =3D sk->sk_user_data;
++	unsigned credits =3D pep_writeable(sk);
 +
-+	if (!pskb_pull(skb, sizeof(*hdr) + 4))
-+		return -EINVAL;
-+
-+	hdr =3D pnp_hdr(skb);
-+	pipe_handle =3D hdr->pipe_handle;
-+	switch (hdr->state_after_connect) {
-+	case PN_PIPE_DISABLE:
-+		enabled =3D 0;
-+		break;
-+	case PN_PIPE_ENABLE:
-+		enabled =3D 1;
-+		break;
-+	default:
-+		pep_reject_conn(sk, skb, PN_PIPE_ERR_INVALID_PARAM);
-+		return -EINVAL;
-+	}
-+	peer_type =3D hdr->other_pep_type << 8;
-+
-+	if (unlikely(sk->sk_state !=3D TCP_LISTEN) || sk_acceptq_is_full(sk))=
- {
-+		pep_reject_conn(sk, skb, PN_PIPE_ERR_PEP_IN_USE);
-+		return -ENOBUFS;
-+	}
-+
-+	/* Parse sub-blocks (options) */
-+	n_sb =3D hdr->data[4];
-+	while (n_sb > 0) {
-+		u8 type, buf[1], len =3D sizeof(buf);
-+		const u8 *data =3D pep_get_sb(skb, &type, &len, buf);
-+
-+		if (data =3D=3D NULL)
-+			return -EINVAL;
-+		switch (type) {
-+		case PN_PIPE_SB_CONNECT_REQ_PEP_SUB_TYPE:
-+			if (len < 1)
-+				return -EINVAL;
-+			peer_type =3D (peer_type & 0xff00) | data[0];
-+			break;
-+		}
-+		n_sb--;
-+	}
-+
-+	skb =3D skb_clone(skb, GFP_ATOMIC);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	/* Create a new to-be-accepted sock */
-+	newsk =3D sk_alloc(sock_net(sk), PF_PHONET, GFP_ATOMIC, sk->sk_prot);
-+	if (!newsk) {
-+		kfree_skb(skb);
-+		return -ENOMEM;
-+	}
-+	sock_init_data(NULL, newsk);
-+	newsk->sk_state =3D TCP_SYN_RECV;
-+	newsk->sk_backlog_rcv =3D pipe_do_rcv;
-+	newsk->sk_protocol =3D sk->sk_protocol;
-+	newsk->sk_destruct =3D pipe_destruct;
-+
-+	newpn =3D pep_sk(newsk);
-+	pn_skb_get_dst_sockaddr(skb, &dst);
-+	newpn->pn_sk.sobject =3D pn_sockaddr_get_object(&dst);
-+	newpn->pn_sk.resource =3D pn->pn_sk.resource;
-+	newpn->pipe_handle =3D pipe_handle;
-+	newpn->peer_type =3D peer_type;
-+	newpn->rx_credits =3D newpn->tx_credits =3D 0;
-+	newpn->rx_fc =3D newpn->tx_fc =3D PN_LEGACY_FLOW_CONTROL;
-+	newpn->init_enable =3D enabled;
-+
-+	BUG_ON(!skb_queue_empty(&newsk->sk_receive_queue));
-+	skb_queue_head(&newsk->sk_receive_queue, skb);
-+	if (!sock_flag(sk, SOCK_DEAD))
-+		sk->sk_data_ready(sk, 0);
-+
-+	sk_acceptq_added(sk);
-+	sk_add_node(newsk, &pn->ackq);
-+	return 0;
-+}
-+
-+static struct sock *pep_find_pipe(const struct hlist_head *hlist,
-+					const struct sockaddr_pn *dst,
-+					u8 pipe_handle)
-+{
-+	struct hlist_node *node;
-+	struct sock *sknode;
-+	u16 dobj =3D pn_sockaddr_get_object(dst);
-+
-+	sk_for_each(sknode, node, hlist) {
-+		struct pep_sock *pnnode =3D pep_sk(sknode);
-+
-+		/* Ports match, but addresses might not: */
-+		if (pnnode->pn_sk.sobject !=3D dobj)
-+			continue;
-+		if (pnnode->pipe_handle !=3D pipe_handle)
-+			continue;
-+		if (sknode->sk_state =3D=3D TCP_CLOSE_WAIT)
-+			continue;
-+
-+		sock_hold(sknode);
-+		return sknode;
-+	}
-+	return NULL;
++	spin_lock_bh(&dev->tx_lock);
++	dev->tx_max =3D credits;
++	if (credits > skb_queue_len(&dev->tx_queue))
++		netif_wake_queue(dev->net);
++	spin_unlock_bh(&dev->tx_lock);
 +}
 +
 +/*
-+ * Deliver an skb to a listening sock.
-+ * Socket lock must be held.
-+ * We then queue the skb to the right connected sock (if any).
++ * Network device callbacks
 + */
-+static int pep_do_rcv(struct sock *sk, struct sk_buff *skb)
++
++static int gprs_xmit(struct sk_buff *skb, struct net_device *net)
 +{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+	struct sock *sknode;
-+	struct pnpipehdr *hdr =3D pnp_hdr(skb);
-+	struct sockaddr_pn dst;
-+	int err =3D NET_RX_SUCCESS;
-+	u8 pipe_handle;
++	struct gprs_dev *dev =3D netdev_priv(net);
 +
-+	if (!pskb_may_pull(skb, sizeof(*hdr)))
-+		goto drop;
-+
-+	hdr =3D pnp_hdr(skb);
-+	pipe_handle =3D hdr->pipe_handle;
-+	if (pipe_handle =3D=3D PN_PIPE_INVALID_HANDLE)
-+		goto drop;
-+
-+	pn_skb_get_dst_sockaddr(skb, &dst);
-+
-+	/* Look for an existing pipe handle */
-+	sknode =3D pep_find_pipe(&pn->hlist, &dst, pipe_handle);
-+	if (sknode)
-+		return sk_receive_skb(sknode, skb, 1);
-+
-+	/* Look for a pipe handle pending accept */
-+	sknode =3D pep_find_pipe(&pn->ackq, &dst, pipe_handle);
-+	if (sknode) {
-+		sock_put(sknode);
-+		if (net_ratelimit())
-+			printk(KERN_WARNING"Phonet unconnected PEP ignored");
-+		err =3D NET_RX_DROP;
-+		goto drop;
-+	}
-+
-+	switch (hdr->message_id) {
-+	case PNS_PEP_CONNECT_REQ:
-+		err =3D pep_connreq_rcv(sk, skb);
++	switch (skb->protocol) {
++	case  htons(ETH_P_IP):
++	case  htons(ETH_P_IPV6):
 +		break;
-+
-+	case PNS_PEP_DISCONNECT_REQ:
-+		pep_reply(sk, skb, PN_PIPE_NO_ERROR, NULL, 0, GFP_ATOMIC);
-+		break;
-+
-+	case PNS_PEP_CTRL_REQ:
-+		pep_ctrlreq_error(sk, skb, PN_PIPE_INVALID_HANDLE);
-+		break;
-+
-+	case PNS_PEP_RESET_REQ:
-+	case PNS_PEP_ENABLE_REQ:
-+	case PNS_PEP_DISABLE_REQ:
-+		/* invalid handle is not even allowed here! */
 +	default:
-+		err =3D NET_RX_DROP;
++		dev_kfree_skb(skb);
++		return 0;
 +	}
-+drop:
-+	kfree_skb(skb);
++
++	spin_lock(&dev->tx_lock);
++	if (likely(skb_queue_len(&dev->tx_queue) < dev->tx_max)) {
++		skb_queue_tail(&dev->tx_queue, skb);
++		skb =3D NULL;
++	}
++	if (skb_queue_len(&dev->tx_queue) >=3D dev->tx_max)
++		netif_stop_queue(net);
++	spin_unlock(&dev->tx_lock);
++
++	schedule_work(&dev->tx_work);
++	if (unlikely(skb))
++		dev_kfree_skb(skb);
++	return 0;
++}
++
++static void gprs_tx(struct work_struct *work)
++{
++	struct gprs_dev *dev =3D container_of(work, struct gprs_dev, tx_work)=
+;
++	struct sock *sk =3D dev->sk;
++	struct sk_buff *skb;
++
++	while ((skb =3D skb_dequeue(&dev->tx_queue)) !=3D NULL) {
++		int err;
++
++		dev->stats.tx_bytes +=3D skb->len;
++		dev->stats.tx_packets++;
++
++		skb_orphan(skb);
++		skb_set_owner_w(skb, sk);
++
++		lock_sock(sk);
++		err =3D pep_write(sk, skb);
++		if (err) {
++			if (net_ratelimit())
++				printk(KERN_WARNING"%s: TX error (%d)\n",
++					dev->net->name, err);
++			dev->stats.tx_aborted_errors++;
++			dev->stats.tx_errors++;
++		}
++		release_sock(sk);
++	}
++
++	lock_sock(sk);
++	gprs_write_space(sk);
++	release_sock(sk);
++}
++
++static int gprs_set_mtu(struct net_device *net, int new_mtu)
++{
++	if ((new_mtu < 576) || (new_mtu > (PHONET_MAX_MTU - 11)))
++		return -EINVAL;
++
++	net->mtu =3D new_mtu;
++	return 0;
++}
++
++static struct net_device_stats *gprs_get_stats(struct net_device *net)
++{
++	struct gprs_dev *dev =3D netdev_priv(net);
++
++	return &dev->stats;
++}
++
++static void gprs_setup(struct net_device *net)
++{
++	net->features		=3D NETIF_F_FRAGLIST;
++	net->type		=3D ARPHRD_NONE;
++	net->flags		=3D IFF_POINTOPOINT | IFF_NOARP;
++	net->mtu		=3D GPRS_DEFAULT_MTU;
++	net->hard_header_len	=3D 0;
++	net->addr_len		=3D 0;
++	net->tx_queue_len	=3D 10;
++
++	net->destructor		=3D free_netdev;
++	net->hard_start_xmit	=3D gprs_xmit; /* mandatory */
++	net->change_mtu		=3D gprs_set_mtu;
++	net->get_stats		=3D gprs_get_stats;
++}
++
++/*
++ * External interface
++ */
++
++/*
++ * Attach a GPRS interface to a datagram socket.
++ * Returns the interface index on success, negative error code on erro=
+r.
++ */
++int gprs_attach(struct sock *sk)
++{
++	static const char ifname[] =3D "gprs%d";
++	struct gprs_dev *dev;
++	struct net_device *net;
++	int err;
++
++	if (unlikely(sk->sk_type =3D=3D SOCK_STREAM))
++		return -EINVAL; /* need packet boundaries */
++
++	/* Create net device */
++	net =3D alloc_netdev(sizeof(*dev), ifname, gprs_setup);
++	if (!net)
++		return -ENOMEM;
++	dev =3D netdev_priv(net);
++	dev->net =3D net;
++	dev->tx_max =3D 0;
++	spin_lock_init(&dev->tx_lock);
++	skb_queue_head_init(&dev->tx_queue);
++	INIT_WORK(&dev->tx_work, gprs_tx);
++
++	netif_stop_queue(net);
++	err =3D register_netdev(net);
++	if (err) {
++		free_netdev(net);
++		return err;
++	}
++
++	lock_sock(sk);
++	if (unlikely(sk->sk_user_data)) {
++		err =3D -EBUSY;
++		goto out_rel;
++	}
++	if (unlikely((1 << sk->sk_state & (TCPF_CLOSE|TCPF_LISTEN)) ||
++			sock_flag(sk, SOCK_DEAD))) {
++		err =3D -EINVAL;
++		goto out_rel;
++	}
++	sk->sk_user_data	=3D dev;
++	dev->old_state_change	=3D sk->sk_state_change;
++	dev->old_data_ready	=3D sk->sk_data_ready;
++	dev->old_write_space	=3D sk->sk_write_space;
++	sk->sk_state_change	=3D gprs_state_change;
++	sk->sk_data_ready	=3D gprs_data_ready;
++	sk->sk_write_space	=3D gprs_write_space;
++	release_sock(sk);
++
++	sock_hold(sk);
++	dev->sk =3D sk;
++
++	printk(KERN_DEBUG"%s: attached\n", net->name);
++	gprs_write_space(sk); /* kick off TX */
++	return net->ifindex;
++
++out_rel:
++	release_sock(sk);
++	unregister_netdev(net);
 +	return err;
 +}
 +
-+/* associated socket ceases to exist */
-+static void pep_sock_close(struct sock *sk, long timeout)
++void gprs_detach(struct sock *sk)
 +{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+
-+	sk_common_release(sk);
++	struct gprs_dev *dev =3D sk->sk_user_data;
++	struct net_device *net =3D dev->net;
 +
 +	lock_sock(sk);
-+	if (sk->sk_state =3D=3D TCP_LISTEN) {
-+		/* Destroy the listen queue */
-+		struct sock *sknode;
-+		struct hlist_node *p, *n;
-+
-+		sk_for_each_safe(sknode, p, n, &pn->ackq)
-+			sk_del_node_init(sknode);
-+		sk->sk_state =3D TCP_CLOSE;
-+	}
++	sk->sk_user_data	=3D NULL;
++	sk->sk_state_change	=3D dev->old_state_change;
++	sk->sk_data_ready	=3D dev->old_data_ready;
++	sk->sk_write_space	=3D dev->old_write_space;
 +	release_sock(sk);
++
++	printk(KERN_DEBUG"%s: detached\n", net->name);
++	unregister_netdev(net);
++	flush_scheduled_work();
++	sock_put(sk);
++	skb_queue_purge(&dev->tx_queue);
 +}
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index 9a2ed45..f0c212f 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -31,6 +31,7 @@
+ #include <linux/phonet.h>
+ #include <net/phonet/phonet.h>
+ #include <net/phonet/pep.h>
++#include <net/phonet/gprs.h>
+=20
+ /* sk_state values:
+  * TCP_CLOSE		sock not in use yet
+@@ -610,6 +611,7 @@ drop:
+ static void pep_sock_close(struct sock *sk, long timeout)
+ {
+ 	struct pep_sock *pn =3D pep_sk(sk);
++	int ifindex =3D 0;
+=20
+ 	sk_common_release(sk);
+=20
+@@ -623,7 +625,12 @@ static void pep_sock_close(struct sock *sk, long t=
+imeout)
+ 			sk_del_node_init(sknode);
+ 		sk->sk_state =3D TCP_CLOSE;
+ 	}
++	ifindex =3D pn->ifindex;
++	pn->ifindex =3D 0;
+ 	release_sock(sk);
 +
-+static int pep_wait_connreq(struct sock *sk, int noblock)
++	if (ifindex)
++		gprs_detach(sk);
+ }
+=20
+ static int pep_wait_connreq(struct sock *sk, int noblock)
+@@ -728,12 +735,105 @@ static int pep_init(struct sock *sk)
+ 	return 0;
+ }
+=20
++static int pep_setsockopt(struct sock *sk, int level, int optname,
++				char __user *optval, int optlen)
 +{
-+	struct task_struct *tsk =3D current;
 +	struct pep_sock *pn =3D pep_sk(sk);
-+	long timeo =3D sock_rcvtimeo(sk, noblock);
++	int val =3D 0, err =3D 0;
 +
-+	for (;;) {
-+		DEFINE_WAIT(wait);
++	if (level !=3D SOL_PNPIPE)
++		return -ENOPROTOOPT;
++	if (optlen >=3D sizeof(int)) {
++		if (get_user(val, (int __user *) optval))
++			return -EFAULT;
++	}
 +
-+		if (sk->sk_state !=3D TCP_LISTEN)
-+			return -EINVAL;
-+		if (!hlist_empty(&pn->ackq))
++	lock_sock(sk);
++	switch (optname) {
++	case PNPIPE_ENCAP:
++		if (val && val !=3D PNPIPE_ENCAP_IP) {
++			err =3D -EINVAL;
 +			break;
-+		if (!timeo)
-+			return -EWOULDBLOCK;
-+		if (signal_pending(tsk))
-+			return sock_intr_errno(timeo);
-+
-+		prepare_to_wait_exclusive(&sk->sk_socket->wait, &wait,
-+						TASK_INTERRUPTIBLE);
-+		release_sock(sk);
-+		timeo =3D schedule_timeout(timeo);
-+		lock_sock(sk);
-+		finish_wait(&sk->sk_socket->wait, &wait);
++		}
++		if (!pn->ifindex =3D=3D !val)
++			break; /* Nothing to do! */
++		if (!capable(CAP_NET_ADMIN)) {
++			err =3D -EPERM;
++			break;
++		}
++		if (val) {
++			release_sock(sk);
++			err =3D gprs_attach(sk);
++			if (err > 0) {
++				pn->ifindex =3D err;
++				err =3D 0;
++			}
++		} else {
++			pn->ifindex =3D 0;
++			release_sock(sk);
++			gprs_detach(sk);
++			err =3D 0;
++		}
++		goto out_norel;
++	default:
++		err =3D -ENOPROTOOPT;
 +	}
-+
-+	return 0;
-+}
-+
-+static struct sock *pep_sock_accept(struct sock *sk, int flags, int *e=
-rrp)
-+{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+	struct sock *newsk =3D NULL;
-+	struct sk_buff *oskb;
-+	int err;
-+
-+	lock_sock(sk);
-+	err =3D pep_wait_connreq(sk, flags & O_NONBLOCK);
-+	if (err)
-+		goto out;
-+
-+	newsk =3D __sk_head(&pn->ackq);
-+
-+	oskb =3D skb_dequeue(&newsk->sk_receive_queue);
-+	err =3D pep_accept_conn(newsk, oskb);
-+	if (err) {
-+		skb_queue_head(&newsk->sk_receive_queue, oskb);
-+		newsk =3D NULL;
-+		goto out;
-+	}
-+
-+	sock_hold(sk);
-+	pep_sk(newsk)->listener =3D sk;
-+
-+	sock_hold(newsk);
-+	sk_del_node_init(newsk);
-+	sk_acceptq_removed(sk);
-+	sk_add_node(newsk, &pn->hlist);
-+	__sock_put(newsk);
-+
-+out:
 +	release_sock(sk);
-+	*errp =3D err;
-+	return newsk;
++
++out_norel:
++	return err;
 +}
 +
-+static int pep_ioctl(struct sock *sk, int cmd, unsigned long arg)
-+{
-+	int answ;
-+
-+	switch (cmd) {
-+	case SIOCINQ:
-+		if (sk->sk_state =3D=3D TCP_LISTEN)
-+			return -EINVAL;
-+
-+		lock_sock(sk);
-+		if (!skb_queue_empty(&sk->sk_receive_queue))
-+			answ =3D skb_peek(&sk->sk_receive_queue)->len;
-+		else
-+			answ =3D 0;
-+		release_sock(sk);
-+		return put_user(answ, (int __user *)arg);
-+	}
-+
-+	return -ENOIOCTLCMD;
-+}
-+
-+static int pep_init(struct sock *sk)
++static int pep_getsockopt(struct sock *sk, int level, int optname,
++				char __user *optval, int __user *optlen)
 +{
 +	struct pep_sock *pn =3D pep_sk(sk);
++	int len, val;
 +
-+	INIT_HLIST_HEAD(&pn->ackq);
-+	INIT_HLIST_HEAD(&pn->hlist);
-+	pn->pipe_handle =3D PN_PIPE_INVALID_HANDLE;
++	if (level !=3D SOL_PNPIPE)
++		return -ENOPROTOOPT;
++	if (get_user(len, optlen))
++		return -EFAULT;
++
++	switch (optname) {
++	case PNPIPE_ENCAP:
++		val =3D pn->ifindex ? PNPIPE_ENCAP_IP : PNPIPE_ENCAP_NONE;
++		break;
++	case PNPIPE_IFINDEX:
++		val =3D pn->ifindex;
++		break;
++	default:
++		return -ENOPROTOOPT;
++	}
++
++	len =3D min_t(unsigned int, sizeof(int), len);
++	if (put_user(len, optlen))
++		return -EFAULT;
++	if (put_user(val, (int __user *) optval))
++		return -EFAULT;
 +	return 0;
 +}
 +
-+static int pep_sendmsg(struct kiocb *iocb, struct sock *sk,
-+			struct msghdr *msg, size_t len)
++static int pipe_skb_send(struct sock *sk, struct sk_buff *skb)
 +{
 +	struct pep_sock *pn =3D pep_sk(sk);
-+	struct sk_buff *skb =3D NULL;
 +	struct pnpipehdr *ph;
-+	long timeo;
-+	int flags =3D msg->msg_flags;
-+	int err, done;
-+
-+	if (msg->msg_flags & MSG_OOB || !(msg->msg_flags & MSG_EOR))
-+		return -EOPNOTSUPP;
-+
-+	lock_sock(sk);
-+	timeo =3D sock_sndtimeo(sk, flags & MSG_DONTWAIT);
-+	if ((1 << sk->sk_state) & (TCPF_LISTEN|TCPF_CLOSE)) {
-+		err =3D -ENOTCONN;
-+		goto out;
-+	}
-+	if (sk->sk_state !=3D TCP_ESTABLISHED) {
-+		/* Wait until the pipe gets to enabled state */
-+disabled:
-+		err =3D sk_stream_wait_connect(sk, &timeo);
-+		if (err)
-+			goto out;
-+
-+		if (sk->sk_state =3D=3D TCP_CLOSE_WAIT) {
-+			err =3D -ECONNRESET;
-+			goto out;
-+		}
-+	}
-+	BUG_ON(sk->sk_state !=3D TCP_ESTABLISHED);
-+
-+	/* Wait until flow control allows TX */
-+	done =3D pn->tx_credits > 0;
-+	while (!done) {
-+		DEFINE_WAIT(wait);
-+
-+		if (!timeo) {
-+			err =3D -EAGAIN;
-+			goto out;
-+		}
-+		if (signal_pending(current)) {
-+			err =3D sock_intr_errno(timeo);
-+			goto out;
-+		}
-+
-+		prepare_to_wait(&sk->sk_socket->wait, &wait,
-+				TASK_INTERRUPTIBLE);
-+		done =3D sk_wait_event(sk, &timeo, pn->tx_credits > 0);
-+		finish_wait(&sk->sk_socket->wait, &wait);
-+
-+		if (sk->sk_state !=3D TCP_ESTABLISHED)
-+			goto disabled;
-+	}
-+
-+	if (!skb) {
-+		skb =3D sock_alloc_send_skb(sk, MAX_PNPIPE_HEADER + len,
-+						flags & MSG_DONTWAIT, &err);
-+		if (skb =3D=3D NULL)
-+			goto out;
-+		skb_reserve(skb, MAX_PHONET_HEADER + 3);
-+
-+		if (sk->sk_state !=3D TCP_ESTABLISHED || !pn->tx_credits)
-+			goto disabled; /* sock_alloc_send_skb might sleep */
-+	}
-+
-+	err =3D memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	if (err < 0)
-+		goto out;
 +
 +	ph =3D (struct pnpipehdr *)skb_push(skb, 3);
 +	ph->utid =3D 0;
 +	ph->message_id =3D PNS_PIPE_DATA;
 +	ph->pipe_handle =3D pn->pipe_handle;
-+	if (pn_flow_safe(pn->tx_fc)) /* credit-based flow control */
++	if (pn_flow_safe(pn->tx_fc) && pn->tx_credits)
 +		pn->tx_credits--;
 +
-+	err =3D pn_skb_send(sk, skb, &pipe_srv);
-+	if (err >=3D 0)
-+		err =3D len; /* success! */
-+	skb =3D NULL;
-+out:
-+	release_sock(sk);
-+	if (skb)
-+		kfree_skb(skb);
-+	return err;
++	return pn_skb_send(sk, skb, &pipe_srv);
 +}
 +
-+static int pep_recvmsg(struct kiocb *iocb, struct sock *sk,
-+			struct msghdr *msg, size_t len, int noblock,
-+			int flags, int *addr_len)
+ static int pep_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 			struct msghdr *msg, size_t len)
+ {
+ 	struct pep_sock *pn =3D pep_sk(sk);
+ 	struct sk_buff *skb =3D NULL;
+-	struct pnpipehdr *ph;
+ 	long timeo;
+ 	int flags =3D msg->msg_flags;
+ 	int err, done;
+@@ -799,14 +899,7 @@ disabled:
+ 	if (err < 0)
+ 		goto out;
+=20
+-	ph =3D (struct pnpipehdr *)skb_push(skb, 3);
+-	ph->utid =3D 0;
+-	ph->message_id =3D PNS_PIPE_DATA;
+-	ph->pipe_handle =3D pn->pipe_handle;
+-	if (pn_flow_safe(pn->tx_fc)) /* credit-based flow control */
+-		pn->tx_credits--;
+-
+-	err =3D pn_skb_send(sk, skb, &pipe_srv);
++	err =3D pipe_skb_send(sk, skb);
+ 	if (err >=3D 0)
+ 		err =3D len; /* success! */
+ 	skb =3D NULL;
+@@ -817,6 +910,50 @@ out:
+ 	return err;
+ }
+=20
++int pep_writeable(struct sock *sk)
 +{
-+	struct sk_buff *skb;
-+	int err;
++	struct pep_sock *pn =3D pep_sk(sk);
 +
-+	if (unlikely(flags & MSG_OOB))
-+		return -EOPNOTSUPP;
-+	if (unlikely(1 << sk->sk_state & (TCPF_LISTEN | TCPF_CLOSE)))
-+		return -ENOTCONN;
++	return (sk->sk_state =3D=3D TCP_ESTABLISHED) ? pn->tx_credits : 0;
++}
 +
-+	skb =3D skb_recv_datagram(sk, flags, noblock, &err);
-+	lock_sock(sk);
-+	if (skb =3D=3D NULL) {
-+		if (err =3D=3D -ENOTCONN && sk->sk_state =3D=3D TCP_CLOSE_WAIT)
-+			err =3D -ECONNRESET;
-+		release_sock(sk);
-+		return err;
++int pep_write(struct sock *sk, struct sk_buff *skb)
++{
++	struct sk_buff *rskb, *fs;
++	int flen =3D 0;
++
++	rskb =3D alloc_skb(MAX_PNPIPE_HEADER, GFP_ATOMIC);
++	if (!rskb) {
++		kfree_skb(skb);
++		return -ENOMEM;
 +	}
++	skb_shinfo(rskb)->frag_list =3D skb;
++	rskb->len +=3D skb->len;
++	rskb->data_len +=3D rskb->len;
++	rskb->truesize +=3D rskb->len;
++
++	/* Avoid nested fragments */
++	for (fs =3D skb_shinfo(skb)->frag_list; fs; fs =3D fs->next)
++		flen +=3D fs->len;
++	skb->next =3D skb_shinfo(skb)->frag_list;
++	skb_shinfo(skb)->frag_list =3D NULL;
++	skb->len -=3D flen;
++	skb->data_len -=3D flen;
++	skb->truesize -=3D flen;
++
++	skb_reserve(rskb, MAX_PHONET_HEADER + 3);
++	return pipe_skb_send(sk, rskb);
++}
++
++struct sk_buff *pep_read(struct sock *sk)
++{
++	struct sk_buff *skb =3D skb_dequeue(&sk->sk_receive_queue);
 +
 +	if (sk->sk_state =3D=3D TCP_ESTABLISHED)
 +		pipe_grant_credits(sk);
-+	release_sock(sk);
-+
-+	msg->msg_flags |=3D MSG_EOR;
-+
-+	if (skb->len > len)
-+		msg->msg_flags |=3D MSG_TRUNC;
-+	else
-+		len =3D skb->len;
-+
-+	err =3D skb_copy_datagram_iovec(skb, 0, msg->msg_iov, len);
-+	if (!err)
-+		err =3D (flags & MSG_TRUNC) ? skb->len : len;
-+
-+	skb_free_datagram(sk, skb);
-+	return err;
++	return skb;
 +}
 +
-+static void pep_sock_unhash(struct sock *sk)
-+{
-+	struct pep_sock *pn =3D pep_sk(sk);
-+	struct sock *skparent =3D NULL;
-+
-+	lock_sock(sk);
-+	if ((1 << sk->sk_state) & ~(TCPF_CLOSE|TCPF_LISTEN)) {
-+		skparent =3D pn->listener;
-+		sk_del_node_init(sk);
-+		release_sock(sk);
-+
-+		sk =3D skparent;
-+		pn =3D pep_sk(skparent);
-+		lock_sock(sk);
-+	}
-+	/* Unhash a listening sock only when it is closed
-+	 * and all of its active connected pipes are closed. */
-+	if (hlist_empty(&pn->hlist))
-+		pn_sock_unhash(&pn->pn_sk.sk);
-+	release_sock(sk);
-+
-+	if (skparent)
-+		sock_put(skparent);
-+}
-+
-+static struct proto pep_proto =3D {
-+	.close		=3D pep_sock_close,
-+	.accept		=3D pep_sock_accept,
-+	.ioctl		=3D pep_ioctl,
-+	.init		=3D pep_init,
-+	.sendmsg	=3D pep_sendmsg,
-+	.recvmsg	=3D pep_recvmsg,
-+	.backlog_rcv	=3D pep_do_rcv,
-+	.hash		=3D pn_sock_hash,
-+	.unhash		=3D pep_sock_unhash,
-+	.get_port	=3D pn_sock_get_port,
-+	.obj_size	=3D sizeof(struct pep_sock),
-+	.owner		=3D THIS_MODULE,
-+	.name		=3D "PNPIPE",
-+};
-+
-+static struct phonet_protocol pep_pn_proto =3D {
-+	.ops		=3D &phonet_stream_ops,
-+	.prot		=3D &pep_proto,
-+	.sock_type	=3D SOCK_SEQPACKET,
-+};
-+
-+static int __init pep_register(void)
-+{
-+	return phonet_proto_register(PN_PROTO_PIPE, &pep_pn_proto);
-+}
-+
-+static void __exit pep_unregister(void)
-+{
-+	phonet_proto_unregister(PN_PROTO_PIPE, &pep_pn_proto);
-+}
-+
-+module_init(pep_register);
-+module_exit(pep_unregister);
-+MODULE_AUTHOR("Remi Denis-Courmont, Nokia");
-+MODULE_DESCRIPTION("Phonet pipe protocol");
-+MODULE_LICENSE("GPL");
+ static int pep_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 			struct msghdr *msg, size_t len, int noblock,
+ 			int flags, int *addr_len)
+@@ -899,6 +1036,8 @@ static struct proto pep_proto =3D {
+ 	.accept		=3D pep_sock_accept,
+ 	.ioctl		=3D pep_ioctl,
+ 	.init		=3D pep_init,
++	.setsockopt	=3D pep_setsockopt,
++	.getsockopt	=3D pep_getsockopt,
+ 	.sendmsg	=3D pep_sendmsg,
+ 	.recvmsg	=3D pep_recvmsg,
+ 	.backlog_rcv	=3D pep_do_rcv,
+diff --git a/net/phonet/socket.c b/net/phonet/socket.c
+index a9c3d1f..d817401 100644
+--- a/net/phonet/socket.c
++++ b/net/phonet/socket.c
+@@ -342,11 +342,11 @@ const struct proto_ops phonet_stream_ops =3D {
+ 	.ioctl		=3D pn_socket_ioctl,
+ 	.listen		=3D pn_socket_listen,
+ 	.shutdown	=3D sock_no_shutdown,
+-	.setsockopt	=3D sock_no_setsockopt,
+-	.getsockopt	=3D sock_no_getsockopt,
++	.setsockopt	=3D sock_common_setsockopt,
++	.getsockopt	=3D sock_common_getsockopt,
+ #ifdef CONFIG_COMPAT
+-	.compat_setsockopt =3D sock_no_setsockopt,
+-	.compat_getsockopt =3D compat_sock_no_getsockopt,
++	.compat_setsockopt =3D compat_sock_common_setsockopt,
++	.compat_getsockopt =3D compat_sock_common_getsockopt,
+ #endif
+ 	.sendmsg	=3D pn_socket_sendmsg,
+ 	.recvmsg	=3D sock_common_recvmsg,
 --=20
 1.5.4.3
 
