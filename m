@@ -1,44 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: deadlock during net device unregistration
-Date: Wed, 01 Oct 2008 02:59:35 -0700 (PDT)
-Message-ID: <20081001.025935.257260146.davem@davemloft.net>
-References: <20080930144203.GA2511@ami.dom.local>
-	<20080930145710.GB2511@ami.dom.local>
-	<48E24341.5050609@bull.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC PATCH v6 12/16] selinux: Set socket NetLabel based on
+ connection endpoint
+Date: Wed, 1 Oct 2008 20:00:25 +1000 (EST)
+Message-ID: <alpine.LRH.1.10.0810011958380.6732@tundra.namei.org>
+References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125709.17132.47022.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org, dlezcano@fr.ibm.com
-To: benjamin.thery@bull.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46145
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751682AbYJAJ7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:59:47 -0400
-In-Reply-To: <48E24341.5050609@bull.net>
+Received: from tundra.namei.org ([65.99.196.166]:42251 "EHLO tundra.namei.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751767AbYJAKA1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 06:00:27 -0400
+In-Reply-To: <20080916125709.17132.47022.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Thery <benjamin.thery@bull.net>
-Date: Tue, 30 Sep 2008 17:18:25 +0200
+On Tue, 16 Sep 2008, Paul Moore wrote:
 
-> Jarek Poplawski wrote:
-> > On Tue, Sep 30, 2008 at 04:42:04PM +0200, Jarek Poplawski wrote:
-> >> Benjamin Thery wrote, On 09/30/2008 01:52 PM:
-> > ...
-> >>> I'm still looking at why the first dst_free() on those particular routes doesn't call dst_destroy() immediately but defers it (another refcount
-> >>> on the route itself).
-> >> Yes, finding/fixing this, if possible, in this place looks like the
-> >> most consistent with the way netdev_wait_allrefs() is handling this.
-> > Actually, I wonder, why we can't simply run this dst_gc_task() from
-> > dst_dev_event() (after cancelling the work) when needed.
-> > 
-> 
-> Um... I haven't thought about this. I'll have a look to see if it can
-> solve our issue.
+>  /**
+> + * cipso_v4_sock_delattr - Delete the CIPSO option from a socket
+> + * @sk: the socket
+> + *
+> + * Description:
+> + * Removes the CIPSO option from a socket, if present.
+> + *
+> + */
+> +void cipso_v4_sock_delattr(struct sock *sk)
 
-Let me know what happens, I'd like to apply some fix soon.
-So just report the patch implementing the final approach you
-feel the most comfortable with.
+Reviewed-by: James Morris <jmorris@namei.org>
 
-Thanks.
+
+Btw, what kind of testing has this patch had?
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
