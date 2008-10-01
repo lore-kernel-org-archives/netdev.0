@@ -1,43 +1,37 @@
 From: "Rami Rosen" <roszenrami@gmail.com>
-Subject: [PATCH 1/2] ipv4: add mc_count to in_device.
-Date: Wed, 1 Oct 2008 10:04:48 +0300
-Message-ID: <b25312890810010004p15e85df1u69125c7fa47ae01f@mail.gmail.com>
+Subject: Re: [PATCH 2/2] ipv6: add mc_count to inet6_dev
+Date: Wed, 1 Oct 2008 10:09:07 +0300
+Message-ID: <b25312890810010009p73ebdfci88608455a3075c18@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_25413_25183016.1222844688826"
+	boundary="----=_Part_25445_5568742.1222844947942"
 Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
 	"Pekka Savola" <pekkas@netcore.fi>
 To: davem@davemloft.net, "David Stevens" <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.237]:9087 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbYJAHEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 03:04:49 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so440199rvb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2008 00:04:48 -0700 (PDT)
+Received: from wf-out-1314.google.com ([209.85.200.171]:3159 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751551AbYJAHJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 03:09:08 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so432873wfd.4
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2008 00:09:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_25413_25183016.1222844688826
+------=_Part_25445_5568742.1222844947942
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
 Hi,
-This patch add mc_count to struct in_device and
-updates increment/decrement/initilaize of this field in IPv4 and in IPv6.
-
-- Also printing the vfs /proc entry (/proc/net/igmp) is adjusted to
-use the new mc_count.
-
+  This patch adds mc_count to struct inet6_dev
+and updates increment/decrement/initilaize of this field.
 
 Regards,
 Rami Rosen
 
 
 Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
-
 
 On Wed, Oct 1, 2008 at 9:57 AM, Rami Rosen <roszenrami@gmail.com> wrote:
 > Hi,
@@ -88,49 +82,33 @@ On Wed, Oct 1, 2008 at 9:57 AM, Rami Rosen <roszenrami@gmail.com> wrote:
 >>
 >
 
-------=_Part_25413_25183016.1222844688826
-Content-Type: text/plain; name=patch1.txt
+------=_Part_25445_5568742.1222844947942
+Content-Type: text/plain; name=patch2.txt
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_flrm5b2e0
-Content-Disposition: attachment; filename=patch1.txt
+X-Attachment-Id: f_flrm9nw50
+Content-Disposition: attachment; filename=patch2.txt
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaW5ldGRldmljZS5oIGIvaW5jbHVkZS9saW51eC9p
-bmV0ZGV2aWNlLmgKaW5kZXggYzZmNTFhZC4uMDZmY2RiNCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9s
-aW51eC9pbmV0ZGV2aWNlLmgKKysrIGIvaW5jbHVkZS9saW51eC9pbmV0ZGV2aWNlLmgKQEAgLTI1
-LDYgKzI1LDcgQEAgc3RydWN0IGluX2RldmljZQogCXN0cnVjdCBpbl9pZmFkZHIJKmlmYV9saXN0
-OwkvKiBJUCBpZmFkZHIgY2hhaW4JCSovCiAJcndsb2NrX3QJCW1jX2xpc3RfbG9jazsKIAlzdHJ1
-Y3QgaXBfbWNfbGlzdAkqbWNfbGlzdDsJLyogSVAgbXVsdGljYXN0IGZpbHRlciBjaGFpbiAgICAq
-LworCWludAkJCW1jX2NvdW50OwkgICAgICAgICAgLyogTnVtYmVyIG9mIGluc3RhbGxlZCBtY2Fz
-dHMJKi8KIAlzcGlubG9ja190CQltY190b21iX2xvY2s7CiAJc3RydWN0IGlwX21jX2xpc3QJKm1j
-X3RvbWI7CiAJdW5zaWduZWQgbG9uZwkJbXJfdjFfc2VlbjsKZGlmZiAtLWdpdCBhL25ldC9pcHY0
-L2lnbXAuYyBiL25ldC9pcHY0L2lnbXAuYwppbmRleCBmNzBmYWM2Li43ZjllMzM3IDEwMDY0NAot
-LS0gYS9uZXQvaXB2NC9pZ21wLmMKKysrIGIvbmV0L2lwdjQvaWdtcC5jCkBAIC0xMjM0LDYgKzEy
-MzQsNyBAQCB2b2lkIGlwX21jX2luY19ncm91cChzdHJ1Y3QgaW5fZGV2aWNlICppbl9kZXYsIF9f
-YmUzMiBhZGRyKQogCXdyaXRlX2xvY2tfYmgoJmluX2Rldi0+bWNfbGlzdF9sb2NrKTsKIAlpbS0+
-bmV4dD1pbl9kZXYtPm1jX2xpc3Q7CiAJaW5fZGV2LT5tY19saXN0PWltOworCWluX2Rldi0+bWNf
-Y291bnQrKzsKIAl3cml0ZV91bmxvY2tfYmgoJmluX2Rldi0+bWNfbGlzdF9sb2NrKTsKICNpZmRl
-ZiBDT05GSUdfSVBfTVVMVElDQVNUCiAJaWdtcHYzX2RlbF9kZWxyZWMoaW5fZGV2LCBpbS0+bXVs
-dGlhZGRyKTsKQEAgLTEyODIsNiArMTI4Myw3IEBAIHZvaWQgaXBfbWNfZGVjX2dyb3VwKHN0cnVj
-dCBpbl9kZXZpY2UgKmluX2RldiwgX19iZTMyIGFkZHIpCiAJCQlpZiAoLS1pLT51c2VycyA9PSAw
-KSB7CiAJCQkJd3JpdGVfbG9ja19iaCgmaW5fZGV2LT5tY19saXN0X2xvY2spOwogCQkJCSppcCA9
-IGktPm5leHQ7CisJCQkJaW5fZGV2LT5tY19jb3VudC0tOwogCQkJCXdyaXRlX3VubG9ja19iaCgm
-aW5fZGV2LT5tY19saXN0X2xvY2spOwogCQkJCWlnbXBfZ3JvdXBfZHJvcHBlZChpKTsKIApAQCAt
-MTMzMCw2ICsxMzMyLDcgQEAgdm9pZCBpcF9tY19pbml0X2RldihzdHJ1Y3QgaW5fZGV2aWNlICpp
-bl9kZXYpCiAJc2V0dXBfdGltZXIoJmluX2Rldi0+bXJfZ3FfdGltZXIsIGlnbXBfZ3FfdGltZXJf
-ZXhwaXJlLAogCQkJKHVuc2lnbmVkIGxvbmcpaW5fZGV2KTsKIAlpbl9kZXYtPm1yX2lmY19jb3Vu
-dCA9IDA7CisJaW5fZGV2LT5tY19jb3VudCAgICAgPSAwOwogCXNldHVwX3RpbWVyKCZpbl9kZXYt
-Pm1yX2lmY190aW1lciwgaWdtcF9pZmNfdGltZXJfZXhwaXJlLAogCQkJKHVuc2lnbmVkIGxvbmcp
-aW5fZGV2KTsKIAlpbl9kZXYtPm1yX3FydiA9IElHTVBfVW5zb2xpY2l0ZWRfUmVwb3J0X0NvdW50
-OwpAQCAtMTM2OSw4ICsxMzcyLDggQEAgdm9pZCBpcF9tY19kZXN0cm95X2RldihzdHJ1Y3QgaW5f
-ZGV2aWNlICppbl9kZXYpCiAJd3JpdGVfbG9ja19iaCgmaW5fZGV2LT5tY19saXN0X2xvY2spOwog
-CXdoaWxlICgoaSA9IGluX2Rldi0+bWNfbGlzdCkgIT0gTlVMTCkgewogCQlpbl9kZXYtPm1jX2xp
-c3QgPSBpLT5uZXh0OworCQlpbl9kZXYtPm1jX2NvdW50LS07CiAJCXdyaXRlX3VubG9ja19iaCgm
-aW5fZGV2LT5tY19saXN0X2xvY2spOwotCiAJCWlnbXBfZ3JvdXBfZHJvcHBlZChpKTsKIAkJaXBf
-bWFfcHV0KGkpOwogCkBAIC0yMzgzLDcgKzIzODYsNyBAQCBzdGF0aWMgaW50IGlnbXBfbWNfc2Vx
-X3Nob3coc3RydWN0IHNlcV9maWxlICpzZXEsIHZvaWQgKnYpCiAKIAkJaWYgKHN0YXRlLT5pbl9k
-ZXYtPm1jX2xpc3QgPT0gaW0pIHsKIAkJCXNlcV9wcmludGYoc2VxLCAiJWRcdCUtMTBzOiAlNWQg
-JTdzXG4iLAotCQkJCSAgIHN0YXRlLT5kZXYtPmlmaW5kZXgsIHN0YXRlLT5kZXYtPm5hbWUsIHN0
-YXRlLT5kZXYtPm1jX2NvdW50LCBxdWVyaWVyKTsKKwkJCQkgICBzdGF0ZS0+ZGV2LT5pZmluZGV4
-LCBzdGF0ZS0+ZGV2LT5uYW1lLCBzdGF0ZS0+aW5fZGV2LT5tY19jb3VudCwgcXVlcmllcik7CiAJ
-CX0KIAogCQlzZXFfcHJpbnRmKHNlcSwK
-------=_Part_25413_25183016.1222844688826--
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lmX2luZXQ2LmggYi9pbmNsdWRlL25ldC9pZl9pbmV0
+Ni5oCmluZGV4IGM4ZWZmYTQuLjllOTEzOWMgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L2lmX2lu
+ZXQ2LmgKKysrIGIvaW5jbHVkZS9uZXQvaWZfaW5ldDYuaApAQCAtMTYzLDYgKzE2Myw3IEBAIHN0
+cnVjdCBpbmV0Nl9kZXYKIAlzdHJ1Y3QgaW5ldDZfaWZhZGRyCSphZGRyX2xpc3Q7CiAKIAlzdHJ1
+Y3QgaWZtY2FkZHI2CSptY19saXN0OworCWludAkJCW1jX2NvdW50OwkgICAgICAgICAgLyogTnVt
+YmVyIG9mIGluc3RhbGxlZCBtY2FzdHMJKi8KIAlzdHJ1Y3QgaWZtY2FkZHI2CSptY190b21iOwog
+CXJ3bG9ja190CQltY19sb2NrOwogCXVuc2lnbmVkIGNoYXIJCW1jX3FydjsKZGlmZiAtLWdpdCBh
+L25ldC9pcHY2L21jYXN0LmMgYi9uZXQvaXB2Ni9tY2FzdC5jCmluZGV4IGU3YzAzYmMuLjgzNTUy
+MWQgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L21jYXN0LmMKKysrIGIvbmV0L2lwdjYvbWNhc3QuYwpA
+QCAtOTIyLDYgKzkyMiw3IEBAIGludCBpcHY2X2Rldl9tY19pbmMoc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldiwgY29uc3Qgc3RydWN0IGluNl9hZGRyICphZGRyKQogCiAJbWMtPm5leHQgPSBpZGV2LT5t
+Y19saXN0OwogCWlkZXYtPm1jX2xpc3QgPSBtYzsKKwltYy0+aWRldi0+bWNfY291bnQrKzsKIAl3
+cml0ZV91bmxvY2tfYmgoJmlkZXYtPmxvY2spOwogCiAJbWxkX2RlbF9kZWxyZWMoaWRldiwgJm1j
+LT5tY2FfYWRkcik7CkBAIC05NDMsNyArOTQ0LDcgQEAgaW50IF9faXB2Nl9kZXZfbWNfZGVjKHN0
+cnVjdCBpbmV0Nl9kZXYgKmlkZXYsIGNvbnN0IHN0cnVjdCBpbjZfYWRkciAqYWRkcikKIAkJCWlm
+ICgtLW1hLT5tY2FfdXNlcnMgPT0gMCkgewogCQkJCSptYXAgPSBtYS0+bmV4dDsKIAkJCQl3cml0
+ZV91bmxvY2tfYmgoJmlkZXYtPmxvY2spOwotCisJCQkJaWRldi0+bWNfY291bnQtLTsKIAkJCQlp
+Z21wNl9ncm91cF9kcm9wcGVkKG1hKTsKIAogCQkJCW1hX3B1dChtYSk7CkBAIC0yMjg4LDYgKzIy
+ODksNyBAQCB2b2lkIGlwdjZfbWNfaW5pdF9kZXYoc3RydWN0IGluZXQ2X2RldiAqaWRldikKIAkJ
+CSh1bnNpZ25lZCBsb25nKWlkZXYpOwogCWlkZXYtPm1jX3RvbWIgPSBOVUxMOwogCWlkZXYtPm1j
+X2lmY19jb3VudCA9IDA7CisJaWRldi0+bWNfY291bnQ9MDsKIAlzZXR1cF90aW1lcigmaWRldi0+
+bWNfaWZjX3RpbWVyLCBtbGRfaWZjX3RpbWVyX2V4cGlyZSwKIAkJCSh1bnNpZ25lZCBsb25nKWlk
+ZXYpOwogCWlkZXYtPm1jX3FydiA9IE1MRF9RUlZfREVGQVVMVDsK
+------=_Part_25445_5568742.1222844947942--
