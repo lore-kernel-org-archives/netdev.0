@@ -1,55 +1,31 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: A few design questions wrt the hso driver.
-Date: Wed, 1 Oct 2008 10:09:05 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0810011006430.2421-100000@iolanthe.rowland.org>
-References: <48E36A0A.9080003@option.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next] ipv6: almost identical frag hashing funcs combined
+Date: Wed, 01 Oct 2008 10:18:08 -0400
+Message-ID: <48E386A0.5070107@hp.com>
+References: <Pine.LNX.4.64.0810010146001.27688@wrl-59.cs.helsinki.fi> <20081001011838.GB970@ghostprotocols.net> <20081001.025426.33354887.davem@davemloft.net> <Pine.LNX.4.64.0810011309480.1034@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48E36A0A.9080003-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Netdev <netdev@vger.kernel.org>, Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:21396 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752087AbYJAOSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 10:18:13 -0400
+In-Reply-To: <Pine.LNX.4.64.0810011309480.1034@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Oct 2008, Denis Joseph Barrow wrote:
+Ilpo J=E4rvinen wrote:
+> Btw, does somebody know a tool which can "diff" --side-by-side like a=
+ny=20
+> number of inputs? I'd be interested...
 
-> Now a more involved question.
-> The suspend resume code in hso.c hso_get_activity &
-> hso_put_activity code to me looks very racy but the code seems to be working relatively reliably
-> because the schedule resume stuff happens at a slow pace. 
-> Despite the codes simplicity I do not have a good feel for whether it
-> is stable or not & don't feel like an authority on how to make the code better.
-> 
-> The more obvious possible issues I see with it the code are,
-> I could be wrong if I am please say so.
-> 1) On smp systems there is a
-> workqueue for each cpu which means
-> that if one cpu workqueue is not going to be scheduled soon & the other 
-> workqueue is, if a suspend is queued on the cpu which is busy
-> & a resume is later queued on the cpu with soon to run workqueue
-> the resume will most likely happen before the suspend i.e. out of order.
-> 
-> 2) Also only the schedule_work will only queue the
-> request once so if multiple schedule works happen
-> only the first one is accepted even if you wanted
-> to change the order of the suspend resume requests later on
-> they won't reorder.
+vimdiff/gvimdiff
 
-I agree that the code looks very racy.  You may be able to improve it
-by using the new infrastructure in this patch:
-
-	http://marc.info/?l=linux-usb&m=122279021325200&w=2
-
-It is intended specifically for handling asynchronous suspends and 
-resumes.
-
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Brian
