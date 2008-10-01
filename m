@@ -1,62 +1,85 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v6 12/16] selinux: Set socket NetLabel based on connection endpoint
-Date: Wed, 1 Oct 2008 11:09:25 -0400
-Message-ID: <200810011109.25573.paul.moore@hp.com>
-References: <20080916124722.17132.38741.stgit@flek.lan> <alpine.LRH.1.10.0810011958380.6732@tundra.namei.org> <7DC4373B-194C-43FC-B4FB-B867999CAE76@nall.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
+Date: Wed, 01 Oct 2008 17:18:42 +0200
+Message-ID: <48E394D2.5090709@fr.ibm.com>
+References: <1222858454-7843-1-git-send-email-den@openvz.org> <48E35B4C.1040303@fr.ibm.com> <1222860776.23573.49.camel@iris.sw.ru> <48E3653C.1070701@fr.ibm.com> <1222862583.23573.54.camel@iris.sw.ru> <48E36ABF.8030908@fr.ibm.com> <48E36BFA.3040904@openvz.org> <48E36DA0.9080400@fr.ibm.com> <1222866717.23573.58.camel@iris.sw.ru> <48E37F1B.20601@fr.ibm.com> <1222872885.23573.64.camel@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@namei.org>, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Nall <joe@nall.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <7DC4373B-194C-43FC-B4FB-B867999CAE76@nall.com>
-Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org, benjamin.thery@bull.net,
+	ebiederm@xmission.com
+To: "Denis V. Lunev" <den@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:40893 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752985AbYJAPS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 11:18:58 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id m91FInov037724
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 15:18:49 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m91FInK73883120
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 17:18:49 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m91FIjLp009661
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 17:18:45 +0200
+In-Reply-To: <1222872885.23573.64.camel@iris.sw.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 01 October 2008 10:51:31 am Joe Nall wrote:
-> On Oct 1, 2008, at 5:00 AM, James Morris wrote:
-> > On Tue, 16 Sep 2008, Paul Moore wrote:
-> >> /**
-> >> + * cipso_v4_sock_delattr - Delete the CIPSO option from a socket
-> >> + * @sk: the socket
-> >> + *
-> >> + * Description:
-> >> + * Removes the CIPSO option from a socket, if present.
-> >> + *
-> >> + */
-> >> +void cipso_v4_sock_delattr(struct sock *sk)
-> >
-> > Reviewed-by: James Morris <jmorris@namei.org>
-> >
-> >
-> > Btw, what kind of testing has this patch had?
->
-> Paul generated a patch for us against 2.6.26-5 that we have on about
-> 20 developer and test boxes with good results in MLS enforcing. We
-> are adding IPSec between machines and static fallback labels  to the
-> test mix and will report any issues. We have a couple of 8 core
-> machines I'll stress test on to look for SMP issues.
+Denis V. Lunev wrote:
+> On Wed, 2008-10-01 at 15:46 +0200, Daniel Lezcano wrote:
+>> Denis V. Lunev wrote:
+>>> On Wed, 2008-10-01 at 14:31 +0200, Daniel Lezcano wrote:
+>>>> Pavel Emelyanov wrote:
+>>>>>> So there are 2 cases:
+>>>>>>   * full isolation : restriction on VPS
+>>>>>>   * partial isolation : no restriction but *perhaps* problem when migrating
+>>>>>>
+>>>>>> Looks like we need an option per namespace to reduce the isolation for 
+>>>>>> af_unix sockets :)
+>>>>>>   - on (default): current behaviour => full isolation
+>>>>>>   - off : partial isolation
+>>>>> You mean some sysctl, that enables/disables this check in unix_find_socket_byinode?
+>>>> Yes.
+>>> I do not see much sense with sysctl as:
+>>> - check (cross-connected sockets) is required as we can start namespace
+>>>   with already opened socket
+>> Check when checkpointing ? If you inherit a socket from your parent 
+>> namespace, this socket belongs to your parent and you should not 
+>> checkpoint it, no ?
+>>
+>> In case you allow cross-connected sockets, this check is mandatory I agree.
+>>
+>>> - this kind of sharing is not implicit but explicit as normal isolated
+>>>   containers _must_ have separate filesystems. In this case this
+>>>   sharing requires explicit host administrator action to link socket
+>>>   between containers
+>> What are "normal isolated containers" ? Are they OpenVZ containers ? 
+>> These containers belong to the system containers family. What happens 
+>> with application containers, if I want to share the filesystem without 
+>> breaking the isolation of the afunix sockets ?
+> 
+> then you are doomed as you will have a FIFO opened from 2 namespaces and
+> checking the absences of external references is still mandatory
+>> The current code provides full isolation and this is in mainline. I 
+>> don't think it is reasonable to change that. What I propose is to keep 
+>> the current behaviour.
+>>
+>> When you create a network namespace, you can change the behaviour inside 
+>> this namespace via /proc/sys/net/unix/isolated (for example).
+>>
+>> This option allows:
+>> 1 - to connect to af_unix not belonging to the container
+>> 2 - to accept af_unix connection from outside the container (avoid a 
+>> container to forbid the checkpoint of another container);
+> 
+> this should be at least per/namespace option controlled from parent
+> container from my POW
 
-Thanks Joe, however, I think James was talking specifically about the 
-this patch, not the entire aggregate patchset, and the 
-cipso_v4_sock_delattr() function in particular as it is not likely to 
-be called often in normal use.
+Yes per namespace, I agree.
 
-To answer that question, I was going to write a small little test 
-program that would connect/disconnect UDP sockets and do writes in 
-various states to ensure the wire traffic was labeled (or not) 
-correctly.  However, I had a bit of luck and Casey ended up using this 
-function in Smack[1] in a manner that saw it in a relatively common 
-code path so it got a decent test; in fact it was Casey who pointed out 
-the bugs in the initial revision.
+If the option is controlled by the parent and it is done by sysctl, you 
+will have to make proc/sys per namespace like Pavel did with /proc/net, no ?
 
-[1] The Smack bits are still a work in progress and not ready for 2.6.28 
-so they have been left out of this patchset, expect something in the 
-2.6.29 timeframe.
-
--- 
-paul moore
-linux @ hp
