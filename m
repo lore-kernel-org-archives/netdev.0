@@ -1,32 +1,31 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC PATCH v6 10/16] netlabel: Add network address selectors to
- the NetLabel/LSM domain mapping
-Date: Wed, 1 Oct 2008 19:14:23 +1000 (EST)
-Message-ID: <alpine.LRH.1.10.0810011914070.6732@tundra.namei.org>
-References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125654.17132.86183.stgit@flek.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next-2.6 2008-09-30
+Date: Wed, 01 Oct 2008 02:14:25 -0700 (PDT)
+Message-ID: <20081001.021425.40686099.davem@davemloft.net>
+References: <20080930183938.GE3765@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080916125654.17132.86183.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51653
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753461AbYJAJOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:14:37 -0400
+In-Reply-To: <20080930183938.GE3765@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Sep 2008, Paul Moore wrote:
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 30 Sep 2008 14:39:38 -0400
 
-> This patch extends the NetLabel traffic labeling capabilities to individual
-> packets based not only on the LSM domain but the by the destination address
-> as well.  The changes here only affect the core NetLabel infrastructre,
-> changes to the NetLabel KAPI and individial protocol engines are also
-> required but are split out into a different patch to ease review.
+> Dave,
 > 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> Here is the latest round of wireless bits intended for 2.6.28.  Among
+> them is the first round of new stuff learned from the release of the
+> Atheros HAL sources...
+> 
+> Let me know if there are problems!
 
-Reviewed-by: James Morris <jmorris@namei.org>
-
-
--- 
-James Morris
-<jmorris@namei.org>
+Pulled and pushed back out to net-next-2.6, thanks!
