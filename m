@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: [net-next PATCH 01/16] Loosen source address check on IPv4 output
+Subject: [net-next PATCH 04/16] Make inet_sock.h independent of route.h
 Date: Wed, 01 Oct 2008 16:24:31 +0200
-Message-ID: <20081001142431.4893.61466.stgit@este>
+Message-ID: <20081001142431.4893.41703.stgit@este>
 References: <20081001142431.4893.48078.stgit@este>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -9,89 +9,99 @@ Content-Transfer-Encoding: 7BIT
 Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from balu.sch.bme.hu ([152.66.208.40]:53158 "EHLO balu.sch.bme.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752475AbYJAPZY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 11:25:24 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-reply-to: <20081001142431.4893.48078.stgit@este>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ip_route_output() contains a check to make sure that no flows with
-non-local source IP addresses are routed. This obviously makes using
-such addresses impossible.
+inet_iif() in inet_sock.h requires route.h. Since users of inet_iif()
+usually require other route.h functionality anyway this patch moves
+inet_iif() to route.h.
 
-This patch introduces a flowi flag which makes omitting this check
-possible. The new flag provides a way of handling transparent and
-non-transparent connections differently.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
 ---
 
- include/net/flow.h |    2 ++
- net/ipv4/route.c   |   20 +++++++++++++-------
- 2 files changed, 15 insertions(+), 7 deletions(-)
+ include/net/inet_sock.h            |    7 -------
+ include/net/ip_vs.h                |    1 +
+ include/net/route.h                |    5 +++++
+ net/ipv4/netfilter/nf_nat_helper.c |    1 +
+ net/ipv6/af_inet6.c                |    1 +
+ 5 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 228b247..b45a5e4 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -47,6 +47,8 @@ struct flowi {
- #define fl4_scope	nl_u.ip4_u.scope
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index e97b66e..139b78b 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -24,7 +24,6 @@
+ #include <net/flow.h>
+ #include <net/sock.h>
+ #include <net/request_sock.h>
+-#include <net/route.h>
+ #include <net/netns/hash.h>
  
- 	__u8	proto;
-+	__u8	flags;
-+#define FLOWI_FLAG_ANYSRC 0x01
- 	union {
- 		struct {
- 			__be16	sport;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f62187b..a6d7c58 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2361,11 +2361,6 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 		    ipv4_is_zeronet(oldflp->fl4_src))
- 			goto out;
+ /** struct ip_options - IP Options
+@@ -195,12 +194,6 @@ static inline int inet_sk_ehashfn(const struct sock *sk)
+ 	return inet_ehashfn(net, laddr, lport, faddr, fport);
+ }
  
--		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
--		dev_out = ip_dev_find(net, oldflp->fl4_src);
--		if (dev_out == NULL)
--			goto out;
 -
- 		/* I removed check for oif == dev_out->oif here.
- 		   It was wrong for two reasons:
- 		   1. ip_dev_find(net, saddr) can return wrong iface, if saddr
-@@ -2377,6 +2372,11 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 		if (oldflp->oif == 0
- 		    && (ipv4_is_multicast(oldflp->fl4_dst) ||
- 			oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
-+			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
-+			dev_out = ip_dev_find(net, oldflp->fl4_src);
-+			if (dev_out == NULL)
-+				goto out;
-+
- 			/* Special hack: user can direct multicasts
- 			   and limited broadcast via necessary interface
- 			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-@@ -2395,9 +2395,15 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 			fl.oif = dev_out->ifindex;
- 			goto make_route;
- 		}
--		if (dev_out)
-+
-+		if (!(oldflp->flags & FLOWI_FLAG_ANYSRC)) {
-+			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
-+			dev_out = ip_dev_find(net, oldflp->fl4_src);
-+			if (dev_out == NULL)
-+				goto out;
- 			dev_put(dev_out);
--		dev_out = NULL;
-+			dev_out = NULL;
-+		}
- 	}
+-static inline int inet_iif(const struct sk_buff *skb)
+-{
+-	return skb->rtable->rt_iif;
+-}
+-
+ static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops)
+ {
+ 	struct request_sock *req = reqsk_alloc(ops);
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 33e2ac6..0b2071d 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -22,6 +22,7 @@
  
+ #include <net/checksum.h>
+ #include <linux/netfilter.h>		/* for union nf_inet_addr */
++#include <linux/ip.h>
+ #include <linux/ipv6.h>			/* for struct ipv6hdr */
+ #include <net/ipv6.h>			/* for ipv6_addr_copy */
  
+diff --git a/include/net/route.h b/include/net/route.h
+index 4f0d8c1..31d1485 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -204,4 +204,9 @@ static inline struct inet_peer *rt_get_peer(struct rtable *rt)
+ 	return rt->peer;
+ }
+ 
++static inline int inet_iif(const struct sk_buff *skb)
++{
++	return skb->rtable->rt_iif;
++}
++
+ #endif	/* _ROUTE_H */
+diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
+index 11976ea..112dcfa 100644
+--- a/net/ipv4/netfilter/nf_nat_helper.c
++++ b/net/ipv4/netfilter/nf_nat_helper.c
+@@ -16,6 +16,7 @@
+ #include <linux/udp.h>
+ #include <net/checksum.h>
+ #include <net/tcp.h>
++#include <net/route.h>
+ 
+ #include <linux/netfilter_ipv4.h>
+ #include <net/netfilter/nf_conntrack.h>
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 95055f8..f018704 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -50,6 +50,7 @@
+ #include <net/ipip.h>
+ #include <net/protocol.h>
+ #include <net/inet_common.h>
++#include <net/route.h>
+ #include <net/transp_v6.h>
+ #include <net/ip6_route.h>
+ #include <net/addrconf.h>
 
 
