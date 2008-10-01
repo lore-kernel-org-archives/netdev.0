@@ -1,83 +1,46 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: [PATCH net-2.6] key: Free dumping state on socket close
-Date: Wed, 01 Oct 2008 13:55:15 +0300
-Message-ID: <48E35713.6030200@iki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
+Date: Wed,  1 Oct 2008 14:54:14 +0400
+Message-ID: <1222858454-7843-1-git-send-email-den@openvz.org>
+Cc: xemul@openvz.org, netdev@vger.kernel.org, dlezcano@fr.ibm.com,
+	benjamin.thery@bull.net, ebiederm@xmission.com, den@openvz.org
+To: containers@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:41359 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752117AbYJAKz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:55:26 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so763895ugf.37
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2008 03:55:24 -0700 (PDT)
+Received: from mailhub.sw.ru ([195.214.232.25]:8161 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752323AbYJAKzu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 06:55:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a xfrm_{state,policy}_walk leak if pfkey socket is closed while
-dumping is on-going.
+This patch opens a way to connect via Unix socket from one namespace
+to another if these sockets are opened via conventional filesystem
+interface. Such approach allows to share important services between
+namespaces in efficient way.
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
+This breach is controlled by the means of shared filesystem, i.e. if
+somebody really wants to isolate containers, he should start from
+filesystem separation.
+
+Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
-Should go to -stable too.
+ net/unix/af_unix.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
- net/key/af_key.c |   30 +++++++++++++++++++-----------
- 1 files changed, 19 insertions(+), 11 deletions(-)
-
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index d628df9..b7f5a1c 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -73,22 +73,18 @@ static int pfkey_can_dump(struct sock *sk)
- 	return 0;
- }
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 39d2173..0e1eccd 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -297,9 +297,6 @@ static struct sock *unix_find_socket_byinode(struct net *net, struct inode *i)
+ 		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
+ 		struct dentry *dentry = unix_sk(s)->dentry;
  
--static int pfkey_do_dump(struct pfkey_sock *pfk)
-+static void pfkey_terminate_dump(struct pfkey_sock *pfk)
- {
--	int rc;
+-		if (!net_eq(sock_net(s), net))
+-			continue;
 -
--	rc = pfk->dump.dump(pfk);
--	if (rc == -ENOBUFS)
--		return 0;
--
--	pfk->dump.done(pfk);
--	pfk->dump.dump = NULL;
--	pfk->dump.done = NULL;
--	return rc;
-+	if (pfk->dump.dump) {
-+		pfk->dump.done(pfk);
-+		pfk->dump.dump = NULL;
-+		pfk->dump.done = NULL;
-+	}
- }
- 
- static void pfkey_sock_destruct(struct sock *sk)
- {
-+	pfkey_terminate_dump(pfkey_sk(sk));
- 	skb_queue_purge(&sk->sk_receive_queue);
- 
- 	if (!sock_flag(sk, SOCK_DEAD)) {
-@@ -310,6 +306,18 @@ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
- 	return err;
- }
- 
-+static int pfkey_do_dump(struct pfkey_sock *pfk)
-+{
-+	int rc;
-+
-+	rc = pfk->dump.dump(pfk);
-+	if (rc == -ENOBUFS)
-+		return 0;
-+
-+	pfkey_terminate_dump(pfk);
-+	return rc;
-+}
-+
- static inline void pfkey_hdr_dup(struct sadb_msg *new, struct sadb_msg *orig)
- {
- 	*new = *orig;
+ 		if(dentry && dentry->d_inode == i)
+ 		{
+ 			sock_hold(s);
 -- 
-1.5.4.3
+1.5.3.rc5
+
