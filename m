@@ -1,55 +1,56 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC PATCH v6 15/16] cipso: Add support for native local labeling
- and fixup mapping names
-Date: Wed, 1 Oct 2008 20:09:30 +1000 (EST)
-Message-ID: <alpine.LRH.1.10.0810012003170.6732@tundra.namei.org>
-References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125730.17132.74360.stgit@flek.lan>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH] net: deadlock during net device unregistration
+Date: Wed, 01 Oct 2008 12:10:10 +0200
+Message-ID: <48E34C82.2040306@fr.ibm.com>
+References: <20080930144203.GA2511@ami.dom.local> <20080930145710.GB2511@ami.dom.local> <48E24341.5050609@bull.net> <20081001.025935.257260146.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080916125730.17132.74360.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: benjamin.thery@bull.net, jarkao2@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:47827 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752022AbYJAKKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:10:51 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate8.de.ibm.com (8.13.8/8.13.8) with ESMTP id m91AADGg072332
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 10:10:13 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m91AADuU4141256
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 12:10:13 +0200
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m91AACSI003901
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 12:10:12 +0200
+In-Reply-To: <20081001.025935.257260146.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Sep 2008, Paul Moore wrote:
+David Miller wrote:
+> From: Benjamin Thery <benjamin.thery@bull.net>
+> Date: Tue, 30 Sep 2008 17:18:25 +0200
+> 
+>> Jarek Poplawski wrote:
+>>> On Tue, Sep 30, 2008 at 04:42:04PM +0200, Jarek Poplawski wrote:
+>>>> Benjamin Thery wrote, On 09/30/2008 01:52 PM:
+>>> ...
+>>>>> I'm still looking at why the first dst_free() on those particular routes doesn't call dst_destroy() immediately but defers it (another refcount
+>>>>> on the route itself).
+>>>> Yes, finding/fixing this, if possible, in this place looks like the
+>>>> most consistent with the way netdev_wait_allrefs() is handling this.
+>>> Actually, I wonder, why we can't simply run this dst_gc_task() from
+>>> dst_dev_event() (after cancelling the work) when needed.
+>>>
+>> Um... I haven't thought about this. I'll have a look to see if it can
+>> solve our issue.
+> 
+> Let me know what happens, I'd like to apply some fix soon.
+> So just report the patch implementing the final approach you
+> feel the most comfortable with.
 
-> +/* Base length of the local tag (non-standard tag).
-> + *  Tag definition (may change between kernel versions)
-> + *
-> + * 0          8          16         24         32
-> + * +----------+----------+----------+----------+
-> + * | 10000000 | 00001000 | unused (zero fill)  |
-> + * +----------+----------+----------+----------+
-> + * |   32-bit secid value (host byte order)    |
-> + * +----------+----------+----------+----------+
-> + *
-> + */
-> +#define CIPSO_V4_TAG_LOC_BLEN         8
-> +
+We did the modification suggested by Jarek and that fix the problem :)
+We are playing a bit with this patch to check if we didn't missed 
+something. We will certainly send it in the next hours.
 
-> +static int cipso_v4_gentag_loc(const struct cipso_v4_doi *doi_def,
-> +			       const struct netlbl_lsm_secattr *secattr,
-> +			       unsigned char *buffer,
-> +			       u32 buffer_len)
-> +{
-> +	if (!(secattr->flags & NETLBL_SECATTR_SECID))
-> +		return -EPERM;
-> +
-> +	buffer[0] = 0x80;
-> +	buffer[1] = 0x08;
-> +	*(u32 *)&buffer[4] = secattr->attr.secid;
-> +
-> +	return 8;
-> +}
+Thanks.
 
-Macros would be nice for these, and why specify zero filling?  (Setting 
-and testing that would be wasted cycles, if you enforced it).
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
