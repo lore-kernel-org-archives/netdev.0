@@ -1,55 +1,24 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
-Date: Wed, 01 Oct 2008 15:50:07 +0200
-Message-ID: <48E3800F.1020806@fr.ibm.com>
-References: <1222858454-7843-1-git-send-email-den@openvz.org>	<48E35B4C.1040303@fr.ibm.com>	<1222860776.23573.49.camel@iris.sw.ru>	<48E3653C.1070701@fr.ibm.com>	<1222862583.23573.54.camel@iris.sw.ru>	<48E36ABF.8030908@fr.ibm.com> <48E36BFA.3040904@openvz.org>	<48E36DA0.9080400@fr.ibm.com> <48E36FDA.5090808@openvz.org> <48E37637.8080408@fr.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: NOTE: net-2.6 merged into net-next-2.6
+Date: Wed, 01 Oct 2008 07:02:38 -0700 (PDT)
+Message-ID: <20081001.070238.17452700.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@openvz.org>, Denis Lunev <den@openvz.org>,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	ebiederm@xmission.com, benjamin.thery@bull.net
-To: Cedric Le Goater <clg@fr.ibm.com>
+Cc: linville@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:41800 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbYJANuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 09:50:14 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate2.uk.ibm.com (8.13.1/8.13.1) with ESMTP id m91DoDOp009054
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 13:50:13 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m91DoBIa4464802
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 14:50:12 +0100
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m91DoAkB028071
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 14:50:11 +0100
-In-Reply-To: <48E37637.8080408@fr.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36813
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750785AbYJAOCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 10:02:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cedric Le Goater wrote:
-> Pavel Emelyanov wrote:
->> Daniel Lezcano wrote:
->>> Pavel Emelyanov wrote:
->>>>> So there are 2 cases:
->>>>>   * full isolation : restriction on VPS
->>>>>   * partial isolation : no restriction but *perhaps* problem when migrating
->>>>>
->>>>> Looks like we need an option per namespace to reduce the isolation for 
->>>>> af_unix sockets :)
->>>>>   - on (default): current behaviour => full isolation
->>>>>   - off : partial isolation
->>>> You mean some sysctl, that enables/disables this check in unix_find_socket_byinode?
->>> Yes.
->> OK. Den, please, do :)
-> 
-> hmm, would that allow sibling namespaces to connect to each other ? If so, 
-> I'm not in favor of such a solution. 
-> 
-> I understand the need. we had a similar issue with the command line tool 
-> pgsl. Could we work something out with the capabilities ? or make an 
-> exception if your ->nsproxy->net_ns == init_net ? 
 
-Why capabilities is better than a simple sysctl ?
-Making an exception for init_net will break the nested containers no ?
+I just merged the bug fix GIT tree into the development
+tree.
+
+John please double check my work on the ath9k conflicts.
+
+Thanks!
