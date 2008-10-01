@@ -1,55 +1,34 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: pull request: net-next sctp updates
-Date: Wed,  1 Oct 2008 14:14:52 -0400
-Message-ID: <1222884892-22938-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+From: winslg9@comcast.net (LG)
+Subject: Fantastic Prize
+Date: Wed, 01 Oct 2008 18:44:54 +0000
+Message-ID: <100120081844.12167.48E3C524000DB14600002F872207020953C709049C020799@comcast.net>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:26283 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753204AbYJASOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 14:14:54 -0400
+Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:42833
+	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753380AbYJASo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 14:44:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+Fantastic Prize                           Draw Date: 1ST-10-2008
+_______________________________________________________________________________________________
+Your e-mail is among our lucky winners of 700,000GBP in Lg Promotion 2008.Your e-mail was attach to a ticket number, serial  number,which drew the lucky number that you the (700,000GBP) Seven Hundred Thousand Great  British Pound sterlings.
 
-Please consider the following sctp work for net-next.
+Ticket number1/8/09/11
+Serial number 8-1-7-3GF
+Lucky number 1-7-09-88-08-3
 
-The following changes since commit bcd41303f422015ab662c9276d108414aa75b796:
-  KOVACS Krisztian (1):
-        udp: Export UDP socket lookup function
+CALL OR E-MAIL (LG.CLAIMS@GMAIL.COM) PRIZE SUPERVISOR  BELOW  
 
-are available in the git repository at:
+Name: Mr James Keegan
+Email:  LG.CLAIMS@GMAIL.COM 
+Tel #: +44-703-192-5646 
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/vxy/lksctp-dev.git net-next
+To ensure that you NEVER miss this important prize,send your ticket #, Serial #  and Lucky # when contacting PRIZE SUPERVISOR Sincerely,above. 
 
-Neil Horman (1):
-      sctp: reduce memory footprint of sctp_chunk structure
+Once  again,congratulations  
+                 
 
-Vlad Yasevich (6):
-      sctp: Only mark chunks as missing when there are gaps
-      sctp: Optimize SFR-CACC transport list walking during SACK processing
-      sctp: Retransmit list is ineligable for missing indications
-      sctp: try harder to figure out address family when checking wildcards
-      sctp: enable cookie-echo retransmission transport switch
-      sctp: correctly save sctp_adaptation from parameter.
-
-Wei Yongjun (2):
-      sctp: Fix to start T5-shutdown-guard timer while enter SHUTDOWN-SENT state
-      sctp: Fix the SNMP counter of SCTP_MIB_OUTOFBLUES
-
- include/net/sctp/structs.h |   33 ++++++++++--------
- net/sctp/bind_addr.c       |   16 +++++++--
- net/sctp/ipv6.c            |    5 ++-
- net/sctp/output.c          |    2 +-
- net/sctp/outqueue.c        |   65 +++++++++++++++++++-----------------
- net/sctp/sm_make_chunk.c   |    4 +-
- net/sctp/sm_sideeffect.c   |   78 +++++++++++++++++++++++++-------------------
- net/sctp/sm_statefuns.c    |   36 +++++++++-----------
- net/sctp/sm_statetable.c   |    2 +-
- net/sctp/socket.c          |   10 +++---
- 10 files changed, 139 insertions(+), 112 deletions(-)
-
-Thanks
--vlad
+Sr. Roger Barnett
+_______________________________________________________________________________________________
