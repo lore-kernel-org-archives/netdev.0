@@ -1,49 +1,56 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCH,RESEND] XFRM,IPv6: initialize ip6_dst_blackhole_ops.kmem_cachep
-Date: Wed, 01 Oct 2008 14:59:32 +0200
-Message-ID: <87myhozd1n.fsf@natisbad.org>
-References: <87prmuvnmt.fsf@natisbad.org>
-	<939d53060809250221p171eb282v4451721464bd35a1@mail.gmail.com>
-	<873ajg1xa0.fsf@natisbad.org>
-	<20081001.023831.45381902.davem@davemloft.net>
+From: Cedric Le Goater <clg@fr.ibm.com>
+Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
+Date: Wed, 01 Oct 2008 15:08:07 +0200
+Message-ID: <48E37637.8080408@fr.ibm.com>
+References: <1222858454-7843-1-git-send-email-den@openvz.org>	<48E35B4C.1040303@fr.ibm.com>	<1222860776.23573.49.camel@iris.sw.ru>	<48E3653C.1070701@fr.ibm.com>	<1222862583.23573.54.camel@iris.sw.ru>	<48E36ABF.8030908@fr.ibm.com> <48E36BFA.3040904@openvz.org>	<48E36DA0.9080400@fr.ibm.com> <48E36FDA.5090808@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ben.thery@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Denis Lunev <den@openvz.org>,
+	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	ebiederm@xmission.com, benjamin.thery@bull.net
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moog.chdir.org ([88.191.42.160]:46440 "EHLO moog.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752550AbYJANBR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 09:01:17 -0400
-In-Reply-To: <20081001.023831.45381902.davem@davemloft.net> (David Miller's
-	message of "Wed, 01 Oct 2008 02:38:31 -0700 (PDT)")
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:36381 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789AbYJANIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 09:08:16 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate7.de.ibm.com (8.13.8/8.13.8) with ESMTP id m91D8Eof034304
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 13:08:14 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m91D8ED73604512
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 15:08:14 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m91D8A5D029111
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 15:08:11 +0200
+In-Reply-To: <48E36FDA.5090808@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Pavel Emelyanov wrote:
+> Daniel Lezcano wrote:
+>> Pavel Emelyanov wrote:
+>>>> So there are 2 cases:
+>>>>   * full isolation : restriction on VPS
+>>>>   * partial isolation : no restriction but *perhaps* problem when migrating
+>>>>
+>>>> Looks like we need an option per namespace to reduce the isolation for 
+>>>> af_unix sockets :)
+>>>>   - on (default): current behaviour => full isolation
+>>>>   - off : partial isolation
+>>> You mean some sysctl, that enables/disables this check in unix_find_socket_byinode?
+>> Yes.
+> 
+> OK. Den, please, do :)
 
-David Miller <davem@davemloft.net> writes:
+hmm, would that allow sibling namespaces to connect to each other ? If so, 
+I'm not in favor of such a solution. 
 
-> From: arno@natisbad.org (Arnaud Ebalard)
-> Date: Wed, 01 Oct 2008 11:26:31 +0200
->
->> With the switch to a default value of 1 for xfrm_larval_drop in commit
->> 28faa979746b2352cd78a376bf9f52db953bda46 (ipsec: Make xfrm_larval_drop
->> default to 1), what seems to be a bug manage to surface on one of my
->> test box running today's net-next (*).
->> 
->> When xfrm_tmpl_resolve() returns -EAGAIN in __xfrm_lookup(), the caller
->> is returned -EREMOTE and is expected to install a blackhole route. For
->> IPv6, the call to dst_alloc(&ip6_dst_blackhole_ops) performed by
->> ip6_dst_blackhole() produces the error provided below, because
->> kmem_cachep attribute seems to be uninitialized. This does not happen
->> when xfrm_larval_drop is set to 0.
->> 
->> The patch below against today's net-next. Benjamin (in CC) reported on
->> the introduction of the bug (f2fc6a54585a1be6669613a31fbaba2ecbadcd36)
->> while adding network namespaces support to ipv6 routes.
->
-> Applied to net-2.6, thanks Arnaud!
+I understand the need. we had a similar issue with the command line tool 
+pgsl. Could we work something out with the capabilities ? or make an 
+exception if your ->nsproxy->net_ns == init_net ? 
 
-Can you queue it for -stable (2.6.26) too, if not already done?
+Thanks,
 
-a+
+C.  
