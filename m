@@ -1,65 +1,62 @@
-From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
-Date: Wed, 01 Oct 2008 17:07:40 +0200
-Message-ID: <48E3923C.5070603@fr.ibm.com>
-References: <1222858454-7843-1-git-send-email-den@openvz.org>	<48E35B4C.1040303@fr.ibm.com>	<1222860776.23573.49.camel@iris.sw.ru>	<48E3653C.1070701@fr.ibm.com>	<1222862583.23573.54.camel@iris.sw.ru>	<48E36ABF.8030908@fr.ibm.com>	<48E36BFA.3040904@openvz.org>	<48E36DA0.9080400@fr.ibm.com>	<48E36FDA.5090808@openvz.org> <48E37637.8080408@fr.ibm.com> <48E3800F.1020806@fr.ibm.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC PATCH v6 12/16] selinux: Set socket NetLabel based on connection endpoint
+Date: Wed, 1 Oct 2008 11:09:25 -0400
+Message-ID: <200810011109.25573.paul.moore@hp.com>
+References: <20080916124722.17132.38741.stgit@flek.lan> <alpine.LRH.1.10.0810011958380.6732@tundra.namei.org> <7DC4373B-194C-43FC-B4FB-B867999CAE76@nall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	ebiederm@xmission.com, Denis Lunev <den@openvz.org>,
-	Pavel Emelyanov <xemul@openvz.org>, benjamin.thery@bull.net
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:49760 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752475AbYJAPHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 11:07:48 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m91F7j4m057578
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 15:07:45 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m91F7iVD2982004
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 16:07:44 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m91F7htJ006343
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 16:07:44 +0100
-In-Reply-To: <48E3800F.1020806@fr.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: James Morris <jmorris@namei.org>, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Nall <joe@nall.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <7DC4373B-194C-43FC-B4FB-B867999CAE76@nall.com>
+Content-Disposition: inline
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano wrote:
-> Cedric Le Goater wrote:
->> Pavel Emelyanov wrote:
->>> Daniel Lezcano wrote:
->>>> Pavel Emelyanov wrote:
->>>>>> So there are 2 cases:
->>>>>>   * full isolation : restriction on VPS
->>>>>>   * partial isolation : no restriction but *perhaps* problem when migrating
->>>>>>
->>>>>> Looks like we need an option per namespace to reduce the isolation for 
->>>>>> af_unix sockets :)
->>>>>>   - on (default): current behaviour => full isolation
->>>>>>   - off : partial isolation
->>>>> You mean some sysctl, that enables/disables this check in unix_find_socket_byinode?
->>>> Yes.
->>> OK. Den, please, do :)
->> hmm, would that allow sibling namespaces to connect to each other ? If so, 
->> I'm not in favor of such a solution. 
->>
->> I understand the need. we had a similar issue with the command line tool 
->> pgsl. Could we work something out with the capabilities ? or make an 
->> exception if your ->nsproxy->net_ns == init_net ? 
-> 
-> Why capabilities is better than a simple sysctl ?
+On Wednesday 01 October 2008 10:51:31 am Joe Nall wrote:
+> On Oct 1, 2008, at 5:00 AM, James Morris wrote:
+> > On Tue, 16 Sep 2008, Paul Moore wrote:
+> >> /**
+> >> + * cipso_v4_sock_delattr - Delete the CIPSO option from a socket
+> >> + * @sk: the socket
+> >> + *
+> >> + * Description:
+> >> + * Removes the CIPSO option from a socket, if present.
+> >> + *
+> >> + */
+> >> +void cipso_v4_sock_delattr(struct sock *sk)
+> >
+> > Reviewed-by: James Morris <jmorris@namei.org>
+> >
+> >
+> > Btw, what kind of testing has this patch had?
+>
+> Paul generated a patch for us against 2.6.26-5 that we have on about
+> 20 developer and test boxes with good results in MLS enforcing. We
+> are adding IPSec between machines and static fallback labels  to the
+> test mix and will report any issues. We have a couple of 8 core
+> machines I'll stress test on to look for SMP issues.
 
-because it depends on the current process privilege and not just some
-random process.
+Thanks Joe, however, I think James was talking specifically about the 
+this patch, not the entire aggregate patchset, and the 
+cipso_v4_sock_delattr() function in particular as it is not likely to 
+be called often in normal use.
 
-> Making an exception for init_net will break the nested containers no ?
+To answer that question, I was going to write a small little test 
+program that would connect/disconnect UDP sockets and do writes in 
+various states to ensure the wire traffic was labeled (or not) 
+correctly.  However, I had a bit of luck and Casey ended up using this 
+function in Smack[1] in a manner that saw it in a relatively common 
+code path so it got a decent test; in fact it was Casey who pointed out 
+the bugs in the initial revision.
 
-may be. I don't know how this is implemented. if we break isolation, my
-feeling is that we should only do it for a parent namespace. It just feel 
-wrong to allow sibling namespaces to connect to each other. 
+[1] The Smack bits are still a work in progress and not ready for 2.6.28 
+so they have been left out of this patchset, expect something in the 
+2.6.29 timeframe.
 
-C. 
+-- 
+paul moore
+linux @ hp
