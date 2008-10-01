@@ -1,36 +1,40 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC PATCH v6 09/16] netlabel: Add a generic way to create
- ordered linked lists of network addrs
-Date: Wed, 1 Oct 2008 19:09:33 +1000 (EST)
-Message-ID: <alpine.LRH.1.10.0810011909000.6732@tundra.namei.org>
-References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125646.17132.5022.stgit@flek.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Multicast: add mc_count to in_device and to
+ inet6_dev
+Date: Wed, 01 Oct 2008 02:08:54 -0700 (PDT)
+Message-ID: <20081001.020854.146740849.davem@davemloft.net>
+References: <b25312890809302357j6b75dd27uced2968046c10993@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080916125646.17132.5022.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, pekkas@netcore.fi
+To: roszenrami@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49623
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751963AbYJAJJF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:09:05 -0400
+In-Reply-To: <b25312890809302357j6b75dd27uced2968046c10993@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Sep 2008, Paul Moore wrote:
+From: "Rami Rosen" <roszenrami@gmail.com>
+Date: Wed, 1 Oct 2008 09:57:42 +0300
 
-> Create an ordered IP address linked list mechanism similar to the core
-> kernel's linked list construct.  The idea behind this list functionality
-> is to create an extensibile linked list ordered by IP address mask to
-> ease the matching of network addresses.  The linked list is ordered with
-> larger address masks at the front of the list and shorter address masks
-> at the end to facilitate overriding network entries with individual host
-> or subnet entries.
+> Hi,
+>     - This patch set adds mc_count to  struct in_device (IPv4) and to
+> struct inet6_dev (IPv6) and updates increment/decrement/initialization
+> of this field in IPv4 and in IPv6.
 > 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> - Also printing the /proc entry (/proc/net/igmp) is adjusted to use
+> the new mc_count.
 > 
+>  - Thanks to David Stevens for his feedback.
 
-Reviewed-by: James Morris <jmorris@namei.org>
+Why even add the mc_count to the ipv6 side if it isn't
+even going to be used?  I see nothing actually reading
+the ipv6 version of the value.
 
-
-
--- 
-James Morris
-<jmorris@namei.org>
+If you're going to do that eventually in some later
+set of changes, add it then.
