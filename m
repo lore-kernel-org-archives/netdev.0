@@ -1,36 +1,72 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
-Date: Wed, 01 Oct 2008 16:40:58 +0400
-Message-ID: <48E36FDA.5090808@openvz.org>
-References: <1222858454-7843-1-git-send-email-den@openvz.org> <48E35B4C.1040303@fr.ibm.com> <1222860776.23573.49.camel@iris.sw.ru> <48E3653C.1070701@fr.ibm.com> <1222862583.23573.54.camel@iris.sw.ru> <48E36ABF.8030908@fr.ibm.com> <48E36BFA.3040904@openvz.org> <48E36DA0.9080400@fr.ibm.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 1/6] Phonet: transport protocol auto-loading
+Date: Wed, 1 Oct 2008 09:45:43 -0300
+Message-ID: <20081001124543.GD970@ghostprotocols.net>
+References: <200810011312.17288.remi.denis-courmont@nokia.com> <1222855985-22859-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	benjamin.thery@bull.net, ebiederm@xmission.com,
-	Denis Lunev <den@openvz.org>
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41657 "EHLO sacred.ru"
+Received: from mx2.redhat.com ([66.187.237.31]:38816 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753426AbYJAMnH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 08:43:07 -0400
-In-Reply-To: <48E36DA0.9080400@fr.ibm.com>
+	id S1752532AbYJAMrk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 08:47:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1222855985-22859-1-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano wrote:
-> Pavel Emelyanov wrote:
->>> So there are 2 cases:
->>>   * full isolation : restriction on VPS
->>>   * partial isolation : no restriction but *perhaps* problem when migrating
->>>
->>> Looks like we need an option per namespace to reduce the isolation for 
->>> af_unix sockets :)
->>>   - on (default): current behaviour => full isolation
->>>   - off : partial isolation
->> You mean some sysctl, that enables/disables this check in unix_find_socket_byinode?
-> 
-> Yes.
+Em Wed, Oct 01, 2008 at 01:13:00PM +0300, Remi Denis-Courmont escreveu:
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> ---
+>  net/phonet/af_phonet.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+> index 1d8df6b..06627d3 100644
+> --- a/net/phonet/af_phonet.c
+> +++ b/net/phonet/af_phonet.c
+> @@ -64,6 +64,11 @@ static int pn_socket_create(struct net *net, struc=
+t socket *sock, int protocol)
+>  	}
+> =20
+>  	pnp =3D phonet_proto_get(protocol);
+> +#ifdef CONFIG_KMOD
+> +	if (pnp =3D=3D NULL
+> +	 && request_module("net-pf-%d-proto-%d", PF_PHONET, protocol) =3D=3D=
+ 0)
 
-OK. Den, please, do :)
+&& at the end of previous line, please.
+
+I wonder if we shouldn't have:
+
+net_pf_request_module(PF_PHONET, protocol)
+
+[acme@doppio linux-2.6]$ grep "net-pf-%d-proto-%d" net/*/*.c
+net/ipv4/af_inet.c: request_module("net-pf-%d-proto-%d-type-%d",
+net/ipv4/af_inet.c: request_module("net-pf-%d-proto-%d",
+net/ipv4/inet_diag.c: request_module("net-pf-%d-proto-%d-type-%d", PF_N=
+ETLINK,
+net/ipv6/af_inet6.c: request_module("net-pf-%d-proto-%d-type-%d",
+net/ipv6/af_inet6.c: request_module("net-pf-%d-proto-%d",
+net/netlink/af_netlink.c: request_module("net-pf-%d-proto-%d", PF_NETLI=
+NK, protocol);
+[acme@doppio linux-2.6]$
+
+Nah, perhaps not...
+
+
+> +		pnp =3D phonet_proto_get(protocol);
+> +#endif
+>  	if (pnp =3D=3D NULL)
+>  		return -EPROTONOSUPPORT;
+>  	if (sock->type !=3D pnp->sock_type) {
+> --=20
+> 1.5.4.3
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
