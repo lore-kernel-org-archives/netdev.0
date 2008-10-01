@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: [net-next PATCH 16/16] Add documentation
+Subject: [net-next PATCH 13/16] iptables tproxy core
 Date: Wed, 01 Oct 2008 16:24:31 +0200
-Message-ID: <20081001142431.4893.5367.stgit@este>
+Message-ID: <20081001142431.4893.80261.stgit@este>
 References: <20081001142431.4893.48078.stgit@este>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -9,109 +9,206 @@ Content-Transfer-Encoding: 7BIT
 Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from balu.sch.bme.hu ([152.66.208.40]:53158 "EHLO balu.sch.bme.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753358AbYJAPZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 11:25:47 -0400
 In-reply-to: <20081001142431.4893.48078.stgit@este>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add basic usage instructions to Documentation/networking.
+The iptables tproxy core is a module that contains the common routines used by
+various tproxy related modules (TPROXY target and socket match)
 
 Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
 ---
 
- Documentation/networking/tproxy.txt |   85 +++++++++++++++++++++++++++++++++++
- 1 files changed, 85 insertions(+), 0 deletions(-)
+ include/net/netfilter/nf_tproxy_core.h |   32 +++++++++++
+ net/netfilter/Kconfig                  |   15 +++++
+ net/netfilter/Makefile                 |    3 +
+ net/netfilter/nf_tproxy_core.c         |   96 ++++++++++++++++++++++++++++++++
+ 4 files changed, 146 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/networking/tproxy.txt b/Documentation/networking/tproxy.txt
+diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
 new file mode 100644
-index 0000000..cf79e60
+index 0000000..208b46f
 --- /dev/null
-+++ b/Documentation/networking/tproxy.txt
-@@ -0,0 +1,85 @@
-+Transparent proxy support
-+=========================
++++ b/include/net/netfilter/nf_tproxy_core.h
+@@ -0,0 +1,32 @@
++#ifndef _NF_TPROXY_CORE_H
++#define _NF_TPROXY_CORE_H
 +
-+This feature adds Linux 2.2-like transparent proxy support to current kernels.
-+To use it, enable NETFILTER_TPROXY, the socket match and the TPROXY target in
-+your kernel config. You will need policy routing too, so be sure to enable that
-+as well.
++#include <linux/types.h>
++#include <linux/in.h>
++#include <linux/skbuff.h>
++#include <net/sock.h>
++#include <net/inet_sock.h>
++#include <net/tcp.h>
 +
++/* look up and get a reference to a matching socket */
++extern struct sock *
++nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
++		      const __be32 saddr, const __be32 daddr,
++		      const __be16 sport, const __be16 dport,
++		      const struct net_device *in, bool listening);
 +
-+1. Making non-local sockets work
-+================================
++static inline void
++nf_tproxy_put_sock(struct sock *sk)
++{
++	/* TIME_WAIT inet sockets have to be handled differently */
++	if ((sk->sk_protocol == IPPROTO_TCP) && (sk->sk_state == TCP_TIME_WAIT))
++		inet_twsk_put(inet_twsk(sk));
++	else
++		sock_put(sk);
++}
 +
-+The idea is that you identify packets with destination address matching a local
-+socket your box, set the packet mark to a certain value, and then match on that
-+value using policy routing to have those packets delivered locally:
++/* assign a socket to the skb -- consumes sk */
++int
++nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk);
 +
-+# iptables -t mangle -N DIVERT
-+# iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
-+# iptables -t mangle -A DIVERT -j MARK --set-mark 1
-+# iptables -t mangle -A DIVERT -j ACCEPT
++#endif
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index ee898e7..ff1b0e6 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -287,6 +287,21 @@ config NF_CT_NETLINK
+ 	help
+ 	  This option enables support for a netlink-based userspace interface
+ 
++# transparent proxy support
++config NETFILTER_TPROXY
++	tristate "Transparent proxying support (EXPERIMENTAL)"
++	depends on EXPERIMENTAL
++	depends on IP_NF_MANGLE
++	depends on NETFILTER_ADVANCED
++	help
++	  This option enables transparent proxying support, that is,
++	  support for handling non-locally bound IPv4 TCP and UDP sockets.
++	  For it to work you will have to configure certain iptables rules
++	  and use policy routing. For more information on how to set it up
++	  see Documentation/networking/tproxy.txt.
 +
-+# ip rule add fwmark 1 lookup 100
-+# ip route add local 0.0.0.0/0 dev lo table 100
++	  To compile it as a module, choose M here.  If unsure, say N.
 +
-+Because of certain restrictions in the IPv4 routing output code you'll have to
-+modify your application to allow it sending datagrams _from_ non-local IP
-+addresses. All you have to do is to enable the (SOL_IP, IP_TRANSPARENT) socket
-+option before calling bind:
+ config NETFILTER_XTABLES
+ 	tristate "Netfilter Xtables support (required for ip_tables)"
+ 	default m if NETFILTER_ADVANCED=n
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 3bd2cc5..1b8cb7f 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -34,6 +34,9 @@ obj-$(CONFIG_NF_CONNTRACK_SANE) += nf_conntrack_sane.o
+ obj-$(CONFIG_NF_CONNTRACK_SIP) += nf_conntrack_sip.o
+ obj-$(CONFIG_NF_CONNTRACK_TFTP) += nf_conntrack_tftp.o
+ 
++# transparent proxy support
++obj-$(CONFIG_NETFILTER_TPROXY) += nf_tproxy_core.o
 +
-+fd = socket(AF_INET, SOCK_STREAM, 0);
-+/* - 8< -*/
-+int value = 1;
-+setsockopt(fd, SOL_IP, IP_TRANSPARENT, &value, sizeof(value));
-+/* - 8< -*/
-+name.sin_family = AF_INET;
-+name.sin_port = htons(0xCAFE);
-+name.sin_addr.s_addr = htonl(0xDEADBEEF);
-+bind(fd, &name, sizeof(name));
+ # generic X tables 
+ obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
+ 
+diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
+new file mode 100644
+index 0000000..fe34f4b
+--- /dev/null
++++ b/net/netfilter/nf_tproxy_core.c
+@@ -0,0 +1,96 @@
++/*
++ * Transparent proxy support for Linux/iptables
++ *
++ * Copyright (c) 2006-2007 BalaBit IT Ltd.
++ * Author: Balazs Scheidler, Krisztian Kovacs
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
 +
-+A trivial patch for netcat is available here:
-+http://people.netfilter.org/hidden/tproxy/netcat-ip_transparent-support.patch
++#include <linux/version.h>
++#include <linux/module.h>
 +
++#include <linux/net.h>
++#include <linux/if.h>
++#include <linux/netdevice.h>
++#include <net/udp.h>
++#include <net/netfilter/nf_tproxy_core.h>
 +
-+2. Redirecting traffic
-+======================
++struct sock *
++nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
++		      const __be32 saddr, const __be32 daddr,
++		      const __be16 sport, const __be16 dport,
++		      const struct net_device *in, bool listening_only)
++{
++	struct sock *sk;
 +
-+Transparent proxying often involves "intercepting" traffic on a router. This is
-+usually done with the iptables REDIRECT target, however, there are serious
-+limitations of that method. One of the major issues is that it actually
-+modifies the packets to change the destination address -- which might not be
-+acceptable in certain situations. (Think of proxying UDP for example: you won't
-+be able to find out the original destination address. Even in case of TCP
-+getting the original destination address is racy.)
++	/* look up socket */
++	switch (protocol) {
++	case IPPROTO_TCP:
++		if (listening_only)
++			sk = __inet_lookup_listener(net, &tcp_hashinfo,
++						    daddr, ntohs(dport),
++						    in->ifindex);
++		else
++			sk = __inet_lookup(net, &tcp_hashinfo,
++					   saddr, sport, daddr, dport,
++					   in->ifindex);
++		break;
++	case IPPROTO_UDP:
++		sk = udp4_lib_lookup(net, saddr, sport, daddr, dport,
++				     in->ifindex);
++		break;
++	default:
++		WARN_ON(1);
++		sk = NULL;
++	}
 +
-+The 'TPROXY' target provides similar functionality without relying on NAT. Simply
-+add rules like this to the iptables ruleset above:
++	pr_debug("tproxy socket lookup: proto %u %08x:%u -> %08x:%u, listener only: %d, sock %p\n",
++		 protocol, ntohl(saddr), ntohs(sport), ntohl(daddr), ntohs(dport), listening_only, sk);
 +
-+# iptables -t mangle -A PREROUTING -p tcp --dport 80 -j TPROXY \
-+  --tproxy-mark 0x1/0x1 --on-port 50080
++	return sk;
++}
++EXPORT_SYMBOL_GPL(nf_tproxy_get_sock_v4);
 +
-+Note that for this to work you'll have to modify the proxy to enable (SOL_IP,
-+IP_TRANSPARENT) for the listening socket.
++static void
++nf_tproxy_destructor(struct sk_buff *skb)
++{
++	struct sock *sk = skb->sk;
 +
++	skb->sk = NULL;
++	skb->destructor = NULL;
 +
-+3. Iptables extensions
-+======================
++	if (sk)
++		nf_tproxy_put_sock(sk);
++}
 +
-+To use tproxy you'll need to have the 'socket' and 'TPROXY' modules
-+compiled for iptables. A patched version of iptables is available
-+here: http://git.balabit.hu/?p=bazsi/iptables-tproxy.git
++/* consumes sk */
++int
++nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk)
++{
++	if (inet_sk(sk)->transparent) {
++		skb->sk = sk;
++		skb->destructor = nf_tproxy_destructor;
++		return 1;
++	} else
++		nf_tproxy_put_sock(sk);
 +
++	return 0;
++}
++EXPORT_SYMBOL_GPL(nf_tproxy_assign_sock);
 +
-+4. Application support
-+======================
++static int __init nf_tproxy_init(void)
++{
++	pr_info("NF_TPROXY: Transparent proxy support initialized, version 4.1.0\n");
++	pr_info("NF_TPROXY: Copyright (c) 2006-2007 BalaBit IT Ltd.\n");
++	return 0;
++}
 +
-+4.1. Squid
-+----------
++module_init(nf_tproxy_init);
 +
-+Squid 3.HEAD has support built-in. To use it, pass
-+'--enable-linux-netfilter' to configure and set the 'tproxy' option on
-+the HTTP listener you redirect traffic to with the TPROXY iptables
-+target.
-+
-+For more information please consult the following page on the Squid
-+wiki: http://wiki.squid-cache.org/Features/Tproxy4
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Krisztian Kovacs");
++MODULE_DESCRIPTION("Transparent proxy support core routines");
 
 
