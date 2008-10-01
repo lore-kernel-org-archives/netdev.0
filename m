@@ -1,57 +1,49 @@
-From: Vitaliy Gusev <vgusev@openvz.org>
-Subject: Re: [PATCH net-2.6] ip: NULL pointer dereferrence in tcp_v(4|6)_send_ack
-Date: Wed, 1 Oct 2008 13:06:15 +0400
-Message-ID: <200810011306.15745.vgusev@openvz.org>
-References: <200809302013.30051.vgusev@openvz.org> <1222792151-11861-1-git-send-email-den@openvz.org> <20081001.015246.92774687.davem@davemloft.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC PATCH v6 08/16] netlabel: Replace protocol/NetLabel linking
+ with refrerence counts
+Date: Wed, 1 Oct 2008 19:01:43 +1000 (EST)
+Message-ID: <alpine.LRH.1.10.0810011901140.6732@tundra.namei.org>
+References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125638.17132.26966.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: den@openvz.org, xemul@openvz.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:14967 "EHLO relay.sw.ru"
+Received: from tundra.namei.org ([65.99.196.166]:45441 "EHLO tundra.namei.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753607AbYJAI6e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 04:58:34 -0400
-In-Reply-To: <20081001.015246.92774687.davem@davemloft.net>
-Content-Disposition: inline
+	id S1755516AbYJAJBr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 05:01:47 -0400
+In-Reply-To: <20080916125638.17132.26966.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1 October 2008 12:52:46 David Miller wrote:
-> From: "Denis V. Lunev" <den@openvz.org>
-> Date: Tue, 30 Sep 2008 20:29:11 +0400
-> 
-> > The following actions are possible:
-> > tcp_v4_rcv
-> >   skb->dev = NULL;
-> >   tcp_v4_do_rcv
-> >     tcp_v4_hnd_req
-> >       tcp_check_req
-> >         req->rsk_ops->send_ack == tcp_v4_send_ack
-> > 
-> > So, skb->dev can be NULL in tcp_v4_send_ack. We must obtain namespace
-> > from dst entry. IPv6 codepath is similar.
-> > 
-> > Thanks to Vitaliy Gusev <vgusev@openvz.org> for initial oops decoding.
-> > 
-> > Signed-off-by: Denis V. Lunev <den@openvz.org>
-> 
-> Vitaliy sent the same patch first, so I applied his copy :-)
+On Tue, 16 Sep 2008, Paul Moore wrote:
 
-Den's patch is not the same. My patch didn't fix IPv6 code.
+> NetLabel has always had a list of backpointers in the CIPSO DOI definition
+> structure which pointed to the NetLabel LSM domain mapping structures which
+> referenced the CIPSO DOI struct.  The rationale for this was that when an
+> administrator removed a CIPSO DOI from the system all of the associated
+> NetLabel LSM domain mappings should be removed as well; a list of
+> backpointers made this a simple operation.
+> 
+> Unfortunately, while the backpointers did make the removal easier they were
+> a bit of a mess from an implementation point of view which was making
+> further development difficult.  Since the removal of a CIPSO DOI is a
+> realtively rare event it seems to make sense to remove this backpointer
+> list as the optimization was hurting us more then it was helping.  However,
+> we still need to be able to track when a CIPSO DOI definition is being used
+> so replace the backpointer list with a reference count.  In order to
+> preserve the current functionality of removing the associated LSM domain
+> mappings when a CIPSO DOI is removed we walk the LSM domain mapping table,
+> removing the relevant entries.
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-> 
-> Thanks everyone.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Reviewed-by: James Morris <jmorris@namei.org>
 
 
 
 -- 
-Thank,
-Vitaliy Gusev
+James Morris
+<jmorris@namei.org>
