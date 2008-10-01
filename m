@@ -1,35 +1,47 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC PATCH v6 16/16] netlabel: Add configuration support for
- local labeling
-Date: Wed, 1 Oct 2008 20:13:39 +1000 (EST)
-Message-ID: <alpine.LRH.1.10.0810012011050.6732@tundra.namei.org>
-References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125737.17132.50669.stgit@flek.lan>
+From: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+Subject: [PATCH 1/6] Phonet: transport protocol auto-loading
+Date: Wed,  1 Oct 2008 13:13:00 +0300
+Message-ID: <1222855985-22859-1-git-send-email-remi.denis-courmont@nokia.com>
+References: <200810011312.17288.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tundra.namei.org ([65.99.196.166]:60565 "EHLO tundra.namei.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753573AbYJAKNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 06:13:41 -0400
-In-Reply-To: <20080916125737.17132.50669.stgit@flek.lan>
+Received: from smtp.nokia.com ([192.100.122.230]:38287 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753775AbYJAKNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:13:47 -0400
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m91ADEx5022067
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 13:13:44 +0300
+In-Reply-To: <200810011312.17288.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Sep 2008, Paul Moore wrote:
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/af_phonet.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-> Add the necessary NetLabel support for the new CIPSO mapping,
-> CIPSO_V4_MAP_LOCAL, which allows full LSM label/context support.
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index 1d8df6b..06627d3 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -64,6 +64,11 @@ static int pn_socket_create(struct net *net, struct =
+socket *sock, int protocol)
+ 	}
+=20
+ 	pnp =3D phonet_proto_get(protocol);
++#ifdef CONFIG_KMOD
++	if (pnp =3D=3D NULL
++	 && request_module("net-pf-%d-proto-%d", PF_PHONET, protocol) =3D=3D =
+0)
++		pnp =3D phonet_proto_get(protocol);
++#endif
+ 	if (pnp =3D=3D NULL)
+ 		return -EPROTONOSUPPORT;
+ 	if (sock->type !=3D pnp->sock_type) {
+--=20
+1.5.4.3
 
-Now, CIPSO is useful :-)
-
-
-Reviewed-by: James Morris <jmorris@namei.org>
-
-
-
--- 
-James Morris
-<jmorris@namei.org>
