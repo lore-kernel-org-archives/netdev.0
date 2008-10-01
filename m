@@ -1,40 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Multicast: add mc_count to in_device and to
- inet6_dev
-Date: Wed, 01 Oct 2008 02:08:54 -0700 (PDT)
-Message-ID: <20081001.020854.146740849.davem@davemloft.net>
-References: <b25312890809302357j6b75dd27uced2968046c10993@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, pekkas@netcore.fi
-To: roszenrami@gmail.com
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH net-2.6] ipv6: NULL pointer dereferrence in tcp_v6_send_ack
+Date: Wed,  1 Oct 2008 13:11:57 +0400
+Message-ID: <1222852317-7177-1-git-send-email-den@openvz.org>
+References: <20081001.020359.48616451.davem@davemloft.net>
+Cc: xemul@openvz.org, vgusev@openvz.org, netdev@vger.kernel.org,
+	"Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49623
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751963AbYJAJJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:09:05 -0400
-In-Reply-To: <b25312890809302357j6b75dd27uced2968046c10993@mail.gmail.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:3546 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753261AbYJAJLv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 05:11:51 -0400
+In-Reply-To: <20081001.020359.48616451.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <roszenrami@gmail.com>
-Date: Wed, 1 Oct 2008 09:57:42 +0300
+The following actions are possible:
+tcp_v6_rcv
+  skb->dev = NULL;
+  tcp_v6_do_rcv
+    tcp_v6_hnd_req
+      tcp_check_req
+        req->rsk_ops->send_ack == tcp_v6_send_ack
 
-> Hi,
->     - This patch set adds mc_count to  struct in_device (IPv4) and to
-> struct inet6_dev (IPv6) and updates increment/decrement/initialization
-> of this field in IPv4 and in IPv6.
-> 
-> - Also printing the /proc entry (/proc/net/igmp) is adjusted to use
-> the new mc_count.
-> 
->  - Thanks to David Stevens for his feedback.
+So, skb->dev can be NULL in tcp_v6_send_ack. We must obtain namespace
+from dst entry.
 
-Why even add the mc_count to the ipv6 side if it isn't
-even going to be used?  I see nothing actually reading
-the ipv6 version of the value.
+Thanks to Vitaliy Gusev <vgusev@openvz.org> for initial problem finding
+in IPv4 code.
 
-If you're going to do that eventually in some later
-set of changes, add it then.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/tcp_ipv4.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index b585c85..10e22fd 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1050,7 +1050,7 @@ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack, u32 win, u32
+ 	struct tcphdr *th = tcp_hdr(skb), *t1;
+ 	struct sk_buff *buff;
+ 	struct flowi fl;
+-	struct net *net = dev_net(skb->dev);
++	struct net *net = dev_net(skb->dst->dev);
+ 	struct sock *ctl_sk = net->ipv6.tcp_sk;
+ 	unsigned int tot_len = sizeof(struct tcphdr);
+ 	__be32 *topt;
+-- 
+1.5.6.4
+
