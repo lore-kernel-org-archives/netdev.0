@@ -1,49 +1,73 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: ax25 rose Re: kernel panic linux-2.6.27-rc7
-Date: Wed, 1 Oct 2008 05:58:28 +0000
-Message-ID: <20081001055828.GA10831@ff.dom.local>
-References: <48DF7D51.1010507@free.fr> <20080929123036.GA16954@ff.dom.local> <48E1F417.7080304@free.fr> <20080930101030.GA6290@ff.dom.local> <20080930111733.GB6290@ff.dom.local> <48E29337.2080400@free.fr> <20080930213052.GA6449@ami.dom.local> <48E2ACDE.30406@free.fr>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: Move IPVS to net/netfilter/ipvs
+Date: Wed, 1 Oct 2008 16:07:26 +1000
+Message-ID: <20081001060725.GA28433@verge.net.au>
+References: <f4845fc0809190345k1d9f8ba6i53d891548ddb0565@mail.gmail.com> <20080921235355.GA1342@verge.net.au> <20080922000748.GE1342@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>
-To: Bernard Pidoux F6BVP <f6bvp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:5945 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751458AbYJAF6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 01:58:35 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so739004ugf.37
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2008 22:58:33 -0700 (PDT)
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <48E2ACDE.30406@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080922000748.GE1342@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 01, 2008 at 12:49:02AM +0200, Bernard Pidoux F6BVP wrote:
-> Jarek,
->
-> With the patch #2, there have been only one reboot after the machine was  
-> frozen. I did not notice that was happening for there was no kernel  
-> panic message but a frozen display only.
-> Then I could only write down partially the values displayed after  
-> AX25_DBG: c446c220, c..... 3, 5, 240
-> Second number was not 000000 as it is most of the time.
-> The machine rebooted after the usual 60 seconds delay and since then  
-> there was no kernel panic.
-> This is the first time kernel 2.6.27-rc7 does not panic within a minute.
-> The system is up since about 20 minutes now with frequent AX25_DBG messages.
+On Mon, Sep 22, 2008 at 10:07:50AM +1000, Simon Horman wrote:
+> On Mon, Sep 22, 2008 at 09:53:56AM +1000, Simon Horman wrote:
+> > On Fri, Sep 19, 2008 at 12:45:47PM +0200, Julius Volz wrote:
+> > > Hi Horms,
+> > > 
+> > > I worked around the unrelated UML build problems for now and did the
+> > > IPVS move from net/ipv4/ipvs to net/netfilter/ipvs, as discussed.
+> > > Since the patch is huge (732K), I uploaded it rather than trying to
+> > > include it in the mail:
+> > > 
+> > > http://www.mindbasket.com/ipvs/0001-IPVS-Move-IPVS-to-net-netfilter-ipvs.patch
+> > > 
+> > > The menuconfig option for IPVS is now also in the Netfilter submenu.
+> > > Everything builds and runs ok here...
+> > 
+> > Hi Julius, this seems fine to me. Dave, Patrick, are you ok with this
+> > change? If so I'll suck it into lvs-2.6 and send a pull request.
+> 
+> Here is the version of the patch that I have that applies
+> against the lvs-next-2.6 branch of lvs-2.6, changeset
+> "ipvs: Fix unused label warning" (8d5803bf6fbe5264000afc8c34bff08e8ecc023b)
+> 
+> http://www.vergenet.net/~horms/tmp/0001-IPVS-Move-IPVS-to-net-netfilter-ipvs.2.patch
 
-Hmm... Since this was intended mainly for debugging something went
-wrong. (I expected to get at least one warning.)
+Hi Patrick,
 
->
-> I am sorry that I must go to sleep now to be at work early in the morning.
-> I will be away from my Linux box for a few days.
-> Then we should probably interrupt this interesting bug hunting.
-> I will send more results when I am back.
+could you take a moment to look at this?
+Unfortunately the patch is too long to post to the list
+but it really is as simple as the description (below) claims.
 
-OK, I'll try to look at this in the meantime.
+I can handle the patch longness problem by pushing it into
+lvs-2.6 and getting Dave to do a pull from there. But I'd
+like to make sure that the move is ok with you first.
 
-Cheers,
-Jarek P.
+Thanks
+
+-- 
+Simon Horman
+  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
+  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+
+From: Julius Volz <juliusv@google.com>
+
+IPVS: Move IPVS to net/netfilter/ipvs
+
+Since IPVS now has partial IPv6 support, this patch moves IPVS from
+net/ipv4/ipvs to net/netfilter/ipvs. It's a result of:
+
+$ git mv net/ipv4/ipvs net/netfilter
+
+and adapting the relevant Kconfigs/Makefiles to the new path.
+
+Signed-off-by: Julius Volz <juliusv@google.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+[ diff omitted ]
