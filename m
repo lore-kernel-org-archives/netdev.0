@@ -1,7 +1,8 @@
 From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: [net-next PATCH 15/16] iptables TPROXY target
+Subject: [net-next PATCH 07/16] Make Netfilter's ip_route_me_harder()	non-local
+ address compatible
 Date: Wed, 01 Oct 2008 16:24:31 +0200
-Message-ID: <20081001142431.4893.51517.stgit@este>
+Message-ID: <20081001142431.4893.46493.stgit@este>
 References: <20081001142431.4893.48078.stgit@este>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -14,195 +15,128 @@ In-reply-to: <20081001142431.4893.48078.stgit@este>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The TPROXY target implements redirection of non-local TCP/UDP traffic to local
-sockets. Additionally, it's possible to manipulate the packet mark if and only
-if a socket has been found. (We need this because we cannot use multiple
-targets in the same iptables rule.)
+Netfilter's ip_route_me_harder() tries to re-route packets either generated or
+re-routed by Netfilter. This patch changes ip_route_me_harder() to handle
+packets from non-locally-bound sockets with IP_TRANSPARENT set as local and to
+set the appropriate flowi flags when re-doing the routing lookup.
 
 Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
 ---
 
- include/linux/netfilter/xt_TPROXY.h |   14 ++++
- net/netfilter/Kconfig               |   15 +++++
- net/netfilter/Makefile              |    1 
- net/netfilter/xt_TPROXY.c           |  112 +++++++++++++++++++++++++++++++++++
- 4 files changed, 142 insertions(+), 0 deletions(-)
+ include/net/ip.h                |    9 +++++++++
+ net/ipv4/inet_connection_sock.c |    1 +
+ net/ipv4/ip_output.c            |    4 +++-
+ net/ipv4/netfilter.c            |    3 +++
+ net/ipv4/syncookies.c           |    2 ++
+ 5 files changed, 18 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_TPROXY.h b/include/linux/netfilter/xt_TPROXY.h
-new file mode 100644
-index 0000000..152e8f9
---- /dev/null
-+++ b/include/linux/netfilter/xt_TPROXY.h
-@@ -0,0 +1,14 @@
-+#ifndef _XT_TPROXY_H_target
-+#define _XT_TPROXY_H_target
-+
-+/* TPROXY target is capable of marking the packet to perform
-+ * redirection. We can get rid of that whenever we get support for
-+ * mutliple targets in the same rule. */
-+struct xt_tproxy_target_info {
-+	u_int32_t mark_mask;
-+	u_int32_t mark_value;
-+	__be32 laddr;
-+	__be16 lport;
-+};
-+
-+#endif /* _XT_TPROXY_H_target */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index a4b8006..bef2144 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -421,6 +421,21 @@ config NETFILTER_XT_TARGET_RATEEST
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 250e6ef..d678ea3 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -29,6 +29,7 @@
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
+ #include <net/inet_sock.h>
+ #include <net/snmp.h>
++#include <net/flow.h>
  
-+config NETFILTER_XT_TARGET_TPROXY
-+	tristate '"TPROXY" target support (EXPERIMENTAL)'
-+	depends on EXPERIMENTAL
-+	depends on NETFILTER_TPROXY
-+	depends on NETFILTER_XTABLES
-+	depends on NETFILTER_ADVANCED
-+	select NF_DEFRAG_IPV4
-+	help
-+	  This option adds a `TPROXY' target, which is somewhat similar to
-+	  REDIRECT.  It can only be used in the mangle table and is useful
-+	  to redirect traffic to a transparent proxy.  It does _not_ depend
-+	  on Netfilter connection tracking and NAT, unlike REDIRECT.
+ struct sock;
+ 
+@@ -140,12 +141,20 @@ static inline void ip_tr_mc_map(__be32 addr, char *buf)
+ 
+ struct ip_reply_arg {
+ 	struct kvec iov[1];   
++	int	    flags;
+ 	__wsum 	    csum;
+ 	int	    csumoffset; /* u16 offset of csum in iov[0].iov_base */
+ 				/* -1 if not needed */ 
+ 	int	    bound_dev_if;
+ }; 
+ 
++#define IP_REPLY_ARG_NOSRCCHECK 1
 +
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_TARGET_TRACE
- 	tristate  '"TRACE" target support'
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index c386755..fdb72f8 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -51,6 +51,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_NOTRACK) += xt_NOTRACK.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_RATEEST) += xt_RATEEST.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_SECMARK) += xt_SECMARK.o
-+obj-$(CONFIG_NETFILTER_XT_TARGET_TPROXY) += xt_TPROXY.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_TCPMSS) += xt_TCPMSS.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_TCPOPTSTRIP) += xt_TCPOPTSTRIP.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_TRACE) += xt_TRACE.o
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-new file mode 100644
-index 0000000..183f251
---- /dev/null
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -0,0 +1,112 @@
-+/*
-+ * Transparent proxy support for Linux/iptables
-+ *
-+ * Copyright (c) 2006-2007 BalaBit IT Ltd.
-+ * Author: Balazs Scheidler, Krisztian Kovacs
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <net/checksum.h>
-+#include <net/udp.h>
-+#include <net/inet_sock.h>
-+
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter/xt_TPROXY.h>
-+
-+#include <net/netfilter/ipv4/nf_defrag_ipv4.h>
-+#include <net/netfilter/nf_tproxy_core.h>
-+
-+static unsigned int
-+tproxy_tg(struct sk_buff *skb,
-+	  const struct net_device *in,
-+	  const struct net_device *out,
-+	  unsigned int hooknum,
-+	  const struct xt_target *target,
-+	  const void *targinfo)
++static inline __u8 ip_reply_arg_flowi_flags(const struct ip_reply_arg *arg)
 +{
-+	const struct iphdr *iph = ip_hdr(skb);
-+	const struct xt_tproxy_target_info *tgi = targinfo;
-+	struct udphdr _hdr, *hp;
-+	struct sock *sk;
-+
-+	hp = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_hdr), &_hdr);
-+	if (hp == NULL)
-+		return NF_DROP;
-+
-+	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
-+				   iph->saddr, tgi->laddr ? tgi->laddr : iph->daddr,
-+				   hp->source, tgi->lport ? tgi->lport : hp->dest,
-+				   in, true);
-+
-+	/* NOTE: assign_sock consumes our sk reference */
-+	if (sk && nf_tproxy_assign_sock(skb, sk)) {
-+		/* This should be in a separate target, but we don't do multiple
-+		   targets on the same rule yet */
-+		skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
-+
-+		pr_debug("redirecting: proto %u %08x:%u -> %08x:%u, mark: %x\n",
-+			 iph->protocol, ntohl(iph->daddr), ntohs(hp->dest),
-+			 ntohl(tgi->laddr), ntohs(tgi->lport), skb->mark);
-+		return NF_ACCEPT;
-+	}
-+
-+	pr_debug("no socket, dropping: proto %u %08x:%u -> %08x:%u, mark: %x\n",
-+		 iph->protocol, ntohl(iph->daddr), ntohs(hp->dest),
-+		 ntohl(tgi->laddr), ntohs(tgi->lport), skb->mark);
-+	return NF_DROP;
++	return (arg->flags & IP_REPLY_ARG_NOSRCCHECK) ? FLOWI_FLAG_ANYSRC : 0;
 +}
 +
-+static bool
-+tproxy_tg_check(const char *tablename,
-+		const void *entry,
-+		const struct xt_target *target,
-+		void *targetinfo,
-+		unsigned int hook_mask)
-+{
-+	const struct ipt_ip *i = entry;
-+
-+	if ((i->proto == IPPROTO_TCP || i->proto == IPPROTO_UDP)
-+	    && !(i->invflags & IPT_INV_PROTO))
-+		return true;
-+
-+	pr_info("xt_TPROXY: Can be used only in combination with "
-+		"either -p tcp or -p udp\n");
-+	return false;
-+}
-+
-+static struct xt_target tproxy_tg_reg __read_mostly = {
-+	.name		= "TPROXY",
-+	.family		= AF_INET,
-+	.table		= "mangle",
-+	.target		= tproxy_tg,
-+	.targetsize	= sizeof(struct xt_tproxy_target_info),
-+	.checkentry	= tproxy_tg_check,
-+	.hooks		= 1 << NF_INET_PRE_ROUTING,
-+	.me		= THIS_MODULE,
-+};
-+
-+static int __init tproxy_tg_init(void)
-+{
-+	nf_defrag_ipv4_enable();
-+	return xt_register_target(&tproxy_tg_reg);
-+}
-+
-+static void __exit tproxy_tg_exit(void)
-+{
-+	xt_unregister_target(&tproxy_tg_reg);
-+}
-+
-+module_init(tproxy_tg_init);
-+module_exit(tproxy_tg_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Krisztian Kovacs");
-+MODULE_DESCRIPTION("Netfilter transparent proxy (TPROXY) target module.");
-+MODULE_ALIAS("ipt_TPROXY");
+ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *arg,
+ 		   unsigned int len); 
+ 
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 0c1ae68..432c570 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -335,6 +335,7 @@ struct dst_entry* inet_csk_route_req(struct sock *sk,
+ 					.saddr = ireq->loc_addr,
+ 					.tos = RT_CONN_FLAGS(sk) } },
+ 			    .proto = sk->sk_protocol,
++			    .flags = inet_sk_flowi_flags(sk),
+ 			    .uli_u = { .ports =
+ 				       { .sport = inet_sk(sk)->sport,
+ 					 .dport = ireq->rmt_port } } };
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index d533a89..d2a8f8b 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -340,6 +340,7 @@ int ip_queue_xmit(struct sk_buff *skb, int ipfragok)
+ 							.saddr = inet->saddr,
+ 							.tos = RT_CONN_FLAGS(sk) } },
+ 					    .proto = sk->sk_protocol,
++					    .flags = inet_sk_flowi_flags(sk),
+ 					    .uli_u = { .ports =
+ 						       { .sport = inet->sport,
+ 							 .dport = inet->dport } } };
+@@ -1371,7 +1372,8 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
+ 				    .uli_u = { .ports =
+ 					       { .sport = tcp_hdr(skb)->dest,
+ 						 .dport = tcp_hdr(skb)->source } },
+-				    .proto = sk->sk_protocol };
++				    .proto = sk->sk_protocol,
++				    .flags = ip_reply_arg_flowi_flags(arg) };
+ 		security_skb_classify_flow(skb, &fl);
+ 		if (ip_route_output_key(sock_net(sk), &rt, &fl))
+ 			return;
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index f8edacd..01671ad 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -20,6 +20,8 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
+ 	unsigned int type;
+ 
+ 	type = inet_addr_type(&init_net, iph->saddr);
++	if (skb->sk && inet_sk(skb->sk)->transparent)
++		type = RTN_LOCAL;
+ 	if (addr_type == RTN_UNSPEC)
+ 		addr_type = type;
+ 
+@@ -33,6 +35,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
+ 		fl.nl_u.ip4_u.tos = RT_TOS(iph->tos);
+ 		fl.oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
+ 		fl.mark = skb->mark;
++		fl.flags = skb->sk ? inet_sk_flowi_flags(skb->sk) : 0;
+ 		if (ip_route_output_key(&init_net, &rt, &fl) != 0)
+ 			return -1;
+ 
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 9d38005..929302b 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -16,6 +16,7 @@
+ #include <linux/cryptohash.h>
+ #include <linux/kernel.h>
+ #include <net/tcp.h>
++#include <net/route.h>
+ 
+ /* Timestamps: lowest 9 bits store TCP options */
+ #define TSBITS 9
+@@ -337,6 +338,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 						.saddr = ireq->loc_addr,
+ 						.tos = RT_CONN_FLAGS(sk) } },
+ 				    .proto = IPPROTO_TCP,
++				    .flags = inet_sk_flowi_flags(sk),
+ 				    .uli_u = { .ports =
+ 					       { .sport = th->dest,
+ 						 .dport = th->source } } };
 
 
