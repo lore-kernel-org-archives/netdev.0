@@ -1,46 +1,51 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
-Date: Wed, 01 Oct 2008 19:42:50 +0400
-Message-ID: <48E39A7A.8090800@openvz.org>
-References: <1222858454-7843-1-git-send-email-den@openvz.org> <48E35B4C.1040303@fr.ibm.com> <1222860776.23573.49.camel@iris.sw.ru> <48E3653C.1070701@fr.ibm.com> <1222862583.23573.54.camel@iris.sw.ru> <48E36ABF.8030908@fr.ibm.com> <48E36BFA.3040904@openvz.org> <48E36DA0.9080400@fr.ibm.com> <1222866717.23573.58.camel@iris.sw.ru> <48E37F1B.20601@fr.ibm.com> <1222872885.23573.64.camel@iris.sw.ru> <48E394D2.5090709@fr.ibm.com> <48E397C1.6050407@openvz.org> <48E3998D.4040709@fr.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 10/16] Don't lookup the socket if there's a
+ socket attached to the skb
+Date: Wed, 01 Oct 2008 08:51:04 -0700 (PDT)
+Message-ID: <20081001.085104.193726318.davem@davemloft.net>
+References: <20081001142431.4893.69772.stgit@este>
+	<20081001.075040.135314845.davem@davemloft.net>
+	<1222875500.7492.6.camel@este>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <den@openvz.org>, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, benjamin.thery@bull.net,
-	ebiederm@xmission.com
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: hidden@sch.bme.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39162 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753273AbYJAPon (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 11:44:43 -0400
-In-Reply-To: <48E3998D.4040709@fr.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54250
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751850AbYJAPvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 11:51:15 -0400
+In-Reply-To: <1222875500.7492.6.camel@este>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano wrote:
-> Pavel Emelyanov wrote:
->>> Yes per namespace, I agree.
->>>
->>> If the option is controlled by the parent and it is done by sysctl, you 
->>> will have to make proc/sys per namespace like Pavel did with /proc/net, no ?
->> /proc/sys is already per namespace actually ;) Or what did you mean by that?
-> 
-> 
-> Effectively I was not clear :)
-> 
-> I meant, you can not access /proc/sys from outside the namespace like 
-> /proc/net which can be followed up by /proc/<pid>/net outside the namespace.
+From: KOVACS Krisztian <hidden@sch.bme.hu>
+Date: Wed, 01 Oct 2008 17:38:20 +0200
 
-Ah! I've got it. Well, I think after Al Viro finishes with sysctl
-rework this possibility will appear, but Denis actually persuaded me
-in his POV - if we do want to disable shared sockets we *can* do this
-by putting containers in proper mount namespaces of chroot environments.
+> The problem is that if you include the if() test then you have to
+> include the lookup call as well and that's different for TCP/UDP.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+No, I only mean to make a helper for this construct:
 
+	if (unlikely(skb->sk)) {
+		...
+	}
+
+so, something like:
+
+static inline struct sock *sock_skb_steal(struct sk_buff *skb)
+{
+	if (unlikely(skb->sk)) {
+		struct sock *sk = skb->sk;
+
+		skb->destructor = NULL;
+		skb->sk = NULL;
+		return sk;
+	}
+	return NULL;
+}
+
+and then also get rid of the ifdefs at the place where
+these calls are made (TCP and UDP).
