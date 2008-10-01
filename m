@@ -1,53 +1,231 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 0/6] [RFC] Phonet pipes protocol (v2)
-Date: Wed, 1 Oct 2008 13:12:17 +0300
-Message-ID: <200810011312.17288.remi.denis-courmont@nokia.com>
+From: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+Subject: [PATCH 2/6] Phonet: connected sockets glue
+Date: Wed,  1 Oct 2008 13:13:01 +0300
+Message-ID: <1222855985-22859-2-git-send-email-remi.denis-courmont@nokia.com>
+References: <200810011312.17288.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:59039 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752185AbYJAKNQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:13:16 -0400
-Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
-	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m91ACe1a024958
-	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 13:13:13 +0300
-Content-Disposition: inline
+Received: from smtp.nokia.com ([192.100.105.134]:48191 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753163AbYJAKNa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 06:13:30 -0400
+Received: from esebh107.NOE.Nokia.com (esebh107.ntc.nokia.com [172.21.143.143])
+	by mgw-mx09.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m91ADEaP017183
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 05:13:28 -0500
+In-Reply-To: <200810011312.17288.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-	Hello again,
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ include/net/phonet/pep.h |   43 ++++++++++++++++++++
+ net/phonet/socket.c      |   97 ++++++++++++++++++++++++++++++++++++++=
+++++++++
+ 2 files changed, 140 insertions(+), 0 deletions(-)
+ create mode 100644 include/net/phonet/pep.h
 
-This patchset adds the Phonet pipe (end-point) protocol, without
-missing patches nor dummy debug. This protocols provides some
-connection handling and negotiated congestion control. It's used as a
-generic protocol for bulk transfers with Nokia cellular modems.
-
-The penultimate patch provides virtual IP interface support on top of a
-connected Phonet pipe socket. This is used for IP over GPRS.
-The implementation uses sock callbacks internally and socket options
-toward userland. Not sure if this is the "right" way.
-
- Documentation/networking/phonet.txt |   54 +
- include/linux/phonet.h              |   12
- include/linux/socket.h              |    1
- include/net/phonet/gprs.h           |   38 +
- include/net/phonet/pep.h            |  156 ++++
- net/phonet/Makefile                 |    6
- net/phonet/af_phonet.c              |    8
- net/phonet/pep-gprs.c               |  341 ++++++++++
- net/phonet/pep.c                    | 1126 +++++++++++++++++++++++++++=
-++++++++-
- net/phonet/socket.c                 |  109 +++
- 10 files changed, 1816 insertions(+), 35 deletions(-)
-
-
-Sorry for the noise
-
+diff --git a/include/net/phonet/pep.h b/include/net/phonet/pep.h
+new file mode 100644
+index 0000000..b2f8c54
+--- /dev/null
++++ b/include/net/phonet/pep.h
+@@ -0,0 +1,43 @@
++/*
++ * File: pep.h
++ *
++ * Phonet Pipe End Point sockets definitions
++ *
++ * Copyright (C) 2008 Nokia Corporation.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
++ * 02110-1301 USA
++ */
++
++#ifndef NET_PHONET_PEP_H
++#define NET_PHONET_PEP_H
++
++struct pep_sock {
++	struct pn_sock		pn_sk;
++
++	/* Listening socket stuff: */
++	struct hlist_head	ackq;
++
++	/* Connected socket stuff: */
++	u8			tx_credits;
++};
++
++static inline struct pep_sock *pep_sk(struct sock *sk)
++{
++	return (struct pep_sock *)sk;
++}
++
++extern const struct proto_ops phonet_stream_ops;
++
++#endif
+diff --git a/net/phonet/socket.c b/net/phonet/socket.c
+index dfd4061..cea1136 100644
+--- a/net/phonet/socket.c
++++ b/net/phonet/socket.c
+@@ -25,11 +25,13 @@
+=20
+ #include <linux/kernel.h>
+ #include <linux/net.h>
++#include <linux/poll.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
+=20
+ #include <linux/phonet.h>
+ #include <net/phonet/phonet.h>
++#include <net/phonet/pep.h>
+ #include <net/phonet/pn_dev.h>
+=20
+ static int pn_socket_release(struct socket *sock)
+@@ -166,6 +168,24 @@ static int pn_socket_autobind(struct socket *sock)
+ 	return 0; /* socket was already bound */
+ }
+=20
++static int pn_socket_accept(struct socket *sock, struct socket *newsoc=
+k,
++				int flags)
++{
++	struct sock *sk =3D sock->sk;
++	struct sock *newsk;
++	int err;
++
++	newsk =3D sk->sk_prot->accept(sk, flags, &err);
++	if (!newsk)
++		return err;
++
++	lock_sock(newsk);
++	sock_graft(newsk, newsock);
++	newsock->state =3D SS_CONNECTED;
++	release_sock(newsk);
++	return 0;
++}
++
+ static int pn_socket_getname(struct socket *sock, struct sockaddr *add=
+r,
+ 				int *sockaddr_len, int peer)
+ {
+@@ -182,6 +202,33 @@ static int pn_socket_getname(struct socket *sock, =
+struct sockaddr *addr,
+ 	return 0;
+ }
+=20
++static unsigned int pn_socket_poll(struct file *file, struct socket *s=
+ock,
++					poll_table *wait)
++{
++	struct sock *sk =3D sock->sk;
++	struct pep_sock *pn =3D pep_sk(sk);
++	unsigned int mask =3D 0;
++
++	poll_wait(file, &sock->wait, wait);
++
++	switch (sk->sk_state) {
++	case TCP_LISTEN:
++		return hlist_empty(&pn->ackq) ? 0 : POLLIN;
++	case TCP_CLOSE:
++		return POLLERR;
++	}
++
++	if (!skb_queue_empty(&sk->sk_receive_queue))
++		mask |=3D POLLIN | POLLRDNORM;
++	else if (sk->sk_state =3D=3D TCP_CLOSE_WAIT)
++		return POLLHUP;
++
++	if (sk->sk_state =3D=3D TCP_ESTABLISHED && pn->tx_credits)
++		mask |=3D POLLOUT | POLLWRNORM | POLLWRBAND;
++
++	return mask;
++}
++
+ static int pn_socket_ioctl(struct socket *sock, unsigned int cmd,
+ 				unsigned long arg)
+ {
+@@ -220,6 +267,30 @@ static int pn_socket_ioctl(struct socket *sock, un=
+signed int cmd,
+ 	return sk->sk_prot->ioctl(sk, cmd, arg);
+ }
+=20
++static int pn_socket_listen(struct socket *sock, int backlog)
++{
++	struct sock *sk =3D sock->sk;
++	int err =3D 0;
++
++	if (sock->state !=3D SS_UNCONNECTED)
++		return -EINVAL;
++	if (pn_socket_autobind(sock))
++		return -ENOBUFS;
++
++	lock_sock(sk);
++	if (sk->sk_state !=3D TCP_CLOSE) {
++		err =3D -EINVAL;
++		goto out;
++	}
++
++	sk->sk_state =3D TCP_LISTEN;
++	sk->sk_ack_backlog =3D 0;
++	sk->sk_max_ack_backlog =3D backlog;
++out:
++	release_sock(sk);
++	return err;
++}
++
+ static int pn_socket_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 				struct msghdr *m, size_t total_len)
+ {
+@@ -256,6 +327,32 @@ const struct proto_ops phonet_dgram_ops =3D {
+ 	.sendpage	=3D sock_no_sendpage,
+ };
+=20
++const struct proto_ops phonet_stream_ops =3D {
++	.family		=3D AF_PHONET,
++	.owner		=3D THIS_MODULE,
++	.release	=3D pn_socket_release,
++	.bind		=3D pn_socket_bind,
++	.connect	=3D sock_no_connect,
++	.socketpair	=3D sock_no_socketpair,
++	.accept		=3D pn_socket_accept,
++	.getname	=3D pn_socket_getname,
++	.poll		=3D pn_socket_poll,
++	.ioctl		=3D pn_socket_ioctl,
++	.listen		=3D pn_socket_listen,
++	.shutdown	=3D sock_no_shutdown,
++	.setsockopt	=3D sock_no_setsockopt,
++	.getsockopt	=3D sock_no_getsockopt,
++#ifdef CONFIG_COMPAT
++	.compat_setsockopt =3D sock_no_setsockopt,
++	.compat_getsockopt =3D compat_sock_no_getsockopt,
++#endif
++	.sendmsg	=3D pn_socket_sendmsg,
++	.recvmsg	=3D sock_common_recvmsg,
++	.mmap		=3D sock_no_mmap,
++	.sendpage	=3D sock_no_sendpage,
++};
++EXPORT_SYMBOL(phonet_stream_ops);
++
+ static DEFINE_MUTEX(port_mutex);
+=20
+ /* allocate port for a socket */
 --=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+1.5.4.3
+
