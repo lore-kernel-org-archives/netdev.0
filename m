@@ -1,68 +1,769 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [RFC] bonding: add better ipv6 failover support
-Date: Wed, 01 Oct 2008 09:24:08 -0400
-Message-ID: <48E379F8.7090403@hp.com>
-References: <200809151335.16817.asid@hp.com> <20080915180015.GB1078@havoc.gtf.org> <200809151416.49447.alexandre.sidorenko@hp.com> <48DA71A8.5050900@hp.com> <7958.1222288188@death.nxdomain.ibm.com> <48DAFB92.7040904@hp.com> <17219.1222355242@death.nxdomain.ibm.com> <48DBB181.9050205@hp.com> <20081001055355.GA27304@verge.net.au>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 5/6] Phonet: implement GPRS virtual interface over PEP
+	socket
+Date: Wed, 1 Oct 2008 10:32:33 -0300
+Message-ID: <20081001133233.GG970@ghostprotocols.net>
+References: <200810011312.17288.remi.denis-courmont@nokia.com> <1222855985-22859-5-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:6379 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753174AbYJANYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 09:24:13 -0400
-In-Reply-To: <20081001055355.GA27304@verge.net.au>
+Received: from mx2.redhat.com ([66.187.237.31]:36108 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752386AbYJANeb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 09:34:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1222855985-22859-5-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
-
-Simon Horman wrote:
-> I took a bit of a stab at this, and here is what I cam up with.
-> 
-> It should enable IPV6_BONDING if one of the following is true
->   * EXPERIMENTAL=y && IPV6=m && BONDING=m
->   * EXPERIMENTAL=y && IPV6=y && BONDING=m
->   * EXPERIMENTAL=y && IPV6=y && BONDING=y
-> And disable IPV6_BONDING in all other cases.
-> 
-> Compile tested only.
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 69c81da..60c06f8 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -61,6 +61,7 @@ config DUMMY
->  config BONDING
->  	tristate "Bonding driver support"
->  	depends on INET
-> +	select IPV6_BONDING if (IPV6=y || IPV6=BONDING) && EXPERIMENTAL
->  	---help---
->  	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
->  	  Channels together. This is called 'Etherchannel' by Cisco,
-> diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-> index ec99215..49108be 100644
-> --- a/net/ipv6/Kconfig
-> +++ b/net/ipv6/Kconfig
-> @@ -217,4 +217,7 @@ config IPV6_PIMSM_V2
->  	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
->  	  If unsure, say N.
->  
-> +config IPV6_BONDING
-> +	bool
+Em Wed, Oct 01, 2008 at 01:13:04PM +0300, Remi Denis-Courmont escreveu:
+> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> ---
+>  include/linux/phonet.h    |    8 +
+>  include/linux/socket.h    |    1 +
+>  include/net/phonet/gprs.h |   38 +++++
+>  include/net/phonet/pep.h  |    1 +
+>  net/phonet/Makefile       |    2 +-
+>  net/phonet/pep-gprs.c     |  341 +++++++++++++++++++++++++++++++++++=
+++++++++++
+>  net/phonet/pep.c          |  157 ++++++++++++++++++++--
+>  net/phonet/socket.c       |    8 +-
+>  8 files changed, 542 insertions(+), 14 deletions(-)
+>  create mode 100644 include/net/phonet/gprs.h
+>  create mode 100644 net/phonet/pep-gprs.c
+>=20
+> diff --git a/include/linux/phonet.h b/include/linux/phonet.h
+> index f921852..c9609f9 100644
+> --- a/include/linux/phonet.h
+> +++ b/include/linux/phonet.h
+> @@ -31,9 +31,17 @@
+>  #define PN_PROTO_PIPE		2
+>  #define PHONET_NPROTO		3
+> =20
+> +/* Socket options for SOL_PNPIPE level */
+> +#define PNPIPE_ENCAP		1
+> +#define PNPIPE_IFINDEX		2
 > +
->  endif # IPV6
+>  #define PNADDR_ANY		0
+>  #define PNPORT_RESOURCE_ROUTING	0
+> =20
+> +/* Values for PNPIPE_ENCAP option */
+> +#define PNPIPE_ENCAP_NONE	0
+> +#define PNPIPE_ENCAP_IP		1
+> +
+>  /* ioctls */
+>  #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
+> =20
+> diff --git a/include/linux/socket.h b/include/linux/socket.h
+> index 818ca33..20fc4bb 100644
+> --- a/include/linux/socket.h
+> +++ b/include/linux/socket.h
+> @@ -297,6 +297,7 @@ struct ucred {
+>  #define SOL_RXRPC	272
+>  #define SOL_PPPOL2TP	273
+>  #define SOL_BLUETOOTH	274
+> +#define SOL_PNPIPE	275
+> =20
+>  /* IPX options */
+>  #define IPX_TYPE	1
+> diff --git a/include/net/phonet/gprs.h b/include/net/phonet/gprs.h
+> new file mode 100644
+> index 0000000..928daf5
+> --- /dev/null
+> +++ b/include/net/phonet/gprs.h
+> @@ -0,0 +1,38 @@
+> +/*
+> + * File: pep_gprs.h
+> + *
+> + * GPRS over Phonet pipe end point socket
+> + *
+> + * Copyright (C) 2008 Nokia Corporation.
+> + *
+> + * Author: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * version 2 as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful, b=
+ut
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+> + * General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+> + * 02110-1301 USA
+> + */
+> +
+> +#ifndef NET_PHONET_GPRS_H
+> +#define NET_PHONET_GPRS_H
+> +
+> +struct sock;
+> +struct sk_buff;
+> +
+> +int pep_writeable(struct sock *sk);
+> +int pep_write(struct sock *sk, struct sk_buff *skb);
+> +struct sk_buff *pep_read(struct sock *sk);
+> +
+> +int gprs_attach(struct sock *sk);
+> +void gprs_detach(struct sock *sk);
+> +
+> +#endif
+> diff --git a/include/net/phonet/pep.h b/include/net/phonet/pep.h
+> index b06852b..a202adc 100644
+> --- a/include/net/phonet/pep.h
+> +++ b/include/net/phonet/pep.h
+> @@ -35,6 +35,7 @@ struct pep_sock {
+>  	struct sock		*listener;
+>  	struct sk_buff_head	ctrlreq_queue;
+>  #define PNPIPE_CTRLREQ_MAX	10
+> +	int			ifindex;
+>  	u16			peer_type;	/* peer type/subtype */
+>  	u8			pipe_handle;
+> =20
+> diff --git a/net/phonet/Makefile b/net/phonet/Makefile
+> index 505df2a..d62bbba 100644
+> --- a/net/phonet/Makefile
+> +++ b/net/phonet/Makefile
+> @@ -8,4 +8,4 @@ phonet-objs :=3D \
+>  	sysctl.o \
+>  	af_phonet.o
+> =20
+> -pn_pep-objs :=3D pep.o
+> +pn_pep-objs :=3D pep.o pep-gprs.o
+> diff --git a/net/phonet/pep-gprs.c b/net/phonet/pep-gprs.c
+> new file mode 100644
+> index 0000000..3341346
+> --- /dev/null
+> +++ b/net/phonet/pep-gprs.c
+> @@ -0,0 +1,341 @@
+> +/*
+> + * File: pep-gprs.c
+> + *
+> + * GPRS over Phonet pipe end point socket
+> + *
+> + * Copyright (C) 2008 Nokia Corporation.
+> + *
+> + * Author: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * version 2 as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful, b=
+ut
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+> + * General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+> + * 02110-1301 USA
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/if_ether.h>
+> +#include <linux/if_arp.h>
+> +#include <net/sock.h>
+> +
+> +#include <linux/if_phonet.h>
+> +#include <net/tcp_states.h>
+> +#include <net/phonet/gprs.h>
+> +
+> +#define GPRS_DEFAULT_MTU 1400
+> +
+> +struct gprs_dev {
+> +	struct sock		*sk;
+> +	void			(*old_state_change)(struct sock *);
+> +	void			(*old_data_ready)(struct sock *, int);
+> +	void			(*old_write_space)(struct sock *);
+> +
+> +	struct net_device	*net;
+> +	struct net_device_stats	stats;
+> +
+> +	struct sk_buff_head	tx_queue;
+> +	struct work_struct	tx_work;
+> +	spinlock_t		tx_lock;
+> +	unsigned		tx_max;
+> +};
+> +
+> +/*
+> + * Socket callbacks
+> + */
+> +
+> +static void gprs_state_change(struct sock *sk)
+> +{
+> +	struct gprs_dev *dev =3D sk->sk_user_data;
+> +
+> +	if (sk->sk_state =3D=3D TCP_CLOSE_WAIT) {
+> +		netif_stop_queue(dev->net);
+> +		netif_carrier_off(dev->net);
+> +	}
+> +}
+> +
+> +static int gprs_recv(struct gprs_dev *dev, struct sk_buff *skb)
+> +{
+> +	int err =3D 0;
+> +	u16 protocol;
+> +
+> +	if (!pskb_may_pull(skb, 1))
+> +		goto drop;
+> +
+> +	/* Look at IP version field */
+> +	switch (skb->data[0] >> 4) {
+> +	case 4:
+> +		protocol =3D htons(ETH_P_IP);
+> +		break;
+> +	case 6:
+> +		protocol =3D htons(ETH_P_IPV6);
+> +		break;
+> +	default:
+> +		err =3D -EINVAL;
+> +		goto drop;
+> +	}
+> +
+> +	if (likely(skb_headroom(skb) & 3)) {
+> +		struct sk_buff *rskb, *fs;
+> +		int flen =3D 0;
+> +
+> +		/* Phonet Pipe data header is misaligned (3 bytes),
+> +		 * so wrap the IP packet as a single fragment of an head-less
+> +		 * socket buffer. The network stack will pull what it needs,
+> +		 * but at least, the whole IP payload is not memcpy'd. */
+> +		rskb =3D netdev_alloc_skb(dev->net, 0);
+> +		if (!rskb) {
+> +			err =3D -ENOBUFS;
+> +			goto drop;
+> +		}
+> +		skb_shinfo(rskb)->frag_list =3D skb;
+> +		rskb->len +=3D skb->len;
+> +		rskb->data_len +=3D rskb->len;
+> +		rskb->truesize +=3D rskb->len;
+> +
+> +		/* Avoid nested fragments */
+> +		for (fs =3D skb_shinfo(skb)->frag_list; fs; fs =3D fs->next)
+> +			flen +=3D fs->len;
+> +		skb->next =3D skb_shinfo(skb)->frag_list;
+> +		skb_shinfo(skb)->frag_list =3D NULL;
+> +		skb->len -=3D flen;
+> +		skb->data_len -=3D flen;
+> +		skb->truesize -=3D flen;
+> +
+> +		skb =3D rskb;
+> +	}
+> +
+> +	skb->protocol =3D protocol;
+> +	skb_reset_mac_header(skb);
+> +	skb->dev =3D dev->net;
 
-I actually figured out how to do this without having a new Kconfig 
-option at all, and building bonding_ipv6.c without getting a linker 
-error.  I'll send out an updated patch soon, just sorting out the vlan 
-support right now.
+Perhaps introduce gprs_type_trans() and do:
 
-Thanks,
+	skb->protocol =3D gprs_type_trans() ?
 
--Brian
+Look at:
+
+[acme@doppio linux-2.6]$ grep _type_trans tags | cut -f  1 | sort -u
+ax25_type_trans
+cisco_type_trans
+dvb_net_eth_type_trans
+ether1394_type_trans
+eth_type_trans
+farsync_type_trans
+fddi_type_trans
+hdlc_type_trans
+hippi_type_trans
+isdn_net_type_trans
+lan_type_trans
+mpt_lan_type_trans
+myri_type_trans
+plip_type_trans
+ppp_type_trans
+raw_type_trans
+tr_type_trans
+x25_type_trans
+[acme@doppio linux-2.6]$
+
+> +
+> +	if (likely(dev->net->flags & IFF_UP)) {
+> +		dev->stats.rx_packets++;
+> +		dev->stats.rx_bytes +=3D skb->len;
+> +		netif_rx(skb);
+> +		skb =3D NULL;
+> +	} else
+> +		err =3D -ENODEV;
+> +
+> +drop:
+> +	if (skb) {
+> +		dev_kfree_skb(skb);
+> +		dev->stats.rx_dropped++;
+> +	}
+> +	return err;
+> +}
+> +
+> +static void gprs_data_ready(struct sock *sk, int len)
+> +{
+> +	struct gprs_dev *dev =3D sk->sk_user_data;
+> +	struct sk_buff *skb;
+> +
+> +	while ((skb =3D pep_read(sk)) !=3D NULL) {
+> +		skb_orphan(skb);
+> +		gprs_recv(dev, skb);
+> +	}
+> +}
+> +
+> +static void gprs_write_space(struct sock *sk)
+> +{
+> +	struct gprs_dev *dev =3D sk->sk_user_data;
+> +	unsigned credits =3D pep_writeable(sk);
+> +
+> +	spin_lock_bh(&dev->tx_lock);
+> +	dev->tx_max =3D credits;
+> +	if (credits > skb_queue_len(&dev->tx_queue))
+> +		netif_wake_queue(dev->net);
+> +	spin_unlock_bh(&dev->tx_lock);
+> +}
+> +
+> +/*
+> + * Network device callbacks
+> + */
+> +
+> +static int gprs_xmit(struct sk_buff *skb, struct net_device *net)
+> +{
+> +	struct gprs_dev *dev =3D netdev_priv(net);
+> +
+> +	switch (skb->protocol) {
+> +	case  htons(ETH_P_IP):
+> +	case  htons(ETH_P_IPV6):
+> +		break;
+> +	default:
+> +		dev_kfree_skb(skb);
+> +		return 0;
+> +	}
+> +
+> +	spin_lock(&dev->tx_lock);
+> +	if (likely(skb_queue_len(&dev->tx_queue) < dev->tx_max)) {
+> +		skb_queue_tail(&dev->tx_queue, skb);
+> +		skb =3D NULL;
+> +	}
+> +	if (skb_queue_len(&dev->tx_queue) >=3D dev->tx_max)
+> +		netif_stop_queue(net);
+> +	spin_unlock(&dev->tx_lock);
+> +
+> +	schedule_work(&dev->tx_work);
+> +	if (unlikely(skb))
+> +		dev_kfree_skb(skb);
+> +	return 0;
+> +}
+> +
+> +static void gprs_tx(struct work_struct *work)
+> +{
+> +	struct gprs_dev *dev =3D container_of(work, struct gprs_dev, tx_wor=
+k);
+> +	struct sock *sk =3D dev->sk;
+> +	struct sk_buff *skb;
+> +
+> +	while ((skb =3D skb_dequeue(&dev->tx_queue)) !=3D NULL) {
+> +		int err;
+> +
+> +		dev->stats.tx_bytes +=3D skb->len;
+> +		dev->stats.tx_packets++;
+> +
+> +		skb_orphan(skb);
+> +		skb_set_owner_w(skb, sk);
+> +
+> +		lock_sock(sk);
+> +		err =3D pep_write(sk, skb);
+> +		if (err) {
+> +			if (net_ratelimit())
+> +				printk(KERN_WARNING"%s: TX error (%d)\n",
+> +					dev->net->name, err);
+
+LIMIT_NETDEBUG()
+
+> +			dev->stats.tx_aborted_errors++;
+> +			dev->stats.tx_errors++;
+> +		}
+> +		release_sock(sk);
+> +	}
+> +
+> +	lock_sock(sk);
+> +	gprs_write_space(sk);
+> +	release_sock(sk);
+> +}
+> +
+> +static int gprs_set_mtu(struct net_device *net, int new_mtu)
+> +{
+> +	if ((new_mtu < 576) || (new_mtu > (PHONET_MAX_MTU - 11)))
+> +		return -EINVAL;
+> +
+> +	net->mtu =3D new_mtu;
+> +	return 0;
+> +}
+> +
+> +static struct net_device_stats *gprs_get_stats(struct net_device *ne=
+t)
+> +{
+> +	struct gprs_dev *dev =3D netdev_priv(net);
+> +
+> +	return &dev->stats;
+> +}
+> +
+> +static void gprs_setup(struct net_device *net)
+> +{
+> +	net->features		=3D NETIF_F_FRAGLIST;
+> +	net->type		=3D ARPHRD_NONE;
+> +	net->flags		=3D IFF_POINTOPOINT | IFF_NOARP;
+> +	net->mtu		=3D GPRS_DEFAULT_MTU;
+> +	net->hard_header_len	=3D 0;
+> +	net->addr_len		=3D 0;
+> +	net->tx_queue_len	=3D 10;
+> +
+> +	net->destructor		=3D free_netdev;
+> +	net->hard_start_xmit	=3D gprs_xmit; /* mandatory */
+> +	net->change_mtu		=3D gprs_set_mtu;
+> +	net->get_stats		=3D gprs_get_stats;
+> +}
+> +
+> +/*
+> + * External interface
+> + */
+> +
+> +/*
+> + * Attach a GPRS interface to a datagram socket.
+> + * Returns the interface index on success, negative error code on er=
+ror.
+> + */
+> +int gprs_attach(struct sock *sk)
+> +{
+> +	static const char ifname[] =3D "gprs%d";
+> +	struct gprs_dev *dev;
+> +	struct net_device *net;
+> +	int err;
+> +
+> +	if (unlikely(sk->sk_type =3D=3D SOCK_STREAM))
+> +		return -EINVAL; /* need packet boundaries */
+> +
+> +	/* Create net device */
+> +	net =3D alloc_netdev(sizeof(*dev), ifname, gprs_setup);
+> +	if (!net)
+> +		return -ENOMEM;
+> +	dev =3D netdev_priv(net);
+> +	dev->net =3D net;
+> +	dev->tx_max =3D 0;
+> +	spin_lock_init(&dev->tx_lock);
+> +	skb_queue_head_init(&dev->tx_queue);
+> +	INIT_WORK(&dev->tx_work, gprs_tx);
+> +
+> +	netif_stop_queue(net);
+> +	err =3D register_netdev(net);
+> +	if (err) {
+> +		free_netdev(net);
+> +		return err;
+> +	}
+> +
+> +	lock_sock(sk);
+> +	if (unlikely(sk->sk_user_data)) {
+> +		err =3D -EBUSY;
+> +		goto out_rel;
+> +	}
+> +	if (unlikely((1 << sk->sk_state & (TCPF_CLOSE|TCPF_LISTEN)) ||
+> +			sock_flag(sk, SOCK_DEAD))) {
+> +		err =3D -EINVAL;
+> +		goto out_rel;
+> +	}
+> +	sk->sk_user_data	=3D dev;
+> +	dev->old_state_change	=3D sk->sk_state_change;
+> +	dev->old_data_ready	=3D sk->sk_data_ready;
+> +	dev->old_write_space	=3D sk->sk_write_space;
+> +	sk->sk_state_change	=3D gprs_state_change;
+> +	sk->sk_data_ready	=3D gprs_data_ready;
+> +	sk->sk_write_space	=3D gprs_write_space;
+> +	release_sock(sk);
+> +
+> +	sock_hold(sk);
+> +	dev->sk =3D sk;
+> +
+> +	printk(KERN_DEBUG"%s: attached\n", net->name);
+> +	gprs_write_space(sk); /* kick off TX */
+> +	return net->ifindex;
+> +
+> +out_rel:
+> +	release_sock(sk);
+> +	unregister_netdev(net);
+> +	return err;
+> +}
+> +
+> +void gprs_detach(struct sock *sk)
+> +{
+> +	struct gprs_dev *dev =3D sk->sk_user_data;
+> +	struct net_device *net =3D dev->net;
+> +
+> +	lock_sock(sk);
+> +	sk->sk_user_data	=3D NULL;
+> +	sk->sk_state_change	=3D dev->old_state_change;
+> +	sk->sk_data_ready	=3D dev->old_data_ready;
+> +	sk->sk_write_space	=3D dev->old_write_space;
+> +	release_sock(sk);
+> +
+> +	printk(KERN_DEBUG"%s: detached\n", net->name);
+> +	unregister_netdev(net);
+> +	flush_scheduled_work();
+> +	sock_put(sk);
+> +	skb_queue_purge(&dev->tx_queue);
+> +}
+> diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+> index 9a2ed45..f0c212f 100644
+> --- a/net/phonet/pep.c
+> +++ b/net/phonet/pep.c
+> @@ -31,6 +31,7 @@
+>  #include <linux/phonet.h>
+>  #include <net/phonet/phonet.h>
+>  #include <net/phonet/pep.h>
+> +#include <net/phonet/gprs.h>
+> =20
+>  /* sk_state values:
+>   * TCP_CLOSE		sock not in use yet
+> @@ -610,6 +611,7 @@ drop:
+>  static void pep_sock_close(struct sock *sk, long timeout)
+>  {
+>  	struct pep_sock *pn =3D pep_sk(sk);
+> +	int ifindex =3D 0;
+> =20
+>  	sk_common_release(sk);
+> =20
+> @@ -623,7 +625,12 @@ static void pep_sock_close(struct sock *sk, long=
+ timeout)
+>  			sk_del_node_init(sknode);
+>  		sk->sk_state =3D TCP_CLOSE;
+>  	}
+> +	ifindex =3D pn->ifindex;
+> +	pn->ifindex =3D 0;
+>  	release_sock(sk);
+> +
+> +	if (ifindex)
+> +		gprs_detach(sk);
+>  }
+> =20
+>  static int pep_wait_connreq(struct sock *sk, int noblock)
+> @@ -728,12 +735,105 @@ static int pep_init(struct sock *sk)
+>  	return 0;
+>  }
+> =20
+> +static int pep_setsockopt(struct sock *sk, int level, int optname,
+> +				char __user *optval, int optlen)
+> +{
+> +	struct pep_sock *pn =3D pep_sk(sk);
+> +	int val =3D 0, err =3D 0;
+> +
+> +	if (level !=3D SOL_PNPIPE)
+> +		return -ENOPROTOOPT;
+> +	if (optlen >=3D sizeof(int)) {
+> +		if (get_user(val, (int __user *) optval))
+> +			return -EFAULT;
+> +	}
+> +
+> +	lock_sock(sk);
+> +	switch (optname) {
+> +	case PNPIPE_ENCAP:
+> +		if (val && val !=3D PNPIPE_ENCAP_IP) {
+> +			err =3D -EINVAL;
+> +			break;
+> +		}
+> +		if (!pn->ifindex =3D=3D !val)
+> +			break; /* Nothing to do! */
+> +		if (!capable(CAP_NET_ADMIN)) {
+> +			err =3D -EPERM;
+> +			break;
+> +		}
+> +		if (val) {
+> +			release_sock(sk);
+> +			err =3D gprs_attach(sk);
+> +			if (err > 0) {
+> +				pn->ifindex =3D err;
+> +				err =3D 0;
+> +			}
+> +		} else {
+> +			pn->ifindex =3D 0;
+> +			release_sock(sk);
+> +			gprs_detach(sk);
+> +			err =3D 0;
+> +		}
+> +		goto out_norel;
+> +	default:
+> +		err =3D -ENOPROTOOPT;
+> +	}
+> +	release_sock(sk);
+> +
+> +out_norel:
+> +	return err;
+> +}
+> +
+> +static int pep_getsockopt(struct sock *sk, int level, int optname,
+> +				char __user *optval, int __user *optlen)
+> +{
+> +	struct pep_sock *pn =3D pep_sk(sk);
+> +	int len, val;
+> +
+> +	if (level !=3D SOL_PNPIPE)
+> +		return -ENOPROTOOPT;
+> +	if (get_user(len, optlen))
+> +		return -EFAULT;
+> +
+> +	switch (optname) {
+> +	case PNPIPE_ENCAP:
+> +		val =3D pn->ifindex ? PNPIPE_ENCAP_IP : PNPIPE_ENCAP_NONE;
+> +		break;
+> +	case PNPIPE_IFINDEX:
+> +		val =3D pn->ifindex;
+> +		break;
+> +	default:
+> +		return -ENOPROTOOPT;
+> +	}
+> +
+> +	len =3D min_t(unsigned int, sizeof(int), len);
+> +	if (put_user(len, optlen))
+> +		return -EFAULT;
+> +	if (put_user(val, (int __user *) optval))
+> +		return -EFAULT;
+> +	return 0;
+> +}
+> +
+> +static int pipe_skb_send(struct sock *sk, struct sk_buff *skb)
+> +{
+> +	struct pep_sock *pn =3D pep_sk(sk);
+> +	struct pnpipehdr *ph;
+> +
+> +	ph =3D (struct pnpipehdr *)skb_push(skb, 3);
+
+skb_reset_transport_header + pnp_hdr()?
+
+> +	ph->utid =3D 0;
+> +	ph->message_id =3D PNS_PIPE_DATA;
+> +	ph->pipe_handle =3D pn->pipe_handle;
+> +	if (pn_flow_safe(pn->tx_fc) && pn->tx_credits)
+> +		pn->tx_credits--;
+> +
+> +	return pn_skb_send(sk, skb, &pipe_srv);
+> +}
+> +
+>  static int pep_sendmsg(struct kiocb *iocb, struct sock *sk,
+>  			struct msghdr *msg, size_t len)
+>  {
+>  	struct pep_sock *pn =3D pep_sk(sk);
+>  	struct sk_buff *skb =3D NULL;
+> -	struct pnpipehdr *ph;
+>  	long timeo;
+>  	int flags =3D msg->msg_flags;
+>  	int err, done;
+> @@ -799,14 +899,7 @@ disabled:
+>  	if (err < 0)
+>  		goto out;
+> =20
+> -	ph =3D (struct pnpipehdr *)skb_push(skb, 3);
+> -	ph->utid =3D 0;
+> -	ph->message_id =3D PNS_PIPE_DATA;
+> -	ph->pipe_handle =3D pn->pipe_handle;
+> -	if (pn_flow_safe(pn->tx_fc)) /* credit-based flow control */
+> -		pn->tx_credits--;
+> -
+> -	err =3D pn_skb_send(sk, skb, &pipe_srv);
+> +	err =3D pipe_skb_send(sk, skb);
+>  	if (err >=3D 0)
+>  		err =3D len; /* success! */
+>  	skb =3D NULL;
+> @@ -817,6 +910,50 @@ out:
+>  	return err;
+>  }
+> =20
+> +int pep_writeable(struct sock *sk)
+> +{
+> +	struct pep_sock *pn =3D pep_sk(sk);
+> +
+> +	return (sk->sk_state =3D=3D TCP_ESTABLISHED) ? pn->tx_credits : 0;
+> +}
+> +
+> +int pep_write(struct sock *sk, struct sk_buff *skb)
+> +{
+> +	struct sk_buff *rskb, *fs;
+> +	int flen =3D 0;
+> +
+> +	rskb =3D alloc_skb(MAX_PNPIPE_HEADER, GFP_ATOMIC);
+> +	if (!rskb) {
+> +		kfree_skb(skb);
+> +		return -ENOMEM;
+> +	}
+> +	skb_shinfo(rskb)->frag_list =3D skb;
+> +	rskb->len +=3D skb->len;
+> +	rskb->data_len +=3D rskb->len;
+> +	rskb->truesize +=3D rskb->len;
+> +
+> +	/* Avoid nested fragments */
+> +	for (fs =3D skb_shinfo(skb)->frag_list; fs; fs =3D fs->next)
+> +		flen +=3D fs->len;
+> +	skb->next =3D skb_shinfo(skb)->frag_list;
+> +	skb_shinfo(skb)->frag_list =3D NULL;
+> +	skb->len -=3D flen;
+> +	skb->data_len -=3D flen;
+> +	skb->truesize -=3D flen;
+> +
+> +	skb_reserve(rskb, MAX_PHONET_HEADER + 3);
+> +	return pipe_skb_send(sk, rskb);
+> +}
+> +
+> +struct sk_buff *pep_read(struct sock *sk)
+> +{
+> +	struct sk_buff *skb =3D skb_dequeue(&sk->sk_receive_queue);
+> +
+> +	if (sk->sk_state =3D=3D TCP_ESTABLISHED)
+> +		pipe_grant_credits(sk);
+> +	return skb;
+> +}
+> +
+>  static int pep_recvmsg(struct kiocb *iocb, struct sock *sk,
+>  			struct msghdr *msg, size_t len, int noblock,
+>  			int flags, int *addr_len)
+> @@ -899,6 +1036,8 @@ static struct proto pep_proto =3D {
+>  	.accept		=3D pep_sock_accept,
+>  	.ioctl		=3D pep_ioctl,
+>  	.init		=3D pep_init,
+> +	.setsockopt	=3D pep_setsockopt,
+> +	.getsockopt	=3D pep_getsockopt,
+>  	.sendmsg	=3D pep_sendmsg,
+>  	.recvmsg	=3D pep_recvmsg,
+>  	.backlog_rcv	=3D pep_do_rcv,
+> diff --git a/net/phonet/socket.c b/net/phonet/socket.c
+> index a9c3d1f..d817401 100644
+> --- a/net/phonet/socket.c
+> +++ b/net/phonet/socket.c
+> @@ -342,11 +342,11 @@ const struct proto_ops phonet_stream_ops =3D {
+>  	.ioctl		=3D pn_socket_ioctl,
+>  	.listen		=3D pn_socket_listen,
+>  	.shutdown	=3D sock_no_shutdown,
+> -	.setsockopt	=3D sock_no_setsockopt,
+> -	.getsockopt	=3D sock_no_getsockopt,
+> +	.setsockopt	=3D sock_common_setsockopt,
+> +	.getsockopt	=3D sock_common_getsockopt,
+>  #ifdef CONFIG_COMPAT
+> -	.compat_setsockopt =3D sock_no_setsockopt,
+> -	.compat_getsockopt =3D compat_sock_no_getsockopt,
+> +	.compat_setsockopt =3D compat_sock_common_setsockopt,
+> +	.compat_getsockopt =3D compat_sock_common_getsockopt,
+>  #endif
+>  	.sendmsg	=3D pn_socket_sendmsg,
+>  	.recvmsg	=3D sock_common_recvmsg,
+> --=20
+> 1.5.4.3
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
