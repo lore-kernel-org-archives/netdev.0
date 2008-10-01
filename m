@@ -1,138 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Wed, 01 Oct 2008 12:14:13 +0100
-Message-ID: <1222859653.3984.45.camel@achroite>
-References: <1222698624-3689-1-git-send-email-steve.glendinning@smsc.com>
-	 <1222698624-3689-2-git-send-email-steve.glendinning@smsc.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
+Date: Wed, 01 Oct 2008 15:32:56 +0400
+Message-ID: <1222860776.23573.49.camel@iris.sw.ru>
+References: <1222858454-7843-1-git-send-email-den@openvz.org>
+	 <48E35B4C.1040303@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Steve Glendinning <steve.glendinning@smsc.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: containers@lists.linux-foundation.org, xemul@openvz.org,
+	netdev@vger.kernel.org, benjamin.thery@bull.net,
+	ebiederm@xmission.com
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:44181 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752117AbYJALO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 07:14:27 -0400
-In-Reply-To: <1222698624-3689-2-git-send-email-steve.glendinning@smsc.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:6778 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752315AbYJALey (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2008 07:34:54 -0400
+In-Reply-To: <48E35B4C.1040303@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-09-29 at 15:30 +0100, Steve Glendinning wrote:
-[...]=20
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> new file mode 100644
-> index 0000000..b7c5fd4
-> --- /dev/null
-> +++ b/drivers/net/usb/smsc95xx.c
-[...]=20
-> +u32 debug_mode;
-> +module_param(debug_mode, uint, 0);
-> +MODULE_PARM_DESC(debug_mode, "enable/disable debug messages");
+On Wed, 2008-10-01 at 13:13 +0200, Daniel Lezcano wrote:
+> Denis V. Lunev wrote:
+> > This patch opens a way to connect via Unix socket from one namespace
+> > to another if these sockets are opened via conventional filesystem
+> > interface. Such approach allows to share important services between
+> > namespaces in efficient way.
+> > 
+> > This breach is controlled by the means of shared filesystem, i.e. if
+> > somebody really wants to isolate containers, he should start from
+> > filesystem separation.
+> > 
+> > Signed-off-by: Denis V. Lunev <den@openvz.org>
+> > ---
+> >  net/unix/af_unix.c |    3 ---
+> >  1 files changed, 0 insertions(+), 3 deletions(-)
+> > 
+> > diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> > index 39d2173..0e1eccd 100644
+> > --- a/net/unix/af_unix.c
+> > +++ b/net/unix/af_unix.c
+> > @@ -297,9 +297,6 @@ static struct sock *unix_find_socket_byinode(struct net *net, struct inode *i)
+> >  		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
+> >  		struct dentry *dentry = unix_sk(s)->dentry;
+> > 
+> > -		if (!net_eq(sock_net(s), net))
+> > -			continue;
+> > -
+> >  		if(dentry && dentry->d_inode == i)
+> >  		{
+> >  			sock_hold(s);
+> 
+> Hi Denis,
+> 
+> Do you have a list of the important services this isolation forbids ? (I 
+> suppose there is syslog).
 
-This parameter doesn't appear to be used.
+we have asked from our customers for a shared MySQL server
 
-> +int turbo_mode =3D true;
-> +module_param(turbo_mode, bool, 0);
-> +MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transact=
-ion");
-
-Why is this parameter not exposed through sysfs (perm =3D 0)?
-
-[...]
-> =EF=BB=BF+/* Loop until the read is completed with timeout
-> + * called with phy_mutex held */
-> +static int smsc95xx_phy_wait_not_busy(struct usbnet *dev)
-> +{
-> +       int i;
-> +       u32 val;
-> +
-> +       for (i =3D 0; i < 100; i++) {
-> +               smsc95xx_read_reg(dev, MII_ADDR, &val);
-> +               if (!(val & MII_BUSY_))
-> +                       return 0;
-> +               udelay(1);
-> +       }
-> +
-> +       return -EIO;
-> +}
-
-Doesn't a register read over USB normally take much longer than 1 us,
-meaning that this can wait much longer than 100 us?  If so, please
-consider setting and checking a timeout based on jiffies.
-
-There may be a similar issue with EEPROM access.
-
-[...]
-> +static int smsc95xx_link_reset(struct usbnet *dev)
-> +{
-> +	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[=
-0]);
-> +	struct ethtool_cmd ecmd;
-> +	unsigned long flags;
-> +	u32 intdata;
-> +
-> +	/* clear interrupt status */
-> +	smsc95xx_mdio_read(dev->net, dev->mii.phy_id, PHY_INT_SRC);
-> +	intdata =3D 0xFFFFFFFF;
-> +	smsc95xx_write_reg(dev, INT_STS, intdata);
-> +
-> +	mii_check_media(&dev->mii, 1, 1);
-> +	mii_ethtool_gset(&dev->mii, &ecmd);
-> +
-> +	if (netif_msg_link(dev))
-> +		devdbg(dev, "speed: %d duplex: %d", ecmd.speed, ecmd.duplex);
-> +
-> +	spin_lock_irqsave(&pdata->mac_cr_lock, flags);
-> +	if (ecmd.duplex !=3D DUPLEX_FULL) {
-> +		pdata->mac_cr &=3D ~MAC_CR_FDPX_;
-> +		pdata->mac_cr |=3D MAC_CR_RCVOWN_;
-> +	} else {
-> +		pdata->mac_cr &=3D ~MAC_CR_RCVOWN_;
-> +		pdata->mac_cr |=3D MAC_CR_FDPX_;
-> +	}
-> +	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
-> +
-> +	smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
-> +
-> +	smsc95xx_phy_update_flowcontrol(dev, &ecmd);
-
-Doesn't this force flow control settings to be whatever we were
-advertising, regardless of link partner abilities?
-
-[...]
-> +static u32 smsc95xx_ethtool_get_rx_csum(struct net_device *netdev)
-> +{
-> +	struct usbnet *dev =3D netdev_priv(netdev);
-> +	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[=
-0]);
-> +
-> +	return pdata->use_rx_csum ? true : false;
-> +}
-
-Delete "? true : false"; it's just silly.
-
-> +static int smsc95xx_ethtool_set_rx_csum(struct net_device *netdev, u=
-32 val)
-> +{
-> +	struct usbnet *dev =3D netdev_priv(netdev);
-> +	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[=
-0]);
-> +
-> +	pdata->use_rx_csum =3D val ? true : false;
-
-The idiomatic way to write this is !!val.
-
-> +	return smsc95xx_set_rx_csum(dev, pdata->use_rx_csum);
-> +}
-[...]
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The full story is here :)
+http://bugzilla.openvz.org/show_bug.cgi?id=985
 
