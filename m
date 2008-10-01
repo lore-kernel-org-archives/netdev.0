@@ -1,41 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] ipv6: NULL pointer dereferrence in
- tcp_v6_send_ack
-Date: Wed, 01 Oct 2008 02:13:42 -0700 (PDT)
-Message-ID: <20081001.021342.170858723.davem@davemloft.net>
-References: <20081001.020359.48616451.davem@davemloft.net>
-	<1222852317-7177-1-git-send-email-den@openvz.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC PATCH v6 10/16] netlabel: Add network address selectors to
+ the NetLabel/LSM domain mapping
+Date: Wed, 1 Oct 2008 19:14:23 +1000 (EST)
+Message-ID: <alpine.LRH.1.10.0810011914070.6732@tundra.namei.org>
+References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125654.17132.86183.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, vgusev@openvz.org, netdev@vger.kernel.org
-To: den@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51650
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753132AbYJAJNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:13:53 -0400
-In-Reply-To: <1222852317-7177-1-git-send-email-den@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080916125654.17132.86183.stgit@flek.lan>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Wed,  1 Oct 2008 13:11:57 +0400
+On Tue, 16 Sep 2008, Paul Moore wrote:
 
-> The following actions are possible:
-> tcp_v6_rcv
->   skb->dev = NULL;
->   tcp_v6_do_rcv
->     tcp_v6_hnd_req
->       tcp_check_req
->         req->rsk_ops->send_ack == tcp_v6_send_ack
+> This patch extends the NetLabel traffic labeling capabilities to individual
+> packets based not only on the LSM domain but the by the destination address
+> as well.  The changes here only affect the core NetLabel infrastructre,
+> changes to the NetLabel KAPI and individial protocol engines are also
+> required but are split out into a different patch to ease review.
 > 
-> So, skb->dev can be NULL in tcp_v6_send_ack. We must obtain namespace
-> from dst entry.
-> 
-> Thanks to Vitaliy Gusev <vgusev@openvz.org> for initial problem finding
-> in IPv4 code.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Applied, thanks for resending this part for me.
+Reviewed-by: James Morris <jmorris@namei.org>
+
+
+-- 
+James Morris
+<jmorris@namei.org>
