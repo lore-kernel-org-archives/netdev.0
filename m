@@ -1,86 +1,43 @@
-From: "Andrew Bird (Sphere Systems)" <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-Subject: Re: A few design questions wrt the hso driver.
-Date: Wed, 1 Oct 2008 13:27:46 +0100
-Message-ID: <200810011327.47140.ajb@spheresystems.co.uk>
-References: <48E36A0A.9080003@option.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
+Date: Wed, 01 Oct 2008 14:31:28 +0200
+Message-ID: <48E36DA0.9080400@fr.ibm.com>
+References: <1222858454-7843-1-git-send-email-den@openvz.org> <48E35B4C.1040303@fr.ibm.com> <1222860776.23573.49.camel@iris.sw.ru> <48E3653C.1070701@fr.ibm.com> <1222862583.23573.54.camel@iris.sw.ru> <48E36ABF.8030908@fr.ibm.com> <48E36BFA.3040904@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48E36A0A.9080003-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	benjamin.thery@bull.net, ebiederm@xmission.com,
+	Denis Lunev <den@openvz.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:47315 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754082AbYJAMbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 08:31:50 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id m91CVgah211542
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 12:31:42 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m91CVgWw2699350
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 14:31:42 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m91CVcK9010743
+	for <netdev@vger.kernel.org>; Wed, 1 Oct 2008 14:31:39 +0200
+In-Reply-To: <48E36BFA.3040904@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Denis,
-	The 'should not be used' comment was in the original driver from Option. I 
-think the point they were trying to make is that it's only to be used to make 
-circuit switched connections, and if you want packet switched connections you 
-should be using the network interface. As far as I know it actually functions 
-OK in both scenarios.
+Pavel Emelyanov wrote:
+>> So there are 2 cases:
+>>   * full isolation : restriction on VPS
+>>   * partial isolation : no restriction but *perhaps* problem when migrating
+>>
+>> Looks like we need an option per namespace to reduce the isolation for 
+>> af_unix sockets :)
+>>   - on (default): current behaviour => full isolation
+>>   - off : partial isolation
+> 
+> You mean some sysctl, that enables/disables this check in unix_find_socket_byinode?
 
-Best regards,
-
-
-Andrew
-
-On Wednesday 01 October 2008 13:16, Denis Joseph Barrow wrote:
-> Hi,
-> I'm currently beginning to test the modem functionality of the hso driver.
->
-> Simple question first.
-> There is this comment near the top of hso.c
-> Interface 2:	Standard modem interface - circuit switched interface, should
-> 		not be used.
->
-> Who put this comment in & why? is it obselete?
-> The modem port at least works on minicom till the point
-> of setting up the ppp connection.
->
-> I'm not a modem guru
-> Also has anyone ideas on how to test the hso_serial_tiocmset
-> TIOCM_RTS TIOCM_DTR stuff.
->
-> My project lead Filip wants me to implement code to report
-> on DCD/RxCarrier DTR/TxCarrier to the kernel any ideas
-> where I might find an example of such stuff implemented
-> in the kernel & a means to test it.
->
-> Now a more involved question.
-> The suspend resume code in hso.c hso_get_activity &
-> hso_put_activity code to me looks very racy but the code seems to be
-> working relatively reliably because the schedule resume stuff happens at a
-> slow pace.
-> Despite the codes simplicity I do not have a good feel for whether it
-> is stable or not & don't feel like an authority on how to make the code
-> better.
->
-> The more obvious possible issues I see with it the code are,
-> I could be wrong if I am please say so.
-> 1) On smp systems there is a
-> workqueue for each cpu which means
-> that if one cpu workqueue is not going to be scheduled soon & the other
-> workqueue is, if a suspend is queued on the cpu which is busy
-> & a resume is later queued on the cpu with soon to run workqueue
-> the resume will most likely happen before the suspend i.e. out of order.
->
-> 2) Also only the schedule_work will only queue the
-> request once so if multiple schedule works happen
-> only the first one is accepted even if you wanted
-> to change the order of the suspend resume requests later on
-> they won't reorder.
->
-> I've also noticed a spurious crash twice near the top of hso_serial_close
-> as in the latest hso 1.6 driver shipped by option, I've been
-> unable to acertain the cause of this crash but suspect the suspend/resume
-> disconnect device reconnect device gremlins are at work here.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes.
