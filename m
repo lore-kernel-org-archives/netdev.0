@@ -1,77 +1,70 @@
-From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
-Date: Wed, 01 Oct 2008 16:03:03 +0400
-Message-ID: <1222862583.23573.54.camel@iris.sw.ru>
-References: <1222858454-7843-1-git-send-email-den@openvz.org>
-	<48E35B4C.1040303@fr.ibm.com> <1222860776.23573.49.camel@iris.sw.ru>
-	<48E3653C.1070701@fr.ibm.com>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: A few design questions wrt the hso driver.
+Date: Wed, 01 Oct 2008 14:16:10 +0200
+Message-ID: <48E36A0A.9080003@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-        xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, benjamin.thery-6ktuUTfB/bM@public.gmane.org
-To: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <48E3653C.1070701-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh@suse.d
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2008-10-01 at 13:55 +0200, Daniel Lezcano wrote:
-> Denis V. Lunev wrote:
-> > On Wed, 2008-10-01 at 13:13 +0200, Daniel Lezcano wrote:
-> >> Denis V. Lunev wrote:
-> >>> This patch opens a way to connect via Unix socket from one namespace
-> >>> to another if these sockets are opened via conventional filesystem
-> >>> interface. Such approach allows to share important services between
-> >>> namespaces in efficient way.
-> >>>
-> >>> This breach is controlled by the means of shared filesystem, i.e. if
-> >>> somebody really wants to isolate containers, he should start from
-> >>> filesystem separation.
-> >>>
-> >>> Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-> >>> ---
-> >>>  net/unix/af_unix.c |    3 ---
-> >>>  1 files changed, 0 insertions(+), 3 deletions(-)
-> >>>
-> >>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> >>> index 39d2173..0e1eccd 100644
-> >>> --- a/net/unix/af_unix.c
-> >>> +++ b/net/unix/af_unix.c
-> >>> @@ -297,9 +297,6 @@ static struct sock *unix_find_socket_byinode(struct net *net, struct inode *i)
-> >>>  		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
-> >>>  		struct dentry *dentry = unix_sk(s)->dentry;
-> >>>
-> >>> -		if (!net_eq(sock_net(s), net))
-> >>> -			continue;
-> >>> -
-> >>>  		if(dentry && dentry->d_inode == i)
-> >>>  		{
-> >>>  			sock_hold(s);
-> >> Hi Denis,
-> >>
-> >> Do you have a list of the important services this isolation forbids ? (I 
-> >> suppose there is syslog).
-> > 
-> > we have asked from our customers for a shared MySQL server
-> > 
-> > The full story is here :)
-> > http://bugzilla.openvz.org/show_bug.cgi?id=985
-> 
-> Ok, thanks.
-> 
-> My question remains :)
-> 
-> How do you handle migration in this case ?
+Hi,
+I'm currently beginning to test the modem functionality of the hso driver.
 
-There is no problem until you really have listeners from different
-namespaces on both ends. This is checked after the freeze stage and
-migration is forbidden if such a situation is detected.
+Simple question first.
+There is this comment near the top of hso.c
+Interface 2:	Standard modem interface - circuit switched interface, should
+		not be used.
+
+Who put this comment in & why? is it obselete?
+The modem port at least works on minicom till the point
+of setting up the ppp connection.
+
+I'm not a modem guru
+Also has anyone ideas on how to test the hso_serial_tiocmset
+TIOCM_RTS TIOCM_DTR stuff.
+
+My project lead Filip wants me to implement code to report
+on DCD/RxCarrier DTR/TxCarrier to the kernel any ideas
+where I might find an example of such stuff implemented
+in the kernel & a means to test it.
+
+Now a more involved question.
+The suspend resume code in hso.c hso_get_activity &
+hso_put_activity code to me looks very racy but the code seems to be working relatively reliably
+because the schedule resume stuff happens at a slow pace. 
+Despite the codes simplicity I do not have a good feel for whether it
+is stable or not & don't feel like an authority on how to make the code better.
+
+The more obvious possible issues I see with it the code are,
+I could be wrong if I am please say so.
+1) On smp systems there is a
+workqueue for each cpu which means
+that if one cpu workqueue is not going to be scheduled soon & the other 
+workqueue is, if a suspend is queued on the cpu which is busy
+& a resume is later queued on the cpu with soon to run workqueue
+the resume will most likely happen before the suspend i.e. out of order.
+
+2) Also only the schedule_work will only queue the
+request once so if multiple schedule works happen
+only the first one is accepted even if you wanted
+to change the order of the suspend resume requests later on
+they won't reorder.
+
+I've also noticed a spurious crash twice near the top of hso_serial_close as
+in the latest hso 1.6 driver shipped by option, I've been
+unable to acertain the cause of this crash but suspect the suspend/resume
+disconnect device reconnect device gremlins are at work here.
+
+-- 
+best regards,
+D.J. Barrow
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
