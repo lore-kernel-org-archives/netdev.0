@@ -1,64 +1,48 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH] ixgb: fix bug when freeing resources
-Date: Wed, 01 Oct 2008 14:59:27 -0700
-Message-ID: <20081001215927.21799.53359.stgit@gitlost.lost>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC PATCH v6 15/16] cipso: Add support for native local labeling
+ and fixup mapping names
+Date: Thu, 2 Oct 2008 08:12:16 +1000 (EST)
+Message-ID: <alpine.LRH.1.10.0810020810570.12028@tundra.namei.org>
+References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125730.17132.74360.stgit@flek.lan> <alpine.LRH.1.10.0810012003170.6732@tundra.namei.org> <200810011305.04872.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Breno Leitao <leitao@linux.vnet.ibm.com>
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:46136 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752297AbYJAV7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 17:59:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200810011305.04872.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Wed, 1 Oct 2008, Paul Moore wrote:
 
-It was pointed out by Breno Leitao <leitao@linux.vnet.ibm.com> that
-ixgb would crash on PPC when an IOMMU was in use, if change_mtu was
-called.
+> > Macros would be nice for these ...
+> 
+> I assume you mean the "0x80" and "0x08" constants and not the function 
+> itself? 
 
-It appears to be a pretty simple issue in the driver that wasn't discovered
-because most systems don't run with an IOMMU.  The driver needs to only unmap
-buffers that are mapped (duh).
+Yes.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Breno Leitao <leitao@linux.vnet.ibm.com>
----
+> I ask because I remember reading that (macros == evil) because 
+> of the lack of parameter type checking.
+> 
+> > ... and why specify zero filling?  (Setting and testing that would be
+> > wasted cycles, if you enforced it). 
+> 
+> Better alignment within the IP option field, the goal being to try and 
+> get the secid aligned on a 32bit boundary.  However, it just occurred 
+> to me that by adding the two octets of padding I've actually pushed it 
+> out of alignment (I forgot about the obligatory IP option type and 
+> length octets).
 
- drivers/net/ixgb/ixgb_main.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+I mean, why specify zero-filled rather than simply "unused" ?
 
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index aa75385..be3c7dc 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -977,15 +977,17 @@ ixgb_clean_rx_ring(struct ixgb_adapter *adapter)
- 
- 	for (i = 0; i < rx_ring->count; i++) {
- 		buffer_info = &rx_ring->buffer_info[i];
--		if (buffer_info->skb) {
--
-+		if (buffer_info->dma) {
- 			pci_unmap_single(pdev,
- 					 buffer_info->dma,
- 					 buffer_info->length,
- 					 PCI_DMA_FROMDEVICE);
-+			buffer_info->dma = 0;
-+			buffer_info->length = 0;
-+		}
- 
-+		if (buffer_info->skb) {
- 			dev_kfree_skb(buffer_info->skb);
--
- 			buffer_info->skb = NULL;
- 		}
- 	}
+> Man I hate IPv4 options, what a parsing nightmare ...
 
+It was all fixed with IPv6, right? :-)
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
