@@ -1,42 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] ip: NULL pointer dereferrence in
- tcp_v(4|6)_send_ack
-Date: Wed, 01 Oct 2008 01:52:46 -0700 (PDT)
-Message-ID: <20081001.015246.92774687.davem@davemloft.net>
-References: <200809302013.30051.vgusev@openvz.org>
-	<1222792151-11861-1-git-send-email-den@openvz.org>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 1/4] Phonet: Pipe End Point for Phonet Pipes protocol
+Date: Wed, 1 Oct 2008 11:55:15 +0300
+Message-ID: <200810011155.15327.remi.denis-courmont@nokia.com>
+References: <200810011121.14746.remi.denis-courmont@nokia.com> <1222849357-8561-1-git-send-email-remi.denis-courmont@nokia.com> <20081001.014141.193715047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, vgusev@openvz.org, netdev@vger.kernel.org
-To: den@openvz.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "ext David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59943
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751982AbYJAIw6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 04:52:58 -0400
-In-Reply-To: <1222792151-11861-1-git-send-email-den@openvz.org>
+Received: from smtp.nokia.com ([192.100.122.230]:25285 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752378AbYJAI4u convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 04:56:50 -0400
+In-Reply-To: <20081001.014141.193715047.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Tue, 30 Sep 2008 20:29:11 +0400
+On Wednesday 01 October 2008 11:41:41 ext David Miller, you wrote:
+> include/net/phonet/pep.h doesn't exist in the tree yet, so it's not
+> possible to apply a patch that makes changes to it yet
 
-> The following actions are possible:
-> tcp_v4_rcv
->   skb->dev = NULL;
->   tcp_v4_do_rcv
->     tcp_v4_hnd_req
->       tcp_check_req
->         req->rsk_ops->send_ack == tcp_v4_send_ack
-> 
-> So, skb->dev can be NULL in tcp_v4_send_ack. We must obtain namespace
-> from dst entry. IPv6 codepath is similar.
-> 
-> Thanks to Vitaliy Gusev <vgusev@openvz.org> for initial oops decoding.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+Sorry. I git-format-patched from the wrong starting point. Unfortunatel=
+y, I=20
+cannot seem to fetch any news from net-next-2.6. Then I picked up the -=
+wrong-=20
+base commit hash.
 
-Vitaliy sent the same patch first, so I applied his copy :-)
-
-Thanks everyone.
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
