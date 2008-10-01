@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] ip: NULL pointer dereferrence in
- tcp_v(4|6)_send_ack
-Date: Wed, 01 Oct 2008 02:03:59 -0700 (PDT)
-Message-ID: <20081001.020359.48616451.davem@davemloft.net>
-References: <1222792151-11861-1-git-send-email-den@openvz.org>
-	<20081001.015246.92774687.davem@davemloft.net>
-	<200810011306.15745.vgusev@openvz.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC PATCH v6 09/16] netlabel: Add a generic way to create
+ ordered linked lists of network addrs
+Date: Wed, 1 Oct 2008 19:09:33 +1000 (EST)
+Message-ID: <alpine.LRH.1.10.0810011909000.6732@tundra.namei.org>
+References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125646.17132.5022.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: den@openvz.org, xemul@openvz.org, netdev@vger.kernel.org
-To: vgusev@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57360
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755564AbYJAJEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:04:10 -0400
-In-Reply-To: <200810011306.15745.vgusev@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080916125646.17132.5022.stgit@flek.lan>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vitaliy Gusev <vgusev@openvz.org>
-Date: Wed, 1 Oct 2008 13:06:15 +0400
+On Tue, 16 Sep 2008, Paul Moore wrote:
 
-> On 1 October 2008 12:52:46 David Miller wrote:
-> > Vitaliy sent the same patch first, so I applied his copy :-)
+> Create an ordered IP address linked list mechanism similar to the core
+> kernel's linked list construct.  The idea behind this list functionality
+> is to create an extensibile linked list ordered by IP address mask to
+> ease the matching of network addresses.  The linked list is ordered with
+> larger address masks at the front of the list and shorter address masks
+> at the end to facilitate overriding network entries with individual host
+> or subnet entries.
 > 
-> Den's patch is not the same. My patch didn't fix IPv6 code.
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> 
 
-Whoops... Denis can you resubmit just the ipv6 side
-fix then?  I already pushed Vitaliy's commit out
-to net-2.6
+Reviewed-by: James Morris <jmorris@namei.org>
 
-Thanks.
+
+
+-- 
+James Morris
+<jmorris@namei.org>
