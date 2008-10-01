@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 0/2] skb recycling
-Date: Wed, 01 Oct 2008 02:34:51 -0700 (PDT)
-Message-ID: <20081001.023451.241472852.davem@davemloft.net>
-References: <20080928204616.GA19070@xi.wantstofly.org>
+Subject: Re: [PATCH,RESEND] XFRM,IPv6: initialize
+ ip6_dst_blackhole_ops.kmem_cachep
+Date: Wed, 01 Oct 2008 02:38:31 -0700 (PDT)
+Message-ID: <20081001.023831.45381902.davem@davemloft.net>
+References: <87prmuvnmt.fsf@natisbad.org>
+	<939d53060809250221p171eb282v4451721464bd35a1@mail.gmail.com>
+	<873ajg1xa0.fsf@natisbad.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ram.Natarajan@Emulex.Com,
-	dada1@cosmosbay.com, akarkare@marvell.com, nico@cam.org
-To: buytenh@wantstofly.org
+Cc: netdev@vger.kernel.org, ben.thery@gmail.com
+To: arno@natisbad.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49163
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48584
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750751AbYJAJfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:35:04 -0400
-In-Reply-To: <20080928204616.GA19070@xi.wantstofly.org>
+	by vger.kernel.org with ESMTP id S1751832AbYJAJim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:38:42 -0400
+In-Reply-To: <873ajg1xa0.fsf@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Sun, 28 Sep 2008 22:46:16 +0200
+From: arno@natisbad.org (Arnaud Ebalard)
+Date: Wed, 01 Oct 2008 11:26:31 +0200
 
-> This implements skb recycling, which is basically just reusing skbuffs
-> that have finished transmitting as receive buffers, avoiding skbuff
-> freeing/reallocation overhead.  This is done by having the networking
-> provide skb_recycle_check(), which drivers can then use in their tx
-> ring cleanup (example implementation for mv643xx_eth included).
+> With the switch to a default value of 1 for xfrm_larval_drop in commit
+> 28faa979746b2352cd78a376bf9f52db953bda46 (ipsec: Make xfrm_larval_drop
+> default to 1), what seems to be a bug manage to surface on one of my
+> test box running today's net-next (*).
+> 
+> When xfrm_tmpl_resolve() returns -EAGAIN in __xfrm_lookup(), the caller
+> is returned -EREMOTE and is expected to install a blackhole route. For
+> IPv6, the call to dst_alloc(&ip6_dst_blackhole_ops) performed by
+> ip6_dst_blackhole() produces the error provided below, because
+> kmem_cachep attribute seems to be uninitialized. This does not happen
+> when xfrm_larval_drop is set to 0.
+> 
+> The patch below against today's net-next. Benjamin (in CC) reported on
+> the introduction of the bug (f2fc6a54585a1be6669613a31fbaba2ecbadcd36)
+> while adding network namespaces support to ipv6 routes.
 
-I like this changes a lot, so I've added them to net-next-2.6
-
-If there are some problems found we can fix them up, and
-also merging this now will better facilitate experimentation
-with other drivers.
-
-Thanks!
+Applied to net-2.6, thanks Arnaud!
