@@ -1,59 +1,44 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC PATCH v6 11/16] netlabel: Add functionality to set the
- security attributes of a packet
-Date: Wed, 1 Oct 2008 19:55:49 +1000 (EST)
-Message-ID: <alpine.LRH.1.10.0810011952100.6732@tundra.namei.org>
-References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125701.17132.46623.stgit@flek.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: deadlock during net device unregistration
+Date: Wed, 01 Oct 2008 02:59:35 -0700 (PDT)
+Message-ID: <20081001.025935.257260146.davem@davemloft.net>
+References: <20080930144203.GA2511@ami.dom.local>
+	<20080930145710.GB2511@ami.dom.local>
+	<48E24341.5050609@bull.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080916125701.17132.46623.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org, dlezcano@fr.ibm.com
+To: benjamin.thery@bull.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46145
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751682AbYJAJ7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 05:59:47 -0400
+In-Reply-To: <48E24341.5050609@bull.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Sep 2008, Paul Moore wrote:
+From: Benjamin Thery <benjamin.thery@bull.net>
+Date: Tue, 30 Sep 2008 17:18:25 +0200
 
-> This patch builds upon the new NetLabel address selector functionality by
-> providing the NetLabel KAPI and CIPSO engine support needed to enable the
-> new packet-based labeling.  The only new addition to the NetLabel KAPI at
-> this point is shown below:
+> Jarek Poplawski wrote:
+> > On Tue, Sep 30, 2008 at 04:42:04PM +0200, Jarek Poplawski wrote:
+> >> Benjamin Thery wrote, On 09/30/2008 01:52 PM:
+> > ...
+> >>> I'm still looking at why the first dst_free() on those particular routes doesn't call dst_destroy() immediately but defers it (another refcount
+> >>> on the route itself).
+> >> Yes, finding/fixing this, if possible, in this place looks like the
+> >> most consistent with the way netdev_wait_allrefs() is handling this.
+> > Actually, I wonder, why we can't simply run this dst_gc_task() from
+> > dst_dev_event() (after cancelling the work) when needed.
+> > 
 > 
->  * int netlbl_skbuff_setattr(skb, family, secattr)
-> 
-> ... and is designed to be called from a Netfilter hook after the packet's
-> IP header has been populated such as in the FORWARD or LOCAL_OUT hooks.
-> 
-> This patch also provides the necessary SELinux hooks to support this new
-> functionality.  Smack support is not currently included due to uncertainty
-> regarding the permissions needed to expand the Smack network access controls.
-> 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> Um... I haven't thought about this. I'll have a look to see if it can
+> solve our issue.
 
-Reviewed-by: James Morris <jmorris@namei.org>
+Let me know what happens, I'd like to apply some fix soon.
+So just report the patch implementing the final approach you
+feel the most comfortable with.
 
-> +	/* we overwrite any existing options to ensure that we have enough
-> +	 * room for the CIPSO option, the reason is that we _need_ to guarantee
-> +	 * that the security label is applied to the packet - we do the same
-> +	 * thing when using the socket options and it hasn't caused a problem,
-> +	 * if we need to we can always revisit this choice later */
-
-....
-
-> +	/* we have to do the following because we are being called from a
-> +	 * netfilter hook which means the packet already has had the header
-> +	 * fields populated and the checksum calculated - yes this means we
-> +	 * are doing more work than needed but we do it to keep the core
-> +	 * stack clean and tidy */
-
-It might be better in the long term to integrate this stuff more directly 
-with the core networking.
-
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Thanks.
