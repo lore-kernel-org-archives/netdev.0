@@ -1,63 +1,32 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH net-2.6] ipv6: NULL pointer dereferrence in
-	tcp_v6_send_ack
-Date: Wed, 1 Oct 2008 10:34:09 -0300
-Message-ID: <20081001133409.GH970@ghostprotocols.net>
-References: <20081001.020359.48616451.davem@davemloft.net> <1222852317-7177-1-git-send-email-den@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] bonding: add better ipv6 failover support
+Date: Wed, 01 Oct 2008 06:36:13 -0700 (PDT)
+Message-ID: <20081001.063613.29345775.davem@davemloft.net>
+References: <48DBB181.9050205@hp.com>
+	<20081001055355.GA27304@verge.net.au>
+	<48E379F8.7090403@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xemul@openvz.org, vgusev@openvz.org,
-	netdev@vger.kernel.org
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, fubar@us.ibm.com, vladislav.yasevich@hp.com,
+	alexandre.sidorenko@hp.com, jeff@garzik.org, netdev@vger.kernel.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:35230 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750751AbYJANgC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 09:36:02 -0400
-Content-Disposition: inline
-In-Reply-To: <1222852317-7177-1-git-send-email-den@openvz.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37531
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750895AbYJANgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 09:36:25 -0400
+In-Reply-To: <48E379F8.7090403@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Oct 01, 2008 at 01:11:57PM +0400, Denis V. Lunev escreveu:
-> The following actions are possible:
-> tcp_v6_rcv
->   skb->dev = NULL;
->   tcp_v6_do_rcv
->     tcp_v6_hnd_req
->       tcp_check_req
->         req->rsk_ops->send_ack == tcp_v6_send_ack
-> 
-> So, skb->dev can be NULL in tcp_v6_send_ack. We must obtain namespace
-> from dst entry.
-> 
-> Thanks to Vitaliy Gusev <vgusev@openvz.org> for initial problem finding
-> in IPv4 code.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> ---
->  net/ipv4/tcp_ipv4.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+From: Brian Haley <brian.haley@hp.com>
+Date: Wed, 01 Oct 2008 09:24:08 -0400
 
-Forgot to update the diffstat? :-) Nah, just nitpicking :-P
-
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index b585c85..10e22fd 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1050,7 +1050,7 @@ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack, u32 win, u32
->  	struct tcphdr *th = tcp_hdr(skb), *t1;
->  	struct sk_buff *buff;
->  	struct flowi fl;
-> -	struct net *net = dev_net(skb->dev);
-> +	struct net *net = dev_net(skb->dst->dev);
->  	struct sock *ctl_sk = net->ipv6.tcp_sk;
->  	unsigned int tot_len = sizeof(struct tcphdr);
->  	__be32 *topt;
-> -- 
-> 1.5.6.4
+> I actually figured out how to do this without having a new Kconfig
+> option at all, and building bonding_ipv6.c without getting a linker
+> error.  I'll send out an updated patch soon, just sorting out the
+> vlan support right now.
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Great, I'll wait for that meanwhile, thanks everyone.
