@@ -1,48 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: xfrm_state locking regression...
-Date: Wed, 01 Oct 2008 03:07:53 -0700 (PDT)
-Message-ID: <20081001.030753.246288202.davem@davemloft.net>
-References: <20080925094905.GA19180@gondor.apana.org.au>
-	<48DB801E.90500@iki.fi>
-	<48DB85B4.10104@iki.fi>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC PATCH v6 15/16] cipso: Add support for native local labeling
+ and fixup mapping names
+Date: Wed, 1 Oct 2008 20:09:30 +1000 (EST)
+Message-ID: <alpine.LRH.1.10.0810012003170.6732@tundra.namei.org>
+References: <20080916124722.17132.38741.stgit@flek.lan> <20080916125730.17132.74360.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	hadi@cyberus.ca
-To: timo.teras@iki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43001
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752420AbYJAKIE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 06:08:04 -0400
-In-Reply-To: <48DB85B4.10104@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080916125730.17132.74360.stgit@flek.lan>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 25 Sep 2008 15:36:04 +0300
+On Tue, 16 Sep 2008, Paul Moore wrote:
 
-> Timo Ter=E4s wrote:
-> > Herbert Xu wrote:
-> >> Thanks! I've got some other work to do so feel free to post this
-> >> tomorrow.
-> >=20
-> > It was simpler than I thought (and I thought I would be more busy
-> > with other things). Anyway, here goes. This is a single patch that
-> > modifies both xfrm_state and xfrm_policy dumping. This was to get
-> > af_key patch nicer (the final skb patching/sending is common code).
->=20
-> One more thing I noticed. If the af_key socket is closed while
-> dumping is ongoing the current code can leak stuff. We should call
-> the .done. And also in the new patch, release the stored skb.
->=20
-> The right place to do that would be pfkey_release, I assume?
+> +/* Base length of the local tag (non-standard tag).
+> + *  Tag definition (may change between kernel versions)
+> + *
+> + * 0          8          16         24         32
+> + * +----------+----------+----------+----------+
+> + * | 10000000 | 00001000 | unused (zero fill)  |
+> + * +----------+----------+----------+----------+
+> + * |   32-bit secid value (host byte order)    |
+> + * +----------+----------+----------+----------+
+> + *
+> + */
+> +#define CIPSO_V4_TAG_LOC_BLEN         8
+> +
 
-I reread this thread, and the most recent patch seems good
-and even tested :-)  But it seems that you want to make some
-more tweaks, right?
+> +static int cipso_v4_gentag_loc(const struct cipso_v4_doi *doi_def,
+> +			       const struct netlbl_lsm_secattr *secattr,
+> +			       unsigned char *buffer,
+> +			       u32 buffer_len)
+> +{
+> +	if (!(secattr->flags & NETLBL_SECATTR_SECID))
+> +		return -EPERM;
+> +
+> +	buffer[0] = 0x80;
+> +	buffer[1] = 0x08;
+> +	*(u32 *)&buffer[4] = secattr->attr.secid;
+> +
+> +	return 8;
+> +}
 
-Please post explicitly the patch you want me to apply to
-net-next-2.6 once you reach that point, thanks!
+Macros would be nice for these, and why specify zero filling?  (Setting 
+and testing that would be wasted cycles, if you enforced it).
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
