@@ -1,7 +1,8 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-next 1/9] netns: move /proc/net/dev_snmp6 to struct net
-Date: Thu,  2 Oct 2008 14:14:04 +0400
-Message-ID: <1222942452-9820-1-git-send-email-den@openvz.org>
+Subject: [PATCH net-next 7/9] netns: add stab functions for per/namespace mibs
+	allocation
+Date: Thu,  2 Oct 2008 14:14:10 +0400
+Message-ID: <1222942452-9820-7-git-send-email-den@openvz.org>
 References: <1222942394.6327.5.camel@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,91 +24,70 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+The content of init_ipv6_mibs/cleanup_ipv6_mibs will be moved to new
+calls one by one next.
+
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- include/net/netns/mib.h |    4 ++++
- net/ipv6/proc.c         |   20 +++++++++++---------
- 2 files changed, 15 insertions(+), 9 deletions(-)
+ net/ipv6/af_inet6.c |   18 ++++++++++++++++--
+ 1 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netns/mib.h b/include/net/netns/mib.h
-index 4491476..ffcef5d 100644
---- a/include/net/netns/mib.h
-+++ b/include/net/netns/mib.h
-@@ -11,6 +11,10 @@ struct netns_mib {
- 	DEFINE_SNMP_STAT(struct udp_mib, udplite_statistics);
- 	DEFINE_SNMP_STAT(struct icmp_mib, icmp_statistics);
- 	DEFINE_SNMP_STAT(struct icmpmsg_mib, icmpmsg_statistics);
-+
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	struct proc_dir_entry *proc_net_devsnmp6;
-+#endif
- };
- 
- #endif
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 0179b66..16ebf85 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -29,8 +29,6 @@
- #include <net/transp_v6.h>
- #include <net/ipv6.h>
- 
--static struct proc_dir_entry *proc_net_devsnmp6;
--
- static int sockstat6_seq_show(struct seq_file *seq, void *v)
- {
- 	struct net *net = seq->private;
-@@ -210,18 +208,20 @@ static const struct file_operations snmp6_seq_fops = {
- int snmp6_register_dev(struct inet6_dev *idev)
- {
- 	struct proc_dir_entry *p;
-+	struct net *net;
- 
- 	if (!idev || !idev->dev)
- 		return -EINVAL;
- 
--	if (!net_eq(dev_net(idev->dev), &init_net))
-+	net = dev_net(idev->dev);
-+	if (!net_eq(net, &init_net))
- 		return 0;
- 
--	if (!proc_net_devsnmp6)
-+	if (!net->mib.proc_net_devsnmp6)
- 		return -ENOENT;
- 
- 	p = proc_create_data(idev->dev->name, S_IRUGO,
--			     proc_net_devsnmp6, &snmp6_seq_fops, idev);
-+			     net->mib.proc_net_devsnmp6, &snmp6_seq_fops, idev);
- 	if (!p)
- 		return -ENOMEM;
- 
-@@ -231,12 +231,13 @@ int snmp6_register_dev(struct inet6_dev *idev)
- 
- int snmp6_unregister_dev(struct inet6_dev *idev)
- {
--	if (!proc_net_devsnmp6)
-+	struct net *net = dev_net(idev->dev);
-+	if (!net->mib.proc_net_devsnmp6)
- 		return -ENOENT;
- 	if (!idev || !idev->stats.proc_dir_entry)
- 		return -EINVAL;
- 	remove_proc_entry(idev->stats.proc_dir_entry->name,
--			  proc_net_devsnmp6);
-+			  net->mib.proc_net_devsnmp6);
- 	idev->stats.proc_dir_entry = NULL;
- 	return 0;
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 95055f8..46d4e62 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -834,6 +834,15 @@ static void cleanup_ipv6_mibs(void)
+ 	snmp_mib_free((void **)udplite_stats_in6);
  }
-@@ -269,8 +270,9 @@ int __init ipv6_misc_proc_init(void)
- 	if (!proc_net_fops_create(&init_net, "snmp6", S_IRUGO, &snmp6_seq_fops))
- 		goto proc_snmp6_fail;
  
--	proc_net_devsnmp6 = proc_mkdir("dev_snmp6", init_net.proc_net);
--	if (!proc_net_devsnmp6)
-+	init_net.mib.proc_net_devsnmp6 =
-+		proc_mkdir("dev_snmp6", init_net.proc_net);
-+	if (!init_net.mib.proc_net_devsnmp6)
- 		goto proc_dev_snmp6_fail;
- out:
- 	return rc;
++static int __net_init ipv6_init_mibs(struct net *net)
++{
++	return 0;
++}
++
++static void __net_exit ipv6_cleanup_mibs(struct net *net)
++{
++}
++
+ static int inet6_net_init(struct net *net)
+ {
+ 	int err = 0;
+@@ -849,6 +858,9 @@ static int inet6_net_init(struct net *net)
+ 	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
+ 	net->ipv6.sysctl.icmpv6_time = 1*HZ;
+ 
++	err = ipv6_init_mibs(net);
++	if (err)
++		return err;
+ #ifdef CONFIG_PROC_FS
+ 	err = udp6_proc_init(net);
+ 	if (err)
+@@ -859,7 +871,6 @@ static int inet6_net_init(struct net *net)
+ 	err = ac6_proc_init(net);
+ 	if (err)
+ 		goto proc_ac6_fail;
+-out:
+ #endif
+ 	return err;
+ 
+@@ -868,7 +879,9 @@ proc_ac6_fail:
+ 	tcp6_proc_exit(net);
+ proc_tcp6_fail:
+ 	udp6_proc_exit(net);
+-	goto out;
++out:
++	ipv6_cleanup_mibs(net);
++	return err;
+ #endif
+ }
+ 
+@@ -879,6 +892,7 @@ static void inet6_net_exit(struct net *net)
+ 	tcp6_proc_exit(net);
+ 	ac6_proc_exit(net);
+ #endif
++	ipv6_cleanup_mibs(net);
+ }
+ 
+ static struct pernet_operations inet6_net_ops = {
 -- 
 1.5.3.rc5
