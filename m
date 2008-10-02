@@ -1,85 +1,145 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH,CFT] dynamic struct mii_bus allocation
-Date: Thu, 2 Oct 2008 12:15:08 +0200
-Message-ID: <20081002101508.GA31074@xi.wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Andy Fleming <afleming@freescale.com>
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Olof Johansson <olof@lixom.net>,
-	Kumar Gala <galak@kernel.c
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH net-next 8/9] netns: make udpv6 mib per/namespace
+Date: Thu,  2 Oct 2008 14:14:11 +0400
+Message-ID: <1222942452-9820-8-git-send-email-den@openvz.org>
+References: <1222942394.6327.5.camel@iris.sw.ru>
+Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	den@openvz.org, benjamin.thery@bull.net, dlezcano@fr.ibm.com,
+	xemul@openvz.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:40918 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753284AbYJBKPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 06:15:13 -0400
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.232.25]:40813 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753344AbYJBKPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 06:15:16 -0400
+In-Reply-To: <1222942394.6327.5.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi *,
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ include/net/netns/mib.h |    1 +
+ include/net/udp.h       |   12 ++++++------
+ net/ipv4/udp.c          |    3 ---
+ net/ipv6/af_inet6.c     |    9 ++++-----
+ net/ipv6/proc.c         |    3 ++-
+ 5 files changed, 13 insertions(+), 15 deletions(-)
 
-You're listed as maintainer of one of the network drivers in the tree
-that use phylib.  Available at the URL below is a change to the phylib
-API (dynamic allocation of struct mii_bus, which is needed for hooking
-up mdio buses into the device tree) that needs corresponding mdio bus
-driver changes.  I've patched all mdio bus drivers I could find, and
-tried not to break anything, but it's possible I might have
-inadvertently broken something, so I'd like you to test these changes
-and let me know if they work for you or not:
+diff --git a/include/net/netns/mib.h b/include/net/netns/mib.h
+index ffcef5d..ba622b2 100644
+--- a/include/net/netns/mib.h
++++ b/include/net/netns/mib.h
+@@ -14,6 +14,7 @@ struct netns_mib {
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	struct proc_dir_entry *proc_net_devsnmp6;
++	DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6);
+ #endif
+ };
+ 
+diff --git a/include/net/udp.h b/include/net/udp.h
+index addcdc6..e2a5de9 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -148,8 +148,6 @@ extern int 	udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 				   char __user *optval, int optlen,
+ 				   int (*push_pending_frames)(struct sock *));
+ 
+-DECLARE_SNMP_STAT(struct udp_mib, udp_stats_in6);
+-
+ /* UDP-Lite does not have a standardized MIB yet, so we inherit from UDP */
+ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
+ 
+@@ -163,12 +161,14 @@ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
+ 	if (is_udplite) SNMP_INC_STATS_BH((net)->mib.udplite_statistics, field);         \
+ 	else		SNMP_INC_STATS_BH((net)->mib.udp_statistics, field);    }  while(0)
+ 
+-#define UDP6_INC_STATS_BH(net, field, is_udplite) 	    do { (void)net;  \
++#define UDP6_INC_STATS_BH(net, field, is_udplite) 	    do { \
+ 	if (is_udplite) SNMP_INC_STATS_BH(udplite_stats_in6, field);         \
+-	else		SNMP_INC_STATS_BH(udp_stats_in6, field);    } while(0)
+-#define UDP6_INC_STATS_USER(net, field, is_udplite)	    do { (void)net;    \
++	else		SNMP_INC_STATS_BH((net)->mib.udp_stats_in6, field);  \
++} while(0)
++#define UDP6_INC_STATS_USER(net, field, is_udplite)	    do { \
+ 	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
+-	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
++	else		SNMP_INC_STATS_USER((net)->mib.udp_stats_in6, field);  \
++} while(0)
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ #define UDPX_INC_STATS_BH(sk, field) \
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8e42fbb..4903420 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -108,9 +108,6 @@
+  *	Snmp MIB for the UDP layer
+  */
+ 
+-DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
+-EXPORT_SYMBOL(udp_stats_in6);
+-
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
+ 
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 46d4e62..f2933b2 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -805,16 +805,12 @@ static int __init init_ipv6_mibs(void)
+ 	if (snmp_mib_init((void **)icmpv6msg_statistics,
+ 			  sizeof(struct icmpv6msg_mib)) < 0)
+ 		goto err_icmpmsg_mib;
+-	if (snmp_mib_init((void **)udp_stats_in6, sizeof (struct udp_mib)) < 0)
+-		goto err_udp_mib;
+ 	if (snmp_mib_init((void **)udplite_stats_in6,
+ 			  sizeof (struct udp_mib)) < 0)
+ 		goto err_udplite_mib;
+ 	return 0;
+ 
+ err_udplite_mib:
+-	snmp_mib_free((void **)udp_stats_in6);
+-err_udp_mib:
+ 	snmp_mib_free((void **)icmpv6msg_statistics);
+ err_icmpmsg_mib:
+ 	snmp_mib_free((void **)icmpv6_statistics);
+@@ -830,17 +826,20 @@ static void cleanup_ipv6_mibs(void)
+ 	snmp_mib_free((void **)ipv6_statistics);
+ 	snmp_mib_free((void **)icmpv6_statistics);
+ 	snmp_mib_free((void **)icmpv6msg_statistics);
+-	snmp_mib_free((void **)udp_stats_in6);
+ 	snmp_mib_free((void **)udplite_stats_in6);
+ }
+ 
+ static int __net_init ipv6_init_mibs(struct net *net)
+ {
++	if (snmp_mib_init((void **)net->mib.udp_stats_in6,
++			  sizeof (struct udp_mib)) < 0)
++		return -ENOMEM;
+ 	return 0;
+ }
+ 
+ static void __net_exit ipv6_cleanup_mibs(struct net *net)
+ {
++	snmp_mib_free((void **)net->mib.udp_stats_in6);
+ }
+ 
+ static int inet6_net_init(struct net *net)
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index 23e567f..3eaf20b 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -180,7 +180,8 @@ static int snmp6_seq_show(struct seq_file *seq, void *v)
+ 	snmp6_seq_show_item(seq, (void **)ipv6_statistics, snmp6_ipstats_list);
+ 	snmp6_seq_show_item(seq, (void **)icmpv6_statistics, snmp6_icmp6_list);
+ 	snmp6_seq_show_icmpv6msg(seq, (void **)icmpv6msg_statistics);
+-	snmp6_seq_show_item(seq, (void **)udp_stats_in6, snmp6_udp6_list);
++	snmp6_seq_show_item(seq, (void **)net->mib.udp_stats_in6,
++			    snmp6_udp6_list);
+ 	snmp6_seq_show_item(seq, (void **)udplite_stats_in6, snmp6_udplite6_list);
+ 	return 0;
+ }
+-- 
+1.5.3.rc5
 
-	git://git.marvell.com/phylib.git master
-
-As a side-effect of the last patch, you should end up with a list of
-mdio buses in your system in /sys/class/mdio_bus.
-
-
-thanks,
-Lennert
-
-
-The following changes since commit e69c4e0f1210450841e40716894ba6a877b31d52:
-  Vlad Yasevich (1):
-        sctp: correctly save sctp_adaptation from parameter.
-
-are available in the git repository at:
-
-  git://git.marvell.com/phylib.git master
-
-Lennert Buytenhek (5):
-      phylib: phy_mii_ioctl() fixes
-      phylib: add mdiobus_{read,write}
-      phylib: rename mii_bus::dev to mii_bus::parent
-      phylib: move to dynamic allocation of struct mii_bus
-      phylib: give mdio buses a device tree presence
-
- arch/powerpc/platforms/82xx/ep8248e.c     |    2 +-
- arch/powerpc/platforms/pasemi/gpio_mdio.c |    6 +-
- drivers/net/au1000_eth.c                  |   43 ++++++---
- drivers/net/au1000_eth.h                  |    2 +-
- drivers/net/bfin_mac.c                    |   31 ++++---
- drivers/net/bfin_mac.h                    |    2 +-
- drivers/net/cpmac.c                       |   51 ++++++----
- drivers/net/fec_mpc52xx_phy.c             |    8 +-
- drivers/net/fs_enet/mii-bitbang.c         |    9 +-
- drivers/net/fs_enet/mii-fec.c             |    8 +-
- drivers/net/gianfar_mii.c                 |    9 +-
- drivers/net/macb.c                        |   49 ++++++----
- drivers/net/macb.h                        |    2 +-
- drivers/net/mv643xx_eth.c                 |   32 ++++---
- drivers/net/phy/fixed.c                   |   29 ++++--
- drivers/net/phy/mdio-bitbang.c            |    4 +-
- drivers/net/phy/mdio-ofgpio.c             |   11 +-
- drivers/net/phy/mdio_bus.c                |  144 ++++++++++++++++++++++++++++-
- drivers/net/phy/phy.c                     |   54 +----------
- drivers/net/sb1250-mac.c                  |   36 +++++---
- drivers/net/sh_eth.c                      |    4 +-
- drivers/net/tc35815.c                     |   45 ++++++----
- drivers/net/tg3.c                         |   66 +++++++-------
- drivers/net/tg3.h                         |    2 +-
- drivers/net/ucc_geth_mii.c                |    9 +-
- include/linux/phy.h                       |   54 ++++++++++--
- 26 files changed, 456 insertions(+), 256 deletions(-)
