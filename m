@@ -1,54 +1,78 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH] e1000e: write protect ICHx NVM to prevent malicious
- write/erase
-Date: Thu, 2 Oct 2008 11:59:53 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0810021154330.1887@twin.jikos.cz>
-References: <20081002001830.5951.3123.stgit@jbrandeb-bw.jf.intel.com>
- <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 33/33] Enable netfilter in netns
+Date: Thu, 02 Oct 2008 12:00:33 +0200
+Message-ID: <48E49BC1.9060800@trash.net>
+References: <48C01046.2070704@trash.net> <1220842990-30500-33-git-send-email-adobriyan@gmail.com> <48E49068.5070305@trash.net> <20081002095112.GA31919@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: torvalds@linux-foundation.org, jeff@garzik.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, arjan@linux.intel.com,
-	Bruce Allan <bruce.w.allan@intel.com>, arjan@linux.intel.com
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from twin.jikos.cz ([213.151.79.26]:51291 "EHLO twin.jikos.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752662AbYJBKA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 06:00:26 -0400
-In-Reply-To: <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:53556 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753284AbYJBKBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 06:01:34 -0400
+In-Reply-To: <20081002095112.GA31919@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Oct 2008, Jesse Brandeburg wrote:
+Alexey Dobriyan wrote:
+> On Thu, Oct 02, 2008 at 11:12:08AM +0200, Patrick McHardy wrote:
+>   
+>> Is there an easy way to test all this stuff?
+>>     
+>
+> I used the following:
+>
+> 0) netns is currently mutually exclusive with sysfs, so depending on
+>    sanity of distro initscripts booting sysfs-less kernel can be tricky.
+>
+>    In Gentoo, for example a) rm -rf /sys (sic!), b) RC_USE_FSTAB="yes",
+>    c) RC_DEVICES="static" in /etc/conf.d/rc are needed.
+>
+> 1) netns creation tool (attached, some container guy posted it somewhere)
+>
+> 	# ns_exec -n /bin/sh
+>
+> 2) shutdown network in init_net
+>
+> 	sudo /etc/init.d/ntpd stop
+> 	sudo /etc/init.d/sshd stop
+> 	sudo /etc/init.d/iptables stop
+> 	sudo /etc/init.d/ip6tables stop
+> 	sudo /etc/init.d/net.eth1 stop
+> 	sudo /etc/init.d/net.eth0 stop
+>
+> 3) move netdevices to netns
+>
+> 	ip l s dev eth0 netns "$1"
+> 	ip l s dev eth1 netns "$1"
+>
+> 	where $1 is PID of shell from 1)
+>
+> 4) in netns start everything back
+>
+> 	sudo /etc/init.d/net.eth0 start
+> 	sudo /etc/init.d/net.eth1 start
+> 	sudo /etc/init.d/iptables start
+> 	sudo /etc/init.d/ip6tables start
+> 	sudo /etc/init.d/sshd start
+> 	sudo /etc/init.d/ntpd start
+>
+> 5) at this point my usual NAT setup is back working for me and everything should
+>    be like in init_net (modulo aforementioned exceptions) and
+>    independent from init_net.
+>
+> Leaked netns are in /proc/slabinfo under "net_namespace".
+>
+> Some IPv6 printks can be annoying, so mute them.
+>
+> Object poisoning with SLUB won't work for irrelevant reasons, so use SLAB.
+>
+> Something like that.
+>   
 
-> Set the hardware to ignore all write/erase cycles to the GbE region in 
-> the ICHx NVM.  This feature can be disabled by the WriteProtectNVM 
-> module parameter (enabled by default) only after a hardware reset, but 
-> the machine must be power cycled before trying to enable writes.
-
-Hi,
-
-thanks. We have been running our tests with complete pileup of 12 patches 
-from Intel, and the bug didn't trigger so far (and it triggers now pretty 
-reliably with the unpatched kernel in the setup Karsten has established in 
-our testing environment).
-
-So the patches really seem, as far as our current testing goes, to 
-at least workaround the problem.
-
-I will now try to isolate which of the patches really fixes the problem, 
-so that we could understand better what is going on and who is causing the 
-corruption.
-
-Do you think it would be possible to adapt this particular patch so that 
-it spits out watnin/stacktrace when write and/or erase cycle is attempted 
-but denied?
-
-Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs
+Thanks, I'll give it a try.
 
