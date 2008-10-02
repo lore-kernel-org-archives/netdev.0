@@ -1,101 +1,88 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when gc_elasticity
- is exceeded
-Date: Thu, 02 Oct 2008 16:20:52 +0200
-Message-ID: <48E4D8C4.6020206@cosmosbay.com>
-References: <48E141F3.9000903@cosmosbay.com>	<20080929223801.GA3157@hmsreliant.think-freely.org>	<48E1C104.2080801@cosmosbay.com>	<20080930.071023.07946874.davem@davemloft.net>	<48E25F02.8030303@cosmosbay.com>	<20081001180846.GB3566@hmsreliant.think-freely.org> <20081002010101.6f0a1fa5.billfink@mindspring.com> <48E470AC.10305@cosmosbay.com> <48E4832A.3070804@cosmosbay.com>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [PATCH] net: deadlock during net device unregistration - V2
+Date: Thu, 02 Oct 2008 17:23:30 +0200
+Message-ID: <48E4E772.2020208@bull.net>
+References: <48E24341.5050609@bull.net> <20081001.025935.257260146.davem@davemloft.net> <48E34C82.2040306@fr.ibm.com> <20081001.031243.255655293.davem@davemloft.net> <20081001141432.470106980@theryb.frec.bull.fr> <20081001194825.GA2520@ami.dom.local> <48E3E64E.50106@fr.ibm.com> <20081001233152.GA2411@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.111]:32752 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752504AbYJBOVA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 10:21:00 -0400
-In-Reply-To: <48E4832A.3070804@cosmosbay.com>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:42440 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752599AbYJBPXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 11:23:45 -0400
+In-Reply-To: <20081001233152.GA2411@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =C3=A9crit :
-> Eric Dumazet a =C3=A9crit :
->> Bill Fink a =C3=A9crit :
->>> I believe the general rule of thumb for something like this is at
->>> least two standard deviations.  For a normal distribution, one stan=
-dard
->>> deviation covers about 68 % of the sample universe, while two stand=
-ard
->>> deviations covers about 95 % (three standard deviations covers 99.7=
-3 %).
->>> See the Wikipedia entry:
->>>
->>>     http://en.wikipedia.org/wiki/Standard_deviation
->>>
->>
->> Thanks Bill for the pointer, this is the trick.
->>
->> I believe we should target "4=CF=83 99.993666% " case.
->>
->> But we dont need to really compute Standard deviation at runtime, on=
-ly=20
->> find an (upper) approximation of it.
->>
->> For elasticity=3D4 and 512*1024 samples (mean < 4), I guess 4=CF=83 =
-can be=20
->> approximated by 20 or something.
->>
->=20
-> Good estimation of Standard Deviation could be computed for free
-> in rt_check_expire(). (each runs scans 20% of hash table with default=
-=20
-> tunables timeout & ip_rt_gc_interval)
->=20
-> We could update 4=CF=83 estimation in this function, every minute=20
-> (ip_rt_gc_interval)
->=20
-> At softirq time we then can detect a particular hash chain is
-> longer than 4=CF=83 estimation and trigger an appropriate action.
->=20
-> This action is to : flush table, and while we do that, expand hash ta=
-ble
-> if its current size is under ip_rt_max_size/elasticity...
->=20
+Jarek Poplawski wrote:
+> On Wed, Oct 01, 2008 at 11:06:22PM +0200, Daniel Lezcano wrote:
+>> Jarek Poplawski wrote:
+>>> On Wed, Oct 01, 2008 at 04:14:35PM +0200, Benjamin Thery wrote:
+> ...
+>>>> --- net-next-2.6.orig/net/core/dst.c
+>>>> +++ net-next-2.6/net/core/dst.c
+>>>> @@ -328,6 +328,10 @@ static int dst_dev_event(struct notifier
+>>>>  			dst_ifdown(dst, dev, event != NETDEV_DOWN);
+>>>>  		}
+>>>>  		mutex_unlock(&dst_gc_mutex);
+>>>> +
+>>>> +		if (event == NETDEV_UNREGISTER &&
+>>>> +		    cancel_delayed_work(&dst_gc_work))
+>>>> +			dst_gc_task(&dst_gc_work.work);
+>>> Hmm... It seems this shouldn't work yet: cancel_delayed_work() can only
+>>> kill this while on timer, but not when queued and maybe blocked already.
 
-I ran again my litle dirty program that reads /proc/kcore to explore rt
-hash table on a busy server and found :
+You're right.
 
+> 
+> Hmm#2... Then maybe something like this?:
+> 
+> 		if (event == NETDEV_UNREGISTER &&
+> 	    	    (cancel_delayed_work(&dst_gc_work) ||
+> 		     delayed_work_pending(&dst_gc_work)))
+> 			dst_gc_task(&dst_gc_work.work);
 
-hptr=3D0xffff81082ec00000 hsize=3D524288
-total=3D2299242 dst entries
-4306 chains of length 0
-23807 chains of length 1
-60119 chains of length 2
-95112 chains of length 3
-106364 chains of length 4
-92307 chains of length 5
-65743 chains of length 6
-39710 chains of length 7
-20997 chains of length 8
-15775 chains of length 9
-39 chains of length 10
-7 chains of length 11
-2 chains of length 12
+Hmmm... I'm not sure I understand what this change do?
 
-avg =3D 4.38546
-sd =3D 1.94614
-X =3D avg + 4*sd =3D 12.17
+OK, I see this ensure we will run dst_gc_task() even if
+cancel_delayed_work() failed and the work is still pending (ie. the 
+timer has expired and dst_gc_work is already in the queue).
 
-I tried various elasticity settings and found litle variations of X
+But what if the work was not pending at all at beginning?
+We still need to run dst_gc_task().
 
-This is because lot of entries are in use (refcnt>1) and can
-not be freed, regardless of elasticity.
+Is something like this better?
+(code expanded to be more readable)
+
+	if (event == NETDEV_UNREGISTER) {
+	    if (!delayed_work_pending(&dst_gc_work))
+	        /* work is not scheduled (no timer, not in queue) */
+		dst_gc_task(&dst_gc_work.work);
+	    else if (cancel_delayed_work(&dst_gc_work) ||
+  	             delayed_work_pending(&dst_gc_work)))
+                 /* work was scheduled (and may be blocked) */
+  	        dst_gc_task(&dst_gc_work.work);
+	    else
+                 /* dst_gc_task() is running, do nothing */
+	}
+
+Benjamin
 
 
 
+> 
+> 
+> Jarek P.
+> 
+> 
 
+
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
