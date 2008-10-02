@@ -1,390 +1,390 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 26/32] mm: add support for non block device backed swap files
-Date: Thu, 02 Oct 2008 15:05:30 +0200
-Message-ID: <20081002131609.564605724@chello.nl>
+Subject: [PATCH 31/32] nfs: enable swap on NFS
+Date: Thu, 02 Oct 2008 15:05:35 +0200
+Message-ID: <20081002131609.943763375@chello.nl>
 References: <20081002130504.927878499@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:53620 "EHLO
+Received: from bombadil.infradead.org ([18.85.46.34]:53619 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753783AbYJBNSp (ORCPT
+	with ESMTP id S1753842AbYJBNSp (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 09:18:45 -0400
-Content-Disposition: inline; filename=mm-swapfile.patch
+Content-Disposition: inline; filename=nfs-swap_ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New addres_space_operations methods are added:
-  int swapon(struct file *);
-  int swapoff(struct file *);
-  int swap_out(struct file *, struct page *, struct writeback_control *);
-  int swap_in(struct file *, struct page *);
+Implement all the new swapfile a_ops for NFS. This will set the NFS socket to
+SOCK_MEMALLOC and run socket reconnect under PF_MEMALLOC as well as reset
+SOCK_MEMALLOC before engaging the protocol ->connect() method.
 
-When during sys_swapon() the ->swapon() method is found and returns no error
-the swapper_space.a_ops will proxy to sis->swap_file->f_mapping->a_ops, and
-make use of ->swap_{out,in}() to write/read swapcache pages.
+PF_MEMALLOC should allow the allocation of struct socket and related objects
+and the early (re)setting of SOCK_MEMALLOC should allow us to receive the
+packets required for the TCP connection buildup.
 
-The ->swapon() method will be used to communicate to the file that the VM
-relies on it, and the address_space should take adequate measures (like
-reserving memory for mempools or the like). The ->swapoff() method will be
-called on sys_swapoff() when ->swapon() was found and returned no error.
+(swapping continues over a server reset during heavy network traffic)
 
-This new interface can be used to obviate the need for ->bmap in the swapfile
-code. A filesystem would need to load (and maybe even allocate) the full block
-map for a file into memory and pin it there on ->swapon() so that
-->swap_{out,in}() have instant access to it. It can be released on ->swapoff().
-
-The reason to provide ->swap_{out,in}() over using {write,read}page() is to
- 1) make a distinction between swapcache and pagecache pages, and
- 2) to provide a struct file * for credential context (normally not needed
-    in the context of writepage, as the page content is normally dirtied
-    using either of the following interfaces:
-      write_{begin,end}()
-      {prepare,commit}_write()
-      page_mkwrite()
-    which do have the file context.
-
-[miklos@szeredi.hu: cleanups]
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- Documentation/filesystems/Locking |   22 ++++++++++++++++
- Documentation/filesystems/vfs.txt |   18 +++++++++++++
- include/linux/buffer_head.h       |    2 -
- include/linux/fs.h                |    9 ++++++
- include/linux/swap.h              |    4 ++
- mm/page_io.c                      |   52 ++++++++++++++++++++++++++++++++++++++
- mm/swap_state.c                   |    4 +-
- mm/swapfile.c                     |   32 +++++++++++++++++++++--
- 8 files changed, 137 insertions(+), 6 deletions(-)
+ fs/Kconfig                  |   17 ++++++++++
+ fs/nfs/file.c               |   18 ++++++++++
+ fs/nfs/write.c              |   22 +++++++++++++
+ include/linux/nfs_fs.h      |    2 +
+ include/linux/sunrpc/xprt.h |    5 ++-
+ net/sunrpc/sched.c          |    9 ++++-
+ net/sunrpc/xprtsock.c       |   73 ++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 143 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/include/linux/swap.h
+Index: linux-2.6/fs/nfs/file.c
 ===================================================================
---- linux-2.6.orig/include/linux/swap.h
-+++ linux-2.6/include/linux/swap.h
-@@ -121,6 +121,7 @@ enum {
- 	SWP_USED	= (1 << 0),	/* is slot in swap_info[] used? */
- 	SWP_WRITEOK	= (1 << 1),	/* ok to write to this swap?	*/
- 	SWP_ACTIVE	= (SWP_USED | SWP_WRITEOK),
-+	SWP_FILE	= (1 << 2),	/* file swap area */
- 					/* add others here before... */
- 	SWP_SCANNING	= (1 << 8),	/* refcount in scan_swap_map */
+--- linux-2.6.orig/fs/nfs/file.c
++++ linux-2.6/fs/nfs/file.c
+@@ -434,6 +434,18 @@ static int nfs_launder_page(struct page 
+ 	return nfs_wb_page(inode, page);
+ }
+ 
++#ifdef CONFIG_NFS_SWAP
++static int nfs_swapon(struct file *file)
++{
++	return xs_swapper(NFS_CLIENT(file->f_mapping->host)->cl_xprt, 1);
++}
++
++static int nfs_swapoff(struct file *file)
++{
++	return xs_swapper(NFS_CLIENT(file->f_mapping->host)->cl_xprt, 0);
++}
++#endif
++
+ const struct address_space_operations nfs_file_aops = {
+ 	.readpage = nfs_readpage,
+ 	.readpages = nfs_readpages,
+@@ -446,6 +458,12 @@ const struct address_space_operations nf
+ 	.releasepage = nfs_release_page,
+ 	.direct_IO = nfs_direct_IO,
+ 	.launder_page = nfs_launder_page,
++#ifdef CONFIG_NFS_SWAP
++	.swapon = nfs_swapon,
++	.swapoff = nfs_swapoff,
++	.swap_out = nfs_swap_out,
++	.swap_in = nfs_readpage,
++#endif
  };
-@@ -274,6 +275,8 @@ extern void swap_unplug_io_fn(struct bac
- /* linux/mm/page_io.c */
- extern int swap_readpage(struct file *, struct page *);
- extern int swap_writepage(struct page *page, struct writeback_control *wbc);
-+extern void swap_sync_page(struct page *page);
-+extern int swap_set_page_dirty(struct page *page);
- extern void end_swap_bio_read(struct bio *bio, int err);
  
- /* linux/mm/swap_state.c */
-@@ -306,6 +309,7 @@ extern unsigned int count_swap_pages(int
- extern sector_t map_swap_page(struct swap_info_struct *, pgoff_t);
- extern sector_t swapdev_block(int, pgoff_t);
- extern struct swap_info_struct *get_swap_info_struct(unsigned);
-+extern struct swap_info_struct *page_swap_info(struct page *);
- extern int can_share_swap_page(struct page *);
- extern int remove_exclusive_swap_page(struct page *);
- extern int remove_exclusive_swap_page_ref(struct page *);
-Index: linux-2.6/mm/page_io.c
+ static int nfs_vm_page_mkwrite(struct vm_area_struct *vma, struct page *page)
+Index: linux-2.6/fs/nfs/write.c
 ===================================================================
---- linux-2.6.orig/mm/page_io.c
-+++ linux-2.6/mm/page_io.c
-@@ -17,6 +17,7 @@
- #include <linux/bio.h>
- #include <linux/swapops.h>
- #include <linux/writeback.h>
-+#include <linux/buffer_head.h>
- #include <asm/pgtable.h>
- 
- static struct bio *get_swap_bio(gfp_t gfp_flags, pgoff_t index,
-@@ -97,11 +98,23 @@ int swap_writepage(struct page *page, st
- {
- 	struct bio *bio;
- 	int ret = 0, rw = WRITE;
-+	struct swap_info_struct *sis = page_swap_info(page);
- 
- 	if (remove_exclusive_swap_page(page)) {
- 		unlock_page(page);
- 		goto out;
- 	}
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
-+
-+		ret = mapping->a_ops->swap_out(swap_file, page, wbc);
-+		if (!ret)
-+			count_vm_event(PSWPOUT);
-+		return ret;
-+	}
-+
- 	bio = get_swap_bio(GFP_NOIO, page_private(page), page,
- 				end_swap_bio_write);
- 	if (bio == NULL) {
-@@ -120,13 +133,52 @@ out:
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -333,6 +333,28 @@ int nfs_writepage(struct page *page, str
  	return ret;
  }
  
-+void swap_sync_page(struct page *page)
++static int nfs_writepage_setup(struct nfs_open_context *ctx, struct page *page,
++		unsigned int offset, unsigned int count);
++
++int nfs_swap_out(struct file *file, struct page *page,
++		 struct writeback_control *wbc)
 +{
-+	struct swap_info_struct *sis = page_swap_info(page);
++	struct nfs_open_context *ctx = nfs_file_open_context(file);
++	int status;
 +
-+	if (sis->flags & SWP_FILE) {
-+		struct address_space *mapping = sis->swap_file->f_mapping;
-+
-+		if (mapping->a_ops->sync_page)
-+			mapping->a_ops->sync_page(page);
-+	} else {
-+		block_sync_page(page);
++	status = nfs_writepage_setup(ctx, page, 0, nfs_page_length(page));
++	if (status < 0) {
++		nfs_set_pageerror(page);
++		goto out;
 +	}
++
++	status = nfs_writepage_locked(page, wbc);
++
++out:
++	unlock_page(page);
++	return status;
 +}
 +
-+int swap_set_page_dirty(struct page *page)
-+{
-+	struct swap_info_struct *sis = page_swap_info(page);
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct address_space *mapping = sis->swap_file->f_mapping;
-+
-+		return mapping->a_ops->set_page_dirty(page);
-+	} else {
-+		return __set_page_dirty_nobuffers(page);
-+	}
-+}
-+
- int swap_readpage(struct file *file, struct page *page)
+ static int nfs_writepages_callback(struct page *page, struct writeback_control *wbc, void *data)
  {
- 	struct bio *bio;
- 	int ret = 0;
-+	struct swap_info_struct *sis = page_swap_info(page);
- 
- 	BUG_ON(!PageLocked(page));
- 	BUG_ON(PageUptodate(page));
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
-+
-+		ret = mapping->a_ops->swap_in(swap_file, page);
-+		if (!ret)
-+			count_vm_event(PSWPIN);
-+		return ret;
-+	}
-+
- 	bio = get_swap_bio(GFP_KERNEL, page_private(page), page,
- 				end_swap_bio_read);
- 	if (bio == NULL) {
-Index: linux-2.6/mm/swap_state.c
-===================================================================
---- linux-2.6.orig/mm/swap_state.c
-+++ linux-2.6/mm/swap_state.c
-@@ -27,8 +27,8 @@
-  */
- static const struct address_space_operations swap_aops = {
- 	.writepage	= swap_writepage,
--	.sync_page	= block_sync_page,
--	.set_page_dirty	= __set_page_dirty_nobuffers,
-+	.sync_page	= swap_sync_page,
-+	.set_page_dirty	= swap_set_page_dirty,
- 	.migratepage	= migrate_page,
- };
- 
-Index: linux-2.6/mm/swapfile.c
-===================================================================
---- linux-2.6.orig/mm/swapfile.c
-+++ linux-2.6/mm/swapfile.c
-@@ -1032,6 +1032,14 @@ static void destroy_swap_extents(struct 
- 		list_del(&se->list);
- 		kfree(se);
- 	}
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
-+
-+		sis->flags &= ~SWP_FILE;
-+		mapping->a_ops->swapoff(swap_file);
-+	}
- }
- 
- /*
-@@ -1106,7 +1114,9 @@ add_swap_extent(struct swap_info_struct 
-  */
- static int setup_swap_extents(struct swap_info_struct *sis, sector_t *span)
- {
--	struct inode *inode;
-+	struct file *swap_file = sis->swap_file;
-+	struct address_space *mapping = swap_file->f_mapping;
-+	struct inode *inode = mapping->host;
- 	unsigned blocks_per_page;
- 	unsigned long page_no;
- 	unsigned blkbits;
-@@ -1117,13 +1127,22 @@ static int setup_swap_extents(struct swa
- 	int nr_extents = 0;
  	int ret;
+Index: linux-2.6/include/linux/nfs_fs.h
+===================================================================
+--- linux-2.6.orig/include/linux/nfs_fs.h
++++ linux-2.6/include/linux/nfs_fs.h
+@@ -462,6 +462,8 @@ extern int  nfs_flush_incompatible(struc
+ extern int  nfs_updatepage(struct file *, struct page *, unsigned int, unsigned int);
+ extern int nfs_writeback_done(struct rpc_task *, struct nfs_write_data *);
+ extern void nfs_writedata_release(void *);
++extern int  nfs_swap_out(struct file *file, struct page *page,
++			 struct writeback_control *wbc);
  
--	inode = sis->swap_file->f_mapping->host;
- 	if (S_ISBLK(inode->i_mode)) {
- 		ret = add_swap_extent(sis, 0, sis->max, 0);
- 		*span = sis->pages;
- 		goto done;
+ /*
+  * Try to write back everything synchronously (but check the
+Index: linux-2.6/fs/Kconfig
+===================================================================
+--- linux-2.6.orig/fs/Kconfig
++++ linux-2.6/fs/Kconfig
+@@ -1205,6 +1205,18 @@ config ROOT_NFS
+ 
+ 	  Most people say N here.
+ 
++config NFS_SWAP
++	bool "Provide swap over NFS support"
++	default n
++	depends on NFS_FS
++	select SUNRPC_SWAP
++	help
++	  This option enables swapon to work on files located on NFS mounts.
++
++	  For more details, see Documentation/network-swap.txt
++
++	  If unsure, say N.
++
+ config NFSD
+ 	tristate "NFS server support"
+ 	depends on INET
+@@ -1348,6 +1360,11 @@ config SUNRPC_REGISTER_V4
+ 	  RPC services using only rpcbind version 2).  Distributions
+ 	  using the legacy Linux portmapper daemon must say N here.
+ 
++config SUNRPC_SWAP
++	def_bool n
++	depends on SUNRPC
++	select NETVM
++
+ config RPCSEC_GSS_KRB5
+ 	tristate "Secure RPC: Kerberos V mechanism (EXPERIMENTAL)"
+ 	depends on SUNRPC && EXPERIMENTAL
+Index: linux-2.6/include/linux/sunrpc/xprt.h
+===================================================================
+--- linux-2.6.orig/include/linux/sunrpc/xprt.h
++++ linux-2.6/include/linux/sunrpc/xprt.h
+@@ -147,7 +147,9 @@ struct rpc_xprt {
+ 	unsigned int		max_reqs;	/* total slots */
+ 	unsigned long		state;		/* transport state */
+ 	unsigned char		shutdown   : 1,	/* being shut down */
+-				resvport   : 1; /* use a reserved port */
++				resvport   : 1, /* use a reserved port */
++				swapper    : 1; /* we're swapping over this
++						   transport */
+ 	unsigned int		bind_index;	/* bind function index */
+ 
+ 	/*
+@@ -249,6 +251,7 @@ void			xprt_release_rqst_cong(struct rpc
+ void			xprt_disconnect_done(struct rpc_xprt *xprt);
+ void			xprt_force_disconnect(struct rpc_xprt *xprt);
+ void			xprt_conditional_disconnect(struct rpc_xprt *xprt, unsigned int cookie);
++int			xs_swapper(struct rpc_xprt *xprt, int enable);
+ 
+ /*
+  * Reserved bit positions in xprt->state
+Index: linux-2.6/net/sunrpc/sched.c
+===================================================================
+--- linux-2.6.orig/net/sunrpc/sched.c
++++ linux-2.6/net/sunrpc/sched.c
+@@ -729,7 +729,10 @@ struct rpc_buffer {
+ void *rpc_malloc(struct rpc_task *task, size_t size)
+ {
+ 	struct rpc_buffer *buf;
+-	gfp_t gfp = RPC_IS_SWAPPER(task) ? GFP_ATOMIC : GFP_NOWAIT;
++	gfp_t gfp = GFP_NOWAIT;
++
++	if (RPC_IS_SWAPPER(task))
++		gfp |= __GFP_MEMALLOC;
+ 
+ 	size += sizeof(struct rpc_buffer);
+ 	if (size <= RPC_BUFFER_MAXSIZE)
+@@ -800,6 +803,8 @@ static void rpc_init_task(struct rpc_tas
+ 		kref_get(&task->tk_client->cl_kref);
+ 		if (task->tk_client->cl_softrtry)
+ 			task->tk_flags |= RPC_TASK_SOFT;
++		if (task->tk_client->cl_xprt->swapper)
++			task->tk_flags |= RPC_TASK_SWAPPER;
  	}
  
-+	if (mapping->a_ops->swapon) {
-+		ret = mapping->a_ops->swapon(swap_file);
-+		if (!ret) {
-+			sis->flags |= SWP_FILE;
-+			ret = add_swap_extent(sis, 0, sis->max, 0);
-+			*span = sis->pages;
-+		}
-+		goto done;
-+	}
-+
- 	blkbits = inode->i_blkbits;
- 	blocks_per_page = PAGE_SIZE >> blkbits;
- 
-@@ -1696,7 +1715,7 @@ asmlinkage long sys_swapon(const char __
- 	else
- 		p->prio = --least_priority;
- 	p->swap_map = swap_map;
--	p->flags = SWP_ACTIVE;
-+	p->flags |= SWP_WRITEOK;
- 	nr_swap_pages += nr_good_pages;
- 	total_swap_pages += nr_good_pages;
- 
-@@ -1817,6 +1836,13 @@ get_swap_info_struct(unsigned type)
- 	return &swap_info[type];
+ 	if (task->tk_ops->rpc_call_prepare != NULL)
+@@ -825,7 +830,7 @@ static void rpc_init_task(struct rpc_tas
+ static struct rpc_task *
+ rpc_alloc_task(void)
+ {
+-	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOFS);
++	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOIO);
  }
  
-+struct swap_info_struct *page_swap_info(struct page *page)
+ /*
+Index: linux-2.6/net/sunrpc/xprtsock.c
+===================================================================
+--- linux-2.6.orig/net/sunrpc/xprtsock.c
++++ linux-2.6/net/sunrpc/xprtsock.c
+@@ -1445,6 +1445,55 @@ static inline void xs_reclassify_socket6
+ }
+ #endif
+ 
++#ifdef CONFIG_SUNRPC_SWAP
++static void xs_set_memalloc(struct rpc_xprt *xprt)
 +{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	BUG_ON(!PageSwapCache(page));
-+	return &swap_info[swp_type(swap)];
++	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
++
++	if (xprt->swapper)
++		sk_set_memalloc(transport->inet);
 +}
 +
- /*
-  * swap_lock prevents swap_map being freed. Don't grab an extra
-  * reference on the swaphandle, it doesn't matter if it becomes unused.
-Index: linux-2.6/include/linux/fs.h
-===================================================================
---- linux-2.6.orig/include/linux/fs.h
-+++ linux-2.6/include/linux/fs.h
-@@ -507,6 +507,15 @@ struct address_space_operations {
- 	int (*launder_page) (struct page *);
- 	int (*is_partially_uptodate) (struct page *, read_descriptor_t *,
- 					unsigned long);
++#define RPC_BUF_RESERVE_PAGES \
++	kmalloc_estimate_objs(sizeof(struct rpc_rqst), GFP_KERNEL, RPC_MAX_SLOT_TABLE)
++#define RPC_RESERVE_PAGES	(RPC_BUF_RESERVE_PAGES + TX_RESERVE_PAGES)
 +
-+	/*
-+	 * swapfile support
-+	 */
-+	int (*swapon)(struct file *file);
-+	int (*swapoff)(struct file *file);
-+	int (*swap_out)(struct file *file, struct page *page,
-+			struct writeback_control *wbc);
-+	int (*swap_in)(struct file *file, struct page *page);
- };
++/**
++ * xs_swapper - Tag this transport as being used for swap.
++ * @xprt: transport to tag
++ * @enable: enable/disable
++ *
++ */
++int xs_swapper(struct rpc_xprt *xprt, int enable)
++{
++	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
++	int err = 0;
++
++	if (enable) {
++		/*
++		 * keep one extra sock reference so the reserve won't dip
++		 * when the socket gets reconnected.
++		 */
++		err = sk_adjust_memalloc(1, RPC_RESERVE_PAGES);
++		if (!err) {
++			xprt->swapper = 1;
++			xs_set_memalloc(xprt);
++		}
++	} else if (xprt->swapper) {
++		xprt->swapper = 0;
++		sk_clear_memalloc(transport->inet);
++		sk_adjust_memalloc(-1, -RPC_RESERVE_PAGES);
++	}
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(xs_swapper);
++#else
++static void xs_set_memalloc(struct rpc_xprt *xprt)
++{
++}
++#endif
++
+ static void xs_udp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+ {
+ 	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
+@@ -1469,6 +1518,8 @@ static void xs_udp_finish_connecting(str
+ 		transport->sock = sock;
+ 		transport->inet = sk;
+ 
++		xs_set_memalloc(xprt);
++
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	}
+ 	xs_udp_do_set_buffer_size(xprt);
+@@ -1486,11 +1537,15 @@ static void xs_udp_connect_worker4(struc
+ 		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
+ 
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	/* Start by resetting any existing state */
+ 	xs_close(xprt);
+ 
+@@ -1513,6 +1568,7 @@ static void xs_udp_connect_worker4(struc
+ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
+ 
+ /**
+@@ -1527,11 +1583,15 @@ static void xs_udp_connect_worker6(struc
+ 		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
+ 
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	/* Start by resetting any existing state */
+ 	xs_close(xprt);
+ 
+@@ -1554,6 +1614,7 @@ static void xs_udp_connect_worker6(struc
+ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
  
  /*
-Index: linux-2.6/Documentation/filesystems/Locking
-===================================================================
---- linux-2.6.orig/Documentation/filesystems/Locking
-+++ linux-2.6/Documentation/filesystems/Locking
-@@ -169,6 +169,10 @@ prototypes:
- 	int (*direct_IO)(int, struct kiocb *, const struct iovec *iov,
- 			loff_t offset, unsigned long nr_segs);
- 	int (*launder_page) (struct page *);
-+	int (*swapon) (struct file *);
-+	int (*swapoff) (struct file *);
-+	int (*swap_out) (struct file *, struct page *, struct writeback_control *);
-+	int (*swap_in)  (struct file *, struct page *);
+@@ -1613,6 +1674,8 @@ static int xs_tcp_finish_connecting(stru
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	}
  
- locking rules:
- 	All except set_page_dirty may block
-@@ -190,6 +194,10 @@ invalidatepage:		no	yes
- releasepage:		no	yes
- direct_IO:		no
- launder_page:		no	yes
-+swapon			no
-+swapoff			no
-+swap_out		no	yes, unlocks
-+swap_in			no	yes, unlocks
++	xs_set_memalloc(xprt);
++
+ 	/* Tell the socket layer to start connecting... */
+ 	xprt->stat.connect_count++;
+ 	xprt->stat.connect_start = jiffies;
+@@ -1631,11 +1694,15 @@ static void xs_tcp_connect_worker4(struc
+ 		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
  
- 	->prepare_write(), ->commit_write(), ->sync_page() and ->readpage()
- may be called from the request handler (/dev/loop).
-@@ -289,6 +297,20 @@ cleaned, or an error value if not. Note 
- getting mapped back in and redirtied, it needs to be kept locked
- across the entire operation.
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
  
-+	->swapon() will be called with a non-zero argument on files backing
-+(non block device backed) swapfiles. A return value of zero indicates success,
-+in which case this file can be used for backing swapspace. The swapspace
-+operations will be proxied to the address space operations.
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
 +
-+	->swapoff() will be called in the sys_swapoff() path when ->swapon()
-+returned success.
-+
-+	->swap_out() when swapon() returned success, this method is used to
-+write the swap page.
-+
-+	->swap_in() when swapon() returned success, this method is used to
-+read the swap page.
-+
- 	Note: currently almost all instances of address_space methods are
- using BKL for internal serialization and that's one of the worst sources
- of contention. Normally they are calling library functions (in fs/buffer.c)
-Index: linux-2.6/include/linux/buffer_head.h
-===================================================================
---- linux-2.6.orig/include/linux/buffer_head.h
-+++ linux-2.6/include/linux/buffer_head.h
-@@ -336,7 +336,7 @@ static inline void invalidate_inode_buff
- static inline int remove_inode_buffers(struct inode *inode) { return 1; }
- static inline int sync_mapping_buffers(struct address_space *mapping) { return 0; }
- static inline void invalidate_bdev(struct block_device *bdev) {}
--
-+static inline void block_sync_page(struct page *) { }
+ 	if (!sock) {
+ 		/* start from scratch */
+ 		if ((err = sock_create_kern(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock)) < 0) {
+@@ -1677,6 +1744,7 @@ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ out_clear:
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
  
- #endif /* CONFIG_BLOCK */
- #endif /* _LINUX_BUFFER_HEAD_H */
-Index: linux-2.6/Documentation/filesystems/vfs.txt
-===================================================================
---- linux-2.6.orig/Documentation/filesystems/vfs.txt
-+++ linux-2.6/Documentation/filesystems/vfs.txt
-@@ -539,6 +539,11 @@ struct address_space_operations {
- 	/* migrate the contents of a page to the specified target */
- 	int (*migratepage) (struct page *, struct page *);
- 	int (*launder_page) (struct page *);
-+	int (*swapon)(struct file *);
-+	int (*swapoff)(struct file *);
-+	int (*swap_out)(struct file *file, struct page *page,
-+			struct writeback_control *wbc);
-+	int (*swap_in)(struct file *file, struct page *page);
- };
+ /**
+@@ -1691,11 +1759,15 @@ static void xs_tcp_connect_worker6(struc
+ 		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
  
-   writepage: called by the VM to write a dirty page to backing store.
-@@ -724,6 +729,19 @@ struct address_space_operations {
-   	prevent redirtying the page, it is kept locked during the whole
- 	operation.
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
  
-+  swapon: Called when swapon is used on a file. A
-+	return value of zero indicates success, in which case this
-+	file can be used to back swapspace. The swapspace operations
-+	will be proxied to this address space's ->swap_{out,in} methods.
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
 +
-+  swapoff: Called during swapoff on files where swapon was successfull.
-+
-+  swap_out: Called to write a swapcache page to a backing store, similar to
-+	writepage.
-+
-+  swap_in: Called to read a swapcache page from a backing store, similar to
-+	readpage.
-+
- The File Object
- ===============
+ 	if (!sock) {
+ 		/* start from scratch */
+ 		if ((err = sock_create_kern(PF_INET6, SOCK_STREAM, IPPROTO_TCP, &sock)) < 0) {
+@@ -1736,6 +1808,7 @@ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ out_clear:
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
  
+ /**
 
 -- 
 
