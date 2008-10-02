@@ -1,64 +1,101 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround (fwd)
-Date: Thu, 2 Oct 2008 11:09:56 -0300
-Message-ID: <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
-	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
-	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
-	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
-	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
-	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
-	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when gc_elasticity
+ is exceeded
+Date: Thu, 02 Oct 2008 16:20:52 +0200
+Message-ID: <48E4D8C4.6020206@cosmosbay.com>
+References: <48E141F3.9000903@cosmosbay.com>	<20080929223801.GA3157@hmsreliant.think-freely.org>	<48E1C104.2080801@cosmosbay.com>	<20080930.071023.07946874.davem@davemloft.net>	<48E25F02.8030303@cosmosbay.com>	<20081001180846.GB3566@hmsreliant.think-freely.org> <20081002010101.6f0a1fa5.billfink@mindspring.com> <48E470AC.10305@cosmosbay.com> <48E4832A.3070804@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:38875 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752561AbYJBOKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 10:10:04 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1121879wfd.4
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2008 07:10:03 -0700 (PDT)
-In-Reply-To: <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+Received: from smtp2e.orange.fr ([80.12.242.111]:32752 "EHLO smtp2e.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752504AbYJBOVA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 10:21:00 -0400
+In-Reply-To: <48E4832A.3070804@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Oct 2008 14:08:14 +0200 (CEST)
-Thomas Gleixner <tglx@linutronix.de> wrote:
+Eric Dumazet a =C3=A9crit :
+> Eric Dumazet a =C3=A9crit :
+>> Bill Fink a =C3=A9crit :
+>>> I believe the general rule of thumb for something like this is at
+>>> least two standard deviations.  For a normal distribution, one stan=
+dard
+>>> deviation covers about 68 % of the sample universe, while two stand=
+ard
+>>> deviations covers about 95 % (three standard deviations covers 99.7=
+3 %).
+>>> See the Wikipedia entry:
+>>>
+>>>     http://en.wikipedia.org/wiki/Standard_deviation
+>>>
+>>
+>> Thanks Bill for the pointer, this is the trick.
+>>
+>> I believe we should target "4=CF=83 99.993666% " case.
+>>
+>> But we dont need to really compute Standard deviation at runtime, on=
+ly=20
+>> find an (upper) approximation of it.
+>>
+>> For elasticity=3D4 and 512*1024 samples (mean < 4), I guess 4=CF=83 =
+can be=20
+>> approximated by 20 or something.
+>>
+>=20
+> Good estimation of Standard Deviation could be computed for free
+> in rt_check_expire(). (each runs scans 20% of hash table with default=
+=20
+> tunables timeout & ip_rt_gc_interval)
+>=20
+> We could update 4=CF=83 estimation in this function, every minute=20
+> (ip_rt_gc_interval)
+>=20
+> At softirq time we then can detect a particular hash chain is
+> longer than 4=CF=83 estimation and trigger an appropriate action.
+>=20
+> This action is to : flush table, and while we do that, expand hash ta=
+ble
+> if its current size is under ip_rt_max_size/elasticity...
+>=20
 
-> grmbl. tracer_enabled should have been ftrace_enabled of course.
+I ran again my litle dirty program that reads /proc/kcore to explore rt
+hash table on a busy server and found :
 
-	Ok Thomas. I got a stall on my desktop.
 
-	It happens when I try to use sudo and it just stay stalled (I
-think trying to access /dev/log or something like that).
+hptr=3D0xffff81082ec00000 hsize=3D524288
+total=3D2299242 dst entries
+4306 chains of length 0
+23807 chains of length 1
+60119 chains of length 2
+95112 chains of length 3
+106364 chains of length 4
+92307 chains of length 5
+65743 chains of length 6
+39710 chains of length 7
+20997 chains of length 8
+15775 chains of length 9
+39 chains of length 10
+7 chains of length 11
+2 chains of length 12
 
-	I got the trace here:
+avg =3D 4.38546
+sd =3D 1.94614
+X =3D avg + 4*sd =3D 12.17
 
-http://www.abusar.org/ftrace/trace.txt.bz2
+I tried various elasticity settings and found litle variations of X
 
-	after the stall.
+This is because lot of entries are in use (refcnt>1) and can
+not be freed, regardless of elasticity.
 
-	Could you please check if there's something wrong?
 
-	I'd prefer if the stall happened in the server, but it still
-didn't happen. Anyway, it's the same problem.
 
-	Ps: this time I couldn't solve it with nmap (sometimes nmap
-solves, sometimes it doesn't).
 
-	Ps2: in this stall, the tracing wasn't disabled automatically
-by your patch, because it happened in a different situation (when I
-tried to use sudo). But I know it's the same problem, because the
-"solution" I use is always the same (nmap) and until it's not stalled
-anymore, I can't connect to any port on my machine.
-
-	Ps3: if this trace is useless, wait until I get something on
-the server.
-
--- 
