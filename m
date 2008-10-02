@@ -1,43 +1,57 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH] e1000e: write protect ICHx NVM to prevent malicious
- write/erase
-Date: Thu, 2 Oct 2008 15:02:11 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0810021500470.1887@twin.jikos.cz>
-References: <20081002001830.5951.3123.stgit@jbrandeb-bw.jf.intel.com>
- <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when
+	gc_elasticity is exceeded
+Date: Thu, 2 Oct 2008 09:14:03 -0400
+Message-ID: <20081002131403.GA6261@hmsreliant.think-freely.org>
+References: <48E141F3.9000903@cosmosbay.com> <20080929223801.GA3157@hmsreliant.think-freely.org> <48E1C104.2080801@cosmosbay.com> <20080930.071023.07946874.davem@davemloft.net> <48E25F02.8030303@cosmosbay.com> <20080930184249.GC6496@hmsreliant.think-freely.org> <20081002071631.GB20406@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: torvalds@linux-foundation.org, jeff@garzik.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, arjan@linux.intel.com,
-	Bruce Allan <bruce.w.allan@intel.com>, arjan@linux.intel.com
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from twin.jikos.cz ([213.151.79.26]:34788 "EHLO twin.jikos.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753276AbYJBNDR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 09:03:17 -0400
-In-Reply-To: <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60922 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753516AbYJBNQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 09:16:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20081002071631.GB20406@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Oct 2008, Jesse Brandeburg wrote:
-
-> From: Bruce Allan <bruce.w.allan@intel.com>
+On Thu, Oct 02, 2008 at 11:16:31AM +0400, Evgeniy Polyakov wrote:
+> Hi.
 > 
-> Set the hardware to ignore all write/erase cycles to the GbE region in
-> the ICHx NVM.  This feature can be disabled by the WriteProtectNVM module
-> parameter (enabled by default) only after a hardware reset, but
-> the machine must be power cycled before trying to enable writes.
+> On Tue, Sep 30, 2008 at 02:42:49PM -0400, Neil Horman (nhorman@tuxdriver.com) wrote:
+> > I think what you're looking for here is a simple standard deviation, isn't it?
+> > Compute the mean chain legnth, sum the squares of the deviations of each chain
+> > and take the square root.  Any individual chain longer than the mean chain
+> > length + 1 standard deviation can be considered an 'outlier' and therefore
+> > trigger a rebuild of the table for that net namespace.
+> > 
+> > I full well realize that thats easier said than done, but does that seem about
+> > right?  If so, I can start working on trying to build something to accomplish
+> > that.
 > 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> CC: arjan@linux.intel.com
+> You are right, but in kernel it may not that simple to get a square
+> root... We can probably play with logarithms though.
+> 
 
-Does this impose any user-visible behavior change? (such as not being able 
-to set up wake-on-lan, change MAC address, whatever).
+I don't in truth, need a quare root operation (at least I don't think I do).
+I'm abel to compute the variance rather easily, with a walk of the hash table,
+then I approximate the square root by use of a for loop in which I square the
+iterator and compare it to the variance.  The iterator when squared that is
+closest to the variance is taken as my standard deviation.  As mentioned
+previously 4*sd should cover almost all of my sample universe, identifying any
+remaining outliers as the trigger for a rebuild.
+
+Neil
+
 
 -- 
-Jiri Kosina
-SUSE Labs
-
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
