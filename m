@@ -1,34 +1,32 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] IPVS: Move IPVS to net/netfilter/ipvs
-Date: Thu, 02 Oct 2008 11:37:18 +0200
-Message-ID: <48E4964E.5090806@trash.net>
-References: <f4845fc0809190345k1d9f8ba6i53d891548ddb0565@mail.gmail.com> <20080921235355.GA1342@verge.net.au> <20080922000748.GE1342@verge.net.au> <20081001060725.GA28433@verge.net.au>
+Subject: Re: [RESEND net-next PATCH 16/16] Add documentation
+Date: Thu, 02 Oct 2008 11:38:45 +0200
+Message-ID: <48E496A5.5010909@trash.net>
+References: <20081001142431.4893.48078.stgit@este> <20081001142431.4893.5367.stgit@este> <20081001092234.a0658f40.randy.dunlap@oracle.com> <1222940264.7058.3.camel@este>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20081001060725.GA28433@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: KOVACS Krisztian <hidden@sch.bme.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1222940264.7058.3.camel@este>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simon Horman wrote:
->> http://www.vergenet.net/~horms/tmp/0001-IPVS-Move-IPVS-to-net-netfilter-ipvs.2.patch
+KOVACS Krisztian wrote:
+> On Wed, 2008-10-01 at 09:22 -0700, Randy Dunlap wrote:
+>   
+>> Thanks.
+>> ---
+>> ~Randy
 >>     
 >
-> Hi Patrick,
+> Fixed, thanks a lot.
+> ---
 >
-> could you take a moment to look at this?
-> Unfortunately the patch is too long to post to the list
-> but it really is as simple as the description (below) claims.
->
-> I can handle the patch longness problem by pushing it into
-> lvs-2.6 and getting Dave to do a pull from there. But I'd
-> like to make sure that the move is ok with you first.
->   
+> Add basic usage instructions to Documentation/networking.
 
-I'm fine with this move. Probably easier if Dave takes it directly from
-you since I usually send my patches as patches and this one is really
-huge :)
+Applied, thanks.
+
