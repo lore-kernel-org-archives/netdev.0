@@ -1,60 +1,44 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround (fwd)
-Date: Thu, 2 Oct 2008 08:17:01 -0300
-Message-ID: <48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
-	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
-	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
-	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
-	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2] ibm_newemac: Add support for GPCS, SGMII
+	andM88E1112 PHY
+Date: Thu, 2 Oct 2008 07:55:07 -0400
+Message-ID: <20081002115507.GB2227@yoda.jdub.homelinux.org>
+References: <1222929477-10329-1-git-send-email-vgallardo@amcc.com> <1222929920.12264.96.camel@pasglop> <0CA0A16855646F4FA96D25A158E299D602C81377@SDCEXCHANGE01.ad.amcc.com> <1222932759.12264.104.camel@pasglop> <20081002063320.7b2331b4@zod.rchland.ibm.com> <1222943668.12264.106.camel@pasglop> <20081002065648.285cce25@zod.rchland.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, Victor Gallardo <vgallardo@amcc.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:39778 "EHLO
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:60958 "EHLO
 	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753402AbYJBLRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 07:17:14 -0400
-Received: by gxk9 with SMTP id 9so1218998gxk.13
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2008 04:17:13 -0700 (PDT)
-In-Reply-To: <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+	with ESMTP id S1753189AbYJBL4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 07:56:18 -0400
+Received: by gxk9 with SMTP id 9so1241222gxk.13
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2008 04:56:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20081002065648.285cce25@zod.rchland.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Oct 2008 12:42:44 +0200 (CEST)
-Thomas Gleixner <tglx@linutronix.de> wrote:
+On Thu, Oct 02, 2008 at 06:56:48AM -0400, Josh Boyer wrote:
+>> > > Jeff, can we merge all those EMAC patches via the powerpc git ? need an
+>> > > ack from you I suppose ...
+>> > 
+>> > I already have this in my tree.  Jeff already acked it (twice now I
+>> > think).
+>> > 
+>> > http://git.kernel.org/?p=linux/kernel/git/jwboyer/powerpc-4xx.git;a=shortlog;h=next
+>> 
+>> Ok so it will go in when I get your pull request then :-0
+>
+>Yep.  You could pull now if you'd like.  I have a few more patches I'd
+>like to get in before the merge window, but if it helps things I can do
+>those in a separate pull request.
 
->   echo sym-verbose > /debug/tracing/iter_ctrl
+Actually, it seems not.  I pulled in an older version of the patch.  I'll
+grab the new version today.
 
-	Ok, this one I changed to:
+/me sighs.
 
-echo verbose > /debug/tracing/iter_ctrl
-
-	;) since there's no sym-verbose.
-
-> Find below a patch which disables the tracer when the listen overflow
-> is detected. It could occassionally be hit in a legimate case as well,
-> but we did not come up with any better idea.
-
-	Ok, I applied the patch, but it returns this error:
-
-  CC      kernel/trace/ftrace.o
-kernel/trace/ftrace.c: In function 'stop_event_tracer_now':
-kernel/trace/ftrace.c:73: error: 'tracer_enabled' undeclared (first use in this function)
-kernel/trace/ftrace.c:73: error: (Each undeclared identifier is reported only once
-kernel/trace/ftrace.c:73: error: for each function it appears in.)
-make[2]: *** [kernel/trace/ftrace.o] Error 1
-make[1]: *** [kernel/trace] Error 2
-make: *** [kernel] Error 2
-
-> If it triggers, please cat /debug/tracing/trace to a file. Can you
-> bzip2 and upload it to some place. The trace does not contain any
-> sensible private information.
-
-	Ok. Thanks.
--- 
+josh
