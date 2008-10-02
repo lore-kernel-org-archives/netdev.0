@@ -1,43 +1,54 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Move IPVS to net/netfilter/ipvs
-Date: Thu, 2 Oct 2008 19:59:33 +1000
-Message-ID: <20081002095931.GA31502@verge.net.au>
-References: <f4845fc0809190345k1d9f8ba6i53d891548ddb0565@mail.gmail.com> <20080921235355.GA1342@verge.net.au> <20080922000748.GE1342@verge.net.au> <20081001060725.GA28433@verge.net.au> <48E4964E.5090806@trash.net>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH] e1000e: write protect ICHx NVM to prevent malicious
+ write/erase
+Date: Thu, 2 Oct 2008 11:59:53 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0810021154330.1887@twin.jikos.cz>
+References: <20081002001830.5951.3123.stgit@jbrandeb-bw.jf.intel.com>
+ <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julius Volz <juliusv@google.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <48E4964E.5090806@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: torvalds@linux-foundation.org, jeff@garzik.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, arjan@linux.intel.com,
+	Bruce Allan <bruce.w.allan@intel.com>, arjan@linux.intel.com
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from twin.jikos.cz ([213.151.79.26]:51291 "EHLO twin.jikos.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752662AbYJBKA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 06:00:26 -0400
+In-Reply-To: <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 02, 2008 at 11:37:18AM +0200, Patrick McHardy wrote:
-> Simon Horman wrote:
->>> http://www.vergenet.net/~horms/tmp/0001-IPVS-Move-IPVS-to-net-netfilter-ipvs.2.patch
->>>     
->>
->> Hi Patrick,
->>
->> could you take a moment to look at this?
->> Unfortunately the patch is too long to post to the list
->> but it really is as simple as the description (below) claims.
->>
->> I can handle the patch longness problem by pushing it into
->> lvs-2.6 and getting Dave to do a pull from there. But I'd
->> like to make sure that the move is ok with you first.
->>   
->
-> I'm fine with this move. Probably easier if Dave takes it directly from
-> you since I usually send my patches as patches and this one is really
-> huge :)
+On Wed, 1 Oct 2008, Jesse Brandeburg wrote:
 
-Great. I'll merge it into my tree and get Dave to pull it from there.
+> Set the hardware to ignore all write/erase cycles to the GbE region in 
+> the ICHx NVM.  This feature can be disabled by the WriteProtectNVM 
+> module parameter (enabled by default) only after a hardware reset, but 
+> the machine must be power cycled before trying to enable writes.
+
+Hi,
+
+thanks. We have been running our tests with complete pileup of 12 patches 
+from Intel, and the bug didn't trigger so far (and it triggers now pretty 
+reliably with the unpatched kernel in the setup Karsten has established in 
+our testing environment).
+
+So the patches really seem, as far as our current testing goes, to 
+at least workaround the problem.
+
+I will now try to isolate which of the patches really fixes the problem, 
+so that we could understand better what is going on and who is causing the 
+corruption.
+
+Do you think it would be possible to adapt this particular patch so that 
+it spits out watnin/stacktrace when write and/or erase cycle is attempted 
+but denied?
+
+Thanks,
 
 -- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+Jiri Kosina
+SUSE Labs
 
