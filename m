@@ -1,66 +1,106 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 04/32] net: ipv6: initialize ip6_route sysctl vars in ip6_route_net_init()
-Date: Thu, 02 Oct 2008 15:05:08 +0200
-Message-ID: <20081002131607.801664200@chello.nl>
+Subject: [PATCH 16/32] net: wrap sk->sk_backlog_rcv()
+Date: Thu, 02 Oct 2008 15:05:20 +0200
+Message-ID: <20081002131608.667433428@chello.nl>
 References: <20081002130504.927878499@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline; filename=net-ipv6-route-cleanup-sysctl.patch
+Content-Disposition: inline; filename=net-backlog.patch
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This makes that ip6_route_net_init() does all of the route init code.
-There used to be a race between ip6_route_net_init() and ip6_net_init()
-and someone relying on the combined result was left out cold.
+Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
+generic sk_backlog_rcv behaviour.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- net/ipv6/af_inet6.c |    8 --------
- net/ipv6/route.c    |    9 +++++++++
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ include/net/sock.h   |    5 +++++
+ include/net/tcp.h    |    2 +-
+ net/core/sock.c      |    4 ++--
+ net/ipv4/tcp.c       |    2 +-
+ net/ipv4/tcp_timer.c |    2 +-
+ 5 files changed, 10 insertions(+), 5 deletions(-)
 
-Index: linux-2.6/net/ipv6/af_inet6.c
+Index: linux-2.6/include/net/sock.h
 ===================================================================
---- linux-2.6.orig/net/ipv6/af_inet6.c
-+++ linux-2.6/net/ipv6/af_inet6.c
-@@ -839,14 +839,6 @@ static int inet6_net_init(struct net *ne
- 	int err = 0;
+--- linux-2.6.orig/include/net/sock.h
++++ linux-2.6/include/net/sock.h
+@@ -482,6 +482,11 @@ static inline void sk_add_backlog(struct
+ 	skb->next = NULL;
+ }
  
- 	net->ipv6.sysctl.bindv6only = 0;
--	net->ipv6.sysctl.flush_delay = 0;
--	net->ipv6.sysctl.ip6_rt_max_size = 4096;
--	net->ipv6.sysctl.ip6_rt_gc_min_interval = HZ / 2;
--	net->ipv6.sysctl.ip6_rt_gc_timeout = 60*HZ;
--	net->ipv6.sysctl.ip6_rt_gc_interval = 30*HZ;
--	net->ipv6.sysctl.ip6_rt_gc_elasticity = 9;
--	net->ipv6.sysctl.ip6_rt_mtu_expires = 10*60*HZ;
--	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
- 	net->ipv6.sysctl.icmpv6_time = 1*HZ;
- 
- #ifdef CONFIG_PROC_FS
-Index: linux-2.6/net/ipv6/route.c
-===================================================================
---- linux-2.6.orig/net/ipv6/route.c
-+++ linux-2.6/net/ipv6/route.c
-@@ -2627,6 +2627,15 @@ static int ip6_route_net_init(struct net
- 	net->ipv6.ip6_blk_hole_entry->u.dst.ops = net->ipv6.ip6_dst_ops;
- #endif
- 
-+	net->ipv6.sysctl.flush_delay = 0;
-+	net->ipv6.sysctl.ip6_rt_max_size = 4096;
-+	net->ipv6.sysctl.ip6_rt_gc_min_interval = HZ / 2;
-+	net->ipv6.sysctl.ip6_rt_gc_timeout = 60*HZ;
-+	net->ipv6.sysctl.ip6_rt_gc_interval = 30*HZ;
-+	net->ipv6.sysctl.ip6_rt_gc_elasticity = 9;
-+	net->ipv6.sysctl.ip6_rt_mtu_expires = 10*60*HZ;
-+	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
++static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	return sk->sk_backlog_rcv(sk, skb);
++}
 +
- #ifdef CONFIG_PROC_FS
- 	proc_net_fops_create(net, "ipv6_route", 0, &ipv6_route_proc_fops);
- 	proc_net_fops_create(net, "rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
+ #define sk_wait_event(__sk, __timeo, __condition)			\
+ 	({	int __rc;						\
+ 		release_sock(__sk);					\
+Index: linux-2.6/net/core/sock.c
+===================================================================
+--- linux-2.6.orig/net/core/sock.c
++++ linux-2.6/net/core/sock.c
+@@ -324,7 +324,7 @@ int sk_receive_skb(struct sock *sk, stru
+ 		 */
+ 		mutex_acquire(&sk->sk_lock.dep_map, 0, 1, _RET_IP_);
+ 
+-		rc = sk->sk_backlog_rcv(sk, skb);
++		rc = sk_backlog_rcv(sk, skb);
+ 
+ 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
+ 	} else
+@@ -1371,7 +1371,7 @@ static void __release_sock(struct sock *
+ 			struct sk_buff *next = skb->next;
+ 
+ 			skb->next = NULL;
+-			sk->sk_backlog_rcv(sk, skb);
++			sk_backlog_rcv(sk, skb);
+ 
+ 			/*
+ 			 * We are in process context here with softirqs
+Index: linux-2.6/net/ipv4/tcp.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/tcp.c
++++ linux-2.6/net/ipv4/tcp.c
+@@ -1157,7 +1157,7 @@ static void tcp_prequeue_process(struct 
+ 	 * necessary */
+ 	local_bh_disable();
+ 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
+-		sk->sk_backlog_rcv(sk, skb);
++		sk_backlog_rcv(sk, skb);
+ 	local_bh_enable();
+ 
+ 	/* Clear memory counter. */
+Index: linux-2.6/net/ipv4/tcp_timer.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/tcp_timer.c
++++ linux-2.6/net/ipv4/tcp_timer.c
+@@ -201,7 +201,7 @@ static void tcp_delack_timer(unsigned lo
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSCHEDULERFAILED);
+ 
+ 		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
+-			sk->sk_backlog_rcv(sk, skb);
++			sk_backlog_rcv(sk, skb);
+ 
+ 		tp->ucopy.memory = 0;
+ 	}
+Index: linux-2.6/include/net/tcp.h
+===================================================================
+--- linux-2.6.orig/include/net/tcp.h
++++ linux-2.6/include/net/tcp.h
+@@ -894,7 +894,7 @@ static inline int tcp_prequeue(struct so
+ 			BUG_ON(sock_owned_by_user(sk));
+ 
+ 			while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
+-				sk->sk_backlog_rcv(sk, skb1);
++				sk_backlog_rcv(sk, skb1);
+ 				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPPREQUEUEDROPPED);
+ 			}
+ 
 
 -- 
 
