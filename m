@@ -1,54 +1,24 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH v2] ibm_newemac: Add support for GPCS, SGMII
-	andM88E1112 PHY
-Date: Thu, 02 Oct 2008 20:34:28 +1000
-Message-ID: <1222943668.12264.106.camel@pasglop>
-References: <1222929477-10329-1-git-send-email-vgallardo@amcc.com>
-	<1222929920.12264.96.camel@pasglop>
-	<0CA0A16855646F4FA96D25A158E299D602C81377@SDCEXCHANGE01.ad.amcc.com>
-	<1222932759.12264.104.camel@pasglop>
-	<20081002063320.7b2331b4@zod.rchland.ibm.com>
-Reply-To: benh@kernel.crashing.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [net-next PATCH 14/16] iptables socket match
+Date: Thu, 02 Oct 2008 12:35:05 +0200
+Message-ID: <48E4A3D9.2050400@trash.net>
+References: <20081001142431.4893.48078.stgit@este> <20081001142431.4893.56954.stgit@este> <48E493CC.9020502@trash.net> <1222943201.7058.8.camel@este>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Victor Gallardo <vgallardo@amcc.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20081002063320.7b2331b4@zod.rchland.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: KOVACS Krisztian <hidden@sch.bme.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1222943201.7058.8.camel@este>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2008-10-02 at 06:33 -0400, Josh Boyer wrote:
-> On Thu, 02 Oct 2008 17:32:39 +1000
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> 
-> > On Thu, 2008-10-02 at 00:30 -0700, Victor Gallardo wrote:
-> > > 
-> > >  
-> > > Yes, this based on Josh's git repository. Should I sync up with your
-> > > git repository or is Josh's OK.
-> > 
-> > Josh is fine.
-> > 
-> > Jeff, can we merge all those EMAC patches via the powerpc git ? need an
-> > ack from you I suppose ...
-> 
-> I already have this in my tree.  Jeff already acked it (twice now I
-> think).
-> 
-> http://git.kernel.org/?p=linux/kernel/git/jwboyer/powerpc-4xx.git;a=shortlog;h=next
+KOVACS Krisztian wrote:
+> Add iptables 'socket' match, which matches packets for which a TCP/UDP
+> socket lookup succeeds.
+>   
 
-Ok so it will go in when I get your pull request then :-0
+Applied, thanks.
 
-Cheers,
-Ben.
+
