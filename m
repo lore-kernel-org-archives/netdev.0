@@ -1,60 +1,37 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2] ibm_newemac: Add support for GPCS, SGMII andM88E1112
-	PHY
-Date: Thu, 2 Oct 2008 06:56:48 -0400
-Message-ID: <20081002065648.285cce25@zod.rchland.ibm.com>
-References: <1222929477-10329-1-git-send-email-vgallardo@amcc.com>
-	<1222929920.12264.96.camel@pasglop>
-	<0CA0A16855646F4FA96D25A158E299D602C81377@SDCEXCHANGE01.ad.amcc.com>
-	<1222932759.12264.104.camel@pasglop>
-	<20081002063320.7b2331b4@zod.rchland.ibm.com>
-	<1222943668.12264.106.camel@pasglop>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: Neighbor Discovery from non-neighbors (fwd)
+Date: Thu, 02 Oct 2008 13:12:46 +0200
+Message-ID: <b2e1b9b8d654209df21d724dd7a15182@chewa.net>
+References: <alpine.LRH.2.00.0810021048040.11598@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Victor Gallardo <vgallardo@amcc.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: benh@kernel.crashing.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1222943668.12264.106.camel@pasglop>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Pekka Savola <pekkas@netcore.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:50569 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751949AbYJBLMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 07:12:49 -0400
+In-Reply-To: <alpine.LRH.2.00.0810021048040.11598@netcore.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 02 Oct 2008 20:34:28 +1000
-Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-> On Thu, 2008-10-02 at 06:33 -0400, Josh Boyer wrote:
-> > On Thu, 02 Oct 2008 17:32:39 +1000
-> > Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> > 
-> > > On Thu, 2008-10-02 at 00:30 -0700, Victor Gallardo wrote:
-> > > > 
-> > > >  
-> > > > Yes, this based on Josh's git repository. Should I sync up with your
-> > > > git repository or is Josh's OK.
-> > > 
-> > > Josh is fine.
-> > > 
-> > > Jeff, can we merge all those EMAC patches via the powerpc git ? need an
-> > > ack from you I suppose ...
-> > 
-> > I already have this in my tree.  Jeff already acked it (twice now I
-> > think).
-> > 
-> > http://git.kernel.org/?p=linux/kernel/git/jwboyer/powerpc-4xx.git;a=shortlog;h=next
-> 
-> Ok so it will go in when I get your pull request then :-0
+On Thu, 2 Oct 2008 11:07:48 +0300 (EEST), Pekka Savola <pekkas@netcore.=
+fi>=0D
+wrote:=0D
+> There is a bug in the Neighbor Discovery spec, and it's possible that=
+=0D
+> Linux would also be similarly affected.  Anyone check?=0D
+=0D
+The NA receiving code does not appear to check for "on-link"ness of the=
+=0D
+target, so it seems polluting the neighbors cache is do-able. However, =
+it=0D
+is not clear to me whether this can override IPv6 routing. I wish=0D
+Yoshifuji-san were around.=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont
 
-Yep.  You could pull now if you'd like.  I have a few more patches I'd
-like to get in before the merge window, but if it helps things I can do
-those in a separate pull request.
-
-josh
