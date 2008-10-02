@@ -1,112 +1,144 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
- (fwd)
-Date: Thu, 2 Oct 2008 12:42:44 +0200 (CEST)
-Message-ID: <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi> <48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com> <alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de> <48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 3/6] Phonet: Pipe End Point for Phonet Pipes protocol
+Date: Thu, 2 Oct 2008 13:50:52 +0300
+Message-ID: <200810021350.53010.remi.denis-courmont@nokia.com>
+References: <200810011312.17288.remi.denis-courmont@nokia.com> <1222855985-22859-3-git-send-email-remi.denis-courmont@nokia.com> <20081001131856.GF970@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-298259637-1222944166=:5549"
-Cc: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-15?Q?D=E2niel_Fraga?= <fragabr@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "ext Arnaldo Carvalho de Melo" <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:44866 "EHLO www.tglx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753109AbYJBKm5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 06:42:57 -0400
-In-Reply-To: <48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
+Received: from smtp.nokia.com ([192.100.122.230]:41452 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753048AbYJBKvO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 06:51:14 -0400
+In-Reply-To: <20081001131856.GF970@ghostprotocols.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wednesday 01 October 2008 16:18:56 ext Arnaldo Carvalho de Melo, you=
+ wrote:
+> > +static struct sock *pep_find_pipe(const struct hlist_head *hlist,
+> > +					const struct sockaddr_pn *dst,
+> > +					u8 pipe_handle)
+> > +{
+> > +	struct hlist_node *node;
+> > +	struct sock *sknode;
+> > +	u16 dobj =3D pn_sockaddr_get_object(dst);
+>
+> What is the lock that protects this list traversal?
 
---8323328-298259637-1222944166=:5549
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
+Either (accepted or unaccepted) sock lists should only be used with the=
+ sock=20
+lock of the listening sock. Is that insufficient?
 
-On Wed, 1 Oct 2008, Dâniel Fraga wrote:
-> On Wed, 1 Oct 2008 22:05:09 +0200 (CEST)
-> Thomas Gleixner <tglx@linutronix.de> wrote:
-> 
-> > One possibility to get deeper insight into this problem is to use the
-> > function tracer and stop it once we notice the wreckage. 
-> > listenoverflow should be a good point to stop it.
-> 
-> 	Ok, I'm already running function tracer.
-> 
-> 	I did the following:
-> 
-> echo ftrace > /debug/tracing/current_tracer
-> echo print-parent > /debug/tracing/iter_ctrl
-> 
-> 	Is it enough to get what you suggest?
+> > +static int pep_wait_connreq(struct sock *sk, int noblock)
+>
+> This function looks familiar... inet_csk_accept,
+> inet_csk_wait_for_connect...
 
-Please add:
+I don't recall why I gave up on using request_sock and listen_sock ther=
+e.
 
-  echo sym-offset > /debug/tracing/iter_ctrl
-  echo sym-addr > /debug/tracing/iter_ctrl
-  echo sym-verbose > /debug/tracing/iter_ctrl
+> perhaps we need a connection_sock father=20
+> for inet_connection_sock? :-)
 
-> 	If so, I'll leave it enabled:
-> 
-> echo 1 > /debug/tracing/tracing_enabled
-> 
-> 	and stop and get the data just when the problem happens... then
-> I should know what I should grep, what's relevant.
+But you cannot have double inheritance, right? inet_sock and=20
+connection_sock... I guess that's why listen_sock is _not_ a sock.
 
-I'm not sure, whether manual stop will be sufficient as the relevant
-traces might have been gone by that time. 
+> > +{
+> > +	struct task_struct *tsk =3D current;
+> > +	struct pep_sock *pn =3D pep_sk(sk);
+> > +	long timeo =3D sock_rcvtimeo(sk, noblock);
+> > +
+> > +	for (;;) {
+> > +		DEFINE_WAIT(wait);
+> > +
+> > +		if (sk->sk_state !=3D TCP_LISTEN)
+> > +			return -EINVAL;
+> > +		if (!hlist_empty(&pn->ackq))
+> > +			break;
+> > +		if (!timeo)
+> > +			return -EWOULDBLOCK;
+> > +		if (signal_pending(tsk))
+> > +			return sock_intr_errno(timeo);
+> > +
+> > +		prepare_to_wait_exclusive(&sk->sk_socket->wait, &wait,
+> > +						TASK_INTERRUPTIBLE);
+> > +		release_sock(sk);
+> > +		timeo =3D schedule_timeout(timeo);
+> > +		lock_sock(sk);
+> > +		finish_wait(&sk->sk_socket->wait, &wait);
+> > +	}
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static struct sock *pep_sock_accept(struct sock *sk, int flags, in=
+t
+> > *errp) +{
+> > +	struct pep_sock *pn =3D pep_sk(sk);
+> > +	struct sock *newsk =3D NULL;
+> > +	struct sk_buff *oskb;
+> > +	int err;
+> > +
+> > +	lock_sock(sk);
+> > +	err =3D pep_wait_connreq(sk, flags & O_NONBLOCK);
+> > +	if (err)
+> > +		goto out;
+> > +
+> > +	newsk =3D __sk_head(&pn->ackq);
+> > +
+> > +	oskb =3D skb_dequeue(&newsk->sk_receive_queue);
+> > +	err =3D pep_accept_conn(newsk, oskb);
+> > +	if (err) {
+> > +		skb_queue_head(&newsk->sk_receive_queue, oskb);
+> > +		newsk =3D NULL;
+> > +		goto out;
+> > +	}
+> > +
+> > +	sock_hold(sk);
+> > +	pep_sk(newsk)->listener =3D sk;
+> > +
+> > +	sock_hold(newsk);
+> > +	sk_del_node_init(newsk);
+> > +	sk_acceptq_removed(sk);
+> > +	sk_add_node(newsk, &pn->hlist);
+> > +	__sock_put(newsk);
+> > +
+> > +out:
+> > +	release_sock(sk);
+> > +	*errp =3D err;
+> > +	return newsk;
+> > +}
+> > +
+> > +static int pep_ioctl(struct sock *sk, int cmd, unsigned long arg)
+> > +{
+> > +	int answ;
+> > +
+> > +	switch (cmd) {
+> > +	case SIOCINQ:
+> > +		if (sk->sk_state =3D=3D TCP_LISTEN)
+> > +			return -EINVAL;
+> > +
+> > +		lock_sock(sk);
+> > +		if (!skb_queue_empty(&sk->sk_receive_queue))
+> > +			answ =3D skb_peek(&sk->sk_receive_queue)->len;
+> > +		else
+> > +			answ =3D 0;
+> > +		release_sock(sk);
+> > +		return put_user(answ, (int __user *)arg);
+>
+> this is so common I wonder we if a helper wouldn't help 8) Look at
+> dccp_ioctl before Ilpo does 8)
 
-Find below a patch which disables the tracer when the listen overflow
-is detected. It could occassionally be hit in a legimate case as well,
-but we did not come up with any better idea.
+It is not so common with the next patch which checks for urgent inline.=
+=2E. As=20
+far as I know, there is no common queue for out-of-band data.
 
-If it triggers, please cat /debug/tracing/trace to a file. Can you
-bzip2 and upload it to some place. The trace does not contain any
-sensible private information.
-
-Thanks,
-
-	tglx
----
-diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
-index f6e3af3..a1cecb0 100644
---- a/kernel/trace/ftrace.c
-+++ b/kernel/trace/ftrace.c
-@@ -68,6 +68,12 @@ static void ftrace_list_func(unsigned long ip, unsigned long parent_ip)
- 	};
- }
- 
-+void stop_event_tracer_now(void)
-+{
-+	tracer_enabled = 0;
-+	printk(KERN_INFO "Tracer stopped\n");
-+}
-+
- /**
-  * clear_ftrace_function - reset the ftrace function
-  *
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index f976fc5..527dd45 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -485,6 +485,8 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 	return newsk;
- }
- 
-+extern void stop_event_tracer_now(void);
-+
- /*
-  *	Process an incoming packet for SYN_RECV sockets represented
-  *	as a request_sock.
-@@ -687,6 +689,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
- 	return child;
- 
- listen_overflow:
-+	stop_event_tracer_now();
- 	if (!sysctl_tcp_abort_on_overflow) {
- 		inet_rsk(req)->acked = 1;
- 		return NULL;
---8323328-298259637-1222944166=:5549--
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
