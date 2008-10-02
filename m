@@ -1,36 +1,97 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver skb recycling
-Date: Thu, 2 Oct 2008 11:17:38 +0400
-Message-ID: <20081002071738.GC20406@2ka.mipt.ru>
-References: <20080928204633.GB19070@xi.wantstofly.org> <20080928213824.GA25298@2ka.mipt.ru> <20080928215035.GG19070@xi.wantstofly.org> <20080929053931.GB21663@2ka.mipt.ru> <20080929094650.GA26097@xi.wantstofly.org> <20080929143327.GA27601@2ka.mipt.ru> <20080930030836.GE3251@xi.wantstofly.org>
+From: "Victor Gallardo" <vgallardo@amcc.com>
+Subject: RE: [PATCH v2] ibm_newemac: Add support for GPCS,
+	SGMII andM88E1112 PHY
+Date: Thu, 2 Oct 2008 00:30:27 -0700
+Message-ID: <0CA0A16855646F4FA96D25A158E299D602C81377@SDCEXCHANGE01.ad.amcc.com>
+References: <1222929477-10329-1-git-send-email-vgallardo@amcc.com>
+	<1222929920.12264.96.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ram.Natarajan@Emulex.Com,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Nicolas Pitre <nico@cam.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:48400 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752327AbYJBHTS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 03:19:18 -0400
+Content-Type: multipart/mixed; boundary="===============0383580642=="
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: <benh@kernel.crashing.org>,
+	<jwboyer@linux.vnet.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-class: urn:content-classes:message
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Mime-version: 1.0
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+
+--===============0383580642==
+Content-class: urn:content-classes:message
+Content-Type: multipart/alternative;
+	boundary="----_=_NextPart_001_01C92460.BDF5AB4D"
+
+This is a multi-part message in MIME format.
+
+------_=_NextPart_001_01C92460.BDF5AB4D
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+>> Signed-off-by: Victor Gallardo <vgallardo@amcc.com>
+>> ---
+>>  v2:
+>>  - update to sync up with latest ibm_newemac driver
+>
+>Ack.
+>
+>Is this on top of Josh work ?
+>
+>Ben.
+=20
+Yes, this based on Josh's git repository. Should I sync up with your git =
+repository or is Josh's OK.
+=20
+Regards,
+=20
+Victor Gallardo
+
+
+
+------_=_NextPart_001_01C92460.BDF5AB4D
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<HTML dir=3Dltr><HEAD><TITLE>Re: [PATCH v2] ibm_newemac: Add support for =
+GPCS, SGMII andM88E1112 PHY</TITLE>=0A=
+<META http-equiv=3DContent-Type content=3D"text/html; charset=3Dunicode">=0A=
+<META content=3D"MSHTML 6.00.2800.1589" name=3DGENERATOR></HEAD>=0A=
+<BODY>=0A=
+<DIV id=3DidOWAReplyText64209 dir=3Dltr>=0A=
+<DIV dir=3Dltr><FONT size=3D2>&gt;&gt; Signed-off-by: Victor Gallardo =
+&lt;vgallardo@amcc.com&gt;<BR>&gt;&gt; ---<BR>&gt;&gt;&nbsp; =
+v2:<BR>&gt;&gt;&nbsp; - update to sync up with latest ibm_newemac =
+driver<BR>&gt;<BR>&gt;Ack.<BR>&gt;<BR>&gt;Is this on top of Josh work =
+?<BR>&gt;<BR>&gt;Ben.</FONT></DIV><FONT size=3D2></FONT></DIV>=0A=
+<DIV dir=3Dltr><FONT size=3D2>=0A=
+<DIV dir=3Dltr>&nbsp;</DIV>=0A=
+<DIV dir=3Dltr>Yes, this based on Josh's git repository. Should I sync =
+up with your git repository or is Josh's OK.</DIV>=0A=
+<DIV dir=3Dltr>&nbsp;</DIV>=0A=
+<DIV dir=3Dltr>Regards,</DIV>=0A=
+<DIV dir=3Dltr>&nbsp;</DIV>=0A=
+<DIV dir=3Dltr>Victor Gallardo<BR><BR></DIV></FONT></DIV></BODY></HTML>
+------_=_NextPart_001_01C92460.BDF5AB4D--
+
+--===============0383580642==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <20080930030836.GE3251@xi.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hi Lennert.
-
-On Tue, Sep 30, 2008 at 05:08:36AM +0200, Lennert Buytenhek (buytenh@wantstofly.org) wrote:
-> > Well, this one does not have any effect, since it is not used in any
-> > datapath, and I do not have mv643 boards :)
-> 
-> I meant to port it to one of the drivers you use, of course. :)
-
-I can try to work with e1000 if time permits, that's the only NICs I
-have connected to fast links. But main part of the sentence is "if time
-permits" :)
-
--- 
-	Evgeniy Polyakov
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@ozlabs.org
+https://ozlabs.org/mailman/listinfo/linuxppc-dev
+--===============0383580642==--
