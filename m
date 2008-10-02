@@ -1,31 +1,31 @@
-From: Wang Jian <lark@linux.net.cn>
-Subject: Re: drivers/net/phy/marvell.c: 88e1111 can't get out sleep mode
-Date: Thu, 02 Oct 2008 18:10:48 +0800
-Message-ID: <48E49E28.6050500@linux.net.cn>
-References: <20080929133305.GA10554@debian> <2acbd3e40809291314t41b6f765k9aa7809ca21bd88d@mail.gmail.com> <48E2175F.1000306@linux.net.cn>
+From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH net-next 0/9] ipv6: making UDP mibs per/namespace
+Date: Thu, 02 Oct 2008 14:13:14 +0400
+Message-ID: <1222942394.6327.5.camel@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
-	Alexandr Smirnov <asmirnov@ru.mvista.com>
-To: Andy Fleming <afleming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [210.82.31.146] ([210.82.31.146]:58132 "EHLO mx.linux.net.cn"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752794AbYJBKKt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 06:10:49 -0400
-In-Reply-To: <48E2175F.1000306@linux.net.cn>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+        den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
+        benjamin.thery-6ktuUTfB/bM@public.gmane.org
+To: yoshfuji <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wang Jian wrote:
-> I have an idea that if the phy is in sleep mode, flip flop energy detect 
-> mode to
-> leave sleep mode. This is done every 6 seconds, not so intrusive. I will 
-> try it
-> later.
-> 
+This patch series provides a basic infrastructure to make snmp6
+statistics per/namespace and actually virtualize udp6/udplite6 mibs.
 
-No success so far.
+This set follows approach used by Pavel Emelyanov in IPv4 code.
+IP6/icmp6 statistics is also ready and will follow.
 
-MII_PDOWN then MII_RESET no success either.
+Regards,
+	Den
