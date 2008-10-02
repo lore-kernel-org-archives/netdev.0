@@ -1,359 +1,622 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 29/32] nfs: teach the NFS client how to treat PG_swapcache pages
-Date: Thu, 02 Oct 2008 15:05:33 +0200
-Message-ID: <20081002131609.779481067@chello.nl>
+Subject: [PATCH 20/32] netvm: INET reserves.
+Date: Thu, 02 Oct 2008 15:05:24 +0200
+Message-ID: <20081002131609.071928149@chello.nl>
 References: <20081002130504.927878499@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:53626 "EHLO
+Received: from bombadil.infradead.org ([18.85.46.34]:53627 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753711AbYJBNSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 09:18:46 -0400
-Content-Disposition: inline; filename=nfs-swapcache.patch
+	with ESMTP id S1753981AbYJBNSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 09:18:47 -0400
+Content-Disposition: inline; filename=netvm-reserve-inet.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace all relevant occurences of page->index and page->mapping in the NFS
-client with the new page_file_index() and page_file_mapping() functions.
+Add reserves for INET.
+
+The two big users seem to be the route cache and ip-fragment cache.
+
+Reserve the route cache under generic RX reserve, its usage is bounded by
+the high reclaim watermark, and thus does not need further accounting.
+
+Reserve the ip-fragement caches under SKB data reserve, these add to the
+SKB RX limit. By ensuring we can at least receive as much data as fits in
+the reassmbly line we avoid fragment attack deadlocks.
+
+Adds to the reserve tree:
+
+  total network reserve
+    network TX reserve
+      protocol TX pages
+    network RX reserve
++     IPv6 route cache
++     IPv4 route cache
+      SKB data reserve
++       IPv6 fragment cache
++       IPv4 fragment cache
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- fs/nfs/file.c     |    6 +++---
- fs/nfs/internal.h |    7 ++++---
- fs/nfs/pagelist.c |    6 +++---
- fs/nfs/read.c     |    6 +++---
- fs/nfs/write.c    |   53 +++++++++++++++++++++++++++--------------------------
- 5 files changed, 40 insertions(+), 38 deletions(-)
+ include/net/inet_frag.h  |    7 +++
+ include/net/netns/ipv6.h |    4 ++
+ net/ipv4/inet_fragment.c |    3 +
+ net/ipv4/ip_fragment.c   |   86 +++++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv4/route.c         |   70 +++++++++++++++++++++++++++++++++++++-
+ net/ipv6/reassembly.c    |   85 +++++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv6/route.c         |   77 ++++++++++++++++++++++++++++++++++++++++--
+ 7 files changed, 325 insertions(+), 7 deletions(-)
 
-Index: linux-2.6/fs/nfs/file.c
+Index: linux-2.6/net/ipv4/ip_fragment.c
 ===================================================================
---- linux-2.6.orig/fs/nfs/file.c
-+++ linux-2.6/fs/nfs/file.c
-@@ -413,7 +413,7 @@ static void nfs_invalidate_page(struct p
- 	if (offset != 0)
- 		return;
- 	/* Cancel any unstarted writes on this page */
--	nfs_wb_page_cancel(page->mapping->host, page);
-+	nfs_wb_page_cancel(page_file_mapping(page)->host, page);
+--- linux-2.6.orig/net/ipv4/ip_fragment.c
++++ linux-2.6/net/ipv4/ip_fragment.c
+@@ -42,6 +42,8 @@
+ #include <linux/udp.h>
+ #include <linux/inet.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/reserve.h>
++#include <linux/nsproxy.h>
+ 
+ /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
+  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
+@@ -599,6 +601,63 @@ int ip_defrag(struct sk_buff *skb, u32 u
  }
  
- static int nfs_release_page(struct page *page, gfp_t gfp)
-@@ -426,7 +426,7 @@ static int nfs_release_page(struct page 
+ #ifdef CONFIG_SYSCTL
++static int proc_dointvec_fragment(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv4.frags.high_thresh);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
++
++	mutex_lock(&net->ipv4.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv4.frags.reserve,
++				new_bytes);
++		if (!ret)
++			net->ipv4.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv4.frags.lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_fragment(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv4.frags.high_thresh);
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
++
++	mutex_lock(&net->ipv4.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv4.frags.reserve,
++				new_bytes);
++		if (!ret)
++			net->ipv4.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv4.frags.lock);
++
++	return ret;
++}
++
+ static int zero;
  
- static int nfs_launder_page(struct page *page)
+ static struct ctl_table ip4_frags_ns_ctl_table[] = {
+@@ -608,7 +667,8 @@ static struct ctl_table ip4_frags_ns_ctl
+ 		.data		= &init_net.ipv4.frags.high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment,
++		.strategy	= &sysctl_intvec_fragment,
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
+@@ -711,6 +771,8 @@ static inline void ip4_frags_ctl_registe
+ 
+ static int ipv4_frags_init_net(struct net *net)
  {
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
++	int ret;
++
+ 	/*
+ 	 * Fragment cache limits. We will commit 256K at one time. Should we
+ 	 * cross that limit we will prune down to 192K. This should cope with
+@@ -728,11 +790,31 @@ static int ipv4_frags_init_net(struct ne
  
- 	dfprintk(PAGECACHE, "NFS: launder_page(%ld, %llu)\n",
- 		inode->i_ino, (long long)page_offset(page));
-@@ -462,7 +462,7 @@ static int nfs_vm_page_mkwrite(struct vm
- 		(long long)page_offset(page));
+ 	inet_frags_init_net(&net->ipv4.frags);
  
- 	lock_page(page);
--	mapping = page->mapping;
-+	mapping = page_file_mapping(page);
- 	if (mapping != dentry->d_inode->i_mapping)
- 		goto out_unlock;
- 
-Index: linux-2.6/fs/nfs/pagelist.c
-===================================================================
---- linux-2.6.orig/fs/nfs/pagelist.c
-+++ linux-2.6/fs/nfs/pagelist.c
-@@ -76,11 +76,11 @@ nfs_create_request(struct nfs_open_conte
- 	 * update_nfs_request below if the region is not locked. */
- 	req->wb_page    = page;
- 	atomic_set(&req->wb_complete, 0);
--	req->wb_index	= page->index;
-+	req->wb_index	= page_file_index(page);
- 	page_cache_get(page);
- 	BUG_ON(PagePrivate(page));
- 	BUG_ON(!PageLocked(page));
--	BUG_ON(page->mapping->host != inode);
-+	BUG_ON(page_file_mapping(page)->host != inode);
- 	req->wb_offset  = offset;
- 	req->wb_pgbase	= offset;
- 	req->wb_bytes   = count;
-@@ -376,7 +376,7 @@ void nfs_pageio_cond_complete(struct nfs
-  * nfs_scan_list - Scan a list for matching requests
-  * @nfsi: NFS inode
-  * @dst: Destination list
-- * @idx_start: lower bound of page->index to scan
-+ * @idx_start: lower bound of page_file_index(page) to scan
-  * @npages: idx_start + npages sets the upper bound to scan.
-  * @tag: tag to scan for
-  *
-Index: linux-2.6/fs/nfs/read.c
-===================================================================
---- linux-2.6.orig/fs/nfs/read.c
-+++ linux-2.6/fs/nfs/read.c
-@@ -474,11 +474,11 @@ static const struct rpc_call_ops nfs_rea
- int nfs_readpage(struct file *file, struct page *page)
- {
- 	struct nfs_open_context *ctx;
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 	int		error;
- 
- 	dprintk("NFS: nfs_readpage (%p %ld@%lu)\n",
--		page, PAGE_CACHE_SIZE, page->index);
-+		page, PAGE_CACHE_SIZE, page_file_index(page));
- 	nfs_inc_stats(inode, NFSIOS_VFSREADPAGE);
- 	nfs_add_stats(inode, NFSIOS_READPAGES, 1);
- 
-@@ -525,7 +525,7 @@ static int
- readpage_async_filler(void *data, struct page *page)
- {
- 	struct nfs_readdesc *desc = (struct nfs_readdesc *)data;
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 	struct nfs_page *new;
- 	unsigned int len;
- 	int error;
-Index: linux-2.6/fs/nfs/write.c
-===================================================================
---- linux-2.6.orig/fs/nfs/write.c
-+++ linux-2.6/fs/nfs/write.c
-@@ -115,7 +115,7 @@ static struct nfs_page *nfs_page_find_re
- 
- static struct nfs_page *nfs_page_find_request(struct page *page)
- {
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 	struct nfs_page *req = NULL;
- 
- 	spin_lock(&inode->i_lock);
-@@ -127,16 +127,16 @@ static struct nfs_page *nfs_page_find_re
- /* Adjust the file length if we're writing beyond the end */
- static void nfs_grow_file(struct page *page, unsigned int offset, unsigned int count)
- {
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 	loff_t end, i_size;
- 	pgoff_t end_index;
- 
- 	spin_lock(&inode->i_lock);
- 	i_size = i_size_read(inode);
- 	end_index = (i_size - 1) >> PAGE_CACHE_SHIFT;
--	if (i_size > 0 && page->index < end_index)
-+	if (i_size > 0 && page_file_index(page) < end_index)
- 		goto out;
--	end = ((loff_t)page->index << PAGE_CACHE_SHIFT) + ((loff_t)offset+count);
-+	end = page_file_offset(page) + ((loff_t)offset+count);
- 	if (i_size >= end)
- 		goto out;
- 	i_size_write(inode, end);
-@@ -149,7 +149,7 @@ out:
- static void nfs_set_pageerror(struct page *page)
- {
- 	SetPageError(page);
--	nfs_zap_mapping(page->mapping->host, page->mapping);
-+	nfs_zap_mapping(page_file_mapping(page)->host, page_file_mapping(page));
+-	return ip4_frags_ns_ctl_register(net);
++	ret = ip4_frags_ns_ctl_register(net);
++	if (ret)
++		goto out_reg;
++
++	mem_reserve_init(&net->ipv4.frags.reserve, "IPv4 fragment cache",
++			&net_skb_reserve);
++	ret = mem_reserve_kmalloc_set(&net->ipv4.frags.reserve,
++			net->ipv4.frags.high_thresh);
++	if (ret)
++		goto out_reserve;
++
++	return 0;
++
++out_reserve:
++	mem_reserve_disconnect(&net->ipv4.frags.reserve);
++	ip4_frags_ns_ctl_unregister(net);
++out_reg:
++	inet_frags_exit_net(&net->ipv4.frags, &ip4_frags);
++
++	return ret;
  }
  
- /* We can set the PG_uptodate flag if we see that a write request
-@@ -190,7 +190,7 @@ static int nfs_set_page_writeback(struct
- 	int ret = test_set_page_writeback(page);
- 
- 	if (!ret) {
--		struct inode *inode = page->mapping->host;
-+		struct inode *inode = page_file_mapping(page)->host;
- 		struct nfs_server *nfss = NFS_SERVER(inode);
- 
- 		if (atomic_long_inc_return(&nfss->writeback) >
-@@ -202,7 +202,7 @@ static int nfs_set_page_writeback(struct
- 
- static void nfs_end_page_writeback(struct page *page)
+ static void ipv4_frags_exit_net(struct net *net)
  {
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 	struct nfs_server *nfss = NFS_SERVER(inode);
++	mem_reserve_disconnect(&net->ipv4.frags.reserve);
+ 	ip4_frags_ns_ctl_unregister(net);
+ 	inet_frags_exit_net(&net->ipv4.frags, &ip4_frags);
+ }
+Index: linux-2.6/net/ipv6/reassembly.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/reassembly.c
++++ linux-2.6/net/ipv6/reassembly.c
+@@ -41,6 +41,7 @@
+ #include <linux/random.h>
+ #include <linux/jhash.h>
+ #include <linux/skbuff.h>
++#include <linux/reserve.h>
  
- 	end_page_writeback(page);
-@@ -217,7 +217,7 @@ static void nfs_end_page_writeback(struc
- static int nfs_page_async_flush(struct nfs_pageio_descriptor *pgio,
- 				struct page *page)
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -632,6 +633,63 @@ static struct inet6_protocol frag_protoc
+ };
+ 
+ #ifdef CONFIG_SYSCTL
++static int proc_dointvec_fragment(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.frags.high_thresh);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
++
++	mutex_lock(&net->ipv6.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv6.frags.reserve,
++					      new_bytes);
++		if (!ret)
++			net->ipv6.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv6.frags.lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_fragment(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.frags.high_thresh);
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
++
++	mutex_lock(&net->ipv6.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv6.frags.reserve,
++					      new_bytes);
++		if (!ret)
++			net->ipv6.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv6.frags.lock);
++
++	return ret;
++}
++
+ static struct ctl_table ip6_frags_ns_ctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_HIGH_THRESH,
+@@ -639,7 +697,8 @@ static struct ctl_table ip6_frags_ns_ctl
+ 		.data		= &init_net.ipv6.frags.high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment,
++		.strategy	= &sysctl_intvec_fragment,
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
+@@ -748,17 +807,39 @@ static inline void ip6_frags_sysctl_unre
+ 
+ static int ipv6_frags_init_net(struct net *net)
  {
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 	struct nfs_page *req;
- 	int ret;
++	int ret;
++
+ 	net->ipv6.frags.high_thresh = 256 * 1024;
+ 	net->ipv6.frags.low_thresh = 192 * 1024;
+ 	net->ipv6.frags.timeout = IPV6_FRAG_TIMEOUT;
  
-@@ -260,12 +260,12 @@ static int nfs_page_async_flush(struct n
+ 	inet_frags_init_net(&net->ipv6.frags);
  
- static int nfs_do_writepage(struct page *page, struct writeback_control *wbc, struct nfs_pageio_descriptor *pgio)
- {
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 
- 	nfs_inc_stats(inode, NFSIOS_VFSWRITEPAGE);
- 	nfs_add_stats(inode, NFSIOS_WRITEPAGES, 1);
- 
--	nfs_pageio_cond_complete(pgio, page->index);
-+	nfs_pageio_cond_complete(pgio, page_file_index(page));
- 	return nfs_page_async_flush(pgio, page);
+-	return ip6_frags_ns_sysctl_register(net);
++	ret = ip6_frags_ns_sysctl_register(net);
++	if (ret)
++		goto out_reg;
++
++	mem_reserve_init(&net->ipv6.frags.reserve, "IPv6 fragment cache",
++			 &net_skb_reserve);
++	ret = mem_reserve_kmalloc_set(&net->ipv6.frags.reserve,
++				      net->ipv6.frags.high_thresh);
++	if (ret)
++		goto out_reserve;
++
++	return 0;
++
++out_reserve:
++	mem_reserve_disconnect(&net->ipv6.frags.reserve);
++	ip6_frags_ns_sysctl_unregister(net);
++out_reg:
++	inet_frags_exit_net(&net->ipv6.frags, &ip6_frags);
++
++	return ret;
  }
  
-@@ -277,7 +277,7 @@ static int nfs_writepage_locked(struct p
- 	struct nfs_pageio_descriptor pgio;
- 	int err;
+ static void ipv6_frags_exit_net(struct net *net)
+ {
++	mem_reserve_disconnect(&net->ipv6.frags.reserve);
+ 	ip6_frags_ns_sysctl_unregister(net);
+ 	inet_frags_exit_net(&net->ipv6.frags, &ip6_frags);
+ }
+Index: linux-2.6/net/ipv4/route.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/route.c
++++ linux-2.6/net/ipv4/route.c
+@@ -107,6 +107,7 @@
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
+ #endif
++#include <linux/reserve.h>
  
--	nfs_pageio_init_write(&pgio, page->mapping->host, wb_priority(wbc));
-+	nfs_pageio_init_write(&pgio, page_file_mapping(page)->host, wb_priority(wbc));
- 	err = nfs_do_writepage(page, wbc, &pgio);
- 	nfs_pageio_complete(&pgio);
- 	if (err < 0)
-@@ -406,7 +406,8 @@ nfs_mark_request_commit(struct nfs_page 
- 			NFS_PAGE_TAG_COMMIT);
- 	spin_unlock(&inode->i_lock);
- 	inc_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
--	inc_bdi_stat(req->wb_page->mapping->backing_dev_info, BDI_RECLAIMABLE);
-+	inc_bdi_stat(page_file_mapping(req->wb_page)->backing_dev_info,
-+			BDI_RECLAIMABLE);
- 	__mark_inode_dirty(inode, I_DIRTY_DATASYNC);
+ #define RT_FL_TOS(oldflp) \
+     ((u32)(oldflp->fl4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
+@@ -269,6 +270,8 @@ static inline int rt_genid(struct net *n
+ 	return atomic_read(&net->ipv4.rt_genid);
  }
  
-@@ -417,7 +418,7 @@ nfs_clear_request_commit(struct nfs_page
- 
- 	if (test_and_clear_bit(PG_CLEAN, &(req)->wb_flags)) {
- 		dec_zone_page_state(page, NR_UNSTABLE_NFS);
--		dec_bdi_stat(page->mapping->backing_dev_info, BDI_RECLAIMABLE);
-+		dec_bdi_stat(page_file_mapping(page)->backing_dev_info, BDI_RECLAIMABLE);
- 		return 1;
- 	}
++static struct mem_reserve ipv4_route_reserve;
++
+ #ifdef CONFIG_PROC_FS
+ struct rt_cache_iter_state {
+ 	struct seq_net_private p;
+@@ -398,6 +401,61 @@ static int rt_cache_seq_show(struct seq_
  	return 0;
-@@ -523,7 +524,7 @@ static void nfs_cancel_commit_list(struc
-  * nfs_scan_commit - Scan an inode for commit requests
-  * @inode: NFS inode to scan
-  * @dst: destination list
-- * @idx_start: lower bound of page->index to scan.
-+ * @idx_start: lower bound of page_file_index(page) to scan.
-  * @npages: idx_start + npages sets the upper bound to scan.
-  *
-  * Moves requests from the inode's 'commit' request list.
-@@ -634,7 +635,7 @@ out_err:
- static struct nfs_page * nfs_setup_write_request(struct nfs_open_context* ctx,
- 		struct page *page, unsigned int offset, unsigned int bytes)
- {
--	struct inode *inode = page->mapping->host;
-+	struct inode *inode = page_file_mapping(page)->host;
- 	struct nfs_page	*req;
- 	int error;
- 
-@@ -689,7 +690,7 @@ int nfs_flush_incompatible(struct file *
- 		nfs_release_request(req);
- 		if (!do_flush)
- 			return 0;
--		status = nfs_wb_page(page->mapping->host, page);
-+		status = nfs_wb_page(page_file_mapping(page)->host, page);
- 	} while (status == 0);
- 	return status;
  }
-@@ -715,7 +716,7 @@ int nfs_updatepage(struct file *file, st
- 		unsigned int offset, unsigned int count)
- {
- 	struct nfs_open_context *ctx = nfs_file_open_context(file);
--	struct inode	*inode = page->mapping->host;
-+	struct inode	*inode = page_file_mapping(page)->host;
- 	int		status = 0;
  
- 	nfs_inc_stats(inode, NFSIOS_VFSUPDATEPAGE);
-@@ -723,7 +724,7 @@ int nfs_updatepage(struct file *file, st
- 	dprintk("NFS:       nfs_updatepage(%s/%s %d@%lld)\n",
- 		file->f_path.dentry->d_parent->d_name.name,
- 		file->f_path.dentry->d_name.name, count,
--		(long long)(page_offset(page) + offset));
-+		(long long)(page_file_offset(page) + offset));
++static struct mutex ipv4_route_lock;
++
++static int proc_dointvec_route(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&ipv4_route_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++				ipv4_dst_ops.kmem_cachep, new_size);
++		if (!ret)
++			ip_rt_max_size = new_size;
++	}
++	mutex_unlock(&ipv4_route_lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_route(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&ipv4_route_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++				ipv4_dst_ops.kmem_cachep, new_size);
++		if (!ret)
++			ip_rt_max_size = new_size;
++	}
++	mutex_unlock(&ipv4_route_lock);
++
++	return ret;
++}
++
+ static const struct seq_operations rt_cache_seq_ops = {
+ 	.start  = rt_cache_seq_start,
+ 	.next   = rt_cache_seq_next,
+@@ -2992,7 +3050,8 @@ static ctl_table ipv4_route_table[] = {
+ 		.data		= &ip_rt_max_size,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec,
++		.proc_handler	= &proc_dointvec_route,
++		.strategy	= &sysctl_intvec_route,
+ 	},
+ 	{
+ 		/*  Deprecated. Use gc_min_interval_ms */
+@@ -3271,6 +3330,15 @@ int __init ip_rt_init(void)
+ 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+ 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
  
- 	/* If we're not using byte range locks, and we know the page
- 	 * is up to date, it may be more efficient to extend the write
-@@ -998,7 +999,7 @@ static void nfs_writeback_release_partia
++#ifdef CONFIG_PROCFS
++	mutex_init(&ipv4_route_lock);
++#endif
++
++	mem_reserve_init(&ipv4_route_reserve, "IPv4 route cache",
++			&net_rx_reserve);
++	mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++			ipv4_dst_ops.kmem_cachep, ip_rt_max_size);
++
+ 	devinet_init();
+ 	ip_fib_init();
+ 
+Index: linux-2.6/net/ipv6/route.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/route.c
++++ linux-2.6/net/ipv6/route.c
+@@ -37,6 +37,7 @@
+ #include <linux/mroute6.h>
+ #include <linux/init.h>
+ #include <linux/if_arp.h>
++#include <linux/reserve.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/nsproxy.h>
+@@ -2473,6 +2474,63 @@ int ipv6_sysctl_rtcache_flush(ctl_table 
+ 		return -EINVAL;
+ }
+ 
++static int proc_dointvec_route(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.sysctl.ip6_rt_max_size);
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&net->ipv6.sysctl.ip6_rt_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&net->ipv6.ip6_rt_reserve,
++				net->ipv6.ip6_dst_ops->kmem_cachep, new_size);
++		if (!ret)
++			net->ipv6.sysctl.ip6_rt_max_size = new_size;
++	}
++	mutex_unlock(&net->ipv6.sysctl.ip6_rt_lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_route(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.sysctl.ip6_rt_max_size);
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&net->ipv6.sysctl.ip6_rt_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&net->ipv6.ip6_rt_reserve,
++				net->ipv6.ip6_dst_ops->kmem_cachep, new_size);
++		if (!ret)
++			net->ipv6.sysctl.ip6_rt_max_size = new_size;
++	}
++	mutex_unlock(&net->ipv6.sysctl.ip6_rt_lock);
++
++	return ret;
++}
++
+ ctl_table ipv6_route_table_template[] = {
+ 	{
+ 		.procname	=	"flush",
+@@ -2495,7 +2553,8 @@ ctl_table ipv6_route_table_template[] = 
+ 		.data		=	&init_net.ipv6.sysctl.ip6_rt_max_size,
+ 		.maxlen		=	sizeof(int),
+ 		.mode		=	0644,
+-		.proc_handler	=	&proc_dointvec,
++		.proc_handler	=	&proc_dointvec_route,
++		.strategy	= 	&sysctl_intvec_route,
+ 	},
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
+@@ -2583,6 +2642,8 @@ struct ctl_table *ipv6_route_sysctl_init
+ 		table[8].data = &net->ipv6.sysctl.ip6_rt_min_advmss;
  	}
  
- 	if (nfs_write_need_commit(data)) {
--		struct inode *inode = page->mapping->host;
-+		struct inode *inode = page_file_mapping(page)->host;
++	mutex_init(&net->ipv6.sysctl.ip6_rt_lock);
++
+ 	return table;
+ }
+ #endif
+@@ -2636,6 +2697,14 @@ static int ip6_route_net_init(struct net
+ 	net->ipv6.sysctl.ip6_rt_mtu_expires = 10*60*HZ;
+ 	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
  
- 		spin_lock(&inode->i_lock);
- 		if (test_bit(PG_NEED_RESCHED, &req->wb_flags)) {
-@@ -1259,7 +1260,7 @@ nfs_commit_list(struct inode *inode, str
- 		nfs_list_remove_request(req);
- 		nfs_mark_request_commit(req);
- 		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
--		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
-+		dec_bdi_stat(page_file_mapping(req->wb_page)->backing_dev_info,
- 				BDI_RECLAIMABLE);
- 		nfs_clear_page_tag_locked(req);
- 	}
-@@ -1450,10 +1451,10 @@ int nfs_wb_nocommit(struct inode *inode)
- int nfs_wb_page_cancel(struct inode *inode, struct page *page)
- {
- 	struct nfs_page *req;
--	loff_t range_start = page_offset(page);
-+	loff_t range_start = page_file_offset(page);
- 	loff_t range_end = range_start + (loff_t)(PAGE_CACHE_SIZE - 1);
- 	struct writeback_control wbc = {
--		.bdi = page->mapping->backing_dev_info,
-+		.bdi = page_file_mapping(page)->backing_dev_info,
- 		.sync_mode = WB_SYNC_ALL,
- 		.nr_to_write = LONG_MAX,
- 		.range_start = range_start,
-@@ -1486,7 +1487,7 @@ int nfs_wb_page_cancel(struct inode *ino
- 	}
- 	if (!PagePrivate(page))
- 		return 0;
--	ret = nfs_sync_mapping_wait(page->mapping, &wbc, FLUSH_INVALIDATE);
-+	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, FLUSH_INVALIDATE);
++	mem_reserve_init(&net->ipv6.ip6_rt_reserve, "IPv6 route cache",
++			 &net_rx_reserve);
++	ret = mem_reserve_kmem_cache_set(&net->ipv6.ip6_rt_reserve,
++			net->ipv6.ip6_dst_ops->kmem_cachep,
++			net->ipv6.sysctl.ip6_rt_max_size);
++	if (ret)
++		goto out_reserve_fail;
++
+ #ifdef CONFIG_PROC_FS
+ 	proc_net_fops_create(net, "ipv6_route", 0, &ipv6_route_proc_fops);
+ 	proc_net_fops_create(net, "rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
+@@ -2646,12 +2715,15 @@ static int ip6_route_net_init(struct net
  out:
  	return ret;
- }
-@@ -1494,10 +1495,10 @@ out:
- static int nfs_wb_page_priority(struct inode *inode, struct page *page,
- 				int how)
- {
--	loff_t range_start = page_offset(page);
-+	loff_t range_start = page_file_offset(page);
- 	loff_t range_end = range_start + (loff_t)(PAGE_CACHE_SIZE - 1);
- 	struct writeback_control wbc = {
--		.bdi = page->mapping->backing_dev_info,
-+		.bdi = page_file_mapping(page)->backing_dev_info,
- 		.sync_mode = WB_SYNC_ALL,
- 		.nr_to_write = LONG_MAX,
- 		.range_start = range_start,
-@@ -1512,7 +1513,7 @@ static int nfs_wb_page_priority(struct i
- 				goto out_error;
- 		} else if (!PagePrivate(page))
- 			break;
--		ret = nfs_sync_mapping_wait(page->mapping, &wbc, how);
-+		ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, how);
- 		if (ret < 0)
- 			goto out_error;
- 	} while (PagePrivate(page));
-Index: linux-2.6/fs/nfs/internal.h
-===================================================================
---- linux-2.6.orig/fs/nfs/internal.h
-+++ linux-2.6/fs/nfs/internal.h
-@@ -253,13 +253,14 @@ void nfs_super_set_maxbytes(struct super
- static inline
- unsigned int nfs_page_length(struct page *page)
- {
--	loff_t i_size = i_size_read(page->mapping->host);
-+	loff_t i_size = i_size_read(page_file_mapping(page)->host);
  
- 	if (i_size > 0) {
-+		pgoff_t page_index = page_file_index(page);
- 		pgoff_t end_index = (i_size - 1) >> PAGE_CACHE_SHIFT;
--		if (page->index < end_index)
-+		if (page_index < end_index)
- 			return PAGE_CACHE_SIZE;
--		if (page->index == end_index)
-+		if (page_index == end_index)
- 			return ((i_size - 1) & ~PAGE_CACHE_MASK) + 1;
- 	}
- 	return 0;
++out_reserve_fail:
++	mem_reserve_disconnect(&net->ipv6.ip6_rt_reserve);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
++	kfree(net->ipv6.ip6_blk_hole_entry);
+ out_ip6_prohibit_entry:
+ 	kfree(net->ipv6.ip6_prohibit_entry);
+ out_ip6_null_entry:
+-	kfree(net->ipv6.ip6_null_entry);
+ #endif
++	kfree(net->ipv6.ip6_null_entry);
+ out_ip6_dst_ops:
+ 	release_net(net->ipv6.ip6_dst_ops->dst_net);
+ 	kfree(net->ipv6.ip6_dst_ops);
+@@ -2664,6 +2736,7 @@ static void ip6_route_net_exit(struct ne
+ 	proc_net_remove(net, "ipv6_route");
+ 	proc_net_remove(net, "rt6_stats");
+ #endif
++	mem_reserve_disconnect(&net->ipv6.ip6_rt_reserve);
+ 	kfree(net->ipv6.ip6_null_entry);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	kfree(net->ipv6.ip6_prohibit_entry);
+Index: linux-2.6/include/net/inet_frag.h
+===================================================================
+--- linux-2.6.orig/include/net/inet_frag.h
++++ linux-2.6/include/net/inet_frag.h
+@@ -1,6 +1,9 @@
+ #ifndef __NET_FRAG_H__
+ #define __NET_FRAG_H__
+ 
++#include <linux/reserve.h>
++#include <linux/mutex.h>
++
+ struct netns_frags {
+ 	int			nqueues;
+ 	atomic_t		mem;
+@@ -10,6 +13,10 @@ struct netns_frags {
+ 	int			timeout;
+ 	int			high_thresh;
+ 	int			low_thresh;
++
++	/* reserves */
++	struct mutex		lock;
++	struct mem_reserve	reserve;
+ };
+ 
+ struct inet_frag_queue {
+Index: linux-2.6/net/ipv4/inet_fragment.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/inet_fragment.c
++++ linux-2.6/net/ipv4/inet_fragment.c
+@@ -19,6 +19,7 @@
+ #include <linux/random.h>
+ #include <linux/skbuff.h>
+ #include <linux/rtnetlink.h>
++#include <linux/reserve.h>
+ 
+ #include <net/inet_frag.h>
+ 
+@@ -74,6 +75,8 @@ void inet_frags_init_net(struct netns_fr
+ 	nf->nqueues = 0;
+ 	atomic_set(&nf->mem, 0);
+ 	INIT_LIST_HEAD(&nf->lru_list);
++	mutex_init(&nf->lock);
++	mem_reserve_init(&nf->reserve, "IP fragement cache", NULL);
+ }
+ EXPORT_SYMBOL(inet_frags_init_net);
+ 
+Index: linux-2.6/include/net/netns/ipv6.h
+===================================================================
+--- linux-2.6.orig/include/net/netns/ipv6.h
++++ linux-2.6/include/net/netns/ipv6.h
+@@ -24,6 +24,8 @@ struct netns_sysctl_ipv6 {
+ 	int ip6_rt_mtu_expires;
+ 	int ip6_rt_min_advmss;
+ 	int icmpv6_time;
++
++	struct mutex ip6_rt_lock;
+ };
+ 
+ struct netns_ipv6 {
+@@ -55,5 +57,7 @@ struct netns_ipv6 {
+ 	struct sock             *ndisc_sk;
+ 	struct sock             *tcp_sk;
+ 	struct sock             *igmp_sk;
++
++	struct mem_reserve	ip6_rt_reserve;
+ };
+ #endif
 
 -- 
 
