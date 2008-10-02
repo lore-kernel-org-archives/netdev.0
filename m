@@ -1,126 +1,81 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] [RFC] netns: enable cross-ve Unix sockets
-Date: Thu, 02 Oct 2008 13:03:04 -0700
-Message-ID: <m1r66yvk7b.fsf@frodo.ebiederm.org>
-References: <1222858454-7843-1-git-send-email-den@openvz.org>
-	<48E35B4C.1040303@fr.ibm.com> <1222860776.23573.49.camel@iris.sw.ru>
-	<48E3653C.1070701@fr.ibm.com> <1222862583.23573.54.camel@iris.sw.ru>
-	<48E36ABF.8030908@fr.ibm.com> <48E36BFA.3040904@openvz.org>
-	<48E36DA0.9080400@fr.ibm.com> <1222866717.23573.58.camel@iris.sw.ru>
-	<48E37F1B.20601@fr.ibm.com> <1222872885.23573.64.camel@iris.sw.ru>
-	<48E394D2.5090709@fr.ibm.com> <48E397C1.6050407@openvz.org>
-	<48E3998D.4040709@fr.ibm.com> <48E39A7A.8090800@openvz.org>
-	<48E3A21E.3060504@fr.ibm.com> <1222942883.6327.13.camel@iris.sw.ru>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+ (fwd)
+Date: Thu, 2 Oct 2008 23:31:28 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
+ <48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
+ <alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
+ <48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
+ <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+ <48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
+ <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+ <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
+ <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, benjamin.thery@bull.net
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: MULTIPART/MIXED; boundary="8323328-998241439-1222974993=:5549"
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: "=?ISO-8859-1?Q?D=E2niel_Fraga?=" <fragabr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:33296 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752427AbYJBUFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 16:05:51 -0400
-In-Reply-To: <1222942883.6327.13.camel@iris.sw.ru> (Denis V. Lunev's message
-	of "Thu, 02 Oct 2008 14:21:23 +0400")
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55467 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753311AbYJBUbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 16:31:31 -0400
+In-Reply-To: <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
+Content-ID: <Pine.LNX.4.64.0810022329160.22964@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I do not believe we have yet met the burden of proof necessary to make the proposed
-semantic change.
+--8323328-998241439-1222974993=:5549
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0810022251402.22964@wrl-59.cs.helsinki.fi>
 
-"Denis V. Lunev" <den@openvz.org> writes:
+On Thu, 2 Oct 2008, Thomas Gleixner wrote:
 
-> On Wed, 2008-10-01 at 18:15 +0200, Daniel Lezcano wrote:
->> 
->>   1 - the current behaviour is full isolation. Shall we/can we change 
->> that without taking into account there are perhaps some people using 
->> this today ? I don't know.
-> We have a direct request from people using to remove this state of
-> isolation.
+> On Thu, 2 Oct 2008, Dâniel Fraga wrote:
+> 
+> > On Thu, 2 Oct 2008 14:08:14 +0200 (CEST)
+> > Thomas Gleixner <tglx@linutronix.de> wrote:
+> > 
+> > > grmbl. tracer_enabled should have been ftrace_enabled of course.
+> > 
+> > 	Ok Thomas. I got a stall on my desktop.
+> > 
+> > 	It happens when I try to use sudo and it just stay stalled (I
+> > think trying to access /dev/log or something like that).
 
-Users of a brittle but convenient hack not application developers.
+Ah, I was kind of thinking that you were doing something net related 
+using some raw socket thing (such as traceroute) when you earlier 
+mentioned sudo (iirc, we never really discussed what you usually do with 
+it when you see the stall).
 
-Which means there is demand for this class of communication but it
-doesn't mean that the suggested way is the right way.
+> > 	I got the trace here:
+> > 
+> > http://www.abusar.org/ftrace/trace.txt.bz2
+> > 
+> > 	after the stall.
+> > 
+> > 	Could you please check if there's something wrong?
+> > 
+> > 	I'd prefer if the stall happened in the server, but it still
+> > didn't happen. Anyway, it's the same problem.
+> 
+> Hmm, not sure. sudo is a different beast. All I can see in the trace
+> is that reiserfs is turning itself in circles (which is nothing new),
+> but there is nothing which might tell us about a stall. At the point
+> where you stopped the trace the relevant info was already replaced by
+> new stuff. It's a circular buffer which gets overwritten.
 
->>   2 - I wish to launch a non chrooted application inside a namespace, 
->> sharing the file system without sharing the af_unix sockets, because I 
->> don't want the application running inside the container overlap with the 
->> socket af_unix of another container. I prefer to detect a collision with 
->> a strong isolation and handle it manually (remount some part of the fs 
->> for example).
-> with common filesystem you have to detect collisions at least for FIFOs.
-> This situation is the same. Basically, if we'll treat named Unix sockets
-> as an improved FIFO - it's better to use the same approach
-
-There are two aspects to this.
-
-1) Looking up the proxy object in the filesystem.
-
-   With that I agree that the file system access rules are sufficient.
-   If we don't want the possibility of proxy objects you simply configure
-   the system so that there are no shared files between namespaces.
-
-2) How we interpret the proxy object.
-
-   Currently the shared filesystem aka NFS precedent is that you can see
-   the unix domain socket but not use it.  Just what we have implemented now.
-
-As for FIFO you are be right that there is a potential bug there.  Likely those
-fall in the yet to be implemented device namespace.  It is certainly an area
-of the code we have not audited and thought about, so there is no precedent
-set.
-
->>   3 - I would like to be able to reduce this isolation (your point) to 
->> share the af_unix socket for example to use /dev/klog or something else.
->> 
->> I don't know how much we can consider the point 1, 2 pertinent, but 
->> disabling 3 lines of code via a sysctl with strong isolation as default 
->> and having a process unsharing the namespace in userspace and changing 
->> this value to less isolation is not a big challenge IMHO :)
-> the real questions is _who_ is responsible for this kind of staff ->
-> node (parent container) administrator or container administrator. I
-> strongly vote for first.
->
-> Also if we are talking about such kind of staff, I dislike global
-> kludge. This should be a property of two concrete VEs and better two
-> concrete sockets. Unfortunately, setsockopt is not an option :(
+We might have had a change if there would have been a (failed) connection 
+attempt in it but there seemed to be none.
 
 
-We support sockets from different namespaces in a single process.
-
-I agree that to keep the hack working we can not use setsockopt.
-I don't agree that we want to keep the hack working.
-
-- The code needs an audit to think about what it means to exchange packets
-  between unix domain sockets in different network namespaces.  There is
-  surprising a lot of code in veth to accommodate that.
-
-  If we have too many places where we need to do something strange it is
-  going to make code maintenance difficult.
-
-- The semantics get stranger with respect to interpreting unix domain socket
-  proxy objects.   Sometimes we can connect to someplace non-local and sometimes
-  we can't.
-
-- We can do this without changing the semantics of how socket proxy objects
-  are interpreted, as it is possible for a process to use sockets in two different
-  network namespaces.  That requires application level changes.
-
-- It is prohibitively difficult to implement unix domain sockets that talk between
-  different kernels (file descriptors sharing offsets and garbage collection of in
-  flight sockets ouch!).  This means that encouraging the use of unix domain sockets
-  to transparently connect applications in different containers is probably a bad
-  idea.  This is completely different from FIFO's that are simple enough it is not
-  hard to relay data between machines and get it right.
-
-- I don't know how much using unix domain sockets to talk between different domains
-  transparently will confuse applications, and increase the risk of security exploits.
-  I don't think it will be much though as we already have unix permissions checking
-  from the proxy object, and we should be handling the namespace transitions of passed
-  objects in the code that sends credentials and file descriptors.
-
-Eric
+-- 
+ i.
+--8323328-998241439-1222974993=:5549--
