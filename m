@@ -1,7 +1,7 @@
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH 2.6.27-rc8 2/6] e1000e: do not ever sleep in interrupt context
-Date: Thu, 02 Oct 2008 16:33:25 -0700
-Message-ID: <20081002233325.12556.74382.stgit@jbrandeb-bw.jf.intel.com>
+Subject: [PATCH 2.6.27-rc8 3/6] e1000e: remove phy read from inside spinlock
+Date: Thu, 02 Oct 2008 16:33:30 -0700
+Message-ID: <20081002233330.12556.79763.stgit@jbrandeb-bw.jf.intel.com>
 References: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,116 +13,87 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Gleixner <tglx@linutronix.de>
 To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:14561 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:65208 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754159AbYJBXd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 19:33:26 -0400
+	id S1755687AbYJBXdk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 19:33:40 -0400
 In-Reply-To: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-e1000e was apparently calling two functions that attempted to reserve
-the SWFLAG bit for exclusive (to hardware and firmware) access to
-the PHY and NVM (aka eeprom).  These accesses could possibly call
-msleep to wait for the resource which is not allowed from interrupt
-context.
+thanks to tglx, we're finding some interesting reentrancy issues.
+this patch removes the phy read from inside a spinlock, paving
+the way for removing the spinlock completely.  The phy read was
+only feeding a statistic that wasn't used.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 CC: Thomas Gleixner <tglx@linutronix.de>
 ---
 
- drivers/net/e1000e/e1000.h  |    2 ++
- drivers/net/e1000e/netdev.c |   31 ++++++++++++++++++++++++++++---
- 2 files changed, 30 insertions(+), 3 deletions(-)
+ drivers/net/e1000e/ethtool.c |    6 +++++-
+ drivers/net/e1000e/netdev.c  |   13 -------------
+ 2 files changed, 5 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index f0c48a2..8087bda 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -284,6 +284,8 @@ struct e1000_adapter {
- 	unsigned long led_status;
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 5ed8e13..33a3ff1 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -432,6 +432,10 @@ static void e1000_get_regs(struct net_device *netdev,
+ 	regs_buff[11] = er32(TIDV);
  
- 	unsigned int flags;
-+	struct work_struct downshift_task;
-+	struct work_struct update_phy_task;
- };
- 
- struct e1000_info {
+ 	regs_buff[12] = adapter->hw.phy.type;  /* PHY type (IGP=1, M88=0) */
++
++	/* ethtool doesn't use anything past this point, so all this
++	 * code is likely legacy junk for apps that may or may not
++	 * exist */
+ 	if (hw->phy.type == e1000_phy_m88) {
+ 		e1e_rphy(hw, M88E1000_PHY_SPEC_STATUS, &phy_data);
+ 		regs_buff[13] = (u32)phy_data; /* cable length */
+@@ -447,7 +451,7 @@ static void e1000_get_regs(struct net_device *netdev,
+ 		regs_buff[22] = adapter->phy_stats.receive_errors;
+ 		regs_buff[23] = regs_buff[13]; /* mdix mode */
+ 	}
+-	regs_buff[21] = adapter->phy_stats.idle_errors;  /* phy idle errors */
++	regs_buff[21] = 0; /* was idle_errors */
+ 	e1e_rphy(hw, PHY_1000T_STATUS, &phy_data);
+ 	regs_buff[24] = (u32)phy_data;  /* phy local receiver status */
+ 	regs_buff[25] = regs_buff[24];  /* phy remote receiver status */
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 1f767fe..803545b 100644
+index 803545b..835b692 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -1115,6 +1115,14 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter)
- 	writel(0, adapter->hw.hw_addr + rx_ring->tail);
- }
+@@ -2954,9 +2954,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	unsigned long irq_flags;
+-	u16 phy_tmp;
+-
+-#define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
  
-+static void e1000e_downshift_workaround(struct work_struct *work)
-+{
-+	struct e1000_adapter *adapter = container_of(work,
-+					struct e1000_adapter, downshift_task);
-+
-+	e1000e_gig_downshift_workaround_ich8lan(&adapter->hw);
-+}
-+
- /**
-  * e1000_intr_msi - Interrupt Handler
-  * @irq: interrupt number
-@@ -1139,7 +1147,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
- 		 */
- 		if ((adapter->flags & FLAG_LSC_GIG_SPEED_DROP) &&
- 		    (!(er32(STATUS) & E1000_STATUS_LU)))
--			e1000e_gig_downshift_workaround_ich8lan(hw);
-+			schedule_work(&adapter->downshift_task);
+ 	/*
+ 	 * Prevent stats update while adapter is being reset, or if the pci
+@@ -3045,15 +3042,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
  
- 		/*
- 		 * 80003ES2LAN workaround-- For packet buffer work-around on
-@@ -1205,7 +1213,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 		 */
- 		if ((adapter->flags & FLAG_LSC_GIG_SPEED_DROP) &&
- 		    (!(er32(STATUS) & E1000_STATUS_LU)))
--			e1000e_gig_downshift_workaround_ich8lan(hw);
-+			schedule_work(&adapter->downshift_task);
+ 	/* Tx Dropped needs to be maintained elsewhere */
  
- 		/*
- 		 * 80003ES2LAN workaround--
-@@ -2912,6 +2920,21 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
- 	return 0;
- }
+-	/* Phy Stats */
+-	if (hw->phy.media_type == e1000_media_type_copper) {
+-		if ((adapter->link_speed == SPEED_1000) &&
+-		   (!e1e_rphy(hw, PHY_1000T_STATUS, &phy_tmp))) {
+-			phy_tmp &= PHY_IDLE_ERROR_COUNT_MASK;
+-			adapter->phy_stats.idle_errors += phy_tmp;
+-		}
+-	}
+-
+ 	/* Management Stats */
+ 	adapter->stats.mgptc += er32(MGTPTC);
+ 	adapter->stats.mgprc += er32(MGTPRC);
+@@ -3073,7 +3061,6 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+ 	int ret_val;
+ 	unsigned long irq_flags;
  
-+/**
-+ * e1000e_update_phy_task - work thread to update phy
-+ * @work: pointer to our work struct
-+ *
-+ * this worker thread exists because we must acquire a
-+ * semaphore to read the phy, which we could msleep while
-+ * waiting for it, and we can't msleep in a timer.
-+ **/
-+static void e1000e_update_phy_task(struct work_struct *work)
-+{
-+	struct e1000_adapter *adapter = container_of(work,
-+					struct e1000_adapter, update_phy_task);
-+	e1000_get_phy_info(&adapter->hw);
-+}
-+
- /*
-  * Need to wait a few seconds after link up to get diagnostic information from
-  * the phy
-@@ -2919,7 +2942,7 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
- static void e1000_update_phy_info(unsigned long data)
- {
- 	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
--	e1000_get_phy_info(&adapter->hw);
-+	schedule_work(&adapter->update_phy_task);
- }
+-
+ 	spin_lock_irqsave(&adapter->stats_lock, irq_flags);
  
- /**
-@@ -4578,6 +4601,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	INIT_WORK(&adapter->reset_task, e1000_reset_task);
- 	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
-+	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
-+	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
- 
- 	/* Initialize link parameters. User can change them with ethtool */
- 	adapter->hw.mac.autoneg = 1;
+ 	if ((er32(STATUS) & E1000_STATUS_LU) &&
 
