@@ -1,58 +1,96 @@
-From: Trent Piepho <tpiepho@freescale.com>
-Subject: [PATCH v2] gianfar: Create net device with carrier down
-Date: Thu,  2 Oct 2008 14:12:24 -0700
-Message-ID: <1222981944-17096-1-git-send-email-tpiepho@freescale.com>
-References: <Pine.LNX.4.64.0809241534370.7680@t2.domain.actdsltmp>
-Cc: David Miller <davem@davemloft.net>,
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH] sky2: Fix recent WOL regression
+Date: Thu, 2 Oct 2008 23:39:33 +0200
+Message-ID: <200810022339.34025.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	Tino Keitel <tino.keitel@gmx.de>,
 	Stephen Hemminger <shemminger@vyatta.com>,
-	Trent Piepho <tpiepho@freescale.com>,
-	Andy Fleming <afleming@freescale.com>
-To: netdev@vger.kernel.org
+	netdev@vger.kernel.org, Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:41810 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754314AbYJBVU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 17:20:56 -0400
-In-Reply-To: <Pine.LNX.4.64.0809241534370.7680@t2.domain.actdsltmp>
+Received: from ogre.sisk.pl ([217.79.144.158]:36362 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754300AbYJBVfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 17:35:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The device's carrier status is controlled via the functions
-netif_carrier_on() and netif_carrier_off().  These set or clear a bit
-indicating the carrier (aka lower level link) is down, and if the state
-changed, they fire off a routing netlink event.
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-Add a call to netif_carrier_off() before register_netdev() so that the
-newly created device will be set to carrier down.  Then when the carrier
-comes up for the first time, a netlink event will be generated, as the
-carrier changed from down to up.  Otherwise the initial carrier up will
-appear to be changing the status from up to up, and so no event is
-generated since that's not a change.
+sky2: Fix recent WOL regression
 
-Signed-off-by: Trent Piepho <tpiepho@freescale.com>
-CC: Andy Fleming <afleming@freescale.com>
+Since dev->power.should_wakeup bit is used by the PCI core to
+decide whether the device should wake up the system from sleep
+states, set/unset this bit whenever WOL is enabled/disabled using
+sky2_set_wol() (this fixes a regression from 2.6.26 on the Tino's
+machine).
+
+Remove an open-coded reference to the standard PCI PM registers that
+is not used any more.
+
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Reported-by: Tino Keitel <tino.keitel@gmx.de>
 ---
-This uses Stephen's suggestion, which works fine.  I had already tried this
-in ->open(), but that creates bogus carrier up->carrier down->carrier up
-netlink events when the device is opened.
 
- drivers/net/gianfar.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/sky2.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index a671270..484cf69 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -339,6 +339,9 @@ static int gfar_probe(struct platform_device *pdev)
- 	/* Enable most messages by default */
- 	priv->msg_enable = (NETIF_MSG_IFUP << 1 ) - 1;
+Index: linux-2.6/drivers/net/sky2.c
+===================================================================
+--- linux-2.6.orig/drivers/net/sky2.c
++++ linux-2.6/drivers/net/sky2.c
+@@ -3034,7 +3034,8 @@ static int sky2_set_wol(struct net_devic
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 	struct sky2_hw *hw = sky2->hw;
  
-+	/* Carrier starts down, phylib will bring it up */
-+	netif_carrier_off(dev);
+-	if (wol->wolopts & ~sky2_wol_supported(sky2->hw))
++	if ((wol->wolopts & ~sky2_wol_supported(sky2->hw))
++	    || !device_can_wakeup(&hw->pdev->dev))
+ 		return -EOPNOTSUPP;
+ 
+ 	sky2->wol = wol->wolopts;
+@@ -3045,6 +3046,8 @@ static int sky2_set_wol(struct net_devic
+ 		sky2_write32(hw, B0_CTST, sky2->wol
+ 			     ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
+ 
++	device_set_wakeup_enable(&hw->pdev->dev, sky2->wol);
 +
- 	err = register_netdev(dev);
+ 	if (!netif_running(dev))
+ 		sky2_wol_init(sky2);
+ 	return 0;
+@@ -4166,18 +4169,6 @@ static int __devinit sky2_test_msi(struc
+ 	return err;
+ }
  
- 	if (err) {
--- 
-1.5.4.1
-
+-static int __devinit pci_wake_enabled(struct pci_dev *dev)
+-{
+-	int pm  = pci_find_capability(dev, PCI_CAP_ID_PM);
+-	u16 value;
+-
+-	if (!pm)
+-		return 0;
+-	if (pci_read_config_word(dev, pm + PCI_PM_CTRL, &value))
+-		return 0;
+-	return value & PCI_PM_CTRL_PME_ENABLE;
+-}
+-
+ /* This driver supports yukon2 chipset only */
+ static const char *sky2_name(u8 chipid, char *buf, int sz)
+ {
+@@ -4238,7 +4241,7 @@ static int __devinit sky2_probe(struct p
+ 		}
+ 	}
+ 
+-	wol_default = pci_wake_enabled(pdev) ? WAKE_MAGIC : 0;
++	wol_default = device_may_wakeup(&pdev->dev) ? WAKE_MAGIC : 0;
+ 
+ 	err = -ENOMEM;
+ 	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
