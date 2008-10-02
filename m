@@ -1,71 +1,32 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH net-2.6 5/7] atm: [br2864] fix routed vcmux support
-Date: Thu, 02 Oct 2008 06:09:11 +0200
-Message-ID: <1222920551.23279.103.camel@sakura.staff.proxad.net>
-References: <200806161727.m5GHRfNh003377@cmf.nrl.navy.mil>
-Reply-To: mbizon@freebox.fr
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/5] dccp: First part of feature-negotiation patch set
+Date: Thu, 2 Oct 2008 07:05:46 +0200
+Message-ID: <20081002050546.GA6910@gerrit.erg.abdn.ac.uk>
+References: <1222068117-13401-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080922142105.GB16625@ghostprotocols.net> <20080922154554.GA3521@gerrit.erg.abdn.ac.uk> <20080922.202056.218746153.davem@davemloft.net> <20080924051823.GB4944@gerrit.erg.abdn.ac.uk> <20080924052305.GC4944@gerrit.erg.abdn.ac.uk> <20080924135954.GJ9588@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sakura.staff.proxad.net ([213.228.1.107]:60011 "EHLO
-	sakura.staff.proxad.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbYJBERd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 00:17:33 -0400
-In-Reply-To: <200806161727.m5GHRfNh003377@cmf.nrl.navy.mil>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:49116 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751547AbYJBFHj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 01:07:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20080924135954.GJ9588@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dave,
 
-On Mon, 2008-06-16 at 13:27 -0400, chas williams - CONTRACTOR wrote:
+how shall we remain regarding this patch set, will you be
+indicating when there is time enough to look at the next
+part, or would it be easier to make this periodical (e.g.
+one small set per each week / two weeks)?
 
-Hello,
+Would you like me to re-send [3/5]...[5/5] as they are not on
+http://patchwork.ozlabs.org/project/netdev/list/
 
-> commit 1390b21d5244dc3a8a929778ffd2fde05613c761
-> Author: Eric Kinzie <ekinzie@cmf.nrl.navy.mil>
-> Date:   Sat Jun 14 17:33:35 2008 -0400
-> 
->     atm: [br2864] fix routed vcmux support
->     
->     From: Eric Kinzie <ekinzie@cmf.nrl.navy.mil>
->     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-> 
-> diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-> index ac60350..05fafdc 100644
-> --- a/net/atm/br2684.c
-> +++ b/net/atm/br2684.c
-> @@ -188,10 +188,13 @@ static int br2684_xmit_vcc(struct sk_buff *skb, struct br2684_dev *brdev,
->  				return 0;
->  			}
->  		}
-> -	} else {
-> -		skb_push(skb, 2);
-> -		if (brdev->payload == p_bridged)
-> +	} else { /* e_vc */
-> +		if (brdev->payload == p_bridged) {
-> +			skb_push(skb, 2);
->  			memset(skb->data, 0, 2);
-> +		} else { /* p_routed */
-> +			skb_pull(skb, ETH_HLEN);
-> +		}
->  	}
-
-Very old stuff sorry, but could you explain the skb_pull(skb, ETH_HLEN)
-for e_vc/p_routed ?
-
-netdevice is declared like this:
-
-	netdev->hard_header_len = 0;
-	netdev->type = ARPHRD_PPP;
-	netdev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-
-so there should be no ethernet header to remove.
-
-
-Regards,
-
--- 
-Maxime
-
+Best regards
+Gerrit
