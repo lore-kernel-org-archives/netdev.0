@@ -1,46 +1,30 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 33/33] Enable netfilter in netns
-Date: Thu, 02 Oct 2008 11:12:08 +0200
-Message-ID: <48E49068.5070305@trash.net>
-References: <48C01046.2070704@trash.net> <1220842990-30500-33-git-send-email-adobriyan@gmail.com>
+Subject: Re: [net-next PATCH 12/16] Split Netfilter IPv4 defragmentation into
+ a	separate module
+Date: Thu, 02 Oct 2008 11:18:00 +0200
+Message-ID: <48E491C8.6080506@trash.net>
+References: <20081001142431.4893.48078.stgit@este> <20081001142431.4893.63510.stgit@este>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: KOVACS Krisztian <hidden@sch.bme.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52487 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52639 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754665AbYJBJNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 05:13:08 -0400
-In-Reply-To: <1220842990-30500-33-git-send-email-adobriyan@gmail.com>
+	with ESMTP id S1752832AbYJBJTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 05:19:02 -0400
+In-Reply-To: <20081001142431.4893.63510.stgit@este>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> >From kernel perspective, allow entrance in nf_hook_slow().
+KOVACS Krisztian wrote:
+> Netfilter connection tracking requires all IPv4 packets to be defragmented.
+> Both the socket match and the TPROXY target depend on this functionality, so
+> this patch separates the Netfilter IPv4 defrag hooks into a separate module.
 >
-> Stuff which uses nf_register_hook/nf_register_hooks, but otherwise not netns-ready:
->
-> 	DECnet netfilter
-> 	ipt_CLUSTERIP
-> 	nf_nat_standalone.c together with XFRM (?)
-> 	IPVS
-> 	several individual match modules (like hashlimit)
-> 	ctnetlink
-> 	NOTRACK
-> 	all sorts of queueing and reporting to userspace
-> 	L3 and L4 protocol sysctls, bridge sysctls
-> 	probably something else
->
-> Anyway critical mass has been achieved, there is no reason to hide netfilter any longer.
->
-> >From userspace perspective, allow to manipulate all sorts of                                                                                                                                                                                   
-> iptables/ip6tables/arptables rules.
 >   
 
-Applied. thanks Alexey.
-
-Is there an easy way to test all this stuff?
+Applied, thanks.
 
