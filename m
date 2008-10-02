@@ -1,255 +1,67 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH] e1000e: write protect ICHx NVM to prevent malicious
-	write/erase
-Date: Wed, 01 Oct 2008 17:18:35 -0700
-Message-ID: <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
-References: <20081002001830.5951.3123.stgit@jbrandeb-bw.jf.intel.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] e1000e: write protect ICHx NVM to prevent malicious
+ write/erase
+Date: Wed, 1 Oct 2008 17:42:02 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0810011731350.3341@nehalem.linux-foundation.org>
+References: <20081002001830.5951.3123.stgit@jbrandeb-bw.jf.intel.com> <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@linux.intel.com, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	arjan@linux.intel.com
-To: torvalds@linux-foundation.org, jeff@garzik.org, davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jeff@garzik.org, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, arjan@linux.intel.com,
+	Bruce Allan <bruce.w.allan@intel.com>, arjan@linux.intel.com
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56968 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752807AbYJBASh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2008 20:18:37 -0400
-In-Reply-To: <20081002001830.5951.3123.stgit@jbrandeb-bw.jf.intel.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47613 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751846AbYJBAol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 20:44:41 -0400
+In-Reply-To: <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
 
-Set the hardware to ignore all write/erase cycles to the GbE region in
-the ICHx NVM.  This feature can be disabled by the WriteProtectNVM module
-parameter (enabled by default) only after a hardware reset, but
-the machine must be power cycled before trying to enable writes.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: arjan@linux.intel.com
----
+On Wed, 1 Oct 2008, Jesse Brandeburg wrote:
+>
+> From: Bruce Allan <bruce.w.allan@intel.com>
+> 
+> Set the hardware to ignore all write/erase cycles to the GbE region in
+> the ICHx NVM.  This feature can be disabled by the WriteProtectNVM module
+> parameter (enabled by default) only after a hardware reset, but
+> the machine must be power cycled before trying to enable writes.
 
- drivers/net/e1000e/e1000.h   |    2 +
- drivers/net/e1000e/ethtool.c |    3 ++
- drivers/net/e1000e/ich8lan.c |   58 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/e1000e/netdev.c  |   10 +++++--
- drivers/net/e1000e/param.c   |   30 ++++++++++++++++++++++
- 5 files changed, 100 insertions(+), 3 deletions(-)
+Thanks, applied.
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index ac4e506..f0c48a2 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -305,6 +305,7 @@ struct e1000_info {
- #define FLAG_HAS_CTRLEXT_ON_LOAD          (1 << 5)
- #define FLAG_HAS_SWSM_ON_LOAD             (1 << 6)
- #define FLAG_HAS_JUMBO_FRAMES             (1 << 7)
-+#define FLAG_READ_ONLY_NVM                (1 << 8)
- #define FLAG_IS_ICH                       (1 << 9)
- #define FLAG_HAS_SMART_POWER_DOWN         (1 << 11)
- #define FLAG_IS_QUAD_PORT_A               (1 << 12)
-@@ -385,6 +386,7 @@ extern bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
- extern bool e1000e_get_laa_state_82571(struct e1000_hw *hw);
- extern void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state);
- 
-+extern void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw);
- extern void e1000e_set_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw,
- 						 bool state);
- extern void e1000e_igp3_phy_powerdown_workaround_ich8lan(struct e1000_hw *hw);
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index e21c9e0..5ed8e13 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -529,6 +529,9 @@ static int e1000_set_eeprom(struct net_device *netdev,
- 	if (eeprom->magic != (adapter->pdev->vendor | (adapter->pdev->device << 16)))
- 		return -EFAULT;
- 
-+	if (adapter->flags & FLAG_READ_ONLY_NVM)
-+		return -EINVAL;
-+
- 	max_len = hw->nvm.word_size * 2;
- 
- 	first_word = eeprom->offset >> 1;
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 9e38452..d8efba8 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -58,6 +58,7 @@
- #define ICH_FLASH_HSFCTL		0x0006
- #define ICH_FLASH_FADDR			0x0008
- #define ICH_FLASH_FDATA0		0x0010
-+#define ICH_FLASH_PR0			0x0074
- 
- #define ICH_FLASH_READ_COMMAND_TIMEOUT	500
- #define ICH_FLASH_WRITE_COMMAND_TIMEOUT	500
-@@ -150,6 +151,19 @@ union ich8_hws_flash_regacc {
- 	u16 regval;
- };
- 
-+/* ICH Flash Protected Region */
-+union ich8_flash_protected_range {
-+	struct ich8_pr {
-+		u32 base:13;     /* 0:12 Protected Range Base */
-+		u32 reserved1:2; /* 13:14 Reserved */
-+		u32 rpe:1;       /* 15 Read Protection Enable */
-+		u32 limit:13;    /* 16:28 Protected Range Limit */
-+		u32 reserved2:2; /* 29:30 Reserved */
-+		u32 wpe:1;       /* 31 Write Protection Enable */
-+	} range;
-+	u32 regval;
-+};
-+
- static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw);
- static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw);
- static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw);
-@@ -1284,6 +1298,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	 * programming failed.
- 	 */
- 	if (ret_val) {
-+		/* Possibly read-only, see e1000e_write_protect_nvm_ich8lan() */
- 		hw_dbg(hw, "Flash commit failed.\n");
- 		e1000_release_swflag_ich8lan(hw);
- 		return ret_val;
-@@ -1374,6 +1389,49 @@ static s32 e1000_validate_nvm_checksum_ich8lan(struct e1000_hw *hw)
- }
- 
- /**
-+ *  e1000e_write_protect_nvm_ich8lan - Make the NVM read-only
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  To prevent malicious write/erase of the NVM, set it to be read-only
-+ *  so that the hardware ignores all write/erase cycles of the NVM via
-+ *  the flash control registers.  The shadow-ram copy of the NVM will
-+ *  still be updated, however any updates to this copy will not stick
-+ *  across driver reloads.
-+ **/
-+void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw)
-+{
-+	union ich8_flash_protected_range pr0;
-+	union ich8_hws_flash_status hsfsts;
-+	u32 gfpreg;
-+	s32 ret_val;
-+
-+	ret_val = e1000_acquire_swflag_ich8lan(hw);
-+	if (ret_val)
-+		return;
-+
-+	gfpreg = er32flash(ICH_FLASH_GFPREG);
-+
-+	/* Write-protect GbE Sector of NVM */
-+	pr0.regval = er32flash(ICH_FLASH_PR0);
-+	pr0.range.base = gfpreg & FLASH_GFPREG_BASE_MASK;
-+	pr0.range.limit = ((gfpreg >> 16) & FLASH_GFPREG_BASE_MASK);
-+	pr0.range.wpe = true;
-+	ew32flash(ICH_FLASH_PR0, pr0.regval);
-+
-+	/*
-+	 * Lock down a subset of GbE Flash Control Registers, e.g.
-+	 * PR0 to prevent the write-protection from being lifted.
-+	 * Once FLOCKDN is set, the registers protected by it cannot
-+	 * be written until FLOCKDN is cleared by a hardware reset.
-+	 */
-+	hsfsts.regval = er16flash(ICH_FLASH_HSFSTS);
-+	hsfsts.hsf_status.flockdn = true;
-+	ew32flash(ICH_FLASH_HSFSTS, hsfsts.regval);
-+
-+	e1000_release_swflag_ich8lan(hw);
-+}
-+
-+/**
-  *  e1000_write_flash_data_ich8lan - Writes bytes to the NVM
-  *  @hw: pointer to the HW structure
-  *  @offset: The offset (in bytes) of the byte/word to read.
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index d266510..1f767fe 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -47,7 +47,7 @@
- 
- #include "e1000.h"
- 
--#define DRV_VERSION "0.3.3.3-k2"
-+#define DRV_VERSION "0.3.3.3-k4"
- char e1000e_driver_name[] = "e1000e";
- const char e1000e_driver_version[] = DRV_VERSION;
- 
-@@ -4467,6 +4467,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	adapter->bd_number = cards_found++;
- 
-+	e1000e_check_options(adapter);
-+
- 	/* setup adapter struct */
- 	err = e1000_sw_init(adapter);
- 	if (err)
-@@ -4482,6 +4484,10 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_hw_init;
- 
-+	if ((adapter->flags & FLAG_IS_ICH) &&
-+	    (adapter->flags & FLAG_READ_ONLY_NVM))
-+		e1000e_write_protect_nvm_ich8lan(&adapter->hw);
-+
- 	hw->mac.ops.get_bus_info(&adapter->hw);
- 
- 	adapter->hw.phy.autoneg_wait_to_complete = 0;
-@@ -4573,8 +4579,6 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	INIT_WORK(&adapter->reset_task, e1000_reset_task);
- 	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
- 
--	e1000e_check_options(adapter);
--
- 	/* Initialize link parameters. User can change them with ethtool */
- 	adapter->hw.mac.autoneg = 1;
- 	adapter->fc_autoneg = 1;
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index ed912e0..d91dbf7 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -133,6 +133,15 @@ E1000_PARAM(SmartPowerDownEnable, "Enable PHY smart power down");
-  */
- E1000_PARAM(KumeranLockLoss, "Enable Kumeran lock loss workaround");
- 
-+/*
-+ * Write Protect NVM
-+ *
-+ * Valid Range: 0, 1
-+ *
-+ * Default Value: 1 (enabled)
-+ */
-+E1000_PARAM(WriteProtectNVM, "Write-protect NVM [WARNING: disabling this can lead to corrupted NVM]");
-+
- struct e1000_option {
- 	enum { enable_option, range_option, list_option } type;
- 	const char *name;
-@@ -388,4 +397,25 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 								       opt.def);
- 		}
- 	}
-+	{ /* Write-protect NVM */
-+		const struct e1000_option opt = {
-+			.type = enable_option,
-+			.name = "Write-protect NVM",
-+			.err  = "defaulting to Enabled",
-+			.def  = OPTION_ENABLED
-+		};
-+
-+		if (adapter->flags & FLAG_IS_ICH) {
-+			if (num_WriteProtectNVM > bd) {
-+				unsigned int write_protect_nvm = WriteProtectNVM[bd];
-+				e1000_validate_option(&write_protect_nvm, &opt,
-+						      adapter);
-+				if (write_protect_nvm)
-+					adapter->flags |= FLAG_READ_ONLY_NVM;
-+			} else {
-+				if (opt.def)
-+					adapter->flags |= FLAG_READ_ONLY_NVM;
-+			}
-+		}
-+	}
- }
+One thing that I did notice when I looked at the driver is that I don't 
+see any serialization what-so-ever around a lot of the special accesses.
 
+There's all these different routines that do
+
+	ret_val = e1000_acquire_swflag_ich8lan(hw);
+	if (ret_val)
+		return retval;
+	...
+	e1000_release_swflag_ich8lan(hw);
+
+
+but as far as I can tell, there is absolutely _nothing_ that prevents 
+these from being done concurrently by software. 
+
+Yeah, yeah, I'm sure most of them end up being single-threaded and only 
+called over the probe sequence (well, at least I _hope_ so), but it sure 
+isn't obvious. People call e1000_read_nvm() from various different 
+contexts, and I'm not seeing what - if anything - protects two concurrent 
+ethtool queries, for example.
+
+Imagine that you run ethtool concurrently (even on a UP machine with 
+preemption of just a sleeping op), and tell me that having two 
+e1000_acquire_swflag_ich8lan/e1000_release_swflag_ich8lan sequences nest 
+(or overlap) works. I don't think it does.
+
+That E1000_EXTCNF_CTRL_SWFLAG is _not_ a lock against other threads, it's 
+purely a lock against the hardware itself. And maybe I'm missing some 
+locking, but I can't see it.
+
+Same goes for the PHY accesses etc afaik. Hmm?
+
+		Linus
