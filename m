@@ -1,7 +1,7 @@
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH 2.6.27-rc8 3/6] e1000e: remove phy read from inside spinlock
-Date: Thu, 02 Oct 2008 16:33:30 -0700
-Message-ID: <20081002233330.12556.79763.stgit@jbrandeb-bw.jf.intel.com>
+Subject: [PATCH 2.6.27-rc8 5/6] e1000e: debug contention on NVM SWFLAG
+Date: Thu, 02 Oct 2008 16:33:40 -0700
+Message-ID: <20081002233340.12556.33137.stgit@jbrandeb-bw.jf.intel.com>
 References: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,91 +9,80 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	tglx@linutronix.de, arjan@linux.intel.com, airlied@gmail.com,
 	davem@davemloft.net, jeff@garzik.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>
+	Thomas Gleixner <tglx@linutronix.de>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:65208 "EHLO mga14.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:57967 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755687AbYJBXdk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 19:33:40 -0400
+	id S1755702AbYJBXdl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 19:33:41 -0400
 In-Reply-To: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-thanks to tglx, we're finding some interesting reentrancy issues.
-this patch removes the phy read from inside a spinlock, paving
-the way for removing the spinlock completely.  The phy read was
-only feeding a statistic that wasn't used.
+From: Thomas Gleixner <tglx@linutronix.de>
 
+This patch adds a mutex to the e1000e driver that would help
+catch any collisions of two e1000e threads accessing hardware
+at the same time.
+
+description and patch updated by Jesse
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Thomas Gleixner <tglx@linutronix.de>
 ---
 
- drivers/net/e1000e/ethtool.c |    6 +++++-
- drivers/net/e1000e/netdev.c  |   13 -------------
- 2 files changed, 5 insertions(+), 14 deletions(-)
+ drivers/net/e1000e/ich8lan.c |   17 +++++++++++++++++
+ 1 files changed, 17 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 5ed8e13..33a3ff1 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -432,6 +432,10 @@ static void e1000_get_regs(struct net_device *netdev,
- 	regs_buff[11] = er32(TIDV);
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index f4b6744..0b6095b 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -380,6 +380,9 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
+ 	return 0;
+ }
  
- 	regs_buff[12] = adapter->hw.phy.type;  /* PHY type (IGP=1, M88=0) */
++static DEFINE_MUTEX(nvm_mutex);
++static pid_t nvm_owner = -1;
 +
-+	/* ethtool doesn't use anything past this point, so all this
-+	 * code is likely legacy junk for apps that may or may not
-+	 * exist */
- 	if (hw->phy.type == e1000_phy_m88) {
- 		e1e_rphy(hw, M88E1000_PHY_SPEC_STATUS, &phy_data);
- 		regs_buff[13] = (u32)phy_data; /* cable length */
-@@ -447,7 +451,7 @@ static void e1000_get_regs(struct net_device *netdev,
- 		regs_buff[22] = adapter->phy_stats.receive_errors;
- 		regs_buff[23] = regs_buff[13]; /* mdix mode */
+ /**
+  *  e1000_acquire_swflag_ich8lan - Acquire software control flag
+  *  @hw: pointer to the HW structure
+@@ -393,6 +396,15 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
+ 	u32 extcnf_ctrl;
+ 	u32 timeout = PHY_CFG_TIMEOUT;
+ 
++	WARN_ON(preempt_count());
++
++	if (!mutex_trylock(&nvm_mutex)) {
++		WARN(1, KERN_ERR "e1000e mutex contention. Owned by pid %d\n",
++		     nvm_owner);
++		mutex_lock(&nvm_mutex);
++	}
++	nvm_owner = current->pid;
++
+ 	while (timeout) {
+ 		extcnf_ctrl = er32(EXTCNF_CTRL);
+ 		extcnf_ctrl |= E1000_EXTCNF_CTRL_SWFLAG;
+@@ -407,6 +419,8 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
+ 
+ 	if (!timeout) {
+ 		hw_dbg(hw, "FW or HW has locked the resource for too long.\n");
++		nvm_owner = -1;
++		mutex_unlock(&nvm_mutex);
+ 		return -E1000_ERR_CONFIG;
  	}
--	regs_buff[21] = adapter->phy_stats.idle_errors;  /* phy idle errors */
-+	regs_buff[21] = 0; /* was idle_errors */
- 	e1e_rphy(hw, PHY_1000T_STATUS, &phy_data);
- 	regs_buff[24] = (u32)phy_data;  /* phy local receiver status */
- 	regs_buff[25] = regs_buff[24];  /* phy remote receiver status */
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 803545b..835b692 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -2954,9 +2954,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
- 	unsigned long irq_flags;
--	u16 phy_tmp;
--
--#define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
  
- 	/*
- 	 * Prevent stats update while adapter is being reset, or if the pci
-@@ -3045,15 +3042,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+@@ -428,6 +442,9 @@ static void e1000_release_swflag_ich8lan(struct e1000_hw *hw)
+ 	extcnf_ctrl = er32(EXTCNF_CTRL);
+ 	extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
+ 	ew32(EXTCNF_CTRL, extcnf_ctrl);
++
++	nvm_owner = -1;
++	mutex_unlock(&nvm_mutex);
+ }
  
- 	/* Tx Dropped needs to be maintained elsewhere */
- 
--	/* Phy Stats */
--	if (hw->phy.media_type == e1000_media_type_copper) {
--		if ((adapter->link_speed == SPEED_1000) &&
--		   (!e1e_rphy(hw, PHY_1000T_STATUS, &phy_tmp))) {
--			phy_tmp &= PHY_IDLE_ERROR_COUNT_MASK;
--			adapter->phy_stats.idle_errors += phy_tmp;
--		}
--	}
--
- 	/* Management Stats */
- 	adapter->stats.mgptc += er32(MGTPTC);
- 	adapter->stats.mgprc += er32(MGTPRC);
-@@ -3073,7 +3061,6 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
- 	int ret_val;
- 	unsigned long irq_flags;
- 
--
- 	spin_lock_irqsave(&adapter->stats_lock, irq_flags);
- 
- 	if ((er32(STATUS) & E1000_STATUS_LU) &&
+ /**
 
