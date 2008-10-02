@@ -1,40 +1,36 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when gc_elasticity is exceeded
-Date: Thu, 2 Oct 2008 11:16:31 +0400
-Message-ID: <20081002071631.GB20406@2ka.mipt.ru>
-References: <48E141F3.9000903@cosmosbay.com> <20080929223801.GA3157@hmsreliant.think-freely.org> <48E1C104.2080801@cosmosbay.com> <20080930.071023.07946874.davem@davemloft.net> <48E25F02.8030303@cosmosbay.com> <20080930184249.GC6496@hmsreliant.think-freely.org>
+Subject: Re: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver skb recycling
+Date: Thu, 2 Oct 2008 11:17:38 +0400
+Message-ID: <20081002071738.GC20406@2ka.mipt.ru>
+References: <20080928204633.GB19070@xi.wantstofly.org> <20080928213824.GA25298@2ka.mipt.ru> <20080928215035.GG19070@xi.wantstofly.org> <20080929053931.GB21663@2ka.mipt.ru> <20080929094650.GA26097@xi.wantstofly.org> <20080929143327.GA27601@2ka.mipt.ru> <20080930030836.GE3251@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Ram.Natarajan@Emulex.Com,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Ashish Karkare <akarkare@marvell.com>,
+	Nicolas Pitre <nico@cam.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:39171 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:48400 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751740AbYJBHSM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2008 03:18:12 -0400
+	id S1752327AbYJBHTS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 03:19:18 -0400
 Content-Disposition: inline
-In-Reply-To: <20080930184249.GC6496@hmsreliant.think-freely.org>
+In-Reply-To: <20080930030836.GE3251@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+Hi Lennert.
 
-On Tue, Sep 30, 2008 at 02:42:49PM -0400, Neil Horman (nhorman@tuxdriver.com) wrote:
-> I think what you're looking for here is a simple standard deviation, isn't it?
-> Compute the mean chain legnth, sum the squares of the deviations of each chain
-> and take the square root.  Any individual chain longer than the mean chain
-> length + 1 standard deviation can be considered an 'outlier' and therefore
-> trigger a rebuild of the table for that net namespace.
+On Tue, Sep 30, 2008 at 05:08:36AM +0200, Lennert Buytenhek (buytenh@wantstofly.org) wrote:
+> > Well, this one does not have any effect, since it is not used in any
+> > datapath, and I do not have mv643 boards :)
 > 
-> I full well realize that thats easier said than done, but does that seem about
-> right?  If so, I can start working on trying to build something to accomplish
-> that.
+> I meant to port it to one of the drivers you use, of course. :)
 
-You are right, but in kernel it may not that simple to get a square
-root... We can probably play with logarithms though.
+I can try to work with e1000 if time permits, that's the only NICs I
+have connected to fast links. But main part of the sentence is "if time
+permits" :)
 
 -- 
 	Evgeniy Polyakov
