@@ -1,31 +1,24 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 00/32] Swap over NFS - v19
-Date: Thu, 2 Oct 2008 12:47:48 -0700
-Message-ID: <20081002124748.638c95ff.akpm@linux-foundation.org>
-References: <20081002130504.927878499@chello.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] dccp: First part of feature-negotiation patch set
+Date: Thu, 02 Oct 2008 12:52:52 -0700 (PDT)
+Message-ID: <20081002.125252.202124982.davem@davemloft.net>
+References: <20080924052305.GC4944@gerrit.erg.abdn.ac.uk>
+	<20080924135954.GJ9588@ghostprotocols.net>
+	<20081002050546.GA6910@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40229 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754093AbYJBTtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 15:49:06 -0400
-In-Reply-To: <20081002130504.927878499@chello.nl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48654
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755086AbYJBTxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 15:53:05 -0400
+In-Reply-To: <20081002050546.GA6910@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 02 Oct 2008 15:05:04 +0200 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
 
-> Let's get this ball rolling...
-
-I don't think we're really able to get any MM balls rolling until we
-get all the split-LRU stuff landed.  Is anyone testing it?  Is it good?
-
+Please resend all 5 patches, that's what I've waiting
+for you to do.
