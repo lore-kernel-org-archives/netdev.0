@@ -1,40 +1,34 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [PATCH] e1000e: write protect ICHx NVM to prevent malicious write/erase
-Date: Wed, 01 Oct 2008 18:33:31 -0700
-Message-ID: <48E424EB.1000204@linux.intel.com>
-References: <20081002001830.5951.3123.stgit@jbrandeb-bw.jf.intel.com> <20081002001835.5951.82533.stgit@jbrandeb-bw.jf.intel.com> <alpine.LFD.2.00.0810011731350.3341@nehalem.linux-foundation.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [RFC,PATCHv2 0/3] phylib: give mdio buses a device tree presence
+Date: Thu, 2 Oct 2008 03:41:21 +0200
+Message-ID: <20081002014121.GA26575@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>, jeff@garzik.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Byron Bradley <byron.bbradley@gmail.com>,
+	Tim Ellis <tim.ellis@mac.com>, Imre Kaloz <kaloz@openwrt.org>,
+	Nicolas Pitre <nico@cam.org>, Dirk Teurlings <dirk@upexia.nl>,
+	Peter van Valderen <p.v.valderen@gmail.com>
+To: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:25140 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751807AbYJBBdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 21:33:40 -0400
-In-Reply-To: <alpine.LFD.2.00.0810011731350.3341@nehalem.linux-foundation.org>
+Received: from xi.wantstofly.org ([83.160.184.112]:42373 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769AbYJBBlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2008 21:41:24 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds wrote:
-> 
-> On Wed, 1 Oct 2008, Jesse Brandeburg wrote:
->> From: Bruce Allan <bruce.w.allan@intel.com>
->>
->> Set the hardware to ignore all write/erase cycles to the GbE region in
->> the ICHx NVM.  This feature can be disabled by the WriteProtectNVM module
->> parameter (enabled by default) only after a hardware reset, but
->> the machine must be power cycled before trying to enable writes.
-> 
-> Thanks, applied.
-> 
-> One thing that I did notice when I looked at the driver is that I don't 
-> see any serialization what-so-ever around a lot of the special accesses.
-> 
+This patch series hooks up mdio buses (struct mii_bus) into the device
+tree, so that they show up in sysfs and can be found by walking the
+device tree.
 
-there's quite a few of that yes.
-These are all fixed afaik but these fixes are being queued for 2.6.28 rather than being snuck in late into .27
-(the patches have been posted to lkml a few times the last week)
+The main intended user for this is the DSA switch driver, but there
+might be other uses as well.
+
+Changes between v1 and v2:
+- Add back accidentally deleted error handling from
+  drivers/net/phy/mdio-bitbang.c (Andy Fleming).
+- Deal with mdiobus_register() after mdiobus_unregister() properly.
+- Make phy_read()/phy_write() inline functions and move them to
+  include/linux/phy.h (Trent Piepho, Andy Fleming).
+- Fix compilation of tc35815.
