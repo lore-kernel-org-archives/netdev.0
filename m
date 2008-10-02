@@ -1,51 +1,57 @@
-From: Jay Cliburn <jcliburn@gmail.com>
-Subject: Re: atl2 network driver status
-Date: Thu, 2 Oct 2008 18:29:43 -0500
-Message-ID: <20081002182943.0264f7fa@osprey.hogchain.net>
-References: <20081002230246.GA11570@kroah.com>
-	<20081002181731.6b8f563d@osprey.hogchain.net>
-	<20081002232148.GA20003@kroah.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [PATCH 2.6.27-rc8 0/6] e1000e mutex protection
+Date: Thu, 02 Oct 2008 16:33:14 -0700
+Message-ID: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: xiong.huang@atheros.com, csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	tglx@linutronix.de, arjan@linux.intel.com, airlied@gmail.com,
+	davem@davemloft.net, jeff@garzik.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.245]:47975 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753368AbYJBX3t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 19:29:49 -0400
-Received: by hs-out-0708.google.com with SMTP id 4so396297hsl.5
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2008 16:29:47 -0700 (PDT)
-In-Reply-To: <20081002232148.GA20003@kroah.com>
+Received: from mga02.intel.com ([134.134.136.20]:30429 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752596AbYJBXdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 19:33:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Oct 2008 16:21:48 -0700
-Greg KH <greg@kroah.com> wrote:
+This series of patches fixes several bugs found by putting a
+mutex inside e1000_acquire_swfw_flag, and then the patch from
+Thomas actually adds this mutex to help find any further bugs.
 
-> On Thu, Oct 02, 2008 at 06:17:31PM -0500, Jay Cliburn wrote:
-> > On Thu, 2 Oct 2008 16:02:46 -0700
-> > Greg KH <greg@kroah.com> wrote:
-> > 
-> > > Hi,
-> > > 
-> > > In looking for drivers to add to drivers/staging/ I ran across the
-> > > atl2 driver that is currently in the Fedora and Ubuntu kernel
-> > > trees.
-> > > 
-> > > This driver doesn't look to be scheduled for inclusion in the
-> > > upstream netdev git tree for submission for 2.6.28, is there any
-> > > reason why it is still out-of-the-tree?
-> > 
-> > Hi Greg,
-> > 
-> > It's in net-next-2.6.
-> > 
-> > http://marc.info/?l=linux-netdev&m=122144021209242&w=2
-> 
-> Nice, so that means it's going to be in 2.6.28?
+Like Jesse Barnes said, "totally up to you (obviously) whether we
+stuff this into 2.6.27 or hold on it until 2.6.28."
 
-I think so.  As I understand it, net-next-2.6 is Dave Miller's git tree
-for stuff destined for 2.6.28.
+Linus, since you mentioned this exact same issue that Thomas (and
+Dave Airlie) spotted I figured I should just send these.
+Testing will continue over the next couple of days and I'll let
+you know immediately if we find something.
+
+The patches are pretty straight forward and each one fixed a
+separate bug we found using the mutex patch.  It is possible that
+these fix the actual corruption issue but we haven't verified
+that yet.
+
+---
+
+Jesse Brandeburg (5):
+      e1000e: update version from k4 to k6
+      e1000e: drop stats lock
+      e1000e: remove phy read from inside spinlock
+      e1000e: do not ever sleep in interrupt context
+      e1000e: reset swflag after resetting hardware
+
+Thomas Gleixner (1):
+      e1000e: debug contention on NVM SWFLAG
+
+
+ drivers/net/e1000e/e1000.h   |    3 +-
+ drivers/net/e1000e/ethtool.c |    6 +++-
+ drivers/net/e1000e/ich8lan.c |   20 +++++++++++++
+ drivers/net/e1000e/netdev.c  |   64 +++++++++++++++++++-----------------------
+ 4 files changed, 56 insertions(+), 37 deletions(-)
+
+-- 
+Jesse Brandeburg
