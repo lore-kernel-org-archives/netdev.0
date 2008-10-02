@@ -1,7 +1,7 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-next 9/9] netns: make uplitev6 mib per/namespace
-Date: Thu,  2 Oct 2008 14:14:12 +0400
-Message-ID: <1222942452-9820-9-git-send-email-den@openvz.org>
+Subject: [PATCH net-next 1/9] netns: move /proc/net/dev_snmp6 to struct net
+Date: Thu,  2 Oct 2008 14:14:04 +0400
+Message-ID: <1222942452-9820-1-git-send-email-den@openvz.org>
 References: <1222942394.6327.5.camel@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,129 +25,89 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- include/net/netns/mib.h |    1 +
- include/net/udp.h       |   11 ++++-------
- net/ipv6/af_inet6.c     |   14 ++++++++------
- net/ipv6/proc.c         |    3 ++-
- net/ipv6/udplite.c      |    2 --
- 5 files changed, 15 insertions(+), 16 deletions(-)
+ include/net/netns/mib.h |    4 ++++
+ net/ipv6/proc.c         |   20 +++++++++++---------
+ 2 files changed, 15 insertions(+), 9 deletions(-)
 
 diff --git a/include/net/netns/mib.h b/include/net/netns/mib.h
-index ba622b2..4e58f05 100644
+index 4491476..ffcef5d 100644
 --- a/include/net/netns/mib.h
 +++ b/include/net/netns/mib.h
-@@ -15,6 +15,7 @@ struct netns_mib {
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	struct proc_dir_entry *proc_net_devsnmp6;
- 	DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6);
-+	DEFINE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
- #endif
+@@ -11,6 +11,10 @@ struct netns_mib {
+ 	DEFINE_SNMP_STAT(struct udp_mib, udplite_statistics);
+ 	DEFINE_SNMP_STAT(struct icmp_mib, icmp_statistics);
+ 	DEFINE_SNMP_STAT(struct icmpmsg_mib, icmpmsg_statistics);
++
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	struct proc_dir_entry *proc_net_devsnmp6;
++#endif
  };
  
-diff --git a/include/net/udp.h b/include/net/udp.h
-index e2a5de9..bd0d21a 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -148,9 +148,6 @@ extern int 	udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 				   char __user *optval, int optlen,
- 				   int (*push_pending_frames)(struct sock *));
- 
--/* UDP-Lite does not have a standardized MIB yet, so we inherit from UDP */
--DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
--
- /*
-  * 	SNMP statistics for UDP and UDP-Lite
-  */
-@@ -162,12 +159,12 @@ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
- 	else		SNMP_INC_STATS_BH((net)->mib.udp_statistics, field);    }  while(0)
- 
- #define UDP6_INC_STATS_BH(net, field, is_udplite) 	    do { \
--	if (is_udplite) SNMP_INC_STATS_BH(udplite_stats_in6, field);         \
-+	if (is_udplite) SNMP_INC_STATS_BH((net)->mib.udplite_stats_in6, field);\
- 	else		SNMP_INC_STATS_BH((net)->mib.udp_stats_in6, field);  \
- } while(0)
--#define UDP6_INC_STATS_USER(net, field, is_udplite)	    do { \
--	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
--	else		SNMP_INC_STATS_USER((net)->mib.udp_stats_in6, field);  \
-+#define UDP6_INC_STATS_USER(net, field, __lite)		    do { \
-+	if (__lite) SNMP_INC_STATS_USER((net)->mib.udplite_stats_in6, field);  \
-+	else	    SNMP_INC_STATS_USER((net)->mib.udp_stats_in6, field);      \
- } while(0)
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index f2933b2..7da9146 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -805,13 +805,8 @@ static int __init init_ipv6_mibs(void)
- 	if (snmp_mib_init((void **)icmpv6msg_statistics,
- 			  sizeof(struct icmpv6msg_mib)) < 0)
- 		goto err_icmpmsg_mib;
--	if (snmp_mib_init((void **)udplite_stats_in6,
--			  sizeof (struct udp_mib)) < 0)
--		goto err_udplite_mib;
- 	return 0;
- 
--err_udplite_mib:
--	snmp_mib_free((void **)icmpv6msg_statistics);
- err_icmpmsg_mib:
- 	snmp_mib_free((void **)icmpv6_statistics);
- err_icmp_mib:
-@@ -826,7 +821,6 @@ static void cleanup_ipv6_mibs(void)
- 	snmp_mib_free((void **)ipv6_statistics);
- 	snmp_mib_free((void **)icmpv6_statistics);
- 	snmp_mib_free((void **)icmpv6msg_statistics);
--	snmp_mib_free((void **)udplite_stats_in6);
- }
- 
- static int __net_init ipv6_init_mibs(struct net *net)
-@@ -834,12 +828,20 @@ static int __net_init ipv6_init_mibs(struct net *net)
- 	if (snmp_mib_init((void **)net->mib.udp_stats_in6,
- 			  sizeof (struct udp_mib)) < 0)
- 		return -ENOMEM;
-+	if (snmp_mib_init((void **)net->mib.udplite_stats_in6,
-+			  sizeof (struct udp_mib)) < 0)
-+		goto err_udplite_mib;
- 	return 0;
-+
-+err_udplite_mib:
-+	snmp_mib_free((void **)net->mib.udp_stats_in6);
-+	return -ENOMEM;
- }
- 
- static void __net_exit ipv6_cleanup_mibs(struct net *net)
- {
- 	snmp_mib_free((void **)net->mib.udp_stats_in6);
-+	snmp_mib_free((void **)net->mib.udplite_stats_in6);
- }
- 
- static int inet6_net_init(struct net *net)
+ #endif
 diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 3eaf20b..c78cf75 100644
+index 0179b66..16ebf85 100644
 --- a/net/ipv6/proc.c
 +++ b/net/ipv6/proc.c
-@@ -182,7 +182,8 @@ static int snmp6_seq_show(struct seq_file *seq, void *v)
- 	snmp6_seq_show_icmpv6msg(seq, (void **)icmpv6msg_statistics);
- 	snmp6_seq_show_item(seq, (void **)net->mib.udp_stats_in6,
- 			    snmp6_udp6_list);
--	snmp6_seq_show_item(seq, (void **)udplite_stats_in6, snmp6_udplite6_list);
-+	snmp6_seq_show_item(seq, (void **)net->mib.udplite_stats_in6,
-+			    snmp6_udplite6_list);
+@@ -29,8 +29,6 @@
+ #include <net/transp_v6.h>
+ #include <net/ipv6.h>
+ 
+-static struct proc_dir_entry *proc_net_devsnmp6;
+-
+ static int sockstat6_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct net *net = seq->private;
+@@ -210,18 +208,20 @@ static const struct file_operations snmp6_seq_fops = {
+ int snmp6_register_dev(struct inet6_dev *idev)
+ {
+ 	struct proc_dir_entry *p;
++	struct net *net;
+ 
+ 	if (!idev || !idev->dev)
+ 		return -EINVAL;
+ 
+-	if (!net_eq(dev_net(idev->dev), &init_net))
++	net = dev_net(idev->dev);
++	if (!net_eq(net, &init_net))
+ 		return 0;
+ 
+-	if (!proc_net_devsnmp6)
++	if (!net->mib.proc_net_devsnmp6)
+ 		return -ENOENT;
+ 
+ 	p = proc_create_data(idev->dev->name, S_IRUGO,
+-			     proc_net_devsnmp6, &snmp6_seq_fops, idev);
++			     net->mib.proc_net_devsnmp6, &snmp6_seq_fops, idev);
+ 	if (!p)
+ 		return -ENOMEM;
+ 
+@@ -231,12 +231,13 @@ int snmp6_register_dev(struct inet6_dev *idev)
+ 
+ int snmp6_unregister_dev(struct inet6_dev *idev)
+ {
+-	if (!proc_net_devsnmp6)
++	struct net *net = dev_net(idev->dev);
++	if (!net->mib.proc_net_devsnmp6)
+ 		return -ENOENT;
+ 	if (!idev || !idev->stats.proc_dir_entry)
+ 		return -EINVAL;
+ 	remove_proc_entry(idev->stats.proc_dir_entry->name,
+-			  proc_net_devsnmp6);
++			  net->mib.proc_net_devsnmp6);
+ 	idev->stats.proc_dir_entry = NULL;
  	return 0;
  }
+@@ -269,8 +270,9 @@ int __init ipv6_misc_proc_init(void)
+ 	if (!proc_net_fops_create(&init_net, "snmp6", S_IRUGO, &snmp6_seq_fops))
+ 		goto proc_snmp6_fail;
  
-diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
-index f6cdcb3..3cd1a1a 100644
---- a/net/ipv6/udplite.c
-+++ b/net/ipv6/udplite.c
-@@ -13,8 +13,6 @@
-  */
- #include "udp_impl.h"
- 
--DEFINE_SNMP_STAT(struct udp_mib, udplite_stats_in6) __read_mostly;
--
- static int udplitev6_rcv(struct sk_buff *skb)
- {
- 	return __udp6_lib_rcv(skb, udplite_hash, IPPROTO_UDPLITE);
+-	proc_net_devsnmp6 = proc_mkdir("dev_snmp6", init_net.proc_net);
+-	if (!proc_net_devsnmp6)
++	init_net.mib.proc_net_devsnmp6 =
++		proc_mkdir("dev_snmp6", init_net.proc_net);
++	if (!init_net.mib.proc_net_devsnmp6)
+ 		goto proc_dev_snmp6_fail;
+ out:
+ 	return rc;
 -- 
 1.5.3.rc5
