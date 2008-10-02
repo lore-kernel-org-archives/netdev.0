@@ -1,70 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: deadlock during net device unregistration - V2
-Date: Thu, 2 Oct 2008 22:34:35 +0200
-Message-ID: <20081002203435.GC2664@ami.dom.local>
-References: <20081001.025935.257260146.davem@davemloft.net> <48E34C82.2040306@fr.ibm.com> <20081001.031243.255655293.davem@davemloft.net> <20081001141432.470106980@theryb.frec.bull.fr> <20081001194825.GA2520@ami.dom.local> <48E3E64E.50106@fr.ibm.com> <20081001233152.GA2411@ami.dom.local> <48E4E772.2020208@bull.net> <20081002183819.GA2664@ami.dom.local> <20081002215502.q9and4a6kg4cs0o8@intran0x.frec.bull.fr>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround (fwd)
+Date: Thu, 2 Oct 2008 17:56:59 -0300
+Message-ID: <48e535a0.0504c00a.2dfa.00f2@mx.google.com>
+References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
+	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
+	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
+	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
+	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
+	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
+	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Benjamin Thery <Benjamin.Thery@bull.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.181]:12358 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754740AbYJBUdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 16:33:15 -0400
-Received: by ik-out-1112.google.com with SMTP id c30so851990ika.5
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2008 13:33:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20081002215502.q9and4a6kg4cs0o8@intran0x.frec.bull.fr>
+Received: from wf-out-1314.google.com ([209.85.200.169]:54874 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754121AbYJBU5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 16:57:07 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so1287259wfd.4
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2008 13:57:05 -0700 (PDT)
+In-Reply-To: <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 02, 2008 at 09:55:02PM +0200, Benjamin Thery  wrote:
-> Quoting Jarek Poplawski <jarkao2@gmail.com>:
-...
->> As a matter of fact I've thought about something even simpler, which
->> probably should help for all above concerns too:
->>
->> 	if (event == NETDEV_UNREGISTER)
->>   	        dst_gc_task(&dst_gc_work.work);
->>
->> dst_gc_task() locking allows for this, and running this two times in
->> a row could be even faster than trying to cancel the unnecessary run.
->
-> I've thought a bit more about my last proposal and come to the same
-> conclusion as you, hmm, almost. I thought we could call
-> cancel_delayed_work() unconditionally and then dst_gc_task().
->
->  	if (event == NETDEV_UNREGISTER) {
->                 cancel_delayed_work(&dst_gc_work);
->    	        dst_gc_task(&dst_gc_work.work);
->         }
->
-> But, you're right, calling only dst_gc_task() seems fine to me.
+On Thu, 2 Oct 2008 21:16:32 +0200 (CEST)
+Thomas Gleixner <tglx@linutronix.de> wrote:
 
-I'm OK with any of these versions.
+> Hmm, not sure. sudo is a different beast. All I can see in the trace
+> is that reiserfs is turning itself in circles (which is nothing new),
+> but there is nothing which might tell us about a stall. At the point
+> where you stopped the trace the relevant info was already replaced by
+> new stuff. It's a circular buffer which gets overwritten.
 
->
-> I'll run some tests tomorrow and send a new patch.
->
-> Do we agree that this fix (calling dst_gc_task() in dst_dev_event())
-> is better/more appropriate than the first one (replacing rtnl_unlock()
-> by the non-blocking __rtnl_unlock() in linkwatch_event())?
+	Ok, no problem.
 
-I agree it's more appropriate, because:
-a) the job is done according to the rules (in the comment) during
-   the notification and not in some future,
-b) it removes some hidden dependencies between processes/works, which,
-   even if they currently don't exist except this one in the linkwatch,
-   could be extremly hard to diagnose, if added accidentally in the
-   future.
+	I'll keep waiting for a stall on the server-side..
 
-On the other hand, until we are not sure of the reasons, why something
-like this (the full destroying) was avoided in the past, and until it's
-heavily tested (with lockdep), your first patch looks to me much safer
-if applying to any -stable is considered.
-
-Thanks,
-Jarek P.
+-- 
