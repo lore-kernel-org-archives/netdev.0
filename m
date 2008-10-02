@@ -1,8 +1,8 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-next 7/9] netns: add stab functions for per/namespace mibs
-	allocation
-Date: Thu,  2 Oct 2008 14:14:10 +0400
-Message-ID: <1222942452-9820-7-git-send-email-den@openvz.org>
+Subject: [PATCH net-next 3/9] ipv6: consolidate ipv6 sock_stat code at the
+	beginning of net/ipv6/proc.c
+Date: Thu,  2 Oct 2008 14:14:06 +0400
+Message-ID: <1222942452-9820-3-git-send-email-den@openvz.org>
 References: <1222942394.6327.5.camel@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,70 +24,58 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The content of init_ipv6_mibs/cleanup_ipv6_mibs will be moved to new
-calls one by one next.
+Simple, comsolidate sockstat6 staff in one place, at the beginning of
+the file. Right now sockstat6_seq_open/sockstat6_seq_fops looks like an
+intrusion in the middle of snmp6 code.
 
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- net/ipv6/af_inet6.c |   18 ++++++++++++++++--
- 1 files changed, 16 insertions(+), 2 deletions(-)
+ net/ipv6/proc.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 95055f8..46d4e62 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -834,6 +834,15 @@ static void cleanup_ipv6_mibs(void)
- 	snmp_mib_free((void **)udplite_stats_in6);
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index 5764062..25eda8b 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -46,6 +46,19 @@ static int sockstat6_seq_show(struct seq_file *seq, void *v)
+ 	return 0;
  }
  
-+static int __net_init ipv6_init_mibs(struct net *net)
++static int sockstat6_seq_open(struct inode *inode, struct file *file)
 +{
-+	return 0;
++	return single_open_net(inode, file, sockstat6_seq_show);
 +}
 +
-+static void __net_exit ipv6_cleanup_mibs(struct net *net)
-+{
-+}
++static const struct file_operations sockstat6_seq_fops = {
++	.owner	 = THIS_MODULE,
++	.open	 = sockstat6_seq_open,
++	.read	 = seq_read,
++	.llseek	 = seq_lseek,
++	.release = single_release_net,
++};
 +
- static int inet6_net_init(struct net *net)
+ static struct snmp_mib snmp6_ipstats_list[] = {
+ /* ipv6 mib according to RFC 2465 */
+ 	SNMP_MIB_ITEM("Ip6InReceives", IPSTATS_MIB_INRECEIVES),
+@@ -179,19 +192,6 @@ static int snmp6_seq_show(struct seq_file *seq, void *v)
+ 	return 0;
+ }
+ 
+-static int sockstat6_seq_open(struct inode *inode, struct file *file)
+-{
+-	return single_open_net(inode, file, sockstat6_seq_show);
+-}
+-
+-static const struct file_operations sockstat6_seq_fops = {
+-	.owner	 = THIS_MODULE,
+-	.open	 = sockstat6_seq_open,
+-	.read	 = seq_read,
+-	.llseek	 = seq_lseek,
+-	.release = single_release_net,
+-};
+-
+ static int snmp6_seq_open(struct inode *inode, struct file *file)
  {
- 	int err = 0;
-@@ -849,6 +858,9 @@ static int inet6_net_init(struct net *net)
- 	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
- 	net->ipv6.sysctl.icmpv6_time = 1*HZ;
- 
-+	err = ipv6_init_mibs(net);
-+	if (err)
-+		return err;
- #ifdef CONFIG_PROC_FS
- 	err = udp6_proc_init(net);
- 	if (err)
-@@ -859,7 +871,6 @@ static int inet6_net_init(struct net *net)
- 	err = ac6_proc_init(net);
- 	if (err)
- 		goto proc_ac6_fail;
--out:
- #endif
- 	return err;
- 
-@@ -868,7 +879,9 @@ proc_ac6_fail:
- 	tcp6_proc_exit(net);
- proc_tcp6_fail:
- 	udp6_proc_exit(net);
--	goto out;
-+out:
-+	ipv6_cleanup_mibs(net);
-+	return err;
- #endif
- }
- 
-@@ -879,6 +892,7 @@ static void inet6_net_exit(struct net *net)
- 	tcp6_proc_exit(net);
- 	ac6_proc_exit(net);
- #endif
-+	ipv6_cleanup_mibs(net);
- }
- 
- static struct pernet_operations inet6_net_ops = {
+ 	return single_open(file, snmp6_seq_show, PDE(inode)->data);
 -- 
 1.5.3.rc5
