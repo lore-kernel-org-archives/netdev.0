@@ -1,31 +1,55 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [patch v0.7.67] WAN: add drivers etp and etp_stream
-Date: Thu, 02 Oct 2008 14:51:31 +0200
-Message-ID: <m33ajf40to.fsf@maximus.localdomain>
-References: <ca0148c30810012305g182336b3k538bdd8e6d73953e@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH v2] ibm_newemac: Add support for GPCS, SGMII
+	andM88E1112 PHY
+Date: Thu, 02 Oct 2008 22:37:48 +1000
+Message-ID: <1222951068.12264.109.camel@pasglop>
+References: <1222929477-10329-1-git-send-email-vgallardo@amcc.com>
+	<1222929920.12264.96.camel@pasglop>
+	<0CA0A16855646F4FA96D25A158E299D602C81377@SDCEXCHANGE01.ad.amcc.com>
+	<1222932759.12264.104.camel@pasglop>
+	<20081002063320.7b2331b4@zod.rchland.ibm.com>
+	<1222943668.12264.106.camel@pasglop>
+	<20081002065648.285cce25@zod.rchland.ibm.com>
+	<20081002115507.GB2227@yoda.jdub.homelinux.org>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Matti Linnanvuori" <mattilinn@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753927AbYJBMvs@vger.kernel.org>
-In-Reply-To: <ca0148c30810012305g182336b3k538bdd8e6d73953e@mail.gmail.com> (Matti Linnanvuori's message of "Thu\, 2 Oct 2008 09\:05\:55 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, Victor Gallardo <vgallardo@amcc.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20081002115507.GB2227@yoda.jdub.homelinux.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-"Matti Linnanvuori" <mattilinn@gmail.com> writes:
+On Thu, 2008-10-02 at 07:55 -0400, Josh Boyer wrote:
+> >Yep.  You could pull now if you'd like.  I have a few more patches I'd
+> >like to get in before the merge window, but if it helps things I can do
+> >those in a separate pull request.
+> 
+> Actually, it seems not.  I pulled in an older version of the patch.  I'll
+> grab the new version today.
 
-> --- linux-2.6.27-rc2/drivers/net/wan/Makefile	2008-08-08
-> 13:21:20.452131629 +0300
-> +++ linux/drivers/net/wan/Makefile	2008-08-08 12:59:30.828005756 +0300
-> @@ -41,6 +41,10 @@ obj-$(CONFIG_C101)		+= c101.o
->  obj-$(CONFIG_WANXL)		+= wanxl.o
->  obj-$(CONFIG_PCI200SYN)		+= pci200syn.o
->  obj-$(CONFIG_PC300TOO)		+= pc300too.o
-> +etp-y				:= etp_main.o etp_idt.o etp_proc.o
-> +obj-$(CONFIG_ETP)		+= etp.o syncppp.o
+Victor, while at it, can you do a fixup patch on top of it that guards
+the new feature with a Kconfig option like some of the other ones so
+that the code for it doesn't get compiled in when building, for example.
+for 405GP only ?
 
-Syncppp is to be removed shortly, please use generic HDLC instead.
-See the "next" branch for up-to-date details.
--- 
-Krzysztof Halasa
+The trick is to have the option not be part of the possible mask, so
+that the compiler optimises out the feature tests as if (0) (gcc
+nowadays is supposedly smart enough to rip off the code when it finds
+such constructs).
+
+Thanks !
+
+Cheers,
+Ben.
