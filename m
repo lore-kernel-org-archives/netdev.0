@@ -1,139 +1,134 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when
-	gc_elasticity is exceeded
-Date: Thu, 2 Oct 2008 20:31:58 -0400
-Message-ID: <20081003003158.GA19230@localhost.localdomain>
-References: <48E141F3.9000903@cosmosbay.com> <20080929223801.GA3157@hmsreliant.think-freely.org> <48E1C104.2080801@cosmosbay.com> <20080930.071023.07946874.davem@davemloft.net> <48E25F02.8030303@cosmosbay.com> <20081001180846.GB3566@hmsreliant.think-freely.org> <20081002010101.6f0a1fa5.billfink@mindspring.com> <48E470AC.10305@cosmosbay.com> <48E4832A.3070804@cosmosbay.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 2.6.27-rc8 2/6] e1000e: do not ever sleep in interrupt
+ context
+Date: Fri, 3 Oct 2008 02:36:20 +0200 (CEST)
+Message-ID: <alpine.LFD.1.10.0810030235320.5549@apollo.tec.linutronix.de>
+References: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com> <20081002233325.12556.74382.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bill Fink <billfink@mindspring.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, arjan@linux.intel.com, airlied@gmail.com,
+	davem@davemloft.net, jeff@garzik.org
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58010 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753305AbYJCAeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 20:34:16 -0400
-Content-Disposition: inline
-In-Reply-To: <48E4832A.3070804@cosmosbay.com>
+Received: from www.tglx.de ([62.245.132.106]:58399 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753864AbYJCAgt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 20:36:49 -0400
+In-Reply-To: <20081002233325.12556.74382.stgit@jbrandeb-bw.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 02, 2008 at 10:15:38AM +0200, Eric Dumazet wrote:
-> Eric Dumazet a =C3=A9crit :
->> Bill Fink a =C3=A9crit :
->>> On Wed, 1 Oct 2008, Neil Horman wrote:
->>>
->>>> Hey all-
->>>>     Since Eric mentioned the use of statistical analysis to determ=
-ine if
->>>> hash chains were growing improperly, I thought I would take a stab=
-=20
->>>> at such an
->>>> approach.  I'm no statistics expert, but it would seem to me that =
-simply
->>>> computing the standard deviation of all the non-zero chain lengths=
- =20
->>>> would give a
->>>> good guide point to determine if we needed to invalidate our hash =
-=20
->>>> table.  I've
->>>> written the below implementation.  I've not tested it (I'll be=20
->>>> doing that here
->>>> shortly for the next few days), but I wanted to post it to get =20
->>>> feedback from you
->>>> all on the subject.  The highlights are:
->>>>
->>>> 1) We add a counter to rt_hash_bucket structure to track the lengt=
-h=20
->>>> of each
->>>> individual chain.  I realize this is sub-optimal, as it adds =20
->>>> potentially lots of
->>>> memory to hash table as a whole (4 bytes * number of hash buckets)=
-=2E=20
->>>>  I'm afraid
->>>> I've not come up with a better way to track that yet.  We also=20
->>>> track the total
->>>> number of route entries and the number of non-zero length chains. =
- =20
->>>> Lastly we
->>>> also maintain a global maximum chain length which defines the=20
->>>> longest chain we
->>>> will tolerate in the route table.  This patch defines it as the=20
->>>> mean chain
->>>> length plus one standard deviation.
->>>
->>> I believe the general rule of thumb for something like this is at
->>> least two standard deviations.  For a normal distribution, one stan=
-dard
->>> deviation covers about 68 % of the sample universe, while two stand=
-ard
->>> deviations covers about 95 % (three standard deviations covers 99.7=
-3 %).
->>> See the Wikipedia entry:
->>>
->>>     http://en.wikipedia.org/wiki/Standard_deviation
->>>
->>
->> Thanks Bill for the pointer, this is the trick.
->>
->> I believe we should target "4=CF=83 99.993666% " case.
->>
->> But we dont need to really compute Standard deviation at runtime, on=
-ly =20
->> find an (upper) approximation of it.
->>
->> For elasticity=3D4 and 512*1024 samples (mean < 4), I guess 4=CF=83 =
-can be =20
->> approximated by 20 or something.
->>
->
-> Good estimation of Standard Deviation could be computed for free
-> in rt_check_expire(). (each runs scans 20% of hash table with default=
-=20
-> tunables timeout & ip_rt_gc_interval)
->
-> We could update 4=CF=83 estimation in this function, every minute (ip=
-_rt_gc_interval)
->
-> At softirq time we then can detect a particular hash chain is
-> longer than 4=CF=83 estimation and trigger an appropriate action.
->
-> This action is to : flush table, and while we do that, expand hash ta=
-ble
-> if its current size is under ip_rt_max_size/elasticity...
->
 
-That is a good idea. I'm still testing the last patch I posted, and Its=
- going
-pretty well (I did find a few bugs, so I'll be reposting when I'm done)=
-=2E  Doing
-the update on demand when seem to be pretty quick, but I'll rewrite to =
-gather
-stats on how long it take specifically, and then rewrite/compare to you=
-r
-suggested implementation above.  It seems like the above would save spa=
-ce in the
-hash table, as I could eliminate the chain_length counter per hash buck=
-et.
-On the down side though, I don't know if a 1 minute garbage collection =
-interval
-would allow too much of a window to grow a chain in (i.e. we could chec=
-k chain
-lengths against a too small standard deviation value, and trigger a cac=
-he
-rebuild unnecessecarily).  Just thinking out loud, I've not got any evi=
-dence to
-support or contradict that
 
-Best
-Neil
+On Thu, 2 Oct 2008, Jesse Brandeburg wrote:
 
->
->
->
->
+> e1000e was apparently calling two functions that attempted to reserve
+> the SWFLAG bit for exclusive (to hardware and firmware) access to
+> the PHY and NVM (aka eeprom).  These accesses could possibly call
+> msleep to wait for the resource which is not allowed from interrupt
+> context.
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> CC: Thomas Gleixner <tglx@linutronix.de>
+
+Acked-by: Thomas Gleixner <tglx@linutronix.de>
+Tested-by: Thomas Gleixner <tglx@linutronix.de>
+
+ ---
+> 
+>  drivers/net/e1000e/e1000.h  |    2 ++
+>  drivers/net/e1000e/netdev.c |   31 ++++++++++++++++++++++++++++---
+>  2 files changed, 30 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+> index f0c48a2..8087bda 100644
+> --- a/drivers/net/e1000e/e1000.h
+> +++ b/drivers/net/e1000e/e1000.h
+> @@ -284,6 +284,8 @@ struct e1000_adapter {
+>  	unsigned long led_status;
+>  
+>  	unsigned int flags;
+> +	struct work_struct downshift_task;
+> +	struct work_struct update_phy_task;
+>  };
+>  
+>  struct e1000_info {
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+> index 1f767fe..803545b 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -1115,6 +1115,14 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter)
+>  	writel(0, adapter->hw.hw_addr + rx_ring->tail);
+>  }
+>  
+> +static void e1000e_downshift_workaround(struct work_struct *work)
+> +{
+> +	struct e1000_adapter *adapter = container_of(work,
+> +					struct e1000_adapter, downshift_task);
+> +
+> +	e1000e_gig_downshift_workaround_ich8lan(&adapter->hw);
+> +}
+> +
+>  /**
+>   * e1000_intr_msi - Interrupt Handler
+>   * @irq: interrupt number
+> @@ -1139,7 +1147,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
+>  		 */
+>  		if ((adapter->flags & FLAG_LSC_GIG_SPEED_DROP) &&
+>  		    (!(er32(STATUS) & E1000_STATUS_LU)))
+> -			e1000e_gig_downshift_workaround_ich8lan(hw);
+> +			schedule_work(&adapter->downshift_task);
+>  
+>  		/*
+>  		 * 80003ES2LAN workaround-- For packet buffer work-around on
+> @@ -1205,7 +1213,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+>  		 */
+>  		if ((adapter->flags & FLAG_LSC_GIG_SPEED_DROP) &&
+>  		    (!(er32(STATUS) & E1000_STATUS_LU)))
+> -			e1000e_gig_downshift_workaround_ich8lan(hw);
+> +			schedule_work(&adapter->downshift_task);
+>  
+>  		/*
+>  		 * 80003ES2LAN workaround--
+> @@ -2912,6 +2920,21 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
+>  	return 0;
+>  }
+>  
+> +/**
+> + * e1000e_update_phy_task - work thread to update phy
+> + * @work: pointer to our work struct
+> + *
+> + * this worker thread exists because we must acquire a
+> + * semaphore to read the phy, which we could msleep while
+> + * waiting for it, and we can't msleep in a timer.
+> + **/
+> +static void e1000e_update_phy_task(struct work_struct *work)
+> +{
+> +	struct e1000_adapter *adapter = container_of(work,
+> +					struct e1000_adapter, update_phy_task);
+> +	e1000_get_phy_info(&adapter->hw);
+> +}
+> +
+>  /*
+>   * Need to wait a few seconds after link up to get diagnostic information from
+>   * the phy
+> @@ -2919,7 +2942,7 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
+>  static void e1000_update_phy_info(unsigned long data)
+>  {
+>  	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
+> -	e1000_get_phy_info(&adapter->hw);
+> +	schedule_work(&adapter->update_phy_task);
+>  }
+>  
+>  /**
+> @@ -4578,6 +4601,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+>  
+>  	INIT_WORK(&adapter->reset_task, e1000_reset_task);
+>  	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
+> +	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
+> +	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
+>  
+>  	/* Initialize link parameters. User can change them with ethtool */
+>  	adapter->hw.mac.autoneg = 1;
+> 
