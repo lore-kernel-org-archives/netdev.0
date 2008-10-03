@@ -1,63 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 11655] New: /proc/sys/net/ipv6/conf/all/*
- controls don't work
-Date: Thu, 2 Oct 2008 23:18:26 -0700
-Message-ID: <20081002231826.869a1a9e.akpm@linux-foundation.org>
-References: <bug-11655-10286@http.bugzilla.kernel.org/>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: [PATCH 00/32] Swap over NFS - v19
+Date: Fri, 3 Oct 2008 16:49:47 +1000
+Message-ID: <200810031649.47800.nickpiggin@yahoo.com.au>
+References: <20081002130504.927878499@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, adwol@zonk.pl
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54991 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752802AbYJCGS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 02:18:29 -0400
-In-Reply-To: <bug-11655-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755251AbYJCGuK@vger.kernel.org>
+In-Reply-To: <20081002130504.927878499@chello.nl>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thursday 02 October 2008 23:05, Peter Zijlstra wrote:
+> Patches are against: v2.6.27-rc5-mm1
+>
+> This release features more comments and (hopefully) better Changelogs.
+> Also the netns stuff got sorted and ipv6 will now build and not oops
+> on boot ;-)
+>
+> The first 4 patches are cleanups and can go in if the respective
+> maintainers agree.
+>
+> The code is lightly tested but seems to work on my default config.
+>
+> Let's get this ball rolling...
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Fri, 26 Sep 2008 19:36:55 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=11655
-> 
->            Summary: /proc/sys/net/ipv6/conf/all/* controls don't work
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.26.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV6
->         AssignedTo: yoshfuji@linux-ipv6.org
->         ReportedBy: adwol@zonk.pl
-> 
-> 
-> Latest working kernel version: NONE
-> Earliest failing kernel version: UNKNOWN
-> Distribution: Various, mostly Slackware and PLD
-> Hardware Environment: ANY
-> Software Environment: ANY
-> Problem Description: `echo 0 > /proc/sys/net/ipv6/conf/all/autoconf' doesn't
-> disable interfaces autoconfiguration
-> 
-> Steps to reproduce:
-> Changing values of /proc/sys/net/ipv6/conf/all/autoconf,
-> /proc/sys/net/ipv6/conf/all/accept_ra and probably other
-> /proc/sys/net/ipv6/conf/all/* controls don't cause anything.
-> After `echo 0 > /proc/sys/net/ipv6/conf/all/autoconf' system still accepts
-> router advertisement packets from gateway on every interface and set
-> autoconfigured addresses.
-> 
-> Situation is rather deeper because autoconf is only an example and problem
-> afflicts /proc/sys/net/ipv6/conf/all/* controls generally.
-> 
-
+I know it's not too helpful for me to say this, but I am spending
+time looking at this stuff. I have commented on it in the past,
+but I want to get a good handle on the code before I chime in again.
