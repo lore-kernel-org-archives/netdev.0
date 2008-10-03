@@ -1,39 +1,42 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH 3/6] [NET] dsa: add support for original DSA tagging format
-Date: Fri, 3 Oct 2008 21:47:20 +0200
-Message-ID: <20081003194720.GB15924@xi.wantstofly.org>
-References: <20080929023829.GI21560@xi.wantstofly.org> <20081003193601.4f7fbe42@speedy>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH net-next] tcp: kill pointless urg_mode
+Date: Fri, 3 Oct 2008 23:32:49 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810032328550.30507@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0810030050001.23164@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
-	Jesper Dangaard Brouer <jdb@comx.dk>,
-	Tim Ellis <tim.ellis@mac.com>,
-	Andy Fleming <afleming@freescale.com>,
-	Imre Kaloz <kaloz@openwrt.org>, Nicolas Pitre <nico@cam.org>,
-	Dirk Teurlings <dirk@upexia.nl>,
-	Peter van Valderen <p.v.valderen@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: MULTIPART/Mixed; boundary="-696208474-1333229167-1222984546=:23164"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:60827 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229AbYJCTrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 15:47:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20081003193601.4f7fbe42@speedy>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49670 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752687AbYJCUdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 16:33:24 -0400
+In-Reply-To: <Pine.LNX.4.64.0810030050001.23164@wrl-59.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0810032328551.30507@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 03, 2008 at 07:36:01PM +0200, Stephen Hemminger wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Please use stronger types..
-> 
-> > +static inline int netdev_uses_dsa_tags(struct net_device *dev)
-> 
-> I would use:
-> static inline bool netdev_uses_dsa_tags(const struct net_device *dev)
-> 
-> 
-> > +int dsa_uses_dsa_tags(void *dsa_ptr);
-> extern bool dsa_uses_dsa_tags(const struct dsa_switch *dsa);
+---696208474-1333229167-1222984546=:23164
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0810032328552.30507@wrl-59.cs.helsinki.fi>
 
-OK.  Did the same thing for the trailer tag support.
+On Fri, 3 Oct 2008, Ilpo Järvinen wrote:
+
+> It all started from me noticing that this urgent check in
+> tcp_clean_rtx_queue is unnecessarily inside the loop. Then
+> I took a longer look to it and found out that the users of
+> urg_mode can trivially do without. Just drag snd_up with
+> us when we advance.
+
+Please hold a minute with this one while I inspect why I saw
+some strange urg now in a tcpdump.
+
+--
+ i.
+
+---696208474-1333229167-1222984546=:23164--
