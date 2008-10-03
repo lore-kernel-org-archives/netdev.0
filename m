@@ -1,36 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] net: deadlock during net device unregistration
-Date: Thu, 02 Oct 2008 17:41:34 -0700
-Message-ID: <m11vyyv7b5.fsf@frodo.ebiederm.org>
-References: <20080929175412.866679567@theryb.frec.bull.fr>
-	<20080929175421.722037051@theryb.frec.bull.fr>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2.6.28 1/1] cxgb3 - fix race in EEH
+Date: Thu, 2 Oct 2008 18:00:11 -0700
+Message-ID: <20081002180011.16254a4e.akpm@linux-foundation.org>
+References: <20080926000528.11959.63712.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Benjamin Thery <benjamin.thery@bull.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59664 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753902AbYJCApu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 20:45:50 -0400
-In-Reply-To: <20080929175421.722037051@theryb.frec.bull.fr> (Benjamin Thery's
-	message of "Mon, 29 Sep 2008 19:54:22 +0200")
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49541 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753906AbYJCBA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 21:00:26 -0400
+In-Reply-To: <20080926000528.11959.63712.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Thery <benjamin.thery@bull.net> writes:
+On Thu, 25 Sep 2008 17:05:28 -0700
+Divy Le Ray <divy@chelsio.com> wrote:
 
-> This patch proposes to replace the rtnl_unlock() call in 
-> linkwatch_event() by __rtnl_unlock(). The difference between the two
-> routines being that __rtnl_unlock() will not call netdev_run_todo()
-> after it unlocks rtnl_mutex.
->
-> This is to fix a "deadlock" we observed when unregistering a net device.
+> A SGE queue set timer might access registers while in EEH recovery,
+> triggering an EEH error loop. Stop all timers early in EEH process.
 
-Thanks for tracking this I just started seeing this a few days ago, and
-before I reach the point of tracking it down you are in the process
-of fixing it ;)
+<looks>
 
-Eric
+It's deeply weird that t3_reset_qset() does
+
+	memset(&q->tx_reclaim_timer, 0, sizeof(q->tx_reclaim_timer));
+
+There are lots of things in the timer_list which the driver has no
+business modifying.  For example, this might break the metadata in
+Thomas's debugobjects stuff, which attempts to catch things being done
+in the wrong order (I don't think it will, but still...).
+
+Rerunning init_timer() should repair the damage, but I suspect a simple
+
+	q->tx_reclaim_timer.function = NULL;	/* explanation goes here */
+
+would suffice here.
+
+
+t3_sge_alloc_qset() could use the newer setup_timer().
