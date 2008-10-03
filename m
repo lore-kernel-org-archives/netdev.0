@@ -1,52 +1,54 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-next] tcp: cleanup messy initializer
-Date: Fri, 3 Oct 2008 22:14:27 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0810032213230.30432@wrl-59.cs.helsinki.fi>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 3/6] [NET] dsa: add support for original DSA tagging format
+Date: Fri, 3 Oct 2008 21:32:51 +0200
+Message-ID: <20081003193250.GA15924@xi.wantstofly.org>
+References: <20080929023829.GI21560@xi.wantstofly.org> <1223054759.3984.76.camel@achroite>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1615863613-1223061267=:30432"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
+	Jesper Dangaard Brouer <jdb@comx.dk>,
+	Tim Ellis <tim.ellis@mac.com>,
+	Andy Fleming <afleming@freescale.com>,
+	Imre Kaloz <kaloz@openwrt.org>, Nicolas Pitre <nico@cam.org>,
+	Dirk Teurlings <dirk@upexia.nl>,
+	Peter van Valderen <p.v.valderen@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46098 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752544AbYJCTUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 15:20:33 -0400
+Received: from xi.wantstofly.org ([83.160.184.112]:45507 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751427AbYJCTcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 15:32:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1223054759.3984.76.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, Oct 03, 2008 at 06:25:59PM +0100, Ben Hutchings wrote:
 
----696208474-1615863613-1223061267=:30432
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+> > Most of the DSA switches currently in the field do not support the
+> > Ethertype DSA tagging format that one of the previous patches added
+> > support for, but only the original DSA tagging format.
+> > 
+> > The original DSA tagging format carries the same information as the
+> > Ethertype DSA tagging format, but with the difference that it does not
+> > have an ethertype field.  In other words, when receiving a packet that
+> > is tagged with an original DSA tag, there is no way of telling in
+> > eth_type_trans() that this packet is in fact a DSA-tagged packet.
+> > 
+> > This patch adds a hook into eth_type_trans() which is only compiled in
+> > if support for a switch chip that doesn't support Ethertype DSA is
+> > selected, and which checks whether there is a DSA switch driver
+> > instance attached to this network device which uses the old tag format.
+> > If so, it sets the protocol field to ETH_P_DSA without looking at the
+> > packet, so that the packet ends up in the right place.
+> [...]
+> 
+> Why should this go in eth_type_trans()?  Why don't you put the hook into
+> the specific network driver(s) that need it?
+> 
+> For that matter, why should dsa_ptr go in struct net_device and not in
+> the private state for the specific network drivers that need it?
 
-
-I'm quite sure that if I give this function in its old format
-for you to inspect, you start to wonder what is the type of
-demanded or if it's a global variable.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index db1f194..f547b2f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4465,8 +4465,8 @@ static void tcp_new_space(struct sock *sk)
- 
- 	if (tcp_should_expand_sndbuf(sk)) {
- 		int sndmem = max_t(u32, tp->rx_opt.mss_clamp, tp->mss_cache) +
--			MAX_TCP_HEADER + 16 + sizeof(struct sk_buff),
--		    demanded = max_t(unsigned int, tp->snd_cwnd,
-+			MAX_TCP_HEADER + 16 + sizeof(struct sk_buff);
-+		int demanded = max_t(unsigned int, tp->snd_cwnd,
- 				     tp->reordering + 1);
- 		sndmem *= 2 * demanded;
- 		if (sndmem > sk->sk_sndbuf)
--- 
-1.5.2.2
-
----696208474-1615863613-1223061267=:30432--
+DSA is just another protocol.  Putting hooks in specific network driver
+to handle a certain protocol doesn't seem like the right thing to do to
+me.
