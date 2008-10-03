@@ -1,11 +1,11 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH 3/6] [NET] dsa: add support for original DSA tagging
-	format
-Date: Fri, 03 Oct 2008 18:25:59 +0100
-Message-ID: <1223054759.3984.76.camel@achroite>
+ format
+Date: Fri, 3 Oct 2008 19:36:01 +0200
+Message-ID: <20081003193601.4f7fbe42@speedy>
 References: <20080929023829.GI21560@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
 	Jesper Dangaard Brouer <jdb@comx.dk>,
@@ -16,43 +16,22 @@ Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
 	Peter van Valderen <p.v.valderen@gmail.com>
 To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:40438 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753014AbYJCR0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 13:26:24 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:34409 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753195AbYJCRgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2008 13:36:10 -0400
 In-Reply-To: <20080929023829.GI21560@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-09-29 at 04:38 +0200, Lennert Buytenhek wrote:
-> Most of the DSA switches currently in the field do not support the
-> Ethertype DSA tagging format that one of the previous patches added
-> support for, but only the original DSA tagging format.
-> 
-> The original DSA tagging format carries the same information as the
-> Ethertype DSA tagging format, but with the difference that it does not
-> have an ethertype field.  In other words, when receiving a packet that
-> is tagged with an original DSA tag, there is no way of telling in
-> eth_type_trans() that this packet is in fact a DSA-tagged packet.
-> 
-> This patch adds a hook into eth_type_trans() which is only compiled in
-> if support for a switch chip that doesn't support Ethertype DSA is
-> selected, and which checks whether there is a DSA switch driver
-> instance attached to this network device which uses the old tag format.
-> If so, it sets the protocol field to ETH_P_DSA without looking at the
-> packet, so that the packet ends up in the right place.
-[...]
+Please use stronger types..
 
-Why should this go in eth_type_trans()?  Why don't you put the hook into
-the specific network driver(s) that need it?
+> +static inline int netdev_uses_dsa_tags(struct net_device *dev)
 
-For that matter, why should dsa_ptr go in struct net_device and not in
-the private state for the specific network drivers that need it?
+I would use:
+static inline bool netdev_uses_dsa_tags(const struct net_device *dev)
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> +int dsa_uses_dsa_tags(void *dsa_ptr);
+extern bool dsa_uses_dsa_tags(const struct dsa_switch *dsa);
 
