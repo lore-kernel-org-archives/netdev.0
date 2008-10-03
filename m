@@ -1,43 +1,39 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH 00/32] Swap over NFS - v19
-Date: Fri, 3 Oct 2008 15:38:10 -0400
-Message-ID: <20081003153810.5dd0a33e@bree.surriel.com>
-References: <20081002130504.927878499@chello.nl>
-	<20081002124748.638c95ff.akpm@linux-foundation.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 3/6] [NET] dsa: add support for original DSA tagging format
+Date: Fri, 3 Oct 2008 21:47:20 +0200
+Message-ID: <20081003194720.GB15924@xi.wantstofly.org>
+References: <20080929023829.GI21560@xi.wantstofly.org> <20081003193601.4f7fbe42@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
+	Jesper Dangaard Brouer <jdb@comx.dk>,
+	Tim Ellis <tim.ellis@mac.com>,
+	Andy Fleming <afleming@freescale.com>,
+	Imre Kaloz <kaloz@openwrt.org>, Nicolas Pitre <nico@cam.org>,
+	Dirk Teurlings <dirk@upexia.nl>,
+	Peter van Valderen <p.v.valderen@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:36898 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752246AbYJCTkB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2008 15:40:01 -0400
-In-Reply-To: <20081002124748.638c95ff.akpm@linux-foundation.org>
+Received: from xi.wantstofly.org ([83.160.184.112]:60827 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229AbYJCTrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 15:47:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20081003193601.4f7fbe42@speedy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Oct 2008 12:47:48 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
-> On Thu, 02 Oct 2008 15:05:04 +0200 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+On Fri, Oct 03, 2008 at 07:36:01PM +0200, Stephen Hemminger wrote:
+
+> Please use stronger types..
 > 
-> > Let's get this ball rolling...
+> > +static inline int netdev_uses_dsa_tags(struct net_device *dev)
 > 
-> I don't think we're really able to get any MM balls rolling until we
-> get all the split-LRU stuff landed.  Is anyone testing it?  Is it good?
+> I would use:
+> static inline bool netdev_uses_dsa_tags(const struct net_device *dev)
+> 
+> 
+> > +int dsa_uses_dsa_tags(void *dsa_ptr);
+> extern bool dsa_uses_dsa_tags(const struct dsa_switch *dsa);
 
-I've done some testing on it on my two test systems and have not
-found performance regressions against the mainline VM.
-
-As for stability, I think we have done enough testing to conclude
-that it is stable by now.
-
--- 
-All rights reversed.
+OK.  Did the same thing for the trailer tag support.
