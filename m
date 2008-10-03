@@ -1,89 +1,139 @@
-From: Jay Cliburn <jcliburn@gmail.com>
-Subject: Re: atl2 network driver status
-Date: Thu, 2 Oct 2008 18:35:03 -0500
-Message-ID: <20081002183503.73674682@osprey.hogchain.net>
-References: <20081002230246.GA11570@kroah.com>
-	<20081002181731.6b8f563d@osprey.hogchain.net>
-	<20081002232148.GA20003@kroah.com>
-	<20081002182943.0264f7fa@osprey.hogchain.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when
+	gc_elasticity is exceeded
+Date: Thu, 2 Oct 2008 20:31:58 -0400
+Message-ID: <20081003003158.GA19230@localhost.localdomain>
+References: <48E141F3.9000903@cosmosbay.com> <20080929223801.GA3157@hmsreliant.think-freely.org> <48E1C104.2080801@cosmosbay.com> <20080930.071023.07946874.davem@davemloft.net> <48E25F02.8030303@cosmosbay.com> <20081001180846.GB3566@hmsreliant.think-freely.org> <20081002010101.6f0a1fa5.billfink@mindspring.com> <48E470AC.10305@cosmosbay.com> <48E4832A.3070804@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jcliburn@gmail.com>, xiong.huang@atheros.com,
-	csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bill Fink <billfink@mindspring.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.183]:2081 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756144AbYJBXfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 19:35:16 -0400
-Received: by el-out-1112.google.com with SMTP id z25so271329ele.1
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2008 16:35:14 -0700 (PDT)
-In-Reply-To: <20081002182943.0264f7fa@osprey.hogchain.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58010 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753305AbYJCAeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 20:34:16 -0400
+Content-Disposition: inline
+In-Reply-To: <48E4832A.3070804@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Oct 2008 18:29:43 -0500
-Jay Cliburn <jcliburn@gmail.com> wrote:
+On Thu, Oct 02, 2008 at 10:15:38AM +0200, Eric Dumazet wrote:
+> Eric Dumazet a =C3=A9crit :
+>> Bill Fink a =C3=A9crit :
+>>> On Wed, 1 Oct 2008, Neil Horman wrote:
+>>>
+>>>> Hey all-
+>>>>     Since Eric mentioned the use of statistical analysis to determ=
+ine if
+>>>> hash chains were growing improperly, I thought I would take a stab=
+=20
+>>>> at such an
+>>>> approach.  I'm no statistics expert, but it would seem to me that =
+simply
+>>>> computing the standard deviation of all the non-zero chain lengths=
+ =20
+>>>> would give a
+>>>> good guide point to determine if we needed to invalidate our hash =
+=20
+>>>> table.  I've
+>>>> written the below implementation.  I've not tested it (I'll be=20
+>>>> doing that here
+>>>> shortly for the next few days), but I wanted to post it to get =20
+>>>> feedback from you
+>>>> all on the subject.  The highlights are:
+>>>>
+>>>> 1) We add a counter to rt_hash_bucket structure to track the lengt=
+h=20
+>>>> of each
+>>>> individual chain.  I realize this is sub-optimal, as it adds =20
+>>>> potentially lots of
+>>>> memory to hash table as a whole (4 bytes * number of hash buckets)=
+=2E=20
+>>>>  I'm afraid
+>>>> I've not come up with a better way to track that yet.  We also=20
+>>>> track the total
+>>>> number of route entries and the number of non-zero length chains. =
+ =20
+>>>> Lastly we
+>>>> also maintain a global maximum chain length which defines the=20
+>>>> longest chain we
+>>>> will tolerate in the route table.  This patch defines it as the=20
+>>>> mean chain
+>>>> length plus one standard deviation.
+>>>
+>>> I believe the general rule of thumb for something like this is at
+>>> least two standard deviations.  For a normal distribution, one stan=
+dard
+>>> deviation covers about 68 % of the sample universe, while two stand=
+ard
+>>> deviations covers about 95 % (three standard deviations covers 99.7=
+3 %).
+>>> See the Wikipedia entry:
+>>>
+>>>     http://en.wikipedia.org/wiki/Standard_deviation
+>>>
+>>
+>> Thanks Bill for the pointer, this is the trick.
+>>
+>> I believe we should target "4=CF=83 99.993666% " case.
+>>
+>> But we dont need to really compute Standard deviation at runtime, on=
+ly =20
+>> find an (upper) approximation of it.
+>>
+>> For elasticity=3D4 and 512*1024 samples (mean < 4), I guess 4=CF=83 =
+can be =20
+>> approximated by 20 or something.
+>>
+>
+> Good estimation of Standard Deviation could be computed for free
+> in rt_check_expire(). (each runs scans 20% of hash table with default=
+=20
+> tunables timeout & ip_rt_gc_interval)
+>
+> We could update 4=CF=83 estimation in this function, every minute (ip=
+_rt_gc_interval)
+>
+> At softirq time we then can detect a particular hash chain is
+> longer than 4=CF=83 estimation and trigger an appropriate action.
+>
+> This action is to : flush table, and while we do that, expand hash ta=
+ble
+> if its current size is under ip_rt_max_size/elasticity...
+>
 
-> On Thu, 2 Oct 2008 16:21:48 -0700
-> Greg KH <greg@kroah.com> wrote:
-> 
-> > On Thu, Oct 02, 2008 at 06:17:31PM -0500, Jay Cliburn wrote:
-> > > On Thu, 2 Oct 2008 16:02:46 -0700
-> > > Greg KH <greg@kroah.com> wrote:
-> > > 
-> > > > Hi,
-> > > > 
-> > > > In looking for drivers to add to drivers/staging/ I ran across
-> > > > the atl2 driver that is currently in the Fedora and Ubuntu
-> > > > kernel trees.
-> > > > 
-> > > > This driver doesn't look to be scheduled for inclusion in the
-> > > > upstream netdev git tree for submission for 2.6.28, is there any
-> > > > reason why it is still out-of-the-tree?
-> > > 
-> > > Hi Greg,
-> > > 
-> > > It's in net-next-2.6.
-> > > 
-> > > http://marc.info/?l=linux-netdev&m=122144021209242&w=2
-> > 
-> > Nice, so that means it's going to be in 2.6.28?
-> 
-> I think so.  As I understand it, net-next-2.6 is Dave Miller's git
-> tree for stuff destined for 2.6.28.
+That is a good idea. I'm still testing the last patch I posted, and Its=
+ going
+pretty well (I did find a few bugs, so I'll be reposting when I'm done)=
+=2E  Doing
+the update on demand when seem to be pretty quick, but I'll rewrite to =
+gather
+stats on how long it take specifically, and then rewrite/compare to you=
+r
+suggested implementation above.  It seems like the above would save spa=
+ce in the
+hash table, as I could eliminate the chain_length counter per hash buck=
+et.
+On the down side though, I don't know if a 1 minute garbage collection =
+interval
+would allow too much of a window to grow a chain in (i.e. we could chec=
+k chain
+lengths against a too small standard deviation value, and trigger a cac=
+he
+rebuild unnecessecarily).  Just thinking out loud, I've not got any evi=
+dence to
+support or contradict that
 
-Yep, here it is: Dave's description of his two main trees.
+Best
+Neil
 
-So atl2 will be in 2.6.28.
-
-
-
-Date: Sat, 19 Apr 2008 17:35:10 -0700 (PDT)
-From: David Miller <davem@davemloft.net>
-To: sfr@canb.auug.org.au
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-Subject: New GIT net tree naming...
-
-
-
-Based upon feedback from Andrew and others I'm now starting
-to use a new naming scheme for my GIT trees:
-
-For changes against Linus's current tree:
-
-   master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
-
-For development meant to be merged in the next merge
-window we have:
-
-   master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-
-Andrew/Stephen, let me know if this works for you.  This way
-the tree names will never change.
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>
+>
