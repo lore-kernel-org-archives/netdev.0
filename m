@@ -1,39 +1,47 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH 2.6.27-rc8 5/6] e1000e: debug contention on NVM SWFLAG
-Date: Fri, 3 Oct 2008 17:39:17 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0810031736150.26779@jikos.suse.cz>
-References: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com> <20081002233340.12556.33137.stgit@jbrandeb-bw.jf.intel.com> <Pine.LNX.4.64.0810031346100.1532@twin.jikos.cz> <alpine.LFD.2.00.0810030812570.3230@nehalem.linux-foundation.org>
+From: "Luiz Fernando N. Capitulino" <lcapitulino@mandriva.com.br>
+Subject: Re: [PATCH 00/32] Swap over NFS - v19
+Date: Fri, 3 Oct 2008 14:17:31 -0300
+Message-ID: <20081003141731.37bda8f3@doriath.conectiva>
+References: <20081002130504.927878499@chello.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@linux.intel.com, airlied@gmail.com, davem@davemloft.net,
-	Jeff Garzik <jeff@garzik.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:42563 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751623AbYJCPjT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2008 11:39:19 -0400
-In-Reply-To: <alpine.LFD.2.00.0810030812570.3230@nehalem.linux-foundation.org>
+Received: from perninha.conectiva.com.br ([200.140.247.100]:37268 "EHLO
+	perninha.conectiva.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753203AbYJCRRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 13:17:11 -0400
+In-Reply-To: <20081002130504.927878499@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 3 Oct 2008, Linus Torvalds wrote:
+Em Thu, 02 Oct 2008 15:05:04 +0200
+Peter Zijlstra <a.p.zijlstra@chello.nl> escreveu:
 
-> > The debugging message is racy anyway with respect to accessing 
-> > nvm_owner, right? It should be done after the mutex has been 
-> > succesfully acquired.
-> It's done that way on purpose - to see who _could_ be racing.
+| Patches are against: v2.6.27-rc5-mm1
+| 
+| This release features more comments and (hopefully) better Changelogs.
+| Also the netns stuff got sorted and ipv6 will now build and not oops
+| on boot ;-)
+| 
+| The first 4 patches are cleanups and can go in if the respective maintainers
+| agree.
+| 
+| The code is lightly tested but seems to work on my default config.
+| 
+| Let's get this ball rolling...
 
-I know. I just wanted to point out that we probably don't want the patch 
-in 2.6.27 in this form, users wouldn't like to have warning in their logs 
-every time mutex is not acquired on a first attempt :)
-
-We are currently running reproduction tests on affected machines to verify 
-that this patch really fixes the root cause of this whole e1000e saga.
+ What's the best way to test this? Create a swap in a NFS mount
+point and stress it?
 
 -- 
-Jiri Kosina
-SUSE Labs
+Luiz Fernando N. Capitulino
