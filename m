@@ -1,58 +1,119 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 11648] New: rtl8150 module does not unload
- when interface is up
-Date: Thu, 2 Oct 2008 17:38:29 -0700
-Message-ID: <20081002173829.082fd922.akpm@linux-foundation.org>
-References: <bug-11648-10286@http.bugzilla.kernel.org/>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 2.6.27-rc8 4/6] e1000e: drop stats lock
+Date: Fri, 3 Oct 2008 02:38:14 +0200 (CEST)
+Message-ID: <alpine.LFD.1.10.0810030237550.5549@apollo.tec.linutronix.de>
+References: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com> <20081002233335.12556.10042.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, vapier@gentoo.org
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, arjan@linux.intel.com, airlied@gmail.com,
+	davem@davemloft.net, jeff@garzik.org
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40471 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753983AbYJCAif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2008 20:38:35 -0400
-In-Reply-To: <bug-11648-10286@http.bugzilla.kernel.org/>
+Received: from www.tglx.de ([62.245.132.106]:45325 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753891AbYJCAij (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2008 20:38:39 -0400
+In-Reply-To: <20081002233335.12556.10042.stgit@jbrandeb-bw.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
 
-On Thu, 25 Sep 2008 13:52:44 -0700 (PDT)
-bugme-daemon@bugzilla.kernel.org wrote:
+On Thu, 2 Oct 2008, Jesse Brandeburg wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=11648
+> the stats lock is left over from e1000, e1000e no longer
+> has the adjust tbi stats function that required the addition
+> of the stats lock to begin with.
 > 
->            Summary: rtl8150 module does not unload when interface is up
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.26.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: vapier@gentoo.org
+> adding a mutex to acquire_swflag helped catch this one too.
 > 
-> 
-> using stock kernel.org 2.6.26.5 on a Dell Latitude D820 laptop (running Gentoo,
-> but shouldnt matter).
-> 
-> i'm using a RTL8150 USB NIC with the driver built as a module:
-> ID 0bda:8150 Realtek Semiconductor Corp. RTL8150 Fast Ethernet Adapter
-> 
-> if you load the module, then bring up the interface by doing something simple
-> like `ifconfig eth1 192.168.0.1`, then do `rmmod rtl8150`, the driver goes to
-> lunch and forgets to come back.  top shows ksoftirqd processing a lot and rmmod
-> using 100% cpu.  trying to strace rmmod shows nothing, so something in the
-> kernel is processing a lot on its behalf ...
-> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> CC: Thomas Gleixner <tglx@linutronix.de>
 
-I never know who to blame^Wconsult when it comes to USB net drivers.
+Acked-by: Thomas Gleixner <tglx@linutronix.de>
+
+
+> ---
+> 
+>  drivers/net/e1000e/e1000.h  |    1 -
+>  drivers/net/e1000e/netdev.c |   18 ------------------
+>  2 files changed, 0 insertions(+), 19 deletions(-)
+> 
+> diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+> index 8087bda..5ea6b60 100644
+> --- a/drivers/net/e1000e/e1000.h
+> +++ b/drivers/net/e1000e/e1000.h
+> @@ -257,7 +257,6 @@ struct e1000_adapter {
+>  	struct net_device *netdev;
+>  	struct pci_dev *pdev;
+>  	struct net_device_stats net_stats;
+> -	spinlock_t stats_lock;      /* prevent concurrent stats updates */
+>  
+>  	/* structs defined in e1000_hw.h */
+>  	struct e1000_hw hw;
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+> index 835b692..01e9558 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -2600,8 +2600,6 @@ static int __devinit e1000_sw_init(struct e1000_adapter *adapter)
+>  	/* Explicitly disable IRQ since the NIC can be in any state. */
+>  	e1000_irq_disable(adapter);
+>  
+> -	spin_lock_init(&adapter->stats_lock);
+> -
+>  	set_bit(__E1000_DOWN, &adapter->state);
+>  	return 0;
+>  
+> @@ -2953,7 +2951,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+>  {
+>  	struct e1000_hw *hw = &adapter->hw;
+>  	struct pci_dev *pdev = adapter->pdev;
+> -	unsigned long irq_flags;
+>  
+>  	/*
+>  	 * Prevent stats update while adapter is being reset, or if the pci
+> @@ -2964,14 +2961,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+>  	if (pci_channel_offline(pdev))
+>  		return;
+>  
+> -	spin_lock_irqsave(&adapter->stats_lock, irq_flags);
+> -
+> -	/*
+> -	 * these counters are modified from e1000_adjust_tbi_stats,
+> -	 * called from the interrupt context, so they must only
+> -	 * be written while holding adapter->stats_lock
+> -	 */
+> -
+>  	adapter->stats.crcerrs += er32(CRCERRS);
+>  	adapter->stats.gprc += er32(GPRC);
+>  	adapter->stats.gorc += er32(GORCL);
+> @@ -3046,8 +3035,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+>  	adapter->stats.mgptc += er32(MGTPTC);
+>  	adapter->stats.mgprc += er32(MGTPRC);
+>  	adapter->stats.mgpdc += er32(MGTPDC);
+> -
+> -	spin_unlock_irqrestore(&adapter->stats_lock, irq_flags);
+>  }
+>  
+>  /**
+> @@ -3059,9 +3046,6 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+>  	struct e1000_hw *hw = &adapter->hw;
+>  	struct e1000_phy_regs *phy = &adapter->phy_regs;
+>  	int ret_val;
+> -	unsigned long irq_flags;
+> -
+> -	spin_lock_irqsave(&adapter->stats_lock, irq_flags);
+>  
+>  	if ((er32(STATUS) & E1000_STATUS_LU) &&
+>  	    (adapter->hw.phy.media_type == e1000_media_type_copper)) {
+> @@ -3092,8 +3076,6 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+>  		phy->stat1000 = 0;
+>  		phy->estatus = (ESTATUS_1000_TFULL | ESTATUS_1000_THALF);
+>  	}
+> -
+> -	spin_unlock_irqrestore(&adapter->stats_lock, irq_flags);
+>  }
+>  
+>  static void e1000_print_link_info(struct e1000_adapter *adapter)
+> 
