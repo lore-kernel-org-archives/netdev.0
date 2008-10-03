@@ -1,42 +1,43 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 2.6.27-rc8 5/6] e1000e: debug contention on NVM SWFLAG
-Date: Fri, 3 Oct 2008 21:38:44 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.0810032137390.4573@apollo>
-References: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com> <20081002233340.12556.33137.stgit@jbrandeb-bw.jf.intel.com> <Pine.LNX.4.64.0810031346100.1532@twin.jikos.cz> <alpine.LFD.2.00.0810030812570.3230@nehalem.linux-foundation.org>
- <alpine.LNX.1.10.0810031736150.26779@jikos.suse.cz>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [PATCH 00/32] Swap over NFS - v19
+Date: Fri, 3 Oct 2008 15:38:10 -0400
+Message-ID: <20081003153810.5dd0a33e@bree.surriel.com>
+References: <20081002130504.927878499@chello.nl>
+	<20081002124748.638c95ff.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@linux.intel.com, airlied@gmail.com, davem@davemloft.net,
-	Jeff Garzik <jeff@garzik.org>
-To: Jiri Kosina <jkosina@suse.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:47639 "EHLO www.tglx.de"
+Received: from mx1.redhat.com ([66.187.233.31]:36898 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752475AbYJCTjP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2008 15:39:15 -0400
-In-Reply-To: <alpine.LNX.1.10.0810031736150.26779@jikos.suse.cz>
+	id S1752246AbYJCTkB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2008 15:40:01 -0400
+In-Reply-To: <20081002124748.638c95ff.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 3 Oct 2008, Jiri Kosina wrote:
-> On Fri, 3 Oct 2008, Linus Torvalds wrote:
+On Thu, 2 Oct 2008 12:47:48 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
+> On Thu, 02 Oct 2008 15:05:04 +0200 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
 > 
-> > > The debugging message is racy anyway with respect to accessing 
-> > > nvm_owner, right? It should be done after the mutex has been 
-> > > succesfully acquired.
-> > It's done that way on purpose - to see who _could_ be racing.
+> > Let's get this ball rolling...
 > 
-> I know. I just wanted to point out that we probably don't want the patch 
-> in 2.6.27 in this form, users wouldn't like to have warning in their logs 
-> every time mutex is not acquired on a first attempt :)
+> I don't think we're really able to get any MM balls rolling until we
+> get all the split-LRU stuff landed.  Is anyone testing it?  Is it good?
 
-Yeah, it should go before .27 final. It now just gathers data as
-people actually care about warn_ons or they are even caught
-automatically via kernel oops.
+I've done some testing on it on my two test systems and have not
+found performance regressions against the mainline VM.
 
-Thanks,
+As for stability, I think we have done enough testing to conclude
+that it is stable by now.
 
-	tglx
+-- 
+All rights reversed.
