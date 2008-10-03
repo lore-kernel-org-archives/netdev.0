@@ -1,189 +1,104 @@
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: Re: [PATCH,CFT] dynamic struct mii_bus allocation
-Date: Fri, 3 Oct 2008 11:49:56 +0200
-Message-ID: <200810031150.00862.laurentp@cse-semaphore.com>
-References: <20081002101508.GA31074@xi.wantstofly.org> <200810031136.13365.laurentp@cse-semaphore.com> <20081003094315.GA11391@xi.wantstofly.org>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH 2.6.27-rc8 5/6] e1000e: debug contention on NVM SWFLAG
+Date: Fri, 3 Oct 2008 13:47:25 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0810031346100.1532@twin.jikos.cz>
+References: <20081002233314.12556.49143.stgit@jbrandeb-bw.jf.intel.com>
+ <20081002233340.12556.33137.stgit@jbrandeb-bw.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1829784.4RRkoavveI";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Olof Johansson <olof@lixom.net>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Eugene Konev <ejka@imfi.kspu.ru>,
-	Manuel Lauss <manuel.lauss@gmail.com>,
-	Kim Phillips <kim.phillips@freescale.com>,
-	Haavard Skinnemoen <hskinnemoen@atmel.com>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Li Yang <leoli@freescale.com>,
-	Scott Wood <scottwood@freescale.com>,
-	Bryan Wu <cooloney@kernel.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, Andy Fleming <afleming@freescale.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	arjan@linux.intel.com, airlied@gmail.com, davem@davemloft.net,
+	Jeff Garzik <jeff@garzik.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:3920 "EHLO
-	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752210AbYJCJuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2008 05:50:04 -0400
-In-Reply-To: <20081003094315.GA11391@xi.wantstofly.org>
+Received: from twin.jikos.cz ([213.151.79.26]:43611 "EHLO twin.jikos.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752743AbYJCLsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2008 07:48:04 -0400
+In-Reply-To: <20081002233340.12556.33137.stgit@jbrandeb-bw.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1829784.4RRkoavveI
-Content-Type: text/plain;
-  charset="ansi_x3.4-1968"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Thu, 2 Oct 2008, Jesse Brandeburg wrote:
 
-On Friday 03 October 2008, Lennert Buytenhek wrote:
-> On Fri, Oct 03, 2008 at 11:36:01AM +0200, Laurent Pinchart wrote:
->=20
-> > Hi Lennert,
->=20
-> Hi Laurent,
->=20
->=20
-> > > You're listed as maintainer of one of the network drivers in the tree
-> > > that use phylib.  Available at the URL below is a change to the phylib
-> > > API (dynamic allocation of struct mii_bus, which is needed for hooking
-> > > up mdio buses into the device tree) that needs corresponding mdio bus
-> > > driver changes.  I've patched all mdio bus drivers I could find, and
-> > > tried not to break anything, but it's possible I might have
-> > > inadvertently broken something, so I'd like you to test these changes
-> > > and let me know if they work for you or not:
-> > >=20
-> > > 	git://git.marvell.com/phylib.git master
-> > >=20
-> > > As a side-effect of the last patch, you should end up with a list of
-> > > mdio buses in your system in /sys/class/mdio_bus.
-> > >=20
-> > >=20
-> > > thanks,
-> > > Lennert
-> > >=20
-> > >=20
-> > > The following changes since commit e69c4e0f1210450841e40716894ba6a877=
-b31d52:
-> > >   Vlad Yasevich (1):
-> > >         sctp: correctly save sctp_adaptation from parameter.
-> > >=20
-> > > are available in the git repository at:
-> > >=20
-> > >   git://git.marvell.com/phylib.git master
-> > >=20
-> > > Lennert Buytenhek (5):
-> > >       phylib: phy_mii_ioctl() fixes
-> > >       phylib: add mdiobus_{read,write}
-> > >       phylib: rename mii_bus::dev to mii_bus::parent
-> > >       phylib: move to dynamic allocation of struct mii_bus
-> > >       phylib: give mdio buses a device tree presence
-> > >=20
-> > >  arch/powerpc/platforms/82xx/ep8248e.c     |    2 +-
-> > >  arch/powerpc/platforms/pasemi/gpio_mdio.c |    6 +-
-> > >  drivers/net/au1000_eth.c                  |   43 ++++++---
-> > >  drivers/net/au1000_eth.h                  |    2 +-
-> > >  drivers/net/bfin_mac.c                    |   31 ++++---
-> > >  drivers/net/bfin_mac.h                    |    2 +-
-> > >  drivers/net/cpmac.c                       |   51 ++++++----
-> > >  drivers/net/fec_mpc52xx_phy.c             |    8 +-
-> > >  drivers/net/fs_enet/mii-bitbang.c         |    9 +-
-> > >  drivers/net/fs_enet/mii-fec.c             |    8 +-
-> > >  drivers/net/gianfar_mii.c                 |    9 +-
-> > >  drivers/net/macb.c                        |   49 ++++++----
-> > >  drivers/net/macb.h                        |    2 +-
-> > >  drivers/net/mv643xx_eth.c                 |   32 ++++---
-> >=20
-> > Just a side note, the patch "phylib: rename mii_bus::dev to
-> > mii_bus::parent" seems to do a lot more than just renaming mii_bus::dev
-> > to mii_bus::parent in drivers/net/mv643xx_eth.c. You might have
-> > inadvertently committed unrelated changes.
->=20
-> What commit ID are you looking at?  I only see this:
->=20
-> 	commit def8867a8d2a9f474262dd46179770845a420d51
-> 	Author: Lennert Buytenhek <buytenh@wantstofly.org>
-> 	Date:   Tue Sep 23 02:35:17 2008 +0200
->=20
-> 	    phylib: rename mii_bus::dev to mii_bus::parent
-> 	   =20
-> 	    In preparation of giving mii_bus objects a device tree presence of
-> 	    their own, rename struct mii_bus's ->dev argument to ->parent, since
-> 	    having a 'struct device *dev' that points to our parent device
-> 	    conflicts with introducing a 'struct device dev' representing our own
-> 	    device.
-> 	   =20
-> 	    Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> 	    Acked-by: Andy Fleming <afleming@freescale.com>
->=20
-> 	[...]
->=20
-> 	diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> 	index 372811a..6340081 100644
-> 	--- a/drivers/net/mv643xx_eth.c
-> 	+++ b/drivers/net/mv643xx_eth.c
-> 	@@ -2368,7 +2368,7 @@ static int mv643xx_eth_shared_probe(struct platfor=
-m_device
-> 			msp->smi_bus.read =3D smi_bus_read;
-> 			msp->smi_bus.write =3D smi_bus_write,
-> 			snprintf(msp->smi_bus.id, MII_BUS_ID_SIZE, "%d", pdev->id);
-> 	-               msp->smi_bus.dev =3D &pdev->dev;
-> 	+               msp->smi_bus.parent =3D &pdev->dev;
-> 			msp->smi_bus.phy_mask =3D 0xffffffff;
-> 			if (mdiobus_register(&msp->smi_bus) < 0)
-> 				goto out_unmap;
+> From: Thomas Gleixner <tglx@linutronix.de>
+> 
+> This patch adds a mutex to the e1000e driver that would help
+> catch any collisions of two e1000e threads accessing hardware
+> at the same time.
 
-My bad, I was looking at my local branch which included a merge conflict re=
-solution. Sorry for the noise.
+Apparently this has some bug wrt suspend, see
+https://bugzilla.novell.com/show_bug.cgi?id=431914
 
-> > >  drivers/net/phy/fixed.c                   |   29 ++++--
-> > >  drivers/net/phy/mdio-bitbang.c            |    4 +-
-> > >  drivers/net/phy/mdio-ofgpio.c             |   11 +-
-> >=20
-> > Works fine for me. For the mdio-ofgpio part:
-> >=20
-> > Acked-by: Laurent Pinchart <laurentp@cse-semaphore.com>
->=20
-> Thanks!
->=20
->=20
-> > BTW your "phylib: move to dynamic allocation of struct mii_bus"
-> > patch fixes a double free in drivers/net/phy/mdio-ofgpio.c. Thanks
-> > for catching this.
->=20
-> Yeah, sorry for not reporting that separately.  (I'm not sure if it's
-> worth fixing separately, since deinit probably doesn't happen very
-> often.)
+WARNING: at drivers/net/e1000e/ich8lan.c:424
+e1000_acquire_swflag_ich8lan+0x56/0xcb [e1000e]()
+e1000e mutex contention. Owned by pid -1
+Modules linked in: xt_tcpudp xt_pkttype tun ipt_ULOG xt_limit aes_i586
+aes_generic i915 drm af_packet snd_pcm_oss snd_mixer_oss snd_seq
+snd_seq_device ipt_REJECT xt_state cpufreq_conservative iptable_mangle
+cpufreq_userspace iptable_nat cpufreq_powersave nf_nat acpi_cpufreq
+iptable_filter speedstep_lib nf_conntrack_ipv4 nf_conntrack ip_tables
+ip6_tables x_tables microcode loop arc4 ecb crypto_blkcipher snd_hda_intel
+iwl3945 pcmcia thinkpad_acpi snd_pcm snd_timer sdhci_pci snd_page_alloc
+rfkill sdhci snd_hwdep mac80211 yenta_socket rsrc_nonstatic video rtc_cmos
+led_class ohci1394 snd ieee1394 output mmc_core i2c_i801 ac battery
+pcmcia_core iTCO_wdt button intel_agp rtc_core cfg80211 nvram soundcore
+iTCO_vendor_support agpgart e1000e rtc_lib i2c_core pcspkr uinput sg
+sd_mod ehci_hcd uhci_hcd crc_t10dif usbcore edd ext3 mbcache jbd fan
+ata_piix ahci libata scsi_mod dock thermal processor
+Pid: 23153, comm: events/1 Tainted: G        W 
+2.6.27-rc8-HEAD_20081001123454-pae #1
+ [<c0105590>] dump_trace+0x6b/0x249
+ [<c01060c5>] show_trace+0x20/0x39
+ [<c033b52d>] dump_stack+0x71/0x76
+ [<c012ba12>] warn_slowpath+0x6f/0x90
+ [<f91cfb9b>] e1000_acquire_swflag_ich8lan+0x56/0xcb [e1000e]
+ [<f91d3db4>] e1000e_read_phy_reg_igp+0x10/0x4f [e1000e]
+ [<f91d3f83>] e1000e_phy_has_link_generic+0x32/0x99 [e1000e]
+ [<f91d2e35>] e1000e_check_for_copper_link+0x26/0x80 [e1000e]
+ [<f91d8f3a>] e1000_watchdog_task+0x5b/0x5eb [e1000e]
+ [<c013a1b4>] run_workqueue+0x9f/0x13e
+ [<c013a309>] worker_thread+0xb6/0xc2
+ [<c013cdff>] kthread+0x38/0x5d
+ [<c01050e7>] kernel_thread_helper+0x7/0x10
 
-No worries. This is not critical, so I'm happy to let your patch fix the bu=
-g.
+> +	WARN_ON(preempt_count());
+> +
+> +	if (!mutex_trylock(&nvm_mutex)) {
+> +		WARN(1, KERN_ERR "e1000e mutex contention. Owned by pid %d\n",
+> +		     nvm_owner);
+> +		mutex_lock(&nvm_mutex);
+> +	}
+> +	nvm_owner = current->pid;
+> +
+>  	while (timeout) {
+>  		extcnf_ctrl = er32(EXTCNF_CTRL);
+>  		extcnf_ctrl |= E1000_EXTCNF_CTRL_SWFLAG;
+> @@ -407,6 +419,8 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
+>  
+>  	if (!timeout) {
+>  		hw_dbg(hw, "FW or HW has locked the resource for too long.\n");
+> +		nvm_owner = -1;
+> +		mutex_unlock(&nvm_mutex);
+>  		return -E1000_ERR_CONFIG;
+>  	}
+>  
+> @@ -428,6 +442,9 @@ static void e1000_release_swflag_ich8lan(struct e1000_hw *hw)
+>  	extcnf_ctrl = er32(EXTCNF_CTRL);
+>  	extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
+>  	ew32(EXTCNF_CTRL, extcnf_ctrl);
+> +
+> +	nvm_owner = -1;
+> +	mutex_unlock(&nvm_mutex);
+>  }
 
-Cheers,
+The debugging message is racy anyway with respect to accessing nvm_owner, 
+right? It should be done after the mutex has been succesfully acquired.
 
-=2D-=20
-Laurent Pinchart
-CSE Semaphore Belgium
+-- 
+Jiri Kosina
+SUSE Labs
 
-Chaussee de Bruxelles, 732A
-B-1410 Waterloo
-Belgium
-
-T +32 (2) 387 42 59
-=46 +32 (2) 387 42 75
-
---nextPart1829784.4RRkoavveI
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-
-iEYEABECAAYFAkjl6sgACgkQ8y9gWxC9vpe58gCgiBKLFcOHxTwQ1VTzQYVLlXKi
-t/4AoLYouGUzJqbcfD4k3+dVqH3EKvyD
-=k3YS
------END PGP SIGNATURE-----
-
---nextPart1829784.4RRkoavveI--
