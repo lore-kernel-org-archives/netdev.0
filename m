@@ -1,79 +1,68 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 11649] New: Network don't work with SiS 900
- PCI Fast Ethernet. Mainly, I tried with DHCP interface. With exacly the
- same configurations network works on olders kernels and don't work on the
- newest
-Date: Sat, 4 Oct 2008 03:33:58 -0700
-Message-ID: <20081004033358.b3ea6500.akpm@linux-foundation.org>
-References: <bug-11649-10286@http.bugzilla.kernel.org/>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/6] [NET] dsa: add support for original DSA tagging format
+Date: Sat, 4 Oct 2008 12:22:37 +0100
+Message-ID: <20081004112235.GG7331@solarflare.com>
+References: <20080929023829.GI21560@xi.wantstofly.org> <1223054759.3984.76.camel@achroite> <20081003193250.GA15924@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, mateusz.pastewski@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
+	Jesper Dangaard Brouer <jdb@comx.dk>,
+	Tim Ellis <tim.ellis@mac.com>,
+	Andy Fleming <afleming@freescale.com>,
+	Imre Kaloz <kaloz@openwrt.org>, Nicolas Pitre <nico@cam.org>,
+	Dirk Teurlings <dirk@upexia.nl>,
+	Peter van Valderen <p.v.valderen@gmail.com>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:52292 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752295AbYJDKeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 06:34:31 -0400
-In-Reply-To: <bug-11649-10286@http.bugzilla.kernel.org/>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:32936 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752579AbYJDLXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 07:23:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20081003193250.GA15924@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Thu, 25 Sep 2008 17:35:20 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=11649
+Lennert Buytenhek wrote:
+> On Fri, Oct 03, 2008 at 06:25:59PM +0100, Ben Hutchings wrote:
 > 
->            Summary: Network don't work with SiS 900 PCI Fast Ethernet.
->                     Mainly, I tried with DHCP interface. With exacly the
->                     same configurations network works on olders kernels and
->                     don't work on the newest
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.26.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: low
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: mateusz.pastewski@gmail.com
+> > > Most of the DSA switches currently in the field do not support the
+> > > Ethertype DSA tagging format that one of the previous patches added
+> > > support for, but only the original DSA tagging format.
+> > > 
+> > > The original DSA tagging format carries the same information as the
+> > > Ethertype DSA tagging format, but with the difference that it does not
+> > > have an ethertype field.  In other words, when receiving a packet that
+> > > is tagged with an original DSA tag, there is no way of telling in
+> > > eth_type_trans() that this packet is in fact a DSA-tagged packet.
+> > > 
+> > > This patch adds a hook into eth_type_trans() which is only compiled in
+> > > if support for a switch chip that doesn't support Ethertype DSA is
+> > > selected, and which checks whether there is a DSA switch driver
+> > > instance attached to this network device which uses the old tag format.
+> > > If so, it sets the protocol field to ETH_P_DSA without looking at the
+> > > packet, so that the packet ends up in the right place.
+> > [...]
+> > 
+> > Why should this go in eth_type_trans()?  Why don't you put the hook into
+> > the specific network driver(s) that need it?
+> >
+> > For that matter, why should dsa_ptr go in struct net_device and not in
+> > the private state for the specific network drivers that need it?
 > 
-> 
-> Latest working kernel version: 2.6.23.x
-> Earliest failing kernel version: 2.6.24.x
-> Distribution: Debian Etch 4.0
-> Hardware Environment: PC
-> Software Enviroment:
-> Problem Description:
-> 
-> I installed Debian Etch 4.0 (with kernel 2.6.18-6-k7) on my machine with ECS
-> K7S5A with built-in network card SIS900. During the installation and after
-> first boot internet worked like a dream with auto configurated DHCP interface.
-> But after change kernel to version 2.6.26.5 internet didn't work. In this
-> moment I realized that I didn't change internet configurations, but I thought
-> that it can be wrong in hardware configurations. On the other hand, the results
-> by lspci and lspci -n, said that everything had worked perfectly. Then, I
-> compiled kernel 2.6.26.5 with exacly the same .config file like kernel from
-> debian distribution (2.6.18-6-k7) and internet didn't work too. After that, I
-> compiled older kernel (2.6.17) with this .config file and internet started
-> working! I think, it is proof that it is something wrong in module sis900 in
-> the newest kernel versions, because I didn't change others system
-> configurations!
-> 
-> What is more, system didn't have interrupt for ethernet, thought lspci
-> recognized network card, sis900 module was started and DHCP was set. To confirm
-> my view I attache interrupt's list and logs from internet starting/restarting:
->
-> ...
->
+> DSA is just another protocol.  Putting hooks in specific network driver
+> to handle a certain protocol doesn't seem like the right thing to do to
+> me.
 
-A mystery regression in sis900.  There's quie a bit more info i te
-bugzilla report.
+If it's just another protocol then put dsa_ptr along with the other
+protocol pointers (ip_ptr etc.).
 
+For those drivers that work with the original DSA tagging format, it's
+apparently not just another protocol.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
