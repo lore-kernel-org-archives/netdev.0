@@ -1,147 +1,187 @@
-From: "Bernard, f6bvp" <f6bvp@free.fr>
-Subject: Re: ax25 rose Re: kernel panic linux-2.6.27-rc7
-Date: Sat, 04 Oct 2008 20:30:26 +0200
-Message-ID: <1223145027.23358.20.camel@f6bvp-5>
-References: <20081002194845.GB2664@ami.dom.local>
-	 <20081003073418.GA5235@ff.dom.local>  <20081003074351.GB5235@ff.dom.local>
+From: "Mandeep Baines" <msb@google.com>
+Subject: Re: ethtool: add support for block writing of EEPROMs
+Date: Sat, 4 Oct 2008 11:48:39 -0700
+Message-ID: <1fe6c7900810041148se12d604p1a2c10f939daea@mail.gmail.com>
+References: <20080618173802.GA13834@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: nil@google.com, thockin@google.com
+To: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g19.free.fr ([212.27.42.27]:53733 "EHLO smtp1-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751378AbYJDS3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Oct 2008 14:29:18 -0400
-In-Reply-To: <20081003074351.GB5235@ff.dom.local>
+Received: from smtp-out.google.com ([216.239.33.17]:21016 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752453AbYJDSsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 14:48:50 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id m94ImgWD000602
+	for <netdev@vger.kernel.org>; Sat, 4 Oct 2008 19:48:42 +0100
+Received: from wf-out-1314.google.com (wfc25.prod.google.com [10.142.3.25])
+	by wpaz33.hot.corp.google.com with ESMTP id m94ImdiF023384
+	for <netdev@vger.kernel.org>; Sat, 4 Oct 2008 11:48:40 -0700
+Received: by wf-out-1314.google.com with SMTP id 25so2615034wfc.12
+        for <netdev@vger.kernel.org>; Sat, 04 Oct 2008 11:48:39 -0700 (PDT)
+In-Reply-To: <20080618173802.GA13834@google.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek,
+Hi Jeff,
 
-=46ollowing your indications I did it both ways !
-Without =EF=BB=BFcommit 30902dc3cb0ea1cfc7ac2b17bcf478ff98420d74 patch
-kernel-2.6.27-rc7 is no longer subject to kernel panic when running ROS=
-E
-applications.
-Reversely, when this patch is applied to rose-patched 2.6.25.10 kernel,
-this one reboots a few seconds after ROSE application are started.
-Otherwise it is very stable.
-I checked about three times this behaviour for both kernels with and
-without the incriminated patch.
-This confirms without doubt that it is responsible of observed kernel
-panic.
-Is there however a possibility to find a solution to cure the problem
-this patch was dedicated to ?=20
+Just wanted to know if this was in your queue.
 
-Bernard
+http://marc.info/?l=linux-netdev&m=121381113108841
 
+Could be used for restoring e1000es.
 
-Le vendredi 03 octobre 2008 =C3=A0 07:43 +0000, Jarek Poplawski a =C3=A9=
-crit :
-> On Fri, Oct 03, 2008 at 07:34:18AM +0000, Jarek Poplawski wrote:
-> > On 02-10-2008 21:48, Jarek Poplawski wrote:
-> > > On Thu, Oct 02, 2008 at 08:20:18PM +0200, Bernard, f6bvp wrote:
-> > ...
-> > >> Although I did not change anything, and contrarily to my previou=
-s
-> > >> observation, the system instability as shown above occurs
-> > >> systematically.
-> > >> There was no problem with Kernel 2.6.25-10 I was using before (w=
-ith
-> > >> patches for AX25 and ROSE that are now included in 2.6.27-rc7).
-> >=20
-> > Then it could be useful to try our luck with reverting some other
-> > "suspicious" changes added in the meantime. My first candidate is
-> > attached below. (So you could test this with vanilla 2.6.27-rc7 or
-> > later, with or without any of the patches in this thread, and the
-> > patch below reverted.)
->=20
-> Hmm... Of course, you could do this other way as well: 2.6.25-10 etc.
-> with this patch applied.
->=20
-> Jarek P.
->=20
-> >=20
-> > >> I did not try 2.6.26 on this machine, thus I cannot tell if the =
-bug was
-> > >> already present.
-> > >> Would it be worth to test 2.6.26 ?  =20
-> > >=20
-> > > Yes, but only if you think you can do it safely.
-> >=20
-> > This is still valid (it can wait).
-> >=20
-> > Jarek P.
-> >=20
-> > -------->
-> >=20
-> > commit 30902dc3cb0ea1cfc7ac2b17bcf478ff98420d74
-> > Author: David S. Miller <davem@davemloft.net>
-> > Date:   Tue Jun 17 21:26:37 2008 -0700
-> >=20
-> >     ax25: Fix std timer socket destroy handling.
-> >    =20
-> >     Tihomir Heidelberg - 9a4gl, reports:
-> >    =20
-> >     --------------------
-> >     I would like to direct you attention to one problem existing in=
- ax.25
-> >     kernel since 2.4. If listening socket is closed and its SKB que=
-ue is
-> >     released but those sockets get weird. Those "unAccepted()" sock=
-ets
-> >     should be destroyed in ax25_std_heartbeat_expiry, but it will n=
-ot
-> >     happen. And there is also a note about that in ax25_std_timer.c=
-:
-> >     /* Magic here: If we listen() and a new link dies before it
-> >     is accepted() it isn't 'dead' so doesn't get removed. */
-> >    =20
-> >     This issue cause ax25d to stop accepting new connections and I =
-had to
-> >     restarted ax25d approximately each day and my services were una=
-vailable.
-> >     Also netstat -n -l shows invalid source and device for those li=
-stening
-> >     sockets. It is strange why ax25d's listening socket get weird b=
-ecause of
-> >     this issue, but definitely when I solved this bug I do not have=
- problems
-> >     with ax25d anymore and my ax25d can run for months without prob=
-lems.
-> >     --------------------
-> >    =20
-> >     Actually as far as I can see, this problem is even in releases
-> >     as far back as 2.2.x as well.
-> >    =20
-> >     It seems senseless to special case this test on TCP_LISTEN stat=
-e.
-> >     Anything still stuck in state 0 has no external references and
-> >     we can just simply kill it off directly.
-> >    =20
-> >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >=20
-> > diff --git a/net/ax25/ax25_std_timer.c b/net/ax25/ax25_std_timer.c
-> > index 96e4b92..cdc7e75 100644
-> > --- a/net/ax25/ax25_std_timer.c
-> > +++ b/net/ax25/ax25_std_timer.c
-> > @@ -39,11 +39,9 @@ void ax25_std_heartbeat_expiry(ax25_cb *ax25)
-> > =20
-> >  	switch (ax25->state) {
-> >  	case AX25_STATE_0:
-> > -		/* Magic here: If we listen() and a new link dies before it
-> > -		   is accepted() it isn't 'dead' so doesn't get removed. */
-> > -		if (!sk || sock_flag(sk, SOCK_DESTROY) ||
-> > -		    (sk->sk_state =3D=3D TCP_LISTEN &&
-> > -		     sock_flag(sk, SOCK_DEAD))) {
-> > +		if (!sk ||
-> > +		    sock_flag(sk, SOCK_DESTROY) ||
-> > +		    sock_flag(sk, SOCK_DEAD)) {
-> >  			if (sk) {
-> >  				sock_hold(sk);
-> >  				ax25_destroy_socket(ax25);
->=20
+You could back up the EEPROM of a good NIC:
 
+ethtool -e eth0 > eth0.eeprom
+
+And then restore it on a bad NIC:
+
+ethtool -E eth0 < eth0.eeprom
+
+Then fix up the MAC address.
+
+Regards,
+Mandeep
+
+On Wed, Jun 18, 2008 at 10:38 AM, Mandeep Singh Baines <msb@google.com> wrote:
+> EEPROM write only supports byte writing. Add support for writing
+> an arbitrary number of bytes at an arbitrary offset.
+>
+> Signed-off-by: Mandeep Singh Baines <msb@google.com>
+> ---
+>  ethtool.8 |   12 ++++++++----
+>  ethtool.c |   58 ++++++++++++++++++++++++++++++++++++++++++++--------------
+>  2 files changed, 52 insertions(+), 18 deletions(-)
+>
+> diff --git a/ethtool.8 b/ethtool.8
+> index cc6a46e..90d160a 100644
+> --- a/ethtool.8
+> +++ b/ethtool.8
+> @@ -144,6 +144,8 @@ ethtool \- Display or change ethernet card settings
+>  .IR N ]
+>  .RB [ offset
+>  .IR N ]
+> +.RB [ length
+> +.IR N ]
+>  .RB [ value
+>  .IR N ]
+>
+> @@ -265,10 +267,12 @@ length and offset parameters allow dumping certain portions of the EEPROM.
+>  Default is to dump the entire EEPROM.
+>  .TP
+>  .B \-E \-\-change\-eeprom
+> -Changes EEPROM byte for the specified ethernet device.  offset and value
+> -specify which byte and it's new value.  Because of the persistent nature
+> -of writing to the EEPROM, a device-specific magic key must be specified
+> -to prevent the accidental writing to the EEPROM.
+> +If value is specified, changes EEPROM byte for the specified ethernet device.
+> +offset and value specify which byte and it's new value. If value is not
+> +specified, stdin is read and written to the EEPROM. The length and offset
+> +parameters allow writing to certain portions of the EEPROM.
+> +Because of the persistent nature of writing to the EEPROM, a device-specific
+> +magic key must be specified to prevent the accidental writing to the EEPROM.
+>  .TP
+>  .B \-k \-\-show\-offload
+>  Queries the specified ethernet device for offload information.
+> diff --git a/ethtool.c b/ethtool.c
+> index a668b49..3fce21c 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -163,6 +163,7 @@ static struct option {
+>     { "-E", "--change-eeprom", MODE_SEEPROM, "Change bytes in device EEPROM",
+>                "               [ magic N ]\n"
+>                "               [ offset N ]\n"
+> +               "               [ length N ]\n"
+>                "               [ value N ]\n" },
+>     { "-r", "--negotiate", MODE_NWAY_RST, "Restart N-WAY negotation" },
+>     { "-p", "--identify", MODE_PHYS_ID, "Show visible port identification (e.g. blinking)",
+> @@ -264,8 +265,9 @@ static int geeprom_offset = 0;
+>  static int geeprom_length = -1;
+>  static int seeprom_changed = 0;
+>  static int seeprom_magic = 0;
+> -static int seeprom_offset = -1;
+> -static int seeprom_value = 0;
+> +static int seeprom_length = -1;
+> +static int seeprom_offset = 0;
+> +static int seeprom_value = EOF;
+>  static enum {
+>        ONLINE=0,
+>        OFFLINE,
+> @@ -300,6 +302,7 @@ static struct cmdline_info cmdline_geeprom[] = {
+>  static struct cmdline_info cmdline_seeprom[] = {
+>        { "magic", CMDL_INT, &seeprom_magic, NULL },
+>        { "offset", CMDL_INT, &seeprom_offset, NULL },
+> +       { "length", CMDL_INT, &seeprom_length, NULL },
+>        { "value", CMDL_INT, &seeprom_value, NULL },
+>  };
+>
+> @@ -1920,22 +1923,49 @@ static int do_geeprom(int fd, struct ifreq *ifr)
+>  static int do_seeprom(int fd, struct ifreq *ifr)
+>  {
+>        int err;
+> -       struct {
+> -               struct ethtool_eeprom eeprom;
+> -               u8 data;
+> -       } edata;
+> -
+> -       edata.eeprom.cmd = ETHTOOL_SEEPROM;
+> -       edata.eeprom.len = 1;
+> -       edata.eeprom.offset = seeprom_offset;
+> -       edata.eeprom.magic = seeprom_magic;
+> -       edata.data = seeprom_value;
+> -       ifr->ifr_data = (caddr_t)&edata.eeprom;
+> +       struct ethtool_drvinfo drvinfo;
+> +       struct ethtool_eeprom *eeprom;
+> +
+> +       drvinfo.cmd = ETHTOOL_GDRVINFO;
+> +       ifr->ifr_data = (caddr_t)&drvinfo;
+> +       err = ioctl(fd, SIOCETHTOOL, ifr);
+> +       if (err < 0) {
+> +               perror("Cannot get driver information");
+> +               return 74;
+> +       }
+> +
+> +       if (seeprom_value != EOF)
+> +               seeprom_length = 1;
+> +
+> +       if (seeprom_length <= 0)
+> +               seeprom_length = drvinfo.eedump_len;
+> +
+> +       if (drvinfo.eedump_len < seeprom_offset + seeprom_length)
+> +               seeprom_length = drvinfo.eedump_len - seeprom_offset;
+> +
+> +       eeprom = calloc(1, sizeof(*eeprom)+seeprom_length);
+> +       if (!eeprom) {
+> +               perror("Cannot allocate memory for EEPROM data");
+> +               return 75;
+> +       }
+> +
+> +       eeprom->cmd = ETHTOOL_SEEPROM;
+> +       eeprom->len = seeprom_length;
+> +       eeprom->offset = seeprom_offset;
+> +       eeprom->magic = seeprom_magic;
+> +       eeprom->data[0] = seeprom_value;
+> +
+> +       /* Multi-byte write: read input from stdin */
+> +       if (seeprom_value == EOF)
+> +               eeprom->len = fread(eeprom->data, 1, eeprom->len, stdin);
+> +
+> +       ifr->ifr_data = (caddr_t)eeprom;
+>        err = ioctl(fd, SIOCETHTOOL, ifr);
+>        if (err < 0) {
+>                perror("Cannot set EEPROM data");
+> -               return 87;
+> +               err = 87;
+>        }
+> +       free(eeprom);
+>
+>        return err;
+>  }
+> --
+> 1.5.2.5
+>
+>
