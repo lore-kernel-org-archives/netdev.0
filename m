@@ -1,72 +1,79 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/32] Swap over NFS - v19
-Date: Sat, 04 Oct 2008 12:13:07 +0200
-Message-ID: <1223115187.28938.19.camel@twins>
-References: <20081002130504.927878499@chello.nl>
-	 <20081003141731.37bda8f3@doriath.conectiva>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11649] New: Network don't work with SiS 900
+ PCI Fast Ethernet. Mainly, I tried with DHCP interface. With exacly the
+ same configurations network works on olders kernels and don't work on the
+ newest
+Date: Sat, 4 Oct 2008 03:33:58 -0700
+Message-ID: <20081004033358.b3ea6500.akpm@linux-foundation.org>
+References: <bug-11649-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
-To: "Luiz Fernando N. Capitulino" <lcapitulino@mandriva.com.br>
+Cc: bugme-daemon@bugzilla.kernel.org, mateusz.pastewski@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:39905 "EHLO
-	viefep12-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752297AbYJDKNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 06:13:09 -0400
-In-Reply-To: <20081003141731.37bda8f3@doriath.conectiva>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52292 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752295AbYJDKeb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 06:34:31 -0400
+In-Reply-To: <bug-11649-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-10-03 at 14:17 -0300, Luiz Fernando N. Capitulino wrote:
-> Em Thu, 02 Oct 2008 15:05:04 +0200
-> Peter Zijlstra <a.p.zijlstra@chello.nl> escreveu:
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Thu, 25 Sep 2008 17:35:20 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=11649
 > 
-> | Patches are against: v2.6.27-rc5-mm1
-> | 
-> | This release features more comments and (hopefully) better Changelogs.
-> | Also the netns stuff got sorted and ipv6 will now build and not oops
-> | on boot ;-)
-> | 
-> | The first 4 patches are cleanups and can go in if the respective maintainers
-> | agree.
-> | 
-> | The code is lightly tested but seems to work on my default config.
-> | 
-> | Let's get this ball rolling...
+>            Summary: Network don't work with SiS 900 PCI Fast Ethernet.
+>                     Mainly, I tried with DHCP interface. With exacly the
+>                     same configurations network works on olders kernels and
+>                     don't work on the newest
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.26.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: low
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: mateusz.pastewski@gmail.com
 > 
->  What's the best way to test this? Create a swap in a NFS mount
-> point and stress it?
+> 
+> Latest working kernel version: 2.6.23.x
+> Earliest failing kernel version: 2.6.24.x
+> Distribution: Debian Etch 4.0
+> Hardware Environment: PC
+> Software Enviroment:
+> Problem Description:
+> 
+> I installed Debian Etch 4.0 (with kernel 2.6.18-6-k7) on my machine with ECS
+> K7S5A with built-in network card SIS900. During the installation and after
+> first boot internet worked like a dream with auto configurated DHCP interface.
+> But after change kernel to version 2.6.26.5 internet didn't work. In this
+> moment I realized that I didn't change internet configurations, but I thought
+> that it can be wrong in hardware configurations. On the other hand, the results
+> by lspci and lspci -n, said that everything had worked perfectly. Then, I
+> compiled kernel 2.6.26.5 with exacly the same .config file like kernel from
+> debian distribution (2.6.18-6-k7) and internet didn't work too. After that, I
+> compiled older kernel (2.6.17) with this .config file and internet started
+> working! I think, it is proof that it is something wrong in module sis900 in
+> the newest kernel versions, because I didn't change others system
+> configurations!
+> 
+> What is more, system didn't have interrupt for ethernet, thought lspci
+> recognized network card, sis900 module was started and DHCP was set. To confirm
+> my view I attache interrupt's list and logs from internet starting/restarting:
+>
+> ...
+>
 
-What I do is boot with mem=256M, then swapoff -a;
-swapon /net/host/$path/file.swp;
-
-the file.swp I created using dd and mkswap on the remote host.
-
-I then run 2 cyclic loops on anonymous memory sized 96mb, and run 2
-cyclic loops on file backed memory on the same NFS mount
-(eg /net/host/$path/file[12]), also sized 96mb
-
-That gives a memory footprint of 4*96=384mb and will thus rely on paging
-quite heavily.
-
-While this is on-going you can have a little deamon that listens and
-accepts connections and reads from them.
-
-On a 3rd machine, start say a 1000 connections to this deamon that
-continuously write stuff to it.
-
-Then on you NFS host do something like: /etc/init.d/nfs stop
-
-go for lunch
-
-and when you're back do: /etc/init.d/nfs start
-
-and see if all comes back up again ;-)
+A mystery regression in sis900.  There's quie a bit more info i te
+bugzilla report.
 
