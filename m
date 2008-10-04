@@ -1,115 +1,63 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [PATCH 00/32] Swap over NFS - v19
-Date: Sun,  5 Oct 2008 00:05:05 +0900 (JST)
-Message-ID: <20081004232549.CE53.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-References: <20081002124748.638c95ff.akpm@linux-foundation.org> <20081003153810.5dd0a33e@bree.surriel.com>
+From: Daniele Lacamera <root@danielinux.net>
+Subject: [PATCH] Fix tcp_hybla zero congestion window growth with small rho
+ and large cwnd
+Date: Sat, 04 Oct 2008 17:34:57 +0200
+Message-ID: <48E78D21.4020908@danielinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
-To: Rik van Riel <riel@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------090506030401030504010609"
+Cc: Carlo Caini <ccaini@arces.unibo.it>, rfirrincieli@arces.unibo.it
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:52137 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753029AbYJDPFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 11:05:09 -0400
-In-Reply-To: <20081003153810.5dd0a33e@bree.surriel.com>
+Received: from danielinux.vm.bytemark.co.uk ([80.68.95.85]:1062 "EHLO
+	mail.danielinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751278AbYJDPeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 11:34:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+This is a multi-part message in MIME format.
+--------------090506030401030504010609
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> > On Thu, 02 Oct 2008 15:05:04 +0200 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
-> > 
-> > > Let's get this ball rolling...
-> > 
-> > I don't think we're really able to get any MM balls rolling until we
-> > get all the split-LRU stuff landed.  Is anyone testing it?  Is it good?
-> 
-> I've done some testing on it on my two test systems and have not
-> found performance regressions against the mainline VM.
-> 
-> As for stability, I think we have done enough testing to conclude
-> that it is stable by now.
+Because of rounding, in certain conditions, i.e. when in congestion 
+avoidance state rho is smaller than 1/128 of the current cwnd, TCP Hybla 
+congestion control starves and the cwnd is kept constant forever.
 
-Also my experience doesn't found any regression.
-and in my experience, split-lru patch increase performance stability.
+This patch forces an increment by one segment after #send_cwnd calls
+without increments(newreno behavior).
 
-What is performance stability?
-example, HPC parallel compution use many process and communication
-each other.
-Then, the system performance is decided by most slow process.
+Please apply.
 
-So, peek and average performance isn't only important, but also
-worst case performance is important.
-
-Especially, split-lru outperform mainline in anon and file mixed workload.
-
-
-example, I ran himeno benchmark.
-(this is one of most famous hpc benchmark in japan, this benchmark
- do matrix calculation on large memory (= use anon only))
-
-machine
--------------
-CPU IA64 x8
-MEM 8G
-
-benchmark setting
-----------------
-# of parallel: 4
-use mem:  1.7G x4 (used nealy total mem)
-
-
-first:
-result of when other process stoped  (Unit: MFLOPS)
-               
-              each process
-              result
-               1    2    3    4    worst average
----------------------------------------------------------
-2.6.27-rc8:   217  213  217  154   154   200
-mmotm 02 Oct: 217  214  217  217   214   216
-
-ok, these are the almost same
-
-
-next:
-result of when another io process running (Unit: MFLOPS)
-(*) infinite loop of dd command used
-
-               each process
-               result
-               1    2    3    4    worst  average
----------------------------------------------------------
-2.6.27-rc8:    34  205   69  196    34     126
-mmotm 02 Oct: 162  179  146  178   146     166
-
-
-Wow, worst case is significant difference.
-(this result is reprodusable)
-
-because reclaim processing of mainline VM is too slow.
-then, the process of calling direct reclaim is decreased performance largely.
-
-
-this characteristics is not useful for hpc, but also useful for desktop.
-because if X server (or another critical process) call direct reclaim, 
-it can strike end-user-experience easily.
-
-
-yup,
-I know many people want to other benchmark result too.
-I'll try to mesure other bench at next week.
+Signed-off-by: Daniele Lacamera <root@danielinux.net>
 
 
 
+--------------090506030401030504010609
+Content-Type: text/x-diff;
+ name="hybla_not_incrementing_cwnd.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hybla_not_incrementing_cwnd.patch"
+
+diff -ruN a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
+--- a/net/ipv4/tcp_hybla.c	2008-07-13 23:51:29.000000000 +0200
++++ b/net/ipv4/tcp_hybla.c	2008-10-04 16:57:54.000000000 +0200
+@@ -150,7 +150,12 @@
+ 		ca->snd_cwnd_cents -= 128;
+ 		tp->snd_cwnd_cnt = 0;
+ 	}
+-
++	/* check when cwnd has not been incremented for a while */
++	if (increment == 0 && odd == 0 && tp->snd_cwnd_cnt >= tp->snd_cwnd)
++	{
++		tp->snd_cwnd++;
++		tp->snd_cwnd_cnt = 0;
++	}
+ 	/* clamp down slowstart cwnd to ssthresh value. */
+ 	if (is_slowstart)
+ 		tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_ssthresh);
+
+
+--------------090506030401030504010609--
