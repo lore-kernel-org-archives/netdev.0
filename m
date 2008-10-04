@@ -1,31 +1,77 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: deadlock during net device unregistration - V2
-Date: Sat, 4 Oct 2008 09:52:33 +0200
-Message-ID: <20081004075233.GB2536@ami.dom.local>
-References: <20081001.031243.255655293.davem@davemloft.net> <20081001141432.470106980@theryb.frec.bull.fr> <20081001194825.GA2520@ami.dom.local> <48E3E64E.50106@fr.ibm.com> <20081001233152.GA2411@ami.dom.local> <48E4E772.2020208@bull.net> <20081002183819.GA2664@ami.dom.local> <20081002215502.q9and4a6kg4cs0o8@intran0x.frec.bull.fr> <20081002203435.GC2664@ami.dom.local> <20081004074248.GA2536@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Benjamin Thery <Benjamin.Thery@bull.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/5] dccp: Cleanup routines for feature negotiation
+Date: Sat,  4 Oct 2008 11:13:26 +0200
+Message-ID: <1223111606-5308-6-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <20081002.125252.202124982.davem@davemloft.net>
+ <1223111606-5308-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1223111606-5308-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1223111606-5308-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1223111606-5308-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1223111606-5308-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:22969 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752052AbYJDHwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 03:52:06 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so640417eyi.37
-        for <netdev@vger.kernel.org>; Sat, 04 Oct 2008 00:52:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20081004074248.GA2536@ami.dom.local>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52935 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752143AbYJDJNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Oct 2008 05:13:34 -0400
+In-Reply-To: <1223111606-5308-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 04, 2008 at 09:42:48AM +0200, Jarek Poplawski wrote:
-...
-> During this all other works would be unnecessarily blocked by the
-> linkwatch, what looks a bit too hoggish.
+This inserts the required de-allocation routines for memory allocated by
+feature negotiation in the socket destructors, replacing dccp_feat_clean()
+in one instance.
 
-Or even more: can't some of these blockeds task hold our refs too?
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ net/dccp/dccp.h  |    2 ++
+ net/dccp/ipv4.c  |    1 +
+ net/dccp/ipv6.c  |    1 +
+ net/dccp/proto.c |    2 +-
+ 4 files changed, 5 insertions(+), 1 deletions(-)
 
-Jarek P.
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -442,6 +442,8 @@ static inline int dccp_ack_pending(const struct sock *sk)
+ 	       inet_csk_ack_scheduled(sk);
+ }
+ 
++extern void dccp_feat_list_purge(struct list_head *fn_list);
++
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+ extern int dccp_insert_options_rsk(struct dccp_request_sock*, struct sk_buff*);
+ extern int dccp_insert_option_elapsed_time(struct sock *sk,
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -545,6 +545,7 @@ out:
+ 
+ static void dccp_v4_reqsk_destructor(struct request_sock *req)
+ {
++	dccp_feat_list_purge(&dccp_rsk(req)->dreq_featneg);
+ 	kfree(inet_rsk(req)->opt);
+ }
+ 
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -302,6 +302,7 @@ done:
+ 
+ static void dccp_v6_reqsk_destructor(struct request_sock *req)
+ {
++	dccp_feat_list_purge(&dccp_rsk(req)->dreq_featneg);
+ 	if (inet6_rsk(req)->pktopts != NULL)
+ 		kfree_skb(inet6_rsk(req)->pktopts);
+ }
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -268,7 +268,7 @@ void dccp_destroy_sock(struct sock *sk)
+ 	dp->dccps_hc_rx_ccid = dp->dccps_hc_tx_ccid = NULL;
+ 
+ 	/* clean up feature negotiation state */
+-	dccp_feat_clean(dmsk);
++	dccp_feat_list_purge(&dp->dccps_featneg);
+ }
+ 
+ EXPORT_SYMBOL_GPL(dccp_destroy_sock);
