@@ -1,7 +1,7 @@
 From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
-Subject: [PATCH 1/2] r8169: WoL fixes
-Date: Sat, 4 Oct 2008 18:07:35 +0200
-Message-ID: <20081004180735.2dc9a386@neptune.home>
+Subject: [PATCH 2/2] r8169: WoL fixes
+Date: Sat, 4 Oct 2008 18:08:34 +0200
+Message-ID: <20081004180834.71c1bdf2@neptune.home>
 References: <20081004180521.7aa7e232@neptune.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,36 +12,46 @@ Cc: netdev@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Jesse Barnes <jbarnes@virtuousgeek.org>,
 	linux-acpi@vger.kernel.org, linux-pci@vger.kernel.org
 To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppp-111-39.adsl.restena.lu ([158.64.111.39]:54419 "EHLO
-	bonbons.gotdns.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751460AbYJDQPE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 12:15:04 -0400
+Return-path: <linux-acpi-owner@vger.kernel.org>
 In-Reply-To: <20081004180521.7aa7e232@neptune.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When probing the chip and handling it's power management settings
-also remember wether WoL feature is enabled.
+Since recent kernel (2.6.26 or 2.6.27) the PCI wakeup functions are
+influenced by generic device ability and configuration when enabling
+PCI-device triggered wake-up.
 
-Without this patch one has to call ethtool to change WoL settings
-for this flag to be set and any WoL being enabled on suspend to
-RAM.
+This patch causes WoL setting to enable/disable device's wish to
+be permitted to wake-up the host when changing WoL options and
+also during device probing.
+
+Without this patch one has write 'enabled' to
+  /sys/bus/pci/devices/0000:02:08.0/power/wakeup
 
 Signed-off-by: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
 ---
---- linux-2.6.27-rc8-git6.orig/drivers/net/r8169.c	2008-10-04 16:37:36.=
+--- linux-2.6.27-rc8-git6.orig/drivers/net/r8169.c	2008-10-04 12:31:48.=
 000000000 +0200
-+++ linux-2.6.27-rc8-git6/drivers/net/r8169.c	2008-10-04 12:31:48.00000=
++++ linux-2.6.27-rc8-git6/drivers/net/r8169.c	2008-10-04 16:51:48.00000=
 0000 +0200
-@@ -1706,6 +1706,10 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
- 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
- 	RTL_W8(Config5, RTL_R8(Config5) & PMEStatus);
-+	if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) !=3D 0)
-+		tp->features |=3D RTL_FEATURE_WOL;
-+	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) !=3D 0)
-+		tp->features |=3D RTL_FEATURE_WOL;
- 	tp->features |=3D rtl_try_msi(pdev, ioaddr, cfg);
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
+@@ -619,6 +619,7 @@ static int rtl8169_set_wol(struct net_de
+ 		tp->features |=3D RTL_FEATURE_WOL;
+ 	else
+ 		tp->features &=3D ~RTL_FEATURE_WOL;
++	device_set_wakeup_enable(&tp->pci_dev->dev, wol->wolopts);
 =20
+ 	spin_unlock_irq(&tp->lock);
+=20
+@@ -1796,6 +1797,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	}
+=20
+ 	rtl8169_init_phy(dev, tp);
++	device_set_wakeup_enable(&pdev->dev, tp->features & RTL_FEATURE_WOL);
+=20
+ out:
+ 	return rc;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
