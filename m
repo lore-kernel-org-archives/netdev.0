@@ -1,63 +1,67 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 11649] New: Network don't work with SiS 900
-   PCI Fast Ethernet. Mainly, I tried with DHCP interface. With exacly the
-   same configurations network works on olders kernels and don't work on the
-   newest
-Date: Sat, 04 Oct 2008 19:57:07 +0200
-Message-ID: <48E7AE73.8000202@gmail.com>
-References: <bug-11649-10286@http.bugzilla.kernel.org/> <20081004033358.b3ea6500.akpm@linux-foundation.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH 2/2] r8169: WoL fixes
+Date: Sat, 4 Oct 2008 20:10:17 +0200
+Message-ID: <200810042010.17948.rjw@sisk.pl>
+References: <20081004180521.7aa7e232@neptune.home> <20081004180834.71c1bdf2@neptune.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	mateusz.pastewski@gmail.com, Patrick McHardy <kaber@trash.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:6998 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752615AbYJDRwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 13:52:05 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so1534422fkq.5
-        for <netdev@vger.kernel.org>; Sat, 04 Oct 2008 10:52:03 -0700 (PDT)
-In-Reply-To: <20081004033358.b3ea6500.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Len Brown <lenb@kernel.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	linux-acpi@vger.kernel.org, linux-pci@vger.kernel.org
+To: Bruno =?utf-8?q?Pr=C3=A9mont?= <bonbons@linux-vserver.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <20081004180834.71c1bdf2@neptune.home>
+Content-Disposition: inline
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote, On 10/04/2008 12:33 PM:
+On Saturday, 4 of October 2008, Bruno Pr=C3=A9mont wrote:
+> Since recent kernel (2.6.26 or 2.6.27) the PCI wakeup functions are
+> influenced by generic device ability and configuration when enabling
+> PCI-device triggered wake-up.
+>=20
+> This patch causes WoL setting to enable/disable device's wish to
+> be permitted to wake-up the host when changing WoL options and
+> also during device probing.
+>=20
+> Without this patch one has write 'enabled' to
+>   /sys/bus/pci/devices/0000:02:08.0/power/wakeup
+>=20
+> Signed-off-by: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Thu, 25 Sep 2008 17:35:20 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-> 
->> http://bugzilla.kernel.org/show_bug.cgi?id=11649
->>
->>            Summary: Network don't work with SiS 900 PCI Fast Ethernet.
->>                     Mainly, I tried with DHCP interface. With exacly the
->>                     same configurations network works on olders kernels and
->>                     don't work on the newest
->>            Product: Drivers
->>            Version: 2.5
->>      KernelVersion: 2.6.26.5
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: low
->>           Priority: P1
->>          Component: Network
->>         AssignedTo: jgarzik@pobox.com
->>         ReportedBy: mateusz.pastewski@gmail.com
->>
->>
->> Latest working kernel version: 2.6.23.x
->> Earliest failing kernel version: 2.6.24.x
+Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
+
+> ---
+> --- linux-2.6.27-rc8-git6.orig/drivers/net/r8169.c	2008-10-04 12:31:4=
+8.000000000 +0200
+> +++ linux-2.6.27-rc8-git6/drivers/net/r8169.c	2008-10-04 16:51:48.000=
+000000 +0200
+> @@ -619,6 +619,7 @@ static int rtl8169_set_wol(struct net_de
+>  		tp->features |=3D RTL_FEATURE_WOL;
+>  	else
+>  		tp->features &=3D ~RTL_FEATURE_WOL;
+> +	device_set_wakeup_enable(&tp->pci_dev->dev, wol->wolopts);
+> =20
+>  	spin_unlock_irq(&tp->lock);
+> =20
+> @@ -1796,6 +1797,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+>  	}
+> =20
+>  	rtl8169_init_phy(dev, tp);
+> +	device_set_wakeup_enable(&pdev->dev, tp->features & RTL_FEATURE_WOL=
+);
+> =20
+>  out:
+>  	return rc;
+>=20
+>=20
 
 
-I guess it's because of this missing MAC address (as seen in your dmesg):
-
-eth0: SiS 900 PCI Fast Ethernet at 0xd400, IRQ 10, 00:00:00:00:00:00
-
-Jarek P.
-
-PS: there was a change of kernel policy wrt. this.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
