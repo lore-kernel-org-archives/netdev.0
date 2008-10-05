@@ -1,38 +1,141 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when gc_elasticity is exceeded
-Date: Sun, 05 Oct 2008 11:26:47 +0800
-Message-ID: <E1KmKGd-000393-UD@gondolin.me.apana.org.au>
-References: <20080930.070804.26007839.davem@davemloft.net>
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, whydna@whydna.net
-To: davem@davemloft.net (David Miller)
+Subject: Re: [PATCH] net: deadlock during net device unregistration
+Date: Sun, 05 Oct 2008 12:26:21 +0800
+Message-ID: <E1KmLCH-0003E2-Ch@gondolin.me.apana.org.au>
+References: <20080929175421.722037051@theryb.frec.bull.fr>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, dlezcano@fr.ibm.com,
+	benjamin.thery@bull.net
+To: benjamin.thery@bull.net (Benjamin Thery)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:32768 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:59042 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752619AbYJED04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2008 23:26:56 -0400
-In-Reply-To: <20080930.070804.26007839.davem@davemloft.net>
+	with ESMTP id S1750706AbYJEE0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 00:26:25 -0400
+In-Reply-To: <20080929175421.722037051@theryb.frec.bull.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+Benjamin Thery <benjamin.thery@bull.net> wrote:
+>
+> 1. Unregister a device, the following routines are called:
 > 
-> The idea is that we can by default not rebuild the secret
-> at all.
+> -> unregister_netdev
+>  -> rtnl_lock
+>  -> unregister_netdevice
+>  -> rtnl_unlock
+>    -> netdev_run_todo
+>      -> netdev_wait_allrefs
 
-Actually Andrew Dickson <whydna@whydna.net> came up with this idea
-quite a while ago: Keep the rehash interval but do nothing until
-some chain hits a specified length.  This is quite similar to
-what is being discussed here.
+OK, this explains lots of dead-locks that people have been seeing.
 
-Andrew, could you post the patch please?
+But I think we can go a step further:
 
-In addition to this, we should probably enforce that limit as
-well by simply not adding the newly created entry or deleting
-one forcibly.
+net: Fix netdev_run_todo dead-lock
 
-Thanks,
+Benjamin Thery tracked down a bug that explains many instances
+of the error
+
+unregister_netdevice: waiting for %s to become free. Usage count = %d
+
+It turns out that netdev_run_todo can dead-lock with itself if
+a second instance of it is run in a thread that will then free
+a reference to the device waited on by the first instance.
+
+The problem is really quite silly.  We were trying to create
+parallelism where none was required.  As netdev_run_todo always
+follows a RTNL section, and that todo tasks can only be added
+with the RTNL held, by definition you should only need to wait
+for the very ones that you've added and be done with it.
+
+There is no need for a second mutex or spinlock.
+
+This is exactly what the following patch does.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e8eb2b4..021f531 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3808,14 +3808,11 @@ static int dev_new_index(struct net *net)
+ }
+ 
+ /* Delayed registration/unregisteration */
+-static DEFINE_SPINLOCK(net_todo_list_lock);
+ static LIST_HEAD(net_todo_list);
+ 
+ static void net_set_todo(struct net_device *dev)
+ {
+-	spin_lock(&net_todo_list_lock);
+ 	list_add_tail(&dev->todo_list, &net_todo_list);
+-	spin_unlock(&net_todo_list_lock);
+ }
+ 
+ static void rollback_registered(struct net_device *dev)
+@@ -4142,33 +4139,24 @@ static void netdev_wait_allrefs(struct net_device *dev)
+  *	free_netdev(y1);
+  *	free_netdev(y2);
+  *
+- * We are invoked by rtnl_unlock() after it drops the semaphore.
++ * We are invoked by rtnl_unlock().
+  * This allows us to deal with problems:
+  * 1) We can delete sysfs objects which invoke hotplug
+  *    without deadlocking with linkwatch via keventd.
+  * 2) Since we run with the RTNL semaphore not held, we can sleep
+  *    safely in order to wait for the netdev refcnt to drop to zero.
++ *
++ * We must not return until all unregister events added during
++ * the interval the lock was held have been completed.
+  */
+-static DEFINE_MUTEX(net_todo_run_mutex);
+ void netdev_run_todo(void)
+ {
+ 	struct list_head list;
+ 
+-	/* Need to guard against multiple cpu's getting out of order. */
+-	mutex_lock(&net_todo_run_mutex);
+-
+-	/* Not safe to do outside the semaphore.  We must not return
+-	 * until all unregister events invoked by the local processor
+-	 * have been completed (either by this todo run, or one on
+-	 * another cpu).
+-	 */
+-	if (list_empty(&net_todo_list))
+-		goto out;
+-
+ 	/* Snapshot list, allow later requests */
+-	spin_lock(&net_todo_list_lock);
+ 	list_replace_init(&net_todo_list, &list);
+-	spin_unlock(&net_todo_list_lock);
++
++	__rtnl_unlock();
+ 
+ 	while (!list_empty(&list)) {
+ 		struct net_device *dev
+@@ -4200,9 +4188,6 @@ void netdev_run_todo(void)
+ 		/* Free network device */
+ 		kobject_put(&dev->dev.kobj);
+ 	}
+-
+-out:
+-	mutex_unlock(&net_todo_run_mutex);
+ }
+ 
+ static struct net_device_stats *internal_stats(struct net_device *dev)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 71edb8b..d6381c2 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -73,7 +73,7 @@ void __rtnl_unlock(void)
+ 
+ void rtnl_unlock(void)
+ {
+-	mutex_unlock(&rtnl_mutex);
++	/* This fellow will unlock it for us. */
+ 	netdev_run_todo();
+ }
+ 
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
