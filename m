@@ -1,87 +1,135 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [RFC PATCH 02/12] On Tue, 23 Sep 2008, David Miller wrote:
-Date: Sun, 5 Oct 2008 10:01:17 -0700
-Message-ID: <20081005100117.2277d70c@linux.intel.com>
-References: <20080930030825.22950.18891.stgit@jbrandeb-bw.jf.intel.com>
-	<200810021523.45884.jbarnes@virtuousgeek.org>
-	<20081003.134634.240211201.davem@davemloft.net>
-	<200810031429.22598.jbarnes@virtuousgeek.org>
-	<alpine.LNX.1.10.0810032338140.26779@jikos.suse.cz>
-	<4807377b0810031628x43f79eferdbb9c9c264a5816e@mail.gmail.com>
-	<alpine.LNX.1.10.0810041219130.26779@jikos.suse.cz>
-	<alpine.LFD.2.00.0810041236250.4404@apollo>
-	<4807377b0810041824u5ea472d1q4cf5ff606bd23a11@mail.gmail.com>
-	<alpine.LFD.2.00.0810050959420.3398@apollo>
-	<48E8D7A5.7060508@linux.intel.com>
-	<alpine.LFD.2.00.0810051752210.3398@apollo>
-	<20081005090226.1e9eaae6@linux.intel.com>
-	<alpine.LFD.2.00.0810051809130.3398@apollo>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: [patch] uniquify the tx_timeout name
+Date: Sun, 5 Oct 2008 10:35:05 -0700
+Message-ID: <20081005103505.03313c9e@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kkeil@suse.de, agospoda@redhat.com, david.graham@intel.com,
-	bruce.w.allan@intel.com, john.ronciak@intel.com,
-	chris.jones@canonical.com, tim.gardner@canonical.com,
-	airlied@gmail.com, Olaf Kirch <okir@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756108AbYJERB5@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0810051809130.3398@apollo>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:54596 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754838AbYJERfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 13:35:11 -0400
+Received: from c-71-193-193-226.hsd1.or.comcast.net ([71.193.193.226] helo=localhost.localdomain)
+	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
+	id 1KmXVc-0002lj-Vm
+	for netdev@vger.kernel.org; Sun, 05 Oct 2008 17:35:09 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 5 Oct 2008 18:16:29 +0200 (CEST)
-Thomas Gleixner <tglx@linutronix.de> wrote:
+Hi,
 
-> On Sun, 5 Oct 2008, Arjan van de Ven wrote:
-> > On Sun, 5 Oct 2008 17:55:14 +0200 (CEST)
-> > Thomas Gleixner <tglx@linutronix.de> wrote:
-> > 
-> > > On Sun, 5 Oct 2008, Arjan van de Ven wrote:
-> > > > Thomas Gleixner wrote:
-> > > > > On Sat, 4 Oct 2008, Jesse Brandeburg wrote:
-> > > > > > > Exactly. The access to a ro region results in a fault. I
-> > > > > > > have nowhere seen that trigger, but I can reproduce the
-> > > > > > > trylock() WARN_ON, which confirms that there is
-> > > > > > > concurrent access to the NVRAM registers. The backtrace
-> > > > > > > pattern is similar to the one you have seen.
-> > > > > > are you still getting WARN_ON *with* all the mutex based
-> > > > > > fixes already applied?
-> > > > > 
-> > > > > The WARN_ON triggers with current mainline. Is there any
-> > > > > fixlet in Linus tree missing ?
-> > > > > 
-> > > > > > with the mutex patches in place (without protection patch)
-> > > > > > we are still reproducing the issue, until we apply the
-> > > > > > set_memory_ro patch.
-> > > > > 
-> > > > > That does not make sense to me. If the memory_ro patch is
-> > > > > providing _real_ protection then you _must_ run into an access
-> > > > > violation. If not, then the patch just papers over the real
-> > > > > problem in some mysterious way.
-> > > > > 
-> > > > 
-> > > > not if the bad code is doing copy_to_user .... (or similar)
-> > > 
-> > > You mean: copy_from_user :) This would require that the e1000e
-> > > nvram region is writable via copy_from_user by an e1000e user
-> > > space interface. A quick grep does not reviel such a horrible
-> > > interface.
-> > 
-> > I meant a "copy_to_user" to a duff pointer, somewhere in the kernel.
-> 
-> Hmm, don't we check the *to address on copy_to_user ?
-> 
+there's several drivers that have use "tx_timeout" for the .. tx timeout function.
+All fine with that, they're static, however for doing stats on how often which driver
+hits the timeout it's a tad unfortunate. The patch below gives the ones I found
+in the kerneloops.org database unique names.
 
-fair point
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
 
-and we do exception catching for copy_from_user as well on the source,
-just by how it's implemented
+
+diff --git a/drivers/net/fealnx.c b/drivers/net/fealnx.c
+index 3c1364d..b455ae9 100644
+--- a/drivers/net/fealnx.c
++++ b/drivers/net/fealnx.c
+@@ -431,7 +431,7 @@ static void getlinktype(struct net_device *dev);
+ static void getlinkstatus(struct net_device *dev);
+ static void netdev_timer(unsigned long data);
+ static void reset_timer(unsigned long data);
+-static void tx_timeout(struct net_device *dev);
++static void fealnx_tx_timeout(struct net_device *dev);
+ static void init_ring(struct net_device *dev);
+ static int start_tx(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t intr_handler(int irq, void *dev_instance);
+@@ -658,7 +658,7 @@ static int __devinit fealnx_init_one(struct pci_dev *pdev,
+ 	dev->set_multicast_list = &set_rx_mode;
+ 	dev->do_ioctl = &mii_ioctl;
+ 	dev->ethtool_ops = &netdev_ethtool_ops;
+-	dev->tx_timeout = &tx_timeout;
++	dev->tx_timeout = &fealnx_tx_timeout;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+ 
+ 	err = register_netdev(dev);
+@@ -1198,7 +1198,7 @@ static void reset_timer(unsigned long data)
+ }
+ 
+ 
+-static void tx_timeout(struct net_device *dev)
++static void fealnx_tx_timeout(struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->mem;
+diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+index b238ed0..f7fa394 100644
+--- a/drivers/net/natsemi.c
++++ b/drivers/net/natsemi.c
+@@ -612,7 +612,7 @@ static void undo_cable_magic(struct net_device *dev);
+ static void check_link(struct net_device *dev);
+ static void netdev_timer(unsigned long data);
+ static void dump_ring(struct net_device *dev);
+-static void tx_timeout(struct net_device *dev);
++static void ns_tx_timeout(struct net_device *dev);
+ static int alloc_ring(struct net_device *dev);
+ static void refill_rx(struct net_device *dev);
+ static void init_ring(struct net_device *dev);
+@@ -920,7 +920,7 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
+ 	dev->set_multicast_list = &set_rx_mode;
+ 	dev->change_mtu = &natsemi_change_mtu;
+ 	dev->do_ioctl = &netdev_ioctl;
+-	dev->tx_timeout = &tx_timeout;
++	dev->tx_timeout = &ns_tx_timeout;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -1875,7 +1875,7 @@ static void dump_ring(struct net_device *dev)
+ 	}
+ }
+ 
+-static void tx_timeout(struct net_device *dev)
++static void ns_tx_timeout(struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem * ioaddr = ns_ioaddr(dev);
+@@ -3232,7 +3232,7 @@ static void __devexit natsemi_remove1 (struct pci_dev *pdev)
+  * suspend/resume synchronization:
+  * entry points:
+  *   netdev_open, netdev_close, netdev_ioctl, set_rx_mode, intr_handler,
+- *   start_tx, tx_timeout
++ *   start_tx, ns_tx_timeout
+  *
+  * No function accesses the hardware without checking np->hands_off.
+  *	the check occurs under spin_lock_irq(&np->lock);
+diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
+index f6c4698..c33a3d5 100644
+--- a/drivers/net/pcmcia/xirc2ps_cs.c
++++ b/drivers/net/pcmcia/xirc2ps_cs.c
+@@ -353,7 +353,7 @@ typedef struct local_info_t {
+  * Some more prototypes
+  */
+ static int do_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-static void do_tx_timeout(struct net_device *dev);
++static void xirc_tx_timeout(struct net_device *dev);
+ static void xirc2ps_tx_timeout_task(struct work_struct *work);
+ static struct net_device_stats *do_get_stats(struct net_device *dev);
+ static void set_addresses(struct net_device *dev);
+@@ -590,7 +590,7 @@ xirc2ps_probe(struct pcmcia_device *link)
+     dev->open = &do_open;
+     dev->stop = &do_stop;
+ #ifdef HAVE_TX_TIMEOUT
+-    dev->tx_timeout = do_tx_timeout;
++    dev->tx_timeout = xirc_tx_timeout;
+     dev->watchdog_timeo = TX_TIMEOUT;
+     INIT_WORK(&local->tx_timeout_task, xirc2ps_tx_timeout_task);
+ #endif
+@@ -1335,7 +1335,7 @@ xirc2ps_tx_timeout_task(struct work_struct *work)
+ }
+ 
+ static void
+-do_tx_timeout(struct net_device *dev)
++xirc_tx_timeout(struct net_device *dev)
+ {
+     local_info_t *lp = netdev_priv(dev);
+     lp->stats.tx_errors++;
 
 -- 
 Arjan van de Ven 	Intel Open Source Technology Centre
