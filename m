@@ -1,58 +1,78 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] netrom: Fix sock_orphan() use in nr_release
-Date: Mon, 6 Oct 2008 00:16:48 +0200
-Message-ID: <20081005221648.GB2613@ami.dom.local>
-References: <20081002194845.GB2664@ami.dom.local> <20081003073418.GA5235@ff.dom.local> <20081003074351.GB5235@ff.dom.local> <1223145027.23358.20.camel@f6bvp-5> <20081004191114.GA15152@ami.dom.local> <20081004200939.GB15152@ami.dom.local> <1223231469.18094.10.camel@f6bvp-5> <20081005204013.GB2526@ami.dom.local> <1223241500.18094.32.camel@f6bvp-5>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 3/6] [NET] dsa: add support for original DSA tagging format
+Date: Mon, 6 Oct 2008 01:56:58 +0200
+Message-ID: <20081005235658.GA30332@xi.wantstofly.org>
+References: <20080929023829.GI21560@xi.wantstofly.org> <1223054759.3984.76.camel@achroite> <20081003193250.GA15924@xi.wantstofly.org> <20081004112235.GG7331@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Bernard, f6bvp" <f6bvp@free.fr>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Byron Bradley <byron.bbradley@gmail.com>,
+	Jesper Dangaard Brouer <jdb@comx.dk>,
+	Tim Ellis <tim.ellis@mac.com>,
+	Andy Fleming <afleming@freescale.com>,
+	Imre Kaloz <kaloz@openwrt.org>, Nicolas Pitre <nico@cam.org>,
+	Dirk Teurlings <dirk@upexia.nl>,
+	Peter van Valderen <p.v.valderen@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:2386 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755120AbYJEWPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 18:15:55 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1537548ugf.37
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2008 15:15:53 -0700 (PDT)
+Received: from xi.wantstofly.org ([83.160.184.112]:54598 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751214AbYJEX5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 19:57:03 -0400
 Content-Disposition: inline
-In-Reply-To: <1223241500.18094.32.camel@f6bvp-5>
+In-Reply-To: <20081004112235.GG7331@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netrom: Fix sock_orphan() use in nr_release
+On Sat, Oct 04, 2008 at 12:22:37PM +0100, Ben Hutchings wrote:
 
-While debugging another bug it was found that NetRom socks
-are sometimes seen unorphaned in sk_free(). This patch moves
-sock_orphan() in nr_release() to the beginning (like in ax25,
-or rose).
+> > > > Most of the DSA switches currently in the field do not support the
+> > > > Ethertype DSA tagging format that one of the previous patches added
+> > > > support for, but only the original DSA tagging format.
+> > > > 
+> > > > The original DSA tagging format carries the same information as the
+> > > > Ethertype DSA tagging format, but with the difference that it does not
+> > > > have an ethertype field.  In other words, when receiving a packet that
+> > > > is tagged with an original DSA tag, there is no way of telling in
+> > > > eth_type_trans() that this packet is in fact a DSA-tagged packet.
+> > > > 
+> > > > This patch adds a hook into eth_type_trans() which is only compiled in
+> > > > if support for a switch chip that doesn't support Ethertype DSA is
+> > > > selected, and which checks whether there is a DSA switch driver
+> > > > instance attached to this network device which uses the old tag format.
+> > > > If so, it sets the protocol field to ETH_P_DSA without looking at the
+> > > > packet, so that the packet ends up in the right place.
+> > > [...]
+> > > 
+> > > Why should this go in eth_type_trans()?  Why don't you put the hook into
+> > > the specific network driver(s) that need it?
+> > >
+> > > For that matter, why should dsa_ptr go in struct net_device and not in
+> > > the private state for the specific network drivers that need it?
+> > 
+> > DSA is just another protocol.  Putting hooks in specific network driver
+> > to handle a certain protocol doesn't seem like the right thing to do to
+> > me.
+> 
+> If it's just another protocol then put dsa_ptr along with the other
+> protocol pointers (ip_ptr etc.).
 
-Reported-and-tested-by: Bernard Pidoux f6bvp <f6bvp@free.fr>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+OK, I'll do that.
 
----
 
- net/netrom/af_netrom.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> For those drivers that work with the original DSA tagging format, it's
+> apparently not just another protocol.
 
-diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
-index 532e4fa..9f1ea4a 100644
---- a/net/netrom/af_netrom.c
-+++ b/net/netrom/af_netrom.c
-@@ -525,6 +525,7 @@ static int nr_release(struct socket *sock)
- 	if (sk == NULL) return 0;
- 
- 	sock_hold(sk);
-+	sock_orphan(sk);
- 	lock_sock(sk);
- 	nr = nr_sk(sk);
- 
-@@ -548,7 +549,6 @@ static int nr_release(struct socket *sock)
- 		sk->sk_state    = TCP_CLOSE;
- 		sk->sk_shutdown |= SEND_SHUTDOWN;
- 		sk->sk_state_change(sk);
--		sock_orphan(sk);
- 		sock_set_flag(sk, SOCK_DESTROY);
- 		break;
- 
+The original DSA tagging format can work with any NIC, as long as you
+hook up that NIC directly to a DSA switch chip instead of to a PHY.  In
+embedded designs you mostly see platform bus drivers like mv643xx_eth
+and gianfar and such, but there's no reason you can't do it with any
+other MAC that exposes a (R)(G)MII interface.
+
+The only reason that eth_type_trans() needs a hack is that the original
+DSA tagging format has information starting right after the ethernet
+source address, so there's no way to tell that original DSA tagged
+frames are in fact original DSA tagged frames.  (The way we tell is by
+having the DSA switch driver decide -- it configures the directly
+attached switch chip to always send DSA tagged packets to the cpu's
+switch port, and then forces all packets received on the underlying
+ethernet device to get ETH_P_DSA assigned to skb->protocol.)
