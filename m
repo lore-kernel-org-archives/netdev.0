@@ -1,37 +1,30 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: ax25 rose Re: kernel panic linux-2.6.27-rc7
-Date: Sun, 5 Oct 2008 22:40:13 +0200
-Message-ID: <20081005204013.GB2526@ami.dom.local>
-References: <20081002194845.GB2664@ami.dom.local> <20081003073418.GA5235@ff.dom.local> <20081003074351.GB5235@ff.dom.local> <1223145027.23358.20.camel@f6bvp-5> <20081004191114.GA15152@ami.dom.local> <20081004200939.GB15152@ami.dom.local> <1223231469.18094.10.camel@f6bvp-5>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] XFRM: MIGRATE enhancements
+Date: Sun, 05 Oct 2008 13:40:39 -0700 (PDT)
+Message-ID: <20081005.134039.16694016.davem@davemloft.net>
+References: <87d4ijl9y8.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	David Miller <davem@davemloft.net>
-To: "Bernard, f6bvp" <f6bvp@free.fr>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: arno@natisbad.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:38405 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755053AbYJEUkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 16:40:05 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so918146nfc.21
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2008 13:40:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1223231469.18094.10.camel@f6bvp-5>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60411
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754159AbYJEUlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 16:41:04 -0400
+In-Reply-To: <87d4ijl9y8.fsf@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 05, 2008 at 08:31:09PM +0200, Bernard, f6bvp wrote:
-> Here are a few interesting data captured via netconsole from
-> kernel-2.6.27-rc7 without af_netrom patch #4.
+From: arno@natisbad.org (Arnaud Ebalard)
+Date: Thu, 02 Oct 2008 09:42:23 +0200
+
+> As there were quite some XFRM/PF_KEY changes in net-next recently, here
+> is an updated version of MIGRATE enhancements patch. It is tested (I am
+> currently running today's net-next with the patch applied).
 > 
-...
-> AX25_DBG: c67ef160, c5189aa8, 6, 5, 0
-...
-> AX25_DBG: c67eed48, c5186008, 6, 5, 0
+> David, it addresses the comments you made 3 weeks ago, as described
+> previously [1].
 
-So, it looks like this patch could make some change, but I'd like to be
-sure again: with or without David's patch?
-
-Thanks,
-Jarek P.
+Applied to net-next-2.6, thanks!
