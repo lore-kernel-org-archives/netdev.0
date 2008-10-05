@@ -1,74 +1,56 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround (fwd)
-Date: Sun, 5 Oct 2008 16:31:13 -0300
-Message-ID: <48e91606.0906c00a.2cd5.6a33@mx.google.com>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
-	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
-	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
-	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
-	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
-	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
-	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
-	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
-	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
-	<Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
-	<48e5364d.0603c00a.6e25.fffff993@mx.google.com>
-	<Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
-	<48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com>
-	<alpine.LFD.2.00.0810052008131.3398@apollo>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: 802.1p, skb->priority, CoS for transit traffic not working?
+Date: Sun, 5 Oct 2008 22:03:37 +0300
+Message-ID: <200810052203.37436.denys@visp.net.lb>
+References: <200810051935.56616.denys@visp.net.lb> <48E8F1A3.3070900@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:38282 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755690AbYJETbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 15:31:21 -0400
-Received: by qw-out-2122.google.com with SMTP id 3so526223qwe.37
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2008 12:31:20 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.00.0810052008131.3398@apollo>
+Received: from relay2.globalproof.net ([194.146.153.25]:39171 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755552AbYJETcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 15:32:52 -0400
+In-Reply-To: <48E8F1A3.3070900@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 5 Oct 2008 20:09:22 +0200 (CEST)
-Thomas Gleixner <tglx@linutronix.de> wrote:
+On Sunday 05 October 2008, Patrick McHardy wrote:
+> Denys Fedoryshchenko wrote:
+> > I'm trying to set CoS tag, to manage priorities on my microwave link.
+> > Possible such setup will be very useful also to set classify traffic
+> > passing QoS. A lot of hardware support this simple L2 QoS.
+> >
+> > [...]
+> > Is there a way to make work changing transit packets 802.1p values?
+>
+> Bridging traffic to a VLAN device should work, you can then
+> define the priority for the device. I'm not aware of an easier
+> method, but I believe act_pedit should also be able to do this.
 
-> did you get the content of /debug/tracing/trace nevertheless ?
+Seems my silly mistake, i used wrong option in skbedit (first which i seen in 
+example). 
+Thanks to Intel guys, now it is possible also by this way:
 
-	Yes! I got several... maybe one is valid....
+tc qdisc del dev eth2.10 root
+tc qdisc add dev eth2.10 root handle 1: prio
+/sbin/tc filter add dev eth2.10 parent 1:0 protocol all u32 match u32 0 0 
+action skbedit priority 3
 
-> The cat /debug/tracing/tracing_enabled == 1 might be just a user space
-> interface thingy.
+So it is possible now to do 802.1p marking on router(not bridge), by u32 
+filter or whatever.
 
-	Ok, here they are (I hope one of them is correct):
+tc qdisc del dev eth2.10 root
+tc qdisc add dev eth2.10 root handle 1: prio
+/sbin/tc filter add dev eth2.10 parent 1:0 protocol all u32 match u32 0 0 
+action skbedit priority 3
 
-http://www.abusar.org/ftrace/
+Like this it works
 
-	These ones I get after I saw the kernel message "Tracer
-stopped".
 
-http://www.abusar.org/ftrace/trace.txt.bz2
-
-http://www.abusar.org/ftrace/trace2.txt.bz2
-
-http://www.abusar.org/ftrace/trace3.txt.bz2
-
-http://www.abusar.org/ftrace/trace4.txt.bz2
-
-http://www.abusar.org/ftrace/trace5.txt.bz2
-
-	These ones were during a stall and after a nmap:
-
-http://www.abusar.org/ftrace/trace-stop.txt.bz2
-
-http://www.abusar.org/ftrace/trace-stop2.txt.bz2
-
-	If none of these is valid, I will use monit to
-check for Tracer stopped and force the tracing to be disabled.
-
--- 
+And thanks again, i am really impressed by opensource initiatives of Intel, 
+and quality/performance/cost of their network products.
