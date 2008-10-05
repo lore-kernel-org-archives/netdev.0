@@ -1,33 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netdrv: Fix unregister_netdev typos
-Date: Sun, 05 Oct 2008 09:20:43 -0700 (PDT)
-Message-ID: <20081005.092043.136647898.davem@davemloft.net>
-References: <20081005043038.GA12449@gondor.apana.org.au>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: 802.1p, skb->priority, CoS for transit traffic not working?
+Date: Sun, 5 Oct 2008 19:35:56 +0300
+Message-ID: <200810051935.56616.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57011
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758752AbYJEQVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 12:21:08 -0400
-In-Reply-To: <20081005043038.GA12449@gondor.apana.org.au>
+Received: from relay2.globalproof.net ([194.146.153.25]:36243 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758532AbYJEQiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 12:38:13 -0400
+Received: from [195.69.208.252] (unknown [195.69.208.252])
+	by relay2.globalproof.net (Postfix) with ESMTP id 05E20131045
+	for <netdev@vger.kernel.org>; Sun,  5 Oct 2008 19:38:03 +0300 (EEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 5 Oct 2008 12:30:38 +0800
+I'm trying to set CoS tag, to manage priorities on my microwave link.
+Possible such setup will be very useful also to set classify traffic passing 
+QoS. A lot of hardware support this simple L2 QoS.
 
-> netdrv: Fix unregister_netdev typos
-> 
-> Found during the (partial) unregister_netdevice audit that we didn't
-> have to have :)
-> 
-> It looks like a couple of Sun NIC drivers had unregister_netdevice
-> when they really meant unregister_netdev.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Hardware: RTL8139, since it doesn't have VLAN tags acceleration, i can use 
+tcpdump to see priority flag.
 
-Applied, thanks Herbert.
+Commands i did to setup test VLAN, 
+
+vconfig add eth2 10
+ifconfig eth2.10 3.3.3.3 netmask 255.255.255.0
+vconfig set_egress_map eth2.10 1 1
+vconfig set_egress_map eth2.10 2 2
+vconfig set_egress_map eth2.10 3 3
+vconfig set_egress_map eth2.10 4 4 
+
+First, i made it works locally, with Patrick McHardy patch
+http://marc.info/?l=lartc&m=101914368423554&w=2
+
+Source PC: ping -P 2 3.3.3.1
+
+Destination PC:
+19:31:21.738317 00:0a:cd:14:6b:6f > 00:05:5d:2f:9b:ba, ethertype 802.1Q 
+(0x8100), length 102: vlan 10, p 2, ethertype IPv4, (tos 0x0, ttl 64, id 0, 
+offset 0, flags [DF], proto ICMP (1), length 84) 3.3.3.3 > 3.3.3.1: ICMP echo 
+request, id 62505, seq 15, length 64
+19:31:22.738376 00:0a:cd:14:6b:6f > 00:05:5d:2f:9b:ba, ethertype 802.1Q 
+(0x8100), length 102: vlan 10, p 2, ethertype IPv4, (tos 0x0, ttl 64, id 0, 
+offset 0, flags [DF], proto ICMP (1), length 84) 3.3.3.3 > 3.3.3.1: ICMP echo 
+request, id 62505, seq 16, length 64
+19:31:23.738398 00:0a:cd:14:6b:6f > 00:05:5d:2f:9b:ba, ethertype 802.1Q 
+(0x8100), length 102: vlan 10, p 2, ethertype IPv4, (tos 0x0, ttl 64, id 0, 
+offset 0, flags [DF], proto ICMP (1), length 84) 3.3.3.3 > 3.3.3.1: ICMP echo 
+request, id 62505, seq 17, length 64
+
+But next step is to manage traffic over iproute2. Sure it is not clear for me 
+how it works, and for example i am feeling prio qdisc is not thing i need, at 
+all.
+I've tried , smth like this (not sure how it was, but on stats it was showing 
+packets hit filter).
+
+tc qdisc del dev eth2.10 root
+tc qdisc add dev eth2.10 root handle 1: prio
+/sbin/tc filter add dev eth2.10 parent 1:0 protocol all u32 match u32 0 0 
+classid 1:3
+
+
+
+And i try even new Intel patch, "action skbedit", it works on stats, but 
+doesn't set anything. I try ingress(on incoming interface) and egress 
+(outgoing).
+
+tc qdisc del dev eth2.10 root
+tc qdisc add dev eth2.10 root handle 1: prio
+/sbin/tc filter add dev eth2.10 parent 1:0 protocol all u32 match u32 0 0 
+action skbedit queue_mapping 2
+
+and ingress
+tc qdisc del dev eth0 ingress
+tc qdisc add dev eth0 ingress
+tc filter add dev eth0 parent ffff: protocol all u32 match u32 0 0 action 
+skbedit queue_mapping 3
+
+Is there a way to make work changing transit packets 802.1p values?
+
