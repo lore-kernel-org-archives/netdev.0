@@ -1,34 +1,41 @@
 From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [PATCH 1/2] net: add ETH_P_FCOE for Fibre Channel over Ethernet (FCoE)
-Date: Mon, 6 Oct 2008 16:11:00 -0700
-Message-ID: <85B0945B2DB96C40BE3F762205A682ED03D4408F@orsmsx420.amr.corp.intel.com>
-References: <20081006220524.3308.64889.stgit@zyfc9ini.jf.intel.com><20081006220920.3308.18862.stgit@zyfc9ini.jf.intel.com> <ada3aj9pd4u.fsf@cisco.com>
+Subject: RE: [PATCH 2/2] net: define feature flags for FCoE offloads
+Date: Mon, 6 Oct 2008 16:13:39 -0700
+Message-ID: <85B0945B2DB96C40BE3F762205A682ED03D44092@orsmsx420.amr.corp.intel.com>
+References: <20081006220524.3308.64889.stgit@zyfc9ini.jf.intel.com> <20081006220926.3308.48505.stgit@zyfc9ini.jf.intel.com> <1223332642.3984.94.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: <netdev@vger.kernel.org>
-To: "Roland Dreier" <rdreier@cisco.com>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:11071 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:41119 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756276AbYJFXMv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 19:12:51 -0400
+	id S1752106AbYJFXOE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 19:14:04 -0400
 Content-class: urn:content-classes:message
-In-Reply-To: <ada3aj9pd4u.fsf@cisco.com>
+In-Reply-To: <1223332642.3984.94.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >  #define ETH_P_TIPC	0x88CA		/* TIPC
-*/
-> > +#define ETH_P_FCOE      0x8906          /* Fibre Channel over
-Ethernet
->*/
+>>
+>> +#define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
+>> +
+>>  	/* Segmentation offload features */
+>>  #define NETIF_F_GSO_SHIFT	16
+>>  #define NETIF_F_GSO_MASK	0xffff0000
+>[...]
 >
->trivial -- but the patch format makes it pretty obvious -- it would
->probably be nice to use tabs to align things on the FCOE line the same
->way the other lines in the file do, rather than using spaces.
+>NETIF_F_FCOE_CRC shouldn't be included in NETIF_F_GSO_MASK.
+>
+>Ben.
+>
+I apologize for this patch as one patch to claim the a few bits back
+from SKB_GSO_MASK was missing here in the original series. I shall
+resubmit the complete series to have all patches included, plus fixing
+the style issue in the first patch. 
 
-Thanks, will fix this and resubmit.
+Thanks.
 
 yi
