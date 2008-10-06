@@ -1,83 +1,210 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH v7 03/17] selinux: Correctly handle IPv4 packets on IPv6
-	sockets in all cases
-Date: Mon, 06 Oct 2008 15:20:01 -0400
-Message-ID: <20081006192001.15686.47687.stgit@flek.lan>
+Subject: [PATCH v7 04/17] netlabel: Remove unneeded in-kernel API functions
+Date: Mon, 06 Oct 2008 15:20:08 -0400
+Message-ID: <20081006192008.15686.15080.stgit@flek.lan>
 References: <20081006191516.15686.80823.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:36575 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754364AbYJFTUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 15:20:13 -0400
 In-Reply-To: <20081006191516.15686.80823.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We did the right thing in a few cases but there were several areas where we
-determined a packet's address family based on the socket's address family which
-is not the right thing to do since we can get IPv4 packets on IPv6 sockets.
-This patch fixes these problems by either taking the address family directly
-from the packet.
+After some discussions with the Smack folks, well just Casey, I now have a
+better idea of what Smack wants out of NetLabel in the future so I think it
+is now safe to do some API "pruning".  If another LSM comes along that
+needs this functionality we can always add it back in, but I don't see any
+LSMs on the horizon which might make use of these functions.
+
+Thanks to Rami Rosen who suggested removing netlbl_cfg_cipsov4_del() back
+in February 2008.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
-Acked-by: James Morris <jmorris@namei.org>
+Reviewed-by: James Morris <jmorris@namei.org>
 ---
 
- security/selinux/hooks.c |   22 +++++++++++++++++-----
- 1 files changed, 17 insertions(+), 5 deletions(-)
+ include/net/netlabel.h       |   13 -------
+ net/netlabel/netlabel_kapi.c |   84 ++++++++++++------------------------------
+ 2 files changed, 23 insertions(+), 74 deletions(-)
 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 03fc6a8..223f474 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4207,10 +4207,12 @@ static int selinux_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *
- 	u32 peer_secid = SECSID_NULL;
- 	u16 family;
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index e4d2d6b..5303749 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -352,12 +352,9 @@ static inline void netlbl_secattr_free(struct netlbl_lsm_secattr *secattr)
+ int netlbl_cfg_map_del(const char *domain, struct netlbl_audit *audit_info);
+ int netlbl_cfg_unlbl_add_map(const char *domain,
+ 			     struct netlbl_audit *audit_info);
+-int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
+-			   struct netlbl_audit *audit_info);
+ int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
+ 			       const char *domain,
+ 			       struct netlbl_audit *audit_info);
+-int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit *audit_info);
  
--	if (sock)
-+	if (skb && skb->protocol == htons(ETH_P_IP))
-+		family = PF_INET;
-+	else if (skb && skb->protocol == htons(ETH_P_IPV6))
-+		family = PF_INET6;
-+	else if (sock)
- 		family = sock->sk->sk_family;
--	else if (skb && skb->sk)
--		family = skb->sk->sk_family;
- 	else
- 		goto out;
- 
-@@ -4277,10 +4279,15 @@ static int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
+ /*
+  * LSM security attribute operations
+@@ -404,22 +401,12 @@ static inline int netlbl_cfg_unlbl_add_map(const char *domain,
  {
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	int err;
-+	u16 family = sk->sk_family;
- 	u32 newsid;
- 	u32 peersid;
- 
--	err = selinux_skb_peerlbl_sid(skb, sk->sk_family, &peersid);
-+	/* handle mapped IPv4 packets arriving via IPv6 sockets */
-+	if (family == PF_INET6 && skb->protocol == htons(ETH_P_IP))
-+		family = PF_INET;
-+
-+	err = selinux_skb_peerlbl_sid(skb, family, &peersid);
- 	if (err)
- 		return err;
- 	if (peersid == SECSID_NULL) {
-@@ -4318,9 +4325,14 @@ static void selinux_inet_csk_clone(struct sock *newsk,
- static void selinux_inet_conn_established(struct sock *sk,
- 				struct sk_buff *skb)
+ 	return -ENOSYS;
+ }
+-static inline int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
+-					 struct netlbl_audit *audit_info)
+-{
+-	return -ENOSYS;
+-}
+ static inline int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
+ 					     const char *domain,
+ 					     struct netlbl_audit *audit_info)
  {
-+	u16 family = sk->sk_family;
- 	struct sk_security_struct *sksec = sk->sk_security;
+ 	return -ENOSYS;
+ }
+-static inline int netlbl_cfg_cipsov4_del(u32 doi,
+-					 struct netlbl_audit *audit_info)
+-{
+-	return -ENOSYS;
+-}
+ static inline int netlbl_secattr_catmap_walk(
+ 	                              struct netlbl_lsm_secattr_catmap *catmap,
+ 				      u32 offset)
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 39793a1..6c211fe 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -82,7 +82,7 @@ int netlbl_cfg_unlbl_add_map(const char *domain,
  
--	selinux_skb_peerlbl_sid(skb, sk->sk_family, &sksec->peer_sid);
-+	/* handle mapped IPv4 packets arriving via IPv6 sockets */
-+	if (family == PF_INET6 && skb->protocol == htons(ETH_P_IP))
-+		family = PF_INET;
-+
-+	selinux_skb_peerlbl_sid(skb, family, &sksec->peer_sid);
+ 	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+ 	if (entry == NULL)
+-		goto cfg_unlbl_add_map_failure;
++		return -ENOMEM;
+ 	if (domain != NULL) {
+ 		entry->domain = kstrdup(domain, GFP_ATOMIC);
+ 		if (entry->domain == NULL)
+@@ -104,49 +104,6 @@ cfg_unlbl_add_map_failure:
  }
  
- static void selinux_req_classify_flow(const struct request_sock *req,
+ /**
+- * netlbl_cfg_cipsov4_add - Add a new CIPSOv4 DOI definition
+- * @doi_def: the DOI definition
+- * @audit_info: NetLabel audit information
+- *
+- * Description:
+- * Add a new CIPSOv4 DOI definition to the NetLabel subsystem.  Returns zero on
+- * success, negative values on failure.
+- *
+- */
+-int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
+-			   struct netlbl_audit *audit_info)
+-{
+-	int ret_val;
+-	const char *type_str;
+-	struct audit_buffer *audit_buf;
+-
+-	ret_val = cipso_v4_doi_add(doi_def);
+-
+-	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
+-					      audit_info);
+-	if (audit_buf != NULL) {
+-		switch (doi_def->type) {
+-		case CIPSO_V4_MAP_STD:
+-			type_str = "std";
+-			break;
+-		case CIPSO_V4_MAP_PASS:
+-			type_str = "pass";
+-			break;
+-		default:
+-			type_str = "(unknown)";
+-		}
+-		audit_log_format(audit_buf,
+-				 " cipso_doi=%u cipso_type=%s res=%u",
+-				 doi_def->doi,
+-				 type_str,
+-				 ret_val == 0 ? 1 : 0);
+-		audit_log_end(audit_buf);
+-	}
+-
+-	return ret_val;
+-}
+-
+-/**
+  * netlbl_cfg_cipsov4_add_map - Add a new CIPSOv4 DOI definition and mapping
+  * @doi_def: the DOI definition
+  * @domain: the domain mapping to add
+@@ -165,10 +122,12 @@ int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
+ {
+ 	int ret_val = -ENOMEM;
+ 	struct netlbl_dom_map *entry;
++	const char *type_str;
++	struct audit_buffer *audit_buf;
+ 
+ 	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+ 	if (entry == NULL)
+-		goto cfg_cipsov4_add_map_failure;
++		return -ENOMEM;
+ 	if (domain != NULL) {
+ 		entry->domain = kstrdup(domain, GFP_ATOMIC);
+ 		if (entry->domain == NULL)
+@@ -182,7 +141,7 @@ int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
+ 	 * domain mapping for it. */
+ 
+ 	rcu_read_lock();
+-	ret_val = netlbl_cfg_cipsov4_add(doi_def, audit_info);
++	ret_val = cipso_v4_doi_add(doi_def);
+ 	if (ret_val != 0)
+ 		goto cfg_cipsov4_add_map_failure_unlock;
+ 	ret_val = netlbl_domhsh_add(entry, audit_info);
+@@ -196,6 +155,24 @@ cfg_cipsov4_add_map_failure_remove_doi:
+ 	cipso_v4_doi_remove(doi_def->doi, audit_info, netlbl_cipsov4_doi_free);
+ cfg_cipsov4_add_map_failure_unlock:
+ 	rcu_read_unlock();
++	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
++					      audit_info);
++	if (audit_buf != NULL) {
++		switch (doi_def->type) {
++		case CIPSO_V4_MAP_STD:
++			type_str = "std";
++			break;
++		case CIPSO_V4_MAP_PASS:
++			type_str = "pass";
++			break;
++		default:
++			type_str = "(unknown)";
++		}
++		audit_log_format(audit_buf,
++				 " cipso_doi=%u cipso_type=%s res=%u",
++				 doi_def->doi, type_str, ret_val == 0 ? 1 : 0);
++		audit_log_end(audit_buf);
++	}
+ cfg_cipsov4_add_map_failure:
+ 	if (entry != NULL)
+ 		kfree(entry->domain);
+@@ -203,21 +180,6 @@ cfg_cipsov4_add_map_failure:
+ 	return ret_val;
+ }
+ 
+-/**
+- * netlbl_cfg_cipsov4_del - Removean existing CIPSOv4 DOI definition
+- * @doi: the CIPSO DOI value
+- * @audit_info: NetLabel audit information
+- *
+- * Description:
+- * Removes an existing CIPSOv4 DOI definition from the NetLabel subsystem.
+- * Returns zero on success, negative values on failure.
+- *
+- */
+-int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit *audit_info)
+-{
+-	return cipso_v4_doi_remove(doi, audit_info, netlbl_cipsov4_doi_free);
+-}
+-
+ /*
+  * Security Attribute Functions
+  */
 
