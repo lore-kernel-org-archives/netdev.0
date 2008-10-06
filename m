@@ -1,55 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2] net: define feature flags for FCoE offloads
-Date: Mon, 06 Oct 2008 23:37:22 +0100
-Message-ID: <1223332642.3984.94.camel@achroite>
-References: <20081006220524.3308.64889.stgit@zyfc9ini.jf.intel.com>
-	 <20081006220926.3308.48505.stgit@zyfc9ini.jf.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] vlan: propogate MTU changes
+Date: Tue, 07 Oct 2008 00:38:20 +0200
+Message-ID: <48EA935C.7090106@trash.net>
+References: <20081006173024.2741cc01@speedy> <alpine.LNX.1.10.0810062208370.6758@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@open-fcoe.org
-To: Yi Zou <yi.zou@intel.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Krzysztof Oledzki <ole@ans.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:52604 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751761AbYJFWh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 18:37:27 -0400
-In-Reply-To: <20081006220926.3308.48505.stgit@zyfc9ini.jf.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:56215 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753243AbYJFWi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 18:38:27 -0400
+In-Reply-To: <alpine.LNX.1.10.0810062208370.6758@bizon.gios.gov.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-10-06 at 15:09 -0700, Yi Zou wrote:
-> From: Chris Leech <christopher.leech@intel.com>
+Krzysztof Oledzki wrote:
 > 
-> Signed-off-by: Chris Leech <christopher.leech@intel.com>
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
-> ---
 > 
->  include/linux/netdevice.h |    3 +++
->  include/linux/skbuff.h    |    2 ++
->  2 files changed, 5 insertions(+), 0 deletions(-)
+> On Mon, 6 Oct 2008, Stephen Hemminger wrote:
 > 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 9cfd20b..ef65927 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -522,6 +522,8 @@ struct net_device
->  #define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces */
->  #define NETIF_F_LRO		32768	/* large receive offload */
->  
-> +#define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
-> +
->  	/* Segmentation offload features */
->  #define NETIF_F_GSO_SHIFT	16
->  #define NETIF_F_GSO_MASK	0xffff0000
-[...]
+>> Propogate MTU changes of underlying device to all related VLAN
+>> devices.
+>> see: https://bugzilla.vyatta.com/show_bug.cgi?id=3742
+> 
+> Not sure about this... Some switches (HP ProCurve for example) allow to 
+> select which vlan accepts jumbo frames and which does not and attach 
+> both to the same port. It is quite useful as you are able to setup one 
+> vlan with jumbo frames dedicated for example to servers connected by 
+> 1G/10G links, and a second vlan with standard 1500 MTU distributed to 
+> non jumbo-aware switches/workstations.
 
-NETIF_F_FCOE_CRC shouldn't be included in NETIF_F_GSO_MASK.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thats why I favour the knob to specify the desired behaviour.
+Treating a VLAN device as a seperate entity from the ethernet
+device which just has the same hardware-imposed restrictions
+seems like a valid view to me.
 
