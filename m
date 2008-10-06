@@ -1,17 +1,17 @@
 From: Corey Minyard <minyard@acm.org>
 Subject: [PATCH 2/3] Add RCU versions of socket hlist handling
-Date: Mon, 06 Oct 2008 13:45:57 -0500
-Message-ID: <20081006184557.GA10287@minyard.local>
+Date: Mon, 06 Oct 2008 13:50:08 -0500
+Message-ID: <20081006185008.GA10366@minyard.local>
 Reply-To: minyard@acm.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: shemminger@vyatta.com, paulmck@linux.vnet.ibm.com
 To: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms172073pub.verizon.net ([206.46.172.73]:41210 "EHLO
-	vms172073pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755690AbYJFTqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 15:46:17 -0400
+Received: from vms172067pub.verizon.net ([206.46.172.67]:54165 "EHLO
+	vms172067pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752863AbYJFTuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 15:50:21 -0400
 Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
