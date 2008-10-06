@@ -1,7 +1,7 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH v7 01/17] netlabel: Fix some sparse warnings
-Date: Mon, 06 Oct 2008 15:19:48 -0400
-Message-ID: <20081006191948.15686.24567.stgit@flek.lan>
+Subject: [PATCH v7 02/17] selinux: Cleanup the NetLabel glue code
+Date: Mon, 06 Oct 2008 15:19:54 -0400
+Message-ID: <20081006191954.15686.56760.stgit@flek.lan>
 References: <20081006191516.15686.80823.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,125 +13,100 @@ In-Reply-To: <20081006191516.15686.80823.stgit@flek.lan>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix a few sparse warnings.  One dealt with a RCU lock being held on error,
-another dealt with an improper type caused by a signed/unsigned mixup while
-the rest appeared to be caused by using rcu_dereference() in a
-list_for_each_entry_rcu() call.  The latter probably isn't a big deal, but
-I derive a certain pleasure from knowing that the net/netlabel is nice and
-clean.
-
-Thanks to James Morris for pointing out the issues and demonstrating how
-to run sparse.
+We were doing a lot of extra work in selinux_netlbl_sock_graft() what wasn't
+necessary so this patch removes that code.  It also removes the redundant
+second argument to selinux_netlbl_sock_setsid() which allows us to simplify a
+few other functions.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
+Acked-by: James Morris <jmorris@namei.org>
 ---
 
- net/netlabel/netlabel_cipso_v4.c   |    4 ++--
- net/netlabel/netlabel_domainhash.c |   12 ++++++------
- net/netlabel/netlabel_unlabeled.c  |   12 ++++++------
- 3 files changed, 14 insertions(+), 14 deletions(-)
+ security/selinux/netlabel.c |   38 ++++++++++----------------------------
+ 1 files changed, 10 insertions(+), 28 deletions(-)
 
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index 0aec318..aaf5003 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -491,7 +491,7 @@ list_start:
- 	doi_def = cipso_v4_doi_getdef(doi);
- 	if (doi_def == NULL) {
- 		ret_val = -EINVAL;
--		goto list_failure;
-+		goto list_failure_lock;
- 	}
- 
- 	ret_val = nla_put_u32(ans_skb, NLBL_CIPSOV4_A_MTYPE, doi_def->type);
-@@ -655,7 +655,7 @@ static int netlbl_cipsov4_listall(struct sk_buff *skb,
- 				  struct netlink_callback *cb)
+diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
+index 89b4183..b9ce5fc 100644
+--- a/security/selinux/netlabel.c
++++ b/security/selinux/netlabel.c
+@@ -66,22 +66,24 @@ static int selinux_netlbl_sidlookup_cached(struct sk_buff *skb,
+ /**
+  * selinux_netlbl_sock_setsid - Label a socket using the NetLabel mechanism
+  * @sk: the socket to label
+- * @sid: the SID to use
+  *
+  * Description:
+- * Attempt to label a socket using the NetLabel mechanism using the given
+- * SID.  Returns zero values on success, negative values on failure.
++ * Attempt to label a socket using the NetLabel mechanism.  Returns zero values
++ * on success, negative values on failure.
+  *
+  */
+-static int selinux_netlbl_sock_setsid(struct sock *sk, u32 sid)
++static int selinux_netlbl_sock_setsid(struct sock *sk)
  {
- 	struct netlbl_cipsov4_doiwalk_arg cb_arg;
--	int doi_skip = cb->args[0];
-+	u32 doi_skip = cb->args[0];
+ 	int rc;
+ 	struct sk_security_struct *sksec = sk->sk_security;
+ 	struct netlbl_lsm_secattr secattr;
  
- 	cb_arg.nl_cb = cb;
- 	cb_arg.skb = skb;
-diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
-index 643c032..dc42206 100644
---- a/net/netlabel/netlabel_domainhash.c
-+++ b/net/netlabel/netlabel_domainhash.c
-@@ -115,13 +115,13 @@ static u32 netlbl_domhsh_hash(const char *key)
- static struct netlbl_dom_map *netlbl_domhsh_search(const char *domain)
++	if (sksec->nlbl_state != NLBL_REQUIRE)
++		return 0;
++
+ 	netlbl_secattr_init(&secattr);
+ 
+-	rc = security_netlbl_sid_to_secattr(sid, &secattr);
++	rc = security_netlbl_sid_to_secattr(sksec->sid, &secattr);
+ 	if (rc != 0)
+ 		goto sock_setsid_return;
+ 	rc = netlbl_sock_setattr(sk, &secattr);
+@@ -174,24 +176,10 @@ int selinux_netlbl_skbuff_getsid(struct sk_buff *skb,
+  */
+ void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock)
  {
- 	u32 bkt;
-+	struct list_head *bkt_list;
- 	struct netlbl_dom_map *iter;
+-	struct sk_security_struct *sksec = sk->sk_security;
+-	struct netlbl_lsm_secattr secattr;
+-	u32 nlbl_peer_sid;
+-
+-	if (sksec->nlbl_state != NLBL_REQUIRE)
+-		return;
+-
+-	netlbl_secattr_init(&secattr);
+-	if (netlbl_sock_getattr(sk, &secattr) == 0 &&
+-	    secattr.flags != NETLBL_SECATTR_NONE &&
+-	    security_netlbl_secattr_to_sid(&secattr, &nlbl_peer_sid) == 0)
+-		sksec->peer_sid = nlbl_peer_sid;
+-	netlbl_secattr_destroy(&secattr);
+-
+ 	/* Try to set the NetLabel on the socket to save time later, if we fail
+ 	 * here we will pick up the pieces in later calls to
+ 	 * selinux_netlbl_inode_permission(). */
+-	selinux_netlbl_sock_setsid(sk, sksec->sid);
++	selinux_netlbl_sock_setsid(sk);
+ }
  
- 	if (domain != NULL) {
- 		bkt = netlbl_domhsh_hash(domain);
--		list_for_each_entry_rcu(iter,
--				     &rcu_dereference(netlbl_domhsh)->tbl[bkt],
--				     list)
-+		bkt_list = &rcu_dereference(netlbl_domhsh)->tbl[bkt];
-+		list_for_each_entry_rcu(iter, bkt_list, list)
- 			if (iter->valid && strcmp(iter->domain, domain) == 0)
- 				return iter;
- 	}
-@@ -410,6 +410,7 @@ int netlbl_domhsh_walk(u32 *skip_bkt,
+ /**
+@@ -205,13 +193,7 @@ void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock)
+  */
+ int selinux_netlbl_socket_post_create(struct socket *sock)
  {
- 	int ret_val = -ENOENT;
- 	u32 iter_bkt;
-+	struct list_head *iter_list;
- 	struct netlbl_dom_map *iter_entry;
- 	u32 chain_cnt = 0;
+-	struct sock *sk = sock->sk;
+-	struct sk_security_struct *sksec = sk->sk_security;
+-
+-	if (sksec->nlbl_state != NLBL_REQUIRE)
+-		return 0;
+-
+-	return selinux_netlbl_sock_setsid(sk, sksec->sid);
++	return selinux_netlbl_sock_setsid(sock->sk);
+ }
  
-@@ -417,9 +418,8 @@ int netlbl_domhsh_walk(u32 *skip_bkt,
- 	for (iter_bkt = *skip_bkt;
- 	     iter_bkt < rcu_dereference(netlbl_domhsh)->size;
- 	     iter_bkt++, chain_cnt = 0) {
--		list_for_each_entry_rcu(iter_entry,
--				&rcu_dereference(netlbl_domhsh)->tbl[iter_bkt],
--				list)
-+		iter_list = &rcu_dereference(netlbl_domhsh)->tbl[iter_bkt];
-+		list_for_each_entry_rcu(iter_entry, iter_list, list)
- 			if (iter_entry->valid) {
- 				if (chain_cnt++ < *skip_chain)
- 					continue;
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index 921c118..cc105a1 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -381,12 +381,12 @@ static struct netlbl_unlhsh_addr6 *netlbl_unlhsh_search_addr6(
- static struct netlbl_unlhsh_iface *netlbl_unlhsh_search_iface(int ifindex)
- {
- 	u32 bkt;
-+	struct list_head *bkt_list;
- 	struct netlbl_unlhsh_iface *iter;
- 
- 	bkt = netlbl_unlhsh_hash(ifindex);
--	list_for_each_entry_rcu(iter,
--				&rcu_dereference(netlbl_unlhsh)->tbl[bkt],
--				list)
-+	bkt_list = &rcu_dereference(netlbl_unlhsh)->tbl[bkt];
-+	list_for_each_entry_rcu(iter, bkt_list, list)
- 		if (iter->valid && iter->ifindex == ifindex)
- 			return iter;
- 
-@@ -1427,6 +1427,7 @@ static int netlbl_unlabel_staticlist(struct sk_buff *skb,
- 	struct netlbl_unlhsh_iface *iface;
- 	struct netlbl_unlhsh_addr4 *addr4;
- 	struct netlbl_unlhsh_addr6 *addr6;
-+	struct list_head *iter_list;
- 
- 	cb_arg.nl_cb = cb;
- 	cb_arg.skb = skb;
-@@ -1436,9 +1437,8 @@ static int netlbl_unlabel_staticlist(struct sk_buff *skb,
- 	for (iter_bkt = skip_bkt;
- 	     iter_bkt < rcu_dereference(netlbl_unlhsh)->size;
- 	     iter_bkt++, iter_chain = 0, iter_addr4 = 0, iter_addr6 = 0) {
--		list_for_each_entry_rcu(iface,
--			        &rcu_dereference(netlbl_unlhsh)->tbl[iter_bkt],
--				list) {
-+		iter_list = &rcu_dereference(netlbl_unlhsh)->tbl[iter_bkt];
-+		list_for_each_entry_rcu(iface, iter_list, list) {
- 			if (!iface->valid ||
- 			    iter_chain++ < skip_chain)
- 				continue;
+ /**
+@@ -246,7 +228,7 @@ int selinux_netlbl_inode_permission(struct inode *inode, int mask)
+ 	local_bh_disable();
+ 	bh_lock_sock_nested(sk);
+ 	if (likely(sksec->nlbl_state == NLBL_REQUIRE))
+-		rc = selinux_netlbl_sock_setsid(sk, sksec->sid);
++		rc = selinux_netlbl_sock_setsid(sk);
+ 	else
+ 		rc = 0;
+ 	bh_unlock_sock(sk);
 
