@@ -1,56 +1,76 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Final Bluetooth driver fixes for 2.6.27-rc8
-Date: Mon, 06 Oct 2008 13:02:35 +0200
-Message-ID: <1223290955.11272.154.camel@violet.holtmann.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when
+	gc_elasticity is exceeded
+Date: Mon, 6 Oct 2008 19:02:49 +0800
+Message-ID: <20081006110249.GA22613@gondor.apana.org.au>
+References: <20080930.070804.26007839.davem@davemloft.net> <E1KmKGd-000393-UD@gondolin.me.apana.org.au> <c3ca0c0f0810042145q35a451a7u706bc64fb43723fa@mail.gmail.com> <20081005.103454.247312994.davem@davemloft.net> <20081006042108.GA19398@gondor.apana.org.au> <20081006105022.GA16939@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, whydna@whydna.net,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:59363 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752393AbYJFLCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 07:02:16 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:49113 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752812AbYJFLDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 07:03:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20081006105022.GA16939@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Mon, Oct 06, 2008 at 06:50:22AM -0400, Neil Horman wrote:
+>
+> > 1) The way we count the chain length is wrong.  There are keys
+> > which do not form part of the hash computation.  Entries that
+> > only differ by them will always end up in the same bucket.
+>
+> I'm not sure I follow what your saying here.  I understand that some keys will
+> wind up hashing to the same bucket, but from what I see a change to the saddr
+> and daddr parameters to rt_hash, will change what bucket you hash too.  What am
+> I missing?
 
-the btusb and bpa10x drivers have double frees due to a thinking mistake
-with the URB_FREE_BUFFER flag. Rafael confirmed that this fixes his last
-hibernation issue. I think that was the last regression that we had for
-this driver. All full suspend/resume and auto-suspend/remote-wakeup
-patches are queued for 2.6.28 now. I am happy that we finally fixed the
-real cause and not worked around it with adding suspend and resume
-callbacks. We did that for the old hci_usb driver and it was a bad idea.
+We've got keys other than saddr/daddr, for example, all route
+entries that differ only by TOS hash to the same bucket.  There
+are quite a few possible TOS values.
 
-During the last two weeks also new Bluetooth 2.1 dongles appeared on the
-market and finally I tested all three of them. All of them need a quirk
-entry to make them work. They are all based on the same chip, but they
-are using different vendor and product ids.
+Have a look at ip r l c.
 
-Regards
+> > 2) What do we do when we get a long chain just after a rehash.
+> > 
+> > This is an indication that the attacker has more knowledge about
+> > us than we expected.  Continuing to rehash is probably no going
+> > to help.
+>
+> Seems like it might be ambiguous to me.  perhaps we just got a series of
+> collisions in the firs few entries after a  rebuild?  I dont know, Im just
+> playing devils advocate.
 
-Marcel
+Have you computed the probability of that? If the limit is sensible
+this should be extremely unlikely.  Note that I'm also assuming
+that you've got 1) solved as otherwise all bets are off.
 
+Assuming that we are counting it correctly, and that the length
+limit is set to a sensible value, then the probability of the
+attacker reaching that limit soon after a rehash is very small.
 
-Please pull from
+Therefore we can deduce that if it does happen then chances are
+that our RNG has been compromised and as such rehashing again
+will not help.
 
-    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
+> Why don't we just add a count to the number of times we call
+> rt_emergency_hash_rebuild?  If we cross a threshold on that count (or perhaps a
+> rate determined by jiffies since the last emergency rebuild), we can set a flag
+> to not always return a failed lookup in the cache, so as to force routing into
+> the slow path.
 
-This will update the following files:
+Really, if we're hitting this when nobody is attacking us then
+something is screwed up, notably 1) as it stands.
 
- drivers/bluetooth/bpa10x.c |    2 --
- drivers/bluetooth/btusb.c  |    8 +++++---
- 2 files changed, 5 insertions(+), 5 deletions(-)
-
-through these ChangeSets:
-
-Marcel Holtmann (3):
-    [Bluetooth] Fix double frees on error paths of btusb and bpa10x drivers
-    [Bluetooth] Add reset quirk for new Targus and Belkin dongles
-    [Bluetooth] Add reset quirk for A-Link BlueUSB21 dongle
-
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
