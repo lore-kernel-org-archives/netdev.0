@@ -1,57 +1,68 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when
-	gc_elasticity is exceeded
-Date: Sun, 5 Oct 2008 20:52:34 -0400
-Message-ID: <20081006005234.GA5382@localhost.localdomain>
-References: <20080929191254.GA20074@hmsreliant.think-freely.org> <E1KmK7b-00036t-LM@gondolin.me.apana.org.au> <20081005032047.GA11997@gondor.apana.org.au>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround (fwd)
+Date: Sun, 5 Oct 2008 22:27:17 -0300
+Message-ID: <48e96979.0610c00a.5fcc.fffffdfd@mx.google.com>
+References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
+	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
+	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
+	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
+	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
+	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
+	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
+	<Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
+	<48e5364d.0603c00a.6e25.fffff993@mx.google.com>
+	<Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
+	<48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com>
+	<alpine.LFD.2.00.0810052008131.3398@apollo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, davem@davemloft.net,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56871 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751186AbYJFAyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 20:54:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20081005032047.GA11997@gondor.apana.org.au>
+Received: from yw-out-2324.google.com ([74.125.46.29]:26313 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751893AbYJFB1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2008 21:27:24 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so386159ywe.1
+        for <netdev@vger.kernel.org>; Sun, 05 Oct 2008 18:27:22 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.00.0810052008131.3398@apollo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 05, 2008 at 11:20:47AM +0800, Herbert Xu wrote:
-> On Sun, Oct 05, 2008 at 11:17:27AM +0800, Herbert Xu wrote:
-> > Neil Horman <nhorman@tuxdriver.com> wrote:
-> > >        We currently have the ability to disable our route cache secret interval
-> > > rebuild timer (by setting it to zero), but if we do that its possible for an
-> > > attacker (if they guess our route cache hash secret, to fill our system with
-> > > routes that all hash to the same bucket, destroying our performance.  This patch
-> > 
-> > This is completely bogus.  We never allow any chain to grow beyond
-> > the elasticity.  So in the worst case we just bypass the route cache.
-> 
-> OK we don't actually enforce that as it stands, but perhaps we
-> should have a maximum chain length that is enforced.
-> 
-Thank you :).  I was just about to respond with a note asking you for a
-reference to your previous assertion.  We definately don't enforce that now.
+On Sun, 5 Oct 2008 20:09:22 +0200 (CEST)
+Thomas Gleixner <tglx@linutronix.de> wrote:
 
-I agree we should have a maximum chain legth that we enforce.  Unfortunately
-according to eric, the gc_elasticity value can't be it, because we very
-routinely in nominal systems have a limited number of chains that violate the
-elasticity, and that should be expected.  Thats why my latest patch tries to
-cover that by computing the standard deviation of the set of chains and allowing
-chains within avg+4*SD to exist.  With that allowance, we should be able to
-remove the periodic rehash entirely.
-
-Best
-Neil
-
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> did you get the content of /debug/tracing/trace nevertheless ?
 > 
+> The cat /debug/tracing/tracing_enabled == 1 might be just a user space
+> interface thingy.
+
+	Hi Thomas, I added this one too (from my desktop):
+
+http://www.abusar.org/ftrace/trace-desktop.txt.bz2
+
+	I don't know if it will help, but if you could look the entries
+generated by sudo and fetchnews, they were stalled. sudo has a lot of:
+
+            sudo-1081  [01] 34460.250986: _spin_lock+0x4/0x20 <ffffffff80453754> <-sys_close+0x3b/0x100 <ffffffff8029e06b>
+            sudo-1081  [01] 34460.250986: sys_close+0x14/0x100 <ffffffff8029e044> <-system_call_fastpath+0x16/0x1b <ffffffff8020bd1b>
+            sudo-1081  [01] 34460.250987: _spin_lock+0x4/0x20 <ffffffff80453754> <-sys_close+0x3b/0x100 <ffffffff8029e06b>
+            sudo-1081  [01] 34460.250987: sys_close+0x14/0x100 <ffffffff8029e044> <-system_call_fastpath+0x16/0x1b <ffffffff8020bd1b>
+            sudo-1081  [01] 34460.250987: _spin_lock+0x4/0x20 <ffffffff80453754> <-sys_close+0x3b/0x100 <ffffffff8029e06b>
+            sudo-1081  [01] 34460.250987: sys_close+0x14/0x100 <ffffffff8029e044> <-system_call_fastpath+0x16/0x1b <ffffffff8020bd1b>
+            sudo-1081  [01] 34460.250987: _spin_lock+0x4/0x20 <ffffffff80453754> <-sys_close+0x3b/0x100 <ffffffff8029e06b>
+            sudo-1081  [01] 34460.250988: sys_close+0x14/0x100 <ffffffff8029e044> <-system_call_fastpath+0x16/0x1b <ffffffff8020bd1b>
+            sudo-1081  [01] 34460.250988: _spin_lock+0x4/0x20 <ffffffff80453754> <-sys_close+0x3b/0x100 <ffffffff8029e06b>
+
+	I don't know if it's normal...
+
+	Thank you.
+
+
+-- 
