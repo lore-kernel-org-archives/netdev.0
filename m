@@ -1,42 +1,39 @@
-From: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/2] net: add ETH_P_FCOE for Fibre Channel over
-	Ethernet (FCoE)
-Date: Mon, 06 Oct 2008 15:09:20 -0700
-Message-ID: <20081006220920.3308.18862.stgit@zyfc9ini.jf.intel.com>
-References: <20081006220524.3308.64889.stgit@zyfc9ini.jf.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Could you make vconfig less stupid?
+Date: Tue, 07 Oct 2008 00:26:30 +0200
+Message-ID: <48EA9096.8010505@trash.net>
+References: <20081006202401.14f03be2@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <20081006220524.3308.64889.stgit-23BaheqE+Bznoz6Kjl9f4RL4W9x8LtSr@public.gmane.org>
-List-Unsubscribe: <http://www.open-fcoe.org/mailman/listinfo/devel>,
-	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://www.open-fcoe.org/pipermail/devel>
-List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <http://www.open-fcoe.org/mailman/listinfo/devel>,
-	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:55946 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751552AbYJFW0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 18:26:39 -0400
+In-Reply-To: <20081006202401.14f03be2@speedy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
----
+Stephen Hemminger wrote:
+> vconfig prints bogus message, then autoloads the vlan module.
+> It is still living in 2.4 time warp.
+> 
+> # vconfig add dummy0 1
+> WARNING:  Could not open /proc/net/vlan/config.  Maybe you need to load the 8021q module, or maybe you are not using PROCFS??
+> Added VLAN with VID == 1 to IF -:dummy0:-
+> 
+> Other nuisance:
+> # vconfig --version
+> Expecting argc to be 3-5, inclusive.  Was: 2
+> ...
+> 
+> 1) users expect version
+> 2) users don't expect argc related crap messages
 
- include/linux/if_ether.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Actually I don't maintain vconfig and I don't think Ben does either.
+Its deprecated and iproute is what people should use, all the new
+features are not supported by vconfig.
 
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 723a1c5..e225b41 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -77,6 +77,7 @@
- #define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
- #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
- #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
-+#define ETH_P_FCOE      0x8906          /* Fibre Channel over Ethernet  */
- 
- /*
-  *	Non DIX types. Won't clash for 1500 types.
