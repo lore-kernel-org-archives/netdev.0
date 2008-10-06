@@ -1,7 +1,8 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH v7 02/17] selinux: Cleanup the NetLabel glue code
-Date: Mon, 06 Oct 2008 15:19:54 -0400
-Message-ID: <20081006191954.15686.56760.stgit@flek.lan>
+Subject: [PATCH v7 03/17] selinux: Correctly handle IPv4 packets on IPv6
+	sockets in all cases
+Date: Mon, 06 Oct 2008 15:20:01 -0400
+Message-ID: <20081006192001.15686.47687.stgit@flek.lan>
 References: <20081006191516.15686.80823.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,100 +14,70 @@ In-Reply-To: <20081006191516.15686.80823.stgit@flek.lan>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We were doing a lot of extra work in selinux_netlbl_sock_graft() what wasn't
-necessary so this patch removes that code.  It also removes the redundant
-second argument to selinux_netlbl_sock_setsid() which allows us to simplify a
-few other functions.
+We did the right thing in a few cases but there were several areas where we
+determined a packet's address family based on the socket's address family which
+is not the right thing to do since we can get IPv4 packets on IPv6 sockets.
+This patch fixes these problems by either taking the address family directly
+from the packet.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
 Acked-by: James Morris <jmorris@namei.org>
 ---
 
- security/selinux/netlabel.c |   38 ++++++++++----------------------------
- 1 files changed, 10 insertions(+), 28 deletions(-)
+ security/selinux/hooks.c |   22 +++++++++++++++++-----
+ 1 files changed, 17 insertions(+), 5 deletions(-)
 
-diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
-index 89b4183..b9ce5fc 100644
---- a/security/selinux/netlabel.c
-+++ b/security/selinux/netlabel.c
-@@ -66,22 +66,24 @@ static int selinux_netlbl_sidlookup_cached(struct sk_buff *skb,
- /**
-  * selinux_netlbl_sock_setsid - Label a socket using the NetLabel mechanism
-  * @sk: the socket to label
-- * @sid: the SID to use
-  *
-  * Description:
-- * Attempt to label a socket using the NetLabel mechanism using the given
-- * SID.  Returns zero values on success, negative values on failure.
-+ * Attempt to label a socket using the NetLabel mechanism.  Returns zero values
-+ * on success, negative values on failure.
-  *
-  */
--static int selinux_netlbl_sock_setsid(struct sock *sk, u32 sid)
-+static int selinux_netlbl_sock_setsid(struct sock *sk)
- {
- 	int rc;
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	struct netlbl_lsm_secattr secattr;
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 03fc6a8..223f474 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4207,10 +4207,12 @@ static int selinux_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *
+ 	u32 peer_secid = SECSID_NULL;
+ 	u16 family;
  
-+	if (sksec->nlbl_state != NLBL_REQUIRE)
-+		return 0;
-+
- 	netlbl_secattr_init(&secattr);
- 
--	rc = security_netlbl_sid_to_secattr(sid, &secattr);
-+	rc = security_netlbl_sid_to_secattr(sksec->sid, &secattr);
- 	if (rc != 0)
- 		goto sock_setsid_return;
- 	rc = netlbl_sock_setattr(sk, &secattr);
-@@ -174,24 +176,10 @@ int selinux_netlbl_skbuff_getsid(struct sk_buff *skb,
-  */
- void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock)
- {
--	struct sk_security_struct *sksec = sk->sk_security;
--	struct netlbl_lsm_secattr secattr;
--	u32 nlbl_peer_sid;
--
--	if (sksec->nlbl_state != NLBL_REQUIRE)
--		return;
--
--	netlbl_secattr_init(&secattr);
--	if (netlbl_sock_getattr(sk, &secattr) == 0 &&
--	    secattr.flags != NETLBL_SECATTR_NONE &&
--	    security_netlbl_secattr_to_sid(&secattr, &nlbl_peer_sid) == 0)
--		sksec->peer_sid = nlbl_peer_sid;
--	netlbl_secattr_destroy(&secattr);
--
- 	/* Try to set the NetLabel on the socket to save time later, if we fail
- 	 * here we will pick up the pieces in later calls to
- 	 * selinux_netlbl_inode_permission(). */
--	selinux_netlbl_sock_setsid(sk, sksec->sid);
-+	selinux_netlbl_sock_setsid(sk);
- }
- 
- /**
-@@ -205,13 +193,7 @@ void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock)
-  */
- int selinux_netlbl_socket_post_create(struct socket *sock)
- {
--	struct sock *sk = sock->sk;
--	struct sk_security_struct *sksec = sk->sk_security;
--
--	if (sksec->nlbl_state != NLBL_REQUIRE)
--		return 0;
--
--	return selinux_netlbl_sock_setsid(sk, sksec->sid);
-+	return selinux_netlbl_sock_setsid(sock->sk);
- }
- 
- /**
-@@ -246,7 +228,7 @@ int selinux_netlbl_inode_permission(struct inode *inode, int mask)
- 	local_bh_disable();
- 	bh_lock_sock_nested(sk);
- 	if (likely(sksec->nlbl_state == NLBL_REQUIRE))
--		rc = selinux_netlbl_sock_setsid(sk, sksec->sid);
-+		rc = selinux_netlbl_sock_setsid(sk);
+-	if (sock)
++	if (skb && skb->protocol == htons(ETH_P_IP))
++		family = PF_INET;
++	else if (skb && skb->protocol == htons(ETH_P_IPV6))
++		family = PF_INET6;
++	else if (sock)
+ 		family = sock->sk->sk_family;
+-	else if (skb && skb->sk)
+-		family = skb->sk->sk_family;
  	else
- 		rc = 0;
- 	bh_unlock_sock(sk);
+ 		goto out;
+ 
+@@ -4277,10 +4279,15 @@ static int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
+ {
+ 	struct sk_security_struct *sksec = sk->sk_security;
+ 	int err;
++	u16 family = sk->sk_family;
+ 	u32 newsid;
+ 	u32 peersid;
+ 
+-	err = selinux_skb_peerlbl_sid(skb, sk->sk_family, &peersid);
++	/* handle mapped IPv4 packets arriving via IPv6 sockets */
++	if (family == PF_INET6 && skb->protocol == htons(ETH_P_IP))
++		family = PF_INET;
++
++	err = selinux_skb_peerlbl_sid(skb, family, &peersid);
+ 	if (err)
+ 		return err;
+ 	if (peersid == SECSID_NULL) {
+@@ -4318,9 +4325,14 @@ static void selinux_inet_csk_clone(struct sock *newsk,
+ static void selinux_inet_conn_established(struct sock *sk,
+ 				struct sk_buff *skb)
+ {
++	u16 family = sk->sk_family;
+ 	struct sk_security_struct *sksec = sk->sk_security;
+ 
+-	selinux_skb_peerlbl_sid(skb, sk->sk_family, &sksec->peer_sid);
++	/* handle mapped IPv4 packets arriving via IPv6 sockets */
++	if (family == PF_INET6 && skb->protocol == htons(ETH_P_IP))
++		family = PF_INET;
++
++	selinux_skb_peerlbl_sid(skb, family, &sksec->peer_sid);
+ }
+ 
+ static void selinux_req_classify_flow(const struct request_sock *req,
 
