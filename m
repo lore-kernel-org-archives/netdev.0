@@ -1,141 +1,57 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH v7 17/17] netlabel: Add configuration support for local
-	labeling
-Date: Mon, 06 Oct 2008 15:21:43 -0400
-Message-ID: <20081006192143.15686.12845.stgit@flek.lan>
-References: <20081006191516.15686.80823.stgit@flek.lan>
+From: Corey Minyard <minyard@acm.org>
+Subject: [PATCH 1/3] Add hlist_for_each_entry_from_rcu
+Date: Mon, 06 Oct 2008 13:45:33 -0500
+Message-ID: <20081006184532.GA10271@minyard.local>
+Reply-To: minyard@acm.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20081006191516.15686.80823.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, paulmck@linux.vnet.ibm.com
+To: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vms172071pub.verizon.net ([206.46.172.71]:53658 "EHLO
+	vms172071pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752752AbYJFTp5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 15:45:57 -0400
+Content-disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add the necessary NetLabel support for the new CIPSO mapping,
-CIPSO_V4_MAP_LOCAL, which allows full LSM label/context support.
+Add an RCU version of hlist_for_each_entry_from, getting ready for
+converting the UDP hash lock to RCU.
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
-Reviewed-by: James Morris <jmorris@namei.org>
+Signed-off-by: Corey Minyard <cminyard@mvista.com>
 ---
+ include/linux/rculist.h |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
 
- include/net/netlabel.h           |    3 ++-
- net/netlabel/netlabel_cipso_v4.c |   41 ++++++++++++++++++++++++++++++++++++++
- net/netlabel/netlabel_cipso_v4.h |    6 ++++--
- net/netlabel/netlabel_kapi.c     |    3 +++
- 4 files changed, 50 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index d56517a..17c442a 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -72,7 +72,8 @@ struct cipso_v4_doi;
- /* NetLabel NETLINK protocol version
-  *  1: initial version
-  *  2: added static labels for unlabeled connections
-- *  3: network selectors added to the NetLabel/LSM domain mapping
-+ *  3: network selectors added to the NetLabel/LSM domain mapping and the
-+ *     CIPSO_V4_MAP_LOCAL CIPSO mapping was added
-  */
- #define NETLBL_PROTO_VERSION            3
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index eb4443c..f20fe61 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -397,5 +397,23 @@ static inline void hlist_add_after_rcu(struct hlist_node *prev,
+ 		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
+ 		pos = rcu_dereference(pos->next))
  
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index db83a67..fff32b7 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -365,6 +365,43 @@ add_pass_failure:
- }
- 
- /**
-+ * netlbl_cipsov4_add_local - Adds a CIPSO V4 DOI definition
-+ * @info: the Generic NETLINK info block
-+ *
-+ * Description:
-+ * Create a new CIPSO_V4_MAP_LOCAL DOI definition based on the given ADD
-+ * message and add it to the CIPSO V4 engine.  Return zero on success and
-+ * non-zero on error.
-+ *
-+ */
-+static int netlbl_cipsov4_add_local(struct genl_info *info)
-+{
-+	int ret_val;
-+	struct cipso_v4_doi *doi_def = NULL;
-+
-+	if (!info->attrs[NLBL_CIPSOV4_A_TAGLST])
-+		return -EINVAL;
-+
-+	doi_def = kmalloc(sizeof(*doi_def), GFP_KERNEL);
-+	if (doi_def == NULL)
-+		return -ENOMEM;
-+	doi_def->type = CIPSO_V4_MAP_LOCAL;
-+
-+	ret_val = netlbl_cipsov4_add_common(info, doi_def);
-+	if (ret_val != 0)
-+		goto add_local_failure;
-+
-+	ret_val = cipso_v4_doi_add(doi_def);
-+	if (ret_val != 0)
-+		goto add_local_failure;
-+	return 0;
-+
-+add_local_failure:
-+	cipso_v4_doi_free(doi_def);
-+	return ret_val;
-+}
 +
 +/**
-  * netlbl_cipsov4_add - Handle an ADD message
-  * @skb: the NETLINK buffer
-  * @info: the Generic NETLINK info block
-@@ -401,6 +438,10 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
- 		type_str = "pass";
- 		ret_val = netlbl_cipsov4_add_pass(info);
- 		break;
-+	case CIPSO_V4_MAP_LOCAL:
-+		type_str = "local";
-+		ret_val = netlbl_cipsov4_add_local(info);
-+		break;
- 	}
- 	if (ret_val == 0)
- 		atomic_inc(&netlabel_mgmt_protocount);
-diff --git a/net/netlabel/netlabel_cipso_v4.h b/net/netlabel/netlabel_cipso_v4.h
-index fb3957f..c8a4079 100644
---- a/net/netlabel/netlabel_cipso_v4.h
-+++ b/net/netlabel/netlabel_cipso_v4.h
-@@ -50,7 +50,8 @@
-  *     NLBL_CIPSOV4_A_MLSLVLLST
-  *     NLBL_CIPSOV4_A_MLSCATLST
-  *
-- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
-+ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
-+ *   are required.
-  *
-  * o REMOVE:
-  *   Sent by an application to remove a specific DOI mapping table from the
-@@ -81,7 +82,8 @@
-  *     NLBL_CIPSOV4_A_MLSLVLLST
-  *     NLBL_CIPSOV4_A_MLSCATLST
-  *
-- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
-+ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
-+ *   are required.
-  *
-  * o LISTALL:
-  *   This message is sent by an application to list the valid DOIs on the
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 8435b15..b32eceb 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -163,6 +163,9 @@ cfg_cipsov4_add_map_return:
- 		case CIPSO_V4_MAP_PASS:
- 			type_str = "pass";
- 			break;
-+		case CIPSO_V4_MAP_LOCAL:
-+			type_str = "local";
-+			break;
- 		default:
- 			type_str = "(unknown)";
- 		}
++ * hlist_for_each_entry_from_rcu - iterate over rcu list starting from pos
++ * @tpos:      the type * to use as a loop cursor.
++ * @pos:       the &struct hlist_node to use as a loop cursor.
++ * @member:    the name of the hlist_node within the struct.
++ *
++ * This list-traversal primitive may safely run concurrently with
++ * the _rcu list-mutation primitives such as hlist_add_head_rcu()
++ * as long as the traversal is guarded by rcu_read_lock().
++ */
++#define hlist_for_each_entry_from_rcu(tpos, pos, member)                \
++	for (;                                                          \
++	     (pos) && ({ prefetch(pos->next); 1; }) &&    \
++	       ({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
++	     pos = rcu_dereference(pos->next))
++
++
+ #endif	/* __KERNEL__ */
+ #endif
+-- 
+1.5.6.5
 
