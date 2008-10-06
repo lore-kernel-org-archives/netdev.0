@@ -1,7 +1,8 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH v7 08/17] smack: Fix missing calls to netlbl_skbuff_err()
-Date: Mon, 06 Oct 2008 15:20:36 -0400
-Message-ID: <20081006192036.15686.32534.stgit@flek.lan>
+Subject: [PATCH v7 06/17] selinux: Fix a problem in
+	security_netlbl_sid_to_secattr()
+Date: Mon, 06 Oct 2008 15:20:23 -0400
+Message-ID: <20081006192022.15686.68332.stgit@flek.lan>
 References: <20081006191516.15686.80823.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,38 +10,58 @@ Content-Transfer-Encoding: 7bit
 To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:15452 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752737AbYJFTUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 15:20:40 -0400
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:16886 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752589AbYJFTUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 15:20:25 -0400
 In-Reply-To: <20081006191516.15686.80823.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Smack needs to call netlbl_skbuff_err() to let NetLabel do the necessary
-protocol specific error handling.
+Currently when SELinux fails to allocate memory in
+security_netlbl_sid_to_secattr() the NetLabel LSM domain field is set to
+NULL which triggers the default NetLabel LSM domain mapping which may not
+always be the desired mapping.  This patch fixes this by returning an error
+when the kernel is unable to allocate memory.  This could result in more
+failures on a system with heavy memory pressure but it is the "correct"
+thing to do.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
-Acked-by: Casey Schaufler <casey@schaufler-ca.com>
+Acked-by: James Morris <jmorris@namei.org>
 ---
 
- security/smack/smack_lsm.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ security/selinux/ss/services.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
-index 87d7541..6e2dc0b 100644
---- a/security/smack/smack_lsm.c
-+++ b/security/smack/smack_lsm.c
-@@ -2179,7 +2179,10 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	 * This is the simplist possible security model
- 	 * for networking.
- 	 */
--	return smk_access(smack, ssp->smk_in, MAY_WRITE);
-+	rc = smk_access(smack, ssp->smk_in, MAY_WRITE);
-+	if (rc != 0)
-+		netlbl_skbuff_err(skb, rc, 0);
-+	return rc;
- }
+diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
+index 8551952..c8f688a 100644
+--- a/security/selinux/ss/services.c
++++ b/security/selinux/ss/services.c
+@@ -2785,7 +2785,7 @@ netlbl_secattr_to_sid_return_cleanup:
+  */
+ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
+ {
+-	int rc = -ENOENT;
++	int rc;
+ 	struct context *ctx;
  
- /**
+ 	if (!ss_initialized)
+@@ -2793,10 +2793,16 @@ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
+ 
+ 	read_lock(&policy_rwlock);
+ 	ctx = sidtab_search(&sidtab, sid);
+-	if (ctx == NULL)
++	if (ctx == NULL) {
++		rc = -ENOENT;
+ 		goto netlbl_sid_to_secattr_failure;
++	}
+ 	secattr->domain = kstrdup(policydb.p_type_val_to_name[ctx->type - 1],
+ 				  GFP_ATOMIC);
++	if (secattr->domain == NULL) {
++		rc = -ENOMEM;
++		goto netlbl_sid_to_secattr_failure;
++	}
+ 	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY;
+ 	mls_export_netlbl_lvl(ctx, secattr);
+ 	rc = mls_export_netlbl_cat(ctx, secattr);
 
