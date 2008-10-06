@@ -1,8 +1,8 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH v7 14/17] selinux: Cache NetLabel secattrs in the socket's
-	security struct
-Date: Mon, 06 Oct 2008 15:21:23 -0400
-Message-ID: <20081006192123.15686.71697.stgit@flek.lan>
+Subject: [PATCH v7 17/17] netlabel: Add configuration support for local
+	labeling
+Date: Mon, 06 Oct 2008 15:21:43 -0400
+Message-ID: <20081006192143.15686.12845.stgit@flek.lan>
 References: <20081006191516.15686.80823.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,309 +14,128 @@ In-Reply-To: <20081006191516.15686.80823.stgit@flek.lan>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Previous work enabled the use of address based NetLabel selectors, which
-while highly useful, brought the potential for additional per-packet overhead
-when used.  This patch attempts to mitigate some of that overhead by caching
-the NetLabel security attribute struct within the SELinux socket security
-structure.  This should help eliminate the need to recreate the NetLabel
-secattr structure for each packet resulting in less overhead.
+Add the necessary NetLabel support for the new CIPSO mapping,
+CIPSO_V4_MAP_LOCAL, which allows full LSM label/context support.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
-Acked-by: James Morris <jmorris@namei.org>
+Reviewed-by: James Morris <jmorris@namei.org>
 ---
 
- security/selinux/hooks.c            |    1 
- security/selinux/include/netlabel.h |    7 ++
- security/selinux/include/objsec.h   |    7 +-
- security/selinux/netlabel.c         |  115 ++++++++++++++++++++++++-----------
- 4 files changed, 91 insertions(+), 39 deletions(-)
+ include/net/netlabel.h           |    3 ++-
+ net/netlabel/netlabel_cipso_v4.c |   41 ++++++++++++++++++++++++++++++++++++++
+ net/netlabel/netlabel_cipso_v4.h |    6 ++++--
+ net/netlabel/netlabel_kapi.c     |    3 +++
+ 4 files changed, 50 insertions(+), 3 deletions(-)
 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 632ac3e..3aa811e 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -291,6 +291,7 @@ static void sk_free_security(struct sock *sk)
- 	struct sk_security_struct *ssec = sk->sk_security;
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index d56517a..17c442a 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -72,7 +72,8 @@ struct cipso_v4_doi;
+ /* NetLabel NETLINK protocol version
+  *  1: initial version
+  *  2: added static labels for unlabeled connections
+- *  3: network selectors added to the NetLabel/LSM domain mapping
++ *  3: network selectors added to the NetLabel/LSM domain mapping and the
++ *     CIPSO_V4_MAP_LOCAL CIPSO mapping was added
+  */
+ #define NETLBL_PROTO_VERSION            3
  
- 	sk->sk_security = NULL;
-+	selinux_netlbl_sk_security_free(ssec);
- 	kfree(ssec);
- }
- 
-diff --git a/security/selinux/include/netlabel.h b/security/selinux/include/netlabel.h
-index 982bac0..b913c8d 100644
---- a/security/selinux/include/netlabel.h
-+++ b/security/selinux/include/netlabel.h
-@@ -41,6 +41,7 @@ void selinux_netlbl_cache_invalidate(void);
- 
- void selinux_netlbl_err(struct sk_buff *skb, int error, int gateway);
- 
-+void selinux_netlbl_sk_security_free(struct sk_security_struct *ssec);
- void selinux_netlbl_sk_security_reset(struct sk_security_struct *ssec,
- 				      int family);
- 
-@@ -77,6 +78,12 @@ static inline void selinux_netlbl_err(struct sk_buff *skb,
- 	return;
- }
- 
-+static inline void selinux_netlbl_sk_security_free(
-+					       struct sk_security_struct *ssec)
-+{
-+	return;
-+}
-+
- static inline void selinux_netlbl_sk_security_reset(
- 					       struct sk_security_struct *ssec,
- 					       int family)
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index ad34787..f8be8d7 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -109,9 +109,6 @@ struct netport_security_struct {
- };
- 
- struct sk_security_struct {
--	u32 sid;			/* SID of this object */
--	u32 peer_sid;			/* SID of peer */
--	u16 sclass;			/* sock security class */
- #ifdef CONFIG_NETLABEL
- 	enum {				/* NetLabel state */
- 		NLBL_UNSET = 0,
-@@ -120,7 +117,11 @@ struct sk_security_struct {
- 		NLBL_REQSKB,
- 		NLBL_CONNLABELED,
- 	} nlbl_state;
-+	struct netlbl_lsm_secattr *nlbl_secattr; /* NetLabel sec attributes */
- #endif
-+	u32 sid;			/* SID of this object */
-+	u32 peer_sid;			/* SID of peer */
-+	u16 sclass;			/* sock security class */
- };
- 
- struct key_security_struct {
-diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
-index b22b7da..f58701a 100644
---- a/security/selinux/netlabel.c
-+++ b/security/selinux/netlabel.c
-@@ -68,6 +68,38 @@ static int selinux_netlbl_sidlookup_cached(struct sk_buff *skb,
+diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
+index db83a67..fff32b7 100644
+--- a/net/netlabel/netlabel_cipso_v4.c
++++ b/net/netlabel/netlabel_cipso_v4.c
+@@ -365,6 +365,43 @@ add_pass_failure:
  }
  
  /**
-+ * selinux_netlbl_sock_genattr - Generate the NetLabel socket secattr
-+ * @sk: the socket
++ * netlbl_cipsov4_add_local - Adds a CIPSO V4 DOI definition
++ * @info: the Generic NETLINK info block
 + *
 + * Description:
-+ * Generate the NetLabel security attributes for a socket, making full use of
-+ * the socket's attribute cache.  Returns a pointer to the security attributes
-+ * on success, NULL on failure.
++ * Create a new CIPSO_V4_MAP_LOCAL DOI definition based on the given ADD
++ * message and add it to the CIPSO V4 engine.  Return zero on success and
++ * non-zero on error.
 + *
 + */
-+static struct netlbl_lsm_secattr *selinux_netlbl_sock_genattr(struct sock *sk)
++static int netlbl_cipsov4_add_local(struct genl_info *info)
 +{
-+	int rc;
-+	struct sk_security_struct *sksec = sk->sk_security;
-+	struct netlbl_lsm_secattr *secattr;
++	int ret_val;
++	struct cipso_v4_doi *doi_def = NULL;
 +
-+	if (sksec->nlbl_secattr != NULL)
-+		return sksec->nlbl_secattr;
++	if (!info->attrs[NLBL_CIPSOV4_A_TAGLST])
++		return -EINVAL;
 +
-+	secattr = netlbl_secattr_alloc(GFP_ATOMIC);
-+	if (secattr == NULL)
-+		return NULL;
-+	rc = security_netlbl_sid_to_secattr(sksec->sid, secattr);
-+	if (rc != 0) {
-+		netlbl_secattr_free(secattr);
-+		return NULL;
-+	}
-+	sksec->nlbl_secattr = secattr;
-+
-+	return secattr;
-+}
-+
-+/**
-  * selinux_netlbl_sock_setsid - Label a socket using the NetLabel mechanism
-  * @sk: the socket to label
-  *
-@@ -80,17 +112,15 @@ static int selinux_netlbl_sock_setsid(struct sock *sk)
- {
- 	int rc;
- 	struct sk_security_struct *sksec = sk->sk_security;
--	struct netlbl_lsm_secattr secattr;
-+	struct netlbl_lsm_secattr *secattr;
- 
- 	if (sksec->nlbl_state != NLBL_REQUIRE)
- 		return 0;
- 
--	netlbl_secattr_init(&secattr);
--
--	rc = security_netlbl_sid_to_secattr(sksec->sid, &secattr);
--	if (rc != 0)
--		goto sock_setsid_return;
--	rc = netlbl_sock_setattr(sk, &secattr);
-+	secattr = selinux_netlbl_sock_genattr(sk);
-+	if (secattr == NULL)
++	doi_def = kmalloc(sizeof(*doi_def), GFP_KERNEL);
++	if (doi_def == NULL)
 +		return -ENOMEM;
-+	rc = netlbl_sock_setattr(sk, secattr);
- 	switch (rc) {
- 	case 0:
- 		sksec->nlbl_state = NLBL_LABELED;
-@@ -101,8 +131,6 @@ static int selinux_netlbl_sock_setsid(struct sock *sk)
- 		break;
- 	}
- 
--sock_setsid_return:
--	netlbl_secattr_destroy(&secattr);
- 	return rc;
- }
- 
-@@ -137,6 +165,20 @@ void selinux_netlbl_err(struct sk_buff *skb, int error, int gateway)
- }
- 
- /**
-+ * selinux_netlbl_sk_security_free - Free the NetLabel fields
-+ * @sssec: the sk_security_struct
-+ *
-+ * Description:
-+ * Free all of the memory in the NetLabel fields of a sk_security_struct.
-+ *
-+ */
-+void selinux_netlbl_sk_security_free(struct sk_security_struct *ssec)
-+{
-+	if (ssec->nlbl_secattr != NULL)
-+		netlbl_secattr_free(ssec->nlbl_secattr);
++	doi_def->type = CIPSO_V4_MAP_LOCAL;
++
++	ret_val = netlbl_cipsov4_add_common(info, doi_def);
++	if (ret_val != 0)
++		goto add_local_failure;
++
++	ret_val = cipso_v4_doi_add(doi_def);
++	if (ret_val != 0)
++		goto add_local_failure;
++	return 0;
++
++add_local_failure:
++	cipso_v4_doi_free(doi_def);
++	return ret_val;
 +}
 +
 +/**
-  * selinux_netlbl_sk_security_reset - Reset the NetLabel fields
-  * @ssec: the sk_security_struct
-  * @family: the socket family
-@@ -209,7 +251,8 @@ int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
- 				 u32 sid)
- {
- 	int rc;
--	struct netlbl_lsm_secattr secattr;
-+	struct netlbl_lsm_secattr secattr_storage;
-+	struct netlbl_lsm_secattr *secattr = NULL;
- 	struct sock *sk;
- 
- 	/* if this is a locally generated packet check to see if it is already
-@@ -219,16 +262,21 @@ int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
- 		struct sk_security_struct *sksec = sk->sk_security;
- 		if (sksec->nlbl_state != NLBL_REQSKB)
- 			return 0;
-+		secattr = sksec->nlbl_secattr;
-+	}
-+	if (secattr == NULL) {
-+		secattr = &secattr_storage;
-+		netlbl_secattr_init(secattr);
-+		rc = security_netlbl_sid_to_secattr(sid, secattr);
-+		if (rc != 0)
-+			goto skbuff_setsid_return;
- 	}
- 
--	netlbl_secattr_init(&secattr);
--	rc = security_netlbl_sid_to_secattr(sid, &secattr);
--	if (rc != 0)
--		goto skbuff_setsid_return;
--	rc = netlbl_skbuff_setattr(skb, family, &secattr);
-+	rc = netlbl_skbuff_setattr(skb, family, secattr);
- 
- skbuff_setsid_return:
--	netlbl_secattr_destroy(&secattr);
-+	if (secattr == &secattr_storage)
-+		netlbl_secattr_destroy(secattr);
- 	return rc;
- }
- 
-@@ -245,18 +293,18 @@ void selinux_netlbl_inet_conn_established(struct sock *sk, u16 family)
- {
- 	int rc;
- 	struct sk_security_struct *sksec = sk->sk_security;
--	struct netlbl_lsm_secattr secattr;
-+	struct netlbl_lsm_secattr *secattr;
- 	struct inet_sock *sk_inet = inet_sk(sk);
- 	struct sockaddr_in addr;
- 
- 	if (sksec->nlbl_state != NLBL_REQUIRE)
- 		return;
- 
--	netlbl_secattr_init(&secattr);
--	if (security_netlbl_sid_to_secattr(sksec->sid, &secattr) != 0)
--		goto inet_conn_established_return;
-+	secattr = selinux_netlbl_sock_genattr(sk);
-+	if (secattr == NULL)
-+		return;
- 
--	rc = netlbl_sock_setattr(sk, &secattr);
-+	rc = netlbl_sock_setattr(sk, secattr);
- 	switch (rc) {
- 	case 0:
- 		sksec->nlbl_state = NLBL_LABELED;
-@@ -266,13 +314,13 @@ void selinux_netlbl_inet_conn_established(struct sock *sk, u16 family)
- 		 * labeling protocols */
- 		if (family != PF_INET) {
- 			sksec->nlbl_state = NLBL_UNSET;
--			goto inet_conn_established_return;
-+			return;
- 		}
- 
- 		addr.sin_family = family;
- 		addr.sin_addr.s_addr = sk_inet->daddr;
- 		if (netlbl_conn_setattr(sk, (struct sockaddr *)&addr,
--					&secattr) != 0) {
-+					secattr) != 0) {
- 			/* we failed to label the connected socket (could be
- 			 * for a variety of reasons, the actual "why" isn't
- 			 * important here) so we have to go to our backup plan,
-@@ -300,10 +348,6 @@ void selinux_netlbl_inet_conn_established(struct sock *sk, u16 family)
- 		 * return an error code */
+  * netlbl_cipsov4_add - Handle an ADD message
+  * @skb: the NETLINK buffer
+  * @info: the Generic NETLINK info block
+@@ -401,6 +438,10 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
+ 		type_str = "pass";
+ 		ret_val = netlbl_cipsov4_add_pass(info);
  		break;
++	case CIPSO_V4_MAP_LOCAL:
++		type_str = "local";
++		ret_val = netlbl_cipsov4_add_local(info);
++		break;
  	}
--
--inet_conn_established_return:
--	netlbl_secattr_destroy(&secattr);
--	return;
- }
- 
- /**
-@@ -468,13 +512,12 @@ int selinux_netlbl_socket_connect(struct sock *sk, struct sockaddr *addr)
- {
- 	int rc;
- 	struct sk_security_struct *sksec = sk->sk_security;
--	struct netlbl_lsm_secattr secattr;
-+	struct netlbl_lsm_secattr *secattr;
- 
- 	if (sksec->nlbl_state != NLBL_REQSKB &&
- 	    sksec->nlbl_state != NLBL_CONNLABELED)
- 		return 0;
- 
--	netlbl_secattr_init(&secattr);
- 	local_bh_disable();
- 	bh_lock_sock_nested(sk);
- 
-@@ -487,17 +530,17 @@ int selinux_netlbl_socket_connect(struct sock *sk, struct sockaddr *addr)
- 		rc = 0;
- 		goto socket_connect_return;
- 	}
--	rc = security_netlbl_sid_to_secattr(sksec->sid, &secattr);
--	if (rc != 0)
-+	secattr = selinux_netlbl_sock_genattr(sk);
-+	if (secattr == NULL) {
-+		rc = -ENOMEM;
- 		goto socket_connect_return;
--	rc = netlbl_conn_setattr(sk, addr, &secattr);
--	if (rc != 0)
--		goto socket_connect_return;
--	sksec->nlbl_state = NLBL_CONNLABELED;
-+	}
-+	rc = netlbl_conn_setattr(sk, addr, secattr);
-+	if (rc == 0)
-+		sksec->nlbl_state = NLBL_CONNLABELED;
- 
- socket_connect_return:
- 	bh_unlock_sock(sk);
- 	local_bh_enable();
--	netlbl_secattr_destroy(&secattr);
- 	return rc;
- }
+ 	if (ret_val == 0)
+ 		atomic_inc(&netlabel_mgmt_protocount);
+diff --git a/net/netlabel/netlabel_cipso_v4.h b/net/netlabel/netlabel_cipso_v4.h
+index fb3957f..c8a4079 100644
+--- a/net/netlabel/netlabel_cipso_v4.h
++++ b/net/netlabel/netlabel_cipso_v4.h
+@@ -50,7 +50,8 @@
+  *     NLBL_CIPSOV4_A_MLSLVLLST
+  *     NLBL_CIPSOV4_A_MLSCATLST
+  *
+- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
++ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
++ *   are required.
+  *
+  * o REMOVE:
+  *   Sent by an application to remove a specific DOI mapping table from the
+@@ -81,7 +82,8 @@
+  *     NLBL_CIPSOV4_A_MLSLVLLST
+  *     NLBL_CIPSOV4_A_MLSCATLST
+  *
+- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
++ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
++ *   are required.
+  *
+  * o LISTALL:
+  *   This message is sent by an application to list the valid DOIs on the
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 8435b15..b32eceb 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -163,6 +163,9 @@ cfg_cipsov4_add_map_return:
+ 		case CIPSO_V4_MAP_PASS:
+ 			type_str = "pass";
+ 			break;
++		case CIPSO_V4_MAP_LOCAL:
++			type_str = "local";
++			break;
+ 		default:
+ 			type_str = "(unknown)";
+ 		}
 
