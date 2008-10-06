@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Mon, 06 Oct 2008 14:40:02 -0700 (PDT)
-Message-ID: <20081006.144002.56418911.davem@davemloft.net>
-References: <20081006185026.GA10383@minyard.local>
-	<48EA8197.6080502@cosmosbay.com>
+Subject: Re: /proc/net/igmp group address encoding
+Date: Mon, 06 Oct 2008 14:59:02 -0700 (PDT)
+Message-ID: <20081006.145902.144784971.davem@davemloft.net>
+References: <b25312890809242344n11e61c80w1bf761c55c29a65e@mail.gmail.com>
+	<OFC83E5520.1D27DF52-ON882574CF.0028A6D4-882574CF.0029B829@us.ibm.com>
+	<b25312890809250059y2528ec00leb95574508eb52e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: minyard@acm.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com
-To: dada1@cosmosbay.com
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, pekkas@netcore.fi
+To: roszenrami@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53183
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48687
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753449AbYJFVk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 17:40:27 -0400
-In-Reply-To: <48EA8197.6080502@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1753805AbYJFV70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 17:59:26 -0400
+In-Reply-To: <b25312890809250059y2528ec00leb95574508eb52e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 06 Oct 2008 23:22:31 +0200
+From: "Rami Rosen" <roszenrami@gmail.com>
+Date: Thu, 25 Sep 2008 10:59:13 +0300
 
-> Me wondering what impact this synchronize_rcu() can have on mono-threaded
-> VOIP applications using lot of UDP sockets. What is the maximum delay of
-> this function ?
+> > since I believe netstat expects to see this the way it is.
+> Thanks  for drawing my attention to this; due to this , displaying in
+> quad format should not be implemented.
 
-The cost is enormous, we really can't use it here.
-
-I have a patch that did top-level socket destruction using RCU,
-and that didn't use synchronize_rcu(), and that killed connection
-rates by up to %20.
-
-I can only imagine what the cost would be if I had to add such a call
-in there.
-
-Really, I can't consider these changes seriously, as-is.
+Indeed, netstat even seems to transparently handle the fact that the
+value is kept in big-endian (rather than being converted using
+be32_to_cpu()) as it is printed by the kernel, regardless of cpu
+endianness.
