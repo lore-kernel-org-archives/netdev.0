@@ -1,119 +1,231 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Bisect'ed BUG in VLAN promisc mode (6c78dcbd47)
-Date: Mon, 06 Oct 2008 13:03:26 +0200
-Message-ID: <48E9F07E.9060609@trash.net>
-References: <1222437636.7598.14.camel@localhost.localdomain>  <48DD0A4F.6020703@trash.net>  <1222456933.2381.3.camel@localhost.localdomain> <48DD36D2.90103@trash.net>  <48DD37E3.9090706@trash.net> <1222457670.2381.8.camel@localhost.localdomain> <48DD3AD5.80800@trash.net> <Pine.LNX.4.64.0810021835390.8590@tyr.diku.dk>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when	gc_elasticity
+ is exceeded
+Date: Mon, 06 Oct 2008 12:49:33 +0200
+Message-ID: <48E9ED3D.2020005@cosmosbay.com>
+References: <48E141F3.9000903@cosmosbay.com> <20080929223801.GA3157@hmsreliant.think-freely.org> <48E1C104.2080801@cosmosbay.com> <20080930.071023.07946874.davem@davemloft.net> <48E25F02.8030303@cosmosbay.com> <20081001180846.GB3566@hmsreliant.think-freely.org> <20081002010101.6f0a1fa5.billfink@mindspring.com> <48E470AC.10305@cosmosbay.com> <48E4832A.3070804@cosmosbay.com> <20081003003158.GA19230@localhost.localdomain> <20081003203640.GA13354@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------090405080901060904010604"
-Cc: Jesper Dangaard Brouer <jdb@comx.dk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+ boundary="------------090401070401090204040803"
+Cc: Bill Fink <billfink@mindspring.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37318 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752927AbYJFLDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 07:03:34 -0400
-In-Reply-To: <Pine.LNX.4.64.0810021835390.8590@tyr.diku.dk>
+Received: from smtp2e.orange.fr ([80.12.242.111]:4670 "EHLO smtp2e.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752295AbYJFL3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2008 07:29:45 -0400
+In-Reply-To: <20081003203640.GA13354@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------090405080901060904010604
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+--------------090401070401090204040803
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-Jesper Dangaard Brouer wrote:
-> 
-> Here is a quick fix for the bug...
-> Patrick promised he would do a more clean fix later ;-)
+Neil Horman a =E9crit :
+> Hey all-
+> 	So, I've been doing some testing here with this patch, and am
+> comfortable that the sd estimation is working reasonably well. For a ha=
+sh table
+> with an average chain length of 1, it computes the stadard deviation to=
+ be 2,
+> which gives us a max chain length of 9 (4*sd + avg), and it manages to =
+do that
+> in about 7 jiffies over about 524000 hash buckets.  I'm reasonably plea=
+sed with
+> that speed I think, and after thinking about it, I like this implementa=
+tion
+> somewhat better, as it doesn't create a window in which chains can be
+> artifically overrun (until the nect gc round) (although I'm happy to he=
+ar
+> arguments against my implementation).  Anywho here it is, comments and =
+thoughts
+> welcome!
+>=20
+> Thanks & Regards
+> Neil
+>=20
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>=20
+>=20
+>  route.c |  121 +++++++++++++++++++++++++++++++++++++++++++++++++++++++=
++++++++--
+>  1 file changed, 118 insertions(+), 3 deletions(-)
+>=20
+>=20
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 6ee5354..4f8c5b5 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -145,6 +145,7 @@ static struct dst_entry *ipv4_negative_advice(struc=
+t dst_entry *dst);
+>  static void		 ipv4_link_failure(struct sk_buff *skb);
+>  static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
+>  static int rt_garbage_collect(struct dst_ops *ops);
+> +static void rt_emergency_hash_rebuild(struct net *net);
+> =20
+> =20
+>  static struct dst_ops ipv4_dst_ops =3D {
+> @@ -200,7 +201,14 @@ const __u8 ip_tos2prio[16] =3D {
+> =20
+>  struct rt_hash_bucket {
+>  	struct rtable	*chain;
+> +	atomic_t	chain_length;
+>  };
+> +
+> +atomic_t rt_hash_total_count;
+> +atomic_t rt_hash_nz_count;
+> +
+> +static int rt_chain_length_max;
+> +
+>  #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK) || \
+>  	defined(CONFIG_PROVE_LOCKING)
+>  /*
+> @@ -601,6 +609,68 @@ static inline int ip_rt_proc_init(void)
+>  }
+>  #endif /* CONFIG_PROC_FS */
+> =20
+> +static void rt_hash_sd_update(void)
+> +{
+> +	int temp, i;
+> +	unsigned long long sd;
+> +	int average =3D atomic_read(&rt_hash_total_count);
+> +	int nzcount =3D atomic_read(&rt_hash_nz_count);
+> +
+> +	/*
+> + 	 * Don't divide by zero
+> + 	 */
+> +	if (!nzcount)
+> +		return;
+> +
+> +	average =3D DIV_ROUND_UP(average, nzcount);
+> +
+> +	sd =3D 0;
+> +	for (i =3D 0; i < (1 << rt_hash_log); i++) {
+> +		temp =3D atomic_read(&rt_hash_table[i].chain_length);
+> +		/*
+> + 		 * Don't count zero entries, as most of the table
+> + 		 * will likely be empty.  We don't want to unfairly
+> + 		 * bias our average chain length down so far
+> + 		 */
 
-And here it is. Could you verify that it also fixes the problem?
-Thanks!
+Empty chains should be accounted for, or average and standard
+deviation are not correct.
+
+> +		if (unlikely(temp))
+> +			sd +=3D (temp-average)^2;
+
+Out of curiosity, what do you expect to do here ?
+
+(temp-average) XOR 2
+or=20
+(temp-average) * (temp-average)=20
+
+Also, your computations use integer arithmetic.
+
+If avg =3D 2.5 and sd =3D 1.9, avg+4*sd you'll find 6 instead of 10=20
+
+Anyway, we wont add so many atomic operations and double
+hash table size in order to be able to compute sd.
+
+If we really want to be smart, we can have a pretty good
+ estimate of average and sd for free in rt_check_expire()
+
+Something like this untested patch. (We should make sure
+we dont overflow sum2 for example)
 
 
-
---------------090405080901060904010604
+--------------090401070401090204040803
 Content-Type: text/plain;
- name="x"
+ name="avg_sd.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="x"
+ filename="avg_sd.patch"
 
-commit 79a95e393b63c26f270c676075b95c9421d3faba
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Oct 6 13:01:26 2008 +0200
-
-    net: only invoke dev->change_rx_flags when device is UP
-    
-    Jesper Dangaard Brouer <hawk@comx.dk> reported a bug when setting a VLAN
-    device down that is in promiscous mode:
-    
-    When the VLAN device is set down, the promiscous count on the real
-    device is decremented by one by vlan_dev_stop(). When removing the
-    promiscous flag from the VLAN device afterwards, the promiscous
-    count on the real device is decremented a second time by the
-    vlan_change_rx_flags() callback.
-    
-    The root cause for this is that the ->change_rx_flags() callback is
-    invoked while the device is down. The synchronization is meant to mirror
-    the behaviour of the ->set_rx_mode callbacks, meaning the ->open function
-    is responsible for doing a full sync on open, the ->close() function is
-    responsible for doing full cleanup on ->stop() and ->change_rx_flags()
-    is meant to do incremental changes while the device is UP.
-    
-    Only invoke ->change_rx_flags() while the device is UP to provide the
-    intended behaviour.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e8eb2b4..fd992c0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2918,6 +2918,12 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
- 	return 0;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 6ee5354..85182d9 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -125,6 +125,7 @@ static int ip_rt_redirect_silence __read_mostly	= ((HZ / 50) << (9 + 1));
+ static int ip_rt_error_cost __read_mostly	= HZ;
+ static int ip_rt_error_burst __read_mostly	= 5 * HZ;
+ static int ip_rt_gc_elasticity __read_mostly	= 8;
++static int rt_chain_length_max __read_mostly    = 32;
+ static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
+ static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
+ static int ip_rt_min_advmss __read_mostly	= 256;
+@@ -748,11 +749,24 @@ static void rt_do_flush(int process_context)
+ 	}
  }
  
-+static void dev_change_rx_flags(struct net_device *dev, int flags)
-+{
-+	if (dev->flags & IFF_UP && dev->change_rx_flags)
-+		dev->change_rx_flags(dev, flags);
-+}
++/*
++ * While freeing expired entries, we compute average chain length
++ * and standard deviation, using fixed-point arithmetic.
++ * This to have an estimation of rt_chain_length_max
++ *  rt_chain_length_max = max(elasticity, AVG + 4*SD)
++ * We use 3 bits for frational part, and 29 (or 61) for magnitude.
++ */
 +
- static int __dev_set_promiscuity(struct net_device *dev, int inc)
++#define FRACT_BITS 3
++#define ONE (1UL << FRACT_BITS)
++
+ static void rt_check_expire(void)
  {
- 	unsigned short old_flags = dev->flags;
-@@ -2955,8 +2961,7 @@ static int __dev_set_promiscuity(struct net_device *dev, int inc)
- 				current->uid, current->gid,
- 				audit_get_sessionid(current));
+ 	static unsigned int rover;
+ 	unsigned int i = rover, goal;
+ 	struct rtable *rth, **rthp;
++	unsigned long sum = 0, sum2 = 0;
++	unsigned long length, samples = 0;
+ 	u64 mult;
  
--		if (dev->change_rx_flags)
--			dev->change_rx_flags(dev, IFF_PROMISC);
-+		dev_change_rx_flags(dev, IFF_PROMISC);
- 	}
- 	return 0;
- }
-@@ -3022,8 +3027,7 @@ int dev_set_allmulti(struct net_device *dev, int inc)
+ 	mult = ((u64)ip_rt_gc_interval) << rt_hash_log;
+@@ -770,8 +784,10 @@ static void rt_check_expire(void)
+ 		if (need_resched())
+ 			cond_resched();
+ 
++		samples++;
+ 		if (*rthp == NULL)
+ 			continue;
++		length = 0;
+ 		spin_lock_bh(rt_hash_lock_addr(i));
+ 		while ((rth = *rthp) != NULL) {
+ 			if (rt_is_expired(rth)) {
+@@ -784,11 +800,13 @@ static void rt_check_expire(void)
+ 				if (time_before_eq(jiffies, rth->u.dst.expires)) {
+ 					tmo >>= 1;
+ 					rthp = &rth->u.dst.rt_next;
++					length += ONE;
+ 					continue;
+ 				}
+ 			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
+ 				tmo >>= 1;
+ 				rthp = &rth->u.dst.rt_next;
++				length += ONE;
+ 				continue;
+ 			}
+ 
+@@ -797,6 +815,15 @@ static void rt_check_expire(void)
+ 			rt_free(rth);
  		}
+ 		spin_unlock_bh(rt_hash_lock_addr(i));
++		sum += length;
++		sum2 += length*length;
++	}
++	if (samples) {
++		unsigned long avg = sum / samples;
++		unsigned long sd = int_sqrt(sum2 / samples - avg*avg);
++		rt_chain_length_max = max_t(unsigned long,
++					    ip_rt_gc_elasticity,
++					    (avg + 4*sd) >> FRACT_BITS);
  	}
- 	if (dev->flags ^ old_flags) {
--		if (dev->change_rx_flags)
--			dev->change_rx_flags(dev, IFF_ALLMULTI);
-+		dev_change_rx_flags(dev, IFF_ALLMULTI);
- 		dev_set_rx_mode(dev);
- 	}
- 	return 0;
-@@ -3347,8 +3351,8 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
- 	 *	Load in the correct multicast list now the flags have changed.
- 	 */
- 
--	if (dev->change_rx_flags && (old_flags ^ flags) & IFF_MULTICAST)
--		dev->change_rx_flags(dev, IFF_MULTICAST);
-+	if ((old_flags ^ flags) & IFF_MULTICAST)
-+		dev_change_rx_flags(dev, IFF_MULTICAST);
- 
- 	dev_set_rx_mode(dev);
- 
+ 	rover = i;
+ }
 
---------------090405080901060904010604--
+--------------090401070401090204040803--
+
+
