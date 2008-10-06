@@ -1,124 +1,84 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] Re: [net-next-2.6] Null pointer dereference in
-	dev_gso_skb_destructor()
-Date: Mon, 6 Oct 2008 09:45:43 +0000
-Message-ID: <20081006094543.GA6405@ff.dom.local>
-References: <20081005132410.3a6faf95@osprey.hogchain.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when
+	gc_elasticity is exceeded
+Date: Mon, 6 Oct 2008 06:50:22 -0400
+Message-ID: <20081006105022.GA16939@hmsreliant.think-freely.org>
+References: <20080930.070804.26007839.davem@davemloft.net> <E1KmKGd-000393-UD@gondolin.me.apana.org.au> <c3ca0c0f0810042145q35a451a7u706bc64fb43723fa@mail.gmail.com> <20081005.103454.247312994.davem@davemloft.net> <20081006042108.GA19398@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jacliburn@bellsouth.net
-To: Jay Cliburn <jcliburn@gmail.com>
+Cc: David Miller <davem@davemloft.net>, whydna@whydna.net,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:56961 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752684AbYJFJpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 05:45:51 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1596559ugf.37
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2008 02:45:49 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40896 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753817AbYJFKwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 06:52:35 -0400
 Content-Disposition: inline
-In-Reply-To: <20081005132410.3a6faf95@osprey.hogchain.net>
+In-Reply-To: <20081006042108.GA19398@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05-10-2008 20:24, Jay Cliburn wrote:
-> It appears as though the following net-next-2.6 commit (pulled Oct 1
-> 2008) exposes a null pointer dereference in
-> dev.c:dev_gso_skb_destructor().
+On Mon, Oct 06, 2008 at 12:21:08PM +0800, Herbert Xu wrote:
+> On Sun, Oct 05, 2008 at 10:34:54AM -0700, David Miller wrote:
+> >
+> > Eric showed clearly that on a completely normal well loaded
+> > system, the chain lengths exceed the elasticity all the time
+> > and it's not like these are entries we can get rid of because
+> > their refcounts are all > 1
 > 
-> commit 242f8bfefe4bed626df4e4727ac8f315d80b567a
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Mon Sep 22 22:15:30 2008 -0700
+> I think there are two orthogonal issues here.
 > 
->     pkt_sched: Make qdisc->gso_skb a list.
+> 1) The way we count the chain length is wrong.  There are keys
+> which do not form part of the hash computation.  Entries that
+> only differ by them will always end up in the same bucket.
+> 
+> We should count all entries that only differ by those keys as
+> a single entry for the purposes of detecting an attack.
+> 
+> FWIW we could even reorganise the storage inside a bucket such
+> that it is a 2-level list where the first level only contained
+> entries that differ by saddr/daddr.
+> 
 
-I think, this should help.
+I'm not sure I follow what your saying here.  I understand that some keys will
+wind up hashing to the same bucket, but from what I see a change to the saddr
+and daddr parameters to rt_hash, will change what bucket you hash too.  What am
+I missing?
 
-Thanks,
-Jarek P.
+> 2) What do we do when we get a long chain just after a rehash.
+> 
+> This is an indication that the attacker has more knowledge about
+> us than we expected.  Continuing to rehash is probably no going
+> to help.
+> 
+Seems like it might be ambiguous to me.  perhaps we just got a series of
+collisions in the firs few entries after a  rebuild?  I dont know, Im just
+playing devils advocate.
 
---------------------->
+> We need to decide whether we care about this scenario.
+> 
+I expect we should.
 
-pkt_sched: Fix handling of gso skbs on requeuing
+> If yes, then we'll need to come up with a way to bypass the
+> route cache, or at least act as if it was bypassed.
+> 
+Why don't we just add a count to the number of times we call
+rt_emergency_hash_rebuild?  If we cross a threshold on that count (or perhaps a
+rate determined by jiffies since the last emergency rebuild), we can set a flag
+to not always return a failed lookup in the cache, so as to force routing into
+the slow path.
 
-Jay Cliburn noticed and diagnosed a bug triggered in
-dev_gso_skb_destructor() after last change from qdisc->gso_skb
-to qdisc->requeue list. Since gso_segmented skbs can't be queued
-to another list this patch brings back qdisc->gso_skb for them.
 
-Reported-by: Jay Cliburn <jcliburn@gmail.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Does that seem reasonable to you?
 
----
 
- include/net/sch_generic.h |    1 +
- net/sched/sch_generic.c   |   22 +++++++++++++++++-----
- 2 files changed, 18 insertions(+), 5 deletions(-)
+Best
+Neil
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 3b983e8..3fe49d8 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -52,6 +52,7 @@ struct Qdisc
- 	u32			parent;
- 	atomic_t		refcnt;
- 	unsigned long		state;
-+	struct sk_buff		*gso_skb;
- 	struct sk_buff_head	requeue;
- 	struct sk_buff_head	q;
- 	struct netdev_queue	*dev_queue;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 5e7e0bd..3db4cf1 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -44,7 +44,10 @@ static inline int qdisc_qlen(struct Qdisc *q)
- 
- static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- {
--	__skb_queue_head(&q->requeue, skb);
-+	if (unlikely(skb->next))
-+		q->gso_skb = skb;
-+	else
-+		__skb_queue_head(&q->requeue, skb);
- 
- 	__netif_schedule(q);
- 	return 0;
-@@ -52,7 +55,10 @@ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- 
- static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
- {
--	struct sk_buff *skb = skb_peek(&q->requeue);
-+	struct sk_buff *skb = q->gso_skb;
-+
-+	if (!skb)
-+		skb = skb_peek(&q->requeue);
- 
- 	if (unlikely(skb)) {
- 		struct net_device *dev = qdisc_dev(q);
-@@ -60,10 +66,15 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
- 
- 		/* check the reason of requeuing without tx lock first */
- 		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
--		if (!netif_tx_queue_stopped(txq) && !netif_tx_queue_frozen(txq))
--			__skb_unlink(skb, &q->requeue);
--		else
-+		if (!netif_tx_queue_stopped(txq) &&
-+		    !netif_tx_queue_frozen(txq)) {
-+			if (q->gso_skb)
-+				q->gso_skb = NULL;
-+			else
-+				__skb_unlink(skb, &q->requeue);
-+		} else {
- 			skb = NULL;
-+		}
- 	} else {
- 		skb = q->dequeue(q);
- 	}
-@@ -548,6 +559,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
- 	module_put(ops->owner);
- 	dev_put(qdisc_dev(qdisc));
- 
-+	kfree_skb(qdisc->gso_skb);
- 	__skb_queue_purge(&qdisc->requeue);
- 
- 	kfree((char *) qdisc - qdisc->padded);
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
