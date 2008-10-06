@@ -1,41 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [PATCH] vlan: propogate MTU changes
-Date: Tue, 07 Oct 2008 00:38:20 +0200
-Message-ID: <48EA935C.7090106@trash.net>
-References: <20081006173024.2741cc01@speedy> <alpine.LNX.1.10.0810062208370.6758@bizon.gios.gov.pl>
+Date: Mon, 06 Oct 2008 15:50:50 -0700
+Message-ID: <48EA964A.6060503@hp.com>
+References: <20081006173024.2741cc01@speedy>	<48EA369F.3090306@trash.net>	<20081006195446.1dc5a372@speedy> <48EA9223.8090700@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Krzysztof Oledzki <ole@ans.pl>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56215 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243AbYJFWi1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 18:38:27 -0400
-In-Reply-To: <alpine.LNX.1.10.0810062208370.6758@bizon.gios.gov.pl>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:16195 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752649AbYJFWuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 18:50:54 -0400
+In-Reply-To: <48EA9223.8090700@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Oledzki wrote:
+Patrick McHardy wrote:
+> Stephen Hemminger wrote:
+> 
+>> On Mon, 06 Oct 2008 18:02:39 +0200
+>> Patrick McHardy <kaber@trash.net> wrote:
+>>
+>>> - the stack in fact doesn't require us to reduce the MTU of a VLAN
+>>>    device as long as its within the physically possible MTU.
+>>
+>>
+>> I think it should call change_mtu so userspace gets notified about both
+>> changes.
 > 
 > 
-> On Mon, 6 Oct 2008, Stephen Hemminger wrote:
-> 
->> Propogate MTU changes of underlying device to all related VLAN
->> devices.
->> see: https://bugzilla.vyatta.com/show_bug.cgi?id=3742
-> 
-> Not sure about this... Some switches (HP ProCurve for example) allow to 
-> select which vlan accepts jumbo frames and which does not and attach 
-> both to the same port. It is quite useful as you are able to setup one 
-> vlan with jumbo frames dedicated for example to servers connected by 
-> 1G/10G links, and a second vlan with standard 1500 MTU distributed to 
-> non jumbo-aware switches/workstations.
+> Agreed. But the question when to do automatic adjustments remains.
 
-Thats why I favour the knob to specify the desired behaviour.
-Treating a VLAN device as a seperate entity from the ethernet
-device which just has the same hardware-imposed restrictions
-seems like a valid view to me.
+A matter of interpretation of the principle of least surprise right? 
+Which is less surprising - that a VLAN's MTU drops to match that of the 
+physical interface or that some traffic on the VLAN stops when the 
+physical interface's MTU drops?
 
+If physical interface MTUs are going to be bouncing around and VLANs get 
+their MTUs changed then perhaps a VLAN needs both a desired and actual 
+MTU setting.  The VLAN's interface would then be the minimum of the 
+desired and actual MTU.  I suppose it isn't too unlike having both an 
+administrative (desired) and operational (actual) interface state.
+
+rick jones
