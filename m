@@ -1,76 +1,119 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when
-	gc_elasticity is exceeded
-Date: Mon, 6 Oct 2008 19:02:49 +0800
-Message-ID: <20081006110249.GA22613@gondor.apana.org.au>
-References: <20080930.070804.26007839.davem@davemloft.net> <E1KmKGd-000393-UD@gondolin.me.apana.org.au> <c3ca0c0f0810042145q35a451a7u706bc64fb43723fa@mail.gmail.com> <20081005.103454.247312994.davem@davemloft.net> <20081006042108.GA19398@gondor.apana.org.au> <20081006105022.GA16939@hmsreliant.think-freely.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Bisect'ed BUG in VLAN promisc mode (6c78dcbd47)
+Date: Mon, 06 Oct 2008 13:03:26 +0200
+Message-ID: <48E9F07E.9060609@trash.net>
+References: <1222437636.7598.14.camel@localhost.localdomain>  <48DD0A4F.6020703@trash.net>  <1222456933.2381.3.camel@localhost.localdomain> <48DD36D2.90103@trash.net>  <48DD37E3.9090706@trash.net> <1222457670.2381.8.camel@localhost.localdomain> <48DD3AD5.80800@trash.net> <Pine.LNX.4.64.0810021835390.8590@tyr.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, whydna@whydna.net,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: multipart/mixed;
+ boundary="------------090405080901060904010604"
+Cc: Jesper Dangaard Brouer <jdb@comx.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49113 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752812AbYJFLDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 07:03:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20081006105022.GA16939@hmsreliant.think-freely.org>
+Received: from stinky.trash.net ([213.144.137.162]:37318 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752927AbYJFLDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 07:03:34 -0400
+In-Reply-To: <Pine.LNX.4.64.0810021835390.8590@tyr.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 06, 2008 at 06:50:22AM -0400, Neil Horman wrote:
->
-> > 1) The way we count the chain length is wrong.  There are keys
-> > which do not form part of the hash computation.  Entries that
-> > only differ by them will always end up in the same bucket.
->
-> I'm not sure I follow what your saying here.  I understand that some keys will
-> wind up hashing to the same bucket, but from what I see a change to the saddr
-> and daddr parameters to rt_hash, will change what bucket you hash too.  What am
-> I missing?
+This is a multi-part message in MIME format.
+--------------090405080901060904010604
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-We've got keys other than saddr/daddr, for example, all route
-entries that differ only by TOS hash to the same bucket.  There
-are quite a few possible TOS values.
+Jesper Dangaard Brouer wrote:
+> 
+> Here is a quick fix for the bug...
+> Patrick promised he would do a more clean fix later ;-)
 
-Have a look at ip r l c.
+And here it is. Could you verify that it also fixes the problem?
+Thanks!
 
-> > 2) What do we do when we get a long chain just after a rehash.
-> > 
-> > This is an indication that the attacker has more knowledge about
-> > us than we expected.  Continuing to rehash is probably no going
-> > to help.
->
-> Seems like it might be ambiguous to me.  perhaps we just got a series of
-> collisions in the firs few entries after a  rebuild?  I dont know, Im just
-> playing devils advocate.
 
-Have you computed the probability of that? If the limit is sensible
-this should be extremely unlikely.  Note that I'm also assuming
-that you've got 1) solved as otherwise all bets are off.
 
-Assuming that we are counting it correctly, and that the length
-limit is set to a sensible value, then the probability of the
-attacker reaching that limit soon after a rehash is very small.
+--------------090405080901060904010604
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Therefore we can deduce that if it does happen then chances are
-that our RNG has been compromised and as such rehashing again
-will not help.
+commit 79a95e393b63c26f270c676075b95c9421d3faba
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Oct 6 13:01:26 2008 +0200
 
-> Why don't we just add a count to the number of times we call
-> rt_emergency_hash_rebuild?  If we cross a threshold on that count (or perhaps a
-> rate determined by jiffies since the last emergency rebuild), we can set a flag
-> to not always return a failed lookup in the cache, so as to force routing into
-> the slow path.
+    net: only invoke dev->change_rx_flags when device is UP
+    
+    Jesper Dangaard Brouer <hawk@comx.dk> reported a bug when setting a VLAN
+    device down that is in promiscous mode:
+    
+    When the VLAN device is set down, the promiscous count on the real
+    device is decremented by one by vlan_dev_stop(). When removing the
+    promiscous flag from the VLAN device afterwards, the promiscous
+    count on the real device is decremented a second time by the
+    vlan_change_rx_flags() callback.
+    
+    The root cause for this is that the ->change_rx_flags() callback is
+    invoked while the device is down. The synchronization is meant to mirror
+    the behaviour of the ->set_rx_mode callbacks, meaning the ->open function
+    is responsible for doing a full sync on open, the ->close() function is
+    responsible for doing full cleanup on ->stop() and ->change_rx_flags()
+    is meant to do incremental changes while the device is UP.
+    
+    Only invoke ->change_rx_flags() while the device is UP to provide the
+    intended behaviour.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Really, if we're hitting this when nobody is attacking us then
-something is screwed up, notably 1) as it stands.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e8eb2b4..fd992c0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2918,6 +2918,12 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ 	return 0;
+ }
+ 
++static void dev_change_rx_flags(struct net_device *dev, int flags)
++{
++	if (dev->flags & IFF_UP && dev->change_rx_flags)
++		dev->change_rx_flags(dev, flags);
++}
++
+ static int __dev_set_promiscuity(struct net_device *dev, int inc)
+ {
+ 	unsigned short old_flags = dev->flags;
+@@ -2955,8 +2961,7 @@ static int __dev_set_promiscuity(struct net_device *dev, int inc)
+ 				current->uid, current->gid,
+ 				audit_get_sessionid(current));
+ 
+-		if (dev->change_rx_flags)
+-			dev->change_rx_flags(dev, IFF_PROMISC);
++		dev_change_rx_flags(dev, IFF_PROMISC);
+ 	}
+ 	return 0;
+ }
+@@ -3022,8 +3027,7 @@ int dev_set_allmulti(struct net_device *dev, int inc)
+ 		}
+ 	}
+ 	if (dev->flags ^ old_flags) {
+-		if (dev->change_rx_flags)
+-			dev->change_rx_flags(dev, IFF_ALLMULTI);
++		dev_change_rx_flags(dev, IFF_ALLMULTI);
+ 		dev_set_rx_mode(dev);
+ 	}
+ 	return 0;
+@@ -3347,8 +3351,8 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
+ 	 *	Load in the correct multicast list now the flags have changed.
+ 	 */
+ 
+-	if (dev->change_rx_flags && (old_flags ^ flags) & IFF_MULTICAST)
+-		dev->change_rx_flags(dev, IFF_MULTICAST);
++	if ((old_flags ^ flags) & IFF_MULTICAST)
++		dev_change_rx_flags(dev, IFF_MULTICAST);
+ 
+ 	dev_set_rx_mode(dev);
+ 
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--------------090405080901060904010604--
