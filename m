@@ -1,47 +1,34 @@
-From: Corey Minyard <minyard@acm.org>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Mon, 06 Oct 2008 18:08:09 -0500
-Message-ID: <48EA9A59.1090306@acm.org>
-References: <20081006185026.GA10383@minyard.local>
- <48EA8197.6080502@cosmosbay.com> <20081006.144002.56418911.davem@davemloft.net>
+From: "Zou, Yi" <yi.zou@intel.com>
+Subject: RE: [PATCH 1/2] net: add ETH_P_FCOE for Fibre Channel over Ethernet (FCoE)
+Date: Mon, 6 Oct 2008 16:11:00 -0700
+Message-ID: <85B0945B2DB96C40BE3F762205A682ED03D4408F@orsmsx420.amr.corp.intel.com>
+References: <20081006220524.3308.64889.stgit@zyfc9ini.jf.intel.com><20081006220920.3308.18862.stgit@zyfc9ini.jf.intel.com> <ada3aj9pd4u.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Roland Dreier" <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173001pub.verizon.net ([206.46.173.1]:48493 "EHLO
-	vms173001pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbYJFXIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 19:08:32 -0400
-In-reply-to: <20081006.144002.56418911.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:11071 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756276AbYJFXMv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 19:12:51 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <ada3aj9pd4u.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Mon, 06 Oct 2008 23:22:31 +0200
+> >  #define ETH_P_TIPC	0x88CA		/* TIPC
+*/
+> > +#define ETH_P_FCOE      0x8906          /* Fibre Channel over
+Ethernet
+>*/
 >
->   
->> Me wondering what impact this synchronize_rcu() can have on mono-threaded
->> VOIP applications using lot of UDP sockets. What is the maximum delay of
->> this function ?
->>     
->
-> The cost is enormous, we really can't use it here.
->
-> I have a patch that did top-level socket destruction using RCU,
-> and that didn't use synchronize_rcu(), and that killed connection
-> rates by up to %20.
->
-> I can only imagine what the cost would be if I had to add such a call
-> in there.
->
-> Really, I can't consider these changes seriously, as-is.
->
->   
-Would using SLAB_DESTROY_BY_RCU be ok, or would that be too expensive?
+>trivial -- but the patch format makes it pretty obvious -- it would
+>probably be nice to use tabs to align things on the FCOE line the same
+>way the other lines in the file do, rather than using spaces.
 
--corey
+Thanks, will fix this and resubmit.
+
+yi
