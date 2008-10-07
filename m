@@ -1,41 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [1/3] POHMELFS: vfs changes.
-Date: Wed, 8 Oct 2008 01:20:25 +0400
-Message-ID: <20081007212025.GA12380@2ka.mipt.ru>
-References: <20081007211925.GA1274@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
+Date: Tue, 7 Oct 2008 23:20:56 +0200
+Message-ID: <20081007232056.036e26e6@speedy>
+References: <m37i8k3hv1.fsf@ursa.amorsen.dk>
+	<48EB5D28.7000503@cosmosbay.com>
+	<20081007160729.60c076c4@speedy>
+	<20081007.135548.56141000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081007211925.GA1274@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, benny+usenet@amorsen.dk, minyard@acm.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:47158 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757432AbYJGVVE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 17:21:04 -0400
+In-Reply-To: <20081007.135548.56141000.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+On Tue, 07 Oct 2008 13:55:48 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-diff --git a/mm/filemap.c b/mm/filemap.c
-index 07e9d92..57beb4b 100644
---- a/mm/filemap.c
-+++ b/mm/filemap.c
-@@ -495,6 +495,7 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
- 		lru_cache_add(page);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(add_to_page_cache_lru);
- 
- #ifdef CONFIG_NUMA
- struct page *__page_cache_alloc(gfp_t gfp)
-@@ -610,6 +611,7 @@ int __lock_page_killable(struct page *page)
- 	return __wait_on_bit_lock(page_waitqueue(page), &wait,
- 					sync_page_killable, TASK_KILLABLE);
- }
-+EXPORT_SYMBOL_GPL(__lock_page_killable);
- 
- /**
-  * __lock_page_nosync - get a lock on the page, without calling sync_page()
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Tue, 7 Oct 2008 16:07:29 +0200
+> 
+> > The idea of keeping chains short is the problem. That code should
+> > just be pulled because it doesn't help that much, and also creates
+> > bias on the port randomization.
+> 
+> I have that patch from Vitaly Mayatskikh which does exactly this.
+> 
+> I keep looking at it, but I can't bring myself to apply it since
+> I'm not completely convinced.
 
-
--- 
-	Evgeniy Polyakov
+Some one on a busy server should run it and measure the delta in hash chains.
+I would, but don't run anything that has more than a few UDP's open.
