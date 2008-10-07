@@ -1,66 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IPROUTE]: Refuse "ip link add/replace" without device type parameter
-Date: Tue, 07 Oct 2008 17:23:04 +0200
-Message-ID: <48EB7ED8.7090603@trash.net>
-References: <48EB7D4B.4030501@trash.net>
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: Re: [patch][rfc] ddds: "dynamic dynamic data structure" algorithm,
+	for adaptive dcache hash table sizing (resend)
+Date: Tue, 7 Oct 2008 17:37:43 +0200
+Message-ID: <18667.33351.854693.368568@harpo.it.uu.se>
+References: <20081007064834.GA5959@wotan.suse.de>
+	<20081007070225.GB5959@wotan.suse.de>
+	<20081007071827.GB5010@infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050007060607040506010602"
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Nick Piggin <npiggin@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Memory Management List <linux-mm@kvack.org>,
+	netdev@vger.kernel.org, Paul McKenney <paulmck@us.ibm.com>
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49119 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752572AbYJGPXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 11:23:11 -0400
-In-Reply-To: <48EB7D4B.4030501@trash.net>
+Received: from aun.it.uu.se ([130.238.12.36]:49081 "EHLO aun.it.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751552AbYJGPiP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 11:38:15 -0400
+In-Reply-To: <20081007071827.GB5010@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050007060607040506010602
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Christoph Hellwig writes:
+ > On Tue, Oct 07, 2008 at 09:02:25AM +0200, Nick Piggin wrote:
+ > > (resending with correct netdev address)
+ > > 
+ > > Hi,
+ > > 
+ > > I thought I should quickly bring this patch up to date and write it up
+ > > properly, because IMO it is still useful. I earlier had tried to turn the
+ > > algorithm into a library that could be plugged into with specific lookup
+ > > functions and such, but that got really nasty and also difficult to retain
+ > > a really light fastpath. I don't think it is too nasty to open-code it...
+ > > 
+ > > Describe the "Dynamic dynamic data structure" (DDDS) algorithm, and implement
+ > > adaptive dcache hash table sizing using DDDS.
+ > > 
+ > > The dcache hash size is increased to the next power of 2 if the number
+ > > of dentries exceeds the current size of the dcache hash table. It is decreased
+ > > in size if it is currently more than 3 times the number of dentries.
+ > > 
+ > > This might be a dumb thing to do. It also currently performs the hash resizing
+ > > check for each dentry insertion/deletion, and calls the resizing in-line from
+ > > there: that's bad, because resizing takes several RCU grace periods. Rather it
+ > > should kick off a thread to do the resizing, or even have a background worker
+ > > thread checking the sizes periodically and resizing if required.
+ > > 
+ > > With this algorithm, I can fit a whole kernel source and git tree in my dcache
+ > > hash table that is still 1/8th the size it would be before the patch.
+ > > 
+ > > I'm cc'ing netdev because Dave did express some interest in using this for
+ > > some networking hashes, and network guys in general are pretty cluey when it
+ > > comes to hashes and such ;)
 
-Fix typo noticed by Phil Oester: information vs. informatin
+I missed the first post, but loooking at the patch it seems
+somewhat complex.
 
+How does this relate to traditional incremental hash tables
+like extensible hashing or linear hashing (not to be confused
+with linear probing)? In linear hashing a resize only affects
+a single collision chain at a time, and reads from other chains
+than the one being resized are unaffected.
 
---------------050007060607040506010602
-Content-Type: text/x-patch;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
+(I can dig up some references if need be.)
 
-commit c3ae059edf3316cff1075c2401bdeefa5e262251
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Oct 7 16:55:21 2008 +0200
-
-    [IPROUTE]: Refuse "ip link add/replace" without device type parameter
-    
-    Fix confusing error message noticed by Martin Josefsson:
-    
-    # ip link add
-    RTNETLINK answers: Operation not supported
-    
-    The reason is missing device type information, refuse this and print a message.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 81122ae..6e9ac71 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -336,6 +336,10 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			return -1;
- 		}
- 		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
-+	} else if (flags & NLM_F_CREATE) {
-+		fprintf(stderr, "Not enough information: \"type\" argument "
-+				"is required\n");
-+		return -1;
- 	}
- 
- 	if (!(flags & NLM_F_CREATE)) {
-
---------------050007060607040506010602--
+/Mikael
