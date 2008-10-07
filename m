@@ -1,47 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 11:29:31 -0700 (PDT)
-Message-ID: <20081007.112931.144606424.davem@davemloft.net>
-References: <48EA8197.6080502@cosmosbay.com>
-	<20081006.144002.56418911.davem@davemloft.net>
-	<1223368290.26330.10.camel@lappy.programming.kicks-ass.net>
+Subject: Re: [net-next PATCH 10/16] Don't lookup the socket if there's a
+ socket attached to the skb
+Date: Tue, 07 Oct 2008 11:42:15 -0700 (PDT)
+Message-ID: <20081007.114215.97715221.davem@davemloft.net>
+References: <20081003134747.GH17843@ghostprotocols.net>
+	<1223364984.35518.3.camel@nessa.odu>
+	<20081007123657.GC29610@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, minyard@acm.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com
-To: a.p.zijlstra@chello.nl
+Cc: hidden@sch.bme.hu, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54002
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56220
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753972AbYJGS34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 14:29:56 -0400
-In-Reply-To: <1223368290.26330.10.camel@lappy.programming.kicks-ass.net>
+	by vger.kernel.org with ESMTP id S1750880AbYJGSmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 14:42:39 -0400
+In-Reply-To: <20081007123657.GC29610@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Tue, 07 Oct 2008 10:31:30 +0200
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Tue, 7 Oct 2008 09:36:57 -0300
 
-> On Mon, 2008-10-06 at 14:40 -0700, David Miller wrote:
-> > From: Eric Dumazet <dada1@cosmosbay.com>
-> > Date: Mon, 06 Oct 2008 23:22:31 +0200
+> Em Tue, Oct 07, 2008 at 09:36:24AM +0200, KOVACS Krisztian escreveu:
+> > inet_hashtables: Add inet_lookup_skb helpers
 > > 
-> > > Me wondering what impact this synchronize_rcu() can have on mono-threaded
-> > > VOIP applications using lot of UDP sockets. What is the maximum delay of
-> > > this function ?
+> > To be able to use the cached socket reference in the skb during input
+> > processing we add a new set of lookup functions that receive the skb on
+> > their argument list.
 > > 
-> > The cost is enormous, we really can't use it here.
+> > From: Arnaldo Carvalho de Melo <acme@redhat.com>
 > > 
-> > I have a patch that did top-level socket destruction using RCU,
-> > and that didn't use synchronize_rcu(), and that killed connection
-> > rates by up to %20.
+> > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
 > 
-> Did you ever figure out why you lost those 20% ?
+> Thanks a lot!
 
-Probably the RCU delay on a 128 cpu machine :-)
-
-Also I bet batching the socket destruction eliminates all of
-the cached local state we have in the cpu at the actual socket
-destruction time.
+Applied to net-next-2.6
