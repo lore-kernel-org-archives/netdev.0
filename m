@@ -1,356 +1,87 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCHv3 5/5] [NET] dsa: add support for the Marvell 88E6060 switch chip
-Date: Wed, 8 Oct 2008 01:46:22 +0200
-Message-ID: <20081007234622.GF23200@xi.wantstofly.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IGMP sent to Foreign VLAN
+Date: Wed, 08 Oct 2008 01:53:27 +0200
+Message-ID: <48EBF677.1060602@trash.net>
+References: <1223322707.24688.46.camel@deepthought.nh.local> <20081007.160702.189194318.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: j.neuner@networkharbor.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:60992 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756962AbYJGXqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 19:46:23 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:63511 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750983AbYJGXyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 19:54:52 -0400
+In-Reply-To: <20081007.160702.189194318.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the Marvell 88E6060 switch chip.  This chip only
-supports the Header and Trailer tagging formats, and we use it in
-Trailer mode since that mode is slightly easier to handle than
-Header mode.
+David Miller wrote:
+> From: Jarod Neuner <j.neuner@networkharbor.com>
+> Date: Mon, 6 Oct 2008 14:51:47 -0500
+>
+>   
+>> I noticed a problem where the kernel is not responding to IGMP Queries
+>> from several Level-3 network switches.  This behavior is caused by these
+>> switches using VLAN tags on IGMP messages.  At first I thought the
+>> switches were out of spec, but every other network stack I've checked
+>> delivers packets with unconfigured VLAN assignments directly to the
+>> incoming interface.  
+>>
+>> This patch corrects my problem, but I'm still interested in discussion
+>> about whether or not this should be a parameter in /proc/sys/net or even
+>> if this policy change should be applied elsewhere in the the network
+>> stack.
+>>     
+>
+> Interesting.
+>   
 
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-Tested-by: Byron Bradley <byron.bbradley@gmail.com>
-Tested-by: Tim Ellis <tim.ellis@mac.com>
----
- net/dsa/Kconfig     |    7 ++
- net/dsa/Makefile    |    1 +
- net/dsa/mv88e6060.c |  287 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 295 insertions(+), 0 deletions(-)
- create mode 100644 net/dsa/mv88e6060.c
+Indeed.
+> Patrick, any opinion?
+>   
 
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 505aa14..3f2fd39 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -28,6 +28,13 @@ config NET_DSA_MV88E6XXX
- 	bool
- 	default n
- 
-+config NET_DSA_MV88E6060
-+	bool "Marvell 88E6060 ethernet switch chip support"
-+	select NET_DSA_TAG_TRAILER
-+	---help---
-+	  This enables support for the Marvell 88E6060 ethernet switch
-+	  chip.
-+
- config NET_DSA_MV88E6XXX_NEED_PPU
- 	bool
- 	default n
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 63d3c44..2374faf 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -5,6 +5,7 @@ obj-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
- 
- # switch drivers
- obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx.o
-+obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
- obj-$(CONFIG_NET_DSA_MV88E6123_61_65) += mv88e6123_61_65.o
- obj-$(CONFIG_NET_DSA_MV88E6131) += mv88e6131.o
- 
-diff --git a/net/dsa/mv88e6060.c b/net/dsa/mv88e6060.c
-new file mode 100644
-index 0000000..54068ef
---- /dev/null
-+++ b/net/dsa/mv88e6060.c
-@@ -0,0 +1,287 @@
-+/*
-+ * net/dsa/mv88e6060.c - Driver for Marvell 88e6060 switch chips
-+ * Copyright (c) 2008 Marvell Semiconductor
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/phy.h>
-+#include "dsa_priv.h"
-+
-+#define REG_PORT(p)		(8 + (p))
-+#define REG_GLOBAL		0x0f
-+
-+static int reg_read(struct dsa_switch *ds, int addr, int reg)
-+{
-+	return mdiobus_read(ds->master_mii_bus, addr, reg);
-+}
-+
-+#define REG_READ(addr, reg)					\
-+	({							\
-+		int __ret;					\
-+								\
-+		__ret = reg_read(ds, addr, reg);		\
-+		if (__ret < 0)					\
-+			return __ret;				\
-+		__ret;						\
-+	})
-+
-+
-+static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
-+{
-+	return mdiobus_write(ds->master_mii_bus, addr, reg, val);
-+}
-+
-+#define REG_WRITE(addr, reg, val)				\
-+	({							\
-+		int __ret;					\
-+								\
-+		__ret = reg_write(ds, addr, reg, val);		\
-+		if (__ret < 0)					\
-+			return __ret;				\
-+	})
-+
-+static char *mv88e6060_probe(struct mii_bus *bus, int sw_addr)
-+{
-+	int ret;
-+
-+	ret = mdiobus_read(bus, REG_PORT(0), 0x03);
-+	if (ret >= 0) {
-+		ret &= 0xfff0;
-+		if (ret == 0x0600)
-+			return "Marvell 88E6060";
-+	}
-+
-+	return NULL;
-+}
-+
-+static int mv88e6060_switch_reset(struct dsa_switch *ds)
-+{
-+	int i;
-+	int ret;
-+
-+	/*
-+	 * Set all ports to the disabled state.
-+	 */
-+	for (i = 0; i < 6; i++) {
-+		ret = REG_READ(REG_PORT(i), 0x04);
-+		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
-+	}
-+
-+	/*
-+	 * Wait for transmit queues to drain.
-+	 */
-+	msleep(2);
-+
-+	/*
-+	 * Reset the switch.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x0A, 0xa130);
-+
-+	/*
-+	 * Wait up to one second for reset to complete.
-+	 */
-+	for (i = 0; i < 1000; i++) {
-+		ret = REG_READ(REG_GLOBAL, 0x00);
-+		if ((ret & 0x8000) == 0x0000)
-+			break;
-+
-+		msleep(1);
-+	}
-+	if (i == 1000)
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_setup_global(struct dsa_switch *ds)
-+{
-+	/*
-+	 * Disable discarding of frames with excessive collisions,
-+	 * set the maximum frame size to 1536 bytes, and mask all
-+	 * interrupt sources.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x04, 0x0800);
-+
-+	/*
-+	 * Enable automatic address learning, set the address
-+	 * database size to 1024 entries, and set the default aging
-+	 * time to 5 minutes.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x0a, 0x2130);
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
-+{
-+	int addr = REG_PORT(p);
-+
-+	/*
-+	 * Do not force flow control, disable Ingress and Egress
-+	 * Header tagging, disable VLAN tunneling, and set the port
-+	 * state to Forwarding.  Additionally, if this is the CPU
-+	 * port, enable Ingress and Egress Trailer tagging mode.
-+	 */
-+	REG_WRITE(addr, 0x04, (p == ds->cpu_port) ? 0x4103 : 0x0003);
-+
-+	/*
-+	 * Port based VLAN map: give each port its own address
-+	 * database, allow the CPU port to talk to each of the 'real'
-+	 * ports, and allow each of the 'real' ports to only talk to
-+	 * the CPU port.
-+	 */
-+	REG_WRITE(addr, 0x06,
-+			((p & 0xf) << 12) |
-+			 ((p == ds->cpu_port) ?
-+				ds->valid_port_mask :
-+				(1 << ds->cpu_port)));
-+
-+	/*
-+	 * Port Association Vector: when learning source addresses
-+	 * of packets, add the address to the address database using
-+	 * a port bitmap that has only the bit for this port set and
-+	 * the other bits clear.
-+	 */
-+	REG_WRITE(addr, 0x0b, 1 << p);
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_setup(struct dsa_switch *ds)
-+{
-+	int i;
-+	int ret;
-+
-+	ret = mv88e6060_switch_reset(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* @@@ initialise atu */
-+
-+	ret = mv88e6060_setup_global(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	for (i = 0; i < 6; i++) {
-+		ret = mv88e6060_setup_port(ds, i);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_set_addr(struct dsa_switch *ds, u8 *addr)
-+{
-+	REG_WRITE(REG_GLOBAL, 0x01, (addr[0] << 8) | addr[1]);
-+	REG_WRITE(REG_GLOBAL, 0x02, (addr[2] << 8) | addr[3]);
-+	REG_WRITE(REG_GLOBAL, 0x03, (addr[4] << 8) | addr[5]);
-+
-+	return 0;
-+}
-+
-+static int mv88e6060_port_to_phy_addr(int port)
-+{
-+	if (port >= 0 && port <= 5)
-+		return port;
-+	return -1;
-+}
-+
-+static int mv88e6060_phy_read(struct dsa_switch *ds, int port, int regnum)
-+{
-+	int addr;
-+
-+	addr = mv88e6060_port_to_phy_addr(port);
-+	if (addr == -1)
-+		return 0xffff;
-+
-+	return reg_read(ds, addr, regnum);
-+}
-+
-+static int
-+mv88e6060_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
-+{
-+	int addr;
-+
-+	addr = mv88e6060_port_to_phy_addr(port);
-+	if (addr == -1)
-+		return 0xffff;
-+
-+	return reg_write(ds, addr, regnum, val);
-+}
-+
-+static void mv88e6060_poll_link(struct dsa_switch *ds)
-+{
-+	int i;
-+
-+	for (i = 0; i < DSA_MAX_PORTS; i++) {
-+		struct net_device *dev;
-+		int port_status;
-+		int link;
-+		int speed;
-+		int duplex;
-+		int fc;
-+
-+		dev = ds->ports[i];
-+		if (dev == NULL)
-+			continue;
-+
-+		link = 0;
-+		if (dev->flags & IFF_UP) {
-+			port_status = reg_read(ds, REG_PORT(i), 0x00);
-+			if (port_status < 0)
-+				continue;
-+
-+			link = !!(port_status & 0x1000);
-+		}
-+
-+		if (!link) {
-+			if (netif_carrier_ok(dev)) {
-+				printk(KERN_INFO "%s: link down\n", dev->name);
-+				netif_carrier_off(dev);
-+			}
-+			continue;
-+		}
-+
-+		speed = (port_status & 0x0100) ? 100 : 10;
-+		duplex = (port_status & 0x0200) ? 1 : 0;
-+		fc = ((port_status & 0xc000) == 0xc000) ? 1 : 0;
-+
-+		if (!netif_carrier_ok(dev)) {
-+			printk(KERN_INFO "%s: link up, %d Mb/s, %s duplex, "
-+					 "flow control %sabled\n", dev->name,
-+					 speed, duplex ? "full" : "half",
-+					 fc ? "en" : "dis");
-+			netif_carrier_on(dev);
-+		}
-+	}
-+}
-+
-+static struct dsa_switch_driver mv88e6060_switch_driver = {
-+	.tag_protocol	= htons(ETH_P_TRAILER),
-+	.probe		= mv88e6060_probe,
-+	.setup		= mv88e6060_setup,
-+	.set_addr	= mv88e6060_set_addr,
-+	.phy_read	= mv88e6060_phy_read,
-+	.phy_write	= mv88e6060_phy_write,
-+	.poll_link	= mv88e6060_poll_link,
-+};
-+
-+int __init mv88e6060_init(void)
-+{
-+	register_switch_driver(&mv88e6060_switch_driver);
-+	return 0;
-+}
-+module_init(mv88e6060_init);
-+
-+void __exit mv88e6060_cleanup(void)
-+{
-+	unregister_switch_driver(&mv88e6060_switch_driver);
-+}
-+module_exit(mv88e6060_cleanup);
--- 
-1.5.6.4
+I don't like a /proc flag very much, but I believe it should be
+configurable. To make this behaviour consistent there also needs
+to be some indication to drivers to disable hardware filters, so
+we really should have an explicit action from the user first.
+
+We've been talking about an IFF_ALLVLAN flag on netdev a while
+ago, which would disable VLAN hardware filters, similar to
+IFF_ALLMULTI. An additional flag on the ethernet device could
+indicate that it should receive unknown VLANs directly. That
+would introduce some possible inconsistencies however since the
+flag could be set without the VLAN code even loaded, in which
+case it would not have any effect.
+
+Another possibility would be to use a catch-all VLAN device with
+VID 0xfff (reserved for implementation use). This would allow
+to configure priority mappings, header reordering etc. and have
+separate statistics. The drivers could just use the magic VID
+as an indication to disable filtering, but I would still suggest
+to add the IFF_ALLVLAN flag because its useful on its own.
+
+>> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+>> index 4bf014e..b65a8fd 100644
+>> --- a/net/8021q/vlan_dev.c
+>> +++ b/net/8021q/vlan_dev.c
+>> @@ -158,9 +158,13 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+>>         rcu_read_lock();
+>>         skb->dev = __find_vlan_dev(dev, vlan_id);
+>>         if (!skb->dev) {
+>> -               pr_debug("%s: ERROR: No net_device for VID: %u on dev: %s\n",
+>> +               pr_debug("%s: WARNING: Forwarding VID: %u to dev: %s\n",
+>>                          __func__, vlan_id, dev->name);
+>> -               goto err_unlock;
+>> +               skb->dev = dev;
+>> +               skb_pull_rcsum(skb, VLAN_HLEN);
+>> +               vlan_set_encap_proto(skb, vhdr);
+>> +               rcu_read_lock();
+>> +               return 0;
+>>     
+
+This can't be right though, the packet needs to be passed
+up the stack. The same change will also be needed in
+__vlan_hwaccel_rx().
+
