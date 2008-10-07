@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Final Bluetooth driver fixes for 2.6.27-rc8
-Date: Tue, 07 Oct 2008 15:33:17 -0700 (PDT)
-Message-ID: <20081007.153317.147767959.davem@davemloft.net>
-References: <1223290955.11272.154.camel@violet.holtmann.net>
+Subject: Re: [PATCH 1/2] ipv4: add mc_count to in_device.
+Date: Tue, 07 Oct 2008 15:35:15 -0700 (PDT)
+Message-ID: <20081007.153515.188169370.davem@davemloft.net>
+References: <b25312890810010004p15e85df1u69125c7fa47ae01f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, pekkas@netcore.fi
+To: roszenrami@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53081
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53084
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756484AbYJGWdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 18:33:41 -0400
-In-Reply-To: <1223290955.11272.154.camel@violet.holtmann.net>
+	by vger.kernel.org with ESMTP id S1755591AbYJGWfk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 18:35:40 -0400
+In-Reply-To: <b25312890810010004p15e85df1u69125c7fa47ae01f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Mon, 06 Oct 2008 13:02:35 +0200
+From: "Rami Rosen" <roszenrami@gmail.com>
+Date: Wed, 1 Oct 2008 10:04:48 +0300
 
-> the btusb and bpa10x drivers have double frees due to a thinking mistake
-> with the URB_FREE_BUFFER flag. Rafael confirmed that this fixes his last
-> hibernation issue. I think that was the last regression that we had for
-> this driver. All full suspend/resume and auto-suspend/remote-wakeup
-> patches are queued for 2.6.28 now. I am happy that we finally fixed the
-> real cause and not worked around it with adding suspend and resume
-> callbacks. We did that for the old hci_usb driver and it was a bad idea.
+> This patch add mc_count to struct in_device and
+> updates increment/decrement/initilaize of this field in IPv4 and in IPv6.
 > 
-> During the last two weeks also new Bluetooth 2.1 dongles appeared on the
-> market and finally I tested all three of them. All of them need a quirk
-> entry to make them work. They are all based on the same chip, but they
-> are using different vendor and product ids.
+> - Also printing the vfs /proc entry (/proc/net/igmp) is adjusted to
+> use the new mc_count.
+> 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Pulled, thanks a lot Marcel.
+Applied.
