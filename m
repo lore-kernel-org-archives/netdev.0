@@ -1,48 +1,34 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
-Date: Tue, 07 Oct 2008 13:31:52 -0700
-Message-ID: <m1abdgywnb.fsf@frodo.ebiederm.org>
-References: <20080820021754.GA25182@kroah.com>
-	<m1od3m282j.fsf_-_@frodo.ebiederm.org>
-	<m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net>
-	<dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
-	<48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
-	<31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
-	<48BF83E1.5040000@bull.net>
-	<dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
-	<20081007164833.GA16056@suse.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [net-next PATCH 16/16] Add documentation
+Date: Tue, 07 Oct 2008 22:47:30 +0200
+Message-ID: <48EBCAE2.9000506@trash.net>
+References: <20081001142431.4893.5367.stgit@este> <alpine.LNX.1.10.0810030949300.3893@fbirervta.pbzchgretzou.qr> <1223362870.8909.11.camel@nessa.odu> <20081007.125051.249207150.davem@davemloft.net> <20081007200233.GA7386@sch.bme.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Ryden <markryde@gmail.com>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <htejun@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:47670 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757444AbYJGUgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 16:36:07 -0400
-In-Reply-To: <20081007164833.GA16056@suse.de> (Greg KH's message of "Tue, 7
-	Oct 2008 09:48:33 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, hidden@sch.bme.hu,
+	jengelh@medozas.de, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20081007200233.GA7386@sch.bme.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Greg KH <gregkh@suse.de> writes:
-
-> On Tue, Oct 07, 2008 at 06:39:04PM +0200, Mark Ryden wrote:
->> Hello,
->>   So I wonder: the sysfs tagged directory support patch is in GerKH
->> tree for more than a month.
+KOVACS Krisztian wrote:
+> Hi,
 >
-> I dropped it from my tree 2 days ago, see the thread on lkml for why.
+> On k, okt 07, 2008 at 12:50:51 -0700, David Miller wrote:
+>   
+>> Randy Dunlap asked for some corrections to this documentation patch,
+>> and I also think that Patrick should take this one since it only
+>> makes sense once the netfilter side of this patch set is present.
+>>     
+>
+> Sure, thanks a lot. The corrections from Randy Dunlap are already in
+> Patrick's tree.al
+>   
 
-Greg why did you drop it? 
+Just FYI: I hope to finally get all the netfilter patches out
+by tommorrow.
 
-Eric
 
