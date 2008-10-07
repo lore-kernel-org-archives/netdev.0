@@ -1,71 +1,48 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Top kernel oopses/warnings for the week of October 7th, 2008
-Date: Tue, 7 Oct 2008 22:37:28 +0200
-Message-ID: <200810072237.34572.rjw@sisk.pl>
-References: <48EBBE15.9030905@linux.intel.com> <200810072213.16103.rjw@sisk.pl> <20081007201617.GA20655@elte.hu>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Tue, 07 Oct 2008 13:31:52 -0700
+Message-ID: <m1abdgywnb.fsf@frodo.ebiederm.org>
+References: <20080820021754.GA25182@kroah.com>
+	<m1od3m282j.fsf_-_@frodo.ebiederm.org>
+	<m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net>
+	<dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
+	<48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
+	<31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
+	<48BF83E1.5040000@bull.net>
+	<dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
+	<20081007164833.GA16056@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Ryden <markryde@gmail.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	"linux-acpi" <linux-acpi@vger.kernel.org>, tglx@tglx.de,
-	"Theodore Ts'o" <tytso@mit.edu>, linux-ide@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20081007201617.GA20655@elte.hu>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:47670 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757444AbYJGUgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 16:36:07 -0400
+In-Reply-To: <20081007164833.GA16056@suse.de> (Greg KH's message of "Tue, 7
+	Oct 2008 09:48:33 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, 7 of October 2008, Ingo Molnar wrote:
-> 
-> * Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> 
-> > > Rank 9: device_pm_add (warning)
-> > > 	Reported 81 times (323 total reports)
-> > > 	Drivers with suspect suspend/resume logic; a patch is queued for 2.6.28 to identify
-> > > 	which drivers are involved.
-> > > 	This warning was last seen in version 2.6.27-rc4, and first seen in 2.6.26-rc5.
-> > > 	More info: http://www.kerneloops.org/searchweek.php?search=device_pm_add
-> > 
-> > This should have been fixed by:
-> > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=f5a6d958b5d0a10e7e7a9dee1862fb31d08c6d26
-> 
-> hm, that is:
-> 
-> | From f5a6d958b5d0a10e7e7a9dee1862fb31d08c6d26 Mon Sep 17 00:00:00 2001
-> | From: Rafael J. Wysocki <rjw@sisk.pl>
-> | Date: Sat, 9 Aug 2008 01:05:13 +0200
-> | Subject: [PATCH] PM: Remove WARN_ON from device_pm_add
-> |
-> | PM: Remove WARN_ON from device_pm_add
-> |
-> | Fix message in device_pm_add() saying that the device will not be
-> | added to dpm_list, although in fact the device is going to be added
-> | to the list regardless of the ordering violation.
-> |
-> | Remove the WARN_ON(true) triggered in that situation, because it is
-> | hit by USB very often and spams the users' logs.
-> |
-> | This patch fixes bug #11263
-> 
-> +               if (dev->parent->power.status >= DPM_SUSPENDING)
-> +                       dev_warn(dev, "parent %s should not be sleeping\n",
->                                 dev->parent->bus_id);
-> -                       WARN_ON(true);
-> -               }
-> 
-> 
-> i.e. no bug was fixed in reality - we still emit a kernel log entry, but 
-> the WARN_ON() was removed, so that it does not fall under the scope of 
-> kerneloops.org, right?
+Greg KH <gregkh@suse.de> writes:
 
-Sort of.  In fact, the WARN_ON() was added prematurely and caused lots of
-unnecessary reports to be generated.
+> On Tue, Oct 07, 2008 at 06:39:04PM +0200, Mark Ryden wrote:
+>> Hello,
+>>   So I wonder: the sysfs tagged directory support patch is in GerKH
+>> tree for more than a month.
+>
+> I dropped it from my tree 2 days ago, see the thread on lkml for why.
 
-Thanks,
-Rafael
+Greg why did you drop it? 
+
+Eric
+
