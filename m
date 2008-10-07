@@ -1,47 +1,45 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: split-lru performance mesurement part2
-Date: Tue, 07 Oct 2008 17:28:09 -0400
-Message-ID: <48EBD469.6090409@redhat.com>
-References: <20081003153810.5dd0a33e@bree.surriel.com>	<20081004232549.CE53.KOSAKI.MOTOHIRO@jp.fujitsu.com>	<20081007231851.3B88.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20081007131719.8bb24698.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: kill pointless urg_mode
+Date: Tue, 07 Oct 2008 14:42:31 -0700 (PDT)
+Message-ID: <20081007.144231.193706711.davem@davemloft.net>
+References: <Pine.LNX.4.64.0810030050001.23164@wrl-59.cs.helsinki.fi>
+	<Pine.LNX.4.64.0810032328550.30507@wrl-59.cs.helsinki.fi>
+	<Pine.LNX.4.64.0810040050540.30997@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Lee.Schermerhorn@hp.com, a.p.zijlstra@chello.nl,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	trond.myklebust@fys.uio.no, dlezcano@fr.ibm.com,
-	penberg@cs.helsinki.fi, neilb@suse.de, davem@davemloft.net
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20081007131719.8bb24698.akpm@linux-foundation.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34644
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753264AbYJGVmz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 17:42:55 -0400
+In-Reply-To: <Pine.LNX.4.64.0810040050540.30997@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 4 Oct 2008 01:54:06 +0300 (EEST)
 
-> dbench is pretty chaotic and it could be that a good change causes
-> dbench to get worse.  That's happened plenty of times in the past.
-> 
-> 
->> Do you have any suggestion?
-> 
-> 
-> One of these:
-> 
-> vmscan-give-referenced-active-and-unmapped-pages-a-second-trip-around-the-lru.patch
-> vm-dont-run-touch_buffer-during-buffercache-lookups.patch
-> 
-> perhaps?
+> On Fri, 3 Oct 2008, Ilpo J=E4rvinen wrote:
+>=20
+> > On Fri, 3 Oct 2008, Ilpo J=E4rvinen wrote:
+> >=20
+> > > It all started from me noticing that this urgent check in
+> > > tcp_clean_rtx_queue is unnecessarily inside the loop. Then
+> > > I took a longer look to it and found out that the users of
+> > > urg_mode can trivially do without. Just drag snd_up with
+> > > us when we advance.
+> >=20
+> > Please hold a minute with this one while I inspect why I saw
+> > some strange urg now in a tcpdump.
+>=20
+> Ok, now it's right with win probes too...
+>=20
+> --
+>=20
+> [PATCHv2 net-next] tcp: kill pointless urg_mode
 
-Worth a try, but it could just as well be a CPU scheduler change
-that happens to indirectly impact locking :)
-
--- 
-All rights reversed.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thanks Ilpo.
