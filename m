@@ -1,64 +1,78 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Top kernel oopses/warnings for the week of October 7th, 2008
-Date: Tue, 7 Oct 2008 22:16:17 +0200
-Message-ID: <20081007201617.GA20655@elte.hu>
-References: <48EBBE15.9030905@linux.intel.com> <200810072213.16103.rjw@sisk.pl>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: split-lru performance mesurement part2
+Date: Tue, 7 Oct 2008 13:17:19 -0700
+Message-ID: <20081007131719.8bb24698.akpm@linux-foundation.org>
+References: <20081003153810.5dd0a33e@bree.surriel.com>
+	<20081004232549.CE53.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	<20081007231851.3B88.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	linux-acpi <linux-acpi@vger.kernel.org>, tglx@tglx.de,
-	Theodore Ts'o <tytso@mit.edu>, linux-ide@vger.kernel.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200810072213.16103.rjw@sisk.pl>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: riel@redhat.com, Lee.Schermerhorn@hp.com,
+	kosaki.motohiro@jp.fujitsu.com, a.p.zijlstra@chello.nl,
+	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org,
+	trond.myklebust@fys.uio.no, dlezcano@fr.ibm.com,
+	penberg@cs.helsinki.fi, neilb@suse.de, davem@davemloft.net
+To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54252 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753828AbYJGUS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 16:18:58 -0400
+In-Reply-To: <20081007231851.3B88.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue,  7 Oct 2008 23:26:54 +0900 (JST)
+KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com> wrote:
 
-* Rafael J. Wysocki <rjw@sisk.pl> wrote:
-
-> > Rank 9: device_pm_add (warning)
-> > 	Reported 81 times (323 total reports)
-> > 	Drivers with suspect suspend/resume logic; a patch is queued for 2.6.28 to identify
-> > 	which drivers are involved.
-> > 	This warning was last seen in version 2.6.27-rc4, and first seen in 2.6.26-rc5.
-> > 	More info: http://www.kerneloops.org/searchweek.php?search=device_pm_add
+> Hi
 > 
-> This should have been fixed by:
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=f5a6d958b5d0a10e7e7a9dee1862fb31d08c6d26
+> > yup,
+> > I know many people want to other benchmark result too.
+> > I'll try to mesure other bench at next week.
+> 
+> I ran another benchmark today.
+> I choice dbench because dbench is one of most famous and real workload like i/o benchmark.
+> 
+> 
+> % dbench client.txt 4000
+> 
+> mainline:  Throughput 13.4231 MB/sec  4000 clients  4000 procs  max_latency=1421988.159 ms
+> mmotm(*):  Throughput  7.0354 MB/sec  4000 clients  4000 procs  max_latency=2369213.380 ms
+> 
+> (*) mmotm 2/Oct + Hugh's recently slub fix
+> 
+> 
+> Wow!
+> mmotm is slower than mainline largely (about half performance).
+> 
+> Therefore, I mesured it on "mainline + split-lru(only)" build.
+> 
+> 
+> mainline + split-lru(only): Throughput 14.4062 MB/sec  4000 clients  4000 procs  max_latency=1152231.896 ms
+> 
+> 
+> OK!
+> split-lru outperform mainline from viewpoint of both throughput and latency :)
+> 
+> 
+> 
+> However, I don't understand why this regression happend.
 
-hm, that is:
+erk.
 
-| From f5a6d958b5d0a10e7e7a9dee1862fb31d08c6d26 Mon Sep 17 00:00:00 2001
-| From: Rafael J. Wysocki <rjw@sisk.pl>
-| Date: Sat, 9 Aug 2008 01:05:13 +0200
-| Subject: [PATCH] PM: Remove WARN_ON from device_pm_add
-|
-| PM: Remove WARN_ON from device_pm_add
-|
-| Fix message in device_pm_add() saying that the device will not be
-| added to dpm_list, although in fact the device is going to be added
-| to the list regardless of the ordering violation.
-|
-| Remove the WARN_ON(true) triggered in that situation, because it is
-| hit by USB very often and spams the users' logs.
-|
-| This patch fixes bug #11263
-
-+               if (dev->parent->power.status >= DPM_SUSPENDING)
-+                       dev_warn(dev, "parent %s should not be sleeping\n",
-                                dev->parent->bus_id);
--                       WARN_ON(true);
--               }
+dbench is pretty chaotic and it could be that a good change causes
+dbench to get worse.  That's happened plenty of times in the past.
 
 
-i.e. no bug was fixed in reality - we still emit a kernel log entry, but 
-the WARN_ON() was removed, so that it does not fall under the scope of 
-kerneloops.org, right?
+> Do you have any suggestion?
 
-	Ingo
+
+One of these:
+
+vmscan-give-referenced-active-and-unmapped-pages-a-second-trip-around-the-lru.patch
+vm-dont-run-touch_buffer-during-buffercache-lookups.patch
+
+perhaps?
