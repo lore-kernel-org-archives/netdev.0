@@ -1,119 +1,45 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2 driver can't enable/disable wake-on-lan on HP DL585 G2
- onboard NICs
-Date: Mon, 6 Oct 2008 21:36:54 -0700
-Message-ID: <C27F8246C663564A84BB7AB34397724202784A2B96@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20081006194845.4e18705f@manzanita>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH 1/3] net: add ETH_P_FCOE for Fibre Channel over Ethernet
+ (FCoE)
+Date: Tue, 7 Oct 2008 07:43:45 +0300 (EEST)
+Message-ID: <alpine.LRH.2.00.0810070741560.21872@netcore.fi>
+References: <20081006233409.4918.82298.stgit@zyfc9ini.jf.intel.com> <20081006233918.4918.58918.stgit@zyfc9ini.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'Tim Mann'" <mann@vmware.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Yi Zou <yi.zou@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1189 "EHLO mms1.broadcom.com"
+Received: from netcore.fi ([193.94.160.1]:35389 "EHLO netcore.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750803AbYJGEhH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 00:37:07 -0400
-In-Reply-To: <20081006194845.4e18705f@manzanita>
-Content-Language: en-US
+	id S1750880AbYJGEoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 00:44:04 -0400
+In-Reply-To: <20081006233918.4918.58918.stgit@zyfc9ini.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 6 Oct 2008, Yi Zou wrote:
+> include/linux/if_ether.h |    1 +
+> 1 files changed, 1 insertions(+), 0 deletions(-)
+>
+> diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+> index 723a1c5..e5ae72a 100644
+> --- a/include/linux/if_ether.h
+> +++ b/include/linux/if_ether.h
+> @@ -77,6 +77,7 @@
+> #define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
+> #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
+> #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
+> +#define ETH_P_FCOE	0x8906		/* Fibre Channel over Ethernet	*/
 
-Tim Mann wrote:
+No problem with this one, but I note that some of the earlier 
+codepoints are not in the numerical order, specifically these should 
+be higher up in the list:
 
->
-> Here's the deal.  The HP DL585 G2 has an onboard dual-port
-> NIC based on
-> the bcm5706.  Both ports support wake-on-lan, but WOL works
-> if and only
-> if you enable it using an option in the HP BIOS setup screens.  If you
-> disable it from there, ethtool still thinks WOL is supported and that
-> it's enabled by default, but the machine won't wake.  Conversely (and
-> this part surprises me more), if you enable WOL from the BIOS setup
-> screen, the machine always wakes on a WOL magic packet *even* if you
-> try to disable WOL using ethtool.  Again ethtool thinks that WOL is
-> supported and that it's enabled by default, and it thinks that it can
-> disable WOL, but disabling it through ethtool has no effect -- the
-> machine wakes anyway.
+71 #define ETH_P_MPLS_UC   0x8847          /* MPLS Unicast traffic         */
+72 #define ETH_P_MPLS_MC   0x8848          /* MPLS Multicast traffic       */
+73 #define ETH_P_ATMMPOA   0x884c          /* MultiProtocol Over ATM       */
 
-It sounds like an extra reset to the NIC is happening on this machine
-during shutdown or suspend.  When that happens, it would wipe out the
-WoL setting done by the driver.  I'll see if we have this DL585 to
-try it out here.
-
->
-> I don't have this problem with other NICs that use the bnx2
-> driver.  In
-> particular, I just retested one that I have in a box in my office, and
-> the bnx2 driver can both enable and disable WOL on that NIC fine.
->
-> So far I've tried this only with a bnx2 driver that advertises itself
-> as 1.6.9 with release date December 8, 2007.  I could try with a newer
-> one, but I looked at the diffs between 1.6.9 and 1.8.0 and I
-> didn't see
-> anything that looks like it should affect this.  Let me know if I
-> should try it anyway, though.
->
-> In case it helps, here's lspci output from the HP box with
-> the misbehaving NIC:
->
-> [root@drm121 ~]# lspci -s 41:01.0 -v
-> 41:01.0 Ethernet controller: Broadcom Corporation NetXtreme
-> II 5706 Gigabit Ethernet (rev 02)
->         Subsystem: Hewlett-Packard Company Unknown device 1709
->         Flags: bus master, 66MHz, medium devsel, latency 120, IRQ 23
->         Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
->         [virtual] Expansion ROM at 88200000 [disabled] [size=2K]
->         Capabilities: [40] PCI-X non-bridge device
->         Capabilities: [48] Power Management version 2
->         Capabilities: [50] Vital Product Data
-> [root@drm121 ~]# lspci -s 41:01.0 -v -n
-> 41:01.0 0200: 14e4:164a (rev 02)
->         Subsystem: 103c:1709
->         Flags: bus master, 66MHz, medium devsel, latency 120, IRQ 23
->         Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
->         [virtual] Expansion ROM at 88200000 [disabled] [size=2K]
->         Capabilities: [40] PCI-X non-bridge device
->         Capabilities: [48] Power Management version 2
->         Capabilities: [50] Vital Product Data
-
-This is unrelated to WoL, but why is MSI capability missing on the
-HP machine?
-
->
-> Here's output from my test machine:
->
-> [root@moppet ~]# lspci -s 41:04.0 -v
-> 41:04.0 Ethernet controller: Broadcom Corporation NetXtreme
-> II 5706 Gigabit Ethernet (rev 02)
->         Subsystem: Hewlett-Packard Company Unknown device 3101
->         Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
->         Memory at f0000000 (64-bit, non-prefetchable) [size=32M]
->         [virtual] Expansion ROM at 88000000 [disabled] [size=64K]
->         Capabilities: [40] PCI-X non-bridge device
->         Capabilities: [48] Power Management version 2
->         Capabilities: [50] Vital Product Data
->         Capabilities: [58] Message Signalled Interrupts:
-> 64bit+ Queue=0/0 Enable-
->
-> [root@moppet ~]# lspci -s 41:04.0 -v -n
-> 41:04.0 0200: 14e4:164a (rev 02)
->         Subsystem: 103c:3101
->         Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
->         Memory at f0000000 (64-bit, non-prefetchable) [size=32M]
->         [virtual] Expansion ROM at 88000000 [disabled] [size=64K]
->         Capabilities: [40] PCI-X non-bridge device
->         Capabilities: [48] Power Management version 2
->         Capabilities: [50] Vital Product Data
->         Capabilities: [58] Message Signalled Interrupts:
-> 64bit+ Queue=0/0 Enable
->
->
-> --
-> Tim Mann  work: mann@vmware.com  home: tim@tim-mann.org
->           http://www.vmware.com  http://tim-mann.org
->
->
-
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
