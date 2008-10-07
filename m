@@ -1,34 +1,102 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 13:55:48 -0700 (PDT)
-Message-ID: <20081007.135548.56141000.davem@davemloft.net>
-References: <m37i8k3hv1.fsf@ursa.amorsen.dk>
-	<48EB5D28.7000503@cosmosbay.com>
-	<20081007160729.60c076c4@speedy>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPROUTE]: Fix up "ip link" help text
+Date: Tue, 07 Oct 2008 23:02:17 +0200
+Message-ID: <48EBCE59.3080401@trash.net>
+References: <48EB7D76.7050004@trash.net> <200810072206.03062.arekm@maven.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, benny+usenet@amorsen.dk, minyard@acm.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: shemminger@vyatta.com
+Content-Type: multipart/mixed;
+ boundary="------------080702030107030107050604"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Arkadiusz Miskiewicz <arekm@maven.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56504
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752599AbYJGU4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 16:56:12 -0400
-In-Reply-To: <20081007160729.60c076c4@speedy>
+Received: from stinky.trash.net ([213.144.137.162]:59690 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754054AbYJGVDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 17:03:35 -0400
+In-Reply-To: <200810072206.03062.arekm@maven.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 7 Oct 2008 16:07:29 +0200
+This is a multi-part message in MIME format.
+--------------080702030107030107050604
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The idea of keeping chains short is the problem. That code should
-> just be pulled because it doesn't help that much, and also creates
-> bias on the port randomization.
+Arkadiusz Miskiewicz wrote:
+> Runtime dependand help doesn't look sane. Help should always show all possible 
+> options/command while trying to use unsupported option should display error 
+> message.
+>   
 
-I have that patch from Vitaly Mayatskikh which does exactly this.
+That makes sense. But don't complain to me about the quality
+of the error messages afterwards please :)
 
-I keep looking at it, but I can't bring myself to apply it since
-I'm not completely convinced.
+
+
+--------------080702030107030107050604
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="x"
+
+Y29tbWl0IDhjNjMyMTQ2NmRmOWE0NTJhYzU4ZTA5ZDMyZWRkNmM1YjRlYTBkMTcKQXV0aG9y
+OiBQYXRyaWNrIE1jSGFyZHkgPGthYmVyQHRyYXNoLm5ldD4KRGF0ZTogICBUdWUgT2N0IDcg
+MjM6MDA6NTkgMjAwOCArMDIwMAoKICAgIFtJUFJPVVRFXTogRml4IHVwICJpcCBsaW5rIiBo
+ZWxwIHRleHQKICAgIAogICAgQWRkIGhlbHAgZm9yICJpcCBsaW5rIGFkZCIuIEFsc28gZml4
+IHVwIHRoZSAiaXAgbGluayBzZXQiIGhlbHAgdGV4dDoKICAgIAogICAgLSB0aGUgZmxhZ3Mg
+YXJlIG5vdCBtdXR1YWxseSBleGNsdXNpdmUgYXMgc3VnZ2VzdGVkIGJ5IHRoZSBjdXJyZW50
+IHRleHQsCiAgICAgIHVwL2Rvd24gc3RhdGVzIGFuZCBvbi9vZmYgYXJlIG11dHVhbGx5IGV4
+Y2x1c2l2ZS4KICAgIAogICAgLSB0eHF1ZXVlbGVuLCBuYW1lIGV0Yy4gaGF2ZSBub3RoaW5n
+IHRvIGRvIHdpdGggdGhlIGZsYWdzIGFuZCBvbi9vZmYgc3RhdGVzCiAgICAgIGF0IGFsbCBh
+bmQgYXJlIGNlcnRhaW5seSBub3QgbXV0dWFsbHkgZXhjbHVzaXZlLCBmaXggZm9ybWF0dGlu
+ZyBhbmQgbWFrZQogICAgICBpdCBjb25mb3JtIHRoZSBvdGhlciBoZWxwdGV4dHMgYmV0dGVy
+LgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBQYXRyaWNrIE1jSGFyZHkgPGthYmVyQHRyYXNo
+Lm5ldD4KCmRpZmYgLS1naXQgYS9pcC9pcGxpbmsuYyBiL2lwL2lwbGluay5jCmluZGV4IDZl
+OWFjNzEuLjc4MWZiZDIgMTAwNjQ0Ci0tLSBhL2lwL2lwbGluay5jCisrKyBiL2lwL2lwbGlu
+ay5jCkBAIC00MSwxOSArNDEsMzAgQEAgc3RhdGljIHZvaWQgdXNhZ2Uodm9pZCkgX19hdHRy
+aWJ1dGVfXygobm9yZXR1cm4pKTsKIAogdm9pZCBpcGxpbmtfdXNhZ2Uodm9pZCkKIHsKLQlm
+cHJpbnRmKHN0ZGVyciwgIlVzYWdlOiBpcCBsaW5rIHNldCBERVZJQ0UgeyB1cCB8IGRvd24g
+fFxuIik7Ci0JZnByaW50ZihzdGRlcnIsICIJICAgICAgICAgICAgICAgICAgICAgYXJwIHsg
+b24gfCBvZmYgfSB8XG4iKTsKLQlmcHJpbnRmKHN0ZGVyciwgIgkgICAgICAgICAgICAgICAg
+ICAgICBkeW5hbWljIHsgb24gfCBvZmYgfSB8XG4iKTsKLQlmcHJpbnRmKHN0ZGVyciwgIgkg
+ICAgICAgICAgICAgICAgICAgICBtdWx0aWNhc3QgeyBvbiB8IG9mZiB9IHxcbiIpOwotCWZw
+cmludGYoc3RkZXJyLCAiCSAgICAgICAgICAgICAgICAgICAgIGFsbG11bHRpY2FzdCB7IG9u
+IHwgb2ZmIH0gfFxuIik7Ci0JZnByaW50ZihzdGRlcnIsICIJICAgICAgICAgICAgICAgICAg
+ICAgcHJvbWlzYyB7IG9uIHwgb2ZmIH0gfFxuIik7Ci0JZnByaW50ZihzdGRlcnIsICIJICAg
+ICAgICAgICAgICAgICAgICAgdHJhaWxlcnMgeyBvbiB8IG9mZiB9IHxcbiIpOwotCWZwcmlu
+dGYoc3RkZXJyLCAiCSAgICAgICAgICAgICAgICAgICAgIHR4cXVldWVsZW4gUEFDS0VUUyB8
+XG4iKTsKLQlmcHJpbnRmKHN0ZGVyciwgIgkgICAgICAgICAgICAgICAgICAgICBuYW1lIE5F
+V05BTUUgfFxuIik7Ci0JZnByaW50ZihzdGRlcnIsICIJICAgICAgICAgICAgICAgICAgICAg
+YWRkcmVzcyBMTEFERFIgfCBicm9hZGNhc3QgTExBRERSIHxcbiIpOwotCWZwcmludGYoc3Rk
+ZXJyLCAiCSAgICAgICAgICAgICAgICAgICAgIG10dSBNVFUgfVxuIik7Ci0JZnByaW50Zihz
+dGRlcnIsICIJICAgICAgICAgICAgICAgICAgICAgbmV0bnMgUElEIH1cbiIpOworCWZwcmlu
+dGYoc3RkZXJyLCAiVXNhZ2U6IGlwIGxpbmsgYWRkIFsgbmFtZSBdIE5BTUVcbiIpOworCWZw
+cmludGYoc3RkZXJyLCAiICAgICAgICAgICAgICAgICAgIFsgbGluayBERVYgXVxuIik7CisJ
+ZnByaW50ZihzdGRlcnIsICIgICAgICAgICAgICAgICAgICAgWyB0eHF1ZXVlbGVuIFBBQ0tF
+VFMgXVxuIik7CisJZnByaW50ZihzdGRlcnIsICIgICAgICAgICAgICAgICAgICAgWyBhZGRy
+ZXNzIExMQUREUiBdXG4iKTsKKwlmcHJpbnRmKHN0ZGVyciwgIiAgICAgICAgICAgICAgICAg
+ICBbIGJyb2FkY2FzdCBMTEFERFIgXVxuIik7CisJZnByaW50ZihzdGRlcnIsICIgICAgICAg
+ICAgICAgICAgICAgWyBtdHUgTVRVIF1cbiIpOworCWZwcmludGYoc3RkZXJyLCAiICAgICAg
+ICAgICAgICAgICAgIHR5cGUgVFlQRSBbIEFSR1MgXVxuIik7CisJZnByaW50ZihzdGRlcnIs
+ICJcbiIpOworCWZwcmludGYoc3RkZXJyLCAiICAgICAgIGlwIGxpbmsgc2V0IERFVklDRSBb
+IHsgdXAgfCBkb3duIH0gXVxuIik7CisJZnByaW50ZihzdGRlcnIsICIJICAgICAgICAgICAg
+ICAgICAgWyBhcnAgeyBvbiB8IG9mZiB9IF1cbiIpOworCWZwcmludGYoc3RkZXJyLCAiCSAg
+ICAgICAgICAgICAgICAgIFsgZHluYW1pYyB7IG9uIHwgb2ZmIH0gXVxuIik7CisJZnByaW50
+ZihzdGRlcnIsICIJICAgICAgICAgICAgICAgICAgWyBtdWx0aWNhc3QgeyBvbiB8IG9mZiB9
+IF1cbiIpOworCWZwcmludGYoc3RkZXJyLCAiCSAgICAgICAgICAgICAgICAgIFsgYWxsbXVs
+dGljYXN0IHsgb24gfCBvZmYgfSBdXG4iKTsKKwlmcHJpbnRmKHN0ZGVyciwgIgkgICAgICAg
+ICAgICAgICAgICBbIHByb21pc2MgeyBvbiB8IG9mZiB9IF1cbiIpOworCWZwcmludGYoc3Rk
+ZXJyLCAiCSAgICAgICAgICAgICAgICAgIFsgdHJhaWxlcnMgeyBvbiB8IG9mZiB9IF1cbiIp
+OworCWZwcmludGYoc3RkZXJyLCAiCSAgICAgICAgICAgICAgICAgIFsgdHhxdWV1ZWxlbiBQ
+QUNLRVRTIF1cbiIpOworCWZwcmludGYoc3RkZXJyLCAiCSAgICAgICAgICAgICAgICAgIFsg
+bmFtZSBORVdOQU1FIF1cbiIpOworCWZwcmludGYoc3RkZXJyLCAiCSAgICAgICAgICAgICAg
+ICAgIFsgYWRkcmVzcyBMTEFERFIgXVxuIik7CisJZnByaW50ZihzdGRlcnIsICIJICAgICAg
+ICAgICAgICAgICAgWyBicm9hZGNhc3QgTExBRERSIF1cbiIpOworCWZwcmludGYoc3RkZXJy
+LCAiCSAgICAgICAgICAgICAgICAgIFsgbXR1IE1UVSBdXG4iKTsKKwlmcHJpbnRmKHN0ZGVy
+ciwgIgkgICAgICAgICAgICAgICAgICBbIG5ldG5zIFBJRCBdXG4iKTsKIAlmcHJpbnRmKHN0
+ZGVyciwgIiAgICAgICBpcCBsaW5rIHNob3cgWyBERVZJQ0UgXVxuIik7CisJZnByaW50Zihz
+dGRlcnIsICJcbiIpOworCWZwcmludGYoc3RkZXJyLCAiVFlQRSA6PSB7IHZsYW4gfCB2ZXRo
+IHwgZHVtbXkgfCBpZmIgfCBtYWN2bGFuIH1cbiIpOwogCWV4aXQoLTEpOwogfQogCg==
+--------------080702030107030107050604--
