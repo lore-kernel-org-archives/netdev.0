@@ -1,57 +1,66 @@
-From: "Hillier, Gernot" <gernot.hillier@siemens.com>
-Subject: e1000e: sporadic "hardware error"s with Intel 82563EB on Supermicro
- X7DB3
-Date: Tue, 07 Oct 2008 16:25:37 +0200
-Message-ID: <48EB7161.60004@siemens.com>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: split-lru performance mesurement part2
+Date: Tue,  7 Oct 2008 23:26:54 +0900 (JST)
+Message-ID: <20081007231851.3B88.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+References: <20081003153810.5dd0a33e@bree.surriel.com> <20081004232549.CE53.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bruce.w.allan@intel.com
-To: jesse.brandeburg@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755475AbYJGOUj@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kosaki.motohiro@jp.fujitsu.com,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
+To: Rik van Riel <riel@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:41931 "EHLO
+	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753329AbYJGO06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 10:26:58 -0400
+In-Reply-To: <20081004232549.CE53.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi there,
+Hi
 
-On at least two machines using the Supermicro X7DB3 board with Intel
-82563EB (a.k.a. PCI device 8086:1096), we see sporadic problems on modprobe
-(about 1 time in some hundred tries):
+> yup,
+> I know many people want to other benchmark result too.
+> I'll try to mesure other bench at next week.
 
-e1000e: Intel(R) PRO/1000 Network Driver - 0.3.3.3-k2
-e1000e: Copyright (c) 1999-2008 Intel Corporation.
-e1000e 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-e1000e 0000:06:00.0: setting latency timer to 64
-0000:06:00.0: 0000:06:00.0: Hardware Error
-0000:06:00.0: eth0: (PCI Express:2.5GB/s:Width x4) 00:30:48:67:f5:f6
-0000:06:00.0: eth0: Intel(R) PRO/1000 Network Connection
-0000:06:00.0: eth0: MAC: 3, PHY: 5, PBA No: 2050ff-0ff
-e1000e 0000:06:00.1: PCI INT B -> GSI 19 (level, low) -> IRQ 19
-e1000e 0000:06:00.1: setting latency timer to 64
-0000:06:00.1: eth1: (PCI Express:2.5GB/s:Width x4) 00:30:48:67:f5:f7
-0000:06:00.1: eth1: Intel(R) PRO/1000 Network Connection
-0000:06:00.1: eth1: MAC: 3, PHY: 5, PBA No: 2050ff-0ff
-0000:06:00.0: eth0: Hardware Error
+I ran another benchmark today.
+I choice dbench because dbench is one of most famous and real workload like i/o benchmark.
 
-eth0 is not available after module loading. During boot, this means the
-machine won't come up correctly. Problem can be "fixed" by removing and
-reloading the module.
 
-This happens on the rather old SUSE-patched 2.6.25.11 with e1000e 0.2.0 as
-well as with vanilla 2.6.27-rc8 including e1000e 0.3.3.3-k2.
+% dbench client.txt 4000
 
-The machines are equipped with two Quad-Core Xeons E5440 and 8GB of RAM.
-Both kernels are compiled for x86_64.
+mainline:  Throughput 13.4231 MB/sec  4000 clients  4000 procs  max_latency=1421988.159 ms
+mmotm(*):  Throughput  7.0354 MB/sec  4000 clients  4000 procs  max_latency=2369213.380 ms
 
-Supermicro claims that there's no known hardware problem with these boards
-and that the Windows driver doesn't show any issue...
+(*) mmotm 2/Oct + Hugh's recently slub fix
 
-Is there anything I can do to help narrowing down the problem? Anything I
-can test? Any help greatly appreciated...
 
-TIA!
+Wow!
+mmotm is slower than mainline largely (about half performance).
 
--- 
-Gernot Hillier
-Siemens AG, CT SE 2, Corporate Competence Center Embedded Linux
+Therefore, I mesured it on "mainline + split-lru(only)" build.
+
+
+mainline + split-lru(only): Throughput 14.4062 MB/sec  4000 clients  4000 procs  max_latency=1152231.896 ms
+
+
+OK!
+split-lru outperform mainline from viewpoint of both throughput and latency :)
+
+
+
+However, I don't understand why this regression happend.
+Do you have any suggestion?
+
+
+
+
