@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: Could you make vconfig less stupid?
-Date: Tue, 07 Oct 2008 15:54:21 +0200
-Message-ID: <48EB6A0D.8080106@trash.net>
+Date: Tue, 07 Oct 2008 15:57:53 +0200
+Message-ID: <48EB6AE1.9080005@trash.net>
 References: <20081006202401.14f03be2@speedy> <200810071520.56610.denys@visp.net.lb> <20081007124820.GG4606@ntm.vs.lam.cz> <200810071549.16647.denys@visp.net.lb> <48EB5C63.60501@trash.net> <Pine.LNX.4.62.0810071510230.2675@wlug.westbo.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
@@ -13,10 +13,10 @@ Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
 	netdev@vger.kernel.org
 To: Martin Josefsson <gandalf@mjufs.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46651 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:46758 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076AbYJGNy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 09:54:28 -0400
+	with ESMTP id S1753303AbYJGN6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 09:58:00 -0400
 In-Reply-To: <Pine.LNX.4.62.0810071510230.2675@wlug.westbo.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -40,8 +40,5 @@ Martin Josefsson wrote:
 > # ip l a
 > RTNETLINK answers: Operation not supported
 
-Thats probably correct, the rtnl_link interface has only been present
-for a few versions in the kernel.
-
-But I agree and I'll send a patch with improved help texts and a
-manpage when I find some spare time.
+Actually it seems something broke probing in the kernel, let me look
+into it.
