@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 04/32] net: ipv6: initialize ip6_route sysctl vars in
- ip6_route_net_init()
-Date: Tue, 07 Oct 2008 14:15:45 -0700 (PDT)
-Message-ID: <20081007.141545.92648748.davem@davemloft.net>
-References: <20081002130504.927878499@chello.nl>
-	<20081002131607.801664200@chello.nl>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [IPROUTE]: Fix up "ip link" help text
+Date: Tue, 7 Oct 2008 23:18:20 +0200
+Message-ID: <20081007231820.3caf072a@speedy>
+References: <48EB7D76.7050004@trash.net>
+	<200810072206.03062.arekm@maven.pl>
+	<48EBCE59.3080401@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	dlezcano@fr.ibm.com, penberg@cs.helsinki.fi, neilb@suse.de
-To: a.p.zijlstra@chello.nl
+Cc: Arkadiusz Miskiewicz <arekm@maven.pl>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53863
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756048AbYJGVQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 17:16:10 -0400
-In-Reply-To: <20081002131607.801664200@chello.nl>
+Received: from mail.vyatta.com ([76.74.103.46]:47012 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753490AbYJGVS1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 17:18:27 -0400
+In-Reply-To: <48EBCE59.3080401@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Thu, 02 Oct 2008 15:05:08 +0200
+On Tue, 07 Oct 2008 23:02:17 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-> This makes that ip6_route_net_init() does all of the route init code.
-> There used to be a race between ip6_route_net_init() and ip6_net_init()
-> and someone relying on the combined result was left out cold.
+> Arkadiusz Miskiewicz wrote:
+> > Runtime dependand help doesn't look sane. Help should always show all possible 
+> > options/command while trying to use unsupported option should display error 
+> > message.
+> >   
 > 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> That makes sense. But don't complain to me about the quality
+> of the error messages afterwards please :)
+> 
+> 
 
-Looks good, applied to net-next-2.6, thanks.
+I had a better message set in works. will merge mine and patrick's
