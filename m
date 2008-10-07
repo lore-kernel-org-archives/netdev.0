@@ -1,62 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [IPROUTE]: Refuse "ip link add/replace" without device type parameter
-Date: Tue, 07 Oct 2008 17:16:27 +0200
-Message-ID: <48EB7D4B.4030501@trash.net>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
+Date: Tue, 7 Oct 2008 08:07:47 -0700
+Message-ID: <20081007150747.GG6384@linux.vnet.ibm.com>
+References: <20081006185026.GA10383@minyard.local> <48EA8197.6080502@cosmosbay.com> <20081006.144002.56418911.davem@davemloft.net> <48EA9A59.1090306@acm.org> <20081007083750.GB17079@2ka.mipt.ru> <48EB6F2D.100@linux-foundation.org> <20081007143346.GA6384@linux.vnet.ibm.com> <48EB7617.3060304@linux-foundation.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020908000006000606080501"
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Corey Minyard <minyard@acm.org>,
+	David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48928 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129AbYJGPQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 11:16:34 -0400
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:36065 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753025AbYJGPQj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 11:16:39 -0400
+Content-Disposition: inline
+In-Reply-To: <48EB7617.3060304@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020908000006000606080501
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, Oct 07, 2008 at 09:45:43AM -0500, Christoph Lameter wrote:
+> Paul E. McKenney wrote:
+> 
+> > But care is required -- SLAB_DESTROY_BY_RCU permits objects to be freed
+> > and reallocated while a reader holds a reference.  The only guarantee is
+> > that the -type- of the data structure will not change while a reader holds
+> > a reference.  With something like UDP, this might well be sufficient.
+> 
+> Right so after the hash lookup operation you are not assured that the object
+> has not been freed or even reallocated for a different purpose. So after
+> finding the pointer to the object two things need to happen (under rcu_lock):
+> 
+> 1. Verify that the object is still in use
+> 2. Verify that the object is matching the hash
+> 
+> If not then the operation needs to be redone because we have a stale hash
+> pointer.
 
+There is also the possibility that the element will be reused, but placed
+in the same list that it resided in last time.  A reader referencing
+that item during this process might then be relocated in the list, which
+could either cause the reader to skip elements in the list (if the new
+element is relocated farther down the list) or endlessly loop through
+the list (if new elements were relocated closer to the list head and this
+free-reallocate process repeated and the reader was insanely unlucky).
 
---------------020908000006000606080501
-Content-Type: text/x-patch;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
-
-commit c3ae059edf3316cff1075c2401bdeefa5e262251
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Oct 7 16:55:21 2008 +0200
-
-    [IPROUTE]: Refuse "ip link add/replace" without device type parameter
-    
-    Fix confusing error message noticed by Martin Josefsson:
-    
-    # ip link add
-    RTNETLINK answers: Operation not supported
-    
-    The reason is missing device type information, refuse this and print a message.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 81122ae..6e9ac71 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -336,6 +336,10 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			return -1;
- 		}
- 		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
-+	} else if (flags & NLM_F_CREATE) {
-+		fprintf(stderr, "Not enough informatin: \"type\" argument "
-+				"is required\n");
-+		return -1;
- 	}
- 
- 	if (!(flags & NLM_F_CREATE)) {
-
---------------020908000006000606080501--
+							Thanx, Paul
