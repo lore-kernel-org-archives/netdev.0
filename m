@@ -1,118 +1,109 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [GIT] Please pull updates for IPVS
-Date: Tue, 7 Oct 2008 11:17:10 +1100
-Message-ID: <20081007001707.GA12647@verge.net.au>
+Subject: Possible regression in HTB
+Date: Tue, 7 Oct 2008 12:15:53 +1100
+Message-ID: <20081007011551.GA28408@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Sven Wegener <sven.wegener@stealer.net>,
-	Julius Volz <juliusv@google.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
+	Jarek Poplawski <jarkao2@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:36494 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753243AbYJGBPz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 21:15:55 -0400
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Hi Dave, Hi Jarek,
 
-Please pull the following changes. Sorry I have let some of
-them sit in my tree for a while, I wanted to be sure that
-Patrick McHardy was ok with the move to netfilter.
+I know that you guys were/are playing around a lot in here, but
+unfortunately I think that "pkt_sched: Always use q->requeue in
+dev_requeue_skb()" (f0876520b0b721bedafd9cec3b1b0624ae566eee) has
+introduced a performance regression for HTB.
 
-1) Fix from Sven Wegener to prevent more than 255 connections
-   from being added to a synchronisation packet - which results
-   in something unparsable by the other end. The cause of this was
-   an assumption that 1500 would be the largest MTU.
+My tc rules are below, but in a nutshell I have 3 leaf classes.
+One with a rate of 500Mbit/s and the other two with 100Mbit/s.
+The ceiling for all classes is 1Gb/s and that is also both
+the rate and ceiling for the parent class.
 
-   This bug is likely as old as the synchronisation code.
+                          [ rate=1Gbit/s ]
+                          [ ceil=1Gbit/s ]
+                                 |
+            +--------------------+--------------------+
+            |                    |                    |
+     [ rate=500Mbit/s ]   [ rate=100Mbit/s ]   [ rate=100Mbit/s ]
+     [ ceil=  1Gbit/s ]   [ ceil=100Mbit/s ]   [ ceil=  1Gbit/s ]
 
-2) An unused label fix from Sven Wegener.
+The tc rules have an extra class for all other traffic,
+but its idle, so I left it out of the diagram.
 
-   This is just minor fall-out from the the IPVS IPv6 merge.
+In order to test this I set up filters so that traffic to
+each of port 10194, 10196 and 10197 is directed to one of the leaf-classes.
+I then set up a process on the same host for each port sending
+UDP as fast as it could in a while() { send(); } loop. On another
+host I set up processes listening for the UDP traffic in a
+while () { recv(); } loop. And I measured the results.
 
-3) Julius Volz moved IPVS from net/ipv4/ipvs/ to net/netfilter/ipvs/
+( I should be able to provide the code used for testing,
+  but its not mine and my colleague who wrote it is off
+  with the flu today. )
 
-   This is an enourmous patch, but really is a simple as
-   the commit message claims.
+Prior to this patch the result looks like this:
 
+10194: 545134589bits/s 545Mbits/s
+10197: 205358520bits/s 205Mbits/s
+10196: 205311416bits/s 205Mbits/s
+-----------------------------------
+total: 955804525bits/s 955Mbits/s
 
-The following changes are available in the git repository at:
+And after the patch the result looks like this:
+10194: 384248522bits/s 384Mbits/s
+10197: 284706778bits/s 284Mbits/s
+10196: 288119464bits/s 288Mbits/s
+-----------------------------------
+total: 957074765bits/s 957Mbits/s
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-2.6.git lvs-next-2.6
+There is some noise in these results, but I think that its clear
+that before the patch all leaf-classes received at least their rate,
+and after the patch the rate=500Mbit/s class received much less than
+its rate. This I believe is a regression.
 
-They should apply cleanly to net-next-2.6, which I pulled and merged this
-morning.
+I do not believe that this happens at lower bit rates, for instance
+if you reduce the ceiling and rate of all classes by a factor of 10.
+I can produce some numbers on that if you want them.
 
-Julius Volz (1):
-      IPVS: Move IPVS to net/netfilter/ipvs
-
-Simon Horman (1):
-      Merge git://git.kernel.org/.../davem/net-next-2.6 into lvs-next-2.6
-
-Sven Wegener (2):
-      ipvs: Restrict sync message to 255 connections
-      ipvs: Fix unused label warning
-
- net/ipv4/Kconfig                        |    2 
- net/ipv4/Makefile                       |    1 
- net/ipv4/ipvs/Kconfig                   |  239 --
- net/ipv4/ipvs/Makefile                  |   33 
- net/ipv4/ipvs/ip_vs_app.c               |  622 -----
- net/ipv4/ipvs/ip_vs_conn.c              | 1110 ---------
- net/ipv4/ipvs/ip_vs_core.c              | 1542 -------------
- net/ipv4/ipvs/ip_vs_ctl.c               | 3441 ------------------------------
- net/ipv4/ipvs/ip_vs_est.c               |  166 -
- net/ipv4/ipvs/ip_vs_ftp.c               |  410 ---
- net/ipv4/ipvs/ip_vs_lblc.c              |  555 ----
- net/ipv4/ipvs/ip_vs_lblcr.c             |  755 ------
- net/ipv4/ipvs/ip_vs_lc.c                |  103 
- net/ipv4/ipvs/ip_vs_nq.c                |  138 -
- net/ipv4/ipvs/ip_vs_proto.c             |  288 --
- net/ipv4/ipvs/ip_vs_proto_ah_esp.c      |  235 --
- net/ipv4/ipvs/ip_vs_proto_tcp.c         |  732 ------
- net/ipv4/ipvs/ip_vs_proto_udp.c         |  533 ----
- net/ipv4/ipvs/ip_vs_rr.c                |  112 -
- net/ipv4/ipvs/ip_vs_sched.c             |  251 --
- net/ipv4/ipvs/ip_vs_sed.c               |  140 -
- net/ipv4/ipvs/ip_vs_sh.c                |  258 --
- net/ipv4/ipvs/ip_vs_sync.c              |  940 --------
- net/ipv4/ipvs/ip_vs_wlc.c               |  128 -
- net/ipv4/ipvs/ip_vs_wrr.c               |  237 --
- net/ipv4/ipvs/ip_vs_xmit.c              | 1004 ---------
- net/netfilter/Kconfig                   |    2 
- net/netfilter/Makefile                  |    3 
- net/netfilter/ipvs/Kconfig              |  239 ++
- net/netfilter/ipvs/Makefile             |   33 
- net/netfilter/ipvs/ip_vs_app.c          |  622 +++++
- net/netfilter/ipvs/ip_vs_conn.c         | 1110 +++++++++
- net/netfilter/ipvs/ip_vs_core.c         | 1542 +++++++++++++
- net/netfilter/ipvs/ip_vs_ctl.c          | 3443 +++++++++++++++++++++++++++++++
- net/netfilter/ipvs/ip_vs_dh.c           |  261 ++
- net/netfilter/ipvs/ip_vs_est.c          |  166 +
- net/netfilter/ipvs/ip_vs_ftp.c          |  410 +++
- net/netfilter/ipvs/ip_vs_lblc.c         |  555 ++++
- net/netfilter/ipvs/ip_vs_lblcr.c        |  755 ++++++
- net/netfilter/ipvs/ip_vs_lc.c           |  103 
- net/netfilter/ipvs/ip_vs_nq.c           |  138 +
- net/netfilter/ipvs/ip_vs_proto.c        |  288 ++
- net/netfilter/ipvs/ip_vs_proto_ah_esp.c |  235 ++
- net/netfilter/ipvs/ip_vs_proto_tcp.c    |  732 ++++++
- net/netfilter/ipvs/ip_vs_proto_udp.c    |  533 ++++
- net/netfilter/ipvs/ip_vs_rr.c           |  112 +
- net/netfilter/ipvs/ip_vs_sched.c        |  251 ++
- net/netfilter/ipvs/ip_vs_sed.c          |  140 +
- net/netfilter/ipvs/ip_vs_sh.c           |  258 ++
- net/netfilter/ipvs/ip_vs_sync.c         |  942 ++++++++
- net/netfilter/ipvs/ip_vs_wlc.c          |  128 +
- net/netfilter/ipvs/ip_vs_wrr.c          |  237 ++
- net/netfilter/ipvs/ip_vs_xmit.c         | 1004 +++++++++
- 53 files changed, 14242 insertions(+), 13975 deletions(-)
+The test machine with the tc rules and udp-sending processes
+has two Intel Xeon Quad-cores running at 1.86GHz. The kernel
+is SMP x86_64.
 
 -- 
 Simon Horman
   VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
   H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+
+
+tc qdisc del dev eth0 root
+
+tc qdisc add dev eth0 root handle 1: htb default 10 r2q 10000
+
+tc class add dev eth0 parent 1:  classid 1:1   htb \
+	rate 1Gbit ceil 1Gbit
+
+tc class add dev eth0 parent 1:1 classid 1:10 htb \
+	rate 1Gbit ceil 1Gbit
+tc class add dev eth0 parent 1:1 classid 1:11 htb \
+	rate 500Mbit ceil 1Gbit
+tc class add dev eth0 parent 1:1 classid 1:12 htb \
+	rate 100Mbit ceil 1Gbit
+tc class add dev eth0 parent 1:1 classid 1:13 htb \
+	rate 100Mbit ceil 1Gbit
+
+tc filter add dev eth0 protocol ip parent 1: \
+	u32 match ip dport 10194 0xffff flowid 1:11
+tc filter add dev eth0 protocol ip parent 1: \
+	u32 match ip dport 10196 0xffff flowid 1:12
+tc filter add dev eth0 protocol ip parent 1: \
+	u32 match ip dport 10197 0xffff flowid 1:13
 
