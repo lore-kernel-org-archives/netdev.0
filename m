@@ -1,79 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
-Date: Tue, 07 Oct 2008 15:27:12 -0700
-Message-ID: <m18wt0qbwf.fsf@frodo.ebiederm.org>
-References: <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net>
-	<dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
-	<48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
-	<31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
-	<48BF83E1.5040000@bull.net>
-	<dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
-	<20081007164833.GA16056@suse.de> <m1abdgywnb.fsf@frodo.ebiederm.org>
-	<20081007210902.GB7996@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Multicast: add mc_count to in_device and to
+ inet6_dev
+Date: Tue, 07 Oct 2008 15:36:43 -0700 (PDT)
+Message-ID: <20081007.153643.247018258.davem@davemloft.net>
+References: <b25312890809302357j6b75dd27uced2968046c10993@mail.gmail.com>
+	<20081001.020854.146740849.davem@davemloft.net>
+	<b25312890810012224h68a2444dob746eaf0ce80b111@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Ryden <markryde@gmail.com>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <htejun@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, pekkas@netcore.fi
+To: roszenrami@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:37388 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755134AbYJGWgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 18:36:04 -0400
-In-Reply-To: <20081007210902.GB7996@suse.de> (Greg KH's message of "Tue, 7 Oct
-	2008 14:09:02 -0700")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53089
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754734AbYJGWhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 18:37:07 -0400
+In-Reply-To: <b25312890810012224h68a2444dob746eaf0ce80b111@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg KH <gregkh@suse.de> writes:
+From: "Rami Rosen" <roszenrami@gmail.com>
+Date: Thu, 2 Oct 2008 08:24:33 +0300
 
-> On Tue, Oct 07, 2008 at 01:31:52PM -0700, Eric W. Biederman wrote:
->> Greg KH <gregkh@suse.de> writes:
->> 
->> > On Tue, Oct 07, 2008 at 06:39:04PM +0200, Mark Ryden wrote:
->> >> Hello,
->> >>   So I wonder: the sysfs tagged directory support patch is in GerKH
->> >> tree for more than a month.
->> >
->> > I dropped it from my tree 2 days ago, see the thread on lkml for why.
->> 
->> Greg why did you drop it? 
->
-> Because Al said it was full of problems and for us not to accept it.
+>   - When sending the patch, I was aware that the mc_count is currently
+> not used (printed) in IPv6;
+> I added it for the sake of symmetry with IPv4 and for future use.
 
-Yes. Al found problems.
+Unused struct members take up space in every instance of that
+datastructure, so we don't add things like this until we have
+real uses.
 
-Al reviewed sysfs with my patchset on top of it.
+> - Adding printing of mc_count in IPv6 is of course trivial; it was not
+> added not because of laziness;  I know less about IPv6 user space
+> tools (which read "/proc/net/igmp6") ; I was afraid that adding
+> printing of this mc_count field in IPv6 might break parsing of IPv6
+> user space tools (like netstat, etc).
+> So maybe this addition should be left for somebody who knows more
+> about IPv6 user space tools ?
 
-Al's review found problems in  sysfs with my patchset on top of it.
-
-If you look at what Al found the majority of those problems exist in sysfs
-without my patches.
-
-Does the following sound like a workable path going forward?
-
-- Not merge for 2.6.28 (we are to close to the merge window for everyone's comfort).
-
-- Fix the small issues specific to tagged directory support that showed
-  up in Al's review (patches sent).
-
-- Keep the patches the entire time in a public tree that merges into
-  linux-next so that people treat this code base seriously.
-
-- Resolve the sysfs/vfs lock ordering problem mess that makes
-  locking in sysfs excruciatingly difficult.
-
-- Merge other patches to fix Als other issues with sysfs.
-
-- Merge to 2.6.29 or wherever we are.
-
-
-Eric
-
+Of course modifying the output of this procfs file will break
+things.  This is yet another reason to not add the ipv6 side
+mc_count until we actually come up with a real use.
