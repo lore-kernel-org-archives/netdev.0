@@ -1,50 +1,46 @@
-From: "=?Windows-1251?b?wuDr5fDo/w==?=" <fool@ukr.net>
-Subject: (unknown)
-Date: Tue, 7 Oct 2008 12:53:08 +0400
-Message-ID: <20081007085315.1460A2A2ED9@smtp12.mtu.ru>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
+Date: Tue, 07 Oct 2008 11:24:51 +0200
+Message-ID: <48EB2AE3.3080200@cosmosbay.com>
+References: <20081006185026.GA10383@minyard.local>	 <48EA8197.6080502@cosmosbay.com> <1223367480.26330.7.camel@lappy.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1251
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev" <netdev@vger.kernel.org>
+Cc: minyard@acm.org, Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, shemminger@vyatta.com,
+	paulmck@linux.vnet.ibm.com
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp12.mtu.ru ([62.5.255.41]:56710 "EHLO smtp12.mtu.ru"
+Received: from smtp27.orange.fr ([80.12.242.94]:54771 "EHLO smtp27.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751408AbYJGJA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2008 05:00:59 -0400
-Received: from smtp12.mtu.ru (localhost [127.0.0.1])
-	by smtp12.mtu.ru (Postfix) with ESMTP id 394BF2A2F7E
-	for <netdev@vger.kernel.org>; Tue,  7 Oct 2008 12:53:15 +0400 (MSD)
-Received: from ppp91-76-58-73.pppoe.mtu-net.ru (ppp91-77-210-114.pppoe.mtu-net.ru [91.77.210.114])
-	by smtp12.mtu.ru (Postfix) with SMTP id 1460A2A2ED9
-	for <netdev@vger.kernel.org>; Tue,  7 Oct 2008 12:53:14 +0400 (MSD)
-Subject: 
+	id S1752617AbYJGJZA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 05:25:00 -0400
+In-Reply-To: <1223367480.26330.7.camel@lappy.programming.kicks-ass.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=CF=F0=E8=E2=E5=F2!
-
-Heo=E1xo=E4=E8=EC =EE=F2=EB=E8=F7=ED=FB=E9 =E8=ED=F2=E5p=EDe=F2 =ED=E0 =
-pac=F2o=FF=ED=E8=E8 =F6e=ED=F2pa?
-
-=D1=EF=F3=F2=ED=E8=EA=EE=E2=FB=E9 =E8=ED=F2=E5p=EDe=F2 - =EB=F3=F7=F8=E5=
-=E5 =F0=E5=F8=E5=ED=E8=E5! =EC=EE=F1=EA=EE=E2=F1=EA=EE=E9 =EE=E1=EB!
-
-=CD=E0=EC=ED=EE=E3=EE =E4=E5=F8=E5=E2=EB=E5 =E8 =EB=F3=F7=F8=E5
-
-=C7=E2=EE=ED=E8 8{918}6173341
-
-=C2=F1=E5=E3=EE =E4=EE=E1=F0=EE=E3=EE!
-
-
-
-
-
-
-
-
-
-
+Peter Zijlstra a =E9crit :
+> On Mon, 2008-10-06 at 23:22 +0200, Eric Dumazet wrote:
+>=20
+>> Or just add SLAB_DESTROY_BY_RCU to slab creation in proto_register()
+>> for "struct proto udp_prot/udpv6_prot" so that kmem_cache_free()=20
+>> done in sk_prot_free() can defer freeing to RCU...
+>=20
+> Be careful!, SLAB_DESTROY_BY_RCU just means the slab page gets
+> RCU-freed, this means that slab object pointers stay pointing to vali=
+d
+> memory, but it does _NOT_ mean those slab objects themselves remain
+> valid.
+>=20
+> The slab allocator is free to re-use those objects at any time -
+> irrespective of the rcu-grace period. Therefore you will have to be a=
+ble
+> to validate that the object you point to is indeed the object you
+> expect, otherwise strange and wonderful things will happen.
+>=20
+Thanks for this clarification. I guess we really need a rcu head then :=
+)
 
 
-s0X8txYr6
-G2SGX
+
