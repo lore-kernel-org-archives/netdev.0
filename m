@@ -1,69 +1,121 @@
-From: Mikael Pettersson <mikpe@it.uu.se>
-Subject: Re: [patch][rfc] ddds: "dynamic dynamic data structure" algorithm,
-	for adaptive dcache hash table sizing (resend)
-Date: Tue, 7 Oct 2008 17:37:43 +0200
-Message-ID: <18667.33351.854693.368568@harpo.it.uu.se>
-References: <20081007064834.GA5959@wotan.suse.de>
-	<20081007070225.GB5959@wotan.suse.de>
-	<20081007071827.GB5010@infradead.org>
+From: "Mark Ryden" <markryde@gmail.com>
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Tue, 7 Oct 2008 18:39:04 +0200
+Message-ID: <dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
+References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>
+	 <20080820021754.GA25182@kroah.com>
+	 <m1od3m282j.fsf_-_@frodo.ebiederm.org>
+	 <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net>
+	 <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
+	 <48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
+	 <31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
+	 <48BF83E1.5040000@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Nick Piggin <npiggin@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Memory Management List <linux-mm@kvack.org>,
-	netdev@vger.kernel.org, Paul McKenney <paulmck@us.ibm.com>
-To: Christoph Hellwig <hch@infradead.org>
+Cc: "David Shwatrz" <dshwatrz@gmail.com>, "Greg KH" <gregkh@suse.de>,
+	"Greg KH" <greg@kroah.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Tejun Heo" <htejun@gmail.com>,
+	"Daniel Lezcano" <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, "Al Viro" <viro@ftp.linux.org.uk>,
+	"Linux Containers" <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Benjamin Thery" <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aun.it.uu.se ([130.238.12.36]:49081 "EHLO aun.it.uu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751552AbYJGPiP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2008 11:38:15 -0400
-In-Reply-To: <20081007071827.GB5010@infradead.org>
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:50515 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753838AbYJGQjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 12:39:06 -0400
+Received: by gxk9 with SMTP id 9so6815881gxk.13
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2008 09:39:05 -0700 (PDT)
+In-Reply-To: <48BF83E1.5040000@bull.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Hellwig writes:
- > On Tue, Oct 07, 2008 at 09:02:25AM +0200, Nick Piggin wrote:
- > > (resending with correct netdev address)
- > > 
- > > Hi,
- > > 
- > > I thought I should quickly bring this patch up to date and write it up
- > > properly, because IMO it is still useful. I earlier had tried to turn the
- > > algorithm into a library that could be plugged into with specific lookup
- > > functions and such, but that got really nasty and also difficult to retain
- > > a really light fastpath. I don't think it is too nasty to open-code it...
- > > 
- > > Describe the "Dynamic dynamic data structure" (DDDS) algorithm, and implement
- > > adaptive dcache hash table sizing using DDDS.
- > > 
- > > The dcache hash size is increased to the next power of 2 if the number
- > > of dentries exceeds the current size of the dcache hash table. It is decreased
- > > in size if it is currently more than 3 times the number of dentries.
- > > 
- > > This might be a dumb thing to do. It also currently performs the hash resizing
- > > check for each dentry insertion/deletion, and calls the resizing in-line from
- > > there: that's bad, because resizing takes several RCU grace periods. Rather it
- > > should kick off a thread to do the resizing, or even have a background worker
- > > thread checking the sizes periodically and resizing if required.
- > > 
- > > With this algorithm, I can fit a whole kernel source and git tree in my dcache
- > > hash table that is still 1/8th the size it would be before the patch.
- > > 
- > > I'm cc'ing netdev because Dave did express some interest in using this for
- > > some networking hashes, and network guys in general are pretty cluey when it
- > > comes to hashes and such ;)
+Hello,
+  So I wonder: the sysfs tagged directory support patch is in GerKH
+tree for more than a month.
+I cloned today latest Linus tree (2.6.27-rc9) and
+it is not there as far as I can see.
+It is also not in linux-next tree (from september).
+Now, I wonder what is the process of merging this
+GregKH tree ? should I watch the LKML list for a pull request
+from GregKH? or will it be first merged into the linux-next tree?
 
-I missed the first post, but loooking at the patch it seems
-somewhat complex.
+Regards,
+Mark
 
-How does this relate to traditional incremental hash tables
-like extensible hashing or linear hashing (not to be confused
-with linear probing)? In linear hashing a resize only affects
-a single collision chain at a time, and reads from other chains
-than the one being resized are unaffected.
 
-(I can dig up some references if need be.)
-
-/Mikael
+On Thu, Sep 4, 2008 at 8:44 AM, Benjamin Thery <benjamin.thery@bull.net> wrote:
+> David Shwatrz wrote:
+>>
+>> Hi,
+>>>
+>>> go into my tree this week,
+>>
+>> I am also interested in this patch; may I ask  - what do you mean by
+>> "my  tree" ?I am a little newbie in the kernel, as you might understand.
+>> I looked into
+>> http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/
+>> for candidates for this git tree you are talking about.
+>>
+>>  May I ask: what is the **exact** URL for this git tree you are talking
+>> about ?
+>
+> Greg's tree is there:
+> http://git.kernel.org/?p=linux/kernel/git/gregkh/patches.git;a=summary
+>
+> You can clone it from here:
+> git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/patches.git
+>
+> It contains the patches serie to be applied on top of
+> linux-2.6 (with 'quilt' for example).
+>
+> Benjamin
+>
+>>
+>> Thanks,
+>>
+>> Regards,
+>> DS
+>>
+>>
+>> On Tue, Sep 2, 2008 at 8:01 PM, Greg KH <gregkh@suse.de> wrote:
+>>>
+>>> On Tue, Sep 02, 2008 at 04:03:20PM +0200, Benjamin Thery wrote:
+>>>>
+>>>> Mark Ryden wrote:
+>>>>>
+>>>>> Hello,
+>>>>>  I hope that this patch (from 4.7.08) was not forgetten... I don't see
+>>>>> it for example in linux-net (I have an up-to-date linux-next git
+>>>>> tree).
+>>>>
+>>>> I was about to ask the same thing.
+>>>>
+>>>> Greg, what is the plan with these remaining patches for sysfs tagged
+>>>> dirs? Will you have some time to merge them in your tree soon?
+>>>
+>>> Yes, they should go into my tree this week, sorry been busy with 2.6.27
+>>> work and Novell's Hackweek.
+>>>
+>>> thanks,
+>>>
+>>> greg k-h
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>
+>>
+>
+>
+> --
+> B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+>
+>   http://www.bull.com
+>
