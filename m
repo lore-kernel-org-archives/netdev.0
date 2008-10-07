@@ -1,41 +1,37 @@
-From: Corey Minyard <minyard@acm.org>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 11:43:04 -0500
-Message-ID: <48EB9198.1090605@acm.org>
-References: <20081006185026.GA10383@minyard.local>
- <48EA8197.6080502@cosmosbay.com>
- <20081006.144002.56418911.davem@davemloft.net>
- <48EAF29D.8050203@cosmosbay.com> <m37i8k3hv1.fsf@ursa.amorsen.dk>
- <48EB5D28.7000503@cosmosbay.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Tue, 7 Oct 2008 09:48:33 -0700
+Message-ID: <20081007164833.GA16056@suse.de>
+References: <20080820021754.GA25182@kroah.com> <m1od3m282j.fsf_-_@frodo.ebiederm.org> <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net> <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com> <48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de> <31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com> <48BF83E1.5040000@bull.net> <dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com, paulmck@linux.vnet.ibm.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Thery <benjamin.thery@bull.net>,
+	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Mark Ryden <markryde@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms046pub.verizon.net ([206.46.252.46]:61946 "EHLO
-	vms046pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753985AbYJGQnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 12:43:17 -0400
-In-reply-to: <48EB5D28.7000503@cosmosbay.com>
+Received: from ns2.suse.de ([195.135.220.15]:46918 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753092AbYJGQvq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 12:51:46 -0400
+Content-Disposition: inline
+In-Reply-To: <dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
->
-> (2 weeks ago, Corey mentioned a 10x increase on UDP throughput on a 
-> 16-way machine,
-> that sounds promising)
-Just to be clear, that was 10x with preempt RT, which converts rwlocks 
-into PI mutexes.  So 16 processors going for the same lock is pretty ugly.
+On Tue, Oct 07, 2008 at 06:39:04PM +0200, Mark Ryden wrote:
+> Hello,
+>   So I wonder: the sysfs tagged directory support patch is in GerKH
+> tree for more than a month.
 
-Under heavy loads there is also a writer starvation problem, I believe 
-in non-RT.  You can't actually create or destroy a UDP socket when the 
-load is high because there's always a reader holding the lock.  RCU also 
-solves that problem.
+I dropped it from my tree 2 days ago, see the thread on lkml for why.
 
--corey
+thanks,
 
+greg k-h
