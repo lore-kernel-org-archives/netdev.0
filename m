@@ -1,46 +1,41 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 7 Oct 2008 07:36:11 -0700
-Message-ID: <20081007143611.GB6384@linux.vnet.ibm.com>
-References: <20081006185026.GA10383@minyard.local> <48EA8197.6080502@cosmosbay.com> <20081006.144002.56418911.davem@davemloft.net> <1223368290.26330.10.camel@lappy.programming.kicks-ass.net>
+Date: Tue, 7 Oct 2008 07:33:46 -0700
+Message-ID: <20081007143346.GA6384@linux.vnet.ibm.com>
+References: <20081006185026.GA10383@minyard.local> <48EA8197.6080502@cosmosbay.com> <20081006.144002.56418911.davem@davemloft.net> <48EA9A59.1090306@acm.org> <20081007083750.GB17079@2ka.mipt.ru> <48EB6F2D.100@linux-foundation.org>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
-	minyard@acm.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753594AbYJGOg2@vger.kernel.org>
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Corey Minyard <minyard@acm.org>,
+	David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754103AbYJGOki@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1223368290.26330.10.camel@lappy.programming.kicks-ass.net>
+In-Reply-To: <48EB6F2D.100@linux-foundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 07, 2008 at 10:31:30AM +0200, Peter Zijlstra wrote:
-> On Mon, 2008-10-06 at 14:40 -0700, David Miller wrote:
-> > From: Eric Dumazet <dada1@cosmosbay.com>
-> > Date: Mon, 06 Oct 2008 23:22:31 +0200
+On Tue, Oct 07, 2008 at 09:16:13AM -0500, Christoph Lameter wrote:
+> Evgeniy Polyakov wrote:
+> > On Mon, Oct 06, 2008 at 06:08:09PM -0500, Corey Minyard (minyard@acm.org) wrote:
+> >> Would using SLAB_DESTROY_BY_RCU be ok, or would that be too expensive?
 > > 
-> > > Me wondering what impact this synchronize_rcu() can have on mono-threaded
-> > > VOIP applications using lot of UDP sockets. What is the maximum delay of
-> > > this function ?
-> > 
-> > The cost is enormous, we really can't use it here.
-> > 
-> > I have a patch that did top-level socket destruction using RCU,
-> > and that didn't use synchronize_rcu(), and that killed connection
-> > rates by up to %20.
+> > I tested skb destruction via RCU path, and got 2.5 times worse numbers
+> > with small-packets-bulk-transfer workload.
 > 
-> Did you ever figure out why you lost those 20% ?
-> 
-> > I can only imagine what the cost would be if I had to add such a call
-> > in there.
-> 
-> Yeah, sync_rcu() is rediculously expensive, at best 3 jiffies IIRC.
+> Was this with regular RCU freeing? This will cool down the cacheline before
+> frees. You need SLAB_DESTROY_BY_RCU to keep the objects cache hot.
 
-I could make it -much- faster, but at the expense of -serious- CPU
-overhead.  Still, might be useful during boot time (when the system
-can't do anything useful anyway) to accelerate getting data structures
-initialized.
+Indeed!
+
+But care is required -- SLAB_DESTROY_BY_RCU permits objects to be freed
+and reallocated while a reader holds a reference.  The only guarantee is
+that the -type- of the data structure will not change while a reader holds
+a reference.  With something like UDP, this might well be sufficient.
+
+Just be careful!  ;-)
 
 							Thanx, Paul
