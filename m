@@ -1,32 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ipv4: add mc_count to in_device.
-Date: Tue, 07 Oct 2008 15:35:15 -0700 (PDT)
-Message-ID: <20081007.153515.188169370.davem@davemloft.net>
-References: <b25312890810010004p15e85df1u69125c7fa47ae01f@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Tue, 07 Oct 2008 15:27:12 -0700
+Message-ID: <m18wt0qbwf.fsf@frodo.ebiederm.org>
+References: <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net>
+	<dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
+	<48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
+	<31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
+	<48BF83E1.5040000@bull.net>
+	<dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
+	<20081007164833.GA16056@suse.de> <m1abdgywnb.fsf@frodo.ebiederm.org>
+	<20081007210902.GB7996@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, pekkas@netcore.fi
-To: roszenrami@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Ryden <markryde@gmail.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53084
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755591AbYJGWfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 18:35:40 -0400
-In-Reply-To: <b25312890810010004p15e85df1u69125c7fa47ae01f@mail.gmail.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:37388 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755134AbYJGWgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 18:36:04 -0400
+In-Reply-To: <20081007210902.GB7996@suse.de> (Greg KH's message of "Tue, 7 Oct
+	2008 14:09:02 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <roszenrami@gmail.com>
-Date: Wed, 1 Oct 2008 10:04:48 +0300
+Greg KH <gregkh@suse.de> writes:
 
-> This patch add mc_count to struct in_device and
-> updates increment/decrement/initilaize of this field in IPv4 and in IPv6.
-> 
-> - Also printing the vfs /proc entry (/proc/net/igmp) is adjusted to
-> use the new mc_count.
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> On Tue, Oct 07, 2008 at 01:31:52PM -0700, Eric W. Biederman wrote:
+>> Greg KH <gregkh@suse.de> writes:
+>> 
+>> > On Tue, Oct 07, 2008 at 06:39:04PM +0200, Mark Ryden wrote:
+>> >> Hello,
+>> >>   So I wonder: the sysfs tagged directory support patch is in GerKH
+>> >> tree for more than a month.
+>> >
+>> > I dropped it from my tree 2 days ago, see the thread on lkml for why.
+>> 
+>> Greg why did you drop it? 
+>
+> Because Al said it was full of problems and for us not to accept it.
 
-Applied.
+Yes. Al found problems.
+
+Al reviewed sysfs with my patchset on top of it.
+
+Al's review found problems in  sysfs with my patchset on top of it.
+
+If you look at what Al found the majority of those problems exist in sysfs
+without my patches.
+
+Does the following sound like a workable path going forward?
+
+- Not merge for 2.6.28 (we are to close to the merge window for everyone's comfort).
+
+- Fix the small issues specific to tagged directory support that showed
+  up in Al's review (patches sent).
+
+- Keep the patches the entire time in a public tree that merges into
+  linux-next so that people treat this code base seriously.
+
+- Resolve the sysfs/vfs lock ordering problem mess that makes
+  locking in sysfs excruciatingly difficult.
+
+- Merge other patches to fix Als other issues with sysfs.
+
+- Merge to 2.6.29 or wherever we are.
+
+
+Eric
+
