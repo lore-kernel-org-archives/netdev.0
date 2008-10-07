@@ -1,119 +1,126 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [patch][rfc] ddds: "dynamic dynamic data structure" algorithm,
- for adaptive dcache hash table sizing (resend)
-Date: Tue, 07 Oct 2008 09:37:31 +0200
-Message-ID: <48EB11BB.2060704@cosmosbay.com>
-References: <20081007064834.GA5959@wotan.suse.de> <20081007070225.GB5959@wotan.suse.de>
+From: KOVACS Krisztian <hidden@sch.bme.hu>
+Subject: [net-next PATCH] Add udplib_lookup_skb() helpers (was: [net-next	PATCH
+ 10/16] Don't lookup the socket if there's a socket attached to the	skb)
+Date: Tue, 07 Oct 2008 09:42:12 +0200
+Message-ID: <1223365332.35518.9.camel@nessa.odu>
+References: <20081001142431.4893.69772.stgit@este>
+ <20081001.075040.135314845.davem@davemloft.net> <1222875500.7492.6.camel@este>
+ <20081001.085104.193726318.davem@davemloft.net>
+ <1222962200.14079.19.camel@este> <20081002170935.GE17843@ghostprotocols.net>
+ <1223024268.8912.2.camel@este> <20081003134747.GH17843@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Memory Management List <linux-mm@kvack.org>,
-	netdev@vger.kernel.org, Paul McKenney <paulmck@us.ibm.com>
-To: Nick Piggin <npiggin@suse.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7BIT
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.orange.fr ([80.12.242.50]:47018 "EHLO smtp23.orange.fr"
+Received: from balu.sch.bme.hu ([152.66.208.40]:59876 "EHLO balu.sch.bme.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751618AbYJGHhr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 03:37:47 -0400
-In-Reply-To: <20081007070225.GB5959@wotan.suse.de>
+	id S1751081AbYJGHmO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 03:42:14 -0400
+In-reply-to: <20081003134747.GH17843@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nick Piggin a =E9crit :
-> (resending with correct netdev address)
->=20
-> Hi,
->=20
-> I thought I should quickly bring this patch up to date and write it u=
-p
-> properly, because IMO it is still useful. I earlier had tried to turn=
- the
-> algorithm into a library that could be plugged into with specific loo=
-kup
-> functions and such, but that got really nasty and also difficult to r=
-etain
-> a really light fastpath. I don't think it is too nasty to open-code i=
-t...
->=20
-> Describe the "Dynamic dynamic data structure" (DDDS) algorithm, and i=
-mplement
-> adaptive dcache hash table sizing using DDDS.
->=20
-> The dcache hash size is increased to the next power of 2 if the numbe=
-r
-> of dentries exceeds the current size of the dcache hash table. It is =
-decreased
-> in size if it is currently more than 3 times the number of dentries.
->=20
-> This might be a dumb thing to do. It also currently performs the hash=
- resizing
-> check for each dentry insertion/deletion, and calls the resizing in-l=
-ine from
-> there: that's bad, because resizing takes several RCU grace periods. =
-Rather it
-> should kick off a thread to do the resizing, or even have a backgroun=
-d worker
-> thread checking the sizes periodically and resizing if required.
->=20
-> With this algorithm, I can fit a whole kernel source and git tree in =
-my dcache
-> hash table that is still 1/8th the size it would be before the patch.
->=20
-> I'm cc'ing netdev because Dave did express some interest in using thi=
-s for
-> some networking hashes, and network guys in general are pretty cluey =
-when it
-> comes to hashes and such ;)
->
+Hi,
 
-Thanks for reminding us this interesting stuff. And yes, IP route cache=
- could use
-same algo. That is particularly interesting because it has a /proc/net/=
-rt_cache
-accessor that needs to sequentially scan this hash table (potentialy wi=
-th
-many empty slots), while dcache doesnt have such killer.
-=20
->
-> +static struct dcache_hash *alloc_dhash(int size)
-> +{
-> +	struct dcache_hash *dh;
-> +	unsigned long bytes;
-> +	unsigned int shift;
-> +	int i;
-> +
-> +	shift =3D ilog2(size);
-> +	BUG_ON(size !=3D 1UL << shift);
-> +	bytes =3D size * sizeof(struct hlist_head *);
-> +
-> +	dh =3D kmalloc(sizeof(struct dcache_hash), GFP_KERNEL);
-> +	if (!dh)
-> +		return NULL;
-> +
-> +	if (bytes <=3D PAGE_SIZE) {
-> +		dh->table =3D kmalloc(bytes, GFP_KERNEL);
-> +	} else {
-> +		dh->table =3D vmalloc(bytes);
-> +	}
+On Fri, 2008-10-03 at 10:47 -0300, Arnaldo Carvalho de Melo wrote:
+> > Those functions don't have access to the skb so unless we change the
+> > signature they won't be able to steal the reference.
+> 
+> Indeed, but we should try to have the main TCP code flow clean, ditto
+> for
+> DCCP, free of such details, so after this activitity settles down I'll
+> submit something like the patch below.
+> 
+> If Dave agrees and you feel like merging it on your current patchset,
+> feel free to do it.
 
-Here we probably want to use a hashdist/NUMA enabled vmalloc().
+And here are the skb lookup helpers for UDP.
 
-That is, regardless of current numa policy of *this* thread,
-we want to spread hash table on all nodes.
-
-Also, struct dcache_hash being very small, you want to force it to
-use an exclusive cache line, to be sure it wont share it with some=20
-higly modified data...
-
-struct dcache_hash {
-	struct hlist_head *table;
-	unsigned int shift;
-	unsigned int mask;
-} __cacheline_aligned_in_smp;
+-- 
+KOVACS Krisztian
 
 
+Add udplib_lookup_skb() helpers
 
+To be able to use the cached socket reference in the skb during input
+processing we add a new set of lookup functions that receive the skb on
+their argument list.
+
+Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
+---
+
+ net/ipv4/udp.c |   14 ++++++++++++--
+ net/ipv6/udp.c |   14 ++++++++++++--
+ 2 files changed, 24 insertions(+), 4 deletions(-)
+
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 28c3c31..8369f4d 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -302,6 +302,17 @@ static struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 	return result;
+ }
+ 
++static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
++						 __be16 sport, __be16 dport,
++						 struct hlist_head udptable[])
++{
++	const struct iphdr *iph = ip_hdr(skb);
++
++	return __udp4_lib_lookup(dev_net(skb->dst->dev), iph->saddr, sport,
++				 iph->daddr, dport, inet_iif(skb),
++				 udptable);
++}
++
+ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 			     __be32 daddr, __be16 dport, int dif)
+ {
+@@ -1198,8 +1209,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 		return __udp4_lib_mcast_deliver(net, skb, uh,
+ 				saddr, daddr, udptable);
+ 
+-	sk = __udp4_lib_lookup(net, saddr, uh->source, daddr,
+-			uh->dest, inet_iif(skb), udptable);
++	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 
+ 	if (sk != NULL) {
+ 		int ret = 0;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index a6aecf7..ce26c41 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -107,6 +107,17 @@ static struct sock *__udp6_lib_lookup(struct net *net,
+ 	return result;
+ }
+ 
++static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
++					  __be16 sport, __be16 dport,
++					  struct hlist_head udptable[])
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++
++	return __udp6_lib_lookup(dev_net(skb->dst->dev), &iph->saddr, sport,
++				 &iph->daddr, dport, inet6_iif(skb),
++				 udptable);
++}
++
+ /*
+  * 	This should be easy, if there is something there we
+  * 	return it, otherwise we block.
+@@ -488,8 +499,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 	 * check socket cache ... must talk to Alan about his plans
+ 	 * for sock caches... i'll skip this for now.
+ 	 */
+-	sk = __udp6_lib_lookup(net, saddr, uh->source,
+-			       daddr, uh->dest, inet6_iif(skb), udptable);
++	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 
+ 	if (sk == NULL) {
+ 		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
 
 
