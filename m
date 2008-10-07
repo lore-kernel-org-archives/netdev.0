@@ -1,83 +1,88 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 14:59:20 +0200
-Message-ID: <48EB5D28.7000503@cosmosbay.com>
-References: <20081006185026.GA10383@minyard.local>	<48EA8197.6080502@cosmosbay.com>	<20081006.144002.56418911.davem@davemloft.net>	<48EAF29D.8050203@cosmosbay.com> <m37i8k3hv1.fsf@ursa.amorsen.dk>
+From: Milan Kocian <milon@wq.cz>
+Subject: Re: Could you make vconfig less stupid?
+Date: Tue, 7 Oct 2008 15:28:02 +0200
+Message-ID: <20081007132800.GH4606@ntm.vs.lam.cz>
+References: <20081006202401.14f03be2@speedy> <200810071520.56610.denys@visp.net.lb> <20081007124820.GG4606@ntm.vs.lam.cz> <200810071549.16647.denys@visp.net.lb> <48EB5C63.60501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, minyard@acm.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com, paulmck@linux.vnet.ibm.com
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="y9PDtDHaFrXNoMPU"
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
+	Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.orange.fr ([193.252.22.30]:30835 "EHLO smtp23.orange.fr"
+Received: from srw1.wq.cz ([212.71.155.176]:37658 "EHLO srw1.wq.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753224AbYJGM7b convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 08:59:31 -0400
-In-Reply-To: <m37i8k3hv1.fsf@ursa.amorsen.dk>
+	id S1751133AbYJGN2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 09:28:09 -0400
+Content-Disposition: inline
+In-Reply-To: <48EB5C63.60501@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benny Amorsen a =E9crit :
-> Eric Dumazet <dada1@cosmosbay.com> writes:
->=20
->> Most UDP sockets are setup for long periods (RTP trafic), or if an a=
-pplication really
->> wants to {open/send or receive one UDP frame/close} many sockets, it=
- already hits
->> RCU handling of its file structures and should not be slowed down th=
-at much.
->>
 
-I should have say 'Many' instead of 'Most' :)
+--y9PDtDHaFrXNoMPU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->> By 'long period' I mean thousand of packets sent/received by each RT=
-P session, being
->> voice (50 packets/second) or even worse video...
->=20
-> Does DNS with port randomization need short lived sockets?
->=20
+On Tue, Oct 07, 2008 at 02:56:03PM +0200, Patrick McHardy wrote:
+> Denys Fedoryshchenko wrote:
+>> On Tuesday 07 October 2008, Milan Kocian wrote:
+>>> hello,
+>>>
+>>> btw. How can I see vlan id on device ?
+>>> After:
+>>> # ip l a l eth0 type vlan id 100
+>>> # ip a
+>>> I see:
+>>>
+>>> 64: vlan0@eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+>>>     link/ether 00:16:d3:3e:4e:b9 brd ff:ff:ff:ff:ff:ff
+>>>
+>>> No vlan id in interface name ?
+>>>
+>>> # ip -V
+>>> ip utility, iproute2-ss080725
+>>>
+>>> regards,
+>> Use flag -d
+>> rich ip # ./ip -d l show dev vlan0
+>> 31: vlan0@eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+>>     link/ether 00:1e:8c:89:78:af brd ff:ff:ff:ff:ff:ff
+>>     vlan id 100 <REORDER_HDR>
+>
+> It would be better to have -d as a default, I was afraid of breaking
+> scripts of people sedding and awking around with the iproute output.
+>
+> Stephen should make this call, I'm not sure what guarantees he wants
+> to provide. I just remembered one of my previous jobs where a large
+> number of scripts had to be changed because iproute started using
+> lower case letters in some spots, and I had to do it :)
 
-Yes very true, but current allocation of a random port can be very expe=
-nsive,=20
-since we scan all the UDP hash table to select the smaller hash chain.
+Thanks for quick answer.=20
+Yes, -d will be fine.
+It is a pity that vlan id will not be in interface name. It was=20
+comfortable to have vlan id in interface name.=20
+Any reason for changing naming schema ?
 
-We stop the scan if we find an empty slot, but on machines with say mor=
-e than 200
-bound UDP sockets, they are probably no empty slots. (UDP_HTABLE_SIZE i=
-s 128)
+regards,
 
-bind(NULL port) algo is then O(N), N being number of bound UDP sockets.
+--=20
+Milan Kocian
 
-So heavy DNS servers/proxies probably use a pool/range of pre-allocated=
- sockets
-to avoid costs of allocating/freeing them ? If they dont care about tha=
-t cost,
-the extra call_rcu() will be unnoticed.
+--y9PDtDHaFrXNoMPU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-=46or pathological (yet very common :) ) cases like single DNS query/an=
-swer, RCU
-would mean :
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-Pros :
-- one few rwlock hit when receiving the answer (if any)
-Cons :
-- one call_rcu() to delay socket freeing/reuse after RCU period.
+iEYEARECAAYFAkjrY+AACgkQPxnHOr4hZ+rmgACfS7K3B59L24exSSSYb11F6m++
+dMMAn26h/XhuYI4k2589M41eLmAI+sV/
+=vqRT
+-----END PGP SIGNATURE-----
 
-So it might be a litle bit more expensive than without RCU
-
-I agree I am more interested in optimizing UDP stack for heavy users li=
-ke RTP=20
-servers/proxies handling xxx.000 packets/second than DNS users/servers.
-Shame on me :)
-
-(2 weeks ago, Corey mentioned a 10x increase on UDP throughput on a 16-=
-way machine,
-that sounds promising)
-
-
-
-
-
+--y9PDtDHaFrXNoMPU--
