@@ -1,109 +1,95 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Possible regression in HTB
-Date: Tue, 7 Oct 2008 12:15:53 +1100
-Message-ID: <20081007011551.GA28408@verge.net.au>
+From: Tim Mann <mann@vmware.com>
+Subject: bnx2 driver can't enable/disable wake-on-lan on HP DL585 G2 onboard
+ NICs
+Date: Mon, 6 Oct 2008 19:48:45 -0700
+Message-ID: <20081006194845.4e18705f@manzanita>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mann@vmware.com, netdev@vger.kernel.org
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:36494 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243AbYJGBPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 21:15:55 -0400
-Content-Disposition: inline
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:47852 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753629AbYJGCss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 22:48:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, Hi Jarek,
+Hi, Michael.  The subject line summarizes the problem; more details
+below. I'm emailing you to ask (if you know) whether this is something
+that should work in the bnx2 driver, or if HP has done something
+peculiar in their hardware/firmware that the driver can't be expected
+to deal with.
 
-I know that you guys were/are playing around a lot in here, but
-unfortunately I think that "pkt_sched: Always use q->requeue in
-dev_requeue_skb()" (f0876520b0b721bedafd9cec3b1b0624ae566eee) has
-introduced a performance regression for HTB.
+Here's the deal.  The HP DL585 G2 has an onboard dual-port NIC based on
+the bcm5706.  Both ports support wake-on-lan, but WOL works if and only
+if you enable it using an option in the HP BIOS setup screens.  If you
+disable it from there, ethtool still thinks WOL is supported and that
+it's enabled by default, but the machine won't wake.  Conversely (and
+this part surprises me more), if you enable WOL from the BIOS setup
+screen, the machine always wakes on a WOL magic packet *even* if you
+try to disable WOL using ethtool.  Again ethtool thinks that WOL is
+supported and that it's enabled by default, and it thinks that it can
+disable WOL, but disabling it through ethtool has no effect -- the
+machine wakes anyway.
 
-My tc rules are below, but in a nutshell I have 3 leaf classes.
-One with a rate of 500Mbit/s and the other two with 100Mbit/s.
-The ceiling for all classes is 1Gb/s and that is also both
-the rate and ceiling for the parent class.
+I don't have this problem with other NICs that use the bnx2 driver.  In
+particular, I just retested one that I have in a box in my office, and
+the bnx2 driver can both enable and disable WOL on that NIC fine.
 
-                          [ rate=1Gbit/s ]
-                          [ ceil=1Gbit/s ]
-                                 |
-            +--------------------+--------------------+
-            |                    |                    |
-     [ rate=500Mbit/s ]   [ rate=100Mbit/s ]   [ rate=100Mbit/s ]
-     [ ceil=  1Gbit/s ]   [ ceil=100Mbit/s ]   [ ceil=  1Gbit/s ]
+So far I've tried this only with a bnx2 driver that advertises itself
+as 1.6.9 with release date December 8, 2007.  I could try with a newer
+one, but I looked at the diffs between 1.6.9 and 1.8.0 and I didn't see
+anything that looks like it should affect this.  Let me know if I
+should try it anyway, though.
 
-The tc rules have an extra class for all other traffic,
-but its idle, so I left it out of the diagram.
+In case it helps, here's lspci output from the HP box with the misbehaving NIC:
 
-In order to test this I set up filters so that traffic to
-each of port 10194, 10196 and 10197 is directed to one of the leaf-classes.
-I then set up a process on the same host for each port sending
-UDP as fast as it could in a while() { send(); } loop. On another
-host I set up processes listening for the UDP traffic in a
-while () { recv(); } loop. And I measured the results.
+[root@drm121 ~]# lspci -s 41:01.0 -v 
+41:01.0 Ethernet controller: Broadcom Corporation NetXtreme II 5706 Gigabit Ethernet (rev 02)
+        Subsystem: Hewlett-Packard Company Unknown device 1709
+        Flags: bus master, 66MHz, medium devsel, latency 120, IRQ 23
+        Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
+        [virtual] Expansion ROM at 88200000 [disabled] [size=2K]
+        Capabilities: [40] PCI-X non-bridge device
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+[root@drm121 ~]# lspci -s 41:01.0 -v -n
+41:01.0 0200: 14e4:164a (rev 02)
+        Subsystem: 103c:1709
+        Flags: bus master, 66MHz, medium devsel, latency 120, IRQ 23
+        Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
+        [virtual] Expansion ROM at 88200000 [disabled] [size=2K]
+        Capabilities: [40] PCI-X non-bridge device
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
 
-( I should be able to provide the code used for testing,
-  but its not mine and my colleague who wrote it is off
-  with the flu today. )
+Here's output from my test machine:
 
-Prior to this patch the result looks like this:
+[root@moppet ~]# lspci -s 41:04.0 -v 
+41:04.0 Ethernet controller: Broadcom Corporation NetXtreme II 5706 Gigabit Ethernet (rev 02)
+        Subsystem: Hewlett-Packard Company Unknown device 3101
+        Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
+        Memory at f0000000 (64-bit, non-prefetchable) [size=32M]
+        [virtual] Expansion ROM at 88000000 [disabled] [size=64K]
+        Capabilities: [40] PCI-X non-bridge device
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
 
-10194: 545134589bits/s 545Mbits/s
-10197: 205358520bits/s 205Mbits/s
-10196: 205311416bits/s 205Mbits/s
------------------------------------
-total: 955804525bits/s 955Mbits/s
+[root@moppet ~]# lspci -s 41:04.0 -v -n
+41:04.0 0200: 14e4:164a (rev 02)
+        Subsystem: 103c:3101
+        Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
+        Memory at f0000000 (64-bit, non-prefetchable) [size=32M]
+        [virtual] Expansion ROM at 88000000 [disabled] [size=64K]
+        Capabilities: [40] PCI-X non-bridge device
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable
 
-And after the patch the result looks like this:
-10194: 384248522bits/s 384Mbits/s
-10197: 284706778bits/s 284Mbits/s
-10196: 288119464bits/s 288Mbits/s
------------------------------------
-total: 957074765bits/s 957Mbits/s
-
-There is some noise in these results, but I think that its clear
-that before the patch all leaf-classes received at least their rate,
-and after the patch the rate=500Mbit/s class received much less than
-its rate. This I believe is a regression.
-
-I do not believe that this happens at lower bit rates, for instance
-if you reduce the ceiling and rate of all classes by a factor of 10.
-I can produce some numbers on that if you want them.
-
-The test machine with the tc rules and udp-sending processes
-has two Intel Xeon Quad-cores running at 1.86GHz. The kernel
-is SMP x86_64.
 
 -- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
-
-
-tc qdisc del dev eth0 root
-
-tc qdisc add dev eth0 root handle 1: htb default 10 r2q 10000
-
-tc class add dev eth0 parent 1:  classid 1:1   htb \
-	rate 1Gbit ceil 1Gbit
-
-tc class add dev eth0 parent 1:1 classid 1:10 htb \
-	rate 1Gbit ceil 1Gbit
-tc class add dev eth0 parent 1:1 classid 1:11 htb \
-	rate 500Mbit ceil 1Gbit
-tc class add dev eth0 parent 1:1 classid 1:12 htb \
-	rate 100Mbit ceil 1Gbit
-tc class add dev eth0 parent 1:1 classid 1:13 htb \
-	rate 100Mbit ceil 1Gbit
-
-tc filter add dev eth0 protocol ip parent 1: \
-	u32 match ip dport 10194 0xffff flowid 1:11
-tc filter add dev eth0 protocol ip parent 1: \
-	u32 match ip dport 10196 0xffff flowid 1:12
-tc filter add dev eth0 protocol ip parent 1: \
-	u32 match ip dport 10197 0xffff flowid 1:13
-
+Tim Mann  work: mann@vmware.com  home: tim@tim-mann.org
+          http://www.vmware.com  http://tim-mann.org
