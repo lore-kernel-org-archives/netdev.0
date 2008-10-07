@@ -1,72 +1,32 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [0/3] The new POHMELFS release.
-Date: Wed, 8 Oct 2008 01:19:25 +0400
-Message-ID: <20081007211925.GA1274@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 16/32] net: wrap sk->sk_backlog_rcv()
+Date: Tue, 07 Oct 2008 14:19:02 -0700 (PDT)
+Message-ID: <20081007.141902.06048204.davem@davemloft.net>
+References: <20081002130504.927878499@chello.nl>
+	<20081002131608.667433428@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	dlezcano@fr.ibm.com, penberg@cs.helsinki.fi, neilb@suse.de
+To: a.p.zijlstra@chello.nl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45356
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757548AbYJGVT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 17:19:27 -0400
+In-Reply-To: <20081002131608.667433428@chello.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date: Thu, 02 Oct 2008 15:05:20 +0200
 
-I'm pleased to announce the new POHMELFS release.
-This is a major change in the Parallel Optimized Host Message Exchange
-Layered File System: completely rewritten distributed (byte-range)
-locking subsystem. Locks are actually byte-range, but since every Linux
-FS locks the whole inode, POHMELFS locks also do this. Multiple writers
-are somewhat serialized and thus cache is coherent (pages either contain
-valid data or they are not uptodate) on all clients at any time.
+> Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
+> generic sk_backlog_rcv behaviour.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 
-Other changes made in this release:
- * Documentation update. Fixed by Adam Langley (agl_imperialviolet.org)
- * Add/del/show commands patch from Varun Chandramohan
-	(varunc_linux.vnet.ibm.com)
- * Bug fixes and cleanups.
-
-POHMELFS is a very high performance parallel network filesystem with
-local coherent cache of data and metadata. Its main goal is distributed
-processing of the data.
-
-Features supported by POHMELFS:
- * Local coherent cache for data and metadata.
- * Completely async processing of all events (hard and symlinks are the
-	only exceptions) including object creation and data reading and
-	writing.
- * Flexible object architecture optimized for network processing. Ability
-	to create long pathes to object and remove arbitrary huge 
-	directories in single network command.
- * High performance is one of the main design goals.
- * Very fast and scalable multithreaded userspace server. Being in
-	userspace it works with any underlying filesystem and still is much
-	faster than async in-kernel NFS one.
- * Transactions support. Full failover for all operations. Resending
-	transactions to different servers on timeout or error.
- * Client is able to switch between different servers (if one goes down,
-	client automatically reconnects to second and so on).
- * Client parallel extensions: ability to write to multiple servers and
-	balance reading between them.
- * Client dynamical server reconfiguration: ability to add/remove servers
-	from working set in run-time.
- * Strong authentification and possible data encryption in network channel.
-
-POHMELFS roadmap now includes distributed and parallel facilities of the
-server.
-
-1. POHMELFS homepage.
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=pohmelfs
-
-2. POHMELFS archive.
-http://tservice.net.ru/~s0mbre/archive/pohmelfs/
-
-3. GIT trees.
-http://tservice.net.ru/~s0mbre/cgi-bin/gitweb.cgi
-
-4. Development status.
-http://tservice.net.ru/~s0mbre/blog//devel/fs
-
--- 
-	Evgeniy Polyakov
+Looks fine, applied to net-next-2.6, thanks!
