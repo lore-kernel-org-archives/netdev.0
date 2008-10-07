@@ -1,58 +1,69 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Could you make vconfig less stupid?
-Date: Mon, 06 Oct 2008 19:32:10 -0700
-Message-ID: <48EACA2A.1030005@candelatech.com>
-References: <20081006202401.14f03be2@speedy> <48EA9096.8010505@trash.net>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [NET-NEXT PATCH 1/6] ixgbe: this patch adds support for DCB to the kernel and ixgbe driver
+Date: Mon, 6 Oct 2008 20:14:05 -0700
+Message-ID: <9929d2390810062014s139b3eb7x1617632ce327dbbf@mail.gmail.com>
+References: <20081007030540.782.28987.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
+	"Alexander Duyck" <alexander.h.duyck@intel.com>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:59212 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487AbYJGDLS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 23:11:18 -0400
-In-Reply-To: <48EA9096.8010505@trash.net>
+Received: from wr-out-0506.google.com ([64.233.184.238]:13661 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754616AbYJGDOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 23:14:09 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so1417379wri.5
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2008 20:14:06 -0700 (PDT)
+In-Reply-To: <20081007030540.782.28987.stgit@gitlost.lost>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Stephen Hemminger wrote:
->> vconfig prints bogus message, then autoloads the vlan module.
->> It is still living in 2.4 time warp.
->>
->> # vconfig add dummy0 1
->> WARNING:  Could not open /proc/net/vlan/config.  Maybe you need to 
->> load the 8021q module, or maybe you are not using PROCFS??
->> Added VLAN with VID == 1 to IF -:dummy0:-
->>
->> Other nuisance:
->> # vconfig --version
->> Expecting argc to be 3-5, inclusive.  Was: 2
->> ...
->>
->> 1) users expect version
->> 2) users don't expect argc related crap messages
+On Mon, Oct 6, 2008 at 8:05 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 >
-> Actually I don't maintain vconfig and I don't think Ben does either.
-> Its deprecated and iproute is what people should use, all the new
-> features are not supported by vconfig.
-I can fix these things if anyone cares, but leaving it crufty might be a 
-better
-way to encourage folks to use 'ip'.
-
-Ben
-
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
 >
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  drivers/net/ixgbe/Makefile          |    3
+>  drivers/net/ixgbe/ixgbe.h           |   26 +
+>  drivers/net/ixgbe/ixgbe_dcb.c       |  332 +++++++++++++++++
+>  drivers/net/ixgbe/ixgbe_dcb.h       |  158 ++++++++
+>  drivers/net/ixgbe/ixgbe_dcb_82598.c |  398 ++++++++++++++++++++
+>  drivers/net/ixgbe/ixgbe_dcb_82598.h |   94 +++++
+>  drivers/net/ixgbe/ixgbe_dcb_nl.c    |  352 ++++++++++++++++++
+>  drivers/net/ixgbe/ixgbe_ethtool.c   |   37 ++
+>  drivers/net/ixgbe/ixgbe_main.c      |  189 +++++++++-
+>  include/linux/dcbnl.h               |  230 ++++++++++++
+>  include/linux/netdevice.h           |    8
+>  include/linux/rtnetlink.h           |    5
+>  include/net/dcbnl.h                 |   44 ++
+>  net/Kconfig                         |    1
+>  net/Makefile                        |    3
+>  net/dcb/Kconfig                     |   12 +
+>  net/dcb/Makefile                    |    1
+>  net/dcb/dcbnl.c                     |  682 +++++++++++++++++++++++++++++++++++
+>  18 files changed, 2555 insertions(+), 20 deletions(-)
+>  create mode 100644 drivers/net/ixgbe/ixgbe_dcb.c
+>  create mode 100644 drivers/net/ixgbe/ixgbe_dcb.h
+>  create mode 100644 drivers/net/ixgbe/ixgbe_dcb_82598.c
+>  create mode 100644 drivers/net/ixgbe/ixgbe_dcb_82598.h
+>  create mode 100644 drivers/net/ixgbe/ixgbe_dcb_nl.c
+>  create mode 100644 include/linux/dcbnl.h
+>  create mode 100644 include/net/dcbnl.h
+>  create mode 100644 net/dcb/Kconfig
+>  create mode 100644 net/dcb/Makefile
+>  create mode 100644 net/dcb/dcbnl.c
+>
+
+Sorry I got PJ's email incorrect the first time, resent with PJ's correct email.
 
 
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+Cheers,
+Jeff
