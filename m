@@ -1,113 +1,139 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Possible regression in HTB
-Date: Tue, 7 Oct 2008 15:51:47 +1100
-Message-ID: <20081007045145.GA23883@verge.net.au>
-References: <20081007011551.GA28408@verge.net.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when	gc_elasticity
+ is exceeded
+Date: Tue, 07 Oct 2008 07:13:29 +0200
+Message-ID: <48EAEFF9.1000606@cosmosbay.com>
+References: <48E25F02.8030303@cosmosbay.com> <20081001180846.GB3566@hmsreliant.think-freely.org> <20081002010101.6f0a1fa5.billfink@mindspring.com> <48E470AC.10305@cosmosbay.com> <48E4832A.3070804@cosmosbay.com> <20081003003158.GA19230@localhost.localdomain> <20081003203640.GA13354@hmsreliant.think-freely.org> <48E9ED3D.2020005@cosmosbay.com> <20081006205422.GD16939@hmsreliant.think-freely.org> <48EA8162.4050409@cosmosbay.com> <20081006225210.GA29794@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bill Fink <billfink@mindspring.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:33920 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750798AbYJGEvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 00:51:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20081007011551.GA28408@verge.net.au>
+Received: from smtp28.orange.fr ([80.12.242.101]:49596 "EHLO smtp28.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750983AbYJGFNy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 01:13:54 -0400
+In-Reply-To: <20081006225210.GA29794@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 07, 2008 at 12:15:52PM +1100, Simon Horman wrote:
-> Hi Dave, Hi Jarek,
-> 
-> I know that you guys were/are playing around a lot in here, but
-> unfortunately I think that "pkt_sched: Always use q->requeue in
-> dev_requeue_skb()" (f0876520b0b721bedafd9cec3b1b0624ae566eee) has
-> introduced a performance regression for HTB.
-> 
-> My tc rules are below, but in a nutshell I have 3 leaf classes.
-> One with a rate of 500Mbit/s and the other two with 100Mbit/s.
-> The ceiling for all classes is 1Gb/s and that is also both
-> the rate and ceiling for the parent class.
-> 
->                           [ rate=1Gbit/s ]
->                           [ ceil=1Gbit/s ]
->                                  |
->             +--------------------+--------------------+
->             |                    |                    |
->      [ rate=500Mbit/s ]   [ rate=100Mbit/s ]   [ rate=100Mbit/s ]
->      [ ceil=  1Gbit/s ]   [ ceil=100Mbit/s ]   [ ceil=  1Gbit/s ]
-> 
-> The tc rules have an extra class for all other traffic,
-> but its idle, so I left it out of the diagram.
-> 
-> In order to test this I set up filters so that traffic to
-> each of port 10194, 10196 and 10197 is directed to one of the leaf-classes.
-> I then set up a process on the same host for each port sending
-> UDP as fast as it could in a while() { send(); } loop. On another
-> host I set up processes listening for the UDP traffic in a
-> while () { recv(); } loop. And I measured the results.
-> 
-> ( I should be able to provide the code used for testing,
->   but its not mine and my colleague who wrote it is off
->   with the flu today. )
-> 
-> Prior to this patch the result looks like this:
-> 
-> 10194: 545134589bits/s 545Mbits/s
-> 10197: 205358520bits/s 205Mbits/s
-> 10196: 205311416bits/s 205Mbits/s
-> -----------------------------------
-> total: 955804525bits/s 955Mbits/s
-> 
-> And after the patch the result looks like this:
-> 10194: 384248522bits/s 384Mbits/s
-> 10197: 284706778bits/s 284Mbits/s
-> 10196: 288119464bits/s 288Mbits/s
-> -----------------------------------
-> total: 957074765bits/s 957Mbits/s
-> 
-> There is some noise in these results, but I think that its clear
-> that before the patch all leaf-classes received at least their rate,
-> and after the patch the rate=500Mbit/s class received much less than
-> its rate. This I believe is a regression.
-> 
-> I do not believe that this happens at lower bit rates, for instance
-> if you reduce the ceiling and rate of all classes by a factor of 10.
-> I can produce some numbers on that if you want them.
-> 
-> The test machine with the tc rules and udp-sending processes
-> has two Intel Xeon Quad-cores running at 1.86GHz. The kernel
-> is SMP x86_64.
+Neil Horman a =E9crit :
+> On Mon, Oct 06, 2008 at 11:21:38PM +0200, Eric Dumazet wrote:
+>> Neil Horman a =E9crit :
+>>> So, I've been playing with this patch, and I've not figured out eac=
+tly whats
+>>> bothering me yet, since the math seems right, but something doesn't=
+ seem right
+>>> about the outcome of this algorithm.  I've tested with my local sys=
+tem, and all
+>>> works well, because the route cache is well behaved, and the sd val=
+ue always
+>>> works out to be very small, so ip_rt_gc_elasticity is used.  So I'v=
+e been
+>>> working through some scenarios by hand to see what this looks like =
+using larger
+>>> numbers.  If i assume ip_rt_gc_interval is 60, and rt_hash_log is 1=
+7, my sample
+>>> count here is 7864320 samples per run.  If within that sample 39321=
+6 (about 4%)
+>>> of the buckets have one entry on the chain, and all the rest are ze=
+ros, my hand
+>>> calculations result in a standard deviation of approximately 140 an=
+d an average
+>>> of .4.  That imples that in that sample set any one chain could be =
+almost 500
+>>> entires long before it triggered a cache rebuld.  Does that seem re=
+asonable?
+>>>
+>> if rt_hash_log is 17, and interval is 60, then you should scan (60 <=
+<=20
+>> 17)/300 slots. That's 26214 slots. (ie 20% of the 2^17 slots)
+>>
+>> I have no idea how you can have sd =3D 140, even if scaled by (1 << =
+3)
+>> with slots being empty or with one entry only...
+>>
+> I don't either, that was my concern :).
+>=20
+>> If 4% of your slots have one element, then average length is 0.04 :)
+>>
+> Yes, and the average worked out properly, which is why I was concerne=
+d.
+>=20
+> If you take an even simpler case, like you state above (I admit I mis=
+eed the
+> /300 part of the sample, but no matter).
+>=20
+> samples =3D 26214
+> Assume each sample has a chain length of 1
+>=20
+> sum =3D 26214 * (1 << 3) =3D 209712
+> sum2 =3D sum * sum =3D s09712 * 209712 =3D 43979122944
+> avg =3D sum / samples =3D 209712 / 26214 =3D 8 (correct)
+> sd =3D sqrt(sum2 / samples - avg*avg) =3D sqrt(43979122944/26214 - 64=
+) =3D 1295
+> sd >> 3 =3D 1295.23 >> 3 =3D 161
+>=20
+>=20
+> Clearly, given the assumption that every chain in the sample set has =
+1 entry,
+> giving us an average of one, the traditional method of computing stan=
+dard
+> deviation should have yielded an sd of 0 exactly, since every sample =
+was
+> precisely the average. However, the math above gives us something sig=
+nificantly
+> larger.  I'm hoping I missed something, but I don't think I have. =20
+>=20
 
-With the following patch (basically a reversal of ""pkt_sched: Always use
-q->requeue in dev_requeue_skb()" forward ported to the current
-net-next-2.6 tree (tcp: Respect SO_RCVLOWAT in tcp_poll()), I get some
-rather nice numbers (IMHO).
+=46amous last sentence ;)
 
-10194: 666780666bits/s 666Mbits/s
-10197: 141154197bits/s 141Mbits/s
-10196: 141023090bits/s 141Mbits/s
------------------------------------
-total: 948957954bits/s 948Mbits/s
+You made some errors in your hand calculations.
+sum2 is the sum of squares. Its not sum * sum.
 
-I'm not sure what evil things this patch does to other aspects
-of the qdisc code.
+If all slots have one entry, all "lengths" are (1<<3),=20
+and their 'square scaled by 6' is (1 << 6) . So sum2 =3D 26214 * (1 << =
+6) =3D 1677696
+avg =3D sum / samples =3D 209712 / 26214 =3D (1 << 3)
+sd =3D sqrt(sum2 / samples - avg*avg) =3D sqrt(64 - 64) =3D 0 (this is =
+what we expected)
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 31f6b61..d2e0da6 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -44,7 +44,10 @@ static inline int qdisc_qlen(struct Qdisc *q)
- 
- static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- {
--	q->gso_skb = skb;
-+	if (unlikely(skb->next))
-+		q->gso_skb = skb;
-+	else
-+		q->ops->requeue(skb, q);
- 	__netif_schedule(q);
- 
- 	return 0;
+Now if you have 4 % of slots with one entry, and 96 % that are empty,
+you should have=20
+/* real maths */
+avg =3D 0.04
+sd =3D sqrt(0.04 - 0.04*0.04) =3D sqrt(0.0384) =3D 0.195959
+avg + 4*sd =3D 0.82
+
+/* fixed point math */
+sum =3D 0.04 * 26214 * (1<<3) =3D 1048 * (1<<3) =3D 8384=20
+sum2 =3D 1048 * (1 << 6) =3D 67072
+avg << 3 =3D 8384/26214 =3D 0   (with 3 bits for fractional part, we do=
+ have rounding error)
+sd << 3 =3D sqrt(67072/26214 - 0) =3D 1
+(avg + 4*sd) << 3 =3D 4  -> final result is 4>>3 =3D 0 (expected)
+
+Now if 50% of slots have one entry, we get :
+/* real maths */
+avg =3D 0.5
+sd =3D sqrt(0.5 - 0.5*0.5) =3D sqrt(0.25) =3D 0.5
+avg + 4*sd =3D 2.5
+
+/* fixed point math */
+sum =3D 0.5 * 26214 * (1<<3) =3D 104856
+sum2 =3D 13107 * (1<<6) =3D 838848
+avg << 3 =3D 104856/26214 =3D 4
+sd << 3 =3D sqrt(838848/26214 - 4*4) =3D sqrt(32 - 16) =3D 4=20
+(avg + 4*sd) << 3 =3D 20  -> final result is 20>>3 =3D 2 (expected)
+
+
+Hope this helps
+
+
+
