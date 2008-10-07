@@ -1,84 +1,38 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Christoph Lameter <cl@linux-foundation.org>
 Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 16:50:47 +0200
-Message-ID: <48EB7747.9060505@cosmosbay.com>
-References: <20081006185026.GA10383@minyard.local>	 <48EA8197.6080502@cosmosbay.com> <1223367480.26330.7.camel@lappy.programming.kicks-ass.net> <48EB2AE3.3080200@cosmosbay.com> <48EB6EE4.8030703@linux-foundation.org>
+Date: Tue, 07 Oct 2008 09:45:43 -0500
+Message-ID: <48EB7617.3060304@linux-foundation.org>
+References: <20081006185026.GA10383@minyard.local> <48EA8197.6080502@cosmosbay.com> <20081006.144002.56418911.davem@davemloft.net> <48EA9A59.1090306@acm.org> <20081007083750.GB17079@2ka.mipt.ru> <48EB6F2D.100@linux-foundation.org> <20081007143346.GA6384@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, minyard@acm.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Corey Minyard <minyard@acm.org>,
+	David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.orange.fr ([80.12.242.50]:49835 "EHLO smtp23.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752765AbYJGOu7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 10:50:59 -0400
-In-Reply-To: <48EB6EE4.8030703@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48276 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750880AbYJGOyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 10:54:15 -0400
+In-Reply-To: <20081007143346.GA6384@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter a =E9crit :
-> Eric Dumazet wrote:
->>>> Or just add SLAB_DESTROY_BY_RCU to slab creation in proto_register=
-()
->>>> for "struct proto udp_prot/udpv6_prot" so that kmem_cache_free() d=
-one
->>>> in sk_prot_free() can defer freeing to RCU...
->>> Be careful!, SLAB_DESTROY_BY_RCU just means the slab page gets
->>> RCU-freed, this means that slab object pointers stay pointing to va=
-lid
->>> memory, but it does _NOT_ mean those slab objects themselves remain
->>> valid.
->>>
->>> The slab allocator is free to re-use those objects at any time -
->>> irrespective of the rcu-grace period. Therefore you will have to be=
- able
->>> to validate that the object you point to is indeed the object you
->>> expect, otherwise strange and wonderful things will happen.
->>>
->> Thanks for this clarification. I guess we really need a rcu head the=
-n :)
->=20
-> No you just need to make sure that the object you located is still ac=
-tive
-> (f.e. refcount > 0) and that it is really a match (hash pointers may =
-be
-> updated asynchronously and therefore point to the object that has bee=
-n reused
-> for something else).
->=20
-> Generally it is advisable to use SLAB_DESTROY_BY_RCU because it prese=
-rves the
-> cache hot advantages of the objects. Regular RCU freeing will let the=
- object
-> expire for a tick or so which will result in the cacheline cooling do=
-wn.
+Paul E. McKenney wrote:
 
-Seems really good to master this SLAB_DESTROY_BY_RCU thing (I see almos=
-t no use
-of it in current kernel)
+> But care is required -- SLAB_DESTROY_BY_RCU permits objects to be freed
+> and reallocated while a reader holds a reference.  The only guarantee is
+> that the -type- of the data structure will not change while a reader holds
+> a reference.  With something like UDP, this might well be sufficient.
 
-1) Hum, do you know why "struct file" objects dont use SLAB_DESTROY_BY_=
-RCU then,
-since we noticed a performance regression for several workloads at RCUi=
-fication
-of file structures ?
+Right so after the hash lookup operation you are not assured that the object
+has not been freed or even reallocated for a different purpose. So after
+finding the pointer to the object two things need to happen (under rcu_lock):
 
-2) What prevents an object to be *freed* (and deleted from a hash chain=
-), then
-re-allocated and inserted to another chain (different keys) ? (final re=
-fcount=3D1)
+1. Verify that the object is still in use
+2. Verify that the object is matching the hash
 
-If the lookup detects a key mismatch, how will it continue to the next =
-item,
-since 'next' pointer will have been reused for the new chain insertion.=
-=2E.
-
-Me confused...
-
-
-
+If not then the operation needs to be redone because we have a stale hash pointer.
