@@ -1,78 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Possible regression in HTB
-Date: Tue, 7 Oct 2008 07:44:35 +0000
-Message-ID: <20081007074435.GA2700@ff.dom.local>
-References: <20081007011551.GA28408@verge.net.au> <20081007045145.GA23883@verge.net.au>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [patch][rfc] ddds: "dynamic dynamic data structure" algorithm, for adaptive dcache hash table sizing (resend)
+Date: Tue, 7 Oct 2008 09:53:09 +0200
+Message-ID: <20081007075309.GA16143@wotan.suse.de>
+References: <20081007064834.GA5959@wotan.suse.de> <20081007070225.GB5959@wotan.suse.de> <20081007071827.GB5010@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:36102 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026AbYJGHol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 03:44:41 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so155290ugf.37
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2008 00:44:39 -0700 (PDT)
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Memory Management List <linux-mm@kvack.org>,
+	netdev@vger.kernel.org, Paul McKenney <paulmck@us.ibm.com>
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755233AbYJGHxY@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20081007045145.GA23883@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20081007071827.GB5010@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 07, 2008 at 03:51:47PM +1100, Simon Horman wrote:
-> On Tue, Oct 07, 2008 at 12:15:52PM +1100, Simon Horman wrote:
-> > Hi Dave, Hi Jarek,
-
-Hi Simon,
-
-> > I know that you guys were/are playing around a lot in here, but
-> > unfortunately I think that "pkt_sched: Always use q->requeue in
-> > dev_requeue_skb()" (f0876520b0b721bedafd9cec3b1b0624ae566eee) has
-> > introduced a performance regression for HTB.
-...
-> > The test machine with the tc rules and udp-sending processes
-> > has two Intel Xeon Quad-cores running at 1.86GHz. The kernel
-> > is SMP x86_64.
+On Tue, Oct 07, 2008 at 03:18:27AM -0400, Christoph Hellwig wrote:
+> > 
+> > I'm cc'ing netdev because Dave did express some interest in using this for
+> > some networking hashes, and network guys in general are pretty cluey when it
+> > comes to hashes and such ;)
 > 
-> With the following patch (basically a reversal of ""pkt_sched: Always use
-> q->requeue in dev_requeue_skb()" forward ported to the current
-> net-next-2.6 tree (tcp: Respect SO_RCVLOWAT in tcp_poll()), I get some
-> rather nice numbers (IMHO).
-> 
-> 10194: 666780666bits/s 666Mbits/s
-> 10197: 141154197bits/s 141Mbits/s
-> 10196: 141023090bits/s 141Mbits/s
-> -----------------------------------
-> total: 948957954bits/s 948Mbits/s
-> 
-> I'm not sure what evil things this patch does to other aspects
-> of the qdisc code.
+> Without even looking at the code I'd say geeting the dcache lookup data
+> structure as a hash is the main problem here.  Dcache lookup is
+> fundamentally a tree lookup, with some very nice domain splits
+> (superblocks or directories).
 
-I'd like to establish this too. This patch was meant to remove some
-other problems possibly the simplest way. Maybe it's too simple.
-Anyway, it's kind of RFC, so the rest of the requeuing code is left
-unchanged, just for easy revoking like below. But first we should
-try to understand this more.
+Dcache lookup is partially a tree lookup, but also how do you look up
+entries in a given directory? That is not naturally a tree lookup. Could
+be a per directory tree, though, or a hash, or trie.
 
-So, thanks for testing and reporting this. (BTW, what network card
-do you use and is there multiqueuing on?)
+Anyway, I don't volunteer to change that just yet ;)
 
-Jarek P.
 
-> 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 31f6b61..d2e0da6 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -44,7 +44,10 @@ static inline int qdisc_qlen(struct Qdisc *q)
->  
->  static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
->  {
-> -	q->gso_skb = skb;
-> +	if (unlikely(skb->next))
-> +		q->gso_skb = skb;
-> +	else
-> +		q->ops->requeue(skb, q);
->  	__netif_schedule(q);
->  
->  	return 0;
+>  Mapping these back to a global hash is
+> a rather bad idea, not just for scalability purposes.
+
+I don't disagree. But it can be improved by dynamically resizing
+until it is replaced. I guess it is also a demonstration of how to
+implement the algorithm.
+
+PID hash is probably another good one to convert.
