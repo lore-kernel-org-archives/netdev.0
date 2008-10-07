@@ -1,53 +1,66 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 10:23:22 -0500
-Message-ID: <48EB7EEA.4040809@linux-foundation.org>
-References: <20081006185026.GA10383@minyard.local>	 <48EA8197.6080502@cosmosbay.com> <1223367480.26330.7.camel@lappy.programming.kicks-ass.net> <48EB2AE3.3080200@cosmosbay.com> <48EB6EE4.8030703@linux-foundation.org> <48EB7747.9060505@cosmosbay.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPROUTE]: Refuse "ip link add/replace" without device type parameter
+Date: Tue, 07 Oct 2008 17:23:04 +0200
+Message-ID: <48EB7ED8.7090603@trash.net>
+References: <48EB7D4B.4030501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, minyard@acm.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: multipart/mixed;
+ boundary="------------050007060607040506010602"
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57394 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751250AbYJGPYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 11:24:14 -0400
-In-Reply-To: <48EB7747.9060505@cosmosbay.com>
+Received: from stinky.trash.net ([213.144.137.162]:49119 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752572AbYJGPXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 11:23:11 -0400
+In-Reply-To: <48EB7D4B.4030501@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
+This is a multi-part message in MIME format.
+--------------050007060607040506010602
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> 
-> 1) Hum, do you know why "struct file" objects dont use
-> SLAB_DESTROY_BY_RCU then,
-> since we noticed a performance regression for several workloads at
-> RCUification
-> of file structures ?
-
-Because my patches were not accepted that fix the issue.
-http://lkml.org/lkml/2006/6/16/144
+Fix typo noticed by Phil Oester: information vs. informatin
 
 
-> 2) What prevents an object to be *freed* (and deleted from a hash
-> chain), then
-> re-allocated and inserted to another chain (different keys) ? (final
-> refcount=1)
+--------------050007060607040506010602
+Content-Type: text/x-patch;
+ name="02.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="02.diff"
 
-Nothing.
+commit c3ae059edf3316cff1075c2401bdeefa5e262251
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Oct 7 16:55:21 2008 +0200
 
-> If the lookup detects a key mismatch, how will it continue to the next
-> item,
-> since 'next' pointer will have been reused for the new chain insertion...
-> 
-> Me confused...
+    [IPROUTE]: Refuse "ip link add/replace" without device type parameter
+    
+    Fix confusing error message noticed by Martin Josefsson:
+    
+    # ip link add
+    RTNETLINK answers: Operation not supported
+    
+    The reason is missing device type information, refuse this and print a message.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-If there is a mismatch then you have to do another hash lookup. Do an rcu
-unlock and start over.
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 81122ae..6e9ac71 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -336,6 +336,10 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 			return -1;
+ 		}
+ 		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
++	} else if (flags & NLM_F_CREATE) {
++		fprintf(stderr, "Not enough information: \"type\" argument "
++				"is required\n");
++		return -1;
+ 	}
+ 
+ 	if (!(flags & NLM_F_CREATE)) {
 
-
-
+--------------050007060607040506010602--
