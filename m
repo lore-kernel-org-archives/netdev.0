@@ -1,66 +1,113 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 07:24:45 +0200
-Message-ID: <48EAF29D.8050203@cosmosbay.com>
-References: <20081006185026.GA10383@minyard.local>	<48EA8197.6080502@cosmosbay.com> <20081006.144002.56418911.davem@davemloft.net>
+From: KOVACS Krisztian <hidden@sch.bme.hu>
+Subject: Re: [net-next PATCH 16/16] Add documentation
+Date: Tue, 07 Oct 2008 09:01:10 +0200
+Message-ID: <1223362870.8909.11.camel@nessa.odu>
+References: <20081001142431.4893.48078.stgit@este>
+ <20081001142431.4893.5367.stgit@este>
+ <alpine.LNX.1.10.0810030949300.3893@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: minyard@acm.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp28.orange.fr ([80.12.242.101]:61892 "EHLO smtp28.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750914AbYJGFZS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 01:25:18 -0400
-In-Reply-To: <20081006.144002.56418911.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-reply-to: <alpine.LNX.1.10.0810030949300.3893@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Mon, 06 Oct 2008 23:22:31 +0200
+Hi,
+
+On Fri, 2008-10-03 at 10:01 -0400, Jan Engelhardt wrote:
+> On Wednesday 2008-10-01 10:24, KOVACS Krisztian wrote:
 >=20
->> Me wondering what impact this synchronize_rcu() can have on mono-thr=
-eaded
->> VOIP applications using lot of UDP sockets. What is the maximum dela=
-y of
->> this function ?
+> >+Transparent proxy support
+> >+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D
+> >+
+> >+This feature adds Linux 2.2-like transparent proxy support to curre=
+nt kernels.
+> >+To use it, enable NETFILTER_TPROXY, the socket match and the TPROXY=
+ target in
+> >+your kernel config. You will need policy routing too, so be sure to=
+ enable that
+> >+as well.
 >=20
-> The cost is enormous, we really can't use it here.
+> To use server-side transparent proxying (i.e. using a foreign address
+> when sending out packets), only tproxy_core is needed.
 >=20
-> I have a patch that did top-level socket destruction using RCU,
-> and that didn't use synchronize_rcu(), and that killed connection
-> rates by up to %20.
+> >+fd =3D socket(AF_INET, SOCK_STREAM, 0);
 >=20
-> I can only imagine what the cost would be if I had to add such a call
-> in there.
+> You want to be using IPPROTO_TCP here, as I doubt there is a guarante=
+e
+> that 0 will never choose SCTP.
 >=20
-> Really, I can't consider these changes seriously, as-is.
+> >+int value =3D 1;
+>=20
+> Const is good:
+> 	static const unsigned int value =3D 1;
+>=20
+> >+setsockopt(fd, SOL_IP, IP_TRANSPARENT, &value, sizeof(value));
+> >+/* - 8< -*/
+> >+name.sin_family =3D AF_INET;
+> >+name.sin_port =3D htons(0xCAFE);
+> >+name.sin_addr.s_addr =3D htonl(0xDEADBEEF);
+>=20
+> Replace last one by
+> 	inet_pton(PF_INET, "192.0.2.37", &name.sin_addr);
+>=20
+> (Hacking anything inside sin_addr is, strictly speaking, breaking the
+> =E2=80=9Cencapsulation=E2=80=9D, as far as that =E2=80=9Cexists=E2=80=
+=9D in C.)
+>=20
+> >+bind(fd, &name, sizeof(name));
+>=20
+> You will need
+>=20
+> 	bind(fd, (const void *)&name, sizeof(name));
+>=20
+> to avoid a compiler warning ;-)
 
-Yes, I suppose you are right about TCP sessions, that should stay as th=
-ey are.
+Jan, while you're right I think the point of the aim of the example is
+to show you that you only need to set the IP_TRANSPARENT flag before
+being able to bind to a non-local address.
 
-Then if we use call_rcu() RCU freeing only for UDP sockets, we should g=
-et rid of
-taking this rwlock each time we handle an incoming datagram, and introd=
-uce
-no extra cost for other sockets.
+I'm not opposed to the changes, though, so could you please send a patc=
+h
+on top of Dave's current net-next tree? Thanks.
 
-Most UDP sockets are setup for long periods (RTP trafic), or if an appl=
-ication really
-wants to {open/send or receive one UDP frame/close} many sockets, it al=
-ready hits
-RCU handling of its file structures and should not be slowed down that =
-much.
+>=20
+> >+2. Redirecting traffic
+> >+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> >+
+> >+Transparent proxying often involves "intercepting" traffic on a rou=
+ter. This is
+> >+usually done with the iptables REDIRECT target, however, there are =
+serious
+> >+limitations of that method. One of the major issues is that it actu=
+ally
+> >+modifies the packets to change the destination address -- which mig=
+ht not be
+> >+acceptable in certain situations. (Think of proxying UDP for exampl=
+e: you won't
+> >+be able to find out the original destination address. Even in case =
+of TCP
+> >+getting the original destination address is racy.)
+>=20
+> IIRC, you _can_ find out, though I agree it's rather a hack (with=20
+> tproxy, you can just use the address as received via recvmsg):
+>=20
+> 	getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &sockaddr, &sizeptr);
 
-By 'long period' I mean thousand of packets sent/received by each RTP s=
-ession, being
-voice (50 packets/second) or even worse video...
+This is true only if you have connection tracking loaded while the new
+tproxy can be used without conntrack.
 
+--=20
+KOVACS Krisztian
 
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
