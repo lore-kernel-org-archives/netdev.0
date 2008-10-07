@@ -1,69 +1,119 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [NET-NEXT PATCH 1/6] ixgbe: this patch adds support for DCB to the kernel and ixgbe driver
-Date: Mon, 6 Oct 2008 20:14:05 -0700
-Message-ID: <9929d2390810062014s139b3eb7x1617632ce327dbbf@mail.gmail.com>
-References: <20081007030540.782.28987.stgit@gitlost.lost>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2 driver can't enable/disable wake-on-lan on HP DL585 G2
+ onboard NICs
+Date: Mon, 6 Oct 2008 21:36:54 -0700
+Message-ID: <C27F8246C663564A84BB7AB34397724202784A2B96@IRVEXCHCCR01.corp.ad.broadcom.com>
+References: <20081006194845.4e18705f@manzanita>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	"Alexander Duyck" <alexander.h.duyck@intel.com>,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org, davem@davemloft.net
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "'Tim Mann'" <mann@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.238]:13661 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754616AbYJGDOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2008 23:14:09 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so1417379wri.5
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2008 20:14:06 -0700 (PDT)
-In-Reply-To: <20081007030540.782.28987.stgit@gitlost.lost>
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:1189 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750803AbYJGEhH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 00:37:07 -0400
+In-Reply-To: <20081006194845.4e18705f@manzanita>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 6, 2008 at 8:05 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+
+Tim Mann wrote:
+
 >
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
+> Here's the deal.  The HP DL585 G2 has an onboard dual-port
+> NIC based on
+> the bcm5706.  Both ports support wake-on-lan, but WOL works
+> if and only
+> if you enable it using an option in the HP BIOS setup screens.  If you
+> disable it from there, ethtool still thinks WOL is supported and that
+> it's enabled by default, but the machine won't wake.  Conversely (and
+> this part surprises me more), if you enable WOL from the BIOS setup
+> screen, the machine always wakes on a WOL magic packet *even* if you
+> try to disable WOL using ethtool.  Again ethtool thinks that WOL is
+> supported and that it's enabled by default, and it thinks that it can
+> disable WOL, but disabling it through ethtool has no effect -- the
+> machine wakes anyway.
+
+It sounds like an extra reset to the NIC is happening on this machine
+during shutdown or suspend.  When that happens, it would wipe out the
+WoL setting done by the driver.  I'll see if we have this DL585 to
+try it out here.
+
 >
->  drivers/net/ixgbe/Makefile          |    3
->  drivers/net/ixgbe/ixgbe.h           |   26 +
->  drivers/net/ixgbe/ixgbe_dcb.c       |  332 +++++++++++++++++
->  drivers/net/ixgbe/ixgbe_dcb.h       |  158 ++++++++
->  drivers/net/ixgbe/ixgbe_dcb_82598.c |  398 ++++++++++++++++++++
->  drivers/net/ixgbe/ixgbe_dcb_82598.h |   94 +++++
->  drivers/net/ixgbe/ixgbe_dcb_nl.c    |  352 ++++++++++++++++++
->  drivers/net/ixgbe/ixgbe_ethtool.c   |   37 ++
->  drivers/net/ixgbe/ixgbe_main.c      |  189 +++++++++-
->  include/linux/dcbnl.h               |  230 ++++++++++++
->  include/linux/netdevice.h           |    8
->  include/linux/rtnetlink.h           |    5
->  include/net/dcbnl.h                 |   44 ++
->  net/Kconfig                         |    1
->  net/Makefile                        |    3
->  net/dcb/Kconfig                     |   12 +
->  net/dcb/Makefile                    |    1
->  net/dcb/dcbnl.c                     |  682 +++++++++++++++++++++++++++++++++++
->  18 files changed, 2555 insertions(+), 20 deletions(-)
->  create mode 100644 drivers/net/ixgbe/ixgbe_dcb.c
->  create mode 100644 drivers/net/ixgbe/ixgbe_dcb.h
->  create mode 100644 drivers/net/ixgbe/ixgbe_dcb_82598.c
->  create mode 100644 drivers/net/ixgbe/ixgbe_dcb_82598.h
->  create mode 100644 drivers/net/ixgbe/ixgbe_dcb_nl.c
->  create mode 100644 include/linux/dcbnl.h
->  create mode 100644 include/net/dcbnl.h
->  create mode 100644 net/dcb/Kconfig
->  create mode 100644 net/dcb/Makefile
->  create mode 100644 net/dcb/dcbnl.c
+> I don't have this problem with other NICs that use the bnx2
+> driver.  In
+> particular, I just retested one that I have in a box in my office, and
+> the bnx2 driver can both enable and disable WOL on that NIC fine.
+>
+> So far I've tried this only with a bnx2 driver that advertises itself
+> as 1.6.9 with release date December 8, 2007.  I could try with a newer
+> one, but I looked at the diffs between 1.6.9 and 1.8.0 and I
+> didn't see
+> anything that looks like it should affect this.  Let me know if I
+> should try it anyway, though.
+>
+> In case it helps, here's lspci output from the HP box with
+> the misbehaving NIC:
+>
+> [root@drm121 ~]# lspci -s 41:01.0 -v
+> 41:01.0 Ethernet controller: Broadcom Corporation NetXtreme
+> II 5706 Gigabit Ethernet (rev 02)
+>         Subsystem: Hewlett-Packard Company Unknown device 1709
+>         Flags: bus master, 66MHz, medium devsel, latency 120, IRQ 23
+>         Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
+>         [virtual] Expansion ROM at 88200000 [disabled] [size=2K]
+>         Capabilities: [40] PCI-X non-bridge device
+>         Capabilities: [48] Power Management version 2
+>         Capabilities: [50] Vital Product Data
+> [root@drm121 ~]# lspci -s 41:01.0 -v -n
+> 41:01.0 0200: 14e4:164a (rev 02)
+>         Subsystem: 103c:1709
+>         Flags: bus master, 66MHz, medium devsel, latency 120, IRQ 23
+>         Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
+>         [virtual] Expansion ROM at 88200000 [disabled] [size=2K]
+>         Capabilities: [40] PCI-X non-bridge device
+>         Capabilities: [48] Power Management version 2
+>         Capabilities: [50] Vital Product Data
+
+This is unrelated to WoL, but why is MSI capability missing on the
+HP machine?
+
+>
+> Here's output from my test machine:
+>
+> [root@moppet ~]# lspci -s 41:04.0 -v
+> 41:04.0 Ethernet controller: Broadcom Corporation NetXtreme
+> II 5706 Gigabit Ethernet (rev 02)
+>         Subsystem: Hewlett-Packard Company Unknown device 3101
+>         Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
+>         Memory at f0000000 (64-bit, non-prefetchable) [size=32M]
+>         [virtual] Expansion ROM at 88000000 [disabled] [size=64K]
+>         Capabilities: [40] PCI-X non-bridge device
+>         Capabilities: [48] Power Management version 2
+>         Capabilities: [50] Vital Product Data
+>         Capabilities: [58] Message Signalled Interrupts:
+> 64bit+ Queue=0/0 Enable-
+>
+> [root@moppet ~]# lspci -s 41:04.0 -v -n
+> 41:04.0 0200: 14e4:164a (rev 02)
+>         Subsystem: 103c:3101
+>         Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
+>         Memory at f0000000 (64-bit, non-prefetchable) [size=32M]
+>         [virtual] Expansion ROM at 88000000 [disabled] [size=64K]
+>         Capabilities: [40] PCI-X non-bridge device
+>         Capabilities: [48] Power Management version 2
+>         Capabilities: [50] Vital Product Data
+>         Capabilities: [58] Message Signalled Interrupts:
+> 64bit+ Queue=0/0 Enable
+>
+>
+> --
+> Tim Mann  work: mann@vmware.com  home: tim@tim-mann.org
+>           http://www.vmware.com  http://tim-mann.org
+>
 >
 
-Sorry I got PJ's email incorrect the first time, resent with PJ's correct email.
-
-
--- 
-Cheers,
-Jeff
