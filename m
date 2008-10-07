@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 03/32] net: ipv6: clean up ip6_route_net_init() error
- handling
-Date: Tue, 07 Oct 2008 14:12:57 -0700 (PDT)
-Message-ID: <20081007.141257.167511509.davem@davemloft.net>
-References: <20081002130504.927878499@chello.nl>
-	<20081002131607.731557157@chello.nl>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Tue, 7 Oct 2008 14:09:02 -0700
+Message-ID: <20081007210902.GB7996@suse.de>
+References: <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> <48B57058.9000101@bull.net> <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com> <48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de> <31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com> <48BF83E1.5040000@bull.net> <dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com> <20081007164833.GA16056@suse.de> <m1abdgywnb.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	dlezcano@fr.ibm.com, penberg@cs.helsinki.fi, neilb@suse.de
-To: a.p.zijlstra@chello.nl
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Ryden <markryde@gmail.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53851
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753264AbYJGVNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 17:13:21 -0400
-In-Reply-To: <20081002131607.731557157@chello.nl>
+Received: from ns1.suse.de ([195.135.220.2]:42634 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751951AbYJGVOg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 17:14:36 -0400
+Content-Disposition: inline
+In-Reply-To: <m1abdgywnb.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Thu, 02 Oct 2008 15:05:07 +0200
-
-> ip6_route_net_init() error handling looked less than solid, fix 'er up.
+On Tue, Oct 07, 2008 at 01:31:52PM -0700, Eric W. Biederman wrote:
+> Greg KH <gregkh@suse.de> writes:
 > 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> > On Tue, Oct 07, 2008 at 06:39:04PM +0200, Mark Ryden wrote:
+> >> Hello,
+> >>   So I wonder: the sysfs tagged directory support patch is in GerKH
+> >> tree for more than a month.
+> >
+> > I dropped it from my tree 2 days ago, see the thread on lkml for why.
+> 
+> Greg why did you drop it? 
 
-Looks good, applied to net-next-2.6
+Because Al said it was full of problems and for us not to accept it.
+
+thanks,
+
+greg k-h
