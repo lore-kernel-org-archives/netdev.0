@@ -1,35 +1,62 @@
-From: "Dan Wong" <dwd178@gmail.com>
-Subject: bonding ALB multihomed IP ARP problem
-Date: Tue, 7 Oct 2008 11:12:03 -0400
-Message-ID: <b6185fb20810070812m45bd203dt5a315b96bd23024e@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [IPROUTE]: Refuse "ip link add/replace" without device type parameter
+Date: Tue, 07 Oct 2008 17:16:27 +0200
+Message-ID: <48EB7D4B.4030501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------020908000006000606080501"
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:23197 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755512AbYJGPMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 11:12:05 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so2360496fgg.17
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2008 08:12:03 -0700 (PDT)
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:48928 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752129AbYJGPQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 11:16:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From tcpdump I'm seeing a slave interface reponding to arp request for
-a downed multihomed/alias  IP
-I've tried bonding mode 0 round robin loading balancing and the
-problem doesn't occur.
-I'm running RHEL5U1 and using Channel Bonding Driver v3.1.2
-Steps to reproduce problem.
-1) Setup two servers, server A and B, with bonds mode 6 ALB with
-different IP addresses, each bond containing 2 slaves
-2) Create Aliases i.e. bond0:1 on server A and B with same Ip addresses
-3)  execute the following in loop
-     ssh serverA ifdown bond0:1; sleep 5; ssh serverB ifup bond0:1
-     sleep 5
-     ssh serverB ifdown bond0:1; sleep 5; ssh serverA ifup bond0:1
-     sleep 5
-After a few iterations, duplicate ip address detected. I've increased
-the sleep interval to 30 seconds and still have same problem.
+This is a multi-part message in MIME format.
+--------------020908000006000606080501
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+
+
+--------------020908000006000606080501
+Content-Type: text/x-patch;
+ name="02.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="02.diff"
+
+commit c3ae059edf3316cff1075c2401bdeefa5e262251
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Oct 7 16:55:21 2008 +0200
+
+    [IPROUTE]: Refuse "ip link add/replace" without device type parameter
+    
+    Fix confusing error message noticed by Martin Josefsson:
+    
+    # ip link add
+    RTNETLINK answers: Operation not supported
+    
+    The reason is missing device type information, refuse this and print a message.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 81122ae..6e9ac71 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -336,6 +336,10 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 			return -1;
+ 		}
+ 		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
++	} else if (flags & NLM_F_CREATE) {
++		fprintf(stderr, "Not enough informatin: \"type\" argument "
++				"is required\n");
++		return -1;
+ 	}
+ 
+ 	if (!(flags & NLM_F_CREATE)) {
+
+--------------020908000006000606080501--
