@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/32] net: wrap sk->sk_backlog_rcv()
-Date: Tue, 07 Oct 2008 14:19:02 -0700 (PDT)
-Message-ID: <20081007.141902.06048204.davem@davemloft.net>
-References: <20081002130504.927878499@chello.nl>
-	<20081002131608.667433428@chello.nl>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [1/3] POHMELFS: vfs changes.
+Date: Wed, 8 Oct 2008 01:20:25 +0400
+Message-ID: <20081007212025.GA12380@2ka.mipt.ru>
+References: <20081007211925.GA1274@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	dlezcano@fr.ibm.com, penberg@cs.helsinki.fi, neilb@suse.de
-To: a.p.zijlstra@chello.nl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45356
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757548AbYJGVT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 17:19:27 -0400
-In-Reply-To: <20081002131608.667433428@chello.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081007211925.GA1274@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Thu, 02 Oct 2008 15:05:20 +0200
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-> Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
-> generic sk_backlog_rcv behaviour.
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 07e9d92..57beb4b 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -495,6 +495,7 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
+ 		lru_cache_add(page);
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(add_to_page_cache_lru);
+ 
+ #ifdef CONFIG_NUMA
+ struct page *__page_cache_alloc(gfp_t gfp)
+@@ -610,6 +611,7 @@ int __lock_page_killable(struct page *page)
+ 	return __wait_on_bit_lock(page_waitqueue(page), &wait,
+ 					sync_page_killable, TASK_KILLABLE);
+ }
++EXPORT_SYMBOL_GPL(__lock_page_killable);
+ 
+ /**
+  * __lock_page_nosync - get a lock on the page, without calling sync_page()
 
-Looks fine, applied to net-next-2.6, thanks!
+
+-- 
+	Evgeniy Polyakov
