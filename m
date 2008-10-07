@@ -1,117 +1,65 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Tue, 07 Oct 2008 17:09:08 +0200
-Message-ID: <1223392149.26330.47.camel@lappy.programming.kicks-ass.net>
-References: <20081006185026.GA10383@minyard.local>
-	 <48EA8197.6080502@cosmosbay.com>
-	 <1223367480.26330.7.camel@lappy.programming.kicks-ass.net>
-	 <48EB2AE3.3080200@cosmosbay.com> <48EB6EE4.8030703@linux-foundation.org>
-	 <48EB7747.9060505@cosmosbay.com>
+Date: Tue, 07 Oct 2008 17:07:37 +0200
+Message-ID: <48EB7B39.1020607@cosmosbay.com>
+References: <20081006185026.GA10383@minyard.local> <48EA8197.6080502@cosmosbay.com> <20081006.144002.56418911.davem@davemloft.net> <48EA9A59.1090306@acm.org> <20081007083750.GB17079@2ka.mipt.ru> <48EB6F2D.100@linux-foundation.org> <20081007143346.GA6384@linux.vnet.ibm.com> <48EB7617.3060304@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>, minyard@acm.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com, Hugh Dickins <hugh@veritas.com>,
-	Nick Piggin <nickpiggin@yahoo.com.au>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755075AbYJGPJv@vger.kernel.org>
-In-Reply-To: <48EB7747.9060505@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: paulmck@linux.vnet.ibm.com, Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Corey Minyard <minyard@acm.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2a.orange.fr ([80.12.242.140]:35518 "EHLO smtp2a.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752615AbYJGPHq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 11:07:46 -0400
+In-Reply-To: <48EB7617.3060304@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-10-07 at 16:50 +0200, Eric Dumazet wrote:
-> Christoph Lameter a =C3=A9crit :
-> > Eric Dumazet wrote:
-> >>>> Or just add SLAB_DESTROY_BY_RCU to slab creation in proto_regist=
-er()
-> >>>> for "struct proto udp_prot/udpv6_prot" so that kmem_cache_free()=
- done
-> >>>> in sk_prot_free() can defer freeing to RCU...
-> >>> Be careful!, SLAB_DESTROY_BY_RCU just means the slab page gets
-> >>> RCU-freed, this means that slab object pointers stay pointing to =
-valid
-> >>> memory, but it does _NOT_ mean those slab objects themselves rema=
-in
-> >>> valid.
-> >>>
-> >>> The slab allocator is free to re-use those objects at any time -
-> >>> irrespective of the rcu-grace period. Therefore you will have to =
-be able
-> >>> to validate that the object you point to is indeed the object you
-> >>> expect, otherwise strange and wonderful things will happen.
-> >>>
-> >> Thanks for this clarification. I guess we really need a rcu head t=
-hen :)
-> >=20
-> > No you just need to make sure that the object you located is still =
-active
-> > (f.e. refcount > 0) and that it is really a match (hash pointers ma=
-y be
-> > updated asynchronously and therefore point to the object that has b=
-een reused
-> > for something else).
-> >=20
-> > Generally it is advisable to use SLAB_DESTROY_BY_RCU because it pre=
-serves the
-> > cache hot advantages of the objects. Regular RCU freeing will let t=
-he object
-> > expire for a tick or so which will result in the cacheline cooling =
-down.
+Christoph Lameter a =E9crit :
+> Paul E. McKenney wrote:
 >=20
-> Seems really good to master this SLAB_DESTROY_BY_RCU thing (I see alm=
-ost no use
-> of it in current kernel)
-
-There is (AFAIK) only 1 user, the anon_vma stuff.
-
-> 1) Hum, do you know why "struct file" objects dont use SLAB_DESTROY_B=
-Y_RCU then,
-> since we noticed a performance regression for several workloads at RC=
-Uification
-> of file structures ?
+>> But care is required -- SLAB_DESTROY_BY_RCU permits objects to be fr=
+eed
+>> and reallocated while a reader holds a reference.  The only guarante=
+e is
+>> that the -type- of the data structure will not change while a reader=
+ holds
+>> a reference.  With something like UDP, this might well be sufficient=
+=2E
 >=20
-> 2) What prevents an object to be *freed* (and deleted from a hash cha=
-in), then
-> re-allocated and inserted to another chain (different keys) ? (final =
-refcount=3D1)
+> Right so after the hash lookup operation you are not assured that the=
+ object
+> has not been freed or even reallocated for a different purpose. So af=
+ter
+> finding the pointer to the object two things need to happen (under rc=
+u_lock):
 >=20
-> If the lookup detects a key mismatch, how will it continue to the nex=
-t item,
-> since 'next' pointer will have been reused for the new chain insertio=
-n...
+> 1. Verify that the object is still in use
+> 2. Verify that the object is matching the hash
+>=20
+> If not then the operation needs to be redone because we have a stale =
+hash pointer.
 
-Right, you can't have lists with items like that. You can only do
-matching lookups. What you do is:
+OK... so restart full lookup at the begining of hash chain if we detect
+points 1 or 2 invalid.
 
-find_get_obj(key)
-{
- rcu_read_lock()
-again:
- obj =3D lookup(key);
- if (!obj)
-  goto out;
+Not that expensive since everything should be cache hot :)
 
- /*=20
-  * if we can't get a ref, the item got freed concurrently
-  * try again
-  */
- if (!get_ref_unless_zero(obj))
-  goto again;
+One has to take care to group all components (keys to compute the hash,=
+=20
+and the *next* pointer) in one cache line to minimize cache misses,
+since we now need to access them all to compute/check hash value.
 
- /*
-  * if we did get a ref, but its not the object we expected
-  * try again
-  */
- if (obj->key !=3D key) {
-   put_ref(obj);
-   goto again;
- }
-out:
- rcu_read_unlock();
- return obj;
-}
+Now if a freed object is re-inserted with same hash value,=20
+same hash chain, we'll also restart the lookup, but it is harmless.
 
-Which is basically what we do with the lockless pagecache, where we
-don't need the RCU because the page-frames are never freed.
+
+
+
