@@ -1,176 +1,98 @@
-From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: [net-next PATCH] Don't lookup the socket if there's a socket	attached
- to the skb (was: Re: [net-next PATCH 10/16] Don't lookup the	socket if there's
- a socket attached to the skb)
-Date: Tue, 07 Oct 2008 09:59:29 +0200
-Message-ID: <1223366369.35518.13.camel@nessa.odu>
-References: <20081001142431.4893.69772.stgit@este>
- <20081001.075040.135314845.davem@davemloft.net> <1222875500.7492.6.camel@este>
- <20081001.085104.193726318.davem@davemloft.net>
- <1222962200.14079.19.camel@este> <20081002170935.GE17843@ghostprotocols.net>
- <1223024268.8912.2.camel@este> <20081003134747.GH17843@ghostprotocols.net>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [patch][rfc] ddds: "dynamic dynamic data structure" algorithm, for adaptive dcache hash table sizing (resend)
+Date: Tue, 7 Oct 2008 10:06:56 +0200
+Message-ID: <20081007080656.GB16143@wotan.suse.de>
+References: <20081007064834.GA5959@wotan.suse.de> <20081007070225.GB5959@wotan.suse.de> <48EB11BB.2060704@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7BIT
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Memory Management List <linux-mm@kvack.org>,
+	netdev@vger.kernel.org, Paul McKenney <paulmck@us.ibm.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from balu.sch.bme.hu ([152.66.208.40]:63661 "EHLO balu.sch.bme.hu"
+Received: from ns2.suse.de ([195.135.220.15]:56719 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750960AbYJGH7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2008 03:59:31 -0400
-In-reply-to: <20081003134747.GH17843@ghostprotocols.net>
+	id S1751133AbYJGIG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 04:06:59 -0400
+Content-Disposition: inline
+In-Reply-To: <48EB11BB.2060704@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Oct 07, 2008 at 09:37:31AM +0200, Eric Dumazet wrote:
+> Nick Piggin a =E9crit :
+> >(resending with correct netdev address)
+> >
+> >With this algorithm, I can fit a whole kernel source and git tree in=
+ my=20
+> >dcache
+> >hash table that is still 1/8th the size it would be before the patch=
+=2E
+> >
+> >I'm cc'ing netdev because Dave did express some interest in using th=
+is for
+> >some networking hashes, and network guys in general are pretty cluey=
+ when=20
+> >it
+> >comes to hashes and such ;)
+> >
+>=20
+> Thanks for reminding us this interesting stuff. And yes, IP route cac=
+he=20
+> could use
+> same algo. That is particularly interesting because it has a=20
+> /proc/net/rt_cache
+> accessor that needs to sequentially scan this hash table (potentialy =
+with
+> many empty slots), while dcache doesnt have such killer.
 
-On Fri, 2008-10-03 at 10:47 -0300, Arnaldo Carvalho de Melo wrote:
-> > Those functions don't have access to the skb so unless we change the
-> > signature they won't be able to steal the reference.
-> 
-> Indeed, but we should try to have the main TCP code flow clean, ditto for
-> DCCP, free of such details, so after this activitity settles down I'll
-> submit something like the patch below.
-> 
-> If Dave agrees and you feel like merging it on your current patchset,
-> feel free to do it.
-
-And here's the modified use-cached-sk-if-present patch built on top of
-the previous two x_lookup_skb() helper patches.
-
--- 
-KOVACS Krisztian
-
-
-Don't lookup the socket if there's a socket attached to the skb
-
-Use the socket cached in the skb if it's present.
-
-Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
----
-
- include/net/inet6_hashtables.h |   12 ++++++++----
- include/net/inet_hashtables.h  |    9 ++++++---
- include/net/sock.h             |   12 ++++++++++++
- net/ipv4/udp.c                 |    9 ++++++---
- net/ipv6/udp.c                 |    9 ++++++---
- 5 files changed, 38 insertions(+), 13 deletions(-)
-
-
-diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
-index 995efbb..f74665d 100644
---- a/include/net/inet6_hashtables.h
-+++ b/include/net/inet6_hashtables.h
-@@ -96,10 +96,14 @@ static inline struct sock *__inet6_lookup_skb(struct inet_hashinfo *hashinfo,
- 					      const __be16 sport,
- 					      const __be16 dport)
- {
--	return __inet6_lookup(dev_net(skb->dst->dev), hashinfo,
--			      &ipv6_hdr(skb)->saddr, sport,
--			      &ipv6_hdr(skb)->daddr, ntohs(dport),
--			      inet6_iif(skb));
-+	struct sock *sk;
-+
-+	if (unlikely(sk = skb_steal_sock(skb)))
-+		return sk;
-+	else return __inet6_lookup(dev_net(skb->dst->dev), hashinfo,
-+				   &ipv6_hdr(skb)->saddr, sport,
-+				   &ipv6_hdr(skb)->daddr, ntohs(dport),
-+				   inet6_iif(skb));
- }
- 
- extern struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 3522bbc..72b9ba5 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -378,11 +378,14 @@ static inline struct sock *__inet_lookup_skb(struct inet_hashinfo *hashinfo,
- 					     const __be16 sport,
- 					     const __be16 dport)
- {
-+	struct sock *sk;
- 	const struct iphdr *iph = ip_hdr(skb);
- 
--	return __inet_lookup(dev_net(skb->dst->dev), hashinfo,
--			     iph->saddr, sport,
--			     iph->daddr, dport, inet_iif(skb));
-+	if (unlikely(sk = skb_steal_sock(skb)))
-+		return sk;
-+	else return __inet_lookup(dev_net(skb->dst->dev), hashinfo,
-+				  iph->saddr, sport,
-+				  iph->daddr, dport, inet_iif(skb));
- }
- 
- extern int __inet_hash_connect(struct inet_timewait_death_row *death_row,
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 75a312d..18f9670 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1324,6 +1324,18 @@ static inline void sk_change_net(struct sock *sk, struct net *net)
- 	sock_net_set(sk, hold_net(net));
- }
- 
-+static inline struct sock *skb_steal_sock(struct sk_buff *skb)
-+{
-+	if (unlikely(skb->sk)) {
-+		struct sock *sk = skb->sk;
-+
-+		skb->destructor = NULL;
-+		skb->sk = NULL;
-+		return sk;
-+	}
-+	return NULL;
-+}
-+
- extern void sock_enable_timestamp(struct sock *sk);
- extern int sock_get_timestamp(struct sock *, struct timeval __user *);
- extern int sock_get_timestampns(struct sock *, struct timespec __user *);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 8369f4d..219a4aa 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -306,11 +306,14 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
- 						 __be16 sport, __be16 dport,
- 						 struct hlist_head udptable[])
- {
-+	struct sock *sk;
- 	const struct iphdr *iph = ip_hdr(skb);
- 
--	return __udp4_lib_lookup(dev_net(skb->dst->dev), iph->saddr, sport,
--				 iph->daddr, dport, inet_iif(skb),
--				 udptable);
-+	if (unlikely(sk = skb_steal_sock(skb)))
-+		return sk;
-+	else return __udp4_lib_lookup(dev_net(skb->dst->dev), iph->saddr, sport,
-+				      iph->daddr, dport, inet_iif(skb),
-+				      udptable);
- }
- 
- struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index ce26c41..95a2b56 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -111,11 +111,14 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
- 					  __be16 sport, __be16 dport,
- 					  struct hlist_head udptable[])
- {
-+	struct sock *sk;
- 	struct ipv6hdr *iph = ipv6_hdr(skb);
- 
--	return __udp6_lib_lookup(dev_net(skb->dst->dev), &iph->saddr, sport,
--				 &iph->daddr, dport, inet6_iif(skb),
--				 udptable);
-+	if (unlikely(sk = skb_steal_sock(skb)))
-+		return sk;
-+	else return __udp6_lib_lookup(dev_net(skb->dst->dev), &iph->saddr, sport,
-+				      &iph->daddr, dport, inet6_iif(skb),
-+				      udptable);
- }
- 
- /*
+Hmm, that is interesting. What are the exact semantics of this rt_cache
+file? It might be difficult to retain them over a hash table resize
+operation, but it would be worth trying. Big hammer to block access to
+the file if a resize is in progress might work (but do we need to hold =
+off
+access over multiple calls from userspace? then may need to also avoid
+resizing the hash table if the rt_cache file is open).
 
 
+> >+static struct dcache_hash *alloc_dhash(int size)
+> >+{
+> >+	struct dcache_hash *dh;
+> >+	unsigned long bytes;
+> >+	unsigned int shift;
+> >+	int i;
+> >+
+> >+	shift =3D ilog2(size);
+> >+	BUG_ON(size !=3D 1UL << shift);
+> >+	bytes =3D size * sizeof(struct hlist_head *);
+> >+
+> >+	dh =3D kmalloc(sizeof(struct dcache_hash), GFP_KERNEL);
+> >+	if (!dh)
+> >+		return NULL;
+> >+
+> >+	if (bytes <=3D PAGE_SIZE) {
+> >+		dh->table =3D kmalloc(bytes, GFP_KERNEL);
+> >+	} else {
+> >+		dh->table =3D vmalloc(bytes);
+> >+	}
+>=20
+> Here we probably want to use a hashdist/NUMA enabled vmalloc().
+>=20
+> That is, regardless of current numa policy of *this* thread,
+> we want to spread hash table on all nodes.
+
+Yeah, it definitely should do. Thanks.
+
+=20
+> Also, struct dcache_hash being very small, you want to force it to
+> use an exclusive cache line, to be sure it wont share it with some=20
+> higly modified data...
+>=20
+> struct dcache_hash {
+> 	struct hlist_head *table;
+> 	unsigned int shift;
+> 	unsigned int mask;
+> } __cacheline_aligned_in_smp;
+
+Yes, good point.
