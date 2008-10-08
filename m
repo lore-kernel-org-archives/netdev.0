@@ -1,53 +1,34 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
-Date: Wed, 8 Oct 2008 19:07:39 +0200
-Message-ID: <20081008170739.GA546@1wt.eu>
-References: <20081008081109.GA25342@1wt.eu> <20081008.094212.130684373.davem@davemloft.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net-next 10/14] ipv6: ICMP6MSGIN_INC_STATS is not used
+Date: Wed, 8 Oct 2008 10:37:25 -0700
+Message-ID: <OFA8E1BB63.D89C2A10-ON882574DC.00607E02-882574DC.0060CF64@us.ibm.com>
+References: <1223466722-8169-10-git-send-email-den@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: benjamin.thery@bull.net, davem@davemloft.net,
+	"Denis V. Lunev" <den@openvz.org>, dlezcano@fr.ibm.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	xemul@openvz.org, yoshfuji@linux-ipv6.org
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:4671 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752788AbYJHRHo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 13:07:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20081008.094212.130684373.davem@davemloft.net>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:45553 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754571AbYJHRhm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 13:37:42 -0400
+In-Reply-To: <1223466722-8169-10-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 08, 2008 at 09:42:12AM -0700, David Miller wrote:
-> 
-> I'm not really interested in applying this.
+This is there to parallel the definitions for other stats
+macros. I don't think it should be removed, since it's
+part of the standard interface for incrementing counters.
+If someone has a need to increment it without, say, _BH,
+I wouldn't want them to have to come up with it from
+scratch again...
 
-OK.
+It's cost is the two lines of code it takes, but you could
+consider it "documentation" for any future users that
+want that variant.
 
-> You can make the same argument for just about any queer corner case
-> aspect of TCP.
-
-Not exactly since there are very few corner cases not conditionned by
-guessing a 32-bit sequence number, and this one certainly is.
-
-> The world hasn't ended even though this patch hasn't applied since
-> 2005
-
-Oh don't take me wrong. I'm pretty much convinced this is not critical at
-all. It's just that it's a tempting attack vector for an easy DoS proof
-of concept relying on a feature not even usable today.
-
-> and that's a good argument to not apply "yet another random knob"
-> to the kernel.
-
-OK for the random knob. If you feel comfortable with a patch to simply remove
-the feature, I can send you such a patch too. BTW, the strange netstat output
-I got also shows that the code paths involved to support this feature are not
-much exercised, which would be another argument to disable it.
-
-Anyway, I'm not trying to put any pressure. I can continue to live with the
-ifdef patch in my trees. I just wanted to get your opinion on this one since
-the discussion I initiated about it in 2005 brought to nowhere.
-
-Regards,
-Willy
+                                        +-DLS
 
