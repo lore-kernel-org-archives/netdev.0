@@ -1,22 +1,22 @@
-From: Brian Haley <brian.haley@hp.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
 Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
-Date: Wed, 08 Oct 2008 15:05:44 -0400
-Message-ID: <48ED0488.7080502@hp.com>
+Date: Wed, 08 Oct 2008 15:07:51 -0400
+Message-ID: <48ED0507.30002@hp.com>
 References: <48EC091D.7080207@hp.com> <48ECF8AA.2020205@hp.com> <17192.1223490884@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+Cc: Brian Haley <brian.haley@hp.com>,
 	David Miller <davem@davemloft.net>,
 	Simon Horman <horms@verge.net.au>,
 	Alex Sidorenko <alexandre.sidorenko@hp.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:24914 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999AbYJHTFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 15:05:47 -0400
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:36535 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753087AbYJHTHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 15:07:54 -0400
 In-Reply-To: <17192.1223490884@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -48,11 +48,22 @@ Jay Vosburgh wrote:
 > If, on the other hand, IPv6 needs an update for each configured address,
 > then storing just one IPv6 address is insufficient (as we'd need an NA
 > for each address).
+> 
 
-My testing has shown that it doesn't matter which address I send the NA 
-for, I can ping both the link-local and global without dropping a packet 
-simultaneously.  I'm using a Procurve 5400 series switch for what it's 
-worth that has IPv6 support, not sure if something not as recent would 
-behave any different.
+Yes, but the unsolicited NA for the global address just looks rather strange
+when the link local one is provide.  Also, with temporaries that can come and
+go, it's better to use a stable address.
 
--Brian
+We are simply using it to refresh the MAC tables and for a while I thought it
+would be sufficient to do just one ARP or ND, but then I realized that in an
+environment where 2 systems are connected back-to-back, you would potentially
+need to do both.  Need to play with this config...
+
+-vlad
+
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> 
+
