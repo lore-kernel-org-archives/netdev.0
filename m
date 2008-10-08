@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection
- opening
-Date: Wed, 08 Oct 2008 11:21:33 -0700 (PDT)
-Message-ID: <20081008.112133.226941794.davem@davemloft.net>
-References: <20081008081109.GA25342@1wt.eu>
-	<20081008.094212.130684373.davem@davemloft.net>
-	<20081008170739.GA546@1wt.eu>
+Subject: Re: [PATCH net-next 10/14] ipv6: ICMP6MSGIN_INC_STATS is not used
+Date: Wed, 08 Oct 2008 11:23:36 -0700 (PDT)
+Message-ID: <20081008.112336.78710325.davem@davemloft.net>
+References: <1223466722-8169-10-git-send-email-den@openvz.org>
+	<OFA8E1BB63.D89C2A10-ON882574DC.00607E02-882574DC.0060CF64@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: w@1wt.eu
+Cc: den@openvz.org, benjamin.thery@bull.net, dlezcano@fr.ibm.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	xemul@openvz.org, yoshfuji@linux-ipv6.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49116
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56432
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752974AbYJHSV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 14:21:58 -0400
-In-Reply-To: <20081008170739.GA546@1wt.eu>
+	by vger.kernel.org with ESMTP id S1754757AbYJHSYA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 14:24:00 -0400
+In-Reply-To: <OFA8E1BB63.D89C2A10-ON882574DC.00607E02-882574DC.0060CF64@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Wed, 8 Oct 2008 19:07:39 +0200
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Wed, 8 Oct 2008 10:37:25 -0700
 
-> On Wed, Oct 08, 2008 at 09:42:12AM -0700, David Miller wrote:
-> > and that's a good argument to not apply "yet another random knob"
-> > to the kernel.
+> This is there to parallel the definitions for other stats
+> macros. I don't think it should be removed, since it's
+> part of the standard interface for incrementing counters.
+> If someone has a need to increment it without, say, _BH,
+> I wouldn't want them to have to come up with it from
+> scratch again...
 > 
-> OK for the random knob. If you feel comfortable with a patch to simply remove
-> the feature, I can send you such a patch too.
+> It's cost is the two lines of code it takes, but you could
+> consider it "documentation" for any future users that
+> want that variant.
 
-If I don't want the knob, what makes you think I'll accept a patch to
-remove or ifdef the code?
+I disagree.
 
-I absolutely will not.
+It's more work to change interfaces globally like these namespace
+guys frequently have to, if we leave unused interfaces around.
+
+The changelog history clearly contains the old macro so it can
+be resurrected properly, and folks such as you or myself can
+point this out if someone adds an improper reimplementation.
