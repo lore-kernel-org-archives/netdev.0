@@ -1,32 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Possible regression in HTB
-Date: Wed, 08 Oct 2008 02:40:48 +0200
-Message-ID: <48EC0190.7040804@trash.net>
-References: <48EB5A92.6010704@trash.net> <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au> <48EBFF5E.1090902@trash.net>
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: Re: [PATCHv3 5/5] [NET] dsa: add support for the Marvell 88E6060
+ switch chip
+Date: Tue, 7 Oct 2008 17:45:41 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0810071725300.4731@k.domain.actdsltmp>
+References: <20081007234622.GF23200@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Martin Devera <devik@cdi.cz>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64521 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753972AbYJHAmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 20:42:19 -0400
-In-Reply-To: <48EBFF5E.1090902@trash.net>
+Received: from az33egw02.freescale.net ([192.88.158.103]:45070 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756932AbYJHAqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 20:46:15 -0400
+In-Reply-To: <20081007234622.GF23200@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> So what would really be useful to understand this is to make HTB
-> control the queue and see if it behaves as expected. 
+On Wed, 8 Oct 2008, Lennert Buytenhek wrote:
+> +
+> +static int reg_read(struct dsa_switch *ds, int addr, int reg)
+> +{
+> +	return mdiobus_read(ds->master_mii_bus, addr, reg);
+> +}
 
-What also might help understand this better would be some
-runtime data. An easy way to get some halfway usable data
-is to just run
+Instead of all the code to add the mdio buses to the device tree and exporting
+mdiobus_read(), could you have just added the switch chip as a "phy" on the
+mdio bus?  Then used phy_read/write() on it?  I know it's not a phy, but you
+don't need to use the phy state machine and so on.
 
-tc -s -d qdisc show dev ...; tc -s -d class show dev ...
+Freescale gianfar MACs configure the serdes for SGMII using a virtual "TBI"
+device on the MDIO bus.  Supposedly Andy has patch that adds them as devices
+on the MDIO bus, isn't of the gianfar specific MDIO back-door they currently
+use.
 
-in a loop.
+> +#define REG_READ(addr, reg)					\
+> +	({							\
+> +		int __ret;					\
+> +								\
+> +		__ret = reg_read(ds, addr, reg);		\
+> +		if (__ret < 0)					\
+> +			return __ret;				\
+> +		__ret;						\
+> +	})
+
+Macro with a hidden use of a local ('ds') and a hidden return?  The former is
+discouraged (but can sure save a lot of typing) but the latter seems like it's
+just begging to cause a missing unlock or free on an error path.
