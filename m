@@ -1,60 +1,58 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: cxgb3 - fix race in EEH
-Date: Wed, 08 Oct 2008 16:10:53 -0700
-Message-ID: <48ED3DFD.2010204@chelsio.com>
-References: <20081008.155850.182279915.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sky2: Fix recent WOL regression
+Date: Wed, 08 Oct 2008 16:12:10 -0700 (PDT)
+Message-ID: <20081008.161210.79287275.davem@davemloft.net>
+References: <200810022339.34025.rjw@sisk.pl>
+	<20081003090243.724cf79c@speedy>
+	<200810090055.56598.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: shemminger@vyatta.com, jeff@garzik.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	tino.keitel@gmx.de, netdev@vger.kernel.org,
+	jbarnes@virtuousgeek.org
+To: rjw@sisk.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:28263 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754416AbYJHXLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 19:11:36 -0400
-In-Reply-To: <20081008.155850.182279915.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56299
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754466AbYJHXMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 19:12:34 -0400
+In-Reply-To: <200810090055.56598.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> I've applied this patch to net-next-2.6, BUT...
->
-> You should show some signs of life and address the things
-> Andrew Morton asked you about when you posted this patch.
->
-> His questions and comments are included for your reference:
->
-> ----------------------------------------
-> It's deeply weird that t3_reset_qset() does
->
-> 	memset(&q->tx_reclaim_timer, 0, sizeof(q->tx_reclaim_timer));
->
-> There are lots of things in the timer_list which the driver has no
-> business modifying.  For example, this might break the metadata in
-> Thomas's debugobjects stuff, which attempts to catch things being done
-> in the wrong order (I don't think it will, but still...).
->
-> Rerunning init_timer() should repair the damage, but I suspect a simple
->
-> 	q->tx_reclaim_timer.function = NULL;	/* explanation goes here */
->
-> would suffice here.
->
->
-> t3_sge_alloc_qset() could use the newer setup_timer().
-> ----------------------------------------
->   
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Thu, 9 Oct 2008 00:55:55 +0200
 
-Hi Dave,
+> On Friday, 3 of October 2008, Stephen Hemminger wrote:
+> > On Thu, 2 Oct 2008 23:39:33 +0200
+> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > 
+> > > From: Rafael J. Wysocki <rjw@sisk.pl>
+> > > 
+> > > sky2: Fix recent WOL regression
+> > > 
+> > > Since dev->power.should_wakeup bit is used by the PCI core to
+> > > decide whether the device should wake up the system from sleep
+> > > states, set/unset this bit whenever WOL is enabled/disabled using
+> > > sky2_set_wol() (this fixes a regression from 2.6.26 on the Tino's
+> > > machine).
+> > > 
+> > > Remove an open-coded reference to the standard PCI PM registers that
+> > > is not used any more.
+> > > 
+> > > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> > > Reported-by: Tino Keitel <tino.keitel@gmx.de>
+> > > ---
+> > 
+> > Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > Thanks for fixing this.
+> 
+> Can you please include this patch into your next push for Jeff?
+> 
+> It seems to have been overlooked.
 
-I've got a series of patches almost ready to go against net-next-2.6 - 
-hopefully within the next hour, and it includes a fix for this.
-I was hoping to push the patches earlier this week, thus replying to 
-Andrew's concerns. It's obviously taking longer than expected to get 
-these patches out. I should have answered Andrew nonetheless.
-The patch series will integrate Andrew'suggestions.
-
-Cheers,
-Divy
-
+I missed this ACK but I did add the patch to my tree as you
+can see from another email of mine.
