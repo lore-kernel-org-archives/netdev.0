@@ -1,54 +1,19 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
-Date: Wed, 08 Oct 2008 15:22:38 -0700
-Message-ID: <1223504558.22343.15.camel@w-sridhar2.beaverton.ibm.com>
-References: <OF3F6EE419.BE384A50-ON882574DC.0063AD5A-882574DC.0064A148@us.ibm.com>
-	 <48ED03A6.2060705@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: phylib: phy_mii_ioctl() fixes
+Date: Wed, 08 Oct 2008 15:25:58 -0700 (PDT)
+Message-ID: <20081008.152558.101895267.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	David Miller <davem@davemloft.net>, fubar@linux.vnet.ibm.com,
-	Simon Horman <horms@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	Vladislav Yasevich <vladislav.yasevich@hp.com>
-To: Brian Haley <brian.haley@hp.com>
+Cc: afleming@freescale.com, netdev@vger.kernel.org
+To: buytenh@marvell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:35994 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752533AbYJHWXC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 18:23:02 -0400
-In-Reply-To: <48ED03A6.2060705@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41305
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752429AbYJHW0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 18:26:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Wed, 2008-10-08 at 15:01 -0400, Brian Haley wrote:
-> David Stevens wrote:
-> > Well, actually, it looks like I'm suggesting you to re-use something that 
-> > doesn't
-> > exist. :-)
-> > 
-> > MLD (and IGMP) has such a thing where unsolicited advertisements are sent
-> > multiple times, with delays in between, to account for lossy networks 
-> > possibly
-> > dropping the first one. There are configurable counts associated with 
-> > probes
-> > and retransmit intervals for solicits, but I don't see the equivalent yet 
-> > for
-> > unsolicited NA's.
-> 
-> I don't see an equivalent either, since the only unsolicited NA the 
-> kernel sends is for DAD, which uses dad_transmits.
-
-Doesn't DAD use neighbor solicitation rather than unsolicited NA?
-Can we use NS in the bonding failover scenario too?
-
-Thanks
-Sridhar
-
-
-
-
+Applied to net-next-2.6
