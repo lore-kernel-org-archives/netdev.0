@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection
- opening
-Date: Wed, 08 Oct 2008 09:42:12 -0700 (PDT)
-Message-ID: <20081008.094212.130684373.davem@davemloft.net>
-References: <20081008081109.GA25342@1wt.eu>
+Subject: Re: [PATCH] phy_device: Interrupt number 0 is valid
+Date: Wed, 08 Oct 2008 09:43:35 -0700 (PDT)
+Message-ID: <20081008.094335.216774973.davem@davemloft.net>
+References: <48ECA4A0.7080508@teltonika.lt>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: w@1wt.eu
+To: paulius.zaleckas@teltonika.lt
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46017
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46020
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754097AbYJHQmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 12:42:36 -0400
-In-Reply-To: <20081008081109.GA25342@1wt.eu>
+	by vger.kernel.org with ESMTP id S1753976AbYJHQn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 12:43:59 -0400
+In-Reply-To: <48ECA4A0.7080508@teltonika.lt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Date: Wed, 08 Oct 2008 15:16:32 +0300
 
-I'm not really interested in applying this.
+> If interrupt number 0(valid interrupt number) will be passed as
+> phy interrupt it should be used. In current situation even phy
+> polling will not work since PHY_POLL = -1
+> 
+> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 
-You can make the same argument for just about any queer corner case
-aspect of TCP.
-
-The world hasn't ended even though this patch hasn't applied since
-2005 and that's a good argument to not apply "yet another random knob"
-to the kernel.
+In the Linux kernel, interrupt number 0 is defined as not valid.
