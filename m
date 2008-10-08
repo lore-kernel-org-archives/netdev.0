@@ -1,63 +1,67 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: Possible regression in HTB
-Date: Wed, 8 Oct 2008 18:22:44 +1100
-Message-ID: <20081008072243.GK22396@verge.net.au>
-References: <20081007011551.GA28408@verge.net.au> <20081007045145.GA23883@verge.net.au> <20081007074435.GA2700@ff.dom.local> <20081008000928.GJ12021@verge.net.au> <20081008063701.GA4174@ff.dom.local>
+Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
+Date: Wed, 8 Oct 2008 18:26:34 +1100
+Message-ID: <20081008072632.GL22396@verge.net.au>
+References: <48EC091D.7080207@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Vladislav Yasevich <vladislav.yasevich@hp.com>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:48280 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:46694 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753618AbYJHHWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 03:22:46 -0400
+	with ESMTP id S1754665AbYJHH0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 03:26:36 -0400
 Content-Disposition: inline
-In-Reply-To: <20081008063701.GA4174@ff.dom.local>
+In-Reply-To: <48EC091D.7080207@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 08, 2008 at 06:37:01AM +0000, Jarek Poplawski wrote:
-> On Wed, Oct 08, 2008 at 11:09:28AM +1100, Simon Horman wrote:
-> > On Tue, Oct 07, 2008 at 07:44:35AM +0000, Jarek Poplawski wrote:
-> ...
-> > > So, thanks for testing and reporting this. (BTW, what network card
-> > > do you use and is there multiqueuing on?)
-> > 
-> > The network card is an e1000. Acutally there are two, but I
-> > am only using the first one. I am not sure what the Broadcom
-> > controllers are (I can get someone to go and inspect the
-> > machine if its important).
-> > 
-> > # lspci | grep Ether
-> > 03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-> > 05:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-> > 0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-> > 0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-> > 
-> > And from dmsg
-> > 
-> > e1000e 0000:0b:00.0: setting latency timer to 64
-> > 0000:0b:00.0: 0000:0b:00.0: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
-> > 0000:0b:00.0: eth0: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f2
-> > 0000:0b:00.0: eth0: Intel(R) PRO/1000 Network Connection
-> > 0000:0b:00.0: eth0: MAC: 0, PHY: 4, PBA No: d51930-003
-> > e1000e 0000:0b:00.1: setting latency timer to 64
-> > 0000:0b:00.1: 0000:0b:00.1: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
-> > 0000:0b:00.1: eth1: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f3
-> > 0000:0b:00.1: eth1: Intel(R) PRO/1000 Network Connection
-> > 0000:0b:00.1: eth1: MAC: 0, PHY: 4, PBA No: d51930-003
-> > 
-> > It is eth0 that I am using.
-> 
-> I've only wandered if we should consider any new effects because of
-> this, but e1000/1000e don't have this yet (bnx2 has).
-> 
-> > My kernel is compiled with CONFIG_NET_SCH_MULTIQ disabled.
-> 
-> Multiquing can work without this too.
+On Tue, Oct 07, 2008 at 09:13:01PM -0400, Brian Haley wrote:
+> This patch adds better IPv6 failover support for bonding devices,  
+> especially when in active-backup mode and there are only IPv6 addresses  
+> configured, as reported by Alex Sidorenko.
+>
+> - Creates a new file, net/drivers/bonding/bond_ipv6.c, for the
+>   IPv6-specific routines.  Both regular bonds and VLANs over bonds
+>   are supported.
+>
+> - Adds a new tunable, num_unsol_na, to limit the number of unsolicited
+>   IPv6 Neighbor Advertisements that are sent on a failover event.
+>   Default is 1.
+>
+> - Creates two new IPv6 neighbor discovery functions:
+>
+>   ndisc_build_skb()
+>   ndisc_send_skb()
+>
+>   These were required to support VLANs since we have to be able to
+>   add the VLAN id to the skb since ndisc_send_na() and friends
+>   shouldn't be asked to do this.  These two routines are basically
+>   __ndisc_send() split into two pieces, in a slightly different order.
+>
+> - Updates Documentation/networking/bonding.txt and bumps the rev of bond
+>   support to 3.4.0.
+>
+> On failover, this new code will generate one packet:
+>
+> - An unsolicited IPv6 Neighbor Advertisement, which helps the switch
+>   learn that the address has moved to the new slave.
+>
+> Testing has shown that sending just the NA results in pretty good  
+> behavior when in active-back mode, I saw no lost ping packets for 
+> example.
+>
+> -Brian
+>
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Ok, what should I be checking for?
+The Kconfig / build portions of this look fine to me.
+
 
 -- 
 Simon Horman
