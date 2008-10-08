@@ -1,40 +1,44 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: small design problem with hso driver
-Date: Wed, 8 Oct 2008 10:45:56 -0700
-Message-ID: <20081008174556.GA15387@kroah.com>
-References: <48ECBB26.7080402@option.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
+Date: Wed, 08 Oct 2008 14:08:12 -0400
+Message-ID: <48ECF70C.8080108@hp.com>
+References: <OF2E92DF11.37B32D55-ON882574DC.0060DD39-882574DC.006110E1@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <48ECBB26.7080402-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	David Miller <davem@davemloft.net>, fubar@linux.vnet.ibm.com,
+	Simon Horman <horms@verge.net.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:4617 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751182AbYJHSIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 14:08:16 -0400
+In-Reply-To: <OF2E92DF11.37B32D55-ON882574DC.0060DD39-882574DC.006110E1@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 08, 2008 at 03:52:38PM +0200, Denis Joseph Barrow wrote:
-> Hi,
-> I'm getting a fairly consistently reproducable problem
-> with the 3g modem hso driver. The most reproducable
-> bug I have.
+David Stevens wrote:
+> Brian,
+>         I'll make the same comment I did in the earlier version,
+> which is I don't think we need a new control for the count. Instead,
+> it should use the count for unsolicited NA's we send when adding
+> an address. It is the same case, really, and I, FWIW, would rather
+> we didn't have any more sysctl's than we need.
 > 
-> It happens when I plug out the usb modem & ctrl-c
-> out of an ioctl call with the modem connected in paralell over ppp
-> with wvdial 
+>                                                 +-DLS
 > 
-> Basically whats happening is the hso_serial_close
-> is being called more times than the hso_serial_open &
-> I don't know why.
 
-Care to put a trace or printk() to determine who is doing each open and
-close?
+Are you referring to 'dad_transmits' because I don't see any sysctls
+that control the number of unsolicited NAs.  In fact, in normal operations
+we don't send any unsolicited NAs at all.
 
-thanks,
+This functionality effectively duplicates the gratuitous arps controls on the
+bond.
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-vlad
+
