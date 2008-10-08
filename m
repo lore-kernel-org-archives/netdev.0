@@ -1,70 +1,76 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
-Date: Wed, 8 Oct 2008 18:26:34 +1100
-Message-ID: <20081008072632.GL22396@verge.net.au>
-References: <48EC091D.7080207@hp.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] Re: Possible regression in HTB
+Date: Wed, 8 Oct 2008 07:46:04 +0000
+Message-ID: <20081008074604.GC4174@ff.dom.local>
+References: <48EB5A92.6010704@trash.net> <48EBFF5E.1090902@trash.net> <20081008065551.GB4174@ff.dom.local> <200810081006.38840.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
+Cc: Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
 	David Miller <davem@davemloft.net>,
-	Vladislav Yasevich <vladislav.yasevich@hp.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+	Martin Devera <devik@cdi.cz>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46694 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754665AbYJHH0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 03:26:36 -0400
+Received: from ug-out-1314.google.com ([66.249.92.170]:34966 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753487AbYJHHqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 03:46:11 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so487212ugf.37
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 00:46:09 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <48EC091D.7080207@hp.com>
+In-Reply-To: <200810081006.38840.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 07, 2008 at 09:13:01PM -0400, Brian Haley wrote:
-> This patch adds better IPv6 failover support for bonding devices,  
-> especially when in active-backup mode and there are only IPv6 addresses  
-> configured, as reported by Alex Sidorenko.
->
-> - Creates a new file, net/drivers/bonding/bond_ipv6.c, for the
->   IPv6-specific routines.  Both regular bonds and VLANs over bonds
->   are supported.
->
-> - Adds a new tunable, num_unsol_na, to limit the number of unsolicited
->   IPv6 Neighbor Advertisements that are sent on a failover event.
->   Default is 1.
->
-> - Creates two new IPv6 neighbor discovery functions:
->
->   ndisc_build_skb()
->   ndisc_send_skb()
->
->   These were required to support VLANs since we have to be able to
->   add the VLAN id to the skb since ndisc_send_na() and friends
->   shouldn't be asked to do this.  These two routines are basically
->   __ndisc_send() split into two pieces, in a slightly different order.
->
-> - Updates Documentation/networking/bonding.txt and bumps the rev of bond
->   support to 3.4.0.
->
-> On failover, this new code will generate one packet:
->
-> - An unsolicited IPv6 Neighbor Advertisement, which helps the switch
->   learn that the address has moved to the new slave.
->
-> Testing has shown that sending just the NA results in pretty good  
-> behavior when in active-back mode, I saw no lost ping packets for 
-> example.
->
-> -Brian
->
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
+On Wed, Oct 08, 2008 at 10:06:38AM +0300, Denys Fedoryshchenko wrote:
+> On Wednesday 08 October 2008, Jarek Poplawski wrote:
+> > On Wed, Oct 08, 2008 at 02:31:26AM +0200, Patrick McHardy wrote:
+> > ...
+> >
+> > > I'm pretty sure that the differences are caused by HTB not being
+> > > in control of the queue since the device is the real bottleneck
+> > > in this configuration.
+> >
+> > Yes, otherwise there would be no requeuing. And, btw. the golden rule
+> > of scheduling/shaping is limiting below "hardware" limits.
+> By the way, HTB counting ethernet headers (e.g. if you send 1500 byte ping, it 
+> will be 1514 in tc counters) . So possible ethernet overhead counted.
+> 
 
-The Kconfig / build portions of this look fine to me.
+Right, that's why stats from the other host could differ and these
+tc stats mentioned by Patrick could be useful.
 
+BTW, current requeuing isn't true requeuing, but we should have some
+info about this, so something like this patch is needed.
 
--- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+Jarek P.
 
+-------------->
+
+pkt_sched: Update qdisc requeue stats in dev_requeue_skb()
+
+After the last change of requeuing there is no info about such
+incidents in tc stats. This patch updates the counter, but we should
+consider this should differ from previous stats because of additional
+checks preventing to repeat this. On the other hand, previous stats
+didn't include requeuing of gso_segmented skbs.
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ net/sched/sch_generic.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 31f6b61..7b5572d 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -45,6 +45,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
+ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
+ {
+ 	q->gso_skb = skb;
++	q->qstats.requeues++;
+ 	__netif_schedule(q);
+ 
+ 	return 0;
