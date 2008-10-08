@@ -1,49 +1,35 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] phy_device: Interrupt number 0 is valid
-Date: Wed, 08 Oct 2008 15:16:32 +0300
-Message-ID: <48ECA4A0.7080508@teltonika.lt>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
+Date: Wed, 08 Oct 2008 16:16:44 +0400
+Message-ID: <48ECA4AC.1010101@openvz.org>
+References: <20081008081109.GA25342@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:47072 "EHLO
-	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752448AbYJHMQh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 08:16:37 -0400
-Received: from 82-135-208-232.static.zebra.lt (HELO Programuotojas.82-135-208-232.ip.zebra.lt) (paulius.zaleckas@[82.135.208.232])
-          (envelope-sender <paulius.zaleckas@teltonika.lt>)
-          by teltonika.lt (qmail-ldap-1.03) with SMTP
-          for <netdev@vger.kernel.org>; 8 Oct 2008 12:16:29 -0000
+Received: from sacred.ru ([62.205.161.221]:35739 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751299AbYJHMRe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2008 08:17:34 -0400
+In-Reply-To: <20081008081109.GA25342@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If interrupt number 0(valid interrupt number) will be passed as
-phy interrupt it should be used. In current situation even phy
-polling will not work since PHY_POLL = -1
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index d0437f3..0e23062 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -435,6 +435,7 @@ enum
+>  	NET_TCP_ALLOWED_CONG_CONTROL=123,
+>  	NET_TCP_MAX_SSTHRESH=124,
+>  	NET_TCP_FRTO_RESPONSE=125,
+> +	NET_TCP_SIMULT_CONNECT=126,
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Minor - sysctl syscall (as long as numbers and ->strategy callbacks) are
+about to be removed some time, so new sysctls are to be CTL_UNNUMBERED.
 
-Index: linux-2.6/drivers/net/phy/phy_device.c
-===================================================================
---- linux-2.6.orig/drivers/net/phy/phy_device.c
-+++ linux-2.6/drivers/net/phy/phy_device.c
-@@ -285,7 +285,7 @@ struct phy_device * phy_connect(struct n
- 
- 	phy_start_machine(phydev, NULL);
- 
--	if (phydev->irq > 0)
-+	if (phydev->irq >= 0)
- 		phy_start_interrupts(phydev);
- 
- 	return phydev;
-@@ -298,7 +298,7 @@ EXPORT_SYMBOL(phy_connect);
-  */
- void phy_disconnect(struct phy_device *phydev)
- {
--	if (phydev->irq > 0)
-+	if (phydev->irq >= 0)
- 		phy_stop_interrupts(phydev);
- 
- 	phy_stop_machine(phydev);
-
+>  };
+>  
+>  enum {
