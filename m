@@ -1,39 +1,39 @@
-From: Terry <hanfang@baidu.com>
-Subject: Re: [PATCHv2 1/2] [NET] add skb_recycle_check() to enable netdriver
- skb recycling
-Date: Wed, 08 Oct 2008 09:24:54 +0800
-Message-ID: <48EC0BE6.5020203@baidu.com>
-References: <20080928204633.GB19070@xi.wantstofly.org> <20080928213824.GA25298@2ka.mipt.ru> <20080928215035.GG19070@xi.wantstofly.org> <20080929053931.GB21663@2ka.mipt.ru> <20080929094650.GA26097@xi.wantstofly.org> <36D9DB17C6DE9E40B059440DB8D95F52064B198F@orsmsx418.amr.corp.intel.com>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [patch][rfc] ddds: "dynamic dynamic data structure" algorithm, for adaptive dcache hash table sizing (resend)
+Date: Wed, 8 Oct 2008 04:38:20 +0200
+Message-ID: <20081008023820.GB6499@wotan.suse.de>
+References: <20081007070225.GB5959@wotan.suse.de> <48EB11BB.2060704@cosmosbay.com> <20081007080656.GB16143@wotan.suse.de> <20081007.140509.48442086.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org, paulmck@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.baidu.com.163.135.61.in-addr.arpa ([61.135.163.61]:53082
-	"HELO smtp.baidu.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S1752560AbYJHBbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 21:31:36 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52064B198F@orsmsx418.amr.corp.intel.com>
+Received: from cantor.suse.de ([195.135.220.2]:36726 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752884AbYJHCiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2008 22:38:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20081007.140509.48442086.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Oct 07, 2008 at 02:05:09PM -0700, David Miller wrote:
+> From: Nick Piggin <npiggin@suse.de>
+> Date: Tue, 7 Oct 2008 10:06:56 +0200
+> 
+> > Hmm, that is interesting. What are the exact semantics of this rt_cache
+> > file?
+> 
+> It dumps the whole set of elements in the routing cache hash table.
 
+Right, so I guess importantly, it must not miss a route that remains in
+the cache for the duration of the read(2)s. Obviously routes concurrently
+entering and leaving the cache will not have any guarantees, including
+causality (if we dump route A, we may still miss route B added before A).
 
-Brandeburg, Jesse wrote:
-> Lennert Buytenhek wrote:
->   
->> Could you (or anyone else) try this patch on one of your boxes and
->> see what kind of effect it has on performance?
->>     
->
-> Lennert, we're very interested in this kind of work, and I'll see what
-> we can come up with by porting ixgbe or igb to use the patch.  Bad news
-> is it may be as far away as a couple of weeks, because of this e1000e
-> corrupt NVM thing I'm working on.
->
->   
-ixgbe's skb recycle patch means a lot to me :-)
-
-Terry
-
+Duplicates? I guess in a sense it could be possible to read route A, then
+it gets deleted and reinserted? Oh, looking at the code it seems like
+actually it is possible to miss entries anyway if they get moved to the
+front of the chain while we're traversing it. Hmm, so if it just has "best
+effort" kind of semantics, then we don't have to be too worried.
