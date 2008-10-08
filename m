@@ -1,49 +1,50 @@
-From: Krzysztof Oledzki <ole@ans.pl>
-Subject: Re: Error: an inet prefix is expected rather than "0/0".
-Date: Wed, 8 Oct 2008 23:32:10 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl>
-References: <alpine.LNX.1.10.0810082258240.13921@bizon.gios.gov.pl>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] tcpv6: fix option space offsets with md5
+Date: Thu, 9 Oct 2008 00:31:35 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810090028040.8595@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1625674846-1223501530=:13921"
-Cc: shemminger@vyatta.com
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1284535240-1223501383=:8595"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:37896 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754406AbYJHVcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 17:32:14 -0400
-In-Reply-To: <alpine.LNX.1.10.0810082258240.13921@bizon.gios.gov.pl>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56654 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754911AbYJHVfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 17:35:36 -0400
+Content-ID: <Pine.LNX.4.64.0810090030170.8595@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
----1144830174-1625674846-1223501530=:13921
-Content-Type: TEXT/PLAIN; charset=iso-8859-2; format=flowed
+---696208474-1284535240-1223501383=:8595
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0810090030171.8595@wrl-59.cs.helsinki.fi>
 
 
+More breakage :-), part of timestamps just were previously
+overwritten.
 
-On Wed, 8 Oct 2008, Krzysztof Oledzki wrote:
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv6/tcp_ipv6.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> Hello,
->
-> It seems that never versions of iproute (tested with iproute2-2.6.26) no 
-> longer allow 0/0:
->
-> # ip route add 0/0 via 192.168.0.1
-> Error: an inet prefix is expected rather than "0/0".
->
-> Is it intentional? It breaks startup scripts.
-
-OK, never mind - found it:
-
-http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=commitdiff_plain;h=2ca4abdcb823e708b88156f947fa5b493055618a
-
-;)
-
-Best regards,
-
- 				Krzysztof Olêdzki
----1144830174-1625674846-1223501530=:13921--
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 26ac4fe..9c9ecf4 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1087,7 +1087,7 @@ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack, u32 win, u32
+ 		*topt++ = htonl((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16) |
+ 				(TCPOPT_TIMESTAMP << 8) | TCPOLEN_TIMESTAMP);
+ 		*topt++ = htonl(tcp_time_stamp);
+-		*topt = htonl(ts);
++		*topt++ = htonl(ts);
+ 	}
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+-- 
+1.5.2.2
+---696208474-1284535240-1223501383=:8595--
