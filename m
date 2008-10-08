@@ -1,44 +1,28 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
-Date: Wed, 08 Oct 2008 14:08:12 -0400
-Message-ID: <48ECF70C.8080108@hp.com>
-References: <OF2E92DF11.37B32D55-ON882574DC.0060DD39-882574DC.006110E1@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 02/14] ipv6: consolidate error paths in
+ ipv6_frag_rcv
+Date: Wed, 08 Oct 2008 11:09:50 -0700 (PDT)
+Message-ID: <20081008.110950.17462251.davem@davemloft.net>
+References: <1223466685.7184.13.camel@iris.sw.ru>
+	<1223466722-8169-2-git-send-email-den@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	David Miller <davem@davemloft.net>, fubar@linux.vnet.ibm.com,
-	Simon Horman <horms@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: netdev@vger.kernel.org, dlezcano@fr.ibm.com,
+	benjamin.thery@bull.net, xemul@openvz.org, yoshfuji@linux-ipv6.org
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:4617 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751182AbYJHSIQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 14:08:16 -0400
-In-Reply-To: <OF2E92DF11.37B32D55-ON882574DC.0060DD39-882574DC.006110E1@us.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43834
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754599AbYJHSKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 14:10:14 -0400
+In-Reply-To: <1223466722-8169-2-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens wrote:
-> Brian,
->         I'll make the same comment I did in the earlier version,
-> which is I don't think we need a new control for the count. Instead,
-> it should use the count for unsolicited NA's we send when adding
-> an address. It is the same case, really, and I, FWIW, would rather
-> we didn't have any more sysctl's than we need.
-> 
->                                                 +-DLS
-> 
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Wed,  8 Oct 2008 15:51:50 +0400
 
-Are you referring to 'dad_transmits' because I don't see any sysctls
-that control the number of unsolicited NAs.  In fact, in normal operations
-we don't send any unsolicited NAs at all.
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-This functionality effectively duplicates the gratuitous arps controls on the
-bond.
-
--vlad
-
+Applied.
