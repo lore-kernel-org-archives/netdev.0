@@ -1,63 +1,87 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
-Date: Wed, 08 Oct 2008 15:12:21 -0400
-Message-ID: <48ED0615.7000007@hp.com>
-References: <OF3F6EE419.BE384A50-ON882574DC.0063AD5A-882574DC.0064A148@us.ibm.com>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround (fwd)
+Date: Wed, 8 Oct 2008 16:34:30 -0300
+Message-ID: <48ed0b51.0913c00a.7715.4aa7@mx.google.com>
+References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
+	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
+	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
+	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
+	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
+	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
+	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
+	<Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
+	<48e5364d.0603c00a.6e25.fffff993@mx.google.com>
+	<Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
+	<48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com>
+	<alpine.LFD.2.00.0810052008131.3398@apollo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	Brian Haley <brian.haley@hp.com>,
-	David Miller <davem@davemloft.net>, fubar@linux.vnet.ibm.com,
-	Simon Horman <horms@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:27301 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753248AbYJHTMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 15:12:24 -0400
-In-Reply-To: <OF3F6EE419.BE384A50-ON882574DC.0063AD5A-882574DC.0064A148@us.ibm.com>
+Received: from rv-out-0506.google.com ([209.85.198.236]:14447 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848AbYJHTeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 15:34:44 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so4376736rvb.1
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 12:34:43 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.00.0810052008131.3398@apollo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+On Sun, 5 Oct 2008 20:09:22 +0200 (CEST)
+Thomas Gleixner <tglx@linutronix.de> wrote:
 
-David Stevens wrote:
-> Well, actually, it looks like I'm suggesting you to re-use something that 
-> doesn't
-> exist. :-)
+> The cat /debug/tracing/tracing_enabled == 1 might be just a user space
+> interface thingy.
 > 
-> MLD (and IGMP) has such a thing where unsolicited advertisements are sent
-> multiple times, with delays in between, to account for lossy networks 
-> possibly
-> dropping the first one. There are configurable counts associated with 
-> probes
-> and retransmit intervals for solicits, but I don't see the equivalent yet 
-> for
-> unsolicited NA's.
-> 
-> So, instead, what I suggest is that you add (or find!) THAT knob, instead 
-> of a
-> bonding-specific one. Because adding an address that wasn't there before
-> has identical issues with unsolicited NA's as bonding has with activating 
-> a
-> new address.
+> Thanks,
 
-Adding a new address triggers a DAD probe which is enough to let the switch
-learn the MAC address.  It's a different scenario for a link failover in
-bonding.  Also, adding a new address will automatically trigger and MLD response
-if a corresponding solicited node multicast address is added.
+	Thomas, Ilpo etc, I got a trace exactly after the patch
+provided by Thomas detected the stall:
 
-So the bonding case is rather different from everything else we've had so far.
+http://www.abusar.org/ftrace/trace-final.txt.bz2
 
--vlad
+	Thomas, since you didn't reply to the previous messages, I
+assume the previous traces were invalid. But could you please check
+this one?
 
-> The default should probably be 1, but if you ever need to
-> send multiple unsolicited NA's for bonding, you probably also need it for
-> adding a normal address on the same network. dad_transmits is similar,
-> but not really the same thing.
-> 
->                                                         +-DLS
+	It would be wise to search for "monit" in the trace, since
+monit activated the script "stop-tracing.sh" which stops the trace and
+dump the trace output to the file. So what probably interest you is
+what comes *before* "monit".
 
+	"monit" appears for the first time in line 16921.
+
+	To make it more clear, I configured monit with the following:
+
+check file syslog with path /var/adm/messages
+	if match "Tracer stopped" then exec "/home/fraga/stop-tracing.sh"
+
+	And the stop-tracing.sh script is just that:
+
+#!/bin/sh
+/usr/local/bin/echo 0 > /debug/tracing/tracing_enabled
+/usr/local/bin/cat /debug/tracing/trace > /home/fraga/trace.txt
+
+	So I expect that this trace is right now.
+
+	If monit was too slow in detecting the "Tracer stopped" log entry, I'll 
+use a Perl script which is faster.
+
+	Thanks, I wait for your reply.
+
+	Ps: flood_mail.pl is just a perl script I use to prevent people from flooding
+my smtp server with mail.
+
+	Ps2: I just don't know if it would be better to stop the tracing *before*
+dump the trace or it would be better to dump the trace without stopping it... I noticed
+that even the "echo" I use to stop the tracing, generated a lot of useless tracing information.
+
+-- 
