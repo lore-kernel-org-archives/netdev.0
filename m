@@ -1,87 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IGMP sent to Foreign VLAN
-Date: Wed, 08 Oct 2008 01:53:27 +0200
-Message-ID: <48EBF677.1060602@trash.net>
-References: <1223322707.24688.46.camel@deepthought.nh.local> <20081007.160702.189194318.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Possible regression in HTB
+Date: Wed, 8 Oct 2008 11:09:28 +1100
+Message-ID: <20081008000928.GJ12021@verge.net.au>
+References: <20081007011551.GA28408@verge.net.au> <20081007045145.GA23883@verge.net.au> <20081007074435.GA2700@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: j.neuner@networkharbor.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63511 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983AbYJGXyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 19:54:52 -0400
-In-Reply-To: <20081007.160702.189194318.davem@davemloft.net>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45121 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752892AbYJHAJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 20:09:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20081007074435.GA2700@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jarod Neuner <j.neuner@networkharbor.com>
-> Date: Mon, 6 Oct 2008 14:51:47 -0500
->
->   
->> I noticed a problem where the kernel is not responding to IGMP Queries
->> from several Level-3 network switches.  This behavior is caused by these
->> switches using VLAN tags on IGMP messages.  At first I thought the
->> switches were out of spec, but every other network stack I've checked
->> delivers packets with unconfigured VLAN assignments directly to the
->> incoming interface.  
->>
->> This patch corrects my problem, but I'm still interested in discussion
->> about whether or not this should be a parameter in /proc/sys/net or even
->> if this policy change should be applied elsewhere in the the network
->> stack.
->>     
->
-> Interesting.
->   
+On Tue, Oct 07, 2008 at 07:44:35AM +0000, Jarek Poplawski wrote:
+> On Tue, Oct 07, 2008 at 03:51:47PM +1100, Simon Horman wrote:
+> > On Tue, Oct 07, 2008 at 12:15:52PM +1100, Simon Horman wrote:
+> > > Hi Dave, Hi Jarek,
+> 
+> Hi Simon,
+> 
+> > > I know that you guys were/are playing around a lot in here, but
+> > > unfortunately I think that "pkt_sched: Always use q->requeue in
+> > > dev_requeue_skb()" (f0876520b0b721bedafd9cec3b1b0624ae566eee) has
+> > > introduced a performance regression for HTB.
+> ...
+> > > The test machine with the tc rules and udp-sending processes
+> > > has two Intel Xeon Quad-cores running at 1.86GHz. The kernel
+> > > is SMP x86_64.
+> > 
+> > With the following patch (basically a reversal of ""pkt_sched: Always use
+> > q->requeue in dev_requeue_skb()" forward ported to the current
+> > net-next-2.6 tree (tcp: Respect SO_RCVLOWAT in tcp_poll()), I get some
+> > rather nice numbers (IMHO).
+> > 
+> > 10194: 666780666bits/s 666Mbits/s
+> > 10197: 141154197bits/s 141Mbits/s
+> > 10196: 141023090bits/s 141Mbits/s
+> > -----------------------------------
+> > total: 948957954bits/s 948Mbits/s
+> > 
+> > I'm not sure what evil things this patch does to other aspects
+> > of the qdisc code.
+> 
+> I'd like to establish this too. This patch was meant to remove some
+> other problems possibly the simplest way. Maybe it's too simple.
+> Anyway, it's kind of RFC, so the rest of the requeuing code is left
+> unchanged, just for easy revoking like below. But first we should
+> try to understand this more.
 
-Indeed.
-> Patrick, any opinion?
->   
+Agreed.
 
-I don't like a /proc flag very much, but I believe it should be
-configurable. To make this behaviour consistent there also needs
-to be some indication to drivers to disable hardware filters, so
-we really should have an explicit action from the user first.
+> So, thanks for testing and reporting this. (BTW, what network card
+> do you use and is there multiqueuing on?)
 
-We've been talking about an IFF_ALLVLAN flag on netdev a while
-ago, which would disable VLAN hardware filters, similar to
-IFF_ALLMULTI. An additional flag on the ethernet device could
-indicate that it should receive unknown VLANs directly. That
-would introduce some possible inconsistencies however since the
-flag could be set without the VLAN code even loaded, in which
-case it would not have any effect.
+The network card is an e1000. Acutally there are two, but I
+am only using the first one. I am not sure what the Broadcom
+controllers are (I can get someone to go and inspect the
+machine if its important).
 
-Another possibility would be to use a catch-all VLAN device with
-VID 0xfff (reserved for implementation use). This would allow
-to configure priority mappings, header reordering etc. and have
-separate statistics. The drivers could just use the magic VID
-as an indication to disable filtering, but I would still suggest
-to add the IFF_ALLVLAN flag because its useful on its own.
+# lspci | grep Ether
+03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+05:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
+0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
 
->> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
->> index 4bf014e..b65a8fd 100644
->> --- a/net/8021q/vlan_dev.c
->> +++ b/net/8021q/vlan_dev.c
->> @@ -158,9 +158,13 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
->>         rcu_read_lock();
->>         skb->dev = __find_vlan_dev(dev, vlan_id);
->>         if (!skb->dev) {
->> -               pr_debug("%s: ERROR: No net_device for VID: %u on dev: %s\n",
->> +               pr_debug("%s: WARNING: Forwarding VID: %u to dev: %s\n",
->>                          __func__, vlan_id, dev->name);
->> -               goto err_unlock;
->> +               skb->dev = dev;
->> +               skb_pull_rcsum(skb, VLAN_HLEN);
->> +               vlan_set_encap_proto(skb, vhdr);
->> +               rcu_read_lock();
->> +               return 0;
->>     
+And from dmsg
 
-This can't be right though, the packet needs to be passed
-up the stack. The same change will also be needed in
-__vlan_hwaccel_rx().
+e1000e 0000:0b:00.0: setting latency timer to 64
+0000:0b:00.0: 0000:0b:00.0: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
+0000:0b:00.0: eth0: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f2
+0000:0b:00.0: eth0: Intel(R) PRO/1000 Network Connection
+0000:0b:00.0: eth0: MAC: 0, PHY: 4, PBA No: d51930-003
+e1000e 0000:0b:00.1: setting latency timer to 64
+0000:0b:00.1: 0000:0b:00.1: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
+0000:0b:00.1: eth1: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f3
+0000:0b:00.1: eth1: Intel(R) PRO/1000 Network Connection
+0000:0b:00.1: eth1: MAC: 0, PHY: 4, PBA No: d51930-003
+
+It is eth0 that I am using.
+
+My kernel is compiled with CONFIG_NET_SCH_MULTIQ disabled.
+
+
+
+-- 
+Simon Horman
+  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
+  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
 
