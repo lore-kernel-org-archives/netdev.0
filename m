@@ -1,32 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Please pull updates for IPVS
-Date: Wed, 08 Oct 2008 14:30:29 -0700 (PDT)
-Message-ID: <20081008.143029.113654430.davem@davemloft.net>
-References: <20081007001707.GA12647@verge.net.au>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Re: Error: an inet prefix is expected rather than "0/0".
+Date: Wed, 8 Oct 2008 23:32:10 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl>
+References: <alpine.LNX.1.10.0810082258240.13921@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org, kaber@trash.net,
-	sven.wegener@stealer.net, juliusv@google.com, wensong@linux-vs.org,
-	ja@ssi.bg
-To: horms@verge.net.au
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20081007001707.GA12647@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1625674846-1223501530=:13921"
+Cc: shemminger@vyatta.com
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:37896 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754406AbYJHVcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 17:32:14 -0400
+In-Reply-To: <alpine.LNX.1.10.0810082258240.13921@bizon.gios.gov.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 7 Oct 2008 11:17:10 +1100
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Please pull the following changes. Sorry I have let some of
-> them sit in my tree for a while, I wanted to be sure that
-> Patrick McHardy was ok with the move to netfilter.
- ...
-> The following changes are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-2.6.git lvs-next-2.6
-> 
-> They should apply cleanly to net-next-2.6, which I pulled and merged this
-> morning.
+---1144830174-1625674846-1223501530=:13921
+Content-Type: TEXT/PLAIN; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-Pulled thanks a lot Simon.
+
+
+On Wed, 8 Oct 2008, Krzysztof Oledzki wrote:
+
+> Hello,
+>
+> It seems that never versions of iproute (tested with iproute2-2.6.26) no 
+> longer allow 0/0:
+>
+> # ip route add 0/0 via 192.168.0.1
+> Error: an inet prefix is expected rather than "0/0".
+>
+> Is it intentional? It breaks startup scripts.
+
+OK, never mind - found it:
+
+http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=commitdiff_plain;h=2ca4abdcb823e708b88156f947fa5b493055618a
+
+;)
+
+Best regards,
+
+ 				Krzysztof Olêdzki
+---1144830174-1625674846-1223501530=:13921--
