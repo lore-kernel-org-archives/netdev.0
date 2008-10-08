@@ -1,48 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Possible regression in HTB
-Date: Wed, 8 Oct 2008 06:55:51 +0000
-Message-ID: <20081008065551.GB4174@ff.dom.local>
-References: <48EB5A92.6010704@trash.net> <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au> <48EBFF5E.1090902@trash.net>
+From: Chei-yol Kim <gauri@etri.re.kr>
+Subject: Re: [RFC] Control Group Classifier
+Date: Wed, 8 Oct 2008 07:02:02 +0000 (UTC)
+Message-ID: <loom.20081008T065443-878@post.gmane.org>
+References: <20080908115101.GE20815@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Martin Devera <devik@cdi.cz>
-To: Patrick McHardy <kaber@trash.net>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:27208 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751439AbYJHGz7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 02:55:59 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so479136ugf.37
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2008 23:55:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <48EBFF5E.1090902@trash.net>
+Received: from main.gmane.org ([80.91.229.2]:59338 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751694AbYJHHFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2008 03:05:09 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1KnT6V-0005Gv-1t
+	for netdev@vger.kernel.org; Wed, 08 Oct 2008 07:05:03 +0000
+Received: from bkjung8.etri.re.kr ([129.254.186.210])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 07:05:03 +0000
+Received: from gauri by bkjung8.etri.re.kr with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 07:05:03 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 08, 2008 at 02:31:26AM +0200, Patrick McHardy wrote:
-...
-> I'm pretty sure that the differences are caused by HTB not being
-> in control of the queue since the device is the real bottleneck
-> in this configuration.
+Thomas Graf <tgraf <at> suug.ch> writes:
 
-Yes, otherwise there would be no requeuing. And, btw. the golden rule
-of scheduling/shaping is limiting below "hardware" limits.
+> 
+> This patch implements a very basic cgroup subsystem which allows
+> assigning classids to cgroups. It also adds a trivial classifier
+> to filter packets based on that classid and map them to classes.
+> 
+> The classifier should cover the most common use case and will work
+> without any configuration.  Additionaly it might make sense to add
+> a cgroup meta ematch to allow  for more sophisticated setups.
+> 
+> I've taken over the idea of inheriting the classid of cgroup parents
+> from the patchset posted by Ranjit Manomohan <ranjitm <at> google.com>.
+> 
+> Comments welcome.
+> 
 
-> Its quite possible that there simply might
-> a subtle timing change that causes feedback through HTBs borrowing
-> and ceiling.
+Hello
+I've done your patch to kernel-2.6.27-rc7.
+Then I've got much of fails of compiling kernel.
+What is your base kernel of this patch?
+If there are any other patchs or programs for using your net_cls class,
+Would you let me know?
 
-I'd add my previous suspicion there could be not enough enqeuing on
-time for the fastest class (could be also very bursty), so other
-classes can borrow more.
 
->
-> So what would really be useful to understand this is to make HTB
-> control the queue and see if it behaves as expected.
->
-
-Right, trying with lower rates/ceils should explain this.
-
-Jarek P.
