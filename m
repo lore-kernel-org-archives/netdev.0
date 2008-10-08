@@ -1,48 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] 8139too: move wmb before TX DMA start
-Date: Wed, 8 Oct 2008 11:16:00 +0100
-Message-ID: <20081008101558.GH7331@solarflare.com>
-References: <48EC64E1.5070806@linuxtv.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: e1000e: sporadic "hardware error"s with Intel 82563EB on Supermicro X7DB3
+Date: Wed, 08 Oct 2008 12:29:22 +0200
+Message-ID: <m33aj78jnh.fsf@maximus.localdomain>
+References: <48EB7161.60004@siemens.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andreas Oberritter <obi@linuxtv.org>
+Cc: jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com
+To: "Hillier\, Gernot" <gernot.hillier@siemens.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:53658 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752974AbYJHKQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 06:16:07 -0400
-Content-Disposition: inline
-In-Reply-To: <48EC64E1.5070806@linuxtv.org>
+Received: from khc.piap.pl ([195.187.100.11]:58824 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753231AbYJHK3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2008 06:29:24 -0400
+In-Reply-To: <48EB7161.60004@siemens.com> (Gernot Hillier's message of "Tue\, 07 Oct 2008 16\:25\:37 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andreas Oberritter wrote:
-> From: Andreas Oberritter <obi@linuxtv.org>
-> 
-> The write barrier should be used before starting a DMA transfer. This fixes
-> a problem, where almost all packets received on another machine had garbled
-> content. Tested with an RTL8100C on a MIPS machine.
-> 
-> Signed-off-by: Andreas Oberritter <obi@linuxtv.org>
-> 
-> diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-> index 53bd903..44344af 100644
-> --- a/drivers/net/8139too.c
-> +++ b/drivers/net/8139too.c
-> @@ -1716,13 +1716,13 @@ static int rtl8139_start_xmit (struct sk_buff *skb, struct net_device *dev)
->  	}
->  
->  	spin_lock_irqsave(&tp->lock, flags);
-> +	wmb();
-[...]
+Hi,
 
-All memory barriers need a comment to explain why and what they're doing.
+"Hillier, Gernot" <gernot.hillier@siemens.com> writes:
 
-Ben.
+> On at least two machines using the Supermicro X7DB3 board with Intel
+> 82563EB (a.k.a. PCI device 8086:1096), we see sporadic problems on modprobe
+> (about 1 time in some hundred tries):
+>
+> e1000e: Intel(R) PRO/1000 Network Driver - 0.3.3.3-k2
+> e1000e: Copyright (c) 1999-2008 Intel Corporation.
+> e1000e 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+> e1000e 0000:06:00.0: setting latency timer to 64
+> 0000:06:00.0: 0000:06:00.0: Hardware Error
 
+What does "lspci -vv" say about it when the above happens?
+
+I spurious chip reset (hardware) could probably cause that.
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Krzysztof Halasa
