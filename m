@@ -1,37 +1,86 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: e1000e: sporadic "hardware error"s with Intel 82563EB on Supermicro X7DB3
-Date: Thu, 09 Oct 2008 00:03:00 +0200
-Message-ID: <m31vyq923v.fsf@maximus.localdomain>
-References: <48EB7161.60004@siemens.com> <m33aj78jnh.fsf@maximus.localdomain>
-	<48ECB727.6050905@siemens.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCHv3 5/5] [NET] dsa: add support for the Marvell 88E6060 switch chip
+Date: Thu, 9 Oct 2008 00:07:10 +0200
+Message-ID: <20081008220710.GF1111@xi.wantstofly.org>
+References: <20081007234622.GF23200@xi.wantstofly.org> <Pine.LNX.4.64.0810071725300.4731@k.domain.actdsltmp> <20081008084903.GE23326@xi.wantstofly.org> <2acbd3e40810081320oe022835r7e6f53abc1147542@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com
-To: "Hillier\, Gernot" <gernot.hillier@siemens.com>
+Cc: Trent Piepho <tpiepho@freescale.com>, netdev@vger.kernel.org
+To: Andy Fleming <afleming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:56556 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754591AbYJHWDC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 18:03:02 -0400
-In-Reply-To: <48ECB727.6050905@siemens.com> (Gernot Hillier's message of "Wed\, 08 Oct 2008 15\:35\:35 +0200")
+Received: from xi.wantstofly.org ([83.160.184.112]:46684 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754501AbYJHWHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 18:07:14 -0400
+Content-Disposition: inline
+In-Reply-To: <2acbd3e40810081320oe022835r7e6f53abc1147542@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Hillier, Gernot" <gernot.hillier@siemens.com> writes:
+On Wed, Oct 08, 2008 at 03:20:18PM -0500, Andy Fleming wrote:
 
->         Region 0: Memory at d0020000 (32-bit, non-prefetchable) [size=128K]
->         Region 1: Memory at d0000000 (32-bit, non-prefetchable) [size=128K]
->         Region 2: I/O ports at 4000 [size=32]
->         [virtual] Expansion ROM at d0080000 [disabled] [size=64K]
+> >> > +#define REG_READ(addr, reg)                                        \
+> >> > +   ({                                                      \
+> >> > +           int __ret;                                      \
+> >> > +                                                           \
+> >> > +           __ret = reg_read(ds, addr, reg);                \
+> >> > +           if (__ret < 0)                                  \
+> >> > +                   return __ret;                           \
+> >> > +           __ret;                                          \
+> >> > +   })
+> >>
+> >> Macro with a hidden use of a local ('ds') and a hidden return?  The
+> >> former is discouraged (but can sure save a lot of typing) but the
+> >> latter seems like it's just begging to cause a missing unlock or
+> >> free on an error path.
+> >
+> > Yeah, well, that was intentional (Nicolas Pitre suggested it, and I
+> > figured it made sense to do it).  I think there are a couple more places
+> > in the tree that do this, and it very much increases readability because
+> > you no longer need to check the return value explicitly every single
+> > time you do an MII access.
+> 
+> I agree with Trent, it only increases readability in the sense that
+> you have to read less when scanning over the code.  To me, that is the
+> least important sort of readability.  This sort of macro just creates
+> hidden traps.  I know it's annoying to check that return value every
+> time, but that's why we get paid the big bucks.  ;)
 
-Doesn't look like a spurious reset, though.
+Well, I think I picked this up from reading kernel sources. :)
+And some quick grepping shows that there's plenty of places that do
+this (implicit argument and/or implicit return):
 
-> - Control "DisINTx-" changes to "DisINTx+" if the card is correctly
-> initialized
-> - Interrupt changes from IRQ 18 to IRQ 4345 if card is correctly initialized
-> - Message Signalled Interrupts change from "Enable-" to "Enable+"
+arch/powerpc/boot/libfdt/fdt_ro.c:
+#define CHECK_HEADER(fdt) \
+        { \
+                int err; \
+                if ((err = fdt_check_header(fdt)) != 0) \
+                        return err; \
+        }
 
-The "normal" effects of enabling MSI.
--- 
-Krzysztof Halasa
+drivers/net/e1000e/ethtool.c:
+#define REG_PATTERN_TEST_ARRAY(reg, offset, mask, write)                       \
+        do {                                                                   \
+                if (reg_pattern_test(adapter, data, reg, offset, mask, write)) \
+                        return 1;                                              \
+        } while (0)
+
+drivers/net/wireless/ath5k/eeprom.h:
+define AR5K_ASSERT_ENTRY(_e, _s) do {          \
+        if (_e >= _s)                           \
+                return (false);                 \
+} while (0)
+
+I'd agree that there is some potential for lossage, but I wouldn't say
+that the implicit return thing is all that bad.  I guess I just got
+used to the construct.
+
+
+> If, for some reason, the community feels this is the right way to go,
+> at *least* rename the macro to make it clear that it returns on an
+> error, and make ds an explicit parameter.
+
+Explicit parameter, fine with me.
+
+How about renaming REG_{READ,WRITE} to REG_{READ,WRITE}_RETURN_ON_ERR
+or somesuch?
