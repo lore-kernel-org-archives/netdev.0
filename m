@@ -1,37 +1,46 @@
-From: Krzysztof Oledzki <ole@ans.pl>
-Subject: Error: an inet prefix is expected rather than "0/0".
-Date: Wed, 8 Oct 2008 23:05:12 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0810082258240.13921@bizon.gios.gov.pl>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: g3 + HP iLO2 -> IPv6 broken
+Date: Wed, 8 Oct 2008 14:10:08 -0700
+Message-ID: <20081008211008.GA28179@xw6200.broadcom.net>
+References: <gbu10u$uvr$1@ger.gmane.org>
+ <20080930225334.GA735@xw6200.broadcom.net>
+ <20080930233042.GB18447@pest>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1726530140-1223499912=:13921"
-Cc: shemminger@vyatta.com
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Bernhard Schmidt" <berni@birkenwald.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:55118 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754054AbYJHVFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 17:05:16 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:1805 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754335AbYJHVKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2008 17:10:20 -0400
+In-Reply-To: <20080930233042.GB18447@pest>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, Sep 30, 2008 at 04:30:42PM -0700, Bernhard Schmidt wrote:
+> On Tue, Sep 30, 2008 at 03:53:34PM -0700, Matt Carlson wrote:
+> 
+> > It sounds like the iLO2 firmware is messing around with the rx filter.
+> > I've heard of problems like this before with another management agent.
+> >
+> > Can you give me the output to 'ethtool -i <device>' and the iLO2
+> > firmware version?
+> 
+> svr01:~# ethtool -i eth0
+> driver: tg3
+> version: 3.94
+> firmware-version: 5715-v3.28, UMP 1.15
+> bus-info: 0000:03:04.0
+> 
+> iLO 2 Standard 1.60 at 16:05:58 Jul 11 2008
+> Server Name: DL320G5P0200
+> Server Power: On
 
----1144830174-1726530140-1223499912=:13921
-Content-Type: TEXT/PLAIN; format=flowed; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
+Bernhard, out of curiosity, are VLANs involved in this problem?
 
-Hello,
 
-It seems that never versions of iproute (tested with iproute2-2.6.26) no 
-longer allow 0/0:
-
-# ip route add 0/0 via 192.168.0.1
-Error: an inet prefix is expected rather than "0/0".
-
-Is it intentional? It breaks startup scripts.
-
-Best regards,
-
- 			Krzysztof Olêdzki
----1144830174-1726530140-1223499912=:13921--
