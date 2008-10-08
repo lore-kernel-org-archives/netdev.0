@@ -1,97 +1,53 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-next 12/14] ipv6: added net argument to _DEVINC/_DEVADD
-Date: Wed,  8 Oct 2008 15:52:00 +0400
-Message-ID: <1223466722-8169-12-git-send-email-den@openvz.org>
-References: <1223466685.7184.13.camel@iris.sw.ru>
-Cc: netdev@vger.kernel.org, dlezcano@fr.ibm.com,
-	benjamin.thery@bull.net, xemul@openvz.org, yoshfuji@linux-ipv6.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Possible regression in HTB
+Date: Wed, 8 Oct 2008 12:04:05 +0000
+Message-ID: <20081008120405.GA10425@ff.dom.local>
+References: <48EB5A92.6010704@trash.net> <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au> <48EBFF5E.1090902@trash.net> <48EC0190.7040804@trash.net> <48EC6286.1030202@cdi.cz> <20081008085325.GF4174@ff.dom.local> <48EC8FDD.5030507@cdi.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Martin Devera <devik@cdi.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:14354 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754396AbYJHLzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 07:55:41 -0400
-In-Reply-To: <1223466685.7184.13.camel@iris.sw.ru>
+Received: from ey-out-2122.google.com ([74.125.78.24]:9634 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821AbYJHMEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 08:04:13 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so1214845eyi.37
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 05:04:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <48EC8FDD.5030507@cdi.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- include/net/ipv6.h |   40 +++++++++++++++++++++-------------------
- 1 files changed, 21 insertions(+), 19 deletions(-)
+On Wed, Oct 08, 2008 at 12:47:57PM +0200, Martin Devera wrote:
+...
+>>> Thus, from qdisc point, it is not good to keep a packet for
+>>> more time out of the qdisc.
+>>
+>> Sure, the question is how much it's useful against associated
+>> code complications and additional cpu usage.
+>
+> honestly, I'm not familiar with the new code. Can you tell me
+> in short what is gso_skb and where the skb goes now if not requeued ?
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 47a76bf..d0538dd 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -110,17 +110,19 @@ struct frag_hdr {
- extern int sysctl_mld_max_msf;
- extern struct ctl_path net_ipv6_ctl_path[];
- 
--#define _DEVINC(statname, modifier, idev, field)			\
-+#define _DEVINC(net, statname, modifier, idev, field)			\
- ({									\
- 	struct inet6_dev *_idev = (idev);				\
-+	(void)(net);							\
- 	if (likely(_idev != NULL))					\
- 		SNMP_INC_STATS##modifier((_idev)->stats.statname, (field)); \
- 	SNMP_INC_STATS##modifier(statname##_statistics, (field));	\
- })
- 
--#define _DEVADD(statname, modifier, idev, field, val)			\
-+#define _DEVADD(net, statname, modifier, idev, field, val)		\
- ({									\
- 	struct inet6_dev *_idev = (idev);				\
-+	(void)(net);							\
- 	if (likely(_idev != NULL))					\
- 		SNMP_ADD_STATS##modifier((_idev)->stats.statname, (field), (val)); \
- 	SNMP_ADD_STATS##modifier(statname##_statistics, (field), (val));\
-@@ -129,27 +131,27 @@ extern struct ctl_path net_ipv6_ctl_path[];
- /* MIBs */
- DECLARE_SNMP_STAT(struct ipstats_mib, ipv6_statistics);
- 
--#define IP6_INC_STATS(net, idev,field)	({ (void)(net); \
--		_DEVINC(ipv6, , idev, field); })
--#define IP6_INC_STATS_BH(net, idev,field) ({ (void)(net); \
--		_DEVINC(ipv6, _BH, idev, field); })
--#define IP6_ADD_STATS_BH(net, idev,field,val) ({ (void)(net); \
--		_DEVADD(ipv6, _BH, idev, field, val); })
-+#define IP6_INC_STATS(net, idev,field)		\
-+		_DEVINC(net, ipv6, , idev, field)
-+#define IP6_INC_STATS_BH(net, idev,field)	\
-+		_DEVINC(net, ipv6, _BH, idev, field)
-+#define IP6_ADD_STATS_BH(net, idev,field,val)	\
-+		_DEVADD(net, ipv6, _BH, idev, field, val)
- 
- DECLARE_SNMP_STAT(struct icmpv6_mib, icmpv6_statistics);
- DECLARE_SNMP_STAT(struct icmpv6msg_mib, icmpv6msg_statistics);
- 
--#define ICMP6_INC_STATS(net, idev, field)	({ (void)(net); \
--		_DEVINC(icmpv6, , idev, field); })
--#define ICMP6_INC_STATS_BH(net, idev, field)	({ (void)(net); \
--		_DEVINC(icmpv6, _BH, idev, field); })
--
--#define ICMP6MSGOUT_INC_STATS(net, idev, field) ({ (void)(net); \
--	_DEVINC(icmpv6msg, , idev, field +256); })
--#define ICMP6MSGOUT_INC_STATS_BH(net, idev, field) ({ (void)(net); \
--	_DEVINC(icmpv6msg, _BH, idev, field +256); })
--#define ICMP6MSGIN_INC_STATS_BH(net, idev, field) ({ (void)(net); \
--	_DEVINC(icmpv6msg, _BH, idev, field); })
-+#define ICMP6_INC_STATS(net, idev, field)	\
-+		_DEVINC(net, icmpv6, , idev, field)
-+#define ICMP6_INC_STATS_BH(net, idev, field)	\
-+		_DEVINC(net, icmpv6, _BH, idev, field)
-+
-+#define ICMP6MSGOUT_INC_STATS(net, idev, field)		\
-+	_DEVINC(net, icmpv6msg, , idev, field +256)
-+#define ICMP6MSGOUT_INC_STATS_BH(net, idev, field)	\
-+	_DEVINC(net, icmpv6msg, _BH, idev, field +256)
-+#define ICMP6MSGIN_INC_STATS_BH(net, idev, field)	\
-+	_DEVINC(net, icmpv6msg, _BH, idev, field)
- 
- struct ip6_ra_chain
- {
--- 
-1.5.3.rc5
+I hope I don't mislead you too much: gso_skb is actually a list of
+skbs after dividing a previous skb in dev_gso_segment() in
+dev_hard_start_xmit(), which because of some device/driver error
+gets back to qdisc_run()/ qdisc_restart(). It's stored as q->gso_skb
+and tried for next xmits before any new dequeuing until sending.
 
+And currently, "normal" skbs are treated exactly the same (so not
+returned to the qdisc tree). There is still possible internal use of
+old ->requeue() functions between qdiscs for some strange cases, but
+it will be probably replaced too with storing to the q->requeue lists
+(one level deep). So both these cases could be treated as: an skb is
+out of the qdiscs, one foot in the driver's door (probably because of
+some errors - otherwise driver should stop the queue earlier).
+
+This is supposed to simplify the code, especially error handling,
+especially wrt. multiqueuing.
+
+Cheers,
+Jarek P.
