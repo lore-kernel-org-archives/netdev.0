@@ -1,54 +1,39 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
-Date: Wed, 8 Oct 2008 14:56:28 +0200
-Message-ID: <20081008125628.GD28783@1wt.eu>
-References: <20081008081109.GA25342@1wt.eu> <48ECA4AC.1010101@openvz.org> <20081008122645.GB28783@1wt.eu> <48ECA85D.1050809@openvz.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Wed, 8 Oct 2008 09:00:06 -0400
+Message-ID: <20081008130006.GB31684@infradead.org>
+References: <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com> <48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de> <31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com> <48BF83E1.5040000@bull.net> <dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com> <20081007164833.GA16056@suse.de> <m1abdgywnb.fsf@frodo.ebiederm.org> <20081007210902.GB7996@suse.de> <m18wt0qbwf.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Cc: Greg KH <gregkh@suse.de>, Mark Ryden <markryde@gmail.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:4663 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751694AbYJHM4d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 08:56:33 -0400
+Received: from bombadil.infradead.org ([18.85.46.34]:53183 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218AbYJHNAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 09:00:48 -0400
 Content-Disposition: inline
-In-Reply-To: <48ECA85D.1050809@openvz.org>
+In-Reply-To: <m18wt0qbwf.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 08, 2008 at 04:32:29PM +0400, Pavel Emelyanov wrote:
-> Willy Tarreau wrote:
-> > Hi Pavel,
-> > 
-> > On Wed, Oct 08, 2008 at 04:16:44PM +0400, Pavel Emelyanov wrote:
-> >>> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-> >>> index d0437f3..0e23062 100644
-> >>> --- a/include/linux/sysctl.h
-> >>> +++ b/include/linux/sysctl.h
-> >>> @@ -435,6 +435,7 @@ enum
-> >>>  	NET_TCP_ALLOWED_CONG_CONTROL=123,
-> >>>  	NET_TCP_MAX_SSTHRESH=124,
-> >>>  	NET_TCP_FRTO_RESPONSE=125,
-> >>> +	NET_TCP_SIMULT_CONNECT=126,
-> >> Minor - sysctl syscall (as long as numbers and ->strategy callbacks) are
-> >> about to be removed some time, so new sysctls are to be CTL_UNNUMBERED.
-> > 
-> > I noticed that one in the two latest UDP sysctls, but was not aware of the
-> > rules related to its use. Given the number of unconverted sysctls, is it
-> > worth changing it now ?
+On Tue, Oct 07, 2008 at 03:27:12PM -0700, Eric W. Biederman wrote:
+> Al reviewed sysfs with my patchset on top of it.
 > 
-> Sorry, I don't get you here. Sysctls are not supposed to get converted,
-> the intention is just to a) stop adding new sysctls with strategies and
+> Al's review found problems in  sysfs with my patchset on top of it.
+> 
+> If you look at what Al found the majority of those problems exist in sysfs
+> without my patches.
 
-> b) drop all the existing strategies in the future.
-
-If existing declarations eventually get changed, that's what I call a
-conversion :-)
-
-OK I get you here. The patch will be resent with CTL_UNNUMBERED if there is
-an agreement to get it merged.
-
-Regards,
-Willy
+And when something is crap your fix it firdt before piling up more shit
+on top of it.  And sysfs is a really severe case of that, and you're
+piling a _lot_ of shit ontop.
 
