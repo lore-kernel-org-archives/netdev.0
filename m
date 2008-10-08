@@ -1,61 +1,48 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: Possible regression in HTB
-Date: Wed, 8 Oct 2008 06:37:01 +0000
-Message-ID: <20081008063701.GA4174@ff.dom.local>
-References: <20081007011551.GA28408@verge.net.au> <20081007045145.GA23883@verge.net.au> <20081007074435.GA2700@ff.dom.local> <20081008000928.GJ12021@verge.net.au>
+Date: Wed, 8 Oct 2008 06:55:51 +0000
+Message-ID: <20081008065551.GB4174@ff.dom.local>
+References: <48EB5A92.6010704@trash.net> <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au> <48EBFF5E.1090902@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Martin Devera <devik@cdi.cz>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.181]:49543 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751723AbYJHGhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 02:37:08 -0400
-Received: by ik-out-1112.google.com with SMTP id c30so2369586ika.5
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2008 23:37:06 -0700 (PDT)
+Received: from ug-out-1314.google.com ([66.249.92.173]:27208 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751439AbYJHGz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 02:55:59 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so479136ugf.37
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2008 23:55:56 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20081008000928.GJ12021@verge.net.au>
+In-Reply-To: <48EBFF5E.1090902@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 08, 2008 at 11:09:28AM +1100, Simon Horman wrote:
-> On Tue, Oct 07, 2008 at 07:44:35AM +0000, Jarek Poplawski wrote:
+On Wed, Oct 08, 2008 at 02:31:26AM +0200, Patrick McHardy wrote:
 ...
-> > So, thanks for testing and reporting this. (BTW, what network card
-> > do you use and is there multiqueuing on?)
-> 
-> The network card is an e1000. Acutally there are two, but I
-> am only using the first one. I am not sure what the Broadcom
-> controllers are (I can get someone to go and inspect the
-> machine if its important).
-> 
-> # lspci | grep Ether
-> 03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-> 05:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-> 0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-> 0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-> 
-> And from dmsg
-> 
-> e1000e 0000:0b:00.0: setting latency timer to 64
-> 0000:0b:00.0: 0000:0b:00.0: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
-> 0000:0b:00.0: eth0: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f2
-> 0000:0b:00.0: eth0: Intel(R) PRO/1000 Network Connection
-> 0000:0b:00.0: eth0: MAC: 0, PHY: 4, PBA No: d51930-003
-> e1000e 0000:0b:00.1: setting latency timer to 64
-> 0000:0b:00.1: 0000:0b:00.1: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
-> 0000:0b:00.1: eth1: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f3
-> 0000:0b:00.1: eth1: Intel(R) PRO/1000 Network Connection
-> 0000:0b:00.1: eth1: MAC: 0, PHY: 4, PBA No: d51930-003
-> 
-> It is eth0 that I am using.
+> I'm pretty sure that the differences are caused by HTB not being
+> in control of the queue since the device is the real bottleneck
+> in this configuration.
 
-I've only wandered if we should consider any new effects because of
-this, but e1000/1000e don't have this yet (bnx2 has).
+Yes, otherwise there would be no requeuing. And, btw. the golden rule
+of scheduling/shaping is limiting below "hardware" limits.
 
-> My kernel is compiled with CONFIG_NET_SCH_MULTIQ disabled.
+> Its quite possible that there simply might
+> a subtle timing change that causes feedback through HTBs borrowing
+> and ceiling.
 
-Multiquing can work without this too.
+I'd add my previous suspicion there could be not enough enqeuing on
+time for the fastest class (could be also very bursty), so other
+classes can borrow more.
+
+>
+> So what would really be useful to understand this is to make HTB
+> control the queue and see if it behaves as expected.
+>
+
+Right, trying with lower rates/ceils should explain this.
 
 Jarek P.
