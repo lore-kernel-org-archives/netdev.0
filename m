@@ -1,52 +1,38 @@
-From: Chei-yol Kim <gauri@etri.re.kr>
-Subject: Re: [RFC] Control Group Classifier
-Date: Wed, 8 Oct 2008 07:02:02 +0000 (UTC)
-Message-ID: <loom.20081008T065443-878@post.gmane.org>
-References: <20080908115101.GE20815@postel.suug.ch>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Possible regression in HTB
+Date: Wed, 8 Oct 2008 10:06:38 +0300
+Message-ID: <200810081006.38840.denys@visp.net.lb>
+References: <48EB5A92.6010704@trash.net> <48EBFF5E.1090902@trash.net> <20081008065551.GB4174@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Martin Devera <devik@cdi.cz>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:59338 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751694AbYJHHFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 03:05:09 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1KnT6V-0005Gv-1t
-	for netdev@vger.kernel.org; Wed, 08 Oct 2008 07:05:03 +0000
-Received: from bkjung8.etri.re.kr ([129.254.186.210])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 07:05:03 +0000
-Received: from gauri by bkjung8.etri.re.kr with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 07:05:03 +0000
+Received: from relay2.globalproof.net ([194.146.153.25]:45438 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753255AbYJHHIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 03:08:43 -0400
+In-Reply-To: <20081008065551.GB4174@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf <tgraf <at> suug.ch> writes:
-
-> 
-> This patch implements a very basic cgroup subsystem which allows
-> assigning classids to cgroups. It also adds a trivial classifier
-> to filter packets based on that classid and map them to classes.
-> 
-> The classifier should cover the most common use case and will work
-> without any configuration.  Additionaly it might make sense to add
-> a cgroup meta ematch to allow  for more sophisticated setups.
-> 
-> I've taken over the idea of inheriting the classid of cgroup parents
-> from the patchset posted by Ranjit Manomohan <ranjitm <at> google.com>.
-> 
-> Comments welcome.
-> 
-
-Hello
-I've done your patch to kernel-2.6.27-rc7.
-Then I've got much of fails of compiling kernel.
-What is your base kernel of this patch?
-If there are any other patchs or programs for using your net_cls class,
-Would you let me know?
+On Wednesday 08 October 2008, Jarek Poplawski wrote:
+> On Wed, Oct 08, 2008 at 02:31:26AM +0200, Patrick McHardy wrote:
+> ...
+>
+> > I'm pretty sure that the differences are caused by HTB not being
+> > in control of the queue since the device is the real bottleneck
+> > in this configuration.
+>
+> Yes, otherwise there would be no requeuing. And, btw. the golden rule
+> of scheduling/shaping is limiting below "hardware" limits.
+By the way, HTB counting ethernet headers (e.g. if you send 1500 byte ping, it 
+will be 1514 in tc counters) . So possible ethernet overhead counted.
 
 
