@@ -1,43 +1,69 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [net-next PATCH 16/16] Add documentation
-Date: Wed, 08 Oct 2008 10:32:22 +1000
-Message-ID: <48EBFF96.8020305@snapgear.com>
-References: <20081001142431.4893.48078.stgit@este> <20081001142431.4893.5367.stgit@este> <alpine.LNX.1.10.0810030949300.3893@fbirervta.pbzchgretzou.qr>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Possible regression in HTB
+Date: Wed, 08 Oct 2008 02:31:26 +0200
+Message-ID: <48EBFF5E.1090902@trash.net>
+References: <48EB5A92.6010704@trash.net> <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
 	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+	Martin Devera <devik@cdi.cz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:43898 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753831AbYJHAcZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 20:32:25 -0400
-In-Reply-To: <alpine.LNX.1.10.0810030949300.3893@fbirervta.pbzchgretzou.qr>
+Received: from stinky.trash.net ([213.144.137.162]:64303 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753163AbYJHAc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2008 20:32:57 -0400
+In-Reply-To: <20081008002153.GL12021@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jan Engelhardt wrote:
->> +2. Redirecting traffic
->> +======================
->> +
->> +Transparent proxying often involves "intercepting" traffic on a router. This is
->> +usually done with the iptables REDIRECT target, however, there are serious
->> +limitations of that method. One of the major issues is that it actually
->> +modifies the packets to change the destination address -- which might not be
->> +acceptable in certain situations. (Think of proxying UDP for example: you won't
->> +be able to find out the original destination address. Even in case of TCP
->> +getting the original destination address is racy.)
-> 
-> IIRC, you _can_ find out, though I agree it's rather a hack (with 
-> tproxy, you can just use the address as received via recvmsg):
-> 
-> 	getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &sockaddr, &sizeptr);
+Simon Horman wrote:
+> On Wed, Oct 08, 2008 at 12:00:22AM +0200, Jarek Poplawski wrote:
+>   
+>> Anyway, IMHO this regression is really doubtful: since the digits are
+>> wrong in both cases I can only agree the old method gives better wrong
+>> results...
+>>     
+>
+> I first started looking into this problem because I noticed that
+> borrowing wasn't working in the correct proportions. That is
+> the problem that Patrick pointed out and you re-did the maths for above.
+>
+> I noticed this on 2.6.26-rc7. So I did some testing on older kernels and
+> noticed that although 2.6.26-rc7 was imperfect, it did seem that progress
+> was being made in the right direction.  Though unfortunately there is noise
+> in the results, so the trend may not be real. It was also unfortunate that
+> I was not able to get any older kernels to boot on the hw that I was using
+> for testing (an HP dl360-g5 - any kernel-config tips welcome).
+>
+> [...]
 
-Yes, but the problem is that SO_ORIGINAL_DST is only implemented for TCP.
-And I guess that the race for TCP is that the conntrack may not exist when you
-call getsockopt() (not sure that is something you'll hit in practice though).
+> noticed that things were not good, as I
+> reported in my opening post for this thread. Curiously, the trivial revert
+> patch that I posted, when applied on top of yesterdays's net-next-2.6
+> ("tcp: Respect SO_RCVLOWAT in tcp_poll()"), gives the closest to ideal
+> result that I have seen in any test.
+>
+> 10194: 666780666bits/s 666Mbits/s
+> 10197: 141154197bits/s 141Mbits/s
+> 10196: 141023090bits/s 141Mbits/s
+> -----------------------------------
+> total: 948957954bits/s 948Mbits/s
+>
+>
+> That does indeed seem promising. Though I do realise that my methods
+> have essentially been stabs in the dark and the problem needs to
+> be understood.
+>   
+
+I'm pretty sure that the differences are caused by HTB not being
+in control of the queue since the device is the real bottleneck
+in this configuration. Its quite possible that there simply might
+a subtle timing change that causes feedback through HTBs borrowing
+and ceiling.
+
+So what would really be useful to understand this is to make HTB
+control the queue and see if it behaves as expected.
 
