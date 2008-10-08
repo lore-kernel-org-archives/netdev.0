@@ -1,58 +1,61 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
- (fwd)
-Date: Wed, 8 Oct 2008 21:56:00 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.0810082154420.3237@apollo>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi> <48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com> <alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de> <48e3e835.0906c00a.2cd1.2fd1@mx.google.com> <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
- <48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com> <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de> <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com> <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de> <Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
- <48e5364d.0603c00a.6e25.fffff993@mx.google.com> <Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi> <48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com> <alpine.LFD.2.00.0810052008131.3398@apollo> <48ed0b51.0913c00a.7715.4aa7@mx.google.com>
+From: "Andy Fleming" <afleming@gmail.com>
+Subject: Re: [PATCHv3 5/5] [NET] dsa: add support for the Marvell 88E6060 switch chip
+Date: Wed, 8 Oct 2008 15:20:18 -0500
+Message-ID: <2acbd3e40810081320oe022835r7e6f53abc1147542@mail.gmail.com>
+References: <20081007234622.GF23200@xi.wantstofly.org>
+	 <Pine.LNX.4.64.0810071725300.4731@k.domain.actdsltmp>
+	 <20081008084903.GE23326@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1611213262-1223495761=:3237"
-Cc: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-15?Q?D=E2niel_Fraga?= <fragabr@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Trent Piepho" <tpiepho@freescale.com>, netdev@vger.kernel.org
+To: "Lennert Buytenhek" <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:44876 "EHLO www.tglx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753255AbYJHT4P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 15:56:15 -0400
-In-Reply-To: <48ed0b51.0913c00a.7715.4aa7@mx.google.com>
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:34935 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753170AbYJHUUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 16:20:20 -0400
+Received: by gxk9 with SMTP id 9so8783687gxk.13
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2008 13:20:18 -0700 (PDT)
+In-Reply-To: <20081008084903.GE23326@xi.wantstofly.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, Oct 8, 2008 at 3:49 AM, Lennert Buytenhek
+<buytenh@wantstofly.org> wrote:
+> On Tue, Oct 07, 2008 at 05:45:41PM -0700, Trent Piepho wrote:
+>
 
---8323328-1611213262-1223495761=:3237
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
+>> > +#define REG_READ(addr, reg)                                        \
+>> > +   ({                                                      \
+>> > +           int __ret;                                      \
+>> > +                                                           \
+>> > +           __ret = reg_read(ds, addr, reg);                \
+>> > +           if (__ret < 0)                                  \
+>> > +                   return __ret;                           \
+>> > +           __ret;                                          \
+>> > +   })
+>>
+>> Macro with a hidden use of a local ('ds') and a hidden return?  The
+>> former is discouraged (but can sure save a lot of typing) but the
+>> latter seems like it's just begging to cause a missing unlock or
+>> free on an error path.
+>
+> Yeah, well, that was intentional (Nicolas Pitre suggested it, and I
+> figured it made sense to do it).  I think there are a couple more places
+> in the tree that do this, and it very much increases readability because
+> you no longer need to check the return value explicitly every single
+> time you do an MII access.
 
-On Wed, 8 Oct 2008, Dâniel Fraga wrote:
+I agree with Trent, it only increases readability in the sense that
+you have to read less when scanning over the code.  To me, that is the
+least important sort of readability.  This sort of macro just creates
+hidden traps.  I know it's annoying to check that return value every
+time, but that's why we get paid the big bucks.  ;)
 
-> On Sun, 5 Oct 2008 20:09:22 +0200 (CEST)
-> Thomas Gleixner <tglx@linutronix.de> wrote:
-> 
-> > The cat /debug/tracing/tracing_enabled == 1 might be just a user space
-> > interface thingy.
-> > 
-> > Thanks,
-> 
-> 	Thomas, Ilpo etc, I got a trace exactly after the patch
-> provided by Thomas detected the stall:
-> 
-> http://www.abusar.org/ftrace/trace-final.txt.bz2
-> 
-> 	Thomas, since you didn't reply to the previous messages, I
-> assume the previous traces were invalid. But could you please check
-> this one?
+If, for some reason, the community feels this is the right way to go,
+at *least* rename the macro to make it clear that it returns on an
+error, and make ds an explicit parameter.
 
-Will do. Sorry was distracted. Steven Rostedt posted a patch to stop
-the tracer really from the kernel, I need to verify that it works on
-.27. Will do tomorrow when my brain is more awake than now.
-
-Thanks,
-
-	tglx
-
---8323328-1611213262-1223495761=:3237--
+Andy
