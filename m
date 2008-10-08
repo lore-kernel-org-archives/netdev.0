@@ -1,38 +1,59 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: e1000e: sporadic "hardware error"s with Intel 82563EB on Supermicro X7DB3
-Date: Wed, 08 Oct 2008 12:29:22 +0200
-Message-ID: <m33aj78jnh.fsf@maximus.localdomain>
-References: <48EB7161.60004@siemens.com>
+From: Martin Devera <devik@cdi.cz>
+Subject: Re: Possible regression in HTB
+Date: Wed, 08 Oct 2008 12:47:57 +0200
+Message-ID: <48EC8FDD.5030507@cdi.cz>
+References: <48EB5A92.6010704@trash.net> <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au> <48EBFF5E.1090902@trash.net> <48EC0190.7040804@trash.net> <48EC6286.1030202@cdi.cz> <20081008085325.GF4174@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com
-To: "Hillier\, Gernot" <gernot.hillier@siemens.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:58824 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753231AbYJHK3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 06:29:24 -0400
-In-Reply-To: <48EB7161.60004@siemens.com> (Gernot Hillier's message of "Tue\, 07 Oct 2008 16\:25\:37 +0200")
+Received: from smtp.wifcom.cz ([89.185.251.8]:51623 "EHLO wifcom.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754725AbYJHKrc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2008 06:47:32 -0400
+In-Reply-To: <20081008085325.GF4174@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+>> The algorithm samples queue states at deterministic but unregular
+>> intervals to see whose classes wants service and whose can lend.
+>>
+>> If you hold a packet outside, relevant class thinks that it is
+>> not backlogged - and if sampled at this time then the algorithm
+>> decides to lend classe's time.
+> 
+> Right, but on the other hand I can't see any correction of these
+> times/tokens, so it seems this can't give us "right" results
+> anyway? E.g. with 100% requeuing (each packet requeued once) HTB
+> should think it "gave" the rate 2x higher than seen on the other
+> side - or I miss something?
 
-"Hillier, Gernot" <gernot.hillier@siemens.com> writes:
+Yes, it is another problem - double acounting packet when requeued...
+Well, you are right, the number are not too supportive to this
+explanation...
+It seems that the first class didn't get its basic "rate", which
+is should be guaranteed.
 
-> On at least two machines using the Supermicro X7DB3 board with Intel
-> 82563EB (a.k.a. PCI device 8086:1096), we see sporadic problems on modprobe
-> (about 1 time in some hundred tries):
->
-> e1000e: Intel(R) PRO/1000 Network Driver - 0.3.3.3-k2
-> e1000e: Copyright (c) 1999-2008 Intel Corporation.
-> e1000e 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-> e1000e 0000:06:00.0: setting latency timer to 64
-> 0000:06:00.0: 0000:06:00.0: Hardware Error
+Simon, can you try to these things (separately):
+a/ increase quantum to the first class (say 10x)
+b/ set ceil=rate on all three classes
 
-What does "lspci -vv" say about it when the above happens?
+The idea is to a/ make sure there is no requeue-related change
+to the drr pointer which could boost reqeued class,
+b/ to see whether priorized class has problems to send or
+other classes are sending even when they should not.
 
-I spurious chip reset (hardware) could probably cause that.
--- 
-Krzysztof Halasa
+>> Thus, from qdisc point, it is not good to keep a packet for
+>> more time out of the qdisc.
+> 
+> Sure, the question is how much it's useful against associated
+> code complications and additional cpu usage.
+
+honestly, I'm not familiar with the new code. Can you tell me
+in short what is gso_skb and where the skb goes now if not requeued ?
+
+thanks, Martin
