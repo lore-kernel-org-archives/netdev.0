@@ -1,84 +1,61 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 18/32] net: sk_allocation() - concentrate socket
-	related allocations
-Date: Wed, 08 Oct 2008 08:25:41 +0200
-Message-ID: <1223447141.1378.7.camel@lappy.programming.kicks-ass.net>
-References: <20081002130504.927878499@chello.nl>
-	 <20081002131608.821584767@chello.nl>
-	 <20081007.142624.145010147.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Possible regression in HTB
+Date: Wed, 8 Oct 2008 06:37:01 +0000
+Message-ID: <20081008063701.GA4174@ff.dom.local>
+References: <20081007011551.GA28408@verge.net.au> <20081007045145.GA23883@verge.net.au> <20081007074435.GA2700@ff.dom.local> <20081008000928.GJ12021@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	dlezcano@fr.ibm.com, penberg@cs.helsinki.fi, neilb@suse.de,
-	Suresh Jayaraman <sjayaraman@suse.de>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57809 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021AbYJHGZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 02:25:46 -0400
-In-Reply-To: <20081007.142624.145010147.davem@davemloft.net>
+Received: from ik-out-1112.google.com ([66.249.90.181]:49543 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751723AbYJHGhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 02:37:08 -0400
+Received: by ik-out-1112.google.com with SMTP id c30so2369586ika.5
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2008 23:37:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20081008000928.GJ12021@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-10-07 at 14:26 -0700, David Miller wrote:
-> From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Date: Thu, 02 Oct 2008 15:05:22 +0200
+On Wed, Oct 08, 2008 at 11:09:28AM +1100, Simon Horman wrote:
+> On Tue, Oct 07, 2008 at 07:44:35AM +0000, Jarek Poplawski wrote:
+...
+> > So, thanks for testing and reporting this. (BTW, what network card
+> > do you use and is there multiqueuing on?)
 > 
-> > @@ -952,6 +955,7 @@ static void tcp_v6_send_reset(struct soc
-> >  #ifdef CONFIG_TCP_MD5SIG
-> >  	struct tcp_md5sig_key *key;
-> >  #endif
-> > +	gfp_t gfp_mask = GFP_ATOMIC;
-> >  
-> >  	if (th->rst)
-> >  		return;
-> > @@ -969,13 +973,16 @@ static void tcp_v6_send_reset(struct soc
-> >  		tot_len += TCPOLEN_MD5SIG_ALIGNED;
-> >  #endif
-> >  
-> > +	if (sk)
-> > +		gfp_mask = sk_allocation(skb->sk, gfp_mask);
-> > +
-> >  	/*
-> >  	 * We need to grab some memory, and put together an RST,
-> >  	 * and then put it into the queue to be sent.
-> >  	 */
-> >  
-> >  	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len,
-> > -			 GFP_ATOMIC);
-> > +			 sk_allocation(sk, GFP_ATOMIC));
-> >  	if (buff == NULL)
-> >  		return;
-> >  
+> The network card is an e1000. Acutally there are two, but I
+> am only using the first one. I am not sure what the Broadcom
+> controllers are (I can get someone to go and inspect the
+> machine if its important).
 > 
-> I don't think this is doing what you intend it to do.
+> # lspci | grep Ether
+> 03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+> 05:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+> 0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
+> 0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
 > 
-> First, you're conditionally calling sk_allocation() if
-> 'sk' is non-NULL.  But then later you unconditionally
-> use sk_allocation() in the alloc_skb() call.
+> And from dmsg
 > 
-> Furthermore, in the conditionalized case you're using
-> "skb->sk" instead of plain "sk" which is what you actually
-> checked against NULL.
+> e1000e 0000:0b:00.0: setting latency timer to 64
+> 0000:0b:00.0: 0000:0b:00.0: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
+> 0000:0b:00.0: eth0: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f2
+> 0000:0b:00.0: eth0: Intel(R) PRO/1000 Network Connection
+> 0000:0b:00.0: eth0: MAC: 0, PHY: 4, PBA No: d51930-003
+> e1000e 0000:0b:00.1: setting latency timer to 64
+> 0000:0b:00.1: 0000:0b:00.1: Failed to initialize MSI interrupts.  Falling back to legacy interrupts.
+> 0000:0b:00.1: eth1: (PCI Express:2.5GB/s:Width x4) 00:1b:78:57:dc:f3
+> 0000:0b:00.1: eth1: Intel(R) PRO/1000 Network Connection
+> 0000:0b:00.1: eth1: MAC: 0, PHY: 4, PBA No: d51930-003
 > 
-> I have no fundamental problem with this change, so please
-> audit this patch for similar problems, fix them all up,
-> and resubmit.
-> 
-> I'm also tossing the rest of your networking changes since
-> they'll have some dependency on this one, please resend those
-> at the same time as the fixed up version of this one.
+> It is eth0 that I am using.
 
-You're right - Suresh Jayaraman hit an oops here, just fixing up that
-obviously mis-merged conditional didn't fix it for him. So I'll work on
-fixing this for him.
+I've only wandered if we should consider any new effects because of
+this, but e1000/1000e don't have this yet (bnx2 has).
 
-Then I'll make a new patch-series against linux-next and include the
-driver parts you left out of 17.
+> My kernel is compiled with CONFIG_NET_SCH_MULTIQ disabled.
 
-Thanks!
+Multiquing can work without this too.
 
+Jarek P.
