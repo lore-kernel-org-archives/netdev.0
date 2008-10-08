@@ -1,65 +1,73 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 3/3] Convert the UDP hash lock to RCU
-Date: Wed, 08 Oct 2008 10:35:07 +0200
-Message-ID: <48EC70BB.9010709@cosmosbay.com>
-References: <48EA8197.6080502@cosmosbay.com>	<20081006.144002.56418911.davem@davemloft.net>	<48EAF29D.8050203@cosmosbay.com> <20081007.112622.73930718.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCHv3 5/5] [NET] dsa: add support for the Marvell 88E6060 switch chip
+Date: Wed, 8 Oct 2008 10:49:03 +0200
+Message-ID: <20081008084903.GE23326@xi.wantstofly.org>
+References: <20081007234622.GF23200@xi.wantstofly.org> <Pine.LNX.4.64.0810071725300.4731@k.domain.actdsltmp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: minyard@acm.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	paulmck@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Trent Piepho <tpiepho@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.113]:58170 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751307AbYJHIi7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 04:38:59 -0400
-In-Reply-To: <20081007.112622.73930718.davem@davemloft.net>
+Received: from xi.wantstofly.org ([83.160.184.112]:47389 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752257AbYJHItI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 04:49:08 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0810071725300.4731@k.domain.actdsltmp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Tue, 07 Oct 2008 07:24:45 +0200
->=20
->> Most UDP sockets are setup for long periods (RTP trafic), or if an a=
-pplication really
->> wants to {open/send or receive one UDP frame/close} many sockets, it=
- already hits
->> RCU handling of its file structures and should not be slowed down th=
-at much.
->=20
-> As stated, I added RCU destruction generically for socket objects, an=
-d it
-> showed up clearly.
->=20
-> So "not be slowed down that much" has been disproven, at least to me,
-> already :-)
->=20
->=20
-RCU in hash table is ok for managing read mostly data, since
-only during the read access you avoid to dirty a rwlock...
+On Tue, Oct 07, 2008 at 05:45:41PM -0700, Trent Piepho wrote:
 
-If we have a workload that insert/delete sockets as hell but
-receive few frames (that hit the hash table in a read only way),
-then you defeat the purpose of RCU, and pay the price of
-throwing away (in rcu queue) hot data that will become cold
-before reuse...
+> > +static int reg_read(struct dsa_switch *ds, int addr, int reg)
+> > +{
+> > +	return mdiobus_read(ds->master_mii_bus, addr, reg);
+> > +}
+> 
+> Instead of all the code to add the mdio buses to the device tree and exporting
+> mdiobus_read(), could you have just added the switch chip as a "phy" on the
+> mdio bus?  Then used phy_read/write() on it?  I know it's not a phy, but you
+> don't need to use the phy state machine and so on.
 
-BTW is there any chance your results were obtained before October 2005 =
-?
+At least the switches that are supported now don't take up only
+one MII bus address, but use all 32, so I wouldn't be able to use
+phy_{read,write}() on them.
 
-At that time, RCU was able to queue an unlimited number of events.
-a single loop doing close(open("/dev/null",0)) could exhaust RAM...
+And the first 5-10 of those addresses generally look like normal PHYs,
+but you wouldn't want to attach PHY drivers to them directly (since you
+need to wrap accesses to the PHYs on some switches to disable the
+internal PHY polling that the switch does first), which would complicate
+autoprobing quite a bit.
 
 
-Refs: commit  5ee832dbc6770135ec8d63296af0a4374557bb79
-and many others...
+> Freescale gianfar MACs configure the serdes for SGMII using a virtual
+> "TBI" device on the MDIO bus.  Supposedly Andy has patch that adds
+> them as devices on the MDIO bus, isn't of the gianfar specific MDIO
+> back-door they currently use.
 
-Anyway we can probably code something without call_rcu() cache blower
-for UDP, if time permits :)
+I think with gianfar, the MDIO bus drivers are separate platform
+devices, and you can then get at the struct mii_bus * by taking the
+platform device private data pointer -- which is a bit of an ugly way
+of doing it, IMHO.
 
 
+> > +#define REG_READ(addr, reg)					\
+> > +	({							\
+> > +		int __ret;					\
+> > +								\
+> > +		__ret = reg_read(ds, addr, reg);		\
+> > +		if (__ret < 0)					\
+> > +			return __ret;				\
+> > +		__ret;						\
+> > +	})
+> 
+> Macro with a hidden use of a local ('ds') and a hidden return?  The
+> former is discouraged (but can sure save a lot of typing) but the
+> latter seems like it's just begging to cause a missing unlock or
+> free on an error path.
 
+Yeah, well, that was intentional (Nicolas Pitre suggested it, and I
+figured it made sense to do it).  I think there are a couple more places
+in the tree that do this, and it very much increases readability because
+you no longer need to check the return value explicitly every single
+time you do an MII access.
