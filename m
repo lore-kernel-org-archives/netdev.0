@@ -1,46 +1,37 @@
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: [PATCH net-next-2.6 3/3] jme: Advances version number
-Date: Thu, 9 Oct 2008 05:58:53 +0800
-Message-ID: <20081008215853.M53590@cooldavid.org>
-References: <20080915165101.M68109@cooldavid.org> <48D27CDA.50501@pobox.com>
-Reply-To: cooldavid@cooldavid.org
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: e1000e: sporadic "hardware error"s with Intel 82563EB on Supermicro X7DB3
+Date: Thu, 09 Oct 2008 00:03:00 +0200
+Message-ID: <m31vyq923v.fsf@maximus.localdomain>
+References: <48EB7161.60004@siemens.com> <m33aj78jnh.fsf@maximus.localdomain>
+	<48ECB727.6050905@siemens.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=big5
-Cc: netdev@vger.kernel.org, Ethan <ethanhsiao@jmicron.com>,
-	akeemting <akeem@jmicron.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com
+To: "Hillier\, Gernot" <gernot.hillier@siemens.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 220-133-139-86.HINET-IP.hinet.net ([220.133.139.86]:34540 "EHLO
-	cooldavid.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754742AbYJHV7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2008 17:59:20 -0400
-In-Reply-To: <48D27CDA.50501@pobox.com>
+Received: from khc.piap.pl ([195.187.100.11]:56556 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754591AbYJHWDC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2008 18:03:02 -0400
+In-Reply-To: <48ECB727.6050905@siemens.com> (Gernot Hillier's message of "Wed\, 08 Oct 2008 15\:35\:35 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Jeff, David:
+"Hillier, Gernot" <gernot.hillier@siemens.com> writes:
 
-This patch:
+>         Region 0: Memory at d0020000 (32-bit, non-prefetchable) [size=128K]
+>         Region 1: Memory at d0000000 (32-bit, non-prefetchable) [size=128K]
+>         Region 2: I/O ports at 4000 [size=32]
+>         [virtual] Expansion ROM at d0080000 [disabled] [size=64K]
 
-    Advances the driver version after modification.
+Doesn't look like a spurious reset, though.
 
-    The patch is also available at:
-    http://cooldavid.org/download/jme.net-next-2.6.20081009.3.patch
+> - Control "DisINTx-" changes to "DisINTx+" if the card is correctly
+> initialized
+> - Interrupt changes from IRQ 18 to IRQ 4345 if card is correctly initialized
+> - Message Signalled Interrupts change from "Enable-" to "Enable+"
 
-    Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
-
-diff --git a/drivers/net/jme.h b/drivers/net/jme.h
-index 9fdf20a..f863aee 100644
---- a/drivers/net/jme.h
-+++ b/drivers/net/jme.h
-@@ -25,7 +25,7 @@
- #define __JME_H_INCLUDEE__
- 
- #define DRV_NAME	"jme"
--#define DRV_VERSION	"1.0.2"
-+#define DRV_VERSION	"1.0.3"
- #define PFX		DRV_NAME ": "
- 
- #define PCI_DEVICE_ID_JMICRON_JMC250	0x0250
-
+The "normal" effects of enabling MSI.
+-- 
+Krzysztof Halasa
