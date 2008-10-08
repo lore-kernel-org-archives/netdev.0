@@ -1,71 +1,37 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2008-10-08
-Date: Wed, 8 Oct 2008 16:53:42 -0400
-Message-ID: <20081008205342.GF32472@tuxdriver.com>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Error: an inet prefix is expected rather than "0/0".
+Date: Wed, 8 Oct 2008 23:05:12 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0810082258240.13921@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1726530140-1223499912=:13921"
+Cc: shemminger@vyatta.com
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:55118 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754054AbYJHVFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 17:05:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Here is one more that I think is worth sending for 2.6.27.  It has
-a corresponding bugzilla entry:
+---1144830174-1726530140-1223499912=:13921
+Content-Type: TEXT/PLAIN; format=flowed; charset=iso-8859-2
+Content-Transfer-Encoding: 8BIT
 
-	http://bugzilla.kernel.org/show_bug.cgi?id=11722
+Hello,
 
-Please let me know if there are problems!
+It seems that never versions of iproute (tested with iproute2-2.6.26) no 
+longer allow 0/0:
 
-Thanks,
+# ip route add 0/0 via 192.168.0.1
+Error: an inet prefix is expected rather than "0/0".
 
-John
+Is it intentional? It breaks startup scripts.
 
-P.S.  This one is already in net-next-2.6 -- FYI...
+Best regards,
 
----
-
-Individual patch is available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit 0523820482dcb42784572ffd2296c2f08c275a2b:
-  Timo Teras (1):
-        af_key: Free dumping state on socket close
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Luis R. Rodriguez (1):
-      ath9k: fix oops on trying to hold the wrong spinlock
-
- drivers/net/wireless/ath9k/core.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/ath9k/core.h b/drivers/net/wireless/ath9k/core.h
-index 2f84093..88f4cc3 100644
---- a/drivers/net/wireless/ath9k/core.h
-+++ b/drivers/net/wireless/ath9k/core.h
-@@ -316,7 +316,7 @@ void ath_descdma_cleanup(struct ath_softc *sc,
- #define ATH_RX_TIMEOUT           40      /* 40 milliseconds */
- #define WME_NUM_TID              16
- #define IEEE80211_BAR_CTL_TID_M  0xF000  /* tid mask */
--#define IEEE80211_BAR_CTL_TID_S  2       /* tid shift */
-+#define IEEE80211_BAR_CTL_TID_S  12      /* tid shift */
- 
- enum ATH_RX_TYPE {
- 	ATH_RX_NON_CONSUMED = 0,
--- 
-John W. Linville		Linux should be at the core
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			of your literate lifestyle.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 			Krzysztof Olêdzki
+---1144830174-1726530140-1223499912=:13921--
