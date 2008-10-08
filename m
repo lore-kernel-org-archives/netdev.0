@@ -1,69 +1,130 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] bonding: send IPv6 neighbor advertisement on failover
-Date: Wed, 08 Oct 2008 15:07:51 -0400
-Message-ID: <48ED0507.30002@hp.com>
-References: <48EC091D.7080207@hp.com> <48ECF8AA.2020205@hp.com> <17192.1223490884@death.nxdomain.ibm.com>
+From: =?ISO-8859-15?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
+Subject: via-velocity driver vlan_filtering and promisc
+Date: Wed, 08 Oct 2008 20:35:42 +0200
+Message-ID: <48ECFD7E.1060801@e-teleport.net>
+References: <20080830082353.7ca74f45@extreme> <20080831162558.GA17469@electric-eye.fr.zoreil.com> <48BBD75A.50607@trash.net>
+Reply-To: technique@e-teleport.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>,
-	David Miller <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: multipart/mixed;
+ boundary="------------010001000804070705040502"
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:36535 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753087AbYJHTHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 15:07:54 -0400
-In-Reply-To: <17192.1223490884@death.nxdomain.ibm.com>
+Received: from webmail.e-teleport.net ([213.190.83.68]:41634 "EHLO
+	mail.imsnet.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755095AbYJHTJU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2008 15:09:20 -0400
+In-Reply-To: <48BBD75A.50607@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
-> 
->>> +
->>> +	list_for_each_entry(bond, &bond_dev_list, bond_list) {
->>> +		if (bond->dev == event_dev) {
->>> +			switch (event) {
->>> +			case NETDEV_UP:
->>> +				ipv6_addr_copy(&bond->master_ipv6, &ifa->addr);
->>> +				return NOTIFY_OK;
->> I think you want to store the first address configured on the device (most
->> likely link-local), and not overwrite it every time  a new address is
->> configured.  Since new addresses can be configured rather often (think
->> temporary, new RAs, etc) we really want the most stable address we can have.
->> Also, since ND is a link protocol, link-local is sufficient.
-> 
-> 	That depends upon how the IPv6 unsolicited NAs are handled by
-> the switch.  For IPv4, we issue a gratuitous ARP for one of the IP
-> addresses on the interface to update the switch's MAC table; for this
-> case, it doesn't matter which IP address is used.
-> 
-> 	If IPv6-smart switches snoop the same way, then it again doesn't
-> matter which IPv6 address is used; this is just to update the MAC table.
-> I'll agree that it's logically sensible to use a link-local, though.
-> If, on the other hand, IPv6 needs an update for each configured address,
-> then storing just one IPv6 address is insufficient (as we'd need an NA
-> for each address).
-> 
+This is a multi-part message in MIME format.
+--------------010001000804070705040502
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 8bit
 
-Yes, but the unsolicited NA for the global address just looks rather strange
-when the link local one is provide.  Also, with temporaries that can come and
-go, it's better to use a stable address.
+Hi,
 
-We are simply using it to refresh the MAC tables and for a while I thought it
-would be sufficient to do just one ARP or ND, but then I realized that in an
-environment where 2 systems are connected back-to-back, you would potentially
-need to do both.  Need to play with this config...
+Disabling vlan filters doen't work in promiscous mode.
 
--vlad
+This patch normaly correct this.
 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
+"The non-tagged interface is filtered out as soon as a tagged
+    (!= 0) interface is created. Its traffic appears again when an
+    zero-tagged interface is created."
+in commit d4f73c8e459d355e10051174d859ffd0ef5764c0 is no more true with this patch, just setting promisc mode is needed.
 
+
+The patch change how setting MCFG_RTGOPT, no more in 
+velocity_init_cam_filter() but in velocity_set_multi(), 
+velocity_vlan_rx_kill_vid() and velocity_vlan_rx_add_vid()
+This patch also autorise to create vlan with id 0.
+
+-- 
+Régis
+
+--------------010001000804070705040502
+Content-Type: text/plain;
+ name="vlan-filtering"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="vlan-filtering"
+
+--- ../linux-2.6.26/drivers/net/via-velocity.c	2008-10-08 17:08:42.000000000 +0000
++++ drivers/net/via-velocity.c	2008-10-08 19:37:10.000000000 +0000
+@@ -605,9 +605,8 @@ static void __devinit velocity_get_optio
+ static void velocity_init_cam_filter(struct velocity_info *vptr)
+ {
+ 	struct mac_regs __iomem * regs = vptr->mac_regs;
+-
+ 	/* Turn on MCFG_PQEN, turn off MCFG_RTGOPT */
+-	WORD_REG_BITS_SET(MCFG_PQEN, MCFG_RTGOPT, &regs->MCFG);
++	WORD_REG_BITS_ON(MCFG_PQEN, &regs->MCFG);
+ 	WORD_REG_BITS_ON(MCFG_VIDFR, &regs->MCFG);
+ 
+ 	/* Disable all CAMs */
+@@ -619,11 +618,7 @@ static void velocity_init_cam_filter(str
+ 	/* Enable VCAMs */
+ 	if (vptr->vlgrp) {
+ 		unsigned int vid, i = 0;
+-
+-		if (!vlan_group_get_device(vptr->vlgrp, 0))
+-			WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
+-
+-		for (vid = 1; (vid < VLAN_VID_MASK); vid++) {
++		for (vid = 0; (vid < VLAN_VID_MASK); vid++) {
+ 			if (vlan_group_get_device(vptr->vlgrp, vid)) {
+ 				mac_set_vlan_cam(regs, i, (u8 *) &vid);
+ 				vptr->vCAMmask[i / 8] |= 0x1 << (i % 8);
+@@ -646,19 +641,25 @@ static void velocity_vlan_rx_register(st
+ static void velocity_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
+ {
+ 	struct velocity_info *vptr = netdev_priv(dev);
++	struct mac_regs __iomem * regs = vptr->mac_regs;
+ 
+         spin_lock_irq(&vptr->lock);
+ 	velocity_init_cam_filter(vptr);
++	if (vptr->vCAMmask[0] && !(dev->flags & IFF_PROMISC))
++                WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG); /* enable vlan filtering */
+         spin_unlock_irq(&vptr->lock);
+ }
+ 
+ static void velocity_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
+ {
+ 	struct velocity_info *vptr = netdev_priv(dev);
++	struct mac_regs __iomem * regs = vptr->mac_regs;
+ 
+         spin_lock_irq(&vptr->lock);
+ 	vlan_group_set_device(vptr->vlgrp, vid, NULL);
+ 	velocity_init_cam_filter(vptr);
++	if (!vptr->vCAMmask[0])
++		WORD_REG_BITS_OFF(MCFG_RTGOPT, &regs->MCFG); /* disable vlan filtering */
+         spin_unlock_irq(&vptr->lock);
+ }
+ 
+@@ -2278,11 +2279,14 @@ static void velocity_set_multi(struct ne
+ 		writel(0xffffffff, &regs->MARCAM[0]);
+ 		writel(0xffffffff, &regs->MARCAM[4]);
+ 		rx_mode = (RCR_AM | RCR_AB | RCR_PROM);
++		WORD_REG_BITS_OFF(MCFG_RTGOPT, &regs->MCFG); /* disable vlan filtering */
+ 	} else if ((dev->mc_count > vptr->multicast_limit)
+ 		   || (dev->flags & IFF_ALLMULTI)) {
+ 		writel(0xffffffff, &regs->MARCAM[0]);
+ 		writel(0xffffffff, &regs->MARCAM[4]);
+ 		rx_mode = (RCR_AM | RCR_AB);
++		if (vptr->vCAMmask[0])
++			WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG); /* enable vlan filtering */
+ 	} else {
+ 		int offset = MCAM_SIZE - vptr->multicast_limit;
+ 		mac_get_cam_mask(regs, vptr->mCAMmask);
+@@ -2294,6 +2298,9 @@ static void velocity_set_multi(struct ne
+ 
+ 		mac_set_cam_mask(regs, vptr->mCAMmask);
+ 		rx_mode = (RCR_AM | RCR_AB);
++		
++		if (vptr->vCAMmask[0])
++			WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG); /* enable vlan filtering */
+ 	}
+ 	if (dev->mtu > 1500)
+ 		rx_mode |= RCR_AL;
+
+--------------010001000804070705040502--
