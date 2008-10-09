@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT PATCH 1/2] e1000e: don't generate bad checksums for
- tcp packets with 0 csum
-Date: Thu, 09 Oct 2008 14:29:36 -0700 (PDT)
-Message-ID: <20081009.142936.00354103.davem@davemloft.net>
-References: <20081009165831.32435.81922.stgit@gitlost.lost>
+Subject: Re: [PATCH net-next] myri10ge: remove over-paranoid queue number
+ modulus
+Date: Thu, 09 Oct 2008 14:31:52 -0700 (PDT)
+Message-ID: <20081009.143152.07519233.davem@davemloft.net>
+References: <48EE10C5.5030609@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, david.graham@intel.com,
-	jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42125
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42137
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753527AbYJIVaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 17:30:00 -0400
-In-Reply-To: <20081009165831.32435.81922.stgit@gitlost.lost>
+	by vger.kernel.org with ESMTP id S1755614AbYJIVcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 17:32:17 -0400
+In-Reply-To: <48EE10C5.5030609@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 09 Oct 2008 09:58:31 -0700
+From: Brice Goglin <brice@myri.com>
+Date: Thu, 09 Oct 2008 16:10:13 +0200
 
-> When offloading transmit checksums only, the driver was not
-> correctly configuring the hardware to handle the case of a zero
-> checksum.  For UDP the correct behavior is to leave it alone, but
-> for tcp the checksum must be changed from 0x0000 to 0xFFFF.  The
-> hardware takes care of this case but only if it is told the
-> packet is tcp.
+> No need to modulus the queue number in ->hard_start_xmit() since the
+> core is going to do that for you modulus ->real_num_tx_queues.
 > 
-> Signed-off-by: Dave Graham <david.graham@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-Applied.
+Applied, thank you.
