@@ -1,45 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/4] gre: Ethernet over GRE
-Date: Thu, 9 Oct 2008 15:04:24 +0800
-Message-ID: <20081009070424.GA16684@gondor.apana.org.au>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] phy_device: Interrupt number 0 is valid
+Date: Thu, 09 Oct 2008 10:05:03 +0300
+Message-ID: <48EDAD1F.6010109@teltonika.lt>
+References: <48ECA4A0.7080508@teltonika.lt> <20081008.094335.216774973.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34527 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754671AbYJIHE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 03:04:29 -0400
-Content-Disposition: inline
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:37148 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754703AbYJIHFI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 03:05:08 -0400
+In-Reply-To: <20081008.094335.216774973.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+David Miller wrote:
+> From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> Date: Wed, 08 Oct 2008 15:16:32 +0300
+> 
+>> If interrupt number 0(valid interrupt number) will be passed as
+>> phy interrupt it should be used. In current situation even phy
+>> polling will not work since PHY_POLL = -1
+>>
+>> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> 
+> In the Linux kernel, interrupt number 0 is defined as not valid.
 
-This series of patches add Ethernet over GRE support.  The user
-space interface is done with the rtnl_link mechanism.  I'll post
-the patches for iproute too.
-
-There has been a small demand of such a tunneling mechanism that
-allows direct Ethernet connections over IP.  In the past many
-efforts have been made in this direction.  However, inadequacies
-with our user interface have foiled many of them.
-
-Recently Patrick McHardy created the rtnl_link mechanism which
-finally allows tunnel configuration to be brought into the 21st
-century.  Having tried it I must say that it has been an absolute
-pleasure to use :)
-
-This should be completely backwards compatible in that if you
-don't create Ethernet over GRE tunnels then your GRE experience
-should not differ one single bit from before.  However, you can
-manage your existing GRE interfaces using the new interface should
-you choose to do so.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Where it is defined as not valid?
+Maybe it is not valid under x86, but it is valid at least on
+ARM for sure.
+Anyway if interrupt 0 is not valid then request_irq() will fail
+and PHY_POLL will be used.
