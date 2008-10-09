@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 3/8 2.6.28] cxgb3 - allow for PHY reset status
-Date: Wed, 08 Oct 2008 17:34:08 -0700
-Message-ID: <20081009003407.13347.1075.stgit@speedy5>
+Subject: [PATCH 4/8 2.6.28] cxgb3 - simplify port type struct and usage
+Date: Wed, 08 Oct 2008 17:34:13 -0700
+Message-ID: <20081009003413.13380.7286.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,179 +9,488 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:25936 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:25057 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755955AbYJIAeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:34:13 -0400
+	with ESMTP id S1757301AbYJIAeV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:34:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-First step towards overall PHY layering re-organization.
-Allow a status return when a PHY is reset.
+Second step in overall phy layer reorganization.
+Clean up the port_type_info structure.
+Support coextistence of clause 22 and clause 45 MDIO devices.
+Select the type of MDIO transaction on a per transaction basis.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/ael1002.c |   20 ++++++++++++--------
- drivers/net/cxgb3/common.h  |   24 ++++++++++++------------
- drivers/net/cxgb3/t3_hw.c   |   15 ++++++++++-----
- drivers/net/cxgb3/vsc8211.c |    5 +++--
- 4 files changed, 37 insertions(+), 27 deletions(-)
+ drivers/net/cxgb3/adapter.h    |    2 -
+ drivers/net/cxgb3/ael1002.c    |   16 ++++-
+ drivers/net/cxgb3/common.h     |   21 ++----
+ drivers/net/cxgb3/cxgb3_main.c |    4 +
+ drivers/net/cxgb3/t3_hw.c      |  133 ++++++++++++++++++++--------------------
+ drivers/net/cxgb3/vsc8211.c    |    5 +-
+ 6 files changed, 94 insertions(+), 87 deletions(-)
 
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
+index 02dd69b..455ef52 100644
+--- a/drivers/net/cxgb3/adapter.h
++++ b/drivers/net/cxgb3/adapter.h
+@@ -54,7 +54,6 @@ struct port_info {
+ 	struct adapter *adapter;
+ 	struct vlan_group *vlan_grp;
+ 	struct sge_qset *qs;
+-	const struct port_type_info *port_type;
+ 	u8 port_id;
+ 	u8 rx_csum_offload;
+ 	u8 nqsets;
+@@ -282,6 +281,7 @@ int t3_offload_tx(struct t3cdev *tdev, struct sk_buff *skb);
+ void t3_os_ext_intr_handler(struct adapter *adapter);
+ void t3_os_link_changed(struct adapter *adapter, int port_id, int link_status,
+ 			int speed, int duplex, int fc);
++void t3_os_phymod_changed(struct adapter *adap, int port_id);
+ 
+ void t3_sge_start(struct adapter *adap);
+ void t3_sge_stop(struct adapter *adap);
 diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
-index ee140e6..bf22e56 100644
+index bf22e56..f4e046e 100644
 --- a/drivers/net/cxgb3/ael1002.c
 +++ b/drivers/net/cxgb3/ael1002.c
-@@ -119,11 +119,12 @@ static struct cphy_ops ael1002_ops = {
- 	.power_down = ael1002_power_down,
- };
- 
--void t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
--			 int phy_addr, const struct mdio_ops *mdio_ops)
-+int t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			int phy_addr, const struct mdio_ops *mdio_ops)
+@@ -122,7 +122,9 @@ static struct cphy_ops ael1002_ops = {
+ int t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 			int phy_addr, const struct mdio_ops *mdio_ops)
  {
- 	cphy_init(phy, adapter, phy_addr, &ael1002_ops, mdio_ops);
+-	cphy_init(phy, adapter, phy_addr, &ael1002_ops, mdio_ops);
++	cphy_init(phy, adapter, phy_addr, &ael1002_ops, mdio_ops,
++		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_FIBRE,
++		   "10GBASE-R");
  	ael100x_txon(phy);
-+	return 0;
+ 	return 0;
  }
- 
- static int ael1006_reset(struct cphy *phy, int wait)
-@@ -174,11 +175,12 @@ static struct cphy_ops ael1006_ops = {
- 	.power_down = ael1006_power_down,
- };
- 
--void t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
--			 int phy_addr, const struct mdio_ops *mdio_ops)
-+int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			     int phy_addr, const struct mdio_ops *mdio_ops)
+@@ -178,7 +180,9 @@ static struct cphy_ops ael1006_ops = {
+ int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 			     int phy_addr, const struct mdio_ops *mdio_ops)
  {
- 	cphy_init(phy, adapter, phy_addr, &ael1006_ops, mdio_ops);
+-	cphy_init(phy, adapter, phy_addr, &ael1006_ops, mdio_ops);
++	cphy_init(phy, adapter, phy_addr, &ael1006_ops, mdio_ops,
++		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_FIBRE,
++		   "10GBASE-SR");
  	ael100x_txon(phy);
-+	return 0;
+ 	return 0;
  }
- 
- static struct cphy_ops qt2045_ops = {
-@@ -191,8 +193,8 @@ static struct cphy_ops qt2045_ops = {
- 	.power_down = ael1006_power_down,
- };
- 
--void t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
--			int phy_addr, const struct mdio_ops *mdio_ops)
-+int t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
-+		       int phy_addr, const struct mdio_ops *mdio_ops)
+@@ -198,7 +202,9 @@ int t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
  {
  	unsigned int stat;
  
-@@ -205,6 +207,7 @@ void t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
- 	if (!phy_addr && !mdio_read(phy, MDIO_DEV_PMA_PMD, MII_BMSR, &stat) &&
- 	    stat == 0xffff)
- 		phy->addr = 1;
-+	return 0;
- }
+-	cphy_init(phy, adapter, phy_addr, &qt2045_ops, mdio_ops);
++	cphy_init(phy, adapter, phy_addr, &qt2045_ops, mdio_ops,
++		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_TP,
++		  "10GBASE-CX4");
  
- static int xaui_direct_reset(struct cphy *phy, int wait)
-@@ -250,8 +253,9 @@ static struct cphy_ops xaui_direct_ops = {
- 	.power_down = xaui_direct_power_down,
- };
- 
--void t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
--			     int phy_addr, const struct mdio_ops *mdio_ops)
-+int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			    int phy_addr, const struct mdio_ops *mdio_ops)
+ 	/*
+ 	 * Some cards where the PHY is supposed to be at address 0 actually
+@@ -256,6 +262,8 @@ static struct cphy_ops xaui_direct_ops = {
+ int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 			    int phy_addr, const struct mdio_ops *mdio_ops)
  {
- 	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops);
-+	return 0;
+-	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops);
++	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops,
++		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_TP,
++		  "10GBASE-CX4");
+ 	return 0;
  }
 diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index ace6b58..78c10d3 100644
+index 78c10d3..e83a360 100644
 --- a/drivers/net/cxgb3/common.h
 +++ b/drivers/net/cxgb3/common.h
-@@ -203,8 +203,8 @@ struct adapter_info {
+@@ -193,8 +193,6 @@ struct mdio_ops {
+ struct adapter_info {
+ 	unsigned char nports;	/* # of ports */
+ 	unsigned char phy_base_addr;	/* MDIO PHY base address */
+-	unsigned char mdien;
+-	unsigned char mdiinv;
+ 	unsigned int gpio_out;	/* GPIO output settings */
+ 	unsigned int gpio_intr;	/* GPIO IRQ enable mask */
+ 	unsigned long caps;	/* adapter capabilities */
+@@ -202,13 +200,6 @@ struct adapter_info {
+ 	const char *desc;	/* product description */
  };
  
- struct port_type_info {
--	void (*phy_prep)(struct cphy *phy, struct adapter *adapter,
--			 int phy_addr, const struct mdio_ops *ops);
-+	int (*phy_prep)(struct cphy *phy, struct adapter *adapter,
-+			int phy_addr, const struct mdio_ops *ops);
- 	unsigned int caps;
- 	const char *desc;
- };
-@@ -776,14 +776,14 @@ int t3_sge_read_rspq(struct adapter *adapter, unsigned int id, u32 data[4]);
- int t3_sge_cqcntxt_op(struct adapter *adapter, unsigned int id, unsigned int op,
- 		      unsigned int credits);
+-struct port_type_info {
+-	int (*phy_prep)(struct cphy *phy, struct adapter *adapter,
+-			int phy_addr, const struct mdio_ops *ops);
+-	unsigned int caps;
+-	const char *desc;
+-};
+-
+ struct mc5_stats {
+ 	unsigned long parity_err;
+ 	unsigned long active_rgn_full;
+@@ -548,7 +539,6 @@ enum {
  
--void t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
--			 int phy_addr, const struct mdio_ops *mdio_ops);
--void t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
--			 int phy_addr, const struct mdio_ops *mdio_ops);
--void t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
--			 int phy_addr, const struct mdio_ops *mdio_ops);
--void t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter, int phy_addr,
--			const struct mdio_ops *mdio_ops);
--void t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
--			     int phy_addr, const struct mdio_ops *mdio_ops);
-+int t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			int phy_addr, const struct mdio_ops *mdio_ops);
-+int t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			int phy_addr, const struct mdio_ops *mdio_ops);
-+int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			int phy_addr, const struct mdio_ops *mdio_ops);
-+int t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter, int phy_addr,
-+		       const struct mdio_ops *mdio_ops);
-+int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			    int phy_addr, const struct mdio_ops *mdio_ops);
- #endif				/* __CHELSIO_COMMON_H */
+ /* PHY operations */
+ struct cphy_ops {
+-	void (*destroy)(struct cphy *phy);
+ 	int (*reset)(struct cphy *phy, int wait);
+ 
+ 	int (*intr_enable)(struct cphy *phy);
+@@ -569,8 +559,10 @@ struct cphy_ops {
+ 
+ /* A PHY instance */
+ struct cphy {
+-	int addr;		/* PHY address */
++	int addr;			/* PHY address */
++	unsigned int caps;		/* PHY capabilities */
+ 	struct adapter *adapter;	/* associated adapter */
++	const char *desc;		/* PHY description */
+ 	unsigned long fifo_errors;	/* FIFO over/under-flows */
+ 	const struct cphy_ops *ops;	/* PHY operations */
+ 	int (*mdio_read)(struct adapter *adapter, int phy_addr, int mmd_addr,
+@@ -595,10 +587,13 @@ static inline int mdio_write(struct cphy *phy, int mmd, int reg,
+ /* Convenience initializer */
+ static inline void cphy_init(struct cphy *phy, struct adapter *adapter,
+ 			     int phy_addr, struct cphy_ops *phy_ops,
+-			     const struct mdio_ops *mdio_ops)
++			     const struct mdio_ops *mdio_ops,
++			      unsigned int caps, const char *desc)
+ {
+-	phy->adapter = adapter;
+ 	phy->addr = phy_addr;
++	phy->caps = caps;
++	phy->adapter = adapter;
++	phy->desc = desc;
+ 	phy->ops = phy_ops;
+ 	if (mdio_ops) {
+ 		phy->mdio_read = mdio_ops->read;
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index fea2c71..5b8251d 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -2368,7 +2368,7 @@ static void check_link_status(struct adapter *adapter)
+ 		struct net_device *dev = adapter->port[i];
+ 		struct port_info *p = netdev_priv(dev);
+ 
+-		if (!(p->port_type->caps & SUPPORTED_IRQ) && netif_running(dev))
++		if (!(p->phy.caps & SUPPORTED_IRQ) && netif_running(dev))
+ 			t3_link_changed(adapter, i);
+ 	}
+ }
+@@ -2731,7 +2731,7 @@ static void __devinit print_port_info(struct adapter *adap,
+ 		if (!test_bit(i, &adap->registered_device_map))
+ 			continue;
+ 		printk(KERN_INFO "%s: %s %s %sNIC (rev %d) %s%s\n",
+-		       dev->name, ai->desc, pi->port_type->desc,
++		       dev->name, ai->desc, pi->phy.desc,
+ 		       is_offload(adap) ? "R" : "", adap->params.rev, buf,
+ 		       (adap->flags & USING_MSIX) ? " MSI-X" :
+ 		       (adap->flags & USING_MSI) ? " MSI" : "");
 diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 33470c7..fa0a4b4 100644
+index fa0a4b4..f7ced32 100644
 --- a/drivers/net/cxgb3/t3_hw.c
 +++ b/drivers/net/cxgb3/t3_hw.c
-@@ -3626,8 +3626,11 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
- 			++j;
+@@ -194,21 +194,18 @@ int t3_mc7_bd_read(struct mc7 *mc7, unsigned int start, unsigned int n,
+ static void mi1_init(struct adapter *adap, const struct adapter_info *ai)
+ {
+ 	u32 clkdiv = adap->params.vpd.cclk / (2 * adap->params.vpd.mdc) - 1;
+-	u32 val = F_PREEN | V_MDIINV(ai->mdiinv) | V_MDIEN(ai->mdien) |
+-	    V_CLKDIV(clkdiv);
++	u32 val = F_PREEN | V_CLKDIV(clkdiv);
  
- 		p->port_type = &port_types[adapter->params.vpd.port_type[j]];
--		p->port_type->phy_prep(&p->phy, adapter, ai->phy_base_addr + j,
--				       ai->mdio_ops);
-+		ret = p->port_type->phy_prep(&p->phy, adapter,
-+					     ai->phy_base_addr + j,
-+					     ai->mdio_ops);
-+		if (ret)
-+			return ret;
- 		mac_prep(&p->mac, adapter, j);
- 		++j;
+-	if (!(ai->caps & SUPPORTED_10000baseT_Full))
+-		val |= V_ST(1);
+ 	t3_write_reg(adap, A_MI1_CFG, val);
+ }
  
-@@ -3674,9 +3677,11 @@ int t3_replay_prep_adapter(struct adapter *adapter)
- 		while (!adapter->params.vpd.port_type[j])
- 			++j;
+-#define MDIO_ATTEMPTS 10
++#define MDIO_ATTEMPTS 20
  
--		p->port_type->phy_prep(&p->phy, adapter, ai->phy_base_addr + j,
--					ai->mdio_ops);
--
-+		ret = p->port_type->phy_prep(&p->phy, adapter,
-+					     ai->phy_base_addr + j,
-+					     ai->mdio_ops);
-+		if (ret)
-+			return ret;
- 		p->phy.ops->power_down(&p->phy, 1);
- 		++j;
- 	}
-diff --git a/drivers/net/cxgb3/vsc8211.c b/drivers/net/cxgb3/vsc8211.c
-index eee4285..8f1b0d3 100644
---- a/drivers/net/cxgb3/vsc8211.c
-+++ b/drivers/net/cxgb3/vsc8211.c
-@@ -221,8 +221,9 @@ static struct cphy_ops vsc8211_ops = {
- 	.power_down = vsc8211_power_down,
+ /*
+- * MI1 read/write operations for direct-addressed PHYs.
++ * MI1 read/write operations for clause 22 PHYs.
+  */
+-static int mi1_read(struct adapter *adapter, int phy_addr, int mmd_addr,
+-		    int reg_addr, unsigned int *valp)
++static int t3_mi1_read(struct adapter *adapter, int phy_addr, int mmd_addr,
++		       int reg_addr, unsigned int *valp)
+ {
+ 	int ret;
+ 	u32 addr = V_REGADDR(reg_addr) | V_PHYADDR(phy_addr);
+@@ -217,16 +214,17 @@ static int mi1_read(struct adapter *adapter, int phy_addr, int mmd_addr,
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&adapter->mdio_lock);
++	t3_set_reg_field(adapter, A_MI1_CFG, V_ST(M_ST), V_ST(1));
+ 	t3_write_reg(adapter, A_MI1_ADDR, addr);
+ 	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(2));
+-	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 10);
+ 	if (!ret)
+ 		*valp = t3_read_reg(adapter, A_MI1_DATA);
+ 	mutex_unlock(&adapter->mdio_lock);
+ 	return ret;
+ }
+ 
+-static int mi1_write(struct adapter *adapter, int phy_addr, int mmd_addr,
++static int t3_mi1_write(struct adapter *adapter, int phy_addr, int mmd_addr,
+ 		     int reg_addr, unsigned int val)
+ {
+ 	int ret;
+@@ -236,37 +234,51 @@ static int mi1_write(struct adapter *adapter, int phy_addr, int mmd_addr,
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&adapter->mdio_lock);
++	t3_set_reg_field(adapter, A_MI1_CFG, V_ST(M_ST), V_ST(1));
+ 	t3_write_reg(adapter, A_MI1_ADDR, addr);
+ 	t3_write_reg(adapter, A_MI1_DATA, val);
+ 	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(1));
+-	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 10);
+ 	mutex_unlock(&adapter->mdio_lock);
+ 	return ret;
+ }
+ 
+ static const struct mdio_ops mi1_mdio_ops = {
+-	mi1_read,
+-	mi1_write
++	t3_mi1_read,
++	t3_mi1_write
  };
  
--void t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
--			 int phy_addr, const struct mdio_ops *mdio_ops)
-+int t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			int phy_addr, const struct mdio_ops *mdio_ops)
+ /*
++ * Performs the address cycle for clause 45 PHYs.
++ * Must be called with the MDIO_LOCK held.
++ */
++static int mi1_wr_addr(struct adapter *adapter, int phy_addr, int mmd_addr,
++		       int reg_addr)
++{
++	u32 addr = V_REGADDR(mmd_addr) | V_PHYADDR(phy_addr);
++
++	t3_set_reg_field(adapter, A_MI1_CFG, V_ST(M_ST), 0);
++	t3_write_reg(adapter, A_MI1_ADDR, addr);
++	t3_write_reg(adapter, A_MI1_DATA, reg_addr);
++	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(0));
++	return t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0,
++			       MDIO_ATTEMPTS, 10);
++}
++
++/*
+  * MI1 read/write operations for indirect-addressed PHYs.
+  */
+ static int mi1_ext_read(struct adapter *adapter, int phy_addr, int mmd_addr,
+ 			int reg_addr, unsigned int *valp)
  {
- 	cphy_init(phy, adapter, phy_addr, &vsc8211_ops, mdio_ops);
-+	return 0;
+ 	int ret;
+-	u32 addr = V_REGADDR(mmd_addr) | V_PHYADDR(phy_addr);
+ 
+ 	mutex_lock(&adapter->mdio_lock);
+-	t3_write_reg(adapter, A_MI1_ADDR, addr);
+-	t3_write_reg(adapter, A_MI1_DATA, reg_addr);
+-	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(0));
+-	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	ret = mi1_wr_addr(adapter, phy_addr, mmd_addr, reg_addr);
+ 	if (!ret) {
+ 		t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(3));
+ 		ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0,
+-				      MDIO_ATTEMPTS, 20);
++				      MDIO_ATTEMPTS, 10);
+ 		if (!ret)
+ 			*valp = t3_read_reg(adapter, A_MI1_DATA);
+ 	}
+@@ -278,18 +290,14 @@ static int mi1_ext_write(struct adapter *adapter, int phy_addr, int mmd_addr,
+ 			 int reg_addr, unsigned int val)
+ {
+ 	int ret;
+-	u32 addr = V_REGADDR(mmd_addr) | V_PHYADDR(phy_addr);
+ 
+ 	mutex_lock(&adapter->mdio_lock);
+-	t3_write_reg(adapter, A_MI1_ADDR, addr);
+-	t3_write_reg(adapter, A_MI1_DATA, reg_addr);
+-	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(0));
+-	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	ret = mi1_wr_addr(adapter, phy_addr, mmd_addr, reg_addr);
+ 	if (!ret) {
+ 		t3_write_reg(adapter, A_MI1_DATA, val);
+ 		t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(1));
+ 		ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0,
+-				      MDIO_ATTEMPTS, 20);
++				      MDIO_ATTEMPTS, 10);
+ 	}
+ 	mutex_unlock(&adapter->mdio_lock);
+ 	return ret;
+@@ -435,22 +443,22 @@ int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex)
+ }
+ 
+ static const struct adapter_info t3_adap_info[] = {
+-	{2, 0, 0, 0,
++	{2, 0,
+ 	 F_GPIO2_OEN | F_GPIO4_OEN |
+ 	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, F_GPIO3 | F_GPIO5,
+ 	 0,
+ 	 &mi1_mdio_ops, "Chelsio PE9000"},
+-	{2, 0, 0, 0,
++	{2, 0,
+ 	 F_GPIO2_OEN | F_GPIO4_OEN |
+ 	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, F_GPIO3 | F_GPIO5,
+ 	 0,
+ 	 &mi1_mdio_ops, "Chelsio T302"},
+-	{1, 0, 0, 0,
++	{1, 0,
+ 	 F_GPIO1_OEN | F_GPIO6_OEN | F_GPIO7_OEN | F_GPIO10_OEN |
+ 	 F_GPIO11_OEN | F_GPIO1_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL,
+ 	 0, SUPPORTED_10000baseT_Full | SUPPORTED_AUI,
+ 	 &mi1_mdio_ext_ops, "Chelsio T310"},
+-	{2, 0, 0, 0,
++	{2, 0,
+ 	 F_GPIO1_OEN | F_GPIO2_OEN | F_GPIO4_OEN | F_GPIO5_OEN | F_GPIO6_OEN |
+ 	 F_GPIO7_OEN | F_GPIO10_OEN | F_GPIO11_OEN | F_GPIO1_OUT_VAL |
+ 	 F_GPIO5_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL, 0,
+@@ -467,29 +475,23 @@ const struct adapter_info *t3_get_adapter_info(unsigned int id)
+ 	return id < ARRAY_SIZE(t3_adap_info) ? &t3_adap_info[id] : NULL;
+ }
+ 
+-#define CAPS_1G (SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Full | \
+-		 SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg | SUPPORTED_MII)
+-#define CAPS_10G (SUPPORTED_10000baseT_Full | SUPPORTED_AUI)
++struct port_type_info {
++	int (*phy_prep)(struct cphy *phy, struct adapter *adapter,
++			int phy_addr, const struct mdio_ops *ops);
++};
+ 
+ static const struct port_type_info port_types[] = {
+-	{NULL},
+-	{t3_ael1002_phy_prep, CAPS_10G | SUPPORTED_FIBRE,
+-	 "10GBASE-XR"},
+-	{t3_vsc8211_phy_prep, CAPS_1G | SUPPORTED_TP | SUPPORTED_IRQ,
+-	 "10/100/1000BASE-T"},
+-	{NULL, CAPS_1G | SUPPORTED_TP | SUPPORTED_IRQ,
+-	 "10/100/1000BASE-T"},
+-	{t3_xaui_direct_phy_prep, CAPS_10G | SUPPORTED_TP, "10GBASE-CX4"},
+-	{NULL, CAPS_10G, "10GBASE-KX4"},
+-	{t3_qt2045_phy_prep, CAPS_10G | SUPPORTED_TP, "10GBASE-CX4"},
+-	{t3_ael1006_phy_prep, CAPS_10G | SUPPORTED_FIBRE,
+-	 "10GBASE-SR"},
+-	{NULL, CAPS_10G | SUPPORTED_TP, "10GBASE-CX4"},
++	{ NULL },
++	{ t3_ael1002_phy_prep },
++	{ t3_vsc8211_phy_prep },
++	{ NULL},
++	{ t3_xaui_direct_phy_prep },
++	{ NULL },
++	{ t3_qt2045_phy_prep },
++	{ t3_ael1006_phy_prep },
++	{ NULL },
+ };
+ 
+-#undef CAPS_1G
+-#undef CAPS_10G
+-
+ #define VPD_ENTRY(name, len) \
+ 	u8 name##_kword[2]; u8 name##_len; u8 name##_data[len]
+ 
+@@ -1691,7 +1693,7 @@ int t3_phy_intr_handler(struct adapter *adapter)
+ 		mask = gpi - (gpi & (gpi - 1));
+ 		gpi -= mask;
+ 
+-		if (!(p->port_type->caps & SUPPORTED_IRQ))
++		if (!(p->phy.caps & SUPPORTED_IRQ))
+ 			continue;
+ 
+ 		if (cause & mask) {
+@@ -3556,7 +3558,7 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
+ 		    int reset)
+ {
+ 	int ret;
+-	unsigned int i, j = 0;
++	unsigned int i, j = -1;
+ 
+ 	get_pci_mode(adapter, &adapter->params.pci);
+ 
+@@ -3620,19 +3622,18 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
+ 
+ 	for_each_port(adapter, i) {
+ 		u8 hw_addr[6];
++		const struct port_type_info *pti;
+ 		struct port_info *p = adap2pinfo(adapter, i);
+ 
+-		while (!adapter->params.vpd.port_type[j])
+-			++j;
++		while (!adapter->params.vpd.port_type[++j])
++			;
+ 
+-		p->port_type = &port_types[adapter->params.vpd.port_type[j]];
+-		ret = p->port_type->phy_prep(&p->phy, adapter,
+-					     ai->phy_base_addr + j,
+-					     ai->mdio_ops);
++		pti = &port_types[adapter->params.vpd.port_type[j]];
++		ret = pti->phy_prep(&p->phy, adapter, ai->phy_base_addr + j,
++				    ai->mdio_ops);
+ 		if (ret)
+ 			return ret;
+ 		mac_prep(&p->mac, adapter, j);
+-		++j;
+ 
+ 		/*
+ 		 * The VPD EEPROM stores the base Ethernet address for the
+@@ -3646,9 +3647,9 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
+ 		       ETH_ALEN);
+ 		memcpy(adapter->port[i]->perm_addr, hw_addr,
+ 		       ETH_ALEN);
+-		init_link_config(&p->link_config, p->port_type->caps);
++		init_link_config(&p->link_config, p->phy.caps);
+ 		p->phy.ops->power_down(&p->phy, 1);
+-		if (!(p->port_type->caps & SUPPORTED_IRQ))
++		if (!(p->phy.caps & SUPPORTED_IRQ))
+ 			adapter->params.linkpoll_period = 10;
+ 	}
+ 
+@@ -3664,7 +3665,7 @@ void t3_led_ready(struct adapter *adapter)
+ int t3_replay_prep_adapter(struct adapter *adapter)
+ {
+ 	const struct adapter_info *ai = adapter->params.info;
+-	unsigned int i, j = 0;
++	unsigned int i, j = -1;
+ 	int ret;
+ 
+ 	early_hw_init(adapter, ai);
+@@ -3673,17 +3674,17 @@ int t3_replay_prep_adapter(struct adapter *adapter)
+ 		return ret;
+ 
+ 	for_each_port(adapter, i) {
++		const struct port_type_info *pti;
+ 		struct port_info *p = adap2pinfo(adapter, i);
+-		while (!adapter->params.vpd.port_type[j])
+-			++j;
+ 
+-		ret = p->port_type->phy_prep(&p->phy, adapter,
+-					     ai->phy_base_addr + j,
+-					     ai->mdio_ops);
++		while (!adapter->params.vpd.port_type[++j])
++			;
++
++		pti = &port_types[adapter->params.vpd.port_type[j]];
++		ret = pti->phy_prep(&p->phy, adapter, p->phy.addr, NULL);
+ 		if (ret)
+ 			return ret;
+ 		p->phy.ops->power_down(&p->phy, 1);
+-		++j;
+ 	}
+ 
+ return 0;
+diff --git a/drivers/net/cxgb3/vsc8211.c b/drivers/net/cxgb3/vsc8211.c
+index 8f1b0d3..68e6334 100644
+--- a/drivers/net/cxgb3/vsc8211.c
++++ b/drivers/net/cxgb3/vsc8211.c
+@@ -224,6 +224,9 @@ static struct cphy_ops vsc8211_ops = {
+ int t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 			int phy_addr, const struct mdio_ops *mdio_ops)
+ {
+-	cphy_init(phy, adapter, phy_addr, &vsc8211_ops, mdio_ops);
++	cphy_init(phy, adapter, phy_addr, &vsc8211_ops, mdio_ops,
++		  SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Full |
++		  SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg | SUPPORTED_MII |
++		  SUPPORTED_TP | SUPPORTED_IRQ, "10/100/1000BASE-T");
+ 	return 0;
  }
 
