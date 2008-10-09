@@ -1,34 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: phylib: move to dynamic allocation of struct mii_bus
-Date: Thu, 09 Oct 2008 09:45:19 -0700 (PDT)
-Message-ID: <20081009.094519.103144236.davem@davemloft.net>
-References: <20081008.163040.109671916.davem@davemloft.net>
-	<20081009093224.GB9038@xi.wantstofly.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH 1/2] e1000e: don't generate bad checksums for tcp
+	packets with 0 csum
+Date: Thu, 09 Oct 2008 09:58:31 -0700
+Message-ID: <20081009165831.32435.81922.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Cc: netdev@vger.kernel.org, Dave Graham <david.graham@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46737
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754736AbYJIQpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 12:45:43 -0400
-In-Reply-To: <20081009093224.GB9038@xi.wantstofly.org>
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:43292 "EHLO
+	QMTA04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752861AbYJIQ6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 12:58:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Thu, 9 Oct 2008 11:32:24 +0200
+From: Dave Graham <david.graham@intel.com>
 
-> On Wed, Oct 08, 2008 at 04:30:40PM -0700, David Miller wrote:
-> 
-> > Applied to net-next-2.6, thanks!
-> 
-> This was an older version of the patch (sorry for the confusion),
-> please apply this fix patch on top of net-next.
-> 
-> I've diffed the relevant files in my branch head against net-next
-> plus this patch, and that looks as intended.
+When offloading transmit checksums only, the driver was not
+correctly configuring the hardware to handle the case of a zero
+checksum.  For UDP the correct behavior is to leave it alone, but
+for tcp the checksum must be changed from 0x0000 to 0xFFFF.  The
+hardware takes care of this case but only if it is told the
+packet is tcp.
 
-Applied, thanks for catching this Lennert.
+Signed-off-by: Dave Graham <david.graham@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/netdev.c |   62 +++++++++++++++++++++++++++----------------
+ 1 files changed, 39 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 1b72749..abd492b 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3749,34 +3749,50 @@ static bool e1000_tx_csum(struct e1000_adapter *adapter, struct sk_buff *skb)
+ 	struct e1000_buffer *buffer_info;
+ 	unsigned int i;
+ 	u8 css;
++	u32 cmd_len = E1000_TXD_CMD_DEXT;
+ 
+-	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		css = skb_transport_offset(skb);
+-
+-		i = tx_ring->next_to_use;
+-		buffer_info = &tx_ring->buffer_info[i];
+-		context_desc = E1000_CONTEXT_DESC(*tx_ring, i);
+-
+-		context_desc->lower_setup.ip_config = 0;
+-		context_desc->upper_setup.tcp_fields.tucss = css;
+-		context_desc->upper_setup.tcp_fields.tucso =
+-					css + skb->csum_offset;
+-		context_desc->upper_setup.tcp_fields.tucse = 0;
+-		context_desc->tcp_seg_setup.data = 0;
+-		context_desc->cmd_and_length = cpu_to_le32(E1000_TXD_CMD_DEXT);
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return 0;
+ 
+-		buffer_info->time_stamp = jiffies;
+-		buffer_info->next_to_watch = i;
++	switch (skb->protocol) {
++	case __constant_htons(ETH_P_IP):
++		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
++			cmd_len |= E1000_TXD_CMD_TCP;
++		break;
++	case __constant_htons(ETH_P_IPV6):
++		/* XXX not handling all IPV6 headers */
++		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
++			cmd_len |= E1000_TXD_CMD_TCP;
++		break;
++	default:
++		if (unlikely(net_ratelimit()))
++			e_warn("checksum_partial proto=%x!\n", skb->protocol);
++		break;
++	}
+ 
+-		i++;
+-		if (i == tx_ring->count)
+-			i = 0;
+-		tx_ring->next_to_use = i;
++	css = skb_transport_offset(skb);
+ 
+-		return 1;
+-	}
++	i = tx_ring->next_to_use;
++	buffer_info = &tx_ring->buffer_info[i];
++	context_desc = E1000_CONTEXT_DESC(*tx_ring, i);
++
++	context_desc->lower_setup.ip_config = 0;
++	context_desc->upper_setup.tcp_fields.tucss = css;
++	context_desc->upper_setup.tcp_fields.tucso =
++				css + skb->csum_offset;
++	context_desc->upper_setup.tcp_fields.tucse = 0;
++	context_desc->tcp_seg_setup.data = 0;
++	context_desc->cmd_and_length = cpu_to_le32(cmd_len);
++
++	buffer_info->time_stamp = jiffies;
++	buffer_info->next_to_watch = i;
++
++	i++;
++	if (i == tx_ring->count)
++		i = 0;
++	tx_ring->next_to_use = i;
+ 
+-	return 0;
++	return 1;
+ }
+ 
+ #define E1000_MAX_PER_TXD	8192
+
