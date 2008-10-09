@@ -1,45 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy_device: Interrupt number 0 is valid
-Date: Thu, 09 Oct 2008 09:38:35 -0700 (PDT)
-Message-ID: <20081009.093835.27394691.davem@davemloft.net>
-References: <48ECA4A0.7080508@teltonika.lt>
-	<20081008.094335.216774973.davem@davemloft.net>
-	<48EDAD1F.6010109@teltonika.lt>
+Subject: Re: phylib: move to dynamic allocation of struct mii_bus
+Date: Thu, 09 Oct 2008 09:45:19 -0700 (PDT)
+Message-ID: <20081009.094519.103144236.davem@davemloft.net>
+References: <20081008.163040.109671916.davem@davemloft.net>
+	<20081009093224.GB9038@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paulius.zaleckas@teltonika.lt
+Cc: afleming@freescale.com, netdev@vger.kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52926
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46737
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752773AbYJIQi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 12:38:59 -0400
-In-Reply-To: <48EDAD1F.6010109@teltonika.lt>
+	by vger.kernel.org with ESMTP id S1754736AbYJIQpn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 12:45:43 -0400
+In-Reply-To: <20081009093224.GB9038@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Date: Thu, 09 Oct 2008 10:05:03 +0300
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Thu, 9 Oct 2008 11:32:24 +0200
 
-> David Miller wrote:
-> > From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-> > Date: Wed, 08 Oct 2008 15:16:32 +0300
-> > 
-> >> If interrupt number 0(valid interrupt number) will be passed as
-> >> phy interrupt it should be used. In current situation even phy
-> >> polling will not work since PHY_POLL = -1
-> >>
-> >> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-> > 
-> > In the Linux kernel, interrupt number 0 is defined as not valid.
+> On Wed, Oct 08, 2008 at 04:30:40PM -0700, David Miller wrote:
 > 
-> Where it is defined as not valid?
-> Maybe it is not valid under x86, but it is valid at least on
-> ARM for sure.
+> > Applied to net-next-2.6, thanks!
+> 
+> This was an older version of the patch (sorry for the confusion),
+> please apply this fix patch on top of net-next.
+> 
+> I've diffed the relevant files in my branch head against net-next
+> plus this patch, and that looks as intended.
 
-There are many tests in the kernel that explicitly assume
-that IRQ zero is not valid.
-
-And architectures should make amends to adhere to this
-convention, even if physically IRQ 0 is meaningful for them.
+Applied, thanks for catching this Lennert.
