@@ -1,88 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] virtio_net: Improve the recv buffer allocation
-	scheme
-Date: Thu, 9 Oct 2008 23:30:35 +0800
-Message-ID: <20081009153035.GA21542@gondor.apana.org.au>
-References: <1223494499-18732-1-git-send-email-markmc@redhat.com> <1223494499-18732-2-git-send-email-markmc@redhat.com> <200810091155.59731.rusty@rustcorp.com.au>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: using the hso driver with cisco vpn client
+Date: Thu, 09 Oct 2008 11:36:01 -0400
+Message-ID: <1223566561.18104.16.camel@dhcp-100-3-195.bos.redhat.com>
+References: <48EE098F.8040407@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark McLoughlin <markmc@redhat.com>, linux-kernel@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35682 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758446AbYJIPas (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 11:30:48 -0400
-Content-Disposition: inline
-In-Reply-To: <200810091155.59731.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?N=E9meth_Tam=E1s?= <nice-OZwXound/Z2+mM1/5BeW/g@public.gmane.org>,
+	Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Cisco Technical Support <tac-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paul Hardwick <P.Hardwick-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48EE098F.8040407-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 09, 2008 at 11:55:59AM +1100, Rusty Russell wrote:
->
-> There are three approaches we should investigate before adding YA feature.  
-> Obviously, we can simply increase the number of ring entries.
+On Thu, 2008-10-09 at 15:39 +0200, Denis Joseph Barrow wrote:
+> Hi Tamas,
+> I just realised something. You don't need a faked ethernet port in the hso driver to get ciscos vpn
+> client to work, I found out in the last few days that the modem port works
+> just fine on the hso driver despite the misleading comment which implies otherwise.
+> You should be able to use the modem interface in the hso driver to make a ppp connection,
+> this should work with your vpn cisco client
 
-That's not going to work so well as you need to increase the ring
-size by MAX_SKB_FRAGS times to achieve the same level of effect.
+But using this port is pointless, because it'll slow the connection
+down.  What's the actual problem with using the netdevice?  Did I miss
+something in the archives?
 
-Basically the current scheme is either going to suck at non-TSO
-traffic or it's going to chew too much resources.
+vpnc seems to work just fine in the normal 'hso' configuration with the
+tty being the control port and the netdevice being the data port.
 
-> Secondly, we can put the virtio_net_hdr at the head of the skb data (this is 
-> also worth considering for xmit I think if we have headroom) and drop 
-> MAX_SKB_FRAGS which contains a gratuitous +2.
+What encapsulation or NAT traversal method are you using?  Does 'vpnc'
+work for you?  Are you using the cisco binary kernel module?
 
-That's fine but having skb->data in the ring still means two
-different kinds of memory in there and it sucks when you only
-have 1500-byte packets.
+Dan
 
-> Thirdly, we can try to coalesce contiguous buffers.  The page caching scheme 
-> we have might help here, I don't know.  Maybe we should be explicitly trying 
-> to allocate higher orders.
-
-That's not really the key problem here.  The problem here is
-that the scheme we're currently using in virtio-net is simply
-broken when it comes to 1500-byte sized packets.  Most of the
-entries on the ring buffer go to waste.
-
-We need a scheme that handles both 1500-byte packets as well
-as 64K-byte size ones, and without holding down 16M of memory
-per guest.
-
-> > The size of the logical buffer is
-> > returned to the guest rather than the size of the individual smaller
-> > buffers.
+> I've included a sample wvdial script which I use to make my connection.
+> You can use to ./ports.sh script from our 1.6 distribution on pharscape to find
+> the modem port of the 3g modem
 > 
-> That's a virtio transport breakage: can you use the standard virtio mechanism, 
-> just put the extended length or number of extra buffers inside the 
-> virtio_net_hdr?
+> plain text document attachment (wvdial.conf)
+> [Dialer Defaults]
+> Modem = /dev/ttyHS4
+> Stupid Mode = 1
+> Init = AT+CGDCONT=1,,"internet.proximus.be"
+> Dial = ATD
+> Phone = *99#
+> Username = vodaphone
+> Password = vodaphone
+> Carrier Check = 1 
+> #New PPPD = yes
 
-Sure that sounds reasonable.
-
-> > Make use of this support by supplying single page receive buffers to
-> > the host. On receive, we extract the virtio_net_hdr, copy 128 bytes of
-> > the payload to the skb's linear data buffer and adjust the fragment
-> > offset to point to the remaining data. This ensures proper alignment
-> > and allows us to not use any paged data for small packets. If the
-> > payload occupies multiple pages, we simply append those pages as
-> > fragments and free the associated skbs.
-> 
-> > +		char *p = page_address(skb_shinfo(skb)->frags[0].page);
-> ...
-> > +		memcpy(hdr, p, sizeof(*hdr));
-> > +		p += sizeof(*hdr);
-> 
-> I think you need kmap_atomic() here to access the page.  And yes, that will 
-> effect performance :(
-
-No we don't.  kmap would only be necessary for highmem which we
-did not request.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
