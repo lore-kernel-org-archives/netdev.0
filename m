@@ -1,78 +1,65 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Thu, 9 Oct 2008 13:51:24 +0100
-Message-ID: <OF537E0E7B.B8F28FE1-ON802574DD.004653DF-802574DD.0046A74B@smsc.com>
-References: <20081009182523.D6FF.40F06B3A@sm.sony.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, Ian.Saturley@smsc.com,
-	netdev@vger.kernel.org
-To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH] smsc95xx: fix usb usage on big endian platforms
+Date: Thu,  9 Oct 2008 13:53:14 +0100
+Message-ID: <1223556794-29405-1-git-send-email-steve.glendinning@smsc.com>
+Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:4826 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757529AbYJIMwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Oct 2008 08:52:25 -0400
-In-Reply-To: <20081009182523.D6FF.40F06B3A@sm.sony.co.jp>
+Received: from [86.54.240.115] ([86.54.240.115]:49722 "EHLO drevil.shawell.net"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757440AbYJIMxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 08:53:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Masakazu, i see it now.  Patch to follow.
+Fix warnings caught by David Miller on ppc64
 
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/usb/smsc95xx.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-
-
-
-
-Masakazu Mokuno <mokuno@sm.sony.co.jp> 
-09/10/2008 11:08
-
-To
-Steve Glendinning/SMSC@SMSC
-cc
-David Miller <davem@davemloft.net>, netdev@vger.kernel.org, Ian 
-Saturley/SMSC@SMSC
-Subject
-Re: SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-
-
-
-
-
-
-Hi
-
-On Thu, 9 Oct 2008 09:48:16 +0100
-Steve.Glendinning@smsc.com wrote:
-
-> Hi David,
-> 
-> I don't see those warnings here on x86_64 (gcc 4.3.0, Fedora 9).  Which 
-> arch/gcc version do you see them on?
-
-I've got same results as davem:
-
-  CC [M]  drivers/net/usb/smsc95xx.o
-drivers/net/usb/smsc95xx.c: In function 'smsc95xx_write_reg_async':
-drivers/net/usb/smsc95xx.c:348: warning: large integer implicitly 
-truncated to unsigned type
-drivers/net/usb/smsc95xx.c: In function 'smsc95xx_status':
-drivers/net/usb/smsc95xx.c:548: warning: passing argument 1 of '__swab32s' 
-makes pointer from integer without a cast
-
-I'm using powerpc/x86 cross-compiler (ppu-gcc 4.1.1) included in Cell
-SDK 3.0.  You can reach the gcc RPMs via:
-
-                 http://www.bsc.es/projects/deepcomputing/linuxoncell/
-                 (from 'Cell BE SDKs' item of the left menu of the page)
-
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 412bde6..51e2f5d 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -320,12 +320,12 @@ static void smsc95xx_async_cmd_callback(struct urb *urb, struct pt_regs *regs)
+ 	usb_free_urb(urb);
+ }
+ 
+-static int smsc95xx_write_reg_async(struct usbnet *dev, u32 index, u32 *data)
++static int smsc95xx_write_reg_async(struct usbnet *dev, u16 index, u32 *data)
+ {
+ 	struct usb_context *usb_context;
+ 	int status;
+ 	struct urb *urb;
+-	const u32 size = 4;
++	const u16 size = 4;
+ 
+ 	urb = usb_alloc_urb(0, GFP_ATOMIC);
+ 	if (!urb) {
+@@ -344,8 +344,8 @@ static int smsc95xx_write_reg_async(struct usbnet *dev, u32 index, u32 *data)
+ 		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE;
+ 	usb_context->req.bRequest = USB_VENDOR_REQUEST_WRITE_REGISTER;
+ 	usb_context->req.wValue = 00;
+-	usb_context->req.wIndex = cpu_to_le32(index);
+-	usb_context->req.wLength = cpu_to_le32(size);
++	usb_context->req.wIndex = cpu_to_le16(index);
++	usb_context->req.wLength = cpu_to_le16(size);
+ 	init_completion(&usb_context->notify);
+ 
+ 	usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
+@@ -545,7 +545,7 @@ static void smsc95xx_status(struct usbnet *dev, struct urb *urb)
+ 	}
+ 
+ 	memcpy(&intdata, urb->transfer_buffer, 4);
+-	le32_to_cpus(intdata);
++	le32_to_cpus(&intdata);
+ 
+ 	if (netif_msg_link(dev))
+ 		devdbg(dev, "intdata: 0x%08X", intdata);
 -- 
-Masakazu Mokuno
-
-
+1.5.5.1
 
