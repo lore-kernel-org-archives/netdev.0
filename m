@@ -1,61 +1,47 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 2/4] tcpv6: trivial formatting changes to send_(ack|reset)
-Date: Thu, 9 Oct 2008 12:58:07 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0810091254160.1034@wrl-59.cs.helsinki.fi>
-References: <1223544937-12595-1-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1223544937-12595-2-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20081009.185230.46697834.yoshfuji@linux-ipv6.org>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: Re: SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
+Date: Thu, 09 Oct 2008 19:08:37 +0900
+Message-ID: <20081009182523.D6FF.40F06B3A@sm.sony.co.jp>
+References: <20081008.164520.27995219.davem@davemloft.net> <OF78A38490.DBE764E4-ON802574DD.002FF53B-802574DD.003064CC@smsc.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-692940890-1223546287=:1034"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ian.Saturley@smsc.com
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48295 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753824AbYJIJ6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 05:58:11 -0400
-In-Reply-To: <20081009.185230.46697834.yoshfuji@linux-ipv6.org>
+Received: from ms5.Sony.CO.JP ([211.125.136.201]:63491 "EHLO ms5.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753076AbYJIKIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 06:08:53 -0400
+In-Reply-To: <OF78A38490.DBE764E4-ON802574DD.002FF53B-802574DD.003064CC@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi
 
----696208474-692940890-1223546287=:1034
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+On Thu, 9 Oct 2008 09:48:16 +0100
+Steve.Glendinning@smsc.com wrote:
 
-On Thu, 9 Oct 2008, YOSHIFUJI Hideaki / ???? wrote:
-
-> In article <1223544937-12595-2-git-send-email-ilpo.jarvinen@helsinki.fi> (at Thu,  9 Oct 2008 12:35:35 +0300), "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> says:
+> Hi David,
 > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> > ---
-> >  net/ipv6/tcp_ipv6.c |    7 +++----
-> >  1 files changed, 3 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> > index 2084f5a..3f268a3 100644
-> > --- a/net/ipv6/tcp_ipv6.c
-> > +++ b/net/ipv6/tcp_ipv6.c
-> > @@ -948,7 +948,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
-> >  	struct flowi fl;
-> >  	struct net *net = dev_net(skb->dst->dev);
-> >  	struct sock *ctl_sk = net->ipv6.tcp_sk;
-> > -	unsigned int tot_len = sizeof(*th);
-> > +	unsigned int tot_len = sizeof(struct tcphdr);
-> >  #ifdef CONFIG_TCP_MD5SIG
-> >  	struct tcp_md5sig_key *key;
-> >  #endif
-> 
-> I usually prefer sizeof(var) (or sizeof(*ptr)) over sizeof(type).
-> Could you justify this change?
+> I don't see those warnings here on x86_64 (gcc 4.3.0, Fedora 9).  Which 
+> arch/gcc version do you see them on?
 
-My point was to make those two functions as equal as possible before merge 
-so that it's more easier to track what happens at the merge, both 
-versions pre-existed anyway. Sure I don't have much opinion either way.
+I've got same results as davem:
+
+  CC [M]  drivers/net/usb/smsc95xx.o
+drivers/net/usb/smsc95xx.c: In function 'smsc95xx_write_reg_async':
+drivers/net/usb/smsc95xx.c:348: warning: large integer implicitly truncated to unsigned type
+drivers/net/usb/smsc95xx.c: In function 'smsc95xx_status':
+drivers/net/usb/smsc95xx.c:548: warning: passing argument 1 of '__swab32s' makes pointer from integer without a cast
+
+I'm using powerpc/x86 cross-compiler (ppu-gcc 4.1.1) included in Cell
+SDK 3.0.  You can reach the gcc RPMs via:
+
+	http://www.bsc.es/projects/deepcomputing/linuxoncell/
+	(from 'Cell BE SDKs' item of the left menu of the page)
 
 -- 
- i.
----696208474-692940890-1223546287=:1034--
+Masakazu Mokuno
+
