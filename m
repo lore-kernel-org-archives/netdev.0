@@ -1,51 +1,57 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/4] tcpv6: trivial formatting changes to
- send_(ack|reset)
-Date: Thu, 09 Oct 2008 18:52:30 +0900 (JST)
-Message-ID: <20081009.185230.46697834.yoshfuji@linux-ipv6.org>
-References: <1223544937-12595-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1223544937-12595-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 4/4] gre: Add Transparent Ethernet Bridging
+Date: Thu, 9 Oct 2008 18:39:56 +0800
+Message-ID: <20081009103956.GA18751@gondor.apana.org.au>
+References: <20081009070424.GA16684@gondor.apana.org.au> <E1KnpaS-0004Pe-Qt@gondolin.me.apana.org.au> <48EDC429.5090502@snapgear.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Philip Craig <philipc@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:56701 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756123AbYJIKQ6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 06:16:58 -0400
-In-Reply-To: <1223544937-12595-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from rhun.apana.org.au ([64.62.148.172]:41547 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753932AbYJIKkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 06:40:03 -0400
+Content-Disposition: inline
+In-Reply-To: <48EDC429.5090502@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <1223544937-12595-2-git-send-email-ilpo.jarvinen@helsinki.fi=
-> (at Thu,  9 Oct 2008 12:35:35 +0300), "Ilpo J=E4rvinen" <ilpo.jarvine=
-n@helsinki.fi> says:
+On Thu, Oct 09, 2008 at 06:43:21PM +1000, Philip Craig wrote:
+>
+> Herbert Xu wrote:
+> > @@ -530,7 +572,13 @@ static int ipgre_rcv(struct sk_buff *skb)
+> >  		dst_release(skb->dst);
+> >  		skb->dst = NULL;
+> >  		nf_reset(skb);
+> > +
+> > +		if (tunnel->dev->type == ARPHRD_ETHER)
+> > +			skb->protocol = eth_type_trans(skb, skb->dev);
+> 
+> Do you need to check pskb_may_pull(skb, ETH_HLEN)?
 
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> ---
->  net/ipv6/tcp_ipv6.c |    7 +++----
->  1 files changed, 3 insertions(+), 4 deletions(-)
->=20
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index 2084f5a..3f268a3 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -948,7 +948,7 @@ static void tcp_v6_send_reset(struct sock *sk, st=
-ruct sk_buff *skb)
->  	struct flowi fl;
->  	struct net *net =3D dev_net(skb->dst->dev);
->  	struct sock *ctl_sk =3D net->ipv6.tcp_sk;
-> -	unsigned int tot_len =3D sizeof(*th);
-> +	unsigned int tot_len =3D sizeof(struct tcphdr);
->  #ifdef CONFIG_TCP_MD5SIG
->  	struct tcp_md5sig_key *key;
->  #endif
+Good point, I'll fix this up.
 
-I usually prefer sizeof(var) (or sizeof(*ptr)) over sizeof(type).
-Could you justify this change?
+> +/*
+> + * We've finished passing through netfilter, so we can remove the fake dst.
+> + * This is required by some lower layers, eg ip_gre
+> + */
+> +static int br_nf_dev_queue_xmit_finish(struct sk_buff *skb)
+> +{
+> +	if (skb->dst == (struct dst_entry *)&__fake_rtable) {
+> +		dst_release(skb->dst);
+> +		skb->dst = NULL;
+> +	}
+> +
+> +	return br_dev_queue_push_xmit(skb);
+> +}
 
---yoshfuji
+Alternatively we could give fake_rtable an ops structure.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
