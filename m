@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc95xx: fix usb usage on big endian platforms
-Date: Thu, 09 Oct 2008 14:35:19 -0700 (PDT)
-Message-ID: <20081009.143519.174053977.davem@davemloft.net>
-References: <1223556794-29405-1-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [PATCH] r8169: fix early spinlock use
+Date: Thu, 09 Oct 2008 14:36:11 -0700 (PDT)
+Message-ID: <20081009.143611.182113876.davem@davemloft.net>
+References: <20081009201607.GA20030@electric-eye.fr.zoreil.com>
+	<20081009.142807.229045310.davem@davemloft.net>
+	<20081009213513.GB19429@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian.saturley@smsc.com, jeff@garzik.org
-To: steve.glendinning@smsc.com
+Cc: ivecera@redhat.com, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47448
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47454
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756720AbYJIVfn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 17:35:43 -0400
-In-Reply-To: <1223556794-29405-1-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1755228AbYJIVgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 17:36:35 -0400
+In-Reply-To: <20081009213513.GB19429@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Thu,  9 Oct 2008 13:53:14 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 9 Oct 2008 23:35:13 +0200
 
-> Fix warnings caught by David Miller on ppc64
+> rtl8169_init_one
+> -> rtl_init_mac_address
+>    -> rtl_rar_set
+>       -> spin_lock_irq(&tp->lock);
+> [...]
+> -> spin_lock_init(&tp->lock);
 > 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-I fixed the commit message to say "sparc64" instead of
-"ppc64" for accuracy, and applied your patch.
-
-Thanks.
+Applied thanks!
