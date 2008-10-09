@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: PATCH 5/8 2.6.28] cxgb3 - More flexible support for PHY interrupts.
-Date: Wed, 08 Oct 2008 17:34:19 -0700
-Message-ID: <20081009003418.13412.75569.stgit@speedy5>
+Subject: [PATCH 6/8 2.6.28] cxgb3 - commnonize LASI phy code
+Date: Wed, 08 Oct 2008 17:34:24 -0700
+Message-ID: <20081009003424.13446.70530.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,160 +9,263 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:26034 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:26658 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757333AbYJIAeY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:34:24 -0400
+	with ESMTP id S1757381AbYJIAea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:34:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Do not require PHY interrupts to be connected to GPIs in ascending order.
-Base interrupt availability both on PHYs supporting them and on GPIs being
-hooked up.  Allows boards to specify interrupt GPIs though the PHYs don't
-use them.
-Remove spurious PHY interrupts due to clearing T3DBG interrupts before
-setting their polarity.
+Add generic code to manage interrupt driven PHYs.
+Do not reset the phy after link parameters update,
+the new values might get lost.
+Return early from link change notification
+when the link parameters remain unchanged.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/common.h |    4 ++--
- drivers/net/cxgb3/regs.h   |    4 ++++
- drivers/net/cxgb3/t3_hw.c  |   37 +++++++++++++++++++++----------------
- 3 files changed, 27 insertions(+), 18 deletions(-)
+ drivers/net/cxgb3/ael1002.c    |   46 +++++++---------------------------------
+ drivers/net/cxgb3/common.h     |   19 ++++++++++++++++-
+ drivers/net/cxgb3/cxgb3_main.c |   19 +++++++++++++----
+ drivers/net/cxgb3/t3_hw.c      |   41 +++++++++++++++++++++++++++++++-----
+ 4 files changed, 77 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index e83a360..75b5ee6 100644
---- a/drivers/net/cxgb3/common.h
-+++ b/drivers/net/cxgb3/common.h
-@@ -194,7 +194,7 @@ struct adapter_info {
- 	unsigned char nports;	/* # of ports */
- 	unsigned char phy_base_addr;	/* MDIO PHY base address */
- 	unsigned int gpio_out;	/* GPIO output settings */
--	unsigned int gpio_intr;	/* GPIO IRQ enable mask */
-+	unsigned char gpio_intr[MAX_NPORTS]; /* GPIO PHY IRQ pins */
- 	unsigned long caps;	/* adapter capabilities */
- 	const struct mdio_ops *mdio_ops;	/* MDIO operations */
- 	const char *desc;	/* product description */
-@@ -517,7 +517,7 @@ enum {
- 	MAC_RXFIFO_SIZE = 32768
+diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
+index f4e046e..f6e575f 100644
+--- a/drivers/net/cxgb3/ael1002.c
++++ b/drivers/net/cxgb3/ael1002.c
+@@ -39,9 +39,6 @@ enum {
+ 	AEL1002_PWR_DOWN_LO = 0xc012,
+ 	AEL1002_XFI_EQL = 0xc015,
+ 	AEL1002_LB_EN = 0xc017,
+-
+-	LASI_CTRL = 0x9002,
+-	LASI_STAT = 0x9005
  };
  
--/* IEEE 802.3ae specified MDIO devices */
-+/* IEEE 802.3 specified MDIO devices */
- enum {
+ static void ael100x_txon(struct cphy *phy)
+@@ -134,33 +131,6 @@ static int ael1006_reset(struct cphy *phy, int wait)
+ 	return t3_phy_reset(phy, MDIO_DEV_PMA_PMD, wait);
+ }
+ 
+-static int ael1006_intr_enable(struct cphy *phy)
+-{
+-	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 1);
+-}
+-
+-static int ael1006_intr_disable(struct cphy *phy)
+-{
+-	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 0);
+-}
+-
+-static int ael1006_intr_clear(struct cphy *phy)
+-{
+-	u32 val;
+-
+-	return mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &val);
+-}
+-
+-static int ael1006_intr_handler(struct cphy *phy)
+-{
+-	unsigned int status;
+-	int err = mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &status);
+-
+-	if (err)
+-		return err;
+-	return (status & 1) ? cphy_cause_link_change : 0;
+-}
+-
+ static int ael1006_power_down(struct cphy *phy, int enable)
+ {
+ 	return t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, MII_BMCR,
+@@ -169,10 +139,10 @@ static int ael1006_power_down(struct cphy *phy, int enable)
+ 
+ static struct cphy_ops ael1006_ops = {
+ 	.reset = ael1006_reset,
+-	.intr_enable = ael1006_intr_enable,
+-	.intr_disable = ael1006_intr_disable,
+-	.intr_clear = ael1006_intr_clear,
+-	.intr_handler = ael1006_intr_handler,
++	.intr_enable = t3_phy_lasi_intr_enable,
++	.intr_disable = t3_phy_lasi_intr_disable,
++	.intr_clear = t3_phy_lasi_intr_clear,
++	.intr_handler = t3_phy_lasi_intr_handler,
+ 	.get_link_status = ael100x_get_link_status,
+ 	.power_down = ael1006_power_down,
+ };
+@@ -189,10 +159,10 @@ int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 
+ static struct cphy_ops qt2045_ops = {
+ 	.reset = ael1006_reset,
+-	.intr_enable = ael1006_intr_enable,
+-	.intr_disable = ael1006_intr_disable,
+-	.intr_clear = ael1006_intr_clear,
+-	.intr_handler = ael1006_intr_handler,
++	.intr_enable = t3_phy_lasi_intr_enable,
++	.intr_disable = t3_phy_lasi_intr_disable,
++	.intr_clear = t3_phy_lasi_intr_clear,
++	.intr_handler = t3_phy_lasi_intr_handler,
+ 	.get_link_status = ael100x_get_link_status,
+ 	.power_down = ael1006_power_down,
+ };
+diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
+index 75b5ee6..d1b6b1e 100644
+--- a/drivers/net/cxgb3/common.h
++++ b/drivers/net/cxgb3/common.h
+@@ -522,7 +522,20 @@ enum {
  	MDIO_DEV_PMA_PMD = 1,
  	MDIO_DEV_WIS = 2,
-diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
-index 4bda27c..a035d5c 100644
---- a/drivers/net/cxgb3/regs.h
-+++ b/drivers/net/cxgb3/regs.h
-@@ -573,6 +573,10 @@
- #define V_GPIO10(x) ((x) << S_GPIO10)
- #define F_GPIO10    V_GPIO10(1U)
- 
-+#define S_GPIO9    9
-+#define V_GPIO9(x) ((x) << S_GPIO9)
-+#define F_GPIO9    V_GPIO9(1U)
+ 	MDIO_DEV_PCS = 3,
+-	MDIO_DEV_XGXS = 4
++	MDIO_DEV_XGXS = 4,
++	MDIO_DEV_ANEG = 7,
++	MDIO_DEV_VEND1 = 30,
++	MDIO_DEV_VEND2 = 31
++};
 +
- #define S_GPIO7    7
- #define V_GPIO7(x) ((x) << S_GPIO7)
- #define F_GPIO7    V_GPIO7(1U)
++/* LASI control and status registers */
++enum {
++	RX_ALARM_CTRL = 0x9000,
++	TX_ALARM_CTRL = 0x9001,
++	LASI_CTRL = 0x9002,
++	RX_ALARM_STAT = 0x9003,
++	TX_ALARM_STAT = 0x9004,
++	LASI_STAT = 0x9005
+ };
+ 
+ /* PHY loopback direction */
+@@ -665,6 +678,10 @@ int t3_mdio_change_bits(struct cphy *phy, int mmd, int reg, unsigned int clear,
+ int t3_phy_reset(struct cphy *phy, int mmd, int wait);
+ int t3_phy_advertise(struct cphy *phy, unsigned int advert);
+ int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex);
++int t3_phy_lasi_intr_enable(struct cphy *phy);
++int t3_phy_lasi_intr_disable(struct cphy *phy);
++int t3_phy_lasi_intr_clear(struct cphy *phy);
++int t3_phy_lasi_intr_handler(struct cphy *phy);
+ 
+ void t3_intr_enable(struct adapter *adapter);
+ void t3_intr_disable(struct adapter *adapter);
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 5b8251d..bddcf94 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -1516,11 +1516,22 @@ static int speed_duplex_to_caps(int speed, int duplex)
+ 
+ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
++	int cap;
+ 	struct port_info *p = netdev_priv(dev);
+ 	struct link_config *lc = &p->link_config;
+ 
+-	if (!(lc->supported & SUPPORTED_Autoneg))
+-		return -EOPNOTSUPP;     /* can't change speed/duplex */
++	if (!(lc->supported & SUPPORTED_Autoneg)) {
++		/*
++		 * PHY offers a single speed/duplex.  See if that's what's
++		 * being requested.
++		 */
++		if (cmd->autoneg == AUTONEG_DISABLE) {
++			cap = speed_duplex_to_caps(cmd->speed, cmd->duplex);
++			if (lc->supported & cap)
++				return 0;
++		}
++		return -EINVAL;
++	}
+ 
+ 	if (cmd->autoneg == AUTONEG_DISABLE) {
+ 		int cap = speed_duplex_to_caps(cmd->speed, cmd->duplex);
+@@ -2195,7 +2206,7 @@ static int cxgb_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+ 			mmd = data->phy_id >> 8;
+ 			if (!mmd)
+ 				mmd = MDIO_DEV_PCS;
+-			else if (mmd > MDIO_DEV_XGXS)
++			else if (mmd > MDIO_DEV_VEND2)
+ 				return -EINVAL;
+ 
+ 			ret =
+@@ -2221,7 +2232,7 @@ static int cxgb_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+ 			mmd = data->phy_id >> 8;
+ 			if (!mmd)
+ 				mmd = MDIO_DEV_PCS;
+-			else if (mmd > MDIO_DEV_XGXS)
++			else if (mmd > MDIO_DEV_VEND2)
+ 				return -EINVAL;
+ 
+ 			ret =
 diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index f7ced32..bfce761 100644
+index bfce761..58a3097 100644
 --- a/drivers/net/cxgb3/t3_hw.c
 +++ b/drivers/net/cxgb3/t3_hw.c
-@@ -445,24 +445,22 @@ int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex)
+@@ -442,6 +442,33 @@ int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex)
+ 	return mdio_write(phy, 0, MII_BMCR, ctl);
+ }
+ 
++int t3_phy_lasi_intr_enable(struct cphy *phy)
++{
++	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 1);
++}
++
++int t3_phy_lasi_intr_disable(struct cphy *phy)
++{
++	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 0);
++}
++
++int t3_phy_lasi_intr_clear(struct cphy *phy)
++{
++	u32 val;
++
++	return mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &val);
++}
++
++int t3_phy_lasi_intr_handler(struct cphy *phy)
++{
++	unsigned int status;
++	int err = mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &status);
++
++	if (err)
++		return err;
++	return (status & 1) ?  cphy_cause_link_change : 0;
++}
++
  static const struct adapter_info t3_adap_info[] = {
  	{2, 0,
  	 F_GPIO2_OEN | F_GPIO4_OEN |
--	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, F_GPIO3 | F_GPIO5,
--	 0,
-+	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, { S_GPIO3, S_GPIO5 }, 0,
- 	 &mi1_mdio_ops, "Chelsio PE9000"},
- 	{2, 0,
- 	 F_GPIO2_OEN | F_GPIO4_OEN |
--	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, F_GPIO3 | F_GPIO5,
--	 0,
-+	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, { S_GPIO3, S_GPIO5 }, 0,
- 	 &mi1_mdio_ops, "Chelsio T302"},
- 	{1, 0,
- 	 F_GPIO1_OEN | F_GPIO6_OEN | F_GPIO7_OEN | F_GPIO10_OEN |
- 	 F_GPIO11_OEN | F_GPIO1_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL,
--	 0, SUPPORTED_10000baseT_Full | SUPPORTED_AUI,
-+	 { 0 }, SUPPORTED_10000baseT_Full | SUPPORTED_AUI,
- 	 &mi1_mdio_ext_ops, "Chelsio T310"},
- 	{2, 0,
- 	 F_GPIO1_OEN | F_GPIO2_OEN | F_GPIO4_OEN | F_GPIO5_OEN | F_GPIO6_OEN |
- 	 F_GPIO7_OEN | F_GPIO10_OEN | F_GPIO11_OEN | F_GPIO1_OUT_VAL |
--	 F_GPIO5_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL, 0,
--	 SUPPORTED_10000baseT_Full | SUPPORTED_AUI,
-+	 F_GPIO5_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL,
-+	 { S_GPIO9, S_GPIO3 }, SUPPORTED_10000baseT_Full | SUPPORTED_AUI,
- 	 &mi1_mdio_ext_ops, "Chelsio T320"},
- };
+@@ -1132,6 +1159,15 @@ void t3_link_changed(struct adapter *adapter, int port_id)
  
-@@ -1684,19 +1682,15 @@ static int mac_intr_handler(struct adapter *adap, unsigned int idx)
-  */
- int t3_phy_intr_handler(struct adapter *adapter)
- {
--	u32 mask, gpi = adapter_info(adapter)->gpio_intr;
- 	u32 i, cause = t3_read_reg(adapter, A_T3DBG_INT_CAUSE);
+ 	phy->ops->get_link_status(phy, &link_ok, &speed, &duplex, &fc);
  
- 	for_each_port(adapter, i) {
- 		struct port_info *p = adap2pinfo(adapter, i);
- 
--		mask = gpi - (gpi & (gpi - 1));
--		gpi -= mask;
--
- 		if (!(p->phy.caps & SUPPORTED_IRQ))
- 			continue;
- 
--		if (cause & mask) {
-+		if (cause & (1 << adapter_info(adapter)->gpio_intr[i])) {
- 			int phy_cause = p->phy.ops->intr_handler(&p->phy);
- 
- 			if (phy_cause & cphy_cause_link_change)
-@@ -1765,6 +1759,17 @@ int t3_slow_intr_handler(struct adapter *adapter)
- 	return 1;
- }
- 
-+static unsigned int calc_gpio_intr(struct adapter *adap)
-+{
-+	unsigned int i, gpi_intr = 0;
++	if (lc->requested_fc & PAUSE_AUTONEG)
++		fc &= lc->requested_fc;
++	else
++		fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
 +
-+	for_each_port(adap, i)
-+		if ((adap2pinfo(adap, i)->phy.caps & SUPPORTED_IRQ) &&
-+		    adapter_info(adap)->gpio_intr[i])
-+			gpi_intr |= 1 << adapter_info(adap)->gpio_intr[i];
-+	return gpi_intr;
-+}
++	if (link_ok == lc->link_ok && speed == lc->speed &&
++	    duplex == lc->duplex && fc == lc->fc)
++		return;                            /* nothing changed */
 +
- /**
-  *	t3_intr_enable - enable interrupts
-  *	@adapter: the adapter whose interrupts should be enabled
-@@ -1807,10 +1812,8 @@ void t3_intr_enable(struct adapter *adapter)
- 		t3_write_reg(adapter, A_ULPTX_INT_ENABLE, ULPTX_INTR_MASK);
- 	}
+ 	if (link_ok != lc->link_ok && adapter->params.rev > 0 &&
+ 	    uses_xaui(adapter)) {
+ 		if (link_ok)
+@@ -1142,10 +1178,6 @@ void t3_link_changed(struct adapter *adapter, int port_id)
+ 	lc->link_ok = link_ok;
+ 	lc->speed = speed < 0 ? SPEED_INVALID : speed;
+ 	lc->duplex = duplex < 0 ? DUPLEX_INVALID : duplex;
+-	if (lc->requested_fc & PAUSE_AUTONEG)
+-		fc &= lc->requested_fc;
+-	else
+-		fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
  
--	t3_write_reg(adapter, A_T3DBG_GPIO_ACT_LOW,
--		     adapter_info(adapter)->gpio_intr);
--	t3_write_reg(adapter, A_T3DBG_INT_ENABLE,
--		     adapter_info(adapter)->gpio_intr);
-+	t3_write_reg(adapter, A_T3DBG_INT_ENABLE, calc_gpio_intr(adapter));
-+
- 	if (is_pcie(adapter))
- 		t3_write_reg(adapter, A_PCIE_INT_ENABLE, PCIE_INTR_MASK);
- 	else
-@@ -3331,6 +3334,8 @@ int t3_init_hw(struct adapter *adapter, u32 fw_params)
- 	init_hw_for_avail_ports(adapter, adapter->params.nports);
- 	t3_sge_init(adapter, &adapter->params.sge);
- 
-+	t3_write_reg(adapter, A_T3DBG_GPIO_ACT_LOW, calc_gpio_intr(adapter));
-+
- 	t3_write_reg(adapter, A_CIM_HOST_ACC_DATA, vpd->uclk | fw_params);
- 	t3_write_reg(adapter, A_CIM_BOOT_CFG,
- 		     V_BOOTADDR(FW_FLASH_BOOT_ADDR >> 2));
+ 	if (link_ok && speed >= 0 && lc->autoneg == AUTONEG_ENABLE) {
+ 		/* Set MAC speed, duplex, and flow control to match PHY. */
+@@ -1191,7 +1223,6 @@ int t3_link_start(struct cphy *phy, struct cmac *mac, struct link_config *lc)
+ 						   fc);
+ 			/* Also disables autoneg */
+ 			phy->ops->set_speed_duplex(phy, lc->speed, lc->duplex);
+-			phy->ops->reset(phy, 0);
+ 		} else
+ 			phy->ops->autoneg_enable(phy);
+ 	} else {
 
