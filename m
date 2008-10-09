@@ -1,47 +1,42 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Thu, 09 Oct 2008 19:08:37 +0900
-Message-ID: <20081009182523.D6FF.40F06B3A@sm.sony.co.jp>
-References: <20081008.164520.27995219.davem@davemloft.net> <OF78A38490.DBE764E4-ON802574DD.002FF53B-802574DD.003064CC@smsc.com>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: small design problem with hso driver
+Date: Thu, 9 Oct 2008 11:11:56 +0100
+Message-ID: <20081009111156.608243a7@lxorguk.ukuu.org.uk>
+References: <48ECBB26.7080402@option.com>
+	<20081008174556.GA15387@kroah.com>
+	<48EDC887.8010403@option.com>
+	<20081009103259.066cc94a@lxorguk.ukuu.org.uk>
+	<48EDD556.1070508@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ian.Saturley@smsc.com
-To: Steve.Glendinning@smsc.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms5.Sony.CO.JP ([211.125.136.201]:63491 "EHLO ms5.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753076AbYJIKIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Oct 2008 06:08:53 -0400
-In-Reply-To: <OF78A38490.DBE764E4-ON802574DD.002FF53B-802574DD.003064CC@smsc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Filip Aben <F.Aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
+	Paul Hardwick <P.Hardwick-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48EDD556.1070508-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+On Thu, 09 Oct 2008 11:56:38 +0200
+Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
 
-On Thu, 9 Oct 2008 09:48:16 +0100
-Steve.Glendinning@smsc.com wrote:
+> Hi Alan,
+> No they are not.
+> Have a look at.
+> /drivers/char/nozomi.c
+> admittedly it's written by some of the same guys.
 
-> Hi David,
-> 
-> I don't see those warnings here on x86_64 (gcc 4.3.0, Fedora 9).  Which 
-> arch/gcc version do you see them on?
+Nozomi still has lots and lots of bugs left. Compared to the original its
+now a work of art and much good stuff has been done but it is not by any
+means 'done'.
 
-I've got same results as davem:
-
-  CC [M]  drivers/net/usb/smsc95xx.o
-drivers/net/usb/smsc95xx.c: In function 'smsc95xx_write_reg_async':
-drivers/net/usb/smsc95xx.c:348: warning: large integer implicitly truncated to unsigned type
-drivers/net/usb/smsc95xx.c: In function 'smsc95xx_status':
-drivers/net/usb/smsc95xx.c:548: warning: passing argument 1 of '__swab32s' makes pointer from integer without a cast
-
-I'm using powerpc/x86 cross-compiler (ppu-gcc 4.1.1) included in Cell
-SDK 3.0.  You can reach the gcc RPMs via:
-
-	http://www.bsc.es/projects/deepcomputing/linuxoncell/
-	(from 'Cell BE SDKs' item of the left menu of the page)
-
--- 
-Masakazu Mokuno
-
+File a bug with the nozomi author
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
