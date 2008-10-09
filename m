@@ -1,67 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3,GIT 0/5] support for DSA hardware ethernet switch
- chips
-Date: Wed, 08 Oct 2008 17:34:55 -0700 (PDT)
-Message-ID: <20081008.173455.97336442.davem@davemloft.net>
-References: <20081007234342.GA23200@xi.wantstofly.org>
-	<20081008.172947.250946906.davem@davemloft.net>
+Subject: Re: [PATCH 1/7 2.6.28] cxgb3 - reset the adapter on fatal error
+Date: Wed, 08 Oct 2008 17:40:50 -0700 (PDT)
+Message-ID: <20081008.174050.183370451.davem@davemloft.net>
+References: <20081009003356.13282.25797.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52850
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32843
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757610AbYJIAfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:35:20 -0400
-In-Reply-To: <20081008.172947.250946906.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1754371AbYJIAlP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:41:15 -0400
+In-Reply-To: <20081009003356.13282.25797.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 08 Oct 2008 17:29:47 -0700 (PDT)
+From: Divy Le Ray <divy@chelsio.com>
+Date: Wed, 08 Oct 2008 17:33:57 -0700
 
-> From: Lennert Buytenhek <buytenh@wantstofly.org>
-> Date: Wed, 8 Oct 2008 01:43:42 +0200
+> when a fatal error occurs, bring ports down, reset the chip,
+> and bring ports back up.
 > 
-> > This is version 3 of the DSA patch set, with various improvements
-> > over v2:
->  ...
-> > Lennert Buytenhek (5):
-> >       [NET] Distributed Switch Architecture protocol support
-> >       [NET] dsa: add support for original DSA tagging format
-> >       [NET] dsa: add support for the Marvell 88E6131 switch chip
-> >       [NET] dsa: add support for Trailer tagging format
-> >       [NET] dsa: add support for the Marvell 88E6060 switch chip
+> Factorize code used for both EEH and fatal error recovery.
+> Fix timer usage when bringing up/resetting sge queue sets.
 > 
-> All applied and pushed out to net-next-2.6, thanks!
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-I had to add the following patch to fix the allmodconfig
-build.  If DSA is enabled, since it's a bool it can only
-be 'y', and PHYLIB happens to be "m", things explode.
-
-Fix this by adding appropriate select directive.
-
-dsa: Need to select PHYLIB.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/dsa/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 3f2fd39..cdce4c6 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -2,6 +2,7 @@ menuconfig NET_DSA
- 	bool "Distributed Switch Architecture support"
- 	default n
- 	depends on EXPERIMENTAL
-+	select PHYLIB
- 	---help---
- 	  This allows you to use hardware switch chips that use
- 	  the Distributed Switch Architecture.
--- 
-1.5.6.5
-
+Applied.
