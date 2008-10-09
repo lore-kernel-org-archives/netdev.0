@@ -1,43 +1,34 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: myri10ge: rename main file into myri10ge_main.c
-Date: Thu, 09 Oct 2008 13:54:07 +0200
-Message-ID: <48EDF0DF.8020306@myri.com>
-References: <20081008.162126.191961537.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Possible regression in HTB
+Date: Thu, 09 Oct 2008 13:58:30 +0200
+Message-ID: <48EDF1E6.3060306@trash.net>
+References: <48EB5A92.6010704@trash.net> <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au> <48EBFF5E.1090902@trash.net> <20081008065551.GB4174@ff.dom.local> <20081008072203.GJ22396@verge.net.au> <20081008080340.GE4174@ff.dom.local> <20081009005437.GA6342@verge.net.au> <20081009062145.GA4159@ff.dom.local> <20081009111836.GB28667@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Martin Devera <devik@cdi.cz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1947 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756784AbYJILwi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Oct 2008 07:52:38 -0400
-In-Reply-To: <20081008.162126.191961537.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:48862 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754319AbYJIL6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 07:58:34 -0400
+In-Reply-To: <20081009111836.GB28667@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> I'm not applying this patch nor the one that does the
-> actual split up.
->
-> Single file drivers are so much easier to maintain and
-> hack on, multi-file drivers are heavily discouraged.
->
-> If I want to change some structure member in a multi-file
-> driver I have go over seperate files instead of doing a
-> single search and replace operation in a single editing
-> buffer.
->
-> Drivers like e1000, cxgb3 (especially cxgb3!) are such a pain
-> in the ass to study and make changes to for this reason.  Please
-> don't add myri10ge to this group.
->   
+Simon Horman wrote:
+>> It seems it's safer to use something below such magic number, and
+>> generally 10% below hardware limit could be the rule.
+> 
+> That kind of rule would certainly solve this case,
+> not it would be nice for such a rule not to be necessary.
 
-
-Oh, I wrongly thought people liked small pieces since most new drivers
-come in multiple files these days.
-So yeah, we're not splitting anymore :)
-
-Brice
-
+It would be interesting to see if higher burst rates allow you
+to use higher rates. Userspace automatically calculates the
+bursts based on the timer frequency, which requires that the
+timers actually reach that frequency during runtime. With high
+packet rates that might not always be the case, so perhaps we
+can do better by adding a few percent on top.
