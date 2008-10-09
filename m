@@ -1,33 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Update request for r8169
-Date: Thu, 9 Oct 2008 21:00:15 +0200
-Message-ID: <20081009190015.GB19721@electric-eye.fr.zoreil.com>
-References: <20081006021614.1c7fcaff@werewolf.home> <20081006035945.GA26148@kroah.com> <20081006071229.GA23039@electric-eye.fr.zoreil.com> <20081007222202.GA9393@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [0/4] gre: Ethernet over GRE
+Date: Thu, 09 Oct 2008 12:01:05 -0700 (PDT)
+Message-ID: <20081009.120105.134867835.davem@davemloft.net>
+References: <20081009070424.GA16684@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Bruno =?unknown-8bit?Q?Pr=C3=A9mont?= <bonbons@linux-vserver.org>,
-	Ivan Vecera <ivecera@redhat.com>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: =?unknown-8bit?B?Si5BLiBNYWdhbGzDs24=?= <jamagallon@ono.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60923 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756696AbYJITBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 15:01:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20081007222202.GA9393@electric-eye.fr.zoreil.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32848
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760516AbYJITB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 15:01:29 -0400
+In-Reply-To: <20081009070424.GA16684@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> Those who base their work on 2.6.27-rc can use the patchkit available
-> at http://userweb.kernel.org/~romieu/r8169/2.6.26-rc9. It includes the
-                                             ^^^^^^^^^^
-It should read as 2.6.27-rc9.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 9 Oct 2008 15:04:24 +0800
 
--- 
-Ueimor
+> This series of patches add Ethernet over GRE support.  The user
+> space interface is done with the rtnl_link mechanism.  I'll post
+> the patches for iproute too.
+
+Nice.
+
+All applied, and I made sure to use the updated version of
+patch 4.
+
+Thanks!
