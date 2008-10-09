@@ -1,43 +1,45 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
-Date: Thu, 9 Oct 2008 19:21:03 +0300
-Message-ID: <200810091921.04230.rdenis@simphalempin.com>
-References: <20081008081109.GA25342@1wt.eu> <20081008135402.7b837992@speedy>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] phy_device: Interrupt number 0 is valid
+Date: Thu, 09 Oct 2008 09:38:35 -0700 (PDT)
+Message-ID: <20081009.093835.27394691.davem@davemloft.net>
+References: <48ECA4A0.7080508@teltonika.lt>
+	<20081008.094335.216774973.davem@davemloft.net>
+	<48EDAD1F.6010109@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: paulius.zaleckas@teltonika.lt
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:47726 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753664AbYJIQVI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 12:21:08 -0400
-In-Reply-To: <20081008135402.7b837992@speedy>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52926
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752773AbYJIQi7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 12:38:59 -0400
+In-Reply-To: <48EDAD1F.6010109@teltonika.lt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 8 octobre 2008 14:54:02 Stephen Hemminger, vous avez =E9cri=
-t=A0:
-> Does this break NAT traversal via STUNT used by applications like Sky=
-pe?
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Date: Thu, 09 Oct 2008 10:05:03 +0300
 
-This will break the main ICE-TCP mechanism (IETF draft-ietf-mmusic-ice-=
-tcp).
-I am not aware of any application using this _as_of_now_. Probably too =
-many=20
-NAT and firewall implementations will reject it already. And then, some=
- TCP=20
-stacks reportedly do not support it (e.g. Windows before Vista).
+> David Miller wrote:
+> > From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> > Date: Wed, 08 Oct 2008 15:16:32 +0300
+> > 
+> >> If interrupt number 0(valid interrupt number) will be passed as
+> >> phy interrupt it should be used. In current situation even phy
+> >> polling will not work since PHY_POLL = -1
+> >>
+> >> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> > 
+> > In the Linux kernel, interrupt number 0 is defined as not valid.
+> 
+> Where it is defined as not valid?
+> Maybe it is not valid under x86, but it is valid at least on
+> ARM for sure.
 
-On the other hand, if someone were to tunnel/encapsulate TCP over UDP, =
-this=20
-could actually be useful - think about peer-to-peer NATted-to-NATted fi=
-le=20
-transfers for instance.
+There are many tests in the kernel that explicitly assume
+that IRQ zero is not valid.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+And architectures should make amends to adhere to this
+convention, even if physically IRQ 0 is meaningful for them.
