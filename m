@@ -1,39 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: jme: Fix warnings with CONFIG_PM disabled.
-Date: Wed, 08 Oct 2008 19:55:24 -0700 (PDT)
-Message-ID: <20081008.195524.235036900.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
+Date: Thu, 09 Oct 2008 05:49:30 +0200
+Message-ID: <87abdetol1.fsf@basil.nowhere.org>
+References: <20081008081109.GA25342@1wt.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: cooldavid@cooldavid.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48612
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750904AbYJICzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 22:55:49 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:49325 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725AbYJIDtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 23:49:35 -0400
+In-Reply-To: <20081008081109.GA25342@1wt.eu> (Willy Tarreau's message of "Wed, 8 Oct 2008 10:11:09 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpJIGp1c3QgYWRkZWQgdGhlIGZvbGxvd2luZyB3YXJuaW5nIGZpeCB0byBuZXQtbmV4dC0yLjYN
-Cg0Kam1lOiBGaXggd2FybmluZ3Mgd2l0aCBDT05GSUdfUE0gZGlzYWJsZWQuDQoNCmRyaXZlcnMv
-bmV0L2ptZS5jOjE1OTg6IHdhcm5pbmc6IOKAmGptZV9zZXRfMTAwbV9oYWxm4oCZIGRlZmluZWQg
-YnV0IG5vdCB1c2VkDQpkcml2ZXJzL25ldC9qbWUuYzoxNjE4OiB3YXJuaW5nOiDigJhqbWVfd2Fp
-dF9saW5r4oCZIGRlZmluZWQgYnV0IG5vdCB1c2VkDQoNClNpZ25lZC1vZmYtYnk6IERhdmlkIFMu
-IE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KIGRyaXZlcnMvbmV0L2ptZS5jIHwg
-ICAgNCArKysrDQogMSBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25z
-KC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9qbWUuYyBiL2RyaXZlcnMvbmV0L2ptZS5j
-DQppbmRleCAzYWIyNDQyLi41ZjlhMTMxIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvam1lLmMN
-CisrKyBiL2RyaXZlcnMvbmV0L2ptZS5jDQpAQCAtMTU5Myw2ICsxNTkzLDcgQEAgZXJyX291dDoN
-CiAJcmV0dXJuIHJjOw0KIH0NCiANCisjaWZkZWYgQ09ORklHX1BNDQogc3RhdGljIHZvaWQNCiBq
-bWVfc2V0XzEwMG1faGFsZihzdHJ1Y3Qgam1lX2FkYXB0ZXIgKmptZSkNCiB7DQpAQCAtMTYyNSw2
-ICsxNjI2LDcgQEAgam1lX3dhaXRfbGluayhzdHJ1Y3Qgam1lX2FkYXB0ZXIgKmptZSkNCiAJCXBo
-eWxpbmsgPSBqbWVfbGlua3N0YXRfZnJvbV9waHkoam1lKTsNCiAJfQ0KIH0NCisjZW5kaWYNCiAN
-CiBzdGF0aWMgaW5saW5lIHZvaWQNCiBqbWVfcGh5X29mZihzdHJ1Y3Qgam1lX2FkYXB0ZXIgKmpt
-ZSkNCkBAIC0yOTEyLDYgKzI5MTQsNyBAQCBqbWVfcmVtb3ZlX29uZShzdHJ1Y3QgcGNpX2RldiAq
-cGRldikNCiANCiB9DQogDQorI2lmZGVmIENPTkZJR19QTQ0KIHN0YXRpYyBpbnQNCiBqbWVfc3Vz
-cGVuZChzdHJ1Y3QgcGNpX2RldiAqcGRldiwgcG1fbWVzc2FnZV90IHN0YXRlKQ0KIHsNCkBAIC0y
-OTkxLDYgKzI5OTQsNyBAQCBqbWVfcmVzdW1lKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQ0KIA0KIAly
-ZXR1cm4gMDsNCiB9DQorI2VuZGlmDQogDQogc3RhdGljIHN0cnVjdCBwY2lfZGV2aWNlX2lkIGpt
-ZV9wY2lfdGJsW10gPSB7DQogCXsgUENJX1ZERVZJQ0UoSk1JQ1JPTiwgUENJX0RFVklDRV9JRF9K
-TUlDUk9OX0pNQzI1MCkgfSwNCi0tIA0KMS41LjYuNQ0KDQo=
+Willy Tarreau <w@1wt.eu> writes:
+> As a reminder (especially for those who are not aware of this feature),
+> it is possible with TCP to connect two clients together if both send
+> crossed SYNs, then SYN-ACKs, then ACKs. This implies that each side
+> accepts the sequence number of the other one without any ability to
+> check that it matches its SYN. So it's trivial for an attacker to
+> prevent one client from establishing a connection from a known port
+> to a known address/port by sending it a SYN to that port. The client
+> will then send a SYN-ACK and will not accept the expected server's
+> SYN-ACK because the SYN SEQ will be different. The server might also
+> send an RST on the client's SYN-ACK if it's not firewalled. The
+> connection will eventually timeout in a SYN-RECV state or simply be
+> aborted.
+
+One reasonable tweak for this would be to use a very aggressive
+timeout for simultaneously opened connections that didn't get an ACK
+yet.
+
+But to be honest it doesn't seem like a very pressing problem to me either.
+
+-Andi
+
+-- 
+ak@linux.intel.com
