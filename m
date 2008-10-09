@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2/8 2.6.28] cxgb3 - Allocate multiqueues at init time
-Date: Wed, 08 Oct 2008 17:34:02 -0700
-Message-ID: <20081009003402.13315.18192.stgit@speedy5>
+Subject: [PATCH 3/8 2.6.28] cxgb3 - allow for PHY reset status
+Date: Wed, 08 Oct 2008 17:34:08 -0700
+Message-ID: <20081009003407.13347.1075.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,386 +9,179 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:22593 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:25936 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756035AbYJIAeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:34:09 -0400
+	with ESMTP id S1755955AbYJIAeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:34:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Allocate a queue set per core, up to the maximum of available qsets.
-Share the queue sets on multi port adapters.
-Rename MSI-X interrupt vectors ethX-N, N being the queue set number.
+First step towards overall PHY layering re-organization.
+Allow a status return when a PHY is reset.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/common.h      |    1 
- drivers/net/cxgb3/cxgb3_ioctl.h |    2 
- drivers/net/cxgb3/cxgb3_main.c  |  179 +++++++++++++++++++++++++++++++--------
- 3 files changed, 145 insertions(+), 37 deletions(-)
+ drivers/net/cxgb3/ael1002.c |   20 ++++++++++++--------
+ drivers/net/cxgb3/common.h  |   24 ++++++++++++------------
+ drivers/net/cxgb3/t3_hw.c   |   15 ++++++++++-----
+ drivers/net/cxgb3/vsc8211.c |    5 +++--
+ 4 files changed, 37 insertions(+), 27 deletions(-)
 
+diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
+index ee140e6..bf22e56 100644
+--- a/drivers/net/cxgb3/ael1002.c
++++ b/drivers/net/cxgb3/ael1002.c
+@@ -119,11 +119,12 @@ static struct cphy_ops ael1002_ops = {
+ 	.power_down = ael1002_power_down,
+ };
+ 
+-void t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			 int phy_addr, const struct mdio_ops *mdio_ops)
++int t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
++			int phy_addr, const struct mdio_ops *mdio_ops)
+ {
+ 	cphy_init(phy, adapter, phy_addr, &ael1002_ops, mdio_ops);
+ 	ael100x_txon(phy);
++	return 0;
+ }
+ 
+ static int ael1006_reset(struct cphy *phy, int wait)
+@@ -174,11 +175,12 @@ static struct cphy_ops ael1006_ops = {
+ 	.power_down = ael1006_power_down,
+ };
+ 
+-void t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			 int phy_addr, const struct mdio_ops *mdio_ops)
++int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
++			     int phy_addr, const struct mdio_ops *mdio_ops)
+ {
+ 	cphy_init(phy, adapter, phy_addr, &ael1006_ops, mdio_ops);
+ 	ael100x_txon(phy);
++	return 0;
+ }
+ 
+ static struct cphy_ops qt2045_ops = {
+@@ -191,8 +193,8 @@ static struct cphy_ops qt2045_ops = {
+ 	.power_down = ael1006_power_down,
+ };
+ 
+-void t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			int phy_addr, const struct mdio_ops *mdio_ops)
++int t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
++		       int phy_addr, const struct mdio_ops *mdio_ops)
+ {
+ 	unsigned int stat;
+ 
+@@ -205,6 +207,7 @@ void t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 	if (!phy_addr && !mdio_read(phy, MDIO_DEV_PMA_PMD, MII_BMSR, &stat) &&
+ 	    stat == 0xffff)
+ 		phy->addr = 1;
++	return 0;
+ }
+ 
+ static int xaui_direct_reset(struct cphy *phy, int wait)
+@@ -250,8 +253,9 @@ static struct cphy_ops xaui_direct_ops = {
+ 	.power_down = xaui_direct_power_down,
+ };
+ 
+-void t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			     int phy_addr, const struct mdio_ops *mdio_ops)
++int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
++			    int phy_addr, const struct mdio_ops *mdio_ops)
+ {
+ 	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops);
++	return 0;
+ }
 diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index d6dbcd4..ace6b58 100644
+index ace6b58..78c10d3 100644
 --- a/drivers/net/cxgb3/common.h
 +++ b/drivers/net/cxgb3/common.h
-@@ -358,6 +358,7 @@ struct qset_params {		/* SGE queue set parameters */
- 	unsigned int jumbo_size;	/* # of entries in jumbo free list */
- 	unsigned int txq_size[SGE_TXQ_PER_SET];	/* Tx queue sizes */
- 	unsigned int cong_thres;	/* FL congestion threshold */
-+	unsigned int vector;		/* Interrupt (line or vector) number */
+@@ -203,8 +203,8 @@ struct adapter_info {
  };
  
- struct sge_params {
-diff --git a/drivers/net/cxgb3/cxgb3_ioctl.h b/drivers/net/cxgb3/cxgb3_ioctl.h
-index 68200a1..3e8d5fa 100644
---- a/drivers/net/cxgb3/cxgb3_ioctl.h
-+++ b/drivers/net/cxgb3/cxgb3_ioctl.h
-@@ -92,6 +92,8 @@ struct ch_qset_params {
- 	int32_t polling;
- 	int32_t lro;
- 	int32_t cong_thres;
-+	int32_t  vector;
-+	int32_t  qnum;
+ struct port_type_info {
+-	void (*phy_prep)(struct cphy *phy, struct adapter *adapter,
+-			 int phy_addr, const struct mdio_ops *ops);
++	int (*phy_prep)(struct cphy *phy, struct adapter *adapter,
++			int phy_addr, const struct mdio_ops *ops);
+ 	unsigned int caps;
+ 	const char *desc;
+ };
+@@ -776,14 +776,14 @@ int t3_sge_read_rspq(struct adapter *adapter, unsigned int id, u32 data[4]);
+ int t3_sge_cqcntxt_op(struct adapter *adapter, unsigned int id, unsigned int op,
+ 		      unsigned int credits);
+ 
+-void t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			 int phy_addr, const struct mdio_ops *mdio_ops);
+-void t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			 int phy_addr, const struct mdio_ops *mdio_ops);
+-void t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			 int phy_addr, const struct mdio_ops *mdio_ops);
+-void t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter, int phy_addr,
+-			const struct mdio_ops *mdio_ops);
+-void t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			     int phy_addr, const struct mdio_ops *mdio_ops);
++int t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
++			int phy_addr, const struct mdio_ops *mdio_ops);
++int t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
++			int phy_addr, const struct mdio_ops *mdio_ops);
++int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
++			int phy_addr, const struct mdio_ops *mdio_ops);
++int t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter, int phy_addr,
++		       const struct mdio_ops *mdio_ops);
++int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
++			    int phy_addr, const struct mdio_ops *mdio_ops);
+ #endif				/* __CHELSIO_COMMON_H */
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 33470c7..fa0a4b4 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -3626,8 +3626,11 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
+ 			++j;
+ 
+ 		p->port_type = &port_types[adapter->params.vpd.port_type[j]];
+-		p->port_type->phy_prep(&p->phy, adapter, ai->phy_base_addr + j,
+-				       ai->mdio_ops);
++		ret = p->port_type->phy_prep(&p->phy, adapter,
++					     ai->phy_base_addr + j,
++					     ai->mdio_ops);
++		if (ret)
++			return ret;
+ 		mac_prep(&p->mac, adapter, j);
+ 		++j;
+ 
+@@ -3674,9 +3677,11 @@ int t3_replay_prep_adapter(struct adapter *adapter)
+ 		while (!adapter->params.vpd.port_type[j])
+ 			++j;
+ 
+-		p->port_type->phy_prep(&p->phy, adapter, ai->phy_base_addr + j,
+-					ai->mdio_ops);
+-
++		ret = p->port_type->phy_prep(&p->phy, adapter,
++					     ai->phy_base_addr + j,
++					     ai->mdio_ops);
++		if (ret)
++			return ret;
+ 		p->phy.ops->power_down(&p->phy, 1);
+ 		++j;
+ 	}
+diff --git a/drivers/net/cxgb3/vsc8211.c b/drivers/net/cxgb3/vsc8211.c
+index eee4285..8f1b0d3 100644
+--- a/drivers/net/cxgb3/vsc8211.c
++++ b/drivers/net/cxgb3/vsc8211.c
+@@ -221,8 +221,9 @@ static struct cphy_ops vsc8211_ops = {
+ 	.power_down = vsc8211_power_down,
  };
  
- struct ch_pktsched_params {
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 0e51d49..fea2c71 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -274,10 +274,10 @@ static void name_msix_vecs(struct adapter *adap)
- 
- 		for (i = 0; i < pi->nqsets; i++, msi_idx++) {
- 			snprintf(adap->msix_info[msi_idx].desc, n,
--				 "%s (queue %d)", d->name, i);
-+				 "%s-%d", d->name, pi->first_qset + i);
- 			adap->msix_info[msi_idx].desc[n] = 0;
- 		}
-- 	}
-+	}
- }
- 
- static int request_msix_data_irqs(struct adapter *adap)
-@@ -306,6 +306,22 @@ static int request_msix_data_irqs(struct adapter *adap)
- 	return 0;
- }
- 
-+static void free_irq_resources(struct adapter *adapter)
-+{
-+	if (adapter->flags & USING_MSIX) {
-+		int i, n = 0;
-+
-+		free_irq(adapter->msix_info[0].vec, adapter);
-+		for_each_port(adapter, i)
-+		    n += adap2pinfo(adapter, i)->nqsets;
-+
-+		for (i = 0; i < n; ++i)
-+			free_irq(adapter->msix_info[i + 1].vec,
-+				 &adapter->sge.qs[i]);
-+	} else
-+		free_irq(adapter->pdev->irq, adapter);
-+}
-+
- static int await_mgmt_replies(struct adapter *adap, unsigned long init_cnt,
- 			      unsigned long n)
+-void t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
+-			 int phy_addr, const struct mdio_ops *mdio_ops)
++int t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
++			int phy_addr, const struct mdio_ops *mdio_ops)
  {
-@@ -473,7 +489,10 @@ static int setup_sge_qsets(struct adapter *adap)
- 		struct port_info *pi = netdev_priv(dev);
- 
- 		pi->qs = &adap->sge.qs[pi->first_qset];
--		for (j = 0; j < pi->nqsets; ++j, ++qset_idx) {
-+		for (j = pi->first_qset; j < pi->first_qset + pi->nqsets;
-+		     ++j, ++qset_idx) {
-+			if (!pi->rx_csum_offload)
-+				adap->params.sge.qset[qset_idx].lro = 0;
- 			err = t3_sge_alloc_qset(adap, qset_idx, 1,
- 				(adap->flags & USING_MSIX) ? qset_idx + 1 :
- 							     irq_idx,
-@@ -740,11 +759,12 @@ static void init_port_mtus(struct adapter *adapter)
- 	t3_write_reg(adapter, A_TP_MTU_PORT_TABLE, mtus);
+ 	cphy_init(phy, adapter, phy_addr, &vsc8211_ops, mdio_ops);
++	return 0;
  }
- 
--static void send_pktsched_cmd(struct adapter *adap, int sched, int qidx, int lo,
-+static int send_pktsched_cmd(struct adapter *adap, int sched, int qidx, int lo,
- 			      int hi, int port)
- {
- 	struct sk_buff *skb;
- 	struct mngt_pktsched_wr *req;
-+	int ret;
- 
- 	skb = alloc_skb(sizeof(*req), GFP_KERNEL | __GFP_NOFAIL);
- 	req = (struct mngt_pktsched_wr *)skb_put(skb, sizeof(*req));
-@@ -755,20 +775,28 @@ static void send_pktsched_cmd(struct adapter *adap, int sched, int qidx, int lo,
- 	req->min = lo;
- 	req->max = hi;
- 	req->binding = port;
--	t3_mgmt_tx(adap, skb);
-+	ret = t3_mgmt_tx(adap, skb);
-+
-+	return ret;
- }
- 
--static void bind_qsets(struct adapter *adap)
-+static int bind_qsets(struct adapter *adap)
- {
--	int i, j;
-+	int i, j, err = 0;
- 
- 	for_each_port(adap, i) {
- 		const struct port_info *pi = adap2pinfo(adap, i);
- 
--		for (j = 0; j < pi->nqsets; ++j)
--			send_pktsched_cmd(adap, 1, pi->first_qset + j, -1,
--					  -1, i);
-+		for (j = 0; j < pi->nqsets; ++j) {
-+			int ret = send_pktsched_cmd(adap, 1,
-+						    pi->first_qset + j, -1,
-+						    -1, i);
-+			if (ret)
-+				err = ret;
-+		}
- 	}
-+
-+	return err;
- }
- 
- #define FW_FNAME "t3fw-%d.%d.%d.bin"
-@@ -954,9 +982,16 @@ static int cxgb_up(struct adapter *adap)
- 		t3_write_reg(adap, A_TP_INT_ENABLE, 0x7fbfffff);
- 	}
- 
--	if ((adap->flags & (USING_MSIX | QUEUES_BOUND)) == USING_MSIX)
--		bind_qsets(adap);
--	adap->flags |= QUEUES_BOUND;
-+	if (!(adap->flags & QUEUES_BOUND)) {
-+		err = bind_qsets(adap);
-+		if (err) {
-+			CH_ERR(adap, "failed to bind qsets, err %d\n", err);
-+			t3_intr_disable(adap);
-+			free_irq_resources(adap);
-+			goto out;
-+		}
-+		adap->flags |= QUEUES_BOUND;
-+	}
- 
- out:
- 	return err;
-@@ -975,19 +1010,7 @@ static void cxgb_down(struct adapter *adapter)
- 	t3_intr_disable(adapter);
- 	spin_unlock_irq(&adapter->work_lock);
- 
--	if (adapter->flags & USING_MSIX) {
--		int i, n = 0;
--
--		free_irq(adapter->msix_info[0].vec, adapter);
--		for_each_port(adapter, i)
--		    n += adap2pinfo(adapter, i)->nqsets;
--
--		for (i = 0; i < n; ++i)
--			free_irq(adapter->msix_info[i + 1].vec,
--				 &adapter->sge.qs[i]);
--	} else
--		free_irq(adapter->pdev->irq, adapter);
--
-+	free_irq_resources(adapter);
- 	flush_workqueue(cxgb3_wq);	/* wait for external IRQ handler */
- 	quiesce_rx(adapter);
- }
-@@ -1292,8 +1315,8 @@ static unsigned long collect_sge_port_stats(struct adapter *adapter,
- 	int i;
- 	unsigned long tot = 0;
- 
--	for (i = 0; i < p->nqsets; ++i)
--		tot += adapter->sge.qs[i + p->first_qset].port_stats[idx];
-+	for (i = p->first_qset; i < p->first_qset + p->nqsets; ++i)
-+		tot += adapter->sge.qs[i].port_stats[idx];
- 	return tot;
- }
- 
-@@ -1497,7 +1520,7 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	struct link_config *lc = &p->link_config;
- 
- 	if (!(lc->supported & SUPPORTED_Autoneg))
--		return -EOPNOTSUPP;	/* can't change speed/duplex */
-+		return -EOPNOTSUPP;     /* can't change speed/duplex */
- 
- 	if (cmd->autoneg == AUTONEG_DISABLE) {
- 		int cap = speed_duplex_to_caps(cmd->speed, cmd->duplex);
-@@ -1576,8 +1599,10 @@ static int set_rx_csum(struct net_device *dev, u32 data)
- 		struct adapter *adap = p->adapter;
- 		int i;
- 
--		for (i = p->first_qset; i < p->first_qset + p->nqsets; i++)
-+		for (i = p->first_qset; i < p->first_qset + p->nqsets; i++) {
-+			adap->params.sge.qset[i].lro = 0;
- 			adap->sge.qs[i].lro_enabled = 0;
-+		}
- 	}
- 	return 0;
- }
-@@ -1783,6 +1808,8 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
- 		int i;
- 		struct qset_params *q;
- 		struct ch_qset_params t;
-+		int q1 = pi->first_qset;
-+		int nqsets = pi->nqsets;
- 
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
-@@ -1805,6 +1832,16 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
- 			|| !in_range(t.rspq_size, MIN_RSPQ_ENTRIES,
- 					MAX_RSPQ_ENTRIES))
- 			return -EINVAL;
-+
-+		if ((adapter->flags & FULL_INIT_DONE) && t.lro > 0)
-+			for_each_port(adapter, i) {
-+				pi = adap2pinfo(adapter, i);
-+				if (t.qset_idx >= pi->first_qset &&
-+				    t.qset_idx < pi->first_qset + pi->nqsets &&
-+				    !pi->rx_csum_offload)
-+					return -EINVAL;
-+			}
-+
- 		if ((adapter->flags & FULL_INIT_DONE) &&
- 			(t.rspq_size >= 0 || t.fl_size[0] >= 0 ||
- 			t.fl_size[1] >= 0 || t.txq_size[0] >= 0 ||
-@@ -1812,6 +1849,20 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
- 			t.polling >= 0 || t.cong_thres >= 0))
- 			return -EBUSY;
- 
-+		/* Allow setting of any available qset when offload enabled */
-+		if (test_bit(OFFLOAD_DEVMAP_BIT, &adapter->open_device_map)) {
-+			q1 = 0;
-+			for_each_port(adapter, i) {
-+				pi = adap2pinfo(adapter, i);
-+				nqsets += pi->first_qset + pi->nqsets;
-+			}
-+		}
-+
-+		if (t.qset_idx < q1)
-+			return -EINVAL;
-+		if (t.qset_idx > q1 + nqsets - 1)
-+			return -EINVAL;
-+
- 		q = &adapter->params.sge.qset[t.qset_idx];
- 
- 		if (t.rspq_size >= 0)
-@@ -1861,13 +1912,26 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
- 	case CHELSIO_GET_QSET_PARAMS:{
- 		struct qset_params *q;
- 		struct ch_qset_params t;
-+		int q1 = pi->first_qset;
-+		int nqsets = pi->nqsets;
-+		int i;
- 
- 		if (copy_from_user(&t, useraddr, sizeof(t)))
- 			return -EFAULT;
--		if (t.qset_idx >= SGE_QSETS)
-+
-+		/* Display qsets for all ports when offload enabled */
-+		if (test_bit(OFFLOAD_DEVMAP_BIT, &adapter->open_device_map)) {
-+			q1 = 0;
-+			for_each_port(adapter, i) {
-+				pi = adap2pinfo(adapter, i);
-+				nqsets = pi->first_qset + pi->nqsets;
-+			}
-+		}
-+
-+		if (t.qset_idx >= nqsets)
- 			return -EINVAL;
- 
--		q = &adapter->params.sge.qset[t.qset_idx];
-+		q = &adapter->params.sge.qset[q1 + t.qset_idx];
- 		t.rspq_size = q->rspq_size;
- 		t.txq_size[0] = q->txq_size[0];
- 		t.txq_size[1] = q->txq_size[1];
-@@ -1878,6 +1942,12 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
- 		t.lro = q->lro;
- 		t.intr_lat = q->coalesce_usecs;
- 		t.cong_thres = q->cong_thres;
-+		t.qnum = q1;
-+
-+		if (adapter->flags & USING_MSIX)
-+			t.vector = adapter->msix_info[q1 + t.qset_idx + 1].vec;
-+		else
-+			t.vector = adapter->pdev->irq;
- 
- 		if (copy_to_user(useraddr, &t, sizeof(t)))
- 			return -EFAULT;
-@@ -2223,8 +2293,8 @@ static void t3_synchronize_rx(struct adapter *adap, const struct port_info *p)
- {
- 	int i;
- 
--	for (i = 0; i < p->nqsets; i++) {
--		struct sge_rspq *q = &adap->sge.qs[i + p->first_qset].rspq;
-+	for (i = p->first_qset; i < p->first_qset + p->nqsets; i++) {
-+		struct sge_rspq *q = &adap->sge.qs[i].rspq;
- 
- 		spin_lock_irq(&q->lock);
- 		spin_unlock_irq(&q->lock);
-@@ -2581,6 +2651,42 @@ static struct pci_error_handlers t3_err_handler = {
- 	.resume = t3_io_resume,
- };
- 
-+/*
-+ * Set the number of qsets based on the number of CPUs and the number of ports,
-+ * not to exceed the number of available qsets, assuming there are enough qsets
-+ * per port in HW.
-+ */
-+static void set_nqsets(struct adapter *adap)
-+{
-+	int i, j = 0;
-+	int num_cpus = num_online_cpus();
-+	int hwports = adap->params.nports;
-+	int nqsets = SGE_QSETS;
-+
-+	if (adap->params.rev > 0) {
-+		if (hwports == 2 &&
-+		    (hwports * nqsets > SGE_QSETS ||
-+		     num_cpus >= nqsets / hwports))
-+			nqsets /= hwports;
-+		if (nqsets > num_cpus)
-+			nqsets = num_cpus;
-+		if (nqsets < 1 || hwports == 4)
-+			nqsets = 1;
-+	} else
-+		nqsets = 1;
-+
-+	for_each_port(adap, i) {
-+		struct port_info *pi = adap2pinfo(adap, i);
-+
-+		pi->first_qset = j;
-+		pi->nqsets = nqsets;
-+		j = pi->first_qset + nqsets;
-+
-+		dev_info(&adap->pdev->dev,
-+			 "Port %d using %d queue sets.\n", i, nqsets);
-+	}
-+}
-+
- static int __devinit cxgb_enable_msix(struct adapter *adap)
- {
- 	struct msix_entry entries[SGE_QSETS + 1];
-@@ -2739,9 +2845,6 @@ static int __devinit init_one(struct pci_dev *pdev,
- 		pi = netdev_priv(netdev);
- 		pi->adapter = adapter;
- 		pi->rx_csum_offload = 1;
--		pi->nqsets = 1;
--		pi->first_qset = i;
--		pi->activity = 0;
- 		pi->port_id = i;
- 		netif_carrier_off(netdev);
- 		netdev->irq = pdev->irq;
-@@ -2818,6 +2921,8 @@ static int __devinit init_one(struct pci_dev *pdev,
- 	else if (msi > 0 && pci_enable_msi(pdev) == 0)
- 		adapter->flags |= USING_MSI;
- 
-+	set_nqsets(adapter);
-+
- 	err = sysfs_create_group(&adapter->port[0]->dev.kobj,
- 				 &cxgb3_attr_group);
- 
 
