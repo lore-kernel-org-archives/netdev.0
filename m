@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3,GIT 0/5] support for DSA hardware ethernet switch
- chips
-Date: Wed, 08 Oct 2008 17:29:47 -0700 (PDT)
-Message-ID: <20081008.172947.250946906.davem@davemloft.net>
-References: <20081007234342.GA23200@xi.wantstofly.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 0/8 2.6.28] cxgb3 - driver update
+Date: Wed, 08 Oct 2008 17:32:40 -0700
+Message-ID: <48ED5128.4070004@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Cc: linux-kernel@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>,
+	David Miller <davem@davemloft.net>
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53936
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754724AbYJIAaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:30:11 -0400
-In-Reply-To: <20081007234342.GA23200@xi.wantstofly.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:27072 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754054AbYJIAcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2008 20:32:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Wed, 8 Oct 2008 01:43:42 +0200
+[cc-ing Dave in Jeff's absence]
 
-> This is version 3 of the DSA patch set, with various improvements
-> over v2:
- ...
-> Lennert Buytenhek (5):
->       [NET] Distributed Switch Architecture protocol support
->       [NET] dsa: add support for original DSA tagging format
->       [NET] dsa: add support for the Marvell 88E6131 switch chip
->       [NET] dsa: add support for Trailer tagging format
->       [NET] dsa: add support for the Marvell 88E6060 switch chip
+Hi Jeff,
 
-All applied and pushed out to net-next-2.6, thanks!
+I'm submitting 8 update patches against net-next-2.6 for inclusion in 
+2.6.28.
+Here is a brief description of the patch series:
+- reset the chip and bring ports back up when a fatal error occurs
+- set multiple queues per default in MSI-X mode
+
+[the following patches re-organize the PHY related code,
+ and add more PHYs support]
+- account for phy reset errors
+- simplify PHY related structures
+- add flexibility in PHY interrupt support
+- introduce generic code for PHY interrupt support
+- add support for Aeluros 2005 PHY
+- add support for optical Vitess 8211 phy.
+
+Cheers,
+Divy
