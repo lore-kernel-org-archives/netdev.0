@@ -1,103 +1,64 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/6] bnx2: Add bnx2_shutdown_chip().
-Date: Thu,  9 Oct 2008 10:16:03 -0700
-Message-ID: <1223572568-1298-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 4/6] bnx2: Eliminate TSO header modifications.
+Date: Thu,  9 Oct 2008 10:16:06 -0700
+Message-ID: <1223572568-1298-4-git-send-email-mchan@broadcom.com>
+References: <1223572568-1298-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>,
-	"Matt Carlson" <mcarlson@broadcom.com>
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2473 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2468 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755373AbYJIRKu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Oct 2008 13:10:50 -0400
+	id S1753835AbYJIRKq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 13:10:46 -0400
+In-Reply-To: <1223572568-1298-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This logic is used in bnx2_close() and bnx2_suspend() and
-so should be separated out into a separate function.
+This is now possible with updated firmware.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/bnx2.c |   33 +++++++++++++++++----------------
- 1 files changed, 17 insertions(+), 16 deletions(-)
+ drivers/net/bnx2.c |   16 +---------------
+ 1 files changed, 1 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 883e0a7..b35f440 100644
+index 21711c7..f147204 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -5073,6 +5073,21 @@ bnx2_init_nic(struct bnx2 *bp, int reset_phy)
- }
+@@ -6008,7 +6008,7 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ #endif
+ 	if ((mss = skb_shinfo(skb)->gso_size)) {
+-		u32 tcp_opt_len, ip_tcp_len;
++		u32 tcp_opt_len;
+ 		struct iphdr *iph;
  
- static int
-+bnx2_shutdown_chip(struct bnx2 *bp)
-+{
-+	u32 reset_code;
-+
-+	if (bp->flags & BNX2_FLAG_NO_WOL)
-+		reset_code = BNX2_DRV_MSG_CODE_UNLOAD_LNK_DN;
-+	else if (bp->wol)
-+		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_WOL;
-+	else
-+		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_NO_WOL;
-+
-+	return bnx2_reset_chip(bp, reset_code);
-+}
-+
-+static int
- bnx2_test_registers(struct bnx2 *bp)
- {
- 	int ret;
-@@ -6095,20 +6110,13 @@ static int
- bnx2_close(struct net_device *dev)
- {
- 	struct bnx2 *bp = netdev_priv(dev);
--	u32 reset_code;
- 
- 	cancel_work_sync(&bp->reset_task);
- 
- 	bnx2_disable_int_sync(bp);
- 	bnx2_napi_disable(bp);
- 	del_timer_sync(&bp->timer);
--	if (bp->flags & BNX2_FLAG_NO_WOL)
--		reset_code = BNX2_DRV_MSG_CODE_UNLOAD_LNK_DN;
--	else if (bp->wol)
--		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_WOL;
--	else
--		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_NO_WOL;
--	bnx2_reset_chip(bp, reset_code);
-+	bnx2_shutdown_chip(bp);
- 	bnx2_free_irq(bp);
- 	bnx2_free_skbs(bp);
- 	bnx2_free_mem(bp);
-@@ -7777,7 +7785,6 @@ bnx2_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct bnx2 *bp = netdev_priv(dev);
--	u32 reset_code;
- 
- 	/* PCI register 4 needs to be saved whether netif_running() or not.
- 	 * MSI address and data need to be saved if using MSI and
-@@ -7791,13 +7798,7 @@ bnx2_suspend(struct pci_dev *pdev, pm_message_t state)
- 	bnx2_netif_stop(bp);
- 	netif_device_detach(dev);
- 	del_timer_sync(&bp->timer);
--	if (bp->flags & BNX2_FLAG_NO_WOL)
--		reset_code = BNX2_DRV_MSG_CODE_UNLOAD_LNK_DN;
--	else if (bp->wol)
--		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_WOL;
--	else
--		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_NO_WOL;
--	bnx2_reset_chip(bp, reset_code);
-+	bnx2_shutdown_chip(bp);
- 	bnx2_free_skbs(bp);
- 	bnx2_set_power_state(bp, pci_choose_state(pdev, state));
- 	return 0;
+ 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
+@@ -6032,21 +6032,7 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
+ 			}
+ 		} else {
+-			if (skb_header_cloned(skb) &&
+-			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+-				dev_kfree_skb(skb);
+-				return NETDEV_TX_OK;
+-			}
+-
+-			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+-
+ 			iph = ip_hdr(skb);
+-			iph->check = 0;
+-			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
+-			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
+-								 iph->daddr, 0,
+-								 IPPROTO_TCP,
+-								 0);
+ 			if (tcp_opt_len || (iph->ihl > 5)) {
+ 				vlan_tag_flags |= ((iph->ihl - 5) +
+ 						   (tcp_opt_len >> 2)) << 8;
 -- 
 1.5.6.GIT
 
