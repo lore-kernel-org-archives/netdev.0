@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Update request for r8169
-Date: Thu, 09 Oct 2008 12:20:26 -0700 (PDT)
-Message-ID: <20081009.122026.239988133.davem@davemloft.net>
-References: <20081006071229.GA23039@electric-eye.fr.zoreil.com>
-	<20081007222202.GA9393@electric-eye.fr.zoreil.com>
-	<20081009190015.GB19721@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH net-next 2/6] bnx2: Check netif_running() in all
+ ethtool operations.
+Date: Thu, 09 Oct 2008 12:22:10 -0700 (PDT)
+Message-ID: <20081009.122210.120302203.davem@davemloft.net>
+References: <1223572568-1298-1-git-send-email-mchan@broadcom.com>
+	<1223572568-1298-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jamagallon@ono.com, greg@kroah.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bonbons@linux-vserver.org,
-	ivecera@redhat.com, edward_hsu@realtek.com.tw
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org, benli@broadcom.com, mcarlson@broadcom.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35171
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45814
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756696AbYJITUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 15:20:51 -0400
-In-Reply-To: <20081009190015.GB19721@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1756080AbYJITWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 15:22:34 -0400
+In-Reply-To: <1223572568-1298-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 9 Oct 2008 21:00:15 +0200
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu,  9 Oct 2008 10:16:04 -0700
 
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...]
-> > Those who base their work on 2.6.27-rc can use the patchkit available
-> > at http://userweb.kernel.org/~romieu/r8169/2.6.26-rc9. It includes the
->                                              ^^^^^^^^^^
-> It should read as 2.6.27-rc9.
+> We need to check netif_running() state in most ethtool operations
+> and properly handle the !netif_running() state where the chip is
+> in an uninitailzed state or low power state that may not accept
+> any MMIO.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Benjamin Li <benli@broadcom.com>
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 
-Francois, when you get a chance can you send me a set of
-patches against net-next-2.6 with the r8169 driver changes
-you have pending?
-
-Thanks!
+Applied, but I wonder if this will trip people up who invoke
+ethtool to set a specific link setting before bringing the
+device up?
