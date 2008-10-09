@@ -1,42 +1,32 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: small design problem with hso driver
-Date: Thu, 9 Oct 2008 11:11:56 +0100
-Message-ID: <20081009111156.608243a7@lxorguk.ukuu.org.uk>
-References: <48ECBB26.7080402@option.com>
-	<20081008174556.GA15387@kroah.com>
-	<48EDC887.8010403@option.com>
-	<20081009103259.066cc94a@lxorguk.ukuu.org.uk>
-	<48EDD556.1070508@option.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Possible regression in HTB
+Date: Thu, 9 Oct 2008 10:14:26 +0000
+Message-ID: <20081009101425.GC4159@ff.dom.local>
+References: <20081007220022.GA2664@ami.dom.local> <20081008002153.GL12021@verge.net.au> <48EBFF5E.1090902@trash.net> <48EC0190.7040804@trash.net> <48EC6286.1030202@cdi.cz> <20081008085325.GF4174@ff.dom.local> <48EC8FDD.5030507@cdi.cz> <20081009010957.GB6342@verge.net.au> <48EDA339.3040706@cdi.cz> <20081009095600.GB4159@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Filip Aben <F.Aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
-	Paul Hardwick <P.Hardwick-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48EDD556.1070508-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Martin Devera <devik@cdi.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.169]:47948 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756100AbYJIKOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 06:14:31 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so887876ugf.37
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2008 03:14:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20081009095600.GB4159@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 09 Oct 2008 11:56:38 +0200
-Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
+On Thu, Oct 09, 2008 at 09:56:00AM +0000, Jarek Poplawski wrote:
+...
+> So, maybe it would be interesting to try this other way:
+> lower priority of the first class with a prio param e.g. 1?
 
-> Hi Alan,
-> No they are not.
-> Have a look at.
-> /drivers/char/nozomi.c
-> admittedly it's written by some of the same guys.
+Actually, this alone could be not enough, and lowering the quantum for
+this class (e.g. quantum 10000) additionally could be useful.
 
-Nozomi still has lots and lots of bugs left. Compared to the original its
-now a work of art and much good stuff has been done but it is not by any
-means 'done'.
-
-File a bug with the nozomi author
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jarek P.
