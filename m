@@ -1,54 +1,46 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
-Date: Thu, 9 Oct 2008 23:42:24 +0200
-Message-ID: <20081009214224.GD21013@1wt.eu>
-References: <20081008081109.GA25342@1wt.eu> <20081008135402.7b837992@speedy> <200810091921.04230.rdenis@simphalempin.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4] tcpv6: combine tcp_v6_send_(reset|ack)
+Date: Thu, 09 Oct 2008 14:42:50 -0700 (PDT)
+Message-ID: <20081009.144250.238182808.davem@davemloft.net>
+References: <1223544937-12595-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1223544937-12595-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1223544937-12595-4-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:4683 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755179AbYJIVma (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Oct 2008 17:42:30 -0400
-Content-Disposition: inline
-In-Reply-To: <200810091921.04230.rdenis@simphalempin.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37963
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753802AbYJIVnO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 17:43:14 -0400
+In-Reply-To: <1223544937-12595-4-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 09, 2008 at 07:21:03PM +0300, R=E9mi Denis-Courmont wrote:
-> Le mercredi 8 octobre 2008 14:54:02 Stephen Hemminger, vous avez =E9c=
-rit=A0:
-> > Does this break NAT traversal via STUNT used by applications like S=
-kype?
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu,  9 Oct 2008 12:35:37 +0300
+
+> $ codiff tcp_ipv6.o.old tcp_ipv6.o.new
+> net/ipv6/tcp_ipv6.c:
+>   tcp_v6_md5_hash_hdr | -144
+>   tcp_v6_send_ack     | -585
+>   tcp_v6_send_reset   | -540
+>  3 functions changed, 1269 bytes removed, diff: -1269
 >=20
-> This will break the main ICE-TCP mechanism (IETF draft-ietf-mmusic-ic=
-e-tcp).
-> I am not aware of any application using this _as_of_now_. Probably to=
-o many=20
-> NAT and firewall implementations will reject it already. And then, so=
-me TCP=20
-> stacks reportedly do not support it (e.g. Windows before Vista).
+> net/ipv6/tcp_ipv6.c:
+>   tcp_v6_send_response | +791
+>  1 function changed, 791 bytes added, diff: +791
+>=20
+> tcp_ipv6.o.new:
+>  4 functions changed, 791 bytes added, 1269 bytes removed, diff: -478
+>=20
+> I choose to leave the reset related netns comment in place (not
+> the one that is killed) as I cannot understand its English so
+> it's a bit hard for me to evaluate its usefulness :-).
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-And opening this through firewalls would be too much dangerous as it wo=
-uld
-allow servers to reconnect outside, pretty much defeating the initial p=
-urpose
-of the firewall.
-
-> On the other hand, if someone were to tunnel/encapsulate TCP over UDP=
-, this=20
-> could actually be useful - think about peer-to-peer NATted-to-NATted =
-file=20
-> transfers for instance.
-
-This is already possible using netcat. You can force both ports. It has=
- no
-flow control but would be enough to chat or transfer small config files=
-=2E
-
-Willy
-
+Applied, thanks!
