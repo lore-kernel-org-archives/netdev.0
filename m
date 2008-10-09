@@ -1,64 +1,68 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-Date: Thu, 9 Oct 2008 09:48:16 +0100
-Message-ID: <OF78A38490.DBE764E4-ON802574DD.002FF53B-802574DD.003064CC@smsc.com>
-References: <20081008.164520.27995219.davem@davemloft.net>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: small design problem with hso driver
+Date: Thu, 09 Oct 2008 11:01:59 +0200
+Message-ID: <48EDC887.8010403@option.com>
+References: <48ECBB26.7080402@option.com> <20081008174556.GA15387@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, Ian.Saturley@smsc.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:1919 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753392AbYJIIs6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 04:48:58 -0400
-In-Reply-To: <20081008.164520.27995219.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081008174556.GA15387-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hi,
+I've found something suspicous but am not sure if
+it's my problem. It looks like it when I'm
+doing a gdb debug session but I can't believe
+code so wrong can get into the kernel
+& it didn't cause problems before.
 
-I don't see those warnings here on x86_64 (gcc 4.3.0, Fedora 9).  Which 
-arch/gcc version do you see them on?
+Have a look at /drivers/char/tty_io.c
 
-Regards,
+tty_open
+
+around line 2234 this calls
+tty->ops->open which calls hso_serial_open
+& if this returns an error i.e. -ENODEV
+release_dev is called which calls in tty_open
+which calls tty->ops_close around line 2003 in tty_io.c.
+
+Surely if the driver returns an error code on hso_serial_open
+hso_serial_close shouldn't be called
+or have I a complete misunderstanding
+of char driver semantics.
+
+Greg KH wrote:
+> On Wed, Oct 08, 2008 at 03:52:38PM +0200, Denis Joseph Barrow wrote:
+>> Hi,
+>> I'm getting a fairly consistently reproducable problem
+>> with the 3g modem hso driver. The most reproducable
+>> bug I have.
+>>
+>> It happens when I plug out the usb modem & ctrl-c
+>> out of an ioctl call with the modem connected in paralell over ppp
+>> with wvdial 
+>>
+>> Basically whats happening is the hso_serial_close
+>> is being called more times than the hso_serial_open &
+>> I don't know why.
+> 
+> Care to put a trace or printk() to determine who is doing each open and
+> close?
+> 
+> thanks,
+> 
+> greg k-h
+
+
+-- 
+best regards,
+D.J. Barrow
 --
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
-
-
-
-
-David Miller <davem@davemloft.net> 
-09/10/2008 00:45
-
-To
-Steve Glendinning/SMSC@SMSC
-cc
-netdev@vger.kernel.org
-Subject
-Re: SMSC LAN9500 USB2.0 10/100 ethernet adapter driver
-
-
-
-
-
-
-
-I've added this patch to net-next-2.6, thanks.
-
-But please fix the following warnings that are generated
-on 64-bit builds:
-
-drivers/net/usb/smsc95xx.c: In function ?smsc95xx_write_reg_async?:
-drivers/net/usb/smsc95xx.c:348: warning: large integer implicitly 
-truncated to unsigned type
-drivers/net/usb/smsc95xx.c: In function ?smsc95xx_status?:
-drivers/net/usb/smsc95xx.c:548: warning: passing argument 1 of ?__swab32s? 
-makes pointer from integer without a cast
-
-
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
