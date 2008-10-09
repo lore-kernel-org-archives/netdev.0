@@ -1,115 +1,159 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 2/2] e1000: don't generate bad checksums for tcp
-	packets with 0 csum
-Date: Thu, 09 Oct 2008 09:58:52 -0700
-Message-ID: <20081009165852.32435.79524.stgit@gitlost.lost>
-References: <20081009165831.32435.81922.stgit@gitlost.lost>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 2/6] bnx2: Check netif_running() in all ethtool
+ operations.
+Date: Thu,  9 Oct 2008 10:16:04 -0700
+Message-ID: <1223572568-1298-2-git-send-email-mchan@broadcom.com>
+References: <1223572568-1298-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dave Graham <david.graham@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	"Benjamin Li" <benli@broadcom.com>,
+	"Matt Carlson" <mcarlson@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:39094 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752927AbYJIQ7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 12:59:18 -0400
-In-Reply-To: <20081009165831.32435.81922.stgit@gitlost.lost>
+Received: from mms3.broadcom.com ([216.31.210.19]:2472 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753080AbYJIRKq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 13:10:46 -0400
+In-Reply-To: <1223572568-1298-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Graham <david.graham@intel.com>
+We need to check netif_running() state in most ethtool operations
+and properly handle the !netif_running() state where the chip is
+in an uninitailzed state or low power state that may not accept
+any MMIO.
 
-When offloading transmit checksums only, the driver was not
-correctly configuring the hardware to handle the case of a zero
-checksum.  For UDP the correct behavior is to leave it alone, but
-for tcp the checksum must be changed from 0x0000 to 0xFFFF.  The
-hardware takes care of this case but only if it is told the
-packet is tcp.
-
-same patch as e1000e
-
-Signed-off-by: Dave Graham <david.graham@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
+ drivers/net/bnx2.c |   40 ++++++++++++++++++++++++++++++++--------
+ 1 files changed, 32 insertions(+), 8 deletions(-)
 
- drivers/net/e1000/e1000_main.c |   55 ++++++++++++++++++++++++++--------------
- 1 files changed, 36 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 2ab44db..3bafaed 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -2873,32 +2873,49 @@ static bool e1000_tx_csum(struct e1000_adapter *adapter,
- 	struct e1000_buffer *buffer_info;
- 	unsigned int i;
- 	u8 css;
-+	u32 cmd_len = E1000_TXD_CMD_DEXT;
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index b35f440..21711c7 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -3248,6 +3248,9 @@ bnx2_set_rx_mode(struct net_device *dev)
+ 	struct dev_addr_list *uc_ptr;
+ 	int i;
  
--	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
--		css = skb_transport_offset(skb);
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		return false;
++	if (!netif_running(dev))
++		return;
++
+ 	spin_lock_bh(&bp->phy_lock);
  
--		i = tx_ring->next_to_use;
--		buffer_info = &tx_ring->buffer_info[i];
--		context_desc = E1000_CONTEXT_DESC(*tx_ring, i);
-+	switch (skb->protocol) {
-+	case __constant_htons(ETH_P_IP):
-+		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
-+			cmd_len |= E1000_TXD_CMD_TCP;
-+		break;
-+	case __constant_htons(ETH_P_IPV6):
-+		/* XXX not handling all IPV6 headers */
-+		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
-+			cmd_len |= E1000_TXD_CMD_TCP;
-+		break;
-+	default:
-+		if (unlikely(net_ratelimit()))
-+			DPRINTK(DRV, WARNING,
-+			        "checksum_partial proto=%x!\n", skb->protocol);
-+		break;
+ 	rx_mode = bp->rx_mode & ~(BNX2_EMAC_RX_MODE_PROMISCUOUS |
+@@ -5521,6 +5524,9 @@ bnx2_test_link(struct bnx2 *bp)
+ {
+ 	u32 bmsr;
+ 
++	if (!netif_running(bp->dev))
++		return -ENODEV;
++
+ 	if (bp->phy_flags & BNX2_PHY_FLAG_REMOTE_PHY_CAP) {
+ 		if (bp->link_up)
+ 			return 0;
+@@ -6485,6 +6491,9 @@ bnx2_nway_reset(struct net_device *dev)
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 	u32 bmcr;
+ 
++	if (!netif_running(dev))
++		return -EAGAIN;
++
+ 	if (!(bp->autoneg & AUTONEG_SPEED)) {
+ 		return -EINVAL;
+ 	}
+@@ -6540,6 +6549,9 @@ bnx2_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 	int rc;
+ 
++	if (!netif_running(dev))
++		return -EAGAIN;
++
+ 	/* parameters already validated in ethtool_get_eeprom */
+ 
+ 	rc = bnx2_nvram_read(bp, eeprom->offset, eebuf, eeprom->len);
+@@ -6554,6 +6566,9 @@ bnx2_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 	int rc;
+ 
++	if (!netif_running(dev))
++		return -EAGAIN;
++
+ 	/* parameters already validated in ethtool_set_eeprom */
+ 
+ 	rc = bnx2_nvram_write(bp, eeprom->offset, eebuf, eeprom->len);
+@@ -6718,11 +6733,11 @@ bnx2_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam *epause)
+ 		bp->autoneg &= ~AUTONEG_FLOW_CTRL;
+ 	}
+ 
+-	spin_lock_bh(&bp->phy_lock);
+-
+-	bnx2_setup_phy(bp, bp->phy_port);
+-
+-	spin_unlock_bh(&bp->phy_lock);
++	if (netif_running(dev)) {
++		spin_lock_bh(&bp->phy_lock);
++		bnx2_setup_phy(bp, bp->phy_port);
++		spin_unlock_bh(&bp->phy_lock);
 +	}
  
--		context_desc->lower_setup.ip_config = 0;
--		context_desc->upper_setup.tcp_fields.tucss = css;
--		context_desc->upper_setup.tcp_fields.tucso =
--			css + skb->csum_offset;
--		context_desc->upper_setup.tcp_fields.tucse = 0;
--		context_desc->tcp_seg_setup.data = 0;
--		context_desc->cmd_and_length = cpu_to_le32(E1000_TXD_CMD_DEXT);
-+	css = skb_transport_offset(skb);
+ 	return 0;
+ }
+@@ -6913,6 +6928,8 @@ bnx2_self_test(struct net_device *dev, struct ethtool_test *etest, u64 *buf)
+ {
+ 	struct bnx2 *bp = netdev_priv(dev);
  
--		buffer_info->time_stamp = jiffies;
--		buffer_info->next_to_watch = i;
-+	i = tx_ring->next_to_use;
-+	buffer_info = &tx_ring->buffer_info[i];
-+	context_desc = E1000_CONTEXT_DESC(*tx_ring, i);
- 
--		if (unlikely(++i == tx_ring->count)) i = 0;
--		tx_ring->next_to_use = i;
-+	context_desc->lower_setup.ip_config = 0;
-+	context_desc->upper_setup.tcp_fields.tucss = css;
-+	context_desc->upper_setup.tcp_fields.tucso =
-+		css + skb->csum_offset;
-+	context_desc->upper_setup.tcp_fields.tucse = 0;
-+	context_desc->tcp_seg_setup.data = 0;
-+	context_desc->cmd_and_length = cpu_to_le32(cmd_len);
- 
--		return true;
--	}
-+	buffer_info->time_stamp = jiffies;
-+	buffer_info->next_to_watch = i;
- 
--	return false;
-+	if (unlikely(++i == tx_ring->count)) i = 0;
-+	tx_ring->next_to_use = i;
++	bnx2_set_power_state(bp, PCI_D0);
 +
-+	return true;
+ 	memset(buf, 0, sizeof(u64) * BNX2_NUM_TESTS);
+ 	if (etest->flags & ETH_TEST_FL_OFFLINE) {
+ 		int i;
+@@ -6932,9 +6949,8 @@ bnx2_self_test(struct net_device *dev, struct ethtool_test *etest, u64 *buf)
+ 		if ((buf[2] = bnx2_test_loopback(bp)) != 0)
+ 			etest->flags |= ETH_TEST_FL_FAILED;
+ 
+-		if (!netif_running(bp->dev)) {
+-			bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+-		}
++		if (!netif_running(bp->dev))
++			bnx2_shutdown_chip(bp);
+ 		else {
+ 			bnx2_init_nic(bp, 1);
+ 			bnx2_netif_start(bp);
+@@ -6962,6 +6978,8 @@ bnx2_self_test(struct net_device *dev, struct ethtool_test *etest, u64 *buf)
+ 		etest->flags |= ETH_TEST_FL_FAILED;
+ 
+ 	}
++	if (!netif_running(bp->dev))
++		bnx2_set_power_state(bp, PCI_D3hot);
  }
  
- #define E1000_MAX_TXD_PWR	12
+ static void
+@@ -7027,6 +7045,8 @@ bnx2_phys_id(struct net_device *dev, u32 data)
+ 	int i;
+ 	u32 save;
+ 
++	bnx2_set_power_state(bp, PCI_D0);
++
+ 	if (data == 0)
+ 		data = 2;
+ 
+@@ -7051,6 +7071,10 @@ bnx2_phys_id(struct net_device *dev, u32 data)
+ 	}
+ 	REG_WR(bp, BNX2_EMAC_LED, 0);
+ 	REG_WR(bp, BNX2_MISC_CFG, save);
++
++	if (!netif_running(dev))
++		bnx2_set_power_state(bp, PCI_D3hot);
++
+ 	return 0;
+ }
+ 
+-- 
+1.5.6.GIT
+
 
