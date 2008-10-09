@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/4] inet: Make tunnel RX/TX byte counters more
- consistent
-Date: Thu, 09 Oct 2008 12:03:27 -0700 (PDT)
-Message-ID: <20081009.120327.119334632.davem@davemloft.net>
-References: <20081009070424.GA16684@gondor.apana.org.au>
-	<20081009112308.GB19075@gondor.apana.org.au>
+Subject: Re: Update request for r8169
+Date: Thu, 09 Oct 2008 12:20:26 -0700 (PDT)
+Message-ID: <20081009.122026.239988133.davem@davemloft.net>
+References: <20081006071229.GA23039@electric-eye.fr.zoreil.com>
+	<20081007222202.GA9393@electric-eye.fr.zoreil.com>
+	<20081009190015.GB19721@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, philipc@snapgear.com
-To: herbert@gondor.apana.org.au
+Cc: jamagallon@ono.com, greg@kroah.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bonbons@linux-vserver.org,
+	ivecera@redhat.com, edward_hsu@realtek.com.tw
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45605
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35171
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756517AbYJITDw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 15:03:52 -0400
-In-Reply-To: <20081009112308.GB19075@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1756696AbYJITUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 15:20:51 -0400
+In-Reply-To: <20081009190015.GB19721@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 9 Oct 2008 19:23:08 +0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 9 Oct 2008 21:00:15 +0200
 
-> inet: Make tunnel RX/TX byte counters more consistent
-> 
-> This patch makes the RX/TX byte counters for IPIP, GRE and SIT more
-> consistent.  Previously we included the external IP headers on the
-> way out but not when the packet is inbound.
-> 
-> The new scheme is to count payload only in both directions.  For
-> IPIP and SIT this simply means the exclusion of the external IP
-> header.  For GRE this means that we exclude the GRE header as
-> well.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Francois Romieu <romieu@fr.zoreil.com> :
+> [...]
+> > Those who base their work on 2.6.27-rc can use the patchkit available
+> > at http://userweb.kernel.org/~romieu/r8169/2.6.26-rc9. It includes the
+>                                              ^^^^^^^^^^
+> It should read as 2.6.27-rc9.
 
-Applied.
+Francois, when you get a chance can you send me a set of
+patches against net-next-2.6 with the r8169 driver changes
+you have pending?
+
+Thanks!
