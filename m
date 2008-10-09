@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: fix early spinlock use
-Date: Thu, 09 Oct 2008 14:36:11 -0700 (PDT)
-Message-ID: <20081009.143611.182113876.davem@davemloft.net>
-References: <20081009201607.GA20030@electric-eye.fr.zoreil.com>
-	<20081009.142807.229045310.davem@davemloft.net>
-	<20081009213513.GB19429@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 1/4] tcpv[46]: fix md5 pseudoheader address field
+ ordering
+Date: Thu, 09 Oct 2008 14:37:55 -0700 (PDT)
+Message-ID: <20081009.143755.201233180.davem@davemloft.net>
+References: <1223544937-12595-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ivecera@redhat.com, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47454
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42301
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755228AbYJIVgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 17:36:35 -0400
-In-Reply-To: <20081009213513.GB19429@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1755426AbYJIViT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 17:38:19 -0400
+In-Reply-To: <1223544937-12595-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 9 Oct 2008 23:35:13 +0200
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu,  9 Oct 2008 12:35:34 +0300
 
-> rtl8169_init_one
-> -> rtl_init_mac_address
->    -> rtl_rar_set
->       -> spin_lock_irq(&tp->lock);
-> [...]
-> -> spin_lock_init(&tp->lock);
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Maybe it's just me but I guess those md5 people made a mess
+> out of it by having *_md5_hash_* to use daddr, saddr order
+> instead of the one that is natural (and equal to what csum
+> functions use). For the segment were sending, the original
+> addresses are reversed so buff's saddr =3D=3D skb's daddr and
+> vice-versa.
+>=20
+> Maybe I can finally proceed with unification of some code
+> after fixing it first... :-)
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Applied thanks!
+Applied, thanks.
