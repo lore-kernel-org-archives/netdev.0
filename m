@@ -1,55 +1,46 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Possible regression in HTB
-Date: Fri, 10 Oct 2008 08:57:35 +0000
-Message-ID: <20081010085735.GA5946@ff.dom.local>
-References: <20081007220022.GA2664@ami.dom.local> <20081010065934.GA4762@ff.dom.local>
+Subject: Re: deadlocks if use htb
+Date: Fri, 10 Oct 2008 09:04:26 +0000
+Message-ID: <20081010090426.GA6054@ff.dom.local>
+References: <20081010075640.GA5204@ff.dom.local> <48EF17EA.5020306@bigtelecom.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Martin Devera <devik@cdi.cz>
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:56148 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751670AbYJJI5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 04:57:44 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1225766ugf.37
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 01:57:40 -0700 (PDT)
+Received: from ey-out-2122.google.com ([74.125.78.27]:14437 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757771AbYJJJEc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 05:04:32 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so176362eyi.37
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 02:04:30 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20081010065934.GA4762@ff.dom.local>
+In-Reply-To: <48EF17EA.5020306@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 10, 2008 at 06:59:34AM +0000, Jarek Poplawski wrote:
-...
-> But we could consider if, after removing requeuing which mattered
-> here, some change is needed in "proper" way of limiting such effects
-> of wrong parameters or hardware errors (like the size of mbuffer etc.)?
+On Fri, Oct 10, 2008 at 12:52:58PM +0400, Badalian Vyacheslav wrote:
+> Oh... sorry. I Wrong you understand... i patch 2.6.27 with this patch
+> and will test it...
 
-Simon,
+No, you understood it right. But it seems 2.6.27 fix doesn't work for
+you. So, yes, try this patch with 2.6.26 or 2.6.27.
 
-If you could find "a minute", please try if this patch changes anything
-e.g. for n = 1000?
-
-Thanks,
 Jarek P.
 
----
 
- net/sched/sch_htb.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index d14f020..3fe0a98 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1416,7 +1416,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		/* set class to be in HTB_CAN_SEND state */
- 		cl->tokens = hopt->buffer;
- 		cl->ctokens = hopt->cbuffer;
--		cl->mbuffer = 60 * PSCHED_TICKS_PER_SEC;	/* 1min */
-+		cl->mbuffer = 10 * PSCHED_TICKS_PER_SEC;	/* 10sec */
- 		cl->t_c = psched_get_time();
- 		cl->cmode = HTB_CAN_SEND;
- 
+> 
+> >> Please look to if you have time:
+> >> http://bugzilla.kernel.org/show_bug.cgi?id=11718
+> >>
+> >> We have deadlocks at few PC one times in week.
+> >> I can test any patches to detect and fix problem.
+> >> Now i test 2.6.27-rc kernel at one PC.
+> >>     
+> >
+> > A similar bug was reported by Denys Fedoryshchenko but it wasn't fully
+> > diagnosed. Anyway it looks like hardware dependent. The patch below
+> > can sometimes help. 2.6.27 may have this fixed too (some other way).
+> >
+> > Jarek P.
+> 
