@@ -1,79 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Fri, 10 Oct 2008 07:56:40 +0000
-Message-ID: <20081010075640.GA5204@ff.dom.local>
-References: <48EEEBC1.2090008@bigtelecom.ru>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <rdenis@simphalempin.com>
+Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
+Date: Fri, 10 Oct 2008 10:59:25 +0300
+Message-ID: <200810101059.25904.rdenis@simphalempin.com>
+References: <20081008081109.GA25342@1wt.eu> <200810091921.04230.rdenis@simphalempin.com> <20081009214224.GD21013@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: "ext Willy Tarreau" <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:45104 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752495AbYJJH4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 03:56:47 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1210450ugf.37
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 00:56:45 -0700 (PDT)
+Received: from yop.chewa.net ([91.121.105.214]:40186 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750981AbYJJH7a convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 03:59:30 -0400
+In-Reply-To: <20081009214224.GD21013@1wt.eu>
 Content-Disposition: inline
-In-Reply-To: <48EEEBC1.2090008@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10-10-2008 07:44, Badalian Vyacheslav wrote:
-> Hello all!
+On Friday 10 October 2008 00:42:24 ext Willy Tarreau, you wrote:
+> On Thu, Oct 09, 2008 at 07:21:03PM +0300, R=E9mi Denis-Courmont wrote=
+:
+> > Le mercredi 8 octobre 2008 14:54:02 Stephen Hemminger, vous avez =E9=
+crit=A0:
+> > > Does this break NAT traversal via STUNT used by applications like
+> > > Skype?
+> >
+> > This will break the main ICE-TCP mechanism (IETF
+> > draft-ietf-mmusic-ice-tcp). I am not aware of any application using=
+ this
+> > _as_of_now_. Probably too many NAT and firewall implementations wil=
+l
+> > reject it already. And then, some TCP stacks reportedly do not supp=
+ort it
+> > (e.g. Windows before Vista).
+>
+> And opening this through firewalls would be too much dangerous as it =
+would
+> allow servers to reconnect outside, pretty much defeating the initial
+> purpose of the firewall.
 
-Hello Slavon,
+Duh? If you require a SYN from the outside to the server, before you al=
+low the=20
+server to send either SYN or SYN/ACK, I fail to see the problem.
 
-> 
-> Please look to if you have time:
-> http://bugzilla.kernel.org/show_bug.cgi?id=11718
-> 
-> We have deadlocks at few PC one times in week.
-> I can test any patches to detect and fix problem.
-> Now i test 2.6.27-rc kernel at one PC.
+> > On the other hand, if someone were to tunnel/encapsulate TCP over U=
+DP,
+> > this could actually be useful - think about peer-to-peer NATted-to-=
+NATted
+> > file transfers for instance.
+>
+> This is already possible using netcat. You can force both ports. It h=
+as no
+> flow control but would be enough to chat or transfer small config fil=
+es.
 
-A similar bug was reported by Denys Fedoryshchenko but it wasn't fully
-diagnosed. Anyway it looks like hardware dependent. The patch below
-can sometimes help. 2.6.27 may have this fixed too (some other way).
+=46iles transfer over UDP? Come on. I won't restart the UDP sendfile di=
+scussion.
 
-Jarek P.
-
-(some offsets are OK when patching 2.6.26)
----
-
- net/sched/sch_htb.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 30c999c..ff9e965 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -162,6 +162,7 @@ struct htb_sched {
- 
- 	int rate2quantum;	/* quant = rate / rate2quantum */
- 	psched_time_t now;	/* cached dequeue time */
-+	psched_time_t next_watchdog;
- 	struct qdisc_watchdog watchdog;
- 
- 	/* non shaped skbs; let them go directly thru */
-@@ -920,7 +921,11 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
- 		}
- 	}
- 	sch->qstats.overlimits++;
--	qdisc_watchdog_schedule(&q->watchdog, next_event);
-+	if (q->next_watchdog < q->now || next_event <=
-+	     q->next_watchdog - PSCHED_TICKS_PER_SEC / HZ) {
-+		qdisc_watchdog_schedule(&q->watchdog, next_event);
-+		q->next_watchdog = next_event;
-+	}
- fin:
- 	return skb;
- }
-@@ -973,6 +978,7 @@ static void htb_reset(struct Qdisc *sch)
- 		}
- 	}
- 	qdisc_watchdog_cancel(&q->watchdog);
-+	q->next_watchdog = 0;
- 	__skb_queue_purge(&q->direct_queue);
- 	sch->q.qlen = 0;
- 	memset(q->row, 0, sizeof(q->row));
+--=20
+R=E9mi Denis-Courmont
