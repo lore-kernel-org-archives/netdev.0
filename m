@@ -1,38 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Possible regression in HTB
-Date: Fri, 10 Oct 2008 12:12:21 +0000
-Message-ID: <20081010121221.GB6494@ff.dom.local>
-References: <20081007220022.GA2664@ami.dom.local> <20081010065934.GA4762@ff.dom.local> <20081010085735.GA5946@ff.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: deadlocks if use htb
+Date: Fri, 10 Oct 2008 14:32:50 +0200
+Message-ID: <48EF4B72.8080305@trash.net>
+References: <20081010075640.GA5204@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Martin Devera <devik@cdi.cz>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>, netdev@vger.kernel.org,
+	Denys <denys@visp.net.lb>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:25770 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753053AbYJJMM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 08:12:28 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so420736fkq.5
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 05:12:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20081010085735.GA5946@ff.dom.local>
+Received: from stinky.trash.net ([213.144.137.162]:53299 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753640AbYJJMcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 08:32:55 -0400
+In-Reply-To: <20081010075640.GA5204@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 10, 2008 at 08:57:35AM +0000, Jarek Poplawski wrote:
-> On Fri, Oct 10, 2008 at 06:59:34AM +0000, Jarek Poplawski wrote:
-> ...
-> > But we could consider if, after removing requeuing which mattered
-> > here, some change is needed in "proper" way of limiting such effects
-> > of wrong parameters or hardware errors (like the size of mbuffer etc.)?
+Jarek Poplawski wrote:
+> On 10-10-2008 07:44, Badalian Vyacheslav wrote:
+>> Hello all!
 > 
-> Simon,
+> Hello Slavon,
 > 
-> If you could find "a minute", please try if this patch changes anything
-> e.g. for n = 1000?
+>> Please look to if you have time:
+>> http://bugzilla.kernel.org/show_bug.cgi?id=11718
+>>
+>> We have deadlocks at few PC one times in week.
+>> I can test any patches to detect and fix problem.
+>> Now i test 2.6.27-rc kernel at one PC.
+> 
+> A similar bug was reported by Denys Fedoryshchenko but it wasn't fully
+> diagnosed. Anyway it looks like hardware dependent. The patch below
+> can sometimes help. 2.6.27 may have this fixed too (some other way).
 
-Hmm... this mbuffer change is not enough, let's forget it.
+I doubt its hardware related, whats happening is that the hrtimer
+insertion gets into an endless loop because the rb tree (or node)
+apparently has a loop. I went through the qdiscs' use of hrtimers
+again, but can't spot any error there.
 
-Jarek P.
+Denys, did your systems also have CONFIG_HIGH_RES_TIMERS=n?
