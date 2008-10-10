@@ -1,34 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] nf_conntrack_ecache.h: Fix missing braces
-Date: Thu, 09 Oct 2008 21:10:55 -0700 (PDT)
-Message-ID: <20081009.211055.157767046.davem@davemloft.net>
-References: <20081008.195524.235036900.davem@davemloft.net>
-	<20081010030518.M86501@cooldavid.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: drivers/net/enic/vnic_cq.c
+Date: Thu, 9 Oct 2008 21:12:17 -0700
+Message-ID: <20081009211217.5f4e5f77.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cooldavid@cooldavid.org
+To: Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39272
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750764AbYJJELX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 00:11:23 -0400
-In-Reply-To: <20081010030518.M86501@cooldavid.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:37043 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751011AbYJJEM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 00:12:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Date: Fri, 10 Oct 2008 11:08:45 +0800
 
-> Hi David:
-> 
->     This patch add missing braces of today's net-next-2.6:
->     include/net/netfilter/nf_conntrack_ecache.h
-> 
->     The patch is also available at:
->     http://cooldavid.org/download/nf.net-next-2.6.20081010.patch
-> 
->     Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+i386 allmodconfig, all trees applied:
 
-Applied, thanks.
+drivers/net/enic/vnic_cq.c: In function 'vnic_cq_init':
+drivers/net/enic/vnic_cq.c:65: error: implicit declaration of function 'writeq'
+
+I can't immediately find an i386 implementation of writeq.
+
+
