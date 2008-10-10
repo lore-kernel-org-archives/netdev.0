@@ -1,76 +1,67 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: drivers/net/enic/vnic_cq.c
-Date: Fri, 10 Oct 2008 10:10:51 -0700
-Message-ID: <adaabdcjrz8.fsf@cisco.com>
-References: <20081009212755.94fe11f6.akpm@linux-foundation.org>
-	<20081009.215452.193703022.davem@davemloft.net>
-	<20081009.220513.181546765.davem@davemloft.net>
-	<20081009.221426.120533568.davem@davemloft.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on	failover
+Date: Fri, 10 Oct 2008 13:15:08 -0400
+Message-ID: <48EF8D9C.2040605@hp.com>
+References: <OFB8A232B8.61496942-ON882574DE.0051B425-882574DE.0052AFD3@us.ibm.com>	 <29444.1223654036@death.nxdomain.ibm.com> <48EF7CFF.4050405@hp.com>	 <48EF82D2.6030008@hp.com> <1223657772.10489.5.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, mingo@elte.hu, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Scott Feldman <scofeldm@cisco.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>, Jay Vosburgh <fubar@us.ibm.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:15505 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757324AbYJJRKy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 13:10:54 -0400
-In-Reply-To: <20081009.221426.120533568.davem@davemloft.net> (David Miller's
-	message of "Thu, 09 Oct 2008 22:14:26 -0700 (PDT)")
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:37749 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759938AbYJJRPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 13:15:12 -0400
+In-Reply-To: <1223657772.10489.5.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cc'ing Scott so we can make sure that this actually is atomic enough to
-work with the enic hardware... (Scott, the context is that enic won't
-build on any architecture that doesn't define writeq and readq, such as
-32-bit x86; however the definitions below make it possible that multiple
-32-bit writes will be interleaved, eg if an interrupt occurs between the
-first writel and the second writel)
+Sridhar Samudrala wrote:
+> On Fri, 2008-10-10 at 12:29 -0400, Vlad Yasevich wrote:
+>> Brian Haley wrote:
+>>> Jay Vosburgh wrote:
+>>>>     As a semi-related question, what does IPv6 do if it receives a
+>>>> gratutitous NA, and finds a duplicate?
+> 
+> I think Jay was asking about the case where the target address in the NA 
+> matches the address of the receiving interface. The RFCs don't describe
+> how to handle such a case and leave it to the implementation. Linux logs
+> a warning message and ignores such NA.
+> 
 
- > I just pushed the following into net-next-2.6:
- > 
- > enic: Attempt to fix build in 32-bit such as i386.
- > 
- > Such platforms lack readq/writeq but this driver want to call them.
- > 
- > Noticed by Andrew Morton.
- > 
- > Signed-off-by: David S. Miller <davem@davemloft.net>
- > ---
- >  drivers/net/enic/vnic_dev.h |   14 ++++++++++++++
- >  1 files changed, 14 insertions(+), 0 deletions(-)
- > 
- > diff --git a/drivers/net/enic/vnic_dev.h b/drivers/net/enic/vnic_dev.h
- > index 2dcffd3..b9dc182 100644
- > --- a/drivers/net/enic/vnic_dev.h
- > +++ b/drivers/net/enic/vnic_dev.h
- > @@ -27,6 +27,20 @@
- >  #define VNIC_PADDR_TARGET	0x0000000000000000ULL
- >  #endif
- >  
- > +#ifndef readq
- > +static inline u64 readq(void __iomem *reg)
- > +{
- > +	return (((u64)readl(reg + 0x4UL) << 32) |
- > +		(u64)readl(reg));
- > +}
- > +
- > +static inline void writeq(u64 val, void __iomem *reg)
- > +{
- > +	writel(val & 0xffffffff, reg);
- > +	writel(val >> 32, reg + 0x4UL);
- > +}
- > +#endif
- > +
- >  enum vnic_dev_intr_mode {
- >  	VNIC_DEV_INTR_MODE_UNKNOWN,
- >  	VNIC_DEV_INTR_MODE_INTX,
- > -- 
- > 1.5.6.5
- > 
- > --
- > To unsubscribe from this list: send the line "unsubscribe netdev" in
- > the body of a message to majordomo@vger.kernel.org
- > More majordomo info at  http://vger.kernel.org/majordomo-info.html
- > 
+Yes, but in this case, you have duplicate addresses configured.  This
+can happen when subnets merge and isn't really related to bonding driver.
+
+In such a case, if we do an NS, it will trigger an NA and we'll end up
+logging such a warning.  If we do an NA, the other end, if it's linux, will
+log this warning, or deal with it in its own manner.
+
+So, it's really a draw.
+
+-vlad
+
+> Thanks
+> Sridhar
+> 
+>>> If a node has an IPv6 neighbor entry and receives an unsolicited NA it
+>>> will change it's state to stale, forcing a re-lookup on the next
+>>> transmit.  An un-solicited NA will change the state to reachable.
+>>                 ^^^^^^^^^^^^
+>>
+>> You probably meant to say "solicited".  Unsolicited NAs can only change
+>> the state to STALE.
+>>
+>> Also, the re-lookup will happen on a delay after the transmit.
+>>
+>> -vlad
+> 
+> 
+
