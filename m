@@ -1,36 +1,58 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Fri, 10 Oct 2008 13:57:25 +0200
-Message-ID: <20081010115725.GD19487@elte.hu>
-References: <20081009231759.GA8664@tservice.net.ru> <20081010080910.GA31723@tservice.net.ru> <20081010091511.GC5116@elte.hu> <20081010113100.GA1030@tservice.net.ru> <20081010114245.GB19487@elte.hu> <20081010115518.GA3159@tservice.net.ru>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2/4] tcpv6: trivial formatting changes to send_(ack|reset)
+Date: Fri, 10 Oct 2008 15:00:39 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810100041380.14942@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0810091254160.1034@wrl-59.cs.helsinki.fi>
+ <20081009141658.GB24905@ghostprotocols.net> <20081009.143859.113768989.davem@davemloft.net>
+ <20081009.144053.86989787.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Mike Galbraith <efault@gmx.de>
-To: Evgeniy Polyakov <s0mbre@tservice.net.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759345AbYJJL5t@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081010115518.GA3159@tservice.net.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="-696208474-542917344-1223588650=:14942"
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	yoshfuji@linux-ipv6.org, Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58682 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754274AbYJJMAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 08:00:41 -0400
+In-Reply-To: <20081009.144053.86989787.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0810101459250.1034@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-* Evgeniy Polyakov <s0mbre@tservice.net.ru> wrote:
+---696208474-542917344-1223588650=:14942
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0810100044201.14942@wrl-59.cs.helsinki.fi>
 
-> On Fri, Oct 10, 2008 at 01:42:45PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
-> > > vanilla 27: 347.222
-> > > no TSO/GSO: 357.331
-> > > no hrticks: 382.983
-> > > no balance: 389.802
-> > 
-> > okay. The target is 470 MB/sec, right? (Assuming the workload is sane 
-> > and 'fixing' it does not mean we have to schedule worse.)
+On Thu, 9 Oct 2008, David Miller wrote:
+
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 09 Oct 2008 14:38:59 -0700 (PDT)
 > 
-> Well, that's where I started/stopped, so maybe we will even move
-> further? :)
+> > From: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > Date: Thu, 9 Oct 2008 11:16:58 -0300
+> > 
+> > > Em Thu, Oct 09, 2008 at 12:58:07PM +0300, Ilpo Järvinen escreveu:
+> > > > On Thu, 9 Oct 2008, YOSHIFUJI Hideaki / ???? wrote:
+> > > > > I usually prefer sizeof(var) (or sizeof(*ptr)) over sizeof(type).
+> > > > > Could you justify this change?
+> > > > 
+> > > > My point was to make those two functions as equal as possible before merge 
+> > > > so that it's more easier to track what happens at the merge, both 
+> > > > versions pre-existed anyway. Sure I don't have much opinion either way.
+> > > 
+> > > I agree with Yoshifuji, albeit it is unlikely that the type of that
+> > > variable will change 8)
+> > 
+> > I agree as well
 
-that's the right attitude ;)
+Ok. I keep this in mind in future (both versions pre-existed the
+choice I made was just arbitary)... :-)
 
-	Ingo
+-- 
+ i.
+---696208474-542917344-1223588650=:14942--
