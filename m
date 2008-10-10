@@ -1,42 +1,43 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Fri, 10 Oct 2008 07:40:05 +0200
-Message-ID: <1223617206.7382.54.camel@lappy.programming.kicks-ass.net>
-References: <20081009231759.GA8664@tservice.net.ru>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: deadlocks if use htb
+Date: Fri, 10 Oct 2008 09:44:33 +0400
+Message-ID: <48EEEBC1.2090008@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>
-To: Evgeniy Polyakov <s0mbre@tservice.net.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38211 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752495AbYJJFkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 01:40:22 -0400
-In-Reply-To: <20081009231759.GA8664@tservice.net.ru>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:33753 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756057AbYJJFog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 01:44:36 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 55C33A6C400
+	for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 09:44:34 +0400 (MSD)
+Received: from mail.bigtelecom.ru ([127.0.0.1])
+	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id eAwq7sruxngs for <netdev@vger.kernel.org>;
+	Fri, 10 Oct 2008 09:44:33 +0400 (MSD)
+Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 361DCA6C35A
+	for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 09:44:33 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-10-10 at 03:17 +0400, Evgeniy Polyakov wrote:
+Hello all!
 
-> I was so lucky to 'guess' (just after couple of hundreds of compilations),
-> that it corresponds to 8f4d37ec073c17e2d4aa8851df5837d798606d6f commit about
-> high-resolution timers, attached patch against 2.6.25 brings tbench
-> performance for the 2.6.25 kernel tree to 455 MB/s.
+Please look to if you have time:
+http://bugzilla.kernel.org/show_bug.cgi?id=11718
 
-can you try
+We have deadlocks at few PC one times in week.
+I can test any patches to detect and fix problem.
+Now i test 2.6.27-rc kernel at one PC.
 
-echo NO_HRTICK > /debug/sched_features
+How information you needed to fast or full debug problem?
 
-on .27 like kernels?
+Thanks for you doing!
 
-Also, what clocksource do those machines use?
-
-cat /sys/devices/system/clocksource/clocksource0/current_clocksource
-
-As to, a7be37ac8e1565e00880531f4e2aff421a21c803, could you try
-tip/master? I reworked some of the wakeup preemption code in there.
-
-Thanks for looking into this issue!
+Badalian Vyacheslav aka Slavon
+BIG TELECOM CLOSED JSC, Moscow
+Network Administrator
 
