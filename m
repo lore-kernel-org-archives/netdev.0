@@ -1,56 +1,58 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on failover
-Date: Fri, 10 Oct 2008 08:53:56 -0700
-Message-ID: <29444.1223654036@death.nxdomain.ibm.com>
-References: <OFB8A232B8.61496942-ON882574DE.0051B425-882574DE.0052AFD3@us.ibm.com>
-Cc: Brian Haley <brian.haley@hp.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	David Miller <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: gre: fix copy and paste error
+Date: Fri, 10 Oct 2008 17:54:40 +0200
+Message-ID: <48EF7AC0.6080104@trash.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------060307050407010200030505"
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:54771 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757858AbYJJPy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 11:54:28 -0400
-In-reply-to: <OFB8A232B8.61496942-ON882574DE.0051B425-882574DE.0052AFD3@us.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:57636 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758143AbYJJPyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 11:54:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens <dlstevens@us.ibm.com> wrote:
+This is a multi-part message in MIME format.
+--------------060307050407010200030505
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
->Brian Haley <brian.haley@hp.com> wrote on 10/10/2008 07:34:58 AM:
->
->> I don't really want to since this is bonding-specific behavior, and 
->> we're not performing DAD for the address.  This is just another sysfs 
->> entry: /sys/class/net/bond*/bonding/num_unsol_na, not a sysctl.
->
->        I think they really are the same case, and doing DAD
->would solve the problem just as well. But I can hold my nose a
->little bit and live with it. :-) Getting the problem solved is
->more important than the details.
 
-	If I'm reading things correctly, DAD sends neighbor
-solicitations, and we're sending neighbor advertisements, and not
-running the DAD logic.
+--------------060307050407010200030505
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
 
-	As a semi-related question, what does IPv6 do if it receives a
-gratutitous NA, and finds a duplicate?
+commit c7d32967f53c4d3ded69f0e645b7c0848ac8cb1b
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Oct 10 17:53:36 2008 +0200
 
-	I agree that doing DAD would update the switches, peers, etc,
-but, if I'm reading the IPv6 code correctly, the delay between probes is
-one second (nd_tbl.retrans_time), and it looks like there's an initial
-delay of up to 1 second as well (in addrconf_dad_kick, the
-rtr_solicit_delay).  For failover purposes, we want to issue the
-gratuitous ARP or NA packets immediately with a minimal delay between
-probes.
+    gre: fix copy and paste error
+    
+    The flags are dumped twice, the keys not at all.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-	Is my understanding of the DAD behavior correct?
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 0d5e35b..c0755e9 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1539,8 +1539,8 @@ static int ipgre_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	NLA_PUT_U32(skb, IFLA_GRE_LINK, p->link);
+ 	NLA_PUT_BE16(skb, IFLA_GRE_IFLAGS, p->i_flags);
+ 	NLA_PUT_BE16(skb, IFLA_GRE_OFLAGS, p->o_flags);
+-	NLA_PUT_BE32(skb, IFLA_GRE_IFLAGS, p->i_flags);
+-	NLA_PUT_BE32(skb, IFLA_GRE_OFLAGS, p->o_flags);
++	NLA_PUT_BE32(skb, IFLA_GRE_IKEY, p->i_key);
++	NLA_PUT_BE32(skb, IFLA_GRE_OKEY, p->o_key);
+ 	NLA_PUT(skb, IFLA_GRE_LOCAL, 4, &p->iph.saddr);
+ 	NLA_PUT(skb, IFLA_GRE_REMOTE, 4, &p->iph.daddr);
+ 	NLA_PUT_U8(skb, IFLA_GRE_TTL, p->iph.ttl);
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--------------060307050407010200030505--
