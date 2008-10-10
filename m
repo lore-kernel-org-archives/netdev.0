@@ -1,62 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC]: e1000: allow VLAN devices to use TSO
- and CSUM offload
-Date: Fri, 10 Oct 2008 12:09:05 -0700 (PDT)
-Message-ID: <20081010.120905.132001378.davem@davemloft.net>
-References: <48EF690F.5070105@trash.net>
-	<36D9DB17C6DE9E40B059440DB8D95F520667243B@orsmsx418.amr.corp.intel.com>
-	<1223661576.3984.114.camel@achroite>
+Subject: Re: gre: fix copy and paste error
+Date: Fri, 10 Oct 2008 12:10:37 -0700 (PDT)
+Message-ID: <20081010.121037.91095578.davem@davemloft.net>
+References: <48EF7AC0.6080104@trash.net>
+	<20081010155732.GA32182@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	jeffrey.t.kirsher@intel.com, kaber@trash.net
-To: bhutchings@solarflare.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1223661576.3984.114.camel@achroite>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53795
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761938AbYJJTLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 15:11:01 -0400
+In-Reply-To: <20081010155732.GA32182@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 10 Oct 2008 18:59:36 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 10 Oct 2008 23:57:32 +0800
 
-> On Fri, 2008-10-10 at 10:48 -0700, Brandeburg, Jesse wrote:
-> > Patrick McHardy wrote:
-> > > Patrick McHardy wrote:
-> > >> This patch changes e1000 to set vlan_features so TSO and CSUM
-> > >> offload can be used by VLAN devices, similar as with the other Intel
-> > >> drivers. 
-> > >> 
-> > >> Only RFC because I don't know whether there is buggy hardware
-> > >> that doesn't support this properly, but feel free to apply in
-> > >> case there isn't.
-> > > 
-> > > I never received a response to this. Any comments?
-> > 
-> > Sorry to delay the reply, the only one that stands out to me as a
-> > possible problem with the devices that e1000 still supports is the
-> > NETIF_F_TSO6.
+> On Fri, Oct 10, 2008 at 05:54:40PM +0200, Patrick McHardy wrote:
 > 
-> vlan_features is a mask for features.  So long as all parts that do
-> support TSO-IPv6 also support it for VLAN-tagged packets, it should be
-> safe to set NETIF_F_TSO6 in vlan_features unconditionally.
+> > commit c7d32967f53c4d3ded69f0e645b7c0848ac8cb1b
+> > Author: Patrick McHardy <kaber@trash.net>
+> > Date:   Fri Oct 10 17:53:36 2008 +0200
+> > 
+> >     gre: fix copy and paste error
+> >     
+> >     The flags are dumped twice, the keys not at all.
+> >     
+> >     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> Good catch.
+> 
+> Thanks Patrick!
 
-Right, it's an additional mask which gets and'd with the normal
-device feature bits.
-
-Jesse, any objections, given that?
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+Applied, thanks everyone.
