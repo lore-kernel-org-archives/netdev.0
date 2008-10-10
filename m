@@ -1,58 +1,38 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on
-	failover
-Date: Fri, 10 Oct 2008 09:56:12 -0700
-Message-ID: <1223657772.10489.5.camel@w-sridhar2.beaverton.ibm.com>
-References: <OFB8A232B8.61496942-ON882574DE.0051B425-882574DE.0052AFD3@us.ibm.com>
-	 <29444.1223654036@death.nxdomain.ibm.com> <48EF7CFF.4050405@hp.com>
-	 <48EF82D2.6030008@hp.com>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH net-next-2.6]: tcpv6: fix error with CONFIG_TCP_MD5SIG disabled
+Date: Sat, 11 Oct 2008 01:06:22 +0800
+Message-ID: <20081010170246.M33733@cooldavid.org>
+References: <20081008.195524.235036900.davem@davemloft.net> <20081010031703.M9440@cooldavid.org> <20081009.211246.45963809.davem@davemloft.net>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>, Jay Vosburgh <fubar@us.ibm.com>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	David Miller <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain;
+	charset=big5
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:46608 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758428AbYJJQ4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2008 12:56:16 -0400
-In-Reply-To: <48EF82D2.6030008@hp.com>
+Received: from 220-133-139-86.HINET-IP.hinet.net ([220.133.139.86]:59314 "EHLO
+	cooldavid.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756673AbYJJRGz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Oct 2008 13:06:55 -0400
+In-Reply-To: <20081009.211246.45963809.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Fri, 2008-10-10 at 12:29 -0400, Vlad Yasevich wrote:
-> Brian Haley wrote:
-> > Jay Vosburgh wrote:
-> >>     As a semi-related question, what does IPv6 do if it receives a
-> >> gratutitous NA, and finds a duplicate?
-
-I think Jay was asking about the case where the target address in the NA 
-matches the address of the receiving interface. The RFCs don't describe
-how to handle such a case and leave it to the implementation. Linux logs
-a warning message and ignores such NA.
-
-Thanks
-Sridhar
-
-> > 
-> > If a node has an IPv6 neighbor entry and receives an unsolicited NA it
-> > will change it's state to stale, forcing a re-lookup on the next
-> > transmit.  An un-solicited NA will change the state to reachable.
->                 ^^^^^^^^^^^^
+On Thu, 09 Oct 2008 21:12:46 -0700 (PDT), David Miller wrote
+> From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+> Date: Fri, 10 Oct 2008 11:21:15 +0800
 > 
-> You probably meant to say "solicited".  Unsolicited NAs can only change
-> the state to STALE.
 > 
-> Also, the re-lookup will happen on a delay after the transmit.
+> Applied but I had to fix the corruption your email client made to
+> the patch.
 > 
-> -vlad
+> I know you provide the patch via URL here, but that is totally
+> inconvenient for me and I will not go to a web site to get a
+> patch when it should be conveniently available directly in my
+> inbox.
+> 
+I noticed that too, I'll be more careful next time.
+Sorry for the inconvenience.
 
+Guo-Fu Tseng
 
