@@ -1,43 +1,58 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: deadlocks if use htb
-Date: Fri, 10 Oct 2008 09:44:33 +0400
-Message-ID: <48EEEBC1.2090008@bigtelecom.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Possible regression in HTB
+Date: Fri, 10 Oct 2008 06:59:34 +0000
+Message-ID: <20081010065934.GA4762@ff.dom.local>
+References: <20081007220022.GA2664@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Martin Devera <devik@cdi.cz>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:33753 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756057AbYJJFog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 01:44:36 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.bigtelecom.ru (Postfix) with ESMTP id 55C33A6C400
-	for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 09:44:34 +0400 (MSD)
-Received: from mail.bigtelecom.ru ([127.0.0.1])
-	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id eAwq7sruxngs for <netdev@vger.kernel.org>;
-	Fri, 10 Oct 2008 09:44:33 +0400 (MSD)
-Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
-	by mail.bigtelecom.ru (Postfix) with ESMTP id 361DCA6C35A
-	for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 09:44:33 +0400 (MSD)
+Received: from ug-out-1314.google.com ([66.249.92.168]:42483 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751304AbYJJG7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 02:59:43 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so1196850ugf.37
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2008 23:59:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20081007220022.GA2664@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all!
+On 08-10-2008 00:00, Jarek Poplawski wrote:
+> Patrick McHardy wrote, On 10/07/2008 02:48 PM:
+...
+>> I still can't really make anything of this bug, but the only two
+>> visible differences to HTB resulting from requeing on an upper level
+>> should be that
+>>
+>> 1) it doesn't reactivate classes that went passive by the last dequeue
+>> 2) the time checkpoint from the last dequeue event is different
+>>
+>> I guess its in fact the second thing, if a lower priority packet
+>> is requeued and dequeued again, HTB doesn't notice and might allow
+>> the class to send earlier again than it would have previously.
+> 
+> With high requeuing the timing has to be wrong, but I'm not sure why
+> just lower priority has to gain here.
 
-Please look to if you have time:
-http://bugzilla.kernel.org/show_bug.cgi?id=11718
+I think it's quite simple and not hypothetical: lower priority classes
+gain on overestimated ceils not on requeuing. Because of lending over
+hardware limit all buckets get more tokens than their rate, and they
+are allowed to send more and more until the hardware stops. HTB still
+doesn't know about this and it can lend until mbuffer limit is reached.
+So at some moment all buffers are full, everyone can send (bigger
+buffers could still give some advantage) and everything is controlled
+only by hardware. This is clear gain for the less privileged.
 
-We have deadlocks at few PC one times in week.
-I can test any patches to detect and fix problem.
-Now i test 2.6.27-rc kernel at one PC.
+Requeuing actually can prevent this some way, which IMHO, shouldn't
+matter here because it's not the way intended to shape the traffic.
 
-How information you needed to fast or full debug problem?
+But we could consider if, after removing requeuing which mattered
+here, some change is needed in "proper" way of limiting such effects
+of wrong parameters or hardware errors (like the size of mbuffer etc.)?
 
-Thanks for you doing!
-
-Badalian Vyacheslav aka Slavon
-BIG TELECOM CLOSED JSC, Moscow
-Network Administrator
-
+Thanks,
+Jarek P.
