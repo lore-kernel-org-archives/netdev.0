@@ -1,52 +1,80 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
- (fwd)
-Date: Fri, 10 Oct 2008 10:10:30 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.0810101006580.3271@apollo>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi> <48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com> <alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de> <48e3e835.0906c00a.2cd1.2fd1@mx.google.com> <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
- <48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com> <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de> <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com> <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de> <Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
- <48e5364d.0603c00a.6e25.fffff993@mx.google.com> <Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi> <48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com> <alpine.LFD.2.00.0810052008131.3398@apollo> <48ed0b51.0913c00a.7715.4aa7@mx.google.com>
- <alpine.LFD.2.00.0810082154420.3237@apollo> <Pine.LNX.4.64.0810082329250.7599@wrl-59.cs.helsinki.fi> <48eed827.060ec00a.1389.ffffb4e3@mx.google.com>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: [PATCH 2/2] virtio_net: Improve the recv buffer allocation  
+	scheme
+Date: Fri, 10 Oct 2008 09:30:31 +0100
+Message-ID: <1223627431.3618.41.camel@blaa>
+References: <1223494499-18732-1-git-send-email-markmc@redhat.com>
+	 <1223494499-18732-2-git-send-email-markmc@redhat.com>
+	 <200810091155.59731.rusty@rustcorp.com.au>
+	 <20081009153035.GA21542@gondor.apana.org.au>
+	 <1223574013.13792.23.camel@blaa>  <48EE5AE1.5030002@codemonkey.ws>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-2059757693-1223626233=:3271"
-Cc: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-15?Q?D=E2niel_Fraga?= <fragabr@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Anthony Liguori <anthony@codemonkey.ws>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:44401 "EHLO www.tglx.de"
+Received: from mx2.redhat.com ([66.187.237.31]:56570 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751340AbYJJIKy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2008 04:10:54 -0400
-In-Reply-To: <48eed827.060ec00a.1389.ffffb4e3@mx.google.com>
+	id S1751266AbYJJIb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Oct 2008 04:31:28 -0400
+In-Reply-To: <48EE5AE1.5030002@codemonkey.ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-2059757693-1223626233=:3271
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Fri, 10 Oct 2008, Dâniel Fraga wrote:
-
-> On Wed, 8 Oct 2008 23:44:39 +0300 (EEST)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Thu, 2008-10-09 at 14:26 -0500, Anthony Liguori wrote:
+> Mark McLoughlin wrote:
+> > 
+> > Also, including virtio_net_hdr in the data buffer would need another
+> > feature flag. Rightly or wrongly, KVM's implementation requires
+> > virtio_net_hdr to be the first buffer:
+> > 
+> >     if (elem.in_num < 1 || elem.in_sg[0].iov_len != sizeof(*hdr)) {
+> >         fprintf(stderr, "virtio-net header not in first element\n");
+> >         exit(1);
+> >     }
+> > 
+> > i.e. it's part of the ABI ... at least as KVM sees it :-)
 > 
-> > the server (we don't have /proc/net/tcp of that case so I cannot 
+> This is actually something that's broken in a nasty way.  Having the 
+> header in the first element is not supposed to be part of the ABI but it 
+> sort of has to be ATM.
 > 
-> 	Ok, now I got a trace that I think is the best one I got so far:
+> If an older version of QEMU were to use a newer kernel, and the newer 
+> kernel had a larger header size, then if we just made the header be the 
+> first X bytes, QEMU has no way of knowing how many bytes that should be. 
+>   Instead, the guest actually has to allocate the virtio-net header in 
+> such a way that it only presents the size depending on the features that 
+> the host supports.  We don't use a simple versioning scheme, so you'd 
+> have to check for a combination of features advertised by the host but 
+> that's not good enough because the host may disable certain features.
 > 
-> http://www.abusar.org/ftrace/trace-best.txt.bz2
+> Perhaps the header size is whatever the longest element that has been 
+> commonly negotiated?
+> 
+> So that's why this aggressive check is here.  Not to necessarily cement 
+> this into the ABI but as a way to make someone figure out how to 
+> sanitize this all.
 
-Nothing which helps us really :( We stop the trace too late
-and probably we need some dedicated tracepoints to see something
-useful. I'm away over the weekend, but I might have some time to look
-into that.
+Well, features may be orthogonal but they are still added sequentially
+to the ABI. So, you would have a kind of implicit ABI versioning, while
+still allowing individual selection of features.
 
-Thanks,
+e.g. if NET_F_FOO adds "int foo" to the header and then NET_F_BAR adds
+"int bar" to the header then if NET_F_FOO is negotiated, the guest
+should only send a header with "foo" and if NET_F_FOO|NET_F_BAR or
+NET_F_BAR is negotiated, then the guest sends a header with both "foo"
+and "bar".
 
-	tglx
+Or put it another way, a host or guest may not implement NET_F_FOO but
+knowledge of the "foo" header field is part of the ABI of NET_F_BAR.
+That knowledge would be as simple as knowing that the field exists and
+that it should be ignored if the feature isn't used.
 
---8323328-2059757693-1223626233=:3271--
+Cheers,
+Mark.
+
