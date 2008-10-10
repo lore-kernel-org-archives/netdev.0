@@ -1,59 +1,65 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IGMP sent to Foreign VLAN
-Date: Fri, 10 Oct 2008 18:28:06 +0200
-Message-ID: <48EF8296.3070507@trash.net>
-References: <1223322707.24688.46.camel@deepthought.nh.local>	 <20081007.160702.189194318.davem@davemloft.net>	 <48EBF677.1060602@trash.net>	 <1223508896.24688.95.camel@deepthought.nh.local>	 <48EDF9A4.2090908@trash.net> <1223569129.24688.159.camel@deepthought.nh.local>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on failover
+Date: Fri, 10 Oct 2008 12:29:06 -0400
+Message-ID: <48EF82D2.6030008@hp.com>
+References: <OFB8A232B8.61496942-ON882574DE.0051B425-882574DE.0052AFD3@us.ibm.com> <29444.1223654036@death.nxdomain.ibm.com> <48EF7CFF.4050405@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarod Neuner <j.neuner@networkharbor.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58318 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756934AbYJJQ2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 12:28:11 -0400
-In-Reply-To: <1223569129.24688.159.camel@deepthought.nh.local>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:8922 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761572AbYJJQ3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 12:29:09 -0400
+In-Reply-To: <48EF7CFF.4050405@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarod Neuner wrote:
-> On Thu, 2008-10-09 at 07:31 -0500, Patrick McHardy wrote:
->> I don't think we should change the default, it would probably
->> catch some people by surprise. It might not be handled properly
->> by packet filtering rules etc.
+Brian Haley wrote:
+> Jay Vosburgh wrote:
+>>     As a semi-related question, what does IPv6 do if it receives a
+>> gratutitous NA, and finds a duplicate?
 > 
-> On the other hand, I was surprised that VLAN packets were being dropped
-> altogether.  Net admins tend to assign a link to a particular VLAN with
-> little regard to the VLAN configuration of the hosts on that link.  I'm
-> thinking of two general situations:
-> 
-> 1) If the kernel is resident on an application device (PC, Multimedia
-> Device, SOHO Router, etc.), and a packet for a particular VLAN reaches
-> the network interface with a correct MAC and a correct IP, then they
-> were probably delivered correctly, whether that host is configured with
-> that VLAN ID or even if the VLAN module is loaded.
-> 
-> 2) If the kernel is configured to route incoming VLAN packets, and a
-> packet arrives with an unconfigured VLAN ID, then it seems perfectly
-> reasonable to route it as if it had no VLAN tag.
-> 
-> I'm sure someone has a setup that expects that foreign VLANs will be
-> dropped - but I suspect far more are generally indifferent to the
-> policy.  There might even be a handful that will be pleasantly surprised
-> when IGMP snooping suddenly starts to work.
+> If a node has an IPv6 neighbor entry and receives an unsolicited NA it
+> will change it's state to stale, forcing a re-lookup on the next
+> transmit.  An un-solicited NA will change the state to reachable.
+                ^^^^^^^^^^^^
 
-Possible, but besides the fact that this has been our default
-since even before VLAN was merged, a reason why this absolutely
-has to be manually enabled is that it requires to disable hardware
-filters for consistent, driver-independant behaviour.
+You probably meant to say "solicited".  Unsolicited NAs can only change
+the state to STALE.
 
->> So .. would you be interested in implementing this properly?
->> I think its a good change and I could help you if needed or
->> take care of some parts like the drivers myself.
+Also, the re-lookup will happen on a delay after the transmit.
+
+-vlad
+
 > 
-> I've got quite a bit on my plate at the moment, but I will give it a
-> shot.  I'll try to come up with some of the IFF_ALLVLAN functionality
-> over the next few days and get back to you.
+>>     I agree that doing DAD would update the switches, peers, etc,
+>> but, if I'm reading the IPv6 code correctly, the delay between probes is
+>> one second (nd_tbl.retrans_time), and it looks like there's an initial
+>> delay of up to 1 second as well (in addrconf_dad_kick, the
+>> rtr_solicit_delay).  For failover purposes, we want to issue the
+>> gratuitous ARP or NA packets immediately with a minimal delay between
+>> probes.
+> 
+> Right, and since a bond failover event should be rare, I think sending
+> the NA immediately is OK.  All those random delays are meant to cover
+> the case, for example, when a router sends an advertisement with a new
+> prefix - you don't want everyone that receives it to do DAD immediately
+> since it could overwhelm the network.
+> 
+> -Brian
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Great, thanks.
