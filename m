@@ -1,34 +1,34 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH v7 01/17] netlabel: Fix some sparse warnings
-Date: Sat, 11 Oct 2008 08:45:56 +1100 (EST)
-Message-ID: <alpine.LRH.1.10.0810110845340.2822@tundra.namei.org>
-References: <20081006191516.15686.80823.stgit@flek.lan> <20081006191948.15686.24567.stgit@flek.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/14] Pull request for 'r8169' branch
+Date: Fri, 10 Oct 2008 14:45:59 -0700 (PDT)
+Message-ID: <20081010.144559.193686901.davem@davemloft.net>
+References: <20081009190015.GB19721@electric-eye.fr.zoreil.com>
+	<20081009.122026.239988133.davem@davemloft.net>
+	<20081010213638.GA25005@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20081006191948.15686.24567.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jamagallon@ono.com, greg@kroah.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bonbons@linux-vserver.org,
+	ivecera@redhat.com, bhutchings@solarflare.com,
+	chiaki.ishikawa@ubin.jp, lkml@rtr.ca, edward_hsu@realtek.com.tw
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59007
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1763692AbYJJVqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:46:23 -0400
+In-Reply-To: <20081010213638.GA25005@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Oct 2008, Paul Moore wrote:
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 10 Oct 2008 23:36:38 +0200
 
-> Fix a few sparse warnings.  One dealt with a RCU lock being held on error,
-> another dealt with an improper type caused by a signed/unsigned mixup while
-> the rest appeared to be caused by using rcu_dereference() in a
-> list_for_each_entry_rcu() call.  The latter probably isn't a big deal, but
-> I derive a certain pleasure from knowing that the net/netlabel is nice and
-> clean.
+> Please pull from branch 'r8169' in repository
 > 
-> Thanks to James Morris for pointing out the issues and demonstrating how
-> to run sparse.
+> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169
 > 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> to get the changes below.
 
-Reviewed-by: James Morris <jmorris@namei.org>
-
--- 
-James Morris
-<jmorris@namei.org>
+All these changes look good, pulled, thanks a lot!
