@@ -1,44 +1,73 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on failover
-Date: Fri, 10 Oct 2008 10:34:58 -0400
-Message-ID: <48EF6812.2090600@hp.com>
-References: <OFDFB5153E.E37AC842-ON882574DE.000CEB50-882574DE.000D286A@us.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RFC]: e1000: allow VLAN devices to use TSO and CSUM offload
+Date: Fri, 10 Oct 2008 16:39:11 +0200
+Message-ID: <48EF690F.5070105@trash.net>
+References: <487DC7DB.70401@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	David Miller <davem@davemloft.net>, fubar@linux.vnet.ibm.com,
-	Simon Horman <horms@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: multipart/mixed;
+ boundary="------------030909090808030104060207"
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:30362 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756368AbYJJOfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 10:35:04 -0400
-In-Reply-To: <OFDFB5153E.E37AC842-ON882574DE.000CEB50-882574DE.000D286A@us.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:56015 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758163AbYJJOjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 10:39:15 -0400
+In-Reply-To: <487DC7DB.70401@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens wrote:
->> I don't see any way to address David Steven's comment since there is 
->> currently no NA tunable in the IPv6 code.
+This is a multi-part message in MIME format.
+--------------030909090808030104060207
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Patrick McHardy wrote:
+> This patch changes e1000 to set vlan_features so TSO and CSUM
+> offload can be used by VLAN devices, similar as with the other
+> Intel drivers.
 > 
-> Brian,
->         How do you feel about doubling up with dad_transmits for that
-> part?
+> Only RFC because I don't know whether there is buggy hardware
+> that doesn't support this properly, but feel free to apply in
+> case there isn't.
 
-I don't really want to since this is bonding-specific behavior, and 
-we're not performing DAD for the address.  This is just another sysfs 
-entry: /sys/class/net/bond*/bonding/num_unsol_na, not a sysctl.
+I never received a response to this. Any comments?
 
->         At least the switch/cache updating portion is the same
-> in both cases.
 
-I don't think they are.  In the DAD case we're probing for another node 
-that might have the address configured, in the bond failover case we 
-want to update the switch quickly so we don't drop packets.
 
--Brian
+
+--------------030909090808030104060207
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit 9648c6ef22e4f6e14ed5b5d91d9809779bb520c7
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Wed Jul 16 11:45:09 2008 +0200
+
+    e1000: allow VLAN devices to use TSO and CSUM offload
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index f8df8bd..b6b3135 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1011,6 +1011,11 @@ e1000_probe(struct pci_dev *pdev,
+ 
+ 	netdev->features |= NETIF_F_LLTX;
+ 
++	netdev->vlan_features |= NETIF_F_TSO;
++	netdev->vlan_features |= NETIF_F_TSO6;
++	netdev->vlan_features |= NETIF_F_HW_CSUM;
++	netdev->vlan_features |= NETIF_F_SG;
++
+ 	adapter->en_mng_pt = e1000_enable_mng_pass_thru(&adapter->hw);
+ 
+ 	/* initialize eeprom parameters */
+
+--------------030909090808030104060207--
