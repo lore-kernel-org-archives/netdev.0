@@ -1,98 +1,58 @@
-From: "Alex Bennee" <kernel-hacker@bennee.com>
-Subject: rtl8169_get_stats seems to be adding random crap to rx_missed_errors count
-Date: Fri, 10 Oct 2008 17:47:31 +0100
-Message-ID: <b2cdc9f30810100947s699dbc76ia72023b08e064816@mail.gmail.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on
+	failover
+Date: Fri, 10 Oct 2008 09:56:12 -0700
+Message-ID: <1223657772.10489.5.camel@w-sridhar2.beaverton.ibm.com>
+References: <OFB8A232B8.61496942-ON882574DE.0051B425-882574DE.0052AFD3@us.ibm.com>
+	 <29444.1223654036@death.nxdomain.ibm.com> <48EF7CFF.4050405@hp.com>
+	 <48EF82D2.6030008@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: lkml@vger.kernel.org, romieu@fr.zoreil.com, netdev@vger.kernel.org
+Cc: Brian Haley <brian.haley@hp.com>, Jay Vosburgh <fubar@us.ibm.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.184]:26589 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147AbYJJQrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 12:47:32 -0400
-Received: by rn-out-0910.google.com with SMTP id k40so438354rnd.17
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 09:47:31 -0700 (PDT)
-Content-Disposition: inline
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:46608 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758428AbYJJQ4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Oct 2008 12:56:16 -0400
+In-Reply-To: <48EF82D2.6030008@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I've been seeing odd behaviour in the ifconfig output for my rtl8169
-based network device. The ifconfig output had a very high number of
-dropped packets in the display which changed massively every time I
-checked. I tracked it down to /proc/net/dev and the a few test patches
-it seems the rc_missed field is the culprit. I did a test patch of the
-form:
+On Fri, 2008-10-10 at 12:29 -0400, Vlad Yasevich wrote:
+> Brian Haley wrote:
+> > Jay Vosburgh wrote:
+> >>     As a semi-related question, what does IPv6 do if it receives a
+> >> gratutitous NA, and finds a duplicate?
 
-+++ b/drivers/net/r8169.c
-@@ -3062,10 +3062,16 @@ static struct net_device_stats
-*rtl8169_get_stats(struct net_device *dev)
-        unsigned long flags;
+I think Jay was asking about the case where the target address in the NA 
+matches the address of the receiving interface. The RFCs don't describe
+how to handle such a case and leave it to the implementation. Linux logs
+a warning message and ignores such NA.
 
-        if (netif_running(dev)) {
-+               u32 missed;
-                spin_lock_irqsave(&tp->lock, flags);
--               dev->stats.rx_missed_errors += RTL_R32(RxMissed);
-+               missed = RTL_R32(RxMissed);
-                RTL_W32(RxMissed, 0);
-                spin_unlock_irqrestore(&tp->lock, flags);
-+
-+               dev->stats.rx_missed_errors += missed;
-+               if (missed)
-+                       printk(KERN_INFO "rtl8169_get_stats added %d
-to missed count\n", missed);
-+
-        }
+Thanks
+Sridhar
 
-        return &dev->stats;
-
-And low and behold I see this behaviour:
-
-[  946.160188] rtl8169_get_stats added 250834943 to missed count
-[  946.160354] rtl8169_get_stats added 20768 to missed count
-[  946.160411] rtl8169_get_stats added 7032 to missed count
-[  946.160425] rtl8169_get_stats added 1677 to missed count
-[  946.160439] rtl8169_get_stats added 1577 to missed count
-[  946.160452] rtl8169_get_stats added 1543 to missed count
-[  946.160465] rtl8169_get_stats added 1517 to missed count
-[  946.160479] rtl8169_get_stats added 1572 to missed count
-[  946.160492] rtl8169_get_stats added 1586 to missed count
-[  946.160504] rtl8169_get_stats added 1284 to missed count
-[  948.164206] rtl8169_get_stats added 250864594 to missed count
-[  948.164374] rtl8169_get_stats added 21004 to missed count
-[  948.164434] rtl8169_get_stats added 7385 to missed count
-[  948.164447] rtl8169_get_stats added 1631 to missed count
-[  948.164461] rtl8169_get_stats added 1574 to missed count
-[  948.164475] rtl8169_get_stats added 1645 to missed count
-[  948.164489] rtl8169_get_stats added 1583 to missed count
-[  948.164503] rtl8169_get_stats added 1561 to missed count
-[  948.164523] rtl8169_get_stats added 2314 to missed count
-[  948.164534] rtl8169_get_stats added 1300 to missed count
-[  950.168182] rtl8169_get_stats added 250857857 to missed count
-[  950.168345] rtl8169_get_stats added 20465 to missed count
-[  950.168401] rtl8169_get_stats added 6903 to missed count
-[  950.168416] rtl8169_get_stats added 1711 to missed count
-[  950.168430] rtl8169_get_stats added 1585 to missed count
-[  950.168443] rtl8169_get_stats added 1532 to missed count
-[  950.168456] rtl8169_get_stats added 1520 to missed count
-[  950.168469] rtl8169_get_stats added 1539 to missed count
-[  950.168483] rtl8169_get_stats added 1588 to missed count
-[  950.168494] rtl8169_get_stats added 1282 to missed count
-
-It looks very much like the number being read is a decreasing counter
-rather than anything else.
-
-Has anyone got a copy of the data sheet and can confirm that:
-
-	RxMissed	= 0x4c,
-
-is the correct offset for the register and it doesn't need any special
-handling to be read?
+> > 
+> > If a node has an IPv6 neighbor entry and receives an unsolicited NA it
+> > will change it's state to stale, forcing a re-lookup on the next
+> > transmit.  An un-solicited NA will change the state to reachable.
+>                 ^^^^^^^^^^^^
+> 
+> You probably meant to say "solicited".  Unsolicited NAs can only change
+> the state to STALE.
+> 
+> Also, the re-lookup will happen on a delay after the transmit.
+> 
+> -vlad
 
 
-
-
---
-Alex, homepage: http://www.bennee.com/~alex/
