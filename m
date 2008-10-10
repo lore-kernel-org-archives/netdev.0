@@ -1,52 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: drivers/net/enic/vnic_cq.c
-Date: Fri, 10 Oct 2008 11:58:49 -0700 (PDT)
-Message-ID: <20081010.115849.215623604.davem@davemloft.net>
-References: <adaabdcjrz8.fsf@cisco.com>
-	<C514ED13.C7D0%sfeldma@nuovasystems.com>
+Subject: Re: [PATCH RFC]: e1000: allow VLAN devices to use TSO
+ and CSUM offload
+Date: Fri, 10 Oct 2008 12:09:05 -0700 (PDT)
+Message-ID: <20081010.120905.132001378.davem@davemloft.net>
+References: <48EF690F.5070105@trash.net>
+	<36D9DB17C6DE9E40B059440DB8D95F520667243B@orsmsx418.amr.corp.intel.com>
+	<1223661576.3984.114.camel@achroite>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, akpm@linux-foundation.org, mingo@elte.hu,
-	netdev@vger.kernel.org
-To: sfeldma@nuovasystems.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45233
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759520AbYJJS7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 14:59:13 -0400
-In-Reply-To: <C514ED13.C7D0%sfeldma@nuovasystems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	peter.p.waskiewicz.jr@intel.com, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, kaber@trash.net
+To: bhutchings@solarflare.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1223661576.3984.114.camel@achroite>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Scott Feldman <sfeldma@nuovasystems.com>
-Date: Fri, 10 Oct 2008 11:29:23 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 10 Oct 2008 18:59:36 +0100
 
-> On 10/10/08 10:10 AM, "Roland Dreier" <rdreier@cisco.com> wrote:
+> On Fri, 2008-10-10 at 10:48 -0700, Brandeburg, Jesse wrote:
+> > Patrick McHardy wrote:
+> > > Patrick McHardy wrote:
+> > >> This patch changes e1000 to set vlan_features so TSO and CSUM
+> > >> offload can be used by VLAN devices, similar as with the other Intel
+> > >> drivers. 
+> > >> 
+> > >> Only RFC because I don't know whether there is buggy hardware
+> > >> that doesn't support this properly, but feel free to apply in
+> > >> case there isn't.
+> > > 
+> > > I never received a response to this. Any comments?
+> > 
+> > Sorry to delay the reply, the only one that stands out to me as a
+> > possible problem with the devices that e1000 still supports is the
+> > NETIF_F_TSO6.
 > 
-> > cc'ing Scott so we can make sure that this actually is atomic enough to
-> > work with the enic hardware... (Scott, the context is that enic won't
-> > build on any architecture that doesn't define writeq and readq, such as
-> > 32-bit x86; however the definitions below make it possible that multiple
-> > 32-bit writes will be interleaved, eg if an interrupt occurs between the
-> > first writel and the second writel)
-> 
-> Yes, enic hw provides atomic read/write for 64-bit regs even if register is
-> accessed with 32-bit read/writes.
+> vlan_features is a mask for features.  So long as all parts that do
+> support TSO-IPv6 also support it for VLAN-tagged packets, it should be
+> safe to set NETIF_F_TSO6 in vlan_features unconditionally.
 
-Sure, and this is why 32-bit arch's don't provide readq/writeq implementations,
-things are much more subtle here.
+Right, it's an additional mask which gets and'd with the normal
+device feature bits.
 
-The hardware may allow 2 32-bit writes to a 64-bit register, but...
+Jesse, any objections, given that?
 
-Are there potential problems when the register is half-way updated?
-
-For example, consider a ring index where the upper and lower 32-bits
-are actually significant.  If you change the top part and then the
-bottom part, in the intermediate step there is an invalid state and
-the card might try to access an invalid ring index.
-
-Then also, of course, the driver itself has to make sure it does
-enough locking to make sure a partial 64-bit update isn't interrupted
-by a parallel one on another cpu to the same register but I'll assume
-the driver takes care of that here :-)
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
