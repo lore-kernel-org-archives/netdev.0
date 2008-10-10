@@ -1,52 +1,37 @@
-From: wendy xiong <wendyx@us.ibm.com>
-Subject: [PATCH 1/1 2.6.28] cxgb3 - add one check in interrupt routine
-Date: Fri, 10 Oct 2008 15:48:48 -0500
-Message-ID: <1223671728.2614.13.camel@wendyx.austin.ibm.com>
+From: Tobias Brunner <tobias.brunner@strongswan.org>
+Subject: [PATCH net-next-2.6] af_key: fix SADB_X_SPDDELETE response
+Date: Fri, 10 Oct 2008 22:16:48 +0200
+Message-ID: <48EFB830.6030006@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
-	wenxiong@us.ibm.com
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:36682 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758568AbYJJUtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 16:49:00 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m9AKmwN9014718
-	for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 16:48:58 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9AKmwhx216154
-	for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 14:48:58 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9AKmMU2007112
-	for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 14:48:28 -0600
+Received: from sidv0150.hsr.ch ([152.96.52.150]:43914 "EHLO strongswan.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760568AbYJJUuv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Oct 2008 16:50:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+When deleting an SPD entry using SADB_X_SPDDELETE, c.data.byid is not 
+initialized to zero in pfkey_spddelete(). Thus, key_notify_policy() 
+responds with a PF_KEY message of type SADB_X_SPDDELETE2 instead of 
+SADB_X_SPDDELETE.
 
-We are submitting a patch to do the test before accessing A_PL_CLI register in interrupt routine for inclusion in 2.6.28, 
-as follows:
+Signed-off-by: Tobias Brunner <tobias.brunner@strongswan.org>
+---
 
-
-diff -Nuarp linux-2.6.27-rc9/drivers/net/cxgb3/sge.c linux-2.6.27-rc9.cxgb3/drivers/net/cxgb3/sge.c
---- linux-2.6.27-rc9/drivers/net/cxgb3/sge.c    2008-10-10 15:09:31.000000000 -0500
-+++ linux-2.6.27-rc9.cxgb3/drivers/net/cxgb3/sge.c      2008-10-10 15:11:44.000000000 -0500
-@@ -2691,6 +2691,9 @@ static irqreturn_t t3b_intr_napi(int irq
-        t3_write_reg(adap, A_PL_CLI, 0);
-        map = t3_read_reg(adap, A_SG_DATA_INTR);
-
-+       if (unlikely(pci_channel_offline(adap->pdev)))
-+               return IRQ_NONE;
-+
-        if (unlikely(!map))     /* shared interrupt, most likely */
-                return IRQ_NONE;
-
-
-Thanks,
-Wendy
-
-
-
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 362fe31..e55e044 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2341,6 +2341,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, struct sadb_msg
+ 
+ 	c.seq = hdr->sadb_msg_seq;
+ 	c.pid = hdr->sadb_msg_pid;
++	c.data.byid = 0;
+ 	c.event = XFRM_MSG_DELPOLICY;
+ 	km_policy_notify(xp, pol->sadb_x_policy_dir-1, &c);
+ 
 
