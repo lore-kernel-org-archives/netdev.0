@@ -1,43 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC]: e1000: allow VLAN devices to use TSO and CSUM
- offload
-Date: Fri, 10 Oct 2008 15:11:56 -0700 (PDT)
-Message-ID: <20081010.151156.186628285.davem@davemloft.net>
-References: <1223661576.3984.114.camel@achroite>
-	<20081010.120905.132001378.davem@davemloft.net>
-	<36D9DB17C6DE9E40B059440DB8D95F52066726B7@orsmsx418.amr.corp.intel.com>
+From: Scott Feldman <sfeldma@nuovasystems.com>
+Subject: Re: drivers/net/enic/vnic_cq.c
+Date: Fri, 10 Oct 2008 15:34:37 -0700
+Message-ID: <C515268D.C81F%sfeldma@nuovasystems.com>
+References: <20081010.115849.215623604.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, kaber@trash.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	e1000-devel@lists.sourceforge.net
-To: jesse.brandeburg@intel.com
+Cc: <rdreier@cisco.com>, <akpm@linux-foundation.org>, <mingo@elte.hu>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56638
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754112AbYJJWMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 18:12:20 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52066726B7@orsmsx418.amr.corp.intel.com>
+Received: from nuova-ex1.nuovasystems.com ([67.91.200.196]:26033 "EHLO
+	nuova-ex1.nuovasystems.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751272AbYJJWei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 18:34:38 -0400
+In-Reply-To: <20081010.115849.215623604.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Fri, 10 Oct 2008 15:01:09 -0700
+On 10/10/08 11:58 AM, "David Miller" <davem@davemloft.net> wrote:
 
-> David Miller wrote:
-> >> vlan_features is a mask for features.  So long as all parts that do
-> >> support TSO-IPv6 also support it for VLAN-tagged packets, it should
-> >> be safe to set NETIF_F_TSO6 in vlan_features unconditionally.
-> > 
-> > Right, it's an additional mask which gets and'd with the normal
-> > device feature bits.
-> > 
-> > Jesse, any objections, given that?
+> From: Scott Feldman <sfeldma@nuovasystems.com>
+> Date: Fri, 10 Oct 2008 11:29:23 -0700
+>> Yes, enic hw provides atomic read/write for 64-bit regs even if register is
+>> accessed with 32-bit read/writes.
 > 
-> No, once that is explained I think it gets rid of any objections.  We
-> are going to test the patch now, so would you mind if you waited to take
-> it until jkirsher pushes it to you?
+> Sure, and this is why 32-bit arch's don't provide readq/writeq
+> implementations,
+> things are much more subtle here.
+> 
+> The hardware may allow 2 32-bit writes to a 64-bit register, but...
+> 
+> Are there potential problems when the register is half-way updated?
+> 
+> For example, consider a ring index where the upper and lower 32-bits
+> are actually significant.  If you change the top part and then the
+> bottom part, in the intermediate step there is an invalid state and
+> the card might try to access an invalid ring index.
 
-Sure, no problem.
+Yes, I'd like to retract my original remark.  :(  There is a mechanism for
+atomic access to a wide register, but it's not enabled for the register
+cases in question, and even if it was, an intermediate access to another
+address would invalidate the mechanism, as you point out.  So...
+ 
+> Then also, of course, the driver itself has to make sure it does
+> enough locking to make sure a partial 64-bit update isn't interrupted
+> by a parallel one on another cpu to the same register but I'll assume
+> the driver takes care of that here :-)
+
+...There is enough locking.
+
+-scott
+
