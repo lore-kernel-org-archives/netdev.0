@@ -1,34 +1,44 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on failover
-Date: Thu, 9 Oct 2008 19:23:43 -0700
-Message-ID: <OFDFB5153E.E37AC842-ON882574DE.000CEB50-882574DE.000D286A@us.ibm.com>
-References: <48EEA752.6030505@hp.com>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: [PATCH net-next-2.6] nf_conntrack_ecache.h: Fix missing braces
+Date: Fri, 10 Oct 2008 11:08:45 +0800
+Message-ID: <20081010030518.M86501@cooldavid.org>
+References: <20081008.195524.235036900.davem@davemloft.net>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	David Miller <davem@davemloft.net>, fubar@linux.vnet.ibm.com,
-	Simon Horman <horms@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain;
+	charset=big5
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:58441 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751435AbYJJCXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2008 22:23:48 -0400
-In-Reply-To: <48EEA752.6030505@hp.com>
+Received: from 220-133-139-86.HINET-IP.hinet.net ([220.133.139.86]:46556 "EHLO
+	cooldavid.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751499AbYJJDJR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2008 23:09:17 -0400
+In-Reply-To: <20081008.195524.235036900.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I don't see any way to address David Steven's comment since there is 
-> currently no NA tunable in the IPv6 code.
+Hi David:
 
-Brian,
-        How do you feel about doubling up with dad_transmits for that
-part?
-        At least the switch/cache updating portion is the same
-in both cases.
+    This patch add missing braces of today's net-next-2.6:
+    include/net/netfilter/nf_conntrack_ecache.h
 
-                                                        +-DLS
+    The patch is also available at:
+    http://cooldavid.org/download/nf.net-next-2.6.20081010.patch
+
+    Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+
+diff --git a/include/net/netfilter/nf_conntrack_ecache.h
+b/include/net/netfilter/nf_conntrack_ecache.h
+index 35f814c..11480e6 100644
+--- a/include/net/netfilter/nf_conntrack_ecache.h
++++ b/include/net/netfilter/nf_conntrack_ecache.h
+@@ -74,6 +74,7 @@ static inline void nf_ct_event_cache_flush(struct net *net) {}
+ static inline int nf_conntrack_ecache_init(struct net *net)
+ {
+ 	return 0;
++}
+ 
+ static inline void nf_conntrack_ecache_fini(struct net *net)
+ {
 
