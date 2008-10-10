@@ -1,34 +1,27 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH] myri10ge: update driver version number to 1.4.3-1.369
-Date: Fri, 10 Oct 2008 23:29:51 +0200
-Message-ID: <48EFC94F.40702@myri.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] myri10ge: update driver version number to 1.4.3-1.369
+Date: Fri, 10 Oct 2008 14:33:06 -0700 (PDT)
+Message-ID: <20081010.143306.133324440.davem@davemloft.net>
+References: <48EFC94F.40702@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1872 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761792AbYJJVbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2008 17:31:25 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47168
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1763946AbYJJVda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:33:30 -0400
+In-Reply-To: <48EFC94F.40702@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update myri10ge driver version number to 1.4.3-1.369.
+From: Brice Goglin <brice@myri.com>
+Date: Fri, 10 Oct 2008 23:29:51 +0200
 
-Signed-off-by: Brice Goglin <brice@myri.com>
+> Update myri10ge driver version number to 1.4.3-1.369.
+> 
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -75,7 +75,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
- 
--#define MYRI10GE_VERSION_STR "1.4.3-1.358"
-+#define MYRI10GE_VERSION_STR "1.4.3-1.369"
- 
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
-
-
+Applied, thanks.
