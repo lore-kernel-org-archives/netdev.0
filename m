@@ -1,55 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH RFC]: e1000: allow VLAN devices to use TSO and CSUM
-	offload
-Date: Fri, 10 Oct 2008 18:59:36 +0100
-Message-ID: <1223661576.3984.114.camel@achroite>
-References: <487DC7DB.70401@trash.net> <48EF690F.5070105@trash.net>
-	 <36D9DB17C6DE9E40B059440DB8D95F520667243B@orsmsx418.amr.corp.intel.com>
+From: "Randy Macleod" <macleodr@nortel.com>
+Subject: Re: [PATCH 6/6] Phonet: pipe end-point protocol documentation
+Date: Fri, 10 Oct 2008 14:24:39 -0400
+Message-ID: <48EF9DE7.9040209@nortel.com>
+References: <200810011312.17288.remi.denis-courmont@nokia.com> <1222855985-22859-6-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:39615 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758412AbYJJR7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 13:59:44 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F520667243B@orsmsx418.amr.corp.intel.com>
+Received: from zrtps0kn.nortel.com ([47.140.192.55]:44526 "EHLO
+	zrtps0kn.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762040AbYJJSYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 14:24:43 -0400
+In-Reply-To: <1222855985-22859-6-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-10-10 at 10:48 -0700, Brandeburg, Jesse wrote:
-> Patrick McHardy wrote:
-> > Patrick McHardy wrote:
-> >> This patch changes e1000 to set vlan_features so TSO and CSUM
-> >> offload can be used by VLAN devices, similar as with the other Intel
-> >> drivers. 
-> >> 
-> >> Only RFC because I don't know whether there is buggy hardware
-> >> that doesn't support this properly, but feel free to apply in
-> >> case there isn't.
-> > 
-> > I never received a response to this. Any comments?
-> 
-> Sorry to delay the reply, the only one that stands out to me as a
-> possible problem with the devices that e1000 still supports is the
-> NETIF_F_TSO6.
+Minor documentation fix.
+Is this patch formatted as desired (first patch!)?
+I'm using Thunderbird.
 
-vlan_features is a mask for features.  So long as all parts that do
-support TSO-IPv6 also support it for VLAN-tagged packets, it should be
-safe to set NETIF_F_TSO6 in vlan_features unconditionally.
+// Randy
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+Signed-off-by: Randy MacLeod <macleodr@nortel.com>
+
+git diff Documentation/networking/phonet.txt
+diff --git a/Documentation/networking/phonet.txt
+b/Documentation/networking/phonet.txt
+index 0e6e592..6a07e45 100644
+--- a/Documentation/networking/phonet.txt
++++ b/Documentation/networking/phonet.txt
+@@ -146,8 +146,8 @@ WARNING:
+ When polling a connected pipe socket for writability, there is an
+ intrinsic race condition whereby writability might be lost between the
+ polling and the writing system calls. In this case, the socket will
+-block until write because possible again, unless non-blocking mode
+-becomes enabled.
++block until write becomes possible again, unless non-blocking mode
++is enabled.
+
+
+ The pipe protocol provides two socket options at the SOL_PNPIPE level:
+
+
 
