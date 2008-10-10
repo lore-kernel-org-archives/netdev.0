@@ -1,8 +1,7 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 04/14] r8169: shuffle some registers handling around (8168
-	operation only)
-Date: Fri, 10 Oct 2008 23:41:05 +0200
-Message-ID: <20081010214105.GD27195@electric-eye.fr.zoreil.com>
+Subject: [PATCH 03/14] r8169: new phy init parameters for the 8168b
+Date: Fri, 10 Oct 2008 23:40:21 +0200
+Message-ID: <20081010214021.GC27195@electric-eye.fr.zoreil.com>
 References: <20081006071229.GA23039@electric-eye.fr.zoreil.com> <20081007222202.GA9393@electric-eye.fr.zoreil.com> <20081009190015.GB19721@electric-eye.fr.zoreil.com> <20081009.122026.239988133.davem@davemloft.net> <20081010213638.GA25005@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,77 +12,75 @@ Cc: jamagallon@ono.com, greg@kroah.com, netdev@vger.kernel.org,
 	edward_hsu@realtek.com.tw
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37866 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37867 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759878AbYJJVln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:41:43 -0400
+	by vger.kernel.org with ESMTP id S1760948AbYJJVlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:41:44 -0400
 Content-Disposition: inline
 In-Reply-To: <20081010213638.GA25005@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I can not argue strongly for (or against) a specific ordering
-on a purely technical ground but the patch avoids to swallow
-Realtek's changes in one big, hard-to-read gulp.
-
-Let aside the way the RxConfig register is written (see
-rtl_set_rx_tx_config_registers / RxConfig / rtl_set_rx_mode),
-this change brings the registers write ordering closer with
-Realtek's driver one (version 8.006.00) for the 8168 chipsets.
-
-More 8168 specific code which touches the Configx registers will
-be added in the section covered by Cfg9346_UnLock / Cfg9346_Lock.
-
-This code should not be the cause of regression for 810x and
-8110 users.
+The new parameters are synced with Realtek's driver
+version 8.006.00.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Edward Hsu <edward_hsu@realtek.com.tw>
 ---
- drivers/net/r8169.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/r8169.c |   33 +++++++++++++++++++++++++++++++++
+ 1 files changed, 33 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 8086bac..273afb5 100644
+index 62e1115..8086bac 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -2396,14 +2396,10 @@ static void rtl_hw_start_8168(struct net_device *dev)
+@@ -1350,6 +1350,30 @@ static void rtl8169sb_hw_phy_config(void __iomem *ioaddr)
+ 	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ }
  
- 	rtl_set_rx_max_size(ioaddr);
- 
--	rtl_set_rx_tx_config_registers(tp);
--
- 	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
- 
- 	RTL_W16(CPlusCmd, tp->cp_cmd);
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
--
- 	RTL_W16(IntrMitigate, 0x5151);
- 
- 	/* Work around for RxFIFO overflow. */
-@@ -2414,14 +2410,19 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 
- 	rtl_set_rx_tx_desc_registers(tp, ioaddr);
- 
--	RTL_W8(Cfg9346, Cfg9346_Lock);
-+	rtl_set_rx_mode(dev);
++static void rtl8168bb_hw_phy_config(void __iomem *ioaddr)
++{
++	struct phy_reg phy_reg_init[] = {
++		{ 0x10, 0xf41b },
++		{ 0x1f, 0x0000 }
++	};
 +
-+	RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-+		(InterFrameGap << TxInterFrameGapShift));
- 
- 	RTL_R8(IntrMask);
- 
--	rtl_set_rx_mode(dev);
-+	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 
-+	RTL_W8(Cfg9346, Cfg9346_Lock);
++	mdio_write(ioaddr, 0x1f, 0x0001);
++	mdio_patch(ioaddr, 0x16, 1 << 0);
 +
- 	RTL_W16(MultiIntr, RTL_R16(MultiIntr) & 0xF000);
- 
- 	RTL_W16(IntrMask, tp->intr_event);
++	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++}
++
++static void rtl8168bef_hw_phy_config(void __iomem *ioaddr)
++{
++	struct phy_reg phy_reg_init[] = {
++		{ 0x1f, 0x0001 },
++		{ 0x10, 0xf41b },
++		{ 0x1f, 0x0000 }
++	};
++
++	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++}
++
+ static void rtl8168cp_hw_phy_config(void __iomem *ioaddr)
+ {
+ 	struct phy_reg phy_reg_init[] = {
+@@ -1458,6 +1482,15 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_09:
+ 		rtl8102e_hw_phy_config(ioaddr);
+ 		break;
++	case RTL_GIGA_MAC_VER_11:
++		rtl8168bb_hw_phy_config(ioaddr);
++		break;
++	case RTL_GIGA_MAC_VER_12:
++		rtl8168bef_hw_phy_config(ioaddr);
++		break;
++	case RTL_GIGA_MAC_VER_17:
++		rtl8168bef_hw_phy_config(ioaddr);
++		break;
+ 	case RTL_GIGA_MAC_VER_18:
+ 		rtl8168cp_hw_phy_config(ioaddr);
+ 		break;
 -- 
 1.5.3.3
 
