@@ -1,55 +1,39 @@
-From: Scott Feldman <sfeldma@nuovasystems.com>
-Subject: Re: drivers/net/enic/vnic_cq.c
-Date: Fri, 10 Oct 2008 15:34:37 -0700
-Message-ID: <C515268D.C81F%sfeldma@nuovasystems.com>
-References: <20081010.115849.215623604.davem@davemloft.net>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: IGMP sent to Foreign VLAN
+Date: Sat, 11 Oct 2008 00:45:36 +0200
+Message-ID: <m363o0m5m7.fsf@ursa.amorsen.dk>
+References: <1223322707.24688.46.camel@deepthought.nh.local>
+	<20081007.160702.189194318.davem@davemloft.net>
+	<48EBF677.1060602@trash.net>
+	<1223508896.24688.95.camel@deepthought.nh.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <rdreier@cisco.com>, <akpm@linux-foundation.org>, <mingo@elte.hu>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jarod Neuner <j.neuner@networkharbor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuova-ex1.nuovasystems.com ([67.91.200.196]:26033 "EHLO
-	nuova-ex1.nuovasystems.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751272AbYJJWei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 18:34:38 -0400
-In-Reply-To: <20081010.115849.215623604.davem@davemloft.net>
+Received: from gate1.ipvision.dk ([217.195.186.3]:41610 "EHLO
+	gate1.ipvision.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111AbYJJWpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 18:45:47 -0400
+In-Reply-To: <1223508896.24688.95.camel@deepthought.nh.local> (Jarod Neuner's message of "Wed\, 8 Oct 2008 18\:34\:56 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/10/08 11:58 AM, "David Miller" <davem@davemloft.net> wrote:
+Jarod Neuner <j.neuner@networkharbor.com> writes:
 
-> From: Scott Feldman <sfeldma@nuovasystems.com>
-> Date: Fri, 10 Oct 2008 11:29:23 -0700
->> Yes, enic hw provides atomic read/write for 64-bit regs even if register is
->> accessed with 32-bit read/writes.
-> 
-> Sure, and this is why 32-bit arch's don't provide readq/writeq
-> implementations,
-> things are much more subtle here.
-> 
-> The hardware may allow 2 32-bit writes to a 64-bit register, but...
-> 
-> Are there potential problems when the register is half-way updated?
-> 
-> For example, consider a ring index where the upper and lower 32-bits
-> are actually significant.  If you change the top part and then the
-> bottom part, in the intermediate step there is an invalid state and
-> the card might try to access an invalid ring index.
+> My original thought was to do something like this in net/core/dev.c
+> using a method similar to handle_bridge or handle_macvlen.  So, if the
+> packet doesn't get handled by the ptype_base list and IFF_ALLVLAN is
+> set, then strip the header and let the packet through.  The sticky point
+> would be whether or not this policy should be enabled by default, as it
+> seems to be in other network stacks.
 
-Yes, I'd like to retract my original remark.  :(  There is a mechanism for
-atomic access to a wide register, but it's not enabled for the register
-cases in question, and even if it was, an intermediate access to another
-address would invalidate the mechanism, as you point out.  So...
- 
-> Then also, of course, the driver itself has to make sure it does
-> enough locking to make sure a partial 64-bit update isn't interrupted
-> by a parallel one on another cpu to the same register but I'll assume
-> the driver takes care of that here :-)
+So if I tcpdump on the base device, IFF_ALLVLAN gets set and packets
+from unknown VLAN's suddenly lose their VLAN headers? That's a
+security problem.
 
-...There is enough locking.
 
--scott
+/Benny
 
