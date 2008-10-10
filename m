@@ -1,34 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/14] Pull request for 'r8169' branch
-Date: Fri, 10 Oct 2008 14:45:59 -0700 (PDT)
-Message-ID: <20081010.144559.193686901.davem@davemloft.net>
-References: <20081009190015.GB19721@electric-eye.fr.zoreil.com>
-	<20081009.122026.239988133.davem@davemloft.net>
-	<20081010213638.GA25005@electric-eye.fr.zoreil.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 11/14] r8169: change default behavior for mildly identified
+	8168c chipsets
+Date: Fri, 10 Oct 2008 23:46:27 +0200
+Message-ID: <20081010214627.GK27195@electric-eye.fr.zoreil.com>
+References: <20081006071229.GA23039@electric-eye.fr.zoreil.com> <20081007222202.GA9393@electric-eye.fr.zoreil.com> <20081009190015.GB19721@electric-eye.fr.zoreil.com> <20081009.122026.239988133.davem@davemloft.net> <20081010213638.GA25005@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jamagallon@ono.com, greg@kroah.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bonbons@linux-vserver.org,
-	ivecera@redhat.com, bhutchings@solarflare.com,
-	chiaki.ishikawa@ubin.jp, lkml@rtr.ca, edward_hsu@realtek.com.tw
-To: romieu@fr.zoreil.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamagallon@ono.com, greg@kroah.com, netdev@vger.kernel.org,
+	bonbons@linux-vserver.org, ivecera@redhat.com,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	ishikawa <chiaki.ishikawa@ubin.jp>, Mark Lord <lkml@rtr.ca>,
+	edward_hsu@realtek.com.tw
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59007
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1763692AbYJJVqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:46:23 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:33986 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760761AbYJJVrE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:47:04 -0400
+Content-Disposition: inline
 In-Reply-To: <20081010213638.GA25005@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri, 10 Oct 2008 23:36:38 +0200
+The addition of a new device has so far implied a specialization of
+these masks. While they identify 8168c devices, they can be expected
+to be further refined as they have been by Realtek so far.
 
-> Please pull from branch 'r8169' in repository
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169
-> 
-> to get the changes below.
+The change should bring the driver closer to the version 8.006.00 of
+Realtek's 8168 driver.
 
-All these changes look good, pulled, thanks a lot!
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 775dc84..4edc6b0 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1222,14 +1222,15 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 		u32 val;
+ 		int mac_version;
+ 	} mac_info[] = {
+-		/* 8168B family. */
++		/* 8168C family. */
+ 		{ 0x7cf00000, 0x3c900000,	RTL_GIGA_MAC_VER_23 },
+-		{ 0x7c800000, 0x3c800000,	RTL_GIGA_MAC_VER_18 },
++		{ 0x7cf00000, 0x3c800000,	RTL_GIGA_MAC_VER_18 },
++		{ 0x7c800000, 0x3c800000,	RTL_GIGA_MAC_VER_23 },
+ 		{ 0x7cf00000, 0x3c000000,	RTL_GIGA_MAC_VER_19 },
+ 		{ 0x7cf00000, 0x3c200000,	RTL_GIGA_MAC_VER_20 },
+ 		{ 0x7cf00000, 0x3c300000,	RTL_GIGA_MAC_VER_21 },
+ 		{ 0x7cf00000, 0x3c400000,	RTL_GIGA_MAC_VER_22 },
+-		{ 0x7c800000, 0x3c000000,	RTL_GIGA_MAC_VER_20 },
++		{ 0x7c800000, 0x3c000000,	RTL_GIGA_MAC_VER_22 },
+ 
+ 		/* 8168B family. */
+ 		{ 0x7cf00000, 0x38000000,	RTL_GIGA_MAC_VER_12 },
+-- 
+1.5.3.3
+
