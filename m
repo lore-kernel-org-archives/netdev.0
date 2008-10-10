@@ -1,7 +1,8 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 03/14] r8169: new phy init parameters for the 8168b
-Date: Fri, 10 Oct 2008 23:40:21 +0200
-Message-ID: <20081010214021.GC27195@electric-eye.fr.zoreil.com>
+Subject: [PATCH 05/14] r8169: make room for more specific 8168 hardware
+	start procedure
+Date: Fri, 10 Oct 2008 23:41:52 +0200
+Message-ID: <20081010214152.GE27195@electric-eye.fr.zoreil.com>
 References: <20081006071229.GA23039@electric-eye.fr.zoreil.com> <20081007222202.GA9393@electric-eye.fr.zoreil.com> <20081009190015.GB19721@electric-eye.fr.zoreil.com> <20081009.122026.239988133.davem@davemloft.net> <20081010213638.GA25005@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -12,75 +13,136 @@ Cc: jamagallon@ono.com, greg@kroah.com, netdev@vger.kernel.org,
 	edward_hsu@realtek.com.tw
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37867 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37894 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760948AbYJJVlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:41:44 -0400
+	by vger.kernel.org with ESMTP id S1761388AbYJJVmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:42:52 -0400
 Content-Disposition: inline
 In-Reply-To: <20081010213638.GA25005@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new parameters are synced with Realtek's driver
-version 8.006.00.
+Broadly speaking the 8168c* share some common code which will
+be factored in __rtl_hw_start_8168cp. The 8168b* share some
+code too but it will be a bit different.
+
+Any change of behavior should be confined to the currently
+unidentified 8168 chipsets. They will not be applied the Tx
+performance tweak and will emit a warning instead.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Edward Hsu <edward_hsu@realtek.com.tw>
 ---
- drivers/net/r8169.c |   33 +++++++++++++++++++++++++++++++++
- 1 files changed, 33 insertions(+), 0 deletions(-)
+ drivers/net/r8169.c |   66 +++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 61 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 62e1115..8086bac 100644
+index 273afb5..60d2ded 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -1350,6 +1350,30 @@ static void rtl8169sb_hw_phy_config(void __iomem *ioaddr)
+@@ -1387,7 +1387,7 @@ static void rtl8168cp_hw_phy_config(void __iomem *ioaddr)
  	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
  }
  
-+static void rtl8168bb_hw_phy_config(void __iomem *ioaddr)
-+{
-+	struct phy_reg phy_reg_init[] = {
-+		{ 0x10, 0xf41b },
-+		{ 0x1f, 0x0000 }
-+	};
-+
-+	mdio_write(ioaddr, 0x1f, 0x0001);
-+	mdio_patch(ioaddr, 0x16, 1 << 0);
-+
-+	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-+}
-+
-+static void rtl8168bef_hw_phy_config(void __iomem *ioaddr)
-+{
-+	struct phy_reg phy_reg_init[] = {
-+		{ 0x1f, 0x0001 },
-+		{ 0x10, 0xf41b },
-+		{ 0x1f, 0x0000 }
-+	};
-+
-+	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-+}
-+
- static void rtl8168cp_hw_phy_config(void __iomem *ioaddr)
+-static void rtl8168c_hw_phy_config(void __iomem *ioaddr)
++static void rtl8168c_1_hw_phy_config(void __iomem *ioaddr)
  {
  	struct phy_reg phy_reg_init[] = {
-@@ -1458,6 +1482,15 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 	case RTL_GIGA_MAC_VER_09:
- 		rtl8102e_hw_phy_config(ioaddr);
- 		break;
-+	case RTL_GIGA_MAC_VER_11:
-+		rtl8168bb_hw_phy_config(ioaddr);
-+		break;
-+	case RTL_GIGA_MAC_VER_12:
-+		rtl8168bef_hw_phy_config(ioaddr);
-+		break;
-+	case RTL_GIGA_MAC_VER_17:
-+		rtl8168bef_hw_phy_config(ioaddr);
-+		break;
- 	case RTL_GIGA_MAC_VER_18:
+ 		{ 0x1f, 0x0001 },
+@@ -1416,7 +1416,7 @@ static void rtl8168c_hw_phy_config(void __iomem *ioaddr)
+ 	mdio_write(ioaddr, 0x1f, 0x0000);
+ }
+ 
+-static void rtl8168cx_hw_phy_config(void __iomem *ioaddr)
++static void rtl8168c_2_hw_phy_config(void __iomem *ioaddr)
+ {
+ 	struct phy_reg phy_reg_init[] = {
+ 		{ 0x1f, 0x0001 },
+@@ -1495,10 +1495,10 @@ static void rtl_hw_phy_config(struct net_device *dev)
  		rtl8168cp_hw_phy_config(ioaddr);
  		break;
+ 	case RTL_GIGA_MAC_VER_19:
+-		rtl8168c_hw_phy_config(ioaddr);
++		rtl8168c_1_hw_phy_config(ioaddr);
+ 		break;
+ 	case RTL_GIGA_MAC_VER_20:
+-		rtl8168cx_hw_phy_config(ioaddr);
++		rtl8168c_2_hw_phy_config(ioaddr);
+ 		break;
+ 	default:
+ 		break;
+@@ -2384,6 +2384,36 @@ static void rtl_ephy_init(void __iomem *ioaddr, struct ephy_info *e, int len)
+ 	}
+ }
+ 
++static void rtl_hw_start_8168bb(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++}
++
++static void rtl_hw_start_8168bef(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl_hw_start_8168bb(ioaddr, pdev);
++}
++
++static void __rtl_hw_start_8168cp(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++}
++
++static void rtl_hw_start_8168cp(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	__rtl_hw_start_8168cp(ioaddr, pdev);
++}
++
++static void rtl_hw_start_8168c_1(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	__rtl_hw_start_8168cp(ioaddr, pdev);
++}
++
++static void rtl_hw_start_8168c_2(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	__rtl_hw_start_8168cp(ioaddr, pdev);
++}
++
+ static void rtl_hw_start_8168(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -2417,7 +2447,33 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 
+ 	RTL_R8(IntrMask);
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_11:
++		rtl_hw_start_8168bb(ioaddr, pdev);
++	break;
++
++	case RTL_GIGA_MAC_VER_12:
++	case RTL_GIGA_MAC_VER_17:
++		rtl_hw_start_8168bef(ioaddr, pdev);
++	break;
++
++	case RTL_GIGA_MAC_VER_18:
++		rtl_hw_start_8168cp(ioaddr, pdev);
++	break;
++
++	case RTL_GIGA_MAC_VER_19:
++		rtl_hw_start_8168c_1(ioaddr, pdev);
++	break;
++
++	case RTL_GIGA_MAC_VER_20:
++		rtl_hw_start_8168c_2(ioaddr, pdev);
++	break;
++
++	default:
++		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
++			dev->name, tp->mac_version);
++	break;
++	}
+ 
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ 
 -- 
 1.5.3.3
 
