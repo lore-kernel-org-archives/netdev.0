@@ -1,47 +1,229 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: drivers/net/enic/vnic_cq.c
-Date: Thu, 9 Oct 2008 22:16:47 -0700
-Message-ID: <20081009221647.8026269d.akpm@linux-foundation.org>
-References: <20081009211217.5f4e5f77.akpm@linux-foundation.org>
-	<20081009.211552.20994950.davem@davemloft.net>
-	<20081009212755.94fe11f6.akpm@linux-foundation.org>
-	<20081009.215452.193703022.davem@davemloft.net>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] USB: remove info() macro from usb network drivers
+Date: Thu, 9 Oct 2008 22:16:24 -0700
+Message-ID: <20081010051624.GA32711@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60986 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751543AbYJJFRA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 01:17:00 -0400
-In-Reply-To: <20081009.215452.193703022.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 09 Oct 2008 21:54:52 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+From: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Thu, 9 Oct 2008 21:27:55 -0700
-> 
-> > We have a driver which has never been compileable on i386 which has
-> > slipped through at least three sets of fingers only to land on the
-> > usual guy's head.
-> 
-> The person who submitted the driver compiled it on his box,
-> I made sure to hit sparc64 to try and hit the whacky cases,
-> and I'm only doing these driver merges because Jeff Garzik
-> is out of town so give me a break :-)))
+USB should not be having it's own printk macros, so remove info() and
+use the system-wide standard of dev_info() wherever possible.
 
-yup.
+Cc: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
+---
+Jeff, this has been in the USB tree for a few months now, sorry for not
+sending it to you sooner.  I can easily keep it in my tree and send it
+to Linus for this merge if you want me to, or you can take it in your
+tree, which ever you want me to do.
 
-Thing is, since 10AM this morning I've looked at no mailing list
-traffic, reviewed no patches, merged no patches.  I've spent half the
-day getting all the trees merged (and I last did it 24 hours ago) and
-the other half weeding out compilation errors.  I have this starry-eyed
-theory that I shouldn't need to do any of this.
+thanks,
 
-The stephen/me function is a single point of failure and right now,
-it has failed.  I have to push back.
+greg k-h
 
+ drivers/net/irda/kingsun-sir.c  |    3 ++-
+ drivers/net/irda/ks959-sir.c    |    3 ++-
+ drivers/net/irda/ksdazzle-sir.c |    3 ++-
+ drivers/net/irda/stir4200.c     |    8 +++++---
+ drivers/net/usb/catc.c          |    3 ++-
+ drivers/net/usb/kaweth.c        |   19 ++++++++++---------
+ drivers/net/usb/rtl8150.c       |   15 +++++++++------
+ 7 files changed, 32 insertions(+), 22 deletions(-)
+
+--- a/drivers/net/irda/kingsun-sir.c
++++ b/drivers/net/irda/kingsun-sir.c
+@@ -540,7 +540,8 @@ static int kingsun_probe(struct usb_inte
+ 	if (ret != 0)
+ 		goto free_mem;
+ 
+-	info("IrDA: Registered KingSun/DonShine device %s", net->name);
++	dev_info(&net->dev, "IrDA: Registered KingSun/DonShine device %s\n",
++		 net->name);
+ 
+ 	usb_set_intfdata(intf, kingsun);
+ 
+--- a/drivers/net/irda/ks959-sir.c
++++ b/drivers/net/irda/ks959-sir.c
+@@ -801,7 +801,8 @@ static int ks959_probe(struct usb_interf
+ 	if (ret != 0)
+ 		goto free_mem;
+ 
+-	info("IrDA: Registered KingSun KS-959 device %s", net->name);
++	dev_info(&net->dev, "IrDA: Registered KingSun KS-959 device %s\n",
++		 net->name);
+ 
+ 	usb_set_intfdata(intf, kingsun);
+ 
+--- a/drivers/net/irda/ksdazzle-sir.c
++++ b/drivers/net/irda/ksdazzle-sir.c
+@@ -705,7 +705,8 @@ static int ksdazzle_probe(struct usb_int
+ 	if (ret != 0)
+ 		goto free_mem;
+ 
+-	info("IrDA: Registered KingSun/Dazzle device %s", net->name);
++	dev_info(&net->dev, "IrDA: Registered KingSun/Dazzle device %s\n",
++		 net->name);
+ 
+ 	usb_set_intfdata(intf, kingsun);
+ 
+--- a/drivers/net/irda/stir4200.c
++++ b/drivers/net/irda/stir4200.c
+@@ -783,8 +783,9 @@ static int stir_transmit_thread(void *ar
+ 
+ 			if (unlikely(receive_start(stir))) {
+ 				if (net_ratelimit())
+-					info("%s: receive usb submit failed",
+-					     stir->netdev->name);
++					dev_info(&dev->dev,
++						 "%s: receive usb submit failed\n",
++						 stir->netdev->name);
+ 				stir->receiving = 0;
+ 				msleep(10);
+ 				continue;
+@@ -1073,7 +1074,8 @@ static int stir_probe(struct usb_interfa
+ 	if (ret != 0)
+ 		goto err_out2;
+ 
+-	info("IrDA: Registered SigmaTel device %s", net->name);
++	dev_info(&intf->dev, "IrDA: Registered SigmaTel device %s\n",
++		 net->name);
+ 
+ 	usb_set_intfdata(intf, stir);
+ 
+--- a/drivers/net/usb/catc.c
++++ b/drivers/net/usb/catc.c
+@@ -954,7 +954,8 @@ static int __init catc_init(void)
+ {
+ 	int result = usb_register(&catc_driver);
+ 	if (result == 0)
+-		info(DRIVER_VERSION " " DRIVER_DESC);
++		printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
++		       DRIVER_DESC "\n");
+ 	return result;
+ }
+ 
+--- a/drivers/net/usb/kaweth.c
++++ b/drivers/net/usb/kaweth.c
+@@ -1016,10 +1016,10 @@ static int kaweth_probe(
+ 	 */
+ 
+ 	if (le16_to_cpu(dev->descriptor.bcdDevice) >> 8) {
+-		info("Firmware present in device.");
++		dev_info(&intf->dev, "Firmware present in device.\n");
+ 	} else {
+ 		/* Download the firmware */
+-		info("Downloading firmware...");
++		dev_info(&intf->dev, "Downloading firmware...\n");
+ 		kaweth->firmware_buf = (__u8 *)__get_free_page(GFP_KERNEL);
+ 		if ((result = kaweth_download_firmware(kaweth,
+ 						      "kaweth/new_code.bin",
+@@ -1061,7 +1061,7 @@ static int kaweth_probe(
+ 		}
+ 
+ 		/* Device will now disappear for a moment...  */
+-		info("Firmware loaded.  I'll be back...");
++		dev_info(&intf->dev, "Firmware loaded.  I'll be back...\n");
+ err_fw:
+ 		free_page((unsigned long)kaweth->firmware_buf);
+ 		free_netdev(netdev);
+@@ -1075,10 +1075,10 @@ err_fw:
+ 		goto err_free_netdev;
+ 	}
+ 
+-	info("Statistics collection: %x", kaweth->configuration.statistics_mask);
+-	info("Multicast filter limit: %x", kaweth->configuration.max_multicast_filters & ((1 << 15) - 1));
+-	info("MTU: %d", le16_to_cpu(kaweth->configuration.segment_size));
+-	info("Read MAC address %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x",
++	dev_info(&intf->dev, "Statistics collection: %x\n", kaweth->configuration.statistics_mask);
++	dev_info(&intf->dev, "Multicast filter limit: %x\n", kaweth->configuration.max_multicast_filters & ((1 << 15) - 1));
++	dev_info(&intf->dev, "MTU: %d\n", le16_to_cpu(kaweth->configuration.segment_size));
++	dev_info(&intf->dev, "Read MAC address %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
+ 		 (int)kaweth->configuration.hw_addr[0],
+ 		 (int)kaweth->configuration.hw_addr[1],
+ 		 (int)kaweth->configuration.hw_addr[2],
+@@ -1174,7 +1174,8 @@ err_fw:
+ 		goto err_intfdata;
+ 	}
+ 
+-	info("kaweth interface created at %s", kaweth->net->name);
++	dev_info(&intf->dev, "kaweth interface created at %s\n",
++		 kaweth->net->name);
+ 
+ 	dbg("Kaweth probe returning.");
+ 
+@@ -1205,7 +1206,7 @@ static void kaweth_disconnect(struct usb
+ 	struct kaweth_device *kaweth = usb_get_intfdata(intf);
+ 	struct net_device *netdev;
+ 
+-	info("Unregistering");
++	dev_info(&intf->dev, "Unregistering\n");
+ 
+ 	usb_set_intfdata(intf, NULL);
+ 	if (!kaweth) {
+--- a/drivers/net/usb/rtl8150.c
++++ b/drivers/net/usb/rtl8150.c
+@@ -538,7 +538,8 @@ static void write_bulk_callback(struct u
+ 	if (!netif_device_present(dev->netdev))
+ 		return;
+ 	if (urb->status)
+-		info("%s: Tx status %d", dev->netdev->name, urb->status);
++		dev_info(&urb->dev->dev, "%s: Tx status %d\n",
++			 dev->netdev->name, urb->status);
+ 	dev->netdev->trans_start = jiffies;
+ 	netif_wake_queue(dev->netdev);
+ }
+@@ -561,7 +562,8 @@ static void intr_callback(struct urb *ur
+ 		return;
+ 	/* -EPIPE:  should clear the halt */
+ 	default:
+-		info("%s: intr status %d", dev->netdev->name, urb->status);
++		dev_info(&urb->dev->dev, "%s: intr status %d\n",
++			 dev->netdev->name, urb->status);
+ 		goto resubmit;
+ 	}
+ 
+@@ -710,12 +712,12 @@ static void rtl8150_set_multicast(struct
+ 	netif_stop_queue(netdev);
+ 	if (netdev->flags & IFF_PROMISC) {
+ 		dev->rx_creg |= cpu_to_le16(0x0001);
+-		info("%s: promiscuous mode", netdev->name);
++		dev_info(&netdev->dev, "%s: promiscuous mode\n", netdev->name);
+ 	} else if (netdev->mc_count ||
+ 		   (netdev->flags & IFF_ALLMULTI)) {
+ 		dev->rx_creg &= cpu_to_le16(0xfffe);
+ 		dev->rx_creg |= cpu_to_le16(0x0002);
+-		info("%s: allmulti set", netdev->name);
++		dev_info(&netdev->dev, "%s: allmulti set\n", netdev->name);
+ 	} else {
+ 		/* ~RX_MULTICAST, ~RX_PROMISCUOUS */
+ 		dev->rx_creg &= cpu_to_le16(0x00fc);
+@@ -947,7 +949,7 @@ static int rtl8150_probe(struct usb_inte
+ 		goto out2;
+ 	}
+ 
+-	info("%s: rtl8150 is detected", netdev->name);
++	dev_info(&intf->dev, "%s: rtl8150 is detected\n", netdev->name);
+ 
+ 	return 0;
+ 
+@@ -984,7 +986,8 @@ static void rtl8150_disconnect(struct us
+ 
+ static int __init usb_rtl8150_init(void)
+ {
+-	info(DRIVER_DESC " " DRIVER_VERSION);
++	printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
++	       DRIVER_DESC "\n");
+ 	return usb_register(&rtl8150_driver);
+ }
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
