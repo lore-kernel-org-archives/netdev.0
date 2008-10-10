@@ -1,37 +1,44 @@
-From: Evgeniy Polyakov <s0mbre@tservice.net.ru>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Fri, 10 Oct 2008 17:25:10 +0400
-Message-ID: <20081010132510.GA25834@tservice.net.ru>
-References: <20081009231759.GA8664@tservice.net.ru> <20081010080910.GA31723@tservice.net.ru> <20081010091511.GC5116@elte.hu> <20081010113100.GA1030@tservice.net.ru> <20081010114042.GA19487@elte.hu>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on failover
+Date: Fri, 10 Oct 2008 10:34:58 -0400
+Message-ID: <48EF6812.2090600@hp.com>
+References: <OFDFB5153E.E37AC842-ON882574DE.000CEB50-882574DE.000D286A@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Mike Galbraith <efault@gmx.de>, Nick Piggin <npiggin@suse.de>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759943AbYJJNZp@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081010114042.GA19487@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	David Miller <davem@davemloft.net>, fubar@linux.vnet.ibm.com,
+	Simon Horman <horms@verge.net.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:30362 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756368AbYJJOfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 10:35:04 -0400
+In-Reply-To: <OFDFB5153E.E37AC842-ON882574DE.000CEB50-882574DE.000D286A@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 10, 2008 at 01:40:42PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
-> make sure you have this fix in tip/master already:
+David Stevens wrote:
+>> I don't see any way to address David Steven's comment since there is 
+>> currently no NA tunable in the IPv6 code.
 > 
->   5b7dba4: sched_clock: prevent scd->clock from moving backwards
-> 
-> Note: Mike is 100% correct in suggesting that a very good cpu_clock() is 
-> needed for precise scheduling.
+> Brian,
+>         How do you feel about doubling up with dad_transmits for that
+> part?
 
-The last commit is 5dc64a3442b98eaa and aforementioned changeset was included.
-Result is quite bad:
+I don't really want to since this is bonding-specific behavior, and 
+we're not performing DAD for the address.  This is just another sysfs 
+entry: /sys/class/net/bond*/bonding/num_unsol_na, not a sysctl.
 
-vanilla 27: 	347.222
-no TSO/GSO:	357.331
-no hrticks:	382.983
-no balance:	389.802
-tip:		365.576
+>         At least the switch/cache updating portion is the same
+> in both cases.
 
--- 
-	Evgeniy Polyakov
+I don't think they are.  In the DAD case we're probing for another node 
+that might have the address configured, in the bond failover case we 
+want to update the switch quickly so we don't drop packets.
+
+-Brian
