@@ -1,30 +1,38 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH net-next-2.6]: tcpv6: fix error with CONFIG_TCP_MD5SIG
- disabled
-Date: Fri, 10 Oct 2008 15:05:35 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0810101503570.1034@wrl-59.cs.helsinki.fi>
-References: <20081008.195524.235036900.davem@davemloft.net>
- <20081010031703.M9440@cooldavid.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Possible regression in HTB
+Date: Fri, 10 Oct 2008 12:12:21 +0000
+Message-ID: <20081010121221.GB6494@ff.dom.local>
+References: <20081007220022.GA2664@ami.dom.local> <20081010065934.GA4762@ff.dom.local> <20081010085735.GA5946@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Martin Devera <devik@cdi.cz>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41730 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753442AbYJJMFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 08:05:39 -0400
-In-Reply-To: <20081010031703.M9440@cooldavid.org>
+Received: from fk-out-0910.google.com ([209.85.128.189]:25770 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753053AbYJJMM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 08:12:28 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so420736fkq.5
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 05:12:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20081010085735.GA5946@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 10 Oct 2008, Guo-Fu Tseng wrote:
+On Fri, Oct 10, 2008 at 08:57:35AM +0000, Jarek Poplawski wrote:
+> On Fri, Oct 10, 2008 at 06:59:34AM +0000, Jarek Poplawski wrote:
+> ...
+> > But we could consider if, after removing requeuing which mattered
+> > here, some change is needed in "proper" way of limiting such effects
+> > of wrong parameters or hardware errors (like the size of mbuffer etc.)?
+> 
+> Simon,
+> 
+> If you could find "a minute", please try if this patch changes anything
+> e.g. for n = 1000?
 
->     This patch fix error with CONFIG_TCP_MD5SIG disabled.
+Hmm... this mbuffer change is not enough, let's forget it.
 
-Thanks for the fix, I realized (just before falling a sleep) that this 
-would happen after my changes...
-
--- 
- i.
+Jarek P.
