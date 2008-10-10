@@ -1,80 +1,53 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 2/2] virtio_net: Improve the recv buffer allocation  
-	scheme
-Date: Fri, 10 Oct 2008 09:30:31 +0100
-Message-ID: <1223627431.3618.41.camel@blaa>
-References: <1223494499-18732-1-git-send-email-markmc@redhat.com>
-	 <1223494499-18732-2-git-send-email-markmc@redhat.com>
-	 <200810091155.59731.rusty@rustcorp.com.au>
-	 <20081009153035.GA21542@gondor.apana.org.au>
-	 <1223574013.13792.23.camel@blaa>  <48EE5AE1.5030002@codemonkey.ws>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <rdenis@simphalempin.com>
+Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
+Date: Fri, 10 Oct 2008 11:44:06 +0300
+Message-ID: <200810101144.06869.rdenis@simphalempin.com>
+References: <20081008081109.GA25342@1wt.eu> <200810101059.25904.rdenis@simphalempin.com> <20081010081022.GA27187@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org
-To: Anthony Liguori <anthony@codemonkey.ws>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: "ext Willy Tarreau" <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:56570 "EHLO mx2.redhat.com"
+Received: from yop.chewa.net ([91.121.105.214]:42976 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751266AbYJJIb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2008 04:31:28 -0400
-In-Reply-To: <48EE5AE1.5030002@codemonkey.ws>
+	id S1751385AbYJJIoM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 04:44:12 -0400
+In-Reply-To: <20081010081022.GA27187@1wt.eu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-10-09 at 14:26 -0500, Anthony Liguori wrote:
-> Mark McLoughlin wrote:
-> > 
-> > Also, including virtio_net_hdr in the data buffer would need another
-> > feature flag. Rightly or wrongly, KVM's implementation requires
-> > virtio_net_hdr to be the first buffer:
-> > 
-> >     if (elem.in_num < 1 || elem.in_sg[0].iov_len != sizeof(*hdr)) {
-> >         fprintf(stderr, "virtio-net header not in first element\n");
-> >         exit(1);
-> >     }
-> > 
-> > i.e. it's part of the ABI ... at least as KVM sees it :-)
-> 
-> This is actually something that's broken in a nasty way.  Having the 
-> header in the first element is not supposed to be part of the ABI but it 
-> sort of has to be ATM.
-> 
-> If an older version of QEMU were to use a newer kernel, and the newer 
-> kernel had a larger header size, then if we just made the header be the 
-> first X bytes, QEMU has no way of knowing how many bytes that should be. 
->   Instead, the guest actually has to allocate the virtio-net header in 
-> such a way that it only presents the size depending on the features that 
-> the host supports.  We don't use a simple versioning scheme, so you'd 
-> have to check for a combination of features advertised by the host but 
-> that's not good enough because the host may disable certain features.
-> 
-> Perhaps the header size is whatever the longest element that has been 
-> commonly negotiated?
-> 
-> So that's why this aggressive check is here.  Not to necessarily cement 
-> this into the ABI but as a way to make someone figure out how to 
-> sanitize this all.
+On Friday 10 October 2008 11:10:22 ext Willy Tarreau, you wrote:
+> > Duh? If you require a SYN from the outside to the server, before yo=
+u
+> > allow the server to send either SYN or SYN/ACK, I fail to see the
+> > problem.
+>
+> Requiring the firewall to expect a first SYN to come from the interne=
+t is
+> like doing no check at all.
 
-Well, features may be orthogonal but they are still added sequentially
-to the ABI. So, you would have a kind of implicit ABI versioning, while
-still allowing individual selection of features.
+On ports which are open to the outside you MUST allow inbound SYNs anyw=
+ay.=20
+=46rom a security perspective, it does not matter whether the server an=
+swers=20
+with a SYN/ACK as normally or with a SYN-not-ACK as in "simultaneous op=
+en".
 
-e.g. if NET_F_FOO adds "int foo" to the header and then NET_F_BAR adds
-"int bar" to the header then if NET_F_FOO is negotiated, the guest
-should only send a header with "foo" and if NET_F_FOO|NET_F_BAR or
-NET_F_BAR is negotiated, then the guest sends a header with both "foo"
-and "bar".
+On ports which the server is using outbound only (if any), you can expe=
+ct the=20
+server to send a SYN out first. It again does not matter whether the ot=
+her=20
+end answers with a SYN/ACK or a SYN-not-ACK.
 
-Or put it another way, a host or guest may not implement NET_F_FOO but
-knowledge of the "foo" header field is part of the ABI of NET_F_BAR.
-That knowledge would be as simple as knowing that the field exists and
-that it should be ignored if the feature isn't used.
+On other ports, a plain dumb stateless blackhole will do.
 
-Cheers,
-Mark.
+> When your server has been rooted, you can=20
+> pretty much expect that your guest has no problem sending you a SYN.
 
+And why would (s)he have problem sending a SYN/ACK? It makes no differe=
+nce.
+
+--=20
+R=E9mi Denis-Courmont
