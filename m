@@ -1,56 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 14/14] r8169: add shutdown handler
-Date: Fri, 10 Oct 2008 23:48:54 +0200
-Message-ID: <20081010214854.GN27195@electric-eye.fr.zoreil.com>
-References: <20081006071229.GA23039@electric-eye.fr.zoreil.com> <20081007222202.GA9393@electric-eye.fr.zoreil.com> <20081009190015.GB19721@electric-eye.fr.zoreil.com> <20081009.122026.239988133.davem@davemloft.net> <20081010213638.GA25005@electric-eye.fr.zoreil.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH RFC]: e1000: allow VLAN devices to use TSO
+	and CSUM offload
+Date: Fri, 10 Oct 2008 15:01:09 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52066726B7@orsmsx418.amr.corp.intel.com>
+References: <48EF690F.5070105@trash.net><36D9DB17C6DE9E40B059440DB8D95F520667243B@orsmsx418.amr.corp.intel.com><1223661576.3984.114.camel@achroite>
+	<20081010.120905.132001378.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamagallon@ono.com, greg@kroah.com, netdev@vger.kernel.org,
-	bonbons@linux-vserver.org, ivecera@redhat.com,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	ishikawa <chiaki.ishikawa@ubin.jp>, Mark Lord <lkml@rtr.ca>,
-	edward_hsu@realtek.com.tw
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:34049 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764811AbYJJVuZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 17:50:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20081010213638.GA25005@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, "Waskiewicz Jr,
+	Peter P" <peter.p.waskiewicz.jr@intel.com>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>, kaber@trash.net
+To: "David Miller" <davem@davemloft.net>,
+	<bhutchings@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-class: urn:content-classes:message
+In-Reply-To: <20081010.120905.132001378.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Edward Hsu <edward_hsu@realtek.com.tw>
----
- drivers/net/r8169.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+David Miller wrote:
+>> vlan_features is a mask for features.  So long as all parts that do
+>> support TSO-IPv6 also support it for VLAN-tagged packets, it should
+>> be safe to set NETIF_F_TSO6 in vlan_features unconditionally.
+> 
+> Right, it's an additional mask which gets and'd with the normal
+> device feature bits.
+> 
+> Jesse, any objections, given that?
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 02b11a0..bdae2c5 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3874,6 +3874,11 @@ out:
- 	return 0;
- }
- 
-+static void rtl_shutdown(struct pci_dev *pdev)
-+{
-+	rtl8169_suspend(pdev, PMSG_SUSPEND);
-+}
-+
- #endif /* CONFIG_PM */
- 
- static struct pci_driver rtl8169_pci_driver = {
-@@ -3884,6 +3889,7 @@ static struct pci_driver rtl8169_pci_driver = {
- #ifdef CONFIG_PM
- 	.suspend	= rtl8169_suspend,
- 	.resume		= rtl8169_resume,
-+	.shutdown	= rtl_shutdown,
- #endif
- };
- 
--- 
-1.5.3.3
+No, once that is explained I think it gets rid of any objections.  We
+are going to test the patch now, so would you mind if you waited to take
+it until jkirsher pushes it to you?
 
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
