@@ -1,65 +1,55 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
-Date: Fri, 10 Oct 2008 10:57:57 +0200
-Message-ID: <20081010085757.GA27597@1wt.eu>
-References: <20081008081109.GA25342@1wt.eu> <200810101059.25904.rdenis@simphalempin.com> <20081010081022.GA27187@1wt.eu> <200810101144.06869.rdenis@simphalempin.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Possible regression in HTB
+Date: Fri, 10 Oct 2008 08:57:35 +0000
+Message-ID: <20081010085735.GA5946@ff.dom.local>
+References: <20081007220022.GA2664@ami.dom.local> <20081010065934.GA4762@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Martin Devera <devik@cdi.cz>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:4695 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756148AbYJJI6A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2008 04:58:00 -0400
+Received: from ug-out-1314.google.com ([66.249.92.170]:56148 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670AbYJJI5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 04:57:44 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so1225766ugf.37
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2008 01:57:40 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <200810101144.06869.rdenis@simphalempin.com>
+In-Reply-To: <20081010065934.GA4762@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 10, 2008 at 11:44:06AM +0300, R=E9mi Denis-Courmont wrote:
-> On Friday 10 October 2008 11:10:22 ext Willy Tarreau, you wrote:
-> > > Duh? If you require a SYN from the outside to the server, before =
-you
-> > > allow the server to send either SYN or SYN/ACK, I fail to see the
-> > > problem.
-> >
-> > Requiring the firewall to expect a first SYN to come from the inter=
-net is
-> > like doing no check at all.
->=20
-> On ports which are open to the outside you MUST allow inbound SYNs an=
-yway.=20
-> >From a security perspective, it does not matter whether the server a=
-nswers=20
-> with a SYN/ACK as normally or with a SYN-not-ACK as in "simultaneous =
-open".
->=20
-> On ports which the server is using outbound only (if any), you can ex=
-pect the=20
-> server to send a SYN out first. It again does not matter whether the =
-other=20
-> end answers with a SYN/ACK or a SYN-not-ACK.
->=20
-> On other ports, a plain dumb stateless blackhole will do.
->=20
-> > When your server has been rooted, you can=20
-> > pretty much expect that your guest has no problem sending you a SYN=
-=2E
->=20
-> And why would (s)he have problem sending a SYN/ACK? It makes no diffe=
-rence.
+On Fri, Oct 10, 2008 at 06:59:34AM +0000, Jarek Poplawski wrote:
+...
+> But we could consider if, after removing requeuing which mattered
+> here, some change is needed in "proper" way of limiting such effects
+> of wrong parameters or hardware errors (like the size of mbuffer etc.)?
 
-It's just that it would be useless. If sending a fake SYN from port 25 =
-to your
-server's port 443 allows it to establish connections from port 443 to p=
-ort 25,
-it becomes an easy spam platform. That's just an example. I'm just tryi=
-ng to
-explain that supporting simultaneous connect on a firewall prevents you=
- from
-precisely controlling the direction of the streams.
+Simon,
 
-Willy
+If you could find "a minute", please try if this patch changes anything
+e.g. for n = 1000?
 
+Thanks,
+Jarek P.
+
+---
+
+ net/sched/sch_htb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index d14f020..3fe0a98 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1416,7 +1416,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		/* set class to be in HTB_CAN_SEND state */
+ 		cl->tokens = hopt->buffer;
+ 		cl->ctokens = hopt->cbuffer;
+-		cl->mbuffer = 60 * PSCHED_TICKS_PER_SEC;	/* 1min */
++		cl->mbuffer = 10 * PSCHED_TICKS_PER_SEC;	/* 10sec */
+ 		cl->t_c = psched_get_time();
+ 		cl->cmode = HTB_CAN_SEND;
+ 
