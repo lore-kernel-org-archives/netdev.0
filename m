@@ -1,62 +1,40 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <rdenis@simphalempin.com>
-Subject: Re: [PATCH] add a sysctl to disable TCP simultaneous connection opening
-Date: Fri, 10 Oct 2008 10:59:25 +0300
-Message-ID: <200810101059.25904.rdenis@simphalempin.com>
-References: <20081008081109.GA25342@1wt.eu> <200810091921.04230.rdenis@simphalempin.com> <20081009214224.GD21013@1wt.eu>
+From: Evgeniy Polyakov <s0mbre@tservice.net.ru>
+Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
+Date: Fri, 10 Oct 2008 12:09:10 +0400
+Message-ID: <20081010080910.GA31723@tservice.net.ru>
+References: <20081009231759.GA8664@tservice.net.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: "ext Willy Tarreau" <w@1wt.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:40186 "EHLO yop.chewa.net"
+Received: from corega.com.ru ([195.178.208.66]:32979 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750981AbYJJH7a convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 03:59:30 -0400
-In-Reply-To: <20081009214224.GD21013@1wt.eu>
+	id S1751040AbYJJIJN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Oct 2008 04:09:13 -0400
 Content-Disposition: inline
+In-Reply-To: <20081009231759.GA8664@tservice.net.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 10 October 2008 00:42:24 ext Willy Tarreau, you wrote:
-> On Thu, Oct 09, 2008 at 07:21:03PM +0300, R=E9mi Denis-Courmont wrote=
-:
-> > Le mercredi 8 octobre 2008 14:54:02 Stephen Hemminger, vous avez =E9=
-crit=A0:
-> > > Does this break NAT traversal via STUNT used by applications like
-> > > Skype?
-> >
-> > This will break the main ICE-TCP mechanism (IETF
-> > draft-ietf-mmusic-ice-tcp). I am not aware of any application using=
- this
-> > _as_of_now_. Probably too many NAT and firewall implementations wil=
-l
-> > reject it already. And then, some TCP stacks reportedly do not supp=
-ort it
-> > (e.g. Windows before Vista).
->
-> And opening this through firewalls would be too much dangerous as it =
-would
-> allow servers to reconnect outside, pretty much defeating the initial
-> purpose of the firewall.
+Hi Peter.
 
-Duh? If you require a SYN from the outside to the server, before you al=
-low the=20
-server to send either SYN or SYN/ACK, I fail to see the problem.
+I've enabled kernel hacking option and scheduler debugging and turned
+off hrticks and performance jumped to 382 MB/s:
 
-> > On the other hand, if someone were to tunnel/encapsulate TCP over U=
-DP,
-> > this could actually be useful - think about peer-to-peer NATted-to-=
-NATted
-> > file transfers for instance.
->
-> This is already possible using netcat. You can force both ports. It h=
-as no
-> flow control but would be enough to chat or transfer small config fil=
-es.
+vanilla 27: 347.222
+no TSO/GSO: 357.331
+no hrticks: 382.983
 
-=46iles transfer over UDP? Come on. I won't restart the UDP sendfile di=
-scussion.
+I use tsc clocksource, also available acpi_pm and jiffies,
+with acpi_pm performance is even lower (I stopped test after it dropped
+below 340 MB/s mark), jiffies do not work at all, looks like sockets
+stuck in time_wait state when this clock source is used, although that
+may be some different issue.
 
---=20
-R=E9mi Denis-Courmont
+So I think hrticks are guilty, but still not as good as .25 tree without
+mentioned changes (455 MB/s) and .24 (475 MB/s).
+
+-- 
+	Evgeniy Polyakov
