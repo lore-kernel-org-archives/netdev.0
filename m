@@ -1,59 +1,69 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround (fwd)
-Date: Fri, 10 Oct 2008 01:20:51 -0300
-Message-ID: <48eed827.060ec00a.1389.ffffb4e3@mx.google.com>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
-	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
-	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
-	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
-	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
-	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
-	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
-	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
-	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
-	<Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
-	<48e5364d.0603c00a.6e25.fffff993@mx.google.com>
-	<Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
-	<48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com>
-	<alpine.LFD.2.00.0810052008131.3398@apollo>
-	<48ed0b51.0913c00a.7715.4aa7@mx.google.com>
-	<alpine.LFD.2.00.0810082154420.3237@apollo>
-	<Pine.LNX.4.64.0810082329250.7599@wrl-59.cs.helsinki.fi>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: drivers/net/enic/vnic_cq.c
+Date: Thu, 9 Oct 2008 21:27:55 -0700
+Message-ID: <20081009212755.94fe11f6.akpm@linux-foundation.org>
+References: <20081009211217.5f4e5f77.akpm@linux-foundation.org>
+	<20081009.211552.20994950.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:8798 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331AbYJJEU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 00:20:58 -0400
-Received: by wx-out-0506.google.com with SMTP id h27so160653wxd.4
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2008 21:20:57 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0810082329250.7599@wrl-59.cs.helsinki.fi>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38734 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750764AbYJJE2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2008 00:28:10 -0400
+In-Reply-To: <20081009.211552.20994950.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 8 Oct 2008 23:44:39 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Thu, 09 Oct 2008 21:15:52 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-> the server (we don't have /proc/net/tcp of that case so I cannot=20
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Thu, 9 Oct 2008 21:12:17 -0700
+> 
+> > 
+> > i386 allmodconfig, all trees applied:
+> > 
+> > drivers/net/enic/vnic_cq.c: In function 'vnic_cq_init':
+> > drivers/net/enic/vnic_cq.c:65: error: implicit declaration of function 'writeq'
+> > 
+> > I can't immediately find an i386 implementation of writeq.
+> 
+> There isn't, because only a non-atomic implementation (two writew's)
+> is possible.
+> 
+> So what ends up happening is that every driver that wants readq and
+> writeq does this ifdef dance:
+> 
+> #ifndef readq
+> static u64 readq(void __iomem *reg)
+> {
+> 	return (((u64)readl(reg + 0x4UL) << 32) |
+> 		(u64)readl(reg));
+> }
+> 
+> static void writeq(u64 val, void __iomem *reg)
+> {
+> 	writel(val & 0xffffffff, reg);
+> 	writel(val >> 32, reg + 0x4UL);
+> }
+> #endif
+> 
+> basically stating that they explicitly understand that these are
+> non-atomic and that the driver can handle it.
+> 
+> But this is completely stupid.  Instead of putting this in every driver
+> we should put it in the 32-bit asm/io.h files and guard it with
+> some ifdef test, on a macro that the driver can define.
 
-	Ok, now I got a trace that I think is the best one I got so far:
+Well OK.
 
-http://www.abusar.org/ftrace/trace-best.txt.bz2
 
-	and the requested /proc/net/tcp by the time the Tracer was
-stopped:
 
-http://www.abusar.org/ftrace/trace-tcp.txt
+We have a driver which has never been compileable on i386 which has
+slipped through at least three sets of fingers only to land on the
+usual guy's head.
 
-	I hope that now it helps.
-
-	As always, if you need more information, just ask.
-
---=20
+Someone should write a book about this or something.
