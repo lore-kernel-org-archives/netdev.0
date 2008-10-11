@@ -1,51 +1,64 @@
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
-Subject: Re: 2.6.27 seems to break something with DSL
-Date: Sat, 11 Oct 2008 16:02:45 +0200
-Message-ID: <20081011140240.GA5985@joi>
-References: <c6740f810810110553q75478033ub984651d5509199b@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Philip Stark <heller.barde@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757122AbYJKODZ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <c6740f810810110553q75478033ub984651d5509199b@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: pkt_sched: cls_u32: Fix locking in u32_delete()
+Date: Sat, 11 Oct 2008 22:10:22 +0800
+Message-ID: <E1KofAk-0001uJ-0q@gondolin.me.apana.org.au>
+References: <20081011111711.GA2808@ami.dom.local>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, m0sia@plotinka.ru,
+	akpm@linux-foundation.org
+To: jarkao2@gmail.com (Jarek Poplawski)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:56275 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753061AbYJKOKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 10:10:30 -0400
+In-Reply-To: <20081011111711.GA2808@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 11, 2008 at 02:53:16PM +0200, Philip Stark wrote:
-> Hi,
+Jarek Poplawski <jarkao2@gmail.com> wrote:
+> pkt_sched: cls_u32: Fix locking in u32_delete()
 > 
-> I'm sorry, I didn't lurk before making my first posting to this list,
-> but it seemed to me that this might be an important problem/bug (if it
-> is one).
+> While looking for a possible reason of bugzilla [Bug 11571]
+> "u32_classify Kernel Panic" reported by m0sia@plotinka.ru I found that
+> tcf_tree_lock() is missing in u32_delete() during u32_destroy_hnode()
+> call. Other paths calling this function use this lock. It haven't been
+> acknowledged this fixes the bug, but I think this patch is needed here
+> anyway.
 > 
-> first off, my network infrastructure:
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 > 
-> "internet" --(magic*)-- DSL Modem --(DHCP)-- Router --(DHCP)-- Computer
-> * PPPsomething i guess...
+> ---
 > 
-> My observations so far:
+> net/sched/cls_u32.c |    2 ++
+> 1 files changed, 2 insertions(+), 0 deletions(-)
 > 
-> with kernel =< 2.6.26 i can connect to the rest of the world perfectly
-> (ping works and i can browse "the internet")
+> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+> index 246f906..9912ad5 100644
+> --- a/net/sched/cls_u32.c
+> +++ b/net/sched/cls_u32.c
+> @@ -433,7 +433,9 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
 > 
-> now with kernel 2.6.27, i.e with all the release candidates and also
-> with the final version from yesterday i can ping anything just fine,
-> but i can't browse. that is when i 'wget kernel.org' it resolves the
-> address into the correct IP and then goes on to 'connecting' just to
-> grind to a complete halt. after some time of course it times out.
-> it seems to  be related to the packet  size because ping only seems to
-> work because it uses small packets. if i increase the ping size up to
-> 1000 bytes, it fails as well. (while it does work on 2.6.26)
-> 
-> oh and it is the same problem on the wireless and the wired interface.
-> on 2 different laptops and on my desktop (which have different
-> networking chips, two intel and one realtek)
-> 
-> best Regards
-> Philip Stark
-> 
-> PS: if i horribly misposted, please slap me across the face and ignore me :)
+>        if (ht->refcnt == 1) {
+>                ht->refcnt--;
+> +               tcf_tree_lock(tp);
+>                u32_destroy_hnode(tp, ht);
+> +               tcf_tree_unlock(tp);
 
-CC'ing netdev
+Well if you were going to protect you'd need to lock before the
+reference count check.  However, this is actually unecessary
+because the reference count can only be increased the RTNL which
+we're already holding.
+
+Also, if the reference count is 1, then there must be no live
+references in the system to the hash table so we can safely
+delete it.
+
+So whatever the problem is this isn't it :)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
