@@ -1,60 +1,68 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT]: Networking for 2.6.28
-Date: Sat, 11 Oct 2008 13:10:52 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0810111303510.3402@nehalem.linux-foundation.org>
-References: <20081010.144921.115563930.davem@davemloft.net> <alpine.LFD.2.00.0810110941330.3402@nehalem.linux-foundation.org> <alpine.LFD.2.00.0810111057020.3402@nehalem.linux-foundation.org> <20081011.121930.193700319.davem@davemloft.net>
+From: Guennadi Liakhovetski <lg@denx.de>
+Subject: Re: [PATCH, RFC] Extend smc911x to support LAN921x chips
+Date: Sat, 11 Oct 2008 22:30:57 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0810112223160.4965@axis700.grange>
+References: <OFFEAB9876.D4A121DB-ON802574BF.0052D905-802574BF.0054D4AE@smsc.com>
+ <87vdx5gjzo.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810110125540.10196@axis700.grange>
+ <871vynr3yb.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810111057030.4425@axis700.grange>
+ <87k5cfoz7b.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Philip Langdale <philipl@overt.org>,
-	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: David Miller <davem@davemloft.net>
+Cc: Steve.Glendinning@smsc.com, netdev@vger.kernel.org,
+	Ian.Saturley@smsc.com
+To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49751 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754142AbYJKULQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 16:11:16 -0400
-In-Reply-To: <20081011.121930.193700319.davem@davemloft.net>
+Received: from mail.gmx.net ([213.165.64.20]:50437 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753924AbYJKUa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Oct 2008 16:30:58 -0400
+In-Reply-To: <87k5cfoz7b.fsf@macbook.be.48ers.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 11 Oct 2008, Peter Korsgaard wrote:
 
-
-On Sat, 11 Oct 2008, David Miller wrote:
+> >>>>> "Guennadi" == Guennadi Liakhovetski <lg@denx.de> writes:
 > 
-> So the proper include (of net/ip.h) is there in ip_vs_xmit.c, but this
-> failure can also happen if CONFIG_INET is not enabled.
+> Hi,
 > 
-> Are you doing that kind of test build?
+>  Guennadi> On Sat, 11 Oct 2008, Peter Korsgaard wrote:
+>  >> >>>>> "Guennadi" == Guennadi Liakhovetski <lg@denx.de> writes:
+>  >> 
+>  >> It looks good, but you should definately split out the arm and cleanup
+>  >> stuff from the new IDs.
+> 
+>  Guennadi> You mean remove the new IDs? Why?
+> 
+> No, just have them in seperate patches - They are independent of each
+> other, so no need to put in the same patch.
 
-No, but somebody is.
+No, they are not independent. smc91x.c is comparing the ID read from the 
+hardware with the table, which someone strangely enough for me put in the 
+header. So, even if one were to split them, you would have to make it a 
+patch series and make the patch for .c depend on the one for .h adding 
+IDs. So, no, these two belong into one patch.
 
-> This patch should fix that case, let me know if it works:
+>  >> What's this for? Isn't that handled just above?
+> 
+>  Guennadi> I think, there's a bug in the code there. The break above
+>  Guennadi> terminates the loop, yes, but then it falls through in the
+>  Guennadi> switch statement to the default case and overwrites the
+>  Guennadi> just found PHY.
+> 
+> Ahh, the good old break-only-escapes-the-innermost-scope. That's a
+> good fix, but please send it seperately from the patch adding the new
+> IDs.
 
-How about you test it? It wasn't my bug-report, I just reported another 
-report from somebody who _does_ run randconfig.
+Ok... it is a simple enough fix, so, one could put them both in one patch 
+and be done with them, just explaining both in the patch description, but 
+ok, I can make it a separate patch too...
 
-Here's another one:
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski, Ph.D.
 
-	drivers/built-in.o: In function `bt_poll_rfkill':
-	toshiba_acpi.c:(.text+0x37346): undefined reference to `input_event'
-
-where the cause seems to be a totally broken Kconfig entry ACPI_TOSHIBA.
-
-You can't just do
-
-	select INPUT_POLLDEV
-
-since that in turn needs all the _other_ input stuff. Yes, yes, things 
-like various keyboard drivers do exactly that, but they are already inside 
-"if INPUT_KEYBOARD/INPUT_MISC" or similar.
-
-So at the very least, you'd now have to have it do a "depends on INPUT" or 
-something like that.
-
-Or perhaps just make that particular _feature_ depend on it, rather than 
-make the whole driver depend on or select it. 
-
-		Linus
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
