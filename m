@@ -1,28 +1,24 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [GIT]: Networking for 2.6.28
-Date: Sat, 11 Oct 2008 18:48:12 +0200
-Message-ID: <48F0D8CC.1060202@trash.net>
-References: <20081010.144921.115563930.davem@davemloft.net> <alpine.LFD.2.00.0810110941330.3402@nehalem.linux-foundation.org> <alpine.LFD.2.00.0810110945420.3402@nehalem.linux-foundation.org>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 0/6][NET-NEXT]qlge: Patch series for drivers/net/qlge
+Date: Sat, 11 Oct 2008 10:16:14 -0700
+Message-ID: <20081011171614.GA26384@susedev.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	ron.mercer@qlogic.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54457 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754329AbYJKQsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 12:48:16 -0400
-In-Reply-To: <alpine.LFD.2.00.0810110945420.3402@nehalem.linux-foundation.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:13220 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760337AbYJKRQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 13:16:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds wrote:
-> 
-> On Sat, 11 Oct 2008, Linus Torvalds wrote:
->> Please fix ASAP.
-> 
-> Ahh. I think this fixes it.
+Jeff,
+Attached are six more patches for various fixes/cleanup for
+drivers/net/qlge.
+Regards,
+Ron
 
-So I'm too late already :) Thanks and sorry for the mess up.
