@@ -1,58 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sat, 11 Oct 2008 15:11:53 -0700 (PDT)
-Message-ID: <20081011.151153.223811080.davem@davemloft.net>
+From: Guennadi Liakhovetski <lg@denx.de>
+Subject: [PATCH v2] smc911x: Add support for LAN921{5,7,8} chips from SMSC
+Date: Sun, 12 Oct 2008 00:59:44 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0810120058190.4965@axis700.grange>
+References: <Pine.LNX.4.64.0810111057030.4425@axis700.grange>
+ <87k5cfoz7b.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810112311030.4965@axis700.grange>
+ <20081011.150852.73771267.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jacmet@sunsite.dk, Steve.Glendinning@smsc.com,
+	netdev@vger.kernel.org, Ian.Saturley@smsc.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52975
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750794AbYJKWMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 18:12:17 -0400
+Received: from mail.gmx.net ([213.165.64.20]:60307 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755752AbYJKW7r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Oct 2008 18:59:47 -0400
+In-Reply-To: <20081011.150852.73771267.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+LAN92{5,7,8} chips from SMSC are register compatible with LAN911{5,6,7,8}
+controllers, and only add support for HP Auto-MDIX. LAN9218 doesn't have
+an external MII interface.
 
-This includes:
+Signed-off-by: Guennadi Liakhovetski <lg@denx.de>
+---
+still against 2.6.27, this time without style and DBG() changes.
 
-1) The bad IP_VS dependency randconfig build failure.
+ drivers/net/smc911x.c |    6 ++++--
+ drivers/net/smc911x.h |   14 ++++++++++----
+ 2 files changed, 14 insertions(+), 6 deletions(-)
 
-2) GRE tunnel rtnl_link initialization (bad memset size),
-   from Herbert Xu.
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index dbc51e9..22a0d14 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -685,8 +685,10 @@ static void smc911x_phy_detect(struct net_device *dev)
+ 	 * PHY#1 to PHY#31, and then PHY#0 last.
+ 	 */
+ 	switch(lp->version) {
+-		case 0x115:
+-		case 0x117:
++		case CHIP_9115:
++		case CHIP_9117:
++		case CHIP_9215:
++		case CHIP_9217:
+ 			cfg = SMC_GET_HW_CFG(lp);
+ 			if (cfg & HW_CFG_EXT_PHY_DET_) {
+ 				cfg &= ~HW_CFG_PHY_CLK_SEL_;
+diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
+index 2abfc28..bf6240f 100644
+--- a/drivers/net/smc911x.h
++++ b/drivers/net/smc911x.h
+@@ -666,10 +666,13 @@ smc_pxa_dma_outsl(struct smc911x_local *lp, u_long physaddr,
+ #define LAN911X_INTERNAL_PHY_ID		(0x0007C000)
+ 
+ /* Chip ID values */
+-#define CHIP_9115	0x115
+-#define CHIP_9116	0x116
+-#define CHIP_9117	0x117
+-#define CHIP_9118	0x118
++#define CHIP_9115	0x0115
++#define CHIP_9116	0x0116
++#define CHIP_9117	0x0117
++#define CHIP_9118	0x0118
++#define CHIP_9215	0x115A
++#define CHIP_9217	0x117A
++#define CHIP_9218	0x118A
+ 
+ struct chip_id {
+ 	u16 id;
+@@ -681,6 +684,9 @@ static const struct chip_id chip_ids[] =  {
+ 	{ CHIP_9116, "LAN9116" },
+ 	{ CHIP_9117, "LAN9117" },
+ 	{ CHIP_9118, "LAN9118" },
++	{ CHIP_9215, "LAN9215" },
++	{ CHIP_9217, "LAN9217" },
++	{ CHIP_9218, "LAN9218" },
+ 	{ 0, NULL },
+ };
+ 
+-- 
+1.5.4
 
-3) External PHY detection fix in smc911x from Guennadi Liakhovetski.
-
-4) E1000 VLAN feature flags should include TSO and CSUM offloads,
-   from Patrick McHardy and ACK'd by Intel folks.
-
-Please pull, thanks a lot!
-
-The following changes since commit bf6f51e3a46f6a602853d3cbacd05864bc6e2a37:
-  Linus Torvalds (1):
-        Merge phase #3 (IOMMU) of git://git.kernel.org/.../tip/linux-2.6-tip
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-David S. Miller (1):
-      ipvs: Add proper dependencies on IP_VS, and fix description header line.
-
-Guennadi Liakhovetski (1):
-      smc911x: Fix external PHY detection
-
-Herbert Xu (1):
-      gre: Initialise rtnl_link tunnel parameters properly
-
-Patrick McHardy (1):
-      e1000: allow VLAN devices to use TSO and CSUM offload
-
- drivers/net/e1000/e1000_main.c |    5 +++++
- drivers/net/smc911x.c          |    3 +++
- net/ipv4/ip_gre.c              |    2 +-
- net/netfilter/ipvs/Kconfig     |    4 ++--
- 4 files changed, 11 insertions(+), 3 deletions(-)
