@@ -1,47 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: gre: minor cleanups in netlink interface
-Date: Sat, 11 Oct 2008 16:45:48 +0200
-Message-ID: <48F0BC1C.5020005@trash.net>
-References: <48EF7D24.6040400@trash.net> <20081011103935.GA6168@gondor.apana.org.au> <48F0BB77.6080401@trash.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH] [stable 2.6.27.y] don't take the mdio_lock in atl1e_probe
+Date: Sat, 11 Oct 2008 09:55:07 -0500
+Message-ID: <20081011095507.77adc6fd@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Matthew Wilcox <willy@linux.intel.com>,
+	Jeff Garzik <jgarzik@redhat.com>,
+	Chris Snook <csnook@redhat.com>,
+	Jie Yang <jie.yang@atheros.com>, netdev@vger.kernel.org,
+	Jay Cliburn <jcliburn@gmail.com>, nm127@freemail.hu,
+	Andrew Morton <akpm@linux-foundation.org>
+To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51605 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753401AbYJKOpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 10:45:51 -0400
-In-Reply-To: <48F0BB77.6080401@trash.net>
+Received: from fmailhost03.isp.att.net ([207.115.11.53]:33349 "EHLO
+	fmailhost03.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753738AbYJKOzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 10:55:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Herbert Xu wrote:
->>> I noticed the interface expects to always get a full configuration
->>> on change requests. Is there are particular reason for not
->>> supporting incremental changes, lets say
->>>
->>> "ip link change dev gre0 type gre remote <new remote>"
->>>
->>> ? It looks easy enough to change, so I could take care of this.
->>
->> I think this should be done in iproute.  That way the user (or
->> rather the user-space programmer) gets to choose the behaviour.
->> This is also how the existing interface works too.
-> 
-> We don't have much precedent for rtnl_link besides VLAN (which
-> does support incremental changes), but actually all other route
-> netlink interfaces do support incremental changes by sending only
-> a subset of the attributes. A reason for supporting this in the
-> interface is that incremental userspace changes will always be
-> racy because you need two seperate operations.
+From: Matthew Wilcox <matthew@wil.cx>
 
+Upstream commit: f382a0a8e9403c6d7f8b2cfa21e41fefb5d0c9bd
 
-Its actually also what defines the difference between using
-NLM_F_REPLACE (ip link replace) and no flags (ip link change).
-The former replaces the replaces the object, the later changes
-an existing object.
+This fixes bug 11736.
 
+http://marc.info/?l=linux-netdev&m=122367387219316&w=2
+
+Lockdep warns about the mdio_lock taken with interrupts enabled then later
+taken from interrupt context.  Initially, I considered changing these
+to spin_lock_irq/spin_unlock_irq, but then I looked at atl1e_phy_init()
+and saw that it calls msleep().  Sleeping while holding a spinlock is
+not allowed either.
+
+In the probe path, we haven't registered the interrupt handler, so
+it can't poke at this card yet.  It's before we call register_netdev(),
+so I don't think any other threads can reach this card either.  If I'm
+right, we don't need a spinlock at all.
+
+Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
+Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+---
+ drivers/net/atl1e/atl1e_main.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 7685b99..9b60352 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -2390,9 +2390,7 @@ static int __devinit atl1e_probe(struct pci_dev *pdev,
+        }
+
+        /* Init GPHY as early as possible due to power saving issue  */
+-       spin_lock(&adapter->mdio_lock);
+        atl1e_phy_init(&adapter->hw);
+-       spin_unlock(&adapter->mdio_lock);
+        /* reset the controller to
+         * put the device in a known good starting state */
+        err = atl1e_reset_hw(&adapter->hw);
+--
+1.5.5.1
