@@ -1,52 +1,48 @@
-From: Guennadi Liakhovetski <lg@denx.de>
-Subject: Re: [PATCH, RFC] Extend smc911x to support LAN921x chips
-Date: Sat, 11 Oct 2008 11:00:40 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0810111057030.4425@axis700.grange>
-References: <OFFEAB9876.D4A121DB-ON802574BF.0052D905-802574BF.0054D4AE@smsc.com>
- <87vdx5gjzo.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810110125540.10196@axis700.grange>
- <871vynr3yb.fsf@macbook.be.48ers.dk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gre: minor cleanups in netlink interface
+Date: Sat, 11 Oct 2008 18:39:35 +0800
+Message-ID: <20081011103935.GA6168@gondor.apana.org.au>
+References: <48EF7D24.6040400@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Steve.Glendinning@smsc.com, netdev@vger.kernel.org,
-	Ian.Saturley@smsc.com
-To: Peter Korsgaard <jacmet@sunsite.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:59202 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750756AbYJKJAi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Oct 2008 05:00:38 -0400
-In-Reply-To: <871vynr3yb.fsf@macbook.be.48ers.dk>
+Received: from rhun.apana.org.au ([64.62.148.172]:53151 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751670AbYJKKjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 06:39:42 -0400
+Content-Disposition: inline
+In-Reply-To: <48EF7D24.6040400@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 11 Oct 2008, Peter Korsgaard wrote:
+On Fri, Oct 10, 2008 at 06:04:52PM +0200, Patrick McHardy wrote:
+> Some minor cleanups, there doesn't seem to be a reason for not
+> using the typeful helpers everywhere.
 
-> >>>>> "Guennadi" == Guennadi Liakhovetski <lg@denx.de> writes:
-> 
-> It looks good, but you should definately split out the arm and cleanup
-> stuff from the new IDs.
+The reason for that was future IPv6 support.  But I suppose having
+it as a be32 for now doesn't prevent us from changing it later, or
+does it?
 
-You mean remove the new IDs? Why?
+> I noticed the interface expects to always get a full configuration
+> on change requests. Is there are particular reason for not
+> supporting incremental changes, lets say
+>
+> "ip link change dev gre0 type gre remote <new remote>"
+>
+> ? It looks easy enough to change, so I could take care of this.
 
->  Guennadi> @@ -722,6 +724,9 @@ static void smc911x_phy_detect(struct net_device *dev)
->  Guennadi>  						break;
->  Guennadi>  					}
->  Guennadi>  				}
->  Guennadi> +				if (phyaddr < 32)
->  Guennadi> +					/* Found an external PHY */
->  Guennadi> +					break;
-> 
-> What's this for? Isn't that handled just above?
+I think this should be done in iproute.  That way the user (or
+rather the user-space programmer) gets to choose the behaviour.
+This is also how the existing interface works too.
 
-I think, there's a bug in the code there. The break above terminates the 
-loop, yes, but then it falls through in the switch statement to the 
-default case and overwrites the just found PHY.
+I'll update the iproute change to do this.
 
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
-
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
