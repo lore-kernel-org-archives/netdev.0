@@ -1,58 +1,87 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH, RFC] Extend smc911x to support LAN921x chips
-Date: Sat, 11 Oct 2008 09:22:36 +0200
-Message-ID: <871vynr3yb.fsf@macbook.be.48ers.dk>
-References: <OFFEAB9876.D4A121DB-ON802574BF.0052D905-802574BF.0054D4AE@smsc.com>
-	<87vdx5gjzo.fsf@macbook.be.48ers.dk>
-	<Pine.LNX.4.64.0810110125540.10196@axis700.grange>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: v3 [PATCH 0/5] dccp: Feature negotiation, Part I - Underlying data
+	structures
+Date: Sat, 11 Oct 2008 09:31:13 +0200
+Message-ID: <20081011073113.GA9205@gerrit.erg.abdn.ac.uk>
+References: <20081005.091334.208715265.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Steve.Glendinning@smsc.com, netdev@vger.kernel.org,
-	Ian.Saturley@smsc.com
-To: Guennadi Liakhovetski <lg@denx.de>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:45860 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbYJKHWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 03:22:42 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so344772eyi.37
-        for <netdev@vger.kernel.org>; Sat, 11 Oct 2008 00:22:40 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0810110125540.10196@axis700.grange> (Guennadi Liakhovetski's message of "Sat\, 11 Oct 2008 01\:33\:17 +0200 \(CEST\)")
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38971 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751352AbYJKHbY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Oct 2008 03:31:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20081005.091334.208715265.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Guennadi" == Guennadi Liakhovetski <lg@denx.de> writes:
+Hi Dave,
 
-Hi,
+please find below the revised patch set.
 
- Guennadi> LAN921x controllers from SMSC register cmpatible with
- Guennadi> LAN911x chips, the driver only needs to recognise
- Guennadi> respective chip IDs. Patch also adds network support for
- Guennadi> the pcm037 board, using this chip.
+Thank you for taking the time to look through.
 
- Guennadi> Signed-off-by: Guennadi Liakhovetski <lg@denx.de>
+If we could keep this set going on as a low-key background process, that
+would be great. I found the pace not only more reviewer-friendly, but also
+more submitter-friendly, so it is in fact a good choice.
 
- Guennadi> ---
+Regards
+Gerrit
 
- Guennadi> This is an RFC just to let everyone comment on it, it
- Guennadi> probably would also be better to split it into two patches
- Guennadi> - one only for drivers/net and one for arch/arm plus the
- Guennadi> Kconfig hunk. Based on 2.6.27, would be nice to get it into
- Guennadi> 2.6.28. The CC-list is kept from the previous discussion
- Guennadi> regarding this driver-extension.
 
-It looks good, but you should definately split out the arm and cleanup
-stuff from the new IDs.
+Changes relative to revision 2
+------------------------------
+ * reordered patches to eliminate build warnings (reducing patch sizes); 
+ * in addition, sparse-build warnings were also eliminated;
+ * all patches again verified to compile without build errors.
 
- Guennadi> @@ -722,6 +724,9 @@ static void smc911x_phy_detect(struct net_device *dev)
- Guennadi>  						break;
- Guennadi>  					}
- Guennadi>  				}
- Guennadi> +				if (phyaddr < 32)
- Guennadi> +					/* Found an external PHY */
- Guennadi> +					break;
 
-What's this for? Isn't that handled just above?
+Changes relative to revision 1
+------------------------------
+ * [1/5] streamlined field layout reducing the size per each entry;
+ * [2/5] migration of function 'dccp_default_value' to a later in the set
+         where it is first used.
 
--- 
-Bye, Peter Korsgaard
+
+Commit summary
+--------------
+This is the first set of the feature negotiation patches. These provide a 
+self-contained feature negotiation API for the DCCP protocol (RFC 4340-2).
+
+The whole set is structured into 3 main blocks - (1) basis, (2) core,
+(3) integration and cleanup. Within these blocks, this is the first,
+self-contained, set and its purpose is to provide
+ (a) the underlying datastructures
+ (b) initialisation and cleanup routines for the new datastructures.
+
+
+List of patches in this set:
+----------------------------
+Patch #1: Provides the basic datastructure for feature negotiation. It gets 
+          around the problem that feature-negotiation values have no uniform
+	  type - they can be 48-bit numbers, single characters, 2-byte integers
+	  or a list of unsigned chars.
+Patch #2: Provides a lookup-table for the different negotiable features.
+Patch #3: Adds list management for the list keeping the negotiation-options.
+Patch #4: Initialisation routines (for request sockets and normal sockets).
+Patch #5: Analogous to #4, this provides the cleanup routines.	  
+
+The set is also available for viewing online, beginning at
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=6370e843d9977eff8f2a1bbb18020d5fbc36b202
+
+Patch stats:
+------------
+ include/linux/dccp.h |   13 ++-
+ net/dccp/dccp.h      |    5 +
+ net/dccp/feat.c      |  167 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/dccp/feat.h      |   62 ++++++++++++++++++
+ net/dccp/input.c     |    2 
+ net/dccp/ipv4.c      |    4 -
+ net/dccp/ipv6.c      |    4 -
+ net/dccp/minisocks.c |    7 +-
+ net/dccp/proto.c     |    3 
+ 9 files changed, 256 insertions(+), 11 deletions(-)
+
