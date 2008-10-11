@@ -1,42 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: gre: minor cleanups in netlink interface
-Date: Sat, 11 Oct 2008 17:39:36 +0200
-Message-ID: <48F0C8B8.7010400@trash.net>
-References: <48EF7D24.6040400@trash.net> <20081011103935.GA6168@gondor.apana.org.au> <48F0BB77.6080401@trash.net> <48F0BC1C.5020005@trash.net> <20081011151820.GB7520@gondor.apana.org.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking for 2.6.28
+Date: Sat, 11 Oct 2008 09:43:07 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0810110941330.3402@nehalem.linux-foundation.org>
+References: <20081010.144921.115563930.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52852 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753966AbYJKPjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 11:39:41 -0400
-In-Reply-To: <20081011151820.GB7520@gondor.apana.org.au>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59472 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753733AbYJKQnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 12:43:41 -0400
+In-Reply-To: <20081010.144921.115563930.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sat, Oct 11, 2008 at 04:45:48PM +0200, Patrick McHardy wrote:
->> Its actually also what defines the difference between using
->> NLM_F_REPLACE (ip link replace) and no flags (ip link change).
->> The former replaces the replaces the object, the later changes
->> an existing object.
-> 
-> That wasn't the case historically.  For routing NLM_F_REPLACE
-> had a real meaning because you can have routes that differ only
-> by scope.  So if you considered routes that are otherwise the
-> same to be duplicate routes, then NLM_F_REPLACE tells you whether
-> you're allowed to create a new route or you must modify one
-> of the existing ones.  Of course completely duplicate routes
-> where everything is equal is not allowed.
 
-Interesting, I wasn't aware of that.
 
-> Of course NLM_F_REPLACE has since been seconded for other purposes
-> so I suppose it can mean whatever you want for rtnl link :)
+On Fri, 10 Oct 2008, David Miller wrote:
+>=20
+> Here are the queued up networking changes for the 2.6.28 merge window=
+=2E
 
-It actually not supported currently because replacement of links
-(while keeping routes etc.) would be highly complicated.
+This generates _tons_ of new warnings for me:
+
+  net/netfilter/nf_conntrack_ftp.c: In function =A1update_nl_seq=A2:
+  net/netfilter/nf_conntrack_ftp.c:340: warning: passing argument 2 of =
+=A1nf_conntrack_event_cache=A2 from incompatible pointer type
+  net/netfilter/nf_conntrack_ftp.c:344: warning: passing argument 2 of =
+=A1nf_conntrack_event_cache=A2 from incompatible pointer type
+
+Please fix ASAP.
+
+Pulled, but unhappy about warnings in my limited configuration.
+
+		Linus
