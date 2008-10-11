@@ -1,57 +1,51 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround (fwd)
-Date: Sat, 11 Oct 2008 10:38:54 -0300
-Message-ID: <48f0ac73.050cc00a.02ca.437f@mx.google.com>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
-	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
-	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
-	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
-	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
-	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
-	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
-	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
-	<Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
-	<48e5364d.0603c00a.6e25.fffff993@mx.google.com>
-	<Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
-	<48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com>
-	<alpine.LFD.2.00.0810052008131.3398@apollo>
-	<48ed0b51.0913c00a.7715.4aa7@mx.google.com>
-	<alpine.LFD.2.00.0810082154420.3237@apollo>
-	<Pine.LNX.4.64.0810082329250.7599@wrl-59.cs.helsinki.fi>
-	<48eed827.060ec00a.1389.ffffb4e3@mx.google.com>
-	<Pine.LNX.4.64.0810111121050.18685@wrl-59.cs.helsinki.fi>
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
+Subject: Re: 2.6.27 seems to break something with DSL
+Date: Sat, 11 Oct 2008 16:02:45 +0200
+Message-ID: <20081011140240.GA5985@joi>
+References: <c6740f810810110553q75478033ub984651d5509199b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.27]:27256 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373AbYJKNjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 09:39:02 -0400
-Received: by qw-out-2122.google.com with SMTP id 3so287367qwe.37
-        for <netdev@vger.kernel.org>; Sat, 11 Oct 2008 06:39:00 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0810111121050.18685@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Philip Stark <heller.barde@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757122AbYJKODZ@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <c6740f810810110553q75478033ub984651d5509199b@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Oct 2008 11:27:50 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Sat, Oct 11, 2008 at 02:53:16PM +0200, Philip Stark wrote:
+> Hi,
+> 
+> I'm sorry, I didn't lurk before making my first posting to this list,
+> but it seemed to me that this might be an important problem/bug (if it
+> is one).
+> 
+> first off, my network infrastructure:
+> 
+> "internet" --(magic*)-- DSL Modem --(DHCP)-- Router --(DHCP)-- Computer
+> * PPPsomething i guess...
+> 
+> My observations so far:
+> 
+> with kernel =< 2.6.26 i can connect to the rest of the world perfectly
+> (ping works and i can browse "the internet")
+> 
+> now with kernel 2.6.27, i.e with all the release candidates and also
+> with the final version from yesterday i can ping anything just fine,
+> but i can't browse. that is when i 'wget kernel.org' it resolves the
+> address into the correct IP and then goes on to 'connecting' just to
+> grind to a complete halt. after some time of course it times out.
+> it seems to  be related to the packet  size because ping only seems to
+> work because it uses small packets. if i increase the ping size up to
+> 1000 bytes, it fails as well. (while it does work on 2.6.26)
+> 
+> oh and it is the same problem on the wireless and the wired interface.
+> on 2 different laptops and on my desktop (which have different
+> networking chips, two intel and one realtek)
+> 
+> best Regards
+> Philip Stark
+> 
+> PS: if i horribly misposted, please slap me across the face and ignore me :)
 
-> This time there isn't any listening socket with queue to be accepted,=
- not=20
-> connections. So it's not exactly the same situation on the server, I'=
-m=20
-> sort of thinking that the accept() stuff we found earlier is just=20
-> coincidence, I guess it could as well hang somewhere else on other
-> times.
-
-	Ok, this was with 2.6.27-rc8. Now I'm using the final 2.6.27
-version and, at least until now, no stall happened. 2.6.27 seems much
-better than 2.6.25 and 2.6.26.
-
---=20
+CC'ing netdev
