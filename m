@@ -1,68 +1,122 @@
-From: Guennadi Liakhovetski <lg@denx.de>
-Subject: Re: [PATCH, RFC] Extend smc911x to support LAN921x chips
-Date: Sat, 11 Oct 2008 22:30:57 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0810112223160.4965@axis700.grange>
-References: <OFFEAB9876.D4A121DB-ON802574BF.0052D905-802574BF.0054D4AE@smsc.com>
- <87vdx5gjzo.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810110125540.10196@axis700.grange>
- <871vynr3yb.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810111057030.4425@axis700.grange>
- <87k5cfoz7b.fsf@macbook.be.48ers.dk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/6] [NET-NEXT]qlge: Clean up and fix MSI and legacy
+	irq handling.
+Date: Sat, 11 Oct 2008 22:59:03 +0200
+Message-ID: <20081011205903.GA29496@electric-eye.fr.zoreil.com>
+References: <20081011171614.GA26384@susedev.qlogic.org> <1223745433-26440-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Steve.Glendinning@smsc.com, netdev@vger.kernel.org,
-	Ian.Saturley@smsc.com
-To: Peter Korsgaard <jacmet@sunsite.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-driver@qlogic.com
+To: Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:50437 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753924AbYJKUa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Oct 2008 16:30:58 -0400
-In-Reply-To: <87k5cfoz7b.fsf@macbook.be.48ers.dk>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41516 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758799AbYJKU7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 16:59:15 -0400
+Content-Disposition: inline
+In-Reply-To: <1223745433-26440-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 11 Oct 2008, Peter Korsgaard wrote:
+Ron Mercer <ron.mercer@qlogic.com> :
+[...]
+>  static u32 ql_disable_completion_interrupt(struct ql_adapter *qdev, u32 intr)
+>  {
+>  	u32 var = 0;
+>  
+> -	if (likely(test_bit(QL_MSIX_ENABLED, &qdev->flags)))
+> +	if (likely(test_bit(QL_MSIX_ENABLED, &qdev->flags) && intr))
+>  		goto exit;
+> -	else if (!atomic_read(&qdev->intr_context[intr].irq_cnt)) {
+> -		ql_write32(qdev, INTR_EN,
+> -			   qdev->intr_context[intr].intr_dis_mask);
+> -		var = ql_read32(qdev, STS);
+> -	}
+> -	atomic_inc(&qdev->intr_context[intr].irq_cnt);
+> +	else {
+> +		unsigned long hw_flags = 0;
+> +		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
+> +              if (!atomic_read(&qdev->intr_context[intr].irq_cnt)) {
+> +		       ql_write32(qdev, INTR_EN,
+> +			          qdev->intr_context[intr].intr_dis_mask);
+> +       		var = ql_read32(qdev, STS);
+> +	       }
+> +       	atomic_inc(&qdev->intr_context[intr].irq_cnt);
+> +		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
+> +       }
+>  exit:
+>  	return var;
+>  }
 
-> >>>>> "Guennadi" == Guennadi Liakhovetski <lg@denx.de> writes:
-> 
-> Hi,
-> 
->  Guennadi> On Sat, 11 Oct 2008, Peter Korsgaard wrote:
->  >> >>>>> "Guennadi" == Guennadi Liakhovetski <lg@denx.de> writes:
->  >> 
->  >> It looks good, but you should definately split out the arm and cleanup
->  >> stuff from the new IDs.
-> 
->  Guennadi> You mean remove the new IDs? Why?
-> 
-> No, just have them in seperate patches - They are independent of each
-> other, so no need to put in the same patch.
+Ron, the style is a bit convoluted and the indent mixes whitespaces and
+tabs. Could you make it look something like :
 
-No, they are not independent. smc91x.c is comparing the ID read from the 
-hardware with the table, which someone strangely enough for me put in the 
-header. So, even if one were to split them, you would have to make it a 
-patch series and make the patch for .c depend on the one for .h adding 
-IDs. So, no, these two belong into one patch.
+{
+	u32 var = 0;
 
->  >> What's this for? Isn't that handled just above?
-> 
->  Guennadi> I think, there's a bug in the code there. The break above
->  Guennadi> terminates the loop, yes, but then it falls through in the
->  Guennadi> switch statement to the default case and overwrites the
->  Guennadi> just found PHY.
-> 
-> Ahh, the good old break-only-escapes-the-innermost-scope. That's a
-> good fix, but please send it seperately from the patch adding the new
-> IDs.
+	if (unlikely(test_bit(QL_MSIX_ENABLED, &qdev->flags) && intr)) {
+		unsigned long flags;
 
-Ok... it is a simple enough fix, so, one could put them both in one patch 
-and be done with them, just explaining both in the patch description, but 
-ok, I can make it a separate patch too...
+		spin_lock_irqsave(&qdev->hw_lock, flags);
+		if (!atomic_read(&qdev->intr_context[intr].irq_cnt)) {
+			ql_write32(qdev, INTR_EN,
+				   qdev->intr_context[intr].intr_dis_mask);
+			var = ql_read32(qdev, STS);
+		}
+		atomic_inc(&qdev->intr_context[intr].irq_cnt);
+		spin_unlock_irqrestore(&qdev->hw_lock, flags);
+	}
+	return var;
+}
 
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
+or (assuming there is no locking issue with the local variable ctx) :
 
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
+{
+	u32 var = 0;
+
+	if (unlikely(test_bit(QL_MSIX_ENABLED, &qdev->flags) && intr)) {
+		struct intr_context *ctx = qdev->intr_context + intr;
+		unsigned long flags;
+
+		spin_lock_irqsave(&qdev->hw_lock, flags);
+		if (!atomic_read(&ctx->irq_cnt)) {
+			ql_write32(qdev, INTR_EN, ctx->intr_dis_mask);
+			var = ql_read32(qdev, STS);
+		}
+		atomic_inc(&ctx->irq_cnt);
+		spin_unlock_irqrestore(&qdev->hw_lock, flags);
+	}
+	return var;
+}
+
+[...]
+> @@ -1752,12 +1743,15 @@ static irqreturn_t qlge_isr(int irq, void *dev_id)
+>  	int i;
+>  	int work_done = 0;
+>  
+> -	if (qdev->legacy_check && qdev->legacy_check(qdev)) {
+> -		QPRINTK(qdev, INTR, INFO, "Already busy, not our interrupt.\n");
+> -		return IRQ_NONE;	/* Not our interrupt */
+> +	spin_lock(&qdev->hw_lock);
+> +	if(atomic_read(&qdev->intr_context[0].irq_cnt)) {
+         ^^ if (
+
+[...]
+> @@ -2791,8 +2786,13 @@ static void ql_resolve_queues_to_irqs(struct ql_adapter *qdev)
+>  		/*
+>  		 * Single interrupt means one handler for all rings.
+>  		 */
+> -		intr_context->handler = qlge_isr;
+> -		sprintf(intr_context->name, "%s-single_irq", qdev->ndev->name);
+> +		if (likely(test_bit(QL_MSI_ENABLED, &qdev->flags))) {
+> +			intr_context->handler = qlge_isr;
+> +			sprintf(intr_context->name, "%s-msi-single_irq", qdev->ndev->name);
+> +		} else {
+> +			intr_context->handler = qlge_isr;
+> +			sprintf(intr_context->name, "%s-legacy-single_irq", qdev->ndev->name);
+> +		}
+
+It is the same "intr_context->handler = qlge_isr;" in both branches, is not it ?
+
+-- 
+Ueimor
