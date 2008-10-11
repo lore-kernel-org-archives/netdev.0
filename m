@@ -1,48 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: gre: minor cleanups in netlink interface
-Date: Sat, 11 Oct 2008 18:39:35 +0800
-Message-ID: <20081011103935.GA6168@gondor.apana.org.au>
-References: <48EF7D24.6040400@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: pkt_sched: cls_u32: Fix locking in u32_delete()
+Date: Sat, 11 Oct 2008 13:17:11 +0200
+Message-ID: <20081011111711.GA2808@ami.dom.local>
+References: <20080916091508.a0cd830e.akpm@linux-foundation.org> <20080917193832.GA2623@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	m0sia@plotinka.ru, Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53151 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751670AbYJKKjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 06:39:42 -0400
+Received: from ey-out-2122.google.com ([74.125.78.24]:37728 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862AbYJKLRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 07:17:00 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so360463eyi.37
+        for <netdev@vger.kernel.org>; Sat, 11 Oct 2008 04:16:58 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <48EF7D24.6040400@trash.net>
+In-Reply-To: <20080917193832.GA2623@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 10, 2008 at 06:04:52PM +0200, Patrick McHardy wrote:
-> Some minor cleanups, there doesn't seem to be a reason for not
-> using the typeful helpers everywhere.
+pkt_sched: cls_u32: Fix locking in u32_delete()
 
-The reason for that was future IPv6 support.  But I suppose having
-it as a be32 for now doesn't prevent us from changing it later, or
-does it?
+While looking for a possible reason of bugzilla [Bug 11571]
+"u32_classify Kernel Panic" reported by m0sia@plotinka.ru I found that
+tcf_tree_lock() is missing in u32_delete() during u32_destroy_hnode()
+call. Other paths calling this function use this lock. It haven't been
+acknowledged this fixes the bug, but I think this patch is needed here
+anyway.
 
-> I noticed the interface expects to always get a full configuration
-> on change requests. Is there are particular reason for not
-> supporting incremental changes, lets say
->
-> "ip link change dev gre0 type gre remote <new remote>"
->
-> ? It looks easy enough to change, so I could take care of this.
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-I think this should be done in iproute.  That way the user (or
-rather the user-space programmer) gets to choose the behaviour.
-This is also how the existing interface works too.
+---
 
-I'll update the iproute change to do this.
+ net/sched/cls_u32.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 246f906..9912ad5 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -433,7 +433,9 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
+ 
+ 	if (ht->refcnt == 1) {
+ 		ht->refcnt--;
++		tcf_tree_lock(tp);
+ 		u32_destroy_hnode(tp, ht);
++		tcf_tree_unlock(tp);
+ 	} else {
+ 		return -EBUSY;
+ 	}
