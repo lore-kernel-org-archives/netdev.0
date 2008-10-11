@@ -1,63 +1,66 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH] [stable 2.6.27.y] don't take the mdio_lock in atl1e_probe
-Date: Sat, 11 Oct 2008 09:55:07 -0500
-Message-ID: <20081011095507.77adc6fd@osprey.hogchain.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gre: minor cleanups in netlink interface
+Date: Sat, 11 Oct 2008 23:03:40 +0800
+Message-ID: <20081011150340.GA7520@gondor.apana.org.au>
+References: <48EF7D24.6040400@trash.net> <20081011103935.GA6168@gondor.apana.org.au> <48F0BB77.6080401@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <willy@linux.intel.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Chris Snook <csnook@redhat.com>,
-	Jie Yang <jie.yang@atheros.com>, netdev@vger.kernel.org,
-	Jay Cliburn <jcliburn@gmail.com>, nm127@freemail.hu,
-	Andrew Morton <akpm@linux-foundation.org>
-To: stable@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost03.isp.att.net ([207.115.11.53]:33349 "EHLO
-	fmailhost03.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753738AbYJKOzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 10:55:11 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:44484 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752222AbYJKPDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 11:03:46 -0400
+Content-Disposition: inline
+In-Reply-To: <48F0BB77.6080401@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Wilcox <matthew@wil.cx>
+On Sat, Oct 11, 2008 at 04:43:03PM +0200, Patrick McHardy wrote:
+>
+> No, its equivalant to using memcpy.
 
-Upstream commit: f382a0a8e9403c6d7f8b2cfa21e41fefb5d0c9bd
+Great.
 
-This fixes bug 11736.
+> We don't have much precedent for rtnl_link besides VLAN (which
+> does support incremental changes), but actually all other route
+> netlink interfaces do support incremental changes by sending only
+> a subset of the attributes. A reason for supporting this in the
+> interface is that incremental userspace changes will always be
+> racy because you need two seperate operations.
 
-http://marc.info/?l=linux-netdev&m=122367387219316&w=2
+It is true that it is going to be racy when done in user-space,
+however that's easily solved with locking.  Even if we did the
+incremental change in the kernel it only helps certain kinds of
+usage scenarios.  For instance, if the race is between two updates
+to the local address you're still going to need synchronisation
+in user-space.
 
-Lockdep warns about the mdio_lock taken with interrupts enabled then later
-taken from interrupt context.  Initially, I considered changing these
-to spin_lock_irq/spin_unlock_irq, but then I looked at atl1e_phy_init()
-and saw that it calls msleep().  Sleeping while holding a spinlock is
-not allowed either.
+Having said that, I'm certainly not against changing the interface
+since you do have precedence with the other two :)
 
-In the probe path, we haven't registered the interrupt handler, so
-it can't poke at this card yet.  It's before we call register_netdev(),
-so I don't think any other threads can reach this card either.  If I'm
-right, we don't need a spinlock at all.
+Do be warned that doing this for GRE is going to be less trivial
+than the existing rtnl link interfaces.  For example, we'll need
+to break down the iflags/oflags into individual bits as otherwise
+you'll be back in the same situation.  It's a good thing that
+there aren't too many bits in use :)
 
-Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
----
- drivers/net/atl1e/atl1e_main.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Also, for ikey/okey we'll need to introduce another attribute to
+indicate their presence as well as their value.
 
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index 7685b99..9b60352 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -2390,9 +2390,7 @@ static int __devinit atl1e_probe(struct pci_dev *pdev,
-        }
+Hmm, it seems that there is a bug in how we treat a zero key.
+You can't have a tunnel with a zero key and one with no key at
+the same time.
 
-        /* Init GPHY as early as possible due to power saving issue  */
--       spin_lock(&adapter->mdio_lock);
-        atl1e_phy_init(&adapter->hw);
--       spin_unlock(&adapter->mdio_lock);
-        /* reset the controller to
-         * put the device in a known good starting state */
-        err = atl1e_reset_hw(&adapter->hw);
---
-1.5.5.1
+In fact my latest iproute patch has a similar problem.  You
+can't unset the ikey/okey except by deleting the tunnel.  On
+the other hand the old ip tunnel interface has the same bug :)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
