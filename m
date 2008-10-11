@@ -1,87 +1,121 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: v3 [PATCH 0/5] dccp: Feature negotiation, Part I - Underlying data
-	structures
-Date: Sat, 11 Oct 2008 09:31:13 +0200
-Message-ID: <20081011073113.GA9205@gerrit.erg.abdn.ac.uk>
-References: <20081005.091334.208715265.davem@davemloft.net>
+Subject: [PATCH 1/5] dccp: Basic data structure for feature negotiation
+Date: Sat, 11 Oct 2008 09:31:20 +0200
+Message-ID: <20081011073120.GB9205@gerrit.erg.abdn.ac.uk>
+References: <20081005.091334.208715265.davem@davemloft.net> <1223312049-25967-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38971 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38975 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751352AbYJKHbY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Oct 2008 03:31:24 -0400
+	id S1751580AbYJKHb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Oct 2008 03:31:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20081005.091334.208715265.davem@davemloft.net>
+In-Reply-To: <1223312049-25967-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This patch prepares for the new and extended feature-negotiation routines.
 
-please find below the revised patch set.
+The following feature-negotiation data structures are provided:
+	* a container for the various (SP or NN) values,
+	* symbolic state names to track feature states,
+	* an entry struct which holds all current information together,
+	* elementary functions to fill in and process these structures.
 
-Thank you for taking the time to look through.
+Entry structs are arranged as FIFO for the following reason: RFC 4340 specifies
+that if multiple options of the same type are present, they are processed in the
+order of their appearance in the packet; which means that this order needs to be
+preserved in the local data structure (the later insertion code also respects
+this order).
 
-If we could keep this set going on as a low-key background process, that
-would be great. I found the pace not only more reviewer-friendly, but also
-more submitter-friendly, so it is in fact a good choice.
+The struct list_head has been chosen for the following reasons: the most
+frequent operations are
+ * add new entry at tail (when receiving Change or setting socket options);
+ * delete entry (when Confirm has been received);
+ * deep copy of entire list (cloning from listening socket onto request socket).
 
-Regards
-Gerrit
+The NN value has been set to 64 bit, which is a currently sufficient upper limit
+(Sequence Window feature has 48 bit).
 
+Thanks to Arnaldo, who contributed the streamlined layout of the entry struct.
 
-Changes relative to revision 2
-------------------------------
- * reordered patches to eliminate build warnings (reducing patch sizes); 
- * in addition, sparse-build warnings were also eliminated;
- * all patches again verified to compile without build errors.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/dccp/feat.h |   61 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 61 insertions(+), 0 deletions(-)
 
-
-Changes relative to revision 1
-------------------------------
- * [1/5] streamlined field layout reducing the size per each entry;
- * [2/5] migration of function 'dccp_default_value' to a later in the set
-         where it is first used.
-
-
-Commit summary
---------------
-This is the first set of the feature negotiation patches. These provide a 
-self-contained feature negotiation API for the DCCP protocol (RFC 4340-2).
-
-The whole set is structured into 3 main blocks - (1) basis, (2) core,
-(3) integration and cleanup. Within these blocks, this is the first,
-self-contained, set and its purpose is to provide
- (a) the underlying datastructures
- (b) initialisation and cleanup routines for the new datastructures.
-
-
-List of patches in this set:
-----------------------------
-Patch #1: Provides the basic datastructure for feature negotiation. It gets 
-          around the problem that feature-negotiation values have no uniform
-	  type - they can be 48-bit numbers, single characters, 2-byte integers
-	  or a list of unsigned chars.
-Patch #2: Provides a lookup-table for the different negotiable features.
-Patch #3: Adds list management for the list keeping the negotiation-options.
-Patch #4: Initialisation routines (for request sockets and normal sockets).
-Patch #5: Analogous to #4, this provides the cleanup routines.	  
-
-The set is also available for viewing online, beginning at
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=6370e843d9977eff8f2a1bbb18020d5fbc36b202
-
-Patch stats:
-------------
- include/linux/dccp.h |   13 ++-
- net/dccp/dccp.h      |    5 +
- net/dccp/feat.c      |  167 +++++++++++++++++++++++++++++++++++++++++++++++++++
- net/dccp/feat.h      |   62 ++++++++++++++++++
- net/dccp/input.c     |    2 
- net/dccp/ipv4.c      |    4 -
- net/dccp/ipv6.c      |    4 -
- net/dccp/minisocks.c |    7 +-
- net/dccp/proto.c     |    3 
- 9 files changed, 256 insertions(+), 11 deletions(-)
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -14,6 +14,67 @@
+ #include <linux/types.h>
+ #include "dccp.h"
+ 
++enum dccp_feat_type {
++	FEAT_AT_RX   = 1,	/* located at RX side of half-connection  */
++	FEAT_AT_TX   = 2,	/* located at TX side of half-connection  */
++	FEAT_SP      = 4,	/* server-priority reconciliation (6.3.1) */
++	FEAT_NN	     = 8,	/* non-negotiable reconciliation (6.3.2)  */
++	FEAT_UNKNOWN = 0xFF	/* not understood or invalid feature	  */
++};
++
++enum dccp_feat_state {
++	FEAT_DEFAULT = 0,	/* using default values from 6.4 */
++	FEAT_INITIALISING,	/* feature is being initialised  */
++	FEAT_CHANGING,		/* Change sent but not confirmed yet */
++	FEAT_UNSTABLE,		/* local modification in state CHANGING */
++	FEAT_STABLE		/* both ends (think they) agree */
++};
++
++/**
++ * dccp_feat_val  -  Container for SP or NN feature values
++ * @nn:     single NN value
++ * @sp.vec: single SP value plus optional preference list
++ * @sp.len: length of @sp.vec in bytes
++ */
++typedef union {
++	u64 nn;
++	struct {
++		u8	*vec;
++		u8	len;
++	}   sp;
++} dccp_feat_val;
++
++/**
++ * struct feat_entry  -  Data structure to perform feature negotiation
++ * @val: feature's current value (SP features may have preference list)
++ * @state: feature's current state
++ * @feat_num: one of %dccp_feature_numbers
++ * @needs_mandatory: whether Mandatory options should be sent
++ * @needs_confirm: whether to send a Confirm instead of a Change
++ * @empty_confirm: whether to send an empty Confirm (depends on @needs_confirm)
++ * @is_local: feature location (1) or feature-remote (0)
++ * @node: list pointers, entries arranged in FIFO order
++ */
++struct dccp_feat_entry {
++	dccp_feat_val           val;
++	enum dccp_feat_state    state:8;
++	u8                      feat_num;
++
++	bool			needs_mandatory,
++				needs_confirm,
++				empty_confirm,
++				is_local;
++
++	struct list_head	node;
++};
++
++static inline u8 dccp_feat_genopt(struct dccp_feat_entry *entry)
++{
++	if (entry->needs_confirm)
++		return entry->is_local ? DCCPO_CONFIRM_L : DCCPO_CONFIRM_R;
++	return entry->is_local ? DCCPO_CHANGE_L : DCCPO_CHANGE_R;
++}
++
+ #ifdef CONFIG_IP_DCCP_DEBUG
+ extern const char *dccp_feat_typename(const u8 type);
+ extern const char *dccp_feat_name(const u8 feat);
 
