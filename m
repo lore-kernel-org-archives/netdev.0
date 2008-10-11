@@ -1,67 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: gre: minor cleanups in netlink interface
-Date: Sat, 11 Oct 2008 17:15:40 +0200
-Message-ID: <48F0C31C.8080501@trash.net>
-References: <48EF7D24.6040400@trash.net> <20081011103935.GA6168@gondor.apana.org.au> <48F0BB77.6080401@trash.net> <20081011150340.GA7520@gondor.apana.org.au>
+Date: Sat, 11 Oct 2008 23:18:20 +0800
+Message-ID: <20081011151820.GB7520@gondor.apana.org.au>
+References: <48EF7D24.6040400@trash.net> <20081011103935.GA6168@gondor.apana.org.au> <48F0BB77.6080401@trash.net> <48F0BC1C.5020005@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52218 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357AbYJKPPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 11:15:44 -0400
-In-Reply-To: <20081011150340.GA7520@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:46574 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752442AbYJKPS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 11:18:26 -0400
+Content-Disposition: inline
+In-Reply-To: <48F0BC1C.5020005@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sat, Oct 11, 2008 at 04:43:03PM +0200, Patrick McHardy wrote:
->> We don't have much precedent for rtnl_link besides VLAN (which
->> does support incremental changes), but actually all other route
->> netlink interfaces do support incremental changes by sending only
->> a subset of the attributes. A reason for supporting this in the
->> interface is that incremental userspace changes will always be
->> racy because you need two seperate operations.
-> 
-> It is true that it is going to be racy when done in user-space,
-> however that's easily solved with locking.  Even if we did the
-> incremental change in the kernel it only helps certain kinds of
-> usage scenarios.  For instance, if the race is between two updates
-> to the local address you're still going to need synchronisation
-> in user-space.
+On Sat, Oct 11, 2008 at 04:45:48PM +0200, Patrick McHardy wrote:
+>
+> Its actually also what defines the difference between using
+> NLM_F_REPLACE (ip link replace) and no flags (ip link change).
+> The former replaces the replaces the object, the later changes
+> an existing object.
 
-Thats true.
+That wasn't the case historically.  For routing NLM_F_REPLACE
+had a real meaning because you can have routes that differ only
+by scope.  So if you considered routes that are otherwise the
+same to be duplicate routes, then NLM_F_REPLACE tells you whether
+you're allowed to create a new route or you must modify one
+of the existing ones.  Of course completely duplicate routes
+where everything is equal is not allowed.
 
-> Having said that, I'm certainly not against changing the interface
-> since you do have precedence with the other two :)
-> 
-> Do be warned that doing this for GRE is going to be less trivial
-> than the existing rtnl link interfaces.  For example, we'll need
-> to break down the iflags/oflags into individual bits as otherwise
-> you'll be back in the same situation.  It's a good thing that
-> there aren't too many bits in use :)
+Of course NLM_F_REPLACE has since been seconded for other purposes
+so I suppose it can mean whatever you want for rtnl link :)
 
-We usually use two values (value + mask) for flags.
-
-> Also, for ikey/okey we'll need to introduce another attribute to
-> indicate their presence as well as their value.
-
-The flags already indicate whether keys should be used, don't
-they? So if you want to unset them, you can simply unset the
-GRE_KEY flag.
-
-I'll give it a shot and will post a patch, probably tommorrow.
-
-> Hmm, it seems that there is a bug in how we treat a zero key.
-> You can't have a tunnel with a zero key and one with no key at
-> the same time.
-> 
-> In fact my latest iproute patch has a similar problem.  You
-> can't unset the ikey/okey except by deleting the tunnel.  On
-> the other hand the old ip tunnel interface has the same bug :)
-
-I can't find it :)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
