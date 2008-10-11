@@ -1,122 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/6] [NET-NEXT]qlge: Clean up and fix MSI and legacy
-	irq handling.
-Date: Sat, 11 Oct 2008 22:59:03 +0200
-Message-ID: <20081011205903.GA29496@electric-eye.fr.zoreil.com>
-References: <20081011171614.GA26384@susedev.qlogic.org> <1223745433-26440-1-git-send-email-ron.mercer@qlogic.com>
+From: Guennadi Liakhovetski <lg@denx.de>
+Subject: [PATCH] smc911x: Fix external PHY detection
+Date: Sat, 11 Oct 2008 23:10:58 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0810112309410.4965@axis700.grange>
+References: <OFFEAB9876.D4A121DB-ON802574BF.0052D905-802574BF.0054D4AE@smsc.com>
+ <87vdx5gjzo.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810110125540.10196@axis700.grange>
+ <871vynr3yb.fsf@macbook.be.48ers.dk> <Pine.LNX.4.64.0810111057030.4425@axis700.grange>
+ <87k5cfoz7b.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-driver@qlogic.com
-To: Ron Mercer <ron.mercer@qlogic.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Steve.Glendinning@smsc.com, netdev@vger.kernel.org,
+	Ian.Saturley@smsc.com
+To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41516 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758799AbYJKU7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2008 16:59:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1223745433-26440-1-git-send-email-ron.mercer@qlogic.com>
+Received: from mail.gmx.net ([213.165.64.20]:55685 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1760717AbYJKVK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Oct 2008 17:10:58 -0400
+In-Reply-To: <87k5cfoz7b.fsf@macbook.be.48ers.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ron Mercer <ron.mercer@qlogic.com> :
-[...]
->  static u32 ql_disable_completion_interrupt(struct ql_adapter *qdev, u32 intr)
->  {
->  	u32 var = 0;
->  
-> -	if (likely(test_bit(QL_MSIX_ENABLED, &qdev->flags)))
-> +	if (likely(test_bit(QL_MSIX_ENABLED, &qdev->flags) && intr))
->  		goto exit;
-> -	else if (!atomic_read(&qdev->intr_context[intr].irq_cnt)) {
-> -		ql_write32(qdev, INTR_EN,
-> -			   qdev->intr_context[intr].intr_dis_mask);
-> -		var = ql_read32(qdev, STS);
-> -	}
-> -	atomic_inc(&qdev->intr_context[intr].irq_cnt);
-> +	else {
-> +		unsigned long hw_flags = 0;
-> +		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
-> +              if (!atomic_read(&qdev->intr_context[intr].irq_cnt)) {
-> +		       ql_write32(qdev, INTR_EN,
-> +			          qdev->intr_context[intr].intr_dis_mask);
-> +       		var = ql_read32(qdev, STS);
-> +	       }
-> +       	atomic_inc(&qdev->intr_context[intr].irq_cnt);
-> +		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
-> +       }
->  exit:
->  	return var;
->  }
+If an external PHY is found the driver falls through to the default
+case in the switch and overwrites the PHY ID. Add the missing break.
 
-Ron, the style is a bit convoluted and the indent mixes whitespaces and
-tabs. Could you make it look something like :
+Signed-off-by: Guennadi Liakhovetski <lg@denx.de>
+---
+against 2.6.27
 
-{
-	u32 var = 0;
+ drivers/net/smc911x.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-	if (unlikely(test_bit(QL_MSIX_ENABLED, &qdev->flags) && intr)) {
-		unsigned long flags;
-
-		spin_lock_irqsave(&qdev->hw_lock, flags);
-		if (!atomic_read(&qdev->intr_context[intr].irq_cnt)) {
-			ql_write32(qdev, INTR_EN,
-				   qdev->intr_context[intr].intr_dis_mask);
-			var = ql_read32(qdev, STS);
-		}
-		atomic_inc(&qdev->intr_context[intr].irq_cnt);
-		spin_unlock_irqrestore(&qdev->hw_lock, flags);
-	}
-	return var;
-}
-
-or (assuming there is no locking issue with the local variable ctx) :
-
-{
-	u32 var = 0;
-
-	if (unlikely(test_bit(QL_MSIX_ENABLED, &qdev->flags) && intr)) {
-		struct intr_context *ctx = qdev->intr_context + intr;
-		unsigned long flags;
-
-		spin_lock_irqsave(&qdev->hw_lock, flags);
-		if (!atomic_read(&ctx->irq_cnt)) {
-			ql_write32(qdev, INTR_EN, ctx->intr_dis_mask);
-			var = ql_read32(qdev, STS);
-		}
-		atomic_inc(&ctx->irq_cnt);
-		spin_unlock_irqrestore(&qdev->hw_lock, flags);
-	}
-	return var;
-}
-
-[...]
-> @@ -1752,12 +1743,15 @@ static irqreturn_t qlge_isr(int irq, void *dev_id)
->  	int i;
->  	int work_done = 0;
->  
-> -	if (qdev->legacy_check && qdev->legacy_check(qdev)) {
-> -		QPRINTK(qdev, INTR, INFO, "Already busy, not our interrupt.\n");
-> -		return IRQ_NONE;	/* Not our interrupt */
-> +	spin_lock(&qdev->hw_lock);
-> +	if(atomic_read(&qdev->intr_context[0].irq_cnt)) {
-         ^^ if (
-
-[...]
-> @@ -2791,8 +2786,13 @@ static void ql_resolve_queues_to_irqs(struct ql_adapter *qdev)
->  		/*
->  		 * Single interrupt means one handler for all rings.
->  		 */
-> -		intr_context->handler = qlge_isr;
-> -		sprintf(intr_context->name, "%s-single_irq", qdev->ndev->name);
-> +		if (likely(test_bit(QL_MSI_ENABLED, &qdev->flags))) {
-> +			intr_context->handler = qlge_isr;
-> +			sprintf(intr_context->name, "%s-msi-single_irq", qdev->ndev->name);
-> +		} else {
-> +			intr_context->handler = qlge_isr;
-> +			sprintf(intr_context->name, "%s-legacy-single_irq", qdev->ndev->name);
-> +		}
-
-It is the same "intr_context->handler = qlge_isr;" in both branches, is not it ?
-
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index c587162..dbc51e9 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -722,6 +722,9 @@ static void smc911x_phy_detect(struct net_device *dev)
+ 						break;
+ 					}
+ 				}
++				if (phyaddr < 32)
++					/* Found an external PHY */
++					break;
+ 			}
+ 		default:
+ 			/* Internal media only */
 -- 
-Ueimor
+1.5.4
+
