@@ -1,128 +1,48 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] net/bfin_mac.c MDIO namespace fixes
-Date: Sun, 12 Oct 2008 14:37:37 +0300
-Message-ID: <20081012113737.GF31153@cs181140183.pp.htv.fi>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: [PATCH net-2.6] cifs: Fix compile error without CONFIG_KEYS selected.
+Date: Sun, 12 Oct 2008 19:41:03 +0800
+Message-ID: <20081012113349.M10023@cooldavid.org>
+References: <20081011.151153.223811080.davem@davemloft.net>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	cooloney@kernel.org
-To: Lennert Buytenhek <buytenh@marvell.com>,
-	"David S. Miller" <davem@davemloft.net>, jgarzik@pobox.com
+Content-Type: text/plain;
+	charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	samba-technical@lists.samba.org
+To: Steve French <sfrench@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:43734 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751615AbYJLLie (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Oct 2008 07:38:34 -0400
-Content-Disposition: inline
+Received: from 220-133-139-86.HINET-IP.hinet.net ([220.133.139.86]:50967 "EHLO
+	cooldavid.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752112AbYJLLli (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Oct 2008 07:41:38 -0400
+In-Reply-To: <20081011.151153.223811080.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 2e888103295f47b8fcbf7e9bb8c5da97dd2ecd76
-(phylib: add mdiobus_{read,write}) causes the
-following compile error:
+Hi Steve, David:
 
-<--  snip  -->
+  I'm not sure where should this patch goes, since I see the error
+in David's net-2.6 git, I submit it to netdev.
 
-...
-  CC      drivers/net/bfin_mac.o
-drivers/net/bfin_mac.c:272: error: conflicting types for 'mdiobus_read'
-include/linux/phy.h:130: error: previous declaration of 'mdiobus_read' was here
-drivers/net/bfin_mac.c:287: error: conflicting types for 'mdiobus_write'
-include/linux/phy.h:131: error: previous declaration of 'mdiobus_write' was here
-make[3]: *** [drivers/net/bfin_mac.o] Error 1
+cifs: Fix compile error without CONFIG_KEYS selected.
 
-<--  snip  -->
+fs/cifs/sess.c: In function "CIFS_SessSetup":
+fs/cifs/sess.c:628: error: implicit declaration of function "key_revoke"
 
-This patch prefixes the driver functions with bfin_
-
-
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
 ---
+1 files changed, 1 insertions(+), 0 deletions(-)
 
- drivers/net/bfin_mac.c |   26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index a0d41c5..b458d60 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -253,7 +253,7 @@ init_error:
-  * MII operations
-  */
- /* Wait until the previous MDC/MDIO transaction has completed */
--static void mdio_poll(void)
-+static void bfin_mdio_poll(void)
- {
- 	int timeout_cnt = MAX_TIMEOUT_CNT;
- 
-@@ -269,25 +269,25 @@ static void mdio_poll(void)
- }
- 
- /* Read an off-chip register in a PHY through the MDC/MDIO port */
--static int mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
-+static int bfin_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
- {
--	mdio_poll();
-+	bfin_mdio_poll();
- 
- 	/* read mode */
- 	bfin_write_EMAC_STAADD(SET_PHYAD((u16) phy_addr) |
- 				SET_REGAD((u16) regnum) |
- 				STABUSY);
- 
--	mdio_poll();
-+	bfin_mdio_poll();
- 
- 	return (int) bfin_read_EMAC_STADAT();
- }
- 
- /* Write an off-chip register in a PHY through the MDC/MDIO port */
--static int mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
--			 u16 value)
-+static int bfin_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
-+			      u16 value)
- {
--	mdio_poll();
-+	bfin_mdio_poll();
- 
- 	bfin_write_EMAC_STADAT((u32) value);
- 
-@@ -297,12 +297,12 @@ static int mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
- 				STAOP |
- 				STABUSY);
- 
--	mdio_poll();
-+	bfin_mdio_poll();
- 
- 	return 0;
- }
- 
--static int mdiobus_reset(struct mii_bus *bus)
-+static int bfin_mdiobus_reset(struct mii_bus *bus)
- {
- 	return 0;
- }
-@@ -818,7 +818,7 @@ static void bfin_mac_enable(void)
- 	bfin_write_DMA1_CONFIG(rx_list_head->desc_a.config);
- 
- 	/* Wait MII done */
--	mdio_poll();
-+	bfin_mdio_poll();
- 
- 	/* We enable only RX here */
- 	/* ASTP   : Enable Automatic Pad Stripping
-@@ -1063,9 +1063,9 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
- 		goto out_err_mdiobus_alloc;
- 
- 	lp->mii_bus->priv = ndev;
--	lp->mii_bus->read = mdiobus_read;
--	lp->mii_bus->write = mdiobus_write;
--	lp->mii_bus->reset = mdiobus_reset;
-+	lp->mii_bus->read = bfin_mdiobus_read;
-+	lp->mii_bus->write = bfin_mdiobus_write;
-+	lp->mii_bus->reset = bfin_mdiobus_reset;
- 	lp->mii_bus->name = "bfin_mac_mdio";
- 	snprintf(lp->mii_bus->id, MII_BUS_ID_SIZE, "0");
- 	lp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+diff --git a/fs/Kconfig b/fs/Kconfig
+index abccb5d..717245f 100644
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -1863,6 +1863,7 @@ config CIFS
+ 	tristate "CIFS support (advanced network filesystem, SMBFS successor)"
+ 	depends on INET
+ 	select NLS
++	select KEYS
+ 	help
+ 	  This is the client VFS module for the Common Internet File System
+ 	  (CIFS) protocol which is the successor to the Server Message Block 
 
