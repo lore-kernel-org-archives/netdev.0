@@ -1,48 +1,77 @@
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: [PATCH net-2.6] cifs: Fix compile error without CONFIG_KEYS selected.
-Date: Sun, 12 Oct 2008 19:41:03 +0800
-Message-ID: <20081012113349.M10023@cooldavid.org>
-References: <20081011.151153.223811080.davem@davemloft.net>
-Reply-To: cooldavid@cooldavid.org
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: bridging a wifi interface into kvm guest possible?
+Date: Sun, 12 Oct 2008 16:25:10 +0400
+Message-ID: <48F1ECA6.9010203@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	samba-technical@lists.samba.org
-To: Steve French <sfrench@samba.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, kvm-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 220-133-139-86.HINET-IP.hinet.net ([220.133.139.86]:50967 "EHLO
-	cooldavid.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752112AbYJLLli (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Oct 2008 07:41:38 -0400
-In-Reply-To: <20081011.151153.223811080.davem@davemloft.net>
+Received: from hobbit.corpit.ru ([81.13.33.150]:20807 "EHLO hobbit.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751593AbYJLMZN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Oct 2008 08:25:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steve, David:
+[cross-posted to netdev and kvm lists]
 
-  I'm not sure where should this patch goes, since I see the error
-in David's net-2.6 git, I submit it to netdev.
+Hello!
 
-cifs: Fix compile error without CONFIG_KEYS selected.
+I'm trying to set up a [virtual/guest] network of hosts to
+form something like a DMZ and a gateway, but in virtual
+"hardware" instead of real hardware.  One of the things
+I tried is to run the gateway/router machine inside a
+guest system too, not only all the dmz hosts (there are
+some obscure historical reasons for that, don't ask ;).
 
-fs/cifs/sess.c: In function "CIFS_SessSetup":
-fs/cifs/sess.c:628: error: implicit declaration of function "key_revoke"
+Real hardware has 2 ethernet interfaces - external and
+internal LAN.  In order for the gateway to run as a
+guest, one has to "move" external interface into guest.
 
-Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
----
-1 files changed, 1 insertions(+), 0 deletions(-)
+Since kvm does not [fully] support PCI device "moving"
+(what's the right word for this?) from host to guest
+(which is the simplest solution possible), I were
+thinking about something different: bridging.  Since
+bridge is already used to connect gateway host to the
+LAN, why not use it for external<=>gateway link too?
+The difference is that there will be no IP address on
+the host on that "external" bridge, i.e. the host will
+not participate in the IP traffic transmission, only
+ethernet.
 
-diff --git a/fs/Kconfig b/fs/Kconfig
-index abccb5d..717245f 100644
---- a/fs/Kconfig
-+++ b/fs/Kconfig
-@@ -1863,6 +1863,7 @@ config CIFS
- 	tristate "CIFS support (advanced network filesystem, SMBFS successor)"
- 	depends on INET
- 	select NLS
-+	select KEYS
- 	help
- 	  This is the client VFS module for the Common Internet File System
- 	  (CIFS) protocol which is the successor to the Server Message Block 
+So far so good, and that setup worked on a test environment,
+worked flawlessly (well.. almost -- for some reason, under
+some circumstances, linux starts broadcasting certain
+packets over all bridges it has.. but that's different
+issue/topic).  Worked up until I tried it on production,
+which is different from the test setup by the fact that
+for external interface, we have an old 11Mbps wifi card,
+instead of a real ethernet NIC.
 
+And I learned the hard way that bridging does not really
+work with wifi cards (it works with some, and even that
+requires.. some tweaking and additional software).
+
+I tried to set up the mac address on the guest-gateway
+to be the same as the one on wifi, but that obviously
+didn't help.
+
+After browsing kernel options (unrelated to this issue),
+I noticed a device called "macvlan".  So I wonder if that
+can be used in my case, -- just to "move" a wifi interface
+to a guest system.
+
+I found very little documentation about macvlan.  The
+patchset that introduced it back in 2007 says that macvlan
+puts the underlying device into promisc mode (which is where
+a wifi driver has problems).
+
+Or maybe there's another solution to this my problem (not
+counting getting additional hardware for the wifi link,
+which obviously will work; or replacing the wifi card
+with something more advanced).
+
+Thank you!
+
+/mjt
