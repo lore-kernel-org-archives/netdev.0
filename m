@@ -1,20 +1,22 @@
 From: Michael Tokarev <mjt@tls.msk.ru>
 Subject: bridging a wifi interface into kvm guest possible?
-Date: Sun, 12 Oct 2008 16:25:10 +0400
-Message-ID: <48F1ECA6.9010203@msgid.tls.msk.ru>
+Date: Sun, 12 Oct 2008 16:45:54 +0400
+Message-ID: <48F1F182.7020308@msgid.tls.msk.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, kvm-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org, kvm@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.33.150]:20807 "EHLO hobbit.corpit.ru"
+Received: from hobbit.corpit.ru ([81.13.33.150]:23832 "EHLO hobbit.corpit.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751593AbYJLMZN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Oct 2008 08:25:13 -0400
+	id S1752183AbYJLMpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Oct 2008 08:45:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 [cross-posted to netdev and kvm lists]
+[..which failed due to wrong (old) kvm address.
+  Please excuse me for the repost]
 
 Hello!
 
