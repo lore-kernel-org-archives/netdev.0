@@ -1,79 +1,56 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: bridging a wifi interface into kvm guest possible?
-Date: Sun, 12 Oct 2008 16:45:54 +0400
-Message-ID: <48F1F182.7020308@msgid.tls.msk.ru>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] net/tc35815.c: fix compilation
+Date: Sun, 12 Oct 2008 15:49:34 +0300
+Message-ID: <20081012124934.GH31153@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, kvm@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@marvell.com>,
+	"David S. Miller" <davem@davemloft.net>, jgarzik@pobox.com,
+	Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.33.150]:23832 "EHLO hobbit.corpit.ru"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:52567 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752183AbYJLMpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Oct 2008 08:45:55 -0400
+	id S1752744AbYJLMua (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Oct 2008 08:50:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[cross-posted to netdev and kvm lists]
-[..which failed due to wrong (old) kvm address.
-  Please excuse me for the repost]
+Fix an obvious typo introduced by
+commit 298cf9beb9679522de995e249eccbd82f7c51999
+(phylib: move to dynamic allocation of struct mii_bus).
 
-Hello!
+<--  snip  -->
 
-I'm trying to set up a [virtual/guest] network of hosts to
-form something like a DMZ and a gateway, but in virtual
-"hardware" instead of real hardware.  One of the things
-I tried is to run the gateway/router machine inside a
-guest system too, not only all the dmz hosts (there are
-some obscure historical reasons for that, don't ask ;).
+...
+  CC      drivers/net/tc35815.o
+drivers/net/tc35815.c: In function 'tc_mii_init':
+drivers/net/tc35815.c:799: error: 'err_out_free_mii_bus' undeclared (first use in this function)
+drivers/net/tc35815.c:799: error: (Each undeclared identifier is reported only once
+drivers/net/tc35815.c:799: error: for each function it appears in.)
+drivers/net/tc35815.c:781: error: label 'err_out_free_mii_bus' used but not defined
+make[3]: *** [drivers/net/tc35815.o] Error 1
 
-Real hardware has 2 ethernet interfaces - external and
-internal LAN.  In order for the gateway to run as a
-guest, one has to "move" external interface into guest.
+<--  snip  -->
 
-Since kvm does not [fully] support PCI device "moving"
-(what's the right word for this?) from host to guest
-(which is the simplest solution possible), I were
-thinking about something different: bridging.  Since
-bridge is already used to connect gateway host to the
-LAN, why not use it for external<=>gateway link too?
-The difference is that there will be no IP address on
-the host on that "external" bridge, i.e. the host will
-not participate in the IP traffic transmission, only
-ethernet.
 
-So far so good, and that setup worked on a test environment,
-worked flawlessly (well.. almost -- for some reason, under
-some circumstances, linux starts broadcasting certain
-packets over all bridges it has.. but that's different
-issue/topic).  Worked up until I tried it on production,
-which is different from the test setup by the fact that
-for external interface, we have an old 11Mbps wifi card,
-instead of a real ethernet NIC.
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-And I learned the hard way that bridging does not really
-work with wifi cards (it works with some, and even that
-requires.. some tweaking and additional software).
+---
 
-I tried to set up the mac address on the guest-gateway
-to be the same as the one on wifi, but that obviously
-didn't help.
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index 4980b12..df20caf 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -796,7 +796,7 @@ err_out_unregister_bus:
+ 	mdiobus_unregister(lp->mii_bus);
+ err_out_free_mdio_irq:
+ 	kfree(lp->mii_bus->irq);
+-err_out_free_mii_bus;
++err_out_free_mii_bus:
+ 	mdiobus_free(lp->mii_bus);
+ err_out:
+ 	return err;
 
-After browsing kernel options (unrelated to this issue),
-I noticed a device called "macvlan".  So I wonder if that
-can be used in my case, -- just to "move" a wifi interface
-to a guest system.
-
-I found very little documentation about macvlan.  The
-patchset that introduced it back in 2007 says that macvlan
-puts the underlying device into promisc mode (which is where
-a wifi driver has problems).
-
-Or maybe there's another solution to this my problem (not
-counting getting additional hardware for the wifi link,
-which obviously will work; or replacing the wifi card
-with something more advanced).
-
-Thank you!
-
-/mjt
