@@ -1,23 +1,67 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 0/9] Vital Product Data (VPD) patches relating to skge/sky2
-Date: Mon, 13 Oct 2008 13:13:02 -0700
-Message-ID: <20081013201302.899587376@vyatta.com>
+Subject: [PATCH 3/9] PCI: add interface to set visible size of VPD (rev3)
+Date: Mon, 13 Oct 2008 13:13:05 -0700
+Message-ID: <20081013201452.870891660@vyatta.com>
+References: <20081013201302.899587376@vyatta.com>
 Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:57902 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755579AbYJMVEN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2008 17:04:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline; filename=vpd-size.patch
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an updated version of the patches for fixing VPD to work
-with skge and sky2 (and probably other devices) with additional
-timing restrictions.
+The VPD on all devices may not really be 32K. Unfortunately, there is no
+generic way to find the size, so this adds a simple API hook
+to resize it.
 
-Dave, please put these in for 2.6.28, they were submitted and reviewed
-several times during the pre-merge cycle. Just hadn't resolved all the
-comment/feedback yet.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+ drivers/pci/access.c |   23 +++++++++++++++++++++++
+ include/linux/pci.h  |    1 +
+ 2 files changed, 24 insertions(+)
+
+--- a/drivers/pci/access.c	2008-10-13 13:03:58.000000000 -0700
++++ b/drivers/pci/access.c	2008-10-13 13:04:01.000000000 -0700
+@@ -340,6 +340,29 @@ int pci_vpd_pci22_init(struct pci_dev *d
+ }
+ 
+ /**
++ * pci_vpd_truncate - Set available Vital Product Data size
++ * @dev:	pci device struct
++ * @size:	available memory in bytes
++ *
++ * Adjust size of available VPD area.
++ */
++int pci_vpd_truncate(struct pci_dev *dev, size_t size)
++{
++	if (!dev->vpd)
++		return -EINVAL;
++
++	/* limited by the access method */
++	if (size > dev->vpd->len)
++		return -EINVAL;
++
++	dev->vpd->len = size;
++	dev->vpd->attr->size = size;
++
++	return 0;
++}
++EXPORT_SYMBOL(pci_vpd_truncate);
++
++/**
+  * pci_block_user_cfg_access - Block userspace PCI config reads/writes
+  * @dev:	pci device struct
+  *
+--- a/include/linux/pci.h	2008-10-13 13:03:58.000000000 -0700
++++ b/include/linux/pci.h	2008-10-13 13:04:01.000000000 -0700
+@@ -653,6 +653,7 @@ int pci_bus_find_capability(struct pci_b
+ /* Vital product data routines */
+ ssize_t pci_read_vpd(struct pci_dev *dev, loff_t pos, size_t count, void *buf);
+ ssize_t pci_write_vpd(struct pci_dev *dev, loff_t pos, size_t count, const void *buf);
++int pci_vpd_truncate(struct pci_dev *dev, size_t size);
+ 
+ /* Helper functions for low-level code (drivers/pci/setup-[bus,res].c) */
+ void pci_bus_assign_resources(struct pci_bus *bus);
+
 -- 
-
