@@ -1,54 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 7/9] skge: set VPD size
-Date: Mon, 13 Oct 2008 13:13:09 -0700
-Message-ID: <20081013201453.254303973@vyatta.com>
-References: <20081013201302.899587376@vyatta.com>
-Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline; filename=skge-vpd-size.patch
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: Re: [PATCH 1/1] netdev: DM9000: Added typecasting to supress some warnings on Blackfin
+Date: Tue, 14 Oct 2008 00:18:38 +0100
+Message-ID: <20081013231837.GL6646@trinity.fluff.org>
+References: <1223889009-31336-1-git-send-email-cooloney@kernel.org> <20081013.030150.96524866.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: cooloney@kernel.org, ben@simtec.co.uk, s.hauer@pengutronix.de,
+	jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jherrero@hvsistemas.es
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from trinity.fluff.org ([89.145.97.151]:53817 "EHLO
+	trinity.fluff.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753986AbYJMXSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 19:18:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20081013.030150.96524866.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Read configuration register during probe and use it to size the
-available VPD.
+On Mon, Oct 13, 2008 at 03:01:50AM -0700, David Miller wrote:
+> From: Bryan Wu <cooloney@kernel.org>
+> Date: Mon, 13 Oct 2008 17:10:09 +0800
+> 
+> > From: Javier Herrero <jherrero@hvsistemas.es>
+> > 
+> > Signed-off-by: Javier Herrero <jherrero@hvsistemas.es>
+> > Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> 
+> This is not only inelegant, it'll likely break things on
+> 64-bit MIPS or any other case where the upper 32-bit matter.
+> 
+> I'd rather see Blackfin fix it's I/O accessor prototypes
+> to take a proper __iomem pointer.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/drivers/net/skge.c	2008-10-13 12:46:16.000000000 -0700
-+++ b/drivers/net/skge.c	2008-10-13 13:04:10.000000000 -0700
-@@ -3898,6 +3898,7 @@ static int __devinit skge_probe(struct p
- 	struct net_device *dev, *dev1;
- 	struct skge_hw *hw;
- 	int err, using_dac = 0;
-+	u32 reg;
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
-@@ -3926,15 +3927,17 @@ static int __devinit skge_probe(struct p
- 		goto err_out_free_regions;
- 	}
- 
-+	pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
-+
-+	/* set size of available VPD, only impacts sysfs */
-+	err = pci_vpd_truncate(pdev, 1ul << (((reg & PCI_VPD_ROM_SZ) >> 14) + 8));
-+	if (err)
-+		dev_warn(&pdev->dev, "Can't set VPD size\n");
-+
- #ifdef __BIG_ENDIAN
- 	/* byte swap descriptors in hardware */
--	{
--		u32 reg;
--
--		pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
--		reg |= PCI_REV_DESC;
--		pci_write_config_dword(pdev, PCI_DEV_REG2, reg);
--	}
-+	reg |= PCI_REV_DESC;
-+	pci_write_config_dword(pdev, PCI_DEV_REG2, reg);
- #endif
- 
- 	err = -ENOMEM;
+How much would it hurt to provide blackfin wide
+readsb and friends with the correct prototype and
+remove the nasty blackfin hack in the dm9000.c driver
+for good?
 
 -- 
+Ben
+
+Q:      What's a light-year?
+A:      One-third less calories than a regular year.
