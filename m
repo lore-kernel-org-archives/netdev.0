@@ -1,82 +1,117 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on powerpc selects
- CONFIG_INTEL_IOATDMA=y
-Date: Mon, 13 Oct 2008 14:02:26 +0200
-Message-ID: <48F338D2.9080300@myri.com>
-References: <20081013101559.GA14372@linux.vnet.ibm.com> <20081013112631.GD29938@cs181140183.pp.htv.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/1] netdev: DM9000: Added typecasting to supress some
+ warnings on Blackfin
+Date: Mon, 13 Oct 2008 05:41:19 -0700
+Message-ID: <20081013054119.7f360ee1@extreme>
+References: <1223889009-31336-1-git-send-email-cooloney@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	linux-kernel@vger.kernel.org, apw@shadowen.org,
-	linuxppc-dev@ozlabs.org, sam@ravnborg.org,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ben@simtec.co.uk, s.hauer@pengutronix.de, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Javier Herrero <jherrero@hvsistemas.es>,
+	Bryan Wu <cooloney@kernel.org>
+To: Bryan Wu <cooloney@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1873 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755785AbYJMMCW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2008 08:02:22 -0400
-In-Reply-To: <20081013112631.GD29938@cs181140183.pp.htv.fi>
+Received: from mail.vyatta.com ([76.74.103.46]:33530 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754771AbYJMMlW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Oct 2008 08:41:22 -0400
+In-Reply-To: <1223889009-31336-1-git-send-email-cooloney@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> On Mon, Oct 13, 2008 at 03:45:59PM +0530, Kamalesh Babulal wrote:
->  =20
->> Hi,
->>
->>    2.6.27-git2 kernel build fails, while building the kernel with
->> allyesconfig option. The allyesconfig selects CONFIG_INTEL_IOATDMA=3D=
-y
->>
->> CC   drivers/dma/ioat_dca.o
->> drivers/dma/ioat_dca.c: In function =C3=A2=C2=80=C2=98dca_enabled_in=
-_bios=C3=A2=C2=80=C2=99:
->> drivers/dma/ioat_dca.c:81: error: implicit declaration of function =C3=
-=A2=C2=80=C2=98cpuid_eax=C3=A2=C2=80=C2=99
->> drivers/dma/ioat_dca.c: In function =C3=A2=C2=80=C2=98system_has_dca=
-_enabled=C3=A2=C2=80=C2=99:
->> drivers/dma/ioat_dca.c:91: error: implicit declaration of function =C3=
-=A2=C2=80=C2=98boot_cpu_has=C3=A2=C2=80=C2=99
->> drivers/dma/ioat_dca.c:91: error: =C3=A2=C2=80=C2=98X86_FEATURE_DCA=C3=
-=A2=C2=80=C2=99 undeclared (first use in this function)
->> drivers/dma/ioat_dca.c:91: error: (Each undeclared identifier is rep=
-orted only once
->> drivers/dma/ioat_dca.c:91: error: for each function it appears in.)
->> drivers/dma/ioat_dca.c: In function =C3=A2=C2=80=C2=98ioat_dca_get_t=
-ag=C3=A2=C2=80=C2=99:
->> drivers/dma/ioat_dca.c:190: error: implicit declaration of function =
-=C3=A2=C2=80=C2=98cpu_physical_id=C3=A2=C2=80=C2=99
->> make[2]: *** [drivers/dma/ioat_dca.o] Error 1
->> make[1]: *** [drivers/dma] Error 2
->> make: *** [drivers] Error 2
->> ...
->>    =20
->
-> Thanks for the report, the MYRI10GE and IXGBE commits that introduced=
-=20
-> the select's are really broken.
->
-> For fixing it I need to know the intended semantics.
->
-> Brian, Jesse, is it OK to limit the drivers to m with=20
-> CONFIG_INTEL_IOATDMA=3Dm ?
->  =20
+On Mon, 13 Oct 2008 17:10:09 +0800
+Bryan Wu <cooloney@kernel.org> wrote:
 
-I think I would rather drop DCA from myri10ge if IOATDMA=3Dm while
-myri10ge=3Dy. What's the simplest way to do so?
+> From: Javier Herrero <jherrero@hvsistemas.es>
+> 
+> Signed-off-by: Javier Herrero <jherrero@hvsistemas.es>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> ---
+>  drivers/net/dm9000.c |   12 ++++++------
+>  1 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+> index f42c23f..c4737ca 100644
+> --- a/drivers/net/dm9000.c
+> +++ b/drivers/net/dm9000.c
+> @@ -188,35 +188,35 @@ iow(board_info_t * db, int reg, int value)
+>  
+>  static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
+>  {
+> -	writesb(reg, data, count);
+> +	writesb((int)reg, data, count);
+>  }
 
-When Jesse told me to commit this in myri10ge, I thought it would be
-nice to have DCA work the same than NETDMA/DMAengine does: you can have
-NETDMA enabled without IOATDMA (either not built at all, or just not
-loaded). You just don't get any DMA channel when you ask for one. Why
-not do the same for DCA? There could be some generic DCA layer that can
-be built all the time and returns DCA resources only if IOATDMA is
-loaded/built ?
+You lose the sparse checking for misuse by doing this.
 
-Brice
+Why not this instead?
 
+
+--- a/drivers/net/dm9000.c	2008-10-13 05:29:15.000000000 -0700
++++ b/drivers/net/dm9000.c	2008-10-13 05:40:13.000000000 -0700
+@@ -47,14 +47,6 @@
+ #define CARDNAME	"dm9000"
+ #define DRV_VERSION	"1.31"
+ 
+-#ifdef CONFIG_BLACKFIN
+-#define readsb	insb
+-#define readsw	insw
+-#define readsl	insl
+-#define writesb	outsb
+-#define writesw	outsw
+-#define writesl	outsl
+-#endif
+ 
+ /*
+  * Transmit timeout, default 5 seconds.
+@@ -185,7 +177,40 @@ iow(board_info_t * db, int reg, int valu
+ }
+ 
+ /* routines for sending block to chip */
++#ifdef CONFIG_BLACKFIN
++static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
++{
++	outsb((unsigned long)reg, data, count);
++}
+ 
++static void dm9000_outblk_16bit(void __iomem *reg, void *data, int count)
++{
++	outsw((unsigned long)reg, data, (count+1) >> 1);
++}
++
++static void dm9000_outblk_32bit(void __iomem *reg, void *data, int count)
++{
++	outsl((unsigned long)reg, data, (count+3) >> 2);
++}
++
++/* input block from chip to memory */
++
++static void dm9000_inblk_8bit(void __iomem *reg, void *data, int count)
++{
++	insb((unsigned long)reg, data, count);
++}
++
++
++static void dm9000_inblk_16bit(void __iomem *reg, void *data, int count)
++{
++	insw((unsigned long)reg, data, (count+1) >> 1);
++}
++
++static void dm9000_inblk_32bit(void __iomem *reg, void *data, int count)
++{
++	insl((unsigned long)reg, data, (count+3) >> 2);
++}
++#else
+ static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
+ {
+ 	writesb(reg, data, count);
+@@ -218,6 +243,7 @@ static void dm9000_inblk_32bit(void __io
+ {
+ 	readsl(reg, data, (count+3) >> 2);
+ }
++#endif
+ 
+ /* dump block from chip to null */
+ 
