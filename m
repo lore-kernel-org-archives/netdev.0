@@ -1,57 +1,73 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: [PATCH] dsa: fix compile bug on s390
-Date: Mon, 13 Oct 2008 11:04:18 +0200
-Message-ID: <20081013090418.GB17793@osiris.boeblingen.de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: David Miller <davem@davemloft.net>
+From: Bryan Wu <cooloney@kernel.org>
+Subject: [PATCH 1/1] netdev: DM9000: Added typecasting to supress some warnings on Blackfin
+Date: Mon, 13 Oct 2008 17:10:09 +0800
+Message-ID: <1223889009-31336-1-git-send-email-cooloney@kernel.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Javier Herrero <jherrero@hvsistemas.es>,
+	Bryan Wu <cooloney@kernel.org>
+To: ben@simtec.co.uk, s.hauer@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:38613 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbYJMJEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 05:04:44 -0400
-Content-Disposition: inline
+Received: from nwd2mail11.analog.com ([137.71.25.57]:12972 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754879AbYJMJJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 05:09:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+From: Javier Herrero <jherrero@hvsistemas.es>
 
-git commit 45cec1bac0719c904bb5f4405c2937f7e715888c
-"dsa: Need to select PHYLIB." causes this build bug on s390:
-
-drivers/built-in.o: In function `phy_stop_interrupts':
-/home/heicarst/linux-2.6/drivers/net/phy/phy.c:631: undefined reference to `free_irq'
-/home/heicarst/linux-2.6/drivers/net/phy/phy.c:646: undefined reference to `enable_irq'
-drivers/built-in.o: In function `phy_start_interrupts':
-/home/heicarst/linux-2.6/drivers/net/phy/phy.c:601: undefined reference to `request_irq'
-drivers/built-in.o: In function `phy_interrupt':
-/home/heicarst/linux-2.6/drivers/net/phy/phy.c:528: undefined reference to `disable_irq_nosync'
-drivers/built-in.o: In function `phy_change':
-/home/heicarst/linux-2.6/drivers/net/phy/phy.c:674: undefined reference to `enable_irq'
-/home/heicarst/linux-2.6/drivers/net/phy/phy.c:692: undefined reference to `disable_irq'
-
-PHYLIB has alread a depend on !S390, however select PHYLIB at DSA overrides
-that unfortunately. So add a depend on !S390 to DSA as well.
-
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+Signed-off-by: Javier Herrero <jherrero@hvsistemas.es>
+Signed-off-by: Bryan Wu <cooloney@kernel.org>
 ---
+ drivers/net/dm9000.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
- net/dsa/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6/net/dsa/Kconfig
-===================================================================
---- linux-2.6.orig/net/dsa/Kconfig
-+++ linux-2.6/net/dsa/Kconfig
-@@ -1,7 +1,7 @@
- menuconfig NET_DSA
- 	bool "Distributed Switch Architecture support"
- 	default n
--	depends on EXPERIMENTAL
-+	depends on EXPERIMENTAL && !S390
- 	select PHYLIB
- 	---help---
- 	  This allows you to use hardware switch chips that use
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index f42c23f..c4737ca 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -188,35 +188,35 @@ iow(board_info_t * db, int reg, int value)
+ 
+ static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
+ {
+-	writesb(reg, data, count);
++	writesb((int)reg, data, count);
+ }
+ 
+ static void dm9000_outblk_16bit(void __iomem *reg, void *data, int count)
+ {
+-	writesw(reg, data, (count+1) >> 1);
++	writesw((int)reg, data, (count+1) >> 1);
+ }
+ 
+ static void dm9000_outblk_32bit(void __iomem *reg, void *data, int count)
+ {
+-	writesl(reg, data, (count+3) >> 2);
++	writesl((int)reg, data, (count+3) >> 2);
+ }
+ 
+ /* input block from chip to memory */
+ 
+ static void dm9000_inblk_8bit(void __iomem *reg, void *data, int count)
+ {
+-	readsb(reg, data, count);
++	readsb((int)reg, data, count);
+ }
+ 
+ 
+ static void dm9000_inblk_16bit(void __iomem *reg, void *data, int count)
+ {
+-	readsw(reg, data, (count+1) >> 1);
++	readsw((int)reg, data, (count+1) >> 1);
+ }
+ 
+ static void dm9000_inblk_32bit(void __iomem *reg, void *data, int count)
+ {
+-	readsl(reg, data, (count+3) >> 2);
++	readsl((int)reg, data, (count+3) >> 2);
+ }
+ 
+ /* dump block from chip to null */
+-- 
+1.5.6
