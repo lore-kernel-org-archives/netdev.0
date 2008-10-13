@@ -1,38 +1,70 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] net/phy: add missing kernel-doc
-Date: Mon, 13 Oct 2008 09:15:05 -0700
-Message-ID: <20081013091505.61177f48.randy.dunlap@oracle.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [IPROUTE]: Fix up "ip link" help text
+Date: Mon, 13 Oct 2008 09:36:06 -0700
+Message-ID: <48F378F6.40301@candelatech.com>
+References: <48EB7D76.7050004@trash.net>	<200810072206.03062.arekm@maven.pl>	<48EBCE59.3080401@trash.net> <20081013072129.2564130f@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
-To: netdev <netdev@vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Arkadiusz Miskiewicz <arekm@maven.pl>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:61464 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756404AbYJMQTC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 12:19:02 -0400
+Received: from mail.candelatech.com ([208.74.158.172]:37551 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754478AbYJMQgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 12:36:23 -0400
+In-Reply-To: <20081013072129.2564130f@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+Stephen Hemminger wrote:
+> On Tue, 07 Oct 2008 23:02:17 +0200
+> Patrick McHardy <kaber@trash.net> wrote:
+>
+>   
+>> Arkadiusz Miskiewicz wrote:
+>>     
+>>> Runtime dependand help doesn't look sane. Help should always show all possible 
+>>> options/command while trying to use unsupported option should display error 
+>>> message.
+>>>   
+>>>       
+>> That makes sense. But don't complain to me about the quality
+>> of the error messages afterwards please :)
+>>
+>>
+>>     
+>
+> I applied a variant of Patrick's original patch. I added text for delete, and
+> avoided some code movement.  The help text should only show what is supported
+> otherwise there will be user complaints.
+>   
+I personally dislike that.  I think the tool show should everything that 
+it *could* do assuming
+proper kernel, etc.  Then, if it turns out the current running kernel 
+can't do that, it could just
+give an error:  "This feature not supported in your current kernel.  See 
+[url] for info on when
+features were added to the kernel."
 
-Fix kernel-doc warning, missing description:
+That way, the user can see all the possible goodness out there, and 
+perhaps be inclined to upgrade
+to a later kernel if that gives them a feature they'd like.
 
-Warning(lin2627-g3-kdocfixes//drivers/net/phy/mdio_bus.c:63): No description found for parameter 'd'
+Thanks,
+Ben
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/phy/mdio_bus.c |    1 +
- 1 file changed, 1 insertion(+)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
---- lin2627-g3-kdocfixes.orig/drivers/net/phy/mdio_bus.c
-+++ lin2627-g3-kdocfixes/drivers/net/phy/mdio_bus.c
-@@ -55,6 +55,7 @@ EXPORT_SYMBOL(mdiobus_alloc);
- 
- /**
-  * mdiobus_release - mii_bus device release callback
-+ * @d: the target struct device that contains the mii_bus
-  *
-  * Description: called when the last reference to an mii_bus is
-  * dropped, to free the underlying memory.
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
