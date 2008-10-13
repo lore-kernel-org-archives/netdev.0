@@ -1,67 +1,54 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/9] PCI: add interface to set visible size of VPD (rev3)
-Date: Mon, 13 Oct 2008 13:13:05 -0700
-Message-ID: <20081013201452.870891660@vyatta.com>
+Subject: [PATCH 7/9] skge: set VPD size
+Date: Mon, 13 Oct 2008 13:13:09 -0700
+Message-ID: <20081013201453.254303973@vyatta.com>
 References: <20081013201302.899587376@vyatta.com>
 Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline; filename=vpd-size.patch
+Content-Disposition: inline; filename=skge-vpd-size.patch
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The VPD on all devices may not really be 32K. Unfortunately, there is no
-generic way to find the size, so this adds a simple API hook
-to resize it.
+Read configuration register during probe and use it to size the
+available VPD.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- drivers/pci/access.c |   23 +++++++++++++++++++++++
- include/linux/pci.h  |    1 +
- 2 files changed, 24 insertions(+)
-
---- a/drivers/pci/access.c	2008-10-13 13:03:58.000000000 -0700
-+++ b/drivers/pci/access.c	2008-10-13 13:04:01.000000000 -0700
-@@ -340,6 +340,29 @@ int pci_vpd_pci22_init(struct pci_dev *d
- }
+--- a/drivers/net/skge.c	2008-10-13 12:46:16.000000000 -0700
++++ b/drivers/net/skge.c	2008-10-13 13:04:10.000000000 -0700
+@@ -3898,6 +3898,7 @@ static int __devinit skge_probe(struct p
+ 	struct net_device *dev, *dev1;
+ 	struct skge_hw *hw;
+ 	int err, using_dac = 0;
++	u32 reg;
  
- /**
-+ * pci_vpd_truncate - Set available Vital Product Data size
-+ * @dev:	pci device struct
-+ * @size:	available memory in bytes
-+ *
-+ * Adjust size of available VPD area.
-+ */
-+int pci_vpd_truncate(struct pci_dev *dev, size_t size)
-+{
-+	if (!dev->vpd)
-+		return -EINVAL;
-+
-+	/* limited by the access method */
-+	if (size > dev->vpd->len)
-+		return -EINVAL;
-+
-+	dev->vpd->len = size;
-+	dev->vpd->attr->size = size;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(pci_vpd_truncate);
-+
-+/**
-  * pci_block_user_cfg_access - Block userspace PCI config reads/writes
-  * @dev:	pci device struct
-  *
---- a/include/linux/pci.h	2008-10-13 13:03:58.000000000 -0700
-+++ b/include/linux/pci.h	2008-10-13 13:04:01.000000000 -0700
-@@ -653,6 +653,7 @@ int pci_bus_find_capability(struct pci_b
- /* Vital product data routines */
- ssize_t pci_read_vpd(struct pci_dev *dev, loff_t pos, size_t count, void *buf);
- ssize_t pci_write_vpd(struct pci_dev *dev, loff_t pos, size_t count, const void *buf);
-+int pci_vpd_truncate(struct pci_dev *dev, size_t size);
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -3926,15 +3927,17 @@ static int __devinit skge_probe(struct p
+ 		goto err_out_free_regions;
+ 	}
  
- /* Helper functions for low-level code (drivers/pci/setup-[bus,res].c) */
- void pci_bus_assign_resources(struct pci_bus *bus);
++	pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
++
++	/* set size of available VPD, only impacts sysfs */
++	err = pci_vpd_truncate(pdev, 1ul << (((reg & PCI_VPD_ROM_SZ) >> 14) + 8));
++	if (err)
++		dev_warn(&pdev->dev, "Can't set VPD size\n");
++
+ #ifdef __BIG_ENDIAN
+ 	/* byte swap descriptors in hardware */
+-	{
+-		u32 reg;
+-
+-		pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
+-		reg |= PCI_REV_DESC;
+-		pci_write_config_dword(pdev, PCI_DEV_REG2, reg);
+-	}
++	reg |= PCI_REV_DESC;
++	pci_write_config_dword(pdev, PCI_DEV_REG2, reg);
+ #endif
+ 
+ 	err = -ENOMEM;
 
 -- 
