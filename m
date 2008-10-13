@@ -1,60 +1,69 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround (fwd)
-Date: Mon, 13 Oct 2008 15:32:49 -0300
-Message-ID: <48f39456.060ec00a.1389.4433@mx.google.com>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
-	<48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
-	<alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
-	<48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
-	<alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
-	<48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
-	<alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
-	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
-	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
-	<Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
-	<48e5364d.0603c00a.6e25.fffff993@mx.google.com>
-	<Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
-	<48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com>
-	<alpine.LFD.2.00.0810052008131.3398@apollo>
-	<48ed0b51.0913c00a.7715.4aa7@mx.google.com>
-	<alpine.LFD.2.00.0810082154420.3237@apollo>
-	<48f2c9d7.0603c00a.1df2.ffff9357@mx.google.com>
-	<Pine.LNX.4.64.0810131633370.3843@wrl-59.cs.helsinki.fi>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on
+	powerpc	selectsCONFIG_INTEL_IOATDMA=y
+Date: Mon, 13 Oct 2008 21:35:03 +0300
+Message-ID: <20081013183503.GA28133@cs181140183.pp.htv.fi>
+References: <20081013101559.GA14372@linux.vnet.ibm.com>
+	<20081013112631.GD29938@cs181140183.pp.htv.fi>
+	<36D9DB17C6DE9E40B059440DB8D95F52066E2EAE@orsmsx418.amr.corp.intel.com>
+	<48F391B9.1000206@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Nicolas Cannasse <ncannasse@motion-twin.com>
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:44784 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755465AbYJMSc5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 14:32:57 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so931663wah.21
-        for <netdev@vger.kernel.org>; Mon, 13 Oct 2008 11:32:56 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0810131633370.3843@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>, linuxppc-dev@ozlabs.org,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	apw@shadowen.org, Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	sam@ravnborg.org, Jeff Garzik <jgarzik@redhat.com>
+To: Brice Goglin <brice@myri.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <48F391B9.1000206@myri.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Oct 2008 16:35:08 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Mon, Oct 13, 2008 at 08:21:45PM +0200, Brice Goglin wrote:
+> Brandeburg, Jesse wrote:
+> > What we want, is myri10ge and ixgbe drivers that can build whether or not CONFIG_INTEL_IOATDMA is enabled.  IF CONFIG_INTEL_IOATDMA *is* enabled (which it should not be on PPC) then there are several cases we want to work:
+> > CONFIG_INTEL_IOATDMA=m  ---> CONFIG_IXGBE=[m|n]
+> > CONFIG_INTEL_IOATDMA=y  ---> CONFIG_IXGBE=[m|y|n]
+> > CONFIG_INTEL_IOATDMA=n  ---> CONFIG_IXGBE=[m|y|n]
+> > CONFIG_INTEL_IOATDMA depends on X86
+> 
+> I am not sure I want to prevent myri10ge=y just because ioatdma=m.
+>...
 
-> http://marc.info/?t=3D122365716200001&r=3D1&w=3D2
->=20
-> ...might turn out related. It has somewhat similar problem though=20
-> different syscall. Not enough info on what kernel version etc.=20
-> there though.
+Technically both solutions are possible, which to choose is just a 
+policy decision you have to agree on.
 
-	Interesting. I CCed Nicolas Cannasse.
+In practice it will anyway only rarely matter.
 
-	Nicolas, could you please tell us what kernel version were you
-using when you deal with this problem (from the link above: "recv()
-hangs until SIGCHLD ?")?
+But considering that igb is in a similar situation it would be nice if 
+all 3 drivers would handle it the same way.
 
-	Thank you.
+> Brice
 
---=20
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
