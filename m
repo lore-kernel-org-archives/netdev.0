@@ -1,46 +1,69 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: [PATCH 1/1] netdev: DM9000: Added typecasting to supress some warnings on Blackfin
-Date: Tue, 14 Oct 2008 00:18:38 +0100
-Message-ID: <20081013231837.GL6646@trinity.fluff.org>
-References: <1223889009-31336-1-git-send-email-cooloney@kernel.org> <20081013.030150.96524866.davem@davemloft.net>
+From: Jerry McBride <mcbrides9@comcast.net>
+Subject: B43 randomly and silently dropping connections...
+Date: Mon, 13 Oct 2008 19:39:20 -0400
+Message-ID: <200810131939.20891.mcbrides9@comcast.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cooloney@kernel.org, ben@simtec.co.uk, s.hauer@pengutronix.de,
-	jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jherrero@hvsistemas.es
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from trinity.fluff.org ([89.145.97.151]:53817 "EHLO
-	trinity.fluff.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753986AbYJMXSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 19:18:51 -0400
+Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:55345 "EHLO
+	QMTA03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756951AbYJMXox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 19:44:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20081013.030150.96524866.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 13, 2008 at 03:01:50AM -0700, David Miller wrote:
-> From: Bryan Wu <cooloney@kernel.org>
-> Date: Mon, 13 Oct 2008 17:10:09 +0800
-> 
-> > From: Javier Herrero <jherrero@hvsistemas.es>
-> > 
-> > Signed-off-by: Javier Herrero <jherrero@hvsistemas.es>
-> > Signed-off-by: Bryan Wu <cooloney@kernel.org>
-> 
-> This is not only inelegant, it'll likely break things on
-> 64-bit MIPS or any other case where the upper 32-bit matter.
-> 
-> I'd rather see Blackfin fix it's I/O accessor prototypes
-> to take a proper __iomem pointer.
 
-How much would it hurt to provide blackfin wide
-readsb and friends with the correct prototype and
-remove the nasty blackfin hack in the dm9000.c driver
-for good?
+The story is...
+
+I've moved from 2.6.25.x using BCM43XX with a Broadcom 4306 (rev3) 802.11 
+chipset to 2.6.26.6 using the B43 and appropriate firmware. This on a COMPAQ 
+Presario R3000 P4 and  a gig of memory and ATI graphics.
+
+I followed the install (upgrade) directions at linuxwireless.org. Piece of 
+cake! However... I find that I've gone from "bulletproof" BCM43XX wifi 
+connections to "bullethole" connections with B43.  
+
+Under the old BCM43XX the handshake and connections were flawless and 
+unfaltering. Now with the new B43, handshakes with AP's are perfect, but the 
+connections randomly and silently fail. There are no debug messages, no 
+complaints what-so-ever in /var/log/messages... 
+
+To gt wireless back, I have to reinitialize the connection. I've gotten so 
+good at it, that I can recite by heart the appropriate commands...
+
+It's killling me! I've got to get this ironed out... it's not just my laptop, 
+it's happening quite regularly with people I know with similar chips and 
+laptops.
+
+Trying 2.6.27-rc's and now 2.6.27 and the situation is no better.
+
+So I ask... Who is the B43/B43LEGACY maintainer and would you be interested in 
+debugging this mess? I'll bend over backward to help you... Email me 
+direct... I'm very willing.
+
+SHORT STORY:
+-- Kernel 2.6.25.x with BCM43XX, firmware 4.80.53.0.. just perfect.
+
+-- Kernels 2.6.26 or higher with B43 and firware 4.150.10.5 good negotiations, 
+but fragile connections that drop randomly and without complaint. B43LEGACY 
+does nothing.
+
+Any help would be appreciated. I'd really like to get this ironed out. I 
+highly desire to use current kernels.
+
+Feel free to email me direct.
 
 -- 
-Ben
 
-Q:      What's a light-year?
-A:      One-third less calories than a regular year.
+*****************************************************************************
+                                       
+                             From the desk of:
+                             Jerome D. McBride
+                                       
+   19:17:28 up 15 days, 23:35,  5 users,  load average: 0.33, 0.11, 0.03
+ 
+*****************************************************************************
