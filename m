@@ -1,61 +1,38 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: Please pull - generic HDLC
-Date: Mon, 13 Oct 2008 08:53:56 +0300
-Message-ID: <20081013055356.GA29938@cs181140183.pp.htv.fi>
-References: <m33aj15xhr.fsf@maximus.localdomain> <20081012.144704.39192150.davem@davemloft.net>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: [PATCH] 2.6.27-rc9 QGLE make unsupported page size explicit
+	compile failure
+Date: Mon, 13 Oct 2008 00:06:15 -0600
+Message-ID: <20081013060615.GB29358@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:58872 "EHLO smtp4.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752203AbYJMFy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2008 01:54:57 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
+	linux-ia64@vger.kernel.org
+To: linux-driver@qlogic.com
+Return-path: <linux-ia64-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20081012.144704.39192150.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 12, 2008 at 02:47:04PM -0700, David Miller wrote:
-> From: Krzysztof Halasa <khc@pm.waw.pl>
-> Date: Sun, 12 Oct 2008 23:12:16 +0200
-> 
-> > David,
-> > 
-> > The following changes since commit
-> > f3073ac76755abd63b1d4c3d145f4c15b65b5355 (i.e., your netdev-2.6):
-> > Guennadi Liakhovetski (1): smc911x: Fix external PHY detection
-> > 
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/chris/linux-2.6.git for-david
-> 
-> You've missed the networking merge window, as I stated the other
-> day I'm not taking any more networking changes.
-> 
-> You should have merged this in earlier.
->...
+QLGE driver only supports 4k, 8k, and 64k pages.
+Default page size on ia64 is 16k. Compile fails with:
+drivers/net/qlge/qlge.h:1118: error: 'TX_DESC_PER_OAL' undeclared here (not in a function)
 
-Ignoring whether it will go into 2.6.28 or 2.6.29 there seems to be a 
-more fundamental issue:
+Patch below makes the cause of the compile failure obvious.
+(Better would be to support 16k pages but I don't have the HW or interest.)
 
-The over 3 weeks old -next already contains mostly the same as the HDLC 
-tree contains now.
+Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
 
-The thing you two should sort out is why the tree ended up as an own 
-tree in -next instead of pull requests to David long ago.
 
-E.g. the netdev and wireless trees also don't go into -next, but instead 
-with frequent pull requests to David.
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+index c37ea43..cf68503 100644
+--- a/drivers/net/qlge/qlge.h
++++ b/drivers/net/qlge/qlge.h
+@@ -60,6 +60,8 @@
+ #define TX_DESC_PER_OAL ((MAX_SKB_FRAGS - TX_DESC_PER_IOCB) + 2)
+ #elif (PAGE_SHIFT == 16)	/* 64k pages */
+ #define TX_DESC_PER_OAL 0
++#else
++#error QLGE Driver only supports 4k, 8k, or 64k CPU page size.
+ #endif
+ 
+ #define DB_PAGE_SIZE 4096
