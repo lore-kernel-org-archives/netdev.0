@@ -1,53 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: conntrack timers usage
-Date: Mon, 13 Oct 2008 15:20:39 +0200
-Message-ID: <48F34B27.50001@trash.net>
-References: <200810130149.25635.denys@visp.net.lb>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+ (fwd)
+Date: Mon, 13 Oct 2008 16:35:08 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810131633370.3843@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
+ <48e3a4e5.0d1d640a.4cd3.06e9@mx.google.com>
+ <alpine.LFD.1.10.0810012140360.5549@apollo.tec.linutronix.de>
+ <48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
+ <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+ <48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
+ <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+ <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
+ <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
+ <Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
+ <48e5364d.0603c00a.6e25.fffff993@mx.google.com>
+ <Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
+ <48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com> <alpine.LFD.2.00.0810052008131.3398@apollo>
+ <48ed0b51.0913c00a.7715.4aa7@mx.google.com> <alpine.LFD.2.00.0810082154420.3237@apollo>
+ <48f2c9d7.0603c00a.1df2.ffff9357@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1769013299-1223904908=:3843"
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36647 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757524AbYJMNUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 09:20:41 -0400
-In-Reply-To: <200810130149.25635.denys@visp.net.lb>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47687 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762166AbYJMNfK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 09:35:10 -0400
+In-Reply-To: <48f2c9d7.0603c00a.1df2.ffff9357@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko wrote:
-> The story with excessive timers usage continue.
-> 
-> Here is my results from /proc/timer_stats for 30 seconds (150Mbps traffic)
-> ...
-> And here is netfilter usage, looks like ....
-> I did also sysctl -w net.netfilter.nf_conntrack_acct=0
-> 
->    1,     0 swapper          __nf_ct_refresh_acct (death_by_timeout)
->     1,     0 swapper          __nf_ct_refresh_acct (death_by_timeout)
->     1,     0 swapper          __nf_ct_refresh_acct (death_by_timeout)
->     1,     0 swapper          __nf_ct_refresh_acct (death_by_timeout)
->     1,     0 swapper          __nf_ct_refresh_acct (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
->     1,     0 swapper          __nf_conntrack_confirm (death_by_timeout)
-> ....
-> 
-> Router-Dora ~ # cat /proc/timer_stats |grep '__nf'|wc -l
-> 1005
-> 
-> Is it important to do so much calls to timers in conntrack?
-> Precision on it is not more than 1 second.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-There's one timer per conntrack. As you noticed, we only update
-timers for delta >= 1s, but with many conntracks, that still adds
-up to a lot.
+---696208474-1769013299-1223904908=:3843
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Mon, 13 Oct 2008, Dâniel Fraga wrote:
+
+> On Wed, 8 Oct 2008 21:56:00 +0200 (CEST)
+> Thomas Gleixner <tglx@linutronix.de> wrote:
+> 
+> > Will do. Sorry was distracted. Steven Rostedt posted a patch to stop
+> > the tracer really from the kernel, I need to verify that it works on
+> > .27. Will do tomorrow when my brain is more awake than now.
+> 
+> 	Hi Thomas, did you have time to verify that patch? If so, I'd
+> like to test it. Thanks.
+
+http://marc.info/?t=122365716200001&r=1&w=2
+
+...might turn out related. It has somewhat similar problem though 
+different syscall. Not enough info on what kernel version etc. 
+there though.
+
+
+-- 
+ i.
+---696208474-1769013299-1223904908=:3843--
