@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 11655] New: /proc/sys/net/ipv6/conf/all/*
- controls don't work
-Date: Mon, 13 Oct 2008 00:32:39 -0700 (PDT)
-Message-ID: <20081013.003239.89070363.davem@davemloft.net>
-References: <bug-11655-10286@http.bugzilla.kernel.org/>
-	<20081002231826.869a1a9e.akpm@linux-foundation.org>
+Subject: Re: IPv6 mapped sockets don't work with TCP MD5
+Date: Mon, 13 Oct 2008 00:33:34 -0700 (PDT)
+Message-ID: <20081013.003334.16335040.davem@davemloft.net>
+References: <396556a20810031531q7ae71d30q4fb7d21334e4c9b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	adwol@zonk.pl
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: agl@imperialviolet.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57821
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57825
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754161AbYJMHdC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 03:33:02 -0400
-In-Reply-To: <20081002231826.869a1a9e.akpm@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1753650AbYJMHd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 03:33:58 -0400
+In-Reply-To: <396556a20810031531q7ae71d30q4fb7d21334e4c9b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 2 Oct 2008 23:18:26 -0700
+From: "Adam Langley" <agl@imperialviolet.org>
+Date: Fri, 3 Oct 2008 15:31:11 -0700
 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
+> So I'm basically looking for guidance on how I should write the patch here.
+> 
+> 1) We could add a calc_hash function pointer to request_sock_ops and
+> use that when building SYNACKs. However, request_socks aren't just
+> used in TCP.
+> 2) We could pass the signature function as an argument to
+> tcp_make_synack since we always call it from a v4/v6 specific place
+> 
+> I'm learning towards the second, but whatever wiser heads suggest I'll
+> implement.
 
-Not a bug.
+I think the second variant is the best too.
 
-These "global" setting have to be set to the desired value before the
-device is created.  And it is at creation time that these global
-values are "inherited" by the device.
-
-Afterwards changes to the global value will not propagate to those
-devices again, because that might override a changed setting made
-by the user.
-
-It is only newly created devices which get these values.
+Thanks for looking into this Adam.
