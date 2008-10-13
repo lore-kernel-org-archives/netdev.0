@@ -1,35 +1,41 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: Please pull - generic HDLC
-Date: Mon, 13 Oct 2008 16:53:17 +0200
-Message-ID: <m31vyk4kde.fsf@maximus.localdomain>
-References: <m33aj15xhr.fsf@maximus.localdomain>
-	<20081012.144704.39192150.davem@davemloft.net>
-	<20081013055356.GA29938@cs181140183.pp.htv.fi>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: v3 [PATCH 0/5] dccp: Feature negotiation, Part I - Underlying
+	data structures
+Date: Mon, 13 Oct 2008 16:58:14 +0200
+Message-ID: <20081013145814.GB3644@gerrit.erg.abdn.ac.uk>
+References: <20081005.091334.208715265.davem@davemloft.net> <20081011073113.GA9205@gerrit.erg.abdn.ac.uk> <20081011.110733.43368493.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759363AbYJMOxe@vger.kernel.org>
-In-Reply-To: <20081013055356.GA29938@cs181140183.pp.htv.fi> (Adrian Bunk's message of "Mon\, 13 Oct 2008 08\:53\:56 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36460 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750997AbYJMO6U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Oct 2008 10:58:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20081011.110733.43368493.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk <bunk@kernel.org> writes:
+| > Thank you for taking the time to look through.
+| > 
+| > If we could keep this set going on as a low-key background process, that
+| > would be great. I found the pace not only more reviewer-friendly, but also
+| > more submitter-friendly, so it is in fact a good choice.
+| 
+| Well, just FYI at this point, networking is closed for the 2.6.28
+| merge window.
+| 
+| So all of this stuff will have to wait until 2.6.29 and I'm won't be
+| creating a net-next-2.6 tree for 2.6.29 for at least a few weeks while
+| people should be fixing bugs in 2.6.28.
+| 
+The merge window is not a problem - as said, this can wait. 
 
-> The over 3 weeks old -next already contains mostly the same as the HDLC 
-> tree contains now.
->
-> The thing you two should sort out is why the tree ended up as an own 
-> tree in -next instead of pull requests to David long ago.
->
-> E.g. the netdev and wireless trees also don't go into -next, but instead 
-> with frequent pull requests to David.
+When it would be okay to send the next instalment for review?
 
-I can't see any problem with this, is there any?
+Do you want to wait with this until 2.6.29 - can you please indicate a time frame.
 
-I want the HDLC tree tested in next before it's merged upstream
-(= David's tree(s)). I don't want to push crap upstream  first and
-only then try to fix it (though a bug still slips in sometimes).
--- 
-Krzysztof Halasa
+Thanks
+Gerrit
