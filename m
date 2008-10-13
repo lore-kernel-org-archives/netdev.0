@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: Notify changes in UDP encapsulation via netlink
-Date: Mon, 13 Oct 2008 03:03:11 -0700 (PDT)
-Message-ID: <20081013.030311.248397621.davem@davemloft.net>
-References: <20081013092726.49B34EFADF@strongswan.org>
+Subject: Re: [PATCH] Rationalise email address: Network Specific Parts
+Date: Mon, 13 Oct 2008 03:06:46 -0700 (PDT)
+Message-ID: <20081013.030646.123824121.davem@davemloft.net>
+References: <20081013105453.35eece02@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: martin@strongswan.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org
+To: alan@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43592
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43595
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932178AbYJMKDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 06:03:34 -0400
-In-Reply-To: <20081013092726.49B34EFADF@strongswan.org>
+	by vger.kernel.org with ESMTP id S932494AbYJMKHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 06:07:10 -0400
+In-Reply-To: <20081013105453.35eece02@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: martin@strongswan.org (Martin Willi)
-Date: Mon, 13 Oct 2008 11:27:26 +0200 (CEST)
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Mon, 13 Oct 2008 10:54:53 +0100
 
-> Add new_mapping() implementation to the netlink xfrm_mgr to notify
-> address/port changes detected in UDP encapsulated ESP packets.
+> Clean up the various different email addresses of mine listed in the code
+> to a single current and valid address. As Dave says his network merges
+> for 2.6.28 are now done this seems a good point to send them in where
+> they won't risk disrupting real changes.
 > 
-> Signed-off-by: Martin Willi <martin@strongswan.org>
+> Signed-off-by: Alan Cox <alan@redhat.com>
 
-This has to wait until the next merge window.
-
-Please resubmit this 2 or so weeks from now, which is when I'll
-likely start taking 2.6.29 bound networking stuff.
+I'm happy to suck this in via my net-2.6 tree.
