@@ -1,69 +1,63 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on
-	powerpc	selectsCONFIG_INTEL_IOATDMA=y
-Date: Mon, 13 Oct 2008 21:35:03 +0300
-Message-ID: <20081013183503.GA28133@cs181140183.pp.htv.fi>
-References: <20081013101559.GA14372@linux.vnet.ibm.com>
-	<20081013112631.GD29938@cs181140183.pp.htv.fi>
-	<36D9DB17C6DE9E40B059440DB8D95F52066E2EAE@orsmsx418.amr.corp.intel.com>
-	<48F391B9.1000206@myri.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 11655] New: /proc/sys/net/ipv6/conf/all/*
+ controls don't work
+Date: Mon, 13 Oct 2008 11:37:26 -0700 (PDT)
+Message-ID: <20081013.113726.193048941.davem@davemloft.net>
+References: <20081002231826.869a1a9e.akpm@linux-foundation.org>
+	<20081013.003239.89070363.davem@davemloft.net>
+	<20081013101334.6b8b4567@zonk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>, linuxppc-dev@ozlabs.org,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	apw@shadowen.org, Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	sam@ravnborg.org, Jeff Garzik <jgarzik@redhat.com>
-To: Brice Goglin <brice@myri.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <48F391B9.1000206@myri.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: adwol@zonk.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49941
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755181AbYJMShu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 14:37:50 -0400
+In-Reply-To: <20081013101334.6b8b4567@zonk.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 13, 2008 at 08:21:45PM +0200, Brice Goglin wrote:
-> Brandeburg, Jesse wrote:
-> > What we want, is myri10ge and ixgbe drivers that can build whether or not CONFIG_INTEL_IOATDMA is enabled.  IF CONFIG_INTEL_IOATDMA *is* enabled (which it should not be on PPC) then there are several cases we want to work:
-> > CONFIG_INTEL_IOATDMA=m  ---> CONFIG_IXGBE=[m|n]
-> > CONFIG_INTEL_IOATDMA=y  ---> CONFIG_IXGBE=[m|y|n]
-> > CONFIG_INTEL_IOATDMA=n  ---> CONFIG_IXGBE=[m|y|n]
-> > CONFIG_INTEL_IOATDMA depends on X86
+From: Adam Osuchowski <adwol@zonk.pl>
+Date: Mon, 13 Oct 2008 12:13:34 +0200
+
+> David Miller wrote:
+> > Not a bug.
+> > 
+> > These "global" setting have to be set to the desired value before the
+> > device is created.  And it is at creation time that these global
+> > values are "inherited" by the device.
+> > 
+> > Afterwards changes to the global value will not propagate to those
+> > devices again, because that might override a changed setting made
+> > by the user.
+> > 
+> > It is only newly created devices which get these values.
 > 
-> I am not sure I want to prevent myri10ge=y just because ioatdma=m.
->...
+> I understand you are talking about /proc/sys/net/ipv6/conf/default/*
+> controls. If so, it's ok, but I talked about /proc/sys/net/ipv6/conf/all/*
+> controls. Documentation/networking/ip-sysctl.txt says:
+> 
+>     conf/default/*:
+> 	    Change the interface-specific default settings.
+> 
+> 
+>     conf/all/*:
+> 	    Change all the interface-specific settings.
+> 
+> so what is the difference between default and all in the context of your
+> statement? In my opinion, it could be understood that default settings
+> are inherited and those from "all" directory change values for all
+> current devices.
 
-Technically both solutions are possible, which to choose is just a 
-policy decision you have to agree on.
+Unfortunately not all "all" knobs are treated universally, only some
+of them all.
 
-In practice it will anyway only rarely matter.
+If you grep for "devconf_all" under net/ipv6 you'll see which ones
+get used and in what manner.
 
-But considering that igb is in a similar situation it would be nice if 
-all 3 drivers would handle it the same way.
-
-> Brice
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+Of course, we'll need to tweak either the docs or the implementation
+to match :-)
