@@ -1,56 +1,36 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] export genphy_restart_aneg
-Date: Mon, 13 Oct 2008 20:19:00 +0300
-Message-ID: <20081013171900.GK29938@cs181140183.pp.htv.fi>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] s390 claw compile fixlet
+Date: Mon, 13 Oct 2008 21:44:38 +0400
+Message-ID: <20081013174438.GA24220@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Lennert Buytenhek <buytenh@marvell.com>,
-	Andy Fleming <afleming@freescale.com>, jgarzik@pobox.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:42876 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754453AbYJMRlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 13:41:47 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1354675fgg.17
+        for <netdev@vger.kernel.org>; Mon, 13 Oct 2008 10:41:45 -0700 (PDT)
 Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following build error caused by
-commit ed94493fb38a665cebcf750dfabe8a6dd13e136f
-(mv643xx_eth: convert to phylib):
-
-<--  snip  -->
-
-...
-  Building modules, stage 2.
-  MODPOST 1280 modules
-ERROR: "genphy_restart_aneg" [drivers/net/mv643xx_eth.ko] undefined!
-...
-make[2]: *** [__modpost] Error 1
-
-<--  snip  -->
-
-
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 1716274..f11e900 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -557,6 +557,7 @@ int genphy_restart_aneg(struct phy_device *phydev)
- 
- 	return ctl;
- }
-+EXPORT_SYMBOL(genphy_restart_aneg);
- 
- 
- /**
+ drivers/s390/net/claw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/s390/net/claw.c
++++ b/drivers/s390/net/claw.c
+@@ -2913,7 +2913,7 @@ claw_new_device(struct ccwgroup_device *cgdev)
+ 	if (ret != 0) {
+ 		printk(KERN_WARNING
+ 			"claw: ccw_device_set_online %s WRITE failed "
+-		       "with ret = %d\n", dev_name(&cgdev->cdev[WRITE]->dev)
++		       "with ret = %d\n", dev_name(&cgdev->cdev[WRITE]->dev),
+ 		       ret);
+ 		goto out;
+ 	}
