@@ -1,29 +1,27 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH] pktgen: fix skb leak in case of failure
-Date: Mon, 13 Oct 2008 14:01:58 -0300
-Message-ID: <20081013170158.GA10494@ghostprotocols.net>
-References: <Pine.LNX.4.64.0810131657250.3843@wrl-59.cs.helsinki.fi>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 0/2 2.6.28] cxgb3 - cosmetic changes
+Date: Mon, 13 Oct 2008 10:13:58 -0700
+Message-ID: <48F381D6.9060505@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42608 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754947AbYJMRCN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2008 13:02:13 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0810131657250.3843@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759076AbYJMROb@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Mon, Oct 13, 2008 at 05:22:18PM +0300, Ilpo J=E4rvinen escreveu:
-> Seems that skb goes into void unless something magic happened
-> in pskb_expand_head in case of failure.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Hi Jeff,
 
-Good catch!
+I'm submitting two cosmetic patches for inclusion in 2.6.28:
+- update the driver version
+- extend copyrights to 2008
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Though the merge window is closed to 2.6.28, these patches do not 
+actually change executable code. I'm not sure how this stands in the 
+current check-in policy. No big deal if they can't make it.
+
+Cheers,
+Divy
