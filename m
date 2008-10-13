@@ -1,36 +1,39 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Distributed storage release.
-Date: Mon, 13 Oct 2008 18:14:49 +0400
-Message-ID: <20081013141449.GA30768@2ka.mipt.ru>
-References: <20081006160034.GA611@2ka.mipt.ru> <20081012192419.fd8394c9.akpm@linux-foundation.org> <20081013133850.GA13565@2ka.mipt.ru> <84144f020810130644w7f89f3d9m3c3d3e63d3034534@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [IPROUTE]: Fix up "ip link" help text
+Date: Mon, 13 Oct 2008 07:21:29 -0700
+Message-ID: <20081013072129.2564130f@extreme>
+References: <48EB7D76.7050004@trash.net>
+	<200810072206.03062.arekm@maven.pl>
+	<48EBCE59.3080401@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <84144f020810130644w7f89f3d9m3c3d3e63d3034534@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arkadiusz Miskiewicz <arekm@maven.pl>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37796 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751399AbYJMOVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Oct 2008 10:21:31 -0400
+In-Reply-To: <48EBCE59.3080401@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pekka.
+On Tue, 07 Oct 2008 23:02:17 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-On Mon, Oct 13, 2008 at 04:44:28PM +0300, Pekka Enberg (penberg@cs.helsinki.fi) wrote:
-> > What's the difference? In saving one space and replacing another with
-> > comma? I do not particulary care, but would like to know why it is
-> > needed :)
+> Arkadiusz Miskiewicz wrote:
+> > Runtime dependand help doesn't look sane. Help should always show all possible 
+> > options/command while trying to use unsupported option should display error 
+> > message.
+> >   
 > 
-> kcalloc() will check for multiplication overflow which is nice
-> especially if size is passed from user-space (not sure if that applies
-> here).
+> That makes sense. But don't complain to me about the quality
+> of the error messages afterwards please :)
+> 
+> 
 
-I think that 32-bit overflow check during multiplication in allocation
-code is the last thing to worry about :)
-If this parameters are not checked before, we are screwd already...
-
-P.S. DST does not check one of them, oops.
-
--- 
-	Evgeniy Polyakov
+I applied a variant of Patrick's original patch. I added text for delete, and
+avoided some code movement.  The help text should only show what is supported
+otherwise there will be user complaints.
