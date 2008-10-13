@@ -1,64 +1,111 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: [patch 1/2] drivers/net/bonding: sparse fixes for exported
-	tables
-Date: Mon, 13 Oct 2008 10:23:47 +0100
-Message-ID: <20081013092347.GA11059@fluff.org.uk>
-References: <20080914155611.272940975@fluff.org.uk> <20080914155714.793765032@fluff.org.uk> <48DAF424.2060808@garzik.org>
+From: Javier Herrero <jherrero@hvsistemas.es>
+Subject: Re: [PATCH 1/1] netdev: DM9000: Added typecasting to supress some
+ warnings on Blackfin
+Date: Mon, 13 Oct 2008 11:28:23 +0200
+Message-ID: <48F314B7.3020708@hvsistemas.es>
+References: <1223889009-31336-1-git-send-email-cooloney@kernel.org> <20081013091725.GG31627@trinity.fluff.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Dooks <ben-linux@fluff.org>, netdev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bryan Wu <cooloney@kernel.org>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:47061 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755600AbYJMJYD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 05:24:03 -0400
-Content-Disposition: inline
-In-Reply-To: <48DAF424.2060808@garzik.org>
+Received: from zm1.veloxia.com ([213.149.227.2]:35460 "HELO zm1.veloxia.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1759846AbYJMJfH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Oct 2008 05:35:07 -0400
+In-Reply-To: <20081013091725.GG31627@trinity.fluff.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 24, 2008 at 10:15:00PM -0400, Jeff Garzik wrote:
-> Ben Dooks wrote:
->> The following sparse warnings are being generated
->> because bonding.h is missing definitons for items
->> declared in bond_main.c but also used in bond_sysfs.h
->>
->> Also export bond_dev_list as this is also declared
->> in bond_main but used elsewhere in drivers/net/bonding.
->>
->> bond_main.c:105:20: warning: symbol 'bonding_defaults' was not declared. Should it be static?
->> bond_main.c:148:1: warning: symbol 'bond_dev_list' was not declared. Should it be static?
->> bond_main.c:162:22: warning: symbol 'bond_lacp_tbl' was not declared. Should it be static?
->> bond_main.c:168:22: warning: symbol 'bond_mode_tbl' was not declared. Should it be static?
->> bond_main.c:179:22: warning: symbol 'xmit_hashtype_tbl' was not declared. Should it be static?
->> bond_main.c:186:22: warning: symbol 'arp_validate_tbl' was not declared. Should it be static?
->> bond_main.c:194:22: warning: symbol 'fail_over_mac_tbl' was not declared. Should it be static?
->>
->> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
->>
->> Index: linux-git-test-next-cats/drivers/net/bonding/bonding.h
->> ===================================================================
->> --- linux-git-test-next-cats.orig/drivers/net/bonding/bonding.h	2008-09-14 16:39:30.000000000 +0100
->> +++ linux-git-test-next-cats/drivers/net/bonding/bonding.h	2008-09-14 16:44:24.000000000 +0100
->> @@ -333,5 +333,13 @@ void bond_change_active_slave(struct bon
->>  void bond_register_arp(struct bonding *);
->>  void bond_unregister_arp(struct bonding *);
->>  +/* exported from bond_main.c */
->> +extern struct list_head bond_dev_list;
->> +extern struct bond_parm_tbl bond_lacp_tbl[];
->> +extern struct bond_parm_tbl bond_mode_tbl[];
->> +extern struct bond_parm_tbl xmit_hashtype_tbl[];
->> +extern struct bond_parm_tbl arp_validate_tbl[];
->> +extern struct bond_parm_tbl fail_over_mac_tbl[];
+Hi, Bryan,
+
+So it seems that we must correct that in other place?
+
+Regards,
+
+Javier
+
+Ben Dooks escribi=F3:
+> On Mon, Oct 13, 2008 at 05:10:09PM +0800, Bryan Wu wrote:
+>> From: Javier Herrero <jherrero@hvsistemas.es>
 >
-> applied
+> No, your arch definitions of writesb and co are wrong if they
+> are not taking 'void __iomem *' arguments.
+> =20
+>> Signed-off-by: Javier Herrero <jherrero@hvsistemas.es>
+>> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+>> ---
+>>  drivers/net/dm9000.c |   12 ++++++------
+>>  1 files changed, 6 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+>> index f42c23f..c4737ca 100644
+>> --- a/drivers/net/dm9000.c
+>> +++ b/drivers/net/dm9000.c
+>> @@ -188,35 +188,35 @@ iow(board_info_t * db, int reg, int value)
+>> =20
+>>  static void dm9000_outblk_8bit(void __iomem *reg, void *data, int c=
+ount)
+>>  {
+>> -	writesb(reg, data, count);
+>> +	writesb((int)reg, data, count);
+>>  }
+>> =20
+>>  static void dm9000_outblk_16bit(void __iomem *reg, void *data, int =
+count)
+>>  {
+>> -	writesw(reg, data, (count+1) >> 1);
+>> +	writesw((int)reg, data, (count+1) >> 1);
+>>  }
+>> =20
+>>  static void dm9000_outblk_32bit(void __iomem *reg, void *data, int =
+count)
+>>  {
+>> -	writesl(reg, data, (count+3) >> 2);
+>> +	writesl((int)reg, data, (count+3) >> 2);
+>>  }
+>> =20
+>>  /* input block from chip to memory */
+>> =20
+>>  static void dm9000_inblk_8bit(void __iomem *reg, void *data, int co=
+unt)
+>>  {
+>> -	readsb(reg, data, count);
+>> +	readsb((int)reg, data, count);
+>>  }
+>> =20
+>> =20
+>>  static void dm9000_inblk_16bit(void __iomem *reg, void *data, int c=
+ount)
+>>  {
+>> -	readsw(reg, data, (count+1) >> 1);
+>> +	readsw((int)reg, data, (count+1) >> 1);
+>>  }
+>> =20
+>>  static void dm9000_inblk_32bit(void __iomem *reg, void *data, int c=
+ount)
+>>  {
+>> -	readsl(reg, data, (count+3) >> 2);
+>> +	readsl((int)reg, data, (count+3) >> 2);
+>>  }
+>> =20
+>>  /* dump block from chip to null */
+>> --=20
+>> 1.5.6
 >
-> patch #2 failed to apply
 
-ok, will sort this out and send a new patch.
+--=20
+-----------------------------------------------------------------------=
+-
+Javier Herrero                            EMAIL: jherrero@hvsistemas.co=
+m
+HV Sistemas S.L.                          PHONE:         +34 949 336 80=
+6
+Los Charcones, 17A                        FAX:           +34 949 336 79=
+2
+19170 El Casar - Guadalajara - Spain      WEB: http://www.hvsistemas.co=
+m
 
--- 
-Ben (ben@fluff.org, http://www.fluff.org/)
-
-  'a smiley only costs 4 bytes'
