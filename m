@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Rationalise email address: Network Specific Parts
-Date: Mon, 13 Oct 2008 03:06:46 -0700 (PDT)
-Message-ID: <20081013.030646.123824121.davem@davemloft.net>
-References: <20081013105453.35eece02@lxorguk.ukuu.org.uk>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: [PATCH 1/1] netdev: DM9000: Added typecasting to supress some warnings on Blackfin
+Date: Mon, 13 Oct 2008 06:24:33 -0400
+Message-ID: <8bd0f97a0810130324o17a2b98s6bb05670b814345d@mail.gmail.com>
+References: <1223889009-31336-1-git-send-email-cooloney@kernel.org>
+	 <20081013091725.GG31627@trinity.fluff.org>
+	 <48F314B7.3020708@hvsistemas.es>
+	 <386072610810130252s52c11423r69851740975ff517@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: "Javier Herrero" <jherrero@hvsistemas.es>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Bryan Wu" <cooloney@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43595
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932494AbYJMKHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 06:07:10 -0400
-In-Reply-To: <20081013105453.35eece02@lxorguk.ukuu.org.uk>
+Received: from rv-out-0506.google.com ([209.85.198.228]:13507 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751306AbYJMKYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 06:24:34 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1761168rvb.1
+        for <netdev@vger.kernel.org>; Mon, 13 Oct 2008 03:24:33 -0700 (PDT)
+In-Reply-To: <386072610810130252s52c11423r69851740975ff517@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Mon, 13 Oct 2008 10:54:53 +0100
+On Mon, Oct 13, 2008 at 05:52, Bryan Wu wrote:
+> On Mon, Oct 13, 2008 at 5:28 PM, Javier Herrero wrote:
+>> So it seems that we must correct that in other place?
+>
+> Yes, we need to check the I/O read_write functions.
 
-> Clean up the various different email addresses of mine listed in the code
-> to a single current and valid address. As Dave says his network merges
-> for 2.6.28 are now done this seems a good point to send them in where
-> they won't risk disrupting real changes.
-> 
-> Signed-off-by: Alan Cox <alan@redhat.com>
-
-I'm happy to suck this in via my net-2.6 tree.
+and drop the CONFIG_BLACKFIN hacks in the dm90000 driver ... we
+rewrite the write* functions to out* ... probably because we dont
+provide any write* functions in our headers
+-mike
