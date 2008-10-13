@@ -1,58 +1,39 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 1/6] netns brnetfilter: per-netns ebtables
-Date: Mon, 13 Oct 2008 11:35:01 +0400
-Message-ID: <20081013073501.GB4254@x200.localdomain>
-References: <20080821221943.GO31136@x200.localdomain> <20081013070347.GA3813@elte.hu> <20081013070940.GA6340@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 11655] New: /proc/sys/net/ipv6/conf/all/*
+ controls don't work
+Date: Mon, 13 Oct 2008 00:32:39 -0700 (PDT)
+Message-ID: <20081013.003239.89070363.davem@davemloft.net>
+References: <bug-11655-10286@http.bugzilla.kernel.org/>
+	<20081002231826.869a1a9e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, kaber@trash.et,
-	"David S. Miller" <davem@davemloft.net>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	adwol@zonk.pl
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:49682 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754390AbYJMHcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 03:32:11 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so644657nfc.21
-        for <netdev@vger.kernel.org>; Mon, 13 Oct 2008 00:32:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20081013070940.GA6340@elte.hu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57821
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754161AbYJMHdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 03:33:02 -0400
+In-Reply-To: <20081002231826.869a1a9e.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 13, 2008 at 09:09:40AM +0200, Ingo Molnar wrote:
-> 
-> * Ingo Molnar <mingo@elte.hu> wrote:
-> 
-> > 
-> > * adobriyan@gmail.com <adobriyan@gmail.com> wrote:
-> > 
-> > > * make registered ebtables list per-netns
-> > > * for that, duplicate table at the very beginning of register,
-> > >   we can't add one table to multiple lists.
-> > > * propagate netns from userspace socket down to iterators over list,
-> > > * register individual modules only in init_net for a minute.
-> > > 
-> > > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> > 
-> > -tip testing found this build failure, config attached:
-> > 
-> > ERROR: "ebt_unregister_table" [net/bridge/netfilter/ebtable_nat.ko] undefined!
-> > ERROR: "ebt_register_table" [net/bridge/netfilter/ebtable_nat.ko] undefined!
-> > ERROR: "ebt_do_table" [net/bridge/netfilter/ebtable_nat.ko] undefined!
-> > ERROR: "ebt_unregister_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
-> > ERROR: "ebt_register_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
-> > ERROR: "ebt_do_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
-> > make[1]: *** [__modpost] Error 1
-> > make: *** [modules] Error 2
-> 
-> i had a quick look and i think the problem is that CONFIG_BRIDGE=m so 
-> the ebt_unregister_table symbol is not available to modules properly. 
-> But i've not dug down deep.
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 2 Oct 2008 23:18:26 -0700
 
-Ouch, how they managed to get there?
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
 
-Anyway, ebtables were rewritten to work via xtables, so these patches
-are most certainly obsolete, better drop and forget. I should post new
-version soon.
+Not a bug.
+
+These "global" setting have to be set to the desired value before the
+device is created.  And it is at creation time that these global
+values are "inherited" by the device.
+
+Afterwards changes to the global value will not propagate to those
+devices again, because that might override a changed setting made
+by the user.
+
+It is only newly created devices which get these values.
