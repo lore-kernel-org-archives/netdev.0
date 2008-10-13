@@ -1,175 +1,143 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/9] PCI: vpd handle longer delays in access
-Date: Mon, 13 Oct 2008 13:13:03 -0700
-Message-ID: <20081013201452.642628937@vyatta.com>
+Subject: [PATCH 9/9] skge: remove ethtool eeprom interface
+Date: Mon, 13 Oct 2008 13:13:11 -0700
+Message-ID: <20081013201453.459180971@vyatta.com>
 References: <20081013201302.899587376@vyatta.com>
 Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:57900 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755539AbYJMVEC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2008 17:04:02 -0400
-Content-Disposition: inline; filename=vpd-delay.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline; filename=skge-no-eeprom.patch
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Accessing the VPD area can take a long time.  The existing 
-VPD access code fails consistently on my hardware. There are comments
-in the SysKonnect vendor driver that it can take up to 13ms per word. 
-
-Change the access routines to:
-  * use a mutex rather than spinning with IRQ's disabled and lock held
-  * have a much longer timeout
-  * call cond_resched while spinning
+The VPD is not really the firmware EEPROM.
+Programming the VPD through the ethtool interface doesn't work
+(doesn't really change firmware). Now that the interesting bits are
+available through the debug interface and raw data is available through sysfs,
+the old ethtool interface can go.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Reviewed-by: Matthew Wilcox <willy@linux.intel.com>
 
-
----
- drivers/pci/access.c |   55 ++++++++++++++++++++++++++++++---------------------
- 1 file changed, 33 insertions(+), 22 deletions(-)
-
---- a/drivers/pci/access.c	2008-10-13 12:46:17.000000000 -0700
-+++ b/drivers/pci/access.c	2008-10-13 13:03:50.000000000 -0700
-@@ -133,39 +133,46 @@ PCI_USER_WRITE_CONFIG(dword, u32)
+--- a/drivers/net/skge.c	2008-10-13 13:04:16.000000000 -0700
++++ b/drivers/net/skge.c	2008-10-13 13:04:20.000000000 -0700
+@@ -61,9 +61,6 @@
+ #define BLINK_MS		250
+ #define LINK_HZ			HZ
  
- struct pci_vpd_pci22 {
- 	struct pci_vpd base;
--	spinlock_t lock; /* controls access to hardware and the flags */
--	u8	cap;
-+	struct mutex lock;
-+	u16	flag;
- 	bool	busy;
--	bool	flag; /* value of F bit to wait for */
-+	u8	cap;
- };
- 
--/* Wait for last operation to complete */
-+/*
-+ * Wait for last operation to complete.
-+ * This code has to spin since there is no other notification from the PCI
-+ * hardware. Since the VPD is often implemented by serial attachment to an
-+ * EEPROM, it may take many milliseconds to complete.
-+ */
- static int pci_vpd_pci22_wait(struct pci_dev *dev)
- {
- 	struct pci_vpd_pci22 *vpd =
- 		container_of(dev->vpd, struct pci_vpd_pci22, base);
--	u16 flag, status;
--	int wait;
-+	unsigned long timeout = jiffies + HZ/20 + 2;
-+	u16 status;
- 	int ret;
- 
- 	if (!vpd->busy)
- 		return 0;
- 
--	flag = vpd->flag ? PCI_VPD_ADDR_F : 0;
--	wait = vpd->flag ? 10 : 1000; /* read: 100 us; write: 10 ms */
- 	for (;;) {
--		ret = pci_user_read_config_word(dev,
--						vpd->cap + PCI_VPD_ADDR,
-+		ret = pci_user_read_config_word(dev, vpd->cap + PCI_VPD_ADDR,
- 						&status);
--		if (ret < 0)
-+		if (ret)
- 			return ret;
--		if ((status & PCI_VPD_ADDR_F) == flag) {
-+
-+		if ((status & PCI_VPD_ADDR_F) == vpd->flag) {
- 			vpd->busy = false;
- 			return 0;
- 		}
--		if (wait-- == 0)
-+
-+		if (time_after(jiffies, timeout))
- 			return -ETIMEDOUT;
--		udelay(10);
-+		if (fatal_signal_pending(current))
-+			return -EINTR;
-+		if (!cond_resched())
-+			udelay(10);
- 	}
+-#define SKGE_EEPROM_MAGIC	0x9933aabb
+-
+-
+ MODULE_DESCRIPTION("SysKonnect Gigabit Ethernet driver");
+ MODULE_AUTHOR("Stephen Hemminger <shemminger@linux-foundation.org>");
+ MODULE_LICENSE("GPL");
+@@ -817,98 +814,6 @@ static int skge_phys_id(struct net_devic
+ 	return 0;
  }
  
-@@ -175,7 +182,7 @@ static int pci_vpd_pci22_read(struct pci
- 	struct pci_vpd_pci22 *vpd =
- 		container_of(dev->vpd, struct pci_vpd_pci22, base);
- 	u32 val;
--	int ret;
-+	int ret = 0;
- 	int begin, end, i;
- 
- 	if (pos < 0 || pos > vpd->base.len || size > vpd->base.len  - pos)
-@@ -183,7 +190,9 @@ static int pci_vpd_pci22_read(struct pci
- 	if (size == 0)
- 		return 0;
- 
--	spin_lock_irq(&vpd->lock);
-+	if (mutex_lock_killable(&vpd->lock))
-+		return -EINTR;
-+
- 	ret = pci_vpd_pci22_wait(dev);
- 	if (ret < 0)
- 		goto out;
-@@ -191,15 +200,16 @@ static int pci_vpd_pci22_read(struct pci
- 					 pos & ~3);
- 	if (ret < 0)
- 		goto out;
-+
- 	vpd->busy = true;
--	vpd->flag = 1;
-+	vpd->flag = PCI_VPD_ADDR_F;
- 	ret = pci_vpd_pci22_wait(dev);
- 	if (ret < 0)
- 		goto out;
- 	ret = pci_user_read_config_dword(dev, vpd->cap + PCI_VPD_DATA,
- 					 &val);
- out:
--	spin_unlock_irq(&vpd->lock);
-+	mutex_unlock(&vpd->lock);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -220,7 +230,7 @@ static int pci_vpd_pci22_write(struct pc
- 	struct pci_vpd_pci22 *vpd =
- 		container_of(dev->vpd, struct pci_vpd_pci22, base);
- 	u32 val;
--	int ret;
-+	int ret = 0;
- 
- 	if (pos < 0 || pos > vpd->base.len || pos & 3 ||
- 	    size > vpd->base.len - pos || size < 4)
-@@ -231,7 +241,8 @@ static int pci_vpd_pci22_write(struct pc
- 	val |= ((u8) *buf++) << 16;
- 	val |= ((u32)(u8) *buf++) << 24;
- 
--	spin_lock_irq(&vpd->lock);
-+	if (mutex_lock_killable(&vpd->lock))
-+		return -EINTR;
- 	ret = pci_vpd_pci22_wait(dev);
- 	if (ret < 0)
- 		goto out;
-@@ -247,7 +258,7 @@ static int pci_vpd_pci22_write(struct pc
- 	vpd->flag = 0;
- 	ret = pci_vpd_pci22_wait(dev);
- out:
--	spin_unlock_irq(&vpd->lock);
-+	mutex_unlock(&vpd->lock);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -279,7 +290,7 @@ int pci_vpd_pci22_init(struct pci_dev *d
- 
- 	vpd->base.len = PCI_VPD_PCI22_SIZE;
- 	vpd->base.ops = &pci_vpd_pci22_ops;
--	spin_lock_init(&vpd->lock);
-+	mutex_init(&vpd->lock);
- 	vpd->cap = cap;
- 	vpd->busy = false;
- 	dev->vpd = &vpd->base;
+-static int skge_get_eeprom_len(struct net_device *dev)
+-{
+-	struct skge_port *skge = netdev_priv(dev);
+-	u32 reg2;
+-
+-	pci_read_config_dword(skge->hw->pdev, PCI_DEV_REG2, &reg2);
+-	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
+-}
+-
+-static u32 skge_vpd_read(struct pci_dev *pdev, int cap, u16 offset)
+-{
+-	u32 val;
+-
+-	pci_write_config_word(pdev, cap + PCI_VPD_ADDR, offset);
+-
+-	do {
+-		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
+-	} while (!(offset & PCI_VPD_ADDR_F));
+-
+-	pci_read_config_dword(pdev, cap + PCI_VPD_DATA, &val);
+-	return val;
+-}
+-
+-static void skge_vpd_write(struct pci_dev *pdev, int cap, u16 offset, u32 val)
+-{
+-	pci_write_config_dword(pdev, cap + PCI_VPD_DATA, val);
+-	pci_write_config_word(pdev, cap + PCI_VPD_ADDR,
+-			      offset | PCI_VPD_ADDR_F);
+-
+-	do {
+-		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
+-	} while (offset & PCI_VPD_ADDR_F);
+-}
+-
+-static int skge_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+-			   u8 *data)
+-{
+-	struct skge_port *skge = netdev_priv(dev);
+-	struct pci_dev *pdev = skge->hw->pdev;
+-	int cap = pci_find_capability(pdev, PCI_CAP_ID_VPD);
+-	int length = eeprom->len;
+-	u16 offset = eeprom->offset;
+-
+-	if (!cap)
+-		return -EINVAL;
+-
+-	eeprom->magic = SKGE_EEPROM_MAGIC;
+-
+-	while (length > 0) {
+-		u32 val = skge_vpd_read(pdev, cap, offset);
+-		int n = min_t(int, length, sizeof(val));
+-
+-		memcpy(data, &val, n);
+-		length -= n;
+-		data += n;
+-		offset += n;
+-	}
+-	return 0;
+-}
+-
+-static int skge_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+-			   u8 *data)
+-{
+-	struct skge_port *skge = netdev_priv(dev);
+-	struct pci_dev *pdev = skge->hw->pdev;
+-	int cap = pci_find_capability(pdev, PCI_CAP_ID_VPD);
+-	int length = eeprom->len;
+-	u16 offset = eeprom->offset;
+-
+-	if (!cap)
+-		return -EINVAL;
+-
+-	if (eeprom->magic != SKGE_EEPROM_MAGIC)
+-		return -EINVAL;
+-
+-	while (length > 0) {
+-		u32 val;
+-		int n = min_t(int, length, sizeof(val));
+-
+-		if (n < sizeof(val))
+-			val = skge_vpd_read(pdev, cap, offset);
+-		memcpy(&val, data, n);
+-
+-		skge_vpd_write(pdev, cap, offset, val);
+-
+-		length -= n;
+-		data += n;
+-		offset += n;
+-	}
+-	return 0;
+-}
+-
+ static const struct ethtool_ops skge_ethtool_ops = {
+ 	.get_settings	= skge_get_settings,
+ 	.set_settings	= skge_set_settings,
+@@ -921,9 +826,6 @@ static const struct ethtool_ops skge_eth
+ 	.set_msglevel	= skge_set_msglevel,
+ 	.nway_reset	= skge_nway_reset,
+ 	.get_link	= ethtool_op_get_link,
+-	.get_eeprom_len	= skge_get_eeprom_len,
+-	.get_eeprom	= skge_get_eeprom,
+-	.set_eeprom	= skge_set_eeprom,
+ 	.get_ringparam	= skge_get_ring_param,
+ 	.set_ringparam	= skge_set_ring_param,
+ 	.get_pauseparam = skge_get_pauseparam,
 
 -- 
-
