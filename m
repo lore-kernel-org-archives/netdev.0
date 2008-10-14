@@ -1,7 +1,8 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH 00/14]: Killing qdisc->ops->requeue().
-Date: Tue, 14 Oct 2008 09:52:46 +0000
-Message-ID: <20081014095246.GA10804@ff.dom.local>
+Subject: [PATCH 01/14] pkt_sched: Add qdisc_dequeue() helper.
+Date: Tue, 14 Oct 2008 09:53:09 +0000
+Message-ID: <20081014095308.GB10804@ff.dom.local>
+References: <fe92ba9380e7da89b674cc58fcb5bc1dae69e0c6.1223973003.git.jarkao2@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
@@ -9,47 +10,75 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ug-out-1314.google.com ([66.249.92.170]:52657 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbYJNJwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 05:52:54 -0400
+	with ESMTP id S1754373AbYJNJxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 05:53:13 -0400
 Received: by ug-out-1314.google.com with SMTP id k3so850192ugf.37
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 02:52:53 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 02:53:12 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <fe92ba9380e7da89b674cc58fcb5bc1dae69e0c6.1223973003.git.jarkao2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The aim of this patch-set is to finish changes proposed by David S.
-Miller in his patch-set with the same subject from Mon, 18 Aug 2008.
-The first two patches were applied with some modifications, so, to
-apply the rest, there were needed some changes.
+-------- Original Message --------
+Subject: [PATCH 3/9]: pkt_sched: Add qdisc_dequeue() helper.
+Date: Mon, 18 Aug 2008 01:36:55 -0700 (PDT)
+From: David Miller <davem@davemloft.net>
 
-Original David's patches include additional info, but signed-off-by
-is removed because of changed context. I expect they will be merged
-and signed off by David as an author, anyway.
+Modified sch_generic.c part.
 
-The qdisc->requeue list idea is to limit requeuing to one level only,
-so a parent can requeue to its child only. This list is then tried
-first while dequeuing (qdisc_dequeue()), except at the top level,
-so packets could be requeued only by qdiscs, not by qdisc_restart()
-after xmit errors.
+------------->
+From: David Miller <davem@davemloft.net>
+pkt_sched: Add qdisc_dequeue() helper.
 
-Thanks,
-Jarek P.
+It prioritizes packets on the ->requeue list.
 
- include/net/sch_generic.h |   23 +++++++++------
- net/sched/sch_api.c       |    7 -----
- net/sched/sch_atm.c       |   24 ++--------------
- net/sched/sch_cbq.c       |   37 +------------------------
- net/sched/sch_dsmark.c    |   23 +---------------
- net/sched/sch_fifo.c      |    2 -
- net/sched/sch_generic.c   |   21 +-------------
- net/sched/sch_gred.c      |   21 --------------
- net/sched/sch_hfsc.c      |   30 ++------------------
- net/sched/sch_htb.c       |   46 +------------------------------
- net/sched/sch_multiq.c    |   38 +------------------------
- net/sched/sch_netem.c     |   29 +++-----------------
- net/sched/sch_prio.c      |   31 +--------------------
- net/sched/sch_red.c       |   20 +-------------
- net/sched/sch_sfq.c       |   66 ---------------------------------------------
- net/sched/sch_tbf.c       |   23 +--------------
- net/sched/sch_teql.c      |   11 -------
- 17 files changed, 36 insertions(+), 416 deletions(-)
+Use in qdisc_restart() as it's basically a complete
+copy of dequeue_skb().
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+ include/net/sch_generic.h |    8 ++++++++
+ net/sched/sch_generic.c   |    2 +-
+ 2 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 3fe49d8..00c1309 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -369,6 +369,14 @@ enum net_xmit_qdisc_t {
+ #define net_xmit_drop_count(e)	(1)
+ #endif
+ 
++static inline struct sk_buff *qdisc_dequeue(struct Qdisc *sch)
++{
++	struct sk_buff *skb = __skb_dequeue(&sch->requeue);
++	if (!skb)
++		skb = sch->dequeue(sch);
++	return skb;
++}
++
+ static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ #ifdef CONFIG_NET_SCHED
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 7b5572d..6730bac 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -66,7 +66,7 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+ 		else
+ 			skb = NULL;
+ 	} else {
+-		skb = q->dequeue(q);
++		skb = qdisc_dequeue(q);
+ 	}
+ 
+ 	return skb;
+-- 
+1.5.6.5
+
+To: 
+Cc: 
+Bcc: 
+Subject: 
+Reply-To: 
+
