@@ -1,122 +1,205 @@
-From: Gernot Hillier <gernot.hillier@siemens.com>
-Subject: Re: e1000e: sporadic "hardware error"s with Intel 82563EB on Supermicro
- X7DB3
-Date: Tue, 14 Oct 2008 11:18:09 +0200
-Message-ID: <48F463D1.70605@siemens.com>
-References: <EA929A9653AAE14F841771FB1DE5A1365F498F4EDC@rrsmsx501.amr.corp.intel.com> <E3627BC91D010645BD262A1E8720005106A64162@orsmsx420.amr.corp.intel.com> <48EE04C0.6070504@siemens.com>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on
+	powerpc	selectsCONFIG_INTEL_IOATDMA=y
+Date: Tue, 14 Oct 2008 11:12:30 +0200
+Message-ID: <48F4627E.30300@myri.com>
+References: <20081013101559.GA14372@linux.vnet.ibm.com>
+	<20081013112631.GD29938@cs181140183.pp.htv.fi>
+	<36D9DB17C6DE9E40B059440DB8D95F52066E2EAE@orsmsx418.amr.corp.intel.com>
+	<48F391B9.1000206@myri.com>
+	<20081013183503.GA28133@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Hockert, Jeff W" <jeff.w.hockert@intel.com>
-To: "Graham, David" <david.graham@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from david.siemens.de ([192.35.17.14]:20074 "EHLO david.siemens.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753077AbYJNJSc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2008 05:18:32 -0400
-In-Reply-To: <48EE04C0.6070504@siemens.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Adrian Bunk <bunk@kernel.org>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	linuxppc-dev@ozlabs.org, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>, apw@shadowen.org,
+	sam@ravnborg.org, Jeff Garzik <jgarzik@redhat.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20081013183503.GA28133@cs181140183.pp.htv.fi>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi Dave!
+Adrian Bunk wrote:
+> But considering that igb is in a similar situation it would be nice if 
+> all 3 drivers would handle it the same way.
+>   
 
-Sorry for the delay (and the self-follow-up), but now I can hopefully
-provide answers to all your questions...
+Jesse,
+What do you think of the below patch?
+I am not very familiar with Kconfig, but it seems to solve the problem.
+If a Kconfig guru could double-check...
+Brice
 
-Hillier, Gernot wrote:
-> However, one detail confuses us: we can currently reproduce this problem on
-> two machines. One of them is equipped with an optional IPMI card, the other
-> one isn't. (The Supermicro X7DB3 doesn't include full IPMI support onboard,
-> but has a "LP IPMI 2.0 (SIMLP) Slot" where you can place an optional card).
 
-The "IPMI card" we use is a "Supermicro AOC-SIMLP-B".
+myri10ge: Add MYRI10GE_DCA instead of selecting INTEL_IOATDMA
 
-Overview: http://www.supermicro.com/products/accessories/addon/sim.cfm
-Manual:   http://www.supermicro.com/manuals/other/AOC-SIMLP.pdf
+Add a bool MYRI10GE_DCA defined to y if MYRI10GE and DCA are enabled, but
+MYRI10GE isn't y while DCA=m. And thus remove the need to select INTEL_IOATDMA
+when MYRI10GE is enabled, so that non-x86 architectures can build the myri10ge.
 
-> The box with the IPMI card shows the hardware errors quite often (in one of
-> about 200 tries) while the other box still shows the problem, but much more
-> seldom (in one of >1000 tries). Now we wonder if the BMC is on the IPMI
-> card or on the board itself - in the first case, I'm not sure if you thesis
-> fully explains the problems we can see.
+Signed-off-by: Brice Goglin <brice@myri.com>
 
-However, after digging through some manuals, I'm quite sure the BMC is
-integrated in the Intel ESB2 I/O Controller Hub used on our board, not
-on the IPMI card. So we should have an Intel BMC.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index e9d5294..0162d55 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2462,7 +2462,6 @@ config MYRI10GE
+ 	select FW_LOADER
+ 	select CRC32
+ 	select INET_LRO
+-	select INTEL_IOATDMA
+ 	---help---
+ 	  This driver supports Myricom Myri-10G Dual Protocol interface in
+ 	  Ethernet mode. If the eeprom on your board is not recent enough,
+@@ -2474,6 +2473,11 @@ config MYRI10GE
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called myri10ge.
+ 
++config MYRI10GE_DCA
++	bool
++	default y
++	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
++
+ config NETXEN_NIC
+ 	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
+ 	depends on PCI
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 6dce901..a9aebad 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -188,7 +188,7 @@ struct myri10ge_slice_state {
+ 	dma_addr_t fw_stats_bus;
+ 	int watchdog_tx_done;
+ 	int watchdog_tx_req;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	int cached_dca_tag;
+ 	int cpu;
+ 	__be32 __iomem *dca_tag;
+@@ -220,7 +220,7 @@ struct myri10ge_priv {
+ 	int msi_enabled;
+ 	int msix_enabled;
+ 	struct msix_entry *msix_vectors;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	int dca_enabled;
+ #endif
+ 	u32 link_state;
+@@ -902,7 +902,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+ 	struct myri10ge_slice_state *ss;
+ 	int i, status;
+ 	size_t bytes;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	unsigned long dca_tag_off;
+ #endif
+ 
+@@ -1012,7 +1012,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+ 	}
+ 	put_be32(htonl(mgp->intr_coal_delay), mgp->intr_coal_delay_ptr);
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_DCA_OFFSET, &cmd, 0);
+ 	dca_tag_off = cmd.data0;
+ 	for (i = 0; i < mgp->num_slices; i++) {
+@@ -1051,7 +1051,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+ 	return status;
+ }
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ static void
+ myri10ge_write_dca(struct myri10ge_slice_state *ss, int cpu, int tag)
+ {
+@@ -1505,7 +1505,7 @@ static int myri10ge_poll(struct napi_struct *napi, int budget)
+ 	struct net_device *netdev = ss->mgp->dev;
+ 	int work_done;
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	if (ss->mgp->dca_enabled)
+ 		myri10ge_update_dca(ss);
+ #endif
+@@ -1736,7 +1736,7 @@ static const char myri10ge_gstrings_main_stats[][ETH_GSTRING_LEN] = {
+ 	"tx_boundary", "WC", "irq", "MSI", "MSIX",
+ 	"read_dma_bw_MBs", "write_dma_bw_MBs", "read_write_dma_bw_MBs",
+ 	"serial_number", "watchdog_resets",
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	"dca_capable_firmware", "dca_device_present",
+ #endif
+ 	"link_changes", "link_up", "dropped_link_overflow",
+@@ -1815,7 +1815,7 @@ myri10ge_get_ethtool_stats(struct net_device *netdev,
+ 	data[i++] = (unsigned int)mgp->read_write_dma;
+ 	data[i++] = (unsigned int)mgp->serial_number;
+ 	data[i++] = (unsigned int)mgp->watchdog_resets;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	data[i++] = (unsigned int)(mgp->ss[0].dca_tag != NULL);
+ 	data[i++] = (unsigned int)(mgp->dca_enabled);
+ #endif
+@@ -3844,7 +3844,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		dev_err(&pdev->dev, "failed reset\n");
+ 		goto abort_with_slices;
+ 	}
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	myri10ge_setup_dca(mgp);
+ #endif
+ 	pci_set_drvdata(pdev, mgp);
+@@ -3948,7 +3948,7 @@ static void myri10ge_remove(struct pci_dev *pdev)
+ 	netdev = mgp->dev;
+ 	unregister_netdev(netdev);
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	myri10ge_teardown_dca(mgp);
+ #endif
+ 	myri10ge_dummy_rdma(mgp, 0);
+@@ -3993,7 +3993,7 @@ static struct pci_driver myri10ge_driver = {
+ #endif
+ };
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ static int
+ myri10ge_notify_dca(struct notifier_block *nb, unsigned long event, void *p)
+ {
+@@ -4024,7 +4024,7 @@ static __init int myri10ge_init_module(void)
+ 		       myri10ge_driver.name, myri10ge_rss_hash);
+ 		myri10ge_rss_hash = MXGEFW_RSS_HASH_TYPE_SRC_PORT;
+ 	}
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	dca_register_notify(&myri10ge_dca_notifier);
+ #endif
+ 	if (myri10ge_max_slices > MYRI10GE_MAX_SLICES)
+@@ -4037,7 +4037,7 @@ module_init(myri10ge_init_module);
+ 
+ static __exit void myri10ge_cleanup_module(void)
+ {
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	dca_unregister_notify(&myri10ge_dca_notifier);
+ #endif
+ 	pci_unregister_driver(&myri10ge_driver);
 
-> And there's another detail I'd like to mention: we first found the problem
-> by doing continuous reboots as originally described, but we found we can
-> also reproduce it with an endless loop of "rmmod;sleep 3;modprobe". Does
-> this somehow contradict with your thesis?
-> 
->> There have been further improvements made to the driver synchronization
->> code since the 0.3.3.3-k2 driver, and it is possible that a newer driver
->> would resolve the issue. It'd be good for us to know if that's the case.
->> The driver version is not yet (AFAICS) upstream, but is already
->> available in the standalone e1000e-0.4.1.7 driver on sourceforge.
->> (google "sourceforge e1000e"). Would you be able to try that, as a first
->> step ? 
-> 
-> Yes, I did. Unfortunately, 0.4.1.7 still shows the problem - on both machines:
-> 
-> e1000e: Intel(R) PRO/1000 Network Driver - 0.4.1.7-NAPI
-> e1000e: Copyright (c) 1999-2008 Intel Corporation.
-> ACPI: PCI Interrupt 0000:06:00.0[A] -> GSI 18 (level, low) -> IRQ 18
-> PCI: Setting latency timer of device 0000:06:00.0 to 64
-> 0000:06:00.0: 0000:06:00.0: Hardware Error
-> 0000:06:00.0: eth0: (PCI Express:2.5GB/s:Width x4) 00:30:48:66:c7:06
-> 0000:06:00.0: eth0: Intel(R) PRO/1000 Network Connection
-> 0000:06:00.0: eth0: MAC: 5, PHY: 5, PBA No: 2050ff-0ff
-> ACPI: PCI Interrupt 0000:06:00.1[B] -> GSI 19 (level, low) -> IRQ 19
-> PCI: Setting latency timer of device 0000:06:00.1 to 64
-> 0000:06:00.1: eth1: (PCI Express:2.5GB/s:Width x4) 00:30:48:66:c7:07
-> 0000:06:00.1: eth1: Intel(R) PRO/1000 Network Connection
-> 0000:06:00.1: eth1: MAC: 5, PHY: 5, PBA No: 2050ff-0ff
-> 0000:06:00.0: eth0: Hardware Error
-> 0000:06:00.0: eth0: Hardware Error
-> 0000:06:00.0: eth0: Hardware Error
-> 0000:06:00.0: eth0: Hardware Error
-> 0000:06:00.0: eth0: Hardware Error
-> 
-> Is there any further debug code I could add to narrow down things?
-> 
->> If this does not resolve the issue for the Supermicro board, you likely
->> also require a "FW-side" fix, and this comes in one of two flavors. If
->> the board has an INTEL BMC, then we will need to update it with a new
->> BMC version. If the board has a Supermicro BMC (I expect that it does),
->> then we can provide a patch to some of the platform microcode using a
->> EEPROM update.  To determine which is appropriate for you, we'll need to
->> know more about the platform. There's probably a BMC version number on
->> one of the BIOS menus. I can work with you to find the info we need, and
->> then, to help you to perform the necessary steps to perform an upgrade. 
-> 
-[...]
-Still no helpful contact within Supermicro, but we found the following
-information in the web interface provided by the "IPMI card":
 
-Device InformationProduct Name: Supermicro Daughter Card
-Serial Number: 02969601ac46a6df
-Device IP Address: 192.168.2.4
-Device MAC Address: 08:15:08:15:08:15
-Firmware Version: 01.59.00
-Firmware Build Number: 5420
-Firmware Description: Sep-29-2008-09-45-NonKVM
-Hardware Revision: 0x22
 
-The BIOS IPMI menu itself says:
-
-IPMI Specification Version: 2.0
-Firmware Version: 1.59
-
-I hope that those details answered your questions, so that we can
-proceed with your suggestions. Think we now need the "new BMC version"
-you mentioned, right?
-
-If there's anything I can test or lookup from the software side to
-speedup things (like additional debugging of the driver, etc.), please
-don't hesitate to ask!
-
---
-Gernot
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
