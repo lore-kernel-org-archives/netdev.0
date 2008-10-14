@@ -1,48 +1,46 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 00/14]: Killing qdisc->ops->requeue().
-Date: Tue, 14 Oct 2008 09:41:30 -0700
-Message-ID: <48F4CBBA.7070004@intel.com>
-References: <20081014095246.GA10804@ff.dom.local>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: Distributed storage release.
+Date: Tue, 14 Oct 2008 20:12:56 +0400
+Message-ID: <20081014161256.GA22286@2ka.mipt.ru>
+References: <20081006160034.GA611@2ka.mipt.ru> <20081012192419.fd8394c9.akpm@linux-foundation.org> <20081013133850.GA13565@2ka.mipt.ru> <20081014155143.GM2009@webber.adilger.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jarek Poplawski <jarkao2@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9521 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751155AbYJNQll (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2008 12:41:41 -0400
-In-Reply-To: <20081014095246.GA10804@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Andreas Dilger <adilger@sun.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081014155143.GM2009@webber.adilger.int>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> The aim of this patch-set is to finish changes proposed by David S.
-> Miller in his patch-set with the same subject from Mon, 18 Aug 2008.
-> The first two patches were applied with some modifications, so, to
-> apply the rest, there were needed some changes.
+Hi Andreas.
+
+On Tue, Oct 14, 2008 at 09:51:43AM -0600, Andreas Dilger (adilger@sun.com) wrote:
+> While it is true that one coding style vs. another could be argued for
+> a long time - the right answer is that the _right_ coding style for code
+> added to the Linux kernel is Linus' CodingStyle document.
 > 
-> Original David's patches include additional info, but signed-off-by
-> is removed because of changed context. I expect they will be merged
-> and signed off by David as an author, anyway.
-> 
-> The qdisc->requeue list idea is to limit requeuing to one level only,
-> so a parent can requeue to its child only. This list is then tried
-> first while dequeuing (qdisc_dequeue()), except at the top level,
-> so packets could be requeued only by qdiscs, not by qdisc_restart()
-> after xmit errors.
+> Whether you think the braces here or there look better - consistency
+> with other code in the same project is very important, and any changes
+> you get to your code will come in the Linus CodingStyle and this will
+> result in code that is a mix between your personal style and the official
+> style and it will be a mess...
 
-I still do not agree with this change.  It essentially breaks multiq as 
-we are right back to all queues being stopped because of one packet in 
-the qdisc->requeue list.
+Like Scsi_Host and include/scsi/scsi_host.h? My favourite coding style
+standards! It has the same space issues I have, but my code does not use
+capital letters :)
 
-I think if anything it seems like you guys actually found the cpu 
-performance issue a while back in the fact that the dev_requeue_skb was 
-calling __netif_schedule when requeuing on a stopped queue.  That is the 
-one piece I would say needs to be changed so that you only call 
-__netif_schedule if the skb is not going to a stopped queue.
+I always wondered... I submit almost 5 thousands line of code and I'm
+blamed that I do not have or have too many spaces in several dozens of
+lines. Should I get it as kernel hackers can not say anything bad about
+project except amount of spaces?
 
-Thanks,
+Btw, ext4 headers have the same issues with long lines as DST has. I'm
+pretty sure no one would notice that (as long as in DST) without
+checkpatch, which basically means that people do not care about the
+code.
 
-Alex
+-- 
+	Evgeniy Polyakov
