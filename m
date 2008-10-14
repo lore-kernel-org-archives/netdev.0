@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/phy: add missing kernel-doc
-Date: Mon, 13 Oct 2008 18:46:30 -0700 (PDT)
-Message-ID: <20081013.184630.03498238.davem@davemloft.net>
-References: <20081013091505.61177f48.randy.dunlap@oracle.com>
+Subject: Re: [PATCH 1/2 2.6.28] cxgb3 - update driver version
+Date: Mon, 13 Oct 2008 18:47:08 -0700 (PDT)
+Message-ID: <20081013.184708.187067238.davem@davemloft.net>
+References: <20081013171525.23321.84016.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: randy.dunlap@oracle.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56517
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56520
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752528AbYJNBqy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 21:46:54 -0400
-In-Reply-To: <20081013091505.61177f48.randy.dunlap@oracle.com>
+	by vger.kernel.org with ESMTP id S1753977AbYJNBrc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 21:47:32 -0400
+In-Reply-To: <20081013171525.23321.84016.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Mon, 13 Oct 2008 09:15:05 -0700
+From: Divy Le Ray <divy@chelsio.com>
+Date: Mon, 13 Oct 2008 10:15:25 -0700
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
+> From: Divy Le Ray <divy@chelsio.com>
 > 
-> Fix kernel-doc warning, missing description:
+> Add a field to the driver versioning info.
+> Update version to 1.1.0.
 > 
-> Warning(lin2627-g3-kdocfixes//drivers/net/phy/mdio_bus.c:63): No description found for parameter 'd'
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-Applied, thanks Randy.
+Applied.
