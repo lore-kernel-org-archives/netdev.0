@@ -1,61 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] : Fix compilation warnings in net/802/fc.c
-Date: Tue, 14 Oct 2008 16:36:20 -0700 (PDT)
-Message-ID: <20081014.163620.23535849.davem@davemloft.net>
-References: <ea11fea30810141121w58e25b43x92d71ca800c5c96@mail.gmail.com>
-	<20081014193500.GA6502@joi>
+From: Don Porter <porterde@cs.utexas.edu>
+Subject: Re: e1000 softirq load balancing
+Date: Tue, 14 Oct 2008 18:46:11 -0500
+Message-ID: <48F52F43.9040201@cs.utexas.edu>
+References: <48F4ED7E.4070308@cs.utexas.edu> <20081014.125156.92616351.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mkatiyar@gmail.com, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org
-To: marcin.slusarz@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49768
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751637AbYJNXgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 19:36:43 -0400
-In-Reply-To: <20081014193500.GA6502@joi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20081014.125156.92616351.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
-Date: Tue, 14 Oct 2008 21:35:04 +0200
+Thanks David.
 
-> On Tue, Oct 14, 2008 at 11:51:24PM +0530, Manish Katiyar wrote:
-> > diff --git a/net/802/fc.c b/net/802/fc.c
-> > index cb3475e..7463109 100644
-> > --- a/net/802/fc.c
-> > +++ b/net/802/fc.c
-> > @@ -82,7 +82,9 @@ static int fc_header(struct sk_buff *skb, struct
-> > net_device *dev,
-> > 
-> >  static int fc_rebuild_header(struct sk_buff *skb)
-> >  {
-> > +#ifdef CONFIG_INET
-> >  	struct fch_hdr *fch=(struct fch_hdr *)skb->data;
-> > +#endif
-> >  	struct fcllc *fcllc=(struct fcllc *)(skb->data+sizeof(struct fch_hdr));
-> >  	if(fcllc->ethertype != htons(ETH_P_IP)) {
-> >  		printk("fc_rebuild_header: Don't know how to resolve type %04X
-> > addresses ?\n", ntohs(fcllc->ethertype));
-> > -- 
-> 
-> When !CONFIG_INET this function always returns 0 (and does not anything useful)
-> so it probably can be written as:
-> 
-> #ifdef CONFIG_INET
-> static int fc_rebuild_header(struct sk_buff *skb)
-> {
-> ...
-> }
-> #else
-> static int fc_rebuild_header(struct sk_buff *skb)
-> {
-> 	return 0;
-> }
-> #endif
+Would you mind giving me a bit of intuition why I can't have a 1:1 
+mapping of CPUs to NICs? 
 
-Yep, agreed.  Could someone respin the patch like this?
+I am a bit out of my depth here, but I'd like to learn.
 
-Thanks.
+Best,
+Don
+
+David Miller wrote:
+> From: Don Porter <porterde@cs.utexas.edu>
+> Date: Tue, 14 Oct 2008 14:05:34 -0500
+>
+>   
+>> It seems to me that with 4 independent NICs and plenty of CPUs to
+>> spare, I ought to be able to assign one softirq daemon to each NIC
+>> rather than funnelling all of the traffic through 1 or 2.
+>>     
+>
+> Traffic doesn't get distributed unless the NIC has support
+> for RX flow seperation and PCI MSI-X interrupts.  Your NICs
+> do not.
+>
+> So no matter how hard you try, each NIC is going to have it's
+> packets processed essentially on one cpu.
+>   
+
