@@ -1,322 +1,132 @@
-From: Per Hallsmark <per.hallsmark@t2data.se>
-Subject: [PATCH] usbnet autosuspend
-Date: Tue, 14 Oct 2008 10:28:31 +0200
-Message-ID: <48F4582F.3010808@t2data.se>
+From: "Bryan Wu" <cooloney@kernel.org>
+Subject: Re: [PATCH 1/1] netdev: DM9000: Added typecasting to supress some warnings on Blackfin
+Date: Tue, 14 Oct 2008 16:50:20 +0800
+Message-ID: <386072610810140150t4c960a17yf7bfd6032b8710f2@mail.gmail.com>
+References: <1223889009-31336-1-git-send-email-cooloney@kernel.org>
+	 <20081013054119.7f360ee1@extreme>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090603030706090709080807"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ben@simtec.co.uk, s.hauer@pengutronix.de, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Javier Herrero" <jherrero@hvsistemas.es>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.t2data.se ([212.247.174.230]:3732 "EHLO mail.t2data.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755490AbYJNIgq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2008 04:36:46 -0400
-Received: from [94.191.142.252] by t2data.se (Cipher TLSv1:RC4-MD5:128) (MDaemon PRO v9.6.6)
-	with ESMTP id md50000477611.msg
-	for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 10:28:34 +0200
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:42150 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752706AbYJNIuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 04:50:22 -0400
+Received: by gxk9 with SMTP id 9so4851733gxk.13
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 01:50:20 -0700 (PDT)
+In-Reply-To: <20081013054119.7f360ee1@extreme>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090603030706090709080807
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, Oct 13, 2008 at 8:41 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> On Mon, 13 Oct 2008 17:10:09 +0800
+> Bryan Wu <cooloney@kernel.org> wrote:
+>
+>> From: Javier Herrero <jherrero@hvsistemas.es>
+>>
+>> Signed-off-by: Javier Herrero <jherrero@hvsistemas.es>
+>> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+>> ---
+>>  drivers/net/dm9000.c |   12 ++++++------
+>>  1 files changed, 6 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+>> index f42c23f..c4737ca 100644
+>> --- a/drivers/net/dm9000.c
+>> +++ b/drivers/net/dm9000.c
+>> @@ -188,35 +188,35 @@ iow(board_info_t * db, int reg, int value)
+>>
+>>  static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
+>>  {
+>> -     writesb(reg, data, count);
+>> +     writesb((int)reg, data, count);
+>>  }
+>
+> You lose the sparse checking for misuse by doing this.
+>
+> Why not this instead?
+>
+>
+> --- a/drivers/net/dm9000.c      2008-10-13 05:29:15.000000000 -0700
+> +++ b/drivers/net/dm9000.c      2008-10-13 05:40:13.000000000 -0700
+> @@ -47,14 +47,6 @@
+>  #define CARDNAME       "dm9000"
+>  #define DRV_VERSION    "1.31"
+>
+> -#ifdef CONFIG_BLACKFIN
+> -#define readsb insb
+> -#define readsw insw
+> -#define readsl insl
+> -#define writesb        outsb
+> -#define writesw        outsw
+> -#define writesl        outsl
+> -#endif
+>
+>  /*
+>  * Transmit timeout, default 5 seconds.
+> @@ -185,7 +177,40 @@ iow(board_info_t * db, int reg, int valu
+>  }
+>
+>  /* routines for sending block to chip */
+> +#ifdef CONFIG_BLACKFIN
+> +static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
+> +{
+> +       outsb((unsigned long)reg, data, count);
+> +}
+>
 
-Hello,
+I added readsl/writesl to blackfin arch, so we don't need to mess up
+the common DM9000 netdev driver here.
 
-Per request this patch, which sent to linux-usb maillist, is also sent 
-to this maillist.
-In brief, patch enables autosuspend more aggresively in usbnet.
+-Bryan
 
-Best regards,
-Per
-
---------------090603030706090709080807
-Content-Type: text/x-diff;
- name="linux-2.6.27-usbnet-autosuspend.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="linux-2.6.27-usbnet-autosuspend.patch"
-
-diff -rup linux-2.6.27.orig/drivers/net/usb/usbnet.c linux-2.6.27/drivers/net/usb/usbnet.c
---- linux-2.6.27.orig/drivers/net/usb/usbnet.c	2008-10-10 00:13:53.000000000 +0200
-+++ linux-2.6.27/drivers/net/usb/usbnet.c	2008-10-13 16:21:03.000000000 +0200
-@@ -87,6 +87,8 @@ static int msg_level = -1;
- module_param (msg_level, int, 0);
- MODULE_PARM_DESC (msg_level, "Override default message level");
- 
-+static void waker(struct work_struct *work);
-+
- /*-------------------------------------------------------------------------*/
- 
- /* handles CDC Ethernet and many other network "bulk data" interfaces */
-@@ -325,6 +327,7 @@ static void rx_submit (struct usbnet *de
- 	if (netif_running (dev->net)
- 			&& netif_device_present (dev->net)
- 			&& !test_bit (EVENT_RX_HALT, &dev->flags)) {
-+		usb_mark_last_busy(dev->udev);
- 		switch (retval = usb_submit_urb (urb, GFP_ATOMIC)) {
- 		case -EPIPE:
- 			usbnet_defer_kevent (dev, EVENT_RX_HALT);
-@@ -496,6 +499,7 @@ static void intr_complete (struct urb *u
- 		return;
- 
- 	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
-+	usb_mark_last_busy(dev->udev);
- 	status = usb_submit_urb (urb, GFP_ATOMIC);
- 	if (status != 0 && netif_msg_timer (dev))
- 		deverr(dev, "intr resubmit --> %d", status);
-@@ -589,7 +593,10 @@ static int usbnet_stop (struct net_devic
- 	dev->flags = 0;
- 	del_timer_sync (&dev->delay);
- 	tasklet_kill (&dev->bh);
--	usb_autopm_put_interface(dev->intf);
-+
-+	dev->used--;
-+
-+	dev->intf->needs_remote_wakeup = 0;
- 
- 	return 0;
- }
-@@ -669,6 +676,12 @@ static int usbnet_open (struct net_devic
- 
- 	// delay posting reads until we're fully open
- 	tasklet_schedule (&dev->bh);
-+
-+	dev->used++;
-+
-+	dev->intf->needs_remote_wakeup = 1;
-+	usb_autopm_put_interface(dev->intf);
-+
- 	return retval;
- done:
- 	usb_autopm_put_interface(dev->intf);
-@@ -921,7 +934,7 @@ static void usbnet_tx_timeout (struct ne
- 
- /*-------------------------------------------------------------------------*/
- 
--static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
-+static int __usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
- 	int			length;
-@@ -955,6 +968,7 @@ static int usbnet_start_xmit (struct sk_
- 	entry->state = tx_start;
- 	entry->length = length;
- 
-+	dev->tx_goingon = 1;
- 	usb_fill_bulk_urb (urb, dev->udev, dev->out,
- 			skb->data, skb->len, tx_complete, skb);
- 
-@@ -972,6 +986,7 @@ static int usbnet_start_xmit (struct sk_
- 
- 	spin_lock_irqsave (&dev->txq.lock, flags);
- 
-+	usb_mark_last_busy(dev->udev);
- 	switch ((retval = usb_submit_urb (urb, GFP_ATOMIC))) {
- 	case -EPIPE:
- 		netif_stop_queue (net);
-@@ -987,6 +1002,7 @@ static int usbnet_start_xmit (struct sk_
- 		if (dev->txq.qlen >= TX_QLEN (dev))
- 			netif_stop_queue (net);
- 	}
-+
- 	spin_unlock_irqrestore (&dev->txq.lock, flags);
- 
- 	if (retval) {
-@@ -1002,9 +1018,32 @@ drop:
- 		devdbg (dev, "> tx, len %d, type 0x%x",
- 			length, skb->protocol);
- 	}
-+
- 	return retval;
- }
- 
-+static int usbnet_start_xmit(struct sk_buff *skb, struct net_device *net)
-+{
-+	struct usbnet		*dev = netdev_priv(net);
-+	int			retval;
-+	unsigned long		flags;
-+
-+	spin_lock_irqsave(&dev->txq.lock, flags);
-+	if (dev->suspend_count) {
-+		netif_stop_queue(net);
-+		dev->tx_skb = skb;
-+		if (!schedule_work (&dev->waker))
-+			deverr(dev, "waker may have been dropped");
-+		else
-+			devdbg(dev, "waker scheduled");
-+		spin_unlock_irqrestore(&dev->txq.lock, flags);
-+		return NET_XMIT_SUCCESS;
-+	}
-+	spin_unlock_irqrestore(&dev->txq.lock, flags);
-+
-+	retval = __usbnet_start_xmit(skb, net);
-+	return retval;
-+}
- 
- /*-------------------------------------------------------------------------*/
- 
-@@ -1024,6 +1063,7 @@ static void usbnet_bh (unsigned long par
- 			rx_process (dev, skb);
- 			continue;
- 		case tx_done:
-+			dev->tx_goingon = 0;
- 		case rx_cleanup:
- 			usb_free_urb (entry->urb);
- 			dev_kfree_skb (skb);
-@@ -1043,6 +1083,7 @@ static void usbnet_bh (unsigned long par
- 	} else if (netif_running (dev->net)
- 			&& netif_device_present (dev->net)
- 			&& !timer_pending (&dev->delay)
-+			&& !dev->suspend_count
- 			&& !test_bit (EVENT_RX_HALT, &dev->flags)) {
- 		int	temp = dev->rxq.qlen;
- 		int	qlen = RX_QLEN (dev);
-@@ -1161,6 +1202,7 @@ usbnet_probe (struct usb_interface *udev
- 	dev->bh.func = usbnet_bh;
- 	dev->bh.data = (unsigned long) dev;
- 	INIT_WORK (&dev->kevent, kevent);
-+	INIT_WORK (&dev->waker, waker);
- 	dev->delay.function = usbnet_bh;
- 	dev->delay.data = (unsigned long) dev;
- 	init_timer (&dev->delay);
-@@ -1269,24 +1311,62 @@ EXPORT_SYMBOL_GPL(usbnet_probe);
-  * resume only when the last interface is resumed
-  */
- 
-+static void waker(struct work_struct *work)
-+{
-+        struct usbnet *dev = container_of(work, struct usbnet, waker);
-+
-+        if (!usb_autopm_get_interface(dev->intf)) {
-+                usb_autopm_put_interface(dev->intf);
-+        } else {
-+                devdbg(dev, "autoresume failed");
-+        }
-+}
-+
-+static void stop_traffic(struct usbnet *dev)
-+{
-+	int			temp;
-+	DECLARE_WAIT_QUEUE_HEAD_ONSTACK (unlink_wakeup);
-+	DECLARE_WAITQUEUE (wait, current);
-+
-+	// ensure there are no more active urbs
-+	add_wait_queue (&unlink_wakeup, &wait);
-+	dev->wait = &unlink_wakeup;
-+	temp = unlink_urbs (dev, &dev->txq) + unlink_urbs (dev, &dev->rxq);
-+
-+	// maybe wait for deletions to finish.
-+	while (!skb_queue_empty(&dev->rxq)
-+			&& !skb_queue_empty(&dev->txq)
-+			&& !skb_queue_empty(&dev->done)) {
-+		msleep(UNLINK_TIMEOUT_MS);
-+		if (netif_msg_ifdown (dev))
-+			devdbg (dev, "waited for %d urb completions", temp);
-+	}
-+	dev->wait = NULL;
-+	remove_wait_queue (&unlink_wakeup, &wait);
-+
-+	usb_kill_urb(dev->interrupt);
-+}
-+
- int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
- {
- 	struct usbnet		*dev = usb_get_intfdata(intf);
- 
--	if (!dev->suspend_count++) {
--		/*
--		 * accelerate emptying of the rx and queues, to avoid
--		 * having everything error out.
--		 */
--		netif_device_detach (dev->net);
--		(void) unlink_urbs (dev, &dev->rxq);
--		(void) unlink_urbs (dev, &dev->txq);
--		/*
--		 * reattach so runtime management can use and
--		 * wake the device
--		 */
--		netif_device_attach (dev->net);
-+	if (dev->suspend_count++)
-+		return 0;
-+
-+	/* check for ongoing tx traffic */
-+	if (dev->tx_goingon && dev->udev->auto_pm) {
-+		dev->suspend_count--;
-+		return -EBUSY;
- 	}
-+
-+	stop_traffic(dev);
-+
-+	/* cancel work */
-+	dev->flags = 0;
-+	del_timer_sync(&dev->delay);
-+	cancel_work_sync(&dev->kevent);
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(usbnet_suspend);
-@@ -1294,9 +1374,41 @@ EXPORT_SYMBOL_GPL(usbnet_suspend);
- int usbnet_resume (struct usb_interface *intf)
- {
- 	struct usbnet		*dev = usb_get_intfdata(intf);
-+	int                     status;
-+
-+	devdbg(dev, "%s: begin", __FUNCTION__);
-+
-+	if (--dev->suspend_count)
-+		return 0;
-+
-+	if (dev->used) {
-+		status = init_status (dev, dev->intf);
-+		if (status) {
-+			devdbg(dev, "init_status failed");
-+			return status;
-+		}
-+
-+		/* start any status interrupt transfer */
-+		if (dev->interrupt) {
-+			status = usb_submit_urb (dev->interrupt, GFP_NOIO);
-+			if (status < 0) {
-+				devdbg(dev, "usb_submit intr urb failed");
-+				return status;
-+			}
-+		}
-+
-+		tasklet_schedule(&dev->bh);
-+
-+		/* transmit package that triggered resume */
-+		if (dev->tx_skb) {
-+			status = __usbnet_start_xmit(dev->tx_skb, dev->net);
-+			dev->tx_skb = NULL;
-+		}
-+
-+		netif_wake_queue(dev->net);
-+	}
- 
--	if (!--dev->suspend_count)
--		tasklet_schedule (&dev->bh);
-+	devdbg(dev, "%s: end", __FUNCTION__);
- 
- 	return 0;
- }
-diff -rup linux-2.6.27.orig/include/linux/usb/usbnet.h linux-2.6.27/include/linux/usb/usbnet.h
---- linux-2.6.27.orig/include/linux/usb/usbnet.h	2008-10-10 00:13:53.000000000 +0200
-+++ linux-2.6.27/include/linux/usb/usbnet.h	2008-10-13 16:18:26.000000000 +0200
-@@ -64,6 +64,12 @@ struct usbnet {
- #		define EVENT_RX_MEMORY	2
- #		define EVENT_STS_SPLIT	3
- #		define EVENT_LINK_RESET	4
-+
-+	/* autosuspend helpers */
-+	struct work_struct	waker;
-+	int                     used;
-+	int			tx_goingon;
-+	struct sk_buff		*tx_skb; /* skb queued during suspend */
- };
- 
- static inline struct usb_driver *driver_of(struct usb_interface *intf)
-
---------------090603030706090709080807--
-
+> +static void dm9000_outblk_16bit(void __iomem *reg, void *data, int count)
+> +{
+> +       outsw((unsigned long)reg, data, (count+1) >> 1);
+> +}
+> +
+> +static void dm9000_outblk_32bit(void __iomem *reg, void *data, int count)
+> +{
+> +       outsl((unsigned long)reg, data, (count+3) >> 2);
+> +}
+> +
+> +/* input block from chip to memory */
+> +
+> +static void dm9000_inblk_8bit(void __iomem *reg, void *data, int count)
+> +{
+> +       insb((unsigned long)reg, data, count);
+> +}
+> +
+> +
+> +static void dm9000_inblk_16bit(void __iomem *reg, void *data, int count)
+> +{
+> +       insw((unsigned long)reg, data, (count+1) >> 1);
+> +}
+> +
+> +static void dm9000_inblk_32bit(void __iomem *reg, void *data, int count)
+> +{
+> +       insl((unsigned long)reg, data, (count+3) >> 2);
+> +}
+> +#else
+>  static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
+>  {
+>        writesb(reg, data, count);
+> @@ -218,6 +243,7 @@ static void dm9000_inblk_32bit(void __io
+>  {
+>        readsl(reg, data, (count+3) >> 2);
+>  }
+> +#endif
+>
+>  /* dump block from chip to null */
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
