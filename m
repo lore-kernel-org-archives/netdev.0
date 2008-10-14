@@ -1,53 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Change S390 anti-dependency to CONFIG_GENERIC_HARDIRQS
- dependency
-Date: Tue, 14 Oct 2008 16:52:11 -0700 (PDT)
-Message-ID: <20081014.165211.53009170.davem@davemloft.net>
-References: <2acbd3e40810141621p31ba3ccdic909fc4634b5ef26@mail.gmail.com>
-	<20081014.163359.110730186.davem@davemloft.net>
-	<48F52E89.9050104@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Donald Porter <porterde@cs.utexas.edu>
+Subject: Re: e1000 softirq load balancing
+Date: Tue, 14 Oct 2008 18:55:40 -0500
+Message-ID: <2114C312-C2A8-487E-B35B-2AE9584AAD16@cs.utexas.edu>
+References: <48F4ED7E.4070308@cs.utexas.edu> <20081014.125156.92616351.davem@davemloft.net> <48F52F43.9040201@cs.utexas.edu> <20081014.165109.199128881.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: afleming@gmail.com, afleming@freescale.com, netdev@vger.kernel.org
-To: csnook@redhat.com
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40906
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752694AbYJNXwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 19:52:34 -0400
-In-Reply-To: <48F52E89.9050104@redhat.com>
+Received: from mail.cs.utexas.edu ([128.83.139.10]:53358 "EHLO
+	mail.cs.utexas.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbYJNXzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 19:55:45 -0400
+In-Reply-To: <20081014.165109.199128881.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Snook <csnook@redhat.com>
-Date: Tue, 14 Oct 2008 19:43:05 -0400
+Ok.  That seems very reasonable.
 
-> David Miller wrote:
-> > From: "Andy Fleming" <afleming@gmail.com>
-> > Date: Tue, 14 Oct 2008 18:21:44 -0500
-> > 
-> >> Argh.  From what I could see, we have request_irq, free_irq,
-> >> disable_irq, enable_irq, and disable_irq_nosync.  For the PHYLIB, it
-> >> shouldn't be difficult to modify things so that it doesn't compile in
-> >> interrupt support if the system doesn't support them.  Shouldn't, that
-> >> is, if there's some config option that tells me whether those
-> >> functions exist.
-> > I think this whole situation with s390 is rediculious.
-> > If s390 is weird and lacks these fundamental things, that's fine.
-> > What isn't fine is how we're handling this.
-> > No code should care or even be aware of this.
-> > S390 should simply provide a set of dummy DMA and interrupt interface
-> > stubs that always fail and return an error value.
-> > Then we can get rid of this S390 Kconfig stuff which has been spewed
-> > all over the place.
-> 
-> "depends on PCI" has always worked for me.  Any reason we can't use that here?
+So the behavior I am seeing is that I have 4 NICs, but all of the  
+traffic is being funneled to 1-2 softirq handlers, despite the fact  
+that the hardware interrupts are being delivered to 4 different CPUs.
 
-That's every worse.
+Any tips on how to debug this?  Or perhaps there is some configuration  
+step I am missing?
 
-What in the world does PCI have to do with the attribute we are
-trying to depend upon here?
+Thanks,
+Don
 
-No, it's just stupid.  Add nop do-nothing stub functions for the
-APIs an architecture doesn't support, then we need none of this.
+On Oct 14, 2008, at 6:51 PM, David Miller wrote:
+
+> From: Don Porter <porterde@cs.utexas.edu>
+> Date: Tue, 14 Oct 2008 18:46:11 -0500
+>
+>> Would you mind giving me a bit of intuition why I can't have a 1:1
+>> mapping of CPUs to NICs?
+>
+> I didn't say that.
+>
+> I said that without HW flow seperation support, you can only
+> expect N cpus to be busy where N is the number of NICs you
+> have.
+
