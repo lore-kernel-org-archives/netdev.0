@@ -1,87 +1,116 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [bug, -git] ERROR: "ebt_unregister_table"	[net/bridge/netfilter/ebtable_nat.ko]
- undefined
-Date: Tue, 14 Oct 2008 13:00:09 +0200
-Message-ID: <48F47BB9.9090902@trash.net>
-References: <20080821221943.GO31136@x200.localdomain> <20081013070347.GA3813@elte.hu> <20081013070940.GA6340@elte.hu> <20081013073501.GB4254@x200.localdomain> <20081014103005.GA19420@elte.hu>
+From: Pedro Ribeiro <pribeiro-bulk@net.ipl.pt>
+Subject: [PATCH] Structure icmp6hdr (IPv6/ICMPv6) with bug in the bitfields!
+Date: Tue, 14 Oct 2008 12:06:20 +0100
+Message-ID: <159769323.20081014120620@net.ipl.pt>
+Reply-To: Pedro Ribeiro <pribeiro-bulk-reply@isel.ipl.pt>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080305030308060309020303"
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, kaber@trash.et,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Jan Engelhardt <jengelh@computergmbh.de>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081014103005.GA19420@elte.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out1.net.ipl.pt ([192.104.48.14]:51310 "EHLO
+	smtp-out1.net.ipl.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755202AbYJNLiq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 07:38:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080305030308060309020303
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+=46irst, let-me say sorry for the long text, i think is needed for
+context.
 
-Ingo Molnar wrote:
-> i think you misunderstood my report. This is about latest upstream -git 
-> being broken:
-> 
-> ERROR: "ebt_register_table" [net/bridge/netfilter/ebtable_filter.ko] undefined!
-> ERROR: "ebt_do_table" [net/bridge/netfilter/ebtable_filter.ko] undefined!
-> ERROR: "ebt_unregister_table" [net/bridge/netfilter/ebtable_filter.ko] undefined!
-> ERROR: "ebt_register_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
-> ERROR: "ebt_do_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
-> ERROR: "ebt_unregister_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
-> make[1]: *** [__modpost] Error 1
-> make: *** [modules] Error 2
-> 
-> i posted to this thread because i wanted to find a relevant context. 
-> (but probably is not)
-> 
-> Anyway, i started a new thread for this.
-> 
-> the dependencies there look pretty complex so i did not find a quick fix 
-> - but i can test patches.
+My name is Pedro Ribeiro and I=92m the operations coordinator at
+IPLNet, a network that interconnects all the schools belonging to the
+Polytechnic Institute of Lisbon (IPL) and in addition I=92m also a
+teacher of network engineering at ISEL (a local university).
 
-This appears to be caused by Jan's Kconfig changes to use menuconfig,
-which lost a dependency on BRIDGE:
+In the majority of the network segments of our infrastructure, we
+have dual stack connectivity with IPv4/IPv6. In the last months, we
+have upgraded most of the infrastructure, specially targeting IPv6
+performance leaving most of the segments with an =93old/slow router=94 =
+and
+a =93new/fast=94 router as possible default gateways.
+In the course of validating the changes, we have done some tests with
+IPv6 and some of them were really disappointing with no gains at all.
 
--menu "Bridge: Netfilter Configuration"
--       depends on BRIDGE && BRIDGE_NETFILTER
--
--config BRIDGE_NF_EBTABLES
-+menuconfig BRIDGE_NF_EBTABLES
-         tristate "Ethernet Bridge tables (ebtables) support"
-         select NETFILTER_XTABLES
-         help
-           ebtables is a general, extensible frame/packet identification
-           framework. Say 'Y' or 'M' here if you want to do Ethernet
-           filtering/NAT/brouting on the Ethernet bridge.
+While investigating the cause of that, I have seen that our main
+Linux servers were using the =93wrong=94 default gateway, the =93old/sl=
+ow=94
+one. This behaviour is inconsistent with the configuration of the
+routers; the =93new/fast=94 is sending the router advertisements
+announcing himself as default gateway with MEDIUM (default) preference
+and the =93old/slow=94 announcing himself as LOW preference.
 
-Does this patch fix it?
+Deep analysis in the sources of Linux revealed that the value of
+=93pref=94 passed to rt6_add_dflt_router(...) in the file net/ipv6/rout=
+e.c
+isn=92t consistent with the one sent by the routers and observed with
+wireshark. Seeking the roots of the problem I=92ve detected a bug in th=
+e
+definitions of the bitfield that includes the router preference in the
+router advertisement message that are resulting in retrieving the
+wrong bits from the structure defined in =93include/linux/icmpv6.h=94. =
+The
+struct is the base one from ICMPv6 (icmp6hdr) and was lacking the bit
+field =93home_agent=94 between =93router_pref=94 and =93other=94 and th=
+e reserved
+bits are only 3, not 4 as in the structure (according to RFC4191)
 
---------------080305030308060309020303
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+=46ollows a =93diff=94 with the changes I=92ve made to correct this pro=
+blem
+(I=92ve made it against kernel 2.6.23, but I=92ve confirmed that the
+problem still exists in 2.6.25)
 
-diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
-index 366d3e9..ba6f73e 100644
---- a/net/bridge/netfilter/Kconfig
-+++ b/net/bridge/netfilter/Kconfig
-@@ -4,6 +4,7 @@
- 
- menuconfig BRIDGE_NF_EBTABLES
- 	tristate "Ethernet Bridge tables (ebtables) support"
-+	depends on BRIDGE && BRIDGE_NETFILTER
- 	select NETFILTER_XTABLES
- 	help
- 	  ebtables is a general, extensible frame/packet identification
+--- /usr/src/linux-2.6.23-gentoo-r9orig/include/linux/icmpv6.h      200=
+7-10-09 21:31:38.000000000 +0100
++++ /usr/src/linux-2.6.23-gentoo-r9/include/linux/icmpv6.h      2008-10=
+-13 17:42:56.000000000 +0100
+@@ -40,16 +40,18 @@
+                 struct icmpv6_nd_ra {
+                        __u8            hop_limit;
+ #if defined(__LITTLE_ENDIAN_BITFIELD)
+-                       __u8            reserved:4,
++                       __u8            reserved:3,
+                                        router_pref:2,
++                                       home_agent:1,
+                                        other:1,
+                                        managed:1;
+=20
+ #elif defined(__BIG_ENDIAN_BITFIELD)
+                        __u8            managed:1,
+                                        other:1,
++                                       home_agent:1,
+                                        router_pref:2,
+-                                       reserved:4;
++                                       reserved:3;
+ #else
+ #error "Please fix <asm/byteorder.h>"
+ #endif
 
---------------080305030308060309020303--
+Even after this fix, the problem of deterministic and preference
+aware default route selection, remains. I have not figured until now
+how the preference affects the selection, maybe it is a missing
+feature.
+
+I am sorry to say it (I am not a Windows fan), but the behaviour
+observed in Windows Vista is in this matter consistent with the one I
+was expecting from the reading of the RFCs.
+
+Developers on this area please clarify me this subject; does the
+preference present in the RAs is supposed to influence the decision?
+In addition, what is the criterion for selecting the default route in
+the presence of multiple candidates with the same preference?
+Best Regards to all the Linux community!
+
+--=20
+Best regards,
+
+=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D=
+-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-
+Pedro Ribeiro
+IPLNet - Rede de dados e comunica=E7=F5es
+Instituto Polit=E9cnico de Lisboa (IPL)
+Mail: mailto:pribeiro AT net.ipl.pt
+VoIP: sip:pribeiro AT net.ipl.pt
+=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D=
+-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-
+
