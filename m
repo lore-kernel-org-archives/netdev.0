@@ -1,116 +1,103 @@
-From: Pedro Ribeiro <pribeiro-bulk@net.ipl.pt>
-Subject: [PATCH] Structure icmp6hdr (IPv6/ICMPv6) with bug in the bitfields!
-Date: Tue, 14 Oct 2008 12:06:20 +0100
-Message-ID: <159769323.20081014120620@net.ipl.pt>
-Reply-To: Pedro Ribeiro <pribeiro-bulk-reply@isel.ipl.pt>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/14]: Killing qdisc->ops->requeue().
+Date: Tue, 14 Oct 2008 13:39:23 +0200
+Message-ID: <48F484EB.8000201@trash.net>
+References: <20081014095246.GA10804@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out1.net.ipl.pt ([192.104.48.14]:51310 "EHLO
-	smtp-out1.net.ipl.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755202AbYJNLiq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 07:38:46 -0400
+Received: from stinky.trash.net ([213.144.137.162]:33434 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755255AbYJNLj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 07:39:27 -0400
+In-Reply-To: <20081014095246.GA10804@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46irst, let-me say sorry for the long text, i think is needed for
-context.
+Jarek Poplawski wrote:
+> The aim of this patch-set is to finish changes proposed by David S.
+> Miller in his patch-set with the same subject from Mon, 18 Aug 2008.
+> The first two patches were applied with some modifications, so, to
+> apply the rest, there were needed some changes.
+> 
+> Original David's patches include additional info, but signed-off-by
+> is removed because of changed context. I expect they will be merged
+> and signed off by David as an author, anyway.
+> 
+> The qdisc->requeue list idea is to limit requeuing to one level only,
+> so a parent can requeue to its child only. This list is then tried
+> first while dequeuing (qdisc_dequeue()), except at the top level,
+> so packets could be requeued only by qdiscs, not by qdisc_restart()
+> after xmit errors.
 
-My name is Pedro Ribeiro and I=92m the operations coordinator at
-IPLNet, a network that interconnects all the schools belonging to the
-Polytechnic Institute of Lisbon (IPL) and in addition I=92m also a
-teacher of network engineering at ISEL (a local university).
+I didn't follow the original discussion, but I'm wondering what
+the reasoning is why these patches won't have negative impact
+on latency. Consider these two scenarios with HFSC or TBF:
 
-In the majority of the network segments of our infrastructure, we
-have dual stack connectivity with IPv4/IPv6. In the last months, we
-have upgraded most of the infrastructure, specially targeting IPv6
-performance leaving most of the segments with an =93old/slow router=94 =
-and
-a =93new/fast=94 router as possible default gateways.
-In the course of validating the changes, we have done some tests with
-IPv6 and some of them were really disappointing with no gains at all.
+current situation:
 
-While investigating the cause of that, I have seen that our main
-Linux servers were using the =93wrong=94 default gateway, the =93old/sl=
-ow=94
-one. This behaviour is inconsistent with the configuration of the
-routers; the =93new/fast=94 is sending the router advertisements
-announcing himself as default gateway with MEDIUM (default) preference
-and the =93old/slow=94 announcing himself as LOW preference.
+- packet is dequeued and sent
+- next packet is peeked at for calculating the deadline
+- watchdog is scheduled
+- higher priority packet arrives and is queued to inner qdisc
+- dequeue is called again, qdisc is overlimit, so peeks again
+- watchdog is rescheduled based on higher priority packet
 
-Deep analysis in the sources of Linux revealed that the value of
-=93pref=94 passed to rt6_add_dflt_router(...) in the file net/ipv6/rout=
-e.c
-isn=92t consistent with the one sent by the routers and observed with
-wireshark. Seeking the roots of the problem I=92ve detected a bug in th=
-e
-definitions of the bitfield that includes the router preference in the
-router advertisement message that are resulting in retrieving the
-wrong bits from the structure defined in =93include/linux/icmpv6.h=94. =
-The
-struct is the base one from ICMPv6 (icmp6hdr) and was lacking the bit
-field =93home_agent=94 between =93router_pref=94 and =93other=94 and th=
-e reserved
-bits are only 3, not 4 as in the structure (according to RFC4191)
+without ->requeue:
 
-=46ollows a =93diff=94 with the changes I=92ve made to correct this pro=
-blem
-(I=92ve made it against kernel 2.6.23, but I=92ve confirmed that the
-problem still exists in 2.6.25)
+- packet is dequeued and sent
+- next packet is peeked at for calculating the deadline and
+   put into private "requeue" queue
+- watchdog is scheduled
+- higher priority packet arrives and is queued to inner qdisc
+- dequeue is called again, qdisc is overlimit, so peeks again
+- higher priority packet doesn't affect watchdog rescheduling
+   since we still have one in the private queue
+- lower priority packet is sent, assuming qdisc is overlimit
+   watchdog is then rescheduled based on higher priority packet
 
---- /usr/src/linux-2.6.23-gentoo-r9orig/include/linux/icmpv6.h      200=
-7-10-09 21:31:38.000000000 +0100
-+++ /usr/src/linux-2.6.23-gentoo-r9/include/linux/icmpv6.h      2008-10=
--13 17:42:56.000000000 +0100
-@@ -40,16 +40,18 @@
-                 struct icmpv6_nd_ra {
-                        __u8            hop_limit;
- #if defined(__LITTLE_ENDIAN_BITFIELD)
--                       __u8            reserved:4,
-+                       __u8            reserved:3,
-                                        router_pref:2,
-+                                       home_agent:1,
-                                        other:1,
-                                        managed:1;
-=20
- #elif defined(__BIG_ENDIAN_BITFIELD)
-                        __u8            managed:1,
-                                        other:1,
-+                                       home_agent:1,
-                                        router_pref:2,
--                                       reserved:4;
-+                                       reserved:3;
- #else
- #error "Please fix <asm/byteorder.h>"
- #endif
+The end result is that the worst case latency for a packet increases
+by a full packet transmission time. This may not matter much for high
+bandwidth connections, but for f.i. with a 1mbit connection it adds a
+full 12ms for a MTU of 1500, which is clearly in the noticable range.
 
-Even after this fix, the problem of deterministic and preference
-aware default route selection, remains. I have not figured until now
-how the preference affects the selection, maybe it is a missing
-feature.
+I'm not opposed to killing top-level ->requeue since in that case
+the qdisc has already decided to send the packet and if it affects
+latency, the qdisc is misconfigured to use too much bandwidth.
+Qdisc' use of ->requeue can only be removed without bad side effects
+for the CBQ case of overlimit handling, it shouldn't matter much
+since CBQ is not very accurate anyways. For the ->peek case (HFSC,
+TBF, I think also netem) we really need the peek semantic to avoid
+these side effects.
 
-I am sorry to say it (I am not a Windows fan), but the behaviour
-observed in Windows Vista is in this matter consistent with the one I
-was expecting from the reading of the RFCs.
+It should actually be pretty easy because for every ->enqueue call,
+there is at least one immediately following ->dequeue call, which
+gives an upper qdisc a chance to reschedule the watchdog when
+conditions change. So what should work is having the requeue-queue
+(actually, just an skb pointer) within the innermost qdisc instead
+of one level higher, as in your patches.
 
-Developers on this area please clarify me this subject; does the
-preference present in the RAs is supposed to influence the decision?
-In addition, what is the criterion for selecting the default route in
-the presence of multiple candidates with the same preference?
-Best Regards to all the Linux community!
+On a ->peek operation, the qdisc would simply do what is currently
+done in ->dequeue, but instead of removing the packet from its
+private queues, it would set the pointer to point to the chosen
+packet and return it to the upper qdisc. The upper qdisc can use
+this for watchdog scheduling. If the next event is a dequeue event
+(meaning the watchdog expired), it removes the peeked packet from
+the private queues and returns it to the upper qdisc again. If the
+next event is an enqueue event, it can replace the pointer
+unconditionally since the upper qdisc will immediately call
+->dequeue or ->peek again, giving it a chance to reschedule based
+on the changed conditions.
 
---=20
-Best regards,
+So the implementation would probably roughly look like this:
 
-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D=
--=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-
-Pedro Ribeiro
-IPLNet - Rede de dados e comunica=E7=F5es
-Instituto Polit=E9cnico de Lisboa (IPL)
-Mail: mailto:pribeiro AT net.ipl.pt
-VoIP: sip:pribeiro AT net.ipl.pt
-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D=
--=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-
+- split ->dequeue into a queue and packet selection operation, setting
+   the above mentioned pointer, and an actual dequeue operation to
+   remove the selected packet from the queue.
+
+- the queue and packet selection operation is at the same time the
+   ->peek operation
 
