@@ -1,85 +1,52 @@
-From: "Johann Baudy" <johaahn@gmail.com>
-Subject: Re: [PATCH] sendfile() and UDP socket
-Date: Tue, 14 Oct 2008 09:10:10 +0200
-Message-ID: <7e0dd21a0810140010n591922b8habba8869ba7d95d2@mail.gmail.com>
-References: <20080922070425.GA14572@2ka.mipt.ru>
-	 <E1Khzut-0006lv-Co@gondolin.me.apana.org.au>
-	 <20080923062709.GA7886@2ka.mipt.ru>
-	 <20080923070133.GB26836@gondor.apana.org.au>
-	 <20080924005335.0117c536.billfink@mindspring.com>
-	 <7e0dd21a0810140009k49c8876ax66f744d0a3a4931b@mail.gmail.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [build bug] CONFIG_MAC80211=m && CONFIG_RT2X00=y
+Date: Tue, 14 Oct 2008 10:18:10 +0200
+Message-ID: <200810141018.10856.IvDoorn@gmail.com>
+References: <20081013074040.GA28840@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"David Miller" <davem@davemloft.net>,
-	"Bill Fink" <billfink@mindspring.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.227]:54331 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751545AbYJNHKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 03:10:11 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2233043rvb.1
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 00:10:10 -0700 (PDT)
-In-Reply-To: <7e0dd21a0810140009k49c8876ax66f744d0a3a4931b@mail.gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.171]:33022 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751616AbYJNISR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 04:18:17 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so826702ugf.37
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 01:18:15 -0700 (PDT)
+In-Reply-To: <20081013074040.GA28840@elte.hu>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Hi,
 
-I'm sorry for this late reply but I was out of Internet access during one month.
-So if my understanding is correct, sendfile() over UDP can't be used
-to send a file > 64 ko in one system call, as each request must fit in
-one UDP packet.
+> FYI, i triggered a build failure and have the hack below in -tip. Did 
+> not have time to track down why the build fails exactly, so i disabled 
+> the driver as a quick hack. Would be glad to test any fix patch.
 
-However is it expected that sendfile() returns 64Ko but sends nothing
-over the network when we are performing this particular case
-(file>64ko)? should it return 0?
+This could perhaps have been caused by the change to menuconfig,
 
-Thanks in advance,
-Johann
+> diff --git a/drivers/net/wireless/rt2x00/Kconfig b/drivers/net/wireless/rt2x00/Kconfig
+> index f839ce0..8d02224 100644
+> --- a/drivers/net/wireless/rt2x00/Kconfig
+> +++ b/drivers/net/wireless/rt2x00/Kconfig
+> @@ -1,6 +1,7 @@
+>  menuconfig RT2X00
+>  	bool "Ralink driver support"
 
->
->
->
-> On Wed, Sep 24, 2008 at 6:53 AM, Bill Fink <billfink@mindspring.com> wrote:
->>
->> On Tue, 23 Sep 2008, Herbert Xu wrote:
->>
->> > On Tue, Sep 23, 2008 at 10:27:10AM +0400, Evgeniy Polyakov wrote:
->> > > On Tue, Sep 23, 2008 at 12:54:27PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
->> > > > I think this dicussion is moot since the only time you want to use
->> > > > sendfile is for bulk transfers and these days anybody designing new
->> > > > applications that does bulk transfers over UDP should be taken out
->> > > > and shot.
->> > >
->> > > One can protect himself pointing how slow may be memory bus in some
->> > > hardware setup, which completely does not allow to perform any copy.
->> >
->> > Yes but bulk transfers over UDP is a bad idea regardless of how
->> > slow your bus is :)
->> >
->> > So what application needs this?
->>
->> It seems it might be useful for a video server.  The one thing that
->> seems to be missing from the sendfile() semantics is a message size
->> to be used for splitting the file into UDP datagrams, but this could
->> be provided by a separate ioctl(), and could default to the largest
->> message size that would fit in the MTU.
->>
->>                                                -Bill
->
->
->
-> --
-> Johann Baudy
-> johaahn@gmail.com
+Does changing bool to tristate help?
+Because the depends are all properly set, so it should not be possible
+to set rt2x00 to compiled-in while mac80211 is a module..
 
+>  	depends on MAC80211 && WLAN_80211 && EXPERIMENTAL
+> +	depends on BROKEN
+>  	---help---
+>  	  This will enable the experimental support for the Ralink drivers,
+>  	  developed in the rt2x00 project <http://rt2x00.serialmonkey.com>.
+> 
 
-
---
-Johann Baudy
-johaahn@gmail.com
+Ivo
