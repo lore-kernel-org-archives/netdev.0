@@ -1,74 +1,117 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Error: an inet prefix is expected rather than "0/0".
-Date: Tue, 14 Oct 2008 20:38:10 +0100
-Message-ID: <1224013090.3984.165.camel@achroite>
-References: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl>
-	 <E1KpkSl-00087W-GB@gondolin.me.apana.org.au>
-	 <20081014104621.3c2ce4d3@extreme>
-	 <alpine.LNX.1.10.0810142113140.7684@bizon.gios.gov.pl>
-	 <20081014121855.2f931be0@extreme>
+From: Manfred Scherer <manfred.scherer.mhm@t-online.de>
+Subject: Re: [Bugme-new] [Bug 11754] New: tlan network driver does not work
+Date: Tue, 14 Oct 2008 13:16:03 +0200
+Message-ID: <200810141316.04069.manfred.scherer.mhm@t-online.de>
+References: <bug-11754-10286@http.bugzilla.kernel.org/> <20081014053236.69a71a2f.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Oledzki <ole@ans.pl>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	mostrows@earthlink.net, Robert Fitzsimons <robfitz@273k.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:49428 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751969AbYJNTiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 15:38:15 -0400
-In-Reply-To: <20081014121855.2f931be0@extreme>
+Received: from mailout04.t-online.de ([194.25.134.18]:59296 "EHLO
+	mailout04.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbYJNTkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 15:40:33 -0400
+In-Reply-To: <20081014053236.69a71a2f.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-10-14 at 12:18 -0700, Stephen Hemminger wrote:
-> On Tue, 14 Oct 2008 21:15:18 +0200 (CEST)
-> Krzysztof Oledzki <ole@ans.pl> wrote:
+so far as I can see there are no changes in drivers/net/pppoe.c
+
+pc1:/kernel/linux-2.6.27/drivers/net # diff -u /mnt_md10/kernelbaeckerei/linux-2.6.26/drivers/net/pppoe.c pppoe.c
+pc1:/kernel/linux-2.6.27/drivers/net # echo $?
+0
+pc1:/kernel/linux-2.6.27/drivers/net #   
+
+but a lot of changes in tlan.c
+
+thus I think tlan.c is much more the causer for this problem.
+
+Manfred Scherer 
+____________________________________________________________________________________
+
+Am Dienstag, 14. Oktober 2008 14:32 schrieb Andrew Morton:
 > 
-> > 
-> > 
-> > On Tue, 14 Oct 2008, Stephen Hemminger wrote:
-[...]
-> > > Busted cases:
-> > >                           correct           incorrect
-> > > Original code: 127.2   =>  127.0.0.2         127.2.0.0
-> > > inet_pton:     10.0    =>  10.0.0.0          fails invalid
-> > > inet_aton:     10      =>  10.0.0.0          0.0.0.10
-> > >
-> > > The problem was Alexey (or Jamal) invented their own abbreviation format
-> > > and did not follow unix standard conventions.
-> > 
-> > It seems that the original code followed the unix standard:
-> > 
-> > # telnet 127.2
-> > Trying 127.0.0.2...
-> > telnet: connect to address 127.0.0.2: Connection refused
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
 > 
-> The incorrect column lists the actual result for each of the routines.
-> Original code converted 127.2 to 127.2.0.0
-[...]
-
-If only the one-component case needs to be treated specially then you
-should be able to use something like:
-
-	/* For backward compatibility, if name is all digits we treat it as
-	 * the top 8 bits of an IPv4 address. */
-	if (strspn(name, "0123456789") == strlen(name))
-		addr->data[0] = atoi(name);
-	else if (inet_aton(name, addr->data) > 0)
-		;
-	else
- 		return -1;
-
-But if people also rely on e.g. 192.168/16 working then it gets
-trickier.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> > On Mon, 13 Oct 2008 15:26:04 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> > http://bugzilla.kernel.org/show_bug.cgi?id=11754
+> > 
+> >            Summary: tlan network driver does not work
+> >            Product: Drivers
+> >            Version: 2.5
+> >      KernelVersion: 2.6.27
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: high
+> >           Priority: P1
+> >          Component: Network
+> >         AssignedTo: jgarzik@pobox.com
+> >         ReportedBy: Manfred.Scherer.Mhm@t-online.de
+> > 
+> > 
+> > Latest working kernel version: 2.6.26
+> > Earliest failing kernel version: 2.6.27
+> 
+> A 2.6.27 regression.
+> 
+> Not much has happened in tlan.c - a single fix from Robert.  This
+> regression might be in pppoe?
+> 
+> 
+> > Distribution: SuSE 9.2
+> > Hardware Environment:
+> > /var/log/boot.msg:
+> > <6>ThunderLAN driver v1.15
+> > <6>tlan 0000:00:0d.0: found PCI INT A -> IRQ 11
+> > <6>tlan 0000:00:0d.0: sharing IRQ 11 with 0000:00:09.0
+> > <6>TLAN: eth1 irq=11, io=c400, Compaq Netelligent 10/100 TX PCI UTP, Rev. 16
+> > <6>TLAN: 1 device installed, PCI: 1  EISA: 0
+> > ...
+> > Setting up network interfaces:
+> >     lo
+> >     lo        IP address: 127.0.0.1/8
+> > done    eth0      device: Realtek Semiconductor Co., Ltd. RTL-8029(AS)
+> >     eth0      configuration: eth-id-52:54:00:db:15:ff
+> >     eth0      IP address: 192.168.0.99/24
+> > done    eth1      device: Compaq Computer Corporation Compaq Netelligent 10/100
+> > TX PCI UTP TLAN 2.3 (rev 10)
+> >     eth1      IP address: 192.168.1.22/24
+> > done    dsl0
+> >     dsl0      Startmode is 'manual'
+> > 
+> > 
+> > Software Environment:
+> > 
+> > Problem Description:
+> > 
+> > PPPoe does not work
+> > see /var/log/messages:
+> > 
+> > Oct 13 14:39:06 pc1 pppd[10123]: Plugin rp-pppoe.so loaded.
+> > Oct 13 14:39:06 pc1 kernel: PPP generic driver version 2.4.2
+> > Oct 13 14:39:06 pc1 pppd[10123]: RP-PPPoE plugin version 3.3 compiled against
+> > pp
+> > pd 2.4.2
+> > Oct 13 14:39:06 pc1 pppd[10123]: Plugin passwordfd.so loaded.
+> > Oct 13 14:39:06 pc1 kernel: NET: Registered protocol family 17
+> > Oct 13 14:39:06 pc1 pppd[10123]: pppd 2.4.2 started by root, uid 0
+> > Oct 13 14:39:41 pc1 pppd[10123]: Timeout waiting for PADO packets
+> > Oct 13 14:39:41 pc1 pppd[10123]: Unable to complete PPPoE Discovery
+> > Oct 13 14:39:41 pc1 pppd[10123]: Exit.
+> > 
+> > 
+> > Steps to reproduce:
+> > 
+> > start dsl-connection to internet.
+> > 
+> 
+> 
+> 
