@@ -1,49 +1,33 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [PATCH 1/6] [NET-NEXT]qlge: Clean up and fix MSI and legacy irq handling.
-Date: Tue, 14 Oct 2008 14:14:58 -0700
-Message-ID: <20081014211458.GC27393@susedev.qlogic.org>
-References: <20081011171614.GA26384@susedev.qlogic.org> <1223745433-26440-1-git-send-email-ron.mercer@qlogic.com> <20081011205903.GA29496@electric-eye.fr.zoreil.com> <20081014201915.GA27393@susedev.qlogic.org> <20081014204025.GB9617@electric-eye.fr.zoreil.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: Distributed storage release.
+Date: Tue, 14 Oct 2008 15:23:32 -0600
+Message-ID: <20081014212332.GI15064@parisc-linux.org>
+References: <20081006160034.GA611@2ka.mipt.ru> <20081012192419.fd8394c9.akpm@linux-foundation.org> <20081013133850.GA13565@2ka.mipt.ru> <20081014155143.GM2009@webber.adilger.int> <20081014161256.GA22286@2ka.mipt.ru> <20081014203529.GW2009@webber.adilger.int> <20081014210827.GA31312@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-driver@qlogic.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:58736 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752256AbYJNVPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 17:15:07 -0400
+Cc: Andreas Dilger <adilger@sun.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20081014204025.GB9617@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20081014210827.GA31312@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 14, 2008 at 10:40:25PM +0200, Francois Romieu wrote:
-> Ron Mercer <ron.mercer@qlogic.com> :
-> [...]
-> > Your example looks much better than what I had, but it reverses the
-> > logic and won't work.  What I'm trying to do is skip the operation if
-> > we're running with MSIX-multiple interrupts AND it's not context zero.
-> 
-> Ok, ok.
-> 
-> > For all other cases we do the operation.  So fixing your suggestion it would
-> > be:
-> [snip]
-> > This is more compact, it's still optimized, but I think it becomes a
-> > little hard to read.
-> 
-> Remove 'unlikely' ?
-> 
-> > I'll gladly try it and make the change if you
-> 
-> Your choice. I'm fine with Roland's code as well.
-> 
-> -- 
-> Ueimor
+On Wed, Oct 15, 2008 at 01:08:27AM +0400, Evgeniy Polyakov wrote:
+> Standards are great, but killing a child just because he or she is
+> left-hander, is a bit crazy, don't you think? So it would be quite
+> interesting to hear that (at least one) showstopper for inclusion
+> is a number of spaces :)
 
-I'll use Roland's as it does the
-most with the fewest lines and is easy to understand.
+You're blowing this way out of proportion.  Andrew said he'd be happy to
+do a better review of it if you documented it better, but until then all
+he could find time to do was a stylistic review.
 
-Thanks to both of you.
-
-
+-- 
+Matthew Wilcox				Intel Open Source Technology Centre
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
