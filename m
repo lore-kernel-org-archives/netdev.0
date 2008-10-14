@@ -1,43 +1,44 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Distributed storage release.
-Date: Wed, 15 Oct 2008 03:23:50 +0400
-Message-ID: <20081014232350.GA27915@2ka.mipt.ru>
-References: <20081013172038.GA18762@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Change S390 anti-dependency to CONFIG_GENERIC_HARDIRQS
+ dependency
+Date: Tue, 14 Oct 2008 16:33:59 -0700 (PDT)
+Message-ID: <20081014.163359.110730186.davem@davemloft.net>
+References: <1224023293-8592-1-git-send-email-afleming@freescale.com>
+	<20081014.154422.192817982.davem@davemloft.net>
+	<2acbd3e40810141621p31ba3ccdic909fc4634b5ef26@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081013172038.GA18762@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: afleming@freescale.com, netdev@vger.kernel.org
+To: afleming@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34812
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751043AbYJNXeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 19:34:23 -0400
+In-Reply-To: <2acbd3e40810141621p31ba3ccdic909fc4634b5ef26@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi.
+From: "Andy Fleming" <afleming@gmail.com>
+Date: Tue, 14 Oct 2008 18:21:44 -0500
 
-On Mon, Oct 13, 2008 at 09:20:38PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> I am pleased to announce new distributed storage (DST) project release.
-> This release increases size of the patch by 10% by providing lots of
-> comments on how code works. Also cleaned up number of pointed issues:
-> kzalloc/kcalloc, style, config deps and so on.
+> Argh.  From what I could see, we have request_irq, free_irq,
+> disable_irq, enable_irq, and disable_irq_nosync.  For the PHYLIB, it
+> shouldn't be difficult to modify things so that it doesn't compile in
+> interrupt support if the system doesn't support them.  Shouldn't, that
+> is, if there's some config option that tells me whether those
+> functions exist.
 
-Just in case you will want to apply it to the latest tree and compile,
-following patch is needed to properly work with 2.6.27 tree.
-2.6.26 (as what it was against) does not need this.
+I think this whole situation with s390 is rediculious.
 
-diff --git a/drivers/block/dst/dcore.c b/drivers/block/dst/dcore.c
-index d58eb93..039d59b 100644
---- a/drivers/block/dst/dcore.c
-+++ b/drivers/block/dst/dcore.c
-@@ -24,6 +24,7 @@
- #include <linux/jhash.h>
- #include <linux/idr.h>
- #include <linux/init.h>
-+#include <linux/namei.h>
- #include <linux/slab.h>
- #include <linux/socket.h>
- 
+If s390 is weird and lacks these fundamental things, that's fine.
+What isn't fine is how we're handling this.
 
--- 
-	Evgeniy Polyakov
+No code should care or even be aware of this.
+
+S390 should simply provide a set of dummy DMA and interrupt interface
+stubs that always fail and return an error value.
+
+Then we can get rid of this S390 Kconfig stuff which has been spewed
+all over the place.
