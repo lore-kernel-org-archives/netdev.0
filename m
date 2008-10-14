@@ -1,51 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] pkt_sched: Control group classifier
-Date: Tue, 14 Oct 2008 19:03:31 +0200
-Message-ID: <20081014170331.GC20815@postel.suug.ch>
-References: <20081013155715.GZ20815@postel.suug.ch> <loom.20081014T115257-383@post.gmane.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Error: an inet prefix is expected rather than "0/0".
+Date: Tue, 14 Oct 2008 10:46:21 -0700
+Message-ID: <20081014104621.3c2ce4d3@extreme>
+References: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl>
+	<E1KpkSl-00087W-GB@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Chei-yol Kim <gauri@etri.re.kr>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ole@ans.pl (Krzysztof Oledzki), netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:41378 "EHLO postel.suug.ch"
+Received: from mail.vyatta.com ([76.74.103.46]:52231 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751891AbYJNRDK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2008 13:03:10 -0400
-Content-Disposition: inline
-In-Reply-To: <loom.20081014T115257-383@post.gmane.org>
+	id S1751122AbYJNRq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Oct 2008 13:46:27 -0400
+In-Reply-To: <E1KpkSl-00087W-GB@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Chei-yol Kim <gauri@etri.re.kr> 2008-10-14 11:56
-> Thomas Graf <tgraf <at> suug.ch> writes:
-> 
+On Tue, 14 Oct 2008 22:01:27 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> Krzysztof Oledzki <ole@ans.pl> wrote:
+> >
+> > http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=commitdiff_plain;h=2ca4abdcb823e708b88156f947fa5b493055618a
 > > 
-> > This patch implements a very basic cgroup subsystem which allows
-> > assigning classids to cgroups. It also adds a trivial classifier
-> > to filter packets based on that classid and map them to classes.
-> > 
+> > ;)
 > 
-> In order to test your patch, I need more programs such as iproute-x.x.x 
-> package modified for using your cgroup classifier.
-> You seem to test your code now. Please send me additional code and patch for 
-> testing environments.
+> Hmm, this breaks several scripts of mine that use 10/8.  Couldn't
+> we just fall back to the old loop when inet_aton fails?
+> 
+> Thanks,
 
-Here is an example of how to use it:
 
-mkdir -p /dev/cgroup
-mount -t cgroup net_cls -onet_cls /dev/cgroup
-mkdir /dev/cgroup/foo
+There is no easy solution, I'll will have to go back rewrite this
+code, and will document the result. I expect the result will displease
+someone, but given the original code that is just going to happen.
 
-# packets in cgroup foo go to class 10:1
-echo 0xA0001 > /dev/cgroup/foo/net_cls.classid
+Busted cases:
+                           correct           incorrect
+Original code: 127.2   =>  127.0.0.2         127.2.0.0
+inet_pton:     10.0    =>  10.0.0.0          fails invalid
+inet_aton:     10      =>  10.0.0.0          0.0.0.10
 
-tc qdisc add dev eth0 root handle 10: htb
-tc class add dev eth0 parent 10:0 classid 10:1 htb rate 10mbit
-tc class add dev eth0 parent 10:0 classid 10:2 htb rate 10mbit
-
-# cgroup filter -> 10:X
-tc filter add dev eth0 parent 10: protocol ip prio 10 handle 20: cgroup
-# everything else -> 10:1
-tc filter add dev eth0 parent 10: protocol ip prio 20 basic classid 10:2
-
+The problem was Alexey (or Jamal) invented their own abbreviation format
+and did not follow unix standard conventions.
