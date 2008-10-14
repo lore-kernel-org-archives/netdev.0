@@ -1,47 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [bug, -git] ERROR: "ebt_unregister_table"	[net/bridge/netfilter/ebtable_nat.ko]
- undefined
-Date: Tue, 14 Oct 2008 13:51:19 +0200
-Message-ID: <48F487B7.3070004@trash.net>
-References: <20080821221943.GO31136@x200.localdomain> <20081013070347.GA3813@elte.hu> <20081013070940.GA6340@elte.hu> <20081013073501.GB4254@x200.localdomain> <20081014103005.GA19420@elte.hu> <48F47BB9.9090902@trash.net> <20081014114806.GA20480@elte.hu>
+From: Chei-yol Kim <gauri@etri.re.kr>
+Subject: Re: [PATCH] =?utf-8?b?cGt0X3NjaGVkOg==?= Control group classifier
+Date: Tue, 14 Oct 2008 11:56:09 +0000 (UTC)
+Message-ID: <loom.20081014T115257-383@post.gmane.org>
+References: <20081013155715.GZ20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, kaber@trash.et,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Jan Engelhardt <jengelh@computergmbh.de>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081014114806.GA20480@elte.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:57475 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755261AbYJNL4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Oct 2008 07:56:31 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1KpiVg-0007kL-Ta
+	for netdev@vger.kernel.org; Tue, 14 Oct 2008 11:56:25 +0000
+Received: from bkjung8.etri.re.kr ([129.254.186.210])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 11:56:20 +0000
+Received: from gauri by bkjung8.etri.re.kr with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 11:56:20 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Patrick McHardy <kaber@trash.net> wrote:
-> 
->> Ingo Molnar wrote:
->>> i think you misunderstood my report. This is about latest upstream -git 
->>> being broken:
->>>
->>> ERROR: "ebt_register_table" [net/bridge/netfilter/ebtable_filter.ko] undefined!
->>> ERROR: "ebt_do_table" [net/bridge/netfilter/ebtable_filter.ko] undefined!
->>> ERROR: "ebt_unregister_table" [net/bridge/netfilter/ebtable_filter.ko] undefined!
->>> ERROR: "ebt_register_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
->>> ERROR: "ebt_do_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
->>> ERROR: "ebt_unregister_table" [net/bridge/netfilter/ebtable_broute.ko] undefined!
->>> make[1]: *** [__modpost] Error 1
->>> make: *** [modules] Error 2
->>>
->> Does this patch fix it?
-> 
-> yeah, the module build now succeeds fine with that config, thanks 
-> Patrick!
-> 
-> Tested-by: Ingo Molnar <mingo@elte.hu>
+Thomas Graf <tgraf <at> suug.ch> writes:
 
-Thanks Ingo, I'll send it upstream tonight.
+> 
+> This patch implements a very basic cgroup subsystem which allows
+> assigning classids to cgroups. It also adds a trivial classifier
+> to filter packets based on that classid and map them to classes.
+> 
+
+In order to test your patch, I need more programs such as iproute-x.x.x 
+package modified for using your cgroup classifier.
+You seem to test your code now. Please send me additional code and patch for 
+testing environments.
+
+Help me!
+
+Your sincerely.
+
+
