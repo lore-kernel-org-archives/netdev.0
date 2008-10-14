@@ -1,82 +1,56 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: B43 randomly and silently dropping connections...
-Date: Tue, 14 Oct 2008 10:15:18 -0400
-Message-ID: <20081014141517.GB3349@tuxdriver.com>
-References: <200810131939.20891.mcbrides9@comcast.net>
+From: "Randy Macleod" <macleodr@nortel.com>
+Subject: Re: [PATCH 6/6] Phonet: pipe end-point protocol documentation
+Date: Tue, 14 Oct 2008 11:11:50 -0400
+Message-ID: <48F4B6B6.3060100@nortel.com>
+References: <200810011312.17288.remi.denis-courmont@nokia.com> <1222855985-22859-6-git-send-email-remi.denis-courmont@nokia.com> <48EF9DE7.9040209@nortel.com> <20081011.123008.251386486.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jerry McBride <mcbrides9@comcast.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39777 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829AbYJNOSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 10:18:02 -0400
-Content-Disposition: inline
-In-Reply-To: <200810131939.20891.mcbrides9@comcast.net>
+Received: from zrtps0kn.nortel.com ([47.140.192.55]:53165 "EHLO
+	zrtps0kn.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751272AbYJNPMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 11:12:02 -0400
+In-Reply-To: <20081011.123008.251386486.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You might try linux-wireless@vger.kernel.org for starters...
+Added the SOB line.
 
-On Mon, Oct 13, 2008 at 07:39:20PM -0400, Jerry McBride wrote:
+David Miller wrote:
+> It corrupted the patch, chopping up long lines and such.
 > 
-> The story is...
+> There are directions in linux/Documentation/email-clients.txt on
+> how to fix this.
 > 
-> I've moved from 2.6.25.x using BCM43XX with a Broadcom 4306 (rev3) 802.11 
-> chipset to 2.6.26.6 using the B43 and appropriate firmware. This on a COMPAQ 
-> Presario R3000 P4 and  a gig of memory and ATI graphics.
-> 
-> I followed the install (upgrade) directions at linuxwireless.org. Piece of 
-> cake! However... I find that I've gone from "bulletproof" BCM43XX wifi 
-> connections to "bullethole" connections with B43.  
-> 
-> Under the old BCM43XX the handshake and connections were flawless and 
-> unfaltering. Now with the new B43, handshakes with AP's are perfect, but the 
-> connections randomly and silently fail. There are no debug messages, no 
-> complaints what-so-ever in /var/log/messages... 
-> 
-> To gt wireless back, I have to reinitialize the connection. I've gotten so 
-> good at it, that I can recite by heart the appropriate commands...
-> 
-> It's killling me! I've got to get this ironed out... it's not just my laptop, 
-> it's happening quite regularly with people I know with similar chips and 
-> laptops.
-> 
-> Trying 2.6.27-rc's and now 2.6.27 and the situation is no better.
-> 
-> So I ask... Who is the B43/B43LEGACY maintainer and would you be interested in 
-> debugging this mess? I'll bend over backward to help you... Email me 
-> direct... I'm very willing.
-> 
-> SHORT STORY:
-> -- Kernel 2.6.25.x with BCM43XX, firmware 4.80.53.0.. just perfect.
-> 
-> -- Kernels 2.6.26 or higher with B43 and firware 4.150.10.5 good negotiations, 
-> but fragile connections that drop randomly and without complaint. B43LEGACY 
-> does nothing.
-> 
-> Any help would be appreciated. I'd really like to get this ironed out. I 
-> highly desire to use current kernels.
-> 
-> Feel free to email me direct.
-> 
-> -- 
-> 
-> *****************************************************************************
->                                        
->                              From the desk of:
->                              Jerome D. McBride
->                                        
->    19:17:28 up 15 days, 23:35,  5 users,  load average: 0.33, 0.11, 0.03
->  
-> *****************************************************************************
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Fixed the line wrapping and RTFM.
+Sending a test message to myself worked.
 
--- 
-John W. Linville		Linux should be at the core
-linville@tuxdriver.com			of your literate lifestyle.
+Here's the simple documentation patch, it's against:
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6
+
+Signed-off-by: Randy MacLeod <macleodr@nortel.com>
+
+// Randy
+
+diff --git a/Documentation/networking/phonet.txt b/Documentation/networking/phonet.txt
+index 0e6e592..6a07e45 100644
+--- a/Documentation/networking/phonet.txt
++++ b/Documentation/networking/phonet.txt
+@@ -146,8 +146,8 @@ WARNING:
+ When polling a connected pipe socket for writability, there is an
+ intrinsic race condition whereby writability might be lost between the
+ polling and the writing system calls. In this case, the socket will
+-block until write because possible again, unless non-blocking mode
+-becomes enabled.
++block until write becomes possible again, unless non-blocking mode
++is enabled.
+ 
+ 
+ The pipe protocol provides two socket options at the SOL_PNPIPE level:
+
+
+
+
