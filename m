@@ -1,59 +1,99 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/14]: Killing qdisc->ops->requeue().
-Date: Tue, 14 Oct 2008 14:32:29 +0200
-Message-ID: <48F4915D.8000004@trash.net>
-References: <20081014095246.GA10804@ff.dom.local> <48F484EB.8000201@trash.net> <20081014122650.GA12373@ff.dom.local>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11754] New: tlan network driver does not work
+Date: Tue, 14 Oct 2008 05:32:36 -0700
+Message-ID: <20081014053236.69a71a2f.akpm@linux-foundation.org>
+References: <bug-11754-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: bugme-daemon@bugzilla.kernel.org, mostrows@earthlink.net,
+	Manfred.Scherer.Mhm@t-online.de,
+	Robert Fitzsimons <robfitz@273k.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34789 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755291AbYJNMcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 08:32:33 -0400
-In-Reply-To: <20081014122650.GA12373@ff.dom.local>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48321 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756066AbYJNMdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 08:33:50 -0400
+In-Reply-To: <bug-11754-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Tue, Oct 14, 2008 at 01:39:23PM +0200, Patrick McHardy wrote:
->> Jarek Poplawski wrote:
->>> The aim of this patch-set is to finish changes proposed by David S.
->>> Miller in his patch-set with the same subject from Mon, 18 Aug 2008.
->>> The first two patches were applied with some modifications, so, to
->>> apply the rest, there were needed some changes.
->>>
->>> Original David's patches include additional info, but signed-off-by
->>> is removed because of changed context. I expect they will be merged
->>> and signed off by David as an author, anyway.
->>>
->>> The qdisc->requeue list idea is to limit requeuing to one level only,
->>> so a parent can requeue to its child only. This list is then tried
->>> first while dequeuing (qdisc_dequeue()), except at the top level,
->>> so packets could be requeued only by qdiscs, not by qdisc_restart()
->>> after xmit errors.
->> I didn't follow the original discussion, but I'm wondering what
->> the reasoning is why these patches won't have negative impact
->> on latency. Consider these two scenarios with HFSC or TBF:
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+> On Mon, 13 Oct 2008 15:26:04 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=11754
 > 
-> Hmm... What a pity you couldn't write this a bit earlier, because I've
-> just waited with this part for some distinct cons of this solution.
+>            Summary: tlan network driver does not work
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.27
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: Manfred.Scherer.Mhm@t-online.de
+> 
+> 
+> Latest working kernel version: 2.6.26
+> Earliest failing kernel version: 2.6.27
 
-I'm sorry for any wasted effort, I think I mentioned this one or
-two month ago, but wasn't able to further participate in the
-discussion because I was busy with other things.
+A 2.6.27 regression.
 
-> Alas, I can't analyze your concerns at the moment, and I'll try to
-> reply in the evening yet, but my idea was this all shouldn't make
-> (almost) any visible change just for HFSC, so if it's otherwise,
-> something went wrong. IMHO, with this solution hfsc_requeue() way is
-> simply realized as a standard now, but I can miss something.
+Not much has happened in tlan.c - a single fix from Robert.  This
+regression might be in pppoe?
 
-The main difference results from the fact that higher priority
-packets can't preempt "peeked" lower priority packets anymore.
-The difference this causes obviously depends on the bandwidth,
-but in my opinion the impact (as mentioned. 12ms delay for
-1500b, 1mbit, rises linearly with bigger packets/less bandwidth)
-is large enough to speak against these changes.
+
+> Distribution: SuSE 9.2
+> Hardware Environment:
+> /var/log/boot.msg:
+> <6>ThunderLAN driver v1.15
+> <6>tlan 0000:00:0d.0: found PCI INT A -> IRQ 11
+> <6>tlan 0000:00:0d.0: sharing IRQ 11 with 0000:00:09.0
+> <6>TLAN: eth1 irq=11, io=c400, Compaq Netelligent 10/100 TX PCI UTP, Rev. 16
+> <6>TLAN: 1 device installed, PCI: 1  EISA: 0
+> ...
+> Setting up network interfaces:
+>     lo
+>     lo        IP address: 127.0.0.1/8
+> done    eth0      device: Realtek Semiconductor Co., Ltd. RTL-8029(AS)
+>     eth0      configuration: eth-id-52:54:00:db:15:ff
+>     eth0      IP address: 192.168.0.99/24
+> done    eth1      device: Compaq Computer Corporation Compaq Netelligent 10/100
+> TX PCI UTP TLAN 2.3 (rev 10)
+>     eth1      IP address: 192.168.1.22/24
+> done    dsl0
+>     dsl0      Startmode is 'manual'
+> 
+> 
+> Software Environment:
+> 
+> Problem Description:
+> 
+> PPPoe does not work
+> see /var/log/messages:
+> 
+> Oct 13 14:39:06 pc1 pppd[10123]: Plugin rp-pppoe.so loaded.
+> Oct 13 14:39:06 pc1 kernel: PPP generic driver version 2.4.2
+> Oct 13 14:39:06 pc1 pppd[10123]: RP-PPPoE plugin version 3.3 compiled against
+> pp
+> pd 2.4.2
+> Oct 13 14:39:06 pc1 pppd[10123]: Plugin passwordfd.so loaded.
+> Oct 13 14:39:06 pc1 kernel: NET: Registered protocol family 17
+> Oct 13 14:39:06 pc1 pppd[10123]: pppd 2.4.2 started by root, uid 0
+> Oct 13 14:39:41 pc1 pppd[10123]: Timeout waiting for PADO packets
+> Oct 13 14:39:41 pc1 pppd[10123]: Unable to complete PPPoE Discovery
+> Oct 13 14:39:41 pc1 pppd[10123]: Exit.
+> 
+> 
+> Steps to reproduce:
+> 
+> start dsl-connection to internet.
+> 
+
