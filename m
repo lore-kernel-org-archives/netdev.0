@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Change S390 anti-dependency to CONFIG_GENERIC_HARDIRQS
- dependency
-Date: Tue, 14 Oct 2008 15:44:22 -0700 (PDT)
-Message-ID: <20081014.154422.192817982.davem@davemloft.net>
-References: <1224023293-8592-1-git-send-email-afleming@freescale.com>
+Subject: Re: [PATCH for 2.6.27] Structure icmp6hdr (IPv6/ICMPv6) with bug
+ in the bitfields!
+Date: Tue, 14 Oct 2008 15:47:16 -0700 (PDT)
+Message-ID: <20081014.154716.139460375.davem@davemloft.net>
+References: <159769323.20081014120620@net.ipl.pt>
+	<20081014.135423.91524319.davem@davemloft.net>
+	<1338007712.20081014233811@net.ipl.pt>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: afleming@freescale.com
+To: pribeiro-bulk@net.ipl.pt
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33360
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50789
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751095AbYJNWop (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 18:44:45 -0400
-In-Reply-To: <1224023293-8592-1-git-send-email-afleming@freescale.com>
+	by vger.kernel.org with ESMTP id S1751388AbYJNWrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 18:47:40 -0400
+In-Reply-To: <1338007712.20081014233811@net.ipl.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@freescale.com>
-Date: Tue, 14 Oct 2008 17:28:13 -0500
+From: Pedro Ribeiro <pribeiro-bulk@net.ipl.pt>
+Date: Tue, 14 Oct 2008 23:38:11 +0100
 
-> PHY Lib and DSA expect request_irq and other such functions to exist.
-> S390 doesn't support those functions, however we should mark the actual
-> dependency, which is generic hardirq support, rather than explicitly
-> depend on !S390.
+> Hello David,
 > 
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
-> ---
-> This makes more sense to me, but I could be missing something?
+> Thanks for your time on this, follows a new patch made against 2.6.27,
+> this time I minimized the cut&paste to avoid corrupting the patch.
 
-GENERIC_HARDIRQS is not the correct dependency.
+It's still corrupted, the tab characters in the patch were
+transformed into spaces.
 
-Not all architectures use the generic IRQ layer, yet have
-support for interrupts (request_irq(), free_irq(), etc.)
+It's not about cut&paste, your email client is reformatting the
+content (no matter how you compose it) before sending it out.
 
-Two such platforms are 32-bit sparc and m68k.
+You need to configure your email client explicitly to not reformat the
+content and to use plain ASCII text.
+
+Also, you need to provide a proper "Signed-off-by: " line.
+
+All of this is detailed in the following kernel source doc
+files:
+
+linux/Documentation/email-clients.txt
+linux/Documentation/SubmittingPatches 
+
+Thanks.
