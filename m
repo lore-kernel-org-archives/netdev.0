@@ -1,58 +1,40 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on powerpc
-	selectsCONFIG_INTEL_IOATDMA=y
-Date: Tue, 14 Oct 2008 20:58:22 +0300
-Message-ID: <20081014175822.GA4710@cs181140183.pp.htv.fi>
-References: <20081013101559.GA14372@linux.vnet.ibm.com> <20081013112631.GD29938@cs181140183.pp.htv.fi> <36D9DB17C6DE9E40B059440DB8D95F52066E2EAE@orsmsx418.amr.corp.intel.com> <48F391B9.1000206@myri.com> <20081013183503.GA28133@cs181140183.pp.htv.fi> <48F4627E.30300@myri.com> <36D9DB17C6DE9E40B059440DB8D95F52066E36C7@orsmsx418.amr.corp.intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 04/14] sch_netem: Use requeue list instead of
+	ops->requeue()
+Date: Tue, 14 Oct 2008 20:04:35 +0200
+Message-ID: <20081014180435.GB2548@ami.dom.local>
+References: <fe92ba9380e7da89b674cc58fcb5bc1dae69e0c6.1223973003.git.jarkao2@gmail.com> <20081014095349.GE10804@ff.dom.local> <20081014082235.10b46637@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Brice Goglin <brice@myri.com>,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	linux-kernel@vger.kernel.org, apw@shadowen.org,
-	linuxppc-dev@ozlabs.org, sam@ravnborg.org,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:60060 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751122AbYJNR7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2008 13:59:31 -0400
+Received: from ey-out-2122.google.com ([74.125.78.24]:62562 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751392AbYJNSEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 14:04:05 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so832720eyi.37
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 11:03:56 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52066E36C7@orsmsx418.amr.corp.intel.com>
+In-Reply-To: <20081014082235.10b46637@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 14, 2008 at 09:10:33AM -0700, Brandeburg, Jesse wrote:
-> Brice Goglin wrote:
-> > Adrian Bunk wrote:
-> >> But considering that igb is in a similar situation it would be nice
-> >> if all 3 drivers would handle it the same way.
-> >> 
-> > 
-> > Jesse,
-> > What do you think of the below patch?
+On Tue, Oct 14, 2008 at 08:22:35AM -0700, Stephen Hemminger wrote:
+...
+> This won't work for the case where time based reordering changes the packet
+> sent.  The current code works like this:
 > 
-> Seems like a much better solution.  I can have Jeff Kirsher work on the
-> equivalent patches for igb, and ixgbe today.
+>     Packet marked to be sent at some time (+101ms)
+>     new packet is queued and the random delay computes smaller delta (+87ms)
+>     new packet will go out in first.
 > 
-> > I am not very familiar with Kconfig, but it seems to solve the
-> > problem. 
-> > If a Kconfig guru could double-check...
+> This was done for compatibility with NISTnet, so research that wanted to reproduce
+> NISTnet results could use netem.
 > 
-> Yeah, please Kconfig gurus on the list have a quick look.
 
-Brice's patch looks fine.
+I've decided to withdraw this all, but I hope these explanations should
+be useful for me (to be more careful around here) in the future.
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Thanks,
+Jarek P.
