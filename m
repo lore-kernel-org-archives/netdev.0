@@ -1,65 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 00/14]: Killing qdisc->ops->requeue().
-Date: Tue, 14 Oct 2008 19:56:49 +0200
-Message-ID: <20081014175649.GA2548@ami.dom.local>
-References: <48F4915D.8000004@trash.net>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on powerpc
+	selectsCONFIG_INTEL_IOATDMA=y
+Date: Tue, 14 Oct 2008 20:58:22 +0300
+Message-ID: <20081014175822.GA4710@cs181140183.pp.htv.fi>
+References: <20081013101559.GA14372@linux.vnet.ibm.com> <20081013112631.GD29938@cs181140183.pp.htv.fi> <36D9DB17C6DE9E40B059440DB8D95F52066E2EAE@orsmsx418.amr.corp.intel.com> <48F391B9.1000206@myri.com> <20081013183503.GA28133@cs181140183.pp.htv.fi> <48F4627E.30300@myri.com> <36D9DB17C6DE9E40B059440DB8D95F52066E36C7@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Brice Goglin <brice@myri.com>,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	Jeff Garzik <jgarzik@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel@vger.kernel.org, apw@shadowen.org,
+	linuxppc-dev@ozlabs.org, sam@ravnborg.org,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:11699 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbYJNR4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 13:56:16 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1004361ugf.37
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 10:56:13 -0700 (PDT)
+Received: from smtp6.pp.htv.fi ([213.243.153.40]:60060 "EHLO smtp6.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751122AbYJNR7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Oct 2008 13:59:31 -0400
 Content-Disposition: inline
-In-Reply-To: <48F4915D.8000004@trash.net>
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52066E36C7@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
-I acknowledge Patrick's concerns, so please, consider this
-patch-set as withdrawn. Thanks.
-
-A little comment below:
-
-Patrick McHardy wrote, On 10/14/2008 02:32 PM:
-> Jarek Poplawski wrote:
-...
-> I'm sorry for any wasted effort, I think I mentioned this one or
-> two month ago, but wasn't able to further participate in the
-> discussion because I was busy with other things.
-
-No problem, it seems I missed your point.
-
->> Alas, I can't analyze your concerns at the moment, and I'll try to
->> reply in the evening yet, but my idea was this all shouldn't make
->> (almost) any visible change just for HFSC, so if it's otherwise,
->> something went wrong. IMHO, with this solution hfsc_requeue() way is
->> simply realized as a standard now, but I can miss something.
+On Tue, Oct 14, 2008 at 09:10:33AM -0700, Brandeburg, Jesse wrote:
+> Brice Goglin wrote:
+> > Adrian Bunk wrote:
+> >> But considering that igb is in a similar situation it would be nice
+> >> if all 3 drivers would handle it the same way.
+> >> 
+> > 
+> > Jesse,
+> > What do you think of the below patch?
 > 
-> The main difference results from the fact that higher priority
-> packets can't preempt "peeked" lower priority packets anymore.
-> The difference this causes obviously depends on the bandwidth,
-> but in my opinion the impact (as mentioned. 12ms delay for
-> 1500b, 1mbit, rises linearly with bigger packets/less bandwidth)
-> is large enough to speak against these changes.
+> Seems like a much better solution.  I can have Jeff Kirsher work on the
+> equivalent patches for igb, and ixgbe today.
+> 
+> > I am not very familiar with Kconfig, but it seems to solve the
+> > problem. 
+> > If a Kconfig guru could double-check...
+> 
+> Yeah, please Kconfig gurus on the list have a quick look.
 
-Actually, I think I had similar doubts one or two months ago, but I
-can remember mainly your discussion on peek with Herbert, and not
-much about something like above, but probably I didn't pay enough
-attention.
+Brice's patch looks fine.
 
-Anyway, the main source of my misleading seems to be HFSC... So do you
-mean it's OK to use this kind of requeuing in hfsc_requeue(), but not
-elsewhere? Maybe I miss something, but if some other qdisc is used as
-a parent of HFSC, and does something like qdisc_peek_len(), it gets
-just what you're against above?
+cu
+Adrian
 
-Anyway, I'm glad you've found some time for these explanations,
-especially since they're in accordance with my previous suspicions.
+-- 
 
-Thanks again,
-Jarek P.
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
