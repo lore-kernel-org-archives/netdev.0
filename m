@@ -1,51 +1,75 @@
-From: "Randy Macleod" <macleodr@nortel.com>
-Subject: Re: [PATCH 6/6] Phonet: pipe end-point protocol documentation
-Date: Tue, 14 Oct 2008 11:06:18 -0400
-Message-ID: <48F4B56A.1070402@nortel.com>
-References: <200810011312.17288.remi.denis-courmont@nokia.com> <1222855985-22859-6-git-send-email-remi.denis-courmont@nokia.com> <48EF9DE7.9040209@nortel.com> <20081011.123008.251386486.davem@davemloft.net>
+From: Pedro Ribeiro <pribeiro-bulk@net.ipl.pt>
+Subject: Re[2]: [PATCH] Structure icmp6hdr (IPv6/ICMPv6) with bug in the bitfields!
+Date: Tue, 14 Oct 2008 16:32:21 +0100
+Message-ID: <13210415832.20081014163221@net.ipl.pt>
+References: <159769323.20081014120620@net.ipl.pt> <87y70rxri6.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org,
+	=?utf-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
+To: arno@natisbad.org (Arnaud Ebalard)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04f.nortel.com ([47.129.242.57]:46550 "EHLO
-	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239AbYJNPWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 11:22:47 -0400
-In-Reply-To: <20081011.123008.251386486.davem@davemloft.net>
+Received: from smtp-out1.net.ipl.pt ([192.104.48.14]:55275 "EHLO
+	smtp-out1.net.ipl.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751374AbYJNPc1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 11:32:27 -0400
+In-Reply-To: <87y70rxri6.fsf@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> It corrupted the patch, chopping up long lines and such.
-> 
-> There are directions in linux/Documentation/email-clients.txt on
-> how to fix this.
-> 
-Fixed the line wrapping and RTFM.
-Sending a test message to myself worked.
+Hello Arnaud,
 
-Here's the simple documentation patch, it's against:
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6
+Thanks for your quick answer ...
 
-// Randy
+Here goes the information solicited.
 
-diff --git a/Documentation/networking/phonet.txt b/Documentation/networking/phonet.txt
-index 0e6e592..6a07e45 100644
---- a/Documentation/networking/phonet.txt
-+++ b/Documentation/networking/phonet.txt
-@@ -146,8 +146,8 @@ WARNING:
- When polling a connected pipe socket for writability, there is an
- intrinsic race condition whereby writability might be lost between the
- polling and the writing system calls. In this case, the socket will
--block until write because possible again, unless non-blocking mode
--becomes enabled.
-+block until write becomes possible again, unless non-blocking mode
-+is enabled.
- 
- 
- The pipe protocol provides two socket options at the SOL_PNPIPE level:
+TIA.
 
+Tuesday, October 14, 2008, 1:58:41 PM, you wrote:
 
+...
+
+> can you confirm that you already activated CONFIG_IPV6_ROUTER_PREF in
+> your kernel configuration?
+
+host ~ # gzip -d -c /proc/config.gz | grep -F CONFIG_IPV6_ROUTER_PREF
+CONFIG_IPV6_ROUTER_PREF=y
+
+> What are the values of following parameters on your system?:
+
+>   /proc/sys/net/ipv6/conf/*/accept_ra_rtr_pref
+>   /proc/sys/net/ipv6/conf/*/accept_ra_pinfo
+>   /proc/sys/net/ipv6/conf/*/accept_ra
+>   /proc/sys/net/ipv6/conf/*/autoconf
+
+All of them have value "1"
+
+/proc/sys/net/ipv6/conf/all/accept_ra:1
+/proc/sys/net/ipv6/conf/all/accept_ra_defrtr:1
+/proc/sys/net/ipv6/conf/all/accept_ra_pinfo:1
+/proc/sys/net/ipv6/conf/all/accept_ra_rtr_pref:1
+/proc/sys/net/ipv6/conf/default/accept_ra:1
+/proc/sys/net/ipv6/conf/default/accept_ra_defrtr:1
+/proc/sys/net/ipv6/conf/default/accept_ra_pinfo:1
+/proc/sys/net/ipv6/conf/default/accept_ra_rtr_pref:1
+/proc/sys/net/ipv6/conf/eth0/accept_ra:1
+/proc/sys/net/ipv6/conf/eth0/accept_ra_defrtr:1
+/proc/sys/net/ipv6/conf/eth0/accept_ra_pinfo:1
+/proc/sys/net/ipv6/conf/eth0/accept_ra_rtr_pref:1
+/proc/sys/net/ipv6/conf/lo/accept_ra:1
+/proc/sys/net/ipv6/conf/lo/accept_ra_defrtr:1
+/proc/sys/net/ipv6/conf/lo/accept_ra_pinfo:1
+/proc/sys/net/ipv6/conf/lo/accept_ra_rtr_pref:1
+/proc/sys/net/ipv6/conf/all/autoconf:1
+/proc/sys/net/ipv6/conf/default/autoconf:1
+/proc/sys/net/ipv6/conf/eth0/autoconf:1
+/proc/sys/net/ipv6/conf/lo/autoconf:1
+
+Best regards.
+
+-- 
+Best regards,
+ Pedro                            mailto:pribeiro-bulk@net.ipl.pt
 
