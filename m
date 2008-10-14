@@ -1,42 +1,53 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Distributed storage release.
-Date: Wed, 15 Oct 2008 01:31:23 +0400
-Message-ID: <20081014213123.GA32387@2ka.mipt.ru>
-References: <20081006160034.GA611@2ka.mipt.ru> <20081012192419.fd8394c9.akpm@linux-foundation.org> <20081013133850.GA13565@2ka.mipt.ru> <20081014155143.GM2009@webber.adilger.int> <20081014161256.GA22286@2ka.mipt.ru> <20081014203529.GW2009@webber.adilger.int> <20081014210827.GA31312@2ka.mipt.ru> <20081014212332.GI15064@parisc-linux.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Error: an inet prefix is expected rather than "0/0".
+Date: Tue, 14 Oct 2008 23:52:45 +0200
+Message-ID: <48F514AD.3010109@trash.net>
+References: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl>	<E1KpkSl-00087W-GB@gondolin.me.apana.org.au> <20081014104621.3c2ce4d3@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Dilger <adilger@sun.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Matthew Wilcox <matthew@wil.cx>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081014212332.GI15064@parisc-linux.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Krzysztof Oledzki <ole@ans.pl>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:47559 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096AbYJNVwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 17:52:49 -0400
+In-Reply-To: <20081014104621.3c2ce4d3@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Matthew.
-
-On Tue, Oct 14, 2008 at 03:23:32PM -0600, Matthew Wilcox (matthew@wil.cx) wrote:
-> > Standards are great, but killing a child just because he or she is
-> > left-hander, is a bit crazy, don't you think? So it would be quite
-> > interesting to hear that (at least one) showstopper for inclusion
-> > is a number of spaces :)
+Stephen Hemminger wrote:
+> There is no easy solution, I'll will have to go back rewrite this
+> code, and will document the result. I expect the result will displease
+> someone, but given the original code that is just going to happen.
 > 
-> You're blowing this way out of proportion.  Andrew said he'd be happy to
-> do a better review of it if you documented it better, but until then all
-> he could find time to do was a stylistic review.
+> Busted cases:
+>                            correct           incorrect
+> Original code: 127.2   =>  127.0.0.2         127.2.0.0
+> inet_pton:     10.0    =>  10.0.0.0          fails invalid
+> inet_aton:     10      =>  10.0.0.0          0.0.0.10
+> 
+> The problem was Alexey (or Jamal) invented their own abbreviation format
+> and did not follow unix standard conventions.
 
-Are you absolutely sure we are talking here not about killed christian kids?
+We fixed the same problem in iptables a few years ago, maybe you could
+reuse some of that code. Some quick testing shows that it parses all
+addresses according to your table:
 
-Didn't you accidentally miss that part, where I added documentation and
-released new version where 10% of the patch is code documentation in
-several hours :)
+# iptables -I OUTPUT -d 127.2
+# iptables -I OUTPUT -d 10.0
+# iptables -I OUTPUT -d 10
+# iptables -vxnL OUTPUT
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+     pkts      bytes target     prot opt in     out     source 
+      destination
+        0        0            all  --  *      *       0.0.0.0/0 
+    10.0.0.0
+        0        0            all  --  *      *       0.0.0.0/0 
+    10.0.0.0
+        0        0            all  --  *      *       0.0.0.0/0 
+    127.2.0.0
 
-Essentially I resolved all comments Andrew made except checkpatch output
-and library functions which I asked if they are really needed. Even
-checkpatch output was cleaned (I removed long lines and added comments).
-
--- 
-	Evgeniy Polyakov
+You can find the code in "xtables.c", function numeric_to_ipaddr().
