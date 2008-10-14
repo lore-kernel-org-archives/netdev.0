@@ -1,54 +1,55 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on powerpc
-	selectsCONFIG_INTEL_IOATDMA=y
-Date: Tue, 14 Oct 2008 12:35:41 +0300
-Message-ID: <20081014093541.GA10453@cs181140183.pp.htv.fi>
-References: <20081013101559.GA14372@linux.vnet.ibm.com> <20081013112631.GD29938@cs181140183.pp.htv.fi> <36D9DB17C6DE9E40B059440DB8D95F52066E2EAE@orsmsx418.amr.corp.intel.com> <48F391B9.1000206@myri.com> <20081013183503.GA28133@cs181140183.pp.htv.fi> <48F4627E.30300@myri.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH 00/14]: Killing qdisc->ops->requeue().
+Date: Tue, 14 Oct 2008 09:52:46 +0000
+Message-ID: <20081014095246.GA10804@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	linux-kernel@vger.kernel.org, apw@shadowen.org,
-	linuxppc-dev@ozlabs.org, sam@ravnborg.org,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-To: Brice Goglin <brice@myri.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:57773 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752638AbYJNJgs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2008 05:36:48 -0400
+Received: from ug-out-1314.google.com ([66.249.92.170]:52657 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752207AbYJNJwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 05:52:54 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so850192ugf.37
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 02:52:53 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <48F4627E.30300@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 14, 2008 at 11:12:30AM +0200, Brice Goglin wrote:
-> Adrian Bunk wrote:
-> > But considering that igb is in a similar situation it would be nice if 
-> > all 3 drivers would handle it the same way.
-> >   
-> 
-> Jesse,
-> What do you think of the below patch?
-> I am not very familiar with Kconfig, but it seems to solve the problem.
-> If a Kconfig guru could double-check...
+The aim of this patch-set is to finish changes proposed by David S.
+Miller in his patch-set with the same subject from Mon, 18 Aug 2008.
+The first two patches were applied with some modifications, so, to
+apply the rest, there were needed some changes.
 
-The patch looks good, but the main problem is to get an agreement 
-on the policy.
+Original David's patches include additional info, but signed-off-by
+is removed because of changed context. I expect they will be merged
+and signed off by David as an author, anyway.
 
-> Brice
->...
+The qdisc->requeue list idea is to limit requeuing to one level only,
+so a parent can requeue to its child only. This list is then tried
+first while dequeuing (qdisc_dequeue()), except at the top level,
+so packets could be requeued only by qdiscs, not by qdisc_restart()
+after xmit errors.
 
-cu
-Adrian
+Thanks,
+Jarek P.
 
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+ include/net/sch_generic.h |   23 +++++++++------
+ net/sched/sch_api.c       |    7 -----
+ net/sched/sch_atm.c       |   24 ++--------------
+ net/sched/sch_cbq.c       |   37 +------------------------
+ net/sched/sch_dsmark.c    |   23 +---------------
+ net/sched/sch_fifo.c      |    2 -
+ net/sched/sch_generic.c   |   21 +-------------
+ net/sched/sch_gred.c      |   21 --------------
+ net/sched/sch_hfsc.c      |   30 ++------------------
+ net/sched/sch_htb.c       |   46 +------------------------------
+ net/sched/sch_multiq.c    |   38 +------------------------
+ net/sched/sch_netem.c     |   29 +++-----------------
+ net/sched/sch_prio.c      |   31 +--------------------
+ net/sched/sch_red.c       |   20 +-------------
+ net/sched/sch_sfq.c       |   66 ---------------------------------------------
+ net/sched/sch_tbf.c       |   23 +--------------
+ net/sched/sch_teql.c      |   11 -------
+ 17 files changed, 36 insertions(+), 416 deletions(-)
