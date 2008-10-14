@@ -1,46 +1,48 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [BUILD_FAILURE] 2.6.27-git2 - allyesconfig on powerpc	selectsCONFIG_INTEL_IOATDMA=y
-Date: Tue, 14 Oct 2008 09:10:33 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52066E36C7@orsmsx418.amr.corp.intel.com>
-References: <20081013101559.GA14372@linux.vnet.ibm.com> <20081013112631.GD29938@cs181140183.pp.htv.fi> <36D9DB17C6DE9E40B059440DB8D95F52066E2EAE@orsmsx418.amr.corp.intel.com> <48F391B9.1000206@myri.com> <20081013183503.GA28133@cs181140183.pp.htv.fi> <48F4627E.30300@myri.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH 00/14]: Killing qdisc->ops->requeue().
+Date: Tue, 14 Oct 2008 09:41:30 -0700
+Message-ID: <48F4CBBA.7070004@intel.com>
+References: <20081014095246.GA10804@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Adrian Bunk" <bunk@kernel.org>,
-	"Kamalesh Babulal" <kamalesh@linux.vnet.ibm.com>,
-	"Jeff Garzik" <jgarzik@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	<linux-kernel@vger.kernel.org>, <apw@shadowen.org>,
-	<linuxppc-dev@ozlabs.org>, <sam@ravnborg.org>,
-	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
-	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-To: "Brice Goglin" <brice@myri.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:59290 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:9521 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752473AbYJNQLT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 12:11:19 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <48F4627E.30300@myri.com>
+	id S1751155AbYJNQll (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Oct 2008 12:41:41 -0400
+In-Reply-To: <20081014095246.GA10804@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin wrote:
-> Adrian Bunk wrote:
->> But considering that igb is in a similar situation it would be nice
->> if all 3 drivers would handle it the same way.
->> 
+Jarek Poplawski wrote:
+> The aim of this patch-set is to finish changes proposed by David S.
+> Miller in his patch-set with the same subject from Mon, 18 Aug 2008.
+> The first two patches were applied with some modifications, so, to
+> apply the rest, there were needed some changes.
 > 
-> Jesse,
-> What do you think of the below patch?
+> Original David's patches include additional info, but signed-off-by
+> is removed because of changed context. I expect they will be merged
+> and signed off by David as an author, anyway.
+> 
+> The qdisc->requeue list idea is to limit requeuing to one level only,
+> so a parent can requeue to its child only. This list is then tried
+> first while dequeuing (qdisc_dequeue()), except at the top level,
+> so packets could be requeued only by qdiscs, not by qdisc_restart()
+> after xmit errors.
 
-Seems like a much better solution.  I can have Jeff Kirsher work on the
-equivalent patches for igb, and ixgbe today.
+I still do not agree with this change.  It essentially breaks multiq as 
+we are right back to all queues being stopped because of one packet in 
+the qdisc->requeue list.
 
-> I am not very familiar with Kconfig, but it seems to solve the
-> problem. 
-> If a Kconfig guru could double-check...
+I think if anything it seems like you guys actually found the cpu 
+performance issue a while back in the fact that the dev_requeue_skb was 
+calling __netif_schedule when requeuing on a stopped queue.  That is the 
+one piece I would say needs to be changed so that you only call 
+__netif_schedule if the skb is not going to a stopped queue.
 
-Yeah, please Kconfig gurus on the list have a quick look.
+Thanks,
 
+Alex
