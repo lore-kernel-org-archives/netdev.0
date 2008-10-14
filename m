@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: fix skb leak in case of failure
-Date: Mon, 13 Oct 2008 18:45:49 -0700 (PDT)
-Message-ID: <20081013.184549.251334267.davem@davemloft.net>
-References: <Pine.LNX.4.64.0810131657250.3843@wrl-59.cs.helsinki.fi>
-	<20081013170158.GA10494@ghostprotocols.net>
+Subject: Re: [PATCH] net/phy: add missing kernel-doc
+Date: Mon, 13 Oct 2008 18:46:30 -0700 (PDT)
+Message-ID: <20081013.184630.03498238.davem@davemloft.net>
+References: <20081013091505.61177f48.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: acme@redhat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56512
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56517
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756012AbYJNBqN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2008 21:46:13 -0400
-In-Reply-To: <20081013170158.GA10494@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1752528AbYJNBqy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 21:46:54 -0400
+In-Reply-To: <20081013091505.61177f48.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Mon, 13 Oct 2008 14:01:58 -0300
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Mon, 13 Oct 2008 09:15:05 -0700
 
-> Em Mon, Oct 13, 2008 at 05:22:18PM +0300, Ilpo J=E4rvinen escreveu:
-> > Seems that skb goes into void unless something magic happened
-> > in pskb_expand_head in case of failure.
-> >=20
-> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
->=20
-> Good catch!
->=20
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> Fix kernel-doc warning, missing description:
+> 
+> Warning(lin2627-g3-kdocfixes//drivers/net/phy/mdio_bus.c:63): No description found for parameter 'd'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Applied, thanks everyone.
+Applied, thanks Randy.
