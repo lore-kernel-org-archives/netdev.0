@@ -1,105 +1,172 @@
-From: Pedro Ribeiro <pribeiro-bulk@net.ipl.pt>
-Subject: [PATCH] FIXED: IPv6 Route selection now correct with multiple gateways and preferences
-Date: Tue, 14 Oct 2008 21:07:32 +0100
-Message-ID: <1316147719.20081014210732@net.ipl.pt>
-References: <159769323.20081014120620@net.ipl.pt> <87y70rxri6.fsf@natisbad.org>
-Reply-To: Pedro Ribeiro <pribeiro-bulk@net.ipl.pt>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH] myri10ge: remove broken select INTEL_IOATDMA from Kconfig
+Date: Tue, 14 Oct 2008 22:07:02 +0200
+Message-ID: <48F4FBE6.1010209@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: arno@natisbad.org,
-	=?utf-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out1.net.ipl.pt ([192.104.48.14]:53247 "EHLO
-	smtp-out1.net.ipl.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751909AbYJNUHf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 16:07:35 -0400
-In-Reply-To: <87y70rxri6.fsf@natisbad.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:2000 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752737AbYJNUIF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Oct 2008 16:08:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Arnaud and all,
+We cannot select INTEL_IOATDMA in Kconfig as soon as MYRI10GE is
+enabled since the former is not available on all architectures.
+Just use a Kconfig bool MYRI10GE_DCA set to =y when DCA support
+can actually be built in myri10ge (when DCA is enabled, except
+if MYRI10GE=y and DCA=m).
 
-I=E2=80=99ve found the other part of the problem.
-ndisc_router_discovery () at ndisc.c weren=E2=80=99t correctly updating=
- the
-flags in the route table, the problem is now fixed with the correct
-default router being updated as soon as the next RA with the new
-preference is received.
+Signed-off-by: Brice Goglin <brice@myri.com>
 
-=46ollows the two patches made against 2.6.23 (this one and the first
-I=E2=80=99ve sent) but I=E2=80=99ve seen in 2.6.26 the problem also exi=
-sts and the fix
-should apply without problems.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index e9d5294..0162d55 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2462,7 +2462,6 @@ config MYRI10GE
+ 	select FW_LOADER
+ 	select CRC32
+ 	select INET_LRO
+-	select INTEL_IOATDMA
+ 	---help---
+ 	  This driver supports Myricom Myri-10G Dual Protocol interface in
+ 	  Ethernet mode. If the eeprom on your board is not recent enough,
+@@ -2474,6 +2473,11 @@ config MYRI10GE
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called myri10ge.
+ 
++config MYRI10GE_DCA
++	bool
++	default y
++	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
++
+ config NETXEN_NIC
+ 	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
+ 	depends on PCI
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 6dce901..a9aebad 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -188,7 +188,7 @@ struct myri10ge_slice_state {
+ 	dma_addr_t fw_stats_bus;
+ 	int watchdog_tx_done;
+ 	int watchdog_tx_req;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	int cached_dca_tag;
+ 	int cpu;
+ 	__be32 __iomem *dca_tag;
+@@ -220,7 +220,7 @@ struct myri10ge_priv {
+ 	int msi_enabled;
+ 	int msix_enabled;
+ 	struct msix_entry *msix_vectors;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	int dca_enabled;
+ #endif
+ 	u32 link_state;
+@@ -902,7 +902,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+ 	struct myri10ge_slice_state *ss;
+ 	int i, status;
+ 	size_t bytes;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	unsigned long dca_tag_off;
+ #endif
+ 
+@@ -1012,7 +1012,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+ 	}
+ 	put_be32(htonl(mgp->intr_coal_delay), mgp->intr_coal_delay_ptr);
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_DCA_OFFSET, &cmd, 0);
+ 	dca_tag_off = cmd.data0;
+ 	for (i = 0; i < mgp->num_slices; i++) {
+@@ -1051,7 +1051,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+ 	return status;
+ }
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ static void
+ myri10ge_write_dca(struct myri10ge_slice_state *ss, int cpu, int tag)
+ {
+@@ -1505,7 +1505,7 @@ static int myri10ge_poll(struct napi_struct *napi, int budget)
+ 	struct net_device *netdev = ss->mgp->dev;
+ 	int work_done;
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	if (ss->mgp->dca_enabled)
+ 		myri10ge_update_dca(ss);
+ #endif
+@@ -1736,7 +1736,7 @@ static const char myri10ge_gstrings_main_stats[][ETH_GSTRING_LEN] = {
+ 	"tx_boundary", "WC", "irq", "MSI", "MSIX",
+ 	"read_dma_bw_MBs", "write_dma_bw_MBs", "read_write_dma_bw_MBs",
+ 	"serial_number", "watchdog_resets",
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	"dca_capable_firmware", "dca_device_present",
+ #endif
+ 	"link_changes", "link_up", "dropped_link_overflow",
+@@ -1815,7 +1815,7 @@ myri10ge_get_ethtool_stats(struct net_device *netdev,
+ 	data[i++] = (unsigned int)mgp->read_write_dma;
+ 	data[i++] = (unsigned int)mgp->serial_number;
+ 	data[i++] = (unsigned int)mgp->watchdog_resets;
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	data[i++] = (unsigned int)(mgp->ss[0].dca_tag != NULL);
+ 	data[i++] = (unsigned int)(mgp->dca_enabled);
+ #endif
+@@ -3844,7 +3844,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		dev_err(&pdev->dev, "failed reset\n");
+ 		goto abort_with_slices;
+ 	}
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	myri10ge_setup_dca(mgp);
+ #endif
+ 	pci_set_drvdata(pdev, mgp);
+@@ -3948,7 +3948,7 @@ static void myri10ge_remove(struct pci_dev *pdev)
+ 	netdev = mgp->dev;
+ 	unregister_netdev(netdev);
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	myri10ge_teardown_dca(mgp);
+ #endif
+ 	myri10ge_dummy_rdma(mgp, 0);
+@@ -3993,7 +3993,7 @@ static struct pci_driver myri10ge_driver = {
+ #endif
+ };
+ 
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ static int
+ myri10ge_notify_dca(struct notifier_block *nb, unsigned long event, void *p)
+ {
+@@ -4024,7 +4024,7 @@ static __init int myri10ge_init_module(void)
+ 		       myri10ge_driver.name, myri10ge_rss_hash);
+ 		myri10ge_rss_hash = MXGEFW_RSS_HASH_TYPE_SRC_PORT;
+ 	}
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	dca_register_notify(&myri10ge_dca_notifier);
+ #endif
+ 	if (myri10ge_max_slices > MYRI10GE_MAX_SLICES)
+@@ -4037,7 +4037,7 @@ module_init(myri10ge_init_module);
+ 
+ static __exit void myri10ge_cleanup_module(void)
+ {
+-#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
++#ifdef CONFIG_MYRI10GE_DCA
+ 	dca_unregister_notify(&myri10ge_dca_notifier);
+ #endif
+ 	pci_unregister_driver(&myri10ge_driver);
 
-Can any of the maintainers give-me some expectations of when (and if) t=
-his fix
-will be added to a kernel release?
-
-Should I patch all of our ~60 Linux machines or wait for a general
-upgrade with a new kernel soon?
-
-Thanks for all the support in this subject.
-
-Best regards.
-
-#######################################################################
-
---- linux-2.6.23-gentoo-r9orig/net/ipv6/ndisc.c    2007-10-09 21:31:38.=
-000000000 +0100
-+++ linux-2.6.23-gentoo-r9/net/ipv6/ndisc.c    2008-10-14 20:07:48.0000=
-00000 +0100
-@@ -1101,7 +1101,7 @@
-                }
-                neigh->flags |=3D NTF_ROUTER;
-        } else if (rt) {
--               rt->rt6i_flags |=3D (rt->rt6i_flags & ~RTF_PREF_MASK) |=
- RTF_PREF(pref);
-+               rt->rt6i_flags =3D (rt->rt6i_flags & ~RTF_PREF_MASK) | =
-RTF_PREF(pref);
-        }
-=20
-        if (rt)
-
-(this part is a "repost" just to keep both patches together)
-
---- linux-2.6.23-gentoo-r9orig/include/linux/icmpv6.h      2007-10-09 2=
-1:31:38.000000000 +0100
-+++ linux-2.6.23-gentoo-r9/include/linux/icmpv6.h      2008-10-13 17:42=
-:56.000000000 +0100
-@@ -40,16 +40,18 @@
-                 struct icmpv6_nd_ra {
-                        __u8            hop_limit;
- #if defined(__LITTLE_ENDIAN_BITFIELD)
--                       __u8            reserved:4,
-+                       __u8            reserved:3,
-                                        router_pref:2,
-+                                       home_agent:1,
-                                        other:1,
-                                        managed:1;
-
- #elif defined(__BIG_ENDIAN_BITFIELD)
-                        __u8            managed:1,
-                                        other:1,
-+                                       home_agent:1,
-                                        router_pref:2,
--                                       reserved:4;
-+                                       reserved:3;
- #else
- #error "Please fix <asm/byteorder.h>"
-
---=20
-Best regards,
-
-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D=
--=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-
-Pedro Ribeiro
-IPLNet - Rede de dados e comunica=C3=A7=C3=B5es
-Instituto Polit=C3=A9cnico de Lisboa (IPL)
-Mail: mailto:pribeiro@net.ipl.pt
-VoIP: sip:pribeiro@net.ipl.pt
-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D=
--=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-
 
