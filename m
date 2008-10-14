@@ -1,47 +1,65 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Error: an inet prefix is expected rather than "0/0".
-Date: Tue, 14 Oct 2008 10:46:21 -0700
-Message-ID: <20081014104621.3c2ce4d3@extreme>
-References: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl>
-	<E1KpkSl-00087W-GB@gondolin.me.apana.org.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 00/14]: Killing qdisc->ops->requeue().
+Date: Tue, 14 Oct 2008 19:56:49 +0200
+Message-ID: <20081014175649.GA2548@ami.dom.local>
+References: <48F4915D.8000004@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ole@ans.pl (Krzysztof Oledzki), netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52231 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751122AbYJNRq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2008 13:46:27 -0400
-In-Reply-To: <E1KpkSl-00087W-GB@gondolin.me.apana.org.au>
+Received: from ug-out-1314.google.com ([66.249.92.168]:11699 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750812AbYJNR4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 13:56:16 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so1004361ugf.37
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 10:56:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <48F4915D.8000004@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Oct 2008 22:01:27 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+David,
+I acknowledge Patrick's concerns, so please, consider this
+patch-set as withdrawn. Thanks.
 
-> Krzysztof Oledzki <ole@ans.pl> wrote:
-> >
-> > http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=commitdiff_plain;h=2ca4abdcb823e708b88156f947fa5b493055618a
-> > 
-> > ;)
+A little comment below:
+
+Patrick McHardy wrote, On 10/14/2008 02:32 PM:
+> Jarek Poplawski wrote:
+...
+> I'm sorry for any wasted effort, I think I mentioned this one or
+> two month ago, but wasn't able to further participate in the
+> discussion because I was busy with other things.
+
+No problem, it seems I missed your point.
+
+>> Alas, I can't analyze your concerns at the moment, and I'll try to
+>> reply in the evening yet, but my idea was this all shouldn't make
+>> (almost) any visible change just for HFSC, so if it's otherwise,
+>> something went wrong. IMHO, with this solution hfsc_requeue() way is
+>> simply realized as a standard now, but I can miss something.
 > 
-> Hmm, this breaks several scripts of mine that use 10/8.  Couldn't
-> we just fall back to the old loop when inet_aton fails?
-> 
-> Thanks,
+> The main difference results from the fact that higher priority
+> packets can't preempt "peeked" lower priority packets anymore.
+> The difference this causes obviously depends on the bandwidth,
+> but in my opinion the impact (as mentioned. 12ms delay for
+> 1500b, 1mbit, rises linearly with bigger packets/less bandwidth)
+> is large enough to speak against these changes.
 
+Actually, I think I had similar doubts one or two months ago, but I
+can remember mainly your discussion on peek with Herbert, and not
+much about something like above, but probably I didn't pay enough
+attention.
 
-There is no easy solution, I'll will have to go back rewrite this
-code, and will document the result. I expect the result will displease
-someone, but given the original code that is just going to happen.
+Anyway, the main source of my misleading seems to be HFSC... So do you
+mean it's OK to use this kind of requeuing in hfsc_requeue(), but not
+elsewhere? Maybe I miss something, but if some other qdisc is used as
+a parent of HFSC, and does something like qdisc_peek_len(), it gets
+just what you're against above?
 
-Busted cases:
-                           correct           incorrect
-Original code: 127.2   =>  127.0.0.2         127.2.0.0
-inet_pton:     10.0    =>  10.0.0.0          fails invalid
-inet_aton:     10      =>  10.0.0.0          0.0.0.10
+Anyway, I'm glad you've found some time for these explanations,
+especially since they're in accordance with my previous suspicions.
 
-The problem was Alexey (or Jamal) invented their own abbreviation format
-and did not follow unix standard conventions.
+Thanks again,
+Jarek P.
