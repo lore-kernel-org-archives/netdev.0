@@ -1,53 +1,66 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [PATCH] 2.6.27-rc9 QGLE make unsupported page size explicit compile failure
-Date: Mon, 13 Oct 2008 19:53:29 -0700
-Message-ID: <20081014025329.GA25397@susedev.qlogic.org>
-References: <20081014015455.GA25385@susedev.qlogic.org> <20081013.190345.20202604.davem@davemloft.net> <20081014021902.GY25780@parisc-linux.org> <20081013.193153.203217396.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/8] sysfs: Implement sysfs tagged directory support.
+Date: Mon, 13 Oct 2008 20:20:05 -0700
+Message-ID: <m11vyjrhga.fsf@frodo.ebiederm.org>
+References: <dac45060809020654g62afb3c9yd104682b93b43bee@mail.gmail.com>
+	<48BD47A8.1080909@bull.net> <20080902170148.GA9305@suse.de>
+	<31436f4a0809032233r2c46de8od8a94460ce3b5ed2@mail.gmail.com>
+	<48BF83E1.5040000@bull.net>
+	<dac45060810070939v80918a0m3963d7fc6fcbb975@mail.gmail.com>
+	<20081007164833.GA16056@suse.de> <m1abdgywnb.fsf@frodo.ebiederm.org>
+	<20081007210902.GB7996@suse.de> <m18wt0qbwf.fsf@frodo.ebiederm.org>
+	<20081008130006.GB31684@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: matthew@wil.cx, grundler@parisc-linux.org, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-ia64@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Greg KH <gregkh@suse.de>, Mark Ryden <markryde@gmail.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:30891 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753974AbYJNCxg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 22:53:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20081013.193153.203217396.davem@davemloft.net>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49188 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbYJNDaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2008 23:30:12 -0400
+In-Reply-To: <20081008130006.GB31684@infradead.org> (Christoph Hellwig's
+	message of "Wed, 8 Oct 2008 09:00:06 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 13, 2008 at 07:31:53PM -0700, David Miller wrote:
-> From: Matthew Wilcox <matthew@wil.cx>
-> Date: Mon, 13 Oct 2008 20:19:02 -0600
-> 
-> > On Mon, Oct 13, 2008 at 07:03:45PM -0700, David Miller wrote:
-> > > From: Ron Mercer <ron.mercer@qlogic.com>
-> > > Date: Mon, 13 Oct 2008 18:54:55 -0700
-> > > 
-> > > > This ASIC does support all page sizes. For 4k and 8k page size the TX control block needs an external scatter gather list.  For page sizes larger than 8k the max frags is satisfied by the original TX control block.
-> > > 
-> > > I'm not applying this.  I _explicitly_ said I would not apply a
-> > > solution like this.
-> > > 
-> > > I waited for you guys all day for this?!?!
-> > > 
-> > > We need to find a way to make this a Kconfig dependency.
-> > > 
-> > > Build failures are absolutely unacceptable.
-> > 
-> > Um, Dave, I think you misread his patch.
-> > 
-> > All it does it make the '64k case' the 'every other size case'.  There's
-> > no build failure with Ron's patch.
-> 
-> Thanks for the correction, I'll look at this again :)
+Christoph Hellwig <hch@infradead.org> writes:
 
-My explanation might not have been very good.  What I was trying to say
-is that the macro in question determines the size of a scatter/gathter
-list that is external to the TX descriptor.  The size is based on
-MAX_SKB_FRAGS and PAGE_SIZE.  When PAGE_SIZE is larger than 8k I don't
-need the external scatter/gather list because all frags will fit in the
-native TX descriptor.
+> On Tue, Oct 07, 2008 at 03:27:12PM -0700, Eric W. Biederman wrote:
+>> Al reviewed sysfs with my patchset on top of it.
+>> 
+>> Al's review found problems in  sysfs with my patchset on top of it.
+>> 
+>> If you look at what Al found the majority of those problems exist in sysfs
+>> without my patches.
+>
+> And when something is crap your fix it firdt before piling up more shit
+> on top of it.  And sysfs is a really severe case of that, and you're
+> piling a _lot_ of shit ontop.
 
+Chistoph, your comments and Al's would have been much more productive
+if you have had said:
+
+"I didn't like sysfs because it doesn't do things the way other filesystems
+  with similar problems do things.  Can you please use common idioms?
+  Making the code easier to read and making the code easier to maintain.
+  Some of those constructs look awfully complex can you recheck you code
+  and see if there is a simpler way to implement them."
+
+That would have been honest and productive.  As it sits.  I have partially
+inaccurate feedback from Al, useless feedback from you, and only my own
+tough skin and determination to keep me going..
+
+The fact that you and Al look at the code and can't easily make sense of
+is a good sign that the code as written will be hard to maintain.  Al's
+recent breakage of sysctl is a good example of that.
+
+Eric
