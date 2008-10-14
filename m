@@ -1,38 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/6] Phonet: pipe end-point protocol documentation
-Date: Tue, 14 Oct 2008 13:49:57 -0700 (PDT)
-Message-ID: <20081014.134957.259378048.davem@davemloft.net>
-References: <48EF9DE7.9040209@nortel.com>
-	<20081011.123008.251386486.davem@davemloft.net>
-	<48F4B56A.1070402@nortel.com>
+Subject: Re: [PATCH] Structure icmp6hdr (IPv6/ICMPv6) with bug in the
+ bitfields!
+Date: Tue, 14 Oct 2008 13:54:23 -0700 (PDT)
+Message-ID: <20081014.135423.91524319.davem@davemloft.net>
+References: <159769323.20081014120620@net.ipl.pt>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
-To: macleodr@nortel.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: pribeiro-bulk-reply@isel.ipl.pt, pribeiro-bulk@net.ipl.pt
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56880
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46673
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750899AbYJNUuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 16:50:21 -0400
-In-Reply-To: <48F4B56A.1070402@nortel.com>
+	by vger.kernel.org with ESMTP id S1754887AbYJNUyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 16:54:47 -0400
+In-Reply-To: <159769323.20081014120620@net.ipl.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Randy Macleod" <macleodr@nortel.com>
-Date: Tue, 14 Oct 2008 11:06:18 -0400
-
-> David Miller wrote:
-> > It corrupted the patch, chopping up long lines and such.
-> > 
-> > There are directions in linux/Documentation/email-clients.txt on
-> > how to fix this.
-> > 
-> Fixed the line wrapping and RTFM.
-> Sending a test message to myself worked.
-> 
-> Here's the simple documentation patch, it's against:
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6
-
-Applied, please provide a proper "Signed-off-by:" line in future
-submissions.
+RnJvbTogUGVkcm8gUmliZWlybyA8cHJpYmVpcm8tYnVsa0BuZXQuaXBsLnB0Pg0KRGF0ZTogVHVl
+LCAxNCBPY3QgMjAwOCAxMjowNjoyMCArMDEwMA0KDQo+IEZvbGxvd3MgYSDigJxkaWZm4oCdIHdp
+dGggdGhlIGNoYW5nZXMgSeKAmXZlIG1hZGUgdG8gY29ycmVjdCB0aGlzIHByb2JsZW0NCj4gKEni
+gJl2ZSBtYWRlIGl0IGFnYWluc3Qga2VybmVsIDIuNi4yMywgYnV0IEnigJl2ZSBjb25maXJtZWQg
+dGhhdCB0aGUNCj4gcHJvYmxlbSBzdGlsbCBleGlzdHMgaW4gMi42LjI1KQ0KDQpQbGVhc2UgbWFr
+ZSB5b3VyIHBhdGNoIGFnYWluc3QgY3VycmVudCBzb3VyY2VzLCBpdCBkb2VzIG5vdCBhcHBseQ0K
+dG8gdGhlIGN1cnJlbnQgdHJlZS4NCg==
