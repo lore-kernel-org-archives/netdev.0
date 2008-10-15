@@ -1,54 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: qdisc tbf dropping many packets
-Date: Wed, 15 Oct 2008 11:47:28 +0200
-Message-ID: <48F5BC30.5000205@trash.net>
-References: <6dd1343e0810090644r5b586fa4gd63ee6659b3a07c4@mail.gmail.com>	<48F54940.6050105@bnet6.net> <20081014.214849.20773661.davem@davemloft.net>
+From: c4p7n@capitanio.org
+Subject: [patch] rtl8102e: commit 7bf6bf480 zeroized MAC address
+Date: Wed, 15 Oct 2008 12:11:11 +0200 (MEST)
+Message-ID: <200810151011.m9FABBRj025271@post.webmailer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: abasit@bnet6.net
+Content-Type: multipart/mixed; boundary="b35edecca28e3b641189a4386a6f35978"
+Cc: kernel@vger.kernel.org, netdev@vger.kernel.org,
+	c4p7n1@capitanio.org
+To: netdev@vger.kernel.org, "Francois Romieu" <romieu@fr.zoreil.com>,
+	"Ivan Vecera" <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62692 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751109AbYJOJrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 05:47:31 -0400
-In-Reply-To: <20081014.214849.20773661.davem@davemloft.net>
+Received: from em-p00-ob.rzone.de ([81.169.146.225]:35923 "EHLO
+	em-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751798AbYJOKWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 06:22:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Abdul Basit <abasit@bnet6.net>
-> Date: Tue, 14 Oct 2008 21:37:04 -0400
-> 
-> [ netdev CC:'d, you'll reach more knowledgable people there ]
-> 
->> I am running linux kernel 2.6.23.1 on PowerPC and trying to set qdisc tbf  to limit the rate:-
->> *
->> *==> tc qdisc add dev eth0 root tbf rate 2048kbit buffer 10kb latency 50ms
->>
->> The problem is no matter what rate i specify, if I download a file it always get down to ~16-18Kbps download speed,
->> after investigating a bit more, i found by tc -s qdisc show that many dropped packets show up in statistic s,
->> looking further in kernel code, I found that in linux/net/sched/sch_tbf.c:126
->>
->> static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
->> {
->>        struct tbf_sched_data *q = qdisc_priv(sch);
->>        int ret;
->>  if (skb->len > q->max_size) {
->>                 printk (KERN_INFO "tbf_enqueue, drop skb->len = %d, q->max_size = %d\n", skb->len, q->max_size);
->>                 sch->qstats.drops++;
->>
->>         ....
->> }
->>
->> whenever it try to enqueue the packet, the skb->len ( range from 2980 - 2977 ) is usually greator than q->max_size ( 2907 )
->> hence it drops the packet.
->>
->> On a different machine with same source code, skb->len never become > 1500 and there the tbf works fine.
->>
->> Could someone please provide more insight or help where should i look more?
 
-This appears to caused by TSO. Try disabling TSO using ethtool or
-configure TBF to handle larger packet sizes.
+
+--b35edecca28e3b641189a4386a6f35978
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Tested on top of linus tree and back ported 2.6.27.
+
+Please cc me, thanks
+Martin Capitanio
+
+
+
+
+
+
+--b35edecca28e3b641189a4386a6f35978
+Content-Type: message/rfc822; name="r8169-01.patch"
+Content-disposition: attachment; filename="r8169-01.patch"
+Content-Transfer-Encoding: base64
+
+
+ZCBPY3QgMTUgMTA6NTM6MDIgMjAwOCArMDIwMAoKICAgIENvbW1pdCA3YmY2YmY0ODAzZGYxYWRj
+OTI3ZjU4NTE2OGQyMTM1ZmIwMTljNjk4IGJyb2tlIHRoZSBpbiBiZXR3ZWVuCiAgICBmbGF3bGVz
+c2x5IHdvcmtpbmcgcmVhbHRlayBjaGlwc2V0IHJ0bDgxMDJlLiBUaGUgbWFjIGFkZHJlc3MgaXMg
+aGVyZSBfbm90XwogICAgbG9jYXRlZCBpbiB0aGUgRUVQUk9NIGF0IG9mZnNldCAweDBlIGFuZCBp
+dCBpcyAoYXQgbGVhc3QgZm9yIHRoaXMgbm90ZWJvb2spCiAgICBub3QgbmVlZGVkLiBBZnRlciBh
+IHJlYm9vdCBpcyB0aGUgb3JpZ2luYWwgTUFDIGFkZHJlc3MgYXV0b21hZ2ljYWxseQogICAgcmVz
+dG9yZWQuCgogICAgWyAgICA4LjI0MjM0OV0gcjgxNjkgR2lnYWJpdCBFdGhlcm5ldCBkcml2ZXIg
+Mi4zTEstTkFQSSBsb2FkZWQKICAgIFsgICAgOC4yNDI0MzRdIHI4MTY5IDAwMDA6MDI6MDAuMDog
+UENJIElOVCBBIC0+IEdTSSAxNiAobGV2ZWwsIGxvdykgLT4gSVJRIDE2CiAgICBbICAgIDguMjQy
+NTE3XSByODE2OSAwMDAwOjAyOjAwLjA6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NAogICAg
+WyAgICA4LjI0MzU0OF0gZXRoMDogUlRMODEwMmUgYXQgMHhmZmZmYzIwMDAwMDRhMDAwLCAwMDow
+MDowMDowMDowMDowMCwgWElEIDM0YTAwMDAwIElSUSAzMTYKCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9uZXQvcjgxNjkuYyBiL2RyaXZlcnMvbmV0L3I4MTY5LmMKaW5kZXggYzgyMWRhMi4uODRiM2Qz
+MSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvcjgxNjkuYworKysgYi9kcml2ZXJzL25ldC9yODE2
+OS5jCkBAIC0yMTU2LDcgKzIxNTYsMTIgQEAgcnRsODE2OV9pbml0X29uZShzdHJ1Y3QgcGNpX2Rl
+diAqcGRldiwgY29uc3Qgc3RydWN0IHBjaV9kZXZpY2VfaWQgKmVudCkKIAogCXRwLT5tbWlvX2Fk
+ZHIgPSBpb2FkZHI7CiAKLQlydGxfaW5pdF9tYWNfYWRkcmVzcyh0cCwgaW9hZGRyKTsKKwlpZih0
+cC0+bWFjX3ZlcnNpb24gPT0gUlRMX0dJR0FfTUFDX1ZFUl8wOSkKKwl7CisJCWRwcmludGsoIlJl
+YWRpbmcgTUFDIGFkZHJlc3MgZnJvbSBFRVBST00gaXMgbm90IHN1cHBvcnRlZFxuIik7CisJfSBl
+bHNlIHsKKwkJcnRsX2luaXRfbWFjX2FkZHJlc3ModHAsIGlvYWRkcik7CisJfQogCiAJLyogR2V0
+IE1BQyBhZGRyZXNzICovCiAJZm9yIChpID0gMDsgaSA8IE1BQ19BRERSX0xFTjsgaSsrKQo=
+
+
+--b35edecca28e3b641189a4386a6f35978--
