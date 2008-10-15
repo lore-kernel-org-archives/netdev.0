@@ -1,225 +1,289 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH] lmc: copy_*_user under spinlock
-Date: Wed, 15 Oct 2008 11:50:42 +0100
-Message-ID: <20081015105025.6526.68580.stgit@localhost.localdomain>
+From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
+Subject: [PATCH] ehea: Fix memory hotplug support
+Date: Wed, 15 Oct 2008 13:18:58 +0200
+Message-ID: <200810151318.59151.hannes.hering@linux.vnet.ibm.com>
+References: <200809171619.46741.hannes.hering@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: jeff@garzik.org, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, ossrosch@linux.vnet.ibm.com,
+	ossthema@de.ibm.com, raisch@de.ibm.com, themann@de.ibm.com,
+	osstklei@de.ibm.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:60295 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751438AbYJOKu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 06:50:56 -0400
+Received: from mtagate2.de.ibm.com ([195.212.17.162]:47280 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbYJOLTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 07:19:02 -0400
+In-Reply-To: <200809171619.46741.hannes.hering@linux.vnet.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@redhat.com>
+This patch implements the memory notifier to update the busmap instantly
+instead of rebuilding the whole map. This is necessary because
+walk_memory_resource provides different information than required during memory
+hotplug.
 
-Not sure anyone uses this driver any more, maybe we should just drop it ?
-Code is still foul but at least a fraction less broken.
-
-Signed-off-by: Alan Cox <alan@redhat.com>
+Signed-off-by: Hannes Hering <hering2@de.ibm.com>
 ---
+This patch is based on the current netdev-2.6-git. It supersedes the previous
+post "ehea: Fix memory hotplug support".
+http://www.spinics.net/lists/netdev/msg75413.html
 
- drivers/net/wan/lmc/lmc_main.c |   31 ++++++++++++++++++++++++-------
- 1 files changed, 24 insertions(+), 7 deletions(-)
-
-
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index f80640f..d7bb63e 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -122,7 +122,6 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-      * Most functions mess with the structure
-      * Disable interrupts while we do the polling
-      */
--    spin_lock_irqsave(&sc->lmc_lock, flags);
+diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
+--- linux-2.6.27/drivers/net/ehea/ehea.h	2008-10-14 18:26:54.000000000 +0200
++++ patched_kernel/drivers/net/ehea/ehea.h	2008-10-15 11:47:23.000000000 +0200
+@@ -40,13 +40,13 @@
+ #include <asm/io.h>
  
-     switch (cmd) {
-         /*
-@@ -152,6 +151,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		break;
- 	}
+ #define DRV_NAME	"ehea"
+-#define DRV_VERSION	"EHEA_0092"
++#define DRV_VERSION	"EHEA_0094"
  
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         sc->lmc_media->set_status (sc, &ctl);
+ /* eHEA capability flags */
+ #define DLPAR_PORT_ADD_REM 1
+ #define DLPAR_MEM_ADD      2
+ #define DLPAR_MEM_REM      4
+-#define EHEA_CAPABILITIES  (DLPAR_PORT_ADD_REM | DLPAR_MEM_ADD)
++#define EHEA_CAPABILITIES  (DLPAR_PORT_ADD_REM | DLPAR_MEM_ADD | DLPAR_MEM_REM)
  
-         if(ctl.crc_length != sc->ictl.crc_length) {
-@@ -161,6 +161,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 	    else
- 		sc->TxDescriptControlInit &= ~LMC_TDES_ADD_CRC_DISABLE;
-         }
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
+ #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
+ 	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
+diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
+--- linux-2.6.27/drivers/net/ehea/ehea_main.c	2008-10-14 18:26:54.000000000 +0200
++++ patched_kernel/drivers/net/ehea/ehea_main.c	2008-10-15 11:47:23.000000000 +0200
+@@ -2863,7 +2863,7 @@ static void ehea_rereg_mrs(struct work_s
+ 	struct ehea_adapter *adapter;
  
-         ret = 0;
-         break;
-@@ -187,15 +188,18 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		break;				/* no change */
-             }
-             
-+	    spin_lock_irqsave(&sc->lmc_lock, flags);
-             lmc_proto_close(sc);
+ 	mutex_lock(&dlpar_mem_lock);
+-	ehea_info("LPAR memory enlarged - re-initializing driver");
++	ehea_info("LPAR memory changed - re-initializing driver");
  
-             sc->if_type = new_type;
-             lmc_proto_attach(sc);
- 	    ret = lmc_proto_open(sc);
-+	    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 	    break;
- 	}
+ 	list_for_each_entry(adapter, &adapter_list, list)
+ 		if (adapter->active_ports) {
+@@ -2900,13 +2900,6 @@ static void ehea_rereg_mrs(struct work_s
+ 			}
+ 		}
  
-     case LMCIOCGETXINFO: /*fold01*/
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         sc->lmc_xinfo.Magic0 = 0xBEEFCAFE;
- 
-         sc->lmc_xinfo.PciCardType = sc->lmc_cardtype;
-@@ -208,6 +212,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-         sc->lmc_xinfo.MaxFrameSize = LMC_PKT_BUF_SZ;
-         sc->lmc_xinfo.link_status = sc->lmc_media->get_link_status (sc);
-         sc->lmc_xinfo.mii_reg16 = lmc_mii_readreg (sc, 0, 16);
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-         sc->lmc_xinfo.Magic1 = 0xDEADBEEF;
- 
-@@ -220,6 +225,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-         break;
- 
-     case LMCIOCGETLMCSTATS:
-+	    spin_lock_irqsave(&sc->lmc_lock, flags);
- 	    if (sc->lmc_cardtype == LMC_CARDTYPE_T1) {
- 		    lmc_mii_writereg(sc, 0, 17, T1FRAMER_FERR_LSB);
- 		    sc->extra_stats.framingBitErrorCount +=
-@@ -243,6 +249,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		    sc->extra_stats.severelyErroredFrameCount +=
- 			    regVal & T1FRAMER_SEF_MASK;
- 	    }
-+	    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 	    if (copy_to_user(ifr->ifr_data, &sc->lmc_device->stats,
- 			     sizeof(sc->lmc_device->stats)) ||
- 		copy_to_user(ifr->ifr_data + sizeof(sc->lmc_device->stats),
-@@ -258,12 +265,14 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		    break;
- 	    }
- 
-+	    spin_lock_irqsave(&sc->lmc_lock, flags);
- 	    memset(&sc->lmc_device->stats, 0, sizeof(sc->lmc_device->stats));
- 	    memset(&sc->extra_stats, 0, sizeof(sc->extra_stats));
- 	    sc->extra_stats.check = STATCHECK;
- 	    sc->extra_stats.version_size = (DRIVER_VERSION << 16) +
- 		    sizeof(sc->lmc_device->stats) + sizeof(sc->extra_stats);
- 	    sc->extra_stats.lmc_cardtype = sc->lmc_cardtype;
-+	    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 	    ret = 0;
- 	    break;
- 
-@@ -282,8 +291,10 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		ret = -EFAULT;
- 		break;
- 	}
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         sc->lmc_media->set_circuit_type(sc, ctl.circuit_type);
-         sc->ictl.circuit_type = ctl.circuit_type;
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
-         ret = 0;
- 
-         break;
-@@ -294,12 +305,14 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-             break;
-         }
- 
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         /* Reset driver and bring back to current state */
-         printk (" REG16 before reset +%04x\n", lmc_mii_readreg (sc, 0, 16));
-         lmc_running_reset (dev);
-         printk (" REG16 after reset +%04x\n", lmc_mii_readreg (sc, 0, 16));
- 
-         LMC_EVENT_LOG(LMC_EVENT_FORCEDRESET, LMC_CSR_READ (sc, csr_status), lmc_mii_readreg (sc, 0, 16));
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-         ret = 0;
-         break;
-@@ -338,14 +351,15 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-              */
-             netif_stop_queue(dev);
- 
--	if (copy_from_user(&xc, ifr->ifr_data, sizeof(struct lmc_xilinx_control))) {
-+	    if (copy_from_user(&xc, ifr->ifr_data, sizeof(struct lmc_xilinx_control))) {
- 		ret = -EFAULT;
- 		break;
+-	ehea_destroy_busmap();
+-	ret = ehea_create_busmap();
+-	if (ret) {
+-		ehea_error("creating ehea busmap failed");
+-		goto out;
 -	}
-+	    }
-             switch(xc.command){
-             case lmc_xilinx_reset: /*fold02*/
-                 {
-                     u16 mii;
-+		    spin_lock_irqsave(&sc->lmc_lock, flags);
-                     mii = lmc_mii_readreg (sc, 0, 16);
- 
-                     /*
-@@ -404,6 +418,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                             lmc_led_off(sc, LMC_DS3_LED2);
-                         }
-                     }
-+		    spin_unlock_irqrestore(&sc->lmc_lock, flags);
-                     
-                     
- 
-@@ -416,6 +431,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                 {
-                     u16 mii;
-                     int timeout = 500000;
-+		    spin_lock_irqsave(&sc->lmc_lock, flags);
-                     mii = lmc_mii_readreg (sc, 0, 16);
- 
-                     /*
-@@ -451,13 +467,14 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                      */
-                     while( (LMC_CSR_READ(sc, csr_gp) & LMC_GEP_INIT) == 0 &&
-                            (timeout-- > 0))
--                        ;
-+                        cpu_relax();
- 
- 
-                     /*
-                      * stop driving Xilinx-related signals
-                      */
-                     lmc_gpio_mkinput(sc, 0xff);
-+		    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-                     ret = 0x0;
-                     
-@@ -493,6 +510,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 
-                     printk("%s: Starting load of data Len: %d at 0x%p == 0x%p\n", dev->name, xc.len, xc.data, data);
- 
-+		    spin_lock_irqsave(&sc->lmc_lock, flags);
-                     lmc_gpio_mkinput(sc, 0xff);
- 
-                     /*
-@@ -545,7 +563,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                      */
-                     while( (LMC_CSR_READ(sc, csr_gp) & LMC_GEP_INIT) == 0 &&
-                            (timeout-- > 0))
--                        ;
-+                        cpu_relax();
- 
-                     printk(KERN_DEBUG "%s: Waited %d for the Xilinx to clear it's memory\n", dev->name, 500000-timeout);
- 
-@@ -588,6 +606,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 
-                     sc->lmc_miireg16 &= ~LMC_MII16_FIFO_RESET;
-                     lmc_mii_writereg(sc, 0, 16, sc->lmc_miireg16);
-+		    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-                     kfree(data);
-                     
-@@ -611,8 +630,6 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-         break;
-     }
- 
--    spin_unlock_irqrestore(&sc->lmc_lock, flags); /*fold01*/
 -
-     lmc_trace(dev, "lmc_ioctl out");
+ 	clear_bit(__EHEA_STOP_XFER, &ehea_driver_flags);
  
-     return ret;
-
+ 	list_for_each_entry(adapter, &adapter_list, list)
+@@ -3519,9 +3512,21 @@ void ehea_crash_handler(void)
+ static int ehea_mem_notifier(struct notifier_block *nb,
+                              unsigned long action, void *data)
+ {
++	struct memory_notify *arg = data;
+ 	switch (action) {
+-	case MEM_OFFLINE:
+-		ehea_info("memory has been removed");
++	case MEM_CANCEL_OFFLINE:
++		ehea_info("memory offlining canceled");
++		/* Readd canceled memory block */
++	case MEM_ONLINE:
++		ehea_info("memory is going online");
++		if (ehea_add_sect_bmap(arg->start_pfn, arg->nr_pages))
++			return NOTIFY_BAD;
++		ehea_rereg_mrs(NULL);
++		break;
++	case MEM_GOING_OFFLINE:
++		ehea_info("memory is going offline");
++		if (ehea_rem_sect_bmap(arg->start_pfn, arg->nr_pages))
++			return NOTIFY_BAD;
+ 		ehea_rereg_mrs(NULL);
+ 		break;
+ 	default:
+diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_qmr.c patched_kernel/drivers/net/ehea/ehea_qmr.c
+--- linux-2.6.27/drivers/net/ehea/ehea_qmr.c	2008-10-14 18:26:54.000000000 +0200
++++ patched_kernel/drivers/net/ehea/ehea_qmr.c	2008-10-15 11:47:23.000000000 +0200
+@@ -567,7 +567,7 @@ static inline int ehea_calc_index(unsign
+ static inline int ehea_init_top_bmap(struct ehea_top_bmap *ehea_top_bmap,
+ 				     int dir)
+ {
+-	if(!ehea_top_bmap->dir[dir]) {
++	if (!ehea_top_bmap->dir[dir]) {
+ 		ehea_top_bmap->dir[dir] =
+ 			kzalloc(sizeof(struct ehea_dir_bmap), GFP_KERNEL);
+ 		if (!ehea_top_bmap->dir[dir])
+@@ -578,7 +578,7 @@ static inline int ehea_init_top_bmap(str
+ 
+ static inline int ehea_init_bmap(struct ehea_bmap *ehea_bmap, int top, int dir)
+ {
+-	if(!ehea_bmap->top[top]) {
++	if (!ehea_bmap->top[top]) {
+ 		ehea_bmap->top[top] =
+ 			kzalloc(sizeof(struct ehea_top_bmap), GFP_KERNEL);
+ 		if (!ehea_bmap->top[top])
+@@ -587,52 +587,124 @@ static inline int ehea_init_bmap(struct 
+ 	return ehea_init_top_bmap(ehea_bmap->top[top], dir);
+ }
+ 
+-static int ehea_create_busmap_callback(unsigned long pfn,
+-				       unsigned long nr_pages, void *arg)
+-{
+-	unsigned long i, mr_len, start_section, end_section;
+-	start_section = (pfn * PAGE_SIZE) / EHEA_SECTSIZE;
+-	end_section = start_section + ((nr_pages * PAGE_SIZE) / EHEA_SECTSIZE);
+-	mr_len = *(unsigned long *)arg;
++static DEFINE_MUTEX(ehea_busmap_mutex);
++static unsigned long ehea_mr_len;
+ 
+-	ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
+-	if (!ehea_bmap)
+-		return -ENOMEM;
++#define EHEA_BUSMAP_ADD_SECT 1
++#define EHEA_BUSMAP_REM_SECT 0
+ 
+-	for (i = start_section; i < end_section; i++) {
+-		int ret;
+-		int top, dir, idx;
+-		u64 vaddr;
++static void ehea_rebuild_busmap(void)
++{
++	u64 vaddr = EHEA_BUSMAP_START;
++	int top, dir, idx;
+ 
+-		top = ehea_calc_index(i, EHEA_TOP_INDEX_SHIFT);
+-		dir = ehea_calc_index(i, EHEA_DIR_INDEX_SHIFT);
++	for (top = 0; top < EHEA_MAP_ENTRIES; top++) {
++		struct ehea_top_bmap *ehea_top;
++		int valid_dir_entries = 0;
+ 
+-		ret = ehea_init_bmap(ehea_bmap, top, dir);
+-		if(ret)
+-			return ret;
++		if (!ehea_bmap->top[top])
++			continue;
++		ehea_top = ehea_bmap->top[top];
++		for (dir = 0; dir < EHEA_MAP_ENTRIES; dir++) {
++			struct ehea_dir_bmap *ehea_dir;
++			int valid_entries = 0;
+ 
+-		idx = i & EHEA_INDEX_MASK;
+-		vaddr = EHEA_BUSMAP_START + mr_len + i * EHEA_SECTSIZE;
++			if (!ehea_top->dir[dir])
++				continue;
++			valid_dir_entries++;
++			ehea_dir = ehea_top->dir[dir];
++			for (idx = 0; idx < EHEA_MAP_ENTRIES; idx++) {
++				if (!ehea_dir->ent[idx])
++					continue;
++				valid_entries++;
++				ehea_dir->ent[idx] = vaddr;
++				vaddr += EHEA_SECTSIZE;
++			}
++			if (!valid_entries) {
++				ehea_top->dir[dir] = NULL;
++				kfree(ehea_dir);
++			}
++		}
++		if (!valid_dir_entries) {
++			ehea_bmap->top[top] = NULL;
++			kfree(ehea_top);
++		}
++	}
++}
++
++static int ehea_update_busmap(unsigned long pfn, unsigned long pgnum, int add)
++{
++	unsigned long i, start_section, end_section;
+ 
+-		ehea_bmap->top[top]->dir[dir]->ent[idx] = vaddr;
++	if (!ehea_bmap) {
++		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
++		if (!ehea_bmap)
++			return -ENOMEM;
+ 	}
+ 
+-	mr_len += nr_pages * PAGE_SIZE;
+-	*(unsigned long *)arg = mr_len;
++	start_section = (pfn * PAGE_SIZE) / EHEA_SECTSIZE;
++	end_section = start_section + ((pgnum * PAGE_SIZE) / EHEA_SECTSIZE);
++	/* Mark entries as valid or invalid only; address is assigned later */
++	for (i = start_section; i < end_section; i++) {
++		u64 flag;
++		int top = ehea_calc_index(i, EHEA_TOP_INDEX_SHIFT);
++		int dir = ehea_calc_index(i, EHEA_DIR_INDEX_SHIFT);
++		int idx = i & EHEA_INDEX_MASK;
++		
++		if (add) {
++			int ret = ehea_init_bmap(ehea_bmap, top, dir);
++			if (ret)
++				return ret;
++			flag = 1; /* valid */
++			ehea_mr_len += EHEA_SECTSIZE;
++		} else {
++			if (!ehea_bmap->top[top])
++				continue;
++			if (!ehea_bmap->top[top]->dir[dir])
++				continue;
++			flag = 0; /* invalid */
++			ehea_mr_len -= EHEA_SECTSIZE;
++		}
+ 
++		ehea_bmap->top[top]->dir[dir]->ent[idx] = flag;
++	}
++	ehea_rebuild_busmap(); /* Assign contiguous addresses for mr */
+ 	return 0;
+ }
+ 
+-static unsigned long ehea_mr_len;
++int ehea_add_sect_bmap(unsigned long pfn, unsigned long nr_pages)
++{
++	int ret;
+ 
+-static DEFINE_MUTEX(ehea_busmap_mutex);
++	mutex_lock(&ehea_busmap_mutex);
++	ret = ehea_update_busmap(pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
++	mutex_unlock(&ehea_busmap_mutex);
++	return ret;
++}
++
++int ehea_rem_sect_bmap(unsigned long pfn, unsigned long nr_pages)
++{
++	int ret;
++
++	mutex_lock(&ehea_busmap_mutex);
++	ret = ehea_update_busmap(pfn, nr_pages, EHEA_BUSMAP_REM_SECT);
++	mutex_unlock(&ehea_busmap_mutex);
++	return ret;
++}
++
++static int ehea_create_busmap_callback(unsigned long pfn,
++				       unsigned long nr_pages, void *arg)
++{
++	return ehea_update_busmap(pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
++}
+ 
+ int ehea_create_busmap(void)
+ {
+ 	int ret;
++
+ 	mutex_lock(&ehea_busmap_mutex);
+ 	ehea_mr_len = 0;
+-	ret = walk_memory_resource(0, 1ULL << MAX_PHYSMEM_BITS, &ehea_mr_len,
++	ret = walk_memory_resource(0, 1ULL << MAX_PHYSMEM_BITS, NULL,
+ 				   ehea_create_busmap_callback);
+ 	mutex_unlock(&ehea_busmap_mutex);
+ 	return ret;
+diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_qmr.h patched_kernel/drivers/net/ehea/ehea_qmr.h
+--- linux-2.6.27/drivers/net/ehea/ehea_qmr.h	2008-10-14 18:26:54.000000000 +0200
++++ patched_kernel/drivers/net/ehea/ehea_qmr.h	2008-10-15 11:47:23.000000000 +0200
+@@ -378,6 +378,8 @@ int ehea_rem_mr(struct ehea_mr *mr);
+ 
+ void ehea_error_data(struct ehea_adapter *adapter, u64 res_handle);
+ 
++int ehea_add_sect_bmap(unsigned long pfn, unsigned long nr_pages);
++int ehea_rem_sect_bmap(unsigned long pfn, unsigned long nr_pages);
+ int ehea_create_busmap(void);
+ void ehea_destroy_busmap(void);
+ u64 ehea_map_vaddr(void *caddr);
