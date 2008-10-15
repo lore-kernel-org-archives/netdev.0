@@ -1,172 +1,63 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch] rtl8102e: commit 7bf6bf480 zeroized MAC address
-Date: Thu, 16 Oct 2008 00:50:23 +0200
-Message-ID: <20081015225023.GB12337@electric-eye.fr.zoreil.com>
-References: <200810151357.m9FDvZqk028829@post.webmailer.de>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH] [stable 2.6.27.y] don't take the mdio_lock in
+	atl1e_probe
+Date: Wed, 15 Oct 2008 15:47:36 -0700
+Message-ID: <20081015224736.GB22897@kroah.com>
+References: <20081011100501.7ff818ce@osprey.hogchain.net> <20081011.110816.15486713.davem@davemloft.net> <20081015221537.GA22555@kroah.com> <20081015.154145.167089180.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
-Cc: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org,
-	kernel@vger.kernel.org
-To: c4p7n@capitanio.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jacliburn@bellsouth.net, jcliburn@gmail.com, nm127@freemail.hu,
+	netdev@vger.kernel.org, jie.yang@atheros.com, jgarzik@redhat.com,
+	willy@linux.intel.com, akpm@linux-foundation.org,
+	csnook@redhat.com, stable@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46466 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755929AbYJOWut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 18:50:49 -0400
+Received: from kroah.org ([198.145.64.141]:54328 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754260AbYJOWvG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Oct 2008 18:51:06 -0400
 Content-Disposition: inline
-In-Reply-To: <200810151357.m9FDvZqk028829@post.webmailer.de>
+In-Reply-To: <20081015.154145.167089180.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 15, 2008 at 03:41:45PM -0700, David Miller wrote:
+> From: Greg KH <greg@kroah.com>
+> Date: Wed, 15 Oct 2008 15:15:37 -0700
+> 
+> > On Sat, Oct 11, 2008 at 11:08:16AM -0700, David Miller wrote:
+> > > From: Jay Cliburn <jacliburn@bellsouth.net>
+> > > Date: Sat, 11 Oct 2008 10:05:01 -0500
+> > > 
+> > > > From: Matthew Wilcox <matthew@wil.cx>
+> > > > 
+> > > > Upstream commit: f382a0a8e9403c6d7f8b2cfa21e41fefb5d0c9bd
+> > > > 
+> > > > This fixes bug 11736.
+> > > > 
+> > > > http://marc.info/?l=linux-netdev&m=122367387219316&w=2
+> > > > 
+> > > > Lockdep warns about the mdio_lock taken with interrupts enabled then
+> > > > later taken from interrupt context.  Initially, I considered changing
+> > > > these to spin_lock_irq/spin_unlock_irq, but then I looked at
+> > > > atl1e_phy_init() and saw that it calls msleep().  Sleeping while
+> > > > holding a spinlock is not allowed either.
+> > > > 
+> > > > In the probe path, we haven't registered the interrupt handler, so
+> > > > it can't poke at this card yet.  It's before we call register_netdev(),
+> > > > so I don't think any other threads can reach this card either.  If I'm
+> > > > right, we don't need a spinlock at all.
+> > > > 
+> > > > Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
+> > > > Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+> > > 
+> > > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > Does this mean you will forward this to -stable in a bunch of network
+> > patches?  Or should I take it now?
+> 
+> Please take this one now, t hanks.
 
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Will do, thanks for the quick response.
 
-c4p7n@capitanio.org <c4p7n@capitanio.org> :
-> May be we are reading just by luck zeros and not a random perfectly
-> sane address.
-
-I would use the attached patches. The former one is mostly Ivan's one
-with some rework of the debug messages. The later checks the eeprom
-for its signature.
-
-With these patches the driver notices that it can not get an address
-for my 8168b but it works ok with my 8169 after both an hot and a
-cold boot. Interestingly enough, the VPD is not enabled on the 8169
-during the first boot.
-
-Ivan, can you test them (and fix them afterwards :o) ) ?
-
--- 
-Ueimor
-
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=a
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c821da2..e80ca26 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1947,11 +1947,11 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
- 	u8 cfg1;
- 	int vpd_cap;
- 	u8 mac[8];
--	DECLARE_MAC_BUF(buf);
- 
- 	cfg1 = RTL_R8(Config1);
- 	if (!(cfg1  & VPD)) {
--		dprintk("VPD access not enabled, enabling\n");
-+		if (netif_msg_probe(tp))
-+			dev_info(&pdev->dev, "VPD access disabled, enabling\n");
- 		RTL_W8(Cfg9346, Cfg9346_Unlock);
- 		RTL_W8(Config1, cfg1 | VPD);
- 		RTL_W8(Cfg9346, Cfg9346_Lock);
-@@ -1969,14 +1969,22 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
- 	 */
- 	if (rtl_eeprom_read(pdev, vpd_cap, 0x000e, (__le32*)&mac[0]) < 0 ||
- 	    rtl_eeprom_read(pdev, vpd_cap, 0x0012, (__le32*)&mac[4]) < 0) {
--		dprintk("Reading MAC address from EEPROM failed\n");
-+		if (netif_msg_probe(tp)) {
-+			dev_warn(&pdev->dev,
-+				 "reading MAC address from EEPROM failed\n");
-+		}
- 		return;
- 	}
- 
--	dprintk("MAC address found in EEPROM: %s\n", print_mac(buf, mac));
-+	if (netif_msg_probe(tp)) {
-+		DECLARE_MAC_BUF(buf);
-+
-+		dev_info(&pdev->dev, "MAC address found in EEPROM: %s\n",
-+			 print_mac(buf, mac));
-+	}
- 
--	/* Write MAC address */
--	rtl_rar_set(tp, mac);
-+	if (is_valid_ether_addr(mac))
-+		rtl_rar_set(tp, mac);
- }
- 
- static int __devinit
-
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=b
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c821da2..f26ef24 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1944,23 +1944,34 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
- 				 void __iomem *ioaddr)
- {
- 	struct pci_dev *pdev = tp->pci_dev;
--	u8 cfg1;
- 	int vpd_cap;
-+	__le32 sig;
- 	u8 mac[8];
--	DECLARE_MAC_BUF(buf);
-+	u8 cfg1;
- 
- 	cfg1 = RTL_R8(Config1);
--	if (!(cfg1  & VPD)) {
--		dprintk("VPD access not enabled, enabling\n");
--		RTL_W8(Cfg9346, Cfg9346_Unlock);
--		RTL_W8(Config1, cfg1 | VPD);
--		RTL_W8(Cfg9346, Cfg9346_Lock);
-+	if (netif_msg_probe(tp)) {
-+		dev_info(&pdev->dev, "VPD access %sadvertised.\n",
-+			 (cfg1  & VPD) ? "" : "not ");
- 	}
- 
-+	RTL_W8(Cfg9346, Cfg9346_Unlock);
-+	RTL_W8(Config1, cfg1 | VPD);
-+	RTL_W8(Cfg9346, Cfg9346_Lock);
-+
- 	vpd_cap = pci_find_capability(pdev, PCI_CAP_ID_VPD);
- 	if (!vpd_cap)
- 		return;
- 
-+	if (rtl_eeprom_read(pdev, vpd_cap, 0x0000, &sig) < 0)
-+		return;
-+
-+	if ((sig & 0xffff) != 0x8129) {
-+		dev_info(&pdev->dev, "Missing EEPROM signature: %04x\n",
-+			 sig & 0xffff);
-+		return;
-+	}
-+
- 	/* MAC address is stored in EEPROM at offset 0x0e
- 	 * Realtek says: "The VPD address does not have to be a DWORD-aligned
- 	 * address as defined in the PCI 2.2 Specifications, but the VPD data
-@@ -1969,14 +1980,22 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
- 	 */
- 	if (rtl_eeprom_read(pdev, vpd_cap, 0x000e, (__le32*)&mac[0]) < 0 ||
- 	    rtl_eeprom_read(pdev, vpd_cap, 0x0012, (__le32*)&mac[4]) < 0) {
--		dprintk("Reading MAC address from EEPROM failed\n");
-+		if (netif_msg_probe(tp)) {
-+			dev_warn(&pdev->dev,
-+				 "reading MAC address from EEPROM failed\n");
-+		}
- 		return;
- 	}
- 
--	dprintk("MAC address found in EEPROM: %s\n", print_mac(buf, mac));
-+	if (netif_msg_probe(tp)) {
-+		DECLARE_MAC_BUF(buf);
-+
-+		dev_info(&pdev->dev, "MAC address found in EEPROM: %s\n",
-+			 print_mac(buf, mac));
-+	}
- 
--	/* Write MAC address */
--	rtl_rar_set(tp, mac);
-+	if (is_valid_ether_addr(mac))
-+		rtl_rar_set(tp, mac);
- }
- 
- static int __devinit
-
---fUYQa+Pmc3FrFX/N--
+greg k-h
