@@ -1,75 +1,38 @@
-From: c4p7n@capitanio.org
-Subject: Re: [patch] rtl8102e: commit 7bf6bf480 zeroized MAC address
-Date: Wed, 15 Oct 2008 15:57:35 +0200 (MEST)
-Message-ID: <200810151357.m9FDvZqk028829@post.webmailer.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: sky2 rx errors printing to the console
+Date: Wed, 15 Oct 2008 15:05:30 +0100
+Message-ID: <1224079530.3984.180.camel@achroite>
+References: <76366b180810150640h230ee681wd9cb474dbe4c7045@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Francois Romieu" <romieu@fr.zoreil.com>, kernel@vger.kernel.org
-To: "Ivan Vecera" <ivecera@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrew Paprocki <andrew@ishiboo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from em-p00-ob.rzone.de ([81.169.146.225]:58981 "EHLO
-	em-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbYJON5i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 09:57:38 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:34555 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755280AbYJOOFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 10:05:35 -0400
+In-Reply-To: <76366b180810150640h230ee681wd9cb474dbe4c7045@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Ivan Vecera<ivecera@redhat.com>
-> c4p7n@capitanio.org wrote:
-> > Tested on top of linus tree and back ported 2.6.27.
-> > 
-> > Please cc me, thanks
-> > Martin Capitanio
-> > 
-> I think this one is more common.
+On Wed, 2008-10-15 at 14:40 +0100, Andrew Paprocki wrote:
+> Does anyone know if these status values imply what is wrong? Could
+> this be caused by a faulty cable?
 
-What about to mix both?
-If the address is not stored here than it must be somewhere else --
-or the read algorithm is broken ;-)
+Looking at the code around this message, it appears that least
+over/under-length, framing and CRC errors (and maybe others) can trigger
+this.  A faulty cable could certainly result in these sorts of errors,
+most likely CRC errors.
 
-May be we are reading just by luck zeros and not a random perfectly sane address.
-Personally I would prefer in this fine driver, just not doing what is not absolutely
-needed. It would be great to figure out if all of the rtl8102e, etc. doesn't have this location. 
+"grep -r . /sys/class/net/eth0/statistics/" will show you detailed error
+statistics for eth0.
 
-You can hardly desolder those chips from notebooks and I am really happy if this
-_just works_ with as much realtek blessing as possible.
+Ben.
 
-Martin
-
-P.S. Apologize, I'm forced to use this * webmailer.
-> 
-> Ivan
-> 
-> =====
-> Subject: [PATCH] [r8169] initialize MAC address found in EEPROM only if is
-> it valid
-> 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  drivers/net/r8169.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index c821da2..587a96c 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -1975,8 +1975,9 @@ static void rtl_init_mac_address(struct
-> rtl8169_private *tp,
->  
->  	dprintk("MAC address found in EEPROM: %s\n", print_mac(buf, mac));
->  
-> -	/* Write MAC address */
-> -	rtl_rar_set(tp, mac);
-> +	/* Write MAC address if is it valid */
-> +	if (is_valid_ether_addr(mac))
-> +		rtl_rar_set(tp, mac);
->  }
->  
->  static int __devinit
-> -- 
-> 1.5.6.3
-> 
-
---- original message end ----
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
