@@ -1,7 +1,8 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 7/7] netns ebtables: br_nf_pre_routing_finish() fixup
-Date: Wed, 15 Oct 2008 08:23:57 +0400
-Message-ID: <20081015042357.GK24058@x200.localdomain>
+Subject: Re: [PATCH 1/7] netns ebtables: part 1
+Date: Wed, 15 Oct 2008 08:25:09 +0400
+Message-ID: <20081015042509.GL24058@x200.localdomain>
+References: <20081015042014.GE24058@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
@@ -9,23 +10,12 @@ Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 To: kaber@trash.net
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <20081015042014.GE24058@x200.localdomain>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+On Wed, Oct 15, 2008 at 08:20:14AM +0400, Alexey Dobriyan wrote:
+> One needs to add ".netns_ok = 1" to igmp_protocol to test all of this
+> with ebtables() in netns.
 
- net/bridge/br_netfilter.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -357,7 +357,7 @@ static int br_nf_pre_routing_finish(struct sk_buff *skb)
- 			if (err != -EHOSTUNREACH || !in_dev || IN_DEV_FORWARD(in_dev))
- 				goto free_skb;
- 
--			if (!ip_route_output_key(&init_net, &rt, &fl)) {
-+			if (!ip_route_output_key(dev_net(dev), &rt, &fl)) {
- 				/* - Bridged-and-DNAT'ed traffic doesn't
- 				 *   require ip_forwarding. */
- 				if (((struct dst_entry *)rt)->dev == dev) {
+Contains 80-column violations, I forgot about damn script again :^)
