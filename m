@@ -1,58 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: qdisc tbf dropping many packets
-Date: Tue, 14 Oct 2008 21:48:49 -0700 (PDT)
-Message-ID: <20081014.214849.20773661.davem@davemloft.net>
-References: <6dd1343e0810090644r5b586fa4gd63ee6659b3a07c4@mail.gmail.com>
-	<48F54940.6050105@bnet6.net>
+Subject: Re: [PATCH] Change S390 anti-dependency to CONFIG_GENERIC_HARDIRQS
+ dependency
+Date: Tue, 14 Oct 2008 22:16:47 -0700 (PDT)
+Message-ID: <20081014.221647.184282035.davem@davemloft.net>
+References: <48F52E89.9050104@redhat.com>
+	<20081014.165211.53009170.davem@davemloft.net>
+	<48F5345B.6060108@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: abasit@bnet6.net
+Cc: afleming@gmail.com, afleming@freescale.com, netdev@vger.kernel.org
+To: csnook@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36109
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50309
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750834AbYJOEtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 00:49:13 -0400
-In-Reply-To: <48F54940.6050105@bnet6.net>
+	by vger.kernel.org with ESMTP id S1751018AbYJOFRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2008 01:17:11 -0400
+In-Reply-To: <48F5345B.6060108@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Abdul Basit <abasit@bnet6.net>
-Date: Tue, 14 Oct 2008 21:37:04 -0400
+From: Chris Snook <csnook@redhat.com>
+Date: Tue, 14 Oct 2008 20:07:55 -0400
 
-[ netdev CC:'d, you'll reach more knowledgable people there ]
+> But then it will be much more of a pain to exclude the vast swath of
+> irrelevant code in the kernel tree from your builds on these exotic
+> architectures.  Have you ever built a kernel on s390?
 
-> I am running linux kernel 2.6.23.1 on PowerPC and trying to set qdisc tbf  to limit the rate:-
-> *
-> *==> tc qdisc add dev eth0 root tbf rate 2048kbit buffer 10kb latency 50ms
-> 
-> The problem is no matter what rate i specify, if I download a file it always get down to ~16-18Kbps download speed,
-> after investigating a bit more, i found by tc -s qdisc show that many dropped packets show up in statistic s,
-> looking further in kernel code, I found that in linux/net/sched/sch_tbf.c:126
-> 
-> static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-> {
->        struct tbf_sched_data *q = qdisc_priv(sch);
->        int ret;
->  if (skb->len > q->max_size) {
->                 printk (KERN_INFO "tbf_enqueue, drop skb->len = %d, q->max_size = %d\n", skb->len, q->max_size);
->                 sch->qstats.drops++;
-> 
->         ....
-> }
-> 
-> whenever it try to enqueue the packet, the skb->len ( range from 2980 - 2977 ) is usually greator than q->max_size ( 2907 )
-> hence it drops the packet.
-> 
-> On a different machine with same source code, skb->len never become > 1500 and there the tbf works fine.
-> 
-> Could someone please provide more insight or help where should i look more?
-> 
-> Thanks,
-> ~Basit
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That's totally irrelevant.
+
+Does S390 have ethernet or ethernet-like devices?  If so, the someday
+it might in fact might want to use something like phylib instead of
+adding yet another implementation of programming a particular PHY
+chip.
+
+So in fact, something like phylib should be possible to enable even on
+s390.
+
+And this current situation means s390 builds get less coverage, making
+allmodconfig test builds (which the s390 folks are obviously doing
+since they hit this originally reported build failure) less
+useful than they could be.
+
+I would even be happy to make it such that SBUS drivers can be
+enabled for test building on x86, and in fact right now in
+Linus's tree that's very close to doable.
