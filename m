@@ -1,135 +1,61 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Distributed storage release.
-Date: Wed, 15 Oct 2008 03:57:02 +0400
-Message-ID: <20081014235702.GA24064@2ka.mipt.ru>
-References: <20081013172038.GA18762@2ka.mipt.ru> <20081014232350.GA27915@2ka.mipt.ru>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH] Change S390 anti-dependency to CONFIG_GENERIC_HARDIRQS
+ dependency
+Date: Tue, 14 Oct 2008 20:07:55 -0400
+Message-ID: <48F5345B.6060108@redhat.com>
+References: <2acbd3e40810141621p31ba3ccdic909fc4634b5ef26@mail.gmail.com>	<20081014.163359.110730186.davem@davemloft.net>	<48F52E89.9050104@redhat.com> <20081014.165211.53009170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081014232350.GA27915@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: afleming@gmail.com, afleming@freescale.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:44423 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752599AbYJOAIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Oct 2008 20:08:09 -0400
+In-Reply-To: <20081014.165211.53009170.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-And to make everyone happy, here is couple of whitespace cleanups.
-Everyone happy? I hope so. Now world is round again and there is no war.
+David Miller wrote:
+> From: Chris Snook <csnook@redhat.com>
+> Date: Tue, 14 Oct 2008 19:43:05 -0400
+> 
+>> David Miller wrote:
+>>> From: "Andy Fleming" <afleming@gmail.com>
+>>> Date: Tue, 14 Oct 2008 18:21:44 -0500
+>>>
+>>>> Argh.  From what I could see, we have request_irq, free_irq,
+>>>> disable_irq, enable_irq, and disable_irq_nosync.  For the PHYLIB, it
+>>>> shouldn't be difficult to modify things so that it doesn't compile in
+>>>> interrupt support if the system doesn't support them.  Shouldn't, that
+>>>> is, if there's some config option that tells me whether those
+>>>> functions exist.
+>>> I think this whole situation with s390 is rediculious.
+>>> If s390 is weird and lacks these fundamental things, that's fine.
+>>> What isn't fine is how we're handling this.
+>>> No code should care or even be aware of this.
+>>> S390 should simply provide a set of dummy DMA and interrupt interface
+>>> stubs that always fail and return an error value.
+>>> Then we can get rid of this S390 Kconfig stuff which has been spewed
+>>> all over the place.
+>> "depends on PCI" has always worked for me.  Any reason we can't use that here?
+> 
+> That's every worse.
+> 
+> What in the world does PCI have to do with the attribute we are
+> trying to depend upon here?
+> 
+> No, it's just stupid.  Add nop do-nothing stub functions for the
+> APIs an architecture doesn't support, then we need none of this.
 
-commit b2be28f2f09ea9e06753cb50a2e68b4ca0ab4607
-Author: Evgeniy Polyakov johnpol@2ka.mipt.ru
-Date:   Wed Oct 15 03:27:02 2008 +0400
+But then it will be much more of a pain to exclude the vast swath of 
+irrelevant code in the kernel tree from your builds on these exotic 
+architectures.  Have you ever built a kernel on s390?  It's not exactly 
+the architecture's strong suit, and cross-compilers have their own 
+problems.  I don't care what it is, but we should have *some* mechanism 
+for automatically excluding every PCI device driver in existence from 
+our builds of s390 and any other similarly unusual architecture.
 
-    Whitespace cleanups
-
-diff --git a/drivers/block/dst/crypto.c b/drivers/block/dst/crypto.c
-index 0408a66..0abff5e 100644
---- a/drivers/block/dst/crypto.c
-+++ b/drivers/block/dst/crypto.c
-@@ -643,7 +643,7 @@ err_out_exit:
- 
- /*
-  * Schedule crypto processing for given transaction.
-- */ 
-+ */
- int dst_trans_crypto(struct dst_trans *t)
- {
- 	struct dst_node *n = t->n;
-diff --git a/drivers/block/dst/dcore.c b/drivers/block/dst/dcore.c
-index 039d59b..7f35ae4 100644
---- a/drivers/block/dst/dcore.c
-+++ b/drivers/block/dst/dcore.c
-@@ -795,7 +795,6 @@ static int dst_start_node(struct dst_node *n, struct dst_ctl *ctl,
- 	return 0;
- }
- 
--
- typedef int (*dst_command_func)(struct dst_node *n, struct dst_ctl *ctl,
- 		void *data, unsigned int size);
- 
-@@ -823,7 +822,6 @@ static void cn_dst_callback(void *data)
- 	struct dst_node *n = NULL, *tmp;
- 	unsigned int hash;
- 
--
- 	if (msg->len < sizeof(struct dst_ctl)) {
- 		err = -EBADMSG;
- 		goto out;
-diff --git a/drivers/block/dst/export.c b/drivers/block/dst/export.c
-index 5de330e..b8787fe 100644
---- a/drivers/block/dst/export.c
-+++ b/drivers/block/dst/export.c
-@@ -271,13 +271,13 @@ static void dst_state_cleanup_export(struct dst_state *st)
- 
- 			if (p)
- 				bio_put(p->bio);
--			
-+
- 			dprintk("%s: st: %p, refcnt: %d, list_empty: %d, p: %p.\n",
- 				__func__, st, atomic_read(&st->refcnt),
- 				list_empty(&st->request_list), p);
- 		}
- 	}
--	
-+
- 	dst_state_put(st);
- }
- 
-@@ -327,7 +327,7 @@ static int dst_accept(void *init_data, void *schedule_data)
- 	}
- 
- 	dprintk("%s: freeing listening socket st: %p.\n", __func__, main);
--	
-+
- 	dst_state_lock(main);
- 	dst_poll_exit(main);
- 	dst_state_socket_release(main);
-diff --git a/drivers/block/dst/state.c b/drivers/block/dst/state.c
-index e07036b..c0ad522 100644
---- a/drivers/block/dst/state.c
-+++ b/drivers/block/dst/state.c
-@@ -809,7 +809,7 @@ int dst_trans_send(struct dst_trans *t)
- 	struct bio *bio = t->bio;
- 
- 	dst_convert_cmd(&t->cmd);
--	
-+
- 	dst_state_lock(st);
- 	if (!st->socket) {
- 		err = dst_state_init_connected(st);
-@@ -828,7 +828,7 @@ int dst_trans_send(struct dst_trans *t)
- 
- 	dst_state_unlock(st);
- 	return 0;
--	
-+
- err_out_reset:
- 	dst_state_reset_nolock(st);
- err_out_unlock:
-diff --git a/drivers/block/dst/thread_pool.c b/drivers/block/dst/thread_pool.c
-index e0c1026..464139e 100644
---- a/drivers/block/dst/thread_pool.c
-+++ b/drivers/block/dst/thread_pool.c
-@@ -42,7 +42,7 @@ struct thread_pool_worker
- 	int			has_data;
- 	int			need_exit;
- 	unsigned int		id;
--	
-+
- 	wait_queue_head_t	wait;
- 
- 	void			*private;
-@@ -170,7 +170,7 @@ void thread_pool_del_worker_id(struct thread_pool *p, unsigned int id)
- 		}
- 	}
- 	mutex_unlock(&p->thread_lock);
--	
-+
- 	if (found)
- 		thread_pool_exit_worker(w);
- }
-
-
--- 
-	Evgeniy Polyakov
+-- Chris
