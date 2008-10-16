@@ -1,42 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when
- gc_elasticity is exceeded
-Date: Wed, 15 Oct 2008 23:55:56 -0700 (PDT)
-Message-ID: <20081015.235556.61915120.davem@davemloft.net>
-References: <20081006225210.GA29794@hmsreliant.think-freely.org>
-	<48EAEFF9.1000606@cosmosbay.com>
-	<20081013182655.GA9505@hmsreliant.think-freely.org>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: powerpc allmodconfig
+Date: Thu, 16 Oct 2008 08:55:08 +0200
+Message-ID: <48F6E54C.5010207@myri.com>
+References: <20081015213337.a99a9595.akpm@linux-foundation.org>	
+	<20081015.220247.262683261.davem@davemloft.net>
+	<1224137292.26782.5.camel@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, billfink@mindspring.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	johnpol@2ka.mipt.ru
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51820
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751957AbYJPG4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 02:56:20 -0400
-In-Reply-To: <20081013182655.GA9505@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bzolnier@gmail.com, marek.vasut@gmail.com, tiwai@suse.de,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	mark.fasheh@oracle.com, linuxppc-dev@ozlabs.org,
+	linux-ide@vger.kernel.org, jesse.brandeburg@intel.com,
+	akpm@linux-foundation.org, linux-ext4@vger.kernel.org,
+	dwmw2@infradead.org, David Miller <davem@davemloft.net>,
+	mchehab@infradead.org
+To: Dan Williams <dan.j.williams@intel.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <1224137292.26782.5.camel@dwillia2-linux.ch.intel.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 13 Oct 2008 14:26:55 -0400
+Dan Williams wrote:
+> On Wed, 2008-10-15 at 22:02 -0700, David Miller wrote:
+>   
+>>> drivers/dma/ioat_dca.c: In function 'dca_enabled_in_bios':
+>>> drivers/dma/ioat_dca.c:81: error: implicit declaration of function 'cpuid_eax'
+>>> drivers/dma/ioat_dca.c: In function 'system_has_dca_enabled':
+>>> drivers/dma/ioat_dca.c:91: error: implicit declaration of function 'boot_cpu_has'
+>>> drivers/dma/ioat_dca.c:91: error: 'X86_FEATURE_DCA' undeclared (first use in this function)
+>>> drivers/dma/ioat_dca.c:91: error: (Each undeclared identifier is reported only once
+>>> drivers/dma/ioat_dca.c:91: error: for each function it appears in.)
+>>> drivers/dma/ioat_dca.c: In function 'ioat_dca_get_tag':
+>>> drivers/dma/ioat_dca.c:190: error: implicit declaration of function 'cpu_physical_id'
+>>>       
+>> Known issue.  I tried to ping Jeff Garzik about doing a driver bug fix run in
+>> order to fix this, but he hasn't shown any signs of life.
+>>
+>> So I'll do it myself later tonight. :-/
+>>
+>>     
+> The following seems to fix this up...
+>
+> ---snip--->
+> ixgbe, myri10ge: INTEL_IOATDMA can only be selected when X86=y
+>   
 
-> If this meets everyones approval I think we can follow up with a
-> patch to remove the secret interval code entirely.
+There's already a completely different fix queued in netdev patchworks
+(for myri10ge only right now, to be duplicated for Intel drivers). The
+idea is to stop having almost-unrelated drivers select each other
+directly, let people select which drivers they really want, and have
+Kconfig handle modules/builtin-stuff correctly. See
+http://patchwork.ozlabs.org/patch/4506/
 
-This patch looks pretty good to me.
-
-Just some minor coding style nits:
-
-> +static void rt_secret_rebuild_oneshot(struct net *net) {
-
-Openning brace on new line please.
-
-> +static void rt_emergency_hash_rebuild(struct net *net) {
-
-Likewise.
+Brice
