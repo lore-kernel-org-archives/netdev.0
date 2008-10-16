@@ -1,34 +1,41 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] lmc: copy_*_user under spinlock
-Date: Thu, 16 Oct 2008 05:12:27 -0400
-Message-ID: <48F7057B.3040309@garzik.org>
-References: <20081015105025.6526.68580.stgit@localhost.localdomain>
+Subject: Re: [PATCH] ehea: Fix memory hotplug support
+Date: Thu, 16 Oct 2008 05:12:15 -0400
+Message-ID: <48F7056F.7050602@garzik.org>
+References: <200809171619.46741.hannes.hering@linux.vnet.ibm.com> <200810151318.59151.hannes.hering@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, ossrosch@linux.vnet.ibm.com,
+	ossthema@de.ibm.com, raisch@de.ibm.com, themann@de.ibm.com,
+	osstklei@de.ibm.com
+To: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36038 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36033 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754347AbYJPJMa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Oct 2008 05:12:30 -0400
-In-Reply-To: <20081015105025.6526.68580.stgit@localhost.localdomain>
+	id S1753277AbYJPJMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Oct 2008 05:12:25 -0400
+In-Reply-To: <200810151318.59151.hannes.hering@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
-> From: Alan Cox <alan@redhat.com>
+Hannes Hering wrote:
+> This patch implements the memory notifier to update the busmap instantly
+> instead of rebuilding the whole map. This is necessary because
+> walk_memory_resource provides different information than required during memory
+> hotplug.
 > 
-> Not sure anyone uses this driver any more, maybe we should just drop it ?
-> Code is still foul but at least a fraction less broken.
-> 
-> Signed-off-by: Alan Cox <alan@redhat.com>
+> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
 > ---
-> 
->  drivers/net/wan/lmc/lmc_main.c |   31 ++++++++++++++++++++++++-------
->  1 files changed, 24 insertions(+), 7 deletions(-)
+> This patch is based on the current netdev-2.6-git. It supersedes the previous
+> post "ehea: Fix memory hotplug support".
+> http://www.spinics.net/lists/netdev/msg75413.html
 
-applied
+Due to vacation, netdev-2.6.git is stale.  Please regenerate this patch 
+against davem's net-2.6.git.
+
+	Jeff
+
 
 
