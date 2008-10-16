@@ -1,63 +1,44 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: [PATCH 1/1] netdev: DM9000: remove BLACKFIN hacking in DM9000 netdev driver
-Date: Thu, 16 Oct 2008 19:44:39 +0100
-Message-ID: <20081016184439.GL31627@trinity.fluff.org>
-References: <1224178844-12496-1-git-send-email-cooloney@kernel.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 1/7] netns ebtables: part 1
+Date: Thu, 16 Oct 2008 23:39:55 +0400
+Message-ID: <20081016193955.GA26245@x200.localdomain>
+References: <20081015042014.GE24058@x200.localdomain> <48F73DA3.1030401@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ben@simtec.co.uk, davem@davemloft.net, vapier.adi@gmail.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bryan Wu <cooloney@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from trinity.fluff.org ([89.145.97.151]:39147 "EHLO
-	trinity.fluff.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753253AbYJPSos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 14:44:48 -0400
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1224178844-12496-1-git-send-email-cooloney@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <48F73DA3.1030401@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 17, 2008 at 01:40:44AM +0800, Bryan Wu wrote:
-> remove integer casting in the read/write IO accessors,
-> because Blackfin now provides those functions
-> 
-> Tested-by: Javier Herrero <jherrero@hvsistemas.es>
-> Signed-off-by: Bryan Wu <cooloney@kernel.org>
-Acked-by: Ben Dooks <ben-linux@fluff.org>
-> ---
->  drivers/net/dm9000.c |    9 ---------
->  1 files changed, 0 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-> index f42c23f..5a9083e 100644
-> --- a/drivers/net/dm9000.c
-> +++ b/drivers/net/dm9000.c
-> @@ -47,15 +47,6 @@
->  #define CARDNAME	"dm9000"
->  #define DRV_VERSION	"1.31"
->  
-> -#ifdef CONFIG_BLACKFIN
-> -#define readsb	insb
-> -#define readsw	insw
-> -#define readsl	insl
-> -#define writesb	outsb
-> -#define writesw	outsw
-> -#define writesl	outsl
-> -#endif
-> -
->  /*
->   * Transmit timeout, default 5 seconds.
->   */
-> -- 
-> 1.5.6
-> 
+On Thu, Oct 16, 2008 at 03:12:03PM +0200, Patrick McHardy wrote:
+> Alexey Dobriyan wrote:
+>> One needs to add ".netns_ok = 1" to igmp_protocol to test all of this
+>> with ebtables() in netns.
+>> -------------------------------------------------
+>> [PATCH 1/7] netns ebtables: part 1
+>>
+>> * make list of ebt_tables per-netns
+>> * propagate netns from userspace, register table in passed netns
+>> * temporarily register every ebt_table in init_net
+>
+> I'm not queuing patches for 2.6.29 yet, please resend the entire
+> batch once Dave opens his net-next tree again.
+>
+>> --- a/include/net/netns/x_tables.h
+>> +++ b/include/net/netns/x_tables.h
+>> @@ -6,5 +6,6 @@
+>>   struct netns_xt {
+>>  	struct list_head tables[NPROTO];
+>> +	struct list_head ebt_tables;
+>
+> This could just use tables[NFPROTO_BRIDGE].
 
--- 
--- 
-Ben
+Good!
 
-Q:      What's a light-year?
-A:      One-third less calories than a regular year.
+[drops some code]
 
+I do wonder why these new numbers a) contain holes and b) exported in
+headers.
