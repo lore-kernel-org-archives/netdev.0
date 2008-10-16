@@ -1,41 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Remove CONFIG_KMOD from net/ (towards removing
- CONFIG_KMOD entirely)
-Date: Thu, 16 Oct 2008 12:50:46 -0700 (PDT)
-Message-ID: <20081016.125046.208151275.davem@davemloft.net>
-References: <200810170237.10755.rusty@rustcorp.com.au>
-	<48F761C2.4020800@trash.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: powerpc allmodconfig
+Date: Thu, 16 Oct 2008 13:02:37 -0700
+Message-ID: <20081016130237.4984967c@infradead.org>
+References: <20081015213337.a99a9595.akpm@linux-foundation.org>
+	<20081015.220247.262683261.davem@davemloft.net>
+	<1224169039.735.57.camel@johannes.berg>
+	<20081016.124923.222595655.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41981
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753778AbYJPTvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 15:51:09 -0400
-In-Reply-To: <48F761C2.4020800@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: johannes@sipsolutions.net, akpm@linux-foundation.org,
+	dan.j.williams@intel.com, tiwai@suse.de,
+	linux-ext4@vger.kernel.org, netdev@vger.kernel.org,
+	linux-ide@vger.kernel.org, bzolnier@gmail.com,
+	marek.vasut@gmail.com, dwmw2@infradead.org, mark.fasheh@oracle.com,
+	ralf@linux-mips.org, mchehab@infradead.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <20081016.124923.222595655.davem@davemloft.net>
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 16 Oct 2008 17:46:10 +0200
+On Thu, 16 Oct 2008 12:49:23 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+> #endif
+> #define __WARN() warn_on_slowpath(__FILE__, __LINE__)
+> #define __WARN_printf(arg...) warn_slowpath(__FILE__, __LINE__, arg)
+> #else
+> #define __WARN_printf(arg...) __WARN()
 
-> Rusty Russell wrote:
-> > Date: Wed, 09 Jul 2008 10:28:42 +0200
-> > From: Johannes Berg <johannes@sipsolutions.net>
-> > Some code here depends on CONFIG_KMOD to not try to load
-> > protocol modules or similar, replace by CONFIG_MODULES
-> > where more than just request_module depends on CONFIG_KMOD
-> > and and also use try_then_request_module in ebtables.
-> > net/netfilter/nfnetlink.c       |    2 +-
-> 
-> There's a new one in net/netfilter/nf_conntrack_netlink.c
-> that is so far only in net-2.6.git, but I assume will be
-> merged upstream shortly.
+the easiest way I suppose would be to do
 
-It has been merged :)
+#define __WARN_printf(arg..) do { printk(arg); __WARN(); } while (0)
 
-Someone send me a patch to kill it off, it's no big deal.
+any obvious problems with this ?
+
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
