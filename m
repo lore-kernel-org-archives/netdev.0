@@ -1,120 +1,70 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: [PATCH] ibm_newemac: Fix new MAL feature handling
-Date: Thu, 16 Oct 2008 10:38:40 -0400
-Message-ID: <20081016143840.GA29805@yoda.jdub.homelinux.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: powerpc allmodconfig
+Date: Thu, 16 Oct 2008 16:57:19 +0200
+Message-ID: <1224169039.735.57.camel@johannes.berg>
 References: <20081015213337.a99a9595.akpm@linux-foundation.org>
-	<1224133010.8157.543.camel@pasglop>
+	 <20081015.220247.262683261.davem@davemloft.net>
+	 (sfid-20081016_070321_484206_CF986FB8)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <1224133010.8157.543.camel@pasglop>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-RwDHazsTlsfHEjp3GDNS"
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tiwai-l3A5Bk7waGM@public.gmane.org,
+	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, mark.fasheh-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081015.220247.262683261.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (sfid-20081016_070321_484206_CF986FB8)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 16, 2008 at 03:56:50PM +1100, Benjamin Herrenschmidt wrote:
->> drivers/net/ibm_newemac/mal.c: In function 'mal_txeob':
->> drivers/net/ibm_newemac/mal.c:284: error: implicit declaration of function 'mtdcri'
->> drivers/net/ibm_newemac/mal.c:284: error: 'SDR0' undeclared (first use in this function)
->> drivers/net/ibm_newemac/mal.c:284: error: (Each undeclared identifier is reported only once
->> drivers/net/ibm_newemac/mal.c:284: error: for each function it appears in.)
->> drivers/net/ibm_newemac/mal.c:285: error: implicit declaration of function 'mfdcri'
->> drivers/net/ibm_newemac/mal.c: In function 'mal_rxeob':
->> drivers/net/ibm_newemac/mal.c:302: error: 'SDR0' undeclared (first use in this function)
->
->That's annoying, I'll have a look.
 
-Support for new features needed by the PPC 405EZ boards
-introduced some errors in the MAL and EMAC feature handling.
-This broke 'allmodconfig' builds as CONFIG_PPC_DCR_NATIVE is
-not set for those.
+--=-RwDHazsTlsfHEjp3GDNS
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-This patch fixes these errors by wrapping the code in the
-appropriate #ifdefs.
+On Wed, 2008-10-15 at 22:02 -0700, David Miller wrote:
+>=20
+>=20
+> > net/sched/sch_generic.c: In function 'dev_watchdog':
+> > net/sched/sch_generic.c:224: warning: unused variable 'drivername'
+>=20
+> Sucky, if WARN_ONCE() evaluates to nothing the sprintf() string buffer
+> on the stack looks unused.
 
-Signed-off-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+I've complained about this to Arjan before, we actually lose all
+messages passed to WARN() or WARN_ONCE() on platforms that use bug traps
+for warnings too.
 
----
+johannes
 
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-index efcf21c..2ee2622 100644
---- a/drivers/net/ibm_newemac/core.c
-+++ b/drivers/net/ibm_newemac/core.c
-@@ -2604,8 +2604,16 @@ static int __devinit emac_init_config(struct emac_instance *dev)
- 		if (of_device_is_compatible(np, "ibm,emac-440ep") ||
- 		    of_device_is_compatible(np, "ibm,emac-440gr"))
- 			dev->features |= EMAC_FTR_440EP_PHY_CLK_FIX;
--		if (of_device_is_compatible(np, "ibm,emac-405ez"))
-+		if (of_device_is_compatible(np, "ibm,emac-405ez")) {
-+#ifdef CONFIG_IBM_NEW_EMAC_NO_FLOW_CONTROL
- 			dev->features |= EMAC_FTR_NO_FLOW_CONTROL_40x;
-+#else
-+			printk(KERN_ERR "%s: Flow control not disabled!\n",
-+					np->full_name);
-+			return -ENXIO;
-+#endif
-+		}
-+
- 	}
- 
- 	/* Fixup some feature bits based on the device tree */
-diff --git a/drivers/net/ibm_newemac/mal.c b/drivers/net/ibm_newemac/mal.c
-index 1839d3f..ecf9798 100644
---- a/drivers/net/ibm_newemac/mal.c
-+++ b/drivers/net/ibm_newemac/mal.c
-@@ -280,9 +280,11 @@ static irqreturn_t mal_txeob(int irq, void *dev_instance)
- 	mal_schedule_poll(mal);
- 	set_mal_dcrn(mal, MAL_TXEOBISR, r);
- 
-+#ifdef CONFIG_PPC_DCR_NATIVE
- 	if (mal_has_feature(mal, MAL_FTR_CLEAR_ICINTSTAT))
- 		mtdcri(SDR0, DCRN_SDR_ICINTSTAT,
- 				(mfdcri(SDR0, DCRN_SDR_ICINTSTAT) | ICINTSTAT_ICTX));
-+#endif
- 
- 	return IRQ_HANDLED;
- }
-@@ -298,9 +300,11 @@ static irqreturn_t mal_rxeob(int irq, void *dev_instance)
- 	mal_schedule_poll(mal);
- 	set_mal_dcrn(mal, MAL_RXEOBISR, r);
- 
-+#ifdef CONFIG_PPC_DCR_NATIVE
- 	if (mal_has_feature(mal, MAL_FTR_CLEAR_ICINTSTAT))
- 		mtdcri(SDR0, DCRN_SDR_ICINTSTAT,
- 				(mfdcri(SDR0, DCRN_SDR_ICINTSTAT) | ICINTSTAT_ICRX));
-+#endif
- 
- 	return IRQ_HANDLED;
- }
-@@ -572,9 +576,18 @@ static int __devinit mal_probe(struct of_device *ofdev,
- 		goto fail;
- 	}
- 
--	if (of_device_is_compatible(ofdev->node, "ibm,mcmal-405ez"))
-+	if (of_device_is_compatible(ofdev->node, "ibm,mcmal-405ez")) {
-+#if defined(CONFIG_IBM_NEW_EMAC_MAL_CLR_ICINTSTAT) && \
-+		defined(CONFIG_IBM_NEW_EMAC_MAL_COMMON_ERR)
- 		mal->features |= (MAL_FTR_CLEAR_ICINTSTAT |
- 				MAL_FTR_COMMON_ERR_INT);
-+#else
-+		printk(KERN_ERR "%s: Support for 405EZ not enabled!\n",
-+				ofdev->node->full_name);
-+		err = -ENODEV;
-+		goto fail;
-+#endif
-+	}
- 
- 	mal->txeob_irq = irq_of_parse_and_map(ofdev->node, 0);
- 	mal->rxeob_irq = irq_of_parse_and_map(ofdev->node, 1);
+--=-RwDHazsTlsfHEjp3GDNS
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJI91ZLAAoJEKVg1VMiehFYYlcQAIVtjS9xcVR3ZmM6893/7UIV
+2XEXfwlKMLunk5fBVAPz2DF2x83tlyNHrALOW1zTWjM2teLzKCq0XtFsXIoMrUX5
+0AuQBKmN/nf2+93YbfBH73zWmeegBz0yO1IaCdnjDT5P0Orn6mj4h7OBnb1u2Dxo
+pNK/wOiX/v/2MKrfQnEBo9LHqMmlGonbvFPxBIVOeONzsjlv5BVMWqPhfxf9D7wI
+m1GIDO13dYZ/ZkKuC5SchD+UJhFhPZd2pG1rxK8eRctDJXHa1dFEcVLrQq9zshBL
+7xJ5n4jdw1M5PVKNB4Frd3H1nv8PGNKoNliodaNwj/ZC5ULxZXnFxECkPl3VGU63
+5cUVGYTsqHUewPT7TigoYTD45AU85LWyhYHtN63hqbkeNH5Sf2QgN5XwQ7Wb3Urm
+gk3MMi01RcUvuV0MtiWsqZ/Cu1HM6S4QsgxypZ7gtv867LiB17c3ucVbswPVRGgZ
+A036WQSNA+gAQU3tV5J5D9eq8lphlmioLfUq4/mPKSn+UgI22iYMTPk9hMY/3dkZ
+Iox3vd7GfiDiPmNoHaF27w9dlQURjU3ue0eC5G5gUvImzawU3l6bmVEHoNhT/DUJ
+Q+2NSFvtZhYzFm1TUnHpyF0KYnAz6pogNY8155qCZ5dX7Wlc2wgpUkZJpdhc8iv9
+nb5xAVWpNharfmm23n+R
+=pg7B
+-----END PGP SIGNATURE-----
+
+--=-RwDHazsTlsfHEjp3GDNS--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
