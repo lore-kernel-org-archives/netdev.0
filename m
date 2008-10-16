@@ -1,86 +1,142 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: powerpc allmodconfig
-Date: Wed, 15 Oct 2008 22:02:47 -0700 (PDT)
-Message-ID: <20081015.220247.262683261.davem@davemloft.net>
-References: <20081015213337.a99a9595.akpm@linux-foundation.org>
+From: Alex Samad <alex@samad.com.au>
+Subject: Re: kernel oops when system under network stress
+Date: Thu, 16 Oct 2008 16:08:10 +1100
+Message-ID: <20081016050810.GA8240@samad.com.au>
+References: <20081016030416.GA5551@samad.com.au> <20081015.215536.242281148.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dan.j.williams@intel.com, tiwai@suse.de,
-	linux-ext4@vger.kernel.org, netdev@vger.kernel.org,
-	linux-ide@vger.kernel.org, bzolnier@gmail.com,
-	marek.vasut@gmail.com, dwmw2@infradead.org, mark.fasheh@oracle.com,
-	ralf@linux-mips.org, mchehab@infradead.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: akpm@linux-foundation.org
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20081015213337.a99a9595.akpm@linux-foundation.org>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="HcAYCG3uE/tztfnV"
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081015.215536.242281148.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 15 Oct 2008 21:33:37 -0700
 
-> kernel/resource.c: In function '__reserve_region_with_split':
-> kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 3 has type 'resource_size_t'
-> kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 4 has type 'resource_size_t'
-> kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 6 has type 'resource_size_t'
-> kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 7 has type 'resource_size_t'
+--HcAYCG3uE/tztfnV
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Known issue, Ben wants to add a new variant of %pX in order to print resources so that
-resource_size_t vs. unsigned long stuff doesn't matter like this any more.
+On Wed, Oct 15, 2008 at 09:55:36PM -0700, David Miller wrote:
+> From: Alex Samad <alex@samad.com.au>
+> Date: Thu, 16 Oct 2008 14:04:16 +1100
+>=20
+> [ Kernel network developers don't read linux-net, which is for
+>   user discussion.  They read netdev@vger.kernel.org instead
+>   which I've added to the CC:, please maintain this in all
+>   follow ups and replys. ]
+>=20
+> > I seems to be getting lots of crashes when my system is under network
+> > load, I was moving 1/4T of data over a 1G link and I got lots and lots
+> > of these
+>=20
+> What kernel version?
 
-> net/dccp/options.c: In function 'dccp_parse_options':
-> net/dccp/options.c:67: warning: 'value' may be used uninitialized in this function
+Sorry I put this at the bottom of the email.  its a stock debian 2.6.26
+(-8) kernel, nothing special on my side
 
-Known issue, not trivial to fix, gcc is just being incredibly silly here as it
-can't see all of the control flow.
+>=20
+> How is your system configured?
 
-> drivers/dma/ioat_dca.c: In function 'dca_enabled_in_bios':
-> drivers/dma/ioat_dca.c:81: error: implicit declaration of function 'cpuid_eax'
-> drivers/dma/ioat_dca.c: In function 'system_has_dca_enabled':
-> drivers/dma/ioat_dca.c:91: error: implicit declaration of function 'boot_cpu_has'
-> drivers/dma/ioat_dca.c:91: error: 'X86_FEATURE_DCA' undeclared (first use in this function)
-> drivers/dma/ioat_dca.c:91: error: (Each undeclared identifier is reported only once
-> drivers/dma/ioat_dca.c:91: error: for each function it appears in.)
-> drivers/dma/ioat_dca.c: In function 'ioat_dca_get_tag':
-> drivers/dma/ioat_dca.c:190: error: implicit declaration of function 'cpu_physical_id'
+ lspci -s 0a.0 -vv
+00:0a.0 Ethernet controller: nVidia Corporation Device 0760 (rev a2)
+	Subsystem: Giga-byte Technology Device e000
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=3Dfast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0 (250ns min, 5000ns max)
+	Interrupt: pin A routed to IRQ 1277
+	Region 0: Memory at f8007000 (32-bit, non-prefetchable)
+[size=3D4K]
+	Region 1: I/O ports at d800 [size=3D8]
+	Region 2: Memory at f8008000 (32-bit, non-prefetchable)
+[size=3D256]
+	Region 3: Memory at f8009000 (32-bit, non-prefetchable)
+[size=3D16]
+	Capabilities: <access denied>
+	Kernel driver in use: forcedeth
+	Kernel modules: forcedeth
 
-Known issue.  I tried to ping Jeff Garzik about doing a driver bug fix run in
-order to fix this, but he hasn't shown any signs of life.
+I have eth0 bridged to brhme1.
 
-So I'll do it myself later tonight. :-/
+I have seen this problem when doing rsync/ssh of large files and whilst
+doing transfer of files with nfs (udp & tcp thought more issues arise
+with udp), also tried different mtu's as well and that was worst of all.
 
-> net/sched/sch_generic.c: In function 'dev_watchdog':
-> net/sched/sch_generic.c:224: warning: unused variable 'drivername'
+The thing to note was (for example), when I was doing a nfs transfer, it
+would not be nfs that would crash, it would be other network based
+application that would cause the problem, for ex sshd, apache etc
 
-Sucky, if WARN_ONCE() evaluates to nothing the sprintf() string buffer
-on the stack looks unused.
 
-> drivers/rtc/rtc-ds1286.c: In function 'ds1286_rtc_read':
-> drivers/rtc/rtc-ds1286.c:33: error: implicit declaration of function '__raw_readl'
-> drivers/rtc/rtc-ds1286.c: In function 'ds1286_rtc_write':
-> drivers/rtc/rtc-ds1286.c:38: error: implicit declaration of function '__raw_writel'
-> drivers/rtc/rtc-ds1286.c: In function 'ds1286_probe':
-> drivers/rtc/rtc-ds1286.c:345: error: implicit declaration of function 'ioremap'
-> drivers/rtc/rtc-ds1286.c:345: warning: assignment makes pointer from integer without a cast
-> drivers/rtc/rtc-ds1286.c:365: error: implicit declaration of function 'iounmap'
+>=20
+> Otherwise it is harder for us to analyze this report.
+>=20
+> Thanks.
+>=20
 
-Missing asm/io.h include.
+[snip]
 
-> drivers/rtc/rtc-m48t35.c: In function 'm48t35_read_time':
-> drivers/rtc/rtc-m48t35.c:59: error: implicit declaration of function 'readb'
-> drivers/rtc/rtc-m48t35.c:60: error: implicit declaration of function 'writeb'
-> drivers/rtc/rtc-m48t35.c: In function 'm48t35_probe':
-> drivers/rtc/rtc-m48t35.c:168: error: implicit declaration of function 'ioremap'
-> drivers/rtc/rtc-m48t35.c:168: warning: assignment makes pointer from integer without a cast
-> drivers/rtc/rtc-m48t35.c:188: error: implicit declaration of function 'iounmap'
+> > somebody if it would help.
+> >=20
+> > Is this a bug or ?
+> >=20
+> > I am running debian 2.6.26-8=20
+> > Linux max 2.6.26-1-amd64 #1 SMP Thu Oct 9 14:16:53 UTC 2008 x86_64
+> > GNU/Linux
+> >=20
+> >=20
+> > I have eth0 bridges to brhme1 (so that I can attach virtual box machines
+> > there - none attached currently)
+> >=20
+> > and I have some firewall rules as well.  That really about it to the
+> > changes I have made
+> >=20
+> >=20
+> >=20
+> > Thanks
+> > Alex=20
+> >=20
+> > PS can you cc me on the replay, in the process of registering
+> >=20
+> >=20
+> > --=20
+> > "Columbia carried in its payroll classroom experiments from some of our=
+ students in America."
+> >=20
+> > 	- George W. Bush
+> > 02/03/2003
+> > Bethesda, MD
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
 
-Likewise.
+--=20
+"If there's a leak out of my administration, I want to know who it is. If t=
+he person has violated law, that person will be taken care of."
 
-> drivers/net/wireless/libertas_tf/if_usb.c: In function '__if_usb_submit_rx_urb':
-> drivers/net/wireless/libertas_tf/if_usb.c:334: warning: cast to pointer from integer of different size
+	- George W. Bush
+09/30/2003
+Washington, DC
+Commenting on the CIA leak that he and Cheney later admitted they approved
 
-I've seen this one on sparc64 too, I think the arg is totally unused in the end
-for this callback control flow and we can just use NULL or zero instead.
+--HcAYCG3uE/tztfnV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkj2zDYACgkQkZz88chpJ2MScgCguQIRw+TlNIsKZP7//Xw+12YI
+aH8AoMIeMBTxDURVcN/yP9EswAmrXYox
+=rvPy
+-----END PGP SIGNATURE-----
+
+--HcAYCG3uE/tztfnV--
