@@ -1,48 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Remove CONFIG_KMOD from net/ (towards removing
- CONFIG_KMOD entirely)
-Date: Thu, 16 Oct 2008 15:27:55 -0700 (PDT)
-Message-ID: <20081016.152755.42145596.davem@davemloft.net>
-References: <200810170237.10755.rusty@rustcorp.com.au>
-	<48F761C2.4020800@trash.net>
-	<20081016.125046.208151275.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 2/2] enic: Fix Kconfig headline description
+Date: Thu, 16 Oct 2008 15:43:02 -0700
+Message-ID: <ada3aiwb1qh.fsf@cisco.com>
+References: <adaej2kp701.fsf@cisco.com> <48F709C2.6000303@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: kaber@trash.net
+Content-Type: text/plain; charset=us-ascii
+Cc: scofeldm@cisco.com, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49963
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752859AbYJPW2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 18:28:19 -0400
-In-Reply-To: <20081016.125046.208151275.davem@davemloft.net>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:30730 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197AbYJPWyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 18:54:17 -0400
+In-Reply-To: <48F709C2.6000303@garzik.org> (Jeff Garzik's message of "Thu, 16
+	Oct 2008 05:30:42 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 16 Oct 2008 12:50:46 -0700 (PDT)
+ > Sheesh, Cisco just does not have any sense of humor :)
 
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Thu, 16 Oct 2008 17:46:10 +0200
-> 
-> > Rusty Russell wrote:
-> > > Date: Wed, 09 Jul 2008 10:28:42 +0200
-> > > From: Johannes Berg <johannes@sipsolutions.net>
-> > > Some code here depends on CONFIG_KMOD to not try to load
-> > > protocol modules or similar, replace by CONFIG_MODULES
-> > > where more than just request_module depends on CONFIG_KMOD
-> > > and and also use try_then_request_module in ebtables.
-> > > net/netfilter/nfnetlink.c       |    2 +-
-> > 
-> > There's a new one in net/netfilter/nf_conntrack_netlink.c
-> > that is so far only in net-2.6.git, but I assume will be
-> > merged upstream shortly.
-> 
-> It has been merged :)
-> 
-> Someone send me a patch to kill it off, it's no big deal.
+Hey I thought name-checking Mark Everett in the changelog was kind of funny.
 
-Never mind, I took care of this myself when applying Rusty's
-patch to net-2.6 :-)
+ > As I explained to Scott (in private email, unfortunately, IIRC), I did
+ > that so that it would fit in the list alphabetized -- Scott placed it
+ > in the section with the E's, not the C's.
+
+Unfortunately Dave already applied my patch (and somehow dropped the
+"From: Scott" part of my email so I get blamed ;).  I didn't realize the
+list was alphabetized -- I guess we should add another patch to put this
+in the right place in the list?
+
+ > Furthermore, "Cisco 10G ethernet nic" is a vague description if Cisco
+ > ever plans to sell another ethernet product.  Will the next one be
+ > "Cisco 10G Ethernet NIC, the sequel"?  :)
+
+I guess we're just counting on being on to 100G ethernet by the time we
+do another NIC... but seriously we should probably figure out what the
+marketing name will be and improve the help text.
+
+ - R.
