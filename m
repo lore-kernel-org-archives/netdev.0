@@ -1,31 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] myri10ge: remove broken select INTEL_IOATDMA from Kconfig
-Date: Thu, 16 Oct 2008 05:10:08 -0400
-Message-ID: <48F704F0.8060906@garzik.org>
-References: <48F4FBE6.1010209@myri.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: kernel oops when system under network stress
+Date: Thu, 16 Oct 2008 17:10:09 +0800
+Message-ID: <20081016091009.GA5794@gondor.apana.org.au>
+References: <20081016030416.GA5551@samad.com.au> <20081015.215536.242281148.davem@davemloft.net> <20081016050810.GA8240@samad.com.au> <20081016064142.GA5064@gondor.apana.org.au> <20081016070934.GA10150@samad.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Brice Goglin <brice@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35993 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755008AbYJPJKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Oct 2008 05:10:13 -0400
-In-Reply-To: <48F4FBE6.1010209@myri.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alex Samad <alex@samad.com.au>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081016070934.GA10150@samad.com.au>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> We cannot select INTEL_IOATDMA in Kconfig as soon as MYRI10GE is
-> enabled since the former is not available on all architectures.
-> Just use a Kconfig bool MYRI10GE_DCA set to =y when DCA support
-> can actually be built in myri10ge (when DCA is enabled, except
-> if MYRI10GE=y and DCA=m).
-> 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+On Thu, Oct 16, 2008 at 06:09:34PM +1100, Alex Samad wrote:
+>
+> just about, within a 5-10 min window
 
-applied this, and the same again to ixgbe
+Great.  Please apply this patch and let me know what it prints
+out (if anything).
 
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index 16d43f2..72af09d 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -233,6 +233,13 @@ int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
+ 	/* Restore final destination back after routing done */
+ 	ipv6_addr_copy(&fl.fl6_dst, &np->daddr);
+ 
++	if (WARN_ON(skb_is_gso(skb) && skb->ip_summed != CHECKSUM_PARTIAL)) {
++		printk("%s: %d %d %d 0x%x 0x%x 0x%lx", skb->dst->dev->name,
++		       skb->ip_summed, skb_shinfo(skb)->gso_size, skb->len,
++		       skb_shinfo(skb)->gso_type, sk->sk_route_caps,
++		       skb->dst->dev->features);
++	}
++
+ 	return ip6_xmit(sk, skb, &fl, np->opt, 0);
+ }
+ 
