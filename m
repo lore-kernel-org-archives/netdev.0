@@ -1,39 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Alex Samad <alex@samad.com.au>
 Subject: Re: kernel oops when system under network stress
-Date: Thu, 16 Oct 2008 15:07:03 +0800
-Message-ID: <20081016070703.GA5199@gondor.apana.org.au>
-References: <20081016030416.GA5551@samad.com.au> <20081015.215536.242281148.davem@davemloft.net> <20081016054159.GA4696@gondor.apana.org.au> <20081016054833.GA9030@samad.com.au>
+Date: Thu, 16 Oct 2008 18:09:34 +1100
+Message-ID: <20081016070934.GA10150@samad.com.au>
+References: <20081016030416.GA5551@samad.com.au> <20081015.215536.242281148.davem@davemloft.net> <20081016050810.GA8240@samad.com.au> <20081016064142.GA5064@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zYM0uCDKw75PZbzx"
 Cc: David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Alex Samad <alex@samad.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36479 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752300AbYJPHHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 03:07:10 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20081016054833.GA9030@samad.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20081016064142.GA5064@gondor.apana.org.au>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 16, 2008 at 04:48:33PM +1100, Alex Samad wrote:
->
-> > I'm tempted to blame tg3's management of netdev feature setting
-> 
-> I am using forcedeth not tg3 
 
-Aha, then something is definitely screwed with the feature setting
-because forcedeth doesn't even claim support for TSO6 or IPv6
-checksum offload.
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I wonder if sk_setup_caps is being called before we've set the
-GSO type...
+On Thu, Oct 16, 2008 at 02:41:42PM +0800, Herbert Xu wrote:
+> On Thu, Oct 16, 2008 at 04:08:10PM +1100, Alex Samad wrote:
+> >
+> > The thing to note was (for example), when I was doing a nfs transfer, it
+> > would not be nfs that would crash, it would be other network based
+> > application that would cause the problem, for ex sshd, apache etc
+>=20
+> So are you able to reproduce this at will?
+just about, within a 5-10 min window
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+>=20
+> Thanks,
+> --=20
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>=20
+
+--=20
+"I don't think we need to be subliminable about the differences between our=
+ views on prescription drugs."
+
+	- George W. Bush
+09/12/2000
+Orlando, FL
+
+--zYM0uCDKw75PZbzx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkj26KsACgkQkZz88chpJ2PLdACgzyDGfKhu6GEEGVeeCvSZ4qNy
+gs4An1A0wjkdg221aKvbD03vU6V/G/Bz
+=8GoP
+-----END PGP SIGNATURE-----
+
+--zYM0uCDKw75PZbzx--
