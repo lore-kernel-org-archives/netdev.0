@@ -1,38 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: kernel oops when system under network stress
-Date: Thu, 16 Oct 2008 13:41:59 +0800
-Message-ID: <20081016054159.GA4696@gondor.apana.org.au>
-References: <20081016030416.GA5551@samad.com.au> <20081015.215536.242281148.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] pkt_sched: Control group classifier
+Date: Thu, 16 Oct 2008 07:41:55 +0200
+Message-ID: <873aixksf0.fsf@basil.nowhere.org>
+References: <20081013155715.GZ20815@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: alex@samad.com.au, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081015.215536.242281148.davem@davemloft.net>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:46784 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751120AbYJPFl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 01:41:59 -0400
+In-Reply-To: <20081013155715.GZ20815@postel.suug.ch> (Thomas Graf's message of "Mon, 13 Oct 2008 17:57:16 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2008 at 09:55:36PM -0700, David Miller wrote:
+Thomas Graf <tgraf@suug.ch> writes:
 >
-> [ Herbert, this looks like another case like that ebtables+tg3 one,
->   where the checksum field is not set properly. ]
+> The principle of the classifier is to directly access the
+> task_struct via get_current(). In order for this to work,
+> classification requests from softirqs must be ignored.
 
-Looking at the trace, I don't think ebtables plays any part since
-it appears only on the receive path while the checksum problem is
-on the transmit path.
+You mean the classifier just wants to know if it runs
+as a softirq?
 
-I'm tempted to blame tg3's management of netdev feature setting
-since it's far from obvious whether it enables TSOv6 only if IPv6
-checksumming is also enabled.
+> This is
+> not a problem because the vast majority of packets in softirq
+> context are not assigned to a task anyway. For this to work, a
+> mechanism is needed to trace softirq context.
+> The only existing
+> way to do so is to use the TRACE_IRQFLAGS feature, unfortunately
 
-Unfortunately I'm still stuck in some bog at the moment, but
-hopefully I can resume looking at this issue in a couple of days.
+Does't softirq_count() > 0 check that?
 
-Thanks,
+-Andi
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ak@linux.intel.com
