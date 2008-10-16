@@ -1,98 +1,82 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/2] r8169: checks against wrong mac addresse init
-Date: Thu, 16 Oct 2008 23:48:08 +0200
-Message-ID: <20081016214808.GC27208@electric-eye.fr.zoreil.com>
-References: <20081016214555.GA27208@electric-eye.fr.zoreil.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 0/6] Add qdisc->ops->peek() support.
+Date: Fri, 17 Oct 2008 00:09:05 +0200
+Message-ID: <20081016220905.GA2747@ami.dom.local>
+References: <48F735C7.6050808@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>,
-	Martin Capitanio <c4p7n@capitanio.org>,
-	Petr Vandrovec <petr@vandrovec.name>,
-	Plamen Petrov <pvp-lsts@fs.ru.acad.bg>,
-	=?unknown-8bit?B?Si5BLiBNYWdhbGzDs24=?= <jamagallon@ono.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:53910 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755067AbYJPVsb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 17:48:31 -0400
+Received: from ug-out-1314.google.com ([66.249.92.172]:33709 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757000AbYJPWIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 18:08:15 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so1880500ugf.37
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2008 15:08:12 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20081016214555.GA27208@electric-eye.fr.zoreil.com>
+In-Reply-To: <48F735C7.6050808@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Checking the signature of the eeprom and the validity of the
-MAC address should be enough to filter out the bad addresses
-observed so far.
+Patrick McHardy wrote, On 10/16/2008 02:38 PM:
 
-Contributed by Ivan Vecera and Martin Capitanio.
+> Jarek Poplawski wrote:
+...
+>> PS: after this patchset only netem_enqueue() needs qdisc->requeue(),
+>> but I hope this won't take too long.
+> 
+> Assuming work-conserving qdiscs are used with netem, the currently
+> code will always send out a reorder packet immediately. This behaviour
+> is trivial to implement without ->requeue. The problematic case is
+> non-work-conserving inner qdiscs, but that doesn't seem important
+> at all since you'd usually add it as parent of netem, which still
+> works.
 
-Tested on 8102el, 8168b and 8169 for a start.
+How about something like this (example only)?
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+Jarek P.
 ---
- drivers/net/r8169.c |   22 ++++++++++++++++++----
- 1 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index cd9a215..2b4e975 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -81,6 +81,10 @@ static const int multicast_filter_limit = 32;
- #define RTL8169_TX_TIMEOUT	(6*HZ)
- #define RTL8169_PHY_TIMEOUT	(10*HZ)
- 
-+#define RTL_EEPROM_SIG		cpu_to_le32(0x8129)
-+#define RTL_EEPROM_SIG_MASK	cpu_to_le32(0xffff)
-+#define RTL_EEPROM_SIG_ADDR	0x0000
-+
- /* write/read MMIO register */
- #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
- #define RTL_W16(reg, val16)	writew ((val16), ioaddr + (reg))
-@@ -1944,9 +1948,10 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
- 				 void __iomem *ioaddr)
- {
- 	struct pci_dev *pdev = tp->pci_dev;
--	u8 cfg1;
- 	int vpd_cap;
-+	__le32 sig;
- 	u8 mac[8];
-+	u8 cfg1;
- 
- 	cfg1 = RTL_R8(Config1);
- 	if (!(cfg1  & VPD)) {
-@@ -1961,7 +1966,16 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
- 	if (!vpd_cap)
- 		return;
- 
--	/* MAC address is stored in EEPROM at offset 0x0e
-+	if (rtl_eeprom_read(pdev, vpd_cap, RTL_EEPROM_SIG_ADDR, &sig) < 0)
-+		return;
-+
-+	if ((sig & RTL_EEPROM_SIG_MASK) != RTL_EEPROM_SIG) {
-+		dev_info(&pdev->dev, "Missing EEPROM signature: %08x\n", sig);
-+		return;
-+	}
-+
-+	/*
-+	 * MAC address is stored in EEPROM at offset 0x0e
- 	 * Realtek says: "The VPD address does not have to be a DWORD-aligned
- 	 * address as defined in the PCI 2.2 Specifications, but the VPD data
- 	 * is always consecutive 4-byte data starting from the VPD address
-@@ -1983,8 +1997,8 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
- 			 print_mac(buf, mac));
+ include/net/sch_generic.h |    1 +
+ net/sched/sch_netem.c     |    7 ++++++-
+ 2 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 9dcb5bf..9157766 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -45,6 +45,7 @@ struct Qdisc
+ #define TCQ_F_BUILTIN	1
+ #define TCQ_F_THROTTLED	2
+ #define TCQ_F_INGRESS	4
++#define TCQ_F_REQUEUE	8
+ 	int			padded;
+ 	struct Qdisc_ops	*ops;
+ 	struct qdisc_size_table	*stab;
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 3080bd6..6ac8efc 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -233,7 +233,9 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		 */
+ 		cb->time_to_send = psched_get_time();
+ 		q->counter = 0;
+-		ret = q->qdisc->ops->requeue(skb, q->qdisc);
++		q->qdisc->flags |= TCQ_F_REQUEUE;
++		ret = qdisc_equeue(skb, q->qdisc);
++		q->qdisc->flags &= ~TCQ_F_REQUEUE;
  	}
  
--	/* Write MAC address */
--	rtl_rar_set(tp, mac);
-+	if (is_valid_ether_addr(mac))
-+		rtl_rar_set(tp, mac);
- }
+ 	if (likely(ret == NET_XMIT_SUCCESS)) {
+@@ -478,6 +480,9 @@ static int tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
+ 	psched_time_t tnext = netem_skb_cb(nskb)->time_to_send;
+ 	struct sk_buff *skb;
  
- static int __devinit
--- 
-1.5.3.3
-
++	if (unlikely(sch->flags & TCQ_F_REQUEUE))
++		return qdisc_requeue(nskb, sch);
++
+ 	if (likely(skb_queue_len(list) < q->limit)) {
+ 		/* Optimize for add at tail */
+ 		if (likely(skb_queue_empty(list) || tnext >= q->oldest)) {
