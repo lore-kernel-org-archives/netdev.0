@@ -1,112 +1,43 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when	gc_elasticity
- is exceeded
-Date: Thu, 16 Oct 2008 14:25:47 +0200
-Message-ID: <48F732CB.8030704@cosmosbay.com>
-References: <20081006225210.GA29794@hmsreliant.think-freely.org> <48EAEFF9.1000606@cosmosbay.com> <20081013182655.GA9505@hmsreliant.think-freely.org> <20081015.235556.61915120.davem@davemloft.net> <20081016114155.GA15877@hmsreliant.think-freely.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 0/6] Add qdisc->ops->peek() support.
+Date: Thu, 16 Oct 2008 14:38:31 +0200
+Message-ID: <48F735C7.6050808@trash.net>
+References: <20081016094645.GA19019@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, billfink@mindspring.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	johnpol@2ka.mipt.ru
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.112]:4411 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753660AbYJPM3z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 08:29:55 -0400
-In-Reply-To: <20081016114155.GA15877@hmsreliant.think-freely.org>
+Received: from stinky.trash.net ([213.144.137.162]:32807 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbYJPMif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 08:38:35 -0400
+In-Reply-To: <20081016094645.GA19019@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman a =E9crit :
-> On Wed, Oct 15, 2008 at 11:55:56PM -0700, David Miller wrote:
->> From: Neil Horman <nhorman@tuxdriver.com>
->> Date: Mon, 13 Oct 2008 14:26:55 -0400
->>
->>> If this meets everyones approval I think we can follow up with a
->>> patch to remove the secret interval code entirely.
->> This patch looks pretty good to me.
->>
->> Just some minor coding style nits:
->>
->>> +static void rt_secret_rebuild_oneshot(struct net *net) {
->> Openning brace on new line please.
->>
->>> +static void rt_emergency_hash_rebuild(struct net *net) {
->> Likewise.
->>
->=20
-> Thanks Dave, new patch, with those nits fixed up.  I also cleaned up =
-a few
-> checkpatch errors (all trailing whitespace and 80 col errors)
->=20
-> Best
-> Neil
->=20
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Jarek Poplawski wrote:
+> So here is my try (I hope I didn't miss Patrick's intentions to much).
+> 
+> PATCH 6/6 adds my simple idea not to prevent even nonsense configs.
+> It is optional.
 
-> =20
-> +/*
-> + * While freeing expired entries, we compute average chain length
-> + * and standard deviation, using fixed-point arithmetic.
-> + * This to have an estimation of rt_chain_length_max
-> + *  rt_chain_length_max =3D max(elasticity, AVG + 4*SD)
-> + * We use 3 bits for frational part, and 29 (or 61) for magnitude.
-> + */
-> +
-> +#define FRACT_BITS 3
-> +#define ONE (1UL << FRACT_BITS)
-> +
->  static void rt_check_expire(void)
->  {
->  	static unsigned int rover;
->  	unsigned int i =3D rover, goal;
->  	struct rtable *rth, **rthp;
-> +	unsigned long length;
->  	u64 mult;
-> =20
->  	mult =3D ((u64)ip_rt_gc_interval) << rt_hash_log;
-> @@ -784,11 +812,29 @@ static void rt_check_expire(void)
->  				if (time_before_eq(jiffies, rth->u.dst.expires)) {
->  					tmo >>=3D 1;
->  					rthp =3D &rth->u.dst.rt_next;
-> +					/*
-> +					 * Only bump our length if the hash
-> +					 * inputs on entries n and n+1 are not
-> +					 * the same, we only count entries on
-> +					 * a chain with equal hash inputs once
-> +					 * so that entries for different QOS
-> +					 * levels, and other non-hash input
-> +					 * attributes don't unfairly skew
-> +					 * the length computation
-> +					 */
-> +					if (*rthp &&
-> +					    !compare_hash_inputs(&(*rthp)->fl,
-> +								 &rth->fl))
-> +						length +=3D ONE;
->  					continue;
->  				}
->  			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
->  				tmo >>=3D 1;
->  				rthp =3D &rth->u.dst.rt_next;
-> +				if (*rthp &&
-> +				    !compare_hash_inputs(&(*rthp)->fl,
-> +							 &rth->fl))
-> +					length +=3D ONE;
->  				continue;
->  			}
+These patches look good to me. About 6/6, I'm still thinking we
+might want to prevent certain kinds of nonsensical configurations
+for simplicity. Its a bit similar to the multiq stuff, a lot of
+these complications came from the fact that non-work-conserving
+qdiscs, which require a global view, are treated similar to work-
+conserving ones. I don't have a good scheme worked out though,
+so for now using your patch seems OK too.
 
-Incomplete patch ?
+> PS: after this patchset only netem_enqueue() needs qdisc->requeue(),
+> but I hope this won't take too long.
 
-You added a 'length' variable, and update it but nowhere initialize and=
-/or read it ?
-
-Some way to change rt_chain_length_max is needed, sysctl or dynamically=
-=2E..
-
-
-
+Assuming work-conserving qdiscs are used with netem, the currently
+code will always send out a reorder packet immediately. This behaviour
+is trivial to implement without ->requeue. The problematic case is
+non-work-conserving inner qdiscs, but that doesn't seem important
+at all since you'd usually add it as parent of netem, which still
+works.
