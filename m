@@ -1,54 +1,73 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Adrian Bunk <bunk@kernel.org>
 Subject: Re: powerpc allmodconfig
-Date: Thu, 16 Oct 2008 09:58:36 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0810160958000.25933@anakin>
-References: <20081015213337.a99a9595.akpm@linux-foundation.org>
- <20081015.220247.262683261.davem@davemloft.net> <Pine.LNX.4.64.0810160930300.25933@anakin>
- <20081016.003644.74134312.davem@davemloft.net>
+Date: Thu, 16 Oct 2008 11:21:57 +0300
+Message-ID: <20081016082157.GC23630@cs181140183.pp.htv.fi>
+References: <20081015213337.a99a9595.akpm@linux-foundation.org> <s5h1vyhrsja.wl%tiwai@suse.de> <20081016073836.GB23630@cs181140183.pp.htv.fi> <s5hiqrtq8fc.wl%tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: akpm@linux-foundation.org, dan.j.williams@intel.com, tiwai@suse.de,
+Content-Type: text/plain; charset=utf-8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Dan Williams <dan.j.williams@intel.com>,
 	linux-ext4@vger.kernel.org, netdev@vger.kernel.org,
-	linux-ide@vger.kernel.org, bzolnier@gmail.com,
-	marek.vasut@gmail.com, dwmw2@infradead.org, mark.fasheh@oracle.com,
-	ralf@linux-mips.org, mchehab@infradead.org,
+	linux-ide@vger.kernel.org,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	marek.vasut@gmail.com, David Woodhouse <dwmw2@infradead.org>,
+	Mark Fasheh <mark.fasheh@oracle.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
 	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754052AbYJPH6y@vger.kernel.org>
-In-Reply-To: <20081016.003644.74134312.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-ext4-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <s5hiqrtq8fc.wl%tiwai@suse.de>
+Sender: linux-ext4-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Oct 2008, David Miller wrote:
-> From: Geert Uytterhoeven <geert@linux-m68k.org>
-> Date: Thu, 16 Oct 2008 09:31:29 +0200 (CEST)
-> 
-> > On Wed, 15 Oct 2008, David Miller wrote:
-> > > > kernel/resource.c: In function '__reserve_region_with_split':
-> > > > kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 3 has type 'resource_size_t'
-> > > > kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 4 has type 'resource_size_t'
-> > > > kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 6 has type 'resource_size_t'
-> > > > kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 7 has type 'resource_size_t'
-> > > 
-> > > Known issue, Ben wants to add a new variant of %pX in order to print resources so that
-> > > resource_size_t vs. unsigned long stuff doesn't matter like this any more.
+On Thu, Oct 16, 2008 at 09:57:11AM +0200, Takashi Iwai wrote:
+> At Thu, 16 Oct 2008 10:38:36 +0300,
+> Adrian Bunk wrote:
 > > 
-> > Will still give a warning, as resource_size_t is not a pointer.
+> > On Thu, Oct 16, 2008 at 07:57:29AM +0200, Takashi Iwai wrote:
+> > > At Wed, 15 Oct 2008 21:33:37 -0700,
+> > > Andrew Morton wrote:
+> > > > 
+> > > > sound/soc/soc-dapm.c:1029: warning: 'snd_soc_dapm_connect_input' is deprecated (declared at sound/soc/soc-dapm.c:1026)
+> > > > sound/soc/soc-dapm.c:1029: warning: 'snd_soc_dapm_connect_input' is deprecated (declared at sound/soc/soc-dapm.c:1026)
+> > > 
+> > > These are definitions of deprecated interfaces.
+> > > We can remove it in 2.6.29.  If we don't want to be conservative, it
+> > > can be removed in 2.6.28, too.
+> > >...
+> > 
+> > Since it's an in-kernel API there's no reason to keep it once there are 
+> > no users left.
 > 
-> The idea is to pass in a pointer to the resource struct,
-> and the %pX variant specified says what part to print.
+> Right.  But, IMO, now is no suitable time.
+> A thing like API removal should have been tested in linux-next, and we
+> had plenty of time indeed for 2.6.28.
+>...
 
-Neat! So we can also have a separate variant to print the resource
-range.
+A grep through the tree and one test compile that covers 
+sound/soc/soc-dapm.c should be enough testing.
 
-Gr{oetje,eeting}s,
+And having it then in -next once should be enough to discover if someone 
+wrongly added a new user.
 
-						Geert
+I have removed many functions in the kernel, and there isn't much that 
+can go wrong - even adding a PCI ID to a driver has a bigger risk of 
+introducing a regression.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> thanks,
+> 
+> Takashi
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
