@@ -1,599 +1,140 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patches] net driver fixes
-Date: Thu, 16 Oct 2008 06:03:05 -0400
-Message-ID: <20081016100305.GA31045@havoc.gtf.org>
+From: Nick 'Zaf' Clifford <zaf@nrc.co.nz>
+Subject: PMTU with SA
+Date: Thu, 16 Oct 2008 22:37:55 +1300
+Message-ID: <48F70B73.2080802@nrc.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:57938 "EHLO havoc.gtf.org"
+Received: from mx8.orcon.net.nz ([219.88.242.58]:57879 "EHLO mx8.orcon.net.nz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753077AbYJPKDH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Oct 2008 06:03:07 -0400
-Content-Disposition: inline
+	id S1751142AbYJPKZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Oct 2008 06:25:09 -0400
+Received: from Debian-exim by mx8.orcon.net.nz with local (Exim 4.69)
+	(envelope-from <zaf@nrc.co.nz>)
+	id 1KqPIr-0006DU-BI
+	for netdev@vger.kernel.org; Thu, 16 Oct 2008 22:37:57 +1300
+Received: from cerberus.nrc.co.nz ([121.98.166.152])
+	by mx8.orcon.net.nz with esmtps (TLS1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <zaf@nrc.co.nz>)
+	id 1KqPIq-0006Cw-Vz
+	for netdev@vger.kernel.org; Thu, 16 Oct 2008 22:37:57 +1300
+Received: from [2001:4428:202:1:216:17ff:fed4:fc99]
+	by cerberus.nrc.co.nz with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <zaf@nrc.co.nz>)
+	id 1KqPIq-00076H-5z
+	for netdev@vger.kernel.org; Thu, 16 Oct 2008 22:37:56 +1300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If this isn't the correct list, please let me know, and please CC me on
+replies as I'm not subscribed. I will try to read the archives for a few
+days in case I miss something.
 
-Please pull from 'davem-fixes' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
+I have an IPSEC transport mode link set up between a (local) Linux
+router and a remote node. All works fine normally, and always from on
+the router itself.
 
-to receive the following updates:
+The issue comes with clients behind the router, attempting to access the
+remote node. They experience an MTU issue with large packets. The linux
+router does not send the icmp frag needed messages for DF packets that
+are >1442 bytes and <1492 bytes. (The outgoing link's MTU is 1492). (If
+the packets are >1492, then it correctly generates and returns a frag
+needed).
 
- drivers/net/Kconfig             |   12 ++++++++++--
- drivers/net/ixgbe/ixgbe.h       |    4 ++--
- drivers/net/ixgbe/ixgbe_main.c  |   32 ++++++++++++++++----------------
- drivers/net/myri10ge/myri10ge.c |   26 +++++++++++++-------------
- drivers/net/pcmcia/Kconfig      |    2 +-
- drivers/net/wan/lmc/lmc_main.c  |   31 ++++++++++++++++++++++++-------
- drivers/net/xen-netfront.c      |    5 ++++-
- 7 files changed, 70 insertions(+), 42 deletions(-)
+In the linux router's kernel log, it is logging "pmtu discovery on SA
+ESP/xxxx/xxxx".
 
-Alan Cox (2):
-      lmc: copy_*_user under spinlock
-      [netdrvr] ibmtr: PCMCIA IBMTR is ok on 64bit
+I think the issue appears to be that the ICMP frag needed message is not
+generated, or not sent back out to the client behind the Linux router.
 
-Isaku Yamahata (1):
-      xen-netfront: Avoid unaligned accesses to IP header
+When attempting to send packets ON the linux router, it correctly
+handles it (ping returns "sendmsg: Message too long").
 
-Jeff Garzik (1):
-      [netdrvr] myri10ge, ixgbe: remove broken select INTEL_IOATDMA
+To clarify the network layout, there is the Linux router, with a IPSEC
+transport mode NETKEY encryption to a particular destination. Then there
+are NAT'd clients behind the router, who wish to connect to this
+destination. They don't know, nor care that the connection goes via the
+Internet wrapped in transport mode encryption.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 1d8af33..ad301ac 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2410,7 +2410,6 @@ config IXGBE
- 	tristate "Intel(R) 10GbE PCI Express adapters support"
- 	depends on PCI && INET
- 	select INET_LRO
--	select INTEL_IOATDMA
- 	---help---
- 	  This driver supports Intel(R) 10GbE PCI Express family of
- 	  adapters.  For more information on how to identify your adapter, go
-@@ -2426,6 +2425,11 @@ config IXGBE
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ixgbe.
- 
-+config IXGBE_DCA
-+	bool
-+	default y
-+	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
-+
- config IXGB
- 	tristate "Intel(R) PRO/10GbE support"
- 	depends on PCI
-@@ -2462,7 +2466,6 @@ config MYRI10GE
- 	select FW_LOADER
- 	select CRC32
- 	select INET_LRO
--	select INTEL_IOATDMA
- 	---help---
- 	  This driver supports Myricom Myri-10G Dual Protocol interface in
- 	  Ethernet mode. If the eeprom on your board is not recent enough,
-@@ -2474,6 +2477,11 @@ config MYRI10GE
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called myri10ge.
- 
-+config MYRI10GE_DCA
-+	bool
-+	default y
-+	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
-+
- config NETXEN_NIC
- 	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
- 	depends on PCI
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 2198b77..e116d34 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -36,7 +36,7 @@
- #include "ixgbe_type.h"
- #include "ixgbe_common.h"
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- #include <linux/dca.h>
- #endif
- 
-@@ -136,7 +136,7 @@ struct ixgbe_ring {
- 		      * offset associated with this ring, which is different
- 		      * for DCE and RSS modes */
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	/* cpu for tx queue */
- 	int cpu;
- #endif
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index ca17af4..7548fb7 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -80,7 +80,7 @@ static struct pci_device_id ixgbe_pci_tbl[] = {
- };
- MODULE_DEVICE_TABLE(pci, ixgbe_pci_tbl);
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- static int ixgbe_notify_dca(struct notifier_block *, unsigned long event,
-                             void *p);
- static struct notifier_block dca_notifier = {
-@@ -296,7 +296,7 @@ done_cleaning:
- 	return (total_packets ? true : false);
- }
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- static void ixgbe_update_rx_dca(struct ixgbe_adapter *adapter,
-                                 struct ixgbe_ring *rx_ring)
- {
-@@ -383,7 +383,7 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
- 	return 0;
- }
- 
--#endif /* CONFIG_DCA or CONFIG_DCA_MODULE */
-+#endif /* CONFIG_IXGBE_DCA */
- /**
-  * ixgbe_receive_skb - Send a completed packet up the stack
-  * @adapter: board private structure
-@@ -947,7 +947,7 @@ static irqreturn_t ixgbe_msix_clean_tx(int irq, void *data)
- 	r_idx = find_first_bit(q_vector->txr_idx, adapter->num_tx_queues);
- 	for (i = 0; i < q_vector->txr_count; i++) {
- 		tx_ring = &(adapter->tx_ring[r_idx]);
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 		if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
- 			ixgbe_update_tx_dca(adapter, tx_ring);
- #endif
-@@ -1022,7 +1022,7 @@ static int ixgbe_clean_rxonly(struct napi_struct *napi, int budget)
- 
- 	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
- 	rx_ring = &(adapter->rx_ring[r_idx]);
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
- 		ixgbe_update_rx_dca(adapter, rx_ring);
- #endif
-@@ -1066,7 +1066,7 @@ static int ixgbe_clean_rxonly_many(struct napi_struct *napi, int budget)
- 	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
- 	for (i = 0; i < q_vector->rxr_count; i++) {
- 		rx_ring = &(adapter->rx_ring[r_idx]);
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 		if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
- 			ixgbe_update_rx_dca(adapter, rx_ring);
- #endif
-@@ -2155,7 +2155,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 
- 	netif_carrier_off(netdev);
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED) {
- 		adapter->flags &= ~IXGBE_FLAG_DCA_ENABLED;
- 		dca_remove_requester(&adapter->pdev->dev);
-@@ -2167,7 +2167,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	ixgbe_clean_all_tx_rings(adapter);
- 	ixgbe_clean_all_rx_rings(adapter);
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	/* since we reset the hardware DCA settings were cleared */
- 	if (dca_add_requester(&adapter->pdev->dev) == 0) {
- 		adapter->flags |= IXGBE_FLAG_DCA_ENABLED;
-@@ -2193,7 +2193,7 @@ static int ixgbe_poll(struct napi_struct *napi, int budget)
- 	struct ixgbe_adapter *adapter = q_vector->adapter;
- 	int tx_cleaned, work_done = 0;
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED) {
- 		ixgbe_update_tx_dca(adapter, adapter->tx_ring);
- 		ixgbe_update_rx_dca(adapter, adapter->rx_ring);
-@@ -3922,7 +3922,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_register;
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	if (dca_add_requester(&pdev->dev) == 0) {
- 		adapter->flags |= IXGBE_FLAG_DCA_ENABLED;
- 		/* always use CB2 mode, difference is masked
-@@ -3972,7 +3972,7 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
- 
- 	flush_scheduled_work();
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED) {
- 		adapter->flags &= ~IXGBE_FLAG_DCA_ENABLED;
- 		dca_remove_requester(&pdev->dev);
-@@ -4105,10 +4105,10 @@ static int __init ixgbe_init_module(void)
- 
- 	printk(KERN_INFO "%s: %s\n", ixgbe_driver_name, ixgbe_copyright);
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	dca_register_notify(&dca_notifier);
--
- #endif
-+
- 	ret = pci_register_driver(&ixgbe_driver);
- 	return ret;
- }
-@@ -4123,13 +4123,13 @@ module_init(ixgbe_init_module);
-  **/
- static void __exit ixgbe_exit_module(void)
- {
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- 	dca_unregister_notify(&dca_notifier);
- #endif
- 	pci_unregister_driver(&ixgbe_driver);
- }
- 
--#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-+#ifdef CONFIG_IXGBE_DCA
- static int ixgbe_notify_dca(struct notifier_block *nb, unsigned long event,
-                             void *p)
- {
-@@ -4140,7 +4140,7 @@ static int ixgbe_notify_dca(struct notifier_block *nb, unsigned long event,
- 
- 	return ret_val ? NOTIFY_BAD : NOTIFY_DONE;
- }
--#endif /* CONFIG_DCA or CONFIG_DCA_MODULE */
-+#endif /* CONFIG_IXGBE_DCA */
- 
- module_exit(ixgbe_exit_module);
- 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index 6dce901..a9aebad 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -188,7 +188,7 @@ struct myri10ge_slice_state {
- 	dma_addr_t fw_stats_bus;
- 	int watchdog_tx_done;
- 	int watchdog_tx_req;
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	int cached_dca_tag;
- 	int cpu;
- 	__be32 __iomem *dca_tag;
-@@ -220,7 +220,7 @@ struct myri10ge_priv {
- 	int msi_enabled;
- 	int msix_enabled;
- 	struct msix_entry *msix_vectors;
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	int dca_enabled;
- #endif
- 	u32 link_state;
-@@ -902,7 +902,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
- 	struct myri10ge_slice_state *ss;
- 	int i, status;
- 	size_t bytes;
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	unsigned long dca_tag_off;
- #endif
- 
-@@ -1012,7 +1012,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
- 	}
- 	put_be32(htonl(mgp->intr_coal_delay), mgp->intr_coal_delay_ptr);
- 
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_DCA_OFFSET, &cmd, 0);
- 	dca_tag_off = cmd.data0;
- 	for (i = 0; i < mgp->num_slices; i++) {
-@@ -1051,7 +1051,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
- 	return status;
- }
- 
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- static void
- myri10ge_write_dca(struct myri10ge_slice_state *ss, int cpu, int tag)
- {
-@@ -1505,7 +1505,7 @@ static int myri10ge_poll(struct napi_struct *napi, int budget)
- 	struct net_device *netdev = ss->mgp->dev;
- 	int work_done;
- 
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	if (ss->mgp->dca_enabled)
- 		myri10ge_update_dca(ss);
- #endif
-@@ -1736,7 +1736,7 @@ static const char myri10ge_gstrings_main_stats[][ETH_GSTRING_LEN] = {
- 	"tx_boundary", "WC", "irq", "MSI", "MSIX",
- 	"read_dma_bw_MBs", "write_dma_bw_MBs", "read_write_dma_bw_MBs",
- 	"serial_number", "watchdog_resets",
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	"dca_capable_firmware", "dca_device_present",
- #endif
- 	"link_changes", "link_up", "dropped_link_overflow",
-@@ -1815,7 +1815,7 @@ myri10ge_get_ethtool_stats(struct net_device *netdev,
- 	data[i++] = (unsigned int)mgp->read_write_dma;
- 	data[i++] = (unsigned int)mgp->serial_number;
- 	data[i++] = (unsigned int)mgp->watchdog_resets;
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	data[i++] = (unsigned int)(mgp->ss[0].dca_tag != NULL);
- 	data[i++] = (unsigned int)(mgp->dca_enabled);
- #endif
-@@ -3844,7 +3844,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev_err(&pdev->dev, "failed reset\n");
- 		goto abort_with_slices;
- 	}
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	myri10ge_setup_dca(mgp);
- #endif
- 	pci_set_drvdata(pdev, mgp);
-@@ -3948,7 +3948,7 @@ static void myri10ge_remove(struct pci_dev *pdev)
- 	netdev = mgp->dev;
- 	unregister_netdev(netdev);
- 
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	myri10ge_teardown_dca(mgp);
- #endif
- 	myri10ge_dummy_rdma(mgp, 0);
-@@ -3993,7 +3993,7 @@ static struct pci_driver myri10ge_driver = {
- #endif
- };
- 
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- static int
- myri10ge_notify_dca(struct notifier_block *nb, unsigned long event, void *p)
- {
-@@ -4024,7 +4024,7 @@ static __init int myri10ge_init_module(void)
- 		       myri10ge_driver.name, myri10ge_rss_hash);
- 		myri10ge_rss_hash = MXGEFW_RSS_HASH_TYPE_SRC_PORT;
- 	}
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	dca_register_notify(&myri10ge_dca_notifier);
- #endif
- 	if (myri10ge_max_slices > MYRI10GE_MAX_SLICES)
-@@ -4037,7 +4037,7 @@ module_init(myri10ge_init_module);
- 
- static __exit void myri10ge_cleanup_module(void)
- {
--#if (defined CONFIG_DCA) || (defined CONFIG_DCA_MODULE)
-+#ifdef CONFIG_MYRI10GE_DCA
- 	dca_unregister_notify(&myri10ge_dca_notifier);
- #endif
- 	pci_unregister_driver(&myri10ge_driver);
-diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
-index e8f55d8..9b8f793 100644
---- a/drivers/net/pcmcia/Kconfig
-+++ b/drivers/net/pcmcia/Kconfig
-@@ -111,7 +111,7 @@ config ARCNET_COM20020_CS
- 
- config PCMCIA_IBMTR
- 	tristate "IBM PCMCIA tokenring adapter support"
--	depends on IBMTR!=y && TR && !64BIT
-+	depends on IBMTR!=y && TR
- 	help
- 	  Say Y here if you intend to attach this type of Token Ring PCMCIA
- 	  card to your computer. You then also need to say Y to "Token Ring
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index f80640f..d7bb63e 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -122,7 +122,6 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-      * Most functions mess with the structure
-      * Disable interrupts while we do the polling
-      */
--    spin_lock_irqsave(&sc->lmc_lock, flags);
- 
-     switch (cmd) {
-         /*
-@@ -152,6 +151,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		break;
- 	}
- 
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         sc->lmc_media->set_status (sc, &ctl);
- 
-         if(ctl.crc_length != sc->ictl.crc_length) {
-@@ -161,6 +161,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 	    else
- 		sc->TxDescriptControlInit &= ~LMC_TDES_ADD_CRC_DISABLE;
-         }
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-         ret = 0;
-         break;
-@@ -187,15 +188,18 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		break;				/* no change */
-             }
-             
-+	    spin_lock_irqsave(&sc->lmc_lock, flags);
-             lmc_proto_close(sc);
- 
-             sc->if_type = new_type;
-             lmc_proto_attach(sc);
- 	    ret = lmc_proto_open(sc);
-+	    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 	    break;
- 	}
- 
-     case LMCIOCGETXINFO: /*fold01*/
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         sc->lmc_xinfo.Magic0 = 0xBEEFCAFE;
- 
-         sc->lmc_xinfo.PciCardType = sc->lmc_cardtype;
-@@ -208,6 +212,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-         sc->lmc_xinfo.MaxFrameSize = LMC_PKT_BUF_SZ;
-         sc->lmc_xinfo.link_status = sc->lmc_media->get_link_status (sc);
-         sc->lmc_xinfo.mii_reg16 = lmc_mii_readreg (sc, 0, 16);
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-         sc->lmc_xinfo.Magic1 = 0xDEADBEEF;
- 
-@@ -220,6 +225,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-         break;
- 
-     case LMCIOCGETLMCSTATS:
-+	    spin_lock_irqsave(&sc->lmc_lock, flags);
- 	    if (sc->lmc_cardtype == LMC_CARDTYPE_T1) {
- 		    lmc_mii_writereg(sc, 0, 17, T1FRAMER_FERR_LSB);
- 		    sc->extra_stats.framingBitErrorCount +=
-@@ -243,6 +249,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		    sc->extra_stats.severelyErroredFrameCount +=
- 			    regVal & T1FRAMER_SEF_MASK;
- 	    }
-+	    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 	    if (copy_to_user(ifr->ifr_data, &sc->lmc_device->stats,
- 			     sizeof(sc->lmc_device->stats)) ||
- 		copy_to_user(ifr->ifr_data + sizeof(sc->lmc_device->stats),
-@@ -258,12 +265,14 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		    break;
- 	    }
- 
-+	    spin_lock_irqsave(&sc->lmc_lock, flags);
- 	    memset(&sc->lmc_device->stats, 0, sizeof(sc->lmc_device->stats));
- 	    memset(&sc->extra_stats, 0, sizeof(sc->extra_stats));
- 	    sc->extra_stats.check = STATCHECK;
- 	    sc->extra_stats.version_size = (DRIVER_VERSION << 16) +
- 		    sizeof(sc->lmc_device->stats) + sizeof(sc->extra_stats);
- 	    sc->extra_stats.lmc_cardtype = sc->lmc_cardtype;
-+	    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 	    ret = 0;
- 	    break;
- 
-@@ -282,8 +291,10 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 		ret = -EFAULT;
- 		break;
- 	}
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         sc->lmc_media->set_circuit_type(sc, ctl.circuit_type);
-         sc->ictl.circuit_type = ctl.circuit_type;
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
-         ret = 0;
- 
-         break;
-@@ -294,12 +305,14 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-             break;
-         }
- 
-+	spin_lock_irqsave(&sc->lmc_lock, flags);
-         /* Reset driver and bring back to current state */
-         printk (" REG16 before reset +%04x\n", lmc_mii_readreg (sc, 0, 16));
-         lmc_running_reset (dev);
-         printk (" REG16 after reset +%04x\n", lmc_mii_readreg (sc, 0, 16));
- 
-         LMC_EVENT_LOG(LMC_EVENT_FORCEDRESET, LMC_CSR_READ (sc, csr_status), lmc_mii_readreg (sc, 0, 16));
-+	spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-         ret = 0;
-         break;
-@@ -338,14 +351,15 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-              */
-             netif_stop_queue(dev);
- 
--	if (copy_from_user(&xc, ifr->ifr_data, sizeof(struct lmc_xilinx_control))) {
-+	    if (copy_from_user(&xc, ifr->ifr_data, sizeof(struct lmc_xilinx_control))) {
- 		ret = -EFAULT;
- 		break;
--	}
-+	    }
-             switch(xc.command){
-             case lmc_xilinx_reset: /*fold02*/
-                 {
-                     u16 mii;
-+		    spin_lock_irqsave(&sc->lmc_lock, flags);
-                     mii = lmc_mii_readreg (sc, 0, 16);
- 
-                     /*
-@@ -404,6 +418,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                             lmc_led_off(sc, LMC_DS3_LED2);
-                         }
-                     }
-+		    spin_unlock_irqrestore(&sc->lmc_lock, flags);
-                     
-                     
- 
-@@ -416,6 +431,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                 {
-                     u16 mii;
-                     int timeout = 500000;
-+		    spin_lock_irqsave(&sc->lmc_lock, flags);
-                     mii = lmc_mii_readreg (sc, 0, 16);
- 
-                     /*
-@@ -451,13 +467,14 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                      */
-                     while( (LMC_CSR_READ(sc, csr_gp) & LMC_GEP_INIT) == 0 &&
-                            (timeout-- > 0))
--                        ;
-+                        cpu_relax();
- 
- 
-                     /*
-                      * stop driving Xilinx-related signals
-                      */
-                     lmc_gpio_mkinput(sc, 0xff);
-+		    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-                     ret = 0x0;
-                     
-@@ -493,6 +510,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 
-                     printk("%s: Starting load of data Len: %d at 0x%p == 0x%p\n", dev->name, xc.len, xc.data, data);
- 
-+		    spin_lock_irqsave(&sc->lmc_lock, flags);
-                     lmc_gpio_mkinput(sc, 0xff);
- 
-                     /*
-@@ -545,7 +563,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-                      */
-                     while( (LMC_CSR_READ(sc, csr_gp) & LMC_GEP_INIT) == 0 &&
-                            (timeout-- > 0))
--                        ;
-+                        cpu_relax();
- 
-                     printk(KERN_DEBUG "%s: Waited %d for the Xilinx to clear it's memory\n", dev->name, 500000-timeout);
- 
-@@ -588,6 +606,7 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
- 
-                     sc->lmc_miireg16 &= ~LMC_MII16_FIFO_RESET;
-                     lmc_mii_writereg(sc, 0, 16, sc->lmc_miireg16);
-+		    spin_unlock_irqrestore(&sc->lmc_lock, flags);
- 
-                     kfree(data);
-                     
-@@ -611,8 +630,6 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
-         break;
-     }
- 
--    spin_unlock_irqrestore(&sc->lmc_lock, flags); /*fold01*/
--
-     lmc_trace(dev, "lmc_ioctl out");
- 
-     return ret;
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index c749bdb..9ffe743 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -239,11 +239,14 @@ static void xennet_alloc_rx_buffers(struct net_device *dev)
- 	 */
- 	batch_target = np->rx_target - (req_prod - np->rx.rsp_cons);
- 	for (i = skb_queue_len(&np->rx_batch); i < batch_target; i++) {
--		skb = __netdev_alloc_skb(dev, RX_COPY_THRESHOLD,
-+		skb = __netdev_alloc_skb(dev, RX_COPY_THRESHOLD + NET_IP_ALIGN,
- 					 GFP_ATOMIC | __GFP_NOWARN);
- 		if (unlikely(!skb))
- 			goto no_skb;
- 
-+		/* Align ip header to a 16 bytes boundary */
-+		skb_reserve(skb, NET_IP_ALIGN);
-+
- 		page = alloc_page(GFP_ATOMIC | __GFP_NOWARN);
- 		if (!page) {
- 			kfree_skb(skb);
+A few examples:
+On the internal client:
+//Works
+$ ping -M do -s 1414 203.109.246.49 -c 1 -n
+PING (203.109.246.49) 1414(1442) bytes of data.
+1422 bytes from 203.109.246.49 icmp_seq=1 ttl=53 time=90.6 ms
+
+--- qvr.co.nz ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 90.661/90.661/90.661/0.000 ms
+
+//Doesn't
+$ ping -M do -s 1415 203.109.246.49 -c 1
+PING qvr.co.nz (203.109.246.49) 1415(1443) bytes of data.
+
+--- qvr.co.nz ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+On the router (eth1 is the internal interface, hence why its not
+encrypted, eth0 is rather boring):
+$ tcpdump -i eth1 -n icmp
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
+22:10:01.986871 IP 10.42.0.11 > 203.109.246.49: ICMP echo request, id
+10090, seq 1, length 1422
+22:10:02.073945 IP 203.109.246.49 > 10.42.0.11: ICMP echo reply, id
+10090, seq 1, length 1422
+
+22:10:12.540799 IP 10.42.0.11 > 203.109.246.49: ICMP echo request, id
+53609, seq 1, length 1423
+^C
+
+$ tail /var/log/kern.log -n 1
+Oct 16 22:10:12 cerberus kernel: [4903404.569127] pmtu discovery on SA
+ESP/0d317d2d/cb6df631
+
+
+
+For further info if needed:
+Tunnels are set up using openswan in transport mode, using NETKEY
+OpenSwan 2.4.9
+Running 2.6.26 stock standard.
+
+# ip xfrm state
+src 203.109.246.49 dst 121.98.166.152
+    proto esp spi 0x192bd540 reqid 16385 mode transport
+    replay-window 32
+    auth hmac(sha1) 0x4ccf..........
+    enc cbc(aes) 0x480c.........
+    sel src 0.0.0.0/0 dst 0.0.0.0/0
+src 121.98.166.152 dst 203.109.246.49
+    proto esp spi 0xc32a08e0 reqid 16385 mode transport
+    replay-window 32
+    auth hmac(sha1) 0x1cf8............
+    enc cbc(aes) 0xdbb1..........
+    sel src 0.0.0.0/0 dst 0.0.0.0/0
+src 203.109.246.49 dst 121.98.166.152
+    proto esp spi 0xf0fb36d4 reqid 16385 mode transport
+    replay-window 32
+    auth hmac(sha1) 0x1c47.......
+    enc cbc(aes) 0x499............
+    sel src 0.0.0.0/0 dst 0.0.0.0/0
+src 121.98.166.152 dst 203.109.246.49
+    proto esp spi 0x0d317d2d reqid 16385 mode transport
+    replay-window 32
+    auth hmac(sha1) 0x5fbd..........
+    enc cbc(aes) 0x1564............
+    sel src 0.0.0.0/0 dst 0.0.0.0/0
+
+
+I can also give full network diagrams, etc, if required.
+
+
+Thanks,
+
+Nick
+
