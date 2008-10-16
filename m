@@ -1,142 +1,104 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH 2/6] pkt_sched: Add ->peek() methods for fifo, prio and SFQ
-	qdiscs.
-Date: Thu, 16 Oct 2008 09:47:26 +0000
-Message-ID: <20081016094726.GC19019@ff.dom.local>
+Subject: [PATCH 3/6] pkt_sched: sch_generic: Add generic qdisc->ops->peek()
+	implementation.
+Date: Thu, 16 Oct 2008 09:47:48 +0000
+Message-ID: <20081016094748.GD19019@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:44142 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753816AbYJPJrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 05:47:33 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1473854nfc.21
-        for <netdev@vger.kernel.org>; Thu, 16 Oct 2008 02:47:31 -0700 (PDT)
+Received: from ey-out-2122.google.com ([74.125.78.26]:27586 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752942AbYJPJrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 05:47:55 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so1152801eyi.37
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2008 02:47:53 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-
-Just as a demonstration how easy adding a peek operation to the
-work-conserving qdiscs actually is. It doesn't need to keep or change
-any internal state in many cases thanks to the guarantee that the
-packet will either be dequeued or, if another packet arrives, the
-upper qdisc will immediately ->peek again to reevaluate the state.
-
-(This is only slightly modified Patrick's patch.)
+pkt_sched: sch_generic: Add generic qdisc->ops->peek() implementation.
 
 Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
- include/net/sch_generic.h |    5 +++++
- net/sched/sch_fifo.c      |    2 ++
- net/sched/sch_prio.c      |   14 ++++++++++++++
- net/sched/sch_sfq.c       |   12 ++++++++++++
- 4 files changed, 33 insertions(+), 0 deletions(-)
+ net/sched/sch_api.c     |    6 ++++++
+ net/sched/sch_generic.c |   16 ++++++++++++++++
+ 2 files changed, 22 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index f81f7c4..da6839a 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -433,6 +433,11 @@ static inline struct sk_buff *qdisc_dequeue_tail(struct Qdisc *sch)
- 	return __qdisc_dequeue_tail(sch, &sch->q);
- }
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 1122c95..6cdc4e0 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -102,6 +102,10 @@ static int tclass_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+    requeues once dequeued packet. It is used for non-standard or
+    just buggy devices, which can defer output even if netif_queue_stopped()=0.
  
-+static inline struct sk_buff *qdisc_peek_head(struct Qdisc *sch)
-+{
-+	return skb_peek(&sch->q);
-+}
++   ---peek
 +
- static inline int __qdisc_requeue(struct sk_buff *skb, struct Qdisc *sch,
- 				  struct sk_buff_head *list)
- {
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index 23d258b..8825e88 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -83,6 +83,7 @@ struct Qdisc_ops pfifo_qdisc_ops __read_mostly = {
- 	.priv_size	=	sizeof(struct fifo_sched_data),
- 	.enqueue	=	pfifo_enqueue,
- 	.dequeue	=	qdisc_dequeue_head,
-+	.peek		=	qdisc_peek_head,
- 	.requeue	=	qdisc_requeue,
- 	.drop		=	qdisc_queue_drop,
- 	.init		=	fifo_init,
-@@ -98,6 +99,7 @@ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
- 	.priv_size	=	sizeof(struct fifo_sched_data),
- 	.enqueue	=	bfifo_enqueue,
- 	.dequeue	=	qdisc_dequeue_head,
-+	.peek		=	qdisc_peek_head,
- 	.requeue	=	qdisc_requeue,
- 	.drop		=	qdisc_queue_drop,
- 	.init		=	fifo_init,
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 504a78c..3651da3 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -120,6 +120,19 @@ prio_requeue(struct sk_buff *skb, struct Qdisc* sch)
- 	return ret;
++   like dequeue but without removing a packet from the queue
++
+    ---reset
+ 
+    returns qdisc to initial state: purge all buffers, clear all
+@@ -149,6 +153,8 @@ int register_qdisc(struct Qdisc_ops *qops)
+ 		qops->enqueue = noop_qdisc_ops.enqueue;
+ 	if (qops->requeue == NULL)
+ 		qops->requeue = noop_qdisc_ops.requeue;
++	if (qops->peek == NULL)
++		qops->peek = noop_qdisc_ops.peek;
+ 	if (qops->dequeue == NULL)
+ 		qops->dequeue = noop_qdisc_ops.dequeue;
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 7b5572d..ccf7e04 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -320,6 +320,7 @@ struct Qdisc_ops noop_qdisc_ops __read_mostly = {
+ 	.priv_size	=	0,
+ 	.enqueue	=	noop_enqueue,
+ 	.dequeue	=	noop_dequeue,
++	.peek		=	noop_dequeue,
+ 	.requeue	=	noop_requeue,
+ 	.owner		=	THIS_MODULE,
+ };
+@@ -345,6 +346,7 @@ static struct Qdisc_ops noqueue_qdisc_ops __read_mostly = {
+ 	.priv_size	=	0,
+ 	.enqueue	=	noop_enqueue,
+ 	.dequeue	=	noop_dequeue,
++	.peek		=	noop_dequeue,
+ 	.requeue	=	noop_requeue,
+ 	.owner		=	THIS_MODULE,
+ };
+@@ -409,6 +411,19 @@ static struct sk_buff *pfifo_fast_dequeue(struct Qdisc* qdisc)
+ 	return NULL;
  }
  
-+static struct sk_buff *prio_peek(struct Qdisc *sch)
++static struct sk_buff *pfifo_fast_peek(struct Qdisc* qdisc)
 +{
-+	struct prio_sched_data *q = qdisc_priv(sch);
 +	int prio;
++	struct sk_buff_head *list = qdisc_priv(qdisc);
 +
-+	for (prio = 0; prio < q->bands; prio++) {
-+		struct Qdisc *qdisc = q->queues[prio];
-+		struct sk_buff *skb = qdisc->ops->peek(qdisc);
-+		if (skb)
-+			return skb;
++	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++) {
++		if (!skb_queue_empty(list + prio))
++			return skb_peek(list + prio);
 +	}
++
 +	return NULL;
 +}
- 
- static struct sk_buff *prio_dequeue(struct Qdisc* sch)
++
+ static int pfifo_fast_requeue(struct sk_buff *skb, struct Qdisc* qdisc)
  {
-@@ -421,6 +434,7 @@ static struct Qdisc_ops prio_qdisc_ops __read_mostly = {
- 	.priv_size	=	sizeof(struct prio_sched_data),
- 	.enqueue	=	prio_enqueue,
- 	.dequeue	=	prio_dequeue,
-+	.peek		=	prio_peek,
- 	.requeue	=	prio_requeue,
- 	.drop		=	prio_drop,
- 	.init		=	prio_init,
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index fe1508e..198b83d 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -391,8 +391,19 @@ sfq_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 	return NET_XMIT_CN;
- }
- 
-+static struct sk_buff *
-+sfq_peek(struct Qdisc *sch)
-+{
-+	struct sfq_sched_data *q = qdisc_priv(sch);
-+	sfq_index a;
- 
-+	/* No active slots */
-+	if (q->tail == SFQ_DEPTH)
-+		return NULL;
- 
-+	a = q->next[q->tail];
-+	return skb_peek(&q->qs[a]);
-+}
- 
- static struct sk_buff *
- sfq_dequeue(struct Qdisc *sch)
-@@ -624,6 +635,7 @@ static struct Qdisc_ops sfq_qdisc_ops __read_mostly = {
- 	.priv_size	=	sizeof(struct sfq_sched_data),
- 	.enqueue	=	sfq_enqueue,
- 	.dequeue	=	sfq_dequeue,
-+	.peek		=	sfq_peek,
- 	.requeue	=	sfq_requeue,
- 	.drop		=	sfq_drop,
- 	.init		=	sfq_init,
+ 	qdisc->q.qlen++;
+@@ -455,6 +470,7 @@ static struct Qdisc_ops pfifo_fast_ops __read_mostly = {
+ 	.priv_size	=	PFIFO_FAST_BANDS * sizeof(struct sk_buff_head),
+ 	.enqueue	=	pfifo_fast_enqueue,
+ 	.dequeue	=	pfifo_fast_dequeue,
++	.peek		=	pfifo_fast_peek,
+ 	.requeue	=	pfifo_fast_requeue,
+ 	.init		=	pfifo_fast_init,
+ 	.reset		=	pfifo_fast_reset,
 -- 
 1.5.6.5
 
