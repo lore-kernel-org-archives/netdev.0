@@ -1,61 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: powerpc allmodconfig
-Date: Thu, 16 Oct 2008 12:49:23 -0700 (PDT)
-Message-ID: <20081016.124923.222595655.davem@davemloft.net>
-References: <20081015213337.a99a9595.akpm@linux-foundation.org>
-	<20081015.220247.262683261.davem@davemloft.net>
-	<1224169039.735.57.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Remove CONFIG_KMOD from net/ (towards removing
+ CONFIG_KMOD entirely)
+Date: Thu, 16 Oct 2008 12:50:46 -0700 (PDT)
+Message-ID: <20081016.125046.208151275.davem@davemloft.net>
+References: <200810170237.10755.rusty@rustcorp.com.au>
+	<48F761C2.4020800@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tiwai-l3A5Bk7waGM@public.gmane.org,
-	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, mark.fasheh-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1224169039.735.57.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: rusty@rustcorp.com.au, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41981
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753778AbYJPTvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 15:51:09 -0400
+In-Reply-To: <48F761C2.4020800@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Thu, 16 Oct 2008 16:57:19 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 16 Oct 2008 17:46:10 +0200
 
-> On Wed, 2008-10-15 at 22:02 -0700, David Miller wrote:
-> > 
-> > 
-> > > net/sched/sch_generic.c: In function 'dev_watchdog':
-> > > net/sched/sch_generic.c:224: warning: unused variable 'drivername'
-> > 
-> > Sucky, if WARN_ONCE() evaluates to nothing the sprintf() string buffer
-> > on the stack looks unused.
+> Rusty Russell wrote:
+> > Date: Wed, 09 Jul 2008 10:28:42 +0200
+> > From: Johannes Berg <johannes@sipsolutions.net>
+> > Some code here depends on CONFIG_KMOD to not try to load
+> > protocol modules or similar, replace by CONFIG_MODULES
+> > where more than just request_module depends on CONFIG_KMOD
+> > and and also use try_then_request_module in ebtables.
+> > net/netfilter/nfnetlink.c       |    2 +-
 > 
-> I've complained about this to Arjan before, we actually lose all
-> messages passed to WARN() or WARN_ONCE() on platforms that use bug traps
-> for warnings too.
+> There's a new one in net/netfilter/nf_conntrack_netlink.c
+> that is so far only in net-2.6.git, but I assume will be
+> merged upstream shortly.
 
-Ok I see how that works, yes, it should be fixed.
+It has been merged :)
 
-If the platform defines a __WARN (which powerpc does) the
-whole format string and printf args go unevaluated, it's
-because of the following sequence in asm-generic/bug.h:
-
-#ifndef __WARN
-#ifndef __ASSEMBLY__
-extern void warn_on_slowpath(const char *file, const int line);
-extern void warn_slowpath(const char *file, const int line,
-		const char *fmt, ...) __attribute__((format(printf, 3, 4)));
-#define WANT_WARN_ON_SLOWPATH
-#endif
-#define __WARN() warn_on_slowpath(__FILE__, __LINE__)
-#define __WARN_printf(arg...) warn_slowpath(__FILE__, __LINE__, arg)
-#else
-#define __WARN_printf(arg...) __WARN()
-#endif
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Someone send me a patch to kill it off, it's no big deal.
