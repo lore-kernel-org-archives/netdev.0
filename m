@@ -1,34 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 00/14]: Killing qdisc->ops->requeue().
-Date: Tue, 14 Oct 2008 21:15:54 +0200
-Message-ID: <20081014191554.GA2953@ami.dom.local>
-References: <20081014095246.GA10804@ff.dom.local> <48F4CBBA.7070004@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Bryan Wu <cooloney@kernel.org>
+Subject: [PATCH 1/1] netdev: DM9000: remove BLACKFIN hacking in DM9000 netdev driver
+Date: Fri, 17 Oct 2008 01:40:44 +0800
+Message-ID: <1224178844-12496-1-git-send-email-cooloney@kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Bryan Wu <cooloney@kernel.org>
+To: ben@simtec.co.uk, davem@davemloft.net, vapier.adi@gmail.com,
+	shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:50046 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751472AbYJNTOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2008 15:14:47 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1743647fgg.17
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2008 12:14:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <48F4CBBA.7070004@intel.com>
+Received: from ti-out-0910.google.com ([209.85.142.184]:17118 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457AbYJPRkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2008 13:40:16 -0400
+Received: by ti-out-0910.google.com with SMTP id b6so48966tic.23
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2008 10:40:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 14, 2008 at 09:41:30AM -0700, Alexander Duyck wrote:
-...
-> I think if anything it seems like you guys actually found the cpu  
-> performance issue a while back in the fact that the dev_requeue_skb was  
-> calling __netif_schedule when requeuing on a stopped queue.  That is the  
-> one piece I would say needs to be changed so that you only call  
-> __netif_schedule if the skb is not going to a stopped queue.
+remove integer casting in the read/write IO accessors,
+because Blackfin now provides those functions
 
-BTW, since one of the other "dreams" of killing requeuing failed, I
-think this proposal is worth checking, but David was concerned about
-some issues with buggy drivers after __netif_schedule() removing.
+Tested-by: Javier Herrero <jherrero@hvsistemas.es>
+Signed-off-by: Bryan Wu <cooloney@kernel.org>
+---
+ drivers/net/dm9000.c |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
 
-Jarek P.
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index f42c23f..5a9083e 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -47,15 +47,6 @@
+ #define CARDNAME	"dm9000"
+ #define DRV_VERSION	"1.31"
+ 
+-#ifdef CONFIG_BLACKFIN
+-#define readsb	insb
+-#define readsw	insw
+-#define readsl	insl
+-#define writesb	outsb
+-#define writesw	outsw
+-#define writesl	outsl
+-#endif
+-
+ /*
+  * Transmit timeout, default 5 seconds.
+  */
+-- 
+1.5.6
+
