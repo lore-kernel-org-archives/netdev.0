@@ -1,37 +1,26 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: powerpc allmodconfig
-Date: Thu, 16 Oct 2008 15:56:50 +1100
-Message-ID: <1224133010.8157.543.camel@pasglop>
+Date: Wed, 15 Oct 2008 22:02:47 -0700 (PDT)
+Message-ID: <20081015.220247.262683261.davem@davemloft.net>
 References: <20081015213337.a99a9595.akpm@linux-foundation.org>
-Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>, marek.vasut@gmail.com,
-	Takashi Iwai <tiwai@suse.de>, netdev@vger.kernel.org,
+Cc: dan.j.williams@intel.com, tiwai@suse.de,
+	linux-ext4@vger.kernel.org, netdev@vger.kernel.org,
+	linux-ide@vger.kernel.org, bzolnier@gmail.com,
+	marek.vasut@gmail.com, dwmw2@infradead.org, mark.fasheh@oracle.com,
+	ralf@linux-mips.org, mchehab@infradead.org,
 	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Mark Fasheh <mark.fasheh@oracle.com>, linuxppc-dev@ozlabs.org,
-	linux-ide@vger.kernel.org, Dan Williams <dan.j.williams@intel.com>,
-	linux-ext4@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+	linuxppc-dev@ozlabs.org
+To: akpm@linux-foundation.org
+Return-path: <linux-ide-owner@vger.kernel.org>
 In-Reply-To: <20081015213337.a99a9595.akpm@linux-foundation.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some comments for some of these...
-
-On Wed, 2008-10-15 at 21:33 -0700, Andrew Morton wrote:
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 15 Oct 2008 21:33:37 -0700
 
 > kernel/resource.c: In function '__reserve_region_with_split':
 > kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 3 has type 'resource_size_t'
@@ -39,8 +28,14 @@ On Wed, 2008-10-15 at 21:33 -0700, Andrew Morton wrote:
 > kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 6 has type 'resource_size_t'
 > kernel/resource.c:554: warning: format '%llx' expects type 'long long unsigned int', but argument 7 has type 'resource_size_t'
 
-This is a generic code bug, I sent a patch for it a day or two ago. (ie
-those are real bugs on 32-bit resource_size_t)
+Known issue, Ben wants to add a new variant of %pX in order to print resources so that
+resource_size_t vs. unsigned long stuff doesn't matter like this any more.
+
+> net/dccp/options.c: In function 'dccp_parse_options':
+> net/dccp/options.c:67: warning: 'value' may be used uninitialized in this function
+
+Known issue, not trivial to fix, gcc is just being incredibly silly here as it
+can't see all of the control flow.
 
 > drivers/dma/ioat_dca.c: In function 'dca_enabled_in_bios':
 > drivers/dma/ioat_dca.c:81: error: implicit declaration of function 'cpuid_eax'
@@ -52,39 +47,17 @@ those are real bugs on 32-bit resource_size_t)
 > drivers/dma/ioat_dca.c: In function 'ioat_dca_get_tag':
 > drivers/dma/ioat_dca.c:190: error: implicit declaration of function 'cpu_physical_id'
 
-Looks like this driver should depend on X86 :-)
+Known issue.  I tried to ping Jeff Garzik about doing a driver bug fix run in
+order to fix this, but he hasn't shown any signs of life.
 
-> fs/ext4/balloc.c: In function 'ext4_claim_free_blocks':
-> fs/ext4/balloc.c:607: warning: format '%lld' expects type 'long long int', but argument 2 has type 's64'
-> fs/ext4/inode.c: In function 'ext4_print_free_blocks':
-> fs/ext4/inode.c:1822: warning: format '%lld' expects type 'long long int', but argument 2 has type 's64'
-> fs/ext4/inode.c:1824: warning: format '%lld' expects type 'long long int', but argument 2 has type 's64'
+So I'll do it myself later tonight. :-/
 
-The above are unfortunate but at least aren't bugs per-se, just
-annoying. Should be fixable with casts. Ted ?
+> net/sched/sch_generic.c: In function 'dev_watchdog':
+> net/sched/sch_generic.c:224: warning: unused variable 'drivername'
 
-> net/mac80211/rc80211_minstrel_debugfs.c: In function 'minstrel_stats_open':
-> net/mac80211/rc80211_minstrel_debugfs.c:98: warning: format '%8llu' expects type 'long long unsigned int', but argument 11 has type 'u64'
-> net/mac80211/rc80211_minstrel_debugfs.c:98: warning: format '%8llu' expects type 'long long unsigned int', but argument 12 has type 'u64'
-> net/mac80211/rc80211_minstrel_debugfs.c:98: warning: format '%8llu' expects type 'long long unsigned int', but argument 11 has type 'u64'
-> net/mac80211/rc80211_minstrel_debugfs.c:98: warning: format '%8llu' expects type 'long long unsigned int', but argument 12 has type 'u64'
-> net/mac80211/rc80211_minstrel_debugfs.c: At top level:
-> net/mac80211/rc80211_minstrel_debugfs.c:145: warning: initialization from incompatible pointer type
+Sucky, if WARN_ONCE() evaluates to nothing the sprintf() string buffer
+on the stack looks unused.
 
-Same.
-
-> fs/ocfs2/xattr.c: In function 'ocfs2_xattr_index_block_find':
-> fs/ocfs2/xattr.c:2400: warning: format '%llu' expects type 'long long unsigned int', but argument 7 has type 'u64'
-> fs/ocfs2/xattr.c:2400: warning: format '%llu' expects type 'long long unsigned int', but argument 7 has type 'u64'
-
- .../...
-
-same
-
-> 
-> sound/pci/hda/patch_sigmatel.c: In function 'stac92xx_parse_auto_config':
-> sound/pci/hda/patch_sigmatel.c:2819: warning: 'nid' may be used uninitialized in this function
-> 
 > drivers/rtc/rtc-ds1286.c: In function 'ds1286_rtc_read':
 > drivers/rtc/rtc-ds1286.c:33: error: implicit declaration of function '__raw_readl'
 > drivers/rtc/rtc-ds1286.c: In function 'ds1286_rtc_write':
@@ -93,9 +66,8 @@ same
 > drivers/rtc/rtc-ds1286.c:345: error: implicit declaration of function 'ioremap'
 > drivers/rtc/rtc-ds1286.c:345: warning: assignment makes pointer from integer without a cast
 > drivers/rtc/rtc-ds1286.c:365: error: implicit declaration of function 'iounmap'
-> make[2]: [drivers/rtc/rtc-ds1286.o] Error 1 (ignored)
 
-Missing #include <asm/io.h> ?
+Missing asm/io.h include.
 
 > drivers/rtc/rtc-m48t35.c: In function 'm48t35_read_time':
 > drivers/rtc/rtc-m48t35.c:59: error: implicit declaration of function 'readb'
@@ -105,26 +77,10 @@ Missing #include <asm/io.h> ?
 > drivers/rtc/rtc-m48t35.c:168: warning: assignment makes pointer from integer without a cast
 > drivers/rtc/rtc-m48t35.c:188: error: implicit declaration of function 'iounmap'
 
-Same ?
-
-> drivers/net/ibm_newemac/mal.c: In function 'mal_txeob':
-> drivers/net/ibm_newemac/mal.c:284: error: implicit declaration of function 'mtdcri'
-> drivers/net/ibm_newemac/mal.c:284: error: 'SDR0' undeclared (first use in this function)
-> drivers/net/ibm_newemac/mal.c:284: error: (Each undeclared identifier is reported only once
-> drivers/net/ibm_newemac/mal.c:284: error: for each function it appears in.)
-> drivers/net/ibm_newemac/mal.c:285: error: implicit declaration of function 'mfdcri'
-> drivers/net/ibm_newemac/mal.c: In function 'mal_rxeob':
-> drivers/net/ibm_newemac/mal.c:302: error: 'SDR0' undeclared (first use in this function)
-
-That's annoying, I'll have a look.
+Likewise.
 
 > drivers/net/wireless/libertas_tf/if_usb.c: In function '__if_usb_submit_rx_urb':
 > drivers/net/wireless/libertas_tf/if_usb.c:334: warning: cast to pointer from integer of different size
 
-Yuck !
-
-I'll look at the EMAC one and maybe some more tomorrow if nobody beats
-me to it.
-
-Cheers,
-Ben.
+I've seen this one on sparc64 too, I think the arg is totally unused in the end
+for this callback control flow and we can just use NULL or zero instead.
