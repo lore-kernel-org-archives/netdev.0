@@ -1,130 +1,192 @@
-From: "Arno J. Klaassen" <arno@heho.snv.jussieu.fr>
-Subject: Re: [Bugme-new] [Bug 11752] New: Extremely low netperf UDP_RR	throughput for nvidia MCP65
-Date: 17 Oct 2008 16:28:07 +0200
-Message-ID: <wp3aivxpmw.fsf@heho.snv.jussieu.fr>
-References: <bug-11752-10286@http.bugzilla.kernel.org/>
-	<20081016134920.1492cdcc.akpm@linux-foundation.org>
-	<48F7AD1A.7050309@hp.com>
+From: Martin Capitanio <c4p7n@capitanio.org>
+Subject: Re: [PATCH 2/2] r8169: checks against wrong mac addresse init
+Date: Fri, 17 Oct 2008 19:47:51 +0200
+Message-ID: <1224265672.17605.27.camel@marvin>
+References: <20081016214555.GA27208@electric-eye.fr.zoreil.com>
+	 <20081016214808.GC27208@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	arno@heho.snv.jussieu.fr, Ayaz Abdulla <aabdulla@nvidia.com>
-To: Rick Jones <rick.jones2@hp.com>,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jeff@garzik.org, Edward Hsu <edward_hsu@realtek.com.tw>,
+	Ivan Vecera <ivecera@redhat.com>,
+	Petr Vandrovec <petr@vandrovec.name>,
+	Plamen Petrov <pvp-lsts@fs.ru.acad.bg>,
+	"J.A." =?ISO-8859-1?Q?Magall=F3n?= <jamagallon@ono.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shiva.jussieu.fr ([134.157.0.129]:63930 "EHLO shiva.jussieu.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757564AbYJQPom (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Oct 2008 11:44:42 -0400
-In-Reply-To: <48F7AD1A.7050309@hp.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:22788 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756361AbYJQRtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 13:49:11 -0400
+In-Reply-To: <20081016214808.GC27208@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Hello all,
-
-thanx for your help.
-
-
-Rick Jones <rick.jones2@hp.com> writes:
-
-> Andrew Morton wrote:
-> > (switched to email.  Please respond via emailed reply-to-all, not via the
-> > bugzilla web interface).
-> > On Mon, 13 Oct 2008 13:41:19 -0700 (PDT)
-> > bugme-daemon@bugzilla.kernel.org wrote:
-> >
-> >>http://bugzilla.kernel.org/show_bug.cgi?id=11752
-> >>
-> >>           Summary: Extremely low netperf UDP_RR throughput for nvidia MCP65
-> >>           Product: Drivers
-> >>           Version: 2.5
-> >>     KernelVersion: from F10-Beta-x86_64-Live-KDE.iso
-> >>          Platform: All
-> >>        OS/Version: Linux
-> >>              Tree: Mainline
-> >>            Status: NEW
-> >>          Severity: normal
-> >>          Priority: P1
-> >>         Component: Network
-> >>        AssignedTo: jgarzik@pobox.com
-> >>        ReportedBy: arno@heho.snv.jussieu.fr
-> >>
-> >>
-> >>Latest working kernel version: -
-> >>Earliest failing kernel version:
-> >>Distribution: F10-Beta-x86_64
-> >>Hardware Environment: HP Pavillon dv6820ef
-> >>Software Environment:
-> >>Problem Description: when running at 1Gbps netperf shows good performance for
-> >>TCP_STREAM and UDP_STREAM tests, but extremely bad performance for UDP_RR test
-> >>(less then 1 ping-pong a second whereas at 100Mbps performance easily reaches
-> >>10-20K a second)
-> >>
-> >>A friend figured out that it looks like small packets at 1Gbps are dropped
-> >>as being falsely considered crc-errored.
+On Thu, 2008-10-16 at 23:48 +0200, Francois Romieu wrote:
+> Checking the signature of the eeprom and the validity of the
+> MAC address should be enough to filter out the bad addresses
+> observed so far.
 > 
-> Given how netperf UDP_RR has _no_ recovery from lost datagrams, it
-> makes sense that performance on that test would be very low - the
-> first lost datagram the transactions come to a screeching halt until
-> the end-of-test timer expires.
+> Contributed by Ivan Vecera and Martin Capitanio.
+
+-Tested on 8102el, 8168b and 8169 for a start.
++Tested on 8102e, 8168b and 8169 for a start.
+XID 34a00000
+
+Please take a look at the realtek r8101_n aka RealTek RTL8101E,
+RTL8102E(L) code. Only CFG_METHOD_1, CFG_METHOD_2
+and #(ioaddr, 0x00) == 0x8128 are here allowed to EEPROM access.
+
+Thanks,
+Martin
+
+
+static void 
+rtl8101_get_mac_version(struct rtl8101_private *tp, 
+			void __iomem *ioaddr)
+{
+	u32 reg,val32;
+	u32 ICVerID;
+		
+	val32 = RTL_R32(TxConfig);	
+	reg = val32 & 0x7c800000;
+	ICVerID = val32 & 0x00700000;
+
+	switch (reg) {
+		case 0x34000000:
+			if (ICVerID == 0x00000000)
+				tp->mcfg = CFG_METHOD_1;
+			else if (ICVerID == 0x00200000)
+				tp->mcfg = CFG_METHOD_2;
+			else if (ICVerID == 0x00300000)
+				tp->mcfg = CFG_METHOD_6;
+			else
+				tp->mcfg = CFG_METHOD_6;
+			break;
+		case 0x34800000: //RTL8102E
+		case 0x24800000: //RTL8102EL
+			if (ICVerID == 0x00000000)
+				tp->mcfg = CFG_METHOD_3;
+			else if (ICVerID == 0x00100000)
+				tp->mcfg = CFG_METHOD_4;
+			else if (ICVerID == 0x00200000)
+				tp->mcfg = CFG_METHOD_5;
+			else
+				tp->mcfg = CFG_METHOD_5;
+			break;
+		default:
+			tp->mcfg = 0;
+			printk("unknown chip version (%x)\n",reg);
+			break;
+	}
+
+}
+
+static void
+rtl8101_check_eeprom(struct rtl8101_private *tp)
+{
+	void __iomem *ioaddr = tp->mmio_addr;
+	u32 mac_addr_1 = 0;
+	u32 mac_addr_2 = 0;
+
+	if ((tp->mcfg != CFG_METHOD_1) && (tp->mcfg != CFG_METHOD_2))
+		return;
+
+	if (rtl_eeprom_read_sc(ioaddr, 0x00) != 0x8128)
+		return;
+
+	RTL_W8(Cfg9346, Cfg9346_Unlock);
+	RTL_W8(Config5, RTL_R8(Config5) & ~UWF);
+	RTL_W8(Cfg9346, Cfg9346_Lock);
+
+	rtl_eeprom_write_sc(ioaddr, 0x00, 0x8129);
+
+	RTL_W8(Cfg9346, Cfg9346_EEM0);
+	mdelay(15);
+	rtl_eeprom_write_sc(ioaddr, 0x00, 0x8128);
+
+	mac_addr_1 = rtl_eeprom_read_sc(ioaddr, 0x08);
+	mac_addr_1 = mac_addr_1 << 16;
+
+	mac_addr_2 = rtl_eeprom_read_sc(ioaddr, 0x07);
+	mac_addr_1 |= mac_addr_2;
+
+	RTL_W8(Cfg9346, Cfg9346_Unlock);
+	RTL_W32(MAC0, mac_addr_1);
+	RTL_W8(Cfg9346, Cfg9346_Lock);
+
+	mac_addr_1 = 0;
+	mac_addr_1 = rtl_eeprom_read_sc(ioaddr, 0x09);
+
+	RTL_W8(Cfg9346, Cfg9346_Unlock);
+	RTL_W32(MAC4, mac_addr_1);
+	RTL_W8(Cfg9346, Cfg9346_Lock);
+}
+
+
+
 > 
-> Are netstat stats showing retransmissions during a TCP_STREAM test?
-
-I will check that later tonoght and/or this WE
-
-> How about a TCP_RR test?  TCP_RR might be low too, it just wouldn't
-> necessarily be as low since TCP will get things started again after a
-> loss.   UDP_STREAM would just go blasting along without a care in the
-> world...
-
-A summary of all tests is (REFERENCE being a freebsd6 box on same
-LAN against same server running netserver; it's pretty clear that
-the *STREAM tests perform OK and the *RR test poor to very poor) :
-
-TCP_STREAM
-              Throughput
-              10^6bits/sec
-
-REFERENCE     349.57
-fc10-x64      138.48
-
-
-UDP_STREAM
-              Throughput
-              10^6bits/sec
-
-REFERENCE     388.45
-fc10-x64      365.10
-
-
-TCP_RR
-              Trans.
-              Rate
-              per sec
-
-REFERENCE     9801.58
-fc10-x64        86.87
-
-
-TCP_CRR
-              Trans.
-              Rate
-              per sec
-
-REFERENCE     4520.98
-fc10-x64         5.60
-
-
-UDP_RR
-              Trans.
-              Rate
-              per sec
-
-REFERENCE     9473.20
-fc10-x64         0.80
-
-
-Arno
-
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+> ---
+>  drivers/net/r8169.c |   22 ++++++++++++++++++----
+>  1 files changed, 18 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index cd9a215..2b4e975 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -81,6 +81,10 @@ static const int multicast_filter_limit = 32;
+>  #define RTL8169_TX_TIMEOUT	(6*HZ)
+>  #define RTL8169_PHY_TIMEOUT	(10*HZ)
+>  
+> +#define RTL_EEPROM_SIG		cpu_to_le32(0x8129)
+> +#define RTL_EEPROM_SIG_MASK	cpu_to_le32(0xffff)
+> +#define RTL_EEPROM_SIG_ADDR	0x0000
+> +
+>  /* write/read MMIO register */
+>  #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
+>  #define RTL_W16(reg, val16)	writew ((val16), ioaddr + (reg))
+> @@ -1944,9 +1948,10 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
+>  				 void __iomem *ioaddr)
+>  {
+>  	struct pci_dev *pdev = tp->pci_dev;
+> -	u8 cfg1;
+>  	int vpd_cap;
+> +	__le32 sig;
+>  	u8 mac[8];
+> +	u8 cfg1;
+>  
+>  	cfg1 = RTL_R8(Config1);
+>  	if (!(cfg1  & VPD)) {
+> @@ -1961,7 +1966,16 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
+>  	if (!vpd_cap)
+>  		return;
+>  
+> -	/* MAC address is stored in EEPROM at offset 0x0e
+> +	if (rtl_eeprom_read(pdev, vpd_cap, RTL_EEPROM_SIG_ADDR, &sig) < 0)
+> +		return;
+> +
+> +	if ((sig & RTL_EEPROM_SIG_MASK) != RTL_EEPROM_SIG) {
+> +		dev_info(&pdev->dev, "Missing EEPROM signature: %08x\n", sig);
+> +		return;
+> +	}
+> +
+> +	/*
+> +	 * MAC address is stored in EEPROM at offset 0x0e
+>  	 * Realtek says: "The VPD address does not have to be a DWORD-aligned
+>  	 * address as defined in the PCI 2.2 Specifications, but the VPD data
+>  	 * is always consecutive 4-byte data starting from the VPD address
+> @@ -1983,8 +1997,8 @@ static void rtl_init_mac_address(struct rtl8169_private *tp,
+>  			 print_mac(buf, mac));
+>  	}
+>  
+> -	/* Write MAC address */
+> -	rtl_rar_set(tp, mac);
+> +	if (is_valid_ether_addr(mac))
+> +		rtl_rar_set(tp, mac);
+>  }
+>  
+>  static int __devinit
 
