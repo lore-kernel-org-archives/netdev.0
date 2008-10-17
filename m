@@ -1,50 +1,94 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: implement emergency route cache rebulds when
-	gc_elasticity is exceeded
-Date: Fri, 17 Oct 2008 06:39:48 -0400
-Message-ID: <20081017103948.GA23591@hmsreliant.think-freely.org>
-References: <20081006225210.GA29794@hmsreliant.think-freely.org> <48EAEFF9.1000606@cosmosbay.com> <20081013182655.GA9505@hmsreliant.think-freely.org> <20081015.235556.61915120.davem@davemloft.net> <20081016114155.GA15877@hmsreliant.think-freely.org> <48F732CB.8030704@cosmosbay.com> <20081016163644.GA2933@localhost.localdomain> <20081016233517.GA21243@localhost.localdomain> <20081016220624.512a1e61@extreme>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: powerpc allmodconfig
+Date: Fri, 17 Oct 2008 13:09:45 +0200
+Message-ID: <20081017110945.GA32364@elte.hu>
+References: <20081015213337.a99a9595.akpm@linux-foundation.org> <20081015.220247.262683261.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>, billfink@mindspring.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	johnpol@2ka.mipt.ru
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59874 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753040AbYJQKl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 06:41:57 -0400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, dan.j.williams@intel.com, tiwai@suse.de,
+	linux-ext4@vger.kernel.org, netdev@vger.kernel.org,
+	linux-ide@vger.kernel.org, bzolnier@gmail.com,
+	marek.vasut@gmail.com, dwmw2@infradead.org, mark.fasheh@oracle.com,
+	ralf@linux-mips.org, mchehab@infradead.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-ext4-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20081016220624.512a1e61@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20081015.220247.262683261.davem@davemloft.net>
+Sender: linux-ext4-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 16, 2008 at 10:06:24PM -0700, Stephen Hemminger wrote:
-> O
-> > +static inline int rt_caching(struct net *net)
-> > +{
-> > +	return net->ipv4.current_rt_cache_rebuild_count <=
-> > +		net->ipv4.sysctl_rt_cache_rebuild_count;
-> > +}
-> 
-> Why not?
-> 
-I assume that you're asking why we use these values to determine if this
-namespace should use the route cache?  The answer is this thread.  Because
-ideally we should never rebuild the route cache unless something is giving the
-cache an uneven distribution.  The consensus is that if we rebuild too many
-times, its an indicator that someone knows enough about our hashing algorithm to
-maliginantly force the creation of routes in the cache on the same chain
-regardless of how many times we rebuild it.  In that case the best thing to do
-is skip the use of the cache entirely.
 
-Neil
+* David Miller <davem@davemloft.net> wrote:
 
--- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+> > net/dccp/options.c: In function 'dccp_parse_options':=20
+> > net/dccp/options.c:67: warning: 'value' may be used uninitialized i=
+n=20
+> > this function
+>=20
+> Known issue, not trivial to fix, gcc is just being incredibly silly=20
+> here as it can't see all of the control flow.
+
+i just ran into this - do you have any objection against the patch=20
+below?
+
+Should we have a cleaner annotation perhaps instead of=20
+uninitialized_var()? Something like:
+
+ #define __used          __attribute__((used))
+
+?
+
+	Ingo
+
+---------->
+=46rom d917af0bd043eab40d57f79cba9cf7a7b265a205 Mon Sep 17 00:00:00 200=
+1
+=46rom: Ingo Molnar <mingo@elte.hu>
+Date: Fri, 17 Oct 2008 12:41:30 +0200
+Subject: [PATCH] fix warning in net/dccp/options.c
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3Dutf-8
+Content-Transfer-Encoding: 8bit
+
+fix this warning:
+
+  net/dccp/options.c: In function =E2=80=98dccp_parse_options=E2=80=99:
+  net/dccp/options.c:67: warning: =E2=80=98value=E2=80=99 may be used u=
+ninitialized in this function
+
+This is a bogus GCC warning. The compiler does not recognize the relati=
+on
+between "value" and "mandatory" variables: the code flow can ever reach
+the "out_invalid_option:" label if 'mandatory' is set to 1, and when
+'mandatory' is non-zero, we'll always have 'value' initialized.
+
+Help out the compiler by annotating the variable.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ net/dccp/options.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/dccp/options.c b/net/dccp/options.c
+index 0809b63..18dcfb9 100644
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -64,7 +64,7 @@ int dccp_parse_options(struct sock *sk, struct dccp_r=
+equest_sock *dreq,
+ 					(dh->dccph_doff * 4);
+ 	struct dccp_options_received *opt_recv =3D &dp->dccps_options_receive=
+d;
+ 	unsigned char opt, len;
+-	unsigned char *value;
++	unsigned char *uninitialized_var(value);
+ 	u32 elapsed_time;
+ 	__be32 opt_val;
+ 	int rc;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-ext4" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
