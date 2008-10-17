@@ -1,48 +1,36 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/2] r8169: checks against wrong mac addresse init
-Date: Fri, 17 Oct 2008 22:01:14 +0200
-Message-ID: <20081017200114.GA25222@electric-eye.fr.zoreil.com>
-References: <20081016214555.GA27208@electric-eye.fr.zoreil.com> <20081016214808.GC27208@electric-eye.fr.zoreil.com> <1224265672.17605.27.camel@marvin>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] pkt_sched: Control group classifier
+Date: Fri, 17 Oct 2008 22:09:16 +0200
+Message-ID: <20081017200916.GF20815@postel.suug.ch>
+References: <20081013155715.GZ20815@postel.suug.ch> <873aixksf0.fsf@basil.nowhere.org> <20081017182312.GE20815@postel.suug.ch> <20081017183221.GA12825@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jeff@garzik.org, Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>,
-	Petr Vandrovec <petr@vandrovec.name>,
-	Plamen Petrov <pvp-lsts@fs.ru.acad.bg>,
-	=?unknown-8bit?B?Si5BLiBNYWdhbGzDs24=?= <jamagallon@ono.com>
-To: Martin Capitanio <c4p7n@capitanio.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39174 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756450AbYJQUCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 16:02:32 -0400
+Received: from postel.suug.ch ([194.88.212.233]:42090 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754939AbYJQUI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Oct 2008 16:08:56 -0400
 Content-Disposition: inline
-In-Reply-To: <1224265672.17605.27.camel@marvin>
+In-Reply-To: <20081017183221.GA12825@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Martin Capitanio <c4p7n@capitanio.org> :
-[...]
-> Please take a look at the realtek r8101_n aka RealTek RTL8101E,
-> RTL8102E(L) code. Only CFG_METHOD_1, CFG_METHOD_2
-> and #(ioaddr, 0x00) == 0x8128 are here allowed to EEPROM access.
-
-So Realtek's 810x driver eeprom code targets the 8101Eb and the
-8101Ec only. It does not include Ivan's 8102el.
-
-[...]
-> static void
-> rtl8101_check_eeprom(struct rtl8101_private *tp)
-> {
-[...]
-> 	mac_addr_1 = rtl_eeprom_read_sc(ioaddr, 0x08);
-> 	mac_addr_1 = mac_addr_1 << 16;
+* Andi Kleen <andi@firstfloor.org> 2008-10-17 20:32
+> > softirq_count() simply counts the levels of bh disable.
 > 
-> 	mac_addr_2 = rtl_eeprom_read_sc(ioaddr, 0x07);
-> 	mac_addr_1 |= mac_addr_2;
+> softirqs always have bh disabled.  So it's always true inside them.
+> And you should know what _bh locks you hold.
 
-The mac address is at the usual place.
+I actually tried "softirq_count() == SOFTIRQ_OFFSET" to see if the
+call is made form user context. It works pretty well because all
+callers of dev_queue_xmit() are required to disable bh. Nevertheless
+I think it's quite fragile. If a dev_queue_xmit() caller from softirq
+does not disable bh explicitely on its own but instead relies on
+do_softirq() to have disabled bh already, the softirq count of such
+a call may be equal to the one of a user context call to dev_queue_xmit().
 
--- 
-Ueimor
+I found explicitely counting softirq_enter() to be more reliable
+without having much of a performance impact. I'm happy with both
+solutions though.
