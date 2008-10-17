@@ -1,42 +1,46 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT]: Networking
-Date: Fri, 17 Oct 2008 14:23:48 +0200
-Message-ID: <48F883D4.8050809@netfilter.org>
-References: <20081015.163817.193700221.davem@davemloft.net> <20081017082138.GA23155@elte.hu> <48F87D3E.5020007@trash.net> <20081017120408.GA20030@elte.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+From: Julius Volz <juliusv@google.com>
+Subject: [PATCH] IPVS: Update CONFIG_IP_VS_IPV6 description and help text
+Date: Fri, 17 Oct 2008 14:04:51 +0200
+Message-ID: <1224245091-30426-1-git-send-email-juliusv@google.com>
+Cc: horms@verge.net.au, davem@davemloft.net, vbusam@google.com,
+	Julius Volz <juliusv@google.com>
+To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33871 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751843AbYJQMOJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Oct 2008 08:14:09 -0400
-In-Reply-To: <20081017120408.GA20030@elte.hu>
+Received: from smtp-out.google.com ([216.239.45.13]:53903 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530AbYJQMW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 08:22:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Patrick McHardy <kaber@trash.net> wrote:
->=20
->>> net/netfilter/nf_conntrack_netlink.c:819: warning: =91enum nf_nat_m=
-anip_type=92 declared inside parameter list
->>> net/netfilter/nf_conntrack_netlink.c:819: warning: its scope is onl=
-y this definition or declaration, which is probably not what you want
->>> net/netfilter/nf_conntrack_netlink.c:818: error: parameter 2 (=91ma=
-nip=92) has incomplete type
->> Thanks Ingo. I just sent this patch to Benjamin Herrenschmidt
->> for testing.
->=20
-> build still fails with the attached config.
+This adds a URL to further info to the CONFIG_IP_VS_IPV6 Kconfig help
+text. Also, I think it should be ok to remove the "DANGEROUS" label in the
+description line at this point to get people to try it out and find all
+the bugs ;) It's still marked as experimental, of course.
 
-We have to wrap ctnetlink_parse_nat_setup with CONFIG_NF_NAT_NEEDED,=20
-I'll send you a patch asap. Sorry for the breakage.
+Signed-off-by: Julius Volz <juliusv@google.com>
 
---=20
-"Los honestos son inadaptados sociales" -- Les Luthiers
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index 05048e4..79a6980 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -25,11 +25,13 @@ menuconfig IP_VS
+ if IP_VS
+ 
+ config	IP_VS_IPV6
+-	bool "IPv6 support for IPVS (DANGEROUS)"
++	bool "IPv6 support for IPVS"
+ 	depends on EXPERIMENTAL && (IPV6 = y || IP_VS = IPV6)
+ 	---help---
+ 	  Add IPv6 support to IPVS. This is incomplete and might be dangerous.
+ 
++	  See http://www.mindbasket.com/ipvs for more information.
++
+ 	  Say N if unsure.
+ 
+ config	IP_VS_DEBUG
+-- 
+1.5.4.5
+
