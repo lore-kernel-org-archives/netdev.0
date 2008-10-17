@@ -1,45 +1,42 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: 2.6.27-05178-g2e532d6: list_add corruption
-Date: Fri, 17 Oct 2008 16:19:13 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0810171617490.21410@alien.or.mcafeemobile.com>
-References: <a4423d670810171220t4d5602fekcb66e18758149925@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: cxgb3: Fix kernel crash caused by uninitialized l2t_entry.arpq
+Date: Fri, 17 Oct 2008 16:31:13 -0700 (PDT)
+Message-ID: <20081017.163113.225289906.davem@davemloft.net>
+References: <ada63nqsyxp.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Alexander Beregalov <a.beregalov@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758200AbYJQXTY@vger.kernel.org>
-In-Reply-To: <a4423d670810171220t4d5602fekcb66e18758149925@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, divy@chelsio.com
+To: rdreier@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44748
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751386AbYJQXbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 19:31:36 -0400
+In-Reply-To: <ada63nqsyxp.fsf@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Oct 2008, Alexander Beregalov wrote:
+From: Roland Dreier <rdreier@cisco.com>
+Date: Fri, 17 Oct 2008 14:18:26 -0700
 
-> I am afraid I do not know how to reproduce this.
+> Commit 147e70e6 ("cxgb3: Use SKB list interfaces instead of home-grown
+> implementation.") causes a crash in t3_l2t_send_slow() when an iWARP
+> connection request is received.  This is because the new l2t_entry.arpq
+> skb queue is never initialized, and therefore trying to add an skb to
+> it causes a NULL dereference.  With the old code there was no need to
+> initialize the queues because the l2t_entry structures were zeroed,
+> and the code used NULL to mean empty.
 > 
-> WARNING: at lib/list_debug.c:30 __list_add+0x44/0x5c()
-> list_add corruption. prev->next should be next (f6638448), but was
-> f26f078c. (prev=f26f078c).
-> Modules linked in: w83627hf hwmon_vid i2c_nforce2
-> Pid: 1933, comm: rtorrent Not tainted 2.6.27-05178-g2e532d6 #6
-> Call Trace:
->  [<c011de4b>] warn_slowpath+0x4b/0x69
->  [<c0137a03>] ? trace_hardirqs_off+0xb/0xd
->  [<c01070ab>] ? native_sched_clock+0x76/0x88
->  [<c0138cc5>] ? trace_hardirqs_on+0xb/0xd
->  [<c0138c93>] ? trace_hardirqs_on_caller+0xe6/0x10d
->  [<c031aa43>] ? release_sock+0xac/0xb4
->  [<c0138cc5>] ? trace_hardirqs_on+0xb/0xd
->  [<c0139d4e>] ? __lock_acquire+0xaeb/0xafa
->  [<c0139d4e>] ? __lock_acquire+0xaeb/0xafa
->  [<c0137a39>] ? put_lock_stats+0xd/0x21
->  [<c026a404>] __list_add+0x44/0x5c
->  [<c0186be0>] ep_poll_callback+0x5b/0xb4
+> Fix this by adding __skb_queue_head_init() when all the l2t_entry
+> structures get allocated.
+> 
+> Signed-off-by: Roland Dreier <rolandd@cisco.com>
 
-This is very likely to be caused by a patch that went in a few days ago. 
-Already posted a fix to Andrew.
+Acked-by: David S. Miller <davem@davemloft.net>
 
+> This should probably go to -stable as well, since it looks like the
+> commit that broke things went into 2.6.27-rc6.
 
+Indeed.
 
-- Davide
