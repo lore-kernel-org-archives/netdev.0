@@ -1,69 +1,45 @@
-From: Jerry McBride <mcbrides9@comcast.net>
-Subject: B43 randomly and silently dropping connections...
-Date: Fri, 17 Oct 2008 18:36:46 -0400
-Message-ID: <200810171836.47059.mcbrides9@comcast.net>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: 2.6.27-05178-g2e532d6: list_add corruption
+Date: Fri, 17 Oct 2008 16:19:13 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0810171617490.21410@alien.or.mcafeemobile.com>
+References: <a4423d670810171220t4d5602fekcb66e18758149925@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:50479
-	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753444AbYJQWmh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 18:42:37 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Alexander Beregalov <a.beregalov@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758200AbYJQXTY@vger.kernel.org>
+In-Reply-To: <a4423d670810171220t4d5602fekcb66e18758149925@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Fri, 17 Oct 2008, Alexander Beregalov wrote:
+
+> I am afraid I do not know how to reproduce this.
+> 
+> WARNING: at lib/list_debug.c:30 __list_add+0x44/0x5c()
+> list_add corruption. prev->next should be next (f6638448), but was
+> f26f078c. (prev=f26f078c).
+> Modules linked in: w83627hf hwmon_vid i2c_nforce2
+> Pid: 1933, comm: rtorrent Not tainted 2.6.27-05178-g2e532d6 #6
+> Call Trace:
+>  [<c011de4b>] warn_slowpath+0x4b/0x69
+>  [<c0137a03>] ? trace_hardirqs_off+0xb/0xd
+>  [<c01070ab>] ? native_sched_clock+0x76/0x88
+>  [<c0138cc5>] ? trace_hardirqs_on+0xb/0xd
+>  [<c0138c93>] ? trace_hardirqs_on_caller+0xe6/0x10d
+>  [<c031aa43>] ? release_sock+0xac/0xb4
+>  [<c0138cc5>] ? trace_hardirqs_on+0xb/0xd
+>  [<c0139d4e>] ? __lock_acquire+0xaeb/0xafa
+>  [<c0139d4e>] ? __lock_acquire+0xaeb/0xafa
+>  [<c0137a39>] ? put_lock_stats+0xd/0x21
+>  [<c026a404>] __list_add+0x44/0x5c
+>  [<c0186be0>] ep_poll_callback+0x5b/0xb4
+
+This is very likely to be caused by a patch that went in a few days ago. 
+Already posted a fix to Andrew.
 
 
-The story is...
 
-I've moved from 2.6.25.x using BCM43XX with a Broadcom 4306 (rev3) 802.11 
-chipset to 2.6.26.6 using the B43 and appropriate firmware. This on a COMPAQ 
-Presario R3000 P4 and  a gig of memory and ATI graphics.
-
-I followed the install (upgrade) directions at linuxwireless.org. Piece of 
-cake! However... I find that I've gone from "bulletproof" BCM43XX wifi 
-connections to "bullethole" connections with B43.  
-
-Under the old BCM43XX the handshake and connections were flawless and 
-unfaltering. Now with the new B43, handshakes with AP's are perfect, but the 
-connections randomly and silently fail. There are no debug messages, no 
-complaints what-so-ever in /var/log/messages... 
-
-To gt wireless back, I have to reinitialize the connection. I've gotten so 
-good at it, that I can recite by heart the appropriate commands...
-
-It's killling me! I've got to get this ironed out... it's not just my laptop, 
-it's happening quite regularly with people I know with similar chips and 
-laptops.
-
-Trying 2.6.27-rc's and now 2.6.27 and the situation is no better.
-
-So I ask... Who is the B43/B43LEGACY maintainer and would you be interested in 
-debugging this mess? I'll bend over backward to help you... Email me 
-direct... I'm very willing.
-
-SHORT STORY:
--- Kernel 2.6.25.x with BCM43XX, firmware 4.80.53.0.. just perfect.
-
--- Kernels 2.6.26 or higher with B43 and firware 4.150.10.5 good negotiations, 
-but fragile connections that drop randomly and without complaint. B43LEGACY 
-does nothing.
-
-Any help would be appreciated. I'd really like to get this ironed out. I 
-highly desire to use current kernels.
-
-Feel free to email me direct.
-
--- 
-
-*****************************************************************************
-                                       
-                             From the desk of:
-                             Jerome D. McBride
-                                       
-   19:17:28 up 15 days, 23:35,  5 users,  load average: 0.33, 0.11, 0.03
- 
-*****************************************************************************
+- Davide
