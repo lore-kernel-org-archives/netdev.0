@@ -1,90 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Thu, 16 Oct 2008 22:29:19 -0700 (PDT)
-Message-ID: <20081016.222919.85169421.davem@davemloft.net>
-References: <20081016.222852.55969909.davem@davemloft.net>
+From: "Liqiang Yang" <yliqiang@gmail.com>
+Subject: About tcp header misalignment
+Date: Fri, 17 Oct 2008 13:49:29 +0800
+Message-ID: <127841bd0810162249s54a31c4et12430c48694d5a6d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50847
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751167AbYJQF3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 01:29:42 -0400
-In-Reply-To: <20081016.222852.55969909.davem@davemloft.net>
+Received: from fk-out-0910.google.com ([209.85.128.189]:11575 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487AbYJQFtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 01:49:32 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so361237fkq.5
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2008 22:49:30 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,All
 
-Sorry, finger slipped, here is the real content :-)
+We runing linux-2.6.14 on a MIPS like platform,
+When running a bittorrent client, there is a misalignment in tcp
+header occurs randomly.
+Now, we know that it caused by line 319 of net/ipv4/tcp_output.c.
 
-1) A few networking driver fixes via Jeff Garzik.  The Kconfig
-   fixup for myri10ge and ixgbe should fix the powerpc allyesconfig
-   et al. build failures.
+       th = (struct tcphdr *) skb_push(skb, tcp_header_size);
+       skb->h.th = th;
+       skb_set_owner_w(skb, sk);
+       /* Build TCP header and checksum it. */
+       th->source = inet->sport;(Line 319 of tcp_output.c)
 
-2) Missing rcu_assign() in ipv4 routing cache, from Eric Dumazet.
+th: 82ffa881
 
-3) Getting rid of CONFIG_KMOD under net/, from Johannes Berg and
-   Rusty.
+Call Trace:
+ [<80373acc>] tcp_transmit_skb+0xcc0/0xd10
+ [<80373ad8>] tcp_transmit_skb+0xccc/0xd10
+ [<80374ab4>] tcp_retransmit_skb+0x178/0x8f4
+ [<80374aa0>] tcp_retransmit_skb+0x164/0x8f4
+ [<8035502c>] ip_rcv+0x4d0/0x704
+ [<803778f8>] tcp_write_timer+0x37c/0x8e0
+ [<80377a70>] tcp_write_timer+0x4f4/0x8e0
+ [<80039a40>] update_process_times+0x90/0x1bc
+ [<8037757c>] tcp_write_timer+0x0/0x8e0
+ [<80039ccc>] run_timer_softirq+0x160/0x2b4
+ [<80008c0c>] timer_interrupt+0x13c/0x2ac
+ [<80008c0c>] timer_interrupt+0x13c/0x2ac
+ [<80033a80>] __do_softirq+0xa8/0x14c
+ [<80033bcc>] do_softirq+0xa8/0xb0
+ [<80003888>] do_IRQ+0x34/0x4c
+ [<800016cc>] c2IRQ+0x10c/0x1a0
+ [<80003b10>] cpu_idle+0x30/0x3c
+ [<80003afc>] cpu_idle+0x1c/0x3c
+ [<805386d4>] start_kernel+0x268/0x28c
+ [<805386cc>] start_kernel+0x260/0x28c
+ [<805386a0>] start_kernel+0x234/0x28c
+ [<80000800>] kernel_entry_jump+0x0/0x20
 
-I'll get a fix to you for that netfilter build failure BenH reported
-soon.
-
-Please pull, thanks a lot.
-
-The following changes since commit 8fa0b315fc0c1a414da1371f1fc39523a657c192:
-  David S. Miller (1):
-        decnet: Fix compiler warning in dn_dev.c
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alan Cox (2):
-      lmc: copy_*_user under spinlock
-      [netdrvr] ibmtr: PCMCIA IBMTR is ok on 64bit
-
-Eric Dumazet (1):
-      ipv4: Add a missing rcu_assign_pointer() in routing cache.
-
-Isaku Yamahata (1):
-      xen-netfront: Avoid unaligned accesses to IP header
-
-Jeff Garzik (1):
-      [netdrvr] myri10ge, ixgbe: remove broken select INTEL_IOATDMA
-
-Johannes Berg (1):
-      net: Remove CONFIG_KMOD from net/ (towards removing CONFIG_KMOD entirely)
-
- drivers/net/Kconfig                  |   12 ++++++++++--
- drivers/net/ixgbe/ixgbe.h            |    4 ++--
- drivers/net/ixgbe/ixgbe_main.c       |   32 ++++++++++++++++----------------
- drivers/net/myri10ge/myri10ge.c      |   26 +++++++++++++-------------
- drivers/net/pcmcia/Kconfig           |    2 +-
- drivers/net/wan/lmc/lmc_main.c       |   31 ++++++++++++++++++++++++-------
- drivers/net/xen-netfront.c           |    5 ++++-
- net/bluetooth/af_bluetooth.c         |    8 +-------
- net/bridge/netfilter/ebtables.c      |   15 +++------------
- net/can/af_can.c                     |    4 ++--
- net/core/dev.c                       |    2 --
- net/core/rtnetlink.c                 |    4 ++--
- net/dccp/ccid.c                      |    2 +-
- net/decnet/dn_dev.c                  |    2 --
- net/ipv4/devinet.c                   |    2 --
- net/ipv4/inet_diag.c                 |    2 --
- net/ipv4/route.c                     |    7 ++++++-
- net/ipv4/tcp_cong.c                  |    4 ++--
- net/netfilter/nf_conntrack_netlink.c |    2 +-
- net/netfilter/nfnetlink.c            |    2 +-
- net/netlink/af_netlink.c             |    2 +-
- net/phonet/af_phonet.c               |    3 +--
- net/sched/act_api.c                  |    2 +-
- net/sched/cls_api.c                  |    2 +-
- net/sched/ematch.c                   |    2 +-
- net/sched/sch_api.c                  |    2 +-
- net/socket.c                         |    2 +-
- net/sunrpc/auth.c                    |    2 --
- 28 files changed, 96 insertions(+), 89 deletions(-)
+Could you give me some advices how to fix the problems.
+Thanks.
