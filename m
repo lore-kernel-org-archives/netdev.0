@@ -1,52 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/6] Add qdisc->ops->peek() support.
-Date: Fri, 17 Oct 2008 14:33:23 +0200
-Message-ID: <48F88613.1060404@trash.net>
-References: <20081016220905.GA2747@ami.dom.local>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] ibm_newemac: Fix new MAL feature handling
+Date: Fri, 17 Oct 2008 14:56:52 +0200
+Message-ID: <200810171456.53599.arnd@arndb.de>
+References: <20081015213337.a99a9595.akpm@linux-foundation.org> <1224133010.8157.543.camel@pasglop> <20081016143840.GA29805@yoda.jdub.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63483 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754658AbYJQMd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 08:33:29 -0400
-In-Reply-To: <20081016220905.GA2747@ami.dom.local>
+Received: from moutng.kundenserver.de ([212.227.126.186]:61766 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752942AbYJQM5O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 08:57:14 -0400
+In-Reply-To: <20081016143840.GA29805@yoda.jdub.homelinux.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> Patrick McHardy wrote, On 10/16/2008 02:38 PM:
-> 
->> Jarek Poplawski wrote:
-> ...
->>> PS: after this patchset only netem_enqueue() needs qdisc->requeue(),
->>> but I hope this won't take too long.
->> Assuming work-conserving qdiscs are used with netem, the currently
->> code will always send out a reorder packet immediately. This behaviour
->> is trivial to implement without ->requeue. The problematic case is
->> non-work-conserving inner qdiscs, but that doesn't seem important
->> at all since you'd usually add it as parent of netem, which still
->> works.
-> 
-> How about something like this (example only)?
-> @@ -233,7 +233,9 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  		 */
->  		cb->time_to_send = psched_get_time();
->  		q->counter = 0;
-> -		ret = q->qdisc->ops->requeue(skb, q->qdisc);
-> +		q->qdisc->flags |= TCQ_F_REQUEUE;
-> +		ret = qdisc_equeue(skb, q->qdisc);
-> +		q->qdisc->flags &= ~TCQ_F_REQUEUE;
+On Thursday 16 October 2008, Josh Boyer wrote:
+> +#ifdef CONFIG_PPC_DCR_NATIVE
+> =A0=A0=A0=A0=A0=A0=A0=A0if (mal_has_feature(mal, MAL_FTR_CLEAR_ICINTS=
+TAT))
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0mtdcri(SDR0, DCRN_SDR=
+_ICINTSTAT,
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0(mfdcri(SDR0, DCRN_SDR_ICINTSTAT) | ICINTSTA=
+T_ICTX));
+> +#endif
+> =A0
 
-Well, the inner qdisc would still need to logic to order packets
-apprioriately. Its probably not that hard, but as I said, I don't
-think its necessary at all. It only makes a difference with a
-non-work-conserving inner qdisc, but a lot of the functionality of
-netem requires the inner tfifo anyways and rate-limiting is usually
-done on top of netem. So I would suggest so either hard-wire the
-tfifo qdisc or at least make the assumption that inner qdiscs are
-work-conserving.
+So what if you have a mmio based DRC implementation and still want to u=
+se
+this feature?
+
+I guess you really should use dcr_read/dcr_write here instead of mtdcr/=
+mfdcr.
+
+	Arnd <><
