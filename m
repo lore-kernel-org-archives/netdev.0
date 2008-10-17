@@ -1,135 +1,130 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Oops/Warning report for the week October 17th, 2008
-Date: Fri, 17 Oct 2008 08:28:58 -0700
-Message-ID: <48F8AF3A.1040306@linux.intel.com>
+From: "Arno J. Klaassen" <arno@heho.snv.jussieu.fr>
+Subject: Re: [Bugme-new] [Bug 11752] New: Extremely low netperf UDP_RR	throughput for nvidia MCP65
+Date: 17 Oct 2008 16:28:07 +0200
+Message-ID: <wp3aivxpmw.fsf@heho.snv.jussieu.fr>
+References: <bug-11752-10286@http.bugzilla.kernel.org/>
+	<20081016134920.1492cdcc.akpm@linux-foundation.org>
+	<48F7AD1A.7050309@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, tglx@tglx.de,
-	Theodore Ts'o <tytso@mit.edu>, Ingo Molnar <mingo@elte.hu>,
-	Greg KH <greg@kroah.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	arno@heho.snv.jussieu.fr, Ayaz Abdulla <aabdulla@nvidia.com>
+To: Rick Jones <rick.jones2@hp.com>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:19645 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755014AbYJQP3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 11:29:00 -0400
+Received: from shiva.jussieu.fr ([134.157.0.129]:63930 "EHLO shiva.jussieu.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757564AbYJQPom (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Oct 2008 11:44:42 -0400
+In-Reply-To: <48F7AD1A.7050309@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This week, a total of 2786 oopses and warnings have been reported,
-compared to 2955 reports in the previous week.
-(Reports from 2.6.25 or earlier are ignored for this report)
+
+Hello all,
+
+thanx for your help.
 
 
-Per file statistics
-159	net/sched/sch_generic.c
-41	fs/jbd/journal.c
-28	drivers/base/power/main.c
-26	kernel/timer.c
-22	drivers/parport/procfs.c
-19	arch/x86/mm/pageattr.c
-15	drivers/usb/serial/usb-serial.c
-15	mm/memory.c
-15	drivers/net/wireless/ath5k/hw.c
-14	external/utrace
-13	fs/ext3/super.c
-13	external/fireglx/binary (P)
+Rick Jones <rick.jones2@hp.com> writes:
+
+> Andrew Morton wrote:
+> > (switched to email.  Please respond via emailed reply-to-all, not via the
+> > bugzilla web interface).
+> > On Mon, 13 Oct 2008 13:41:19 -0700 (PDT)
+> > bugme-daemon@bugzilla.kernel.org wrote:
+> >
+> >>http://bugzilla.kernel.org/show_bug.cgi?id=11752
+> >>
+> >>           Summary: Extremely low netperf UDP_RR throughput for nvidia MCP65
+> >>           Product: Drivers
+> >>           Version: 2.5
+> >>     KernelVersion: from F10-Beta-x86_64-Live-KDE.iso
+> >>          Platform: All
+> >>        OS/Version: Linux
+> >>              Tree: Mainline
+> >>            Status: NEW
+> >>          Severity: normal
+> >>          Priority: P1
+> >>         Component: Network
+> >>        AssignedTo: jgarzik@pobox.com
+> >>        ReportedBy: arno@heho.snv.jussieu.fr
+> >>
+> >>
+> >>Latest working kernel version: -
+> >>Earliest failing kernel version:
+> >>Distribution: F10-Beta-x86_64
+> >>Hardware Environment: HP Pavillon dv6820ef
+> >>Software Environment:
+> >>Problem Description: when running at 1Gbps netperf shows good performance for
+> >>TCP_STREAM and UDP_STREAM tests, but extremely bad performance for UDP_RR test
+> >>(less then 1 ping-pong a second whereas at 100Mbps performance easily reaches
+> >>10-20K a second)
+> >>
+> >>A friend figured out that it looks like small packets at 1Gbps are dropped
+> >>as being falsely considered crc-errored.
+> 
+> Given how netperf UDP_RR has _no_ recovery from lost datagrams, it
+> makes sense that performance on that test would be very low - the
+> first lost datagram the transactions come to a screeching halt until
+> the end-of-test timer expires.
+> 
+> Are netstat stats showing retransmissions during a TCP_STREAM test?
+
+I will check that later tonoght and/or this WE
+
+> How about a TCP_RR test?  TCP_RR might be low too, it just wouldn't
+> necessarily be as low since TCP will get things started again after a
+> loss.   UDP_STREAM would just go blasting along without a care in the
+> world...
+
+A summary of all tests is (REFERENCE being a freebsd6 box on same
+LAN against same server running netserver; it's pretty clear that
+the *STREAM tests perform OK and the *RR test poor to very poor) :
+
+TCP_STREAM
+              Throughput
+              10^6bits/sec
+
+REFERENCE     349.57
+fc10-x64      138.48
 
 
-Rank 1: dev_watchdog() (warning)
-	Reported 391 times (1881 total reports)
-	[These are the reports we can't map back to a driver yet]
-	Top 10 of identified issues is:
-  count |          guilty
--------+---------------------------
-    575 | dev_watchdog(sis900)
-    154 | dev_watchdog(usbnet)
-    131 | dev_watchdog(via-rhine)
-    113 | dev_watchdog(8390)
-     73 | dev_watchdog(r8169)
-     64 | dev_watchdog(orinoco)
-     57 | dev_watchdog(8139too)
-     44 | dev_watchdog(via_rhine)
-     33 | dev_watchdog(3c59x)
-     27 | dev_watchdog(fealnx)
+UDP_STREAM
+              Throughput
+              10^6bits/sec
 
-	This warning was last seen in version 2.6.27-rc6-git2, and first seen in 2.6.26-rc3.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog()
+REFERENCE     388.45
+fc10-x64      365.10
 
-Rank 2: journal_update_superblock (warning)
-	Reported 181 times (4869 total reports)
-	Likely caused by the user removing a USB stick while mounted
-	Ted has a fix, it's in -mm and on route to 2.6.28-rc1
-	This warning was last seen in version 2.6.27, and first seen in 2.6.24-rc6-git1.
-	More info: http://www.kerneloops.org/searchweek.php?search=journal_update_superblock
 
-Rank 4: dev_watchdog(sis900) (warning)
-	Reported 136 times (575 total reports)
-	This warning was last seen in version 2.6.27, and first seen in 2.6.26-rc4-git2.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(sis900)
+TCP_RR
+              Trans.
+              Rate
+              per sec
 
-Rank 5: device_pm_add (warning)
-	Reported 91 times (445 total reports)
-	2.6.28-rc will be able to tell us which drivers cause this
-	This warning was last seen in version 2.6.27-rc4, and first seen in 2.6.26-rc5.
-	More info: http://www.kerneloops.org/searchweek.php?search=device_pm_add
+REFERENCE     9801.58
+fc10-x64        86.87
 
-Rank 6: run_timer_softirq (oops)
-	Reported 86 times (428 total reports)
-	softlockup.. mostly seen before Thomas fixed the hpet/timer code.
-	This oops was last seen in version 2.6.27-rc8, and first seen in 2.6.25.
-	More info: http://www.kerneloops.org/searchweek.php?search=run_timer_softirq
 
-Rank 7: ext3_commit_super (warning)
-	Reported 54 times (1251 total reports)
-	Likely caused by the user removing a USB stick while mounted
-	Ted has a fix, it's in -mm and on route to 2.6.28-rc1	
-	This warning was last seen in version 2.6.27, and first seen in 2.6.24.
-	More info: http://www.kerneloops.org/searchweek.php?search=ext3_commit_super
+TCP_CRR
+              Trans.
+              Rate
+              per sec
 
-Rank 9: suspend_test_finish (warning)
-	Reported 50 times (173 total reports)
-	The automatic suspend/resume test
-	This warning was last seen in version 2.6.27, and first seen in 2.6.27-rc0-git14.
-	More info: http://www.kerneloops.org/searchweek.php?search=suspend_test_finish
+REFERENCE     4520.98
+fc10-x64         5.60
 
-Rank 10: kas_GetExecutionLevel (warning)
-	Reported 46 times (125 total reports)
-	[external] Bug in the proprietary fireglx driver
-	warning only shows up in tainted kernels
-	This warning was last seen in version 2.6.27, and first seen in 2.6.26.
-	More info: http://www.kerneloops.org/searchweek.php?search=kas_GetExecutionLevel
 
-Rank 11: dev_watchdog(via_rhine) (warning)
-	Reported 44 times
-	This warning was last seen in version 2.6.26.5, and first seen in 2.6.26.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(via_rhine)
+UDP_RR
+              Trans.
+              Rate
+              per sec
 
-Rank 14: rs_get_rate (warning)
-	Reported 34 times (478 total reports)
-	Bug in the Intel IWL wireless drivers
-	This warning was last seen in version 2.6.27, and first seen in 2.6.25-rc2-git5.
-	More info: http://www.kerneloops.org/searchweek.php?search=rs_get_rate
+REFERENCE     9473.20
+fc10-x64         0.80
 
-Fixed issues
-============
-Rank 8: sg_copy_buffer (warning)
-	Reported 51 times (165 total reports)
-	[fixed] by making the locks _irqsave (and backported to -stable)
-	This warning was last seen in version 2.6.26.5, and first seen in 2.6.26-rc6.
-	More info: http://www.kerneloops.org/searchweek.php?search=sg_copy_buffer
 
-Rank 12: lock_page (warning)
-	Reported 37 times (211 total reports)
-	The hwclock program causes a pagefault with interrupts off (done from userspace)
-	This warning was last seen in version 2.6.27, and first seen in 2.6.27-rc1-git2.
-	More info: http://www.kerneloops.org/searchweek.php?search=lock_page
+Arno
 
-Rank 13: ata_sff_hsm_move (oops)
-	Reported 37 times (1199 total reports)
-	[fixed] redundant WARN_ON; fixed in 9c2676b61a5a4b6d99e65fb2f438fb3914302eda
-	This oops was last seen in version 2.6.27-rc2-git1, and first seen in 2.6.25.4.
-	More info: http://www.kerneloops.org/searchweek.php?search=ata_sff_hsm_move
+
