@@ -1,46 +1,83 @@
-From: Julius Volz <juliusv@google.com>
-Subject: [PATCH] IPVS: Update CONFIG_IP_VS_IPV6 description and help text
-Date: Fri, 17 Oct 2008 14:04:51 +0200
-Message-ID: <1224245091-30426-1-git-send-email-juliusv@google.com>
-Cc: horms@verge.net.au, davem@davemloft.net, vbusam@google.com,
-	Julius Volz <juliusv@google.com>
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT]: Networking
+Date: Fri, 17 Oct 2008 14:34:40 +0200
+Message-ID: <48F88660.7080204@netfilter.org>
+References: <20081015.163817.193700221.davem@davemloft.net> <20081017082138.GA23155@elte.hu> <48F87D3E.5020007@trash.net> <20081017120408.GA20030@elte.hu>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------000706050806010703080304"
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:53903 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753530AbYJQMW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 08:22:59 -0400
+Received: from mail.us.es ([193.147.175.20]:36225 "EHLO us.es"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753606AbYJQMZB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Oct 2008 08:25:01 -0400
+In-Reply-To: <20081017120408.GA20030@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a URL to further info to the CONFIG_IP_VS_IPV6 Kconfig help
-text. Also, I think it should be ok to remove the "DANGEROUS" label in the
-description line at this point to get people to try it out and find all
-the bugs ;) It's still marked as experimental, of course.
+This is a multi-part message in MIME format.
+--------------000706050806010703080304
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
 
-Signed-off-by: Julius Volz <juliusv@google.com>
+Ingo Molnar wrote:
+> * Patrick McHardy <kaber@trash.net> wrote:
+> 
+>>> net/netfilter/nf_conntrack_netlink.c:819: warning: ‘enum nf_nat_manip_type’ declared inside parameter list
+>>> net/netfilter/nf_conntrack_netlink.c:819: warning: its scope is only this definition or declaration, which is probably not what you want
+>>> net/netfilter/nf_conntrack_netlink.c:818: error: parameter 2 (‘manip’) has incomplete type
+>> Thanks Ingo. I just sent this patch to Benjamin Herrenschmidt
+>> for testing.
+> 
+> build still fails with the attached config.
 
- 1 files changed, 3 insertions(+), 1 deletions(-)
+This should fix it. I have slightly tested it here with your config.
 
-diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-index 05048e4..79a6980 100644
---- a/net/netfilter/ipvs/Kconfig
-+++ b/net/netfilter/ipvs/Kconfig
-@@ -25,11 +25,13 @@ menuconfig IP_VS
- if IP_VS
- 
- config	IP_VS_IPV6
--	bool "IPv6 support for IPVS (DANGEROUS)"
-+	bool "IPv6 support for IPVS"
- 	depends on EXPERIMENTAL && (IPV6 = y || IP_VS = IPV6)
- 	---help---
- 	  Add IPv6 support to IPVS. This is incomplete and might be dangerous.
- 
-+	  See http://www.mindbasket.com/ipvs for more information.
-+
- 	  Say N if unsure.
- 
- config	IP_VS_DEBUG
 -- 
-1.5.4.5
+"Los honestos son inadaptados sociales" -- Les Luthiers
 
+--------------000706050806010703080304
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+netfilter: ctnetlink: fix compilation without NAT support
+
+This patch fixes the compilation of ctnetlink when the NAT support
+is not enabled.
+
+/home/benh/kernels/linux-powerpc/net/netfilter/nf_conntrack_netlink.c:819: warning: enum nf_nat_manip_type\u2019 declared inside parameter list
+/home/benh/kernels/linux-powerpc/net/netfilter/nf_conntrack_netlink.c:819: warning: its scope is only this definition or declaration, which is probably not what you want
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+Index: net-next-2.6/net/netfilter/nf_conntrack_netlink.c
+===================================================================
+--- net-next-2.6.orig/net/netfilter/nf_conntrack_netlink.c	2008-10-17 14:15:26.000000000 +0200
++++ net-next-2.6/net/netfilter/nf_conntrack_netlink.c	2008-10-17 14:17:12.000000000 +0200
+@@ -814,6 +814,7 @@
+ 	return err;
+ }
+ 
++#ifdef CONFIG_NF_NAT_NEEDED
+ static int
+ ctnetlink_parse_nat_setup(struct nf_conn *ct,
+ 			  enum nf_nat_manip_type manip,
+@@ -841,6 +842,7 @@
+ 
+ 	return parse_nat_setup(ct, manip, attr);
+ }
++#endif
+ 
+ static int
+ ctnetlink_change_status(struct nf_conn *ct, struct nlattr *cda[])
+
+--------------000706050806010703080304--
