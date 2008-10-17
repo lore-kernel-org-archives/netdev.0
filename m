@@ -1,103 +1,47 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [Bugme-new] [Bug 11752] New: Extremely low netperf	UDP_RR	throughput
- for nvidia MCP65
-Date: Fri, 17 Oct 2008 14:05:28 -0700
-Message-ID: <48F8FE18.6060005@hp.com>
-References: <bug-11752-10286@http.bugzilla.kernel.org/>	<20081016134920.1492cdcc.akpm@linux-foundation.org>	<48F7AD1A.7050309@hp.com> <wp63nrx7zk.fsf@heho.snv.jussieu.fr>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: cxgb3: Fix kernel crash caused by uninitialized l2t_entry.arpq
+Date: Fri, 17 Oct 2008 14:18:26 -0700
+Message-ID: <ada63nqsyxp.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: "Arno J. Klaassen" <arno@heho.snv.jussieu.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, divy@chelsio.com, davem@davemloft.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:5225 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753659AbYJQVFe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 17:05:34 -0400
-In-Reply-To: <wp63nrx7zk.fsf@heho.snv.jussieu.fr>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:4360 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030AbYJQVS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 17:18:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arno J. Klaassen wrote:
-> Hello,
-> 
-> 
->>Are netstat stats showing retransmissions during a TCP_STREAM test?
-> 
-> 
-> some more info :
-> 
->   [root@localhost mcp65]# uname -a
->   Linux localhost.localdomain 2.6.27-0.352.rc7.git1.fc10.x86_64 #1 SMP Tue Sep 23 21:13:29 EDT 2008 x86_64 x86_64 x86_64 GNU/Linux                                
-> 
-> 
->   [root@localhost ~]# ifconfig
->   eth0      Link encap:Ethernet  HWaddr 00:1E:68:XXX
->           inet addr:172.16.1.31  Bcast:172.16.1.255  Mask:255.255.255.0
->           inet6 addr: XXX/64 Scope:Link           
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1           
->           RX packets:1731 errors:149 dropped:0 overruns:0 frame:149    
->           TX packets:1628 errors:0 dropped:0 overruns:0 carrier:0      
->           collisions:0 txqueuelen:1000                                 
->           RX bytes:2549871 (2.4 MiB)  TX bytes:125378 (122.4 KiB)      
->           Interrupt:20 Base address:0x6000
-> 
-> After some fiddling (essentially installing a netperf-rpm) :
-> 
->   [root@localhost mcp65]# netstat -Ieth0                                         
->   Kernel Interface table                                                         
->   Iface       MTU Met    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg                                                                             
->   eth0       1500   0     6347    508      0      0     5838      0      0      0 BMRU                                                                            
-> 
-> 
->   [root@localhost mcp65]# ethtool eth0                                            
->   Settings for eth0:                                                              
->         Supported ports: [ MII ]                                                
->         Supported link modes:   10baseT/Half 10baseT/Full                       
->                                 100baseT/Half 100baseT/Full                     
->                                 1000baseT/Full                                  
->         Supports auto-negotiation: Yes                                          
->         Advertised link modes:  10baseT/Half 10baseT/Full                       
->                                 100baseT/Half 100baseT/Full                     
->                                 1000baseT/Full                                  
->         Advertised auto-negotiation: Yes                                        
->         Speed: 1000Mb/s                                                         
->         Duplex: Full                                                            
->         Port: MII                                                               
->         PHYAD: 1                                                                
->         Transceiver: external                                                   
->         Auto-negotiation: on                                                    
->         Supports Wake-on: g                                                     
->         Wake-on: d                                                              
->         Link detected: yes                                                      
-> 
->   [root@localhost mcp65]# netperf -v -t TCP_STREAM -H 172.16.1.7
->   TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.16.1.7 (172.16.1.7) port 0 AF_INET
->    132.64
+Commit 147e70e6 ("cxgb3: Use SKB list interfaces instead of home-grown
+implementation.") causes a crash in t3_l2t_send_slow() when an iWARP
+connection request is received.  This is because the new l2t_entry.arpq
+skb queue is never initialized, and therefore trying to add an skb to
+it causes a NULL dereference.  With the old code there was no need to
+initialize the queues because the l2t_entry structures were zeroed,
+and the code used NULL to mean empty.
 
-Hmm, I'm surprised that the lack of a value  following the -v was 
-successful - I'll have to go back and look at the code :)  Still, I 
-guess it gave you the desired "-v 0" behaviour.
+Fix this by adding __skb_queue_head_init() when all the l2t_entry
+structures get allocated.
 
->   [root@localhost mcp65]# netstat -Ieth0
->   Kernel Interface table
->   Iface       MTU Met    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVRFlg
->   eth0       1500   0    84682   2933      0      0   127298      0      0      0BMRU
-> 
-> 
-> I hope this is what you asked for ...
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
+---
+This should probably go to -stable as well, since it looks like the
+commit that broke things went into 2.6.27-rc6.
 
-Close enough.  I suspect that if you were to snap netstat -s -t before 
-and after the netperf you'd have seen retransmissions correlated to 
-those "RX-ERR" stats.  My history is such that I don't think of netstat 
-for link-level stats and only think of it in the context of IP-layer and 
-higher (eg tcp).
+ drivers/net/cxgb3/l2t.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Clearly something is fubar with the rx side (well duh :).  The next set 
-of stats I'd try to look at would be ethtool stats for the interface, eg 
-ethtool -S eth0 and see if it shows someting more specific for the 
-"RX-ERR" shown by netstat -I eth0.
-
-rick jones
+diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/cxgb3/l2t.c
+index 4407ac9..ff1611f 100644
+--- a/drivers/net/cxgb3/l2t.c
++++ b/drivers/net/cxgb3/l2t.c
+@@ -431,6 +431,7 @@ struct l2t_data *t3_init_l2t(unsigned int l2t_capacity)
+ 	for (i = 0; i < l2t_capacity; ++i) {
+ 		d->l2tab[i].idx = i;
+ 		d->l2tab[i].state = L2T_STATE_UNUSED;
++		__skb_queue_head_init(&d->l2tab[i].arpq);
+ 		spin_lock_init(&d->l2tab[i].lock);
+ 		atomic_set(&d->l2tab[i].refcnt, 0);
+ 	}
