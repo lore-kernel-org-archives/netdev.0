@@ -1,57 +1,48 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ibm_newemac: Fix new MAL feature handling
-Date: Fri, 17 Oct 2008 09:09:01 -0400
-Message-ID: <20081017090901.637c1ea5@zod.rchland.ibm.com>
-References: <20081015213337.a99a9595.akpm@linux-foundation.org>
-	<1224133010.8157.543.camel@pasglop>
-	<20081016143840.GA29805@yoda.jdub.homelinux.org>
-	<200810171456.53599.arnd@arndb.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [GIT]: Networking
+Date: Fri, 17 Oct 2008 15:28:49 +0200
+Message-ID: <48F89311.6090208@trash.net>
+References: <20081015.163817.193700221.davem@davemloft.net> <20081017082138.GA23155@elte.hu> <48F87D3E.5020007@trash.net> <20081017120408.GA20030@elte.hu> <48F88660.7080204@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linuxppc-dev@ozlabs.org,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:44179 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753253AbYJQNJG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 09:09:06 -0400
-In-Reply-To: <200810171456.53599.arnd@arndb.de>
+Received: from stinky.trash.net ([213.144.137.162]:65056 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754612AbYJQN24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2008 09:28:56 -0400
+In-Reply-To: <48F88660.7080204@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Oct 2008 14:56:52 +0200
-Arnd Bergmann <arnd@arndb.de> wrote:
-
-> On Thursday 16 October 2008, Josh Boyer wrote:
-> > +#ifdef CONFIG_PPC_DCR_NATIVE
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (mal_has_feature=
-(mal, MAL_FTR_CLEAR_ICINTSTAT))
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0mtdcri(SDR0, DCRN_SDR_ICINTSTAT,
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0(mfdcri(SDR0, DCRN_S=
-DR_ICINTSTAT) | ICINTSTAT_ICTX));
-> > +#endif
-> > =C2=A0
+Pablo Neira Ayuso wrote:
+> Ingo Molnar wrote:
+>> * Patrick McHardy <kaber@trash.net> wrote:
+>>
+>>>> net/netfilter/nf_conntrack_netlink.c:819: warning: =E2=80=98enum=20
+>>>> nf_nat_manip_type=E2=80=99 declared inside parameter list
+>>>> net/netfilter/nf_conntrack_netlink.c:819: warning: its scope is on=
+ly=20
+>>>> this definition or declaration, which is probably not what you wan=
+t
+>>>> net/netfilter/nf_conntrack_netlink.c:818: error: parameter 2=20
+>>>> (=E2=80=98manip=E2=80=99) has incomplete type
+>>> Thanks Ingo. I just sent this patch to Benjamin Herrenschmidt
+>>> for testing.
+>>
+>> build still fails with the attached config.
 >=20
-> So what if you have a mmio based DRC implementation and still want to=
- use
-> this feature?
+> This should fix it. I have slightly tested it here with your config.
+>
 
-You have to have hardware that does that.  When it exists, we can
-probably worry about it.  Hopefully that will never happen.  (Axon is
-an abomination that should not be repeated.)
+Applied, thanks Pablo.
 
-> I guess you really should use dcr_read/dcr_write here instead of mtdc=
-r/mfdcr.
+I'll look into cleaning up those conditional includes. Its getting
+more and more complicated to even build-test all the combinations.
 
-We can look at that.  It's not going to be high on my TODO list at the
-moment though.  (hint, there are other places that do the same thing
-here and they should all be cleaned up if we're going to bother.)
-
-josh
