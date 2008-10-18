@@ -1,207 +1,162 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/6] bonding: event driven carrier detection
-Date: Fri, 17 Oct 2008 21:32:55 -0700
-Message-ID: <20081018043323.557029112@vyatta.com>
-References: <20081018043252.968940967@vyatta.com>
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jay Vousburgh <fubar@us.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when	gc_elasticity
+ is exceeded
+Date: Sat, 18 Oct 2008 06:36:10 +0200
+Message-ID: <48F967BA.4090102@cosmosbay.com>
+References: <20081016114155.GA15877@hmsreliant.think-freely.org> <48F732CB.8030704@cosmosbay.com> <20081016163644.GA2933@localhost.localdomain> <20081016233517.GA21243@localhost.localdomain> <20081016220624.512a1e61@extreme> <20081017103948.GA23591@hmsreliant.think-freely.org> <48F8806A.6090306@cosmosbay.com> <20081017152328.GB23591@hmsreliant.think-freely.org> <48F8AFBE.5080503@cosmosbay.com> <20081017204415.GC23591@hmsreliant.think-freely.org> <20081018005408.GB27254@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, billfink@mindspring.com,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	johnpol@2ka.mipt.ru, Stephen Hemminger <shemminger@vyatta.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52214 "EHLO suva.vyatta.com"
+Received: from smtp2f.orange.fr ([80.12.242.151]:62126 "EHLO smtp2f.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751171AbYJREfz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Oct 2008 00:35:55 -0400
-Content-Disposition: inline; filename=bonding-carrier-notify.patch
+	id S1751183AbYJREg2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 00:36:28 -0400
+In-Reply-To: <20081018005408.GB27254@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rather than polling for carrier status changes, use existing netlink
-notifier infrastracture to detect changes. This is enabled by leaving
-mii_mon=0.  No matter what the detection method, if admin takes slave 
-interface down, it should go down ASAP.
+Neil Horman a =E9crit :
+> Sorry for the additional noise, but Eric just pointed out that I'd mi=
+ssed an
+> email from him and consequently a few comments.  I've made the approp=
+riate
+> updates in this patch, which is otherwise unchanged.  The only commen=
+t I'd
+> skipped was the request for an additional stat in /proc/net/stat/rt_c=
+ache for a
+> per net rebuild count.  I figure thats a good break point to submit a=
+n
+> additional follow on patch for.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+OK, yet an admin cannot know if its route cache is disabled or not...
+Right its can be addressed in a follow path.
+
+>=20
+> This is a patch to provide on demand route cache rebuilding.  Current=
+ly, our
+> route cache is rebulid periodically regardless of need.  This introdu=
+ced
+> unneeded periodic latency.  This patch offers a better approach.  Usi=
+ng code
+> provided by Eric Dumazet, we compute the standard deviation of the av=
+erage hash
+> bucket chain length while running rt_check_expire.  Should any given =
+chain
+> length grow to larger that average plus 4 standard deviations, we tri=
+gger an
+> emergency hash table rebuild for that net namespace.  This allows for=
+ the common
+> case in which chains are well behaved and do not grow unevenly to not=
+ incur any
+> latency at all, while those systems (which may be being maliciously a=
+ttacked),
+> only rebuild when the attack is detected.  This patch take 2 other fa=
+ctors into
+> account:
+> 1) chains with multiple entries that differ by attributes that do not=
+ affect the
+> hash value are only counted once, so as not to unduly bias system to =
+rebuilding
+> if features like QOS are heavily used
+> 2) if rebuilding crosses a certain threshold (which is adjustable via=
+ the added
+> sysctl in this patch), route caching is disabled entirely for that ne=
+t
+> namespace, since constant rebuilding is less efficient that no cachin=
+g at all
+>=20
+> Tested successfully by me.
+>=20
+> Regards
+> Neil
+>=20
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
+OK, its almost done Neil :)
+
+Please rebase your patch against latest net-2.6 tree that includes my p=
+revious patch.
+
+http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcomm=
+itdiff;h=3D00269b54edbf25f3bb0dccb558ae23a6fc77ed86
+
+Please read *all* this mail to catch all final comments, in order to av=
+oid upset netdev=20
+readers with small details. You also can submit it privatly to me, if y=
+ou wish.
+
+Please add my Signed-off-by after yours
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+> +static inline bool rt_caching(struct net *net)
+
+As Stephen pointed out, you *should* add a const qualifier here to "str=
+uct net *net",
+
+-> static inline bool rt_caching(const struct net *net)
+
+> +{
+> +	return net->ipv4.current_rt_cache_rebuild_count <=3D
+> +		net->ipv4.sysctl_rt_cache_rebuild_count;
+> +}
+> +
+> +static inline int compare_hash_inputs(struct flowi *fl1, struct flow=
+i *fl2)
+
+const qualifiers too, please.
+
+> +{
+> +	return (__force u32)(((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.dadd=
+r) |
+> +		(fl1->nl_u.ip4_u.saddr ^ fl2->nl_u.ip4_u.saddr) |
+> +		(fl1->iif ^ fl2->iif)) =3D=3D 0);
+> +}
+> +
+>  static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
+
+previous code can be cleaned up in a followup patch.
+
+New code is not forced to follow old and not "clean by modern standards=
+" code :)
+
+>  {
+>  	return ((__force u32)((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.dadd=
+r) |
+> @@ -748,11 +764,24 @@ static void rt_do_flush(int process_context)
+>  	}
+>  }
+> =20
+
+=2E.. snip to ease your job ...
+
+>  #endif
+> -	rt_hash_table[hash].chain =3D rt;
+> +	if (rthi)
+> +		rthi->u.dst.rt_next =3D rt;
+> +	else
+> +		rt_hash_table[hash].chain =3D rt;
+>  	spin_unlock_bh(rt_hash_lock_addr(hash));
+
+Based on latest tree, this should be something like :
+
+> -	rcu_assign_pointer(rt_hash_table[hash].chain, rt);
+> +	if (rthi)
+> +		rcu_assign_pointer(rthi->u.dst.rt_next, rt);
+> +	else
+> +		rcu_assign_pointer(rt_hash_table[hash].chain, rt);
+>  	spin_unlock_bh(rt_hash_lock_addr(hash));
 
 
---- a/drivers/net/bonding/bond_main.c	2008-10-17 15:45:14.000000000 -0700
-+++ b/drivers/net/bonding/bond_main.c	2008-10-17 16:50:37.000000000 -0700
-@@ -1640,8 +1640,7 @@ int bond_enslave(struct net_device *bond
- 	}
- 
- 	/* check for initial state */
--	if (!bond->params.miimon ||
--	    (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS)) {
-+	if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
- 		if (bond->params.updelay) {
- 			dprintk("Initial state of slave_dev is "
- 				"BOND_LINK_BACK\n");
-@@ -3510,31 +3509,67 @@ static int bond_master_netdev_event(unsi
- 	return NOTIFY_DONE;
- }
- 
-+static void bond_slave_down(struct bonding *bond, struct net_device *slave_dev)
-+{
-+	struct slave *slave = bond_get_slave_by_dev(bond, slave_dev);
-+
-+	if (slave && slave->link != BOND_LINK_DOWN) {
-+		slave->link = BOND_LINK_DOWN;
-+		read_lock(&bond->lock);
-+		bond_miimon_commit(bond);
-+		read_unlock(&bond->lock);
-+	}
-+}
-+
-+static void bond_slave_up(struct bonding *bond, struct net_device *slave_dev)
-+{
-+	struct slave *slave = bond_get_slave_by_dev(bond, slave_dev);
-+
-+	if (slave && slave->link == BOND_LINK_DOWN) {
-+		if (bond->params.updelay) {
-+			slave->link  = BOND_LINK_BACK;
-+			slave->delay = bond->params.updelay;
-+		} else
-+			slave->link  = BOND_LINK_UP;
-+
-+		read_lock(&bond->lock);
-+		bond_miimon_commit(bond);
-+		read_unlock(&bond->lock);
-+	}
-+}
-+
- static int bond_slave_netdev_event(unsigned long event, struct net_device *slave_dev)
- {
- 	struct net_device *bond_dev = slave_dev->master;
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond;
-+
-+	if (!bond_dev)
-+		goto out;
-+
-+	bond = bond_dev->priv;
- 
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
--		if (bond_dev) {
--			if (bond->setup_by_slave)
--				bond_release_and_destroy(bond_dev, slave_dev);
--			else
--				bond_release(bond_dev, slave_dev);
--		}
--		break;
--	case NETDEV_CHANGE:
--		/*
--		 * TODO: is this what we get if somebody
--		 * sets up a hierarchical bond, then rmmod's
--		 * one of the slave bonding devices?
--		 */
-+		if (bond->setup_by_slave)
-+			bond_release_and_destroy(bond_dev, slave_dev);
-+		else
-+			bond_release(bond_dev, slave_dev);
- 		break;
- 	case NETDEV_DOWN:
--		/*
--		 * ... Or is it this?
--		 */
-+		bond_slave_down(bond, slave_dev);
-+		break;
-+	case NETDEV_UP:
-+	case NETDEV_CHANGE:
-+		if (bond->params.use_carrier && !bond->params.miimon) {
-+			dprintk("%s: status change %s\n",
-+				slave_dev->name,
-+				IS_UP(slave_dev) ? "up" : "down");
-+
-+			if (IS_UP(slave_dev))
-+				bond_slave_up(bond, slave_dev);
-+			else
-+				bond_slave_down(bond, slave_dev);
-+		}
- 		break;
- 	case NETDEV_CHANGEMTU:
- 		/*
-@@ -3558,10 +3593,9 @@ static int bond_slave_netdev_event(unsig
- 	case NETDEV_FEAT_CHANGE:
- 		bond_compute_features(bond);
- 		break;
--	default:
--		break;
- 	}
- 
-+out:
- 	return NOTIFY_DONE;
- }
- 
-@@ -4788,33 +4822,6 @@ static int bond_check_params(struct bond
- 		num_grat_arp = 1;
- 	}
- 
--	/* reset values for 802.3ad */
--	if (bond_mode == BOND_MODE_8023AD) {
--		if (!miimon) {
--			printk(KERN_WARNING DRV_NAME
--			       ": Warning: miimon must be specified, "
--			       "otherwise bonding will not detect link "
--			       "failure, speed and duplex which are "
--			       "essential for 802.3ad operation\n");
--			printk(KERN_WARNING "Forcing miimon to 100msec\n");
--			miimon = 100;
--		}
--	}
--
--	/* reset values for TLB/ALB */
--	if ((bond_mode == BOND_MODE_TLB) ||
--	    (bond_mode == BOND_MODE_ALB)) {
--		if (!miimon) {
--			printk(KERN_WARNING DRV_NAME
--			       ": Warning: miimon must be specified, "
--			       "otherwise bonding will not detect link "
--			       "failure and link speed which are essential "
--			       "for TLB/ALB load balancing\n");
--			printk(KERN_WARNING "Forcing miimon to 100msec\n");
--			miimon = 100;
--		}
--	}
--
- 	if (bond_mode == BOND_MODE_ALB) {
- 		printk(KERN_NOTICE DRV_NAME
- 		       ": In ALB mode you might experience client "
-@@ -4825,19 +4832,7 @@ static int bond_check_params(struct bond
- 		       updelay);
- 	}
- 
--	if (!miimon) {
--		if (updelay || downdelay) {
--			/* just warn the user the up/down delay will have
--			 * no effect since miimon is zero...
--			 */
--			printk(KERN_WARNING DRV_NAME
--			       ": Warning: miimon module parameter not set "
--			       "and updelay (%d) or downdelay (%d) module "
--			       "parameter is set; updelay and downdelay have "
--			       "no effect unless miimon is set\n",
--			       updelay, downdelay);
--		}
--	} else {
-+	if (miimon) {
- 		/* don't allow arp monitoring */
- 		if (arp_interval) {
- 			printk(KERN_WARNING DRV_NAME
-@@ -4944,15 +4939,6 @@ static int bond_check_params(struct bond
- 
- 		printk("\n");
- 
--	} else if (max_bonds) {
--		/* miimon and arp_interval not set, we need one so things
--		 * work as expected, see bonding.txt for details
--		 */
--		printk(KERN_WARNING DRV_NAME
--		       ": Warning: either miimon or arp_interval and "
--		       "arp_ip_target module parameters must be specified, "
--		       "otherwise bonding will not detect link failures! see "
--		       "bonding.txt for details.\n");
- 	}
- 
- 	if (primary && !USES_PRIMARY(bond_mode)) {
 
--- 
+Thanks
+
+
 
