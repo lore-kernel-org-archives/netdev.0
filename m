@@ -1,93 +1,86 @@
-From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: [BUG-FIX][PATCH] tcp: Fix IPv6 fallout from 'Port redirection support
- for TCP'
-Date: Sat, 18 Oct 2008 12:09:10 +0200
-Message-ID: <200810181209.10355@nessa>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: hardware time stamps + existing time stamp usage
+Date: Sat, 18 Oct 2008 12:10:24 +0200
+Message-ID: <48F9B610.2090504@hartkopp.net>
+References: <1224253423.17450.211.camel@ecld0pohly> <48F96DD6.5060904@cosmosbay.com> <48F99286.9050706@hartkopp.net> <48F9A43A.7070801@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick Ohly <patrick.ohly@intel.com>, netdev@vger.kernel.org,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>, Andi Kleen <ak@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from balu.sch.bme.hu ([152.66.208.40]:36959 "EHLO balu.sch.bme.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750892AbYJRKJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Oct 2008 06:09:12 -0400
-Received: from nessa.odu ([89.132.101.55])
- by balu.sch.bme.hu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
- 2006)) with ESMTPSA id <0K8X00KL0IU3ND50@balu.sch.bme.hu> for
- netdev@vger.kernel.org; Sat, 18 Oct 2008 12:08:27 +0200 (CEST)
-Content-disposition: inline
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:42045 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872AbYJRKKf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 06:10:35 -0400
+In-Reply-To: <48F9A43A.7070801@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Eric Dumazet wrote:
+> Oliver Hartkopp a =E9crit :
+>> Eric Dumazet wrote:
+>>
+>>> 2) You want hardware RX stamping on a particular device, yet being=20
+>>> able to
+>>>   deliver system time to legacy apps, unaware of hardware tstamps.
+>>>
+>>>   Set a global flag on device, telling linux stack this device feed=
+s=20
+>>> hardware stamp.
+>>>   In driver RX completion, set skb tstamp with hardware stamps.
+>>>
 
-Gerrit's patch fixes DCCP, but I think that there are other code paths
-in IPv6 TCP where the new loc_port field should be used.
+But at this point you would also need to save the system timestamp into=
+=20
+the skb for sockets that do not want the hardware timestamp. The device=
+=20
+driver has no chance to know whether the socket this skb is sent to=20
+wants hw tstamps or not.
 
-Could you please consider applying the patch to net-2.6?
+>>>   Mark a WANT_HARDWARE_RX_STAMP flag at socket level, for PTP=20
+>>> applications.
+>>>
+>>>   In recv(), if current socket is not marked WANT_HARDWARE_RX_STAMP=
+=20
+>>> and device has
+>>>   the global flag set, copy system time in tstamp, overrinding=20
+>>> hardware tstamp.
+>>>
+>>>
+>>
+>> Looks good to me. Just one question regarding
+>> 'copy system time in tstamp, overrinding hardware tstamp':
+>>
+>> When recv() delivers to several sockets there would be probably=20
+>> *different* system time values copied and delivered for the *same*=20
+>> skb, right?
+>
+> As we introduced a new skb flag for the TX part, we could reuse it in=
+=20
+> order
+> to copy system time to tstamp only once for the RX part.
 
-Cheers,
-Krisztian
+But this does not help on received packets, right?
 
-- 8< -
-tcp: Fix IPv6 fallout from 'Port redirection support for TCP'
+>>
+>> If so i would tend to fill both (system time and hw timestamp) on=20
+>> driver level into the skb and then decide on socket level what to=20
+>> push into user space as you suggested above.
+>
+> Well, this would enlarge skb structure by 8 bytes, since you cannot u=
+se
+> same tstamp location to fille both 8 bytes values.
+> This is probably the easy way, but very expensive...
 
-'tcp: Port redirection support for TCP' (a3116ac5c) added a new member
-to inet_request_sock() which inet_csk_clone() makes use of but failed
-to add proper initialization to the IPv6 syncookie code and missed a
-couple of places where the new member should be used instead of
-inet_sk(sk)->sport.
+IMHO this is the only way to fulfill the given requirements.
+Maybe we should introduce a new kernel config option for hw tstamps the=
+n ...
 
-Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
----
- net/ipv6/syncookies.c |    1 +
- net/ipv6/tcp_ipv6.c   |    6 +++---
- 2 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index ec394cf..676c80b 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -204,6 +204,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 
- 	req->mss = mss;
- 	ireq->rmt_port = th->source;
-+	ireq->loc_port = th->dest;
- 	ipv6_addr_copy(&ireq6->rmt_addr, &ipv6_hdr(skb)->saddr);
- 	ipv6_addr_copy(&ireq6->loc_addr, &ipv6_hdr(skb)->daddr);
- 	if (ipv6_opt_accepted(sk, skb) ||
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index e5310c9..b6b356b 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -476,7 +476,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req)
- 	fl.fl6_flowlabel = 0;
- 	fl.oif = treq->iif;
- 	fl.fl_ip_dport = inet_rsk(req)->rmt_port;
--	fl.fl_ip_sport = inet_sk(sk)->sport;
-+	fl.fl_ip_sport = inet_rsk(req)->loc_port;
- 	security_req_classify_flow(req, &fl);
- 
- 	opt = np->opt;
-@@ -1309,7 +1309,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		ipv6_addr_copy(&fl.fl6_src, &treq->loc_addr);
- 		fl.oif = sk->sk_bound_dev_if;
- 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
--		fl.fl_ip_sport = inet_sk(sk)->sport;
-+		fl.fl_ip_sport = inet_rsk(req)->loc_port;
- 		security_req_classify_flow(req, &fl);
- 
- 		if (ip6_dst_lookup(sk, &dst, &fl))
-@@ -1865,7 +1865,7 @@ static void get_openreq6(struct seq_file *seq,
- 		   i,
- 		   src->s6_addr32[0], src->s6_addr32[1],
- 		   src->s6_addr32[2], src->s6_addr32[3],
--		   ntohs(inet_sk(sk)->sport),
-+		   ntohs(inet_rsk(req)->loc_port),
- 		   dest->s6_addr32[0], dest->s6_addr32[1],
- 		   dest->s6_addr32[2], dest->s6_addr32[3],
- 		   ntohs(inet_rsk(req)->rmt_port),
--- 
-1.5.4.4
+Regards,
+Oliver
