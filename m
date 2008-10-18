@@ -1,120 +1,51 @@
-From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: Re: 2.6.27 [BUG-FIX] [PATCH 1/1] dccp: Port redirection support for
- DCCP
-Date: Sat, 18 Oct 2008 12:21:58 +0200
-Message-ID: <200810181221.58863@nessa>
-References: <20081018092118.GA22685@gerrit.erg.abdn.ac.uk>
- <200810181148.14620@nessa> <20081018100651.GA23003@gerrit.erg.abdn.ac.uk>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.27 seems to break something with DSL (fwd)
+Date: Sat, 18 Oct 2008 13:09:54 +0200
+Message-ID: <48F9C402.9040903@gmail.com>
+References: <Pine.LNX.4.64.0810171611100.2939@olon.olon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: olon@verizon.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from balu.sch.bme.hu ([152.66.208.40]:39008 "EHLO balu.sch.bme.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750938AbYJRKWB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Oct 2008 06:22:01 -0400
-Received: from nessa.odu ([89.132.101.55])
- by balu.sch.bme.hu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
- 2006)) with ESMTPSA id <0K8X00KIUJFFN660@balu.sch.bme.hu> for
- netdev@vger.kernel.org; Sat, 18 Oct 2008 12:21:15 +0200 (CEST)
-In-reply-to: <20081018100651.GA23003@gerrit.erg.abdn.ac.uk>
-Content-disposition: inline
+Received: from ik-out-1112.google.com ([66.249.90.178]:1203 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751568AbYJRLJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 07:09:17 -0400
+Received: by ik-out-1112.google.com with SMTP id c30so711096ika.5
+        for <netdev@vger.kernel.org>; Sat, 18 Oct 2008 04:09:15 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0810171611100.2939@olon.olon.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Olon wrote, On 10/17/2008 10:11 PM:
+
+> 
+> Hi there,
+
 Hi,
 
-On Saturday 18 October 2008, Gerrit Renker wrote:
-> | I think we're still missing this one:
-> |
-> | diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-> | index 1106278..aa00cdd 100644
-> | --- a/net/dccp/ipv6.c
-> | +++ b/net/dccp/ipv6.c
-> | @@ -558,7 +558,7 @@ static struct sock
-> | *dccp_v6_request_recv_sock(struct sock *sk,
-> | ipv6_addr_copy(&fl.fl6_src, &ireq6->loc_addr);
-> |  		fl.oif = sk->sk_bound_dev_if;
-> |  		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
-> | -		fl.fl_ip_sport = inet_sk(sk)->sport;
-> | +		fl.fl_ip_sport = inet_rsk(req)->loc_port;
-> |  		security_sk_classify_flow(sk, &fl);
-> |
-> |  		if (ip6_dst_lookup(sk, &dst, &fl))
-> |
-> | What do you think?
->
-> Ack - missed this one. Do you want to send your patch or would you like
-> me to send an update for the above?
+> 
+> I can confirm this issue.
+> I'm using a westell dsl modem, and going from 2.6.26.5 to .27.  I found that I 
+> couldn't connect to most websites either.
+> This modem is in passthrough mode and not nat.
+> 
+> Here is a dump of my attempt to connect to port 80 on gnu.org
+> 
+> tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
+> 14:14:27.213995 IP (tos 0x0, ttl  64, id 44805, offset 0, flags [DF], proto: 
+> TCP (6), length: 52) 96.246.106.2.34127 > 199.232.41.10.80: F, cksum 0x6b68 
+> (correct), 1665374024:1665374024(0) ack 1967527671 win 183 <nop,nop,timestamp 
+> 2701875 3655675399>
 
-Dave & Gerrit, please find the updated patch below.
+Could you let us compare such logs for working vs. not working case?
+Is this eth0 connected directly to modem with ethernet? 
+Could you also try to set lower mtu (eg. 1400) on eth0 and maybe this:
 
-- 8< -
-dccp: Port redirection support for DCCP
+echo 0 > /proc/sys/net/ipv4/tcp_window_scaling
 
-Commit a3116ac5c216fc3c145906a46df9ce542ff7dcf2 from 1st October ("tcp: Port
-redirection support for TCP") broke DCCP skb lookup by changing inet_csk_clone,
-which is used by DCCP to generate the child socket after the handshake.
+Thanks,
+Jarek P.
 
-This patch updates DCCP to use 'loc_port' instead of 'sport', which fixes the
-problem, and thus inheriting port redirection support via the new interface.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
----
- net/dccp/ipv6.c      |    4 ++--
- net/dccp/minisocks.c |    1 +
- net/dccp/output.c    |    2 +-
- 3 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 1106278..d4ce122 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -259,7 +259,7 @@ static int dccp_v6_send_response(struct sock *sk, struct request_sock *req)
- 	fl.fl6_flowlabel = 0;
- 	fl.oif = ireq6->iif;
- 	fl.fl_ip_dport = inet_rsk(req)->rmt_port;
--	fl.fl_ip_sport = inet_sk(sk)->sport;
-+	fl.fl_ip_sport = inet_rsk(req)->loc_port;
- 	security_req_classify_flow(req, &fl);
- 
- 	opt = np->opt;
-@@ -558,7 +558,7 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 		ipv6_addr_copy(&fl.fl6_src, &ireq6->loc_addr);
- 		fl.oif = sk->sk_bound_dev_if;
- 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
--		fl.fl_ip_sport = inet_sk(sk)->sport;
-+		fl.fl_ip_sport = inet_rsk(req)->loc_port;
- 		security_sk_classify_flow(sk, &fl);
- 
- 		if (ip6_dst_lookup(sk, &dst, &fl))
-diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
-index b2804e2..e6bf99e 100644
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -309,6 +309,7 @@ void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb)
- 	struct dccp_request_sock *dreq = dccp_rsk(req);
- 
- 	inet_rsk(req)->rmt_port	  = dccp_hdr(skb)->dccph_sport;
-+	inet_rsk(req)->loc_port	  = dccp_hdr(skb)->dccph_dport;
- 	inet_rsk(req)->acked	  = 0;
- 	req->rcv_wnd		  = sysctl_dccp_feat_sequence_window;
- 	dreq->dreq_timestamp_echo = 0;
-diff --git a/net/dccp/output.c b/net/dccp/output.c
-index d06945c..809d803 100644
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -347,7 +347,7 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
- 	/* Build and checksum header */
- 	dh = dccp_zeroed_hdr(skb, dccp_header_size);
- 
--	dh->dccph_sport	= inet_sk(sk)->sport;
-+	dh->dccph_sport	= inet_rsk(req)->loc_port;
- 	dh->dccph_dport	= inet_rsk(req)->rmt_port;
- 	dh->dccph_doff	= (dccp_header_size +
- 			   DCCP_SKB_CB(skb)->dccpd_opt_len) / 4;
--- 
-1.5.4.4
