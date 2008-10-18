@@ -1,78 +1,83 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/6] bonding: fix sparse warnings
-Date: Fri, 17 Oct 2008 21:32:54 -0700
-Message-ID: <20081018043323.468786924@vyatta.com>
+Subject: [PATCH 5/6] bonding: prevent MTU changes in slave devices
+Date: Fri, 17 Oct 2008 21:32:57 -0700
+Message-ID: <20081018043323.724189700@vyatta.com>
 References: <20081018043252.968940967@vyatta.com>
 Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: Jay Vousburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52209 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:52218 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751073AbYJREfz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Oct 2008 00:35:55 -0400
-Content-Disposition: inline; filename=bonding-sparse.patch
+	id S1750858AbYJREf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Oct 2008 00:35:57 -0400
+Content-Disposition: inline; filename=bonding-mtu.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes sparse warnings due to normal locking, and shadowed variable.
-There is still one warning but it is valid, and caused by some dubious locking
-in the failover MAC assignment.
+Check in bonding driver disallow changing MTU of one slave.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/bonding/bond_main.c	2008-10-17 15:45:13.000000000 -0700
-+++ b/drivers/net/bonding/bond_main.c	2008-10-17 18:59:11.000000000 -0700
-@@ -3173,6 +3173,7 @@ out:
- #ifdef CONFIG_PROC_FS
- 
- static void *bond_info_seq_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(dev_base_lock) __acquires(bond->lock)
+
+--- a/drivers/net/bonding/bond_main.c	2008-10-17 18:59:48.000000000 -0700
++++ b/drivers/net/bonding/bond_main.c	2008-10-17 19:02:58.000000000 -0700
+@@ -3572,19 +3572,14 @@ static int bond_slave_netdev_event(unsig
+ 		}
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+-		/*
+-		 * TODO: Should slaves be allowed to
+-		 * independently alter their MTU?  For
+-		 * an active-backup bond, slaves need
+-		 * not be the same type of device, so
+-		 * MTUs may vary.  For other modes,
+-		 * slaves arguably should have the
+-		 * same MTUs. To do this, we'd need to
+-		 * take over the slave's change_mtu
+-		 * function for the duration of their
+-		 * servitude.
++		/* Can not independently change MTU of slave devices
++		 * NOTIFY_BAD causes EPERM in orignal change mtu call
++		 * NB: called on unwind as well
+ 		 */
++		if (slave_dev->mtu != bond_dev->mtu)
++			return NOTIFY_BAD;
+ 		break;
++
+ 	case NETDEV_CHANGENAME:
+ 		/*
+ 		 * TODO: handle changing the primary's name
+@@ -4132,6 +4127,7 @@ static int bond_change_mtu(struct net_de
  {
- 	struct bonding *bond = seq->private;
- 	loff_t off = 0;
-@@ -3212,6 +3213,7 @@ static void *bond_info_seq_next(struct s
- }
+ 	struct bonding *bond = bond_dev->priv;
+ 	struct slave *slave, *stop_at;
++	int old_mtu = bond_dev->mtu;
+ 	int res = 0;
+ 	int i;
  
- static void bond_info_seq_stop(struct seq_file *seq, void *v)
-+	__releases(dev_base_lock) __releases(bond->lock)
- {
- 	struct bonding *bond = seq->private;
+@@ -4152,7 +4148,7 @@ static int bond_change_mtu(struct net_de
+ 	 * list, but without holding a lock around the actual
+ 	 * call to the base driver.
+ 	 */
+-
++	bond_dev->mtu = new_mtu;
+ 	bond_for_each_slave(bond, slave, i) {
+ 		dprintk("s %p s->p %p c_m %p\n", slave,
+ 			slave->prev, slave->dev->change_mtu);
+@@ -4173,11 +4169,12 @@ static int bond_change_mtu(struct net_de
+ 		}
+ 	}
  
-@@ -4662,7 +4664,7 @@ static void bond_free_all(void)
-  */
- int bond_parse_parm(const char *buf, struct bond_parm_tbl *tbl)
- {
--	int mode = -1, i, rv;
-+	int newmode = -1, i, rv;
- 	char *p, modestr[BOND_MAX_MODENAME_LEN + 1] = { 0, };
+-	bond_dev->mtu = new_mtu;
  
- 	for (p = (char *)buf; *p; p++)
-@@ -4672,13 +4674,13 @@ int bond_parse_parm(const char *buf, str
- 	if (*p)
- 		rv = sscanf(buf, "%20s", modestr);
- 	else
--		rv = sscanf(buf, "%d", &mode);
-+		rv = sscanf(buf, "%d", &newmode);
+ 	return 0;
  
- 	if (!rv)
- 		return -1;
- 
- 	for (i = 0; tbl[i].modename; i++) {
--		if (mode == tbl[i].mode)
-+		if (newmode == tbl[i].mode)
- 			return tbl[i].mode;
- 		if (strcmp(modestr, tbl[i].modename) == 0)
- 			return tbl[i].mode;
---- a/drivers/net/bonding/bonding.h	2008-10-17 15:45:13.000000000 -0700
-+++ b/drivers/net/bonding/bonding.h	2008-10-17 16:48:26.000000000 -0700
-@@ -336,6 +336,7 @@ void bond_register_arp(struct bonding *)
- void bond_unregister_arp(struct bonding *);
- 
- /* exported from bond_main.c */
-+extern struct bond_params bonding_defaults;
- extern struct list_head bond_dev_list;
- extern struct bond_parm_tbl bond_lacp_tbl[];
- extern struct bond_parm_tbl bond_mode_tbl[];
+ unwind:
++	bond_dev->mtu = old_mtu;
++
+ 	/* unwind from head to the slave that failed */
+ 	stop_at = slave;
+ 	bond_for_each_slave_from_to(bond, slave, i, bond->first_slave, stop_at) {
 
 -- 
 
