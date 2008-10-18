@@ -1,59 +1,39 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: tcp_sack problem Re: [Bug 11721] after upgrade to 2.6.27 i cannot
-	navigate
-Date: Sat, 18 Oct 2008 23:02:52 +0200
-Message-ID: <20081018210252.GA6048@ami.dom.local>
-References: <bug-11721-11547@http.bugzilla.kernel.org/> <20081018202056.F1933108040@picon.linux-foundation.org>
+Subject: Re: 2.6.27 seems to break something with DSL (fwd)
+Date: Sat, 18 Oct 2008 23:11:05 +0200
+Message-ID: <48FA50E9.4080105@gmail.com>
+References: <Pine.LNX.4.64.0810171611100.2939@olon.olon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	netdev@vger.kernel.org
-To: bugme-daemon@bugzilla.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: olon@verizon.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:14358 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbYJRVC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 17:02:58 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so623773nfc.21
-        for <netdev@vger.kernel.org>; Sat, 18 Oct 2008 14:02:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20081018202056.F1933108040@picon.linux-foundation.org>
+Received: from ug-out-1314.google.com ([66.249.92.174]:7915 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754AbYJRVLJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 17:11:09 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so371756ugf.37
+        for <netdev@vger.kernel.org>; Sat, 18 Oct 2008 14:11:07 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0810171611100.2939@olon.olon.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nice job Aldo!
+Olon wrote, On 10/17/2008 10:11 PM:
 
-I forward this message to netdev and Cc our best tcp expert.
-Any new replies should be rather "Reply All" (not bugzilla only).
+> 
+> Hi there,
+> 
+> I can confirm this issue.
+> I'm using a westell dsl modem, and going from 2.6.26.5 to .27.  I found that I 
+> couldn't connect to most websites either.
+> This modem is in passthrough mode and not nat.
 
-Thanks,
+Could you try this?:
+echo 0 > /proc/sys/net/ipv4/tcp_sack
+
+It looks like it helped in a similar problem here:
+http://bugzilla.kernel.org/show_bug.cgi?id=11721
+
 Jarek P.
 
-On Sat, Oct 18, 2008 at 01:20:56PM -0700, bugme-daemon@bugzilla.kernel.org wrote:
-> http://bugzilla.kernel.org/show_bug.cgi?id=11721
-> 
-...
-> ------- Comment #30 from sentiniate@tiscali.it  2008-10-18 13:20 -------
-> absolutely i'm not fed up! and actually i thank you for your patience.
-> 
-> i set paperino as you wrote and added ifconfig eth0 mtu 1400 as well
-> i set the same value of mtu in topolino as well, i hope i was not wrong doing
-> so!
-> 
-> i attach the files you ask for, but now i can navigate with 2.6.27-rc1-git1 as
-> well!
-> 
-> afterwards i've run some more tests and have found out that the culprit is
-> tcp_sack, if using kernel 2.6.27-rc1-gt1 it is set to "1" i cannot navigate if
-> to "0" i can.
-> so i enclose, should it be of any help, also the tcpdump on eth0 of topolino
-> when on paperino tcp_sack is set to "1".
-> 
-> thanks
-> aldo
-> 
-> 
-> -- 
-> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
