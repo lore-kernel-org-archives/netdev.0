@@ -1,60 +1,75 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: Re: 2.6.27-05178-g2e532d6: list_add corruption
-Date: Sat, 18 Oct 2008 10:41:02 +0400
-Message-ID: <a4423d670810172341y5ae5542jea66ead938ba652d@mail.gmail.com>
-References: <a4423d670810171220t4d5602fekcb66e18758149925@mail.gmail.com>
-	 <Pine.LNX.4.64.0810171617490.21410@alien.or.mcafeemobile.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: hardware time stamps + existing time stamp usage
+Date: Sat, 18 Oct 2008 09:38:46 +0200
+Message-ID: <48F99286.9050706@hartkopp.net>
+References: <1224253423.17450.211.camel@ecld0pohly> <48F96DD6.5060904@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"Kernel Testers List" <kernel-testers@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: "Davide Libenzi" <davidel@xmailserver.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick Ohly <patrick.ohly@intel.com>, netdev@vger.kernel.org,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>, Andi Kleen <ak@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:36896 "EHLO
-	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750994AbYJRGlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 02:41:03 -0400
-Received: by gxk9 with SMTP id 9so2032693gxk.13
-        for <netdev@vger.kernel.org>; Fri, 17 Oct 2008 23:41:02 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0810171617490.21410@alien.or.mcafeemobile.com>
-Content-Disposition: inline
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:26420 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbYJRHiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 03:38:54 -0400
+In-Reply-To: <48F96DD6.5060904@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBUaGlzIGlzIHZlcnkgbGlrZWx5IHRvIGJlIGNhdXNlZCBieSBhIHBhdGNoIHRoYXQgd2VudCBp
-biBhIGZldyBkYXlzIGFnby4KPiBBbHJlYWR5IHBvc3RlZCBhIGZpeCB0byBBbmRyZXcuCj4KCklz
-IGl0IHRoZSBzYW1lIHByb2JsZW0/IDIuNi4yNy0wNTU3Ny1nMGNmZDgxMAoKQlVHIGV2ZW50cG9s
-bF9lcGk6IFBvaXNvbiBvdmVyd3JpdHRlbgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpJTkZPOiAweGYy
-YWM3NjhjLTB4ZjJhYzc2OTMuIEZpcnN0IGJ5dGUgMHhjIGluc3RlYWQgb2YgMHg2YgpJTkZPOiBB
-bGxvY2F0ZWQgaW4gc3lzX2Vwb2xsX2N0bCsweDEyMC8weDQwNSBhZ2U9MjE3NTMgY3B1PTAgcGlk
-PTE5MzYKSU5GTzogRnJlZWQgaW4gZXBfcmVtb3ZlKzB4N2YvMHg4NiBhZ2U9Mzk2NCBjcHU9MCBw
-aWQ9MTkzNgpJTkZPOiBTbGFiIDB4YzE2NTY4ZTAgb2JqZWN0cz0zMiB1c2VkPTI5IGZwPTB4ZjJh
-Yzc2ODAgZmxhZ3M9MHg0MDAwMDBjMwpJTkZPOiBPYmplY3QgMHhmMmFjNzY4MCBAb2Zmc2V0PTE2
-NjQgZnA9MHhmMmFjN2Y4MAoKQnl0ZXMgYjQgMHhmMmFjNzY3MDogIDVhIDVhIDVhIDVhIDVhIDVh
-IDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhClpaWlpaWlpaWlpaWlpaWloKICBPYmplY3Qg
-MHhmMmFjNzY4MDogIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDBjIDdkIGIx
-IGYyCmtra2tra2tra2tray594pWg0KAKICBPYmplY3QgMHhmMmFjNzY5MDogIDBjIDE1IGE3IGYy
-IDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiCi4u4pWW0KBra2tra2tra2tra2sK
-ICBPYmplY3QgMHhmMmFjNzZhMDogIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZi
-IDZiIDZiIDZiIDZiCmtra2tra2tra2tra2tra2sKICBPYmplY3QgMHhmMmFjNzZiMDogIDZiIDZi
-IDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiCmtra2tra2tra2tra2tr
-a2sKICBPYmplY3QgMHhmMmFjNzZjMDogIDZiIDZiIDZiIGE1ICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIGtra+KVlAogUmVkem9uZSAweGYyYWM3NmM0OiAgYmIgYmIgYmIgYmIg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg4pWp4pWp4pWp4pWpCiBQYWRkaW5n
-IDB4ZjJhYzc2ZWM6ICA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1
-YSA1YQpaWlpaWlpaWlpaWlpaWlpaCiBQYWRkaW5nIDB4ZjJhYzc2ZmM6ICA1YSA1YSA1YSA1YSAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBaWlpaClBpZDogMTkzNiwgY29tbTog
-cnRvcnJlbnQgTm90IHRhaW50ZWQgMi42LjI3LTA1NTc3LWcwY2ZkODEwICMxCkNhbGwgVHJhY2U6
-CiBbPGMwMTYxNjI4Pl0gcHJpbnRfdHJhaWxlcisweGUxLzB4ZTkKIFs8YzAxNjE2YjE+XSBjaGVj
-a19ieXRlc19hbmRfcmVwb3J0KzB4ODEvMHhhNAogWzxjMDE2MTdhOT5dIGNoZWNrX29iamVjdCsw
-eGE1LzB4MTYwCiBbPGMwMTYyY2ViPl0gX19zbGFiX2FsbG9jKzB4NDIwLzB4NGM3CiBbPGMwMTM4
-ZDQ1Pl0gPyB0cmFjZV9oYXJkaXJxc19vbisweGIvMHhkCiBbPGMwMTYzMGQ0Pl0ga21lbV9jYWNo
-ZV9hbGxvYysweDYyLzB4YWYKIFs8YzAxODc0ODU+XSA/IHN5c19lcG9sbF9jdGwrMHgxMjAvMHg0
-MDUKIFs8YzAxODc0ODU+XSA/IHN5c19lcG9sbF9jdGwrMHgxMjAvMHg0MDUKIFs8YzAxODc0ODU+
-XSBzeXNfZXBvbGxfY3RsKzB4MTIwLzB4NDA1CiBbPGMwMjVkNzIwPl0gPyB0cmFjZV9oYXJkaXJx
-c19vbl90aHVuaysweGMvMHgxMAogWzxjMDEwMmVhOT5dIHN5c2VudGVyX2RvX2NhbGwrMHgxMi8w
-eDM1CkZJWCBldmVudHBvbGxfZXBpOiBSZXN0b3JpbmcgMHhmMmFjNzY4Yy0weGYyYWM3NjkzPTB4
-NmIKCkZJWCBldmVudHBvbGxfZXBpOiBNYXJraW5nIGFsbCBvYmplY3RzIHVzZWQK
+Eric Dumazet wrote:
+>
+> Interesting stuff :)
+>
+
+Indeed.
+
+> 1) You want hardware TX stamping on all frames sent behalf a given socket
+>  Mark a WANT_HARDWARE_TX_STAMP flag at socket level
+>   Copy this flag when generating skb for this socket.
+>     When transmitting WANT_HARDWARE_TX_STAMP tagged frame to device,
+>     dont feed it to dev_queue_xmit_nit() in dev_hard_start_xmit()
+>     In NIC driver tx completion, test skb WANT_HARDWARE_TX_STAMP flag.
+>     If set, get tstamp from hardware and copy it to skb tstamp,     
+> and call dev_queue_xmit_nit() (we might avoid cloning skb there, since
+>     nic driver doesnt need it anymore)
+>
+>  This flag could also be set at device level, for all sent frames. 
+> (tcpdump new option)
+>
+> 2) You want hardware RX stamping on a particular device, yet being 
+> able to
+>   deliver system time to legacy apps, unaware of hardware tstamps.
+>
+>   Set a global flag on device, telling linux stack this device feeds 
+> hardware stamp.
+>   In driver RX completion, set skb tstamp with hardware stamps.
+>
+>   Mark a WANT_HARDWARE_RX_STAMP flag at socket level, for PTP 
+> applications.
+>
+>   In recv(), if current socket is not marked WANT_HARDWARE_RX_STAMP 
+> and device has
+>   the global flag set, copy system time in tstamp, overrinding 
+> hardware tstamp.
+>
+>
+
+Looks good to me. Just one question regarding
+'copy system time in tstamp, overrinding hardware tstamp':
+
+When recv() delivers to several sockets there would be probably 
+*different* system time values copied and delivered for the *same* skb, 
+right?
+
+If so i would tend to fill both (system time and hw timestamp) on driver 
+level into the skb and then decide on socket level what to push into 
+user space as you suggested above.
+
+Regards,
+Oliver
+
