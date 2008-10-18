@@ -1,86 +1,120 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: hardware time stamps + existing time stamp usage
-Date: Sat, 18 Oct 2008 12:10:24 +0200
-Message-ID: <48F9B610.2090504@hartkopp.net>
-References: <1224253423.17450.211.camel@ecld0pohly> <48F96DD6.5060904@cosmosbay.com> <48F99286.9050706@hartkopp.net> <48F9A43A.7070801@cosmosbay.com>
+From: KOVACS Krisztian <hidden@sch.bme.hu>
+Subject: Re: 2.6.27 [BUG-FIX] [PATCH 1/1] dccp: Port redirection support for
+ DCCP
+Date: Sat, 18 Oct 2008 12:21:58 +0200
+Message-ID: <200810181221.58863@nessa>
+References: <20081018092118.GA22685@gerrit.erg.abdn.ac.uk>
+ <200810181148.14620@nessa> <20081018100651.GA23003@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick Ohly <patrick.ohly@intel.com>, netdev@vger.kernel.org,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>, Andi Kleen <ak@linux.intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:42045 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872AbYJRKKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 06:10:35 -0400
-In-Reply-To: <48F9A43A.7070801@cosmosbay.com>
+Received: from balu.sch.bme.hu ([152.66.208.40]:39008 "EHLO balu.sch.bme.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750938AbYJRKWB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Oct 2008 06:22:01 -0400
+Received: from nessa.odu ([89.132.101.55])
+ by balu.sch.bme.hu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
+ 2006)) with ESMTPSA id <0K8X00KIUJFFN660@balu.sch.bme.hu> for
+ netdev@vger.kernel.org; Sat, 18 Oct 2008 12:21:15 +0200 (CEST)
+In-reply-to: <20081018100651.GA23003@gerrit.erg.abdn.ac.uk>
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Oliver Hartkopp a =E9crit :
->> Eric Dumazet wrote:
->>
->>> 2) You want hardware RX stamping on a particular device, yet being=20
->>> able to
->>>   deliver system time to legacy apps, unaware of hardware tstamps.
->>>
->>>   Set a global flag on device, telling linux stack this device feed=
-s=20
->>> hardware stamp.
->>>   In driver RX completion, set skb tstamp with hardware stamps.
->>>
+Hi,
 
-But at this point you would also need to save the system timestamp into=
-=20
-the skb for sockets that do not want the hardware timestamp. The device=
-=20
-driver has no chance to know whether the socket this skb is sent to=20
-wants hw tstamps or not.
-
->>>   Mark a WANT_HARDWARE_RX_STAMP flag at socket level, for PTP=20
->>> applications.
->>>
->>>   In recv(), if current socket is not marked WANT_HARDWARE_RX_STAMP=
-=20
->>> and device has
->>>   the global flag set, copy system time in tstamp, overrinding=20
->>> hardware tstamp.
->>>
->>>
->>
->> Looks good to me. Just one question regarding
->> 'copy system time in tstamp, overrinding hardware tstamp':
->>
->> When recv() delivers to several sockets there would be probably=20
->> *different* system time values copied and delivered for the *same*=20
->> skb, right?
+On Saturday 18 October 2008, Gerrit Renker wrote:
+> | I think we're still missing this one:
+> |
+> | diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+> | index 1106278..aa00cdd 100644
+> | --- a/net/dccp/ipv6.c
+> | +++ b/net/dccp/ipv6.c
+> | @@ -558,7 +558,7 @@ static struct sock
+> | *dccp_v6_request_recv_sock(struct sock *sk,
+> | ipv6_addr_copy(&fl.fl6_src, &ireq6->loc_addr);
+> |  		fl.oif = sk->sk_bound_dev_if;
+> |  		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
+> | -		fl.fl_ip_sport = inet_sk(sk)->sport;
+> | +		fl.fl_ip_sport = inet_rsk(req)->loc_port;
+> |  		security_sk_classify_flow(sk, &fl);
+> |
+> |  		if (ip6_dst_lookup(sk, &dst, &fl))
+> |
+> | What do you think?
 >
-> As we introduced a new skb flag for the TX part, we could reuse it in=
-=20
-> order
-> to copy system time to tstamp only once for the RX part.
+> Ack - missed this one. Do you want to send your patch or would you like
+> me to send an update for the above?
 
-But this does not help on received packets, right?
+Dave & Gerrit, please find the updated patch below.
 
->>
->> If so i would tend to fill both (system time and hw timestamp) on=20
->> driver level into the skb and then decide on socket level what to=20
->> push into user space as you suggested above.
->
-> Well, this would enlarge skb structure by 8 bytes, since you cannot u=
-se
-> same tstamp location to fille both 8 bytes values.
-> This is probably the easy way, but very expensive...
+- 8< -
+dccp: Port redirection support for DCCP
 
-IMHO this is the only way to fulfill the given requirements.
-Maybe we should introduce a new kernel config option for hw tstamps the=
-n ...
+Commit a3116ac5c216fc3c145906a46df9ce542ff7dcf2 from 1st October ("tcp: Port
+redirection support for TCP") broke DCCP skb lookup by changing inet_csk_clone,
+which is used by DCCP to generate the child socket after the handshake.
 
-Regards,
-Oliver
+This patch updates DCCP to use 'loc_port' instead of 'sport', which fixes the
+problem, and thus inheriting port redirection support via the new interface.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
+---
+ net/dccp/ipv6.c      |    4 ++--
+ net/dccp/minisocks.c |    1 +
+ net/dccp/output.c    |    2 +-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 1106278..d4ce122 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -259,7 +259,7 @@ static int dccp_v6_send_response(struct sock *sk, struct request_sock *req)
+ 	fl.fl6_flowlabel = 0;
+ 	fl.oif = ireq6->iif;
+ 	fl.fl_ip_dport = inet_rsk(req)->rmt_port;
+-	fl.fl_ip_sport = inet_sk(sk)->sport;
++	fl.fl_ip_sport = inet_rsk(req)->loc_port;
+ 	security_req_classify_flow(req, &fl);
+ 
+ 	opt = np->opt;
+@@ -558,7 +558,7 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+ 		ipv6_addr_copy(&fl.fl6_src, &ireq6->loc_addr);
+ 		fl.oif = sk->sk_bound_dev_if;
+ 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
+-		fl.fl_ip_sport = inet_sk(sk)->sport;
++		fl.fl_ip_sport = inet_rsk(req)->loc_port;
+ 		security_sk_classify_flow(sk, &fl);
+ 
+ 		if (ip6_dst_lookup(sk, &dst, &fl))
+diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+index b2804e2..e6bf99e 100644
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -309,6 +309,7 @@ void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb)
+ 	struct dccp_request_sock *dreq = dccp_rsk(req);
+ 
+ 	inet_rsk(req)->rmt_port	  = dccp_hdr(skb)->dccph_sport;
++	inet_rsk(req)->loc_port	  = dccp_hdr(skb)->dccph_dport;
+ 	inet_rsk(req)->acked	  = 0;
+ 	req->rcv_wnd		  = sysctl_dccp_feat_sequence_window;
+ 	dreq->dreq_timestamp_echo = 0;
+diff --git a/net/dccp/output.c b/net/dccp/output.c
+index d06945c..809d803 100644
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -347,7 +347,7 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
+ 	/* Build and checksum header */
+ 	dh = dccp_zeroed_hdr(skb, dccp_header_size);
+ 
+-	dh->dccph_sport	= inet_sk(sk)->sport;
++	dh->dccph_sport	= inet_rsk(req)->loc_port;
+ 	dh->dccph_dport	= inet_rsk(req)->rmt_port;
+ 	dh->dccph_doff	= (dccp_header_size +
+ 			   DCCP_SKB_CB(skb)->dccpd_opt_len) / 4;
+-- 
+1.5.4.4
