@@ -1,42 +1,60 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] pkt_sched: Control group classifier
-Date: Sat, 18 Oct 2008 07:38:10 +0200
-Message-ID: <20081018053810.GC12825@one.firstfloor.org>
-References: <20081013155715.GZ20815@postel.suug.ch> <873aixksf0.fsf@basil.nowhere.org> <20081017182312.GE20815@postel.suug.ch> <20081017183221.GA12825@one.firstfloor.org> <20081017200916.GF20815@postel.suug.ch>
+From: "Alexander Beregalov" <a.beregalov@gmail.com>
+Subject: Re: 2.6.27-05178-g2e532d6: list_add corruption
+Date: Sat, 18 Oct 2008 10:41:02 +0400
+Message-ID: <a4423d670810172341y5ae5542jea66ead938ba652d@mail.gmail.com>
+References: <a4423d670810171220t4d5602fekcb66e18758149925@mail.gmail.com>
+	 <Pine.LNX.4.64.0810171617490.21410@alien.or.mcafeemobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"Kernel Testers List" <kernel-testers@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: "Davide Libenzi" <davidel@xmailserver.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:60453 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212AbYJRFbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 01:31:10 -0400
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:36896 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbYJRGlD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2008 02:41:03 -0400
+Received: by gxk9 with SMTP id 9so2032693gxk.13
+        for <netdev@vger.kernel.org>; Fri, 17 Oct 2008 23:41:02 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0810171617490.21410@alien.or.mcafeemobile.com>
 Content-Disposition: inline
-In-Reply-To: <20081017200916.GF20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 17, 2008 at 10:09:16PM +0200, Thomas Graf wrote:
-> * Andi Kleen <andi@firstfloor.org> 2008-10-17 20:32
-> > > softirq_count() simply counts the levels of bh disable.
-> > 
-> > softirqs always have bh disabled.  So it's always true inside them.
-> > And you should know what _bh locks you hold.
-> 
-> I actually tried "softirq_count() == SOFTIRQ_OFFSET" to see if the
-
-softirq_count() > 0 should work.
-
-
-> I found explicitely counting softirq_enter() to be more reliable
-> without having much of a performance impact. I'm happy with both
-> solutions though.
-
-I doubt you'll need a separate ocunter.
-
--Andi 
-
--- 
-ak@linux.intel.com
+PiBUaGlzIGlzIHZlcnkgbGlrZWx5IHRvIGJlIGNhdXNlZCBieSBhIHBhdGNoIHRoYXQgd2VudCBp
+biBhIGZldyBkYXlzIGFnby4KPiBBbHJlYWR5IHBvc3RlZCBhIGZpeCB0byBBbmRyZXcuCj4KCklz
+IGl0IHRoZSBzYW1lIHByb2JsZW0/IDIuNi4yNy0wNTU3Ny1nMGNmZDgxMAoKQlVHIGV2ZW50cG9s
+bF9lcGk6IFBvaXNvbiBvdmVyd3JpdHRlbgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpJTkZPOiAweGYy
+YWM3NjhjLTB4ZjJhYzc2OTMuIEZpcnN0IGJ5dGUgMHhjIGluc3RlYWQgb2YgMHg2YgpJTkZPOiBB
+bGxvY2F0ZWQgaW4gc3lzX2Vwb2xsX2N0bCsweDEyMC8weDQwNSBhZ2U9MjE3NTMgY3B1PTAgcGlk
+PTE5MzYKSU5GTzogRnJlZWQgaW4gZXBfcmVtb3ZlKzB4N2YvMHg4NiBhZ2U9Mzk2NCBjcHU9MCBw
+aWQ9MTkzNgpJTkZPOiBTbGFiIDB4YzE2NTY4ZTAgb2JqZWN0cz0zMiB1c2VkPTI5IGZwPTB4ZjJh
+Yzc2ODAgZmxhZ3M9MHg0MDAwMDBjMwpJTkZPOiBPYmplY3QgMHhmMmFjNzY4MCBAb2Zmc2V0PTE2
+NjQgZnA9MHhmMmFjN2Y4MAoKQnl0ZXMgYjQgMHhmMmFjNzY3MDogIDVhIDVhIDVhIDVhIDVhIDVh
+IDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhClpaWlpaWlpaWlpaWlpaWloKICBPYmplY3Qg
+MHhmMmFjNzY4MDogIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDBjIDdkIGIx
+IGYyCmtra2tra2tra2tray594pWg0KAKICBPYmplY3QgMHhmMmFjNzY5MDogIDBjIDE1IGE3IGYy
+IDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiCi4u4pWW0KBra2tra2tra2tra2sK
+ICBPYmplY3QgMHhmMmFjNzZhMDogIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZi
+IDZiIDZiIDZiIDZiCmtra2tra2tra2tra2tra2sKICBPYmplY3QgMHhmMmFjNzZiMDogIDZiIDZi
+IDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiCmtra2tra2tra2tra2tr
+a2sKICBPYmplY3QgMHhmMmFjNzZjMDogIDZiIDZiIDZiIGE1ICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIGtra+KVlAogUmVkem9uZSAweGYyYWM3NmM0OiAgYmIgYmIgYmIgYmIg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg4pWp4pWp4pWp4pWpCiBQYWRkaW5n
+IDB4ZjJhYzc2ZWM6ICA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1
+YSA1YQpaWlpaWlpaWlpaWlpaWlpaCiBQYWRkaW5nIDB4ZjJhYzc2ZmM6ICA1YSA1YSA1YSA1YSAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBaWlpaClBpZDogMTkzNiwgY29tbTog
+cnRvcnJlbnQgTm90IHRhaW50ZWQgMi42LjI3LTA1NTc3LWcwY2ZkODEwICMxCkNhbGwgVHJhY2U6
+CiBbPGMwMTYxNjI4Pl0gcHJpbnRfdHJhaWxlcisweGUxLzB4ZTkKIFs8YzAxNjE2YjE+XSBjaGVj
+a19ieXRlc19hbmRfcmVwb3J0KzB4ODEvMHhhNAogWzxjMDE2MTdhOT5dIGNoZWNrX29iamVjdCsw
+eGE1LzB4MTYwCiBbPGMwMTYyY2ViPl0gX19zbGFiX2FsbG9jKzB4NDIwLzB4NGM3CiBbPGMwMTM4
+ZDQ1Pl0gPyB0cmFjZV9oYXJkaXJxc19vbisweGIvMHhkCiBbPGMwMTYzMGQ0Pl0ga21lbV9jYWNo
+ZV9hbGxvYysweDYyLzB4YWYKIFs8YzAxODc0ODU+XSA/IHN5c19lcG9sbF9jdGwrMHgxMjAvMHg0
+MDUKIFs8YzAxODc0ODU+XSA/IHN5c19lcG9sbF9jdGwrMHgxMjAvMHg0MDUKIFs8YzAxODc0ODU+
+XSBzeXNfZXBvbGxfY3RsKzB4MTIwLzB4NDA1CiBbPGMwMjVkNzIwPl0gPyB0cmFjZV9oYXJkaXJx
+c19vbl90aHVuaysweGMvMHgxMAogWzxjMDEwMmVhOT5dIHN5c2VudGVyX2RvX2NhbGwrMHgxMi8w
+eDM1CkZJWCBldmVudHBvbGxfZXBpOiBSZXN0b3JpbmcgMHhmMmFjNzY4Yy0weGYyYWM3NjkzPTB4
+NmIKCkZJWCBldmVudHBvbGxfZXBpOiBNYXJraW5nIGFsbCBvYmplY3RzIHVzZWQK
