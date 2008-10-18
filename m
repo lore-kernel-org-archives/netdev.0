@@ -1,81 +1,114 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: hardware time stamps + existing time stamp usage
-Date: Sat, 18 Oct 2008 22:37:01 +0300
-Message-ID: <200810182237.02373.opurdila@ixiacom.com>
-References: <1224253423.17450.211.camel@ecld0pohly>
+From: Guennadi Liakhovetski <lg@denx.de>
+Subject: [PATCH] [ARM] pcm037: add support for the on-board LAN9217 network
+ controller
+Date: Sat, 18 Oct 2008 23:02:34 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0810182257270.30019@axis700.grange>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>, Andi Kleen <ak@linux.intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Patrick Ohly <patrick.ohly@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [92.87.192.98] ([92.87.192.98]:12528 "EHLO ixro-ex1.ixiacom.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750958AbYJRT5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Oct 2008 15:57:16 -0400
-In-Reply-To: <1224253423.17450.211.camel@ecld0pohly>
-Content-Disposition: inline
+Received: from mail.gmx.net ([213.165.64.20]:46675 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751031AbYJRVCd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Oct 2008 17:02:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick Ohly <patrick.ohly@intel.com>
-Date:	Fri, 17 Oct 2008 16:23:43 +0200
+smc911x now also supports LAN921{5,7,8} network controllers.
 
-> The only solution that I see is to use one bit as flag to distinguish
-> between hardware and software time stamps, as Octavian originally
-> suggested. 
+Signed-off-by: Guennadi Liakhovetski <lg@denx.de>
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
 
-There is one more approach that I think it could work.
+This patch shall be merged through the ARM tree, however, as you see, it 
+also modifies drivers/net/Kconfig. The easiest for me would be if just I 
+could get an Acked-by for it. Otherwise, please tell me what you would 
+prefer - split it into two? Another thing - after a recent cs89x0 
+discussion, is it a good idea to add another ARM SoC type to the depends 
+list, or maybe just switch it to "ARM || SUPERH" or something totally 
+different? 
 
-Once hardware times-tamping has been enabled, the driver will:
-a) compute the delta between the system time and the hardware time
-b) store in the skb the hardware timestamp + delta (thus effectively using an 
-approximation of system time which I think it should be OK since system time 
-is not that precise anyway)
+ arch/arm/mach-mx3/pcm037.c |   37 +++++++++++++++++++++++++++++++++++++
+ drivers/net/Kconfig        |    2 +-
+ 2 files changed, 38 insertions(+), 1 deletions(-)
 
-This is the approach that Stephen used in his patch for sky2. But we need 
-more, we need to get the "untainted" hardware timestamps to userspace.
-
-And we can to that through a driver specific ioctl (or maybe via a new ethtool 
-method?):
-
-hwtimestamp htimestamp_ioctl(timestamp)
-{
-	return timestamp - delta;
-}
-
-There are some corner cases with this approach: 
-
-1. Reseting hardware timestamps. Our devices do that when the hardware 
-timestamps are synchronized across different cards, in which case hardware 
-timestamps are all reseted to zero. 
-
-We can easily detect this condition (current hardware timestamp < hardware 
-timestamp at the moment at which we computed the delta) and update the delta.
-
-2. When the hardware is unable to generate a hardware timestamps (Patrick 
-mentioned that this may occur with certain hardware).
-
-In that case the driver should generate a system time timestamp. 
-
-The problem here is that we want to distinguish between system and hardware 
-timestamps. A possible approach would be to use a slightly coarser precision 
-(say Xns instead of 1ns) and then use the modulo X to encode state into the 
-timestamp.
-
-For example, we could say that hardware timestamp = (hwtimestamp/X)*X and 
-software timestamp = ((system time/X)*X) +1
-
-Than, in the hwtimestamp_ioctl we can check if a received time is software or 
-hardware, and we can let the application know.
-
-We can even compute the delta periodically now, to maintain better system - 
-hardware timestamps synchronization, as we can keep and multiple deltas (each 
-one associated with a modulo number).
-
-Thanks,
-tavi
-
+diff --git a/arch/arm/mach-mx3/pcm037.c b/arch/arm/mach-mx3/pcm037.c
+index 11fda95..5660000 100644
+--- a/arch/arm/mach-mx3/pcm037.c
++++ b/arch/arm/mach-mx3/pcm037.c
+@@ -22,6 +22,9 @@
+ #include <linux/platform_device.h>
+ #include <linux/mtd/physmap.h>
+ #include <linux/memory.h>
++#include <linux/interrupt.h>
++#include <linux/gpio.h>
++#include <linux/smc911x.h>
+ 
+ #include <mach/hardware.h>
+ #include <asm/mach-types.h>
+@@ -59,8 +62,37 @@ static struct imxuart_platform_data uart_pdata = {
+ 	.flags = IMXUART_HAVE_RTSCTS,
+ };
+ 
++static struct resource smc911x_resources[] = {
++	[0] = {
++		.start		= CS1_BASE_ADDR + 0x300,
++		.end		= CS1_BASE_ADDR + 0x300 + SZ_64K - 1,
++		.flags		= IORESOURCE_MEM,
++	},
++	[1] = {
++		.start		= IOMUX_TO_IRQ(MX31_PIN_GPIO3_1),
++		.end		= IOMUX_TO_IRQ(MX31_PIN_GPIO3_1),
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct smc911x_platdata smc911x_info = {
++	.flags		= SMC911X_USE_32BIT,
++	.irq_flags	= IRQF_SHARED | IRQF_TRIGGER_LOW,
++};
++
++static struct platform_device pcm037_eth = {
++	.name		= "smc911x",
++	.id		= -1,
++	.num_resources	= ARRAY_SIZE(smc911x_resources),
++	.resource	= smc911x_resources,
++	.dev		= {
++		.platform_data = &smc911x_info,
++	},
++};
++
+ static struct platform_device *devices[] __initdata = {
+ 	&pcm037_flash,
++	&pcm037_eth,
+ };
+ 
+ /*
+@@ -81,6 +113,11 @@ static void __init mxc_board_init(void)
+ 	mxc_iomux_mode(MX31_PIN_CSPI3_MISO__TXD3);
+ 
+ 	mxc_register_device(&mxc_uart_device2, &uart_pdata);
++
++	/* SMSC9215 IRQ pin */
++	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_GPIO3_1, IOMUX_CONFIG_GPIO));
++	if (!gpio_request(MX31_PIN_GPIO3_1, "pcm037-eth"))
++		gpio_direction_input(MX31_PIN_GPIO3_1);
+ }
+ 
+ /*
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 1d8af33..86cf212 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -960,7 +960,7 @@ config SMC911X
+ 	tristate "SMSC LAN911[5678] support"
+ 	select CRC32
+ 	select MII
+-	depends on ARCH_PXA || SUPERH
++	depends on ARCH_PXA || ARCH_MX3 || SUPERH
+ 	help
+ 	  This is a driver for SMSC's LAN911x series of Ethernet chipsets
+ 	  including the new LAN9115, LAN9116, LAN9117, and LAN9118.
+-- 
+1.5.6.5
