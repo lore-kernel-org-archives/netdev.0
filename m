@@ -1,29 +1,33 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: NULL pointer derefence since 2.6.27 in (e)poll
-Date: Sun, 19 Oct 2008 07:15:39 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0810190714490.23581@alien.or.mcafeemobile.com>
-References: <6F31A6373E3D42EDAED26A994BA0830D@Seven>
- <84144f020810190445r12154ae0p271037ae130b653b@mail.gmail.com>
- <Pine.LNX.4.64.0810191346001.26362@blonde.site>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] pkt_sched: Control group classifier
+Date: Sun, 19 Oct 2008 19:00:33 +0200
+Message-ID: <20081019170032.GG20815@postel.suug.ch>
+References: <20081013155715.GZ20815@postel.suug.ch> <873aixksf0.fsf@basil.nowhere.org> <20081017182312.GE20815@postel.suug.ch> <20081017183221.GA12825@one.firstfloor.org> <20081017200916.GF20815@postel.suug.ch> <20081018053810.GC12825@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Ben Castricum <lk0810@bencastricum.nl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Hugh Dickins <hugh@veritas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751784AbYJSOPy@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0810191346001.26362@blonde.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:50696 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751475AbYJSRAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Oct 2008 13:00:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20081018053810.GC12825@one.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 19 Oct 2008, Hugh Dickins wrote:
-
-> Isn't it the issue fixed by
+* Andi Kleen <andi@firstfloor.org> 2008-10-18 07:38
+> On Fri, Oct 17, 2008 at 10:09:16PM +0200, Thomas Graf wrote:
+> > * Andi Kleen <andi@firstfloor.org> 2008-10-17 20:32
+> > > > softirq_count() simply counts the levels of bh disable.
+> > > 
+> > > softirqs always have bh disabled.  So it's always true inside them.
+> > > And you should know what _bh locks you hold.
+> > 
+> > I actually tried "softirq_count() == SOFTIRQ_OFFSET" to see if the
 > 
-> http://marc.info/?l=linux-kernel&m=122428548613067&w=2
+> softirq_count() > 0 should work.
 
-Not sure, but it may very well be.
-
-
-- Davide
+No, it doesn't. User context calls to dev_queue_xmit() will also
+disable bh and thus softirq_count() will always be > 0.
