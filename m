@@ -1,50 +1,189 @@
 From: Maxime Bizon <mbizon@freebox.fr>
-Subject: [PATCH/RFC v1 00/12] Support for Broadcom 63xx SOCs
-Date: Sun, 19 Oct 2008 04:07:02 +0200
-Message-ID: <1224382022-24173-1-git-send-email-mbizon@freebox.fr>
-Cc: netdev@vger.kernel.org, afleming@freescale.com, jgarzik@pobox.com,
-	linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
-	linux-pcmcia@lists.infradead.org, linux-serial@vger.kernel.org,
-	linux-mips@linux-mips.org, Maxime Bizon <mbizon@freebox.fr>
-To: ralf@linux-mips.org
+Subject: [PATCH/RFC v1 10/12] [MIPS] BCM63XX: Add integrated ethernet PHY support for phylib.
+Date: Sun, 19 Oct 2008 04:07:03 +0200
+Message-ID: <1224382023-24412-1-git-send-email-mbizon@freebox.fr>
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
+	Maxime Bizon <mbizon@freebox.fr>
+To: afleming@freescale.com
 Return-path: <linux-mips-bounce@linux-mips.org>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-[first try at patch series mailing, if you're in to/cc list by mistake
-please tell me]
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+---
+ drivers/net/phy/Kconfig   |    6 ++
+ drivers/net/phy/Makefile  |    1 +
+ drivers/net/phy/bcm63xx.c |  132 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 139 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/phy/bcm63xx.c
 
-
-Hello everyone,
-
-This is a set of patches that add support for the Broadcom 63xx series
-of CPUs and  (some) integrated devices. These are  popular MIPS32 SOCs
-found in a lot of DSL modems.
-
-CPUs supported are  6348 and 6358. Support is  provided for integrated
-UART,  USB OHCI  and  EHCI, PCI  controller,  ethernet MAC  & PHY  and
-PCMCIA/Cardbus controller.
-
-Board support is still rough, each vendor seems to have its own way of
-identifying the board  type in nvram, that's why  it will probably not
-work out of  the box.  So DON'T FLASH IT BLINDLY  on your modem unless
-you have a serial cable, prefer tftpboot/nfsroot for testing.
-
-I used linux-mips git tree  master to generate theses patches, this is
-probably  inappropriate considering  they  touch multiple  subsystems.
-Since all patches  depends on first two of the series  I wonder how to
-submit this properly for inclusion in one merge window (if that's even
-do-able).
-
-Patches are also available here in case they were too big:
-http://88.191.35.171/bcm63xx/patches/linux-mips-bcm63xx/v1/
-
-
-I would like to thank my company for letting me release this (hi
-boss), and also Broadcom who gave its blessing.
-
-Happy hacking !
-
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index d55932a..a5d2c2d 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -56,6 +56,12 @@ config BROADCOM_PHY
+ 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM5464, BCM5481
+ 	  and BCM5482 PHYs.
+ 
++config BCM63XX_PHY
++	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
++	depends on BCM63XX
++	---help---
++	  Currently supports the 6348 and 6358 PHYs.
++
+ config ICPLUS_PHY
+ 	tristate "Drivers for ICPlus PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index eee329f..0d43f58 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -11,6 +11,7 @@ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
+ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
++obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
+ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
+ obj-$(CONFIG_FIXED_PHY)		+= fixed.o
+diff --git a/drivers/net/phy/bcm63xx.c b/drivers/net/phy/bcm63xx.c
+new file mode 100644
+index 0000000..4fed95e
+--- /dev/null
++++ b/drivers/net/phy/bcm63xx.c
+@@ -0,0 +1,132 @@
++/*
++ *	Driver for Broadcom 63xx SOCs integrated PHYs
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++#include <linux/module.h>
++#include <linux/phy.h>
++
++#define MII_BCM63XX_IR		0x1a	/* interrupt register */
++#define MII_BCM63XX_IR_EN	0x4000	/* global interrupt enable */
++#define MII_BCM63XX_IR_DUPLEX	0x0800	/* duplex changed */
++#define MII_BCM63XX_IR_SPEED	0x0400	/* speed changed */
++#define MII_BCM63XX_IR_LINK	0x0200	/* link changed */
++#define MII_BCM63XX_IR_GMASK	0x0100	/* global interrupt mask */
++
++MODULE_DESCRIPTION("Broadcom 63xx internal PHY driver");
++MODULE_AUTHOR("Maxime Bizon <mbizon@freebox.fr>");
++MODULE_LICENSE("GPL");
++
++static int bcm63xx_config_init(struct phy_device *phydev)
++{
++	int reg, err;
++
++	reg = phy_read(phydev, MII_BCM63XX_IR);
++	if (reg < 0)
++		return reg;
++
++	/* Mask interrupts globally.  */
++	reg |= MII_BCM63XX_IR_GMASK;
++	err = phy_write(phydev, MII_BCM63XX_IR, reg);
++	if (err < 0)
++		return err;
++
++	/* Unmask events we are interested in  */
++	reg = ~(MII_BCM63XX_IR_DUPLEX |
++		MII_BCM63XX_IR_SPEED |
++		MII_BCM63XX_IR_LINK) |
++		MII_BCM63XX_IR_EN;
++	err = phy_write(phydev, MII_BCM63XX_IR, reg);
++	if (err < 0)
++		return err;
++	return 0;
++}
++
++static int bcm63xx_ack_interrupt(struct phy_device *phydev)
++{
++	int reg;
++
++	/* Clear pending interrupts.  */
++	reg = phy_read(phydev, MII_BCM63XX_IR);
++	if (reg < 0)
++		return reg;
++
++	return 0;
++}
++
++static int bcm63xx_config_intr(struct phy_device *phydev)
++{
++	int reg, err;
++
++	reg = phy_read(phydev, MII_BCM63XX_IR);
++	if (reg < 0)
++		return reg;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		reg &= ~MII_BCM63XX_IR_GMASK;
++	else
++		reg |= MII_BCM63XX_IR_GMASK;
++
++	err = phy_write(phydev, MII_BCM63XX_IR, reg);
++	return err;
++}
++
++static struct phy_driver bcm63xx_1_driver = {
++	.phy_id		= 0x00406000,
++	.phy_id_mask	= 0xfffffc00,
++	.name		= "Broadcom BCM63XX (1)",
++	/* ASYM_PAUSE bit is marked RO in datasheet, so don't cheat */
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= bcm63xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm63xx_ack_interrupt,
++	.config_intr	= bcm63xx_config_intr,
++	.driver		= { .owner = THIS_MODULE },
++};
++
++/* same phy as above, with just a different OUI */
++static struct phy_driver bcm63xx_2_driver = {
++	.phy_id		= 0x002bdc00,
++	.phy_id_mask	= 0xfffffc00,
++	.name		= "Broadcom BCM63XX (2)",
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= bcm63xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm63xx_ack_interrupt,
++	.config_intr	= bcm63xx_config_intr,
++	.driver		= { .owner = THIS_MODULE },
++};
++
++static int __init bcm63xx_phy_init(void)
++{
++	int ret;
++
++	ret = phy_driver_register(&bcm63xx_1_driver);
++	if (ret)
++		goto out_63xx_1;
++	ret = phy_driver_register(&bcm63xx_2_driver);
++	if (ret)
++		goto out_63xx_2;
++	return ret;
++
++out_63xx_2:
++	phy_driver_unregister(&bcm63xx_1_driver);
++out_63xx_1:
++	return ret;
++}
++
++static void __exit bcm63xx_phy_exit(void)
++{
++	phy_driver_unregister(&bcm63xx_1_driver);
++	phy_driver_unregister(&bcm63xx_2_driver);
++}
++
++module_init(bcm63xx_phy_init);
++module_exit(bcm63xx_phy_exit);
 -- 
-Maxime
+1.5.4.3
