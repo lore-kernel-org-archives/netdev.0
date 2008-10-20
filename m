@@ -1,41 +1,42 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: cxgb3: Fix kernel crash caused by uninitialized l2t_entry.arpq
-Date: Mon, 20 Oct 2008 10:10:20 -0700
-Message-ID: <48FCBB7C.9070504@chelsio.com>
-References: <ada63nqsyxp.fsf@cisco.com> <20081017.163113.225289906.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 temporary failure to read mac from rom
+Date: Mon, 20 Oct 2008 22:41:44 +0200
+Message-ID: <20081020204144.GA18614@electric-eye.fr.zoreil.com>
+References: <200810201506.06382.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, jeff@garzik.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ivan Vecera <ivecera@redhat.com>,
+	jeff@garzik.org
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:17581 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755563AbYJTRKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 13:10:30 -0400
-In-Reply-To: <20081017.163113.225289906.davem@davemloft.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41359 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752870AbYJTUmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 16:42:06 -0400
+Content-Disposition: inline
+In-Reply-To: <200810201506.06382.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Roland Dreier <rdreier@cisco.com>
-> Date: Fri, 17 Oct 2008 14:18:26 -0700
->
->   
->> Commit 147e70e6 ("cxgb3: Use SKB list interfaces instead of home-grown
->> implementation.") causes a crash in t3_l2t_send_slow() when an iWARP
->> connection request is received.  This is because the new l2t_entry.arpq
->> skb queue is never initialized, and therefore trying to add an skb to
->> it causes a NULL dereference.  With the old code there was no need to
->> initialize the queues because the l2t_entry structures were zeroed,
->> and the code used NULL to mean empty.
->>
->> Fix this by adding __skb_queue_head_init() when all the l2t_entry
->> structures get allocated.
->>
->> Signed-off-by: Roland Dreier <rolandd@cisco.com>
->>     
->
-> Acked-by: David S. Miller <davem@davemloft.net>
->   
-Acked-by: Divy Le ray <divy@chelsio.com>
+Oliver Neukum <oliver@neukum.org> :
+[...]
+> with today's git r8169 failed to read MAC from rom
+> 
+> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+> r8169 0000:06:00.0: setting latency timer to 64
+> eth0: RTL8168b/8111b at 0xffffc20000352000, 00:00:00:00:00:00, XID 38000000 IRQ 4346
+
+Yep, I have got one of those here. It should be fixed/papered over by
+any of:
+
+http://userweb.kernel.org/~romieu/r8169/2.6.27-git8/20081020
+
+or:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-fixes
+
+A pull request was sent on 2008/10/16 (well, almost 17).
+
+-- 
+Ueimor
