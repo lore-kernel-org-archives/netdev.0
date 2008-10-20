@@ -1,56 +1,83 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
- (fwd)
-Date: Tue, 21 Oct 2008 00:49:13 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0810210048370.30254@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
- <48e3e835.0906c00a.2cd1.2fd1@mx.google.com>
- <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
- <48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
- <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
- <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
- <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
- <Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
- <48e5364d.0603c00a.6e25.fffff993@mx.google.com>
- <Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
- <48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com> <alpine.LFD.2.00.0810052008131.3398@apollo>
- <48ed0b51.0913c00a.7715.4aa7@mx.google.com> <alpine.LFD.2.00.0810082154420.3237@apollo>
- <48f2c9d7.0603c00a.1df2.ffff9357@mx.google.com>
- <Pine.LNX.4.64.0810131633370.3843@wrl-59.cs.helsinki.fi>
- <48f9251b.1626360a.6574.61ec@mx.google.com> <Pine.LNX.4.64.0810210028550.30254@wrl-59.cs.helsinki.fi>
+Subject: Re: tcp_sack problem Re: [Bug 11721] after upgrade to 2.6.27 i cannot
+ navigate
+Date: Tue, 21 Oct 2008 00:51:26 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810210036040.30254@wrl-59.cs.helsinki.fi>
+References: <bug-11721-11547@http.bugzilla.kernel.org/>
+ <20081020154737.2D0CA108042@picon.linux-foundation.org>
+ <20081020171530.GA2564@ami.dom.local> <20081020214818.09d88b48@topolino>
+ <Pine.LNX.4.64.0810202323330.30254@wrl-59.cs.helsinki.fi>
+ <20081020233419.78cd4390@topolino>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696208474-1848296723-1224538511=:30254"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1195481477-1224538570=:30254"
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	Netdev <netdev@vger.kernel.org>
-To: "=?ISO-8859-1?Q?D=E2niel_Fraga?=" <fragabr@gmail.com>
+To: Aldo Maggi <sentiniate@tiscali.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:59181 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55585 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985AbYJTVtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 17:49:14 -0400
-In-Reply-To: <Pine.LNX.4.64.0810210028550.30254@wrl-59.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0810210048371.30254@wrl-59.cs.helsinki.fi>
+	with ESMTP id S1751003AbYJTVv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 17:51:27 -0400
+In-Reply-To: <20081020233419.78cd4390@topolino>
+Content-ID: <Pine.LNX.4.64.0810210049190.30254@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
----696208474-1848296723-1224538511=:30254
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
+---696208474-1195481477-1224538570=:30254
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0810210045181.30254@wrl-59.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0810210036191.30254@wrl-59.cs.helsinki.fi>
 
-On Tue, 21 Oct 2008, Ilpo Järvinen wrote:
+Reply to all please... ...I restored them again for you... :-)
 
-> Trying something a bit more generic:
+On Mon, 20 Oct 2008, Aldo Maggi wrote:
+
+> Il giorno Mon, 20 Oct 2008 23:55:48 +0300 (EEST)
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> ha scritto:
 > 
-> Try running vmstat 1 > somelog.file to see if there's something 
-> particularly interesting behavior during the stall.
+> [...]
+> 
+> > Could you try if tcp_window_scaling=1, tcp_sack=1, tcp_timestamps=0
+> > also works, if you didn't already (it's not that obvious from the
+> > earlier acknowledgement you gave that these were the exact options
+> > you used or not)...
+> 
+> sorry! i was not precise!
+> those are exactly the options i tried in my acknowledgment no. 40,
+> i.e. tcp_window_scaling and tcp_sack equal to "1" and tcp_timestamps=0
 
-Won't hurt doing this on both the server and the client... :-)
+Np, thanks for the confirmation. I sort of assumed this already since 
+the alternative interpretation of Jarek's mails didn't make too much 
+sense after all (and I jumped into this thread in between, so I just 
+scanned them through with haste on the first time concentrating more
+on your responses and which of the logs I should download :-)).
+
+> > > moreover, i read more carefully what you and Jarek wrote above,
+> > > please let me know if you deem still necessary that i apply the
+> > > patch you provided and compile or if you like i compile the latest
+> > > kernel or whatever.
+> > 
+> > If that ws=1,s=1,ts=0 test succeeds, then testing my patch would be
+> > useful too. 
+> 
+> i'm right now compiling the -27-rc1 kernel, on my pc it will take at
+> least 3 hrs (that is, it will finish 02.00 rome time :-D )
+
+Ok, I'll check that tomorrow then as mine trimmed down 2.6.28-rc (ah, 
+it's still -g something, no rc1 just yet) did complete already :-), just 
+going to try to bombard google.it from here too and then it's the bedtime 
+for me...
+
+> should it work i'll apply your patch t0 2.6.27.2 and compile again. 
+
+Ok, it's quite likely that both will work with the patch. Anyway, it's 
+enough that you do the future tests with 2.6.27.y if we decide to try some 
+other ordering (I'll try to think a bit of that tomorrow to see what 
+would be to most sensible ordering).
 
 -- 
  i.
----696208474-1848296723-1224538511=:30254--
+---696208474-1195481477-1224538570=:30254--
