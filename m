@@ -1,42 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 temporary failure to read mac from rom
-Date: Mon, 20 Oct 2008 22:41:44 +0200
-Message-ID: <20081020204144.GA18614@electric-eye.fr.zoreil.com>
-References: <200810201506.06382.oliver@neukum.org>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: [PATCH 1/3] smc911x: Allow Kconfig dependency on ARM
+Date: Mon, 20 Oct 2008 18:15:17 +0100
+Message-ID: <20081020171217.6277.20729.stgit@pc1117.cambridge.arm.com>
+References: <20081020170917.6277.21228.stgit@pc1117.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ivan Vecera <ivecera@redhat.com>,
-	jeff@garzik.org
-To: Oliver Neukum <oliver@neukum.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41359 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752870AbYJTUmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 16:42:06 -0400
-Content-Disposition: inline
-In-Reply-To: <200810201506.06382.oliver@neukum.org>
+Received: from cam-admin0.cambridge.arm.com ([193.131.176.58]:52986 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752504AbYJTRkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 13:40:22 -0400
+In-Reply-To: <20081020170917.6277.21228.stgit@pc1117.cambridge.arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oliver@neukum.org> :
-[...]
-> with today's git r8169 failed to read MAC from rom
-> 
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-> r8169 0000:06:00.0: setting latency timer to 64
-> eth0: RTL8168b/8111b at 0xffffc20000352000, 00:00:00:00:00:00, XID 38000000 IRQ 4346
+Since more ARM platforms use this device, it is easier to add a
+dependency on ARM rather than individual platforms.
 
-Yep, I have got one of those here. It should be fixed/papered over by
-any of:
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
 
-http://userweb.kernel.org/~romieu/r8169/2.6.27-git8/20081020
+This patch will conflict with a patch posted two days ago -
+http://marc.info/?l=linux-netdev&m=122436376803634&w=2. However,
+Guennadi suggested that it is better to have the dependency on ARM
+rather than individual ARM platforms.
 
-or:
 
-git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-fixes
+ drivers/net/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-A pull request was sent on 2008/10/16 (well, almost 17).
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index ad301ac..ef38f01 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -960,7 +960,7 @@ config SMC911X
+ 	tristate "SMSC LAN911[5678] support"
+ 	select CRC32
+ 	select MII
+-	depends on ARCH_PXA || SUPERH
++	depends on ARM || SUPERH
+ 	help
+ 	  This is a driver for SMSC's LAN911x series of Ethernet chipsets
+ 	  including the new LAN9115, LAN9116, LAN9117, and LAN9118.
 
--- 
-Ueimor
