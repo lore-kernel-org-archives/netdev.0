@@ -1,73 +1,425 @@
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
-Subject: Re: NULL pointer derefence since 2.6.27 in (e)poll
-Date: Sun, 19 Oct 2008 14:45:04 +0300
-Message-ID: <84144f020810190445r12154ae0p271037ae130b653b@mail.gmail.com>
-References: <6F31A6373E3D42EDAED26A994BA0830D@Seven>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: implement emergency route cache rebulds when
+	gc_elasticity is exceeded
+Date: Sun, 19 Oct 2008 20:07:56 -0400
+Message-ID: <20081020000756.GB21172@localhost.localdomain>
+References: <20081016163644.GA2933@localhost.localdomain> <20081016233517.GA21243@localhost.localdomain> <20081016220624.512a1e61@extreme> <20081017103948.GA23591@hmsreliant.think-freely.org> <48F8806A.6090306@cosmosbay.com> <20081017152328.GB23591@hmsreliant.think-freely.org> <48F8AFBE.5080503@cosmosbay.com> <20081017204415.GC23591@hmsreliant.think-freely.org> <20081018005408.GB27254@localhost.localdomain> <48F967BA.4090102@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"Linux Netdev List" <netdev@vger.kernel.org>
-To: "Ben Castricum" <lk0810@bencastricum.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, billfink@mindspring.com,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	johnpol@2ka.mipt.ru, Stephen Hemminger <shemminger@vyatta.com>,
+	nhorman@tuxdriver.com
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:45569 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbYJSLpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2008 07:45:05 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so685561wah.21
-        for <netdev@vger.kernel.org>; Sun, 19 Oct 2008 04:45:04 -0700 (PDT)
-In-Reply-To: <6F31A6373E3D42EDAED26A994BA0830D@Seven>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56310 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751925AbYJTAKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2008 20:10:11 -0400
 Content-Disposition: inline
+In-Reply-To: <48F967BA.4090102@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 19, 2008 at 2:02 PM, Ben Castricum <lk0810@bencastricum.nl> wrote:
-> I am getting this bug reports almost daily since about 2.6.27. I saved the
-> output of all of them, but they are all nearly identical, so I just included
-> the first one. After the report networking seems unstable and the system
-> requires a reboot.
->
-> My .config can be found at http://www.bencastricum.nl/.config
->
-> I hope this helps.
->
-> Ben
->
->
-> BUG: unable to handle kernel NULL pointer dereference at 00000020
-> IP: [<b0254b74>] sock_poll+0xc/0x12
-> *pde = 00000000
-> Oops: 0000 [#1] SMP
-> last sysfs file:
-> /sys/devices/pci0000:00/0000:00:1f.3/i2c-adapter/i2c-0/0-002e/cpu0_vid
-> Modules linked in: ipt_MASQUERADE ipt_REJECT ipt_LOG xt_recent xt_tcpudp
-> xt_state iptable_filter nf_conntrack_ftp iptable_nat ip_tables nf_nat
-> x_tables nf_conntrack_ipv4 nf_conntrack nf_defrag_ipv4 af_packet usb_storage
-> usbhid 8139too mii tg3 libphy cdc_acm ehci_hcd uhci_hcd usbcore lm85
-> hwmon_vid i2c_i801 softdog rtc ext2 [last unloaded: firmware_class]
->
-> Pid: 1717, comm: squid Not tainted (2.6.27-05178-g2e532d6 #111) HP d530
-> SFF(PL110ES)
-> EIP: 0060:[<b0254b74>] EFLAGS: 00010246 CPU: 0
-> EIP is at sock_poll+0xc/0x12
-> EAX: ea872d80 EBX: 00000000 ECX: 00000000 EDX: eee50e00
-> ESI: e9a9bf00 EDI: ef304b80 EBP: ea84af44 ESP: ea84af40
-> DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> Process squid (pid: 1717, ti=ea84a000 task=ea96e330 task.ti=ea84a000)
-> Stack:
-> e9a9bf0c ea84afb0 b017ff04 ea84af9c 00000002 00000000 eabe1300 ef304b98
-> 00000003 ef304bac ef304ba4 e9a9bf0c ef304ba0 ef304b94 00000046 ef304b84
-> ea84af9c b03ce000 b014248d ea84af94 b0126765 ea84afb0 b0105909 ea84af9c
-> Call Trace:
-> [<b017ff04>] ? sys_epoll_wait+0x245/0x3a7
-> [<b014248d>] ? handle_fasteoi_irq+0x0/0xad
-> [<b0126765>] ? irq_exit+0x53/0x77
-> [<b0105909>] ? do_IRQ+0xae/0xc4
-> [<b0103905>] ? sysenter_do_call+0x12/0x25
-> Code: 8b 58 54 b8 ea ff ff ff 85 db 74 0c ff 75 0c ff 75 08 89 f0 ff d3 5a
-> 59 8d 65 f8 5b 5e 5d c3 55 89 e5 53 89 d1 8b 50 6c 8b 5a 0c <ff> 53 20 5b 5d
-> c3 55 89 e5 53 89 d1 8b 50 6c 8b 5a 0c ff 53 4c
-> EIP: [<b0254b74>] sock_poll+0xc/0x12 SS:ESP 0068:ea84af40
-> ---[ end trace 6e50fb78d788d751 ]---
+Ok, one more revision. It takes Erics final suggestions into account.  Eric, as
+per your request, I've added your signed off line to it.
 
-Looks like file->private is NULL in sock_poll() so I'm cc'ing netdev.
+
+This is a patch to provide on demand route cache rebuilding.  Currently, our
+route cache is rebulid periodically regardless of need.  This introduced
+unneeded periodic latency.  This patch offers a better approach.  Using code
+provided by Eric Dumazet, we compute the standard deviation of the average hash
+bucket chain length while running rt_check_expire.  Should any given chain
+length grow to larger that average plus 4 standard deviations, we trigger an
+emergency hash table rebuild for that net namespace.  This allows for the common
+case in which chains are well behaved and do not grow unevenly to not incur any
+latency at all, while those systems (which may be being maliciously attacked),
+only rebuild when the attack is detected.  This patch take 2 other factors into
+account:
+1) chains with multiple entries that differ by attributes that do not affect the
+hash value are only counted once, so as not to unduly bias system to rebuilding
+if features like QOS are heavily used
+2) if rebuilding crosses a certain threshold (which is adjustable via the added
+sysctl in this patch), route caching is disabled entirely for that net
+namespace, since constant rebuilding is less efficient that no caching at all
+
+Tested successfully by me.
+
+Regards
+Neil
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+ Documentation/networking/ip-sysctl.txt |    6 +
+ include/net/netns/ipv4.h               |    2 
+ net/ipv4/route.c                       |  132 ++++++++++++++++++++++++++++++++-
+ net/ipv4/sysctl_net_ipv4.c             |   12 +++
+ 4 files changed, 150 insertions(+), 2 deletions(-)
+
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index d849326..c771278 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -27,6 +27,12 @@ min_adv_mss - INTEGER
+ 	The advertised MSS depends on the first hop route MTU, but will
+ 	never be lower than this setting.
+ 
++rt_cache_rebuild_count - INTEGER
++	The per net-namespace route cache emergency rebuild threshold.
++	Any net-namespace having its route cache rebuilt due to
++	a hash bucket chain being too long more than this many times
++	will have its route caching disabled
++
+ IP Fragmentation:
+ 
+ ipfrag_high_thresh - INTEGER
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index ece1c92..977f482 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -49,6 +49,8 @@ struct netns_ipv4 {
+ 	int sysctl_icmp_ratelimit;
+ 	int sysctl_icmp_ratemask;
+ 	int sysctl_icmp_errors_use_inbound_ifaddr;
++	int sysctl_rt_cache_rebuild_count;
++	int current_rt_cache_rebuild_count;
+ 
+ 	struct timer_list rt_secret_timer;
+ 	atomic_t rt_genid;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 8d23cc7..c132132 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -129,6 +129,7 @@ static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
+ static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
+ static int ip_rt_min_advmss __read_mostly	= 256;
+ static int ip_rt_secret_interval __read_mostly	= 10 * 60 * HZ;
++static int rt_chain_length_max __read_mostly	= 20;
+ 
+ static void rt_worker_func(struct work_struct *work);
+ static DECLARE_DELAYED_WORK(expires_work, rt_worker_func);
+@@ -145,6 +146,7 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
+ static void		 ipv4_link_failure(struct sk_buff *skb);
+ static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
+ static int rt_garbage_collect(struct dst_ops *ops);
++static void rt_emergency_hash_rebuild(struct net *net);
+ 
+ 
+ static struct dst_ops ipv4_dst_ops = {
+@@ -201,6 +203,7 @@ const __u8 ip_tos2prio[16] = {
+ struct rt_hash_bucket {
+ 	struct rtable	*chain;
+ };
++
+ #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK) || \
+ 	defined(CONFIG_PROVE_LOCKING)
+ /*
+@@ -674,6 +677,20 @@ static inline u32 rt_score(struct rtable *rt)
+ 	return score;
+ }
+ 
++static inline bool rt_caching(const struct net *net)
++{
++	return net->ipv4.current_rt_cache_rebuild_count <=
++		net->ipv4.sysctl_rt_cache_rebuild_count;
++}
++
++static inline bool compare_hash_inputs(const struct flowi *fl1,
++					const struct flowi *fl2)
++{
++	return (__force u32)(((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.daddr) |
++		(fl1->nl_u.ip4_u.saddr ^ fl2->nl_u.ip4_u.saddr) |
++		(fl1->iif ^ fl2->iif)) == 0);
++}
++
+ static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
+ {
+ 	return ((__force u32)((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.daddr) |
+@@ -753,11 +770,24 @@ static void rt_do_flush(int process_context)
+ 	}
+ }
+ 
++/*
++ * While freeing expired entries, we compute average chain length
++ * and standard deviation, using fixed-point arithmetic.
++ * This to have an estimation of rt_chain_length_max
++ *  rt_chain_length_max = max(elasticity, AVG + 4*SD)
++ * We use 3 bits for frational part, and 29 (or 61) for magnitude.
++ */
++
++#define FRACT_BITS 3
++#define ONE (1UL << FRACT_BITS)
++
+ static void rt_check_expire(void)
+ {
+ 	static unsigned int rover;
+ 	unsigned int i = rover, goal;
+ 	struct rtable *rth, **rthp;
++	unsigned long length = 0, samples = 0;
++	unsigned long sum = 0, sum2 = 0;
+ 	u64 mult;
+ 
+ 	mult = ((u64)ip_rt_gc_interval) << rt_hash_log;
+@@ -766,6 +796,7 @@ static void rt_check_expire(void)
+ 	goal = (unsigned int)mult;
+ 	if (goal > rt_hash_mask)
+ 		goal = rt_hash_mask + 1;
++	length = 0;
+ 	for (; goal > 0; goal--) {
+ 		unsigned long tmo = ip_rt_gc_timeout;
+ 
+@@ -775,6 +806,8 @@ static void rt_check_expire(void)
+ 		if (need_resched())
+ 			cond_resched();
+ 
++		samples++;
++
+ 		if (*rthp == NULL)
+ 			continue;
+ 		spin_lock_bh(rt_hash_lock_addr(i));
+@@ -789,11 +822,29 @@ static void rt_check_expire(void)
+ 				if (time_before_eq(jiffies, rth->u.dst.expires)) {
+ 					tmo >>= 1;
+ 					rthp = &rth->u.dst.rt_next;
++					/*
++					 * Only bump our length if the hash
++					 * inputs on entries n and n+1 are not
++					 * the same, we only count entries on
++					 * a chain with equal hash inputs once
++					 * so that entries for different QOS
++					 * levels, and other non-hash input
++					 * attributes don't unfairly skew
++					 * the length computation
++					 */
++					if ((*rthp == NULL) ||
++					    !compare_hash_inputs(&(*rthp)->fl,
++								 &rth->fl))
++						length += ONE;
+ 					continue;
+ 				}
+ 			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
+ 				tmo >>= 1;
+ 				rthp = &rth->u.dst.rt_next;
++				if ((*rthp == NULL) || 
++				    !compare_hash_inputs(&(*rthp)->fl,
++							 &rth->fl))
++					length += ONE;
+ 				continue;
+ 			}
+ 
+@@ -802,6 +853,15 @@ static void rt_check_expire(void)
+ 			rt_free(rth);
+ 		}
+ 		spin_unlock_bh(rt_hash_lock_addr(i));
++		sum += length;
++		sum2 += length*length;
++	}
++	if (samples) {
++		unsigned long avg = sum / samples;
++		unsigned long sd = int_sqrt(sum2 / samples - avg*avg);
++		rt_chain_length_max = max_t(unsigned long,
++					ip_rt_gc_elasticity,
++					(avg + 4*sd) >> FRACT_BITS);
+ 	}
+ 	rover = i;
+ }
+@@ -851,6 +911,26 @@ static void rt_secret_rebuild(unsigned long __net)
+ 	mod_timer(&net->ipv4.rt_secret_timer, jiffies + ip_rt_secret_interval);
+ }
+ 
++static void rt_secret_rebuild_oneshot(struct net *net)
++{
++	del_timer_sync(&net->ipv4.rt_secret_timer);
++	rt_cache_invalidate(net);
++	if (ip_rt_secret_interval) {
++		net->ipv4.rt_secret_timer.expires += ip_rt_secret_interval;
++		add_timer(&net->ipv4.rt_secret_timer);
++	}
++}
++
++static void rt_emergency_hash_rebuild(struct net *net)
++{
++	if (net_ratelimit()) {
++		printk(KERN_WARNING "Route hash chain too long!\n");
++		printk(KERN_WARNING "Adjust your secret_interval!\n");
++	}
++
++	rt_secret_rebuild_oneshot(net);
++}
++
+ /*
+    Short description of GC goals.
+ 
+@@ -989,6 +1069,7 @@ out:	return 0;
+ static int rt_intern_hash(unsigned hash, struct rtable *rt, struct rtable **rp)
+ {
+ 	struct rtable	*rth, **rthp;
++	struct rtable	*rthi;
+ 	unsigned long	now;
+ 	struct rtable *cand, **candp;
+ 	u32 		min_score;
+@@ -1002,7 +1083,13 @@ restart:
+ 	candp = NULL;
+ 	now = jiffies;
+ 
++	if (!rt_caching(dev_net(rt->u.dst.dev))) {
++		rt_drop(rt);
++		return 0;
++	}
++
+ 	rthp = &rt_hash_table[hash].chain;
++	rthi = NULL;
+ 
+ 	spin_lock_bh(rt_hash_lock_addr(hash));
+ 	while ((rth = *rthp) != NULL) {
+@@ -1048,6 +1135,17 @@ restart:
+ 		chain_length++;
+ 
+ 		rthp = &rth->u.dst.rt_next;
++
++		/*
++		 * check to see if the next entry in the chain
++		 * contains the same hash input values as rt.  If it does
++		 * This is where we will insert into the list, instead of
++		 * at the head.  This groups entries that differ by aspects not
++		 * relvant to the hash function together, which we use to adjust
++		 * our chain length
++		 */
++		if (*rthp && compare_hash_inputs(&(*rthp)->fl, &rt->fl))
++			rthi = rth;
+ 	}
+ 
+ 	if (cand) {
+@@ -1061,6 +1159,16 @@ restart:
+ 			*candp = cand->u.dst.rt_next;
+ 			rt_free(cand);
+ 		}
++	} else {
++		if (chain_length > rt_chain_length_max) {
++			struct net *net = dev_net(rt->u.dst.dev);
++			int num = ++net->ipv4.current_rt_cache_rebuild_count;
++			if (!rt_caching(dev_net(rt->u.dst.dev))) {
++				printk(KERN_WARNING "%s: %d rebuilds is over limit, route caching disabled\n",
++					rt->u.dst.dev->name, num);
++			}
++			rt_emergency_hash_rebuild(dev_net(rt->u.dst.dev));
++		}
+ 	}
+ 
+ 	/* Try to bind route to arp only if it is output
+@@ -1098,7 +1206,11 @@ restart:
+ 		}
+ 	}
+ 
+-	rt->u.dst.rt_next = rt_hash_table[hash].chain;
++	if (rthi)
++		rt->u.dst.rt_next = rthi->u.dst.rt_next;
++	else
++		rt->u.dst.rt_next = rt_hash_table[hash].chain;
++
+ #if RT_CACHE_DEBUG >= 2
+ 	if (rt->u.dst.rt_next) {
+ 		struct rtable *trt;
+@@ -1114,7 +1226,11 @@ restart:
+ 	 * previous writes to rt are comitted to memory
+ 	 * before making rt visible to other CPUS.
+ 	 */
+-	rcu_assign_pointer(rt_hash_table[hash].chain, rt);
++	if (rthi)
++		rcu_assign_pointer(rthi->u.dst.rt_next, rt);
++	else
++		rcu_assign_pointer(rt_hash_table[hash].chain, rt);
++
+ 	spin_unlock_bh(rt_hash_lock_addr(hash));
+ 	*rp = rt;
+ 	return 0;
+@@ -1217,6 +1333,9 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 	    || ipv4_is_zeronet(new_gw))
+ 		goto reject_redirect;
+ 
++	if (!rt_caching(net))
++		goto reject_redirect;
++
+ 	if (!IN_DEV_SHARED_MEDIA(in_dev)) {
+ 		if (!inet_addr_onlink(in_dev, new_gw, old_gw))
+ 			goto reject_redirect;
+@@ -2130,6 +2249,10 @@ int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	struct net *net;
+ 
+ 	net = dev_net(dev);
++
++	if (!rt_caching(net))
++		goto skip_cache;
++
+ 	tos &= IPTOS_RT_MASK;
+ 	hash = rt_hash(daddr, saddr, iif, rt_genid(net));
+ 
+@@ -2154,6 +2277,7 @@ int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	}
+ 	rcu_read_unlock();
+ 
++skip_cache:
+ 	/* Multicast recognition logic is moved from route cache to here.
+ 	   The problem was that too many Ethernet cards have broken/missing
+ 	   hardware multicast filters :-( As result the host on multicasting
+@@ -2539,6 +2663,9 @@ int __ip_route_output_key(struct net *net, struct rtable **rp,
+ 	unsigned hash;
+ 	struct rtable *rth;
+ 
++	if (!rt_caching(net))
++		goto slow_output;
++
+ 	hash = rt_hash(flp->fl4_dst, flp->fl4_src, flp->oif, rt_genid(net));
+ 
+ 	rcu_read_lock_bh();
+@@ -2563,6 +2690,7 @@ int __ip_route_output_key(struct net *net, struct rtable **rp,
+ 	}
+ 	rcu_read_unlock_bh();
+ 
++slow_output:
+ 	return ip_route_output_slow(net, rp, flp);
+ }
+ 
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 276d047..0d0fd64 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -795,6 +795,14 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
+ 	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "rt_cache_rebuild_count",
++		.data		= &init_net.ipv4.sysctl_rt_cache_rebuild_count,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
+ 	{ }
+ };
+ 
+@@ -827,8 +835,12 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
+ 			&net->ipv4.sysctl_icmp_ratelimit;
+ 		table[5].data =
+ 			&net->ipv4.sysctl_icmp_ratemask;
++		table[6].data =
++			&net->ipv4.sysctl_rt_cache_rebuild_count;
+ 	}
+ 
++	net->ipv4.sysctl_rt_cache_rebuild_count = 4;
++
+ 	net->ipv4.ipv4_hdr = register_net_sysctl_table(net,
+ 			net_ipv4_ctl_path, table);
+ 	if (net->ipv4.ipv4_hdr == NULL)
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
+
+
