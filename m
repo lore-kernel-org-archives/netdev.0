@@ -1,80 +1,64 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 07/07: replace old NF_ARP calls with NFPROTO_ARP
-Date: Mon, 20 Oct 2008 11:54:18 +0200 (MEST)
-Message-ID: <20081020095417.25670.96997.sendpatchset@x2.localnet>
+Subject: netfilter 03/07: xt_iprange: fix range inversion match
+Date: Mon, 20 Oct 2008 11:54:12 +0200 (MEST)
+Message-ID: <20081020095412.25670.68587.sendpatchset@x2.localnet>
 References: <20081020095408.25670.37455.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52363 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbYJTJyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 05:54:19 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20081020095408.25670.37455.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 01ff237de9f0144bcc024721c3b9a0eac724b0fb
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Mon Oct 20 11:47:30 2008 +0200
+commit 22e6543a9c21a1674ab5c1feddd141305a665dbd
+Author: Alexey Dobriyan <adobriyan@gmail.com>
+Date:   Sat Oct 18 15:20:56 2008 +0200
 
-    netfilter: replace old NF_ARP calls with NFPROTO_ARP
+    netfilter: xt_iprange: fix range inversion match
     
-    (Supplements: ee999d8b9573df1b547aacdc6d79f86eb79c25cd)
+    Inverted IPv4 v1 and IPv6 v0 matches don't match anything since 2.6.25-rc1!
     
-    NFPROTO_ARP actually has a different value from NF_ARP, so ensure all
-    callers use the new value so that packets _do_ get delivered to the
-    registered hooks.
-    
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    Acked-by: Jan Engelhardt <jengelh@medozas.de>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index a4abed5..fa5cda4 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -719,7 +719,7 @@ static unsigned int br_nf_forward_arp(unsigned int hook, struct sk_buff *skb,
- 		return NF_ACCEPT;
+diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
+index 6f62c36..7ac54ea 100644
+--- a/net/netfilter/xt_iprange.c
++++ b/net/netfilter/xt_iprange.c
+@@ -61,7 +61,7 @@ iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
+ 	if (info->flags & IPRANGE_SRC) {
+ 		m  = ntohl(iph->saddr) < ntohl(info->src_min.ip);
+ 		m |= ntohl(iph->saddr) > ntohl(info->src_max.ip);
+-		m ^= info->flags & IPRANGE_SRC_INV;
++		m ^= !!(info->flags & IPRANGE_SRC_INV);
+ 		if (m) {
+ 			pr_debug("src IP " NIPQUAD_FMT " NOT in range %s"
+ 			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
+@@ -75,7 +75,7 @@ iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
+ 	if (info->flags & IPRANGE_DST) {
+ 		m  = ntohl(iph->daddr) < ntohl(info->dst_min.ip);
+ 		m |= ntohl(iph->daddr) > ntohl(info->dst_max.ip);
+-		m ^= info->flags & IPRANGE_DST_INV;
++		m ^= !!(info->flags & IPRANGE_DST_INV);
+ 		if (m) {
+ 			pr_debug("dst IP " NIPQUAD_FMT " NOT in range %s"
+ 			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
+@@ -114,14 +114,14 @@ iprange_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
+ 	if (info->flags & IPRANGE_SRC) {
+ 		m  = iprange_ipv6_sub(&iph->saddr, &info->src_min.in6) < 0;
+ 		m |= iprange_ipv6_sub(&iph->saddr, &info->src_max.in6) > 0;
+-		m ^= info->flags & IPRANGE_SRC_INV;
++		m ^= !!(info->flags & IPRANGE_SRC_INV);
+ 		if (m)
+ 			return false;
  	}
- 	*d = (struct net_device *)in;
--	NF_HOOK(NF_ARP, NF_ARP_FORWARD, skb, (struct net_device *)in,
-+	NF_HOOK(NFPROTO_ARP, NF_ARP_FORWARD, skb, (struct net_device *)in,
- 		(struct net_device *)out, br_nf_forward_finish);
- 
- 	return NF_STOLEN;
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index b043eda..1a9dd66 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -663,7 +663,7 @@ out:
- void arp_xmit(struct sk_buff *skb)
- {
- 	/* Send it off, maybe filter it using firewalling first.  */
--	NF_HOOK(NF_ARP, NF_ARP_OUT, skb, NULL, skb->dev, dev_queue_xmit);
-+	NF_HOOK(NFPROTO_ARP, NF_ARP_OUT, skb, NULL, skb->dev, dev_queue_xmit);
- }
- 
- /*
-@@ -928,7 +928,7 @@ static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
- 
- 	memset(NEIGH_CB(skb), 0, sizeof(struct neighbour_cb));
- 
--	return NF_HOOK(NF_ARP, NF_ARP_IN, skb, dev, NULL, arp_process);
-+	return NF_HOOK(NFPROTO_ARP, NF_ARP_IN, skb, dev, NULL, arp_process);
- 
- freeskb:
- 	kfree_skb(skb);
-diff --git a/net/netfilter/xt_NFQUEUE.c b/net/netfilter/xt_NFQUEUE.c
-index 2cc1fff..f9977b3 100644
---- a/net/netfilter/xt_NFQUEUE.c
-+++ b/net/netfilter/xt_NFQUEUE.c
-@@ -48,7 +48,7 @@ static struct xt_target nfqueue_tg_reg[] __read_mostly = {
- 	},
- 	{
- 		.name		= "NFQUEUE",
--		.family		= NF_ARP,
-+		.family		= NFPROTO_ARP,
- 		.target		= nfqueue_tg,
- 		.targetsize	= sizeof(struct xt_NFQ_info),
- 		.me		= THIS_MODULE,
+ 	if (info->flags & IPRANGE_DST) {
+ 		m  = iprange_ipv6_sub(&iph->daddr, &info->dst_min.in6) < 0;
+ 		m |= iprange_ipv6_sub(&iph->daddr, &info->dst_max.in6) > 0;
+-		m ^= info->flags & IPRANGE_DST_INV;
++		m ^= !!(info->flags & IPRANGE_DST_INV);
+ 		if (m)
+ 			return false;
+ 	}
