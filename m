@@ -1,71 +1,79 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [Bugme-new] [Bug 11752] New: Extremely low	netperf	UDP_RR	throughput
- for nvidia MCP65
-Date: Mon, 20 Oct 2008 10:41:21 -0700
-Message-ID: <48FCC2C1.5030108@hp.com>
-References: <bug-11752-10286@http.bugzilla.kernel.org/>	<20081016134920.1492cdcc.akpm@linux-foundation.org>	<48F7AD1A.7050309@hp.com> <wp63nrx7zk.fsf@heho.snv.jussieu.fr>	<48F8FE18.6060005@hp.com> <wpprlyuoci.fsf@heho.snv.jussieu.fr>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: tcp_sack problem Re: [Bug 11721] after upgrade to 2.6.27 i cannot
+ navigate
+Date: Mon, 20 Oct 2008 23:55:48 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810202323330.30254@wrl-59.cs.helsinki.fi>
+References: <bug-11721-11547@http.bugzilla.kernel.org/>
+ <20081020154737.2D0CA108042@picon.linux-foundation.org>
+ <20081020171530.GA2564@ami.dom.local> <20081020214818.09d88b48@topolino>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: "Arno J. Klaassen" <arno@heho.snv.jussieu.fr>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Aldo Maggi <sentiniate@tiscali.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:13938 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751246AbYJTRl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 13:41:26 -0400
-In-Reply-To: <wpprlyuoci.fsf@heho.snv.jussieu.fr>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:53594 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752227AbYJTUzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 16:55:50 -0400
+In-Reply-To: <20081020214818.09d88b48@topolino>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>Clearly something is fubar with the rx side (well duh :).  The next
->>set of stats I'd try to look at would be ethtool stats for the
->>interface, eg ethtool -S eth0 and see if it shows someting more
->>specific for the "RX-ERR" shown by netstat -I eth0.
+On Mon, 20 Oct 2008, Aldo Maggi wrote:
+
+> i repeat here what i wrote there:
 > 
-> 
-> OK, here it is (rx_errors_total: 10049, rx_crc_errors: 10049) :
+> Ilpo,
+> i'm sending herewith attached the output of
+> tcpdump -i eth0 -nXX -c3 'dst port 80 and tcp-syn != 0' on topolino when:
+> 1) kernel 2.6.26.6 is running on paperino and tcp_window_scaling,
+> tcp_timestamps, tcp_sack are set to "1"
+> 2) kernel 2.6.26.6 is running on paperino and tcp_window_scaling,
+> tcp_timestamps, tcp_sack are set to "0"
+> 3) kernel 2.6.27-rc1-git1 is running on paperino and tcp_window_scaling,
+> tcp_timestamps, tcp_sack are set to "1"
+> 4) kernel 2.6.27-rc1-git1 is running on paperino and tcp_window_scaling,
+> tcp_timestamps, tcp_sack are set to "0"
 
-Well, that seems to confirm that it is CRC errors.  Did your friend say 
-why he thought they were false CRC errors?
+Thanks, very unambiquously being told what each case is, helps a lot... :-)
 
-If indeed it is only small packets/frames getting the CRC errors, in 
-_theory_ a TCP_RR test with a larger request/response size should show 
-"good" performance because there should be few if any standalone ACKs. 
-You could start with something like:
+Difference is: ip checksum, ipid, lsb of dstaddr, sport, seqno, tcp 
+checksum, timestamp. Plus the option reordering as discussed before. Here 
+are the options:
 
-netperf -H <remote> -t TCP_RR -- -r 1448
+    28  0204  <
+    29  05b4  <
+    30  0402    0402
+    31  080a    080a
+    32  0019  | ffff
+    33  db30  | 8169
+    34  0000    0000
+    35  0000    0000
+    36        > 0204
+    37        > 05b4
+    38  0103    0103
+    39  0306    0306
 
-and work your way down, checking for those CRC errors as you go.  I 
-don't thnik folks need all the output, just some idea of if you still 
-see CRC errors with full-size TCP_RR and if you don't at what size you 
-start to see them.  I picked 1448 to have the request and response both 
-result in a "full" TCP segment assuming an MTU of 1500 bytes and 
-timestamps being enabled. (net.ipv4.tcp_timestamps).
+Could you try if tcp_window_scaling=1, tcp_sack=1, tcp_timestamps=0 also 
+works, if you didn't already (it's not that obvious from the earlier 
+acknowledgement you gave that these were the exact options you used or 
+not)...
 
-Has the usual litany of cable swapping and such been done already?  A 
-cable *known* to be good at 1G swapped-in and such?  If this is via a 
-switch, just for completeness trying other switch ports etc etc.
+> moreover, i read more carefully what you and Jarek wrote above, please let me
+> know if you deem still necessary that i apply the patch you provided and
+> compile or if you like i compile the latest kernel or whatever.
 
-While I'd not expect it to be at 1Gig and autoneg, CRC errors can 
-sometimes be a sign of a duplex mismatch, but I have a difficult time 
-seeing that happening - unless there happens to be other traffic on the 
-link a plain netperf TCP_RR or UDP_RR test should "never" have both 
-sides trying to talk at the same time and so shouldn't trip-over a 
-duplex mismatch like a TCP_STREAM test would.
+If that ws=1,s=1,ts=0 test succeeds, then testing my patch would be useful 
+too. Anyway it seems that we're dealing with some violation of spec here
+(by either the peer or some middle node, 2.6.27-whatever is not doing 
+something outside of spec), just trying to narrow down which of the 
+options is the actual cause. We might need to try later some other 
+ordering of options too to rule out possibilities by trial-and-error
+(ie., unless you have a better knowledge about the devices on the path, 
+information which I sort of expect to be out of (y)our reach :-)).
 
-> (NB, let me know how to eventually test eventual patches/binary
-> modules on a life-CD; I've just limited linux kernel skills)
 
-I'm going to have to defer to others on that score.  Meanwhile some 
-additional information gathering:
-
-For grins and bugzilla posterity, ethtool -i <interface> would be 
-goodness. What was the last "known good" configuration?  What is running 
-"on the other side?" etc etc.  Does say some other or earlier distro 
-(Fedora, Ubuntu whatnot) Live CD not exhibit this problem?  If not, what 
-are the kernel and ethtool -i information from that?
-
-rick jones
+-- 
+ i.
