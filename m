@@ -1,89 +1,71 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: hardware time stamps + existing time stamp usage
-Date: Mon, 20 Oct 2008 20:01:27 +0200
-Message-ID: <48FCC777.4020506@hartkopp.net>
-References: <1224253423.17450.211.camel@ecld0pohly>	 <48F96DD6.5060904@cosmosbay.com> <48F99286.9050706@hartkopp.net>	 <48F9A43A.7070801@cosmosbay.com>  <48F9B610.2090504@hartkopp.net> <1224488114.17450.224.camel@ecld0pohly>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [Bugme-new] [Bug 11752] New: Extremely low	netperf	UDP_RR	throughput
+ for nvidia MCP65
+Date: Mon, 20 Oct 2008 10:41:21 -0700
+Message-ID: <48FCC2C1.5030108@hp.com>
+References: <bug-11752-10286@http.bugzilla.kernel.org/>	<20081016134920.1492cdcc.akpm@linux-foundation.org>	<48F7AD1A.7050309@hp.com> <wp63nrx7zk.fsf@heho.snv.jussieu.fr>	<48F8FE18.6060005@hp.com> <wpprlyuoci.fsf@heho.snv.jussieu.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>, Andi Kleen <ak@linux.intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Patrick Ohly <patrick.ohly@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>
+To: "Arno J. Klaassen" <arno@heho.snv.jussieu.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:12951 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752532AbYJTSDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 14:03:08 -0400
-In-Reply-To: <1224488114.17450.224.camel@ecld0pohly>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:13938 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246AbYJTRl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 13:41:26 -0400
+In-Reply-To: <wpprlyuoci.fsf@heho.snv.jussieu.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick Ohly wrote:
-> On Sat, 2008-10-18 at 04:10 -0600, Oliver Hartkopp wrote:
->  =20
->> Eric Dumazet wrote:
->>    =20
->>> Oliver Hartkopp a =E9crit :
->>>      =20
->>>> If so i would tend to fill both (system time and hw timestamp) on
->>>> driver level into the skb and then decide on socket level what to
->>>> push into user space as you suggested above.
->>>>        =20
->>> Well, this would enlarge skb structure by 8 bytes, since you cannot=
- use
->>> same tstamp location to fille both 8 bytes values.
->>> This is probably the easy way, but very expensive...
->>>      =20
->> IMHO this is the only way to fulfill the given requirements.
->> Maybe we should introduce a new kernel config option for hw tstamps =
-then ...
->>    =20
->
-> The last time this topic was discussed the initial proposal also was =
-to
-> add another time stamp, pretty much for the same reasons. This approa=
-ch
-> was discarded because enlarging a common structure like skb for rathe=
-r
-> obscure ("Objection, your honor!" - "Rejected.") use cases is not
-> acceptable.
+>>Clearly something is fubar with the rx side (well duh :).  The next
+>>set of stats I'd try to look at would be ethtool stats for the
+>>interface, eg ethtool -S eth0 and see if it shows someting more
+>>specific for the "RX-ERR" shown by netstat -I eth0.
+> 
+> 
+> OK, here it is (rx_errors_total: 10049, rx_crc_errors: 10049) :
 
-I don't want to raise dust again but having HW timestamps are also=20
-interesting for some CAN (Controller Area Network) users.
-We had several discussions on the SocketCAN ML on HW timestamps that ar=
-e=20
-provided by some CAN controllers or active/intelligent CAN nodes (with=20
-onboard-CPUs). For me it was not that relevant as stamping the skb in=20
-the rx-path was always 'accurate enough' for me - but I'm not the CAN=20
-timestamp expert. Fortunately the HW timestamp was not pushed into=20
-skb->data (ugh!) but supporting HW timestamps for userspace apps is=20
-still a wanted feature.
+Well, that seems to confirm that it is CRC errors.  Did your friend say 
+why he thought they were false CRC errors?
 
->  A config option doesn't help much either because to be
-> useful for distribution users, it would have to be on by default.
->  =20
+If indeed it is only small packets/frames getting the CRC errors, in 
+_theory_ a TCP_RR test with a larger request/response size should show 
+"good" performance because there should be few if any standalone ACKs. 
+You could start with something like:
 
-Hm - i tried to follow your points in the linked PDF=20
-(http://www.linuxclustersinstitute.org/conferences/archive/2008/PDF/Ohl=
-y_92221.pdf)=20
-- and from my perspective having a kernel config option looks like an=20
-appropriate solution here. Either some CAN controllers or HPC clusters=20
-that would benefit from HW timestamps are IMHO no 'standard use-cases'=20
-that use 'standard kernels' provided by a 'standard distributor', right=
-?
+netperf -H <remote> -t TCP_RR -- -r 1448
 
-I assume the system timestamps to be accurate enough for 'standard=20
-users' so HW timestamps could be a possible candidate for a config=20
-option - or did i miss anything vital here?
+and work your way down, checking for those CRC errors as you go.  I 
+don't thnik folks need all the output, just some idea of if you still 
+see CRC errors with full-size TCP_RR and if you don't at what size you 
+start to see them.  I picked 1448 to have the request and response both 
+result in a "full" TCP segment assuming an MTU of 1500 bytes and 
+timestamps being enabled. (net.ipv4.tcp_timestamps).
 
-Especially it makes the implementation very clear and without any=20
-expensive how-to-bitcompress-several-values-into-tstamp approaches.
+Has the usual litany of cable swapping and such been done already?  A 
+cable *known* to be good at 1G swapped-in and such?  If this is via a 
+switch, just for completeness trying other switch ports etc etc.
 
-Regards,
-Oliver
+While I'd not expect it to be at 1Gig and autoneg, CRC errors can 
+sometimes be a sign of a duplex mismatch, but I have a difficult time 
+seeing that happening - unless there happens to be other traffic on the 
+link a plain netperf TCP_RR or UDP_RR test should "never" have both 
+sides trying to talk at the same time and so shouldn't trip-over a 
+duplex mismatch like a TCP_STREAM test would.
 
+> (NB, let me know how to eventually test eventual patches/binary
+> modules on a life-CD; I've just limited linux kernel skills)
+
+I'm going to have to defer to others on that score.  Meanwhile some 
+additional information gathering:
+
+For grins and bugzilla posterity, ethtool -i <interface> would be 
+goodness. What was the last "known good" configuration?  What is running 
+"on the other side?" etc etc.  Does say some other or earlier distro 
+(Fedora, Ubuntu whatnot) Live CD not exhibit this problem?  If not, what 
+are the kernel and ethtool -i information from that?
+
+rick jones
