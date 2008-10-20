@@ -1,39 +1,40 @@
-From: Aldo Maggi <sentiniate@tiscali.it>
-Subject: Re: tcp_sack problem Re: [Bug 11721] after upgrade to 2.6.27 i
- cannot navigate
-Date: Tue, 21 Oct 2008 00:13:13 +0200
-Message-ID: <20081021001313.6d017698@topolino>
-References: <bug-11721-11547@http.bugzilla.kernel.org/>
-	<20081020154737.2D0CA108042@picon.linux-foundation.org>
-	<20081020171530.GA2564@ami.dom.local>
-	<20081020214818.09d88b48@topolino>
-	<Pine.LNX.4.64.0810202323330.30254@wrl-59.cs.helsinki.fi>
-	<20081020233419.78cd4390@topolino>
-	<Pine.LNX.4.64.0810210036040.30254@wrl-59.cs.helsinki.fi>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: qla3xxx network driver fills the log with "Link is down" messages
+Date: Mon, 20 Oct 2008 18:48:15 -0400
+Message-ID: <20081020184815.5e9ca743@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from joe.mail.tiscali.it ([213.205.33.54]:40801 "EHLO
-	joe.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753944AbYJTWNV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 18:13:21 -0400
-In-Reply-To: <Pine.LNX.4.64.0810210036040.30254@wrl-59.cs.helsinki.fi>
+Received: from mx2.redhat.com ([66.187.237.31]:46809 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755219AbYJTWsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Oct 2008 18:48:18 -0400
+Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
+	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id m9KMmH9R009338
+	for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 18:48:17 -0400
+Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
+	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m9KMmGtF017163
+	for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 18:48:17 -0400
+Received: from localhost.localdomain (dhcp-100-2-144.bos.redhat.com [10.16.2.144])
+	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id m9KMmGDi006873
+	for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 18:48:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Il giorno Tue, 21 Oct 2008 00:51:26 +0300 (EEST)
-"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> ha scritto:
+https://bugzilla.redhat.com/show_bug.cgi?id=461623
 
-> Reply to all please... ...I restored them again for you... :-)
+If you try to bring up a qla3xxx adapter without any cable connected 
+it fills the log with:
 
-sorry! i'll be more careful in the future!
+qla3xxx eth2: Link is down.
+qla3xxx eth2: port_link_state = LS_DOWN.
+qla3xxx eth2: Link is down.
+qla3xxx eth2: port_link_state = LS_DOWN.
+qla3xxx eth2: Link is down.
+qla3xxx eth2: port_link_state = LS_DOWN.
+qla3xxx eth2: Link is down.
+qla3xxx eth2: port_link_state = LS_DOWN.
+...
 
-
-[...]
-
-thanks :-)
-aldo
