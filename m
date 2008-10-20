@@ -1,43 +1,50 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 04/07: snmp nat leaks memory in case of failure
-Date: Mon, 20 Oct 2008 11:54:13 +0200 (MEST)
-Message-ID: <20081020095413.25670.77921.sendpatchset@x2.localnet>
+Subject: netfilter 06/07: fix compilation error with NAT=n
+Date: Mon, 20 Oct 2008 11:54:16 +0200 (MEST)
+Message-ID: <20081020095416.25670.24763.sendpatchset@x2.localnet>
 References: <20081020095408.25670.37455.sendpatchset@x2.localnet>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52351 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbYJTJyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 05:54:14 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20081020095408.25670.37455.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit f935265f6041e490715ec31c7f918b8c348b5b95
-Author: \"Ilpo Jarvinen\ <ilpo.jarvinen@helsinki.fi>
-Date:   Sat Oct 18 15:20:56 2008 +0200
+commit 4cad11733aa8e182d7cfe39f9983940f2a7d0dc3
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Mon Oct 20 11:47:30 2008 +0200
 
-    netfilter: snmp nat leaks memory in case of failure
-   =20
-    Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+    netfilter: fix compilation error with NAT=n
+    
+    This patch fixes the compilation of ctnetlink when the NAT support
+    is not enabled.
+    
+    /home/benh/kernels/linux-powerpc/net/netfilter/nf_conntrack_netlink.c:819: warning: enum nf_nat_manip_type\u2019 declared inside parameter list
+    /home/benh/kernels/linux-powerpc/net/netfilter/nf_conntrack_netlink.c:819: warning: its scope is only this definition or declaration, which is probably not what you want
+    
+    Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+    Reported by: Ingo Molnar <mingo@elte.hu>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilte=
-r/nf_nat_snmp_basic.c
-index ffeaffc..8303e4b 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -742,6 +742,7 @@ static unsigned char snmp_object_decode(struct asn1=
-_ctx *ctx,
- 			*obj =3D kmalloc(sizeof(struct snmp_object) + len,
- 				       GFP_ATOMIC);
- 			if (*obj =3D=3D NULL) {
-+				kfree(p);
- 				kfree(id);
- 				if (net_ratelimit())
- 					printk("OOM in bsalg (%d)\n", __LINE__);
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 2e4ad96..a040d46 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -813,6 +813,7 @@ out:
+ 	return err;
+ }
+ 
++#ifdef CONFIG_NF_NAT_NEEDED
+ static int
+ ctnetlink_parse_nat_setup(struct nf_conn *ct,
+ 			  enum nf_nat_manip_type manip,
+@@ -840,6 +841,7 @@ ctnetlink_parse_nat_setup(struct nf_conn *ct,
+ 
+ 	return parse_nat_setup(ct, manip, attr);
+ }
++#endif
+ 
+ static int
+ ctnetlink_change_status(struct nf_conn *ct, struct nlattr *cda[])
