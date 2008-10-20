@@ -1,64 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 03/07: xt_iprange: fix range inversion match
-Date: Mon, 20 Oct 2008 11:54:12 +0200 (MEST)
-Message-ID: <20081020095412.25670.68587.sendpatchset@x2.localnet>
-References: <20081020095408.25670.37455.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081020095408.25670.37455.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netdev: change name dropping error codes
+Date: Sun, 19 Oct 2008 23:34:03 -0700 (PDT)
+Message-ID: <20081019.233403.127810157.davem@davemloft.net>
+References: <20081017213006.385c45cd@extreme>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32886
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750971AbYJTGe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 02:34:26 -0400
+In-Reply-To: <20081017213006.385c45cd@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 22e6543a9c21a1674ab5c1feddd141305a665dbd
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Sat Oct 18 15:20:56 2008 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 17 Oct 2008 21:30:06 -0700
 
-    netfilter: xt_iprange: fix range inversion match
-    
-    Inverted IPv4 v1 and IPv6 v0 matches don't match anything since 2.6.25-rc1!
-    
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-    Acked-by: Jan Engelhardt <jengelh@medozas.de>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+> If changename notifier returns an error code, it gets incorrectly
+> cleared during rollback so the error is never returned to the user.
+> Found while testing similar code for MTU changes.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
-index 6f62c36..7ac54ea 100644
---- a/net/netfilter/xt_iprange.c
-+++ b/net/netfilter/xt_iprange.c
-@@ -61,7 +61,7 @@ iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
- 	if (info->flags & IPRANGE_SRC) {
- 		m  = ntohl(iph->saddr) < ntohl(info->src_min.ip);
- 		m |= ntohl(iph->saddr) > ntohl(info->src_max.ip);
--		m ^= info->flags & IPRANGE_SRC_INV;
-+		m ^= !!(info->flags & IPRANGE_SRC_INV);
- 		if (m) {
- 			pr_debug("src IP " NIPQUAD_FMT " NOT in range %s"
- 			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
-@@ -75,7 +75,7 @@ iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
- 	if (info->flags & IPRANGE_DST) {
- 		m  = ntohl(iph->daddr) < ntohl(info->dst_min.ip);
- 		m |= ntohl(iph->daddr) > ntohl(info->dst_max.ip);
--		m ^= info->flags & IPRANGE_DST_INV;
-+		m ^= !!(info->flags & IPRANGE_DST_INV);
- 		if (m) {
- 			pr_debug("dst IP " NIPQUAD_FMT " NOT in range %s"
- 			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
-@@ -114,14 +114,14 @@ iprange_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
- 	if (info->flags & IPRANGE_SRC) {
- 		m  = iprange_ipv6_sub(&iph->saddr, &info->src_min.in6) < 0;
- 		m |= iprange_ipv6_sub(&iph->saddr, &info->src_max.in6) > 0;
--		m ^= info->flags & IPRANGE_SRC_INV;
-+		m ^= !!(info->flags & IPRANGE_SRC_INV);
- 		if (m)
- 			return false;
- 	}
- 	if (info->flags & IPRANGE_DST) {
- 		m  = iprange_ipv6_sub(&iph->daddr, &info->dst_min.in6) < 0;
- 		m |= iprange_ipv6_sub(&iph->daddr, &info->dst_max.in6) > 0;
--		m ^= info->flags & IPRANGE_DST_INV;
-+		m ^= !!(info->flags & IPRANGE_DST_INV);
- 		if (m)
- 			return false;
- 	}
+Applied, thanks Stephen.
