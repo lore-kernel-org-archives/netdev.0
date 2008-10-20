@@ -1,91 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Mon, 20 Oct 2008 03:45:17 -0700 (PDT)
-Message-ID: <20081020.034517.125315138.davem@davemloft.net>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH] myri10ge: disable NAPI on failure to setup the interface
+Date: Mon, 20 Oct 2008 13:54:12 +0200
+Message-ID: <48FC7164.8040002@myri.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752710AbYJTKvb@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:1945 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751956AbYJTLyL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Oct 2008 07:54:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Disable NAPI if a failure occurs when setting up the interface. Leaving
+it enabled could cause a BUG the next time an ifconfig up is issued.
+
+Signed-off-by: Brice Goglin <brice@myri.com>
+
+--- linux-2.6/drivers/net/myri10ge/myri10ge.c	2008-10-20 08:36:48.000000000 +0200
++++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-10-20 13:47:21.000000000 +0200
+@@ -75,7 +75,7 @@
+ #include "myri10ge_mcp.h"
+ #include "myri10ge_mcp_gen_header.h"
+ 
+-#define MYRI10GE_VERSION_STR "1.4.3-1.369"
++#define MYRI10GE_VERSION_STR "1.4.3-1.371"
+ 
+ MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
+ MODULE_AUTHOR("Maintainer: help@myri.com");
+@@ -2497,6 +2497,10 @@ static int myri10ge_open(struct net_devi
+ 	return 0;
+ 
+ abort_with_rings:
++	while (slice) {
++		slice--;
++		napi_disable(&mgp->ss[slice].napi);
++	}
+ 	for (i = 0; i < mgp->num_slices; i++)
+ 		myri10ge_free_rings(&mgp->ss[i]);
+ 
 
 
-=46ixes all over, highlights:
-
-1) Netfilter build fix for the problem reported by Ben H. and Ingo.
-
-2) sch_teql OOPS fix, will be sent to -stable as well, from Jarek Popla=
-wski
-
-3) Fallout from the TPROXY changes in TCP/ipv6 and DCCP, fixed by
-   KOVACS Krisztian and Gerrit Renker.
-
-4) Net device name change rollback returns the wrong error code, from
-   Stephen Hemminger.
-
-Please pull thanks a lot!
-
-The following changes since commit 95a5afca4a8d2e1cb77e1d4bc6ff9f718dc3=
-2f7a:
-  Johannes Berg (1):
-        net: Remove CONFIG_KMOD from net/ (towards removing CONFIG_KMOD=
- entirely)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alexey Dobriyan (2):
-      netfilter: xt_iprange: fix range inversion match
-      netfilter: xt_recent: use proc_create_data()
-
-Gerrit Renker (1):
-      dccp: Port redirection support for DCCP
-
-Ilpo J=E4rvinen (1):
-      netfilter: snmp nat leaks memory in case of failure
-
-Jan Engelhardt (1):
-      netfilter: replace old NF_ARP calls with NFPROTO_ARP
-
-Jarek Poplawski (1):
-      pkt_sched: sch_generic: Fix oops in sch_teql
-
-Julius Volz (1):
-      ipvs: Update CONFIG_IP_VS_IPV6 description and help text
-
-KOVACS Krisztian (1):
-      tcp: Fix IPv6 fallout from 'Port redirection support for TCP'
-
-Pablo Neira Ayuso (1):
-      netfilter: fix compilation error with NAT=3Dn
-
-Patrick McHardy (2):
-      netfilter: ctnetlink: remove obsolete NAT dependency from Kconfig
-      netfilter: netns: use NFPROTO_NUMPROTO instead of NUMPROTO for ta=
-bles array
-
-Stephen Hemminger (1):
-      netdev: change name dropping error codes
-
- include/net/netns/x_tables.h           |    4 ++--
- net/bridge/br_netfilter.c              |    2 +-
- net/core/dev.c                         |    6 +++---
- net/dccp/ipv6.c                        |    4 ++--
- net/dccp/minisocks.c                   |    1 +
- net/dccp/output.c                      |    2 +-
- net/ipv4/arp.c                         |    4 ++--
- net/ipv4/netfilter/nf_nat_snmp_basic.c |    1 +
- net/ipv6/syncookies.c                  |    1 +
- net/ipv6/tcp_ipv6.c                    |    6 +++---
- net/netfilter/Kconfig                  |    1 -
- net/netfilter/ipvs/Kconfig             |    4 +++-
- net/netfilter/nf_conntrack_netlink.c   |    2 ++
- net/netfilter/xt_NFQUEUE.c             |    2 +-
- net/netfilter/xt_iprange.c             |    8 ++++----
- net/netfilter/xt_recent.c              |   10 ++++------
- net/sched/sch_generic.c                |    2 ++
- 17 files changed, 33 insertions(+), 27 deletions(-)
