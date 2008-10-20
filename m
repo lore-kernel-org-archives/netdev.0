@@ -1,79 +1,173 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: tcp_sack problem Re: [Bug 11721] after upgrade to 2.6.27 i cannot
- navigate
-Date: Mon, 20 Oct 2008 23:55:48 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0810202323330.30254@wrl-59.cs.helsinki.fi>
+From: Aldo Maggi <sentiniate@tiscali.it>
+Subject: Re: tcp_sack problem Re: [Bug 11721] after upgrade to 2.6.27 i
+ cannot navigate
+Date: Mon, 20 Oct 2008 21:48:18 +0200
+Message-ID: <20081020214818.09d88b48@topolino>
 References: <bug-11721-11547@http.bugzilla.kernel.org/>
- <20081020154737.2D0CA108042@picon.linux-foundation.org>
- <20081020171530.GA2564@ami.dom.local> <20081020214818.09d88b48@topolino>
+	<20081020154737.2D0CA108042@picon.linux-foundation.org>
+	<20081020171530.GA2564@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
+Content-Type: multipart/mixed; boundary="MP_/u05TAG1E6/oUAHzfc40pDhC"
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
 	Netdev <netdev@vger.kernel.org>
-To: Aldo Maggi <sentiniate@tiscali.it>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53594 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752227AbYJTUzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 16:55:50 -0400
-In-Reply-To: <20081020214818.09d88b48@topolino>
+Received: from jack.mail.tiscali.it ([213.205.33.53]:48867 "EHLO
+	jack.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752287AbYJTTxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 15:53:40 -0400
+In-Reply-To: <20081020171530.GA2564@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Oct 2008, Aldo Maggi wrote:
+--MP_/u05TAG1E6/oUAHzfc40pDhC
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> i repeat here what i wrote there:
-> 
-> Ilpo,
-> i'm sending herewith attached the output of
-> tcpdump -i eth0 -nXX -c3 'dst port 80 and tcp-syn != 0' on topolino when:
-> 1) kernel 2.6.26.6 is running on paperino and tcp_window_scaling,
-> tcp_timestamps, tcp_sack are set to "1"
-> 2) kernel 2.6.26.6 is running on paperino and tcp_window_scaling,
-> tcp_timestamps, tcp_sack are set to "0"
-> 3) kernel 2.6.27-rc1-git1 is running on paperino and tcp_window_scaling,
-> tcp_timestamps, tcp_sack are set to "1"
-> 4) kernel 2.6.27-rc1-git1 is running on paperino and tcp_window_scaling,
-> tcp_timestamps, tcp_sack are set to "0"
+Jarek,
+sorry i did not read your last msg before, so i have used the bug page
+for posting.
 
-Thanks, very unambiquously being told what each case is, helps a lot... :-)
+i repeat here what i wrote there:
 
-Difference is: ip checksum, ipid, lsb of dstaddr, sport, seqno, tcp 
-checksum, timestamp. Plus the option reordering as discussed before. Here 
-are the options:
+Ilpo,
+i'm sending herewith attached the output of
+tcpdump -i eth0 -nXX -c3 'dst port 80 and tcp-syn != 0' on topolino when:
+1) kernel 2.6.26.6 is running on paperino and tcp_window_scaling,
+tcp_timestamps, tcp_sack are set to "1"
+2) kernel 2.6.26.6 is running on paperino and tcp_window_scaling,
+tcp_timestamps, tcp_sack are set to "0"
+3) kernel 2.6.27-rc1-git1 is running on paperino and tcp_window_scaling,
+tcp_timestamps, tcp_sack are set to "1"
+4) kernel 2.6.27-rc1-git1 is running on paperino and tcp_window_scaling,
+tcp_timestamps, tcp_sack are set to "0"
 
-    28  0204  <
-    29  05b4  <
-    30  0402    0402
-    31  080a    080a
-    32  0019  | ffff
-    33  db30  | 8169
-    34  0000    0000
-    35  0000    0000
-    36        > 0204
-    37        > 05b4
-    38  0103    0103
-    39  0306    0306
+moreover, i read more carefully what you and Jarek wrote above, please let me
+know if you deem still necessary that i apply the patch you provided and
+compile or if you like i compile the latest kernel or whatever.
 
-Could you try if tcp_window_scaling=1, tcp_sack=1, tcp_timestamps=0 also 
-works, if you didn't already (it's not that obvious from the earlier 
-acknowledgement you gave that these were the exact options you used or 
-not)...
+thanks
+aldo
 
-> moreover, i read more carefully what you and Jarek wrote above, please let me
-> know if you deem still necessary that i apply the patch you provided and
-> compile or if you like i compile the latest kernel or whatever.
+--MP_/u05TAG1E6/oUAHzfc40pDhC
+Content-Type: application/octet-stream; name=tcpdump_2-6-26_tcp_0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=tcpdump_2-6-26_tcp_0
 
-If that ws=1,s=1,ts=0 test succeeds, then testing my patch would be useful 
-too. Anyway it seems that we're dealing with some violation of spec here
-(by either the peer or some middle node, 2.6.27-whatever is not doing 
-something outside of spec), just trying to narrow down which of the 
-options is the actual cause. We might need to try later some other 
-ordering of options too to rule out possibilities by trial-and-error
-(ie., unless you have a better knowledge about the devices on the path, 
-information which I sort of expect to be out of (y)our reach :-)).
+MjE6Mjc6MTguNjE5MDE2IElQIDE5Mi4xNjguMjU0LjEuNjA2MzAgPiAyMDQuMTUyLjE5MS4zNy44
+MDogUyAxNDI3Mzc0MTYxOjE0MjczNzQxNjEoMCkgd2luIDU4NDAgPG1zcyAxNDYwPgoJMHgwMDAw
+OiAgMDBhMCBjNTQzIDVmZWIgMDAxMCA1YWM1IDY4MWMgMDgwMCA0NTAwICAuLi5DXy4uLlouaC4u
+LkUuCgkweDAwMTA6ICAwMDJjIDRjMDQgNDAwMCAzZjA2IGE1NWYgYzBhOCBmZTAxIGNjOTggIC4s
+TC5ALj8uLl8uLi4uLi4KCTB4MDAyMDogIGJmMjUgZWNkNiAwMDUwIDU1MTQgMDA1MSAwMDAwIDAw
+MDAgNjAwMiAgLiUuLi5QVS4uUS4uLi5gLgoJMHgwMDMwOiAgMTZkMCBmNDYxIDAwMDAgMDIwNCAw
+NWI0ICAgICAgICAgICAgICAgICAuLi5hLi4uLi4uCjIxOjI3OjE4LjgzOTA1MSBJUCAxOTIuMTY4
+LjI1NC4xLjYwNjMwID4gMjA0LjE1Mi4xOTEuMzcuODA6IC4gYWNrIDI4MTM2OTUwMzYgd2luIDU4
+NDAKCTB4MDAwMDogIDAwYTAgYzU0MyA1ZmViIDAwMTAgNWFjNSA2ODFjIDA4MDAgNDUwMCAgLi4u
+Q18uLi5aLmguLi5FLgoJMHgwMDEwOiAgMDAyOCA0YzA1IDQwMDAgM2YwNiBhNTYyIGMwYTggZmUw
+MSBjYzk4ICAuKEwuQC4/Li5iLi4uLi4uCgkweDAwMjA6ICBiZjI1IGVjZDYgMDA1MCA1NTE0IDAw
+NTIgYTdiNSA5NDNjIDUwMTAgIC4lLi4uUFUuLlIuLi48UC4KCTB4MDAzMDogIDE2ZDAgZDAxYyAw
+MDAwICAgICAgICAgICAgICAgICAgICAgICAgICAgLi4uLi4uCjIxOjI3OjE4LjgzOTI5MyBJUCAx
+OTIuMTY4LjI1NC4xLjYwNjMwID4gMjA0LjE1Mi4xOTEuMzcuODA6IFAgMDoyNDAoMjQwKSBhY2sg
+MSB3aW4gNTg0MAoJMHgwMDAwOiAgMDBhMCBjNTQzIDVmZWIgMDAxMCA1YWM1IDY4MWMgMDgwMCA0
+NTAwICAuLi5DXy4uLlouaC4uLkUuCgkweDAwMTA6ICAwMTE4IDRjMDYgNDAwMCAzZjA2IGE0NzEg
+YzBhOCBmZTAxIGNjOTggIC4uTC5ALj8uLnEuLi4uLi4KCTB4MDAyMDogIGJmMjUgZWNkNiAwMDUw
+IDU1MTQgMDA1MiBhN2I1IDk0M2MgNTAxOCAgLiUuLi5QVS4uUi4uLjxQLgoJMHgwMDMwOiAgMTZk
+MCBkNWZlIDAwMDAgNDc0NSA1NDIwIDJmMjAgNDg1NCA1NDUwICAuLi4uLi5HRVQuLy5IVFRQCgkw
+eDAwNDA6ICAyZjMxIDJlMzAgMGQwYSA1NTczIDY1NzIgMmQ0MSA2NzY1IDZlNzQgIC8xLjAuLlVz
+ZXItQWdlbnQKCTB4MDA1MDogIDNhMjAgNzczMyA2ZDJmIDMwMmUgMzUyZSAzMjBkIDBhNDEgNjM2
+MyAgOi53M20vMC41LjIuLkFjYwo=
 
+--MP_/u05TAG1E6/oUAHzfc40pDhC
+Content-Type: application/octet-stream; name=tcpdump_2-6-26_tcp_1
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=tcpdump_2-6-26_tcp_1
 
--- 
- i.
+MjE6MjU6MjIuNzU3OTM3IElQIDE5Mi4xNjguMjU0LjEuNTc0MTIgPiAyMDQuMTUyLjE5MS41Ljgw
+OiBTIDM5MTQxNjY1Mzc6MzkxNDE2NjUzNygwKSB3aW4gNTg0MCA8bXNzIDE0NjAsc2Fja09LLHRp
+bWVzdGFtcCAxNjk0NTEyIDAsbm9wLHdzY2FsZSA2PgoJMHgwMDAwOiAgMDBhMCBjNTQzIDVmZWIg
+MDAxMCA1YWM1IDY4MWMgMDgwMCA0NTAwICAuLi5DXy4uLlouaC4uLkUuCgkweDAwMTA6ICAwMDNj
+IGFhMzkgNDAwMCAzZjA2IDQ3M2EgYzBhOCBmZTAxIGNjOTggIC48LjlALj8uRzouLi4uLi4KCTB4
+MDAyMDogIGJmMDUgZTA0NCAwMDUwIGU5NGQgNzEwOSAwMDAwIDAwMDAgYTAwMiAgLi4uRC5QLk1x
+Li4uLi4uLgoJMHgwMDMwOiAgMTZkMCBkMGIyIDAwMDAgMDIwNCAwNWI0IDA0MDIgMDgwYSAwMDE5
+ICAuLi4uLi4uLi4uLi4uLi4uCgkweDAwNDA6ICBkYjMwIDAwMDAgMDAwMCAwMTAzIDAzMDYgICAg
+ICAgICAgICAgICAgIC4wLi4uLi4uLi4KMjE6MjU6MjIuOTc4NDEwIElQIDE5Mi4xNjguMjU0LjEu
+NTc0MTIgPiAyMDQuMTUyLjE5MS41LjgwOiAuIGFjayA1MDY1NDQ2NzEgd2luIDkyIDxub3Asbm9w
+LHRpbWVzdGFtcCAxNjk0NTY3IDEwMjEwNzgwMjc+CgkweDAwMDA6ICAwMGEwIGM1NDMgNWZlYiAw
+MDEwIDVhYzUgNjgxYyAwODAwIDQ1MDAgIC4uLkNfLi4uWi5oLi4uRS4KCTB4MDAxMDogIDAwMzQg
+YWEzYSA0MDAwIDNmMDYgNDc0MSBjMGE4IGZlMDEgY2M5OCAgLjQuOkAuPy5HQS4uLi4uLgoJMHgw
+MDIwOiAgYmYwNSBlMDQ0IDAwNTAgZTk0ZCA3MTBhIDFlMzEgNDIxZiA4MDEwICAuLi5ELlAuTXEu
+LjFCLi4uCgkweDAwMzA6ICAwMDVjIDBlNzMgMDAwMCAwMTAxIDA4MGEgMDAxOSBkYjY3IDNjZGMg
+IC5cLnMuLi4uLi4uLi5nPC4KCTB4MDA0MDogIDZhMGIgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgai4KMjE6MjU6MjIuOTc4NjQ0IElQIDE5Mi4xNjguMjU0LjEuNTc0MTIgPiAy
+MDQuMTUyLjE5MS41LjgwOiBQIDA6MjQwKDI0MCkgYWNrIDEgd2luIDkyIDxub3Asbm9wLHRpbWVz
+dGFtcCAxNjk0NTY3IDEwMjEwNzgwMjc+CgkweDAwMDA6ICAwMGEwIGM1NDMgNWZlYiAwMDEwIDVh
+YzUgNjgxYyAwODAwIDQ1MDAgIC4uLkNfLi4uWi5oLi4uRS4KCTB4MDAxMDogIDAxMjQgYWEzYiA0
+MDAwIDNmMDYgNDY1MCBjMGE4IGZlMDEgY2M5OCAgLiQuO0AuPy5GUC4uLi4uLgoJMHgwMDIwOiAg
+YmYwNSBlMDQ0IDAwNTAgZTk0ZCA3MTBhIDFlMzEgNDIxZiA4MDE4ICAuLi5ELlAuTXEuLjFCLi4u
+CgkweDAwMzA6ICAwMDVjIDE0NTUgMDAwMCAwMTAxIDA4MGEgMDAxOSBkYjY3IDNjZGMgIC5cLlUu
+Li4uLi4uLi5nPC4KCTB4MDA0MDogIDZhMGIgNDc0NSA1NDIwIDJmMjAgNDg1NCA1NDUwIDJmMzEg
+MmUzMCAgai5HRVQuLy5IVFRQLzEuMAoJMHgwMDUwOiAgMGQwYSA1NTczIDY1NzIgMmQ0MSA2NzY1
+IDZlNzQgM2EyMCA3NzMzICAuLlVzZXItQWdlbnQ6LnczCg==
+
+--MP_/u05TAG1E6/oUAHzfc40pDhC
+Content-Type: application/octet-stream; name=tcpdump_2-6-27-rc1-git1_tcp_0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=tcpdump_2-6-27-rc1-git1_tcp_0
+
+MjE6MzM6NDMuNTg0NjI1IElQIDE5Mi4xNjguMjU0LjEuNTY3MzUgPiAyMDQuMTUyLjE5MS41Ljgw
+OiBTIDI3NzYxNzQ4MzM6Mjc3NjE3NDgzMygwKSB3aW4gNTg0MCA8bXNzIDE0NjA+CgkweDAwMDA6
+ICAwMGEwIGM1NDMgNWZlYiAwMDEwIDVhYzUgNjgxYyAwODAwIDQ1MDAgIC4uLkNfLi4uWi5oLi4u
+RS4KCTB4MDAxMDogIDAwMmMgMTQ4NyA0MDAwIDNmMDYgZGNmYyBjMGE4IGZlMDEgY2M5OCAgLiwu
+LkAuPy4uLi4uLi4uLgoJMHgwMDIwOiAgYmYwNSBkZDlmIDAwNTAgYTU3OSAxMGYxIDAwMDAgMDAw
+MCA2MDAyICAuLi4uLlAueS4uLi4uLmAuCgkweDAwMzA6ICAxNmQwIGEyYjMgMDAwMCAwMjA0IDA1
+YjQgICAgICAgICAgICAgICAgIC4uLi4uLi4uLi4KMjE6MzM6NDMuODA1ODQ2IElQIDE5Mi4xNjgu
+MjU0LjEuNTY3MzUgPiAyMDQuMTUyLjE5MS41LjgwOiAuIGFjayA0MDY3NTI4NzE3IHdpbiA1ODQw
+CgkweDAwMDA6ICAwMGEwIGM1NDMgNWZlYiAwMDEwIDVhYzUgNjgxYyAwODAwIDQ1MDAgIC4uLkNf
+Li4uWi5oLi4uRS4KCTB4MDAxMDogIDAwMjggMTQ4OCA0MDAwIDNmMDYgZGNmZiBjMGE4IGZlMDEg
+Y2M5OCAgLiguLkAuPy4uLi4uLi4uLgoJMHgwMDIwOiAgYmYwNSBkZDlmIDAwNTAgYTU3OSAxMGYy
+IGYyNzEgOTAwZCA1MDEwICAuLi4uLlAueS4uLnEuLlAuCgkweDAwMzA6ICAxNmQwIDM3ZTEgMDAw
+MCAgICAgICAgICAgICAgICAgICAgICAgICAgIC4uNy4uLgoyMTozMzo0My44MDYwODUgSVAgMTky
+LjE2OC4yNTQuMS41NjczNSA+IDIwNC4xNTIuMTkxLjUuODA6IFAgMDoyNDAoMjQwKSBhY2sgMSB3
+aW4gNTg0MAoJMHgwMDAwOiAgMDBhMCBjNTQzIDVmZWIgMDAxMCA1YWM1IDY4MWMgMDgwMCA0NTAw
+ICAuLi5DXy4uLlouaC4uLkUuCgkweDAwMTA6ICAwMTE4IDE0ODkgNDAwMCAzZjA2IGRjMGUgYzBh
+OCBmZTAxIGNjOTggIC4uLi5ALj8uLi4uLi4uLi4KCTB4MDAyMDogIGJmMDUgZGQ5ZiAwMDUwIGE1
+NzkgMTBmMiBmMjcxIDkwMGQgNTAxOCAgLi4uLi5QLnkuLi5xLi5QLgoJMHgwMDMwOiAgMTZkMCAz
+ZGMzIDAwMDAgNDc0NSA1NDIwIDJmMjAgNDg1NCA1NDUwICAuLj0uLi5HRVQuLy5IVFRQCgkweDAw
+NDA6ICAyZjMxIDJlMzAgMGQwYSA1NTczIDY1NzIgMmQ0MSA2NzY1IDZlNzQgIC8xLjAuLlVzZXIt
+QWdlbnQKCTB4MDA1MDogIDNhMjAgNzczMyA2ZDJmIDMwMmUgMzUyZSAzMjBkIDBhNDEgNjM2MyAg
+Oi53M20vMC41LjIuLkFjYwo=
+
+--MP_/u05TAG1E6/oUAHzfc40pDhC
+Content-Type: application/octet-stream; name=tcpdump_2-6-27-rc1-git1_tcp_1
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=tcpdump_2-6-27-rc1-git1_tcp_1
+
+MjE6MzE6MjkuMzkyNjc1IElQIDE5Mi4xNjguMjU0LjEuMzU3MTEgPiAyMDQuMTUyLjE5MS4zNy44
+MDogUyA2NTQ3MDkyNzE6NjU0NzA5MjcxKDApIHdpbiA1ODQwIDxzYWNrT0ssdGltZXN0YW1wIDQy
+OTQ5MzQ4ODkgMCxtc3MgMTQ2MCxub3Asd3NjYWxlIDY+CgkweDAwMDA6ICAwMGEwIGM1NDMgNWZl
+YiAwMDEwIDVhYzUgNjgxYyAwODAwIDQ1MDAgIC4uLkNfLi4uWi5oLi4uRS4KCTB4MDAxMDogIDAw
+M2MgOTM3ZSA0MDAwIDNmMDYgNWRkNSBjMGE4IGZlMDEgY2M5OCAgLjwufkAuPy5dLi4uLi4uLgoJ
+MHgwMDIwOiAgYmYyNSA4YjdmIDAwNTAgMjcwNiAxMjE3IDAwMDAgMDAwMCBhMDAyICAuJS4uLlAn
+Li4uLi4uLi4uCgkweDAwMzA6ICAxNmQwIGEwNzIgMDAwMCAwNDAyIDA4MGEgZmZmZiA4MTY5IDAw
+MDAgIC4uLnIuLi4uLi4uLi5pLi4KCTB4MDA0MDogIDAwMDAgMDIwNCAwNWI0IDAxMDMgMDMwNiAg
+ICAgICAgICAgICAgICAgLi4uLi4uLi4uLgoyMTozMTozMi4zOTA0ODAgSVAgMTkyLjE2OC4yNTQu
+MS4zNTcxMSA+IDIwNC4xNTIuMTkxLjM3LjgwOiBTIDY1NDcwOTI3MTo2NTQ3MDkyNzEoMCkgd2lu
+IDU4NDAgPHNhY2tPSyx0aW1lc3RhbXAgNDI5NDkzNTYzOSAwLG1zcyAxNDYwLG5vcCx3c2NhbGUg
+Nj4KCTB4MDAwMDogIDAwYTAgYzU0MyA1ZmViIDAwMTAgNWFjNSA2ODFjIDA4MDAgNDUwMCAgLi4u
+Q18uLi5aLmguLi5FLgoJMHgwMDEwOiAgMDAzYyA5MzdmIDQwMDAgM2YwNiA1ZGQ0IGMwYTggZmUw
+MSBjYzk4ICAuPC4uQC4/Ll0uLi4uLi4uCgkweDAwMjA6ICBiZjI1IDhiN2YgMDA1MCAyNzA2IDEy
+MTcgMDAwMCAwMDAwIGEwMDIgIC4lLi4uUCcuLi4uLi4uLi4KCTB4MDAzMDogIDE2ZDAgOWQ4NCAw
+MDAwIDA0MDIgMDgwYSBmZmZmIDg0NTcgMDAwMCAgLi4uLi4uLi4uLi4uLlcuLgoJMHgwMDQwOiAg
+MDAwMCAwMjA0IDA1YjQgMDEwMyAwMzA2ICAgICAgICAgICAgICAgICAuLi4uLi4uLi4uCjIxOjMx
+OjM4LjM5MDM0NCBJUCAxOTIuMTY4LjI1NC4xLjM1NzExID4gMjA0LjE1Mi4xOTEuMzcuODA6IFMg
+NjU0NzA5MjcxOjY1NDcwOTI3MSgwKSB3aW4gNTg0MCA8c2Fja09LLHRpbWVzdGFtcCA0Mjk0OTM3
+MTM5IDAsbXNzIDE0NjAsbm9wLHdzY2FsZSA2PgoJMHgwMDAwOiAgMDBhMCBjNTQzIDVmZWIgMDAx
+MCA1YWM1IDY4MWMgMDgwMCA0NTAwICAuLi5DXy4uLlouaC4uLkUuCgkweDAwMTA6ICAwMDNjIDkz
+ODAgNDAwMCAzZjA2IDVkZDMgYzBhOCBmZTAxIGNjOTggIC48Li5ALj8uXS4uLi4uLi4KCTB4MDAy
+MDogIGJmMjUgOGI3ZiAwMDUwIDI3MDYgMTIxNyAwMDAwIDAwMDAgYTAwMiAgLiUuLi5QJy4uLi4u
+Li4uLgoJMHgwMDMwOiAgMTZkMCA5N2E4IDAwMDAgMDQwMiAwODBhIGZmZmYgOGEzMyAwMDAwICAu
+Li4uLi4uLi4uLi4uMy4uCgkweDAwNDA6ICAwMDAwIDAyMDQgMDViNCAwMTAzIDAzMDYgICAgICAg
+ICAgICAgICAgIC4uLi4uLi4uLi4K
+
+--MP_/u05TAG1E6/oUAHzfc40pDhC--
