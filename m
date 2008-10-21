@@ -1,61 +1,66 @@
-From: Terry <hanfang@baidu.com>
-Subject: Re: [PATCH] sky2: skb recycling
-Date: Tue, 21 Oct 2008 16:49:47 +0800
-Message-ID: <48FD97AB.1040007@baidu.com>
-References: <20081020190922.7dd6510a@extreme>	<48FD6E8A.6060304@cosmosbay.com> <18685.37380.34636.316536@robur.slu.se>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] tcp: should use number of sack blocks instead of -1
+Date: Tue, 21 Oct 2008 11:58:05 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810211153300.7072@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Robert Olsson <robert@robur.slu.se>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-765704183-1224579485=:7072"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.baidu.com.163.135.61.in-addr.arpa ([61.135.163.61]:51869
-	"HELO smtp.baidu.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S1751605AbYJUI4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 04:56:30 -0400
-In-Reply-To: <18685.37380.34636.316536@robur.slu.se>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:59955 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743AbYJUI6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 04:58:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-765704183-1224579485=:7072
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
 
-Robert Olsson wrote:
-> Eric Dumazet writes:
->  > Stephen Hemminger a =E9crit :
->  > > Add support for recycling tx buffers into receive buffers.
->  > > This is experimental at this point.
->  > >=20
->  >=20
->  > I really like this skb recycling
->
-> Hi,
->
-> Well the best and cleanest thing would be if the "global" recycler sl=
-ab/slub=20
-> was fast enough. Historically it seems like every time the link speed=
- increases=20
-> (now to 10g) alloc/kfree pops up on the profiles but that challenge h=
-as sofar
-> been handled by slab/slub folks. Maybe we should consult them first..=
-=2E
->
-> Also there was some discussions to have packet objects in slab.
-> =20
-> Cheers.
-> 					--ro
->
->
->  =20
-Hi=20
-    yeah. In the forwarding scenario , skb recycling should boost the=20
-performance by avoiding slowpath slub alloc/free .But if  using=20
-multiqueue hardware and assigning proper  cpu affinities  could  make i=
-t=20
-always in the fastpath of slub  alloc/free, which is faster?
+While looking for the recent "sack issue" I also read all eff_sacks
+usage that was played around by some relevant commit. I found
+out that there's another thing that is asking for a fix (unrelated
+to the "sack issue" though).
 
-Terry
+This feature has probably very little significance in practice.
+Opposite direction timeout with bidirectional tcp comes to me as
+the most likely scenario though there might be other cases as
+well related to non-data segments we send (e.g., response to the
+opposite direction segment). Also some ACK losses or option space
+wasted for other purposes is necessary to prevent the earlier
+SACK feedback getting to the sender.
 
+This is not too critical fix, so you might want to delay this to
+net-next if you're afraid that Linus will get you because of
+this...
 
+I suppose we might not need eff_sacks at all but I'll leave
+figuring that out to net-next :-).
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_output.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 990a584..de54f02 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -432,7 +432,7 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 
+ 		if (tp->rx_opt.dsack) {
+ 			tp->rx_opt.dsack = 0;
+-			tp->rx_opt.eff_sacks--;
++			tp->rx_opt.eff_sacks = tp->rx_opt.num_sacks;
+ 		}
+ 	}
+ }
+-- 
+1.5.2.2
+
+---696208474-765704183-1224579485=:7072--
