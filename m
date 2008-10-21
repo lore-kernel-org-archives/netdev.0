@@ -1,66 +1,58 @@
-From: Dmitry Baryshkov <dbaryshkov@gmail.com>
-Subject: [PATCH] SMC911x: unbreak PXA builds
-Date: Tue, 21 Oct 2008 04:36:29 +0400
-Message-ID: <1224549389-13840-1-git-send-email-dbaryshkov@gmail.com>
-Cc: jgarzik@pobox.com, Eric Miao <eric.miao@marvell.com>,
-	Dmitry Baryshkov <dbaryshkov@gmail.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: on-link assumption in ipv4 routing cache
+Date: Mon, 20 Oct 2008 21:02:44 -0400
+Message-ID: <48FD2A34.7020702@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:45960 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753309AbYJUAhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 20:37:04 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so683739eyi.37
-        for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 17:37:02 -0700 (PDT)
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:42831 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583AbYJUBCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 21:02:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently SMC911x driver is broken on ARM/PXA builds.
-Unbreak such configurations.
+Hi All
 
-Signed-off-by: Dmitry Baryshkov <dbaryshkov@gmail.com>
----
- drivers/net/smc911x.c |    2 +-
- drivers/net/smc911x.h |    6 ++++--
- 2 files changed, 5 insertions(+), 3 deletions(-)
+Something that came as a surprise to me is that ipv4 implementation
+seems to assume that a destination is on-link when there is
+no explicit route to it.
 
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index ddcefde..402fd06 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -1241,7 +1241,7 @@ smc911x_rx_dma_irq(int dma, void *data)
- 	netif_rx(skb);
- 
- 	spin_lock_irqsave(&lp->lock, flags);
--	pkts = (SMC_GET_RX_FIFO_INF() & RX_FIFO_INF_RXSUSED_) >> 16;
-+	pkts = (SMC_GET_RX_FIFO_INF(lp) & RX_FIFO_INF_RXSUSED_) >> 16;
- 	if (pkts != 0) {
- 		smc911x_rcv(dev);
- 	}else {
-diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
-index bf6240f..cc7d85b 100644
---- a/drivers/net/smc911x.h
-+++ b/drivers/net/smc911x.h
-@@ -50,6 +50,10 @@
- #define SMC_DYNAMIC_BUS_CONFIG
- #endif
- 
-+#ifdef SMC_USE_PXA_DMA
-+#define SMC_USE_DMA
-+#endif
-+
- /* store this information for the driver.. */
- struct smc911x_local {
- 	/*
-@@ -196,8 +200,6 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
- 
- 
- #ifdef SMC_USE_PXA_DMA
--#define SMC_USE_DMA
--
- /*
-  * Define the request and free functions
-  * These are unfortunately architecture specific as no generic allocation
--- 
-1.5.6.5
+A customer submitted an interesting problem where their SCTP associations
+kept getting restarted.  The configuration was as follows:
 
+host A: eth0: 17.17.17.17/24
+	routing:
+		17.17.17.0/24 dev eth0 on-link
+		default dev eth1 10.0.0.1
+
+host B: eth0: 18.18.18.18/24
+		18.18.18.0/24 dev eth0 on-link
+		default dev eth1 10.0.0.1
+
+There were no routes to the "other" subnet on either host.
+
+The application running on both hosts performed a bind to the specific
+address as well as SO_BINDTODEVICE.
+
+The result was that both hosts assumed that the peer was on-link, issued
+ARP request/replies and successfully connected.  tcpdump showed only packets
+on eth0.
+
+This was somewhat of a surprise since I expected a EHOSTUNRACH error since
+there were no routes to the destination and SO_DONTROUTE was not set.
+
+I am really curious as to reason for this behavior?
+
+Thanks
+-vlad
+
+p.s.  BTW, the solution to the association restart appeared to be
+29e75252da20f3ab9e132c68c9aed156b87beae6 ([IPV4] route cache: Introduce rt_genid
+for smooth cache invalidation).  There used to be some kind of a
+race between cache flushing and SCTP bottom half attempting to recreate
+a cache entry.  My guess is that there were rcu issues, since any
+cache updated triggered by user application seem to have worked correctly.
+Regardless, it appears to have been fixed in 2.6.25.
