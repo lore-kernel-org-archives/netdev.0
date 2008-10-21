@@ -1,34 +1,57 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
-	cannot navigate
-Date: Tue, 21 Oct 2008 12:34:14 +0000
-Message-ID: <20081021123414.GF4715@ff.dom.local>
-References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi> <20081021100923.GD4715@ff.dom.local> <Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi> <20081021111227.GE4715@ff.dom.local> <Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] sky2: skb recycling
+Date: Tue, 21 Oct 2008 14:42:37 +0200
+Message-ID: <48FDCE3D.9050801@cosmosbay.com>
+References: <20081020190922.7dd6510a@extreme>	<48FD6E8A.6060304@cosmosbay.com>	<18685.37380.34636.316536@robur.slu.se>	<48FD97AB.1040007@baidu.com> <18685.51303.285228.177350@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Aldo Maggi <sentiniate@tiscali.it>,
-	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Cc: Terry <hanfang@baidu.com>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Robert Olsson <robert@robur.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:42787 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754517AbYJUMeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 08:34:20 -0400
-Received: by ug-out-1314.google.com with SMTP id k3so1004763ugf.37
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 05:34:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi>
+Received: from smtp23.orange.fr ([193.252.22.30]:58237 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754913AbYJUMms convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 08:42:48 -0400
+In-Reply-To: <18685.51303.285228.177350@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2008 at 03:18:57PM +0300, Ilpo J=E4rvinen wrote:
-=2E..
-> ...Yes it should, but we could be all wrong and it just works with th=
-em=20
-> all too :-).
+Robert Olsson a =E9crit :
+> Terry writes:
+>  > Hi=20
+>  >     yeah. In the forwarding scenario , skb recycling should boost =
+the=20
+>  > performance by avoiding slowpath slub alloc/free .But if  using=20
+>  > multiqueue hardware and assigning proper  cpu affinities  could  m=
+ake it=20
+>  > always in the fastpath of slub  alloc/free, which is faster?
+>=20
+>  For perfect setup with monotone work like forwarding you can make th=
+e skb=20
+>  recycling a little faster.
+>=20
+>  If you have many active NIC's and the recycling list is per device t=
+he situation
+>  it's probably different...
+>=20
 
-All execept you! I guess you want it tested because you assume it's
-possible? (Anyway it would be really funny :-)
+I suspect all this skb recycling stuff in forwarding workloads is defea=
+ted anyway...
 
-Jarek P.
+By the copybreak feature... (RX_COPY_THRESHOLD =3D 256 for example on t=
+g3)
+
+Checking drivers/net/tg3.c, we can even see that in case of copying to =
+a smaller skb,
+we allocate it with a call to netdev_alloc_skb(), while it would be bet=
+ter
+to use a plain alloc_skb() ...
+
+
+
+
