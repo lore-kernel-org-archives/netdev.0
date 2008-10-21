@@ -1,46 +1,111 @@
-From: Bill Gatliff <bgat@billgatliff.com>
-Subject: Re: [PATCH 14/16] RealView: Use the in-kernel smc911x.c driver on
-	RealView
-Date: Tue, 21 Oct 2008 08:27:44 -0500
-Message-ID: <48FDD8D0.1060400@billgatliff.com>
-References: <OF6B543A5F.032D7BBC-ON802574E9.00340E58-802574E9.00396C6E@smsc.com>
+From: pidoux <bpidoux@free.fr>
+Subject: Re: [PATCH] negative dev use in /proc/net/rose_neigh
+Date: Tue, 21 Oct 2008 16:14:27 +0200
+Message-ID: <48FDE3C3.1050504@free.fr>
+References: <200809282156.39466.bpidoux@free.fr>	<20080930.073213.60770455.davem@davemloft.net>	<48E29DD7.803@free.fr> <20081013.003009.241543234.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
-	linux-arm-kernel@lists.arm.linux.org.uk, Ian.Saturley@smsc.com,
-	netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-In-Reply-To: <OF6B543A5F.032D7BBC-ON802574E9.00340E58-802574E9.00396C6E@smsc.com>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp8-g19.free.fr ([212.27.42.65]:56126 "EHLO smtp8-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751269AbYJUOOa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 10:14:30 -0400
+In-Reply-To: <20081013.003009.241543234.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Steve.Glendinning@smsc.com wrote:
+David,
 
-> * I do have a patch to add DMA support to smsc911x, but it's
-> platform-specific to sh.  I haven't added pxa dma support only because I
-> don't have a suitable pxa platform available.
+I tried the patch you proposed.
+I agree that it makes sense, however it does not prevent rose->neighbour->use to become negative as displayed in
+/proc/net/rose_neigh use field value.
 
-I have several PXA platforms with SMSC chips.  Let me know off-list if I can
-help in any way.
+I already looked at all of the pieces of code that do "rose->neighbour->use--;"
+The only place that caused use to underflow (negative) is actually inside rose_kill_by_neigh().
+This is why I had put a test and a warning there.
+
+I think that inside of sk_for_each() loop in rose_kill_by_neigh() when rose->neighbour->use-- becomes = 0 then 
+rose->neighbour should be NULLed and in that case only.
+However it seems that rose->neighbour is not actually NULLed for in that case the comparison would not be true anymore 
+and the decrement would not occur.
+
+I will soon report the printk output of rose->neighbour->use-- inside of the loop to illustrate what happens here.
+
+Bernard Pidoux
 
 
-b.g.
--- 
-Bill Gatliff
-bgat@billgatliff.com
+David Miller wrote:
+> From: Bernard Pidoux <bpidoux@free.fr>
+> Date: Tue, 30 Sep 2008 23:44:55 +0200
+> 
+>> I suspect that the bug was unravelled when we added more than one
+>> neighbour per route. The protocole accepts three, but this was not
+>> much used during the early days since the density of radio stations
+>> on the network was not big (only one node station per destination
+>> address usually). The network is now denser with Internet links.
+>>
+>> However, I don't understand why the test
+>>
+>> if (rose->neighbour == neigh)
+>>
+>> does not work, for
+>> rose->neighbour = NULL;
+>> should prevent next comparison to be valid and thus instruction
+>> rose->neighbour->use--; not executed.
+>>
+>> I have seen that a problem with sk_for_each() macro was identified a
+>> while ago into ax25 code. The problem here could be similar ?
+> 
+> I took a look at this some more.
+> 
+> That neighbour case loop you mention does set ->neighbour to NULL.
+> 
+> But other paths do not.  Just look for all of the pieces of code
+> that do "rose->neighbour->use--;" and you'll find a few that do not
+> NULL it out.
+> 
+> One such example is rose_kill_by_device().
+> 
+> That would cause a problem because, while rose_disconnect() marks
+> the socket DEAD, it doesn't actually remove it from "rose_list".
+> That happens later when the user actually closes the socket or
+> some other similar event occurs.
+> 
+> Therefore if rose_kill_by_neigh() happens next, the ->neighbour could
+> match and we'll decrement again.
+> 
+> But I have no idea how safe it is to NULL out this ->neighbour
+> unconditionally.  Lots of code seems to deref the thing unconditionally.
+> For example the ROSE_STATE_2 handling in rose_release().
+> 
+> I guess since rose_disconnect() sets sk->sk_state to TCP_CLOSE, we'll
+> be OK here.
+> 
+> Can you try this patch?
+> 
+> diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+> index a7f1ce1..41dd630 100644
+> --- a/net/rose/af_rose.c
+> +++ b/net/rose/af_rose.c
+> @@ -197,6 +197,7 @@ static void rose_kill_by_device(struct net_device *dev)
+>  		if (rose->device == dev) {
+>  			rose_disconnect(s, ENETUNREACH, ROSE_OUT_OF_ORDER, 0);
+>  			rose->neighbour->use--;
+> +			rose->neighbour = NULL;
+>  			rose->device = NULL;
+>  		}
+>  	}
+> @@ -625,6 +626,7 @@ static int rose_release(struct socket *sock)
+>  
+>  	case ROSE_STATE_2:
+>  		rose->neighbour->use--;
+> +		rose->neighbour = NULL;
+>  		release_sock(sk);
+>  		rose_disconnect(sk, 0, -1, -1);
+>  		lock_sock(sk);
+> 
+> 
 
--------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
