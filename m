@@ -1,50 +1,34 @@
-From: Terry <hanfang@baidu.com>
-Subject: Re: [PATCH] sky2: skb recycling
-Date: Tue, 21 Oct 2008 20:34:03 +0800
-Message-ID: <48FDCC3B.6020806@baidu.com>
-References: <20081020190922.7dd6510a@extreme>	<48FD6E8A.6060304@cosmosbay.com>	<18685.37380.34636.316536@robur.slu.se>	<48FD97AB.1040007@baidu.com> <18685.51303.285228.177350@robur.slu.se>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+	cannot navigate
+Date: Tue, 21 Oct 2008 12:34:14 +0000
+Message-ID: <20081021123414.GF4715@ff.dom.local>
+References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi> <20081021100923.GD4715@ff.dom.local> <Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi> <20081021111227.GE4715@ff.dom.local> <Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Robert Olsson <robert@robur.slu.se>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Aldo Maggi <sentiniate@tiscali.it>,
+	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.baidu.com ([61.135.163.61]:41606 "HELO smtp.baidu.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753121AbYJUMeG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 08:34:06 -0400
-In-Reply-To: <18685.51303.285228.177350@robur.slu.se>
+Received: from ug-out-1314.google.com ([66.249.92.175]:42787 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754517AbYJUMeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 08:34:20 -0400
+Received: by ug-out-1314.google.com with SMTP id k3so1004763ugf.37
+        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 05:34:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Oct 21, 2008 at 03:18:57PM +0300, Ilpo J=E4rvinen wrote:
+=2E..
+> ...Yes it should, but we could be all wrong and it just works with th=
+em=20
+> all too :-).
 
+All execept you! I guess you want it tested because you assume it's
+possible? (Anyway it would be really funny :-)
 
-Robert Olsson wrote:
-> Terry writes:
->  > Hi 
->  >     yeah. In the forwarding scenario , skb recycling should boost the 
->  > performance by avoiding slowpath slub alloc/free .But if  using 
->  > multiqueue hardware and assigning proper  cpu affinities  could  make it 
->  > always in the fastpath of slub  alloc/free, which is faster?
->
->  For perfect setup with monotone work like forwarding you can make the skb 
->  recycling a little faster.
->
->  If you have many active NIC's and the recycling list is per device the situation
->  it's probably different...
->
->  Cheers.
-> 						--ro
->   
-
-Yeah,it's different. So I am considering X-NICs  skb recycling like the 
-"global" recycler you mentioned.It may help. But it may introduce some 
-race-conditions too.
-
-Rgds.
-
-Terry
-
+Jarek P.
