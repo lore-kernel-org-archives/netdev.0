@@ -1,38 +1,33 @@
-From: Andi Kleen <ak@linux.intel.com>
-Subject: Re: hardware time stamps + existing time stamp usage
-Date: Tue, 21 Oct 2008 09:04:21 +0200
-Message-ID: <48FD7EF5.6050805@linux.intel.com>
-References: <1224253423.17450.211.camel@ecld0pohly> <200810182237.02373.opurdila@ixiacom.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+	cannot navigate
+Date: Tue, 21 Oct 2008 07:20:16 +0000
+Message-ID: <20081021072016.GA4715@ff.dom.local>
+References: <20081021090002.21e64151@topolino>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick Ohly <patrick.ohly@intel.com>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>
+To: Aldo Maggi <sentiniate@tiscali.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:55766 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751015AbYJUHEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 03:04:11 -0400
-In-Reply-To: <200810182237.02373.opurdila@ixiacom.com>
+Received: from nf-out-0910.google.com ([64.233.182.191]:3266 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750982AbYJUHUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 03:20:21 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1105189nfc.21
+        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 00:20:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20081021090002.21e64151@topolino>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Oct 21, 2008 at 09:00:02AM +0200, Aldo Maggi wrote:
+> just as matter of information, two other cases similar to mine were
+> reported in ubuntu bug pages:
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/272896
+> https://bugs.launchpad.net/ubuntu/+bug/285430
+> i originated the first one and gave Jarek's first solution:
 
-> We can even compute the delta periodically now, to maintain better system - 
-> hardware timestamps synchronization, as we can keep and multiple deltas (each 
-> one associated with a modulo number).
+Hmm... let's say you gave my 50% of our first solution...
 
-The problem with this scheme is that it's unlikely to be precise enough to guarantee
-monoticity (that is that your delta clock compared to the system clock never goes
-backwards). And that tends to be a common requirements in system time stamps.
-Not having that would risk breaking existing applications.
-
-My recommendation would be to find some way to use a separate field and also
-use a separate API. That would also allow you to extend it (e.g. pass down
-the interface number), so that different time stamps from different interfaces
-are supported.
-
--Andi
+Jarek P.
