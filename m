@@ -1,76 +1,48 @@
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Subject: Re: [PATCH] Implement polling for 5200FEC to make netconsole work.
-Date: Tue, 21 Oct 2008 19:41:45 -0400
-Message-ID: <9e4733910810211641x24f4d76bn5bc614147875d250@mail.gmail.com>
-References: <20081018214059.1506.28013.stgit@terra>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Regression: Recent networking (qdisc?) patches break
+ irda_get_next_speed()
+Date: Tue, 21 Oct 2008 16:41:21 -0700 (PDT)
+Message-ID: <20081021.164121.257737412.davem@davemloft.net>
+References: <48FE1D52.6080903@ceibo.fiec.espol.edu.ec>
+	<48FE2F81.9060801@gmail.com>
+	<48FE67D4.5060200@ceibo.fiec.espol.edu.ec>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	"Grant Likely" <grant.likely@secretlab.ca>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jarkao2@gmail.com, jussi.kivilinna@mbnet.fi
+To: avillaci@ceibo.fiec.espol.edu.ec
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.230]:49359 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752175AbYJUXlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:41:46 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2649728rvb.1
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 16:41:46 -0700 (PDT)
-In-Reply-To: <20081018214059.1506.28013.stgit@terra>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41189
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752069AbYJUXlo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 19:41:44 -0400
+In-Reply-To: <48FE67D4.5060200@ceibo.fiec.espol.edu.ec>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is anyone going to pick this up?
+=46rom: Alex Villac=ED=ADs Lasso <avillaci@ceibo.fiec.espol.edu.ec>
+Date: Tue, 21 Oct 2008 18:37:56 -0500
 
-On Sat, Oct 18, 2008 at 5:40 PM, Jon Smirl <jonsmirl@gmail.com> wrote:
-> Implement polling for 5200FEC to make netconsole work. Tested on Phytec pcm030 and Efika.
->
-> Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
-> ---
->  drivers/net/fec_mpc52xx.c |   18 ++++++++++++++++++
->  1 files changed, 18 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-> index 4e4f683..aec3b97 100644
-> --- a/drivers/net/fec_mpc52xx.c
-> +++ b/drivers/net/fec_mpc52xx.c
-> @@ -401,6 +401,21 @@ static int mpc52xx_fec_hard_start_xmit(struct sk_buff *skb, struct net_device *d
->        return 0;
->  }
->
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +static void mpc52xx_fec_poll_controller(struct net_device *dev)
-> +{
-> +       struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-> +
-> +       disable_irq(priv->t_irq);
-> +       mpc52xx_fec_tx_interrupt(priv->t_irq, dev);
-> +       enable_irq(priv->t_irq);
-> +       disable_irq(priv->r_irq);
-> +       mpc52xx_fec_rx_interrupt(priv->r_irq, dev);
-> +       enable_irq(priv->r_irq);
-> +}
-> +#endif
-> +
-> +
->  /* This handles BestComm transmit task interrupts
->  */
->  static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
-> @@ -926,6 +941,9 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
->        ndev->tx_timeout        = mpc52xx_fec_tx_timeout;
->        ndev->watchdog_timeo    = FEC_WATCHDOG_TIMEOUT;
->        ndev->base_addr         = mem.start;
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +       ndev->poll_controller = mpc52xx_fec_poll_controller;
-> +#endif
->
->        priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
->
->
->
+> So then, the bug is that the cb field in the struct sk_buff is being
+> interpreted as both a struct qdisc_skb_cb and an struct irda_skb_cb,
+> for the same instance of struct sk_buff. I have just started to
+> review the suggested patch, but it seems that 'struct qdisc_skb_cb'
+> was meant to be aliased against the data for other layers (as
+> suggested by the presence of a 'char data[]' field). If so, how come
+> only IrDA is affected? How come UDP, TCP, etc. not affected by this?
+> On the other hand, if qdisc_skb_cb was not meant to be aliased, then
+> the IrDA case was left out while converting the rest of the layers
+> so that they will skip over the member 'pkt_len' of the 'struct
+> qdisc_skb_cb'.
 
+The SKB control block is not aliased.
 
+Once the packet is given to dev_queue_xmit() the packet scheduler
+"owns" the control block of the SKB.
 
--- 
-Jon Smirl
-jonsmirl@gmail.com
+What IRDA is doing is illegal, and breaks in other ways without the
+commit in question.
+
+IRDA cannot depend upon the SKB control block not changing across
+the dev_queue_xmit() call.
