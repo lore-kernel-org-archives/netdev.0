@@ -1,44 +1,35 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
-	cannot navigate
-Date: Tue, 21 Oct 2008 10:09:23 +0000
-Message-ID: <20081021100923.GD4715@ff.dom.local>
-References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] e1000e: get rid of wasted space
+Date: Tue, 21 Oct 2008 11:23:52 +0100
+Message-ID: <1224584632.3243.2.camel@achroite>
+References: <20081020191149.1dbf8e3b@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Aldo Maggi <sentiniate@tiscali.it>,
-	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:19785 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbYJUKJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 06:09:35 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1129731nfc.21
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 03:09:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:45110 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752330AbYJUKX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 06:23:57 -0400
+In-Reply-To: <20081020191149.1dbf8e3b@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2008 at 12:36:33PM +0300, Ilpo J=E4rvinen wrote:
-=2E..
-> Can you try this another debug patch below (on 2.6.27.2 is fine). It =
-moves=20
-> the mss to the last position but should keep timestamps in place by m=
-aking=20
-> wscale as first option. It is well possible that you won't get it wor=
-king=20
-> at all except with all ts,sack and wscale set to 0 (the most likely=20
-> result). Please try with all wscale,sack,ts combinations (no need to=20
-> provide dumps, just working/not working per case)... This should=20
-> tell us for quite high certaintity what is the actual option which is=
-=20
-> causing this (would it not be the mss-at-beginning which is the most=20
-> likely cause), [...]
+On Mon, 2008-10-20 at 19:11 -0700, Stephen Hemminger wrote:
+> The name in the ring is only used once during setup so it shouldn't
+> be in the data structure.
+[...]
 
-I'd like to remind it seems to work with only sack off, so mss after
-ts. If so, my suspicion would be around rfc's/options' dating?
+No.  The name pointer passed to request_irq() has to remain valid until
+the IRQ is freed.  Try looking in /proc/interrupts.
 
-Jarek P.
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
