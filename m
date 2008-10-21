@@ -1,31 +1,38 @@
-From: Aldo Maggi <sentiniate@tiscali.it>
-Subject: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i cannot
- navigate
-Date: Tue, 21 Oct 2008 09:00:02 +0200
-Message-ID: <20081021090002.21e64151@topolino>
+From: Andi Kleen <ak@linux.intel.com>
+Subject: Re: hardware time stamps + existing time stamp usage
+Date: Tue, 21 Oct 2008 09:04:21 +0200
+Message-ID: <48FD7EF5.6050805@linux.intel.com>
+References: <1224253423.17450.211.camel@ecld0pohly> <200810182237.02373.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+Cc: Patrick Ohly <patrick.ohly@intel.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from averell.mail.tiscali.it ([213.205.33.55]:37786 "EHLO
-	averell.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874AbYJUHAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 03:00:10 -0400
+Received: from mga07.intel.com ([143.182.124.22]:55766 "EHLO
+	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751015AbYJUHEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 03:04:11 -0400
+In-Reply-To: <200810182237.02373.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-just as matter of information, two other cases similar to mine were
-reported in ubuntu bug pages:
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/272896
-https://bugs.launchpad.net/ubuntu/+bug/285430
-i originated the first one and gave Jarek's first solution:
-tcp_sack=0
-which worked for the two other users.
 
-maybe they could be contacted in order to perform further tests in a
-different environment.
+> We can even compute the delta periodically now, to maintain better system - 
+> hardware timestamps synchronization, as we can keep and multiple deltas (each 
+> one associated with a modulo number).
 
-aldo  
+The problem with this scheme is that it's unlikely to be precise enough to guarantee
+monoticity (that is that your delta clock compared to the system clock never goes
+backwards). And that tends to be a common requirements in system time stamps.
+Not having that would risk breaking existing applications.
+
+My recommendation would be to find some way to use a separate field and also
+use a separate API. That would also allow you to extend it (e.g. pass down
+the interface number), so that different time stamps from different interfaces
+are supported.
+
+-Andi
