@@ -1,112 +1,57 @@
-From: Sven Anders <anders@anduras.de>
-Subject: Re: Possible bug in bonding driver (with VLAN in ALB mode)
-Date: Tue, 21 Oct 2008 22:34:41 +0200
-Message-ID: <48FE3CE1.3080906@anduras.de>
-References: <48FE0EEB.7050503@anduras.de> <1830.1224612755@death.nxdomain.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: skb recycling
+Date: Tue, 21 Oct 2008 13:38:11 -0700
+Message-ID: <20081021133811.68bd5ce1@extreme>
+References: <20081020190922.7dd6510a@extreme>
+	<20081020.221857.209830018.davem@davemloft.net>
+	<48FE34AF.8050508@hp.com>
+	<48FE386F.8090706@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigE7C019895E41A2B68DFDA772"
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metropolitan.anduras.de ([80.237.200.159]:59140 "EHLO
-	metropolitan.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbYJUUet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 16:34:49 -0400
-In-Reply-To: <1830.1224612755@death.nxdomain.ibm.com>
+Received: from mail.vyatta.com ([76.74.103.46]:47363 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751907AbYJUUiO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 16:38:14 -0400
+In-Reply-To: <48FE386F.8090706@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigE7C019895E41A2B68DFDA772
-Content-Type: multipart/mixed;
- boundary="------------090507080409070305020800"
+On Tue, 21 Oct 2008 22:15:43 +0200
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-This is a multi-part message in MIME format.
---------------090507080409070305020800
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
-
-Jay Vosburgh schrieb:
-
-> Can you try this patch and tell me if it fixes the problem?
+> Rick Jones a =C3=A9crit :
+> > David Miller wrote:
+> >> From: Stephen Hemminger <shemminger@vyatta.com>
+> >> Date: Mon, 20 Oct 2008 19:09:22 -0700
+> >>
+> >>
+> >>> Add support for recycling tx buffers into receive buffers.
+> >>> This is experimental at this point.
+> >>>
+> >>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >>
+> >>
+> >> Experimental, but do you have any performance data at all?
+> >> Just curious...
+> >=20
+> > I've not had a good emily litella moment all day so I'll ask - is t=
+here=20
+> > really that much in the way of suitable skb's which are completely =
+free=20
+> > after transmit completion?
 >=20
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_=
-alb.c
-> index ade5f3f..500a207 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -815,7 +815,7 @@ static int rlb_initialize(struct bonding *bond)
-> =20
->  	/*initialize packet type*/
->  	pk_type->type =3D __constant_htons(ETH_P_ARP);
-> -	pk_type->dev =3D bond->dev;
-> +	pk_type->dev =3D NULL;
->  	pk_type->func =3D rlb_arp_recv;
-> =20
->  	/* register to receive ARPs */
+> Or, if we take another way, say a VOIP RTP machine sends and receive =
+20.000
+>  packets per second, each being 200 bytes long, are transmited packet=
+s
+> correctly sized at sendto() time to be candidates for recycling ?
 
-Hmm... I think the idea was good, but the whole system
-crashes. To be correct, it simply reboots.
-
-Any other suggestion for a quick test?!
-
-Regards
- Sven
-
---=20
- Sven Anders <anders@anduras.de>                 () Ascii Ribbon Campaign=
-
-                                                 /\ Support plain text e-=
-mail
- ANDURAS service solutions AG
- Innstra=DFe 71 - 94036 Passau - Germany
- Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90 5=
-0-55
-
-Rechtsform: Aktiengesellschaft - Sitz: Passau - Amtsgericht Passau HRB 60=
-32
-Mitglieder des Vorstands: Sven Anders, Marcus Junker
-Vorsitzender des Aufsichtsrats: Mark Peters
-
---------------090507080409070305020800
-Content-Type: text/x-vcard; charset=utf-8;
- name="anders.vcf"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
- filename="anders.vcf"
-
-begin:vcard
-fn:Sven Anders
-n:Anders;Sven
-org:ANDURAS AG;Research and Development
-adr;quoted-printable:;;Innstra=3DC3=3D9Fe 71;Passau;Bavaria;94036;Germany=
-
-email;internet:anders@anduras.de
-title:Dipl. Inf.
-tel;work:++49 (0)851 / 490 50 -0
-tel;fax:++49 (0)851 / 590 50 - 55
-x-mozilla-html:FALSE
-url:http://www.anduras.de
-version:2.1
-end:vcard
-
-
---------------090507080409070305020800--
-
---------------enigE7C019895E41A2B68DFDA772
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFI/jzl5lKZ7Feg4EcRAiykAJ4rBB3Ip/lTYRQBNNdKKuWy+jnCuwCeM3x5
-pCmRv7tpaIJ15xOBWrHLiR8=
-=PYI/
------END PGP SIGNATURE-----
-
---------------enigE7C019895E41A2B68DFDA772--
+No. Most locally generate packets aren't going to be right size because
+they will be too small, cloned or fragmented.  It really only helps whe=
+n forwarding.
