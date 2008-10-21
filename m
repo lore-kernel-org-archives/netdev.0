@@ -1,67 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] e1000e: get rid of wasted space
-Date: Mon, 20 Oct 2008 19:11:49 -0700
-Message-ID: <20081020191149.1dbf8e3b@extreme>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] net: add documentation for skb recycling
+Date: Tue, 21 Oct 2008 05:17:32 +0200
+Message-ID: <20081021031732.GO4129@xi.wantstofly.org>
+References: <20081020190654.49d4e5d2@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"Randy. Dunlap" <rdunlap@xenotime.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56787 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752058AbYJUCLw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Oct 2008 22:11:52 -0400
+Received: from xi.wantstofly.org ([83.160.184.112]:52992 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbYJUDRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 23:17:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20081020190654.49d4e5d2@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The name in the ring is only used once during setup so it shouldn't
-be in the data structure.
+On Mon, Oct 20, 2008 at 07:06:54PM -0700, Stephen Hemminger wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Include description of function from Lennert's original checkin.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> ---
+> As a matter of policy, any exported function should have docbook.
+> 
+> 
+> --- a/net/core/skbuff.c	2008-10-20 16:10:44.000000000 -0700
+> +++ b/net/core/skbuff.c	2008-10-20 16:16:01.000000000 -0700
+> @@ -449,6 +449,18 @@ void kfree_skb(struct sk_buff *skb)
+>  	__kfree_skb(skb);
+>  }
+>  
+> +/**
+> + * 	skb_recycle_check - check if skb can be reused for receive
+> + *	@skb: buffer
+> + * 	@skb_size: minimum receive buffer size
+> + *
+> + * 	Checks that the skb is not shared or cloned, and that it is
+> + * 	linear and its head portion large enough (as determined by
+> + * 	the driver) to be recycled as a receive buffer.  If these
+> + * 	conditions are met, it does any necessary reference count
+> + * 	dropping and cleans up the skbuff as if it just came from
+> + * 	__alloc_skb().
 
---- a/drivers/net/e1000e/e1000.h	2008-10-20 18:13:53.000000000 -0700
-+++ b/drivers/net/e1000e/e1000.h	2008-10-20 18:18:30.000000000 -0700
-@@ -153,7 +153,6 @@ struct e1000_ring {
- 	/* array of buffer information structs */
- 	struct e1000_buffer *buffer_info;
- 
--	char name[IFNAMSIZ + 5];
- 	u32 ims_val;
- 	u32 itr_val;
- 	u16 itr_register;
---- a/drivers/net/e1000e/netdev.c	2008-10-20 18:19:22.000000000 -0700
-+++ b/drivers/net/e1000e/netdev.c	2008-10-20 18:21:00.000000000 -0700
-@@ -1473,27 +1473,20 @@ static int e1000_request_msix(struct e10
- {
- 	struct net_device *netdev = adapter->netdev;
- 	int err = 0, vector = 0;
-+	char irqname[IFNAMSIZ+5];
- 
--	if (strlen(netdev->name) < (IFNAMSIZ - 5))
--		sprintf(adapter->rx_ring->name, "%s-rx0", netdev->name);
--	else
--		memcpy(adapter->rx_ring->name, netdev->name, IFNAMSIZ);
-+	snprintf(irqname, sizeof(irqname), "%s-rx0", netdev->name);
- 	err = request_irq(adapter->msix_entries[vector].vector,
--			  &e1000_intr_msix_rx, 0, adapter->rx_ring->name,
--			  netdev);
-+			  &e1000_intr_msix_rx, 0, irqname, netdev);
- 	if (err)
- 		goto out;
- 	adapter->rx_ring->itr_register = E1000_EITR_82574(vector);
- 	adapter->rx_ring->itr_val = adapter->itr;
- 	vector++;
- 
--	if (strlen(netdev->name) < (IFNAMSIZ - 5))
--		sprintf(adapter->tx_ring->name, "%s-tx0", netdev->name);
--	else
--		memcpy(adapter->tx_ring->name, netdev->name, IFNAMSIZ);
-+	snprintf(irqname, sizeof(irqname), "%s-tx0", netdev->name);
- 	err = request_irq(adapter->msix_entries[vector].vector,
--			  &e1000_intr_msix_tx, 0, adapter->tx_ring->name,
--			  netdev);
-+			  &e1000_intr_msix_tx, 0, irqname, netdev);
- 	if (err)
- 		goto out;
- 	adapter->tx_ring->itr_register = E1000_EITR_82574(vector);
+How about tweaking this slightly and saying:
+
+ * 	Checks that the skb passed in is not shared or cloned, and
+ *	that it is linear and its head portion at least as large as
+ *	skb_size so that it can be recycled as a receive buffer.
+ * 	If these conditions are met, this function does any necessary
+ *	reference count dropping and cleans up the skbuff as if it
+ *	just came from __alloc_skb().
+
+?
