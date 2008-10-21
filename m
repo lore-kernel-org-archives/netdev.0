@@ -1,47 +1,54 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] sky2: skb recycling
-Date: Tue, 21 Oct 2008 07:54:18 +0200
-Message-ID: <48FD6E8A.6060304@cosmosbay.com>
-References: <20081020190922.7dd6510a@extreme>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: cxgb3: Fix kernel crash caused by uninitialized l2t_entry.arpq
+Date: Tue, 21 Oct 2008 02:10:17 -0400
+Message-ID: <48FD7249.5040001@garzik.org>
+References: <ada63nqsyxp.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, divy@chelsio.com, davem@davemloft.net
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp28.orange.fr ([80.12.242.100]:23173 "EHLO smtp28.orange.fr"
+Received: from srv5.dvmed.net ([207.36.208.214]:46170 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751764AbYJUFyb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 01:54:31 -0400
-In-Reply-To: <20081020190922.7dd6510a@extreme>
+	id S1751953AbYJUGKW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 02:10:22 -0400
+In-Reply-To: <ada63nqsyxp.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> Add support for recycling tx buffers into receive buffers.
-> This is experimental at this point.
->=20
+Roland Dreier wrote:
+> Commit 147e70e6 ("cxgb3: Use SKB list interfaces instead of home-grown
+> implementation.") causes a crash in t3_l2t_send_slow() when an iWARP
+> connection request is received.  This is because the new l2t_entry.arpq
+> skb queue is never initialized, and therefore trying to add an skb to
+> it causes a NULL dereference.  With the old code there was no need to
+> initialize the queues because the l2t_entry structures were zeroed,
+> and the code used NULL to mean empty.
+> 
+> Fix this by adding __skb_queue_head_init() when all the l2t_entry
+> structures get allocated.
+> 
+> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> ---
+> This should probably go to -stable as well, since it looks like the
+> commit that broke things went into 2.6.27-rc6.
+> 
+>  drivers/net/cxgb3/l2t.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/cxgb3/l2t.c
+> index 4407ac9..ff1611f 100644
+> --- a/drivers/net/cxgb3/l2t.c
+> +++ b/drivers/net/cxgb3/l2t.c
+> @@ -431,6 +431,7 @@ struct l2t_data *t3_init_l2t(unsigned int l2t_capacity)
+>  	for (i = 0; i < l2t_capacity; ++i) {
+>  		d->l2tab[i].idx = i;
+>  		d->l2tab[i].state = L2T_STATE_UNUSED;
+> +		__skb_queue_head_init(&d->l2tab[i].arpq);
+>  		spin_lock_init(&d->l2tab[i].lock);
+>  		atomic_set(&d->l2tab[i].refcnt, 0);
 
-I really like this skb recycling
-
-=46or best performance, driver should perform TX completion before RX c=
-ompletion, so that
-freshly added skb in recycle queue have a chance being reused right aft=
-er. Apparently sky2
-tx handling is finegrained (events posted by NIC)
-
-But still, this mechanism also use more skbs per device, especially on =
-dormant ones.
-
-If your RX ring has 256 skb, then adding the recycle queue can adds 256=
- more skbs... One MB or event more...
-
-Maybe we should flush the recycle queue, every 5 seconds or so, especia=
-lly if device is dormant
-(no RX on it, litle heartbeat TX)
-
-
-
+applied
 
 
