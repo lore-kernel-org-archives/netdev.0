@@ -1,87 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC 1/2] igb: statistic optimization
-Date: Tue, 21 Oct 2008 12:09:35 -0700
-Message-ID: <20081021120935.1b3cea8d@extreme>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Current git r8169 driver often misses link at boot
+Date: Tue, 21 Oct 2008 21:11:58 +0200
+Message-ID: <20081021191158.GA16262@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jeffery.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:51630 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755151AbYJUTL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 15:11:59 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The network statistics were being updated by multiple CPU's causing cache
-line bounces. Since this driver already keeps statistics per ring, use
-those to compute the bytes/packet statistics.
+Hi,
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I have a nfsroot test system with a r8169 NIC. Since I updated
+from 2.6.27 to 2.6.27-git10 it doesn't find its root fs in 2 out of
+3 boots. The r8169 gets detected, but there is never
+a message that it finds the link in the failed cases:
 
----
-Compile tested only, evaluation in progress
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:02:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+r8169 0000:02:00.0: setting latency timer to 64
+r8169 0000:02:00.0: irq 45 for MSI/MSI-X
+eth0: RTL8168b/8111b at 0xffffc2000035a000, 00:00:00:00:00:00, XID 38000000 IRQ 
+45
 
+I tried to revert back to the 2.6.27 r8169.c and that fixed
+the problem here. Didn't see a hang so far in 4 boots with
+the old driver.
 
---- a/drivers/net/igb/igb_main.c	2008-10-21 08:57:11.000000000 -0700
-+++ b/drivers/net/igb/igb_main.c	2008-10-21 09:05:43.000000000 -0700
-@@ -3029,9 +3029,27 @@ static struct net_device_stats *
- igb_get_stats(struct net_device *netdev)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct net_device_stats *stats = &adapter->net_stats;
-+	int i;
-+
-+	stats->tx_bytes = 0;
-+	stats->tx_packets = 0;
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		struct igb_ring *tx_ring = &adapter->tx_ring[i];
-+		stats->tx_bytes += tx_ring->tx_stats.bytes;
-+		stats->tx_packets += tx_ring->tx_stats.packets;
-+	}
-+	stats->rx_bytes = 0;
-+	stats->rx_packets = 0;
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		struct igb_ring *rx_ring = &adapter->rx_ring[i];
-+		stats->rx_bytes += rx_ring->rx_stats.bytes;
-+		stats->rx_packets += rx_ring->rx_stats.packets;
-+	}
-+
-+	igb_update_stats(adapter);
- 
--	/* only return the current stats */
--	return &adapter->net_stats;
-+	return stats;
- }
- 
- /**
-@@ -3711,8 +3729,6 @@ done_cleaning:
- 	tx_ring->total_packets += total_packets;
- 	tx_ring->tx_stats.bytes += total_bytes;
- 	tx_ring->tx_stats.packets += total_packets;
--	adapter->net_stats.tx_bytes += total_bytes;
--	adapter->net_stats.tx_packets += total_packets;
- 	return retval;
- }
- 
-@@ -3953,8 +3969,6 @@ next_desc:
- 	rx_ring->total_bytes += total_bytes;
- 	rx_ring->rx_stats.packets += total_packets;
- 	rx_ring->rx_stats.bytes += total_bytes;
--	adapter->net_stats.rx_bytes += total_bytes;
--	adapter->net_stats.rx_packets += total_packets;
- 	return cleaned;
- }
- 
+I also originally thought it was related to netconsole, but even
+with that removed the problem still happens.
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+-Andi
+
+-- 
+ak@linux.intel.com
