@@ -1,111 +1,58 @@
-From: pidoux <bpidoux@free.fr>
-Subject: Re: [PATCH] negative dev use in /proc/net/rose_neigh
-Date: Tue, 21 Oct 2008 16:14:27 +0200
-Message-ID: <48FDE3C3.1050504@free.fr>
-References: <200809282156.39466.bpidoux@free.fr>	<20080930.073213.60770455.davem@davemloft.net>	<48E29DD7.803@free.fr> <20081013.003009.241543234.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i	cannot
+ navigate
+Date: Tue, 21 Oct 2008 17:16:43 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810211546270.7072@wrl-59.cs.helsinki.fi>
+References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+ <20081021100923.GD4715@ff.dom.local> <Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi>
+ <20081021111227.GE4715@ff.dom.local> <Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi>
+ <20081021123414.GF4715@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-2048419192-1224593195=:7072"
+Cc: Aldo Maggi <sentiniate@tiscali.it>,
+	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp8-g19.free.fr ([212.27.42.65]:56126 "EHLO smtp8-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751269AbYJUOOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 10:14:30 -0400
-In-Reply-To: <20081013.003009.241543234.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:50009 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751585AbYJUOR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 10:17:28 -0400
+In-Reply-To: <20081021123414.GF4715@ff.dom.local>
+Content-ID: <Pine.LNX.4.64.0810211659440.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I tried the patch you proposed.
-I agree that it makes sense, however it does not prevent rose->neighbour->use to become negative as displayed in
-/proc/net/rose_neigh use field value.
+---696208474-2048419192-1224593195=:7072
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0810211659441.7072@wrl-59.cs.helsinki.fi>
 
-I already looked at all of the pieces of code that do "rose->neighbour->use--;"
-The only place that caused use to underflow (negative) is actually inside rose_kill_by_neigh().
-This is why I had put a test and a warning there.
+On Tue, 21 Oct 2008, Jarek Poplawski wrote:
 
-I think that inside of sk_for_each() loop in rose_kill_by_neigh() when rose->neighbour->use-- becomes = 0 then 
-rose->neighbour should be NULLed and in that case only.
-However it seems that rose->neighbour is not actually NULLed for in that case the comparison would not be true anymore 
-and the decrement would not occur.
+> On Tue, Oct 21, 2008 at 03:18:57PM +0300, Ilpo Järvinen wrote:
+> ...
+> > ...Yes it should, but we could be all wrong and it just works with them 
+> > all too :-).
+> 
+> All execept you! I guess you want it tested because you assume it's
+> possible? (Anyway it would be really funny :-)
 
-I will soon report the printk output of rose->neighbour->use-- inside of the loop to illustrate what happens here.
+We're dealing with a case with in itself is really funny, yes, I assume 
+it's very much possible though not too likely :-). I'd have very much 
+wanted to test it myself too but sadly my network does not exhibit this 
+corner-case behavior (ie., bug). Whether I'm right or wrong is not that 
+significant for me :-), just understanding what the black-box does (or
+is fine with) instead of just knowing how to workaround that. Or did I 
+miss another case where the significance of mss specifically being there 
+was decided? :-)
 
-Bernard Pidoux
+But whatever, if Aldo feels it's waste of his time he can just ignore 
+me... :-)
 
 
-David Miller wrote:
-> From: Bernard Pidoux <bpidoux@free.fr>
-> Date: Tue, 30 Sep 2008 23:44:55 +0200
-> 
->> I suspect that the bug was unravelled when we added more than one
->> neighbour per route. The protocole accepts three, but this was not
->> much used during the early days since the density of radio stations
->> on the network was not big (only one node station per destination
->> address usually). The network is now denser with Internet links.
->>
->> However, I don't understand why the test
->>
->> if (rose->neighbour == neigh)
->>
->> does not work, for
->> rose->neighbour = NULL;
->> should prevent next comparison to be valid and thus instruction
->> rose->neighbour->use--; not executed.
->>
->> I have seen that a problem with sk_for_each() macro was identified a
->> while ago into ax25 code. The problem here could be similar ?
-> 
-> I took a look at this some more.
-> 
-> That neighbour case loop you mention does set ->neighbour to NULL.
-> 
-> But other paths do not.  Just look for all of the pieces of code
-> that do "rose->neighbour->use--;" and you'll find a few that do not
-> NULL it out.
-> 
-> One such example is rose_kill_by_device().
-> 
-> That would cause a problem because, while rose_disconnect() marks
-> the socket DEAD, it doesn't actually remove it from "rose_list".
-> That happens later when the user actually closes the socket or
-> some other similar event occurs.
-> 
-> Therefore if rose_kill_by_neigh() happens next, the ->neighbour could
-> match and we'll decrement again.
-> 
-> But I have no idea how safe it is to NULL out this ->neighbour
-> unconditionally.  Lots of code seems to deref the thing unconditionally.
-> For example the ROSE_STATE_2 handling in rose_release().
-> 
-> I guess since rose_disconnect() sets sk->sk_state to TCP_CLOSE, we'll
-> be OK here.
-> 
-> Can you try this patch?
-> 
-> diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-> index a7f1ce1..41dd630 100644
-> --- a/net/rose/af_rose.c
-> +++ b/net/rose/af_rose.c
-> @@ -197,6 +197,7 @@ static void rose_kill_by_device(struct net_device *dev)
->  		if (rose->device == dev) {
->  			rose_disconnect(s, ENETUNREACH, ROSE_OUT_OF_ORDER, 0);
->  			rose->neighbour->use--;
-> +			rose->neighbour = NULL;
->  			rose->device = NULL;
->  		}
->  	}
-> @@ -625,6 +626,7 @@ static int rose_release(struct socket *sock)
->  
->  	case ROSE_STATE_2:
->  		rose->neighbour->use--;
-> +		rose->neighbour = NULL;
->  		release_sock(sk);
->  		rose_disconnect(sk, 0, -1, -1);
->  		lock_sock(sk);
-> 
-> 
-
+-- 
+ i.
+---696208474-2048419192-1224593195=:7072--
