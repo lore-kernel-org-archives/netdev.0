@@ -1,100 +1,53 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH/RFC v1 10/12] [MIPS] BCM63XX: Add integrated ethernet PHY support for phylib.
-Date: Tue, 21 Oct 2008 12:08:54 -0500
-Message-ID: <B812781E-031F-4A1E-8FDB-E0482F495325@freescale.com>
-References: <1224382023-24412-1-git-send-email-mbizon@freebox.fr>
-Mime-Version: 1.0 (Apple Message framework v929.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH 2/2] r8169: checks against wrong mac addresse init
+Date: Tue, 21 Oct 2008 19:10:39 +0200
+Message-ID: <48FE0D0F.7020300@redhat.com>
+References: <20081016214555.GA27208@electric-eye.fr.zoreil.com>	 <20081016214808.GC27208@electric-eye.fr.zoreil.com> <1224265672.17605.27.camel@marvin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Maxime Bizon <mbizon@freebox.fr>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jeff@garzik.org, Edward Hsu <edward_hsu@realtek.com.tw>,
+	Petr Vandrovec <petr@vandrovec.name>,
+	Plamen Petrov <pvp-lsts@fs.ru.acad.bg>,
+	=?ISO-8859-1?Q?=22=5C=22J=2EA=2E=5C=22_Magall=F3n=22?=
+	<jamagallon@ono.com>
+To: Martin Capitanio <c4p7n@capitanio.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:48047 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754852AbYJURJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 13:09:20 -0400
-In-Reply-To: <1224382023-24412-1-git-send-email-mbizon@freebox.fr>
+Received: from mx2.redhat.com ([66.187.237.31]:59973 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753686AbYJURLh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 13:11:37 -0400
+In-Reply-To: <1224265672.17605.27.camel@marvin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Martin Capitanio wrote:
+> Please take a look at the realtek r8101_n aka RealTek RTL8101E,
+> RTL8102E(L) code. Only CFG_METHOD_1, CFG_METHOD_2
+> and #(ioaddr, 0x00) == 0x8128 are here allowed to EEPROM access.
+> 
+> ...
+> 	rtl_eeprom_write_sc(ioaddr, 0x00, 0x8129);
+> 
+> 	RTL_W8(Cfg9346, Cfg9346_EEM0);
+> 	mdelay(15);
+> 	rtl_eeprom_write_sc(ioaddr, 0x00, 0x8128);
 
-On Oct 18, 2008, at 21:07, Maxime Bizon wrote:
+1) According specification when EEM0 is set to 1 and EEM1 is set to 0
+then adapter enters "auto load" mode. Entering this mode will make the
+adapter load the contents of the 93C46 (93C56) as when the PCI RSTB
+signal is asserted. This auto-load operation will take about 2 ms.
+Upon completion, the it automatically returns to normal mode
+(EEM1 = EEM0 = 0) and all of the other registers are reset to default
+values.
+2) First 2 bytes of the EEPROM contain ID code words for the adapter.
+It will load the contents of the EEPROM into the corresponding location
+if the ID word (0x8129) is correct.
 
-> Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
-> ---
-> drivers/net/phy/Kconfig   |    6 ++
-> drivers/net/phy/Makefile  |    1 +
-> drivers/net/phy/bcm63xx.c |  132 ++++++++++++++++++++++++++++++++++++ 
-> +++++++++
-> 3 files changed, 139 insertions(+), 0 deletions(-)
-> create mode 100644 drivers/net/phy/bcm63xx.c
->
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index d55932a..a5d2c2d 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -56,6 +56,12 @@ config BROADCOM_PHY
-> 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM5464, BCM5481
-> 	  and BCM5482 PHYs.
->
-> +config BCM63XX_PHY
-> +	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
-> +	depends on BCM63XX
+So the Realtek's driver at first sets these bytes to value 0x8129 to ensure
+that auto-load will be a success. Then it initiates auto-load (EMM0 = 1 and
+EMM1 = 0) then wait some time and finally writes back original value (0x8128).
 
-
-This is probably right, but just to check: These PHYs will never be  
-used outside of the BCM63xx family?
-
-
->
-> +	---help---
-> +	  Currently supports the 6348 and 6358 PHYs.
-> +
-> config ICPLUS_PHY
-> 	tristate "Drivers for ICPlus PHYs"
-> 	---help---
-> diff --git a/drivers/net/phy/bcm63xx.c b/drivers/net/phy/bcm63xx.c
-> new file mode 100644
-> index 0000000..4fed95e
-
-> +static int bcm63xx_config_init(struct phy_device *phydev)
-> +{
-> +	int reg, err;
-> +
-> +	reg = phy_read(phydev, MII_BCM63XX_IR);
-> +	if (reg < 0)
-> +		return reg;
-> +
-> +	/* Mask interrupts globally.  */
-> +	reg |= MII_BCM63XX_IR_GMASK;
-> +	err = phy_write(phydev, MII_BCM63XX_IR, reg);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	/* Unmask events we are interested in  */
-> +	reg = ~(MII_BCM63XX_IR_DUPLEX |
-> +		MII_BCM63XX_IR_SPEED |
-> +		MII_BCM63XX_IR_LINK) |
-> +		MII_BCM63XX_IR_EN;
-
-You just cleared the global interrupt mask.  I have two problems with  
-that:
-
-1) If there's some reason you need to mask and then unmask interrupts,  
-you should make that clear in the comments.  If there's not a reason,  
-then it's a bit silly to do both.
-
-2) Interrupts should not be enabled until the PHY's config_intr()  
-function is called, and asks for them to be enabled.
-
-Maybe you just wanted that to be:
-
-  reg &= ~(MII_BCM63XX_IR_DUPLEX |
-...
-
-
-The other comment I have is that these probably should go in the  
-broadcom.c file.  I'm not deeply tied to the notion of one file per  
-company, but it has become the way it is done.
-
-Andy
+Ivan
