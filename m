@@ -1,40 +1,70 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: qla3xxx network driver fills the log with "Link is down" messages
-Date: Mon, 20 Oct 2008 18:48:15 -0400
-Message-ID: <20081020184815.5e9ca743@redhat.com>
+From: roel kluin <roel.kluin@gmail.com>
+Subject: [PATCH] gianfar: fix handle errors returned by platform_get_irq*()
+Date: Tue, 21 Oct 2008 01:35:34 -0400
+Message-ID: <48FD6A26.9010000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: galak@kernel.crashing.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:46809 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755219AbYJTWsS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Oct 2008 18:48:18 -0400
-Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
-	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id m9KMmH9R009338
-	for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 18:48:17 -0400
-Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
-	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m9KMmGtF017163
-	for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 18:48:17 -0400
-Received: from localhost.localdomain (dhcp-100-2-144.bos.redhat.com [10.16.2.144])
-	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id m9KMmGDi006873
-	for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 18:48:16 -0400
+Received: from nf-out-0910.google.com ([64.233.182.184]:25463 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751860AbYJTXfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2008 19:35:39 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1054055nfc.21
+        for <netdev@vger.kernel.org>; Mon, 20 Oct 2008 16:35:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-https://bugzilla.redhat.com/show_bug.cgi?id=461623
+platform_get_irq*() returns on -ENXIO when the resource cannot be
+found, but this remains unnoticed if stored in an unsigned.
 
-If you try to bring up a qla3xxx adapter without any cable connected 
-it fills the log with:
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+since commit 489447380a2921ec0e9154f773c44ab3167ede4b
 
-qla3xxx eth2: Link is down.
-qla3xxx eth2: port_link_state = LS_DOWN.
-qla3xxx eth2: Link is down.
-qla3xxx eth2: port_link_state = LS_DOWN.
-qla3xxx eth2: Link is down.
-qla3xxx eth2: port_link_state = LS_DOWN.
-qla3xxx eth2: Link is down.
-qla3xxx eth2: port_link_state = LS_DOWN.
-...
-
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index b5bb7ae..64b2011 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -161,7 +161,7 @@ static int gfar_probe(struct platform_device *pdev)
+ 	struct gfar_private *priv = NULL;
+ 	struct gianfar_platform_data *einfo;
+ 	struct resource *r;
+-	int err = 0;
++	int err = 0, irq;
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	einfo = (struct gianfar_platform_data *) pdev->dev.platform_data;
+@@ -187,15 +187,25 @@ static int gfar_probe(struct platform_device *pdev)
+ 
+ 	/* fill out IRQ fields */
+ 	if (einfo->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
+-		priv->interruptTransmit = platform_get_irq_byname(pdev, "tx");
+-		priv->interruptReceive = platform_get_irq_byname(pdev, "rx");
+-		priv->interruptError = platform_get_irq_byname(pdev, "error");
+-		if (priv->interruptTransmit < 0 || priv->interruptReceive < 0 || priv->interruptError < 0)
++		irq = platform_get_irq_byname(pdev, "tx");
++		if (irq < 0)
++			goto regs_fail;
++		priv->interruptTransmit = irq;
++
++		irq = platform_get_irq_byname(pdev, "rx");
++		if (irq < 0)
++			goto regs_fail;
++		priv->interruptReceive = irq;
++
++		irq = platform_get_irq_byname(pdev, "error");
++		if (irq < 0)
+ 			goto regs_fail;
++		priv->interruptError = irq;
+ 	} else {
+-		priv->interruptTransmit = platform_get_irq(pdev, 0);
+-		if (priv->interruptTransmit < 0)
++		irq = platform_get_irq(pdev, 0);
++		if (irq < 0)
+ 			goto regs_fail;
++		priv->interruptTransmit = irq;
+ 	}
+ 
+ 	/* get a pointer to the register memory */
