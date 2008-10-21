@@ -1,67 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
-	cannot navigate
-Date: Tue, 21 Oct 2008 11:12:27 +0000
-Message-ID: <20081021111227.GE4715@ff.dom.local>
-References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi> <20081021100923.GD4715@ff.dom.local> <Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [patch] rtl8102e: commit 7bf6bf480 zeroized MAC address
+Date: Tue, 21 Oct 2008 13:15:38 +0200
+Message-ID: <48FDB9DA.5020503@redhat.com>
+References: <200810151357.m9FDvZqk028829@post.webmailer.de> <20081015225023.GB12337@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Aldo Maggi <sentiniate@tiscali.it>,
-	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: c4p7n@capitanio.org, netdev@vger.kernel.org, kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:9022 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752723AbYJULMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 07:12:34 -0400
-Received: by ik-out-1112.google.com with SMTP id c30so1519692ika.5
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 04:12:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi>
+Received: from mx2.redhat.com ([66.187.237.31]:42438 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751482AbYJULPs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 07:15:48 -0400
+In-Reply-To: <20081015225023.GB12337@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2008 at 01:51:10PM +0300, Ilpo J=E4rvinen wrote:
-> On Tue, 21 Oct 2008, Jarek Poplawski wrote:
->=20
-> > On Tue, Oct 21, 2008 at 12:36:33PM +0300, Ilpo J=E4rvinen wrote:
-> > ...
-> > > Can you try this another debug patch below (on 2.6.27.2 is fine).=
- It moves=20
-> > > the mss to the last position but should keep timestamps in place =
-by making=20
-> > > wscale as first option. It is well possible that you won't get it=
- working=20
-> > > at all except with all ts,sack and wscale set to 0 (the most like=
-ly=20
-> > > result). Please try with all wscale,sack,ts combinations (no need=
- to=20
-> > > provide dumps, just working/not working per case)... This should=20
-> > > tell us for quite high certaintity what is the actual option whic=
-h is=20
-> > > causing this (would it not be the mss-at-beginning which is the m=
-ost=20
-> > > likely cause), [...]
-> >=20
-> > I'd like to remind it seems to work with only sack off, so mss afte=
-r
-> > ts. If so, my suspicion would be around rfc's/options' dating?
->=20
-> Thanks, I missed that case... there are so many cases already... :-)
-> ...I'm not sure we'll find some very obvious reason for this, rfc dat=
-ing=20
-> probably has very little to do here.
->=20
-> I still think that putting an alternative option in front is useful t=
-est=20
-> (though my initial mss-at-beginning thought wasn't bullet-proof) but=20
-> maybe we could skip all those alternative settings of wscale,sack,ts =
-and=20
-> have them just all enabled.
+Francois Romieu wrote:
+> c4p7n@capitanio.org <c4p7n@capitanio.org> :
+>> May be we are reading just by luck zeros and not a random perfectly
+>> sane address.
+> 
+> I would use the attached patches. The former one is mostly Ivan's one
+> with some rework of the debug messages. The later checks the eeprom
+> for its signature.
+> 
+> With these patches the driver notices that it can not get an address
+> for my 8168b but it works ok with my 8169 after both an hot and a
+> cold boot. Interestingly enough, the VPD is not enabled on the 8169
+> during the first boot.
+> 
+> Ivan, can you test them (and fix them afterwards :o) ) ?
+No problem found. Both 8168c (GIGA_MAC_VER_20) and 8102el (GIGA_MAC_VER_09)
+successfully loads MAC address from EEPROM (from power-off state and also
+after reboot).
 
-I agree with you, but when this test with all options enabled fails
-(?!), IMHO disabling sack only could be enough to get it working
-again.
-
-Jarek P.
+Ivan
