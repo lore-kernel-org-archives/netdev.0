@@ -1,48 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regression: Recent networking (qdisc?) patches break
- irda_get_next_speed()
-Date: Tue, 21 Oct 2008 16:41:21 -0700 (PDT)
-Message-ID: <20081021.164121.257737412.davem@davemloft.net>
-References: <48FE1D52.6080903@ceibo.fiec.espol.edu.ec>
-	<48FE2F81.9060801@gmail.com>
-	<48FE67D4.5060200@ceibo.fiec.espol.edu.ec>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Current git r8169 driver often misses link at boot
+Date: Wed, 22 Oct 2008 01:50:11 +0200
+Message-ID: <20081021235011.GL12825@one.firstfloor.org>
+References: <20081021191158.GA16262@basil.nowhere.org> <20081021202601.GA24322@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jarkao2@gmail.com, jussi.kivilinna@mbnet.fi
-To: avillaci@ceibo.fiec.espol.edu.ec
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41189
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752069AbYJUXlo convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 19:41:44 -0400
-In-Reply-To: <48FE67D4.5060200@ceibo.fiec.espol.edu.ec>
+Received: from one.firstfloor.org ([213.235.205.2]:58456 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753333AbYJUXmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:42:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20081021202601.GA24322@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Alex Villac=ED=ADs Lasso <avillaci@ceibo.fiec.espol.edu.ec>
-Date: Tue, 21 Oct 2008 18:37:56 -0500
+On Tue, Oct 21, 2008 at 10:26:01PM +0200, Francois Romieu wrote:
+> Andi Kleen <andi@firstfloor.org> :
+> [...]
+> > I have a nfsroot test system with a r8169 NIC. Since I updated
+> > from 2.6.27 to 2.6.27-git10 it doesn't find its root fs in 2 out of
+> > 3 boots. The r8169 gets detected, but there is never
+> > a message that it finds the link in the failed cases:
+> > 
+> > r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> > r8169 0000:02:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+> > r8169 0000:02:00.0: setting latency timer to 64
+> > r8169 0000:02:00.0: irq 45 for MSI/MSI-X
+> > eth0: RTL8168b/8111b at 0xffffc2000035a000, 00:00:00:00:00:00, XID 38000000 IRQ 45
+> 
+> The workarounds are in Jeff's tree as :
+> 9b1abbccf53ef1a1213b159d56257b535c599f07
+> d7d25be4418b609e54b407458003a4b6bff1c63b
 
-> So then, the bug is that the cb field in the struct sk_buff is being
-> interpreted as both a struct qdisc_skb_cb and an struct irda_skb_cb,
-> for the same instance of struct sk_buff. I have just started to
-> review the suggested patch, but it seems that 'struct qdisc_skb_cb'
-> was meant to be aliased against the data for other layers (as
-> suggested by the presence of a 'char data[]' field). If so, how come
-> only IrDA is affected? How come UDP, TCP, etc. not affected by this?
-> On the other hand, if qdisc_skb_cb was not meant to be aliased, then
-> the IrDA case was left out while converting the rest of the layers
-> so that they will skip over the member 'pkt_len' of the 'struct
-> qdisc_skb_cb'.
+Confirmed.
 
-The SKB control block is not aliased.
+With upstream-fixes it survived three boots now. Can this fix please
+be submitted ASAP, not having it impacts testing here.
 
-Once the packet is given to dev_queue_xmit() the packet scheduler
-"owns" the control block of the SKB.
-
-What IRDA is doing is illegal, and breaks in other ways without the
-commit in question.
-
-IRDA cannot depend upon the SKB control block not changing across
-the dev_queue_xmit() call.
+Thanks,
+-Andi
