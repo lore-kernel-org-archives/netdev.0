@@ -1,82 +1,44 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] sky2: skb recycling
-Date: Tue, 21 Oct 2008 11:53:58 +0200
-Message-ID: <48FDA6B6.70905@cosmosbay.com>
-References: <20081020190922.7dd6510a@extreme>	<48FD6E8A.6060304@cosmosbay.com> <18685.37380.34636.316536@robur.slu.se>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+	cannot navigate
+Date: Tue, 21 Oct 2008 10:09:23 +0000
+Message-ID: <20081021100923.GD4715@ff.dom.local>
+References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Robert Olsson <robert@robur.slu.se>
+Cc: Aldo Maggi <sentiniate@tiscali.it>,
+	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp19.orange.fr ([80.12.242.17]:26338 "EHLO smtp19.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751904AbYJUJyK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 05:54:10 -0400
-In-Reply-To: <18685.37380.34636.316536@robur.slu.se>
+Received: from nf-out-0910.google.com ([64.233.182.189]:19785 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752019AbYJUKJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 06:09:35 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1129731nfc.21
+        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 03:09:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Olsson a =E9crit :
-> Eric Dumazet writes:
->  > Stephen Hemminger a =E9crit :
->  > > Add support for recycling tx buffers into receive buffers.
->  > > This is experimental at this point.
->  > >=20
->  >=20
->  > I really like this skb recycling
->=20
-> Hi,
->=20
-> Well the best and cleanest thing would be if the "global" recycler sl=
-ab/slub=20
-> was fast enough. Historically it seems like every time the link speed=
- increases=20
-> (now to 10g) alloc/kfree pops up on the profiles but that challenge h=
-as sofar
-> been handled by slab/slub folks. Maybe we should consult them first..=
-=2E
+On Tue, Oct 21, 2008 at 12:36:33PM +0300, Ilpo J=E4rvinen wrote:
+=2E..
+> Can you try this another debug patch below (on 2.6.27.2 is fine). It =
+moves=20
+> the mss to the last position but should keep timestamps in place by m=
+aking=20
+> wscale as first option. It is well possible that you won't get it wor=
+king=20
+> at all except with all ts,sack and wscale set to 0 (the most likely=20
+> result). Please try with all wscale,sack,ts combinations (no need to=20
+> provide dumps, just working/not working per case)... This should=20
+> tell us for quite high certaintity what is the actual option which is=
+=20
+> causing this (would it not be the mss-at-beginning which is the most=20
+> likely cause), [...]
 
-Yes, but typical problem is inbalance :
+I'd like to remind it seems to work with only sack off, so mss after
+ts. If so, my suspicion would be around rfc's/options' dating?
 
-One CPU does the allocations, (interrupts handled by a given CPU)
-Another CPU(s) do(es) the freeing
-
-Such scenario is hard for slab/slub because it needs inter-CPU communic=
-ation, while
-slub/slab are optimized to deal with per CPU queues/structures (fast pa=
-th)
-
-skb recycling is an interesting technique because typical NIC handles R=
-X & TX completion
-in one CPU at the same time, thus we can reduce this slab/slub inter-CP=
-U handling.
-
->=20
-> Also there was some discussions to have packet objects in slab.
->
-
-skb recycling has a (nice ?) side effect on NUMA platforms, not for for=
-warding workloads,
-(which are IMHO not the majority of linux machines workloads) but typic=
-al servers.
-
-Current NIC drivers actually allocate their RX rings using the memory n=
-ode
-close to the device.
-
-With RX recycling, we are re-using skb that were allocated by the proce=
-ss itself,
-and this process is likely the one that will process received frames.
-
-On loaded machines, I am not sure that NIC having to access to remote n=
-odes is
-the limiting factor, especially considering modern coalescing/mitigatio=
-n that tends to
-delay interrupts anyway (and thus notification to host)
-
-
-
-
+Jarek P.
