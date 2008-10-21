@@ -1,54 +1,53 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: cxgb3: Fix kernel crash caused by uninitialized l2t_entry.arpq
-Date: Tue, 21 Oct 2008 02:10:17 -0400
-Message-ID: <48FD7249.5040001@garzik.org>
-References: <ada63nqsyxp.fsf@cisco.com>
+Subject: Re: [PATCH 1/1] netdev: DM9000: remove BLACKFIN hacking in DM9000
+ netdev driver
+Date: Tue, 21 Oct 2008 02:10:47 -0400
+Message-ID: <48FD7267.1000704@garzik.org>
+References: <1224178844-12496-1-git-send-email-cooloney@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, divy@chelsio.com, davem@davemloft.net
-To: Roland Dreier <rdreier@cisco.com>
+Cc: ben@simtec.co.uk, davem@davemloft.net, vapier.adi@gmail.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bryan Wu <cooloney@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46170 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:46188 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751953AbYJUGKW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 02:10:22 -0400
-In-Reply-To: <ada63nqsyxp.fsf@cisco.com>
+	id S1751945AbYJUGLA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 02:11:00 -0400
+In-Reply-To: <1224178844-12496-1-git-send-email-cooloney@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
-> Commit 147e70e6 ("cxgb3: Use SKB list interfaces instead of home-grown
-> implementation.") causes a crash in t3_l2t_send_slow() when an iWARP
-> connection request is received.  This is because the new l2t_entry.arpq
-> skb queue is never initialized, and therefore trying to add an skb to
-> it causes a NULL dereference.  With the old code there was no need to
-> initialize the queues because the l2t_entry structures were zeroed,
-> and the code used NULL to mean empty.
+Bryan Wu wrote:
+> remove integer casting in the read/write IO accessors,
+> because Blackfin now provides those functions
 > 
-> Fix this by adding __skb_queue_head_init() when all the l2t_entry
-> structures get allocated.
-> 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> Tested-by: Javier Herrero <jherrero@hvsistemas.es>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
 > ---
-> This should probably go to -stable as well, since it looks like the
-> commit that broke things went into 2.6.27-rc6.
+>  drivers/net/dm9000.c |    9 ---------
+>  1 files changed, 0 insertions(+), 9 deletions(-)
 > 
->  drivers/net/cxgb3/l2t.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/cxgb3/l2t.c
-> index 4407ac9..ff1611f 100644
-> --- a/drivers/net/cxgb3/l2t.c
-> +++ b/drivers/net/cxgb3/l2t.c
-> @@ -431,6 +431,7 @@ struct l2t_data *t3_init_l2t(unsigned int l2t_capacity)
->  	for (i = 0; i < l2t_capacity; ++i) {
->  		d->l2tab[i].idx = i;
->  		d->l2tab[i].state = L2T_STATE_UNUSED;
-> +		__skb_queue_head_init(&d->l2tab[i].arpq);
->  		spin_lock_init(&d->l2tab[i].lock);
->  		atomic_set(&d->l2tab[i].refcnt, 0);
+> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+> index f42c23f..5a9083e 100644
+> --- a/drivers/net/dm9000.c
+> +++ b/drivers/net/dm9000.c
+> @@ -47,15 +47,6 @@
+>  #define CARDNAME	"dm9000"
+>  #define DRV_VERSION	"1.31"
+>  
+> -#ifdef CONFIG_BLACKFIN
+> -#define readsb	insb
+> -#define readsw	insw
+> -#define readsl	insl
+> -#define writesb	outsb
+> -#define writesw	outsw
+> -#define writesl	outsl
+> -#endif
 
 applied
+
 
 
