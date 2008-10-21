@@ -1,45 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
- cannot navigate
-Date: Tue, 21 Oct 2008 16:32:07 -0700 (PDT)
-Message-ID: <20081021.163207.157978465.davem@davemloft.net>
-References: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
-	<20081021201857.08faf0a7@topolino>
-	<20081021184539.GA3320@ami.dom.local>
+Subject: Re: [PATCH] pkt_sched: sch_netem: Limit packet re-ordering
+ functionality to tfifo qdisc.
+Date: Tue, 21 Oct 2008 16:36:05 -0700 (PDT)
+Message-ID: <20081021.163605.57275028.davem@davemloft.net>
+References: <20081017130333.GA8297@ff.dom.local>
+	<48F89D33.9090809@trash.net>
+	<20081017201210.GA2527@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sentiniate@tiscali.it, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, shemminger@vyatta.com
 To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32922
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54930
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751957AbYJUXca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:32:30 -0400
-In-Reply-To: <20081021184539.GA3320@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1752141AbYJUXg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:36:28 -0400
+In-Reply-To: <20081017201210.GA2527@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 21 Oct 2008 20:45:39 +0200
+Date: Fri, 17 Oct 2008 22:12:10 +0200
 
-> On Tue, Oct 21, 2008 at 08:18:57PM +0200, Aldo Maggi wrote:
-> ...
-> > i've compiled 2.6.27.2 source after having patched it with your today's
-> > patch.
-> > 
-> > it works! i.e. i can navigate (w3m kernel.org) and update (apt-get
-> > update)
+> pkt_sched: sch_netem: Limit packet re-ordering functionality to tfifo qdisc.
 > 
-> Ilpo, I should say you're incredible! ...But, since I've promised to
-> myself not to disturb you anymore (again), I can't do this, sorry :-(
+> After introducing qdisc->ops->peek() method the only remaining user of
+> qdisc->ops->requeue() is netem_enqueue() using this for packet
+> re-ordering. According to Patrick McHardy: "a lot of the functionality
+> of netem requires the inner tfifo anyways and rate-limiting is usually
+> done on top of netem. So I would suggest so either hard-wire the tfifo
+> qdisc or at least make the assumption that inner qdiscs are work-
+> conserving." This patch tries the former.
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Indeed, excellent work Ilpo.
+This is an interesting patch.
 
-Ilpo, now that we know this fixes things for sure, could you submit
-this formally with a proper signoff?
+But the thing that strikes me is this: Why don't we just let sch_netem do
+the reordering inside of itself entirely and just get rid of all of this
+->requeue() business?
 
-I'll queue it up for -stable too.
+sch_netem is just a black box, like any other packet scheduler node in
+the tree, and so it can internally do the reordering with a self managed
+packet list or similar.  All of this can be hidden inside of it's ->dequeue()
+with some pkt_sch watchdog timer that fires to prevent stale packets sitting
+in the reorder queue forever.
 
-Thanks!
+Anyways, just and idea and RFC, just like this patch ;-)
