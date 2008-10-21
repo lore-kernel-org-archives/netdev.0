@@ -1,42 +1,71 @@
-From: Robert Olsson <robert@robur.slu.se>
-Subject: Re: [PATCH] sky2: skb recycling
-Date: Tue, 21 Oct 2008 14:17:43 +0200
-Message-ID: <18685.51303.285228.177350@robur.slu.se>
-References: <20081020190922.7dd6510a@extreme>
-	<48FD6E8A.6060304@cosmosbay.com>
-	<18685.37380.34636.316536@robur.slu.se>
-	<48FD97AB.1040007@baidu.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i	cannot
+ navigate
+Date: Tue, 21 Oct 2008 15:18:57 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi>
+References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+ <20081021100923.GD4715@ff.dom.local> <Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi>
+ <20081021111227.GE4715@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Terry <hanfang@baidu.com>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1022065904-1224588331=:7072"
+Cc: Aldo Maggi <sentiniate@tiscali.it>,
+	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from robur.slu.se ([130.238.98.12]:45095 "EHLO robur.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752168AbYJUMRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 08:17:44 -0400
-In-Reply-To: <48FD97AB.1040007@baidu.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46460 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751471AbYJUMTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 08:19:11 -0400
+In-Reply-To: <20081021111227.GE4715@ff.dom.local>
+Content-ID: <Pine.LNX.4.64.0810211510350.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Terry writes:
- > Hi 
- >     yeah. In the forwarding scenario , skb recycling should boost the 
- > performance by avoiding slowpath slub alloc/free .But if  using 
- > multiqueue hardware and assigning proper  cpu affinities  could  make it 
- > always in the fastpath of slub  alloc/free, which is faster?
+---696208474-1022065904-1224588331=:7072
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0810211429551.7072@wrl-59.cs.helsinki.fi>
 
- For perfect setup with monotone work like forwarding you can make the skb 
- recycling a little faster.
+On Tue, 21 Oct 2008, Jarek Poplawski wrote:
 
- If you have many active NIC's and the recycling list is per device the situation
- it's probably different...
+> On Tue, Oct 21, 2008 at 01:51:10PM +0300, Ilpo Järvinen wrote:
+> > On Tue, 21 Oct 2008, Jarek Poplawski wrote:
+> > 
+> > > On Tue, Oct 21, 2008 at 12:36:33PM +0300, Ilpo Järvinen wrote:
+> > > ...
+> > > > Can you try this another debug patch below (on 2.6.27.2 is fine). It moves 
+> > > > the mss to the last position but should keep timestamps in place by making 
+> > > > wscale as first option. It is well possible that you won't get it working 
+> > > > at all except with all ts,sack and wscale set to 0 (the most likely 
+> > > > result). Please try with all wscale,sack,ts combinations (no need to 
+> > > > provide dumps, just working/not working per case)... This should 
+> > > > tell us for quite high certaintity what is the actual option which is 
+> > > > causing this (would it not be the mss-at-beginning which is the most 
+> > > > likely cause), [...]
+> > > 
+> > > I'd like to remind it seems to work with only sack off, so mss after
+> > > ts. If so, my suspicion would be around rfc's/options' dating?
+> > 
+> > Thanks, I missed that case... there are so many cases already... :-)
+> > ...I'm not sure we'll find some very obvious reason for this, rfc dating 
+> > probably has very little to do here.
+> > 
+> > I still think that putting an alternative option in front is useful test 
+> > (though my initial mss-at-beginning thought wasn't bullet-proof) but 
+> > maybe we could skip all those alternative settings of wscale,sack,ts and 
+> > have them just all enabled.
+> 
+> I agree with you, but when this test with all options enabled fails
+> (?!), IMHO disabling sack only could be enough to get it working
+> again.
 
- Cheers.
-						--ro
- 
+...Yes it should, but we could be all wrong and it just works with them 
+all too :-).
+
+
+-- 
+ i.
+---696208474-1022065904-1224588331=:7072--
