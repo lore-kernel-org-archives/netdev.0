@@ -1,75 +1,57 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH/RFC v1 10/12] [MIPS] BCM63XX: Add integrated ethernet
-	PHY support for phylib.
-Date: Tue, 21 Oct 2008 19:51:00 +0200
-Message-ID: <1224611460.30307.70.camel@sakura.staff.proxad.net>
-References: <1224382023-24412-1-git-send-email-mbizon@freebox.fr>
-	 <B812781E-031F-4A1E-8FDB-E0482F495325@freescale.com>
-Reply-To: mbizon@freebox.fr
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Andy Fleming <afleming@freescale.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Possible bug in bonding driver (with VLAN in ALB mode)
+Date: Tue, 21 Oct 2008 11:12:35 -0700
+Message-ID: <1830.1224612755@death.nxdomain.ibm.com>
+References: <48FE0EEB.7050503@anduras.de>
+Cc: netdev@vger.kernel.org
+To: Sven Anders <anders@anduras.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sakura.staff.proxad.net ([213.228.1.107]:36490 "EHLO
-	sakura.staff.proxad.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751423AbYJURvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 13:51:03 -0400
-In-Reply-To: <B812781E-031F-4A1E-8FDB-E0482F495325@freescale.com>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:42855 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751478AbYJUSM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 14:12:56 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m9LICtA8013333
+	for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 14:12:55 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9LICft6076366
+	for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 12:12:42 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9LICeZN018709
+	for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 12:12:41 -0600
+In-reply-to: <48FE0EEB.7050503@anduras.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Sven Anders <anders@anduras.de> wrote:
+[...]
+>After an ARP request was sent (by the router) in the "rlb_arp_xmit()",
+>the "rlb_choose_channel()" function is called and reserves a
+>(placeholder) entry in the hash table. According to the comment this
+>entry will be updated later by the corresponding ARP reply.
+>Shortly afterwards we see an ARP reply package on the VLAN interface.
+>But it is never processed by "rlb_arp_recv()", because this function
+>only receives arp packages from bond0 and so the entry is never
+>updated.
 
-On Tue, 2008-10-21 at 12:08 -0500, Andy Fleming wrote:
+	Can you try this patch and tell me if it fixes the problem?
 
-Hi Andy, thanks for reviewing.
-
-> > +config BCM63XX_PHY
-> > +	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
-> > +	depends on BCM63XX
-
-> This is probably right, but just to check: These PHYs will never be  
-> used outside of the BCM63xx family?
-
-Correct, the PHY is actually inside the SOC.
-
-
-> > +	/* Mask interrupts globally.  */
-> > +	reg |= MII_BCM63XX_IR_GMASK;
-> > +	err = phy_write(phydev, MII_BCM63XX_IR, reg);
-> > +	if (err < 0)
-> > +		return err;
-> > +
-> > +	/* Unmask events we are interested in  */
-> > +	reg = ~(MII_BCM63XX_IR_DUPLEX |
-> > +		MII_BCM63XX_IR_SPEED |
-> > +		MII_BCM63XX_IR_LINK) |
-> > +		MII_BCM63XX_IR_EN;
-> 
-> You just cleared the global interrupt mask.  I have two problems with  
-> that:
-
-That should be '&=' yes, and I could do one write instead of two.
-
-Yet the current code does not clear the global interrupt mask, IR_GMASK
-bit is still set, so interrupts are disabled after init.
-
-I will fix that, it seems another bit in this register controls a LED, I
-should not force it to 1.
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index ade5f3f..500a207 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -815,7 +815,7 @@ static int rlb_initialize(struct bonding *bond)
+ 
+ 	/*initialize packet type*/
+ 	pk_type->type = __constant_htons(ETH_P_ARP);
+-	pk_type->dev = bond->dev;
++	pk_type->dev = NULL;
+ 	pk_type->func = rlb_arp_recv;
+ 
+ 	/* register to receive ARPs */
 
 
-> The other comment I have is that these probably should go in the  
-> broadcom.c file.  I'm not deeply tied to the notion of one file per  
-> company, but it has become the way it is done.
+	-J
 
-Ok will do, I just hope the file won't become too big, that would be
-quite wasted space since there is no chance to find the other PHYs on
-any bcm63xx boards.
-
-
-Thanks
-
--- 
-Maxime
-
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
