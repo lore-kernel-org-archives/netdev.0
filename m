@@ -1,39 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: should use number of sack blocks instead of -1
-Date: Tue, 21 Oct 2008 16:29:20 -0700 (PDT)
-Message-ID: <20081021.162920.219684361.davem@davemloft.net>
-References: <Pine.LNX.4.64.0810211153300.7072@wrl-59.cs.helsinki.fi>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+ cannot navigate
+Date: Tue, 21 Oct 2008 16:32:07 -0700 (PDT)
+Message-ID: <20081021.163207.157978465.davem@davemloft.net>
+References: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+	<20081021201857.08faf0a7@topolino>
+	<20081021184539.GA3320@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sentiniate@tiscali.it, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58446
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32922
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752021AbYJUX3n convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 19:29:43 -0400
-In-Reply-To: <Pine.LNX.4.64.0810211153300.7072@wrl-59.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1751957AbYJUXca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:32:30 -0400
+In-Reply-To: <20081021184539.GA3320@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 21 Oct 2008 11:58:05 +0300 (EEST)
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 21 Oct 2008 20:45:39 +0200
 
-> While looking for the recent "sack issue" I also read all eff_sacks
-> usage that was played around by some relevant commit. I found
-> out that there's another thing that is asking for a fix (unrelated
-> to the "sack issue" though).
->=20
-> This feature has probably very little significance in practice.
-> Opposite direction timeout with bidirectional tcp comes to me as
-> the most likely scenario though there might be other cases as
-> well related to non-data segments we send (e.g., response to the
-> opposite direction segment). Also some ACK losses or option space
-> wasted for other purposes is necessary to prevent the earlier
-> SACK feedback getting to the sender.
-=2E..
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> On Tue, Oct 21, 2008 at 08:18:57PM +0200, Aldo Maggi wrote:
+> ...
+> > i've compiled 2.6.27.2 source after having patched it with your today's
+> > patch.
+> > 
+> > it works! i.e. i can navigate (w3m kernel.org) and update (apt-get
+> > update)
+> 
+> Ilpo, I should say you're incredible! ...But, since I've promised to
+> myself not to disturb you anymore (again), I can't do this, sorry :-(
 
-Applied, thanks Ilpo.
+Indeed, excellent work Ilpo.
+
+Ilpo, now that we know this fixes things for sure, could you submit
+this formally with a proper signoff?
+
+I'll queue it up for -stable too.
+
+Thanks!
