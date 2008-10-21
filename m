@@ -1,53 +1,38 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] netdev: DM9000: remove BLACKFIN hacking in DM9000
- netdev driver
-Date: Tue, 21 Oct 2008 02:10:47 -0400
-Message-ID: <48FD7267.1000704@garzik.org>
-References: <1224178844-12496-1-git-send-email-cooloney@kernel.org>
+Subject: Re: [PATCH] igb: fix tx data corruption with transition to L0s on
+ 82575
+Date: Tue, 21 Oct 2008 02:11:13 -0400
+Message-ID: <48FD7281.6030601@garzik.org>
+References: <20081017042657.7080.17171.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ben@simtec.co.uk, davem@davemloft.net, vapier.adi@gmail.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bryan Wu <cooloney@kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46188 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:46196 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751945AbYJUGLA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 02:11:00 -0400
-In-Reply-To: <1224178844-12496-1-git-send-email-cooloney@kernel.org>
+	id S1753427AbYJUGLR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 02:11:17 -0400
+In-Reply-To: <20081017042657.7080.17171.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bryan Wu wrote:
-> remove integer casting in the read/write IO accessors,
-> because Blackfin now provides those functions
+Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Tested-by: Javier Herrero <jherrero@hvsistemas.es>
-> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> The 82575 has an issue in which the DMA will go out of sync if the link
+> partner goes into an L0s state.  To prevent this we set the pci-e link
+> partner capability bits to disable the L0s transition on the hw.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->  drivers/net/dm9000.c |    9 ---------
->  1 files changed, 0 insertions(+), 9 deletions(-)
 > 
-> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-> index f42c23f..5a9083e 100644
-> --- a/drivers/net/dm9000.c
-> +++ b/drivers/net/dm9000.c
-> @@ -47,15 +47,6 @@
->  #define CARDNAME	"dm9000"
->  #define DRV_VERSION	"1.31"
->  
-> -#ifdef CONFIG_BLACKFIN
-> -#define readsb	insb
-> -#define readsw	insw
-> -#define readsl	insl
-> -#define writesb	outsb
-> -#define writesw	outsw
-> -#define writesl	outsl
-> -#endif
+>  drivers/net/igb/igb_main.c |   27 +++++++++++++++++++++++++--
+>  1 files changed, 25 insertions(+), 2 deletions(-)
 
 applied
-
 
 
