@@ -1,51 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Current git r8169 driver often misses link at boot
-Date: Tue, 21 Oct 2008 16:45:36 -0700 (PDT)
-Message-ID: <20081021.164536.219372605.davem@davemloft.net>
-References: <20081021191158.GA16262@basil.nowhere.org>
-	<20081021202601.GA24322@electric-eye.fr.zoreil.com>
-	<20081021235011.GL12825@one.firstfloor.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] pkt_sched: sch_netem: Limit packet re-ordering
+ functionality to tfifo qdisc.
+Date: Tue, 21 Oct 2008 16:51:29 -0700
+Message-ID: <20081021165129.422dd83f@extreme>
+References: <20081017130333.GA8297@ff.dom.local>
+	<48F89D33.9090809@trash.net>
+	<20081017201210.GA2527@ami.dom.local>
+	<20081021.163605.57275028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org, jgarzik@pobox.com
-To: andi@firstfloor.org
+Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44798
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751957AbYJUXp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:45:59 -0400
-In-Reply-To: <20081021235011.GL12825@one.firstfloor.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56898 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751957AbYJUXvc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 19:51:32 -0400
+In-Reply-To: <20081021.163605.57275028.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Wed, 22 Oct 2008 01:50:11 +0200
+On Tue, 21 Oct 2008 16:36:05 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> On Tue, Oct 21, 2008 at 10:26:01PM +0200, Francois Romieu wrote:
-> > Andi Kleen <andi@firstfloor.org> :
-> > [...]
-> > > I have a nfsroot test system with a r8169 NIC. Since I updated
-> > > from 2.6.27 to 2.6.27-git10 it doesn't find its root fs in 2 out of
-> > > 3 boots. The r8169 gets detected, but there is never
-> > > a message that it finds the link in the failed cases:
-> > > 
-> > > r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> > > r8169 0000:02:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-> > > r8169 0000:02:00.0: setting latency timer to 64
-> > > r8169 0000:02:00.0: irq 45 for MSI/MSI-X
-> > > eth0: RTL8168b/8111b at 0xffffc2000035a000, 00:00:00:00:00:00, XID 38000000 IRQ 45
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Fri, 17 Oct 2008 22:12:10 +0200
+> 
+> > pkt_sched: sch_netem: Limit packet re-ordering functionality to tfifo qdisc.
 > > 
-> > The workarounds are in Jeff's tree as :
-> > 9b1abbccf53ef1a1213b159d56257b535c599f07
-> > d7d25be4418b609e54b407458003a4b6bff1c63b
+> > After introducing qdisc->ops->peek() method the only remaining user of
+> > qdisc->ops->requeue() is netem_enqueue() using this for packet
+> > re-ordering. According to Patrick McHardy: "a lot of the functionality
+> > of netem requires the inner tfifo anyways and rate-limiting is usually
+> > done on top of netem. So I would suggest so either hard-wire the tfifo
+> > qdisc or at least make the assumption that inner qdiscs are work-
+> > conserving." This patch tries the former.
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 > 
-> Confirmed.
+> This is an interesting patch.
 > 
-> With upstream-fixes it survived three boots now. Can this fix please
-> be submitted ASAP, not having it impacts testing here.
+> But the thing that strikes me is this: Why don't we just let sch_netem do
+> the reordering inside of itself entirely and just get rid of all of this
+> ->requeue() business?
+> 
+> sch_netem is just a black box, like any other packet scheduler node in
+> the tree, and so it can internally do the reordering with a self managed
+> packet list or similar.  All of this can be hidden inside of it's ->dequeue()
+> with some pkt_sch watchdog timer that fires to prevent stale packets sitting
+> in the reorder queue forever.
+> 
+> Anyways, just and idea and RFC, just like this patch ;-)
 
-I can't, as Jeff's pull request breaks the build.
-
-He'll hopefully fix that up and resubmit to me soon, sit tight.
-
+The problem is that jamal talked me into having netem as a classful qdisc,
+instead of doing its own rate control.  People like to do use TBF as inner qdisc,
+and do reordering.
