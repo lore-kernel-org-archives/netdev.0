@@ -1,57 +1,96 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Possible bug in bonding driver (with VLAN in ALB mode)
-Date: Tue, 21 Oct 2008 11:12:35 -0700
-Message-ID: <1830.1224612755@death.nxdomain.ibm.com>
-References: <48FE0EEB.7050503@anduras.de>
-Cc: netdev@vger.kernel.org
-To: Sven Anders <anders@anduras.de>
+From: Aldo Maggi <sentiniate@tiscali.it>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+ cannot navigate
+Date: Tue, 21 Oct 2008 20:18:57 +0200
+Message-ID: <20081021201857.08faf0a7@topolino>
+References: <20081021090002.21e64151@topolino>
+	<Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="MP_/SeNk8_vprkvS0gfOqck+rJR"
+Cc: Netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	bugme-daemon@bugzilla.kernel.org
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:42855 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751478AbYJUSM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 14:12:56 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m9LICtA8013333
-	for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 14:12:55 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9LICft6076366
-	for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 12:12:42 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9LICeZN018709
-	for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 12:12:41 -0600
-In-reply-to: <48FE0EEB.7050503@anduras.de>
+Received: from jack.mail.tiscali.it ([213.205.33.53]:34325 "EHLO
+	jack.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751318AbYJUSTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 14:19:09 -0400
+In-Reply-To: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sven Anders <anders@anduras.de> wrote:
+--MP_/SeNk8_vprkvS0gfOqck+rJR
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+Il giorno Tue, 21 Oct 2008 12:36:33 +0300 (EEST)
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> ha scritto:
+
 [...]
->After an ARP request was sent (by the router) in the "rlb_arp_xmit()",
->the "rlb_choose_channel()" function is called and reserves a
->(placeholder) entry in the hash table. According to the comment this
->entry will be updated later by the corresponding ARP reply.
->Shortly afterwards we see an ARP reply package on the VLAN interface.
->But it is never processed by "rlb_arp_recv()", because this function
->only receives arp packages from bond0 and so the entry is never
->updated.
 
-	Can you try this patch and tell me if it fixes the problem?
+>=20
+> Can you try this another debug patch below (on 2.6.27.2 is fine). It
+> moves the mss to the last position but should keep timestamps in
+> place by making wscale as first option. It is well possible that you
+> won't get it working at all except with all ts,sack and wscale set to
+> 0 (the most likely result). Please try with all wscale,sack,ts
+> combinations (no need to provide dumps, just working/not working per
+> case)... This should tell us for quite high certaintity what is the
+> actual option which is causing this (would it not be the
+> mss-at-beginning which is the most likely cause), however, your
+> finding may well be specific to your network while the other people
+> might a bit different results.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index ade5f3f..500a207 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -815,7 +815,7 @@ static int rlb_initialize(struct bonding *bond)
- 
- 	/*initialize packet type*/
- 	pk_type->type = __constant_htons(ETH_P_ARP);
--	pk_type->dev = bond->dev;
-+	pk_type->dev = NULL;
- 	pk_type->func = rlb_arp_recv;
- 
- 	/* register to receive ARPs */
+i've compiled 2.6.27.2 source after having patched it with your today's
+patch.
+
+it works! i.e. i can navigate (w3m kernel.org) and update (apt-get
+update)
+
+i send you anyway the usual tcpdump as in previous msgs, should it be
+of any help.
+
+do you want me to provide some more commands output?
+
+waiting...
+
+aldo
 
 
-	-J
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--MP_/SeNk8_vprkvS0gfOqck+rJR
+Content-Type: application/octet-stream;
+ name=tcpdump_2-6-27-2-ilpo-2110-patch
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=tcpdump_2-6-27-2-ilpo-2110-patch
+
+MjA6MTQ6MTUuNzcxNzEwIElQIDE5Mi4xNjguMjU0LjEuNDEyNjQgPiAyMDQuMTUyLjE5MS41Ljgw
+OiBTIDI2NzExMjY4ODM6MjY3MTEyNjg4MygwKSB3aW4gNTg0MCA8bm9wLHdzY2FsZSA2LHNhY2tP
+Syx0aW1lc3RhbXAgMzQxMzggMCxtc3MgMTQ2MD4KCTB4MDAwMDogIDAwYTAgYzU0MyA1ZmViIDAw
+MTAgNWFjNSA2ODFjIDA4MDAgNDUwMCAgLi4uQ18uLi5aLmguLi5FLgoJMHgwMDEwOiAgMDAzYyBh
+YzM5IDQwMDAgM2YwNiA0NTNhIGMwYTggZmUwMSBjYzk4ICAuPC45QC4/LkU6Li4uLi4uCgkweDAw
+MjA6ICBiZjA1IGExMzAgMDA1MCA5ZjM2IDI5NjMgMDAwMCAwMDAwIGEwMDIgIC4uLjAuUC42KWMu
+Li4uLi4KCTB4MDAzMDogIDE2ZDAgZjc3MyAwMDAwIDAxMDMgMDMwNiAwNDAyIDA4MGEgMDAwMCAg
+Li4ucy4uLi4uLi4uLi4uLgoJMHgwMDQwOiAgODU1YSAwMDAwIDAwMDAgMDIwNCAwNWI0ICAgICAg
+ICAgICAgICAgICAuWi4uLi4uLi4uCjIwOjE0OjE1Ljk5MjUyMyBJUCAxOTIuMTY4LjI1NC4xLjQx
+MjY0ID4gMjA0LjE1Mi4xOTEuNS44MDogLiBhY2sgNDIzOTk5MTM3MyB3aW4gOTIgPG5vcCxub3As
+dGltZXN0YW1wIDM0MTkzIDExMDMyMTEwMzU+CgkweDAwMDA6ICAwMGEwIGM1NDMgNWZlYiAwMDEw
+IDVhYzUgNjgxYyAwODAwIDQ1MDAgIC4uLkNfLi4uWi5oLi4uRS4KCTB4MDAxMDogIDAwMzQgYWMz
+YSA0MDAwIDNmMDYgNDU0MSBjMGE4IGZlMDEgY2M5OCAgLjQuOkAuPy5FQS4uLi4uLgoJMHgwMDIw
+OiAgYmYwNSBhMTMwIDAwNTAgOWYzNiAyOTY0IGZjYjkgMjI0ZCA4MDEwICAuLi4wLlAuNilkLi4i
+TS4uCgkweDAwMzA6ICAwMDVjIDMxODggMDAwMCAwMTAxIDA4MGEgMDAwMCA4NTkxIDQxYzEgIC5c
+MS4uLi4uLi4uLi4uQS4KCTB4MDA0MDogIGFhMWIgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgLi4KMjA6MTQ6MTUuOTkyNzg3IElQIDE5Mi4xNjguMjU0LjEuNDEyNjQgPiAyMDQu
+MTUyLjE5MS41LjgwOiBQIDA6MjQwKDI0MCkgYWNrIDEgd2luIDkyIDxub3Asbm9wLHRpbWVzdGFt
+cCAzNDE5MyAxMTAzMjExMDM1PgoJMHgwMDAwOiAgMDBhMCBjNTQzIDVmZWIgMDAxMCA1YWM1IDY4
+MWMgMDgwMCA0NTAwICAuLi5DXy4uLlouaC4uLkUuCgkweDAwMTA6ICAwMTI0IGFjM2IgNDAwMCAz
+ZjA2IDQ0NTAgYzBhOCBmZTAxIGNjOTggIC4kLjtALj8uRFAuLi4uLi4KCTB4MDAyMDogIGJmMDUg
+YTEzMCAwMDUwIDlmMzYgMjk2NCBmY2I5IDIyNGQgODAxOCAgLi4uMC5QLjYpZC4uIk0uLgoJMHgw
+MDMwOiAgMDA1YyAzNzZhIDAwMDAgMDEwMSAwODBhIDAwMDAgODU5MSA0MWMxICAuXDdqLi4uLi4u
+Li4uLkEuCgkweDAwNDA6ICBhYTFiIDQ3NDUgNTQyMCAyZjIwIDQ4NTQgNTQ1MCAyZjMxIDJlMzAg
+IC4uR0VULi8uSFRUUC8xLjAKCTB4MDA1MDogIDBkMGEgNTU3MyA2NTcyIDJkNDEgNjc2NSA2ZTc0
+IDNhMjAgNzczMyAgLi5Vc2VyLUFnZW50Oi53Mwo=
+
+--MP_/SeNk8_vprkvS0gfOqck+rJR--
