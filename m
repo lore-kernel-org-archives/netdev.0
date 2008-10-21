@@ -1,34 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/2] Pull request for 'r8169-fixes' branch
-Date: Tue, 21 Oct 2008 01:05:05 -0400
-Message-ID: <48FD6301.9090204@garzik.org>
-References: <20081016214555.GA27208@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: on-link assumption in ipv4 routing cache
+Date: Mon, 20 Oct 2008 22:13:12 -0700 (PDT)
+Message-ID: <20081020.221312.211946478.davem@davemloft.net>
+References: <48FD2A34.7020702@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>,
-	Martin Capitanio <c4p7n@capitanio.org>,
-	Petr Vandrovec <petr@vandrovec.name>,
-	Plamen Petrov <pvp-lsts@fs.ru.acad.bg>,
-	=?ISO-8859-1?Q?=22J=2EA=2E_Mag?= =?ISO-8859-1?Q?all=F3n=22?=
-	<jamagallon@ono.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39581 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750763AbYJUFFP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 01:05:15 -0400
-In-Reply-To: <20081016214555.GA27208@electric-eye.fr.zoreil.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54207
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751032AbYJUFNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 01:13:35 -0400
+In-Reply-To: <48FD2A34.7020702@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> Please pull from branch 'r8169-fixes' in repository
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Mon, 20 Oct 2008 21:02:44 -0400
+
+> This was somewhat of a surprise since I expected a EHOSTUNRACH error since
+> there were no routes to the destination and SO_DONTROUTE was not set.
 > 
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-fixes
+> I am really curious as to reason for this behavior?
 
-pulled
+In general the Linux ipv4 stack tries to do things that make it more
+likely for successful communication between two nodes.
 
+This is one such example, another is the choice of using the host
+based addressing model rather than the interface based addressing
+model.
 
+Alexey Kuznetsov is responsible for most of these decisions, he is
+a genius.
