@@ -1,54 +1,100 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
-	cannot navigate
-Date: Tue, 21 Oct 2008 18:29:23 +0200
-Message-ID: <20081021162922.GA2549@ami.dom.local>
-References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi> <20081021100923.GD4715@ff.dom.local> <Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi> <20081021111227.GE4715@ff.dom.local> <Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi> <20081021123414.GF4715@ff.dom.local> <Pine.LNX.4.64.0810211546270.7072@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Aldo Maggi <sentiniate@tiscali.it>,
-	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH/RFC v1 10/12] [MIPS] BCM63XX: Add integrated ethernet PHY support for phylib.
+Date: Tue, 21 Oct 2008 12:08:54 -0500
+Message-ID: <B812781E-031F-4A1E-8FDB-E0482F495325@freescale.com>
+References: <1224382023-24412-1-git-send-email-mbizon@freebox.fr>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Maxime Bizon <mbizon@freebox.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:14238 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751914AbYJUQ3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 12:29:20 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1214354nfc.21
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 09:29:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0810211546270.7072@wrl-59.cs.helsinki.fi>
+Received: from az33egw02.freescale.net ([192.88.158.103]:48047 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754852AbYJURJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 13:09:20 -0400
+In-Reply-To: <1224382023-24412-1-git-send-email-mbizon@freebox.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2008 at 05:16:43PM +0300, Ilpo J=E4rvinen wrote:
-=2E..
-> We're dealing with a case with in itself is really funny, yes, I assu=
-me=20
-> it's very much possible though not too likely :-). I'd have very much=
-=20
-> wanted to test it myself too but sadly my network does not exhibit th=
-is=20
-> corner-case behavior (ie., bug). Whether I'm right or wrong is not th=
-at=20
-> significant for me :-), just understanding what the black-box does (o=
-r
-> is fine with) instead of just knowing how to workaround that. Or did =
-I=20
-> miss another case where the significance of mss specifically being th=
-ere=20
-> was decided? :-)
->=20
-> But whatever, if Aldo feels it's waste of his time he can just ignore=
-=20
-> me... :-)
 
-Hmm... If by any chance my previous messages caused you think like
-this, I'm really sorry. I completely agree with the way you deal with
-this, and I don't pretend I know the result. I still agree there seems
-to be not much logic in this, so all results are probable, and worth
-checking - especially when we have such helpful assistant as Aldo.
+On Oct 18, 2008, at 21:07, Maxime Bizon wrote:
 
-Thanks,
-Jarek P.
+> Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+> ---
+> drivers/net/phy/Kconfig   |    6 ++
+> drivers/net/phy/Makefile  |    1 +
+> drivers/net/phy/bcm63xx.c |  132 ++++++++++++++++++++++++++++++++++++ 
+> +++++++++
+> 3 files changed, 139 insertions(+), 0 deletions(-)
+> create mode 100644 drivers/net/phy/bcm63xx.c
+>
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index d55932a..a5d2c2d 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -56,6 +56,12 @@ config BROADCOM_PHY
+> 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM5464, BCM5481
+> 	  and BCM5482 PHYs.
+>
+> +config BCM63XX_PHY
+> +	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
+> +	depends on BCM63XX
+
+
+This is probably right, but just to check: These PHYs will never be  
+used outside of the BCM63xx family?
+
+
+>
+> +	---help---
+> +	  Currently supports the 6348 and 6358 PHYs.
+> +
+> config ICPLUS_PHY
+> 	tristate "Drivers for ICPlus PHYs"
+> 	---help---
+> diff --git a/drivers/net/phy/bcm63xx.c b/drivers/net/phy/bcm63xx.c
+> new file mode 100644
+> index 0000000..4fed95e
+
+> +static int bcm63xx_config_init(struct phy_device *phydev)
+> +{
+> +	int reg, err;
+> +
+> +	reg = phy_read(phydev, MII_BCM63XX_IR);
+> +	if (reg < 0)
+> +		return reg;
+> +
+> +	/* Mask interrupts globally.  */
+> +	reg |= MII_BCM63XX_IR_GMASK;
+> +	err = phy_write(phydev, MII_BCM63XX_IR, reg);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	/* Unmask events we are interested in  */
+> +	reg = ~(MII_BCM63XX_IR_DUPLEX |
+> +		MII_BCM63XX_IR_SPEED |
+> +		MII_BCM63XX_IR_LINK) |
+> +		MII_BCM63XX_IR_EN;
+
+You just cleared the global interrupt mask.  I have two problems with  
+that:
+
+1) If there's some reason you need to mask and then unmask interrupts,  
+you should make that clear in the comments.  If there's not a reason,  
+then it's a bit silly to do both.
+
+2) Interrupts should not be enabled until the PHY's config_intr()  
+function is called, and asks for them to be enabled.
+
+Maybe you just wanted that to be:
+
+  reg &= ~(MII_BCM63XX_IR_DUPLEX |
+...
+
+
+The other comment I have is that these probably should go in the  
+broadcom.c file.  I'm not deeply tied to the notion of one file per  
+company, but it has become the way it is done.
+
+Andy
