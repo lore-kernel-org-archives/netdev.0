@@ -1,35 +1,35 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 14/16] RealView: Use the in-kernel smc911x.c driver on	RealView
-Date: Tue, 21 Oct 2008 19:48:38 +0100
-Message-ID: <20081021184838.GB15027@flint.arm.linux.org.uk>
-References: <OF6B543A5F.032D7BBC-ON802574E9.00340E58-802574E9.00396C6E@smsc.com> <1224585726.9330.22.camel@pc1117.cambridge.arm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+	cannot navigate
+Date: Tue, 21 Oct 2008 20:45:39 +0200
+Message-ID: <20081021184539.GA3320@ami.dom.local>
+References: <20081021090002.21e64151@topolino> <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi> <20081021201857.08faf0a7@topolino>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Steve.Glendinning@smsc.com, Bill Gatliff <bgat@billgatliff.com>,
-	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
-	linux-arm-kernel@lists.arm.linux.org.uk, Ian.Saturley@smsc.com,
-	netdev@vger.kernel.org
-To: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
+To: Aldo Maggi <sentiniate@tiscali.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:34986 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbYJUStE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 14:49:04 -0400
+Received: from fg-out-1718.google.com ([72.14.220.153]:63403 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751338AbYJUSvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 14:51:48 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so32233fgg.17
+        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 11:51:46 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1224585726.9330.22.camel@pc1117.cambridge.arm.com>
+In-Reply-To: <20081021201857.08faf0a7@topolino>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2008 at 11:42:06AM +0100, Catalin Marinas wrote:
-> Can we not have both drivers in the kernel until the transition to the
-> new one has finished? We seem to still have both eepro100.c and e100.c
-> in the kernel targeting similar chips.
+On Tue, Oct 21, 2008 at 08:18:57PM +0200, Aldo Maggi wrote:
+...
+> i've compiled 2.6.27.2 source after having patched it with your today's
+> patch.
+> 
+> it works! i.e. i can navigate (w3m kernel.org) and update (apt-get
+> update)
 
-There has been several concerted efforts to eliminating one or other.
-The problem is that eepro100.c works on some platform/chip combinations
-that e100.c doesn't and, probably, vice versa.  So, removing either
-causes people regressions.
+Ilpo, I should say you're incredible! ...But, since I've promised to
+myself not to disturb you anymore (again), I can't do this, sorry :-(
 
-That's the problem with merging two drivers, and then trying to remove
-one later - the hardware they support diverges and then you need to
-keep and maintain both.
+Jarek P.
