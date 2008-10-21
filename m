@@ -1,96 +1,50 @@
 From: Aldo Maggi <sentiniate@tiscali.it>
-Subject: bug 11721 - tcpdump on the server eth with 2.6.27.2 with and
- without ilpo patch
-Date: Tue, 21 Oct 2008 16:20:39 +0200
-Message-ID: <20081021162039.1cb51b39@topolino>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+ cannot navigate
+Date: Tue, 21 Oct 2008 16:47:42 +0200
+Message-ID: <20081021164742.207b078d@topolino>
+References: <20081021090002.21e64151@topolino>
+	<Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+	<20081021100923.GD4715@ff.dom.local>
+	<Pine.LNX.4.64.0810211333290.7072@wrl-59.cs.helsinki.fi>
+	<20081021111227.GE4715@ff.dom.local>
+	<Pine.LNX.4.64.0810211423350.7072@wrl-59.cs.helsinki.fi>
+	<20081021123414.GF4715@ff.dom.local>
+	<Pine.LNX.4.64.0810211546270.7072@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/7yKlEDkARhFwdPDWm_QMcf/"
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jack.mail.tiscali.it ([213.205.33.53]:38619 "EHLO
+Received: from jack.mail.tiscali.it ([213.205.33.53]:48248 "EHLO
 	jack.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751446AbYJUOUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 10:20:48 -0400
+	with ESMTP id S1753440AbYJUOru convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 10:47:50 -0400
+In-Reply-To: <Pine.LNX.4.64.0810211546270.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---MP_/7yKlEDkARhFwdPDWm_QMcf/
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Il giorno Tue, 21 Oct 2008 17:16:43 +0300 (EEST)
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> ha scritto:
 
-before starting a new compilation with ilpo's new patch, i've run the
-usual tests with 2.6.27.2 with and without ilpo patch; the settings for
-tcp_window_scaling, tcp_timestamps and tcp_sack are always "1"
+[...]
 
-the new compilation, as usual, will take at least three hours! :-D
+>=20
+> But whatever, if Aldo feels it's waste of his time he can just ignore=
+=20
+> me... :-)
+>=20
+>=20
 
+ARE YOU JOKIIIIING? :-)
+i'm only too honoured to cooperate from my very low level with you!
+
+you do not imagine how much i value your commitment for linux!
+my only dream is to see bloody ms in the dust ... and linux as a winner=
+!
+
+many thanks for your and your collegues work!
 aldo
-
---MP_/7yKlEDkARhFwdPDWm_QMcf/
-Content-Type: application/octet-stream; name=tcpdump_2-6-27-2-ilpo-tcp_1
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=tcpdump_2-6-27-2-ilpo-tcp_1
-
-MTU6NTY6NDMuOTcwODYzIElQIDE5Mi4xNjguMjU0LjEuNTg2ODkgPiAyMDQuMTUyLjE5MS41Ljgw
-OiBTIDE3NDY0MTUxMDM6MTc0NjQxNTEwMygwKSB3aW4gNTg0MCA8bXNzIDE0NjAsc2Fja09LLHRp
-bWVzdGFtcCA5MiAwLG5vcCx3c2NhbGUgNj4KCTB4MDAwMDogIDAwYTAgYzU0MyA1ZmViIDAwMTAg
-NWFjNSA2ODFjIDA4MDAgNDUwMCAgLi4uQ18uLi5aLmguLi5FLgoJMHgwMDEwOiAgMDAzYyAyZGEz
-IDQwMDAgM2YwNiBjM2QwIGMwYTggZmUwMSBjYzk4ICAuPC0uQC4/Li4uLi4uLi4uCgkweDAwMjA6
-ICBiZjA1IGU1NDEgMDA1MCA2ODE4IDJkZmYgMDAwMCAwMDAwIGEwMDIgIC4uLkEuUGguLS4uLi4u
-Li4KCTB4MDAzMDogIDE2ZDAgNmFlMyAwMDAwIDAyMDQgMDViNCAwNDAyIDA4MGEgMDAwMCAgLi5q
-Li4uLi4uLi4uLi4uLgoJMHgwMDQwOiAgMDA1YyAwMDAwIDAwMDAgMDEwMyAwMzA2ICAgICAgICAg
-ICAgICAgICAuXC4uLi4uLi4uCjE1OjU2OjQ0LjE5MjAyMiBJUCAxOTIuMTY4LjI1NC4xLjU4Njg5
-ID4gMjA0LjE1Mi4xOTEuNS44MDogLiBhY2sgMjQ0NjcyODI1NyB3aW4gOTIgPG5vcCxub3AsdGlt
-ZXN0YW1wIDE0NyAxMDg3NzU5MjM4PgoJMHgwMDAwOiAgMDBhMCBjNTQzIDVmZWIgMDAxMCA1YWM1
-IDY4MWMgMDgwMCA0NTAwICAuLi5DXy4uLlouaC4uLkUuCgkweDAwMTA6ICAwMDM0IDJkYTQgNDAw
-MCAzZjA2IGMzZDcgYzBhOCBmZTAxIGNjOTggIC40LS5ALj8uLi4uLi4uLi4KCTB4MDAyMDogIGJm
-MDUgZTU0MSAwMDUwIDY4MTggMmUwMCA5MWQ2IDFjNDEgODAxMCAgLi4uQS5QaC4uLi4uLkEuLgoJ
-MHgwMDMwOiAgMDA1YyBkZDY3IDAwMDAgMDEwMSAwODBhIDAwMDAgMDA5MyA0MGQ1ICAuXC5nLi4u
-Li4uLi4uLkAuCgkweDAwNDA6ICBlMzg2ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIC4uCjE1OjU2OjQ0LjE5MjI5NCBJUCAxOTIuMTY4LjI1NC4xLjU4Njg5ID4gMjA0LjE1Mi4x
-OTEuNS44MDogUCAwOjI0MCgyNDApIGFjayAxIHdpbiA5MiA8bm9wLG5vcCx0aW1lc3RhbXAgMTQ3
-IDEwODc3NTkyMzg+CgkweDAwMDA6ICAwMGEwIGM1NDMgNWZlYiAwMDEwIDVhYzUgNjgxYyAwODAw
-IDQ1MDAgIC4uLkNfLi4uWi5oLi4uRS4KCTB4MDAxMDogIDAxMjQgMmRhNSA0MDAwIDNmMDYgYzJl
-NiBjMGE4IGZlMDEgY2M5OCAgLiQtLkAuPy4uLi4uLi4uLgoJMHgwMDIwOiAgYmYwNSBlNTQxIDAw
-NTAgNjgxOCAyZTAwIDkxZDYgMWM0MSA4MDE4ICAuLi5BLlBoLi4uLi4uQS4uCgkweDAwMzA6ICAw
-MDVjIGUzNDkgMDAwMCAwMTAxIDA4MGEgMDAwMCAwMDkzIDQwZDUgIC5cLkkuLi4uLi4uLi4uQC4K
-CTB4MDA0MDogIGUzODYgNDc0NSA1NDIwIDJmMjAgNDg1NCA1NDUwIDJmMzEgMmUzMCAgLi5HRVQu
-Ly5IVFRQLzEuMAoJMHgwMDUwOiAgMGQwYSA1NTczIDY1NzIgMmQ0MSA2NzY1IDZlNzQgM2EyMCA3
-NzMzICAuLlVzZXItQWdlbnQ6LnczCg==
-
---MP_/7yKlEDkARhFwdPDWm_QMcf/
-Content-Type: application/octet-stream; name=tcpdump_2-6-27-2-tcp_1
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=tcpdump_2-6-27-2-tcp_1
-
-MTY6MTM6NDAuMzI2ODkwIElQIDE5Mi4xNjguMjU0LjEuNTk4NDUgPiAyMDQuMTUyLjE5MS4zNy44
-MDogUyA0MzM0Nzg5NjA6NDMzNDc4OTYwKDApIHdpbiA1ODQwIDxzYWNrT0ssdGltZXN0YW1wIDQy
-OTQ5Mjc5MzcgMCxtc3MgMTQ2MCxub3Asd3NjYWxlIDY+CgkweDAwMDA6ICAwMGEwIGM1NDMgNWZl
-YiAwMDEwIDVhYzUgNjgxYyAwODAwIDQ1MDAgIC4uLkNfLi4uWi5oLi4uRS4KCTB4MDAxMDogIDAw
-M2MgM2I3MSA0MDAwIDNmMDYgYjVlMiBjMGE4IGZlMDEgY2M5OCAgLjw7cUAuPy4uLi4uLi4uLgoJ
-MHgwMDIwOiAgYmYyNSBlOWM1IDAwNTAgMTlkNiA1ZDMwIDAwMDAgMDAwMCBhMDAyICAuJS4uLlAu
-Ll0wLi4uLi4uCgkweDAwMzA6ICAxNmQwIDFmNmIgMDAwMCAwNDAyIDA4MGEgZmZmZiA2NjQxIDAw
-MDAgIC4uLmsuLi4uLi4uLmZBLi4KCTB4MDA0MDogIDAwMDAgMDIwNCAwNWI0IDAxMDMgMDMwNiAg
-ICAgICAgICAgICAgICAgLi4uLi4uLi4uLgoxNjoxMzo0My4zMjUzODUgSVAgMTkyLjE2OC4yNTQu
-MS41OTg0NSA+IDIwNC4xNTIuMTkxLjM3LjgwOiBTIDQzMzQ3ODk2MDo0MzM0Nzg5NjAoMCkgd2lu
-IDU4NDAgPHNhY2tPSyx0aW1lc3RhbXAgNDI5NDkyODY4NyAwLG1zcyAxNDYwLG5vcCx3c2NhbGUg
-Nj4KCTB4MDAwMDogIDAwYTAgYzU0MyA1ZmViIDAwMTAgNWFjNSA2ODFjIDA4MDAgNDUwMCAgLi4u
-Q18uLi5aLmguLi5FLgoJMHgwMDEwOiAgMDAzYyAzYjcyIDQwMDAgM2YwNiBiNWUxIGMwYTggZmUw
-MSBjYzk4ICAuPDtyQC4/Li4uLi4uLi4uCgkweDAwMjA6ICBiZjI1IGU5YzUgMDA1MCAxOWQ2IDVk
-MzAgMDAwMCAwMDAwIGEwMDIgIC4lLi4uUC4uXTAuLi4uLi4KCTB4MDAzMDogIDE2ZDAgMWM3ZCAw
-MDAwIDA0MDIgMDgwYSBmZmZmIDY5MmYgMDAwMCAgLi4ufS4uLi4uLi4uaS8uLgoJMHgwMDQwOiAg
-MDAwMCAwMjA0IDA1YjQgMDEwMyAwMzA2ICAgICAgICAgICAgICAgICAuLi4uLi4uLi4uCjE2OjEz
-OjQ0LjU2Nzk0NyBJUCAxOTIuMTY4LjI1NC4xLjYwNjY1ID4gNjQuMjMzLjE4My4xMTMuODA6IFMg
-MjU3MDE0MDkwODoyNTcwMTQwOTA4KDApIHdpbiA1ODQwIDxtc3MgMTQ2MCxzYWNrT0ssdGltZXN0
-YW1wIDI4MzgzNjgxIDAsbm9wLHdzY2FsZSA1PgoJMHgwMDAwOiAgMDBhMCBjNTQzIDVmZWIgMDAx
-MCA1YWM1IDY4MWMgMDgwMCA0NTAwICAuLi5DXy4uLlouaC4uLkUuCgkweDAwMTA6ICAwMDNjIDI1
-MmQgNDAwMCA0MDA2IDVlOGEgYzBhOCBmZTAxIDQwZTkgIC48JS1ALkAuXi4uLi4uQC4KCTB4MDAy
-MDogIGI3NzEgZWNmOSAwMDUwIDk5MzEgM2NlYyAwMDAwIDAwMDAgYTAwMiAgLnEuLi5QLjE8Li4u
-Li4uLgoJMHgwMDMwOiAgMTZkMCA5YjUzIDAwMDAgMDIwNCAwNWI0IDA0MDIgMDgwYSAwMWIxICAu
-Li5TLi4uLi4uLi4uLi4uCgkweDAwNDA6ICAxOWMxIDAwMDAgMDAwMCAwMTAzIDAzMDUgICAgICAg
-ICAgICAgICAgIC4uLi4uLi4uLi4K
-
---MP_/7yKlEDkARhFwdPDWm_QMcf/--
+=20
