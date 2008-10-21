@@ -1,45 +1,44 @@
-From: =?ISO-8859-1?Q?Alex_Villac=ED=ADs_Lasso?=
-	<avillaci@ceibo.fiec.espol.edu.ec>
-Subject: Regression: Recent networking (qdisc?) patches break irda_get_next_speed()
-Date: Tue, 21 Oct 2008 13:20:02 -0500
-Message-ID: <48FE1D52.6080903@ceibo.fiec.espol.edu.ec>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 14/16] RealView: Use the in-kernel smc911x.c driver on	RealView
+Date: Tue, 21 Oct 2008 19:46:53 +0100
+Message-ID: <20081021184653.GA15027@flint.arm.linux.org.uk>
+References: <1224578293.9330.9.camel@pc1117.cambridge.arm.com> <OF6B543A5F.032D7BBC-ON802574E9.00340E58-802574E9.00396C6E@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Catalin Marinas <catalin.marinas@arm.com>,
+	Bill Gatliff <bgat@billgatliff.com>,
+	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
+	linux-arm-kernel@lists.arm.linux.org.uk, Ian.Saturley@smsc.com,
+	netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-200-93-199-98.telconet.net ([200.93.199.98]:42514 "EHLO
-	elastix.palosanto.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751890AbYJUSnd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 14:43:33 -0400
-Received: from srv64.palosanto.com (unknown [192.168.1.64])
-	by elastix.palosanto.com (Postfix) with ESMTP id B38521B08FAB
-	for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 13:20:17 -0500 (ECT)
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:34979 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751548AbYJUSrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 14:47:33 -0400
+Content-Disposition: inline
+In-Reply-To: <OF6B543A5F.032D7BBC-ON802574E9.00340E58-802574E9.00396C6E@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A regression has been introduced in 2.6.27 in the networking code, which 
-breaks the irda_get_next_speed() function used by some IrDA drivers, 
-including ks959-sir, written by me. I have filed a bug at:
+On Tue, Oct 21, 2008 at 11:26:42AM +0100, Steve.Glendinning@smsc.com wrote:
+> Almost all the feedback I've had has been positive, but I've had a few
+> "can't you just fix the in-tree driver?" responses.  The trouble is it's
+> not a *small* piece of work!
 
-http://bugzilla.kernel.org/show_bug.cgi?id=11795
+Which is reasonable given your summary, since...
 
-to keep track of this. I am still performing bisection to locate the 
-exact commit that broke the code, but the bug involves an overwriting of 
-the beginning of a structure with extraneous data that makes the 
-LAP_MAGIC check fail. I have tried searching the netdev archives, but 
-there is no mention at all of regressions caused by this code. Milan 
-Plzik at irda-users mentions the same problem affecting pxaficp_ir, and 
-mentions recent qdisc patches as possible culprits.  Vasily Khoruzhick 
-reported this bug at irda-users, and a quick hack (not a proper fix) 
-proposed by him involves padding "struct irda_skb_cb" with 4 bytes at 
-the beginning of the structure to move everything else past the buggy 
-scribbling.
+> smsc911x
+> - uses functions instead of macros, making it more readable
+> - uses napi (and manages significantly higher throughput because of it)
+> - uses phylib
+> - passes checkpatch.pl
+> - has workarounds for older LAN911x variants
+> 
+> smc911x
+> - is already in-tree (not really technical, but still important)
+> - has support for pxa dma*
+> - has dynamic bus width config
 
-
-This URL contains an early reference to what is possibly this same bug
-http://sourceforge.net/mailarchive/forum.php?thread_name=1223138254.21553.7.camel%40localhost&forum_name=irda-users
-
--- 
-perl -e '$x=2.4;print sprintf("%.0f + %.0f = %.0f\n",$x,$x,$x+$x);'
-
+.. we want to avoid having two drivers for the same device, but not
+supporting these features would be seen as a regression.
