@@ -1,45 +1,36 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Current git r8169 driver often misses link at boot
-Date: Wed, 22 Oct 2008 01:50:11 +0200
-Message-ID: <20081021235011.GL12825@one.firstfloor.org>
-References: <20081021191158.GA16262@basil.nowhere.org> <20081021202601.GA24322@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] Add qdisc->ops->peek() support.
+Date: Tue, 21 Oct 2008 16:43:42 -0700 (PDT)
+Message-ID: <20081021.164342.135191750.davem@davemloft.net>
+References: <20081017130333.GA8297@ff.dom.local>
+	<48F89D33.9090809@trash.net>
+	<20081017204543.GB2527@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	jgarzik@pobox.com
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:58456 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753333AbYJUXmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:42:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20081021202601.GA24322@electric-eye.fr.zoreil.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41195
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752021AbYJUXoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:44:06 -0400
+In-Reply-To: <20081017204543.GB2527@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2008 at 10:26:01PM +0200, Francois Romieu wrote:
-> Andi Kleen <andi@firstfloor.org> :
-> [...]
-> > I have a nfsroot test system with a r8169 NIC. Since I updated
-> > from 2.6.27 to 2.6.27-git10 it doesn't find its root fs in 2 out of
-> > 3 boots. The r8169 gets detected, but there is never
-> > a message that it finds the link in the failed cases:
-> > 
-> > r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> > r8169 0000:02:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-> > r8169 0000:02:00.0: setting latency timer to 64
-> > r8169 0000:02:00.0: irq 45 for MSI/MSI-X
-> > eth0: RTL8168b/8111b at 0xffffc2000035a000, 00:00:00:00:00:00, XID 38000000 IRQ 45
-> 
-> The workarounds are in Jeff's tree as :
-> 9b1abbccf53ef1a1213b159d56257b535c599f07
-> d7d25be4418b609e54b407458003a4b6bff1c63b
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Fri, 17 Oct 2008 22:45:43 +0200
 
-Confirmed.
+> BTW, I'm not sure if I'm expected to redo any patches in this thread.
+> (Probably some things like this teql_peek() could be removed with
+> ->requeue() killing.)
 
-With upstream-fixes it survived three boots now. Can this fix please
-be submitted ASAP, not having it impacts testing here.
+In any event, you should resubmit these when I open the net-next-2.6
+tree up in about a week or so.
 
-Thanks,
--Andi
+It looks like Patrick is in agreement about these changes and they
+look mostly fine to me too, FWIW.
+
+Thanks.
