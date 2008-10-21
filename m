@@ -1,59 +1,92 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] pkt_sched: sch_netem: Limit packet re-ordering
- functionality to tfifo qdisc.
-Date: Tue, 21 Oct 2008 16:51:29 -0700
-Message-ID: <20081021165129.422dd83f@extreme>
-References: <20081017130333.GA8297@ff.dom.local>
-	<48F89D33.9090809@trash.net>
-	<20081017201210.GA2527@ami.dom.local>
-	<20081021.163605.57275028.davem@davemloft.net>
+From: "Grant Likely" <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] Implement polling for 5200FEC to make netconsole work.
+Date: Tue, 21 Oct 2008 17:57:03 -0600
+Message-ID: <fa686aa40810211657q33575bcfj7c5fe4a4cb4dab27@mail.gmail.com>
+References: <20081018214059.1506.28013.stgit@terra>
+	 <9e4733910810211641x24f4d76bn5bc614147875d250@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: "Jon Smirl" <jonsmirl@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56898 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751957AbYJUXvc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2008 19:51:32 -0400
-In-Reply-To: <20081021.163605.57275028.davem@davemloft.net>
+Received: from rv-out-0506.google.com ([209.85.198.231]:57705 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331AbYJUX5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:57:05 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2654833rvb.1
+        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 16:57:04 -0700 (PDT)
+In-Reply-To: <9e4733910810211641x24f4d76bn5bc614147875d250@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Oct 2008 16:36:05 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Tue, Oct 21, 2008 at 5:41 PM, Jon Smirl <jonsmirl@gmail.com> wrote:
+> Is anyone going to pick this up?
 
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Fri, 17 Oct 2008 22:12:10 +0200
-> 
-> > pkt_sched: sch_netem: Limit packet re-ordering functionality to tfifo qdisc.
-> > 
-> > After introducing qdisc->ops->peek() method the only remaining user of
-> > qdisc->ops->requeue() is netem_enqueue() using this for packet
-> > re-ordering. According to Patrick McHardy: "a lot of the functionality
-> > of netem requires the inner tfifo anyways and rate-limiting is usually
-> > done on top of netem. So I would suggest so either hard-wire the tfifo
-> > qdisc or at least make the assumption that inner qdiscs are work-
-> > conserving." This patch tries the former.
-> > 
-> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> 
-> This is an interesting patch.
-> 
-> But the thing that strikes me is this: Why don't we just let sch_netem do
-> the reordering inside of itself entirely and just get rid of all of this
-> ->requeue() business?
-> 
-> sch_netem is just a black box, like any other packet scheduler node in
-> the tree, and so it can internally do the reordering with a self managed
-> packet list or similar.  All of this can be hidden inside of it's ->dequeue()
-> with some pkt_sch watchdog timer that fires to prevent stale packets sitting
-> in the reorder queue forever.
-> 
-> Anyways, just and idea and RFC, just like this patch ;-)
+I'm looking at it, but I'm not picking it up for .28.  It's
+non-trivial enough that I would have needed to have it before the
+merge window opened to get it into .28.
 
-The problem is that jamal talked me into having netem as a classful qdisc,
-instead of doing its own rate control.  People like to do use TBF as inner qdisc,
-and do reordering.
+g.
+
+>
+> On Sat, Oct 18, 2008 at 5:40 PM, Jon Smirl <jonsmirl@gmail.com> wrote:
+>> Implement polling for 5200FEC to make netconsole work. Tested on Phytec pcm030 and Efika.
+>>
+>> Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
+>> ---
+>>  drivers/net/fec_mpc52xx.c |   18 ++++++++++++++++++
+>>  1 files changed, 18 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+>> index 4e4f683..aec3b97 100644
+>> --- a/drivers/net/fec_mpc52xx.c
+>> +++ b/drivers/net/fec_mpc52xx.c
+>> @@ -401,6 +401,21 @@ static int mpc52xx_fec_hard_start_xmit(struct sk_buff *skb, struct net_device *d
+>>        return 0;
+>>  }
+>>
+>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>> +static void mpc52xx_fec_poll_controller(struct net_device *dev)
+>> +{
+>> +       struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+>> +
+>> +       disable_irq(priv->t_irq);
+>> +       mpc52xx_fec_tx_interrupt(priv->t_irq, dev);
+>> +       enable_irq(priv->t_irq);
+>> +       disable_irq(priv->r_irq);
+>> +       mpc52xx_fec_rx_interrupt(priv->r_irq, dev);
+>> +       enable_irq(priv->r_irq);
+>> +}
+>> +#endif
+>> +
+>> +
+>>  /* This handles BestComm transmit task interrupts
+>>  */
+>>  static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
+>> @@ -926,6 +941,9 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+>>        ndev->tx_timeout        = mpc52xx_fec_tx_timeout;
+>>        ndev->watchdog_timeo    = FEC_WATCHDOG_TIMEOUT;
+>>        ndev->base_addr         = mem.start;
+>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>> +       ndev->poll_controller = mpc52xx_fec_poll_controller;
+>> +#endif
+>>
+>>        priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
+>>
+>>
+>>
+>
+>
+>
+> --
+> Jon Smirl
+> jonsmirl@gmail.com
+>
+
+
+
+-- 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
