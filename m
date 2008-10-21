@@ -1,100 +1,76 @@
-From: =?ISO-8859-1?Q?Alex_Villac=ED=ADs_Lasso?=
-	<avillaci@ceibo.fiec.espol.edu.ec>
-Subject: Re: Regression: Recent networking (qdisc?) patches break irda_get_next_speed()
-Date: Tue, 21 Oct 2008 18:37:56 -0500
-Message-ID: <48FE67D4.5060200@ceibo.fiec.espol.edu.ec>
-References: <48FE1D52.6080903@ceibo.fiec.espol.edu.ec> <48FE2F81.9060801@gmail.com>
+From: "Jon Smirl" <jonsmirl@gmail.com>
+Subject: Re: [PATCH] Implement polling for 5200FEC to make netconsole work.
+Date: Tue, 21 Oct 2008 19:41:45 -0400
+Message-ID: <9e4733910810211641x24f4d76bn5bc614147875d250@mail.gmail.com>
+References: <20081018214059.1506.28013.stgit@terra>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, Jarek Poplawski <jarkao2@gmail.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	"Grant Likely" <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-200-93-199-98.telconet.net ([200.93.199.98]:56704 "EHLO
-	elastix.palosanto.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751957AbYJUXiS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:38:18 -0400
-In-Reply-To: <48FE2F81.9060801@gmail.com>
+Received: from rv-out-0506.google.com ([209.85.198.230]:49359 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752175AbYJUXlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:41:46 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2649728rvb.1
+        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 16:41:46 -0700 (PDT)
+In-Reply-To: <20081018214059.1506.28013.stgit@terra>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski escribi=F3:
-> Alex Villac=ED=ADs Lasso wrote, On 10/21/2008 08:20 PM:
->
->  =20
->> A regression has been introduced in 2.6.27 in the networking code, w=
-hich=20
->> breaks the irda_get_next_speed() function used by some IrDA drivers,=
-=20
->> including ks959-sir, written by me. I have filed a bug at:
->>
->> http://bugzilla.kernel.org/show_bug.cgi?id=3D11795
->>
->> to keep track of this. I am still performing bisection to locate the=
-=20
->> exact commit that broke the code, but the bug involves an overwritin=
-g of=20
->> the beginning of a structure with extraneous data that makes the=20
->> LAP_MAGIC check fail. I have tried searching the netdev archives, bu=
-t=20
->> there is no mention at all of regressions caused by this code. Milan=
-=20
->> Plzik at irda-users mentions the same problem affecting pxaficp_ir, =
-and=20
->> mentions recent qdisc patches as possible culprits.  Vasily Khoruzhi=
-ck=20
->> reported this bug at irda-users, and a quick hack (not a proper fix)=
-=20
->> proposed by him involves padding "struct irda_skb_cb" with 4 bytes a=
-t=20
->> the beginning of the structure to move everything else past the bugg=
-y=20
->> scribbling.
->>    =20
->
->
-> Looks like the patch below could fit to your description.
->
-> Jarek P.
->
-> commit 175f9c1bba9b825d22b142d183c9e175488b260c
-> Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-> Date:   Sun Jul 20 00:08:47 2008 -0700
->
->     net_sched: Add size table for qdiscs
->
->     Add size table functions for qdiscs and calculate packet size in
->     qdisc_enqueue().
->
->     Based on patch by Patrick McHardy
->      http://marc.info/?l=3Dlinux-netdev&m=3D115201979221729&w=3D2
->
->     Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
->
->  =20
-So then, the bug is that the cb field in the struct sk_buff is being=20
-interpreted as both a struct qdisc_skb_cb and an struct irda_skb_cb, fo=
-r=20
-the same instance of struct sk_buff. I have just started to review the=20
-suggested patch, but it seems that 'struct qdisc_skb_cb' was meant to b=
-e=20
-aliased against the data for other layers (as suggested by the presence=
-=20
-of a 'char data[]' field). If so, how come only IrDA is affected? How=20
-come UDP, TCP, etc. not affected by this? On the other hand, if=20
-qdisc_skb_cb was not meant to be aliased, then the IrDA case was left=20
-out while converting the rest of the layers so that they will skip over=
-=20
-the member 'pkt_len' of the 'struct qdisc_skb_cb'.
+Is anyone going to pick this up?
 
-Or maybe all the other layers *are* being overwritten, and IrDA is the=20
-only one that has a 'magic' member to check against corruption... As fa=
-r=20
-as I can see, no other layer has a member with an equivalent function.
+On Sat, Oct 18, 2008 at 5:40 PM, Jon Smirl <jonsmirl@gmail.com> wrote:
+> Implement polling for 5200FEC to make netconsole work. Tested on Phytec pcm030 and Efika.
+>
+> Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
+> ---
+>  drivers/net/fec_mpc52xx.c |   18 ++++++++++++++++++
+>  1 files changed, 18 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+> index 4e4f683..aec3b97 100644
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -401,6 +401,21 @@ static int mpc52xx_fec_hard_start_xmit(struct sk_buff *skb, struct net_device *d
+>        return 0;
+>  }
+>
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +static void mpc52xx_fec_poll_controller(struct net_device *dev)
+> +{
+> +       struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+> +
+> +       disable_irq(priv->t_irq);
+> +       mpc52xx_fec_tx_interrupt(priv->t_irq, dev);
+> +       enable_irq(priv->t_irq);
+> +       disable_irq(priv->r_irq);
+> +       mpc52xx_fec_rx_interrupt(priv->r_irq, dev);
+> +       enable_irq(priv->r_irq);
+> +}
+> +#endif
+> +
+> +
+>  /* This handles BestComm transmit task interrupts
+>  */
+>  static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
+> @@ -926,6 +941,9 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+>        ndev->tx_timeout        = mpc52xx_fec_tx_timeout;
+>        ndev->watchdog_timeo    = FEC_WATCHDOG_TIMEOUT;
+>        ndev->base_addr         = mem.start;
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +       ndev->poll_controller = mpc52xx_fec_poll_controller;
+> +#endif
+>
+>        priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
+>
+>
+>
 
---=20
-perl -e '$x=3D2.4;print sprintf("%.0f + %.0f =3D %.0f\n",$x,$x,$x+$x);'
 
+
+-- 
+Jon Smirl
+jonsmirl@gmail.com
