@@ -1,50 +1,48 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/4][RFC] netns: sysfs: add a netns suffix to net device sysfs entries
-Date: Wed, 22 Oct 2008 14:08:26 -0700
-Message-ID: <m17i80l4mt.fsf@frodo.ebiederm.org>
-References: <20081022152144.351965414@theryb.frec.bull.fr>
-	<20081022201601.GC24959@suse.de>
+From: Yves-Alexis Perez <corsac@debian.org>
+Subject: Re: e1000e fails after several S3 resumes (2.6.26 Debian, TP T60)
+Date: Wed, 22 Oct 2008 23:15:29 +0200
+Message-ID: <1224710129.4883.6.camel@hidalgo>
+References: <E1KsjH5-0007Mg-0R@approx.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Thery <benjamin.thery@bull.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dave Miller <davem@davemloft.net>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.linux-foundation.org>
-To: Greg KH <gregkh@suse.de>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-X1YPMMl11FYla2QO8JAf"
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	linux-kernel@vger.kernel.org, NetDEV list <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net
+To: Sanjoy Mahajan <sanjoy@MIT.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:36540 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753678AbYJVVOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 17:14:34 -0400
-In-Reply-To: <20081022201601.GC24959@suse.de> (Greg KH's message of "Wed, 22
-	Oct 2008 13:16:01 -0700")
+Received: from smtp6-g19.free.fr ([212.27.42.36]:43517 "EHLO smtp6-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751575AbYJVVRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2008 17:17:09 -0400
+In-Reply-To: <E1KsjH5-0007Mg-0R@approx.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg KH <gregkh@suse.de> writes:
 
-> On Wed, Oct 22, 2008 at 05:21:44PM +0200, Benjamin Thery wrote:
->> Network devices from sub-network namespaces appear in sysfs
->> with a name that looks like this: device_name@netns_id
->> eg: lo@3, eth0@4e
->
-> How does the default udev rules as shipped by most distros handle the
-> renaming of the network device if the MAC address is duplicated like it
-> will be for these eth devices?
+--=-X1YPMMl11FYla2QO8JAf
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-The mac address is not duplicated.
+On mer, 2008-10-22 at 15:21 -0400, Sanjoy Mahajan wrote:
+> It has BIOS 2.20 (79ETE3WW), the latest version when I last upgraded
+> the
+> BIOS, but I see that 2.23 is available.  I'll upgrade as soon as I
+> remember how on a Windowless (TM) machine.
 
-Further devices like eth0@4e are completely unusable to the udev
-rules in the initial network namespace because they can not talk
-to or affect them.
+Just pick the bootable cdrom
+--=20
+Yves-Alexis
 
-As I read it Ben's ``solution'' puts entries in sysfs that are
-completely unusable to udev.
+--=-X1YPMMl11FYla2QO8JAf
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Eric
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
+iEYEABECAAYFAkj/l+wACgkQTUTAIMXAW64JhwCfdocy4Y081it8CN4gpqcIvUZs
+f+wAn3qnvC1B6D8YKm3+Z4c0Buq41Re+
+=cjGN
+-----END PGP SIGNATURE-----
+
+--=-X1YPMMl11FYla2QO8JAf--
