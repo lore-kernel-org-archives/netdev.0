@@ -1,49 +1,94 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] USB: remove info() macro from usb network drivers
-Date: Wed, 22 Oct 2008 09:16:03 -0700
-Message-ID: <20081022161603.GC29489@kroah.com>
-References: <20081010051624.GA32711@kroah.com> <48FF094C.6040806@pobox.com>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: e1000e fails after several S3 resumes (2.6.26
+	Debian, TP T60)
+Date: Wed, 22 Oct 2008 09:29:21 -0700
+Message-ID: <4807377b0810220929v5906b42bgf9d63215370e5ab5@mail.gmail.com>
+References: <E1Ksdli-0005Os-MP@approx.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:51642 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757230AbYJVQT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2008 12:19:27 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, NetDEV list <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: "Sanjoy Mahajan" <sanjoy@mit.edu>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <E1Ksdli-0005Os-MP@approx.mit.edu>
 Content-Disposition: inline
-In-Reply-To: <48FF094C.6040806@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 22, 2008 at 07:06:52AM -0400, Jeff Garzik wrote:
-> Greg KH wrote:
->> From: Greg Kroah-Hartman <gregkh@suse.de>
->> USB should not be having it's own printk macros, so remove info() and
->> use the system-wide standard of dev_info() wherever possible.
->> Cc: Jeff Garzik <jgarzik@pobox.com>
->> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
->> ---
->> Jeff, this has been in the USB tree for a few months now, sorry for not
->> sending it to you sooner.  I can easily keep it in my tree and send it
->> to Linus for this merge if you want me to, or you can take it in your
->> tree, which ever you want me to do.
->> thanks,
->> greg k-h
->>  drivers/net/irda/kingsun-sir.c  |    3 ++-
->>  drivers/net/irda/ks959-sir.c    |    3 ++-
->>  drivers/net/irda/ksdazzle-sir.c |    3 ++-
->>  drivers/net/irda/stir4200.c     |    8 +++++---
->>  drivers/net/usb/catc.c          |    3 ++-
->>  drivers/net/usb/kaweth.c        |   19 ++++++++++---------
->>  drivers/net/usb/rtl8150.c       |   15 +++++++++------
->>  7 files changed, 32 insertions(+), 22 deletions(-)
+added netdev, and maintainer's list.
+
+On Wed, Oct 22, 2008 at 6:28 AM, Sanjoy Mahajan <sanjoy@mit.edu> wrote:
+> Once in a while after resuming from S3 sleep, the Ethernet driver
+> gets confused, whereupon dhcp'ing for an IP address fails, e.g.
 >
-> post-vacation ACK, feel free to send via your tree if you wish
+>  /* doing the dhcp: */
+>  Listening on LPF/eth0/00:16:41:52:50:de
+>  Sending on   LPF/eth0/00:16:41:52:50:de
+>  Sending on   Socket/fallback
+>  DHCPDISCOVER on eth0 to 255.255.255.255 port 67 interval 7
+>  /* and so on with various intervals */
 
-Already did, hope your vacation was nice :)
+ethtool -d ethX at this point might be interesting, also we have a
+debug tool called ethregs that dumps all the registers of the adapter
+that would help isolate the difference in the hardware configuration.
+run it once you've hung after sending a few dhcp, and then again after
+you reload the driver and things are working. You can download ethregs
+at prdownloads.sourceforge.net/e1000
 
-thanks,
+you'll have to build ethregs which I haven't tried to do on debian,
+but it should be possible.
 
-greg k-h
+> I workaround it with
+>
+>  modprobe -rv e1000e ; modprobe -v e1000e
+> (the '-v' options to make sure the module does vanish and return)
+
+an ethtool -r eth0 might be sufficient.
+
+> and then try again to get an address, which works.  A similar failure
+> mode happens with the iwl3945 driver (and a similar workaround usually
+> succeeds).
+>
+> How can I debug this issue the next time that it happens (it's about
+> once every two weeks)?  Using 'ethtool' or 'lspci -vvvv'?
+
+yes... :-)
+
+>  $ uname -a
+>  Linux approx 2.6.26-1-686 #1 SMP Thu Oct 9 15:18:09 UTC 2008 i686 GNU/Linux
+>
+> It's Debian unstable's kernel 2.6.26 based on 2.6.26.4.  The laptop is a
+> Thinkpad T60 whose network controllers are given by lspci as
+>
+>  02:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet Controller
+>  03:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG [Golan] Network Connection (rev 02)
+>
+> Could it be caused by the kernel (and modules) getting upgraded
+> underneath a running system?  In which case I'll just 'not do that
+> again' as the simplest fix, and reboot after a kernel upgrade.  My
+> installed kernel is based on 2.6.26.6, but the running kernel is based
+> on 2.6.26.4 [where based on means 'with Debian's patches'].
+
+no, if the kernel version changes, the modules that go with it are
+only compatible with that version and would not be loaded
+accidentally.  Also, e1000e does not get unloaded during S3 suspend,
+but we do take a different init path.
+
+There is also lots of opportunity for BIOS bugs to be effecting things
+so please make sure that you have the latest bios.
+
+Jesse
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
