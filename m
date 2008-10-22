@@ -1,8 +1,8 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 1/4] netns: add in ida ID to identify the network namespace
-Date: Wed, 22 Oct 2008 17:21:54 +0200
-Message-ID: <20081022152144.562569159@theryb.frec.bull.fr>
-References: <20081022152144.351965414@theryb.frec.bull.fr>
+Subject: [PATCH 0/4][RFC] netns: sysfs: add a netns suffix to net device
+ sysfs entries
+Date: Wed, 22 Oct 2008 17:21:44 +0200
+Message-ID: <20081022152144.351965414@theryb.frec.bull.fr>
 Cc: Eric Biederman <ebiederm@xmission.com>,
 	Greg Kroah-Hartman <gregkh@suse.de>,
 	Al Viro <viro@ftp.linux.org.uk>,
@@ -14,95 +14,68 @@ Cc: Eric Biederman <ebiederm@xmission.com>,
 	Benjamin Thery <benjamin.thery@bull.net>
 To: netdev <netdev@vger.kernel.org>, Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:36914 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:36860 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753843AbYJVPXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 11:23:22 -0400
+	with ESMTP id S1751131AbYJVPXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 11:23:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds in 'id' member to struct net. This member contains an
-IDA ID. The id is allocated at netns creation. 
 
-This id will be used to 'tag' net devices belonging to network namespace
-in sysfs (in order to allow registration of net devices with the same name 
-in different network namespace: see last patch for the details).
+Support for network namespaces in mainline is pretty complete for
+some time now, but there is still this issue with sysfs that prevents 
+more people to use it easily.
 
-The advantage of IDA IDs over using the netns pointer is the id values
-are small starting at 0, thus they requires less bytes to be displayed
-(we are limited to 3 characters: again see last patch for the details). 
-And they stay small as they are recycled when IDs are freed (unless you
-have thousands of netns running on your host).
+Reminder for those not aware of the netns/sysfs issue:
 
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-Acked-by: Serge Hallyn <serue@us.ibm.com>
----
- include/net/net_namespace.h |    2 ++
- net/core/net_namespace.c    |   24 ++++++++++++++++++++++++
- 2 files changed, 26 insertions(+)
+With network namespaces, the kernel must be able to support net devices
+with the same name in different network namespaces: the most obvious 
+example being the loopback device, which exists in every namespace. 
+The remaining place where this doesn't work yet is sysfs.
 
-Index: net-next-2.6/include/net/net_namespace.h
-===================================================================
---- net-next-2.6.orig/include/net/net_namespace.h
-+++ net-next-2.6/include/net/net_namespace.h
-@@ -75,6 +75,8 @@ struct net {
- #endif
- #endif
- 	struct net_generic	*gen;
-+
-+	int			id;
- };
- 
- 
-Index: net-next-2.6/net/core/net_namespace.c
-===================================================================
---- net-next-2.6.orig/net/core/net_namespace.c
-+++ net-next-2.6/net/core/net_namespace.c
-@@ -26,6 +26,16 @@ EXPORT_SYMBOL(init_net);
- #define INITIAL_NET_GEN_PTRS	13 /* +1 for len +2 for rcu_head */
- 
- /*
-+ * IDs allocated from this ida are used as a suffix in sysfs to tag
-+ * devices belonging to each netns (other than init_net).
-+ * Only 4 characters are left to store a separator plus this tag in sysfs
-+ * (BUS_ID_SIZE-IFNAMSIZ)
-+ * Thus, this limits us to 4095 ("FFF") simultaneous network namespaces.
-+ */
-+static DEFINE_IDA(net_id_ida);
-+#define NET_ID_MAX 0xFFF
-+
-+/*
-  * setup_net runs the initializers for the network namespace object.
-  */
- static __net_init int setup_net(struct net *net)
-@@ -40,7 +50,20 @@ static __net_init int setup_net(struct n
- 	atomic_set(&net->use_count, 0);
- #endif
- 
-+	/* Get an ID */
-+again:
-+	error = ida_get_new(&net_id_ida, &net->id);
-+	if (error) {
-+		if (error == -EAGAIN) {
-+			ida_pre_get(&net_id_ida, GFP_KERNEL);
-+			goto again;
-+		}
-+		goto out;
-+	}
- 	error = -ENOMEM;
-+	if (net->id > NET_ID_MAX)
-+		goto out;
-+
- 	ng = kzalloc(sizeof(struct net_generic) +
- 			INITIAL_NET_GEN_PTRS * sizeof(void *), GFP_KERNEL);
- 	if (ng == NULL)
-@@ -97,6 +120,7 @@ static void net_free(struct net *net)
- 	}
- #endif
- 
-+	ida_remove(&net_id_ida, net->id);
- 	kmem_cache_free(net_cachep, net);
- }
- 
+In the last 12 months, Eric Biederman proposed different approaches
+to support this and sent several patchsets to implement what he calls
+"sysfs tagged directories". But unfortunately, there is still no 
+agreement on the patchset and its implementation.
+
+See last round of comments there: 
+http://thread.gmane.org/gmane.linux.kernel/735612/focus=740050
+
+So, currently testing network namespaces on a mainline kernel is a
+pain and involves either to disable sysfs completely (argh) or to find
+and manually apply Eric's latest patchset (was in gregkh's tree for a 
+short time, but unfortunately it was dumped out a few a weeks ago).
+
+
+This patchset explores an alternative suggested by Serge Hallyn
+to  *temporarily*  fix this issue. It introduces the modifications 
+needed to register in sysfs, the network devices belonging to child
+network namespaces with a suffix appended to their name to avoid 
+potential conflicts.
+
+http://thread.gmane.org/gmane.linux.kernel/735612/focus=741757
+
+Network devices from the initial network namespace are untouched.
+Their representation in sysfs (/sys/class/net/, ...) is unchanged.
+
+Network devices from sub-network namespaces appear in sysfs
+with a name that looks like this: device_name@netns_id
+eg: lo@3, eth0@4e
+
+See last patch of the series for the details.
+
+Then, if needed in the child network namespace, we can filter 
+/sys/class/net contents with, for example:
+
+* mount -t tmpfs /sys/class/net 
+* and  manually link the right devices from /sys/devices/virtual/net
+  (ln -s ../../devices/virtual/net/lo@1 lo)
+
+This is less elegant than Eric's approach, but is quite simple and 
+doesn't touch sysfs core code.
+
+This patch applies on top of net-next-2.6.
+
+Benjamin
 
 -- 
