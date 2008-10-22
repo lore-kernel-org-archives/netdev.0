@@ -1,8 +1,8 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH] pkt_sched: sch_netem: Limit packet re-ordering functionality
  to tfifo qdisc.
-Date: Wed, 22 Oct 2008 17:57:57 +0200
-Message-ID: <48FF4D85.7050700@trash.net>
+Date: Wed, 22 Oct 2008 18:00:06 +0200
+Message-ID: <48FF4E06.8040505@trash.net>
 References: <20081017130333.GA8297@ff.dom.local>	<48F89D33.9090809@trash.net>	<20081017201210.GA2527@ami.dom.local> <20081021.163605.57275028.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
@@ -11,13 +11,15 @@ Cc: jarkao2@gmail.com, netdev@vger.kernel.org,
 	herbert@gondor.apana.org.au, shemminger@vyatta.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55849 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:55908 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbYJVP6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 11:58:00 -0400
+	with ESMTP id S1751460AbYJVQAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 12:00:08 -0400
 In-Reply-To: <20081021.163605.57275028.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+[Damn hotkeys for sending incomplete mails :)]
 
 David Miller wrote:
 > From: Jarek Poplawski <jarkao2@gmail.com>
@@ -42,14 +44,8 @@ David Miller wrote:
 > ->requeue() business?
 
 I fully agree, keeping all the ->requeue crap around just for this
-cornercase doesn't seem like a good decision. Most of the ->requeu
-
-> sch_netem is just a black box, like any other packet scheduler node in
-> the tree, and so it can internally do the reordering with a self managed
-> packet list or similar.  All of this can be hidden inside of it's ->dequeue()
-> with some pkt_sch watchdog timer that fires to prevent stale packets sitting
-> in the reorder queue forever.
-> 
-> Anyways, just and idea and RFC, just like this patch ;-)
-> 
-
+cornercase doesn't seem like a good decision. Most of the ->requeue
+functions are completely inconsistent in their behaviour anyways:
+some undo ->enqueue state changes (which is obviously broken for
+netem), some don't, some redo checks from ->enqueue (necessary for
+netem), some don't (TBF), ...
