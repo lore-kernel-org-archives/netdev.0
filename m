@@ -1,45 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC 1/2] igb: statistic optimization
-Date: Wed, 22 Oct 2008 10:37:44 -0700
-Message-ID: <48FF64E8.4050907@hp.com>
-References: <20081021120935.1b3cea8d@extreme>
-	<Pine.WNT.4.63.0810211224440.2736@jbrandeb-desk.amr.corp.intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC] pkt_sched: sch_netem: Limit packet re-ordering
+	functionality to tfifo qdisc.
+Date: Wed, 22 Oct 2008 19:53:21 +0200
+Message-ID: <20081022175321.GA2710@ami.dom.local>
+References: <20081017130333.GA8297@ff.dom.local> <48F89D33.9090809@trash.net> <20081017201210.GA2527@ami.dom.local> <20081021.163605.57275028.davem@davemloft.net> <20081021165129.422dd83f@extreme> <20081022053746.GA4178@ff.dom.local> <48FF4E38.9010806@trash.net> <20081022164925.GB2556@ami.dom.local> <48FF6392.5000305@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"jeffery.t.kirsher@intel.com" <jeffery.t.kirsher@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <Pine.WNT.4.63.0810211224440.2736@jbrandeb-desk.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.26]:6202 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760791AbYJVRwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 13:52:43 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so1023686eyi.37
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 10:52:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <48FF6392.5000305@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I don't think you want to put this in the code that can be called directly 
-> from IOCTL from userspace.  This function can take a lot of cycles and 
-> some silly applications like gkrellm call it quite frequently.  The 
-> update_stats function will be called as part of the watchdog anyway, and 
-> you already got the interesting stats for realtime with the tx and rx 
-> bytes/packets.
+On Wed, Oct 22, 2008 at 07:32:02PM +0200, Patrick McHardy wrote:
+...
+> Well, you're doing the work, so you decide. I'm undecided myself,
+> the main issues I see are:
 
-On the flip side aren't there "out of phase" issues with pulling stats 
-based on a timer vs something like a netstat -i 1 command?
+Well, I've only tried to finish David's "Killing qdisc->ops->requeue()",
+which I had broken before. Then somebody framed me into this ->peek()
+/netem thing...
 
-rick jones
+...
+> So actually I am decided :) I think netem shouldn't be classful.
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+OK, I added RFC to the subject.
+
+Jarek P.
