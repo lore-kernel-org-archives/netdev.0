@@ -1,48 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: IP-less bridge as a martian source
-Date: Wed, 22 Oct 2008 19:36:08 +0200
-Message-ID: <48FF6488.8050109@gmail.com>
-References: <87tzb6nodj.fsf@tac.ki.iif.hu> <87wsg0wu78.fsf@tac.ki.iif.hu> <48FF614C.7020507@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC 1/2] igb: statistic optimization
+Date: Wed, 22 Oct 2008 10:37:44 -0700
+Message-ID: <48FF64E8.4050907@hp.com>
+References: <20081021120935.1b3cea8d@extreme>
+	<Pine.WNT.4.63.0810211224440.2736@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ferenc Wagner <wferi@niif.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:43001 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757018AbYJVRff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 13:35:35 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1480124nfc.21
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 10:35:33 -0700 (PDT)
-In-Reply-To: <48FF614C.7020507@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"jeffery.t.kirsher@intel.com" <jeffery.t.kirsher@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <Pine.WNT.4.63.0810211224440.2736@jbrandeb-desk.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote, On 10/22/2008 07:22 PM:
+> I don't think you want to put this in the code that can be called directly 
+> from IOCTL from userspace.  This function can take a lot of cycles and 
+> some silly applications like gkrellm call it quite frequently.  The 
+> update_stats function will be called as part of the watchdog anyway, and 
+> you already got the interesting stats for realtime with the tx and rx 
+> bytes/packets.
 
-> Ferenc Wagner wrote, On 10/22/2008 05:00 PM:
-> 
->> Ferenc Wagner <wferi@niif.hu> writes:
->>
->>> I expected an IP-less bridge interface to pick up no IP packets, but
->>> apparently this isn't the case: broadcast packets with destination
->>> address 255.255.255.255 are reported as martians by the 2.6.1
+On the flip side aren't there "out of phase" issues with pulling stats 
+based on a timer vs something like a netstat -i 1 command?
 
-...
+rick jones
 
->>>   2. I tried to cut down the logs by explicit iptables drops, but
->>>      didn't succeed.  Does martian detection happen before the
->>>      netfilter rules?  (I know I can disable martian logging by
->>>      interface, but wanted finer granularity.)
-> 
-> 
-> It's after netfilter's PREROUTING. (BTW, it's also after ingress
-> qdisc where you can try some filtering.)
-
-
-On the other hand, if it's a bridge, you should probably have a look
-at ebtables instead of iptables.
- 
-
-Jarek P.
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
