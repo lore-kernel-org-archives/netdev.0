@@ -1,37 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: rfc conformance fixes
-Date: Wed, 22 Oct 2008 16:48:34 -0700 (PDT)
-Message-ID: <20081022.164834.08272239.davem@davemloft.net>
-References: <48FF249C.5040207@hp.com>
-	<200810230954.02499.jk@ozlabs.org>
-	<20081022.164636.143240158.davem@davemloft.net>
+From: Sven Hartge <sven@svenhartge.de>
+Subject: [PATCH] via-velocity: earlier name allocation
+Date: Thu, 23 Oct 2008 01:24:25 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.0810230114180.17076@ds9.feds.ath.cx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, netdev@vger.kernel.org
-To: jk@ozlabs.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753362AbYJVXs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 19:48:57 -0400
-In-Reply-To: <20081022.164636.143240158.davem@davemloft.net>
+Received: from svenhartge.de ([81.169.140.245]:39782 "EHLO svenhartge.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752339AbYJVXxE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2008 19:53:04 -0400
+Received: from ds9.argh.org ([10.19.78.3])
+	by svenhartge.de with esmtp (Exim 4.69)
+	(envelope-from <sven@svenhartge.de>)
+	id 1Ksn3y-0005sB-Vz
+	for netdev@vger.kernel.org; Thu, 23 Oct 2008 01:24:27 +0200
+Received: from localhost ([127.0.0.1] ident=oweh)
+	by ds9.feds.ath.cx with esmtps (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <sven@svenhartge.de>)
+	id 1Ksn3y-0003qi-IK
+	for netdev@vger.kernel.org; Thu, 23 Oct 2008 01:24:26 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 22 Oct 2008 16:46:36 -0700 (PDT)
+Hi.
 
-> From: Jeremy Kerr <jk@ozlabs.org>
-> Date: Thu, 23 Oct 2008 09:54:02 +1100
-> 
-> > > Oddly enough, none of this series made it to patchwork.
-> > 
-> > I'll chase this up then - could you formward a copy of one of the 
-> > messages after it has come through the list?
-> 
-> Here is one of them.
+This is my first attempt at a kernel patch ever, so please be gentle :)
+(And please CC me, as I am not subscribed to netdev.)
 
-Sorry, I'm a bozo, that was a copy that made it privately to me.
+This patch corrects a cosmetic bug in the via-velocity driver which 
+bothered me for some time.
 
-I don't have any copies in my inbox that came via vger.
+The messages printed during device init look like the following:
+
+[    8.486422] eth%d: set value of parameter Wake On Lan options to 0
+                  ^^!
+[    8.487340] eth0: VIA Networking Velocity Family Gigabit Ethernet Adapter
+
+Note the unresolved format string.
+
+I just copied and adapted the name allocation code from register_netdev 
+and call it before the first use of dev->name 
+
+Even if my attempt is incorrect, it should give you an idea what needs 
+fixing here.
+
+Signed-off-by: Sven Hartge <sven@svenhartge.de>
+
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 2dced38..15f2c19 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -934,6 +934,16 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = readb(&regs->PAR[i]);
+ 
++	/*
++	 *  Do name allocation.
++	 */
++
++	if (strchr(dev->name, '%')) {
++		ret = dev_alloc_name(dev, dev->name);
++			if (ret < 0)
++				dev_err(&pdev->dev, "Name allocation failed.\n");
++				goto err_disable;
++	}
+ 
+ 	velocity_get_options(&vptr->options, velocity_nics, dev->name);
+ 
+
+
