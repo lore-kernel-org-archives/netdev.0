@@ -1,324 +1,147 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: net: Fix disjunct computation of netdev features
-Date: Wed, 22 Oct 2008 16:12:27 +0800
-Message-ID: <20081022081227.GA25276@gondor.apana.org.au>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i cannot
+ navigate
+Date: Wed, 22 Oct 2008 13:00:01 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0810221244390.7072@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+ <20081021201857.08faf0a7@topolino> <20081021184539.GA3320@ami.dom.local>
+ <20081021.163207.157978465.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1227150675-1224669511=:7072"
+Cc: jarkao2@gmail.com, sentiniate@tiscali.it,
+	Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org, olon@verizon.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43223 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751314AbYJVIMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 04:12:32 -0400
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:50450 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755877AbYJVKB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 06:01:28 -0400
+In-Reply-To: <20081021.163207.157978465.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0810221258470.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-net: Fix disjunct computation of netdev features
+---696208474-1227150675-1224669511=:7072
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0810221258471.7072@wrl-59.cs.helsinki.fi>
 
-My change
+On Tue, 21 Oct 2008, David Miller wrote:
 
-    commit e2a6b85247aacc52d6ba0d9b37a99b8d1a3e0d83
-    net: Enable TSO if supported by at least one device
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Tue, 21 Oct 2008 20:45:39 +0200
+> 
+> > On Tue, Oct 21, 2008 at 08:18:57PM +0200, Aldo Maggi wrote:
+> > ...
+> > > i've compiled 2.6.27.2 source after having patched it with your today's
+> > > patch.
+> > > 
+> > > it works! i.e. i can navigate (w3m kernel.org) and update (apt-get
+> > > update)
+> > 
+> > Ilpo, I should say you're incredible! ...But, since I've promised to
+> > myself not to disturb you anymore (again), I can't do this, sorry :-(
+> 
+> Indeed, excellent work Ilpo.
+> 
+> Ilpo, now that we know this fixes things for sure, could you submit
+> this formally with a proper signoff?
+> 
+> I'll queue it up for -stable too.
+> 
+> Thanks!
 
-didn't do what was intended because the netdev_compute_features
-function was designed for conjunctions.  So what happened was that
-it would simply take the TSO status of the last constituent device.
+Sure, here below is one with a warning (it's the first patch + comment).
 
-This patch extends it to support both conjunctions and disjunctions
-under the new name of netdev_increment_features.
+Olon, can you please check this as well if it affect to your case too 
+(though the symptoms were not that clear in your case).
 
-It also adds a new function netdev_fix_features which does the
-sanity checking that usually occurs upon registration.  This ensures
-that the computation doesn't result in an illegal combination
-since this checking is absent when the change is initiated via
-ethtool.
+It would be nice for Aldo to check what the result will be with my second 
+patch (only) using sack=1,ts=0,wscale=0. I guess it does but it's a bit 
+unclear if nop's in front help or not (having the patch below should 
+anyway help also in that case as the mss option gets moved before it 
+anyway).
 
-The two users of netdev_compute_features have been converted.
+--
+[PATCH] tcp: Restore ordering of TCP options for the sake of inter-operability
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+This is not our bug! Sadly some devices cannot cope with the change
+of TCP option ordering which was a result of the recent rewrite of
+the option code (not that there was some particular reason steming
+from the rewrite for the reordering) though any ordering of TCP
+options is perfectly legal. Thus we restore the original ordering
+to allow interoperability with/through such broken devices and add
+some warning about this trap. Since the reordering just happened
+without any particular reason, this change shouldn't cost us
+anything.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8e2be24..832739f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1341,18 +1341,24 @@ static int bond_compute_features(struct bonding *bond)
- 	int i;
+There are already couple of known failure reports (within close
+proximity of the last release), so the problem might be more
+wide-spread than a single device. And other reports which may
+be due to the same problem though the symptoms were less obvious.
+Analysis of one of the case revealed (with very high probability)
+that sack capability cannot be negotiated as the first option
+(SYN never got a response).
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Reported-by: Aldo Maggi <sentiniate@tiscali.it>
+Tested-by: Aldo Maggi <sentiniate@tiscali.it>
+---
+ net/ipv4/tcp_output.c |   23 +++++++++++++++++------
+ 1 files changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index de54f02..e4c5ac9 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -362,6 +362,17 @@ struct tcp_out_options {
+ 	__u32 tsval, tsecr;	/* need to include OPTION_TS */
+ };
  
- 	features &= ~(NETIF_F_ALL_CSUM | BOND_VLAN_FEATURES);
--	features |= NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
--		    NETIF_F_GSO_MASK | NETIF_F_NO_CSUM;
-+	features |=  NETIF_F_GSO_MASK | NETIF_F_NO_CSUM;
-+
-+	if (!bond->first_slave)
-+		goto done;
-+
-+	features &= ~NETIF_F_ONE_FOR_ALL;
- 
- 	bond_for_each_slave(bond, slave, i) {
--		features = netdev_compute_features(features,
--						   slave->dev->features);
-+		features = netdev_increment_features(features,
-+						     slave->dev->features,
-+						     NETIF_F_ONE_FOR_ALL);
- 		if (slave->dev->hard_header_len > max_hard_header_len)
- 			max_hard_header_len = slave->dev->hard_header_len;
++/* Beware: Something in the Internet is very sensitive to the ordering of
++ * TCP options, we learned this through the hard way, so be careful here.
++ * Luckily we can at least blame others for their non-compliance but from
++ * inter-operatibility perspective it seems that we're somewhat stuck with
++ * the ordering which we have been using if we want to keep working with
++ * those broken things (not that it currently hurts anybody as there isn't
++ * particular reason why the ordering would need to be changed).
++ *
++ * At least SACK_PERM as the first option is known to lead to a disaster
++ * (but it may well be that other scenarios fail similarly).
++ */
+ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 			      const struct tcp_out_options *opts,
+ 			      __u8 **md5_hash) {
+@@ -376,6 +387,12 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 		*md5_hash = NULL;
  	}
  
-+done:
- 	features |= (bond_dev->features & BOND_VLAN_FEATURES);
--	bond_dev->features = features;
-+	bond_dev->features = netdev_fix_features(features, NULL);
- 	bond_dev->hard_header_len = max_hard_header_len;
- 
- 	return 0;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6487585..c8bcb59 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -541,6 +541,14 @@ struct net_device
- #define NETIF_F_V6_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
- #define NETIF_F_ALL_CSUM	(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
- 
-+	/*
-+	 * If one device supports one of these features, then enable them
-+	 * for all in netdev_increment_features.
-+	 */
-+#define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
-+				 NETIF_F_SG | NETIF_F_HIGHDMA | \
-+				 NETIF_F_FRAGLIST)
++	if (unlikely(opts->mss)) {
++		*ptr++ = htonl((TCPOPT_MSS << 24) |
++			       (TCPOLEN_MSS << 16) |
++			       opts->mss);
++	}
 +
- 	/* Interface index. Unique device identifier	*/
- 	int			ifindex;
- 	int			iflink;
-@@ -1698,7 +1706,9 @@ extern char *netdev_drivername(const struct net_device *dev, char *buffer, int l
- 
- extern void linkwatch_run_queue(void);
- 
--extern int netdev_compute_features(unsigned long all, unsigned long one);
-+unsigned long netdev_increment_features(unsigned long all, unsigned long one,
-+					unsigned long mask);
-+unsigned long netdev_fix_features(unsigned long features, const char *name);
- 
- static inline int net_gso_ok(int features, int gso_type)
- {
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 22ba863..6c023f0 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -179,5 +179,5 @@ void br_dev_setup(struct net_device *dev)
- 
- 	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
- 			NETIF_F_GSO_MASK | NETIF_F_NO_CSUM | NETIF_F_LLTX |
--			NETIF_F_NETNS_LOCAL;
-+			NETIF_F_NETNS_LOCAL | NETIF_F_GSO;
- }
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 573e20f..0a09ccf 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -347,15 +347,21 @@ int br_min_mtu(const struct net_bridge *br)
- void br_features_recompute(struct net_bridge *br)
- {
- 	struct net_bridge_port *p;
--	unsigned long features;
-+	unsigned long features, mask;
- 
--	features = br->feature_mask;
-+	features = mask = br->feature_mask;
-+	if (list_empty(&br->port_list))
-+		goto done;
-+
-+	features &= ~NETIF_F_ONE_FOR_ALL;
- 
- 	list_for_each_entry(p, &br->port_list, list) {
--		features = netdev_compute_features(features, p->dev->features);
-+		features = netdev_increment_features(features,
-+						     p->dev->features, mask);
+ 	if (likely(OPTION_TS & opts->options)) {
+ 		if (unlikely(OPTION_SACK_ADVERTISE & opts->options)) {
+ 			*ptr++ = htonl((TCPOPT_SACK_PERM << 24) |
+@@ -392,12 +409,6 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 		*ptr++ = htonl(opts->tsecr);
  	}
  
--	br->dev->features = features;
-+done:
-+	br->dev->features = netdev_fix_features(features, NULL);
- }
- 
- /* called with RTNL */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 868ec0b..48135b4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3947,6 +3947,46 @@ static void netdev_init_queue_locks(struct net_device *dev)
- 	__netdev_init_queue_locks_one(dev, &dev->rx_queue, NULL);
- }
- 
-+unsigned long netdev_fix_features(unsigned long features, const char *name)
-+{
-+	/* Fix illegal SG+CSUM combinations. */
-+	if ((features & NETIF_F_SG) &&
-+	    !(features & NETIF_F_ALL_CSUM)) {
-+		if (name)
-+			printk(KERN_NOTICE "%s: Dropping NETIF_F_SG since no "
-+			       "checksum feature.\n", name);
-+		features &= ~NETIF_F_SG;
-+	}
-+
-+	/* TSO requires that SG is present as well. */
-+	if ((features & NETIF_F_TSO) && !(features & NETIF_F_SG)) {
-+		if (name)
-+			printk(KERN_NOTICE "%s: Dropping NETIF_F_TSO since no "
-+			       "SG feature.\n", name);
-+		features &= ~NETIF_F_TSO;
-+	}
-+
-+	if (features & NETIF_F_UFO) {
-+		if (!(features & NETIF_F_GEN_CSUM)) {
-+			if (name)
-+				printk(KERN_ERR "%s: Dropping NETIF_F_UFO "
-+				       "since no NETIF_F_HW_CSUM feature.\n",
-+				       name);
-+			features &= ~NETIF_F_UFO;
-+		}
-+
-+		if (!(features & NETIF_F_SG)) {
-+			if (name)
-+				printk(KERN_ERR "%s: Dropping NETIF_F_UFO "
-+				       "since no NETIF_F_SG feature.\n", name);
-+			features &= ~NETIF_F_UFO;
-+		}
-+	}
-+
-+	return features;
-+}
-+EXPORT_SYMBOL(netdev_fix_features);
-+
- /**
-  *	register_netdevice	- register a network device
-  *	@dev: device to register
-@@ -4032,36 +4072,7 @@ int register_netdevice(struct net_device *dev)
- 		dev->features &= ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM|NETIF_F_HW_CSUM);
- 	}
- 
--
--	/* Fix illegal SG+CSUM combinations. */
--	if ((dev->features & NETIF_F_SG) &&
--	    !(dev->features & NETIF_F_ALL_CSUM)) {
--		printk(KERN_NOTICE "%s: Dropping NETIF_F_SG since no checksum feature.\n",
--		       dev->name);
--		dev->features &= ~NETIF_F_SG;
+-	if (unlikely(opts->mss)) {
+-		*ptr++ = htonl((TCPOPT_MSS << 24) |
+-			       (TCPOLEN_MSS << 16) |
+-			       opts->mss);
 -	}
 -
--	/* TSO requires that SG is present as well. */
--	if ((dev->features & NETIF_F_TSO) &&
--	    !(dev->features & NETIF_F_SG)) {
--		printk(KERN_NOTICE "%s: Dropping NETIF_F_TSO since no SG feature.\n",
--		       dev->name);
--		dev->features &= ~NETIF_F_TSO;
--	}
--	if (dev->features & NETIF_F_UFO) {
--		if (!(dev->features & NETIF_F_HW_CSUM)) {
--			printk(KERN_ERR "%s: Dropping NETIF_F_UFO since no "
--					"NETIF_F_HW_CSUM feature.\n",
--							dev->name);
--			dev->features &= ~NETIF_F_UFO;
--		}
--		if (!(dev->features & NETIF_F_SG)) {
--			printk(KERN_ERR "%s: Dropping NETIF_F_UFO since no "
--					"NETIF_F_SG feature.\n",
--					dev->name);
--			dev->features &= ~NETIF_F_UFO;
--		}
--	}
-+	dev->features = netdev_fix_features(dev->features, dev->name);
- 
- 	/* Enable software GSO if SG is supported. */
- 	if (dev->features & NETIF_F_SG)
-@@ -4700,49 +4711,45 @@ static int __init netdev_dma_register(void) { return -ENODEV; }
- #endif /* CONFIG_NET_DMA */
- 
- /**
-- *	netdev_compute_feature - compute conjunction of two feature sets
-- *	@all: first feature set
-- *	@one: second feature set
-+ *	netdev_increment_features - increment feature set by one
-+ *	@all: current feature set
-+ *	@one: new feature set
-+ *	@mask: mask feature set
-  *
-  *	Computes a new feature set after adding a device with feature set
-- *	@one to the master device with current feature set @all.  Returns
-- *	the new feature set.
-+ *	@one to the master device with current feature set @all.  Will not
-+ *	enable anything that is off in @mask. Returns the new feature set.
-  */
--int netdev_compute_features(unsigned long all, unsigned long one)
--{
--	/* if device needs checksumming, downgrade to hw checksumming */
--	if (all & NETIF_F_NO_CSUM && !(one & NETIF_F_NO_CSUM))
--		all ^= NETIF_F_NO_CSUM | NETIF_F_HW_CSUM;
--
--	/* if device can't do all checksum, downgrade to ipv4/ipv6 */
--	if (all & NETIF_F_HW_CSUM && !(one & NETIF_F_HW_CSUM))
--		all ^= NETIF_F_HW_CSUM
--			| NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
--
--	if (one & NETIF_F_GSO)
--		one |= NETIF_F_GSO_SOFTWARE;
--	one |= NETIF_F_GSO;
--
--	/*
--	 * If even one device supports a GSO protocol with software fallback,
--	 * enable it for all.
--	 */
--	all |= one & NETIF_F_GSO_SOFTWARE;
-+unsigned long netdev_increment_features(unsigned long all, unsigned long one,
-+					unsigned long mask)
-+{
-+	/* If device needs checksumming, downgrade to it. */
-+        if (all & NETIF_F_NO_CSUM && !(one & NETIF_F_NO_CSUM))
-+		all ^= NETIF_F_NO_CSUM | (one & NETIF_F_ALL_CSUM);
-+	else if (mask & NETIF_F_ALL_CSUM) {
-+		/* If one device supports v4/v6 checksumming, set for all. */
-+		if (one & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM) &&
-+		    !(all & NETIF_F_GEN_CSUM)) {
-+			all &= ~NETIF_F_ALL_CSUM;
-+			all |= one & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
-+		}
- 
--	/* If even one device supports robust GSO, enable it for all. */
--	if (one & NETIF_F_GSO_ROBUST)
--		all |= NETIF_F_GSO_ROBUST;
-+		/* If one device supports hw checksumming, set for all. */
-+		if (one & NETIF_F_GEN_CSUM && !(all & NETIF_F_GEN_CSUM)) {
-+			all &= ~NETIF_F_ALL_CSUM;
-+			all |= NETIF_F_HW_CSUM;
-+		}
-+	}
- 
--	all &= one | NETIF_F_LLTX;
-+	one |= NETIF_F_ALL_CSUM;
- 
--	if (!(all & NETIF_F_ALL_CSUM))
--		all &= ~NETIF_F_SG;
--	if (!(all & NETIF_F_SG))
--		all &= ~NETIF_F_GSO_MASK;
-+	one |= all & NETIF_F_ONE_FOR_ALL;
-+	all &= one | NETIF_F_LLTX | NETIF_F_GSO;
-+	all |= one & mask & NETIF_F_ONE_FOR_ALL;
- 
- 	return all;
- }
--EXPORT_SYMBOL(netdev_compute_features);
-+EXPORT_SYMBOL(netdev_increment_features);
- 
- static struct hlist_head *netdev_create_hash(void)
- {
-
-Cheers,
+ 	if (unlikely(OPTION_SACK_ADVERTISE & opts->options &&
+ 		     !(OPTION_TS & opts->options))) {
+ 		*ptr++ = htonl((TCPOPT_NOP << 24) |
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.2.2
+---696208474-1227150675-1224669511=:7072--
