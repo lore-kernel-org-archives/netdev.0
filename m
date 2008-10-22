@@ -1,50 +1,79 @@
-From: Jeremy Kerr <jk@ozlabs.org>
-Subject: Re: [PATCH] sctp: rfc conformance fixes
-Date: Wed, 22 Oct 2008 16:01:27 +1100
-Message-ID: <200810221601.27588.jk@ozlabs.org>
-References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com> <1224650698.6597.32.camel@localhost.localdomain> <20081021.214725.176087242.davem@davemloft.net>
+From: Suresh Jayaraman <sjayaraman@suse.de>
+Subject: Re: [PATCH 20/32] netvm: INET reserves.
+Date: Wed, 22 Oct 2008 11:01:22 +0530
+Message-ID: <48FEBAAA.5080604@suse.de>
+References: <20081002130504.927878499@chello.nl> <20081002131609.071928149@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: mbizon@freebox.fr, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:35072 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751032AbYJVFBe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2008 01:01:34 -0400
-In-Reply-To: <20081021.214725.176087242.davem@davemloft.net>
-Content-Disposition: inline
+Received: from victor.provo.novell.com ([137.65.250.26]:46600 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044AbYJVF2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 01:28:18 -0400
+In-Reply-To: <20081002131609.071928149@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Peter,
 
-> Jeremy, patchwork doesn't try to interpret the subject line
-> at all does it?  My impression is that it simply looked for
-> patches in the email posting content and that's it.
+>>> Peter Zijlstra <a.p.zijlstra@chello.nl> 10/02/08 7:06 PM >>>
+> Add reserves for INET.
 
-That's correct - patchwork uses the content of the mail to determine if 
-it contains a patch, not the subject.
+There's a typo in this patch that results in a Oops like the one below
+when doing `sysctl -a'
 
-Patchwork does make a few modifications to the subject though - mostly 
-treatment of []-enclosed prefixes. For example, it removes [PATCH] from 
-the subject line - if it's in patchwork, it's a patch :).
+<cut>
+RIP: 0010:[<ffffffff804a0487>]  [<ffffffff804a0487>]
+__mutex_lock_slowpath+0x34/0xc9
 
-So, in this case, the following subjects:
+Call Trace:
+ [<ffffffff804a044f>] mutex_lock+0x1a/0x1e
+ [<ffffffff8044a82e>] proc_dointvec_route+0x38/0xad
+ [<ffffffff80301fce>] proc_sys_call_handler+0x91/0xb8
+ [<ffffffff802ba07e>] vfs_read+0xaa/0x153
+ [<ffffffff802ba1e3>] sys_read+0x45/0x6e
+ [<ffffffff8020c37a>] system_call_fastpath+0x16/0x1b
+ [<00007fb25e415880>] 0x7fb25e415880
 
- [RFC] fix breakage
- [PATCH,RFC] fix breakage
- [RFC,PATCH] fix breakage
- [PATCH/RFC] fix breakage
-
-will all be normalised to:
-
- [RFC] fix breakage
-
-Cheers,
+</cut>
 
 
-Jeremy
+Index: linux-2.6/net/ipv4/route.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/route.c
++++ linux-2.6/net/ipv4/route.c
 
+        /* Deprecated. Use gc_min_interval_ms */
+@@ -3271,6 +3330,15 @@ int __init ip_rt_init(void)
+    ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+    ip_rt_max_size = (rt_hash_mask + 1) * 16;
+
++#ifdef CONFIG_PROCFS
+
+Should be CONFIG_PROC_FS
+
++    mutex_init(&ipv4_route_lock);
++#endif
++
++    mem_reserve_init(&ipv4_route_reserve, "IPv4 route cache",
++            &net_rx_reserve);
++    mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++            ipv4_dst_ops.kmem_cachep, ip_rt_max_size);
++
+    devinet_init();
+    ip_fib_init();
+
+
+Thanks,
+
+-- 
+Suresh Jayaraman
