@@ -1,42 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/4][RFC] netns: sysfs: add a netns suffix to net device sysfs entries
-Date: Wed, 22 Oct 2008 12:59:29 -0700
-Message-ID: <m1d4hso0ym.fsf@frodo.ebiederm.org>
-References: <20081022152144.351965414@theryb.frec.bull.fr>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH] bonding: update docs to correctly reflect arp_ip_target
+	behavior
+Date: Wed, 22 Oct 2008 16:08:34 -0400
+Message-ID: <20081022200639.GA10873@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Dave Miller <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.linux-foundation.org>
-To: Benjamin Thery <benjamin.thery@bull.net>
+To: netdev@vger.kernel.org, fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:57958 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086AbYJVUEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 16:04:39 -0400
-In-Reply-To: <20081022152144.351965414@theryb.frec.bull.fr> (Benjamin Thery's
-	message of "Wed, 22 Oct 2008 17:21:44 +0200")
+Received: from mx2.redhat.com ([66.187.237.31]:33886 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750944AbYJVUIk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2008 16:08:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Thery <benjamin.thery@bull.net> writes:
 
-> Support for network namespaces in mainline is pretty complete for
-> some time now, but there is still this issue with sysfs that prevents 
-> more people to use it easily.
+The latest version of Red Hat Enterprise Linux 5 doesn't need '+' in
+front of each IP address listed as an arp_ip_target, and correctly
+supports a comma separated list of IP addresses using the current
+version of initscripts.  This patch drops all references to the need for
+a '+' before each IP address and the description now matches the
+behavior.
 
-Ben your patchset is completely inappropriate.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Temporarily adding elements to the ABI that we intend to remove
-is not a proper solution to this problem.
+---
 
-That user space visible ida you add is a namespace identifier that breaks
-nested containers and migration.  It is very very very wrong.
+ bonding.txt |   13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
 
-Eric
-
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 688dfe1..17f2803 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -926,19 +926,10 @@ NETMASK, NETWORK and BROADCAST) to match your network configuration.
+ indeed, preferable, to specify the bonding options in the ifcfg-bond0
+ file, e.g. a line of the format:
+ 
+-BONDING_OPTS="mode=active-backup arp_interval=60 arp_ip_target=+192.168.1.254"
++BONDING_OPTS="mode=active-backup arp_interval=60 arp_ip_target=192.168.1.254"
+ 
+ 	will configure the bond with the specified options.  The options
+-specified in BONDING_OPTS are identical to the bonding module parameters
+-except for the arp_ip_target field.  Each target should be included as a
+-separate option and should be preceded by a '+' to indicate it should be
+-added to the list of queried targets, e.g.,
+-
+-	arp_ip_target=+192.168.1.1 arp_ip_target=+192.168.1.2
+-
+-	is the proper syntax to specify multiple targets.  When specifying
+-options via BONDING_OPTS, it is not necessary to edit /etc/modules.conf or
+-/etc/modprobe.conf.
++specified in BONDING_OPTS are identical to the bonding module parameters.
+ 
+ 	For older versions of initscripts that do not support
+ BONDING_OPTS, it is necessary to edit /etc/modules.conf (or
