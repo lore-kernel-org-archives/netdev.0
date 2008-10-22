@@ -1,52 +1,34 @@
-From: Aldo Maggi <sentiniate@tiscali.it>
-Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
- cannot navigate
-Date: Wed, 22 Oct 2008 15:19:43 +0200
-Message-ID: <20081022151943.3db07374@topolino>
-References: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
-	<20081021201857.08faf0a7@topolino>
-	<20081021184539.GA3320@ami.dom.local>
-	<20081021.163207.157978465.davem@davemloft.net>
-	<Pine.LNX.4.64.0810221244390.7072@wrl-59.cs.helsinki.fi>
-	<20081022134939.64f2b6b4@topolino>
-	<Pine.LNX.4.64.0810221455010.7072@wrl-59.cs.helsinki.fi>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] pci: use pci_ioremap_bar() in drivers/net
+Date: Wed, 22 Oct 2008 06:50:10 -0700
+Message-ID: <20081022065010.53b27680@infradead.org>
+References: <20081020214239.398f1838@infradead.org>
+	<a15869500810220005h76149fd1w5d325ff18659fa74@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	Netdev <netdev@vger.kernel.org>, olon@verizon.net
-To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Eliezer Tamir" <eliezer.tamir@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from joe.mail.tiscali.it ([213.205.33.54]:60386 "EHLO
-	joe.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330AbYJVNTy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 09:19:54 -0400
-In-Reply-To: <Pine.LNX.4.64.0810221455010.7072@wrl-59.cs.helsinki.fi>
+Received: from casper.infradead.org ([85.118.1.10]:54396 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541AbYJVNuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 09:50:04 -0400
+In-Reply-To: <a15869500810220005h76149fd1w5d325ff18659fa74@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Il giorno Wed, 22 Oct 2008 15:09:40 +0300 (EEST)
-"Ilpo J=C3=83=C2=A4rvinen" <ilpo.jarvinen@helsinki.fi> ha scritto:
+On Wed, 22 Oct 2008 09:05:20 +0200
+"Eliezer Tamir" <eliezer.tamir@gmail.com> wrote:
 
-[...]
+> BNX2X devices have two BARs.
+> You might want to convert both.
 
-> So only thing that was problem in your case is that sackOK option (or=
-=20
-> SACK_PERM in code notation) couldn't begin TCP options. With any
-> other option as the first one, including nop, it does work. Thanks
-> for all the testing you made and reporting it in the first place.
+the second one doesn't map the whole bar per se... so it doesn't fit
+the pattern of pci_ioremap_bar()
 
-i thank you for your efforts in solving this problem!
-it has been a real pleasere for me to cooperate with you!
-
-all the best to you all
-
-[...]
-=20
-> Thanks again.
->=20
-
-i thank you! :-)
-
-aldo
-
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
