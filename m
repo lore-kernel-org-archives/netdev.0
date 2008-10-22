@@ -1,62 +1,171 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH/RFC v1 00/12] Support for Broadcom 63xx SOCs
-Date: Wed, 22 Oct 2008 15:58:23 +0200
-Message-ID: <200810221558.27338.florian@openwrt.org>
-References: <1224382022-24173-1-git-send-email-mbizon@freebox.fr>
+From: Sven Anders <anders@anduras.de>
+Subject: Re: Possible bug in bonding driver (with VLAN in ALB mode)
+Date: Wed, 22 Oct 2008 16:34:45 +0200
+Message-ID: <48FF3A05.1010408@anduras.de>
+References: <48FE0EEB.7050503@anduras.de> <1830.1224612755@death.nxdomain.ibm.com> <48FE51C5.2010800@anduras.de> <4231.1224629540@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2962902.4p7LAVTyHT";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-	afleming@freescale.com, jgarzik@pobox.com,
-	linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
-	linux-pcmcia@lists.infradead.org, linux-serial@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Maxime Bizon <mbizon@freebox.fr>
-Return-path: <linux-serial-owner@vger.kernel.org>
-In-Reply-To: <1224382022-24173-1-git-send-email-mbizon@freebox.fr>
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig409B65E9D0D4F960CA91AC8E"
+To: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metropolitan.anduras.de ([80.237.200.159]:55241 "EHLO
+	metropolitan.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751746AbYJVOex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 10:34:53 -0400
+In-Reply-To: <4231.1224629540@death.nxdomain.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart2962902.4p7LAVTyHT
-Content-Type: text/plain;
-  charset="iso-8859-15"
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig409B65E9D0D4F960CA91AC8E
+Content-Type: multipart/mixed;
+ boundary="------------050801080107040209000505"
+
+This is a multi-part message in MIME format.
+--------------050801080107040209000505
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-Hello,
+Jay Vosburgh schrieb:
+> Sven Anders <anders@anduras.de> wrote:
+>=20
+>> Any other ideas?
+>=20
+> 	Try this; I actually tested this one and it seems to not crash
+> my system.  This is against the current mainline, so you might have to
+> apply it by hand on your older kernel.
 
-Le Sunday 19 October 2008 04:07:02 Maxime Bizon, vous avez =E9crit=A0:
-> CPUs supported are  6348 and 6358. Support is  provided for integrated
-> UART,  USB OHCI  and  EHCI, PCI  controller,  ethernet MAC  & PHY  and
-> PCMCIA/Cardbus controller.
+Ok, it did not crash, but... (see comments below)
 
-I got some pending patches on top of yours to add support for earlier : 633=
-8=20
-and 6345, as well as newer revisions of the SoC : 6368 and 6816.=20
-Additionnaly, the cable version (BCM3348/BCM3349) should be fairly well=20
-supported now, for which I need to have a serious try.
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_=
+alb.c
+> index 3d39278..4fb78b0 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -341,14 +341,15 @@ static void rlb_update_entry_from_arp(struct bond=
+ing *bond, struct arp_pkt *arp)
+> =20
+>  static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_d=
+ev, struct packet_type *ptype, struct net_device *orig_dev)
+>  {
+> -	struct bonding *bond =3D bond_dev->priv;
+> +	struct bonding *bond;
+>  	struct arp_pkt *arp =3D (struct arp_pkt *)skb->data;
+>  	int res =3D NET_RX_DROP;
+> =20
+>  	if (dev_net(bond_dev) !=3D &init_net)
+>  		goto out;
+> =20
+> -	if (!(bond_dev->flags & IFF_MASTER))
+> +	if (!(bond_dev->priv_flags & IFF_BONDING) ||
+> +	    !(bond_dev->flags & IFF_MASTER))
+>  		goto out;
+>  	if (!arp) {
 
-I prefer you get some feedback on your patches first before submitting my=20
-changes.
-=2D-=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
-=2D------------------------------
+This did not work, because the VLAN interface did not have the
+BONDING flag set.
 
---nextPart2962902.4p7LAVTyHT
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+> @@ -363,6 +364,7 @@ static int rlb_arp_recv(struct sk_buff *skb, struct=
+ net_device *bond_dev, struct
+> =20
+>  	if (arp->op_code =3D=3D htons(ARPOP_REPLY)) {
+>  		/* update rx hash table for this ARP */
+> +		bond =3D bond_dev->priv;
+>  		rlb_update_entry_from_arp(bond, arp);
+>  		dprintk("Server received an ARP Reply from client\n");
+>  	}
+
+To make this work, even for the VLAN interfaces, I had to get the
+stored "bond" from the "packet_type"'s private data.
+Instead I used here:
+
+     bond =3D ptype->af_packet_priv;
+     if (!bond) goto out;
+
+> @@ -813,7 +815,7 @@ static int rlb_initialize(struct bonding *bond)
+> =20
+>  	/*initialize packet type*/
+>  	pk_type->type =3D __constant_htons(ETH_P_ARP);
+> -	pk_type->dev =3D bond->dev;
+> +	pk_type->dev =3D NULL;
+>  	pk_type->func =3D rlb_arp_recv;
+> =20
+>  	/* register to receive ARPs */
+
+Additionally, here I store the "bond" to the private data:
+
+    pk_type->dev =3D NULL;
+    pk_type->func =3D rlb_arp_recv;
+    pk_type->af_packet_priv =3D bond;
+
+With these fixes, it worked!
+That means: Receive load balancing with VLANs works.
+
+Certainly, this is only a test bugfix only, because it does not
+work with more than one active bond. Any ideas how to implement
+this correctly? Do we have to use an "dev_add_pack()" for each
+VLAN we are adding?
+
+What troubles me is, that nobody since the addition of VLAN support
+to bonding in 2004 had this problem before. Did this (ever) work in
+one older version of the bonding driver?
+
+Regards
+ Sven
+
+--=20
+ Sven Anders <anders@anduras.de>                 () Ascii Ribbon Campaign=
+
+                                                 /\ Support plain text e-=
+mail
+ ANDURAS service solutions AG
+ Innstra=DFe 71 - 94036 Passau - Germany
+ Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90 5=
+0-55
+
+Rechtsform: Aktiengesellschaft - Sitz: Passau - Amtsgericht Passau HRB 60=
+32
+Mitglieder des Vorstands: Sven Anders, Marcus Junker
+Vorsitzender des Aufsichtsrats: Mark Peters
+
+--------------050801080107040209000505
+Content-Type: text/x-vcard; charset=utf-8;
+ name="anders.vcf"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+ filename="anders.vcf"
+
+begin:vcard
+fn:Sven Anders
+n:Anders;Sven
+org:ANDURAS AG;Research and Development
+adr;quoted-printable:;;Innstra=3DC3=3D9Fe 71;Passau;Bavaria;94036;Germany=
+
+email;internet:anders@anduras.de
+title:Dipl. Inf.
+tel;work:++49 (0)851 / 490 50 -0
+tel;fax:++49 (0)851 / 590 50 - 55
+x-mozilla-html:FALSE
+url:http://www.anduras.de
+version:2.1
+end:vcard
+
+
+--------------050801080107040209000505--
+
+--------------enig409B65E9D0D4F960CA91AC8E
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+Version: GnuPG v1.4.6 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-iEYEABECAAYFAkj/MYEACgkQlyvkmBGtjyamHwCggOIQTTLwf5Y2y0CH7tme3706
-CssAnRZXTrJJgdZrFmSwCuVctVowUk15
-=PSMQ
+iD8DBQFI/zoI5lKZ7Feg4EcRAhrAAJwO1c2mfeL0cfwXW9U4L8RAiT9ZdwCgngMx
+pYytdrTWMit3pMOgRImWNac=
+=2DVf
 -----END PGP SIGNATURE-----
 
---nextPart2962902.4p7LAVTyHT--
+--------------enig409B65E9D0D4F960CA91AC8E--
