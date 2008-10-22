@@ -1,27 +1,24 @@
-From: "Google Give-away Lotto" <giveawaylotto-winners@gmail.com>
-Subject: Congratulations!! (Your email just won...)
-Date: Tue, 21 Oct 2008 20:49:26 -0500
-Message-ID: <380-220081032214926938@gmail.com>
-Reply-To: giveawayteam2008@live.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH] sctp: rfc conformance fixes
+Date: Tue, 21 Oct 2008 22:08:43 -0400
+Message-ID: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elk2.alaweb.com ([216.108.208.45]:2479 "EHLO elk2.alaweb.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751693AbYJVB5q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 21:57:46 -0400
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:31772 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412AbYJVCIw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 22:08:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David
 
-Dear Sir/Madam,
-Your email just won =A3500,000.00 Pounds in our on-going anniversary
-give-away lotto promo.For more info,send your winning Ticket
-number:00869575733664,CGPN:7-22-71-00-66-12,Serial
-numbers:BTD/8070447706/06,Lucky numbers:12-12-23-35-40-41(12)to
-Mr.Francis Henson,Email:giveawayanniversary@gmail.com
-,giveawayteam2008@live.com,Tel:+448715034712 ,+447031958488.Thanks
-for using Google!!
+The following series is a set of conformance fixes from Wei Yongjun.
+One of them addresses a small bug in pmtu process, and the other three
+make the shutdown process conform to the latest spec.
 
+Please apply.
+
+Thanks
+-vlad
