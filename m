@@ -1,46 +1,52 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] sctp: rfc conformance fixes
-Date: Wed, 22 Oct 2008 09:03:24 -0400
-Message-ID: <48FF249C.5040207@hp.com>
-References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com> <200810221601.27588.jk@ozlabs.org> <1224653529.6597.40.camel@localhost.localdomain> <200810221635.10268.jk@ozlabs.org>
+From: Aldo Maggi <sentiniate@tiscali.it>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+ cannot navigate
+Date: Wed, 22 Oct 2008 15:19:43 +0200
+Message-ID: <20081022151943.3db07374@topolino>
+References: <Pine.LNX.4.64.0810211200170.7072@wrl-59.cs.helsinki.fi>
+	<20081021201857.08faf0a7@topolino>
+	<20081021184539.GA3320@ami.dom.local>
+	<20081021.163207.157978465.davem@davemloft.net>
+	<Pine.LNX.4.64.0810221244390.7072@wrl-59.cs.helsinki.fi>
+	<20081022134939.64f2b6b4@topolino>
+	<Pine.LNX.4.64.0810221455010.7072@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-6
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jeremy Kerr <jk@ozlabs.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	Netdev <netdev@vger.kernel.org>, olon@verizon.net
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:19628 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753472AbYJVND1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 09:03:27 -0400
-In-Reply-To: <200810221635.10268.jk@ozlabs.org>
+Received: from joe.mail.tiscali.it ([213.205.33.54]:60386 "EHLO
+	joe.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbYJVNTy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 09:19:54 -0400
+In-Reply-To: <Pine.LNX.4.64.0810221455010.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeremy
+Il giorno Wed, 22 Oct 2008 15:09:40 +0300 (EEST)
+"Ilpo J=C3=83=C2=A4rvinen" <ilpo.jarvinen@helsinki.fi> ha scritto:
 
-Jeremy Kerr wrote:
-> Hi Maxime,
-> 
->> I sent a patch sunday (using git-format-patch/git-send-email), and
->> patchwork seems to have missed it, I can't see it even with all
->> filters removed.
-> 
-> There are some conditions where the parser will reject the patch 
-> outright, usually due to character encoding breakages (either in the 
-> email itself or the parser code).
-> 
-> If you could send me an mbox file containing the email, I'll see what's 
-> going on (and add a testcase to patchwork).
-> 
+[...]
 
-Oddly enough, none of this series made it to patchwork.
+> So only thing that was problem in your case is that sackOK option (or=
+=20
+> SACK_PERM in code notation) couldn't begin TCP options. With any
+> other option as the first one, including nop, it does work. Thanks
+> for all the testing you made and reporting it in the first place.
 
-I've put all the patches here:
+i thank you for your efforts in solving this problem!
+it has been a real pleasere for me to cooperate with you!
 
-http://www.kernel.org/pub/linux/kernel/people/vxy/for_jkerr/
+all the best to you all
 
-These were generated used git-format-patch and send via git-send-email
-with git version 1.5.3.5.
+[...]
+=20
+> Thanks again.
+>=20
 
--vlad
+i thank you! :-)
+
+aldo
+
