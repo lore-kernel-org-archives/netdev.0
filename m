@@ -1,62 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] e1000e: get rid of wasted space
-Date: Wed, 22 Oct 2008 11:07:07 -0700
-Message-ID: <20081022110707.3ab8f68b@extreme>
-References: <20081020191149.1dbf8e3b@extreme>
-	<48FF0882.9050007@garzik.org>
-	<EA929A9653AAE14F841771FB1DE5A1365F49CD6EE4@rrsmsx501.amr.corp.intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: IP-less bridge as a martian source
+Date: Wed, 22 Oct 2008 21:10:27 +0200
+Message-ID: <48FF7AA3.50408@gmail.com>
+References: <87tzb6nodj.fsf@tac.ki.iif.hu> <87wsg0wu78.fsf@tac.ki.iif.hu> <48FF614C.7020507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Cc: netdev@vger.kernel.org
+To: Ferenc Wagner <wferi@niif.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44192 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751086AbYJVSHK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2008 14:07:10 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F49CD6EE4@rrsmsx501.amr.corp.intel.com>
+Received: from ey-out-2122.google.com ([74.125.78.24]:26354 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752497AbYJVTJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 15:09:13 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so1036362eyi.37
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 12:09:11 -0700 (PDT)
+In-Reply-To: <48FF614C.7020507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Oct 2008 12:01:16 -0600
-"Williams, Mitch A" <mitch.a.williams@intel.com> wrote:
+Jarek Poplawski wrote, On 10/22/2008 07:22 PM:
 
-> Jeff Garzik wrote:
+> Ferenc Wagner wrote, On 10/22/2008 05:00 PM:
 > 
-> >
-> >Stephen Hemminger wrote:
-> >> The name in the ring is only used once during setup so it shouldn't
-> >> be in the data structure.
-> >>
-> >> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> [snip]
-> >
-> >ACK
-> >
-> >for what it's worth...  I am following DaveM's lead, and waiting until
-> >net-next opens to start taking patches for 2.6.29.  He wants
-> >us to focus
-> >on bug fixing for now.
-> >
-> >So, please resend once the merge window opens... thanks.
-> >
+>> Ferenc Wagner <wferi@niif.hu> writes:
+>>
+>>> I expected an IP-less bridge interface to pick up no IP packets, but
+>>> apparently this isn't the case: broadcast packets with destination
+>>> address 255.255.255.255 are reported as martians by the 2.6.18
+>>> kernel, which I find counterintuitive (I know 2.6.18 is rather old,
+>>> but that's the one supported by Xen).
+>>>
+>>>   1. Is this the expected behaviour?
 > 
-> NAK.  Seriously. Don't resend this.  NAK.
 > 
-> That string DOES get used later, like when you cat /proc/interrupts.
-> So you can't allocate it on the stack.  It's got to be persistent,
-> just like we have it.  Heck, look at the declaration for
-> request_irq().  The devname param is declared as const char *.
-> 
-> So NAK.  Same for igb and ixgbe.  Don't do this.
-> 
-> -Mitch
+> I think so, and this thread pertains to something similar:
+> http://marc.info/?l=linux-netdev&m=122456602708727&w=2
 
-The comments were right, this needs to stay, although it might be better
-to use a bigger field to allow full width of IFNAME+5
+Sorry! I didn't check this before writing. This:
 
+1941 static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+1942                                u8 tos, struct net_device *dev)
+1943 {
+...
+1963         /* IP on this device is disabled. */
+1964
+1965         if (!in_dev)
+1966                 goto out;
+1967
+1968         /* Check for the most weird martians, which can be not detected
+1969            by fib_lookup.
+1970          */
+
+means something else, so with IP disabled you shouldn't have any martians!
+(And this is old code.)
+
+Jarek P.
