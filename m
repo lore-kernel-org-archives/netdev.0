@@ -1,43 +1,50 @@
-From: David Miller <davem@davemloft.net>
+From: Jeremy Kerr <jk@ozlabs.org>
 Subject: Re: [PATCH] sctp: rfc conformance fixes
-Date: Tue, 21 Oct 2008 21:47:25 -0700 (PDT)
-Message-ID: <20081021.214725.176087242.davem@davemloft.net>
-References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com>
-	<20081021.210557.126715235.davem@davemloft.net>
-	<1224650698.6597.32.camel@localhost.localdomain>
+Date: Wed, 22 Oct 2008 16:01:27 +1100
+Message-ID: <200810221601.27588.jk@ozlabs.org>
+References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com> <1224650698.6597.32.camel@localhost.localdomain> <20081021.214725.176087242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jk@ozlabs.org
-To: mbizon@freebox.fr
+Cc: mbizon@freebox.fr, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43159
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750746AbYJVErr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 00:47:47 -0400
-In-Reply-To: <1224650698.6597.32.camel@localhost.localdomain>
+Received: from ozlabs.org ([203.10.76.45]:35072 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751032AbYJVFBe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2008 01:01:34 -0400
+In-Reply-To: <20081021.214725.176087242.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maxime Bizon <mbizon@freebox.fr>
-Date: Wed, 22 Oct 2008 06:44:58 +0200
+Hi,
 
-> On Tue, 2008-10-21 at 21:05 -0700, David Miller wrote:
-> 
-> > Please CC: netdev on any and all patches you want applied.
-> > 
-> > That way it gets tracked properly at:
-> > 
-> > 	http://patchwork.ozlabs.org/project/netdev/list/
-> 
-> The feeder of patchwork does not seem to consider posts with subject
-> like '[PATCH/RFC' '[PATCH,RFC]', yet I see '[RFC]' is ok.
-> 
-> Should I repost with another subject or RFC patches are not supposed to
-> be in patchwork ?
+> Jeremy, patchwork doesn't try to interpret the subject line
+> at all does it?  My impression is that it simply looked for
+> patches in the email posting content and that's it.
 
-Hmmm, that would be very strange if it were true.
+That's correct - patchwork uses the content of the mail to determine if 
+it contains a patch, not the subject.
 
-Jeremy, patchwork doesn't try to interpret the subject line
-at all does it?  My impression is that it simply looked for
-patches in the email posting content and that's it.
+Patchwork does make a few modifications to the subject though - mostly 
+treatment of []-enclosed prefixes. For example, it removes [PATCH] from 
+the subject line - if it's in patchwork, it's a patch :).
+
+So, in this case, the following subjects:
+
+ [RFC] fix breakage
+ [PATCH,RFC] fix breakage
+ [RFC,PATCH] fix breakage
+ [PATCH/RFC] fix breakage
+
+will all be normalised to:
+
+ [RFC] fix breakage
+
+Cheers,
+
+
+Jeremy
+
