@@ -1,68 +1,57 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bnx2: fix poll_controller method so that proper
-	structures are passed and all rx queues are checked
-Date: Tue, 11 Nov 2008 09:43:55 -0500
-Message-ID: <20081111144355.GB16253@gospo.rdu.redhat.com>
-References: <20081111140055.GA30481@hmsreliant.think-freely.org>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: [RFC PATCH 01/13] put_cmsg_compat + SO_TIMESTAMP[NS]: use same
+	name for value as caller
+Date: Wed, 22 Oct 2008 14:46:39 +0200
+Message-ID: <1226415403.31699.0.camel@ecld0pohly>
+References: <1226414697.17450.852.camel@ecld0pohly>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, netdev@vger.kernel.org, jgarzik@pobox.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Transfer-Encoding: 7bit
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>, Andi Kleen <ak@linux.intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Oliver Hartkopp <oliver@hartkopp.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:54481 "EHLO mx2.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:34540 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753612AbYKKOqd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2008 09:46:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20081111140055.GA30481@hmsreliant.think-freely.org>
+	id S1755837AbYKKO4o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 09:56:44 -0500
+In-Reply-To: <1226414697.17450.852.camel@ecld0pohly>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 11, 2008 at 09:00:55AM -0500, Neil Horman wrote:
-> Hey-
-> 	I noted recently that bnx2 had a few problems with its poll_controller
-> method:
-> 
-> 1) It passes a net_device structure to bnx2_interrupt, but bnx2_interrupt
-> expects a bnx2_napi structure.
-> 
-> 2) bnx2_interrupt never checks all its rx queues, so theres no guarantee that
-> we'll see incomming frames.
-> 
-> This patch should fix both those problems
-> 
-> Regards
-> Neil
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> 
->  bnx2.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> 
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index 430d430..9e1f0e3 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -7203,10 +7203,12 @@ bnx2_change_mtu(struct net_device *dev, int new_mtu)
->  static void
->  poll_bnx2(struct net_device *dev)
->  {
-> +	int i;
->  	struct bnx2 *bp = netdev_priv(dev);
->  
->  	disable_irq(bp->pdev->irq);
-> -	bnx2_interrupt(bp->pdev->irq, dev);
-> +	for (i = 0; i < bp->irq_nvecs; i++)
-> +		bnx2_interrupt(bp->pdev->irq, &bp->bnx2_napi[i]);
->  	enable_irq(bp->pdev->irq);
->  }
->  #endif
+In __sock_recv_timestamp() the additional SCM_TIMESTAMP[NS] is used. This
+has the same value as SO_TIMESTAMP[NS], so this is a purely cosmetic change.
 
-I suspect bnx2 isn't the only one that needs to address #2 above due to
-ever-increasing usage of MSI-X and multiqueue rx.
+Signed-off-by: Patrick Ohly <patrick.ohly@intel.com>
+---
+ net/compat.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
+diff --git a/net/compat.c b/net/compat.c
+index 67fb6a3..6ce1a1c 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -226,14 +226,14 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+ 		return 0; /* XXX: return error? check spec. */
+ 	}
+ 
+-	if (level == SOL_SOCKET && type == SO_TIMESTAMP) {
++	if (level == SOL_SOCKET && type == SCM_TIMESTAMP) {
+ 		struct timeval *tv = (struct timeval *)data;
+ 		ctv.tv_sec = tv->tv_sec;
+ 		ctv.tv_usec = tv->tv_usec;
+ 		data = &ctv;
+ 		len = sizeof(ctv);
+ 	}
+-	if (level == SOL_SOCKET && type == SO_TIMESTAMPNS) {
++	if (level == SOL_SOCKET && type == SCM_TIMESTAMPNS) {
+ 		struct timespec *ts = (struct timespec *)data;
+ 		cts.tv_sec = ts->tv_sec;
+ 		cts.tv_nsec = ts->tv_nsec;
+-- 
+1.6.0.4
 
 
