@@ -1,59 +1,35 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/4][RFC] netns: sysfs: add a netns suffix to net device sysfs entries
-Date: Wed, 22 Oct 2008 15:54:23 -0700
-Message-ID: <m11vy8jl5s.fsf@frodo.ebiederm.org>
-References: <20081022152144.351965414@theryb.frec.bull.fr>
-	<m1d4hso0ym.fsf@frodo.ebiederm.org> <20081022203045.GA4633@us.ibm.com>
-	<m18wsgmji0.fsf@frodo.ebiederm.org> <20081022145507.2d1ea86c@extreme>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: rfc conformance fixes
+Date: Wed, 22 Oct 2008 19:42:57 -0400
+Message-ID: <48FFBA81.6050900@hp.com>
+References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com> <20081021.210557.126715235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dave Miller <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.linux-foundation.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:35711 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752299AbYJVXEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 19:04:33 -0400
-In-Reply-To: <20081022145507.2d1ea86c@extreme> (Stephen Hemminger's message of
-	"Wed, 22 Oct 2008 14:55:07 -0700")
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:15427 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752047AbYJVXm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 19:42:59 -0400
+In-Reply-To: <20081021.210557.126715235.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+David Miller wrote:
+> Please CC: netdev on any and all patches you want applied.
+> 
+> That way it gets tracked properly at:
+> 
+> 	http://patchwork.ozlabs.org/project/netdev/list/
+> 
+> otherwise, your patch "might" (read this as: will) get lost.
+> :-)
+> 
 
->> The well-known user space tools don't use /sys at all.  Modern
->> network tools use rtnetlink (ip) old network tools use /proc/net.
->> 
->> Very few things actually use /sys and for those things lo@1 or
->> eth0@1 are completely useless except for implementing a FUSE
->> mock up of sysfs.  But you don't need anything in sysfs to do
->> that as all of the interesting information is available through
->> /proc/net or rtnetlink.
->
-> Lots of scripts are starting use /sys for things. It is easier to
-> parse /sys/class/net than the output of ifconfig or ip 
+David
 
-Yes.  So we need the correct values in /sys/class/net.
+Do you want me to resubmit?
 
-Which is why sysfs and network namespaces do not coexist currently.
-
-Which is why I recommend only placing devices in the initial network
-namespace in sysfs for the short term.
-
-Which is why we need to get all of the details correct when we
-handle multiple network namespaces and sysfs.
-
-I should have something working and should be sending patches out
-shortly.  Cleaning up sysfs and the device model enough so the changes
-are not spooky is a long hard road unfortunately.
-
-Eric
+-vlad
