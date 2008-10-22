@@ -1,92 +1,58 @@
-From: "Grant Likely" <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] Implement polling for 5200FEC to make netconsole work.
-Date: Tue, 21 Oct 2008 17:57:03 -0600
-Message-ID: <fa686aa40810211657q33575bcfj7c5fe4a4cb4dab27@mail.gmail.com>
-References: <20081018214059.1506.28013.stgit@terra>
-	 <9e4733910810211641x24f4d76bn5bc614147875d250@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] 8139x: reduce message severity on driver overlap
+Date: Tue, 21 Oct 2008 18:04:27 -0700
+Message-ID: <20081021180427.6d4668d7@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: "Jon Smirl" <jonsmirl@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:57705 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331AbYJUX5F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2008 19:57:05 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2654833rvb.1
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2008 16:57:04 -0700 (PDT)
-In-Reply-To: <9e4733910810211641x24f4d76bn5bc614147875d250@mail.gmail.com>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([76.74.103.46]:59804 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751843AbYJVBEa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2008 21:04:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2008 at 5:41 PM, Jon Smirl <jonsmirl@gmail.com> wrote:
-> Is anyone going to pick this up?
+The 8139 drivers are a source of error messages that confuse users.
+Since this device can not be disambiguated by normal PCI device id's two drivers
+match the same info. But the module utilities seem to correctly handle this overlap,
+they try one driver, then if that doesn't load try the other. Therefore there is
+no need for a message to be logged with error level severity, just using info
+level instead. Can't be completely silent because user might have configure one driver
+and forgot the other one.
 
-I'm looking at it, but I'm not picking it up for .28.  It's
-non-trivial enough that I would have needed to have it before the
-merge window opened to get it into .28.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-g.
-
->
-> On Sat, Oct 18, 2008 at 5:40 PM, Jon Smirl <jonsmirl@gmail.com> wrote:
->> Implement polling for 5200FEC to make netconsole work. Tested on Phytec pcm030 and Efika.
->>
->> Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
->> ---
->>  drivers/net/fec_mpc52xx.c |   18 ++++++++++++++++++
->>  1 files changed, 18 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
->> index 4e4f683..aec3b97 100644
->> --- a/drivers/net/fec_mpc52xx.c
->> +++ b/drivers/net/fec_mpc52xx.c
->> @@ -401,6 +401,21 @@ static int mpc52xx_fec_hard_start_xmit(struct sk_buff *skb, struct net_device *d
->>        return 0;
->>  }
->>
->> +#ifdef CONFIG_NET_POLL_CONTROLLER
->> +static void mpc52xx_fec_poll_controller(struct net_device *dev)
->> +{
->> +       struct mpc52xx_fec_priv *priv = netdev_priv(dev);
->> +
->> +       disable_irq(priv->t_irq);
->> +       mpc52xx_fec_tx_interrupt(priv->t_irq, dev);
->> +       enable_irq(priv->t_irq);
->> +       disable_irq(priv->r_irq);
->> +       mpc52xx_fec_rx_interrupt(priv->r_irq, dev);
->> +       enable_irq(priv->r_irq);
->> +}
->> +#endif
->> +
->> +
->>  /* This handles BestComm transmit task interrupts
->>  */
->>  static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
->> @@ -926,6 +941,9 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
->>        ndev->tx_timeout        = mpc52xx_fec_tx_timeout;
->>        ndev->watchdog_timeo    = FEC_WATCHDOG_TIMEOUT;
->>        ndev->base_addr         = mem.start;
->> +#ifdef CONFIG_NET_POLL_CONTROLLER
->> +       ndev->poll_controller = mpc52xx_fec_poll_controller;
->> +#endif
->>
->>        priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
->>
->>
->>
->
->
->
-> --
-> Jon Smirl
-> jonsmirl@gmail.com
->
-
-
-
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+--- a/drivers/net/8139cp.c	2008-10-21 17:51:23.000000000 -0700
++++ b/drivers/net/8139cp.c	2008-10-21 17:58:00.000000000 -0700
+@@ -1836,10 +1836,9 @@ static int cp_init_one (struct pci_dev *
+ 
+ 	if (pdev->vendor == PCI_VENDOR_ID_REALTEK &&
+ 	    pdev->device == PCI_DEVICE_ID_REALTEK_8139 && pdev->revision < 0x20) {
+-		dev_err(&pdev->dev,
+-			   "This (id %04x:%04x rev %02x) is not an 8139C+ compatible chip\n",
++		dev_info(&pdev->dev,
++			   "This (id %04x:%04x rev %02x) is not an 8139C+ compatible chip, use 8139too\n",
+ 		           pdev->vendor, pdev->device, pdev->revision);
+-		dev_err(&pdev->dev, "Try the \"8139too\" driver instead.\n");
+ 		return -ENODEV;
+ 	}
+ 
+--- a/drivers/net/8139too.c	2008-10-21 17:51:27.000000000 -0700
++++ b/drivers/net/8139too.c	2008-10-21 17:58:01.000000000 -0700
+@@ -946,10 +946,9 @@ static int __devinit rtl8139_init_one (s
+ 	if (pdev->vendor == PCI_VENDOR_ID_REALTEK &&
+ 	    pdev->device == PCI_DEVICE_ID_REALTEK_8139 && pdev->revision >= 0x20) {
+ 		dev_info(&pdev->dev,
+-			   "This (id %04x:%04x rev %02x) is an enhanced 8139C+ chip\n",
++			   "This (id %04x:%04x rev %02x) is an enhanced 8139C+ chip, use 8139cp\n",
+ 		       	   pdev->vendor, pdev->device, pdev->revision);
+-		dev_info(&pdev->dev,
+-			   "Use the \"8139cp\" driver for improved performance and stability.\n");
++		return -ENODEV;
+ 	}
+ 
+ 	if (pdev->vendor == PCI_VENDOR_ID_REALTEK &&
