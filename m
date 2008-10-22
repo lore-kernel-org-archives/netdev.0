@@ -1,65 +1,122 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: sch_netem: Limit packet re-ordering
-	functionality to tfifo qdisc.
-Date: Wed, 22 Oct 2008 18:49:25 +0200
-Message-ID: <20081022164925.GB2556@ami.dom.local>
-References: <20081017130333.GA8297@ff.dom.local> <48F89D33.9090809@trash.net> <20081017201210.GA2527@ami.dom.local> <20081021.163605.57275028.davem@davemloft.net> <20081021165129.422dd83f@extreme> <20081022053746.GA4178@ff.dom.local> <48FF4E38.9010806@trash.net>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: oops in net_rx_action
+Date: Wed, 22 Oct 2008 10:55:48 -0600
+Message-ID: <48FF5B14.3010704@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Network Development list <netdev@vger.kernel.org>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:39746 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285AbYJVQtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 12:49:15 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1469398nfc.21
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 09:49:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <48FF4E38.9010806@trash.net>
+Received: from zcars04e.nortel.com ([47.129.242.56]:61397 "EHLO
+	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751952AbYJVQ4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 12:56:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 22, 2008 at 06:00:56PM +0200, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
->> On Tue, Oct 21, 2008 at 04:51:29PM -0700, Stephen Hemminger wrote:
->>> On Tue, 21 Oct 2008 16:36:05 -0700 (PDT)
->>> David Miller <davem@davemloft.net> wrote:
->>>
->>>> sch_netem is just a black box, like any other packet scheduler node in
->>>> the tree, and so it can internally do the reordering with a self managed
->>>> packet list or similar.  All of this can be hidden inside of it's ->dequeue()
->>>> with some pkt_sch watchdog timer that fires to prevent stale packets sitting
->>>> in the reorder queue forever.
->>>>
->>>> Anyways, just and idea and RFC, just like this patch ;-)
->>> The problem is that jamal talked me into having netem as a classful qdisc,
->>> instead of doing its own rate control.  People like to do use TBF as inner qdisc,
->>> and do reordering.
->>
->> If it's only this kind of usage we could export tfifo and let use this
->> as a TBF's (etc.) leaf. Of course, this would require changes in those
->> people scripts.
->
-> In that case we might as well teach them to use TBF as *parent*
-> of netem (and I'd vote to do that and kill requeue).
->
-> But we can argue about this forever without any progress. The
-> question is simple - should we enforce a reasonable qdisc structure
-> and kill ->requeue or keep it around forever. Keep in mind that there
-> is no loss of functionality by using TBF as parent and that we
-> can do this gradually so users have a chance to fix their scripts,
-> should anyone really use TBF as inner qdisc.
->
 
-I'm not sure we think about the same: this tfifo idea doesn't need
-->requeue() at all. This would go through TBF's or prio's (etc.)
-->enqueue(), and only tfifo's ->enqueue(), if it's used as a leaf,
-checks the qdisc flag and can reorder.
+I just tried booting a post 2.6.27 -git on a Motorola ATCA6101 (very similar 
+to a Maple board).  The first time I booted I got the first log below.  I 
+rebooted and got as far as a login prompt.  I was able to log in via the 
+serial console, but then got an almost identical oops again, as shown in the 
+second log below.
 
-But if it's useless, no problem. I can redo this patch without this
-qdisc flag.
+Anyone have any idea what might be causing this?  I'm going to try configging 
+out the gigE drivers for the backplane, but I thought I'd see if this is a 
+known issue first.
 
-Jarek P.
+Thanks,
+
+Chris
+
+
+Starting xinetd: [  OK  ]
+Starting cron: [  OK  ]
+Unable to handle kernel paging request for data at address 0x00100108
+Faulting instruction address: 0xc00000000028c1cc
+Oops: Kernel access of bad area, sig: 11 [#1]
+SMP NR_CPUS=2 Maple
+Modules linked in:
+NIP: c00000000028c1cc LR: c00000000028c13c CTR: 0000000000000000
+REGS: c00000000fff7b90 TRAP: 0300   Not tainted  (2.6.27-05329-g39076ba)
+MSR: 9000000000009032 <EE,ME,IR,DR>  CR: 22ffff24  XER: 20000000
+DAR: 0000000000100108, DSISR: 000000000a000000
+TASK = c00000017a061080[0] 'swapper' THREAD: c00000017a078000 CPU: 1
+GPR00: 0000000000000000 c00000000fff7e10 c00000000059bfe0 0000000000000020
+GPR04: 0000000000000001 c000000178179800 c00000000027fda8 0000000000000000
+GPR08: 0000000000000000 0000000000200200 0000000000000001 0000000000100100
+GPR12: 0000000022ffff22 c0000000005bc500 0000000000000000 0000000000000000
+GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+GPR20: 0000000000000000 000000000000000a 0000000000000001 0000000000000001
+GPR24: c0000000005a2280 c0000000005f5134 00000000fffd9bbe 00000000000000ec
+GPR28: c000000006e30c28 0000000000000020 c000000000543440 c00000017a279b40
+NIP [c00000000028c1cc] .net_rx_action+0x1e4/0x26c
+LR [c00000000028c13c] .net_rx_action+0x154/0x26c
+Call Trace:
+[c00000000fff7e10] [c00000000028c13c] .net_rx_action+0x154/0x26c (unreliable)
+[c00000000fff7ec0] [c000000000056938] .__do_softirq+0xf8/0x1f4
+[c00000000fff7f90] [c000000000024334] .call_do_softirq+0x14/0x24
+[c00000017a07b970] [c00000000000bcdc] .do_softirq+0xf0/0x104
+[c00000017a07ba10] [c000000000056ae8] .irq_exit+0x70/0x88
+[c00000017a07ba90] [c00000000000ba18] .do_IRQ+0x14c/0x244
+[c00000017a07bb30] [c000000000004710] hardware_interrupt_entry+0x18/0x1c
+--- Exception: 501 at .raw_local_irq_restore+0x38/0x44
+     LR = .cpu_idle+0xd8/0x154
+[c00000017a07be20] [c000000000012068] .cpu_idle+0x118/0x154 (unreliable)
+[c00000017a07bec0] [c0000000003d4304] .start_secondary+0x310/0x3e8
+[c00000017a07bf90] [c0000000000072b4] .start_secondary_prolog+0x10/0x14
+Instruction dump:
+eb61ffd8 eb81ffe0 eba1ffe8 ebc1fff0 ebe1fff8 7c0803a6 4e800020 e81f0010
+7809ffe3 40820038 e93f0008 e97f0000 <f92b0008> f9690000 e95c0008 fb9f0000
+
+
+
+
+root@10:/root> uname -a
+Linux 10.41.18.77 2.6.27-05329-g39076ba #1 SMP Tue Oct 21 16:46:06 CST 2008 
+ppc64 GNU/Linux
+root@10:/root> Unable to handle kernel paging request for data at address 
+0x00100108
+Faulting instruction address: 0xc00000000028c1cc
+Oops: Kernel access of bad area, sig: 11 [#1]
+SMP NR_CPUS=2 Maple
+Modules linked in:
+NIP: c00000000028c1cc LR: c00000000028c13c CTR: 0000000000000000
+REGS: c00000000fff7b90 TRAP: 0300   Not tainted  (2.6.27-05329-g39076ba)
+MSR: 9000000000009032 <EE,ME,IR,DR>  CR: 22ffff24  XER: 20000000
+DAR: 0000000000100108, DSISR: 000000000a000000
+TASK = c00000017a061080[0] 'swapper' THREAD: c00000017a078000 CPU: 1
+GPR00: 0000000000000000 c00000000fff7e10 c00000000059bfe0 0000000000000020
+GPR04: 0000000000000001 0000000000000001 c00000000027fda8 0000000000000000
+GPR08: 0000000000000000 0000000000200200 0000000000000001 0000000000100100
+GPR12: 0000000022ffff22 c0000000005bc500 0000000000000000 0000000000000000
+GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+GPR20: 0000000000000000 000000000000000a 0000000000000001 0000000000000001
+GPR24: c0000000005a2280 c0000000005f5134 00000001000387ff 000000000000010c
+GPR28: c000000006e30c28 0000000000000020 c000000000543440 c00000017a2b0b40
+NIP [c00000000028c1cc] .net_rx_action+0x1e4/0x26c
+LR [c00000000028c13c] .net_rx_action+0x154/0x26c
+Call Trace:
+[c00000000fff7e10] [c00000000028c13c] .net_rx_action+0x154/0x26c (unreliable)
+[c00000000fff7ec0] [c000000000056938] .__do_softirq+0xf8/0x1f4
+[c00000000fff7f90] [c000000000024334] .call_do_softirq+0x14/0x24
+[c00000017a07b970] [c00000000000bcdc] .do_softirq+0xf0/0x104
+[c00000017a07ba10] [c000000000056ae8] .irq_exit+0x70/0x88
+[c00000017a07ba90] [c00000000000ba18] .do_IRQ+0x14c/0x244
+[c00000017a07bb30] [c000000000004710] hardware_interrupt_entry+0x18/0x1c
+--- Exception: 501 at .cpu_idle+0xf0/0x154
+     LR = .cpu_idle+0xd8/0x154
+[c00000017a07be20] [c000000000012068] .cpu_idle+0x118/0x154 (unreliable)
+[c00000017a07bec0] [c0000000003d4304] .start_secondary+0x310/0x3e8
+[c00000017a07bf90] [c0000000000072b4] .start_secondary_prolog+0x10/0x14
+Instruction dump:
+eb61ffd8 eb81ffe0 eba1ffe8 ebc1fff0 ebe1fff8 7c0803a6 4e800020 e81f0010
+7809ffe3 40820038 e93f0008 e97f0000 <f92b0008> f9690000 e95c0008 fb9f0000
+
+
+
+
+
+
+
