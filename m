@@ -1,105 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Wed, 22 Oct 2008 07:02:00 +0000
-Message-ID: <20081022070200.GB4178@ff.dom.local>
-References: <20081010075640.GA5204@ff.dom.local> <48EF17EA.5020306@bigtelecom.ru> <20081010090426.GA6054@ff.dom.local> <20081010095129.GB6054@ff.dom.local> <48F6FB3E.7060903@bigtelecom.ru> <20081016084027.GA17632@ff.dom.local> <48FEC302.5090707@bigtelecom.ru>
+From: "Eliezer Tamir" <eliezer.tamir@gmail.com>
+Subject: Re: [PATCH] pci: use pci_ioremap_bar() in drivers/net
+Date: Wed, 22 Oct 2008 09:05:20 +0200
+Message-ID: <a15869500810220005h76149fd1w5d325ff18659fa74@mail.gmail.com>
+References: <20081020214239.398f1838@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Arjan van de Ven" <arjan@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:37993 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751992AbYJVHCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 03:02:08 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1348866nfc.21
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 00:02:05 -0700 (PDT)
+Received: from ey-out-2122.google.com ([74.125.78.25]:21968 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753920AbYJVHFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 03:05:22 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so910973eyi.37
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 00:05:20 -0700 (PDT)
+In-Reply-To: <20081020214239.398f1838@infradead.org>
 Content-Disposition: inline
-In-Reply-To: <48FEC302.5090707@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 22, 2008 at 10:06:58AM +0400, Badalian Vyacheslav wrote:
-> Hello!
-Hi!
+BNX2X devices have two BARs.
+You might want to convert both.
 
-> I get more information.
-> 
-> Statistics of PC:
-> 1. 2.6.26.6 Dunamic Timer, HiResTimer, 1000HZ, htb_hysteresis=0 -
-> crashed 1d 18h ago
-> 2. 2.6.26.5 HZ300, NO Dunamic Timer, No HiResTimer, htb_hysteresis=0 -
-> uptime 5d 17h (no crashes for now, but it crashed some time ago with
-> htb_hysteresis=1)
+Cheers,
+Eliezer
 
-So it looks like htb_hysteresis change could be not enough, and it's
-a pity because this could be easiest to "reverse" in the kernel.
+On Tue, Oct 21, 2008 at 6:42 AM, Arjan van de Ven <arjan@infradead.org> wrote:
+> Now that Linus added the pci_ioremap_bar() helper macro, this can go through
+>
+>
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> Date: Sun, 28 Sep 2008 16:17:08 -0700
+> Subject: [PATCH] pci: use pci_ioremap_bar() in drivers/net
+>
+> Use the newly introduced pci_ioremap_bar() function in drivers/net.
+> pci_ioremap_bar() just takes a pci device and a bar number, with the goal
+> of making it really hard to get wrong, while also having a central place
+> to stick sanity checks.
+>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> ---
+>  drivers/net/bnx2x_main.c                 |    3 +--
 
-> 3. 2.6.27, 1000HZ, NO Dunamic Timer, No HiResTimer, htb_hysteresis=0 +
-> PATCH - uptime 5d 17h (no crashes for now, but it crashed some time ago
-> without patch)
-
-So I guess this patch seems to make some difference, but it also could
-be hard to convince people to fix it this way, because it makes
-scheduling less exact.
-
-Alas I have still no idea of the real reason. IMHO this should be 
-rather debugged by hrtimers/NMI people, but there were no respose last
-time I Cc-ed them - anyway I added linux-kernel to Cc again here.
-
-I attach below a slightly modified version of the previous patch,
-which lets for more exact scheduling, but could be more vulnerable for
-this bug. Alas, even if it works, it still could be not the final
-solution of this problem.
-
-> Also attach crash log of lash crash PC 1:
-> 
-> [10610.110729] BUG: NMI Watchdog detected LOCKUP on CPU1, ip c01fd939,
-> registers:
-> [10610.110729] Modules linked in: netconsole e1000e i2c_i801 i2c_core e1000
-> [10610.110729]
-> [10610.110729] Pid: 0, comm: swapper Not tainted (2.6.26.6-fw #1)
-> [10610.110729] EIP: 0060:[<c01fd939>] EFLAGS: 00000082 CPU: 1
-> [10610.110729] EIP is at rb_insert_color+0x19/0xc0
-
-Thanks,
-Jarek P.
-
---- (testing patch #2)
-
- net/sched/sch_htb.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 30c999c..ff9e965 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -162,6 +162,7 @@ struct htb_sched {
- 
- 	int rate2quantum;	/* quant = rate / rate2quantum */
- 	psched_time_t now;	/* cached dequeue time */
-+	psched_time_t next_watchdog;
- 	struct qdisc_watchdog watchdog;
- 
- 	/* non shaped skbs; let them go directly thru */
-@@ -920,7 +921,11 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
- 		}
- 	}
- 	sch->qstats.overlimits++;
--	qdisc_watchdog_schedule(&q->watchdog, next_event);
-+	if (q->next_watchdog < q->now || next_event <=
-+	     q->next_watchdog - PSCHED_TICKS_PER_SEC / (10 * HZ)) {
-+		qdisc_watchdog_schedule(&q->watchdog, next_event);
-+		q->next_watchdog = next_event;
-+	}
- fin:
- 	return skb;
- }
-@@ -973,6 +978,7 @@ static void htb_reset(struct Qdisc *sch)
- 		}
- 	}
- 	qdisc_watchdog_cancel(&q->watchdog);
-+	q->next_watchdog = 0;
- 	__skb_queue_purge(&q->direct_queue);
- 	sch->q.qlen = 0;
- 	memset(q->row, 0, sizeof(q->row));
+...
+>
+> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> index fce7451..8f7c3e9 100644
+> --- a/drivers/net/bnx2x_main.c
+> +++ b/drivers/net/bnx2x_main.c
+> @@ -10090,8 +10090,7 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+>
+>        dev->irq = pdev->irq;
+>
+> -       bp->regview = ioremap_nocache(dev->base_addr,
+> -                                     pci_resource_len(pdev, 0));
+> +       bp->regview = pci_ioremap_bar(pdev, 0);
+>        if (!bp->regview) {
+>                printk(KERN_ERR PFX "Cannot map register space, aborting\n");
+>                rc = -ENOMEM;
