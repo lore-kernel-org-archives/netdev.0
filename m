@@ -1,79 +1,48 @@
-From: Suresh Jayaraman <sjayaraman@suse.de>
-Subject: Re: [PATCH 20/32] netvm: INET reserves.
-Date: Wed, 22 Oct 2008 11:01:22 +0530
-Message-ID: <48FEBAAA.5080604@suse.de>
-References: <20081002130504.927878499@chello.nl> <20081002131609.071928149@chello.nl>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH] sctp: rfc conformance fixes
+Date: Wed, 22 Oct 2008 07:32:09 +0200
+Message-ID: <1224653529.6597.40.camel@localhost.localdomain>
+References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com>
+	 <1224650698.6597.32.camel@localhost.localdomain>
+	 <20081021.214725.176087242.davem@davemloft.net>
+	 <200810221601.27588.jk@ozlabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeremy Kerr <jk@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:46600 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044AbYJVF2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 01:28:18 -0400
-In-Reply-To: <20081002131609.071928149@chello.nl>
+Received: from smtp7-g19.free.fr ([212.27.42.64]:36255 "EHLO smtp7-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751238AbYJVFcM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2008 01:32:12 -0400
+In-Reply-To: <200810221601.27588.jk@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Peter,
 
->>> Peter Zijlstra <a.p.zijlstra@chello.nl> 10/02/08 7:06 PM >>>
-> Add reserves for INET.
+On Wed, 2008-10-22 at 16:01 +1100, Jeremy Kerr wrote:
 
-There's a typo in this patch that results in a Oops like the one below
-when doing `sysctl -a'
+Hi Jeremy,
 
-<cut>
-RIP: 0010:[<ffffffff804a0487>]  [<ffffffff804a0487>]
-__mutex_lock_slowpath+0x34/0xc9
+> That's correct - patchwork uses the content of the mail to determine
+> if it contains a patch, not the subject.
 
-Call Trace:
- [<ffffffff804a044f>] mutex_lock+0x1a/0x1e
- [<ffffffff8044a82e>] proc_dointvec_route+0x38/0xad
- [<ffffffff80301fce>] proc_sys_call_handler+0x91/0xb8
- [<ffffffff802ba07e>] vfs_read+0xaa/0x153
- [<ffffffff802ba1e3>] sys_read+0x45/0x6e
- [<ffffffff8020c37a>] system_call_fastpath+0x16/0x1b
- [<00007fb25e415880>] 0x7fb25e415880
+Thanks for explaining.
 
-</cut>
+I sent a patch sunday (using git-format-patch/git-send-email), and
+patchwork seems to have missed it, I can't see it even with all filters
+removed.
 
+From:   Maxime Bizon <mbizon@freebox.fr>
+To:     jgarzik@pobox.com
+Cc:     linux-mips@linux-mips.org, netdev@vger.kernel.org, Maxime Bizon <mbizon@freebox.fr>
+Message-Id: <1224382023-24388-1-git-send-email-mbizon@freebox.fr>
+Subject: [PATCH/RFC v1 09/12] [MIPS] BCM63XX: Add integrated ethernet mac support.
+Sender: netdev-owner@vger.kernel.org
 
-Index: linux-2.6/net/ipv4/route.c
-===================================================================
---- linux-2.6.orig/net/ipv4/route.c
-+++ linux-2.6/net/ipv4/route.c
-
-        /* Deprecated. Use gc_min_interval_ms */
-@@ -3271,6 +3330,15 @@ int __init ip_rt_init(void)
-    ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
-    ip_rt_max_size = (rt_hash_mask + 1) * 16;
-
-+#ifdef CONFIG_PROCFS
-
-Should be CONFIG_PROC_FS
-
-+    mutex_init(&ipv4_route_lock);
-+#endif
-+
-+    mem_reserve_init(&ipv4_route_reserve, "IPv4 route cache",
-+            &net_rx_reserve);
-+    mem_reserve_kmem_cache_set(&ipv4_route_reserve,
-+            ipv4_dst_ops.kmem_cachep, ip_rt_max_size);
-+
-    devinet_init();
-    ip_fib_init();
-
-
-Thanks,
+Any idea ?
 
 -- 
-Suresh Jayaraman
+Maxime
+
