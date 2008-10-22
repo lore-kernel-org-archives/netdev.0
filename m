@@ -1,48 +1,58 @@
-From: Yves-Alexis Perez <corsac@debian.org>
-Subject: Re: e1000e fails after several S3 resumes (2.6.26 Debian, TP T60)
-Date: Wed, 22 Oct 2008 23:15:29 +0200
-Message-ID: <1224710129.4883.6.camel@hidalgo>
-References: <E1KsjH5-0007Mg-0R@approx.mit.edu>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH] netns: Coexist with the sysfs limitations
+Date: Wed, 22 Oct 2008 16:21:24 -0500
+Message-ID: <20081022212124.GA9910@us.ibm.com>
+References: <20081022152144.351965414@theryb.frec.bull.fr> <m17i80nzff.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-X1YPMMl11FYla2QO8JAf"
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	linux-kernel@vger.kernel.org, NetDEV list <netdev@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net
-To: Sanjoy Mahajan <sanjoy@MIT.EDU>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Thery <benjamin.thery@bull.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dave Miller <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Denis Lunev <den@openvz.org>,
+	Linux Containers <containers@lists.linux-foundation.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g19.free.fr ([212.27.42.36]:43517 "EHLO smtp6-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751575AbYJVVRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2008 17:17:09 -0400
-In-Reply-To: <E1KsjH5-0007Mg-0R@approx.mit.edu>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:45828 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752408AbYJVVV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 17:21:29 -0400
+Content-Disposition: inline
+In-Reply-To: <m17i80nzff.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> 
+> To make testing of the network namespace simpler allow
+> the network namespace code and the sysfs code to be
+> compiled and run at the same time.  To do this only
+> virtual devices are allowed in the additional network
+> namespaces and those virtual devices are not placed
+> in the kobject tree.
+> 
+> Since virtual devices don't actually do anything interesting
+> hardware wise that needs device management there should
+> be no loss in keeping them out of the kobject tree and
+> by implication sysfs.  The gain in ease of testing
+> and code coverage should be significant.
+> 
+> I.e. people running distributions that make it next to
+> impossible to boot without sysfs should at be able to
+> boot a test kernel now.
+> 
+> Plus no ABIs are harmed with this patch.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
---=-X1YPMMl11FYla2QO8JAf
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Duh.
 
-On mer, 2008-10-22 at 15:21 -0400, Sanjoy Mahajan wrote:
-> It has BIOS 2.20 (79ETE3WW), the latest version when I last upgraded
-> the
-> BIOS, but I see that 2.23 is available.  I'll upgrade as soon as I
-> remember how on a Windowless (TM) machine.
+Tested-by: Serge Hallyn <serue@us.ibm.com>
+Acked-by: Serge Hallyn <serue@us.ibm.com>
 
-Just pick the bootable cdrom
---=20
-Yves-Alexis
+Thanks, Eric!  Thanks, Benjamin!
 
---=-X1YPMMl11FYla2QO8JAf
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkj/l+wACgkQTUTAIMXAW64JhwCfdocy4Y081it8CN4gpqcIvUZs
-f+wAn3qnvC1B6D8YKm3+Z4c0Buq41Re+
-=cjGN
------END PGP SIGNATURE-----
-
---=-X1YPMMl11FYla2QO8JAf--
+-serge
