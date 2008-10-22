@@ -1,91 +1,51 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Possible bug in bonding driver (with VLAN in ALB mode)
-Date: Wed, 22 Oct 2008 12:13:19 -0700
-Message-ID: <23022.1224702799@death.nxdomain.ibm.com>
-References: <48FE0EEB.7050503@anduras.de> <1830.1224612755@death.nxdomain.ibm.com> <48FE51C5.2010800@anduras.de> <4231.1224629540@death.nxdomain.ibm.com> <48FF3A05.1010408@anduras.de>
-Cc: netdev@vger.kernel.org
-To: Sven Anders <anders@anduras.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:49153 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752031AbYJVTNa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2008 15:13:30 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m9MJDN4W030922
-	for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 15:13:23 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9MJDNiH124006
-	for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 15:13:23 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9MJDNEx000921
-	for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 15:13:23 -0400
-In-reply-to: <48FF3A05.1010408@anduras.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sanjoy Mahajan <sanjoy@MIT.EDU>
+Subject: Re: e1000e fails after several S3 resumes (2.6.26
+	Debian, TP T60)
+Date: Wed, 22 Oct 2008 15:21:43 -0400
+Message-ID: <E1KsjH5-0007Mg-0R@approx.mit.edu>
+References: <4807377b0810220929v5906b42bgf9d63215370e5ab5@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, NetDEV list <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: Your message of "Wed, 22 Oct 2008 09:29:21 PDT."
+	<4807377b0810220929v5906b42bgf9d63215370e5ab5@mail.gmail.com>
+	(sfid-20081022_141704_643135_AA4BDC9C)
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Sven Anders <anders@anduras.de> wrote:
-[...]
->Certainly, this is only a test bugfix only, because it does not
->work with more than one active bond. Any ideas how to implement
->this correctly? Do we have to use an "dev_add_pack()" for each
->VLAN we are adding?
+Thanks.  I'll use 'ethregs' and 'ethtool -d eth0' at the next
+opportunity, though it might take a few weeks for the problem to recur,
 
-	Can you give this a try?  This patch just checks for VLAN-ness
-and extracts the real device if so, then does the usual "is it bonding"
-stuff to the real device.
+> you'll have to build ethregs which I haven't tried to do on debian,
+> but it should be possible.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 3d39278..ec1c115 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -341,14 +341,18 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
- 
- static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct packet_type *ptype, struct net_device *orig_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond;
- 	struct arp_pkt *arp = (struct arp_pkt *)skb->data;
- 	int res = NET_RX_DROP;
- 
- 	if (dev_net(bond_dev) != &init_net)
- 		goto out;
- 
--	if (!(bond_dev->flags & IFF_MASTER))
-+	if (bond_dev->priv_flags & IFF_802_1Q_VLAN)
-+		bond_dev = vlan_dev_real_dev(bond_dev);
-+
-+	if (!(bond_dev->priv_flags & IFF_BONDING) ||
-+	    !(bond_dev->flags & IFF_MASTER))
- 		goto out;
- 
- 	if (!arp) {
-@@ -363,6 +367,7 @@ static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct
- 
- 	if (arp->op_code == htons(ARPOP_REPLY)) {
- 		/* update rx hash table for this ARP */
-+		bond = bond_dev->priv;
- 		rlb_update_entry_from_arp(bond, arp);
- 		dprintk("Server received an ARP Reply from client\n");
- 	}
-@@ -813,7 +818,7 @@ static int rlb_initialize(struct bonding *bond)
- 
- 	/*initialize packet type*/
- 	pk_type->type = __constant_htons(ETH_P_ARP);
--	pk_type->dev = bond->dev;
-+	pk_type->dev = NULL;
- 	pk_type->func = rlb_arp_recv;
- 
- 	/* register to receive ARPs */
+It needed the 'libpci-dev' package and built smoothly.
 
+> There is also lots of opportunity for BIOS bugs to be effecting things
+> so please make sure that you have the latest bios.
 
->What troubles me is, that nobody since the addition of VLAN support
->to bonding in 2004 had this problem before. Did this (ever) work in
->one older version of the bonding driver?
+It has BIOS 2.20 (79ETE3WW), the latest version when I last upgraded the
+BIOS, but I see that 2.23 is available.  I'll upgrade as soon as I
+remember how on a Windowless (TM) machine.
 
-	I suspect not; I don't recall checking the load balancing
-performance of this kind of configuration (all VLANs over balance-alb).
+-Sanjoy
 
-	-J
+`Until lions have their historians, tales of the hunt shall always
+ glorify the hunters.'  --African Proverb
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
