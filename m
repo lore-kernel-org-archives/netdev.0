@@ -1,40 +1,65 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH] sctp: rfc conformance fixes
-Date: Wed, 22 Oct 2008 18:48:15 +0200
-Message-ID: <1224694096.30307.81.camel@sakura.staff.proxad.net>
-References: <20081021.214725.176087242.davem@davemloft.net>
-	 <200810221601.27588.jk@ozlabs.org>
-	 <1224653529.6597.40.camel@localhost.localdomain>
-	 <20081021.231237.227231643.davem@davemloft.net>
-Reply-To: mbizon@freebox.fr
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: sch_netem: Limit packet re-ordering
+	functionality to tfifo qdisc.
+Date: Wed, 22 Oct 2008 18:49:25 +0200
+Message-ID: <20081022164925.GB2556@ami.dom.local>
+References: <20081017130333.GA8297@ff.dom.local> <48F89D33.9090809@trash.net> <20081017201210.GA2527@ami.dom.local> <20081021.163605.57275028.davem@davemloft.net> <20081021165129.422dd83f@extreme> <20081022053746.GA4178@ff.dom.local> <48FF4E38.9010806@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jk@ozlabs.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sakura.staff.proxad.net ([213.228.1.107]:36850 "EHLO
-	sakura.staff.proxad.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752245AbYJVQsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 12:48:17 -0400
-In-Reply-To: <20081021.231237.227231643.davem@davemloft.net>
+Received: from nf-out-0910.google.com ([64.233.182.188]:39746 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751285AbYJVQtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 12:49:15 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1469398nfc.21
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 09:49:14 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <48FF4E38.9010806@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 22, 2008 at 06:00:56PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> On Tue, Oct 21, 2008 at 04:51:29PM -0700, Stephen Hemminger wrote:
+>>> On Tue, 21 Oct 2008 16:36:05 -0700 (PDT)
+>>> David Miller <davem@davemloft.net> wrote:
+>>>
+>>>> sch_netem is just a black box, like any other packet scheduler node in
+>>>> the tree, and so it can internally do the reordering with a self managed
+>>>> packet list or similar.  All of this can be hidden inside of it's ->dequeue()
+>>>> with some pkt_sch watchdog timer that fires to prevent stale packets sitting
+>>>> in the reorder queue forever.
+>>>>
+>>>> Anyways, just and idea and RFC, just like this patch ;-)
+>>> The problem is that jamal talked me into having netem as a classful qdisc,
+>>> instead of doing its own rate control.  People like to do use TBF as inner qdisc,
+>>> and do reordering.
+>>
+>> If it's only this kind of usage we could export tfifo and let use this
+>> as a TBF's (etc.) leaf. Of course, this would require changes in those
+>> people scripts.
+>
+> In that case we might as well teach them to use TBF as *parent*
+> of netem (and I'd vote to do that and kill requeue).
+>
+> But we can argue about this forever without any progress. The
+> question is simple - should we enforce a reasonable qdisc structure
+> and kill ->requeue or keep it around forever. Keep in mind that there
+> is no loss of functionality by using TBF as parent and that we
+> can do this gradually so users have a chance to fix their scripts,
+> should anyone really use TBF as inner qdisc.
+>
 
-On Tue, 2008-10-21 at 23:12 -0700, David Miller wrote:
+I'm not sure we think about the same: this tfifo idea doesn't need
+->requeue() at all. This would go through TBF's or prio's (etc.)
+->enqueue(), and only tfifo's ->enqueue(), if it's used as a leaf,
+checks the qdisc flag and can reorder.
 
-Hi David,
+But if it's useless, no problem. I can redo this patch without this
+qdisc flag.
 
-> I think I might have accidently marked it as "not relevant" thinking
-> the MIPS tree would pick it up.
-
-At least you did not think "that crap belongs to -staging" :)
-
-Ralf told me to sent it to Jeff Garzik, so I did. If you think this
-should go through the mips tree instead please tell me, or else I can
-repost it.
-
--- 
-Maxime
-
+Jarek P.
