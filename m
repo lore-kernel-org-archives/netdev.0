@@ -1,48 +1,38 @@
-From: Maxime Bizon <mbizon@freebox.fr>
+From: Jeremy Kerr <jk@ozlabs.org>
 Subject: Re: [PATCH] sctp: rfc conformance fixes
-Date: Wed, 22 Oct 2008 07:32:09 +0200
-Message-ID: <1224653529.6597.40.camel@localhost.localdomain>
-References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com>
-	 <1224650698.6597.32.camel@localhost.localdomain>
-	 <20081021.214725.176087242.davem@davemloft.net>
-	 <200810221601.27588.jk@ozlabs.org>
+Date: Wed, 22 Oct 2008 16:35:09 +1100
+Message-ID: <200810221635.10268.jk@ozlabs.org>
+References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com> <200810221601.27588.jk@ozlabs.org> <1224653529.6597.40.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-6"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jeremy Kerr <jk@ozlabs.org>
+To: Maxime Bizon <mbizon@freebox.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp7-g19.free.fr ([212.27.42.64]:36255 "EHLO smtp7-g19.free.fr"
+Received: from ozlabs.org ([203.10.76.45]:55779 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751238AbYJVFcM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2008 01:32:12 -0400
-In-Reply-To: <200810221601.27588.jk@ozlabs.org>
+	id S1750813AbYJVFhj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2008 01:37:39 -0400
+In-Reply-To: <1224653529.6597.40.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Maxime,
 
-On Wed, 2008-10-22 at 16:01 +1100, Jeremy Kerr wrote:
+> I sent a patch sunday (using git-format-patch/git-send-email), and
+> patchwork seems to have missed it, I can't see it even with all
+> filters removed.
 
-Hi Jeremy,
+There are some conditions where the parser will reject the patch 
+outright, usually due to character encoding breakages (either in the 
+email itself or the parser code).
 
-> That's correct - patchwork uses the content of the mail to determine
-> if it contains a patch, not the subject.
+If you could send me an mbox file containing the email, I'll see what's 
+going on (and add a testcase to patchwork).
 
-Thanks for explaining.
+Cheers,
 
-I sent a patch sunday (using git-format-patch/git-send-email), and
-patchwork seems to have missed it, I can't see it even with all filters
-removed.
 
-From:   Maxime Bizon <mbizon@freebox.fr>
-To:     jgarzik@pobox.com
-Cc:     linux-mips@linux-mips.org, netdev@vger.kernel.org, Maxime Bizon <mbizon@freebox.fr>
-Message-Id: <1224382023-24388-1-git-send-email-mbizon@freebox.fr>
-Subject: [PATCH/RFC v1 09/12] [MIPS] BCM63XX: Add integrated ethernet mac support.
-Sender: netdev-owner@vger.kernel.org
-
-Any idea ?
-
--- 
-Maxime
-
+Jeremy
