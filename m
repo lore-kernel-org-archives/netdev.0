@@ -1,136 +1,62 @@
 From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [BUG] oops in net_rx_action on 64-bit powerpc
-Date: Thu, 23 Oct 2008 14:50:06 -0700
-Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A069DFCEF@orsmsx507.amr.corp.intel.com>
-References: <4900D794.5020807@nortel.com>
+Subject: RE: Regression: Recent networking (qdisc?) patches break
+ irda_get_next_speed()
+Date: Thu, 23 Oct 2008 15:13:02 -0700
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A069DFD1F@orsmsx507.amr.corp.intel.com>
+References: <48FE1D52.6080903@ceibo.fiec.espol.edu.ec>
+	<48FE2F81.9060801@gmail.com>	<48FE67D4.5060200@ceibo.fiec.espol.edu.ec>
+ <20081021.164121.257737412.davem@davemloft.net>
+ <48FFC438.1080505@ceibo.fiec.espol.edu.ec>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Chris Friesen <cfriesen@nortel.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?iso-8859-1?Q?Alex_Villac=ED=ADs_Lasso?=
+	<avillaci@ceibo.fiec.espol.edu.ec>,
+	"irda-users@lists.sourceforge.net" <irda-users@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:4905 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:49398 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755581AbYJWVuX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 17:50:23 -0400
-In-Reply-To: <4900D794.5020807@nortel.com>
+	id S1751772AbYJWWNM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 18:13:12 -0400
+In-Reply-To: <48FFC438.1080505@ceibo.fiec.espol.edu.ec>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen wrote:
-> I tried booting a post 2.6.27 -git on a Motorola ATCA6101 (very
-> similar to a Maple board).  The first time I booted I got the first
-> log below via the serial console.  I rebooted and got as far as a
-> login prompt.  I was able to log in via the serial console, but then
-> got an almost identical oops again, as shown in the second log below.
-> 
-> I configed out the gigE drivers for the backplane so the only
-> remaining network link was the e100 link used for booting, but the
-> problem remained. 
-> 
-> Anyone have any idea what might be causing this?
-> 
-> Thanks,
-> 
-> Chris
-> 
-> 
-> Starting xinetd: [  OK  ]
-> Starting cron: [  OK  ]
-> Unable to handle kernel paging request for data at address 0x00100108
+Alex Villac=ED=ADs Lasso wrote:
+<snip>
 
-that 00100108 pattern looks familiar, I'm not much help here, but I think that had something to do with the list management of the poll_list in a netdev struct.
+>> The SKB control block is not aliased.
+>>=20
 
-so now you just have to figure out why someone's netdev struct is becoming NULL. :-)
+=2E..
+>> IRDA cannot depend upon the SKB control block not changing across
+>> the dev_queue_xmit() call.=20
+>>=20
+>>=20
+> Let me see if I understood. So the particular illegal thing the IRDA
+> stack is doing is the access of the control block in the middle of th=
+e
+> driver transmit routine (via irda_get_next_speed() and friends). This
+> information should be stored somewhere else. Exactly *where* to store
+> it is the main problem to solve.
+>=20
+> What is the proper way (if any) to store per-packet parameters (other
+> than the payload itself) which are specific to a particular layer
+> (IrDA in this case) and which are needed by drivers in order to work
+> correctly? The control block gets overwritten by the time the driver
+> proc (hard_start_xmit) is called, so this approach is now ruled out. =
+I
+> was thinking about storing a copy of the parameters (struct
+> irda_skb_cb) as a header within the payload itself (skb->data[]), but
+> I am not sure about whether this approach is a good design decision.
+> I am open to suggestions on where to place the parameters.
 
-> Faulting instruction address: 0xc00000000028c1cc
-> Oops: Kernel access of bad area, sig: 11 [#1]
-> SMP NR_CPUS=2 Maple
-> Modules linked in:
-> NIP: c00000000028c1cc LR: c00000000028c13c CTR: 0000000000000000
-> REGS: c00000000fff7b90 TRAP: 0300   Not tainted 
-> (2.6.27-05329-g39076ba) 
-> MSR: 9000000000009032 <EE,ME,IR,DR>  CR: 22ffff24  XER: 20000000
-> DAR: 0000000000100108, DSISR: 000000000a000000
+Isn't this what the data that is skb_reserve'd at the beginning of skb'=
+s allocated by netdev_alloc_skb is for?  If you take an extra reference=
+ to the skb and/or use a destructor hook you should be good, right?
 
-> TASK = c00000017a061080[0] 'swapper' THREAD: c00000017a078000 CPU: 1
-> GPR00: 0000000000000000 c00000000fff7e10 c00000000059bfe0
-> 0000000000000020 GPR04: 0000000000000001 c000000178179800
-> c00000000027fda8 0000000000000000 GPR08: 0000000000000000
-> 0000000000200200 0000000000000001 0000000000100100 GPR12:
-> 0000000022ffff22 c0000000005bc500 0000000000000000 0000000000000000
-> GPR16: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000 GPR20: 0000000000000000 000000000000000a
-> 0000000000000001 0000000000000001 GPR24: c0000000005a2280
-> c0000000005f5134 00000000fffd9bbe 00000000000000ec GPR28:
-> c000000006e30c28 0000000000000020 c000000000543440 c00000017a279b40
-> NIP [c00000000028c1cc] .net_rx_action+0x1e4/0x26c  
-> LR [c00000000028c13c] .net_rx_action+0x154/0x26c
-> Call Trace:
-> [c00000000fff7e10] [c00000000028c13c] .net_rx_action+0x154/0x26c
-> (unreliable) [c00000000fff7ec0] [c000000000056938]
-> .__do_softirq+0xf8/0x1f4 [c00000000fff7f90] [c000000000024334]
-> .call_do_softirq+0x14/0x24 [c00000017a07b970] [c00000000000bcdc]
-> .do_softirq+0xf0/0x104 [c00000017a07ba10] [c000000000056ae8]
-> .irq_exit+0x70/0x88 [c00000017a07ba90] [c00000000000ba18]
-> .do_IRQ+0x14c/0x244 [c00000017a07bb30] [c000000000004710]
-> hardware_interrupt_entry+0x18/0x1c --- Exception: 501 at
->       .raw_local_irq_restore+0x38/0x44 LR = .cpu_idle+0xd8/0x154
-> [c00000017a07be20] [c000000000012068] .cpu_idle+0x118/0x154
-> (unreliable) [c00000017a07bec0] [c0000000003d4304]
-> .start_secondary+0x310/0x3e8 [c00000017a07bf90] [c0000000000072b4]
-> .start_secondary_prolog+0x10/0x14 Instruction dump:
-> eb61ffd8 eb81ffe0 eba1ffe8 ebc1fff0 ebe1fff8 7c0803a6 4e800020
-> e81f0010 7809ffe3 40820038 e93f0008 e97f0000 <f92b0008> f9690000
-> e95c0008 fb9f0000 
-> 
-> 
-> 
-> 
-> root@10:/root> uname -a
-> Linux 10.41.18.77 2.6.27-05329-g39076ba #1 SMP Tue Oct 21 16:46:06
-> CST 2008 ppc64 GNU/Linux
-> root@10:/root> Unable to handle kernel paging request for data at
-> address 0x00100108
-> Faulting instruction address: 0xc00000000028c1cc
-> Oops: Kernel access of bad area, sig: 11 [#1]
-> SMP NR_CPUS=2 Maple
-> Modules linked in:
-> NIP: c00000000028c1cc LR: c00000000028c13c CTR: 0000000000000000
-> REGS: c00000000fff7b90 TRAP: 0300   Not tainted 
-> (2.6.27-05329-g39076ba) 
-> MSR: 9000000000009032 <EE,ME,IR,DR>  CR: 22ffff24  XER: 20000000
-> DAR: 0000000000100108, DSISR: 000000000a000000
-> TASK = c00000017a061080[0] 'swapper' THREAD: c00000017a078000 CPU: 1
-> GPR00: 0000000000000000 c00000000fff7e10 c00000000059bfe0
-> 0000000000000020 GPR04: 0000000000000001 0000000000000001
-> c00000000027fda8 0000000000000000 GPR08: 0000000000000000
-> 0000000000200200 0000000000000001 0000000000100100 GPR12:
-> 0000000022ffff22 c0000000005bc500 0000000000000000 0000000000000000
-> GPR16: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000 GPR20: 0000000000000000 000000000000000a
-> 0000000000000001 0000000000000001 GPR24: c0000000005a2280
-> c0000000005f5134 00000001000387ff 000000000000010c GPR28:
-> c000000006e30c28 0000000000000020 c000000000543440 c00000017a2b0b40
-> NIP [c00000000028c1cc] .net_rx_action+0x1e4/0x26c  
-> LR [c00000000028c13c] .net_rx_action+0x154/0x26c
-> Call Trace:
-> [c00000000fff7e10] [c00000000028c13c] .net_rx_action+0x154/0x26c
-> (unreliable) [c00000000fff7ec0] [c000000000056938]
-> .__do_softirq+0xf8/0x1f4 [c00000000fff7f90] [c000000000024334]
-> .call_do_softirq+0x14/0x24 [c00000017a07b970] [c00000000000bcdc]
-> .do_softirq+0xf0/0x104 [c00000017a07ba10] [c000000000056ae8]
-> .irq_exit+0x70/0x88 [c00000017a07ba90] [c00000000000ba18]
-> .do_IRQ+0x14c/0x244 [c00000017a07bb30] [c000000000004710]
-> hardware_interrupt_entry+0x18/0x1c --- Exception: 501 at
->       .cpu_idle+0xf0/0x154 LR = .cpu_idle+0xd8/0x154
-> [c00000017a07be20] [c000000000012068] .cpu_idle+0x118/0x154
-> (unreliable) [c00000017a07bec0] [c0000000003d4304]
-> .start_secondary+0x310/0x3e8 [c00000017a07bf90] [c0000000000072b4]
-> .start_secondary_prolog+0x10/0x14 Instruction dump:
-> eb61ffd8 eb81ffe0 eba1ffe8 ebc1fff0 ebe1fff8 7c0803a6 4e800020
-> e81f0010 7809ffe3 40820038 e93f0008 e97f0000 <f92b0008> f9690000
-> e95c0008 fb9f0000 
-
+you should just be able to push ->data using skb_reserve(sizeof your pr=
+ivate data) in the beginning of the skb, or is that a horrible idea Dav=
+e?
