@@ -1,61 +1,38 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: [PATCH 0/4][RFC] netns: sysfs: add a netns suffix to net device
- sysfs entries
-Date: Thu, 23 Oct 2008 13:56:33 +0200
-Message-ID: <49006671.3010804@bull.net>
-References: <20081022152144.351965414@theryb.frec.bull.fr> <m1d4hso0ym.fsf@frodo.ebiederm.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: libnl: nfqueue: add nfqueue specific socket allocation function
+Date: Thu, 23 Oct 2008 14:01:16 +0200
+Message-ID: <20081023120115.GH20815@postel.suug.ch>
+References: <4900643C.6000501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Dave Miller <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.linux-foundation.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:58586 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752958AbYJWMAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 08:00:32 -0400
-In-Reply-To: <m1d4hso0ym.fsf@frodo.ebiederm.org>
+Received: from postel.suug.ch ([194.88.212.233]:36014 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753023AbYJWMA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Oct 2008 08:00:56 -0400
+Content-Disposition: inline
+In-Reply-To: <4900643C.6000501@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Benjamin Thery <benjamin.thery@bull.net> writes:
+* Patrick McHardy <kaber@trash.net> 2008-10-23 13:47
+> commit e92539843a0c7e5116254382626cce226bf2135e
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Thu Oct 23 13:46:16 2008 +0200
 > 
->> Support for network namespaces in mainline is pretty complete for
->> some time now, but there is still this issue with sysfs that prevents 
->> more people to use it easily.
-> 
-> Ben your patchset is completely inappropriate.
-> 
-> Temporarily adding elements to the ABI that we intend to remove
-> is not a proper solution to this problem.
+>     libnl: nfqueue: add nfqueue specific socket allocation function
+>     
+>     nfqueue users usually send verdict messages from the receive callback.
+>     When waiting for ACKs, the receive callback might be called again
+>     recursively until the stack blows up.
+>     
+>     Add a nfqueue specific socket allocation function that automatically
+>     disables ACKing for the socket.
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-In fact, I feared that would be an issue before I sent the patches.
-Thanks for confirming this.
-
-But, as this alternative was discussed a bit after Al's comments on your
-last patches, I had to give it a try and code a proof-of-concept.
-
-Benjamin
-
-> 
-> That user space visible ida you add is a namespace identifier that breaks
-> nested containers and migration.  It is very very very wrong.
-> 
-> Eric
-> 
-> 
-> 
-
-
--- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
-
-    http://www.bull.com
+Applied, thanks Patrick.
