@@ -1,41 +1,42 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] sctp: rfc conformance fixes
-Date: Wed, 22 Oct 2008 21:24:47 -0400
-Message-ID: <48FFD25F.8090807@hp.com>
-References: <48FF249C.5040207@hp.com>	<200810230954.02499.jk@ozlabs.org>	<20081022.164636.143240158.davem@davemloft.net> <20081022.164834.08272239.davem@davemloft.net>
+From: "Andrew Grover" <andy.grover@gmail.com>
+Subject: Re: linux/vmxnet
+Date: Wed, 22 Oct 2008 18:25:36 -0700
+Message-ID: <c0a09e5c0810221825x366dd639h651286ff81f934db@mail.gmail.com>
+References: <592182.29492.qm@web59608.mail.ac4.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jk@ozlabs.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: "Michael Chang" <michaelcn_chang@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:45515 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352AbYJWBYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 21:24:50 -0400
-In-Reply-To: <20081022.164834.08272239.davem@davemloft.net>
+Received: from wf-out-1314.google.com ([209.85.200.175]:28326 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753022AbYJWBZh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 21:25:37 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so88893wfd.4
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2008 18:25:37 -0700 (PDT)
+In-Reply-To: <592182.29492.qm@web59608.mail.ac4.yahoo.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 22 Oct 2008 16:46:36 -0700 (PDT)
-> 
->> From: Jeremy Kerr <jk@ozlabs.org>
->> Date: Thu, 23 Oct 2008 09:54:02 +1100
->>
->>>> Oddly enough, none of this series made it to patchwork.
->>> I'll chase this up then - could you formward a copy of one of the 
->>> messages after it has come through the list?
->> Here is one of them.
-> 
-> Sorry, I'm a bozo, that was a copy that made it privately to me.
-> 
-> I don't have any copies in my inbox that came via vger.
-> 
+On Wed, Oct 22, 2008 at 2:57 PM, Michael Chang
+<michaelcn_chang@yahoo.com> wrote:
+> 1)Is vmxnet opensource. Where can I find its source.
 
-Really?  They made it to vger and back out.  They are also in
-the archive or marc.   I wonder which black hole some of them
-disappeared to... :)
+The vmxnet driver is labeled Vmware Confidential. I got its source by
+looking in the VmwareTools tgz. It's not open source so basically game
+over. Why not try KVM or Xen?
 
--vlad
+> 2)Once vmxnet is in linux kernel, what changes we need to implement in
+> physical ethernet driver on host to make it work with vmxnet OR "any
+> other virtualization".
+
+VMWare, Xen, and KVM all have different interfaces for paravirtualized
+net and block drivers.
+
+> 3) Any other info will be appreciated.
+
+Google "virtio".
+
+Regards -- Andy
