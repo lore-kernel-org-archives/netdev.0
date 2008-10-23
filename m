@@ -1,67 +1,99 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH] dmfe: check pci_alloc_consistent errors
-Date: Thu, 23 Oct 2008 18:01:13 +0900
-Message-ID: <20081023180005A.fujita.tomonori@lab.ntt.co.jp>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [PATCH] netns: Coexist with the sysfs limitations
+Date: Thu, 23 Oct 2008 10:04:41 +0200
+Message-ID: <49003019.40904@bull.net>
+References: <20081022152144.351965414@theryb.frec.bull.fr> <m17i80nzff.fsf@frodo.ebiederm.org> <20081022212124.GA9910@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Dave Miller <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Denis Lunev <den@openvz.org>,
+	Linux Containers <containers@lists.linux-foundation.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:50696 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572AbYJWJBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Oct 2008 05:01:15 -0400
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:60995 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751826AbYJWJC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 05:02:57 -0400
+In-Reply-To: <20081022212124.GA9910@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to check the address that pci_alloc_consistent() returns since
-it might fail.
+Serge E. Hallyn wrote:
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> To make testing of the network namespace simpler allow
+>> the network namespace code and the sysfs code to be
+>> compiled and run at the same time.  To do this only
+>> virtual devices are allowed in the additional network
+>> namespaces and those virtual devices are not placed
+>> in the kobject tree.
+>>
+>> Since virtual devices don't actually do anything interesting
+>> hardware wise that needs device management there should
+>> be no loss in keeping them out of the kobject tree and
+>> by implication sysfs.  The gain in ease of testing
+>> and code coverage should be significant.
+>>
+>> I.e. people running distributions that make it next to
+>> impossible to boot without sysfs should at be able to
+>> boot a test kernel now.
+>>
+>> Plus no ABIs are harmed with this patch.
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
----
- drivers/net/tulip/dmfe.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletions(-)
+>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> 
+> Duh.
+> 
+> Tested-by: Serge Hallyn <serue@us.ibm.com>
+> Acked-by: Serge Hallyn <serue@us.ibm.com>
 
-diff --git a/drivers/net/tulip/dmfe.c b/drivers/net/tulip/dmfe.c
-index 8e46a51..c91852f 100644
---- a/drivers/net/tulip/dmfe.c
-+++ b/drivers/net/tulip/dmfe.c
-@@ -420,9 +420,13 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
- 	/* Allocate Tx/Rx descriptor memory */
- 	db->desc_pool_ptr = pci_alloc_consistent(pdev, sizeof(struct tx_desc) *
- 			DESC_ALL_CNT + 0x20, &db->desc_pool_dma_ptr);
-+	if (!db->desc_pool_ptr)
-+		goto err_out_res;
- 
- 	db->buf_pool_ptr = pci_alloc_consistent(pdev, TX_BUF_ALLOC *
- 			TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
-+	if (!db->buf_pool_ptr)
-+		goto err_out_free_desc;
- 
- 	db->first_tx_desc = (struct tx_desc *) db->desc_pool_ptr;
- 	db->first_tx_desc_dma = db->desc_pool_dma_ptr;
-@@ -469,7 +473,7 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
- 
- 	err = register_netdev (dev);
- 	if (err)
--		goto err_out_res;
-+		goto err_out_free_buf;
- 
- 	printk(KERN_INFO "%s: Davicom DM%04lx at pci%s, "
- 	       "%s, irq %d.\n",
-@@ -483,6 +487,12 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
- 
- 	return 0;
- 
-+err_out_free_buf:
-+	pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
-+			    db->buf_pool_ptr, db->buf_pool_dma_ptr);
-+err_out_free_desc:
-+	pci_free_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20,
-+			    db->desc_pool_ptr, db->desc_pool_dma_ptr);
- err_out_res:
- 	pci_release_regions(pdev);
- err_out_disable:
+Oh, this patch is short, clean, and the limitation introduced isn't too
+annoying for testing netns right now.
+
+At least, my proposal provoked some reactions :)
+
+BTW, there's a second limitation with your patch:
+we can't rename the net devices in the additional network namespaces.
+
+In net/core/dev.c, dev_change_name() fails: call to device_rename() 
+return an (expected) -EINVAL error.
+Maybe we should add a test on the net to only call it in init_net?
+
+  rollback:
+-       err = device_rename(&dev->dev, dev->name);
+-       if (err) {
+-               memcpy(dev->name, oldname, IFNAMSIZ);
+-               return err;
++       if (net == &init_net) {
++               err = device_rename(&dev->dev, dev->name);
++               if (err) {
++                       memcpy(dev->name, oldname, IFNAMSIZ);
++                       return err;
++               }
+         }
+
+Otherwise,
+
+Acked-by: Benjamin Thery <benjamin.thery@bull.net>
+
+Thanks,
+Benjamin
+
+> 
+> Thanks, Eric!  Thanks, Benjamin!
+> 
+> -serge
+> 
+> 
+
+
 -- 
-1.5.5.GIT
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
 
+    http://www.bull.com
