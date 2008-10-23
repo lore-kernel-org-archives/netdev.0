@@ -1,42 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netlink: fix append of whole original message on negative
- ack.
-Date: Thu, 23 Oct 2008 23:02:32 +0200
-Message-ID: <4900E668.9050101@trash.net>
-References: <4900BFCF.2030707@gmail.com> <20081023.134513.267548182.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
+ cannot navigate
+Date: Thu, 23 Oct 2008 14:07:22 -0700 (PDT)
+Message-ID: <20081023.140722.193705068.davem@davemloft.net>
+References: <20081021184539.GA3320@ami.dom.local>
+	<20081021.163207.157978465.davem@davemloft.net>
+	<Pine.LNX.4.64.0810221244390.7072@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: michellammertink@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jarkao2@gmail.com, sentiniate@tiscali.it, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, olon@verizon.net
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61272 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752030AbYJWVFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 17:05:09 -0400
-In-Reply-To: <20081023.134513.267548182.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38023
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751541AbYJWVHo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Oct 2008 17:07:44 -0400
+In-Reply-To: <Pine.LNX.4.64.0810221244390.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: M Lammertink <michellammertink@gmail.com>
-> Date: Thu, 23 Oct 2008 20:17:51 +0200
->   
->> Can anyone explain to me why struct nlmsgerr contains an int error and the nlmsghdr struct. The comment in netlink_ack states that the whole message should be appended. Why not only include an int error in struct nlmsgerr and just append the original message?
->>
->> Comments appreciated.
->>
->> diff -uprN linux-2.6.27.3.orig/net/netlink/af_netlink.c linux-2.6.27.3/net/netlink/af_netlink.c
->> --- linux-2.6.27.3.orig/net/netlink/af_netlink.c	2008-10-23 18:01:54.000000000 +0200
->> +++ linux-2.6.27.3/net/netlink/af_netlink.c	2008-10-23 18:04:22.000000000 +0200
->> @@ -1656,7 +1656,7 @@ void netlink_ack(struct sk_buff *in_skb,
->>  	}
->>  
->>  	rep = __nlmsg_put(skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
->> -			  NLMSG_ERROR, sizeof(struct nlmsgerr), 0);
->> +			  NLMSG_ERROR, payload, 0)
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 22 Oct 2008 13:00:01 +0300 (EEST)
 
-You can't include the full message since the resulting message
-might exceed the 64k netlink limit.
+> [PATCH] tcp: Restore ordering of TCP options for the sake of inter-op=
+erability
+>=20
+> This is not our bug! Sadly some devices cannot cope with the change
+> of TCP option ordering which was a result of the recent rewrite of
+> the option code (not that there was some particular reason steming
+> from the rewrite for the reordering) though any ordering of TCP
+> options is perfectly legal. Thus we restore the original ordering
+> to allow interoperability with/through such broken devices and add
+> some warning about this trap. Since the reordering just happened
+> without any particular reason, this change shouldn't cost us
+> anything.
+>=20
+> There are already couple of known failure reports (within close
+> proximity of the last release), so the problem might be more
+> wide-spread than a single device. And other reports which may
+> be due to the same problem though the symptoms were less obvious.
+> Analysis of one of the case revealed (with very high probability)
+> that sack capability cannot be negotiated as the first option
+> (SYN never got a response).
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Reported-by: Aldo Maggi <sentiniate@tiscali.it>
+> Tested-by: Aldo Maggi <sentiniate@tiscali.it>
 
+Applied and I'll queue up for -stable, thanks!
