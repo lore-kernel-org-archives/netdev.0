@@ -1,81 +1,62 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH net-next] bonding: fix panic when taking bond interface
-	down before removing module
-Date: Wed, 22 Oct 2008 21:50:24 -0400
-Message-ID: <20081023015024.GB11129@gospo.rdu.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: WARNING (skb_gso_segment) with tg3+bridge in 2.6.27
+Date: Thu, 23 Oct 2008 10:20:01 +0800
+Message-ID: <20081023022001.GB304@gondor.apana.org.au>
+References: <20081011172002.GA12659@pest> <20081013.004226.171259546.davem@davemloft.net> <20081022074502.GA25058@gondor.apana.org.au> <20081022175704.GA25286@xw6200.broadcom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: stable@kernel.org
-To: netdev@vger.kernel.org, fubar@us.ibm.com
+Cc: David Miller <davem@davemloft.net>,
+	"berni@birkenwald.de" <berni@birkenwald.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:59635 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751195AbYJWBub (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2008 21:50:31 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:51971 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758801AbYJWCUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 22:20:10 -0400
 Content-Disposition: inline
+In-Reply-To: <20081022175704.GA25286@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 22, 2008 at 10:57:04AM -0700, Matt Carlson wrote:
+>
+> Looking at the dmesg output, I see that the tg3 device is a 5714.
+> NETIF_F_TSO6 should not be enabled for the 5714.  Why is the driver
+> getting an IPv6 TSO packet?
 
-A panic was discovered with bonding when using mode 5 or 6 and trying to
-remove the slaves from the bond after the interface was taken down.
-When calling 'ifconfig bond0 down' the following happens:
+This might be caused by the bridge enabling TSO6 due to GSO
+being enabled on the underlying device which is a result of
+it supporting SG.
 
-    bond_close()
-        bond_alb_deinitialize()
-            tlb_deinitialize()
-		kfree(bond_info->tx_hashtbl)
-                bond_info->tx_hashtbl = NULL
+> > So my question is to the tg3 developers, does having TSO6 without
+> > IPv6 checksums ever make sense?
+> 
+> No.  TSO implies checksum offload.
 
-Unfortunately if there are still slaves in the bond, when removing the
-module the following happens:
+OK that's good to know.
 
-    bonding_exit()
-        bond_free_all()
-            bond_release_all()
-                bond_alb_deinit_slave()
-                    tlb_clear_slave()
-                        tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl
-			u32 next_index = tx_hash_table[index].next
+> > Put it another way, how can you
+> > have a device that can compute checksums for TCPv6 packets but
+> > not UDPv6 packets?
+> 
+> The checksum operations should be exactly the same between the two.
+> I can't help but wonder why UDP entered the scene though.  The tg3
+> driver never sets NETIF_F_UFO.
 
-As you might guess we panic when trying to access a few entries into the
-table that no longer exists.
+What I meant is the NETIF_F_TSO6 bit vs. NETIF_F_IPV6_CSUM bit.
+My question is essentially does having the first bit always mean
+that the second bit is set.  The second bit stands for support
+of TCPv6 and UDPv6 checksum offload (which is not necessarily
+related to TSO or UFO).
 
-I experimented with several options (like moving the calls to
-tlb_deinitialize somewhere else), but it really makes the most sense to
-be part of the bond_close routine.  It also didn't seem logical move
-tlb_clear_slave around too much, so the simplest option seems to add a
-check in tlb_clear_slave to make sure we haven't already wiped the
-tx_hashtbl away before searching for all the non-existent hash-table
-entries that used to point to the slave as the output interface.
+The thing which I wasn't sure about is that the conditions which
+determine which one of these bits are set do not look the same
+in tg3.
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
-
- bond_alb.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index ade5f3f..87437c7 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -169,11 +169,14 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
- 	/* clear slave from tx_hashtbl */
- 	tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl;
- 
--	index = SLAVE_TLB_INFO(slave).head;
--	while (index != TLB_NULL_INDEX) {
--		u32 next_index = tx_hash_table[index].next;
--		tlb_init_table_entry(&tx_hash_table[index], save_load);
--		index = next_index;
-+	/* skip this if we've already freed the tx hash table */
-+	if (tx_hash_table) {
-+		index = SLAVE_TLB_INFO(slave).head;
-+		while (index != TLB_NULL_INDEX) {
-+			u32 next_index = tx_hash_table[index].next;
-+			tlb_init_table_entry(&tx_hash_table[index], save_load);
-+			index = next_index;
-+		}
- 	}
- 
- 	tlb_init_slave(slave);
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
