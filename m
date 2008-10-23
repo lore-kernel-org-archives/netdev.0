@@ -1,56 +1,69 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: on-link assumption in ipv4 routing cache
-Date: Thu, 23 Oct 2008 13:47:44 -0400
-Message-ID: <4900B8C0.5020205@hp.com>
-References: <48FD2A34.7020702@hp.com> <20081020.221312.211946478.davem@davemloft.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: [0/3] POHMELFS: the new release. Extended attributes.
+Date: Thu, 23 Oct 2008 22:54:35 +0400
+Message-ID: <20081023185435.GA18461@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:27163 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455AbYJWRry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 13:47:54 -0400
-In-Reply-To: <20081020.221312.211946478.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Mon, 20 Oct 2008 21:02:44 -0400
-> 
->> This was somewhat of a surprise since I expected a EHOSTUNRACH error since
->> there were no routes to the destination and SO_DONTROUTE was not set.
->>
->> I am really curious as to reason for this behavior?
-> 
-> In general the Linux ipv4 stack tries to do things that make it more
-> likely for successful communication between two nodes.
-> 
-> This is one such example, another is the choice of using the host
-> based addressing model rather than the interface based addressing
-> model.
-> 
-> Alexey Kuznetsov is responsible for most of these decisions, he is
-> a genius.
-> 
+Hello.
 
-Hi David
+I'm pleased to announce the new POHMELFS release.
 
-Ok, I've found the code and the explanation, but I think there is
-a small bug here that's been around a very long time.  There is absolutely
-no checking for the interface state.  This means that if the interface
-is brought down, we are still going to attempt to route through it.
-That seems broken, since the interface was administratively brought down.
+Short changelog:
+ * Extended attributes.
+ * Distributed locks for metadata updates.
+ * Bug fixes and cleanups ( i n c l u d i n g w h i t e s p a c e s ! ).
 
-I've actually tried to do this with my test app.  I've set it to connect
-over a given interface, brought the interface down, and then issued the
-connect().  The result is that the app hung until tcp_syn_retries SYNs have
-been issued and then returned error.
+POHMELFS is a very high performance parallel network filesystem with
+local coherent cache of data and metadata. Its main goal is distributed
+processing of the data.
 
-I've got no issues against on-link assumption as long as there are some smarts
-behind it.  The least we could do is use a running interface.
+Features supported by POHMELFS:
+ * Locally coherent cache for data and metadata with (potentially) byte-range locks.
+ 	Since all Linux filesystems lock the whole inode during writing, algorithm
+	is very simlpe and does not use byte-ranges, although they are sent in
+	locking messages.
+ * Completely async processing of all events (hard and symlinks are the
+	only exceptions) including object creation and data reading and
+	writing.
+ * Flexible object architecture optimized for network processing. Ability
+	to create long pathes to object and remove arbitrary huge 
+	directories in single network command.
+ * High performance is one of the main design goals.
+ * Very fast and scalable multithreaded userspace server. Being in
+	userspace it works with any underlying filesystem and still is much
+	faster than async in-kernel NFS one.
+ * Transactions support. Full failover for all operations. Resending
+	transactions to different servers on timeout or error.
+ * Client is able to switch between different servers (if one goes down,
+	client automatically reconnects to second and so on).
+ * Client parallel extensions: ability to write to multiple servers and
+	balance reading between them.
+ * Client dynamical server reconfiguration: ability to add/remove servers
+	from working set in run-time.
+ * Strong authentification and possible data encryption in network channel.
+ * Extended attributes support.
 
--vlad
+POHMELFS roadmap now includes distributed and parallel facilities of the
+server.
+
+1. POHMELFS homepage.
+http://www.ioremap.net/node/21
+
+2. POHMELFS archive.
+http://www.ioremap.net/archive/pohmelfs/
+
+3. GIT trees.
+http://www.ioremap.net/cgi-bin/gitweb.cgi
+
+4. Development status.
+http://www.ioremap.net/taxonomy/term/4
+
+-- 
+	Evgeniy Polyakov
