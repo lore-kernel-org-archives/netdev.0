@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] sctp: Fix to handle SHUTDOWN in SHUTDOWN_RECEIVED
- state
-Date: Thu, 23 Oct 2008 01:01:26 -0700 (PDT)
-Message-ID: <20081023.010126.69738776.davem@davemloft.net>
-References: <1224641327-11913-1-git-send-email-vladislav.yasevich@hp.com>
-	<1224641327-11913-5-git-send-email-vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: rfc conformance fixes
+Date: Thu, 23 Oct 2008 01:06:19 -0700 (PDT)
+Message-ID: <20081023.010619.255170956.davem@davemloft.net>
+References: <48FFD25F.8090807@hp.com>
+	<20081022.210649.06597758.davem@davemloft.net>
+	<20081023061514.GA14658@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	yjwei@cn.fujitsu.com
-To: vladislav.yasevich@hp.com
+Cc: vladislav.yasevich@hp.com, jk@ozlabs.org, netdev@vger.kernel.org
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38273
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33533
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752725AbYJWIBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 04:01:49 -0400
-In-Reply-To: <1224641327-11913-5-git-send-email-vladislav.yasevich@hp.com>
+	by vger.kernel.org with ESMTP id S1752858AbYJWIGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 04:06:42 -0400
+In-Reply-To: <20081023061514.GA14658@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 21 Oct 2008 22:08:47 -0400
+From: Simon Horman <horms@verge.net.au>
+Date: Thu, 23 Oct 2008 17:15:16 +1100
 
-> Once an endpoint has reached the SHUTDOWN-RECEIVED state,
-> it MUST NOT send a SHUTDOWN in response to a ULP request.
-> The Cumulative TSN Ack of the received SHUTDOWN chunk
-> MUST be processed.
-> 
-> This patch fix to process Cumulative TSN Ack of the received
-> SHUTDOWN chunk in SHUTDOWN_RECEIVED state.
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> For what it is worth, I use the following procmail rule to elimintate
+> duplicate messages based on Message-Id.
 
-Applied.
+Thanks Simon, I'll check it out.
