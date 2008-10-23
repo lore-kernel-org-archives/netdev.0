@@ -1,53 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: skb recycling
-Date: Wed, 22 Oct 2008 22:28:07 -0700 (PDT)
-Message-ID: <20081022.222807.205044577.davem@davemloft.net>
-References: <48FD6E8A.6060304@cosmosbay.com>
-	<18685.37380.34636.316536@robur.slu.se>
-	<48FDA6B6.70905@cosmosbay.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] sctp: rfc conformance fixes
+Date: Thu, 23 Oct 2008 16:47:32 +1100
+Message-ID: <1224740852.7654.390.camel@pasglop>
+References: <48FFBA06.50609@hp.com> <200810231143.22027.jk@ozlabs.org>
+	 <200810231434.47989.jk@ozlabs.org>
+	 <20081022.211148.98722383.davem@davemloft.net>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: robert@robur.slu.se, shemminger@vyatta.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: jk@ozlabs.org, vladislav.yasevich@hp.com, netdev@vger.kernel.org,
+	mbizon@freebox.fr, patchwork@ozlabs.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33568
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751254AbYJWF2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2008 01:28:30 -0400
-In-Reply-To: <48FDA6B6.70905@cosmosbay.com>
+Received: from gate.crashing.org ([63.228.1.57]:47949 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752550AbYJWFrt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Oct 2008 01:47:49 -0400
+In-Reply-To: <20081022.211148.98722383.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 21 Oct 2008 11:53:58 +0200
-
-> One CPU does the allocations, (interrupts handled by a given CPU)
-> Another CPU(s) do(es) the freeing
+On Wed, 2008-10-22 at 21:11 -0700, David Miller wrote:
+> > OK, patchwork didn't like that the mail had no Content-Type header, so 
+> > has no character set encoding defined. I've just checked-in change to 
+> > assume a utf-8 encoding by default:
+> > 
+> > http://git.ozlabs.org/?p=patchwork;a=commitdiff;h=d45218b2e3894211e11313820bea9f59677c4bf2
+> > 
+> > Which should mean that future patches will be accepted.
 > 
-> Such scenario is hard for slab/slub because it needs inter-CPU communication, while
-> slub/slab are optimized to deal with per CPU queues/structures (fast path)
+> Thanks a lot for fixing this Jeremy.  I bet some other patches got
+> eaten by this too.
 > 
-> skb recycling is an interesting technique because typical NIC handles RX & TX completion
-> in one CPU at the same time, thus we can reduce this slab/slub inter-CPU handling.
-
-This matches my feeling on the situation.  And that's basically why I
-applied the recycling infrastructure patches from Lennert :-)
-
-> skb recycling has a (nice ?) side effect on NUMA platforms, not for forwarding workloads,
-> (which are IMHO not the majority of linux machines workloads) but typical servers.
+> > (if you'd like me to manually re-inject that series of patches, just 
+> > forward the mboxes over to me)
 > 
-> Current NIC drivers actually allocate their RX rings using the memory node
-> close to the device.
-> 
-> With RX recycling, we are re-using skb that were allocated by the process itself,
-> and this process is likely the one that will process received frames.
+> Not needed, I'll apply Vlad's patches since I have them in my inbox.
 
-I am not so sure about this, however.
+Since patchwork2 is new and might still occasionally have such a
+problem, I though of a way to recover these...
 
-It's just trading one NUMA penalty for another.
+If we keep an archive of the list, we can use patchwork hashing feature
+to basically generate hashes for all patches in the archive over the
+last N month, and then use the patchwork client interface to check if
+they are all indeed referenced there. If not, we can then re-inject
+them.
 
-Also, the device is going to interrupt on a particular cpu within the NUMA
-node normally.  The scheduler will notice that socket wakeups happen there
-and likely migrate the task there.
+Typically a tool that could be used after we fix that sort of bug.
+(There have been a couple of other similar ones related to weird
+encodings in the past).
+
+Cheers,
+Ben.
+
+
