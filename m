@@ -1,53 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: two other cases Re: [Bug 11721] after upgrade to 2.6.27 i
- cannot navigate
-Date: Thu, 23 Oct 2008 14:07:22 -0700 (PDT)
-Message-ID: <20081023.140722.193705068.davem@davemloft.net>
-References: <20081021184539.GA3320@ami.dom.local>
-	<20081021.163207.157978465.davem@davemloft.net>
-	<Pine.LNX.4.64.0810221244390.7072@wrl-59.cs.helsinki.fi>
+Subject: Re: [RFC][PATCH] xfrm: do not leak ESRCH to user space
+Date: Thu, 23 Oct 2008 14:11:58 -0700 (PDT)
+Message-ID: <20081023.141158.179712309.davem@davemloft.net>
+References: <1224772039.4404.56.camel@sebastian.kern.oss.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jarkao2@gmail.com, sentiniate@tiscali.it, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, olon@verizon.net
-To: ilpo.jarvinen@helsinki.fi
+Cc: netdev@vger.kernel.org
+To: fernando@oss.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38023
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41683
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751541AbYJWVHo convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1752030AbYJWVMU convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Oct 2008 17:07:44 -0400
-In-Reply-To: <Pine.LNX.4.64.0810221244390.7072@wrl-59.cs.helsinki.fi>
+	Thu, 23 Oct 2008 17:12:20 -0400
+In-Reply-To: <1224772039.4404.56.camel@sebastian.kern.oss.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 22 Oct 2008 13:00:01 +0300 (EEST)
+=46rom: Fernando Luis V=E1zquez Cao <fernando@oss.ntt.co.jp>
+Date: Thu, 23 Oct 2008 23:27:19 +0900
 
-> [PATCH] tcp: Restore ordering of TCP options for the sake of inter-op=
-erability
+> I noticed that, under certain conditions, ESRCH can be leaked from th=
+e
+> xfrm layer to user space through sys_connect. In particular, this see=
+ms
+> to happen reliably when the kernel fails to resolve a template either
+> because the AF_KEY receive buffer being used by racoon is full or
+> because the SA entry we are trying to use is in XFRM_STATE_EXPIRED
+> state.
 >=20
-> This is not our bug! Sadly some devices cannot cope with the change
-> of TCP option ordering which was a result of the recent rewrite of
-> the option code (not that there was some particular reason steming
-> from the rewrite for the reordering) though any ordering of TCP
-> options is perfectly legal. Thus we restore the original ordering
-> to allow interoperability with/through such broken devices and add
-> some warning about this trap. Since the reordering just happened
-> without any particular reason, this change shouldn't cost us
-> anything.
+> However, since this could be a transient issue it could be argued tha=
+t
+> EAGAIN would be more appropriate. Besides this error code is not even
+> documented in the man page for sys_connect (as of man-pages 3.07).
 >=20
-> There are already couple of known failure reports (within close
-> proximity of the last release), so the problem might be more
-> wide-spread than a single device. And other reports which may
-> be due to the same problem though the symptoms were less obvious.
-> Analysis of one of the case revealed (with very high probability)
-> that sack capability cannot be negotiated as the first option
-> (SYN never got a response).
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> Reported-by: Aldo Maggi <sentiniate@tiscali.it>
-> Tested-by: Aldo Maggi <sentiniate@tiscali.it>
+> What is the expected behavior (I could not find anything in the RFCs)=
+?
+> Should we just fix the connect(2) man page instead?
 
-Applied and I'll queue up for -stable, thanks!
+I think this case requires some care.
+
+-EAGAIN tells the caller that it is a temporary failure and that
+retrying can be expected to succeed eventually (some resource is not
+available at the moment).  So applications loop when they see this
+error returned, they will try again.
+
+But that's not what is happening when ESRCH is signalled.  We found
+no matching policy, and we've done nothing to make such a policy
+be found in the (near) future.  It is more of a hard failure, which
+should not necessarily be retried over and over again.
+
+So converting this to -EAGAIN doesn't seem correct at all.
