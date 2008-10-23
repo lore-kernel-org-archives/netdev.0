@@ -1,45 +1,74 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] sky2: skb recycling
-Date: Wed, 22 Oct 2008 16:58:17 -0700
-Message-ID: <48FFBE19.7010803@hp.com>
-References: <20081020190922.7dd6510a@extreme>	<20081020.221857.209830018.davem@davemloft.net>	<48FE34AF.8050508@hp.com> <48FE386F.8090706@cosmosbay.com> <20081021133811.68bd5ce1@extreme>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] via-velocity: earlier name allocation
+Date: Wed, 22 Oct 2008 17:04:22 -0700
+Message-ID: <20081022170422.7851ea9a@extreme>
+References: <alpine.DEB.2.00.0810230114180.17076@ds9.feds.ath.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sven Hartge <sven@svenhartge.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:3685 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752324AbYJVX6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2008 19:58:21 -0400
-In-Reply-To: <20081021133811.68bd5ce1@extreme>
+Received: from mail.vyatta.com ([76.74.103.46]:60278 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752804AbYJWAEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2008 20:04:25 -0400
+In-Reply-To: <alpine.DEB.2.00.0810230114180.17076@ds9.feds.ath.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 21 Oct 2008 22:15:43 +0200
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
->=20
->=20
->>Rick Jones a =E9crit :
->>> I've not had a good emily litella moment all day so I'll ask - is
->>> there really that much in the way of suitable skb's which are
->>> completely free after transmit completion?
->>
->> Or, if we take another way, say a VOIP RTP machine sends and
->> receive 20.000 packets per second, each being 200 bytes long, are
->> transmited packets correctly sized at sendto() time to be
->> candidates for recycling ?
->=20
-> No. Most locally generate packets aren't going to be right size
-> because they will be too small, cloned or fragmented.  It really only
-> helps when forwarding.
+On Thu, 23 Oct 2008 01:24:25 +0200 (CEST)
+Sven Hartge <sven@svenhartge.de> wrote:
 
-So we have a bit of "tension" between the desires of an end host vs=20
-those of a router right?
+> Hi.
+> 
+> This is my first attempt at a kernel patch ever, so please be gentle :)
+> (And please CC me, as I am not subscribed to netdev.)
+> 
+> This patch corrects a cosmetic bug in the via-velocity driver which 
+> bothered me for some time.
+> 
+> The messages printed during device init look like the following:
+> 
+> [    8.486422] eth%d: set value of parameter Wake On Lan options to 0
+>                   ^^!
+> [    8.487340] eth0: VIA Networking Velocity Family Gigabit Ethernet Adapter
+> 
+> Note the unresolved format string.
+> 
+> I just copied and adapted the name allocation code from register_netdev 
+> and call it before the first use of dev->name 
+> 
+> Even if my attempt is incorrect, it should give you an idea what needs 
+> fixing here.
+> 
+> Signed-off-by: Sven Hartge <sven@svenhartge.de>
+> 
+> diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+> index 2dced38..15f2c19 100644
+> --- a/drivers/net/via-velocity.c
+> +++ b/drivers/net/via-velocity.c
+> @@ -934,6 +934,16 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
+>  	for (i = 0; i < 6; i++)
+>  		dev->dev_addr[i] = readb(&regs->PAR[i]);
+>  
+> +	/*
+> +	 *  Do name allocation.
+> +	 */
+> +
+> +	if (strchr(dev->name, '%')) {
+> +		ret = dev_alloc_name(dev, dev->name);
+> +			if (ret < 0)
+> +				dev_err(&pdev->dev, "Name allocation failed.\n");
+> +				goto err_disable;
+> +	}
+>  
+>  	velocity_get_options(&vptr->options, velocity_nics, dev->name);
+>  
 
-rick jones
+NAK
+
+There is nothing to prevent that device name from being allocated by another device
+at that point.  The correct fix is to not use dev->name until after registering
+the network device.  Change the order of registration or pass dev_driver_string(&pdev->dev)
+instead of dev->name to velocity_get_options
