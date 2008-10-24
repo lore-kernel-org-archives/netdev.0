@@ -1,318 +1,34 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] phylib: add mdio-gpio bus driver
-Date: Fri, 24 Oct 2008 18:29:56 +0300
-Message-ID: <20081024152956.11865.9334.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+From: Paul P <ppak_98@yahoo.com>
+Subject: extra epollout events from edge triggered epoll
+Date: Fri, 24 Oct 2008 08:36:53 -0700 (PDT)
+Message-ID: <873507.27968.qm@web56304.mail.re3.yahoo.com>
+Reply-To: ppak_98@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:43686 "EHLO
-	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757018AbYJXP3z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Oct 2008 11:29:55 -0400
-Received: from 82-135-208-232.static.zebra.lt (HELO Programuotojas.82-135-208-232.ip.zebra.lt) (paulius.zaleckas@[82.135.208.232])
-          (envelope-sender <paulius.zaleckas@teltonika.lt>)
-          by teltonika.lt (qmail-ldap-1.03) with SMTP
-          for <netdev@vger.kernel.org>; 24 Oct 2008 15:28:53 -0000
+Received: from web56304.mail.re3.yahoo.com ([216.252.110.228]:34794 "HELO
+	web56304.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752776AbYJXPnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 11:43:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Useful for machines where PHY control is connected to GPIO.
-This driver also supports interrupts from PHY.
+I am programming a server using the epoll interface and have the receive portion of the server working fine, but for some reason as I implement the send portion, I noticed a few things that seem like strange behaviors in the implementation of epoll in the kernel.
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
----
+I'm running Opensuse 11 and it has a 2.6.25 kernel.
 
- drivers/net/phy/Kconfig     |    6 +
- drivers/net/phy/Makefile    |    1 
- drivers/net/phy/mdio-gpio.c |  202 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/mdio-gpio.h   |   40 +++++++++
- 4 files changed, 249 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/mdio-gpio.c
- create mode 100644 include/linux/mdio-gpio.h
+The behavior that I can seeing is when I do a full read on an edge triggered fd, for some reason, it seems to be triggering an epollout events after each loop of the read events on a socket. (before I've done any writes at all to the socket)
+
+This is very strange behavior as I would expect that the epollout event would only be triggered if I did a write and the socket recieved an ack which cleared out the send buffer.
+
+The documentation on epollout is really sparse, so any help at all from the list would be very much appreciated.
+
+I was hoping someone more knowledgeable on the subject here might be able to help explain the epollout behavior and whether or not the extra events are normal and if so, what is the traditional way to handle these extra events in an edge triggered scenario.
+
+Thanks!
+
+Paul
 
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index d55932a..b6a0350 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -84,6 +84,12 @@ config MDIO_BITBANG
- 
- 	  If in doubt, say N.
- 
-+config MDIO_GPIO
-+	tristate "Support for GPIO bitbanged MDIO buses"
-+	depends on MDIO_BITBANG && GENERIC_GPIO
-+	help
-+	  Supports MDIO busses connected to GPIO.
-+
- config MDIO_OF_GPIO
- 	tristate "Support for GPIO lib-based bitbanged MDIO buses"
- 	depends on MDIO_BITBANG && OF_GPIO
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index eee329f..8629b09 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -15,4 +15,5 @@ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
- obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed.o
- obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
-+obj-$(CONFIG_MDIO_GPIO)		+= mdio-gpio.o
- obj-$(CONFIG_MDIO_OF_GPIO)	+= mdio-ofgpio.o
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-new file mode 100644
-index 0000000..d98046f
---- /dev/null
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -0,0 +1,202 @@
-+/*
-+ * GPIO based MDIO bitbang driver.
-+ *
-+ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-+ *
-+ * Based on mdio-ofgpio.c:
-+ *
-+ * Copyright (c) 2008 CSE Semaphore Belgium.
-+ *  by Laurent Pinchart <laurentp@cse-semaphore.com>
-+ *
-+ * Copyright (c) 2003 Intracom S.A.
-+ *  by Pantelis Antoniou <panto@intracom.gr>
-+ *
-+ * 2005 (c) MontaVista Software, Inc.
-+ * Vitaly Bordug <vbordug@ru.mvista.com>
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2. This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/platform_device.h>
-+#include <linux/gpio.h>
-+#include <linux/mdio-bitbang.h>
-+#include <linux/mdio-gpio.h>
-+
-+struct mdio_gpio_info {
-+	struct mdiobb_ctrl ctrl;
-+	unsigned int mdc, mdio;
-+};
-+
-+static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	if (dir)
-+		gpio_direction_output(bitbang->mdio, 1);
-+	else
-+		gpio_direction_input(bitbang->mdio);
-+}
-+
-+static int mdio_read(struct mdiobb_ctrl *ctrl)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	return gpio_get_value(bitbang->mdio);
-+}
-+
-+static void mdio(struct mdiobb_ctrl *ctrl, int what)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	gpio_set_value(bitbang->mdio, what);
-+}
-+
-+static void mdc(struct mdiobb_ctrl *ctrl, int what)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	gpio_set_value(bitbang->mdc, what);
-+}
-+
-+static struct mdiobb_ops mdio_gpio_ops = {
-+	.owner = THIS_MODULE,
-+	.set_mdc = mdc,
-+	.set_mdio_dir = mdio_dir,
-+	.set_mdio_data = mdio,
-+	.get_mdio_data = mdio_read,
-+};
-+
-+static int __devinit mdio_gpio_bitbang_init(struct mii_bus *bus, void *data)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(bus->priv, struct mdio_gpio_info, ctrl);
-+	struct mdio_gpio_platform_data *pdata = data;
-+	unsigned int i;
-+
-+	if (pdata == NULL)
-+		goto out;
-+
-+	bitbang->mdc = pdata->mdc;
-+	bitbang->mdio = pdata->mdio;
-+
-+	if (gpio_request(bitbang->mdc, "mdc"))
-+		goto out;
-+
-+	if (gpio_request(bitbang->mdio, "mdio"))
-+		goto out_free_mdc;
-+
-+	for (i = 0; i < pdata->nr_phys; i++) {
-+		unsigned int phy_addr = pdata->phys[i].addr;
-+
-+		BUG_ON(phy_addr >= PHY_MAX_ADDR);
-+
-+		bus->phy_mask &= ~(1 << phy_addr);
-+		bus->irq[phy_addr] = pdata->phys[i].irq;
-+	}
-+
-+	return 0;
-+
-+out_free_mdc:
-+	gpio_free(bitbang->mdc);
-+out:
-+	return -ENODEV;
-+}
-+
-+static int __devinit mdio_gpio_probe(struct platform_device *pdev)
-+{
-+	struct mii_bus *new_bus;
-+	struct mdio_gpio_info *bitbang;
-+	int ret = -ENOMEM;
-+	int i;
-+
-+	bitbang = kzalloc(sizeof(struct mdio_gpio_info), GFP_KERNEL);
-+	if (!bitbang)
-+		goto out;
-+
-+	bitbang->ctrl.ops = &mdio_gpio_ops;
-+
-+	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
-+	if (!new_bus)
-+		goto out_free_bitbang;
-+
-+	new_bus->name = "GPIO Bitbanged MII",
-+	snprintf(new_bus->id, MII_BUS_ID_SIZE, "phy%i", pdev->id);
-+
-+	new_bus->phy_mask = ~0;
-+	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-+	if (!new_bus->irq)
-+		goto out_free_bus;
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		new_bus->irq[i] = PHY_POLL;
-+
-+	ret = mdio_gpio_bitbang_init(new_bus, pdev->dev.platform_data);
-+	if (ret)
-+		goto out_free_irqs;
-+
-+	new_bus->dev = &pdev->dev;
-+	platform_set_drvdata(pdev, new_bus);
-+
-+	ret = mdiobus_register(new_bus);
-+	if (ret)
-+		goto out_free_all;
-+
-+	return 0;
-+
-+out_free_all:
-+	platform_set_drvdata(pdev, NULL);
-+out_free_irqs:
-+	kfree(new_bus->irq);
-+out_free_bus:
-+	free_mdio_bitbang(new_bus);
-+out_free_bitbang:
-+	kfree(bitbang);
-+out:
-+	return ret;
-+}
-+
-+static int __devexit mdio_gpio_remove(struct platform_device *pdev)
-+{
-+	struct mii_bus *bus = platform_get_drvdata(pdev);
-+	struct mdio_gpio_info *bitbang = bus->priv;
-+
-+	mdiobus_unregister(bus);
-+	kfree(bus->irq);
-+	free_mdio_bitbang(bus);
-+	platform_set_drvdata(pdev, NULL);
-+	gpio_free(bitbang->mdc);
-+	gpio_free(bitbang->mdio);
-+	kfree(bitbang);
-+
-+	return 0;
-+}
-+
-+static struct platform_driver mdio_gpio_driver = {
-+	.probe = mdio_gpio_probe,
-+	.remove = __devexit_p(mdio_gpio_remove),
-+	.driver		= {
-+		.name	= "mdio-gpio",
-+		.owner	= THIS_MODULE,
-+	},
-+};
-+
-+static int mdio_gpio_init(void)
-+{
-+	return platform_driver_register(&mdio_gpio_driver);
-+}
-+
-+static void mdio_gpio_exit(void)
-+{
-+	platform_driver_unregister(&mdio_gpio_driver);
-+}
-+
-+module_init(mdio_gpio_init);
-+module_exit(mdio_gpio_exit);
-diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
-new file mode 100644
-index 0000000..82d5fa4
---- /dev/null
-+++ b/include/linux/mdio-gpio.h
-@@ -0,0 +1,40 @@
-+/*
-+ * MDIO-GPIO bus platform data structures
-+ *
-+ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#ifndef __LINUX_MDIO_GPIO_H
-+#define __LINUX_MDIO_GPIO_H
-+
-+struct mdio_gpio_phy {
-+	/* PHY address on MDIO bus */
-+	unsigned int addr;
-+	/* preconfigured irq connected to PHY or -1 if no irq */
-+	int irq;
-+};
-+
-+struct mdio_gpio_platform_data {
-+	/* GPIO numbers for bus pins */
-+	unsigned int mdc;
-+	unsigned int mdio;
-+
-+	unsigned int nr_phys;
-+	struct mdio_gpio_phy *phys;
-+};
-+
-+#endif /* __LINUX_MDIO_GPIO_H */
-
+      
