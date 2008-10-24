@@ -1,61 +1,80 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v2] usbnet: enable more aggressive autosuspend
-Date: Fri, 24 Oct 2008 10:12:22 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0810241008060.13114-100000@iolanthe.rowland.org>
-References: <49019392.3050306@t2data.se>
+From: Sanjoy Mahajan <sanjoy@MIT.EDU>
+Subject: Re: e1000e fails after several S3 resumes (2.6.26
+	Debian, TP T60)
+Date: Fri, 24 Oct 2008 10:24:57 -0400
+Message-ID: <E1KtNaz-0003Xx-0y@approx.mit.edu>
+References: <F169D4F5E1F1974DBFAFABF47F60C10A069DFD62@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: USB list <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-	David Brownell <david-b@pacbell.net>
-To: Per Hallsmark <per.hallsmark@t2data.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:60025 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753301AbYJXOMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 10:12:23 -0400
-In-Reply-To: <49019392.3050306@t2data.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	NetDEV list <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: Your message of "Thu, 23 Oct 2008 15:42:55 PDT."
+	<F169D4F5E1F1974DBFAFABF47F60C10A069DFD62@orsmsx507.amr.corp.intel.com>
+	(sfid-20081023_194301_937814_89312B9F)
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Oct 2008, Per Hallsmark wrote:
+> hm, does your kernel have CONFIG_PM defined?  
 
-> Alan Stern wrote:
-> > On Thu, 23 Oct 2008, Per Hallsmark wrote:
-> >
-> >   
-> >> Enable more aggressive autosuspend in usbnet.
-> >> Some commenting and cleanups done.
-> >> Signed-off-by: Per Hallsmark <per@hallsmark.se>
-> >>     
-> >
-> > I've been considering submitting the patch below.  It would help your 
-> > work; you could remove all the "waker" stuff.
-> >   
+It does have that defined:
 
-> So, if I understand the patch correctly, the waker's in cdc-acm, cdc-wdm 
-> and usbnet
-> could then be removed and a change to use *_async() should be done?
+  $ grep CONFIG_PM /boot/config-2.6.26-1-686 
+  CONFIG_PM=y
+  # CONFIG_PM_DEBUG is not set
+  CONFIG_PM_SLEEP_SMP=y
+  CONFIG_PM_SLEEP=y
+  CONFIG_PM_STD_PARTITION=""
 
-That's right.  There are a few races you have to worry about (maybe
-they're already taken into account -- I'm not familiar with these
-drivers):
+> if it happens again please include lspci -vvv before and after ethtool
+> -r (see below)
 
-	What happens if a new URB has to be submitted at about the
-	same time as an autosuspend occurs?
+I will.  Now I'm running BIOS 2.23, so I'm curious whether that
+'upgrade' fixes the problem.
 
-	What happens if you call one of the *_async() routines at the
-	same time as some other CPU updates intf->pm_usage_count?
+I say 'upgrade' because now S3 sleep and wakeup often take 60 seconds.
+I've also noticed ACPI errors in the 'dmesg'.  Once I have something
+reproducible I'll file a bugzilla report.
 
-> I work with a module that have usb interfaces driven by above three 
-> drivers so it
-> could be a good testing case I guess.
-> Generic solutions are the best so if this approach would work then of 
-> course a
-> change should be made I think. I have no time to test it in near time 
-> though,
-> perhaps later next week.
+> device was also claiming successfully transmitting, so I don't know
+> why the DHCP packets don't work, can you tcpdump on the network or the
+> dhcp server by chance?
 
-Okay, let me know how it turns out.
+I'll do that too on the next failure.  Is 'tcpdump host 18.38.0.1'
+sufficient or do I need a few -v switches?
 
-Alan Stern
+> can you ifconfig eth0 promisc before doing suspend?  I'd be curious if
+> that fixed it.
 
+If/when it reproduces, I'll add that line to the pre-suspend code.  (I
+use 's2ram', which I think sleeps with 'echo mem > /sys/power/state' and
+does a vt switch on wakeup).
+
+Generally: For making debugging go smoothly, is it worth running a
+vanilla kernel rather than the Debian one?  I could try 2.6.26.7 or
+2.6.27.3.  Is running 2.6.27.y not as useful as running 2.6.26.y, in
+case the bug is merely hidden but not solved in the new kernel?  On the
+other hand, I'm tempted to try 2.6.27.y in case it fixes the slow
+suspend/resume.
+
+-Sanjoy
+
+`Until lions have their historians, tales of the hunt shall always
+ glorify the hunters.'  --African Proverb
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
