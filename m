@@ -1,75 +1,129 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: e1000e fails after several S3 resumes (2.6.26 Debian, TP T60)
-Date: Fri, 24 Oct 2008 09:22:58 -0700
-Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A069DFFA0@orsmsx507.amr.corp.intel.com>
-References: Your message of "Thu, 23 Oct 2008 15:42:55 PDT."
-             <F169D4F5E1F1974DBFAFABF47F60C10A069DFD62@orsmsx507.amr.corp.intel.com>
- (sfid-20081023_194301_937814_89312B9F)  <E1KtNaz-0003Xx-0y@approx.mit.edu>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: iproute2: make genl ctrl ls print multicast groups
+Date: Fri, 24 Oct 2008 17:25:52 +0200
+Message-ID: <1224861953.3919.1.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Sanjoy Mahajan <sanjoy@MIT.EDU>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15644 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753008AbYJXQXC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 12:23:02 -0400
-In-Reply-To: <E1KtNaz-0003Xx-0y@approx.mit.edu>
-Content-Language: en-US
+Received: from xc.sipsolutions.net ([83.246.72.84]:58057 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752848AbYJXRLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 13:11:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sanjoy Mahajan wrote:
->> hm, does your kernel have CONFIG_PM defined?
-> 
-> It does have that defined:
+This patch makes the genl tool print multicast groups, useful for
+discovering which multicast groups are supported.
 
-ok
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+ genl/ctrl.c               |   39 ++++++++++++++++++++++++++++++++++++---
+ include/linux/genetlink.h |   13 +++++++++++++
+ 2 files changed, 49 insertions(+), 3 deletions(-)
+
+diff --git a/genl/ctrl.c b/genl/ctrl.c
+index ee5acb8..5c02ee1 100644
+--- a/genl/ctrl.c
++++ b/genl/ctrl.c
+@@ -23,6 +23,7 @@
+ #include "genl_utils.h"
  
->> if it happens again please include lspci -vvv before and after
->> ethtool -r (see below)
-> 
-> I will.  Now I'm running BIOS 2.23, so I'm curious whether that
-> 'upgrade' fixes the problem.
-> 
-> I say 'upgrade' because now S3 sleep and wakeup often take 60 seconds.
-> I've also noticed ACPI errors in the 'dmesg'.  Once I have something
-> reproducible I'll file a bugzilla report.
-
-ick, it would be nice if the system vendors actually tested their acpi implementations on multiple OSes.
+ #define GENL_MAX_FAM_OPS	256
++#define GENL_MAX_FAM_MCAST	256
+ static int usage(void)
+ {
+ 	fprintf(stderr,"Usage: ctrl <CMD>\n" \
+@@ -151,6 +152,24 @@ static int print_ctrl_cmds(FILE *fp, struct rtattr *arg, __u32 ctrl_ver)
  
->> device was also claiming successfully transmitting, so I don't know
->> why the DHCP packets don't work, can you tcpdump on the network or
->> the dhcp server by chance?
-> 
-> I'll do that too on the next failure.  Is 'tcpdump host 18.38.0.1'
-> sufficient or do I need a few -v switches?
-
-I'm mostly looking for the conversation back and forth, so that should be fine.
-Keep in mind that the first dhcp packet is usually a broadcast (not to a 
-particular IP)
+ }
  
->> can you ifconfig eth0 promisc before doing suspend?  I'd be curious
->> if that fixed it.
-> 
-> If/when it reproduces, I'll add that line to the pre-suspend code.  (I
-> use 's2ram', which I think sleeps with 'echo mem > /sys/power/state'
-> and does a vt switch on wakeup).
-
-okay, thanks
++static int print_mcast_grp(FILE *fp, struct rtattr *arg)
++{
++	struct rtattr *tb[CTRL_ATTR_MCAST_GRP_MAX + 1];
++
++	if (!arg)
++		return -1;
++
++	parse_rtattr_nested(tb, CTRL_ATTR_MCAST_GRP_MAX, arg);
++	if (tb[CTRL_ATTR_MCAST_GRP_NAME])
++		fprintf(fp, "%s", (char *)RTA_DATA(tb[CTRL_ATTR_MCAST_GRP_NAME]));
++
++	if (tb[CTRL_ATTR_MCAST_GRP_ID]) {
++		__u32 *id = RTA_DATA(tb[CTRL_ATTR_MCAST_GRP_ID]);
++		fprintf(fp, " (%d)", *id);
++	}
++	return 0;
++}
++
+ /*
+  * The controller sends one nlmsg per family
+ */
+@@ -225,10 +244,24 @@ static int print_ctrl(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ 				fprintf(fp,"\n");
+ 			}
+ 		}
+-
+-		/* end of family::cmds definitions .. */
+-		fprintf(fp,"\n");
+ 	}
++	if (tb[CTRL_ATTR_MCAST_GROUPS]) {
++		struct rtattr *tb2[GENL_MAX_FAM_MCAST];
++		int i=0;
++		parse_rtattr_nested(tb2, GENL_MAX_FAM_MCAST, tb[CTRL_ATTR_MCAST_GROUPS]);
++		fprintf(fp, "\tmulticast groups: \n");
++		for (i = 0; i < GENL_MAX_FAM_MCAST; i++) {
++			if (tb2[i]) {
++				fprintf(fp, "\t\t- ", i);
++				if (0 > print_mcast_grp(fp, tb2[i]))
++					fprintf(fp, "Error printing command\n");
++				/* for next command */
++				fprintf(fp,"\n");
++			}
++		}
++	}
++	fprintf(fp,"\n");
++
+ 	fflush(fp);
+ 	return 0;
+ }
+diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
+index f7a9377..7da02c9 100644
+--- a/include/linux/genetlink.h
++++ b/include/linux/genetlink.h
+@@ -39,6 +39,9 @@ enum {
+ 	CTRL_CMD_NEWOPS,
+ 	CTRL_CMD_DELOPS,
+ 	CTRL_CMD_GETOPS,
++	CTRL_CMD_NEWMCAST_GRP,
++	CTRL_CMD_DELMCAST_GRP,
++	CTRL_CMD_GETMCAST_GRP, /* unused */
+ 	__CTRL_CMD_MAX,
+ };
  
-> Generally: For making debugging go smoothly, is it worth running a
-> vanilla kernel rather than the Debian one?  I could try 2.6.26.7 or
-> 2.6.27.3.  Is running 2.6.27.y not as useful as running 2.6.26.y, in
-> case the bug is merely hidden but not solved in the new kernel?  On
-> the other hand, I'm tempted to try 2.6.27.y in case it fixes the slow
-> suspend/resume.
+@@ -52,6 +55,7 @@ enum {
+ 	CTRL_ATTR_HDRSIZE,
+ 	CTRL_ATTR_MAXATTR,
+ 	CTRL_ATTR_OPS,
++	CTRL_ATTR_MCAST_GROUPS,
+ 	__CTRL_ATTR_MAX,
+ };
+ 
+@@ -66,4 +70,13 @@ enum {
+ 
+ #define CTRL_ATTR_OP_MAX (__CTRL_ATTR_OP_MAX - 1)
+ 
++enum {
++	CTRL_ATTR_MCAST_GRP_UNSPEC,
++	CTRL_ATTR_MCAST_GRP_NAME,
++	CTRL_ATTR_MCAST_GRP_ID,
++	__CTRL_ATTR_MCAST_GRP_MAX,
++};
++
++#define CTRL_ATTR_MCAST_GRP_MAX (__CTRL_ATTR_MCAST_GRP_MAX - 1)
++
+ #endif	/* __LINUX_GENERIC_NETLINK_H */
 
-I think you should definitely try 2.6.27.y, the e1000e versions in the kernel 
-are different than what is in ubuntu at least, so not sure if that applies to 
-debian.
+
