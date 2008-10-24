@@ -1,82 +1,46 @@
-From: Alex Samad <alex@samad.com.au>
-Subject: Re: kernel oops when system under network stress
-Date: Fri, 24 Oct 2008 13:09:22 +1100
-Message-ID: <20081024020922.GA21547@samad.com.au>
-References: <20081016030416.GA5551@samad.com.au> <20081015.215536.242281148.davem@davemloft.net> <20081016050810.GA8240@samad.com.au> <20081016064142.GA5064@gondor.apana.org.au> <20081016070934.GA10150@samad.com.au> <20081016091009.GA5794@gondor.apana.org.au>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: Problem: ip_forward in 2.6.27 via realtek 8169 and rt2500pci needs mtu 185 on machines in LAN
+Date: Fri, 24 Oct 2008 10:28:20 +0400
+Message-ID: <20081024062820.GA9321@ioremap.net>
+References: <490127D6.8080201@jsigle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="dDRMvlgZJXvWKvBx"
-Cc: David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081016091009.GA5794@gondor.apana.org.au>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---dDRMvlgZJXvWKvBx
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "Joerg M. Sigle" <joerg.sigle@jsigle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cet.com.ru ([195.178.208.66]:57057 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751571AbYJXG2W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Oct 2008 02:28:22 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <490127D6.8080201@jsigle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bugger, didn't see this replay, will get on it=20
+Hi Joerg.
 
-alex
+On Fri, Oct 24, 2008 at 03:41:42AM +0200, Joerg M. Sigle (joerg.sigle@jsigle.com) wrote:
+> Linux box1
+> eth0:192.168.1.1 (3com Vortex or so)
+>   |
+>   |    Linux Box2
+>   |    eth0:192.168.1.4 (Ne2000 PCMCIA)
+>   |      |
+> SimpleSwitch
+>   |
+> eth0:192.168.1.40 (Realtek 8169 onboard)
+> Linux routerbox (Plain vanilla 2.6.27 SMP)
+> wlan0:192.168.2.40 (Ralink rt2500 PCI)
+>   |
+> USR8054 dedicated WLAN-Router
+>   |
+> Internet (or so).
 
-On Thu, Oct 16, 2008 at 05:10:09PM +0800, Herbert Xu wrote:
-> On Thu, Oct 16, 2008 at 06:09:34PM +1100, Alex Samad wrote:
-> >
-> > just about, within a 5-10 min window
->=20
-> Great.  Please apply this patch and let me know what it prints
-> out (if anything).
->=20
-> Thanks,
-> --=20
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection=
-_sock.c
-> index 16d43f2..72af09d 100644
-> --- a/net/ipv6/inet6_connection_sock.c
-> +++ b/net/ipv6/inet6_connection_sock.c
-> @@ -233,6 +233,13 @@ int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
->  	/* Restore final destination back after routing done */
->  	ipv6_addr_copy(&fl.fl6_dst, &np->daddr);
-> =20
-> +	if (WARN_ON(skb_is_gso(skb) && skb->ip_summed !=3D CHECKSUM_PARTIAL)) {
-> +		printk("%s: %d %d %d 0x%x 0x%x 0x%lx", skb->dst->dev->name,
-> +		       skb->ip_summed, skb_shinfo(skb)->gso_size, skb->len,
-> +		       skb_shinfo(skb)->gso_type, sk->sk_route_caps,
-> +		       skb->dst->dev->features);
-> +	}
-> +
->  	return ip6_xmit(sk, skb, &fl, np->opt, 0);
->  }
-> =20
->=20
+Let me clarify the problem. Traffic fom linux clients only goes through
+above setup if mtu on the USR8054 lan device is 185 bytes, correct?
 
---=20
-"The Legislature makes the laws, and the Executive interprets the laws."
+Can you run network traffic with big mtu (normal 1500 bytes) between
+linux router and clients? Between clients?
 
-	- George W. Bush
-
---dDRMvlgZJXvWKvBx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkkBLkkACgkQkZz88chpJ2OzrgCg7Yq4BQjoYbqaogikM1vgbVbx
-o+kAn1vV9p2D/M2PbZfLxHiWO8esInRs
-=ro5X
------END PGP SIGNATURE-----
-
---dDRMvlgZJXvWKvBx--
+-- 
+	Evgeniy Polyakov
