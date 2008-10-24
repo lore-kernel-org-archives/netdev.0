@@ -1,59 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Fri, 24 Oct 2008 16:31:11 -0700 (PDT)
-Message-ID: <20081024.163111.244324800.davem@davemloft.net>
-References: <20081010115518.GA3159@tservice.net.ru>
-	<20081010115725.GD19487@elte.hu>
-	<200810250025.35734.rjw@sisk.pl>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: [BUG] oops in net_rx_action on 64-bit powerpc
+Date: Fri, 24 Oct 2008 17:39:00 -0600
+Message-ID: <49025C94.60406@nortel.com>
+References: <4900D794.5020807@nortel.com> <F169D4F5E1F1974DBFAFABF47F60C10A069DFCEF@orsmsx507.amr.corp.intel.com> <20081023.171614.72881694.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, s0mbre@tservice.net.ru, a.p.zijlstra@chello.nl,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, efault@gmx.de
-To: rjw@sisk.pl
+Cc: jesse.brandeburg@intel.com, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59044
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751295AbYJXXbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 19:31:34 -0400
-In-Reply-To: <200810250025.35734.rjw@sisk.pl>
+Received: from zcars04f.nortel.com ([47.129.242.57]:49053 "EHLO
+	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbYJXXjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 19:39:12 -0400
+In-Reply-To: <20081023.171614.72881694.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Sat, 25 Oct 2008 00:25:34 +0200
-
-> On Friday, 10 of October 2008, Ingo Molnar wrote:
-> > 
-> > * Evgeniy Polyakov <s0mbre@tservice.net.ru> wrote:
-> > 
-> > > On Fri, Oct 10, 2008 at 01:42:45PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
-> > > > > vanilla 27: 347.222
-> > > > > no TSO/GSO: 357.331
-> > > > > no hrticks: 382.983
-> > > > > no balance: 389.802
-> > > > 
-> > > > okay. The target is 470 MB/sec, right? (Assuming the workload is sane 
-> > > > and 'fixing' it does not mean we have to schedule worse.)
-> > > 
-> > > Well, that's where I started/stopped, so maybe we will even move
-> > > further? :)
-> > 
-> > that's the right attitude ;)
+David Miller wrote:
+> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com> Date: Thu, 23 Oct
+> 2008 14:50:06 -0700
 > 
-> Can anyone please tell me if there was any conclusion of this thread?
+>> Chris Friesen wrote:
+>>> I tried booting a post 2.6.27 -git on a Motorola ATCA6101 (very similar
+>>> to a Maple board).  The first time I booted I got the first log below
+>>> via the serial console.  I rebooted and got as far as a login prompt.
+>>> I was able to log in via the serial console, but then got an almost
+>>> identical oops again, as shown in the second log below.
+>>> 
+>>> I configed out the gigE drivers for the backplane so the only remaining
+>>> network link was the e100 link used for booting, but the problem
+>>> remained.
+>>> 
+>>> Anyone have any idea what might be causing this?
+>>> 
+>>> Thanks,
+>>> 
+>>> Chris
+>>> 
+>>> 
+>>> Starting xinetd: [  OK  ] Starting cron: [  OK  ] Unable to handle
+>>> kernel paging request for data at address 0x00100108
+>> that 00100108 pattern looks familiar, I'm not much help here, but I think
+>> that had something to do with the list management of the poll_list in a
+>> netdev struct.
+>> 
+>> so now you just have to figure out why someone's netdev struct is
+>> becoming NULL. :-)
+> 
+> Usually this is an indication of returning the wrong value from the
+> driver's ->poll() routine.
 
-I made some more analysis in private with Ingo and Peter Z. and found
-that the tbench decreases correlate pretty much directly with the
-ongoing increasing cpu cost of wake_up() and friends in the fair
-scheduler.
+Looks like I was wrong before...the remaining ethernet link is an AMD-8111, 
+not an e100.  Sorry about that.
 
-The largest increase in computational cost of wakeups came in 2.6.27
-when the hrtimer bits got added, it more than tripled the cost of a wakeup.
-In 2.6.28-rc1 the hrtimer feature has been disabled, but I think that
-should be backports into the 2.6.27-stable branch.
+I backed out 6ba33ac "amd8111e: delete non NAPI code from the driver".  With 
+NAPI disabled, the blade appears stable.  With NAPI enabled, the original 
+problem recurred.
 
-So I think that should be backported, and meanwhile I'm spending some
-time in the background trying to replace the fair schedulers RB tree
-crud with something faster so maybe at some point we can recover all
-of the regressions in this area caused by the CFS code.
+So...it would appear that the NAPI code is somehow buggy, and 6ba33ac should 
+probably be reverted until the problem is found and fixed.
+
+Chris
