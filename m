@@ -1,46 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: PCI VPD size
-Date: Fri, 24 Oct 2008 14:24:23 -0700
-Message-ID: <20081024142423.5289ce8a@extreme>
-References: <20081024125035.4ebad408@extreme>
-	<200810241418.38733.jbarnes@virtuousgeek.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
+Date: Sat, 25 Oct 2008 00:25:34 +0200
+Message-ID: <200810250025.35734.rjw@sisk.pl>
+References: <20081009231759.GA8664@tservice.net.ru> <20081010115518.GA3159@tservice.net.ru> <20081010115725.GD19487@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Benjamin Li" <benli@broadcom.com>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <200810241418.38733.jbarnes@virtuousgeek.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Evgeniy Polyakov <s0mbre@tservice.net.ru>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Mike Galbraith <efault@gmx.de>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:48334 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756622AbYJXWVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Oct 2008 18:21:15 -0400
+In-Reply-To: <20081010115725.GD19487@elte.hu>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 24 Oct 2008 14:18:38 -0700
-Jesse Barnes <jbarnes@virtuousgeek.org> wrote:
+On Friday, 10 of October 2008, Ingo Molnar wrote:
+> 
+> * Evgeniy Polyakov <s0mbre@tservice.net.ru> wrote:
+> 
+> > On Fri, Oct 10, 2008 at 01:42:45PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
+> > > > vanilla 27: 347.222
+> > > > no TSO/GSO: 357.331
+> > > > no hrticks: 382.983
+> > > > no balance: 389.802
+> > > 
+> > > okay. The target is 470 MB/sec, right? (Assuming the workload is sane 
+> > > and 'fixing' it does not mean we have to schedule worse.)
+> > 
+> > Well, that's where I started/stopped, so maybe we will even move
+> > further? :)
+> 
+> that's the right attitude ;)
 
-> On Friday, October 24, 2008 12:50 pm Stephen Hemminger wrote:
-> > Why did you choose to limit VPD access by using PCI quirks:
-> >  
-> > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h
-> >=99cb233d60cbe644203f19938c729ea2bb004d70
-> >
-> > Rather than controlling size in the device driver which is what my
-> > patches (which seem to have been ignored) did:
-> >   http://marc.info/?l=linux-netdev&m=122393195716363&w=2
-> >
-> > The problem with the quirk scheme is that it means putting more
-> > per device settings in a location farther away in the source code
-> > than the underlying device driver.
-> 
-> The last status I received on that was a comment from Jeff about assuming the 
-> maximum size for the VPD space.  That's the whole reason we have the quirks: 
-> on many devices accessing beyond the end of VPD space can cause a device hang.  
-> And since that space is available from a sysfs file we need to be extra 
-> careful.
-> 
-> Other than that, your patches looked fine, I was just waiting for you to 
-> address that last comment.
-> 
+Can anyone please tell me if there was any conclusion of this thread?
 
-The max size of vpd issue was addressed in last round (I thought).
-I'll respin against 2.6.28-rc1
+Thanks,
+Rafael
