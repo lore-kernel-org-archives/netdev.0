@@ -1,46 +1,59 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Problem: ip_forward in 2.6.27 via realtek 8169 and rt2500pci needs mtu 185 on machines in LAN
-Date: Fri, 24 Oct 2008 10:28:20 +0400
-Message-ID: <20081024062820.GA9321@ioremap.net>
-References: <490127D6.8080201@jsigle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "Joerg M. Sigle" <joerg.sigle@jsigle.com>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] dm9601: runtime mac address change support
+Date: Fri, 24 Oct 2008 09:08:27 +0200
+Message-ID: <1224832107-6334-1-git-send-email-jacmet@sunsite.dk>
+Cc: Peter Korsgaard <jacmet@sunsite.dk>
+To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cet.com.ru ([195.178.208.66]:57057 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751571AbYJXG2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Oct 2008 02:28:22 -0400
-Content-Disposition: inline
-In-Reply-To: <490127D6.8080201@jsigle.com>
+Received: from nf-out-0910.google.com ([64.233.182.185]:51034 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203AbYJXHIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 03:08:32 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so297808nfc.21
+        for <netdev@vger.kernel.org>; Fri, 24 Oct 2008 00:08:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joerg.
+Implement set_mac_address for runtime mac address change.
 
-On Fri, Oct 24, 2008 at 03:41:42AM +0200, Joerg M. Sigle (joerg.sigle@jsigle.com) wrote:
-> Linux box1
-> eth0:192.168.1.1 (3com Vortex or so)
->   |
->   |    Linux Box2
->   |    eth0:192.168.1.4 (Ne2000 PCMCIA)
->   |      |
-> SimpleSwitch
->   |
-> eth0:192.168.1.40 (Realtek 8169 onboard)
-> Linux routerbox (Plain vanilla 2.6.27 SMP)
-> wlan0:192.168.2.40 (Ralink rt2500 PCI)
->   |
-> USR8054 dedicated WLAN-Router
->   |
-> Internet (or so).
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+---
+ drivers/net/usb/dm9601.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
-Let me clarify the problem. Traffic fom linux clients only goes through
-above setup if mtu on the USR8054 lan device is 185 bytes, correct?
-
-Can you run network traffic with big mtu (normal 1500 bytes) between
-linux router and clients? Between clients?
-
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 78df2be..db3377d 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -396,6 +396,20 @@ static void dm9601_set_multicast(struct net_device *net)
+ 	dm_write_reg_async(dev, DM_RX_CTRL, rx_ctl);
+ }
+ 
++static int dm9601_set_mac_address(struct net_device *net, void *p)
++{
++	struct sockaddr *addr = p;
++	struct usbnet *dev = netdev_priv(net);
++
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EINVAL;
++
++	memcpy(net->dev_addr, addr->sa_data, net->addr_len);
++	dm_write_async(dev, DM_PHY_ADDR, net->addr_len, net->dev_addr);
++
++	return 0;
++}
++
+ static int dm9601_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	int ret;
+@@ -406,6 +420,7 @@ static int dm9601_bind(struct usbnet *dev, struct usb_interface *intf)
+ 
+ 	dev->net->do_ioctl = dm9601_ioctl;
+ 	dev->net->set_multicast_list = dm9601_set_multicast;
++	dev->net->set_mac_address = dm9601_set_mac_address;
+ 	dev->net->ethtool_ops = &dm9601_ethtool_ops;
+ 	dev->net->hard_header_len += DM_TX_OVERHEAD;
+ 	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
 -- 
-	Evgeniy Polyakov
+1.5.6.5
+
