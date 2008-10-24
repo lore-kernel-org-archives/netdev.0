@@ -1,122 +1,108 @@
-From: Thomas Klein <tklein@de.ibm.com>
-Subject: [PATCH] ehea: Add hugepage detection
-Date: Fri, 24 Oct 2008 13:07:30 +0200
-Message-ID: <35990.8692575575$1224846751@news.gmane.org>
+From: Manfred Scherer <manfred.scherer.mhm@t-online.de>
+Subject: Re: [Bugme-new] [Bug 11754] New: tlan network driver does not work
+Date: Fri, 24 Oct 2008 06:12:12 +0200
+Message-ID: <200810240612.13247.manfred.scherer.mhm@t-online.de>
+References: <bug-11754-10286@http.bugzilla.kernel.org/> <200810211634.02138.manfred.scherer.mhm@t-online.de> <e6d1cecd0810211540l7182c270l88de14cf18cfcd50@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: badari@us.ibm.com, Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>, tollefso@us.ibm.com,
-	Hannes Hering <hering2@de.ibm.com>, haveblue@us.ibm.com,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	"Robert Fitzsimons" <robfitz@273k.net>
+To: "Michal Ostrowski" <mostrows@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout07.t-online.de ([194.25.134.83]:58339 "EHLO
+	mailout07.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbYJXMOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 08:14:19 -0400
+In-Reply-To: <e6d1cecd0810211540l7182c270l88de14cf18cfcd50@mail.gmail.com>
 Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-16GB hugepages may not be part of a memory region (firmware restriction). This patch
-modifies the walk_memory_resource callback fn to filter hugepages and add only standard
-memory to the busmap which is later on used for MR registration.
+I had a look on the ethernet pci-card LAN-LED and the DSL-Modem LAN-LED. 
+It seems to be that the packets were sent out are going over the
+wire, the ethernet pci-card LAN-LED and the DSL-Modem LAN-LED blinks
+three times. It seems so that the replayed packets are dropped.
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
----
-This patch is based on davem's net-2.6.git.
+Manfred Scherer
+_____________________________________________________________________________
 
-diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
---- linux-2.6.27/drivers/net/ehea/ehea.h	2008-10-24 09:29:19.000000000 +0200
-+++ patched_kernel/drivers/net/ehea/ehea.h	2008-10-24 09:45:15.000000000 +0200
-@@ -40,7 +40,7 @@
- #include <asm/io.h>
- 
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0094"
-+#define DRV_VERSION	"EHEA_0095"
- 
- /* eHEA capability flags */
- #define DLPAR_PORT_ADD_REM 1
-diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_qmr.c patched_kernel/drivers/net/ehea/ehea_qmr.c
---- linux-2.6.27/drivers/net/ehea/ehea_qmr.c	2008-10-24 09:29:19.000000000 +0200
-+++ patched_kernel/drivers/net/ehea/ehea_qmr.c	2008-10-24 09:45:15.000000000 +0200
-@@ -636,6 +636,9 @@ static int ehea_update_busmap(unsigned l
- {
- 	unsigned long i, start_section, end_section;
- 
-+	if (!pgnum)
-+		return 0;
-+
- 	if (!ehea_bmap) {
- 		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
- 		if (!ehea_bmap)
-@@ -692,10 +695,47 @@ int ehea_rem_sect_bmap(unsigned long pfn
- 	return ret;
- }
- 
--static int ehea_create_busmap_callback(unsigned long pfn,
--				       unsigned long nr_pages, void *arg)
-+static int ehea_is_hugepage(unsigned long pfn)
-+{
-+	return ((((pfn << PAGE_SHIFT) & (EHEA_HUGEPAGE_SIZE - 1)) == 0)
-+		&& (compound_order(pfn_to_page(pfn)) + PAGE_SHIFT
-+		    == EHEA_HUGEPAGESHIFT) );
-+}
-+
-+static int ehea_create_busmap_callback(unsigned long initial_pfn,
-+				       unsigned long total_nr_pages, void *arg)
- {
--	return ehea_update_busmap(pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
-+	int ret;
-+	unsigned long pfn, start_pfn, end_pfn, nr_pages;
-+
-+	if ((total_nr_pages * PAGE_SIZE) < EHEA_HUGEPAGE_SIZE)
-+		return ehea_update_busmap(initial_pfn, total_nr_pages,
-+					  EHEA_BUSMAP_ADD_SECT);
-+
-+	/* Given chunk is >= 16GB -> check for hugepages */
-+	start_pfn = initial_pfn;
-+	end_pfn = initial_pfn + total_nr_pages;
-+	pfn = start_pfn;
-+
-+	while (pfn < end_pfn) {
-+		if (ehea_is_hugepage(pfn)) {
-+			/* Add mem found in front of the hugepage */
-+			nr_pages = pfn - start_pfn;
-+			ret = ehea_update_busmap(start_pfn, nr_pages,
-+						 EHEA_BUSMAP_ADD_SECT);
-+			if (ret)
-+				return ret;
-+
-+			/* Skip the hugepage */
-+			pfn += (EHEA_HUGEPAGE_SIZE / PAGE_SIZE);
-+			start_pfn = pfn;
-+		} else
-+			pfn += (EHEA_SECTSIZE / PAGE_SIZE);
-+	}
-+
-+	/* Add mem found behind the hugepage(s)  */
-+	nr_pages = pfn - start_pfn;
-+	return ehea_update_busmap(start_pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
- }
- 
- int ehea_create_busmap(void)
-diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_qmr.h patched_kernel/drivers/net/ehea/ehea_qmr.h
---- linux-2.6.27/drivers/net/ehea/ehea_qmr.h	2008-10-24 09:29:19.000000000 +0200
-+++ patched_kernel/drivers/net/ehea/ehea_qmr.h	2008-10-24 09:45:15.000000000 +0200
-@@ -40,6 +40,8 @@
- #define EHEA_PAGESIZE          (1UL << EHEA_PAGESHIFT)
- #define EHEA_SECTSIZE          (1UL << 24)
- #define EHEA_PAGES_PER_SECTION (EHEA_SECTSIZE >> EHEA_PAGESHIFT)
-+#define EHEA_HUGEPAGESHIFT     34
-+#define EHEA_HUGEPAGE_SIZE     (1UL << EHEA_HUGEPAGESHIFT)
- 
- #if ((1UL << SECTION_SIZE_BITS) < EHEA_SECTSIZE)
- #error eHEA module cannot work if kernel sectionsize < ehea sectionsize
+Am Mittwoch, 22. Oktober 2008 00:40 schrieb Michal Ostrowski:
+> As far as linux is concerned 3 "PADI" packets were sent out; in other words
+> 3 such
+> packets were given to the driver.
+> 
+> Given that there's no "PADO" reply, then either the driver dropped the
+> packet transmission, or
+> it dropped the reply.
+> 
+> 
+> --
+> Michal Ostrowski
+> mostrows@gmail.com
+> 
+> 
+> On Tue, Oct 21, 2008 at 9:34 AM, Manfred Scherer <
+> manfred.scherer.mhm@t-online.de> wrote:
+> 
+> >
+> > I did this test again. This time I get an output for
+> > tcpdump but I don't understand why. Anyway maybe it helps.
+> >
+> > Original kernel 2.6.27:
+> >
+> > pc1:/var/log # tcpdump -i eth1 -vv
+> > tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+> > listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
+> > 16:08:19.131281 PPPoE PADI [Service-Name] [Host-Uniq 0xC55D0000]
+> > 16:08:24.130603 PPPoE PADI [Service-Name] [Host-Uniq 0xC55D0000]
+> > 16:08:34.129227 PPPoE PADI [Service-Name] [Host-Uniq 0xC55D0000]
+> > ^C
+> > 3 packets captured
+> > 3 packets received by filter
+> > 0 packets dropped by kernel
+> > pc1:/var/log #
+> >
+> >
+> > And now with the tlan module from kernel 2.6.26 compiled and tested
+> > in kernel 2.6.27:
+> >
+> > pc1:/var/log # tcpdump -i eth1 -vv
+> > tcpdump: listening on eth1, link-type EN10MB (Ethernet), capture size 96
+> > bytes
+> > 16:21:34.890207 PPPoE PADI [Service-Name] [Host-Uniq 0xA7670000]
+> > 16:21:35.011875 PPPoE PADO [AC-Name "MANX48-erx"] [Host-Uniq 0xA7670000]
+> > [Service-Name] [AC-Cookie 0xCE73D7BB289D47261BF087A3B4AD1699]
+> > 16:21:35.011955 PPPoE PADR [Service-Name] [Host-Uniq 0xA7670000] [AC-Cookie
+> > 0xCE73D7BB289D47261BF087A3B4AD1699]
+> > 16:21:35.087761 PPPoE PADS [ses 0xc0b] [Service-Name] [Host-Uniq
+> > 0xA7670000] [AC-Name "MANX48-erx"] [AC-Cookie
+> > 0xCE73D7BB289D47261BF087A3B4AD1699]
+> > 16:21:35.125039 PPPoE  [ses 0xc0b] LCP, Conf-Request (0x01), id 1, MRU
+> >  1492, Magic-Num  0xe1c8a370, length 14
+> >        0x0000:  c021 0101 000e 0104 05d4 0506 e1c8 a370
+> > 16:21:35.276745 PPPoE  [ses 0xc0b] LCP, Conf-Request (0x01), id 176, MRU
+> >  1492, Auth-Prot  PAP, Magic-Num  0x6ef0246c, length 18
+> >        0x0000:  c021 01b0 0012 0104 05d4 0304 c023 0506
+> >        0x0010:  6ef0 246c
+> > 16:21:35.276824 PPPoE  [ses 0xc0b] LCP, Conf-Ack (0x02), id 176, MRU  1492,
+> > Auth-Prot  PAP, Magic-Num  0x6ef0246c, length 18
+> >        0x0000:  c021 02b0 0012 0104 05d4 0304 c023 0506
+> >        0x0010:  6ef0 246c
+> > 16:21:35.277259 PPPoE  [ses 0xc0b] LCP, Conf-Ack (0x02), id 1, MRU  1492,
+> > Magic-Num  0xe1c8a370, length 14
+> >        0x0000:  c021 0201 000e 0104 05d4 0506 e1c8 a370
+> > 16:21:35.277357 PPPoE  [ses 0xc0b] LCP, Echo-Request (0x09), id 0,
+> > Magic-Num 0xe1c8a370, length 8
+> >        0x0000:  c021 0900 0008 e1c8 a370
+> > 16:21:35.277387 PPPoE  [ses 0xc0b] Auth-Req(1), Peer 000012341234123434#
+> > 0001@t-online.de, Name XXXXXX
+> > 16:21:35.320362 PPPoE  [ses 0xc0b] LCP, Echo-Reply (0x0a), id 0, Magic-Num
+> > 0x6ef0246c, length 8
+> >        0x0000:  c021 0a00 0008 6ef0 246c
+> >
+> >
+> > Manfred Scherer
+> >
