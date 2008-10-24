@@ -1,57 +1,50 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 4/4] qeth: avoid skb_under_panic for malformatted inbound data
-Date: Fri, 24 Oct 2008 11:16:55 +0200
-Message-ID: <20081024091734.939461000@de.ibm.com>
+Subject: [patch 2/4] qeth: fix offset error in non prealloc header path
+Date: Fri, 24 Oct 2008 11:16:53 +0200
+Message-ID: <20081024091732.021609000@de.ibm.com>
 References: <20081024091651.603673000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:60457 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301AbYJXJSw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 05:18:52 -0400
-Content-Disposition: inline; filename=605-qeth-panic.diff
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:60494 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752341AbYJXJTE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 05:19:04 -0400
+Content-Disposition: inline; filename=603-qeth-offset.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-To make the qeth driver more robust in case of malformatted inbound
-packets due to hardware problems, an additional check for
-OSN-card-type is added for OSN-type packets.
+For the non preallocated qeth header code path we should not
+change the header length.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_l2_main.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/s390/net/qeth_core_main.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Index: git_linus/drivers/s390/net/qeth_l2_main.c
+Index: git_linus/drivers/s390/net/qeth_core_main.c
 ===================================================================
---- git_linus.orig/drivers/s390/net/qeth_l2_main.c
-+++ git_linus/drivers/s390/net/qeth_l2_main.c
-@@ -449,12 +449,15 @@ static void qeth_l2_process_inbound_buff
- 			netif_rx(skb);
- 			break;
- 		case QETH_HEADER_TYPE_OSN:
--			skb_push(skb, sizeof(struct qeth_hdr));
--			skb_copy_to_linear_data(skb, hdr,
-+			if (card->info.type == QETH_CARD_TYPE_OSN) {
-+				skb_push(skb, sizeof(struct qeth_hdr));
-+				skb_copy_to_linear_data(skb, hdr,
- 						sizeof(struct qeth_hdr));
--			len = skb->len;
--			card->osn_info.data_cb(skb);
--			break;
-+				len = skb->len;
-+				card->osn_info.data_cb(skb);
-+				break;
-+			}
-+			/* else unknown */
- 		default:
- 			dev_kfree_skb_any(skb);
- 			QETH_DBF_TEXT(TRACE, 3, "inbunkno");
+--- git_linus.orig/drivers/s390/net/qeth_core_main.c
++++ git_linus/drivers/s390/net/qeth_core_main.c
+@@ -3025,7 +3025,7 @@ static inline void __qeth_fill_buffer(st
+ 	struct qdio_buffer *buffer, int is_tso, int *next_element_to_fill,
+ 	int offset)
+ {
+-	int length = skb->len - offset;
++	int length = skb->len;
+ 	int length_here;
+ 	int element;
+ 	char *data;
+@@ -3037,6 +3037,7 @@ static inline void __qeth_fill_buffer(st
+ 
+ 	if (offset >= 0) {
+ 		data = skb->data + offset;
++		length -= offset;
+ 		first_lap = 0;
+ 	}
+ 
 
 -- 
