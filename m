@@ -1,55 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] per-nic module parameters
-Date: Fri, 24 Oct 2008 22:01:30 +0100
-Message-ID: <20081024210128.GS7331@solarflare.com>
-References: <49022B7F.8080809@myri.com> <20081024133920.6588026c@extreme>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: PCI VPD size
+Date: Fri, 24 Oct 2008 14:18:38 -0700
+Message-ID: <200810241418.38733.jbarnes@virtuousgeek.org>
+References: <20081024125035.4ebad408@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brice Goglin <brice@myri.com>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Benjamin Li" <benli@broadcom.com>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:51951 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753254AbYJXVBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 17:01:38 -0400
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20081024125035.4ebad408@extreme>
 Content-Disposition: inline
-In-Reply-To: <20081024133920.6588026c@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Fri, 24 Oct 2008 22:09:35 +0200
-> Brice Goglin <brice@myri.com> wrote:
-> 
-> > Hello,
-> > 
-> > We're working on making myri10ge module parameters per-nic. It looks
-> > like ixgb already does so with the following macro in ixgb_param.c:
-> > 
-> > #define IXGB_PARAM_INIT { [0 ... IXGB_MAX_NIC] = OPTION_UNSET }
-> > #define IXGB_PARAM(X, desc)                                     \
-> >         static int __devinitdata X[IXGB_MAX_NIC+1]              \
-> >                 = IXGB_PARAM_INIT;                              \
-> >         static unsigned int num_##X = 0;                        \
-> >         module_param_array_named(X, X, int, &num_##X, 0);       \
-> >         MODULE_PARM_DESC(X, desc);
-> > 
-> > Is this the recommended way to implement per-nic module params? Or
-> > should we do something else?
-> 
-> Module parameters are bad. They are device specific and awkward for
-> any general configuration system to deal with. As much as possible,
-> please convert any module parameters to real interfaces like netlink,
-> ethtool, or sysfs.
+On Friday, October 24, 2008 12:50 pm Stephen Hemminger wrote:
+> Why did you choose to limit VPD access by using PCI quirks:
+>  
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h
+>=99cb233d60cbe644203f19938c729ea2bb004d70
+>
+> Rather than controlling size in the device driver which is what my
+> patches (which seem to have been ignored) did:
+>   http://marc.info/?l=linux-netdev&m=122393195716363&w=2
+>
+> The problem with the quirk scheme is that it means putting more
+> per device settings in a location farther away in the source code
+> than the underlying device driver.
 
-I agree in principle.  However, every distribution uses modutils and allows
-default module parameters to be set in the same way.  So it's easy to tell
-customers how to configure module parameters persistently.  The same cannot
-be said for ethtool, unfortunately.
+The last status I received on that was a comment from Jeff about assuming the 
+maximum size for the VPD space.  That's the whole reason we have the quirks: 
+on many devices accessing beyond the end of VPD space can cause a device hang.  
+And since that space is available from a sysfs file we need to be extra 
+careful.
 
-Ben.
+Other than that, your patches looked fine, I was just waiting for you to 
+address that last comment.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Jesse Barnes, Intel Open Source Technology Center
