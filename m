@@ -1,34 +1,75 @@
-From: Paul P <ppak_98@yahoo.com>
-Subject: extra epollout events from edge triggered epoll
-Date: Fri, 24 Oct 2008 08:36:53 -0700 (PDT)
-Message-ID: <873507.27968.qm@web56304.mail.re3.yahoo.com>
-Reply-To: ppak_98@yahoo.com
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: e1000e fails after several S3 resumes (2.6.26 Debian, TP T60)
+Date: Fri, 24 Oct 2008 09:22:58 -0700
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A069DFFA0@orsmsx507.amr.corp.intel.com>
+References: Your message of "Thu, 23 Oct 2008 15:42:55 PDT."
+             <F169D4F5E1F1974DBFAFABF47F60C10A069DFD62@orsmsx507.amr.corp.intel.com>
+ (sfid-20081023_194301_937814_89312B9F)  <E1KtNaz-0003Xx-0y@approx.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Sanjoy Mahajan <sanjoy@MIT.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web56304.mail.re3.yahoo.com ([216.252.110.228]:34794 "HELO
-	web56304.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752776AbYJXPnf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 11:43:35 -0400
+Received: from mga09.intel.com ([134.134.136.24]:15644 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753008AbYJXQXC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 12:23:02 -0400
+In-Reply-To: <E1KtNaz-0003Xx-0y@approx.mit.edu>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am programming a server using the epoll interface and have the receive portion of the server working fine, but for some reason as I implement the send portion, I noticed a few things that seem like strange behaviors in the implementation of epoll in the kernel.
+Sanjoy Mahajan wrote:
+>> hm, does your kernel have CONFIG_PM defined?
+> 
+> It does have that defined:
 
-I'm running Opensuse 11 and it has a 2.6.25 kernel.
+ok
+ 
+>> if it happens again please include lspci -vvv before and after
+>> ethtool -r (see below)
+> 
+> I will.  Now I'm running BIOS 2.23, so I'm curious whether that
+> 'upgrade' fixes the problem.
+> 
+> I say 'upgrade' because now S3 sleep and wakeup often take 60 seconds.
+> I've also noticed ACPI errors in the 'dmesg'.  Once I have something
+> reproducible I'll file a bugzilla report.
 
-The behavior that I can seeing is when I do a full read on an edge triggered fd, for some reason, it seems to be triggering an epollout events after each loop of the read events on a socket. (before I've done any writes at all to the socket)
+ick, it would be nice if the system vendors actually tested their acpi implementations on multiple OSes.
+ 
+>> device was also claiming successfully transmitting, so I don't know
+>> why the DHCP packets don't work, can you tcpdump on the network or
+>> the dhcp server by chance?
+> 
+> I'll do that too on the next failure.  Is 'tcpdump host 18.38.0.1'
+> sufficient or do I need a few -v switches?
 
-This is very strange behavior as I would expect that the epollout event would only be triggered if I did a write and the socket recieved an ack which cleared out the send buffer.
+I'm mostly looking for the conversation back and forth, so that should be fine.
+Keep in mind that the first dhcp packet is usually a broadcast (not to a 
+particular IP)
+ 
+>> can you ifconfig eth0 promisc before doing suspend?  I'd be curious
+>> if that fixed it.
+> 
+> If/when it reproduces, I'll add that line to the pre-suspend code.  (I
+> use 's2ram', which I think sleeps with 'echo mem > /sys/power/state'
+> and does a vt switch on wakeup).
 
-The documentation on epollout is really sparse, so any help at all from the list would be very much appreciated.
+okay, thanks
+ 
+> Generally: For making debugging go smoothly, is it worth running a
+> vanilla kernel rather than the Debian one?  I could try 2.6.26.7 or
+> 2.6.27.3.  Is running 2.6.27.y not as useful as running 2.6.26.y, in
+> case the bug is merely hidden but not solved in the new kernel?  On
+> the other hand, I'm tempted to try 2.6.27.y in case it fixes the slow
+> suspend/resume.
 
-I was hoping someone more knowledgeable on the subject here might be able to help explain the epollout behavior and whether or not the extra events are normal and if so, what is the traditional way to handle these extra events in an edge triggered scenario.
-
-Thanks!
-
-Paul
-
-
-      
+I think you should definitely try 2.6.27.y, the e1000e versions in the kernel 
+are different than what is in ubuntu at least, so not sure if that applies to 
+debian.
