@@ -1,56 +1,38 @@
-From: Sanjoy Mahajan <sanjoy@MIT.EDU>
-Subject: Re: e1000e fails after several S3 resumes (2.6.26
-	Debian, TP T60)
-Date: Fri, 24 Oct 2008 15:54:57 -0400
-Message-ID: <E1KtSkL-0001xo-QM@approx.mit.edu>
-References: <F169D4F5E1F1974DBFAFABF47F60C10A069DFFA0@orsmsx507.amr.corp.intel.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [RFC] per-nic module parameters
+Date: Fri, 24 Oct 2008 22:09:35 +0200
+Message-ID: <49022B7F.8080809@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	NetDEV list <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: Your message of "Fri, 24 Oct 2008 09:22:58 PDT."
-	<F169D4F5E1F1974DBFAFABF47F60C10A069DFFA0@orsmsx507.amr.corp.intel.com>
-	(sfid-20081024_142044_698098_A035A635)
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:1805 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753013AbYJXUKk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Oct 2008 16:10:40 -0400
+Received: from [172.31.134.203] (brice-ovpn.sw.myri.com [172.31.134.203])
+	by myri.com (8.13.7+Sun/8.13.7) with ESMTP id m9OKAaOM016162
+	for <netdev@vger.kernel.org>; Fri, 24 Oct 2008 13:10:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Brandeburg, Jesse <jesse.brandeburg@intel.com> wrote:
+Hello,
 
-> > I say 'upgrade' because now S3 sleep and wakeup often take 60
-> > seconds.  I've also noticed ACPI errors in the 'dmesg'.  Once I have
-> > something reproducible I'll file a bugzilla report.
->
-> ick, it would be nice if the system vendors actually tested their acpi
-> implementations on multiple OSes.
+We're working on making myri10ge module parameters per-nic. It looks
+like ixgb already does so with the following macro in ixgb_param.c:
 
-They do: XP, Vista, NT, ...  Are there any other OS's?!
+#define IXGB_PARAM_INIT { [0 ... IXGB_MAX_NIC] = OPTION_UNSET }
+#define IXGB_PARAM(X, desc)                                     \
+        static int __devinitdata X[IXGB_MAX_NIC+1]              \
+                = IXGB_PARAM_INIT;                              \
+        static unsigned int num_##X = 0;                        \
+        module_param_array_named(X, X, int, &num_##X, 0);       \
+        MODULE_PARM_DESC(X, desc);
 
-Good news for 2.6.27.3: With the latest stable kernel, the
-suspend/resume is quick again, and the ACPI dmesg errors are gone!
+Is this the recommended way to implement per-nic module params? Or
+should we do something else?
 
-So I'll keep running it and wait for the e1000e problem to return (or
-vanish).  I'll hurry it along by doing suspend/resume/dhcp lots of
-times.
+Thanks,
+Brice
 
--Sanjoy
-
-`Until lions have their historians, tales of the hunt shall always
- glorify the hunters.'  --African Proverb
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
