@@ -1,25 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: FYI - TCP/IP thin stream latency
-Date: Fri, 24 Oct 2008 07:59:38 -0700
-Message-ID: <20081024075938.0dddb745@extreme>
-References: <20081016095518.749ae6e9@speedy>
-	<20081022.221410.139436406.davem@davemloft.net>
-	<Pine.LNX.4.64.0810231516220.7072@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, doug.leith@nuim.ie,
-	Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
+From: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+Subject: [PATCH 1/2] Phonet: include generic link-layer header size in MAX_PHONET_HEADER
+Date: Fri, 24 Oct 2008 17:55:38 +0300
+Message-ID: <1224860139-23097-1-git-send-email-remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44894 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751246AbYJXO7o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Oct 2008 10:59:44 -0400
-In-Reply-To: <Pine.LNX.4.64.0810231516220.7072@wrl-59.cs.helsinki.fi>
+Received: from smtp.nokia.com ([192.100.122.230]:20398 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752084AbYJXPAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 11:00:48 -0400
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id m9OF0YTi018739
+	for <netdev@vger.kernel.org>; Fri, 24 Oct 2008 18:00:45 +0300
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was  reading "Removing Exponential Backoff from TCP" by Mondal and Kusmznovic at Northwesetern
-in ACM CCR. The paper tries to show that nothing breaks by getting rid of backoff. Interestingly,
-FreeBSD already doesn't do backoff until after 5th retry.
+This fixes an OOPS in hard_header if a Phonet address is assigned to
+a non-Phonet network interface.
+
+Signed-off-by: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ include/net/phonet/phonet.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
+index d4e7250..c6a2451 100644
+--- a/include/net/phonet/phonet.h
++++ b/include/net/phonet/phonet.h
+@@ -27,7 +27,7 @@
+  * The lower layers may not require more space, ever. Make sure it's
+  * enough.
+  */
+-#define MAX_PHONET_HEADER	8
++#define MAX_PHONET_HEADER	(8 + MAX_HEADER)
+ 
+ /*
+  * Every Phonet* socket has this structure first in its
+-- 
+1.5.4.3
+
