@@ -1,40 +1,25 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: WARNING (skb_gso_segment) with tg3+bridge in 2.6.27
-Date: Fri, 24 Oct 2008 22:33:23 +0800
-Message-ID: <20081024143323.GA14344@gondor.apana.org.au>
-References: <20081011172002.GA12659@pest> <20081013.004226.171259546.davem@davemloft.net> <20081022074502.GA25058@gondor.apana.org.au> <20081022175704.GA25286@xw6200.broadcom.net> <20081023022001.GB304@gondor.apana.org.au> <1224782005.9142.2.camel@HP1>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: FYI - TCP/IP thin stream latency
+Date: Fri, 24 Oct 2008 07:59:38 -0700
+Message-ID: <20081024075938.0dddb745@extreme>
+References: <20081016095518.749ae6e9@speedy>
+	<20081022.221410.139436406.davem@davemloft.net>
+	<Pine.LNX.4.64.0810231516220.7072@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Carlson <mcarlson@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	"berni@birkenwald.de" <berni@birkenwald.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, doug.leith@nuim.ie,
+	Netdev <netdev@vger.kernel.org>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38155 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754351AbYJXOdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 10:33:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1224782005.9142.2.camel@HP1>
+Received: from mail.vyatta.com ([76.74.103.46]:44894 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751246AbYJXO7o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Oct 2008 10:59:44 -0400
+In-Reply-To: <Pine.LNX.4.64.0810231516220.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 23, 2008 at 10:13:25AM -0700, Michael Chan wrote:
-> 
-> Yes, NETIF_F_TSO6 chips are a subset of NETIF_F_IPV6_CSUM chips.  In the
-> code, these 2 bits are set independently and so the relationship is not
-> obvious.  We should probably rearrange the code to make things more
-> clear.
-
-That's good to know.  I was afraid of adding a check in the
-dev registration function in case your card actually needed
-this.  Now that I know it doesn't we can check and disable it
-if ever it happens.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I was  reading "Removing Exponential Backoff from TCP" by Mondal and Kusmznovic at Northwesetern
+in ACM CCR. The paper tries to show that nothing breaks by getting rid of backoff. Interestingly,
+FreeBSD already doesn't do backoff until after 5th retry.
