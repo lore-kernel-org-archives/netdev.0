@@ -1,71 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] add %pM printf format specifier
-Date: Fri, 24 Oct 2008 18:41:45 -0700
-Message-ID: <1224898906.6636.74.camel@localhost>
-References: <1224892008.3919.27.camel@johannes.berg>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [PCI] move ICHx GbE NVM write-protection from e1000e
+ to PCI quirk
+Date: Fri, 24 Oct 2008 22:22:54 -0400
+Message-ID: <490282FE.9040602@garzik.org>
+References: <20081025011358.9975.77556.stgit@gitlost.lost> <9929d2390810241827o4b0f525dt1e34b4f17ddad4a6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, jbarnes@virtuousgeek.org,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2376 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751731AbYJYBm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 21:42:28 -0400
-In-Reply-To: <1224892008.3919.27.camel@johannes.berg>
+Received: from srv5.dvmed.net ([207.36.208.214]:59591 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751256AbYJYCXZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Oct 2008 22:23:25 -0400
+In-Reply-To: <9929d2390810241827o4b0f525dt1e34b4f17ddad4a6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2008-10-25 at 01:46 +0200, Johannes Berg wrote:
-> This adds a new printf format specifier for the kernel, %pM,
-> to be used to print out MAC addresses. This has advantages
-> over the current print_mac scheme:
->  * no need for DECLARE_MAC_BUF
->  * can be used safely in statements that might be compiled
->    out without the print_mac call staying.
+Jeff Kirsher wrote:
+> On Fri, Oct 24, 2008 at 6:13 PM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+>> From: Bruce Allan <bruce.w.allan@intel.com>
+>>
+>> The write-protection method being in the driver probe routine is called
+>> late in the boot sequence, and not at all if the driver is never loaded.
+>> By making it a PCI quirk the NVM is protected much earlier whether or not
+>> the driver is loaded.  The write-protection quirk can be disabled with a
+>> new kernel parameter in the unlikely event the NVM needs to be modified.
+>>
+>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> ---
+>>
+>>  Documentation/kernel-parameters.txt |    4 +
+>>  drivers/net/Makefile                |    1
+>>  drivers/net/e1000e/Makefile         |    1
+>>  drivers/net/e1000e/e1000.h          |    1
+>>  drivers/net/e1000e/ethtool.c        |    6 +
+>>  drivers/net/e1000e/ich8lan.c        |   93 +++-----------------
+>>  drivers/net/e1000e/ich8lan.h        |   68 +++++++++++++++
+>>  drivers/net/e1000e/netdev.c         |    4 -
+>>  drivers/net/e1000e/param.c          |   30 ------
+>>  drivers/net/e1000e/quirks.c         |  162 +++++++++++++++++++++++++++++++++++
+>>  10 files changed, 256 insertions(+), 114 deletions(-)
+>>  create mode 100644 drivers/net/e1000e/ich8lan.h
+>>  create mode 100644 drivers/net/e1000e/quirks.c
+>>
+>>
+> 
+> This PCI quirk is put in ./drivers/net/e1000e in order to share
+> defines and structs found in the driver source, and is only applicable
+> to ICHx GbE LOMs supported by that driver anyway.
 
-Good things.
+Seems to be it is not difficult to put it into drivers/pci/quirks.c, 
+where it belongs.
 
-> --- everything.orig/lib/vsprintf.c	2008-10-25 01:21:54.000000000 +0200
-> +++ everything/lib/vsprintf.c	2008-10-25 01:24:15.000000000 +0200
-> @@ -581,6 +581,22 @@ static char *resource_string(char *buf, 
->  	return string(buf, end, sym, field_width, precision, flags);
->  }
->  
-> +static char *mac_address(char *buf, char *end, u8 *addr, int field_width, int precision, int flags)
-> +{
-> +	/* room for 6 * two hex digits, 5 colons and trailing zero */
-> +	char mac[18];
-> +	char *p = mac, *pend = mac + sizeof(mac);
-> +	int i;
-> +
-> +	for (i=0; i < 6; i++) {
-> +		p = number(p, pend, addr[i], 16, 2, -1, SMALL | ZEROPAD);
-> +		*p++ = ':';
-> +	}
+	Jeff
 
-For consistency, shouldn't the function name be mac_address_string?
 
-I (and perhaps Harvey H) would be happier with:
 
-	char mac[18];
-	char *p = mac;
-	int i;
-
-	for (i = 0; i < 5; i++) {
-		p = pack_hex_byte(p, addr[i]);
-		*p++ = ':';
-	}
-	p = pack_hex_byte(p, addr[5]);
-	*p = '\0';
-
-Smaller, faster, etc...
-
-Also, as the number of %p(foo) types increases, perhaps
-something like sparse could validate the printf argument
-types?
-
-cheers, Joe
 
