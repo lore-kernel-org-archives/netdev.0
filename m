@@ -1,69 +1,96 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Sat, 25 Oct 2008 09:52:02 +0200
-Message-ID: <1224921122.5373.24.camel@marge.simson.net>
-References: <20081024.221653.23695396.davem@davemloft.net>
-	 <1224914333.3822.18.camel@marge.simson.net>
-	 <1224917623.4929.15.camel@marge.simson.net>
-	 <20081025.002420.82739316.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] add %pM printf format specifier
+Date: Sat, 25 Oct 2008 10:00:45 +0200
+Message-ID: <1224921645.3919.48.camel@johannes.berg>
+References: <1224892008.3919.27.camel@johannes.berg>
+	 <1224898906.6636.74.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: rjw@sisk.pl, mingo@elte.hu, s0mbre@tservice.net.ru,
-	a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-9nCa3SratgFvS1NXcOIt"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:35751 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752298AbYJYHwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Oct 2008 03:52:08 -0400
-In-Reply-To: <20081025.002420.82739316.davem@davemloft.net>
+Received: from xc.sipsolutions.net ([83.246.72.84]:59504 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947AbYJYIAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2008 04:00:55 -0400
+In-Reply-To: <1224898906.6636.74.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2008-10-25 at 00:24 -0700, David Miller wrote:
-> From: Mike Galbraith <efault@gmx.de>
-> Date: Sat, 25 Oct 2008 08:53:43 +0200
-> 
-> > On Sat, 2008-10-25 at 07:58 +0200, Mike Galbraith wrote:
-> > 2.6.24.7-up
-> > ring-test   - 1.100 us/cycle  = 909 KHz  (gcc-4.1)
-> > ring-test   - 1.068 us/cycle  = 936 KHz  (gcc-4.3)
-> > netperf     - 122300.66 rr/s  = 244 KHz  sb 280 KHz / 140039.03 rr/s
-> > tbench      - 341.523 MB/sec
-> > 
-> > 2.6.25.17-up
-> > ring-test   - 1.163 us/cycle  = 859 KHz  (gcc-4.1)
-> > ring-test   - 1.129 us/cycle  = 885 KHz  (gcc-4.3)
-> > netperf     - 132102.70 rr/s  = 264 KHz  sb 275 KHz / 137627.30 rr/s
-> > tbench      - 361.71 MB/sec
-> > 
-> > ..in 25, something happened that dropped my max context switch rate from
-> > ~930 KHz to ~885 KHz.  Maybe I'll have better luck trying to find that.
-> > Added to to-do list.  Benchmark mysteries I'm going to have to leave
-> > alone, they've kicked my little butt quite thoroughly ;-)
-> 
-> But note that tbench performance improved a bit in 2.6.25.
 
-Yeah, netperf too.
+--=-9nCa3SratgFvS1NXcOIt
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> In my tests I noticed a similar effect, but from 2.6.23 to 2.6.24,
-> weird.
+On Fri, 2008-10-24 at 18:41 -0700, Joe Perches wrote:
 
-23->24 I can understand.  In my testing, 23 CFS was not a wonderful
-experience for rapid switchers.  24 is cfs-24.1.
- 
-> Just for the public record here are the numbers I got in my testing.
-> Each entry was run purely on the latest 2.6.X-stable tree for each
-> release.  First is the tbench score and then there are 40 numbers
-> which are sparc64 cpu cycle counts of default_wake_function().
 
-Your numbers seem to ~agree with mine.  And yeah, that hrtick is damned
-expensive.  I didn't realize _how_ expensive until I trimmed my config
-way way down from distro.  Just having highres timers enabled makes a
-very large difference here, even without hrtick enabled, and with the
-overhead of a disabled hrtick removed.
+> > +static char *mac_address(char *buf, char *end, u8 *addr, int field_wid=
+th, int precision, int flags)
+> > +{
+> > +	/* room for 6 * two hex digits, 5 colons and trailing zero */
+> > +	char mac[18];
+> > +	char *p =3D mac, *pend =3D mac + sizeof(mac);
+> > +	int i;
+> > +
+> > +	for (i=3D0; i < 6; i++) {
+> > +		p =3D number(p, pend, addr[i], 16, 2, -1, SMALL | ZEROPAD);
+> > +		*p++ =3D ':';
+> > +	}
+>=20
+> For consistency, shouldn't the function name be mac_address_string?
+>=20
+> I (and perhaps Harvey H) would be happier with:
+>=20
+> 	char mac[18];
+> 	char *p =3D mac;
+> 	int i;
+>=20
+> 	for (i =3D 0; i < 5; i++) {
+> 		p =3D pack_hex_byte(p, addr[i]);
+> 		*p++ =3D ':';
+> 	}
+> 	p =3D pack_hex_byte(p, addr[5]);
+> 	*p =3D '\0';
+>=20
+> Smaller, faster, etc...
 
-	-Mike
+Heh. I wasn't aware of pack_hex_byte. Not sure it really is smaller
+though with the inlining, and kernel messages ought not to be
+performance sensitive. OTOH, this is _way_ simpler in terms of code,
+I'll send v2.
+
+> Also, as the number of %p(foo) types increases, perhaps
+> something like sparse could validate the printf argument
+> types?
+
+Hard to do really, what guarantees that a MAC address is 6 bytes, which
+is the relevant thing? :)
+
+johannes
+
+--=-9nCa3SratgFvS1NXcOIt
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJAtIqAAoJEKVg1VMiehFY48oQAKsFgyZFb6wGxOBxdS+7IB0X
+QNA/MPAxzOrK06V+Uwd9q90Rkf1waAuLMJVfyEvH9jpKoJoer45kEFG4rZd6fuZS
+dOwvDvvQ/f6Us1s5Gdwip5H76X0Yn89vgF/6fPzfdK2zgU8xXDUonZ75240CuVeF
+MGXr1eq23UcpYjT994E97/SkR/pQMdIcVMfW7sYRmpjr8iHmNCsaVYVkrHX08wCK
+RsPCDF5Y4ZZUtnRyXmEXNUBncf0H3j5Kt/tAKD7ps/G0q9U6cQtG+Ey4tFA4wicZ
+SjWqQBjoZ2+TJmCLWgeAyuTZdlS3MB7eWnZye8mM+d+ckFBNl2uI+kk5MNe79OMQ
+S4EL/mCZdaJlzqVwcEmqh4mbmR4obt7dUwmjfbXbJ9PcpVie7K9OElXWuM3sCTPt
+uMkimEFZGN3TulT1bbNqkgPS14SUeOGwZ2jKfgM8HrdTCpn3tkN4yiKyPDZE1WKL
+tWrix+UoTgfeKNlvXhZlobOYvOw4CS+XIIFFuLB9si3HIRXiM6mI7ROpbki7K5gp
+JAh7Iog5mJp+pp1RwldUF07FVDJ1TLNQWZ2xRrfcvJha0Ev5pygDJRZ5y0E1Lf0h
+EB6hzZV6EFgWhtSbjRhmT5lkwz4mTXG+jkl1mMw3OdcbX1y0zOCEfcnxYzbIugf8
+OYD8xILQoCLJ1Cc5XavM
+=yMID
+-----END PGP SIGNATURE-----
+
+--=-9nCa3SratgFvS1NXcOIt--
 
