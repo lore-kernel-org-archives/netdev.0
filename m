@@ -1,52 +1,89 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 MAC addresses broken
-Date: Sun, 26 Oct 2008 00:34:43 +0200
-Message-ID: <20081025223443.GA30913@electric-eye.fr.zoreil.com>
-References: <490380C8.6070003@simon.arlott.org.uk> <4903947A.3060206@gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 1/2] netns: add
+	register_pernet_gen_subsys/unregister_pernet_gen_subsys
+Date: Sun, 26 Oct 2008 02:43:24 +0400
+Message-ID: <20081025224323.GA18858@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Jiri Slaby <jirislaby@gmail.com>
+Cc: netdev@vger.kernel.org, netfiter-devel@vger.kernel.org,
+	containters@lists.osdl.org
+To: davem@davemloft.net, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46669 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751586AbYJYWfN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2008 18:35:13 -0400
+Received: from ey-out-2122.google.com ([74.125.78.25]:46014 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341AbYJYWkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2008 18:40:07 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so619457eyi.37
+        for <netdev@vger.kernel.org>; Sat, 25 Oct 2008 15:40:05 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <4903947A.3060206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Slaby <jirislaby@gmail.com> :
-[...]
-> Ah, I thought I have broken hardware. I have similar problem, my mac is
-> initially all zeroes. When I set it up, it works until suspend. After that I
-> need to unbind the driver, bind it again, and it works then (mac is still the
-> set one).
-> 
-> I'm out of the notebook right now, but it is 10ec:8168:
-> 06:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
-> Express Gigabit Ethernet controller (rev 01)
-> 	Subsystem: ASUSTeK Computer Inc. Unknown device 11f5
-> 
-> I used it perfectly far later than 2.6.24 (maybe 2.6.26?), 2.6.27 is yet
-> defunct.
+netns ops which are registered with register_pernet_gen_device() are
+shutdown strictly before those which are registered with
+register_pernet_subsys(). Sometimes this leads to opposite (read: buggy)
+shutdown ordering between two modules.
 
-2.6.27 proper ? That's bad news.
+Add register_pernet_gen_subsys()/unregister_pernet_gen_subsys() for modules
+which aren't elite enough for entry in struct net, and which can't use
+register_pernet_gen_device(). PPTP conntracking module is such one.
 
-Can you send a dmesg for 2.6.27 and 2.6.28-rc1 ?
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-> This should be perfectly bisectable, would you, Simon? If this is not
-> fixed already -- I don't think so, mmotm few days ago is still broken.
-> Francois, anybody, does this ring bells anywhere?
+ include/net/net_namespace.h |    2 ++
+ net/core/net_namespace.c    |   32 ++++++++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+)
 
-It may go away if one comments out rtl_init_mac_address in rtl8169_init_one
-but I'd really like to figure why the driver loses the first 32 bits of the
-mac address while it is perfectly able to read it correctly from the eeprom.
-
--- 
-Ueimor
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -215,6 +215,8 @@ struct pernet_operations {
+ 
+ extern int register_pernet_subsys(struct pernet_operations *);
+ extern void unregister_pernet_subsys(struct pernet_operations *);
++extern int register_pernet_gen_subsys(int *id, struct pernet_operations *);
++extern void unregister_pernet_gen_subsys(int id, struct pernet_operations *);
+ extern int register_pernet_device(struct pernet_operations *);
+ extern void unregister_pernet_device(struct pernet_operations *);
+ extern int register_pernet_gen_device(int *id, struct pernet_operations *);
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -325,6 +325,38 @@ void unregister_pernet_subsys(struct pernet_operations *module)
+ }
+ EXPORT_SYMBOL_GPL(unregister_pernet_subsys);
+ 
++int register_pernet_gen_subsys(int *id, struct pernet_operations *ops)
++{
++	int rv;
++
++	mutex_lock(&net_mutex);
++again:
++	rv = ida_get_new_above(&net_generic_ids, 1, id);
++	if (rv < 0) {
++		if (rv == -EAGAIN) {
++			ida_pre_get(&net_generic_ids, GFP_KERNEL);
++			goto again;
++		}
++		goto out;
++	}
++	rv = register_pernet_operations(first_device, ops);
++	if (rv < 0)
++		ida_remove(&net_generic_ids, *id);
++	mutex_unlock(&net_mutex);
++out:
++	return rv;
++}
++EXPORT_SYMBOL_GPL(register_pernet_gen_subsys);
++
++void unregister_pernet_gen_subsys(int id, struct pernet_operations *ops)
++{
++	mutex_lock(&net_mutex);
++	unregister_pernet_operations(ops);
++	ida_remove(&net_generic_ids, id);
++	mutex_unlock(&net_mutex);
++}
++EXPORT_SYMBOL_GPL(unregister_pernet_gen_subsys);
++
+ /**
+  *      register_pernet_device - register a network namespace device
+  *	@ops:  pernet operations structure for the subsystem
