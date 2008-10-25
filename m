@@ -1,48 +1,43 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH/RFC] deprecate print_mac
-Date: Sat, 25 Oct 2008 02:09:55 +0200
-Message-ID: <1224893395.3919.39.camel@johannes.berg>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bugme-new] [Bug 11754] New: tlan network driver does not work
+Date: Fri, 24 Oct 2008 17:18:35 -0700
+Message-ID: <20081024171835.424b75d3@extreme>
+References: <bug-11754-10286@http.bugzilla.kernel.org/>
+	<200810211634.02138.manfred.scherer.mhm@t-online.de>
+	<e6d1cecd0810211540l7182c270l88de14cf18cfcd50@mail.gmail.com>
+	<200810240612.13247.manfred.scherer.mhm@t-online.de>
+	<20081025000033.GA2967@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: Manfred Scherer <manfred.scherer.mhm@t-online.de>,
+	Michal Ostrowski <mostrows@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	Robert Fitzsimons <robfitz@273k.net>
+To: Robert Fitzsimons <robfitz@273k.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:41633 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131AbYJYAKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2008 20:10:02 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:42991 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751148AbYJYASm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Oct 2008 20:18:42 -0400
+In-Reply-To: <20081025000033.GA2967@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or more precisely, deprecate the variables that DECLARE_MAC_BUF
-creates, DECLARE_MAC_BUF is required for print_mac and the latter
-uses the created variables.
+On Sat, 25 Oct 2008 01:00:33 +0100
+Robert Fitzsimons <robfitz@273k.net> wrote:
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
-I don't think we want this without the bulk of the users removed. And
-after that, it should be removed before long anyway.
+> I've double checked my patch and still think it's correct.  Lets quickly
+> review it:
+> 
+> @@ -360,8 +360,8 @@ TLan_GetSKB( const struct tlan_list_tag *tag)
+>  {
+>  	unsigned long addr;
+>  
+> -	addr = tag->buffer[8].address;
+> -	addr |= (tag->buffer[9].address << 16) << 16;
+> +	addr = tag->buffer[9].address;
+> +	addr |= (tag->buffer[8].address << 16) << 16;
 
- include/linux/if_ether.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- everything.orig/include/linux/if_ether.h	2008-10-25 02:02:02.000000000 +0200
-+++ everything/include/linux/if_ether.h	2008-10-25 02:05:08.000000000 +0200
-@@ -133,12 +133,12 @@ extern struct ctl_table ether_table[];
- extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
- 
- /*
-- *	Display a 6 byte device address (MAC) in a readable format.
-+ * Use the %pM printf format specifier instead of this.
-  */
- extern char *print_mac(char *buf, const unsigned char *addr);
- #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
- #define MAC_BUF_SIZE	18
--#define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
-+#define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused __deprecated
- 
- #endif
- 
-
-
+There is upper_32_bits(x) and lower_32_bits(x) for this (see kernel.h)
