@@ -1,64 +1,63 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH/RFC v1 00/12] Support for Broadcom 63xx SOCs
-Date: Sun, 26 Oct 2008 11:26:01 +0000
-Message-ID: <20081026112601.GA9364@linux-mips.org>
-References: <1224382022-24173-1-git-send-email-mbizon@freebox.fr>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
+Date: Sun, 26 Oct 2008 12:33:41 +0100
+Message-ID: <200810261233.42187.rjw@sisk.pl>
+References: <200810250025.35734.rjw@sisk.pl> <200810251313.21120.rjw@sisk.pl> <20081025.205501.193695937.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, afleming@freescale.com, jgarzik@pobox.com,
-	linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
-	linux-pcmcia@lists.infradead.org, linux-serial@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Maxime Bizon <mbizon@freebox.fr>
-Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, s0mbre@tservice.net.ru, a.p.zijlstra@chello.nl,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, efault@gmx.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:53748 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752537AbYJZL3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Oct 2008 07:29:11 -0400
+In-Reply-To: <20081025.205501.193695937.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <1224382022-24173-1-git-send-email-mbizon@freebox.fr>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 19, 2008 at 04:07:02AM +0200, Maxime Bizon wrote:
-
-> [first try at patch series mailing, if you're in to/cc list by mistake
-> please tell me]
-
-In the Linux world people more complain about email they do not receive
-than they receive unnecessarily.
-
-Looks ok - the only thing that's a bit strange about this email is that
-git-send-email which you seem to have used normally sends out all emails
-as reply either to the one preceeding in the series or or the first of
-all - but yours arrived without reply headers.
-
-This means the receiver has to be careful to apply things in the right
-order since the mail client probably will display them in the order of
-arrival, if emails get reordered in transmission.
-
-> This is a set of patches that add support for the Broadcom 63xx series
-> of CPUs and  (some) integrated devices. These are  popular MIPS32 SOCs
-> found in a lot of DSL modems.
+On Sunday, 26 of October 2008, David Miller wrote:
+> From: "Rafael J. Wysocki" <rjw@sisk.pl>
+> Date: Sat, 25 Oct 2008 13:13:20 +0200
 > 
-> CPUs supported are  6348 and 6358. Support is  provided for integrated
-> UART,  USB OHCI  and  EHCI, PCI  controller,  ethernet MAC  & PHY  and
-> PCMCIA/Cardbus controller.
+> > Could you please give me a pointer to the commit disabling the hrtimer feature?
 > 
-> Board support is still rough, each vendor seems to have its own way of
-> identifying the board  type in nvram, that's why  it will probably not
-> work out of  the box.  So DON'T FLASH IT BLINDLY  on your modem unless
-> you have a serial cable, prefer tftpboot/nfsroot for testing.
+> Here it is:
+
+Thanks a lot!
+
+> commit 0c4b83da58ec2e96ce9c44c211d6eac5f9dae478
+> Author: Ingo Molnar <mingo@elte.hu>
+> Date:   Mon Oct 20 14:27:43 2008 +0200
 > 
-> I used linux-mips git tree  master to generate theses patches, this is
-> probably  inappropriate considering  they  touch multiple  subsystems.
-> Since all patches  depends on first two of the series  I wonder how to
-> submit this properly for inclusion in one merge window (if that's even
-> do-able).
+>     sched: disable the hrtick for now
+>     
+>     David Miller reported that hrtick update overhead has tripled the
+>     wakeup overhead on Sparc64.
+>     
+>     That is too much - disable the HRTICK feature for now by default,
+>     until a faster implementation is found.
+>     
+>     Reported-by: David Miller <davem@davemloft.net>
+>     Acked-by: Peter Zijlstra <peterz@infradead.org>
+>     Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> 
+> diff --git a/kernel/sched_features.h b/kernel/sched_features.h
+> index 7c9e8f4..fda0162 100644
+> --- a/kernel/sched_features.h
+> +++ b/kernel/sched_features.h
+> @@ -5,7 +5,7 @@ SCHED_FEAT(START_DEBIT, 1)
+>  SCHED_FEAT(AFFINE_WAKEUPS, 1)
+>  SCHED_FEAT(CACHE_HOT_BUDDY, 1)
+>  SCHED_FEAT(SYNC_WAKEUPS, 1)
+> -SCHED_FEAT(HRTICK, 1)
+> +SCHED_FEAT(HRTICK, 0)
+>  SCHED_FEAT(DOUBLE_TICK, 0)
+>  SCHED_FEAT(ASYM_GRAN, 1)
+>  SCHED_FEAT(LB_BIAS, 1)
 
-As agreed earlier I've setup a git tree on linux-mips.org at
-/pub/scm/linux-bcm63xx.git which also is visible on.
-http://www.linux-mips.org/git.
-
-If you want to send me any updates then it's also ok to send me a patch
-relative to an earlier patch.  I'll then just fold it into that earlier
-patch.
-
-  Ralf
+Rafael
