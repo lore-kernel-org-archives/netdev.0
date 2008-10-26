@@ -1,34 +1,71 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 MAC addresses broken
-Date: Sun, 26 Oct 2008 16:01:42 +0100
-Message-ID: <20081026150142.GA24790@electric-eye.fr.zoreil.com>
-References: <490380C8.6070003@simon.arlott.org.uk> <4903947A.3060206@gmail.com> <20081025223443.GA30913@electric-eye.fr.zoreil.com> <490448B0.8050307@gmail.com> <m33aijzfga.fsf@maximus.localdomain>
+From: "Huang Weiyi" <weiyi.huang@gmail.com>
+Subject: [ofa-general] ***SPAM*** mlx4_en: remove duplicated #include
+Date: Sun, 26 Oct 2008 23:05:42 +0800
+Message-ID: <2a61071b0810260805o17e78c73q38d133d83e2f5ea8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jirislaby@gmail.com>, Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:47209 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753031AbYJZPCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 11:02:16 -0400
+Content-Type: multipart/mixed; boundary="===============1741543292=="
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: rolandd@cisco.com, jgarzik@pobox.com
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Mime-version: 1.0
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
+
+--===============1741543292==
+Content-Type: multipart/alternative;
+	boundary="----=_Part_64860_17356713.1225033542722"
+
+------=_Part_64860_17356713.1225033542722
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <m33aijzfga.fsf@maximus.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa <khc@pm.waw.pl> :
-[...]
-> First the ICH* e1000e corruption and now GbE RTL.
+Removed duplicated #include <linux/cpumask.h> in
+drivers/net/mlx4/en_main.c.
 
-Ok, consider the whole thing reverted.
+Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
 
-I thought this code could be made to work for -rc1 but new
-failures keep appearing. Sorry for the mess.
+diff --git a/drivers/net/mlx4/en_main.c b/drivers/net/mlx4/en_main.c
+index 1b0eebf..4b9794e 100644
+--- a/drivers/net/mlx4/en_main.c
++++ b/drivers/net/mlx4/en_main.c
+@@ -35,7 +35,6 @@
+ #include <linux/module.h>
+ #include <linux/delay.h>
+ #include <linux/netdevice.h>
+-#include <linux/cpumask.h>
 
--- 
-Ueimor
+ #include <linux/mlx4/driver.h>
+ #include <linux/mlx4/device.h>
+
+------=_Part_64860_17356713.1225033542722
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+Removed duplicated #include &lt;linux/cpumask.h&gt; in<br>drivers/net/mlx4/en_main.c.<br>
+
+<br>
+
+Signed-off-by: Huang Weiyi &lt;<a href="mailto:weiyi.huang@gmail.com">weiyi.huang@gmail.com</a>&gt;<br><br>diff --git a/drivers/net/mlx4/en_main.c b/drivers/net/mlx4/en_main.c<br>index 1b0eebf..4b9794e 100644<br>--- a/drivers/net/mlx4/en_main.c<br>
++++ b/drivers/net/mlx4/en_main.c<br>@@ -35,7 +35,6 @@<br>&nbsp;#include &lt;linux/module.h&gt;<br>&nbsp;#include &lt;linux/delay.h&gt;<br>&nbsp;#include &lt;linux/netdevice.h&gt;<br>-#include &lt;linux/cpumask.h&gt;<br><br>&nbsp;#include &lt;linux/mlx4/driver.h&gt;<br>
+&nbsp;#include &lt;linux/mlx4/device.h&gt;<br><br>
+
+------=_Part_64860_17356713.1225033542722--
+
+--===============1741543292==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============1741543292==--
