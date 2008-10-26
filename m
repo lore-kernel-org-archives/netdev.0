@@ -1,30 +1,80 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: r8169 MAC addresses broken
-Date: Sun, 26 Oct 2008 18:24:21 +0100
-Message-ID: <4904A7C5.7090801@gmail.com>
-References: <490380C8.6070003@simon.arlott.org.uk> <4903947A.3060206@gmail.com> <20081025223443.GA30913@electric-eye.fr.zoreil.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: [PATCH] wireless: fix regression caused by regulatory config option
+Date: Sun, 26 Oct 2008 10:30:24 -0700
+Message-ID: <20081026103024.2712ddc9@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, rjw@sisk.pl,
+	rodriguez@atheros.com, johannes@sipsolutions.net
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:50163 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752545AbYJZRY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 13:24:28 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1634819fgg.17
-        for <netdev@vger.kernel.org>; Sun, 26 Oct 2008 10:24:25 -0700 (PDT)
-In-Reply-To: <20081025223443.GA30913@electric-eye.fr.zoreil.com>
+Received: from casper.infradead.org ([85.118.1.10]:38747 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752536AbYJZRaI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 13:30:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/26/2008 12:34 AM, Francois Romieu wrote:
-> It may go away if one comments out rtl_init_mac_address in rtl8169_init_one
+>From 9095a0f6005a8f50c79e51f4aaceda95e361a891 Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Sun, 26 Oct 2008 10:25:30 -0700
+Subject: [PATCH] wireless: fix regression caused by regulatory config option
 
-Hmm, no. How can one restore eeprom contents without making a brick from the
-notebook? I seem to have all zeroes in the eeprom mac address area.
+The default for the regulatory compatibility option is wrong;
+if you picked the default you ended up with a non-functional wifi
+system (at least I did on Fedora 9 with iwl4965).
+I don't think even the October 2008 releases of the various distros
+has the new userland so clearly the default is wrong, and also
+we can't just go about deleting this in 2.6.29...
+
+Change the default to "y" and also adjust the config text a little to
+reflect this.
+
+This patch fixes regression #11859
+
+With thanks to Johannes Berg for the diagnostics
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ net/wireless/Kconfig |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
+index 7d82be0..646c712 100644
+--- a/net/wireless/Kconfig
++++ b/net/wireless/Kconfig
+@@ -16,7 +16,7 @@ config NL80211
+ 
+ config WIRELESS_OLD_REGULATORY
+ 	bool "Old wireless static regulatory definitions"
+-	default n
++	default y
+ 	---help---
+ 	  This option enables the old static regulatory information
+ 	  and uses it within the new framework. This is available
+@@ -40,11 +40,10 @@ config WIRELESS_OLD_REGULATORY
+ 	  ieee80211_regdom module parameter. This is being phased out and you
+ 	  should stop using them ASAP.
+ 
+-	  Say N unless you cannot install a new userspace application
+-	  or have one currently depending on the ieee80211_regdom module
+-	  parameter and cannot port it to use the new userspace interfaces.
+-
+-	  This is scheduled for removal for 2.6.29.
++	  Say Y unless you have installed a new userspace application.
++	  Also say Y if have one currently depending on the ieee80211_regdom
++	  module parameter and cannot port it to use the new userspace
++	  interfaces.
+ 
+ config WIRELESS_EXT
+ 	bool "Wireless extensions"
+-- 
+1.5.6.5
+
+
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
