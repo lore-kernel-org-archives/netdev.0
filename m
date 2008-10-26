@@ -1,43 +1,84 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Sun, 26 Oct 2008 20:03:47 +0100 (CET)
-Message-ID: <alpine.LNX.1.10.0810262002450.12928@jikos.suse.cz>
-References: <20081024.221653.23695396.davem@davemloft.net> <1224914333.3822.18.camel@marge.simson.net> <1224917623.4929.15.camel@marge.simson.net> <20081025.002420.82739316.davem@davemloft.net> <Pine.LNX.4.64.0810260055070.22126@twin.jikos.cz>
- <1225010790.8566.22.camel@marge.simson.net> <1225011648.27415.4.camel@twins> <20081026021153.47878580.akpm@linux-foundation.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] add %pM printf format specifier
+Date: Sun, 26 Oct 2008 20:33:11 +0100
+Message-ID: <1225049591.3746.0.camel@johannes.berg>
+References: <1224892008.3919.27.camel@johannes.berg>
+	 <49035AF0.6040700@anduras.de> <1225008096.3478.3.camel@johannes.berg>
+	 <20081026.010329.11475786.davem@davemloft.net>
+	 <1225009308.3478.22.camel@johannes.berg>
+	 <1225009822.3478.30.camel@johannes.berg>  <1225047674.10060.10.camel@brick>
+	 (sfid-20081026_200122_320043_BFBB81CD)
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Galbraith <efault@gmx.de>,
-	David Miller <davem@davemloft.net>, rjw@sisk.pl,
-	Ingo Molnar <mingo@elte.hu>, s0mbre@tservice.net.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-OfB/aAYEAOdsB/Q2duWr"
+Cc: David Miller <davem@davemloft.net>, anders@anduras.de,
+	netdev@vger.kernel.org
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:59980 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752681AbYJZTDs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Oct 2008 15:03:48 -0400
-In-Reply-To: <20081026021153.47878580.akpm@linux-foundation.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:46874 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755174AbYJZTd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 15:33:28 -0400
+In-Reply-To: <1225047674.10060.10.camel@brick> (sfid-20081026_200122_320043_BFBB81CD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 26 Oct 2008, Andrew Morton wrote:
 
-> > > > 208.4 MB/sec  -- vanilla 2.6.16.60
-> > > > 201.6 MB/sec  -- vanilla 2.6.20.1
-> > > > 172.9 MB/sec  -- vanilla 2.6.22.19
-> > > > 74.2 MB/sec   -- vanilla 2.6.23
-> > > >  46.1 MB/sec  -- vanilla 2.6.24.2
-> > > >  30.6 MB/sec  -- vanilla 2.6.26.1
-> > > > I.e. huge drop for 2.6.23 (this was with default configs for each 
-> > > > respective kernel).
-> Was this when we decreased the default value of
-> /proc/sys/vm/dirty_ratio, perhaps?  dbench is sensitive to that.
+--=-OfB/aAYEAOdsB/Q2duWr
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-2.6.28 gives 41.8 MB/s with /proc/sys/vm/dirty_ratio == 50. So small 
-improvement, but still far far away from the throughput of pre-2.6.23 
-kernels.
+On Sun, 2008-10-26 at 12:01 -0700, Harvey Harrison wrote:
+> On Sun, 2008-10-26 at 09:30 +0100, Johannes Berg wrote:
+> > static char *ip6_string(char *buf, char *end, be16 *addr, int field_wid=
+th, int precision, int flags)
+> > {
+> > 	char ip6[8*5];
+> > 	char *p =3D ip6;
+> > 	int i;
+> > 	u16 tmp;
+> >=20
+> > 	for (i=3D0; i<7; i++) {
+> > 		tmp =3D cpu_to_le16(addr[i]);
+>=20
+> 		tmp =3D be16_to_cpup(addr + i);
+>=20
+> > 		p =3D pack_hex_byte(p, tmp >> 8);
+> > 		p =3D pack_hex_byte(p, tmp & 0xFF);
+> > 		if (!(flags & SPECIAL))
+> > 			*p++ =3D ':';
+> > 	}
+> > 	tmp =3D cpu_to_le16(addr[7]);
+>=20
+> 	tmp =3D be16_to_cpup(addr + 7);
+>=20
+> Or maybe just cast addr to char * and avoid the byteswapping altogether.
 
--- 
-Jiri Kosina
-SUSE Labs
+Yeah, this was obviously not tested. Want to build it? I don't have
+access to a fast build machine right now.
+
+johannes
+
+--=-OfB/aAYEAOdsB/Q2duWr
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJBMXzAAoJEKVg1VMiehFYAwAQAJSIuoydE0pv3stypRSsTzjN
++LV26eYMW+v10qW2mHfDTEpnFsGtYDXTP3HMAADAAq1AWw4IpfhUB5hDfj1zmPOg
+9rsqBI8qh1DsilpschLXQfem56I0dGE/l+m6u1Lbppeux42rNGQ95q5AAhAQRpv+
+tJOyxsUTxoOT3AQaQwJfJa3mYGNjqBfFkofNNgOGKAFGcDuLsAyk0QQ+S7N11Lan
+P8sppcC8wn7/0S8ZOxh38wFqS20wXkhJw8DzGJTCS5MPt+uoWJ874zt8yCgPTiD5
+1IHNwEvu3Nx71lNWu4FIj4cTcxPbw2OHuMq1y63cWXubnUVjE8dAfFJIoD63d3OG
+NMj/GfHQa/NS0KZYjSLzqGPYEj7PL9QcpFjDPfP818Ta44vugpARlwCL21YYYIgO
+qDpfi4mGT8AkIcblDaL/9ZXJgUFBbXREXR0TpXi51BGwDohuxZK/h/op+huFgXX5
+tCATLARZyBZ/HXEGKu4ffk1qV5r8Y/m/F96ZVyIUl1DkknIR0uHRaKMj4DqGZdNd
+SpJdberGJy1qm8eCaBfHYuXaKp69pvOlkib6xaUwyKvzahqLCtELa0HfxCErujjz
+cQaLRcNZQHDd1+oYO0Js0tTbz5ZiO6xEPeyPrR38pIYPAVwsg7I0dL1P1bBulZbx
+RZXbzfJuAsXnQnF4ql57
+=6jE1
+-----END PGP SIGNATURE-----
+
+--=-OfB/aAYEAOdsB/Q2duWr--
+
