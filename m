@@ -1,81 +1,65 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: bisected: 2.6.28-rc broke my iwl4965 wireless
-Date: Sat, 25 Oct 2008 22:22:08 -0700
-Message-ID: <20081025222208.1d2a2c8b@infradead.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] add %pM printf format specifier
+Date: Sun, 26 Oct 2008 09:01:36 +0100
+Message-ID: <1225008096.3478.3.camel@johannes.berg>
+References: <1224892008.3919.27.camel@johannes.berg>
+	 <49035AF0.6040700@anduras.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	torvalds@linux-foundation.org, "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-G8seWkAIyIwWlDYEmqBo"
+Cc: netdev <netdev@vger.kernel.org>
+To: Sven Anders <anders@anduras.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50141 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881AbYJZFVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 01:21:49 -0400
+Received: from xc.sipsolutions.net ([83.246.72.84]:43915 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751323AbYJZIBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 04:01:42 -0400
+In-Reply-To: <49035AF0.6040700@anduras.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[resend, first version got corrupted]
 
-2.6.28-rc1 broke my (intel 4965) wireless, and I've bisected it down to
-the commit below..... something's fishy with this...
+--=-G8seWkAIyIwWlDYEmqBo
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
+On Sat, 2008-10-25 at 19:44 +0200, Sven Anders wrote:
+> Johannes Berg schrieb:
+> > This adds a new printf format specifier for the kernel, %pM,
+> > to be used to print out MAC addresses. This has advantages
+> > over the current print_mac scheme:
+> >  * no need for DECLARE_MAC_BUF
+> >  * can be used safely in statements that might be compiled
+> >    out without the print_mac call staying.
+>=20
+> Nice, have you though of something similar for IPv4 and IPv6
+> adresses?
 
-b2e1b30290539b344cbaff0d9da38012e03aa347 is first bad commit
-commit b2e1b30290539b344cbaff0d9da38012e03aa347
-Author: Luis R. Rodriguez <lrodriguez@atheros.com>
-Date:   Tue Sep 9 23:19:48 2008 -0700
+Not really, are they printed often? I haven't had to touch much code
+that printed IP addresses. Nor have I seen them in logs a lot.
 
-    cfg80211: Add new wireless regulatory infrastructure
-    
-    This adds the new wireless regulatory infrastructure. The
-    main motiviation behind this was to centralize regulatory
-    code as each driver was implementing their own regulatory solution,
-    and to replace the initial centralized code we have where:
-    
-    * only 3 regulatory domains are supported: US, JP and EU
-    * regulatory domains can only be changed through module parameter
-    * all rules were built statically in the kernel
-    
-    We now have support for regulatory domains for many countries
-    and regulatory domains are now queried through a userspace agent
-    through udev allowing distributions to update regulatory rules
-    without updating the kernel.
-    
-    Each driver can regulatory_hint() a regulatory domain
-    based on either their EEPROM mapped regulatory domain value to a
-    respective ISO/IEC 3166-1 country code or pass an internally built
-    regulatory domain. We also add support to let the user set the
-    regulatory domain through userspace in case of faulty EEPROMs to
-    further help compliance.
-  
-    Support for world roaming will be added soon for cards capable of
-    this.
-    
-    For more information see:
-    
-    http://wireless.kernel.org/en/developers/Regulatory/CRDA
-    
-    For now we leave an option to enable the old module parameter,
-    ieee80211_regdom, and to build the 3 old regdomains statically
-    (US, JP and EU). This option is CONFIG_WIRELESS_OLD_REGULATORY.
-    These old static definitions and the module parameter is being
-    scheduled for removal for 2.6.29. Note that if you use this
-    you won't make use of a world regulatory domain as its pointless.
-    If you leave this option enabled and if CRDA is present and you
-    use US or JP we will try to ask CRDA to update us a regulatory
-    domain for us.
-    
-    Signed-off-by: Luis R. Rodriguez <lrodriguez@atheros.com>
-    Signed-off-by: John W. Linville <linville@tuxdriver.com>
+johannes
 
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+--=-G8seWkAIyIwWlDYEmqBo
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJBCPdAAoJEKVg1VMiehFYICYP/RiVpKS0V2iXj5c1S+JgrNcu
+y5RAyyep6KUD1soq7l7AhcOYEtdd54KX5rbJHmbvc0q5L/XYMVmyOuv0jArV52fz
+vq04E3wiQSDoUSbZiffuxhxtND9UBW3jVJh0s8GCS/mwmY+unlAD7dDxmcJh1l6N
+UAp6w8EihnYuA7nUrAXkUOLpilTp4QizeXzmKP4GOlecmF3mFk3NG/GLi64dshaY
+ZjpmAAlq8QjgH+gQqlQTysx0FOgAp0+5YQ/UV55Sd1GGWHqxz7xfslRo2smrs8Kz
+bELXN1e+pVHA3yTc94LwYYoU4I9gmCi2cjbtkxctJKJcFGK6z8PZt/Vm7cMLJ/DX
+gKKlhU3YgW3igG3cdRO+ygzlHBdhlnHBZhVoDPq+pxgr1sZKHQXFsA2BrhPXXShs
+5NN9oV6AmQcoSK7CZNNHWN4NiCDjFfQ/HcWSi4IFAfKfWWjsRJPVbVvCOVL24KUa
+pkD6ERqaQs6utHVY91flnnv+u39DSGXFyRaYJYnc3vSOoTRPUe6v1CydzVhtiv2D
+DMBAJH7HY/VlHBsc2ZZ2qnFBZTixxSZC0jfXBDVc7BoKpdovrbC2GkyX6Z72koeF
+a9rGZROrKQN4ON7ODXz4Uavl3TRJK/prHjkISzloawOXQNDmIf8zryCpCDbeT2OK
+YG9YzgFfGAaIepB1lS6m
+=gfa3
+-----END PGP SIGNATURE-----
+
+--=-G8seWkAIyIwWlDYEmqBo--
+
