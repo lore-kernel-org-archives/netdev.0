@@ -1,32 +1,63 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: IPv6 multicast forwarding
-Date: Sun, 26 Oct 2008 12:26:27 +0200 (EET)
-Message-ID: <alpine.LRH.2.00.0810261225230.516@netcore.fi>
-References: <50a66e370810231511m10a10ca2oa870e9fbd55f4b0e@mail.gmail.com>  <20081024111044.74c15155@varda>  <alpine.LRH.2.00.0810241307360.1106@netcore.fi> <50a66e370810240606ncb3dcd6gc949b734b1dcf488@mail.gmail.com>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: r8169 MAC addresses broken
+Date: Sun, 26 Oct 2008 11:38:40 +0100
+Message-ID: <490448B0.8050307@gmail.com>
+References: <490380C8.6070003@simon.arlott.org.uk> <4903947A.3060206@gmail.com> <20081025223443.GA30913@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: =?ISO-8859-15?Q?Alejandro_Riveira_Fern=E1ndez?=
-	<ariveira@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Todd Hayton <todd.hayton@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Simon Arlott <simon@fire.lp0.eu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Ivan Vecera <ivecera@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:54601 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752325AbYJZK0d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Oct 2008 06:26:33 -0400
-In-Reply-To: <50a66e370810240606ncb3dcd6gc949b734b1dcf488@mail.gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.157]:37556 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056AbYJZKio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 06:38:44 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1548834fgg.17
+        for <netdev@vger.kernel.org>; Sun, 26 Oct 2008 03:38:42 -0700 (PDT)
+In-Reply-To: <20081025223443.GA30913@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 24 Oct 2008, Todd Hayton wrote:
-> Hey there, thanks for the response! I may be misinterpreting the RFC
-> but I thought ff15::1 was a site-local address. As in I break down
-> ff15::1 as follows -
->
-> 0xff : identifies the address as multicast
-> 0x15 : 4-bits flags and 4-bits scope where
->  flags = 0x1 meaning that the T bit is set as this address is not a
-> permanently assigned address
->  scope = 0x5 indicating site-local scope
+Francois Romieu napsal(a):
+> Jiri Slaby <jirislaby@gmail.com> :
+> [...]
+>> Ah, I thought I have broken hardware. I have similar problem, my mac is
+>> initially all zeroes. When I set it up, it works until suspend. After that I
+>> need to unbind the driver, bind it again, and it works then (mac is still the
+>> set one).
+>>
+>> I'm out of the notebook right now, but it is 10ec:8168:
+>> 06:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
+>> Express Gigabit Ethernet controller (rev 01)
+>> 	Subsystem: ASUSTeK Computer Inc. Unknown device 11f5
+>>
+>> I used it perfectly far later than 2.6.24 (maybe 2.6.26?), 2.6.27 is yet
+>> defunct.
+> 
+> 2.6.27 proper ? That's bad news.
+> 
+> Can you send a dmesg for 2.6.27 and 2.6.28-rc1 ?
 
-You're right.  The nibbles got switched in my head.  Sorry for that.
+2.6.28-rc1 doesn't boot, the rest of dmesgs is at:
+http://decibel.fi.muni.cz/~xslaby/r8169_mac/
+
+However I may have a hw failure or some bug overwrote my eeprom, I see this
+in current mmotm:
+r8169 0000:06:00.0: PCI INT A disabled
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+r8169 0000:06:00.0: setting latency timer to 64
+r8169: mac_version = 0x0c
+r8169 0000:06:00.0: irq 43 for MSI/MSI-X
+r8169: MAC address found in EEPROM: 00:00:00:00:00:00
+eth0: RTL8168b/8111b at 0xffffc200042b0000, 00:00:00:00:00:00, XID 38000000
+IRQ 43
+r8169: mac_version = 0x0c
+
+which looks like even in the eeprom are all zeroes now. Also 2.6.25 is
+affected by this now and it worked (from_Jul dmesg).
