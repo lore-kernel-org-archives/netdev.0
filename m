@@ -1,62 +1,59 @@
-From: Alistair John Strachan <alistair@devzero.co.uk>
-Subject: Re: r8169 MAC addresses broken
-Date: Sun, 26 Oct 2008 00:55:59 +0100
-Message-ID: <200810260055.59783.alistair@devzero.co.uk>
-References: <490380C8.6070003@simon.arlott.org.uk> <4903947A.3060206@gmail.com> <20081025223443.GA30913@electric-eye.fr.zoreil.com>
+From: "Michael B. Trausch" <mike@trausch.us>
+Subject: Re: NULL pointer derefence since 2.6.27 in (e)poll
+Date: Sat, 25 Oct 2008 20:03:43 -0400
+Message-ID: <20081025200343.08dc7999@zest>
+References: <fa.tyZSmpETPCXhUoPJmJ8KenIDR9A@ifi.uio.no>
+	<fa.LCxpt1ZiVhg13wi1ociM3pxlA5Y@ifi.uio.no>
+	<fa.OzlOaDLw1wzOiIOE3c5y1CNHYtk@ifi.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>, Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752676AbYJYX4e@vger.kernel.org>
-In-Reply-To: <20081025223443.GA30913@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; boundary="Sig_/wxqRVD.dYcTx9N7UiOtEd9f";
+ protocol="application/pgp-signature"; micalg=PGP-RIPEMD160
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.31]:55241 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751833AbYJZADx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2008 20:03:53 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so433998ywe.1
+        for <netdev@vger.kernel.org>; Sat, 25 Oct 2008 17:03:51 -0700 (PDT)
+In-Reply-To: <fa.OzlOaDLw1wzOiIOE3c5y1CNHYtk@ifi.uio.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 25 October 2008 23:34:43 Francois Romieu wrote:
-> Jiri Slaby <jirislaby@gmail.com> :
-> [...]
->
-> > Ah, I thought I have broken hardware. I have similar problem, my mac is
-> > initially all zeroes. When I set it up, it works until suspend. After
-> > that I need to unbind the driver, bind it again, and it works then (mac
-> > is still the set one).
-> >
-> > I'm out of the notebook right now, but it is 10ec:8168:
-> > 06:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> > RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 01)
-> > 	Subsystem: ASUSTeK Computer Inc. Unknown device 11f5
-> >
-> > I used it perfectly far later than 2.6.24 (maybe 2.6.26?), 2.6.27 is yet
-> > defunct.
->
-> 2.6.27 proper ? That's bad news.
+--Sig_/wxqRVD.dYcTx9N7UiOtEd9f
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Just thought I'd chime in to report the same thing. I don't use the NICs very
-frequently, so I didn't notice until I read the report.
+On Sun, 19 Oct 2008 12:48:00 UTC
+Hugh Dickins <hugh@veritas.com> wrote:
+>=20
+> Isn't it the issue fixed by
+>=20
+> http://marc.info/?l=3Dlinux-kernel&m=3D122428548613067&w=3D2
+>=20
 
-On this machine, the NICs are never put through a suspend/resume cycle, so
-that doesn't seem to be anything to do with it.
+Is there a reason that this patch has not yet been applied to the Linux
+kernel?  I just found this thread and had to apply this patch to
+2.6.28-rc1.
 
-The NICs should have incremental MAC addresses, since they're mainboard
-devices. Put it this way, they used to.
+Shouldn't it go into 2.6.28?
 
-Now when they're detected, one has the correct MAC, and the second has the
-first 32bits of its MAC corrupted.
+	--- Mike
 
-eth0: RTL8169sc/8110sc at 0xffffc2000001e000, 00:50:8d:b3:5f:de, XID 18000000 IRQ 23                                                          
-eth1: RTL8169sc/8110sc at 0xffffc20000070000, d8:81:ec:10:5f:df, XID 18000000 IRQ 22
+--=20
+My sigfile ran away and is on hiatus.
+http://www.trausch.us/
 
-d8:81:ec:10 is corruption; 00:50:8d:b3 is correct.
+--Sig_/wxqRVD.dYcTx9N7UiOtEd9f
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-I can bisect pretty easily if this is helpful.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
--- 
-Cheers,
-Alistair.
+iEYEAREDAAYFAkkDs98ACgkQ0kE/IBnFmjBetgCcCLASeDvV2mOkhOWxhKLSn8N6
+b3wAniAJjQKVHQ/XZAOcZBQ7bcCIWc40
+=pt6b
+-----END PGP SIGNATURE-----
+
+--Sig_/wxqRVD.dYcTx9N7UiOtEd9f--
