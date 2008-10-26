@@ -1,100 +1,143 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/1] r8169: revert "read MAC address from EEPROM on
-	init"
-Date: Sun, 26 Oct 2008 23:22:24 +0100
-Message-ID: <20081026222224.GC24790@electric-eye.fr.zoreil.com>
-References: <20081026160249.GA25443@electric-eye.fr.zoreil.com> <m3wsfvhx8c.fsf@maximus.localdomain>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [RFC PATCH] printk: add the %pM, %p4, %p6 format specifiers
+Date: Sun, 26 Oct 2008 15:39:49 -0700
+Message-ID: <1225060789.10060.13.camel@brick>
+References: <1224892008.3919.27.camel@johannes.berg>
+	 <49035AF0.6040700@anduras.de> <1225008096.3478.3.camel@johannes.berg>
+	 <20081026.010329.11475786.davem@davemloft.net>
+	 <1225009308.3478.22.camel@johannes.berg>
+	 <1225009822.3478.30.camel@johannes.berg>  <1225047674.10060.10.camel@brick>
+	 (sfid-20081026_200122_320043_BFBB81CD)  <1225049591.3746.0.camel@johannes.berg>
+	 <1225049929.10060.11.camel@brick>
+	 (sfid-20081026_203902_019881_0F8064FC)  <1225050015.3746.2.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, jgarzik@pobox.com,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alistair John Strachan <alistair@devzero.co.uk>,
-	Ivan Vecera <ivecera@redhat.com>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Petr Vandrovec <petr@vandrovec.name>,
-	Plamen Petrov <pvp-lsts@fs.ru.acad.bg>,
-	Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
-	"J.A. Magall?n" <jamagallon@ono.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Simon Arlott <simon@fire.lp0.eu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, anders@anduras.de,
+	netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58601 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752589AbYJZWZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 18:25:22 -0400
-Content-Disposition: inline
-In-Reply-To: <m3wsfvhx8c.fsf@maximus.localdomain>
+Received: from rv-out-0506.google.com ([209.85.198.231]:22754 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752646AbYJZWjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 18:39:53 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1833373rvb.1
+        for <netdev@vger.kernel.org>; Sun, 26 Oct 2008 15:39:52 -0700 (PDT)
+In-Reply-To: <1225050015.3746.2.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa <khc@pm.waw.pl> :
-[...]
-> Ahh, just PCI VPD.
-> 
-> IMHO the above shouldn't hurt anyone, in theory. You only write to
-> VPD_ADDR, and to change actual VPD data (i.e., EEPROM), you need to
-> write to VPD_DATA.
-> 
-> Anyone should be allowed to do that even for unknown PCI devices
-> without a problem.
+Add format specifiers for printing out colon-separated bytes:
 
-Theorically, yes.
+MAC addresses (%pM):
+xx:xx:xx:xx:xx:xx
 
-In practice I noticed rather different behaviors between a 8168b and
-a 8110s when I tried accessing the eeprom through plain old bitbang
-a few months ago (i.e. ok on the 8110, lots of zero on the 8168b).
+IPv4 addresses (%p4):
+xx:xx:xx:xx
 
-> > -static void rtl_init_mac_address(struct rtl8169_private *tp,
-> 
-> > -	if (!(cfg1  & VPD)) {
-> > -		if (netif_msg_probe(tp))
-> > -			dev_info(&pdev->dev, "VPD access disabled, enabling\n");
-> > -		RTL_W8(Cfg9346, Cfg9346_Unlock);
-> > -		RTL_W8(Config1, cfg1 | VPD);
-> > -		RTL_W8(Cfg9346, Cfg9346_Lock);
-> 
-> Now I wonder what do they say the above does exactly.
-> Unfortunately the docs don't seem to be public.
+IPv6 addresses (%p6):
+xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx
 
-Realtek's legal department has changed his mind :o(
+%#pM, %#p4, %#p6 are also supported and print without the colon
+separators.
 
->From what I had received beforehand:
+[Based on Johannes Berg's initial patch]
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ lib/vsprintf.c |   64 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 64 insertions(+), 0 deletions(-)
 
-RTL8169:  R/W Set to enable Vital Product Data. The VPD data is stored in
-          93C46 or 93c56 from within offset 40h-7fh.
-
-RTL8168C: R (huh ?) Set to enable Vital Product Data. Always 1.
-
-[...]
-> > -	if (netif_msg_probe(tp)) {
-> > -		DECLARE_MAC_BUF(buf);
-> > -
-> > -		dev_info(&pdev->dev, "MAC address found in EEPROM: %s\n",
-> > -			 print_mac(buf, mac));
-> > -	}
-> > -
-> > -	if (is_valid_ether_addr(mac))
-> > -		rtl_rar_set(tp, mac);
-> > -}
-> 
-> No RTL_W8(Config1, cfg1 | ~VPD) to disable (perhaps R/W) access?
-
-Apparently not. See above.
-
-> Though obviously first reading a good address from the EEPROM and then
-> erasing first 32 bits is a different story.
-
-Yes.
-
-> I wonder if changing the MAC address by hand works (using ifconfig, to
-> arbitrary address).
-
-It does. It can be quite sticky. That was the whole point of the
-patch.
-
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index a013bbc..eb19471 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -581,6 +581,58 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
+ 	return string(buf, end, sym, field_width, precision, flags);
+ }
+ 
++static char *ip4_address(char *buf, char *end, u8 *addr, int field_width,
++			 int precision, int flags)
++{
++	char ip4_addr[4 * 3]; /* (4 * 2 hex digits), 3 colons and trailing zero */
++	char *p = ip4_addr;
++	int i;
++
++	for (i = 0; i < 4; i++) {
++		p = pack_hex_byte(p, addr[i]);
++		if (!(flags & SPECIAL) && i != 3)
++			*p++ = ':';
++	}
++	*p = '\0';
++
++	return string(buf, end, ip4_addr, field_width, precision, flags & ~SPECIAL);
++}
++
++static char *ip6_address(char *buf, char *end, u8 *addr, int field_width,
++			 int precision, int flags)
++{
++	char ip6_addr[8 * 5]; /* (8 * 4 hex digits), 7 colons and trailing zero */
++	char *p = ip6_addr;
++	int i;
++
++	for (i = 0; i < 7; i++) {
++		p = pack_hex_byte(p, addr[2 * i]);
++		p = pack_hex_byte(p, addr[2 * i + 1]);
++		if (!(flags & SPECIAL) && i != 6)
++			*p++ = ':';
++	}
++	*p = '\0';
++
++	return string(buf, end, ip6_addr, field_width, precision, flags & ~SPECIAL);
++}
++
++static char *mac_address(char *buf, char *end, u8 *addr, int field_width,
++			 int precision, int flags)
++{
++	char mac_addr[6 * 3]; /* (6 * 2 hex digits), 5 colons and trailing zero */
++	char *p = mac_addr;
++	int i;
++
++	for (i = 0; i < 5; i++) {
++		p = pack_hex_byte(p, addr[i]);
++		if (!(flags & SPECIAL) && i != 4)
++			*p++ = ':';
++	}
++	*p = '\0';
++
++	return string(buf, end, mac_addr, field_width, precision, flags & ~SPECIAL);
++}
++
+ /*
+  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
+  * by an extra set of alphanumeric characters that are extended format
+@@ -592,6 +644,12 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
+  * - 'S' For symbolic direct pointers
+  * - 'R' For a struct resource pointer, it prints the range of
+  *       addresses (not the name nor the flags)
++ * - 'M' For a 6-byte MAC address, it prints the address in the
++ *       usual colon-separated hex notation
++ * - '4' For a 4-byte IPv4 address, it prints the address in the
++ *       usual colon-separated hex notation
++ * - 'M' For a 16-byte IPv6 address, it prints the address in colon separated
++ *       big-endian 16 bit hex notation
+  *
+  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+  * function pointers are really function descriptors, which contain a
+@@ -607,6 +665,12 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int field
+ 		return symbol_string(buf, end, ptr, field_width, precision, flags);
+ 	case 'R':
+ 		return resource_string(buf, end, ptr, field_width, precision, flags);
++	case 'M':
++		return mac_address(buf, end, ptr, field_width, precision, flags);
++	case '4':
++		return ip4_address(buf, end, ptr, field_width, precision, flags);
++	case '6':
++		return ip6_address(buf, end, ptr, field_width, precision, flags);
+ 	}
+ 	flags |= SMALL;
+ 	if (field_width == -1) {
 -- 
-Ueimor
+1.6.0.3.729.g6ea410
+
+
+
