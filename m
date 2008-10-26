@@ -1,74 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wireless: fix regression caused by regulatory config
-	option
-Date: Sun, 26 Oct 2008 21:22:16 +0100
-Message-ID: <1225052537.3746.5.camel@johannes.berg>
-References: <20081026103024.2712ddc9@infradead.org>
-	 <20081026200939.GC12648@tuxdriver.com>
-	 <20081026131818.7517c103@infradead.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: r8169 MAC addresses broken
+Date: Sun, 26 Oct 2008 21:42:06 +0100
+Message-ID: <m31vy3jdgh.fsf@maximus.localdomain>
+References: <490380C8.6070003@simon.arlott.org.uk>
+	<4903947A.3060206@gmail.com>
+	<20081025223443.GA30913@electric-eye.fr.zoreil.com>
+	<490448B0.8050307@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-o9E+oGLcfqVPTJlPMJSw"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rjw@sisk.pl, rodriguez@atheros.com
-To: Arjan van de Ven <arjan@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Simon Arlott <simon@fire.lp0.eu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Ivan Vecera <ivecera@redhat.com>
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:52297 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755151AbYJZUW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 16:22:56 -0400
-In-Reply-To: <20081026131818.7517c103@infradead.org>
+Received: from khc.piap.pl ([195.187.100.11]:47724 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750799AbYJZUmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Oct 2008 16:42:09 -0400
+In-Reply-To: <490448B0.8050307@gmail.com> (Jiri Slaby's message of "Sun\, 26 Oct 2008 11\:38\:40 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jiri Slaby <jirislaby@gmail.com> writes:
 
---=-o9E+oGLcfqVPTJlPMJSw
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> However I may have a hw failure or some bug overwrote my eeprom, I see this
+> in current mmotm:
+> r8169 0000:06:00.0: PCI INT A disabled
+> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+> r8169 0000:06:00.0: setting latency timer to 64
+> r8169: mac_version = 0x0c
+> r8169 0000:06:00.0: irq 43 for MSI/MSI-X
+> r8169: MAC address found in EEPROM: 00:00:00:00:00:00
 
-On Sun, 2008-10-26 at 13:18 -0700, Arjan van de Ven wrote:
+Note there is no msg about missing EEPROM signature. I wonder what
+exactly is in the EEPROM. A modified (and again reversed) "[PATCH 1/1]
+r8169: revert "read MAC address from EEPROM on init" should be able to
+show it.
 
-> > Is it common practice to have compatibility options default to
-> > "y"?  I'm not saying it shouldn't be, just wondering if it has been
-> > traditionally?
->=20
-> yes
->=20
-> default should be "keep working as before"
->=20
-> it's not always nice, especially if you're trying to get rid of some
-> nasty stuff, but think of it this way: you should be able to use a
-> new kernel on an existing distro, at least for a reasonable type of
-> distro (eg something shipped in, say, the last 2 years). In this case:
-> even Fedora 10 is not likely to work!
-
-Well, actually, it _ought_ to work fine, with a smaller set of channels,
-but you seem to be hit an iwlwifi bug that triggers only with this,
-which is rather odd.
-
-johannes
-
---=-o9E+oGLcfqVPTJlPMJSw
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJBNFzAAoJEKVg1VMiehFYUdMP/R+r/r0lUzFZnVELjJwW653S
-AUJQd1zO2pbQ71sk+/KaWBDvw4QgDlydbW+6kcQg3aFnV/IJzMvXHvjoDvz3PtUf
-G+3F/Qfns73V4hYI2dhxUm52tVDT9W1HS/UXqVmxtahhljF4TcZn5gv60KWUBdAH
-e2jwQVubSipEB9/Wb8WCGRmhKXntA2LCzX3OLiawJZHpl+XRByjw148VIe56jI4G
-5hzeRfefvl48oCn0+zVY+RQrWb3k+J2/wGDS48V8zH0cdOSUtz6CHBiNo3qPu+ld
-cL05sHC5kBOpe+uWs1K4rYf+MdLlYzHNcgFzNIbXgBgXkX9FtDoksjgdVg/P1xVJ
-ln54uSKfYoykgrA9/hwsfboLOXFWWPOD8Xuc33t7yGvgTtbTJZeYUZ3XisKb3CPz
-3UEmL/Rkls4oabGgu50p/0okbaaMtHCasUX7cOt2B9yaZgjGbYttIA7+3WntGzCB
-XfIHhAkdCX2cb3zrGpfwAuqVyETbM24lWqcaB/zq/VPzPgw+Yz5nKDBgYxSmcfVd
-mh1FIRuYDkSmTTfHJQjJhyP+k53hQhzQxRo5K3fqWbeJpQhHideYaUR4i72CJnHp
-p+XgZTLnQt1fbc1LKuPaN//7YKI10B4uwjJSyPeRRrJd709qh3B/b2Rd887bIDKJ
-e27CxCsicXXG0djqc8S3
-=Th9c
------END PGP SIGNATURE-----
-
---=-o9E+oGLcfqVPTJlPMJSw--
-
+There seem to be a DOS tool on RTL WWW to change the EEPROM data.
+-- 
+Krzysztof Halasa
