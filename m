@@ -1,157 +1,36 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Sun, 26 Oct 2008 15:23:01 +0300
-Message-ID: <20081026122300.GA30905@ioremap.net>
-References: <20081009231759.GA8664@tservice.net.ru> <20081010115518.GA3159@tservice.net.ru> <20081010115725.GD19487@elte.hu> <200810250025.35734.rjw@sisk.pl> <20081026112924.GA29258@ioremap.net>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH/RFC v1 00/12] Support for Broadcom 63xx SOCs
+Date: Sun, 26 Oct 2008 13:24:17 +0100
+Message-ID: <200810261324.18288.florian@openwrt.org>
+References: <1224382022-24173-1-git-send-email-mbizon@freebox.fr> <20081026112601.GA9364@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="9amGYk9869ThD9tj"
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Evgeniy Polyakov <s0mbre@tservice.net.ru>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Mike Galbraith <efault@gmx.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:48380 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752805AbYJZMXE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Oct 2008 08:23:04 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Maxime Bizon <mbizon@freebox.fr>, netdev@vger.kernel.org,
+	afleming@freescale.com, jgarzik@pobox.com,
+	linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
+	linux-pcmcia@lists.infradead.org, linux-serial@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <linux-serial-owner@vger.kernel.org>
+In-Reply-To: <20081026112601.GA9364@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <20081026112924.GA29258@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hey Ralf,
 
---9amGYk9869ThD9tj
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Le Sunday 26 October 2008 12:26:01 Ralf Baechle, vous avez =E9crit=A0:
+> As agreed earlier I've setup a git tree on linux-mips.org at
+> /pub/scm/linux-bcm63xx.git which also is visible on.
+> http://www.linux-mips.org/git.
 
-Hi.
-
-> > > > > > vanilla 27: 347.222
-> > > > > > no TSO/GSO: 357.331
-> > > > > > no hrticks: 382.983
-> > > > > > no balance: 389.802
-> > 
-> > Can anyone please tell me if there was any conclusion of this thread?
-> 
-> For the reference, just pulled git tree (4403b4 commit): 361.184
-> and with dirty_ratio set to 50: 361.086
-> without scheduler domain tuning things are essentially the same: 361.367
-> 
-> So, things are getting worse with time, and previous tunes do not help
-> anymore.
-
-That's the picture, how we go on my hardware:
-4 (2 physical, 2 logical hyper-threaded) 32-bit xeons 8gb of ram.
-We probably can be a little bit better for -rc1 kernel though,
-if I enable only 4gb via config.
-
-Better one time to see than 1000 times to read. One can scare children
-with our graphs... Picture attached.
-
--- 
-	Evgeniy Polyakov
-
---9amGYk9869ThD9tj
-Content-Type: image/png
-Content-Disposition: attachment; filename="tbench-regression-2.6.27-rc1.png"
-Content-Transfer-Encoding: base64
-
-iVBORw0KGgoAAAANSUhEUgAAAoAAAAHgCAMAAAACDyzWAAABKVBMVEX///8AAwCgoKD/AAAA
-wAAAgP/AAP8A7u7AQADu7gAgIMD/wCAAgECggP+AQAD/gP8AwGAAwMAAYIDAYIAAgABA/4Aw
-YICAYABAQEBAgAAAAICAYBCAYGCAYIAAAMAAAP8AYADjsMBAwIBgoMBgwABgwKCAAACAAIBg
-IIBgYGAgICAgQEAgQIBggCBggGBggICAgEAggCCAgICgoKCg0ODAICAAgIDAYACAwODAYMDA
-gADAgGD/QAD/QECAwP//gGD/gIDAoADAwMDA/8D/AAD/AP//gKDAwKD/YGAA/wD/gAD/oACA
-4OCg4OCg/yDAAADAAMCgICCgIP+AIACAICCAQCCAQICAYMCAYP+AgADAwAD/gED/oED/oGD/
-oHD/wMD//wD//4D//8AAf+SKAAASFklEQVR4nO2di9arthFGYTXNpU2a93/brpxjhGY0IAlk
-PmP2Xu2xQVdg/xISipkmAAAAAAAAAAAAAAAAAAAAAACwzPOxsK0Um0nCkKYSdjJtYT/5j8BX
-jFfMzvJaYu9mmYf1ZNZezcbT3JrdGOYfDBZwJ8lhASuVPJk8E/AVs6E8E3766qbSy3hzaO6O
-gHE5wd6fpf20oF7F95D/8W9HOJBne0ijgGeoJM+C2xuWsQLmMWy8199DR2bNJyv7UwvVv4KX
-gHP63NpK8ZfqLoFFlHQwZS42a5fZWkBUlyhs2qy1azbW7jU+ojnrercThIeyFlCcEFcle16K
-dFMla3MBssyKevpiU7qpzDp1gFmmcYv7LtLltX1P8ZFFr0RpyPMVad1Znm//EeaZTlW11kFy
-W549+RvlmeTmKtn9G3XJ8wxLz/4NlIsSROc6ziUu/SVgLnVxbO/FHkD+B5Ed4baAKcF2nvHF
-m/MS/Hkqs86vjxcwrnVx2SYXxZYXFDG5Srj2wgmYxC1OXaqLKWGn9A1HJ5PaChjVzF2Wbf33
-070ZL8vWlq3ytFz6sMZVAUtZbGJb+vpZVnA7z7JGRwSc4o9tAYOY3pk8ZSjnAQHjmhWuNwl4
-rYKtstgqZwIWV3QjT5/AfPhLUmTdJWBR6zMCzv5PMTzwcL+vS6iAF3DzlIfVjc51mEuDgE7j
-i3hVK7/1CSVb4+cXyjSEWYw1uY2SF7RRwqpcvt/YEdRzdrVO9TSZRtVNyaNG3VfCVNf38faI
-gp3mvCwJf/4vOzGbp9xWwtU6qJm7CTFnydTaHror70toP6QvPHjQg4AAAAAAAAAAAAAAAABw
-f8LFAABXsbEWCOAawqV3AFeRL0lMHykM4Bi9Es5GwmX/QNEba/KAEh9xkAcEDLrgT6/3PUt8
-xEG2l1gu9EfAryvyo0t8ddj2ozuXQTyhxEcc5JgSGQ7DQRAQpCAgSEFAkIKAIAUBQQoCghQE
-BCkICFIQEKQgIEhBQJCCgCBlsICnlrvCAxkt4L8MCAgVEBCkICBIQUCQgoAgBQFBCgKCFAQE
-KQgIUhAQpCAgSEFAkIKAIAUBQQoCghQEBCkICFIQEKQgIEhBQJCCgCDlzQLyX8nBPgde0/BT
-pPhHygsBfzEgIDi6lMjeTrPxmgYEhD56lJjnpQVEQBhE13tC7Itqsj443d8hILTTNyzI2rzt
-d8UhIPTRI2DydftVXQgIfRwYBSMgjKNbwP13xSEg9PHuiWgEhF0QEKQgIEhBQJCCgCAFAUEK
-AoIUBAQpCAhSEBCkICBIQUCQgoAgBQFBCgKCFAQEKQgIUhAQpCAgSEFAkIKAIAUBQQoCghQE
-BCkICFIQEKQgIEhBQJCCgCAFAUEKAoIUBAQpCAhSEBCkICBIQUCQwo+Ug5QuJWZe0wCD6VFi
-RkAYTYcS6V1x84l3xfH+YEgcelfcbCRcwtKXqoD/zkHAx9Mj4IguuCYgr1h/GN2j4HcL+JsB
-Aa/H/t2HW3YKpMZ+aZ11OzsNg4Cfjmtaoi2381/7jBSwmgsC3p5SuSIMAeG9BPMbPgwB4V3Y
-GzzbCi7TbXmUWwtY3LEioBrT4jkBi+Zvur2AvxreICDzOn2kU/Qaa2ZfQv8uHQVXc/lEAf/M
-QcAaizR2tmPdN89Tg1ftxY3NBQG/h3IA/JZSxuaCgNAHAoIUBAQpXydgMQRDwI/m+wT8rwEB
-u7Ej3HDLLgRgGsZUBQHP0b8Y4Zd9EBABe2hYjGADENBWBQHPU1uMYLtgBDRVQcCz2Bu8cDEC
-LeB2VRDwJA2LESYE3K4KAp6jcTGC66UZBacaIOA5GhYjTFWtOoobmwsCfg8sRkDAB4CAIAUB
-QQoCghQEBEfDYoTpQdMwPQfzowYIeI6GxQiTeVpiL2nJ3QX8PQcB307TYoQZATergoDnqS9G
-mBBwqyoIeJbqYgTXSCKgqUqvgF23zE+gvhjBnqiHCVjzpV/A/xkeL2DDYgQT7etHwV7APwwI
-OBq34MB8ZEI95pcREFAFixGaBCxAwFtxfwH/Y0DAm4GAhYCMiq+k4/za+1Bzbb5LwL9zEPC9
-tJ9fOwPu5iLTFwS8PbbZj7bcPOCF0zDLjxMi4PfS+MsIWYJf9xkmoDHvp4p50M85cgS8Ow2L
-EWy7dlzA/nvstf+d7fPo9AUBv4HKYgTn6FUt4GQFpAv+VkzzFi1GWAJe3y4SMOv/by1gcY+M
-gJb6YgT37aoWMHo46HO5g4B/GRDQ0bAYwd8mXjcKruaCgLfHTfSaDxc2pLixuSDg98BiBAR8
-AAiIgFIQEAGlICACtuCeCA/MeGwuCPjhzM6kYCse4m4LyDQMAjbTuNIgkGZHwN/2QUAETDSt
-NHApXstM5jyKeQqBgAjYQ3WlQT7nXD4JKZ/DIiACtlNdaZC3clk4AiLgCOorDYp7wKgLRkAE
-PMSBlQb1LphRMAK20r/SoAzzg5CTNRqbCwLehGtWGjSAgM8U8GNAQASUgoAIKAUBEVAKAj5S
-wPqahL0ZFBvGNAwC9tKwJmH5upfF69vv+yAgAnoa1iTY/UtLlhq0PAwBEfAAlTUJ06JiviYh
-lhMBEbCb6pqE9PAtCThlsUx0BETAXuprEryTdhcCIuAZGtYkRCtiUkwXxigYAftoW5NgEqwJ
-Jxd2sipjc0HAe6Ffk4CAjxZQDwIioBQEREApCIiALczBpMyYjMfmgoAfwMiVBtnu+DvTMAjo
-GLrSINzlBPxjHwR8vIBRWONKg7TT/ldx5kkeAiKg5/xKAxvmBTQlXCVgNG3uc0HAT2DESgP/
-QEQvoC3c1SF9QUA9I1capE29gK9aIOCnM3ilQb0LvmoUnJrkV7M9uzr8+IKActbOs7xl8h3r
-K8GacHJhRbq5GIScrGlnitw+WsDPphwAfyB0wd8r4C1gEIKAUpiGQUApTEQjYA9pGnHUeUHA
-Wwtoh5HRlpsJOSmOvQdby7lkGqYlFwS8FD8ht7E1VMAiF3cFChDwSQJGYca/7Rv5n1Nr22HZ
-HCECImAieBzgwsoZaD+jMc/zXOwMwyI3EfDBAvr7O9+iTekhmnkE4jzMJWsIowVEwBfFI7Xg
-di987OaV+rkr8yu+oURABMwxOq2G5Ldr5Z3h5tMEY1+HgIyCHyzgOtcyuQ/X6WZJfMw8t2rY
-a2vcIYzNBQE1lAPgY3kMNKu11LG5IOCNqXaXbyl0bC4ICH0gIAJKQcCnCJhmBbeOaCPADkVG
-1woBVQKGg0yz5eYwTl58O/myESParArINMwdBYyn2YqtoQJWctkQsLZvcme8AAHvIWAU5h5T
-7M3SHVpGUE4c+o+s587mom3TjIA3FPDHycoE9D1V/kA2n1C2zyleYX5nGOb13U5n/zySvuYh
-Sl55BLylgP7+zrdoU7r25omG8zAXqSEsRdkXcI2ZCTitLZ9tRxHwjgK6vjC83SvimMiuf94I
-CwW0Yf0C2sIR8IYCGp1WQ/KrbWWxPWAp2eR9ysKOCmirtNkFMwq+pYDrvf7kPlynmyXxMfPc
-qmGvLZPj8v9Mq+xPY/b1tAnGnIixuSBg96nzzdzBPIYZcTEI+A1PQga2SFeDgN8g4I1BQASU
-goCfL+D6MGIzQnV3QxcdjnneDgJ2CxgOMs2Wm304eSXLGZIgRrR5TsDmajMNc62A8TRbsTVU
-wEouGwLW9lWiNAv45z4I+G4BozDj3/4snXAZQZRLimKTbx8DAl5/D+geAwRh5YSyf97wI8zv
-DMP8pd9OZ/88kr6zf4axl4tJuWxtxpwQ8HoB/f2db9GmdAVzAb2HuQINYVmDtCfgGtNqVDZr
-O/7mLW8RMzuwVzEIePUgxG04H8M4JrLrBTfCQgFtWL+ARW23mzfXgBoBzflAwMvvAdcv5eUy
-cZatze7L2DdOwMigTcX7BAzqWaFNnVM8S8D1vnxyH67TzZL4mHlu1bDXlslx7S6NJWt5tp42
-wUYu2W2mST775FWt2kHAwxPRRTN35MSVtj6MjoP3f+T5n1L68iABhzCwLbkn7Udf3odmtwHp
-CwJCFwcENPcULhcEhD76zq8ZCOVTQWmaCQGhmfoYuYi/fJnmtTeeaAHVhKNns+UmREbeeF42
-DWPmj+iCP4h4/rDYepeAf+0zSsDdOdP0BQEFlMpFYca//enHyvoI15peJqCZf2Ea5rMIbshd
-WDlT7p9v5HPODWFL7hcJ2JQLAmqInm+4sPUph++UQ8n2whAQAS2mxXMCZiPHIEE5pbb2bcF0
-GwIiYIDRadVj/Wdy/qWJtMinvXv9eOdFo+CWXBBQQXx7ng0YZi/gtD8IqYQF+R2v+9hcEFBK
-OQA+lsfIWZpacWNzQcD7U+01x5Y2NhcEhD4QEAGlICAC9pAmFUedFwT8eAHDMard2r1tiycA
-j9Yln4pZ68A0zPcKGM7E2a3dges8WMAiF3cCCxDw2wQswoKJ4SnN2fnHcruTfId+pQEBv1rA
-fyjtsmFmztlbmXQKnvBOmw96N8IiNxHwywXML7fvbfMnE5ksUxYrENB7mEvWEEYL+CgBi3s4
-5+NGL20FLDILHqmlhq0MQ8DnCuhbMtuxppBQwDxSCgx66SBdh4CMgr9cwPUOb3IfLmxJsCZc
-o2TZ+VzykqphpogRhzc2FwR8H/aqD3Qgy3F8rtVSx+aCgDem2l2+pdCxuSAg9IGACCgFARFQ
-CgLeRcBwVGq3dm/i4unAQRVjGubrBYzn5czW7jB2fp+Af++DgF8qYBHmo5gZQ/8Ab3fKr++X
-ERDwCQL+Q2mXDTNTz97KpFPwvHcqH/s2hC0lI+AzBPRPO4rnG6UsUxYrENB7mEu2F4aATxSw
-uIcrnr5tPtqN05uMTGZZ0oabTQR8hIC+JbMdawoJBcwjpcDNBs2kaxGQUfAzBFzv8Cb34cKW
-BGvCNUqWnc8lL2k/zN8AnDqusbkg4NuxV36UBzbH8bluFzc2FwS8P9Vec2xpY3NBQOgDARFQ
-CgIioBQEREApCIiAUjrO7878EALCQdrPb/iQ2ueCgNAHAiKglL7zuzxCTB9p/2sDAaGd+pPi
-Iv6U20cLCKfpGoQs/9IFwyj67gEnBISx9AgYrQdyuSAg9MFENAJKQUAElIKACCgFARFQCgIi
-oBQEREApCIiAUhAQAaUgIAJKQUAElIKACCgFARFQCgIioBQEREApCIiAUhAQAaUgIAJKQUAE
-lIKACCgFARFQCgIioBQEREApCIiAUhAQAaUgIAJKQUAElIKACCgFARFQCgIioBQEREApCIiA
-UhAQAaUgIAJKQUAElIKACCgFARFQSs/5TT9Onv1WucsFAaGPjvO7/Dr+a4PXNMAAOl7TkLWA
-CAiDONAFT9kr41II74qDbvrfFbd+4V1xMITjAtIFwwBOdMEICOfpGITwrjgYDxPRCCgFARFQ
-CgIioBQEREApCIiAUhAQAaUgIAJKQUAElIKACCgFARFQCgIioBQEREApCIiAUhAQAaUgIAJK
-QUAElIKACCgFARFQCgIioBQEREApCIiAUhAQAaUgIAJKQUAElIKACCgFARFQCgIioBQEREAp
-CIiAUhAQAaUgIAJKQUAElIKACCgFARFQCgIioBQEREAp/a9p4EfKYSAd53fmNQ0wnI7XNPCe
-EBhPdxe8vqaLd8XBOQ69Ky6zjxYQTnOkBaQLhmEgIAJK6RiE8K44GA8T0QgoBQERUAoCIqAU
-BERAKQiIgFIQEAGlICACSkFABJSCgAgoBQERUAoCIqAUBERAKQiIgFIQEAGlICACSkFABJSC
-gAgoBQERUAoCIqAUBERAKQiIgFIQEAGlICACSkFABJSCgAgoBQERUAoCIqAUBERAKQiIgFIQ
-EAGlICACSkFABJSCgAgoBQERUAoCIqAUBERAKd3n1/1WucsFAaGPAwKmD17TAKc51gIiIAzi
-UAvIu+JgBL3vissS8q44GMNxAemCYQAnumAEhPP0n1/eFQcDYSIaAaUgIAJKQUAElIKACCgF
-ARFQCgIioBQEREApCIiAUhAQAaUgIAJKQUAElIKACCgFARFQCgIioBQEREApCIiAUhAQAaUg
-IAJKQUAElIKACCgFARFQCgIioBQEREApCIiAUhAQAaUgIAJKQUAElIKACCgFARFQCgIioBQE
-REApCIiAUhAQAaUgIAJKQUAElIKArQIKTLy+yLuWiIBv4a46XF8iAr6Fu+pwfYkI+BbuqsP1
-Jc4AB4l8+j8dg55i7TlhtwAAAABJRU5ErkJggg==
-
---9amGYk9869ThD9tj--
+Thank you very much ! The repository description needs fixing though=20
+(currently: description  Working Repository for integration of Routerbo=
+ard=20
+532 patches.)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-serial"=
+ in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
