@@ -1,46 +1,52 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: r8169 MAC addresses broken
-Date: Sun, 26 Oct 2008 21:42:06 +0100
-Message-ID: <m31vy3jdgh.fsf@maximus.localdomain>
-References: <490380C8.6070003@simon.arlott.org.uk>
-	<4903947A.3060206@gmail.com>
-	<20081025223443.GA30913@electric-eye.fr.zoreil.com>
-	<490448B0.8050307@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] wireless: fix regression caused by regulatory config
+	option
+Date: Sun, 26 Oct 2008 16:44:41 -0400
+Message-ID: <20081026204441.GA29566@tuxdriver.com>
+References: <20081026103024.2712ddc9@infradead.org> <20081026200939.GC12648@tuxdriver.com> <20081026131818.7517c103@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Jiri Slaby <jirislaby@gmail.com>
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rjw@sisk.pl, rodriguez@atheros.com,
+	johannes@sipsolutions.net
+To: Arjan van de Ven <arjan@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:47724 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799AbYJZUmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Oct 2008 16:42:09 -0400
-In-Reply-To: <490448B0.8050307@gmail.com> (Jiri Slaby's message of "Sun\, 26 Oct 2008 11\:38\:40 +0100")
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55777 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752044AbYJZUp3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 16:45:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20081026131818.7517c103@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Slaby <jirislaby@gmail.com> writes:
+On Sun, Oct 26, 2008 at 01:18:18PM -0700, Arjan van de Ven wrote:
+> On Sun, 26 Oct 2008 16:09:39 -0400
+> "John W. Linville" <linville@tuxdriver.com> wrote:
+> f
+> > > Change the default to "y" and also adjust the config text a little
+> > > to reflect this.
+> > 
+> > Is it common practice to have compatibility options default to
+> > "y"?  I'm not saying it shouldn't be, just wondering if it has been
+> > traditionally?
+> 
+> yes
+> 
+> default should be "keep working as before"
+> 
+> it's not always nice, especially if you're trying to get rid of some
+> nasty stuff, but think of it this way: you should be able to use a
+> new kernel on an existing distro, at least for a reasonable type of
+> distro (eg something shipped in, say, the last 2 years). In this case:
+> even Fedora 10 is not likely to work!
 
-> However I may have a hw failure or some bug overwrote my eeprom, I see this
-> in current mmotm:
-> r8169 0000:06:00.0: PCI INT A disabled
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-> r8169 0000:06:00.0: setting latency timer to 64
-> r8169: mac_version = 0x0c
-> r8169 0000:06:00.0: irq 43 for MSI/MSI-X
-> r8169: MAC address found in EEPROM: 00:00:00:00:00:00
+Well, I intended to make sure the Fedora guys picked the right option. :-)
 
-Note there is no msg about missing EEPROM signature. I wonder what
-exactly is in the EEPROM. A modified (and again reversed) "[PATCH 1/1]
-r8169: revert "read MAC address from EEPROM on init" should be able to
-show it.
+Anyway, I'm fine with default 'y'...however, Luis is probably somewhere
+buying a gun and looking-up your home address...just kidding...mostly... :-)
 
-There seem to be a DOS tool on RTL WWW to change the EEPROM data.
+John
 -- 
-Krzysztof Halasa
+John W. Linville		Linux should be at the core
+linville@tuxdriver.com			of your literate lifestyle.
