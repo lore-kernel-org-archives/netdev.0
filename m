@@ -1,63 +1,64 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: r8169 MAC addresses broken
-Date: Sun, 26 Oct 2008 11:38:40 +0100
-Message-ID: <490448B0.8050307@gmail.com>
-References: <490380C8.6070003@simon.arlott.org.uk> <4903947A.3060206@gmail.com> <20081025223443.GA30913@electric-eye.fr.zoreil.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH/RFC v1 00/12] Support for Broadcom 63xx SOCs
+Date: Sun, 26 Oct 2008 11:26:01 +0000
+Message-ID: <20081026112601.GA9364@linux-mips.org>
+References: <1224382022-24173-1-git-send-email-mbizon@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:37556 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056AbYJZKio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 06:38:44 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1548834fgg.17
-        for <netdev@vger.kernel.org>; Sun, 26 Oct 2008 03:38:42 -0700 (PDT)
-In-Reply-To: <20081025223443.GA30913@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, afleming@freescale.com, jgarzik@pobox.com,
+	linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
+	linux-pcmcia@lists.infradead.org, linux-serial@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: Maxime Bizon <mbizon@freebox.fr>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <1224382022-24173-1-git-send-email-mbizon@freebox.fr>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu napsal(a):
-> Jiri Slaby <jirislaby@gmail.com> :
-> [...]
->> Ah, I thought I have broken hardware. I have similar problem, my mac is
->> initially all zeroes. When I set it up, it works until suspend. After that I
->> need to unbind the driver, bind it again, and it works then (mac is still the
->> set one).
->>
->> I'm out of the notebook right now, but it is 10ec:8168:
->> 06:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
->> Express Gigabit Ethernet controller (rev 01)
->> 	Subsystem: ASUSTeK Computer Inc. Unknown device 11f5
->>
->> I used it perfectly far later than 2.6.24 (maybe 2.6.26?), 2.6.27 is yet
->> defunct.
+On Sun, Oct 19, 2008 at 04:07:02AM +0200, Maxime Bizon wrote:
+
+> [first try at patch series mailing, if you're in to/cc list by mistake
+> please tell me]
+
+In the Linux world people more complain about email they do not receive
+than they receive unnecessarily.
+
+Looks ok - the only thing that's a bit strange about this email is that
+git-send-email which you seem to have used normally sends out all emails
+as reply either to the one preceeding in the series or or the first of
+all - but yours arrived without reply headers.
+
+This means the receiver has to be careful to apply things in the right
+order since the mail client probably will display them in the order of
+arrival, if emails get reordered in transmission.
+
+> This is a set of patches that add support for the Broadcom 63xx series
+> of CPUs and  (some) integrated devices. These are  popular MIPS32 SOCs
+> found in a lot of DSL modems.
 > 
-> 2.6.27 proper ? That's bad news.
+> CPUs supported are  6348 and 6358. Support is  provided for integrated
+> UART,  USB OHCI  and  EHCI, PCI  controller,  ethernet MAC  & PHY  and
+> PCMCIA/Cardbus controller.
 > 
-> Can you send a dmesg for 2.6.27 and 2.6.28-rc1 ?
+> Board support is still rough, each vendor seems to have its own way of
+> identifying the board  type in nvram, that's why  it will probably not
+> work out of  the box.  So DON'T FLASH IT BLINDLY  on your modem unless
+> you have a serial cable, prefer tftpboot/nfsroot for testing.
+> 
+> I used linux-mips git tree  master to generate theses patches, this is
+> probably  inappropriate considering  they  touch multiple  subsystems.
+> Since all patches  depends on first two of the series  I wonder how to
+> submit this properly for inclusion in one merge window (if that's even
+> do-able).
 
-2.6.28-rc1 doesn't boot, the rest of dmesgs is at:
-http://decibel.fi.muni.cz/~xslaby/r8169_mac/
+As agreed earlier I've setup a git tree on linux-mips.org at
+/pub/scm/linux-bcm63xx.git which also is visible on.
+http://www.linux-mips.org/git.
 
-However I may have a hw failure or some bug overwrote my eeprom, I see this
-in current mmotm:
-r8169 0000:06:00.0: PCI INT A disabled
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-r8169 0000:06:00.0: setting latency timer to 64
-r8169: mac_version = 0x0c
-r8169 0000:06:00.0: irq 43 for MSI/MSI-X
-r8169: MAC address found in EEPROM: 00:00:00:00:00:00
-eth0: RTL8168b/8111b at 0xffffc200042b0000, 00:00:00:00:00:00, XID 38000000
-IRQ 43
-r8169: mac_version = 0x0c
+If you want to send me any updates then it's also ok to send me a patch
+relative to an earlier patch.  I'll then just fold it into that earlier
+patch.
 
-which looks like even in the eeprom are all zeroes now. Also 2.6.25 is
-affected by this now and it worked (from_Jul dmesg).
+  Ralf
