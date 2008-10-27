@@ -1,49 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Error: an inet prefix is expected rather than "0/0".
-Date: Mon, 27 Oct 2008 10:39:50 -0700
-Message-ID: <20081027103950.7eba4fe1@extreme>
-References: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl>
-	<E1KpkSl-00087W-GB@gondolin.me.apana.org.au>
-	<20081014104621.3c2ce4d3@extreme>
-	<20081015014624.GA3251@gondor.apana.org.au>
-	<m34p3door9.fsf@maximus.localdomain>
-	<1224086831.3984.196.camel@achroite>
-	<m3y70pn11c.fsf@maximus.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: suspicious logic in tcp_make_synack()
+Date: Mon, 27 Oct 2008 11:30:56 -0700 (PDT)
+Message-ID: <20081027.113056.16263457.davem@davemloft.net>
+References: <20081026174147.GB27584@Chamillionaire.breakpoint.cc>
+	<20081026.231102.214077979.davem@davemloft.net>
+	<396556a20810270851x18ad55c6sd690457af6616224@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Krzysztof Oledzki <ole@ans.pl>, netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: agl@imperialviolet.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44674 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750727AbYJ0Rjw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2008 13:39:52 -0400
-In-Reply-To: <m3y70pn11c.fsf@maximus.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43443
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751831AbYJ0SbS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 14:31:18 -0400
+In-Reply-To: <396556a20810270851x18ad55c6sd690457af6616224@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 Oct 2008 20:52:47 +0200
-Krzysztof Halasa <khc@pm.waw.pl> wrote:
+From: "Adam Langley" <agl@imperialviolet.org>
+Date: Mon, 27 Oct 2008 08:51:19 -0700
 
-> Ben Hutchings <bhutchings@solarflare.com> writes:
-> 
-> > It's a Berkeley extension which spread via BSD and its inet_aton()
-> > function.  I don't believe it's specified in any RFC.
-> 
-> You may be right, I won't start searching now :-)
-> Anyway it was like that for years and I guess we shouldn't change it
-> (except perhaps for removing).
-> 
-> > No, a single number is treated by inet_aton() as a 32-bit address, so 10
-> > is equivalent to 0.0.0.10.
-> 
-> Hmm, I remember some routes being used without a dot, as a single
-> number, but OTOH you're right, it was also possible to ping
-> 12345678. Perhaps 10 -> 10.0 was specific to something rather than
-> used generally, I don't know.
+> Although that commit was born of an attempt to save some people from
+> some of the pitfalls of modifying the previous code it clearly wasn't
+> something that I should have attempted. The cost of newbies touching
+> code in that area is too great both in tickling bugs in other systems
+> (with option ordering) and in stupid omissions like this.
 
-I ended up putting in a version similar to the original code but with
-more error checking so it would not accept 259.1 etc.
+Adam, as I said, you and I share this burdon :-)  I should have
+reviewed your changes more thoroughly, and for this change that is
+true no matter who actually wrote it.
+
+> If nothing else, suspicion of that commit has probably been raised
+> to such a level that competent folks have checked it all over now.
+
+Yes, I think we've fixed up all the issues by now.
