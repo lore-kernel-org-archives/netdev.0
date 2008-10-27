@@ -1,59 +1,104 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: r8169 MAC addresses broken
-Date: Mon, 27 Oct 2008 19:50:22 +0000
-Message-ID: <49061B7E.6050409@simon.arlott.org.uk>
-References: <490380C8.6070003@simon.arlott.org.uk>	<4903947A.3060206@gmail.com>	<20081025223443.GA30913@electric-eye.fr.zoreil.com>	<490448B0.8050307@gmail.com> <m33aijzfga.fsf@maximus.localdomain>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [RFC PATCHv3] printk: add %pM format specifier for MAC addresses
+Date: Mon, 27 Oct 2008 12:59:02 -0700
+Message-ID: <1225137542.5396.10.camel@brick>
+References: <1225067465.5672.1.camel@brick>
+	 <1225090765.3746.7.camel@johannes.berg> <1225124904.5440.1.camel@brick>
+	 <20081027.123805.134354592.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: johannes@sipsolutions.net, anders@anduras.de,
+	netdev@vger.kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:35544 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754291AbYJ0Tug (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2008 15:50:36 -0400
-In-Reply-To: <m33aijzfga.fsf@maximus.localdomain>
+Received: from yx-out-2324.google.com ([74.125.44.28]:2260 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611AbYJ0UBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 16:01:45 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so564671yxm.1
+        for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 13:01:43 -0700 (PDT)
+In-Reply-To: <20081027.123805.134354592.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/10/08 12:52, Krzysztof Halasa wrote:
-> Jiri Slaby <jirislaby@gmail.com> writes:
-> 
->> However I may have a hw failure or some bug overwrote my eeprom, I see this
->> in current mmotm:
->> r8169 0000:06:00.0: PCI INT A disabled
->> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->> r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
->> r8169 0000:06:00.0: setting latency timer to 64
->> r8169: mac_version = 0x0c
->> r8169 0000:06:00.0: irq 43 for MSI/MSI-X
->> r8169: MAC address found in EEPROM: 00:00:00:00:00:00
->> eth0: RTL8168b/8111b at 0xffffc200042b0000, 00:00:00:00:00:00, XID 38000000
-> 
-> I think we need drivers or maybe some tool to save contents of those
-> little EEPROM / flash NVM configuration chips before it's too late.
-> First the ICH* e1000e corruption and now GbE RTL.
+Add format specifiers for printing out six colon-separated bytes:
 
-With the reverted patch my MAC addresses are still broken:
+MAC addresses (%pM):
+xx:xx:xx:xx:xx:xx
 
-[    1.527660] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[    1.533421] r8169 0000:00:09.0: PCI INT A -> Link[LNKC] -> GSI 10 (level, low) -> IRQ 10
-[    1.541743] r8169 0000:00:09.0: PCI: Disallowing DAC for device
-[    1.547799] r8169 0000:00:09.0: no PCI Express capability
-[    1.554519] eth0: RTL8169sc/8110sc at 0xbf6f8000, 00:00:00:00:25:c2, XID 18000000 IRQ 10
+%#pM is also supported and omits the colon separators.
 
-[    1.563480] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[    1.570525] ACPI: PCI Interrupt Link [LNKD] enabled at IRQ 11
-[    1.576363] r8169 0000:00:0b.0: PCI INT A -> Link[LNKD] -> GSI 11 (level, low) -> IRQ 11
-[    1.584597] r8169 0000:00:0b.0: PCI: Disallowing DAC for device
-[    1.590651] r8169 0000:00:0b.0: no PCI Express capability
-[    1.596659] eth1: RTL8169sc/8110sc at 0xbf6fc000, 00:00:00:00:25:c3, XID 18000000 IRQ 11
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+Dave, this passes testing here, but I was wondering if perhaps it would be
+better to allow a length to be specified as well, which would allow:
 
+%pM6 for mac addresses, etc as there seem a lot of places in kernel that
+print out a list of colon separated bytes of various lengths.
+
+But if that was added, it may be more natural to call it 
+%pB (bytes)
+%pW (words)
+
+Then mac addresses would be %pB6
+IPv6 addresses would be %pW8 (8 words)
+
+It would be trivial to add, but maybe I'm overthinking this.  In any event,
+this patch only adds %pM for mac addresses.
+
+ lib/vsprintf.c |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
+
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index a013bbc..2025305 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -581,6 +581,23 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
+ 	return string(buf, end, sym, field_width, precision, flags);
+ }
+ 
++static char *mac_address(char *buf, char *end, u8 *addr, int field_width,
++			 int precision, int flags)
++{
++	char mac_addr[6 * 3]; /* (6 * 2 hex digits), 5 colons and trailing zero */
++	char *p = mac_addr;
++	int i;
++
++	for (i = 0; i < 6; i++) {
++		p = pack_hex_byte(p, addr[i]);
++		if (!(flags & SPECIAL) && i != 5)
++			*p++ = ':';
++	}
++	*p = '\0';
++
++	return string(buf, end, mac_addr, field_width, precision, flags & ~SPECIAL);
++}
++
+ /*
+  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
+  * by an extra set of alphanumeric characters that are extended format
+@@ -592,6 +609,8 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
+  * - 'S' For symbolic direct pointers
+  * - 'R' For a struct resource pointer, it prints the range of
+  *       addresses (not the name nor the flags)
++ * - 'M' For a 6-byte MAC address, it prints the address in the
++ *       usual colon-separated hex notation
+  *
+  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+  * function pointers are really function descriptors, which contain a
+@@ -607,6 +626,8 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int field
+ 		return symbol_string(buf, end, ptr, field_width, precision, flags);
+ 	case 'R':
+ 		return resource_string(buf, end, ptr, field_width, precision, flags);
++	case 'M':
++		return mac_address(buf, end, ptr, field_width, precision, flags);
+ 	}
+ 	flags |= SMALL;
+ 	if (field_width == -1) {
 -- 
-Simon Arlott
+1.6.0.3.729.g6ea410
+
+
+
