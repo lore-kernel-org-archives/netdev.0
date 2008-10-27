@@ -1,35 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Mon, 27 Oct 2008 10:26:21 -0700
-Message-ID: <4905F9BD.100@hp.com>
-References: <1224905848.5161.27.camel@marge.simson.net>	<20081024.221653.23695396.davem@davemloft.net>	<1224914333.3822.18.camel@marge.simson.net>	<20081025.001940.251852864.davem@davemloft.net> <1224919985.5373.10.camel@marge.simson.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: bisected: 2.6.28-rc broke my iwl4965 wireless
+Date: Mon, 27 Oct 2008 10:33:03 -0700
+Message-ID: <20081027103303.0fed7aa0@infradead.org>
+References: <20081025222208.1d2a2c8b@infradead.org>
+	<20081027163812.GB6377@tesla>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rjw@sisk.pl, mingo@elte.hu,
-	s0mbre@tservice.net.ru, a.p.zijlstra@chello.nl,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Mike Galbraith <efault@gmx.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753172AbYJ0R0n@vger.kernel.org>
-In-Reply-To: <1224919985.5373.10.camel@marge.simson.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:50444 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751201AbYJ0Rcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 13:32:47 -0400
+In-Reply-To: <20081027163812.GB6377@tesla>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mike Galbraith wrote:
-> That's exactly what I've been trying to look into, but combined with
-> netperf.  The thing is an incredibly twisted maze of _this_ affects
-> _that_... sometimes involving magic and/or mythical creatures.
+On Mon, 27 Oct 2008 09:38:12 -0700
+"Luis R. Rodriguez" <lrodriguez@atheros.com> wrote:
 
-I cannot guarantee it will help, but the global -T option to pin netperf 
-or netserver to a specific CPU might help cut-down the variables.
+> Additionally if the old behaviour is desired for now (until
+> distributions catch up and add CRDA) CONFIG_WIRELESS_OLD_REGULATORY
+> can be enabled and you'll get the old behaviour of defaulting to
+> country "US".
+> 
+> Please let me know if there are any issues.
 
-FWIW netperf top of trunk omni tests can now also determine and report 
-the state of SELinux.  They also have code to accept or generate their 
-own RFC4122-esque UUID.  Define some connical tests and then ever closer 
-to just needing some database-fu and automagic testing I suppose... 
-things I do not presently posess but am curious enough to follow some 
-pointers.
+the point is that this compatibility behavior should have been the
+default... since it'll be at least 6 months before current distros will
+even ship the userland..
 
-happy benchmarking,
 
-rick jones
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
