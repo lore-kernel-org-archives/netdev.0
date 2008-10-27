@@ -1,64 +1,201 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Mon, 27 Oct 2008 15:17:16 +0100
-Message-ID: <1225117036.4973.23.camel@marge.simson.net>
-References: <20081024.221653.23695396.davem@davemloft.net>
-	 <1224914333.3822.18.camel@marge.simson.net>
-	 <1224917623.4929.15.camel@marge.simson.net>
-	 <20081025.002420.82739316.davem@davemloft.net>
-	 <Pine.LNX.4.64.0810260055070.22126@twin.jikos.cz>
-	 <1225010790.8566.22.camel@marge.simson.net>
-	 <1225011648.27415.4.camel@twins>
-	 <20081026021153.47878580.akpm@linux-foundation.org>
-	 <alpine.LNX.1.10.0810262002450.12928@jikos.suse.cz>
-	 <alpine.LNX.1.10.0810271138470.12928@jikos.suse.cz>
-	 <20081027112750.GA2771@elte.hu>
-	 <20081027113306.5b1d5898@lxorguk.ukuu.org.uk>
-	 <1225109171.4238.23.camel@marge.simson.net>
-	 <alpine.LNX.1.10.0810271441590.12928@jikos.suse.cz>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v2)
+Date: Mon, 27 Oct 2008 08:37:34 -0600
+Message-ID: <20081027143734.GA13565@secretlab.ca>
+References: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Ingo Molnar <mingo@elte.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, rjw@sisk.pl,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:43323 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750747AbYJ0OR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2008 10:17:26 -0400
-In-Reply-To: <alpine.LNX.1.10.0810271441590.12928@jikos.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-10-27 at 14:42 +0100, Jiri Kosina wrote:
-> On Mon, 27 Oct 2008, Mike Galbraith wrote:
+On Mon, Oct 27, 2008 at 12:53:22PM +0200, Paulius Zaleckas wrote:
+> Useful for machines where PHY control is connected to GPIO.
+> This driver also supports interrupts from PHY.
 > 
-> > > real world workloads. If your fairness hurts throughput that much maybe
-> > > your scheduler algorithm is just plain *wrong* as it isn't adapting to
-> > > workload at all well.
-> > Doesn't seem to be scheduler/fairness.  2.6.22.19 is O(1), and falls
-> > apart too, I posted the numbers and full dbench output yesterday.
+> Changes since v1:
+> - fixed releasing of gpio (thanks to Sascha Hauer)
+> - fixed compiling due to bus->dev to bus->parent change
 > 
-> We'll need to look into this a little bit more I think. I have sent out 
-> some numbers too, and these indicate very clearly that there is more than 
-> 50% performance drop (measured by dbench) just after the very merge of CFS 
-> in 2.6.23-rc1 merge window.
+> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> ---
 
-Sure.  Watching the per/sec output, every kernel I have sucks at high
-client count dbench, it's just a matter of how badly, and how long.
+Well structured driver.  Comments below.
 
-BTW, the nice pretty 160 client numbers I posted yesterday for ext2
-turned out to be because somebody adds _netdev mount option when I mount
--a in order to mount my freshly hotplugged external drive (why?  that
-ain't in my fstab).  Without that switch, ext2 output is roughly as
-raggedy as ext3, and nowhere near the up to 1.4GB/sec I can get with
-dirty_ratio=50 + ext2 + (buy none, get one free) _netdev option.  Free
-for the not asking option does nada for ext3.
+> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+> new file mode 100644
+> index 0000000..585897b
+> --- /dev/null
+> +++ b/drivers/net/phy/mdio-gpio.c
+> @@ -0,0 +1,187 @@
+> +/*
+> + * GPIO based MDIO bitbang driver.
+> + *
+> + * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> + *
+> + * Based on mdio-ofgpio.c:
+> + *
+> + * Copyright (c) 2008 CSE Semaphore Belgium.
+> + *  by Laurent Pinchart <laurentp@cse-semaphore.com>
+> + *
+> + * Copyright (c) 2003 Intracom S.A.
+> + *  by Pantelis Antoniou <panto@intracom.gr>
+> + *
+> + * 2005 (c) MontaVista Software, Inc.
+> + * Vitaly Bordug <vbordug@ru.mvista.com>
+> + *
+> + * This file is licensed under the terms of the GNU General Public License
+> + * version 2. This program is licensed "as is" without any warranty of any
+> + * kind, whether express or implied.
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/init.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/gpio.h>
+> +#include <linux/mdio-bitbang.h>
+> +#include <linux/mdio-gpio.h>
 
-	-Mike
+Missing:
 
+MODULE_AUTHOR()
+MODULE_LICENSE()
+MODULE_DESCRIPTION()
+
+> +static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+> +{
+> +	struct mii_bus *new_bus;
+> +	struct mdio_gpio_info *bitbang;
+> +	struct mdio_gpio_platform_data *pdata;
+> +	int ret = -ENOMEM;
+> +	int i;
+> +
+> +	pdata = pdev->dev.platform_data;
+> +	if (pdata == NULL)
+> +		goto out;
+> +
+> +	bitbang = kzalloc(sizeof(struct mdio_gpio_info), GFP_KERNEL);
+> +	if (!bitbang)
+> +		goto out;
+> +
+> +	bitbang->ctrl.ops = &mdio_gpio_ops;
+> +	bitbang->mdc = pdata->mdc;
+> +	bitbang->mdio = pdata->mdio;
+> +
+> +	if (gpio_request(bitbang->mdc, "mdc"))
+> +		goto out_free_bitbang;
+> +
+> +	if (gpio_request(bitbang->mdio, "mdio"))
+> +		goto out_free_mdc;
+> +
+> +	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
+> +	if (!new_bus)
+> +		goto out_free_gpio;
+> +
+> +	new_bus->name = "GPIO Bitbanged MII",
+> +	snprintf(new_bus->id, MII_BUS_ID_SIZE, "phy%i", pdev->id);
+> +
+> +	new_bus->phy_mask = ~0;
+> +	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
+> +	if (!new_bus->irq)
+> +		goto out_free_bus;
+
+The IRQ array is fixed size.  You can add it to the mdio_gpio_info
+structure and then just set the pointer here so that only one kzalloc
+is needed.
+
+> +
+> +	for (i = 0; i < PHY_MAX_ADDR; i++)
+> +		new_bus->irq[i] = PHY_POLL;
+> +
+> +	for (i = 0; i < pdata->nr_phys; i++) {
+> +		unsigned int phy_addr = pdata->phys[i].addr;
+> +
+> +		BUG_ON(phy_addr >= PHY_MAX_ADDR);
+
+Is it really worth bringing down the whole kernel when too many phys are
+specified in pdata?
+
+> +
+> +		new_bus->phy_mask &= ~(1 << phy_addr);
+> +		new_bus->irq[phy_addr] = pdata->phys[i].irq;
+> +	}
+> +
+> +	new_bus->parent = &pdev->dev;
+> +	platform_set_drvdata(pdev, new_bus);
+> +
+> +	ret = mdiobus_register(new_bus);
+> +	if (ret)
+> +		goto out_free_all;
+> +
+> +	return 0;
+> +
+> +out_free_all:
+> +	platform_set_drvdata(pdev, NULL);
+> +	kfree(new_bus->irq);
+> +out_free_bus:
+> +	free_mdio_bitbang(new_bus);
+> +out_free_gpio:
+> +	gpio_free(bitbang->mdio);
+> +out_free_mdc:
+> +	gpio_free(bitbang->mdc);
+> +out_free_bitbang:
+> +	kfree(bitbang);
+> +out:
+> +	return ret;
+
+Nit:  labels in column 0 will confuse diff when it tries to put the
+function name in the diff hunk header.  If you indent the labels by 1
+space then future diffs will show the function name instead of the label
+name in diff hunk headers.
+
+> +}
+> +
+> +static int __devexit mdio_gpio_remove(struct platform_device *pdev)
+> +{
+> +	struct mii_bus *bus = platform_get_drvdata(pdev);
+> +	struct mdio_gpio_info *bitbang = bus->priv;
+> +
+> +	mdiobus_unregister(bus);
+> +	kfree(bus->irq);
+> +	free_mdio_bitbang(bus);
+> +	platform_set_drvdata(pdev, NULL);
+> +	gpio_free(bitbang->mdc);
+> +	gpio_free(bitbang->mdio);
+> +	kfree(bitbang);
+> +
+> +	return 0;
+> +}
+> +
+> +static struct platform_driver mdio_gpio_driver = {
+> +	.probe = mdio_gpio_probe,
+> +	.remove = __devexit_p(mdio_gpio_remove),
+> +	.driver		= {
+> +		.name	= "mdio-gpio",
+> +		.owner	= THIS_MODULE,
+> +	},
+> +};
+> +
+> +static int mdio_gpio_init(void)
+
+static int __init mdio_gpio_init(void)
+
+> +{
+> +	return platform_driver_register(&mdio_gpio_driver);
+> +}
+> +
+> +static void mdio_gpio_exit(void)
+
+static void __exit mdio_gpio_exit(void)
+
+> +{
+> +	platform_driver_unregister(&mdio_gpio_driver);
+> +}
+> +
+> +module_init(mdio_gpio_init);
+> +module_exit(mdio_gpio_exit);
