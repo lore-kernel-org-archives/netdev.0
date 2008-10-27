@@ -1,55 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: tbench wrt. loopback TSO
-Date: Mon, 27 Oct 2008 09:49:21 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0810270942430.1290@wrl-59.cs.helsinki.fi>
-References: <20081015.171408.193701292.davem@davemloft.net>
- <20081026123442.GA31506@ioremap.net> <20081026.185911.193696873.davem@davemloft.net>
+From: Jan Evert van Grootheest <j.e.van.grootheest@caiway.nl>
+Subject: broken rtl8139 and dropped frames decreasing?
+Date: Mon, 27 Oct 2008 09:13:08 +0100
+Message-ID: <49057814.2000403@caiway.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, efault@gmx.de, mingo@elte.hu,
-	a.p.zijlstra@chello.nl, Herbert Xu <herbert@gondor.apana.org.au>
-To: zbr@ioremap.net, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53998 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbYJ0HtZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 03:49:25 -0400
-In-Reply-To: <20081026.185911.193696873.davem@davemloft.net>
+Received: from pelian2.kabelfoon.nl ([62.45.45.41]:55158 "EHLO
+	pelian.kabelfoon.nl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750960AbYJ0Ilm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 04:41:42 -0400
+Received: from suzy2.janevert.homelinux.org (002-008-128-083.dynamic.caiway.nl [83.128.8.2])
+	by pelian.kabelfoon.nl (Postfix) with ESMTP id D0F2B427C15
+	for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 09:13:08 +0100 (CET)
+Received: from lappie.janevert.homelinux.org ([192.168.1.115])
+	by suzy2.janevert.homelinux.org with esmtp (Exim 4.63)
+	(envelope-from <j.e.van.grootheest@caiway.nl>)
+	id 1KuNDo-0002ox-O7
+	for netdev@vger.kernel.org; Mon, 27 Oct 2008 09:13:08 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 26 Oct 2008, David Miller wrote:
+Hi,
 
-> From: Evgeniy Polyakov <zbr@ioremap.net>
-> Date: Sun, 26 Oct 2008 15:34:42 +0300
-> 
-> > On Wed, Oct 15, 2008 at 05:14:08PM -0700, David Miller (davem@davemloft.net) wrote:
-> > > 
-> > > I got curious about this aspect of the investigation so I wanted
-> > > to see it first-hand :-)
-> > > 
-> > > To be honest, this reported effect of disabling TSO in the loopback
-> > > driver surprised me because:
-> > > 
-> > > 1) If the benchmark is doing small writes, TSO should have zero
-> > >    effect.  The TSO logic won't kick in.
-> > 
-> > But GSO will try to create a huge packet and that overhead will not be
-> > overweighted?
-> > 
-> > That's what I got with the current tree for 8 threads on a 4-way 32-bit
-> > Xeons (2 physical CPUs) and 8gb of ram:
-> > gso/tso off: 361.367
-> > tso/gso on:  354.635
-> > 
-> > Disabled/enabled via ethtools: -k tso off/on gso off/on
-> 
-> Yes, it might do this, in which case tcp_tso_should_defer() simply needs
-> some tweaking.
+I've got this old computer of a friend (to rescue files and put Ubuntu 
+on it (-: ).
+And there's something strange going on in the network stack somewhere.
 
-Good point, could you Evgeniy verify first if simple goto send_now; in 
-beginning there recovers it all...
+I've booted it using an Ubuntu Hardy live CD (i.e. 2.6.24-something kernel).
+There's a rtl8139 card in it that uses the 8139too module. But something 
+is not right with the hardware. Dmesg is full of reports with TX ring 
+pointers when I plug the cable and try to ping something.
 
--- 
- i.
+The interesting thing is that 'ifconfig eth0' shows dropped RX packets. 
+But each invocation shows one LESS dropped packet! It's never been above 
+zero (that I have seen). The counter currently stands at 4294967260 
+(i.e. -36).
+And that's with the network cable unplugged!
+This also happens when there's a whole weekend between invocations.
+
+I did have the cable plugged in for a while. Then found out that network 
+didn't work and unplugged it (had to rescue files first, so would sort 
+it out later).
+
+Now that the cable is unplugged, there are no new messages in dmesg 
+about the TX ring.
+
+I don't know whether I can reproduce this after a reboot (didn't try). 
+But it's still running with the problem. So if there are requests or 
+info you'd like or things you want me to try then just let me know.
+
+(files have been rescued so I'll now be downloading Intrepid RC1 and 
+check whether I can reproduce this)
+
+Jan Evert
+
+
+
