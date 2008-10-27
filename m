@@ -1,147 +1,308 @@
-From: Thomas Klein <tklein@de.ibm.com>
-Subject: [PATCH] ehea: Add hugepage detection
-Date: Mon, 27 Oct 2008 10:38:46 +0100
-Message-ID: <200810271038.46825.tklein@de.ibm.com>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] phylib: add mdio-gpio bus driver (v2)
+Date: Mon, 27 Oct 2008 12:53:22 +0200
+Message-ID: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	Hannes Hering <hering2@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	"netdev" <netdev@vger.kernel.org>, badari@us.ibm.com,
-	haveblue@us.ibm.com, tollefso@us.ibm.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:53518 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965AbYJ0Jjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 05:39:32 -0400
-Content-Disposition: inline
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:34365 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752398AbYJ0JxY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 05:53:24 -0400
+Received: from 82-135-208-232.static.zebra.lt (HELO Programuotojas.82-135-208-232.ip.zebra.lt) (paulius.zaleckas@[82.135.208.232])
+          (envelope-sender <paulius.zaleckas@teltonika.lt>)
+          by teltonika.lt (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 27 Oct 2008 09:52:10 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All kernel memory which is used for kernel/hardware data transfer must be registered
-with firmware using "memory regions". 16GB hugepages may not be part of a memory region
-due to firmware restrictions.
-This patch modifies the walk_memory_resource callback fn to filter hugepages and add
-only standard memory to the busmap which is later on used for MR registration.
+Useful for machines where PHY control is connected to GPIO.
+This driver also supports interrupts from PHY.
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+Changes since v1:
+- fixed releasing of gpio (thanks to Sascha Hauer)
+- fixed compiling due to bus->dev to bus->parent change
+
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 ---
-This reworked patch accounts for comments I got. It's based on davem's net-2.6.git.
+
+ drivers/net/phy/Kconfig     |    6 +
+ drivers/net/phy/Makefile    |    1 
+ drivers/net/phy/mdio-gpio.c |  187 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mdio-gpio.h   |   40 +++++++++
+ 4 files changed, 234 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/phy/mdio-gpio.c
+ create mode 100644 include/linux/mdio-gpio.h
 
 
-diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
---- linux-2.6.27/drivers/net/ehea/ehea.h	2008-10-24 09:29:19.000000000 +0200
-+++ patched_kernel/drivers/net/ehea/ehea.h	2008-10-27 09:27:46.000000000 +0100
-@@ -40,7 +40,7 @@
- #include <asm/io.h>
-
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0094"
-+#define DRV_VERSION	"EHEA_0095"
-
- /* eHEA capability flags */
- #define DLPAR_PORT_ADD_REM 1
-diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_qmr.c patched_kernel/drivers/net/ehea/ehea_qmr.c
---- linux-2.6.27/drivers/net/ehea/ehea_qmr.c	2008-10-24 09:29:19.000000000 +0200
-+++ patched_kernel/drivers/net/ehea/ehea_qmr.c	2008-10-27 09:27:46.000000000 +0100
-@@ -632,10 +632,13 @@ static void ehea_rebuild_busmap(void)
- 	}
- }
-
--static int ehea_update_busmap(unsigned long pfn, unsigned long pgnum, int add)
-+static int ehea_update_busmap(unsigned long pfn, unsigned long nr_pages, int add)
- {
- 	unsigned long i, start_section, end_section;
-
-+	if (!nr_pages)
-+		return 0;
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index d55932a..b6a0350 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -84,6 +84,12 @@ config MDIO_BITBANG
+ 
+ 	  If in doubt, say N.
+ 
++config MDIO_GPIO
++	tristate "Support for GPIO bitbanged MDIO buses"
++	depends on MDIO_BITBANG && GENERIC_GPIO
++	help
++	  Supports MDIO busses connected to GPIO.
 +
- 	if (!ehea_bmap) {
- 		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
- 		if (!ehea_bmap)
-@@ -643,7 +646,7 @@ static int ehea_update_busmap(unsigned l
- 	}
-
- 	start_section = (pfn * PAGE_SIZE) / EHEA_SECTSIZE;
--	end_section = start_section + ((pgnum * PAGE_SIZE) / EHEA_SECTSIZE);
-+	end_section = start_section + ((nr_pages * PAGE_SIZE) / EHEA_SECTSIZE);
- 	/* Mark entries as valid or invalid only; address is assigned later */
- 	for (i = start_section; i < end_section; i++) {
- 		u64 flag;
-@@ -692,10 +695,54 @@ int ehea_rem_sect_bmap(unsigned long pfn
- 	return ret;
- }
-
--static int ehea_create_busmap_callback(unsigned long pfn,
--				       unsigned long nr_pages, void *arg)
-+static int ehea_is_hugepage(unsigned long pfn)
+ config MDIO_OF_GPIO
+ 	tristate "Support for GPIO lib-based bitbanged MDIO buses"
+ 	depends on MDIO_BITBANG && OF_GPIO
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index eee329f..8629b09 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -15,4 +15,5 @@ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
+ obj-$(CONFIG_FIXED_PHY)		+= fixed.o
+ obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
++obj-$(CONFIG_MDIO_GPIO)		+= mdio-gpio.o
+ obj-$(CONFIG_MDIO_OF_GPIO)	+= mdio-ofgpio.o
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+new file mode 100644
+index 0000000..585897b
+--- /dev/null
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -0,0 +1,187 @@
++/*
++ * GPIO based MDIO bitbang driver.
++ *
++ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
++ *
++ * Based on mdio-ofgpio.c:
++ *
++ * Copyright (c) 2008 CSE Semaphore Belgium.
++ *  by Laurent Pinchart <laurentp@cse-semaphore.com>
++ *
++ * Copyright (c) 2003 Intracom S.A.
++ *  by Pantelis Antoniou <panto@intracom.gr>
++ *
++ * 2005 (c) MontaVista Software, Inc.
++ * Vitaly Bordug <vbordug@ru.mvista.com>
++ *
++ * This file is licensed under the terms of the GNU General Public License
++ * version 2. This program is licensed "as is" without any warranty of any
++ * kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/platform_device.h>
++#include <linux/gpio.h>
++#include <linux/mdio-bitbang.h>
++#include <linux/mdio-gpio.h>
++
++struct mdio_gpio_info {
++	struct mdiobb_ctrl ctrl;
++	unsigned int mdc, mdio;
++};
++
++static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
 +{
-+	int page_order;
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
 +
-+	if (pfn & EHEA_HUGEPAGE_PFN_MASK)
-+		return 0;
-+
-+	page_order = compound_order(pfn_to_page(pfn));
-+	if (page_order + PAGE_SHIFT != EHEA_HUGEPAGESHIFT)
-+		return 0;
-+
-+	return 1;
++	if (dir)
++		gpio_direction_output(bitbang->mdio, 1);
++	else
++		gpio_direction_input(bitbang->mdio);
 +}
 +
-+static int ehea_create_busmap_callback(unsigned long initial_pfn,
-+				       unsigned long total_nr_pages, void *arg)
- {
--	return ehea_update_busmap(pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
-+	int ret;
-+	unsigned long pfn, start_pfn, end_pfn, nr_pages;
++static int mdio_read(struct mdiobb_ctrl *ctrl)
++{
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
 +
-+	if ((total_nr_pages * PAGE_SIZE) < EHEA_HUGEPAGE_SIZE)
-+		return ehea_update_busmap(initial_pfn, total_nr_pages,
-+					  EHEA_BUSMAP_ADD_SECT);
++	return gpio_get_value(bitbang->mdio);
++}
 +
-+	/* Given chunk is >= 16GB -> check for hugepages */
-+	start_pfn = initial_pfn;
-+	end_pfn = initial_pfn + total_nr_pages;
-+	pfn = start_pfn;
++static void mdio(struct mdiobb_ctrl *ctrl, int what)
++{
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
 +
-+	while (pfn < end_pfn) {
-+		if (ehea_is_hugepage(pfn)) {
-+			/* Add mem found in front of the hugepage */
-+			nr_pages = pfn - start_pfn;
-+			ret = ehea_update_busmap(start_pfn, nr_pages,
-+						 EHEA_BUSMAP_ADD_SECT);
-+			if (ret)
-+				return ret;
++	gpio_set_value(bitbang->mdio, what);
++}
 +
-+			/* Skip the hugepage */
-+			pfn += (EHEA_HUGEPAGE_SIZE / PAGE_SIZE);
-+			start_pfn = pfn;
-+		} else
-+			pfn += (EHEA_SECTSIZE / PAGE_SIZE);
++static void mdc(struct mdiobb_ctrl *ctrl, int what)
++{
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
++
++	gpio_set_value(bitbang->mdc, what);
++}
++
++static struct mdiobb_ops mdio_gpio_ops = {
++	.owner = THIS_MODULE,
++	.set_mdc = mdc,
++	.set_mdio_dir = mdio_dir,
++	.set_mdio_data = mdio,
++	.get_mdio_data = mdio_read,
++};
++
++static int __devinit mdio_gpio_probe(struct platform_device *pdev)
++{
++	struct mii_bus *new_bus;
++	struct mdio_gpio_info *bitbang;
++	struct mdio_gpio_platform_data *pdata;
++	int ret = -ENOMEM;
++	int i;
++
++	pdata = pdev->dev.platform_data;
++	if (pdata == NULL)
++		goto out;
++
++	bitbang = kzalloc(sizeof(struct mdio_gpio_info), GFP_KERNEL);
++	if (!bitbang)
++		goto out;
++
++	bitbang->ctrl.ops = &mdio_gpio_ops;
++	bitbang->mdc = pdata->mdc;
++	bitbang->mdio = pdata->mdio;
++
++	if (gpio_request(bitbang->mdc, "mdc"))
++		goto out_free_bitbang;
++
++	if (gpio_request(bitbang->mdio, "mdio"))
++		goto out_free_mdc;
++
++	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
++	if (!new_bus)
++		goto out_free_gpio;
++
++	new_bus->name = "GPIO Bitbanged MII",
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "phy%i", pdev->id);
++
++	new_bus->phy_mask = ~0;
++	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	if (!new_bus->irq)
++		goto out_free_bus;
++
++	for (i = 0; i < PHY_MAX_ADDR; i++)
++		new_bus->irq[i] = PHY_POLL;
++
++	for (i = 0; i < pdata->nr_phys; i++) {
++		unsigned int phy_addr = pdata->phys[i].addr;
++
++		BUG_ON(phy_addr >= PHY_MAX_ADDR);
++
++		new_bus->phy_mask &= ~(1 << phy_addr);
++		new_bus->irq[phy_addr] = pdata->phys[i].irq;
 +	}
 +
-+	/* Add mem found behind the hugepage(s)  */
-+	nr_pages = pfn - start_pfn;
-+	return ehea_update_busmap(start_pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
- }
-
- int ehea_create_busmap(void)
-diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_qmr.h patched_kernel/drivers/net/ehea/ehea_qmr.h
---- linux-2.6.27/drivers/net/ehea/ehea_qmr.h	2008-10-24 09:29:19.000000000 +0200
-+++ patched_kernel/drivers/net/ehea/ehea_qmr.h	2008-10-27 09:27:46.000000000 +0100
-@@ -40,6 +40,9 @@
- #define EHEA_PAGESIZE          (1UL << EHEA_PAGESHIFT)
- #define EHEA_SECTSIZE          (1UL << 24)
- #define EHEA_PAGES_PER_SECTION (EHEA_SECTSIZE >> EHEA_PAGESHIFT)
-+#define EHEA_HUGEPAGESHIFT     34
-+#define EHEA_HUGEPAGE_SIZE     (1UL << EHEA_HUGEPAGESHIFT)
-+#define EHEA_HUGEPAGE_PFN_MASK ((EHEA_HUGEPAGE_SIZE - 1) >> PAGE_SHIFT)
-
- #if ((1UL << SECTION_SIZE_BITS) < EHEA_SECTSIZE)
- #error eHEA module cannot work if kernel sectionsize < ehea sectionsize
++	new_bus->parent = &pdev->dev;
++	platform_set_drvdata(pdev, new_bus);
++
++	ret = mdiobus_register(new_bus);
++	if (ret)
++		goto out_free_all;
++
++	return 0;
++
++out_free_all:
++	platform_set_drvdata(pdev, NULL);
++	kfree(new_bus->irq);
++out_free_bus:
++	free_mdio_bitbang(new_bus);
++out_free_gpio:
++	gpio_free(bitbang->mdio);
++out_free_mdc:
++	gpio_free(bitbang->mdc);
++out_free_bitbang:
++	kfree(bitbang);
++out:
++	return ret;
++}
++
++static int __devexit mdio_gpio_remove(struct platform_device *pdev)
++{
++	struct mii_bus *bus = platform_get_drvdata(pdev);
++	struct mdio_gpio_info *bitbang = bus->priv;
++
++	mdiobus_unregister(bus);
++	kfree(bus->irq);
++	free_mdio_bitbang(bus);
++	platform_set_drvdata(pdev, NULL);
++	gpio_free(bitbang->mdc);
++	gpio_free(bitbang->mdio);
++	kfree(bitbang);
++
++	return 0;
++}
++
++static struct platform_driver mdio_gpio_driver = {
++	.probe = mdio_gpio_probe,
++	.remove = __devexit_p(mdio_gpio_remove),
++	.driver		= {
++		.name	= "mdio-gpio",
++		.owner	= THIS_MODULE,
++	},
++};
++
++static int mdio_gpio_init(void)
++{
++	return platform_driver_register(&mdio_gpio_driver);
++}
++
++static void mdio_gpio_exit(void)
++{
++	platform_driver_unregister(&mdio_gpio_driver);
++}
++
++module_init(mdio_gpio_init);
++module_exit(mdio_gpio_exit);
+diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
+new file mode 100644
+index 0000000..82d5fa4
+--- /dev/null
++++ b/include/linux/mdio-gpio.h
+@@ -0,0 +1,40 @@
++/*
++ * MDIO-GPIO bus platform data structures
++ *
++ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#ifndef __LINUX_MDIO_GPIO_H
++#define __LINUX_MDIO_GPIO_H
++
++struct mdio_gpio_phy {
++	/* PHY address on MDIO bus */
++	unsigned int addr;
++	/* preconfigured irq connected to PHY or -1 if no irq */
++	int irq;
++};
++
++struct mdio_gpio_platform_data {
++	/* GPIO numbers for bus pins */
++	unsigned int mdc;
++	unsigned int mdio;
++
++	unsigned int nr_phys;
++	struct mdio_gpio_phy *phys;
++};
++
++#endif /* __LINUX_MDIO_GPIO_H */
 
