@@ -1,1058 +1,177 @@
-From: Johann Baudy <johaahn@gmail.com>
-Subject: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Mon, 27 Oct 2008 10:33:25 +0100
-Message-ID: <1225100005.29750.46.camel@localhost>
+From: Thomas Klein <tklein@de.ibm.com>
+Subject: Re: [PATCH] ehea: Add hugepage detection
+Date: Mon, 27 Oct 2008 10:33:47 +0100
+Message-ID: <200810271033.47632.tklein@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Raisch <raisch@de.ibm.com>,
+	Hannes Hering <hering2@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	"netdev" <netdev@vger.kernel.org>, badari@us.ibm.com,
+	haveblue@us.ibm.com, tollefso@us.ibm.com
+To: Dave Hansen <dave@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g19.free.fr ([212.27.42.30]:36772 "EHLO smtp4-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751478AbYJ0Jd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2008 05:33:28 -0400
-Received: from smtp4-g19.free.fr (localhost.localdomain [127.0.0.1])
-	by smtp4-g19.free.fr (Postfix) with ESMTP id 99DA23EA0EB
-	for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 10:33:25 +0100 (CET)
-Received: from [192.168.16.132] (sop06-1-82-236-41-7.fbx.proxad.net [82.236.41.7])
-	by smtp4-g19.free.fr (Postfix) with ESMTP id 1ADEE3EA109
-	for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 10:33:25 +0100 (CET)
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:61115 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752106AbYJ0JfX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 05:35:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New packet socket feature that makes packet socket more efficient for t=
-ransmission.
-- It reduces number of system call through a PACKET_TX_RING mechanism, =
-based on PACKET_RX_RING (Circular buffer allocated in kernel space whic=
-h is mmapped from user space).
-- It minimizes CPU copy using fragmented SKB.
+Dave,
 
-Signed-off-by: Johann Baudy <johann.baudy@gnu-log.net>
+thanks for your valuable comments - see mine below. I'll send a reworked patch asap.
 
---
-Hi All,
+Thomas
 
-Before going on submitting process, I would like to get your opinion on=
- those below points:
 
-1#:
-In order to make such feature, each packet header of the circular buffe=
-r can be set to one of those three statuses:
-- TP_STATUS_USER: packet buffer needs to be transmitted.=20
-On this status, Kernel:=20
- - Allocates a new skb
- - Attaches packet buffer pages=20
- - Changes skb destructor=20
- - Stores packet header pointer or index into skb=20
- - Changes the packet header status to TP_STATUS_COPY;
- - Sends it to device.
+On Friday 24 October 2008 08:55:37 pm you wrote:
+> On Fri, 2008-10-24 at 13:07 +0200, Thomas Klein wrote:
+> > 16GB hugepages may not be part of a memory region (firmware restriction). This patch
+> > modifies the walk_memory_resource callback fn to filter hugepages and add only standard
+> > memory to the busmap which is later on used for MR registration.
+> 
+> Does this support a case where a userspace app is reading network
+> packets into a 16GB page backed area?  I think you need to elaborate on
+> what kind of memory you need to have registered in these memory regions.
+> It's hard to review what you've done here otherwise.
+> 
+> > --- linux-2.6.27/drivers/net/ehea/ehea_qmr.c	2008-10-24 09:29:19.000000000 +0200
+> > +++ patched_kernel/drivers/net/ehea/ehea_qmr.c	2008-10-24 09:45:15.000000000 +0200
+> > @@ -636,6 +636,9 @@ static int ehea_update_busmap(unsigned l
+> >  {
+> >  	unsigned long i, start_section, end_section;
+> > 
+> > +	if (!pgnum)
+> > +		return 0;
+> 
+> This probably needs a comment.  It's not obvious what it is doing.
 
-- TP_STATUS_COPY: packet transmission is ongoing
-On this status, the skb destructor (called during skb release)
- - Gets packet header pointer linked to skb pointer;
- - Changes the packet header status to TP_STATUS_KERNEL;
+I decided to just rename the var to nr_pages as it is used in all other
+busmap-related functions in our code. That makes the condition check quite
+obvious.
 
-- TP_STATUS_KERNEL: packet buffer has been transmitted and buffer is re=
-ady for user.
+> 
+> >  	if (!ehea_bmap) {
+> >  		ehea_bmap = kzalloc(sizeof(struct ehea_bmap), GFP_KERNEL);
+> >  		if (!ehea_bmap)
+> > @@ -692,10 +695,47 @@ int ehea_rem_sect_bmap(unsigned long pfn
+> >  	return ret;
+> >  }
+> > 
+> > -static int ehea_create_busmap_callback(unsigned long pfn,
+> > -				       unsigned long nr_pages, void *arg)
+> > +static int ehea_is_hugepage(unsigned long pfn)
+> > +{
+> > +	return ((((pfn << PAGE_SHIFT) & (EHEA_HUGEPAGE_SIZE - 1)) == 0)
+> > +		&& (compound_order(pfn_to_page(pfn)) + PAGE_SHIFT
+> > +		    == EHEA_HUGEPAGESHIFT) );
+> > +}
+> 
+> Whoa.  That's dense.  Can you actually read that in less than 5 minutes?
+> Seriously.
 
-As you can see, this skb destructor needs packet header pointer related=
- to sk_buff pointer to change header status.=20
-I've first used skb->cb (control buffer) to forward this parameter to d=
-estructor.=20
-Unfortunately, this one seems to be overwritten in packet queue mechani=
-sm. So I've finally chosen skb->mark to store buffer index.
+Thanks for this comment. I totally agree - and I'm happy to aerate it a bit.
+I had been urged to make it dense during our internal review ;-)
 
-Can I use skb->mark in such condition?
-If not, what is the best solution:
-- new field in sk_buff struct?
-- a sk_buff pointer array [NB_FRAME] (one index matches to one skb poin=
-ter)? (parsing is not really good for cpu load)
-- other ?
+> 
+> I'm not sure what else you use EHEA_HUGEPAGE_SIZE for or if this gets
+> duplicated, but this would look nicer if you just had a:
+> 
+> #define EHEA_HUGEPAGE_PFN_MASK ((EHEA_HUGEPAGE_SIZE - 1) >> PAGE_SHIFT)
+> 
+> 	if (pfn & EHEA_HUGEPAGE_PFN_MASK)
+> 		return 0;
+> 
+> Or, with no new macro:
+> 
+> 	if ((pfn << PAGE_SHIFT) & (EHEA_HUGEPAGE_SIZE - 1) != 0)
+> 		return 0;
+> 
+> 	page_order = compound_order(pfn_to_page(pfn));
+> 	if (page_order + PAGE_SHIFT != EHEA_HUGEPAGESHIFT)
+> 		return 0;
+> 	return 1;
+> }
+> 
+> Please break that up into something that is truly readable.  gcc will
+> generate the exact same code.
+> 
+> > +static int ehea_create_busmap_callback(unsigned long initial_pfn,
+> > +				       unsigned long total_nr_pages, void *arg)
+> >  {
+> > -	return ehea_update_busmap(pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
+> > +	int ret;
+> > +	unsigned long pfn, start_pfn, end_pfn, nr_pages;
+> > +
+> > +	if ((total_nr_pages * PAGE_SIZE) < EHEA_HUGEPAGE_SIZE)
+> > +		return ehea_update_busmap(initial_pfn, total_nr_pages,
+> > +					  EHEA_BUSMAP_ADD_SECT);
+> > +
+> > +	/* Given chunk is >= 16GB -> check for hugepages */
+> > +	start_pfn = initial_pfn;
+> > +	end_pfn = initial_pfn + total_nr_pages;
+> > +	pfn = start_pfn;
+> > +
+> > +	while (pfn < end_pfn) {
+> > +		if (ehea_is_hugepage(pfn)) {
+> > +			/* Add mem found in front of the hugepage */
+> > +			nr_pages = pfn - start_pfn;
+> > +			ret = ehea_update_busmap(start_pfn, nr_pages,
+> > +						 EHEA_BUSMAP_ADD_SECT);
+> > +			if (ret)
+> > +				return ret;
+> > +
+> > +			/* Skip the hugepage */
+> > +			pfn += (EHEA_HUGEPAGE_SIZE / PAGE_SIZE);
+> > +			start_pfn = pfn;
+> > +		} else
+> > +			pfn += (EHEA_SECTSIZE / PAGE_SIZE);
+> > +	}
+> > +
+> > +	/* Add mem found behind the hugepage(s)  */
+> > +	nr_pages = pfn - start_pfn;
+> > +	return ehea_update_busmap(start_pfn, nr_pages, EHEA_BUSMAP_ADD_SECT);
+> >  }
+> > 
+> >  int ehea_create_busmap(void)
+> > diff -Nurp -X dontdiff linux-2.6.27/drivers/net/ehea/ehea_qmr.h patched_kernel/drivers/net/ehea/ehea_qmr.h
+> > --- linux-2.6.27/drivers/net/ehea/ehea_qmr.h	2008-10-24 09:29:19.000000000 +0200
+> > +++ patched_kernel/drivers/net/ehea/ehea_qmr.h	2008-10-24 09:45:15.000000000 +0200
+> > @@ -40,6 +40,8 @@
+> >  #define EHEA_PAGESIZE          (1UL << EHEA_PAGESHIFT)
+> >  #define EHEA_SECTSIZE          (1UL << 24)
+> >  #define EHEA_PAGES_PER_SECTION (EHEA_SECTSIZE >> EHEA_PAGESHIFT)
+> > +#define EHEA_HUGEPAGESHIFT     34
+> > +#define EHEA_HUGEPAGE_SIZE     (1UL << EHEA_HUGEPAGESHIFT)
+> 
+> I'm a bit worried that you're basically duplicating hugetlb.h here.  Why
+> not just use the existing 16GB page macros?  While you're at it please
+> expand these to give some more useful macros so you don't have to do
+> arithmetic on them in the code as much.
 
-2#:
-Do I need to protect send() procedure with some locks?=20
-Especially when changing status from TP_STATUS_USER to TP_STATUS_COPY t=
-o prevent kernel from sending a packet buffer twice?=20
-(If two send() are called from different threads In SMP for example)
-Or is it implicit?
+I don't agree at this point. The 16GB hugepages we're dealing with here are
+imho a different thing than the hugetlb stuff. Furthermore as far as I can see
+the hugetlb macros vary depending on the kernel configuration while the ehea
+driver requires them to be constant independently from the kernel config.
+Please correct me if I missed something here.
 
-Thanks in advance,
-Johann Baudy
-
---
-  Documentation/networking/packet_mmap.txt |  132 ++++++++--
- include/linux/if_packet.h                |    3 +-
- net/packet/af_packet.c                   |  422 ++++++++++++++++++++++=
-+++-----
- 3 files changed, 470 insertions(+), 87 deletions(-)
-
-diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/n=
-etworking/packet_mmap.txt
-index 07c53d5..32f5c33 100644
---- a/Documentation/networking/packet_mmap.txt
-+++ b/Documentation/networking/packet_mmap.txt
-@@ -4,8 +4,8 @@
-=20
- This file documents the CONFIG_PACKET_MMAP option available with the P=
-ACKET
- socket interface on 2.4 and 2.6 kernels. This type of sockets is used =
-for=20
--capture network traffic with utilities like tcpdump or any other that =
-uses=20
--the libpcap library.=20
-+capture network traffic with utilities like tcpdump or any other that =
-needs
-+raw acces to network interface.
-=20
- You can find the latest version of this document at
-=20
-@@ -14,6 +14,7 @@ You can find the latest version of this document at
- Please send me your comments to
-=20
-     Ulisses Alonso Camar=F3 <uaca@i.hate.spam.alumni.uv.es>
-+    Johann Baudy <johann.baudy@gnu-log.net> (TX RING)
-=20
- ----------------------------------------------------------------------=
----------
- + Why use PACKET_MMAP
-@@ -25,19 +26,24 @@ to capture each packet, it requires two if you want=
- to get packet's
- timestamp (like libpcap always does).
-=20
- In the other hand PACKET_MMAP is very efficient. PACKET_MMAP provides =
-a size=20
--configurable circular buffer mapped in user space. This way reading pa=
-ckets just=20
--needs to wait for them, most of the time there is no need to issue a s=
-ingle=20
--system call. By using a shared buffer between the kernel and the user=20
--also has the benefit of minimizing packet copies.
--
--It's fine to use PACKET_MMAP to improve the performance of the capture=
- process,=20
--but it isn't everything. At least, if you are capturing at high speeds=
- (this=20
--is relative to the cpu speed), you should check if the device driver o=
-f your=20
--network interface card supports some sort of interrupt load mitigation=
- or=20
--(even better) if it supports NAPI, also make sure it is enabled.
-+configurable circular buffer mapped in user space that can be used to =
-either
-+send or receive packets. This way reading packets just needs to wait f=
-or them,
-+most of the time there is no need to issue a single system call. Conce=
-rning
-+transmission, multiple packets can be sent through one system call to =
-get the
-+highest bandwidth.
-+By using a shared buffer between the kernel and the user also has the =
-benefit
-+of minimizing packet copies.
-+
-+It's fine to use PACKET_MMAP to improve the performance of the capture=
- and
-+transmission process, but it isn't everything. At least, if you are ca=
-pturing
-+at high speeds (this is relative to the cpu speed), you should check i=
-f the
-+device driver of your network interface card supports some sort of int=
-errupt
-+load mitigation or (even better) if it supports NAPI, also make sure i=
-t is
-+enabled. For transmission, check the MTU (Maximum Transmission Unit) u=
-sed and
-+supported by devices of your network.
-=20
- ----------------------------------------------------------------------=
-----------
--+ How to use CONFIG_PACKET_MMAP
-++ How to use CONFIG_PACKET_MMAP to improve capture process
- ----------------------------------------------------------------------=
-----------
-=20
- From the user standpoint, you should use the higher level libpcap libr=
-ary, which
-@@ -57,7 +63,7 @@ the low level details or want to improve libpcap by i=
-ncluding PACKET_MMAP
- support.
-=20
- ----------------------------------------------------------------------=
-----------
--+ How to use CONFIG_PACKET_MMAP directly
-++ How to use CONFIG_PACKET_MMAP directly to improve capture porcess
- ----------------------------------------------------------------------=
-----------
-=20
- From the system calls stand point, the use of PACKET_MMAP involves
-@@ -66,6 +72,7 @@ the following process:
-=20
- [setup]     socket() -------> creation of the capture socket
-             setsockopt() ---> allocation of the circular buffer (ring)
-+                              option: PACKET_RX_RING
-             mmap() ---------> mapping of the allocated buffer to the
-                               user process
-=20
-@@ -97,13 +104,75 @@ also the mapping of the circular buffer in the use=
-r process and
- the use of this buffer.
-=20
- ----------------------------------------------------------------------=
-----------
-++ How to use CONFIG_PACKET_MMAP directly to improve transmission proce=
-ss
-+----------------------------------------------------------------------=
-----------
-+Transmission process is similar to capture as shown below.
-+
-+[setup]          socket() -------> creation of the transmission socket
-+                 setsockopt() ---> allocation of the circular buffer (=
-ring)
-+                                   option: PACKET_TX_RING
-+                 bind() ---------> bind transmission socket with a net=
-work interface
-+                 mmap() ---------> mapping of the allocated buffer to =
-the
-+                                   user process
-+
-+[transmission]   poll() ---------> wait for free packets (optional)
-+                 send() ---------> send all packets that are set as re=
-ady in
-+                                   the ring
-+                                   The flag MSG_DONTWAIT can be used t=
-o return
-+                                   before end of transfer.
-+
-+[shutdown]  close() --------> destruction of the transmission socket a=
-nd
-+                              deallocation of all associated resources=
-=2E
-+
-+Binding the socket to your network interface is mandatory (with zero c=
-opy) to
-+know the header size of frames used in the circular buffer.
-+
-+As capture, each frame contains two parts:
-+
-+ --------------------
-+| struct tpacket_hdr | Header. It contains the status of
-+|                    | of this frame
-+|--------------------|
-+| data buffer        |
-+.                    .  Data that will be sent over the network interf=
-ace.
-+.                    .
-+ --------------------
-+
-+ bind() associates the socket to your network interface thanks to
-+ sll_ifindex parameter of struct sockaddr_ll.
-+
-+ Initialization example:
-+
-+ struct sockaddr_ll my_addr;
-+ struct ifreq s_ifr;
-+ ...
-+
-+ strncpy (s_ifr.ifr_name, "eth0", sizeof(s_ifr.ifr_name));
-+
-+ /* get interface index of eth0 */
-+ ioctl(this->socket, SIOCGIFINDEX, &s_ifr);
-+
-+ /* fill sockaddr_ll struct to prepare binding */
-+ my_addr.sll_family =3D AF_PACKET;
-+ my_addr.sll_protocol =3D ETH_P_ALL;
-+ my_addr.sll_ifindex =3D  s_ifr.ifr_ifindex;
-+
-+ /* bind socket to eth0 */
-+ bind(this->socket, (struct sockaddr *)&my_addr, sizeof(struct sockadd=
-r_ll));
-+
-+ A complete tutorial is available at: http://wiki.gnu-log.net/
-+
-+----------------------------------------------------------------------=
-----------
- + PACKET_MMAP settings
- ----------------------------------------------------------------------=
-----------
-=20
-=20
- To setup PACKET_MMAP from user level code is done with a call like
-=20
-+ - Capture process
-      setsockopt(fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(=
-req))
-+ - Transmission process
-+     setsockopt(fd, SOL_PACKET, PACKET_TX_RING, (void *) &req, sizeof(=
-req))
-=20
- The most significant argument in the previous call is the req paramete=
-r,=20
- this parameter must to have the following structure:
-@@ -117,11 +186,11 @@ this parameter must to have the following structu=
-re:
-     };
-=20
- This structure is defined in /usr/include/linux/if_packet.h and establ=
-ishes a=20
--circular buffer (ring) of unswappable memory mapped in the capture pro=
-cess.=20
-+circular buffer (ring) of unswappable memory.
- Being mapped in the capture process allows reading the captured frames=
- and=20
- related meta-information like timestamps without requiring a system ca=
-ll.
-=20
--Captured frames are grouped in blocks. Each block is a physically cont=
-iguous=20
-+Frames are grouped in blocks. Each block is a physically contiguous
- region of memory and holds tp_block_size/tp_frame_size frames. The tot=
-al number=20
- of blocks is tp_block_nr. Note that tp_frame_nr is a redundant paramet=
-er because
-=20
-@@ -336,6 +405,7 @@ struct tpacket_hdr). If this field is 0 means that =
-the frame is ready
- to be used for the kernel, If not, there is a frame the user can read=20
- and the following flags apply:
-=20
-++++ Capture process:
-      from include/linux/if_packet.h
-=20
-      #define TP_STATUS_COPY          2=20
-@@ -391,6 +461,36 @@ packets are in the ring:
- It doesn't incur in a race condition to first check the status value a=
-nd=20
- then poll for frames.
-=20
-+
-+++ Transmission process
-+Those defines are also used for transmission:
-+
-+     #define TP_STATUS_KERNEL        0 // Frame is available
-+     #define TP_STATUS_USER          1 // Frame will be sent on next s=
-end()
-+     #define TP_STATUS_COPY          2 // Frame is currently in transm=
-ission
-+
-+First, the kernel initializes all frames to TP_STATUS_KERNEL. To send =
-a packet,
-+the user fills a data buffer of an available frame, sets tp_len to cur=
-rent
-+data buffer size and sets its status field to TP_STATUS_USER. This can=
- be done
-+on multiple frames. Once the user is ready to transmit, it calls send(=
-).
-+Then all buffers with status equal to TP_STATUS_USER are forwarded to =
-the
-+network device. The kernel updates each status of sent frames with
-+TP_STATUS_COPY until the end of transfer.
-+At the end of each transfer, buffer status returns to TP_STATUS_KERNEL=
-=2E
-+
-+    header->tp_len =3D in_i_size;
-+    header->tp_status =3D TP_STATUS_USER;
-+    retval =3D send(this->socket, NULL, 0, 0);
-+
-+The user can also use poll() to check if a buffer is available:
-+(status =3D=3D TP_STATUS_KERNEL)
-+
-+    struct pollfd pfd;
-+    pfd.fd =3D fd;
-+    pfd.revents =3D 0;
-+    pfd.events =3D POLLOUT;
-+    retval =3D poll(&pfd, 1, timeout);
-+
- ----------------------------------------------------------------------=
-----------
- + THANKS
- ----------------------------------------------------------------------=
-----------
-diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
-index 18db066..f6a247a 100644
---- a/include/linux/if_packet.h
-+++ b/include/linux/if_packet.h
-@@ -46,6 +46,7 @@ struct sockaddr_ll
- #define PACKET_VERSION			10
- #define PACKET_HDRLEN			11
- #define PACKET_RESERVE			12
-+#define PACKET_TX_RING			13
-=20
- struct tpacket_stats
- {
-@@ -100,7 +101,7 @@ struct tpacket2_hdr
- enum tpacket_versions
- {
- 	TPACKET_V1,
--	TPACKET_V2,
-+	TPACKET_V2
- };
-=20
- /*
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index c718e7e..c52462a 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -156,7 +156,23 @@ struct packet_mreq_max
- };
-=20
- #ifdef CONFIG_PACKET_MMAP
--static int packet_set_ring(struct sock *sk, struct tpacket_req *req, i=
-nt closing);
-+static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
-+		int closing, int tx_ring);
-+
-+struct packet_ring_buffer {
-+	char *			*pg_vec;
-+	unsigned int		head;
-+	unsigned int		frames_per_block;
-+	unsigned int		frame_size;
-+	unsigned int		frame_max;
-+
-+	unsigned int		pg_vec_order;
-+	unsigned int		pg_vec_pages;
-+	unsigned int		pg_vec_len;
-+};
-+
-+struct packet_sock;
-+static int tpacket_snd(struct packet_sock *po, struct msghdr *msg);
- #endif
-=20
- static void packet_flush_mclist(struct sock *sk);
-@@ -166,12 +182,10 @@ struct packet_sock {
- 	struct sock		sk;
- 	struct tpacket_stats	stats;
- #ifdef CONFIG_PACKET_MMAP
--	char *			*pg_vec;
--	unsigned int		head;
--	unsigned int            frames_per_block;
--	unsigned int		frame_size;
--	unsigned int		frame_max;
-+	struct packet_ring_buffer	rx_ring;
-+	struct packet_ring_buffer	tx_ring;
- 	int			copy_thresh;
-+	atomic_t		tx_pending_skb;
- #endif
- 	struct packet_type	prot_hook;
- 	spinlock_t		bind_lock;
-@@ -183,9 +197,6 @@ struct packet_sock {
- 	struct packet_mclist	*mclist;
- #ifdef CONFIG_PACKET_MMAP
- 	atomic_t		mapped;
--	unsigned int            pg_vec_order;
--	unsigned int		pg_vec_pages;
--	unsigned int		pg_vec_len;
- 	enum tpacket_versions	tp_version;
- 	unsigned int		tp_hdrlen;
- 	unsigned int		tp_reserve;
-@@ -204,8 +215,10 @@ struct packet_skb_cb {
-=20
- #ifdef CONFIG_PACKET_MMAP
-=20
--static void *packet_lookup_frame(struct packet_sock *po, unsigned int =
-position,
--				 int status)
-+static void *packet_lookup_frame(struct packet_sock *po,
-+		struct packet_ring_buffer *buff,
-+		unsigned int position,
-+		int status)
- {
- 	unsigned int pg_vec_pos, frame_offset;
- 	union {
-@@ -214,25 +227,50 @@ static void *packet_lookup_frame(struct packet_so=
-ck *po, unsigned int position,
- 		void *raw;
- 	} h;
-=20
--	pg_vec_pos =3D position / po->frames_per_block;
--	frame_offset =3D position % po->frames_per_block;
-+	pg_vec_pos =3D position / buff->frames_per_block;
-+	frame_offset =3D position % buff->frames_per_block;
-=20
--	h.raw =3D po->pg_vec[pg_vec_pos] + (frame_offset * po->frame_size);
-+	h.raw =3D buff->pg_vec[pg_vec_pos] + (frame_offset * buff->frame_size=
-);
- 	switch (po->tp_version) {
- 	case TPACKET_V1:
--		if (status !=3D h.h1->tp_status ? TP_STATUS_USER :
--						TP_STATUS_KERNEL)
-+		if (status !=3D h.h1->tp_status)
- 			return NULL;
- 		break;
- 	case TPACKET_V2:
--		if (status !=3D h.h2->tp_status ? TP_STATUS_USER :
--						TP_STATUS_KERNEL)
-+		if (status !=3D h.h2->tp_status)
- 			return NULL;
- 		break;
- 	}
- 	return h.raw;
- }
-=20
-+static inline void *packet_current_rx_frame(struct packet_sock *po, in=
-t status)
-+{
-+	return packet_lookup_frame(po, &po->rx_ring, po->rx_ring.head, status=
-);
-+}
-+
-+static inline void *packet_current_tx_frame(struct packet_sock *po, in=
-t status)
-+{
-+	return packet_lookup_frame(po, &po->tx_ring, po->tx_ring.head, status=
-);
-+}
-+
-+static inline void *packet_previous_rx_frame(struct packet_sock *po, i=
-nt status)
-+{
-+	unsigned int previous =3D po->rx_ring.head ? po->rx_ring.head - 1 : p=
-o->rx_ring.frame_max;
-+	return packet_lookup_frame(po, &po->rx_ring, previous, status);
-+}
-+
-+static inline void *packet_previous_tx_frame(struct packet_sock *po, i=
-nt status)
-+{
-+	unsigned int previous =3D po->tx_ring.head ? po->tx_ring.head - 1 : p=
-o->tx_ring.frame_max;
-+	return packet_lookup_frame(po, &po->tx_ring, previous, status);
-+}
-+
-+static inline void packet_increment_head(struct packet_ring_buffer *bu=
-ff)
-+{
-+	buff->head =3D buff->head !=3D buff->frame_max ? buff->head+1 : 0;
-+}
-+
- static void __packet_set_status(struct packet_sock *po, void *frame, i=
-nt status)
- {
- 	union {
-@@ -646,7 +684,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct =
-net_device *dev, struct packe
- 		macoff =3D netoff - maclen;
- 	}
-=20
--	if (macoff + snaplen > po->frame_size) {
-+	if (macoff + snaplen > po->rx_ring.frame_size) {
- 		if (po->copy_thresh &&
- 		    atomic_read(&sk->sk_rmem_alloc) + skb->truesize <
- 		    (unsigned)sk->sk_rcvbuf) {
-@@ -659,16 +697,16 @@ static int tpacket_rcv(struct sk_buff *skb, struc=
-t net_device *dev, struct packe
- 			if (copy_skb)
- 				skb_set_owner_r(copy_skb, sk);
- 		}
--		snaplen =3D po->frame_size - macoff;
-+		snaplen =3D po->rx_ring.frame_size - macoff;
- 		if ((int)snaplen < 0)
- 			snaplen =3D 0;
- 	}
-=20
- 	spin_lock(&sk->sk_receive_queue.lock);
--	h.raw =3D packet_lookup_frame(po, po->head, TP_STATUS_KERNEL);
-+	h.raw =3D packet_current_rx_frame(po, TP_STATUS_KERNEL);
- 	if (!h.raw)
- 		goto ring_is_full;
--	po->head =3D po->head !=3D po->frame_max ? po->head+1 : 0;
-+	packet_increment_head(&po->rx_ring);
- 	po->stats.tp_packets++;
- 	if (copy_skb) {
- 		status |=3D TP_STATUS_COPY;
-@@ -759,10 +797,212 @@ ring_is_full:
- 	goto drop_n_restore;
- }
-=20
--#endif
-+static void tpacket_destruct_skb(struct sk_buff *skb)
-+{
-+	struct packet_sock *po =3D pkt_sk(skb->sk);
-+	void * ph;
-=20
-+	BUG_ON(skb =3D=3D NULL);
-+	ph =3D packet_lookup_frame( po, &po->tx_ring, skb->mark, TP_STATUS_CO=
-PY);
-=20
--static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
-+	BUG_ON(ph =3D=3D NULL);
-+	BUG_ON(atomic_read(&po->tx_pending_skb) =3D=3D 0);
-+
-+	atomic_dec(&po->tx_pending_skb);
-+	__packet_set_status(po, ph, TP_STATUS_KERNEL);
-+
-+	sock_wfree(skb);
-+}
-+
-+static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff * s=
-kb, void * frame,
-+		struct net_device *dev, int size_max, __be16 proto,
-+		unsigned char * addr)
-+{
-+	union {
-+		struct tpacket_hdr *h1;
-+		struct tpacket2_hdr *h2;
-+		void *raw;
-+	} ph;
-+	int to_write, offset, len, tp_len;
-+	struct socket *sock =3D po->sk.sk_socket;
-+	struct page *page;
-+	void *data;
-+	int err;
-+
-+
-+	ph.raw =3D frame;
-+
-+	skb->protocol =3D proto;
-+	skb->dev =3D dev;
-+	skb->priority =3D po->sk.sk_priority;
-+	skb->destructor =3D tpacket_destruct_skb;
-+	skb->mark =3D po->tx_ring.head;
-+
-+	switch(po->tp_version) {
-+	case TPACKET_V2:
-+		tp_len =3D ph.h1->tp_len;
-+		break;
-+	default:
-+		tp_len =3D ph.h1->tp_len;
-+		break;
-+	}
-+
-+	if (unlikely(tp_len > size_max)) {
-+		printk(KERN_ERR "packet size is too long (%d > %d)\n",
-+				tp_len, size_max);
-+		return -EMSGSIZE;
-+	}
-+
-+	skb_reserve(skb, LL_RESERVED_SPACE(dev));
-+	data =3D ph.raw + po->tp_hdrlen;
-+
-+	if (sock->type =3D=3D SOCK_DGRAM) {
-+		err =3D dev_hard_header(skb, dev, ntohs(proto), addr,
-+				NULL, tp_len);
-+		if (unlikely(err < 0))
-+			return -EINVAL;
-+	} else if (dev->hard_header_len ) {
-+		/* net device doesn't like empty head */
-+		if(unlikely(tp_len <=3D dev->hard_header_len)) {
-+			printk(KERN_ERR "packet size is too short "
-+					"(%d < %d)\n", tp_len,
-+					dev->hard_header_len);
-+			return -EINVAL;
-+		}
-+
-+		skb_push(skb, dev->hard_header_len);
-+		err =3D skb_store_bits(skb, 0, data,
-+				dev->hard_header_len);
-+		if (unlikely(err))
-+			return err;
-+	}
-+
-+	err =3D -EFAULT;
-+	to_write =3D tp_len - dev->hard_header_len;
-+	data +=3D dev->hard_header_len;
-+	page =3D virt_to_page(data);
-+	len =3D ((to_write > PAGE_SIZE) ? PAGE_SIZE : to_write);
-+
-+	offset =3D (int)((long)data & (~PAGE_MASK));
-+	len -=3D offset;
-+
-+	skb->data_len =3D to_write;
-+	skb->len +=3D to_write;
-+
-+	while ( likely(to_write) ) {
-+		get_page(page);
-+		skb_fill_page_desc(skb,
-+				skb_shinfo(skb)->nr_frags,
-+				page++, offset, len);
-+		to_write -=3D len;
-+		len =3D (to_write > PAGE_SIZE) ? PAGE_SIZE : to_write;
-+		offset =3D 0;
-+	}
-+
-+
-+	return tp_len;
-+}
-+
-+static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
-+{
-+	struct socket *sock;
-+	struct sk_buff *skb;
-+	struct net_device *dev;
-+	__be16 proto;
-+	int ifindex, err, reserve =3D 0;
-+	void * ph;
-+	struct sockaddr_ll *saddr=3D(struct sockaddr_ll *)msg->msg_name;
-+	int tp_len, size_max;
-+	unsigned char *addr;
-+	int len_sum =3D 0;
-+
-+	BUG_ON(po =3D=3D NULL);
-+	sock =3D po->sk.sk_socket;
-+
-+	if (saddr =3D=3D NULL) {
-+		ifindex	=3D po->ifindex;
-+		proto	=3D po->num;
-+		addr	=3D NULL;
-+	} else {
-+		err =3D -EINVAL;
-+		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
-+			goto out;
-+		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_=
-ll, sll_addr)))
-+			goto out;
-+		ifindex	=3D saddr->sll_ifindex;
-+		proto	=3D saddr->sll_protocol;
-+		addr	=3D saddr->sll_addr;
-+	}
-+
-+	dev =3D dev_get_by_index(sock_net(&po->sk), ifindex);
-+	err =3D -ENXIO;
-+	if (unlikely(dev =3D=3D NULL))
-+		goto out;
-+
-+	err =3D -EINVAL;
-+	if (unlikely(sock->type !=3D SOCK_RAW))
-+		goto out_unlock;
-+
-+	reserve =3D dev->hard_header_len;
-+
-+	err =3D -ENETDOWN;
-+	if (unlikely(!(dev->flags & IFF_UP)))
-+		goto out_unlock;
-+
-+	size_max =3D po->tx_ring.frame_size - sizeof(struct skb_shared_info)
-+		- po->tp_hdrlen - LL_ALLOCATED_SPACE(dev);
-+
-+	if (size_max > dev->mtu + reserve)
-+		size_max =3D dev->mtu + reserve;
-+
-+
-+	do
-+	{
-+		ph =3D packet_current_tx_frame(po, TP_STATUS_USER);
-+		if(unlikely(ph =3D=3D NULL))
-+			continue;
-+
-+		skb =3D sock_alloc_send_skb(&po->sk, LL_ALLOCATED_SPACE(dev),
-+				msg->msg_flags & MSG_DONTWAIT, &err);
-+		if (unlikely(skb =3D=3D NULL))
-+			goto out_unlock;
-+
-+		__packet_set_status(po, ph, TP_STATUS_COPY);
-+		atomic_inc(&po->tx_pending_skb);
-+
-+		tp_len =3D tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
-+				addr);
-+		if(unlikely(tp_len < 0)) {
-+			err =3D tp_len;
-+			goto out_free;
-+		}
-+
-+		err =3D dev_queue_xmit(skb);
-+		if (unlikely(err > 0 && (err =3D net_xmit_errno(err)) !=3D 0))
-+			goto out_free;
-+
-+		packet_increment_head(&po->tx_ring);
-+		len_sum +=3D tp_len;
-+	}
-+	while(likely((ph !=3D NULL)
-+				|| ((!(msg->msg_flags & MSG_DONTWAIT))
-+					&& atomic_read(&po->tx_pending_skb))));
-+
-+	err =3D len_sum;
-+	goto out_unlock;
-+
-+out_free:
-+	__packet_set_status(po, ph, TP_STATUS_USER);
-+	atomic_dec(&po->tx_pending_skb);
-+	kfree_skb(skb);
-+out_unlock:
-+	dev_put(dev);
-+out:
-+	return err;
-+}
-+#endif
-+
-+static int packet_snd(struct socket *sock,
- 			  struct msghdr *msg, size_t len)
- {
- 	struct sock *sk =3D sock->sk;
-@@ -853,6 +1093,19 @@ out:
- 	return err;
- }
-=20
-+static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
-+		struct msghdr *msg, size_t len)
-+{
-+#ifdef CONFIG_PACKET_MMAP
-+	struct sock *sk =3D sock->sk;
-+	struct packet_sock *po =3D pkt_sk(sk);
-+	if (po->tx_ring.pg_vec)
-+		return tpacket_snd(po, msg);
-+	else
-+#endif
-+		return packet_snd(sock, msg, len);
-+}
-+
- /*
-  *	Close a PACKET socket. This is fairly simple. We immediately go
-  *	to 'closed' state and remove our protocol entry in the device list.
-@@ -891,10 +1144,13 @@ static int packet_release(struct socket *sock)
- 	packet_flush_mclist(sk);
-=20
- #ifdef CONFIG_PACKET_MMAP
--	if (po->pg_vec) {
-+	{
- 		struct tpacket_req req;
- 		memset(&req, 0, sizeof(req));
--		packet_set_ring(sk, &req, 1);
-+		if (po->rx_ring.pg_vec)
-+			packet_set_ring(sk, &req, 1, 0);
-+		if (po->tx_ring.pg_vec)
-+			packet_set_ring(sk, &req, 1, 1);
- 	}
- #endif
-=20
-@@ -1411,6 +1667,7 @@ packet_setsockopt(struct socket *sock, int level,=
- int optname, char __user *optv
-=20
- #ifdef CONFIG_PACKET_MMAP
- 	case PACKET_RX_RING:
-+	case PACKET_TX_RING:
- 	{
- 		struct tpacket_req req;
-=20
-@@ -1418,7 +1675,7 @@ packet_setsockopt(struct socket *sock, int level,=
- int optname, char __user *optv
- 			return -EINVAL;
- 		if (copy_from_user(&req,optval,sizeof(req)))
- 			return -EFAULT;
--		return packet_set_ring(sk, &req, 0);
-+		return packet_set_ring(sk, &req, 0, optname =3D=3D PACKET_TX_RING);
- 	}
- 	case PACKET_COPY_THRESH:
- 	{
-@@ -1438,7 +1695,7 @@ packet_setsockopt(struct socket *sock, int level,=
- int optname, char __user *optv
-=20
- 		if (optlen !=3D sizeof(val))
- 			return -EINVAL;
--		if (po->pg_vec)
-+		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
- 			return -EBUSY;
- 		if (copy_from_user(&val, optval, sizeof(val)))
- 			return -EFAULT;
-@@ -1457,7 +1714,7 @@ packet_setsockopt(struct socket *sock, int level,=
- int optname, char __user *optv
-=20
- 		if (optlen !=3D sizeof(val))
- 			return -EINVAL;
--		if (po->pg_vec)
-+		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
- 			return -EBUSY;
- 		if (copy_from_user(&val, optval, sizeof(val)))
- 			return -EFAULT;
-@@ -1701,13 +1958,17 @@ static unsigned int packet_poll(struct file * f=
-ile, struct socket *sock,
- 	unsigned int mask =3D datagram_poll(file, sock, wait);
-=20
- 	spin_lock_bh(&sk->sk_receive_queue.lock);
--	if (po->pg_vec) {
--		unsigned last =3D po->head ? po->head-1 : po->frame_max;
--
--		if (packet_lookup_frame(po, last, TP_STATUS_USER))
-+	if (po->rx_ring.pg_vec) {
-+		if (packet_previous_rx_frame(po, TP_STATUS_USER))
- 			mask |=3D POLLIN | POLLRDNORM;
- 	}
- 	spin_unlock_bh(&sk->sk_receive_queue.lock);
-+	spin_lock_bh(&sk->sk_write_queue.lock);
-+	if (po->tx_ring.pg_vec) {
-+		if (packet_current_tx_frame(po, TP_STATUS_KERNEL))
-+			mask |=3D POLLOUT | POLLWRNORM;
-+	}
-+	spin_unlock_bh(&sk->sk_write_queue.lock);
- 	return mask;
- }
-=20
-@@ -1783,20 +2044,24 @@ out_free_pgvec:
- 	goto out;
- }
-=20
--static int packet_set_ring(struct sock *sk, struct tpacket_req *req, i=
-nt closing)
-+static int packet_set_ring(struct sock *sk, struct tpacket_req *req, i=
-nt closing, int tx_ring)
- {
- 	char **pg_vec =3D NULL;
- 	struct packet_sock *po =3D pkt_sk(sk);
- 	int was_running, order =3D 0;
-+	struct packet_ring_buffer *rb;
-+	struct sk_buff_head *rb_queue;
- 	__be16 num;
- 	int err =3D 0;
-=20
-+	rb =3D tx_ring ? &po->tx_ring : &po->rx_ring;
-+	rb_queue =3D tx_ring ? &sk->sk_write_queue : &sk->sk_receive_queue;
-+
- 	if (req->tp_block_nr) {
- 		int i;
-=20
- 		/* Sanity tests and some calculations */
--
--		if (unlikely(po->pg_vec))
-+		if (unlikely(rb->pg_vec))
- 			return -EBUSY;
-=20
- 		switch (po->tp_version) {
-@@ -1813,16 +2078,16 @@ static int packet_set_ring(struct sock *sk, str=
-uct tpacket_req *req, int closing
- 		if (unlikely(req->tp_block_size & (PAGE_SIZE - 1)))
- 			return -EINVAL;
- 		if (unlikely(req->tp_frame_size < po->tp_hdrlen +
--						  po->tp_reserve))
-+					po->tp_reserve))
- 			return -EINVAL;
- 		if (unlikely(req->tp_frame_size & (TPACKET_ALIGNMENT - 1)))
- 			return -EINVAL;
-=20
--		po->frames_per_block =3D req->tp_block_size/req->tp_frame_size;
--		if (unlikely(po->frames_per_block <=3D 0))
-+		rb->frames_per_block =3D req->tp_block_size/req->tp_frame_size;
-+		if (unlikely(rb->frames_per_block <=3D 0))
- 			return -EINVAL;
--		if (unlikely((po->frames_per_block * req->tp_block_nr) !=3D
--			     req->tp_frame_nr))
-+		if (unlikely((rb->frames_per_block * req->tp_block_nr) !=3D
-+					req->tp_frame_nr))
- 			return -EINVAL;
-=20
- 		err =3D -ENOMEM;
-@@ -1835,17 +2100,19 @@ static int packet_set_ring(struct sock *sk, str=
-uct tpacket_req *req, int closing
- 			void *ptr =3D pg_vec[i];
- 			int k;
-=20
--			for (k =3D 0; k < po->frames_per_block; k++) {
-+			for (k =3D 0; k < rb->frames_per_block; k++) {
- 				__packet_set_status(po, ptr, TP_STATUS_KERNEL);
- 				ptr +=3D req->tp_frame_size;
- 			}
- 		}
--		/* Done */
--	} else {
-+	}
-+	/* Done */
-+	else {
- 		if (unlikely(req->tp_frame_nr))
- 			return -EINVAL;
- 	}
-=20
-+
- 	lock_sock(sk);
-=20
- 	/* Detach socket from network */
-@@ -1866,20 +2133,19 @@ static int packet_set_ring(struct sock *sk, str=
-uct tpacket_req *req, int closing
- 	if (closing || atomic_read(&po->mapped) =3D=3D 0) {
- 		err =3D 0;
- #define XC(a, b) ({ __typeof__ ((a)) __t; __t =3D (a); (a) =3D (b); __=
-t; })
--
--		spin_lock_bh(&sk->sk_receive_queue.lock);
--		pg_vec =3D XC(po->pg_vec, pg_vec);
--		po->frame_max =3D (req->tp_frame_nr - 1);
--		po->head =3D 0;
--		po->frame_size =3D req->tp_frame_size;
--		spin_unlock_bh(&sk->sk_receive_queue.lock);
--
--		order =3D XC(po->pg_vec_order, order);
--		req->tp_block_nr =3D XC(po->pg_vec_len, req->tp_block_nr);
--
--		po->pg_vec_pages =3D req->tp_block_size/PAGE_SIZE;
--		po->prot_hook.func =3D po->pg_vec ? tpacket_rcv : packet_rcv;
--		skb_queue_purge(&sk->sk_receive_queue);
-+		spin_lock_bh(&rb_queue->lock);
-+		pg_vec =3D XC(rb->pg_vec, pg_vec);
-+		rb->frame_max =3D (req->tp_frame_nr - 1);
-+		rb->head =3D 0;
-+		rb->frame_size =3D req->tp_frame_size;
-+		spin_unlock_bh(&rb_queue->lock);
-+
-+		order =3D XC(rb->pg_vec_order, order);
-+		req->tp_block_nr =3D XC(rb->pg_vec_len, req->tp_block_nr);
-+
-+		rb->pg_vec_pages =3D req->tp_block_size/PAGE_SIZE;
-+		po->prot_hook.func =3D (po->rx_ring.pg_vec) ? tpacket_rcv : packet_r=
-cv;
-+		skb_queue_purge(rb_queue);
- #undef XC
- 		if (atomic_read(&po->mapped))
- 			printk(KERN_DEBUG "packet_mmap: vma is busy: %d\n", atomic_read(&po=
-->mapped));
-@@ -1906,7 +2172,8 @@ static int packet_mmap(struct file *file, struct =
-socket *sock, struct vm_area_st
- {
- 	struct sock *sk =3D sock->sk;
- 	struct packet_sock *po =3D pkt_sk(sk);
--	unsigned long size;
-+	unsigned long size, expected_size;
-+	struct packet_ring_buffer *rb;
- 	unsigned long start;
- 	int err =3D -EINVAL;
- 	int i;
-@@ -1917,23 +2184,38 @@ static int packet_mmap(struct file *file, struc=
-t socket *sock, struct vm_area_st
- 	size =3D vma->vm_end - vma->vm_start;
-=20
- 	lock_sock(sk);
--	if (po->pg_vec =3D=3D NULL)
-+
-+	expected_size =3D 0;
-+	if (po->rx_ring.pg_vec)
-+		expected_size +=3D po->rx_ring.pg_vec_len * po->rx_ring.pg_vec_pages=
- * PAGE_SIZE;
-+	if (po->tx_ring.pg_vec)
-+		expected_size +=3D po->tx_ring.pg_vec_len * po->tx_ring.pg_vec_pages=
- * PAGE_SIZE;
-+
-+	if (expected_size =3D=3D 0)
- 		goto out;
--	if (size !=3D po->pg_vec_len*po->pg_vec_pages*PAGE_SIZE)
-+
-+	if (size !=3D expected_size)
- 		goto out;
-=20
- 	start =3D vma->vm_start;
--	for (i =3D 0; i < po->pg_vec_len; i++) {
--		struct page *page =3D virt_to_page(po->pg_vec[i]);
--		int pg_num;
--
--		for (pg_num =3D 0; pg_num < po->pg_vec_pages; pg_num++, page++) {
--			err =3D vm_insert_page(vma, start, page);
--			if (unlikely(err))
--				goto out;
--			start +=3D PAGE_SIZE;
-+
-+	for(rb =3D &po->rx_ring; rb <=3D &po->tx_ring; rb++) {
-+		if (rb->pg_vec =3D=3D NULL)
-+			continue;
-+
-+		for (i =3D 0; i < rb->pg_vec_len; i++) {
-+			struct page *page =3D virt_to_page(rb->pg_vec[i]);
-+			int pg_num;
-+
-+			for (pg_num =3D 0; pg_num < rb->pg_vec_pages; pg_num++, page++) {
-+				err =3D vm_insert_page(vma, start, page);
-+				if (unlikely(err))
-+					goto out;
-+				start +=3D PAGE_SIZE;
-+			}
- 		}
- 	}
-+
- 	atomic_inc(&po->mapped);
- 	vma->vm_ops =3D &packet_mmap_ops;
- 	err =3D 0;
+> 
+> #define EHEA_SECT_NR_PAGES (EHEA_SECTSIZE / PAGE_SIZE)
+> 
+> for instance.
+> 
+> -- Dave
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
 
