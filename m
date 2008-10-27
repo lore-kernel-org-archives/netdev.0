@@ -1,48 +1,32 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: suspicious logic in tcp_make_synack()
-Date: Mon, 27 Oct 2008 08:51:19 -0700
-Message-ID: <396556a20810270851x18ad55c6sd690457af6616224@mail.gmail.com>
-References: <20081026.010158.193698298.davem@davemloft.net>
-	 <20081026174147.GB27584@Chamillionaire.breakpoint.cc>
-	 <20081026.231102.214077979.davem@davemloft.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [1/3] POHMELFS: Documentation.
+Date: Mon, 27 Oct 2008 19:17:03 +0300
+Message-ID: <20081027161702.GA20828@ioremap.net>
+References: <20081023185435.GA18461@2ka.mipt.ru> <20081023185607.GA18562@2ka.mipt.ru> <517f3f820810270805w57aae2c5n9a5830ffaaf9c1c3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:44336 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751391AbYJ0PvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 11:51:21 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2191454rvb.1
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 08:51:20 -0700 (PDT)
-In-Reply-To: <20081026.231102.214077979.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Kerrisk <mtk.manpages@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <517f3f820810270805w57aae2c5n9a5830ffaaf9c1c3@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 26, 2008 at 11:11 PM, David Miller <davem@davemloft.net> wrote:
-> I can't count on my two hands how many bugs were caused by that one
-> single commit :-(
+Hi Michael.
 
-I should have made more of an effort to keep up with netdev during the
-.27 release, rather than just the rc's, so I fear that I didn't see
-all the bugs. I'll go though the archives today.
+On Mon, Oct 27, 2008 at 10:05:55AM -0500, Michael Kerrisk (mtk.manpages@gmail.com) wrote:
+> I've stopped here for the moment.  There are many other cases below
+> where an article ("a" or "the" is needed) -- this matters because
+> without the right article English can be ubclear.  If you want to
+> review my suggestions, and fix the remaining cases, you can CC me on
+> another draft for review.
 
-Although that commit was born of an attempt to save some people from
-some of the pitfalls of modifying the previous code it clearly wasn't
-something that I should have attempted. The cost of newbies touching
-code in that area is too great both in tickling bugs in other systems
-(with option ordering) and in stupid omissions like this. It's
-probably been too long to revert it wholesale now, so I can only
-attempt to be more parsimonious in the future and hope that that's the
-last of the pain. If nothing else, suspicion of that commit has
-probably been raised to such a level that competent folks have checked
-it all over now.
+I would definitely like to fix all those issues. It is always a good
+idea to check things with new eyes.
 
-
-AGL
+Thanks a lot Michael, I will put your changes into the tree!
 
 -- 
-Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
+	Evgeniy Polyakov
