@@ -1,50 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Mon, 27 Oct 2008 12:48:48 -0700 (PDT)
-Message-ID: <20081027.124848.163119274.davem@davemloft.net>
-References: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk>
-	<20081027183312.GD11494@elte.hu>
-	<20081027193933.GB2590@ioremap.net>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: Re: r8169 MAC addresses broken
+Date: Mon, 27 Oct 2008 19:50:22 +0000
+Message-ID: <49061B7E.6050409@simon.arlott.org.uk>
+References: <490380C8.6070003@simon.arlott.org.uk>	<4903947A.3060206@gmail.com>	<20081025223443.GA30913@electric-eye.fr.zoreil.com>	<490448B0.8050307@gmail.com> <m33aijzfga.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, alan@lxorguk.ukuu.org.uk, jkosina@suse.cz,
-	akpm@linux-foundation.org, a.p.zijlstra@chello.nl, efault@gmx.de,
-	rjw@sisk.pl, s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: zbr@ioremap.net
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Ivan Vecera <ivecera@redhat.com>
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40459
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752519AbYJ0TtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 15:49:11 -0400
-In-Reply-To: <20081027193933.GB2590@ioremap.net>
+Received: from proxima.lp0.eu ([85.158.45.36]:35544 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754291AbYJ0Tug (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 15:50:36 -0400
+In-Reply-To: <m33aijzfga.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Date: Mon, 27 Oct 2008 22:39:34 +0300
-
-> On Mon, Oct 27, 2008 at 07:33:12PM +0100, Ingo Molnar (mingo@elte.hu) wrote:
-> > The moment there's real IO it becomes harder to analyze but the same 
-> > basic behavior remains: the more unfair the IO scheduler, the "better" 
-> > dbench results we get.
+On 26/10/08 12:52, Krzysztof Halasa wrote:
+> Jiri Slaby <jirislaby@gmail.com> writes:
 > 
-> Right now there is no disk IO at all. Only quite usual network and
-> process load.
+>> However I may have a hw failure or some bug overwrote my eeprom, I see this
+>> in current mmotm:
+>> r8169 0000:06:00.0: PCI INT A disabled
+>> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+>> r8169 0000:06:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+>> r8169 0000:06:00.0: setting latency timer to 64
+>> r8169: mac_version = 0x0c
+>> r8169 0000:06:00.0: irq 43 for MSI/MSI-X
+>> r8169: MAC address found in EEPROM: 00:00:00:00:00:00
+>> eth0: RTL8168b/8111b at 0xffffc200042b0000, 00:00:00:00:00:00, XID 38000000
+> 
+> I think we need drivers or maybe some tool to save contents of those
+> little EEPROM / flash NVM configuration chips before it's too late.
+> First the ICH* e1000e corruption and now GbE RTL.
 
-I think the hope is that by saying there isn't a problem enough times,
-it will become truth. :-)
+With the reverted patch my MAC addresses are still broken:
 
-More seriously, Ingo, what in the world do we need to do in order to get
-you to start doing tbench runs and optimizing things (read as: fixing
-the regression you added)?
+[    1.527660] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    1.533421] r8169 0000:00:09.0: PCI INT A -> Link[LNKC] -> GSI 10 (level, low) -> IRQ 10
+[    1.541743] r8169 0000:00:09.0: PCI: Disallowing DAC for device
+[    1.547799] r8169 0000:00:09.0: no PCI Express capability
+[    1.554519] eth0: RTL8169sc/8110sc at 0xbf6f8000, 00:00:00:00:25:c2, XID 18000000 IRQ 10
 
-I'm personally working on a test fibonacci heap implementation for
-the fair sched code, and I already did all of the cost analysis all
-the way back to the 2.6.22 pre-CFS days.
+[    1.563480] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    1.570525] ACPI: PCI Interrupt Link [LNKD] enabled at IRQ 11
+[    1.576363] r8169 0000:00:0b.0: PCI INT A -> Link[LNKD] -> GSI 11 (level, low) -> IRQ 11
+[    1.584597] r8169 0000:00:0b.0: PCI: Disallowing DAC for device
+[    1.590651] r8169 0000:00:0b.0: no PCI Express capability
+[    1.596659] eth1: RTL8169sc/8110sc at 0xbf6fc000, 00:00:00:00:25:c3, XID 18000000 IRQ 11
 
-But I'm NOT a scheduler developer, so it isn't my responsibility to do
-this crap for you.  You added this regression, why do I have to get my
-hands dirty in order for there to be some hope that these regressions
-start to get fixed?
+-- 
+Simon Arlott
