@@ -1,63 +1,61 @@
-From: David Miller <davem@davemloft.net>
+From: Jiri Kosina <jkosina@suse.cz>
 Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Mon, 27 Oct 2008 02:57:33 -0700 (PDT)
-Message-ID: <20081027.025733.48914319.davem@davemloft.net>
-References: <20081026100555.GA26033@ioremap.net>
-	<20081026.193451.36032548.davem@davemloft.net>
-	<20081027093035.GA23743@elte.hu>
+Date: Mon, 27 Oct 2008 11:42:50 +0100 (CET)
+Message-ID: <alpine.LNX.1.10.0810271138470.12928@jikos.suse.cz>
+References: <20081024.221653.23695396.davem@davemloft.net> <1224914333.3822.18.camel@marge.simson.net> <1224917623.4929.15.camel@marge.simson.net> <20081025.002420.82739316.davem@davemloft.net> <Pine.LNX.4.64.0810260055070.22126@twin.jikos.cz>
+ <1225010790.8566.22.camel@marge.simson.net> <1225011648.27415.4.camel@twins> <20081026021153.47878580.akpm@linux-foundation.org> <alpine.LNX.1.10.0810262002450.12928@jikos.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, akpm@linux-foundation.org, a.p.zijlstra@chello.nl,
-	efault@gmx.de, jkosina@suse.cz, rjw@sisk.pl,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mingo@elte.hu
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Galbraith <efault@gmx.de>,
+	David Miller <davem@davemloft.net>, rjw@sisk.pl,
+	Ingo Molnar <mingo@elte.hu>, s0mbre@tservice.net.ru,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53842
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751496AbYJ0J54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 05:57:56 -0400
-In-Reply-To: <20081027093035.GA23743@elte.hu>
+Received: from styx.suse.cz ([82.119.242.94]:50382 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751406AbYJ0Kmv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 06:42:51 -0400
+In-Reply-To: <alpine.LNX.1.10.0810262002450.12928@jikos.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 27 Oct 2008 10:30:35 +0100
+On Sun, 26 Oct 2008, Jiri Kosina wrote:
 
-> But it's a difficult call with no silver bullets. On one hand we have 
-> folks putting more and more stuff into the context-switching hotpath on 
-> the (mostly valid) point that the scheduler is a slowpath compared to 
-> most other things.
+> > > > > 208.4 MB/sec  -- vanilla 2.6.16.60
+> > > > > 201.6 MB/sec  -- vanilla 2.6.20.1
+> > > > > 172.9 MB/sec  -- vanilla 2.6.22.19
+> > > > > 74.2 MB/sec   -- vanilla 2.6.23
+> > > > >  46.1 MB/sec  -- vanilla 2.6.24.2
+> > > > >  30.6 MB/sec  -- vanilla 2.6.26.1
+> > > > > I.e. huge drop for 2.6.23 (this was with default configs for each 
+> > > > > respective kernel).
+> > Was this when we decreased the default value of
+> > /proc/sys/vm/dirty_ratio, perhaps?  dbench is sensitive to that.
+> 2.6.28 gives 41.8 MB/s with /proc/sys/vm/dirty_ratio == 50. So small 
+> improvement, but still far far away from the throughput of pre-2.6.23 
+> kernels.
 
-This I heavily disagree with.  The scheduler should be so cheap
-that you cannot possibly notice that it is even there for a benchmark
-like tbench.
+Ok, so another important datapoint:
 
-If we now think it's ok that picking which task to run is more
-expensive than writing 64 bytes over a TCP socket and then blocking on
-a read, I'd like to stop using Linux. :-) That's "real work" and if
-the scheduler is more expensive than "real work" we lose.
+with c1e4fe711a4 (just before CFS has been merged for 2.6.23), the dbench 
+throughput measures
 
-I do want to remind you of a thread you participated in, in April,
-where you complained about loopback TCP performance:
+	187.7 MB/s
 
-	http://marc.info/?l=linux-netdev&m=120696343707674&w=2
+in our testing conditions (default config).
 
-It might be fruitful for you to rerun your tests with CFS reverted
-(start with 2.6.22 and progressively run your benchmark on every
-release), you know, just for fun :-)
+With c31f2e8a42c4 (just after CFS has been merged for 2.6.23), the 
+throughput measured by dbench is
 
-> On the other hand we've got folks doing high-context-switch ratio
-> benchmarks and complaining about the overhead whenever something
-> goes in that improves the quality of scheduling of a workload that
-> does not context-switch as massively as tbench. It's a difficult
-> balance and we cannot satisfy both camps.
+	82.3 MB/s
 
-We've always been proud of our scheduling overhead being extremely
-low, and you have to face the simple fact that starting in 2.6.23 it's
-been getting progressively more and more expensive.
+This is the huge drop we have been looking for. After this, the 
+performance was still going down gradually, up to ~45 MS/ we are measuring 
+for 2.6.27. But the biggest drop (more than 50%) points directly to CFS 
+merge.
 
-Consistently so.
-
-People even noticed it.
+-- 
+Jiri Kosina
+SUSE Labs
