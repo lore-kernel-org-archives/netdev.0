@@ -1,38 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: net-next-2.6...
-Date: Mon, 27 Oct 2008 11:35:03 -0700 (PDT)
-Message-ID: <20081027.113503.149366323.davem@davemloft.net>
+Subject: Re: tbench wrt. loopback TSO
+Date: Mon, 27 Oct 2008 11:39:04 -0700 (PDT)
+Message-ID: <20081027.113904.211811887.davem@davemloft.net>
+References: <20081027141332.GA4691@ioremap.net>
+	<Pine.LNX.4.64.0810271704530.7072@wrl-59.cs.helsinki.fi>
+	<20081027170314.GA25148@ioremap.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org, efault@gmx.de,
+	mingo@elte.hu, a.p.zijlstra@chello.nl, herbert@gondor.apana.org.au
+To: zbr@ioremap.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43447
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36413
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750717AbYJ0Sf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 14:35:26 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id EABF2C8C17E
-	for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 11:35:03 -0700 (PDT)
+	by vger.kernel.org with ESMTP id S1751058AbYJ0Sj0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 14:39:26 -0400
+In-Reply-To: <20081027170314.GA25148@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Evgeniy Polyakov <zbr@ioremap.net>
+Date: Mon, 27 Oct 2008 20:03:14 +0300
 
-Stephen Rothwell said earlier today that it's OK to "let it rip"
-and allow new changes to start flowing into the linux-next tree.
+> On Mon, Oct 27, 2008 at 05:19:17PM +0200, Ilpo J=E4rvinen (ilpo.jarvi=
+nen@helsinki.fi) wrote:
+> > Noticed that tcp_current_mss does modulo with tso and that it is=20
+> > being called from a non-trivial number of places, though ovbiously =
+only=20
+> > part of them should be relevant here. ...I'm not sure if that can s=
+how=20
+> > up though.
+>=20
+> That's why when I see modulo something screams inside me...
+> I used following patch (without goto in the tcp_tso_should_defer():
 
-So I'll likely get the net-next-2.6 going today.
+Indeed, those modulos are the worst part about the TSO code.
 
-First I'll cut the tree with a fresh clone of Linus's current stuff,
-then add in all the things which are in the queue already (Neil's
-routing cache hacks, Thomas Graf's cgroup work, the print_mac() %pX
-bits, etc.)
+I'll see what I can do to get rid of them, I hate them too. :-)
 
-As always you can get a good idea of what will be looked at and considered
-by taking a look at the patchwork queue for netdev:
+One idea immediately occurs to me.  Since we're effectively limited
+to a 64K TSO frame, and the MSS is some value smaller than that, we
+can probably get away with a reciprocol divide.  Even using a 16-bit
+inverse value would suffice, so we wouldn't need to use u64's like
+some other pieces of code do.  A u32 would be enough.
 
-	http://patchwork.ozlabs.org/
 
-I'll make another posting when the new tree is up and operational.
-
-Thanks.
