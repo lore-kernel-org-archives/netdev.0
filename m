@@ -1,102 +1,98 @@
-From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: bisected: 2.6.28-rc broke my iwl4965 wireless
-Date: Mon, 27 Oct 2008 09:38:12 -0700
-Message-ID: <20081027163812.GB6377@tesla>
-References: <20081025222208.1d2a2c8b@infradead.org>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v2)
+Date: Mon, 27 Oct 2008 09:41:02 -0700
+Message-ID: <200810270941.03258.david-b@pacbell.net>
+References: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <20081027143734.GA13565@secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Luis Rodriguez <Luis.Rodriguez-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
-	"torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: Grant Likely <grant.likely@secretlab.ca>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp115.sbc.mail.sp1.yahoo.com ([69.147.64.88]:30141 "HELO
+	smtp115.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750795AbYJ0QlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 12:41:08 -0400
+In-Reply-To: <20081027143734.GA13565@secretlab.ca>
 Content-Disposition: inline
-In-Reply-To: <20081025222208.1d2a2c8b-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 25, 2008 at 10:22:08PM -0700, Arjan van de Ven wrote:
-> [resend, first version got corrupted]
-> 
-> 2.6.28-rc1 broke my (intel 4965) wireless, and I've bisected it down to
-> the commit below..... something's fishy with this...
-> 
-> 
-> b2e1b30290539b344cbaff0d9da38012e03aa347 is first bad commit
-> commit b2e1b30290539b344cbaff0d9da38012e03aa347
-> Author: Luis R. Rodriguez <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-> Date:   Tue Sep 9 23:19:48 2008 -0700
-> 
->     cfg80211: Add new wireless regulatory infrastructure
-> 
->     This adds the new wireless regulatory infrastructure. The
->     main motiviation behind this was to centralize regulatory
->     code as each driver was implementing their own regulatory solution,
->     and to replace the initial centralized code we have where:
-> 
->     * only 3 regulatory domains are supported: US, JP and EU
->     * regulatory domains can only be changed through module parameter
->     * all rules were built statically in the kernel
-> 
->     We now have support for regulatory domains for many countries
->     and regulatory domains are now queried through a userspace agent
->     through udev allowing distributions to update regulatory rules
->     without updating the kernel.
-> 
->     Each driver can regulatory_hint() a regulatory domain
->     based on either their EEPROM mapped regulatory domain value to a
->     respective ISO/IEC 3166-1 country code or pass an internally built
->     regulatory domain. We also add support to let the user set the
->     regulatory domain through userspace in case of faulty EEPROMs to
->     further help compliance.
-> 
->     Support for world roaming will be added soon for cards capable of
->     this.
-> 
->     For more information see:
-> 
->     http://wireless.kernel.org/en/developers/Regulatory/CRDA
-> 
->     For now we leave an option to enable the old module parameter,
->     ieee80211_regdom, and to build the 3 old regdomains statically
->     (US, JP and EU). This option is CONFIG_WIRELESS_OLD_REGULATORY.
->     These old static definitions and the module parameter is being
->     scheduled for removal for 2.6.29. Note that if you use this
->     you won't make use of a world regulatory domain as its pointless.
->     If you leave this option enabled and if CRDA is present and you
->     use US or JP we will try to ask CRDA to update us a regulatory
->     domain for us.
-> 
->     Signed-off-by: Luis R. Rodriguez <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
->     Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+On Monday 27 October 2008, Grant Likely wrote:
+> On Mon, Oct 27, 2008 at 12:53:22PM +0200, Paulius Zaleckas wrote:
+> > Useful for machines where PHY control is connected to GPIO.
+> > This driver also supports interrupts from PHY.
 
-Arjan,
+I get a kick out of seeing each new generic driver using
+the generic GPIO interface.  I *should* have expected it,
+obviously.  ;)
 
-so newer kernels require CRDA and iw to set regulatory domain,
-otherwise only the world regulatory domain is set so if your AP
-is not in the world regulatory domain it won't connect. To enable
-the other channels you need CRDA and iw installed.
+With a few exceptions I'll second Grant's comments, and
+pick a few more nits.
 
-http://wireless.kernel.org/en/developers/Regulatory/CRDA
-http://wireless.kernel.org/en/users/Documentation/iw
 
-Drivers can also hint to CRDA as per the API a country and in those cases
-only CRDA is required, however right now only zd1211rw is using this
-hint, work on the other drivers is in progress so for now calling iw
-for your country is required. What is expected is in the future
-wpa_supplicant will carry a country config element and it hints it.
+> > +#include <linux/kernel.h>
+> > +#include <linux/init.h>
+> > +#include <linux/platform_device.h>
+> > +#include <linux/gpio.h>
+> > +#include <linux/mdio-bitbang.h>
+> > +#include <linux/mdio-gpio.h>
+> 
+> Missing:
+> 
+> MODULE_AUTHOR()
+> MODULE_LICENSE()
+> MODULE_DESCRIPTION()
 
-Additionally if the old behaviour is desired for now (until distributions
-catch up and add CRDA) CONFIG_WIRELESS_OLD_REGULATORY can be enabled
-and you'll get the old behaviour of defaulting to country "US".
+... which many of us like to see at the *end* of the driver,
+with other module housekeeping (driver registration), instead
+of duplicating the header contents we just saw.
 
-Please let me know if there are any issues.
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > +static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+
+There are a few cases where platform drivers can't use __init
+and platform_driver_probe(), instead of __devinit paired with
+platform_driver_register().  Does this need to be one of them?
+
+That is, are these platform devices going to be hotplugged?
+(Usually because they are driver model children of other devices
+which get hotplugged.)
+ 
+
+> > +out:
+> > +	return ret;
+> 
+> Nit:  labels in column 0 will confuse diff when it tries to put the
+> function name in the diff hunk header.  If you indent the labels by 1
+> space then future diffs will show the function name instead of the label
+> name in diff hunk headers.
+
+... but please don't change drivers to work around cosmitic diff bugs ...
+
+
+> > +static int __devexit mdio_gpio_remove(struct platform_device *pdev)
+
+As above:  if these devices are really hotpluggable, so be it.
+But that's the exception for platform_device nodes, not the rule,
+so I'd normally use __exit here (and __exit_p in the driver
+structure, later) to shrink the runtime code footprint.
+
+
+> > +static void mdio_gpio_exit(void)
+> 
+> static void __exit mdio_gpio_exit(void)
+> 
+> > +{
+> > +	platform_driver_unregister(&mdio_gpio_driver);
+> > +}
+> > +
+> > +module_init(mdio_gpio_init);
+> > +module_exit(mdio_gpio_exit);
+
+Also, snug the module_init()/module_exit() up against the
+functions they affect, just as with EXPORT_SYMBOL().
+
