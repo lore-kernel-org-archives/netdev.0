@@ -1,67 +1,48 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: tbench wrt. loopback TSO
-Date: Mon, 27 Oct 2008 17:19:17 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0810271704530.7072@wrl-59.cs.helsinki.fi>
-References: <20081015.171408.193701292.davem@davemloft.net>
- <20081026123442.GA31506@ioremap.net> <20081026.185911.193696873.davem@davemloft.net>
- <Pine.LNX.4.64.0810270942430.1290@wrl-59.cs.helsinki.fi>
- <20081027141332.GA4691@ioremap.net>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: suspicious logic in tcp_make_synack()
+Date: Mon, 27 Oct 2008 08:51:19 -0700
+Message-ID: <396556a20810270851x18ad55c6sd690457af6616224@mail.gmail.com>
+References: <20081026.010158.193698298.davem@davemloft.net>
+	 <20081026174147.GB27584@Chamillionaire.breakpoint.cc>
+	 <20081026.231102.214077979.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-254859094-1225120757=:7072"
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, efault@gmx.de, mingo@elte.hu,
-	a.p.zijlstra@chello.nl, Herbert Xu <herbert@gondor.apana.org.au>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:38866 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbYJ0PTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 11:19:20 -0400
-In-Reply-To: <20081027141332.GA4691@ioremap.net>
+Received: from rv-out-0506.google.com ([209.85.198.239]:44336 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391AbYJ0PvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 11:51:21 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2191454rvb.1
+        for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 08:51:20 -0700 (PDT)
+In-Reply-To: <20081026.231102.214077979.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Sun, Oct 26, 2008 at 11:11 PM, David Miller <davem@davemloft.net> wrote:
+> I can't count on my two hands how many bugs were caused by that one
+> single commit :-(
 
----696208474-254859094-1225120757=:7072
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+I should have made more of an effort to keep up with netdev during the
+.27 release, rather than just the rc's, so I fear that I didn't see
+all the bugs. I'll go though the archives today.
 
-On Mon, 27 Oct 2008, Evgeniy Polyakov wrote:
+Although that commit was born of an attempt to save some people from
+some of the pitfalls of modifying the previous code it clearly wasn't
+something that I should have attempted. The cost of newbies touching
+code in that area is too great both in tickling bugs in other systems
+(with option ordering) and in stupid omissions like this. It's
+probably been too long to revert it wholesale now, so I can only
+attempt to be more parsimonious in the future and hope that that's the
+last of the pain. If nothing else, suspicion of that commit has
+probably been raised to such a level that competent folks have checked
+it all over now.
 
-> On Mon, Oct 27, 2008 at 09:49:21AM +0200, Ilpo Järvinen (ilpo.jarvinen@helsinki.fi) wrote:
-> > > > That's what I got with the current tree for 8 threads on a 4-way 32-bit
-> > > > Xeons (2 physical CPUs) and 8gb of ram:
-> > > > gso/tso off: 361.367
-> > > > tso/gso on:  354.635
-> > > 
-> > > Yes, it might do this, in which case tcp_tso_should_defer() simply needs
-> > > some tweaking.
-> > 
-> > Good point, could you Evgeniy verify first if simple goto send_now; in 
-> > beginning there recovers it all...
-> 
-> With direct goto at the begining of the tcp_tso_should_defer()
-> and 4403b406 commit git tree (was current yesterday night)
-> I got following numbers: 
-> 
-> with goto:
-> tso/gso  on: 358.976, 357.699
-> tso/gso off: 368.016, 367.079
-> 
-> no goto
-> tso/gso  on: 353.656, 354.791
-> tso/gso off: 364.8, 365.85
-> 
-> So tcp_tso_should_defer() adds additional problems not counted in
-> tso/gso changes.
 
-Noticed that tcp_current_mss does modulo with tso and that it is 
-being called from a non-trivial number of places, though ovbiously only 
-part of them should be relevant here. ...I'm not sure if that can show 
-up though.
+AGL
 
 -- 
- i.
----696208474-254859094-1225120757=:7072--
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
