@@ -1,67 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: Coexist with the sysfs limitations v2
-Date: Mon, 27 Oct 2008 12:41:26 -0700 (PDT)
-Message-ID: <20081027.124126.74749150.davem@davemloft.net>
-References: <20081022212124.GA9910@us.ibm.com>
-	<49003019.40904@bull.net>
-	<m1fxmni9uv.fsf_-_@frodo.ebiederm.org>
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
+Date: Mon, 27 Oct 2008 20:44:32 +0100
+Message-ID: <1225136672.4942.38.camel@marge.simson.net>
+References: <1224905848.5161.27.camel@marge.simson.net>
+	 <20081024.221653.23695396.davem@davemloft.net>
+	 <1224914333.3822.18.camel@marge.simson.net>
+	 <20081025.001940.251852864.davem@davemloft.net>
+	 <1224919985.5373.10.camel@marge.simson.net>  <4905F9BD.100@hp.com>
+	 <1225134690.4942.11.camel@marge.simson.net>  <4906140C.5010004@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: benjamin.thery@bull.net, serue@us.ibm.com, netdev@vger.kernel.org,
-	gregkh@suse.de, viro@ftp.linux.org.uk, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, htejun@gmail.com, den@openvz.org,
-	containers@lists.linux-foundation.org
-To: ebiederm@xmission.com
+Cc: David Miller <davem@davemloft.net>, rjw@sisk.pl, mingo@elte.hu,
+	s0mbre@tservice.net.ru, a.p.zijlstra@chello.nl,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54555
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751673AbYJ0Tlv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 15:41:51 -0400
-In-Reply-To: <m1fxmni9uv.fsf_-_@frodo.ebiederm.org>
+Received: from mail.gmx.net ([213.165.64.20]:52725 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751133AbYJ0Tok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 15:44:40 -0400
+In-Reply-To: <4906140C.5010004@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 23 Oct 2008 08:56:08 -0700
-
-> To make testing of the network namespace simpler allow
-> the network namespace code and the sysfs code to be
-> compiled and run at the same time.  To do this only
-> virtual devices are allowed in the additional network
-> namespaces and those virtual devices are not placed
-> in the kobject tree.
+On Mon, 2008-10-27 at 12:18 -0700, Rick Jones wrote:
+> >
+> > Not really, but I can't seem to give up ;-)
 > 
-> Since virtual devices don't actually do anything interesting
-> hardware wise that needs device management there should
-> be no loss in keeping them out of the kobject tree and
-> by implication sysfs.  The gain in ease of testing
-> and code coverage should be significant.
+> then I guess I'll close with
 > 
-> Changelog:
+> successful benchmarking,
 > 
-> v2: As pointed out by Benjamin Thery it only makes sense to call
->     device_rename in the initial network namespace for now.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> Acked-by: Benjamin Thery <benjamin.thery@bull.net>
-> Tested-by: Serge Hallyn <serue@us.ibm.com>
-> Acked-by: Serge Hallyn <serue@us.ibm.com>
-> Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> if not necessarily happy :)
 
-So let's figure out what happens with this patch.
-I'm personally ok with the change, the question is when
-and where.
+There ya go, happy benchmarking is when they tell you what you want to
+hear.  Successful is when you learn something.
 
-My net-2.6 tree was closed to new features long ago, so I really
-don't want to try to merge this sucker into 2.6.28-rcX :-)  But if
-you guys think that is prudent, feel free to submit it directly to
-Linus and add my signoff:
+	-Mike  (not happy, but learning)
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-otherwise if we shoot for 2.6.29 I would suggest that we wait until
-the merge window to see if the sysfs issues get sorted, and if not
-we slip this patch into to tree instead.
-
-Let me know what you guys plan to do with this.
