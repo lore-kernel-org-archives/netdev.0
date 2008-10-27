@@ -1,68 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Sun, 26 Oct 2008 19:34:51 -0700 (PDT)
-Message-ID: <20081026.193451.36032548.davem@davemloft.net>
-References: <20081026092722.GA24799@ioremap.net>
-	<20081026023439.c6cf4e94.akpm@linux-foundation.org>
-	<20081026100555.GA26033@ioremap.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, a.p.zijlstra@chello.nl, efault@gmx.de,
-	jkosina@suse.cz, rjw@sisk.pl, mingo@elte.hu,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: zbr@ioremap.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40451
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751294AbYJ0CfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 22:35:14 -0400
-In-Reply-To: <20081026100555.GA26033@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: hamid.jafarian@gmail.com (hamid jafarian)
+Subject: [PATCH 01/09]IPtablestng/Kernel - some changes for 'x'
+Date: Mon, 27 Oct 2008 08:04:15 +0330 (IRST)
+Message-ID: <20081027043415.9B336C64088@host1.ystp.ac.ir>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Netfilter-devel <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+cc: Pablo Neira Ayuso <pablo@netfilter.org>
+cc: Patrick McHardy <kaber@trash.net>
+cc: Jan Engelhardt <jengelh@medozas.de>
+cc: David Miller <davem@davemloft.net>
+cc: Rusty Russell <rusty@rustcorp.com.au>
+cc: Harald Welte <laforge@gnumonks.org>
+cc: Eric Leblond <eric@inl.fr>
+cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+cc: Amin Azez <azez@ufomechanic.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Date: Sun, 26 Oct 2008 13:05:55 +0300
+export 'xt' and 'xt_prefix' symbols.
 
-> I'm not surprised there were no changes when I reported hrtimers to be
-> the main guilty factor in my setup for dbench tests, and only when David
-> showed that they also killed his sparks via wake_up(), something was
-> done. Now this regression even dissapeared from the list.
-> Good direction, we should always follow this.
+export 'xt' and 'xt_prefix' symbols. this symbols are used by other part of IPtablestng.
+also declaring 'classifier' linklist to store the list of clasifiers beside of other linklists(targets/matches).
 
-Yes, this situation was in my opinion a complete fucking joke.  Someone
-like me shouldn't have to do all of the hard work for the scheduler
-folks in order for a bug like this to get seriously looked at.
-
-Evgeniy's difficult work was effectively ignored except by other
-testers who could also see and reproduce the problem.
-
-No scheduler developer looked seriously into these reports other than
-to say "please try to reproduce with tip" (?!?!?!)  I guess showing
-the developer the exact changeset(s) which add the regression isn't
-enough these days :-/
-
-Did any scheduler developer try to run tbench ONCE and do even a tiny
-bit of analysis, like the kind I did?  Answer honestly...  Linus even
-asked you guys in the private thread to "please look into it".  So, if
-none of you did, you should all be deeply ashamed of yourselves.
-
-People like me shouldn't have to do all of that work for you just to
-get something to happen.
-
-Not until I went privately to Ingo and Linus with cycle counts and a
-full disagnosis (of every single release since 2.6.22, a whole 2 days
-of work for me) of the precise code eating up too many cycles and
-causing problems DID ANYTHING HAPPEN.
-
-This is extremely and excruciatingly DISAPPOINTING and WRONG.
-
-We completely and absolutely suck if this is how we will handle any
-performance regression report.
-
-And although this case is specific to the scheduler, a lot of
-other areas handle well prepared bug reports similarly.  So I'm not
-really picking on the scheduler folks, they just happen to be the
-current example :-)
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index b2c62cc..94a4981 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -124,6 +124,21 @@ struct xt_counters_info
+ 	struct xt_counters counters[0];
+ };
+ 
++#ifdef __KERNEL__
++#define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
++
++struct xt_af {
++	struct mutex mutex;
++	struct list_head match;
++	struct list_head target;
++	struct list_head classifier;
++#ifdef CONFIG_COMPAT
++	struct mutex compat_mutex;
++	struct compat_delta *compat_offsets;
++#endif
++};
++#endif
++
+ #define XT_INV_PROTO		0x40	/* Invert the sense of PROTO. */
+ 
+ /* fn returns 0 to continue iteration */
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index a679208..5120002 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -32,14 +32,14 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
+ MODULE_DESCRIPTION("[ip,ip6,arp]_tables backend module");
+ 
+-#define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
++//#define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
+ 
+ struct compat_delta {
+ 	struct compat_delta *next;
+ 	unsigned int offset;
+ 	short delta;
+ };
+-
++/*
+ struct xt_af {
+ 	struct mutex mutex;
+ 	struct list_head match;
+@@ -49,8 +49,9 @@ struct xt_af {
+ 	struct compat_delta *compat_offsets;
+ #endif
+ };
+-
+-static struct xt_af *xt;
++*/
++struct xt_af *xt;
++EXPORT_SYMBOL(xt);
+ 
+ #ifdef DEBUG_IP_FIREWALL_USER
+ #define duprintf(format, args...) printk(format , ## args)
+@@ -58,11 +59,12 @@ static struct xt_af *xt;
+ #define duprintf(format, args...)
+ #endif
+ 
+-static const char *xt_prefix[NPROTO] = {
++const char *xt_prefix[NPROTO] = {
+ 	[AF_INET]	= "ip",
+ 	[AF_INET6]	= "ip6",
+ 	[NF_ARP]	= "arp",
+ };
++EXPORT_SYMBOL(xt_prefix);
+ 
+ /* Registration hooks for targets. */
+ int
+@@ -955,6 +957,7 @@ int xt_proto_init(struct net *net, int af)
+ 	if (!proc)
+ 		goto out_remove_matches;
+ 	proc->data = (void *)(unsigned long)af;
++
+ #endif
+ 
+ 	return 0;
+@@ -1024,6 +1027,7 @@ static int __init xt_init(void)
+ #endif
+ 		INIT_LIST_HEAD(&xt[i].target);
+ 		INIT_LIST_HEAD(&xt[i].match);
++		INIT_LIST_HEAD(&xt[i].classifier);
+ 	}
+ 	rv = register_pernet_subsys(&xt_net_ops);
+ 	if (rv < 0)
 
