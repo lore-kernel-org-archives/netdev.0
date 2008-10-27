@@ -1,67 +1,48 @@
-From: "Manish Katiyar" <mkatiyar@gmail.com>
-Subject: [PATCH] : Fix unused variable compilation warnings in drivers/net/wan/syncppp.c
-Date: Mon, 27 Oct 2008 18:20:42 +0530
-Message-ID: <ea11fea30810270550g3626456eh84f5c9ed6d79d847@mail.gmail.com>
-References: <ea11fea30810270548y11453b8i10eb53caff1838e8@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: broken rtl8139 and dropped frames decreasing?
+Date: Mon, 27 Oct 2008 12:50:59 +0000
+Message-ID: <1225111859.3018.4.camel@achroite>
+References: <49057814.2000403@caiway.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jan Evert van Grootheest <j.e.van.grootheest@caiway.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.187]:38213 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751541AbYJ0Mun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 08:50:43 -0400
-Received: by ti-out-0910.google.com with SMTP id b6so1157506tic.23
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 05:50:42 -0700 (PDT)
-In-Reply-To: <ea11fea30810270548y11453b8i10eb53caff1838e8@mail.gmail.com>
-Content-Disposition: inline
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:56925 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751021AbYJ0MvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 08:51:05 -0400
+In-Reply-To: <49057814.2000403@caiway.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[resending it to netdev].
+On Mon, 2008-10-27 at 09:13 +0100, Jan Evert van Grootheest wrote:
+> Hi,
+> 
+> I've got this old computer of a friend (to rescue files and put Ubuntu 
+> on it (-: ).
+> And there's something strange going on in the network stack somewhere.
+> 
+> I've booted it using an Ubuntu Hardy live CD (i.e. 2.6.24-something kernel).
+> There's a rtl8139 card in it that uses the 8139too module. But something 
+> is not right with the hardware. Dmesg is full of reports with TX ring 
+> pointers when I plug the cable and try to ping something.
+> 
+> The interesting thing is that 'ifconfig eth0' shows dropped RX packets. 
+> But each invocation shows one LESS dropped packet! It's never been above 
+> zero (that I have seen). The counter currently stands at 4294967260 
+> (i.e. -36).
+[...]
 
+That might indicate that the RxMissed register is not implemented on
+this version of the chip.  That could result in the driver adding a
+value of all-1s (effectively -1) to the rx_missed_errors statistic.
 
----------- Forwarded message ----------
-From: Manish Katiyar <mkatiyar@gmail.com>
-Date: Mon, Oct 27, 2008 at 6:18 PM
-Subject: [PATCH] : Fix unused variable compilation warnings in
-drivers/net/wan/syncppp.c
-To: kernel-janitors@vger.kernel.org, linux-netdev@vger.kernel.org,
-LKML <linux-kernel@vger.kernel.org>
-Cc: mkatiyar@gmail.com
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Below patch fixes the unused compilation warnings in
-drivers/net/wan/syncppp.c when CONFIG_INET is not defined.
-
-Signed-off-by: Manish Katiyar <mkatiyar@gmail.com>
----
- drivers/net/wan/syncppp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
-index 327d585..11124f3 100644
---- a/drivers/net/wan/syncppp.c
-+++ b/drivers/net/wan/syncppp.c
-@@ -756,10 +756,10 @@ static void sppp_cisco_input (struct sppp *sp,
-struct sk_buff *skb)
-       case CISCO_ADDR_REQ:
-               /* Stolen from net/ipv4/devinet.c -- SIOCGIFADDR ioctl */
-               {
--               struct in_device *in_dev;
--               struct in_ifaddr *ifa;
-               __be32 addr = 0, mask = htonl(~0U); /* FIXME: is the
-mask correct? */
- #ifdef CONFIG_INET
-+               struct in_device *in_dev;
-+               struct in_ifaddr *ifa;
-               rcu_read_lock();
-               if ((in_dev = __in_dev_get_rcu(dev)) != NULL)
-               {
---
-1.5.4.3
-
-
-Thanks -
-Manish
