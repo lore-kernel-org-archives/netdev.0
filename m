@@ -1,41 +1,47 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [RFC PATCHv2] printk: add the %pM, %p4, %p6 format specifiers
-Date: Mon, 27 Oct 2008 02:21:06 +0100
-Message-ID: <200810270221.08675.elendil@planet.nl>
-References: <1224892008.3919.27.camel@johannes.berg> <49035AF0.6040700@anduras.de> <1225008096.3478.3.camel@johannes.berg> <20081026.010329.11475786.davem@davemloft.net> <1225009308.3478.22.camel@johannes.berg> <1225009822.3478.30.camel@johannes.berg> <1225047674.10060.10.camel@brick> <1225049591.3746.0.camel@johannes.berg> <1225049929.10060.11.camel@brick> <1225050015.3746.2.camel@johannes.berg> <1225060789.10060.13.camel@brick> <1225060789.10060.13.camel@brick> <1225067465.5672.1.camel@brick>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tbench wrt. loopback TSO
+Date: Sun, 26 Oct 2008 18:59:11 -0700 (PDT)
+Message-ID: <20081026.185911.193696873.davem@davemloft.net>
+References: <20081015.171408.193701292.davem@davemloft.net>
+	<20081026123442.GA31506@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, davem@davemloft.net, anders@anduras.de,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Cc: netdev@vger.kernel.org, efault@gmx.de, mingo@elte.hu,
+	a.p.zijlstra@chello.nl, herbert@gondor.apana.org.au
+To: zbr@ioremap.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hpsmtp-eml11.KPNXCHANGE.COM ([213.75.38.111]:21058 "EHLO
-	hpsmtp-eml11.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750710AbYJ0BVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 21:21:12 -0400
-In-reply-To: <1225067465.5672.1.camel@brick>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33786
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751724AbYJ0CGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 22:06:23 -0400
+In-Reply-To: <20081026123442.GA31506@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Harvey Harrison wrote:
-> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-> index a013bbc..eec3879 100644
-> --- a/lib/vsprintf.c
-> +++ b/lib/vsprintf.c
-> @@ -592,6 +644,12 @@ static char *resource_string(char *buf, char *end,
-> struct resource *res, int fie
->   * - 'S' For symbolic direct pointers
->   * - 'R' For a struct resource pointer, it prints the range of
->   *       addresses (not the name nor the flags)
-> + * - 'M' For a 6-byte MAC address, it prints the address in the
-> + *       usual colon-separated hex notation
-> + * - '4' For a 4-byte IPv4 address, it prints the address in the
-> + *       usual colon-separated hex notation
-> + * - 'M' For a 16-byte IPv6 address, it prints the address in colon separated
-> + *       big-endian 16 bit hex notation
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Date: Sun, 26 Oct 2008 15:34:42 +0300
 
-Shouldn't that last one be '6' instead of 'M'?
+> On Wed, Oct 15, 2008 at 05:14:08PM -0700, David Miller (davem@davemloft.net) wrote:
+> > 
+> > I got curious about this aspect of the investigation so I wanted
+> > to see it first-hand :-)
+> > 
+> > To be honest, this reported effect of disabling TSO in the loopback
+> > driver surprised me because:
+> > 
+> > 1) If the benchmark is doing small writes, TSO should have zero
+> >    effect.  The TSO logic won't kick in.
+> 
+> But GSO will try to create a huge packet and that overhead will not be
+> overweighted?
+> 
+> That's what I got with the current tree for 8 threads on a 4-way 32-bit
+> Xeons (2 physical CPUs) and 8gb of ram:
+> gso/tso off: 361.367
+> tso/gso on:  354.635
+> 
+> Disabled/enabled via ethtools: -k tso off/on gso off/on
+
+Yes, it might do this, in which case tcp_tso_should_defer() simply needs
+some tweaking.
