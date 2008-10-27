@@ -1,41 +1,55 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Mon, 27 Oct 2008 14:42:55 +0100 (CET)
-Message-ID: <alpine.LNX.1.10.0810271441590.12928@jikos.suse.cz>
-References: <20081024.221653.23695396.davem@davemloft.net>  <1224914333.3822.18.camel@marge.simson.net>  <1224917623.4929.15.camel@marge.simson.net>  <20081025.002420.82739316.davem@davemloft.net>  <Pine.LNX.4.64.0810260055070.22126@twin.jikos.cz>
- <1225010790.8566.22.camel@marge.simson.net>  <1225011648.27415.4.camel@twins>  <20081026021153.47878580.akpm@linux-foundation.org>  <alpine.LNX.1.10.0810262002450.12928@jikos.suse.cz>  <alpine.LNX.1.10.0810271138470.12928@jikos.suse.cz>  <20081027112750.GA2771@elte.hu>
-  <20081027113306.5b1d5898@lxorguk.ukuu.org.uk> <1225109171.4238.23.camel@marge.simson.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: tbench wrt. loopback TSO
+Date: Mon, 27 Oct 2008 17:13:32 +0300
+Message-ID: <20081027141332.GA4691@ioremap.net>
+References: <20081015.171408.193701292.davem@davemloft.net> <20081026123442.GA31506@ioremap.net> <20081026.185911.193696873.davem@davemloft.net> <Pine.LNX.4.64.0810270942430.1290@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Ingo Molnar <mingo@elte.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, rjw@sisk.pl,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Mike Galbraith <efault@gmx.de>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, efault@gmx.de, mingo@elte.hu,
+	a.p.zijlstra@chello.nl, Herbert Xu <herbert@gondor.apana.org.au>
+To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:59220 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751501AbYJ0Nm4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2008 09:42:56 -0400
-In-Reply-To: <1225109171.4238.23.camel@marge.simson.net>
+Received: from genesysrack.ru ([195.178.208.66]:53519 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750695AbYJ0ONf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 10:13:35 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0810270942430.1290@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 27 Oct 2008, Mike Galbraith wrote:
+On Mon, Oct 27, 2008 at 09:49:21AM +0200, Ilpo J=C3=A4rvinen (ilpo.jarv=
+inen@helsinki.fi) wrote:
+> > > That's what I got with the current tree for 8 threads on a 4-way =
+32-bit
+> > > Xeons (2 physical CPUs) and 8gb of ram:
+> > > gso/tso off: 361.367
+> > > tso/gso on:  354.635
+> >=20
+> > Yes, it might do this, in which case tcp_tso_should_defer() simply =
+needs
+> > some tweaking.
+>=20
+> Good point, could you Evgeniy verify first if simple goto send_now; i=
+n=20
+> beginning there recovers it all...
 
-> > real world workloads. If your fairness hurts throughput that much maybe
-> > your scheduler algorithm is just plain *wrong* as it isn't adapting to
-> > workload at all well.
-> Doesn't seem to be scheduler/fairness.  2.6.22.19 is O(1), and falls
-> apart too, I posted the numbers and full dbench output yesterday.
+With direct goto at the begining of the tcp_tso_should_defer()
+and 4403b406 commit git tree (was current yesterday night)
+I got following numbers:=20
 
-We'll need to look into this a little bit more I think. I have sent out 
-some numbers too, and these indicate very clearly that there is more than 
-50% performance drop (measured by dbench) just after the very merge of CFS 
-in 2.6.23-rc1 merge window.
+with goto:
+tso/gso  on: 358.976, 357.699
+tso/gso off: 368.016, 367.079
 
--- 
-Jiri Kosina
-SUSE Labs
+no goto
+tso/gso  on: 353.656, 354.791
+tso/gso off: 364.8, 365.85
+
+So tcp_tso_should_defer() adds additional problems not counted in
+tso/gso changes.
+
+--=20
+	Evgeniy Polyakov
