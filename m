@@ -1,147 +1,110 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [RFC PATCHv2] printk: add the %pM, %p4, %p6 format specifiers
-Date: Sun, 26 Oct 2008 17:31:05 -0700
-Message-ID: <1225067465.5672.1.camel@brick>
-References: <1224892008.3919.27.camel@johannes.berg>
-	 <49035AF0.6040700@anduras.de> <1225008096.3478.3.camel@johannes.berg>
-	 <20081026.010329.11475786.davem@davemloft.net>
-	 <1225009308.3478.22.camel@johannes.berg>
-	 <1225009822.3478.30.camel@johannes.berg>  <1225047674.10060.10.camel@brick>
-	 (sfid-20081026_200122_320043_BFBB81CD)  <1225049591.3746.0.camel@johannes.berg>
-	 <1225049929.10060.11.camel@brick>
-	 (sfid-20081026_203902_019881_0F8064FC)  <1225050015.3746.2.camel@johannes.berg>
-	 <1225060789.10060.13.camel@brick>
+From: "Leonid Slobodchikov" <curvex@gmail.com>
+Subject: Re: [PATCH] at91_ether: multicast packet are not received due to incorrect setting of the multicast hashtable, kernel linux-2.6.17.3
+Date: Mon, 27 Oct 2008 07:10:41 +0600
+Message-ID: <5f59dc1a0810261810s2bd29f6qbcc858311618487f@mail.gmail.com>
+References: <5f59dc1a0810261031w2fa3f40bne1edb2d710f64404@mail.gmail.com>
+	 <4905027C.4080504@magtech.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, anders@anduras.de,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	"Andrew Victor" <avictor.za@gmail.com>
+To: "Aras Vaichas" <arasv@magtech.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.171]:42534 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbYJ0AbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 20:31:09 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1801633wfd.4
-        for <netdev@vger.kernel.org>; Sun, 26 Oct 2008 17:31:07 -0700 (PDT)
-In-Reply-To: <1225060789.10060.13.camel@brick>
+Received: from ug-out-1314.google.com ([66.249.92.169]:36409 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751253AbYJ0BKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2008 21:10:43 -0400
+Received: by ug-out-1314.google.com with SMTP id 39so122145ugf.37
+        for <netdev@vger.kernel.org>; Sun, 26 Oct 2008 18:10:41 -0700 (PDT)
+In-Reply-To: <4905027C.4080504@magtech.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add format specifiers for printing out colon-separated bytes:
+Hello,
 
-MAC addresses (%pM):
-xx:xx:xx:xx:xx:xx
+Just for more info regarding this issue. I could not recevieve
+multicast packets adding 01-00-5e-00-01-81 MAC address to the driver's
+multicast table. After applying the patch this was fixed for me.
+The MAC address above corresponds to 224.0.1.229 IP address. This IP
+is used in IEEE-1588 protocol. I have been testing it with the
+PTPd-1.0.0 http://sourceforge.net/projects/ptpd/.
 
-IPv4 addresses (%p4):
-xx:xx:xx:xx
 
-IPv6 addresses (%p6):
-xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx
-
-%#pM, %#p4, %#p6 are also supported and print without the colon
-separators.
-
-[Based on Johannes Berg's initial patch]
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-This one without the embarrassing index typos in ip6_address and mac_address.
-
- lib/vsprintf.c |   64 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 64 insertions(+), 0 deletions(-)
-
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index a013bbc..eec3879 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -581,6 +581,58 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
- 	return string(buf, end, sym, field_width, precision, flags);
- }
- 
-+static char *ip4_address(char *buf, char *end, u8 *addr, int field_width,
-+			 int precision, int flags)
-+{
-+	char ip4_addr[4 * 3]; /* (4 * 2 hex digits), 3 colons and trailing zero */
-+	char *p = ip4_addr;
-+	int i;
-+
-+	for (i = 0; i < 4; i++) {
-+		p = pack_hex_byte(p, addr[i]);
-+		if (!(flags & SPECIAL) && i != 3)
-+			*p++ = ':';
-+	}
-+	*p = '\0';
-+
-+	return string(buf, end, ip4_addr, field_width, precision, flags & ~SPECIAL);
-+}
-+
-+static char *ip6_address(char *buf, char *end, u8 *addr, int field_width,
-+			 int precision, int flags)
-+{
-+	char ip6_addr[8 * 5]; /* (8 * 4 hex digits), 7 colons and trailing zero */
-+	char *p = ip6_addr;
-+	int i;
-+
-+	for (i = 0; i < 8; i++) {
-+		p = pack_hex_byte(p, addr[2 * i]);
-+		p = pack_hex_byte(p, addr[2 * i + 1]);
-+		if (!(flags & SPECIAL) && i != 7)
-+			*p++ = ':';
-+	}
-+	*p = '\0';
-+
-+	return string(buf, end, ip6_addr, field_width, precision, flags & ~SPECIAL);
-+}
-+
-+static char *mac_address(char *buf, char *end, u8 *addr, int field_width,
-+			 int precision, int flags)
-+{
-+	char mac_addr[6 * 3]; /* (6 * 2 hex digits), 5 colons and trailing zero */
-+	char *p = mac_addr;
-+	int i;
-+
-+	for (i = 0; i < 6; i++) {
-+		p = pack_hex_byte(p, addr[i]);
-+		if (!(flags & SPECIAL) && i != 5)
-+			*p++ = ':';
-+	}
-+	*p = '\0';
-+
-+	return string(buf, end, mac_addr, field_width, precision, flags & ~SPECIAL);
-+}
-+
- /*
-  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
-  * by an extra set of alphanumeric characters that are extended format
-@@ -592,6 +644,12 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
-  * - 'S' For symbolic direct pointers
-  * - 'R' For a struct resource pointer, it prints the range of
-  *       addresses (not the name nor the flags)
-+ * - 'M' For a 6-byte MAC address, it prints the address in the
-+ *       usual colon-separated hex notation
-+ * - '4' For a 4-byte IPv4 address, it prints the address in the
-+ *       usual colon-separated hex notation
-+ * - 'M' For a 16-byte IPv6 address, it prints the address in colon separated
-+ *       big-endian 16 bit hex notation
-  *
-  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
-  * function pointers are really function descriptors, which contain a
-@@ -607,6 +665,12 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int field
- 		return symbol_string(buf, end, ptr, field_width, precision, flags);
- 	case 'R':
- 		return resource_string(buf, end, ptr, field_width, precision, flags);
-+	case 'M':
-+		return mac_address(buf, end, ptr, field_width, precision, flags);
-+	case '4':
-+		return ip4_address(buf, end, ptr, field_width, precision, flags);
-+	case '6':
-+		return ip6_address(buf, end, ptr, field_width, precision, flags);
- 	}
- 	flags |= SMALL;
- 	if (field_width == -1) {
--- 
-1.6.0.3.729.g6ea410
+Best regards,
+Leonid Slobodchikov
 
 
 
+On Mon, Oct 27, 2008 at 5:51 AM, Aras Vaichas <arasv@magtech.com.au> wrote:
+> Leonid Slobodchikov wrote:
+>> Hello,
+>>
+>> Multicast packets are not received by the Ethernet driver for the
+>> Atmel AT91RM9200. This is due to incorrect mc_filter array index
+>> evaluation in the at91ether_sethashtable function. The point is that
+>> AT91_EMAC_HSH and AT91_EMAC_HSL registers are 64-bit length. So when
+>> evaluating the index the bit number must be diveded at 64, which is
+>> 2^6, not 2^5.
+>> The below is a fix for that issue.
+>>
+>>
+>> --- drivers/net/arm/at91_ether.c.orig 2006-06-30 20:37:38.000000000 +0300
+>> +++ drivers/net/arm/at91_ether.c      2008-10-26 17:35:50.000000000 +0200
+>> @@ -520,7 +520,7 @@ static void at91ether_sethashtable(struc
+>>               if (!curr) break;       /* unexpected end of list */
+>>
+>>               bitnr = hash_get_index(curr->dmi_addr);
+>> -             mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
+>> +             mc_filter[bitnr >> 6] |= 1 << (bitnr & 31);
+>>       }
+>>
+>>       at91_emac_write(AT91_EMAC_HSH, mc_filter[0]);
+>>
+> Hmm, that is strange. I received a patch quite some time ago from Andrew
+> Victor to fix just such a problem. Maybe it reappeared? Or maybe I
+> didn't test my patch patch well enough?
+>
+> --- SNIP ---
+>
+> hi Aras,
+>
+>> I'm using 2.6.16, at91rm9200 with a DM9161 PHY. I can't receive multicast
+>> packets on eth0 unless I enable "allmulti" using ifconfig - which I
+> shouldn't
+>> have to do.
+>
+> Looks like the bug in the AT91RM9200 Ethernet driver's Multicast support
+> might have been found.
+>
+> Since I know you use multicast, could you possibly test this patch
+> (without enabling "allmulti") and let me know?  Thanks.
+>
+> Regards.
+>  Andrew Victor
+>
+>
+>
+> --- linux-2.6/drivers/net/arm/at91_ether.c.orig  2007-04-25
+> 09:46:29.000000000 +0200
+> +++ linux-2.6/drivers/net/arm/at91_ether.c      2007-04-25
+> 10:00:25.000000000 +0200
+> @@ -535,8 +535,8 @@ static void at91ether_sethashtable(struc
+>                mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
+>        }
+>
+> -       at91_emac_write(AT91_EMAC_HSH, mc_filter[0]);
+> -       at91_emac_write(AT91_EMAC_HSL, mc_filter[1]);
+> +       at91_emac_write(AT91_EMAC_HSL, mc_filter[0]);
+> +       at91_emac_write(AT91_EMAC_HSH, mc_filter[1]);
+>  }
+>
+>  /*
+>
+>
+> ______________________________________________________________________
+> This email has been scanned by the MessageLabs Email Security System.
+> For more information please visit http://www.messagelabs.com/email
+> ______________________________________________________________________
+>
