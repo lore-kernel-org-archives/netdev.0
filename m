@@ -1,104 +1,80 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [RFC PATCHv3] printk: add %pM format specifier for MAC addresses
-Date: Mon, 27 Oct 2008 12:59:02 -0700
-Message-ID: <1225137542.5396.10.camel@brick>
-References: <1225067465.5672.1.camel@brick>
-	 <1225090765.3746.7.camel@johannes.berg> <1225124904.5440.1.camel@brick>
-	 <20081027.123805.134354592.davem@davemloft.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH v2] bonding: send IPv6 neighbor advertisement on failover
+Date: Mon, 27 Oct 2008 16:07:35 -0400
+Message-ID: <49061F87.2090409@hp.com>
+References: <48EEA752.6030505@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, anders@anduras.de,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Simon Horman <horms@verge.net.au>,
+	Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:2260 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611AbYJ0UBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 16:01:45 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so564671yxm.1
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 13:01:43 -0700 (PDT)
-In-Reply-To: <20081027.123805.134354592.davem@davemloft.net>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:6258 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752708AbYJ0UHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 16:07:39 -0400
+In-Reply-To: <48EEA752.6030505@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add format specifiers for printing out six colon-separated bytes:
+Hi Jay,
 
-MAC addresses (%pM):
-xx:xx:xx:xx:xx:xx
+Did you ever get a chance to look at this patch?  Now that net-next is 
+open I'd like to resubmit it.
 
-%#pM is also supported and omits the colon separators.
+Thanks,
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-Dave, this passes testing here, but I was wondering if perhaps it would be
-better to allow a length to be specified as well, which would allow:
+-Brian
 
-%pM6 for mac addresses, etc as there seem a lot of places in kernel that
-print out a list of colon separated bytes of various lengths.
-
-But if that was added, it may be more natural to call it 
-%pB (bytes)
-%pW (words)
-
-Then mac addresses would be %pB6
-IPv6 addresses would be %pW8 (8 words)
-
-It would be trivial to add, but maybe I'm overthinking this.  In any event,
-this patch only adds %pM for mac addresses.
-
- lib/vsprintf.c |   21 +++++++++++++++++++++
- 1 files changed, 21 insertions(+), 0 deletions(-)
-
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index a013bbc..2025305 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -581,6 +581,23 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
- 	return string(buf, end, sym, field_width, precision, flags);
- }
- 
-+static char *mac_address(char *buf, char *end, u8 *addr, int field_width,
-+			 int precision, int flags)
-+{
-+	char mac_addr[6 * 3]; /* (6 * 2 hex digits), 5 colons and trailing zero */
-+	char *p = mac_addr;
-+	int i;
-+
-+	for (i = 0; i < 6; i++) {
-+		p = pack_hex_byte(p, addr[i]);
-+		if (!(flags & SPECIAL) && i != 5)
-+			*p++ = ':';
-+	}
-+	*p = '\0';
-+
-+	return string(buf, end, mac_addr, field_width, precision, flags & ~SPECIAL);
-+}
-+
- /*
-  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
-  * by an extra set of alphanumeric characters that are extended format
-@@ -592,6 +609,8 @@ static char *resource_string(char *buf, char *end, struct resource *res, int fie
-  * - 'S' For symbolic direct pointers
-  * - 'R' For a struct resource pointer, it prints the range of
-  *       addresses (not the name nor the flags)
-+ * - 'M' For a 6-byte MAC address, it prints the address in the
-+ *       usual colon-separated hex notation
-  *
-  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
-  * function pointers are really function descriptors, which contain a
-@@ -607,6 +626,8 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int field
- 		return symbol_string(buf, end, ptr, field_width, precision, flags);
- 	case 'R':
- 		return resource_string(buf, end, ptr, field_width, precision, flags);
-+	case 'M':
-+		return mac_address(buf, end, ptr, field_width, precision, flags);
- 	}
- 	flags |= SMALL;
- 	if (field_width == -1) {
--- 
-1.6.0.3.729.g6ea410
-
-
-
+Brian Haley wrote:
+> Updated to address Vlad's comment about storing the link-local IPv6 
+> address in the bond/vlan structure, I no longer overwrite the existing 
+> address with a newer one.  Also added missed locking for the inet6_dev.
+> 
+> I don't see any way to address David Steven's comment since there is 
+> currently no NA tunable in the IPv6 code.
+> 
+> ---
+> 
+> This patch adds better IPv6 failover support for bonding devices,
+> especially when in active-backup mode and there are only IPv6 addresses
+> configured, as reported by Alex Sidorenko.
+> 
+> - Creates a new file, net/drivers/bonding/bond_ipv6.c, for the
+>   IPv6-specific routines.  Both regular bonds and VLANs over bonds
+>   are supported.
+> 
+> - Adds a new tunable, num_unsol_na, to limit the number of unsolicited
+>   IPv6 Neighbor Advertisements that are sent on a failover event.
+>   Default is 1.
+> 
+> - Creates two new IPv6 neighbor discovery functions:
+> 
+>   ndisc_build_skb()
+>   ndisc_send_skb()
+> 
+>   These were required to support VLANs since we have to be able to
+>   add the VLAN id to the skb since ndisc_send_na() and friends
+>   shouldn't be asked to do this.  These two routines are basically
+>   __ndisc_send() split into two pieces, in a slightly different order.
+> 
+> - Updates Documentation/networking/bonding.txt and bumps the rev of bond
+>   support to 3.4.0.
+> 
+> On failover, this new code will generate one packet:
+> 
+> - An unsolicited IPv6 Neighbor Advertisement, which helps the switch
+>   learn that the address has moved to the new slave.
+> 
+> Testing has shown that sending just the NA results in pretty good
+> behavior when in active-back mode, I saw no lost ping packets for example.
+> 
+> -Brian
+> 
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> ---
+> 
