@@ -1,61 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sun, 26 Oct 2008 23:26:26 -0700 (PDT)
-Message-ID: <20081026.232626.97216182.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tcp_sack problem Re: [Bug 11721] after upgrade to 2.6.27 i
+	cannot navigate
+Date: Mon, 27 Oct 2008 06:51:20 +0000
+Message-ID: <20081027065120.GA4219@ff.dom.local>
+References: <20081020222914.GB2966@ami.dom.local> <20081021054903.GA4491@ff.dom.local> <20081021092721.72ae73ea@topolino> <20081021074954.GB4715@ff.dom.local> <20081025221515.776a0a9b@topolino>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: =?us-ascii?B?PT9JU08tODg1OS0xP1E/SWxwb19KPUU0cnZpbmVuPz0=?=
+	<ilpo.jarvinen@helsinki.fi>, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org, olon@verizon.net
+To: Aldo Maggi <sentiniate@tiscali.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34346
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751373AbYJ0G0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 02:26:49 -0400
+Received: from ug-out-1314.google.com ([66.249.92.174]:11580 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483AbYJ0Gv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 02:51:26 -0400
+Received: by ug-out-1314.google.com with SMTP id 39so150731ugf.37
+        for <netdev@vger.kernel.org>; Sun, 26 Oct 2008 23:51:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20081022134939.64f2b6b4@topolino>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Oct 25, 2008 at 10:15:15PM +0200, Aldo Maggi wrote:
+> Il giorno Tue, 21 Oct 2008 07:49:54 +0000
+> Jarek Poplawski <jarkao2@gmail.com> ha scritto:
+> 
+> > On Tue, Oct 21, 2008 at 09:27:21AM +0200, Aldo Maggi wrote:
+> > ...
+> > > as soon as i've time i'll replace the modem and run some tests.
+> 
+> just to let you know!
+> i have changed my modem with a new one.
+> the bug has disappeared with no modification of the tcp files.
+> this shows that the problem was due to my old zyxel.
+> 
+> ciao!
+> aldo
+> 
 
-Several bug fixes:
+Aldo, I think it's a very useful information, so I forward this to the
+people.
 
-1) Skb ->when timestamp setting for syncookies got messed up
-   by TCP option building engine changes in 2.6.27.  Fix from
-   Florian Westphal
-
-   I'll submit this thusly to -stable as well.
-
-2) Couple places trying to pass sk_buff to kfree() instead of
-   kfree_skb().  Fixed by Sergio Luis
-
-3) Two fixes for the new phonet protocol layer from Remi
-   Denis-Courmont
-
-Please pull, thanks a lot.
-
-The following changes since commit f8d56f1771e4867acc461146764b4feeb5245669:
-  Linus Torvalds (1):
-        Merge branch 'for-linus' of git://neil.brown.name/md
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Florian Westphal (1):
-      syncookies: fix inclusion of tcp options in syn-ack
-
-Remi Denis-Courmont (2):
-      Phonet: include generic link-layer header size in MAX_PHONET_HEADER
-      Phonet: do not reply to indication reset packets
-
-Sergio Luis (2):
-      btsdio: free sk_buff with kfree_skb
-      libertas: free sk_buff with kfree_skb
-
- drivers/bluetooth/btsdio.c         |    2 +-
- drivers/net/wireless/libertas/rx.c |    2 +-
- include/linux/phonet.h             |    1 +
- include/net/phonet/phonet.h        |    2 +-
- net/ipv4/tcp_output.c              |   10 +++++-----
- net/phonet/af_phonet.c             |    5 ++++-
- 6 files changed, 13 insertions(+), 9 deletions(-)
+Thanks again,
+Jarek P.
