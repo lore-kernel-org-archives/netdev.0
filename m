@@ -1,58 +1,38 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Mon, 27 Oct 2008 19:33:12 +0100
-Message-ID: <20081027183312.GD11494@elte.hu>
-References: <1224917623.4929.15.camel@marge.simson.net> <20081025.002420.82739316.davem@davemloft.net> <Pine.LNX.4.64.0810260055070.22126@twin.jikos.cz> <1225010790.8566.22.camel@marge.simson.net> <1225011648.27415.4.camel@twins> <20081026021153.47878580.akpm@linux-foundation.org> <alpine.LNX.1.10.0810262002450.12928@jikos.suse.cz> <alpine.LNX.1.10.0810271138470.12928@jikos.suse.cz> <20081027112750.GA2771@elte.hu> <20081027113306.5b1d5898@lxorguk.ukuu.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: net-next-2.6...
+Date: Mon, 27 Oct 2008 11:35:03 -0700 (PDT)
+Message-ID: <20081027.113503.149366323.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jkosina@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Galbraith <efault@gmx.de>,
-	David Miller <davem@davemloft.net>, rjw@sisk.pl,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:45385 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751559AbYJ0Sde (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2008 14:33:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43447
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750717AbYJ0Sf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 14:35:26 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id EABF2C8C17E
+	for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 11:35:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-* Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+Stephen Rothwell said earlier today that it's OK to "let it rip"
+and allow new changes to start flowing into the linux-next tree.
 
-> > The way to get the best possible dbench numbers in CPU-bound dbench 
-> > runs, you have to throw away the scheduler completely, and do this 
-> > instead:
-> > 
-> >  - first execute all requests of client 1
-> >  - then execute all requests of client 2
-> >  ....
-> >  - execute all requests of client N
-> 
-> Rubbish. [...]
+So I'll likely get the net-next-2.6 going today.
 
-i've actually implemented that about a decade ago: i've tracked down 
-what makes dbench tick, i've implemented the kernel heuristics for it 
-to make dbench scale linearly with the number of clients - just to be 
-shot down by Linus about my utter rubbish approach ;-)
+First I'll cut the tree with a fresh clone of Linus's current stuff,
+then add in all the things which are in the queue already (Neil's
+routing cache hacks, Thomas Graf's cgroup work, the print_mac() %pX
+bits, etc.)
 
-> [...] If you do that you'll not get enough I/O in parallel to 
-> schedule the disk well (not that most of our I/O schedulers are 
-> doing the job well, and the vm writeback threads then mess it up and 
-> the lack of Arjans ioprio fixes then totally screw you) </rant>
+As always you can get a good idea of what will be looked at and considered
+by taking a look at the patchwork queue for netdev:
 
-the best dbench results come from systems that have enough RAM to 
-cache the full working set, and a filesystem intelligent enough to not 
-insert bogus IO serialization cycles (ext3 is not such a filesystem).
+	http://patchwork.ozlabs.org/
 
-The moment there's real IO it becomes harder to analyze but the same 
-basic behavior remains: the more unfair the IO scheduler, the "better" 
-dbench results we get.
+I'll make another posting when the new tree is up and operational.
 
-	Ingo
+Thanks.
