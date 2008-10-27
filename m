@@ -1,41 +1,63 @@
-From: Mike Ditto <mditto@consentry.com>
-Subject: Re: [PATCH v2] powerpc/fs_enet: Add missing irq free in error path.
-Date: Mon, 27 Oct 2008 14:46:28 -0700
-Message-ID: <490636B4.2010202@consentry.com>
-References: <49027044.90509@consentry.com>
-	<1D4ED273-13FB-4D2F-82B1-89D2F6F0B9A1@kernel.crashing.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCHv3] printk: add %pM format specifier for MAC
+ addresses
+Date: Mon, 27 Oct 2008 14:55:15 -0700
+Message-ID: <1225144515.5269.40.camel@localhost>
+References: <1225067465.5672.1.camel@brick>
+	 <1225090765.3746.7.camel@johannes.berg> <1225124904.5440.1.camel@brick>
+	 <20081027.123805.134354592.davem@davemloft.net>
+	 <1225137542.5396.10.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1D4ED273-13FB-4D2F-82B1-89D2F6F0B9A1@kernel.crashing.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
+	anders@anduras.de, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
+To: Harvey Harrison <harvey.harrison@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:1523 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751327AbYJ0V4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 17:56:05 -0400
+In-Reply-To: <1225137542.5396.10.camel@brick>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If something goes wrong attaching to phy driver, we weren't freeing
-the IRQ.
+On Mon, 2008-10-27 at 12:59 -0700, Harvey Harrison wrote:
 
-Signed-off-by: Mike Ditto <mditto@consentry.com>
----
-Reposting to CC netdev list.  (Thanks, Kumar)
+The changes to use %p4 aren't too bad.
+I did that last year using a similar style
+to print_mac.  80 or so files.
+http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=shortlog;h=refs/heads/print_ipv4
+ipv6 was 30 or so files
+http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=shortlog;h=refs/heads/print_ipv6
 
-diff -r -upN 2.6.28-rc1/drivers/net/fs_enet/fs_enet-main.c NEW/drivers/net/fs_enet/fs_enet-main.c
---- 2.6.28-rc1/drivers/net/fs_enet/fs_enet-main.c	2008-10-24 17:54:31.000000000 -0700
-+++ NEW/drivers/net/fs_enet/fs_enet-main.c	2008-10-24 17:57:03.000000000 -0700
-@@ -795,6 +795,7 @@ static int fs_enet_open(struct net_devic
+> I was wondering if perhaps it would be
+> better to allow a length to be specified as well, which would allow:
+[]
+> But if that was added, it may be more natural to call it 
+> %pB (bytes)
+> %pW (words)
 
- 	err = fs_init_phy(dev);
- 	if (err) {
-+		free_irq(fep->interrupt, dev);
- 		if (fep->fpi->use_napi)
- 			napi_disable(&fep->napi);
- 		return err;
+I think length would not be good addition.
+print_dump_hex already does a fine job.
+There are also BE/LE expectation problems with pW.
+
+The %p6 pointer should be in6_addr *
+The %p4 pointer should be __be32 *.
+Printing an ipv4 address should use %u.%u.%u.%u
+
+I've been doodling with sparse to check
+calls with __attribute__(format(printf
+parsing the format strings for %p<FOO>
+and match the argument types.
+
+I'll post it if anything comes of it.
+
+> +static char *mac_address(char *buf, char *end, u8 *addr, int field_width,
+> +			 int precision, int flags)
+> +{
+
+mac_address_string please.
+
+
