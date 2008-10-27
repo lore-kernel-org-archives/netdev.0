@@ -1,35 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for October 27 (netdev/hp-plus)
-Date: Mon, 27 Oct 2008 12:33:14 -0700 (PDT)
-Message-ID: <20081027.123314.13620544.davem@davemloft.net>
-References: <20081027181725.8eb49b5e.sfr@canb.auug.org.au>
-	<20081027121956.c21d06be.rdunlap@xenotime.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: tbench wrt. loopback TSO
+Date: Mon, 27 Oct 2008 22:35:02 +0300
+Message-ID: <20081027193502.GA2590@ioremap.net>
+References: <20081027141332.GA4691@ioremap.net> <Pine.LNX.4.64.0810271704530.7072@wrl-59.cs.helsinki.fi> <20081027170314.GA25148@ioremap.net> <20081027.113904.211811887.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alan@lxorguk.ukuu.org.uk
-To: rdunlap@xenotime.net
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20081027121956.c21d06be.rdunlap@xenotime.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org, efault@gmx.de,
+	mingo@elte.hu, a.p.zijlstra@chello.nl, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netgear.net.ru ([195.178.208.66]:56594 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751135AbYJ0TfF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 15:35:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20081027.113904.211811887.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
-Date: Mon, 27 Oct 2008 12:19:56 -0700
+On Mon, Oct 27, 2008 at 11:39:04AM -0700, David Miller (davem@davemloft.net) wrote:
+> One idea immediately occurs to me.  Since we're effectively limited
+> to a 64K TSO frame, and the MSS is some value smaller than that, we
+> can probably get away with a reciprocol divide.  Even using a 16-bit
+> inverse value would suffice, so we wouldn't need to use u64's like
+> some other pieces of code do.  A u32 would be enough.
 
-> Are there any outstanding patches in this area?
-> 
-> build-r5284.out:hp-plus.c:(.text+0x2b99a): undefined reference to `eip_interrupt'
-> build-r5284.out:hp-plus.c:(.text+0x2ba0d): undefined reference to `eip_open'
-> build-r5284.out:hp-plus.c:(.text+0x2baef): undefined reference to `eip_close'
-> build-r5284.out:hp-plus.c:(.init.text+0x38ee): undefined reference to `NS8390p_init'
-> build-r5284.out:(.init.text+0x3948): undefined reference to `__alloc_eip_netdev'
-> build-r5284.out:make[1]: *** [.tmp_vmlinux1] Error 1
+But why do we need to trim that last bytes at the first place at all?
+Is it just enough to 'binary and' with 0xffff? Or is it what you mean? :)
 
-Grrr...  hp-plus.c uses the interfaces provided with 8390p.c but the Makefile
-links it together with plain 8390.c
-
-This is the most spectacular and longest standing build failure I've ever
-seen to be honest :-)
+-- 
+	Evgeniy Polyakov
