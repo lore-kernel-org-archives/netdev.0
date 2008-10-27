@@ -1,48 +1,51 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: [PATCH] wireless: fix regression caused by regulatory config
-	option
-Date: Mon, 27 Oct 2008 21:42:50 +0100
-Message-ID: <20081027204249.GA1620@ucw.cz>
-References: <20081026103024.2712ddc9@infradead.org> <20081026200939.GC12648@tuxdriver.com> <20081026131818.7517c103@infradead.org> <1225052537.3746.5.camel@johannes.berg>
+From: David Brownell <david-b@pacbell.net>
+Subject: [patch 2.6.28-rc2] at91_ether:  request/free GPIO for PHY interrupt
+Date: Mon, 27 Oct 2008 14:11:34 -0700
+Message-ID: <200810271411.34492.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rjw@sisk.pl, rodriguez@atheros.com
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Victor <linux@maxim.org.za>, Jeff Garzik <jgarzik@pobox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:57999 "EHLO UNKNOWN"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751947AbYJ0UnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2008 16:43:10 -0400
+Received: from smtp115.sbc.mail.sp1.yahoo.com ([69.147.64.88]:42639 "HELO
+	smtp115.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752323AbYJ0ViI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 17:38:08 -0400
 Content-Disposition: inline
-In-Reply-To: <1225052537.3746.5.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun 2008-10-26 21:22:16, Johannes Berg wrote:
-> On Sun, 2008-10-26 at 13:18 -0700, Arjan van de Ven wrote:
-> 
-> > > Is it common practice to have compatibility options default to
-> > > "y"?  I'm not saying it shouldn't be, just wondering if it has been
-> > > traditionally?
-> > 
-> > yes
-> > 
-> > default should be "keep working as before"
-> > 
-> > it's not always nice, especially if you're trying to get rid of some
-> > nasty stuff, but think of it this way: you should be able to use a
-> > new kernel on an existing distro, at least for a reasonable type of
-> > distro (eg something shipped in, say, the last 2 years). In this case:
-> > even Fedora 10 is not likely to work!
-> 
-> Well, actually, it _ought_ to work fine, with a smaller set of channels,
+From: David Brownell <dbrownell@users.sourceforge.net>
 
-Really? It will still break if your AP uses one of those channels, right?
+When the at91_ether driver is using a GPIO for its PHY interrupt,
+be sure to request (and later, if needed, free) that GPIO.
 
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+---
+ drivers/net/arm/at91_ether.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+--- a/drivers/net/arm/at91_ether.c
++++ b/drivers/net/arm/at91_ether.c
+@@ -1080,7 +1080,8 @@ static int __init at91ether_setup(unsign
+ 		init_timer(&lp->check_timer);
+ 		lp->check_timer.data = (unsigned long)dev;
+ 		lp->check_timer.function = at91ether_check_link;
+-	}
++	} else if (lp->board_data.phy_irq_pin >= 32)
++		gpio_request(lp->board_data.phy_irq_pin, "ethernet_phy");
+ 
+ 	/* Display ethernet banner */
+ 	printk(KERN_INFO "%s: AT91 ethernet at 0x%08x int=%d %s%s (%s)\n",
+@@ -1167,6 +1168,9 @@ static int __devexit at91ether_remove(st
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+ 	struct at91_private *lp = netdev_priv(dev);
+ 
++	if (lp->board_data.phy_irq_pin >= 32)
++		gpio_free(lp->board_data.phy_irq_pin);
++
+ 	unregister_netdev(dev);
+ 	free_irq(dev->irq, dev);
+ 	dma_free_coherent(NULL, sizeof(struct recv_desc_bufs), lp->dlist, (dma_addr_t)lp->dlist_phys);
