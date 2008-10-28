@@ -1,32 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] nf_conntrack_proto_gre: switch to	register_pernet_gen_subsys()
-Date: Tue, 28 Oct 2008 13:10:04 +0100
-Message-ID: <4907011C.1040104@trash.net>
-References: <20081025225104.GB18858@x200.localdomain>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 00/09]IPtablestng/Kernel - New Framework For IPtables
+Date: Tue, 28 Oct 2008 15:25:54 +0300
+Message-ID: <20081028122554.GA12945@ioremap.net>
+References: <20081027042834.0BA69C64087@host1.ystp.ac.ir> <20081028000044.GA16721@ioremap.net> <464293e60810280302j26112754o72c1cf3ebd6a0b1f@mail.gmail.com> <20081028104346.GA31146@ioremap.net> <4907008A.6050808@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netfiter-devel@vger.kernel.org, containters@lists.osdl.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60866 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753056AbYJ1MKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 08:10:07 -0400
-In-Reply-To: <20081025225104.GB18858@x200.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hamid jafarian <hamid.jafarian@gmail.com>,
+	Netfilter-devel <netfilter-devel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Harald Welte <laforge@gnumonks.org>,
+	Eric Leblond <eric@inl.fr>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Amin Azez <azez@ufomechanic.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4907008A.6050808@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
-> register_pernet_gen_device() can't be used is nf_conntrack_pptp module is
-> also used (compiled in or loaded).
-> 
-> Right now, proto_gre_net_exit() is called before nf_conntrack_pptp_net_exit().
-> The former shutdowns and frees GRE piece of netns, however the latter
-> absolutely needs it to flush keymap. Oops is inevitable.
-> 
-> Switch to shiny new register_pernet_gen_subsys() to get correct ordering in
-> netns ops list.
+On Tue, Oct 28, 2008 at 01:07:38PM +0100, Patrick McHardy (kaber@trash.net) wrote:
+> I think these patches are a lost cause. Besides the fact that they
+> move things to the kernel instead of to userspace, they
 
-Applied, thanks.
+What about part which replaces rules array with a list?
+That's the main part I was interested in though.
+
+-- 
+	Evgeniy Polyakov
