@@ -1,51 +1,43 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] tc35815: Define more Rx status bits
-Date: Tue, 28 Oct 2008 22:30:23 +0900 (JST)
-Message-ID: <20081028.223023.93205850.anemo@mba.ocn.ne.jp>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: r8169 MAC addresses broken
+Date: Tue, 28 Oct 2008 14:45:27 +0100
+Message-ID: <m3mygozvd4.fsf@maximus.localdomain>
+References: <490380C8.6070003@simon.arlott.org.uk>
+	<4903947A.3060206@gmail.com>
+	<20081025223443.GA30913@electric-eye.fr.zoreil.com>
+	<4904A7C5.7090801@gmail.com>
+	<20081026174654.GB24790@electric-eye.fr.zoreil.com>
+	<4906E4BE.9050304@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: linux-mips@linux-mips.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Simon Arlott <simon@fire.lp0.eu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Ivan Vecera <ivecera@redhat.com>,
+	Arjan van de Ven <arjan@infradead.org>
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:54316 "EHLO smtp.mba.ocn.ne.jp"
+Received: from khc.piap.pl ([195.187.100.11]:59932 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752669AbYJ1NaX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Oct 2008 09:30:23 -0400
+	id S1752120AbYJ1Np3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 09:45:29 -0400
+In-Reply-To: <4906E4BE.9050304@gmail.com> (Jiri Slaby's message of "Tue\, 28 Oct 2008 11\:09\:02 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change does not change driver's behaviour, just make its debug
-output a bit meaningful.
+Jiri Slaby <jirislaby@gmail.com> writes:
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
- drivers/net/tc35815.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+>> Same thing if you unplug the battery ?
+>
+> Thanks, now it seems to be OK.
 
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index df20caf..385b174 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -236,7 +236,7 @@ struct tc35815_regs {
- #define Rx_Halted	       0x00008000 /* Rx Halted			     */
- #define Rx_Good		       0x00004000 /* Rx Good			     */
- #define Rx_RxPar	       0x00002000 /* Rx Parity Error		     */
--			    /* 0x00001000    not use			     */
-+#define Rx_TypePkt	       0x00001000 /* Rx Type Packet		     */
- #define Rx_LongErr	       0x00000800 /* Rx Long Error		     */
- #define Rx_Over		       0x00000400 /* Rx Overflow		     */
- #define Rx_CRCErr	       0x00000200 /* Rx CRC Error		     */
-@@ -244,8 +244,9 @@ struct tc35815_regs {
- #define Rx_10Stat	       0x00000080 /* Rx 10Mbps Status		     */
- #define Rx_IntRx	       0x00000040 /* Rx Interrupt		     */
- #define Rx_CtlRecd	       0x00000020 /* Rx Control Receive		     */
-+#define Rx_InLenErr	       0x00000010 /* Rx In Range Frame Length Error  */
- 
--#define Rx_Stat_Mask	       0x0000EFC0 /* Rx All Status Mask		     */
-+#define Rx_Stat_Mask	       0x0000FFF0 /* Rx All Status Mask		     */
- 
- /* Int_En bit asign -------------------------------------------------------- */
- #define Int_NRAbtEn	       0x00000800 /* 1:Non-recoverable Abort Enable  */
+Well, perhaps reverting that patch was a bit premature?
+
+If removing battery fixes the problem then it's not the EEPROM.
+Perhaps the chip can go into some VPD-zeroed state? The first
+32-bits corruption seems unrelated to the patch, it still needs
+bisecting or debugging, right?
 -- 
-1.5.6.3
+Krzysztof Halasa
