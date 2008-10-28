@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/6] misc: replace NIP6_FMT with %p6 format specifier
-Date: Tue, 28 Oct 2008 16:06:54 -0700 (PDT)
-Message-ID: <20081028.160654.252305278.davem@davemloft.net>
-References: <1225223629.11483.41.camel@brick>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] infiniband: use %p6 for printing message ids
+Date: Tue, 28 Oct 2008 16:07:10 -0700
+Message-ID: <ada8ws8mi8x.fsf@cisco.com>
+References: <1225229901.11483.58.camel@brick>
+	<1225234963.5269.228.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: harvey.harrison@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Harvey Harrison <harvey.harrison@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38506
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753374AbYJ1XHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 19:07:17 -0400
-In-Reply-To: <1225223629.11483.41.camel@brick>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:32065 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753312AbYJ1XHL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 19:07:11 -0400
+In-Reply-To: <1225234963.5269.228.camel@localhost> (Joe Perches's message of
+	"Tue, 28 Oct 2008 16:02:43 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Tue, 28 Oct 2008 12:53:49 -0700
+ > I'm not sure any of these should be converted like this.
+ > Infiniband gids are not IPv6 addresses.
 
-> The iscsi_ibft.c changes are almost certainly a bugfix as the
-> pointer 'ip' is a u8 *, so they never print the last 8 bytes
-> of the IPv6 address, and the eight bytes they do print have
-> a zero byte with them in each 16-bit word.
-> 
-> Other than that, this should cause no difference in functionality.
-> 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+Actually, they are.  The IB specification section 4.1 says:
 
-Applied, thanks Harvey.
+ "A GID is a valid 128-bit IPv6 address (per RFC 2373) with additional
+  properties / restrictions defined...."
+
+and it makes sense to format an IB GID as an IPv6 address for display
+(that's what the IB spec does; eg it mentions the "Multicast GID
+FF02:0:0:0:0:0:0:1").
+
+ - R.
