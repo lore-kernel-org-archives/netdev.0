@@ -1,36 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6...
-Date: Mon, 27 Oct 2008 18:56:38 -0700 (PDT)
-Message-ID: <20081027.185638.81865921.davem@davemloft.net>
-References: <20081027.113503.149366323.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11855] New: kernel BUG when bringing down ppp
+ connection
+Date: Mon, 27 Oct 2008 20:24:07 -0700
+Message-ID: <20081027202407.7e390191.akpm@linux-foundation.org>
+References: <bug-11855-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, bluesloth600@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54209
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752056AbYJ1B5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 21:57:01 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 9C296C8C183
-	for <netdev@vger.kernel.org>; Mon, 27 Oct 2008 18:56:38 -0700 (PDT)
-In-Reply-To: <20081027.113503.149366323.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35759 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751921AbYJ1DYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 23:24:46 -0400
+In-Reply-To: <bug-11855-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 27 Oct 2008 11:35:03 -0700 (PDT)
 
-> Stephen Rothwell said earlier today that it's OK to "let it rip"
-> and allow new changes to start flowing into the linux-next tree.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Sat, 25 Oct 2008 17:34:16 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=11855
 > 
-> So I'll likely get the net-next-2.6 going today.
- ...
-> I'll make another posting when the new tree is up and operational.
+>            Summary: kernel BUG when bringing down ppp connection
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.27.3
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: bluesloth600@gmail.com
+> 
+> 
+> Latest working kernel version: 2.6.26.6
+> Earliest failing kernel version: 2.6.27
 
-Ok, it's ready to go, in the usual spot:
+A regression.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+> Distribution: Debian sid
+> Hardware Environment: Dell Inspiron 1721, AMD x86-64 SMP
+> Software Environment:
+> Gnu C                  4.3.2
+> Gnu make               3.81
+> binutils               2.18.0.20080103
+> util-linux             2.13.1.1
+> mount                  2.13.1.1
+> module-init-tools      found
+> Linux C Library        2.7
+> Dynamic linker (ldd)   2.7
+> Procps                 3.2.7
+> Console-tools          0.2.3
+> Sh-utils               6.10
+> udev                   125
+> 
+> Problem Description: I connect to my dialup service with a Zoom model 3048
+> modem connected via a Radio Shack 26-183 USB/serial converter cable.  When I
+> log off (using poff), sometimes it works perfectly, but usually after the modem
+> disconnects I get:
+> 
+> kernel BUG at drivers/char/tty_ldisc.c:199!
+> invalid opcode: 0000 [1] PREEMPT SMP
+> CPU 1
 
-Enjoy.
+This has an Alany feel to it?
+
+> and then 12 screenfuls of stack traces and stuff, with a bunch of "scheduling
+> while atomic" BUGs.. none of it ever managed to get in any logs, so I'll be
+> attaching photos of the screen.
+> 
+> At this point, sometimes the magic SysRq key combinations work, but usually
+> they don't, and I have to just turn the computer off.
+> 
+> I reproduced this with 2.6.27.2 and 2.6.27.3, and then with 2.6.27 using a
+> configuration closer to the one I use for 2.6.26.6.
+> 
+> I set the severity to high because this makes 2.6.27 unusable for me.
+> 
+> Steps to reproduce: hmm, guess I already said that.
+
+Additional details are attached to the bugzilla report.
