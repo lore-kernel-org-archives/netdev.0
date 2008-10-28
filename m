@@ -1,55 +1,156 @@
-From: "Grant Likely" <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v2)
-Date: Tue, 28 Oct 2008 09:30:10 -0600
-Message-ID: <fa686aa40810280830i1a5a7b84u1dfa8cd97c6b1420@mail.gmail.com>
-References: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
-	 <20081027143734.GA13565@secretlab.ca> <4906C338.6010300@teltonika.lt>
-	 <fa686aa40810280608q1c58e07cq7c5f2cc9feeb8ef6@mail.gmail.com>
-	 <20081028151755.GA1034@flint.arm.linux.org.uk>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netlink: constify struct nlattr * arg to parsing functions
+Date: Tue, 28 Oct 2008 16:33:32 +0100
+Message-ID: <490730CC.2050800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/mixed;
+ boundary="------------080009090103070109040500"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34291 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751116AbYJ1Pde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 11:33:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------080009090103070109040500
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org
-To: "Russell King - ARM Linux" <linux@arm.linux.org.uk>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <20081028151755.GA1034@flint.arm.linux.org.uk>
-Content-Disposition: inline
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Tue, Oct 28, 2008 at 9:17 AM, Russell King - ARM Linux
-<linux@arm.linux.org.uk> wrote:
-> On Tue, Oct 28, 2008 at 07:08:06AM -0600, Grant Likely wrote:
->> On Tue, Oct 28, 2008 at 1:46 AM, Paulius Zaleckas
->> <paulius.zaleckas@teltonika.lt> wrote:
->> > Grant Likely wrote:
->> >> The IRQ array is fixed size.  You can add it to the mdio_gpio_info
->> >> structure and then just set the pointer here so that only one kzalloc
->> >> is needed.
->> >
->> > It can be put in mdio_gpio_info, but please note that mdio_gpio_info is
->> > allocated with kzalloc() and irq with kmalloc(), because there is no need
->> > to fill this array with zeros(see below).
->>
->> Adding an additional 32 words to be zeroed in the mdio_gpio_info
->> kzalloc is considerably cheaper than doing an additional kmalloc.
->> Plus, once the array is zeroed it is then in the cache and so the
->> filling it with -1 also becomes cheaper.
->
-> Actually no, it doesn't become cheaper.  You're making the assumption
-> that cache lines are allocated when memory is written to.  This isn't
-> the case with the vast majority of ARM CPUs.
-
-Okay, I wasn't aware of that on ARM.
-
-However it is still true that increasing the size of the kzalloc is
-cheaper than doing 2 allocs.
-
-g.
 
 
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+--------------080009090103070109040500
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit cc823313faa0a950f1df7484fa38319a20cff2d0
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Oct 28 16:29:48 2008 +0100
+
+    netlink: constify struct nlattr * arg to parsing functions
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 3643bbb..46b7764 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -233,7 +233,7 @@ extern int		nla_parse(struct nlattr *tb[], int maxtype,
+ extern struct nlattr *	nla_find(struct nlattr *head, int len, int attrtype);
+ extern size_t		nla_strlcpy(char *dst, const struct nlattr *nla,
+ 				    size_t dstsize);
+-extern int		nla_memcpy(void *dest, struct nlattr *src, int count);
++extern int		nla_memcpy(void *dest, const struct nlattr *src, int count);
+ extern int		nla_memcmp(const struct nlattr *nla, const void *data,
+ 				   size_t size);
+ extern int		nla_strcmp(const struct nlattr *nla, const char *str);
+@@ -741,7 +741,7 @@ static inline struct nlattr *nla_find_nested(struct nlattr *nla, int attrtype)
+  * See nla_parse()
+  */
+ static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+-				   struct nlattr *nla,
++				   const struct nlattr *nla,
+ 				   const struct nla_policy *policy)
+ {
+ 	return nla_parse(tb, maxtype, nla_data(nla), nla_len(nla), policy);
+@@ -875,7 +875,7 @@ static inline int nla_put_msecs(struct sk_buff *skb, int attrtype,
+  * nla_get_u32 - return payload of u32 attribute
+  * @nla: u32 netlink attribute
+  */
+-static inline u32 nla_get_u32(struct nlattr *nla)
++static inline u32 nla_get_u32(const struct nlattr *nla)
+ {
+ 	return *(u32 *) nla_data(nla);
+ }
+@@ -884,7 +884,7 @@ static inline u32 nla_get_u32(struct nlattr *nla)
+  * nla_get_be32 - return payload of __be32 attribute
+  * @nla: __be32 netlink attribute
+  */
+-static inline __be32 nla_get_be32(struct nlattr *nla)
++static inline __be32 nla_get_be32(const struct nlattr *nla)
+ {
+ 	return *(__be32 *) nla_data(nla);
+ }
+@@ -893,7 +893,7 @@ static inline __be32 nla_get_be32(struct nlattr *nla)
+  * nla_get_u16 - return payload of u16 attribute
+  * @nla: u16 netlink attribute
+  */
+-static inline u16 nla_get_u16(struct nlattr *nla)
++static inline u16 nla_get_u16(const struct nlattr *nla)
+ {
+ 	return *(u16 *) nla_data(nla);
+ }
+@@ -902,7 +902,7 @@ static inline u16 nla_get_u16(struct nlattr *nla)
+  * nla_get_be16 - return payload of __be16 attribute
+  * @nla: __be16 netlink attribute
+  */
+-static inline __be16 nla_get_be16(struct nlattr *nla)
++static inline __be16 nla_get_be16(const struct nlattr *nla)
+ {
+ 	return *(__be16 *) nla_data(nla);
+ }
+@@ -911,7 +911,7 @@ static inline __be16 nla_get_be16(struct nlattr *nla)
+  * nla_get_le16 - return payload of __le16 attribute
+  * @nla: __le16 netlink attribute
+  */
+-static inline __le16 nla_get_le16(struct nlattr *nla)
++static inline __le16 nla_get_le16(const struct nlattr *nla)
+ {
+ 	return *(__le16 *) nla_data(nla);
+ }
+@@ -920,7 +920,7 @@ static inline __le16 nla_get_le16(struct nlattr *nla)
+  * nla_get_u8 - return payload of u8 attribute
+  * @nla: u8 netlink attribute
+  */
+-static inline u8 nla_get_u8(struct nlattr *nla)
++static inline u8 nla_get_u8(const struct nlattr *nla)
+ {
+ 	return *(u8 *) nla_data(nla);
+ }
+@@ -929,7 +929,7 @@ static inline u8 nla_get_u8(struct nlattr *nla)
+  * nla_get_u64 - return payload of u64 attribute
+  * @nla: u64 netlink attribute
+  */
+-static inline u64 nla_get_u64(struct nlattr *nla)
++static inline u64 nla_get_u64(const struct nlattr *nla)
+ {
+ 	u64 tmp;
+ 
+@@ -942,7 +942,7 @@ static inline u64 nla_get_u64(struct nlattr *nla)
+  * nla_get_flag - return payload of flag attribute
+  * @nla: flag netlink attribute
+  */
+-static inline int nla_get_flag(struct nlattr *nla)
++static inline int nla_get_flag(const struct nlattr *nla)
+ {
+ 	return !!nla;
+ }
+@@ -953,7 +953,7 @@ static inline int nla_get_flag(struct nlattr *nla)
+  *
+  * Returns the number of milliseconds in jiffies.
+  */
+-static inline unsigned long nla_get_msecs(struct nlattr *nla)
++static inline unsigned long nla_get_msecs(const struct nlattr *nla)
+ {
+ 	u64 msecs = nla_get_u64(nla);
+ 
+diff --git a/net/netlink/attr.c b/net/netlink/attr.c
+index 2d106cf..c83fea7 100644
+--- a/net/netlink/attr.c
++++ b/net/netlink/attr.c
+@@ -233,7 +233,7 @@ size_t nla_strlcpy(char *dst, const struct nlattr *nla, size_t dstsize)
+  *
+  * Returns the number of bytes copied.
+  */
+-int nla_memcpy(void *dest, struct nlattr *src, int count)
++int nla_memcpy(void *dest, const struct nlattr *src, int count)
+ {
+ 	int minlen = min_t(int, count, nla_len(src));
+ 
+
+--------------080009090103070109040500--
