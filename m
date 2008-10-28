@@ -1,33 +1,40 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Tue, 28 Oct 2008 12:02:29 +0100
-Message-ID: <20081028110229.GA29764@elte.hu>
-References: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk> <20081027183312.GD11494@elte.hu> <20081027193933.GB2590@ioremap.net> <20081027.124848.163119274.davem@davemloft.net> <1225189462.4903.238.camel@marge.simson.net> <20081028103741.GA22319@elte.hu> <1225191456.4903.254.camel@marge.simson.net>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v3)
+Date: Tue, 28 Oct 2008 13:31:35 +0200
+Message-ID: <4906F817.4050306@teltonika.lt>
+References: <20081028103537.28951.4804.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <8bd0f97a0810280350j385a0239if7a33928f7bb11f1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net,
-	alan@lxorguk.ukuu.org.uk, jkosina@suse.cz,
-	akpm@linux-foundation.org, a.p.zijlstra@chello.nl, rjw@sisk.pl,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Mike Galbraith <efault@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:45418 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752693AbYJ1LCr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Oct 2008 07:02:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1225191456.4903.254.camel@marge.simson.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: Mike Frysinger <vapier.adi@gmail.com>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+In-Reply-To: <8bd0f97a0810280350j385a0239if7a33928f7bb11f1@mail.gmail.com>
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Mike Frysinger wrote:
+> On Tue, Oct 28, 2008 at 06:35, Paulius Zaleckas wrote:
+>> +config MDIO_GPIO
+>> +       tristate "Support for GPIO bitbanged MDIO buses"
+>>  config MDIO_OF_GPIO
+>>        tristate "Support for GPIO lib-based bitbanged MDIO buses"
+> 
+> seems to me these drivers have the same description ...
 
-* Mike Galbraith <efault@gmx.de> wrote:
+Yes... but it is MDIO_OF_GPIO description that needs changing...
+Should I make patch for it?
 
-> What I can say is that my box is quite certain that there are 
-> influences outside the scheduler which have more influence benchmark 
-> results than the scheduler does through the life of testing.
+>> +++ b/include/linux/mdio-gpio.h
+>> + * You should have received a copy of the GNU General Public License
+>> + * along with this program; if not, write to the Free Software
+>> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+> 
+> this is why short GPL notices are nice ... you dont end up with
+> outdated contact information like this ...
 
-okay, that's an important observation.
+It came from mdio-ofgpio driver... If you can mail suitable short GPL notice
+I will put it there instead of updating address.
 
-	Ingo
+> -mike
