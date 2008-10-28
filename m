@@ -1,116 +1,73 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v2)
-Date: Tue, 28 Oct 2008 09:46:00 +0200
-Message-ID: <4906C338.6010300@teltonika.lt>
-References: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <20081027143734.GA13565@secretlab.ca>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC PATCHv3] printk: add %pM format specifier for MAC
+	addresses
+Date: Tue, 28 Oct 2008 09:04:51 +0100
+Message-ID: <1225181091.3796.69.camel@johannes.berg>
+References: <1225124904.5440.1.camel@brick>
+	 <20081027.123805.134354592.davem@davemloft.net>
+	 <1225137542.5396.10.camel@brick>
+	 <20081027.154736.178482850.davem@davemloft.net>
+	 <1225149254.6339.4.camel@brick>  <1225151305.5269.105.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:47759 "EHLO
-	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752577AbYJ1HqU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Oct 2008 03:46:20 -0400
-In-Reply-To: <20081027143734.GA13565@secretlab.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-BC8mBCzcgqcogHZpMcIm"
+Cc: Harvey Harrison <harvey.harrison@gmail.com>,
+	David Miller <davem@davemloft.net>, anders@anduras.de,
+	netdev@vger.kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752927AbYJ1IFU@vger.kernel.org>
+In-Reply-To: <1225151305.5269.105.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Grant Likely wrote:
-> On Mon, Oct 27, 2008 at 12:53:22PM +0200, Paulius Zaleckas wrote:
->> Useful for machines where PHY control is connected to GPIO.
->> This driver also supports interrupts from PHY.
->>
->> Changes since v1:
->> - fixed releasing of gpio (thanks to Sascha Hauer)
->> - fixed compiling due to bus->dev to bus->parent change
->>
->> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
->> ---
-> 
-> Well structured driver.  Comments below.
 
-Thanks for review.
+--=-BC8mBCzcgqcogHZpMcIm
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
->> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
->> new file mode 100644
->> index 0000000..585897b
->> --- /dev/null
->> +++ b/drivers/net/phy/mdio-gpio.c
+On Mon, 2008-10-27 at 16:48 -0700, Joe Perches wrote:
+> On Mon, 2008-10-27 at 16:14 -0700, Harvey Harrison wrote:
+> > I was thinking of using %pI6 to replace NIP6() and NIP6_FMT and using
+> > %#pI6 for NIP6_SEQFMT.
+> >=20
+> > On the IPv4 side, maybe use %pI4 for network endian NIPQUAD() and NIPQU=
+AD_FMT
+> > and then %#pI4 for host-endian HIQUAD(), as displaying the IPv4 address=
+ without
+> > the periods isn't useful?
+>=20
+> HIPQUAD is horrible and should disappear.
+> Just use htonl first.
 
-[...]
+But you can't really say
 
-> 
->> +static int __devinit mdio_gpio_probe(struct platform_device *pdev)
->> +{
->> +	struct mii_bus *new_bus;
->> +	struct mdio_gpio_info *bitbang;
->> +	struct mdio_gpio_platform_data *pdata;
->> +	int ret = -ENOMEM;
->> +	int i;
->> +
->> +	pdata = pdev->dev.platform_data;
->> +	if (pdata == NULL)
->> +		goto out;
->> +
->> +	bitbang = kzalloc(sizeof(struct mdio_gpio_info), GFP_KERNEL);
->> +	if (!bitbang)
->> +		goto out;
->> +
->> +	bitbang->ctrl.ops = &mdio_gpio_ops;
->> +	bitbang->mdc = pdata->mdc;
->> +	bitbang->mdio = pdata->mdio;
->> +
->> +	if (gpio_request(bitbang->mdc, "mdc"))
->> +		goto out_free_bitbang;
->> +
->> +	if (gpio_request(bitbang->mdio, "mdio"))
->> +		goto out_free_mdc;
->> +
->> +	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
->> +	if (!new_bus)
->> +		goto out_free_gpio;
->> +
->> +	new_bus->name = "GPIO Bitbanged MII",
->> +	snprintf(new_bus->id, MII_BUS_ID_SIZE, "phy%i", pdev->id);
->> +
->> +	new_bus->phy_mask = ~0;
->> +	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
->> +	if (!new_bus->irq)
->> +		goto out_free_bus;
-> 
-> The IRQ array is fixed size.  You can add it to the mdio_gpio_info
-> structure and then just set the pointer here so that only one kzalloc
-> is needed.
+printk("... %p4 ...", &htonl(host_ip4));
 
-It can be put in mdio_gpio_info, but please note that mdio_gpio_info is
-allocated with kzalloc() and irq with kmalloc(), because there is no need
-to fill this array with zeros(see below).
+can you? I suppose the compiler would actually create a variable for
+that?
 
->> +
->> +	for (i = 0; i < PHY_MAX_ADDR; i++)
->> +		new_bus->irq[i] = PHY_POLL;
->> +
->> +	for (i = 0; i < pdata->nr_phys; i++) {
->> +		unsigned int phy_addr = pdata->phys[i].addr;
->> +
->> +		BUG_ON(phy_addr >= PHY_MAX_ADDR);
-> 
-> Is it really worth bringing down the whole kernel when too many phys are
-> specified in pdata?
-> 
->> +
->> +		new_bus->phy_mask &= ~(1 << phy_addr);
->> +		new_bus->irq[phy_addr] = pdata->phys[i].irq;
->> +	}
->> +
->> +	new_bus->parent = &pdev->dev;
->> +	platform_set_drvdata(pdev, new_bus);
->> +
->> +	ret = mdiobus_register(new_bus);
->> +	if (ret)
->> +		goto out_free_all;
->> +
->> +	return 0;
+johannes
+
+--=-BC8mBCzcgqcogHZpMcIm
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJBsefAAoJEKVg1VMiehFYZ64QAK5IiW/DdebL5lEeh1TsXB4k
+96RhdNby57/j7zTvj6rtjwgUCgv5a4yyRXc7u5iTetyx8SNk0x2p8kBxqvCY2RxU
++oq4xPiT2vTNN0eOUGln6pboAg2DS4/PQvvV42lVPD9jeNjbXM0hzz80GPTaADbo
+l78etzVaiBVeaYZeZhzVUq1eGoh3BSUFQ2xjjGSt4iqiSKybelOF60Sqta6eAQU1
+MeX5mVV48XhhUCRhqMMivF1yYaruv5SVnpvAhnvOY/qNB6VkxXBNYYs+W/rmObXi
+v1wSSlcpGfXr+Q/3h70GfQnrbz6Fm0cFwFQvQXGCUDrG71tirq5ueG8aDjQpaA7r
+dW1ymDHEH0KBHU8R8+qVS39FFUIsTei4p417Z4BEANTWqB/yF0hytvdxorZesUa9
+oumAgafmSAgyNA9VN9jqjUlfVzVySVym5dbds/o6l6r09FeQTBdR/lhLXI4JxpJ+
+vfJ/E/hpM6o3Dtz5q5u1iBVhVy6VLnQ++AioHnR09cTWGMc9CyBvjdy2nEAhVByb
+AXH/EZKVs6G/89kC3UEyFHhF6OG4tl98T32zL5+11K8L+zH5BEhoAiozrvrS06Qg
+4RQDyIH2A8JiVvTHs7RvkbZdDnR00kxt+h/3wcyp00X2oO2iGN4OSzsk/VwOs67i
+rimenRp+fglXPmg0QGid
+=cl+w
+-----END PGP SIGNATURE-----
+
+--=-BC8mBCzcgqcogHZpMcIm--
