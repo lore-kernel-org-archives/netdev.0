@@ -1,101 +1,65 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] uwb: use the %pM formatting specifier in eda.c
-Date: Tue, 28 Oct 2008 15:55:44 -0700
-Message-ID: <1225234544.11483.65.camel@brick>
+From: Yavor Goulishev <yavor@simplifymedia.com>
+Subject: Patch - Establishing more than 64K outgoing TCP connections
+Date: Tue, 28 Oct 2008 14:51:00 -0400
+Message-ID: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830@MBX73.ad2.softcom.biz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="_002_241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830MBX73ad2softc_"
+Cc: David Miller <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.230]:22615 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752476AbYJ1Wzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 18:55:49 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2967241rvb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 15:55:48 -0700 (PDT)
+Received: from xsmtp06.mail2web.com ([168.144.250.246]:35560 "EHLO
+	xsmtp06.mail2web.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752957AbYJ1Wz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 18:55:56 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
- drivers/uwb/wlp/eda.c |   38 +++++++++-----------------------------
- 1 files changed, 9 insertions(+), 29 deletions(-)
+--_002_241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830MBX73ad2softc_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/uwb/wlp/eda.c b/drivers/uwb/wlp/eda.c
-index cdfe8df..10985fa 100644
---- a/drivers/uwb/wlp/eda.c
-+++ b/drivers/uwb/wlp/eda.c
-@@ -313,12 +313,9 @@ int wlp_eda_for_virtual(struct wlp_eda *eda,
- 	list_for_each_entry(itr, &eda->cache, list_node) {
- 		if (!memcmp(itr->virt_addr, virt_addr,
- 			   sizeof(itr->virt_addr))) {
--			d_printf(6, dev, "EDA: looking for "
--			       "%02x:%02x:%02x:%02x:%02x:%02x hit %02x:%02x "
-+			d_printf(6, dev, "EDA: looking for %pM hit %02x:%02x "
- 			       "wss %p tag 0x%02x state %u\n",
--			       virt_addr[0], virt_addr[1],
--			       virt_addr[2], virt_addr[3],
--			       virt_addr[4], virt_addr[5],
-+			       virt_addr,
- 			       itr->dev_addr.data[1],
- 			       itr->dev_addr.data[0], itr->wss,
- 			       itr->tag, itr->state);
-@@ -327,24 +324,13 @@ int wlp_eda_for_virtual(struct wlp_eda *eda,
- 			found = 1;
- 			break;
- 		} else
--			d_printf(6, dev, "EDA: looking for "
--			       "%02x:%02x:%02x:%02x:%02x:%02x "
--			       "against "
--			       "%02x:%02x:%02x:%02x:%02x:%02x miss\n",
--			       virt_addr[0], virt_addr[1],
--			       virt_addr[2], virt_addr[3],
--			       virt_addr[4], virt_addr[5],
--			       itr->virt_addr[0], itr->virt_addr[1],
--			       itr->virt_addr[2], itr->virt_addr[3],
--			       itr->virt_addr[4], itr->virt_addr[5]);
-+			d_printf(6, dev, "EDA: looking for %pM against %pM miss\n",
-+			         virt_addr, itr->virt_addr);
- 	}
- 	if (!found) {
- 		if (printk_ratelimit())
--			dev_err(dev, "EDA: Eth addr %02x:%02x:%02x"
--				":%02x:%02x:%02x not found.\n",
--				virt_addr[0], virt_addr[1],
--				virt_addr[2], virt_addr[3],
--				virt_addr[4], virt_addr[5]);
-+			dev_err(dev, "EDA: Eth addr %pM not found.\n",
-+				virt_addr);
- 		result = -ENODEV;
- 	}
- 	spin_unlock_irqrestore(&eda->lock, flags);
-@@ -380,19 +366,13 @@ ssize_t wlp_eda_show(struct wlp *wlp, char *buf)
- 			   "tag state virt_addr\n");
- 	list_for_each_entry(entry, &eda->cache, list_node) {
- 		result += scnprintf(buf + result, PAGE_SIZE - result,
--				    "%02x:%02x:%02x:%02x:%02x:%02x %02x:%02x "
--				    "%p 0x%02x %s "
--				    "%02x:%02x:%02x:%02x:%02x:%02x\n",
--				    entry->eth_addr[0], entry->eth_addr[1],
--				    entry->eth_addr[2], entry->eth_addr[3],
--				    entry->eth_addr[4], entry->eth_addr[5],
-+				    "%pM %02x:%02x %p 0x%02x %s %pM\n",
-+				    entry->eth_addr,
- 				    entry->dev_addr.data[1],
- 				    entry->dev_addr.data[0], entry->wss,
- 				    entry->tag,
- 				    wlp_wss_connect_state_str(entry->state),
--				    entry->virt_addr[0], entry->virt_addr[1],
--				    entry->virt_addr[2], entry->virt_addr[3],
--				    entry->virt_addr[4], entry->virt_addr[5]);
-+				    entry->virt_addr);
- 		if (result >= PAGE_SIZE)
- 			break;
- 	}
--- 
-1.6.0.3.756.gb776d
+Hi guys,
+I'm sending you a tiny patch for the kernel.
+The change allowed me to establish more than 64K outgoing TCP connections f=
+rom a single Linux box.
+Being able to use multihomed client box to load test a server reduced drama=
+tically the number of physical boxes I needed.
+The other way to go was virtual machines, but you can't beat the simplicity=
+ of the single multihomed client.
+Also the patch fixes an important symmetry.
+Using the multihome setup is a simple technique to overcome the 64K limit o=
+n the server side.
+The patch makes it possible on the client side too.
+
+The fix is only for TCP but probably the same issue exists for UDP.
+I didn't had the time to investigate.
+
+The patch is against the latest code base 2.6.28-rc2.
+
+--Yavor
 
 
 
+--_002_241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830MBX73ad2softc_
+Content-Type: text/x-diff; name="patch.diff"
+Content-Description: patch.diff
+Content-Disposition: attachment; filename="patch.diff"; size=582;
+	creation-date="Tue, 28 Oct 2008 00:32:18 GMT";
+	modification-date="Tue, 28 Oct 2008 00:32:18 GMT"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2luZXRfY29ubmVjdGlvbl9zb2NrLmMgYi9uZXQvaXB2NC9p
+bmV0X2Nvbm5lY3Rpb25fc29jay5jCmluZGV4IGJkMTI3OGEuLmQ3MmZiYTYgMTAwNjQ0Ci0tLSBh
+L25ldC9pcHY0L2luZXRfY29ubmVjdGlvbl9zb2NrLmMKKysrIGIvbmV0L2lwdjQvaW5ldF9jb25u
+ZWN0aW9uX3NvY2suYwpAQCAtMTA5LDcgKzEwOSw5IEBAIGludCBpbmV0X2Nza19nZXRfcG9ydChz
+dHJ1Y3Qgc29jayAqc2ssIHVuc2lnbmVkIHNob3J0IHNudW0pCiAJCQkJCWhhc2hpbmZvLT5iaGFz
+aF9zaXplKV07CiAJCQlzcGluX2xvY2soJmhlYWQtPmxvY2spOwogCQkJaW5ldF9iaW5kX2J1Y2tl
+dF9mb3JfZWFjaCh0Yiwgbm9kZSwgJmhlYWQtPmNoYWluKQotCQkJCWlmICh0Yi0+aWJfbmV0ID09
+IG5ldCAmJiB0Yi0+cG9ydCA9PSByb3ZlcikKKwkJCQlpZiAodGItPmliX25ldCA9PSBuZXQgJiYK
+KwkJCQkgICAgdGItPnBvcnQgPT0gcm92ZXIgJiYKKwkJCQkgICAgaW5ldF9jc2soc2spLT5pY3Nr
+X2FmX29wcy0+YmluZF9jb25mbGljdChzaywgdGIpKQogCQkJCQlnb3RvIG5leHQ7CiAJCQlicmVh
+azsKIAkJbmV4dDoK
+
+--_002_241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830MBX73ad2softc_--
