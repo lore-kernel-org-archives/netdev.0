@@ -1,120 +1,51 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: don't use INIT_RCU_HEAD
-Date: Tue, 28 Oct 2008 16:31:24 +0300
-Message-ID: <20081028133124.GA3006@x200.localdomain>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: [PATCH] tc35815: Define more Rx status bits
+Date: Tue, 28 Oct 2008 22:30:23 +0900 (JST)
+Message-ID: <20081028.223023.93205850.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:7088 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568AbYJ1N2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 09:28:00 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so1027315eyi.37
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 06:27:58 -0700 (PDT)
-Content-Disposition: inline
+Received: from mba.ocn.ne.jp ([122.1.235.107]:54316 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752669AbYJ1NaX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 09:30:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-call_rcu() will unconditionally rewrite RCU head anyway.
-Applies to 
-	struct neigh_parms
-	struct neigh_table
-	struct net
-	struct cipso_v4_doi
-	struct in_ifaddr
-	struct in_device
-	rt->u.dst
+This change does not change driver's behaviour, just make its debug
+output a bit meaningful.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 ---
+ drivers/net/tc35815.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
- net/core/neighbour.c     |    2 --
- net/core/net_namespace.c |    2 --
- net/ipv4/cipso_ipv4.c    |    1 -
- net/ipv4/devinet.c       |    9 +--------
- net/ipv4/route.c         |    1 -
- 5 files changed, 1 insertion(+), 14 deletions(-)
-
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1340,7 +1340,6 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 	if (p) {
- 		p->tbl		  = tbl;
- 		atomic_set(&p->refcnt, 1);
--		INIT_RCU_HEAD(&p->rcu_head);
- 		p->reachable_time =
- 				neigh_rand_reach_time(p->base_reachable_time);
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index df20caf..385b174 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -236,7 +236,7 @@ struct tc35815_regs {
+ #define Rx_Halted	       0x00008000 /* Rx Halted			     */
+ #define Rx_Good		       0x00004000 /* Rx Good			     */
+ #define Rx_RxPar	       0x00002000 /* Rx Parity Error		     */
+-			    /* 0x00001000    not use			     */
++#define Rx_TypePkt	       0x00001000 /* Rx Type Packet		     */
+ #define Rx_LongErr	       0x00000800 /* Rx Long Error		     */
+ #define Rx_Over		       0x00000400 /* Rx Overflow		     */
+ #define Rx_CRCErr	       0x00000200 /* Rx CRC Error		     */
+@@ -244,8 +244,9 @@ struct tc35815_regs {
+ #define Rx_10Stat	       0x00000080 /* Rx 10Mbps Status		     */
+ #define Rx_IntRx	       0x00000040 /* Rx Interrupt		     */
+ #define Rx_CtlRecd	       0x00000020 /* Rx Control Receive		     */
++#define Rx_InLenErr	       0x00000010 /* Rx In Range Frame Length Error  */
  
-@@ -1412,7 +1411,6 @@ void neigh_table_init_no_netlink(struct neigh_table *tbl)
- 	tbl->parms.net = &init_net;
- #endif
- 	atomic_set(&tbl->parms.refcnt, 1);
--	INIT_RCU_HEAD(&tbl->parms.rcu_head);
- 	tbl->parms.reachable_time =
- 			  neigh_rand_reach_time(tbl->parms.base_reachable_time);
+-#define Rx_Stat_Mask	       0x0000EFC0 /* Rx All Status Mask		     */
++#define Rx_Stat_Mask	       0x0000FFF0 /* Rx All Status Mask		     */
  
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -47,7 +47,6 @@ static __net_init int setup_net(struct net *net)
- 		goto out;
- 
- 	ng->len = INITIAL_NET_GEN_PTRS;
--	INIT_RCU_HEAD(&ng->rcu);
- 	rcu_assign_pointer(net->gen, ng);
- 
- 	error = 0;
-@@ -446,7 +445,6 @@ int net_assign_generic(struct net *net, int id, void *data)
- 	 */
- 
- 	ng->len = id;
--	INIT_RCU_HEAD(&ng->rcu);
- 	memcpy(&ng->ptr, &old_ng->ptr, old_ng->len);
- 
- 	rcu_assign_pointer(net->gen, ng);
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -490,7 +490,6 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def)
- 	}
- 
- 	atomic_set(&doi_def->refcount, 1);
--	INIT_RCU_HEAD(&doi_def->rcu);
- 
- 	spin_lock(&cipso_v4_doi_list_lock);
- 	if (cipso_v4_doi_search(doi_def->doi) != NULL)
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -112,13 +112,7 @@ static inline void devinet_sysctl_unregister(struct in_device *idev)
- 
- static struct in_ifaddr *inet_alloc_ifa(void)
- {
--	struct in_ifaddr *ifa = kzalloc(sizeof(*ifa), GFP_KERNEL);
--
--	if (ifa) {
--		INIT_RCU_HEAD(&ifa->rcu_head);
--	}
--
--	return ifa;
-+	return kzalloc(sizeof(struct in_ifaddr), GFP_KERNEL);
- }
- 
- static void inet_rcu_free_ifa(struct rcu_head *head)
-@@ -161,7 +155,6 @@ static struct in_device *inetdev_init(struct net_device *dev)
- 	in_dev = kzalloc(sizeof(*in_dev), GFP_KERNEL);
- 	if (!in_dev)
- 		goto out;
--	INIT_RCU_HEAD(&in_dev->rcu_head);
- 	memcpy(&in_dev->cnf, dev_net(dev)->ipv4.devconf_dflt,
- 			sizeof(in_dev->cnf));
- 	in_dev->cnf.sysctl = NULL;
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1386,7 +1386,6 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 
- 				/* Copy all the information. */
- 				*rt = *rth;
--				INIT_RCU_HEAD(&rt->u.dst.rcu_head);
- 				rt->u.dst.__use		= 1;
- 				atomic_set(&rt->u.dst.__refcnt, 1);
- 				rt->u.dst.child		= NULL;
+ /* Int_En bit asign -------------------------------------------------------- */
+ #define Int_NRAbtEn	       0x00000800 /* 1:Non-recoverable Abort Enable  */
+-- 
+1.5.6.3
