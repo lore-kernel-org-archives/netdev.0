@@ -1,78 +1,78 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC PATCHv3] printk: add %pM format specifier for MAC
-	addresses
-Date: Tue, 28 Oct 2008 09:06:26 +0100
-Message-ID: <1225181186.3796.71.camel@johannes.berg>
-References: <1225137542.5396.10.camel@brick>
-	 <20081027.154736.178482850.davem@davemloft.net>
-	 <1225149254.6339.4.camel@brick>
-	 <20081027.165556.30975206.davem@davemloft.net>
-	 <1225152339.5526.1.camel@brick>  <1225153359.5269.112.camel@localhost>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH/RFC] mac80211: convert to %pM away from print_mac
+Date: Tue, 28 Oct 2008 09:07:24 +0100
+Message-ID: <1225181244.3796.73.camel@johannes.berg>
+References: <1224892243.3919.32.camel@johannes.berg>
+	 <20081027.155243.206513005.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Zvqdjih7hO5WSTMLeT8m"
-Cc: Harvey Harrison <harvey.harrison@gmail.com>,
-	David Miller <davem@davemloft.net>, anders@anduras.de,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:51211 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149AbYJ1IGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 04:06:34 -0400
-In-Reply-To: <1225153359.5269.112.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-QoJ9IJudhfVfx29+Vxap"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081027.155243.206513005.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---=-Zvqdjih7hO5WSTMLeT8m
+--=-QoJ9IJudhfVfx29+Vxap
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2008-10-27 at 17:22 -0700, Joe Perches wrote:
-> On Mon, 2008-10-27 at 17:05 -0700, Harvey Harrison wrote:
-> > On Mon, 2008-10-27 at 16:55 -0700, David Miller wrote:
-> > > I'm ok with the '#' modifier but remind me again what's wrong with
-> > > using plain %p4 and %p6?
-> > Nothing at all, just wanted to know what color bikeshed you wanted.
-> > I'll go with %p4 %p6.
+On Mon, 2008-10-27 at 15:52 -0700, David Miller wrote:
+> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Date: Sat, 25 Oct 2008 01:50:43 +0200
 >=20
-> Just an FYI for v6 addresses:
+> > Also remove a few stray DECLARE_MAC_BUF that were no longer
+> > used at all.
+> >=20
+> > Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> > ---
+> > Not sure this will apply to your tree, I prepared it against John's tre=
+e
+> > which might have more things. If you put the previous patch in, I
+> > suppose John _could_ put it into his tree, but then he'd have to pull i=
+n
+> > yours which he normally doesn't... No idea. I can also just postpone
+> > this?
 >=20
-> There are a few uses of ipv6 address as "%08X%08X%08X%08X"=20
-> Pavel Emelyanov tried to isolate them with a suggested patch:
->=20
-> http://www.mail-archive.com/netdev@vger.kernel.org/msg51655.html
->=20
-> These addresses are not shown in network order, but are
-> printed backwards in host order. Oops.  Apparently it's
-> too late to fix them.
+> I munged this to apply to my tree, the only conflicts were in
+> mlme.c
 
-So that code we don't touch here at all.
+Yeah, that's the ones I had too.
+
+> Sorry John, one of us had to deal with this :-)
+
+John, you can always just take your version, and if I see print_mac show
+up in mac80211 again then I'll send you another patch.
 
 johannes
 
---=-Zvqdjih7hO5WSTMLeT8m
+--=-QoJ9IJudhfVfx29+Vxap
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIcBAABAgAGBQJJBsf7AAoJEKVg1VMiehFYk04P/A8HmZYZq1pqvu2IA3l0Ww2i
-bhGjJzO4SZSs75wHT+exPXmKUmWSbeueasxOyFS9PosIo5iRYjq2v7qgzJXH2mf9
-DzWaoAn3WCxW2iolhFLZGVrGRUJhAqGhakhskM2gLHTiIeKSV6MtCQCNjLVayynQ
-uYeuttx456/UwMeUDSgMypAOxOkKKXYHT4OXQ8xgz0I0wuU+UM3xLkdkcyy7aHZG
-6KfwuX/s47Z9Q3BFBw46JLS26evcStMI9UYIFXcXLSanDcFGsJddikEnQABQ0GAp
-IiVjPt+jpwLpOKKL4EMGuE3gomSAP6QDj9GzHgaOix0Xppf8AH7l1NtI231+9EC6
-tvBuXaFYfDhR3KjfcSzzmti2+JGYy00Slb0VWXqX43l34o2PHr/SEGQDkDAiISwe
-eMacSPMF9oOJCjJej81q2BHKcXsqEtDowT8fR1VV/RvxFGr98iXyQB7WWOQsk93a
-wc5mutba4c4m4AQZHdwAzk82zooBCGgSoZY7I4KAqnnFTf23WYBR8tdTqcclMVgO
-G0anZz2GZiBXA0YuRVptF3pk2OseiHwZbosfXPLq8L4vql/9w2l30pKgkZmw8CVx
-Gmg5qhGjU7ZZpvFIxxxLEfv/HtF8djEJe66/6xcIhqiJ8MmXkLMfNBSyLK/XNjGy
-zSUuPReRkPJFswf7phlD
-=msGc
+iQIcBAABAgAGBQJJBsg4AAoJEKVg1VMiehFYV+AQAIWphczN2nyxf+kCCFVp/F6D
+ZrQMxHslMdkXUs22p15k5GyopaUDv2+2bUcnUZ/8mbjZxJy30+dmyJaYk8CunVPJ
+AWCPcyDGmujA2y5XkOxvViXeAEChVHuJsOwsvtKX6mni4UWsNVRjF1OeQGmft/fP
+fa84a0O1Iwb2UBvg5FJHEv/Nnym77JmkyZC3uMZD17bffkSgtNhRgQvhYkkcK+Fq
+E6Mu3QEd2Cw9eDXul4QemzIwFw6MaxiwoaqJsVv2AIbnzgTMaN6ee3gnYELKQT8f
+gK/GCRlLatC461QyMcknyZwY7mncwrI6A8hY2u0yNXwu/FOEINBTq5EOHPNBPNm9
+eHbOG4Oh8zNaE0OiH4Lv6N7lNSCvlwkm0755fvzPJEIfF8LcMDHzJbVjLvACe9bT
+dlpq3bvwdYeXP1/DYZiVN+zNQHK20zBq+JG1HMoa+/Fr04e8CFT2bwbe/kjwN2rg
+O+yu4T9vn+DCSAdYIiInI2TN902X+OBMWsVNr752xyPCAs1kLs7+PvoLmjh4q4cI
+rfmGdAdROv9QWkPh1uiFAI6wyb6JyYMbDykCk4kQjRjpWZbzZyBFpxlAxaZKK6tB
+n4txkW4ZRH8KR2hp2CvQq526atyUvmr9GDxluLsIjNvjIY0yRzDl8AHek9n5p+wR
+N15tFQyt725bW2g7rHnq
+=KY62
 -----END PGP SIGNATURE-----
 
---=-Zvqdjih7hO5WSTMLeT8m--
+--=-QoJ9IJudhfVfx29+Vxap--
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
