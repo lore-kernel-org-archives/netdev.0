@@ -1,192 +1,77 @@
-From: "Benjamin Li" <benli@broadcom.com>
-Subject: Re: [PATCH] PCI: Limit VPD length for Broadcom 5708S
-Date: Mon, 27 Oct 2008 20:26:25 -0700
-Message-ID: <1225164385.3977.11.camel@localhost>
-References: <48920413.6080508@cosmosbay.com>
- <4906405F.6080708@cosmosbay.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11865] New: WOL for E100 Doesn't
+	Work Anymore
+Date: Mon, 27 Oct 2008 22:02:24 -0700
+Message-ID: <20081027220224.6333b675.akpm@linux-foundation.org>
+References: <bug-11865-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "willy@linux.intel.com" <willy@linux.intel.com>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	"linux kernel" <linux-kernel@vger.kernel.org>,
-	"Linux Netdev List" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Eric Dumazet" <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1164 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752015AbYJ1D0j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 23:26:39 -0400
-In-Reply-To: <4906405F.6080708@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi Eric,
-
-It looks like the same problem again: we are reading past a valid VPD
-address.
-
-After some initial debugging, it looks like dev->vpd is NULL when the
-Broadcom 5706C/5706S/5708C/570S/5709 quirk is called.  Because of this
-dev->vpd->len is never set to the proper length to limit the VPD reads.
-I will debug further to determine what has changed.
-
-Thanks again for pointing out the problem.
-
--Ben
-
-On Mon, 2008-10-27 at 15:27 -0700, Eric Dumazet wrote:
-> Eric Dumazet a =E9crit :
-> > While trying to upgrade kernel from 2.6.25 to 2.6.26 on a ProLiant=20
-> > BL460c G1,
-> > I faced this problem on integrated Broadcom 5708S NIC when trying t=
-o UP=20
-> > them.
-> >=20
-> > bnx2: fw sync timeout, reset code =3D 1030003
-> >=20
-> > I noticed that commit 99cb233d60cbe644203f19938c729ea2bb004d70 (PCI=
-:=20
-> > Limit VPD read/write lengths for Broadcom 5706, 5708, 5709 rev.A)
-> > was probably a good candidate to solve the problem.
-> >=20
-> > Apparently, it added PCI quirks for a list of Broadcom NICs, but
-> > quirk_brcm_570x_limit_vpd() ignores part of them.
-> >=20
-> > I found the following patch useful to restore correct operation on =
-my=20
-> > machine.
-> >=20
-> > Some information about this nic :
-> >=20
-> > 03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5=
-708S=20
-> > Gigabit Ethernet (rev 12)
-> >        Subsystem: Hewlett-Packard Company NC373i Integrated=20
-> > Multifunction Gigabit Server Adapter
-> >        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-=20
-> > ParErr+ Stepping- SERR+ FastB2B-
-> >        Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=3Dmedium >T=
-Abort-=20
-> > <TAbort- <MAbort- >SERR- <PERR-
-> >        Latency: 64 (16000ns min), Cache Line Size 10
-> >        Interrupt: pin A routed to IRQ 222
-> >        Region 0: Memory at f6000000 (64-bit, non-prefetchable) [siz=
-e=3D32M]
-> >        [virtual] Expansion ROM at d1200000 [disabled] [size=3D16K]
-> >        Capabilities: [40] PCI-X non-bridge device.
-> >                Command: DPERE- ERO- RBC=3D0 OST=3D4
-> >                Status: Bus=3D3 Dev=3D0 Func=3D0 64bit+ 133MHz+ SCD-=
- USC-,=20
-> > DC=3Dsimple, DMMRBC=3D0, DMOST=3D4, DMCRS=3D2, RSCEM-
-> >        Capabilities: [48] Power Management version 2
-> >                Flags: PMEClk- DSI- D1- D2- AuxCurrent=3D0mA=20
-> > PME(D0-,D1-,D2-,D3hot+,D3cold+)
-> >                Status: D0 PME-Enable- DSel=3D0 DScale=3D1 PME-
-> >        Capabilities: [50] Vital Product Data
-> >        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queu=
-e=3D0/0=20
-> > Enable+
-> >                Address: 00000000feeff00c  Data: 4179
-> >=20
-> > after applying patch :
-> >=20
-> > # hexdump -C=20
-> > "/sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.0/0000:03:00.0/vpd=
-"
-> > 00000000  82 2f 00 48 50 20 4e 43  33 37 33 69 20 4d 75 6c  |./.HP=20
-> > NC373i Mul|
-> > 00000010  74 69 66 75 6e 63 74 69  6f 6e 20 47 69 67 61 62  |tifunc=
-tion=20
-> > Gigab|
-> > 00000020  69 74 20 53 65 72 76 65  72 20 41 64 61 70 74 65  |it Ser=
-ver=20
-> > Adapte|
-> > 00000030  72 00 90 4a 00 50 4e 03  4e 2f 41 45 43 03 4e 2f =20
-> > |r..J.PN.N/AEC.N/|
-> > 00000040  41 53 4e 0a 30 31 32 33  34 35 36 37 38 39 4d 4e =20
-> > |ASN.0123456789MN|
-> > 00000050  04 31 30 33 43 52 56 26  a2 00 00 00 00 00 00 00 =20
-> > |.103CRV&........|
-> > 00000060  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 =20
-> > |................|
-> > 00000070  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 78 =20
-> > |...............x|
-> > 00000080
-> >=20
-> > Patch against current Linus tree, should also be sent for linux-2.6=
-=2E26.2=20
-> > inclusion.
-> >=20
-> > I have no idea if 5706S and 5709S also needs this truncation of VPD=
- length
-> >=20
-> > Thank you
-> >=20
-> > [PATCH] PCI: Limit VPD length for Broadcom 5708S
-> >=20
-> > BCM5708S wont work correctly unless VPD length truncated to 128
-> >=20
-> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> >=20
-> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> > index 0fb3650..59667e5 100644
-> > --- a/drivers/pci/quirks.c
-> > +++ b/drivers/pci/quirks.c
-> > @@ -1756,9 +1756,12 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_VIA,=20
-> > 0x324e, quirk_via_cx700_pci_parking_c
-> >  */
-> > static void __devinit quirk_brcm_570x_limit_vpd(struct pci_dev *dev=
-)
-> > {
-> > -    /*  Only disable the VPD capability for 5706, 5708, and 5709 r=
-ev. A */
-> > +    /*
-> > +     * Only disable the VPD capability for 5706, 5708, 5708S and 5=
-709=20
-> > rev. A
-> > +     */
-> >     if ((dev->device =3D=3D PCI_DEVICE_ID_NX2_5706) ||
-> >         (dev->device =3D=3D PCI_DEVICE_ID_NX2_5708) ||
-> > +        (dev->device =3D=3D PCI_DEVICE_ID_NX2_5708S) ||
-> >         ((dev->device =3D=3D PCI_DEVICE_ID_NX2_5709) &&
-> >          (dev->revision & 0xf0) =3D=3D 0x0)) {
-> >         if (dev->vpd)
-> >=20
->=20
-> Hi all
->=20
-> Just tried linux-2.6.28-rc2 on same platform.
->=20
-> Same problem again...
->=20
-> Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v1.8.1 (Oct 7, 200=
-8)
-> bnx2 0000:03:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-> eth0: Broadcom NetXtreme II BCM5708 1000Base-SX (B2) PCI-X 64-bit 133=
-MHz found at mem f6000000, IRQ 16, node addr 00:1e:0b:ec:d3:dc
-> bnx2 0000:07:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-> eth1: Broadcom NetXtreme II BCM5708 1000Base-SX (B2) PCI-X 64-bit 133=
-MHz found at mem fa000000, IRQ 16, node addr 00:1e:0b:ec:d3:d2
-> bnx2 0000:03:00.0: irq 45 for MSI/MSI-X
-> bnx2: fw sync timeout, reset code =3D 1030003
-> bnx2 0000:07:00.0: irq 45 for MSI/MSI-X
-> bnx2: fw sync timeout, reset code =3D 1030003
-> bnx2 0000:03:00.0: irq 45 for MSI/MSI-X
-> bnx2: fw sync timeout, reset code =3D 1030006
->=20
->=20
-> 2.6.27.4 is running fine on this machine
->=20
-> Any ideas ?
->=20
-> Thank you
->=20
-> Eric
->=20
->=20
->=20
->=20
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, rogerx@sdf.lonestar.org
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <bug-11865-10286@http.bugzilla.kernel.org/>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Sun, 26 Oct 2008 21:56:35 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=11865
+> 
+>            Summary: WOL for E100 Doesn't Work Anymore
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.27
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: rogerx@sdf.lonestar.org
+> 
+> 
+> Latest working kernel version: 2.6.27
+
+This should read 2.6.26.  It is a regression.
+
+> Earliest failing kernel version: 2.6.27
+> Distribution: Gentoo
+> Hardware Environment: 2x750P3 1G RAM w/ 
+> 
+> 00:14.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100]
+> (rev 08)
+> 
+> Problem Description:
+> As of kernel version 2.6.27, WOL has stopped working.  The box no longer powers
+> on after the magic packet has been sent.  Rebooting using kernel-2.6.26*, WOL
+> *does* work!
+> 
+> Steps to reproduce:
+> (Not needed.  Self Explanatory.)
+> 
+> 
+> I noticed 3 lines of code in e100.c added/modified since 2.6.26*, however, I
+> reversed 2 lines of code to 2.6.26 and the other line was just added an
+> additional pointer, for which I left alone.  Recompiled, rebooted and WOL still
+> didn't work using 2.6.27.  I'm guessing, the source of this bug lies elsewhere.
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
