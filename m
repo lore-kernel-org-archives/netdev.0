@@ -1,78 +1,76 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH/RFC] mac80211: convert to %pM away from print_mac
-Date: Tue, 28 Oct 2008 09:07:24 +0100
-Message-ID: <1225181244.3796.73.camel@johannes.berg>
-References: <1224892243.3919.32.camel@johannes.berg>
-	 <20081027.155243.206513005.davem@davemloft.net>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v2)
+Date: Tue, 28 Oct 2008 10:30:39 +0200
+Message-ID: <4906CDAF.2070000@teltonika.lt>
+References: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <8bd0f97a0810270752p5fb6e560m6ddcf07df8f689f5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-QoJ9IJudhfVfx29+Vxap"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081027.155243.206513005.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: Mike Frysinger <vapier.adi@gmail.com>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+In-Reply-To: <8bd0f97a0810270752p5fb6e560m6ddcf07df8f689f5@mail.gmail.com>
+Sender: linux-embedded-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Thanks for review. Comments below.
 
---=-QoJ9IJudhfVfx29+Vxap
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Mike Frysinger wrote:
+> On Mon, Oct 27, 2008 at 06:53, Paulius Zaleckas wrote:
 
-On Mon, 2008-10-27 at 15:52 -0700, David Miller wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date: Sat, 25 Oct 2008 01:50:43 +0200
->=20
-> > Also remove a few stray DECLARE_MAC_BUF that were no longer
-> > used at all.
-> >=20
-> > Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> > ---
-> > Not sure this will apply to your tree, I prepared it against John's tre=
-e
-> > which might have more things. If you put the previous patch in, I
-> > suppose John _could_ put it into his tree, but then he'd have to pull i=
-n
-> > yours which he normally doesn't... No idea. I can also just postpone
-> > this?
->=20
-> I munged this to apply to my tree, the only conflicts were in
-> mlme.c
+[...]
 
-Yeah, that's the ones I had too.
+>> +static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+>> +{
+>> +       struct mii_bus *new_bus;
+>> +       struct mdio_gpio_info *bitbang;
+>> +       struct mdio_gpio_platform_data *pdata;
+>> +       int ret = -ENOMEM;
+>> +       int i;
+>> +
+>> +       pdata = pdev->dev.platform_data;
+>> +       if (pdata == NULL)
+>> +               goto out;
+>> +
+>> +       bitbang = kzalloc(sizeof(struct mdio_gpio_info), GFP_KERNEL);
+> 
+> sizeof(*bitbang) tends to read better and be more resistant to bitrot
+> 
+>> +       if (gpio_request(bitbang->mdc, "mdc"))
+>> +               goto out_free_bitbang;
+>> +
+>> +       if (gpio_request(bitbang->mdio, "mdio"))
+>> +               goto out_free_mdc;
+> 
+> maybe include driver name and/or the platform id ?  if you have
+> multiple mdio-gpio's running at the same time, coordinating may get a
+> little messy ...
 
-> Sorry John, one of us had to deal with this :-)
+Well... this is mostly for debugging only... I don't like the idea
+to add additional char[..] variable and use sprintf...
+IMO this would be just a bloat...
 
-John, you can always just take your version, and if I see print_mac show
-up in mac80211 again then I'll send you another patch.
+>> +       new_bus->name = "GPIO Bitbanged MII",
+> 
+> platform id here too ?
 
-johannes
+If you take a look one line below you would see that bus ID is formed
+using platform id. Does this really need to be duplicated also in the
+name?
 
---=-QoJ9IJudhfVfx29+Vxap
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJBsg4AAoJEKVg1VMiehFYV+AQAIWphczN2nyxf+kCCFVp/F6D
-ZrQMxHslMdkXUs22p15k5GyopaUDv2+2bUcnUZ/8mbjZxJy30+dmyJaYk8CunVPJ
-AWCPcyDGmujA2y5XkOxvViXeAEChVHuJsOwsvtKX6mni4UWsNVRjF1OeQGmft/fP
-fa84a0O1Iwb2UBvg5FJHEv/Nnym77JmkyZC3uMZD17bffkSgtNhRgQvhYkkcK+Fq
-E6Mu3QEd2Cw9eDXul4QemzIwFw6MaxiwoaqJsVv2AIbnzgTMaN6ee3gnYELKQT8f
-gK/GCRlLatC461QyMcknyZwY7mncwrI6A8hY2u0yNXwu/FOEINBTq5EOHPNBPNm9
-eHbOG4Oh8zNaE0OiH4Lv6N7lNSCvlwkm0755fvzPJEIfF8LcMDHzJbVjLvACe9bT
-dlpq3bvwdYeXP1/DYZiVN+zNQHK20zBq+JG1HMoa+/Fr04e8CFT2bwbe/kjwN2rg
-O+yu4T9vn+DCSAdYIiInI2TN902X+OBMWsVNr752xyPCAs1kLs7+PvoLmjh4q4cI
-rfmGdAdROv9QWkPh1uiFAI6wyb6JyYMbDykCk4kQjRjpWZbzZyBFpxlAxaZKK6tB
-n4txkW4ZRH8KR2hp2CvQq526atyUvmr9GDxluLsIjNvjIY0yRzDl8AHek9n5p+wR
-N15tFQyt725bW2g7rHnq
-=KY62
------END PGP SIGNATURE-----
-
---=-QoJ9IJudhfVfx29+Vxap--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> +static int mdio_gpio_init(void)
+>> +{
+>> +       return platform_driver_register(&mdio_gpio_driver);
+>> +}
+> 
+> needs __init markings
+> 
+>> +static void mdio_gpio_exit(void)
+>> +{
+>> +       platform_driver_unregister(&mdio_gpio_driver);
+>> +}
+> 
+> needs __exit markings
+> -mike
+> 
