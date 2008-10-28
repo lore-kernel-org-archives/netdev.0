@@ -1,87 +1,60 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 2/2] veth:  remove unused list
-Date: Tue, 28 Oct 2008 22:11:44 +0100
-Message-ID: <20081028212120.658842697@fr.ibm.com>
-References: <20081028211142.359911603@fr.ibm.com>
-Cc: netdev@vger.kernel.org, xemul@openvz.org
-To: davem@davemloft.net
+From: Christian Bell <christian@myri.com>
+Subject: Re: [PATCH 1/2] udp: introduce struct udp_table and multiple rwlocks
+Date: Tue, 28 Oct 2008 14:23:55 -0700
+Message-ID: <B7C6414D-7A69-48DA-8424-5D9F5FC50338@myri.com>
+References: <20081007160729.60c076c4@speedy>	<20081007.135548.56141000.davem@davemloft.net>	<48ECBBD8.9060602@cosmosbay.com> <20081008.114527.189056050.davem@davemloft.net> <4907780F.1080808@cosmosbay.com>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:52807 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754017AbYJ1VWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 17:22:37 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate8.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m9SLLRP0033378
-	for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 21:21:27 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9SLLRlk4194514
-	for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 21:21:27 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9SLLQGY009050
-	for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 21:21:27 GMT
-Content-Disposition: inline; filename=remove-unused-veth-list.patch
+Received: from mailbox2.myri.com ([64.172.73.26]:1780 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752211AbYJ1VYR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 17:24:17 -0400
+In-Reply-To: <4907780F.1080808@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The veth network device is stored in a list in the netdev private.
-AFAICS, this list is never used so I removed this list from the code.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
----
- drivers/net/veth.c |   13 -------------
- 1 file changed, 13 deletions(-)
+On Oct 28, 2008, at 1:37 PM, Eric Dumazet wrote:
 
-Index: net-2.6/drivers/net/veth.c
-===================================================================
---- net-2.6.orig/drivers/net/veth.c
-+++ net-2.6/drivers/net/veth.c
-@@ -8,7 +8,6 @@
-  *
-  */
- 
--#include <linux/list.h>
- #include <linux/netdevice.h>
- #include <linux/ethtool.h>
- #include <linux/etherdevice.h>
-@@ -30,13 +29,10 @@ struct veth_net_stats {
- 
- struct veth_priv {
- 	struct net_device *peer;
--	struct list_head list;
- 	struct veth_net_stats *stats;
- 	unsigned ip_summed;
- };
- 
--static LIST_HEAD(veth_list);
--
- /*
-  * ethtool interface
-  */
-@@ -420,11 +416,9 @@ static int veth_newlink(struct net_devic
- 
- 	priv = netdev_priv(dev);
- 	priv->peer = peer;
--	list_add(&priv->list, &veth_list);
- 
- 	priv = netdev_priv(peer);
- 	priv->peer = dev;
--	INIT_LIST_HEAD(&priv->list);
- 	return 0;
- 
- err_register_dev:
-@@ -446,13 +440,6 @@ static void veth_dellink(struct net_devi
- 	priv = netdev_priv(dev);
- 	peer = priv->peer;
- 
--	if (!list_empty(&priv->list))
--		list_del(&priv->list);
--
--	priv = netdev_priv(peer);
--	if (!list_empty(&priv->list))
--		list_del(&priv->list);
--
- 	unregister_netdevice(dev);
- 	unregister_netdevice(peer);
- }
+> -extern struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+> -extern rwlock_t udp_hash_lock;
+> +struct udp_hslot {
+> +	struct hlist_head	head;
+> +	rwlock_t		lock;
+> +};
 
--- 
+This structure should be aligned up to cacheline to reduce false  
+sharing of more than one hslot.
+
+> +	} else {
+> +		hslot = &udptable->hash[udp_hashfn(net, snum)];
+> +		write_lock_bh(&hslot->lock);
+> +		if (udp_lib_lport_inuse(net, snum, hslot, sk, saddr_comp))
+> +			goto fail;
+
+The fail: label below should still unlock_bh when the above condition  
+fails.
+
+>
+> +	}
+> 	inet_sk(sk)->num = snum;
+> 	sk->sk_hash = snum;
+> 	if (sk_unhashed(sk)) {
+> -		sk_add_node(sk, &udptable[udp_hashfn(net, snum)]);
+> +		sk_add_node(sk, &hslot->head);
+> 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
+> 	}
+> +	write_unlock_bh(&hslot->lock);
+> 	error = 0;
+> fail:
+> -	write_unlock_bh(&udp_hash_lock);
+> 	return error;
+> }
+
+cheers,
+
+	. . christian
