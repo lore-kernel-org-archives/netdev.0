@@ -1,32 +1,93 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Error: an inet prefix is expected rather than "0/0".
-Date: Tue, 28 Oct 2008 09:51:34 +0800
-Message-ID: <20081028015134.GA8103@gondor.apana.org.au>
-References: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl> <E1KpkSl-00087W-GB@gondolin.me.apana.org.au> <20081014104621.3c2ce4d3@extreme> <20081015014624.GA3251@gondor.apana.org.au> <m34p3door9.fsf@maximus.localdomain> <1224086831.3984.196.camel@achroite> <m3y70pn11c.fsf@maximus.localdomain> <20081027103950.7eba4fe1@extreme>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krzysztof Halasa <khc@pm.waw.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Krzysztof Oledzki <ole@ans.pl>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: chunbo.luo@windriver.com
+Subject: [PATCH] amd811e: fix dma_free_coherent warning
+Date: Tue, 28 Oct 2008 09:51:46 +0800
+Message-ID: <1225158706-5700-1-git-send-email-chunbo.luo@windriver.com>
+Cc: chunbo.luo@windriver.com
+To: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47818 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752221AbYJ1Bvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 21:51:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20081027103950.7eba4fe1@extreme>
+Received: from mail.windriver.com ([147.11.1.11]:48831 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752752AbYJ1BwB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2008 21:52:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 27, 2008 at 10:39:50AM -0700, Stephen Hemminger wrote:
->
-> I ended up putting in a version similar to the original code but with
-> more error checking so it would not accept 259.1 etc.
+From: Chunbo Luo <chunbo.luo@windriver.com>
 
-Thanks Stephen!
+Acoording commit aa24886e379d2b641c5117e178b15ce1d5d366ba,
+dma_free_coherent() need irqs enabled.
+
+This patch fix following warning messages:
+
+WARNING: at linux/arch/x86/kernel/pci-dma.c:376 dma_free_coherent+0xaa/0xb0()
+
+Call Trace:
+ [<ffffffff8023f80f>] warn_on_slowpath+0x5f/0x90
+ [<ffffffff80496ffa>] ? __kfree_skb+0x3a/0xa0
+ [<ffffffff802a4723>] ? discard_slab+0x23/0x40
+ [<ffffffff8021274a>] dma_free_coherent+0xaa/0xb0
+ [<ffffffff8043668f>] amd8111e_close+0x10f/0x1b0
+ [<ffffffff8049f3ae>] dev_close+0x5e/0xb0
+ [<ffffffff8049efa1>] dev_change_flags+0xa1/0x1e0
+ [<ffffffff806b2171>] ic_close_devs+0x36/0x4e
+ [<ffffffff806b29ee>] ip_auto_config+0x581/0x10f3
+ [<ffffffff803a6e19>] ? kobject_add+0x69/0x90
+ [<ffffffff803a698a>] ? kobject_get+0x1a/0x30
+ [<ffffffff803a785b>] ? kobject_uevent+0xb/0x10
+ [<ffffffff803a6c62>] ? kset_register+0x52/0x60
+ [<ffffffff803a6f9b>] ? kset_create_and_add+0x6b/0xa0
+ [<ffffffff804e2e74>] ? tcp_ca_find+0x24/0x50
+ [<ffffffff806b246d>] ? ip_auto_config+0x0/0x10f3
+ [<ffffffff8020903c>] _stext+0x3c/0x150
+ [<ffffffff802772d3>] ? register_irq_proc+0xd3/0xf0
+ [<ffffffff802f0000>] ? mb_cache_create+0x80/0x1f0
+ [<ffffffff80688693>] kernel_init+0x141/0x1b8
+ [<ffffffff80688552>] ? kernel_init+0x0/0x1b8
+ [<ffffffff8020d609>] child_rip+0xa/0x11
+ [<ffffffff80688552>] ? kernel_init+0x0/0x1b8
+ [<ffffffff80688552>] ? kernel_init+0x0/0x1b8
+ [<ffffffff8020d5ff>] ? child_rip+0x0/0x11
+
+Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
+---
+ drivers/net/amd8111e.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
+index c54967f..6dd35e3 100644
+--- a/drivers/net/amd8111e.c
++++ b/drivers/net/amd8111e.c
+@@ -644,10 +644,6 @@ This function frees the  transmiter and receiver descriptor rings.
+ */
+ static void amd8111e_free_ring(struct amd8111e_priv* lp)
+ {
+-
+-	/* Free transmit and receive skbs */
+-	amd8111e_free_skbs(lp->amd8111e_net_dev);
+-
+ 	/* Free transmit and receive descriptor rings */
+ 	if(lp->rx_ring){
+ 		pci_free_consistent(lp->pci_dev,
+@@ -1231,7 +1227,9 @@ static int amd8111e_close(struct net_device * dev)
+ 
+ 	amd8111e_disable_interrupt(lp);
+ 	amd8111e_stop_chip(lp);
+-	amd8111e_free_ring(lp);
++
++	/* Free transmit and receive skbs */
++	amd8111e_free_skbs(lp->amd8111e_net_dev);
+ 
+ 	netif_carrier_off(lp->amd8111e_net_dev);
+ 
+@@ -1241,6 +1239,7 @@ static int amd8111e_close(struct net_device * dev)
+ 
+ 	spin_unlock_irq(&lp->lock);
+ 	free_irq(dev->irq, dev);
++	amd8111e_free_ring(lp);
+ 
+ 	/* Update the statistics before closing */
+ 	amd8111e_get_stats(dev);
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.5.1
+
