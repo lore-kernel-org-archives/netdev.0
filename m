@@ -1,7 +1,8 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 5/6] net: replace uses of NIP6_FMT with %p6
-Date: Tue, 28 Oct 2008 12:54:05 -0700
-Message-ID: <1225223645.11483.43.camel@brick>
+Subject: [PATCH 5/6v2] net: replace uses of NIP6_FMT with %p6
+Date: Tue, 28 Oct 2008 13:05:25 -0700
+Message-ID: <1225224325.11483.52.camel@brick>
+References: <1225223645.11483.43.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,17 +10,21 @@ Cc: linux-netdev <netdev@vger.kernel.org>,
 	Joe Perches <joe@perches.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.29]:19002 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694AbYJ1TyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 15:54:11 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so685170ywe.1
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 12:54:09 -0700 (PDT)
+Received: from el-out-1112.google.com ([209.85.162.179]:27385 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbYJ1UFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 16:05:30 -0400
+Received: by el-out-1112.google.com with SMTP id z25so885043ele.1
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 13:05:29 -0700 (PDT)
+In-Reply-To: <1225223645.11483.43.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
+Sorry, left two fixes in my working tree, not in the commit,
+this is a fixed patch.
+
  include/linux/sunrpc/svc_xprt.h                |    4 +-
  include/net/ip_vs.h                            |    4 +-
  include/net/netfilter/nf_conntrack_tuple.h     |    6 ++--
@@ -135,7 +140,7 @@ index 6b6dff1..4e6ee52 100644
  		}
  #endif
 diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index 0890903..2e25334 100644
+index 0890903..d280366 100644
 --- a/net/ipv6/addrlabel.c
 +++ b/net/ipv6/addrlabel.c
 @@ -186,10 +186,8 @@ u32 ipv6_addr_label(struct net *net,
@@ -203,7 +208,7 @@ index 0890903..2e25334 100644
 -			NIP6(*prefix), prefixlen,
 -			ifindex);
 +	ADDRLABEL(KERN_DEBUG "%s(prefix=%p6, prefixlen=%d, ifindex=%d)\n",
-+		  __func__, prefix), prefixlen, ifindex);
++		  __func__, prefix, prefixlen, ifindex);
  
  	ipv6_addr_prefix(&prefix_buf, prefix, prefixlen);
  	spin_lock(&ip6addrlbl_table.lock);
@@ -328,7 +333,7 @@ index caa441d..a61ce30 100644
  	/* Max length: 44 "LEN=65535 TC=255 HOPLIMIT=255 FLOWLBL=FFFFF " */
  	printk("LEN=%Zu TC=%u HOPLIMIT=%u FLOWLBL=%u ",
 diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index e91db16..045c086 100644
+index e91db16..b165a27 100644
 --- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
 +++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
 @@ -56,9 +56,8 @@ static bool ipv6_invert_tuple(struct nf_conntrack_tuple *tuple,
@@ -339,7 +344,7 @@ index e91db16..045c086 100644
 -			  NIP6(*((struct in6_addr *)tuple->src.u3.ip6)),
 -			  NIP6(*((struct in6_addr *)tuple->dst.u3.ip6)));
 +	return seq_printf(s, "src=%p6 dst=%p6 ",
-+			  tuple->src.u3.ip6), tuple->dst.u3.ip6);
++			  tuple->src.u3.ip6, tuple->dst.u3.ip6);
  }
  
  /*
@@ -365,5 +370,6 @@ index b6b356b..483550c 100644
  	}
 -- 
 1.6.0.3.729.g6ea410
+
 
 
