@@ -1,24 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Patch - Establishing more than 64K outgoing TCP connections
-Date: Tue, 28 Oct 2008 15:59:51 -0700 (PDT)
-Message-ID: <20081028.155951.23638197.davem@davemloft.net>
-References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830@MBX73.ad2.softcom.biz>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: [BUG] oops in net_rx_action on 64-bit powerpc
+Date: Tue, 28 Oct 2008 16:59:53 -0600
+Message-ID: <49079969.3090100@nortel.com>
+References: <4902B1D8.8070800@nortel.com>	<20081025.001703.261277154.davem@davemloft.net>	<49065942.4040300@nortel.com> <20081028.155128.144329082.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yavor@simplifymedia.com
+Cc: linuxppc-dev@ozlabs.org, romieu@fr.zoreil.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49854
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753102AbYJ1XAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 19:00:14 -0400
-In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830@MBX73.ad2.softcom.biz>
+Received: from zrtps0kn.nortel.com ([47.140.192.55]:59935 "EHLO
+	zrtps0kn.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753138AbYJ1XAh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 19:00:37 -0400
+In-Reply-To: <20081028.155128.144329082.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> From: "Chris Friesen" <cfriesen@nortel.com>
+> Date: Mon, 27 Oct 2008 18:13:54 -0600
+> 
+> 
+>>[PATCH] fix amd8111e rx return code
+>>
+>>The amd8111e rx poll routine currently mishandles the case when we process
+>>exactly the number of packets specified in the budget.
+>>
+>>This patch is basically as suggested by David Miller.
+>>
+>>Signed-off-by: Chris Friesen <cfriesen@nortel.com>
+> 
+> 
+> I had to apply this by hand because your email client heavily
+> corrupted the patch.
 
-Please stop sending this patch over and over again, we've all seen it
-the first time.
+Crap.  Sorry about that, it looks like I forgot to set my line-wrap to 0 
+before creating the email.  @#$#% Thunderbird.
 
-Thank you.
+Chris
