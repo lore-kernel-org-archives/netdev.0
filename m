@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: Coexist with the sysfs limitations v2
-Date: Mon, 27 Oct 2008 17:50:55 -0700 (PDT)
-Message-ID: <20081027.175055.208449244.davem@davemloft.net>
-References: <m1fxmni9uv.fsf_-_@frodo.ebiederm.org>
-	<20081027.124126.74749150.davem@davemloft.net>
-	<m1skqh4wq8.fsf@frodo.ebiederm.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Error: an inet prefix is expected rather than "0/0".
+Date: Tue, 28 Oct 2008 09:51:34 +0800
+Message-ID: <20081028015134.GA8103@gondor.apana.org.au>
+References: <alpine.LNX.1.10.0810082331010.13921@bizon.gios.gov.pl> <E1KpkSl-00087W-GB@gondolin.me.apana.org.au> <20081014104621.3c2ce4d3@extreme> <20081015014624.GA3251@gondor.apana.org.au> <m34p3door9.fsf@maximus.localdomain> <1224086831.3984.196.camel@achroite> <m3y70pn11c.fsf@maximus.localdomain> <20081027103950.7eba4fe1@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: benjamin.thery@bull.net, serue@us.ibm.com, netdev@vger.kernel.org,
-	gregkh@suse.de, viro@ftp.linux.org.uk, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, htejun@gmail.com, den@openvz.org,
-	containers@lists.linux-foundation.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Krzysztof Halasa <khc@pm.waw.pl>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Krzysztof Oledzki <ole@ans.pl>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44245
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752052AbYJ1AvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 20:51:17 -0400
-In-Reply-To: <m1skqh4wq8.fsf@frodo.ebiederm.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:47818 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752221AbYJ1Bvv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2008 21:51:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20081027103950.7eba4fe1@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 27 Oct 2008 13:19:27 -0700
+On Mon, Oct 27, 2008 at 10:39:50AM -0700, Stephen Hemminger wrote:
+>
+> I ended up putting in a version similar to the original code but with
+> more error checking so it would not accept 259.1 etc.
 
-> What I was thinking is that it goes into your tree for 2.6.29.  Allowing
-> for better test coverage in the short term, and removing the pressure
-> to do a hack job on sysfs just to reduce the pain of testing.
-
-Fair enough.  I'll add it to my tree.
+Thanks Stephen!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
