@@ -1,41 +1,33 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Tue, 28 Oct 2008 16:22:16 +0100
-Message-ID: <1225207336.4703.0.camel@marge.simson.net>
-References: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk>
-	 <20081027183312.GD11494@elte.hu> <20081027193933.GB2590@ioremap.net>
-	 <20081027.124848.163119274.davem@davemloft.net>
-	 <1225189462.4903.238.camel@marge.simson.net>
-	 <20081028103741.GA22319@elte.hu>
-	 <1225191456.4903.254.camel@marge.simson.net>
-	 <1225202433.4899.11.camel@marge.simson.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net: don't use INIT_RCU_HEAD
+Date: Tue, 28 Oct 2008 16:29:06 +0100
+Message-ID: <49072FC2.8030801@trash.net>
+References: <20081028133124.GA3006@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net,
-	alan@lxorguk.ukuu.org.uk, jkosina@suse.cz,
-	akpm@linux-foundation.org, a.p.zijlstra@chello.nl, rjw@sisk.pl,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:40608 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751116AbYJ1PWV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Oct 2008 11:22:21 -0400
-In-Reply-To: <1225202433.4899.11.camel@marge.simson.net>
+Received: from stinky.trash.net ([213.144.137.162]:34095 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328AbYJ1P3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 11:29:09 -0400
+In-Reply-To: <20081028133124.GA3006@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-10-28 at 15:00 +0100, Mike Galbraith wrote:
-> On Tue, 2008-10-28 at 11:57 +0100, Mike Galbraith wrote:
-> 
-> > I don't know where it lives.  I'm still looking, and the numbers are
-> > still playing games with my head.
-> 
-> Hm.  _Maybe_ someone needs to take a look at c7aceab.
+Alexey Dobriyan wrote:
+> call_rcu() will unconditionally rewrite RCU head anyway.
+> Applies to 
+> 	struct neigh_parms
+> 	struct neigh_table
+> 	struct net
+> 	struct cipso_v4_doi
+> 	struct in_ifaddr
+> 	struct in_device
+> 	rt->u.dst
 
-Bah, too much testing, must have done something stupid.
-
-	-Mike
-
+It would probably make sense to get a statement from Paul
+whether this might be required in the future, f.i. for some
+debugging feature.
