@@ -1,328 +1,65 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] phylib: add mdio-gpio bus driver (v3)
-Date: Tue, 28 Oct 2008 12:35:38 +0200
-Message-ID: <20081028103537.28951.4804.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
+Date: Tue, 28 Oct 2008 11:37:41 +0100
+Message-ID: <20081028103741.GA22319@elte.hu>
+References: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk> <20081027183312.GD11494@elte.hu> <20081027193933.GB2590@ioremap.net> <20081027.124848.163119274.davem@davemloft.net> <1225189462.4903.238.camel@marge.simson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-embedded-owner@vger.kernel.org>
-Received: from 82-135-208-232.static.zebra.lt (HELO Programuotojas.82-135-208-232.ip.zebra.lt) (paulius.zaleckas@[82.135.208.232])
-          (envelope-sender <paulius.zaleckas@teltonika.lt>)
-          by teltonika.lt (qmail-ldap-1.03) with SMTP
-          for <netdev@vger.kernel.org>; 28 Oct 2008 10:34:26 -0000
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Useful for machines where PHY control is connected to GPIO.
-This driver also supports interrupts from PHY.
-
-Changes since v2:
-- add module author, description and license
-- add module alias for udev
-- rename mdc and mdio function (were ugly names)
-- don't BUG kernel if phy address is invalid
-- change MII to MDIO in name
-- add __init __exit to module loading functions
-- some cosmetic changes
-
-Changes since v1:
-- fixed releasing of gpio (thanks to Sascha Hauer)
-- fixed compiling due to bus->dev to bus->parent change
-
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
----
-
- drivers/net/phy/Kconfig     |    9 ++
- drivers/net/phy/Makefile    |    1 
- drivers/net/phy/mdio-gpio.c |  200 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/mdio-gpio.h   |   40 +++++++++
- 4 files changed, 250 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/mdio-gpio.c
- create mode 100644 include/linux/mdio-gpio.h
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net,
+	alan@lxorguk.ukuu.org.uk, jkosina@suse.cz,
+	akpm@linux-foundation.org, a.p.zijlstra@chello.nl, rjw@sisk.pl,
+	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Mike Galbraith <efault@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:47233 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752035AbYJ1Kig (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 06:38:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1225189462.4903.238.camel@marge.simson.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index d55932a..610fd88 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -84,6 +84,15 @@ config MDIO_BITBANG
- 
- 	  If in doubt, say N.
- 
-+config MDIO_GPIO
-+	tristate "Support for GPIO bitbanged MDIO buses"
-+	depends on MDIO_BITBANG && GENERIC_GPIO
-+	help
-+	  Supports MDIO busses connected to GPIO.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called mdio-gpio.
-+
- config MDIO_OF_GPIO
- 	tristate "Support for GPIO lib-based bitbanged MDIO buses"
- 	depends on MDIO_BITBANG && OF_GPIO
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index eee329f..8629b09 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -15,4 +15,5 @@ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
- obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed.o
- obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
-+obj-$(CONFIG_MDIO_GPIO)		+= mdio-gpio.o
- obj-$(CONFIG_MDIO_OF_GPIO)	+= mdio-ofgpio.o
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-new file mode 100644
-index 0000000..c860468
---- /dev/null
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -0,0 +1,200 @@
-+/*
-+ * GPIO based MDIO bitbang driver.
-+ *
-+ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-+ *
-+ * Based on mdio-ofgpio.c:
-+ *
-+ * Copyright (c) 2008 CSE Semaphore Belgium.
-+ *  by Laurent Pinchart <laurentp@cse-semaphore.com>
-+ *
-+ * Copyright (c) 2003 Intracom S.A.
-+ *  by Pantelis Antoniou <panto@intracom.gr>
-+ *
-+ * 2005 (c) MontaVista Software, Inc.
-+ * Vitaly Bordug <vbordug@ru.mvista.com>
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2. This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/platform_device.h>
-+#include <linux/gpio.h>
-+#include <linux/mdio-bitbang.h>
-+#include <linux/mdio-gpio.h>
-+
-+struct mdio_gpio_info {
-+	struct mdiobb_ctrl ctrl;
-+	unsigned int mdc, mdio;
-+};
-+
-+static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	if (dir)
-+		gpio_direction_output(bitbang->mdio, 1);
-+	else
-+		gpio_direction_input(bitbang->mdio);
-+}
-+
-+static int mdio_get(struct mdiobb_ctrl *ctrl)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	return gpio_get_value(bitbang->mdio);
-+}
-+
-+static void mdio_set(struct mdiobb_ctrl *ctrl, int what)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	gpio_set_value(bitbang->mdio, what);
-+}
-+
-+static void mdc_set(struct mdiobb_ctrl *ctrl, int what)
-+{
-+	struct mdio_gpio_info *bitbang =
-+		container_of(ctrl, struct mdio_gpio_info, ctrl);
-+
-+	gpio_set_value(bitbang->mdc, what);
-+}
-+
-+static struct mdiobb_ops mdio_gpio_ops = {
-+	.owner = THIS_MODULE,
-+	.set_mdc = mdc_set,
-+	.set_mdio_dir = mdio_dir,
-+	.set_mdio_data = mdio_set,
-+	.get_mdio_data = mdio_get,
-+};
-+
-+static int __devinit mdio_gpio_probe(struct platform_device *pdev)
-+{
-+	struct mii_bus *new_bus;
-+	struct mdio_gpio_info *bitbang;
-+	struct mdio_gpio_platform_data *pdata;
-+	int ret = -ENOMEM;
-+	int i;
-+
-+	pdata = pdev->dev.platform_data;
-+	if (pdata == NULL)
-+		goto out;
-+
-+	bitbang = kzalloc(sizeof(*bitbang), GFP_KERNEL);
-+	if (!bitbang)
-+		goto out;
-+
-+	bitbang->ctrl.ops = &mdio_gpio_ops;
-+	bitbang->mdc = pdata->mdc;
-+	bitbang->mdio = pdata->mdio;
-+
-+	if (gpio_request(bitbang->mdc, "mdc"))
-+		goto out_free_bitbang;
-+
-+	if (gpio_request(bitbang->mdio, "mdio"))
-+		goto out_free_mdc;
-+
-+	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
-+	if (!new_bus)
-+		goto out_free_gpio;
-+
-+	new_bus->name = "GPIO Bitbanged MDIO",
-+	snprintf(new_bus->id, MII_BUS_ID_SIZE, "phy%i", pdev->id);
-+
-+	new_bus->phy_mask = ~0;
-+	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-+	if (!new_bus->irq)
-+		goto out_free_bus;
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		new_bus->irq[i] = PHY_POLL;
-+
-+	for (i = 0; i < pdata->nr_phys; i++) {
-+		unsigned int phy_addr = pdata->phys[i].addr;
-+
-+		if (phy_addr >= PHY_MAX_ADDR) {
-+			dev_err(&pdev->dev,
-+				"Failed to add phy with invalid address: 0x%x",
-+				phy_addr);
-+			continue;
-+		}
-+
-+		new_bus->phy_mask &= ~(1 << phy_addr);
-+		new_bus->irq[phy_addr] = pdata->phys[i].irq;
-+	}
-+
-+	if (new_bus->phy_mask == ~0)
-+		goto out_free_irq;
-+
-+	new_bus->parent = &pdev->dev;
-+	platform_set_drvdata(pdev, new_bus);
-+
-+	ret = mdiobus_register(new_bus);
-+	if (ret)
-+		goto out_free_all;
-+
-+	return 0;
-+
-+out_free_all:
-+	platform_set_drvdata(pdev, NULL);
-+out_free_irq:
-+	kfree(new_bus->irq);
-+out_free_bus:
-+	free_mdio_bitbang(new_bus);
-+out_free_gpio:
-+	gpio_free(bitbang->mdio);
-+out_free_mdc:
-+	gpio_free(bitbang->mdc);
-+out_free_bitbang:
-+	kfree(bitbang);
-+out:
-+	return ret;
-+}
-+
-+static int __devexit mdio_gpio_remove(struct platform_device *pdev)
-+{
-+	struct mii_bus *bus = platform_get_drvdata(pdev);
-+	struct mdio_gpio_info *bitbang = bus->priv;
-+
-+	mdiobus_unregister(bus);
-+	kfree(bus->irq);
-+	free_mdio_bitbang(bus);
-+	platform_set_drvdata(pdev, NULL);
-+	gpio_free(bitbang->mdc);
-+	gpio_free(bitbang->mdio);
-+	kfree(bitbang);
-+
-+	return 0;
-+}
-+
-+static struct platform_driver mdio_gpio_driver = {
-+	.probe = mdio_gpio_probe,
-+	.remove = __devexit_p(mdio_gpio_remove),
-+	.driver		= {
-+		.name	= "mdio-gpio",
-+		.owner	= THIS_MODULE,
-+	},
-+};
-+
-+static int __init mdio_gpio_init(void)
-+{
-+	return platform_driver_register(&mdio_gpio_driver);
-+}
-+module_init(mdio_gpio_init);
-+
-+static void __exit mdio_gpio_exit(void)
-+{
-+	platform_driver_unregister(&mdio_gpio_driver);
-+}
-+module_exit(mdio_gpio_exit);
-+
-+MODULE_ALIAS("platform:mdio-gpio");
-+MODULE_AUTHOR("Paulius Zaleckas <paulius.zaleckas@teltonika.lt>");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("Generic driver for MDIO bus emulation using GPIO");
-diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
-new file mode 100644
-index 0000000..82d5fa4
---- /dev/null
-+++ b/include/linux/mdio-gpio.h
-@@ -0,0 +1,40 @@
-+/*
-+ * MDIO-GPIO bus platform data structures
-+ *
-+ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#ifndef __LINUX_MDIO_GPIO_H
-+#define __LINUX_MDIO_GPIO_H
-+
-+struct mdio_gpio_phy {
-+	/* PHY address on MDIO bus */
-+	unsigned int addr;
-+	/* preconfigured irq connected to PHY or -1 if no irq */
-+	int irq;
-+};
-+
-+struct mdio_gpio_platform_data {
-+	/* GPIO numbers for bus pins */
-+	unsigned int mdc;
-+	unsigned int mdio;
-+
-+	unsigned int nr_phys;
-+	struct mdio_gpio_phy *phys;
-+};
-+
-+#endif /* __LINUX_MDIO_GPIO_H */
+* Mike Galbraith <efault@gmx.de> wrote:
+
+> ..removing the overhead from .27 does not produce the anticipated 
+> result despite a max context switch rate markedly above that of 
+> 2.6.26.
+> 
+> There lies an as yet unaddressed regression IMBHO.  The hrtick has 
+> been addressed.  It sucked at high frequency, and it's gone.  The 
+> added math overhead in .27 hurt some too, and is now history as 
+> well.
+
+thanks Mike for the _extensive_ testing and bug hunting session you've 
+done in the past couple of weeks! All the relevant fixlets you found 
+are now queued up properly in sched/urgent, correct?
+
+What's your gut feeling, is that remaining small regression scheduler 
+or networking related?
+
+i'm cutting the ball in half and i'm passing over one half of it to 
+the networking folks, because your numbers show _huge_ sensitivity in 
+this workload, depending on networking settings:
+
+> To really illustrate rockiness, cutting network config down from distro
+> lard-ball to something leaner and meaner took SMP throughput from this
+> (was only testing netperf at that time) on 19 Aug..
+> 
+> 2.6.22.19 pinned
+> 16384  87380  1        1       300.00   59866.40   
+
+> 2.6.22.19 (also pinned)
+> 16384  87380  1        1       60.01    94179.12
+
+> 2.6.22.19 (also pinned)
+> 16384  87380  1        1       60.01    111272.55  1.00
+
+any scheduler micro-overhead detail is going to be a drop in the 
+ocean, compared to such huge variations. We could change the scheduler 
+to the old O(N) design of the 2.2 kernel and the impact of that would 
+be a blip on the radar, compared to the overhead shown above.
+
+	Ingo
