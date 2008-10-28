@@ -1,76 +1,137 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v2)
-Date: Tue, 28 Oct 2008 10:30:39 +0200
-Message-ID: <4906CDAF.2070000@teltonika.lt>
-References: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <8bd0f97a0810270752p5fb6e560m6ddcf07df8f689f5@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] PCI: Limit VPD length for Broadcom 5708S
+Date: Tue, 28 Oct 2008 09:38:46 +0100
+Message-ID: <4906CF96.2000809@cosmosbay.com>
+References: <48920413.6080508@cosmosbay.com> <4906405F.6080708@cosmosbay.com> <1225164385.3977.11.camel@localhost> <4906AF5F.9040704@cosmosbay.com> <20081028064411.GA7043@yzhao12-linux.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org
-To: Mike Frysinger <vapier.adi@gmail.com>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <8bd0f97a0810270752p5fb6e560m6ddcf07df8f689f5@mail.gmail.com>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: benli@broadcom.com,
+	"willy@linux.intel.com" <willy@linux.intel.com>,
+	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Yu Zhao <yu.zhao@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:37989 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751571AbYJ1Ii6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 04:38:58 -0400
+In-Reply-To: <20081028064411.GA7043@yzhao12-linux.sh.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for review. Comments below.
+Yu Zhao a =E9crit :
+> On Tue, Oct 28, 2008 at 02:21:19PM +0800, Eric Dumazet wrote:
+>> Benjamin Li a =E9crit :
+>>> Hi Eric,
+>>>
+>>> It looks like the same problem again: we are reading past a valid V=
+PD
+>>> address.
+>>>
+>>> After some initial debugging, it looks like dev->vpd is NULL when t=
+he
+>>> Broadcom 5706C/5706S/5708C/570S/5709 quirk is called.  Because of t=
+his
+>>> dev->vpd->len is never set to the proper length to limit the VPD re=
+ads.
+>>> I will debug further to determine what has changed.
+>>>
+>>> Thanks again for pointing out the problem.
+>>>
+>> I did a git bisect this morning :
+>>
+>> $ git bisect good
+>> 201de56eb22f1ff3f36804bc70cbff220b50f067 is first bad commit
+>> commit 201de56eb22f1ff3f36804bc70cbff220b50f067
+>> Author: Zhao, Yu <yu.zhao@intel.com>
+>> Date:   Mon Oct 13 19:49:55 2008 +0800
+>>
+>>     PCI: centralize the capabilities code in probe.c
+>>
+>>     This patch centralizes the initialization and release functions =
+of
+>>     various PCI capabilities in probe.c, which makes the introductio=
+n
+>>     of new capability support functions cleaner in the future.
+>>
+>>     Signed-off-by: Yu Zhao <yu.zhao@intel.com>
+>>     Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
+>>
+>=20
+> Yes, the VPD initialization code has been moved to a later stage that=
+ is
+> after the pci_fixup_header. Can you please try following fix?
+>
 
-Mike Frysinger wrote:
-> On Mon, Oct 27, 2008 at 06:53, Paulius Zaleckas wrote:
+Yes, this patch corrects the problem, thanks Yu.
 
-[...]
+Tested-by: Eric Dumazet <dada1@cosmosbay.com>
+=20
+> Thanks,
+> Yu
+>=20
+> VPD quirks needs to be called after the capability is initialized. Si=
+nce
+> VPD initialization is move to after pci_fixup_header, VPD quirks shou=
+ld
+> be done at pci_fixup_final stage correspondingly.
+>=20
+> Signed-off-by: Yu Zhao <yu.zhao@intel.com>
+>=20
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index bbf66ea..5049a47 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -1692,24 +1692,24 @@ static void __devinit quirk_brcm_570x_limit_v=
+pd(struct pci_dev *dev)
+>  	}
+>  }
+> =20
+> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+> -			 PCI_DEVICE_ID_NX2_5706,
+> -			 quirk_brcm_570x_limit_vpd);
+> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+> -			 PCI_DEVICE_ID_NX2_5706S,
+> -			 quirk_brcm_570x_limit_vpd);
+> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+> -			 PCI_DEVICE_ID_NX2_5708,
+> -			 quirk_brcm_570x_limit_vpd);
+> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+> -			 PCI_DEVICE_ID_NX2_5708S,
+> -			 quirk_brcm_570x_limit_vpd);
+> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+> -			 PCI_DEVICE_ID_NX2_5709,
+> -			 quirk_brcm_570x_limit_vpd);
+> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+> -			 PCI_DEVICE_ID_NX2_5709S,
+> -			 quirk_brcm_570x_limit_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
+> +			PCI_DEVICE_ID_NX2_5706,
+> +			quirk_brcm_570x_limit_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
+> +			PCI_DEVICE_ID_NX2_5706S,
+> +			quirk_brcm_570x_limit_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
+> +			PCI_DEVICE_ID_NX2_5708,
+> +			quirk_brcm_570x_limit_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
+> +			PCI_DEVICE_ID_NX2_5708S,
+> +			quirk_brcm_570x_limit_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
+> +			PCI_DEVICE_ID_NX2_5709,
+> +			quirk_brcm_570x_limit_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
+> +			PCI_DEVICE_ID_NX2_5709S,
+> +			quirk_brcm_570x_limit_vpd);
+> =20
+>  #ifdef CONFIG_PCI_MSI
+>  /* Some chipsets do not support MSI. We cannot easily rely on settin=
+g
+>=20
+>=20
 
->> +static int __devinit mdio_gpio_probe(struct platform_device *pdev)
->> +{
->> +       struct mii_bus *new_bus;
->> +       struct mdio_gpio_info *bitbang;
->> +       struct mdio_gpio_platform_data *pdata;
->> +       int ret = -ENOMEM;
->> +       int i;
->> +
->> +       pdata = pdev->dev.platform_data;
->> +       if (pdata == NULL)
->> +               goto out;
->> +
->> +       bitbang = kzalloc(sizeof(struct mdio_gpio_info), GFP_KERNEL);
-> 
-> sizeof(*bitbang) tends to read better and be more resistant to bitrot
-> 
->> +       if (gpio_request(bitbang->mdc, "mdc"))
->> +               goto out_free_bitbang;
->> +
->> +       if (gpio_request(bitbang->mdio, "mdio"))
->> +               goto out_free_mdc;
-> 
-> maybe include driver name and/or the platform id ?  if you have
-> multiple mdio-gpio's running at the same time, coordinating may get a
-> little messy ...
 
-Well... this is mostly for debugging only... I don't like the idea
-to add additional char[..] variable and use sprintf...
-IMO this would be just a bloat...
-
->> +       new_bus->name = "GPIO Bitbanged MII",
-> 
-> platform id here too ?
-
-If you take a look one line below you would see that bus ID is formed
-using platform id. Does this really need to be duplicated also in the
-name?
-
->> +static int mdio_gpio_init(void)
->> +{
->> +       return platform_driver_register(&mdio_gpio_driver);
->> +}
-> 
-> needs __init markings
-> 
->> +static void mdio_gpio_exit(void)
->> +{
->> +       platform_driver_unregister(&mdio_gpio_driver);
->> +}
-> 
-> needs __exit markings
-> -mike
-> 
