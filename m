@@ -1,34 +1,57 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [Bugme-new] [Bug 11855] New: kernel BUG when bringing down ppp
- connection
-Date: Tue, 28 Oct 2008 09:44:56 +0000
-Message-ID: <20081028094456.2cfc32ac@lxorguk.ukuu.org.uk>
-References: <bug-11855-10286@http.bugzilla.kernel.org/>
-	<20081027202407.7e390191.akpm@linux-foundation.org>
+From: "hamid jafarian" <hamid.jafarian@gmail.com>
+Subject: Re: [PATCH 00/09]IPtablestng/Kernel - New Framework For IPtables
+Date: Tue, 28 Oct 2008 13:32:06 +0330
+Message-ID: <464293e60810280302j26112754o72c1cf3ebd6a0b1f@mail.gmail.com>
+References: <20081027042834.0BA69C64087@host1.ystp.ac.ir>
+	 <20081028000044.GA16721@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	bluesloth600@gmail.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:43261 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751099AbYJ1Jpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 05:45:52 -0400
-In-Reply-To: <20081027202407.7e390191.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netfilter-devel <netfilter-devel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"Pablo Neira Ayuso" <pablo@netfilter.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Jan Engelhardt" <jengelh@medozas.de>,
+	"Rusty Russell" <rusty@rustcorp.com.au>,
+	"Harald Welte" <laforge@gnumonks.org>,
+	"Eric Leblond" <eric@inl.fr>,
+	"Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>,
+	"Amin Azez" <azez@ufomechanic.net>
+To: "Evgeniy Polyakov" <zbr@ioremap.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20081028000044.GA16721@ioremap.net>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > kernel BUG at drivers/char/tty_ldisc.c:199!
-> > invalid opcode: 0000 [1] PREEMPT SMP
-> > CPU 1
-> 
-> This has an Alany feel to it?
+hi, &  special thanks
 
-Ldisc refcount went negative. Will take a look at the bug report when I
-have time. First guess would be a bug in the specific USB serial driver -
-so need to know which driver is handlign the 26-183 and what is loaded
-(an lsmod would be handy)
+On Tue, Oct 28, 2008 at 3:30 AM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
+> Frankly saying your codying style is way out of expected range of
+> allowed glitches, so it is quite hard to review the whole thing. Please
+> update it to at least remotely match existing code.
 
-Alan
+excuse for this loosely patches...
+please more explain...
+do you mean my patches are too long? or ambiguous?
+i 've tried to code base on "Documentation/CodingStyle".. and patch
+base on "how to participate in the kernel community" documents.
+
+the core of this framework is located at pkt_tables.c&.h (#2&#3 of
+kernel patches).
+iptables.c&.h are completely changed. also at the user space libiptc.c
+is rewritten from scratch thus their patches are really ambiguous to
+be understood..what is the best way to send this patches?
+what this phrase mean: "' remotely match existing code ""?
+
+>Also I noticed you
+> do not use list iteration functions sometimes and replaces them with
+> direct access to next/prev pointers, which is not a good idea.
+ok, i 've used this style to free list elements.
+if you mean "don't use direct access to prev/next", i 'll review my
+code and will try to use list iteration function on every place that
+is possible or at list use list functions and list element of
+structures instead of direct access to "next/prev"..
+
+-- 
+Hamid Jafarian (hm.t)
