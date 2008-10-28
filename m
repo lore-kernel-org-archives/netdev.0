@@ -1,201 +1,328 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Tue, 28 Oct 2008 11:24:22 +0100
-Message-ID: <1225189462.4903.238.camel@marge.simson.net>
-References: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk>
-	 <20081027183312.GD11494@elte.hu> <20081027193933.GB2590@ioremap.net>
-	 <20081027.124848.163119274.davem@davemloft.net>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] phylib: add mdio-gpio bus driver (v3)
+Date: Tue, 28 Oct 2008 12:35:38 +0200
+Message-ID: <20081028103537.28951.4804.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, mingo@elte.hu, alan@lxorguk.ukuu.org.uk,
-	jkosina@suse.cz, akpm@linux-foundation.org, a.p.zijlstra@chello.nl,
-	rjw@sisk.pl, s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:47186 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752439AbYJ1KY3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Oct 2008 06:24:29 -0400
-In-Reply-To: <20081027.124848.163119274.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-embedded-owner@vger.kernel.org>
+Received: from 82-135-208-232.static.zebra.lt (HELO Programuotojas.82-135-208-232.ip.zebra.lt) (paulius.zaleckas@[82.135.208.232])
+          (envelope-sender <paulius.zaleckas@teltonika.lt>)
+          by teltonika.lt (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 28 Oct 2008 10:34:26 -0000
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-10-27 at 12:48 -0700, David Miller wrote: 
-> From: Evgeniy Polyakov <zbr@ioremap.net>
-> Date: Mon, 27 Oct 2008 22:39:34 +0300
-> 
-> > On Mon, Oct 27, 2008 at 07:33:12PM +0100, Ingo Molnar (mingo@elte.hu) wrote:
-> > > The moment there's real IO it becomes harder to analyze but the same 
-> > > basic behavior remains: the more unfair the IO scheduler, the "better" 
-> > > dbench results we get.
-> > 
-> > Right now there is no disk IO at all. Only quite usual network and
-> > process load.
-> 
-> I think the hope is that by saying there isn't a problem enough times,
-> it will become truth. :-)
-> 
-> More seriously, Ingo, what in the world do we need to do in order to get
-> you to start doing tbench runs and optimizing things (read as: fixing
-> the regression you added)?
-> 
-> I'm personally working on a test fibonacci heap implementation for
-> the fair sched code, and I already did all of the cost analysis all
-> the way back to the 2.6.22 pre-CFS days.
-> 
-> But I'm NOT a scheduler developer, so it isn't my responsibility to do
-> this crap for you.  You added this regression, why do I have to get my
-> hands dirty in order for there to be some hope that these regressions
-> start to get fixed?
+Useful for machines where PHY control is connected to GPIO.
+This driver also supports interrupts from PHY.
 
-I don't want to ruffle any feathers, but my box has comment or two..
+Changes since v2:
+- add module author, description and license
+- add module alias for udev
+- rename mdc and mdio function (were ugly names)
+- don't BUG kernel if phy address is invalid
+- change MII to MDIO in name
+- add __init __exit to module loading functions
+- some cosmetic changes
 
-Has anyone looked at the numbers box emitted?  Some what I believe to be
-very interesting data-points may have been overlooked.
+Changes since v1:
+- fixed releasing of gpio (thanks to Sascha Hauer)
+- fixed compiling due to bus->dev to bus->parent change
 
-Here's a piece thereof again for better of worse.  One last post won't
-burn the last electron.  If they don't agree anyone else's numbers,
-that's ok, their numbers have meaning too, and speak for themselves.
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+---
 
-Retest hrtick pain:
+ drivers/net/phy/Kconfig     |    9 ++
+ drivers/net/phy/Makefile    |    1 
+ drivers/net/phy/mdio-gpio.c |  200 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mdio-gpio.h   |   40 +++++++++
+ 4 files changed, 250 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/phy/mdio-gpio.c
+ create mode 100644 include/linux/mdio-gpio.h
 
-2.6.26.7-up virgin no highres timers enabled
-ring-test   - 1.155 us/cycle  = 865 KHz                                 1.000
-netperf     - 130470.93 130771.00 129872.41 rr/s    avg 130371.44 rr/s  1.000 (within jitter of previous tests)
-tbench      - 355.153 357.163 356.836 MB/sec        avg 356.384 MB/sec  1.000
 
-2.6.26.7-up virgin highres timers enabled, hrtick enabled
-ring-test   - 1.368 us/cycle  = 730 KHz                                  .843
-netperf     - 118959.08 118853.16 117761.42 rr/s    avg 118524.55 rr/s   .909
-tbench      - 340.999 338.655 340.005 MB/sec        avg 339.886 MB/sec   .953
-
-OK, there's the htrick regression in all it's gory.  Ouch, that hurt.  
-
-Remember those numbers, box muttered them again in 27 testing.  These
-previously tested kernels don't even have highres timers enabled, so
-obviously hrtick is a non-issue for them.
-
-2.6.26.6-up + clock + buddy + weight
-ring-test   - 1.234 us/cycle  = 810 KHz                                  .947 [cmp1]
-netperf     - 128026.62 128118.48 127973.54 rr/s    avg 128039.54 rr/s   .977
-tbench      - 342.011 345.307 343.535 MB/sec        avg 343.617 MB/sec   .964
-
-2.6.26.6-up + clock + buddy + weight + revert_to_per_rq_vruntime + buddy_overhead
-ring-test   - 1.174 us/cycle  = 851 KHz                                  .995 [cmp2]
-netperf     - 133928.03 134265.41 134297.06 rr/s    avg 134163.50 rr/s  1.024
-tbench      - 358.049 359.529 358.342 MB/sec        avg 358.640 MB/sec  1.006
-
-Note that I added all .27 additional scheduler overhead to .26, and then
-removed every last bit of it, theoretically leaving nothing but improved
-clock accuracy in the wake.  The ring-test number indicates that our max
-context switch rate was thereby indeed fully recovered.  We even got a
-modest throughput improvement for our trouble.
-
-However.. 
-                                                       versus .26 counterpart
-2.6.27-up virgin
-ring-test   - 1.193 us/cycle  = 838 KHz                                 1.034 [vs cmp1]
-netperf     - 121293.48 121700.96 120716.98 rr/s    avg 121237.14 rr/s   .946
-tbench      - 340.362 339.780 341.353 MB/sec        avg 340.498 MB/sec   .990
-
-2.6.27-up + revert_to_per_rq_vruntime + buddy_overhead
-ring-test   - 1.122 us/cycle  = 891 KHz                                 1.047 [vs cmp2]
-netperf     - 119353.27 118600.98 119719.12 rr/s    avg 119224.45 rr/s   .900
-tbench      - 338.701 338.508 338.562 MB/sec        avg 338.590 MB/sec   .951
-
-..removing the overhead from .27 does not produce the anticipated result
-despite a max context switch rate markedly above that of 2.6.26.
-
-There lies an as yet unaddressed regression IMBHO.  The hrtick has been
-addressed.  It sucked at high frequency, and it's gone.  The added math
-overhead in .27 hurt some too, and is now history as well.
-
-These two regressions are nearly identical in magnitude per box.
-
-I don't know who owns that regression, neither does box or git.  I'm not
-pointing fingers in any direction.  I've walked the regression hunting
-path, and know first-hand how rocky that path is.
-
-There are other things along the regression path that are worth noting:
-
-Three of the releases I tested were tested with identical schedulers,
-cfs-v24.1, yet they produced markedly different output, output which
-regresses.  Again, I'm not pointing fingers, I'm merely illustrating how
-rocky this regression hunting path is.  In 25, the sum of all kernel
-changes dropped our max switch rate markedly, yet both tbench and
-netperf _improved_ markedly.  More rocks in the road.  etc etc etc.
-
-To really illustrate rockiness, cutting network config down from distro
-lard-ball to something leaner and meaner took SMP throughput from this
-(was only testing netperf at that time) on 19 Aug..
-
-2.6.22.19 pinned
-16384  87380  1        1       300.00   59866.40   
-16384  87380  1        1       300.01   59852.78   
-16384  87380  1        1       300.01   59618.48   
-16384  87380  1        1       300.01   59655.35   
-
-..to this on 13 Sept..
-
-2.6.22.19 (also pinned)
-Throughput 1136.02 MB/sec 4 procs
-
-16384  87380  1        1       60.01    94179.12
-16384  87380  1        1       60.01    88780.61
-16384  87380  1        1       60.01    91057.72
-16384  87380  1        1       60.01    94242.16
-
-..and to this on 15 Sept.
-
-2.6.22.19 (also pinned)
-Throughput 1250.73 MB/sec 4 procs                  1.00
-
-16384  87380  1        1       60.01    111272.55  1.00
-16384  87380  1        1       60.00    104689.58
-16384  87380  1        1       60.00    110733.05
-16384  87380  1        1       60.00    110748.88
-
-2.6.22.19-cfs-v24.1
-
-Throughput 1204.14 MB/sec 4 procs                  .962
-
-16384  87380  1        1       60.01    101799.85  .929
-16384  87380  1        1       60.01    101659.41
-16384  87380  1        1       60.01    101628.78
-16384  87380  1        1       60.01    101700.53
-
-wakeup granularity = 0 (make scheduler as preempt happy as 2.6.22 is)
-
-Throughput 1213.21 MB/sec 4 procs                  .970
-
-16384  87380  1        1       60.01    108569.27  .992
-16384  87380  1        1       60.01    108541.04
-16384  87380  1        1       60.00    108579.63
-16384  87380  1        1       60.01    108519.09
-
-Is that a rock in my let's double triple quintuple examine scheduler
-performance along the regression path or what?  Same box, same
-benchmarks and same schedulers I've been examining the whole time.
-
-.992 and .970.
-
-The list goes on and on and on, including SCHED_RR testing where I saw
-regression despite no CFS math.  My point here is that every little
-change of anything changes the picture up to and including radically.
-These configuration changes, if viewed in regression terms, are HUGE.
-Build a fully enabled netfilter into the kernel vs modular, and it
-becomes even more so. 
-
-The picture with UP config is different, but as far as box is concerned,
-while scheduler involvement is certainly interesting, there are even
-more interesting places.  Somewhere.
-
-Hopefully this post won't be viewed in the rather cynical light of your
-first quoted stanza.  Box is incapable of such, and I have no incentive
-to do such ;-)  I just run the benchmarks, collect whatever numbers box
-feels like emitting, and run around trying to find the missing bits.
-
-	-Mike
-
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index d55932a..610fd88 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -84,6 +84,15 @@ config MDIO_BITBANG
+ 
+ 	  If in doubt, say N.
+ 
++config MDIO_GPIO
++	tristate "Support for GPIO bitbanged MDIO buses"
++	depends on MDIO_BITBANG && GENERIC_GPIO
++	help
++	  Supports MDIO busses connected to GPIO.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called mdio-gpio.
++
+ config MDIO_OF_GPIO
+ 	tristate "Support for GPIO lib-based bitbanged MDIO buses"
+ 	depends on MDIO_BITBANG && OF_GPIO
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index eee329f..8629b09 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -15,4 +15,5 @@ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
+ obj-$(CONFIG_FIXED_PHY)		+= fixed.o
+ obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
++obj-$(CONFIG_MDIO_GPIO)		+= mdio-gpio.o
+ obj-$(CONFIG_MDIO_OF_GPIO)	+= mdio-ofgpio.o
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+new file mode 100644
+index 0000000..c860468
+--- /dev/null
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -0,0 +1,200 @@
++/*
++ * GPIO based MDIO bitbang driver.
++ *
++ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
++ *
++ * Based on mdio-ofgpio.c:
++ *
++ * Copyright (c) 2008 CSE Semaphore Belgium.
++ *  by Laurent Pinchart <laurentp@cse-semaphore.com>
++ *
++ * Copyright (c) 2003 Intracom S.A.
++ *  by Pantelis Antoniou <panto@intracom.gr>
++ *
++ * 2005 (c) MontaVista Software, Inc.
++ * Vitaly Bordug <vbordug@ru.mvista.com>
++ *
++ * This file is licensed under the terms of the GNU General Public License
++ * version 2. This program is licensed "as is" without any warranty of any
++ * kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/platform_device.h>
++#include <linux/gpio.h>
++#include <linux/mdio-bitbang.h>
++#include <linux/mdio-gpio.h>
++
++struct mdio_gpio_info {
++	struct mdiobb_ctrl ctrl;
++	unsigned int mdc, mdio;
++};
++
++static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
++{
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
++
++	if (dir)
++		gpio_direction_output(bitbang->mdio, 1);
++	else
++		gpio_direction_input(bitbang->mdio);
++}
++
++static int mdio_get(struct mdiobb_ctrl *ctrl)
++{
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
++
++	return gpio_get_value(bitbang->mdio);
++}
++
++static void mdio_set(struct mdiobb_ctrl *ctrl, int what)
++{
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
++
++	gpio_set_value(bitbang->mdio, what);
++}
++
++static void mdc_set(struct mdiobb_ctrl *ctrl, int what)
++{
++	struct mdio_gpio_info *bitbang =
++		container_of(ctrl, struct mdio_gpio_info, ctrl);
++
++	gpio_set_value(bitbang->mdc, what);
++}
++
++static struct mdiobb_ops mdio_gpio_ops = {
++	.owner = THIS_MODULE,
++	.set_mdc = mdc_set,
++	.set_mdio_dir = mdio_dir,
++	.set_mdio_data = mdio_set,
++	.get_mdio_data = mdio_get,
++};
++
++static int __devinit mdio_gpio_probe(struct platform_device *pdev)
++{
++	struct mii_bus *new_bus;
++	struct mdio_gpio_info *bitbang;
++	struct mdio_gpio_platform_data *pdata;
++	int ret = -ENOMEM;
++	int i;
++
++	pdata = pdev->dev.platform_data;
++	if (pdata == NULL)
++		goto out;
++
++	bitbang = kzalloc(sizeof(*bitbang), GFP_KERNEL);
++	if (!bitbang)
++		goto out;
++
++	bitbang->ctrl.ops = &mdio_gpio_ops;
++	bitbang->mdc = pdata->mdc;
++	bitbang->mdio = pdata->mdio;
++
++	if (gpio_request(bitbang->mdc, "mdc"))
++		goto out_free_bitbang;
++
++	if (gpio_request(bitbang->mdio, "mdio"))
++		goto out_free_mdc;
++
++	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
++	if (!new_bus)
++		goto out_free_gpio;
++
++	new_bus->name = "GPIO Bitbanged MDIO",
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "phy%i", pdev->id);
++
++	new_bus->phy_mask = ~0;
++	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	if (!new_bus->irq)
++		goto out_free_bus;
++
++	for (i = 0; i < PHY_MAX_ADDR; i++)
++		new_bus->irq[i] = PHY_POLL;
++
++	for (i = 0; i < pdata->nr_phys; i++) {
++		unsigned int phy_addr = pdata->phys[i].addr;
++
++		if (phy_addr >= PHY_MAX_ADDR) {
++			dev_err(&pdev->dev,
++				"Failed to add phy with invalid address: 0x%x",
++				phy_addr);
++			continue;
++		}
++
++		new_bus->phy_mask &= ~(1 << phy_addr);
++		new_bus->irq[phy_addr] = pdata->phys[i].irq;
++	}
++
++	if (new_bus->phy_mask == ~0)
++		goto out_free_irq;
++
++	new_bus->parent = &pdev->dev;
++	platform_set_drvdata(pdev, new_bus);
++
++	ret = mdiobus_register(new_bus);
++	if (ret)
++		goto out_free_all;
++
++	return 0;
++
++out_free_all:
++	platform_set_drvdata(pdev, NULL);
++out_free_irq:
++	kfree(new_bus->irq);
++out_free_bus:
++	free_mdio_bitbang(new_bus);
++out_free_gpio:
++	gpio_free(bitbang->mdio);
++out_free_mdc:
++	gpio_free(bitbang->mdc);
++out_free_bitbang:
++	kfree(bitbang);
++out:
++	return ret;
++}
++
++static int __devexit mdio_gpio_remove(struct platform_device *pdev)
++{
++	struct mii_bus *bus = platform_get_drvdata(pdev);
++	struct mdio_gpio_info *bitbang = bus->priv;
++
++	mdiobus_unregister(bus);
++	kfree(bus->irq);
++	free_mdio_bitbang(bus);
++	platform_set_drvdata(pdev, NULL);
++	gpio_free(bitbang->mdc);
++	gpio_free(bitbang->mdio);
++	kfree(bitbang);
++
++	return 0;
++}
++
++static struct platform_driver mdio_gpio_driver = {
++	.probe = mdio_gpio_probe,
++	.remove = __devexit_p(mdio_gpio_remove),
++	.driver		= {
++		.name	= "mdio-gpio",
++		.owner	= THIS_MODULE,
++	},
++};
++
++static int __init mdio_gpio_init(void)
++{
++	return platform_driver_register(&mdio_gpio_driver);
++}
++module_init(mdio_gpio_init);
++
++static void __exit mdio_gpio_exit(void)
++{
++	platform_driver_unregister(&mdio_gpio_driver);
++}
++module_exit(mdio_gpio_exit);
++
++MODULE_ALIAS("platform:mdio-gpio");
++MODULE_AUTHOR("Paulius Zaleckas <paulius.zaleckas@teltonika.lt>");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Generic driver for MDIO bus emulation using GPIO");
+diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
+new file mode 100644
+index 0000000..82d5fa4
+--- /dev/null
++++ b/include/linux/mdio-gpio.h
+@@ -0,0 +1,40 @@
++/*
++ * MDIO-GPIO bus platform data structures
++ *
++ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#ifndef __LINUX_MDIO_GPIO_H
++#define __LINUX_MDIO_GPIO_H
++
++struct mdio_gpio_phy {
++	/* PHY address on MDIO bus */
++	unsigned int addr;
++	/* preconfigured irq connected to PHY or -1 if no irq */
++	int irq;
++};
++
++struct mdio_gpio_platform_data {
++	/* GPIO numbers for bus pins */
++	unsigned int mdc;
++	unsigned int mdio;
++
++	unsigned int nr_phys;
++	struct mdio_gpio_phy *phys;
++};
++
++#endif /* __LINUX_MDIO_GPIO_H */
