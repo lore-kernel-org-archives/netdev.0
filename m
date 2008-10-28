@@ -1,40 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: Notify changes in UDP encapsulation via netlink
-Date: Tue, 28 Oct 2008 15:34:15 -0700 (PDT)
-Message-ID: <20081028.153415.152122885.davem@davemloft.net>
-References: <20081028085119.6A30EEF9BA@strongswan.org>
-	<20081028.114828.158507859.davem@davemloft.net>
-	<1225226660.6976.18.camel@martin>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 4/6v2] netfilter: replace uses of NIP6_FMT with %p6
+Date: Tue, 28 Oct 2008 15:42:36 -0700
+Message-ID: <1225233757.5269.211.camel@localhost>
+References: <1225223641.11483.42.camel@brick>
+	 <1225224815.11483.56.camel@brick>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: martin@strongswan.org
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50799
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751521AbYJ1Weh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 18:34:37 -0400
-In-Reply-To: <1225226660.6976.18.camel@martin>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:3217 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752812AbYJ1Wml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 18:42:41 -0400
+In-Reply-To: <1225224815.11483.56.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Willi <martin@strongswan.org>
-Date: Tue, 28 Oct 2008 21:44:20 +0100
+On Tue, 2008-10-28 at 13:13 -0700, Harvey Harrison wrote:
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> diff --git a/net/netfilter/nf_conntrack_ftp.c
+> b/net/netfilter/nf_conntrack_ftp.c
+> index 4f71071..a90d463 100644
+> --- a/net/netfilter/nf_conntrack_ftp.c
+> +++ b/net/netfilter/nf_conntrack_ftp.c
+> @@ -467,11 +467,9 @@ static int help(struct sk_buff *skb,
+>  				 NIPQUAD(cmd.u3.ip),
+>  				 NIPQUAD(ct->tuplehash[dir].tuple.src.u3.ip));
+>  		} else {
+> -			pr_debug("conntrack_ftp: NOT RECORDING: " NIP6_FMT
+> -				 " != " NIP6_FMT "\n",
+> -				 NIP6(*((struct in6_addr *)cmd.u3.ip6)),
+> -				 NIP6(*((struct in6_addr *)
+> -					ct->tuplehash[dir].tuple.src.u3.ip6)));
+> +			pr_debug("conntrack_ftp: NOT RECORDING: %p6 != %p6\n",
+> +				 cmd.u3.ip6, 
+> +				 ct->tuplehash[dir].tuple.src.u3.ip6);
+>  		}
 
-> >  static struct xfrm_mgr netlink_mgr = {
-> >         .id             = "netlink",
-> >         .notify         = xfrm_send_state_notify,
-> >         .notify_policy  = xfrm_send_policy_notify,
-> >         .report         = xfrm_send_report,
-> >         .migrate        = xfrm_send_migrate,
-> > +       .new_mapping    = xfrm_send_mapping,
-> > };
-> 
-> This operation is invoked from net/ipv4/esp4.c through the
-> km_new_mapping() function, km_new_mapping() invokes all registered key
-> managers. It is already implemented in the PF_KEY interface (pfkeyv2_mgr
-> in af_key.c), but is missing in the netlink xfrm interface. The patch
-> adds this functionality to the netlink interface.
+I think it's better to change all uses of:
+  (foo.<ie: ct->tuplehash[dir].tuple.src.>)u3.ip6
+to:
+  &foo.u3.in6
 
-Sorry, I didn't pick up on that.  Thanks for the explanation.
+as the union defines a struct in6_addr and not use the
+ip6 array which is __be32[4].
+
