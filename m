@@ -1,137 +1,128 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] PCI: Limit VPD length for Broadcom 5708S
-Date: Tue, 28 Oct 2008 09:38:46 +0100
-Message-ID: <4906CF96.2000809@cosmosbay.com>
-References: <48920413.6080508@cosmosbay.com> <4906405F.6080708@cosmosbay.com> <1225164385.3977.11.camel@localhost> <4906AF5F.9040704@cosmosbay.com> <20081028064411.GA7043@yzhao12-linux.sh.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: benli@broadcom.com,
-	"willy@linux.intel.com" <willy@linux.intel.com>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Yu Zhao <yu.zhao@intel.com>
+From: martin@strongswan.org (Martin Willi)
+Subject: [PATCH] xfrm: Notify changes in UDP encapsulation via netlink
+Date: Tue, 28 Oct 2008 09:51:19 +0100 (CET)
+Message-ID: <20081028085119.6A30EEF9BA@strongswan.org>
+Cc: martin@strongswan.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:37989 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751571AbYJ1Ii6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 04:38:58 -0400
-In-Reply-To: <20081028064411.GA7043@yzhao12-linux.sh.intel.com>
+Received: from sidv0150.hsr.ch ([152.96.52.150]:51963 "EHLO strongswan.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751571AbYJ1IvP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 04:51:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yu Zhao a =E9crit :
-> On Tue, Oct 28, 2008 at 02:21:19PM +0800, Eric Dumazet wrote:
->> Benjamin Li a =E9crit :
->>> Hi Eric,
->>>
->>> It looks like the same problem again: we are reading past a valid V=
-PD
->>> address.
->>>
->>> After some initial debugging, it looks like dev->vpd is NULL when t=
-he
->>> Broadcom 5706C/5706S/5708C/570S/5709 quirk is called.  Because of t=
-his
->>> dev->vpd->len is never set to the proper length to limit the VPD re=
-ads.
->>> I will debug further to determine what has changed.
->>>
->>> Thanks again for pointing out the problem.
->>>
->> I did a git bisect this morning :
->>
->> $ git bisect good
->> 201de56eb22f1ff3f36804bc70cbff220b50f067 is first bad commit
->> commit 201de56eb22f1ff3f36804bc70cbff220b50f067
->> Author: Zhao, Yu <yu.zhao@intel.com>
->> Date:   Mon Oct 13 19:49:55 2008 +0800
->>
->>     PCI: centralize the capabilities code in probe.c
->>
->>     This patch centralizes the initialization and release functions =
-of
->>     various PCI capabilities in probe.c, which makes the introductio=
-n
->>     of new capability support functions cleaner in the future.
->>
->>     Signed-off-by: Yu Zhao <yu.zhao@intel.com>
->>     Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
->>
->=20
-> Yes, the VPD initialization code has been moved to a later stage that=
- is
-> after the pci_fixup_header. Can you please try following fix?
->
+Add new_mapping() implementation to the netlink xfrm_mgr to notify
+address/port changes detected in UDP encapsulated ESP packets.
 
-Yes, this patch corrects the problem, thanks Yu.
+Signed-off-by: Martin Willi <martin@strongswan.org>
 
-Tested-by: Eric Dumazet <dada1@cosmosbay.com>
-=20
-> Thanks,
-> Yu
->=20
-> VPD quirks needs to be called after the capability is initialized. Si=
-nce
-> VPD initialization is move to after pci_fixup_header, VPD quirks shou=
-ld
-> be done at pci_fixup_final stage correspondingly.
->=20
-> Signed-off-by: Yu Zhao <yu.zhao@intel.com>
->=20
-> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> index bbf66ea..5049a47 100644
-> --- a/drivers/pci/quirks.c
-> +++ b/drivers/pci/quirks.c
-> @@ -1692,24 +1692,24 @@ static void __devinit quirk_brcm_570x_limit_v=
-pd(struct pci_dev *dev)
->  	}
->  }
-> =20
-> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
-> -			 PCI_DEVICE_ID_NX2_5706,
-> -			 quirk_brcm_570x_limit_vpd);
-> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
-> -			 PCI_DEVICE_ID_NX2_5706S,
-> -			 quirk_brcm_570x_limit_vpd);
-> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
-> -			 PCI_DEVICE_ID_NX2_5708,
-> -			 quirk_brcm_570x_limit_vpd);
-> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
-> -			 PCI_DEVICE_ID_NX2_5708S,
-> -			 quirk_brcm_570x_limit_vpd);
-> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
-> -			 PCI_DEVICE_ID_NX2_5709,
-> -			 quirk_brcm_570x_limit_vpd);
-> -DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
-> -			 PCI_DEVICE_ID_NX2_5709S,
-> -			 quirk_brcm_570x_limit_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
-> +			PCI_DEVICE_ID_NX2_5706,
-> +			quirk_brcm_570x_limit_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
-> +			PCI_DEVICE_ID_NX2_5706S,
-> +			quirk_brcm_570x_limit_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
-> +			PCI_DEVICE_ID_NX2_5708,
-> +			quirk_brcm_570x_limit_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
-> +			PCI_DEVICE_ID_NX2_5708S,
-> +			quirk_brcm_570x_limit_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
-> +			PCI_DEVICE_ID_NX2_5709,
-> +			quirk_brcm_570x_limit_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_BROADCOM,
-> +			PCI_DEVICE_ID_NX2_5709S,
-> +			quirk_brcm_570x_limit_vpd);
-> =20
->  #ifdef CONFIG_PCI_MSI
->  /* Some chipsets do not support MSI. We cannot easily rely on settin=
-g
->=20
->=20
-
-
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index 4bc1e6b..52f3abd 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -199,6 +199,9 @@ enum {
+ #define XFRM_MSG_NEWSPDINFO XFRM_MSG_NEWSPDINFO
+ 	XFRM_MSG_GETSPDINFO,
+ #define XFRM_MSG_GETSPDINFO XFRM_MSG_GETSPDINFO
++
++	XFRM_MSG_MAPPING,
++#define XFRM_MSG_MAPPING XFRM_MSG_MAPPING
+ 	__XFRM_MSG_MAX
+ };
+ #define XFRM_MSG_MAX (__XFRM_MSG_MAX - 1)
+@@ -438,6 +441,15 @@ struct xfrm_user_migrate {
+ 	__u16				new_family;
+ };
+ 
++struct xfrm_user_mapping {
++	struct xfrm_usersa_id		id;
++	__u32				reqid;
++	xfrm_address_t			old_saddr;
++	xfrm_address_t			new_saddr;
++	__be16				old_sport;
++	__be16				new_sport;
++};
++
+ #ifndef __KERNEL__
+ /* backwards compatibility for userspace */
+ #define XFRMGRP_ACQUIRE		1
+@@ -464,6 +476,8 @@ enum xfrm_nlgroups {
+ #define XFRMNLGRP_REPORT	XFRMNLGRP_REPORT
+ 	XFRMNLGRP_MIGRATE,
+ #define XFRMNLGRP_MIGRATE	XFRMNLGRP_MIGRATE
++	XFRMNLGRP_MAPPING,
++#define XFRMNLGRP_MAPPING	XFRMNLGRP_MAPPING
+ 	__XFRMNLGRP_MAX
+ };
+ #define XFRMNLGRP_MAX	(__XFRMNLGRP_MAX - 1)
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 4a8a1ab..499a516 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2503,6 +2503,57 @@ static int xfrm_send_report(u8 proto, struct xfrm_selector *sel,
+ 	return nlmsg_multicast(xfrm_nl, skb, 0, XFRMNLGRP_REPORT, GFP_ATOMIC);
+ }
+ 
++static inline size_t xfrm_mapping_msgsize(void)
++{
++	return NLMSG_ALIGN(sizeof(struct xfrm_user_mapping));
++}
++
++static int build_mapping(struct sk_buff *skb, struct xfrm_state *x,
++			 xfrm_address_t *new_saddr, __be16 new_sport)
++{
++	struct xfrm_user_mapping *um;
++	struct nlmsghdr *nlh;
++
++	nlh = nlmsg_put(skb, 0, 0, XFRM_MSG_MAPPING, sizeof(*um), 0);
++	if (nlh == NULL)
++		return -EMSGSIZE;
++
++	um = nlmsg_data(nlh);
++	
++	memcpy(&um->id.daddr, &x->id.daddr, sizeof(um->id.daddr));
++	um->id.spi = x->id.spi;
++	um->id.family = x->props.family;
++	um->id.proto = x->id.proto;
++	memcpy(&um->new_saddr, new_saddr, sizeof(um->new_saddr));
++	memcpy(&um->old_saddr, &x->props.saddr, sizeof(um->old_saddr));
++	um->new_sport = new_sport;
++	um->old_sport = x->encap->encap_sport;
++	um->reqid = x->props.reqid;
++
++	return nlmsg_end(skb, nlh);
++}
++
++static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
++			     __be16 sport)
++{
++	struct sk_buff *skb;
++
++	if (x->id.proto != IPPROTO_ESP)
++		return -EINVAL;
++
++	if (!x->encap)
++		return -EINVAL;
++
++	skb = nlmsg_new(xfrm_mapping_msgsize(), GFP_ATOMIC);
++	if (skb == NULL)
++		return -ENOMEM;
++
++	if (build_mapping(skb, x, ipaddr, sport) < 0)
++		BUG();
++
++	return nlmsg_multicast(xfrm_nl, skb, 0, XFRMNLGRP_MAPPING, GFP_ATOMIC);
++}
++
+ static struct xfrm_mgr netlink_mgr = {
+ 	.id		= "netlink",
+ 	.notify		= xfrm_send_state_notify,
+@@ -2511,6 +2562,7 @@ static struct xfrm_mgr netlink_mgr = {
+ 	.notify_policy	= xfrm_send_policy_notify,
+ 	.report		= xfrm_send_report,
+ 	.migrate	= xfrm_send_migrate,
++	.new_mapping	= xfrm_send_mapping,
+ };
+ 
+ static int __init xfrm_user_init(void)
