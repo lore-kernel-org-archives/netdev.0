@@ -1,45 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: don't use INIT_RCU_HEAD
-Date: Tue, 28 Oct 2008 13:25:21 -0700 (PDT)
-Message-ID: <20081028.132521.120536910.davem@davemloft.net>
-References: <20081028133124.GA3006@x200.localdomain>
-	<20081028161017.GF6779@linux.vnet.ibm.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3:No interrupt was generated using MSI, switching to INTx
+ mode. Please report this failure to the PCI maintainer and include
+ system chipset information.
+Date: Tue, 28 Oct 2008 13:29:20 -0700
+Message-ID: <1225225760.9170.59.camel@HP1>
+References: <1225191510.26840.6.camel@localhost>
+ <20081028.120419.252131562.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+Cc: "donner@dbd-breitband.de" <donner@dbd-breitband.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56911
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752903AbYJ1UZo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 16:25:44 -0400
-In-Reply-To: <20081028161017.GF6779@linux.vnet.ibm.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:3377 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752678AbYJ1Ubp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 16:31:45 -0400
+In-Reply-To: <20081028.120419.252131562.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Tue, 28 Oct 2008 09:10:17 -0700
 
-> On Tue, Oct 28, 2008 at 04:31:24PM +0300, Alexey Dobriyan wrote:
-> > call_rcu() will unconditionally rewrite RCU head anyway.
-> > Applies to 
-> > 	struct neigh_parms
-> > 	struct neigh_table
-> > 	struct net
-> > 	struct cipso_v4_doi
-> > 	struct in_ifaddr
-> > 	struct in_device
-> > 	rt->u.dst
+On Tue, 2008-10-28 at 12:04 -0700, David Miller wrote:
+> From: Marc Donner <donner@dbd-breitband.de>
+> Date: Tue, 28 Oct 2008 11:58:30 +0100
 > 
-> Assuming that no code outside of RCU is testing the rcu_head fields...
-> That would usually be a bad idea in any case, as call_rcu() makes no
-> guarantee about the values of these fields after the callback is invoked.
-> Furthermore, there have been serious proposals that would change the
-> call_rcu() field names and layout.
+> Please report networking problems to netdev@vger.kernel.org
+> (added to CC:)
 > 
-> Therefore:
+> Many networking developers do not read linux-kernel
 > 
-> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > Hi @all,
+> > 
+> > we have installed a dual port Brodcam Gigabit Ethernet NIC, and get the
+> > following error in dmesg:
+> > 
+> > tg3: eth1 No interrupt was generated using MSI, switching to INTx mode.
+> > Please report this failure to the PCI maintainer and include system
+> > chipset information.
+> > 
+> > Who is responsible for this error message? We are using Kernel 2.6.21.1
+> > and the NIC Chipset is a Broadcom BCM5715CKPBG
+> > 
 
-I've applied this patch, thanks everyone.
+This message means that your system chipset (not the NIC) does not
+support MSI.  Please provide lspci -vvv to show the system chipset on
+your system.  Thanks.
+
+
