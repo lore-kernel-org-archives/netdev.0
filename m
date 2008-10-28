@@ -1,53 +1,29 @@
-From: Vivien Chappelier <vivien.chappelier@thomson.net>
-Subject: Re: [PATCH 6/6] netns: configurable number of initial network	namespaces
-Date: Tue, 28 Oct 2008 19:06:00 +0100
-Message-ID: <49075488.8030002@thomson.net>
-References: <20081028174659.GF8471@thomson.net> <49075138.80808@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver updates
+Date: Tue, 28 Oct 2008 11:10:58 -0700 (PDT)
+Message-ID: <20081028.111058.29266813.davem@davemloft.net>
+References: <20081027231841.GA26530@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Benjamin Thery <benjamin.thery@bull.net>, jleu@mindspring.com,
-	linux-vrf-general@lists.sourceforge.net
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dmzraw4.extranet.thmulti.com ([141.11.234.72]:34152 "EHLO
-	dmzraw4.extranet.thmulti.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751912AbYJ1SGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 14:06:04 -0400
-In-Reply-To: <49075138.80808@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754565AbYJ1SLe@vger.kernel.org>
+In-Reply-To: <20081027231841.GA26530@havoc.gtf.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Jeff Garzik <jeff@garzik.org>
+Date: Mon, 27 Oct 2008 19:18:41 -0400
 
-    Yes; the linux-vrf patches had a new netlink message to 
-create/remove the equivalent of a network namespace (ip vrf add 1). I've 
-not ported this feature yet, so this patch is meant to provide another 
-way of setting up networking stacks without the need for a new process 
-for each stack. The ability to dynamically create/remove networking 
-stacks from userspace would definitely be useful.
-    There are also some very minor advantages in creating the namespaces 
-statically at boot time, such as increasing the chances that the 
-allocation works (though network namespaces are quite small), and 
-improving boot time by avoiding a few calls to /sbin/ip on startup. 
-Since we are running on embedded devices, that is something that matter 
-to us, but it may not be enough to justify the need for this feature. 
-Anyway, I do not think it hurts to have the ability to create static 
-networking stacks at boot time.
+> 
+> Note 1: The dm9601 change is, strictly speaking, an addition, but it
+> fixes the inability to perform several basic functions related to MAC
+> address.
+> 
+> Please pull from 'davem-fixes' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
+> 
+> to receive the following updates:
 
-regards,
-Vivien.
-
-Patrick McHardy wrote:
-> Vivien Chappelier wrote:
->> This allows the creation of more than one network namespace at boot 
->> time.
->
-> I'm wondering, what is the advantage over creating them manually?
-> They have to be configured by userspace to be useful anyway, don't
-> they?
->
->
-
+Pulled, thanks a lot Jeff.
