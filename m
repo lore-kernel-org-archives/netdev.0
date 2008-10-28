@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Remove unused variable warning
-Date: Tue, 28 Oct 2008 11:45:24 -0700 (PDT)
-Message-ID: <20081028.114524.89018707.davem@davemloft.net>
-References: <20081028081457.GA19691@ubuntu>
+Subject: Re: [PATCH] xfrm: Notify changes in UDP encapsulation via netlink
+Date: Tue, 28 Oct 2008 11:48:28 -0700 (PDT)
+Message-ID: <20081028.114828.158507859.davem@davemloft.net>
+References: <20081028085119.6A30EEF9BA@strongswan.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jianjun@zeuux.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: martin@strongswan.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52521
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52524
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752949AbYJ1Spq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 14:45:46 -0400
-In-Reply-To: <20081028081457.GA19691@ubuntu>
+	by vger.kernel.org with ESMTP id S1752171AbYJ1Ssv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 14:48:51 -0400
+In-Reply-To: <20081028085119.6A30EEF9BA@strongswan.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmlhbmp1biBLb25nIDxqaWFuanVuQHpldXV4Lm9yZz4NCkRhdGU6IFR1ZSwgMjggT2N0
-IDIwMDggMTY6MTQ6NTcgKzA4MDANCg0KUGxlYXNlIHNlbmQgbmV0d29ya2luZyBwYXRjaGVzIGF0
-IGxlYXN0IENDOidkIHRvDQpuZXRkZXZAdmdlci5rZXJuZWwub3JnIHNvIHRoYXQgaXQgZ2V0cyBh
-cmNoaXZlZCBwcm9wZXJseSBpbiBwYXRjaHdvcms6DQoNCglodHRwOi8vcGF0Y2h3b3JrLm96bGFi
-cy5vcmcvcHJvamVjdC9uZXRkZXYvbGlzdC8NCg0KYW5kIHRodXMgZG9lc24ndCBnZXQgbG9zdC4N
-Cg0KPiBuZXQ6IFJlbW92ZSB1bnVzZWQgdmFyaWFibGUgd2FybmluZw0KPiAnbWluX2RzX3RpbWVv
-dXQnIGFuZCAnbWF4X2RzX3RpbWVvdXQnIGFyZSBvbmx5IHVzZWQgd2hlbiBDT05GSUdfQVgyNV9E
-QU1BX1NMQVZFIGlzIGRlZmluZWQuDQo+IA0KPiBuZXQvYXgyNS9zeXNjdGxfbmV0X2F4MjUuYzoy
-Nzogd2FybmluZzog4oCYbWluX2RzX3RpbWVvdXTigJkgZGVmaW5lZCBidXQgbm90IHVzZWQNCj4g
-bmV0L2F4MjUvc3lzY3RsX25ldF9heDI1LmM6Mjc6IHdhcm5pbmc6IOKAmG1heF9kc190aW1lb3V0
-4oCZIGRlZmluZWQgYnV0IG5vdCB1c2VkDQo+IA0KPiANCj4gU2lnbmVkLW9mZi1ieTogSmlhbmp1
-biBLb25nIDxqaWFuanVuQHpldXV4Lm9yZz4NCj4gLS0tDQo+ICBuZXQvYXgyNS9zeXNjdGxfbmV0
-X2F4MjUuYyB8ICAgIDIgKysNCj4gIDEgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAw
-IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL25ldC9heDI1L3N5c2N0bF9uZXRfYXgy
-NS5jIGIvbmV0L2F4MjUvc3lzY3RsX25ldF9heDI1LmMNCj4gaW5kZXggZjI4OGZjNC4uNzM1Y2Vl
-ZiAxMDA2NDQNCj4gLS0tIGEvbmV0L2F4MjUvc3lzY3RsX25ldF9heDI1LmMNCj4gKysrIGIvbmV0
-L2F4MjUvc3lzY3RsX25ldF9heDI1LmMNCj4gQEAgLTI0LDcgKzI0LDkgQEAgc3RhdGljIGludCBt
-aW5faWRsZVsxXSwJCQltYXhfaWRsZVtdID0gezY1NTM1MDAwfTsNCj4gIHN0YXRpYyBpbnQgbWlu
-X24yW10gPSB7MX0sCQltYXhfbjJbXSA9IHszMX07DQo+ICBzdGF0aWMgaW50IG1pbl9wYWNsZW5b
-XSA9IHsxfSwJCW1heF9wYWNsZW5bXSA9IHs1MTJ9Ow0KPiAgc3RhdGljIGludCBtaW5fcHJvdG9b
-MV0sCQltYXhfcHJvdG9bXSA9IHsgQVgyNV9QUk9UT19NQVggfTsNCj4gKyNpZmRlZiBDT05GSUdf
-QVgyNV9EQU1BX1NMQVZFDQo+ICBzdGF0aWMgaW50IG1pbl9kc190aW1lb3V0WzFdLAkJbWF4X2Rz
-X3RpbWVvdXRbXSA9IHs2NTUzNTAwMH07DQo+ICsjZW5kaWYNCj4gIA0KPiAgc3RhdGljIHN0cnVj
-dCBjdGxfdGFibGVfaGVhZGVyICpheDI1X3RhYmxlX2hlYWRlcjsNCj4gIA0KPiAtLSANCj4gMS41
-LjYuMw0KPiANCj4gDQo+IA0K
+From: martin@strongswan.org (Martin Willi)
+Date: Tue, 28 Oct 2008 09:51:19 +0100 (CET)
+
+> Add new_mapping() implementation to the netlink xfrm_mgr to notify
+> address/port changes detected in UDP encapsulated ESP packets.
+> 
+> Signed-off-by: Martin Willi <martin@strongswan.org>
+
+I don't see the code which will actually invoke the new
+->new_mapping() method (either here or in a follow-on patch), so it's
+impossible to review these changes.
