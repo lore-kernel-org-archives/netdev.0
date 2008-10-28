@@ -1,52 +1,41 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3:No interrupt was generated using MSI, switching to INTx
- mode. Please report this failure to the PCI maintainer and include
- system chipset information.
-Date: Tue, 28 Oct 2008 13:29:20 -0700
-Message-ID: <1225225760.9170.59.camel@HP1>
-References: <1225191510.26840.6.camel@localhost>
- <20081028.120419.252131562.davem@davemloft.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: r8169 MAC addresses broken
+Date: Tue, 28 Oct 2008 21:37:36 +0100
+Message-ID: <m3mygoxxpr.fsf@maximus.localdomain>
+References: <490380C8.6070003@simon.arlott.org.uk>
+	<4903947A.3060206@gmail.com>
+	<20081025223443.GA30913@electric-eye.fr.zoreil.com>
+	<4904A7C5.7090801@gmail.com>
+	<20081026174654.GB24790@electric-eye.fr.zoreil.com>
+	<4906E4BE.9050304@gmail.com> <m3mygozvd4.fsf@maximus.localdomain>
+	<490718C7.3010501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "donner@dbd-breitband.de" <donner@dbd-breitband.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Simon Arlott <simon@fire.lp0.eu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Ivan Vecera <ivecera@redhat.com>,
+	Arjan van de Ven <arjan@infradead.org>
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3377 "EHLO MMS3.broadcom.com"
+Received: from khc.piap.pl ([195.187.100.11]:50041 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752678AbYJ1Ubp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Oct 2008 16:31:45 -0400
-In-Reply-To: <20081028.120419.252131562.davem@davemloft.net>
+	id S1752723AbYJ1Uhi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 16:37:38 -0400
+In-Reply-To: <490718C7.3010501@gmail.com> (Jiri Slaby's message of "Tue\, 28 Oct 2008 14\:51\:03 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jiri Slaby <jirislaby@gmail.com> writes:
 
-On Tue, 2008-10-28 at 12:04 -0700, David Miller wrote:
-> From: Marc Donner <donner@dbd-breitband.de>
-> Date: Tue, 28 Oct 2008 11:58:30 +0100
-> 
-> Please report networking problems to netdev@vger.kernel.org
-> (added to CC:)
-> 
-> Many networking developers do not read linux-kernel
-> 
-> > Hi @all,
-> > 
-> > we have installed a dual port Brodcam Gigabit Ethernet NIC, and get the
-> > following error in dmesg:
-> > 
-> > tg3: eth1 No interrupt was generated using MSI, switching to INTx mode.
-> > Please report this failure to the PCI maintainer and include system
-> > chipset information.
-> > 
-> > Who is responsible for this error message? We are using Kernel 2.6.21.1
-> > and the NIC Chipset is a Broadcom BCM5715CKPBG
-> > 
+> No, it helped after reverting that patch. I think we don't want defunct 2.6.28
+> with these nics.
 
-This message means that your system chipset (not the NIC) does not
-support MSI.  Please provide lspci -vvv to show the system chipset on
-your system.  Thanks.
+No doubt.
 
-
+Just to be sure, with the patch back, is the MAC read as zero again?
+I'll check it too, have 8111.
+-- 
+Krzysztof Halasa
