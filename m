@@ -1,57 +1,35 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] cipso: unsigned buf_len cannot be negative
-Date: Tue, 28 Oct 2008 18:02:24 -0400
-Message-ID: <200810281802.24600.paul.moore@hp.com>
-References: <49070A69.1090200@gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 0/2] udp: Convert the UDP hash lock to RCU
+Date: Tue, 28 Oct 2008 22:50:49 +0100
+Message-ID: <49078939.6090709@cosmosbay.com>
+References: <m37i8k3hv1.fsf@ursa.amorsen.dk>	<48EB5D28.7000503@cosmosbay.com>	<20081007160729.60c076c4@speedy>	<20081007.135548.56141000.davem@davemloft.net>	<48ECBBD8.9060602@cosmosbay.com>	<490777FB.2070506@cosmosbay.com> <20081028142821.5f4718e8@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: roel kluin <roel.kluin@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, benny+usenet@amorsen.dk,
+	minyard@acm.org, netdev@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com, Christoph Lameter <clameter@sgi.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:47190 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752720AbYJ1WC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 18:02:26 -0400
-In-Reply-To: <49070A69.1090200@gmail.com>
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([86.65.150.130]:34836 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752793AbYJ1WHJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 18:07:09 -0400
+In-Reply-To: <20081028142821.5f4718e8@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 28 October 2008 8:49:45 am you wrote:
-> unsigned buf_len cannot be negative
->
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Stephen Hemminger a =E9crit :
+> On Tue, 28 Oct 2008 21:37:15 +0100
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+>> We use RCU only for fast path. Thus, /proc/net/udp still take rdlock=
+s.
+>=20
+> We should just make it a spin_lock later and speed up udp socket crea=
+tion.
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+Indeed
 
-Hi Roel,
-
-Nice catch, thanks for the patch.  Dave, can you apply this patch even 
-though it is in a reply and not the original form?  If not let me know 
-and I can re-send Roel's mail if he isn't able.
-
-> ---
-> diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-> index 490e035..2e78f6b 100644
-> --- a/net/ipv4/cipso_ipv4.c
-> +++ b/net/ipv4/cipso_ipv4.c
-> @@ -2063,9 +2063,10 @@ int cipso_v4_skbuff_setattr(struct sk_buff
-> *skb, u32 opt_len;
->  	int len_delta;
->
-> -	buf_len = cipso_v4_genopt(buf, buf_len, doi_def, secattr);
-> -	if (buf_len < 0)
-> -		return buf_len;
-> +	ret_val = cipso_v4_genopt(buf, buf_len, doi_def, secattr);
-> +	if (ret_val < 0)
-> +		return ret_val;
-> +	buf_len = ret_val;
->  	opt_len = (buf_len + 3) & ~3;
->
->  	/* we overwrite any existing options to ensure that we have enough
-
--- 
-paul moore
-linux @ hp
