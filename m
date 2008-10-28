@@ -1,7 +1,7 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 4/6] netfilter: replace uses of NIP6_FMT with %p6
-Date: Tue, 28 Oct 2008 12:54:01 -0700
-Message-ID: <1225223641.11483.42.camel@brick>
+Subject: [PATCH 5/6] net: replace uses of NIP6_FMT with %p6
+Date: Tue, 28 Oct 2008 12:54:05 -0700
+Message-ID: <1225223645.11483.43.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,309 +9,360 @@ Cc: linux-netdev <netdev@vger.kernel.org>,
 	Joe Perches <joe@perches.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:47380 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604AbYJ1TyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 15:54:05 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so2778520wfd.4
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 12:54:05 -0700 (PDT)
+Received: from yw-out-2324.google.com ([74.125.46.29]:19002 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752694AbYJ1TyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 15:54:11 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so685170ywe.1
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 12:54:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
- net/netfilter/ipvs/ip_vs_conn.c         |   20 ++++++++------------
- net/netfilter/ipvs/ip_vs_core.c         |    8 ++++----
- net/netfilter/ipvs/ip_vs_ctl.c          |    8 ++++----
- net/netfilter/ipvs/ip_vs_proto.c        |   19 +++++++------------
- net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    5 ++---
- net/netfilter/ipvs/ip_vs_xmit.c         |   17 ++++++++---------
- net/netfilter/nf_conntrack_ftp.c        |    8 +++-----
- net/netfilter/nf_conntrack_h323_main.c  |   12 ++++--------
- net/netfilter/xt_hashlimit.c            |    7 +++----
- net/netfilter/xt_recent.c               |    5 ++---
- 10 files changed, 45 insertions(+), 64 deletions(-)
+ include/linux/sunrpc/svc_xprt.h                |    4 +-
+ include/net/ip_vs.h                            |    4 +-
+ include/net/netfilter/nf_conntrack_tuple.h     |    6 ++--
+ include/net/sctp/sctp.h                        |    4 +-
+ net/ipv4/tcp_input.c                           |    4 +-
+ net/ipv4/tcp_timer.c                           |    4 +-
+ net/ipv6/addrlabel.c                           |   34 +++++++----------------
+ net/ipv6/ah6.c                                 |    4 +-
+ net/ipv6/esp6.c                                |    4 +-
+ net/ipv6/exthdrs.c                             |    2 +-
+ net/ipv6/icmp.c                                |    4 +-
+ net/ipv6/ip6mr.c                               |    5 +--
+ net/ipv6/ipcomp6.c                             |    4 +-
+ net/ipv6/ndisc.c                               |    7 +---
+ net/ipv6/netfilter/ip6t_LOG.c                  |    2 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    5 +--
+ net/ipv6/tcp_ipv6.c                            |    8 ++---
+ 17 files changed, 43 insertions(+), 62 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 9a24332..89bf65b 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -820,13 +820,11 @@ static int ip_vs_conn_seq_show(struct seq_file *seq, void *v)
+diff --git a/include/linux/sunrpc/svc_xprt.h b/include/linux/sunrpc/svc_xprt.h
+index 6fd7b01..42e01c9 100644
+--- a/include/linux/sunrpc/svc_xprt.h
++++ b/include/linux/sunrpc/svc_xprt.h
+@@ -145,8 +145,8 @@ static inline char *__svc_print_addr(struct sockaddr *addr,
+ 		break;
  
+ 	case AF_INET6:
+-		snprintf(buf, len, "%x:%x:%x:%x:%x:%x:%x:%x, port=%u",
+-			NIP6(((struct sockaddr_in6 *) addr)->sin6_addr),
++		snprintf(buf, len, "%p6, port=%u",
++			 &((struct sockaddr_in6 *)addr)->sin6_addr,
+ 			ntohs(((struct sockaddr_in6 *) addr)->sin6_port));
+ 		break;
+ 
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index fe9fcf7..6a66920 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -87,8 +87,8 @@ static inline const char *ip_vs_dbg_addr(int af, char *buf, size_t buf_len,
+ 	int len;
  #ifdef CONFIG_IP_VS_IPV6
- 		if (cp->af == AF_INET6)
--			seq_printf(seq,
--				"%-3s " NIP6_FMT " %04X " NIP6_FMT
--				" %04X " NIP6_FMT " %04X %-11s %7lu\n",
-+			seq_printf(seq, "%-3s %p6 %04X %p6 %04X %p6 %04X %-11s %7lu\n",
- 				ip_vs_proto_name(cp->protocol),
--				NIP6(cp->caddr.in6), ntohs(cp->cport),
--				NIP6(cp->vaddr.in6), ntohs(cp->vport),
--				NIP6(cp->daddr.in6), ntohs(cp->dport),
-+				&cp->caddr.in6, ntohs(cp->cport),
-+				&cp->vaddr.in6, ntohs(cp->vport),
-+				&cp->daddr.in6, ntohs(cp->dport),
- 				ip_vs_state_name(cp->protocol, cp->state),
- 				(cp->timer.expires-jiffies)/HZ);
- 		else
-@@ -883,13 +881,11 @@ static int ip_vs_conn_sync_seq_show(struct seq_file *seq, void *v)
- 
- #ifdef CONFIG_IP_VS_IPV6
- 		if (cp->af == AF_INET6)
--			seq_printf(seq,
--				"%-3s " NIP6_FMT " %04X " NIP6_FMT
--				" %04X " NIP6_FMT " %04X %-11s %-6s %7lu\n",
-+			seq_printf(seq, "%-3s %p6 %04X %p6 %04X %p6 %04X %-11s %-6s %7lu\n",
- 				ip_vs_proto_name(cp->protocol),
--				NIP6(cp->caddr.in6), ntohs(cp->cport),
--				NIP6(cp->vaddr.in6), ntohs(cp->vport),
--				NIP6(cp->daddr.in6), ntohs(cp->dport),
-+				&cp->caddr.in6, ntohs(cp->cport),
-+				&cp->vaddr.in6, ntohs(cp->vport),
-+				&cp->daddr.in6, ntohs(cp->dport),
- 				ip_vs_state_name(cp->protocol, cp->state),
- 				ip_vs_origin_name(cp->flags),
- 				(cp->timer.expires-jiffies)/HZ);
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 958abf3..9400587 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -805,9 +805,9 @@ static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related)
- 	if (ic == NULL)
- 		return NF_DROP;
- 
--	IP_VS_DBG(12, "Outgoing ICMPv6 (%d,%d) " NIP6_FMT "->" NIP6_FMT "\n",
-+	IP_VS_DBG(12, "Outgoing ICMPv6 (%d,%d) %p6->%p6\n",
- 		  ic->icmp6_type, ntohs(icmpv6_id(ic)),
--		  NIP6(iph->saddr), NIP6(iph->daddr));
-+		  &iph->saddr, &iph->daddr);
- 
- 	/*
- 	 * Work through seeing if this is for us.
-@@ -1175,9 +1175,9 @@ ip_vs_in_icmp_v6(struct sk_buff *skb, int *related, unsigned int hooknum)
- 	if (ic == NULL)
- 		return NF_DROP;
- 
--	IP_VS_DBG(12, "Incoming ICMPv6 (%d,%d) " NIP6_FMT "->" NIP6_FMT "\n",
-+	IP_VS_DBG(12, "Incoming ICMPv6 (%d,%d) %p6->%p6\n",
- 		  ic->icmp6_type, ntohs(icmpv6_id(ic)),
--		  NIP6(iph->saddr), NIP6(iph->daddr));
-+		  &iph->saddr, &iph->daddr);
- 
- 	/*
- 	 * Work through seeing if this is for us.
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 0302cf3..28c47c0 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1867,9 +1867,9 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
- 		if (iter->table == ip_vs_svc_table) {
- #ifdef CONFIG_IP_VS_IPV6
- 			if (svc->af == AF_INET6)
--				seq_printf(seq, "%s  [" NIP6_FMT "]:%04X %s ",
-+				seq_printf(seq, "%s  [%p6]:%04X %s ",
- 					   ip_vs_proto_name(svc->protocol),
--					   NIP6(svc->addr.in6),
-+					   &svc->addr.in6,
- 					   ntohs(svc->port),
- 					   svc->scheduler->name);
- 			else
-@@ -1895,9 +1895,9 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
- #ifdef CONFIG_IP_VS_IPV6
- 			if (dest->af == AF_INET6)
- 				seq_printf(seq,
--					   "  -> [" NIP6_FMT "]:%04X"
-+					   "  -> [%p6]:%04X"
- 					   "      %-7s %-6d %-10d %-10d\n",
--					   NIP6(dest->addr.in6),
-+					   &dest->addr.in6,
- 					   ntohs(dest->port),
- 					   ip_vs_fwd_name(atomic_read(&dest->conn_flags)),
- 					   atomic_read(&dest->weight),
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 0791f9e..dff5f38 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -203,26 +203,21 @@ ip_vs_tcpudp_debug_packet_v6(struct ip_vs_protocol *pp,
- 	if (ih == NULL)
- 		sprintf(buf, "%s TRUNCATED", pp->name);
- 	else if (ih->nexthdr == IPPROTO_FRAGMENT)
--		sprintf(buf, "%s " NIP6_FMT "->" NIP6_FMT " frag",
--			pp->name, NIP6(ih->saddr),
--			NIP6(ih->daddr));
-+		sprintf(buf, "%s %p6->%p6 frag",
-+			pp->name, &ih->saddr, &ih->daddr);
- 	else {
- 		__be16 _ports[2], *pptr;
- 
- 		pptr = skb_header_pointer(skb, offset + sizeof(struct ipv6hdr),
- 					  sizeof(_ports), _ports);
- 		if (pptr == NULL)
--			sprintf(buf, "%s TRUNCATED " NIP6_FMT "->" NIP6_FMT,
--				pp->name,
--				NIP6(ih->saddr),
--				NIP6(ih->daddr));
-+			sprintf(buf, "%s TRUNCATED %p6->%p6",
-+				pp->name, &ih->saddr), &ih->daddr);
- 		else
--			sprintf(buf, "%s " NIP6_FMT ":%u->" NIP6_FMT ":%u",
-+			sprintf(buf, "%s %p6:%u->%p6:%u",
- 				pp->name,
--				NIP6(ih->saddr),
--				ntohs(pptr[0]),
--				NIP6(ih->daddr),
--				ntohs(pptr[1]));
-+				&ih->saddr, ntohs(pptr[0]),
-+				&ih->daddr, ntohs(pptr[1]));
- 	}
- 
- 	printk(KERN_DEBUG "IPVS: %s: %s\n", msg, buf);
-diff --git a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
-index 80ab0c8..59f2d11 100644
---- a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
-@@ -154,9 +154,8 @@ ah_esp_debug_packet_v6(struct ip_vs_protocol *pp, const struct sk_buff *skb,
- 	if (ih == NULL)
- 		sprintf(buf, "%s TRUNCATED", pp->name);
+ 	if (af == AF_INET6)
+-		len = snprintf(&buf[*idx], buf_len - *idx, "[" NIP6_FMT "]",
+-			       NIP6(addr->in6)) + 1;
++		len = snprintf(&buf[*idx], buf_len - *idx, "[%p6]",
++			       &addr->in6) + 1;
  	else
--		sprintf(buf, "%s " NIP6_FMT "->" NIP6_FMT,
--			pp->name, NIP6(ih->saddr),
--			NIP6(ih->daddr));
-+		sprintf(buf, "%s %p6->%p6",
-+			pp->name, &ih->saddr, &ih->daddr);
- 
- 	printk(KERN_DEBUG "IPVS: %s: %s\n", msg, buf);
+ #endif
+ 		len = snprintf(&buf[*idx], buf_len - *idx, NIPQUAD_FMT,
+diff --git a/include/net/netfilter/nf_conntrack_tuple.h b/include/net/netfilter/nf_conntrack_tuple.h
+index a6874ba..303efaf 100644
+--- a/include/net/netfilter/nf_conntrack_tuple.h
++++ b/include/net/netfilter/nf_conntrack_tuple.h
+@@ -122,10 +122,10 @@ static inline void nf_ct_dump_tuple_ip(const struct nf_conntrack_tuple *t)
+ static inline void nf_ct_dump_tuple_ipv6(const struct nf_conntrack_tuple *t)
+ {
+ #ifdef DEBUG
+-	printk("tuple %p: %u " NIP6_FMT " %hu -> " NIP6_FMT " %hu\n",
++	printk("tuple %p: %u %p6 %hu -> %p6 %hu\n",
+ 	       t, t->dst.protonum,
+-	       NIP6(*(struct in6_addr *)t->src.u3.all), ntohs(t->src.u.all),
+-	       NIP6(*(struct in6_addr *)t->dst.u3.all), ntohs(t->dst.u.all));
++	       t->src.u3.all, ntohs(t->src.u.all),
++	       t->dst.u3.all, ntohs(t->dst.u.all));
+ #endif
  }
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 02ddc2b..be34c33 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -141,14 +141,13 @@ __ip_vs_get_out_rt_v6(struct ip_vs_conn *cp)
- 								 NULL, &fl);
- 			if (!rt) {
- 				spin_unlock(&dest->dst_lock);
--				IP_VS_DBG_RL("ip6_route_output error, "
--					     "dest: " NIP6_FMT "\n",
--					     NIP6(dest->addr.in6));
-+				IP_VS_DBG_RL("ip6_route_output error, dest: %p6\n",
-+					     &dest->addr.in6);
- 				return NULL;
- 			}
- 			__ip_vs_dst_set(dest, 0, dst_clone(&rt->u.dst));
--			IP_VS_DBG(10, "new dst " NIP6_FMT ", refcnt=%d\n",
--				  NIP6(dest->addr.in6),
-+			IP_VS_DBG(10, "new dst %p6, refcnt=%d\n",
-+				  &dest->addr.in6,
- 				  atomic_read(&rt->u.dst.__refcnt));
- 		}
- 		spin_unlock(&dest->dst_lock);
-@@ -167,8 +166,8 @@ __ip_vs_get_out_rt_v6(struct ip_vs_conn *cp)
  
- 		rt = (struct rt6_info *)ip6_route_output(&init_net, NULL, &fl);
- 		if (!rt) {
--			IP_VS_DBG_RL("ip6_route_output error, dest: "
--				     NIP6_FMT "\n", NIP6(cp->daddr.in6));
-+			IP_VS_DBG_RL("ip6_route_output error, dest: %p6\n",
-+				     &cp->daddr.in6);
- 			return NULL;
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index ed71b11..85e9157 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -285,9 +285,9 @@ extern int sctp_debug_flag;
+ 	if (sctp_debug_flag) { \
+ 		if (saddr->sa.sa_family == AF_INET6) { \
+ 			printk(KERN_DEBUG \
+-			       lead NIP6_FMT trail, \
++			       lead %p6 trail, \
+ 			       leadparm, \
+-			       NIP6(saddr->v6.sin6_addr), \
++			       &saddr->v6.sin6_addr, \
+ 			       otherparms); \
+ 		} else { \
+ 			printk(KERN_DEBUG \
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d77c0d2..191c06b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2346,9 +2346,9 @@ static void DBGUNDO(struct sock *sk, const char *msg)
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	else if (sk->sk_family == AF_INET6) {
+ 		struct ipv6_pinfo *np = inet6_sk(sk);
+-		printk(KERN_DEBUG "Undo %s " NIP6_FMT "/%u c%u l%u ss%u/%u p%u\n",
++		printk(KERN_DEBUG "Undo %s %p6/%u c%u l%u ss%u/%u p%u\n",
+ 		       msg,
+-		       NIP6(np->daddr), ntohs(inet->dport),
++		       &np->daddr, ntohs(inet->dport),
+ 		       tp->snd_cwnd, tcp_left_out(tp),
+ 		       tp->snd_ssthresh, tp->prior_ssthresh,
+ 		       tp->packets_out);
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 6b6dff1..4e6ee52 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -306,8 +306,8 @@ static void tcp_retransmit_timer(struct sock *sk)
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 		else if (sk->sk_family == AF_INET6) {
+ 			struct ipv6_pinfo *np = inet6_sk(sk);
+-			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer " NIP6_FMT ":%u/%u shrinks window %u:%u. Repaired.\n",
+-			       NIP6(np->daddr), ntohs(inet->dport),
++			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer %p6:%u/%u shrinks window %u:%u. Repaired.\n",
++			       &np->daddr, ntohs(inet->dport),
+ 			       inet->num, tp->snd_una, tp->snd_nxt);
+ 		}
+ #endif
+diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
+index 0890903..2e25334 100644
+--- a/net/ipv6/addrlabel.c
++++ b/net/ipv6/addrlabel.c
+@@ -186,10 +186,8 @@ u32 ipv6_addr_label(struct net *net,
+ 	label = p ? p->label : IPV6_ADDR_LABEL_DEFAULT;
+ 	rcu_read_unlock();
+ 
+-	ADDRLABEL(KERN_DEBUG "%s(addr=" NIP6_FMT ", type=%d, ifindex=%d) => %08x\n",
+-			__func__,
+-			NIP6(*addr), type, ifindex,
+-			label);
++	ADDRLABEL(KERN_DEBUG "%s(addr=%p6, type=%d, ifindex=%d) => %08x\n",
++		  __func__, addr, type, ifindex, label);
+ 
+ 	return label;
+ }
+@@ -203,11 +201,8 @@ static struct ip6addrlbl_entry *ip6addrlbl_alloc(struct net *net,
+ 	struct ip6addrlbl_entry *newp;
+ 	int addrtype;
+ 
+-	ADDRLABEL(KERN_DEBUG "%s(prefix=" NIP6_FMT ", prefixlen=%d, ifindex=%d, label=%u)\n",
+-			__func__,
+-			NIP6(*prefix), prefixlen,
+-			ifindex,
+-			(unsigned int)label);
++	ADDRLABEL(KERN_DEBUG "%s(prefix=%p6, prefixlen=%d, ifindex=%d, label=%u)\n",
++		  __func__, prefix, prefixlen, ifindex, (unsigned int)label);
+ 
+ 	addrtype = ipv6_addr_type(prefix) & (IPV6_ADDR_MAPPED | IPV6_ADDR_COMPATv4 | IPV6_ADDR_LOOPBACK);
+ 
+@@ -294,12 +289,9 @@ static int ip6addrlbl_add(struct net *net,
+ 	struct ip6addrlbl_entry *newp;
+ 	int ret = 0;
+ 
+-	ADDRLABEL(KERN_DEBUG "%s(prefix=" NIP6_FMT ", prefixlen=%d, ifindex=%d, label=%u, replace=%d)\n",
+-			__func__,
+-			NIP6(*prefix), prefixlen,
+-			ifindex,
+-			(unsigned int)label,
+-			replace);
++	ADDRLABEL(KERN_DEBUG "%s(prefix=%p6, prefixlen=%d, ifindex=%d, label=%u, replace=%d)\n",
++		  __func__, prefix, prefixlen, ifindex, (unsigned int)label,
++		  replace);
+ 
+ 	newp = ip6addrlbl_alloc(net, prefix, prefixlen, ifindex, label);
+ 	if (IS_ERR(newp))
+@@ -321,10 +313,8 @@ static int __ip6addrlbl_del(struct net *net,
+ 	struct hlist_node *pos, *n;
+ 	int ret = -ESRCH;
+ 
+-	ADDRLABEL(KERN_DEBUG "%s(prefix=" NIP6_FMT ", prefixlen=%d, ifindex=%d)\n",
+-			__func__,
+-			NIP6(*prefix), prefixlen,
+-			ifindex);
++	ADDRLABEL(KERN_DEBUG "%s(prefix=%p6, prefixlen=%d, ifindex=%d)\n",
++		  __func__, prefix, prefixlen, ifindex);
+ 
+ 	hlist_for_each_entry_safe(p, pos, n, &ip6addrlbl_table.head, list) {
+ 		if (p->prefixlen == prefixlen &&
+@@ -347,10 +337,8 @@ static int ip6addrlbl_del(struct net *net,
+ 	struct in6_addr prefix_buf;
+ 	int ret;
+ 
+-	ADDRLABEL(KERN_DEBUG "%s(prefix=" NIP6_FMT ", prefixlen=%d, ifindex=%d)\n",
+-			__func__,
+-			NIP6(*prefix), prefixlen,
+-			ifindex);
++	ADDRLABEL(KERN_DEBUG "%s(prefix=%p6, prefixlen=%d, ifindex=%d)\n",
++		  __func__, prefix), prefixlen, ifindex);
+ 
+ 	ipv6_addr_prefix(&prefix_buf, prefix, prefixlen);
+ 	spin_lock(&ip6addrlbl_table.lock);
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 2ff0c82..9bc43f2 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -419,8 +419,8 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	if (!x)
+ 		return;
+ 
+-	NETDEBUG(KERN_DEBUG "pmtu discovery on SA AH/%08x/" NIP6_FMT "\n",
+-		 ntohl(ah->spi), NIP6(iph->daddr));
++	NETDEBUG(KERN_DEBUG "pmtu discovery on SA AH/%08x/%p6\n",
++		 ntohl(ah->spi), &iph->daddr);
+ 
+ 	xfrm_state_put(x);
+ }
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index b181b08..ec4be18 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -367,8 +367,8 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, esph->spi, IPPROTO_ESP, AF_INET6);
+ 	if (!x)
+ 		return;
+-	printk(KERN_DEBUG "pmtu discovery on SA ESP/%08x/" NIP6_FMT "\n",
+-			ntohl(esph->spi), NIP6(iph->daddr));
++	printk(KERN_DEBUG "pmtu discovery on SA ESP/%08x/%p6\n",
++			ntohl(esph->spi), &iph->daddr);
+ 	xfrm_state_put(x);
+ }
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 6bfffec..a890514 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -219,7 +219,7 @@ static int ipv6_dest_hao(struct sk_buff *skb, int optoff)
+ 
+ 	if (!(ipv6_addr_type(&hao->addr) & IPV6_ADDR_UNICAST)) {
+ 		LIMIT_NETDEBUG(
+-			KERN_DEBUG "hao is not an unicast addr: " NIP6_FMT "\n", NIP6(hao->addr));
++			KERN_DEBUG "hao is not an unicast addr: %p6\n", &hao->addr);
+ 		goto discard;
+ 	}
+ 
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 9b7d19a..1b72446 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -680,8 +680,8 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 		skb->csum = ~csum_unfold(csum_ipv6_magic(saddr, daddr, skb->len,
+ 					     IPPROTO_ICMPV6, 0));
+ 		if (__skb_checksum_complete(skb)) {
+-			LIMIT_NETDEBUG(KERN_DEBUG "ICMPv6 checksum failed [" NIP6_FMT " > " NIP6_FMT "]\n",
+-				       NIP6(*saddr), NIP6(*daddr));
++			LIMIT_NETDEBUG(KERN_DEBUG "ICMPv6 checksum failed [%p6 > %p6]\n",
++				       saddr, daddr);
+ 			goto discard_it;
  		}
  	}
-@@ -301,8 +300,8 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 182f8a1..798e6a2 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -297,9 +297,8 @@ static int ipmr_mfc_seq_show(struct seq_file *seq, void *v)
+ 		const struct mfc6_cache *mfc = v;
+ 		const struct ipmr_mfc_iter *it = seq->private;
  
- 	rt = (struct rt6_info *)ip6_route_output(&init_net, NULL, &fl);
- 	if (!rt) {
--		IP_VS_DBG_RL("ip_vs_bypass_xmit_v6(): ip6_route_output error, "
--			     "dest: " NIP6_FMT "\n", NIP6(iph->daddr));
-+		IP_VS_DBG_RL("ip_vs_bypass_xmit_v6(): ip6_route_output error, dest: %p6\n",
-+			     &iph->daddr);
- 		goto tx_error_icmp;
+-		seq_printf(seq,
+-			   NIP6_FMT " " NIP6_FMT " %-3d %8ld %8ld %8ld",
+-			   NIP6(mfc->mf6c_mcastgrp), NIP6(mfc->mf6c_origin),
++		seq_printf(seq, "%p6 %p6 %-3d %8ld %8ld %8ld",
++			   &mfc->mf6c_mcastgrp, &mfc->mf6c_origin,
+ 			   mfc->mf6c_parent,
+ 			   mfc->mfc_un.res.pkt,
+ 			   mfc->mfc_un.res.bytes,
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index 4545e43..9566d8f 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -67,8 +67,8 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	if (!x)
+ 		return;
+ 
+-	printk(KERN_DEBUG "pmtu discovery on SA IPCOMP/%08x/" NIP6_FMT "\n",
+-			spi, NIP6(iph->daddr));
++	printk(KERN_DEBUG "pmtu discovery on SA IPCOMP/%08x/%p6\n",
++			spi, &iph->daddr);
+ 	xfrm_state_put(x);
+ }
+ 
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 1724383..191bb07 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -647,11 +647,8 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 
+ 	if ((probes -= neigh->parms->ucast_probes) < 0) {
+ 		if (!(neigh->nud_state & NUD_VALID)) {
+-			ND_PRINTK1(KERN_DEBUG
+-				   "%s(): trying to ucast probe in NUD_INVALID: "
+-				   NIP6_FMT "\n",
+-				   __func__,
+-				   NIP6(*target));
++			ND_PRINTK1(KERN_DEBUG "%s(): trying to ucast probe in NUD_INVALID: %p6\n",
++				   __func__, target);
+ 		}
+ 		ndisc_send_ns(dev, neigh, target, target, saddr);
+ 	} else if ((probes -= neigh->parms->app_probes) < 0) {
+diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
+index caa441d..a61ce30 100644
+--- a/net/ipv6/netfilter/ip6t_LOG.c
++++ b/net/ipv6/netfilter/ip6t_LOG.c
+@@ -61,7 +61,7 @@ static void dump_packet(const struct nf_loginfo *info,
  	}
  
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index 4f71071..a90d463 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -467,11 +467,9 @@ static int help(struct sk_buff *skb,
- 				 NIPQUAD(cmd.u3.ip),
- 				 NIPQUAD(ct->tuplehash[dir].tuple.src.u3.ip));
- 		} else {
--			pr_debug("conntrack_ftp: NOT RECORDING: " NIP6_FMT
--				 " != " NIP6_FMT "\n",
--				 NIP6(*((struct in6_addr *)cmd.u3.ip6)),
--				 NIP6(*((struct in6_addr *)
--					ct->tuplehash[dir].tuple.src.u3.ip6)));
-+			pr_debug("conntrack_ftp: NOT RECORDING: %p6 != %p6\n",
-+				 cmd.u3.ip6, 
-+				 ct->tuplehash[dir].tuple.src.u3.ip6);
- 		}
+ 	/* Max length: 88 "SRC=0000.0000.0000.0000.0000.0000.0000.0000 DST=0000.0000.0000.0000.0000.0000.0000.0000 " */
+-	printk("SRC=" NIP6_FMT " DST=" NIP6_FMT " ", NIP6(ih->saddr), NIP6(ih->daddr));
++	printk("SRC=%p6 DST=%p6 ", &ih->saddr, &ih->daddr);
  
- 		/* Thanks to Cristiano Lincoln Mattos
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index c1504f7..29e49b1 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -850,10 +850,8 @@ static int process_setup(struct sk_buff *skb, struct nf_conn *ct,
- 	    get_h225_addr(ct, *data, &setup->destCallSignalAddress,
- 			  &addr, &port) &&
- 	    memcmp(&addr, &ct->tuplehash[!dir].tuple.src.u3, sizeof(addr))) {
--		pr_debug("nf_ct_q931: set destCallSignalAddress "
--			 NIP6_FMT ":%hu->" NIP6_FMT ":%hu\n",
--			 NIP6(*(struct in6_addr *)&addr), ntohs(port),
--			 NIP6(*(struct in6_addr *)&ct->tuplehash[!dir].tuple.src.u3),
-+		pr_debug("nf_ct_q931: set destCallSignalAddress %p6:%hu->%p6:%hu\n",
-+			 &addr, ntohs(port), &ct->tuplehash[!dir].tuple.src.u3,
- 			 ntohs(ct->tuplehash[!dir].tuple.src.u.tcp.port));
- 		ret = set_h225_addr(skb, data, dataoff,
- 				    &setup->destCallSignalAddress,
-@@ -868,10 +866,8 @@ static int process_setup(struct sk_buff *skb, struct nf_conn *ct,
- 	    get_h225_addr(ct, *data, &setup->sourceCallSignalAddress,
- 			  &addr, &port) &&
- 	    memcmp(&addr, &ct->tuplehash[!dir].tuple.dst.u3, sizeof(addr))) {
--		pr_debug("nf_ct_q931: set sourceCallSignalAddress "
--			 NIP6_FMT ":%hu->" NIP6_FMT ":%hu\n",
--			 NIP6(*(struct in6_addr *)&addr), ntohs(port),
--			 NIP6(*(struct in6_addr *)&ct->tuplehash[!dir].tuple.dst.u3),
-+		pr_debug("nf_ct_q931: set sourceCallSignalAddress %p6:%hu->%p6:%hu\n",
-+			 &addr, ntohs(port), &ct->tuplehash[!dir].tuple.dst.u3,
- 			 ntohs(ct->tuplehash[!dir].tuple.dst.u.tcp.port));
- 		ret = set_h225_addr(skb, data, dataoff,
- 				    &setup->sourceCallSignalAddress,
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 6fc4292..f04c6ed 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -904,12 +904,11 @@ static int dl_seq_real_show(struct dsthash_ent *ent, u_int8_t family,
- 				 ent->rateinfo.cost);
- #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
- 	case NFPROTO_IPV6:
--		return seq_printf(s, "%ld " NIP6_FMT ":%u->"
--				     NIP6_FMT ":%u %u %u %u\n",
-+		return seq_printf(s, "%ld %p6:%u->%p6:%u %u %u %u\n",
- 				 (long)(ent->expires - jiffies)/HZ,
--				 NIP6(*(struct in6_addr *)&ent->dst.ip6.src),
-+				 &ent->dst.ip6.src,
- 				 ntohs(ent->dst.src_port),
--				 NIP6(*(struct in6_addr *)&ent->dst.ip6.dst),
-+				 &ent->dst.ip6.dst,
- 				 ntohs(ent->dst.dst_port),
- 				 ent->rateinfo.credit, ent->rateinfo.credit_cap,
- 				 ent->rateinfo.cost);
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index 280c471..a377ea3 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -426,9 +426,8 @@ static int recent_seq_show(struct seq_file *seq, void *v)
- 			   "oldest_pkt: %u", NIPQUAD(e->addr.ip), e->ttl,
- 			   e->stamps[i], e->index);
- 	else
--		seq_printf(seq, "src=" NIP6_FMT " ttl: %u last_seen: %lu "
--			   "oldest_pkt: %u", NIP6(e->addr.in6), e->ttl,
--			   e->stamps[i], e->index);
-+		seq_printf(seq, "src=%p6 ttl: %u last_seen: %lu oldest_pkt: %u",
-+			   &e->addr.in6, e->ttl, e->stamps[i], e->index);
- 	for (i = 0; i < e->nstamps; i++)
- 		seq_printf(seq, "%s %lu", i ? "," : "", e->stamps[i]);
- 	seq_printf(seq, "\n");
+ 	/* Max length: 44 "LEN=65535 TC=255 HOPLIMIT=255 FLOWLBL=FFFFF " */
+ 	printk("LEN=%Zu TC=%u HOPLIMIT=%u FLOWLBL=%u ",
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index e91db16..045c086 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -56,9 +56,8 @@ static bool ipv6_invert_tuple(struct nf_conntrack_tuple *tuple,
+ static int ipv6_print_tuple(struct seq_file *s,
+ 			    const struct nf_conntrack_tuple *tuple)
+ {
+-	return seq_printf(s, "src=" NIP6_FMT " dst=" NIP6_FMT " ",
+-			  NIP6(*((struct in6_addr *)tuple->src.u3.ip6)),
+-			  NIP6(*((struct in6_addr *)tuple->dst.u3.ip6)));
++	return seq_printf(s, "src=%p6 dst=%p6 ",
++			  tuple->src.u3.ip6), tuple->dst.u3.ip6);
+ }
+ 
+ /*
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index b6b356b..483550c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -872,12 +872,10 @@ static int tcp_v6_inbound_md5_hash (struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (genhash || memcmp(hash_location, newhash, 16) != 0) {
+ 		if (net_ratelimit()) {
+-			printk(KERN_INFO "MD5 Hash %s for "
+-			       "(" NIP6_FMT ", %u)->"
+-			       "(" NIP6_FMT ", %u)\n",
++			printk(KERN_INFO "MD5 Hash %s for (%p6, %u)->(%p6, %u)\n",
+ 			       genhash ? "failed" : "mismatch",
+-			       NIP6(ip6h->saddr), ntohs(th->source),
+-			       NIP6(ip6h->daddr), ntohs(th->dest));
++			       &ip6h->saddr, ntohs(th->source),
++			       &ip6h->daddr, ntohs(th->dest));
+ 		}
+ 		return 1;
+ 	}
 -- 
 1.6.0.3.729.g6ea410
 
