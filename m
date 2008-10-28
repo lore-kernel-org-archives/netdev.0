@@ -1,49 +1,47 @@
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Subject: [Patch] Establishing more than 64K outgoing TCP connections
-Date: Tue, 28 Oct 2008 17:06:33 -0400
-Message-ID: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>
+From: Martin Willi <martin@strongswan.org>
+Subject: Re: [PATCH] xfrm: Notify changes in UDP encapsulation via netlink
+Date: Tue, 28 Oct 2008 21:44:20 +0100
+Message-ID: <1225226660.6976.18.camel@martin>
+References: <20081028085119.6A30EEF9BA@strongswan.org>
+	 <20081028.114828.158507859.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xsmtp03.mail2web.com ([168.144.250.223]:40323 "EHLO
-	xsmtp03.mail2web.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753459AbYJ1VJN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 17:09:13 -0400
-Content-Language: en-US
+Received: from ns.km23152-01.keymachine.de ([87.118.114.125]:59959 "EHLO
+	km23152-01.keymachine.de" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753053AbYJ1VKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 17:10:03 -0400
+Received: from localhost (km23152-01.keymachine.de [127.0.0.1])
+	by km23152-01.keymachine.de (Postfix) with SMTP id 984AD2F19EFA
+	for <netdev@vger.kernel.org>; Tue, 28 Oct 2008 21:44:23 +0100 (CET)
+In-Reply-To: <20081028.114828.158507859.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi guys,
-I'm sending you a tiny patch for the kernel.
-The change allowed me to establish more than 64K outgoing TCP connections from a single Linux box.
-Being able to use multihomed client box to load test a server reduced dramatically the number of physical boxes I needed.
-The other way to go was virtual machines, but you can't beat the simplicity of the single multihomed client.
-Also the patch fixes an important symmetry.
-Using the multihome setup is a simple technique to overcome the 64K limit on the server side.
-The patch makes it possible on the client side too.
+> I don't see the code which will actually invoke the new
+> ->new_mapping() method (either here or in a follow-on patch), so it's
+> impossible to review these changes.
 
-The fix is only for TCP but probably the same issue exists for UDP.
-I didn't had the time to investigate.
+The patch is complete, sorry for being unclear.
 
-The patch is against the latest code base 2.6.28-rc2.
+xfrm_send_mapping is an implementation of a xfrm_mgr operation. 
 
---Yavor
+>  static struct xfrm_mgr netlink_mgr = {
+>         .id             = "netlink",
+>         .notify         = xfrm_send_state_notify,
+>         .notify_policy  = xfrm_send_policy_notify,
+>         .report         = xfrm_send_report,
+>         .migrate        = xfrm_send_migrate,
+> +       .new_mapping    = xfrm_send_mapping,
+> };
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index bd1278a..d72fba6 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -109,7 +109,9 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
-                                        hashinfo->bhash_size)];
-                        spin_lock(&head->lock);
-                        inet_bind_bucket_for_each(tb, node, &head->chain)
--                               if (tb->ib_net == net && tb->port == rover)
-+                               if (tb->ib_net == net &&
-+                                   tb->port == rover &&
-+                                   inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb))
-                                        goto next;
-                        break;
-                next:
+This operation is invoked from net/ipv4/esp4.c through the
+km_new_mapping() function, km_new_mapping() invokes all registered key
+managers. It is already implemented in the PF_KEY interface (pfkeyv2_mgr
+in af_key.c), but is missing in the netlink xfrm interface. The patch
+adds this functionality to the netlink interface.
+
+
