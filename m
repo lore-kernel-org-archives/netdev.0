@@ -1,57 +1,54 @@
-From: "hamid jafarian" <hamid.jafarian@gmail.com>
-Subject: Re: [PATCH 00/09]IPtablestng/Kernel - New Framework For IPtables
-Date: Tue, 28 Oct 2008 13:32:06 +0330
-Message-ID: <464293e60810280302j26112754o72c1cf3ebd6a0b1f@mail.gmail.com>
-References: <20081027042834.0BA69C64087@host1.ystp.ac.ir>
-	 <20081028000044.GA16721@ioremap.net>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v2)
+Date: Tue, 28 Oct 2008 06:07:27 -0400
+Message-ID: <8bd0f97a0810280307n7f14bd2bod11743db4e395e4@mail.gmail.com>
+References: <20081027105318.21923.24436.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+	 <8bd0f97a0810270752p5fb6e560m6ddcf07df8f689f5@mail.gmail.com>
+	 <4906CDAF.2070000@teltonika.lt>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"Pablo Neira Ayuso" <pablo@netfilter.org>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"Jan Engelhardt" <jengelh@medozas.de>,
-	"Rusty Russell" <rusty@rustcorp.com.au>,
-	"Harald Welte" <laforge@gnumonks.org>,
-	"Eric Leblond" <eric@inl.fr>,
-	"Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>,
-	"Amin Azez" <azez@ufomechanic.net>
-To: "Evgeniy Polyakov" <zbr@ioremap.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081028000044.GA16721@ioremap.net>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: "Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.228]:10988 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752277AbYJ1KH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 06:07:28 -0400
+In-Reply-To: <4906CDAF.2070000@teltonika.lt>
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-hi, &  special thanks
+On Tue, Oct 28, 2008 at 04:30, Paulius Zaleckas wrote:
+> Mike Frysinger wrote:
+>> On Mon, Oct 27, 2008 at 06:53, Paulius Zaleckas wrote:
+>>> +       if (gpio_request(bitbang->mdc, "mdc"))
+>>> +               goto out_free_bitbang;
+>>> +
+>>> +       if (gpio_request(bitbang->mdio, "mdio"))
+>>> +               goto out_free_mdc;
+>>
+>> maybe include driver name and/or the platform id ?  if you have
+>> multiple mdio-gpio's running at the same time, coordinating may get a
+>> little messy ...
+>
+> Well... this is mostly for debugging only... I don't like the idea
+> to add additional char[..] variable and use sprintf...
+> IMO this would be just a bloat...
 
-On Tue, Oct 28, 2008 at 3:30 AM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
-> Frankly saying your codying style is way out of expected range of
-> allowed glitches, so it is quite hard to review the whole thing. Please
-> update it to at least remotely match existing code.
+if realistically you'd only run one instance of this driver on a
+platform, then it'll probably be fine
 
-excuse for this loosely patches...
-please more explain...
-do you mean my patches are too long? or ambiguous?
-i 've tried to code base on "Documentation/CodingStyle".. and patch
-base on "how to participate in the kernel community" documents.
+>>> +       new_bus->name = "GPIO Bitbanged MII",
+>>
+>> platform id here too ?
+>
+> If you take a look one line below you would see that bus ID is formed
+> using platform id. Does this really need to be duplicated also in the
+> name?
 
-the core of this framework is located at pkt_tables.c&.h (#2&#3 of
-kernel patches).
-iptables.c&.h are completely changed. also at the user space libiptc.c
-is rewritten from scratch thus their patches are really ambiguous to
-be understood..what is the best way to send this patches?
-what this phrase mean: "' remotely match existing code ""?
-
->Also I noticed you
-> do not use list iteration functions sometimes and replaces them with
-> direct access to next/prev pointers, which is not a good idea.
-ok, i 've used this style to free list elements.
-if you mean "don't use direct access to prev/next", i 'll review my
-code and will try to use list iteration function on every place that
-is possible or at list use list functions and list element of
-structures instead of direct access to "next/prev"..
-
--- 
-Hamid Jafarian (hm.t)
+i guess if you can divine the differences from a populated /sys
+directory, it should be ok as well
+-mike
