@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH] infiniband: Add struct in6_addr addr to
-	union ib_gib
-Date: Wed, 29 Oct 2008 01:39:02 -0700 (PDT)
-Message-ID: <20081029.013902.130933950.davem@davemloft.net>
-References: <1225239374.5269.251.camel@localhost>
-	<20081028.223941.18931166.davem@davemloft.net>
-	<1225263521.5269.273.camel@localhost>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v3)
+Date: Wed, 29 Oct 2008 10:44:20 +0200
+Message-ID: <49082264.7060302@teltonika.lt>
+References: <20081028103537.28951.4804.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>	 <8bd0f97a0810280350j385a0239if7a33928f7bb11f1@mail.gmail.com>	 <4906F817.4050306@teltonika.lt> <fa686aa40810280726s338c739bl24ee53d3193292ba@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
-	sean.hefty@intel.com, harvey.harrison@gmail.com
-To: joe@perches.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1225263521.5269.273.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Mike Frysinger <vapier.adi@gmail.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+In-Reply-To: <fa686aa40810280726s338c739bl24ee53d3193292ba@mail.gmail.com>
+Sender: linux-embedded-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 28 Oct 2008 23:58:40 -0700
-
-> On Tue, 2008-10-28 at 22:39 -0700, David Miller wrote:
-> > From: Joe Perches <joe@perches.com>
-> > Date: Tue, 28 Oct 2008 17:16:14 -0700
-> > > ib_gid's can be print'd using the new %p6 facility
-> > > Signed-off-by: Joe Perches <joe@perches.com>
-> > Joe, please provide something relative to Harvey's patches
-> > so that this new union member gets passed into the %p6
-> > uses.
+Grant Likely wrote:
+> On Tue, Oct 28, 2008 at 5:31 AM, Paulius Zaleckas
+> <paulius.zaleckas@teltonika.lt> wrote:
+>> Mike Frysinger wrote:
+>>> On Tue, Oct 28, 2008 at 06:35, Paulius Zaleckas wrote:
+>>>> +config MDIO_GPIO
+>>>> +       tristate "Support for GPIO bitbanged MDIO buses"
+>>>>  config MDIO_OF_GPIO
+>>>>        tristate "Support for GPIO lib-based bitbanged MDIO buses"
+>>> seems to me these drivers have the same description ...
+>> Yes... but it is MDIO_OF_GPIO description that needs changing...
+>> Should I make patch for it?
 > 
-> Sure.  After Harvey's patches show up in
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=summary
+> Wait a minute....  This is the same driver and it's just been
+> duplicated.  NAK.  Please don't do this.  Instead add a platform bus
+> binding to the existing driver.  Most of the code can be shared.
 
-They should be there now.
+It is very similar. If highly #ifdef'ed driver is OK then I can merge
+these driver to single one, but mdio-ofgpio driver name will have to
+change to mdio-gpio. OK?
