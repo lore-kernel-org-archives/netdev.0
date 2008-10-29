@@ -1,188 +1,66 @@
-From: "Manish Katiyar" <mkatiyar@gmail.com>
-Subject: Re: [PATCH] : Fix compilation warnings in net/netlabel/netlabel_addrlist.c
-Date: Wed, 29 Oct 2008 23:57:44 +0530
-Message-ID: <ea11fea30810291127h3d5ade4btcd3b327863e7b210@mail.gmail.com>
-References: <ea11fea30810290106u3f92268q62226da65db6f6a4@mail.gmail.com>
-	 <200810290949.09108.paul.moore@hp.com>
-	 <ea11fea30810290818p2ae6c11eo5e38baf631867fb1@mail.gmail.com>
-	 <200810291135.25056.paul.moore@hp.com>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: oh crap... (re: %p6)
+Date: Wed, 29 Oct 2008 11:21:19 -0700
+Message-ID: <1225304479.5688.28.camel@brick>
+References: <20081029.015402.234525839.davem@davemloft.net>
+	 <1225292124.20276.12.camel@brick>  <1225294760.5269.301.camel@localhost>
+	 <1225301082.5688.24.camel@brick>  <1225304214.5269.339.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: mkatiyar@gmail.com
-To: "Paul Moore" <paul.moore@hp.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:45487 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752501AbYJ2S1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:27:47 -0400
-In-Reply-To: <200810291135.25056.paul.moore@hp.com>
-Content-Disposition: inline
+Received: from an-out-0708.google.com ([209.85.132.251]:22423 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752764AbYJ2S2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:28:21 -0400
+Received: by an-out-0708.google.com with SMTP id d40so13794and.103
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 11:28:19 -0700 (PDT)
+In-Reply-To: <1225304214.5269.339.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2008 at 9:05 PM, Paul Moore <paul.moore@hp.com> wrote:
-> On Wednesday 29 October 2008 11:18:36 am you wrote:
->> On Wed, Oct 29, 2008 at 7:19 PM, Paul Moore <paul.moore@hp.com> wrote:
->> > On Wednesday 29 October 2008 4:06:09 am Manish Katiyar wrote:
->> >> Below patch fixes the following warning.
->> >> net/netlabel/netlabel_addrlist.c:335: warning: unused variable
->> >> 'dir' net/netlabel/netlabel_addrlist.c:369: warning: unused
->> >> variable 'dir'
->> >>
->> >>
->> >> Signed-off-by: Manish Katiyar <mkatiyar@gmail.com>
->> >
->> > Hi Manish,
->> >
->> > Good catch, I ran compile tests with different
->> > SECURITY/NETLABEL/IPV6 options enabled/disabled but forgot about
->> > AUDIT.  I appreciate your help finding this and submitting a
->> > possible solution but I think the better approach would be to
->> > conditionally compile out the
->> > netlbl_af{4,6}list_audit_addr() functions similarly to what we do
->> > with several of the NetLabel kernel API functions in
->> > include/net/netlabel.h, see netlbl_enabled() for a simple example.
->>
->> Hi Paul,
->>
->> Thanks a lot. I didn't understand your suggestion, but this is also
->> the first time I am looking in net directory :-).
->
-> There is a first time for everything :)
->
->> Even if you compile
->> netlbl_af{4,6}list_audit_add conditionally based on CONFIG_IPV6 and
->> others, you still need to have CONFIG_AUDIT for audit_log_format().
->> Isn't it ??
->
-> Yes, but the idea is to conditionally compile the
-> netlbl_af{4,6}list_audit_add() functions based on CONFIG_AUDIT.  Below
-> is a simple example using myfunc():
->
-> In the source file you define the function:
->
->  void myfunc(int myarg)
->  {
->        /* bunch of audit stuff */
->  }
->
-> In the header file you have a conditional prototype declaration:
->
->  #ifdef CONFIG_AUDIT
->  void myfunc(int myarg);
->  #else
->  static inline void myfunc(int myarg)
->  {
->        return;
->  }
->  #endif
->
-> This way the code compiles correctly regardless of if CONFIG_AUDIT is
-> defined and has the benefit of not including unnecessary code in the
-> kernel binary.
+On Wed, 2008-10-29 at 11:16 -0700, Joe Perches wrote:
+> On Wed, 2008-10-29 at 10:24 -0700, Harvey Harrison wrote:
+> > Putting a modifier after the format specifier seems a little strange to me.
+> 
+> Harvey, please remember the whole %p<foo> concept is based on
+> modifier after format specifier.
+> 
+> I think %p6 followed by combinations of things:
+> 
+> "::" compressed v6, largest block of consecutive 0's replaced with ::
+> "-:" no separating colons, use space instead
+> "-0" no leading 0's
+> ".4" last word as ipv4 dotted decimal
+> "x1" u8 form
+> "x2" be16
+> "x4" be32
+> "x8" be64
+> 
 
-Hi Paul,
+Yes, but if you put anything but alphanumerics after the %p, make sure
+you handle that in vsnprintf(), so it will be a bit more involved than
+my simplistic ones were.
 
-Does this look better ?? Appreciate your help. Patch compile tested.
+> So that you could have:
+> 
+> %p6::		1234:000a::c0a8:0101
+> %p6::-0		1234:a::c0a8:0101
+> %p6::-0.4	1234:a::192.168.1.1
+> %p6-0-:x1	0 1 2 3 4 5 6 7 8 9 a b c d e f
+> %p6x1		00:01:02:03:04:05:06:07:09:0a:0b:0c:0d:0e:0f
+> 
+> etc.  If acceptable, I'll submit a patch.
+> 
 
-Enable netlabel auditing functions only when CONFIG_AUDIT is set
-
-Signed-off-by: Manish Katiyar <mkatiyar@gmail.com>
----
- net/netlabel/netlabel_addrlist.c |    2 ++
- net/netlabel/netlabel_addrlist.h |   20 ++++++++++++++++++++
- 2 files changed, 22 insertions(+), 0 deletions(-)
-
-diff --git a/net/netlabel/netlabel_addrlist.c b/net/netlabel/netlabel_addrlist.c
-index b0925a3..830afef 100644
---- a/net/netlabel/netlabel_addrlist.c
-+++ b/net/netlabel/netlabel_addrlist.c
-@@ -311,6 +311,7 @@ struct netlbl_af6list *netlbl_af6list_remove(const
-struct in6_addr *addr,
- }
- #endif /* IPv6 */
-
-+#ifdef CONFIG_AUDIT
- /*
-  * Audit Helper Functions
-  */
-@@ -386,3 +387,4 @@ void netlbl_af6list_audit_addr(struct audit_buffer
-*audit_buf,
- 	}
- }
- #endif /* IPv6 */
-+#endif /* CONFIG_AUDIT */
-diff --git a/net/netlabel/netlabel_addrlist.h b/net/netlabel/netlabel_addrlist.h
-index 0242bea..7fa730a 100644
---- a/net/netlabel/netlabel_addrlist.h
-+++ b/net/netlabel/netlabel_addrlist.h
-@@ -120,9 +120,18 @@ struct netlbl_af4list *netlbl_af4list_search(__be32 addr,
- struct netlbl_af4list *netlbl_af4list_search_exact(__be32 addr,
- 						   __be32 mask,
- 						   struct list_head *head);
-+
-+#ifdef CONFIG_AUDIT
- void netlbl_af4list_audit_addr(struct audit_buffer *audit_buf,
- 			       int src, const char *dev,
- 			       __be32 addr, __be32 mask);
-+#else
-+static inline void netlbl_af4list_audit_addr(struct audit_buffer *audit_buf,
-+			       int src, const char *dev,
-+			       __be32 addr, __be32 mask) {
-+	return;
-+}
-+#endif
-
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-
-@@ -179,11 +188,22 @@ struct netlbl_af6list
-*netlbl_af6list_search(const struct in6_addr *addr,
- struct netlbl_af6list *netlbl_af6list_search_exact(const struct in6_addr *addr,
- 						   const struct in6_addr *mask,
- 						   struct list_head *head);
-+
-+#ifdef CONFIG_AUDIT
- void netlbl_af6list_audit_addr(struct audit_buffer *audit_buf,
- 			       int src,
- 			       const char *dev,
- 			       const struct in6_addr *addr,
- 			       const struct in6_addr *mask);
-+#else
-+static inline void netlbl_af6list_audit_addr(struct audit_buffer *audit_buf,
-+			       int src,
-+			       const char *dev,
-+			       const struct in6_addr *addr,
-+			       const struct in6_addr *mask) {
-+	return;
-+}
-+#endif
- #endif /* IPV6 */
-
- #endif
--- 
-1.5.4.3
-
-Thanks -
-Manish
+I'll let Dave comment on whether this flexibility is desired.  Mine was
+more an attempt to consolidate a very common (and simplisitic) usage.
 
 
->
->> > If you have the time to revise this patch that would be great, just
->> > CC me on the posting and I'll look it over.
->>
->> Since this is not my area of expertise, I would rather not like to
->> introduce more bugs in kernel. But yes I can try my best to learn and
->> try to fix it if you are willing to lend a helping hand (which might
->> be iterative and irritating for you due to my stupid questions).
->
-> I'm more than happy to help but all I ask is that we keep the discussion
-> on the mailing lists so that others could benefit from the discussion.
-> However, if this isn't something you are comfortable with just let me
-> know.
->
-> --
-> paul moore
-> linux @ hp
->
+Cheers,
+
+Harvey
+
+
