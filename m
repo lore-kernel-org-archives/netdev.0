@@ -1,8 +1,8 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [RFC PATCH 01/13] put_cmsg_compat + SO_TIMESTAMP[NS]: use same
-	name for value as caller
-Date: Wed, 22 Oct 2008 14:46:39 +0200
-Message-ID: <1226415403.31699.0.camel@ecld0pohly>
+Subject: [RFC PATCH 06/13] workaround: detect time stamp when command flags
+	are expected
+Date: Wed, 29 Oct 2008 15:48:48 +0100
+Message-ID: <1226415426.31699.5.camel@ecld0pohly>
 References: <1226414697.17450.852.camel@ecld0pohly>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -14,43 +14,41 @@ Cc: Octavian Purdila <opurdila@ixiacom.com>,
 	Oliver Hartkopp <oliver@hartkopp.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34540 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:9620 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755837AbYKKO4o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2008 09:56:44 -0500
+	id S1756081AbYKKO5H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 09:57:07 -0500
 In-Reply-To: <1226414697.17450.852.camel@ecld0pohly>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In __sock_recv_timestamp() the additional SCM_TIMESTAMP[NS] is used. This
-has the same value as SO_TIMESTAMP[NS], so this is a purely cosmetic change.
+This happens when IP_MULTICAST_LOOP is on. Apparently the time
+stamped packet goes through the loop device's start_hard_xmit?!
+TODO: find a clean solution.
 
 Signed-off-by: Patrick Ohly <patrick.ohly@intel.com>
 ---
- net/compat.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/core/skbuff.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/net/compat.c b/net/compat.c
-index 67fb6a3..6ce1a1c 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -226,14 +226,14 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
- 		return 0; /* XXX: return error? check spec. */
- 	}
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7d714b8..7d9f1dd 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2574,6 +2574,13 @@ void skb_hwtstamp_tx(struct sk_buff *orig_skb,
+ 	struct sk_buff *skb;
+ 	int err = -ENOMEM;
  
--	if (level == SOL_SOCKET && type == SO_TIMESTAMP) {
-+	if (level == SOL_SOCKET && type == SCM_TIMESTAMP) {
- 		struct timeval *tv = (struct timeval *)data;
- 		ctv.tv_sec = tv->tv_sec;
- 		ctv.tv_usec = tv->tv_usec;
- 		data = &ctv;
- 		len = sizeof(ctv);
- 	}
--	if (level == SOL_SOCKET && type == SO_TIMESTAMPNS) {
-+	if (level == SOL_SOCKET && type == SCM_TIMESTAMPNS) {
- 		struct timespec *ts = (struct timespec *)data;
- 		cts.tv_sec = ts->tv_sec;
- 		cts.tv_nsec = ts->tv_nsec;
++	/* sanity check: extra bits set => might be a real time stamp */
++	if (orig_skb->tstamp.tv64 & ~(SKB_TSTAMP_TX_HARDWARE|SKB_TSTAMP_TX_HARDWARE_IN_PROGRESS|SKB_TSTAMP_TX_SOFTWARE)) {
++		printk(KERN_DEBUG
++			"skb_hwtstamp_tx: invalid command flags\n");
++		return;
++	}
++
+ 	if (!sk)
+ 		return;
+ 
 -- 
 1.6.0.4
 
