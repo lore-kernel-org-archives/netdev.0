@@ -1,37 +1,33 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v3)
-Date: Wed, 29 Oct 2008 10:44:20 +0200
-Message-ID: <49082264.7060302@teltonika.lt>
-References: <20081028103537.28951.4804.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>	 <8bd0f97a0810280350j385a0239if7a33928f7bb11f1@mail.gmail.com>	 <4906F817.4050306@teltonika.lt> <fa686aa40810280726s338c739bl24ee53d3193292ba@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: oh crap... (re: %p6)
+Date: Wed, 29 Oct 2008 01:54:02 -0700 (PDT)
+Message-ID: <20081029.015402.234525839.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mike Frysinger <vapier.adi@gmail.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <fa686aa40810280726s338c739bl24ee53d3193292ba@mail.gmail.com>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: harvey.harrison@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37203
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751350AbYJ2Iy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 04:54:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Grant Likely wrote:
-> On Tue, Oct 28, 2008 at 5:31 AM, Paulius Zaleckas
-> <paulius.zaleckas@teltonika.lt> wrote:
->> Mike Frysinger wrote:
->>> On Tue, Oct 28, 2008 at 06:35, Paulius Zaleckas wrote:
->>>> +config MDIO_GPIO
->>>> +       tristate "Support for GPIO bitbanged MDIO buses"
->>>>  config MDIO_OF_GPIO
->>>>        tristate "Support for GPIO lib-based bitbanged MDIO buses"
->>> seems to me these drivers have the same description ...
->> Yes... but it is MDIO_OF_GPIO description that needs changing...
->> Should I make patch for it?
-> 
-> Wait a minute....  This is the same driver and it's just been
-> duplicated.  NAK.  Please don't do this.  Instead add a platform bus
-> binding to the existing driver.  Most of the code can be shared.
 
-It is very similar. If highly #ifdef'ed driver is OK then I can merge
-these driver to single one, but mdio-ofgpio driver name will have to
-change to mdio-gpio. OK?
+I think we'll need to revert all of this or find some fix soon.  GCC
+warns about %p with a '#' flag modifier it seems :-(
+
+net/ipv6/ip6_flowlabel.c: In function 'ip6fl_seq_show':
+net/ipv6/ip6_flowlabel.c:707: warning: '#' flag used with '%p' printf format
+
+this is with:
+
+davem@sunset:~/src/GIT/net-next-2.6$ gcc --version
+gcc (GCC) 4.1.3 20070929 (prerelease) (Ubuntu 4.1.2-16ubuntu2)
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+davem@sunset:~/src/GIT/net-next-2.6$ 
