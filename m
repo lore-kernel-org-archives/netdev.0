@@ -1,62 +1,47 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] HTB updates class's bstats in one place
-Date: Wed, 29 Oct 2008 16:54:11 +0800
-Message-ID: <490824B3.20100@gmail.com>
-Reply-To: xiaosuo@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Wed, 29 Oct 2008 01:56:59 -0700 (PDT)
+Message-ID: <20081029.015659.223371561.davem@davemloft.net>
+References: <490795FB.2000201@cosmosbay.com>
+	<20081028.220536.183082966.davem@davemloft.net>
+	<49081D67.3050502@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo <xiaosuo@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, benny+usenet@amorsen.dk, minyard@acm.org,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	cl@linux-foundation.org, a.p.zijlstra@chello.nl,
+	johnpol@2ka.mipt.ru, christian@myri.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.190]:48399 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263AbYJ2Iyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 04:54:53 -0400
-Received: by ti-out-0910.google.com with SMTP id b6so1617874tic.23
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 01:54:51 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49791
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752776AbYJ2I5Z convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Oct 2008 04:57:25 -0400
+In-Reply-To: <49081D67.3050502@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch make HTB update class's bstats in one place when dequeuing
-packets instead of updating the leaf's when enqueuing and updating the
-other's when dequeuing. It also fixes a statistics bug, the statistics
-data of leaf class will exceeds its parent classes's due to packets are
-dropped by its inner qdisc.
+=46rom: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 29 Oct 2008 09:23:03 +0100
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com <mailto:xiaosuo@gmail.com>>
----
-sch_htb.c | 13 ++++---------
-1 file changed, 4 insertions(+), 9 deletions(-)
+> David Miller a =E9crit :
+> > From: Eric Dumazet <dada1@cosmosbay.com>
+> > Date: Tue, 28 Oct 2008 23:45:15 +0100
+> >=20
+> >> I will submit a new patch serie tomorrow, with :
+> >>
+> >> Patch 1 : spinlocks instead of rwlocks, and bug spotted by Christi=
+an Bell
+> >>
+> >> Patch 2 : splited on two parts (2 & 3) , one for IPV4, one for IPV=
+6,=20
+> > I very much look forward to this :-)
+> > I like these changes and can't wait to add them to net-next-2.6
+>=20
+> Thanks David, please find first updated patch 1
 
---- net/sched/sch_htb.c.orig	2008-10-29 16:18:13.000000000 +0800
-+++ net/sched/sch_htb.c	2008-10-29 16:19:54.000000000 +0800
-@@ -579,9 +579,6 @@
- 		}
- 		return ret;
- 	} else {
--		cl->bstats.packets +=
--			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
--		cl->bstats.bytes += qdisc_pkt_len(skb);
- 		htb_activate(q, cl);
- 	}
- 
-@@ -679,12 +676,10 @@
- 				htb_add_to_wait_tree(q, cl, diff);
- 		}
- 
--		/* update byte stats except for leaves which are already updated */
--		if (cl->level) {
--			cl->bstats.bytes += bytes;
--			cl->bstats.packets += skb_is_gso(skb)?
--					skb_shinfo(skb)->gso_segs:1;
--		}
-+		cl->bstats.bytes += bytes;
-+		cl->bstats.packets += skb_is_gso(skb)?
-+				skb_shinfo(skb)->gso_segs:1;
-+
- 		cl = cl->parent;
- 	}
- }
+Applied, please (re-)send the current version of patch 2 as well.
 
-
+Thanks.
