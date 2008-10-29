@@ -1,38 +1,35 @@
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Subject: RE: Patch - Establishing more than 64K outgoing TCP connections
-Date: Tue, 28 Oct 2008 23:17:04 -0400
-Message-ID: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08FD@MBX73.ad2.softcom.biz>
-References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B0830@MBX73.ad2.softcom.biz>
- <20081028.155951.23638197.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Tue, 28 Oct 2008 22:05:36 -0700 (PDT)
+Message-ID: <20081028.220536.183082966.davem@davemloft.net>
+References: <20081008.114527.189056050.davem@davemloft.net>
+	<49077918.4050706@cosmosbay.com>
+	<490795FB.2000201@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, benny+usenet@amorsen.dk, minyard@acm.org,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	clameter@sgi.com, a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xsmtp08.mail2web.com ([168.144.250.208]:44348 "EHLO
-	xsmtp08.mail2web.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752317AbYJ2DRo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 23:17:44 -0400
-In-Reply-To: <20081028.155951.23638197.davem@davemloft.net>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45195
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751223AbYJ2FF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 01:05:59 -0400
+In-Reply-To: <490795FB.2000201@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry! Didn't mean to post multiple times.
-Went through some trial and error to get the post through.
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 28 Oct 2008 23:45:15 +0100
 
---Yavor
+> I will submit a new patch serie tomorrow, with :
+> 
+> Patch 1 : spinlocks instead of rwlocks, and bug spotted by Christian Bell
+> 
+> Patch 2 : splited on two parts (2 & 3) , one for IPV4, one for IPV6, 
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net]
-Sent: Tuesday, October 28, 2008 4:00 PM
-To: Yavor Goulishev
-Cc: netdev@vger.kernel.org
-Subject: Re: Patch - Establishing more than 64K outgoing TCP connections
+I very much look forward to this :-)
 
-
-Please stop sending this patch over and over again, we've all seen it
-the first time.
-
-Thank you.
+I like these changes and can't wait to add them to net-next-2.6
