@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove NIP6(), NIP6_FMT, NIP6_SEQFMT and final
- users
-Date: Tue, 28 Oct 2008 22:39:00 -0700 (PDT)
-Message-ID: <20081028.223900.105206094.davem@davemloft.net>
-References: <1225223616.11483.40.camel@brick>
-	<20081028.160612.90419792.davem@davemloft.net>
-	<1225235950.11483.66.camel@brick>
+Subject: [ofa-general] Re: [PATCH] infiniband: Add struct in6_addr addr to
+	union ib_gib
+Date: Tue, 28 Oct 2008 22:39:41 -0700 (PDT)
+Message-ID: <20081028.223941.18931166.davem@davemloft.net>
+References: <ada8ws8mi8x.fsf@cisco.com> <1225236128.5269.240.camel@localhost>
+	<1225239374.5269.251.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: harvey.harrison@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49439
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751918AbYJ2FjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 01:39:23 -0400
-In-Reply-To: <1225235950.11483.66.camel@brick>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	sean.hefty@intel.com, harvey.harrison@gmail.com
+To: joe@perches.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1225239374.5269.251.camel@localhost>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Tue, 28 Oct 2008 16:19:10 -0700
+From: Joe Perches <joe@perches.com>
+Date: Tue, 28 Oct 2008 17:16:14 -0700
 
-> Open code NIP6_FMT in the one call inside sscanf and one user
-> of NIP6() that could use %p6 in the netfilter code.
+> ib_gid's can be print'd using the new %p6 facility
 > 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thanks!
+Joe, please provide something relative to Harvey's patches
+so that this new union member gets passed into the %p6
+uses.
+
+Thanks!
