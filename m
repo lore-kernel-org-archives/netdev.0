@@ -1,53 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: atl1 warn_on_slowpath help
-Date: Wed, 29 Oct 2008 07:15:50 +0000
-Message-ID: <20081029071549.GA4861@ff.dom.local>
-References: <20081028190846.2cc3bd3f@osprey.hogchain.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: New filter 'flow' bug?
+Date: Wed, 29 Oct 2008 00:37:13 -0700 (PDT)
+Message-ID: <20081029.003713.193704291.davem@davemloft.net>
+References: <20081029072705.376AC1E3087@f03.poczta.interia.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Jay Cliburn <jcliburn@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: almaop@poczta.fm
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:4967 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752222AbYJ2HP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 03:15:58 -0400
-Received: by ug-out-1314.google.com with SMTP id 39so508640ugf.37
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 00:15:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20081028190846.2cc3bd3f@osprey.hogchain.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48567
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752257AbYJ2Hhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 03:37:38 -0400
+In-Reply-To: <20081029072705.376AC1E3087@f03.poczta.interia.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29-10-2008 01:08, Jay Cliburn wrote:
-> I'm pretty fuzzy on the mechanics of warn_on_slowpath, so I'd like to
-> ask for help from more experienced netdev developers.
-> 
-> An atl1 user reports the following warning when receiving a VLAN tagged
-> packet.
-> 
-> [   27.779463] ------------[ cut here ]------------
-> [   27.779509] WARNING: at kernel/softirq.c:136 local_bh_enable+0x37/0x81()
-...
-> [   27.782520]  [<c0264755>] netif_nit_deliver+0x5b/0x75
-> [   27.782590]  [<c02bba83>] __vlan_hwaccel_rx+0x79/0x162
-> [   27.782664]  [<f8851c1d>] atl1_intr+0x9a9/0xa7c [atl1]
-> [   27.782738]  [<c0155b17>] handle_IRQ_event+0x23/0x51
-> [   27.782808]  [<c015692e>] handle_edge_irq+0xc2/0x102
-> [   27.782878]  [<c0105fd5>] do_IRQ+0x4d/0x64
-> [   27.782947]  [<c010434f>] common_interrupt+0x23/0x28
-> [   27.783017]  [<c0108df6>] mwait_idle+0x2f/0x3b
-> [   27.783085]  [<c0102a75>] cpu_idle+0xde/0x101
-> [   27.783154]  =======================
-> [   27.783195] ---[ end trace 744634f3da93b46a ]---
-> 
-> I've flailed around trying to find the bug, but haven't been
-> successful -- primarily because I don't understand the
-> warn_on_slowpath stuff well enough to know what to look for. Can someone
-> please take a quick look at drivers/net/atlx/atl1.c around line 2017
-> and see if there's an obvious error?  I'd really appreciate it.
+From: almaop@poczta.fm
+Date: 29 Oct 2008 08:27:05 +0100
 
-It looks to me like vlan_hwaccel_rx() is to blame: I doubt we can do
-netif_nit_deliver() in hard irq context. (Patrick Cc-ed.)
+Deeply technical questions are almost certainly going to get zero
+response on linux-net.  So using netdev is generally a better idea
+since that actually gets to the networking developers.
 
-Jarek P.
+Added to CC:
+
+> Hi. I'm using this new "flow" filter:
+> (http://www.mail-archive.com/netdev@vger.kernel.org/msg60638.html). It is configuration as above: tc filter flow classify packets in the sfq. It works (as it seems) fine. But only until there is some traffic in the queue. When there is some interruption in the packets flow (for a while) something goes wrong and the queue blocks. From that moment onward nothing goes trough. It is very annoying. You have to remove sfq to resume traffic.
+> Is anybody using this new filter which sfq?
+> My configuration: gentoo, kernel 2.6.26.7 + imq patch + l7 patch, glibc 2.7, iproute2 2.6.26. Shaping is done on ethernet (e1000 card) but as I see on the ifb nothing changes.
+> There are htb 3 classes with sfq as their qdiscs. It is simple, something like:
+> 
+> tc qdisc add dev $DEV root handle 1: htb default 4 tc class add dev $DEV parent 1: classid 1:1 htb rate 78kbps ceil 78kbps overhead 0 linklayer atm
+> 
+> tc class add dev $DEV parent 1:1 classid 1:2 htb rate 20kbps ceil 20kbps overhead 0 linklayer atm prio 3
+> tc class add dev $DEV parent 1:1 classid 1:3 ...
+> tc class add dev $DEV parent 1:1 classid 1:4 ...
+>  
+> tc qdisc add dev $DEV parent 1:2 handle 2: sfq quantum 64
+> tc qdisc add dev $DEV parent 1:3 handle 3: sfq
+> tc qdisc add dev $DEV parent 1:4 handle 4: sfq
+> 
+> tc filter add dev $DEV parent 1: ....
+> ....
+>  
+> tc filter add dev $DEV parent 2: protocol ip handle 1 prio 12 flow \
+> hash keys dst,proto,proto-dst divisor 128
+> 
+> tc filter add dev $DEV parent 3: protocol ip handle 1 prio 12 flow \
+> hash keys dst,proto,proto-dst divisor 128
+> 
+> tc filter add dev $DEV parent 4: protocol ip handle 1 prio 12 flow \
+> hash keys nfct-src,nfct-dst,proto,nfct-proto-src,nfct-proto-dst divisor 128
+> 
+> I'm not sure where is the bug - in the flow filter or in the sfq qdisc.
+> 
+> Regards
+> 
+> Krzysiek
+> 
+> 
+> ----------------------------------------------------------------------
+> Wymysl wierszyk, wygraj cyfrowke!
+> Sprawdz >>> http://link.interia.pl/f1f5a
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
