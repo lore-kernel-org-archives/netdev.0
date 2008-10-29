@@ -1,55 +1,55 @@
-From: Corey Minyard <minyard@acm.org>
-Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
-Date: Wed, 29 Oct 2008 10:34:32 -0500
-Message-ID: <49088288.6050805@acm.org>
-References: <20081008.114527.189056050.davem@davemloft.net>
- <49077918.4050706@cosmosbay.com>	<490795FB.2000201@cosmosbay.com>
- <20081028.220536.183082966.davem@davemloft.net>
- <49081D67.3050502@cosmosbay.com> <49082718.2030201@cosmosbay.com>
- <4908627C.6030001@acm.org> <490874F2.2060306@cosmosbay.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: oh crap... (re: %p6)
+Date: Wed, 29 Oct 2008 08:39:19 -0700
+Message-ID: <1225294760.5269.301.camel@localhost>
+References: <20081029.015402.234525839.davem@davemloft.net>
+	 <1225292124.20276.12.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com,
-	Christoph Lameter <cl@linux-foundation.org>,
-	a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru,
-	Christian Bell <christian@myri.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms046pub.verizon.net ([206.46.252.46]:47500 "EHLO
-	vms046pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752410AbYJ2Pev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 11:34:51 -0400
-Received: from wf-rch.minyard.local ([96.226.138.225])
- by vms046.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0K9I00CWAB9MNIW1@vms046.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 29 Oct 2008 10:34:35 -0500 (CDT)
-In-reply-to: <490874F2.2060306@cosmosbay.com>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4284 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752668AbYJ2PjZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 11:39:25 -0400
+In-Reply-To: <1225292124.20276.12.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Corey Minyard found a race added in commit 
-> 271b72c7fa82c2c7a795bc16896149933110672d
-> (udp: RCU handling for Unicast packets.)
->
-> "If the socket is moved from one list to another list in-between the 
-> time  the hash is calculated and the next field is accessed, and the 
-> socket  has moved to the end of the new list, the traversal will not 
-> complete  properly on the list it should have, since the socket will 
-> be on the end  of the new list and there's not a way to tell it's on a 
-> new list and  restart the list traversal.  I think that this can be 
-> solved by  pre-fetching the "next" field (with proper barriers) before 
-> checking the  hash."
->
-> This patch corrects this problem, introducing a new 
-> sk_for_each_rcu_safenext()
-> macro.
-You also need the appropriate smp_wmb() in udp_lib_get_port() after 
-sk_hash is set, I think, so the next field is guaranteed to be changed 
-after the hash value is changed.
+On Wed, 2008-10-29 at 07:55 -0700, Harvey Harrison wrote:
+> On Wed, 2008-10-29 at 01:54 -0700, David Miller wrote:
+> > I think we'll need to revert all of this or find some fix soon.  GCC
+> > warns about %p with a '#' flag modifier it seems :-(
+> > 
+> > net/ipv6/ip6_flowlabel.c: In function 'ip6fl_seq_show':
+> > net/ipv6/ip6_flowlabel.c:707: warning: '#' flag used with '%p' printf format
+> 
+> The easiest would be to pick a separate modifier for the raw case.  Or
+> revert the removal of NIP6_SEQFMT, I'll shoot you a patch shortly,
+> any preference in what modifier should be used?
+
+I'd prefer something visual that represents "no colon".
+
+Maybe %p6-: 
+
+Or perhaps slightly worse to change the colon separated 
+default %p6 to %p:6
+
+There are another cases where the v6 address should have
+as few leading zeros as possible or where the interior
+zeros should be collapsed using :: separators.
+
+Perhaps a good solution is to use the equivalent of
+a "display-hint" after the %p6
+
+Maybe use combinations of:
+
+%p6:: use "::" and collapse when 0
+%p6-: raw hex
+%p6-0 %x not %04x
+%p6.4 last u32 as ipv4 dotted decimal
 
 
--corey
+
