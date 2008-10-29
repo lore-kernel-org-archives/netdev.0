@@ -1,101 +1,202 @@
-From: "Ramon Casellas" <ramon.casellas@cttc.es>
-Subject: RE: atl1 warn_on_slowpath help
-Date: Wed, 29 Oct 2008 15:15:41 +0100
-Message-ID: <B936998C7BAD4852B0CD9AB17E72CFD0@CTTCA769C54C37>
-References: <20081029071549.GA4861@ff.dom.local> <49081AE4.9040301@trash.net> <49083825.3000601@trash.net> <3400f2f60810290551y39c61e0aj90ca1222b339798c@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Wed, 29 Oct 2008 15:36:34 +0100
+Message-ID: <490874F2.2060306@cosmosbay.com>
+References: <20081008.114527.189056050.davem@davemloft.net> <49077918.4050706@cosmosbay.com>	<490795FB.2000201@cosmosbay.com> <20081028.220536.183082966.davem@davemloft.net> <49081D67.3050502@cosmosbay.com> <49082718.2030201@cosmosbay.com> <4908627C.6030001@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'Jarek Poplawski'" <jarkao2@gmail.com>, <netdev@vger.kernel.org>,
-	"'Ramon Casellas'" <ramon.casellas@cttc.es>
-To: "'J. K. Cliburn'" <jcliburn@gmail.com>,
-	"'Patrick McHardy'" <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------050005030502070200050807"
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com,
+	Christoph Lameter <cl@linux-foundation.org>,
+	a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru,
+	Christian Bell <christian@myri.com>
+To: Corey Minyard <minyard@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pollux.cttc.es ([84.88.62.202]:2714 "EHLO pollux.cttc.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753418AbYJ2O2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Oct 2008 10:28:22 -0400
-Received: from scorpius.cttc.es (scorpius.cttc.es [84.88.62.197])
-	by pollux.cttc.es (8.13.1/8.13.1) with ESMTP id m9TE9jIF027306
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 15:09:46 +0100
-In-Reply-To: <3400f2f60810290551y39c61e0aj90ca1222b339798c@mail.gmail.com>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:38449 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752971AbYJ2Ohg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 10:37:36 -0400
+In-Reply-To: <4908627C.6030001@acm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Mensaje original-----
-> De: J. K. Cliburn [mailto:jcliburn@gmail.com]
+This is a multi-part message in MIME format.
+--------------050005030502070200050807
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-> >> Crap, I didn't think of that, all drivers I tested with support
-> >> NAPI. I can't think of a clean way to fix it right now, but I'll
-> >> look into it.
-> >
-> > This is the best I could come up with, short of simply restoring
-> > the old behaviour for non-polling drivers.
-> >
-> > The __vlan_hwaccel_rx function only does the device lookup and
-> > stores it in the cb. The remaining processing is done in a new
-> > function that is invoked by netif_receive_skb(), in the proper
-> > context. Unfortunatly this needs vlan-specific handling in
-> > netif_receive_skb().
-> 
-> Can you please try the attached patch from Patrick and see if it fixes
-> your kernel warning?
+Corey Minyard a =E9crit :
+> I believe there is a race in this patch:
+>=20
+> +    sk_for_each_rcu(sk, node, &hslot->head) {
+> +        /*
+> +         * lockless reader, and SLAB_DESTROY_BY_RCU items:
+> +         * We must check this item was not moved to another chain
+> +         */
+> +        if (udp_hashfn(net, sk->sk_hash) !=3D hash)
+> +            goto begin;
+>         score =3D compute_score(sk, net, hnum, saddr, sport, daddr, dpo=
+rt,=20
+> dif);
+>         if (score > badness) {
+>             result =3D sk;
+>             badness =3D score;
+>         }
+>     }
+>=20
+> If the socket is moved from one list to another list in-between the tim=
+e=20
+> the hash is calculated and the next field is accessed, and the socket=20
+> has moved to the end of the new list, the traversal will not complete=20
+> properly on the list it should have, since the socket will be on the en=
+d=20
+> of the new list and there's not a way to tell it's on a new list and=20
+> restart the list traversal.  I think that this can be solved by=20
+> pre-fetching the "next" field (with proper barriers) before checking th=
+e=20
+> hash.
+>=20
 
-All, 
+You are absolutely right. As we *need* next pointer anyway for the prefet=
+ch(),
+we can store it, so that its value is kept.
 
-I applied the patch to linux.2.6.27.2 (already patched for VLAN support on
-ATL1 devices as per Jay fix). Patch applied cleanly and there was no warn on
-slow path on dmesg after the reboot, with fully functional VLAN (broken in
-atl cards since 2.6.26)
+> I also might be nice to have a way to avoid recomputing the score the=20
+> second time, perhaps using a sequence number of some type.
 
-Linux failamp 2.6.27.2 #1 SMP Wed Oct 29 14:22:49 CET 2008 i686 GNU/Linux
+Well, computing score is really cheap, everything is in cache, granted
+the chain was not really huge and high score item at the beginning.
 
-3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state
-UP qlen 1000
-    link/ether 00:1f:c6:bb:75:fa brd ff:ff:ff:ff:ff:ff
-    inet 1.1.1.91/24 brd 1.1.1.255 scope global eth0
-    inet6 fe80::21f:c6ff:febb:75fa/64 scope link 
-       valid_lft forever preferred_lft forever
+Adding yet another field in sock structure should be avoided if possible.=
 
-4: eth0.200@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-state UP 
-    link/ether 00:1f:c6:bb:75:fa brd ff:ff:ff:ff:ff:ff
-    inet 10.1.1.91/24 brd 10.1.1.255 scope global eth0.200
-    inet6 fe80::21f:c6ff:febb:75fa/64 scope link 
-       valid_lft forever preferred_lft forever
-5: eth0.300@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-state UP 
-    link/ether 00:1f:c6:bb:75:fa brd ff:ff:ff:ff:ff:ff
-    inet 192.168.100.91/24 brd 192.168.100.255 scope global eth0.300
-    inet6 fe80::21f:c6ff:febb:75fa/64 scope link 
-       valid_lft forever preferred_lft forever
 
-I played a bit with tshark: 
+Thanks
 
-failamp:/mnt# tshark -i eth0.300
-Running as user "root" and group "root". This could be dangerous.
-Capturing on eth0.300
-  0.000000 Cisco_35:9a:11 -> PVST+        STP Conf. Root = 
-33068/00:0e:84:50:ff:80  Cost = 12  Port = 0x8011
+[PATCH] udp: introduce sk_for_each_rcu_safenext()
 
-Thanks for your efforts. Let me know if you need further testing.
+Corey Minyard found a race added in commit 271b72c7fa82c2c7a795bc16896149=
+933110672d
+(udp: RCU handling for Unicast packets.)
 
-Ramon
+ "If the socket is moved from one list to another list in-between the tim=
+e=20
+  the hash is calculated and the next field is accessed, and the socket=20
+  has moved to the end of the new list, the traversal will not complete=20
+  properly on the list it should have, since the socket will be on the en=
+d=20
+  of the new list and there's not a way to tell it's on a new list and=20
+  restart the list traversal.  I think that this can be solved by=20
+  pre-fetching the "next" field (with proper barriers) before checking th=
+e=20
+  hash."
 
-(reboot)
+This patch corrects this problem, introducing a new sk_for_each_rcu_safen=
+ext()
+macro.
 
-[    1.916334] atl1 0000:02:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
-[    1.916380] atl1 0000:02:00.0: setting latency timer to 64
-[    1.916390] atl1 0000:02:00.0: version 2.1.3
-[   10.602350] atl1 0000:02:00.0: eth0 link is up 100 Mbps full duplex
-[   10.602389] atl1 0000:02:00.0: eth0 link is up 1000 Mbps full duplex
-[   20.696004] eth0: no IPv6 routers present
-[   21.680003] eth0.200: no IPv6 routers present
-[   22.072004] eth0.300: no IPv6 routers present
-[  859.560556] device eth0 left promiscuous mode
-[  862.100013] device eth0.300 entered promiscuous mode
-[  862.100061] device eth0 entered promiscuous mode
-[  869.311133] device eth0.300 left promiscuous mode
-[  869.311180] device eth0 left promiscuous mode
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+ include/linux/rculist.h |   17 +++++++++++++++++
+ include/net/sock.h      |    4 ++--
+ net/ipv4/udp.c          |    4 ++--
+ net/ipv6/udp.c          |    4 ++--
+ 4 files changed, 23 insertions(+), 6 deletions(-)
 
+
+--------------050005030502070200050807
+Content-Type: text/plain;
+ name="corey.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="corey.patch"
+
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index e649bd3..3ba2998 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -383,5 +383,22 @@ static inline void hlist_add_after_rcu(struct hlist_node *prev,
+ 		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
+ 		pos = rcu_dereference(pos->next))
+ 
++/**
++ * hlist_for_each_entry_rcu_safenext - iterate over rcu list of given type
++ * @tpos:	the type * to use as a loop cursor.
++ * @pos:	the &struct hlist_node to use as a loop cursor.
++ * @head:	the head for your list.
++ * @member:	the name of the hlist_node within the struct.
++ * @next:       the &struct hlist_node to use as a next cursor
++ *
++ * Special version of hlist_for_each_entry_rcu that make sure
++ * each next pointer is fetched before each iteration.
++ */
++#define hlist_for_each_entry_rcu_safenext(tpos, pos, head, member, next) \
++	for (pos = rcu_dereference((head)->first);			 \
++		pos && ({ next = pos->next; smp_rmb(); prefetch(next); 1; }) &&	\
++		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
++		pos = rcu_dereference(next))
++
+ #endif	/* __KERNEL__ */
+ #endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 0bea25d..a4f6d3f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -419,8 +419,8 @@ static __inline__ void sk_add_bind_node(struct sock *sk,
+ 
+ #define sk_for_each(__sk, node, list) \
+ 	hlist_for_each_entry(__sk, node, list, sk_node)
+-#define sk_for_each_rcu(__sk, node, list) \
+-	hlist_for_each_entry_rcu(__sk, node, list, sk_node)
++#define sk_for_each_rcu_safenext(__sk, node, list, next) \
++	hlist_for_each_entry_rcu_safenext(__sk, node, list, sk_node, next)
+ #define sk_for_each_from(__sk, node) \
+ 	if (__sk && ({ node = &(__sk)->sk_node; 1; })) \
+ 		hlist_for_each_entry_from(__sk, node, sk_node)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5ba0340..c3ecec8 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -256,7 +256,7 @@ static struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 		int dif, struct udp_table *udptable)
+ {
+ 	struct sock *sk, *result;
+-	struct hlist_node *node;
++	struct hlist_node *node, *next;
+ 	unsigned short hnum = ntohs(dport);
+ 	unsigned int hash = udp_hashfn(net, hnum);
+ 	struct udp_hslot *hslot = &udptable->hash[hash];
+@@ -266,7 +266,7 @@ static struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ begin:
+ 	result = NULL;
+ 	badness = -1;
+-	sk_for_each_rcu(sk, node, &hslot->head) {
++	sk_for_each_rcu_safenext(sk, node, &hslot->head, next) {
+ 		/*
+ 		 * lockless reader, and SLAB_DESTROY_BY_RCU items:
+ 		 * We must check this item was not moved to another chain
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 1d9790e..32d914d 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -98,7 +98,7 @@ static struct sock *__udp6_lib_lookup(struct net *net,
+ 				      int dif, struct udp_table *udptable)
+ {
+ 	struct sock *sk, *result;
+-	struct hlist_node *node;
++	struct hlist_node *node, *next;
+ 	unsigned short hnum = ntohs(dport);
+ 	unsigned int hash = udp_hashfn(net, hnum);
+ 	struct udp_hslot *hslot = &udptable->hash[hash];
+@@ -108,7 +108,7 @@ static struct sock *__udp6_lib_lookup(struct net *net,
+ begin:
+ 	result = NULL;
+ 	badness = -1;
+-	sk_for_each_rcu(sk, node, &hslot->head) {
++	sk_for_each_rcu_safenext(sk, node, &hslot->head, next) {
+ 		/*
+ 		 * lockless reader, and SLAB_DESTROY_BY_RCU items:
+ 		 * We must check this item was not moved to another chain
+
+--------------050005030502070200050807--
