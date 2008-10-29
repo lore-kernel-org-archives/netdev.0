@@ -1,37 +1,46 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: FYI - TCP/IP thin stream latency
-Date: Wed, 29 Oct 2008 11:13:16 -0700
-Message-ID: <4908A7BC.1060905@hp.com>
-References: <20081022.221410.139436406.davem@davemloft.net>	<Pine.LNX.4.64.0810231516220.7072@wrl-59.cs.helsinki.fi>	<20081024075938.0dddb745@extreme> <20081028.221351.172447876.davem@davemloft.net>
+From: "Roland Dreier" <roland.list@gmail.com>
+Subject: Re: [ofa-general] Re: [PATCH] infiniband: Add struct in6_addr addr to
+	union ib_gib
+Date: Wed, 29 Oct 2008 11:15:47 -0700
+Message-ID: <f8ca0a150810291115r79924e8bw162cbf72510065af@mail.gmail.com>
+References: <ada8ws8mi8x.fsf@cisco.com> <1225236128.5269.240.camel@localhost>
+	<1225239374.5269.251.camel@localhost>
+	<20081028.223941.18931166.davem@davemloft.net>
+	<1225263521.5269.273.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, ilpo.jarvinen@helsinki.fi,
-	doug.leith@nuim.ie, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:30439 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752774AbYJ2SNW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:13:22 -0400
-In-Reply-To: <20081028.221351.172447876.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	David Miller <davem@davemloft.net>, harvey.harrison@gmail.com
+To: "Joe Perches" <joe@perches.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1225263521.5269.273.camel@localhost>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Fri, 24 Oct 2008 07:59:38 -0700
-> 
-> 
->>I was reading "Removing Exponential Backoff from TCP" by Mondal and
->>Kusmznovic at Northwesetern in ACM CCR. The paper tries to show that
->>nothing breaks by getting rid of backoff. Interestingly, FreeBSD
->>already doesn't do backoff until after 5th retry.
-> 
-> 
-> Cell phone network folks want this (or something like it) too.
+> Sure.  After Harvey's patches show up in
+> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=summary
+> I'll make a patchset including this union ib_gid addition as
+> well as changes to drivers/infiniband/
 
-Wouldn't one get that by being able to tune TCP_RTO_MAX on some sort of 
-basis (per dest perhaps)?
+OK I guess.  I also don't have any objection to using a different
+format letter but the
+same underlying code as the p6 implementation as an alternative for handling
+the type checking.
 
-rick jones
+> Roland, in a separate question, are the infiniband maintainers
+> also the maintainers of include/rdma/?  If "F: patterns" ever
+> gets accepted into MAINTAINERS, should include/rdma/ be listed
+> under infiniband?
+
+Yes, drivers/infiniband and include/rdma are all part of the
+InfiniBand/RDMA stack.
