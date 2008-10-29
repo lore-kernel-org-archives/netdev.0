@@ -1,27 +1,25 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH RFC v2] net: add PCINet driver
-Date: Wed, 29 Oct 2008 15:54:46 -0500
-Message-ID: <4908CD96.300@freescale.com>
-References: <20081029202027.GH12879@ovro.caltech.edu>	<20081029132506.55b93555@extreme> <20081029205002.GI12879@ovro.caltech.edu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] macvlan: add support for ethtool get settings
+Date: Wed, 29 Oct 2008 22:01:28 +0100
+Message-ID: <4908CF28.4060704@trash.net>
+References: <20081029125343.695eeb3c@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:52802 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753610AbYJ2Uzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 16:55:35 -0400
-In-Reply-To: <20081029205002.GI12879@ovro.caltech.edu>
+Received: from stinky.trash.net ([213.144.137.162]:42989 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752142AbYJ2VBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 17:01:31 -0400
+In-Reply-To: <20081029125343.695eeb3c@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ira Snyder wrote:
-> I know about this. I was following the example set forth in
-> drivers/net/fs_enet. 
+Stephen Hemminger wrote:
+> If macvlan's are used, it is useful to propgate speed and other settings
+> from underlying device up for application usage.
+>   
 
-I recommend against that. :-)
-
--Scott
-
+Acked-by: Patrick McHardy <kaber@trash.net>
