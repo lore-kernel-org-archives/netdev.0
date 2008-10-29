@@ -1,96 +1,89 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: linux-next: arm allmodconfig
-Date: Wed, 29 Oct 2008 09:05:49 -0700
-Message-ID: <20081029160547.GE20456@atomide.com>
-References: <20081028175604.81c31cea.akpm@linux-foundation.org> <20081029094054.GA3796@flint.arm.linux.org.uk>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Wed, 29 Oct 2008 17:09:53 +0100
+Message-ID: <49088AD1.7040805@cosmosbay.com>
+References: <20081008.114527.189056050.davem@davemloft.net> <49077918.4050706@cosmosbay.com>	<490795FB.2000201@cosmosbay.com> <20081028.220536.183082966.davem@davemloft.net> <49081D67.3050502@cosmosbay.com> <49082718.2030201@cosmosbay.com> <4908627C.6030001@acm.org> <490874F2.2060306@cosmosbay.com> <49088288.6050805@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Moore <paul.moore@hp.com>, Takashi Iwai <tiwai@suse.de>,
-	Pekka Enberg <penberg@cs.helsinki.fi>, xfs-masters@oss.sgi.com
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com,
+	Christoph Lameter <cl@linux-foundation.org>,
+	a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru,
+	Christian Bell <christian@myri.com>
+To: Corey Minyard <minyard@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-01-bos.mailhop.org ([63.208.196.178]:61471 "EHLO
-	mho-01-bos.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094AbYJ2QGK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 12:06:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20081029094054.GA3796@flint.arm.linux.org.uk>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:40134 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754178AbYJ2QQn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 12:16:43 -0400
+In-Reply-To: <49088288.6050805@acm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Russell King - ARM Linux <linux@arm.linux.org.uk> [081029 02:59]:
-> On Tue, Oct 28, 2008 at 05:56:04PM -0700, Andrew Morton wrote:
+Corey Minyard a =E9crit :
+> Eric Dumazet wrote:
+>> Corey Minyard found a race added in commit=20
+>> 271b72c7fa82c2c7a795bc16896149933110672d
+>> (udp: RCU handling for Unicast packets.)
+>>
+>> "If the socket is moved from one list to another list in-between the=
+=20
+>> time  the hash is calculated and the next field is accessed, and the=
+=20
+>> socket  has moved to the end of the new list, the traversal will not=
+=20
+>> complete  properly on the list it should have, since the socket will=
+=20
+>> be on the end  of the new list and there's not a way to tell it's on=
+ a=20
+>> new list and  restart the list traversal.  I think that this can be=20
+>> solved by  pre-fetching the "next" field (with proper barriers) befo=
+re=20
+>> checking the  hash."
+>>
+>> This patch corrects this problem, introducing a new=20
+>> sk_for_each_rcu_safenext()
+>> macro.
+> You also need the appropriate smp_wmb() in udp_lib_get_port() after=20
+> sk_hash is set, I think, so the next field is guaranteed to be change=
+d=20
+> after the hash value is changed.
+>=20
+>=20
 
-<snip>
+Not sure about this one Corey.
 
-> 
-> > > drivers/atm/ambassador.h:257:1: warning: "FLASH_BASE" redefined
-> > > In file included from arch/arm/mach-versatile/include/mach/irqs.h:22,
-> > >                  from /usr/src/devel/arch/arm/include/asm/irq.h:4,
-> > >                  from /usr/src/devel/arch/arm/include/asm/hardirq.h:6,
-> > >                  from include/linux/hardirq.h:7,
-> > >                  from include/asm-generic/local.h:5,
-> > >                  from /usr/src/devel/arch/arm/include/asm/local.h:1,
-> > >                  from include/linux/module.h:20,
-> > >                  from drivers/atm/ambassador.c:25:
-> > > arch/arm/mach-versatile/include/mach/platform.h:443:1: warning: this is the location of the previous definition
-> > > In file included from drivers/atm/ambassador.c:44:
-> > > drivers/atm/ambassador.h:258:1: warning: "FLASH_SIZE" redefined
-> 
-> Here we go again...
-> 
-> I do wish that people wouldn't include "platform.h" headers defining lots
-> of generically named constants into a header file used by most of the
-> kernel build.  It's stupid for several reasons:
-> 
-> 1. see the above warnings.
-> 2. if you change anything in that header, you're going to get a needless
->    full kernel rebuild
-> 3. and that causes additional strain on kautobuild's build caches
-> 
-> We've had this in the past with sa1100-regs.h and similar, and we solved
-> it there.
-> 
-> Unfortunately, people persist in including their platform includes into
-> lots of header files rather than having just the relevent C files include
-> them.  Eg, arch/arm/plat-omap/include/mach/hardware.h:
-> 
-> /*
->  * ---------------------------------------------------------------------------
->  * Board specific defines
->  * ---------------------------------------------------------------------------
->  */
-> 
-> #ifdef CONFIG_MACH_OMAP_INNOVATOR
-> #include "board-innovator.h"
-> #endif
-> 
-> #ifdef CONFIG_MACH_OMAP_H2
-> #include "board-h2.h"
-> #endif
-> ...
-> #ifdef CONFIG_MACH_SX1
-> #include "board-sx1.h"
-> #endif
-> 
-> which is included via asm/io.h, asm/irq.h, asm/pci.h, asm/vga.h.
-> 
-> As long as this idiocracy, we're going to see these kinds of clashes.
-> This stuff needs to die.  I've a good idea to do a sweep of all ARM
-> includes, and commit a patch to my devel tree for linux-next to remove
-> such includes as an encouragement to fixing this stuff properly.
-> 
-> People will then have a couple of months to sort out their mess.
+If a reader catches previous value of item->sk_hash, two cases are to b=
+e taken into :
 
-I'll remove those omap includes, I have few other patches pending before
-I get to that though.
+1) its udp_hashfn(net, sk->sk_hash) is !=3D hash =20
+  -> goto begin : Reader will redo its scan
 
-Cheers,
+2) its udp_hashfn(net, sk->sk_hash) is =3D=3D hash
+  -> next pointer is good enough : it points to next item in same hash =
+chain.
+     No need to rescan the chain at this point.
+     Yes we could miss the fact that a new port was bound and this UDP =
+message could be lost.
 
-Tony
+
+If we force a smp_wmb(), reader would fetch pointer to begin of list.
+
+
+1) its udp_hashfn(net, sk->sk_hash) is !=3D hash =20
+  -> goto begin : Reader will redo its scan : next pointer value had no=
+ meaning
+
+2) its udp_hashfn(net, sk->sk_hash) is =3D=3D hash
+  ->next pointer "force reader" to rescan the chain, but wont find new =
+items.
+
+In any case, we cannot lost an UDP message sent to a stable port (previ=
+ously bound)
+
+
+Thanks
+
