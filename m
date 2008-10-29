@@ -1,46 +1,48 @@
-From: "Roland Dreier" <roland.list@gmail.com>
-Subject: Re: [ofa-general] Re: [PATCH] infiniband: Add struct in6_addr addr to
-	union ib_gib
-Date: Wed, 29 Oct 2008 11:15:47 -0700
-Message-ID: <f8ca0a150810291115r79924e8bw162cbf72510065af@mail.gmail.com>
-References: <ada8ws8mi8x.fsf@cisco.com> <1225236128.5269.240.camel@localhost>
-	<1225239374.5269.251.camel@localhost>
-	<20081028.223941.18931166.davem@davemloft.net>
-	<1225263521.5269.273.camel@localhost>
+From: Joe Perches <joe@perches.com>
+Subject: Re: oh crap... (re: %p6)
+Date: Wed, 29 Oct 2008 11:16:54 -0700
+Message-ID: <1225304214.5269.339.camel@localhost>
+References: <20081029.015402.234525839.davem@davemloft.net>
+	 <1225292124.20276.12.camel@brick>  <1225294760.5269.301.camel@localhost>
+	 <1225301082.5688.24.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
-	David Miller <davem@davemloft.net>, harvey.harrison@gmail.com
-To: "Joe Perches" <joe@perches.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1225263521.5269.273.camel@localhost>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Harvey Harrison <harvey.harrison@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4489 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754025AbYJ2SQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:16:59 -0400
+In-Reply-To: <1225301082.5688.24.camel@brick>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Sure.  After Harvey's patches show up in
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=summary
-> I'll make a patchset including this union ib_gid addition as
-> well as changes to drivers/infiniband/
+On Wed, 2008-10-29 at 10:24 -0700, Harvey Harrison wrote:
+> Putting a modifier after the format specifier seems a little strange to me.
 
-OK I guess.  I also don't have any objection to using a different
-format letter but the
-same underlying code as the p6 implementation as an alternative for handling
-the type checking.
+Harvey, please remember the whole %p<foo> concept is based on
+modifier after format specifier.
 
-> Roland, in a separate question, are the infiniband maintainers
-> also the maintainers of include/rdma/?  If "F: patterns" ever
-> gets accepted into MAINTAINERS, should include/rdma/ be listed
-> under infiniband?
+I think %p6 followed by combinations of things:
 
-Yes, drivers/infiniband and include/rdma are all part of the
-InfiniBand/RDMA stack.
+"::" compressed v6, largest block of consecutive 0's replaced with ::
+"-:" no separating colons, use space instead
+"-0" no leading 0's
+".4" last word as ipv4 dotted decimal
+"x1" u8 form
+"x2" be16
+"x4" be32
+"x8" be64
+
+So that you could have:
+
+%p6::		1234:000a::c0a8:0101
+%p6::-0		1234:a::c0a8:0101
+%p6::-0.4	1234:a::192.168.1.1
+%p6-0-:x1	0 1 2 3 4 5 6 7 8 9 a b c d e f
+%p6x1		00:01:02:03:04:05:06:07:09:0a:0b:0c:0d:0e:0f
+
+etc.  If acceptable, I'll submit a patch.
+
