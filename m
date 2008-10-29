@@ -1,85 +1,43 @@
-From: akpm@linux-foundation.org
-Subject: [patch 7/7] e100: adapt to the reworked PCI PM
-Date: Wed, 29 Oct 2008 14:22:18 -0700
-Message-ID: <200810292122.m9TLMIa9020213@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, rjw@sisk.pl,
-	elendil@planet.nl, jbarnes@virtuousgeek.org,
-	jeffrey.t.kirsher@intel.com
-To: jeff@garzik.org
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 6/7] drivers/net/sfc/falcon.c: fix min() warnings
+Date: Wed, 29 Oct 2008 14:35:40 -0700
+Message-ID: <20081029143540.c4e24fb5.akpm@linux-foundation.org>
+References: <200810292122.m9TLMHts020208@imap1.linux-foundation.org>
+	<1225315744.3068.54.camel@achroite>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59013 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52452 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753733AbYJ2Vcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 17:32:52 -0400
+	by vger.kernel.org with ESMTP id S1754149AbYJ2VgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 17:36:16 -0400
+In-Reply-To: <1225315744.3068.54.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
+On Wed, 29 Oct 2008 21:29:04 +0000
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-Adapt the e100 driver to the reworked PCI PM
+> On Wed, 2008-10-29 at 14:22 -0700, akpm@linux-foundation.org wrote:
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > 
+> > drivers/net/sfc/falcon.c: In function 'falcon_spi_write_limit':
+> > drivers/net/sfc/falcon.c:1679: warning: comparison of distinct pointer types lacks a cast
+> > drivers/net/sfc/falcon.c: In function 'falcon_spi_read':
+> > drivers/net/sfc/falcon.c:1720: warning: comparison of distinct pointer types lacks a cast
+> 
+> These were already fixed by 31b760202a0911384fa07796df9d1905e9e89a7f.
 
-* Use the observation that it is sufficient to call pci_enable_wake()
-  once, unless it fails
+That patch worsened things.
 
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-Tested-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Jesse Barnes <jbarnes@virtuousgeek.org>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Frans Pop <elendil@planet.nl>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+> > Driver seems rather confused about types.  Try to help it.
+> [...]
+> 
+> Maybe, but in order to fix that you'll need to revert
+> 31b760202a0911384fa07796df9d1905e9e89a7f along with making these
+> changes.
 
- drivers/net/e100.c |   16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
-
-diff -puN drivers/net/e100.c~e100-adapt-to-the-reworked-pci-pm drivers/net/e100.c
---- a/drivers/net/e100.c~e100-adapt-to-the-reworked-pci-pm
-+++ a/drivers/net/e100.c
-@@ -2211,7 +2211,8 @@ static int e100_set_wol(struct net_devic
- {
- 	struct nic *nic = netdev_priv(netdev);
- 
--	if(wol->wolopts != WAKE_MAGIC && wol->wolopts != 0)
-+	if ((wol->wolopts && wol->wolopts != WAKE_MAGIC) ||
-+	    !device_can_wakeup(&nic->pdev->dev))
- 		return -EOPNOTSUPP;
- 
- 	if(wol->wolopts)
-@@ -2219,6 +2220,8 @@ static int e100_set_wol(struct net_devic
- 	else
- 		nic->flags &= ~wol_magic;
- 
-+	device_set_wakeup_enable(&nic->pdev->dev, wol->wolopts);
-+
- 	e100_exec_cb(nic, NULL, e100_configure);
- 
- 	return 0;
-@@ -2622,8 +2625,10 @@ static int __devinit e100_probe(struct p
- 
- 	/* Wol magic packet can be enabled from eeprom */
- 	if((nic->mac >= mac_82558_D101_A4) &&
--	   (nic->eeprom[eeprom_id] & eeprom_id_wol))
-+	   (nic->eeprom[eeprom_id] & eeprom_id_wol)) {
- 		nic->flags |= wol_magic;
-+		device_set_wakeup_enable(&pdev->dev, true);
-+	}
- 
- 	/* ack any pending wake events, disable PME */
- 	pci_pme_active(pdev, false);
-@@ -2682,11 +2687,10 @@ static int e100_suspend(struct pci_dev *
- 	pci_save_state(pdev);
- 
- 	if ((nic->flags & wol_magic) | e100_asf(nic)) {
--		pci_enable_wake(pdev, PCI_D3hot, 1);
--		pci_enable_wake(pdev, PCI_D3cold, 1);
-+		if (pci_enable_wake(pdev, PCI_D3cold, true))
-+			pci_enable_wake(pdev, PCI_D3hot, true);
- 	} else {
--		pci_enable_wake(pdev, PCI_D3hot, 0);
--		pci_enable_wake(pdev, PCI_D3cold, 0);
-+		pci_enable_wake(pdev, PCI_D3hot, false);
- 	}
- 
- 	pci_disable_device(pdev);
-_
+I have plenty of things to be going on with.
