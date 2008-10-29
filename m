@@ -1,56 +1,55 @@
-From: Elias Oltmanns <eo-oA28OIkTjSVZXbeN9DUtxg@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-10-29
-Date: Thu, 30 Oct 2008 00:40:09 +0100
-Message-ID: <87iqrb2co6.fsf@denkblock.local>
-References: <20081029231855.GD3485@tuxdriver.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] CUBIC v2.3 with new improved slow start
+Date: Wed, 29 Oct 2008 16:40:45 -0700
+Message-ID: <20081029164045.7422b68d@extreme>
+References: <006001c93a0d$477d4e30$4a580e98@ncsu2cc0c3fa00>
+	<20081029153928.3d47e26f@extreme>
+	<000b01c93a1c$090222c0$6c01a8c0@RHEELAPTOP>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081029231855.GD3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> (John W. Linville's message
-	of "Wed, 29 Oct 2008 19:18:55 -0400")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Injong Rhee" <rhee@eos.ncsu.edu>, <netdev@vger.kernel.org>
+To: "Injong Rhee" <rhee@ncsu.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35284 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752029AbYJ2Xkz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Oct 2008 19:40:55 -0400
+In-Reply-To: <000b01c93a1c$090222c0$6c01a8c0@RHEELAPTOP>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org> wrote:
-> Dave,
->
-> Another quick round of fixes intended for 2.6.28...
->
-> This includes fixes for bugs 11749 and 11845, fixes a reset-related
-> regression in ath5k, fixes a Kconfig-related error for rt2x00, and
-> fixes some sparse warnings and a possible buffer overrun in libertas.
-> Also, it corrects a spelling error and marks Bob Copeland as an
-> ath5k maintainer.
->
-> Please let me know if there are problems!
->
-> Thanks,
->
-> John
->
-> ---
->
-> Individual patches are available here:
->
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
->
-> ---
->
-> The following changes since commit 882716604ecf388b2ff09bc76eb2a752aa9cc76b:
-[...]
-> Elias Oltmanns (1):
->       ath5k: Fix reset sequence for AR5212 in general and RF5111 in particular
+On Wed, 29 Oct 2008 19:14:03 -0400
+"Injong Rhee" <rhee@ncsu.edu> wrote:
 
-Pity, I just posted a *nicer* version of that patch for 2.6.28-rc2.
-Well, it doesn't really matter all that much, I suppose.
+> >
+> > This looks like a good optimization, it obviously needs more testing
+> > because Linux always seems to find new broken hardware.  The areas
+> > that need to be tested should include:
+> >  * MacOs has a broken version of delayed ack that might cause
+> >    HyStart to radically underestimate.
+> 
+> We tested with FreeBSD. I presume that it covers MacOS. We will look into 
+> that.
 
-Regards,
+No Darwin added some stupid code that holds off acks for up to 2 seconds.
 
-Elias
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >  * Applications that dribble out packets might get better (or
+> >    worse) performance.  This include dumb web servers.
+> 
+> Not really. It does not affect those flows that do not use their full 
+> capacity of the network. HyStart kicks in only when the flow are using more 
+> than avail bw during slow start. If the applications do not pump data in, it 
+> would still be in slow start -- while in slow start, HyStart works like the 
+> traditional slow start (double cwnd per rtt).
+> 
+> >  * Does this increase or reduce latency when using TCP for
+> >    applications which never fill the congestion window? (games, financial, 
+> > etc).
+> >
+> 
+> For the same reasons as above, No, HyStart does not engage in this 
+> situation. 
+> 
+
+Ok
