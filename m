@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: oh crap...
-Date: Wed, 29 Oct 2008 11:28:52 -0700 (PDT)
-Message-ID: <20081029.112852.153175366.davem@davemloft.net>
-References: <1225292124.20276.12.camel@brick>
-	<1225294760.5269.301.camel@localhost>
-	<1225301082.5688.24.camel@brick>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Wed, 29 Oct 2008 11:29:56 -0700 (PDT)
+Message-ID: <20081029.112956.43077212.davem@davemloft.net>
+References: <20081029163739.GB6732@linux.vnet.ibm.com>
+	<49089E2D.8030907@cosmosbay.com>
+	<20081029181114.GC6732@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: harvey.harrison@gmail.com
+Cc: dada1@cosmosbay.com, minyard@acm.org, shemminger@vyatta.com,
+	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
+	cl@linux-foundation.org, a.p.zijlstra@chello.nl,
+	johnpol@2ka.mipt.ru, christian@myri.com
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52694
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43433
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752725AbYJ2S3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:29:17 -0400
-In-Reply-To: <1225301082.5688.24.camel@brick>
+	by vger.kernel.org with ESMTP id S1752975AbYJ2SaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:30:21 -0400
+In-Reply-To: <20081029181114.GC6732@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Wed, 29 Oct 2008 10:24:42 -0700
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Wed, 29 Oct 2008 11:11:14 -0700
 
-> %pI6, %pi6
-> 	%pI6 would act just like %p6
-> 	%pi6 would act just like %#p6
+> OK.  However, this reasoning assumes that a socket with a given
+> udp_hashfn() value will appear on one and only one list.  There are no
+> side lists for sockets in other states?  (listen, &c)
 
-I think this form is not a bad idea.
-
-Please send me the patch that does this.
-
-And will you be sending the ipv4 side stuff next?
-
-Thanks.
+Nope, with UDP things are very simple, just one hash table.
