@@ -1,55 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: oh crap... (re: %p6)
-Date: Wed, 29 Oct 2008 08:39:19 -0700
-Message-ID: <1225294760.5269.301.camel@localhost>
-References: <20081029.015402.234525839.davem@davemloft.net>
-	 <1225292124.20276.12.camel@brick>
+From: "J. K. Cliburn" <jcliburn@gmail.com>
+Subject: Re: [PATCH] atl1: fix vlan tag regression
+Date: Wed, 29 Oct 2008 10:45:45 -0500
+Message-ID: <49088529.8060602@gmail.com>
+References: <20081029154050.GA13726@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Cc: jcliburn@gmail.com, csnook@redhat.com, jie.yang@atheros.com,
+	ramon.casellas@cttc.es, netdev@vger.kernel.org, stable@kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4284 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752668AbYJ2PjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 11:39:25 -0400
-In-Reply-To: <1225292124.20276.12.camel@brick>
+Received: from mail-gx0-f18.google.com ([209.85.217.18]:37224 "EHLO
+	mail-gx0-f18.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752896AbYJ2Ppt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 11:45:49 -0400
+Received: by gxk11 with SMTP id 11so2914470gxk.13
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 08:45:48 -0700 (PDT)
+In-Reply-To: <20081029154050.GA13726@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-10-29 at 07:55 -0700, Harvey Harrison wrote:
-> On Wed, 2008-10-29 at 01:54 -0700, David Miller wrote:
-> > I think we'll need to revert all of this or find some fix soon.  GCC
-> > warns about %p with a '#' flag modifier it seems :-(
-> > 
-> > net/ipv6/ip6_flowlabel.c: In function 'ip6fl_seq_show':
-> > net/ipv6/ip6_flowlabel.c:707: warning: '#' flag used with '%p' printf format
+Jay Cliburn wrote:
+> Commit 401c0aabec4b97320f962a0161a846d230a6f7aa introduced a regression
+> in the atl1 driver by storing the VLAN tag in the wrong TX descriptor
+> field.
 > 
-> The easiest would be to pick a separate modifier for the raw case.  Or
-> revert the removal of NIP6_SEQFMT, I'll shoot you a patch shortly,
-> any preference in what modifier should be used?
+> This patch causes the VLAN tag to be stored in its proper location.
 
-I'd prefer something visual that represents "no colon".
-
-Maybe %p6-: 
-
-Or perhaps slightly worse to change the colon separated 
-default %p6 to %p:6
-
-There are another cases where the v6 address should have
-as few leading zeros as possible or where the interior
-zeros should be collapsed using :: separators.
-
-Perhaps a good solution is to use the equivalent of
-a "display-hint" after the %p6
-
-Maybe use combinations of:
-
-%p6:: use "::" and collapse when 0
-%p6-: raw hex
-%p6-0 %x not %04x
-%p6.4 last u32 as ipv4 dotted decimal
-
-
-
+Argh.  The patch is whitespace damaged.  Will resubmit shortly.
