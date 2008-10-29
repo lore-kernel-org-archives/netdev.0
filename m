@@ -1,74 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: atl1 warn_on_slowpath help
-Date: Wed, 29 Oct 2008 13:22:43 +0000
-Message-ID: <20081029132243.GB7256@ff.dom.local>
-References: <20081029071549.GA4861@ff.dom.local> <49081AE4.9040301@trash.net> <49083825.3000601@trash.net> <20081029130313.GA7256@ff.dom.local> <49086074.3080208@trash.net>
+From: "Grant Likely" <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] phylib: add mdio-gpio bus driver (v3)
+Date: Wed, 29 Oct 2008 07:24:04 -0600
+Message-ID: <fa686aa40810290624h272b9095hd56414c433ef832a@mail.gmail.com>
+References: <20081028103537.28951.4804.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+	 <8bd0f97a0810280350j385a0239if7a33928f7bb11f1@mail.gmail.com>
+	 <4906F817.4050306@teltonika.lt>
+	 <fa686aa40810280726s338c739bl24ee53d3193292ba@mail.gmail.com>
+	 <49082264.7060302@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Cliburn <jcliburn@gmail.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Mike Frysinger" <vapier.adi@gmail.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org
+To: "Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:25847 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752945AbYJ2NWu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 09:22:50 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1264065nfc.21
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 06:22:48 -0700 (PDT)
+Received: from po-out-1718.google.com ([72.14.252.155]:60251 "EHLO
+	po-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753764AbYJ2NYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 09:24:05 -0400
+In-Reply-To: <49082264.7060302@teltonika.lt>
 Content-Disposition: inline
-In-Reply-To: <49086074.3080208@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2008 at 02:09:08PM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
->> On Wed, Oct 29, 2008 at 11:17:09AM +0100, Patrick McHardy wrote:
->>> The __vlan_hwaccel_rx function only does the device lookup and
->>> stores it in the cb. The remaining processing is done in a new
->>> function that is invoked by netif_receive_skb(), in the proper
->>> context. Unfortunatly this needs vlan-specific handling in
->>> netif_receive_skb().
->>>
+On Wed, Oct 29, 2008 at 2:44 AM, Paulius Zaleckas
+<paulius.zaleckas@teltonika.lt> wrote:
+> Grant Likely wrote:
+>> On Tue, Oct 28, 2008 at 5:31 AM, Paulius Zaleckas
+>> <paulius.zaleckas@teltonika.lt> wrote:
+>>> Mike Frysinger wrote:
+>>>> On Tue, Oct 28, 2008 at 06:35, Paulius Zaleckas wrote:
+>>>>> +config MDIO_GPIO
+>>>>> +       tristate "Support for GPIO bitbanged MDIO buses"
+>>>>>  config MDIO_OF_GPIO
+>>>>>        tristate "Support for GPIO lib-based bitbanged MDIO buses"
+>>>> seems to me these drivers have the same description ...
+>>> Yes... but it is MDIO_OF_GPIO description that needs changing...
+>>> Should I make patch for it?
 >>
->> Unfortunately I'm not up-to-date with vlans and especially this
->> nit_deliver problem, but here is a little doubt: since this is
->> probably for stable, and skb->cb is rather tricky, I wonder why
->> vlan_group_get_device() couldn't be used directly in
->> vlan_hwaccel_do_receive()?
+>> Wait a minute....  This is the same driver and it's just been
+>> duplicated.  NAK.  Please don't do this.  Instead add a platform bus
+>> binding to the existing driver.  Most of the code can be shared.
 >
-> Because it needs the VLAN group, and that has to be passed
-> around somehow (=> skb->cb). So we might as well look up the
-> device immediately.
+> It is very similar. If highly #ifdef'ed driver is OK then I can merge
+> these driver to single one, but mdio-ofgpio driver name will have to
+> change to mdio-gpio. OK?
 
-Sure! I've missed this little detail...
+Absolutely, change the name.  Also, I don't think you'll need as many
+#ifdefs as you fear you do.  :-)  Mostly you'll need two #ifdef
+sections; one for the of_platform binding and one for the platform
+binding.  drivers/video/xilinxfb.c is a good example of how to do it.
 
->
-> Its trivial to verify that the use of skb->cb is fine, the
-> only codepath besides the one leading to vlan_hwaccel_do_receive
-> immediately is through netif_rx.
->
->> BTW: if we call netif_nit_deliver() from vlan_hwaccel_do_receive()
->> from netif_receive_skb() this comment about bypassing looks a bit
->> confusing to me:
->>
->> /*
->>  *     netif_nit_deliver - deliver received packets to network taps
->>  *     @skb: buffer
->>  *
->>  *     This function is used to deliver incoming packets to network
->>  *     taps. It should be used when the normal netif_receive_skb path
->>  *     is bypassed, for example because of VLAN acceleration.
->>  */
->
-> Agreed, this could be improved.
->
->> As a matter of fact without this patch it's not so apparent why
->> netif_receive_skb() can't happen after netif_nit_deliver() in
->> __vlan_hwaccel_rx() too.
->
-> I don't understand what you're saying.
+g.
 
-It's still about this bypassing: netif_receive_skb() can be called
-after netif_nit_deliver().
-
-Thanks,
-Jarek P.
+-- 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
