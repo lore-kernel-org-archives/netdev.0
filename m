@@ -1,7 +1,7 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: [PATCH] vlan: propogate ethtool speed values
-Date: Tue, 28 Oct 2008 17:53:08 -0700
-Message-ID: <20081028175308.07202283@extreme>
+Date: Tue, 28 Oct 2008 17:52:36 -0700
+Message-ID: <20081028175236.1659315c@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39366 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751365AbYJ2AxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Oct 2008 20:53:16 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47826 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751826AbYJ2AxS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 20:53:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
