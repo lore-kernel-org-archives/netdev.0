@@ -1,80 +1,47 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] : Fix compilation warnings in net/netlabel/netlabel_addrlist.c
-Date: Wed, 29 Oct 2008 09:49:09 -0400
-Message-ID: <200810290949.09108.paul.moore@hp.com>
-References: <ea11fea30810290106u3f92268q62226da65db6f6a4@mail.gmail.com>
+Subject: Re: linux-next: arm allmodconfig
+Date: Wed, 29 Oct 2008 09:53:02 -0400
+Message-ID: <200810290953.03105.paul.moore@hp.com>
+References: <20081028175604.81c31cea.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org
-To: "Manish Katiyar" <mkatiyar@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Takashi Iwai <tiwai@suse.de>,
+	Pekka Enberg <penberg@cs.helsinki.fi>, xfs-masters@oss.sgi.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:27027 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753860AbYJ2NtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 09:49:12 -0400
-In-Reply-To: <ea11fea30810290106u3f92268q62226da65db6f6a4@mail.gmail.com>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:28828 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753373AbYJ2NxK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 09:53:10 -0400
+In-Reply-To: <20081028175604.81c31cea.akpm@linux-foundation.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 29 October 2008 4:06:09 am Manish Katiyar wrote:
-> Below patch fixes the following warning.
-> net/netlabel/netlabel_addrlist.c:335: warning: unused variable 'dir'
-> net/netlabel/netlabel_addrlist.c:369: warning: unused variable 'dir'
+On Tuesday 28 October 2008 8:56:04 pm Andrew Morton wrote:
+> > net/netlabel/netlabel_mgmt.c: In function `netlbl_mgmt_listentry':
+> > net/netlabel/netlabel_mgmt.c:268: warning: 'ret_val' might be used
+> > uninitialized in this function
 >
+> Assumes that netlbl_af4list_foreach_rcu() will never iterate zero
+> times.
 >
-> Signed-off-by: Manish Katiyar <mkatiyar@gmail.com>
-
-Hi Manish,
-
-Good catch, I ran compile tests with different SECURITY/NETLABEL/IPV6 
-options enabled/disabled but forgot about AUDIT.  I appreciate your 
-help finding this and submitting a possible solution but I think the 
-better approach would be to conditionally compile out the 
-netlbl_af{4,6}list_audit_addr() functions similarly to what we do with 
-several of the NetLabel kernel API functions in include/net/netlabel.h, 
-see netlbl_enabled() for a simple example.
-
-If you have the time to revise this patch that would be great, just CC 
-me on the posting and I'll look it over.  If you don't have time that 
-is okay too, just let me know so I can fix it.
-
-Thanks!
-
-> ---
->  net/netlabel/netlabel_addrlist.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
+> Assumes that entry->type can never have an unexpected value.
 >
-> diff --git a/net/netlabel/netlabel_addrlist.c
-> b/net/netlabel/netlabel_addrlist.c index b0925a3..65fbec1 100644
-> --- a/net/netlabel/netlabel_addrlist.c
-> +++ b/net/netlabel/netlabel_addrlist.c
-> @@ -332,7 +332,9 @@ void netlbl_af4list_audit_addr(struct
-> audit_buffer *audit_buf,
->  					__be32 addr, __be32 mask)
->  {
->  	u32 mask_val = ntohl(mask);
-> +#ifdef CONFIG_AUDIT
->  	char *dir = (src ? "src" : "dst");
-> +#endif
->
->  	if (dev != NULL)
->  		audit_log_format(audit_buf, " netif=%s", dev);
-> @@ -366,7 +368,9 @@ void netlbl_af6list_audit_addr(struct
-> audit_buffer *audit_buf,
->  				 const struct in6_addr *addr,
->  				 const struct in6_addr *mask)
->  {
-> +#ifdef CONFIG_AUDIT
->  	char *dir = (src ? "src" : "dst");
-> +#endif
->
->  	if (dev != NULL)
->  		audit_log_format(audit_buf, " netif=%s", dev);
+> gcc cannot get this right, and C-level changes will be needed to shut
+> this up.
 
+No idea why this didn't come up when I was compiling this ... oh well, 
+good thing I'm not a proud guy :)  I'll get this fixed and post a patch 
+later today.
 
+Thanks.
 
 -- 
 paul moore
