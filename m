@@ -1,48 +1,37 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: linux-next: arm allmodconfig
-Date: Wed, 29 Oct 2008 09:53:02 -0400
-Message-ID: <200810290953.03105.paul.moore@hp.com>
-References: <20081028175604.81c31cea.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
-	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Takashi Iwai <tiwai@suse.de>,
-	Pekka Enberg <penberg@cs.helsinki.fi>, xfs-masters@oss.sgi.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:28828 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753373AbYJ2NxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 09:53:10 -0400
-In-Reply-To: <20081028175604.81c31cea.akpm@linux-foundation.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] SMC91x: delete unused local variable "lp"
+Date: Wed, 29 Oct 2008 09:56:06 -0400
+Message-ID: <1225288566-18457-1-git-send-email-vapier@gentoo.org>
+Cc: linux-kernel@vger.kernel.org
+To: nico@cam.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754353AbYJ2N4W@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 28 October 2008 8:56:04 pm Andrew Morton wrote:
-> > net/netlabel/netlabel_mgmt.c: In function `netlbl_mgmt_listentry':
-> > net/netlabel/netlabel_mgmt.c:268: warning: 'ret_val' might be used
-> > uninitialized in this function
->
-> Assumes that netlbl_af4list_foreach_rcu() will never iterate zero
-> times.
->
-> Assumes that entry->type can never have an unexpected value.
->
-> gcc cannot get this right, and C-level changes will be needed to shut
-> this up.
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ drivers/net/smc91x.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-No idea why this didn't come up when I was compiling this ... oh well, 
-good thing I'm not a proud guy :)  I'll get this fixed and post a patch 
-later today.
-
-Thanks.
-
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index c70870e..6f9895d 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -2060,7 +2060,6 @@ static int smc_request_attrib(struct platform_device *pdev,
+ 			      struct net_device *ndev)
+ {
+ 	struct resource * res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-attrib");
+-	struct smc_local *lp = netdev_priv(ndev);
+ 
+ 	if (!res)
+ 		return 0;
+@@ -2075,7 +2074,6 @@ static void smc_release_attrib(struct platform_device *pdev,
+ 			       struct net_device *ndev)
+ {
+ 	struct resource * res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-attrib");
+-	struct smc_local *lp = netdev_priv(ndev);
+ 
+ 	if (res)
+ 		release_mem_region(res->start, ATTRIB_SIZE);
 -- 
-paul moore
-linux @ hp
+1.6.0.2
