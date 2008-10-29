@@ -1,191 +1,128 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
-Date: Wed, 29 Oct 2008 13:17:59 -0700
-Message-ID: <20081029201759.GF6732@linux.vnet.ibm.com>
-References: <4908627C.6030001@acm.org> <490874F2.2060306@cosmosbay.com> <49088288.6050805@acm.org> <49088AD1.7040805@cosmosbay.com> <20081029163739.GB6732@linux.vnet.ibm.com> <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Wed, 29 Oct 2008 13:19:46 -0700 (PDT)
+Message-ID: <20081029.131946.174652987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Corey Minyard <minyard@acm.org>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux-foundation.org>,
-	a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru,
-	Christian Bell <christian@myri.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:52710 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753431AbYJ2USB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Oct 2008 16:18:01 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m9TKI0BR015951
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 16:18:00 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9TKI0K2131956
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 16:18:00 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9TKHw1N002892
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 16:18:00 -0400
-Content-Disposition: inline
-In-Reply-To: <4908C0CD.5050406@cosmosbay.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42668
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753725AbYJ2UUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 16:20:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2008 at 09:00:13PM +0100, Eric Dumazet wrote:
-> Paul E. McKenney a =E9crit :
->> On Wed, Oct 29, 2008 at 01:28:15PM -0500, Corey Minyard wrote:
->>> Eric Dumazet wrote:
->>>> Corey Minyard a =E9crit :
->>>>> Paul E. McKenney wrote:
->>>>>> On Wed, Oct 29, 2008 at 05:09:53PM +0100, Eric Dumazet wrote:
->>>>>> =20
->>>>>>> Corey Minyard a =E9crit :
->>>>>>>  =20
->>>>>>>> Eric Dumazet wrote:
->>>>>>>>    =20
->>>>>>>>> Corey Minyard found a race added in commit=20
->>>>>>>>> 271b72c7fa82c2c7a795bc16896149933110672d
->>>>>>>>> (udp: RCU handling for Unicast packets.)
->>>>>>>>>
->>>>>>>>> "If the socket is moved from one list to another list in-betw=
-een=20
->>>>>>>>> the time  the hash is calculated and the next field is access=
-ed,=20
->>>>>>>>> and the socket  has moved to the end of the new list, the tra=
-versal=20
->>>>>>>>> will not complete  properly on the list it should have, since=
- the=20
->>>>>>>>> socket will be on the end  of the new list and there's not a =
-way to=20
->>>>>>>>> tell it's on a new list and  restart the list traversal.  I t=
-hink=20
->>>>>>>>> that this can be solved by  pre-fetching the "next" field (wi=
-th=20
->>>>>>>>> proper barriers) before checking the  hash."
->>>>>>>>>
->>>>>>>>> This patch corrects this problem, introducing a new=20
->>>>>>>>> sk_for_each_rcu_safenext()
->>>>>>>>> macro.
->>>>>>>>>        =20
->>>>>>>> You also need the appropriate smp_wmb() in udp_lib_get_port() =
-after=20
->>>>>>>> sk_hash is set, I think, so the next field is guaranteed to be=
-=20
->>>>>>>> changed after the hash value is changed.
->>>>>>>>      =20
->>>>>>> Not sure about this one Corey.
->>>>>>>
->>>>>>> If a reader catches previous value of item->sk_hash, two cases =
-are to=20
->>>>>>> be taken into :
->>>>>>>
->>>>>>> 1) its udp_hashfn(net, sk->sk_hash) is !=3D hash   -> goto begi=
-n :=20
->>>>>>> Reader will redo its scan
->>>>>>>
->>>>>>> 2) its udp_hashfn(net, sk->sk_hash) is =3D=3D hash
->>>>>>>  -> next pointer is good enough : it points to next item in sam=
-e hash=20
->>>>>>> chain.
->>>>>>>     No need to rescan the chain at this point.
->>>>>>>     Yes we could miss the fact that a new port was bound and th=
-is UDP=20
->>>>>>> message could be lost.
->>>>>>>    =20
->>>>>> 3) its udp_hashfn(net, sk-sk_hash) is =3D=3D hash, but only beca=
-use it was
->>>>>> removed, freed, reallocated, and then readded with the same hash=
-=20
->>>>>> value,
->>>>>> possibly carrying the reader to a new position in the same list.
->>>>>>  =20
->>>>> If I understand this, without the smp_wmb(), it is possible that =
-the=20
->>>>> next field can be written to main memory before the hash value is=
-=20
->>>>> written.  If that happens, the following can occur:
->>>>>
->>>>>  CPU1                    CPU2
->>>>>  next is set to NULL (end of new list)
->>>> Well, if this item is injected to the same chain, next wont be set=
- to=20
->>>> NULL.
->>>>
->>>> That would mean previous writers deleted all items from the chain.
->>> I put my comment in the wrong place, I wasn't talking about being=20
->>> injected into the same chain.
->>>
->>>> In this case, readers can see NULL, it is not a problem at all.
->>>> List is/was empty.
->>>> An application cannot complain a packet is not
->>>> handled if its bind() syscall is not yet completed :)
->>>>
->>>> If item is injected on another chain, we will detect hash mismatch=
- and=20
->>>> redo full scan.
->>> If the item is injected onto the end of another chain, the next fie=
-ld=20
->>> will be NULL and you won't detect a hash mismatch.  It's basically =
-the=20
->>> same issue as the previous race, though a lot more subtle and unlik=
-ely. =20
->>> If you get (from the previous socket) an old value of "sk_hash" and=
- (from=20
->>> the new socket) a new value of "next" that is NULL, you will termin=
-ate=20
->>> the loop when you should have restarted it.  I'm pretty sure that c=
-an=20
->>> occur without the write barrier.
->> One way of dealing with this is to keep a tail pointer.  Then, if th=
-e
->> element containing the NULL pointer doesn't match the tail pointer s=
-een
->> at the start of the search, or if the tail pointer has changed,
->> restart the search.  Memory barriers will be needed.  ;-)
->
-> Hum... Another way of handling all those cases and avoid memory barri=
-ers
-> would be to have different "NULL" pointers.
->
-> Each hash chain should have a unique "NULL" pointer (in the case of U=
-DP, it
-> can be the 128 values : [ (void*)0 .. (void *)127 ]
->
-> Then, when performing a lookup, a reader should check the "NULL" poin=
-ter
-> it get at the end of its lookup has is the "hash" value of its chain.
->
-> If not -> restart the loop, aka "goto begin;" :)
->
-> We could avoid memory barriers then.
->
-> In the two cases Corey mentioned, this trick could let us avoid memor=
-y=20
-> barriers.
-> (existing one in sk_add_node_rcu(sk, &hslot->head); should be enough)
->
-> What do you think ?
 
-Kinky!!!  ;-)
+Wired and wireless driver bug fixes via Jeff Garzik
+and John Linville.
 
-Then the rcu_dereference() would be supplying the needed memory barrier=
-s.
+Highlights:
 
-Hmmm...  I guess that the only confusion would be if the element got
-removed and then added to the same list.  But then if its pointer was
-pseudo-NULL, then that would mean that all subsequent elements had been
-removed, and all preceding ones added after the scan started.
+1) amd8111e NAPI ->poll() handler processes incorrectly the case where
+   there are exactly "quota" RX packets available in the ring,
+   resulting in a crash.
 
-Which might well be harmless, but I must defer to you on this one at
-the moment.
+   Fix from Chris Friesen
 
-If you need a larger hash table, another approach would be to set the
-pointer's low-order bit, allowing the upper bits to be a full-sized
-index -- or even a pointer to the list header.  Just make very sure
-to clear the pointer when freeing, or an element on the freelist
-could end up looking like a legitimate end of list...  Which again
-might well be safe, but why inflict this on oneself?
+2) Fix resume bustage in ath5k, from Elias Oltmanns
 
-							Thanx, Paul
+3) ibm_newemac checks typo'd CONFIG_FOO option, fix from
+   Josh Boyer
+
+4) pktgen checks multiqueue limits using off-by-one test,
+   fix from Jesse Brandeburg.
+
+Please pull, thanks a lot!
+
+The following changes since commit 8b5f12d04b2e93842f3dda01f029842047bf3f81:
+  Florian Westphal (1):
+        syncookies: fix inclusion of tcp options in syn-ack
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Chris Friesen (1):
+      amd8111e: Fix rx return code
+
+Christian Lamparter (2):
+      p54: fix misbehavings when firmware can't be found
+      p54: fix build warnings
+
+David S. Miller (1):
+      Merge branch 'davem-fixes' of master.kernel.org:/.../jgarzik/netdev-2.6
+
+Dmitry Baryshkov (1):
+      RFKILL: fix input layer initialisation
+
+Elias Oltmanns (1):
+      ath5k: Reset key cache on interface up, thus fixing resume
+
+FUJITA Tomonori (1):
+      dmfe: check pci_alloc_consistent errors
+
+Frank Blaschka (2):
+      qeth: fix offset error in non prealloc header path
+      qeth: remove unnecessary support ckeck in sysfs route6
+
+Huang Weiyi (1):
+      mlx4_en: remove duplicated #include
+
+Jeff Garzik (1):
+      drivers/net/wan/syncppp: Fix unused-var warnings
+
+Jesse Brandeburg (1):
+      pktgen: fix multiple queue warning
+
+John W. Linville (1):
+      mac80211: correct warnings in minstrel rate control algorithm
+
+Josh Boyer (1):
+      ibm_newemac: Fix typo in flow control config option
+
+Peter Korsgaard (1):
+      dm9601: runtime mac address change support
+
+Randy Dunlap (1):
+      mac80211.h: fix kernel-doc excesses
+
+Sven Hartge (1):
+      via-velocity: use driver string instead of dev->name before register_netdev()
+
+Thomas Klein (1):
+      ehea: Detect 16GB hugepages for firmware restriction
+
+Ursula Braun (2):
+      qeth: remove non-recover-thread checkings
+      qeth: avoid skb_under_panic for malformatted inbound data
+
+Yevgeny Petrilin (1):
+      mlx4: Setting the correct offset for default mac address
+
+ drivers/net/amd8111e.c                  |   14 ++--
+ drivers/net/ehea/ehea.h                 |    2 +-
+ drivers/net/ehea/ehea_qmr.c             |   57 ++++++++++++-
+ drivers/net/ehea/ehea_qmr.h             |    3 +
+ drivers/net/ibm_newemac/core.c          |    2 +-
+ drivers/net/mlx4/en_main.c              |    1 -
+ drivers/net/mlx4/fw.c                   |    2 +-
+ drivers/net/tulip/dmfe.c                |   12 +++-
+ drivers/net/usb/dm9601.c                |   15 ++++
+ drivers/net/via-velocity.c              |   11 ++-
+ drivers/net/wan/syncppp.c               |    5 +-
+ drivers/net/wireless/ath5k/base.c       |   33 +++-----
+ drivers/net/wireless/p54/p54common.c    |    5 +-
+ drivers/net/wireless/p54/p54pci.c       |  132 +++++++++++++++---------------
+ drivers/s390/net/qeth_core_main.c       |    3 +-
+ drivers/s390/net/qeth_l2_main.c         |   27 ++----
+ drivers/s390/net/qeth_l3_main.c         |   13 +---
+ drivers/s390/net/qeth_l3_sys.c          |    7 --
+ include/net/mac80211.h                  |   11 +--
+ net/core/pktgen.c                       |   27 +++---
+ net/mac80211/rc80211_minstrel_debugfs.c |    6 +-
+ net/rfkill/rfkill-input.c               |    5 +
+ 22 files changed, 220 insertions(+), 173 deletions(-)
