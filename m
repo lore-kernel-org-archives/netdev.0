@@ -1,41 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] HTB updates class's bstats in one place
-Date: Wed, 29 Oct 2008 11:33:25 +0100
-Message-ID: <49083BF5.5090606@trash.net>
-References: <20081029102356.GA6165@ff.dom.local>
+From: Jason Cassell <bluesloth600@gmail.com>
+Subject: Re: [Bugme-new] [Bug 11855] New: kernel BUG when bringing down ppp
+	connection
+Date: Wed, 29 Oct 2008 04:16:02 -0700
+Message-ID: <1225278962.31934.15.camel@kagome>
+References: <bug-11855-10286@http.bugzilla.kernel.org/>
+	 <20081027202407.7e390191.akpm@linux-foundation.org>
+	 <20081028094456.2cfc32ac@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62243 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752653AbYJ2Kd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 06:33:28 -0400
-In-Reply-To: <20081029102356.GA6165@ff.dom.local>
+Received: from yw-out-2324.google.com ([74.125.46.31]:28810 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753841AbYJ2LQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 07:16:14 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so771637ywe.1
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 04:16:13 -0700 (PDT)
+In-Reply-To: <20081028094456.2cfc32ac@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On 29-10-2008 10:19, Patrick McHardy wrote:
->> Changli Gao wrote:
->>> On Wed, Oct 29, 2008 at 5:01 PM, Patrick McHardy <kaber@trash.net> wrote:
->>>> The estimators needs
->>>> this since they're estimating the arrival rate.
->>>>
->>>>
->>> I do not agree with you. TC is only for sending packets. Why does its
->>> estimator estimating the arrival rate?
->> I suppose because they were intended for policing.
+On Tue, 2008-10-28 at 09:44 +0000, Alan Cox wrote:
 > 
-> On the other hand, it seems with shaping qdiscs they are more useful
-> to query dequeue rates.
+> Ldisc refcount went negative. Will take a look at the bug report when I
+> have time. First guess would be a bug in the specific USB serial driver -
+> so need to know which driver is handlign the 26-183 
 
-Only for purely informational purposes, for policing you'd want to
-use arrival rates. Since there are no users of estimators in the kernel
-besides policers (which use seperate ones), the point is not terribly
-important. But I would prefer to not start introducing (or extending)
-inconsistencies among qdisc implementations here, that will only make
-it harder in case someone finally implements something useful with
-estimators.
+pl2303
+
+> and what is loaded
+> (an lsmod would be handy)
+
+the "Modules linked in" list is in the screen photos.  I'll go get some
+real lsmod output if that's not enough.
+
+Jason Cassell
+
