@@ -1,71 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: New filter 'flow' bug?
-Date: Wed, 29 Oct 2008 00:37:13 -0700 (PDT)
-Message-ID: <20081029.003713.193704291.davem@davemloft.net>
-References: <20081029072705.376AC1E3087@f03.poczta.interia.pl>
+From: Dave Chinner <david@fromorbit.com>
+Subject: Re: [xfs-masters] linux-next: arm allmodconfig
+Date: Wed, 29 Oct 2008 18:40:32 +1100
+Message-ID: <20081029074032.GI4985@disturbed>
+References: <20081028175604.81c31cea.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: almaop@poczta.fm
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Moore <paul.moore@hp.com>, Takashi Iwai <tiwai@suse.de>,
+	Pekka Enberg <penberg@cs.helsinki.fi>
+To: xfs-masters@oss.sgi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48567
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752257AbYJ2Hhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 03:37:38 -0400
-In-Reply-To: <20081029072705.376AC1E3087@f03.poczta.interia.pl>
+Received: from ipmail01.adl6.internode.on.net ([203.16.214.146]:41462 "EHLO
+	ipmail01.adl6.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752448AbYJ2Hkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 03:40:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20081028175604.81c31cea.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: almaop@poczta.fm
-Date: 29 Oct 2008 08:27:05 +0100
+On Tue, Oct 28, 2008 at 05:56:04PM -0700, Andrew Morton wrote:
+> > fs/xfs/quota/xfs_qm_syscalls.c: In function `xfs_qm_dqrele_inodes_ag':
+> > fs/xfs/quota/xfs_qm_syscalls.c:1039: warning: 'inode_refed' might be used uninitialized in this function
 
-Deeply technical questions are almost certainly going to get zero
-response on linux-net.  So using netdev is generally a better idea
-since that actually gets to the networking developers.
+I haven't seen this one before. And it's a real bug, too.
+gcc-4.3.1 on x86_64 is not picking this warning up:
 
-Added to CC:
+$ gcc -v
+Using built-in specs.
+Target: x86_64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Debian 4.3.1-9' --with-bugurl=file:///usr/share/doc/gcc-4.3/README.Bugs --enable-languages=c,c++,fortran,objc,obj-c++ --prefix=/usr --enable-shared --with-system-zlib --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --enable-nls --with-gxx-include-dir=/usr/include/c++/4.3 --program-suffix=-4.3 --enable-clocale=gnu --enable-libstdcxx-debug --enable-objc-gc --enable-mpfr --enable-cld --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
+Thread model: posix
+gcc version 4.3.1 (Debian 4.3.1-9)
+$
+$
+$ touch fs/xfs/quota/xfs_qm_syscalls.c
+$ make -j2 ARCH=um
+  SYMLINK arch/um/include/shared/kern_constants.h
+make[1]: `arch/um/sys-x86_64/user-offsets.s' is up to date.
+  CHK     include/linux/version.h
+  CHK     include/linux/utsrelease.h
+  CALL    scripts/checksyscalls.sh
+  CHK     include/linux/compile.h
+  CC      fs/xfs/quota/xfs_qm_syscalls.o
+  LD      fs/xfs/xfs.o
+  LD      fs/xfs/built-in.o
+  LD      fs/built-in.o
 
-> Hi. I'm using this new "flow" filter:
-> (http://www.mail-archive.com/netdev@vger.kernel.org/msg60638.html). It is configuration as above: tc filter flow classify packets in the sfq. It works (as it seems) fine. But only until there is some traffic in the queue. When there is some interruption in the packets flow (for a while) something goes wrong and the queue blocks. From that moment onward nothing goes trough. It is very annoying. You have to remove sfq to resume traffic.
-> Is anybody using this new filter which sfq?
-> My configuration: gentoo, kernel 2.6.26.7 + imq patch + l7 patch, glibc 2.7, iproute2 2.6.26. Shaping is done on ethernet (e1000 card) but as I see on the ifb nothing changes.
-> There are htb 3 classes with sfq as their qdiscs. It is simple, something like:
-> 
-> tc qdisc add dev $DEV root handle 1: htb default 4 tc class add dev $DEV parent 1: classid 1:1 htb rate 78kbps ceil 78kbps overhead 0 linklayer atm
-> 
-> tc class add dev $DEV parent 1:1 classid 1:2 htb rate 20kbps ceil 20kbps overhead 0 linklayer atm prio 3
-> tc class add dev $DEV parent 1:1 classid 1:3 ...
-> tc class add dev $DEV parent 1:1 classid 1:4 ...
->  
-> tc qdisc add dev $DEV parent 1:2 handle 2: sfq quantum 64
-> tc qdisc add dev $DEV parent 1:3 handle 3: sfq
-> tc qdisc add dev $DEV parent 1:4 handle 4: sfq
-> 
-> tc filter add dev $DEV parent 1: ....
-> ....
->  
-> tc filter add dev $DEV parent 2: protocol ip handle 1 prio 12 flow \
-> hash keys dst,proto,proto-dst divisor 128
-> 
-> tc filter add dev $DEV parent 3: protocol ip handle 1 prio 12 flow \
-> hash keys dst,proto,proto-dst divisor 128
-> 
-> tc filter add dev $DEV parent 4: protocol ip handle 1 prio 12 flow \
-> hash keys nfct-src,nfct-dst,proto,nfct-proto-src,nfct-proto-dst divisor 128
-> 
-> I'm not sure where is the bug - in the flow filter or in the sfq qdisc.
-> 
-> Regards
-> 
-> Krzysiek
-> 
-> 
-> ----------------------------------------------------------------------
-> Wymysl wierszyk, wygraj cyfrowke!
-> Sprawdz >>> http://link.interia.pl/f1f5a
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What compiler version are you using?
+
+I'll send out a patch to fix this in a minute.
+
+> > fs/xfs/xfs_rtalloc.c: In function `xfs_growfs_rt':
+> > fs/xfs/xfs_rtalloc.c:1875: warning: 'tp' might be used uninitialized in this function
+
+False positive, and I don't get this reported, either.
+
+Hold on - the above gcc binary only emits a warning for the xfs_growfs_rt issue
+when CONFIG_CC_OPTIMIZE_FOR_SIZE=y is set. It still doesn't catch the quota
+bug, though. This is so fucked up....
+
+Cheers,
+
+Dave.
+-- 
+Dave Chinner
+david@fromorbit.com
