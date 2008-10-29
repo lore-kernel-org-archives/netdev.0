@@ -1,33 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: atl1 warn_on_slowpath help
-Date: Wed, 29 Oct 2008 14:04:04 +0000
-Message-ID: <20081029140404.GC7256@ff.dom.local>
-References: <20081029071549.GA4861@ff.dom.local> <49081AE4.9040301@trash.net> <49083825.3000601@trash.net> <20081029130313.GA7256@ff.dom.local> <49086074.3080208@trash.net> <20081029132243.GB7256@ff.dom.local> <4908649A.6010005@trash.net>
+From: almaop@poczta.fm
+Subject: Re: New filter 'flow' bug?
+Date: 29 Oct 2008 15:09:05 +0100
+Message-ID: <20081029140905.586E4E4357B@f11.poczta.interia.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Cliburn <jcliburn@gmail.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:21441 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925AbYJ2OEM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 10:04:12 -0400
-Received: by ug-out-1314.google.com with SMTP id 39so615416ugf.37
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 07:04:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4908649A.6010005@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>,
+	"almaop@poczta.fm" <almaop@poczta.fm>
+Return-path: <linux-net-owner@vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 29, 2008 at 02:26:50PM +0100, Patrick McHardy wrote:
-...
-> I still don't follow - are you talking about the code with out
-> without this patch? In the later case, why should we call it
-> recursively without the need to do so?
+> > From: almaop@poczta.fm
+> > Date: 29 Oct 2008 08:27:05 +0100
+> >> My configuration: gentoo, kernel 2.6.26.7 + imq patch + l7 patch, glibc
+> 2.7, iproute2 2.6.26. Shaping is done on ethernet (e1000 card) but as I see
+> on the ifb nothing changes.
+> >> There are htb 3 classes with sfq as their qdiscs. It is simple,
+> something like:
+> >>
+> >> tc qdisc add dev $DEV root handle 1: htb default 4 tc class add dev
+> $DEV parent 1: classid 1:1 htb rate 78kbps ceil 78kbps overhead 0 linklayer
+> atm
+> >>
+> >> tc class add dev $DEV parent 1:1 classid 1:2 htb rate 20kbps ceil
+> 20kbps overhead 0 linklayer atm prio 3
+> >> tc class add dev $DEV parent 1:1 classid 1:3 ...
+> >> tc class add dev $DEV parent 1:1 classid 1:4 ...
+> >>  
+> >> tc qdisc add dev $DEV parent 1:2 handle 2: sfq quantum 64
+> >> tc qdisc add dev $DEV parent 1:3 handle 3: sfq
+> >> tc qdisc add dev $DEV parent 1:4 handle 4: sfq
+> >>
+> >> tc filter add dev $DEV parent 1: ....
+> >> ....
+> >>  
+> >> tc filter add dev $DEV parent 2: protocol ip handle 1 prio 12 flow 
+> >> hash keys dst,proto,proto-dst divisor 128
+> >>
+> >> tc filter add dev $DEV parent 3: protocol ip handle 1 prio 12 flow 
+> >> hash keys dst,proto,proto-dst divisor 128
+> >>
+> >> tc filter add dev $DEV parent 4: protocol ip handle 1 prio 12 flow 
+> >> hash keys nfct-src,nfct-dst,proto,nfct-proto-src,nfct-proto-dst divisor
+> 128
+> >>
+> >> I'm not sure where is the bug - in the flow filter or in the sfq
+> qdisc.
+> 
+> Which SFQ qdisc is stalling?
+> 
+Thanks for reply.
+So I've done few tests. I've removed quantum 64 (it  was qdisc with small packets). It made no difference. It looks like the key is the first sfq qdisc (tc qdisc add dev $DEV parent 1:2 handle 2: sfq - in my example). When there is no traffic in this qdisc for about 45 seconds (shorter time when there is no traffic at all on the interface) - it stalls. Other qdiscs stall also. So there is no packet flow on that interface. Removing filters ('flow' filters) does'nt help. I have to remove (all) sfq qdiscs. And then the traffic is resumed.
+Regards.
 
-I mean the current version (e.g. net-2.6). This comment reads that
-netif_nit_deliver() is needed when we bypass netif_receive_skb().
-But we call netif_receive_skb() from __vlan_hwaccel_rx(), and it's
-not clear if some skbs are not tapped 2x.
+Krzysiek
 
-Jarek P.
+
