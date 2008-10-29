@@ -1,46 +1,37 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: oh crap...
-Date: Wed, 29 Oct 2008 11:31:44 -0700
-Message-ID: <1225305104.5688.29.camel@brick>
-References: <1225292124.20276.12.camel@brick>
-	 <1225294760.5269.301.camel@localhost> <1225301082.5688.24.camel@brick>
-	 <20081029.112852.153175366.davem@davemloft.net>
+Date: Wed, 29 Oct 2008 11:31:42 -0700 (PDT)
+Message-ID: <20081029.113142.135680097.davem@davemloft.net>
+References: <1225294760.5269.301.camel@localhost>
+	<1225301082.5688.24.camel@brick>
+	<1225304214.5269.339.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: harvey.harrison@gmail.com, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:22102 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753059AbYJ2Sbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:31:47 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so125729wfd.4
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 11:31:46 -0700 (PDT)
-In-Reply-To: <20081029.112852.153175366.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43441
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753111AbYJ2ScI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 14:32:08 -0400
+In-Reply-To: <1225304214.5269.339.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-10-29 at 11:28 -0700, David Miller wrote:
-> From: Harvey Harrison <harvey.harrison@gmail.com>
-> Date: Wed, 29 Oct 2008 10:24:42 -0700
-> 
-> > %pI6, %pi6
-> > 	%pI6 would act just like %p6
-> > 	%pi6 would act just like %#p6
-> 
-> I think this form is not a bad idea.
-> 
-> Please send me the patch that does this.
-> 
-> And will you be sending the ipv4 side stuff next?
-> 
+From: Joe Perches <joe@perches.com>
+Date: Wed, 29 Oct 2008 11:16:54 -0700
 
-I can do if you'd like it, I'll sneak %pI4 into the patch fixing up
-the warnings I've made and do a conversion of the IPv4 stuff later this
-week.
+> On Wed, 2008-10-29 at 10:24 -0700, Harvey Harrison wrote:
+> > Putting a modifier after the format specifier seems a little strange to me.
+> 
+> Harvey, please remember the whole %p<foo> concept is based on
+> modifier after format specifier.
 
-Cheers,
+I don't think there is any such strict rule, or even that we'd
+want to enforce that.
 
-Harvey
-
+There is nothing wrong with saying something like %pI6 where
+the "I" signifies "internet address in 'natural' form" and
+"6" is the 'modifier' which you love so much which means
+"oh btw, it's ipv6"
