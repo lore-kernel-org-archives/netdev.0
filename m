@@ -1,76 +1,96 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH][CORRECTED] atl1: fix vlan tag regression
-Date: Wed, 29 Oct 2008 11:01:36 -0500
-Message-ID: <20081029160136.GA28446@osprey.hogchain.net>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: linux-next: arm allmodconfig
+Date: Wed, 29 Oct 2008 09:05:49 -0700
+Message-ID: <20081029160547.GE20456@atomide.com>
+References: <20081028175604.81c31cea.akpm@linux-foundation.org> <20081029094054.GA3796@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: csnook@redhat.com, jie.yang@atheros.com, ramon.casellas@cttc.es,
-	netdev@vger.kernel.org, stable@kernel.org, jcliburn@gmail.com
-To: jeff@garzik.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Moore <paul.moore@hp.com>, Takashi Iwai <tiwai@suse.de>,
+	Pekka Enberg <penberg@cs.helsinki.fi>, xfs-masters@oss.sgi.com
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost01.isp.att.net ([204.127.217.101]:39383 "EHLO
-	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753169AbYJ2QBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 12:01:39 -0400
+Received: from mho-01-bos.mailhop.org ([63.208.196.178]:61471 "EHLO
+	mho-01-bos.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753094AbYJ2QGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 12:06:10 -0400
 Content-Disposition: inline
+In-Reply-To: <20081029094054.GA3796@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 401c0aabec4b97320f962a0161a846d230a6f7aa introduced a regression
-in the atl1 driver by storing the VLAN tag in the wrong TX descriptor
-field.
+* Russell King - ARM Linux <linux@arm.linux.org.uk> [081029 02:59]:
+> On Tue, Oct 28, 2008 at 05:56:04PM -0700, Andrew Morton wrote:
 
-This patch causes the VLAN tag to be stored in its proper location.
+<snip>
 
-Tested-by: Ramon Casellas <ramon.casellas@cttc.es>
-Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-Cc: stable@kernel.org
----
+> 
+> > > drivers/atm/ambassador.h:257:1: warning: "FLASH_BASE" redefined
+> > > In file included from arch/arm/mach-versatile/include/mach/irqs.h:22,
+> > >                  from /usr/src/devel/arch/arm/include/asm/irq.h:4,
+> > >                  from /usr/src/devel/arch/arm/include/asm/hardirq.h:6,
+> > >                  from include/linux/hardirq.h:7,
+> > >                  from include/asm-generic/local.h:5,
+> > >                  from /usr/src/devel/arch/arm/include/asm/local.h:1,
+> > >                  from include/linux/module.h:20,
+> > >                  from drivers/atm/ambassador.c:25:
+> > > arch/arm/mach-versatile/include/mach/platform.h:443:1: warning: this is the location of the previous definition
+> > > In file included from drivers/atm/ambassador.c:44:
+> > > drivers/atm/ambassador.h:258:1: warning: "FLASH_SIZE" redefined
+> 
+> Here we go again...
+> 
+> I do wish that people wouldn't include "platform.h" headers defining lots
+> of generically named constants into a header file used by most of the
+> kernel build.  It's stupid for several reasons:
+> 
+> 1. see the above warnings.
+> 2. if you change anything in that header, you're going to get a needless
+>    full kernel rebuild
+> 3. and that causes additional strain on kautobuild's build caches
+> 
+> We've had this in the past with sa1100-regs.h and similar, and we solved
+> it there.
+> 
+> Unfortunately, people persist in including their platform includes into
+> lots of header files rather than having just the relevent C files include
+> them.  Eg, arch/arm/plat-omap/include/mach/hardware.h:
+> 
+> /*
+>  * ---------------------------------------------------------------------------
+>  * Board specific defines
+>  * ---------------------------------------------------------------------------
+>  */
+> 
+> #ifdef CONFIG_MACH_OMAP_INNOVATOR
+> #include "board-innovator.h"
+> #endif
+> 
+> #ifdef CONFIG_MACH_OMAP_H2
+> #include "board-h2.h"
+> #endif
+> ...
+> #ifdef CONFIG_MACH_SX1
+> #include "board-sx1.h"
+> #endif
+> 
+> which is included via asm/io.h, asm/irq.h, asm/pci.h, asm/vga.h.
+> 
+> As long as this idiocracy, we're going to see these kinds of clashes.
+> This stuff needs to die.  I've a good idea to do a sweep of all ARM
+> includes, and commit a patch to my devel tree for linux-next to remove
+> such includes as an encouragement to fixing this stuff properly.
+> 
+> People will then have a couple of months to sort out their mess.
 
-This patch also needs to be applied to 2.6.26.y and 2.6.27.y.
+I'll remove those omap includes, I have few other patches pending before
+I get to that though.
 
- drivers/net/atlx/atl1.c |    7 ++++---
- drivers/net/atlx/atl1.h |    2 +-
- 2 files changed, 5 insertions(+), 4 deletions(-)
+Cheers,
 
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index e23ce77..f5edf7a 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -2317,7 +2317,8 @@ static void atl1_tx_queue(struct atl1_adapter *adapter, u16 count,
- 		if (tpd != ptpd)
- 			memcpy(tpd, ptpd, sizeof(struct tx_packet_desc));
- 		tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
--		tpd->word2 = (cpu_to_le16(buffer_info->length) &
-+		tpd->word2 &= ~(TPD_BUFLEN_MASK << TPD_BUFLEN_SHIFT);
-+		tpd->word2 |= (cpu_to_le16(buffer_info->length) &
- 			TPD_BUFLEN_MASK) << TPD_BUFLEN_SHIFT;
- 
- 		/*
-@@ -2426,8 +2427,8 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		vlan_tag = (vlan_tag << 4) | (vlan_tag >> 13) |
- 			((vlan_tag >> 9) & 0x8);
- 		ptpd->word3 |= 1 << TPD_INS_VL_TAG_SHIFT;
--		ptpd->word3 |= (vlan_tag & TPD_VL_TAGGED_MASK) <<
--			TPD_VL_TAGGED_SHIFT;
-+		ptpd->word2 |= (vlan_tag & TPD_VLANTAG_MASK) <<
-+			TPD_VLANTAG_SHIFT;
- 	}
- 
- 	tso = atl1_tso(adapter, skb, ptpd);
-diff --git a/drivers/net/atlx/atl1.h b/drivers/net/atlx/atl1.h
-index a5015b1..ffa73fc 100644
---- a/drivers/net/atlx/atl1.h
-+++ b/drivers/net/atlx/atl1.h
-@@ -504,7 +504,7 @@ struct rx_free_desc {
- #define TPD_PKTNT_MASK		0x0001
- #define TPD_PKTINT_SHIFT	15
- #define TPD_VLANTAG_MASK	0xFFFF
--#define TPD_VLAN_SHIFT		16
-+#define TPD_VLANTAG_SHIFT	16
- 
- /* tpd word 3 bits 0:13 */
- #define TPD_EOP_MASK		0x0001
--- 
-1.5.5.1
-
+Tony
