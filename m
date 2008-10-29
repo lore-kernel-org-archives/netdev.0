@@ -1,71 +1,61 @@
-From: Dave Chinner <david@fromorbit.com>
-Subject: Re: [xfs-masters] linux-next: arm allmodconfig
-Date: Wed, 29 Oct 2008 18:40:32 +1100
-Message-ID: <20081029074032.GI4985@disturbed>
-References: <20081028175604.81c31cea.akpm@linux-foundation.org>
+From: "Manish Katiyar" <mkatiyar@gmail.com>
+Subject: [PATCH] : Fix compilation warnings in net/netlabel/netlabel_addrlist.c
+Date: Wed, 29 Oct 2008 13:36:09 +0530
+Message-ID: <ea11fea30810290106u3f92268q62226da65db6f6a4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
-	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Moore <paul.moore@hp.com>, Takashi Iwai <tiwai@suse.de>,
-	Pekka Enberg <penberg@cs.helsinki.fi>
-To: xfs-masters@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: mkatiyar@gmail.com
+To: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail01.adl6.internode.on.net ([203.16.214.146]:41462 "EHLO
-	ipmail01.adl6.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752448AbYJ2Hkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 03:40:37 -0400
+Received: from ti-out-0910.google.com ([209.85.142.188]:43431 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752231AbYJ2IGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 04:06:11 -0400
 Content-Disposition: inline
-In-Reply-To: <20081028175604.81c31cea.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 28, 2008 at 05:56:04PM -0700, Andrew Morton wrote:
-> > fs/xfs/quota/xfs_qm_syscalls.c: In function `xfs_qm_dqrele_inodes_ag':
-> > fs/xfs/quota/xfs_qm_syscalls.c:1039: warning: 'inode_refed' might be used uninitialized in this function
+Below patch fixes the following warning.
+net/netlabel/netlabel_addrlist.c:335: warning: unused variable 'dir'
+net/netlabel/netlabel_addrlist.c:369: warning: unused variable 'dir'
 
-I haven't seen this one before. And it's a real bug, too.
-gcc-4.3.1 on x86_64 is not picking this warning up:
 
-$ gcc -v
-Using built-in specs.
-Target: x86_64-linux-gnu
-Configured with: ../src/configure -v --with-pkgversion='Debian 4.3.1-9' --with-bugurl=file:///usr/share/doc/gcc-4.3/README.Bugs --enable-languages=c,c++,fortran,objc,obj-c++ --prefix=/usr --enable-shared --with-system-zlib --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --enable-nls --with-gxx-include-dir=/usr/include/c++/4.3 --program-suffix=-4.3 --enable-clocale=gnu --enable-libstdcxx-debug --enable-objc-gc --enable-mpfr --enable-cld --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
-Thread model: posix
-gcc version 4.3.1 (Debian 4.3.1-9)
-$
-$
-$ touch fs/xfs/quota/xfs_qm_syscalls.c
-$ make -j2 ARCH=um
-  SYMLINK arch/um/include/shared/kern_constants.h
-make[1]: `arch/um/sys-x86_64/user-offsets.s' is up to date.
-  CHK     include/linux/version.h
-  CHK     include/linux/utsrelease.h
-  CALL    scripts/checksyscalls.sh
-  CHK     include/linux/compile.h
-  CC      fs/xfs/quota/xfs_qm_syscalls.o
-  LD      fs/xfs/xfs.o
-  LD      fs/xfs/built-in.o
-  LD      fs/built-in.o
+Signed-off-by: Manish Katiyar <mkatiyar@gmail.com>
+---
+ net/netlabel/netlabel_addrlist.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-What compiler version are you using?
+diff --git a/net/netlabel/netlabel_addrlist.c b/net/netlabel/netlabel_addrlist.c
+index b0925a3..65fbec1 100644
+--- a/net/netlabel/netlabel_addrlist.c
++++ b/net/netlabel/netlabel_addrlist.c
+@@ -332,7 +332,9 @@ void netlbl_af4list_audit_addr(struct audit_buffer
+*audit_buf,
+ 					__be32 addr, __be32 mask)
+ {
+ 	u32 mask_val = ntohl(mask);
++#ifdef CONFIG_AUDIT
+ 	char *dir = (src ? "src" : "dst");
++#endif
 
-I'll send out a patch to fix this in a minute.
+ 	if (dev != NULL)
+ 		audit_log_format(audit_buf, " netif=%s", dev);
+@@ -366,7 +368,9 @@ void netlbl_af6list_audit_addr(struct audit_buffer
+*audit_buf,
+ 				 const struct in6_addr *addr,
+ 				 const struct in6_addr *mask)
+ {
++#ifdef CONFIG_AUDIT
+ 	char *dir = (src ? "src" : "dst");
++#endif
 
-> > fs/xfs/xfs_rtalloc.c: In function `xfs_growfs_rt':
-> > fs/xfs/xfs_rtalloc.c:1875: warning: 'tp' might be used uninitialized in this function
-
-False positive, and I don't get this reported, either.
-
-Hold on - the above gcc binary only emits a warning for the xfs_growfs_rt issue
-when CONFIG_CC_OPTIMIZE_FOR_SIZE=y is set. It still doesn't catch the quota
-bug, though. This is so fucked up....
-
-Cheers,
-
-Dave.
+ 	if (dev != NULL)
+ 		audit_log_format(audit_buf, " netif=%s", dev);
 -- 
-Dave Chinner
-david@fromorbit.com
+1.5.4.3
+
+
+Thanks -
+Manish
