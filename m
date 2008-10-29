@@ -1,117 +1,88 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
-Date: Wed, 29 Oct 2008 09:37:39 -0700
-Message-ID: <20081029163739.GB6732@linux.vnet.ibm.com>
-References: <20081008.114527.189056050.davem@davemloft.net> <49077918.4050706@cosmosbay.com> <490795FB.2000201@cosmosbay.com> <20081028.220536.183082966.davem@davemloft.net> <49081D67.3050502@cosmosbay.com> <49082718.2030201@cosmosbay.com> <4908627C.6030001@acm.org> <490874F2.2060306@cosmosbay.com> <49088288.6050805@acm.org> <49088AD1.7040805@cosmosbay.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Jonathan McDowell <noodles@earth.li>
+Subject: 2.6.28-rc2 / hso driver oops
+Date: Wed, 29 Oct 2008 16:40:06 +0000
+Message-ID: <20081029164006.GH3162@earth.li>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Corey Minyard <minyard@acm.org>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux-foundation.org>,
-	a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru,
-	Christian Bell <christian@myri.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:33532 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750870AbYJ2QiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Oct 2008 12:38:00 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m9TGeZwv028245
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 12:40:35 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9TGbfcp118826
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 12:37:41 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9TGbdYC016271
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 12:37:41 -0400
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754886AbYJ2QkY@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <49088AD1.7040805@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 29, 2008 at 05:09:53PM +0100, Eric Dumazet wrote:
-> Corey Minyard a =E9crit :
->> Eric Dumazet wrote:
->>> Corey Minyard found a race added in commit=20
->>> 271b72c7fa82c2c7a795bc16896149933110672d
->>> (udp: RCU handling for Unicast packets.)
->>>
->>> "If the socket is moved from one list to another list in-between th=
-e time=20
->>>  the hash is calculated and the next field is accessed, and the soc=
-ket =20
->>> has moved to the end of the new list, the traversal will not comple=
-te =20
->>> properly on the list it should have, since the socket will be on th=
-e end =20
->>> of the new list and there's not a way to tell it's on a new list an=
-d =20
->>> restart the list traversal.  I think that this can be solved by =20
->>> pre-fetching the "next" field (with proper barriers) before checkin=
-g the =20
->>> hash."
->>>
->>> This patch corrects this problem, introducing a new=20
->>> sk_for_each_rcu_safenext()
->>> macro.
->> You also need the appropriate smp_wmb() in udp_lib_get_port() after=20
->> sk_hash is set, I think, so the next field is guaranteed to be chang=
-ed=20
->> after the hash value is changed.
->
-> Not sure about this one Corey.
->
-> If a reader catches previous value of item->sk_hash, two cases are to=
- be=20
-> taken into :
->
-> 1) its udp_hashfn(net, sk->sk_hash) is !=3D hash   -> goto begin : Re=
-ader=20
-> will redo its scan
->
-> 2) its udp_hashfn(net, sk->sk_hash) is =3D=3D hash
->  -> next pointer is good enough : it points to next item in same hash=
-=20
-> chain.
->     No need to rescan the chain at this point.
->     Yes we could miss the fact that a new port was bound and this UDP=
-=20
-> message could be lost.
+Hi.
 
-3) its udp_hashfn(net, sk-sk_hash) is =3D=3D hash, but only because it =
-was
-removed, freed, reallocated, and then readded with the same hash value,
-possibly carrying the reader to a new position in the same list.
+Tried out 2.6.28-rc2 today on my EEE 901 and my Option Icon 225 and got
+the following oops:
 
-You might well cover this (will examine your code in detail on my plane
-flight starting about 20 hours from now), but thought I should point it
-out.  ;-)
+hso: drivers/net/usb/hso.c: 1.2 Option Wireless
+usbcore: registered new interface driver hso
+usb 2-2: new full speed USB device using uhci_hcd and address 3
+usb 2-2: configuration #1 chosen from 1 choice
+hso0: Disabled Privacy Extensions
+BUG: unable to handle kernel NULL pointer dereference at 000000d0
+IP: [<c03589b9>] dev_driver_string+0x1/0x2a
+*pde = 00000000 
+Oops: 0000 [#1] PREEMPT SMP 
+last sysfs file: /sys/devices/pci0000:00/0000:00:1d.0/usb2/idVendor
+Modules linked in: hso usb_storage rfcomm l2cap rt2860sta evdev
 
-						Thanx, Paul
+Pid: 230, comm: khubd Not tainted (2.6.28-rc2 #2) 901
+EIP: 0060:[<c03589b9>] EFLAGS: 00010246 CPU: 0
+EIP is at dev_driver_string+0x1/0x2a
+EAX: 00000000 EBX: f2c88480 ECX: f7159cb0 EDX: 00000001
+ESI: f2fdee40 EDI: f68bd200 EBP: f7159cf8 ESP: f7159cd0
+DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Process khubd (pid: 230, ti=f7158000 task=f70b02b0 task.ti=f7158000)
+Stack:
+f7159cf8 f81b8265 f2c88480 f6ab8440 00000003 00000003 00000000 00000112
+00000000 f81b90c8 f7159d48 f81b840d c029f782 f68bd200 fffffffe f6b143a8
+f7159d20 f7159d2c 00000000 f6b143a8 f81b90c8 f7159d38 f7159d40 c038886b
+Call Trace:
+[<f81b8265>] ? hso_create_net_device+0x305/0x32d [hso]
+[<f81b840d>] ? hso_probe+0x180/0x56c [hso]
+[<c029f782>] ? __sysfs_add_one+0x14/0x85
+[<c038886b>] ? usb_autopm_do_device+0xb1/0xb9
+[<c0388d77>] ? usb_probe_interface+0xe9/0x11c
+[<c035b10a>] ? driver_probe_device+0xa0/0x136
+[<c035b213>] ? __device_attach+0x8/0xa
+[<c035a8fe>] ? bus_for_each_drv+0x3d/0x67
+[<c035b284>] ? device_attach+0x50/0x64
+[<c035b20b>] ? __device_attach+0x0/0xa
+[<c035a77e>] ? bus_attach_device+0x21/0x48
+[<c03598e6>] ? device_add+0x307/0x456
+[<c03880b2>] ? usb_set_configuration+0x400/0x449
+[<c038e44b>] ? generic_probe+0x44/0x7d
+[<c038828e>] ? usb_probe_device+0x32/0x38
+[<c035b10a>] ? driver_probe_device+0xa0/0x136
+[<c035b213>] ? __device_attach+0x8/0xa
+[<c035a8fe>] ? bus_for_each_drv+0x3d/0x67
+[<c035b284>] ? device_attach+0x50/0x64
+[<c035b20b>] ? __device_attach+0x0/0xa
+[<c035a77e>] ? bus_attach_device+0x21/0x48
+[<c03598e6>] ? device_add+0x307/0x456
+[<c03831d1>] ? usb_new_device+0x4d/0x8e
+[<c038433c>] ? hub_thread+0x94d/0xdcb
+[<c021f6b7>] ? default_wake_function+0xb/0xd
+[<c0234b83>] ? autoremove_wake_function+0x0/0x33
+[<c03839ef>] ? hub_thread+0x0/0xdcb
+[<c02348f9>] ? kthread+0x3b/0x61
+[<c02348be>] ? kthread+0x0/0x61
+[<c0203c1b>] ? kernel_thread_helper+0x7/0x10
+Code: 32 fe ff ff b9 81 00 00 00 b8 03 00 00 00 f3 a5 c7 83 b8 13 00 00 03 00 00 00 59 5e 89 83 8c 0b 00 00 8d 65 f4 5b 5e 5f 5d c3 55 <8b> 90 d0 00 00 00 89 e5 85 d2 75 19 8b 90 cc 00 00 00 85 d2 75 
+EIP: [<c03589b9>] dev_driver_string+0x1/0x2a SS:ESP 0068:f7159cd0
+---[ end trace fe2452bf3bd83a7f ]---
 
-> If we force a smp_wmb(), reader would fetch pointer to begin of list.
->
->
-> 1) its udp_hashfn(net, sk->sk_hash) is !=3D hash   -> goto begin : Re=
-ader=20
-> will redo its scan : next pointer value had no meaning
->
-> 2) its udp_hashfn(net, sk->sk_hash) is =3D=3D hash
->  ->next pointer "force reader" to rescan the chain, but wont find new=
-=20
-> items.
->
-> In any case, we cannot lost an UDP message sent to a stable port=20
-> (previously bound)
->
->
-> Thanks
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Stock 2.6.28-rc2 + ec_all.patch from lkml + rt2860sta driver (though I
+can't see how either of these are implicated I can try without if
+necessary).
+
+It looks like there are only a couple of changes since 2.6.27 to this
+driver so I can try reverting both of them, but neither looks especially
+likely? (8ef5ba63b94b04b182ac4a6009dbbf1406beb3c5 &
+e57b641dfafc10ce23d26cf271fd2638589fdb3f)
+
+J.
+
+-- 
+Revd. Jonathan McDowell, ULC | Shall I call the United Nations?
