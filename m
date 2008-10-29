@@ -1,60 +1,75 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [RFC: 2.6.28 patch] m68knommu: set NO_DMA
-Date: Wed, 29 Oct 2008 12:15:47 +0200
-Message-ID: <20081029101547.GB28224@cs181140183.pp.htv.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Wed, 29 Oct 2008 11:19:50 +0100
+Message-ID: <490838C6.4060304@cosmosbay.com>
+References: <490795FB.2000201@cosmosbay.com>	<20081028.220536.183082966.davem@davemloft.net>	<49081D67.3050502@cosmosbay.com> <20081029.015659.223371561.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: gerg@uclinux.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753466AbYJ2KR1@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------040002090100050804010408"
+Cc: shemminger@vyatta.com, benny+usenet@amorsen.dk, minyard@acm.org,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	cl@linux-foundation.org, a.p.zijlstra@chello.nl, christian@myri.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:50236 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753238AbYJ2KU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 06:20:26 -0400
+In-Reply-To: <20081029.015659.223371561.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-m68knommu does not set the Kconfig NO_DMA variable, but also does
-not provide the required functions, resulting in the following 
-build error triggered by commit a40c24a13366e324bc0ff8c3bb107db89312c984
-(net: Add SKB DMA mapping helper functions.):
+This is a multi-part message in MIME format.
+--------------040002090100050804010408
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-<--  snip  -->
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Wed, 29 Oct 2008 09:23:03 +0100
+>=20
+>> David Miller a =E9crit :
+>>> From: Eric Dumazet <dada1@cosmosbay.com>
+>>> Date: Tue, 28 Oct 2008 23:45:15 +0100
+>>>
+>>>> I will submit a new patch serie tomorrow, with :
+>>>>
+>>>> Patch 1 : spinlocks instead of rwlocks, and bug spotted by Christian=
+ Bell
+>>>>
+>>>> Patch 2 : splited on two parts (2 & 3) , one for IPV4, one for IPV6,=
+=20
+>>> I very much look forward to this :-)
+>>> I like these changes and can't wait to add them to net-next-2.6
+>> Thanks David, please find first updated patch 1
+>=20
+> Applied, please (re-)send the current version of patch 2 as well.
 
-...
-  LD      vmlinux
-net/built-in.o: In function `skb_dma_unmap':
-(.text+0xac5e): undefined reference to `dma_unmap_single'
-net/built-in.o: In function `skb_dma_unmap':
-(.text+0xac7a): undefined reference to `dma_unmap_page'
-net/built-in.o: In function `skb_dma_map':
-(.text+0xacdc): undefined reference to `dma_map_single'
-net/built-in.o: In function `skb_dma_map':
-(.text+0xace8): undefined reference to `dma_mapping_error'
-net/built-in.o: In function `skb_dma_map':
-(.text+0xad10): undefined reference to `dma_map_page'
-net/built-in.o: In function `skb_dma_map':
-(.text+0xad82): undefined reference to `dma_unmap_page'
-net/built-in.o: In function `skb_dma_map':
-(.text+0xadc6): undefined reference to `dma_unmap_single'
-make[1]: *** [vmlinux] Error 1
+I found a fatal bug in /proc/net/udp handling, sorry.
 
-<--  snip  -->
+[PATCH] udp: udp_get_next() should use spin_unlock_bh()
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
----
+--------------040002090100050804010408
+Content-Type: text/plain;
+ name="udp_3.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="udp_3.patch"
 
-diff --git a/arch/m68knommu/Kconfig b/arch/m68knommu/Kconfig
-index 76b66fe..d532687 100644
---- a/arch/m68knommu/Kconfig
-+++ b/arch/m68knommu/Kconfig
-@@ -14,6 +14,10 @@ config MMU
- 	bool
- 	default n
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5ba0340..ced8203 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1579,7 +1579,7 @@ static struct sock *udp_get_next(struct seq_file *seq, struct sock *sk)
+ 	} while (sk && (!net_eq(sock_net(sk), net) || sk->sk_family != state->family));
  
-+config NO_DMA
-+	bool
-+	default y
-+
- config FPU
- 	bool
- 	default n
+ 	if (!sk) {
+-		spin_unlock(&state->udp_table->hash[state->bucket].lock);
++		spin_unlock_bh(&state->udp_table->hash[state->bucket].lock);
+ 		return udp_get_first(seq, state->bucket + 1);
+ 	}
+ 	return sk;
+
+--------------040002090100050804010408--
