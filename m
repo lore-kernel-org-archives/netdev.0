@@ -1,21 +1,20 @@
-From: Jay Cliburn <jcliburn@osprey.hogchain.net>
-Subject: [PATCH] atl1: fix vlan tag regression
-Date: Wed, 29 Oct 2008 10:40:50 -0500
-Message-ID: <20081029154050.GA13726@osprey.hogchain.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH][CORRECTED] atl1: fix vlan tag regression
+Date: Wed, 29 Oct 2008 11:01:36 -0500
+Message-ID: <20081029160136.GA28446@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: csnook@redhat.com, jie.yang@atheros.com, ramon.casellas@cttc.es,
 	netdev@vger.kernel.org, stable@kernel.org, jcliburn@gmail.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost06.isp.att.net ([207.115.11.56]:44796 "EHLO
-	fmailhost06.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbYJ2PtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 11:49:23 -0400
+Received: from fmailhost01.isp.att.net ([204.127.217.101]:39383 "EHLO
+	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753169AbYJ2QBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 12:01:39 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
 
 Commit 401c0aabec4b97320f962a0161a846d230a6f7aa introduced a regression
 in the atl1 driver by storing the VLAN tag in the wrong TX descriptor
@@ -43,8 +42,8 @@ index e23ce77..f5edf7a 100644
  			memcpy(tpd, ptpd, sizeof(struct tx_packet_desc));
  		tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
 -		tpd->word2 = (cpu_to_le16(buffer_info->length) &
-+                tpd->word2 &= ~(TPD_BUFLEN_MASK << TPD_BUFLEN_SHIFT);
-+                tpd->word2 |= (cpu_to_le16(buffer_info->length) &
++		tpd->word2 &= ~(TPD_BUFLEN_MASK << TPD_BUFLEN_SHIFT);
++		tpd->word2 |= (cpu_to_le16(buffer_info->length) &
  			TPD_BUFLEN_MASK) << TPD_BUFLEN_SHIFT;
  
  		/*
