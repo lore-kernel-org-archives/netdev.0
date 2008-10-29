@@ -1,54 +1,50 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: atl1 warn_on_slowpath help
-Date: Wed, 29 Oct 2008 09:12:20 +0100
-Message-ID: <49081AE4.9040301@trash.net>
-References: <20081029071549.GA4861@ff.dom.local>
+Subject: Re: New filter 'flow' bug?
+Date: Wed, 29 Oct 2008 09:15:33 +0100
+Message-ID: <49081BA5.5070401@trash.net>
+References: <20081029072705.376AC1E3087@f03.poczta.interia.pl> <20081029.003713.193704291.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jcliburn@gmail.com>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: almaop@poczta.fm
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58930 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:59014 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752591AbYJ2IMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 04:12:24 -0400
-In-Reply-To: <20081029071549.GA4861@ff.dom.local>
+	with ESMTP id S1752559AbYJ2IPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 04:15:36 -0400
+In-Reply-To: <20081029.003713.193704291.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On 29-10-2008 01:08, Jay Cliburn wrote:
->> I'm pretty fuzzy on the mechanics of warn_on_slowpath, so I'd like to
->> ask for help from more experienced netdev developers.
+> From: almaop@poczta.fm
+> Date: 29 Oct 2008 08:27:05 +0100
+>> My configuration: gentoo, kernel 2.6.26.7 + imq patch + l7 patch, glibc 2.7, iproute2 2.6.26. Shaping is done on ethernet (e1000 card) but as I see on the ifb nothing changes.
+>> There are htb 3 classes with sfq as their qdiscs. It is simple, something like:
 >>
->> An atl1 user reports the following warning when receiving a VLAN tagged
->> packet.
+>> tc qdisc add dev $DEV root handle 1: htb default 4 tc class add dev $DEV parent 1: classid 1:1 htb rate 78kbps ceil 78kbps overhead 0 linklayer atm
 >>
->> [   27.779463] ------------[ cut here ]------------
->> [   27.779509] WARNING: at kernel/softirq.c:136 local_bh_enable+0x37/0x81()
-> ...
->> [   27.782520]  [<c0264755>] netif_nit_deliver+0x5b/0x75
->> [   27.782590]  [<c02bba83>] __vlan_hwaccel_rx+0x79/0x162
->> [   27.782664]  [<f8851c1d>] atl1_intr+0x9a9/0xa7c [atl1]
->> [   27.782738]  [<c0155b17>] handle_IRQ_event+0x23/0x51
->> [   27.782808]  [<c015692e>] handle_edge_irq+0xc2/0x102
->> [   27.782878]  [<c0105fd5>] do_IRQ+0x4d/0x64
->> [   27.782947]  [<c010434f>] common_interrupt+0x23/0x28
->> [   27.783017]  [<c0108df6>] mwait_idle+0x2f/0x3b
->> [   27.783085]  [<c0102a75>] cpu_idle+0xde/0x101
->> [   27.783154]  =======================
->> [   27.783195] ---[ end trace 744634f3da93b46a ]---
+>> tc class add dev $DEV parent 1:1 classid 1:2 htb rate 20kbps ceil 20kbps overhead 0 linklayer atm prio 3
+>> tc class add dev $DEV parent 1:1 classid 1:3 ...
+>> tc class add dev $DEV parent 1:1 classid 1:4 ...
+>>  
+>> tc qdisc add dev $DEV parent 1:2 handle 2: sfq quantum 64
+>> tc qdisc add dev $DEV parent 1:3 handle 3: sfq
+>> tc qdisc add dev $DEV parent 1:4 handle 4: sfq
 >>
->> I've flailed around trying to find the bug, but haven't been
->> successful -- primarily because I don't understand the
->> warn_on_slowpath stuff well enough to know what to look for. Can someone
->> please take a quick look at drivers/net/atlx/atl1.c around line 2017
->> and see if there's an obvious error?  I'd really appreciate it.
-> 
-> It looks to me like vlan_hwaccel_rx() is to blame: I doubt we can do
-> netif_nit_deliver() in hard irq context. (Patrick Cc-ed.)
+>> tc filter add dev $DEV parent 1: ....
+>> ....
+>>  
+>> tc filter add dev $DEV parent 2: protocol ip handle 1 prio 12 flow \
+>> hash keys dst,proto,proto-dst divisor 128
+>>
+>> tc filter add dev $DEV parent 3: protocol ip handle 1 prio 12 flow \
+>> hash keys dst,proto,proto-dst divisor 128
+>>
+>> tc filter add dev $DEV parent 4: protocol ip handle 1 prio 12 flow \
+>> hash keys nfct-src,nfct-dst,proto,nfct-proto-src,nfct-proto-dst divisor 128
+>>
+>> I'm not sure where is the bug - in the flow filter or in the sfq qdisc.
 
-Crap, I didn't think of that, all drivers I tested with support
-NAPI. I can't think of a clean way to fix it right now, but I'll
-look into it.
+Which SFQ qdisc is stalling?
