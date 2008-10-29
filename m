@@ -1,61 +1,107 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: oh crap... (re: %p6)
-Date: Wed, 29 Oct 2008 10:24:42 -0700
-Message-ID: <1225301082.5688.24.camel@brick>
-References: <20081029.015402.234525839.davem@davemloft.net>
-	 <1225292124.20276.12.camel@brick>  <1225294760.5269.301.camel@localhost>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Wed, 29 Oct 2008 18:32:29 +0100
+Message-ID: <49089E2D.8030907@cosmosbay.com>
+References: <20081008.114527.189056050.davem@davemloft.net> <49077918.4050706@cosmosbay.com> <490795FB.2000201@cosmosbay.com> <20081028.220536.183082966.davem@davemloft.net> <49081D67.3050502@cosmosbay.com> <49082718.2030201@cosmosbay.com> <4908627C.6030001@acm.org> <490874F2.2060306@cosmosbay.com> <49088288.6050805@acm.org> <49088AD1.7040805@cosmosbay.com> <20081029163739.GB6732@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Corey Minyard <minyard@acm.org>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
+	Christoph Lameter <cl@linux-foundation.org>,
+	a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru,
+	Christian Bell <christian@myri.com>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f18.google.com ([209.85.217.18]:52563 "EHLO
-	mail-gx0-f18.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752332AbYJ2RYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 13:24:47 -0400
-Received: by gxk11 with SMTP id 11so3094841gxk.13
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 10:24:45 -0700 (PDT)
-In-Reply-To: <1225294760.5269.301.camel@localhost>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:59825 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbYJ2RhM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 13:37:12 -0400
+In-Reply-To: <20081029163739.GB6732@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-10-29 at 08:39 -0700, Joe Perches wrote:
-> On Wed, 2008-10-29 at 07:55 -0700, Harvey Harrison wrote:
-> > On Wed, 2008-10-29 at 01:54 -0700, David Miller wrote:
-> > > I think we'll need to revert all of this or find some fix soon.  GCC
-> > > warns about %p with a '#' flag modifier it seems :-(
-> > > 
-> > > net/ipv6/ip6_flowlabel.c: In function 'ip6fl_seq_show':
-> > > net/ipv6/ip6_flowlabel.c:707: warning: '#' flag used with '%p' printf format
-> > 
-> > The easiest would be to pick a separate modifier for the raw case.  Or
-> > revert the removal of NIP6_SEQFMT, I'll shoot you a patch shortly,
-> > any preference in what modifier should be used?
-> 
-> I'd prefer something visual that represents "no colon".
-> 
-> Maybe %p6-: 
+Paul E. McKenney a =E9crit :
+> On Wed, Oct 29, 2008 at 05:09:53PM +0100, Eric Dumazet wrote:
+>> Corey Minyard a =E9crit :
+>>> Eric Dumazet wrote:
+>>>> Corey Minyard found a race added in commit=20
+>>>> 271b72c7fa82c2c7a795bc16896149933110672d
+>>>> (udp: RCU handling for Unicast packets.)
+>>>>
+>>>> "If the socket is moved from one list to another list in-between t=
+he time=20
+>>>>  the hash is calculated and the next field is accessed, and the so=
+cket =20
+>>>> has moved to the end of the new list, the traversal will not compl=
+ete =20
+>>>> properly on the list it should have, since the socket will be on t=
+he end =20
+>>>> of the new list and there's not a way to tell it's on a new list a=
+nd =20
+>>>> restart the list traversal.  I think that this can be solved by =20
+>>>> pre-fetching the "next" field (with proper barriers) before checki=
+ng the =20
+>>>> hash."
+>>>>
+>>>> This patch corrects this problem, introducing a new=20
+>>>> sk_for_each_rcu_safenext()
+>>>> macro.
+>>> You also need the appropriate smp_wmb() in udp_lib_get_port() after=
+=20
+>>> sk_hash is set, I think, so the next field is guaranteed to be chan=
+ged=20
+>>> after the hash value is changed.
+>> Not sure about this one Corey.
+>>
+>> If a reader catches previous value of item->sk_hash, two cases are t=
+o be=20
+>> taken into :
+>>
+>> 1) its udp_hashfn(net, sk->sk_hash) is !=3D hash   -> goto begin : R=
+eader=20
+>> will redo its scan
+>>
+>> 2) its udp_hashfn(net, sk->sk_hash) is =3D=3D hash
+>>  -> next pointer is good enough : it points to next item in same has=
+h=20
+>> chain.
+>>     No need to rescan the chain at this point.
+>>     Yes we could miss the fact that a new port was bound and this UD=
+P=20
+>> message could be lost.
+>=20
+> 3) its udp_hashfn(net, sk-sk_hash) is =3D=3D hash, but only because i=
+t was
+> removed, freed, reallocated, and then readded with the same hash valu=
+e,
+> possibly carrying the reader to a new position in the same list.
 
-Putting a modifier after the format specifier seems a little strange to me.  But
-I'm not sure if I can think of something that's too much better, currently I
-was thinking of:
+yes, but 'new position' is 'before any not yet examined objects', since
+we insert objects only at chain head.
 
-%pI6, %pi6
-	%pI6 would act just like %p6
-	%pi6 would act just like %#p6
+>=20
+> You might well cover this (will examine your code in detail on my pla=
+ne
+> flight starting about 20 hours from now), but thought I should point =
+it
+> out.  ;-)
+>=20
+> =09
 
-Eventually %pI4 could be added as well. Which would print out the dot-separated
-format.
+Yes, I'll double check too, this seems tricky :)
 
-Either that or add a %px<bytes> that prints out raw hex for the number
-of <bytes>, so %p6 would stay and %#p6 would become %px16.  While this
-is a bit uglier, it could be useful to others elsewhere in-kernel,
-perhaps limited to 16 bytes or so.
+About SLAB_DESTROY_BY_RCU effect, we now have two different kmem_cache =
+for "UDP-Lite"
+and "UDP".
 
-Dave, I'll wait for your $0.02 before sending in a patch, but I have
-both of the above implemented.
+This is expected, but we could avoid that and alias these caches, since
+these objects have the same *type* . (The fields used for the RCU looku=
+ps,
+deletes and inserts are the same)
 
-Harvey
-
+Maybe a hack in net/ipv4/udplite.c before calling proto_register(), to
+copy the kmem_cache from UDP.
 
