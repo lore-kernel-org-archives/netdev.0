@@ -1,213 +1,123 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: linux-next: arm allmodconfig
-Date: Tue, 28 Oct 2008 17:56:04 -0700
-Message-ID: <20081028175604.81c31cea.akpm@linux-foundation.org>
+From: Fernando Luis =?ISO-8859-1?Q?V=E1zquez?= Cao
+	<fernando@oss.ntt.co.jp>
+Subject: Re: [RFC][PATCH] xfrm: do not leak ESRCH to user space
+Date: Wed, 29 Oct 2008 11:58:23 +0900
+Message-ID: <1225249103.7276.56.camel@sebastian.kern.oss.ntt.co.jp>
+References: <1224772039.4404.56.camel@sebastian.kern.oss.ntt.co.jp>
+	 <20081023.141158.179712309.davem@davemloft.net>
+	 <1224810300.8667.26.camel@sebastian.kern.oss.ntt.co.jp>
+	 <20081028.155817.216873568.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
-	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Herbert Xu <herbert
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54388 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751962AbYJ2A6Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 20:58:16 -0400
+Received: from serv2.oss.ntt.co.jp ([222.151.198.100]:36511 "EHLO
+	serv2.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752334AbYJ2C6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2008 22:58:25 -0400
+In-Reply-To: <20081028.155817.216873568.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> arch/arm/mm/dma-mapping.c: In function `dma_sync_sg_for_cpu':
-> arch/arm/mm/dma-mapping.c:588: warning: statement with no effect
+On Tue, 2008-10-28 at 15:58 -0700, David Miller wrote:
+> From: Fernando Luis V=C3=A1zquez Cao <fernando@oss.ntt.co.jp>
+> Date: Fri, 24 Oct 2008 10:05:00 +0900
+>=20
+> > On Thu, 2008-10-23 at 14:11 -0700, David Miller wrote:
+> > > From: Fernando Luis V=C3=A1zquez Cao <fernando@oss.ntt.co.jp>
+> > > Date: Thu, 23 Oct 2008 23:27:19 +0900
+> > >=20
+> > > > I noticed that, under certain conditions, ESRCH can be leaked f=
+rom the
+> > > > xfrm layer to user space through sys_connect. In particular, th=
+is seems
+> > > > to happen reliably when the kernel fails to resolve a template =
+either
+> > > > because the AF_KEY receive buffer being used by racoon is full =
+or
+> > > > because the SA entry we are trying to use is in XFRM_STATE_EXPI=
+RED
+> > > > state.
+> > > >=20
+> > > > However, since this could be a transient issue it could be argu=
+ed that
+> > > > EAGAIN would be more appropriate. Besides this error code is no=
+t even
+> > > > documented in the man page for sys_connect (as of man-pages 3.0=
+7).
+> > > >=20
+> > > > What is the expected behavior (I could not find anything in the=
+ RFCs)?
+> > > > Should we just fix the connect(2) man page instead?
+> > >=20
+> > > I think this case requires some care.
+> > >=20
+> > > -EAGAIN tells the caller that it is a temporary failure and that
+> > > retrying can be expected to succeed eventually (some resource is =
+not
+> > > available at the moment).  So applications loop when they see thi=
+s
+> > > error returned, they will try again.
+> > >=20
+> > > But that's not what is happening when ESRCH is signalled.  We fou=
+nd
+> > > no matching policy, and we've done nothing to make such a policy
+> > > be found in the (near) future.  It is more of a hard failure, whi=
+ch
+> > > should not necessarily be retried over and over again.
+> > >=20
+> > > So converting this to -EAGAIN doesn't seem correct at all.
+> >=20
+> > That would be so if -ESRCH did not happen to be a transient error.
+>=20
+> It is not set in transient conditions as far as I can see.
+>=20
+> Look at xfrm_state_find() which is where this error is generated and
+> then propagates down to xfrm_tmpl_resolve_one().
+>=20
+> In xfrm_state_find() if an acquire is in progress to resolve the
+> entry, the code explicitly converts all errors into -EAGAIN.
 
-Something in here:
+Let me quote the problematic part of that function:
+    ....
+    } else if (x->km.state =3D=3D XFRM_STATE_ACQ) {
+            acquire_in_progress =3D 1;
+    } else if (x->km.state =3D=3D XFRM_STATE_ERROR ||
+               x->km.state =3D=3D XFRM_STATE_EXPIRED) {
+            if (xfrm_selector_match(&x->sel, fl, x->sel.family) &&
+                security_xfrm_state_pol_flow_match(x, pol, fl))
+                    error =3D -ESRCH;
+    }
+    ....
 
-                dmabounce_sync_for_cpu(dev, sg_dma_address(s), 0,
-                                        sg_dma_len(s), dir);                    
+If the kernel enters the last branch acquire_in_progress will not be se=
+t
+and it could propagate down to xfrm_tmpl_resolve_one(). The reason is
+that in xfrm_timer_handler() we put any entry that expired when acquire
+is in progress in XFRM_STATE_EXPIRED state __before__ sleeping for two
+seconds, which means the kernel will not set acquire_in_progress to 1 i=
+n
+the code above.
 
-> kernel/sched.c: In function `add_preempt_count':
-> kernel/sched.c:4294: warning: unsupported arg to `__builtin_return_address'
-> kernel/sched.c:4296: warning: unsupported arg to `__builtin_return_address'
-> kernel/sched.c:4298: warning: unsupported arg to `__builtin_return_address'
-> kernel/sched.c: In function `sub_preempt_count':
-> kernel/sched.c:4294: warning: unsupported arg to `__builtin_return_address'
-> kernel/sched.c:4296: warning: unsupported arg to `__builtin_return_address'
-> kernel/sched.c:4298: warning: unsupported arg to `__builtin_return_address'
+> > Looking at the code, the window during which an entry is in
+> > XFRM_STATE_EXPIRED state seems to be about 2 seconds in the worst c=
+ase.
+> > Connection attempts before and after that window would most likely
+> > result in a successful connection or -EAGAIN, respectively. Would n=
+ot it
+> > make sense to return -EAGAIN also during that 2 seconds window?
+>=20
+> Only if an acquire has been triggered and is in progress, which as
+> explained above the code already seems to handle.
+As explained above that does not seem to be the case.
 
-Related to CALLER_ADDR2, etc.
-
-> drivers/atm/zatm.c: In function `refill_pool':
-> drivers/atm/zatm.c:226: warning: `virt_to_bus' is deprecated (declared at /usr/src/devel/arch/arm/include/asm/memory.h:184)
-> 
-<50ish similar warnings snipped>
-
-> drivers/atm/ambassador.h:257:1: warning: "FLASH_BASE" redefined
-> In file included from arch/arm/mach-versatile/include/mach/irqs.h:22,
->                  from /usr/src/devel/arch/arm/include/asm/irq.h:4,
->                  from /usr/src/devel/arch/arm/include/asm/hardirq.h:6,
->                  from include/linux/hardirq.h:7,
->                  from include/asm-generic/local.h:5,
->                  from /usr/src/devel/arch/arm/include/asm/local.h:1,
->                  from include/linux/module.h:20,
->                  from drivers/atm/ambassador.c:25:
-> arch/arm/mach-versatile/include/mach/platform.h:443:1: warning: this is the location of the previous definition
-> In file included from drivers/atm/ambassador.c:44:
-> drivers/atm/ambassador.h:258:1: warning: "FLASH_SIZE" redefined
-> In file included from arch/arm/mach-versatile/include/mach/irqs.h:22,
->                  from /usr/src/devel/arch/arm/include/asm/irq.h:4,
->                  from /usr/src/devel/arch/arm/include/asm/hardirq.h:6,
->                  from include/linux/hardirq.h:7,
->                  from include/asm-generic/local.h:5,
->                  from /usr/src/devel/arch/arm/include/asm/local.h:1,
->                  from include/linux/module.h:20,
->                  from drivers/atm/ambassador.c:25:
-> arch/arm/mach-versatile/include/mach/platform.h:444:1: warning: this is the location of the previous definition
-
-This has been there for ages.  FLASH_BASE and FLASH_SIZE are silly
-identifier for any code to use anywhere, really.
-
-> drivers/atm/ambassador.c: In function `check_area':
-> drivers/atm/ambassador.c:425: warning: `virt_to_bus' is deprecated (declared at /usr/src/devel/arch/arm/include/asm/memory.h:184)
-<zillions more of these>
-
-> In file included from drivers/atm/iphase.c:65:
-> drivers/atm/iphase.h:332:1: warning: "EPROM_SIZE" redefined
-> In file included from arch/arm/mach-versatile/include/mach/irqs.h:22,
->                  from /usr/src/devel/arch/arm/include/asm/irq.h:4,
->                  from /usr/src/devel/arch/arm/include/asm/hardirq.h:6,
->                  from include/linux/hardirq.h:7,
->                  from include/asm-generic/local.h:5,
->                  from /usr/src/devel/arch/arm/include/asm/local.h:1,
->                  from include/linux/module.h:20,
->                  from drivers/atm/iphase.c:43:
-> arch/arm/mach-versatile/include/mach/platform.h:453:1: warning: this is the location of the previous definition
-
-EPROM_SIZE namespace clash.
-
-> crypto/testmgr.c: In function `alg_test_comp':
-> crypto/testmgr.c:829: warning: 'ret' might be used uninitialized in this function
-
-There's no way for the compiler to know that this code isn't buggy.
-
-Suggest that this be fixed via uninitialized_var() or, better, convert
-to a do{}while() loop.
-
-I notice that test_comp() also has two locals called `ret' - one
-shadowing the other.
-
-> mm/mlock.c: In function `__mlock_vma_pages_range':
-> mm/mlock.c:169: warning: 'ret' might be used uninitialized in this function
-
-Again, gcc can't know this is unbuggy.  a do{}while() conversion would
-fix it, I guess.
-
-> In file included from drivers/atm/eni.c:29:
-> drivers/atm/midway.h:19:1: warning: "EPROM_SIZE" redefined
-> In file included from arch/arm/mach-versatile/include/mach/irqs.h:22,
->                  from /usr/src/devel/arch/arm/include/asm/irq.h:4,
->                  from /usr/src/devel/arch/arm/include/asm/hardirq.h:6,
->                  from include/linux/hardirq.h:7,
->                  from include/asm-generic/local.h:5,
->                  from /usr/src/devel/arch/arm/include/asm/local.h:1,
->                  from include/linux/module.h:20,
->                  from drivers/atm/eni.c:6:
-> arch/arm/mach-versatile/include/mach/platform.h:453:1: warning: this is the location of the previous definition
-
-Zzzz..
-
-> drivers/atm/firestream.c: In function `submit_qentry':
-> drivers/atm/firestream.c:608: warning: `bus_to_virt' is deprecated (declared at /usr/src/devel/arch/arm/include/asm/memory.h:189)
-
-zillions more snipped
-
-> include/asm-generic/cmpxchg-local.h:15: warning: 'prev' might be used uninitialized in this function
-> drivers/gpu/drm/drm_lock.c: In function `drm_lock_free':
-> include/asm-generic/cmpxchg-local.h:15: warning: 'prev' might be used uninitialized in this function
-> include/asm-generic/cmpxchg-local.h:15: warning: 'prev' might be used uninitialized in this function
-> drivers/gpu/drm/drm_lock.c: In function `drm_notifier':
-> include/asm-generic/cmpxchg-local.h:15: warning: 'prev' might be used uninitialized in this function
-> drivers/gpu/drm/drm_lock.c: In function `drm_idlelock_release':
-> include/asm-generic/cmpxchg-local.h:15: warning: 'prev' might be used uninitialized in this function
-
-didn't look.
-
-> drivers/gpu/drm/drm_agpsupport.c:36:21: asm/agp.h: No such file or directory
-> make[3]: *** [drivers/gpu/drm/drm_agpsupport.o] Error 1
-> make[2]: *** [drivers/gpu/drm] Error 2
-> make[1]: *** [drivers/gpu] Error 2
-> make[1]: *** Waiting for unfinished jobs....
-
-DRM has been breaking arm allmodconfig for at least a year.
-
-> include/asm-generic/cmpxchg-local.h:15: warning: 'prev' might be used uninitialized in this function
-> kernel/trace/trace_irqsoff.c: In function `start_critical_timings':
-> kernel/trace/trace_irqsoff.c:185: warning: unsupported arg to `__builtin_return_address'
-> kernel/trace/trace_irqsoff.c: In function `stop_critical_timings':
-> kernel/trace/trace_irqsoff.c:222: warning: unsupported arg to `__builtin_return_address'
-> sound/soc/codecs/tlv320aic23.c: In function `tlv320aic23_set_dai_sysclk':
-> sound/soc/codecs/tlv320aic23.c:424: warning: unused variable `codec'
-> kernel/trace/trace_sched_wakeup.c: In function `probe_wakeup_sched_switch':
-> kernel/trace/trace_sched_wakeup.c:163: warning: unsupported arg to `__builtin_return_address'
-> kernel/trace/trace_sched_wakeup.c:163: warning: unsupported arg to `__builtin_return_address'
-> kernel/trace/trace_sched_wakeup.c: In function `probe_wakeup':
-> kernel/trace/trace_sched_wakeup.c:265: warning: unsupported arg to `__builtin_return_address'
-> kernel/trace/trace_sched_wakeup.c:265: warning: unsupported arg to `__builtin_return_address'
-
-More CALLER_ADDR stuff.
-
-> net/netlabel/netlabel_mgmt.c: In function `netlbl_mgmt_listentry':
-> net/netlabel/netlabel_mgmt.c:268: warning: 'ret_val' might be used uninitialized in this function
-
-Assumes that netlbl_af4list_foreach_rcu() will never iterate zero times.
-
-Assumes that entry->type can never have an unexpected value.
-
-gcc cannot get this right, and C-level changes will be needed to shut
-this up.
-
-
-> net/phonet/pn_dev.c: In function `phonet_device_get':
-> net/phonet/pn_dev.c:72: warning: 'dev' might be used uninitialized in this function
-
-Assumes that pndevs.list can enver be empty.  Only fixable at the C
-level.  uninitialized_var(), or initialize it to NULL or whatever.
-
-> include/asm-generic/xor.h:696: warning: 'xor_block_8regs_p' defined but not used
-> include/asm-generic/xor.h:704: warning: 'xor_block_32regs_p' defined but not used
-
-Statically defined storage in a header file.  Puke.
-
-> crypto/async_tx/async_tx.c: In function `async_trigger_callback':
-> crypto/async_tx/async_tx.c:584: warning: 'chan' might be used uninitialized in this function
-
-I suppose that if gcc was genius enough they might make this go away. 
-But I expect the code could be reorganised to fix this.
-
-
-> sound/pci/hda/patch_sigmatel.c: In function `stac92xx_smux_enum_put':
-> sound/pci/hda/patch_sigmatel.c:571: warning: 'val' might be used uninitialized in this function
-
-This looks like a bug.
-
-> fs/ntfs/compress.c: In function `ntfs_read_compressed_block':
-> fs/ntfs/compress.c:521: warning: 'pages' might be used uninitialized in this function
-
-Well that's weird.
-
-> include/linux/slub_def.h:231: warning: 'ret' might be used uninitialized in this function
-> include/linux/slub_def.h:231: warning: 'ret' might be used uninitialized in this function
-> fs/xfs/quota/xfs_qm_syscalls.c: In function `xfs_qm_dqrele_inodes_ag':
-> fs/xfs/quota/xfs_qm_syscalls.c:1039: warning: 'inode_refed' might be used uninitialized in this function
-> fs/xfs/xfs_rtalloc.c: In function `xfs_growfs_rt':
-> fs/xfs/xfs_rtalloc.c:1875: warning: 'tp' might be used uninitialized in this function
-> fs/udf/super.c: In function `udf_process_sequence':
-> fs/udf/super.c:1240: warning: 'map' might be used uninitialized in this function
-
-I lost interest here.
-
-> fs/quota_v2.c: In function `v2_read_file_info':
-> fs/quota_v2.c:119: warning: integer constant is too large for "unsigned long" type
-> fs/quota_v2.c:120: warning: integer constant is too large for "unsigned long" type
-
-That's the new quota stuff.  I thought I fixed that...
+Besides, there is also the case that km_query() in xfrm_state_find()
+fails in which we would leak -ESRCH to user space too. As mentioned in =
+a
+previous email, returning -EAGAIN is arguably more appropriate if the
+cause of km_query failing was that racoon's receive buffer was full
+(could happen under heavy load), because as racoon reads from it the
+problem will go away.
 
