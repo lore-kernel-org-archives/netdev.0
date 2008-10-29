@@ -1,52 +1,98 @@
-From: Joe Perches <joe@perches.com>
-Subject: [ofa-general] ***SPAM*** [PATCH] infiniband: Add struct in6_addr
-	addr to union ib_gib
-Date: Tue, 28 Oct 2008 17:16:14 -0700
-Message-ID: <1225239374.5269.251.camel@localhost>
-References: <1225229901.11483.58.camel@brick>
-	<1225234963.5269.228.camel@localhost>  <ada8ws8mi8x.fsf@cisco.com>
-	<1225236128.5269.240.camel@localhost>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] vlan: propogate ethtool speed values
+Date: Tue, 28 Oct 2008 17:53:08 -0700
+Message-ID: <20081028175308.07202283@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	general@lists.openfabrics.org, Sean Hefty <sean.hefty@intel.com>,
-	Harvey Harrison <harvey.harrison@gmail.com>
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1225236128.5269.240.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:39366 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751365AbYJ2AxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2008 20:53:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ib_gid's can be print'd using the new %p6 facility
+This enables more ethtool information. The speed and settings of the
+underlying device are propagated up. This makes services like SNMP that
+use ethtool to get speed setting, work when managing a vlan, without adding
+silly heurtistics into SNMP daemon.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+For the driver info, just use existing driver strings.
 
-diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
-index 936e333..464ed9d 100644
---- a/include/rdma/ib_verbs.h
-+++ b/include/rdma/ib_verbs.h
-@@ -47,6 +47,7 @@
- #include <linux/list.h>
- #include <linux/rwsem.h>
- #include <linux/scatterlist.h>
-+#include <linux/in6.h>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
+--- a/net/8021q/vlan.c	2008-10-28 17:39:54.000000000 -0700
++++ b/net/8021q/vlan.c	2008-10-28 17:40:48.000000000 -0700
+@@ -46,10 +46,10 @@ int vlan_net_id;
+ /* Our listing of VLAN group(s) */
+ static struct hlist_head vlan_group_hash[VLAN_GRP_HASH_SIZE];
  
- #include <asm/atomic.h>
- #include <asm/uaccess.h>
-@@ -57,6 +58,7 @@ union ib_gid {
- 		__be64	subnet_prefix;
- 		__be64	interface_id;
- 	} global;
-+	struct in6_addr	addr;
- };
+-static char vlan_fullname[] = "802.1Q VLAN Support";
+-static char vlan_version[] = DRV_VERSION;
+-static char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
+-static char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
++const char vlan_fullname[] = "802.1Q VLAN Support";
++const char vlan_version[] = DRV_VERSION;
++static const char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
++static const char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
  
- enum rdma_node_type {
+ static struct packet_type vlan_packet_type = {
+ 	.type = __constant_htons(ETH_P_8021Q),
+--- a/net/8021q/vlan.h	2008-10-28 17:40:58.000000000 -0700
++++ b/net/8021q/vlan.h	2008-10-28 17:43:36.000000000 -0700
+@@ -108,8 +108,10 @@ static inline int vlan_gvrp_init(void) {
+ static inline void vlan_gvrp_uninit(void) {}
+ #endif
+ 
+-int vlan_netlink_init(void);
+-void vlan_netlink_fini(void);
++extern const char vlan_fullname[];
++extern const char vlan_version[];
++extern int vlan_netlink_init(void);
++extern void vlan_netlink_fini(void);
+ 
+ extern struct rtnl_link_ops vlan_link_ops;
+ 
+--- a/net/8021q/vlan_dev.c	2008-10-28 17:33:55.000000000 -0700
++++ b/net/8021q/vlan_dev.c	2008-10-28 17:45:42.000000000 -0700
+@@ -648,6 +648,26 @@ static void vlan_dev_uninit(struct net_d
+ 	}
+ }
+ 
++static int vlan_ethtool_get_settings(struct net_device *dev,
++				     struct ethtool_cmd *cmd)
++{
++	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
++	struct net_device *real_dev = vlan->real_dev;
++
++	if (!real_dev->ethtool_ops->get_settings)
++		return -EOPNOTSUPP;
++
++	return real_dev->ethtool_ops->get_settings(real_dev, cmd);
++}
++
++static void vlan_ethtool_get_drvinfo(struct net_device *dev,
++				     struct ethtool_drvinfo *info)
++{
++	strcpy(info->driver, vlan_fullname);
++	strcpy(info->version, vlan_version);
++	strcpy(info->fw_version, "N/A");
++}
++
+ static u32 vlan_ethtool_get_rx_csum(struct net_device *dev)
+ {
+ 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+@@ -672,6 +692,8 @@ static u32 vlan_ethtool_get_flags(struct
+ }
+ 
+ static const struct ethtool_ops vlan_ethtool_ops = {
++	.get_settings	        = vlan_ethtool_get_settings,
++	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_rx_csum		= vlan_ethtool_get_rx_csum,
+ 	.get_flags		= vlan_ethtool_get_flags,
