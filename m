@@ -1,35 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
-Date: Tue, 28 Oct 2008 22:05:36 -0700 (PDT)
-Message-ID: <20081028.220536.183082966.davem@davemloft.net>
-References: <20081008.114527.189056050.davem@davemloft.net>
-	<49077918.4050706@cosmosbay.com>
-	<490795FB.2000201@cosmosbay.com>
+Subject: Re: [RFC][PATCH] xfrm: do not leak ESRCH to user space
+Date: Tue, 28 Oct 2008 22:06:47 -0700 (PDT)
+Message-ID: <20081028.220647.161635128.davem@davemloft.net>
+References: <1224810300.8667.26.camel@sebastian.kern.oss.ntt.co.jp>
+	<20081028.155817.216873568.davem@davemloft.net>
+	<1225249103.7276.56.camel@sebastian.kern.oss.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, benny+usenet@amorsen.dk, minyard@acm.org,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	clameter@sgi.com, a.p.zijlstra@chello.nl, johnpol@2ka.mipt.ru
-To: dada1@cosmosbay.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: fernando@oss.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45195
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45204
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751223AbYJ2FF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 01:05:59 -0400
-In-Reply-To: <490795FB.2000201@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1751334AbYJ2FHJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Oct 2008 01:07:09 -0400
+In-Reply-To: <1225249103.7276.56.camel@sebastian.kern.oss.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 28 Oct 2008 23:45:15 +0100
+=46rom: Fernando Luis V=E1zquez Cao <fernando@oss.ntt.co.jp>
+Date: Wed, 29 Oct 2008 11:58:23 +0900
 
-> I will submit a new patch serie tomorrow, with :
-> 
-> Patch 1 : spinlocks instead of rwlocks, and bug spotted by Christian Bell
-> 
-> Patch 2 : splited on two parts (2 & 3) , one for IPV4, one for IPV6, 
+> On Tue, 2008-10-28 at 15:58 -0700, David Miller wrote:
+> > From: Fernando Luis V=E1zquez Cao <fernando@oss.ntt.co.jp>
+> > Date: Fri, 24 Oct 2008 10:05:00 +0900
+> >=20
+> > > Looking at the code, the window during which an entry is in
+> > > XFRM_STATE_EXPIRED state seems to be about 2 seconds in the worst=
+ case.
+> > > Connection attempts before and after that window would most likel=
+y
+> > > result in a successful connection or -EAGAIN, respectively. Would=
+ not it
+> > > make sense to return -EAGAIN also during that 2 seconds window?
+> >=20
+> > Only if an acquire has been triggered and is in progress, which as
+> > explained above the code already seems to handle.
+> As explained above that does not seem to be the case.
+>=20
+> Besides, there is also the case that km_query() in xfrm_state_find()
+> fails in which we would leak -ESRCH to user space too. As mentioned i=
+n a
+> previous email, returning -EAGAIN is arguably more appropriate if the
+> cause of km_query failing was that racoon's receive buffer was full
+> (could happen under heavy load), because as racoon reads from it the
+> problem will go away.
 
-I very much look forward to this :-)
+Good points, I'll think about this some more.
 
-I like these changes and can't wait to add them to net-next-2.6
+Thank you.
