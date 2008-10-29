@@ -1,44 +1,52 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
 Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Wed, 29 Oct 2008 12:50:37 +0300
-Message-ID: <20081029095037.GA7973@ioremap.net>
-References: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk> <20081027183312.GD11494@elte.hu> <20081027193933.GB2590@ioremap.net> <20081027.124848.163119274.davem@davemloft.net> <1225189462.4903.238.camel@marge.simson.net> <20081028103741.GA22319@elte.hu> <20081029091405.GA3780@ioremap.net>
+Date: Wed, 29 Oct 2008 20:59:37 +1100
+Message-ID: <200810292059.37995.nickpiggin@yahoo.com.au>
+References: <1224917623.4929.15.camel@marge.simson.net> <20081027113306.5b1d5898@lxorguk.ukuu.org.uk> <20081027183312.GD11494@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Galbraith <efault@gmx.de>, David Miller <davem@davemloft.net>,
-	alan@lxorguk.ukuu.org.uk, jkosina@suse.cz,
-	akpm@linux-foundation.org, a.p.zijlstra@chello.nl, rjw@sisk.pl,
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Jiri Kosina <jkosina@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Galbraith <efault@gmx.de>,
+	David Miller <davem@davemloft.net>, rjw@sisk.pl,
 	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:49976 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752381AbYJ2Juk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 05:50:40 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753652AbYJ2KAK@vger.kernel.org>
+In-Reply-To: <20081027183312.GD11494@elte.hu>
 Content-Disposition: inline
-In-Reply-To: <20081029091405.GA3780@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 29, 2008 at 12:14:05PM +0300, Evgeniy Polyakov (zbr@ioremap.net) wrote:
-> vanilla 27	: 347.222
-> no TSO/GSO	: 357.331
-> no hrticks	: 382.983
-> no balance	: 389.802
-> 4403b4 commit	: 361.184
-> dirty_ratio-50	: 361.086
-> no-sched-tweaks	: 361.367
-> 
-> So, probably, if we revert -tip merge to vanilla .27, add nohrtick patch
-> and nobalance tweak _only_, and apply naive TSO patch we could bring
-> system to 400 MB/s. Note, that .22 has 479.82 and .23 454.36 MB/s.
+On Tuesday 28 October 2008 05:33, Ingo Molnar wrote:
+> * Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+> > > The way to get the best possible dbench numbers in CPU-bound dbench
+> > > runs, you have to throw away the scheduler completely, and do this
+> > > instead:
+> > >
+> > >  - first execute all requests of client 1
+> > >  - then execute all requests of client 2
+> > >  ....
+> > >  - execute all requests of client N
+> >
+> > Rubbish. [...]
+>
+> i've actually implemented that about a decade ago: i've tracked down
+> what makes dbench tick, i've implemented the kernel heuristics for it
+> to make dbench scale linearly with the number of clients - just to be
+> shot down by Linus about my utter rubbish approach ;-)
+>
+> > [...] If you do that you'll not get enough I/O in parallel to
+> > schedule the disk well (not that most of our I/O schedulers are
+> > doing the job well, and the vm writeback threads then mess it up and
+> > the lack of Arjans ioprio fixes then totally screw you) </rant>
+>
+> the best dbench results come from systems that have enough RAM to
+> cache the full working set, and a filesystem intelligent enough to not
+> insert bogus IO serialization cycles (ext3 is not such a filesystem).
 
-And now I have to admit that the very last -top merge did noticebly
-improve the situation upto 391.331 MB/s (189 in domains, with tso/gso
-off and naive tcp_tso_should_defer() hange).
-
-So we are now essentially at the level of 24-25 trees in my tests.
-
--- 
-	Evgeniy Polyakov
+You can get good dbench results come from dbench on tmpfs, which
+exercises the vm vfs scheduler etc without IO or filesystems.
