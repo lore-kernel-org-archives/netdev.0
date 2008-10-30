@@ -1,48 +1,91 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] HTB updates class's bstats in one place
-Date: Thu, 30 Oct 2008 08:11:58 +0100
-Message-ID: <49095E3E.70705@trash.net>
-References: <20081029102356.GA6165@ff.dom.local> <49083BF5.5090606@trash.net> <412e6f7f0810291803j3858cd2fq373a9c4f49664825@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Subject: netns 01/02: add register_pernet_gen_subsys/unregister_pernet_gen_subsys
+Date: Thu, 30 Oct 2008 08:31:46 +0100 (MET)
+Message-ID: <20081030073145.14487.48665.sendpatchset@x2.localnet>
+References: <20081030073143.14487.24299.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53099 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:53515 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753068AbYJ3HME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 03:12:04 -0400
-In-Reply-To: <412e6f7f0810291803j3858cd2fq373a9c4f49664825@mail.gmail.com>
+	with ESMTP id S1753197AbYJ3Hbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 03:31:48 -0400
+In-Reply-To: <20081030073143.14487.24299.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao wrote:
-> On Wed, Oct 29, 2008 at 6:33 PM, Patrick McHardy <kaber@trash.net> wrote:
->> Only for purely informational purposes, for policing you'd want to
->> use arrival rates. Since there are no users of estimators in the kernel
->> besides policers (which use seperate ones), the point is not terribly
->> important.
-> 
-> Where can I find sth. about this?
-> 
-> In fact, this bug is encountered when I am trying to implement a
-> statistic daemon in user space. It fetches the classes's statistics
-> data periodicity, then calculates the rate based on the data fetched.
-> In some cases, it reports the leaf classes's rate is over theirs
-> limit, but its ascent's isn't.
-> 
-> I think there must be someone does the same thing as me. So the
-> feature is important for them too. If we don't fix it, how can I
-> archive my requirement? Any comment?
+commit 616b16ca5561a4cb0fc6796ebf551e11636a3156
+Author: Alexey Dobriyan <adobriyan@gmail.com>
+Date:   Thu Oct 30 08:15:35 2008 +0100
 
-Independant of this statistics bug, according to your description
-you want to measure departure rates (otherwise the measured rates
-can't really be compared to the limit) and the current counters are
-not really suitable for this since they count arriving packets.
-So the only way to properly do this is to add seperate counters that
-account for departing packets. I think this would be a good addition
-since we've always been advocating to do this stuff in userspace,
-but it would need some thought on how to minimize the impact for
-people not needing it.
+    netns: add register_pernet_gen_subsys/unregister_pernet_gen_subsys
+    
+    netns ops which are registered with register_pernet_gen_device() are
+    shutdown strictly before those which are registered with
+    register_pernet_subsys(). Sometimes this leads to opposite (read: buggy)
+    shutdown ordering between two modules.
+    
+    Add register_pernet_gen_subsys()/unregister_pernet_gen_subsys() for modules
+    which aren't elite enough for entry in struct net, and which can't use
+    register_pernet_gen_device(). PPTP conntracking module is such one.
+    
+    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 708009b..700c53a 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -214,6 +214,8 @@ struct pernet_operations {
+ 
+ extern int register_pernet_subsys(struct pernet_operations *);
+ extern void unregister_pernet_subsys(struct pernet_operations *);
++extern int register_pernet_gen_subsys(int *id, struct pernet_operations *);
++extern void unregister_pernet_gen_subsys(int id, struct pernet_operations *);
+ extern int register_pernet_device(struct pernet_operations *);
+ extern void unregister_pernet_device(struct pernet_operations *);
+ extern int register_pernet_gen_device(int *id, struct pernet_operations *);
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index f1d07b5..1895a4c 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -325,6 +325,38 @@ void unregister_pernet_subsys(struct pernet_operations *module)
+ }
+ EXPORT_SYMBOL_GPL(unregister_pernet_subsys);
+ 
++int register_pernet_gen_subsys(int *id, struct pernet_operations *ops)
++{
++	int rv;
++
++	mutex_lock(&net_mutex);
++again:
++	rv = ida_get_new_above(&net_generic_ids, 1, id);
++	if (rv < 0) {
++		if (rv == -EAGAIN) {
++			ida_pre_get(&net_generic_ids, GFP_KERNEL);
++			goto again;
++		}
++		goto out;
++	}
++	rv = register_pernet_operations(first_device, ops);
++	if (rv < 0)
++		ida_remove(&net_generic_ids, *id);
++	mutex_unlock(&net_mutex);
++out:
++	return rv;
++}
++EXPORT_SYMBOL_GPL(register_pernet_gen_subsys);
++
++void unregister_pernet_gen_subsys(int id, struct pernet_operations *ops)
++{
++	mutex_lock(&net_mutex);
++	unregister_pernet_operations(ops);
++	ida_remove(&net_generic_ids, id);
++	mutex_unlock(&net_mutex);
++}
++EXPORT_SYMBOL_GPL(unregister_pernet_gen_subsys);
++
+ /**
+  *      register_pernet_device - register a network namespace device
+  *	@ops:  pernet operations structure for the subsystem
