@@ -1,111 +1,64 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] : Fix compilation warnings in net/netlabel/netlabel_addrlist.c
-Date: Thu, 30 Oct 2008 09:39:59 -0400
-Message-ID: <200810300939.59145.paul.moore@hp.com>
-References: <ea11fea30810290106u3f92268q62226da65db6f6a4@mail.gmail.com> <200810300812.39810.paul.moore@hp.com> <ea11fea30810300633m5a99d4a1k9c0b9a2aa241ecb1@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: pkt_sched: Control group classifier
+Date: Thu, 30 Oct 2008 15:24:17 +0100
+Message-ID: <20081030142417.GL20815@postel.suug.ch>
+References: <20081027.123056.22851224.davem@davemloft.net> <20081027.170524.124746723.davem@davemloft.net> <20081030105431.GI20815@postel.suug.ch> <166fe7950810300457h3b1c11c9m437aab08ddc8afa3@mail.gmail.com> <20081030131008.GK20815@postel.suug.ch> <166fe7950810300629v714c8860ke38255275b57a523@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "Manish Katiyar" <mkatiyar@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ranjit Manomohan <ranjitm@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:30070 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754135AbYJ3NkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 09:40:03 -0400
-In-Reply-To: <ea11fea30810300633m5a99d4a1k9c0b9a2aa241ecb1@mail.gmail.com>
+Received: from postel.suug.ch ([194.88.212.233]:55810 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753228AbYJ3OX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2008 10:23:57 -0400
 Content-Disposition: inline
+In-Reply-To: <166fe7950810300629v714c8860ke38255275b57a523@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 30 October 2008 9:33:55 am Manish Katiyar wrote:
-> Hi Paul,
->
-> Below is the updated patch.
->
-> Enable netlabel auditing functions only when CONFIG_AUDIT is set
->
-> Signed-off-by: Manish Katiyar <mkatiyar@gmail.com>
+* Ranjit Manomohan <ranjitm@google.com> 2008-10-30 06:29
+> By assigning the parent to the cgroup before the new process is forked.
+> 
+> An excerpt from the patch I had sent out:
+> 
+> # write the current shell pid to the cgroup
+> echo $$ > /dev/cgroup/file_transfer/tasks
+> #start the new task (e.g. ftp)
+> ftp foo.bar.com
 
-Thanks a lot, I'll apply this and send a pull request later today.
+This is actually new information, so far you have been proposing
+echo $PID_OF_FILE_XFER_PROCESS > /dev/cgroup/file_transfer/tasks
 
-> ---
->  net/netlabel/netlabel_addrlist.c |    2 ++
->  net/netlabel/netlabel_addrlist.h |   22 ++++++++++++++++++++++
->  2 files changed, 24 insertions(+), 0 deletions(-)
->
-> diff --git a/net/netlabel/netlabel_addrlist.c
-> b/net/netlabel/netlabel_addrlist.c index b0925a3..249f6b9 100644
-> --- a/net/netlabel/netlabel_addrlist.c
-> +++ b/net/netlabel/netlabel_addrlist.c
-> @@ -315,6 +315,7 @@ struct netlbl_af6list
-> *netlbl_af6list_remove(const struct in6_addr *addr,
->   * Audit Helper Functions
->   */
->
-> +#ifdef CONFIG_AUDIT
->  /**
->   * netlbl_af4list_audit_addr - Audit an IPv4 address
->   * @audit_buf: audit buffer
-> @@ -386,3 +387,4 @@ void netlbl_af6list_audit_addr(struct
-> audit_buffer *audit_buf,
->  	}
->  }
->  #endif /* IPv6 */
-> +#endif /* CONFIG_AUDIT */
-> diff --git a/net/netlabel/netlabel_addrlist.h
-> b/net/netlabel/netlabel_addrlist.h index 0242bea..3212965 100644
-> --- a/net/netlabel/netlabel_addrlist.h
-> +++ b/net/netlabel/netlabel_addrlist.h
-> @@ -120,9 +120,19 @@ struct netlbl_af4list
-> *netlbl_af4list_search(__be32 addr, struct netlbl_af4list
-> *netlbl_af4list_search_exact(__be32 addr, __be32 mask,
->  						   struct list_head *head);
-> +
-> +#ifdef CONFIG_AUDIT
->  void netlbl_af4list_audit_addr(struct audit_buffer *audit_buf,
->  			       int src, const char *dev,
->  			       __be32 addr, __be32 mask);
-> +#else
-> +static inline void netlbl_af4list_audit_addr(struct audit_buffer
-> *audit_buf, +			       int src, const char *dev,
-> +			       __be32 addr, __be32 mask)
-> +{
-> +	return;
-> +}
-> +#endif
->
->  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
->
-> @@ -179,11 +189,23 @@ struct netlbl_af6list
-> *netlbl_af6list_search(const struct in6_addr *addr,
->  struct netlbl_af6list *netlbl_af6list_search_exact(const struct
-> in6_addr *addr, const struct in6_addr *mask,
->  						   struct list_head *head);
-> +
-> +#ifdef CONFIG_AUDIT
->  void netlbl_af6list_audit_addr(struct audit_buffer *audit_buf,
->  			       int src,
->  			       const char *dev,
->  			       const struct in6_addr *addr,
->  			       const struct in6_addr *mask);
-> +#else
-> +static inline void netlbl_af6list_audit_addr(struct audit_buffer
-> *audit_buf, +			       int src,
-> +			       const char *dev,
-> +			       const struct in6_addr *addr,
-> +			       const struct in6_addr *mask)
-> +{
-> +	return;
-> +}
-> +#endif
->  #endif /* IPV6 */
->
->  #endif
+I think this is a reasonable approach but not enough in some
+situations. The cgroup documentation lists a web browser cgroup
+as one of its example, how would you configure this exactly?
+Creating wrapper scripts is possible but doesn't guarantee that
+the user actually runs the wrapper rather than the actual browser
+itself.
 
+How does it work with kernel threads? F.e. knfsd.
 
+I thought the point with cgroups was to allow the administrator to
+classify processes based on exec notifications as found in the
+documentation:
 
--- 
-paul moore
-linux @ hp
+<quote>
+With the ability to classify tasks differently for different resources
+(by putting those resource subsystems in different hierarchies) then
+the admin can easily set up a script which receives exec notifications
+and depending on who is launching the browser he can
+
+       # echo browser_pid > /mnt/<restype>/<userclass>/tasks
+<endquote>
+
+I think all arguments have been brought up. There are pros and cons
+with either solution.
+
+> Again in practice both these may be overkill since it should be
+> relatively easy for a resource management daemon on the system to
+> start new processes in a cgroup instead of attempting live migration.
+
+I guess this is a matter of perspective. Personally I would find it
+useful to be able to throw running processes into a cgroup and
+limit their resource consumption.
