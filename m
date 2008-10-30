@@ -1,30 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] CUBIC v2.3 with new improved slow start
-Date: Wed, 29 Oct 2008 18:08:09 -0700
-Message-ID: <490908F9.6070306@hp.com>
-References: <006001c93a0d$477d4e30$4a580e98@ncsu2cc0c3fa00>	<20081029153928.3d47e26f@extreme>	<000b01c93a1c$090222c0$6c01a8c0@RHEELAPTOP>	<20081029164045.7422b68d@extreme> <4908F775.9040504@hp.com>
+From: "Bob Copeland" <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-10-29
+Date: Wed, 29 Oct 2008 21:19:01 -0400
+Message-ID: <b6c5339f0810291819ld7d6043k56b11128bc6252cb@mail.gmail.com>
+References: <20081029231855.GD3485@tuxdriver.com>
+	 <20081029162324.28f5864d@infradead.org>
+	 <20081029233350.GE3485@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Injong Rhee <rhee@ncsu.edu>, Injong Rhee <rhee@eos.ncsu.edu>,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:33387 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751200AbYJ3BIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 21:08:14 -0400
-In-Reply-To: <4908F775.9040504@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Arjan van de Ven" <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081029233350.GE3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> FWIW, HP-UX and Solaris also have ACK avoidance heursistics - they have 
-> a Mentat history - although both should be pretty good and neither 
-> should hold-off ACKs for two seconds...
+On Wed, Oct 29, 2008 at 7:33 PM, John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> On Wed, Oct 29, 2008 at 04:23:24PM -0700, Arjan van de Ven wrote:
+>> On Wed, 29 Oct 2008 19:18:55 -0400
+>> "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+>> it seems to have added a few WARN_ON()s which now end up at the top of
+>> the list .. are these known or should I spend some time writing reports
+>> for netdev ?
 
-IIRC the last time I looked at a packet trace from a link with LRO 
-enabled under "Linux," that too caused "ACK avoidance" - that is we 
-stray from the "ACK every other" faith.
+Pavel Roskin posted one such WARN_ON to ath5k-devel a few days ago.
+Seems related to setup of the rate tables, but I haven't reproduced it
+here yet.  I'll see if he has more info...
 
-rick jones
+-- 
+Bob Copeland %% www.bobcopeland.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
