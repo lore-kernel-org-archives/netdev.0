@@ -1,39 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: question: emulate_large_send_offload
-Date: Thu, 30 Oct 2008 14:37:47 -0700 (PDT)
-Message-ID: <20081030.143747.163113057.davem@davemloft.net>
-References: <4909F4E1.3070304@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 6/6] netns: configurable number of initial network	namespaces
+Date: Thu, 30 Oct 2008 15:41:17 -0700
+Message-ID: <m1prlh1zaq.fsf@frodo.ebiederm.org>
+References: <20081028174659.GF8471@thomson.net> <49075138.80808@trash.net>
+	<49075488.8030002@thomson.net> <49075842.6000901@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: hummerbliss@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Chappelier <vivien.chappelier@thomson.net>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Benjamin Thery <benjamin.thery@bull.net>, jleu@mindspring.com,
+	linux-vrf-general@lists.sourceforge.net
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57582
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753653AbYJ3ViN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 17:38:13 -0400
-In-Reply-To: <4909F4E1.3070304@gmail.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:37009 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751421AbYJ3Wox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 18:44:53 -0400
+In-Reply-To: <49075842.6000901@trash.net> (Patrick McHardy's message of "Tue,
+	28 Oct 2008 19:21:54 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saikiran Madugula <hummerbliss@gmail.com>
-Date: Thu, 30 Oct 2008 17:54:41 +0000
+Patrick McHardy <kaber@trash.net> writes:
 
-netdev is the proper mailing list for code and technical
-networking discussions, linux-net is for simpler user
-questions such as "how do I configure a bridge with 3
-interfaces under Linux"
+> Vivien Chappelier wrote:
+>>    Yes; the linux-vrf patches had a new netlink message to create/remove the
+>> equivalent of a network namespace (ip vrf add 1). I've not ported this feature
+>> yet, so this patch is meant to provide another way of setting up networking
+>> stacks without the need for a new process for each stack. The ability to
+>> dynamically create/remove networking stacks from userspace would definitely be
+>> useful.
+>
+> I see, I didn't realize the process that created a namespace
+> needs to be kept running. So yes, creating standalone network
+> namespaces seems to make sense
 
-netdev added to CC:
+To be clear a reference needs to be kept to the network namespace.
+Either by being the network namespace that new sockets are created in
+task->nsproxy->netns or the network namespace of an open socket sock_net(sk).
 
-> Any particular reason emulate_large_send_offload call is still present in the
-> loopback_xmit (drivers/net/loopback.c)? It looks like the function has been
-> removed recently (git commit 7447ef63cf2dfdc444f4c72ae13f604350b2e25f).
-> 
-> Saikiran.
-> Please CC me as I am not on the list.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If neither of those two conditions hold the network namespace count drops to
+zero and it will be freed.  Probably not ideal if you are just doing routing.
+
+Eric
