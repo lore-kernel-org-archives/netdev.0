@@ -1,62 +1,61 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Thu, 30 Oct 2008 21:01:19 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0810302047030.22084@wrl-59.cs.helsinki.fi>
-References: <20081009231759.GA8664@tservice.net.ru> <20081010115518.GA3159@tservice.net.ru>
- <20081010115725.GD19487@elte.hu> <200810250025.35734.rjw@sisk.pl>
- <20081026112924.GA29258@ioremap.net> <20081026122300.GA30905@ioremap.net>
- <20081030111526.7d9bb0f8@extreme>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/4] printk: add %I4, %I6, %i4, %i6 format specifiers
+Date: Thu, 30 Oct 2008 13:28:58 -0700
+Message-ID: <1225398538.1288.9.camel@localhost>
+References: <1225305340.5688.36.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@elte.hu>,
-	Evgeniy Polyakov <s0mbre@tservice.net.ru>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Mike Galbraith <efault@gmx.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43490 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756452AbYJ3TFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 15:05:04 -0400
-In-Reply-To: <20081030111526.7d9bb0f8@extreme>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2337 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753121AbYJ3U3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 16:29:04 -0400
+In-Reply-To: <1225305340.5688.36.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Oct 2008, Stephen Hemminger wrote:
-
-> Has anyone looked into the impact of port randomization on this benchmark.
-> If it is generating lots of sockets quickly there could be an impact:
->   * port randomization causes available port space to get filled non-uniformly
->     and what was once a linear scan may have to walk over existing ports.
->     (This could be improved by a hint bitmap)
+On Wed, 2008-10-29 at 11:35 -0700, Harvey Harrison wrote:
+> For use in printing IPv4, or IPv6 addresses in the usual way:
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---
+>  lib/vsprintf.c |   31 +++++++++++++++++++++++++++++++
+>  1 files changed, 31 insertions(+), 0 deletions(-)
 > 
->   * port randomization adds at least one modulus operation per socket
->     creation. This could be optimized by using a loop instead.
+> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+> index cb5bc04..a863006 100644
+> --- a/lib/vsprintf.c
+> +++ b/lib/vsprintf.c
+[]
+> @@ -650,6 +671,16 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int field
+>  		return mac_address_string(buf, end, ptr, field_width, precision, flags);
+>  	case '6':
+>  		return ip6_addr_string(buf, end, ptr, field_width, precision, flags);
+> +	case 'i':
+> +		flags |= SPECIAL;
+> +		/* Fallthrough */
+> +	case 'I':
+> +		if (fmt[1] == '6')
+> +			return ip6_addr_string(buf, end, ptr, field_width, precision, flags);
+> +		if (fmt[1] == '4')
+> +			return ip4_addr_string(buf, end, ptr, field_width, precision, flags);
+> +		flags &= ~SPECIAL;
+> +		break;
+>  	}
+>  	flags |= SMALL;
+>  	if (field_width == -1) {
 
-I did something with AIM9's tcp_test recently (1-2 days ago depending on 
-how one calculates that so didn't yet have time summarize the details in 
-the AIM9 thread) by deterministicly binding in userspace and got much more 
-sensible numbers than with randomized ports (2-4%/5-7% vs 25% variation 
-some difference in variation in different kernel versions even with 
-deterministic binding). Also, I'm still to actually oprofile and bisect 
-the remaining ~4% regression (around 20% was reported by Christoph). For 
-oprofiling I might have to change aim9 to do predefined number of loops 
-instead of a deadline to get more consistent view on changes in per func 
-runtime.
+Hi Harvey.
 
-AIM9 is one process only so scheduler has a bit less to do in that 
-benchmark anyway.
+I was thinking about extending %p<foo> to support
+struct task_struct * and noticed this code isn't
+really correct.
 
-It would probably be nice to test just the port randomizer separately to 
-see if there's some regression in that but I don't expect it to happen
-any time soon unless I quickly come up with something in the bisection.
+SPECIAL should be cleared from flags only when *fmt
+is 'i' not 'I' and SPECIAL wasn't previously set.
 
+cheers, Joe
 
--- 
- i.
