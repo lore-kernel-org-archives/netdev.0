@@ -1,17 +1,17 @@
 From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 2.6.28] myri10ge: fix stop/go mmio ordering
-Date: Thu, 30 Oct 2008 08:53:27 +0100
-Message-ID: <490967F7.4030608@myri.com>
+Subject: [RESEND][PATCH 2.6.28] myri10ge: fix stop/go mmio ordering
+Date: Thu, 30 Oct 2008 08:59:33 +0100
+Message-ID: <49096965.20905@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1880 "EHLO myri.com"
+Received: from mailbox2.myri.com ([64.172.73.26]:1983 "EHLO myri.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752768AbYJ3Hvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2008 03:51:39 -0400
+	id S1752439AbYJ3H5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2008 03:57:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,7 +25,7 @@ Signed-off-by: Brice Goglin <brice@myri.com>
  #include "myri10ge_mcp.h"
  #include "myri10ge_mcp_gen_header.h"
  
--#define MYRI10GE_VERSION_STR "1.4.3-1.374"
+-#define MYRI10GE_VERSION_STR "1.4.3-1.371"
 +#define MYRI10GE_VERSION_STR "1.4.3-1.375"
  
  MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
