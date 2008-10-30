@@ -1,86 +1,76 @@
-From: Stefan Hellermann <stefan-/Cgo3cKJSaJlwAJJmLIKuQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-10-29
-Date: Thu, 30 Oct 2008 15:48:30 +0100
-Message-ID: <4909C93E.7020400@the2masters.de>
-References: <20081029231855.GD3485@tuxdriver.com> <20081029162324.28f5864d@infradead.org> <20081029233350.GE3485@tuxdriver.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH] udp: Introduce special NULL pointers for hlist
+ termination
+Date: Thu, 30 Oct 2008 17:01:26 +0100
+Message-ID: <1225382486.7803.129.camel@twins>
+References: <4908627C.6030001@acm.org> <490874F2.2060306@cosmosbay.com>
+	 <49088288.6050805@acm.org> <49088AD1.7040805@cosmosbay.com>
+	 <20081029163739.GB6732@linux.vnet.ibm.com> <49089BE5.3090705@acm.org>
+	 <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org>
+	 <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com>
+	 <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com>
+	 <4909D551.9080309@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org, mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081029233350.GE3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: paulmck@linux.vnet.ibm.com, Corey Minyard <minyard@acm.org>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
+	Christoph Lameter <cl@linux-foundation.org>,
+	johnpol@2ka.mipt.ru, Christian Bell <christian@myri.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from viefep18-int.chello.at ([213.46.255.22]:58768 "EHLO
+	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756238AbYJ3QBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 12:01:19 -0400
+In-Reply-To: <4909D551.9080309@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John W. Linville schrieb:
-> On Wed, Oct 29, 2008 at 04:23:24PM -0700, Arjan van de Ven wrote:
->   
->> On Wed, 29 Oct 2008 19:18:55 -0400
->> "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->>
->>     
->>> Dave,
->>>
->>> Another quick round of fixes intended for 2.6.28...
->>>
->>> This includes fixes for bugs 11749 and 11845, fixes a reset-related
->>> regression in ath5k, fixes a Kconfig-related error for rt2x00, and
->>> fixes some sparse warnings and a possible buffer overrun in libertas.
->>> Also, it corrects a spelling error and marks Bob Copeland as an
->>> ath5k maintainer.
->>>       
->> speaking of ath5k:
->>
->> http://www.kerneloops.org/version.php?start=1835008&end=1867775&version=28-rc
->>
->> it seems to have added a few WARN_ON()s which now end up at the top of
->> the list .. are these known or should I spend some time writing reports
->> for netdev ?
->>     
->
-> I wasn't aware of them -- thanks... :-)
->
->   
-I think some of the reports on kerneloops are from my machine, I'm
-running wireless-testing#master in the hope to get my card fully
-working. It's a AR2425 chip (MAC: 0xe2, PHY: 0x70), in a Lenovo Notebook.
+On Thu, 2008-10-30 at 16:40 +0100, Eric Dumazet wrote:
+> 
+> [PATCH] udp: Introduce special NULL pointers for hlist termination
+> 
+> In order to safely detect changes in chains, we would like to have different
+> 'NULL' pointers. Each chain in hash table is terminated by an unique 'NULL'
+> value, so that the lockless readers can detect their lookups evaded from
+> their starting chain.
+> 
+> We introduce a new type of hlist implementation, named hlist_nulls, were
+> we use the least significant bit of the 'ptr' to tell if its a "NULL" value
+> or a pointer to an object. We expect to use this new hlist variant for TCP
+> as well.
+> 
+> For UDP/UDP-Lite hash table, we use 128 different "NULL" values,
+> (UDP_HTABLE_SIZE=128)
+> 
+> Using hlist_nulls saves memory barriers (a read barrier to fetch 'next'
+> pointers *before* checking key values) we added in commit 
+> 96631ed16c514cf8b28fab991a076985ce378c26
+> (udp: introduce sk_for_each_rcu_safenext())
+> 
+> This also saves a write memory barrier in udp_lib_get_port(), between
+> sk->sk_hash update and sk->next update)
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> ---
+>  include/linux/list_nulls.h    |   97 ++++++++++++++++++++++++++++++++
+>  include/linux/rculist.h       |   17 -----
+>  include/linux/rculist_nulls.h |   55 ++++++++++++++++++
+>  include/net/sock.h            |   50 ++++++++++++----
+>  include/net/udp.h             |    2
+>  net/ipv4/udp.c                |   40 ++++++-------
+>  net/ipv6/udp.c                |   22 ++++---
+>  7 files changed, 228 insertions(+), 55 deletions(-)
 
-The wireless-connection is nearly unusable. I can provide access to this
-machine or test patches if anyone can help.
+If we're going to do this, It'd be good to have the list_nulls stuff in
+their own patch, as clearly they are not UDP specific.
 
-I get many warnings like
+Also, I think it would be very good to have some extensive comments in
+the list_nulls files describing their use in clear and concise language,
+because the above changelog doesn't even begin to explain things for
+those not following this thread.
 
-WARNING: at /srv/devel/kernel/net/mac80211/rx.c:2203
-ath5k_tasklet_rx+0x318/0x5c0()
-Modules linked in:
-Pid: 0, comm: swapper Not tainted 2.6.28-rc1-wl #46
-Call Trace:
- [<c014744f>] warn_on_slowpath+0x5f/0xa0
- [<c013ef69>] enqueue_task_fair+0xb9/0x100
- [<c013ef69>] enqueue_task_fair+0xb9/0x100
- [<c0137835>] default_spin_lock_flags+0x5/0x10
- [<c0574fbb>] _spin_lock_irqsave+0x2b/0x40
- [<c0151347>] lock_timer_base+0x27/0x60
- [<c01514e0>] __mod_timer+0x90/0xa0
- [<c03e8dea>] rexmit_timer+0x36a/0x3d0
- [<c03aebe8>] ath5k_tasklet_rx+0x318/0x5c0
- [<c014bfb0>] tasklet_action+0x70/0x100
- [<c014ca97>] __do_softirq+0x97/0x160
- [<c014ca00>] __do_softirq+0x0/0x160
- <IRQ>  [<c0170c50>] handle_fasteoi_irq+0x0/0xe0
- [<c014c7bd>] irq_exit+0x5d/0x80
- [<c012297c>] do_IRQ+0xcc/0x100
- [<c0120aeb>] common_interrupt+0x23/0x28
- [<c0334f88>] acpi_idle_enter_bm+0x315/0x39e
- [<c04346c4>] cpuidle_idle_call+0x74/0xc0
- [<c011eded>] cpu_idle+0x6d/0xd0
----[ end trace 8ac847f454371229 ]---
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
