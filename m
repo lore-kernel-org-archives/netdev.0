@@ -1,92 +1,82 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: UDP/bnx2: inconsistent lock state (Re: linux-next: Tree for October 30)
-Date: Thu, 30 Oct 2008 13:40:33 +0300
-Message-ID: <a4423d670810300340i27cd7fe3wea42767431ad3574@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+ (fwd)
+Date: Thu, 30 Oct 2008 12:43:05 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0810301232360.7072@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
+ <alpine.LFD.1.10.0810021142370.5549@apollo.tec.linutronix.de>
+ <48e4adb8.0807c00a.62b8.ffff87d6@mx.google.com>
+ <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
+ <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
+ <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
+ <Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
+ <48e5364d.0603c00a.6e25.fffff993@mx.google.com>
+ <Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
+ <48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com> <alpine.LFD.2.00.0810052008131.3398@apollo>
+ <48ed0b51.0913c00a.7715.4aa7@mx.google.com> <alpine.LFD.2.00.0810082154420.3237@apollo>
+ <48f2c9d7.0603c00a.1df2.ffff9357@mx.google.com>
+ <Pine.LNX.4.64.0810131633370.3843@wrl-59.cs.helsinki.fi>
+ <48f9251b.1626360a.6574.61ec@mx.google.com> <Pine.LNX.4.64.0810210028550.30254@wrl-59.cs.helsinki.fi>
+ <48fe8c06.4719360a.3996.04a9@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: mchan@broadcom.com
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-446846111-1225363385=:7072"
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:40121 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753582AbYJ3KnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 06:43:09 -0400
+In-Reply-To: <48fe8c06.4719360a.3996.04a9@mx.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bnx2 0000:03:00.0: irq 38 for MSI/MSI-X
-bnx2: eth0: using MSI
-bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive &
-transmit flow control ON
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-[ INFO: inconsistent lock state ]
-2.6.28-rc2-next-20081030 #4
----------------------------------
-inconsistent {softirq-on-W} -> {in-softirq-W} usage.
-swapper/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
- (&table->hash[i].lock){-+..}, at: [<ffffffff804ea8c5>]
-__udp4_lib_rcv+0x2a5/0x640
-{softirq-on-W} state was registered at:
-  [<ffffffff80257ea0>] __lock_acquire+0x2fd/0xc72
-  [<ffffffff8025889a>] lock_acquire+0x85/0xa9
-  [<ffffffff80525527>] _spin_lock+0x3c/0x70
-  [<ffffffff804eaca2>] udp_lib_unhash+0x2b/0x90
-  [<ffffffff804ab315>] sk_common_release+0x2f/0x83
-  [<ffffffff804e9631>] udp_lib_close+0x9/0xb
-  [<ffffffff804f1274>] inet_release+0x58/0x5f
-  [<ffffffff804a889e>] sock_release+0x20/0xc1
-  [<ffffffff804a8973>] sock_close+0x34/0x3a
-  [<ffffffff8029e8ee>] __fput+0xc5/0x164
-  [<ffffffff8029e9a2>] fput+0x15/0x17
-  [<ffffffff8029be90>] filp_close+0x67/0x72
-  [<ffffffff8023864a>] put_files_struct+0x74/0xc8
-  [<ffffffff802386e5>] exit_files+0x47/0x4f
-  [<ffffffff80239f28>] do_exit+0x27a/0x8b7
-  [<ffffffff8023a5e4>] do_group_exit+0x7f/0xaf
-  [<ffffffff8023a626>] sys_exit_group+0x12/0x14
-  [<ffffffff8020b6fb>] system_call_fastpath+0x16/0x1b
-  [<ffffffffffffffff>] 0xffffffffffffffff
-irq event stamp: 56806
-hardirqs last  enabled at (56806): [<ffffffff8023bf15>]
-_local_bh_enable_ip+0xba/0xe3
-hardirqs last disabled at (56805): [<ffffffff8023beaf>]
-_local_bh_enable_ip+0x54/0xe3
-softirqs last  enabled at (56786): [<ffffffff8023c0ec>] __do_softirq+0xf8/0x104
-softirqs last disabled at (56791): [<ffffffff8020cbac>] call_softirq+0x1c/0x28
+---696208474-446846111-1225363385=:7072
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-other info that might help us debug this:
-no locks held by swapper/0.
+On Wed, 22 Oct 2008, Dâniel Fraga wrote:
 
-stack backtrace:
-Pid: 0, comm: swapper Not tainted 2.6.28-rc2-next-20081030 #4
-Call Trace:
- <IRQ>  [<ffffffff80256a9c>] valid_state+0x179/0x18c
- [<ffffffff80256fda>] mark_lock+0x14d/0x37a
- [<ffffffff80257e25>] __lock_acquire+0x282/0xc72
- [<ffffffff804c9a91>] ? rt_intern_hash+0x442/0x45c
- [<ffffffff8023bf47>] ? local_bh_enable_ip+0x9/0xb
- [<ffffffff8025889a>] lock_acquire+0x85/0xa9
- [<ffffffff804ea8c5>] ? __udp4_lib_rcv+0x2a5/0x640
- [<ffffffff80525527>] _spin_lock+0x3c/0x70
- [<ffffffff804ea8c5>] ? __udp4_lib_rcv+0x2a5/0x640
- [<ffffffff804ea8c5>] __udp4_lib_rcv+0x2a5/0x640
- [<ffffffff804eac75>] udp_rcv+0x15/0x17
- [<ffffffff804cc1ec>] ip_local_deliver+0xad/0x13d
- [<ffffffff804cc107>] ip_rcv+0x4b7/0x4ef
- [<ffffffff804b3efb>] netif_receive_skb+0x213/0x23a
- [<ffffffff8042fa7c>] bnx2_poll_work+0x92e/0xaa5
- [<ffffffff8024f935>] ? getnstimeofday+0x3a/0x96
- [<ffffffff8025011e>] ? do_settimeofday+0x7f/0x131
- [<ffffffff8025001e>] ? update_wall_time+0x38e/0x40f
- [<ffffffff80256ea9>] ? mark_lock+0x1c/0x37a
- [<ffffffff802694f4>] ? __rcu_read_lock+0xa0/0xaf
- [<ffffffff8042fe41>] bnx2_poll+0x128/0x20d
- [<ffffffff804b2935>] net_rx_action+0xd2/0x1f4
- [<ffffffff8023c064>] __do_softirq+0x70/0x104
- [<ffffffff8020cbac>] call_softirq+0x1c/0x28
- [<ffffffff8020e1d5>] do_softirq+0x39/0x8a
- [<ffffffff8023bc89>] irq_exit+0x45/0xa2
- [<ffffffff8020e4e6>] do_IRQ+0x16a/0x19c
- [<ffffffff8020bc8b>] ret_from_intr+0x0/0xf
- <EOI>  [<ffffffff80212d69>] ? mwait_idle+0x3e/0x48
- [<ffffffff80212d60>] ? mwait_idle+0x35/0x48
- [<ffffffff8020a8db>] ? cpu_idle+0x59/0xc2
- [<ffffffff8051feb4>] ? start_secondary+0x263/0x26b
+> On Tue, 21 Oct 2008 00:48:16 +0300 (EEST)
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+> 
+> > Try running vmstat 1 > somelog.file to see if there's something 
+> > particularly interesting behavior during the stall.
+> 
+> 	Here it is. I used nmap more or less in the middle of this log.
+> The stall happened just on my client machine (stalled sudo) so there's only one 
+> log ok? Thanks.
+
+Nothing particularly interesting in it (sorry for the delay, there were 
+some other bugs in the meantime to fix and partially because I was out 
+of ideas). Minor increase in cpu/wa after nmap, before that it was 0-2, 
+mostly zero.
+
+Another thing that occurred to me today is that all these events I know of 
+are related to syslog/klogd (I don't know too well how they relate to each 
+other and what functionality is provided by each, thus I refer them here 
+as one :-)).
+
+- sudo sendmsg'ed to /dev/log and stalled
+- every-2nd-char missing in printk relates to it
+- usb does cause printks
+- server processes likely do some logging (and can then hang on waiting
+  until that finishes and therefore eventually no worker is available to 
+  process requests)
+
+...Some other type of case I'm missing here?
+
+Perhaps we could try to solve it though stracing syslogd...
+
+Did you ever actually try btw with something else than NO_TICK, we 
+discussed it at some point of time but I'm not sure what was the end 
+result of what got tested and what not?
+
+-- 
+ i.
+---696208474-446846111-1225363385=:7072--
