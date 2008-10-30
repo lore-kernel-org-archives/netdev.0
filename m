@@ -1,50 +1,47 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [RESEND][PATCH 2.6.28] myri10ge: fix stop/go mmio ordering
-Date: Thu, 30 Oct 2008 08:59:33 +0100
-Message-ID: <49096965.20905@myri.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pppoe: Add missing sock_put() in pppoe_rcv()
+Date: Thu, 30 Oct 2008 08:57:25 +0000
+Message-ID: <20081030085725.GA15289@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1983 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752439AbYJ3H5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2008 03:57:40 -0400
+Received: from ey-out-2122.google.com ([74.125.78.25]:17828 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753070AbYJ3I5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 04:57:33 -0400
+Received: by ey-out-2122.google.com with SMTP id 6so168396eyi.37
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 01:57:31 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use mmiowb() to ensure "stop" and "go" commands are sent in order on ia64.
+pppoe: Add missing sock_put() in pppoe_rcv()
 
-Signed-off-by: Brice Goglin <brice@myri.com>
+Add missing sock_put() in pppoe_rcv() (introduced by
+commit 392fdb0e35055b96faa9c1cd6ab537805337cdce).
 
---- linux-git/drivers/net/myri10ge/myri10ge.c	2008-10-30 08:15:37.000000000 +0100
-+++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-10-30 08:17:54.000000000 +0100
-@@ -75,7 +75,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+[needed for stables 2.6.26 and later]
+
+ drivers/net/pppoe.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index fc6f4b8..c074276 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -403,8 +403,10 @@ static int pppoe_rcv(struct sk_buff *skb,
+ 	if (!po)
+ 		goto drop;
  
--#define MYRI10GE_VERSION_STR "1.4.3-1.371"
-+#define MYRI10GE_VERSION_STR "1.4.3-1.375"
+-	if (pskb_trim_rcsum(skb, len))
++	if (pskb_trim_rcsum(skb, len)) {
++		sock_put(sk_pppox(po));
+ 		goto drop;
++	}
  
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
-@@ -1393,6 +1393,7 @@
- 		if (tx->req == tx->done) {
- 			tx->queue_active = 0;
- 			put_be32(htonl(1), tx->send_stop);
-+			mmiowb();
- 		}
- 		__netif_tx_unlock(dev_queue);
- 	}
-@@ -2864,6 +2865,7 @@
- 	if ((mgp->dev->real_num_tx_queues > 1) && tx->queue_active == 0) {
- 		tx->queue_active = 1;
- 		put_be32(htonl(1), tx->send_go);
-+		mmiowb();
- 	}
- 	tx->pkt_start++;
- 	if ((avail - count) < MXGEFW_MAX_SEND_DESC) {
-
-
+ 	return sk_receive_skb(sk_pppox(po), skb, 0);
+ 
