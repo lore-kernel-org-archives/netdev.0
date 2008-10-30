@@ -1,32 +1,47 @@
 From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH] PCI: Limit VPD length for Broadcom 5708S
-Date: Thu, 30 Oct 2008 09:14:03 -0700
-Message-ID: <200810300914.03885.jbarnes@virtuousgeek.org>
-References: <48920413.6080508@cosmosbay.com> <4906AF5F.9040704@cosmosbay.com> <20081028064411.GA7043@yzhao12-linux.sh.intel.com>
+Subject: Re: [PATCH] [PCI] move ICHx GbE NVM write-protection from e1000e to PCI quirk
+Date: Thu, 30 Oct 2008 09:16:00 -0700
+Message-ID: <200810300916.01468.jbarnes@virtuousgeek.org>
+References: <20081025011358.9975.77556.stgit@gitlost.lost> <490282FE.9040602@garzik.org> <B27EBC40D200ED48A3F4CC2EBEABAE0B20B38046@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>, benli@broadcom.com,
-	"willy@linux.intel.com" <willy@linux.intel.com>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Yu Zhao <yu.zhao@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758020AbYJ3QOo@vger.kernel.org>
-In-Reply-To: <20081028064411.GA7043@yzhao12-linux.sh.intel.com>
+Cc: Jeff Garzik <jeff@garzik.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <B27EBC40D200ED48A3F4CC2EBEABAE0B20B38046@orsmsx501.amr.corp.intel.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, October 27, 2008 11:44 pm Yu Zhao wrote:
+On Monday, October 27, 2008 1:26 pm Allan, Bruce W wrote:
+> >> This PCI quirk is put in ./drivers/net/e1000e in order to share
+> >> defines and structs found in the driver source, and is only applicable
+> >> to ICHx GbE LOMs supported by that driver anyway.
+> >
+> >Seems to be it is not difficult to put it into drivers/pci/quirks.c,
+> >where it belongs.
+> >
+> >	Jeff
 >
-> VPD quirks needs to be called after the capability is initialized. Since
-> VPD initialization is move to after pci_fixup_header, VPD quirks should
-> be done at pci_fixup_final stage correspondingly.
+> Yes, it wouldn't be difficult to put it elsewhere but does it really belong
+> in drivers/pci/quirks.c?  The quirk is applicable only to the GbE LOM found
+> on Intel ICH8/9/10-based platforms so one could argue it should be in
+> arch-specific code (arch/x86/pci/fixup.c).  OTOH, quirks in driver
+> directories are not unprecedented (e.g. drivers/clocksource/acpi_pm.c,
+> drivers/usb/host/pci-quirks.c).  I patched it into the driver's directory
+> as it would be an obvious reminder when adding support for future parts to
+> check whether the quirk is applicable and update the list of devices
+> accordingly.
 >
-> Signed-off-by: Yu Zhao <yu.zhao@intel.com>
+> So, what is the "right" place?
 
-Thanks, I'll queue this up for the next pull.
+If you think it's likely to apply to future devices as well, I'd say you may 
+as well keep it in the driver.
 
 Jesse
