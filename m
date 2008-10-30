@@ -1,107 +1,92 @@
-From: Jonathan McDowell <noodles@earth.li>
-Subject: [PATCH] Cleanup hso rfkill error handling [was: 2.6.28-rc2 / hso driver oops]
-Date: Thu, 30 Oct 2008 10:27:46 +0000
-Message-ID: <20081030102746.GI3162@earth.li>
-References: <20081029164006.GH3162@earth.li> <1225309212.3068.44.camel@achroite>
+From: "Alexander Beregalov" <a.beregalov@gmail.com>
+Subject: UDP/bnx2: inconsistent lock state (Re: linux-next: Tree for October 30)
+Date: Thu, 30 Oct 2008 13:40:33 +0300
+Message-ID: <a4423d670810300340i27cd7fe3wea42767431ad3574@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Andrew Bird <ajb@spheresystems.co.uk>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from the.earth.li ([217.147.81.2]:41919 "EHLO the.earth.li"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752778AbYJ3K1r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2008 06:27:47 -0400
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: mchan@broadcom.com
+Return-path: <linux-next-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1225309212.3068.44.camel@achroite>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 29, 2008 at 07:40:11PM +0000, Ben Hutchings wrote:
-> On Wed, 2008-10-29 at 16:40 +0000, Jonathan McDowell wrote:
-> > Hi.
-> > 
-> > Tried out 2.6.28-rc2 today on my EEE 901 and my Option Icon 225 and got
-> > the following oops:
-> > 
-> > hso: drivers/net/usb/hso.c: 1.2 Option Wireless
-> > usbcore: registered new interface driver hso
-> > usb 2-2: new full speed USB device using uhci_hcd and address 3
-> > usb 2-2: configuration #1 chosen from 1 choice
-> > hso0: Disabled Privacy Extensions
-> > BUG: unable to handle kernel NULL pointer dereference at 000000d0
-> > IP: [<c03589b9>] dev_driver_string+0x1/0x2a
-> 
-> Something passed a null device pointer to dev_printk().
-> 
-> [...]
-> > [<f81b8265>] ? hso_create_net_device+0x305/0x32d [hso]
-> [...]
-> 
-> I think that hso_create_rfkill() is the culprit here (and has been
-> inlined into hso_create_net_device()).  It's using hso_dev->dev as the
-> first argument to dev_err() and it doesn't look like that field is
-> initialised except by kzalloc.  At a guess, it should be using
-> &hso_dev->usb->dev.
+bnx2 0000:03:00.0: irq 38 for MSI/MSI-X
+bnx2: eth0: using MSI
+bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive &
+transmit flow control ON
 
-Yup, this appears to be the problem, thanks. I think &hso_net->net->dev
-is more intuitive for the error message, so I've used that. I've also
-added missing line endings on the error messages and set our local
-rfkill structure element to NULL on failure so we don't try to call
-rfkill_unregister on driver removal if we failed to register at all.
+[ INFO: inconsistent lock state ]
+2.6.28-rc2-next-20081030 #4
+---------------------------------
+inconsistent {softirq-on-W} -> {in-softirq-W} usage.
+swapper/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
+ (&table->hash[i].lock){-+..}, at: [<ffffffff804ea8c5>]
+__udp4_lib_rcv+0x2a5/0x640
+{softirq-on-W} state was registered at:
+  [<ffffffff80257ea0>] __lock_acquire+0x2fd/0xc72
+  [<ffffffff8025889a>] lock_acquire+0x85/0xa9
+  [<ffffffff80525527>] _spin_lock+0x3c/0x70
+  [<ffffffff804eaca2>] udp_lib_unhash+0x2b/0x90
+  [<ffffffff804ab315>] sk_common_release+0x2f/0x83
+  [<ffffffff804e9631>] udp_lib_close+0x9/0xb
+  [<ffffffff804f1274>] inet_release+0x58/0x5f
+  [<ffffffff804a889e>] sock_release+0x20/0xc1
+  [<ffffffff804a8973>] sock_close+0x34/0x3a
+  [<ffffffff8029e8ee>] __fput+0xc5/0x164
+  [<ffffffff8029e9a2>] fput+0x15/0x17
+  [<ffffffff8029be90>] filp_close+0x67/0x72
+  [<ffffffff8023864a>] put_files_struct+0x74/0xc8
+  [<ffffffff802386e5>] exit_files+0x47/0x4f
+  [<ffffffff80239f28>] do_exit+0x27a/0x8b7
+  [<ffffffff8023a5e4>] do_group_exit+0x7f/0xaf
+  [<ffffffff8023a626>] sys_exit_group+0x12/0x14
+  [<ffffffff8020b6fb>] system_call_fastpath+0x16/0x1b
+  [<ffffffffffffffff>] 0xffffffffffffffff
+irq event stamp: 56806
+hardirqs last  enabled at (56806): [<ffffffff8023bf15>]
+_local_bh_enable_ip+0xba/0xe3
+hardirqs last disabled at (56805): [<ffffffff8023beaf>]
+_local_bh_enable_ip+0x54/0xe3
+softirqs last  enabled at (56786): [<ffffffff8023c0ec>] __do_softirq+0xf8/0x104
+softirqs last disabled at (56791): [<ffffffff8020cbac>] call_softirq+0x1c/0x28
 
-The patch below Works For Me (TM); the device is detected fine, can be
-removed without problems and connects ok. I'll have a prod at why the
-rfkill stuff isn't working next, but I believe this cleanup of the error
-handling is appropriate no matter what the issue with registration is.
+other info that might help us debug this:
+no locks held by swapper/0.
 
-Signed-Off-By: Jonathan McDowell <noodles@earth.li>
-
------
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 1164c52..9d9622b 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -2184,19 +2184,20 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
- 			     struct usb_interface *interface)
- {
- 	struct hso_net *hso_net = dev2net(hso_dev);
--	struct device *dev = hso_dev->dev;
-+	struct device *dev = &hso_net->net->dev;
- 	char *rfkn;
- 
- 	hso_net->rfkill = rfkill_allocate(&interface_to_usbdev(interface)->dev,
- 				 RFKILL_TYPE_WLAN);
- 	if (!hso_net->rfkill) {
--		dev_err(dev, "%s - Out of memory", __func__);
-+		dev_err(dev, "%s - Out of memory\n", __func__);
- 		return;
- 	}
- 	rfkn = kzalloc(20, GFP_KERNEL);
- 	if (!rfkn) {
- 		rfkill_free(hso_net->rfkill);
--		dev_err(dev, "%s - Out of memory", __func__);
-+		hso_net->rfkill = NULL;
-+		dev_err(dev, "%s - Out of memory\n", __func__);
- 		return;
- 	}
- 	snprintf(rfkn, 20, "hso-%d",
-@@ -2209,7 +2210,8 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
- 		kfree(rfkn);
- 		hso_net->rfkill->name = NULL;
- 		rfkill_free(hso_net->rfkill);
--		dev_err(dev, "%s - Failed to register rfkill", __func__);
-+		hso_net->rfkill = NULL;
-+		dev_err(dev, "%s - Failed to register rfkill\n", __func__);
- 		return;
- 	}
- }
------
-
-J.
-
--- 
-/-\                             | 101 things you can't have too much
-|@/  Debian GNU/Linux Developer |         of : 32 - Answers.
-\-                              |
+stack backtrace:
+Pid: 0, comm: swapper Not tainted 2.6.28-rc2-next-20081030 #4
+Call Trace:
+ <IRQ>  [<ffffffff80256a9c>] valid_state+0x179/0x18c
+ [<ffffffff80256fda>] mark_lock+0x14d/0x37a
+ [<ffffffff80257e25>] __lock_acquire+0x282/0xc72
+ [<ffffffff804c9a91>] ? rt_intern_hash+0x442/0x45c
+ [<ffffffff8023bf47>] ? local_bh_enable_ip+0x9/0xb
+ [<ffffffff8025889a>] lock_acquire+0x85/0xa9
+ [<ffffffff804ea8c5>] ? __udp4_lib_rcv+0x2a5/0x640
+ [<ffffffff80525527>] _spin_lock+0x3c/0x70
+ [<ffffffff804ea8c5>] ? __udp4_lib_rcv+0x2a5/0x640
+ [<ffffffff804ea8c5>] __udp4_lib_rcv+0x2a5/0x640
+ [<ffffffff804eac75>] udp_rcv+0x15/0x17
+ [<ffffffff804cc1ec>] ip_local_deliver+0xad/0x13d
+ [<ffffffff804cc107>] ip_rcv+0x4b7/0x4ef
+ [<ffffffff804b3efb>] netif_receive_skb+0x213/0x23a
+ [<ffffffff8042fa7c>] bnx2_poll_work+0x92e/0xaa5
+ [<ffffffff8024f935>] ? getnstimeofday+0x3a/0x96
+ [<ffffffff8025011e>] ? do_settimeofday+0x7f/0x131
+ [<ffffffff8025001e>] ? update_wall_time+0x38e/0x40f
+ [<ffffffff80256ea9>] ? mark_lock+0x1c/0x37a
+ [<ffffffff802694f4>] ? __rcu_read_lock+0xa0/0xaf
+ [<ffffffff8042fe41>] bnx2_poll+0x128/0x20d
+ [<ffffffff804b2935>] net_rx_action+0xd2/0x1f4
+ [<ffffffff8023c064>] __do_softirq+0x70/0x104
+ [<ffffffff8020cbac>] call_softirq+0x1c/0x28
+ [<ffffffff8020e1d5>] do_softirq+0x39/0x8a
+ [<ffffffff8023bc89>] irq_exit+0x45/0xa2
+ [<ffffffff8020e4e6>] do_IRQ+0x16a/0x19c
+ [<ffffffff8020bc8b>] ret_from_intr+0x0/0xf
+ <EOI>  [<ffffffff80212d69>] ? mwait_idle+0x3e/0x48
+ [<ffffffff80212d60>] ? mwait_idle+0x35/0x48
+ [<ffffffff8020a8db>] ? cpu_idle+0x59/0xc2
+ [<ffffffff8051feb4>] ? start_secondary+0x263/0x26b
