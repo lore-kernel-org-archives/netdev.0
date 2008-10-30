@@ -1,39 +1,71 @@
-From: "Bob Copeland" <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-10-29
-Date: Wed, 29 Oct 2008 21:19:01 -0400
-Message-ID: <b6c5339f0810291819ld7d6043k56b11128bc6252cb@mail.gmail.com>
-References: <20081029231855.GD3485@tuxdriver.com>
-	 <20081029162324.28f5864d@infradead.org>
-	 <20081029233350.GE3485@tuxdriver.com>
+From: "Injong Rhee" <rhee@ncsu.edu>
+Subject: Re: [PATCH] CUBIC v2.3 with new improved slow start
+Date: Wed, 29 Oct 2008 20:54:04 -0400
+Message-ID: <001d01c93a2a$023f2560$6c01a8c0@RHEELAPTOP>
+References: <006001c93a0d$477d4e30$4a580e98@ncsu2cc0c3fa00>	<20081029153928.3d47e26f@extreme>	<000b01c93a1c$090222c0$6c01a8c0@RHEELAPTOP> <20081029164045.7422b68d@extreme> <4908F775.9040504@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	format=flowed;
+	charset="ISO-8859-1";
+	reply-type=response
 Content-Transfer-Encoding: 7bit
-Cc: "Arjan van de Ven" <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081029233350.GE3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Injong Rhee" <rhee@eos.ncsu.edu>, <netdev@vger.kernel.org>
+To: "Rick Jones" <rick.jones2@hp.com>,
+	"Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cdptpa-omtalb.mail.rr.com ([75.180.132.122]:39489 "EHLO
+	cdptpa-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859AbYJ3BjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 21:39:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2008 at 7:33 PM, John W. Linville
-<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> On Wed, Oct 29, 2008 at 04:23:24PM -0700, Arjan van de Ven wrote:
->> On Wed, 29 Oct 2008 19:18:55 -0400
->> "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->> it seems to have added a few WARN_ON()s which now end up at the top of
->> the list .. are these known or should I spend some time writing reports
->> for netdev ?
+In any situation where delayed acks screw things up, HyStart would work 
+exactly like the old slow start. No harm is done. Since those long delayed 
+acks are simply filtered out, HyStart would not detect the exit points 
+correctly -- in this particular case, it would delay the exit point until 
+packet losses occur. Then this is the behavior of the old slow start.
 
-Pavel Roskin posted one such WARN_ON to ath5k-devel a few days ago.
-Seems related to setup of the rate tables, but I haven't reproduced it
-here yet.  I'll see if he has more info...
+If some bad implementation causes HyStart to exit from slow start too early 
+(before the full utilization of the network), then it can be a problem. But 
+we have not found that case. Even over asymmetric paths, premature exits do 
+not occur (well based on our own def of premature exits, of course).
 
--- 
-Bob Copeland %% www.bobcopeland.com
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+----- Original Message ----- 
+From: "Rick Jones" <rick.jones2@hp.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Cc: "Injong Rhee" <rhee@ncsu.edu>; "Injong Rhee" <rhee@eos.ncsu.edu>; 
+<netdev@vger.kernel.org>
+Sent: Wednesday, October 29, 2008 7:53 PM
+Subject: Re: [PATCH] CUBIC v2.3 with new improved slow start
+
+
+> Stephen Hemminger wrote:
+>> On Wed, 29 Oct 2008 19:14:03 -0400
+>> "Injong Rhee" <rhee@ncsu.edu> wrote:
+>>
+>>
+>>>>This looks like a good optimization, it obviously needs more testing
+>>>>because Linux always seems to find new broken hardware.  The areas
+>>>>that need to be tested should include:
+>>>> * MacOs has a broken version of delayed ack that might cause
+>>>>   HyStart to radically underestimate.
+>>>
+>>>We tested with FreeBSD. I presume that it covers MacOS. We will look into 
+>>>that.
+>>
+>>
+>> No Darwin added some stupid code that holds off acks for up to 2 seconds.
+>
+> Is this Apple's reimplementation of the ACK avoidance heuristics in OSX 
+> they used to have in previous versions of MacOS with the Mentat TCP/IP 
+> stack?
+>
+> FWIW, HP-UX and Solaris also have ACK avoidance heursistics - they have a 
+> Mentat history - although both should be pretty good and neither should 
+> hold-off ACKs for two seconds...
+>
+> rick jones
+> 
+
