@@ -1,40 +1,43 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: WARNING: at net/core/dst.c:265 dst_release+0x3a/0x40()
-Date: Wed, 29 Oct 2008 18:03:12 -0700
-Message-ID: <20081029180312.35359dec@extreme>
-References: <490905F8.7060908@gmail.com>
+From: "Changli Gao" <xiaosuo@gmail.com>
+Subject: Re: [PATCH] HTB updates class's bstats in one place
+Date: Thu, 30 Oct 2008 09:03:34 +0800
+Message-ID: <412e6f7f0810291803j3858cd2fq373a9c4f49664825@mail.gmail.com>
+References: <20081029102356.GA6165@ff.dom.local> <49083BF5.5090606@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: John Daiker <daikerjohn@gmail.com>
+Cc: "Jarek Poplawski" <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44301 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751103AbYJ3BDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 21:03:20 -0400
-In-Reply-To: <490905F8.7060908@gmail.com>
+Received: from rv-out-0506.google.com ([209.85.198.238]:42272 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755534AbYJ3BDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 21:03:34 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so296178rvb.1
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2008 18:03:34 -0700 (PDT)
+In-Reply-To: <49083BF5.5090606@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Oct 2008 17:55:20 -0700
-John Daiker <daikerjohn@gmail.com> wrote:
+On Wed, Oct 29, 2008 at 6:33 PM, Patrick McHardy <kaber@trash.net> wrote:
+> Only for purely informational purposes, for policing you'd want to
+> use arrival rates. Since there are no users of estimators in the kernel
+> besides policers (which use seperate ones), the point is not terribly
+> important.
 
-> Leaving my machine up all day, running Folding@Home with litte to no network activity, I find my machine at a hard lockup (flashing CAPS lock, unresponsive to keyboard and mouse input).  This forces a hard reset, and unfortunately removes any further clues...
-> 
-> This has occurred once each on both 2.6.27.3 and 2.6.27.4
-> 
-> I have attached a dmesg output as well as my 2.6.27.4 config file.  I can debug if necessary, just tell me what CONFIG parameters to change and what boot options to enable and I'm on it
-> 
-> PreScript> Please Reply-All as I am not on the netdev mailing list...
-> 
-> Thanks,
-> John Daiker
-> 
+Where can I find sth. about this?
 
-Please reproduce without any proprietary modules loaded.
+In fact, this bug is encountered when I am trying to implement a
+statistic daemon in user space. It fetches the classes's statistics
+data periodicity, then calculates the rate based on the data fetched.
+In some cases, it reports the leaf classes's rate is over theirs
+limit, but its ascent's isn't.
 
-[63544.820178] Pid: 9, comm: events/0 Tainted: P          2.6.27.4-20081027-184627 #1
-[63544.820179] 
-[63544.820179] Call Trace:
+I think there must be someone does the same thing as me. So the
+feature is important for them too. If we don't fix it, how can I
+archive my requirement? Any comment?
+
+-- 
+Regards，
+Changli Gao(xiaosuo@gmail.com)
