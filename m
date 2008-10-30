@@ -1,57 +1,31 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: Re: [PATCH] Fix logic error in rfkill_check_duplicity
-Date: Thu, 30 Oct 2008 18:49:05 -0200
-Message-ID: <20081030204905.GB29976@khazad-dum.debian.net>
-References: <20081029164006.GH3162@earth.li> <1225309212.3068.44.camel@achroite> <20081030102746.GI3162@earth.li> <20081030144409.GJ3162@earth.li>
+From: David Miller <davem@davemloft.net>
+Subject: Re: UDP/bnx2: inconsistent lock state
+Date: Thu, 30 Oct 2008 14:01:34 -0700 (PDT)
+Message-ID: <20081030.140134.68573546.davem@davemloft.net>
+References: <a4423d670810300340i27cd7fe3wea42767431ad3574@mail.gmail.com>
+	<4909B4D9.20807@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jonathan McDowell <noodles@earth.li>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754913AbYJ3Ut0@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081030144409.GJ3162@earth.li>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: a.beregalov@gmail.com, mchan@broadcom.com,
+	linux-next@vger.kernel.org, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52298
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754227AbYJ3VCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 17:02:00 -0400
+In-Reply-To: <4909B4D9.20807@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Oct 2008, Jonathan McDowell wrote:
-> On Thu, Oct 30, 2008 at 10:27:46AM +0000, Jonathan McDowell wrote:
-> > I'll have a prod at why the [hso] rfkill stuff isn't working next
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 30 Oct 2008 14:21:29 +0100
+
+> [PATCH] udp: Should use spin_lock_bh()/spin_unlock_bh() in udp_lib_unhash()
 > 
-> Ok, I believe this is due to the addition of rfkill_check_duplicity in
-> rfkill and the fact that test_bit actually returns a negative value
-> rather than the postive one expected (which is of course equally true).
-> So when the second WLAN device (the hso device, with the EEE PC WLAN
-> being the first) comes along rfkill_check_duplicity returns a negative
-> value and so rfkill_register returns an error. Patch below fixes this
-> for me.
-
-Good catch, I screwed up on that one.  Please forward it with my ack to
-linux-wireless@kernel.org and to Ivo van Doorn <IvDoorn@gmail.com> and John
-W. Linville <linville@tuxdriver.com>.
-
-Acked-by: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-
-> -----
-> diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
-> index f949a48..1ba35a7 100644
-> --- a/net/rfkill/rfkill.c
-> +++ b/net/rfkill/rfkill.c
-> @@ -603,7 +603,7 @@ static int rfkill_check_duplicity(const struct rfkill *rfkil
->         }
->  
->         /* 0: first switch of its kind */
-> -       return test_bit(rfkill->type, seen);
-> +       return (test_bit(rfkill->type, seen)) ? 1 : 0;
->  }
->  
->  static int rfkill_add_switch(struct rfkill *rfkill)
-> -----
+> Spotted by Alexander Beregalov
 > 
-> J.
-> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
--- 
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+Applied, thanks for fixing this so quickly Eric.
