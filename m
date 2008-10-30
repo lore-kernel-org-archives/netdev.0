@@ -1,61 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/4] printk: add %I4, %I6, %i4, %i6 format specifiers
-Date: Thu, 30 Oct 2008 13:28:58 -0700
-Message-ID: <1225398538.1288.9.camel@localhost>
-References: <1225305340.5688.36.camel@brick>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: Re: [PATCH] Fix logic error in rfkill_check_duplicity
+Date: Thu, 30 Oct 2008 18:49:05 -0200
+Message-ID: <20081030204905.GB29976@khazad-dum.debian.net>
+References: <20081029164006.GH3162@earth.li> <1225309212.3068.44.camel@achroite> <20081030102746.GI3162@earth.li> <20081030144409.GJ3162@earth.li>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2337 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753121AbYJ3U3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 16:29:04 -0400
-In-Reply-To: <1225305340.5688.36.camel@brick>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jonathan McDowell <noodles@earth.li>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754913AbYJ3Ut0@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081030144409.GJ3162@earth.li>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2008-10-29 at 11:35 -0700, Harvey Harrison wrote:
-> For use in printing IPv4, or IPv6 addresses in the usual way:
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> ---
->  lib/vsprintf.c |   31 +++++++++++++++++++++++++++++++
->  1 files changed, 31 insertions(+), 0 deletions(-)
+On Thu, 30 Oct 2008, Jonathan McDowell wrote:
+> On Thu, Oct 30, 2008 at 10:27:46AM +0000, Jonathan McDowell wrote:
+> > I'll have a prod at why the [hso] rfkill stuff isn't working next
 > 
-> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-> index cb5bc04..a863006 100644
-> --- a/lib/vsprintf.c
-> +++ b/lib/vsprintf.c
-[]
-> @@ -650,6 +671,16 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int field
->  		return mac_address_string(buf, end, ptr, field_width, precision, flags);
->  	case '6':
->  		return ip6_addr_string(buf, end, ptr, field_width, precision, flags);
-> +	case 'i':
-> +		flags |= SPECIAL;
-> +		/* Fallthrough */
-> +	case 'I':
-> +		if (fmt[1] == '6')
-> +			return ip6_addr_string(buf, end, ptr, field_width, precision, flags);
-> +		if (fmt[1] == '4')
-> +			return ip4_addr_string(buf, end, ptr, field_width, precision, flags);
-> +		flags &= ~SPECIAL;
-> +		break;
->  	}
->  	flags |= SMALL;
->  	if (field_width == -1) {
+> Ok, I believe this is due to the addition of rfkill_check_duplicity in
+> rfkill and the fact that test_bit actually returns a negative value
+> rather than the postive one expected (which is of course equally true).
+> So when the second WLAN device (the hso device, with the EEE PC WLAN
+> being the first) comes along rfkill_check_duplicity returns a negative
+> value and so rfkill_register returns an error. Patch below fixes this
+> for me.
 
-Hi Harvey.
+Good catch, I screwed up on that one.  Please forward it with my ack to
+linux-wireless@kernel.org and to Ivo van Doorn <IvDoorn@gmail.com> and John
+W. Linville <linville@tuxdriver.com>.
 
-I was thinking about extending %p<foo> to support
-struct task_struct * and noticed this code isn't
-really correct.
+Acked-by: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
 
-SPECIAL should be cleared from flags only when *fmt
-is 'i' not 'I' and SPECIAL wasn't previously set.
+> -----
+> diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
+> index f949a48..1ba35a7 100644
+> --- a/net/rfkill/rfkill.c
+> +++ b/net/rfkill/rfkill.c
+> @@ -603,7 +603,7 @@ static int rfkill_check_duplicity(const struct rfkill *rfkil
+>         }
+>  
+>         /* 0: first switch of its kind */
+> -       return test_bit(rfkill->type, seen);
+> +       return (test_bit(rfkill->type, seen)) ? 1 : 0;
+>  }
+>  
+>  static int rfkill_add_switch(struct rfkill *rfkill)
+> -----
+> 
+> J.
+> 
 
-cheers, Joe
-
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
