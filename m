@@ -1,50 +1,48 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: pull request: wireless-2.6 2008-10-29
-Date: Wed, 29 Oct 2008 21:00:05 -0700
-Message-ID: <20081029210005.48e4765f@infradead.org>
-References: <20081029231855.GD3485@tuxdriver.com>
-	<20081029162324.28f5864d@infradead.org>
-	<20081029233350.GE3485@tuxdriver.com>
-	<b6c5339f0810291819ld7d6043k56b11128bc6252cb@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mcgrof@gmail.com, mickflemm@gmail.com
-To: "Bob Copeland" <me@bobcopeland.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] bpa10x: free sk_buff with kfree_skb
+Date: Thu, 30 Oct 2008 05:09:34 +0100
+Message-ID: <77F72F81-CC03-4032-A648-01B4F5D4CECC@holtmann.org>
+References: <20081026.232626.97216182.davem@davemloft.net> <Pine.LNX.4.64.0810271821340.7072@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:53038 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750756AbYJ3D7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2008 23:59:47 -0400
-In-Reply-To: <b6c5339f0810291819ld7d6043k56b11128bc6252cb@mail.gmail.com>
+Received: from senator.holtmann.net ([87.106.208.187]:48178 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbYJ3EJj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 00:09:39 -0400
+In-Reply-To: <Pine.LNX.4.64.0810271821340.7072@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Oct 2008 21:19:01 -0400
-"Bob Copeland" <me@bobcopeland.com> wrote:
+Hi Ilpo,
 
-> On Wed, Oct 29, 2008 at 7:33 PM, John W. Linville
-> <linville@tuxdriver.com> wrote:
-> > On Wed, Oct 29, 2008 at 04:23:24PM -0700, Arjan van de Ven wrote:
-> >> On Wed, 29 Oct 2008 19:18:55 -0400
-> >> "John W. Linville" <linville@tuxdriver.com> wrote:
-> >> it seems to have added a few WARN_ON()s which now end up at the
-> >> top of the list .. are these known or should I spend some time
-> >> writing reports for netdev ?
-> 
-> Pavel Roskin posted one such WARN_ON to ath5k-devel a few days ago.
-> Seems related to setup of the rate tables, but I haven't reproduced it
-> here yet.  I'll see if he has more info...
+>> 2) Couple places trying to pass sk_buff to kfree() instead of
+>>   kfree_skb().  Fixed by Sergio Luis
+>
+> I tried with coccinelle and found one more of these, though my
+> other attempts with it haven't been all that successful...
+>
+>
+> --
+> [PATCH] bpa10x: free sk_buff with kfree_skb
+>
+> Inspired by Sergio Luis' similar patches, I finally found
+> a case which is trivial enough that spatch won't choke
+> on it.
+>
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-if there's things that would help you diagnose such issue let me know
-(always trying to make kerneloops.org more useful for developers ;-)
+good catch.
 
-> 
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
+Dave, feel free to take this directly and apply it to your trees.
 
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+Regards
+
+Marcel
+
