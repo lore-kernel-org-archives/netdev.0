@@ -1,73 +1,37 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 1/1] [QPOLICY]: Ignore packets with specific priority
-Date: Thu, 30 Oct 2008 19:20:31 +0100
-Message-ID: <4909FAEF.8040900@grobelny.oswiecenia.net>
-References: <200810262233.54649.tomasz@grobelny.oswiecenia.net> <20081029052118.GA6412@gerrit.erg.abdn.ac.uk>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] [PCI] move ICHx GbE NVM write-protection from e1000e to
+ PCI quirk
+Date: Thu, 30 Oct 2008 11:29:15 -0700
+Message-ID: <B27EBC40D200ED48A3F4CC2EBEABAE0B20F36FDE@orsmsx501.amr.corp.intel.com>
+References: <20081025011358.9975.77556.stgit@gitlost.lost>
+ <490282FE.9040602@garzik.org>
+ <B27EBC40D200ED48A3F4CC2EBEABAE0B20B38046@orsmsx501.amr.corp.intel.com>
+ <200810300916.01468.jbarnes@virtuousgeek.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:4056 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757841AbYJ3SVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2008 14:21:31 -0400
-In-Reply-To: <20081029052118.GA6412@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jeff Garzik <jeff@garzik.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <200810300916.01468.jbarnes@virtuousgeek.org>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gerrit Renker pisze:
-> | This trivial patch allows qpolicies to be moved to userspace as demonstrated 
-> | by attached C# code (requires mono). This way userspace-kernelspace interface 
-> | is dead simple allowing for quite a lot flexibility in designing the way 
-> | packet buffer is organized.
->  
-> 
-> | The basic idea is that we set send buffer size so that only one packet fits in 
-> | it. Sending second packet while first is inside buffer (has not been sent 
-> | yet) causes send() to block until ccid allows the first packet to be 'send'. 
-> One difficulty that I see is what to do when the send socket is non-blocking.
-> 
-But socket doesn't get into non-blocking mode until specifically 
-requested by fcntl(soc, F_SETFL, O_NONBLOCK) call, does it?
+On Thursday, October 30, 2008 9:16 AM Jesse Barnes wrote
+>
+>If you think it's likely to apply to future devices as well, I'd say you
+>may
+>as well keep it in the driver.
+>
+>Jesse
+>
 
-> | For each real packet we call send() twice: one 'fake' (will be discarded just 
-> | before sending) and one 'real' (contains user data). This makes all the 
-> | waiting to be done on the 'fake' packet making sending the real one really 
-> | fast. This allows for late data choice without difficult to implement ring 
-> | buffers shared by user and kernel space or complicated qpolicies code on 
-> | kernel side.
-> Maybe purists will not like this since the complexity is now shifted to the
-> user-kernel interface. But it may well be a start to develop some kind of
-> new interface which achieves the same in a cleaner way.
-> 
-I think that much of the previously written qpolicy code could be 
-removed from the kernel so the interface would be really simple. No 
-policy switching, no fancy parameters, etc. The only difference from 
-standard interface would be that a packet could have a 'drop me' flag 
-(priority 65 in my code). Ok, I agree some may consider it tricky but I 
-wouldn't call it complicated. The complicated part is meant to be on the 
-userspace side. And that in my opinion has many advantages: easier 
-debugging, easier to add new (possibly complex) queuing policies.
+Yes, it will likely apply to future devices.  I assume you meant to say "may as well keep it in the driver *directory*", correct?
 
-> | Results on CCID2 are very promising (near ideal), but CCID3 is somewhat 
-> | disappointing to the extent I'm starting to think that I'm doing something 
-> | seriously wrong while testing it.
-> | 
-> Can you please narrow down what is happening with CCID-3.  CCID-3 is very
-> complicated and sensitive, so it is possible that the problem is within
-> CCID-3 and not the qpolicy code - need more detailed information.
-> 
-On one test it seemed not to work at all in my setup: ccid3 seems not to 
-limit traffic at all. But that was just one test so it may well be my fault.
-
-> If a stable interface evolves out of this development work, it would be
-> great to integrate it with the existing (C flat) code
-> http://www.erg.abdn.ac.uk/users/gerrit/dccp/apps/#DCCP_Library
-> 
-Good point, thanks.
-
-
+Thanks,
+Bruce.
