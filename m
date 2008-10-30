@@ -1,42 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
-Date: Thu, 30 Oct 2008 00:05:55 -0700 (PDT)
-Message-ID: <20081030.000555.206423691.davem@davemloft.net>
-References: <20081029.224027.163185414.davem@davemloft.net>
-	<49094B79.4010805@cosmosbay.com>
-	<49095C8A.403@cosmosbay.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] HTB updates class's bstats in one place
+Date: Thu, 30 Oct 2008 08:11:58 +0100
+Message-ID: <49095E3E.70705@trash.net>
+References: <20081029102356.GA6165@ff.dom.local> <49083BF5.5090606@trash.net> <412e6f7f0810291803j3858cd2fq373a9c4f49664825@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, minyard@acm.org, shemminger@vyatta.com,
-	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
-	cl@linux-foundation.org, a.p.zijlstra@chello.nl,
-	johnpol@2ka.mipt.ru, christian@myri.com
-To: dada1@cosmosbay.com
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48458
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751450AbYJ3HGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 03:06:21 -0400
-In-Reply-To: <49095C8A.403@cosmosbay.com>
+Received: from stinky.trash.net ([213.144.137.162]:53099 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753068AbYJ3HME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 03:12:04 -0400
+In-Reply-To: <412e6f7f0810291803j3858cd2fq373a9c4f49664825@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 30 Oct 2008 08:04:42 +0100
+Changli Gao wrote:
+> On Wed, Oct 29, 2008 at 6:33 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> Only for purely informational purposes, for policing you'd want to
+>> use arrival rates. Since there are no users of estimators in the kernel
+>> besides policers (which use seperate ones), the point is not terribly
+>> important.
+> 
+> Where can I find sth. about this?
+> 
+> In fact, this bug is encountered when I am trying to implement a
+> statistic daemon in user space. It fetches the classes's statistics
+> data periodicity, then calculates the rate based on the data fetched.
+> In some cases, it reports the leaf classes's rate is over theirs
+> limit, but its ascent's isn't.
+> 
+> I think there must be someone does the same thing as me. So the
+> feature is important for them too. If we don't fix it, how can I
+> archive my requirement? Any comment?
 
-> If we design something that could be reused, say for TCP sockets, we need
-> to be able to handle very large number of 'NULL' pointers, say, up to 64*1024*1024
-> 
-> So lets use the low order bit, set to one for "NULL" pointers, and 0 for regular pointers.
-> 
-> This gives us 31 bits (or 63 bits) to store any valuable info :)
-> 
-> and all ...._nulls() macros would not need to know the max value (UDP_HTABLE_SIZE in UDP case),
-> since all they have to do is a test ((unsigned long)pos & 1)
-> 
-> At iterator exit, pos would contain the 'index' value, (pos >> 1), to hide this
-> implementation detail.
-
-This sound fine to me.  Quite an improvement in fact :)
+Independant of this statistics bug, according to your description
+you want to measure departure rates (otherwise the measured rates
+can't really be compared to the limit) and the current counters are
+not really suitable for this since they count arriving packets.
+So the only way to properly do this is to add seperate counters that
+account for departing packets. I think this would be a good addition
+since we've always been advocating to do this stuff in userspace,
+but it would need some thought on how to minimize the impact for
+people not needing it.
 
