@@ -1,47 +1,39 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH] [PCI] move ICHx GbE NVM write-protection from e1000e to PCI quirk
-Date: Thu, 30 Oct 2008 09:16:00 -0700
-Message-ID: <200810300916.01468.jbarnes@virtuousgeek.org>
-References: <20081025011358.9975.77556.stgit@gitlost.lost> <490282FE.9040602@garzik.org> <B27EBC40D200ED48A3F4CC2EBEABAE0B20B38046@orsmsx501.amr.corp.intel.com>
+From: "Bob Copeland" <me@bobcopeland.com>
+Subject: Re: pull request: wireless-2.6 2008-10-29
+Date: Thu, 30 Oct 2008 12:17:48 -0400
+Message-ID: <b6c5339f0810300917i25b4164fof2ba51569d4e7012@mail.gmail.com>
+References: <20081029231855.GD3485@tuxdriver.com>
+	 <20081029162324.28f5864d@infradead.org>
+	 <20081029233350.GE3485@tuxdriver.com>
+	 <4909C93E.7020400@the2masters.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <B27EBC40D200ED48A3F4CC2EBEABAE0B20B38046@orsmsx501.amr.corp.intel.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Arjan van de Ven" <arjan@infradead.org>, davem@davemloft.net,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mcgrof@gmail.com, mickflemm@gmail.com
+To: "Stefan Hellermann" <stefan@the2masters.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.239]:59892 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755811AbYJ3QRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 12:17:49 -0400
+In-Reply-To: <4909C93E.7020400@the2masters.de>
 Content-Disposition: inline
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, October 27, 2008 1:26 pm Allan, Bruce W wrote:
-> >> This PCI quirk is put in ./drivers/net/e1000e in order to share
-> >> defines and structs found in the driver source, and is only applicable
-> >> to ICHx GbE LOMs supported by that driver anyway.
-> >
-> >Seems to be it is not difficult to put it into drivers/pci/quirks.c,
-> >where it belongs.
-> >
-> >	Jeff
->
-> Yes, it wouldn't be difficult to put it elsewhere but does it really belong
-> in drivers/pci/quirks.c?  The quirk is applicable only to the GbE LOM found
-> on Intel ICH8/9/10-based platforms so one could argue it should be in
-> arch-specific code (arch/x86/pci/fixup.c).  OTOH, quirks in driver
-> directories are not unprecedented (e.g. drivers/clocksource/acpi_pm.c,
-> drivers/usb/host/pci-quirks.c).  I patched it into the driver's directory
-> as it would be an obvious reminder when adding support for future parts to
-> check whether the quirk is applicable and update the list of devices
-> accordingly.
->
-> So, what is the "right" place?
+On Thu, Oct 30, 2008 at 10:48 AM, Stefan Hellermann
+<stefan@the2masters.de> wrote:
+> I think some of the reports on kerneloops are from my machine, I'm
+> running wireless-testing#master in the hope to get my card fully
+> working. It's a AR2425 chip (MAC: 0xe2, PHY: 0x70), in a Lenovo Notebook.
 
-If you think it's likely to apply to future devices as well, I'd say you may 
-as well keep it in the driver.
+Okay, I just added a bugzilla for this:
 
-Jesse
+http://bugzilla.kernel.org/show_bug.cgi?id=11901
+
+I can reproduce it here after all...
+-- 
+Bob Copeland %% www.bobcopeland.com
