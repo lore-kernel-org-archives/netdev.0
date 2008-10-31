@@ -1,52 +1,78 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/3] bonding: fix miimon failure counter
-Date: Fri, 31 Oct 2008 00:49:22 -0400
-Message-ID: <490A8E52.4010402@pobox.com>
-References: <1225413676-13579-1-git-send-email-fubar@us.ibm.com> <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH][CORRECTED] atl1: fix vlan tag regression
+Date: Fri, 31 Oct 2008 00:49:01 -0400
+Message-ID: <490A8E3D.2010805@garzik.org>
+References: <20081029160136.GA28446@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: csnook@redhat.com, jie.yang@atheros.com, ramon.casellas@cttc.es,
+	netdev@vger.kernel.org, stable@kernel.org, jcliburn@gmail.com
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54211 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:54201 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753893AbYJaEt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2008 00:49:27 -0400
-In-Reply-To: <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
+	id S1753762AbYJaEtT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Oct 2008 00:49:19 -0400
+In-Reply-To: <20081029160136.GA28446@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> During the rework of the mii monitor for:
+Jay Cliburn wrote:
+> Commit 401c0aabec4b97320f962a0161a846d230a6f7aa introduced a regression
+> in the atl1 driver by storing the VLAN tag in the wrong TX descriptor
+> field.
 > 
-> commit f0c76d61779b153dbfb955db3f144c62d02173c2
-> Author: Jay Vosburgh <fubar@us.ibm.com>
-> Date:   Wed Jul 2 18:21:58 2008 -0700
+> This patch causes the VLAN tag to be stored in its proper location.
 > 
->     bonding: refactor mii monitor
-> 
-> 	I left out the increment of the link failure counter.  This
-> patch corrects that omission.
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Tested-by: Ramon Casellas <ramon.casellas@cttc.es>
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+> Cc: stable@kernel.org
 > ---
->  drivers/net/bonding/bond_main.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
 > 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 832739f..85de1d0 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2376,6 +2376,9 @@ static void bond_miimon_commit(struct bonding *bond)
->  			continue;
+> This patch also needs to be applied to 2.6.26.y and 2.6.27.y.
+> 
+>  drivers/net/atlx/atl1.c |    7 ++++---
+>  drivers/net/atlx/atl1.h |    2 +-
+>  2 files changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+> index e23ce77..f5edf7a 100644
+> --- a/drivers/net/atlx/atl1.c
+> +++ b/drivers/net/atlx/atl1.c
+> @@ -2317,7 +2317,8 @@ static void atl1_tx_queue(struct atl1_adapter *adapter, u16 count,
+>  		if (tpd != ptpd)
+>  			memcpy(tpd, ptpd, sizeof(struct tx_packet_desc));
+>  		tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
+> -		tpd->word2 = (cpu_to_le16(buffer_info->length) &
+> +		tpd->word2 &= ~(TPD_BUFLEN_MASK << TPD_BUFLEN_SHIFT);
+> +		tpd->word2 |= (cpu_to_le16(buffer_info->length) &
+>  			TPD_BUFLEN_MASK) << TPD_BUFLEN_SHIFT;
 >  
->  		case BOND_LINK_DOWN:
-> +			if (slave->link_failure_count < UINT_MAX)
-> +				slave->link_failure_count++;
-> +
->  			slave->link = BOND_LINK_DOWN;
+>  		/*
+> @@ -2426,8 +2427,8 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+>  		vlan_tag = (vlan_tag << 4) | (vlan_tag >> 13) |
+>  			((vlan_tag >> 9) & 0x8);
+>  		ptpd->word3 |= 1 << TPD_INS_VL_TAG_SHIFT;
+> -		ptpd->word3 |= (vlan_tag & TPD_VL_TAGGED_MASK) <<
+> -			TPD_VL_TAGGED_SHIFT;
+> +		ptpd->word2 |= (vlan_tag & TPD_VLANTAG_MASK) <<
+> +			TPD_VLANTAG_SHIFT;
+>  	}
+>  
+>  	tso = atl1_tso(adapter, skb, ptpd);
+> diff --git a/drivers/net/atlx/atl1.h b/drivers/net/atlx/atl1.h
+> index a5015b1..ffa73fc 100644
+> --- a/drivers/net/atlx/atl1.h
+> +++ b/drivers/net/atlx/atl1.h
+> @@ -504,7 +504,7 @@ struct rx_free_desc {
+>  #define TPD_PKTNT_MASK		0x0001
+>  #define TPD_PKTINT_SHIFT	15
+>  #define TPD_VLANTAG_MASK	0xFFFF
+> -#define TPD_VLAN_SHIFT		16
+> +#define TPD_VLANTAG_SHIFT	16
+>  
 
-applied 1-3
+applied
 
 
