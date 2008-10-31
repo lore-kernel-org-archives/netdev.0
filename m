@@ -1,79 +1,111 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Fri, 31 Oct 2008 12:42:34 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0810311222240.7072@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0810302047030.22084@wrl-59.cs.helsinki.fi>
- <20081031.005219.141937694.davem@davemloft.net>
- <Pine.LNX.4.64.0810311119510.7072@wrl-59.cs.helsinki.fi>
- <20081031.025159.51432990.davem@davemloft.net>
+Date: Fri, 31 Oct 2008 11:45:33 +0100
+Message-ID: <490AE1CD.9040207@cosmosbay.com>
+References: <Pine.LNX.4.64.0810302047030.22084@wrl-59.cs.helsinki.fi>	<20081031.005219.141937694.davem@davemloft.net>	<Pine.LNX.4.64.0810311119510.7072@wrl-59.cs.helsinki.fi> <20081031.025159.51432990.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2137390123-1225449754=:7072"
-Cc: shemminger@vyatta.com, zbr@ioremap.net, rjw@sisk.pl, mingo@elte.hu,
-	s0mbre@tservice.net.ru, a.p.zijlstra@chello.nl,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, efault@gmx.de,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: multipart/mixed;
+ boundary="------------030404020908030700070809"
+Cc: ilpo.jarvinen@helsinki.fi, shemminger@vyatta.com, zbr@ioremap.net,
+	rjw@sisk.pl, mingo@elte.hu, s0mbre@tservice.net.ru,
+	a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, efault@gmx.de, akpm@linux-foundation.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751602AbYJaKmw@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751960AbYJaKqm@vger.kernel.org>
 In-Reply-To: <20081031.025159.51432990.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This is a multi-part message in MIME format.
+--------------030404020908030700070809
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
----696208474-2137390123-1225449754=:7072
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Fri, 31 Oct 2008, David Miller wrote:
-
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+David Miller a =E9crit :
+> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
 > Date: Fri, 31 Oct 2008 11:40:16 +0200 (EET)
-> 
-> > Let me remind that it is just a single process, so no ping-pong & other 
-> > lock related cache effects should play any significant role here, no? (I'm 
-> > no expert though :-)).
-> 
+>=20
+>> Let me remind that it is just a single process, so no ping-pong & othe=
+r=20
+>> lock related cache effects should play any significant role here, no? =
+(I'm=20
+>> no expert though :-)).
+>=20
 > Not locks or ping-pongs perhaps, I guess.  So it just sends and
 > receives over a socket, implementing both ends of the communication
 > in the same process?
-
-Effectively its this:
-
-signal(SIGALRM, alarm_handler);
-...
-while (flag) { /* flagged by alarm_handler */
-	loops = 90
-	open & setup sockets & connection
-	while (--loops > 0) {
-		write(wr_fd, buf, size);
-		read(rd_fd, buf, size);
-	}
-	close sockets
-}
-
-where size comes from this array (advancing in the inner loop one by one):
-
-static int sizes[] = {
-        1, 3, 5, 7, 16, 32, 64, 512, 1024, 2048,        /* misc. sizes */
-        1, 3, 5, 7, 16, 32, 64, 512, 1024, 2048,
-        32, 32, 32, 32, 32, 32,         /* x windows mostly... */
-        512, 512, 512, 512, 512,        /* DBMS's mostly */
-};
-
-buf sits in the stack and is not initialized (besides reading into it).
-
-...I think the rest is just bogus complexity :-) ...maybe I should just 
-take that from above as basis for Reduced AIM9 benchmark, it nearly 
-compiles already.
-
+>=20
 > If hash chain conflicts do happen for those 2 sockets, just traversing
 > the chain 2 entries deep could show up.
 
-No idea on this one.
+tbench is very sensible to cache line ping-pongs (on SMP machines of cour=
+se)
+
+Just to prove my point, I coded the following patch and tried it
+on a HP BL460c G1. This machine has 2 quad cores cpu=20
+(Intel(R) Xeon(R) CPU E5450  @3.00GHz)
+
+tbench 8 went from 2240 MB/s to 2310 MB/s after this patch applied
+
+[PATCH] net: Introduce netif_set_last_rx() helper
+
+On SMP machine, loopback device (and possibly others net device)
+should try to avoid dirty the memory cache line containing "last_rx"
+field. Got 3% increase on tbench on a 8 cpus machine.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+ drivers/net/loopback.c    |    2 +-
+ include/linux/netdevice.h |   16 ++++++++++++++++
+ 2 files changed, 17 insertions(+), 1 deletion(-)
 
 
--- 
- i.
----696208474-2137390123-1225449754=:7072--
+--------------030404020908030700070809
+Content-Type: text/plain;
+ name="netif_set_last_rx.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netif_set_last_rx.patch"
+
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 3b43bfd..cf17238 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -85,7 +85,7 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return 0;
+ 	}
+ #endif
+-	dev->last_rx = jiffies;
++	netif_set_last_rx(dev);
+ 
+ 	/* it's OK to use per_cpu_ptr() because BHs are off */
+ 	pcpu_lstats = dev->ml_priv;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c8bcb59..6729865 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -849,6 +849,22 @@ static inline void *netdev_priv(const struct net_device *dev)
+ #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
+ 
+ /**
++ *	netif_set_last_rx - Set last_rx field of a device
++ *	@dev:  network device
++ *
++ * Instead of setting net->last_rx to jiffies, drivers should call this helper
++ * to avoid dirtying a cache line if last_rx already has the current jiffies
++ */
++static inline void netif_set_last_rx(struct net_device *dev)
++{
++#ifdef CONFIG_SMP
++	if (dev->last_rx == jiffies)
++		return;
++#endif
++	dev->last_rx = jiffies;
++}
++
++/**
+  *	netif_napi_add - initialize a napi context
+  *	@dev:  network device
+  *	@napi: napi context
+
+--------------030404020908030700070809--
