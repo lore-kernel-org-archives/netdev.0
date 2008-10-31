@@ -1,132 +1,95 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 2/3] bonding: Clean up resource leaks
-Date: Thu, 30 Oct 2008 17:41:15 -0700
-Message-ID: <1225413676-13579-3-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 3/3] bonding: fix panic when taking bond interface down before removing module
+Date: Thu, 30 Oct 2008 17:41:16 -0700
+Message-ID: <1225413676-13579-4-git-send-email-fubar@us.ibm.com>
 References: <1225413676-13579-1-git-send-email-fubar@us.ibm.com>
  <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+ <1225413676-13579-3-git-send-email-fubar@us.ibm.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:43061 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754723AbYJaAlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:41:19 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id m9V0ec33007572
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:40:38 -0600
+Received: from e33.co.us.ibm.com ([32.97.110.151]:60839 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754752AbYJaAlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:41:21 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id m9V0f03P023727
+	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:00 -0600
 Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9V0fJVs149362
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:19 -0600
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9V0fKnC122206
+	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:20 -0600
 Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9V0fIBd014919
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9V0fJKU014930
 	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:19 -0600
-In-Reply-To: <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
+In-Reply-To: <1225413676-13579-3-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reworks the resource free logic performed at the time
-a bonding device is released.  This (a) closes two resource leaks, one
-for workqueues and one for multicast lists, and (b) improves commonality
-of code between the "destroy one" and "destroy all" paths by performing
-final free activity via destructor instead of explicitly (and differently)
-in each path.
+From: Andy Gospodarek <andy@greyhouse.net>
 
-	"Sean E. Millichamp" <sean@bruenor.org> reported the workqueue
-leak, and included a different patch.
+A panic was discovered with bonding when using mode 5 or 6 and trying to
+remove the slaves from the bond after the interface was taken down.
+When calling 'ifconfig bond0 down' the following happens:
 
+    bond_close()
+        bond_alb_deinitialize()
+            tlb_deinitialize()
+		kfree(bond_info->tx_hashtbl)
+                bond_info->tx_hashtbl = NULL
+
+Unfortunately if there are still slaves in the bond, when removing the
+module the following happens:
+
+    bonding_exit()
+        bond_free_all()
+            bond_release_all()
+                bond_alb_deinit_slave()
+                    tlb_clear_slave()
+                        tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl
+			u32 next_index = tx_hash_table[index].next
+
+As you might guess we panic when trying to access a few entries into the
+table that no longer exists.
+
+I experimented with several options (like moving the calls to
+tlb_deinitialize somewhere else), but it really makes the most sense to
+be part of the bond_close routine.  It also didn't seem logical move
+tlb_clear_slave around too much, so the simplest option seems to add a
+check in tlb_clear_slave to make sure we haven't already wiped the
+tx_hashtbl away before searching for all the non-existent hash-table
+entries that used to point to the slave as the output interface.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/net/bonding/bond_main.c |   49 ++++++++++++++++++++++++--------------
- 1 files changed, 31 insertions(+), 18 deletions(-)
+ drivers/net/bonding/bond_alb.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 85de1d0..a3efba5 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1979,6 +1979,20 @@ void bond_destroy(struct bonding *bond)
- 	unregister_netdevice(bond->dev);
- }
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index ade5f3f..87437c7 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -169,11 +169,14 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
+ 	/* clear slave from tx_hashtbl */
+ 	tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl;
  
-+static void bond_destructor(struct net_device *bond_dev)
-+{
-+	struct bonding *bond = bond_dev->priv;
-+
-+	if (bond->wq)
-+		destroy_workqueue(bond->wq);
-+
-+	netif_addr_lock_bh(bond_dev);
-+	bond_mc_list_destroy(bond);
-+	netif_addr_unlock_bh(bond_dev);
-+
-+	free_netdev(bond_dev);
-+}
-+
- /*
- * First release a slave and than destroy the bond if no more slaves iare left.
- * Must be under rtnl_lock when this function is called.
-@@ -4553,7 +4567,7 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
+-	index = SLAVE_TLB_INFO(slave).head;
+-	while (index != TLB_NULL_INDEX) {
+-		u32 next_index = tx_hash_table[index].next;
+-		tlb_init_table_entry(&tx_hash_table[index], save_load);
+-		index = next_index;
++	/* skip this if we've already freed the tx hash table */
++	if (tx_hash_table) {
++		index = SLAVE_TLB_INFO(slave).head;
++		while (index != TLB_NULL_INDEX) {
++			u32 next_index = tx_hash_table[index].next;
++			tlb_init_table_entry(&tx_hash_table[index], save_load);
++			index = next_index;
++		}
+ 	}
  
- 	bond_set_mode_ops(bond, bond->params.mode);
- 
--	bond_dev->destructor = free_netdev;
-+	bond_dev->destructor = bond_destructor;
- 
- 	/* Initialize the device options */
- 	bond_dev->tx_queue_len = 0;
-@@ -4592,20 +4606,6 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
- 	return 0;
- }
- 
--/* De-initialize device specific data.
-- * Caller must hold rtnl_lock.
-- */
--static void bond_deinit(struct net_device *bond_dev)
--{
--	struct bonding *bond = bond_dev->priv;
--
--	list_del(&bond->bond_list);
--
--#ifdef CONFIG_PROC_FS
--	bond_remove_proc_entry(bond);
--#endif
--}
--
- static void bond_work_cancel_all(struct bonding *bond)
- {
- 	write_lock_bh(&bond->lock);
-@@ -4627,6 +4627,22 @@ static void bond_work_cancel_all(struct bonding *bond)
- 		cancel_delayed_work(&bond->ad_work);
- }
- 
-+/* De-initialize device specific data.
-+ * Caller must hold rtnl_lock.
-+ */
-+static void bond_deinit(struct net_device *bond_dev)
-+{
-+	struct bonding *bond = bond_dev->priv;
-+
-+	list_del(&bond->bond_list);
-+
-+	bond_work_cancel_all(bond);
-+
-+#ifdef CONFIG_PROC_FS
-+	bond_remove_proc_entry(bond);
-+#endif
-+}
-+
- /* Unregister and free all bond devices.
-  * Caller must hold rtnl_lock.
-  */
-@@ -4638,9 +4654,6 @@ static void bond_free_all(void)
- 		struct net_device *bond_dev = bond->dev;
- 
- 		bond_work_cancel_all(bond);
--		netif_addr_lock_bh(bond_dev);
--		bond_mc_list_destroy(bond);
--		netif_addr_unlock_bh(bond_dev);
- 		/* Release the bonded slaves */
- 		bond_release_all(bond_dev);
- 		bond_destroy(bond);
+ 	tlb_init_slave(slave);
 -- 
 1.6.0.2
 
