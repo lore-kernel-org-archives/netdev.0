@@ -1,45 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] pppoe: Add missing sock_put() in pppoe_rcv()
-Date: Fri, 31 Oct 2008 12:29:20 +0800
-Message-ID: <20081031042920.GA6101@gondor.apana.org.au>
-References: <20081030085725.GA15289@ff.dom.local>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 2.6.28-rc2] at91_ether:  request/free GPIO for PHY interrupt
+Date: Fri, 31 Oct 2008 00:48:37 -0400
+Message-ID: <490A8E25.2090905@pobox.com>
+References: <200810271411.34492.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Victor <linux@maxim.org.za>
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46624 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751926AbYJaE31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 00:29:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20081030085725.GA15289@ff.dom.local>
+Received: from srv5.dvmed.net ([207.36.208.214]:54167 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750741AbYJaEsn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Oct 2008 00:48:43 -0400
+In-Reply-To: <200810271411.34492.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 30, 2008 at 08:57:25AM +0000, Jarek Poplawski wrote:
->
-> diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-> index fc6f4b8..c074276 100644
-> --- a/drivers/net/pppoe.c
-> +++ b/drivers/net/pppoe.c
-> @@ -403,8 +403,10 @@ static int pppoe_rcv(struct sk_buff *skb,
->  	if (!po)
->  		goto drop;
->  
-> -	if (pskb_trim_rcsum(skb, len))
-> +	if (pskb_trim_rcsum(skb, len)) {
-> +		sock_put(sk_pppox(po));
->  		goto drop;
-> +	}
+David Brownell wrote:
+> From: David Brownell <dbrownell@users.sourceforge.net>
+> 
+> When the at91_ether driver is using a GPIO for its PHY interrupt,
+> be sure to request (and later, if needed, free) that GPIO.
+> 
+> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+> ---
+>  drivers/net/arm/at91_ether.c |    6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
 
-Actually we might be better off moving the trim before the get_item
-call.
+applied
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
