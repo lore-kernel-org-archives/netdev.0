@@ -1,70 +1,37 @@
-From: "Lovich, Vitali" <vlovich@qualcomm.com>
-Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Fri, 31 Oct 2008 11:24:51 -0700
-Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CB5@NASANEXMB10.na.qualcomm.com>
-References: <1225450706.5301.94.camel@localhost>
- <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
+From: Mark Bishop <mark@bish.net>
+Subject: Apology & Question on KKS8893ML PHY
+Date: Fri, 31 Oct 2008 14:36:52 -0400
+Message-ID: <20081031143652.vvk4xtjhy8o8k40c@www.bish.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Johann Baudy <johaahn@gmail.com>
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:28313 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbYJaSYy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 14:24:54 -0400
-In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
-Content-Language: en-US
+Received: from bish.net ([209.241.232.100]:36061 "EHLO vincent.bish.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752142AbYJaS3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Oct 2008 14:29:18 -0400
+Received: from www-data by vincent.bish.net with local (Exim 4.63)
+	(envelope-from <mark@bish.net>)
+	id 1Kvyrc-0004UD-KW
+	for netdev@vger.kernel.org; Fri, 31 Oct 2008 14:36:54 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Lovich, Vitali
-> Sent: October-31-08 10:08 AM
-> To: Johann Baudy
-> Cc: netdev@vger.kernel.org
-> Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-> 
-> 
-> 
-> > -----Original Message-----
-> > From: Johann Baudy [mailto:johaahn@gmail.com]
-> > Sent: October-31-08 3:58 AM
-> > To: Lovich, Vitali
-> > Cc: David Miller; netdev@vger.kernel.org
-> > Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-> >
-> > Hi Vitali,
-> >
-> > > There's no need to keep the index (packet_index).  Just store the
-> > pointer directly (change it to void *) - saves an extra lookup.
-> >
-> > Indeed, it will be faster. I'll do the change.
-> Actually, I just realized that we don't need to modify the sock_buff
-> structure.  We're already filling in the fragments of the skb - just
-> take the first fragment and reverse the process to determine the
-> starting address of the frame.
 
-Here's the code I came up with to determine the offset - anyone see any problems?
+My apologies for the previous email to the list.  No wonder it took  
+majordomo so long to respond.
 
-union {
-   tpacket2_hdr *t2;
-   u8 *raw;
-}
+I've done some googling and grep'ing kernel source in an attempt to  
+find out if there is any support in the linux kernel for the Micrel  
+KS8893ML PHY (http://www.micrel.com/_PDF/Ethernet/KS8893ML-pb.pdf)  
+without much luck.
 
-struct page *first_frag;
-u32 page_offset;
+Would this be the correct list to ask if it is supported?
 
-first_frag = skb_shinfo(skb)->frags[0].page;
-page_offset = skb_shinfo(skb)->frags[0].page_offset;
-
-page_offset -= (skb_headlen(skb) + sizeof(struct tpacket2_hdr));
-if (unlikely(page_offset < 0)) {
-	first_frag--;
-	page_offset += PAGE_SIZE;
-}
-frame.raw = page_address(first_frag) + page_offset;
-
-// rest of destructor
+If not, is there a skeleton PHY driver out there from me to start with  
+if I wanted to add the support myself?
