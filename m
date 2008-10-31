@@ -1,50 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH 2/2] sch_netem: Replace ->requeue() method with open code
-Date: Fri, 31 Oct 2008 13:20:29 +0000
-Message-ID: <20081031132029.GB18895@ff.dom.local>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: dynamically allocated dst_ops
+Date: Fri, 31 Oct 2008 14:34:02 +0100
+Message-ID: <490B094A.1080900@fr.ibm.com>
+References: <20081030042622.GA21196@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
+	benjamin.thery@bull.net
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:49657 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbYJaNUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 09:20:35 -0400
-Received: by ug-out-1314.google.com with SMTP id 39so1224393ugf.37
-        for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 06:20:34 -0700 (PDT)
-Content-Disposition: inline
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:62388 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398AbYJaNfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 09:35:22 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m9VDY9Ml558112
+	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 13:34:09 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9VDY8xh1507340
+	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 13:34:09 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9VDY8UN005065
+	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 13:34:08 GMT
+In-Reply-To: <20081030042622.GA21196@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After removing netem classful functionality we are sure its inner
-qdisc is tfifo, so we can replace qdisc->ops->requeue() method with
-open code. After this patch there are no more ops->requeue() users.
+Alexey Dobriyan wrote:
+> They are bogus and should be implanted into struct net directly.
 
-The idea of this patch is by Patrick McHardy.
+Why they are bogus ?
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> In garbage collector hook, just use container_of() (once) to get struct net.
+> ->dst_net is useless after that.
 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 2ad0959..1aa4345 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -233,7 +233,11 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		 */
- 		cb->time_to_send = psched_get_time();
- 		q->counter = 0;
--		ret = q->qdisc->ops->requeue(skb, q->qdisc);
-+
-+		__skb_queue_head(&q->qdisc->q, skb);
-+		q->qdisc->qstats.backlog += qdisc_pkt_len(skb);
-+		q->qdisc->qstats.requeues++;
-+		ret = NET_XMIT_SUCCESS;
- 	}
- 
- 	if (likely(ret == NET_XMIT_SUCCESS)) {
--- 
-1.5.6.5
+Yep, that looks like a better solution.
+
+> I'm going to use this trick for xfrm.
+> 
+> And if someone has ideas on how to overcome header difficulties, please,
+> submit a patch.
 
