@@ -1,111 +1,111 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Fri, 31 Oct 2008 11:45:33 +0100
-Message-ID: <490AE1CD.9040207@cosmosbay.com>
-References: <Pine.LNX.4.64.0810302047030.22084@wrl-59.cs.helsinki.fi>	<20081031.005219.141937694.davem@davemloft.net>	<Pine.LNX.4.64.0810311119510.7072@wrl-59.cs.helsinki.fi> <20081031.025159.51432990.davem@davemloft.net>
+From: Johann Baudy <johaahn@gmail.com>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Fri, 31 Oct 2008 11:58:26 +0100
+Message-ID: <1225450706.5301.94.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030404020908030700070809"
-Cc: ilpo.jarvinen@helsinki.fi, shemminger@vyatta.com, zbr@ioremap.net,
-	rjw@sisk.pl, mingo@elte.hu, s0mbre@tservice.net.ru,
-	a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, efault@gmx.de, akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751960AbYJaKqm@vger.kernel.org>
-In-Reply-To: <20081031.025159.51432990.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------030404020908030700070809
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-
-David Miller a =E9crit :
-> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Fri, 31 Oct 2008 11:40:16 +0200 (EET)
->=20
->> Let me remind that it is just a single process, so no ping-pong & othe=
-r=20
->> lock related cache effects should play any significant role here, no? =
-(I'm=20
->> no expert though :-)).
->=20
-> Not locks or ping-pongs perhaps, I guess.  So it just sends and
-> receives over a socket, implementing both ends of the communication
-> in the same process?
->=20
-> If hash chain conflicts do happen for those 2 sockets, just traversing
-> the chain 2 entries deep could show up.
-
-tbench is very sensible to cache line ping-pongs (on SMP machines of cour=
-se)
-
-Just to prove my point, I coded the following patch and tried it
-on a HP BL460c G1. This machine has 2 quad cores cpu=20
-(Intel(R) Xeon(R) CPU E5450  @3.00GHz)
-
-tbench 8 went from 2240 MB/s to 2310 MB/s after this patch applied
-
-[PATCH] net: Introduce netif_set_last_rx() helper
-
-On SMP machine, loopback device (and possibly others net device)
-should try to avoid dirty the memory cache line containing "last_rx"
-field. Got 3% increase on tbench on a 8 cpus machine.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- drivers/net/loopback.c    |    2 +-
- include/linux/netdevice.h |   16 ++++++++++++++++
- 2 files changed, 17 insertions(+), 1 deletion(-)
-
-
---------------030404020908030700070809
-Content-Type: text/plain;
- name="netif_set_last_rx.patch"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="netif_set_last_rx.patch"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g19.free.fr ([212.27.42.28]:53644 "EHLO smtp2-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750950AbYJaK6i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Oct 2008 06:58:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index 3b43bfd..cf17238 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -85,7 +85,7 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return 0;
- 	}
- #endif
--	dev->last_rx = jiffies;
-+	netif_set_last_rx(dev);
- 
- 	/* it's OK to use per_cpu_ptr() because BHs are off */
- 	pcpu_lstats = dev->ml_priv;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c8bcb59..6729865 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -849,6 +849,22 @@ static inline void *netdev_priv(const struct net_device *dev)
- #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
- 
- /**
-+ *	netif_set_last_rx - Set last_rx field of a device
-+ *	@dev:  network device
-+ *
-+ * Instead of setting net->last_rx to jiffies, drivers should call this helper
-+ * to avoid dirtying a cache line if last_rx already has the current jiffies
-+ */
-+static inline void netif_set_last_rx(struct net_device *dev)
-+{
-+#ifdef CONFIG_SMP
-+	if (dev->last_rx == jiffies)
-+		return;
-+#endif
-+	dev->last_rx = jiffies;
-+}
-+
-+/**
-  *	netif_napi_add - initialize a napi context
-  *	@dev:  network device
-  *	@napi: napi context
+Hi Vitali,
 
---------------030404020908030700070809--
+> There's no need to keep the index (packet_index).  Just store the
+pointer directly (change it to void *) - saves an extra lookup.  
+
+Indeed, it will be faster. I'll do the change.
+
+> Also, I don't think setting TP_STATUS_COPY is necessary since the user
+> can't really do anything with that information. Simply leave it at
+> TP_STATUS_USER & TP_STATUS_KERNEL.
+
+This information is not useful for user. It is to prevent kernel from
+sending a packet twice or more. Inside the tx ring lock, queued packets
+must be tagged as "Kernel has already handled this packet" to not send
+it again at next turn of tx ring. 
+(That case can happen if device/queue is very slow or if you have only
+few frames)
+
+> The atomic_inc of pending_skb should happen after the skb was
+> allocated - the atomic_dec in out_status can also be removed. 
+> out_status can be removed completely if you get rid of
+> TP_STATUS_COPY.  If you leave it, you still need the barriers as above
+> after changing tp_status, or the user may not see the change.  
+
+I don't understand why "atomic_inc of pending_skb should happen after
+the skb was allocated". This counter is used to monitor the number of TX
+packets queued. So as requirement, we have to increment it before
+dev_queue_xmit().
+
+atomic_dec() will be needed anyway if tpacket_fill_skb() or
+dev_queue_xmit() are failing (If performed after skb alloc).
+
+> Also, you've got a potential threading issue - you're not protecting
+> the frame index behind the spinlock.
+
+You are right, I think I will spin-lock outside the do_while loop.
+
+> Also, when you set the status back to TP_STATUS_KERNEL in the
+destructor, you need
+>  to add the following barriers:
+>
+> __packet_set_status(po, ph, TP_STATUS_KERNEL);
+> smp_mb();   // make sure the TP_STATUS_KERNEL was actually written to
+> memory before this - couldn't this actually be just a smp_wmb?
+> flush_dcache_page(virt_to_page(ph));  // on non-x86 architectures like
+> ARM that have a moronic cache (i.e cache by virtual rather than
+> physical address). on x86 this is a noop.
+>
+
+So, If my understanding of those memory barriers is correct, we should
+have a smp_rmb() before status reading and smp_wmb() after status
+writing in skb destructor and send procedure.
+
+> Also, I think that I looked at your code while working on my version
+> and there may have been some logical problems with the way you're
+> building packets.  I'll compare it within the next few days as I start
+> cleaning up my code.
+
+I've noticed "data += dev->hard_header_len; to_write -=
+dev->hard_header_len;" that must be in (sock->type != SOCK_DGRAM)
+condition. 
+
+> As a benchmark on a 10G card (and not performing any optimizations
+> like using syspart & dedicating a cpu for tx), I was able to hit 8.6
+> GBits/s using a dedicated kernel thread for the transmission.  With
+> the dedicated CPU, I'm confident the line-rate will go up
+> significantly
+>
+> .I'll try to test your changes within the next few days.  TCPdump
+> maxes out at around 1.5 GBits/s
+>
+> As for CPU usage, there's a noticeable advantage to traditional send. 
+> Using tcpreplay  - there's about 80% CPU utilization when sending. 
+> Using the tx ring, there's maybe 10-15%.
+>
+
+On my side, I'm using a 1G device with a PPC405.
+I've reached 107MBytes/s with TX RING against 25MBytes/S with standard
+packet socket raw and 107MBytes with pktgen.
+
+> I'm going to have latency numbers soon as well (i.e. how much jitter
+> is introduced by the kernel).
+>
+
+Many thanks Vitali for your comments and help :)
+
+
+-- 
+Johann Baudy
+johaahn@gmail.com
+
+
+
