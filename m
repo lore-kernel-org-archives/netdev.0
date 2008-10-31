@@ -1,19 +1,19 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 2/7] net: replace NIPQUAD() in net/ipv4/ net/ipv6/
-Date: Thu, 30 Oct 2008 17:13:44 -0700
-Message-ID: <1225412024.5574.33.camel@brick>
+Subject: [PATCH 3/7] net: replace NIPQUAD() in net/netfilter/
+Date: Thu, 30 Oct 2008 17:13:45 -0700
+Message-ID: <1225412025.5574.34.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: linux-netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.171]:39632 "EHLO
+Received: from wf-out-1314.google.com ([209.85.200.175]:44522 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753783AbYJaANs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:13:48 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so879384wfd.4
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 17:13:47 -0700 (PDT)
+	with ESMTP id S1753808AbYJaANu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:13:50 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so879406wfd.4
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 17:13:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,515 +22,508 @@ can be replaced with %pI4
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
- net/ipv4/af_inet.c            |    7 ++-----
- net/ipv4/arp.c                |    4 ++--
- net/ipv4/fib_trie.c           |    6 +++---
- net/ipv4/icmp.c               |   24 ++++++++++--------------
- net/ipv4/ip_fragment.c        |    5 ++---
- net/ipv4/ip_input.c           |    6 ++----
- net/ipv4/ipcomp.c             |    4 ++--
- net/ipv4/ipconfig.c           |   40 ++++++++++++++++++----------------------
- net/ipv4/route.c              |   40 +++++++++++++++++-----------------------
- net/ipv4/tcp_input.c          |    4 ++--
- net/ipv4/tcp_ipv4.c           |   13 +++++--------
- net/ipv4/tcp_probe.c          |    7 +++----
- net/ipv4/tcp_timer.c          |    4 ++--
- net/ipv4/udp.c                |   12 ++++++------
- net/ipv6/netfilter/ip6t_LOG.c |    5 ++---
- 15 files changed, 78 insertions(+), 103 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c         |   12 +++++-----
+ net/netfilter/ipvs/ip_vs_ctl.c          |    4 +-
+ net/netfilter/ipvs/ip_vs_dh.c           |    7 +----
+ net/netfilter/ipvs/ip_vs_ftp.c          |   13 ++++-------
+ net/netfilter/ipvs/ip_vs_lblc.c         |   11 +++------
+ net/netfilter/ipvs/ip_vs_lblcr.c        |   19 +++++++---------
+ net/netfilter/ipvs/ip_vs_proto.c        |   19 ++++++----------
+ net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    5 +--
+ net/netfilter/ipvs/ip_vs_sh.c           |    7 +----
+ net/netfilter/ipvs/ip_vs_sync.c         |    4 +-
+ net/netfilter/ipvs/ip_vs_xmit.c         |   17 +++++++-------
+ net/netfilter/nf_conntrack_ftp.c        |    7 ++---
+ net/netfilter/nf_conntrack_irc.c        |   13 +++++------
+ net/netfilter/xt_hashlimit.c            |    7 ++---
+ net/netfilter/xt_iprange.c              |   36 +++++++++++++-----------------
+ net/netfilter/xt_recent.c               |    5 +--
+ 16 files changed, 78 insertions(+), 108 deletions(-)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1fbff5f..e328681 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1070,11 +1070,8 @@ static int inet_sk_reselect_saddr(struct sock *sk)
- 		return 0;
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index c3c6844..cb3e031 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -730,9 +730,9 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related)
+ 	if (ic == NULL)
+ 		return NF_DROP;
  
- 	if (sysctl_ip_dynaddr > 1) {
--		printk(KERN_INFO "%s(): shifting inet->"
--				 "saddr from " NIPQUAD_FMT " to " NIPQUAD_FMT "\n",
--		       __func__,
--		       NIPQUAD(old_saddr),
--		       NIPQUAD(new_saddr));
-+		printk(KERN_INFO "%s(): shifting inet->saddr from %pI4 to %pI4\n",
-+		       __func__, &old_saddr, &new_saddr);
- 	}
+-	IP_VS_DBG(12, "Outgoing ICMP (%d,%d) %u.%u.%u.%u->%u.%u.%u.%u\n",
++	IP_VS_DBG(12, "Outgoing ICMP (%d,%d) %pI4->%pI4\n",
+ 		  ic->type, ntohs(icmp_id(ic)),
+-		  NIPQUAD(iph->saddr), NIPQUAD(iph->daddr));
++		  &iph->saddr, &iph->daddr);
  
- 	inet->saddr = inet->rcv_saddr = new_saddr;
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 1a9dd66..051a62f 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1308,7 +1308,7 @@ static void arp_format_neigh_entry(struct seq_file *seq,
- #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- 	}
- #endif
--	sprintf(tbuf, NIPQUAD_FMT, NIPQUAD(*(u32*)n->primary_key));
-+	sprintf(tbuf, "%pI4", n->primary_key);
- 	seq_printf(seq, "%-16s 0x%-10x0x%-10x%s     *        %s\n",
- 		   tbuf, hatype, arp_state_to_flags(n), hbuffer, dev->name);
- 	read_unlock(&n->lock);
-@@ -1321,7 +1321,7 @@ static void arp_format_pneigh_entry(struct seq_file *seq,
- 	int hatype = dev ? dev->type : 0;
- 	char tbuf[16];
+ 	/*
+ 	 * Work through seeing if this is for us.
+@@ -1070,9 +1070,9 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 	if (ic == NULL)
+ 		return NF_DROP;
  
--	sprintf(tbuf, NIPQUAD_FMT, NIPQUAD(*(u32*)n->key));
-+	sprintf(tbuf, "%pI4", n->key);
- 	seq_printf(seq, "%-16s 0x%-10x0x%-10x%s     *        %s\n",
- 		   tbuf, hatype, ATF_PUBL | ATF_PERM, "00:00:00:00:00:00",
- 		   dev ? dev->name : "*");
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 5cb7278..ec0ae49 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -2399,8 +2399,8 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
- 		__be32 prf = htonl(mask_pfx(tn->key, tn->pos));
+-	IP_VS_DBG(12, "Incoming ICMP (%d,%d) %u.%u.%u.%u->%u.%u.%u.%u\n",
++	IP_VS_DBG(12, "Incoming ICMP (%d,%d) %pI4->%pI4\n",
+ 		  ic->type, ntohs(icmp_id(ic)),
+-		  NIPQUAD(iph->saddr), NIPQUAD(iph->daddr));
++		  &iph->saddr, &iph->daddr);
  
- 		seq_indent(seq, iter->depth-1);
--		seq_printf(seq, "  +-- " NIPQUAD_FMT "/%d %d %d %d\n",
--			   NIPQUAD(prf), tn->pos, tn->bits, tn->full_children,
-+		seq_printf(seq, "  +-- %pI4/%d %d %d %d\n",
-+			   &prf, tn->pos, tn->bits, tn->full_children,
- 			   tn->empty_children);
- 
- 	} else {
-@@ -2410,7 +2410,7 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
- 		__be32 val = htonl(l->key);
- 
- 		seq_indent(seq, iter->depth);
--		seq_printf(seq, "  |-- " NIPQUAD_FMT "\n", NIPQUAD(val));
-+		seq_printf(seq, "  |-- %pI4\n", &val);
- 
- 		hlist_for_each_entry_rcu(li, node, &l->list, hlist) {
- 			struct fib_alias *fa;
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index e9d6ea0..21e497e 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -683,10 +683,8 @@ static void icmp_unreach(struct sk_buff *skb)
- 			break;
- 		case ICMP_FRAG_NEEDED:
- 			if (ipv4_config.no_pmtu_disc) {
--				LIMIT_NETDEBUG(KERN_INFO "ICMP: " NIPQUAD_FMT ": "
--							 "fragmentation needed "
--							 "and DF set.\n",
--					       NIPQUAD(iph->daddr));
-+				LIMIT_NETDEBUG(KERN_INFO "ICMP: %pI4: fragmentation needed and DF set.\n",
-+					       &iph->daddr);
- 			} else {
- 				info = ip_rt_frag_needed(net, iph,
- 							 ntohs(icmph->un.frag.mtu),
-@@ -696,9 +694,8 @@ static void icmp_unreach(struct sk_buff *skb)
- 			}
- 			break;
- 		case ICMP_SR_FAILED:
--			LIMIT_NETDEBUG(KERN_INFO "ICMP: " NIPQUAD_FMT ": Source "
--						 "Route Failed.\n",
--				       NIPQUAD(iph->daddr));
-+			LIMIT_NETDEBUG(KERN_INFO "ICMP: %pI4: Source Route Failed.\n",
-+				       &iph->daddr);
- 			break;
- 		default:
- 			break;
-@@ -729,12 +726,12 @@ static void icmp_unreach(struct sk_buff *skb)
- 	if (!net->ipv4.sysctl_icmp_ignore_bogus_error_responses &&
- 	    inet_addr_type(net, iph->daddr) == RTN_BROADCAST) {
- 		if (net_ratelimit())
--			printk(KERN_WARNING NIPQUAD_FMT " sent an invalid ICMP "
-+			printk(KERN_WARNING "%pI4 sent an invalid ICMP "
- 					    "type %u, code %u "
--					    "error to a broadcast: " NIPQUAD_FMT " on %s\n",
--			       NIPQUAD(ip_hdr(skb)->saddr),
-+					    "error to a broadcast: %pI4 on %s\n",
-+			       &ip_hdr(skb)->saddr,
- 			       icmph->type, icmph->code,
--			       NIPQUAD(iph->daddr),
-+			       &iph->daddr,
- 			       skb->dev->name);
+ 	/*
+ 	 * Work through seeing if this is for us.
+@@ -1127,8 +1127,8 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 	/* Ensure the checksum is correct */
+ 	if (!skb_csum_unnecessary(skb) && ip_vs_checksum_complete(skb, ihl)) {
+ 		/* Failed checksum! */
+-		IP_VS_DBG(1, "Incoming ICMP: failed checksum from %d.%d.%d.%d!\n",
+-			  NIPQUAD(iph->saddr));
++		IP_VS_DBG(1, "Incoming ICMP: failed checksum from %pI4!\n",
++			  &iph->saddr);
  		goto out;
  	}
-@@ -952,9 +949,8 @@ static void icmp_address_reply(struct sk_buff *skb)
- 				break;
- 		}
- 		if (!ifa && net_ratelimit()) {
--			printk(KERN_INFO "Wrong address mask " NIPQUAD_FMT " from "
--					 "%s/" NIPQUAD_FMT "\n",
--			       NIPQUAD(*mp), dev->name, NIPQUAD(rt->rt_src));
-+			printk(KERN_INFO "Wrong address mask %pI4 from %s/%pI4\n",
-+			       mp, dev->name, &rt->rt_src);
- 		}
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 76db27e..98e0a65 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2141,8 +2141,8 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 
+ 	/* Check for valid protocol: TCP or UDP, even for fwmark!=0 */
+ 	if (usvc.protocol != IPPROTO_TCP && usvc.protocol != IPPROTO_UDP) {
+-		IP_VS_ERR("set_ctl: invalid protocol: %d %d.%d.%d.%d:%d %s\n",
+-			  usvc.protocol, NIPQUAD(usvc.addr.ip),
++		IP_VS_ERR("set_ctl: invalid protocol: %d %pI4:%d %s\n",
++			  usvc.protocol, &usvc.addr.ip,
+ 			  ntohs(usvc.port), usvc.sched_name);
+ 		ret = -EFAULT;
+ 		goto out_unlock;
+diff --git a/net/netfilter/ipvs/ip_vs_dh.c b/net/netfilter/ipvs/ip_vs_dh.c
+index a16943f..77179b9 100644
+--- a/net/netfilter/ipvs/ip_vs_dh.c
++++ b/net/netfilter/ipvs/ip_vs_dh.c
+@@ -215,11 +215,8 @@ ip_vs_dh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		return NULL;
  	}
- 	rcu_read_unlock();
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index e4f81f5..8c495e3 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -559,9 +559,8 @@ out_nomem:
- 	goto out_fail;
- out_oversize:
- 	if (net_ratelimit())
--		printk(KERN_INFO
--			"Oversized IP packet from " NIPQUAD_FMT ".\n",
--			NIPQUAD(qp->saddr));
-+		printk(KERN_INFO "Oversized IP packet from %pI4.\n",
-+			&qp->saddr);
- out_fail:
- 	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMFAILS);
- 	return err;
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 861978a..1b6475c 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -294,10 +294,8 @@ static inline int ip_rcv_options(struct sk_buff *skb)
- 			if (!IN_DEV_SOURCE_ROUTE(in_dev)) {
- 				if (IN_DEV_LOG_MARTIANS(in_dev) &&
- 				    net_ratelimit())
--					printk(KERN_INFO "source route option "
--					       NIPQUAD_FMT " -> " NIPQUAD_FMT "\n",
--					       NIPQUAD(iph->saddr),
--					       NIPQUAD(iph->daddr));
-+					printk(KERN_INFO "source route option %pI4 -> %pI4\n",
-+					       &iph->saddr, &iph->daddr);
- 				in_dev_put(in_dev);
- 				goto drop;
- 			}
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index 38ccb6d..ec8264a 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -39,8 +39,8 @@ static void ipcomp4_err(struct sk_buff *skb, u32 info)
- 			      spi, IPPROTO_COMP, AF_INET);
- 	if (!x)
- 		return;
--	NETDEBUG(KERN_DEBUG "pmtu discovery on SA IPCOMP/%08x/" NIPQUAD_FMT "\n",
--		 spi, NIPQUAD(iph->daddr));
-+	NETDEBUG(KERN_DEBUG "pmtu discovery on SA IPCOMP/%08x/%pI4\n",
-+		 spi, &iph->daddr);
- 	xfrm_state_put(x);
+ 
+-	IP_VS_DBG(6, "DH: destination IP address %u.%u.%u.%u "
+-		  "--> server %u.%u.%u.%u:%d\n",
+-		  NIPQUAD(iph->daddr),
+-		  NIPQUAD(dest->addr.ip),
+-		  ntohs(dest->port));
++	IP_VS_DBG(6, "DH: destination IP address %pI4 --> server %pI4:%d\n",
++		  &iph->daddr, &dest->addr.ip, ntohs(dest->port));
+ 
+ 	return dest;
  }
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 2e7dbd8..428edbf 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -178,10 +178,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 					   &start, &end) != 1)
+ 			return 1;
  
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 42065ff..42a0f3d 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -374,7 +374,7 @@ static int __init ic_defaults(void)
- 	 */
+-		IP_VS_DBG(7, "PASV response (%u.%u.%u.%u:%d) -> "
+-			  "%u.%u.%u.%u:%d detected\n",
+-			  NIPQUAD(from.ip), ntohs(port),
+-			  NIPQUAD(cp->caddr.ip), 0);
++		IP_VS_DBG(7, "PASV response (%pI4:%d) -> %pI4:%d detected\n",
++			  &from.ip, ntohs(port), &cp->caddr.ip, 0);
  
- 	if (!ic_host_name_set)
--		sprintf(init_utsname()->nodename, NIPQUAD_FMT, NIPQUAD(ic_myaddr));
-+		sprintf(init_utsname()->nodename, "%pI4", &ic_myaddr);
- 
- 	if (root_server_addr == NONE)
- 		root_server_addr = ic_servaddr;
-@@ -387,11 +387,11 @@ static int __init ic_defaults(void)
- 		else if (IN_CLASSC(ntohl(ic_myaddr)))
- 			ic_netmask = htonl(IN_CLASSC_NET);
- 		else {
--			printk(KERN_ERR "IP-Config: Unable to guess netmask for address " NIPQUAD_FMT "\n",
--				NIPQUAD(ic_myaddr));
-+			printk(KERN_ERR "IP-Config: Unable to guess netmask for address %pI4\n",
-+				&ic_myaddr);
- 			return -1;
- 		}
--		printk("IP-Config: Guessing netmask " NIPQUAD_FMT "\n", NIPQUAD(ic_netmask));
-+		printk("IP-Config: Guessing netmask %pI4\n", &ic_netmask);
- 	}
- 
- 	return 0;
-@@ -979,10 +979,8 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 				ic_myaddr = b->your_ip;
- 				ic_servaddr = server_id;
- #ifdef IPCONFIG_DEBUG
--				printk("DHCP: Offered address " NIPQUAD_FMT,
--				       NIPQUAD(ic_myaddr));
--				printk(" by server " NIPQUAD_FMT "\n",
--				       NIPQUAD(ic_servaddr));
-+				printk("DHCP: Offered address %pI4 by server %pI4\n",
-+				       &ic_myaddr, &ic_servaddr);
- #endif
- 				/* The DHCP indicated server address takes
- 				 * precedence over the bootp header one if
-@@ -1177,11 +1175,11 @@ static int __init ic_dynamic(void)
- 		return -1;
- 	}
- 
--	printk("IP-Config: Got %s answer from " NIPQUAD_FMT ", ",
-+	printk("IP-Config: Got %s answer from %pI4, ",
- 		((ic_got_reply & IC_RARP) ? "RARP"
- 		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
--		NIPQUAD(ic_servaddr));
--	printk("my address is " NIPQUAD_FMT "\n", NIPQUAD(ic_myaddr));
-+		&ic_servaddr);
-+	printk("my address is %pI4\n", &ic_myaddr);
- 
- 	return 0;
- }
-@@ -1206,14 +1204,12 @@ static int pnp_seq_show(struct seq_file *seq, void *v)
- 			   "domain %s\n", ic_domain);
- 	for (i = 0; i < CONF_NAMESERVERS_MAX; i++) {
- 		if (ic_nameservers[i] != NONE)
--			seq_printf(seq,
--				   "nameserver " NIPQUAD_FMT "\n",
--				   NIPQUAD(ic_nameservers[i]));
-+			seq_printf(seq, "nameserver %pI4\n",
-+				   &ic_nameservers[i]);
- 	}
- 	if (ic_servaddr != NONE)
--		seq_printf(seq,
--			   "bootserver " NIPQUAD_FMT "\n",
--			   NIPQUAD(ic_servaddr));
-+		seq_printf(seq, "bootserver %pI4\n",
-+			   &ic_servaddr);
- 	return 0;
- }
- 
-@@ -1387,13 +1383,13 @@ static int __init ip_auto_config(void)
- 	 */
- 	printk("IP-Config: Complete:");
- 	printk("\n     device=%s", ic_dev->name);
--	printk(", addr=" NIPQUAD_FMT, NIPQUAD(ic_myaddr));
--	printk(", mask=" NIPQUAD_FMT, NIPQUAD(ic_netmask));
--	printk(", gw=" NIPQUAD_FMT, NIPQUAD(ic_gateway));
-+	printk(", addr=%pI4", &ic_myaddr);
-+	printk(", mask=%pI4", &ic_netmask);
-+	printk(", gw=%pI4", &ic_gateway);
- 	printk(",\n     host=%s, domain=%s, nis-domain=%s",
- 	       utsname()->nodename, ic_domain, utsname()->domainname);
--	printk(",\n     bootserver=" NIPQUAD_FMT, NIPQUAD(ic_servaddr));
--	printk(", rootserver=" NIPQUAD_FMT, NIPQUAD(root_server_addr));
-+	printk(",\n     bootserver=%pI4", &ic_servaddr);
-+	printk(", rootserver=%pI4", &root_server_addr);
- 	printk(", rootpath=%s", root_server_path);
- 	printk("\n");
- #endif /* !SILENT */
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e59b4dc..f47b9db 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1214,10 +1214,9 @@ restart:
- #if RT_CACHE_DEBUG >= 2
- 	if (rt->u.dst.rt_next) {
- 		struct rtable *trt;
--		printk(KERN_DEBUG "rt_cache @%02x: " NIPQUAD_FMT, hash,
--		       NIPQUAD(rt->rt_dst));
-+		printk(KERN_DEBUG "rt_cache @%02x: %pI4", hash, &rt->rt_dst);
- 		for (trt = rt->u.dst.rt_next; trt; trt = trt->u.dst.rt_next)
--			printk(" . " NIPQUAD_FMT, NIPQUAD(trt->rt_dst));
-+			printk(" . %pI4", &trt->rt_dst);
- 		printk("\n");
- 	}
- #endif
-@@ -1444,11 +1443,10 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- reject_redirect:
- #ifdef CONFIG_IP_ROUTE_VERBOSE
- 	if (IN_DEV_LOG_MARTIANS(in_dev) && net_ratelimit())
--		printk(KERN_INFO "Redirect from " NIPQUAD_FMT " on %s about "
--			NIPQUAD_FMT " ignored.\n"
--			"  Advised path = " NIPQUAD_FMT " -> " NIPQUAD_FMT "\n",
--		       NIPQUAD(old_gw), dev->name, NIPQUAD(new_gw),
--		       NIPQUAD(saddr), NIPQUAD(daddr));
-+		printk(KERN_INFO "Redirect from %pI4 on %s about %pI4 ignored.\n"
-+			"  Advised path = %pI4 -> %pI4\n",
-+		       &old_gw, dev->name, &new_gw,
-+		       &saddr, &daddr);
- #endif
- 	in_dev_put(in_dev);
- }
-@@ -1468,9 +1466,8 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
- 						rt->fl.oif,
- 						rt_genid(dev_net(dst->dev)));
- #if RT_CACHE_DEBUG >= 1
--			printk(KERN_DEBUG "ipv4_negative_advice: redirect to "
--					  NIPQUAD_FMT "/%02x dropped\n",
--				NIPQUAD(rt->rt_dst), rt->fl.fl4_tos);
-+			printk(KERN_DEBUG "ipv4_negative_advice: redirect to %pI4/%02x dropped\n",
-+				&rt->rt_dst, rt->fl.fl4_tos);
- #endif
- 			rt_del(hash, rt);
- 			ret = NULL;
-@@ -1534,10 +1531,9 @@ void ip_rt_send_redirect(struct sk_buff *skb)
- 		if (IN_DEV_LOG_MARTIANS(in_dev) &&
- 		    rt->u.dst.rate_tokens == ip_rt_redirect_number &&
- 		    net_ratelimit())
--			printk(KERN_WARNING "host " NIPQUAD_FMT "/if%d ignores "
--				"redirects for " NIPQUAD_FMT " to " NIPQUAD_FMT ".\n",
--				NIPQUAD(rt->rt_src), rt->rt_iif,
--				NIPQUAD(rt->rt_dst), NIPQUAD(rt->rt_gateway));
-+			printk(KERN_WARNING "host %pI4/if%d ignores redirects for %pI4 to %pI4.\n",
-+				&rt->rt_src, rt->rt_iif,
-+				&rt->rt_dst, &rt->rt_gateway);
- #endif
- 	}
- out:
-@@ -1730,8 +1726,8 @@ static void ipv4_link_failure(struct sk_buff *skb)
- 
- static int ip_rt_bug(struct sk_buff *skb)
- {
--	printk(KERN_DEBUG "ip_rt_bug: " NIPQUAD_FMT " -> " NIPQUAD_FMT ", %s\n",
--		NIPQUAD(ip_hdr(skb)->saddr), NIPQUAD(ip_hdr(skb)->daddr),
-+	printk(KERN_DEBUG "ip_rt_bug: %pI4 -> %pI4, %s\n",
-+		&ip_hdr(skb)->saddr, &ip_hdr(skb)->daddr,
- 		skb->dev ? skb->dev->name : "?");
- 	kfree_skb(skb);
- 	return 0;
-@@ -1908,9 +1904,8 @@ static void ip_handle_martian_source(struct net_device *dev,
- 		 *	RFC1812 recommendation, if source is martian,
- 		 *	the only hint is MAC header.
- 		 */
--		printk(KERN_WARNING "martian source " NIPQUAD_FMT " from "
--			NIPQUAD_FMT", on dev %s\n",
--			NIPQUAD(daddr), NIPQUAD(saddr), dev->name);
-+		printk(KERN_WARNING "martian source %pI4 from %pI4, on dev %s\n",
-+			&daddr, &saddr, dev->name);
- 		if (dev->hard_header_len && skb_mac_header_was_set(skb)) {
- 			int i;
- 			const unsigned char *p = skb_mac_header(skb);
-@@ -2219,9 +2214,8 @@ martian_destination:
- 	RT_CACHE_STAT_INC(in_martian_dst);
- #ifdef CONFIG_IP_ROUTE_VERBOSE
- 	if (IN_DEV_LOG_MARTIANS(in_dev) && net_ratelimit())
--		printk(KERN_WARNING "martian destination " NIPQUAD_FMT " from "
--			NIPQUAD_FMT ", dev %s\n",
--			NIPQUAD(daddr), NIPQUAD(saddr), dev->name);
-+		printk(KERN_WARNING "martian destination %pI4 from %pI4, dev %s\n",
-+			&daddr, &saddr, dev->name);
- #endif
- 
- e_hostunreach:
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 04909e4..097294b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2336,9 +2336,9 @@ static void DBGUNDO(struct sock *sk, const char *msg)
- 	struct inet_sock *inet = inet_sk(sk);
- 
- 	if (sk->sk_family == AF_INET) {
--		printk(KERN_DEBUG "Undo %s " NIPQUAD_FMT "/%u c%u l%u ss%u/%u p%u\n",
-+		printk(KERN_DEBUG "Undo %s %pI4/%u c%u l%u ss%u/%u p%u\n",
- 		       msg,
--		       NIPQUAD(inet->daddr), ntohs(inet->dport),
-+		       &inet->daddr, ntohs(inet->dport),
- 		       tp->snd_cwnd, tcp_left_out(tp),
- 		       tp->snd_ssthresh, tp->prior_ssthresh,
- 		       tp->packets_out);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5c8fa7f..ef33246 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1139,10 +1139,9 @@ static int tcp_v4_inbound_md5_hash(struct sock *sk, struct sk_buff *skb)
- 
- 	if (genhash || memcmp(hash_location, newhash, 16) != 0) {
- 		if (net_ratelimit()) {
--			printk(KERN_INFO "MD5 Hash failed for "
--			       "(" NIPQUAD_FMT ", %d)->(" NIPQUAD_FMT ", %d)%s\n",
--			       NIPQUAD(iph->saddr), ntohs(th->source),
--			       NIPQUAD(iph->daddr), ntohs(th->dest),
-+			printk(KERN_INFO "MD5 Hash failed for (%pI4, %d)->(%pI4, %d)%s\n",
-+			       &iph->saddr, ntohs(th->source),
-+			       &iph->daddr, ntohs(th->dest),
- 			       genhash ? " tcp_v4_calc_md5_hash failed" : "");
- 		}
+ 		/*
+ 		 * Now update or create an connection entry for it
+@@ -312,8 +310,7 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 				   &start, &end) != 1)
  		return 1;
-@@ -1297,10 +1296,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 			 * to destinations, already remembered
- 			 * to the moment of synflood.
- 			 */
--			LIMIT_NETDEBUG(KERN_DEBUG "TCP: drop open "
--				       "request from " NIPQUAD_FMT "/%u\n",
--				       NIPQUAD(saddr),
--				       ntohs(tcp_hdr(skb)->source));
-+			LIMIT_NETDEBUG(KERN_DEBUG "TCP: drop open request from %pI4/%u\n",
-+				       &saddr, ntohs(tcp_hdr(skb)->source));
- 			goto drop_and_release;
- 		}
  
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index 7ddc30f..25524d4 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -153,12 +153,11 @@ static int tcpprobe_sprint(char *tbuf, int n)
- 		= ktime_to_timespec(ktime_sub(p->tstamp, tcp_probe.start));
+-	IP_VS_DBG(7, "PORT %u.%u.%u.%u:%d detected\n",
+-		  NIPQUAD(to.ip), ntohs(port));
++	IP_VS_DBG(7, "PORT %pI4:%d detected\n", &to.ip, ntohs(port));
  
- 	return snprintf(tbuf, n,
--			"%lu.%09lu " NIPQUAD_FMT ":%u " NIPQUAD_FMT ":%u"
--			" %d %#x %#x %u %u %u %u\n",
-+			"%lu.%09lu %pI4:%u %pI4:%u %d %#x %#x %u %u %u %u\n",
- 			(unsigned long) tv.tv_sec,
- 			(unsigned long) tv.tv_nsec,
--			NIPQUAD(p->saddr), ntohs(p->sport),
--			NIPQUAD(p->daddr), ntohs(p->dport),
-+			&p->saddr, ntohs(p->sport),
-+			&p->daddr, ntohs(p->dport),
- 			p->length, p->snd_nxt, p->snd_una,
- 			p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt);
- }
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 979c9d6..9843f6c 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -299,8 +299,8 @@ static void tcp_retransmit_timer(struct sock *sk)
- #ifdef TCP_DEBUG
- 		struct inet_sock *inet = inet_sk(sk);
- 		if (sk->sk_family == AF_INET) {
--			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer " NIPQUAD_FMT ":%u/%u shrinks window %u:%u. Repaired.\n",
--			       NIPQUAD(inet->daddr), ntohs(inet->dport),
-+			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer %pI4:%u/%u shrinks window %u:%u. Repaired.\n",
-+			       &inet->daddr, ntohs(inet->dport),
- 			       inet->num, tp->snd_una, tp->snd_nxt);
- 		}
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f760b86..bcb5def 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1263,13 +1263,13 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	return 0;
- 
- short_packet:
--	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: short packet: From " NIPQUAD_FMT ":%u %d/%d to " NIPQUAD_FMT ":%u\n",
-+	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: short packet: From %pI4:%u %d/%d to %pI4:%u\n",
- 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
--		       NIPQUAD(saddr),
-+		       &saddr,
- 		       ntohs(uh->source),
- 		       ulen,
- 		       skb->len,
--		       NIPQUAD(daddr),
-+		       &daddr,
- 		       ntohs(uh->dest));
- 	goto drop;
- 
-@@ -1278,11 +1278,11 @@ csum_error:
- 	 * RFC1122: OK.  Discards the bad packet silently (as far as
- 	 * the network is concerned, anyway) as per 4.1.3.4 (MUST).
+ 	/* Passive mode off */
+ 	cp->app_data = NULL;
+@@ -321,9 +318,9 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	/*
+ 	 * Now update or create a connection entry for it
  	 */
--	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From " NIPQUAD_FMT ":%u to " NIPQUAD_FMT ":%u ulen %d\n",
-+	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From %pI4:%u to %pI4:%u ulen %d\n",
- 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
--		       NIPQUAD(saddr),
-+		       &saddr,
- 		       ntohs(uh->source),
--		       NIPQUAD(daddr),
-+		       &daddr,
- 		       ntohs(uh->dest),
- 		       ulen);
- drop:
-diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
-index 02885e8..7c668c6 100644
---- a/net/ipv6/netfilter/ip6t_LOG.c
-+++ b/net/ipv6/netfilter/ip6t_LOG.c
-@@ -424,9 +424,8 @@ ip6t_log_packet(u_int8_t pf,
- 			if (skb->dev->type == ARPHRD_SIT) {
- 				const struct iphdr *iph =
- 					(struct iphdr *)skb_mac_header(skb);
--				printk("TUNNEL=%u.%u.%u.%u->%u.%u.%u.%u ",
--				       NIPQUAD(iph->saddr),
--				       NIPQUAD(iph->daddr));
-+				printk("TUNNEL=%pI4->%pI4 ",
-+				       &iph->saddr, &iph->daddr);
+-	IP_VS_DBG(7, "protocol %s %u.%u.%u.%u:%d %u.%u.%u.%u:%d\n",
++	IP_VS_DBG(7, "protocol %s %pI4:%d %pI4:%d\n",
+ 		  ip_vs_proto_name(iph->protocol),
+-		  NIPQUAD(to.ip), ntohs(port), NIPQUAD(cp->vaddr.ip), 0);
++		  &to.ip, ntohs(port), &cp->vaddr.ip, 0);
+ 
+ 	n_cp = ip_vs_conn_in_get(AF_INET, iph->protocol,
+ 				 &to, port,
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 6ecef35..035d4c3 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -420,9 +420,9 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+ 		}
+ 	}
+ 
+-	IP_VS_DBG(6, "LBLC: server %d.%d.%d.%d:%d "
++	IP_VS_DBG(6, "LBLC: server %pI4:%d "
+ 		  "activeconns %d refcnt %d weight %d overhead %d\n",
+-		  NIPQUAD(least->addr.ip), ntohs(least->port),
++		  &least->addr.ip, ntohs(least->port),
+ 		  atomic_read(&least->activeconns),
+ 		  atomic_read(&least->refcnt),
+ 		  atomic_read(&least->weight), loh);
+@@ -503,11 +503,8 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	write_unlock(&svc->sched_lock);
+ 
+ out:
+-	IP_VS_DBG(6, "LBLC: destination IP address %u.%u.%u.%u "
+-		  "--> server %u.%u.%u.%u:%d\n",
+-		  NIPQUAD(iph->daddr),
+-		  NIPQUAD(dest->addr.ip),
+-		  ntohs(dest->port));
++	IP_VS_DBG(6, "LBLC: destination IP address %pI4 --> server %pI4:%d\n",
++		  &iph->daddr, &dest->addr.ip, ntohs(dest->port));
+ 
+ 	return dest;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index 1f75ea8..cceeff6 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -202,9 +202,9 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+ 		}
+ 	}
+ 
+-	IP_VS_DBG(6, "ip_vs_dest_set_min: server %d.%d.%d.%d:%d "
++	IP_VS_DBG(6, "ip_vs_dest_set_min: server %pI4:%d "
+ 		  "activeconns %d refcnt %d weight %d overhead %d\n",
+-		  NIPQUAD(least->addr.ip), ntohs(least->port),
++		  &least->addr.ip, ntohs(least->port),
+ 		  atomic_read(&least->activeconns),
+ 		  atomic_read(&least->refcnt),
+ 		  atomic_read(&least->weight), loh);
+@@ -248,9 +248,9 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
+ 		}
+ 	}
+ 
+-	IP_VS_DBG(6, "ip_vs_dest_set_max: server %d.%d.%d.%d:%d "
++	IP_VS_DBG(6, "ip_vs_dest_set_max: server %pI4:%d "
+ 		  "activeconns %d refcnt %d weight %d overhead %d\n",
+-		  NIPQUAD(most->addr.ip), ntohs(most->port),
++		  &most->addr.ip, ntohs(most->port),
+ 		  atomic_read(&most->activeconns),
+ 		  atomic_read(&most->refcnt),
+ 		  atomic_read(&most->weight), moh);
+@@ -596,9 +596,9 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+ 		}
+ 	}
+ 
+-	IP_VS_DBG(6, "LBLCR: server %d.%d.%d.%d:%d "
++	IP_VS_DBG(6, "LBLCR: server %pI4:%d "
+ 		  "activeconns %d refcnt %d weight %d overhead %d\n",
+-		  NIPQUAD(least->addr.ip), ntohs(least->port),
++		  &least->addr.ip, ntohs(least->port),
+ 		  atomic_read(&least->activeconns),
+ 		  atomic_read(&least->refcnt),
+ 		  atomic_read(&least->weight), loh);
+@@ -703,11 +703,8 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	write_unlock(&svc->sched_lock);
+ 
+ out:
+-	IP_VS_DBG(6, "LBLCR: destination IP address %u.%u.%u.%u "
+-		  "--> server %u.%u.%u.%u:%d\n",
+-		  NIPQUAD(iph->daddr),
+-		  NIPQUAD(dest->addr.ip),
+-		  ntohs(dest->port));
++	IP_VS_DBG(6, "LBLCR: destination IP address %pI4 --> server %pI4:%d\n",
++		  &iph->daddr, &dest->addr.ip, ntohs(dest->port));
+ 
+ 	return dest;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index 54cd67f..a01520e 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -164,26 +164,21 @@ ip_vs_tcpudp_debug_packet_v4(struct ip_vs_protocol *pp,
+ 	if (ih == NULL)
+ 		sprintf(buf, "%s TRUNCATED", pp->name);
+ 	else if (ih->frag_off & htons(IP_OFFSET))
+-		sprintf(buf, "%s %u.%u.%u.%u->%u.%u.%u.%u frag",
+-			pp->name, NIPQUAD(ih->saddr),
+-			NIPQUAD(ih->daddr));
++		sprintf(buf, "%s %pI4->%pI4 frag",
++			pp->name, &ih->saddr, &ih->daddr);
+ 	else {
+ 		__be16 _ports[2], *pptr
+ ;
+ 		pptr = skb_header_pointer(skb, offset + ih->ihl*4,
+ 					  sizeof(_ports), _ports);
+ 		if (pptr == NULL)
+-			sprintf(buf, "%s TRUNCATED %u.%u.%u.%u->%u.%u.%u.%u",
+-				pp->name,
+-				NIPQUAD(ih->saddr),
+-				NIPQUAD(ih->daddr));
++			sprintf(buf, "%s TRUNCATED %pI4->%pI4",
++				pp->name, &ih->saddr, &ih->daddr);
+ 		else
+-			sprintf(buf, "%s %u.%u.%u.%u:%u->%u.%u.%u.%u:%u",
++			sprintf(buf, "%s %pI4:%u->%pI4:%u",
+ 				pp->name,
+-				NIPQUAD(ih->saddr),
+-				ntohs(pptr[0]),
+-				NIPQUAD(ih->daddr),
+-				ntohs(pptr[1]));
++				&ih->saddr, ntohs(pptr[0]),
++				&ih->daddr, ntohs(pptr[1]));
+ 	}
+ 
+ 	printk(KERN_DEBUG "IPVS: %s: %s\n", msg, buf);
+diff --git a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
+index 6ede888..79f56c1 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
+@@ -135,9 +135,8 @@ ah_esp_debug_packet_v4(struct ip_vs_protocol *pp, const struct sk_buff *skb,
+ 	if (ih == NULL)
+ 		sprintf(buf, "%s TRUNCATED", pp->name);
+ 	else
+-		sprintf(buf, "%s %u.%u.%u.%u->%u.%u.%u.%u",
+-			pp->name, NIPQUAD(ih->saddr),
+-			NIPQUAD(ih->daddr));
++		sprintf(buf, "%s %pI4->%pI4",
++			pp->name, &ih->saddr, &ih->daddr);
+ 
+ 	printk(KERN_DEBUG "IPVS: %s: %s\n", msg, buf);
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index 1d96de2..be5863c 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -212,11 +212,8 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		return NULL;
+ 	}
+ 
+-	IP_VS_DBG(6, "SH: source IP address %u.%u.%u.%u "
+-		  "--> server %u.%u.%u.%u:%d\n",
+-		  NIPQUAD(iph->saddr),
+-		  NIPQUAD(dest->addr.ip),
+-		  ntohs(dest->port));
++	IP_VS_DBG(6, "SH: source IP address %pI4 --> server %pI4:%d\n",
++		  &iph->saddr, &dest->addr.ip, ntohs(dest->port));
+ 
+ 	return dest;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index de5e7e1..6be5d4e 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -580,8 +580,8 @@ static int bind_mcastif_addr(struct socket *sock, char *ifname)
+ 		IP_VS_ERR("You probably need to specify IP address on "
+ 			  "multicast interface.\n");
+ 
+-	IP_VS_DBG(7, "binding socket with (%s) %u.%u.%u.%u\n",
+-		  ifname, NIPQUAD(addr));
++	IP_VS_DBG(7, "binding socket with (%s) %pI4\n",
++		  ifname, &addr);
+ 
+ 	/* Now bind the socket with the address of multicast interface */
+ 	sin.sin_family	     = AF_INET;
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index fc342dd..2f36721 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -82,14 +82,13 @@ __ip_vs_get_out_rt(struct ip_vs_conn *cp, u32 rtos)
+ 
+ 			if (ip_route_output_key(&init_net, &rt, &fl)) {
+ 				spin_unlock(&dest->dst_lock);
+-				IP_VS_DBG_RL("ip_route_output error, "
+-					     "dest: %u.%u.%u.%u\n",
+-					     NIPQUAD(dest->addr.ip));
++				IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n",
++					     &dest->addr.ip);
+ 				return NULL;
  			}
- 		} else
- 			printk(" ");
+ 			__ip_vs_dst_set(dest, rtos, dst_clone(&rt->u.dst));
+-			IP_VS_DBG(10, "new dst %u.%u.%u.%u, refcnt=%d, rtos=%X\n",
+-				  NIPQUAD(dest->addr.ip),
++			IP_VS_DBG(10, "new dst %pI4, refcnt=%d, rtos=%X\n",
++				  &dest->addr.ip,
+ 				  atomic_read(&rt->u.dst.__refcnt), rtos);
+ 		}
+ 		spin_unlock(&dest->dst_lock);
+@@ -104,8 +103,8 @@ __ip_vs_get_out_rt(struct ip_vs_conn *cp, u32 rtos)
+ 		};
+ 
+ 		if (ip_route_output_key(&init_net, &rt, &fl)) {
+-			IP_VS_DBG_RL("ip_route_output error, dest: "
+-				     "%u.%u.%u.%u\n", NIPQUAD(cp->daddr.ip));
++			IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n",
++				     &cp->daddr.ip);
+ 			return NULL;
+ 		}
+ 	}
+@@ -236,8 +235,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	EnterFunction(10);
+ 
+ 	if (ip_route_output_key(&init_net, &rt, &fl)) {
+-		IP_VS_DBG_RL("ip_vs_bypass_xmit(): ip_route_output error, "
+-			     "dest: %u.%u.%u.%u\n", NIPQUAD(iph->daddr));
++		IP_VS_DBG_RL("ip_vs_bypass_xmit(): ip_route_output error, dest: %pI4\n",
++			     &iph->daddr);
+ 		goto tx_error_icmp;
+ 	}
+ 
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 8cab6d5..6295009 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -462,10 +462,9 @@ static int help(struct sk_buff *skb,
+ 		   different IP address.  Simply don't record it for
+ 		   NAT. */
+ 		if (cmd.l3num == PF_INET) {
+-			pr_debug("conntrack_ftp: NOT RECORDING: " NIPQUAD_FMT
+-				 " != " NIPQUAD_FMT "\n",
+-				 NIPQUAD(cmd.u3.ip),
+-				 NIPQUAD(ct->tuplehash[dir].tuple.src.u3.ip));
++			pr_debug("conntrack_ftp: NOT RECORDING: %pI4 != %pI4\n",
++				 &cmd.u3.ip,
++				 &ct->tuplehash[dir].tuple.src.u3.ip);
+ 		} else {
+ 			pr_debug("conntrack_ftp: NOT RECORDING: %pI6 != %pI6\n",
+ 				 cmd.u3.ip6,
+diff --git a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
+index 20633fd..4d681a0 100644
+--- a/net/netfilter/nf_conntrack_irc.c
++++ b/net/netfilter/nf_conntrack_irc.c
+@@ -156,9 +156,9 @@ static int help(struct sk_buff *skb, unsigned int protoff,
+ 		/* we have at least (19+MINMATCHLEN)-5 bytes valid data left */
+ 
+ 		iph = ip_hdr(skb);
+-		pr_debug("DCC found in master %u.%u.%u.%u:%u %u.%u.%u.%u:%u\n",
+-			 NIPQUAD(iph->saddr), ntohs(th->source),
+-			 NIPQUAD(iph->daddr), ntohs(th->dest));
++		pr_debug("DCC found in master %pI4:%u %pI4:%u\n",
++			 &iph->saddr, ntohs(th->source),
++			 &iph->daddr, ntohs(th->dest));
+ 
+ 		for (i = 0; i < ARRAY_SIZE(dccprotos); i++) {
+ 			if (memcmp(data, dccprotos[i], strlen(dccprotos[i]))) {
+@@ -185,10 +185,9 @@ static int help(struct sk_buff *skb, unsigned int protoff,
+ 			    tuple->dst.u3.ip != htonl(dcc_ip)) {
+ 				if (net_ratelimit())
+ 					printk(KERN_WARNING
+-						"Forged DCC command from "
+-						"%u.%u.%u.%u: %u.%u.%u.%u:%u\n",
+-						NIPQUAD(tuple->src.u3.ip),
+-						HIPQUAD(dcc_ip), dcc_port);
++						"Forged DCC command from %pI4: %pI4:%u\n",
++						&tuple->src.u3.ip,
++						&dcc_ip, dcc_port);
+ 				continue;
+ 			}
+ 
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 6379717..f97fded 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -893,12 +893,11 @@ static int dl_seq_real_show(struct dsthash_ent *ent, u_int8_t family,
+ 
+ 	switch (family) {
+ 	case NFPROTO_IPV4:
+-		return seq_printf(s, "%ld %u.%u.%u.%u:%u->"
+-				     "%u.%u.%u.%u:%u %u %u %u\n",
++		return seq_printf(s, "%ld %pI4:%u->%pI4:%u %u %u %u\n",
+ 				 (long)(ent->expires - jiffies)/HZ,
+-				 NIPQUAD(ent->dst.ip.src),
++				 &ent->dst.ip.src,
+ 				 ntohs(ent->dst.src_port),
+-				 NIPQUAD(ent->dst.ip.dst),
++				 &ent->dst.ip.dst,
+ 				 ntohs(ent->dst.dst_port),
+ 				 ent->rateinfo.credit, ent->rateinfo.credit_cap,
+ 				 ent->rateinfo.cost);
+diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
+index 7ac54ea..501f9b6 100644
+--- a/net/netfilter/xt_iprange.c
++++ b/net/netfilter/xt_iprange.c
+@@ -26,12 +26,11 @@ iprange_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
+ 		if ((ntohl(iph->saddr) < ntohl(info->src.min_ip)
+ 			  || ntohl(iph->saddr) > ntohl(info->src.max_ip))
+ 			 ^ !!(info->flags & IPRANGE_SRC_INV)) {
+-			pr_debug("src IP %u.%u.%u.%u NOT in range %s"
+-				 "%u.%u.%u.%u-%u.%u.%u.%u\n",
+-				 NIPQUAD(iph->saddr),
++			pr_debug("src IP %pI4 NOT in range %s%pI4-%pI4\n",
++				 &iph->saddr,
+ 				 info->flags & IPRANGE_SRC_INV ? "(INV) " : "",
+-				 NIPQUAD(info->src.min_ip),
+-				 NIPQUAD(info->src.max_ip));
++				 &info->src.min_ip,
++				 &info->src.max_ip);
+ 			return false;
+ 		}
+ 	}
+@@ -39,12 +38,11 @@ iprange_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
+ 		if ((ntohl(iph->daddr) < ntohl(info->dst.min_ip)
+ 			  || ntohl(iph->daddr) > ntohl(info->dst.max_ip))
+ 			 ^ !!(info->flags & IPRANGE_DST_INV)) {
+-			pr_debug("dst IP %u.%u.%u.%u NOT in range %s"
+-				 "%u.%u.%u.%u-%u.%u.%u.%u\n",
+-				 NIPQUAD(iph->daddr),
++			pr_debug("dst IP %pI4 NOT in range %s%pI4-%pI4\n",
++				 &iph->daddr,
+ 				 info->flags & IPRANGE_DST_INV ? "(INV) " : "",
+-				 NIPQUAD(info->dst.min_ip),
+-				 NIPQUAD(info->dst.max_ip));
++				 &info->dst.min_ip,
++				 &info->dst.max_ip);
+ 			return false;
+ 		}
+ 	}
+@@ -63,12 +61,11 @@ iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
+ 		m |= ntohl(iph->saddr) > ntohl(info->src_max.ip);
+ 		m ^= !!(info->flags & IPRANGE_SRC_INV);
+ 		if (m) {
+-			pr_debug("src IP " NIPQUAD_FMT " NOT in range %s"
+-			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
+-			         NIPQUAD(iph->saddr),
++			pr_debug("src IP %pI4 NOT in range %s%pI4-%pI4\n",
++			         &iph->saddr,
+ 			         (info->flags & IPRANGE_SRC_INV) ? "(INV) " : "",
+-			         NIPQUAD(info->src_max.ip),
+-			         NIPQUAD(info->src_max.ip));
++			         &info->src_max.ip,
++			         &info->src_max.ip);
+ 			return false;
+ 		}
+ 	}
+@@ -77,12 +74,11 @@ iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
+ 		m |= ntohl(iph->daddr) > ntohl(info->dst_max.ip);
+ 		m ^= !!(info->flags & IPRANGE_DST_INV);
+ 		if (m) {
+-			pr_debug("dst IP " NIPQUAD_FMT " NOT in range %s"
+-			         NIPQUAD_FMT "-" NIPQUAD_FMT "\n",
+-			         NIPQUAD(iph->daddr),
++			pr_debug("dst IP %pI4 NOT in range %s%pI4-%pI4\n",
++			         &iph->daddr,
+ 			         (info->flags & IPRANGE_DST_INV) ? "(INV) " : "",
+-			         NIPQUAD(info->dst_min.ip),
+-			         NIPQUAD(info->dst_max.ip));
++			         &info->dst_min.ip,
++			         &info->dst_max.ip);
+ 			return false;
+ 		}
+ 	}
+diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+index b785727..3c3dd22 100644
+--- a/net/netfilter/xt_recent.c
++++ b/net/netfilter/xt_recent.c
+@@ -422,9 +422,8 @@ static int recent_seq_show(struct seq_file *seq, void *v)
+ 
+ 	i = (e->index - 1) % ip_pkt_list_tot;
+ 	if (e->family == NFPROTO_IPV4)
+-		seq_printf(seq, "src=" NIPQUAD_FMT " ttl: %u last_seen: %lu "
+-			   "oldest_pkt: %u", NIPQUAD(e->addr.ip), e->ttl,
+-			   e->stamps[i], e->index);
++		seq_printf(seq, "src=%pI4 ttl: %u last_seen: %lu oldest_pkt: %u",
++			   &e->addr.ip, e->ttl, e->stamps[i], e->index);
+ 	else
+ 		seq_printf(seq, "src=%pI6 ttl: %u last_seen: %lu oldest_pkt: %u",
+ 			   &e->addr.in6, e->ttl, e->stamps[i], e->index);
 -- 
 1.6.0.3.756.gb776d
 
