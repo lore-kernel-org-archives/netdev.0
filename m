@@ -1,98 +1,118 @@
-From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
-Subject: [PATCH RFC] xfrm6: handling fragment
-Date: Fri, 31 Oct 2008 18:18:01 +0100
-Message-ID: <490B3DC9.906@dev.6wind.com>
-Reply-To: nicolas.dichtel@dev.6wind.com
+From: "Grant Likely" <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 2/2] phylib: make mdio-gpio work without OF
+Date: Fri, 31 Oct 2008 11:18:26 -0600
+Message-ID: <fa686aa40810311018q71248550oa65a5f20ff3bb8fe@mail.gmail.com>
+References: <20081031164132.20490.27608.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+	 <20081031164934.20490.67539.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080200050401060606000004"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org,
+	"Laurent Pinchart" <laurentp@cse-semaphore.com>,
+	"Mike Frysinger" <vapier.adi@gmail.com>
+To: "Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp8-g19.free.fr ([212.27.42.65]:60255 "EHLO smtp8-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751671AbYJaRSG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2008 13:18:06 -0400
+Received: from rv-out-0506.google.com ([209.85.198.225]:63302 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbYJaRS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 13:18:27 -0400
+In-Reply-To: <20081031164934.20490.67539.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080200050401060606000004
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Fri, Oct 31, 2008 at 10:49 AM, Paulius Zaleckas
+<paulius.zaleckas@teltonika.lt> wrote:
+> make mdio-gpio work with non OpenFirmware gpio implementation.
+>
 
-RFC4301 Section 7.1 says:
+Looking good, but it has too many #ifdef blocks for my taste.  In
+particular, if the driver is refactored a bit then all the OF stuff
+can be contained within a single ifdef block, as can all the non-OF
+stuff.  Comments below...
 
-"7.1.  Tunnel Mode SAs that Carry Initial and Non-Initial Fragments
+> +#ifdef CONFIG_OF_GPIO
+>  static int __devinit mdio_ofgpio_bitbang_init(struct mii_bus *bus,
+>                                          struct device_node *np)
+>  {
+> @@ -87,34 +102,60 @@ static int __devinit mdio_ofgpio_bitbang_init(struct mii_bus *bus,
+>        snprintf(bus->id, MII_BUS_ID_SIZE, "%x", bitbang->mdc);
+>        return 0;
+>  }
+> -
+> -static void __devinit add_phy(struct mii_bus *bus, struct device_node *np)
+> +#else
+> +static void __devinit mdio_gpio_bitbang_init(struct mii_bus *bus,
+> +                                        struct mdio_gpio_platform_data *pdata,
+> +                                       int bus_id)
+>  {
+> -       const u32 *data;
+> -       int len, id, irq;
+> +       struct mdio_gpio_info *bitbang = bus->priv;
+> +
+> +       bitbang->mdc = pdata->mdc;
+> +       bitbang->mdio = pdata->mdio;
+> +
+> +       snprintf(bus->id, MII_BUS_ID_SIZE, "phy%i", bus_id);
+> +}
+> +#endif
 
-     All implementations MUST support tunnel mode SAs that are configured
-     to pass traffic without regard to port field (or ICMP type/code or
-     Mobility Header type) values.  If the SA will carry traffic for
-     specified protocols, the selector set for the SA MUST specify the
-     port fields (or ICMP type/code or Mobility Header type) as ANY.  An
-     SA defined in this fashion will carry all traffic including initial
-     and non-initial fragments for the indicated Local/Remote addresses
-     and specified Next Layer protocol(s)."
+mdio_ofgpio_bitbang_init() is such short function and it is only
+called once inside the probe() function.  Rather than duplicate it, it
+can probably be moved inside the OF probe function and do the same
+thing for the non-OF probe().
 
-But for IPv6, fragment is treated as a protocol. Would the following patch be 
-acceptable to catch protocol transported in fragmented packet?
-In IPv4, there is no problem.
+>
+> -       data = of_get_property(np, "reg", &len);
+> -       if (!data || len != 4)
+> +static void __devinit add_phy(struct mii_bus *bus, unsigned int phy_addr,
+> +                             int phy_irq)
+> +{
+> +       if (phy_addr >= PHY_MAX_ADDR) {
+> +               dev_err(bus->parent,
+> +                       "Failed to add phy with invalid address: 0x%x",
+> +                       phy_addr);
+>                return;
+> +       }
+>
+> -       id = *data;
+> -       bus->phy_mask &= ~(1 << id);
+> +       bus->phy_mask &= ~(1 << phy_addr);
+>
+> -       irq = of_irq_to_resource(np, 0, NULL);
+> -       if (irq != NO_IRQ)
+> -               bus->irq[id] = irq;
+> +       if (phy_irq != NO_IRQ)
+> +               bus->irq[phy_addr] = phy_irq;
+>  }
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+I like the refactoring of add_phy
 
---------------080200050401060606000004
-Content-Type: text/x-patch;
- name="x.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x.diff"
+>
+> +#ifdef CONFIG_OF_GPIO
+>  static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
+>                                         const struct of_device_id *match)
+>  {
+>        struct device_node *np = NULL;
+> +       struct device *dev = &ofdev->dev;
+> +#else
+> +static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+> +{
+> +       struct mdio_gpio_platform_data *pdata;
+> +       struct device *dev = &pdev->dev;
+> +#endif
 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 08e4cbb..604bc0a 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -144,6 +144,7 @@ static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
- static inline void
- _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- {
-+	int onlyproto = 0;
- 	u16 offset = skb_network_header_len(skb);
- 	struct ipv6hdr *hdr = ipv6_hdr(skb);
- 	struct ipv6_opt_hdr *exthdr;
-@@ -159,6 +160,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- 		exthdr = (struct ipv6_opt_hdr *)(nh + offset);
- 
- 		switch (nexthdr) {
-+		case NEXTHDR_FRAGMENT:
-+			onlyproto = 1;
- 		case NEXTHDR_ROUTING:
- 		case NEXTHDR_HOP:
- 		case NEXTHDR_DEST:
-@@ -172,7 +175,7 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- 		case IPPROTO_TCP:
- 		case IPPROTO_SCTP:
- 		case IPPROTO_DCCP:
--			if (pskb_may_pull(skb, nh + offset + 4 - skb->data)) {
-+			if (!onlyproto && pskb_may_pull(skb, nh + offset + 4 - skb->data)) {
- 				__be16 *ports = (__be16 *)exthdr;
- 
- 				fl->fl_ip_sport = ports[!!reverse];
-@@ -182,7 +185,7 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- 			return;
- 
- 		case IPPROTO_ICMPV6:
--			if (pskb_may_pull(skb, nh + offset + 2 - skb->data)) {
-+			if (!onlyproto && pskb_may_pull(skb, nh + offset + 2 - skb->data)) {
- 				u8 *icmp = (u8 *)exthdr;
- 
- 				fl->fl_icmp_type = icmp[0];
-@@ -193,7 +196,7 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- 
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- 		case IPPROTO_MH:
--			if (pskb_may_pull(skb, nh + offset + 3 - skb->data)) {
-+			if (!onlyproto && pskb_may_pull(skb, nh + offset + 3 - skb->data)) {
- 				struct ip6_mh *mh;
- 				mh = (struct ip6_mh *)exthdr;
- 
+Instead of doing multiple #ifdef sections throughout the probe
+function, use one #ifdef block for the OF stuff and another for all
+the non-OF stuff.  You can factor out any non-trivial common code
+blocks into shared helper functions.
 
---------------080200050401060606000004--
+Otherwise, looking good.
+
+Thanks,
+g.
+
+-- 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
