@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH] xfrm: do not leak ESRCH to user space
-Date: Fri, 31 Oct 2008 00:07:30 -0700 (PDT)
-Message-ID: <20081031.000730.40575543.davem@davemloft.net>
-References: <20081028.155817.216873568.davem@davemloft.net>
-	<1225249103.7276.56.camel@sebastian.kern.oss.ntt.co.jp>
-	<20081028.220647.161635128.davem@davemloft.net>
+Subject: Re: [git patches] net driver updates for 2.6.29
+Date: Fri, 31 Oct 2008 00:16:11 -0700 (PDT)
+Message-ID: <20081031.001611.209603762.davem@davemloft.net>
+References: <20081031050938.GA9165@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fernando@oss.ntt.co.jp
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60781
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45284
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750869AbYJaHH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 03:07:56 -0400
-In-Reply-To: <20081028.220647.161635128.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1752998AbYJaHQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 03:16:36 -0400
+In-Reply-To: <20081031050938.GA9165@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 28 Oct 2008 22:06:47 -0700 (PDT)
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 31 Oct 2008 01:09:38 -0400
 
-> Good points, I'll think about this some more.
+> We'll see if eepro100 removal sticks, this time...
 
-Fernando, you're right (of course :), so I've applied your original
-patch.
+Let's hope :)
 
-Thanks!
+> Please pull from 'davem-next' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
+> 
+> to receive the following updates:
+
+Pulled, thanks a lot Jeff.
