@@ -1,7 +1,7 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 1/7] net: replace NIPQUAD() in net/ipv4/netfilter/
-Date: Thu, 30 Oct 2008 17:13:43 -0700
-Message-ID: <1225412024.5574.32.camel@brick>
+Subject: [PATCH 2/7] net: replace NIPQUAD() in net/ipv4/ net/ipv6/
+Date: Thu, 30 Oct 2008 17:13:44 -0700
+Message-ID: <1225412024.5574.33.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,10 +10,10 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wf-out-1314.google.com ([209.85.200.171]:39632 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbYJaANq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:13:46 -0400
+	with ESMTP id S1753783AbYJaANs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:13:48 -0400
 Received: by wf-out-1314.google.com with SMTP id 27so879384wfd.4
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 17:13:45 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 17:13:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,427 +22,515 @@ can be replaced with %pI4
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
-Dave, these should all be _exact_ replacements, the few remaining in
-tree occurences of NIPQUAD will need looking at, especially the
-ones using %u,%u,%u,%u (note the commas)
+ net/ipv4/af_inet.c            |    7 ++-----
+ net/ipv4/arp.c                |    4 ++--
+ net/ipv4/fib_trie.c           |    6 +++---
+ net/ipv4/icmp.c               |   24 ++++++++++--------------
+ net/ipv4/ip_fragment.c        |    5 ++---
+ net/ipv4/ip_input.c           |    6 ++----
+ net/ipv4/ipcomp.c             |    4 ++--
+ net/ipv4/ipconfig.c           |   40 ++++++++++++++++++----------------------
+ net/ipv4/route.c              |   40 +++++++++++++++++-----------------------
+ net/ipv4/tcp_input.c          |    4 ++--
+ net/ipv4/tcp_ipv4.c           |   13 +++++--------
+ net/ipv4/tcp_probe.c          |    7 +++----
+ net/ipv4/tcp_timer.c          |    4 ++--
+ net/ipv4/udp.c                |   12 ++++++------
+ net/ipv6/netfilter/ip6t_LOG.c |    5 ++---
+ 15 files changed, 78 insertions(+), 103 deletions(-)
 
- net/ipv4/netfilter/arp_tables.c                |   16 +++---
- net/ipv4/netfilter/ip_tables.c                 |   12 ++---
- net/ipv4/netfilter/ipt_CLUSTERIP.c             |    9 ++--
- net/ipv4/netfilter/ipt_LOG.c                   |    7 +--
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   15 +++---
- net/ipv4/netfilter/nf_nat_h323.c               |   58 +++++++++++-------------
- net/ipv4/netfilter/nf_nat_irc.c                |    4 +-
- net/ipv4/netfilter/nf_nat_rule.c               |    6 +--
- net/ipv4/netfilter/nf_nat_sip.c                |   18 +++----
- net/ipv4/netfilter/nf_nat_snmp_basic.c         |    9 ++--
- 10 files changed, 69 insertions(+), 85 deletions(-)
-
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 8d70d29..7ea88b6 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -142,15 +142,15 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
- 		  ARPT_INV_TGTIP)) {
- 		dprintf("Source or target IP address mismatch.\n");
- 
--		dprintf("SRC: %u.%u.%u.%u. Mask: %u.%u.%u.%u. Target: %u.%u.%u.%u.%s\n",
--			NIPQUAD(src_ipaddr),
--			NIPQUAD(arpinfo->smsk.s_addr),
--			NIPQUAD(arpinfo->src.s_addr),
-+		dprintf("SRC: %pI4. Mask: %pI4. Target: %pI4.%s\n",
-+			&src_ipaddr,
-+			&arpinfo->smsk.s_addr,
-+			&arpinfo->src.s_addr,
- 			arpinfo->invflags & ARPT_INV_SRCIP ? " (INV)" : "");
--		dprintf("TGT: %u.%u.%u.%u Mask: %u.%u.%u.%u Target: %u.%u.%u.%u.%s\n",
--			NIPQUAD(tgt_ipaddr),
--			NIPQUAD(arpinfo->tmsk.s_addr),
--			NIPQUAD(arpinfo->tgt.s_addr),
-+		dprintf("TGT: %pI4 Mask: %pI4 Target: %pI4.%s\n",
-+			&tgt_ipaddr,
-+			&arpinfo->tmsk.s_addr,
-+			&arpinfo->tgt.s_addr,
- 			arpinfo->invflags & ARPT_INV_TGTIP ? " (INV)" : "");
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 1fbff5f..e328681 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1070,11 +1070,8 @@ static int inet_sk_reselect_saddr(struct sock *sk)
  		return 0;
- 	}
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 213fb27..ef8b6ca 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -94,15 +94,11 @@ ip_packet_match(const struct iphdr *ip,
- 		     IPT_INV_DSTIP)) {
- 		dprintf("Source or dest mismatch.\n");
  
--		dprintf("SRC: %u.%u.%u.%u. Mask: %u.%u.%u.%u. Target: %u.%u.%u.%u.%s\n",
--			NIPQUAD(ip->saddr),
--			NIPQUAD(ipinfo->smsk.s_addr),
--			NIPQUAD(ipinfo->src.s_addr),
-+		dprintf("SRC: %pI4. Mask: %pI4. Target: %pI4.%s\n",
-+			&ip->saddr, &ipinfo->smsk.s_addr, &ipinfo->src.s_addr,
- 			ipinfo->invflags & IPT_INV_SRCIP ? " (INV)" : "");
--		dprintf("DST: %u.%u.%u.%u Mask: %u.%u.%u.%u Target: %u.%u.%u.%u.%s\n",
--			NIPQUAD(ip->daddr),
--			NIPQUAD(ipinfo->dmsk.s_addr),
--			NIPQUAD(ipinfo->dst.s_addr),
-+		dprintf("DST: %pI4 Mask: %pI4 Target: %pI4.%s\n",
-+			&ip->daddr, &ipinfo->dmsk.s_addr, &ipinfo->dst.s_addr,
- 			ipinfo->invflags & IPT_INV_DSTIP ? " (INV)" : "");
- 		return false;
+ 	if (sysctl_ip_dynaddr > 1) {
+-		printk(KERN_INFO "%s(): shifting inet->"
+-				 "saddr from " NIPQUAD_FMT " to " NIPQUAD_FMT "\n",
+-		       __func__,
+-		       NIPQUAD(old_saddr),
+-		       NIPQUAD(new_saddr));
++		printk(KERN_INFO "%s(): shifting inet->saddr from %pI4 to %pI4\n",
++		       __func__, &old_saddr, &new_saddr);
  	}
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 7ac1677..2e4f98b 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -168,7 +168,7 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 		char buffer[16];
  
- 		/* create proc dir entry */
--		sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
-+		sprintf(buffer, "%pI4", &ip);
- 		c->pde = proc_create_data(buffer, S_IWUSR|S_IRUSR,
- 					  clusterip_procdir,
- 					  &clusterip_proc_fops, c);
-@@ -373,7 +373,7 @@ static bool clusterip_tg_check(const struct xt_tgchk_param *par)
- 	config = clusterip_config_find_get(e->ip.dst.s_addr, 1);
- 	if (!config) {
- 		if (!(cipinfo->flags & CLUSTERIP_FLAG_NEW)) {
--			printk(KERN_WARNING "CLUSTERIP: no config found for %u.%u.%u.%u, need 'new'\n", NIPQUAD(e->ip.dst.s_addr));
-+			printk(KERN_WARNING "CLUSTERIP: no config found for %pI4, need 'new'\n", &e->ip.dst.s_addr);
- 			return false;
- 		} else {
- 			struct net_device *dev;
-@@ -478,9 +478,8 @@ static void arp_print(struct arp_payload *payload)
+ 	inet->saddr = inet->rcv_saddr = new_saddr;
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 1a9dd66..051a62f 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1308,7 +1308,7 @@ static void arp_format_neigh_entry(struct seq_file *seq,
+ #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
  	}
- 	hbuffer[--k]='\0';
+ #endif
+-	sprintf(tbuf, NIPQUAD_FMT, NIPQUAD(*(u32*)n->primary_key));
++	sprintf(tbuf, "%pI4", n->primary_key);
+ 	seq_printf(seq, "%-16s 0x%-10x0x%-10x%s     *        %s\n",
+ 		   tbuf, hatype, arp_state_to_flags(n), hbuffer, dev->name);
+ 	read_unlock(&n->lock);
+@@ -1321,7 +1321,7 @@ static void arp_format_pneigh_entry(struct seq_file *seq,
+ 	int hatype = dev ? dev->type : 0;
+ 	char tbuf[16];
  
--	printk("src %u.%u.%u.%u@%s, dst %u.%u.%u.%u\n",
--		NIPQUAD(payload->src_ip), hbuffer,
--		NIPQUAD(payload->dst_ip));
-+	printk("src %pI4@%s, dst %pI4\n",
-+		&payload->src_ip, hbuffer, &payload->dst_ip);
+-	sprintf(tbuf, NIPQUAD_FMT, NIPQUAD(*(u32*)n->key));
++	sprintf(tbuf, "%pI4", n->key);
+ 	seq_printf(seq, "%-16s 0x%-10x0x%-10x%s     *        %s\n",
+ 		   tbuf, hatype, ATF_PUBL | ATF_PERM, "00:00:00:00:00:00",
+ 		   dev ? dev->name : "*");
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 5cb7278..ec0ae49 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -2399,8 +2399,8 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
+ 		__be32 prf = htonl(mask_pfx(tn->key, tn->pos));
+ 
+ 		seq_indent(seq, iter->depth-1);
+-		seq_printf(seq, "  +-- " NIPQUAD_FMT "/%d %d %d %d\n",
+-			   NIPQUAD(prf), tn->pos, tn->bits, tn->full_children,
++		seq_printf(seq, "  +-- %pI4/%d %d %d %d\n",
++			   &prf, tn->pos, tn->bits, tn->full_children,
+ 			   tn->empty_children);
+ 
+ 	} else {
+@@ -2410,7 +2410,7 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
+ 		__be32 val = htonl(l->key);
+ 
+ 		seq_indent(seq, iter->depth);
+-		seq_printf(seq, "  |-- " NIPQUAD_FMT "\n", NIPQUAD(val));
++		seq_printf(seq, "  |-- %pI4\n", &val);
+ 
+ 		hlist_for_each_entry_rcu(li, node, &l->list, hlist) {
+ 			struct fib_alias *fa;
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index e9d6ea0..21e497e 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -683,10 +683,8 @@ static void icmp_unreach(struct sk_buff *skb)
+ 			break;
+ 		case ICMP_FRAG_NEEDED:
+ 			if (ipv4_config.no_pmtu_disc) {
+-				LIMIT_NETDEBUG(KERN_INFO "ICMP: " NIPQUAD_FMT ": "
+-							 "fragmentation needed "
+-							 "and DF set.\n",
+-					       NIPQUAD(iph->daddr));
++				LIMIT_NETDEBUG(KERN_INFO "ICMP: %pI4: fragmentation needed and DF set.\n",
++					       &iph->daddr);
+ 			} else {
+ 				info = ip_rt_frag_needed(net, iph,
+ 							 ntohs(icmph->un.frag.mtu),
+@@ -696,9 +694,8 @@ static void icmp_unreach(struct sk_buff *skb)
+ 			}
+ 			break;
+ 		case ICMP_SR_FAILED:
+-			LIMIT_NETDEBUG(KERN_INFO "ICMP: " NIPQUAD_FMT ": Source "
+-						 "Route Failed.\n",
+-				       NIPQUAD(iph->daddr));
++			LIMIT_NETDEBUG(KERN_INFO "ICMP: %pI4: Source Route Failed.\n",
++				       &iph->daddr);
+ 			break;
+ 		default:
+ 			break;
+@@ -729,12 +726,12 @@ static void icmp_unreach(struct sk_buff *skb)
+ 	if (!net->ipv4.sysctl_icmp_ignore_bogus_error_responses &&
+ 	    inet_addr_type(net, iph->daddr) == RTN_BROADCAST) {
+ 		if (net_ratelimit())
+-			printk(KERN_WARNING NIPQUAD_FMT " sent an invalid ICMP "
++			printk(KERN_WARNING "%pI4 sent an invalid ICMP "
+ 					    "type %u, code %u "
+-					    "error to a broadcast: " NIPQUAD_FMT " on %s\n",
+-			       NIPQUAD(ip_hdr(skb)->saddr),
++					    "error to a broadcast: %pI4 on %s\n",
++			       &ip_hdr(skb)->saddr,
+ 			       icmph->type, icmph->code,
+-			       NIPQUAD(iph->daddr),
++			       &iph->daddr,
+ 			       skb->dev->name);
+ 		goto out;
+ 	}
+@@ -952,9 +949,8 @@ static void icmp_address_reply(struct sk_buff *skb)
+ 				break;
+ 		}
+ 		if (!ifa && net_ratelimit()) {
+-			printk(KERN_INFO "Wrong address mask " NIPQUAD_FMT " from "
+-					 "%s/" NIPQUAD_FMT "\n",
+-			       NIPQUAD(*mp), dev->name, NIPQUAD(rt->rt_src));
++			printk(KERN_INFO "Wrong address mask %pI4 from %s/%pI4\n",
++			       mp, dev->name, &rt->rt_src);
+ 		}
+ 	}
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index e4f81f5..8c495e3 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -559,9 +559,8 @@ out_nomem:
+ 	goto out_fail;
+ out_oversize:
+ 	if (net_ratelimit())
+-		printk(KERN_INFO
+-			"Oversized IP packet from " NIPQUAD_FMT ".\n",
+-			NIPQUAD(qp->saddr));
++		printk(KERN_INFO "Oversized IP packet from %pI4.\n",
++			&qp->saddr);
+ out_fail:
+ 	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMFAILS);
+ 	return err;
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 861978a..1b6475c 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -294,10 +294,8 @@ static inline int ip_rcv_options(struct sk_buff *skb)
+ 			if (!IN_DEV_SOURCE_ROUTE(in_dev)) {
+ 				if (IN_DEV_LOG_MARTIANS(in_dev) &&
+ 				    net_ratelimit())
+-					printk(KERN_INFO "source route option "
+-					       NIPQUAD_FMT " -> " NIPQUAD_FMT "\n",
+-					       NIPQUAD(iph->saddr),
+-					       NIPQUAD(iph->daddr));
++					printk(KERN_INFO "source route option %pI4 -> %pI4\n",
++					       &iph->saddr, &iph->daddr);
+ 				in_dev_put(in_dev);
+ 				goto drop;
+ 			}
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index 38ccb6d..ec8264a 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -39,8 +39,8 @@ static void ipcomp4_err(struct sk_buff *skb, u32 info)
+ 			      spi, IPPROTO_COMP, AF_INET);
+ 	if (!x)
+ 		return;
+-	NETDEBUG(KERN_DEBUG "pmtu discovery on SA IPCOMP/%08x/" NIPQUAD_FMT "\n",
+-		 spi, NIPQUAD(iph->daddr));
++	NETDEBUG(KERN_DEBUG "pmtu discovery on SA IPCOMP/%08x/%pI4\n",
++		 spi, &iph->daddr);
+ 	xfrm_state_put(x);
  }
+ 
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 42065ff..42a0f3d 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -374,7 +374,7 @@ static int __init ic_defaults(void)
+ 	 */
+ 
+ 	if (!ic_host_name_set)
+-		sprintf(init_utsname()->nodename, NIPQUAD_FMT, NIPQUAD(ic_myaddr));
++		sprintf(init_utsname()->nodename, "%pI4", &ic_myaddr);
+ 
+ 	if (root_server_addr == NONE)
+ 		root_server_addr = ic_servaddr;
+@@ -387,11 +387,11 @@ static int __init ic_defaults(void)
+ 		else if (IN_CLASSC(ntohl(ic_myaddr)))
+ 			ic_netmask = htonl(IN_CLASSC_NET);
+ 		else {
+-			printk(KERN_ERR "IP-Config: Unable to guess netmask for address " NIPQUAD_FMT "\n",
+-				NIPQUAD(ic_myaddr));
++			printk(KERN_ERR "IP-Config: Unable to guess netmask for address %pI4\n",
++				&ic_myaddr);
+ 			return -1;
+ 		}
+-		printk("IP-Config: Guessing netmask " NIPQUAD_FMT "\n", NIPQUAD(ic_netmask));
++		printk("IP-Config: Guessing netmask %pI4\n", &ic_netmask);
+ 	}
+ 
+ 	return 0;
+@@ -979,10 +979,8 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
+ 				ic_myaddr = b->your_ip;
+ 				ic_servaddr = server_id;
+ #ifdef IPCONFIG_DEBUG
+-				printk("DHCP: Offered address " NIPQUAD_FMT,
+-				       NIPQUAD(ic_myaddr));
+-				printk(" by server " NIPQUAD_FMT "\n",
+-				       NIPQUAD(ic_servaddr));
++				printk("DHCP: Offered address %pI4 by server %pI4\n",
++				       &ic_myaddr, &ic_servaddr);
+ #endif
+ 				/* The DHCP indicated server address takes
+ 				 * precedence over the bootp header one if
+@@ -1177,11 +1175,11 @@ static int __init ic_dynamic(void)
+ 		return -1;
+ 	}
+ 
+-	printk("IP-Config: Got %s answer from " NIPQUAD_FMT ", ",
++	printk("IP-Config: Got %s answer from %pI4, ",
+ 		((ic_got_reply & IC_RARP) ? "RARP"
+ 		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
+-		NIPQUAD(ic_servaddr));
+-	printk("my address is " NIPQUAD_FMT "\n", NIPQUAD(ic_myaddr));
++		&ic_servaddr);
++	printk("my address is %pI4\n", &ic_myaddr);
+ 
+ 	return 0;
+ }
+@@ -1206,14 +1204,12 @@ static int pnp_seq_show(struct seq_file *seq, void *v)
+ 			   "domain %s\n", ic_domain);
+ 	for (i = 0; i < CONF_NAMESERVERS_MAX; i++) {
+ 		if (ic_nameservers[i] != NONE)
+-			seq_printf(seq,
+-				   "nameserver " NIPQUAD_FMT "\n",
+-				   NIPQUAD(ic_nameservers[i]));
++			seq_printf(seq, "nameserver %pI4\n",
++				   &ic_nameservers[i]);
+ 	}
+ 	if (ic_servaddr != NONE)
+-		seq_printf(seq,
+-			   "bootserver " NIPQUAD_FMT "\n",
+-			   NIPQUAD(ic_servaddr));
++		seq_printf(seq, "bootserver %pI4\n",
++			   &ic_servaddr);
+ 	return 0;
+ }
+ 
+@@ -1387,13 +1383,13 @@ static int __init ip_auto_config(void)
+ 	 */
+ 	printk("IP-Config: Complete:");
+ 	printk("\n     device=%s", ic_dev->name);
+-	printk(", addr=" NIPQUAD_FMT, NIPQUAD(ic_myaddr));
+-	printk(", mask=" NIPQUAD_FMT, NIPQUAD(ic_netmask));
+-	printk(", gw=" NIPQUAD_FMT, NIPQUAD(ic_gateway));
++	printk(", addr=%pI4", &ic_myaddr);
++	printk(", mask=%pI4", &ic_netmask);
++	printk(", gw=%pI4", &ic_gateway);
+ 	printk(",\n     host=%s, domain=%s, nis-domain=%s",
+ 	       utsname()->nodename, ic_domain, utsname()->domainname);
+-	printk(",\n     bootserver=" NIPQUAD_FMT, NIPQUAD(ic_servaddr));
+-	printk(", rootserver=" NIPQUAD_FMT, NIPQUAD(root_server_addr));
++	printk(",\n     bootserver=%pI4", &ic_servaddr);
++	printk(", rootserver=%pI4", &root_server_addr);
+ 	printk(", rootpath=%s", root_server_path);
+ 	printk("\n");
+ #endif /* !SILENT */
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index e59b4dc..f47b9db 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1214,10 +1214,9 @@ restart:
+ #if RT_CACHE_DEBUG >= 2
+ 	if (rt->u.dst.rt_next) {
+ 		struct rtable *trt;
+-		printk(KERN_DEBUG "rt_cache @%02x: " NIPQUAD_FMT, hash,
+-		       NIPQUAD(rt->rt_dst));
++		printk(KERN_DEBUG "rt_cache @%02x: %pI4", hash, &rt->rt_dst);
+ 		for (trt = rt->u.dst.rt_next; trt; trt = trt->u.dst.rt_next)
+-			printk(" . " NIPQUAD_FMT, NIPQUAD(trt->rt_dst));
++			printk(" . %pI4", &trt->rt_dst);
+ 		printk("\n");
+ 	}
+ #endif
+@@ -1444,11 +1443,10 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ reject_redirect:
+ #ifdef CONFIG_IP_ROUTE_VERBOSE
+ 	if (IN_DEV_LOG_MARTIANS(in_dev) && net_ratelimit())
+-		printk(KERN_INFO "Redirect from " NIPQUAD_FMT " on %s about "
+-			NIPQUAD_FMT " ignored.\n"
+-			"  Advised path = " NIPQUAD_FMT " -> " NIPQUAD_FMT "\n",
+-		       NIPQUAD(old_gw), dev->name, NIPQUAD(new_gw),
+-		       NIPQUAD(saddr), NIPQUAD(daddr));
++		printk(KERN_INFO "Redirect from %pI4 on %s about %pI4 ignored.\n"
++			"  Advised path = %pI4 -> %pI4\n",
++		       &old_gw, dev->name, &new_gw,
++		       &saddr, &daddr);
+ #endif
+ 	in_dev_put(in_dev);
+ }
+@@ -1468,9 +1466,8 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
+ 						rt->fl.oif,
+ 						rt_genid(dev_net(dst->dev)));
+ #if RT_CACHE_DEBUG >= 1
+-			printk(KERN_DEBUG "ipv4_negative_advice: redirect to "
+-					  NIPQUAD_FMT "/%02x dropped\n",
+-				NIPQUAD(rt->rt_dst), rt->fl.fl4_tos);
++			printk(KERN_DEBUG "ipv4_negative_advice: redirect to %pI4/%02x dropped\n",
++				&rt->rt_dst, rt->fl.fl4_tos);
+ #endif
+ 			rt_del(hash, rt);
+ 			ret = NULL;
+@@ -1534,10 +1531,9 @@ void ip_rt_send_redirect(struct sk_buff *skb)
+ 		if (IN_DEV_LOG_MARTIANS(in_dev) &&
+ 		    rt->u.dst.rate_tokens == ip_rt_redirect_number &&
+ 		    net_ratelimit())
+-			printk(KERN_WARNING "host " NIPQUAD_FMT "/if%d ignores "
+-				"redirects for " NIPQUAD_FMT " to " NIPQUAD_FMT ".\n",
+-				NIPQUAD(rt->rt_src), rt->rt_iif,
+-				NIPQUAD(rt->rt_dst), NIPQUAD(rt->rt_gateway));
++			printk(KERN_WARNING "host %pI4/if%d ignores redirects for %pI4 to %pI4.\n",
++				&rt->rt_src, rt->rt_iif,
++				&rt->rt_dst, &rt->rt_gateway);
+ #endif
+ 	}
+ out:
+@@ -1730,8 +1726,8 @@ static void ipv4_link_failure(struct sk_buff *skb)
+ 
+ static int ip_rt_bug(struct sk_buff *skb)
+ {
+-	printk(KERN_DEBUG "ip_rt_bug: " NIPQUAD_FMT " -> " NIPQUAD_FMT ", %s\n",
+-		NIPQUAD(ip_hdr(skb)->saddr), NIPQUAD(ip_hdr(skb)->daddr),
++	printk(KERN_DEBUG "ip_rt_bug: %pI4 -> %pI4, %s\n",
++		&ip_hdr(skb)->saddr, &ip_hdr(skb)->daddr,
+ 		skb->dev ? skb->dev->name : "?");
+ 	kfree_skb(skb);
+ 	return 0;
+@@ -1908,9 +1904,8 @@ static void ip_handle_martian_source(struct net_device *dev,
+ 		 *	RFC1812 recommendation, if source is martian,
+ 		 *	the only hint is MAC header.
+ 		 */
+-		printk(KERN_WARNING "martian source " NIPQUAD_FMT " from "
+-			NIPQUAD_FMT", on dev %s\n",
+-			NIPQUAD(daddr), NIPQUAD(saddr), dev->name);
++		printk(KERN_WARNING "martian source %pI4 from %pI4, on dev %s\n",
++			&daddr, &saddr, dev->name);
+ 		if (dev->hard_header_len && skb_mac_header_was_set(skb)) {
+ 			int i;
+ 			const unsigned char *p = skb_mac_header(skb);
+@@ -2219,9 +2214,8 @@ martian_destination:
+ 	RT_CACHE_STAT_INC(in_martian_dst);
+ #ifdef CONFIG_IP_ROUTE_VERBOSE
+ 	if (IN_DEV_LOG_MARTIANS(in_dev) && net_ratelimit())
+-		printk(KERN_WARNING "martian destination " NIPQUAD_FMT " from "
+-			NIPQUAD_FMT ", dev %s\n",
+-			NIPQUAD(daddr), NIPQUAD(saddr), dev->name);
++		printk(KERN_WARNING "martian destination %pI4 from %pI4, dev %s\n",
++			&daddr, &saddr, dev->name);
  #endif
  
-diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
-index fc6ce04..4614a69 100644
---- a/net/ipv4/netfilter/ipt_LOG.c
-+++ b/net/ipv4/netfilter/ipt_LOG.c
-@@ -54,8 +54,8 @@ static void dump_packet(const struct nf_loginfo *info,
- 	/* Important fields:
- 	 * TOS, len, DF/MF, fragment offset, TTL, src, dst, options. */
- 	/* Max length: 40 "SRC=255.255.255.255 DST=255.255.255.255 " */
--	printk("SRC=%u.%u.%u.%u DST=%u.%u.%u.%u ",
--	       NIPQUAD(ih->saddr), NIPQUAD(ih->daddr));
-+	printk("SRC=%pI4 DST=%pI4 ",
-+	       &ih->saddr, &ih->daddr);
+ e_hostunreach:
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 04909e4..097294b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2336,9 +2336,9 @@ static void DBGUNDO(struct sock *sk, const char *msg)
+ 	struct inet_sock *inet = inet_sk(sk);
  
- 	/* Max length: 46 "LEN=65535 TOS=0xFF PREC=0xFF TTL=255 ID=65535 " */
- 	printk("LEN=%u TOS=0x%02X PREC=0x%02X TTL=%u ID=%u ",
-@@ -262,8 +262,7 @@ static void dump_packet(const struct nf_loginfo *info,
- 			break;
- 		case ICMP_REDIRECT:
- 			/* Max length: 24 "GATEWAY=255.255.255.255 " */
--			printk("GATEWAY=%u.%u.%u.%u ",
--			       NIPQUAD(ich->un.gateway));
-+			printk("GATEWAY=%pI4 ", &ich->un.gateway);
- 			/* Fall through */
- 		case ICMP_DEST_UNREACH:
- 		case ICMP_SOURCE_QUENCH:
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 4a7c352..bddadea 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -60,9 +60,8 @@ static bool ipv4_invert_tuple(struct nf_conntrack_tuple *tuple,
- static int ipv4_print_tuple(struct seq_file *s,
- 			    const struct nf_conntrack_tuple *tuple)
- {
--	return seq_printf(s, "src=%u.%u.%u.%u dst=%u.%u.%u.%u ",
--			  NIPQUAD(tuple->src.u3.ip),
--			  NIPQUAD(tuple->dst.u3.ip));
-+	return seq_printf(s, "src=%pI4 dst=%pI4 ",
-+			  &tuple->src.u3.ip, &tuple->dst.u3.ip);
- }
+ 	if (sk->sk_family == AF_INET) {
+-		printk(KERN_DEBUG "Undo %s " NIPQUAD_FMT "/%u c%u l%u ss%u/%u p%u\n",
++		printk(KERN_DEBUG "Undo %s %pI4/%u c%u l%u ss%u/%u p%u\n",
+ 		       msg,
+-		       NIPQUAD(inet->daddr), ntohs(inet->dport),
++		       &inet->daddr, ntohs(inet->dport),
+ 		       tp->snd_cwnd, tcp_left_out(tp),
+ 		       tp->snd_ssthresh, tp->prior_ssthresh,
+ 		       tp->packets_out);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 5c8fa7f..ef33246 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1139,10 +1139,9 @@ static int tcp_v4_inbound_md5_hash(struct sock *sk, struct sk_buff *skb)
  
- static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
-@@ -284,17 +283,17 @@ getorigdst(struct sock *sk, int optval, void __user *user, int *len)
- 			.tuple.dst.u3.ip;
- 		memset(sin.sin_zero, 0, sizeof(sin.sin_zero));
- 
--		pr_debug("SO_ORIGINAL_DST: %u.%u.%u.%u %u\n",
--			 NIPQUAD(sin.sin_addr.s_addr), ntohs(sin.sin_port));
-+		pr_debug("SO_ORIGINAL_DST: %pI4 %u\n",
-+			 &sin.sin_addr.s_addr, ntohs(sin.sin_port));
- 		nf_ct_put(ct);
- 		if (copy_to_user(user, &sin, sizeof(sin)) != 0)
- 			return -EFAULT;
- 		else
- 			return 0;
- 	}
--	pr_debug("SO_ORIGINAL_DST: Can't find %u.%u.%u.%u/%u-%u.%u.%u.%u/%u.\n",
--		 NIPQUAD(tuple.src.u3.ip), ntohs(tuple.src.u.tcp.port),
--		 NIPQUAD(tuple.dst.u3.ip), ntohs(tuple.dst.u.tcp.port));
-+	pr_debug("SO_ORIGINAL_DST: Can't find %pI4/%u-%pI4/%u.\n",
-+		 &tuple.src.u3.ip, ntohs(tuple.src.u.tcp.port),
-+		 &tuple.dst.u3.ip, ntohs(tuple.dst.u.tcp.port));
- 	return -ENOENT;
- }
- 
-diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
-index ee47bf2..7e8e6fc 100644
---- a/net/ipv4/netfilter/nf_nat_h323.c
-+++ b/net/ipv4/netfilter/nf_nat_h323.c
-@@ -119,10 +119,9 @@ static int set_sig_addr(struct sk_buff *skb, struct nf_conn *ct,
- 				    (ntohl(addr.ip) & 0xff000000) == 0x7f000000)
- 					i = 0;
- 
--				pr_debug("nf_nat_ras: set signal address "
--					 "%u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--					 NIPQUAD(addr.ip), port,
--					 NIPQUAD(ct->tuplehash[!dir].tuple.dst.u3.ip),
-+				pr_debug("nf_nat_ras: set signal address %pI4:%hu->%pI4:%hu\n",
-+					 &addr.ip, port,
-+					 &ct->tuplehash[!dir].tuple.dst.u3.ip,
- 					 info->sig_port[!dir]);
- 				return set_h225_addr(skb, data, 0, &taddr[i],
- 						     &ct->tuplehash[!dir].
-@@ -131,10 +130,9 @@ static int set_sig_addr(struct sk_buff *skb, struct nf_conn *ct,
- 			} else if (addr.ip == ct->tuplehash[dir].tuple.dst.u3.ip &&
- 				   port == info->sig_port[dir]) {
- 				/* GK->GW */
--				pr_debug("nf_nat_ras: set signal address "
--					 "%u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--					 NIPQUAD(addr.ip), port,
--					 NIPQUAD(ct->tuplehash[!dir].tuple.src.u3.ip),
-+				pr_debug("nf_nat_ras: set signal address %pI4:%hu->%pI4:%hu\n",
-+					 &addr.ip, port,
-+					 &ct->tuplehash[!dir].tuple.src.u3.ip,
- 					 info->sig_port[!dir]);
- 				return set_h225_addr(skb, data, 0, &taddr[i],
- 						     &ct->tuplehash[!dir].
-@@ -162,10 +160,9 @@ static int set_ras_addr(struct sk_buff *skb, struct nf_conn *ct,
- 		if (get_h225_addr(ct, *data, &taddr[i], &addr, &port) &&
- 		    addr.ip == ct->tuplehash[dir].tuple.src.u3.ip &&
- 		    port == ct->tuplehash[dir].tuple.src.u.udp.port) {
--			pr_debug("nf_nat_ras: set rasAddress "
--				 "%u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--				 NIPQUAD(addr.ip), ntohs(port),
--				 NIPQUAD(ct->tuplehash[!dir].tuple.dst.u3.ip),
-+			pr_debug("nf_nat_ras: set rasAddress %pI4:%hu->%pI4:%hu\n",
-+				 &addr.ip, ntohs(port),
-+				 &ct->tuplehash[!dir].tuple.dst.u3.ip,
- 				 ntohs(ct->tuplehash[!dir].tuple.dst.u.udp.port));
- 			return set_h225_addr(skb, data, 0, &taddr[i],
- 					     &ct->tuplehash[!dir].tuple.dst.u3,
-@@ -257,15 +254,15 @@ static int nat_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
- 	}
- 
- 	/* Success */
--	pr_debug("nf_nat_h323: expect RTP %u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--		 NIPQUAD(rtp_exp->tuple.src.u3.ip),
-+	pr_debug("nf_nat_h323: expect RTP %pI4:%hu->%pI4:%hu\n",
-+		 &rtp_exp->tuple.src.u3.ip,
- 		 ntohs(rtp_exp->tuple.src.u.udp.port),
--		 NIPQUAD(rtp_exp->tuple.dst.u3.ip),
-+		 &rtp_exp->tuple.dst.u3.ip,
- 		 ntohs(rtp_exp->tuple.dst.u.udp.port));
--	pr_debug("nf_nat_h323: expect RTCP %u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--		 NIPQUAD(rtcp_exp->tuple.src.u3.ip),
-+	pr_debug("nf_nat_h323: expect RTCP %pI4:%hu->%pI4:%hu\n",
-+		 &rtcp_exp->tuple.src.u3.ip,
- 		 ntohs(rtcp_exp->tuple.src.u.udp.port),
--		 NIPQUAD(rtcp_exp->tuple.dst.u3.ip),
-+		 &rtcp_exp->tuple.dst.u3.ip,
- 		 ntohs(rtcp_exp->tuple.dst.u.udp.port));
- 
- 	return 0;
-@@ -307,10 +304,10 @@ static int nat_t120(struct sk_buff *skb, struct nf_conn *ct,
- 		return -1;
- 	}
- 
--	pr_debug("nf_nat_h323: expect T.120 %u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--		 NIPQUAD(exp->tuple.src.u3.ip),
-+	pr_debug("nf_nat_h323: expect T.120 %pI4:%hu->%pI4:%hu\n",
-+		 &exp->tuple.src.u3.ip,
- 		 ntohs(exp->tuple.src.u.tcp.port),
--		 NIPQUAD(exp->tuple.dst.u3.ip),
-+		 &exp->tuple.dst.u3.ip,
- 		 ntohs(exp->tuple.dst.u.tcp.port));
- 
- 	return 0;
-@@ -361,10 +358,10 @@ static int nat_h245(struct sk_buff *skb, struct nf_conn *ct,
- 		return -1;
- 	}
- 
--	pr_debug("nf_nat_q931: expect H.245 %u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--		 NIPQUAD(exp->tuple.src.u3.ip),
-+	pr_debug("nf_nat_q931: expect H.245 %pI4:%hu->%pI4:%hu\n",
-+		 &exp->tuple.src.u3.ip,
- 		 ntohs(exp->tuple.src.u.tcp.port),
--		 NIPQUAD(exp->tuple.dst.u3.ip),
-+		 &exp->tuple.dst.u3.ip,
- 		 ntohs(exp->tuple.dst.u.tcp.port));
- 
- 	return 0;
-@@ -455,10 +452,10 @@ static int nat_q931(struct sk_buff *skb, struct nf_conn *ct,
- 	}
- 
- 	/* Success */
--	pr_debug("nf_nat_ras: expect Q.931 %u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--		 NIPQUAD(exp->tuple.src.u3.ip),
-+	pr_debug("nf_nat_ras: expect Q.931 %pI4:%hu->%pI4:%hu\n",
-+		 &exp->tuple.src.u3.ip,
- 		 ntohs(exp->tuple.src.u.tcp.port),
--		 NIPQUAD(exp->tuple.dst.u3.ip),
-+		 &exp->tuple.dst.u3.ip,
- 		 ntohs(exp->tuple.dst.u.tcp.port));
- 
- 	return 0;
-@@ -524,11 +521,10 @@ static int nat_callforwarding(struct sk_buff *skb, struct nf_conn *ct,
- 	}
- 
- 	/* Success */
--	pr_debug("nf_nat_q931: expect Call Forwarding "
--		 "%u.%u.%u.%u:%hu->%u.%u.%u.%u:%hu\n",
--		 NIPQUAD(exp->tuple.src.u3.ip),
-+	pr_debug("nf_nat_q931: expect Call Forwarding %pI4:%hu->%pI4:%hu\n",
-+		 &exp->tuple.src.u3.ip,
- 		 ntohs(exp->tuple.src.u.tcp.port),
--		 NIPQUAD(exp->tuple.dst.u3.ip),
-+		 &exp->tuple.dst.u3.ip,
- 		 ntohs(exp->tuple.dst.u.tcp.port));
- 
- 	return 0;
-diff --git a/net/ipv4/netfilter/nf_nat_irc.c b/net/ipv4/netfilter/nf_nat_irc.c
-index fe6f9ce..ea83a88 100644
---- a/net/ipv4/netfilter/nf_nat_irc.c
-+++ b/net/ipv4/netfilter/nf_nat_irc.c
-@@ -55,8 +55,8 @@ static unsigned int help(struct sk_buff *skb,
- 
- 	ip = ntohl(exp->master->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3.ip);
- 	sprintf(buffer, "%u %u", ip, port);
--	pr_debug("nf_nat_irc: inserting '%s' == %u.%u.%u.%u, port %u\n",
--		 buffer, NIPQUAD(ip), port);
-+	pr_debug("nf_nat_irc: inserting '%s' == %pI4, port %u\n",
-+		 buffer, &ip, port);
- 
- 	ret = nf_nat_mangle_tcp_packet(skb, exp->master, ctinfo,
- 				       matchoff, matchlen, buffer,
-diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
-index bea54a6..a4f1c34 100644
---- a/net/ipv4/netfilter/nf_nat_rule.c
-+++ b/net/ipv4/netfilter/nf_nat_rule.c
-@@ -98,8 +98,7 @@ static void warn_if_extra_mangle(struct net *net, __be32 dstip, __be32 srcip)
- 
- 	if (rt->rt_src != srcip && !warned) {
- 		printk("NAT: no longer support implicit source local NAT\n");
--		printk("NAT: packet src %u.%u.%u.%u -> dst %u.%u.%u.%u\n",
--		       NIPQUAD(srcip), NIPQUAD(dstip));
-+		printk("NAT: packet src %pI4 -> dst %pI4\n", &srcip, &dstip);
- 		warned = 1;
- 	}
- 	ip_rt_put(rt);
-@@ -166,8 +165,7 @@ alloc_null_binding(struct nf_conn *ct, unsigned int hooknum)
- 	struct nf_nat_range range
- 		= { IP_NAT_RANGE_MAP_IPS, ip, ip, { 0 }, { 0 } };
- 
--	pr_debug("Allocating NULL binding for %p (%u.%u.%u.%u)\n",
--		 ct, NIPQUAD(ip));
-+	pr_debug("Allocating NULL binding for %p (%pI4)\n", ct, &ip);
- 	return nf_nat_setup_info(ct, &range, HOOK2MANIP(hooknum));
- }
- 
-diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
-index 1454432..07d61a5 100644
---- a/net/ipv4/netfilter/nf_nat_sip.c
-+++ b/net/ipv4/netfilter/nf_nat_sip.c
-@@ -74,8 +74,7 @@ static int map_addr(struct sk_buff *skb,
- 	if (newaddr == addr->ip && newport == port)
+ 	if (genhash || memcmp(hash_location, newhash, 16) != 0) {
+ 		if (net_ratelimit()) {
+-			printk(KERN_INFO "MD5 Hash failed for "
+-			       "(" NIPQUAD_FMT ", %d)->(" NIPQUAD_FMT ", %d)%s\n",
+-			       NIPQUAD(iph->saddr), ntohs(th->source),
+-			       NIPQUAD(iph->daddr), ntohs(th->dest),
++			printk(KERN_INFO "MD5 Hash failed for (%pI4, %d)->(%pI4, %d)%s\n",
++			       &iph->saddr, ntohs(th->source),
++			       &iph->daddr, ntohs(th->dest),
+ 			       genhash ? " tcp_v4_calc_md5_hash failed" : "");
+ 		}
  		return 1;
- 
--	buflen = sprintf(buffer, "%u.%u.%u.%u:%u",
--			 NIPQUAD(newaddr), ntohs(newport));
-+	buflen = sprintf(buffer, "%pI4:%u", &newaddr, ntohs(newport));
- 
- 	return mangle_packet(skb, dptr, datalen, matchoff, matchlen,
- 			     buffer, buflen);
-@@ -152,8 +151,8 @@ static unsigned int ip_nat_sip(struct sk_buff *skb,
- 					       &addr) > 0 &&
- 		    addr.ip == ct->tuplehash[dir].tuple.src.u3.ip &&
- 		    addr.ip != ct->tuplehash[!dir].tuple.dst.u3.ip) {
--			__be32 ip = ct->tuplehash[!dir].tuple.dst.u3.ip;
--			buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
-+			buflen = sprintf(buffer, "%pI4",
-+					&ct->tuplehash[!dir].tuple.dst.u3.ip);
- 			if (!mangle_packet(skb, dptr, datalen, poff, plen,
- 					   buffer, buflen))
- 				return NF_DROP;
-@@ -166,8 +165,8 @@ static unsigned int ip_nat_sip(struct sk_buff *skb,
- 					       &addr) > 0 &&
- 		    addr.ip == ct->tuplehash[dir].tuple.dst.u3.ip &&
- 		    addr.ip != ct->tuplehash[!dir].tuple.src.u3.ip) {
--			__be32 ip = ct->tuplehash[!dir].tuple.src.u3.ip;
--			buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
-+			buflen = sprintf(buffer, "%pI4",
-+					&ct->tuplehash[!dir].tuple.src.u3.ip);
- 			if (!mangle_packet(skb, dptr, datalen, poff, plen,
- 					   buffer, buflen))
- 				return NF_DROP;
-@@ -279,8 +278,7 @@ static unsigned int ip_nat_sip_expect(struct sk_buff *skb,
- 
- 	if (exp->tuple.dst.u3.ip != exp->saved_ip ||
- 	    exp->tuple.dst.u.udp.port != exp->saved_proto.udp.port) {
--		buflen = sprintf(buffer, "%u.%u.%u.%u:%u",
--				 NIPQUAD(newip), port);
-+		buflen = sprintf(buffer, "%pI4:%u", &newip, port);
- 		if (!mangle_packet(skb, dptr, datalen, matchoff, matchlen,
- 				   buffer, buflen))
- 			goto err;
-@@ -345,7 +343,7 @@ static unsigned int ip_nat_sdp_addr(struct sk_buff *skb, const char **dptr,
- 	char buffer[sizeof("nnn.nnn.nnn.nnn")];
- 	unsigned int buflen;
- 
--	buflen = sprintf(buffer, NIPQUAD_FMT, NIPQUAD(addr->ip));
-+	buflen = sprintf(buffer, "%pI4", &addr->ip);
- 	if (mangle_sdp_packet(skb, dptr, dataoff, datalen, type, term,
- 			      buffer, buflen))
- 		return 0;
-@@ -380,7 +378,7 @@ static unsigned int ip_nat_sdp_session(struct sk_buff *skb, const char **dptr,
- 	unsigned int buflen;
- 
- 	/* Mangle session description owner and contact addresses */
--	buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(addr->ip));
-+	buflen = sprintf(buffer, "%pI4", &addr->ip);
- 	if (mangle_sdp_packet(skb, dptr, dataoff, datalen,
- 			       SDP_HDR_OWNER_IP4, SDP_HDR_MEDIA,
- 			       buffer, buflen))
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index 8303e4b..182f845 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -930,8 +930,8 @@ static inline void mangle_address(unsigned char *begin,
+@@ -1297,10 +1296,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 			 * to destinations, already remembered
+ 			 * to the moment of synflood.
+ 			 */
+-			LIMIT_NETDEBUG(KERN_DEBUG "TCP: drop open "
+-				       "request from " NIPQUAD_FMT "/%u\n",
+-				       NIPQUAD(saddr),
+-				       ntohs(tcp_hdr(skb)->source));
++			LIMIT_NETDEBUG(KERN_DEBUG "TCP: drop open request from %pI4/%u\n",
++				       &saddr, ntohs(tcp_hdr(skb)->source));
+ 			goto drop_and_release;
  		}
  
- 		if (debug)
--			printk(KERN_DEBUG "bsalg: mapped %u.%u.%u.%u to "
--			       "%u.%u.%u.%u\n", NIPQUAD(old), NIPQUAD(*addr));
-+			printk(KERN_DEBUG "bsalg: mapped %pI4 to %pI4\n",
-+			       &old, addr);
- 	}
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index 7ddc30f..25524d4 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -153,12 +153,11 @@ static int tcpprobe_sprint(char *tbuf, int n)
+ 		= ktime_to_timespec(ktime_sub(p->tstamp, tcp_probe.start));
+ 
+ 	return snprintf(tbuf, n,
+-			"%lu.%09lu " NIPQUAD_FMT ":%u " NIPQUAD_FMT ":%u"
+-			" %d %#x %#x %u %u %u %u\n",
++			"%lu.%09lu %pI4:%u %pI4:%u %d %#x %#x %u %u %u %u\n",
+ 			(unsigned long) tv.tv_sec,
+ 			(unsigned long) tv.tv_nsec,
+-			NIPQUAD(p->saddr), ntohs(p->sport),
+-			NIPQUAD(p->daddr), ntohs(p->dport),
++			&p->saddr, ntohs(p->sport),
++			&p->daddr, ntohs(p->dport),
+ 			p->length, p->snd_nxt, p->snd_una,
+ 			p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt);
  }
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 979c9d6..9843f6c 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -299,8 +299,8 @@ static void tcp_retransmit_timer(struct sock *sk)
+ #ifdef TCP_DEBUG
+ 		struct inet_sock *inet = inet_sk(sk);
+ 		if (sk->sk_family == AF_INET) {
+-			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer " NIPQUAD_FMT ":%u/%u shrinks window %u:%u. Repaired.\n",
+-			       NIPQUAD(inet->daddr), ntohs(inet->dport),
++			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer %pI4:%u/%u shrinks window %u:%u. Repaired.\n",
++			       &inet->daddr, ntohs(inet->dport),
+ 			       inet->num, tp->snd_una, tp->snd_nxt);
+ 		}
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f760b86..bcb5def 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1263,13 +1263,13 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	return 0;
  
-@@ -1267,9 +1267,8 @@ static int help(struct sk_buff *skb, unsigned int protoff,
+ short_packet:
+-	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: short packet: From " NIPQUAD_FMT ":%u %d/%d to " NIPQUAD_FMT ":%u\n",
++	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: short packet: From %pI4:%u %d/%d to %pI4:%u\n",
+ 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
+-		       NIPQUAD(saddr),
++		       &saddr,
+ 		       ntohs(uh->source),
+ 		       ulen,
+ 		       skb->len,
+-		       NIPQUAD(daddr),
++		       &daddr,
+ 		       ntohs(uh->dest));
+ 	goto drop;
+ 
+@@ -1278,11 +1278,11 @@ csum_error:
+ 	 * RFC1122: OK.  Discards the bad packet silently (as far as
+ 	 * the network is concerned, anyway) as per 4.1.3.4 (MUST).
  	 */
- 	if (ntohs(udph->len) != skb->len - (iph->ihl << 2)) {
- 		 if (net_ratelimit())
--			 printk(KERN_WARNING "SNMP: dropping malformed packet "
--				"src=%u.%u.%u.%u dst=%u.%u.%u.%u\n",
--				NIPQUAD(iph->saddr), NIPQUAD(iph->daddr));
-+			 printk(KERN_WARNING "SNMP: dropping malformed packet src=%pI4 dst=%pI4\n",
-+				&iph->saddr, &iph->daddr);
- 		 return NF_DROP;
- 	}
- 
+-	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From " NIPQUAD_FMT ":%u to " NIPQUAD_FMT ":%u ulen %d\n",
++	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From %pI4:%u to %pI4:%u ulen %d\n",
+ 		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
+-		       NIPQUAD(saddr),
++		       &saddr,
+ 		       ntohs(uh->source),
+-		       NIPQUAD(daddr),
++		       &daddr,
+ 		       ntohs(uh->dest),
+ 		       ulen);
+ drop:
+diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
+index 02885e8..7c668c6 100644
+--- a/net/ipv6/netfilter/ip6t_LOG.c
++++ b/net/ipv6/netfilter/ip6t_LOG.c
+@@ -424,9 +424,8 @@ ip6t_log_packet(u_int8_t pf,
+ 			if (skb->dev->type == ARPHRD_SIT) {
+ 				const struct iphdr *iph =
+ 					(struct iphdr *)skb_mac_header(skb);
+-				printk("TUNNEL=%u.%u.%u.%u->%u.%u.%u.%u ",
+-				       NIPQUAD(iph->saddr),
+-				       NIPQUAD(iph->daddr));
++				printk("TUNNEL=%pI4->%pI4 ",
++				       &iph->saddr, &iph->daddr);
+ 			}
+ 		} else
+ 			printk(" ");
 -- 
 1.6.0.3.756.gb776d
 
