@@ -1,46 +1,55 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] SMC91x: delete unused local variable "lp"
-Date: Fri, 31 Oct 2008 00:48:53 -0400
-Message-ID: <490A8E35.8080204@garzik.org>
-References: <1225288566-18457-1-git-send-email-vapier@gentoo.org>
+Subject: Re: [RESEND][PATCH 2.6.28] myri10ge: fix stop/go mmio ordering
+Date: Fri, 31 Oct 2008 00:49:09 -0400
+Message-ID: <490A8E45.909@garzik.org>
+References: <49096965.20905@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nico@cam.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54185 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:54198 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752864AbYJaEs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2008 00:48:59 -0400
-In-Reply-To: <1225288566-18457-1-git-send-email-vapier@gentoo.org>
+	id S1753554AbYJaEtN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Oct 2008 00:49:13 -0400
+In-Reply-To: <49096965.20905@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mike Frysinger wrote:
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  drivers/net/smc91x.c |    2 --
->  1 files changed, 0 insertions(+), 2 deletions(-)
+Brice Goglin wrote:
+> Use mmiowb() to ensure "stop" and "go" commands are sent in order on ia64.
 > 
-> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-> index c70870e..6f9895d 100644
-> --- a/drivers/net/smc91x.c
-> +++ b/drivers/net/smc91x.c
-> @@ -2060,7 +2060,6 @@ static int smc_request_attrib(struct platform_device *pdev,
->  			      struct net_device *ndev)
->  {
->  	struct resource * res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-attrib");
-> -	struct smc_local *lp = netdev_priv(ndev);
+> Signed-off-by: Brice Goglin <brice@myri.com>
+> 
+> --- linux-git/drivers/net/myri10ge/myri10ge.c	2008-10-30 08:15:37.000000000 +0100
+> +++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-10-30 08:17:54.000000000 +0100
+> @@ -75,7 +75,7 @@
+>  #include "myri10ge_mcp.h"
+>  #include "myri10ge_mcp_gen_header.h"
 >  
->  	if (!res)
->  		return 0;
-> @@ -2075,7 +2074,6 @@ static void smc_release_attrib(struct platform_device *pdev,
->  			       struct net_device *ndev)
->  {
->  	struct resource * res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-attrib");
-> -	struct smc_local *lp = netdev_priv(ndev);
+> -#define MYRI10GE_VERSION_STR "1.4.3-1.371"
+> +#define MYRI10GE_VERSION_STR "1.4.3-1.375"
 >  
+>  MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
+>  MODULE_AUTHOR("Maintainer: help@myri.com");
+> @@ -1393,6 +1393,7 @@
+>  		if (tx->req == tx->done) {
+>  			tx->queue_active = 0;
+>  			put_be32(htonl(1), tx->send_stop);
+> +			mmiowb();
+>  		}
+>  		__netif_tx_unlock(dev_queue);
+>  	}
+> @@ -2864,6 +2865,7 @@
+>  	if ((mgp->dev->real_num_tx_queues > 1) && tx->queue_active == 0) {
+>  		tx->queue_active = 1;
+>  		put_be32(htonl(1), tx->send_go);
+> +		mmiowb();
+>  	}
+>  	tx->pkt_start++;
+>  	if ((avail - count) < MXGEFW_MAX_SEND_DESC) {
+> 
 
 applied
 
