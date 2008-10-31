@@ -1,34 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-10-29
-Date: Thu, 30 Oct 2008 23:49:55 -0700 (PDT)
-Message-ID: <20081030.234955.245404696.davem@davemloft.net>
-References: <20081029231855.GD3485@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes for 2.6.28-rc
+Date: Thu, 30 Oct 2008 23:52:48 -0700 (PDT)
+Message-ID: <20081030.235248.192074341.davem@davemloft.net>
+References: <20081031050910.GA9138@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081029231855.GD3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58531
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752234AbYJaGxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 02:53:13 -0400
+In-Reply-To: <20081031050910.GA9138@havoc.gtf.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 29 Oct 2008 19:18:55 -0400
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 31 Oct 2008 01:09:10 -0400
 
-> Another quick round of fixes intended for 2.6.28...
 > 
-> This includes fixes for bugs 11749 and 11845, fixes a reset-related
-> regression in ath5k, fixes a Kconfig-related error for rt2x00, and
-> fixes some sparse warnings and a possible buffer overrun in libertas.
-> Also, it corrects a spelling error and marks Bob Copeland as an
-> ath5k maintainer.
+> Please pull from 'davem-fixes' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
 > 
-> Please let me know if there are problems!
+> to receive the following updates:
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks a lot Jeff!
