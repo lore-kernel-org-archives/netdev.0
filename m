@@ -1,56 +1,70 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: SLAB vs. SLUB tbench regression (Was: [tbench regression fixes]: digging out smelly deadmen.)
-Date: Fri, 31 Oct 2008 21:22:54 +0300
-Message-ID: <20081031182253.GA32340@ioremap.net>
-References: <84144f020810310728j1f3b8a99se428ec55b0c165b5@mail.gmail.com>
+From: "Lovich, Vitali" <vlovich@qualcomm.com>
+Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Fri, 31 Oct 2008 11:24:51 -0700
+Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CB5@NASANEXMB10.na.qualcomm.com>
+References: <1225450706.5301.94.camel@localhost>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <s0mbre@tservice.net.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Ingo Molnar <mingo@elte.hu>,
-	David Miller <davem@davemloft.net>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Matthew Wilcox <matthew@wil.cx>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Johann Baudy <johaahn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.ru ([195.178.208.66]:40548 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751351AbYJaSW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2008 14:22:56 -0400
-Content-Disposition: inline
-In-Reply-To: <84144f020810310728j1f3b8a99se428ec55b0c165b5@mail.gmail.com>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:28313 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750822AbYJaSYy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 14:24:54 -0400
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pekka.
-
-On Fri, Oct 31, 2008 at 04:28:57PM +0200, Pekka Enberg (penberg@cs.helsinki.fi) wrote:
-> As you've already pointed out in private and in your blog, some part
-> of the tbench regression comes from SLUB vs. SLAB as well. Looks like
-> I can reproduce the regression locally as well:
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Lovich, Vitali
+> Sent: October-31-08 10:08 AM
+> To: Johann Baudy
+> Cc: netdev@vger.kernel.org
+> Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
 > 
->   [ 8 clients and tbench_srv on the same machine on 2-way x86-64 ]
 > 
->                   min      max      avg      sd
->   2.6.28-rc2-slab 234.57   244.88   242.68   0.71
->   2.6.28-rc2-slub 227.44   240.90   239.08   0.78
 > 
-> Oprofile seems to be busted for 2.6.28-rc2 so I'll follow up on this
-> as soon as that's settled.
-> 
-> Btw, just as one more data point, I accidentally tested with just 2
-> clients at first and SLUB actually beat SLAB.
+> > -----Original Message-----
+> > From: Johann Baudy [mailto:johaahn@gmail.com]
+> > Sent: October-31-08 3:58 AM
+> > To: Lovich, Vitali
+> > Cc: David Miller; netdev@vger.kernel.org
+> > Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+> >
+> > Hi Vitali,
+> >
+> > > There's no need to keep the index (packet_index).  Just store the
+> > pointer directly (change it to void *) - saves an extra lookup.
+> >
+> > Indeed, it will be faster. I'll do the change.
+> Actually, I just realized that we don't need to modify the sock_buff
+> structure.  We're already filling in the fragments of the skb - just
+> take the first fragment and reverse the process to determine the
+> starting address of the frame.
 
-Looks like under the allocation/freeing pressure some tricky part of
-slub starts slowing things down, while at usual rate amount of operations
-is smaller, so slub gets its optimized results... Just a handwaving
-though.
+Here's the code I came up with to determine the offset - anyone see any problems?
 
-Tbench regression is not related to slab/slub fight though, since I
-always used slab in tests (if not specially tested slub), but of course
-fixing this issue in the more and more common allocator would be just
-great. Thanks for working on this issue Pekka.
+union {
+   tpacket2_hdr *t2;
+   u8 *raw;
+}
 
--- 
-	Evgeniy Polyakov
+struct page *first_frag;
+u32 page_offset;
+
+first_frag = skb_shinfo(skb)->frags[0].page;
+page_offset = skb_shinfo(skb)->frags[0].page_offset;
+
+page_offset -= (skb_headlen(skb) + sizeof(struct tpacket2_hdr));
+if (unlikely(page_offset < 0)) {
+	first_frag--;
+	page_offset += PAGE_SIZE;
+}
+frame.raw = page_address(first_frag) + page_offset;
+
+// rest of destructor
