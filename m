@@ -1,44 +1,50 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: dynamically allocated dst_ops
-Date: Fri, 31 Oct 2008 14:34:02 +0100
-Message-ID: <490B094A.1080900@fr.ibm.com>
-References: <20081030042622.GA21196@x200.localdomain>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Subject: SLAB vs. SLUB tbench regression (Was: [tbench regression fixes]: digging out smelly deadmen.)
+Date: Fri, 31 Oct 2008 16:28:57 +0200
+Message-ID: <84144f020810310728j1f3b8a99se428ec55b0c165b5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
-	benjamin.thery@bull.net
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Peter Zijlstra" <a.p.zijlstra@chello.nl>,
+	"Ingo Molnar" <mingo@elte.hu>,
+	"David Miller" <davem@davemloft.net>,
+	"Christoph Lameter" <cl@linux-foundation.org>,
+	"Matthew Wilcox" <matthew@wil.cx>
+To: "Evgeniy Polyakov" <s0mbre@tservice.net.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:62388 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbYJaNfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 09:35:22 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m9VDY9Ml558112
-	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 13:34:09 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9VDY8xh1507340
-	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 13:34:09 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9VDY8UN005065
-	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 13:34:08 GMT
-In-Reply-To: <20081030042622.GA21196@x200.localdomain>
+Received: from po-out-1718.google.com ([72.14.252.154]:43165 "EHLO
+	po-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751200AbYJaO26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 10:28:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> They are bogus and should be implanted into struct net directly.
+Hi Evgeniy,
 
-Why they are bogus ?
+On Fri, Oct 10, 2008 at 1:17 AM, Evgeniy Polyakov
+<s0mbre@tservice.net.ru> wrote:
+> It was reported recently that tbench has a long history of regressions,
+> starting at least from 2.6.23 kernel. I verified that in my test
+> environment tbench 'lost' more than 100 MB/s from 470 down to 355
+> between at least 2.6.24 and 2.6.27. 2.6.26-2.6.27 performance regression
+> in my machines is rougly corresponds to 375 down to 355 MB/s.
 
-> In garbage collector hook, just use container_of() (once) to get struct net.
-> ->dst_net is useless after that.
+As you've already pointed out in private and in your blog, some part
+of the tbench regression comes from SLUB vs. SLAB as well. Looks like
+I can reproduce the regression locally as well:
 
-Yep, that looks like a better solution.
+  [ 8 clients and tbench_srv on the same machine on 2-way x86-64 ]
 
-> I'm going to use this trick for xfrm.
-> 
-> And if someone has ideas on how to overcome header difficulties, please,
-> submit a patch.
+                  min      max      avg      sd
+  2.6.28-rc2-slab 234.57   244.88   242.68   0.71
+  2.6.28-rc2-slub 227.44   240.90   239.08   0.78
 
+Oprofile seems to be busted for 2.6.28-rc2 so I'll follow up on this
+as soon as that's settled.
+
+Btw, just as one more data point, I accidentally tested with just 2
+clients at first and SLUB actually beat SLAB.
+
+                        Pekka
