@@ -1,56 +1,52 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RESEND][PATCH 2.6.28] myri10ge: fix stop/go mmio ordering
-Date: Fri, 31 Oct 2008 00:49:09 -0400
-Message-ID: <490A8E45.909@garzik.org>
-References: <49096965.20905@myri.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/3] bonding: fix miimon failure counter
+Date: Fri, 31 Oct 2008 00:49:22 -0400
+Message-ID: <490A8E52.4010402@pobox.com>
+References: <1225413676-13579-1-git-send-email-fubar@us.ibm.com> <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54198 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:54211 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753554AbYJaEtN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2008 00:49:13 -0400
-In-Reply-To: <49096965.20905@myri.com>
+	id S1753893AbYJaEt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Oct 2008 00:49:27 -0400
+In-Reply-To: <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin wrote:
-> Use mmiowb() to ensure "stop" and "go" commands are sent in order on ia64.
+Jay Vosburgh wrote:
+> During the rework of the mii monitor for:
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> commit f0c76d61779b153dbfb955db3f144c62d02173c2
+> Author: Jay Vosburgh <fubar@us.ibm.com>
+> Date:   Wed Jul 2 18:21:58 2008 -0700
 > 
-> --- linux-git/drivers/net/myri10ge/myri10ge.c	2008-10-30 08:15:37.000000000 +0100
-> +++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-10-30 08:17:54.000000000 +0100
-> @@ -75,7 +75,7 @@
->  #include "myri10ge_mcp.h"
->  #include "myri10ge_mcp_gen_header.h"
+>     bonding: refactor mii monitor
+> 
+> 	I left out the increment of the link failure counter.  This
+> patch corrects that omission.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 832739f..85de1d0 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2376,6 +2376,9 @@ static void bond_miimon_commit(struct bonding *bond)
+>  			continue;
 >  
-> -#define MYRI10GE_VERSION_STR "1.4.3-1.371"
-> +#define MYRI10GE_VERSION_STR "1.4.3-1.375"
->  
->  MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
->  MODULE_AUTHOR("Maintainer: help@myri.com");
-> @@ -1393,6 +1393,7 @@
->  		if (tx->req == tx->done) {
->  			tx->queue_active = 0;
->  			put_be32(htonl(1), tx->send_stop);
-> +			mmiowb();
->  		}
->  		__netif_tx_unlock(dev_queue);
->  	}
-> @@ -2864,6 +2865,7 @@
->  	if ((mgp->dev->real_num_tx_queues > 1) && tx->queue_active == 0) {
->  		tx->queue_active = 1;
->  		put_be32(htonl(1), tx->send_go);
-> +		mmiowb();
->  	}
->  	tx->pkt_start++;
->  	if ((avail - count) < MXGEFW_MAX_SEND_DESC) {
-> 
+>  		case BOND_LINK_DOWN:
+> +			if (slave->link_failure_count < UINT_MAX)
+> +				slave->link_failure_count++;
+> +
+>  			slave->link = BOND_LINK_DOWN;
 
-applied
+applied 1-3
 
 
