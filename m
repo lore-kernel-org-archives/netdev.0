@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 02/02: nf_conntrack_proto_gre: switch to
- register_pernet_gen_subsys()
-Date: Thu, 30 Oct 2008 23:55:57 -0700 (PDT)
-Message-ID: <20081030.235557.206473899.davem@davemloft.net>
-References: <20081030073143.14487.24299.sendpatchset@x2.localnet>
-	<20081030073146.14487.64303.sendpatchset@x2.localnet>
+Subject: Re: [GIT PULL] Labeled networking fixes for 2.6.28
+Date: Thu, 30 Oct 2008 23:57:57 -0700 (PDT)
+Message-ID: <20081030.235757.168689331.davem@davemloft.net>
+References: <20081030170736.11396.46099.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081030073146.14487.64303.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: paul.moore@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48260
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752777AbYJaG6W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 02:58:22 -0400
+In-Reply-To: <20081030170736.11396.46099.stgit@flek.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 30 Oct 2008 08:31:47 +0100 (MET)
+From: Paul Moore <paul.moore@hp.com>
+Date: Thu, 30 Oct 2008 13:10:13 -0400
 
->     netfilter: nf_conntrack_proto_gre: switch to register_pernet_gen_subsys()
->     
->     register_pernet_gen_device() can't be used is nf_conntrack_pptp module is
->     also used (compiled in or loaded).
->     
->     Right now, proto_gre_net_exit() is called before nf_conntrack_pptp_net_exit().
->     The former shutdowns and frees GRE piece of netns, however the latter
->     absolutely needs it to flush keymap. Oops is inevitable.
->     
->     Switch to shiny new register_pernet_gen_subsys() to get correct ordering in
->     netns ops list.
->     
->     Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Three small fixes to solve compiler warnings and a possible run-time issue,
+> please pull from the following tree:
+> 
+>  git://git.infradead.org/users/pcmoore/lblnet-2.6
 
-Also applied, thanks.
+Pulled, thanks a lot Paul.
