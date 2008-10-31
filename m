@@ -1,79 +1,79 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: Interface proposal for rx classification using ethtool
-Date: Fri, 31 Oct 2008 05:29:07 -0500
-Message-ID: <75E689AC-0AA6-4AB2-A7D9-0B16EDB5AF28@kernel.crashing.org>
-References: <48E11027.3060400@Sun.COM>
-Mime-Version: 1.0 (Apple Message framework v929.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gkernel-commit@lists.sourceforge.net,
-	Matheos Worku <Matheos.Worku@Sun.COM>
-To: Santwona.Behera@Sun.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:36345 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750710AbYJaK3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2008 06:29:18 -0400
-In-Reply-To: <48E11027.3060400@Sun.COM>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
+Date: Fri, 31 Oct 2008 12:42:34 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0810311222240.7072@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0810302047030.22084@wrl-59.cs.helsinki.fi>
+ <20081031.005219.141937694.davem@davemloft.net>
+ <Pine.LNX.4.64.0810311119510.7072@wrl-59.cs.helsinki.fi>
+ <20081031.025159.51432990.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2137390123-1225449754=:7072"
+Cc: shemminger@vyatta.com, zbr@ioremap.net, rjw@sisk.pl, mingo@elte.hu,
+	s0mbre@tservice.net.ru, a.p.zijlstra@chello.nl,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, efault@gmx.de,
+	Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751602AbYJaKmw@vger.kernel.org>
+In-Reply-To: <20081031.025159.51432990.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-2137390123-1225449754=:7072
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Fri, 31 Oct 2008, David Miller wrote:
+
+> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Fri, 31 Oct 2008 11:40:16 +0200 (EET)
+> 
+> > Let me remind that it is just a single process, so no ping-pong & other 
+> > lock related cache effects should play any significant role here, no? (I'm 
+> > no expert though :-)).
+> 
+> Not locks or ping-pongs perhaps, I guess.  So it just sends and
+> receives over a socket, implementing both ends of the communication
+> in the same process?
+
+Effectively its this:
+
+signal(SIGALRM, alarm_handler);
+...
+while (flag) { /* flagged by alarm_handler */
+	loops = 90
+	open & setup sockets & connection
+	while (--loops > 0) {
+		write(wr_fd, buf, size);
+		read(rd_fd, buf, size);
+	}
+	close sockets
+}
+
+where size comes from this array (advancing in the inner loop one by one):
+
+static int sizes[] = {
+        1, 3, 5, 7, 16, 32, 64, 512, 1024, 2048,        /* misc. sizes */
+        1, 3, 5, 7, 16, 32, 64, 512, 1024, 2048,
+        32, 32, 32, 32, 32, 32,         /* x windows mostly... */
+        512, 512, 512, 512, 512,        /* DBMS's mostly */
+};
+
+buf sits in the stack and is not initialized (besides reading into it).
+
+...I think the rest is just bogus complexity :-) ...maybe I should just 
+take that from above as basis for Reduced AIM9 benchmark, it nearly 
+compiles already.
+
+> If hash chain conflicts do happen for those 2 sockets, just traversing
+> the chain 2 entries deep could show up.
+
+No idea on this one.
 
 
-On Sep 29, 2008, at 12:28 PM, Santwona.Behera@Sun.COM wrote:
-
-> Here is the proposed design for implementing an interface to add,  
-> delete and
-> manage rules for RX packet classification on ethertool with niu as  
-> the first
-> target hardware. This is the second installment of network flow  
-> classification
-> support (the first one was for rx flow distribution based on hashing  
-> that was
-> added in June). Please review and send your feedback.
->
-> 1. The ethertool application will have an interface to add a  
-> classification rule
-> and the target RX ring for packets that match the rule. The rules  
-> are added
-> on a per port basis. Each new rule that is added is represented by a  
-> unique ID.
-> This ID can be used by the user to delete the rule or query the  
-> details of the
-> rule (both interfaces provided via ethertool).
->
-> 2. Here is the list of cmds/interfaces that will be added to  
-> ethertool (as
-> suboptions in the rx_classification option) to achieve this:
->
->  - get the number of RX rings available to this port.
->  - add a rule (flow-tuple/mask to RX ring mapping)
->  - delete a rule
->  - query a particular rule or all rules for this port
->
-> 3. Within ethertool, there will be a manager for these rules that  
-> will order
-> the rules on a per port basis according to the policy chosen by the  
-> user. In
-> the first cut, the policy will be hardcoded as longest prefix first  
-> ordering.
-> Before adding any rules to the hardware, the rule manager will first  
-> query
-> the hardware for the ordering that it implements for matching, e.g.,  
-> low-to-high
-> (as in case of niu TCAM). This information will be taken into  
-> account while
-> writing to the rule-manager and to the hardware.
->
-> 4. In the niu driver, there will be a local array of the  
-> tcam_entries (for
-> supporting queries from ethertool).
->
-> 5. There is no protection against inconsistencies between the tcam  
-> entries
-> and the user view of it that can arise if multiple instances of  
-> ethertool
-> happen to write the same rule (tcam_entry).
-
-What's the state of patches for this work?
-
-- k
+-- 
+ i.
+---696208474-2137390123-1225449754=:7072--
