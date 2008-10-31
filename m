@@ -1,57 +1,75 @@
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
-Subject: Re: SLAB vs. SLUB tbench regression (Was: [tbench regression fixes]: digging out smelly deadmen.)
-Date: Fri, 31 Oct 2008 17:08:32 +0200
-Message-ID: <84144f020810310808p9d6ecf9k6f10a671c21bf0da@mail.gmail.com>
-References: <84144f020810310728j1f3b8a99se428ec55b0c165b5@mail.gmail.com>
+From: gerrit@erg.abdn.ac.uk
+Subject: Re: [PATCH 1/1] [QPOLICY]: Ignore packets with specific priority
+Date: Fri, 31 Oct 2008 15:51:13 -0000 (GMT)
+Message-ID: <56979.148.187.160.35.1225468273.squirrel@148.187.160.35>
+References: <200810262233.54649.tomasz@grobelny.oswiecenia.net>
+    <20081029052118.GA6412@gerrit.erg.abdn.ac.uk>
+    <4909FAEF.8040900@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Peter Zijlstra" <a.p.zijlstra@chello.nl>,
-	"Ingo Molnar" <mingo@elte.hu>,
-	"David Miller" <davem@davemloft.net>,
-	"Christoph Lameter" <cl@linux-foundation.org>,
-	"Matthew Wilcox" <matthew@wil.cx>,
-	"Eric Dumazet" <dada1@cosmosbay.com>,
-	"Nick Piggin" <nickpiggin@yahoo.com.au>
-To: "Evgeniy Polyakov" <s0mbre@tservice.net.ru>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>,
+	"Tomasz Grobelny" <tomasz@grobelny.oswiecenia.net>,
+	"Arnaldo Carvalho de Melo" <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Tomasz Grobelny" <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:54238 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbYJaPId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 11:08:33 -0400
-In-Reply-To: <84144f020810310728j1f3b8a99se428ec55b0c165b5@mail.gmail.com>
-Content-Disposition: inline
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63889 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751481AbYJaPvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Oct 2008 11:51:43 -0400
+In-Reply-To: <4909FAEF.8040900@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 31, 2008 at 4:28 PM, Pekka Enberg <penberg@cs.helsinki.fi> wrote:
-> Hi Evgeniy,
+>> One difficulty that I see is what to do when the send socket is
+>> non-blocking.
+>>
+> But socket doesn't get into non-blocking mode until specifically
+> requested by fcntl(soc, F_SETFL, O_NONBLOCK) call, does it?
 >
-> On Fri, Oct 10, 2008 at 1:17 AM, Evgeniy Polyakov
-> <s0mbre@tservice.net.ru> wrote:
->> It was reported recently that tbench has a long history of regressions,
->> starting at least from 2.6.23 kernel. I verified that in my test
->> environment tbench 'lost' more than 100 MB/s from 470 down to 355
->> between at least 2.6.24 and 2.6.27. 2.6.26-2.6.27 performance regression
->> in my machines is rougly corresponds to 375 down to 355 MB/s.
->
-> As you've already pointed out in private and in your blog, some part
-> of the tbench regression comes from SLUB vs. SLAB as well. Looks like
-> I can reproduce the regression locally as well:
->
->  [ 8 clients and tbench_srv on the same machine on 2-way x86-64 ]
->
->                  min      max      avg      sd
->  2.6.28-rc2-slab 234.57   244.88   242.68   0.71
->  2.6.28-rc2-slub 227.44   240.90   239.08   0.78
+Yes - the problem is that the code does not stop the user from
+setting non-blocking mode on the socket.
 
-Christoph asked me to throw in the prefetch patch from Eric Dumazet.
-Unfortunately, it doesn't seem to make much of a difference:
+>> Maybe purists will not like this since the complexity is now shifted to
+>> the
+>> user-kernel interface. But it may well be a start to develop some kind
+>> of
+>> new interface which achieves the same in a cleaner way.
+>>
+> I think that much of the previously written qpolicy code could be
+> removed from the kernel so the interface would be really simple. No
+> policy switching, no fancy parameters, etc. The only difference from
+> standard interface would be that a packet could have a 'drop me' flag
+> (priority 65 in my code). Ok, I agree some may consider it tricky but I
+> wouldn't call it complicated. The complicated part is meant to be on the
+> userspace side. And that in my opinion has many advantages: easier
+> debugging, easier to add new (possibly complex) queuing policies.
 
-[ 2-way x86-64 with 8 clients and tbench_srv on the same machine ]
+I fully agree with the idea, it is the realisation that causes me
+some headaches. It would be great if the code need not call send() twice
+to send a single packet, and if an skb need not be allocated in order to
+create a "waiting effect" in userspace.
 
-                           min      max      avg      sd
-  2.6.28-rc2-slab          234.57   244.88   242.68   0.71
-  2.6.28-rc2-slub          227.44   240.90   239.08   0.78
-  2.6.28-rc2-slub+prefetch 237.42   244.32   239.78   0.92
+The other alternative that I see is to come up with completely new
+system calls - as done in SCTP for instance. But this would only make snse
+if with the present means things get too ugly; i.e. if the
+new semantics can not be expressed with the given system calls.
+
+So there is agreement on the idea, I hope is that realisation
+can be refined - without overloading existing calls too much.
+
+
+>> Can you please narrow down what is happening with CCID-3.  CCID-3 is
+>> very
+>> complicated and sensitive, so it is possible that the problem is within
+>> CCID-3 and not the qpolicy code - need more detailed information.
+>>
+> On one test it seemed not to work at all in my setup: ccid3 seems not to
+> limit traffic at all. But that was just one test so it may well be my
+> fault.
+>
+If you notice anything odd, please do report it on the mailing list.
+
+Gerrit
+
