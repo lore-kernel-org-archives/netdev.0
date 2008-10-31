@@ -1,109 +1,49 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Validation of DMA params breaks e100 driver (2.6.28-rc2)
-Date: Fri, 31 Oct 2008 21:01:32 +0000
-Message-ID: <20081031210131.GA18015@flint.arm.linux.org.uk>
-References: <4909E08F.9040306@users.sourceforge.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
+Date: Fri, 31 Oct 2008 22:03:00 +0100
+Message-ID: <490B7284.2010003@cosmosbay.com>
+References: <Pine.LNX.4.64.0810302047030.22084@wrl-59.cs.helsinki.fi> <20081031.005219.141937694.davem@davemloft.net> <Pine.LNX.4.64.0810311119510.7072@wrl-59.cs.helsinki.fi> <20081031.025159.51432990.davem@davemloft.net> <490AE1CD.9040207@cosmosbay.com> <20081031125713.6c6923de@extreme> <20081031201016.GA4748@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: Anders =?iso-8859-1?Q?Grafstr=F6m?=
-	<grfstrm@users.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:49105 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133AbYJaVBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 17:01:54 -0400
-Content-Disposition: inline
-In-Reply-To: <4909E08F.9040306@users.sourceforge.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
+	rjw@sisk.pl, mingo@elte.hu, s0mbre@tservice.net.ru,
+	a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, efault@gmx.de, akpm@linux-foundation.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753424AbYJaVEZ@vger.kernel.org>
+In-Reply-To: <20081031201016.GA4748@ioremap.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 30, 2008 at 05:27:59PM +0100, Anders Grafstr=F6m wrote:
-> The e100 driver triggers BUG_ON(buf->direction !=3D dir)
-> by doing pci_map_single(..., PCI_DMA_BIDIRECTIONAL)
-> and pci_dma_sync_single_for_device(..., PCI_DMA_TODEVICE).
+Evgeniy Polyakov a =E9crit :
+> On Fri, Oct 31, 2008 at 12:57:13PM -0700, Stephen Hemminger (shemming=
+er@vyatta.com) wrote:
+>> Why bother with last_rx at all on loopback.  I have been thinking
+>> we should figure out a way to get rid of last_rx all together. It on=
+ly
+>> seems to be used by bonding, and the bonding driver could do the cal=
+culation
+>> in its receive handling.
 >=20
-> I'm guessing it's allowed to do that and that something like
-> the patch below is called for?
+> Not related to the regression: bug will be just papered out by this
+> changes. Having bonding on loopback is somewhat strange idea, but sti=
+ll
+> this kind of changes is an attempt to make a good play in the bad gam=
+e:
+> this loopback-only optimization does not fix the problem.
+>=20
 
-No, it is not allowed to do that - that's why it's called "BUG_ON".
-Changing the DMA direction, especially with dmabounce will result
-in unexpected behaviour.
+Just to be clear, this change was not meant to be committed.
+It already was rejected by David some years ago (2005, and 2006)
 
-> -----------------
->=20
-> [PATCH] [ARM] dma: Fix DMA params validation
->=20
-> This patch makes the DMA params validation less strict
-> and more like the generic implementation.
->=20
-> Signed-off-by: Anders Grafstr=F6m <grfstrm@users.sourceforge.net>
-> ---
->  arch/arm/common/dmabounce.c |   13 ++++++-------
->  1 files changed, 6 insertions(+), 7 deletions(-)
->=20
-> diff --git a/arch/arm/common/dmabounce.c b/arch/arm/common/dmabounce.=
-c
-> index f030f07..a0c9c7b 100644
-> --- a/arch/arm/common/dmabounce.c
-> +++ b/arch/arm/common/dmabounce.c
-> @@ -289,7 +289,6 @@ static inline void unmap_single(struct device *de=
-v, dma_addr_t dma_addr,
->=20
->  	if (buf) {
->  		BUG_ON(buf->size !=3D size);
-> -		BUG_ON(buf->direction !=3D dir);
->=20
->  		dev_dbg(dev,
->  			"%s: unsafe buffer %p (dma=3D%#x) mapped to %p (dma=3D%#x)\n",
-> @@ -382,8 +381,6 @@ int dmabounce_sync_for_cpu(struct device *dev, dm=
-a_addr_t addr,
->  	if (!buf)
->  		return 1;
->=20
-> -	BUG_ON(buf->direction !=3D dir);
-> -
->  	dev_dbg(dev, "%s: unsafe buffer %p (dma=3D%#x) mapped to %p (dma=3D=
-%#x)\n",
->  		__func__, buf->ptr, virt_to_dma(dev, buf->ptr),
->  		buf->safe, buf->safe_dma_addr);
-> @@ -394,7 +391,9 @@ int dmabounce_sync_for_cpu(struct device *dev, dm=
-a_addr_t addr,
->  		dev_dbg(dev, "%s: copy back safe %p to unsafe %p size %d\n",
->  			__func__, buf->safe + off, buf->ptr + off, sz);
->  		memcpy(buf->ptr + off, buf->safe + off, sz);
-> -	}
-> +	} else
-> +		BUG_ON(dir !=3D DMA_TO_DEVICE);
-> +
->  	return 0;
->  }
->  EXPORT_SYMBOL(dmabounce_sync_for_cpu);
-> @@ -411,8 +410,6 @@ int dmabounce_sync_for_device(struct device *dev,=
- dma_addr_t addr,
->  	if (!buf)
->  		return 1;
->=20
-> -	BUG_ON(buf->direction !=3D dir);
-> -
->  	dev_dbg(dev, "%s: unsafe buffer %p (dma=3D%#x) mapped to %p (dma=3D=
-%#x)\n",
->  		__func__, buf->ptr, virt_to_dma(dev, buf->ptr),
->  		buf->safe, buf->safe_dma_addr);
-> @@ -423,7 +420,9 @@ int dmabounce_sync_for_device(struct device *dev,=
- dma_addr_t addr,
->  		dev_dbg(dev, "%s: copy out unsafe %p to safe %p, size %d\n",
->  			__func__,buf->ptr + off, buf->safe + off, sz);
->  		memcpy(buf->safe + off, buf->ptr + off, sz);
-> -	}
-> +	} else
-> +		BUG_ON(dir !=3D DMA_FROM_DEVICE);
-> +
->  	return 0;
->  }
->  EXPORT_SYMBOL(dmabounce_sync_for_device);
-> --=20
-> 1.5.6.5
->=20
->=20
+http://www.mail-archive.com/netdev@vger.kernel.org/msg07382.html
+
+If you read my mail, I was *only* saying that tbench results can be sen=
+sible to
+cache line ping pongs. tbench is a crazy benchmark, and only is a crazy=
+ benchmark.
+
+Optimizing linux for tbench sake would be .... crazy ?
