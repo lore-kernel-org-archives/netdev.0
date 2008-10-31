@@ -1,58 +1,44 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 1/3] bonding: fix miimon failure counter
-Date: Thu, 30 Oct 2008 17:41:14 -0700
-Message-ID: <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
-References: <1225413676-13579-1-git-send-email-fubar@us.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-To: netdev@vger.kernel.org
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: Re: [PATCH] gianfar: Omit TBI auto-negotiation based on device tree
+Date: Thu, 30 Oct 2008 18:07:31 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0810301738020.3943@t2.domain.actdsltmp>
+References: <1225234382-23050-1-git-send-email-ncase@xes-inc.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Kumar Gala <kumar.gala@freescale.com>, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org
+To: Nate Case <ncase@xes-inc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:37564 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754698AbYJaAlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:41:19 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id m9V0f5hN009116
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:05 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9V0fImb034836
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:18 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9V0fI74014911
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:18 -0600
-In-Reply-To: <1225413676-13579-1-git-send-email-fubar@us.ibm.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:46978 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751092AbYJaBIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 21:08:16 -0400
+In-Reply-To: <1225234382-23050-1-git-send-email-ncase@xes-inc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During the rework of the mii monitor for:
+On Tue, 28 Oct 2008, Nate Case wrote:
+> Some SGMII PHYs don't auto-negotiate correctly with the TBI+SerDes
+> interface on the mpc85xx processors.  Check for the "sgmii-aneg-disable"
+> device tree flag and skip enabling auto-negotiation on the TBI
+> side if present.  Full duplex 1000 Mbit/s will be assumed for the
+> SGMII link to the PHY (note that this does not affect the link speed
+> on the external side of the external PHY).
 
-commit f0c76d61779b153dbfb955db3f144c62d02173c2
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Wed Jul 2 18:21:58 2008 -0700
+Note that there is a race in the tbi/serdes setup code.  The writes to the
+TBI/SerDes with gfar_local_mdio_write() use the same MDIO bus registers as
+phylib uses to talk to the real phy or phys.  There is no locking for
+gfar_local_mdio vs phylib so they can (and will) clobber each other.
 
-    bonding: refactor mii monitor
+It doesn't usually happen, due to luck and general phylib slowness.  But I've
+got some patches in 2.6.28 that speed up phylib and might makes this happen
+more often...
 
-	I left out the increment of the link failure counter.  This
-patch corrects that omission.
+But more relevant to your serdes problem, I also have a patch that prevents
+restarting serdes auto-negotiation if the serdes link is already up.  My SGMII
+PHY will auto-negotiate, but it takes about 3 seconds.  Avoiding an
+unnecessary 3 second auto-negotiation when the gianfar device is opened lets
+me cut my power-on to DHCP completion time in half.
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
----
- drivers/net/bonding/bond_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 832739f..85de1d0 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2376,6 +2376,9 @@ static void bond_miimon_commit(struct bonding *bond)
- 			continue;
- 
- 		case BOND_LINK_DOWN:
-+			if (slave->link_failure_count < UINT_MAX)
-+				slave->link_failure_count++;
-+
- 			slave->link = BOND_LINK_DOWN;
- 
- 			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP ||
--- 
-1.6.0.2
-
+I wonder if this would also fix your problem, without needing to add the extra
+workaround?
