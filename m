@@ -1,95 +1,58 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 3/3] bonding: fix panic when taking bond interface down before removing module
-Date: Thu, 30 Oct 2008 17:41:16 -0700
-Message-ID: <1225413676-13579-4-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 1/3] bonding: fix miimon failure counter
+Date: Thu, 30 Oct 2008 17:41:14 -0700
+Message-ID: <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
 References: <1225413676-13579-1-git-send-email-fubar@us.ibm.com>
- <1225413676-13579-2-git-send-email-fubar@us.ibm.com>
- <1225413676-13579-3-git-send-email-fubar@us.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Cc: Jeff Garzik <jgarzik@pobox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:60839 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754752AbYJaAlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:41:21 -0400
+Received: from e34.co.us.ibm.com ([32.97.110.152]:37564 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754698AbYJaAlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2008 20:41:19 -0400
 Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id m9V0f03P023727
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:00 -0600
+	by e34.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id m9V0f5hN009116
+	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:05 -0600
 Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9V0fKnC122206
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:20 -0600
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id m9V0fImb034836
+	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:18 -0600
 Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9V0fJKU014930
-	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:19 -0600
-In-Reply-To: <1225413676-13579-3-git-send-email-fubar@us.ibm.com>
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m9V0fI74014911
+	for <netdev@vger.kernel.org>; Thu, 30 Oct 2008 18:41:18 -0600
+In-Reply-To: <1225413676-13579-1-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <andy@greyhouse.net>
+During the rework of the mii monitor for:
 
-A panic was discovered with bonding when using mode 5 or 6 and trying to
-remove the slaves from the bond after the interface was taken down.
-When calling 'ifconfig bond0 down' the following happens:
+commit f0c76d61779b153dbfb955db3f144c62d02173c2
+Author: Jay Vosburgh <fubar@us.ibm.com>
+Date:   Wed Jul 2 18:21:58 2008 -0700
 
-    bond_close()
-        bond_alb_deinitialize()
-            tlb_deinitialize()
-		kfree(bond_info->tx_hashtbl)
-                bond_info->tx_hashtbl = NULL
+    bonding: refactor mii monitor
 
-Unfortunately if there are still slaves in the bond, when removing the
-module the following happens:
+	I left out the increment of the link failure counter.  This
+patch corrects that omission.
 
-    bonding_exit()
-        bond_free_all()
-            bond_release_all()
-                bond_alb_deinit_slave()
-                    tlb_clear_slave()
-                        tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl
-			u32 next_index = tx_hash_table[index].next
-
-As you might guess we panic when trying to access a few entries into the
-table that no longer exists.
-
-I experimented with several options (like moving the calls to
-tlb_deinitialize somewhere else), but it really makes the most sense to
-be part of the bond_close routine.  It also didn't seem logical move
-tlb_clear_slave around too much, so the simplest option seems to add a
-check in tlb_clear_slave to make sure we haven't already wiped the
-tx_hashtbl away before searching for all the non-existent hash-table
-entries that used to point to the slave as the output interface.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/net/bonding/bond_alb.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/bonding/bond_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index ade5f3f..87437c7 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -169,11 +169,14 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
- 	/* clear slave from tx_hashtbl */
- 	tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 832739f..85de1d0 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2376,6 +2376,9 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			continue;
  
--	index = SLAVE_TLB_INFO(slave).head;
--	while (index != TLB_NULL_INDEX) {
--		u32 next_index = tx_hash_table[index].next;
--		tlb_init_table_entry(&tx_hash_table[index], save_load);
--		index = next_index;
-+	/* skip this if we've already freed the tx hash table */
-+	if (tx_hash_table) {
-+		index = SLAVE_TLB_INFO(slave).head;
-+		while (index != TLB_NULL_INDEX) {
-+			u32 next_index = tx_hash_table[index].next;
-+			tlb_init_table_entry(&tx_hash_table[index], save_load);
-+			index = next_index;
-+		}
- 	}
+ 		case BOND_LINK_DOWN:
++			if (slave->link_failure_count < UINT_MAX)
++				slave->link_failure_count++;
++
+ 			slave->link = BOND_LINK_DOWN;
  
- 	tlb_init_slave(slave);
+ 			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP ||
 -- 
 1.6.0.2
 
