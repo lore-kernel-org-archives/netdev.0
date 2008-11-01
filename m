@@ -1,55 +1,177 @@
-From: "Paolo Ciarrocchi" <paolo.ciarrocchi@gmail.com>
-Subject: Re: [tbench regression fixes]: digging out smelly deadmen.
-Date: Sat, 1 Nov 2008 13:51:39 +0100
-Message-ID: <4d8e3fd30811010551s4163d81bi96dcd98fb3440b72@mail.gmail.com>
-References: <20081027113306.5b1d5898@lxorguk.ukuu.org.uk>
-	 <20081027183312.GD11494@elte.hu> <20081027193933.GB2590@ioremap.net>
-	 <20081027.124848.163119274.davem@davemloft.net>
-	 <1225189462.4903.238.camel@marge.simson.net>
-	 <20081028103741.GA22319@elte.hu> <20081029091405.GA3780@ioremap.net>
-	 <20081029095037.GA7973@ioremap.net>
+From: Julius Volz <julius.volz@gmail.com>
+Subject: [PATCH] IPVS: Add IPv6 support to SH and DH schedulers
+Date: Sun, 2 Nov 2008 00:13:19 +0100
+Message-ID: <20081101231319.GA12150@cydonia.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Mike Galbraith" <efault@gmx.de>,
-	"David Miller" <davem@davemloft.net>, alan@lxorguk.ukuu.org.uk,
-	jkosina@suse.cz, akpm@linux-foundation.org, rjw@sisk.pl,
-	s0mbre@tservice.net.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Evgeniy Polyakov" <zbr@ioremap.net>,
-	"Ingo Molnar" <mingo@elte.hu>,
-	"Peter Zijlstra" <a.p.zijlstra@chello.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753064AbYKAMvy@vger.kernel.org>
-In-Reply-To: <20081029095037.GA7973@ioremap.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: horms@verge.net.au
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 29, 2008 at 10:50 AM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
-> On Wed, Oct 29, 2008 at 12:14:05PM +0300, Evgeniy Polyakov (zbr@ioremap.net) wrote:
->> vanilla 27    : 347.222
->> no TSO/GSO    : 357.331
->> no hrticks    : 382.983
->> no balance    : 389.802
->> 4403b4 commit : 361.184
->> dirty_ratio-50        : 361.086
->> no-sched-tweaks       : 361.367
->>
->> So, probably, if we revert -tip merge to vanilla .27, add nohrtick patch
->> and nobalance tweak _only_, and apply naive TSO patch we could bring
->> system to 400 MB/s. Note, that .22 has 479.82 and .23 454.36 MB/s.
->
-> And now I have to admit that the very last -top merge did noticebly
-> improve the situation upto 391.331 MB/s (189 in domains, with tso/gso
-> off and naive tcp_tso_should_defer() hange).
->
-> So we are now essentially at the level of 24-25 trees in my tests.
+Add IPv6 support to SH and DH schedulers. I hope this simple IPv6 address
+hashing is good enough. The 128 bit are just XORed into 32 before hashing
+them like an IPv4 address.
 
-That's good and make think whether it would be a good idea to add some
-performance number in each pull request that affect the core part of
-the kernel.
+Signed-off-by: Julius Volz <julius.volz@gmail.com>
+---
+ net/netfilter/ipvs/ip_vs_dh.c |   30 +++++++++++++++++++++---------
+ net/netfilter/ipvs/ip_vs_sh.c |   30 +++++++++++++++++++++---------
+ 2 files changed, 42 insertions(+), 18 deletions(-)
 
-Ciao,
+diff --git a/net/netfilter/ipvs/ip_vs_dh.c b/net/netfilter/ipvs/ip_vs_dh.c
+index 77179b9..d8258e0 100644
+--- a/net/netfilter/ipvs/ip_vs_dh.c
++++ b/net/netfilter/ipvs/ip_vs_dh.c
+@@ -64,9 +64,16 @@ struct ip_vs_dh_bucket {
+ /*
+  *	Returns hash value for IPVS DH entry
+  */
+-static inline unsigned ip_vs_dh_hashkey(__be32 addr)
++static inline unsigned ip_vs_dh_hashkey(int af, const union nf_inet_addr *addr)
+ {
+-	return (ntohl(addr)*2654435761UL) & IP_VS_DH_TAB_MASK;
++	__be32 addr_fold = addr->ip;
++
++#ifdef CONFIG_IP_VS_IPV6
++	if (af == AF_INET6)
++		addr_fold = addr->ip6[0]^addr->ip6[1]^
++			    addr->ip6[2]^addr->ip6[3];
++#endif
++	return (ntohl(addr_fold)*2654435761UL) & IP_VS_DH_TAB_MASK;
+ }
+ 
+ 
+@@ -74,9 +81,10 @@ static inline unsigned ip_vs_dh_hashkey(__be32 addr)
+  *      Get ip_vs_dest associated with supplied parameters.
+  */
+ static inline struct ip_vs_dest *
+-ip_vs_dh_get(struct ip_vs_dh_bucket *tbl, __be32 addr)
++ip_vs_dh_get(int af, struct ip_vs_dh_bucket *tbl,
++	     const union nf_inet_addr *addr)
+ {
+-	return (tbl[ip_vs_dh_hashkey(addr)]).dest;
++	return (tbl[ip_vs_dh_hashkey(af, addr)]).dest;
+ }
+ 
+ 
+@@ -202,12 +210,14 @@ ip_vs_dh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ {
+ 	struct ip_vs_dest *dest;
+ 	struct ip_vs_dh_bucket *tbl;
+-	struct iphdr *iph = ip_hdr(skb);
++	struct ip_vs_iphdr iph;
++
++	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
+ 
+ 	IP_VS_DBG(6, "ip_vs_dh_schedule(): Scheduling...\n");
+ 
+ 	tbl = (struct ip_vs_dh_bucket *)svc->sched_data;
+-	dest = ip_vs_dh_get(tbl, iph->daddr);
++	dest = ip_vs_dh_get(svc->af, tbl, &iph.daddr);
+ 	if (!dest
+ 	    || !(dest->flags & IP_VS_DEST_F_AVAILABLE)
+ 	    || atomic_read(&dest->weight) <= 0
+@@ -215,8 +225,10 @@ ip_vs_dh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		return NULL;
+ 	}
+ 
+-	IP_VS_DBG(6, "DH: destination IP address %pI4 --> server %pI4:%d\n",
+-		  &iph->daddr, &dest->addr.ip, ntohs(dest->port));
++	IP_VS_DBG_BUF(6, "DH: destination IP address %s --> server %s:%d\n",
++		      IP_VS_DBG_ADDR(svc->af, &iph.daddr),
++		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
++		      ntohs(dest->port));
+ 
+ 	return dest;
+ }
+@@ -232,7 +244,7 @@ static struct ip_vs_scheduler ip_vs_dh_scheduler =
+ 	.module =		THIS_MODULE,
+ 	.n_list =		LIST_HEAD_INIT(ip_vs_dh_scheduler.n_list),
+ #ifdef CONFIG_IP_VS_IPV6
+-	.supports_ipv6 =	0,
++	.supports_ipv6 =	1,
+ #endif
+ 	.init_service =		ip_vs_dh_init_svc,
+ 	.done_service =		ip_vs_dh_done_svc,
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index be5863c..4074ccf 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -61,9 +61,16 @@ struct ip_vs_sh_bucket {
+ /*
+  *	Returns hash value for IPVS SH entry
+  */
+-static inline unsigned ip_vs_sh_hashkey(__be32 addr)
++static inline unsigned ip_vs_sh_hashkey(int af, const union nf_inet_addr *addr)
+ {
+-	return (ntohl(addr)*2654435761UL) & IP_VS_SH_TAB_MASK;
++	__be32 addr_fold = addr->ip;
++
++#ifdef CONFIG_IP_VS_IPV6
++	if (af == AF_INET6)
++		addr_fold = addr->ip6[0]^addr->ip6[1]^
++			    addr->ip6[2]^addr->ip6[3];
++#endif
++	return (ntohl(addr_fold)*2654435761UL) & IP_VS_SH_TAB_MASK;
+ }
+ 
+ 
+@@ -71,9 +78,10 @@ static inline unsigned ip_vs_sh_hashkey(__be32 addr)
+  *      Get ip_vs_dest associated with supplied parameters.
+  */
+ static inline struct ip_vs_dest *
+-ip_vs_sh_get(struct ip_vs_sh_bucket *tbl, __be32 addr)
++ip_vs_sh_get(int af, struct ip_vs_sh_bucket *tbl,
++	     const union nf_inet_addr *addr)
+ {
+-	return (tbl[ip_vs_sh_hashkey(addr)]).dest;
++	return (tbl[ip_vs_sh_hashkey(af, addr)]).dest;
+ }
+ 
+ 
+@@ -199,12 +207,14 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ {
+ 	struct ip_vs_dest *dest;
+ 	struct ip_vs_sh_bucket *tbl;
+-	struct iphdr *iph = ip_hdr(skb);
++	struct ip_vs_iphdr iph;
++
++	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
+ 
+ 	IP_VS_DBG(6, "ip_vs_sh_schedule(): Scheduling...\n");
+ 
+ 	tbl = (struct ip_vs_sh_bucket *)svc->sched_data;
+-	dest = ip_vs_sh_get(tbl, iph->saddr);
++	dest = ip_vs_sh_get(svc->af, tbl, &iph.saddr);
+ 	if (!dest
+ 	    || !(dest->flags & IP_VS_DEST_F_AVAILABLE)
+ 	    || atomic_read(&dest->weight) <= 0
+@@ -212,8 +222,10 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		return NULL;
+ 	}
+ 
+-	IP_VS_DBG(6, "SH: source IP address %pI4 --> server %pI4:%d\n",
+-		  &iph->saddr, &dest->addr.ip, ntohs(dest->port));
++	IP_VS_DBG_BUF(6, "SH: source IP address %s --> server %s:%d\n",
++		      IP_VS_DBG_ADDR(svc->af, &iph.saddr),
++		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
++		      ntohs(dest->port));
+ 
+ 	return dest;
+ }
+@@ -229,7 +241,7 @@ static struct ip_vs_scheduler ip_vs_sh_scheduler =
+ 	.module =		THIS_MODULE,
+ 	.n_list	 =		LIST_HEAD_INIT(ip_vs_sh_scheduler.n_list),
+ #ifdef CONFIG_IP_VS_IPV6
+-	.supports_ipv6 =	0,
++	.supports_ipv6 =	1,
+ #endif
+ 	.init_service =		ip_vs_sh_init_svc,
+ 	.done_service =		ip_vs_sh_done_svc,
 -- 
-Paolo
-http://paolo.ciarrocchi.googlepages.com/
+1.5.3.7
+
+
