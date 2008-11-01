@@ -1,72 +1,73 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
-Date: Fri, 31 Oct 2008 20:10:56 -0700
-Message-ID: <20081101031056.GA6955@linux.vnet.ibm.com>
-References: <20081029163739.GB6732@linux.vnet.ibm.com> <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <1225364660.7803.61.camel@twins> <49099ACC.3070600@cosmosbay.com> <20081030182513.GA6469@linux.vnet.ibm.com> <490B350E.3080401@cosmosbay.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] net: add documentation for skb recycling
+Date: Sat, 1 Nov 2008 03:59:29 +0100
+Message-ID: <20081101025929.GA13377@xi.wantstofly.org>
+References: <20081020190654.49d4e5d2@extreme> <20081021031732.GO4129@xi.wantstofly.org> <20081026.230500.268424963.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Corey Minyard <minyard@acm.org>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux-foundation.org>,
-	johnpol@2ka.mipt.ru, Christian Bell <christian@myri.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, rdunlap@xenotime.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:45075 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751154AbYKADLB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2008 23:11:01 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id mA13AwwV026662
-	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 23:10:58 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mA13AwVd115022
-	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 23:10:58 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mA13AvXB029707
-	for <netdev@vger.kernel.org>; Fri, 31 Oct 2008 23:10:58 -0400
+Received: from xi.wantstofly.org ([80.101.37.227]:42638 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751196AbYKADWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2008 23:22:33 -0400
 Content-Disposition: inline
-In-Reply-To: <490B350E.3080401@cosmosbay.com>
+In-Reply-To: <20081026.230500.268424963.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 31, 2008 at 05:40:46PM +0100, Eric Dumazet wrote:
-> Paul E. McKenney a =E9crit :
->> On Thu, Oct 30, 2008 at 12:30:20PM +0100, Eric Dumazet wrote:
->>> -		while (udp_lib_lport_inuse(net, snum, udptable, sk,
->>> -					   saddr_comp)) {
->>> +		for (;;) {
->>> +			hslot =3D &udptable->hash[udp_hashfn(net, snum)];
->>> +			spin_lock_bh(&hslot->lock);
->>> +			if (!udp_lib_lport_inuse(net, snum, hslot, sk, saddr_comp))
->>> +				break;
->>> +			spin_unlock_bh(&hslot->lock);
->>>  			do {
->>>  				snum =3D snum + rand;
->>>  			} while (snum < low || snum > high);
->> The above -really- confuses me, but not part of this patch.  If we a=
-re
->> out of range, keep going?  Well, I guess that since it is a short, w=
-e
->> cannot go very far...
->>>  			if (snum =3D=3D first)
->>>  				goto fail;
->> And I don't understand how we are guaranteed to have scanned all the
->> possible ports upon failure, but happy to leave that to you guys.
->
-> Well, we have 65536(=3D2^16) possible port values, and while 'rand' i=
-s=20
-> random,
-> it has the interesting property/bias of being odd.
->
-> We know (thanks modular arithmetic / congruence relation) we will hit
-> all 65356 values exactly once, after exactly 65536 iterations.
+On Sun, Oct 26, 2008 at 11:05:00PM -0700, David Miller wrote:
 
-Ah, got it!  Thank you for the explanation!
+> > How about tweaking this slightly and saying:
+> > 
+> >  * 	Checks that the skb passed in is not shared or cloned, and
+> >  *	that it is linear and its head portion at least as large as
+> >  *	skb_size so that it can be recycled as a receive buffer.
+> >  * 	If these conditions are met, this function does any necessary
+> >  *	reference count dropping and cleans up the skbuff as if it
+> >  *	just came from __alloc_skb().
+> 
+> I like this tweak, someone please send me the final version with
+> proper signoffs etc.
 
-I was fixating on the low..high interval.  ;-)
+How about this:
 
-							Thanx, Paul
+
+
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: net: add documentation for skb recycling
+
+Commit 04a4bb55bcf35b63d40fd2725e58599ff8310dd7 ("net: add
+skb_recycle_check() to enable netdriver skb recycling") added a
+method for network drivers to recycle skbuffs, but while use of
+this mechanism was documented in the commit message, it should
+really have been added as a docbook comment as well -- this
+patch does that.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 4e22e3a..ebb6b94 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -449,6 +449,18 @@ void kfree_skb(struct sk_buff *skb)
+ 	__kfree_skb(skb);
+ }
+ 
++/**
++ *	skb_recycle_check - check if skb can be reused for receive
++ *	@skb: buffer
++ *	@skb_size: minimum receive buffer size
++ *
++ *	Checks that the skb passed in is not shared or cloned, and
++ *	that it is linear and its head portion at least as large as
++ *	skb_size so that it can be recycled as a receive buffer.
++ *	If these conditions are met, this function does any necessary
++ *	reference count dropping and cleans up the skbuff as if it
++ *	just came from __alloc_skb().
++ */
+ int skb_recycle_check(struct sk_buff *skb, int skb_size)
+ {
+ 	struct skb_shared_info *shinfo;
