@@ -1,177 +1,124 @@
-From: Julius Volz <julius.volz@gmail.com>
-Subject: [PATCH] IPVS: Add IPv6 support to SH and DH schedulers
-Date: Sun, 2 Nov 2008 00:13:19 +0100
-Message-ID: <20081101231319.GA12150@cydonia.lan>
+From: Ferenc Wagner <wferi@niif.hu>
+Subject: Re: IP-less bridge as a martian source
+Date: Sun, 02 Nov 2008 00:55:56 +0100
+Message-ID: <877i7novar.fsf@szonett.ki.iif.hu>
+References: <87tzb6nodj.fsf@tac.ki.iif.hu> <87wsg0wu78.fsf@tac.ki.iif.hu>
+	<48FF614C.7020507@gmail.com> <48FF7AA3.50408@gmail.com>
+	<87y707mjbi.fsf@tac.ki.iif.hu> <20081031084124.GA4364@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: horms@verge.net.au
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lipton.aai.niif.hu ([193.225.14.195]:47621 "EHLO
+	lipton.aai.niif.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbYKBAcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2008 20:32:41 -0400
+In-Reply-To: <20081031084124.GA4364@ff.dom.local> (Jarek Poplawski's message
+	of "Fri, 31 Oct 2008 08:41:24 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add IPv6 support to SH and DH schedulers. I hope this simple IPv6 address
-hashing is good enough. The 128 bit are just XORed into 32 before hashing
-them like an IPv4 address.
+Jarek Poplawski <jarkao2@gmail.com> writes:
 
-Signed-off-by: Julius Volz <julius.volz@gmail.com>
----
- net/netfilter/ipvs/ip_vs_dh.c |   30 +++++++++++++++++++++---------
- net/netfilter/ipvs/ip_vs_sh.c |   30 +++++++++++++++++++++---------
- 2 files changed, 42 insertions(+), 18 deletions(-)
+> On Wed, Oct 29, 2008 at 05:56:17PM +0100, Ferenc Wagner wrote:
+>
+>> Jarek Poplawski <jarkao2@gmail.com> writes:
+>> 
+>>>>> Ferenc Wagner <wferi@niif.hu> writes:
+>>>>>
+>>>>>> I expected an IP-less bridge interface to pick up no IP
+>>>>>> packets, but apparently this isn't the case: broadcast packets
+>>>>>> with destination address 255.255.255.255 are reported as
+>>>>>> martians by the 2.6.18 kernel, which I find counterintuitive (I
+>>>>>> know 2.6.18 is rather old, but that's the one supported by Xen).
+>>>>>>
+>>>>>>   1. Is this the expected behaviour?
+>>>
+>>> with IP disabled you shouldn't have any martians!
+>> 
+>> In my case, the bridge itself (?) has no IP addresses assigned, but
+>> an other interface (which isn't a bridge port) does have.  In other
+>> words, the only network interface of the host is a bond interface
+>> aggregating the two physical Ethernet interfaces; the two IP
+>> addresses of the host are assigned to this bond0.
+>> 
+>> bond0 is also the raw interface of several .1q VLAN interfaces,
+>> which are ports of bridges (there is one bridge for each VLAN but
+>> the native above).  The other ports of the bridges are the virtual
+>> interfaces of the Xen guests running on this host.  If I run ping
+>> -b 255.255.255.255 on one such guest, that gives a "martian source
+>> 255.255.255.255" warning on the given bridge.  Even though
+>> 255.255.255.255 is the destination address of that ping packet...
+>> 
+>> And this happens on 2.6.26.6, too.  Can't it come from
+>> ip_mkroute_input instead of ip_route_input_slow?
+>
+> I doubt it.
+>
+> 1941 static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+> 1942                                u8 tos, struct net_device *dev)
+> 1943 {
+> ...
+> 1963         /* IP on this device is disabled. */
+> 1964
+> 1965         if (!in_dev)
+> 1966                 goto out;
+> 1967
+> 1968         /* Check for the most weird martians, which can be not detected
+> 1969            by fib_lookup.
+> 1970          */
+> 1971
+> 1972         if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr) ||
+> 1973             ipv4_is_loopback(saddr))
+> 1974                 goto martian_source;
+> 1975
+> 1976         if (daddr == htonl(0xFFFFFFFF) || (saddr == 0 && daddr == 0))
+> 1977                 goto brd_input;
+>
+> This means that even with IP enabled device ip_mkroute_input() should
+> be skipped. So it seems it's not about 255.255.255.255 generally, but
+> just about source address. You didn't give any examples of these
+> warnings, but I guess it's not a 0 address which is most popular with
+> 255.255.255.255.
 
-diff --git a/net/netfilter/ipvs/ip_vs_dh.c b/net/netfilter/ipvs/ip_vs_dh.c
-index 77179b9..d8258e0 100644
---- a/net/netfilter/ipvs/ip_vs_dh.c
-+++ b/net/netfilter/ipvs/ip_vs_dh.c
-@@ -64,9 +64,16 @@ struct ip_vs_dh_bucket {
- /*
-  *	Returns hash value for IPVS DH entry
-  */
--static inline unsigned ip_vs_dh_hashkey(__be32 addr)
-+static inline unsigned ip_vs_dh_hashkey(int af, const union nf_inet_addr *addr)
- {
--	return (ntohl(addr)*2654435761UL) & IP_VS_DH_TAB_MASK;
-+	__be32 addr_fold = addr->ip;
-+
-+#ifdef CONFIG_IP_VS_IPV6
-+	if (af == AF_INET6)
-+		addr_fold = addr->ip6[0]^addr->ip6[1]^
-+			    addr->ip6[2]^addr->ip6[3];
-+#endif
-+	return (ntohl(addr_fold)*2654435761UL) & IP_VS_DH_TAB_MASK;
- }
- 
- 
-@@ -74,9 +81,10 @@ static inline unsigned ip_vs_dh_hashkey(__be32 addr)
-  *      Get ip_vs_dest associated with supplied parameters.
-  */
- static inline struct ip_vs_dest *
--ip_vs_dh_get(struct ip_vs_dh_bucket *tbl, __be32 addr)
-+ip_vs_dh_get(int af, struct ip_vs_dh_bucket *tbl,
-+	     const union nf_inet_addr *addr)
- {
--	return (tbl[ip_vs_dh_hashkey(addr)]).dest;
-+	return (tbl[ip_vs_dh_hashkey(af, addr)]).dest;
- }
- 
- 
-@@ -202,12 +210,14 @@ ip_vs_dh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- {
- 	struct ip_vs_dest *dest;
- 	struct ip_vs_dh_bucket *tbl;
--	struct iphdr *iph = ip_hdr(skb);
-+	struct ip_vs_iphdr iph;
-+
-+	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
- 
- 	IP_VS_DBG(6, "ip_vs_dh_schedule(): Scheduling...\n");
- 
- 	tbl = (struct ip_vs_dh_bucket *)svc->sched_data;
--	dest = ip_vs_dh_get(tbl, iph->daddr);
-+	dest = ip_vs_dh_get(svc->af, tbl, &iph.daddr);
- 	if (!dest
- 	    || !(dest->flags & IP_VS_DEST_F_AVAILABLE)
- 	    || atomic_read(&dest->weight) <= 0
-@@ -215,8 +225,10 @@ ip_vs_dh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 		return NULL;
- 	}
- 
--	IP_VS_DBG(6, "DH: destination IP address %pI4 --> server %pI4:%d\n",
--		  &iph->daddr, &dest->addr.ip, ntohs(dest->port));
-+	IP_VS_DBG_BUF(6, "DH: destination IP address %s --> server %s:%d\n",
-+		      IP_VS_DBG_ADDR(svc->af, &iph.daddr),
-+		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+		      ntohs(dest->port));
- 
- 	return dest;
- }
-@@ -232,7 +244,7 @@ static struct ip_vs_scheduler ip_vs_dh_scheduler =
- 	.module =		THIS_MODULE,
- 	.n_list =		LIST_HEAD_INIT(ip_vs_dh_scheduler.n_list),
- #ifdef CONFIG_IP_VS_IPV6
--	.supports_ipv6 =	0,
-+	.supports_ipv6 =	1,
- #endif
- 	.init_service =		ip_vs_dh_init_svc,
- 	.done_service =		ip_vs_dh_done_svc,
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index be5863c..4074ccf 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -61,9 +61,16 @@ struct ip_vs_sh_bucket {
- /*
-  *	Returns hash value for IPVS SH entry
-  */
--static inline unsigned ip_vs_sh_hashkey(__be32 addr)
-+static inline unsigned ip_vs_sh_hashkey(int af, const union nf_inet_addr *addr)
- {
--	return (ntohl(addr)*2654435761UL) & IP_VS_SH_TAB_MASK;
-+	__be32 addr_fold = addr->ip;
-+
-+#ifdef CONFIG_IP_VS_IPV6
-+	if (af == AF_INET6)
-+		addr_fold = addr->ip6[0]^addr->ip6[1]^
-+			    addr->ip6[2]^addr->ip6[3];
-+#endif
-+	return (ntohl(addr_fold)*2654435761UL) & IP_VS_SH_TAB_MASK;
- }
- 
- 
-@@ -71,9 +78,10 @@ static inline unsigned ip_vs_sh_hashkey(__be32 addr)
-  *      Get ip_vs_dest associated with supplied parameters.
-  */
- static inline struct ip_vs_dest *
--ip_vs_sh_get(struct ip_vs_sh_bucket *tbl, __be32 addr)
-+ip_vs_sh_get(int af, struct ip_vs_sh_bucket *tbl,
-+	     const union nf_inet_addr *addr)
- {
--	return (tbl[ip_vs_sh_hashkey(addr)]).dest;
-+	return (tbl[ip_vs_sh_hashkey(af, addr)]).dest;
- }
- 
- 
-@@ -199,12 +207,14 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- {
- 	struct ip_vs_dest *dest;
- 	struct ip_vs_sh_bucket *tbl;
--	struct iphdr *iph = ip_hdr(skb);
-+	struct ip_vs_iphdr iph;
-+
-+	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
- 
- 	IP_VS_DBG(6, "ip_vs_sh_schedule(): Scheduling...\n");
- 
- 	tbl = (struct ip_vs_sh_bucket *)svc->sched_data;
--	dest = ip_vs_sh_get(tbl, iph->saddr);
-+	dest = ip_vs_sh_get(svc->af, tbl, &iph.saddr);
- 	if (!dest
- 	    || !(dest->flags & IP_VS_DEST_F_AVAILABLE)
- 	    || atomic_read(&dest->weight) <= 0
-@@ -212,8 +222,10 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 		return NULL;
- 	}
- 
--	IP_VS_DBG(6, "SH: source IP address %pI4 --> server %pI4:%d\n",
--		  &iph->saddr, &dest->addr.ip, ntohs(dest->port));
-+	IP_VS_DBG_BUF(6, "SH: source IP address %s --> server %s:%d\n",
-+		      IP_VS_DBG_ADDR(svc->af, &iph.saddr),
-+		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+		      ntohs(dest->port));
- 
- 	return dest;
- }
-@@ -229,7 +241,7 @@ static struct ip_vs_scheduler ip_vs_sh_scheduler =
- 	.module =		THIS_MODULE,
- 	.n_list	 =		LIST_HEAD_INIT(ip_vs_sh_scheduler.n_list),
- #ifdef CONFIG_IP_VS_IPV6
--	.supports_ipv6 =	0,
-+	.supports_ipv6 =	1,
- #endif
- 	.init_service =		ip_vs_sh_init_svc,
- 	.done_service =		ip_vs_sh_done_svc,
+Indeed not, sorry.  If I ping -b 255.255.255.255 on a virtual machine
+with IP 193.225.14.155, whose virtual interface is a port of br891:
+
+martian source 255.255.255.255 from 193.225.14.155, on dev br891
+
+> And, if there is some network address we have a problem: AFAIK this
+> 255.255.255.255 broadcast is special, and it shouldn't be routed to
+> other networks. Your host doesn't seem to recognize this network, so
+> it shouldn't happen on this interface. So it seems, you expect the
+> bridge behavior where it's 2 in 1 (bridge + IP host).
+
+Yes, this machine is an IP host (SSH access is needed) in a private
+subnet (10.253.2/24) and also bridges traffic belonging to other
+subnets (like for example the above).  It is not a router, though, so
+it knows nothing about the bridged subnets.  Actually, it should be
+totally separated from those, that's why I was alarmed by the martian
+warnings: these "limited broadcast" (255.255.255.255, not routed, as
+you note) addressed packets could reach the bridge!
+
+> I'm not sure there is "right" solution for this with any model, but
+> I can miss something - then more details are needed. Otherwise,
+> maybe you should simply consider turning off log_martians on these
+> devices.
+
+I could, but I'm more than a little worried that I don't understand
+this stuff I'm expected to manage.  That's why I brought up the issue
+here.  rp_filter is already enabled on all interfaces.  Do you think
+it already ensures the separation I'm after, and all that's left is to
+disable log_martians?
 -- 
-1.5.3.7
+Thanks,
+Feri.
 
-
+Ps: If so, then I'd suggest placing the martian warning after
+rp_filter, so that it doesn't warn about packets which get dropped
+anyway, if possible.  Also, flipping the addresses in the martian
+warning text would reduce confusion.  As it is, it suggests (English
+is a foreign language for me, mind you) that 255.255.255.255 is the
+problematic "martian source", while it's just a random destination
+address in fact.
