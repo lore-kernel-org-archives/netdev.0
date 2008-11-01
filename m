@@ -1,45 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Fix ESP SA loading (by default)
-Date: Sat, 1 Nov 2008 13:04:58 +0800
-Message-ID: <20081101050458.GA17807@gondor.apana.org.au>
-References: <20081101043737.GA1621@x200.localdomain>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] mv643xx_eth: fix SMI bus access timeouts
+Date: Sat, 1 Nov 2008 06:32:20 +0100
+Message-ID: <20081101053220.GA13348@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49581 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750716AbYKAFFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2008 01:05:06 -0400
+Received: from xi.wantstofly.org ([80.101.37.227]:53334 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802AbYKAFcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2008 01:32:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20081101043737.GA1621@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 01, 2008 at 07:37:37AM +0300, Alexey Dobriyan wrote:
-> digest_null algorithm is now mandatory for ESP.
-> 
-> Steps to reproduce:
-> 
-> 	kernel with CONFIG_CRYPTO_NULL=n
-> 
-> 	#!/usr/sbin/setkey -f
-> 	flush;
-> 	spdflush;
-> 	add 192.168.0.1 192.168.0.42 esp 15701 -E 3des-cbc "123456789012123456789012";
+The mv643xx_eth mii bus implementation uses wait_event_timeout() to
+wait for SMI completion interrupts.
 
-You do realise that this is totally insecure against man-in-the-
-middle attacks, right?
+If wait_event_timeout() would return zero, mv643xx_eth would conclude
+that the SMI access timed out, but this is not necessarily true --
+wait_event_timeout() can also return zero in the case where the SMI
+completion interrupt did happen in time but where it took longer than
+the requested timeout for the process performing the SMI access to be
+scheduled again.  This would lead to occasional SMI access timeouts
+when the system would be under heavy load.
 
-We don't make ESP depend on every single algorithm out there.
-It is the user's responsibility to turn on esoteric choices.
-IMHO the use of encryption without authentication is definitely
-non-standard.
+The fix is to ignore the return value of wait_event_timeout(), and
+to re-check the SMI done bit after wait_event_timeout() returns to
+determine whether or not the SMI access timed out.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+---
+The commit that introduced this was added in the .28 dev cycle, so
+this fix is for .28 only.  Thanks!
+
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index d25a302..0e94ed3 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -1065,9 +1065,12 @@ static int smi_wait_ready(struct mv643xx_eth_shared_private *msp)
+ 		return 0;
+ 	}
+ 
+-	if (!wait_event_timeout(msp->smi_busy_wait, smi_is_done(msp),
+-				msecs_to_jiffies(100)))
+-		return -ETIMEDOUT;
++	if (!smi_is_done(msp)) {
++		wait_event_timeout(msp->smi_busy_wait, smi_is_done(msp),
++				   msecs_to_jiffies(100));
++		if (!smi_is_done(msp))
++			return -ETIMEDOUT;
++	}
+ 
+ 	return 0;
+ }
