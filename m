@@ -1,60 +1,64 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] net: kconfig cleanup
-Date: Sun, 02 Nov 2008 08:36:03 -0500
-Message-ID: <490DACC3.2050203@garzik.org>
-References: <20081031074143.25532.6078.stgit@gitlost.lost>
+Subject: Re: [PATCH] drivers/net/smc911x.c: Fix lockdep warning on xmit.
+Date: Sun, 02 Nov 2008 08:46:05 -0500
+Message-ID: <490DAF1D.20002@garzik.org>
+References: <87a5b0800810280506h71fd6508i9474917b0ef0b191@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Andrew Gallatin <gallatin@myri.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Will Newton <will.newton@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50364 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60734 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752715AbYKBNgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Nov 2008 08:36:08 -0500
-In-Reply-To: <20081031074143.25532.6078.stgit@gitlost.lost>
+	id S1753298AbYKBNqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Nov 2008 08:46:09 -0500
+In-Reply-To: <87a5b0800810280506h71fd6508i9474917b0ef0b191@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> The bool kconfig option added to ixgbe and myri10ge for DCA is ambigous, so this
-> patch adds a description to the kconfig option.
+Will Newton wrote:
+>>From 0e3ec7f78e115533e4aca9ac067acbc33eb0a21f Mon Sep 17 00:00:00 2001
+> From: Will Newton <will.newton@gmail.com>
+> Date: Tue, 28 Oct 2008 10:52:36 +0000
+> Subject: [PATCH] drivers/net/smc911x.c: Fix lockdep warning on xmit.
 > 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Andrew Gallatin <gallatin@myri.com>
+> dev_kfree_skb should not be called with irqs disabled, use dev_kfree_skb_irq
+> instead. The warning caused looks like this:
+> 
+> ======================================================
+> [ INFO: hard-safe -> hard-unsafe lock order detected ]
+> 2.6.28-rc1 #273
+> ------------------------------------------------------
+> swapper/0 [HC0[0]:SC1[2]:HE0:SE0] is trying to acquire:
+>  (clock-AF_INET){-..+}, at: [<4015c17c>] _sock_def_write_space+0x28/0xd8
+> 
+> and this task is already holding:
+>  (&lp->lock){++..}, at: [<4013f230>] _smc911x_hard_start_xmit+0x30/0x4b8
+> which would create a new lock dependency:
+>  (&lp->lock){++..} -> (clock-AF_INET){-..+}
+> 
+> Signed-off-by: Will Newton <will.newton@gmail.com>
 > ---
+>  drivers/net/smc911x.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
->  drivers/net/Kconfig |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index f749b40..b13a7ff 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2437,7 +2437,7 @@ config IXGBE
->  	  will be called ixgbe.
->  
->  config IXGBE_DCA
-> -	bool
-> +	bool "Enable DCA"
->  	default y
->  	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
->  
-> @@ -2489,7 +2489,7 @@ config MYRI10GE
->  	  will be called myri10ge.
->  
->  config MYRI10GE_DCA
-> -	bool
-> +	bool "Enable DCA"
->  	default y
->  	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
+> diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+> index f59c777..5051554 100644
+> --- a/drivers/net/smc911x.c
+> +++ b/drivers/net/smc911x.c
+> @@ -499,7 +499,7 @@ static void smc911x_hardware_send_pkt(struct
+> net_device *dev)
+>  #else
+>  	SMC_PUSH_DATA(lp, buf, len);
+>  	dev->trans_start = jiffies;
+> -	dev_kfree_skb(skb);
+> +	dev_kfree_skb_irq(skb);
+>  #endif
+>  	if (!lp->tx_throttle) {
+>  		netif_wake_queue(dev);
 
-If you're gonna do that, please add useful help text for the user who 
-has no idea what this means.  (IGB_DCA needs this as well)
-
-	Jeff
-
+applied manually, your patch was corrupted
 
 
