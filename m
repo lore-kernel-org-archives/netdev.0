@@ -1,43 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] xfrm6: handling fragment
-Date: Sat, 01 Nov 2008 21:12:21 -0700 (PDT)
-Message-ID: <20081101.211221.67297722.davem@davemloft.net>
-References: <490B3DC9.906@dev.6wind.com>
+Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
+Date: Sat, 01 Nov 2008 21:15:41 -0700 (PDT)
+Message-ID: <20081101.211541.182428064.davem@davemloft.net>
+References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@dev.6wind.com
+To: yavor@simplifymedia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39783
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39786
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750823AbYKBEMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 00:12:45 -0400
-In-Reply-To: <490B3DC9.906@dev.6wind.com>
+	by vger.kernel.org with ESMTP id S1750823AbYKBEQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 00:16:06 -0400
+In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
-Date: Fri, 31 Oct 2008 18:18:01 +0100
+From: Yavor Goulishev <yavor@simplifymedia.com>
+Date: Tue, 28 Oct 2008 17:06:33 -0400
 
-> RFC4301 Section 7.1 says:
+> I'm sending you a tiny patch for the kernel.  The change allowed me
+> to establish more than 64K outgoing TCP connections from a single
+> Linux box.  Being able to use multihomed client box to load test a
+> server reduced dramatically the number of physical boxes I needed.
+> The other way to go was virtual machines, but you can't beat the
+> simplicity of the single multihomed client.  Also the patch fixes an
+> important symmetry.  Using the multihome setup is a simple technique
+> to overcome the 64K limit on the server side.  The patch makes it
+> possible on the client side too.
 > 
-> "7.1.  Tunnel Mode SAs that Carry Initial and Non-Initial Fragments
+> The fix is only for TCP but probably the same issue exists for UDP.
+> I didn't had the time to investigate.
 > 
->      All implementations MUST support tunnel mode SAs that are configured
->      to pass traffic without regard to port field (or ICMP type/code or
->      Mobility Header type) values.  If the SA will carry traffic for
->      specified protocols, the selector set for the SA MUST specify the
->      port fields (or ICMP type/code or Mobility Header type) as ANY.  An
->      SA defined in this fashion will carry all traffic including initial
->      and non-initial fragments for the indicated Local/Remote addresses
->      and specified Next Layer protocol(s)."
-> 
-> But for IPv6, fragment is treated as a protocol. Would the following patch be acceptable to catch protocol transported in fragmented packet?
-> In IPv4, there is no problem.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> The patch is against the latest code base 2.6.28-rc2.
 
-This seems good, I've applied this to net-next-2.6
+As I mentioned in my initial reply to you, this exact patch
+has been proposed in the future and rejected.
 
-Thanks.
+The problem is that although it fixes the limitation, it
+introduces a new problem.
+
+The current code tries to keep the hash chains as shallow
+as possible.  One part of how it achieves this is that it
+tries to use up all the available ports using it's
+scanning algorithm.  Your change works against this, and
+will tend to make the hash chains deeper.
+
+A solution needs to be devised which handles both issues.
