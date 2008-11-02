@@ -1,41 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add documentation for skb recycling
-Date: Sat, 01 Nov 2008 21:01:18 -0700 (PDT)
-Message-ID: <20081101.210118.60080241.davem@davemloft.net>
-References: <20081021031732.GO4129@xi.wantstofly.org>
-	<20081026.230500.268424963.davem@davemloft.net>
-	<20081101025929.GA13377@xi.wantstofly.org>
+Subject: Re: [PATCH RFC] xfrm6: handling fragment
+Date: Sat, 01 Nov 2008 21:12:21 -0700 (PDT)
+Message-ID: <20081101.211221.67297722.davem@davemloft.net>
+References: <490B3DC9.906@dev.6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, rdunlap@xenotime.net, netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@dev.6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55597
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39783
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750804AbYKBEBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 00:01:43 -0400
-In-Reply-To: <20081101025929.GA13377@xi.wantstofly.org>
+	by vger.kernel.org with ESMTP id S1750823AbYKBEMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 00:12:45 -0400
+In-Reply-To: <490B3DC9.906@dev.6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Sat, 1 Nov 2008 03:59:29 +0100
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Date: Fri, 31 Oct 2008 18:18:01 +0100
 
-> On Sun, Oct 26, 2008 at 11:05:00PM -0700, David Miller wrote:
+> RFC4301 Section 7.1 says:
 > 
-> > > How about tweaking this slightly and saying:
-> > > 
-> > >  * 	Checks that the skb passed in is not shared or cloned, and
-> > >  *	that it is linear and its head portion at least as large as
-> > >  *	skb_size so that it can be recycled as a receive buffer.
-> > >  * 	If these conditions are met, this function does any necessary
-> > >  *	reference count dropping and cleans up the skbuff as if it
-> > >  *	just came from __alloc_skb().
-> > 
-> > I like this tweak, someone please send me the final version with
-> > proper signoffs etc.
+> "7.1.  Tunnel Mode SAs that Carry Initial and Non-Initial Fragments
 > 
-> How about this:
+>      All implementations MUST support tunnel mode SAs that are configured
+>      to pass traffic without regard to port field (or ICMP type/code or
+>      Mobility Header type) values.  If the SA will carry traffic for
+>      specified protocols, the selector set for the SA MUST specify the
+>      port fields (or ICMP type/code or Mobility Header type) as ANY.  An
+>      SA defined in this fashion will carry all traffic including initial
+>      and non-initial fragments for the indicated Local/Remote addresses
+>      and specified Next Layer protocol(s)."
+> 
+> But for IPv6, fragment is treated as a protocol. Would the following patch be acceptable to catch protocol transported in fragmented packet?
+> In IPv4, there is no problem.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied, thanks a lot everyone.
+This seems good, I've applied this to net-next-2.6
+
+Thanks.
