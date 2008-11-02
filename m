@@ -1,51 +1,58 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] fs_enet: fix polling
-Date: Sun, 2 Nov 2008 17:49:59 +0300
-Message-ID: <20081102144959.GA10869@x200.localdomain>
+From: Markus Frahm <frahm@sybuca.de>
+Subject: Fwd: iproute weight balancing problem with youtube
+Date: Sun, 2 Nov 2008 16:55:52 +0100
+Message-ID: <200811021655.53395.frahm@sybuca.de>
+Reply-To: shorewall-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vitaly Bordug <vitb@kernel.crashing.org>,
-	Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
-To: jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:31190 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753442AbYKBOqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 09:46:51 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so708664eyi.37
-        for <netdev@vger.kernel.org>; Sun, 02 Nov 2008 06:46:49 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: shorewall-devel@lists.sourceforge.net,
+ netdev@vger.kernel.org
+Return-path: <shorewall-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/shorewall-devel>,
+	<mailto:shorewall-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=shorewall-devel>
+List-Post: <mailto:shorewall-devel@lists.sourceforge.net>
+List-Help: <mailto:shorewall-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/shorewall-devel>,
+	<mailto:shorewall-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: shorewall-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-1. compile fix for irqreturn_t type change
-2. restore ->poll_controller after CONFIG_PPC_CPM_NEW_BINDING transition
+Hello,
+I didn't receive any answer or subscription confirmation from the other list 
+yet, so I forward the problem to this list. Can anybody help?
+Greetings
+  Markus
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+----------  Forwarded Message  ----------
 
- drivers/net/fs_enet/fs_enet-main.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+Subject: iproute weight balacing problem with youtube
+Date: Monday 27 October 2008
+From: Markus Frahm <frahm@sybuca.de>
+To: shemminger@osdl.org, lartc@mailman.ds9a.nl
 
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -1099,7 +1099,9 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
- 	ndev->stop = fs_enet_close;
- 	ndev->get_stats = fs_enet_get_stats;
- 	ndev->set_multicast_list = fs_set_multicast_list;
--
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	ndev->poll_controller = fs_enet_netpoll;
-+#endif
- 	if (fpi->use_napi)
- 		netif_napi_add(ndev, &fep->napi, fs_enet_rx_napi,
- 		               fpi->napi_weight);
-@@ -1209,7 +1211,7 @@ static void __exit fs_cleanup(void)
- static void fs_enet_netpoll(struct net_device *dev)
- {
-        disable_irq(dev->irq);
--       fs_enet_interrupt(dev->irq, dev, NULL);
-+       fs_enet_interrupt(dev->irq, dev);
-        enable_irq(dev->irq);
- }
- #endif
+Dear Stephen Hemminger,
+we have found a problem with ip route and multiple internet connections using 
+the ip route 'weight' option to balance the traffic of a NAT firewall between 
+several lines. Internet sites like 'youtube' show videos only with 50% 
+probability because youtube and similar sites demand several connections (for 
+the web site and the flash stream) to come from the same source IP. Is there a 
+simple solution for this problem for example to increase the time in the 
+balancing algorithm or a cache for source IPs? 
+Regards
+
+  Markus
+
+
+
+
+
+-------------------------------------------------------
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
