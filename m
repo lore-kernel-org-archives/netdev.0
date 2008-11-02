@@ -1,63 +1,49 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
-Date: Sun, 02 Nov 2008 08:18:45 -0500
-Message-ID: <490DA8B5.2020303@garzik.org>
-References: <1221524685-25968-1-git-send-email-afleming@freescale.com>
+Subject: Re: [patch 5/7] forcdeth: increase max_interrupt_work
+Date: Sun, 02 Nov 2008 08:30:54 -0500
+Message-ID: <490DAB8E.3030006@garzik.org>
+References: <200810292122.m9TLMGAI020173@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-To: Andy Fleming <afleming@freescale.com>
+Cc: netdev@vger.kernel.org, joe.korty@ccur.com, aabdulla@nvidia.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60450 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:58706 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753472AbYKBNSt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Nov 2008 08:18:49 -0500
-In-Reply-To: <1221524685-25968-1-git-send-email-afleming@freescale.com>
+	id S1753260AbYKBNa7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Nov 2008 08:30:59 -0500
+In-Reply-To: <200810292122.m9TLMGAI020173@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Fleming wrote:
-> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+akpm@linux-foundation.org wrote:
+> From: Joe Korty <joe.korty@ccur.com>
 > 
-> Creating a VLAN interface on top of ucc_geth adds 4 bytes
-> to the frame and the HW controller is not prepared to
-> TX a frame bigger than 1518 bytes which is 4 bytes too
-> small for a full VLAN frame. Also add 4 extra bytes for future
-> expansion.
+> This eliminates the following often-generated warning from my 64 bit
+> Opteron SMP test stand:
 > 
-> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> 	eth0: too many iterations (6) in nv_nic_irq
+> 
+> According to the web, the problem is that the forcedeth driver has a
+> too-low value for max_interrupt_work.  Grepping the kernel I see that
+> forcedeth has the second lowest value of all ethernet drivers (ie, 6). 
+> Most are in the 20-40 range.  So this patch increases this a bit, from 6
+> to 15 (at 15 forcedeth becomes the driver with third-lowest
+> max_interrupt_work value).
+> 
+> My test stand, which used to print out the above warnings repetitively
+> whenever it was under heavy net load, no longer does so.
+> 
+> Signed-off-by: Joe Korty <joe.korty@ccur.com>
+> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
->  drivers/net/ucc_geth.c |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
 > 
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> index 8f944e5..8fed4bb 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -113,10 +113,10 @@ static struct ucc_geth_info ugeth_primary_info = {
->  	.maxGroupAddrInHash = 4,
->  	.maxIndAddrInHash = 4,
->  	.prel = 7,
-> -	.maxFrameLength = 1518,
-> +	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags and 4 extra bytes */
->  	.minFrameLength = 64,
-> -	.maxD1Length = 1520,
-> -	.maxD2Length = 1520,
-> +	.maxD1Length = 1520+8,
-> +	.maxD2Length = 1520+8,
->  	.vlantype = 0x8100,
+>  drivers/net/forcedeth.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Is this still needed?
-
-I found this buried in my inbox.
-
-If so, please resend with the "+8" converted into a named constant. 
-Hardcoding lengths like this without named constants (or comments, on 
-the other lines) tends to be an error-prone practice.
-
-	Jeff
-
+applied
 
 
