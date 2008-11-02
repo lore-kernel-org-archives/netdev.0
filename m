@@ -1,39 +1,63 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RESEND] benet: BladeEngine 10Gb NIC driver
-Date: Sun, 02 Nov 2008 08:15:15 -0500
-Message-ID: <490DA7E3.8040802@garzik.org>
-References: <20080916090021.c4a58c42@mailhost.serverengines.com>
+Subject: Re: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
+Date: Sun, 02 Nov 2008 08:18:45 -0500
+Message-ID: <490DA8B5.2020303@garzik.org>
+References: <1221524685-25968-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Subbu Seetharaman <subbus@serverengines.com>,
-	Greg KH <greg@kroah.com>
+Cc: netdev@vger.kernel.org,
+	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60438 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60450 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753470AbYKBNPV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Nov 2008 08:15:21 -0500
-In-Reply-To: <20080916090021.c4a58c42@mailhost.serverengines.com>
+	id S1753472AbYKBNSt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Nov 2008 08:18:49 -0500
+In-Reply-To: <1221524685-25968-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subbu Seetharaman wrote:
-> Jeff,
+Andy Fleming wrote:
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 > 
-> It is more than two months since the benet driver patch was made available as a single file as suggeted by you :
+> Creating a VLAN interface on top of ucc_geth adds 4 bytes
+> to the frame and the HW controller is not prepared to
+> TX a frame bigger than 1518 bytes which is 4 bytes too
+> small for a full VLAN frame. Also add 4 extra bytes for future
+> expansion.
 > 
-> ftp://ftp.serverengines.com/0001.benet.patch
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> ---
+>  drivers/net/ucc_geth.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
 > 
-> I have not seen this applied.  Is there any reason for not applying this  patch ?  Do you want a patch against the latest git tree ?
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+> index 8f944e5..8fed4bb 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -113,10 +113,10 @@ static struct ucc_geth_info ugeth_primary_info = {
+>  	.maxGroupAddrInHash = 4,
+>  	.maxIndAddrInHash = 4,
+>  	.prel = 7,
+> -	.maxFrameLength = 1518,
+> +	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags and 4 extra bytes */
+>  	.minFrameLength = 64,
+> -	.maxD1Length = 1520,
+> -	.maxD2Length = 1520,
+> +	.maxD1Length = 1520+8,
+> +	.maxD2Length = 1520+8,
+>  	.vlantype = 0x8100,
 
-The overall consensus at this year's Linux Kernel Summit was that this 
-driver still needs a lot of cleanup, so I'm gonna try an experiment and 
-stick this in the staging tree (currently jgarzik/netdev-2.6.git#benet).
+Is this still needed?
 
-Greg, do I need to do anything beyond simply putting it into the 
-directory?  Do I need to add some code to taint, perhaps?
+I found this buried in my inbox.
+
+If so, please resend with the "+8" converted into a named constant. 
+Hardcoding lengths like this without named constants (or comments, on 
+the other lines) tends to be an error-prone practice.
 
 	Jeff
+
 
 
