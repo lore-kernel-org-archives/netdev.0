@@ -1,50 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
-Date: Sat, 01 Nov 2008 21:15:41 -0700 (PDT)
-Message-ID: <20081101.211541.182428064.davem@davemloft.net>
-References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>
+Subject: Re: [PATCH 2/2] udp: RCU handling for Unicast packets.
+Date: Sat, 01 Nov 2008 21:19:31 -0700 (PDT)
+Message-ID: <20081101.211931.59267026.davem@davemloft.net>
+References: <4908DEDE.5030706@cosmosbay.com>
+	<49092891.5060603@acm.org>
+	<49094B0F.2090208@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yavor@simplifymedia.com
+Cc: minyard@acm.org, paulmck@linux.vnet.ibm.com, shemminger@vyatta.com,
+	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
+	cl@linux-foundation.org, a.p.zijlstra@chello.nl,
+	johnpol@2ka.mipt.ru, christian@myri.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39786
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48127
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750823AbYKBEQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 00:16:06 -0400
-In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>
+	by vger.kernel.org with ESMTP id S1750823AbYKBET4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 00:19:56 -0400
+In-Reply-To: <49094B0F.2090208@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Date: Tue, 28 Oct 2008 17:06:33 -0400
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 30 Oct 2008 06:50:07 +0100
 
-> I'm sending you a tiny patch for the kernel.  The change allowed me
-> to establish more than 64K outgoing TCP connections from a single
-> Linux box.  Being able to use multihomed client box to load test a
-> server reduced dramatically the number of physical boxes I needed.
-> The other way to go was virtual machines, but you can't beat the
-> simplicity of the single multihomed client.  Also the patch fixes an
-> important symmetry.  Using the multihome setup is a simple technique
-> to overcome the 64K limit on the server side.  The patch makes it
-> possible on the client side too.
+> [PATCH] udp: add a missing smp_wmb() in udp_lib_get_port()
 > 
-> The fix is only for TCP but probably the same issue exists for UDP.
-> I didn't had the time to investigate.
+> Corey Minyard spotted a missing memory barrier in udp_lib_get_port()
 > 
-> The patch is against the latest code base 2.6.28-rc2.
+> We need to make sure a reader cannot read the new 'sk->sk_next' value
+> and previous value of 'sk->sk_hash'. Or else, an item could be deleted
+> from a chain, and inserted into another chain. If new chain was empty
+> before the move, 'next' pointer is NULL, and lockless reader can
+> not detect it missed following items in original chain.
+> 
+> This patch is temporary, since we expect an upcoming patch
+> to introduce another way of handling the problem.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-As I mentioned in my initial reply to you, this exact patch
-has been proposed in the future and rejected.
-
-The problem is that although it fixes the limitation, it
-introduces a new problem.
-
-The current code tries to keep the hash chains as shallow
-as possible.  One part of how it achieves this is that it
-tries to use up all the available ports using it's
-scanning algorithm.  Your change works against this, and
-will tend to make the hash chains deeper.
-
-A solution needs to be devised which handles both issues.
+I've applied this to net-next-2.6
