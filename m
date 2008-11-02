@@ -1,44 +1,28 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [NET-NEXT PATCH] ixgbe: add device support for 82598AT (copper
- 10GbE)	adapters
-Date: Sun, 02 Nov 2008 08:01:00 -0500
-Message-ID: <490DA48C.90701@garzik.org>
-References: <20081031074640.25760.45148.stgit@gitlost.lost>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] atlx: use embedded net_device_stats
+Date: Sun, 02 Nov 2008 08:00:48 -0500
+Message-ID: <490DA480.6000807@pobox.com>
+References: <20081031235202.019379082@vyatta.com> <20081031235325.698875766@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57894 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:57890 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753431AbYKBNBF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Nov 2008 08:01:05 -0500
-In-Reply-To: <20081031074640.25760.45148.stgit@gitlost.lost>
+	id S1753409AbYKBNAy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Nov 2008 08:00:54 -0500
+In-Reply-To: <20081031235325.698875766@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Stephen Hemminger wrote:
+> There is now a net_device_stats structure inside net_device that should
+> be used if possible by devices. Compile tested only.
 > 
-> Intel is currently shipping support for adapters with a phy
-> that does 10GBase-T (copper), which is 10 Gigabit ethernet
-> over standard Category 6 cabling.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> 
->  drivers/net/ixgbe/ixgbe.h         |    1 +
->  drivers/net/ixgbe/ixgbe_82598.c   |   12 +++++++
->  drivers/net/ixgbe/ixgbe_ethtool.c |   27 +++++++++++++++
->  drivers/net/ixgbe/ixgbe_main.c    |   33 ++++++++++++++++++
->  drivers/net/ixgbe/ixgbe_phy.c     |   68 +++++++++++++++++++++++++++++++++++++
->  drivers/net/ixgbe/ixgbe_phy.h     |    7 ++++
->  drivers/net/ixgbe/ixgbe_type.h    |    6 +++
->  7 files changed, 154 insertions(+), 0 deletions(-)
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-applied
+applied 1-2
 
 
