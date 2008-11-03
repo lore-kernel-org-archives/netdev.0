@@ -1,79 +1,106 @@
 From: Jianjun Kong <jianjun@zeuux.org>
-Subject: [PATCH 3/4] nets: clean up net/ipv4/devinet.c
-Date: Mon, 3 Nov 2008 18:41:51 +0800
-Message-ID: <20081103104151.GD19058@ubuntu>
+Subject: [PATCH 4/4] nets: clean up net/ipv4/tcp_ipv4.c
+Date: Mon, 3 Nov 2008 18:41:56 +0800
+Message-ID: <20081103104156.GE19058@ubuntu>
 References: <20081102074446.GA12140@ubuntu> <490DEAD3.3030202@cosmosbay.com> <20081103082002.GG14553@ubuntu> <20081103.002808.142907024.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.zeuux.org ([210.51.160.52]:61787 "EHLO z.billxu.com"
+Received: from smtp.zeuux.org ([210.51.160.52]:52796 "EHLO z.billxu.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755037AbYKCKll (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 05:41:41 -0500
+	id S1755041AbYKCKlq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 05:41:46 -0500
 Content-Disposition: inline
 In-Reply-To: <20081103.002808.142907024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-[PATCH 3/4] nets: clean up net/ipv4/devinet.c
+[PATCH 4/4] nets: clean up net/ipv4/tcp_ipv4.c
 
 Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
 ---
- net/ipv4/devinet.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ net/ipv4/tcp_ipv4.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 0bff576..309997e 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1101,7 +1101,7 @@ out:
- }
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ef33246..d49233f 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1874,7 +1874,7 @@ static void *listening_get_next(struct seq_file *seq, void *cur)
+ 	struct inet_connection_sock *icsk;
+ 	struct hlist_node *node;
+ 	struct sock *sk = cur;
+-	struct tcp_iter_state* st = seq->private;
++	struct tcp_iter_state *st = seq->private;
+ 	struct net *net = seq_file_net(seq);
  
- static struct notifier_block ip_netdev_notifier = {
--	.notifier_call =inetdev_event,
-+	.notifier_call = inetdev_event,
- };
+ 	if (!sk) {
+@@ -1960,7 +1960,7 @@ static inline int empty_bucket(struct tcp_iter_state *st)
  
- static inline size_t inet_nlmsg_size(void)
-@@ -1188,7 +1188,7 @@ done:
- 	return skb->len;
- }
- 
--static void rtmsg_ifa(int event, struct in_ifaddr* ifa, struct nlmsghdr *nlh,
-+static void rtmsg_ifa(int event, struct in_ifaddr *ifa, struct nlmsghdr *nlh,
- 		      u32 pid)
+ static void *established_get_first(struct seq_file *seq)
  {
- 	struct sk_buff *skb;
-@@ -1255,7 +1255,7 @@ static void inet_forward_change(struct net *net)
- }
+-	struct tcp_iter_state* st = seq->private;
++	struct tcp_iter_state *st = seq->private;
+ 	struct net *net = seq_file_net(seq);
+ 	void *rc = NULL;
  
- static int devinet_conf_proc(ctl_table *ctl, int write,
--			     struct file* filp, void __user *buffer,
-+			     struct file *filp, void __user *buffer,
- 			     size_t *lenp, loff_t *ppos)
- {
- 	int ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
-@@ -1327,7 +1327,7 @@ static int devinet_conf_sysctl(ctl_table *table,
- }
+@@ -2005,7 +2005,7 @@ static void *established_get_next(struct seq_file *seq, void *cur)
+ 	struct sock *sk = cur;
+ 	struct inet_timewait_sock *tw;
+ 	struct hlist_node *node;
+-	struct tcp_iter_state* st = seq->private;
++	struct tcp_iter_state *st = seq->private;
+ 	struct net *net = seq_file_net(seq);
  
- static int devinet_sysctl_forward(ctl_table *ctl, int write,
--				  struct file* filp, void __user *buffer,
-+				  struct file *filp, void __user *buffer,
- 				  size_t *lenp, loff_t *ppos)
+ 	++st->num;
+@@ -2064,7 +2064,7 @@ static void *established_get_idx(struct seq_file *seq, loff_t pos)
+ static void *tcp_get_idx(struct seq_file *seq, loff_t pos)
  {
- 	int *valp = ctl->data;
-@@ -1356,7 +1356,7 @@ static int devinet_sysctl_forward(ctl_table *ctl, int write,
- }
+ 	void *rc;
+-	struct tcp_iter_state* st = seq->private;
++	struct tcp_iter_state *st = seq->private;
  
- int ipv4_doint_and_flush(ctl_table *ctl, int write,
--			 struct file* filp, void __user *buffer,
-+			 struct file *filp, void __user *buffer,
- 			 size_t *lenp, loff_t *ppos)
+ 	inet_listen_lock(&tcp_hashinfo);
+ 	st->state = TCP_SEQ_STATE_LISTENING;
+@@ -2081,7 +2081,7 @@ static void *tcp_get_idx(struct seq_file *seq, loff_t pos)
+ 
+ static void *tcp_seq_start(struct seq_file *seq, loff_t *pos)
  {
- 	int *valp = ctl->data;
+-	struct tcp_iter_state* st = seq->private;
++	struct tcp_iter_state *st = seq->private;
+ 	st->state = TCP_SEQ_STATE_LISTENING;
+ 	st->num = 0;
+ 	return *pos ? tcp_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+@@ -2090,7 +2090,7 @@ static void *tcp_seq_start(struct seq_file *seq, loff_t *pos)
+ static void *tcp_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	void *rc = NULL;
+-	struct tcp_iter_state* st;
++	struct tcp_iter_state *st;
+ 
+ 	if (v == SEQ_START_TOKEN) {
+ 		rc = tcp_get_idx(seq, 0);
+@@ -2120,7 +2120,7 @@ out:
+ 
+ static void tcp_seq_stop(struct seq_file *seq, void *v)
+ {
+-	struct tcp_iter_state* st = seq->private;
++	struct tcp_iter_state *st = seq->private;
+ 
+ 	switch (st->state) {
+ 	case TCP_SEQ_STATE_OPENREQ:
+@@ -2281,7 +2281,7 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
+ 
+ static int tcp4_seq_show(struct seq_file *seq, void *v)
+ {
+-	struct tcp_iter_state* st;
++	struct tcp_iter_state *st;
+ 	int len;
+ 
+ 	if (v == SEQ_START_TOKEN) {
 -- 
 1.5.6.3
 
