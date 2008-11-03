@@ -1,56 +1,87 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: [RFC/PATCH] e100 driver didn't support any MII-less PHYs...
-Date: Mon, 3 Nov 2008 09:04:30 +0100
-Message-ID: <20081103080430.GA32459@rhlx01.hs-esslingen.de>
-References: <20071228235118.GA31059@rhlx01.hs-esslingen.de> <477732A5.5020501@intel.com> <20080101200908.GA14805@rhlx01.hs-esslingen.de> <20080129230315.GA13389@rhlx01.hs-esslingen.de> <479FB225.7090604@intel.com> <20080130064909.GA19793@rhlx01.hs-esslingen.de> <47A0A713.7030304@intel.com>
-Reply-To: andi@lisas.de
+From: Manuel Lauss <mano@roarinelk.homelinux.net>
+Subject: Re: smc91x: commit 51ac3beffd4afaea4350526cf01fe74aaff25eff breaks
+	compilation
+Date: Mon, 3 Nov 2008 09:17:24 +0100
+Message-ID: <20081103081724.GE18445@roarinelk.homelinux.net>
+References: <20081103071720.GB18153@roarinelk.homelinux.net> <20081103.000438.62068550.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andi@lisas.de, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bunk@kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: vapier@gentoo.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:57222 "EHLO
-	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755241AbYKCIOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 03:14:55 -0500
+Received: from fnoeppeil48.netpark.at ([217.175.205.176]:56640 "EHLO
+	roarinelk.homelinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754626AbYKCIR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 03:17:26 -0500
 Content-Disposition: inline
-In-Reply-To: <47A0A713.7030304@intel.com>
+In-Reply-To: <20081103.000438.62068550.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Wed, Jan 30, 2008 at 08:34:27AM -0800, Kok, Auke wrote:
-> Andreas Mohr wrote:
-> > Hi,
-> > 
-> > On Tue, Jan 29, 2008 at 03:09:25PM -0800, Kok, Auke wrote:
-> >> Andreas Mohr wrote:
-> >>> Perhaps it's useful to file a bug/patch
-> >>> on http://sourceforge.net/projects/e1000/ ? Perhaps -mm testing?
-> >> I wanted to push this though our testing labs first which has not happened due to
-> >> time constraints - that should quickly at least confirm that the most common nics
-> >> work OK after the change with your patch. I'll try and see if we can get this
-> >> testing done soon.
-> > 
-> > Oh, full-scale regression testing even? Nice idea...
-> > Would optionally be even better if during hardware tests one could also
-> > dig out some i82503-based card (or additional MII-less cards?)
-> > since I didn't really make any effort yet to try to make them all
-> > recognized/supported by my patch already (would have been out of scope anyway
-> > since I have this single card only).
+On Mon, Nov 03, 2008 at 12:04:38AM -0800, David Miller wrote:
+> From: Manuel Lauss <mano@roarinelk.homelinux.net>
+> Date: Mon, 3 Nov 2008 08:17:20 +0100
 > 
-> the problem is that I think that most of those (mii-less cards) are customly
-> designed by OEM's that buy the silicon and glue on a different interface and we
-> usually do not carry those designs in our labs apart from a few exceptions. So, I
-> can at least touch the common hardware in testing, but not the exotic stuff.
+> > your commit 51ac3beffd4afaea4350526cf01fe74aaff25eff  causes this
+> > compile failure on my SH and MIPS testboards (2.6.28-rc3):
+> > 
+> >  CC      drivers/net/smc91x.o
+> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_request_attrib':
+> 
+> That's beyond awful.
+> 
+> Hiding the "lp" refernce behind that sneaky SMC_IO_SHIFT macro?
+> That effects a whole slew of macros and interfaces indirectly.
+> What a mess.
+> 
+> It means that these local 'lp' variables unused in some confirations
+> and used in some others.
+> 
+> I'll fix this like so:
+> 
+> commit 66935e42ddc544eec4d8d5d86f3de322766888d5
+> Author: David S. Miller <davem@davemloft.net>
+> Date:   Mon Nov 3 00:04:24 2008 -0800
+> 
+>     SMC91x: Fix compilation on some platforms.
+>     
+>     This reverts 51ac3beffd4afaea4350526cf01fe74aaff25eff ('SMC91x: delete
+>     unused local variable "lp"') and adds __maybe_unused markers to these
+>     (potentially) unused variables.
+>     
+>     The issue is that in some configurations SMC_IO_SHIFT evaluates
+>     to '(lp->io_shift)', but in some others it's plain '0'.
+>     
+>     Based upon a build failure report from Manuel Lauss.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+> index 6f9895d..d88081c 100644
+> --- a/drivers/net/smc91x.c
+> +++ b/drivers/net/smc91x.c
+> @@ -2060,6 +2060,7 @@ static int smc_request_attrib(struct platform_device *pdev,
+>  			      struct net_device *ndev)
+>  {
+>  	struct resource * res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-attrib");
+> +	struct smc_local *lp = netdev_priv(ndev) __maybe_unused;
+>  
+>  	if (!res)
+>  		return 0;
+> @@ -2074,6 +2075,7 @@ static void smc_release_attrib(struct platform_device *pdev,
+>  			       struct net_device *ndev)
+>  {
+>  	struct resource * res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-attrib");
+> +	struct smc_local *lp = netdev_priv(ndev) __maybe_unused;
+>  
+>  	if (res)
+>  		release_mem_region(res->start, ATTRIB_SIZE);
 
-Any update on how to get this support in? (it's not available in 2.6.28-rc2)
+That throws another error:
 
-As it stands, I'm not the only one who would need this...
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_request_attrib':
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2063: error: expected ',' or ';' before '__attribute__'
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_release_attrib':
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2078: error: expected ',' or ';' before '__attribute__'
 
-Thanks!
-
-Andreas Mohr
+	Manuel Lauss
