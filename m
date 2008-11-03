@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] nets: clean up net/ipv4/tcp_ipv4.c
-Date: Mon, 03 Nov 2008 02:50:34 -0800 (PST)
-Message-ID: <20081103.025034.247724135.davem@davemloft.net>
-References: <20081103082002.GG14553@ubuntu>
-	<20081103.002808.142907024.davem@davemloft.net>
-	<20081103104156.GE19058@ubuntu>
+Subject: Re: [PATCH v2 net-next] pkt_sched: sch_generic: Kfree gso_skb in
+ qdisc_reset()
+Date: Mon, 03 Nov 2008 02:53:01 -0800 (PST)
+Message-ID: <20081103.025301.240487994.davem@davemloft.net>
+References: <20081103090225.GB4698@ff.dom.local>
+	<20081103.012755.210488675.davem@davemloft.net>
+	<20081103094830.GA6030@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: jianjun@zeuux.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35826
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35829
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754964AbYKCKu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 05:50:59 -0500
-In-Reply-To: <20081103104156.GE19058@ubuntu>
+	by vger.kernel.org with ESMTP id S1754981AbYKCKx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 05:53:26 -0500
+In-Reply-To: <20081103094830.GA6030@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jianjun Kong <jianjun@zeuux.org>
-Date: Mon, 3 Nov 2008 18:41:56 +0800
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 3 Nov 2008 09:48:30 +0000
 
+> pkt_sched: sch_generic: Kfree gso_skb in qdisc_reset()
 > 
-> [PATCH 4/4] nets: clean up net/ipv4/tcp_ipv4.c
+> Since gso_skb is re-used for qdisc_peek_dequeued(), and this skb is
+> counted in the qdisc->q.qlen, it has to be kfreed during qdisc_reset()
+> when qlen is zeroed.
 > 
-> Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
+> With help from David S. Miller <davem@davemloft.net>
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Also applied.
-
-Although, quite frankly, I hope to get more useful patches
-than this stuff from you in the future.  These kinds of
-whitespace changes are... how to say... not an optimal
-use of someone's time :-/
+Applied, thanks Jarek.
