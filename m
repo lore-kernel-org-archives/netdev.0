@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 02/15] tg3: Use pci_ioremap_bar()
-Date: Mon, 3 Nov 2008 02:10:35 -0800
-Message-ID: <1225751618.6169@xw6200>
+Subject: [PATCH 14/15] broadcom: Add support for BCM50610
+Date: Mon, 3 Nov 2008 04:21:41 -0800
+Message-ID: <1225751631.6205@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,102 +9,210 @@ Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
 	andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2837 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4905 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756520AbYKCWdp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 17:33:45 -0500
+	id S1756697AbYKCWeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 17:34:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch replaces the existing APE register mapping code with a call
-to pci_ioremap_bar().  The code that maps the main device register space
-did not undergo a similar change because the information derived from
-the pci_resource_start() and pci_resource_len() is still used to
-populate the (optional) mem_start and mem_end netdevice members.
-Replace hardcoded constants where appropriate.
+This patch adds the BCM50610 to the list of phys supported by the
+broadcom driver.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/phy/broadcom.c |  119 +++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 118 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index b47e8a1..e129a6a 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -54,6 +54,9 @@
- #include <asm/prom.h>
- #endif
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 7e93592..fd4fc66 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -17,6 +17,8 @@
+ #include <linux/module.h>
+ #include <linux/phy.h>
  
-+#define BAR_0	0
-+#define BAR_2	2
++#define PHY_ID_BCM50610		0x0143bd60
 +
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- #define TG3_VLAN_TAG_USED 1
- #else
-@@ -13247,8 +13250,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 				  const struct pci_device_id *ent)
+ #define MII_BCM54XX_ECR		0x10	/* BCM54xx extended control register */
+ #define MII_BCM54XX_ECR_IM	0x1000	/* Interrupt mask */
+ #define MII_BCM54XX_ECR_IF	0x0800	/* Interrupt force */
+@@ -54,6 +56,21 @@
+ #define MII_BCM54XX_SHD_DATA(x)	((x & 0x3ff) << 0)
+ 
+ /*
++ * AUXILIARY CONTROL SHADOW ACCESS REGISTERS.  (PHY REG 0x18)
++ */
++#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
++#define MII_BCM54XX_AUXCTL_ACTL_TX_6DB		0x0400
++#define MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA	0x0800
++
++#define MII_BCM54XX_AUXCTL_MISC_WREN	0x8000
++#define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
++#define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
++#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
++
++#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
++
++
++/*
+  * Broadcom LED source encodings.  These are used in BCM5461, BCM5481,
+  * BCM5482, and possibly some others.
+  */
+@@ -88,6 +105,24 @@
+ #define BCM5482_SHD_MODE_1000BX	0x0001	/* Enable 1000BASE-X registers */
+ 
+ /*
++ * EXPANSION SHADOW ACCESS REGISTERS.  (PHY REG 0x15, 0x16, and 0x17)
++ */
++#define MII_BCM54XX_EXP_AADJ1CH0		0x001f
++#define  MII_BCM54XX_EXP_AADJ1CH0_SWP_ABCD_OEN	0x0200
++#define  MII_BCM54XX_EXP_AADJ1CH0_SWSEL_THPF	0x0100
++#define MII_BCM54XX_EXP_AADJ1CH3		0x601f
++#define  MII_BCM54XX_EXP_AADJ1CH3_ADCCKADJ	0x0002
++#define MII_BCM54XX_EXP_EXP08			0x0F08
++#define  MII_BCM54XX_EXP_EXP08_RJCT_2MHZ	0x0001
++#define  MII_BCM54XX_EXP_EXP08_EARLY_DAC_WAKE	0x0200
++#define MII_BCM54XX_EXP_EXP75			0x0f75
++#define  MII_BCM54XX_EXP_EXP75_VDACCTRL		0x003c
++#define MII_BCM54XX_EXP_EXP96			0x0f96
++#define  MII_BCM54XX_EXP_EXP96_MYST		0x0010
++#define MII_BCM54XX_EXP_EXP97			0x0f97
++#define  MII_BCM54XX_EXP_EXP97_MYST		0x0c0c
++
++/*
+  * BCM5482: Secondary SerDes registers
+  */
+ #define BCM5482_SSD_1000BX_CTL		0x00	/* 1000BASE-X Control */
+@@ -145,7 +180,7 @@ static int bcm54xx_exp_read(struct phy_device *phydev, u8 regnum)
+ 	return val;
+ }
+ 
+-static int bcm54xx_exp_write(struct phy_device *phydev, u8 regnum, u16 val)
++static int bcm54xx_exp_write(struct phy_device *phydev, u16 regnum, u16 val)
  {
- 	static int tg3_version_printed = 0;
--	resource_size_t tg3reg_base;
--	unsigned long tg3reg_len;
-+	resource_size_t tg3reg_len;
- 	struct net_device *dev;
- 	struct tg3 *tp;
- 	int err, pm_cap;
-@@ -13265,7 +13267,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		return err;
- 	}
+ 	int ret;
  
--	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
-+	if (!(pci_resource_flags(pdev, BAR_0) & IORESOURCE_MEM)) {
- 		printk(KERN_ERR PFX "Cannot find proper PCI device "
- 		       "base address, aborting.\n");
- 		err = -ENODEV;
-@@ -13290,9 +13292,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_free_res;
- 	}
+@@ -161,6 +196,60 @@ static int bcm54xx_exp_write(struct phy_device *phydev, u8 regnum, u16 val)
+ 	return ret;
+ }
  
--	tg3reg_base = pci_resource_start(pdev, 0);
--	tg3reg_len = pci_resource_len(pdev, 0);
--
- 	dev = alloc_etherdev(sizeof(*tp));
- 	if (!dev) {
- 		printk(KERN_ERR PFX "Etherdev alloc failed, aborting.\n");
-@@ -13344,7 +13343,11 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	spin_lock_init(&tp->indirect_lock);
- 	INIT_WORK(&tp->reset_task, tg3_reset_task);
- 
--	tp->regs = ioremap_nocache(tg3reg_base, tg3reg_len);
-+	dev->mem_start = pci_resource_start(pdev, BAR_0);
-+	tg3reg_len = pci_resource_len(pdev, BAR_0);
-+	dev->mem_end = dev->mem_start + tg3reg_len;
++static int bcm54xx_auxctl_write(struct phy_device *phydev, u16 regnum, u16 val)
++{
++	return phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum | val);
++}
 +
-+	tp->regs = ioremap_nocache(dev->mem_start, tg3reg_len);
- 	if (!tp->regs) {
- 		printk(KERN_ERR PFX "Cannot map device registers, "
- 		       "aborting.\n");
-@@ -13467,17 +13470,14 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	}
++static int bcm50610_a0_workaround(struct phy_device *phydev)
++{
++	int err;
++
++	err = bcm54xx_auxctl_write(phydev,
++				   MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL,
++				   MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA |
++				   MII_BCM54XX_AUXCTL_ACTL_TX_6DB);
++	if (err < 0)
++		return err;
++
++	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_EXP08,
++				MII_BCM54XX_EXP_EXP08_RJCT_2MHZ	|
++				MII_BCM54XX_EXP_EXP08_EARLY_DAC_WAKE);
++	if (err < 0)
++		goto error;
++
++	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_AADJ1CH0,
++				MII_BCM54XX_EXP_AADJ1CH0_SWP_ABCD_OEN |
++				MII_BCM54XX_EXP_AADJ1CH0_SWSEL_THPF);
++	if (err < 0)
++		goto error;
++
++	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_AADJ1CH3,
++					MII_BCM54XX_EXP_AADJ1CH3_ADCCKADJ);
++	if (err < 0)
++		goto error;
++
++	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_EXP75,
++				MII_BCM54XX_EXP_EXP75_VDACCTRL);
++	if (err < 0)
++		goto error;
++
++	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_EXP96,
++				MII_BCM54XX_EXP_EXP96_MYST);
++	if (err < 0)
++		goto error;
++
++	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_EXP97,
++				MII_BCM54XX_EXP_EXP97_MYST);
++
++error:
++	bcm54xx_auxctl_write(phydev,
++			     MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL,
++			     MII_BCM54XX_AUXCTL_ACTL_TX_6DB);
++
++	return err;
++}
++
+ static int bcm54xx_config_init(struct phy_device *phydev)
+ {
+ 	int reg, err;
+@@ -182,6 +271,13 @@ static int bcm54xx_config_init(struct phy_device *phydev)
+ 	err = phy_write(phydev, MII_BCM54XX_IMR, reg);
+ 	if (err < 0)
+ 		return err;
++
++	if (phydev->drv->phy_id == PHY_ID_BCM50610) {
++		err = bcm50610_a0_workaround(phydev);
++		if (err < 0)
++			return err;
++	}
++
+ 	return 0;
+ }
  
- 	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE) {
--		if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM)) {
-+		if (!(pci_resource_flags(pdev, BAR_2) & IORESOURCE_MEM)) {
- 			printk(KERN_ERR PFX "Cannot find proper PCI device "
- 			       "base address for APE, aborting.\n");
- 			err = -ENODEV;
- 			goto err_out_iounmap;
- 		}
+@@ -429,6 +525,21 @@ static struct phy_driver bcm5482_driver = {
+ 	.driver 	= { .owner = THIS_MODULE },
+ };
  
--		tg3reg_base = pci_resource_start(pdev, 2);
--		tg3reg_len = pci_resource_len(pdev, 2);
--
--		tp->aperegs = ioremap_nocache(tg3reg_base, tg3reg_len);
-+		tp->aperegs = pci_ioremap_bar(pdev, BAR_2);
- 		if (!tp->aperegs) {
- 			printk(KERN_ERR PFX "Cannot map APE registers, "
- 			       "aborting.\n");
++static struct phy_driver bcm50610_driver = {
++	.phy_id		= PHY_ID_BCM50610,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM50610",
++	.features	= PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= bcm54xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm54xx_ack_interrupt,
++	.config_intr	= bcm54xx_config_intr,
++	.driver 	= { .owner = THIS_MODULE },
++};
++
+ static int __init broadcom_init(void)
+ {
+ 	int ret;
+@@ -451,8 +562,13 @@ static int __init broadcom_init(void)
+ 	ret = phy_driver_register(&bcm5482_driver);
+ 	if (ret)
+ 		goto out_5482;
++	ret = phy_driver_register(&bcm50610_driver);
++	if (ret)
++		goto out_50610;
+ 	return ret;
+ 
++out_50610:
++	phy_driver_unregister(&bcm5482_driver);
+ out_5482:
+ 	phy_driver_unregister(&bcm5481_driver);
+ out_5481:
+@@ -469,6 +585,7 @@ out_5411:
+ 
+ static void __exit broadcom_exit(void)
+ {
++	phy_driver_unregister(&bcm50610_driver);
+ 	phy_driver_unregister(&bcm5482_driver);
+ 	phy_driver_unregister(&bcm5481_driver);
+ 	phy_driver_unregister(&bcm5464_driver);
 -- 
 1.5.6.4
 
