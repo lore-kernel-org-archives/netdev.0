@@ -1,70 +1,108 @@
-From: "Sangtae Ha" <sangtae.ha@gmail.com>
-Subject: Re: [PATCH] CUBIC v2.3 with new improved slow start
-Date: Mon, 3 Nov 2008 17:19:52 -0500
-Message-ID: <649aecc70811031419o78e9046eu52adf78eef8da7d7@mail.gmail.com>
-References: <006001c93a0d$477d4e30$4a580e98@ncsu2cc0c3fa00>
-	 <20081102.002736.193701976.davem@davemloft.net>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH 05/15] tg3: Reclaim TG3_FLG3_5761_5784_AX_FIXES flag
+Date: Mon, 3 Nov 2008 02:11:42 -0800
+Message-ID: <1225751621.6178@xw6200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: rhee@eos.ncsu.edu, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>,
-	"Stephen Hemminger" <shemminger@vyatta.com>,
-	"Rick Jones" <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	andy@greyhouse.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:1722 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251AbYKCWTx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 17:19:53 -0500
-Received: by qw-out-2122.google.com with SMTP id 3so1329782qwe.37
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 14:19:52 -0800 (PST)
-In-Reply-To: <20081102.002736.193701976.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mms3.broadcom.com ([216.31.210.19]:4895 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756678AbYKCWdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 17:33:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This patch reclaims the TG3_FLG3_5761_5784_AX_FIXES flag.  It only
+used twice in non-fast paths.  This patch also consolidates some other
+places where specific 5784 AX chip revisions can be generalized.
 
-We had rather extensive testings with one MacOSX receiver of the
-latest Leopard release.
-As we had one macbook pro available in the lab, all the testing
-results are with the one receiver.
-Based on the tested results, MacOSX also doesn't break the algorithm.
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |   21 +++++++--------------
+ drivers/net/tg3.h |    1 -
+ 2 files changed, 7 insertions(+), 15 deletions(-)
 
-Please see the results at the following:
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 9bd1be4..45fcbc3 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -1742,7 +1742,8 @@ static int tg3_phy_reset(struct tg3 *tp)
+ 		tw32(TG3_CPMU_CTRL, cpmuctrl);
+ 	}
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_5761_5784_AX_FIXES) {
++	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5784_AX ||
++	    GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5761_AX) {
+ 		u32 val;
+ 
+ 		val = tr32(TG3_CPMU_LSPD_1000MB_CLK);
+@@ -2004,7 +2005,8 @@ static void tg3_power_down_phy(struct tg3 *tp)
+ 	     (tp->tg3_flags2 & TG3_FLG2_MII_SERDES)))
+ 		return;
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_5761_5784_AX_FIXES) {
++	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5784_AX ||
++	    GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5761_AX) {
+ 		val = tr32(TG3_CPMU_LSPD_1000MB_CLK);
+ 		val &= ~CPMU_LSPD_1000MB_MACCLK_MASK;
+ 		val |= CPMU_LSPD_1000MB_MACCLK_12_5;
+@@ -3815,8 +3817,7 @@ static int tg3_setup_phy(struct tg3 *tp, int force_reset)
+ 		err = tg3_setup_copper_phy(tp, force_reset);
+ 	}
+ 
+-	if (tp->pci_chip_rev_id == CHIPREV_ID_5784_A0 ||
+-	    tp->pci_chip_rev_id == CHIPREV_ID_5784_A1) {
++	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5784_AX) {
+ 		u32 val, scale;
+ 
+ 		val = tr32(TG3_CPMU_CLCK_STAT) & CPMU_CLCK_STAT_MAC_CLCK_MASK;
+@@ -7044,8 +7045,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 
+ 	tg3_write_sig_legacy(tp, RESET_KIND_INIT);
+ 
+-	if (tp->pci_chip_rev_id == CHIPREV_ID_5784_A0 ||
+-	    tp->pci_chip_rev_id == CHIPREV_ID_5784_A1) {
++	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5784_AX) {
+ 		val = tr32(TG3_CPMU_CTRL);
+ 		val &= ~(CPMU_CTRL_LINK_AWARE_MODE | CPMU_CTRL_LINK_IDLE_MODE);
+ 		tw32(TG3_CPMU_CTRL, val);
+@@ -12283,16 +12283,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785) {
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
+ 		tp->tg3_flags |= TG3_FLAG_CPMU_PRESENT;
+ 
+-		if (tp->pci_chip_rev_id == CHIPREV_ID_5784_A0 ||
+-		    tp->pci_chip_rev_id == CHIPREV_ID_5784_A1 ||
+-		    tp->pci_chip_rev_id == CHIPREV_ID_5761_A0 ||
+-		    tp->pci_chip_rev_id == CHIPREV_ID_5761_A1)
+-			tp->tg3_flags3 |= TG3_FLG3_5761_5784_AX_FIXES;
+-	}
+-
+ 	/* Set up tp->grc_local_ctrl before calling tg3_set_power_state().
+ 	 * GPIO1 driven high will bring 5700's external PHY out of reset.
+ 	 * It is also used as eeprom write protect on LOMs.
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 65b5ff4..417de07 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2510,7 +2510,6 @@ struct tg3 {
+ 	u32				tg3_flags3;
+ #define TG3_FLG3_NO_NVRAM_ADDR_TRANS	0x00000001
+ #define TG3_FLG3_ENABLE_APE		0x00000002
+-#define TG3_FLG3_5761_5784_AX_FIXES	0x00000004
+ #define TG3_FLG3_5701_DMA_BUG		0x00000008
+ #define TG3_FLG3_USE_PHYLIB		0x00000010
+ #define TG3_FLG3_MDIOBUS_INITED		0x00000020
+-- 
+1.5.6.4
 
-http://netsrv.csc.ncsu.edu/wiki/index.php/TCP_Testing#Testing_with_MacOSX
-
-One thing I observed with FreeBSD and MacOS receivers is that
-even though we set the large send and recv buffer and run the iperf
-with the large fixed memory,
-without manually setting the window scale parameter to a higher value,
-the receiver window is limited to 64K << 3 (which is the default of MacOSX).
-
-Because of that, I had to set the window scailing parameter from 3 to
-13 manually.
-This also affects SACK not triggering with the default window scale factor of 3.
-Linux certainly doesn't have this problem.
-
-Probably, MacOSX and FreeBSD may need some updates for this issue.
-
-Thank you for all your feedbacks,
-
-Sangtae
 
 
-
-On Sun, Nov 2, 2008 at 2:27 AM, David Miller <davem@davemloft.net> wrote:
-> I'm applying this patch to net-next-2.6 for three reasons:
->
-> 1) it is easily the cleanest and most well done CUBIC patch submission,
->   and they should be rewarded for the quality of this work
->
-> 2) the only way to get exposure is to merge this now and look out for
->   problems, and yes that means keeping it the default
->
-> 3) if there is a problem it's a one line change to revert to previous
->   CUBIC behvaior, by setting hystart to 0, and that's always a safe
->   alternative because that is pretty much what is deployed all over
->   the world right now
->
