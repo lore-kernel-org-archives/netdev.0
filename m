@@ -1,122 +1,99 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
- (fwd) [SOLVED]
-Date: Mon, 3 Nov 2008 17:37:09 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811031705390.23792@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
- <alpine.LFD.1.10.0810021407400.5549@apollo.tec.linutronix.de>
- <48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
- <alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
- <Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
- <48e5364d.0603c00a.6e25.fffff993@mx.google.com>
- <Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
- <48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com> <alpine.LFD.2.00.0810052008131.3398@apollo>
- <48ed0b51.0913c00a.7715.4aa7@mx.google.com> <alpine.LFD.2.00.0810082154420.3237@apollo>
- <48f2c9d7.0603c00a.1df2.ffff9357@mx.google.com>
- <Pine.LNX.4.64.0810131633370.3843@wrl-59.cs.helsinki.fi>
- <48f9251b.1626360a.6574.61ec@mx.google.com> <Pine.LNX.4.64.0810210028550.30254@wrl-59.cs.helsinki.fi>
- <48fe8c06.4719360a.3996.04a9@mx.google.com> <Pine.LNX.4.64.0810301232360.7072@wrl-59.cs.helsinki.fi>
- <490d4120.0807c00a.32d8.5eaf@mx.google.com>
+From: "Alexander Beregalov" <a.beregalov@gmail.com>
+Subject: Re: e100/netconsole: Failed to load firmware (Re:
+	linux-next: Tree for November 3)
+Date: Mon, 3 Nov 2008 18:49:58 +0300
+Message-ID: <a4423d670811030749l53098b34i21af579c13ba112e@mail.gmail.com>
+References: <a4423d670811030425y1bdf93fcn829b7311e38731b9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-532832151-1225724872=:23792"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:59645 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754149AbYKCPhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 10:37:12 -0500
-In-Reply-To: <490d4120.0807c00a.32d8.5eaf@mx.google.com>
-Content-ID: <Pine.LNX.4.64.0811031715090.23792@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org
+To: e1000-devel@lists.sourceforge.net, jaswinder@infradead.org,
+	"David Woodhouse" <dwmw2@infradead.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <a4423d670811030425y1bdf93fcn829b7311e38731b9@mail.gmail.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+2008/11/3 Alexander Beregalov <a.beregalov@gmail.com>:
+> Hi
+>
+> 2.6.28-rc3-next-20081103 on sparc64
+>
+> netconsole on e100 does not work
+>
+> pci 0000:02:01.0: supports D1 D2
+> pci 0000:02:01.0: PME# supported from D0 D1 D2 D3hot
+> pci 0000:02:01.0: PME# disabled
+> device: '0000:02:01.0': device_add
+> bus: 'pci': add device 0000:02:01.0
+> pci 0000:02:01.0: calling quirk_e100_interrupt+0x0/0x1e4
+> pci 0000:02:01.0: calling quirk_cardbus_legacy+0x0/0x40
+> pci 0000:02:01.0: calling quirk_usb_early_handoff+0x0/0x42c
+> <...>
+> e100: Intel(R) PRO/100 Network Driver, 3.5.23-k4-NAPI
+> e100: Copyright(c) 1999-2006 Intel Corporation
+> bus: 'pci': add driver e100
+> bus: 'pci': driver_probe_device: matched device 0000:02:01.0 with driver e100
+> bus: 'pci': really_probe: probing driver e100 with device 0000:02:01.0
+> PCI: Enabling device: (0000:02:01.0), cmd 3
+> e100 0000:02:01.0: enabling bus mastering
+> e100 0000:02:01.0: PME# disabled
+> device: 'eth1': device_add
+> e100: eth1: e100_probe: addr 0x1ff00002000, irq 15, MAC addr 00:d0:b7:e4:d6:f1
+> driver: '0000:02:01.0': driver_bound: bound to device 'e100'
+> bus: 'pci': really_probe: bound device 0000:02:01.0 to driver e100
+> netconsole: local port 6665
+> netconsole: local IP 192.168.1.5
+> netconsole: interface eth1
+> netconsole: remote port 6667
+> netconsole: remote IP 192.168.1.3
+> netconsole: remote ethernet address 00:08:c7:da:88:fb
+> netconsole: device eth1 not up yet, forcing it
+> e100 0000:02:01.0: firmware: requesting e100/d101m_ucode.bin
+> device: '0000:02:01.0': device_add
 
----696208474-532832151-1225724872=:23792
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0811031708011.23792@wrl-59.cs.helsinki.fi>
+60 seconds delay here
 
-On Sun, 2 Nov 2008, Dâniel Fraga wrote:
+> device: '0000:02:01.0': device_unregister
+> e100: eth1: e100_request_firmware: Failed to load firmware
+> "e100/d101m_ucode.bin": -2
+> netconsole: failed to open eth1
+> netconsole: cleaning up
+> <...>
+> e100 0000:02:01.0: firmware: requesting e100/d101m_ucode.bin
+> device: '0000:02:01.0': device_add
+> device: '0000:02:01.0': device_unregister
+> e100: eth1: e100_watchdog: link up, 100Mbps, full-duplex
 
-> On Thu, 30 Oct 2008 12:43:05 +0200 (EET)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-> 
-> > Perhaps we could try to solve it though stracing syslogd...
-> 
-> 	Well Ilpo, you're right, what I'm about to write here will make
-> me very ashamed, but the truth must be told! The culprit was syslogd!
-> Almost unbeliavable, but I had been using and old syslogd version for
-> about 5 years!
-> 
-> 	How can I'm sure that it's syslogd's fault? Simply, because I
-> had a stall today and when I killed syslogd everything was back to
-> normal.
+drivers/base/firmware_class.c:
+_request_firmware():
 
-Once there's any kind of flow control, anything jamming downstream will 
-eventually make upstream to stall as well (or to appear as not working 
-as expected. Sadly, it's exactly opposite from correctness point of view 
-as flow control is a feature in TCP, not a bug :-)). Thus I occassionally 
-run to these tcp with flow control not working reports which turn to be 
-totally unrelated.
+mutex_lock(&fw_lock);
+if (!fw_priv->fw->size || test_bit(FW_STATUS_ABORT, &fw_priv->status)) {
+        retval = -ENOENT;
+        release_firmware(fw_priv->fw);
+        *firmware_p = NULL;
+}
+fw_priv->fw = NULL;
+mutex_unlock(&fw_lock);
+device_unregister(f_dev);
+goto out;
 
-This still doesn't explain everything though afaik... E.g., why did the 
-sendto() to SOCK_DGRAM socket hung.
 
-> 	But no problem. I'll just wait a few more days to test if
-> syslogd is the only responsible for this, but I'm 90% sure it is.
+fw_priv->fw->size is 0 at the first time
+At the second time it is 539
 
-And you had the same old syslogd on both hosts?
-
-In any case the loss of every other character deterministically sounds 
-like a real bug in the syslogd since it doesn't make too much sense to 
-happen in kernel->syslogd communication (where I'd expect it to not show 
-up in such consistent pattern but would cause more randomness).
-
-> 	I apologize for thinking that it was a kernel fault.
-
-It's not clear what caused this to happen _now_, nor the exact mechanism.
-
-> 	Ps: just for curiosity, I was using a syslogd binary from Mar,
-> 3, 2003! Extremely old! This is so old, it was compiled for Linux
-> 2.2.5. Or maybe I was too lazy and copied it from another machine...
-
-In theory this shouldn't be too big problem, but I'm hardly an expert of 
-those things and syslogd is anyway more thightly coupled to kernel than 
-some random app.
-
-> 	Ps3: anyway, it's interesting how a small piece of the system
-> (syslogd) can generate those kinds of problems... I mean, a simple
-> error on syslogd could lead to a complete stall on connections, just
-> because everything is waiting for it to log through /dev/log.
-
-This is more of a philosophical question than something else... it's 
-always balancing between data loss (=possibly losing a logline of an 
-important event) or possibility of a stall. But this shouldn't be a 
-concern in the case where SOCK_DGRAM was used by the sudo (like in the 
-strace you sent to sudo people), in general UDP doesn't guarantee 
-reliability so not delivering wouldn't be a problem but I don't know if 
-PF_FILE domain does something otherwise in there.
-
-> Of course
-> the problem was the binary, but it could have a time out, so even if it
-> was in fact a buggy syslogd, it won't cause such a stall on the
-> system. I really don't know what changed from 2.6.24 to 2.6.25, but
-> maybe 2.6.24 had such a timeout? Maybe I'm just silly writing that...
-> you guys know much more than me.
-
-Until we know more details than that killing syslogd helped it's hard to 
-tell what is the actual cause. And I have no clue about semantics of 
-/dev/log anyway.
-
-> 	Ps4: maybe now we can understand why nmap solved the issue...
-
-Not very clear but at least sudo does some writing there too.
-
--- 
- i.
----696208474-532832151-1225724872=:23792--
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
