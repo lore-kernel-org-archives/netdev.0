@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 07/15] tg3: Move phylib report to end of tg3_init_one
-Date: Mon, 3 Nov 2008 02:12:47 -0800
-Message-ID: <1225751623.6184@xw6200>
+Subject: [PATCH 10/15] tg3: Refine phylib support
+Date: Mon, 3 Nov 2008 02:13:56 -0800
+Message-ID: <1225751627.6193@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,82 +9,122 @@ Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
 	andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4898 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4895 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756697AbYKCWd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756126AbYKCWd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 3 Nov 2008 17:33:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, phylib reports appear with a eth%d prefix.  Move the line
-after register_netdev() and place it alongside the other informative
-messages.  Update nearby informative messages accordingly.
+This patch refines the phylib support in the tg3 driver.  The patch does
+the following things :
+
+* Rename tg3_mdio_config() to tg3_mdio_config_5785().  The 5785 will be
+  the only device that will use it so the name might as well reflect
+  that.
+* Fix a memory leak if mdiobus_register() fails.
+* Add code to deal with phy device detection failures.
+* Add code to correct the supported list of phy features based on the
+  MAC <=> PHY interface.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   30 +++++++++++++++++-------------
- 1 files changed, 17 insertions(+), 13 deletions(-)
+ drivers/net/tg3.c |   47 +++++++++++++++++++++++++++++++++++------------
+ 1 files changed, 35 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 978d1f0..aebc645 100644
+index d0f314c..03a930e 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -1360,10 +1360,6 @@ static int tg3_phy_init(struct tg3 *tp)
- 
- 	phydev->advertising = phydev->supported;
- 
--	printk(KERN_INFO
--	       "%s: attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
--	       tp->dev->name, phydev->drv->name, phydev->dev.bus_id);
--
+@@ -877,7 +877,7 @@ static int tg3_mdio_reset(struct mii_bus *bp)
  	return 0;
  }
  
-@@ -13547,26 +13543,34 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_apeunmap;
+-static void tg3_mdio_config(struct tg3 *tp)
++static void tg3_mdio_config_5785(struct tg3 *tp)
+ {
+ 	u32 val;
+ 
+@@ -934,8 +934,9 @@ static void tg3_mdio_start(struct tg3 *tp)
+ 	tw32_f(MAC_MI_MODE, tp->mi_mode);
+ 	udelay(80);
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_MDIOBUS_INITED)
+-		tg3_mdio_config(tp);
++	if ((tp->tg3_flags3 & TG3_FLG3_MDIOBUS_INITED) &&
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
++		tg3_mdio_config_5785(tp);
+ }
+ 
+ static void tg3_mdio_stop(struct tg3 *tp)
+@@ -989,14 +990,20 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 	if (i) {
+ 		printk(KERN_WARNING "%s: mdiobus_reg failed (0x%x)\n",
+ 			tp->dev->name, i);
++		mdiobus_free(tp->mdio_bus);
+ 		return i;
  	}
  
--	printk(KERN_INFO "%s: Tigon3 [partno(%s) rev %04x PHY(%s)] "
--	       "(%s) %s Ethernet %pM\n",
-+	printk(KERN_INFO "%s: Tigon3 [partno(%s) rev %04x] (%s) MAC address %pM\n",
- 	       dev->name,
- 	       tp->board_part_number,
- 	       tp->pci_chip_rev_id,
--	       tg3_phy_string(tp),
- 	       tg3_bus_string(tp, str),
--	       ((tp->tg3_flags & TG3_FLAG_10_100_ONLY) ? "10/100Base-TX" :
--		((tp->tg3_flags2 & TG3_FLG2_ANY_SERDES) ? "1000Base-SX" :
--		 "10/100/1000Base-T")),
- 	       dev->dev_addr);
+-	tp->tg3_flags3 |= TG3_FLG3_MDIOBUS_INITED;
+-
+ 	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
  
--	printk(KERN_INFO "%s: RXcsums[%d] LinkChgREG[%d] "
--	       "MIirq[%d] ASF[%d] WireSpeed[%d] TSOcap[%d]\n",
-+	if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED)
-+		printk(KERN_INFO
-+		       "%s: attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
-+		       tp->dev->name,
-+		       tp->mdio_bus->phy_map[PHY_ADDR]->drv->name,
-+		       tp->mdio_bus->phy_map[PHY_ADDR]->dev.bus_id);
-+	else
-+		printk(KERN_INFO
-+		       "%s: attached PHY is %s (%s Ethernet) (WireSpeed[%d])\n",
-+		       tp->dev->name, tg3_phy_string(tp),
-+		       ((tp->tg3_flags & TG3_FLAG_10_100_ONLY) ? "10/100Base-TX" :
-+			((tp->tg3_flags2 & TG3_FLG2_ANY_SERDES) ? "1000Base-SX" :
-+			 "10/100/1000Base-T")),
-+		       (tp->tg3_flags2 & TG3_FLG2_NO_ETH_WIRE_SPEED) == 0);
+-	switch (phydev->phy_id) {
++	if (!phydev || !phydev->drv) {
++		printk(KERN_WARNING "%s: No PHY devices\n", tp->dev->name);
++		mdiobus_unregister(tp->mdio_bus);
++		mdiobus_free(tp->mdio_bus);
++		return -ENODEV;
++	}
 +
-+	printk(KERN_INFO "%s: RXcsums[%d] LinkChgREG[%d] MIirq[%d] ASF[%d] TSOcap[%d]\n",
- 	       dev->name,
- 	       (tp->tg3_flags & TG3_FLAG_RX_CHECKSUMS) != 0,
- 	       (tp->tg3_flags & TG3_FLAG_USE_LINKCHG_REG) != 0,
- 	       (tp->tg3_flags & TG3_FLAG_USE_MI_INTERRUPT) != 0,
- 	       (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0,
--	       (tp->tg3_flags2 & TG3_FLG2_NO_ETH_WIRE_SPEED) == 0,
- 	       (tp->tg3_flags2 & TG3_FLG2_TSO_CAPABLE) != 0);
- 	printk(KERN_INFO "%s: dma_rwctrl[%08x] dma_mask[%d-bit]\n",
- 	       dev->name, tp->dma_rwctrl,
++	switch (phydev->drv->phy_id & phydev->drv->phy_id_mask) {
+ 	case TG3_PHY_ID_BCM50610:
+ 		phydev->interface = PHY_INTERFACE_MODE_RGMII;
+ 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_STD_IBND_DISABLE)
+@@ -1011,7 +1018,10 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 		break;
+ 	}
+ 
+-	tg3_mdio_config(tp);
++	tp->tg3_flags3 |= TG3_FLG3_MDIOBUS_INITED;
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
++		tg3_mdio_config_5785(tp);
+ 
+ 	return 0;
+ }
+@@ -1351,12 +1361,25 @@ static int tg3_phy_init(struct tg3 *tp)
+ 		return PTR_ERR(phydev);
+ 	}
+ 
+-	tp->tg3_flags3 |= TG3_FLG3_PHY_CONNECTED;
+-
+ 	/* Mask with MAC supported features. */
+-	phydev->supported &= (PHY_GBIT_FEATURES |
+-			      SUPPORTED_Pause |
+-			      SUPPORTED_Asym_Pause);
++	switch (phydev->interface) {
++	case PHY_INTERFACE_MODE_GMII:
++	case PHY_INTERFACE_MODE_RGMII:
++		phydev->supported &= (PHY_GBIT_FEATURES |
++				      SUPPORTED_Pause |
++				      SUPPORTED_Asym_Pause);
++		break;
++	case PHY_INTERFACE_MODE_MII:
++		phydev->supported &= (PHY_BASIC_FEATURES |
++				      SUPPORTED_Pause |
++				      SUPPORTED_Asym_Pause);
++		break;
++	default:
++		phy_disconnect(tp->mdio_bus->phy_map[PHY_ADDR]);
++		return -EINVAL;
++	}
++
++	tp->tg3_flags3 |= TG3_FLG3_PHY_CONNECTED;
+ 
+ 	phydev->advertising = phydev->supported;
+ 
 -- 
 1.5.6.4
 
