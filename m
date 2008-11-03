@@ -1,46 +1,42 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: Re: [PATCH] SMC91x: delete unused local variable "lp"
-Date: Tue, 04 Nov 2008 01:45:11 +0900 (JST)
-Message-ID: <20081104.014511.108120668.anemo@mba.ocn.ne.jp>
-References: <1225288566-18457-1-git-send-email-vapier@gentoo.org>
+From: "Julius Volz" <julius.volz@gmail.com>
+Subject: Re: [PATCH 3/7] net: replace NIPQUAD() in net/netfilter/
+Date: Mon, 3 Nov 2008 17:56:08 +0100
+Message-ID: <43ca39800811030856u5acf9601s6aef81887f19f859@mail.gmail.com>
+References: <1225412025.5574.34.camel@brick>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: nico@cam.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: vapier@gentoo.org
+Cc: "David Miller" <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: "Harvey Harrison" <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:52274 "EHLO smtp.mba.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754876AbYKCQpI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 11:45:08 -0500
-In-Reply-To: <1225288566-18457-1-git-send-email-vapier@gentoo.org>
+Received: from an-out-0708.google.com ([209.85.132.247]:29918 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754798AbYKCQ4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 11:56:10 -0500
+Received: by an-out-0708.google.com with SMTP id d40so61357and.1
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 08:56:09 -0800 (PST)
+In-Reply-To: <1225412025.5574.34.camel@brick>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Oct 2008 09:56:06 -0400, Mike Frysinger <vapier@gentoo.org> wrote:
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+Hi,
+
+On Fri, Oct 31, 2008 at 1:13 AM, Harvey Harrison
+<harvey.harrison@gmail.com> wrote:
+> Using NIPQUAD() with NIPQUAD_FMT, %d.%d.%d.%d or %u.%u.%u.%u
+> can be replaced with %pI4
+>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 > ---
->  drivers/net/smc91x.c |    2 --
->  1 files changed, 0 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-> index c70870e..6f9895d 100644
-> --- a/drivers/net/smc91x.c
-> +++ b/drivers/net/smc91x.c
-> @@ -2060,7 +2060,6 @@ static int smc_request_attrib(struct platform_device *pdev,
->  			      struct net_device *ndev)
->  {
->  	struct resource * res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-attrib");
-> -	struct smc_local *lp = netdev_priv(ndev);
->  
->  	if (!res)
->  		return 0;
+[...]
 
-The local variable 'lp' is actually used on some platforms (via
-SMC_IO_SHIFT).
+I just noticed that this breaks IPv4 addresses in IPVS debug output
+(didn't check in other places). It seems that during integer to ASCII
+conversion, the converted digits are output the wrong way around (not
+endianness though). For example, 10.0.0.254 is output as 01.0.0.452.
+Could something be wrong with ip4_addr_string() or put_dec_trunc() in
+lib/vsprintf.c?
 
-Please revert this change and do another way ("unused" marker or
-something) to fix the warnings.
-
----
-Atsushi Nemoto
+Julius
