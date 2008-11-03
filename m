@@ -1,59 +1,79 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH 1/2] udp: Fix the SNMP counter of UDP_MIB_INDATAGRAMS
-Date: Mon, 03 Nov 2008 10:38:39 +0800
-Message-ID: <490E642F.8080509@cn.fujitsu.com>
-References: <490C1CA7.3070201@cn.fujitsu.com> <20081101.213529.60503932.davem@davemloft.net> <490E57FE.804@snapgear.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [UPDATED PATCH] net: kconfig cleanup
+Date: Sun, 02 Nov 2008 20:30:33 -0800
+Message-ID: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Philip Craig <philipc@snapgear.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Andrew Gallatin <gallatin@myri.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60674 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754150AbYKCCmx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Nov 2008 21:42:53 -0500
-In-Reply-To: <490E57FE.804@snapgear.com>
+Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:47767 "EHLO
+	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750920AbYKCFQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 00:16:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Philip Craig wrote:
-> David Miller wrote:
->   
->> From: Wei Yongjun <yjwei@cn.fujitsu.com>
->> Date: Sat, 01 Nov 2008 17:08:55 +0800
->>
->>     
->>> @@ -158,6 +159,8 @@ try_again:
->>>  	else if (copied < ulen)
->>>  		msg->msg_flags |= MSG_TRUNC;
->>>  +	is_udp4 = (skb->protocol == htons(ETH_P_IP));
->>> +
->>>  	/*
->>>  	 * If checksum is needed at all, try to do it while copying the
->>>  	 * data.  If the data is truncated, or if we only want a partial
->>>       
->>  ...
->>     
->>>  	sock_recv_timestamp(msg, sk, skb);
->>>  @@ -196,7 +204,7 @@ try_again:
->>>  		sin6->sin6_flowinfo = 0;
->>>  		sin6->sin6_scope_id = 0;
->>>  -		if (skb->protocol == htons(ETH_P_IP))
->>> +		if (is_udp4)
->>>  			ipv6_addr_set(&sin6->sin6_addr, 0, 0,
->>>       
->> This patch is corrupted in ways I thought I would never see in my
->> entire life.  Congratulations!
->>     
->
-> The patch looked okay to me, but judging by the bits you quoted,
-> the format=flowed is causing the problem.
->   
+The bool kconfig option added to ixgbe and myri10ge for DCA is ambigous,
+so this patch adds a description to the kconfig option.
 
-It is also ok at http://patchwork.ozlabs.org/patch/6776/ and 
-http://marc.info/?l=linux-netdev&m=122553080530450&w=2, maybe the mail 
-client's action is strange. Anyway I have resent them, maybe this time 
-it is not corrupted.^_^
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Andrew Gallatin <gallatin@myri.com>
+---
 
+ drivers/net/Kconfig |   18 +++++++++++++++---
+ 1 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f749b40..11f143f 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2010,9 +2010,13 @@ config IGB_LRO
+ 	  If in doubt, say N.
+ 
+ config IGB_DCA
+-	bool "Enable DCA"
++	bool "Direct Cache Access (DCA) Support"
+ 	default y
+ 	depends on IGB && DCA && !(IGB=y && DCA=m)
++	---help---
++	  Say Y here if you want to use Direct Cache Access (DCA) in the
++	  driver.  DCA is a method for warming the CPU cache before data
++	  is used, with the intent of lessening the impact of cache misses.
+ 
+ source "drivers/net/ixp2000/Kconfig"
+ 
+@@ -2437,9 +2441,13 @@ config IXGBE
+ 	  will be called ixgbe.
+ 
+ config IXGBE_DCA
+-	bool
++	bool "Direct Cache Access (DCA) Support"
+ 	default y
+ 	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
++	---help---
++	  Say Y here if you want to use Direct Cache Access (DCA) in the
++	  driver.  DCA is a method for warming the CPU cache before data
++	  is used, with the intent of lessening the impact of cache misses.
+ 
+ config IXGB
+ 	tristate "Intel(R) PRO/10GbE support"
+@@ -2489,9 +2497,13 @@ config MYRI10GE
+ 	  will be called myri10ge.
+ 
+ config MYRI10GE_DCA
+-	bool
++	bool "Direct Cache Access (DCA) Support"
+ 	default y
+ 	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
++	---help---
++	  Say Y here if you want to use Direct Cache Access (DCA) in the
++	  driver.  DCA is a method for warming the CPU cache before data
++	  is used, with the intent of lessening the impact of cache misses.
+ 
+ config NETXEN_NIC
+ 	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
 
