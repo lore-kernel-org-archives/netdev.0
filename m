@@ -1,35 +1,90 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [Resent] [PATCH 1/2] udp: Fix the SNMP counter of
- UDP_MIB_INDATAGRAMS
-Date: Mon, 3 Nov 2008 10:01:42 +0200 (EET)
-Message-ID: <alpine.LRH.2.00.0811030959340.19760@netcore.fi>
-References: <490C1CA7.3070201@cn.fujitsu.com> <20081101.213529.60503932.davem@davemloft.net> <490E5DB5.4020407@cn.fujitsu.com> <20081102.234625.135160979.davem@davemloft.net>
+From: Manuel Lauss <mano@roarinelk.homelinux.net>
+Subject: Re: smc91x: commit 51ac3beffd4afaea4350526cf01fe74aaff25eff breaks
+	compilation
+Date: Mon, 3 Nov 2008 09:03:40 +0100
+Message-ID: <20081103080340.GC18445@roarinelk.homelinux.net>
+References: <20081103071720.GB18153@roarinelk.homelinux.net> <1aad82fa0811022330u3864f12che3f903a43402e043@mail.gmail.com> <20081103073534.GA18445@roarinelk.homelinux.net> <1aad82fa0811022348of69b7a0v10f4eb97a8a3f6df@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:41902 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754086AbYKCICC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 03:02:02 -0500
-In-Reply-To: <20081102.234625.135160979.davem@davemloft.net>
+Received: from fnoeppeil48.netpark.at ([217.175.205.176]:59333 "EHLO
+	roarinelk.homelinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753238AbYKCIDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 03:03:42 -0500
+Content-Disposition: inline
+In-Reply-To: <1aad82fa0811022348of69b7a0v10f4eb97a8a3f6df@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2 Nov 2008, David Miller wrote:
-> From: Wei Yongjun <yjwei@cn.fujitsu.com>
-> Date: Mon, 03 Nov 2008 10:11:01 +0800
->
->> @@ -158,6 +159,8 @@ try_again:
->>  	else if (copied < ulen)
->>  		msg->msg_flags |= MSG_TRUNC;
->>  +	is_udp4 = (skb->protocol == htons(ETH_P_IP));
->> +
+On Mon, Nov 03, 2008 at 02:48:52AM -0500, Mike Frysinger wrote:
+> On Mon, Nov 3, 2008 at 2:35 AM, Manuel Lauss wrote:
+> > On Mon, Nov 03, 2008 at 02:30:01AM -0500, Mike Frysinger wrote:
+> >> On Mon, Nov 3, 2008 at 2:17 AM, Manuel Lauss wrote:
+> >> > (Resend with correct netdev addr)
+> >> >
+> >> > Hi Mike,
+> >> >
+> >> > your commit 51ac3beffd4afaea4350526cf01fe74aaff25eff  causes this
+> >> > compile failure on my SH and MIPS testboards (2.6.28-rc3):
+> >> >
+> >> >  CC      drivers/net/smc91x.o
+> >> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_request_attrib':
+> >> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: 'lp' undeclared (first use in this function)
+> >> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: (Each undeclared identifier is reported only once
+> >> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: for each function it appears in.)
+> >> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_release_attrib':
+> >> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2079: error: 'lp' undeclared (first use in this function)
+> >> > make[2]: *** [drivers/net/smc91x.o] Error 1
+> >> > make[1]: *** [drivers/net/smc91x.o] Error 2
+> >> >
+> >> > Reverting this commit fixes it.
+> >>
+> >> are you using modifiied sources or something ? there's clearly no lp
+> >> reference in mainline:
+> >> ...
+> >> static int smc_request_attrib(struct platform_device *pdev,
+> >>                   struct net_device *ndev)
+> >> {
+> >>     struct resource * res = platform_get_resource_byname(pdev,
+> >> IORESOURCE_MEM, "smc91x-attrib");
+> >>
+> >>     if (!res)
+> >>         return 0;
+> >>
+> >>     if (!request_mem_region(res->start, ATTRIB_SIZE, CARDNAME))
+> >>         return -EBUSY;
+> >>
+> >>     return 0;
+> >> }
+> >>
+> >> static void smc_release_attrib(struct platform_device *pdev,
+> >>                    struct net_device *ndev)
+> >> {
+> >>     struct resource * res = platform_get_resource_byname(pdev,
+> >> IORESOURCE_MEM, "smc91x-attrib");
+> >>
+> >>     if (res)
+> >>         release_mem_region(res->start, ATTRIB_SIZE);
+> >> }
+> >
+> > No changes, pristine 2.6.28-rc3.  Note that I don't have any board entries
+> > in smc91x.h; just platform_data.
+> 
+> then you'll need to generate the preprocessed output and figure out
+> where the lp reference is coming from.
+> make drivers/net/smc91x.i
 
-Does this work with non-ethernet link-layers ?
+To be more precise:
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+smc91x configured purely through platform_data:
+
+ATTRIB_SIZE is ((64*1024) << SMC_IO_SHIFT)
+with SMC_IO_SHIFT being "lp->io_shift" (smc91x.h line 450).
+
+So please revert this patch.
+
+
+Thanks,
+	Manuel Lauss 
