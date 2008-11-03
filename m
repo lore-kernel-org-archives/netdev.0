@@ -1,41 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: warnings from recent format patch
-Date: Sun, 02 Nov 2008 23:57:22 -0800 (PST)
-Message-ID: <20081102.235722.203621135.davem@davemloft.net>
-References: <20081102163311.44e4ddef@extreme>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [Resent] [PATCH 1/2] udp: Fix the SNMP counter of
+ UDP_MIB_INDATAGRAMS
+Date: Mon, 3 Nov 2008 10:01:42 +0200 (EET)
+Message-ID: <alpine.LRH.2.00.0811030959340.19760@netcore.fi>
+References: <490C1CA7.3070201@cn.fujitsu.com> <20081101.213529.60503932.davem@davemloft.net> <490E5DB5.4020407@cn.fujitsu.com> <20081102.234625.135160979.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: harvey.harrison@gmail.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34581
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754086AbYKCH5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 02:57:47 -0500
-In-Reply-To: <20081102163311.44e4ddef@extreme>
+Received: from netcore.fi ([193.94.160.1]:41902 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754086AbYKCICC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 03:02:02 -0500
+In-Reply-To: <20081102.234625.135160979.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHNoZW1taW5nZXJAdnlhdHRhLmNvbT4NCkRhdGU6IFN1
-biwgMiBOb3YgMjAwOCAxNjozMzoxMSAtMDgwMA0KDQo+IEV2ZW4gaWYgeW91IGNhbid0IHJ1biBp
-dCwgcGxlYXNlIGNvbXBpbGUgYW5kIHJ1biBzcGFyc2Ugb24geW91cg0KPiBjb2RlLg0KPiANCj4g
-IENDIFtNXSAgbmV0L3N1bnJwYy94cHJ0c29jay5vDQo+IG5ldC9zdW5ycGMveHBydHNvY2suYzog
-SW4gZnVuY3Rpb24g4oCYeHNfZm9ybWF0X2lwdjRfcGVlcl9hZGRyZXNzZXPigJk6DQo+IG5ldC9z
-dW5ycGMveHBydHNvY2suYzoyODc6IHdhcm5pbmc6IHRvbyBtYW55IGFyZ3VtZW50cyBmb3IgZm9y
-bWF0DQoNClRoYW5rcyBzbyBtdWNoIGZvciB0aGUgcGF0Y2ggU3RlcGhlbiwgdGhhdCdzIHNvIG11
-Y2gNCmJldHRlciB0aGFuIHdoYXQgbW9zdCBwZW9wbGUgZG8sIHdoaWNoIGlzIGp1c3Qgd2hpbmUu
-DQoNCmNvbW1pdCBlMGRiNGE3ODZiYmQ3MzE0NWI0ZmViNDVjNzVkNDliNmU2MGZlNzJjDQpBdXRo
-b3I6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCkRhdGU6ICAgU3VuIE5v
-diAyIDIzOjU3OjA2IDIwMDggLTA4MDANCg0KICAgIHN1bnJwYzogRml4IGJ1aWxkIHdhcm5pbmcg
-ZHVlIHRvIHR5cG8gaW4gJXBJNCBmb3JtYXQgY2hhbmdlcy4NCiAgICANCiAgICBOb3RpY2VkIGJ5
-IFN0ZXBoZW4gSGVtbWluZ2VyLg0KICAgIA0KICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1p
-bGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCg0KZGlmZiAtLWdpdCBhL25ldC9zdW5ycGMveHBy
-dHNvY2suYyBiL25ldC9zdW5ycGMveHBydHNvY2suYw0KaW5kZXggYzE0ZDNmZC4uNWNiYjQwNCAx
-MDA2NDQNCi0tLSBhL25ldC9zdW5ycGMveHBydHNvY2suYw0KKysrIGIvbmV0L3N1bnJwYy94cHJ0
-c29jay5jDQpAQCAtMjg0LDcgKzI4NCw3IEBAIHN0YXRpYyB2b2lkIHhzX2Zvcm1hdF9pcHY0X3Bl
-ZXJfYWRkcmVzc2VzKHN0cnVjdCBycGNfeHBydCAqeHBydCwNCiANCiAJYnVmID0ga3phbGxvYygy
-MCwgR0ZQX0tFUk5FTCk7DQogCWlmIChidWYpIHsNCi0JCXNucHJpbnRmKGJ1ZiwgMjAsICJwSTQi
-LCAmYWRkci0+c2luX2FkZHIuc19hZGRyKTsNCisJCXNucHJpbnRmKGJ1ZiwgMjAsICIlcEk0Iiwg
-JmFkZHItPnNpbl9hZGRyLnNfYWRkcik7DQogCX0NCiAJeHBydC0+YWRkcmVzc19zdHJpbmdzW1JQ
-Q19ESVNQTEFZX0FERFJdID0gYnVmOw0KIA0K
+On Sun, 2 Nov 2008, David Miller wrote:
+> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+> Date: Mon, 03 Nov 2008 10:11:01 +0800
+>
+>> @@ -158,6 +159,8 @@ try_again:
+>>  	else if (copied < ulen)
+>>  		msg->msg_flags |= MSG_TRUNC;
+>>  +	is_udp4 = (skb->protocol == htons(ETH_P_IP));
+>> +
+
+Does this work with non-ethernet link-layers ?
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
