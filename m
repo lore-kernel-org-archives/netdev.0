@@ -1,35 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Fix ESP SA loading (by default)
-Date: Mon, 3 Nov 2008 09:04:31 +0800
-Message-ID: <20081103010431.GA29905@gondor.apana.org.au>
-References: <20081101050458.GA17807@gondor.apana.org.au> <20081101113835.GA3127@x200.localdomain> <20081101115043.GA19593@gondor.apana.org.au> <20081101.213315.01349801.davem@davemloft.net> <20081103001643.GA22217@x200.localdomain>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [PATCH 1/2] udp: Fix the SNMP counter of UDP_MIB_INDATAGRAMS
+Date: Mon, 03 Nov 2008 11:46:38 +1000
+Message-ID: <490E57FE.804@snapgear.com>
+References: <490C1CA7.3070201@cn.fujitsu.com> <20081101.213529.60503932.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33046 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751174AbYKCBEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 20:04:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20081103001643.GA22217@x200.localdomain>
+Received: from rex.securecomputing.com ([203.24.151.4]:50037 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753930AbYKCBqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2008 20:46:42 -0500
+In-Reply-To: <20081101.213529.60503932.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 03, 2008 at 03:16:43AM +0300, Alexey Dobriyan wrote:
->
-> Keep in mind that the only error message is "line N: returned (null)"
-> from setkey(8) or something like that and no SA created.
+David Miller wrote:
+> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+> Date: Sat, 01 Nov 2008 17:08:55 +0800
 > 
-> It took me full printk session to realize what's going on.
+>> @@ -158,6 +159,8 @@ try_again:
+>>  	else if (copied < ulen)
+>>  		msg->msg_flags |= MSG_TRUNC;
+>>  +	is_udp4 = (skb->protocol == htons(ETH_P_IP));
+>> +
+>>  	/*
+>>  	 * If checksum is needed at all, try to do it while copying the
+>>  	 * data.  If the data is truncated, or if we only want a partial
+>  ...
+>>  	sock_recv_timestamp(msg, sk, skb);
+>>  @@ -196,7 +204,7 @@ try_again:
+>>  		sin6->sin6_flowinfo = 0;
+>>  		sin6->sin6_scope_id = 0;
+>>  -		if (skb->protocol == htons(ETH_P_IP))
+>> +		if (is_udp4)
+>>  			ipv6_addr_set(&sin6->sin6_addr, 0, 0,
+> 
+> This patch is corrupted in ways I thought I would never see in my
+> entire life.  Congratulations!
 
-As our error passing really sucks, I'm happy to accept a patch
-to crypto_alloc_tfm which prints out a message if it fails.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The patch looked okay to me, but judging by the bits you quoted,
+the format=flowed is causing the problem.
