@@ -1,81 +1,32 @@
-From: "Mike Frysinger" <vapier@gentoo.org>
-Subject: Re: smc91x: commit 51ac3beffd4afaea4350526cf01fe74aaff25eff breaks compilation
-Date: Mon, 3 Nov 2008 02:48:52 -0500
-Message-ID: <1aad82fa0811022348of69b7a0v10f4eb97a8a3f6df@mail.gmail.com>
-References: <20081103071720.GB18153@roarinelk.homelinux.net>
-	 <1aad82fa0811022330u3864f12che3f903a43402e043@mail.gmail.com>
-	 <20081103073534.GA18445@roarinelk.homelinux.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPVS: Add IPv6 support to SH and DH schedulers
+Date: Sun, 02 Nov 2008 23:53:10 -0800 (PST)
+Message-ID: <20081102.235310.35348053.davem@davemloft.net>
+References: <20081101231319.GA12150@cydonia.lan>
+	<20081103001551.GI11409@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Manuel Lauss" <mano@roarinelk.homelinux.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.171]:8071 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942AbYKCHsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 02:48:54 -0500
-Received: by wf-out-1314.google.com with SMTP id 27so2391248wfd.4
-        for <netdev@vger.kernel.org>; Sun, 02 Nov 2008 23:48:53 -0800 (PST)
-In-Reply-To: <20081103073534.GA18445@roarinelk.homelinux.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: julius.volz@gmail.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: horms@verge.net.au
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20081103001551.GI11409@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 3, 2008 at 2:35 AM, Manuel Lauss wrote:
-> On Mon, Nov 03, 2008 at 02:30:01AM -0500, Mike Frysinger wrote:
->> On Mon, Nov 3, 2008 at 2:17 AM, Manuel Lauss wrote:
->> > (Resend with correct netdev addr)
->> >
->> > Hi Mike,
->> >
->> > your commit 51ac3beffd4afaea4350526cf01fe74aaff25eff  causes this
->> > compile failure on my SH and MIPS testboards (2.6.28-rc3):
->> >
->> >  CC      drivers/net/smc91x.o
->> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_request_attrib':
->> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: 'lp' undeclared (first use in this function)
->> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: (Each undeclared identifier is reported only once
->> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: for each function it appears in.)
->> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_release_attrib':
->> > /mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2079: error: 'lp' undeclared (first use in this function)
->> > make[2]: *** [drivers/net/smc91x.o] Error 1
->> > make[1]: *** [drivers/net/smc91x.o] Error 2
->> >
->> > Reverting this commit fixes it.
->>
->> are you using modifiied sources or something ? there's clearly no lp
->> reference in mainline:
->> ...
->> static int smc_request_attrib(struct platform_device *pdev,
->>                   struct net_device *ndev)
->> {
->>     struct resource * res = platform_get_resource_byname(pdev,
->> IORESOURCE_MEM, "smc91x-attrib");
->>
->>     if (!res)
->>         return 0;
->>
->>     if (!request_mem_region(res->start, ATTRIB_SIZE, CARDNAME))
->>         return -EBUSY;
->>
->>     return 0;
->> }
->>
->> static void smc_release_attrib(struct platform_device *pdev,
->>                    struct net_device *ndev)
->> {
->>     struct resource * res = platform_get_resource_byname(pdev,
->> IORESOURCE_MEM, "smc91x-attrib");
->>
->>     if (res)
->>         release_mem_region(res->start, ATTRIB_SIZE);
->> }
->
-> No changes, pristine 2.6.28-rc3.  Note that I don't have any board entries
-> in smc91x.h; just platform_data.
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 3 Nov 2008 11:15:51 +1100
 
-then you'll need to generate the preprocessed output and figure out
-where the lp reference is coming from.
-make drivers/net/smc91x.i
--mike
+> On Sun, Nov 02, 2008 at 12:13:19AM +0100, Julius Volz wrote:
+> > Add IPv6 support to SH and DH schedulers. I hope this simple IPv6 address
+> > hashing is good enough. The 128 bit are just XORed into 32 before hashing
+> > them like an IPv4 address.
+> > 
+> > Signed-off-by: Julius Volz <julius.volz@gmail.com>
+> 
+> At the very least this seems like a reasonable start to me.
+> 
+> Acked-by: Simon Horman <horms@verge.net.au>
+
+Patch applied to net-next-2.6, thanks.
