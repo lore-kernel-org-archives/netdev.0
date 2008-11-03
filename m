@@ -1,79 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [UPDATED PATCH] net: kconfig cleanup
-Date: Sun, 02 Nov 2008 20:30:33 -0800
-Message-ID: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
+From: Manuel Lauss <mano@roarinelk.homelinux.net>
+Subject: smc91x: commit 51ac3beffd4afaea4350526cf01fe74aaff25eff breaks
+	compilation
+Date: Mon, 3 Nov 2008 08:17:20 +0100
+Message-ID: <20081103071720.GB18153@roarinelk.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Andrew Gallatin <gallatin@myri.com>
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+To: Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:47767 "EHLO
-	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750920AbYKCFQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 00:16:49 -0500
+Received: from fnoeppeil48.netpark.at ([217.175.205.176]:35770 "EHLO
+	roarinelk.homelinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752258AbYKCHRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 02:17:22 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bool kconfig option added to ixgbe and myri10ge for DCA is ambigous,
-so this patch adds a description to the kconfig option.
+(Resend with correct netdev addr)
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Andrew Gallatin <gallatin@myri.com>
----
+Hi Mike,
 
- drivers/net/Kconfig |   18 +++++++++++++++---
- 1 files changed, 15 insertions(+), 3 deletions(-)
+your commit 51ac3beffd4afaea4350526cf01fe74aaff25eff  causes this
+compile failure on my SH and MIPS testboards (2.6.28-rc3):
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f749b40..11f143f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2010,9 +2010,13 @@ config IGB_LRO
- 	  If in doubt, say N.
- 
- config IGB_DCA
--	bool "Enable DCA"
-+	bool "Direct Cache Access (DCA) Support"
- 	default y
- 	depends on IGB && DCA && !(IGB=y && DCA=m)
-+	---help---
-+	  Say Y here if you want to use Direct Cache Access (DCA) in the
-+	  driver.  DCA is a method for warming the CPU cache before data
-+	  is used, with the intent of lessening the impact of cache misses.
- 
- source "drivers/net/ixp2000/Kconfig"
- 
-@@ -2437,9 +2441,13 @@ config IXGBE
- 	  will be called ixgbe.
- 
- config IXGBE_DCA
--	bool
-+	bool "Direct Cache Access (DCA) Support"
- 	default y
- 	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
-+	---help---
-+	  Say Y here if you want to use Direct Cache Access (DCA) in the
-+	  driver.  DCA is a method for warming the CPU cache before data
-+	  is used, with the intent of lessening the impact of cache misses.
- 
- config IXGB
- 	tristate "Intel(R) PRO/10GbE support"
-@@ -2489,9 +2497,13 @@ config MYRI10GE
- 	  will be called myri10ge.
- 
- config MYRI10GE_DCA
--	bool
-+	bool "Direct Cache Access (DCA) Support"
- 	default y
- 	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
-+	---help---
-+	  Say Y here if you want to use Direct Cache Access (DCA) in the
-+	  driver.  DCA is a method for warming the CPU cache before data
-+	  is used, with the intent of lessening the impact of cache misses.
- 
- config NETXEN_NIC
- 	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
+ CC      drivers/net/smc91x.o
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_request_attrib':
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: 'lp' undeclared (first use in this function)
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: (Each undeclared identifier is reported only once
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2067: error: for each function it appears in.)
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c: In function 'smc_release_attrib':
+/mnt/work/sh7760/kernel/linux-2.6.git/drivers/net/smc91x.c:2079: error: 'lp' undeclared (first use in this function)
+make[2]: *** [drivers/net/smc91x.o] Error 1
+make[1]: *** [drivers/net/smc91x.o] Error 2
 
+Reverting this commit fixes it.
+
+Thanks,
+        Manuel Lauss
