@@ -1,55 +1,59 @@
 From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [Resend] [PATCH 2/2] udp: Fix the SNMP counter of UDP_MIB_INERRORS
-Date: Mon, 03 Nov 2008 10:14:27 +0800
-Message-ID: <490E5E83.2050803@cn.fujitsu.com>
-References: <490C1CA7.3070201@cn.fujitsu.com> <20081101.213529.60503932.davem@davemloft.net>
+Subject: Re: [PATCH 1/2] udp: Fix the SNMP counter of UDP_MIB_INDATAGRAMS
+Date: Mon, 03 Nov 2008 10:38:39 +0800
+Message-ID: <490E642F.8080509@cn.fujitsu.com>
+References: <490C1CA7.3070201@cn.fujitsu.com> <20081101.213529.60503932.davem@davemloft.net> <490E57FE.804@snapgear.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Philip Craig <philipc@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60763 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:60674 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754150AbYKCCSs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Nov 2008 21:18:48 -0500
-In-Reply-To: <20081101.213529.60503932.davem@davemloft.net>
+	id S1754150AbYKCCmx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Nov 2008 21:42:53 -0500
+In-Reply-To: <490E57FE.804@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UDP packets received in udpv6_recvmsg() are not only IPv6 UDP packets, but
-also have IPv4 UDP packets, so when do the counter of UDP_MIB_INERRORS in
-udpv6_recvmsg(), we should check whether the packet is a IPv6 UDP packet
-or a IPv4 UDP packet.
+Philip Craig wrote:
+> David Miller wrote:
+>   
+>> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+>> Date: Sat, 01 Nov 2008 17:08:55 +0800
+>>
+>>     
+>>> @@ -158,6 +159,8 @@ try_again:
+>>>  	else if (copied < ulen)
+>>>  		msg->msg_flags |= MSG_TRUNC;
+>>>  +	is_udp4 = (skb->protocol == htons(ETH_P_IP));
+>>> +
+>>>  	/*
+>>>  	 * If checksum is needed at all, try to do it while copying the
+>>>  	 * data.  If the data is truncated, or if we only want a partial
+>>>       
+>>  ...
+>>     
+>>>  	sock_recv_timestamp(msg, sk, skb);
+>>>  @@ -196,7 +204,7 @@ try_again:
+>>>  		sin6->sin6_flowinfo = 0;
+>>>  		sin6->sin6_scope_id = 0;
+>>>  -		if (skb->protocol == htons(ETH_P_IP))
+>>> +		if (is_udp4)
+>>>  			ipv6_addr_set(&sin6->sin6_addr, 0, 0,
+>>>       
+>> This patch is corrupted in ways I thought I would never see in my
+>> entire life.  Congratulations!
+>>     
+>
+> The patch looked okay to me, but judging by the bits you quoted,
+> the format=flowed is causing the problem.
+>   
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/ipv6/udp.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1a63809..2f918a0 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -236,8 +236,14 @@ out:
- 
- csum_copy_err:
- 	lock_sock(sk);
--	if (!skb_kill_datagram(sk, skb, flags))
--		UDP6_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-+	if (!skb_kill_datagram(sk, skb, flags)) {
-+		if (is_udp4)
-+			UDP_INC_STATS_USER(sock_net(sk),
-+					UDP_MIB_INERRORS, is_udplite);
-+		else
-+			UDP6_INC_STATS_USER(sock_net(sk),
-+					UDP_MIB_INERRORS, is_udplite);
-+	}
- 	release_sock(sk);
- 
- 	if (flags & MSG_DONTWAIT)
--- 
-1.5.3.8
-
+It is also ok at http://patchwork.ozlabs.org/patch/6776/ and 
+http://marc.info/?l=linux-netdev&m=122553080530450&w=2, maybe the mail 
+client's action is strange. Anyway I have resent them, maybe this time 
+it is not corrupted.^_^
 
 
