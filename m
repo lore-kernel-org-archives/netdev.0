@@ -1,86 +1,72 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: patch: support long (above 14 bytes) HW addresses in arp_ioctl
-Date: Mon, 3 Nov 2008 13:58:11 -0800
-Message-ID: <20081103135811.5307508e@extreme>
-References: <490EDBDD.1030104@gmail.com>
-	<ada63n4wvxp.fsf@cisco.com>
-	<490F496C.2010608@gmail.com>
+From: Alex Chiang <achiang@hp.com>
+Subject: Re: [PATCH 1/4]bnx2x: Removing the PMF indication when unloading
+Date: Mon, 3 Nov 2008 15:07:43 -0700
+Message-ID: <20081103220743.GA16427@ldl.fc.hp.com>
+References: <1225728673.14568.10.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Constantine Gavrilov <constantine.gavrilov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42860 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752719AbYKCV6N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 16:58:13 -0500
-In-Reply-To: <490F496C.2010608@gmail.com>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:43213 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752992AbYKCWHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 17:07:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1225728673.14568.10.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 03 Nov 2008 20:56:44 +0200
-Constantine Gavrilov <constantine.gavrilov@gmail.com> wrote:
+* Eilon Greenstein <eilong@broadcom.com>:
+> 
+> When the PMF flag is set, the driver can access the HW freely. When the
+> driver is unloaded, it should not access the HW. The problem caused fatal
+> errors when "ethtool -i" was called after the calling instance was unloaded
+> and another instance was already loaded
+
+Without this patch, a BCM57711E will cause an MCA on a BL870c
+within minutes of starting a test that pushes traffic over the
+ports while in multi-function mode (100% of the time within 10
+minutes).
+
+I've been testing this patch for the last two hours or so and it
+seems to fix the problem.
+
+Tested-by: Alex Chiang <achiang@hp.com>
 
 > 
-> In arp_req_get() in net/arp.c, there is code:
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> ---
+>  drivers/net/bnx2x_main.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
 > 
-> memcpy(r->arp_ha.sa_data, neigh->ha, dev->addr_len);
+> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> index fce7451..61152e1 100644
+> --- a/drivers/net/bnx2x_main.c
+> +++ b/drivers/net/bnx2x_main.c
+> @@ -6481,6 +6481,7 @@ load_int_disable:
+>         bnx2x_free_irq(bp);
+>  load_error:
+>         bnx2x_free_mem(bp);
+> +       bp->port.pmf = 0;
 > 
-> dev->addr_len can be larger than size of r->arp_ha.sa_data. Inititally, 
-> I thought it would corrupt kernel stack. I was wrong, since r still has 
-> enough space not to overflow even for the largest HW address (32 bytes). 
-> It would corrupt the data structure though, and that corrupted reply 
-> would be propagated to user.
+>         /* TBD we really need to reset the chip
+>            if we want to recover from this */
+> @@ -6791,6 +6792,7 @@ unload_error:
+>         /* Report UNLOAD_DONE to MCP */
+>         if (!BP_NOMCP(bp))
+>                 bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE);
+> +       bp->port.pmf = 0;
 > 
-> There is a similar situation in arp_req_set(), where a "junk" arp entry 
-> will be set if dev->addr_len is larger that 14 bytes. 
+>         /* Free SKBs, SGEs, TPA pool and driver internals */
+>         bnx2x_free_skbs(bp);
+> --
+> 1.5.4.3
 > 
-> At the very minimum, both arp_req_set() and arp_req_get() should return 
-> error (-EINVAL), and not return junk or set junk. Truncated 
-> /proc/net/arp output should also be fixed.
 > 
-> I was not aware that rtnetlink is capable of doing things like arp  
-> table or interface manipulation (like netdevice ioctls). My applications 
-> needs to be able to manipulate arp cache for large macs, and I do not 
-> mind recompiling by adding a flag. I do not mind fixing arp cli to use 
-> this either (venerable arp  does use arp_ioctl). And there are many many 
-> legacy solutions that use arp_ioctl() in programs and arp utility in 
-> scripts. Consider porting those to infiniband.
 > 
-> Will rtnetlink work for any net_device (like netdevice ioctls do) for 
-> ARP and interface configurations calls or does it require special 
-> support in net_device itself? Any possible problems with rtnetlink?
 > 
-> Roland Dreier wrote:
-> >  > * arp_ioctl will corrupt the kernel and user memory when this ioctl is
-> >  > used on the adapters that have HW addresses longer that 14 bytes.
-> >  > This is because when copying the HW address, the arp_ioctl code copies
-> >  > dev->addr_len bytes without checking that addr_len is not above 14
-> >  > bytes. This is done both for copy_to_user() and memcpy() calls on
-> >  > kernel data structures allocated on stack. The memcpy() call in
-> >  > particular, will corrupt kernel stack.
-> >
-> > It's not obvious to me after a quick glance where this kernel memory
-> > corruption occurs, but clearly we should at least fix this bug.
-> >
-> >  > The patch does not change the existing ABI but extends it.  The kernel
-> >  > structure used in arp_ioctl calls is changed to support larger
-> >  > addresses, while the user-space structure is extended by appending
-> >  > extra-space to the end of the structure if ATF_NEWARPCTL -- a new flag
-> >  > -- is set in arp_flags of existing user-space structure. This allows
-> >  > avoiding big changes to the existing code while preserving the ABI
-> >  > compatibility.
-> >
-> > However, given that applications need to be changed to use this,
-> > wouldn't it make more sense just to change those applications to use
-> > rtnetlink, which already supports large hardware addresses?  ie is there
-> > much point to extending a legacy ABI to add a feature that the preferred
-> > modern interface already has?
-> >
-> >  - R.
-> >   
-> 
-
-Since this is a generic networking issue, please move discussion
-to netdev mailing list <netdev@vger.kernel.org>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
