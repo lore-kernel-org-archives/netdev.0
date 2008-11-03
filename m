@@ -1,81 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [UPDATED PATCH] net: kconfig cleanup
-Date: Mon, 03 Nov 2008 15:26:12 -0500
-Message-ID: <490F5E64.6030207@garzik.org>
-References: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] fs_enet: fix polling
+Date: Mon, 03 Nov 2008 15:26:01 -0500
+Message-ID: <490F5E59.6090106@pobox.com>
+References: <20081102144959.GA10869@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Andrew Gallatin <gallatin@myri.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Vitaly Bordug <vitb@kernel.crashing.org>,
+	Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49695 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49698 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754113AbYKCU0R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 15:26:17 -0500
-In-Reply-To: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
+	id S1755037AbYKCU0V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 15:26:21 -0500
+In-Reply-To: <20081102144959.GA10869@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> The bool kconfig option added to ixgbe and myri10ge for DCA is ambigous,
-> so this patch adds a description to the kconfig option.
+Alexey Dobriyan wrote:
+> 1. compile fix for irqreturn_t type change
+> 2. restore ->poll_controller after CONFIG_PPC_CPM_NEW_BINDING transition
 > 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Andrew Gallatin <gallatin@myri.com>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 > ---
 > 
->  drivers/net/Kconfig |   18 +++++++++++++++---
->  1 files changed, 15 insertions(+), 3 deletions(-)
+>  drivers/net/fs_enet/fs_enet-main.c |    6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index f749b40..11f143f 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2010,9 +2010,13 @@ config IGB_LRO
->  	  If in doubt, say N.
->  
->  config IGB_DCA
-> -	bool "Enable DCA"
-> +	bool "Direct Cache Access (DCA) Support"
->  	default y
->  	depends on IGB && DCA && !(IGB=y && DCA=m)
-> +	---help---
-> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
-> +	  driver.  DCA is a method for warming the CPU cache before data
-> +	  is used, with the intent of lessening the impact of cache misses.
->  
->  source "drivers/net/ixp2000/Kconfig"
->  
-> @@ -2437,9 +2441,13 @@ config IXGBE
->  	  will be called ixgbe.
->  
->  config IXGBE_DCA
-> -	bool
-> +	bool "Direct Cache Access (DCA) Support"
->  	default y
->  	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
-> +	---help---
-> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
-> +	  driver.  DCA is a method for warming the CPU cache before data
-> +	  is used, with the intent of lessening the impact of cache misses.
->  
->  config IXGB
->  	tristate "Intel(R) PRO/10GbE support"
-> @@ -2489,9 +2497,13 @@ config MYRI10GE
->  	  will be called myri10ge.
->  
->  config MYRI10GE_DCA
-> -	bool
-> +	bool "Direct Cache Access (DCA) Support"
->  	default y
->  	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
-> +	---help---
-> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
-> +	  driver.  DCA is a method for warming the CPU cache before data
-> +	  is used, with the intent of lessening the impact of cache misses.
->  
+> --- a/drivers/net/fs_enet/fs_enet-main.c
+> +++ b/drivers/net/fs_enet/fs_enet-main.c
+> @@ -1099,7 +1099,9 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
+>  	ndev->stop = fs_enet_close;
+>  	ndev->get_stats = fs_enet_get_stats;
+>  	ndev->set_multicast_list = fs_set_multicast_list;
+> -
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +	ndev->poll_controller = fs_enet_netpoll;
+> +#endif
+>  	if (fpi->use_napi)
+>  		netif_napi_add(ndev, &fep->napi, fs_enet_rx_napi,
+>  		               fpi->napi_weight);
+> @@ -1209,7 +1211,7 @@ static void __exit fs_cleanup(void)
+>  static void fs_enet_netpoll(struct net_device *dev)
+>  {
+>         disable_irq(dev->irq);
+> -       fs_enet_interrupt(dev->irq, dev, NULL);
+> +       fs_enet_interrupt(dev->irq, dev);
+>         enable_irq(dev->irq);
+>  }
 
 applied
 
