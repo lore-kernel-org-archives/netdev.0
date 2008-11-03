@@ -1,50 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] sfc: Correct address of gPXE boot configuration in EEPROM
-Date: Mon, 3 Nov 2008 23:08:04 +0000
-Message-ID: <20081103230803.GU7331@solarflare.com>
+From: "Andy Fleming" <afleming@gmail.com>
+Subject: Re: [PATCH 09/15] tg3: Allow WOL for phylib controlled Broadcom phys
+Date: Mon, 3 Nov 2008 17:09:34 -0600
+Message-ID: <2acbd3e40811031509q3d3005e5g9fedd842a1d08a52@mail.gmail.com>
+References: <1225751626.6190@xw6200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	"Michael Chan" <mchan@broadcom.com>, andy@greyhouse.net
+To: "Matt Carlson" <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:49455 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752476AbYKCXIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 18:08:11 -0500
+Received: from wf-out-1314.google.com ([209.85.200.168]:36909 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752986AbYKCXJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 18:09:34 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so2803168wfd.4
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 15:09:34 -0800 (PST)
+In-Reply-To: <1225751626.6190@xw6200>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to a hardware bug, the originally assigned range cannot reliably
-be used for boot configuration and must not be modifiable through
-ethtool.
+On Mon, Nov 3, 2008 at 4:13 AM, Matt Carlson <mcarlson@broadcom.com> wrote:
+> This patch allows WOL to be enabled for Broadcom phys under phylib
+> control.  The only exception is the AC131, which has a completely
+> different register set.
+>
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-This is for 2.6.28.  It only affects the ethtool EEPROM access code
-that is new in this release cycle.
+Code to enable WOL sounds like the sort of thing we'd want in the PHY
+driver itself, rather than a manual setup done from the NIC driver.
+Clearly, we need support for WOL on both in order for it to work,
+though, so I can see two solutions off the top of my head:
 
-Ben.
+1) phy_connect() allows for passing in flags.  Maybe we should create
+one for WOL, and have the config_init() functions for the Broadcom
+PHYs check that, and set it up.
 
- drivers/net/sfc/ethtool.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+2) The appropriate code can register a phy_fixup, which will be
+invoked whenever the PHY is initialized.  The fixup can be restricted
+based on PHY ID and address.
 
-diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index fa98af5..cd0d087 100644
---- a/drivers/net/sfc/ethtool.c
-+++ b/drivers/net/sfc/ethtool.c
-@@ -174,8 +174,8 @@ static struct efx_ethtool_stat efx_ethtool_stats[] = {
- 
- /* EEPROM range with gPXE configuration */
- #define EFX_ETHTOOL_EEPROM_MAGIC 0xEFAB
--#define EFX_ETHTOOL_EEPROM_MIN 0x100U
--#define EFX_ETHTOOL_EEPROM_MAX 0x400U
-+#define EFX_ETHTOOL_EEPROM_MIN 0x800U
-+#define EFX_ETHTOOL_EEPROM_MAX 0x1800U
- 
- /**************************************************************************
-  *
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It seems to me that WOL support is probably a common desire, so we
+should either always enable it, or provide generic infrastructure for
+enabling it, so that your driver doesn't need to know what PHY it is
+connecting to.
+
+Andy
