@@ -1,79 +1,68 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: e100/netconsole: Failed to load firmware (Re: linux-next: Tree for November 3)
-Date: Mon, 3 Nov 2008 15:25:07 +0300
-Message-ID: <a4423d670811030425y1bdf93fcn829b7311e38731b9@mail.gmail.com>
+From: "Subbu Seetharaman" <subbus@serverengines.com>
+Subject: Re: [RESEND] benet: BladeEngine 10Gb NIC driver
+Date: Mon, 03 Nov 2008 04:25:12 -0800
+Message-ID: <20081103122512.06063fc9@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: e1000-devel@lists.sourceforge.net
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: "Jeff Garzik" <jeff@garzik.org>, "Greg KH" <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail142.messagelabs.com ([216.82.249.99]:24054 "EHLO
+	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755142AbYKCMZP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 07:25:15 -0500
+In-Reply-To: 490DA7E3.8040802@garzik.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+If we could get more specific feedback about the areas that require cleanup, we can take care of them quickly.  
 
-2.6.28-rc3-next-20081103 on sparc64
+Since the last posting, we have brought up the driver in a PPC system and fixed some endianness issues.  As soon as I have some specific feedback, we can update the driver with these fixes as well.
 
-netconsole on e100 does not work
+Please let me know as soon as the driver is in the staging area.
 
-pci 0000:02:01.0: supports D1 D2
-pci 0000:02:01.0: PME# supported from D0 D1 D2 D3hot
-pci 0000:02:01.0: PME# disabled
-device: '0000:02:01.0': device_add
-bus: 'pci': add device 0000:02:01.0
-pci 0000:02:01.0: calling quirk_e100_interrupt+0x0/0x1e4
-pci 0000:02:01.0: calling quirk_cardbus_legacy+0x0/0x40
-pci 0000:02:01.0: calling quirk_usb_early_handoff+0x0/0x42c
-<...>
-e100: Intel(R) PRO/100 Network Driver, 3.5.23-k4-NAPI
-e100: Copyright(c) 1999-2006 Intel Corporation
-bus: 'pci': add driver e100
-bus: 'pci': driver_probe_device: matched device 0000:02:01.0 with driver e100
-bus: 'pci': really_probe: probing driver e100 with device 0000:02:01.0
-PCI: Enabling device: (0000:02:01.0), cmd 3
-e100 0000:02:01.0: enabling bus mastering
-e100 0000:02:01.0: PME# disabled
-device: 'eth1': device_add
-e100: eth1: e100_probe: addr 0x1ff00002000, irq 15, MAC addr 00:d0:b7:e4:d6:f1
-driver: '0000:02:01.0': driver_bound: bound to device 'e100'
-bus: 'pci': really_probe: bound device 0000:02:01.0 to driver e100
-netconsole: local port 6665
-netconsole: local IP 192.168.1.5
-netconsole: interface eth1
-netconsole: remote port 6667
-netconsole: remote IP 192.168.1.3
-netconsole: remote ethernet address 00:08:c7:da:88:fb
-netconsole: device eth1 not up yet, forcing it
-e100 0000:02:01.0: firmware: requesting e100/d101m_ucode.bin
-device: '0000:02:01.0': device_add
-device: '0000:02:01.0': device_unregister
-e100: eth1: e100_request_firmware: Failed to load firmware
-"e100/d101m_ucode.bin": -2
-netconsole: failed to open eth1
-netconsole: cleaning up
-<...>
-e100 0000:02:01.0: firmware: requesting e100/d101m_ucode.bin
-device: '0000:02:01.0': device_add
-device: '0000:02:01.0': device_unregister
-e100: eth1: e100_watchdog: link up, 100Mbps, full-duplex
+Thanks.
+
+Subbu 
+
+----- Original Message -----
+From: Jeff Garzik [mailto:jeff@garzik.org]
+To: Subbu Seetharaman [mailto:subbus@serverengines.com], Greg KH [mailto:greg@kroah.com]
+Cc: netdev@vger.kernel.org, LKML [mailto:linux-kernel@vger.kernel.org]
+Sent: Sun, 02 Nov 2008 05:15:15 -0800
+Subject: Re: [RESEND] benet: BladeEngine 10Gb NIC driver
 
 
-netconsole output (less verbose) from 2.6.28-rc3:
+Subbu Seetharaman wrote:
+> Jeff,
+> 
+> It is more than two months since the benet driver patch was made available as a single file as suggeted by you :
+> 
+> ftp://ftp.serverengines.com/0001.benet.patch
+> 
+> I have not seen this applied.  Is there any reason for not applying this  patch ?  Do you want a patch against the latest git tree ?
 
-e100: Intel(R) PRO/100 Network Driver, 3.5.23-k4-NAPI
-e100: Copyright(c) 1999-2006 Intel Corporation
-e100 0000:02:01.0: PME# disabled
-e100: eth1: e100_probe: addr 0x1ff00002000, irq 15, MAC addr 00:d0:b7:e4:d6:f1
-netconsole: local port 6665
-netconsole: local IP 192.168.1.5
-netconsole: interface eth1
-netconsole: remote port 6667
-netconsole: remote IP 192.168.1.3
-netconsole: remote ethernet address 00:08:c7:da:88:fb
-netconsole: device eth1 not up yet, forcing it
-e100: eth1: e100_watchdog: link up, 100Mbps, full-duplex
-netconsole: carrier detect appears untrustworthy, waiting 4 seconds
-console [netcon0] enabled
-netconsole: network logging started
+The overall consensus at this year's Linux Kernel Summit was that this 
+driver still needs a lot of cleanup, so I'm gonna try an experiment and 
+stick this in the staging tree (currently jgarzik/netdev-2.6.git#benet).
+
+Greg, do I need to do anything beyond simply putting it into the 
+directory?  Do I need to add some code to taint, perhaps?
+
+	Jeff
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
