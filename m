@@ -1,107 +1,61 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround (fwd) [SOLVED]
-Date: Mon, 3 Nov 2008 15:03:40 -0200
-Message-ID: <490f2ef1.060ec00a.0e03.40d0@mx.google.com>
-References: <Pine.LNX.4.64.0810011546371.1034@wrl-59.cs.helsinki.fi>
-	<48e4d63a.060ec00a.6a4e.ffff95bf@mx.google.com>
-	<alpine.LFD.1.10.0810022113540.5549@apollo.tec.linutronix.de>
-	<Pine.LNX.4.64.0810022251400.22964@wrl-59.cs.helsinki.fi>
-	<48e5364d.0603c00a.6e25.fffff993@mx.google.com>
-	<Pine.LNX.4.64.0810030008280.22964@wrl-59.cs.helsinki.fi>
-	<48e8fef7.0610c00a.5fa2.ffffaab0@mx.google.com>
-	<alpine.LFD.2.00.0810052008131.3398@apollo>
-	<48ed0b51.0913c00a.7715.4aa7@mx.google.com>
-	<alpine.LFD.2.00.0810082154420.3237@apollo>
-	<48f2c9d7.0603c00a.1df2.ffff9357@mx.google.com>
-	<Pine.LNX.4.64.0810131633370.3843@wrl-59.cs.helsinki.fi>
-	<48f9251b.1626360a.6574.61ec@mx.google.com>
-	<Pine.LNX.4.64.0810210028550.30254@wrl-59.cs.helsinki.fi>
-	<48fe8c06.4719360a.3996.04a9@mx.google.com>
-	<Pine.LNX.4.64.0810301232360.7072@wrl-59.cs.helsinki.fi>
-	<490d4120.0807c00a.32d8.5eaf@mx.google.com>
-	<Pine.LNX.4.64.0811031705390.23792@wrl-59.cs.helsinki.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] sch_netem: Remove classful functionality
+Date: Mon, 3 Nov 2008 09:06:30 -0800
+Message-ID: <20081103090630.40b645d2@extreme>
+References: <20081031132010.GA18895@ff.dom.local>
+	<20081102.003700.198708146.davem@davemloft.net>
+	<20081103082926.GA4698@ff.dom.local>
+	<490EDE79.6070500@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Gleixner <tglx@linutronix.de>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:20846 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756008AbYKCRDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 12:03:48 -0500
-Received: by qw-out-2122.google.com with SMTP id 3so1188109qwe.37
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 09:03:47 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0811031705390.23792@wrl-59.cs.helsinki.fi>
+Received: from mail.vyatta.com ([76.74.103.46]:57063 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754798AbYKCRGc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 12:06:32 -0500
+In-Reply-To: <490EDE79.6070500@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 3 Nov 2008 17:37:09 +0200 (EET)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Mon, 03 Nov 2008 12:20:25 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Once there's any kind of flow control, anything jamming downstream wi=
-ll=20
-> eventually make upstream to stall as well (or to appear as not workin=
-g=20
-> as expected. Sadly, it's exactly opposite from correctness point of v=
-iew=20
-> as flow control is a feature in TCP, not a bug :-)). Thus I occassion=
-ally=20
-> run to these tcp with flow control not working reports which turn to =
-be=20
-> totally unrelated.
->=20
-> This still doesn't explain everything though afaik... E.g., why did t=
-he=20
-> sendto() to SOCK_DGRAM socket hung.
+> Jarek Poplawski wrote:
+> > On Sun, Nov 02, 2008 at 12:37:00AM -0700, David Miller wrote:
+> >> From: Jarek Poplawski <jarkao2@gmail.com>
+> >> Date: Fri, 31 Oct 2008 13:20:10 +0000
+> >>
+> >> Jarek, I applied this patch and your second one to net-next-2.6
+> >>
+> >> But I did this only because I trust that you will address Stephen's
+> >> feedback wrt. making existing netem functionality available in
+> >> some way.
+> >>
+> >> Otherwise I'll have to revert these changes.
+> > 
+> > Hmm... I thought there was kind of RFC for this, and it looked like
+> > Patrick's idea won 100% of votes, but I'm not good in counting...
+> > 
+> > http://marc.info/?l=linux-netdev&m=122469801712438&w=2
+> > http://marc.info/?l=linux-netdev&m=122469674709761&w=2
+> > 
+> > Anyway, IMHO adding TBF etc. functionalities to tfifo doesn't make
+> > much sense, and if they are really needed it's better to revert
+> > these patches and chose one of the other ways of doing reorder
+> > proposed in this earlier thread.
+> 
+> Whats wrong with simply using TBF as parent qdisc of netem?
 
-	Well, the fact that the problem happened since 2.6.25 kernel
-make me believe that it could exist a possible kernel issue too, but I
-think that most part was caused by syslogd.
+It works but does something slightly different.
 
-> And you had the same old syslogd on both hosts?
+   netem inside TBF is like long delay network followed by choke on last hop
+   TBF inside netem was like choke on uplink followed by long delay network.
 
-	Yes. My desktop and server have the same installation.
-
-> In any case the loss of every other character deterministically sound=
-s=20
-> like a real bug in the syslogd since it doesn't make too much sense t=
-o=20
-> happen in kernel->syslogd communication (where I'd expect it to not s=
-how=20
-> up in such consistent pattern but would cause more randomness).
-
-	Yes. With the new compiled syslogd it doesn't happen anymore.
-And I don't have stall too.
-
-> It's not clear what caused this to happen _now_, nor the exact mechan=
-ism.
-
-	Ok.
-
-> This is more of a philosophical question than something else... it's=20
-> always balancing between data loss (=3Dpossibly losing a logline of a=
-n=20
-> important event) or possibility of a stall. But this shouldn't be a=20
-> concern in the case where SOCK_DGRAM was used by the sudo (like in th=
-e=20
-> strace you sent to sudo people), in general UDP doesn't guarantee=20
-> reliability so not delivering wouldn't be a problem but I don't know =
-if=20
-> PF_FILE domain does something otherwise in there.
-
-	I see.
-
-> Until we know more details than that killing syslogd helped it's hard=
- to=20
-> tell what is the actual cause. And I have no clue about semantics of=20
-> /dev/log anyway.
-
-	Ok. Anyway, at least the problem was registered and if in the
-future we have something related, maybe this can help someone.
-
-
---=20
+Since most users use the for network evaluation, and the standard for
+network evaluation is dummynet; I plan to add dummynet compatiable
+rate control.
