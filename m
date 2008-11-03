@@ -1,60 +1,81 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] mv643xx_eth: fix SMI bus access timeouts
-Date: Mon, 03 Nov 2008 15:25:52 -0500
-Message-ID: <490F5E50.1000904@garzik.org>
-References: <20081101053220.GA13348@xi.wantstofly.org>
+Subject: Re: [UPDATED PATCH] net: kconfig cleanup
+Date: Mon, 03 Nov 2008 15:26:12 -0500
+Message-ID: <490F5E64.6030207@garzik.org>
+References: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Andrew Gallatin <gallatin@myri.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49676 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49695 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753436AbYKCUZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 15:25:56 -0500
-In-Reply-To: <20081101053220.GA13348@xi.wantstofly.org>
+	id S1754113AbYKCU0R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 15:26:17 -0500
+In-Reply-To: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennert Buytenhek wrote:
-> The mv643xx_eth mii bus implementation uses wait_event_timeout() to
-> wait for SMI completion interrupts.
+Jeff Kirsher wrote:
+> The bool kconfig option added to ixgbe and myri10ge for DCA is ambigous,
+> so this patch adds a description to the kconfig option.
 > 
-> If wait_event_timeout() would return zero, mv643xx_eth would conclude
-> that the SMI access timed out, but this is not necessarily true --
-> wait_event_timeout() can also return zero in the case where the SMI
-> completion interrupt did happen in time but where it took longer than
-> the requested timeout for the process performing the SMI access to be
-> scheduled again.  This would lead to occasional SMI access timeouts
-> when the system would be under heavy load.
-> 
-> The fix is to ignore the return value of wait_event_timeout(), and
-> to re-check the SMI done bit after wait_event_timeout() returns to
-> determine whether or not the SMI access timed out.
-> 
-> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: Andrew Gallatin <gallatin@myri.com>
 > ---
-> The commit that introduced this was added in the .28 dev cycle, so
-> this fix is for .28 only.  Thanks!
 > 
-> diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> index d25a302..0e94ed3 100644
-> --- a/drivers/net/mv643xx_eth.c
-> +++ b/drivers/net/mv643xx_eth.c
-> @@ -1065,9 +1065,12 @@ static int smi_wait_ready(struct mv643xx_eth_shared_private *msp)
->  		return 0;
->  	}
+>  drivers/net/Kconfig |   18 +++++++++++++++---
+>  1 files changed, 15 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index f749b40..11f143f 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2010,9 +2010,13 @@ config IGB_LRO
+>  	  If in doubt, say N.
 >  
-> -	if (!wait_event_timeout(msp->smi_busy_wait, smi_is_done(msp),
-> -				msecs_to_jiffies(100)))
-> -		return -ETIMEDOUT;
-> +	if (!smi_is_done(msp)) {
-> +		wait_event_timeout(msp->smi_busy_wait, smi_is_done(msp),
-> +				   msecs_to_jiffies(100));
-> +		if (!smi_is_done(msp))
-> +			return -ETIMEDOUT;
-> +	}
+>  config IGB_DCA
+> -	bool "Enable DCA"
+> +	bool "Direct Cache Access (DCA) Support"
+>  	default y
+>  	depends on IGB && DCA && !(IGB=y && DCA=m)
+> +	---help---
+> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
+> +	  driver.  DCA is a method for warming the CPU cache before data
+> +	  is used, with the intent of lessening the impact of cache misses.
+>  
+>  source "drivers/net/ixp2000/Kconfig"
+>  
+> @@ -2437,9 +2441,13 @@ config IXGBE
+>  	  will be called ixgbe.
+>  
+>  config IXGBE_DCA
+> -	bool
+> +	bool "Direct Cache Access (DCA) Support"
+>  	default y
+>  	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
+> +	---help---
+> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
+> +	  driver.  DCA is a method for warming the CPU cache before data
+> +	  is used, with the intent of lessening the impact of cache misses.
+>  
+>  config IXGB
+>  	tristate "Intel(R) PRO/10GbE support"
+> @@ -2489,9 +2497,13 @@ config MYRI10GE
+>  	  will be called myri10ge.
+>  
+>  config MYRI10GE_DCA
+> -	bool
+> +	bool "Direct Cache Access (DCA) Support"
+>  	default y
+>  	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
+> +	---help---
+> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
+> +	  driver.  DCA is a method for warming the CPU cache before data
+> +	  is used, with the intent of lessening the impact of cache misses.
+>  
 
 applied
 
