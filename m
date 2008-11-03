@@ -1,68 +1,84 @@
-From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: Re: [RESEND] benet: BladeEngine 10Gb NIC driver
-Date: Mon, 03 Nov 2008 04:25:12 -0800
-Message-ID: <20081103122512.06063fc9@mailhost.serverengines.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [UPDATED PATCH] net: kconfig cleanup
+Date: Mon, 03 Nov 2008 08:04:40 -0500
+Message-ID: <490EF6E8.7010609@myri.com>
+References: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: "Jeff Garzik" <jeff@garzik.org>, "Greg KH" <greg@kroah.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:24054 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755142AbYKCMZP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 07:25:15 -0500
-In-Reply-To: 490DA7E3.8040802@garzik.org
+Received: from mailbox2.myri.com ([64.172.73.26]:1897 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754716AbYKCNE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 08:04:56 -0500
+In-Reply-To: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we could get more specific feedback about the areas that require cleanup, we can take care of them quickly.  
-
-Since the last posting, we have brought up the driver in a PPC system and fixed some endianness issues.  As soon as I have some specific feedback, we can update the driver with these fixes as well.
-
-Please let me know as soon as the driver is in the staging area.
-
-Thanks.
-
-Subbu 
-
------ Original Message -----
-From: Jeff Garzik [mailto:jeff@garzik.org]
-To: Subbu Seetharaman [mailto:subbus@serverengines.com], Greg KH [mailto:greg@kroah.com]
-Cc: netdev@vger.kernel.org, LKML [mailto:linux-kernel@vger.kernel.org]
-Sent: Sun, 02 Nov 2008 05:15:15 -0800
-Subject: Re: [RESEND] benet: BladeEngine 10Gb NIC driver
-
-
-Subbu Seetharaman wrote:
-> Jeff,
+Jeff Kirsher wrote:
+> The bool kconfig option added to ixgbe and myri10ge for DCA is ambigous,
+> so this patch adds a description to the kconfig option.
 > 
-> It is more than two months since the benet driver patch was made available as a single file as suggeted by you :
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: Andrew Gallatin <gallatin@myri.com>
+> ---
 > 
-> ftp://ftp.serverengines.com/0001.benet.patch
+>  drivers/net/Kconfig |   18 +++++++++++++++---
+>  1 files changed, 15 insertions(+), 3 deletions(-)
 > 
-> I have not seen this applied.  Is there any reason for not applying this  patch ?  Do you want a patch against the latest git tree ?
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index f749b40..11f143f 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2010,9 +2010,13 @@ config IGB_LRO
+>  	  If in doubt, say N.
+>  
+>  config IGB_DCA
+> -	bool "Enable DCA"
+> +	bool "Direct Cache Access (DCA) Support"
+>  	default y
+>  	depends on IGB && DCA && !(IGB=y && DCA=m)
+> +	---help---
+> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
+> +	  driver.  DCA is a method for warming the CPU cache before data
+> +	  is used, with the intent of lessening the impact of cache misses.
+>  
+>  source "drivers/net/ixp2000/Kconfig"
+>  
+> @@ -2437,9 +2441,13 @@ config IXGBE
+>  	  will be called ixgbe.
+>  
+>  config IXGBE_DCA
+> -	bool
+> +	bool "Direct Cache Access (DCA) Support"
+>  	default y
+>  	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
+> +	---help---
+> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
+> +	  driver.  DCA is a method for warming the CPU cache before data
+> +	  is used, with the intent of lessening the impact of cache misses.
+>  
+>  config IXGB
+>  	tristate "Intel(R) PRO/10GbE support"
+> @@ -2489,9 +2497,13 @@ config MYRI10GE
+>  	  will be called myri10ge.
+>  
+>  config MYRI10GE_DCA
+> -	bool
+> +	bool "Direct Cache Access (DCA) Support"
+>  	default y
+>  	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
+> +	---help---
+> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
+> +	  driver.  DCA is a method for warming the CPU cache before data
+> +	  is used, with the intent of lessening the impact of cache misses.
+>  
+>  config NETXEN_NIC
+>  	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
 
-The overall consensus at this year's Linux Kernel Summit was that this 
-driver still needs a lot of cleanup, so I'm gonna try an experiment and 
-stick this in the staging tree (currently jgarzik/netdev-2.6.git#benet).
 
-Greg, do I need to do anything beyond simply putting it into the 
-directory?  Do I need to add some code to taint, perhaps?
+This looks fine to me.  Thank you for clarifying.
 
-	Jeff
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
-
+Drew
