@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 15/15] tg3: Update version to 3.95
-Date: Mon, 3 Nov 2008 04:22:27 -0800
-Message-ID: <1225751633.6208@xw6200>
+Subject: [PATCH 06/15] tg3: Do not enable APE on bcm5700
+Date: Mon, 3 Nov 2008 02:12:05 -0800
+Message-ID: <1225751622.6181@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,36 +9,41 @@ Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
 	andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2836 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4905 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756776AbYKCWeA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 17:34:00 -0500
+	id S1756680AbYKCWdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 17:33:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates the version to 3.95.
+With older versions of the NVRAM format, the driver may mistakenly
+determine that APE is enabled.  Make sure this doesn't happen by
+restricting the ENABLE_APE check to devices known to have more
+recent NVRAM image formats.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/tg3.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index c48bb51..babf83d 100644
+index 45fcbc3..978d1f0 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -69,8 +69,8 @@
- 
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.94"
--#define DRV_MODULE_RELDATE	"August 14, 2008"
-+#define DRV_MODULE_VERSION	"3.95"
-+#define DRV_MODULE_RELDATE	"November 3, 2008"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
+@@ -11441,8 +11441,11 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
+ 			if (tp->tg3_flags2 & TG3_FLG2_5750_PLUS)
+ 				tp->tg3_flags2 |= TG3_FLG2_ASF_NEW_HANDSHAKE;
+ 		}
+-		if (nic_cfg & NIC_SRAM_DATA_CFG_APE_ENABLE)
++
++		if ((nic_cfg & NIC_SRAM_DATA_CFG_APE_ENABLE) &&
++			(tp->tg3_flags2 & TG3_FLG2_5750_PLUS))
+ 			tp->tg3_flags3 |= TG3_FLG3_ENABLE_APE;
++
+ 		if (tp->tg3_flags2 & TG3_FLG2_ANY_SERDES &&
+ 		    !(nic_cfg & NIC_SRAM_DATA_CFG_FIBER_WOL))
+ 			tp->tg3_flags &= ~TG3_FLAG_WOL_CAP;
 -- 
 1.5.6.4
 
