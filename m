@@ -1,84 +1,30 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [UPDATED PATCH] net: kconfig cleanup
-Date: Mon, 03 Nov 2008 08:04:40 -0500
-Message-ID: <490EF6E8.7010609@myri.com>
-References: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Broken "SMC91x: delete unused local variable "lp""
+Date: Mon, 3 Nov 2008 16:35:54 +0300
+Message-ID: <20081103133554.GA3325@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: vapier@gentoo.org, netdev@vger.kernel.org
+To: jgarzik@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1897 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754716AbYKCNE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 08:04:56 -0500
-In-Reply-To: <20081103043033.13607.2028.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from nf-out-0910.google.com ([64.233.182.184]:9204 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755162AbYKCNcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 08:32:41 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so962758nfc.21
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 05:32:38 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> The bool kconfig option added to ixgbe and myri10ge for DCA is ambigous,
-> so this patch adds a description to the kconfig option.
-> 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Andrew Gallatin <gallatin@myri.com>
-> ---
-> 
->  drivers/net/Kconfig |   18 +++++++++++++++---
->  1 files changed, 15 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index f749b40..11f143f 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2010,9 +2010,13 @@ config IGB_LRO
->  	  If in doubt, say N.
->  
->  config IGB_DCA
-> -	bool "Enable DCA"
-> +	bool "Direct Cache Access (DCA) Support"
->  	default y
->  	depends on IGB && DCA && !(IGB=y && DCA=m)
-> +	---help---
-> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
-> +	  driver.  DCA is a method for warming the CPU cache before data
-> +	  is used, with the intent of lessening the impact of cache misses.
->  
->  source "drivers/net/ixp2000/Kconfig"
->  
-> @@ -2437,9 +2441,13 @@ config IXGBE
->  	  will be called ixgbe.
->  
->  config IXGBE_DCA
-> -	bool
-> +	bool "Direct Cache Access (DCA) Support"
->  	default y
->  	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
-> +	---help---
-> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
-> +	  driver.  DCA is a method for warming the CPU cache before data
-> +	  is used, with the intent of lessening the impact of cache misses.
->  
->  config IXGB
->  	tristate "Intel(R) PRO/10GbE support"
-> @@ -2489,9 +2497,13 @@ config MYRI10GE
->  	  will be called myri10ge.
->  
->  config MYRI10GE_DCA
-> -	bool
-> +	bool "Direct Cache Access (DCA) Support"
->  	default y
->  	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
-> +	---help---
-> +	  Say Y here if you want to use Direct Cache Access (DCA) in the
-> +	  driver.  DCA is a method for warming the CPU cache before data
-> +	  is used, with the intent of lessening the impact of cache misses.
->  
->  config NETXEN_NIC
->  	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
+Jeff, please, revert 51ac3beffd4afaea4350526cf01fe74aaff25eff aka
+"SMC91x: delete unused local variable "lp""
 
+"lp" is used via ATTRIB_SIZE->SMC_IO_SHIFT, on arm-am200epdkit defconfig for example:
 
-This looks fine to me.  Thank you for clarifying.
-
-Drew
+drivers/net/smc91x.c: In function 'smc_request_attrib':
+drivers/net/smc91x.c:2067: error: 'lp' undeclared (first use in this function)
+drivers/net/smc91x.c:2067: error: (Each undeclared identifier is reported only once
+drivers/net/smc91x.c:2067: error: for each function it appears in.)
+drivers/net/smc91x.c: In function 'smc_release_attrib':
+drivers/net/smc91x.c:2079: error: 'lp' undeclared (first use in this function)
