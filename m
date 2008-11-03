@@ -1,106 +1,75 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Bugme-new] [Bug 11865] New: WOL for E100 Doesn't Work Anymore
-Date: Tue, 4 Nov 2008 00:31:45 +0100
-Message-ID: <200811040031.46601.rjw@sisk.pl>
-References: <bug-11865-10286@http.bugzilla.kernel.org/> <20081027220224.6333b675.akpm@linux-foundation.org> <F169D4F5E1F1974DBFAFABF47F60C10A0E873C3C@orsmsx507.amr.corp.intel.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: patch: support long (above 14 bytes) HW addresses in arp_ioctl
+Date: Mon, 03 Nov 2008 15:53:26 -0800
+Message-ID: <adaod0wv021.fsf@cisco.com>
+References: <490EDBDD.1030104@gmail.com> <ada63n4wvxp.fsf@cisco.com>
+	<490F496C.2010608@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"rogerx@sdf.lonestar.org" <rogerx@sdf.lonestar.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, general@lists.openfabrics.org,
+	netdev@vger.kernel.org
+To: Constantine Gavrilov <constantine.gavrilov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:43468 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752346AbYKCX1V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 18:27:21 -0500
-In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A0E873C3C@orsmsx507.amr.corp.intel.com>
-Content-Disposition: inline
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:49201 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751435AbYKCXx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 18:53:28 -0500
+In-Reply-To: <490F496C.2010608@gmail.com> (Constantine Gavrilov's message of
+	"Mon, 03 Nov 2008 20:56:44 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, 3 of November 2008, Brandeburg, Jesse wrote:
-> Andrew Morton wrote:
-> > (switched to email.  Please respond via emailed reply-to-all, not via
-> > the bugzilla web interface).
-> > 
-> > On Sun, 26 Oct 2008 21:56:35 -0700 (PDT)
-> > bugme-daemon@bugzilla.kernel.org wrote: 
-> > 
-> >> http://bugzilla.kernel.org/show_bug.cgi?id=11865
-> >> 
-> >>            Summary: WOL for E100 Doesn't Work Anymore           
-> >>            Product: Drivers Version: 2.5
-> >>      KernelVersion: 2.6.27
-> >>           Platform: All
-> >>         OS/Version: Linux
-> >>               Tree: Mainline
-> >>             Status: NEW
-> >>           Severity: normal
-> >>           Priority: P1
-> >>          Component: Network
-> >>         AssignedTo: jgarzik@pobox.com
-> >>         ReportedBy: rogerx@sdf.lonestar.org
-> >> 
-> >> 
-> >> Latest working kernel version: 2.6.27
-> > 
-> > This should read 2.6.26.  It is a regression.
-> > 
-> >> Earliest failing kernel version: 2.6.27
-> >> Distribution: Gentoo
-> >> Hardware Environment: 2x750P3 1G RAM w/
-> >> 
-> >> 00:14.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet
-> >> Pro 100] (rev 08) 
-> >> 
-> >> Problem Description:
-> >> As of kernel version 2.6.27, WOL has stopped working.  The box no
-> >> longer powers on after the magic packet has been sent.  Rebooting
-> >> using kernel-2.6.26*, WOL *does* work! 
-> 
-> what does cat /proc/acpi/wakeup say?  (if you have legacy acpi procfs)
-> 
-> >> 
-> >> Steps to reproduce:
-> >> (Not needed.  Self Explanatory.)
-> >> 
-> >> 
-> >> I noticed 3 lines of code in e100.c added/modified since 2.6.26*,
-> >> however, I reversed 2 lines of code to 2.6.26 and the other line was
-> >> just added an additional pointer, for which I left alone. 
-> >> Recompiled, rebooted and WOL still didn't work using 2.6.27.  I'm
-> >> guessing, the source of this bug lies elsewhere. 
-> 
-> I think there is an outstanding patch set to "make device use the new
-> power management api"
-> http://marc.info/?l=linux-netdev&m=121874992800468&w=2
+[netdev added to cc list]
 
-There were three patches like this, one against sky2 and the others for e100
-and skge.  The sky2 one has been merged, the other two are in the Jeff's tree
-AFAICS.
+ > In arp_req_get() in net/arp.c, there is code:
+ > 
+ > memcpy(r->arp_ha.sa_data, neigh->ha, dev->addr_len);
+ > 
+ > dev->addr_len can be larger than size of
+ > r->arp_ha.sa_data. Inititally, I thought it would corrupt kernel
+ > stack. I was wrong, since r still has enough space not to overflow
+ > even for the largest HW address (32 bytes). It would corrupt the data
+ > structure though, and that corrupted reply would be propagated to
+ > user.
+ > 
+ > There is a similar situation in arp_req_set(), where a "junk" arp
+ > entry will be set if dev->addr_len is larger that 14 bytes. 
+ > 
+ > At the very minimum, both arp_req_set() and arp_req_get() should
+ > return error (-EINVAL), and not return junk or set junk. Truncated
+ > /proc/net/arp output should also be fixed.
 
-> It doesn't appear this patch was in 2.6.27, I'm not sure why not, but I
-> am relatively afraid that lots of devices ability to wake up got busted
-> in 2.6.27.
+The EINVAL return makes sense; I'm not sure /proc/net/arp is important
+enough to fix.  I guess it depends on the impact of the fix.
 
-Well, unfortunately the maintainers of the networking code were not very
-interested in these patches, although I had sent them well before 2.6.27
-for the first time.
+ > I was not aware that rtnetlink is capable of doing things like arp
+ > table or interface manipulation (like netdevice ioctls). My
+ > applications needs to be able to manipulate arp cache for large macs,
+ > and I do not mind recompiling by adding a flag. I do not mind fixing
+ > arp cli to use this either (venerable arp  does use arp_ioctl). And
+ > there are many many legacy solutions that use arp_ioctl() in programs
+ > and arp utility in scripts. Consider porting those to infiniband.
+ > 
+ > Will rtnetlink work for any net_device (like netdevice ioctls do) for
+ > ARP and interface configurations calls or does it require special
+ > support in net_device itself? Any possible problems with rtnetlink?
 
-Generally, the sky2 commit at
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9d731d77c9794bb0a264f58d35949a1ab6dcc41c
-illustrates what needs to be done for other NICs supporting WOL (the key part
-is to call device_set_wakeup_enable() with appropriate arguments whenever
-WOL is enabled/disabled and using for the initialization).
+rtnetlink is the preferred modern interface between userspace and kernel
+for networking information.  There is also the "iproute2" package that
+provides a good command line interface that is capable of handling IPoIB
+addresses.  For example:
 
-I'm going to do this over time for all of the drivers, but if anyone can help,
-please do so.
+$ ip addr show dev ib1
+5: ib1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 2044 qdisc pfifo_fast state UP qlen 256
+    link/infiniband 80:00:00:48:fe:80:00:00:00:00:00:00:00:02:c9:03:00:00:01:65 brd 00:ff:ff:ff:ff:12:40:1b:ff:ff:00:00:00:00:00:00:ff:ff:ff:ff
+    inet 192.168.145.74/24 brd 192.168.145.255 scope global ib1
+    inet6 fe80::202:c903:0:165/64 scope link 
+       valid_lft forever preferred_lft forever
 
-Thanks,
-Rafael
+$ ip neigh
+192.168.145.73 dev ib1 lladdr 80:00:00:48:fe:80:00:00:00:00:00:00:00:02:c9:03:00:00:01:30 STALE
+172.29.224.1 dev eth0 lladdr 00:00:0c:07:ac:e0 REACHABLE
+
+and so on.
+
+ - R.
