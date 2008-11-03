@@ -1,8 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 13/15] broadcom: Refine expansion register access
- routine
-Date: Mon, 3 Nov 2008 02:27:58 -0800
-Message-ID: <1225751630.6202@xw6200>
+Subject: [PATCH 04/15] tg3: Preserve LAA when device control is released
+Date: Mon, 3 Nov 2008 02:11:19 -0800
+Message-ID: <1225751620.6175@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -12,114 +11,123 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:4898 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753698AbYKCWeB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 17:34:01 -0500
+	id S1756679AbYKCWdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 17:33:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes the expansion register access routines a little more
-formal.  They will be used by the following bcm50610 support patch.
+This patch moves the __tg3_set_mac_addr() function earlier in the file
+listing, to avoid a function prototype, and calls the function to
+restore the LAA after a driver unload chip reset.  With this code in
+place, the administrator can wake the machine using the LAA.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/phy/broadcom.c |   60 +++++++++++++++++++++++++-------------------
- 1 files changed, 34 insertions(+), 26 deletions(-)
+ drivers/net/tg3.c |   76 +++++++++++++++++++++++++++-------------------------
+ 1 files changed, 39 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 0fe3749..7e93592 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -128,36 +128,35 @@ static int bcm54xx_shadow_write(struct phy_device *phydev, u16 shadow, u16 val)
- 			 MII_BCM54XX_SHD_DATA(val));
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index e04cd98..9bd1be4 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -2014,6 +2014,43 @@ static void tg3_power_down_phy(struct tg3 *tp)
+ 	tg3_writephy(tp, MII_BMCR, BMCR_PDOWN);
  }
  
--/*
-- * Indirect register access functions for the Expansion Registers
-- * and Secondary SerDes registers (when sec_serdes=1).
-- */
--static int bcm54xx_exp_read(struct phy_device *phydev,
--			    int sec_serdes, u8 regnum)
-+/* Indirect register access functions for the Expansion Registers */
-+static int bcm54xx_exp_read(struct phy_device *phydev, u8 regnum)
++/* tp->lock is held. */
++static void __tg3_set_mac_addr(struct tg3 *tp, int skip_mac_1)
++{
++	u32 addr_high, addr_low;
++	int i;
++
++	addr_high = ((tp->dev->dev_addr[0] << 8) |
++		     tp->dev->dev_addr[1]);
++	addr_low = ((tp->dev->dev_addr[2] << 24) |
++		    (tp->dev->dev_addr[3] << 16) |
++		    (tp->dev->dev_addr[4] <<  8) |
++		    (tp->dev->dev_addr[5] <<  0));
++	for (i = 0; i < 4; i++) {
++		if (i == 1 && skip_mac_1)
++			continue;
++		tw32(MAC_ADDR_0_HIGH + (i * 8), addr_high);
++		tw32(MAC_ADDR_0_LOW + (i * 8), addr_low);
++	}
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
++		for (i = 0; i < 12; i++) {
++			tw32(MAC_EXTADDR_0_HIGH + (i * 8), addr_high);
++			tw32(MAC_EXTADDR_0_LOW + (i * 8), addr_low);
++		}
++	}
++
++	addr_high = (tp->dev->dev_addr[0] +
++		     tp->dev->dev_addr[1] +
++		     tp->dev->dev_addr[2] +
++		     tp->dev->dev_addr[3] +
++		     tp->dev->dev_addr[4] +
++		     tp->dev->dev_addr[5]) &
++		TX_BACKOFF_SEED_MASK;
++	tw32(MAC_TX_BACKOFF_SEED, addr_high);
++}
++
+ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
  {
- 	int val;
+ 	u32 misc_host_ctrl;
+@@ -2101,6 +2138,8 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
+ 		}
+ 	}
  
--	phy_write(phydev, MII_BCM54XX_EXP_SEL,
--		  (sec_serdes ? MII_BCM54XX_EXP_SEL_SSD :
--				MII_BCM54XX_EXP_SEL_ER) |
--		  regnum);
-+	val = phy_write(phydev, MII_BCM54XX_EXP_SEL, regnum);
-+	if (val < 0)
-+		return val;
++	__tg3_set_mac_addr(tp, 0);
 +
- 	val = phy_read(phydev, MII_BCM54XX_EXP_DATA);
--	phy_write(phydev, MII_BCM54XX_EXP_SEL, regnum);
-+
-+	/* Restore default value.  It's O.K. if this write fails. */
-+	phy_write(phydev, MII_BCM54XX_EXP_SEL, 0);
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+ 		u32 val;
  
- 	return val;
+@@ -6901,43 +6940,6 @@ static int tg3_load_tso_firmware(struct tg3 *tp)
  }
  
--static int bcm54xx_exp_write(struct phy_device *phydev,
--			     int sec_serdes, u8 regnum, u16 val)
-+static int bcm54xx_exp_write(struct phy_device *phydev, u8 regnum, u16 val)
+ 
+-/* tp->lock is held. */
+-static void __tg3_set_mac_addr(struct tg3 *tp, int skip_mac_1)
+-{
+-	u32 addr_high, addr_low;
+-	int i;
+-
+-	addr_high = ((tp->dev->dev_addr[0] << 8) |
+-		     tp->dev->dev_addr[1]);
+-	addr_low = ((tp->dev->dev_addr[2] << 24) |
+-		    (tp->dev->dev_addr[3] << 16) |
+-		    (tp->dev->dev_addr[4] <<  8) |
+-		    (tp->dev->dev_addr[5] <<  0));
+-	for (i = 0; i < 4; i++) {
+-		if (i == 1 && skip_mac_1)
+-			continue;
+-		tw32(MAC_ADDR_0_HIGH + (i * 8), addr_high);
+-		tw32(MAC_ADDR_0_LOW + (i * 8), addr_low);
+-	}
+-
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
+-		for (i = 0; i < 12; i++) {
+-			tw32(MAC_EXTADDR_0_HIGH + (i * 8), addr_high);
+-			tw32(MAC_EXTADDR_0_LOW + (i * 8), addr_low);
+-		}
+-	}
+-
+-	addr_high = (tp->dev->dev_addr[0] +
+-		     tp->dev->dev_addr[1] +
+-		     tp->dev->dev_addr[2] +
+-		     tp->dev->dev_addr[3] +
+-		     tp->dev->dev_addr[4] +
+-		     tp->dev->dev_addr[5]) &
+-		TX_BACKOFF_SEED_MASK;
+-	tw32(MAC_TX_BACKOFF_SEED, addr_high);
+-}
+-
+ static int tg3_set_mac_addr(struct net_device *dev, void *p)
  {
- 	int ret;
- 
--	phy_write(phydev, MII_BCM54XX_EXP_SEL,
--		  (sec_serdes ? MII_BCM54XX_EXP_SEL_SSD :
--				MII_BCM54XX_EXP_SEL_ER) |
--		  regnum);
-+	ret = phy_write(phydev, MII_BCM54XX_EXP_SEL, regnum);
-+	if (ret < 0)
-+		return ret;
-+
- 	ret = phy_write(phydev, MII_BCM54XX_EXP_DATA, val);
--	phy_write(phydev, MII_BCM54XX_EXP_SEL, regnum);
-+
-+	/* Restore default value.  It's O.K. if this write fails. */
-+	phy_write(phydev, MII_BCM54XX_EXP_SEL, 0);
- 
- 	return ret;
- }
-@@ -205,18 +204,27 @@ static int bcm5482_config_init(struct phy_device *phydev)
- 		/*
- 		 * Enable SGMII slave mode and auto-detection
- 		 */
--		reg = bcm54xx_exp_read(phydev, 1, BCM5482_SSD_SGMII_SLAVE);
--		bcm54xx_exp_write(phydev, 1, BCM5482_SSD_SGMII_SLAVE,
--				  reg |
--				  BCM5482_SSD_SGMII_SLAVE_EN |
--				  BCM5482_SSD_SGMII_SLAVE_AD);
-+		reg = BCM5482_SSD_SGMII_SLAVE | MII_BCM54XX_EXP_SEL_SSD;
-+		err = bcm54xx_exp_read(phydev, reg);
-+		if (err < 0)
-+			return err;
-+		err = bcm54xx_exp_write(phydev, reg, err |
-+					BCM5482_SSD_SGMII_SLAVE_EN |
-+					BCM5482_SSD_SGMII_SLAVE_AD);
-+		if (err < 0)
-+			return err;
- 
- 		/*
- 		 * Disable secondary SerDes powerdown
- 		 */
--		reg = bcm54xx_exp_read(phydev, 1, BCM5482_SSD_1000BX_CTL);
--		bcm54xx_exp_write(phydev, 1, BCM5482_SSD_1000BX_CTL,
--				  reg & ~BCM5482_SSD_1000BX_CTL_PWRDOWN);
-+		reg = BCM5482_SSD_1000BX_CTL | MII_BCM54XX_EXP_SEL_SSD;
-+		err = bcm54xx_exp_read(phydev, reg);
-+		if (err < 0)
-+			return err;
-+		err = bcm54xx_exp_write(phydev, reg,
-+					err & ~BCM5482_SSD_1000BX_CTL_PWRDOWN);
-+		if (err < 0)
-+			return err;
- 
- 		/*
- 		 * Select 1000BASE-X register set (primary SerDes)
+ 	struct tg3 *tp = netdev_priv(dev);
 -- 
 1.5.6.4
 
