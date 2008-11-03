@@ -1,55 +1,51 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] fs_enet: fix polling
-Date: Mon, 03 Nov 2008 15:26:01 -0500
-Message-ID: <490F5E59.6090106@pobox.com>
-References: <20081102144959.GA10869@x200.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Kumar Gala <kumar.gala@freescale.com>
+Subject: Re: [PATCH] gianfar: Omit TBI auto-negotiation based on device tree
+Date: Mon, 3 Nov 2008 14:38:15 -0600
+Message-ID: <5F0C4A97-EA35-4235-9457-FC44D4906E2D@freescale.com>
+References: <1225234382-23050-1-git-send-email-ncase@xes-inc.com> <Pine.LNX.4.64.0810301738020.3943@t2.domain.actdsltmp> <1225738532.27415.237.camel@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Vitaly Bordug <vitb@kernel.crashing.org>,
-	Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: Trent Piepho <tpiepho@freescale.com>, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org
+To: Nate Case <ncase@xes-inc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49698 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755037AbYKCU0V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2008 15:26:21 -0500
-In-Reply-To: <20081102144959.GA10869@x200.localdomain>
+Received: from az33egw02.freescale.net ([192.88.158.103]:38597 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752755AbYKCUib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 15:38:31 -0500
+In-Reply-To: <1225738532.27415.237.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> 1. compile fix for irqreturn_t type change
-> 2. restore ->poll_controller after CONFIG_PPC_CPM_NEW_BINDING transition
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ---
-> 
->  drivers/net/fs_enet/fs_enet-main.c |    6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> --- a/drivers/net/fs_enet/fs_enet-main.c
-> +++ b/drivers/net/fs_enet/fs_enet-main.c
-> @@ -1099,7 +1099,9 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
->  	ndev->stop = fs_enet_close;
->  	ndev->get_stats = fs_enet_get_stats;
->  	ndev->set_multicast_list = fs_set_multicast_list;
-> -
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +	ndev->poll_controller = fs_enet_netpoll;
-> +#endif
->  	if (fpi->use_napi)
->  		netif_napi_add(ndev, &fep->napi, fs_enet_rx_napi,
->  		               fpi->napi_weight);
-> @@ -1209,7 +1211,7 @@ static void __exit fs_cleanup(void)
->  static void fs_enet_netpoll(struct net_device *dev)
->  {
->         disable_irq(dev->irq);
-> -       fs_enet_interrupt(dev->irq, dev, NULL);
-> +       fs_enet_interrupt(dev->irq, dev);
->         enable_irq(dev->irq);
->  }
 
-applied
+On Nov 3, 2008, at 12:55 PM, Nate Case wrote:
 
+> On Thu, 2008-10-30 at 18:07 -0700, Trent Piepho wrote:
+>> But more relevant to your serdes problem, I also have a patch that
+>> prevents
+>> restarting serdes auto-negotiation if the serdes link is already up.
+>> My SGMII
+>> PHY will auto-negotiate, but it takes about 3 seconds.  Avoiding an
+>> unnecessary 3 second auto-negotiation when the gianfar device is
+>> opened lets
+>> me cut my power-on to DHCP completion time in half.
+>>
+>> I wonder if this would also fix your problem, without needing to add
+>> the extra
+>> workaround?
+>
+> I just verified that your patch solves my problem without the need for
+> my workaround.  So at this point, it looks like we can drop this patch
+> ("Omit TBI auto-negotiation based on device tree").
+>
+> I tested when booting the kernel in U-Boot both via both TFTP and  
+> flash
+> (I was worried that your patch may only fix things for the TFTP boot
+> case, but that wasn't the case fortunately).
+>
+> Thanks for the patch!
 
+Ok, marked Nate's patch as superseded in patchworks.
+
+- k
