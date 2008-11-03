@@ -1,58 +1,35 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2 net-next] pkt_sched: sch_generic: Kfree gso_skb in
-	qdisc_reset()
-Date: Mon, 3 Nov 2008 09:48:30 +0000
-Message-ID: <20081103094830.GA6030@ff.dom.local>
-References: <20081103090225.GB4698@ff.dom.local> <20081103.012755.210488675.davem@davemloft.net>
+From: Jianjun Kong <jianjun@zeuux.org>
+Subject: [PATCH] nets: rest patchs of cleaning up net/ipv4/*
+Date: Mon, 3 Nov 2008 18:41:33 +0800
+Message-ID: <20081103104133.GA19058@ubuntu>
+References: <20081102074446.GA12140@ubuntu> <490DEAD3.3030202@cosmosbay.com> <20081103082002.GG14553@ubuntu> <20081103.002808.142907024.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:43450 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754622AbYKCJsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 04:48:38 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so917705nfc.21
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 01:48:36 -0800 (PST)
+Received: from smtp.zeuux.org ([210.51.160.52]:53562 "EHLO z.billxu.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754866AbYKCKl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2008 05:41:27 -0500
 Content-Disposition: inline
-In-Reply-To: <20081103.012755.210488675.davem@davemloft.net>
+In-Reply-To: <20081103.002808.142907024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 03, 2008 at 01:27:55AM -0800, David Miller wrote:
-...
-> Isn't it necessary, or at least more tidy, to NULL out
-> this value too?
+On Mon, Nov 03, 2008 at 12:28:08AM -0800, David Miller wrote:
+>From: Jianjun Kong <jianjun@zeuux.org>
+>Date: Mon, 3 Nov 2008 16:20:02 +0800
+>
+>> 
+>>  [PATCH 6/6] clean net/ipv4/ipmr.c
+>> 
+>>  Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
+>
+>Applied.
 
-Sure it is!
+Thank you.
 
-Thanks!
-Jarek P.
------------------------> take 2
+There are also four patchs base on net-next-2.6. they are the rest part of the first large patch.
+I have come out the conflict between different trees.
 
-pkt_sched: sch_generic: Kfree gso_skb in qdisc_reset()
-
-Since gso_skb is re-used for qdisc_peek_dequeued(), and this skb is
-counted in the qdisc->q.qlen, it has to be kfreed during qdisc_reset()
-when qlen is zeroed.
-
-With help from David S. Miller <davem@davemloft.net>
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
-
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 318c9f6..1192da2 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -542,6 +542,9 @@ void qdisc_reset(struct Qdisc *qdisc)
- 
- 	if (ops->reset)
- 		ops->reset(qdisc);
-+
-+	kfree_skb(qdisc->gso_skb);
-+	qdisc->gso_skb = NULL;
- }
- EXPORT_SYMBOL(qdisc_reset);
- 
