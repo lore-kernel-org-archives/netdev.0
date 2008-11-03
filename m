@@ -1,86 +1,58 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC/PATCH] e100 driver didn't support any
-	MII-less PHYs...
-Date: Mon, 3 Nov 2008 01:34:06 -0800
-Message-ID: <9929d2390811030134ybe1d8aaq43b5a533f73fee71@mail.gmail.com>
-References: <20071228235118.GA31059@rhlx01.hs-esslingen.de>
-	<477732A5.5020501@intel.com>
-	<20080101200908.GA14805@rhlx01.hs-esslingen.de>
-	<20080129230315.GA13389@rhlx01.hs-esslingen.de>
-	<479FB225.7090604@intel.com>
-	<20080130064909.GA19793@rhlx01.hs-esslingen.de>
-	<47A0A713.7030304@intel.com>
-	<20081103080430.GA32459@rhlx01.hs-esslingen.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2 net-next] pkt_sched: sch_generic: Kfree gso_skb in
+	qdisc_reset()
+Date: Mon, 3 Nov 2008 09:48:30 +0000
+Message-ID: <20081103094830.GA6030@ff.dom.local>
+References: <20081103090225.GB4698@ff.dom.local> <20081103.012755.210488675.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, "Kok,
-	Auke" <auke-jan.h.kok@intel.com>, bunk@kernel.org,
-	linux-kernel@vger.kernel.org
-To: andi@lisas.de
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20081103080430.GA32459@rhlx01.hs-esslingen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:43450 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754622AbYKCJsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 04:48:38 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so917705nfc.21
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 01:48:36 -0800 (PST)
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20081103.012755.210488675.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 3, 2008 at 12:04 AM, Andreas Mohr
-<andim2@users.sourceforge.net> wrote:
-> Hi,
->
-> On Wed, Jan 30, 2008 at 08:34:27AM -0800, Kok, Auke wrote:
->> Andreas Mohr wrote:
->> > Hi,
->> >
->> > On Tue, Jan 29, 2008 at 03:09:25PM -0800, Kok, Auke wrote:
->> >> Andreas Mohr wrote:
->> >>> Perhaps it's useful to file a bug/patch
->> >>> on http://sourceforge.net/projects/e1000/ ? Perhaps -mm testing?
->> >> I wanted to push this though our testing labs first which has not happened due to
->> >> time constraints - that should quickly at least confirm that the most common nics
->> >> work OK after the change with your patch. I'll try and see if we can get this
->> >> testing done soon.
->> >
->> > Oh, full-scale regression testing even? Nice idea...
->> > Would optionally be even better if during hardware tests one could also
->> > dig out some i82503-based card (or additional MII-less cards?)
->> > since I didn't really make any effort yet to try to make them all
->> > recognized/supported by my patch already (would have been out of scope anyway
->> > since I have this single card only).
->>
->> the problem is that I think that most of those (mii-less cards) are customly
->> designed by OEM's that buy the silicon and glue on a different interface and we
->> usually do not carry those designs in our labs apart from a few exceptions. So, I
->> can at least touch the common hardware in testing, but not the exotic stuff.
->
-> Any update on how to get this support in? (it's not available in 2.6.28-rc2)
->
-> As it stands, I'm not the only one who would need this...
->
-> Thanks!
->
-> Andreas Mohr
-> --
->
+On Mon, Nov 03, 2008 at 01:27:55AM -0800, David Miller wrote:
+...
+> Isn't it necessary, or at least more tidy, to NULL out
+> this value too?
 
-I have a patch from Auke, which deals with the MII-less PHY's in e100.
- I will check on the status of the patch and either let you know the
-status or will be submitting a patch soon to netdev to address this
-issue.
+Sure it is!
 
--- 
-Cheers,
-Jeff
+Thanks!
+Jarek P.
+-----------------------> take 2
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+pkt_sched: sch_generic: Kfree gso_skb in qdisc_reset()
+
+Since gso_skb is re-used for qdisc_peek_dequeued(), and this skb is
+counted in the qdisc->q.qlen, it has to be kfreed during qdisc_reset()
+when qlen is zeroed.
+
+With help from David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 318c9f6..1192da2 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -542,6 +542,9 @@ void qdisc_reset(struct Qdisc *qdisc)
+ 
+ 	if (ops->reset)
+ 		ops->reset(qdisc);
++
++	kfree_skb(qdisc->gso_skb);
++	qdisc->gso_skb = NULL;
+ }
+ EXPORT_SYMBOL(qdisc_reset);
+ 
