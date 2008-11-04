@@ -1,599 +1,234 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [PATCH RFC v2] net: add PCINet driver
-Date: Tue, 4 Nov 2008 09:34:14 -0800
-Message-ID: <20081104173414.GB4641@ovro.caltech.edu>
-References: <20081029202027.GH12879@ovro.caltech.edu> <200811041309.25869.arnd@arndb.de>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: WARNING: at net/sched/sch_generic.c:219
+Date: Tue, 4 Nov 2008 09:36:51 -0800
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A0E874224@orsmsx507.amr.corp.intel.com>
+References: <20081103092609.GA8659@ntm.vs.lam.cz>
+ <F169D4F5E1F1974DBFAFABF47F60C10A0E873C1B@orsmsx507.amr.corp.intel.com>
+ <20081104093923.GA11658@ntm.vs.lam.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756925AbYKDRed@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200811041309.25869.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Tue, Nov 04, 2008 at 01:09:25PM +0100, Arnd Bergmann wrote:
-> On Wednesday 29 October 2008, Ira Snyder wrote:
-> > This adds support to Linux for a virtual ethernet interface which uses the
-> > PCI bus as its transport mechanism. It creates a simple, familiar, and fast
-> > method of communication for two devices connected by a PCI interface.
-> 
-> Very interesting. I have seen multiple such drivers, and still plan to
-> have one as well for the cell/axon platform.
-> 
-> > This is the third posting of this driver. I got some feedback, and have
-> > corrected the problems. Stephen, thanks for the review! I also got some
-> > off-list feedback from a potential user, so I believe this is worth getting
-> > into mainline.
-> 
-> Sorry for not having replied earlier, I did not see first postings.
-> While I did not see any major problems with your code, I think we should
-> actually do it in a different way, which I have talked about at the
-> Linux plumbers conference, and will again at the UKUUG Linux conference
-> this weekend. You can find my slides from the previous talk at
-> http://userweb.kernel.org/%7Earnd/papers/plumbers08/plumbers-slides.pdf
->  
-
-I'll read through these slides as soon as I'm finished replying to this
-email :)
-
-> Since you have code and I only have plans, I suppose I can't make you
-> wait for me to get a driver for your platform, but I hope we can join
-> forces in the future and share code in the future.
-> 
-
-I hope so too. I wrote this because I needed something working. I'm
-completely happy to help write code for another implementation.
-
-> My fundamental criticism of your code is that it is not flexible enough.
-> We have a number of platforms that act as a PCI, PCIe or similar kind
-> of device and want to transfer network data. At the same time, some of
-> these want to use the same infrastructure for non-network data like
-> MPI (ibverbs), block device or file system (9p). Even in your limited
-> setup, it seems that you should be able to share more code between the
-> two implementations you have posted here. When looking at the code, I
-> found a lot of duplication between the drivers that you should be able
-> to avoid.
-> 
-
-I completely agree. I made the host and client drivers as similar as
-possible on purpose, to increase my own code sharing. In fact, if you
-diff them, you'll see that they are almost identical.
-
-I decided that it would be better to post them up for review than try to
-fix every little problem.
-
-> My suggestion is to base this on the virtio infrastructure, and some
-> of my colleagues at IBM already implemented a driver that uses
-> virtio-net on a PCIe connection.
-> 
-
-To be honest, I couldn't get that figured out. I looked at that code for
-a couple of weeks and couldn't make a lot of sense out of it. I couldn't
-find much really good documentation, either. I'd love to re-use more
-code than I have.
-
-> 	Arnd <><
-> 
-> Now a few comments on your code:
-> 
-> 
-> > diff --git a/arch/powerpc/boot/dts/mpc834x_mds.dts b/arch/powerpc/boot/dts/mpc834x_mds.dts
-> > index c986c54..3bc8975 100644
-> > --- a/arch/powerpc/boot/dts/mpc834x_mds.dts
-> > +++ b/arch/powerpc/boot/dts/mpc834x_mds.dts
-> > @@ -104,6 +104,13 @@
-> >  			mode = "cpu";
-> >  		};
-> >  
-> > +		message-unit@8030 {
-> > +			compatible = "fsl,mpc8349-mu";
-> > +			reg = <0x8030 0xd0>;
-> > +			interrupts = <69 0x8>;
-> > +			interrupt-parent = <&ipic>;
-> > +		};
-> 
-> What is a message unit? Is this the mailbox you use in the driver?
-> We are facing a similar problem on Axon regarding probing of
-> the virtual device because you can't easily tell from the device
-> tree whether the machine is connected to something that is trying
-> to communicate.
-> 
-> The message-unit does not seem to be network-specific, so it's not
-> particularly nice to have the network unit grab that of_device.
-> 
-
-Yes, the message unit is how the Freescale reference manual describes
-this hardware. It is the mailbox hardware to generate interrupts, plus a
-few registers to transfer data.
-
-The registers aren't network specific, but they are needed for this
-driver. That is how the driver generates PCI interrupts to notify the
-other side of the connection it has new data, etc.
-
-> > +config PCINET_FSL
-> > +	tristate "PCINet Virtual Ethernet over PCI support (Freescale)"
-> > +	depends on MPC834x_MDS && !PCI
-> > +	select DMA_ENGINE
-> > +	select FSL_DMA
-> > +	help
-> > +	  When running as a PCI Agent, this driver will create a virtual
-> > +	  ethernet link running over the PCI bus, allowing simplified
-> > +	  communication with the host system. The host system will need
-> > +	  to use the corresponding driver.
-> > +
-> > +	  If in doubt, say N.
-> 
-> Why 'depends on !PCI'? This means that you cannot build a kernel that
-> is able to run both as host and endpoint for PCInet, right?
-> 
-
-Yes, that is correct. I did this because the Linux PCI code does some
-relatively nasty things in agent mode. One thing that consistently
-crashed my box was running through the quirks list and trying to
-re-initialize an e100 that was in my box.
-
-Remember, this is a PCI agent. It shouldn't be re-initializing the other
-hardware on the PCI bus.
-
-> > +config PCINET_HOST
-> > +	tristate "PCINet Virtual Ethernet over PCI support (Host)"
-> > +	depends on PCI
-> > +	help
-> > +	  This driver will let you communicate with a PCINet client device
-> > +	  using a virtual ethernet link running over the PCI bus. This
-> > +	  allows simplified communication with the client system.
-> > +
-> > +	  This is inteded for use in a system that has a crate full of
-> > +	  computers running Linux, all connected by a PCI backplane.
-> > +
-> > +	  If in doubt, say N.
-> 
-> Is this meant to be portable across different hardware implementations?
-> If the driver can only work with PCINET_FSL on the other side, you
-> should probably mention that in the description.
-> 
-
-I had hoped other people would come along and help port it to other
-hardware, like you yourself are suggesting. :) I'll add to the
-description.
-
-> > +config PCINET_DISABLE_CHECKSUM
-> > +	bool "Disable packet checksumming"
-> > +	depends on PCINET_FSL || PCINET_HOST
-> > +	default n
-> > +	help
-> > +	  Disable packet checksumming on packets received by the PCINet
-> > +	  driver. This gives a possible speed boost.
-> 
-> Why make this one optional? Is there ever a reason to enable checksumming?
-> If there is, how about making it tunable with ethtool?
-> 
-
-I left it optional so I could turn it on and off easily. I have no
-strong feelings on keeping it optional.
-
-Does the PCI bus reliably transfer data? I'm not sure. I left it there
-so that we could at least turn on checksumming if there was a problem.
-
-> > +struct circ_buf_desc {
-> > +	__le32 sc;
-> > +	__le32 len;
-> > +	__le32 addr;
-> > +} __attribute__((__packed__));
-> 
-> It would be useful to always force aligning the desciptors to the whole
-> 32 bit and avoid the packing here. Unaligned accesses are inefficient on
-> many systems.
-> 
-
-I don't really know how to do that. I got a warning here from sparse
-telling me something about expensive pointer subtraction. Adding a dummy
-32bit padding variable got rid of the warning, but I didn't change the
-driver.
-
-> > +typedef struct circ_buf_desc cbd_t;
-> 
-> Also, don't pass structures by value if they don't fit into one or
-> two registers.
-> 
-
-These are only used for pointers to the buffer descriptors (in RAM on
-the Freescale) that hold packet information. I never copy them directly.
-
-> > +/* Buffer Descriptor Accessors */
-> > +#define CBDW_SC(_cbd, _sc) iowrite32((_sc), &(_cbd)->sc)
-> > +#define CBDW_LEN(_cbd, _len) iowrite32((_len), &(_cbd)->len)
-> > +#define CBDW_ADDR(_cbd, _addr) iowrite32((_addr), &(_cbd)->addr)
-> > +
-> > +#define CBDR_SC(_cbd) ioread32(&(_cbd)->sc)
-> > +#define CBDR_LEN(_cbd) ioread32(&(_cbd)->len)
-> > +#define CBDR_ADDR(_cbd) ioread32(&(_cbd)->addr)
-> 
-> We have found that accessing remote descriptors using mmio read is
-> rather slow, and changed the code to always do local reads and
-> remote writes.
-> 
-
-Interesting. I don't know how you would get network speed doing this.
-X86 systems don't have a DMA conttroller. The entire purpose of making
-the Freescale do all the copying was to use its DMA controller.
-
-Using the DMA controller to transfer all of the data took my transfer
-speed from ~3MB/sec to ~45MB/sec. While that is a good increase, it
-could be better. I should be able to hit close to 133MB/sec (the limit
-of PCI)
-
-> On the host side, I would argue that you should use out_le32 rather
-> than iowrite32, because you are not operating on a PCI device but
-> an OF device.
-> 
-
-Yeah, you're probably correct. I can't remember if I tried this and had
-problems or not.
-
-> > +/* IMMR Accessor Helpers */
-> > +#define IMMR_R32(_off) ioread32(priv->immr+(_off))
-> > +#define IMMR_W32(_off, _val) iowrite32((_val), priv->immr+(_off))
-> > +#define IMMR_R32BE(_off) ioread32be(priv->immr+(_off))
-> > +#define IMMR_W32BE(_off, _val) iowrite32be((_val), priv->immr+(_off))
-> 
-> IIRC, the IMMR is a platform resource, so the system should map those
-> registers already and provide accessor functions for the registers
-> you need. Simply allowing to pass an offset in here does not look
-> clean.
-> 
-> 
-
-Correct. This was done to make both sides as identical as possible. The
-Freescale exports the entire 1MB block of IMMR registers at PCI BAR0. So
-I have to use the offsets on the host side.
-
->From the client side, I could just map what I need, but that would make
-the two drivers diverge. I was trying to keep them the same.
-
-> > +static void wqtuart_rx_char(struct uart_port *port, const char ch);
-> > +static void wqtuart_stop_tx(struct uart_port *port);
-> 
-> You should try to avoid forward declarations for static functions.
-> If you order the function implementation correctly, that will
-> also give you the expected reading order in the driver.
-> 
-
-Yep, I tried to do this. I couldn't figure out a sane ordering that
-would work. I tried to keep the network and uart as seperate as possible
-in the code.
-
-> > +struct wqt_dev;
-> > +typedef void (*wqt_irqhandler_t)(struct wqt_dev *);
-> 
-> Much more importantly, never do forward declarations for
-> global functions!
-> 
-> These belong into a header that is included by both the
-> user and the definition.
-> 
-> 
-
-Ok.
-
-> > +struct wqt_dev {
-> > +	/*--------------------------------------------------------------------*/
-> > +	/* OpenFirmware Infrastructure                                        */
-> > +	/*--------------------------------------------------------------------*/
-> > +	struct of_device *op;
-> > +	struct device *dev;
-> 
-> Why the dev? You can always get that from the of_device, right?
-> 
-
-Yes. I stored it there to make it identical to the host driver. By doing
-this, both drivers have code that says "dev_debug(priv->dev, ...)"
-rather than:
-
-Host:
-dev_debug(&priv->pdev->dev, ...)
-
-Freescale:
-dev_debug(&priv->op->dev, ...)
-
-> > +	int irq;
-> > +	void __iomem *immr;
-> 
-> I don't think immr is device specific.
-> 
-
-Correct, it is not. Both the PCI subsystem and the OF subsystem will
-call probe() when a new device is detected. I stored it here so I could
-ioremap() them at probe() time, and to keep both drivers' code the same.
-
-> > +	struct mutex irq_mutex;
-> > +	int interrupt_count;
-> > +
-> > +	spinlock_t irq_lock;
-> > +	struct wqt_irqhandlers handlers;
-> > +
-> > +	/*--------------------------------------------------------------------*/
-> > +	/* UART Device Infrastructure                                         */
-> > +	/*--------------------------------------------------------------------*/
-> > +	struct uart_port port;
-> > +	bool uart_rx_enabled;
-> > +	bool uart_open;
-> 
-> hmm, if you need a uart, that sounds like it should be a separate driver
-> altogether. What is the relation between the network interface and the UART?
-> 
-
-Yes, I agree. How do you make two Linux drivers that can be loaded for
-the same hardware at the same time? :) AFAIK, you cannot.
-
-I NEED two functions accessible at the same time, network (to transfer
-data) and uart (to control my bootloader).
-
-I use the uart to interact with the bootloader (U-Boot) and tell it
-where to tftp a kernel. I use the network to transfer the kernel.
-
-So you see, I really do need them both at the same time. If you know a
-better way to do this, please let me know!
-
-It was possible to write seperate U-Boot drivers, but only by being
-careful to not conflict in my usage of the hardware.
-
-> > +	struct workqueue_struct *wq;
-> 
-> A per-device pointer to a workqueue_struct is unusual. What are you doing
-> this for? How about using the system work queue?
-> 
-
-Look through the code carefully, especially at uart_tx_work_fn(), which
-calls do_send_message().
-
-do_send_message() can sleep for a long time. If I use the shared
-workqueue, I block ALL OTHER USERS of the queue for the time I am
-asleep. They cannot run.
-
-The LDD3 book says not to use the shared workqueue if you are going to
-sleep for long periods. I followed their advice.
-
-> > +	/*--------------------------------------------------------------------*/
-> > +	/* Ethernet Device Infrastructure                                     */
-> > +	/*--------------------------------------------------------------------*/
-> > +	struct net_device *ndev;
-> 
-> Why make this a separate structure? If you have one of these per net_device,
-> you should embed the net_device into your own structure.
-> 
-
-This structure is embedded in struct net_device! Look at how
-alloc_etherdev() works. You pass it the size of your private data
-structure and it allocates the space for you.
-
-> > +	struct tasklet_struct tx_complete_tasklet;
-> 
-> Using a tasklet for tx processing sounds fishy because most of the
-> network code already runs at softirq time. You do not gain anything
-> by another softirq context.
-> 
-
-I didn't want to run the TX cleanup routine at hard irq time, because it
-can potentially take some time to run. I would rather run it with hard
-interrupts enabled.
-
-This DOES NOT do TX processing, it only frees skbs that have been
-transferred. I used the network stack to do as much as possible, of
-course.
-
-> > +/*----------------------------------------------------------------------------*/
-> > +/* Status Register Helper Operations                                          */
-> > +/*----------------------------------------------------------------------------*/
-> > +
-> > +static DEFINE_SPINLOCK(status_lock);
-> > +
-> > +static void wqtstatus_setbit(struct wqt_dev *priv, u32 bit)
-> > +{
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&status_lock, flags);
-> > +	IMMR_W32(OMR1_OFFSET, IMMR_R32(OMR1_OFFSET) | bit);
-> > +	spin_unlock_irqrestore(&status_lock, flags);
-> > +}
-> > +
-> > +static void wqtstatus_clrbit(struct wqt_dev *priv, u32 bit)
-> > +{
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&status_lock, flags);
-> > +	IMMR_W32(OMR1_OFFSET, IMMR_R32(OMR1_OFFSET) & ~bit);
-> > +	spin_unlock_irqrestore(&status_lock, flags);
-> > +}
-> 
-> This looks misplaced, as mentioned before.
-> 
-
-I used these so I could have some remote status. Remember, this has to
-work for Linux -> U-Boot, not just Linux <-> Linux.
-
-While the board is booting Linux, the RAM I used to hold buffer
-descriptors disappears! I need some shared status to make sure no stray
-accesses happen to random areas of memory.
-
-The case this potentially happens is:
-1) Start Freescale board, do NOT install the driver
-2) Insert the driver into the host system
-
-Now, if the host tries writing to the buffer descriptors, we've
-corrupted memory on the Freescale board.
-
-> > +static int wqtstatus_remote_testbit(struct wqt_dev *priv, u32 bit)
-> > +{
-> > +	return IMMR_R32(IMR1_OFFSET) & bit;
-> > +}
-> 
-> Are you sure that do not need a spinlock here? The lock also
-> prevents reordering the device access arount the code using
-> the mmio data.
-> 
-
-I don't think so. Note that this is a status bit on the remote side of
-the connection. My access ordering means nothing when the remote side is
-setting and clearing the bit.
-
-> > +/*----------------------------------------------------------------------------*/
-> > +/* Message Sending and Processing Operations                                  */
-> > +/*----------------------------------------------------------------------------*/
-> > +
-> > +static irqreturn_t wqt_interrupt(int irq, void *dev_id)
-> > +{
-> > +	struct wqt_dev *priv = dev_id;
-> > +	u32 imisr, idr;
-> > +	unsigned long flags;
-> > +
-> > +	imisr = IMMR_R32(IMISR_OFFSET);
-> > +	idr = IMMR_R32(IDR_OFFSET);
-> > +
-> > +	if (!(imisr & 0x8))
-> > +		return IRQ_NONE;
-> > +
-> > +	/* Clear all of the interrupt sources, we'll handle them next */
-> > +	IMMR_W32(IDR_OFFSET, idr);
-> > +
-> > +	/* Lock over all of the handlers, so they cannot get called when
-> > +	 * the code doesn't expect them to be called */
-> > +	spin_lock_irqsave(&priv->irq_lock, flags);
-> 
-> If this is in an interrupt handler, why disable the interrupts again?
-> The same comment applies to many of the other places where you
-> use spin_lock_irqsave rather than spin_lock or spin_lock_irq.
-> 
-
-I tried to make the locking do only what was needed. I just couldn't get
-it correct unless I used spin_lock_irqsave(). I was able to get the
-system to deadlock otherwise. This is why I posted the driver for
-review, I could use some help here.
-
-It isn't critical anyway. You can always use spin_lock_irqsave(), it is
-just a little slower, but it will always work :)
-
-> > +/* NOTE: All handlers are called with priv->irq_lock held */
-> > +
-> > +static void empty_handler(struct wqt_dev *priv)
-> > +{
-> > +	/* Intentionally left empty */
-> > +}
-> > +
-> > +static void net_start_req_handler(struct wqt_dev *priv)
-> > +{
-> > +	schedule_work(&priv->net_start_work);
-> > +}
-> > +
-> > +static void net_start_ack_handler(struct wqt_dev *priv)
-> > +{
-> > +	complete(&priv->net_start_completion);
-> > +}
-> > +
-> > +static void net_stop_req_handler(struct wqt_dev *priv)
-> > +{
-> > +	schedule_work(&priv->net_stop_work);
-> > +}
-> > +
-> > +static void net_stop_ack_handler(struct wqt_dev *priv)
-> > +{
-> > +	complete(&priv->net_stop_completion);
-> > +}
-> > +
-> > +static void net_tx_complete_handler(struct wqt_dev *priv)
-> > +{
-> > +	tasklet_schedule(&priv->tx_complete_tasklet);
-> > +}
-> > +
-> > +static void net_rx_packet_handler(struct wqt_dev *priv)
-> > +{
-> > +	wqtstatus_setbit(priv, PCINET_NET_RXINT_OFF);
-> > +	netif_rx_schedule(priv->ndev, &priv->napi);
-> > +}
-> > +
-> > +static void uart_rx_ready_handler(struct wqt_dev *priv)
-> > +{
-> > +	wqtuart_rx_char(&priv->port, IMMR_R32(IMR0_OFFSET) & 0xff);
-> > +	IMMR_W32(ODR_OFFSET, UART_TX_EMPTY_DBELL);
-> > +}
-> > +
-> > +static void uart_tx_empty_handler(struct wqt_dev *priv)
-> > +{
-> > +	priv->uart_tx_ready = true;
-> > +	wake_up(&priv->uart_tx_wait);
-> > +}
-> 
-> Since these all seem to be trivial functions, why go through the
-> indirect function pointers at all? It seems that wqt_interrupt
-> could do this just as well.
-> 
-
-I did this so they can be disabled independently. It is VERY tricky to
-get the board started without the chance of corrupting memory. Write the
-code, you'll see :)
-
-You have to deal with two systems that can read/write each other's
-memory, but DO NOT have any synchronization primitives.
-
-> > +
-> > +static int wqt_request_irq(struct wqt_dev *priv)
-> > +{
-> > +	int ret = 0;
-> 
-> no point initializing ret.
-> 
-> > +	mutex_lock(&priv->irq_mutex);
-> 
-> What data does the irq_mutex protect?
-> 
-
-priv->interrupt_count and the indirect handlers.
-
-Note that I have two fundamentally seperate devices here. The network
-and the uart.
-
-What if noone has brought up the network interface? You'd still expect
-the uart to work, right? In this case, I need to call request_irq() in
-TWO places, the network's open() and the uart's open().
-
-There is only a single interrupt for this hardware. When only the uart
-is open, I only want the uart section of the irq handler enabled. This
-is where the indirect handlers come in. On uart open(), I call
-wqt_request_irq(), which will ONLY call request_irq() if it HAS NOT been
-called yet.
-
-Here are a few examples:
-Ex1: uart only
-1) uart open() is called
-2) wqt_request_irq() is called
-3) the uart irq handling functions are enabled
-4) request_irq() is called, hooking up the irq
-5) the uart is started
-
-The network by itself works exactly the same.
-
-Ex2: uart first, then network while uart is open
-1) uart open() is called
-2) wqt_request_irq() is called
-3) the uart irq handling functions are enabled
-4) request_irq() is called, hooking up the irq handler
-5) the uart is started
-6) time passes
-7) network open() is called
-8) wqt_request_irq() is called
-9) request_irq() is NOT CALLED THIS TIME, because it is already enabled
-10) the network irq handling functions are enabled
-11) the network is started
-
-
-
-Thanks so much for the review! I hope we can work together to get
-something that can be merged into mainline Linux. I'm willing to write
-code, I just need some direction from more experienced kernel
-developers.
-
-Ira
+Content-Type: multipart/signed; micalg=SHA1;
+	protocol="application/x-pkcs7-signature";
+	boundary="----=_NextPart_000_0049_01C93E60.DD4BE190"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Milan Kocian <milon@wq.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:57277 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754428AbYKDRg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2008 12:36:56 -0500
+In-Reply-To: <20081104093923.GA11658@ntm.vs.lam.cz>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+------=_NextPart_000_0049_01C93E60.DD4BE190
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_001_004A_01C93E60.DD52E670"
+
+
+------=_NextPart_001_004A_01C93E60.DD52E670
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+Milan Kocian wrote:
+> Thanks for answer.
+> Its selfcompiled 64bit kernel. Intel CPU QuadCore. SuperMicro
+> mainboard. 2GB RAM, Debian unstable distro.
+
+Ah, another occurrence of our good (well not so good) friend the
+supermicro with 82573E/L.
+
+> 0d:00.0 Ethernet controller: Intel Corporation 82573E Gigabit
+> 0e:00.0 Ethernet controller: Intel Corporation 82573L Gigabit
+
+Please run the attached script on both of these ports (this adapter is
+one reason we have the write eeprom routines in our drivers) and let us
+know the results.
+
+It is highly likely that there is a known issue with the eeprom (created
+from an early version of our reference eeprom) configuring the hardware
+incorrectly, which causes tx hangs.
+
+Jesse
+
+------=_NextPart_001_004A_01C93E60.DD52E670
+Content-Type: application/octet-stream;
+	name="fixeep"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="fixeep"
+
+#!/bin/bash=0A=
+=0A=
+if [ -z "$1" ]; then=0A=
+	echo "Usage: $0 \<interface\>"=0A=
+	echo "       i.e. $0 eth0"=0A=
+	exit 1=0A=
+fi=0A=
+=0A=
+if ! ifconfig $1 > /dev/null; then=0A=
+	exit 1=0A=
+fi=0A=
+=0A=
+dev=3D$(ethtool -e $1 | grep 0x0010 | awk '{print "0x"$13$12$15$14}')=0A=
+=0A=
+case $dev in=0A=
+	0x108b8086)=0A=
+		echo "$1: is a \"82573V Gigabit Ethernet Controller\""=0A=
+		;;=0A=
+	0x108c8086)=0A=
+		echo "$1: is a \"82573E Gigabit Ethernet Controller\""=0A=
+		;;=0A=
+	0x109a8086)=0A=
+		echo "$1: is a \"82573L Gigabit Ethernet Controller\""=0A=
+		;;=0A=
+	*)=0A=
+		echo "No appropriate hardware found for this fixup"=0A=
+		exit 1=0A=
+		;;=0A=
+esac=0A=
+=0A=
+echo "This fixup is applicable to your hardware"=0A=
+=0A=
+var=3D$(ethtool -e $1 | grep 0x0010 | awk '{print $16}')=0A=
+new=3D$(echo ${var:0:1}`echo ${var:1} | tr '02468ace' '13579bdf'`)=0A=
+=0A=
+if [ ${var:0:1}${var:1} =3D=3D $new ]; then=0A=
+	echo "Your eeprom is up to date, no changes were made"=0A=
+	exit 2=0A=
+fi=0A=
+=0A=
+echo "executing command: ethtool -E $1 magic $dev offset 0x1e value =
+0x$new"=0A=
+ethtool -E $1 magic $dev offset 0x1e value 0x$new=0A=
+
+------=_NextPart_001_004A_01C93E60.DD52E670--
+
+------=_NextPart_000_0049_01C93E60.DD4BE190
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIXMTCCAyAw
+ggKJoAMCAQICBDXe9M8wDQYJKoZIhvcNAQEFBQAwTjELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB0Vx
+dWlmYXgxLTArBgNVBAsTJEVxdWlmYXggU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eTAeFw05
+ODA4MjIxNjQxNTFaFw0xODA4MjIxNjQxNTFaME4xCzAJBgNVBAYTAlVTMRAwDgYDVQQKEwdFcXVp
+ZmF4MS0wKwYDVQQLEyRFcXVpZmF4IFNlY3VyZSBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkwgZ8wDQYJ
+KoZIhvcNAQEBBQADgY0AMIGJAoGBAMFdsVhnCGLuoJotHwhtkRRomAoe/toEbxOEYiHD0XzOnwXg
+uAHwTjTs4oqVBGSs8WtTXwWzy2eAv0ICjv7dAQns4QAUT/z78AzdQ7pbK+EfgHCZFVeTFvEPl2q3
+wmgjHMxNWTCsUR47ryvW7mNFe8XZX1DS41APOojnvxT94Me5AgMBAAGjggEJMIIBBTBwBgNVHR8E
+aTBnMGWgY6BhpF8wXTELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB0VxdWlmYXgxLTArBgNVBAsTJEVx
+dWlmYXggU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eTENMAsGA1UEAxMEQ1JMMTAaBgNVHRAE
+EzARgQ8yMDE4MDgyMjE2NDE1MVowCwYDVR0PBAQDAgEGMB8GA1UdIwQYMBaAFEjmaPkr0rKV10fY
+IyAQTzOYkJ/UMB0GA1UdDgQWBBRI5mj5K9KylddH2CMgEE8zmJCf1DAMBgNVHRMEBTADAQH/MBoG
+CSqGSIb2fQdBAAQNMAsbBVYzLjBjAwIGwDANBgkqhkiG9w0BAQUFAAOBgQBYzinq/Pfetc4CuRe1
+hdG54+CVzCUxDQCmkm5/tpJjnlCV0Zpv5BHeY4VumO6o/1rI01WyZnFX3sAh6z0qpyNJAQSGQnv8
+7n+iFlK1Z2fTQNs7JliyKHc9rhR3Ydb6KmYnoA36p3Nc6nDxlCFlRF/6/O8paKmih3nvee9PrAd3
+ODCCAz0wggKmoAMCAQICAwWw/zANBgkqhkiG9w0BAQUFADBOMQswCQYDVQQGEwJVUzEQMA4GA1UE
+ChMHRXF1aWZheDEtMCsGA1UECxMkRXF1aWZheCBTZWN1cmUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5
+MB4XDTA2MDIxNjE4MDEzMFoXDTE2MDIxOTE4MDEzMFowUjELMAkGA1UEBhMCVVMxGjAYBgNVBAoT
+EUludGVsIENvcnBvcmF0aW9uMScwJQYDVQQDEx5JbnRlbCBFeHRlcm5hbCBCYXNpYyBQb2xpY3kg
+Q0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDBpd/XOb9QVqEZ8mQ1042TdOIq3ATD
+IsV2xDyt30yLyMR5Wjtus0bn3B+he89BiNO/LP6+rFzEwlD55PlX+HLGIKeNNG97dqyc30FElEUj
+ZzTZFq2N4e3kVJ/XAEEgANzV8v9qp7qWwxugPgfc3z9BkYot+CifozexHLb/hEZj+yISCU61kRZv
+uSQ0E11yYL4dRgcglJeaHo3oX57rvIckaLsYV5/1Aj+R8DM1Ppk965XQAKsHfnyT7C4S50T4lVn4
+lz36wOdNZn/zegG1zp41lnoTFfT4KuKVJH5x7YD1p6KbgJCKLovnujGuohquBNfdXKpZkvz6pGv+
+iC1HawJdAgMBAAGjgaAwgZ0wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBQaxgxKxEdvqNutK/D0
+Vgaj7TdUDDA6BgNVHR8EMzAxMC+gLaArhilodHRwOi8vY3JsLmdlb3RydXN0LmNvbS9jcmxzL3Nl
+Y3VyZWNhLmNybDAfBgNVHSMEGDAWgBRI5mj5K9KylddH2CMgEE8zmJCf1DAPBgNVHRMBAf8EBTAD
+AQH/MA0GCSqGSIb3DQEBBQUAA4GBABMQOK2kVKVIlUWwLTdywJ+e2O+PC/uQltK2F3lRyrPfBn69
+tOkIP4SgDJOfsxyobIrPLe75kBLw+Dom13OBDp/EMZJZ1CglQfVV8co9mT3aZMjSGGQiMgkJLR3j
+Mfr900fXZKj5XeqCJ+JP0mEhJGEdVCY+FFlksJjV86fDrq1QMIIFYzCCBEugAwIBAgIKYSyUiQAA
+AAAABTANBgkqhkiG9w0BAQUFADBSMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9y
+YXRpb24xJzAlBgNVBAMTHkludGVsIEV4dGVybmFsIEJhc2ljIFBvbGljeSBDQTAeFw0wNjAzMjIy
+MjIyNDJaFw0xMjAzMjIyMjMyNDJaMFYxCzAJBgNVBAYTAlVTMRowGAYDVQQKExFJbnRlbCBDb3Jw
+b3JhdGlvbjErMCkGA1UEAxMiSW50ZWwgRXh0ZXJuYWwgQmFzaWMgSXNzdWluZyBDQSAzQTCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKvXqH/ah10uJc7YzQUh+XEDNqS6IsXOyqCtizr9
+x6F+v6iRAbvddRRJRWixfV78qarSN9WMymJ90M8c9/Dfr1yzFuq95RgCAF3vdve3wKi7kJv6lkMJ
+wyyB+uIYcWtljYx2LDqbb9S6Z6He3q8W/aGKvu23I9ksNx+cmZcDNZwGdXVIEHpEMyA4bp0RvYtf
+p8BsGAyn6YuK63HugeyYdeFL+4+Wz2tGUqw9OWhob6oV1oDH3zboLhHJiQ2oIj3jAJ3/LrIkzcWP
+2R20UIliDAPAAl6MNWJPdsNK5EEeuxEuUSpdFsMj5rBmPHH4U8i8rUmi6GEOcX5rwAw64AzS3gEC
+AwEAAaOCAjUwggIxMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFAlpgTN7BnOPI0wKA9/3FoER
+ghMFMAsGA1UdDwQEAwIBhjAQBgkrBgEEAYI3FQEEAwIBADAZBgkrBgEEAYI3FAIEDB4KAFMAdQBi
+AEMAQTAfBgNVHSMEGDAWgBQaxgxKxEdvqNutK/D0Vgaj7TdUDDCBvQYDVR0fBIG1MIGyMIGvoIGs
+oIGphk5odHRwOi8vd3d3LmludGVsLmNvbS9yZXBvc2l0b3J5L0NSTC9JbnRlbCUyMEV4dGVybmFs
+JTIwQmFzaWMlMjBQb2xpY3klMjBDQS5jcmyGV2h0dHA6Ly9jZXJ0aWZpY2F0ZXMuaW50ZWwuY29t
+L3JlcG9zaXRvcnkvQ1JML0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUyMENBLmNy
+bDCB4wYIKwYBBQUHAQEEgdYwgdMwYwYIKwYBBQUHMAKGV2h0dHA6Ly93d3cuaW50ZWwuY29tL3Jl
+cG9zaXRvcnkvY2VydGlmaWNhdGVzL0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUy
+MENBLmNydDBsBggrBgEFBQcwAoZgaHR0cDovL2NlcnRpZmljYXRlcy5pbnRlbC5jb20vcmVwb3Np
+dG9yeS9jZXJ0aWZpY2F0ZXMvSW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIwUG9saWN5JTIwQ0Eu
+Y3J0MA0GCSqGSIb3DQEBBQUAA4IBAQCuNCnecJ+vDpXzsHOzMEyz4KgTNDbJROHag8H/ZVga7soc
+oJyC+HKqDfQgxifVorbTbSajCBEAxqg6bbNWBJ6qKOFHneBrXkENf5WdD50eCTCFWRV3EIsHEOQ1
+kP0eNYV5Ed4hp9y6wASV6z2z86O4+qouLJiow4AIhoCKD8rEyD7ODgTvjvLCKpsVyPlG1jOVSsOS
+IF2VUmueAmK3RFU4np83zerK/j0G37owhniEDT6ZhwkUd0XL45nt1m7yApMEbnXUTHNaXnE+P98k
+k3nDXdW25sB+5xWcYR3GpgMdQiZgP/f0KZ+yZKNE7gcp3I/O4pXqUNWIsLSYTi3soAR2MIIFizCC
+BHOgAwIBAgIKTys7CwAAAAAWqTANBgkqhkiG9w0BAQUFADBWMQswCQYDVQQGEwJVUzEaMBgGA1UE
+ChMRSW50ZWwgQ29ycG9yYXRpb24xKzApBgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElzc3Vp
+bmcgQ0EgM0EwHhcNMDcwODA3MDAyMzE2WhcNMTAwODA2MDAyMzE2WjBHMRowGAYDVQQDExFCcmFu
+ZGVidXJnLCBKZXNzZTEpMCcGCSqGSIb3DQEJARYaamVzc2UuYnJhbmRlYnVyZ0BpbnRlbC5jb20w
+gZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALVYgP1o+Y7nwm5Lr6GerkzP9QweQWF7Ban1beaZ
+Etba5ALpVHObkA/1pXF8sE/iJnu4CxUAxAmVArSVNHWFJDdS/rR43JOvekwVIKEo4a9JABCXF+rt
+K/1ImEN+RDLfl/0Wd73CRfOvRtTSlg+pUqVyCtL9B3X1bzY+OPxicYahAgMBAAGjggLsMIIC6DAL
+BgNVHQ8EBAMCB4AwHQYDVR0OBBYEFKqZruraVjeOWvjg3XEwVS5Kkvn0MDwGCSsGAQQBgjcVBwQv
+MC0GJSsGAQQBgjcVCIbDjHWEmeVRg/2BKIWOn1OCkcAJZ4HevTmV8EMCAWQCAQMwHwYDVR0jBBgw
+FoAUCWmBM3sGc48jTAoD3/cWgRGCEwUwgckGA1UdHwSBwTCBvjCBu6CBuKCBtYZUaHR0cDovL3d3
+dy5pbnRlbC5jb20vcmVwb3NpdG9yeS9DUkwvSW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIwSXNz
+dWluZyUyMENBJTIwM0EuY3Jshl1odHRwOi8vY2VydGlmaWNhdGVzLmludGVsLmNvbS9yZXBvc2l0
+b3J5L0NSTC9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMlMjBJc3N1aW5nJTIwQ0ElMjAzQS5jcmww
+ge8GCCsGAQUFBwEBBIHiMIHfMGkGCCsGAQUFBzAChl1odHRwOi8vd3d3LmludGVsLmNvbS9yZXBv
+c2l0b3J5L2NlcnRpZmljYXRlcy9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMlMjBJc3N1aW5nJTIw
+Q0ElMjAzQS5jcnQwcgYIKwYBBQUHMAKGZmh0dHA6Ly9jZXJ0aWZpY2F0ZXMuaW50ZWwuY29tL3Jl
+cG9zaXRvcnkvY2VydGlmaWNhdGVzL0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMElzc3Vpbmcl
+MjBDQSUyMDNBLmNydDAfBgNVHSUEGDAWBggrBgEFBQcDBAYKKwYBBAGCNwoDDDApBgkrBgEEAYI3
+FQoEHDAaMAoGCCsGAQUFBwMEMAwGCisGAQQBgjcKAwwwUQYDVR0RBEowSKAqBgorBgEEAYI3FAID
+oBwMGmplc3NlLmJyYW5kZWJ1cmdAaW50ZWwuY29tgRpqZXNzZS5icmFuZGVidXJnQGludGVsLmNv
+bTANBgkqhkiG9w0BAQUFAAOCAQEAJL8raLZYyz2imhvIrmSaQNhCOEzTwIXqxhlMbnPpeZUKlUym
+6Tg7VaGXsqSyNQRe2eOK3gv2Et1O1ZsJwRGLC9mzKug8xeE5doO7HbbO04C8bR4B7jID2xByDJsT
+f99mrprSwng4brFaW9JiSbCQyxmmApPoVXEff3lUqphiotdebDeV8y8a+s/yJCviLUinLbs4Uowf
+/SXu6k+b27ue/I/QmWq01CF9wT/QMPyyAkIR+62XCGjGAZJIfsoZzCtab9/ujU7B0d7wV1Tq/koX
+L21E3rOyAZ6I+7jpV0HDqY9KjPdLQu2tQ7I1u6iPORDH29STos5g/xv48jMK+RemBTCCBdIwggS6
+oAMCAQICCk82OTAAAAAAFqowDQYJKoZIhvcNAQEFBQAwVjELMAkGA1UEBhMCVVMxGjAYBgNVBAoT
+EUludGVsIENvcnBvcmF0aW9uMSswKQYDVQQDEyJJbnRlbCBFeHRlcm5hbCBCYXNpYyBJc3N1aW5n
+IENBIDNBMB4XDTA3MDgwNzAwMzUxM1oXDTEwMDgwNjAwMzUxM1owRzEaMBgGA1UEAxMRQnJhbmRl
+YnVyZywgSmVzc2UxKTAnBgkqhkiG9w0BCQEWGmplc3NlLmJyYW5kZWJ1cmdAaW50ZWwuY29tMIGf
+MA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDi2zY1Qs4T/t3n7P8HqwPt42qNN+oSkatx6IEcMpQ3
+F0gPolrDmw2NqF4cC77He10MCA5vCd4dyL0wPDKguH0wcntGCaYVf4EitdnTl+TGPkuAoRaUZAhc
+NjmPrL2pH8HtJf/ANHQPtVuCUnPbUl12c9HPOqvVWSdXniNBUVCM9QIDAQABo4IDMzCCAy8wCwYD
+VR0PBAQDAgQwMEQGCSqGSIb3DQEJDwQ3MDUwDgYIKoZIhvcNAwICAgCAMA4GCCqGSIb3DQMEAgIA
+gDAHBgUrDgMCBzAKBggqhkiG9w0DBzAdBgNVHQ4EFgQUvdfuEHaw1+wbTNraFaClPaDVErUwPQYJ
+KwYBBAGCNxUHBDAwLgYmKwYBBAGCNxUIhsOMdYSZ5VGD/YEohY6fU4KRwAlnhLnZQYeE/04CAWQC
+AQcwHwYDVR0jBBgwFoAUCWmBM3sGc48jTAoD3/cWgRGCEwUwgckGA1UdHwSBwTCBvjCBu6CBuKCB
+tYZUaHR0cDovL3d3dy5pbnRlbC5jb20vcmVwb3NpdG9yeS9DUkwvSW50ZWwlMjBFeHRlcm5hbCUy
+MEJhc2ljJTIwSXNzdWluZyUyMENBJTIwM0EuY3Jshl1odHRwOi8vY2VydGlmaWNhdGVzLmludGVs
+LmNvbS9yZXBvc2l0b3J5L0NSTC9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMlMjBJc3N1aW5nJTIw
+Q0ElMjAzQS5jcmwwge8GCCsGAQUFBwEBBIHiMIHfMGkGCCsGAQUFBzAChl1odHRwOi8vd3d3Lmlu
+dGVsLmNvbS9yZXBvc2l0b3J5L2NlcnRpZmljYXRlcy9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMl
+MjBJc3N1aW5nJTIwQ0ElMjAzQS5jcnQwcgYIKwYBBQUHMAKGZmh0dHA6Ly9jZXJ0aWZpY2F0ZXMu
+aW50ZWwuY29tL3JlcG9zaXRvcnkvY2VydGlmaWNhdGVzL0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNp
+YyUyMElzc3VpbmclMjBDQSUyMDNBLmNydDAfBgNVHSUEGDAWBggrBgEFBQcDBAYKKwYBBAGCNwoD
+BDApBgkrBgEEAYI3FQoEHDAaMAoGCCsGAQUFBwMEMAwGCisGAQQBgjcKAwQwUQYDVR0RBEowSKAq
+BgorBgEEAYI3FAIDoBwMGmplc3NlLmJyYW5kZWJ1cmdAaW50ZWwuY29tgRpqZXNzZS5icmFuZGVi
+dXJnQGludGVsLmNvbTANBgkqhkiG9w0BAQUFAAOCAQEAWZ7lU8JqwDbBes8ezVkGWmY91zVg87Bi
+0Qxh0u9J5fIF+8KZ6tt7GX3Q8GRj0bZnX4hzFk6+wxT+25hXUb7c0ZmEIMbr8LYvOWXHghvjQja1
+mkIC2eArcr42E8Bwy3BcwF+0K38UsqAkmlBzDOEf/lleIjgEamarv94UvjwFNsK6/sRCVSgOIU1T
+8QeeCx0Y7Roaqjwt+66CwpIT6upnfJdSfplPXeYqatHfvAb+6evOB2EG37ejQmWEN5co8dfXD+1L
+kkqlNn2YZfj4SGJeYHq0s/EmDPHzyrZohSoPgZJape03LRR7JUUtesB9nNtBuCnzMfWQw/tfL3of
+ae/0MDGCAsAwggK8AgEBMGQwVjELMAkGA1UEBhMCVVMxGjAYBgNVBAoTEUludGVsIENvcnBvcmF0
+aW9uMSswKQYDVQQDEyJJbnRlbCBFeHRlcm5hbCBCYXNpYyBJc3N1aW5nIENBIDNBAgpPKzsLAAAA
+ABapMAkGBSsOAwIaBQCgggGyMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkF
+MQ8XDTA4MTEwNDE3MzY1MFowIwYJKoZIhvcNAQkEMRYEFPKMcBQJ4+R5rWYz62dy5si2Tws4MGcG
+CSqGSIb3DQEJDzFaMFgwCgYIKoZIhvcNAwcwDgYIKoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFA
+MAcGBSsOAwIHMA0GCCqGSIb3DQMCAgEoMAcGBSsOAwIaMAoGCCqGSIb3DQIFMHMGCSsGAQQBgjcQ
+BDFmMGQwVjELMAkGA1UEBhMCVVMxGjAYBgNVBAoTEUludGVsIENvcnBvcmF0aW9uMSswKQYDVQQD
+EyJJbnRlbCBFeHRlcm5hbCBCYXNpYyBJc3N1aW5nIENBIDNBAgpPNjkwAAAAABaqMHUGCyqGSIb3
+DQEJEAILMWagZDBWMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9yYXRpb24xKzAp
+BgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElzc3VpbmcgQ0EgM0ECCk82OTAAAAAAFqowDQYJ
+KoZIhvcNAQEBBQAEgYBHaJLBRFiuYetw2usz/IeW/gCk/F+Zwe3SGcAnBfPY+DcLIfwL8n3HP7xo
+E9JZa8QKV/YAU4ShERtNdCkrNGRoqfMVZy+5IZGt8OXElnBfyZ8mjn1L6VVh0gtT6tCDFxgZgAKh
+jZLPENrpAVLTro7K509nHxxKjNND++tHjnWS9wAAAAAAAA==
+
+------=_NextPart_000_0049_01C93E60.DD4BE190--
