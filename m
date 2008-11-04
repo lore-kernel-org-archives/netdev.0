@@ -1,39 +1,34 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Remove supports_ipv6 scheduler flag
-Date: Tue, 4 Nov 2008 12:16:26 +1100
-Message-ID: <20081104011624.GA23712@verge.net.au>
-References: <20081104005826.GA28967@cydonia.lan> <20081103.170913.161467814.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: increase receive packet quantum
+Date: Mon, 03 Nov 2008 17:24:28 -0800 (PST)
+Message-ID: <20081103.172428.154364341.davem@davemloft.net>
+References: <20081103130303.29dd4e21@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julius.volz@gmail.com, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:36351 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752171AbYKDBQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 20:16:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20081103.170913.161467814.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56878
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752221AbYKDBYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 20:24:55 -0500
+In-Reply-To: <20081103130303.29dd4e21@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 03, 2008 at 05:09:13PM -0800, David Miller wrote:
-> From: Julius Volz <julius.volz@gmail.com>
-> Date: Tue, 4 Nov 2008 01:58:26 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 3 Nov 2008 13:03:03 -0800
+
+> This patch gets about 1.25% back on tbench regression.
 > 
-> > Remove the 'supports_ipv6' scheduler flag since all schedulers now
-> > support IPv6.
-> > 
-> > Signed-off-by: Julius Volz <julius.volz@gmail.com>
+> My change to NAPI for multiqueue support changed the time limit on
+> network receive processing.  Under sustained loads like tbench, this
+> can cause the receiver to reschedule prematurely. 
 > 
-> Since Simon explicitly asked for this patch, I've applied
-> it :-)
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Thanks :-)
+I think I'm the guilty party that made that change to your
+NAPI patches.
 
--- 
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
-
+I'll apply this to net-next-2.6, thanks Stephen.
