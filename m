@@ -1,48 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: time for TCP ECN defaulting to on?
-Date: Tue, 04 Nov 2008 14:52:42 -0800 (PST)
-Message-ID: <20081104.145242.112948002.davem@davemloft.net>
-References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
-	<49107543.5080207@blueteddy.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [RFC] skb_free_datagram() doing something expensive ?
+Date: Wed, 05 Nov 2008 00:02:22 +0100
+Message-ID: <4910D47E.4030004@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: daniel.blueman@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-net@vger.kernel.org
-To: linux-kernel@blueteddy.net
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	Corey Minyard <minyard@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50157
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754043AbYKDWxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 17:53:07 -0500
-In-Reply-To: <49107543.5080207@blueteddy.net>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:57385 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752192AbYKDXCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 18:02:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Hudson <linux-kernel@blueteddy.net>
-Date: Tue, 04 Nov 2008 16:16:03 +0000
+Hi all
 
-> Daniel J Blueman wrote:
-> > Is it time to enable TCP ECN per default and get the benefits, since
-> > router support has been around and known-about for really considerable
-> > time?
-> > Perhaps it should be a question of enabling it, and educating people
-> > to disable it if they run into issues, since we'll probably be in the
-> > same situation in 5 years...and it'll be some time before these
-> > kernels hit devices/servers anyway.
-> > Daniel
->
-> Unfortunately I think you'll find there are sufficiently large
-> numbers of broken SOHO routers out there that if you try this you'll
-> cause a lot of problems.  The problems range from no connectivity to
-> in a few extreme cases routers actually crashing or behaving in very
-> unpredictable ways.  Here's one summary that got presented to the
-> IETF about 18 months ago:
->
-> http://www.ietf.org/proceedings/07mar/slides/tsvarea-3/sld6.htm
+I noticed high contention on udp_memory_allocated on a typical VOIP application.
 
-Another issue is that, even if we turn it on by default, it won't
-be on for a significant number of network cards out there.
+(Now that oprofile correctly runs on my machine :) )
 
-This is because TSO, which is on by default, doesn't support ECN
-in many implementations.
+I can see that skb_free_datagram() is :
+
+void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
+{
+        kfree_skb(skb);
+        sk_mem_reclaim(sk);
+}
+
+So each time an UDP packet is received, we must touch udp_memory_allocated
+
+Each time application reads a packet, we call sk_mem_reclaim() and touch again udp_memory_allocated.
+
+Surely this cannot be correct ?
+
+If this is correct, time is to resurrect a patch to make proto->memory_allocated a percpu_counter
+or something to have a percpu reserve of say 64 or 128 pages to avoid cache line trashing...
+
+tcp_memory_allocated do not have this problem, since tcp carefully calls sk_mem_reclaim(sk) only on
+selected paths, not on fast path.
+
+Thanks
+
