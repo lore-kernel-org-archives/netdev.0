@@ -1,75 +1,112 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Mon, 03 Nov 2008 23:34:43 -0800 (PST)
-Message-ID: <20081103.233443.173719917.davem@davemloft.net>
+From: Jonathan McDowell <noodles@earth.li>
+Subject: Re: [git patches] net driver fixes for 2.6.28-rc
+Date: Tue, 4 Nov 2008 07:51:38 +0000
+Message-ID: <20081104075138.GA2096@earth.li>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54489
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752698AbYKDHfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 02:35:08 -0500
+Received: from the.earth.li ([217.147.81.2]:56366 "EHLO the.earth.li"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752367AbYKDHvk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2008 02:51:40 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Nothing terribly exciting in here, some small driver fixups,
-a partial revert of a smc91x driver change to fix the build
-on some systems, and some UDP ICMP mib statistic fixes.
+In article <490F824E.3070809@garzik.org> (earth.lists.linux-kernel) you wrote:
+> Marcel Holtmann wrote:
+> > are you also queuing patches for drivers/net/usb/hso.c, because the 
+> > current state of that driver is fully broken. It oopses and shows up 
+> > with a WLAN RFKILL switch instead of WWAN. Also it has some weird 
+> > disconnect race with the TTY layer. Some patches have been posted, but 
+> > seems that nobody has picked them up so far.
 
-Please pull, thanks a lot!
+> Last patch sent me was sent on 9/16 by Denis Joseph Barrow; I replied 
+> and never received a response after that.
 
-The following changes since commit 48dcc33e5e11de0f76b65b113988dbc930d17395:
-  Jianjun Kong (1):
-        af_unix: netns: fix problem of return value
+> Patches welcome...
 
-are available in the git repository at:
+> I don't see any hso patches on
+> http://patchwork.ozlabs.org/project/netdev/list/ nor in my inbox, so I'm 
+> guessing that no one sent me or netdev any hso patches.
 
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+I sent the below to netdev@, Greg K-H and Andrew Bird (the people listed
+in hso.c). I can't see it in the netdev archives but it did hit lkml ok
+at:
 
-Alexey Dobriyan (2):
-      fs_enet: fix polling
-      xfrm: Fix xfrm_policy_gc_lock handling.
+http://lkml.org/lkml/2008/10/30/92
 
-Arnaud Ebalard (1):
-      XFRM: copy_to_user_kmaddress() reports local address twice
+A subsequent fix for the rfkill layer has also been sent (and that did
+hit netdev ok and got acked), but this hso cleanup is still appropriate.
 
-David S. Miller (2):
-      SMC91x: Fix compilation on some platforms.
-      niu: Use pci_ioremap_bar().
+The WLAN/WWAN change is obviously a one line fix but I didn't see any
+point sending a patch for it until I knew I was going to get some sort
+of response about it; I can knock one up if that's helpful.
 
-Eilon Greenstein (4):
-      bnx2x: Removing the PMF indication when unloading
-      bnx2x: PCI configuration bug on big-endian
-      bnx2x: Calling netif_carrier_off at the end of the probe
-      bnx2x: Version Update
+Original message:
 
-Jeff Kirsher (1):
-      net: kconfig cleanup
+[PATCH] Cleanup hso rfkill error handling
 
-Lennert Buytenhek (1):
-      mv643xx_eth: fix SMI bus access timeouts
+Yup, this appears to be the problem, thanks. I think &hso_net->net->dev
+is more intuitive for the error message, so I've used that. I've also
+added missing line endings on the error messages and set our local
+rfkill structure element to NULL on failure so we don't try to call
+rfkill_unregister on driver removal if we failed to register at all.
 
-Wei Yongjun (2):
-      udp: Fix the SNMP counter of UDP_MIB_INDATAGRAMS
-      udp: Fix the SNMP counter of UDP_MIB_INERRORS
+The patch below Works For Me (TM); the device is detected fine, can be
+removed without problems and connects ok. I'll have a prod at why the
+rfkill stuff isn't working next, but I believe this cleanup of the error
+handling is appropriate no matter what the issue with registration is.
 
-Will Newton (1):
-      drivers/net/smc911x.c: Fix lockdep warning on xmit.
+Signed-Off-By: Jonathan McDowell <noodles@earth.li>
 
- drivers/net/Kconfig                |   18 +++++++++++++++---
- drivers/net/bnx2x_init.h           |    9 +++++----
- drivers/net/bnx2x_main.c           |   10 ++++++----
- drivers/net/fs_enet/fs_enet-main.c |    6 ++++--
- drivers/net/mv643xx_eth.c          |    9 ++++++---
- drivers/net/niu.c                  |    6 +-----
- drivers/net/smc911x.c              |    2 +-
- drivers/net/smc91x.c               |    2 ++
- net/ipv6/udp.c                     |   28 +++++++++++++++++++++-------
- net/xfrm/xfrm_policy.c             |    4 ++--
- net/xfrm/xfrm_user.c               |    2 +-
- 11 files changed, 64 insertions(+), 32 deletions(-)
+-----
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 1164c52..9d9622b 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2184,19 +2184,20 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
+ 			     struct usb_interface *interface)
+ {
+ 	struct hso_net *hso_net = dev2net(hso_dev);
+-	struct device *dev = hso_dev->dev;
++	struct device *dev = &hso_net->net->dev;
+ 	char *rfkn;
+ 
+ 	hso_net->rfkill = rfkill_allocate(&interface_to_usbdev(interface)->dev,
+ 				 RFKILL_TYPE_WLAN);
+ 	if (!hso_net->rfkill) {
+-		dev_err(dev, "%s - Out of memory", __func__);
++		dev_err(dev, "%s - Out of memory\n", __func__);
+ 		return;
+ 	}
+ 	rfkn = kzalloc(20, GFP_KERNEL);
+ 	if (!rfkn) {
+ 		rfkill_free(hso_net->rfkill);
+-		dev_err(dev, "%s - Out of memory", __func__);
++		hso_net->rfkill = NULL;
++		dev_err(dev, "%s - Out of memory\n", __func__);
+ 		return;
+ 	}
+ 	snprintf(rfkn, 20, "hso-%d",
+@@ -2209,7 +2210,8 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
+ 		kfree(rfkn);
+ 		hso_net->rfkill->name = NULL;
+ 		rfkill_free(hso_net->rfkill);
+-		dev_err(dev, "%s - Failed to register rfkill", __func__);
++		hso_net->rfkill = NULL;
++		dev_err(dev, "%s - Failed to register rfkill\n", __func__);
+ 		return;
+ 	}
+ }
+-----
+
+J.
+
+-- 
+Web [     101 things you can't have too much of : 42 - Pepsi.      ]
+site: http:// [                                          ]       Made by
+www.earth.li/~noodles/  [                      ]         HuggieTag 0.0.23
