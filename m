@@ -1,579 +1,568 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 3/6] sfc: Expose flash region storing boot code as MTD
-Date: Tue, 4 Nov 2008 20:34:28 +0000
-Message-ID: <20081104203427.GZ7331@solarflare.com>
+Subject: [PATCH 4/6] sfc: Use lm87 and lm90 drivers for board temperature/power monitoring
+Date: Tue, 4 Nov 2008 20:34:56 +0000
+Message-ID: <20081104203455.GA7331@solarflare.com>
 References: <20081104203117.GW7331@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-mtd@lists.infradead.org,
-	linux-net-drivers@solarflare.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:60144 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752798AbYKDUei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 15:34:38 -0500
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:54255 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753794AbYKDUfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 15:35:01 -0500
 Content-Disposition: inline
 In-Reply-To: <20081104203117.GW7331@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The boot code that appears as a PCI expansion ROM on the SFC4000 is
-stored in flash.  Expose this as a standard MTD device to allow for
-in-place upgrades.
+Add board monitoring to periodic work whenever link is down.
+For SFE4001, report when a fault has caused the PHY to turn off.
+For SFE4002, switch XFP PHY into low-power state in case of a fault.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/Kconfig      |    8 ++
- drivers/net/sfc/Makefile     |    1 +
- drivers/net/sfc/efx.c        |    7 +
- drivers/net/sfc/efx.h        |   10 ++
- drivers/net/sfc/ethtool.c    |    4 +
- drivers/net/sfc/falcon.c     |   17 ++-
- drivers/net/sfc/mtd.c        |  268 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/sfc/net_driver.h |    2 +
- drivers/net/sfc/spi.h        |   17 +++-
- 9 files changed, 327 insertions(+), 7 deletions(-)
- create mode 100644 drivers/net/sfc/mtd.c
+ drivers/net/sfc/boards.c      |  136 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/sfc/mdio_10g.c    |   35 +++++++++++
+ drivers/net/sfc/mdio_10g.h    |    7 ++
+ drivers/net/sfc/net_driver.h  |    6 ++
+ drivers/net/sfc/sfe4001.c     |  116 ++++++++++++++++-------------------
+ drivers/net/sfc/tenxpress.c   |   18 +++++-
+ drivers/net/sfc/workarounds.h |    2 +
+ drivers/net/sfc/xfp_phy.c     |    9 +++
+ 8 files changed, 265 insertions(+), 64 deletions(-)
 
-diff --git a/drivers/net/sfc/Kconfig b/drivers/net/sfc/Kconfig
-index 3be13b5..3e25fb3 100644
---- a/drivers/net/sfc/Kconfig
-+++ b/drivers/net/sfc/Kconfig
-@@ -12,3 +12,11 @@ config SFC
+diff --git a/drivers/net/sfc/boards.c b/drivers/net/sfc/boards.c
+index 99e6023..edf0262 100644
+--- a/drivers/net/sfc/boards.c
++++ b/drivers/net/sfc/boards.c
+@@ -11,6 +11,7 @@
+ #include "phy.h"
+ #include "boards.h"
+ #include "efx.h"
++#include "workarounds.h"
  
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called sfc.
-+config SFC_MTD
-+	bool "Solarflare Solarstorm SFC4000 flash MTD support"
-+	depends on SFC && MTD
-+	default y
-+	help
-+	  This exposes the on-board flash memory as an MTD device (e.g.
-+          /dev/mtd1).  This makes it possible to upload new boot code
-+          to the NIC.
-diff --git a/drivers/net/sfc/Makefile b/drivers/net/sfc/Makefile
-index c8f5704..e507daa 100644
---- a/drivers/net/sfc/Makefile
-+++ b/drivers/net/sfc/Makefile
-@@ -1,5 +1,6 @@
- sfc-y			+= efx.o falcon.o tx.o rx.o falcon_xmac.o \
- 			   selftest.o ethtool.o xfp_phy.o \
- 			   mdio_10g.o tenxpress.o boards.o sfe4001.o
-+sfc-$(CONFIG_SFC_MTD)	+= mtd.o
- 
- obj-$(CONFIG_SFC)	+= sfc.o
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 5b05789..f913937 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1459,6 +1459,7 @@ static int efx_netdev_event(struct notifier_block *this,
- 		struct efx_nic *efx = netdev_priv(net_dev);
- 
- 		strcpy(efx->name, net_dev->name);
-+		efx_mtd_rename(efx);
- 	}
- 
- 	return NOTIFY_DONE;
-@@ -1550,6 +1551,7 @@ void efx_reset_down(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 
- 	efx_stop_all(efx);
- 	mutex_lock(&efx->mac_lock);
-+	mutex_lock(&efx->spi_lock);
- 
- 	rc = falcon_xmac_get_settings(efx, ecmd);
- 	if (rc)
-@@ -1582,6 +1584,7 @@ int efx_reset_up(struct efx_nic *efx, struct ethtool_cmd *ecmd, bool ok)
- 			EFX_ERR(efx, "could not restore PHY settings\n");
- 	}
- 
-+	mutex_unlock(&efx->spi_lock);
- 	mutex_unlock(&efx->mac_lock);
- 
- 	if (ok) {
-@@ -1777,6 +1780,7 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
- 	memset(efx, 0, sizeof(*efx));
- 	spin_lock_init(&efx->biu_lock);
- 	spin_lock_init(&efx->phy_lock);
-+	mutex_init(&efx->spi_lock);
- 	INIT_WORK(&efx->reset_work, efx_reset_work);
- 	INIT_DELAYED_WORK(&efx->monitor_work, efx_monitor);
- 	efx->pci_dev = pci_dev;
-@@ -1911,6 +1915,8 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
- 	if (!efx)
- 		return;
- 
-+	efx_mtd_remove(efx);
-+
- 	/* Mark the NIC as fini, then stop the interface */
- 	rtnl_lock();
- 	efx->state = STATE_FINI;
-@@ -2077,6 +2083,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
- 
- 	EFX_LOG(efx, "initialisation successful\n");
- 
-+	efx_mtd_probe(efx); /* allowed to fail */
- 	return 0;
- 
-  fail5:
-diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
-index d02937b..dd0d45b 100644
---- a/drivers/net/sfc/efx.h
-+++ b/drivers/net/sfc/efx.h
-@@ -58,6 +58,16 @@ extern int efx_port_dummy_op_int(struct efx_nic *efx);
- extern void efx_port_dummy_op_void(struct efx_nic *efx);
- extern void efx_port_dummy_op_blink(struct efx_nic *efx, bool blink);
- 
-+/* MTD */
-+#ifdef CONFIG_SFC_MTD
-+extern int efx_mtd_probe(struct efx_nic *efx);
-+extern void efx_mtd_rename(struct efx_nic *efx);
-+extern void efx_mtd_remove(struct efx_nic *efx);
-+#else
-+static inline int efx_mtd_probe(struct efx_nic *efx) { return 0; }
-+static inline void efx_mtd_rename(struct efx_nic *efx) {}
-+static inline void efx_mtd_remove(struct efx_nic *efx) {}
-+#endif
- 
- extern unsigned int efx_monitor_interval;
- 
-diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index df0579e..abd8fcd 100644
---- a/drivers/net/sfc/ethtool.c
-+++ b/drivers/net/sfc/ethtool.c
-@@ -554,8 +554,10 @@ static int efx_ethtool_get_eeprom(struct net_device *net_dev,
- 	size_t len;
- 	int rc;
- 
-+	mutex_lock(&efx->spi_lock);
- 	rc = falcon_spi_read(spi, eeprom->offset + EFX_EEPROM_BOOTCONFIG_START,
- 			     eeprom->len, &len, buf);
-+	mutex_unlock(&efx->spi_lock);
- 	eeprom->magic = EFX_ETHTOOL_EEPROM_MAGIC;
- 	eeprom->len = len;
- 	return rc;
-@@ -572,8 +574,10 @@ static int efx_ethtool_set_eeprom(struct net_device *net_dev,
- 	if (eeprom->magic != EFX_ETHTOOL_EEPROM_MAGIC)
- 		return -EINVAL;
- 
-+	mutex_lock(&efx->spi_lock);
- 	rc = falcon_spi_write(spi, eeprom->offset + EFX_EEPROM_BOOTCONFIG_START,
- 			      eeprom->len, &len, buf);
-+	mutex_unlock(&efx->spi_lock);
- 	eeprom->len = len;
- 	return rc;
- }
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 3f74cef..71e0bed 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -1628,9 +1628,9 @@ static int falcon_spi_wait(struct efx_nic *efx)
- 	}
+ /* Macros for unpacking the board revision */
+ /* The revision info is in host byte order. */
+@@ -52,9 +53,128 @@ static void board_blink(struct efx_nic *efx, bool blink)
  }
  
--static int falcon_spi_cmd(const struct efx_spi_device *spi,
--			  unsigned int command, int address,
--			  const void *in, void *out, unsigned int len)
-+int falcon_spi_cmd(const struct efx_spi_device *spi,
-+		   unsigned int command, int address,
-+		   const void *in, void *out, unsigned int len)
- {
- 	struct efx_nic *efx = spi->efx;
- 	bool addressed = (address >= 0);
-@@ -1641,6 +1641,7 @@ static int falcon_spi_cmd(const struct efx_spi_device *spi,
- 	/* Input validation */
- 	if (len > FALCON_SPI_MAX_LEN)
- 		return -EINVAL;
-+	BUG_ON(!mutex_is_locked(&efx->spi_lock));
- 
- 	/* Check SPI not currently being accessed */
- 	rc = falcon_spi_wait(efx);
-@@ -1699,8 +1700,7 @@ efx_spi_munge_command(const struct efx_spi_device *spi,
- 	return command | (((address >> 8) & spi->munge_address) << 3);
- }
- 
--
--static int falcon_spi_fast_wait(const struct efx_spi_device *spi)
-+int falcon_spi_fast_wait(const struct efx_spi_device *spi)
- {
- 	u8 status;
- 	int i, rc;
-@@ -2259,7 +2259,9 @@ int falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
- 	nvconfig = region + NVCONFIG_OFFSET;
- 
- 	spi = efx->spi_flash ? efx->spi_flash : efx->spi_eeprom;
-+	mutex_lock(&efx->spi_lock);
- 	rc = falcon_spi_read(spi, 0, FALCON_NVCONFIG_END, NULL, region);
-+	mutex_unlock(&efx->spi_lock);
- 	if (rc) {
- 		EFX_ERR(efx, "Failed to read %s\n",
- 			efx->spi_flash ? "flash" : "EEPROM");
-@@ -2555,6 +2557,11 @@ static int falcon_spi_device_init(struct efx_nic *efx,
- 			SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_ADDR_LEN);
- 		spi_device->munge_address = (spi_device->size == 1 << 9 &&
- 					     spi_device->addr_len == 1);
-+		spi_device->erase_command =
-+			SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_ERASE_CMD);
-+		spi_device->erase_size =
-+			1 << SPI_DEV_TYPE_FIELD(device_type,
-+						SPI_DEV_TYPE_ERASE_SIZE);
- 		spi_device->block_size =
- 			1 << SPI_DEV_TYPE_FIELD(device_type,
- 						SPI_DEV_TYPE_BLOCK_SIZE);
-diff --git a/drivers/net/sfc/mtd.c b/drivers/net/sfc/mtd.c
-new file mode 100644
-index 0000000..a1e6c28
---- /dev/null
-+++ b/drivers/net/sfc/mtd.c
-@@ -0,0 +1,268 @@
-+/****************************************************************************
-+ * Driver for Solarflare Solarstorm network controllers and boards
-+ * Copyright 2005-2006 Fen Systems Ltd.
-+ * Copyright 2006-2008 Solarflare Communications Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
+ /*****************************************************************************
++ * Support for LM87 sensor chip used on several boards
 + */
++#define LM87_REG_ALARMS1		0x41
++#define LM87_REG_ALARMS2		0x42
++#define LM87_IN_LIMITS(nr, _min, _max)			\
++	0x2B + (nr) * 2, _max, 0x2C + (nr) * 2, _min
++#define LM87_AIN_LIMITS(nr, _min, _max)			\
++	0x3B + (nr), _max, 0x1A + (nr), _min
++#define LM87_TEMP_INT_LIMITS(_min, _max)		\
++	0x39, _max, 0x3A, _min
++#define LM87_TEMP_EXT1_LIMITS(_min, _max)		\
++	0x37, _max, 0x38, _min
 +
-+#include <linux/module.h>
-+#include <linux/mtd/mtd.h>
-+#include <linux/delay.h>
++#define LM87_ALARM_TEMP_INT		0x10
++#define LM87_ALARM_TEMP_EXT1		0x20
 +
-+#define EFX_DRIVER_NAME "sfc_mtd"
-+#include "net_driver.h"
-+#include "spi.h"
++#if defined(CONFIG_SENSORS_LM87) || defined(CONFIG_SENSORS_LM87_MODULE)
 +
-+#define EFX_SPI_VERIFY_BUF_LEN 16
++static int efx_init_lm87(struct efx_nic *efx, struct i2c_board_info *info,
++			 const u8 *reg_values)
++{
++	struct i2c_client *client = i2c_new_device(&efx->i2c_adap, info);
++	int rc;
 +
-+struct efx_mtd {
-+	const struct efx_spi_device *spi;
-+	struct mtd_info mtd;
-+	char name[IFNAMSIZ + 20];
++	if (!client)
++		return -EIO;
++
++	while (*reg_values) {
++		u8 reg = *reg_values++;
++		u8 value = *reg_values++;
++		rc = i2c_smbus_write_byte_data(client, reg, value);
++		if (rc)
++			goto err;
++	}
++
++	efx->board_info.hwmon_client = client;
++	return 0;
++
++err:
++	i2c_unregister_device(client);
++	return rc;
++}
++
++static void efx_fini_lm87(struct efx_nic *efx)
++{
++	i2c_unregister_device(efx->board_info.hwmon_client);
++}
++
++static int efx_check_lm87(struct efx_nic *efx, unsigned mask)
++{
++	struct i2c_client *client = efx->board_info.hwmon_client;
++	s32 alarms1, alarms2;
++
++	/* If link is up then do not monitor temperature */
++	if (EFX_WORKAROUND_7884(efx) && efx->link_up)
++		return 0;
++
++	alarms1 = i2c_smbus_read_byte_data(client, LM87_REG_ALARMS1);
++	alarms2 = i2c_smbus_read_byte_data(client, LM87_REG_ALARMS2);
++	if (alarms1 < 0)
++		return alarms1;
++	if (alarms2 < 0)
++		return alarms2;
++	alarms1 &= mask;
++	alarms2 &= mask >> 8;
++	if (alarms1 || alarms2) {
++		EFX_ERR(efx,
++			"LM87 detected a hardware failure (status %02x:%02x)"
++			"%s%s\n",
++			alarms1, alarms2,
++			(alarms1 & LM87_ALARM_TEMP_INT) ? " INTERNAL" : "",
++			(alarms1 & LM87_ALARM_TEMP_EXT1) ? " EXTERNAL" : "");
++		return -ERANGE;
++	}
++
++	return 0;
++}
++
++#else /* !CONFIG_SENSORS_LM87 */
++
++static inline int
++efx_init_lm87(struct efx_nic *efx, struct i2c_board_info *info,
++	      const u8 *reg_values)
++{
++	return 0;
++}
++static inline void efx_fini_lm87(struct efx_nic *efx)
++{
++}
++static inline int efx_check_lm87(struct efx_nic *efx, unsigned mask)
++{
++	return 0;
++}
++
++#endif /* CONFIG_SENSORS_LM87 */
++
++/*****************************************************************************
+  * Support for the SFE4002
+  *
+  */
++static u8 sfe4002_lm87_channel = 0x03; /* use AIN not FAN inputs */
++
++static const u8 sfe4002_lm87_regs[] = {
++	LM87_IN_LIMITS(0, 0x83, 0x91),		/* 2.5V:  1.8V +/- 5% */
++	LM87_IN_LIMITS(1, 0x51, 0x5a),		/* Vccp1: 1.2V +/- 5% */
++	LM87_IN_LIMITS(2, 0xb6, 0xca),		/* 3.3V:  3.3V +/- 5% */
++	LM87_IN_LIMITS(3, 0xb0, 0xc9),		/* 5V:    4.6-5.2V */
++	LM87_IN_LIMITS(4, 0xb0, 0xe0),		/* 12V:   11-14V */
++	LM87_IN_LIMITS(5, 0x44, 0x4b),		/* Vccp2: 1.0V +/- 5% */
++	LM87_AIN_LIMITS(0, 0xa0, 0xb2),		/* AIN1:  1.66V +/- 5% */
++	LM87_AIN_LIMITS(1, 0x91, 0xa1),		/* AIN2:  1.5V +/- 5% */
++	LM87_TEMP_INT_LIMITS(10, 60),		/* board */
++	LM87_TEMP_EXT1_LIMITS(10, 70),		/* Falcon */
++	0
 +};
 +
-+/* SPI utilities */
++static struct i2c_board_info sfe4002_hwmon_info = {
++	I2C_BOARD_INFO("lm87", 0x2e),
++	.platform_data	= &sfe4002_lm87_channel,
++	.irq		= -1,
++};
 +
-+static int efx_spi_slow_wait(struct efx_mtd *efx_mtd, bool uninterruptible)
+ /****************************************************************************/
+ /* LED allocations. Note that on rev A0 boards the schematic and the reality
+  * differ: red and green are swapped. Below is the fixed (A1) layout (there
+@@ -84,11 +204,27 @@ static void sfe4002_fault_led(struct efx_nic *efx, bool state)
+ 			QUAKE_LED_OFF);
+ }
+ 
++static int sfe4002_check_hw(struct efx_nic *efx)
 +{
-+	const struct efx_spi_device *spi = efx_mtd->spi;
-+	struct efx_nic *efx = spi->efx;
-+	u8 status;
-+	int rc, i;
++	/* A0 board rev. 4002s report a temperature fault the whole time
++	 * (bad sensor) so we mask it out. */
++	unsigned alarm_mask =
++		(efx->board_info.major == 0 && efx->board_info.minor == 0) ?
++		~LM87_ALARM_TEMP_EXT1 : ~0;
 +
-+	/* Wait up to 4s for flash/EEPROM to finish a slow operation. */
-+	for (i = 0; i < 40; i++) {
-+		__set_current_state(uninterruptible ?
-+				    TASK_UNINTERRUPTIBLE : TASK_INTERRUPTIBLE);
-+		schedule_timeout(HZ / 10);
-+		rc = falcon_spi_cmd(spi, SPI_RDSR, -1, NULL,
-+				    &status, sizeof(status));
-+		if (rc)
-+			return rc;
-+		if (!(status & SPI_STATUS_NRDY))
-+			return 0;
-+		if (signal_pending(current))
-+			return -EINTR;
-+	}
-+	EFX_ERR(efx, "timed out waiting for %s\n", efx_mtd->name);
-+	return -ETIMEDOUT;
++	return efx_check_lm87(efx, alarm_mask);
 +}
 +
-+static int efx_spi_unlock(const struct efx_spi_device *spi)
+ static int sfe4002_init(struct efx_nic *efx)
+ {
++	int rc = efx_init_lm87(efx, &sfe4002_hwmon_info, sfe4002_lm87_regs);
++	if (rc)
++		return rc;
++	efx->board_info.monitor = sfe4002_check_hw;
+ 	efx->board_info.init_leds = sfe4002_init_leds;
+ 	efx->board_info.set_fault_led = sfe4002_fault_led;
+ 	efx->board_info.blink = board_blink;
++	efx->board_info.fini = efx_fini_lm87;
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
+index 003e48d..19e2521 100644
+--- a/drivers/net/sfc/mdio_10g.c
++++ b/drivers/net/sfc/mdio_10g.c
+@@ -260,6 +260,41 @@ void mdio_clause45_phy_reconfigure(struct efx_nic *efx)
+ 				    MDIO_MMDREG_CTRL1, ctrl2);
+ }
+ 
++static void mdio_clause45_set_mmd_lpower(struct efx_nic *efx,
++					 int lpower, int mmd)
 +{
-+	const u8 unlock_mask = (SPI_STATUS_BP2 | SPI_STATUS_BP1 |
-+				SPI_STATUS_BP0);
-+	u8 status;
-+	int rc;
++	int phy = efx->mii.phy_id;
++	int stat = mdio_clause45_read(efx, phy, mmd, MDIO_MMDREG_STAT1);
++	int ctrl1, ctrl2;
 +
-+	rc = falcon_spi_cmd(spi, SPI_RDSR, -1, NULL, &status, sizeof(status));
-+	if (rc)
-+		return rc;
++	EFX_TRACE(efx, "Setting low power mode for MMD %d to %d\n",
++		  mmd, lpower);
 +
-+	if (!(status & unlock_mask))
-+		return 0; /* already unlocked */
-+
-+	rc = falcon_spi_cmd(spi, SPI_WREN, -1, NULL, NULL, 0);
-+	if (rc)
-+		return rc;
-+	rc = falcon_spi_cmd(spi, SPI_SST_EWSR, -1, NULL, NULL, 0);
-+	if (rc)
-+		return rc;
-+
-+	status &= ~unlock_mask;
-+	rc = falcon_spi_cmd(spi, SPI_WRSR, -1, &status, NULL, sizeof(status));
-+	if (rc)
-+		return rc;
-+	rc = falcon_spi_fast_wait(spi);
-+	if (rc)
-+		return rc;
-+
-+	return 0;
-+}
-+
-+static int efx_spi_erase(struct efx_mtd *efx_mtd, loff_t start, size_t len)
-+{
-+	const struct efx_spi_device *spi = efx_mtd->spi;
-+	unsigned pos, block_len;
-+	u8 empty[EFX_SPI_VERIFY_BUF_LEN];
-+	u8 buffer[EFX_SPI_VERIFY_BUF_LEN];
-+	int rc;
-+
-+	if (len != spi->erase_size)
-+		return -EINVAL;
-+
-+	if (spi->erase_command == 0)
-+		return -EOPNOTSUPP;
-+
-+	rc = efx_spi_unlock(spi);
-+	if (rc)
-+		return rc;
-+	rc = falcon_spi_cmd(spi, SPI_WREN, -1, NULL, NULL, 0);
-+	if (rc)
-+		return rc;
-+	rc = falcon_spi_cmd(spi, spi->erase_command, start, NULL, NULL, 0);
-+	if (rc)
-+		return rc;
-+	rc = efx_spi_slow_wait(efx_mtd, false);
-+
-+	/* Verify the entire region has been wiped */
-+	memset(empty, 0xff, sizeof(empty));
-+	for (pos = 0; pos < len; pos += block_len) {
-+		block_len = min(len - pos, sizeof(buffer));
-+		rc = falcon_spi_read(spi, start + pos, block_len, NULL, buffer);
-+		if (rc)
-+			return rc;
-+		if (memcmp(empty, buffer, block_len))
-+			return -EIO;
-+
-+		/* Avoid locking up the system */
-+		cond_resched();
-+		if (signal_pending(current))
-+			return -EINTR;
-+	}
-+
-+	return rc;
-+}
-+
-+/* MTD interface */
-+
-+static int efx_mtd_read(struct mtd_info *mtd, loff_t start, size_t len,
-+			size_t *retlen, u8 *buffer)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	const struct efx_spi_device *spi = efx_mtd->spi;
-+	struct efx_nic *efx = spi->efx;
-+	int rc;
-+
-+	rc = mutex_lock_interruptible(&efx->spi_lock);
-+	if (rc)
-+		return rc;
-+	rc = falcon_spi_read(spi, FALCON_FLASH_BOOTCODE_START + start,
-+			     len, retlen, buffer);
-+	mutex_unlock(&efx->spi_lock);
-+	return rc;
-+}
-+
-+static int efx_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	struct efx_nic *efx = efx_mtd->spi->efx;
-+	int rc;
-+
-+	rc = mutex_lock_interruptible(&efx->spi_lock);
-+	if (rc)
-+		return rc;
-+	rc = efx_spi_erase(efx_mtd, FALCON_FLASH_BOOTCODE_START + erase->addr,
-+			   erase->len);
-+	mutex_unlock(&efx->spi_lock);
-+
-+	if (rc == 0) {
-+		erase->state = MTD_ERASE_DONE;
-+	} else {
-+		erase->state = MTD_ERASE_FAILED;
-+		erase->fail_addr = 0xffffffff;
-+	}
-+	mtd_erase_callback(erase);
-+	return rc;
-+}
-+
-+static int efx_mtd_write(struct mtd_info *mtd, loff_t start,
-+			 size_t len, size_t *retlen, const u8 *buffer)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	const struct efx_spi_device *spi = efx_mtd->spi;
-+	struct efx_nic *efx = spi->efx;
-+	int rc;
-+
-+	rc = mutex_lock_interruptible(&efx->spi_lock);
-+	if (rc)
-+		return rc;
-+	rc = falcon_spi_write(spi, FALCON_FLASH_BOOTCODE_START + start,
-+			      len, retlen, buffer);
-+	mutex_unlock(&efx->spi_lock);
-+	return rc;
-+}
-+
-+static void efx_mtd_sync(struct mtd_info *mtd)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	struct efx_nic *efx = efx_mtd->spi->efx;
-+	int rc;
-+
-+	mutex_lock(&efx->spi_lock);
-+	rc = efx_spi_slow_wait(efx_mtd, true);
-+	mutex_unlock(&efx->spi_lock);
-+
-+	if (rc)
-+		EFX_ERR(efx, "%s sync failed (%d)\n", efx_mtd->name, rc);
-+	return;
-+}
-+
-+void efx_mtd_remove(struct efx_nic *efx)
-+{
-+	if (efx->spi_flash && efx->spi_flash->mtd) {
-+		struct efx_mtd *efx_mtd = efx->spi_flash->mtd;
-+		int rc;
-+
-+		for (;;) {
-+			rc = del_mtd_device(&efx_mtd->mtd);
-+			if (rc != -EBUSY)
-+				break;
-+			ssleep(1);
-+		}
-+		WARN_ON(rc);
-+		kfree(efx_mtd);
++	if (stat & (1 << MDIO_MMDREG_STAT1_LPABLE_LBN)) {
++		ctrl1 = ctrl2 = mdio_clause45_read(efx, phy,
++						   mmd, MDIO_MMDREG_CTRL1);
++		if (lpower)
++			ctrl2 |= (1 << MDIO_MMDREG_CTRL1_LPOWER_LBN);
++		else
++			ctrl2 &= ~(1 << MDIO_MMDREG_CTRL1_LPOWER_LBN);
++		if (ctrl1 != ctrl2)
++			mdio_clause45_write(efx, phy, mmd,
++					    MDIO_MMDREG_CTRL1, ctrl2);
 +	}
 +}
 +
-+void efx_mtd_rename(struct efx_nic *efx)
++void mdio_clause45_set_mmds_lpower(struct efx_nic *efx,
++				   int low_power, unsigned int mmd_mask)
 +{
-+	if (efx->spi_flash && efx->spi_flash->mtd) {
-+		struct efx_mtd *efx_mtd = efx->spi_flash->mtd;
-+		snprintf(efx_mtd->name, sizeof(efx_mtd->name),
-+			 "%s sfc_flash_bootrom", efx->name);
++	int mmd = 0;
++	while (mmd_mask) {
++		if (mmd_mask & 1)
++			mdio_clause45_set_mmd_lpower(efx, low_power, mmd);
++		mmd_mask = (mmd_mask >> 1);
++		mmd++;
 +	}
 +}
 +
-+int efx_mtd_probe(struct efx_nic *efx)
-+{
-+	struct efx_spi_device *spi = efx->spi_flash;
-+	struct efx_mtd *efx_mtd;
+ /**
+  * mdio_clause45_get_settings - Read (some of) the PHY settings over MDIO.
+  * @efx:		Efx NIC
+diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/sfc/mdio_10g.h
+index 19c42ea..db9f358 100644
+--- a/drivers/net/sfc/mdio_10g.h
++++ b/drivers/net/sfc/mdio_10g.h
+@@ -54,6 +54,9 @@
+ /* Loopback bit for WIS, PCS, PHYSX and DTEXS */
+ #define MDIO_MMDREG_CTRL1_LBACK_LBN	(14)
+ #define MDIO_MMDREG_CTRL1_LBACK_WIDTH	(1)
++/* Low power */
++#define MDIO_MMDREG_CTRL1_LPOWER_LBN	(11)
++#define MDIO_MMDREG_CTRL1_LPOWER_WIDTH	(1)
+ 
+ /* Bits in MMDREG_STAT1 */
+ #define MDIO_MMDREG_STAT1_FAULT_LBN	(7)
+@@ -240,6 +243,10 @@ extern void mdio_clause45_transmit_disable(struct efx_nic *efx);
+ /* Generic part of reconfigure: set/clear loopback bits */
+ extern void mdio_clause45_phy_reconfigure(struct efx_nic *efx);
+ 
++/* Set the power state of the specified MMDs */
++extern void mdio_clause45_set_mmds_lpower(struct efx_nic *efx,
++					  int low_power, unsigned int mmd_mask);
 +
-+	if (!spi || spi->size <= FALCON_FLASH_BOOTCODE_START)
-+		return -ENODEV;
-+
-+	efx_mtd = kzalloc(sizeof(*efx_mtd), GFP_KERNEL);
-+	if (!efx_mtd)
-+		return -ENOMEM;
-+
-+	efx_mtd->spi = spi;
-+	spi->mtd = efx_mtd;
-+
-+	efx_mtd->mtd.type = MTD_NORFLASH;
-+	efx_mtd->mtd.flags = MTD_CAP_NORFLASH;
-+	efx_mtd->mtd.size = spi->size - FALCON_FLASH_BOOTCODE_START;
-+	efx_mtd->mtd.erasesize = spi->erase_size;
-+	efx_mtd->mtd.writesize = 1;
-+	efx_mtd_rename(efx);
-+
-+	efx_mtd->mtd.owner = THIS_MODULE;
-+	efx_mtd->mtd.priv = efx_mtd;
-+	efx_mtd->mtd.name = efx_mtd->name;
-+	efx_mtd->mtd.erase = efx_mtd_erase;
-+	efx_mtd->mtd.read = efx_mtd_read;
-+	efx_mtd->mtd.write = efx_mtd_write;
-+	efx_mtd->mtd.sync = efx_mtd_sync;
-+
-+	if (add_mtd_device(&efx_mtd->mtd)) {
-+		kfree(efx_mtd);
-+		spi->mtd = NULL;
-+		/* add_mtd_device() returns 1 if the MTD table is full */
-+		return -ENOMEM;
-+	}
-+
-+	return 0;
-+}
+ /* Read (some of) the PHY settings over MDIO */
+ extern void mdio_clause45_get_settings(struct efx_nic *efx,
+ 				       struct ethtool_cmd *ecmd);
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index cdb11fa..c953eb1 100644
+index cdb11fa..9531ad6 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -655,6 +655,7 @@ union efx_multicast_hash {
-  *	This field will be %NULL if no flash device is present.
-  * @spi_eeprom: SPI EEPROM device
-  *	This field will be %NULL if no EEPROM device is present.
-+ * @spi_lock: SPI bus lock
-  * @n_rx_nodesc_drop_cnt: RX no descriptor drop count
-  * @nic_data: Hardware dependant state
-  * @mac_lock: MAC access lock. Protects @port_enabled, @phy_mode,
-@@ -731,6 +732,7 @@ struct efx_nic {
- 
- 	struct efx_spi_device *spi_flash;
- 	struct efx_spi_device *spi_eeprom;
-+	struct mutex spi_lock;
- 
- 	unsigned n_rx_nodesc_drop_cnt;
- 
-diff --git a/drivers/net/sfc/spi.h b/drivers/net/sfc/spi.h
-index b73f86c..c4aca13 100644
---- a/drivers/net/sfc/spi.h
-+++ b/drivers/net/sfc/spi.h
-@@ -25,6 +25,7 @@
- #define SPI_WRDI 0x04		/* Reset write enable latch */
- #define SPI_RDSR 0x05		/* Read status register */
- #define SPI_WREN 0x06		/* Set write enable latch */
-+#define SPI_SST_EWSR 0x50	/* SST: Enable write to status register */
- 
- #define SPI_STATUS_WPEN 0x80	/* Write-protect pin enabled */
- #define SPI_STATUS_BP2 0x10	/* Block protection bit 2 */
-@@ -36,6 +37,7 @@
- /**
-  * struct efx_spi_device - an Efx SPI (Serial Peripheral Interface) device
-  * @efx:		The Efx controller that owns this device
-+ * @mtd:		MTD state
-  * @device_id:		Controller's id for the device
-  * @size:		Size (in bytes)
-  * @addr_len:		Number of address bytes in read/write commands
-@@ -44,20 +46,30 @@
-  *	use bit 3 of the command byte as address bit A8, rather
-  *	than having a two-byte address.  If this flag is set, then
-  *	commands should be munged in this way.
-+ * @erase_command:	Erase command (or 0 if sector erase not needed).
-+ * @erase_size:		Erase sector size (in bytes)
-+ *	Erase commands affect sectors with this size and alignment.
-+ *	This must be a power of two.
-  * @block_size:		Write block size (in bytes).
-  *	Write commands are limited to blocks with this size and alignment.
-- * @read:		Read function for the device
-- * @write:		Write function for the device
+@@ -414,6 +414,7 @@ struct efx_blinker {
+  * @init_leds: Sets up board LEDs
+  * @set_fault_led: Turns the fault LED on or off
+  * @blink: Starts/stops blinking
++ * @monitor: Board-specific health check function
+  * @fini: Cleanup function
+  * @blinker: used to blink LEDs in software
+  * @hwmon_client: I2C client for hardware monitor
+@@ -428,6 +429,7 @@ struct efx_board {
+ 	 * have a separate init callback that happens later than
+ 	 * board init. */
+ 	int (*init_leds)(struct efx_nic *efx);
++	int (*monitor) (struct efx_nic *nic);
+ 	void (*set_fault_led) (struct efx_nic *efx, bool state);
+ 	void (*blink) (struct efx_nic *efx, bool start);
+ 	void (*fini) (struct efx_nic *nic);
+@@ -525,11 +527,15 @@ struct efx_phy_operations {
+  * @enum efx_phy_mode - PHY operating mode flags
+  * @PHY_MODE_NORMAL: on and should pass traffic
+  * @PHY_MODE_TX_DISABLED: on with TX disabled
++ * @PHY_MODE_LOW_POWER: set to low power through MDIO
++ * @PHY_MODE_OFF: switched off through external control
+  * @PHY_MODE_SPECIAL: on but will not pass traffic
   */
- struct efx_spi_device {
- 	struct efx_nic *efx;
-+#ifdef CONFIG_SFC_MTD
-+	void *mtd;
-+#endif
- 	int device_id;
- 	unsigned int size;
- 	unsigned int addr_len;
- 	unsigned int munge_address:1;
-+	u8 erase_command;
-+	unsigned int erase_size;
- 	unsigned int block_size;
+ enum efx_phy_mode {
+ 	PHY_MODE_NORMAL		= 0,
+ 	PHY_MODE_TX_DISABLED	= 1,
++	PHY_MODE_LOW_POWER	= 2,
++	PHY_MODE_OFF		= 4,
+ 	PHY_MODE_SPECIAL	= 8,
  };
  
-+int falcon_spi_cmd(const struct efx_spi_device *spi, unsigned int command,
-+		   int address, const void* in, void *out, unsigned int len);
-+int falcon_spi_fast_wait(const struct efx_spi_device *spi);
- int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
- 		    size_t len, size_t *retlen, u8 *buffer);
- int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
-@@ -77,6 +89,7 @@ int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
-  * be absent or truncated depending on the devices used.
+diff --git a/drivers/net/sfc/sfe4001.c b/drivers/net/sfc/sfe4001.c
+index fe4e3fd..aa576c5 100644
+--- a/drivers/net/sfc/sfe4001.c
++++ b/drivers/net/sfc/sfe4001.c
+@@ -21,6 +21,7 @@
+ #include "falcon_hwdefs.h"
+ #include "falcon_io.h"
+ #include "mac.h"
++#include "workarounds.h"
+ 
+ /**************************************************************************
+  *
+@@ -65,48 +66,9 @@
+ #define	P1_SPARE_LBN 4
+ #define	P1_SPARE_WIDTH 4
+ 
+-
+-/**************************************************************************
+- *
+- * Temperature Sensor
+- *
+- **************************************************************************/
+-#define	MAX6647	0x4e
+-
+-#define	RLTS	0x00
+-#define	RLTE	0x01
+-#define	RSL	0x02
+-#define	RCL	0x03
+-#define	RCRA	0x04
+-#define	RLHN	0x05
+-#define	RLLI	0x06
+-#define	RRHI	0x07
+-#define	RRLS	0x08
+-#define	WCRW	0x0a
+-#define	WLHO	0x0b
+-#define	WRHA	0x0c
+-#define	WRLN	0x0e
+-#define	OSHT	0x0f
+-#define	REET	0x10
+-#define	RIET	0x11
+-#define	RWOE	0x19
+-#define	RWOI	0x20
+-#define	HYS	0x21
+-#define	QUEUE	0x22
+-#define	MFID	0xfe
+-#define	REVID	0xff
+-
+-/* Status bits */
+-#define MAX6647_BUSY	(1 << 7)	/* ADC is converting */
+-#define MAX6647_LHIGH	(1 << 6)	/* Local high temp. alarm */
+-#define MAX6647_LLOW	(1 << 5)	/* Local low temp. alarm */
+-#define MAX6647_RHIGH	(1 << 4)	/* Remote high temp. alarm */
+-#define MAX6647_RLOW	(1 << 3)	/* Remote low temp. alarm */
+-#define MAX6647_FAULT	(1 << 2)	/* DXN/DXP short/open circuit */
+-#define MAX6647_EOT	(1 << 1)	/* Remote junction overtemp. */
+-#define MAX6647_IOT	(1 << 0)	/* Local junction overtemp. */
+-
+-static const u8 xgphy_max_temperature = 90;
++/* Temperature Sensor */
++#define MAX664X_REG_RSL		0x02
++#define MAX664X_REG_WLHO	0x0B
+ 
+ static void sfe4001_poweroff(struct efx_nic *efx)
+ {
+@@ -119,7 +81,7 @@ static void sfe4001_poweroff(struct efx_nic *efx)
+ 	i2c_smbus_write_byte_data(ioexp_client, P0_CONFIG, 0xff);
+ 
+ 	/* Clear any over-temperature alert */
+-	i2c_smbus_read_byte_data(hwmon_client, RSL);
++	i2c_smbus_read_byte_data(hwmon_client, MAX664X_REG_RSL);
+ }
+ 
+ static int sfe4001_poweron(struct efx_nic *efx)
+@@ -131,7 +93,7 @@ static int sfe4001_poweron(struct efx_nic *efx)
+ 	u8 out;
+ 
+ 	/* Clear any previous over-temperature alert */
+-	rc = i2c_smbus_read_byte_data(hwmon_client, RSL);
++	rc = i2c_smbus_read_byte_data(hwmon_client, MAX664X_REG_RSL);
+ 	if (rc < 0)
+ 		return rc;
+ 
+@@ -209,6 +171,34 @@ fail_on:
+ 	return rc;
+ }
+ 
++static int sfe4001_check_hw(struct efx_nic *efx)
++{
++	s32 status;
++
++	/* If XAUI link is up then do not monitor */
++	if (EFX_WORKAROUND_7884(efx) && falcon_xaui_link_ok(efx))
++		return 0;
++
++	/* Check the powered status of the PHY. Lack of power implies that
++	 * the MAX6647 has shut down power to it, probably due to a temp.
++	 * alarm. Reading the power status rather than the MAX6647 status
++	 * directly because the later is read-to-clear and would thus
++	 * start to power up the PHY again when polled, causing us to blip
++	 * the power undesirably.
++	 * We know we can read from the IO expander because we did
++	 * it during power-on. Assume failure now is bad news. */
++	status = i2c_smbus_read_byte_data(efx->board_info.ioexp_client, P1_IN);
++	if (status >= 0 &&
++	    (status & ((1 << P1_AFE_PWD_LBN) | (1 << P1_DSP_PWD25_LBN))) != 0)
++		return 0;
++
++	/* Use board power control, not PHY power control */
++	sfe4001_poweroff(efx);
++	efx->phy_mode = PHY_MODE_OFF;
++
++	return (status < 0) ? -EIO : -ERANGE;
++}
++
+ /* On SFE4001 rev A2 and later, we can control the FLASH_CFG_1 pin
+  * using the 3V3X output of the IO-expander.  Allow the user to set
+  * this when the device is stopped, and keep it stopped then.
+@@ -261,35 +251,34 @@ static void sfe4001_fini(struct efx_nic *efx)
+ 	i2c_unregister_device(efx->board_info.hwmon_client);
+ }
+ 
++static struct i2c_board_info sfe4001_hwmon_info = {
++	I2C_BOARD_INFO("max6647", 0x4e),
++	.irq		= -1,
++};
++
+ /* This board uses an I2C expander to provider power to the PHY, which needs to
+  * be turned on before the PHY can be used.
+  * Context: Process context, rtnl lock held
   */
- #define FALCON_NVCONFIG_END 0x400U
-+#define FALCON_FLASH_BOOTCODE_START 0x8000U
- #define EFX_EEPROM_BOOTCONFIG_START 0x800U
- #define EFX_EEPROM_BOOTCONFIG_END 0x1800U
+ int sfe4001_init(struct efx_nic *efx)
+ {
+-	struct i2c_client *hwmon_client;
+ 	int rc;
+ 
+-	hwmon_client = i2c_new_dummy(&efx->i2c_adap, MAX6647);
+-	if (!hwmon_client)
++#if defined(CONFIG_SENSORS_LM90) || defined(CONFIG_SENSORS_LM90_MODULE)
++	efx->board_info.hwmon_client =
++		i2c_new_device(&efx->i2c_adap, &sfe4001_hwmon_info);
++#else
++	efx->board_info.hwmon_client =
++		i2c_new_dummy(&efx->i2c_adap, sfe4001_hwmon_info.addr);
++#endif
++	if (!efx->board_info.hwmon_client)
+ 		return -EIO;
+-	efx->board_info.hwmon_client = hwmon_client;
+ 
+-	/* Set DSP over-temperature alert threshold */
+-	EFX_INFO(efx, "DSP cut-out at %dC\n", xgphy_max_temperature);
+-	rc = i2c_smbus_write_byte_data(hwmon_client, WLHO,
+-				       xgphy_max_temperature);
++	/* Raise board/PHY high limit from 85 to 90 degrees Celsius */
++	rc = i2c_smbus_write_byte_data(efx->board_info.hwmon_client,
++				       MAX664X_REG_WLHO, 90);
+ 	if (rc)
+-		goto fail_ioexp;
+-
+-	/* Read it back and verify */
+-	rc = i2c_smbus_read_byte_data(hwmon_client, RLHN);
+-	if (rc < 0)
+-		goto fail_ioexp;
+-	if (rc != xgphy_max_temperature) {
+-		rc = -EFAULT;
+-		goto fail_ioexp;
+-	}
++		goto fail_hwmon;
+ 
+ 	efx->board_info.ioexp_client = i2c_new_dummy(&efx->i2c_adap, PCA9539);
+ 	if (!efx->board_info.ioexp_client) {
+@@ -301,6 +290,7 @@ int sfe4001_init(struct efx_nic *efx)
+ 	 * blink code. */
+ 	efx->board_info.blink = tenxpress_phy_blink;
+ 
++	efx->board_info.monitor = sfe4001_check_hw;
+ 	efx->board_info.fini = sfe4001_fini;
+ 
+ 	rc = sfe4001_poweron(efx);
+@@ -319,6 +309,6 @@ fail_on:
+ fail_ioexp:
+ 	i2c_unregister_device(efx->board_info.ioexp_client);
+ fail_hwmon:
+-	i2c_unregister_device(hwmon_client);
++	i2c_unregister_device(efx->board_info.hwmon_client);
+ 	return rc;
+ }
+diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
+index d507c93..8d41c29 100644
+--- a/drivers/net/sfc/tenxpress.c
++++ b/drivers/net/sfc/tenxpress.c
+@@ -376,6 +376,7 @@ static int tenxpress_phy_check_hw(struct efx_nic *efx)
+ {
+ 	struct tenxpress_phy_data *phy_data = efx->phy_data;
+ 	bool link_ok;
++	int rc = 0;
+ 
+ 	link_ok = tenxpress_link_ok(efx, true);
+ 
+@@ -391,7 +392,22 @@ static int tenxpress_phy_check_hw(struct efx_nic *efx)
+ 		atomic_set(&phy_data->bad_crc_count, 0);
+ 	}
+ 
+-	return 0;
++	rc = efx->board_info.monitor(efx);
++	if (rc) {
++		EFX_ERR(efx, "Board sensor %s; shutting down PHY\n",
++			(rc == -ERANGE) ? "reported fault" : "failed");
++		if (efx->phy_mode & PHY_MODE_OFF) {
++			/* Assume that board has shut PHY off */
++			phy_data->phy_mode = PHY_MODE_OFF;
++		} else {
++			efx->phy_mode |= PHY_MODE_LOW_POWER;
++			mdio_clause45_set_mmds_lpower(efx, true,
++						      efx->phy_op->mmds);
++			phy_data->phy_mode |= PHY_MODE_LOW_POWER;
++		}
++	}
++
++	return rc;
+ }
+ 
+ static void tenxpress_phy_fini(struct efx_nic *efx)
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
+index fa7b49d..ec50b90 100644
+--- a/drivers/net/sfc/workarounds.h
++++ b/drivers/net/sfc/workarounds.h
+@@ -22,6 +22,8 @@
+ #define EFX_WORKAROUND_5147 EFX_WORKAROUND_ALWAYS
+ /* RX PCIe double split performance issue */
+ #define EFX_WORKAROUND_7575 EFX_WORKAROUND_ALWAYS
++/* Bit-bashed I2C reads cause performance drop */
++#define EFX_WORKAROUND_7884 EFX_WORKAROUND_ALWAYS
+ /* TX pkt parser problem with <= 16 byte TXes */
+ #define EFX_WORKAROUND_9141 EFX_WORKAROUND_ALWAYS
+ /* Low rate CRC errors require XAUI reset */
+diff --git a/drivers/net/sfc/xfp_phy.c b/drivers/net/sfc/xfp_phy.c
+index 276151d..91f0246 100644
+--- a/drivers/net/sfc/xfp_phy.c
++++ b/drivers/net/sfc/xfp_phy.c
+@@ -128,6 +128,15 @@ static int xfp_phy_check_hw(struct efx_nic *efx)
+ 	if (link_up != efx->link_up)
+ 		falcon_xmac_sim_phy_event(efx);
+ 
++	rc = efx->board_info.monitor(efx);
++	if (rc) {
++		struct xfp_phy_data *phy_data = efx->phy_data;
++		EFX_ERR(efx, "XFP sensor alert; putting PHY into low power\n");
++		efx->phy_mode |= PHY_MODE_LOW_POWER;
++		mdio_clause45_set_mmds_lpower(efx, 1, XFP_REQUIRED_DEVS);
++		phy_data->phy_mode |= PHY_MODE_LOW_POWER;
++	}
++
+ 	return rc;
+ }
  
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
