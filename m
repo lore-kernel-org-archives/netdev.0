@@ -1,67 +1,90 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [PATCH RFC v2] net: add PCINet driver
-Date: Tue, 4 Nov 2008 14:29:27 -0800
-Message-ID: <20081104222927.GE4641@ovro.caltech.edu>
-References: <20081029202027.GH12879@ovro.caltech.edu> <200811041309.25869.arnd@arndb.de> <20081104173414.GB4641@ovro.caltech.edu> <200811042123.03819.arnd@arndb.de>
+From: Johann Baudy <johaahn@gmail.com>
+Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Tue, 04 Nov 2008 23:33:58 +0100
+Message-ID: <1225838038.6116.10.camel@fry>
+References: <1225450706.5301.94.camel@localhost>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:45361 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754042AbYKDW33 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 17:29:29 -0500
-Content-Disposition: inline
-In-Reply-To: <200811042123.03819.arnd@arndb.de>
+Received: from smtp5-g19.free.fr ([212.27.42.35]:53539 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754034AbYKDWeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2008 17:34:01 -0500
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 04, 2008 at 09:23:03PM +0100, Arnd Bergmann wrote:
+Hi Vitali,
 
-Big snip.
-
-> > 
-> > I tried to make the locking do only what was needed. I just couldn't get
-> > it correct unless I used spin_lock_irqsave(). I was able to get the
-> > system to deadlock otherwise. This is why I posted the driver for
-> > review, I could use some help here.
-> > 
-> > It isn't critical anyway. You can always use spin_lock_irqsave(), it is
-> > just a little slower, but it will always work :)
+> Actually, it represents the number of skbs allocated, which represents the number of pending skbs.  Consider the following scenario:
 > 
-> I like the documenting character of the spinlock functions. E.g. if you
-> use spin_lock_irq() in a function, it is obvious that interrupts are enabled,
-> and if you use spin_lock() on a lock that requires disabling interrupts,
-> you know that interrupts are already off.
->  
+> atomic_inc(pending_skb) 		(pending_skb = 1)
+> skb is allocated
+> for some reason the filling in of the skb fails after the destructor is set (i.e. tp_len is too big)
+> we go to out_free & free the skb
+> our destructor gets called
+> atomic_dec(pending_skb)             (pending_skb = 0)
+> atomic_dec(pending_skb)             (pending_skb = -1)
+> 
+> That is why it needs to be set after the skb is allocated (so that you don't need that atomic_dec).
+> 
+Oh ! Yes thanks! That's an obvious mistake. I'll fix it. 
 
-Ok, I've started addressing your comments. I'm having trouble with the
-locking again. Let me see if my understanding is correct:
+> > 
+> > atomic_dec() will be needed anyway if tpacket_fill_skb() or
+> > dev_queue_xmit() are failing (If performed after skb alloc).
+> > 
+> No, because when you call kfree_skb it'll call the destructor (which tpacket_fill_skb should fill as the first thing, before any error conditions can happen).
+> 
+> > > Also, you've got a potential threading issue - you're not protecting
+> > > the frame index behind the spinlock.
+> > 
+> > You are right, I think I will spin-lock outside the do_while loop.
+> Can't do that I think - dev_queue_xmit sleeps AFAIK and you can't hold a spinlock when you sleep.  
+> Can you explain why you need a spinlock though?  I think you're trying to make it thread-safe if multiple threads make calls to send, correct?
+>   In this case, just change it to a semaphore, and protect the entire send call (well - at least in a safe enough way to make sure you're properly unlocking upon exit).  Also, a better question is - is there any particular reason we need to support multiple threads calling send?  Just stipulate that the behaviour is undefined when there are calls to send from different threads.
 
-spin_lock_irqsave() disables interrupts and saves the interrupt state
-spin_unlock_irqrestore() MAY re-enable interrupts based on the saved
-flags
+Yes, this is to protect this mechanism against simultaneous send() calls.
+Indeed, using Mutex seems to be a more appropriate manner as it allows
+cpu to do other things.
+ 
+> > So, If my understanding of those memory barriers is correct, we should
+> > have a smp_rmb() before status reading and smp_wmb() after status
+> > writing in skb destructor and send procedure.
+> I'm not 100% sure about this - for this I was just referring to how the RX ring buffer does it.  However, I don't think so.  My understanding of the smp_wmb is that it's there so that the data cache is flushed properly.  In other words, when you change the tp_status field, you need to make sure that it's actually been written before you flush.  However, for reading, this is not a problem I think.  I also think that since TP_STATUS_COPY is only used only within the kernel, when you set TP_STATUS_COPY, you don't need to do the smp_wmb or the data cache flush.
+> 
+> Perhaps someone who's more comfortable with memory barriers could respond on this issue?
 
-spin_lock_irq() disables interrupts, and always turns them back on when
-spin_unlock_irq() is called
+According to memory-barrier documentation, "A write barrier should always be paired with a data dependency barrier or read
+barrier" (cf. below).
 
-spin_lock_bh() disables softirqs, spin_unlock_bh() re-enables them
+SMP BARRIER PAIRING
+-------------------
 
-spin_lock() and spin_unlock() are just regular spinlocks
+When dealing with CPU-CPU interactions, certain types of memory barrier should
+always be paired.  A lack of appropriate pairing is almost certainly an error.
+
+A write barrier should always be paired with a data dependency barrier or read
+barrier, though a general barrier would also be viable.  Similarly a read
+barrier or a data dependency barrier should always be paired with at least an
+write barrier, though, again, a general barrier is viable:
+
+	CPU 1		CPU 2
+	===============	===============
+	a = 1;
+	<write barrier>
+	b = 2;		x = b;
+			<read barrier>
+			y = a;
+
+Best regards,
+Johann
 
 
-So, since interrupts are disabled while my interrupt handler is running,
-I think I should be able to use spin_lock() and spin_unlock(), correct?
 
-But sparse gives me the following warning:
-wqt.c:185:9: warning: context imbalance in 'wqt_interrupt': wrong count at exit
-wqt.c:185:9:    context 'lock': wanted 0, got 1
 
-If I'm using spin_lock_irqsave() and spin_lock_irqrestore() I do not get
-the same warnings. Therefore I must have some misunderstanding :)
-
-Thanks,
-Ira
