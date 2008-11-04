@@ -1,63 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/2] sch_netem: Remove classful functionality
-Date: Tue, 4 Nov 2008 09:56:42 +0000
-Message-ID: <20081104095642.GA4498@ff.dom.local>
-References: <20081031132010.GA18895@ff.dom.local> <20081102.003700.198708146.davem@davemloft.net> <20081103082926.GA4698@ff.dom.local> <490EDE79.6070500@trash.net> <20081103090630.40b645d2@extreme>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: [PATCH] Have af-specific init_tempsel() initialize family field of temporary selector
+Date: Tue, 04 Nov 2008 11:24:51 +0100
+Message-ID: <87hc6npz4c.fsf@natisbad.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Andreas Steffen <andreas.steffen@strongswan.org>,
+	Martin Willi <martin@strongswan.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:6228 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751561AbYKDJ4s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 04:56:48 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so1197478nfc.21
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2008 01:56:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081103090630.40b645d2@extreme>
+Received: from moog.chdir.org ([88.191.42.160]:33045 "EHLO moog.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750733AbYKDK0m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2008 05:26:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 03, 2008 at 09:06:30AM -0800, Stephen Hemminger wrote:
-> On Mon, 03 Nov 2008 12:20:25 +0100
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
-> > Jarek Poplawski wrote:
-> > > On Sun, Nov 02, 2008 at 12:37:00AM -0700, David Miller wrote:
-> > >> From: Jarek Poplawski <jarkao2@gmail.com>
-> > >> Date: Fri, 31 Oct 2008 13:20:10 +0000
-> > >>
-> > >> Jarek, I applied this patch and your second one to net-next-2.6
-> > >>
-> > >> But I did this only because I trust that you will address Stephen's
-> > >> feedback wrt. making existing netem functionality available in
-> > >> some way.
-> > >>
-> > >> Otherwise I'll have to revert these changes.
-> > > 
-> > > Hmm... I thought there was kind of RFC for this, and it looked like
-> > > Patrick's idea won 100% of votes, but I'm not good in counting...
-> > > 
-> > > http://marc.info/?l=linux-netdev&m=122469801712438&w=2
-> > > http://marc.info/?l=linux-netdev&m=122469674709761&w=2
-> > > 
-> > > Anyway, IMHO adding TBF etc. functionalities to tfifo doesn't make
-> > > much sense, and if they are really needed it's better to revert
-> > > these patches and chose one of the other ways of doing reorder
-> > > proposed in this earlier thread.
-> > 
-> > Whats wrong with simply using TBF as parent qdisc of netem?
-> 
-> It works but does something slightly different.
-> 
->    netem inside TBF is like long delay network followed by choke on last hop
->    TBF inside netem was like choke on uplink followed by long delay network.
+Hi,
 
-David, this makes sense to me, so please revert these two patches.
-(Then, I think we're still at RFC stage.)
+While adding MIGRATE support to strongSwan, Andreas Steffen noticed that
+the selectors provided in XFRM_MSG_ACQUIRE have their family field
+uninitialized (those in MIGRATE do have their family set).
 
-Thanks.
-Jarek P.
+Looking at the code, this is because the af-specific init_tempsel()
+(called via afinfo->init_tempsel() in xfrm_init_tempsel()) do not set
+the value.
+
+Even if current apps probably do not rely on it, is there any argument
+for not doing it or is it just an omission?
+
+The patch below is more for discussion than anything else.
+
+Cheers,
+
+a+
+
+Reported-by: Andreas Steffen <andreas.steffen@strongswan.org>
+Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+---
+ net/ipv4/xfrm4_state.c |    1 +
+ net/ipv6/xfrm6_state.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
+index 07735ed..55dc6be 100644
+--- a/net/ipv4/xfrm4_state.c
++++ b/net/ipv4/xfrm4_state.c
+@@ -33,6 +33,7 @@ __xfrm4_init_tempsel(struct xfrm_state *x, struct flowi *fl,
+ 	x->sel.dport_mask = htons(0xffff);
+ 	x->sel.sport = xfrm_flowi_sport(fl);
+ 	x->sel.sport_mask = htons(0xffff);
++	x->sel.family = AF_INET;
+ 	x->sel.prefixlen_d = 32;
+ 	x->sel.prefixlen_s = 32;
+ 	x->sel.proto = fl->proto;
+diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+index 89884a4..60c78cf 100644
+--- a/net/ipv6/xfrm6_state.c
++++ b/net/ipv6/xfrm6_state.c
+@@ -34,6 +34,7 @@ __xfrm6_init_tempsel(struct xfrm_state *x, struct flowi *fl,
+ 	x->sel.dport_mask = htons(0xffff);
+ 	x->sel.sport = xfrm_flowi_sport(fl);
+ 	x->sel.sport_mask = htons(0xffff);
++	x->sel.family = AF_INET6;
+ 	x->sel.prefixlen_d = 128;
+ 	x->sel.prefixlen_s = 128;
+ 	x->sel.proto = fl->proto;
+-- 
+1.5.6.3
+
