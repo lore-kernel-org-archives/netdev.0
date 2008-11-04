@@ -1,39 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] sch_netem: Remove classful functionality
-Date: Tue, 04 Nov 2008 22:42:28 +0100
-Message-ID: <4910C1C4.3070309@trash.net>
-References: <20081031132010.GA18895@ff.dom.local>	<20081102.003700.198708146.davem@davemloft.net>	<20081103082926.GA4698@ff.dom.local>	<490EDE79.6070500@trash.net>	<20081103090630.40b645d2@extreme>	<20081104095642.GA4498@ff.dom.local> <20081104082510.2dd57d04@extreme>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
+Date: Tue, 04 Nov 2008 13:42:36 -0800 (PST)
+Message-ID: <20081104.134236.115613394.davem@davemloft.net>
+References: <1225809909.10206.90.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52507 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755394AbYKDVmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 16:42:32 -0500
-In-Reply-To: <20081104082510.2dd57d04@extreme>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38881
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754283AbYKDVnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 16:43:03 -0500
+In-Reply-To: <1225809909.10206.90.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
->> David, this makes sense to me, so please revert these two patches.
->> (Then, I think we're still at RFC stage.)
->>
->> Thanks.
->> Jarek P.
->>     
->
-> Keep Jarek's patch, I am working on dummynet compatiable rate control.
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Date: Tue, 04 Nov 2008 15:45:09 +0100
 
-I'm still wondering what these incompatibilies are, in verifiable terms.
+> I just bought the Sun x8 Express Quad Gigabit Ethernet Adapter you
+> recommended to me.  It seem to work with the NIU driver (I can ping
+> through the box), but I get a kernel warning when spamming it with
+> pktgen...
+> 
+> Where do I go from here?
+> And what do you want me to try?
 
-The dummynet algorithm looks like a not particulary cleverly implemented
-TBF, but I can't see why it would behave any differently than a suitably
-configured Linux TBF (cell size == 1) except for implementation differences
-outside its scope (clock, timers etc).
+Looks like the transmitter is wedged.
 
-
+Using current sources I assume?
