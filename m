@@ -1,37 +1,41 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: #ifdef ->sk_security
-Date: Tue, 4 Nov 2008 08:17:43 +0300
-Message-ID: <20081104051743.GA6157@x200.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net: increase receive packet quantum
+Date: Mon, 3 Nov 2008 21:25:21 -0800
+Message-ID: <20081103212521.15e12168@extreme>
+References: <20081103130303.29dd4e21@extreme>
+	<20081103.172428.154364341.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:54283 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751052AbYKDFO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 00:14:26 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so1167632nfc.21
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2008 21:14:24 -0800 (PST)
-Content-Disposition: inline
+Received: from mail.vyatta.com ([76.74.103.46]:33194 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751141AbYKDFZY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2008 00:25:24 -0500
+In-Reply-To: <20081103.172428.154364341.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+On Mon, 03 Nov 2008 17:24:28 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
- include/net/sock.h |    2 ++
- 1 file changed, 2 insertions(+)
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Mon, 3 Nov 2008 13:03:03 -0800
+> 
+> > This patch gets about 1.25% back on tbench regression.
+> > 
+> > My change to NAPI for multiqueue support changed the time limit on
+> > network receive processing.  Under sustained loads like tbench, this
+> > can cause the receiver to reschedule prematurely. 
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> I think I'm the guilty party that made that change to your
+> NAPI patches.
+> 
+> I'll apply this to net-next-2.6, thanks Stephen.
 
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -271,7 +271,9 @@ struct sock {
- 	struct sk_buff		*sk_send_head;
- 	__u32			sk_sndmsg_off;
- 	int			sk_write_pending;
-+#ifdef CONFIG_SECURITY
- 	void			*sk_security;
-+#endif
- 	__u32			sk_mark;
- 	/* XXX 4 bytes hole on 64 bit */
- 	void			(*sk_state_change)(struct sock *sk);
+Maybe you want it as part of the tbench regression recovery in 2.6.28?
+it seems mostly harmless.
