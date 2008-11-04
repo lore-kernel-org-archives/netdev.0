@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4]bnx2x: bug fixes
-Date: Mon, 03 Nov 2008 16:48:02 -0800 (PST)
-Message-ID: <20081103.164802.53576998.davem@davemloft.net>
-References: <1225728657.14568.9.camel@lb-tlvb-eliezer>
+Subject: Re: [PATCH 01/15] tg3: Add 5761S support
+Date: Mon, 03 Nov 2008 16:50:05 -0800 (PST)
+Message-ID: <20081103.165005.176890506.davem@davemloft.net>
+References: <1225751617.6166@xw6200>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: netdev@vger.kernel.org, mchan@broadcom.com, andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57021
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38239
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755392AbYKDAs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 19:48:27 -0500
-In-Reply-To: <1225728657.14568.9.camel@lb-tlvb-eliezer>
+	by vger.kernel.org with ESMTP id S1753630AbYKDAua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 19:50:30 -0500
+In-Reply-To: <1225751617.6166@xw6200>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Mon, 03 Nov 2008 18:10:57 +0200
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Mon, 3 Nov 2008 02:09:54 -0800
 
-> I'm sending this patch to the net-2.6 and not the net-next since it
-> contains bug fixes that I believe should be address. Please let me know
-> if you think otherwise.
+> This patch adds support for the 5761S chip variants.
 > 
-> 0001 Removing the PMF indication when unloading
-> 0002 PCI configuration bug on big-endian
-> 0003 Calling netif_carrier_off at the end of the probe
-> 0004 Version Update
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-All applied, thanks a lot.
+Applied.
