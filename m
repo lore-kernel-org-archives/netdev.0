@@ -1,65 +1,39 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: ipv6_addr_type() and mapped IPv4 loopback
-Date: Tue, 4 Nov 2008 16:33:47 -0500
-Message-ID: <6385FFF7-3484-498E-A679-8F982E7260CD@oracle.com>
-References: <06930890-5BC3-4BE2-97CC-B3F6DF33B794@oracle.com> <490FB460.2010501@hp.com> <443B1A57-9994-4555-BCE6-B66B8F406DA2@oracle.com> <4910BBC0.1060309@hp.com>
-Mime-Version: 1.0 (Apple Message framework v929.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] sch_netem: Remove classful functionality
+Date: Tue, 04 Nov 2008 22:42:28 +0100
+Message-ID: <4910C1C4.3070309@trash.net>
+References: <20081031132010.GA18895@ff.dom.local>	<20081102.003700.198708146.davem@davemloft.net>	<20081103082926.GA4698@ff.dom.local>	<490EDE79.6070500@trash.net>	<20081103090630.40b645d2@extreme>	<20081104095642.GA4498@ff.dom.local> <20081104082510.2dd57d04@extreme>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet11.oracle.com ([148.87.113.123]:61587 "EHLO
-	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901AbYKDVdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 16:33:54 -0500
-In-Reply-To: <4910BBC0.1060309@hp.com>
+Received: from stinky.trash.net ([213.144.137.162]:52507 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755394AbYKDVmc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 16:42:32 -0500
+In-Reply-To: <20081104082510.2dd57d04@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Brian-
+Stephen Hemminger wrote:
+>> David, this makes sense to me, so please revert these two patches.
+>> (Then, I think we're still at RFC stage.)
+>>
+>> Thanks.
+>> Jarek P.
+>>     
+>
+> Keep Jarek's patch, I am working on dummynet compatiable rate control.
 
-On Nov 4, 2008, at Nov 4, 2008, 4:16 PM, Brian Haley wrote:
-> Chuck Lever wrote:
->> Hi Brian-
->> On Nov 3, 2008, at Nov 3, 2008, 9:33 PM, Brian Haley wrote:
->>> Chuck Lever wrote:
->>>> The __ipv6_addr_type() function does not recognize the mapped  
->>>> IPv4 loopback address:
->>>>  ::ffff:7f00:0001
->>>> as type IPV6_ADDR_LOOPBACK.  Is this intentional?
->>>
->>> I would think that since the IPv6 loopback address is ::1, and  
->>> ipv4-mapped is ::ffff:* that this would be IPV6_ADDR_MAPPED.   
->>> That's what RFC 4291 seems to say.
->> So the answer to my original question is then "yes, this is  
->> intentional," correct?
->
-> I didn't design the Linux IPv6 stack, but it looks right to me.
->
->> On a system with an AF_INET6 listener, legacy applications use  
->> 127.0.0.1 to contact a local listener.  The incoming source address  
->> will be ::ffff:7f00:0001, not ::1.  This means IPv6-enabled  
->> applications have to perform a separate check for ::ffff:7f00:0001  
->> if they are looking for loopback addresses.
->
-> Right, applications have to see if it's really an IPv4 address if  
-> necessary.  If you're just looking for loopback and it's in the  
-> kernel, it's only about this much code:
->
-> 	if (ipv6_addr_type(addr->sin6_addr) == IPV6_ADDR_MAPPED) {
->                __be32 v4addr = addr->sin6_addr.s6_addr32[3];
->                if (ipv4_is_loopback(v4addr)) {
->                        /* it's 127.0.0.* */
->                }
-> 	}
->
-> There's the IN6_IS_ADDR_V4MAPPED() macro for user-space as well.
+I'm still wondering what these incompatibilies are, in verifiable terms.
 
-Thanks for the steer.  I'll submit this fix for 2.6.29.  I'm hoping to  
-introduce AF_INET6-based kernel RPC services (namely NFSD and lockd)  
-in that release.
+The dummynet algorithm looks like a not particulary cleverly implemented
+TBF, but I can't see why it would behave any differently than a suitably
+configured Linux TBF (cell size == 1) except for implementation differences
+outside its scope (clock, timers etc).
 
--- 
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+
