@@ -1,69 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: xfrm_policy_kill: inconsistent {softirq-on-W} ->
- {in-softirq-W} usage
-Date: Mon, 03 Nov 2008 19:12:10 -0800 (PST)
-Message-ID: <20081103.191210.149092227.davem@davemloft.net>
-References: <490F3C08.6000209@simon.arlott.org.uk>
-	<20081103205726.GA3589@x200.localdomain>
+Subject: Re: zeroing dev->irq
+Date: Mon, 03 Nov 2008 19:28:20 -0800 (PST)
+Message-ID: <20081103.192820.125970076.davem@davemloft.net>
+References: <490B2DA4.30903@garzik.org>
+	<20081031163851.GA16253@gospo.rdu.redhat.com>
+	<490B36B6.2020300@garzik.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: simon@fire.lp0.eu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Cc: andy@greyhouse.net, mcarlson@broadcom.com, netdev@vger.kernel.org,
+	mchan@broadcom.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39128
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47907
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751348AbYKDDMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 22:12:35 -0500
-In-Reply-To: <20081103205726.GA3589@x200.localdomain>
+	by vger.kernel.org with ESMTP id S1752536AbYKDD2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 22:28:45 -0500
+In-Reply-To: <490B36B6.2020300@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Mon, 3 Nov 2008 23:57:26 +0300
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 31 Oct 2008 12:47:50 -0400
 
-> If it's easily reproducible, try this patch:
-> 
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -315,9 +315,9 @@ static void xfrm_policy_kill(struct xfrm_policy *policy)
+> Andy Gospodarek wrote:
+> > This came up because the output is currently wrong.
+> > # ifconfig eth0 | grep Inter && grep eth0 /proc/interrupts
+> >           Interrupt:169 Memory:f6000000-f6012100
+> > 122:       2894           0          0         PCI-MSI  eth0
+> > Some drivers take the stand of not setting dev->irq anything (like most
+> > of the Intel drivers), but I didn't take that route with tg3 (or with
+> > the others I'd planned) simply because I didn't want to hear crying
+> > about breaking user-space with a patch that would make that line
+> > disappear.
+> > If this seems like a reasonable change that we can force on user-space
+> > I'll post a patch that drops the setting of dev->irq all together, so
+> > this disappers.
+>
+> I would vote for zeroing dev->irq in not only tg3, but also other
+> modern, ethtool-enabled drivers...  It is a relic of the ISA days,
+> and is incompatible with multiple MSI vector scenarios, something
+> also found on some non-x86 and embedded ethernet drivers.
+>
+> For years now, dev->irq has been providing information on an
+> unreliable, best-effort basis.  I prefer definitive, reliable,
+> predictable behaviors, and think always-zero is therefore an
+> improvement.
+>
+> Comments welcome...
 
-This looks clearly like the correct fix for this lockdep
-warning, so I'm adding it to net-2.6 as follows even though
-Simon can't readily test it.
-
-Thanks.
-
-commit bbb770e7ab9a436752babfc8765e422d7481be1f
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Mon Nov 3 19:11:29 2008 -0800
-
-    xfrm: Fix xfrm_policy_gc_lock handling.
-    
-    From: Alexey Dobriyan <adobriyan@gmail.com>
-    
-    Based upon a lockdep trace by Simon Arlott.
-    
-    xfrm_policy_kill() can be called from both BH and
-    non-BH contexts, so we have to grab xfrm_policy_gc_lock
-    with BH disabling.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 2587274..058f04f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -315,9 +315,9 @@ static void xfrm_policy_kill(struct xfrm_policy *policy)
- 		return;
- 	}
- 
--	spin_lock(&xfrm_policy_gc_lock);
-+	spin_lock_bh(&xfrm_policy_gc_lock);
- 	hlist_add_head(&policy->bydst, &xfrm_policy_gc_list);
--	spin_unlock(&xfrm_policy_gc_lock);
-+	spin_unlock_bh(&xfrm_policy_gc_lock);
- 
- 	schedule_work(&xfrm_policy_gc_work);
- }
+I completely agree with Jeff and I'll happily take patches
+which do this into net-next-2.6
