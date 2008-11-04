@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: increase receive packet quantum
-Date: Mon, 03 Nov 2008 17:24:28 -0800 (PST)
-Message-ID: <20081103.172428.154364341.davem@davemloft.net>
-References: <20081103130303.29dd4e21@extreme>
+Subject: Re: on-link assumption in ipv4 routing cache
+Date: Mon, 03 Nov 2008 17:32:07 -0800 (PST)
+Message-ID: <20081103.173207.246539261.davem@davemloft.net>
+References: <48FD2A34.7020702@hp.com>
+	<20081020.221312.211946478.davem@davemloft.net>
+	<4900B8C0.5020205@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56878
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60047
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752221AbYKDBYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 20:24:55 -0500
-In-Reply-To: <20081103130303.29dd4e21@extreme>
+	by vger.kernel.org with ESMTP id S1751433AbYKDBcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 20:32:32 -0500
+In-Reply-To: <4900B8C0.5020205@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 3 Nov 2008 13:03:03 -0800
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Thu, 23 Oct 2008 13:47:44 -0400
 
-> This patch gets about 1.25% back on tbench regression.
+> Ok, I've found the code and the explanation, but I think there is
+> a small bug here that's been around a very long time.  There is absolutely
+> no checking for the interface state.  This means that if the interface
+> is brought down, we are still going to attempt to route through it.
+> That seems broken, since the interface was administratively brought down.
 > 
-> My change to NAPI for multiqueue support changed the time limit on
-> network receive processing.  Under sustained loads like tbench, this
-> can cause the receiver to reschedule prematurely. 
+> I've actually tried to do this with my test app.  I've set it to connect
+> over a given interface, brought the interface down, and then issued the
+> connect().  The result is that the app hung until tcp_syn_retries SYNs have
+> been issued and then returned error.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> I've got no issues against on-link assumption as long as there are some smarts
+> behind it.  The least we could do is use a running interface.
 
-I think I'm the guilty party that made that change to your
-NAPI patches.
+I agree with you that this behavior is at best sub-optimal.
 
-I'll apply this to net-next-2.6, thanks Stephen.
+I'm happy to entertain patches the try to make this
+area more sane.
