@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: '&' redux
-Date: Mon, 03 Nov 2008 18:21:49 -0800 (PST)
-Message-ID: <20081103.182149.156430442.davem@davemloft.net>
-References: <20081104022200.GA15822@x200.localdomain>
+Subject: Re: [PATCH] nets: remove two duplicated #include
+Date: Mon, 03 Nov 2008 18:23:19 -0800 (PST)
+Message-ID: <20081103.182319.103857163.davem@davemloft.net>
+References: <20081103121908.GA24634@ubuntu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: adobriyan@gmail.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jianjun@zeuux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33641
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33644
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751433AbYKDCWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 21:22:14 -0500
-In-Reply-To: <20081104022200.GA15822@x200.localdomain>
+	by vger.kernel.org with ESMTP id S1751433AbYKDCXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 21:23:43 -0500
+In-Reply-To: <20081103121908.GA24634@ubuntu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 4 Nov 2008 05:22:00 +0300
+From: Jianjun Kong <jianjun@zeuux.org>
+Date: Mon, 3 Nov 2008 20:19:08 +0800
 
-> I want to compile out proc_* and sysctl_* handlers totally and
-> stub them to NULL depending on config options, however usage of &
-> will prevent this, since taking adress of NULL pointer will break
-> compilation.
 > 
-> So, drop & in front of every ->proc_handler and every ->strategy
-> handler, it was never needed in fact.
+> [PATCH] nets: remove two duplicated #include
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Removed duplicated #include <rdma/ib_verbs.h> in net/9p/trans_rdma.c
+> 		and  #include <linux/thread_info.h> in net/socket.c
+> 
+> Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
 
-Applied, thanks Alexey.
-
-Using '&' when referring to functions is a pet peeve of mine :)
+Applied, thank you.
