@@ -1,39 +1,83 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: Remove warn_if_extra_mangle
-Date: Tue, 04 Nov 2008 14:36:39 +0100
-Message-ID: <49104FE7.7070509@trash.net>
-References: <490F727C.6020705@simon.arlott.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org
-To: Simon Arlott <simon@arlott.org>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: [PATCH] ipv6: fix run pending DAD when interface becomes ready
+Date: Tue, 04 Nov 2008 14:55:50 +0100
+Message-ID: <20081104135551.916564770@nptl.frec.bull.fr>
+References: <20081104135549.981972492@nptl.frec.bull.fr>
+Cc: netdev <netdev@vger.kernel.org>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: Dave Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41509 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751938AbYKDNgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 08:36:46 -0500
-In-Reply-To: <490F727C.6020705@simon.arlott.org.uk>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50773 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752092AbYKDONR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 09:13:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simon Arlott wrote:
-> In net/ipv4/netfilter/nf_nat_rule.c, the function warn_if_extra_mangle was added 
-> in commit 5b1158e909ecbe1a052203e0d8df15633f829930 (2006-12-02). I have a DNAT 
-> target in the OUTPUT chain than changes connections with dst 2.0.0.1 to another 
-> address which I'll substitute with 66.102.9.99 below.
-> 
-> On every boot I get the following message:
-> [  146.252505] NAT: no longer support implicit source local NAT
-> [  146.252517] NAT: packet src 66.102.9.99 -> dst 2.0.0.1
-> 
-> As far as I can tell from reading the function doing this, it should warn if the 
-> source IP for the route to 66.102.9.99 is different from 2.0.0.1 but that is not 
-> the case. It doesn't make sense to check the DNAT target against the local route 
-> source.
-> 
-> Either the function should be changed to correctly check the route, or it should 
-> be removed entirely as it's been nearly 2 years since it was added.
+With some net devices types, an IPv6 address configured while the
+interface was down can stay 'tentative' forever, even after the interface
+is set up. In some case, pending IPv6 DADs are not executed when the
+device becomes ready.
 
-Removing it sounds fine to me. Applied, thanks.
+I observed this while doing some tests with kvm. If I assign an IPv6 
+address to my interface eth0 (kvm driver rtl8139) when it is still down
+then the address is flagged tentative (IFA_F_TENTATIVE). Then, I set
+eth0 up, and to my surprise, the address stays 'tentative', no DAD is
+executed and the address can't be pinged.
+
+I also observed the same behaviour, without kvm, with virtual interfaces
+types macvlan and veth.
+
+Some easy steps to reproduce the issue with macvlan:
+
+1. ip link add link eth0 type macvlan
+2. ip -6 addr add 2003::ab32/64 dev macvlan0
+3. ip addr show dev macvlan0
+   ... 
+   inet6 2003::ab32/64 scope global tentative
+   ...
+4. ip link set macvlan0 up
+5. ip addr show dev macvlan0
+   ...
+   inet6 2003::ab32/64 scope global tentative
+   ...
+   Address is still tentative
+
+I think there's a bug in net/ipv6/addrconf.c, addrconf_notify():
+addrconf_dad_run() is not always run when the interface is flagged IF_READY.
+Currently it is only run when receiving NETDEV_CHANGE event. Looks like
+some (virtual) devices doesn't send this event when becoming up.
+
+For both NETDEV_UP and NETDEV_CHANGE events, when the interface becomes
+ready, run_pending should be set to 1. Patch below.
+
+'run_pending = 1' could be moved below the if/else block but it makes 
+the code less readable.
+
+Regards,
+Benjamin
+
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+---
+ net/ipv6/addrconf.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+Index: net-2.6/net/ipv6/addrconf.c
+===================================================================
+--- net-2.6.orig/net/ipv6/addrconf.c
++++ net-2.6/net/ipv6/addrconf.c
+@@ -2483,8 +2483,10 @@ static int addrconf_notify(struct notifi
+ 			if (!idev && dev->mtu >= IPV6_MIN_MTU)
+ 				idev = ipv6_add_dev(dev);
+ 
+-			if (idev)
++			if (idev) {
+ 				idev->if_flags |= IF_READY;
++				run_pending = 1;
++			}
+ 		} else {
+ 			if (!addrconf_qdisc_ok(dev)) {
+ 				/* device is still not ready. */
+
+-- 
