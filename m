@@ -1,45 +1,35 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [RFC] skb_free_datagram() doing something expensive ?
-Date: Wed, 05 Nov 2008 00:02:22 +0100
-Message-ID: <4910D47E.4030004@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] skb_free_datagram() doing something expensive ?
+Date: Tue, 04 Nov 2008 15:41:12 -0800 (PST)
+Message-ID: <20081104.154112.52727780.davem@davemloft.net>
+References: <4910D47E.4030004@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	Corey Minyard <minyard@acm.org>
+Cc: netdev@vger.kernel.org, minyard@acm.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:57385 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192AbYKDXCe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 18:02:34 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44304
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757960AbYKDXlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 18:41:37 -0500
+In-Reply-To: <4910D47E.4030004@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 05 Nov 2008 00:02:22 +0100
 
-I noticed high contention on udp_memory_allocated on a typical VOIP application.
+> tcp_memory_allocated do not have this problem, since tcp carefully calls sk_mem_reclaim(sk) only on
+> selected paths, not on fast path.
 
-(Now that oprofile correctly runs on my machine :) )
+I think something similar can be done for UDP.
 
-I can see that skb_free_datagram() is :
+Otherwise, yes, we'll need to do else something about it.
 
-void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
-{
-        kfree_skb(skb);
-        sk_mem_reclaim(sk);
-}
-
-So each time an UDP packet is received, we must touch udp_memory_allocated
-
-Each time application reads a packet, we call sk_mem_reclaim() and touch again udp_memory_allocated.
-
-Surely this cannot be correct ?
-
-If this is correct, time is to resurrect a patch to make proto->memory_allocated a percpu_counter
-or something to have a percpu reserve of say 64 or 128 pages to avoid cache line trashing...
-
-tcp_memory_allocated do not have this problem, since tcp carefully calls sk_mem_reclaim(sk) only on
-selected paths, not on fast path.
-
-Thanks
+I guess your per-cpu idea, since we're trying to enforce
+global limits, is to cache the available quota on a per-cpu
+basis.  But I wonder if that can work properly.  If a
+cpu gets overloaded and runs out of it's local quota, it'll
+need to grab from another cpu.... hmmm...
 
