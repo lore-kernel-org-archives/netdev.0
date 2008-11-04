@@ -1,35 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] skb_free_datagram() doing something expensive ?
-Date: Tue, 04 Nov 2008 15:41:12 -0800 (PST)
-Message-ID: <20081104.154112.52727780.davem@davemloft.net>
-References: <4910D47E.4030004@cosmosbay.com>
+From: <info@googlemail.com>
+Subject: Attn:Urgent Notification from Google (Congrat!!)
+Date: Wed,  5 Nov 2008 01:39:41 +0200 (IST)
+Message-ID: <20081105013941.DBW40401@mas28.bezeqint.net>
+Reply-To: giveawayteam2008@live.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, minyard@acm.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44304
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757960AbYKDXlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 18:41:37 -0500
-In-Reply-To: <4910D47E.4030004@cosmosbay.com>
+Received: from sa4.bezeqint.net ([192.115.104.18]:53845 "EHLO sa4.bezeqint.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751398AbYKEAC0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 19:02:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 05 Nov 2008 00:02:22 +0100
-
-> tcp_memory_allocated do not have this problem, since tcp carefully calls sk_mem_reclaim(sk) only on
-> selected paths, not on fast path.
-
-I think something similar can be done for UDP.
-
-Otherwise, yes, we'll need to do else something about it.
-
-I guess your per-cpu idea, since we're trying to enforce
-global limits, is to cache the available quota on a per-cpu
-basis.  But I wonder if that can work properly.  If a
-cpu gets overloaded and runs out of it's local quota, it'll
-need to grab from another cpu.... hmmm...
-
+Dear Sir/Madam,
+Your email just won =A3500,000 Pounds in anniversary give-away
+lotto.No purchases of tickets was required.Participants for
+the draws were randomly selected from a worldwide range of
+web searchers who use the Google search engine(Googler) and
+other Google ancillary services.For more info,send your
+winning Ticket
+number:00869575733664,CGPN:7-22-71-00-66-12,Serial
+numbers:BTD/8070447706/06,Lucky
+numbers:12-12-23-35-40-41(12)to Mr.F.Henson,
+email:anniversary.giveawaylotto@gmail.com,
+g_a_t_2008@live.com.Thank you for using Google.Mark
+Annie(Coordinator/announcer)
+=20
