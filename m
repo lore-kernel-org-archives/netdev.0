@@ -1,71 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] sch_netem: Remove classful functionality
-Date: Tue, 4 Nov 2008 08:25:10 -0800
-Message-ID: <20081104082510.2dd57d04@extreme>
-References: <20081031132010.GA18895@ff.dom.local>
-	<20081102.003700.198708146.davem@davemloft.net>
-	<20081103082926.GA4698@ff.dom.local>
-	<490EDE79.6070500@trash.net>
-	<20081103090630.40b645d2@extreme>
-	<20081104095642.GA4498@ff.dom.local>
+From: Dave Hudson <linux-kernel@blueteddy.net>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Tue, 04 Nov 2008 16:16:03 +0000
+Message-ID: <49107543.5080207@blueteddy.net>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59183 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756500AbYKDQZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2008 11:25:16 -0500
-In-Reply-To: <20081104095642.GA4498@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Linux Netdev <netdev@vger.kernel.org>,
+	Linux Networking <linux-net@vger.kernel.org>
+To: Daniel J Blueman <daniel.blueman@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 4 Nov 2008 09:56:42 +0000
-Jarek Poplawski <jarkao2@gmail.com> wrote:
-
-> On Mon, Nov 03, 2008 at 09:06:30AM -0800, Stephen Hemminger wrote:
-> > On Mon, 03 Nov 2008 12:20:25 +0100
-> > Patrick McHardy <kaber@trash.net> wrote:
-> > 
-> > > Jarek Poplawski wrote:
-> > > > On Sun, Nov 02, 2008 at 12:37:00AM -0700, David Miller wrote:
-> > > >> From: Jarek Poplawski <jarkao2@gmail.com>
-> > > >> Date: Fri, 31 Oct 2008 13:20:10 +0000
-> > > >>
-> > > >> Jarek, I applied this patch and your second one to net-next-2.6
-> > > >>
-> > > >> But I did this only because I trust that you will address Stephen's
-> > > >> feedback wrt. making existing netem functionality available in
-> > > >> some way.
-> > > >>
-> > > >> Otherwise I'll have to revert these changes.
-> > > > 
-> > > > Hmm... I thought there was kind of RFC for this, and it looked like
-> > > > Patrick's idea won 100% of votes, but I'm not good in counting...
-> > > > 
-> > > > http://marc.info/?l=linux-netdev&m=122469801712438&w=2
-> > > > http://marc.info/?l=linux-netdev&m=122469674709761&w=2
-> > > > 
-> > > > Anyway, IMHO adding TBF etc. functionalities to tfifo doesn't make
-> > > > much sense, and if they are really needed it's better to revert
-> > > > these patches and chose one of the other ways of doing reorder
-> > > > proposed in this earlier thread.
-> > > 
-> > > Whats wrong with simply using TBF as parent qdisc of netem?
-> > 
-> > It works but does something slightly different.
-> > 
-> >    netem inside TBF is like long delay network followed by choke on last hop
-> >    TBF inside netem was like choke on uplink followed by long delay network.
+Daniel J Blueman wrote:
+> Is it time to enable TCP ECN per default and get the benefits, since
+> router support has been around and known-about for really considerable
+> time?
 > 
-> David, this makes sense to me, so please revert these two patches.
-> (Then, I think we're still at RFC stage.)
+> Perhaps it should be a question of enabling it, and educating people
+> to disable it if they run into issues, since we'll probably be in the
+> same situation in 5 years...and it'll be some time before these
+> kernels hit devices/servers anyway.
 > 
-> Thanks.
-> Jarek P.
+> Daniel
 
-Keep Jarek's patch, I am working on dummynet compatiable rate control.
+Unfortunately I think you'll find there are sufficiently large numbers 
+of broken SOHO routers out there that if you try this you'll cause a lot 
+of problems.  The problems range from no connectivity to in a few 
+extreme cases routers actually crashing or behaving in very 
+unpredictable ways.  Here's one summary that got presented to the IETF 
+about 18 months ago:
+
+http://www.ietf.org/proceedings/07mar/slides/tsvarea-3/sld6.htm
+
+When a clueless end-user gets a Linux-enabled netbook that crashes their 
+router while their existing Vista or XP systems appear to work just fine 
+then the Linux network stack will get the blame for being buggy, not the 
+router :-(
+
+
+Regards,
+Dave
+
+
