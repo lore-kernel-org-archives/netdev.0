@@ -1,184 +1,126 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] loopback: optimization
-Date: Mon, 3 Nov 2008 21:37:58 -0800
-Message-ID: <20081103213758.59a8361d@extreme>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: net/: Kill now superfluous ->last_rx stores.
+Date: Mon, 03 Nov 2008 22:01:45 -0800 (PST)
+Message-ID: <20081103.220145.73307270.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33681 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751224AbYKDFiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2008 00:38:00 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44370
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751505AbYKDGCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 01:02:09 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 39D3FC8C183
+	for <netdev@vger.kernel.org>; Mon,  3 Nov 2008 22:01:45 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is something I was trying out to try improving loopback performance.
-It moves loopback processing from the generic backlog per-cpu queues,
-to its own set of queues. I thought this might help the cache locality
-and the loopback doesn't have to do relatively expensive local_irq_disable()
-operations.
 
-BUT it didn't seem to help with tbench, but it might help others who
-want to go farther with it. Code runs but treat it ASIS at this point.
+net/: Kill now superfluous ->last_rx stores.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+The generic packet receive code takes care of setting
+netdev->last_rx when necessary, for the sake of the
+bonding ARP monitor.
 
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/8021q/vlan_core.c        |    1 -
+ net/8021q/vlan_dev.c         |    2 --
+ net/bluetooth/bnep/core.c    |    1 -
+ net/dsa/tag_dsa.c            |    1 -
+ net/dsa/tag_edsa.c           |    1 -
+ net/dsa/tag_trailer.c        |    1 -
+ net/ieee80211/ieee80211_rx.c |    2 --
+ 7 files changed, 0 insertions(+), 9 deletions(-)
 
---- a/drivers/net/loopback.c	2008-11-03 10:13:31.000000000 -0800
-+++ b/drivers/net/loopback.c	2008-11-03 11:05:52.000000000 -0800
-@@ -59,51 +59,79 @@
- #include <linux/percpu.h>
- #include <net/net_namespace.h>
- 
--struct pcpu_lstats {
-+struct loopback_per_cpu {
-+	struct sk_buff_head rxq;
-+	struct napi_struct napi;
-+
- 	unsigned long packets;
- 	unsigned long bytes;
- };
- 
-+
- /*
-  * The higher levels take care of making this non-reentrant (it's
-  * called with bh's disabled).
-  */
- static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct pcpu_lstats *pcpu_lstats, *lb_stats;
-+	struct loopback_per_cpu *lo = dev->ml_priv, *pcpu;
- 
- 	skb_orphan(skb);
- 
--	skb->protocol = eth_type_trans(skb,dev);
-+	skb->protocol = eth_type_trans(skb, dev);
- 
- 	dev->last_rx = jiffies;
- 
- 	/* it's OK to use per_cpu_ptr() because BHs are off */
--	pcpu_lstats = dev->ml_priv;
--	lb_stats = per_cpu_ptr(pcpu_lstats, smp_processor_id());
--	lb_stats->bytes += skb->len;
--	lb_stats->packets++;
-+	pcpu = per_cpu_ptr(lo, smp_processor_id());
- 
--	netif_rx(skb);
-+	if (likely(pcpu->rxq.qlen < netdev_max_backlog)) {
-+		if (pcpu->rxq.qlen == 0)
-+			__napi_schedule(&lo->napi);
-+
-+		__skb_queue_tail(&pcpu->rxq, skb);
-+		pcpu->bytes += skb->len;
-+		pcpu->packets++;
-+
-+		return NET_XMIT_SUCCESS;
-+	} else {
-+		dev->stats.rx_dropped++;
-+		dev_kfree_skb_any(skb);
-+		return NET_XMIT_DROP;
-+	}
-+}
- 
--	return 0;
-+static int loopback_poll(struct napi_struct *napi, int work_limit)
-+{
-+	struct loopback_per_cpu *pcpu
-+		= container_of(napi, struct loopback_per_cpu, napi);
-+	struct sk_buff *skb;
-+	int work_done = 0;
-+
-+	while ( (skb = __skb_dequeue(&pcpu->rxq)) ) {
-+		netif_receive_skb(skb);
-+
-+		if (++work_done >= work_limit)
-+			goto done;
-+	}
-+
-+	__napi_complete(napi);
-+done:
-+	return work_done;
- }
- 
- static struct net_device_stats *get_stats(struct net_device *dev)
- {
--	const struct pcpu_lstats *pcpu_lstats;
-+	const struct loopback_per_cpu *lo = dev->ml_priv;
- 	struct net_device_stats *stats = &dev->stats;
- 	unsigned long bytes = 0;
- 	unsigned long packets = 0;
- 	int i;
- 
--	pcpu_lstats = dev->ml_priv;
- 	for_each_possible_cpu(i) {
--		const struct pcpu_lstats *lb_stats;
--
--		lb_stats = per_cpu_ptr(pcpu_lstats, i);
--		bytes   += lb_stats->bytes;
--		packets += lb_stats->packets;
-+		const struct loopback_per_cpu *pcpu = per_cpu_ptr(lo, i);
-+		bytes   += pcpu->bytes;
-+		packets += pcpu->packets;
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 916061f..118adef 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -24,7 +24,6 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 		 * due to congestion. */
+ 		return NET_RX_SUCCESS;
  	}
- 	stats->rx_packets = packets;
- 	stats->tx_packets = packets;
-@@ -127,21 +155,43 @@ static const struct ethtool_ops loopback
+-	skb->dev->last_rx = jiffies;
+ 	skb->vlan_tci = 0;
  
- static int loopback_dev_init(struct net_device *dev)
- {
--	struct pcpu_lstats *lstats;
-+	struct loopback_per_cpu *lo;
-+	int i;
+ 	stats = &skb->dev->stats;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index c269fcb..e4bf39f 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -163,8 +163,6 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 		goto err_unlock;
+ 	}
  
--	lstats = alloc_percpu(struct pcpu_lstats);
--	if (!lstats)
-+	lo = alloc_percpu(struct loopback_per_cpu);
-+	if (!lo)
- 		return -ENOMEM;
+-	skb->dev->last_rx = jiffies;
+-
+ 	stats = &skb->dev->stats;
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += skb->len;
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+index 80ba30c..7a4d530 100644
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -311,7 +311,6 @@ static inline int bnep_rx_frame(struct bnep_session *s, struct sk_buff *skb)
+ 	struct sk_buff *nskb;
+ 	u8 type;
  
--	dev->ml_priv = lstats;
-+	dev->ml_priv = lo;
-+
-+	for_each_possible_cpu(i) {
-+		struct loopback_per_cpu *pcpu = per_cpu_ptr(lo, i);
-+		skb_queue_head_init(&pcpu->rxq);
-+		netif_napi_add(dev, &pcpu->napi, loopback_poll, 64);
-+	}
-+
-+	return 0;
-+}
-+
-+static int loopback_dev_stop(struct net_device *dev)
-+{
-+	struct loopback_per_cpu *lo = dev->ml_priv;
-+	int i;
-+
-+	for_each_possible_cpu(i) {
-+		struct loopback_per_cpu *pcpu = per_cpu_ptr(lo, i);
-+
-+		napi_synchronize(&pcpu->napi);
-+		__skb_queue_purge(&pcpu->rxq);
-+	}
- 	return 0;
- }
+-	dev->last_rx = jiffies;
+ 	s->stats.rx_bytes += skb->len;
  
- static void loopback_dev_free(struct net_device *dev)
- {
--	struct pcpu_lstats *lstats = dev->ml_priv;
-+	struct loopback_per_cpu *lo = dev->ml_priv;
+ 	type = *(u8 *) skb->data; skb_pull(skb, 1);
+diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
+index bdc0510..ff55823 100644
+--- a/net/dsa/tag_dsa.c
++++ b/net/dsa/tag_dsa.c
+@@ -161,7 +161,6 @@ static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	skb_push(skb, ETH_HLEN);
+ 	skb->protocol = eth_type_trans(skb, skb->dev);
  
--	free_percpu(lstats);
-+	free_percpu(lo);
- 	free_netdev(dev);
- }
+-	skb->dev->last_rx = jiffies;
+ 	skb->dev->stats.rx_packets++;
+ 	skb->dev->stats.rx_bytes += skb->len;
  
-@@ -169,6 +219,7 @@ static void loopback_setup(struct net_de
- 	dev->header_ops		= &eth_header_ops;
- 	dev->init = loopback_dev_init;
- 	dev->destructor = loopback_dev_free;
-+	dev->stop = loopback_dev_stop;
- }
+diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
+index f985ea9..24b1c76 100644
+--- a/net/dsa/tag_edsa.c
++++ b/net/dsa/tag_edsa.c
+@@ -180,7 +180,6 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	skb_push(skb, ETH_HLEN);
+ 	skb->protocol = eth_type_trans(skb, skb->dev);
  
+-	skb->dev->last_rx = jiffies;
+ 	skb->dev->stats.rx_packets++;
+ 	skb->dev->stats.rx_bytes += skb->len;
+ 
+diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
+index d311776..3bfd2e5 100644
+--- a/net/dsa/tag_trailer.c
++++ b/net/dsa/tag_trailer.c
+@@ -97,7 +97,6 @@ static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	skb_push(skb, ETH_HLEN);
+ 	skb->protocol = eth_type_trans(skb, skb->dev);
+ 
+-	skb->dev->last_rx = jiffies;
+ 	skb->dev->stats.rx_packets++;
+ 	skb->dev->stats.rx_bytes += skb->len;
+ 
+diff --git a/net/ieee80211/ieee80211_rx.c b/net/ieee80211/ieee80211_rx.c
+index a91ef84..3dd58b5 100644
+--- a/net/ieee80211/ieee80211_rx.c
++++ b/net/ieee80211/ieee80211_rx.c
+@@ -533,8 +533,6 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
+ 	}
+ #endif
+ 
+-	dev->last_rx = jiffies;
+-
+ #ifdef NOT_YET
+ 	if ((ieee->iw_mode == IW_MODE_MASTER ||
+ 	     ieee->iw_mode == IW_MODE_REPEAT) && !from_assoc_ap) {
+-- 
+1.5.6.5
+
