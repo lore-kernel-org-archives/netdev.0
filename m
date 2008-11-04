@@ -1,43 +1,87 @@
-From: "Grant Likely" <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v2)
-Date: Tue, 4 Nov 2008 08:57:23 -0700
-Message-ID: <fa686aa40811040757m4e36699nf7870258929ed768@mail.gmail.com>
-References: <20081104144518.4429.37325.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
-	 <200811041645.39953.marc.pignat@hevs.ch>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 14/16] RealView: Use the in-kernel smc911x.c driver on	RealView
+Date: Tue, 4 Nov 2008 16:12:26 +0000
+Message-ID: <OFB1CA2244.82F9DB1F-ON802574F7.0058714B-802574F7.005913A3@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org,
-	"Laurent Pinchart" <laurentp@cse-semaphore.com>,
-	"Mike Frysinger" <vapier.adi@gmail.com>
-To: "Marc Pignat" <marc.pignat@hevs.ch>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <200811041645.39953.marc.pignat@hevs.ch>
-Content-Disposition: inline
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Bill Gatliff <bgat@billgatliff.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
+	Ian.Saturley@smsc.com, netdev@vger.kernel.org,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.smsc.com ([170.129.50.11]:2188 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752177AbYKDQNg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2008 11:13:36 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 4, 2008 at 8:45 AM, Marc Pignat <marc.pignat@hevs.ch> wrote=
-:
-> Hi=FC
+Hi Jeff,
+
+Russell's was the last response on this subject, so I guess there are no 
+strong objections?
+
+If I add the missing features (to bring the smsc911x driver up to feature 
+parity with smc911x) before the next merge window, would you accept a 
+patchset to add it and deprecate the existing driver?
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
+
+
+
+__________________
+
+Russell King - ARM Linux <linux@arm.linux.org.uk> wrote on 21/10/2008 
+19:46:53:
+
+> On Tue, Oct 21, 2008 at 11:26:42AM +0100, Steve.Glendinning@smsc.com 
+wrote:
+> > Almost all the feedback I've had has been positive, but I've had a few
+> > "can't you just fix the in-tree driver?" responses.  The trouble is 
+it's
+> > not a *small* piece of work!
+> 
+> Which is reasonable given your summary, since...
+> 
+> > smsc911x
+> > - uses functions instead of macros, making it more readable
+> > - uses napi (and manages significantly higher throughput because of 
+it)
+> > - uses phylib
+> > - passes checkpatch.pl
+> > - has workarounds for older LAN911x variants
+> > 
+> > smc911x
+> > - is already in-tree (not really technical, but still important)
+> > - has support for pxa dma*
+> > - has dynamic bus width config
 >
-> On Tuesday 04 November 2008, Paulius Zaleckas wrote:
->> make mdio-gpio work with non OpenFirmware gpio implementation.
->
-> of_gpio.c provides generic gpio compatible gpios.
->
-> Why not remove all OF specific code from this file and add another on=
-e
-> creating the struct mdio_gpio_platform_data using OF specific functio=
-ns?
+> .. we want to avoid having two drivers for the same device, but not
+> supporting these features would be seen as a regression.
 
-This is a very simple driver.  There is no need to split it into two
-files.  Have two sections of bus binding (OF and non-OF) is just fine.
+Exactly, we already have two drivers.  Only one is currently in-tree, but
+both have users.  The question is where we go from here?
 
-g.
+I believe it's much easier to bring smsc911x up to feature parity with
+smc911x than vice-versa.  The dynamic bus configuration is simple enough
+to add, and Bill Gatliff has offered to help out with PXA DMA support.
+I'd like us to reach a consensus first though, so we all know the plan
+moving forward!
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
+
+
+
+
