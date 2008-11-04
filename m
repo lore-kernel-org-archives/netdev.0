@@ -1,62 +1,60 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: %pI4 vs. NIPQUAD: %pI4 doing it wrong?
-Date: Mon, 03 Nov 2008 17:05:29 -0800
-Message-ID: <15026.1225760729@death.nxdomain.ibm.com>
-Cc: Harvey Harrison <harvey.harrison@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: niu: Use pci_ioremap_bar().
+Date: Mon, 03 Nov 2008 17:06:24 -0800 (PST)
+Message-ID: <20081103.170624.28350110.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:58719 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040AbYKDBFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 20:05:35 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e31.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id mA414oV5016790
-	for <netdev@vger.kernel.org>; Mon, 3 Nov 2008 18:04:50 -0700
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mA415Y1G118682
-	for <netdev@vger.kernel.org>; Mon, 3 Nov 2008 18:05:34 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mA4153r5029340
-	for <netdev@vger.kernel.org>; Mon, 3 Nov 2008 18:05:04 -0700
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41183
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752304AbYKDBGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2008 20:06:48 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 38476C8C183
+	for <netdev@vger.kernel.org>; Mon,  3 Nov 2008 17:06:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-	Running the latest net-next-2.6, I notice that %pI4 is
-apparently printing IPv4 addresses incorrectly (and differently than the
-NIPQUAD it replaced).
+Since everyone else is starting to use pci_ioremap_bar(),
+I didn't want NIU to miss the party either.  And to be honest
+it's a good safety check.
 
-	The following is excerpted from the bonding driver's
-/proc/net/bonding/bond0 status file:
+Committed to net-2.6
 
-[...]
-ARP IP target/s (n.n.n.n form): 01.0.1.1 (10.0.1.1), 01.02.03.04 (10.20.30.40)
+niu: Use pci_ioremap_bar().
 
-	The first (incorrect) values are from %pI4, the ones in
-parentheses (which are correct) I added as a check using NIPQUAD with
-this patch:
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 56c823c..ced12ba 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3289,7 +3289,9 @@ static void bond_info_show_master(struct seq_file *seq)
- 				continue;
- 			if (printed)
- 				seq_printf(seq, ",");
--			seq_printf(seq, " %pI4", &bond->params.arp_targets[i]);
-+			seq_printf(seq, " %pI4 (%u.%u.%u.%u)",
-+				   &bond->params.arp_targets[i],
-+				   NIPQUAD(bond->params.arp_targets[i]));
- 			printed = 1;
- 		}
- 		seq_printf(seq, "\n");
-
-	Is anybody else seeing this, or is it just me?
-
-	I'm working on an x86.
-
-	-J
-
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/niu.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index ebc8127..9acb5d7 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -8667,7 +8667,6 @@ static void __devinit niu_device_announce(struct niu *np)
+ static int __devinit niu_pci_init_one(struct pci_dev *pdev,
+ 				      const struct pci_device_id *ent)
+ {
+-	unsigned long niureg_base, niureg_len;
+ 	union niu_parent_id parent_id;
+ 	struct net_device *dev;
+ 	struct niu *np;
+@@ -8758,10 +8757,7 @@ static int __devinit niu_pci_init_one(struct pci_dev *pdev,
+ 
+ 	dev->features |= (NETIF_F_SG | NETIF_F_HW_CSUM);
+ 
+-	niureg_base = pci_resource_start(pdev, 0);
+-	niureg_len = pci_resource_len(pdev, 0);
+-
+-	np->regs = ioremap_nocache(niureg_base, niureg_len);
++	np->regs = pci_ioremap_bar(pdev, 0);
+ 	if (!np->regs) {
+ 		dev_err(&pdev->dev, PFX "Cannot map device registers, "
+ 			"aborting.\n");
+-- 
+1.5.6.5
+
