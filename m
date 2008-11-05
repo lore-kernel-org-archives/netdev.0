@@ -1,49 +1,40 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH] selinux: recognize netlink messages for 'ip addrlabel'
-Date: Wed, 5 Nov 2008 13:35:06 +0100
-Message-ID: <20081105133506.203b48d6@leela>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Eric Paris <eparis@redhat.com>,
-	netdev@vger.kernel.org
-To: James Morris <jmorris@namei.org>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: [PATCH] virtio_net: don't set NETIF_F_FRAGLIST
+Date: Wed,  5 Nov 2008 12:34:46 +0000
+Message-ID: <1225888486-977-1-git-send-email-markmc@redhat.com>
+Cc: netdev@vger.kernel.org, Mark McLoughlin <markmc@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:33106 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751772AbYKEMfT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 07:35:19 -0500
+Received: from mail08.svc.cra.dublin.eircom.net ([159.134.118.24]:34530 "HELO
+	mail08.svc.cra.dublin.eircom.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754613AbYKEMft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 07:35:49 -0500
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In enforcing mode '/sbin/ip addrlabel' results in a SELinux error:
-type=SELINUX_ERR msg=audit(1225698822.073:42): SELinux:  unrecognized
-netlink message type=74 for sclass=43
+We don't handle skb_shared_info->frag_list, so we shouldn't
+be setting the NETIF_F_FRAGLIST flag.
 
-The problem is missing RTM_*ADDRLABEL entries in SELinux's netlink
-message types table.
-
-Reported in https://bugzilla.redhat.com/show_bug.cgi?id=469423
-
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+Signed-off-by: Mark McLoughlin <markmc@redhat.com>
 ---
- security/selinux/nlmsgtab.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/virtio_net.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index ff59c0c..4ed7bab 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -63,6 +63,9 @@ static struct nlmsg_perm nlmsg_route_perms[] =
- 	{ RTM_GETANYCAST,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_GETNEIGHTBL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_SETNEIGHTBL,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-+	{ RTM_NEWADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-+	{ RTM_DELADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-+	{ RTM_GETADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- };
- 
- static struct nlmsg_perm nlmsg_firewall_perms[] =
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 0196a0d..9d4fdad 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -505,7 +505,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	/* Do we support "hardware" checksums? */
+ 	if (csum && virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
+ 		/* This opens up the world of extra features. */
+-		dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++		dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG;
+ 		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
+ 			dev->features |= NETIF_F_TSO | NETIF_F_UFO
+ 				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
 -- 
-1.6.0.3
+1.5.4.3
 
