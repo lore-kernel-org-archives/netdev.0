@@ -1,60 +1,72 @@
-From: "Grant Likely" <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v2)
-Date: Wed, 5 Nov 2008 08:04:00 -0700
-Message-ID: <fa686aa40811050704s2775fba8nc957a23cb81bb21d@mail.gmail.com>
-References: <20081104144518.4429.37325.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
-	 <200811042045.41052.david-b@pacbell.net>
-	 <8bd0f97a0811042134n3c5543bbwed7a8ebfd0e3f77e@mail.gmail.com>
-	 <200811050011.56804.david-b@pacbell.net>
-	 <8bd0f97a0811050032i206214a6r8d30a58f354995b4@mail.gmail.com>
-	 <49116000.7000005@teltonika.lt>
+From: Johann Baudy <johaahn@gmail.com>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Wed, 05 Nov 2008 16:16:39 +0100
+Message-ID: <1225898199.5273.125.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Mike Frysinger" <vapier.adi@gmail.com>,
-	"David Brownell" <david-b@pacbell.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org,
-	"Laurent Pinchart" <laurentp@cse-semaphore.com>
-To: "Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <49116000.7000005@teltonika.lt>
-Content-Disposition: inline
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Lovich, Vitali" <vlovich@qualcomm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3-g19.free.fr ([212.27.42.29]:55147 "EHLO smtp3-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750816AbYKEPQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 10:16:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 5, 2008 at 1:57 AM, Paulius Zaleckas
-<paulius.zaleckas@teltonika.lt> wrote:
-> Mike Frysinger wrote:
->> On Wed, Nov 5, 2008 at 03:11, David Brownell wrote:
->>> On Tuesday 04 November 2008, Mike Frysinger wrote:
->>>>> If indeed OF functions don't have declarations which are
->>>>> available on all platforms, that might be worth fixing
->>>>> to enable this approach to #ifdef elimination.
->>>> OF is open firmware right ?  no way there's going to be OF for every
->>>> port that supports GPIO, so filling out the stubs in linux/of_gpio.h
->>>> will need to be done.
->>> In which case the boolean "we don't have OF" would be "false" and
->>> any code referencing the declared functions would be compiled out
->>> (being dead code/data).  So there would be no link-time references
->>> to any OF routines... standard technique.
->>
->> i understand the compiler side just fine.  my point is that the
->> current linux/of_gpio.h only defines the OF structure and related
->> prototypes when CONFIG_OF_GPIO is defined.  so it needs updating
->> first.
+Hi Patrick,
+
+
+> The reason why its not in there is to avoid the unnecessary
+> barrier when setting up the ring in packet_set_ring().
+
+Is it a serious problem? packet_set_status() and packet_get_status()
+will be called from multiple places and we will obtain a write/read
+barrier at each call. I imagine that's more clean to insert those
+barriers inside status functions even if we add only one useless flush
+at the beginning. No?
+
 >
-> This is small problem compared to what you will find in linux/of_device.h
-> It includes <asm/of_device.h> which contains main of_device structure
-> and this won't work with any non OF platform.  Maybe the best solution is
-> to write separate driver for OF which will be just wrapper for platform
-> driver... Just like you suggested.
+> The code is fishy though, I agree. Have a look at this discussion:
+>
+> http://marc.info/?l=linux-netdev&m=119383985207984&w=2
+>
+My approach was to use the mechanism of RX_RING where the kernel is
+allocating the buffer. In order to get something similar from kernel and
+user point of view. Moving kernel buffer to user space could be studied
+as global enhancement for RX_RING and TX_RING but that will need user
+application changes.
 
-More complex than necessary.  Just give the driver 2 blocks of binding
-code; one for OF, one for non-OF.  No need to split up the driver.
+I'm wondering if I also need to use flush_dcache_page() before getting
+status buffer and attaching circular buffer pages to skb (both written
+by user). 
+According to this quote in [cachetlb.txt] of flush_dcache_page part:
+	Any time the kernel writes to a page cache page, _OR_
+	the kernel is about to read from a page cache page and
+	user space shared/writable mappings of this page potentially
+	exist, this routine is called.
+ 	...
+	The phrase "kernel writes to a page cache page" means,
+	...
+	The corollary case is just as important, if there are users
+	which have shared+writable mappings of this file, we must make
+	sure that kernel reads of these pages will see the most recent
+	stores done by the user. 
 
-g.
+Can someone confirm?
 
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+Thanks in advance,
+Johann
+
+
+
+
+
+
+
+
+
+
