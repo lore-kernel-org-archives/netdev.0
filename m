@@ -1,47 +1,52 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [RESEND] benet: BladeEngine 10Gb NIC driver
-Date: Tue, 4 Nov 2008 21:02:09 -0800
-Message-ID: <20081105050209.GC3730@kroah.com>
-References: <20081103122512.06063fc9@mailhost.serverengines.com> <20081103193641.GA12552@kroah.com> <490F5667.3080904@garzik.org> <20081103201930.GB13299@kroah.com> <Pine.LNX.4.64.0811041237400.23792@wrl-59.cs.helsinki.fi>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v2)
+Date: Wed, 5 Nov 2008 00:34:56 -0500
+Message-ID: <8bd0f97a0811042134n3c5543bbwed7a8ebfd0e3f77e@mail.gmail.com>
+References: <20081104144518.4429.37325.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+	 <200811041604.22947.david-b@pacbell.net>
+	 <8bd0f97a0811041609l3bd474afh7e526be368d4c5cf@mail.gmail.com>
+	 <200811042045.41052.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Subbu Seetharaman <subbus@serverengines.com>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Grant Likely" <grant.likely@secretlab.ca>,
+	"Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org,
+	"Laurent Pinchart" <laurentp@cse-semaphore.com>
+To: "David Brownell" <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:42013 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750743AbYKEFPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 00:15:00 -0500
+Received: from rv-out-0506.google.com ([209.85.198.234]:3225 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884AbYKEFe5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 00:34:57 -0500
+In-Reply-To: <200811042045.41052.david-b@pacbell.net>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0811041237400.23792@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 04, 2008 at 12:41:36PM +0200, Ilpo J=E4rvinen wrote:
-> On Mon, 3 Nov 2008, Greg KH wrote:
->=20
-> > Hm, call me extreemly stupid, but I don't see anything in that bran=
-ch
-> > for this driver.
-> >=20
-> > Here's what I did:
-> >   git fetch git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/n=
-etdev-2.6.git benet master:jeff
->=20
-> I suppose you'd have needed instead of "benet master:jeff" just:
->=20
-> benet:jeff
->=20
-> Ie., from benet remote branch to jeff local branch (remote from the g=
-iven
-> repository obviously). ...Then you have that jeff branch and can chec=
-kout=20
-> it.
+On Tue, Nov 4, 2008 at 23:45, David Brownell wrote:
+> On Tuesday 04 November 2008, Mike Frysinger wrote:
+>> > That's generally the preferred way to handle #ifdeffery.
+>> > But I could imagine OF isn't (yet?) set up to handle it.
+>>
+>> i agree completely with the inclination to do it all in C as you've
+>> suggested and let the compiler do dead code elimination, but that only
+>> works if the functions in question are defined everywhere (in other
+>> words, there's a linux/ api for it).  i dont think that's the case for
+>> OF (which is what you were implying?) ...
+>
+> Only works if the functions are "declared" everywhere;
+> the stuff that's included in header files.
+>
+> A "definition" would be available at link time (except
+> for inlined functions, in headers).  Actual C functions.
+>
+> If indeed OF functions don't have declarations which are
+> available on all platforms, that might be worth fixing
+> to enable this approach to #ifdef elimination.
 
-Ah, thanks, I'll try that next time.
-
-greg k-h
+OF is open firmware right ?  no way there's going to be OF for every
+port that supports GPIO, so filling out the stubs in linux/of_gpio.h
+will need to be done.
+-mike
