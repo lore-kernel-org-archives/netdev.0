@@ -1,31 +1,25 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Wed, 05 Nov 2008 12:02:21 +0100
-Message-ID: <49117D3D.7070702@trash.net>
-References: <1225882507.5273.66.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netfilter 01/01: netns ct: walk netns list under RTNL
+Date: Wed, 05 Nov 2008 03:03:29 -0800 (PST)
+Message-ID: <20081105.030329.262482544.davem@davemloft.net>
+References: <49117BC8.3010000@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Lovich, Vitali" <vlovich@qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>
-To: Johann Baudy <johaahn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34926 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753546AbYKELC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 06:02:29 -0500
-In-Reply-To: <1225882507.5273.66.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49117BC8.3010000@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Johann Baudy wrote:
-> I would like to integrate this barrier mechanism in __packet_[set|
-> get]_status() function. Thoughts?
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 05 Nov 2008 11:56:08 +0100
 
-The reason why its not in there is to avoid the unnecessary
-barrier when setting up the ring in packet_set_ring().
+> following is a single netfilter fix from Alexey Dobriyan,
+> fixing an oops caused by a race between netfilter module
+> unloading and namespace exit.
+> 
+> Please apply, thanks.
 
-The code is fishy though, I agree. Have a look at this discussion:
-
-http://marc.info/?l=linux-netdev&m=119383985207984&w=2
+Applied, thanks Patrick.
