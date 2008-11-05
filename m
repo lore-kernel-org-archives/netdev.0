@@ -1,56 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix ESP SA loading (by default)
-Date: Wed, 05 Nov 2008 01:31:48 -0800 (PST)
-Message-ID: <20081105.013148.156667310.davem@davemloft.net>
-References: <20081101.213315.01349801.davem@davemloft.net>
-	<20081103001643.GA22217@x200.localdomain>
-	<20081103010431.GA29905@gondor.apana.org.au>
+Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
+Date: Wed, 05 Nov 2008 01:34:39 -0800 (PST)
+Message-ID: <20081105.013439.145121376.davem@davemloft.net>
+References: <1225868744.31605.12.camel@localhost.localdomain>
+	<20081104.233313.109709104.davem@davemloft.net>
+	<1225877427.29712.4.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39838
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47114
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753825AbYKEJcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 04:32:13 -0500
-In-Reply-To: <20081103010431.GA29905@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1750754AbYKEJfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 04:35:03 -0500
+In-Reply-To: <1225877427.29712.4.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 3 Nov 2008 09:04:31 +0800
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Date: Wed, 05 Nov 2008 10:30:27 +0100
 
-> On Mon, Nov 03, 2008 at 03:16:43AM +0300, Alexey Dobriyan wrote:
-> >
-> > Keep in mind that the only error message is "line N: returned (null)"
-> > from setkey(8) or something like that and no SA created.
-> > 
-> > It took me full printk session to realize what's going on.
-> 
-> As our error passing really sucks, I'm happy to accept a patch
-> to crypto_alloc_tfm which prints out a message if it fails.
+> I can trick the bug by simply doing a 'ping -A' from the host it
+> self.
 
-As we've discussed several times it's not "passing" errors
-that sucks, it's the fact that we use the same traditional
-UNIX error codes for a thousand different errors. :-)
+I can't reproduce here, sorry.
 
-I really think we should explore the idea where the current
-process can get tagged with a string when an error is going
-to be returned.  Something like:
+There must be something unique about your card or system.
 
-	const char *error_desc;
-
-in the task_struct.
-
-So when you return an error, you also can mark the task with
-some descriptive text that describes what is wrong.
-
-A task is guarenteed that when an error returns from a system
-call and the very next system call they make is "sys_get_error"
-or whatever we'll call it, they will the correct value of
-current->error_desc
-
-This way you don't just get "-EINVAL" returned from a
-complicated IPSEC configuration operation request.
+I won't have time to dig more deeply into this until
+next week some time.  View this as an excellent opportunity
+for you to lean how the chip and the driver works yourself
+and to start trying to dump TX ring chip information when
+the hang occurs. :-)
