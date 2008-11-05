@@ -1,49 +1,65 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: tbench wrt. loopback TSO
-Date: Wed, 5 Nov 2008 15:33:37 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811051527210.23792@wrl-59.cs.helsinki.fi>
-References: <20081105114900.GA18691@ioremap.net> <20081105.035454.87914782.davem@davemloft.net>
- <Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>
- <20081105.040943.03609283.davem@davemloft.net>
- <Pine.LNX.4.64.0811051414250.23792@wrl-59.cs.helsinki.fi>
- <20081105130405.GA26435@ioremap.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH net-next] pkt_sched: Fix qdisc len in qdisc_peek_dequeued()
+Date: Wed, 5 Nov 2008 13:44:54 +0000
+Message-ID: <20081105134454.GA9376@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-262672938-1225892017=:23792"
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, efault@gmx.de, mingo@elte.hu,
-	a.p.zijlstra@chello.nl, Herbert Xu <herbert@gondor.apana.org.au>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47953 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752653AbYKENdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 08:33:39 -0500
-In-Reply-To: <20081105130405.GA26435@ioremap.net>
+Received: from ey-out-2122.google.com ([74.125.78.25]:11771 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751042AbYKENpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 08:45:00 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so1271649eyi.37
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2008 05:44:59 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+pkt_sched: Fix qdisc len in qdisc_peek_dequeued()
 
----696208474-262672938-1225892017=:23792
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+A packet dequeued and stored as gso_skb in qdisc_peek_dequeued() should
+be seen as part of the queue for sch->q.qlen queries until it's really
+dequeued with qdisc_dequeue_peeked(), so qlen needs additional updating
+in these functions. (Updating qstats.backlog shouldn't matter here.)
 
-On Wed, 5 Nov 2008, Evgeniy Polyakov wrote:
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-> On Wed, Nov 05, 2008 at 02:25:57PM +0200, Ilpo Järvinen (ilpo.jarvinen@helsinki.fi) wrote:
-> > The problem is that we'd need to _resegment with the next skb_ since the 
-> > mss boundary and skb boundary would basically constantly be running 
-> > out-of-sync. That won't get done currently by anything.
-> 
-> Btw, what's that wrong if there will be sub-mss frame per tso frame?
+ include/net/sch_generic.h |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
-I personally don't consider that to be a big deal... I suppose some see
-it as bad thing because of the slightly larger header vs data ratio...
-Which is significant only if you can saturate the link (or have unbounded 
-bandwidth such as with lo), so slower links are more affected than high 
-speed ones...
-
--- 
- i.
----696208474-262672938-1225892017=:23792--
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 9dcb5bf..64ae1ba 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -442,8 +442,12 @@ static inline struct sk_buff *qdisc_peek_head(struct Qdisc *sch)
+ static inline struct sk_buff *qdisc_peek_dequeued(struct Qdisc *sch)
+ {
+ 	/* we can reuse ->gso_skb because peek isn't called for root qdiscs */
+-	if (!sch->gso_skb)
++	if (!sch->gso_skb) {
+ 		sch->gso_skb = sch->dequeue(sch);
++		if (sch->gso_skb)
++			/* it's still part of the queue */
++			sch->q.qlen++;
++	}
+ 
+ 	return sch->gso_skb;
+ }
+@@ -453,10 +457,12 @@ static inline struct sk_buff *qdisc_dequeue_peeked(struct Qdisc *sch)
+ {
+ 	struct sk_buff *skb = sch->gso_skb;
+ 
+-	if (skb)
++	if (skb) {
+ 		sch->gso_skb = NULL;
+-	else
++		sch->q.qlen--;
++	} else {
+ 		skb = sch->dequeue(sch);
++	}
+ 
+ 	return skb;
+ }
