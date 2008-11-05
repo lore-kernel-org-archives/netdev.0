@@ -1,37 +1,36 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v2)
-Date: Wed, 5 Nov 2008 15:03:50 -0800
-Message-ID: <200811051503.51040.david-b@pacbell.net>
-References: <20081104144518.4429.37325.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <8bd0f97a0811050032i206214a6r8d30a58f354995b4@mail.gmail.com> <200811050957.25821.marc.pignat@hevs.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Wed, 05 Nov 2008 15:10:15 -0800 (PST)
+Message-ID: <20081105.151015.206163697.davem@davemloft.net>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+	<alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Mike Frysinger" <vapier.adi@gmail.com>,
-	"Grant Likely" <grant.likely@secretlab.ca>,
-	"Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org,
-	"Laurent Pinchart" <laurentp@cse-semaphore.com>
-To: Marc Pignat <marc.pignat@hevs.ch>
+Cc: daniel.blueman@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-net@vger.kernel.org
+To: swmike@swm.pp.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.sbc.mail.mud.yahoo.com ([68.142.198.204]:24734 "HELO
-	smtp105.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753295AbYKEXKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:10:35 -0500
-In-Reply-To: <200811050957.25821.marc.pignat@hevs.ch>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43667
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753729AbYKEXKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:10:39 -0500
+In-Reply-To: <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 05 November 2008, Marc Pignat wrote:
-> This is why I proposed to split the driver in two parts (gpio only mdio
-> driver + OF platform device). Just treating OF GPIO as any other GPIO.
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Date: Wed, 5 Nov 2008 23:20:25 +0100 (CET)
 
-I think that's overall a much cleaner approach too.  Keeps
-OF's hardware abstraction layer out of drivers.
+> So the upside of enabling it is minimal (I'd gladly see data proving
+> the opposite) and the downside is a lot of trouble with lots of
+> older devices which behave badly when ECN is enabled.
 
-But for some reason the OF folk don't like that model.
-It comes up repeatedly, with lots of frameworks and their
-drivers.
+This kind of thinking just perpetuates the problem forever.
 
+If nothing important on end nodes enables it by default, people
+running core routers have no reason to turn it on, and so on and so
+forth.
+
+Linux is much bigger and smarter than that, so we should break
+the loop and enable it by default some point soon.
