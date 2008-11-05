@@ -1,69 +1,49 @@
-From: almaop@poczta.fm
-Subject: Re: New filter 'flow' bug?
-Date: 05 Nov 2008 14:29:05 +0100
-Message-ID: <20081105132906.18BDA46CCF0@f46.poczta.interia.pl>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: tbench wrt. loopback TSO
+Date: Wed, 5 Nov 2008 15:33:37 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811051527210.23792@wrl-59.cs.helsinki.fi>
+References: <20081105114900.GA18691@ioremap.net> <20081105.035454.87914782.davem@davemloft.net>
+ <Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>
+ <20081105.040943.03609283.davem@davemloft.net>
+ <Pine.LNX.4.64.0811051414250.23792@wrl-59.cs.helsinki.fi>
+ <20081105130405.GA26435@ioremap.net>
 Mime-Version: 1.0
-Content-Type: TEXT/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>,
-	"almaop@poczta.fm" <almaop@poczta.fm>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-262672938-1225892017=:23792"
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, efault@gmx.de, mingo@elte.hu,
+	a.p.zijlstra@chello.nl, Herbert Xu <herbert@gondor.apana.org.au>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp239.poczta.interia.pl ([217.74.64.239]:30942 "EHLO
-	smtp239.poczta.interia.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752181AbYKEN3I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 08:29:08 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47953 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752653AbYKENdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 08:33:39 -0500
+In-Reply-To: <20081105130405.GA26435@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> almaop@poczta.fm wrote:
-> >> almaop@poczta.fm wrote:
-> >>>>> From: almaop@poczta.fm
-> >>>>>> I'm not sure where is the bug - in the flow filter or in the sfq
-> >>>> qdisc.
-> >>>>
-> >>>> Which SFQ qdisc is stalling?
-> >>>>
-> >>> Thanks for reply.
-> >>> So I've done few tests. I've removed quantum 64 (it  was qdisc with
-> >> small packets). It made no difference. It looks like the key is the
-> first
-> >> sfq qdisc (tc qdisc add dev $DEV parent 1:2 handle 2: sfq - in my
-> example).
-> >> When there is no traffic in this qdisc for about 45 seconds (shorter
-> time
-> >> when there is no traffic at all on the interface) - it stalls. Other
-> qdiscs
-> >> stall also. So there is no packet flow on that interface. Removing
-> filters
-> >> ('flow' filters) does'nt help. I have to remove (all) sfq qdiscs. And
-> then
-> >> the traffic is resumed.
-> >>
-> >> Please capture the output of "tc -s -d qdisc show dev <dev>" and
-> >> "tc -s -d class show dev <dev>" immediately after it stalls.
-> >> I'm interested in the amount of bytes/packets queued at the moment.
-> >>
-> > 
-> > I've captured it eve
-> > It looks like this:
-> > Example 1:
-> > 
-> > ...
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-262672938-1225892017=:23792
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Wed, 5 Nov 2008, Evgeniy Polyakov wrote:
+
+> On Wed, Nov 05, 2008 at 02:25:57PM +0200, Ilpo Järvinen (ilpo.jarvinen@helsinki.fi) wrote:
+> > The problem is that we'd need to _resegment with the next skb_ since the 
+> > mss boundary and skb boundary would basically constantly be running 
+> > out-of-sync. That won't get done currently by anything.
 > 
-> In both cases there are no packets queued, so its not the qdiscs
-> which are stalling. My shot in the dark is  is that your classifier
-> rules are incorrect and don't handle ARP packets.
+> Btw, what's that wrong if there will be sub-mss frame per tso frame?
 
-I've removed 'tc qdisc add htb .... default x'
-                                    ^^^^^^^^^^
-And now it works, so you are right. Sorry for taking your time.
-Regards.
+I personally don't consider that to be a big deal... I suppose some see
+it as bad thing because of the slightly larger header vs data ratio...
+Which is significant only if you can saturate the link (or have unbounded 
+bandwidth such as with lo), so slower links are more affected than high 
+speed ones...
 
-Krzysiek
-
-----------------------------------------------------------------------
-Dzwon taniej na zagraniczne komorki!
-Sprawdz >> http://link.interia.pl/f1f6a
-
+-- 
+ i.
+---696208474-262672938-1225892017=:23792--
