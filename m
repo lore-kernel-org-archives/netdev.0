@@ -1,49 +1,60 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v2)
-Date: Wed, 05 Nov 2008 11:04:44 +0200
-Message-ID: <491161AC.8080405@teltonika.lt>
-References: <20081104144518.4429.37325.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>	 <200811042045.41052.david-b@pacbell.net>	 <8bd0f97a0811042134n3c5543bbwed7a8ebfd0e3f77e@mail.gmail.com>	 <200811050011.56804.david-b@pacbell.net> <8bd0f97a0811050032i206214a6r8d30a58f354995b4@mail.gmail.com> <49116000.7000005@teltonika.lt>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: Re: next-20081103 - possible circular locking dependency detected while bring up eth1
+Date: Wed,  5 Nov 2008 18:14:43 +0900 (JST)
+Message-ID: <20081105181242.9688.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+References: <20081105071306.GB10881@linux.vnet.ibm.com> <1225871332.7803.2626.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Mike Frysinger <vapier.adi@gmail.com>,
-	David Brownell <david-b@pacbell.net>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org,
-	Laurent Pinchart <laurentp@cse-semaphore.com>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <49116000.7000005@teltonika.lt>
-Sender: linux-embedded-owner@vger.kernel.org
+Cc: kosaki.motohiro@jp.fujitsu.com,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, mel@csn.ul.ie
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1225871332.7803.2626.camel@twins>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paulius Zaleckas wrote:
-> Mike Frysinger wrote:
->> On Wed, Nov 5, 2008 at 03:11, David Brownell wrote:
->>> On Tuesday 04 November 2008, Mike Frysinger wrote:
->>>>> If indeed OF functions don't have declarations which are
->>>>> available on all platforms, that might be worth fixing
->>>>> to enable this approach to #ifdef elimination.
->>>> OF is open firmware right ?  no way there's going to be OF for every
->>>> port that supports GPIO, so filling out the stubs in linux/of_gpio.h
->>>> will need to be done.
->>> In which case the boolean "we don't have OF" would be "false" and
->>> any code referencing the declared functions would be compiled out
->>> (being dead code/data).  So there would be no link-time references
->>> to any OF routines... standard technique.
->> i understand the compiler side just fine.  my point is that the
->> current linux/of_gpio.h only defines the OF structure and related
->> prototypes when CONFIG_OF_GPIO is defined.  so it needs updating
->> first.
+> > [   31.989072] 2 locks held by events/3/18:
+> > [   31.989072]  #0:  (events){--..}, at: [<c04367bf>] run_workqueue+0x80/0x189
+> > [   31.989072]  #1:  ((linkwatch_work).work){--..}, at: [<c04367bf>] run_workqueue+0x80/0x189
+> > [   31.989072] 
+> > [   31.989072] stack backtrace:
+> > [   31.989072] Pid: 18, comm: events/3 Not tainted 2.6.28-rc3-next-20081103-autotest #1
+> > [   31.989072] Call Trace:
+> > [   31.989072]  [<c0445662>] print_circular_bug_tail+0xa4/0xaf
+> > [   31.989072]  [<c0445c10>] validate_chain+0x5a3/0xb35
+> > [   31.989072]  [<c0446822>] __lock_acquire+0x680/0x70e
+> > [   31.989072]  [<c04367bf>] ? run_workqueue+0x80/0x189
+> > [   31.989072]  [<c044690d>] lock_acquire+0x5d/0x7a
+> > [   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
+> > [   31.989072]  [<c0651c04>] mutex_lock_nested+0xdf/0x251
+> > [   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
+> > [   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
+> > [   31.989072]  [<c05e8ef5>] rtnl_lock+0xf/0x11
+> > [   31.989072]  [<c05ea07a>] linkwatch_event+0x8/0x27
+> > [   31.989072]  [<c04367fd>] run_workqueue+0xbe/0x189
+> > [   31.989072]  [<c04367bf>] ? run_workqueue+0x80/0x189
+> > [   31.989072]  [<c05ea072>] ? linkwatch_event+0x0/0x27
+> > [   31.989072]  [<c043713f>] ? worker_thread+0x0/0xbf
+> > [   31.989072]  [<c04371f3>] worker_thread+0xb4/0xbf
+> > [   31.989072]  [<c0439765>] ? autoremove_wake_function+0x0/0x33
+> > [   31.989072]  [<c04396a6>] kthread+0x3b/0x61
+> > [   33.690691] tg3: eth1: Link is up at 100 Mbps, full duplex.
+> > [   33.690696] tg3: eth1: Flow control is off for TX and off for RX.
+> > [   31.989072]  [<c043966b>] ? kthread+0x0/0x61
+> > [   31.989072]  [<c040481b>] kernel_thread_helper+0x7/0x10
+> > [   33.762336] ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+> > [  OK  ]
 > 
-> This is small problem compared to what you will find in linux/of_device.h
-> It includes <asm/of_device.h> which contains main of_device structure
-> and this won't work with any non OF platform. Maybe the best solution is
-> to write separate driver for OF which will be just wrapper for platform
-> driver... Just like you suggested.
+> I think we have to go with Kosaki-san's vm workqueue...
 
-Oops... Not you, but Marc Pignat suggested.
- 
->> -mike
->>
+Very sorry for my lazyness.
+akpm did nak vm workqueue patch.
+
+So I prepare new patch now. (it is under testing now)
+I expect I can post it tommorow.
+
+Thanks.
