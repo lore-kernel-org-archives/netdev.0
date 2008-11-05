@@ -1,11 +1,10 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 3/3] net: Don't leak packets when a netns is going down
-Date: Wed, 05 Nov 2008 15:27:34 -0800
-Message-ID: <m1skq53g9l.fsf_-_@frodo.ebiederm.org>
+Subject: [PATCH 2/3] net: Guaranetee the proper ordering of the loopback device.
+Date: Wed, 05 Nov 2008 15:25:39 -0800
+Message-ID: <m1y6zx3gcs.fsf_-_@frodo.ebiederm.org>
 References: <m18wt6v7eb.fsf@frodo.ebiederm.org> <48EB36FC.4000008@fr.ibm.com>
 	<48EB3F72.5090201@openvz.org> <m1d4ic4pbr.fsf@frodo.ebiederm.org>
 	<48ECA8D2.4090406@openvz.org> <m14p2l4v2l.fsf_-_@frodo.ebiederm.org>
-	<m1y6zx3gcs.fsf_-_@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -14,63 +13,96 @@ Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
 	Pavel Emelyanov <xemul@openvz.org>, <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:57055 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354AbYKEXfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:35:08 -0500
-In-Reply-To: <m1y6zx3gcs.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
-	message of "Wed, 05 Nov 2008 15:25:39 -0800")
+Received: from out01.mta.xmission.com ([166.70.13.231]:36354 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789AbYKEXfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:35:09 -0500
+In-Reply-To: <m14p2l4v2l.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
+	message of "Wed, 05 Nov 2008 15:22:26 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-I have been tracking for a while a case where when the
-network namespace exits the cleanup gets stck in an
-endless precessess of:
+I was recently hunting a bug that occurred in network namespace
+cleanup.  In looking at the code it became apparrent that we have
+and will continue to have cases where if we have anything going
+on in a network namespace there will be assumptions that the
+loopback device is present.   Things like sending igmp unsubscribe
+messages when we bring down network devices invokes the routing
+code which assumes that at least the loopback driver is present.
 
-unregister_netdevice: waiting for lo to become free. Usage count = 3
-unregister_netdevice: waiting for lo to become free. Usage count = 3
-unregister_netdevice: waiting for lo to become free. Usage count = 3
-unregister_netdevice: waiting for lo to become free. Usage count = 3
-unregister_netdevice: waiting for lo to become free. Usage count = 3
-unregister_netdevice: waiting for lo to become free. Usage count = 3
-unregister_netdevice: waiting for lo to become free. Usage count = 3
-
-It turns out that if you listen on a multicast address an unsubscribe
-packet is sent when the network device goes down.   If you shutdown
-the network namespace without carefully cleaning up this can trigger
-the unsubscribe packet to be sent over the loopback interface while
-the network namespace is going down.
-
-All of which is fine except when we drop the packet and forget to
-free it leaking the skb and the dst entry attached to.  As it
-turns out the dst entry hold a reference to the idev which holds
-the dev and keeps everything from being cleaned up.  Yuck!
-
-By fixing my earlier thinko and add the needed kfree_skb and everything
-cleans up beautifully. 
+Therefore to avoid magic initcall ordering hackery that is hard
+to follow and hard to get right insert a call to register the
+loopback device directly from net_dev_init().    This guarantes
+that the loopback device is the first device registered and
+the last network device to go away.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/core/dev.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/loopback.c    |   13 ++-----------
+ include/linux/netdevice.h |    1 +
+ net/core/dev.c            |   12 ++++++++++++
+ 3 files changed, 15 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 91d0858..c4516b5 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -204,17 +204,8 @@ static __net_exit void loopback_net_exit(struct net *net)
+ 	unregister_netdev(dev);
+ }
+ 
+-static struct pernet_operations __net_initdata loopback_net_ops = {
++/* Registered in net/core/dev.c */
++struct pernet_operations __net_initdata loopback_net_ops = {
+        .init = loopback_net_init,
+        .exit = loopback_net_exit,
+ };
+-
+-static int __init loopback_init(void)
+-{
+-	return register_pernet_device(&loopback_net_ops);
+-}
+-
+-/* Loopback is special. It should be initialized before any other network
+- * device and network subsystem.
+- */
+-fs_initcall(loopback_init);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f1b0dbe..12d7f44 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1766,6 +1766,7 @@ static inline int skb_bond_should_drop(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
++extern struct pernet_operations __net_initdata loopback_net_ops;
+ #endif /* __KERNEL__ */
+ 
+ #endif	/* _LINUX_DEV_H */
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 811507c..a0c6060 100644
+index 9475f3e..811507c 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -2253,8 +2253,10 @@ int netif_receive_skb(struct sk_buff *skb)
- 	rcu_read_lock();
- 
- 	/* Don't receive packets in an exiting network namespace */
--	if (!net_alive(dev_net(skb->dev)))
-+	if (!net_alive(dev_net(skb->dev))) {
-+		kfree_skb(skb);
+@@ -4904,6 +4904,18 @@ static int __init net_dev_init(void)
+ 	if (register_pernet_subsys(&netdev_net_ops))
  		goto out;
-+	}
  
- #ifdef CONFIG_NET_CLS_ACT
- 	if (skb->tc_verd & TC_NCLS) {
++	/* The loopback device is special if any other network devices
++	 * is present in a network namespace the loopback device must
++	 * be present. Since we now dynamically allocate and free the
++	 * loopback device ensure this invariant is maintained by
++	 * keeping the loopback device as the first device on the
++	 * list of network devices.  Ensuring the loopback devices
++	 * is the first device that appears and the last network device
++	 * that disappears.
++	 */
++	if (register_pernet_device(&loopback_net_ops))
++		goto out;
++
+ 	if (register_pernet_device(&default_device_ops))
+ 		goto out;
+ 
 -- 
 1.5.6.5
 
