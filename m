@@ -1,48 +1,43 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: Re: IP-less bridge as a martian source
-Date: Wed, 05 Nov 2008 12:26:06 +0100
-Message-ID: <874p2m76sx.fsf@tac.ki.iif.hu>
-References: <87tzb6nodj.fsf@tac.ki.iif.hu> <87wsg0wu78.fsf@tac.ki.iif.hu>
-	<48FF614C.7020507@gmail.com> <48FF7AA3.50408@gmail.com>
-	<87y707mjbi.fsf@tac.ki.iif.hu> <20081031084124.GA4364@ff.dom.local>
-	<877i7novar.fsf@szonett.ki.iif.hu>
-	<20081105094303.GA5378@ff.dom.local> <87prla79d6.fsf@tac.ki.iif.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tbench wrt. loopback TSO
+Date: Wed, 05 Nov 2008 03:42:24 -0800 (PST)
+Message-ID: <20081105.034224.167388197.davem@davemloft.net>
+References: <Pine.LNX.4.64.0810271704530.7072@wrl-59.cs.helsinki.fi>
+	<20081027170314.GA25148@ioremap.net>
+	<20081027.113904.211811887.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org, efault@gmx.de,
+	mingo@elte.hu, a.p.zijlstra@chello.nl, herbert@gondor.apana.org.au
+To: zbr@ioremap.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:38595 "EHLO tac.ki.iif.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754492AbYKEL0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 06:26:10 -0500
-In-Reply-To: <87prla79d6.fsf@tac.ki.iif.hu> (Ferenc Wagner's message of "Wed,
-	05 Nov 2008 11:30:45 +0100")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49519
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755288AbYKELmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 06:42:49 -0500
+In-Reply-To: <20081027.113904.211811887.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ferenc Wagner <wferi@niif.hu> writes:
+From: David Miller <davem@davemloft.net>
+Date: Mon, 27 Oct 2008 11:39:04 -0700 (PDT)
 
-> Jarek Poplawski <jarkao2@gmail.com> writes:
->
->> On Sun, Nov 02, 2008 at 12:55:56AM +0100, Ferenc Wagner wrote:
->> 
->>> If I ping -b 255.255.255.255 on a virtual machine with IP
->>> 193.225.14.155, whose virtual interface is a port of br891:
->>> 
->>> martian source 255.255.255.255 from 193.225.14.155, on dev br891
+> One idea immediately occurs to me.  Since we're effectively limited
+> to a 64K TSO frame, and the MSS is some value smaller than that, we
+> can probably get away with a reciprocol divide.  Even using a 16-bit
+> inverse value would suffice, so we wouldn't need to use u64's like
+> some other pieces of code do.  A u32 would be enough.
 
-May be of interest, but on the other host (which currently does not
-run the virtual machine running the above ping command, so the same
-bridge is present but without the virtual interfaces), logged an extra
-__ratelimit message preceeding the martian:
+I couldn't get anywhere with this idea.
 
-[288953.880497] __ratelimit: 102 messages suppressed
-[288953.880585] martian source 255.255.255.255 from 193.225.14.155, on dev br891
-[288953.880640] ll header: ff:ff:ff:ff:ff:ff:00:16:3e:01:00:00:08:00
+The problem is that 16-bits provides not enough precision for accurate
+divisions by multiplication.
 
-If I ping again, no further __ratelimits emerge, and tcpdump shows a
-single ICMP packet, the echo request.
--- 
-Regards,
-Feri.
+For example, for a divisor of 1500 and a shift of 16 neither 43 nor 44
+provides an accurate calculation.
+
+So we'd need to use a u64 and a shift of 32, and on 32-bit cpus that
+could be expensive, but perhaps not as expensive as the divide.
+
+
