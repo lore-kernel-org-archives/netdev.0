@@ -1,51 +1,62 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: time for TCP ECN defaulting to on?
-Date: Tue, 4 Nov 2008 22:31:00 -0800
-Message-ID: <C27F8246C663564A84BB7AB343977242151F4B18B4@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20081104.215839.132524253.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [BUG] linux-2.6.28-rc3 regression: IRQ smp_affinities not respected
+Date: Wed, 05 Nov 2008 07:33:21 +0100
+Message-ID: <49113E31.8080106@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@blueteddy.net" <linux-kernel@blueteddy.net>,
-	"daniel.blueman@gmail.com" <daniel.blueman@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
-To: "'David Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: linux kernel <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3503 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750754AbYKEGbN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 01:31:13 -0500
-In-Reply-To: <20081104.215839.132524253.davem@davemloft.net>
-Content-Language: en-US
+Received: from gw1.cosmosbay.com ([86.65.150.130]:48708 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807AbYKEGdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 01:33:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
+Hi all
 
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Tue, 04 Nov 2008 17:16:03 -0800
->
-> > I think this is no longer a limitation.  The GSO code will take care
-> > of ECN properly if the hardware does not support it when doing TSO.
->
-> Hmm, good point, but if that is what happens I don't know if I agree
-> with it.
->
-> If "take care of ECN" means doing TSO in software, that's in my
-> opinion the wrong thing to do.
->
-Right, it means TSO will be done in software by the GSO code if
-ECE or CWR is set in a TSO frame and the driver indicates that
-the hardware cannot segment such packets properly.
+One more problem it seems on 2.6.28-rc3
 
-This allows TSO and ECN to coexist.  Before this, ECN was always
-disabled when TSO was enabled.
+I wanted to get maximal throughput from my machine on a network bench with 3 Gigabit
+links delivering 600.000 packets per second, so I tried to play with smp_affinity to
+dedicate one CPU for each NIC.
 
-Assuming ECE and CWR are set infrequently on TSO frames, we still
-benefit from hardware TSO most of the time.  Why is it the wrong
-thing to do?
+It worked with 2.6.27, so there is a regression on this part.
 
+Unfortunatly, git bisect is nearly impossible for me as after two steps
+the resulting kernel doesnt event boot on this machine (same for oprofile
+regression I mentioned earlier)
 
+# grep eth1 /proc/interrupts
+ 45:      20425      20418      20445      20441      20345      20349      20384      20397   PCI-MSI-edge      eth1
+# cat /proc/irq/45/smp_affinity
+ff
+# echo 1 >/proc/irq/45/smp_affinity
+# cat /proc/irq/45/smp_affinity
+01
+# grep eth1 /proc/interrupts
+ 45:      20928      20920      20943      20940      20845      20847      20887      20898   PCI-MSI-edge      eth1
+# grep eth1 /proc/interrupts
+ 45:      21037      21030      21053      21049      20953      20956      20997      21007   PCI-MSI-edge      eth1
+# grep eth1 /proc/interrupts
+ 45:      21141      21134      21156      21154      21057      21059      21101      21110   PCI-MSI-edge      eth1
+
+You can see interrupts keep being spreaded on all CPUS instead of CPU0 only.
+
+That *kills* performance on high end routers and servers.
+
+07:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708S Gigabit Ethernet (rev 12)
+        Subsystem: Hewlett-Packard Company NC373i Integrated Multifunction Gigabit Server Adapter
+        Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 45
+        Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
+        [virtual] Expansion ROM at d1000000 [disabled] [size=16K]
+        Capabilities: [40] PCI-X non-bridge device.
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable+
+
+bnx2 driver
+
+Thanks
