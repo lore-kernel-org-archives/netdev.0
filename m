@@ -1,41 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Fix ESP SA loading (by default)
-Date: Wed, 05 Nov 2008 11:30:50 +0100
-Message-ID: <491175DA.7080300@trash.net>
-References: <20081105095428.GA4584@x200.localdomain>	<20081105.015552.33573006.davem@davemloft.net>	<49116F66.4030305@trash.net> <20081105.022619.151487044.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH 0/6] SMSC LAN911x and LAN921x vendor driver
+Date: Wed,  5 Nov 2008 10:35:36 +0000
+Message-ID: <1225881342-3485-1-git-send-email-steve.glendinning@smsc.com>
+Cc: catalin.marinas@arm.com, Bahadir.Balban@arm.com,
+	dustin@sensoria.com, bgat@billgatliff.com,
+	Ian Saturley <ian.saturley@smsc.com>, g.liakhovetski@gmx.de,
+	Peter Korsgaard <jacmet@sunsite.dk>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34215 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754736AbYKEKa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 05:30:57 -0500
-In-Reply-To: <20081105.022619.151487044.davem@davemloft.net>
+Received: from [86.54.240.115] ([86.54.240.115]:57477 "EHLO drevil.shawell.net"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754230AbYKEKft (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 05:35:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Wed, 05 Nov 2008 11:03:18 +0100
-> 
->> David Miller wrote:
->>> About the rmmod thing, we can do something similar to how
->>> we handle nesting of irq_regs().  Ie. there are things that
->>> push and pop the stack of ->error_desc.  rmmod operations
->>> could be one of those things
->> Alternatively we could simply strdup the error message (or copy it
->> to a reserved area to avoid running into memory allocation errors).
->> That avoids having to mess with foreign task structs when
->> unloading modules.
-> 
-> Since the error message is "const char *" I don't see why
-> you'd need to strdup() it ever, just the pointer is fine.
-> 
-> Well, I guess we could run into problems with module unloading
-> and the strings being from that module hmmm...
+This patchset adds the smsc911x driver, and converts in-tree users of 
+smc911x to use this driver instead.
 
-Yes, thats what I thought Alexey was referring to.
+I don't have access to all these development platforms (3x sh & ARM 
+realview), so I've only been able to compile-test the changes so far.
+
+The first patch (which adds the new driver) is identical to the last 
+version posted for review.
+
+Steve Glendinning (6):
+  SMSC LAN911x and LAN921x vendor driver
+  smsc911x: add dynamic bus configuration
+  smsc911x: convert magicpanelr2 platform to use smsc911x
+  smsc911x: convert ap325rxa platform to use smsc911x
+  smsc911x: convert rsk7203 platform to use smsc911x
+  smsc911x: convert realview platforms to use smsc911x
+
+ MAINTAINERS                              |    6 +
+ arch/arm/mach-realview/realview_eb.c     |   16 +-
+ arch/arm/mach-realview/realview_pb1176.c |   13 +-
+ arch/arm/mach-realview/realview_pb11mp.c |   13 +-
+ arch/sh/boards/board-ap325rxa.c          |   24 +-
+ arch/sh/boards/board-magicpanelr2.c      |   23 +-
+ arch/sh/boards/board-rsk7203.c           |   24 +-
+ arch/sh/configs/ap325rxa_defconfig       |   21 +-
+ arch/sh/configs/magicpanelr2_defconfig   |   21 +-
+ arch/sh/configs/rsk7203_defconfig        |   21 +-
+ drivers/net/Kconfig                      |   14 +
+ drivers/net/Makefile                     |    1 +
+ drivers/net/phy/smsc.c                   |   28 +
+ drivers/net/smsc911x.c                   | 2091 ++++++++++++++++++++++++++++++
+ drivers/net/smsc911x.h                   |  393 ++++++
+ include/linux/smsc911x.h                 |   47 +
+ 16 files changed, 2717 insertions(+), 39 deletions(-)
+ create mode 100644 drivers/net/smsc911x.c
+ create mode 100644 drivers/net/smsc911x.h
+ create mode 100644 include/linux/smsc911x.h
+
