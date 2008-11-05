@@ -1,80 +1,55 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: [proposed patch] via-rhine: prevent oops when requesting an IRQ
-Date: Tue, 4 Nov 2008 19:23:57 -0500
-Message-ID: <20081104192357.2b0dbe22@redhat.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Tue, 04 Nov 2008 17:16:03 -0800
+Message-ID: <1225847763.11369.43.camel@HP1>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+ <49107543.5080207@blueteddy.net>
+ <20081104.145242.112948002.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:33549 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752168AbYKEAYU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2008 19:24:20 -0500
-Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
-	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id mA50OKOA001037
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 19:24:20 -0500
-Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
-	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id mA50OJwj006742
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 19:24:19 -0500
-Received: from localhost.localdomain (dhcp-100-2-144.bos.redhat.com [10.16.2.144])
-	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id mA50OJtS000372
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 19:24:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@blueteddy.net" <linux-kernel@blueteddy.net>,
+	"daniel.blueman@gmail.com" <daniel.blueman@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20081104.145242.112948002.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-via-rhine: prevent oops when requesting an IRQ
 
-via-rhine requests an IRQ before it's ready to handle an interrupt.
-It oopses when CONFIG_DEBUG_SHIRQ is enabled.
+On Tue, 2008-11-04 at 14:52 -0800, David Miller wrote:
+> From: Dave Hudson <linux-kernel@blueteddy.net>
+> Date: Tue, 04 Nov 2008 16:16:03 +0000
+> 
+> > Daniel J Blueman wrote:
+> > > Is it time to enable TCP ECN per default and get the benefits, since
+> > > router support has been around and known-about for really considerable
+> > > time?
+> > > Perhaps it should be a question of enabling it, and educating people
+> > > to disable it if they run into issues, since we'll probably be in the
+> > > same situation in 5 years...and it'll be some time before these
+> > > kernels hit devices/servers anyway.
+> > > Daniel
+> >
+> > Unfortunately I think you'll find there are sufficiently large
+> > numbers of broken SOHO routers out there that if you try this you'll
+> > cause a lot of problems.  The problems range from no connectivity to
+> > in a few extreme cases routers actually crashing or behaving in very
+> > unpredictable ways.  Here's one summary that got presented to the
+> > IETF about 18 months ago:
+> >
+> > http://www.ietf.org/proceedings/07mar/slides/tsvarea-3/sld6.htm
+> 
+> Another issue is that, even if we turn it on by default, it won't
+> be on for a significant number of network cards out there.
+> 
+> This is because TSO, which is on by default, doesn't support ECN
+> in many implementations.
 
-https://bugzilla.redhat.com/show_bug.cgi?id=469303
+I think this is no longer a limitation.  The GSO code will take care of
+ECN properly if the hardware does not support it when doing TSO.
 
----
 
-NOTE: UNTESTED: Is it okay to init the hardware before requesting the
-IRQ, or should that be done afterward?
-
-Index: linux-2.6.27.noarch/drivers/net/via-rhine.c
-===================================================================
---- linux-2.6.27.noarch.orig/drivers/net/via-rhine.c
-+++ linux-2.6.27.noarch/drivers/net/via-rhine.c
-@@ -1141,24 +1141,27 @@ static int rhine_open(struct net_device 
- 	void __iomem *ioaddr = rp->base;
- 	int rc;
- 
--	rc = request_irq(rp->pdev->irq, &rhine_interrupt, IRQF_SHARED, dev->name,
--			dev);
-+	rc = alloc_ring(dev);
- 	if (rc)
- 		return rc;
- 
--	if (debug > 1)
--		printk(KERN_DEBUG "%s: rhine_open() irq %d.\n",
--		       dev->name, rp->pdev->irq);
--
--	rc = alloc_ring(dev);
--	if (rc) {
--		free_irq(rp->pdev->irq, dev);
--		return rc;
--	}
- 	alloc_rbufs(dev);
- 	alloc_tbufs(dev);
- 	rhine_chip_reset(dev);
- 	init_registers(dev);
-+
-+	rc = request_irq(rp->pdev->irq, &rhine_interrupt, IRQF_SHARED, dev->name,
-+			dev);
-+	if (rc) {
-+		free_tbufs(dev);
-+		free_rbufs(dev);
-+		free_ring(dev);
-+		return rc;
-+	}
-+
-+	if (debug > 1)
-+		printk(KERN_DEBUG "%s: rhine_open() irq %d.\n",
-+		       dev->name, rp->pdev->irq);
- 	if (debug > 2)
- 		printk(KERN_DEBUG "%s: Done rhine_open(), status %4.4x "
- 		       "MII status: %4.4x.\n",
