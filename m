@@ -1,43 +1,69 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH RFC v2] net: add PCINet driver
-Date: Wed, 5 Nov 2008 14:19:52 +0100
-Message-ID: <200811051419.53194.arnd@arndb.de>
-References: <20081029202027.GH12879@ovro.caltech.edu> <200811042123.03819.arnd@arndb.de> <20081104222927.GE4641@ovro.caltech.edu>
+From: almaop@poczta.fm
+Subject: Re: New filter 'flow' bug?
+Date: 05 Nov 2008 14:29:05 +0100
+Message-ID: <20081105132906.18BDA46CCF0@f46.poczta.interia.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>
-To: Ira Snyder <iws@ovro.caltech.edu>
+Content-Type: TEXT/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>,
+	"almaop@poczta.fm" <almaop@poczta.fm>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:58848 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149AbYKENUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 08:20:11 -0500
-In-Reply-To: <20081104222927.GE4641@ovro.caltech.edu>
-Content-Disposition: inline
+Received: from smtp239.poczta.interia.pl ([217.74.64.239]:30942 "EHLO
+	smtp239.poczta.interia.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752181AbYKEN3I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 08:29:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 04 November 2008, Ira Snyder wrote:
-
-> So, since interrupts are disabled while my interrupt handler is running,
-> I think I should be able to use spin_lock() and spin_unlock(), correct?
-
-yes.
-
-> But sparse gives me the following warning:
-> wqt.c:185:9: warning: context imbalance in 'wqt_interrupt': wrong count at exit
-> wqt.c:185:9:    context 'lock': wanted 0, got 1
+> almaop@poczta.fm wrote:
+> >> almaop@poczta.fm wrote:
+> >>>>> From: almaop@poczta.fm
+> >>>>>> I'm not sure where is the bug - in the flow filter or in the sfq
+> >>>> qdisc.
+> >>>>
+> >>>> Which SFQ qdisc is stalling?
+> >>>>
+> >>> Thanks for reply.
+> >>> So I've done few tests. I've removed quantum 64 (it  was qdisc with
+> >> small packets). It made no difference. It looks like the key is the
+> first
+> >> sfq qdisc (tc qdisc add dev $DEV parent 1:2 handle 2: sfq - in my
+> example).
+> >> When there is no traffic in this qdisc for about 45 seconds (shorter
+> time
+> >> when there is no traffic at all on the interface) - it stalls. Other
+> qdiscs
+> >> stall also. So there is no packet flow on that interface. Removing
+> filters
+> >> ('flow' filters) does'nt help. I have to remove (all) sfq qdiscs. And
+> then
+> >> the traffic is resumed.
+> >>
+> >> Please capture the output of "tc -s -d qdisc show dev <dev>" and
+> >> "tc -s -d class show dev <dev>" immediately after it stalls.
+> >> I'm interested in the amount of bytes/packets queued at the moment.
+> >>
+> > 
+> > I've captured it eve
+> > It looks like this:
+> > Example 1:
+> > 
+> > ...
 > 
-> If I'm using spin_lock_irqsave() and spin_lock_irqrestore() I do not get
-> the same warnings. Therefore I must have some misunderstanding :)
+> In both cases there are no packets queued, so its not the qdiscs
+> which are stalling. My shot in the dark is  is that your classifier
+> rules are incorrect and don't handle ARP packets.
 
+I've removed 'tc qdisc add htb .... default x'
+                                    ^^^^^^^^^^
+And now it works, so you are right. Sorry for taking your time.
+Regards.
 
-I've seen something like that before, I think it was a bug either in
-sparse or in the powerpc platform code. Try updating both the kernel
-and sparse and see if it still happens.
+Krzysiek
 
-	Arnd <><
+----------------------------------------------------------------------
+Dzwon taniej na zagraniczne komorki!
+Sprawdz >> http://link.interia.pl/f1f6a
+
