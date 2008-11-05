@@ -1,46 +1,66 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v2)
-Date: Wed, 05 Nov 2008 10:57:36 +0200
-Message-ID: <49116000.7000005@teltonika.lt>
-References: <20081104144518.4429.37325.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>	 <200811042045.41052.david-b@pacbell.net>	 <8bd0f97a0811042134n3c5543bbwed7a8ebfd0e3f77e@mail.gmail.com>	 <200811050011.56804.david-b@pacbell.net> <8bd0f97a0811050032i206214a6r8d30a58f354995b4@mail.gmail.com>
+From: Milan Kocian <milon@wq.cz>
+Subject: Re: WARNING: at net/sched/sch_generic.c:219
+Date: Wed, 5 Nov 2008 10:00:34 +0100
+Message-ID: <20081105090033.GB18121@ntm.vs.lam.cz>
+References: <20081103092609.GA8659@ntm.vs.lam.cz> <F169D4F5E1F1974DBFAFABF47F60C10A0E873C1B@orsmsx507.amr.corp.intel.com> <20081104093923.GA11658@ntm.vs.lam.cz> <F169D4F5E1F1974DBFAFABF47F60C10A0E874224@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org,
-	Laurent Pinchart <laurentp@cse-semaphore.com>
-To: Mike Frysinger <vapier.adi@gmail.com>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <8bd0f97a0811050032i206214a6r8d30a58f354995b4@mail.gmail.com>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srw1.wq.cz ([212.71.155.176]:51690 "EHLO srw1.wq.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750812AbYKEJAk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 04:00:40 -0500
+Content-Disposition: inline
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A0E874224@orsmsx507.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mike Frysinger wrote:
-> On Wed, Nov 5, 2008 at 03:11, David Brownell wrote:
->> On Tuesday 04 November 2008, Mike Frysinger wrote:
->>>> If indeed OF functions don't have declarations which are
->>>> available on all platforms, that might be worth fixing
->>>> to enable this approach to #ifdef elimination.
->>> OF is open firmware right ?  no way there's going to be OF for every
->>> port that supports GPIO, so filling out the stubs in linux/of_gpio.h
->>> will need to be done.
->> In which case the boolean "we don't have OF" would be "false" and
->> any code referencing the declared functions would be compiled out
->> (being dead code/data).  So there would be no link-time references
->> to any OF routines... standard technique.
+On Tue, Nov 04, 2008 at 09:36:51AM -0800, Brandeburg, Jesse wrote:
+> Milan Kocian wrote:
+> > Thanks for answer.
+> > Its selfcompiled 64bit kernel. Intel CPU QuadCore. SuperMicro
+> > mainboard. 2GB RAM, Debian unstable distro.
 > 
-> i understand the compiler side just fine.  my point is that the
-> current linux/of_gpio.h only defines the OF structure and related
-> prototypes when CONFIG_OF_GPIO is defined.  so it needs updating
-> first.
+> Ah, another occurrence of our good (well not so good) friend the
+> supermicro with 82573E/L.
 
-This is small problem compared to what you will find in linux/of_device.h
-It includes <asm/of_device.h> which contains main of_device structure
-and this won't work with any non OF platform. Maybe the best solution is
-to write separate driver for OF which will be just wrapper for platform
-driver... Just like you suggested.
-
-> -mike
+:-)
 > 
+> > 0d:00.0 Ethernet controller: Intel Corporation 82573E Gigabit
+> > 0e:00.0 Ethernet controller: Intel Corporation 82573L Gigabit
+> 
+> Please run the attached script on both of these ports (this adapter is
+> one reason we have the write eeprom routines in our drivers) and let us
+> know the results.
+> 
+> It is highly likely that there is a known issue with the eeprom (created
+> from an early version of our reference eeprom) configuring the hardware
+> incorrectly, which causes tx hangs.
+> 
+> Jesse
+
+Many thanks.
+
+Here is the output:
+
+srw1:~# ./fixeep eth1
+eth1: is a "82573L Gigabit Ethernet Controller"
+This fixup is applicable to your hardware
+Your eeprom is up to date, no changes were made
+srw1:~# ./fixeep eth0
+eth0: is a "82573E Gigabit Ethernet Controller"
+This fixup is applicable to your hardware
+executing command: ethtool -E eth0 magic 0x108c8086 offset 0x1e value 0xdf
+
+If will be any problem I will report it.
+If I understand correctly, it is fixed forever.  Or must I run it after every
+reboot ?
+
+Regards,
+
+-- 
+Milan Kocian
