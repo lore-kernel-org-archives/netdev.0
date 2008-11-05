@@ -1,115 +1,125 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/5] dccp: Implement lookup table for feature-negotiation
-	information
-Date: Wed, 5 Nov 2008 07:52:45 +0100
-Message-ID: <20081105065245.GD3482@gerrit.erg.abdn.ac.uk>
-References: <20081005.091334.208715265.davem@davemloft.net> <1223312049-25967-1-git-send-email-gerrit@erg.abdn.ac.uk> <1223312049-25967-2-git-send-email-gerrit@erg.abdn.ac.uk> <20081011073130.GC9205@gerrit.erg.abdn.ac.uk>
+Subject: [PATCH 3/5] dccp: List management for new feature negotiation
+Date: Wed, 5 Nov 2008 07:53:21 +0100
+Message-ID: <20081105065321.GE3482@gerrit.erg.abdn.ac.uk>
+References: <20081005.091334.208715265.davem@davemloft.net> <1223312049-25967-1-git-send-email-gerrit@erg.abdn.ac.uk> <1223312049-25967-2-git-send-email-gerrit@erg.abdn.ac.uk> <1223312049-25967-3-git-send-email-gerrit@erg.abdn.ac.uk> <20081011073146.GD9205@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38979 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38990 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751080AbYKEGxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 01:53:11 -0500
+	id S1750929AbYKEGx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 01:53:27 -0500
 Content-Disposition: inline
-In-Reply-To: <20081011073130.GC9205@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <20081011073146.GD9205@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A lookup table for feature-negotiation information, extracted from RFC 4340/42,
-is provided by this patch. All currently known features can be found in this
-table, along with their feature location, their default value, and type.
+This adds list initial fields and list management functions for the new
+feature negotiation implementation.
+
+Thanks to Arnaldo for suggestions and improvements.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- include/linux/dccp.h |    9 +++++----
- net/dccp/feat.c      |   39 +++++++++++++++++++++++++++++++++++++++
- 2 files changed, 44 insertions(+), 4 deletions(-)
+ net/dccp/dccp.h |    2 +
+ net/dccp/feat.c |   73 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 75 insertions(+), 0 deletions(-)
 
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -176,19 +176,20 @@ enum {
- };
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -441,6 +441,8 @@ static inline int dccp_ack_pending(const struct sock *sk)
+ 	       inet_csk_ack_scheduled(sk);
+ }
  
- /* DCCP features (RFC 4340 section 6.4) */
--enum {
-+enum dccp_feature_numbers {
- 	DCCPF_RESERVED = 0,
- 	DCCPF_CCID = 1,
--	DCCPF_SHORT_SEQNOS = 2,		/* XXX: not yet implemented */
-+	DCCPF_SHORT_SEQNOS = 2,
- 	DCCPF_SEQUENCE_WINDOW = 3,
--	DCCPF_ECN_INCAPABLE = 4,	/* XXX: not yet implemented */
-+	DCCPF_ECN_INCAPABLE = 4,
- 	DCCPF_ACK_RATIO = 5,
- 	DCCPF_SEND_ACK_VECTOR = 6,
- 	DCCPF_SEND_NDP_COUNT = 7,
- 	DCCPF_MIN_CSUM_COVER = 8,
--	DCCPF_DATA_CHECKSUM = 9,	/* XXX: not yet implemented */
-+	DCCPF_DATA_CHECKSUM = 9,
- 	/* 10-127 reserved */
- 	DCCPF_MIN_CCID_SPECIFIC = 128,
-+	DCCPF_SEND_LEV_RATE = 192,	/* RFC 4342, sec. 8.4 */
- 	DCCPF_MAX_CCID_SPECIFIC = 255,
- };
- 
++extern void dccp_feat_list_purge(struct list_head *fn_list);
++
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+ extern int dccp_insert_options_rsk(struct dccp_request_sock*, struct sk_buff*);
+ extern int dccp_insert_option_elapsed_time(struct sock *sk,
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -23,6 +23,43 @@
+@@ -60,6 +60,79 @@ static const struct {
+ };
+ #define DCCP_FEAT_SUPPORTED_MAX		ARRAY_SIZE(dccp_feat_table)
  
- #define DCCP_FEAT_SP_NOAGREE (-123)
- 
-+static const struct {
-+	u8			feat_num;		/* DCCPF_xxx */
-+	enum dccp_feat_type	rxtx;			/* RX or TX  */
-+	enum dccp_feat_type	reconciliation;		/* SP or NN  */
-+	u8			default_value;		/* as in 6.4 */
-+/*
-+ *    Lookup table for location and type of features (from RFC 4340/4342)
-+ *  +--------------------------+----+-----+----+----+---------+-----------+
-+ *  | Feature                  | Location | Reconc. | Initial |  Section  |
-+ *  |                          | RX | TX  | SP | NN |  Value  | Reference |
-+ *  +--------------------------+----+-----+----+----+---------+-----------+
-+ *  | DCCPF_CCID               |    |  X  | X  |    |   2     | 10        |
-+ *  | DCCPF_SHORT_SEQNOS       |    |  X  | X  |    |   0     |  7.6.1    |
-+ *  | DCCPF_SEQUENCE_WINDOW    |    |  X  |    | X  | 100     |  7.5.2    |
-+ *  | DCCPF_ECN_INCAPABLE      | X  |     | X  |    |   0     | 12.1      |
-+ *  | DCCPF_ACK_RATIO          |    |  X  |    | X  |   2     | 11.3      |
-+ *  | DCCPF_SEND_ACK_VECTOR    | X  |     | X  |    |   0     | 11.5      |
-+ *  | DCCPF_SEND_NDP_COUNT     |    |  X  | X  |    |   0     |  7.7.2    |
-+ *  | DCCPF_MIN_CSUM_COVER     | X  |     | X  |    |   0     |  9.2.1    |
-+ *  | DCCPF_DATA_CHECKSUM      | X  |     | X  |    |   0     |  9.3.1    |
-+ *  | DCCPF_SEND_LEV_RATE      | X  |     | X  |    |   0     | 4342/8.4  |
-+ *  +--------------------------+----+-----+----+----+---------+-----------+
++/**
++ * dccp_feat_index  -  Hash function to map feature number into array position
++ * Returns consecutive array index or -1 if the feature is not understood.
 + */
-+} dccp_feat_table[] = {
-+	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2 },
-+	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0 },
-+	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100 },
-+	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2 },
-+	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0 },
-+	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0 },
-+	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0 },
-+};
-+#define DCCP_FEAT_SUPPORTED_MAX		ARRAY_SIZE(dccp_feat_table)
++static int dccp_feat_index(u8 feat_num)
++{
++	/* The first 9 entries are occupied by the types from RFC 4340, 6.4 */
++	if (feat_num > DCCPF_RESERVED && feat_num <= DCCPF_DATA_CHECKSUM)
++		return feat_num - 1;
++
++	/*
++	 * Other features: add cases for new feature types here after adding
++	 * them to the above table.
++	 */
++	switch (feat_num) {
++	case DCCPF_SEND_LEV_RATE:
++			return DCCP_FEAT_SUPPORTED_MAX - 1;
++	}
++	return -1;
++}
++
++static u8 dccp_feat_type(u8 feat_num)
++{
++	int idx = dccp_feat_index(feat_num);
++
++	if (idx < 0)
++		return FEAT_UNKNOWN;
++	return dccp_feat_table[idx].reconciliation;
++}
++
++static void dccp_feat_val_destructor(u8 feat_num, dccp_feat_val *val)
++{
++	if (unlikely(val == NULL))
++		return;
++	if (dccp_feat_type(feat_num) == FEAT_SP)
++		kfree(val->sp.vec);
++	memset(val, 0, sizeof(*val));
++}
++
++static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
++{
++	if (entry != NULL) {
++		dccp_feat_val_destructor(entry->feat_num, &entry->val);
++		kfree(entry);
++	}
++}
++
++/*
++ * List management functions
++ *
++ * Feature negotiation lists rely on and maintain the following invariants:
++ * - each feat_num in the list is known, i.e. we know its type and default value
++ * - each feat_num/is_local combination is unique (old entries are overwritten)
++ * - SP values are always freshly allocated
++ * - list is sorted in increasing order of feature number (faster lookup)
++ */
++
++static inline void dccp_feat_list_pop(struct dccp_feat_entry *entry)
++{
++	list_del(&entry->node);
++	dccp_feat_entry_destructor(entry);
++}
++
++void dccp_feat_list_purge(struct list_head *fn_list)
++{
++	struct dccp_feat_entry *entry, *next;
++
++	list_for_each_entry_safe(entry, next, fn_list, node)
++		dccp_feat_entry_destructor(entry);
++	INIT_LIST_HEAD(fn_list);
++}
++EXPORT_SYMBOL_GPL(dccp_feat_list_purge);
 +
  int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
  		     u8 *val, u8 len, gfp_t gfp)
  {
-@@ -639,6 +676,8 @@ const char *dccp_feat_name(const u8 feat)
- 	if (feat > DCCPF_DATA_CHECKSUM && feat < DCCPF_MIN_CCID_SPECIFIC)
- 		return feature_names[DCCPF_RESERVED];
- 
-+	if (feat ==  DCCPF_SEND_LEV_RATE)
-+		return "Send Loss Event Rate";
- 	if (feat >= DCCPF_MIN_CCID_SPECIFIC)
- 		return "CCID-specific";
- 
 
