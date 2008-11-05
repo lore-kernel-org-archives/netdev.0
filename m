@@ -1,86 +1,115 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: v3 [Re-Send] [PATCH 0/5] dccp: Feature negotiation, Part I -
-	Underlying data structures
-Date: Wed, 5 Nov 2008 07:51:46 +0100
-Message-ID: <20081105065146.GB3482@gerrit.erg.abdn.ac.uk>
-References: <20081005.091334.208715265.davem@davemloft.net> <20081011073113.GA9205@gerrit.erg.abdn.ac.uk>
+Subject: [PATCH 2/5] dccp: Implement lookup table for feature-negotiation
+	information
+Date: Wed, 5 Nov 2008 07:52:45 +0100
+Message-ID: <20081105065245.GD3482@gerrit.erg.abdn.ac.uk>
+References: <20081005.091334.208715265.davem@davemloft.net> <1223312049-25967-1-git-send-email-gerrit@erg.abdn.ac.uk> <1223312049-25967-2-git-send-email-gerrit@erg.abdn.ac.uk> <20081011073130.GC9205@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38921 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38979 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750807AbYKEGvz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 01:51:55 -0500
+	id S1751080AbYKEGxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 01:53:11 -0500
 Content-Disposition: inline
-In-Reply-To: <20081011073113.GA9205@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <20081011073130.GC9205@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+A lookup table for feature-negotiation information, extracted from RFC 4340/42,
+is provided by this patch. All currently known features can be found in this
+table, along with their feature location, their default value, and type.
 
-as requested circa two weeks ago, I am now resending the first chunk of the
-feature-negotiation patch set.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ include/linux/dccp.h |    9 +++++----
+ net/dccp/feat.c      |   39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 44 insertions(+), 4 deletions(-)
 
-These patches are identical to the earlier submission.
-
-Can you please let me know when it would be okay to submit the next
-instalment of this series.
-
-Gerrit
-
-
-Changes relative to revision 2
-------------------------------
- * reordered patches to eliminate build warnings (reducing patch sizes); 
- * in addition, sparse-build warnings were also eliminated;
- * all patches again verified to compile without build errors.
-
-
-Changes relative to revision 1
-------------------------------
- * [1/5] streamlined field layout reducing the size per each entry;
- * [2/5] migration of function 'dccp_default_value' to a later in the set
-         where it is first used.
-
-
-Commit summary
---------------
-This is the first set of the feature negotiation patches. These provide a 
-self-contained feature negotiation API for the DCCP protocol (RFC 4340-2).
-
-The whole set is structured into 3 main blocks - (1) basis, (2) core,
-(3) integration and cleanup. Within these blocks, this is the first,
-self-contained, set and its purpose is to provide
- (a) the underlying datastructures
- (b) initialisation and cleanup routines for the new datastructures.
-
-
-List of patches in this set:
-----------------------------
-Patch #1: Provides the basic datastructure for feature negotiation. It gets 
-          around the problem that feature-negotiation values have no uniform
-	  type - they can be 48-bit numbers, single characters, 2-byte integers
-	  or a list of unsigned chars.
-Patch #2: Provides a lookup-table for the different negotiable features.
-Patch #3: Adds list management for the list keeping the negotiation-options.
-Patch #4: Initialisation routines (for request sockets and normal sockets).
-Patch #5: Analogous to #4, this provides the cleanup routines.	  
-
-The set is also available for viewing online, beginning at
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=228d610abf614d981cceabab3c27c1d3837e43ca
-
-Patch stats:
-------------
- include/linux/dccp.h |   13 ++-
- net/dccp/dccp.h      |    5 +
- net/dccp/feat.c      |  167 +++++++++++++++++++++++++++++++++++++++++++++++++++
- net/dccp/feat.h      |   62 ++++++++++++++++++
- net/dccp/input.c     |    2 
- net/dccp/ipv4.c      |    4 -
- net/dccp/ipv6.c      |    4 -
- net/dccp/minisocks.c |    7 +-
- net/dccp/proto.c     |    3 
- 9 files changed, 256 insertions(+), 11 deletions(-)
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -176,19 +176,20 @@ enum {
+ };
+ 
+ /* DCCP features (RFC 4340 section 6.4) */
+-enum {
++enum dccp_feature_numbers {
+ 	DCCPF_RESERVED = 0,
+ 	DCCPF_CCID = 1,
+-	DCCPF_SHORT_SEQNOS = 2,		/* XXX: not yet implemented */
++	DCCPF_SHORT_SEQNOS = 2,
+ 	DCCPF_SEQUENCE_WINDOW = 3,
+-	DCCPF_ECN_INCAPABLE = 4,	/* XXX: not yet implemented */
++	DCCPF_ECN_INCAPABLE = 4,
+ 	DCCPF_ACK_RATIO = 5,
+ 	DCCPF_SEND_ACK_VECTOR = 6,
+ 	DCCPF_SEND_NDP_COUNT = 7,
+ 	DCCPF_MIN_CSUM_COVER = 8,
+-	DCCPF_DATA_CHECKSUM = 9,	/* XXX: not yet implemented */
++	DCCPF_DATA_CHECKSUM = 9,
+ 	/* 10-127 reserved */
+ 	DCCPF_MIN_CCID_SPECIFIC = 128,
++	DCCPF_SEND_LEV_RATE = 192,	/* RFC 4342, sec. 8.4 */
+ 	DCCPF_MAX_CCID_SPECIFIC = 255,
+ };
+ 
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -23,6 +23,43 @@
+ 
+ #define DCCP_FEAT_SP_NOAGREE (-123)
+ 
++static const struct {
++	u8			feat_num;		/* DCCPF_xxx */
++	enum dccp_feat_type	rxtx;			/* RX or TX  */
++	enum dccp_feat_type	reconciliation;		/* SP or NN  */
++	u8			default_value;		/* as in 6.4 */
++/*
++ *    Lookup table for location and type of features (from RFC 4340/4342)
++ *  +--------------------------+----+-----+----+----+---------+-----------+
++ *  | Feature                  | Location | Reconc. | Initial |  Section  |
++ *  |                          | RX | TX  | SP | NN |  Value  | Reference |
++ *  +--------------------------+----+-----+----+----+---------+-----------+
++ *  | DCCPF_CCID               |    |  X  | X  |    |   2     | 10        |
++ *  | DCCPF_SHORT_SEQNOS       |    |  X  | X  |    |   0     |  7.6.1    |
++ *  | DCCPF_SEQUENCE_WINDOW    |    |  X  |    | X  | 100     |  7.5.2    |
++ *  | DCCPF_ECN_INCAPABLE      | X  |     | X  |    |   0     | 12.1      |
++ *  | DCCPF_ACK_RATIO          |    |  X  |    | X  |   2     | 11.3      |
++ *  | DCCPF_SEND_ACK_VECTOR    | X  |     | X  |    |   0     | 11.5      |
++ *  | DCCPF_SEND_NDP_COUNT     |    |  X  | X  |    |   0     |  7.7.2    |
++ *  | DCCPF_MIN_CSUM_COVER     | X  |     | X  |    |   0     |  9.2.1    |
++ *  | DCCPF_DATA_CHECKSUM      | X  |     | X  |    |   0     |  9.3.1    |
++ *  | DCCPF_SEND_LEV_RATE      | X  |     | X  |    |   0     | 4342/8.4  |
++ *  +--------------------------+----+-----+----+----+---------+-----------+
++ */
++} dccp_feat_table[] = {
++	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2 },
++	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0 },
++	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100 },
++	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2 },
++	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0 },
++	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0 },
++};
++#define DCCP_FEAT_SUPPORTED_MAX		ARRAY_SIZE(dccp_feat_table)
++
+ int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+ 		     u8 *val, u8 len, gfp_t gfp)
+ {
+@@ -639,6 +676,8 @@ const char *dccp_feat_name(const u8 feat)
+ 	if (feat > DCCPF_DATA_CHECKSUM && feat < DCCPF_MIN_CCID_SPECIFIC)
+ 		return feature_names[DCCPF_RESERVED];
+ 
++	if (feat ==  DCCPF_SEND_LEV_RATE)
++		return "Send Loss Event Rate";
+ 	if (feat >= DCCPF_MIN_CCID_SPECIFIC)
+ 		return "CCID-specific";
+ 
 
