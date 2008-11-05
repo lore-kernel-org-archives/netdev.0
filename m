@@ -1,72 +1,71 @@
-From: Johann Baudy <johaahn@gmail.com>
-Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Wed, 05 Nov 2008 16:16:39 +0100
-Message-ID: <1225898199.5273.125.camel@localhost>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: [resend take 1] [0/3] Distributed storage release.
+Date: Wed, 5 Nov 2008 19:27:04 +0300
+Message-ID: <20081105162704.GA10787@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Lovich, Vitali" <vlovich@qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g19.free.fr ([212.27.42.29]:55147 "EHLO smtp3-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750816AbYKEPQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 10:16:46 -0500
+Received: from netgear.net.ru ([195.178.208.66]:39725 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752352AbYKEQ1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 11:27:07 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick,
+I am pleased to announce distributed storage (DST) project release,
+which is a resend of the previous documentation update one with
+whitespace cleanups. As old tradition, this release has the new name.
 
+DST is a block layer network device, which among others has following
+features:
 
-> The reason why its not in there is to avoid the unnecessary
-> barrier when setting up the ring in packet_set_ring().
+ * Kernel-side client and server. No need for any special tools for
+	data processing (like special userspace applications) except
+	for configuration.
+ * Bullet-proof memory allocations via memory pools for all temporary
+ 	objects (transaction and so on).
+ * Zero-copy sending (except header) if supported by device
+ 	using sendpage().
+ * Failover recovery in case of broken link
+ 	(reconnection if remote node is down).
+ * Full transaction support (resending of the failed transactions
+ 	on timeout of after reconnect to failed node).
+ * Dynamically resizeable pool of threads used for data receiving
+ 	and crypto processing.
+ * Initial autoconfiguration. Ability to extend it with additional
+ 	attributes if needed.
+ * Support for any kind of network media (not limited to tcp or inet
+ 	protocols) higher MAC layer (socket layer). Out of the box
+	kernel-side IPv6 support (needs to extend configuration utility,
+	check how it was done in POHMELFS [1]).
+ * Security attributes for local export nodes (list of allowed to
+ 	connect addresses with permissions).
+ * Ability to use any supported cryptographically strong checksums.
+ 	Ability to encrypt data channel.
+ * Keepalive messages to detect failed nodes early.
 
-Is it a serious problem? packet_set_status() and packet_get_status()
-will be called from multiple places and we will obtain a write/read
-barrier at each call. I imagine that's more clean to insert those
-barriers inside status functions even if we add only one useless flush
-at the beginning. No?
+One can grab sources (various configuration examples can be found
+in 'userspace' dir) from archive, or via kernel and userspace GIT trees.
 
->
-> The code is fishy though, I agree. Have a look at this discussion:
->
-> http://marc.info/?l=linux-netdev&m=119383985207984&w=2
->
-My approach was to use the mechanism of RX_RING where the kernel is
-allocating the buffer. In order to get something similar from kernel and
-user point of view. Moving kernel buffer to user space could be studied
-as global enhancement for RX_RING and TX_RING but that will need user
-application changes.
+Consider for inclusion.
+Thank you.
 
-I'm wondering if I also need to use flush_dcache_page() before getting
-status buffer and attaching circular buffer pages to skb (both written
-by user). 
-According to this quote in [cachetlb.txt] of flush_dcache_page part:
-	Any time the kernel writes to a page cache page, _OR_
-	the kernel is about to read from a page cache page and
-	user space shared/writable mappings of this page potentially
-	exist, this routine is called.
- 	...
-	The phrase "kernel writes to a page cache page" means,
-	...
-	The corollary case is just as important, if there are users
-	which have shared+writable mappings of this file, we must make
-	sure that kernel reads of these pages will see the most recent
-	stores done by the user. 
+1. POHMELFS homepage.
+http://www.ioremap.net/projects/pohmelfs
 
-Can someone confirm?
+2. DST homepage.
+http://www.ioremap.net/projects/dst
 
-Thanks in advance,
-Johann
+3. DST archive.
+http://www.ioremap.net/archive/dst/
 
+4. DST git trees.
+http://www.ioremap.net/cgi-bin/gitweb.cgi
 
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-
-
-
-
-
-
-
+-- 
+	Evgeniy Polyakov
