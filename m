@@ -1,88 +1,68 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: tbench wrt. loopback TSO
-Date: Wed, 5 Nov 2008 14:25:57 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811051414250.23792@wrl-59.cs.helsinki.fi>
-References: <20081105114900.GA18691@ioremap.net> <20081105.035454.87914782.davem@davemloft.net>
- <Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>
- <20081105.040943.03609283.davem@davemloft.net>
+From: David Hollis <dhollis@davehollis.com>
+Subject: Re: [Patch] Fix asix-based gigabit cards connecting to 10 or 100Mbs
+ networks (resend)
+Date: Wed, 05 Nov 2008 07:26:31 -0500
+Message-ID: <1225887991.4056.9136.camel@dhollis-lnx>
+References: <1295ed070811041928u30f84f32h910a32d4d19f1cce@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-970381972-1225887957=:23792"
-Cc: zbr@ioremap.net, Netdev <netdev@vger.kernel.org>, efault@gmx.de,
-	mingo@elte.hu, a.p.zijlstra@chello.nl,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pantelis Koukousoulas <pktoss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35732 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753867AbYKEMZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 07:25:58 -0500
-In-Reply-To: <20081105.040943.03609283.davem@davemloft.net>
+Received: from vms173003pub.verizon.net ([206.46.173.3]:58569 "EHLO
+	vms173003pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754649AbYKEM0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 07:26:37 -0500
+Received: from smtp.davehollis.com ([72.64.146.94]) by vms173003.mailsrvcs.net
+ (Sun Java System Messaging Server 6.2-6.01 (built Apr  3 2006))
+ with ESMTPA id <0K9V00LJX18BT814@vms173003.mailsrvcs.net> for
+ netdev@vger.kernel.org; Wed, 05 Nov 2008 06:26:35 -0600 (CST)
+In-reply-to: <1295ed070811041928u30f84f32h910a32d4d19f1cce@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-970381972-1225887957=:23792
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Wed, 5 Nov 2008, David Miller wrote:
-
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Wed, 5 Nov 2008 14:04:14 +0200 (EET)
+On Wed, 2008-11-05 at 05:28 +0200, Pantelis Koukousoulas wrote:
+> Sorry for the previous mail, I think this will go as plain text now.
 > 
-> > On Wed, 5 Nov 2008, David Miller wrote:
-> > 
-> > > From: Evgeniy Polyakov <zbr@ioremap.net>
-> > > Date: Wed, 5 Nov 2008 14:49:00 +0300
-> > > 
-> > > > But what if we just remove that trimming at all? This may result in
-> > > > a not fully filled tso frame, but who cares if we copy data from
-> > > > userspace anyway, will add another potentially small copy at sending
-> > > > time?
-> > > 
-> > > Ok, the only part I care about is whether taking away this modulus
-> > > will result in a sub-MSS sized packet on the wire, which is
-> > > undesirable.
-> > >
-> > > The send logic will prevent this, right?
-> > 
-> > I don't see what currently would do that. We'd need to resegment skbs 
-> > there then...
+> Hi,
+> This morning I mentioned a problem with my belkin card not connecting
+> to my network.
+> The following patch fixes this problem. It would be great to include
+> this to 2.6.28.
 > 
-> Look at tcp_mss_split_point() in tcp_output.c
+> Thanks,
+> Pantelis
 > 
-> I think it ends up doing exactly this.
 > 
-> 'needed' is set to min(skb->len, window)
+> Add AX_MEDIUM_ENCK also when speed = 10/100Mbps. This allows my belkin
+> f5d5055 to work with my 100Mbps switch and with an old 10Mbps ISA card.
+> Without this patch, the card is recognized and the interface is brought
+> up fine, but no packets actually flow through the interface.
 > 
-> and the return value is "needed - (needed % mss_now)"
+> Signed-off-by: Pantelis Koukousoulas <pktoss@gmail.com>
+> Cc: David Hollis <dhollis@davehollis.com>
+Acked-by: David Hollis <dhollis@davehollis.com>
+
 > 
-> The caller splits up the TSO segment as needed to satisfy this
-> returned limit.
+> Index: linux-next/drivers/net/usb/
+> asix.c
+> ===================================================================
+> --- linux-next.orig/drivers/net/usb/asix.c      2008-11-04
+> 19:51:06.000000000 +0200
+> +++ linux-next/drivers/net/usb/asix.c   2008-11-04 21:32:55.000000000 +0200
+> @@ -1102,12 +1102,14 @@
+>         mode = AX88178_MEDIUM_DEFAULT;
 > 
-> That should effectively chop off the sub-mss part.
+>         if (ecmd.speed == SPEED_1000)
+> -               mode |= AX_MEDIUM_GM | AX_MEDIUM_ENCK;
+> +               mode |= AX_MEDIUM_GM;
+>         else if (ecmd.speed == SPEED_100)
+>                 mode |= AX_MEDIUM_PS;
+>         else
+>                 mode &= ~(AX_MEDIUM_PS | AX_MEDIUM_GM);
+> 
+> +       mode |= AX_MEDIUM_ENCK;
+> +
+>         if (ecmd.duplex == DUPLEX_FULL)
 
-Yes yes, I know as I wrote that part :-). But how does it prevent sub-MSS 
-on wire?
-
-Answer: It is intented for different case and doesn't prevent sub-MSS 
-segments but solves some window limitation issues! It just makes sure
-we won't add yet another sub-mss segment because of splitting we anyway 
-are forced to.
-
-In case of curr_mss != write_time_mss, we'll be sending those < mss 
-segments per each skb, normally this happens over a single rtt so it's not 
-that bad problem (and btw, that modulo won't even be executed if you have 
-enough window but the splitting happens on a layer below, except for the 
-last segment of course where we'd do nagle).
-
-The problem is that we'd need to _resegment with the next skb_ since the 
-mss boundary and skb boundary would basically constantly be running 
-out-of-sync. That won't get done currently by anything.
-
-
--- 
- i.
----696208474-970381972-1225887957=:23792--
