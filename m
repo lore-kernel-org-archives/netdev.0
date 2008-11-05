@@ -1,60 +1,106 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: next-20081103 - possible circular locking dependency detected while bring up eth1
-Date: Wed,  5 Nov 2008 18:14:43 +0900 (JST)
-Message-ID: <20081105181242.9688.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-References: <20081105071306.GB10881@linux.vnet.ibm.com> <1225871332.7803.2626.camel@twins>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [Bugme-new] [Bug 11955] New: WARNING: at
+	net/sched/sch_generic.c:219 dev_watchdog+0x24b/0x25a()
+Date: Wed, 5 Nov 2008 12:26:26 +0300
+Message-ID: <20081105092626.GB4393@x200.localdomain>
+References: <bug-11955-10286@http.bugzilla.kernel.org/> <20081105010247.5e7d802c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, mel@csn.ul.ie
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1225871332.7803.2626.camel@twins>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	ralf.hildebrandt@charite.de, stable@kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:23565 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753825AbYKEJXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 04:23:10 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so1455227nfc.21
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2008 01:23:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20081105010247.5e7d802c.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > [   31.989072] 2 locks held by events/3/18:
-> > [   31.989072]  #0:  (events){--..}, at: [<c04367bf>] run_workqueue+0x80/0x189
-> > [   31.989072]  #1:  ((linkwatch_work).work){--..}, at: [<c04367bf>] run_workqueue+0x80/0x189
-> > [   31.989072] 
-> > [   31.989072] stack backtrace:
-> > [   31.989072] Pid: 18, comm: events/3 Not tainted 2.6.28-rc3-next-20081103-autotest #1
-> > [   31.989072] Call Trace:
-> > [   31.989072]  [<c0445662>] print_circular_bug_tail+0xa4/0xaf
-> > [   31.989072]  [<c0445c10>] validate_chain+0x5a3/0xb35
-> > [   31.989072]  [<c0446822>] __lock_acquire+0x680/0x70e
-> > [   31.989072]  [<c04367bf>] ? run_workqueue+0x80/0x189
-> > [   31.989072]  [<c044690d>] lock_acquire+0x5d/0x7a
-> > [   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
-> > [   31.989072]  [<c0651c04>] mutex_lock_nested+0xdf/0x251
-> > [   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
-> > [   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
-> > [   31.989072]  [<c05e8ef5>] rtnl_lock+0xf/0x11
-> > [   31.989072]  [<c05ea07a>] linkwatch_event+0x8/0x27
-> > [   31.989072]  [<c04367fd>] run_workqueue+0xbe/0x189
-> > [   31.989072]  [<c04367bf>] ? run_workqueue+0x80/0x189
-> > [   31.989072]  [<c05ea072>] ? linkwatch_event+0x0/0x27
-> > [   31.989072]  [<c043713f>] ? worker_thread+0x0/0xbf
-> > [   31.989072]  [<c04371f3>] worker_thread+0xb4/0xbf
-> > [   31.989072]  [<c0439765>] ? autoremove_wake_function+0x0/0x33
-> > [   31.989072]  [<c04396a6>] kthread+0x3b/0x61
-> > [   33.690691] tg3: eth1: Link is up at 100 Mbps, full duplex.
-> > [   33.690696] tg3: eth1: Flow control is off for TX and off for RX.
-> > [   31.989072]  [<c043966b>] ? kthread+0x0/0x61
-> > [   31.989072]  [<c040481b>] kernel_thread_helper+0x7/0x10
-> > [   33.762336] ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
-> > [  OK  ]
+On Wed, Nov 05, 2008 at 01:02:47AM -0800, Andrew Morton wrote:
 > 
-> I think we have to go with Kosaki-san's vm workqueue...
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Wed,  5 Nov 2008 00:38:10 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=11955
+> > 
+> >            Summary: WARNING: at net/sched/sch_generic.c:219
+> >                     dev_watchdog+0x24b/0x25a()
+> >            Product: Networking
+> >            Version: 2.5
+> >      KernelVersion: 2.6.27.4
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Other
+> >         AssignedTo: acme@ghostprotocols.net
+> >         ReportedBy: ralf.hildebrandt@charite.de
+> > 
+> > 
+> > Latest working kernel version: 2.6.27.3
+> > Earliest failing kernel version: 2.6.27.4
+> 
+> A regression in -stable.
 
-Very sorry for my lazyness.
-akpm did nak vm workqueue patch.
+Absolutely no, unless it is reproducible on every boot.
+No bnx2 changes between stables and no net/core/ changes.
 
-So I prepare new patch now. (it is under testing now)
-I expect I can post it tommorow.
-
-Thanks.
+> > Distribution: Debian/testing
+> > Hardware Environment:
+> > Software Environment:
+> > Problem Description:
+> > 
+> > Steps to reproduce:
+> > 
+> > In dmesg I found:
+> > 
+> > [28739.530306] bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive
+> > & transmit flow control ON
+> > [221569.991014] ------------[ cut here ]------------
+> > [221569.991064] WARNING: at net/sched/sch_generic.c:219
+> > dev_watchdog+0x24b/0x25a()
+> > [221569.991108] NETDEV WATCHDOG: eth0 (bnx2): transmit timed out
+> > [221569.991136] Modules linked in: xt_tcpudp nf_conntrack_ipv4 xt_state
+> > nf_conntrack iptable_filter ip_tables x_tables tg3 libphy bnx2 zlib_inflate
+> > psmouse crc32 thermal container button processor
+> > [221569.991245] Pid: 0, comm: swapper Not tainted 2.6.27.4 #1
+> > [221569.991273]  [<c012348a>] warn_slowpath+0x6f/0x96
+> > [221569.991302]  [<c0137685>] hrtimer_reprogram+0x71/0xa4
+> > [221569.991332]  [<c013772c>] enqueue_hrtimer+0x74/0x100
+> > [221569.991360]  [<c013807c>] hrtimer_start+0xa3/0x145
+> > [221569.991388]  [<c011d7e5>] hrtick_start_fair+0x131/0x147
+> > [221569.991417]  [<c011f06d>] try_to_wake_up+0xbd/0x182
+> > [221569.991444]  [<c01e5684>] strlcpy+0x11/0x3d
+> > [221569.991472]  [<c027e5b1>] netdev_drivername+0x2f/0x33
+> > [221569.991501]  [<c028b208>] dev_watchdog+0x24b/0x25a
+> > [221569.991529]  [<c011a59c>] __wake_up+0x32/0x42
+> > [221569.991556]  [<c012bb76>] run_timer_softirq+0x101/0x1b7
+> > [221569.991585]  [<c028afbd>] dev_watchdog+0x0/0x25a
+> > [221569.991612]  [<c0127f8a>] __do_softirq+0x87/0xfd
+> > [221569.991640]  [<c0127f03>] __do_softirq+0x0/0xfd
+> > [221569.991667]  [<c010666a>] do_softirq+0x7f/0xb1
+> > [221569.991695]  [<c0127b85>] irq_exit+0x66/0x7a
+> > [221569.991721]  [<c0111475>] smp_apic_timer_interrupt+0x57/0x82
+> > [221569.991752]  [<c01e7290>] trace_hardirqs_off_thunk+0xc/0x10
+> > [221569.991781]  [<c01044f1>] apic_timer_interrupt+0x2d/0x34
+> > [221569.991810]  [<c01098f9>] mwait_idle+0x36/0x3e
+> > [221569.991837]  [<c0102a95>] cpu_idle+0x60/0xab
+> > [221569.991864]  =======================
+> > [221569.991887] ---[ end trace f996508cd6a61637 ]---
+> > [221570.100912] bnx2: eth0 NIC Copper Link is Down
+> > 
+> > 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
