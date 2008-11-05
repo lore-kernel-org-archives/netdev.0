@@ -1,68 +1,72 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC] loopback: optimization
-Date: Thu, 06 Nov 2008 00:14:16 +0100
-Message-ID: <491228C8.3010100@cosmosbay.com>
-References: <20081103213758.59a8361d@extreme> <20081105123659.6045b216@extreme>
+From: Ira Snyder <iws@ovro.caltech.edu>
+Subject: Re: [RFC v3] net: add PCINet driver
+Date: Wed, 5 Nov 2008 15:17:44 -0800
+Message-ID: <20081105231744.GB17821@ovro.caltech.edu>
+References: <20081105212225.GA17821@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Jan-Bernd Themann <THEMANN@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:40816 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752412AbYKEXOa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:14:30 -0500
-In-Reply-To: <20081105123659.6045b216@extreme>
+Received: from ovro.ovro.caltech.edu ([192.100.16.2]:54944 "EHLO
+	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752608AbYKEXRq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:17:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20081105212225.GA17821@ovro.caltech.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> Convert loopback device from using common network queues to a per-cpu
-> receive queue with NAPI. This gives a small 1% performance gain when
-> measured over 5 runs of tbench. Not sure if it's worth bothering
-> though.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
->=20
-> --- a/drivers/net/loopback.c	2008-11-04 15:36:29.000000000 -0800
-> +++ b/drivers/net/loopback.c	2008-11-05 10:00:20.000000000 -0800
-> @@ -59,7 +59,10 @@
-> =20
-> +/* Special case version of napi_schedule since loopback device has n=
-o hard irq */
-> +void napi_schedule_irq(struct napi_struct *n)
-> +{
-> +	if (napi_schedule_prep(n)) {
-> +		list_add_tail(&n->poll_list, &__get_cpu_var(softnet_data).poll_lis=
-t);
-> +		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-> +	}
-> +}
-> +
+On Wed, Nov 05, 2008 at 01:22:25PM -0800, Ira Snyder wrote:
 
-Stephen, I dont get it.
+Despite my best efforts at testing this version, a bug slipped past.
+There is some problem with this driver, nfsroot, and Linux routing. If
+you do not apply the fix below, udp packets sent by the nfsroot code
+have corrupted checksums after they get routed across the network to
+another host.
 
-Sure loopback device cannot generate hard irqs, but what prevent's a re=
-al hardware
-interrupt to call NIC driver that can call napi_schedule() and corrupt =
-softnet_data.poll_list ?
+If I boot both hosts to Linux via other means, the driver works fine
+with no issues. It only happens for nfsroot.
 
-Why not using a queue dedicated on loopback directly in cpu_var(softnet=
-_data) ?
+If I run an nfs server on the PCINET_HOST computer, removing the
+routing, it also works fine.
 
-(ie not using a napi structure for each cpu and each loopback dev)
+Remove the following line from pcinet_host.c and pcinet_fsl.c:
+ndev->features         |= NETIF_F_NO_CSUM; /* No checksum needed */
 
-This queue would be irq safe yes.
+In case anyone knows offhand what might be causing this, my setup is as
+follows:
 
-net_rx_action could handle this list without local_irq_disable()/local_=
-irq_enable() games.
+   cPCI Crate
+|-------------------------|
+| PCINET_FSL              |
+|-------------------------|
+|          ^ 10.0.0.2     |
+|          |              |
+| PCINet Driver Link here |
+|          |              |
+|          v 10.0.0.1     |
+|-------------------------|
+| PCINET_HOST             |
+|-------------------------|
+           ^ 192.168.17.14
+           |
+ Normal ethernet link here
+           |
+           v
+|-------------------------|
+| Ethernet switch         |
+|-------------------------|
+           ^
+           |
+ Normal ethernet link here
+           |
+           v 192.168.17.59
+|-------------------------|
+| NFS Server              |
+|-------------------------|
 
-Hum, maybe complex for loopback_dev_stop() to purge all queues without =
-interfering with other namespaces.
 
-
-
-
+Ira
