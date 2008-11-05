@@ -1,58 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Network performance forwarding tests on RT
-Date: Wed, 5 Nov 2008 11:52:05 -0800
-Message-ID: <20081105115205.14c5282f@s6510>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: Fwd: Network Core
+Date: Wed, 05 Nov 2008 15:11:43 -0500
+Message-ID: <4911FDFF.2060302@redhat.com>
+References: <530d01580811050939q1c1dc52fra6fc2078d86d36e@mail.gmail.com> <530d01580811050940k2010ba3fpd0973f23e390c5e7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: linux-rt-users@vger.kernel.org
+To: "Diego ." <eljedi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45646 "EHLO mail.vyatta.com"
+Received: from mx2.redhat.com ([66.187.237.31]:40153 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752904AbYKETwS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 14:52:18 -0500
+	id S1756245AbYKEULA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 15:11:00 -0500
+In-Reply-To: <530d01580811050940k2010ba3fpd0973f23e390c5e7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As an experiment, I rebuilt a version of Vyatta using 2.6.26-rt11 kernel.
-This required some fixes to unionfs and aufs which I'll send to anyone who wants.
+Diego . wrote:
+> Hello!
 
-The performance of the RT PREEMPT kernel is worse than non-PREEMPT kernel.
+Hi.
 
-Running RFC2544, frame loss test we the loss rate is worse on RT than non RT.
-Ideally, there would be no loss, but on this platform, the best we have
-seen is 70% loss at 64 bytes.
+> I'm a kernel newbie.
 
+Welcome.
 
-Size	2.6.26		2.6.26-rt11
-64	80.5%		99%
-128	67		99
-256	43		92
-512	0		54
-1024	0		3
-1280	0		0
-1518	0		0
+> I'm trying to figure how hard it will be build some SMA protocol
+> inside linux kernel. But i coud'nt  find any information about linux
+> network layer/core. I started looking at source code inside net/ dir
+> before asking here.
 
-More importantly, with RT PREEMPT, the driver gets stuck and times out
-under heavy load (see 99% loss above). It appears the change to network
-scheduling related to NAPI doesn't work well under load.
+If you've never worked with kernel code before, it's extremely difficult.  I 
+highly recommend that you get involved with development of existing kernel 
+networking code before you try to make this leap.
 
-I wouldn't recommend RT PREEMPT for heavy network loads.
+> Could you point me to somewhere i can find some info about howto to
+> port/create a network protocol to/on linux? ( i mean, some basic info
+> like the one we can find with the fs layer. I'm not asking about a
+> magic tutorial about how to port my protocol ). Or some basic network
+> layer info.
 
-Hardware: Celeron 430 @ 1.80GHz  Intel dual-port 82546GB NIC
+There are a few O'Reilly books about the kernel networking stack, and anything 
+written in the past few years should be recent enough for your purposes.  It 
+would probably also be helpful to read articles (such as those on lwn.net) about 
+new network stack features that have been added.  The commentary there will give 
+you a general idea of the challenges you'll face, but you'll need to complement 
+that with experience working with the network code.
 
-Config:
-
-CONFIG_NR_CPUS=8
-CONFIG_SCHED_SMT=y
-CONFIG_SCHED_MC=y
-# CONFIG_PREEMPT_NONE is not set
-# CONFIG_PREEMPT_VOLUNTARY is not set
-# CONFIG_PREEMPT_DESKTOP is not set
-CONFIG_PREEMPT_RT=y
-CONFIG_PREEMPT=y
-CONFIG_PREEMPT_SOFTIRQS=y
-CONFIG_PREEMPT_HARDIRQS=y
-CONFIG_PREEMPT_RCU=y
-CONFIG_PREEMPT_RCU_BOOST=y
+-- Chris
