@@ -1,66 +1,96 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Re: WARNING: at net/sched/sch_generic.c:219
-Date: Wed, 5 Nov 2008 10:00:34 +0100
-Message-ID: <20081105090033.GB18121@ntm.vs.lam.cz>
-References: <20081103092609.GA8659@ntm.vs.lam.cz> <F169D4F5E1F1974DBFAFABF47F60C10A0E873C1B@orsmsx507.amr.corp.intel.com> <20081104093923.GA11658@ntm.vs.lam.cz> <F169D4F5E1F1974DBFAFABF47F60C10A0E874224@orsmsx507.amr.corp.intel.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11955] New: WARNING: at
+ net/sched/sch_generic.c:219 dev_watchdog+0x24b/0x25a()
+Date: Wed, 5 Nov 2008 01:02:47 -0800
+Message-ID: <20081105010247.5e7d802c.akpm@linux-foundation.org>
+References: <bug-11955-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, ralf.hildebrandt@charite.de,
+	stable@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srw1.wq.cz ([212.71.155.176]:51690 "EHLO srw1.wq.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750812AbYKEJAk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 04:00:40 -0500
-Content-Disposition: inline
-In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A0E874224@orsmsx507.amr.corp.intel.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51988 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751429AbYKEJDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 04:03:55 -0500
+In-Reply-To: <bug-11955-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 04, 2008 at 09:36:51AM -0800, Brandeburg, Jesse wrote:
-> Milan Kocian wrote:
-> > Thanks for answer.
-> > Its selfcompiled 64bit kernel. Intel CPU QuadCore. SuperMicro
-> > mainboard. 2GB RAM, Debian unstable distro.
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Wed,  5 Nov 2008 00:38:10 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=11955
 > 
-> Ah, another occurrence of our good (well not so good) friend the
-> supermicro with 82573E/L.
-
-:-)
+>            Summary: WARNING: at net/sched/sch_generic.c:219
+>                     dev_watchdog+0x24b/0x25a()
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.27.4
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: ralf.hildebrandt@charite.de
 > 
-> > 0d:00.0 Ethernet controller: Intel Corporation 82573E Gigabit
-> > 0e:00.0 Ethernet controller: Intel Corporation 82573L Gigabit
 > 
-> Please run the attached script on both of these ports (this adapter is
-> one reason we have the write eeprom routines in our drivers) and let us
-> know the results.
+> Latest working kernel version: 2.6.27.3
+> Earliest failing kernel version: 2.6.27.4
+
+A regression in -stable.
+
+> Distribution: Debian/testing
+> Hardware Environment:
+> Software Environment:
+> Problem Description:
 > 
-> It is highly likely that there is a known issue with the eeprom (created
-> from an early version of our reference eeprom) configuring the hardware
-> incorrectly, which causes tx hangs.
+> Steps to reproduce:
 > 
-> Jesse
+> In dmesg I found:
+> 
+> [28739.530306] bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive
+> & transmit flow control ON
+> [221569.991014] ------------[ cut here ]------------
+> [221569.991064] WARNING: at net/sched/sch_generic.c:219
+> dev_watchdog+0x24b/0x25a()
+> [221569.991108] NETDEV WATCHDOG: eth0 (bnx2): transmit timed out
+> [221569.991136] Modules linked in: xt_tcpudp nf_conntrack_ipv4 xt_state
+> nf_conntrack iptable_filter ip_tables x_tables tg3 libphy bnx2 zlib_inflate
+> psmouse crc32 thermal container button processor
+> [221569.991245] Pid: 0, comm: swapper Not tainted 2.6.27.4 #1
+> [221569.991273]  [<c012348a>] warn_slowpath+0x6f/0x96
+> [221569.991302]  [<c0137685>] hrtimer_reprogram+0x71/0xa4
+> [221569.991332]  [<c013772c>] enqueue_hrtimer+0x74/0x100
+> [221569.991360]  [<c013807c>] hrtimer_start+0xa3/0x145
+> [221569.991388]  [<c011d7e5>] hrtick_start_fair+0x131/0x147
+> [221569.991417]  [<c011f06d>] try_to_wake_up+0xbd/0x182
+> [221569.991444]  [<c01e5684>] strlcpy+0x11/0x3d
+> [221569.991472]  [<c027e5b1>] netdev_drivername+0x2f/0x33
+> [221569.991501]  [<c028b208>] dev_watchdog+0x24b/0x25a
+> [221569.991529]  [<c011a59c>] __wake_up+0x32/0x42
+> [221569.991556]  [<c012bb76>] run_timer_softirq+0x101/0x1b7
+> [221569.991585]  [<c028afbd>] dev_watchdog+0x0/0x25a
+> [221569.991612]  [<c0127f8a>] __do_softirq+0x87/0xfd
+> [221569.991640]  [<c0127f03>] __do_softirq+0x0/0xfd
+> [221569.991667]  [<c010666a>] do_softirq+0x7f/0xb1
+> [221569.991695]  [<c0127b85>] irq_exit+0x66/0x7a
+> [221569.991721]  [<c0111475>] smp_apic_timer_interrupt+0x57/0x82
+> [221569.991752]  [<c01e7290>] trace_hardirqs_off_thunk+0xc/0x10
+> [221569.991781]  [<c01044f1>] apic_timer_interrupt+0x2d/0x34
+> [221569.991810]  [<c01098f9>] mwait_idle+0x36/0x3e
+> [221569.991837]  [<c0102a95>] cpu_idle+0x60/0xab
+> [221569.991864]  =======================
+> [221569.991887] ---[ end trace f996508cd6a61637 ]---
+> [221570.100912] bnx2: eth0 NIC Copper Link is Down
+> 
+> 
 
-Many thanks.
-
-Here is the output:
-
-srw1:~# ./fixeep eth1
-eth1: is a "82573L Gigabit Ethernet Controller"
-This fixup is applicable to your hardware
-Your eeprom is up to date, no changes were made
-srw1:~# ./fixeep eth0
-eth0: is a "82573E Gigabit Ethernet Controller"
-This fixup is applicable to your hardware
-executing command: ethtool -E eth0 magic 0x108c8086 offset 0x1e value 0xdf
-
-If will be any problem I will report it.
-If I understand correctly, it is fixed forever.  Or must I run it after every
-reboot ?
-
-Regards,
-
--- 
-Milan Kocian
