@@ -1,195 +1,166 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
-Date: Wed, 05 Nov 2008 08:05:44 +0100
-Message-ID: <1225868744.31605.12.camel@localhost.localdomain>
-References: <1225809909.10206.90.camel@localhost.localdomain>
-	 <20081104.134236.115613394.davem@davemloft.net>
-Reply-To: jdb@comx.dk
+From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Subject: next-20081103 - possible circular locking dependency detected
+	while bring up eth1
+Date: Wed, 5 Nov 2008 12:43:06 +0530
+Message-ID: <20081105071306.GB10881@linux.vnet.ibm.com>
+References: <20081103183214.aac32543.sfr@canb.auug.org.au>
+Reply-To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-HrnHZKl2mJa1xZtRGZkE"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, mel@csn.ul.ie, peterz@infradead.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:42281 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611AbYKEHFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 02:05:47 -0500
-In-Reply-To: <20081104.134236.115613394.davem@davemloft.net>
+Received: from E23SMTP02.au.ibm.com ([202.81.18.163]:59734 "EHLO
+	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080AbYKEHNP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 02:13:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20081103183214.aac32543.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+While booting with the next-20081103 kernel on x86 box, circular locking
+dependency is detected.
 
---=-HrnHZKl2mJa1xZtRGZkE
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Bringing up interface eth1:  [   31.988230] 
+[   31.988234] =======================================================
+[   31.989072] [ INFO: possible circular locking dependency detected ]
+[   31.989072] 2.6.28-rc3-next-20081103-autotest #1
+[   31.989072] -------------------------------------------------------
+[   31.989072] events/3/18 is trying to acquire lock:
+[   32.074777] ADDRCONF(NETDEV_UP): eth1: link is not ready
+[   31.989072]  (rtnl_mutex){--..}, at: [<c05e8ef5>] rtnl_lock+0xf/0x11
+[   31.989072] 
+[   31.989072] but task is already holding lock:
+[   31.989072]  ((linkwatch_work).work){--..}, at: [<c04367bf>] run_workqueue+0x80/0x189
+[   31.989072] 
+[   31.989072] which lock already depends on the new lock.
+[   31.989072] 
+[   31.989072] 
+[   31.989072] the existing dependency chain (in reverse order) is:
+[   31.989072] 
+[   31.989072] -> #4 ((linkwatch_work).work){--..}:
+[   31.989072]        [<c0445edb>] validate_chain+0x86e/0xb35
+[   31.989072]        [<c0446822>] __lock_acquire+0x680/0x70e
+[   31.989072]        [<c044690d>] lock_acquire+0x5d/0x7a
+[   31.989072]        [<c04367f8>] run_workqueue+0xb9/0x189
+[   31.989072]        [<c04371f3>] worker_thread+0xb4/0xbf
+[   31.989072]        [<c04396a6>] kthread+0x3b/0x61
+[   31.989072]        [<c040481b>] kernel_thread_helper+0x7/0x10
+[   31.989072]        [<ffffffff>] 0xffffffff
+[   31.989072] 
+[   31.989072] -> #3 (events){--..}:
+[   31.989072]        [<c0445edb>] validate_chain+0x86e/0xb35
+[   31.989072]        [<c0446822>] __lock_acquire+0x680/0x70e
+[   31.989072]        [<c044690d>] lock_acquire+0x5d/0x7a
+[   31.989072]        [<c0436e21>] flush_work+0x45/0xb6
+[   31.989072]        [<c043729a>] schedule_on_each_cpu+0x9c/0xca
+[   31.989072]        [<c0466c97>] lru_add_drain_all+0xd/0xf
+[   31.989072]        [<c046f1b6>] __mlock_vma_pages_range+0x96/0x1e5
+[   31.989072]        [<c046f43a>] mlock_fixup+0x135/0x199
+[   31.989072]        [<c046f50b>] do_mlockall+0x6d/0x82
+[   31.989072]        [<c046f839>] sys_mlockall+0x7b/0x9e
+[   31.989072]        [<c040398d>] sysenter_do_call+0x12/0x31
+[   31.989072]        [<ffffffff>] 0xffffffff
+[   31.989072] 
+[   31.989072] -> #2 (&mm->mmap_sem){----}:
+[   31.989072]        [<c0445edb>] validate_chain+0x86e/0xb35
+[   31.989072]        [<c0446822>] __lock_acquire+0x680/0x70e
+[   31.989072]        [<c044690d>] lock_acquire+0x5d/0x7a
+[   31.989072]        [<c046e570>] might_fault+0x53/0x73
+[   31.989072]        [<c0508bf5>] copy_to_user+0x28/0x3f
+[   31.989072]        [<c048cd11>] filldir+0x88/0xc8
+[   31.989072]        [<c04bee82>] sysfs_readdir+0x11d/0x156
+[   31.989072]        [<c048cdb9>] vfs_readdir+0x68/0x94
+[   31.989072]        [<c048d00b>] sys_getdents+0x5f/0xa0
+[   31.989072]        [<c0403a66>] syscall_call+0x7/0xb
+[   31.989072]        [<ffffffff>] 0xffffffff
+[   31.989072] 
+[   31.989072] -> #1 (sysfs_mutex){--..}:
+[   31.989072]        [<c0445edb>] validate_chain+0x86e/0xb35
+[   31.989072]        [<c0446822>] __lock_acquire+0x680/0x70e
+[   31.989072]        [<c044690d>] lock_acquire+0x5d/0x7a
+[   31.989072]        [<c0651c04>] mutex_lock_nested+0xdf/0x251
+[   31.989072]        [<c04bf039>] sysfs_addrm_start+0x23/0x90
+[   31.989072]        [<c04bf4af>] create_dir+0x3a/0x72
+[   31.989072]        [<c04bf514>] sysfs_create_dir+0x2d/0x41
+[   31.989072]        [<c0503e05>] kobject_add_internal+0xe5/0x189
+[   31.989072]        [<c0503f54>] kobject_add_varg+0x35/0x41
+[   31.989072]        [<c05042f7>] kobject_add+0x49/0x4f
+[   31.989072]        [<c05777e1>] device_add+0x76/0x4c8
+[   31.989072]        [<c05eb70e>] netdev_register_kobject+0x64/0x69
+[   31.989072]        [<c05e1581>] register_netdevice+0x1fe/0x274
+[   31.989072]        [<c05e1629>] register_netdev+0x32/0x3f
+[   31.989072]        [<c07fa965>] loopback_net_init+0x2e/0x5d
+[   31.989072]        [<c05de93b>] register_pernet_operations+0x13/0x15
+[   31.989072]        [<c05de9a4>] register_pernet_device+0x1f/0x4c
+[   31.989072]        [<c07fa935>] loopback_init+0xd/0xf
+[   31.989072]        [<c0401130>] _stext+0x48/0x10d
+[   31.989072]        [<c07db530>] kernel_init+0xf1/0x142
+[   31.989072]        [<c040481b>] kernel_thread_helper+0x7/0x10
+[   31.989072]        [<ffffffff>] 0xffffffff
+[   31.989072] 
+[   31.989072] -> #0 (rtnl_mutex){--..}:
+[   31.989072]        [<c0445c10>] validate_chain+0x5a3/0xb35
+[   31.989072]        [<c0446822>] __lock_acquire+0x680/0x70e
+[   31.989072]        [<c044690d>] lock_acquire+0x5d/0x7a
+[   31.989072]        [<c0651c04>] mutex_lock_nested+0xdf/0x251
+[   31.989072]        [<c05e8ef5>] rtnl_lock+0xf/0x11
+[   31.989072]        [<c05ea07a>] linkwatch_event+0x8/0x27
+[   31.989072]        [<c04367fd>] run_workqueue+0xbe/0x189
+[   31.989072]        [<c04371f3>] worker_thread+0xb4/0xbf
+[   31.989072]        [<c04396a6>] kthread+0x3b/0x61
+[   31.989072]        [<c040481b>] kernel_thread_helper+0x7/0x10
+[   31.989072]        [<ffffffff>] 0xffffffff
+[   31.989072] 
+[   31.989072] other info that might help us debug this:
+[   31.989072] 
+[   31.989072] 2 locks held by events/3/18:
+[   31.989072]  #0:  (events){--..}, at: [<c04367bf>] run_workqueue+0x80/0x189
+[   31.989072]  #1:  ((linkwatch_work).work){--..}, at: [<c04367bf>] run_workqueue+0x80/0x189
+[   31.989072] 
+[   31.989072] stack backtrace:
+[   31.989072] Pid: 18, comm: events/3 Not tainted 2.6.28-rc3-next-20081103-autotest #1
+[   31.989072] Call Trace:
+[   31.989072]  [<c0445662>] print_circular_bug_tail+0xa4/0xaf
+[   31.989072]  [<c0445c10>] validate_chain+0x5a3/0xb35
+[   31.989072]  [<c0446822>] __lock_acquire+0x680/0x70e
+[   31.989072]  [<c04367bf>] ? run_workqueue+0x80/0x189
+[   31.989072]  [<c044690d>] lock_acquire+0x5d/0x7a
+[   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
+[   31.989072]  [<c0651c04>] mutex_lock_nested+0xdf/0x251
+[   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
+[   31.989072]  [<c05e8ef5>] ? rtnl_lock+0xf/0x11
+[   31.989072]  [<c05e8ef5>] rtnl_lock+0xf/0x11
+[   31.989072]  [<c05ea07a>] linkwatch_event+0x8/0x27
+[   31.989072]  [<c04367fd>] run_workqueue+0xbe/0x189
+[   31.989072]  [<c04367bf>] ? run_workqueue+0x80/0x189
+[   31.989072]  [<c05ea072>] ? linkwatch_event+0x0/0x27
+[   31.989072]  [<c043713f>] ? worker_thread+0x0/0xbf
+[   31.989072]  [<c04371f3>] worker_thread+0xb4/0xbf
+[   31.989072]  [<c0439765>] ? autoremove_wake_function+0x0/0x33
+[   31.989072]  [<c04396a6>] kthread+0x3b/0x61
+[   33.690691] tg3: eth1: Link is up at 100 Mbps, full duplex.
+[   33.690696] tg3: eth1: Flow control is off for TX and off for RX.
+[   31.989072]  [<c043966b>] ? kthread+0x0/0x61
+[   31.989072]  [<c040481b>] kernel_thread_helper+0x7/0x10
+[   33.762336] ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+[  OK  ]
 
-On Tue, 2008-11-04 at 13:42 -0800, David Miller wrote:
-> From: Jesper Dangaard Brouer <jdb@comx.dk>
-> Date: Tue, 04 Nov 2008 15:45:09 +0100
-> 
-> > I just bought the Sun x8 Express Quad Gigabit Ethernet Adapter you
-> > recommended to me.  It seem to work with the NIU driver (I can ping
-> > through the box), but I get a kernel warning when spamming it with
-> > pktgen...
-> > 
-> > Where do I go from here?
-> > And what do you want me to try?
-> 
-> Looks like the transmitter is wedged.
-
-I have attached niu related output from kern.log.
-(cat /var/log/kern.log | grep niu | awk -F'kernel:' '{print $2}')
-
-> Using current sources I assume?
-
-Yes, your latest tree.  Both with and without your latest change to the
-niu driver (niu: Use pci_ioremap_bar().).
-
-Also tried a debian 2.6.26-1-686, that kernel actually crashed (in
-net_rx_action, __do_softirq, do_softirq, irq_exit, do_IRQ, mwait_idle).
-
-A strange observation is the IRQ allocations seen via /proc/interrupts:
-(e.g. eth2 has assigned no less than 12 IRQs !?!)
-
-dcu-router-ng:~# cat /proc/interrupts 
-           CPU0       CPU1       CPU2       CPU3       
-  0:        123          1          0          1   IO-APIC-edge      timer
-  1:          1          0          0          1   IO-APIC-edge      i8042
-  3:          2          2          1          2   IO-APIC-edge      serial
-  9:          0          0          0          0   IO-APIC-fasteoi   acpi
- 12:          0          1          2          1   IO-APIC-edge      i8042
- 14:         15         14         13         15   IO-APIC-edge      ata_piix
- 15:          0          0          0          0   IO-APIC-edge      ata_piix
- 16:        404        412        424        367   IO-APIC-fasteoi   uhci_hcd:usb1, ehci_hcd:usb6, eth0
- 17:          0          0          0          0   IO-APIC-fasteoi   uhci_hcd:usb2, eth3
- 18:          8          9          8          9   IO-APIC-fasteoi   uhci_hcd:usb3
- 19:          0          0          0          0   IO-APIC-fasteoi   uhci_hcd:usb4
- 20:          0          0          0          0   PCI-MSI-edge      eth2
- 21:        963        959        942        997   IO-APIC-fasteoi   ipmi_si, eth2
- 22:         23         23         24         23   IO-APIC-fasteoi   uhci_hcd:usb5, eth2
- 23:          0          0          0          0   PCI-MSI-edge      eth2
- 24:          0          0          0          0   PCI-MSI-edge      eth2
- 25:          0          0          0          0   PCI-MSI-edge      eth2
- 26:          0          0          0          0   PCI-MSI-edge      eth2
- 27:          0          0          0          0   PCI-MSI-edge      eth2
- 28:          0          0          0          0   PCI-MSI-edge      eth2
- 29:          0          0          0          0   PCI-MSI-edge      eth2
- 30:          0          0          0          0   PCI-MSI-edge      eth2
- 31:          0          0          0          0   PCI-MSI-edge      eth2
- 32:          0          0          0          0   PCI-MSI-edge      eth2
- 34:        318        310        319        317   PCI-MSI-edge      cciss0
-NMI:          0          0          0          0   Non-maskable interrupts
-LOC:      89420     334612     485037     172341   Local timer interrupts
-RES:        101        270        159        174   Rescheduling interrupts
-CAL:         83        132        122         74   Function call interrupts
-TLB:        259        226        350        315   TLB shootdowns
-TRM:          0          0          0          0   Thermal event interrupts
-SPU:          0          0          0          0   Spurious interrupts
-ERR:          0
-MIS:          0
-
+0xc05e8ef5 is in rtnl_lock (net/core/rtnetlink.c:67).
+62	static DEFINE_MUTEX(rtnl_mutex);
+63	
+64	void rtnl_lock(void)
+65	{
+66		mutex_lock(&rtnl_mutex);
+67	}
+68	
+69	void __rtnl_unlock(void)
+70	{
+71		mutex_unlock(&rtnl_mutex);
 -- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---=-HrnHZKl2mJa1xZtRGZkE
-Content-Disposition: attachment; filename=niu_kern.log
-Content-Type: text/x-log; name=niu_kern.log; charset=us-ascii
-Content-Transfer-Encoding: base64
-
-Y2F0IC92YXIvbG9nL2tlcm4ubG9nIHwgZ3JlcCBuaXUgfCBhd2sgLUYna2VybmVsOicgJ3twcmlu
-dCAkMn0nID4gbml1X2tlcm4ubG9nDQoNCiBuaXUuYzp2MC45IChNYXkgNCwgMjAwOCkNCiBuaXUg
-MDAwMDowYjowMC4wOiBQQ0kgSU5UIEEgLT4gR1NJIDE2IChsZXZlbCwgbG93KSAtPiBJUlEgMTYN
-CiBuaXU6IG5pdV9nZXRfcGFyZW50OiBwbGF0Zm9ybV90eXBlWzFdIHBvcnRbMF0NCiBuaXU6IG5p
-dV9uZXdfcGFyZW50OiBDcmVhdGluZyBuZXcgcGFyZW50Lg0KIG5pdSAwMDAwOjBiOjAwLjA6IHNl
-dHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NA0KIG5pdTogbml1X2dldF9pbnZhcmlhbnRzOiBWUEQg
-b2Zmc2V0IFswMDAxNmEwMF0NCiBuaXU6IFZQRF9TQ0FOOiBzdGFydFsxNmExNF0gZW5kWzE2Yjk4
-XQ0KIG5pdTogVlBEX1NDQU46IFJlYWRpbmcgaW4gcHJvcGVydHkgW2xvY2FsLW1hYy1hZGRyZXNz
-XSBsZW5bNl0NCiBuaXU6IFZQRF9TQ0FOOiBSZWFkaW5nIGluIHByb3BlcnR5IFt2ZXJzaW9uXSBs
-ZW5bMzhdDQogbml1OiBWUERfU0NBTjogUmVhZGluZyBpbiBwcm9wZXJ0eSBbbW9kZWxdIGxlblsx
-NF0NCiBuaXU6IFZQRF9TQ0FOOiBSZWFkaW5nIGluIHByb3BlcnR5IFtib2FyZC1tb2RlbF0gbGVu
-WzEyXQ0KIG5pdTogVlBEX1NDQU46IFJlYWRpbmcgaW4gcHJvcGVydHkgW251bS1tYWMtYWRkcmVz
-c2VzXSBsZW5bMV0NCiBuaXU6IFZQRF9TQ0FOOiBSZWFkaW5nIGluIHByb3BlcnR5IFtwaHktdHlw
-ZV0gbGVuWzRdDQogbml1OiBWUERfU0NBTjogRkNPREUgbWFqb3IoMykgbWlub3IoOSkNCiBuaXU6
-IG5pdV9nZXRfYW5kX3ZhbGlkYXRlX3BvcnQ6IHBvcnRbMF0gbnVtX3BvcnRzWzRdDQogbml1OiBu
-aXVfcHJvYmVfcG9ydHMoKTogcG9ydF9waHlbMDAwMDAwMDBdDQogbml1MDogRm91bmQgUEhZIDAw
-MjA2MGIxIHR5cGUgTUlJIGF0IHBoeV9wb3J0IDEwDQogbml1MDogRm91bmQgUEhZIDAwMjA2MGIx
-IHR5cGUgTUlJIGF0IHBoeV9wb3J0IDExDQogbml1MDogRm91bmQgUEhZIDAwMjA2MGIxIHR5cGUg
-TUlJIGF0IHBoeV9wb3J0IDEyDQogbml1MDogRm91bmQgUEhZIDAwMjA2MGIxIHR5cGUgTUlJIGF0
-IHBoeV9wb3J0IDEzDQogbml1OiBuaXUwOiBQb3J0IDAgWzQgUlggY2hhbnNdIFs2IFRYIGNoYW5z
-XQ0KIG5pdTogbml1MDogUG9ydCAxIFs0IFJYIGNoYW5zXSBbNiBUWCBjaGFuc10NCiBuaXU6IG5p
-dTA6IFBvcnQgMiBbNCBSWCBjaGFuc10gWzYgVFggY2hhbnNdDQogbml1OiBuaXUwOiBQb3J0IDMg
-WzQgUlggY2hhbnNdIFs2IFRYIGNoYW5zXQ0KIG5pdTogbml1MDogUG9ydCAwIFJEQyB0YmwoMCkg
-WyAwIDEgMiAzIDAgMSAyIDMgMCAxIDIgMyAwIDEgMiAzIF0NCiBuaXU6IG5pdTA6IFBvcnQgMCBS
-REMgdGJsKDEpIFsgMCAxIDIgMyAwIDEgMiAzIDAgMSAyIDMgMCAxIDIgMyBdDQogbml1OiBuaXUw
-OiBQb3J0IDEgUkRDIHRibCgyKSBbIDQgNSA2IDcgNCA1IDYgNyA0IDUgNiA3IDQgNSA2IDcgXQ0K
-IG5pdTogbml1MDogUG9ydCAxIFJEQyB0YmwoMykgWyA0IDUgNiA3IDQgNSA2IDcgNCA1IDYgNyA0
-IDUgNiA3IF0NCiBuaXU6IG5pdTA6IFBvcnQgMiBSREMgdGJsKDQpIFsgOCA5IDEwIDExIDggOSAx
-MCAxMSA4IDkgMTAgMTEgOCA5IDEwIDExIF0NCiBuaXU6IG5pdTA6IFBvcnQgMiBSREMgdGJsKDUp
-IFsgOCA5IDEwIDExIDggOSAxMCAxMSA4IDkgMTAgMTEgOCA5IDEwIDExIF0NCiBuaXU6IG5pdTA6
-IFBvcnQgMyBSREMgdGJsKDYpIFsgMTIgMTMgMTQgMTUgMTIgMTMgMTQgMTUgMTIgMTMgMTQgMTUg
-MTIgMTMgMTQgMTUgXQ0KIG5pdTogbml1MDogUG9ydCAzIFJEQyB0YmwoNykgWyAxMiAxMyAxNCAx
-NSAxMiAxMyAxNCAxNSAxMiAxMyAxNCAxNSAxMiAxMyAxNCAxNSBdDQogbml1IDAwMDA6MGI6MDAu
-MDogaXJxIDMyIGZvciBNU0kvTVNJLVgNCiBuaXUgMDAwMDowYjowMC4wOiBpcnEgMzEgZm9yIE1T
-SS9NU0ktWA0KIG5pdSAwMDAwOjBiOjAwLjA6IGlycSAzMCBmb3IgTVNJL01TSS1YDQogbml1IDAw
-MDA6MGI6MDAuMDogaXJxIDI5IGZvciBNU0kvTVNJLVgNCiBuaXUgMDAwMDowYjowMC4wOiBpcnEg
-MjggZm9yIE1TSS9NU0ktWA0KIG5pdSAwMDAwOjBiOjAwLjA6IGlycSAyNyBmb3IgTVNJL01TSS1Y
-DQogbml1IDAwMDA6MGI6MDAuMDogaXJxIDI2IGZvciBNU0kvTVNJLVgNCiBuaXUgMDAwMDowYjow
-MC4wOiBpcnEgMjUgZm9yIE1TSS9NU0ktWA0KIG5pdSAwMDAwOjBiOjAwLjA6IGlycSAyNCBmb3Ig
-TVNJL01TSS1YDQogbml1IDAwMDA6MGI6MDAuMDogaXJxIDIzIGZvciBNU0kvTVNJLVgNCiBuaXUg
-MDAwMDowYjowMC4wOiBpcnEgMjIgZm9yIE1TSS9NU0ktWA0KIG5pdSAwMDAwOjBiOjAwLjA6IGly
-cSAyMSBmb3IgTVNJL01TSS1YDQogbml1IDAwMDA6MGI6MDAuMDogaXJxIDIwIGZvciBNU0kvTVNJ
-LVgNCiBuaXU6IG5pdV9jbGFzc2lmaWVyX3N3c3RhdGVfaW5pdDogbnVtX3RjYW0oMjU2KQ0KIG5p
-dTogZmZscF9lYXJseV9pbml0OiBJbml0dGluZyBodyBvbiBwb3J0IDANCiBuaXU6IGZmbHBfZWFy
-bHlfaW5pdDogU3VjY2Vzcw0KIG5pdSAwMDAwOjBiOjAwLjE6IFBDSSBJTlQgQiAtPiBHU0kgMTcg
-KGxldmVsLCBsb3cpIC0+IElSUSAxNw0KIG5pdTogbml1X2dldF9wYXJlbnQ6IHBsYXRmb3JtX3R5
-cGVbMV0gcG9ydFsxXQ0KIG5pdSAwMDAwOjBiOjAwLjE6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0
-byA2NA0KIG5pdTogbml1X2dldF9pbnZhcmlhbnRzOiBWUEQgb2Zmc2V0IFswMDAxNmEwMF0NCiBu
-aXU6IFZQRF9TQ0FOOiBzdGFydFsxNmExNF0gZW5kWzE2Yjk4XQ0KIG5pdTogVlBEX1NDQU46IFJl
-YWRpbmcgaW4gcHJvcGVydHkgW2xvY2FsLW1hYy1hZGRyZXNzXSBsZW5bNl0NCiBuaXU6IFZQRF9T
-Q0FOOiBSZWFkaW5nIGluIHByb3BlcnR5IFt2ZXJzaW9uXSBsZW5bMzhdDQogbml1OiBWUERfU0NB
-TjogUmVhZGluZyBpbiBwcm9wZXJ0eSBbbW9kZWxdIGxlblsxNF0NCiBuaXU6IFZQRF9TQ0FOOiBS
-ZWFkaW5nIGluIHByb3BlcnR5IFtib2FyZC1tb2RlbF0gbGVuWzEyXQ0KIG5pdTogVlBEX1NDQU46
-IFJlYWRpbmcgaW4gcHJvcGVydHkgW251bS1tYWMtYWRkcmVzc2VzXSBsZW5bMV0NCiBuaXU6IFZQ
-RF9TQ0FOOiBSZWFkaW5nIGluIHByb3BlcnR5IFtwaHktdHlwZV0gbGVuWzRdDQogbml1OiBWUERf
-U0NBTjogRkNPREUgbWFqb3IoMykgbWlub3IoOSkNCiBuaXU6IG5pdV9nZXRfYW5kX3ZhbGlkYXRl
-X3BvcnQ6IHBvcnRbMV0gbnVtX3BvcnRzWzRdDQogbml1OiBuaXVfcHJvYmVfcG9ydHMoKTogcG9y
-dF9waHlbMDAwMDAwYWFdDQogbml1OiBuaXVfY2xhc3NpZmllcl9zd3N0YXRlX2luaXQ6IG51bV90
-Y2FtKDI1NikNCiBuaXUgMDAwMDowYjowMC4yOiBQQ0kgSU5UIEMgLT4gR1NJIDE4IChsZXZlbCwg
-bG93KSAtPiBJUlEgMTgNCiBuaXU6IG5pdV9nZXRfcGFyZW50OiBwbGF0Zm9ybV90eXBlWzFdIHBv
-cnRbMl0NCiBuaXUgMDAwMDowYjowMC4yOiBzZXR0aW5nIGxhdGVuY3kgdGltZXIgdG8gNjQNCiBu
-aXU6IG5pdV9nZXRfaW52YXJpYW50czogVlBEIG9mZnNldCBbMDAwMTZhMDBdDQogbml1OiBWUERf
-U0NBTjogc3RhcnRbMTZhMTRdIGVuZFsxNmI5OF0NCiBuaXU6IFZQRF9TQ0FOOiBSZWFkaW5nIGlu
-IHByb3BlcnR5IFtsb2NhbC1tYWMtYWRkcmVzc10gbGVuWzZdDQogbml1OiBWUERfU0NBTjogUmVh
-ZGluZyBpbiBwcm9wZXJ0eSBbdmVyc2lvbl0gbGVuWzM4XQ0KIG5pdTogVlBEX1NDQU46IFJlYWRp
-bmcgaW4gcHJvcGVydHkgW21vZGVsXSBsZW5bMTRdDQogbml1OiBWUERfU0NBTjogUmVhZGluZyBp
-biBwcm9wZXJ0eSBbYm9hcmQtbW9kZWxdIGxlblsxMl0NCiBuaXU6IFZQRF9TQ0FOOiBSZWFkaW5n
-IGluIHByb3BlcnR5IFtudW0tbWFjLWFkZHJlc3Nlc10gbGVuWzFdDQogbml1OiBWUERfU0NBTjog
-UmVhZGluZyBpbiBwcm9wZXJ0eSBbcGh5LXR5cGVdIGxlbls0XQ0KIG5pdTogVlBEX1NDQU46IEZD
-T0RFIG1ham9yKDMpIG1pbm9yKDkpDQogbml1OiBuaXVfZ2V0X2FuZF92YWxpZGF0ZV9wb3J0OiBw
-b3J0WzJdIG51bV9wb3J0c1s0XQ0KIG5pdTogbml1X3Byb2JlX3BvcnRzKCk6IHBvcnRfcGh5WzAw
-MDAwMGFhXQ0KIG5pdTogbml1X2NsYXNzaWZpZXJfc3dzdGF0ZV9pbml0OiBudW1fdGNhbSgyNTYp
-DQogbml1IDAwMDA6MGI6MDAuMzogUENJIElOVCBEIC0+IEdTSSAxOSAobGV2ZWwsIGxvdykgLT4g
-SVJRIDE5DQogbml1OiBuaXVfZ2V0X3BhcmVudDogcGxhdGZvcm1fdHlwZVsxXSBwb3J0WzNdDQog
-bml1IDAwMDA6MGI6MDAuMzogc2V0dGluZyBsYXRlbmN5IHRpbWVyIHRvIDY0DQogbml1OiBuaXVf
-Z2V0X2ludmFyaWFudHM6IFZQRCBvZmZzZXQgWzAwMDE2YTAwXQ0KIG5pdTogVlBEX1NDQU46IHN0
-YXJ0WzE2YTE0XSBlbmRbMTZiOThdDQogbml1OiBWUERfU0NBTjogUmVhZGluZyBpbiBwcm9wZXJ0
-eSBbbG9jYWwtbWFjLWFkZHJlc3NdIGxlbls2XQ0KIG5pdTogVlBEX1NDQU46IFJlYWRpbmcgaW4g
-cHJvcGVydHkgW3ZlcnNpb25dIGxlblszOF0NCiBuaXU6IFZQRF9TQ0FOOiBSZWFkaW5nIGluIHBy
-b3BlcnR5IFttb2RlbF0gbGVuWzE0XQ0KIG5pdTogVlBEX1NDQU46IFJlYWRpbmcgaW4gcHJvcGVy
-dHkgW2JvYXJkLW1vZGVsXSBsZW5bMTJdDQogbml1OiBWUERfU0NBTjogUmVhZGluZyBpbiBwcm9w
-ZXJ0eSBbbnVtLW1hYy1hZGRyZXNzZXNdIGxlblsxXQ0KIG5pdTogVlBEX1NDQU46IFJlYWRpbmcg
-aW4gcHJvcGVydHkgW3BoeS10eXBlXSBsZW5bNF0NCiBuaXU6IFZQRF9TQ0FOOiBGQ09ERSBtYWpv
-cigzKSBtaW5vcig5KQ0KIG5pdTogbml1X2dldF9hbmRfdmFsaWRhdGVfcG9ydDogcG9ydFszXSBu
-dW1fcG9ydHNbNF0NCiBuaXU6IG5pdV9wcm9iZV9wb3J0cygpOiBwb3J0X3BoeVswMDAwMDBhYV0N
-CiBuaXU6IG5pdV9jbGFzc2lmaWVyX3N3c3RhdGVfaW5pdDogbnVtX3RjYW0oMjU2KQ0KIG5pdTog
-ZXRoMjogTGluayBpcyB1cCBhdCAxR2Ivc2VjLCBmdWxsIGR1cGxleA0KIG5pdTogZXRoMzogTGlu
-ayBpcyB1cCBhdCAxR2Ivc2VjLCBmdWxsIGR1cGxleA0K
-
-
---=-HrnHZKl2mJa1xZtRGZkE--
+Thanks & Regards,
+Kamalesh Babulal,
+Linux Technology Center,
+IBM, ISTL.
