@@ -1,34 +1,41 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Re: [Bugme-new] [Bug 11955] New: WARNING: at
-	net/sched/sch_generic.c:219 dev_watchdog+0x24b/0x25a()
-Date: Wed, 5 Nov 2008 11:04:59 +0100
-Message-ID: <20081105100458.GC18121@ntm.vs.lam.cz>
-References: <bug-11955-10286@http.bugzilla.kernel.org/> <20081105010247.5e7d802c.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix ESP SA loading (by default)
+Date: Wed, 05 Nov 2008 02:26:19 -0800 (PST)
+Message-ID: <20081105.022619.151487044.davem@davemloft.net>
+References: <20081105095428.GA4584@x200.localdomain>
+	<20081105.015552.33573006.davem@davemloft.net>
+	<49116F66.4030305@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	ralf.hildebrandt@charite.de, stable@kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: adobriyan@gmail.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srw1.wq.cz ([212.71.155.176]:59667 "EHLO srw1.wq.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754420AbYKEKFG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 05:05:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20081105010247.5e7d802c.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55641
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754479AbYKEK0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 05:26:44 -0500
+In-Reply-To: <49116F66.4030305@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 05, 2008 at 01:02:47AM -0800, Andrew Morton wrote:
- > 
-> > [28739.530306] bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive
-> > & transmit flow control ON
-> > [221569.991014] ------------[ cut here ]------------
-> > [221569.991064] WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0x24b/0x25a()
- 
-Only for your info, it looks like a warning, I posted few days ago. 
-But trace path is different. (I use e1000e and have disabled hr-timers). I sent
-similar warning with 2.6.26.5 kernel.
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 05 Nov 2008 11:03:18 +0100
 
--- 
-Milan Kocian
+> David Miller wrote:
+> > About the rmmod thing, we can do something similar to how
+> > we handle nesting of irq_regs().  Ie. there are things that
+> > push and pop the stack of ->error_desc.  rmmod operations
+> > could be one of those things
+> 
+> Alternatively we could simply strdup the error message (or copy it
+> to a reserved area to avoid running into memory allocation errors).
+> That avoids having to mess with foreign task structs when
+> unloading modules.
+
+Since the error message is "const char *" I don't see why
+you'd need to strdup() it ever, just the pointer is fine.
+
+Well, I guess we could run into problems with module unloading
+and the strings being from that module hmmm...
