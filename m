@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: time for TCP ECN defaulting to on?
-Date: Wed, 05 Nov 2008 15:10:15 -0800 (PST)
-Message-ID: <20081105.151015.206163697.davem@davemloft.net>
-References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
-	<alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v2)
+Date: Wed, 5 Nov 2008 14:59:08 -0800
+Message-ID: <200811051459.08777.david-b@pacbell.net>
+References: <20081104144518.4429.37325.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <49116000.7000005@teltonika.lt> <fa686aa40811050704s2775fba8nc957a23cb81bb21d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel.blueman@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-net@vger.kernel.org
-To: swmike@swm.pp.se
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43667
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753729AbYKEXKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:10:39 -0500
-In-Reply-To: <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>,
+	"Mike Frysinger" <vapier.adi@gmail.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	linux-embedded@vger.kernel.org,
+	"Laurent Pinchart" <laurentp@cse-semaphore.com>
+To: "Grant Likely" <grant.likely@secretlab.ca>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+In-Reply-To: <fa686aa40811050704s2775fba8nc957a23cb81bb21d@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Date: Wed, 5 Nov 2008 23:20:25 +0100 (CET)
+On Wednesday 05 November 2008, Grant Likely wrote:
+> > 	=A0Maybe the best solution is
+> > to write separate driver for OF which will be just wrapper for plat=
+form
+> > driver... Just like you suggested.
 
-> So the upside of enabling it is minimal (I'd gladly see data proving
-> the opposite) and the downside is a lot of trouble with lots of
-> older devices which behave badly when ECN is enabled.
+I'd certainly prefer that:  packaging all the OF glue in
+a small bit of OF glue code, which doesn't need to affect
+the majority of platforms (which don't and won't use OF).
 
-This kind of thinking just perpetuates the problem forever.
 
-If nothing important on end nodes enables it by default, people
-running core routers have no reason to turn it on, and so on and so
-forth.
+> More complex than necessary. =A0Just give the driver 2 blocks of bind=
+ing
+> code; one for OF, one for non-OF. =A0No need to split up the driver.
 
-Linux is much bigger and smarter than that, so we should break
-the loop and enable it by default some point soon.
+The preceding discussion pointed out ways the "2 blocks"
+approach doesn't currently work well ... minimally, there
+is currently no way to do that without much ugly #ifdeffing.
+
+And clearly, you and I view this a bit differently.  I'm
+happier to think of these kinds of configuration as one
+driver plus *separate* platform glue, while you want to be
+modifying every driver to accomodate OF.  Or, by extension,
+ACPI and any other hardware abstraction layer that comes
+along.
+
+- Dave
