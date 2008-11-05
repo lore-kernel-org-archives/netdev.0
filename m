@@ -1,734 +1,776 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 3/3] bonding: alternate agg selection policies for 802.3ad
-Date: Tue,  4 Nov 2008 17:51:16 -0800
-Message-ID: <1225849876-8930-4-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 1/3] bonding: send IPv6 neighbor advertisement on failover
+Date: Tue,  4 Nov 2008 17:51:14 -0800
+Message-ID: <1225849876-8930-2-git-send-email-fubar@us.ibm.com>
 References: <1225849876-8930-1-git-send-email-fubar@us.ibm.com>
- <1225849876-8930-2-git-send-email-fubar@us.ibm.com>
- <1225849876-8930-3-git-send-email-fubar@us.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Brian Haley <brian.haley@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:42252 "EHLO e2.ny.us.ibm.com"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:55663 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754296AbYKEBvX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2008 20:51:23 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id mA51pM2T029827
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 20:51:22 -0500
+	id S1754045AbYKEBvV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2008 20:51:21 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id mA51pKTH015894
+	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 20:51:20 -0500
 Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mA51pMeU090716
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 20:51:22 -0500
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mA51pKMT118822
+	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 20:51:20 -0500
 Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mA51pMHQ019928
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 20:51:22 -0500
-In-Reply-To: <1225849876-8930-3-git-send-email-fubar@us.ibm.com>
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mA51pJUm019852
+	for <netdev@vger.kernel.org>; Tue, 4 Nov 2008 20:51:20 -0500
+In-Reply-To: <1225849876-8930-1-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	This patch implements alternative aggregator selection policies
-for 802.3ad.  The existing policy, now termed "stable," selects the active
-aggregator by greatest bandwidth, and only reselects a new aggregator
-if the active aggregator is entirely disabled (no more ports or all ports
-down).
+From: Brian Haley <brian.haley@hp.com>
 
-	This patch adds two new policies: bandwidth and count, selecting
-the active aggregator by total bandwidth (like the stable policy) or by
-the number of ports in the aggregator, respectively.  These two policies
-also differ from the stable policy in that they will reselect the active
-aggregator when availability-related changes occur in the bond (e.g.,
-link state change).
+This patch adds better IPv6 failover support for bonding devices,
+especially when in active-backup mode and there are only IPv6 addresses
+configured, as reported by Alex Sidorenko.
 
-	This permits "gang failover" within 802.3ad, allowing redundant
-aggregators along parallel paths to always maintain the "best" aggregator
-as the active aggregator (rather than having to wait for the active to
-entirely fail).
+- Creates a new file, net/drivers/bonding/bond_ipv6.c, for the
+   IPv6-specific routines.  Both regular bonds and VLANs over bonds
+   are supported.
 
-	This patch also updates the driver version to 3.5.0.
+- Adds a new tunable, num_unsol_na, to limit the number of unsolicited
+   IPv6 Neighbor Advertisements that are sent on a failover event.
+   Default is 1.
 
+- Creates two new IPv6 neighbor discovery functions:
+
+   ndisc_build_skb()
+   ndisc_send_skb()
+
+   These were required to support VLANs since we have to be able to
+   add the VLAN id to the skb since ndisc_send_na() and friends
+   shouldn't be asked to do this.  These two routines are basically
+   __ndisc_send() split into two pieces, in a slightly different order.
+
+- Updates Documentation/networking/bonding.txt and bumps the rev of bond
+   support to 3.4.0.
+
+On failover, this new code will generate one packet:
+
+- An unsolicited IPv6 Neighbor Advertisement, which helps the switch
+   learn that the address has moved to the new slave.
+
+Testing has shown that sending just the NA results in pretty good
+behavior when in active-back mode, I saw no lost ping packets for example.
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- Documentation/networking/bonding.txt |   42 +++++
- drivers/net/bonding/bond_3ad.c       |  326 +++++++++++++++++++++-------------
- drivers/net/bonding/bond_3ad.h       |   10 +-
- drivers/net/bonding/bond_main.c      |   30 +++
- drivers/net/bonding/bond_sysfs.c     |   49 +++++
- drivers/net/bonding/bonding.h        |    5 +-
- 6 files changed, 333 insertions(+), 129 deletions(-)
+ Documentation/networking/bonding.txt |   10 ++
+ drivers/net/Kconfig                  |    1 +
+ drivers/net/bonding/Makefile         |    3 +
+ drivers/net/bonding/bond_ipv6.c      |  218 ++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_main.c      |   33 +++++-
+ drivers/net/bonding/bond_sysfs.c     |   42 +++++++
+ drivers/net/bonding/bonding.h        |   34 +++++-
+ include/net/ndisc.h                  |   14 ++
+ net/ipv6/ndisc.c                     |   92 ++++++++++----
+ 9 files changed, 416 insertions(+), 31 deletions(-)
+ create mode 100644 drivers/net/bonding/bond_ipv6.c
 
 diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 3f4d0fa..5ede747 100644
+index d733a42..3f4d0fa 100644
 --- a/Documentation/networking/bonding.txt
 +++ b/Documentation/networking/bonding.txt
-@@ -194,6 +194,48 @@ or, for backwards compatibility, the option value.  E.g.,
+@@ -551,6 +551,16 @@ num_grat_arp
+ 	affects only the active-backup mode.  This option was added for
+ 	bonding version 3.3.0.
  
- 	The parameters are as follows:
++num_unsol_na
++
++	Specifies the number of unsolicited IPv6 Neighbor Advertisements
++	to be issued after a failover event.  One unsolicited NA is issued
++	immediately after the failover.
++
++	The valid range is 0 - 255; the default value is 1.  This option
++	affects only the active-backup mode.  This option was added for
++	bonding version 3.4.0.
++
+ primary
  
-+ad_select
-+
-+	Specifies the 802.3ad aggregation selection logic to use.  The
-+	possible values and their effects are:
-+
-+	stable or 0
-+
-+		The active aggregator is chosen by largest aggregate
-+		bandwidth.
-+
-+		Reselection of the active aggregator occurs only when all
-+		slaves of the active aggregator are down or the active
-+		aggregator has no slaves.
-+
-+		This is the default value.
-+
-+	bandwidth or 1
-+
-+		The active aggregator is chosen by largest aggregate
-+		bandwidth.  Reselection occurs if:
-+
-+		- A slave is added to or removed from the bond
-+
-+		- Any slave's link state changes
-+
-+		- Any slave's 802.3ad association state changes
-+
-+		- The bond's adminstrative state changes to up
-+
-+	count or 2
-+
-+		The active aggregator is chosen by the largest number of
-+		ports (slaves).  Reselection occurs as described under the
-+		"bandwidth" setting, above.
-+
-+	The bandwidth and count selection policies permit failover of
-+	802.3ad aggregations when partial failure of the active aggregator
-+	occurs.  This keeps the aggregator with the highest availability
-+	(either in bandwidth or in number of ports) active at all times.
-+
-+	This option was added in bonding version 3.4.0.
-+
- arp_interval
+ 	A string (eth0, eth2, etc) specifying which slave is the
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0f3e6b2..f1d0a13 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -61,6 +61,7 @@ config DUMMY
+ config BONDING
+ 	tristate "Bonding driver support"
+ 	depends on INET
++	depends on IPV6 || IPV6=n
+ 	---help---
+ 	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
+ 	  Channels together. This is called 'Etherchannel' by Cisco,
+diff --git a/drivers/net/bonding/Makefile b/drivers/net/bonding/Makefile
+index 5cdae2b..6f9c6fa 100644
+--- a/drivers/net/bonding/Makefile
++++ b/drivers/net/bonding/Makefile
+@@ -6,3 +6,6 @@ obj-$(CONFIG_BONDING) += bonding.o
  
- 	Specifies the ARP link monitoring frequency in milliseconds.
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 6106660..ba1372f 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -27,6 +27,7 @@
- #include <linux/netdevice.h>
- #include <linux/spinlock.h>
- #include <linux/ethtool.h>
-+#include <linux/etherdevice.h>
- #include <linux/if_bonding.h>
- #include <linux/pkt_sched.h>
- #include <net/net_namespace.h>
-@@ -236,6 +237,17 @@ static inline struct aggregator *__get_next_agg(struct aggregator *aggregator)
- 	return &(SLAVE_AD_INFO(slave->next).aggregator);
- }
+ bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o
  
++ipv6-$(subst m,y,$(CONFIG_IPV6)) += bond_ipv6.o
++bonding-objs += $(ipv6-y)
++
+diff --git a/drivers/net/bonding/bond_ipv6.c b/drivers/net/bonding/bond_ipv6.c
+new file mode 100644
+index 0000000..7c78b7b
+--- /dev/null
++++ b/drivers/net/bonding/bond_ipv6.c
+@@ -0,0 +1,218 @@
 +/*
-+ * __agg_has_partner
++ * Copyright(c) 2008 Hewlett-Packard Development Company, L.P.
 + *
-+ * Return nonzero if aggregator has a partner (denoted by a non-zero ether
-+ * address for the partner).  Return 0 if not.
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
 + */
-+static inline int __agg_has_partner(struct aggregator *agg)
-+{
-+	return !is_zero_ether_addr(agg->partner_system.mac_addr_value);
-+}
 +
- /**
-  * __disable_port - disable the port's slave
-  * @port: the port we're looking at
-@@ -274,14 +286,14 @@ static inline int __port_is_enabled(struct port *port)
-  * __get_agg_selection_mode - get the aggregator selection mode
-  * @port: the port we're looking at
-  *
-- * Get the aggregator selection mode. Can be %BANDWIDTH or %COUNT.
-+ * Get the aggregator selection mode. Can be %STABLE, %BANDWIDTH or %COUNT.
-  */
- static inline u32 __get_agg_selection_mode(struct port *port)
- {
- 	struct bonding *bond = __get_bond_by_port(port);
- 
- 	if (bond == NULL) {
--		return AD_BANDWIDTH;
-+		return BOND_AD_STABLE;
- 	}
- 
- 	return BOND_AD_INFO(bond).agg_select_mode;
-@@ -1414,9 +1426,82 @@ static void ad_port_selection_logic(struct port *port)
- 	// else set ready=FALSE in all aggregator's ports
- 	__set_agg_ports_ready(port->aggregator, __agg_ports_are_ready(port->aggregator));
- 
--	if (!__check_agg_selection_timer(port) && (aggregator = __get_first_agg(port))) {
--		ad_agg_selection_logic(aggregator);
-+	aggregator = __get_first_agg(port);
-+	ad_agg_selection_logic(aggregator);
-+}
++//#define BONDING_DEBUG 1
++
++#include <linux/types.h>
++#include <linux/if_vlan.h>
++#include <net/ipv6.h>
++#include <net/ndisc.h>
++#include <net/addrconf.h>
++#include "bonding.h"
 +
 +/*
-+ * Decide if "agg" is a better choice for the new active aggregator that
-+ * the current best, according to the ad_select policy.
++ * Assign bond->master_ipv6 to the next IPv6 address in the list, or
++ * zero it out if there are none.
 + */
-+static struct aggregator *ad_agg_selection_test(struct aggregator *best,
-+						struct aggregator *curr)
++static void bond_glean_dev_ipv6(struct net_device *dev, struct in6_addr *addr)
 +{
-+	/*
-+	 * 0. If no best, select current.
-+	 *
-+	 * 1. If the current agg is not individual, and the best is
-+	 *    individual, select current.
-+	 *
-+	 * 2. If current agg is individual and the best is not, keep best.
-+	 *
-+	 * 3. Therefore, current and best are both individual or both not
-+	 *    individual, so:
-+	 *
-+	 * 3a. If current agg partner replied, and best agg partner did not,
-+	 *     select current.
-+	 *
-+	 * 3b. If current agg partner did not reply and best agg partner
-+	 *     did reply, keep best.
-+	 *
-+	 * 4.  Therefore, current and best both have partner replies or
-+	 *     both do not, so perform selection policy:
-+	 *
-+	 * BOND_AD_COUNT: Select by count of ports.  If count is equal,
-+	 *     select by bandwidth.
-+	 *
-+	 * BOND_AD_STABLE, BOND_AD_BANDWIDTH: Select by bandwidth.
-+	 */
-+	if (!best)
-+		return curr;
++	struct inet6_dev *idev;
++	struct inet6_ifaddr *ifa;
 +
-+	if (!curr->is_individual && best->is_individual)
-+		return curr;
++	if (!dev)
++		return;
 +
-+	if (curr->is_individual && !best->is_individual)
-+		return best;
++	idev = in6_dev_get(dev);
++	if (!idev)
++		return;
 +
-+	if (__agg_has_partner(curr) && !__agg_has_partner(best))
-+		return curr;
++	read_lock_bh(&idev->lock);
++	ifa = idev->addr_list;
++	if (ifa)
++		ipv6_addr_copy(addr, &ifa->addr);
++	else
++		ipv6_addr_set(addr, 0, 0, 0, 0);
 +
-+	if (!__agg_has_partner(curr) && __agg_has_partner(best))
-+		return best;
++	read_unlock_bh(&idev->lock);
 +
-+	switch (__get_agg_selection_mode(curr->lag_ports)) {
-+	case BOND_AD_COUNT:
-+		if (curr->num_of_ports > best->num_of_ports)
-+			return curr;
++	in6_dev_put(idev);
++}
 +
-+		if (curr->num_of_ports < best->num_of_ports)
-+			return best;
++static void bond_na_send(struct net_device *slave_dev,
++			 struct in6_addr *daddr,
++			 int router,
++			 unsigned short vlan_id)
++{
++	struct in6_addr mcaddr;
++	struct icmp6hdr icmp6h = {
++		.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT,
++	};
++	struct sk_buff *skb;
 +
-+		/*FALLTHROUGH*/
-+	case BOND_AD_STABLE:
-+	case BOND_AD_BANDWIDTH:
-+		if (__get_agg_bandwidth(curr) > __get_agg_bandwidth(best))
-+			return curr;
++	icmp6h.icmp6_router = router;
++	icmp6h.icmp6_solicited = 0;
++	icmp6h.icmp6_override = 1;
 +
-+		break;
++	addrconf_addr_solict_mult(daddr, &mcaddr);
 +
-+	default:
-+		printk(KERN_WARNING DRV_NAME
-+		       ": %s: Impossible agg select mode %d\n",
-+		       curr->slave->dev->master->name,
-+		       __get_agg_selection_mode(curr->lag_ports));
-+		break;
- 	}
++	dprintk("ipv6 na on slave %s: dest %pI6, src %pI6\n",
++	       slave->name, &mcaddr, daddr);
 +
-+	return best;
- }
- 
- /**
-@@ -1424,156 +1509,138 @@ static void ad_port_selection_logic(struct port *port)
-  * @aggregator: the aggregator we're looking at
-  *
-  * It is assumed that only one aggregator may be selected for a team.
-- * The logic of this function is to select (at first time) the aggregator with
-- * the most ports attached to it, and to reselect the active aggregator only if
-- * the previous aggregator has no more ports related to it.
-+ *
-+ * The logic of this function is to select the aggregator according to
-+ * the ad_select policy:
-+ *
-+ * BOND_AD_STABLE: select the aggregator with the most ports attached to
-+ * it, and to reselect the active aggregator only if the previous
-+ * aggregator has no more ports related to it.
-+ *
-+ * BOND_AD_BANDWIDTH: select the aggregator with the highest total
-+ * bandwidth, and reselect whenever a link state change takes place or the
-+ * set of slaves in the bond changes.
-+ *
-+ * BOND_AD_COUNT: select the aggregator with largest number of ports
-+ * (slaves), and reselect whenever a link state change takes place or the
-+ * set of slaves in the bond changes.
-  *
-  * FIXME: this function MUST be called with the first agg in the bond, or
-  * __get_active_agg() won't work correctly. This function should be better
-  * called with the bond itself, and retrieve the first agg from it.
-  */
--static void ad_agg_selection_logic(struct aggregator *aggregator)
-+static void ad_agg_selection_logic(struct aggregator *agg)
- {
--	struct aggregator *best_aggregator = NULL, *active_aggregator = NULL;
--	struct aggregator *last_active_aggregator = NULL, *origin_aggregator;
-+	struct aggregator *best, *active, *origin;
- 	struct port *port;
--	u16 num_of_aggs=0;
- 
--	origin_aggregator = aggregator;
-+	origin = agg;
- 
--	//get current active aggregator
--	last_active_aggregator = __get_active_agg(aggregator);
-+	active = __get_active_agg(agg);
-+	best = active;
- 
--	// search for the aggregator with the most ports attached to it.
- 	do {
--		// count how many candidate lag's we have
--		if (aggregator->lag_ports) {
--			num_of_aggs++;
--		}
--		if (aggregator->is_active && !aggregator->is_individual &&   // if current aggregator is the active aggregator
--		    MAC_ADDRESS_COMPARE(&(aggregator->partner_system), &(null_mac_addr))) {   // and partner answers to 802.3ad PDUs
--			if (aggregator->num_of_ports) {	// if any ports attached to the current aggregator
--				best_aggregator=NULL;	 // disregard the best aggregator that was chosen by now
--				break;		 // stop the selection of other aggregator if there are any ports attached to this active aggregator
--			} else { // no ports attached to this active aggregator
--				aggregator->is_active = 0; // mark this aggregator as not active anymore
-+		agg->is_active = 0;
++	skb = ndisc_build_skb(slave_dev, &mcaddr, daddr, &icmp6h, daddr,
++			      ND_OPT_TARGET_LL_ADDR);
 +
-+		if (agg->num_of_ports)
-+			best = ad_agg_selection_test(best, agg);
-+
-+	} while ((agg = __get_next_agg(agg)));
-+
-+	if (best &&
-+	    __get_agg_selection_mode(best->lag_ports) == BOND_AD_STABLE) {
-+		/*
-+		 * For the STABLE policy, don't replace the old active
-+		 * aggregator if it's still active (it has an answering
-+		 * partner) or if both the best and active don't have an
-+		 * answering partner.
-+		 */
-+		if (active && active->lag_ports &&
-+		    active->lag_ports->is_enabled &&
-+		    (__agg_has_partner(active) ||
-+		     (!__agg_has_partner(active) && !__agg_has_partner(best)))) {
-+			if (!(!active->actor_oper_aggregator_key &&
-+			      best->actor_oper_aggregator_key)) {
-+				best = NULL;
-+				active->is_active = 1;
- 			}
- 		}
--		if (aggregator->num_of_ports) {	// if any ports attached
--			if (best_aggregator) {	// if there is a candidte aggregator
--				//The reasons for choosing new best aggregator:
--				// 1. if current agg is NOT individual and the best agg chosen so far is individual OR
--				// current and best aggs are both individual or both not individual, AND
--				// 2a.  current agg partner reply but best agg partner do not reply OR
--				// 2b.  current agg partner reply OR current agg partner do not reply AND best agg partner also do not reply AND
--				//      current has more ports/bandwidth, or same amount of ports but current has faster ports, THEN
--				//      current agg become best agg so far
--
--				//if current agg is NOT individual and the best agg chosen so far is individual change best_aggregator
--				if (!aggregator->is_individual && best_aggregator->is_individual) {
--					best_aggregator=aggregator;
--				}
--				// current and best aggs are both individual or both not individual
--				else if ((aggregator->is_individual && best_aggregator->is_individual) ||
--					 (!aggregator->is_individual && !best_aggregator->is_individual)) {
--					//  current and best aggs are both individual or both not individual AND
--					//  current agg partner reply but best agg partner do not reply
--					if ((MAC_ADDRESS_COMPARE(&(aggregator->partner_system), &(null_mac_addr)) &&
--					     !MAC_ADDRESS_COMPARE(&(best_aggregator->partner_system), &(null_mac_addr)))) {
--						best_aggregator=aggregator;
--					}
--					//  current agg partner reply OR current agg partner do not reply AND best agg partner also do not reply
--					else if (! (!MAC_ADDRESS_COMPARE(&(aggregator->partner_system), &(null_mac_addr)) &&
--						    MAC_ADDRESS_COMPARE(&(best_aggregator->partner_system), &(null_mac_addr)))) {
--						if ((__get_agg_selection_mode(aggregator->lag_ports) == AD_BANDWIDTH)&&
--						    (__get_agg_bandwidth(aggregator) > __get_agg_bandwidth(best_aggregator))) {
--							best_aggregator=aggregator;
--						} else if (__get_agg_selection_mode(aggregator->lag_ports) == AD_COUNT) {
--							if (((aggregator->num_of_ports > best_aggregator->num_of_ports) &&
--							     (aggregator->actor_oper_aggregator_key & AD_SPEED_KEY_BITS))||
--							    ((aggregator->num_of_ports == best_aggregator->num_of_ports) &&
--							     ((u16)(aggregator->actor_oper_aggregator_key & AD_SPEED_KEY_BITS) >
--							      (u16)(best_aggregator->actor_oper_aggregator_key & AD_SPEED_KEY_BITS)))) {
--								best_aggregator=aggregator;
--							}
--						}
--					}
--				}
--			} else {
--				best_aggregator=aggregator;
--			}
--		}
--		aggregator->is_active = 0; // mark all aggregators as not active anymore
--	} while ((aggregator = __get_next_agg(aggregator)));
--
--	// if we have new aggregator selected, don't replace the old aggregator if it has an answering partner,
--	// or if both old aggregator and new aggregator don't have answering partner
--	if (best_aggregator) {
--		if (last_active_aggregator && last_active_aggregator->lag_ports && last_active_aggregator->lag_ports->is_enabled &&
--		    (MAC_ADDRESS_COMPARE(&(last_active_aggregator->partner_system), &(null_mac_addr)) ||   // partner answers OR
--		     (!MAC_ADDRESS_COMPARE(&(last_active_aggregator->partner_system), &(null_mac_addr)) &&	// both old and new
--		      !MAC_ADDRESS_COMPARE(&(best_aggregator->partner_system), &(null_mac_addr))))     // partner do not answer
--		   ) {
--			// if new aggregator has link, and old aggregator does not, replace old aggregator.(do nothing)
--			// -> don't replace otherwise.
--			if (!(!last_active_aggregator->actor_oper_aggregator_key && best_aggregator->actor_oper_aggregator_key)) {
--				best_aggregator=NULL;
--				last_active_aggregator->is_active = 1; // don't replace good old aggregator
++	if (!skb) {
++		printk(KERN_ERR DRV_NAME ": NA packet allocation failed\n");
++		return;
 +	}
- 
--			}
--		}
-+	if (best && (best == active)) {
-+		best = NULL;
-+		active->is_active = 1;
- 	}
- 
- 	// if there is new best aggregator, activate it
--	if (best_aggregator) {
--		for (aggregator = __get_first_agg(best_aggregator->lag_ports);
--		    aggregator;
--		    aggregator = __get_next_agg(aggregator)) {
--
--			dprintk("Agg=%d; Ports=%d; a key=%d; p key=%d; Indiv=%d; Active=%d\n",
--					aggregator->aggregator_identifier, aggregator->num_of_ports,
--					aggregator->actor_oper_aggregator_key, aggregator->partner_oper_aggregator_key,
--					aggregator->is_individual, aggregator->is_active);
-+	if (best) {
-+		dprintk("best Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
-+		       best->aggregator_identifier, best->num_of_ports,
-+		       best->actor_oper_aggregator_key,
-+		       best->partner_oper_aggregator_key,
-+		       best->is_individual, best->is_active);
-+		dprintk("best ports %p slave %p %s\n",
-+		       best->lag_ports, best->slave,
-+		       best->slave ? best->slave->dev->name : "NULL");
 +
-+		for (agg = __get_first_agg(best->lag_ports); agg;
-+		     agg = __get_next_agg(agg)) {
-+
-+			dprintk("Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
-+				agg->aggregator_identifier, agg->num_of_ports,
-+				agg->actor_oper_aggregator_key,
-+				agg->partner_oper_aggregator_key,
-+				agg->is_individual, agg->is_active);
- 		}
- 
- 		// check if any partner replys
--		if (best_aggregator->is_individual) {
--			printk(KERN_WARNING DRV_NAME ": %s: Warning: No 802.3ad response from "
--			       "the link partner for any adapters in the bond\n",
--			       best_aggregator->slave->dev->master->name);
--		}
--
--		// check if there are more than one aggregator
--		if (num_of_aggs > 1) {
--			dprintk("Warning: More than one Link Aggregation Group was "
--				"found in the bond. Only one group will function in the bond\n");
-+		if (best->is_individual) {
-+			printk(KERN_WARNING DRV_NAME ": %s: Warning: No 802.3ad"
-+			       " response from the link partner for any"
-+			       " adapters in the bond\n",
-+			       best->slave->dev->master->name);
- 		}
- 
--		best_aggregator->is_active = 1;
--		dprintk("LAG %d choosed as the active LAG\n", best_aggregator->aggregator_identifier);
--		dprintk("Agg=%d; Ports=%d; a key=%d; p key=%d; Indiv=%d; Active=%d\n",
--				best_aggregator->aggregator_identifier, best_aggregator->num_of_ports,
--				best_aggregator->actor_oper_aggregator_key, best_aggregator->partner_oper_aggregator_key,
--				best_aggregator->is_individual, best_aggregator->is_active);
-+		best->is_active = 1;
-+		dprintk("LAG %d chosen as the active LAG\n",
-+			best->aggregator_identifier);
-+		dprintk("Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
-+			best->aggregator_identifier, best->num_of_ports,
-+			best->actor_oper_aggregator_key,
-+			best->partner_oper_aggregator_key,
-+			best->is_individual, best->is_active);
- 
- 		// disable the ports that were related to the former active_aggregator
--		if (last_active_aggregator) {
--			for (port=last_active_aggregator->lag_ports; port; port=port->next_port_in_aggregator) {
-+		if (active) {
-+			for (port = active->lag_ports; port;
-+			     port = port->next_port_in_aggregator) {
- 				__disable_port(port);
- 			}
- 		}
- 	}
- 
--	// if the selected aggregator is of join individuals(partner_system is NULL), enable their ports
--	active_aggregator = __get_active_agg(origin_aggregator);
-+	/*
-+	 * if the selected aggregator is of join individuals
-+	 * (partner_system is NULL), enable their ports
-+	 */
-+	active = __get_active_agg(origin);
- 
--	if (active_aggregator) {
--		if (!MAC_ADDRESS_COMPARE(&(active_aggregator->partner_system), &(null_mac_addr))) {
--			for (port=active_aggregator->lag_ports; port; port=port->next_port_in_aggregator) {
-+	if (active) {
-+		if (!__agg_has_partner(active)) {
-+			for (port = active->lag_ports; port;
-+			     port = port->next_port_in_aggregator) {
- 				__enable_port(port);
- 			}
- 		}
- 	}
-+
-+	if (origin->slave) {
-+		struct bonding *bond;
-+
-+		bond = bond_get_bond_by_slave(origin->slave);
-+		if (bond)
-+			bond_3ad_set_carrier(bond);
++	if (vlan_id) {
++		skb = vlan_put_tag(skb, vlan_id);
++		if (!skb) {
++			printk(KERN_ERR DRV_NAME ": failed to insert VLAN tag\n");
++			return;
++		}
 +	}
- }
- 
- /**
-@@ -1830,6 +1897,19 @@ static void ad_initialize_lacpdu(struct lacpdu *lacpdu)
- // Check aggregators status in team every T seconds
- #define AD_AGGREGATOR_SELECTION_TIMER  8
- 
-+/*
-+ * bond_3ad_initiate_agg_selection(struct bonding *bond)
-+ *
-+ * Set the aggregation selection timer, to initiate an agg selection in
-+ * the very near future.  Called during first initialization, and during
-+ * any down to up transitions of the bond.
-+ */
-+void bond_3ad_initiate_agg_selection(struct bonding *bond, int timeout)
-+{
-+	BOND_AD_INFO(bond).agg_select_timer = timeout;
-+	BOND_AD_INFO(bond).agg_select_mode = bond->params.ad_select;
++
++	ndisc_send_skb(skb, slave_dev, NULL, &mcaddr, daddr, &icmp6h);
 +}
 +
- static u16 aggregator_identifier;
- 
- /**
-@@ -1854,9 +1934,9 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution, int lacp_fas
- 		// initialize how many times this module is called in one second(should be about every 100ms)
- 		ad_ticks_per_sec = tick_resolution;
- 
--		// initialize the aggregator selection timer(to activate an aggregation selection after initialize)
--		BOND_AD_INFO(bond).agg_select_timer = (AD_AGGREGATOR_SELECTION_TIMER * ad_ticks_per_sec);
--		BOND_AD_INFO(bond).agg_select_mode = AD_BANDWIDTH;
-+		bond_3ad_initiate_agg_selection(bond,
-+						AD_AGGREGATOR_SELECTION_TIMER *
-+						ad_ticks_per_sec);
- 	}
- }
- 
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index b5ee45f..a803fe0 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -42,10 +42,11 @@ typedef struct mac_addr {
- 	u8 mac_addr_value[ETH_ALEN];
- } mac_addr_t;
- 
--typedef enum {
--	AD_BANDWIDTH = 0,
--	AD_COUNT
--} agg_selection_t;
-+enum {
-+	BOND_AD_STABLE = 0,
-+	BOND_AD_BANDWIDTH = 1,
-+	BOND_AD_COUNT = 2,
++/*
++ * Kick out an unsolicited Neighbor Advertisement for an IPv6 address on
++ * the bonding master.  This will help the switch learn our address
++ * if in active-backup mode.
++ *
++ * Caller must hold curr_slave_lock for read or better
++ */
++void bond_send_unsolicited_na(struct bonding *bond)
++{
++	struct slave *slave = bond->curr_active_slave;
++	struct vlan_entry *vlan;
++	struct inet6_dev *idev;
++	int is_router;
++
++	dprintk("bond_send_unsol_na: bond %s slave %s\n", bond->dev->name,
++				slave ? slave->dev->name : "NULL");
++
++	if (!slave || !bond->send_unsol_na ||
++	    test_bit(__LINK_STATE_LINKWATCH_PENDING, &slave->dev->state))
++		return;
++
++	bond->send_unsol_na--;
++
++	idev = in6_dev_get(bond->dev);
++	if (!idev)
++		return;
++
++	is_router = !!idev->cnf.forwarding;
++
++	in6_dev_put(idev);
++
++	if (!ipv6_addr_any(&bond->master_ipv6))
++		bond_na_send(slave->dev, &bond->master_ipv6, is_router, 0);
++
++	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
++		if (!ipv6_addr_any(&vlan->vlan_ipv6)) {
++			bond_na_send(slave->dev, &vlan->vlan_ipv6, is_router,
++				     vlan->vlan_id);
++		}
++	}
++}
++
++/*
++ * bond_inet6addr_event: handle inet6addr notifier chain events.
++ *
++ * We keep track of device IPv6 addresses primarily to use as source
++ * addresses in NS probes.
++ *
++ * We track one IPv6 for the main device (if it has one).
++ */
++static int bond_inet6addr_event(struct notifier_block *this,
++				unsigned long event,
++				void *ptr)
++{
++	struct inet6_ifaddr *ifa = ptr;
++	struct net_device *vlan_dev, *event_dev = ifa->idev->dev;
++	struct bonding *bond;
++	struct vlan_entry *vlan;
++
++	if (dev_net(event_dev) != &init_net)
++		return NOTIFY_DONE;
++
++	list_for_each_entry(bond, &bond_dev_list, bond_list) {
++		if (bond->dev == event_dev) {
++			switch (event) {
++			case NETDEV_UP:
++				if (ipv6_addr_any(&bond->master_ipv6))
++					ipv6_addr_copy(&bond->master_ipv6,
++						       &ifa->addr);
++				return NOTIFY_OK;
++			case NETDEV_DOWN:
++				if (ipv6_addr_equal(&bond->master_ipv6,
++						    &ifa->addr))
++					bond_glean_dev_ipv6(bond->dev,
++							    &bond->master_ipv6);
++				return NOTIFY_OK;
++			default:
++				return NOTIFY_DONE;
++			}
++		}
++
++		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
++			vlan_dev = vlan_group_get_device(bond->vlgrp,
++							 vlan->vlan_id);
++			if (vlan_dev == event_dev) {
++				switch (event) {
++				case NETDEV_UP:
++					if (ipv6_addr_any(&vlan->vlan_ipv6))
++						ipv6_addr_copy(&vlan->vlan_ipv6,
++							       &ifa->addr);
++					return NOTIFY_OK;
++				case NETDEV_DOWN:
++					if (ipv6_addr_equal(&vlan->vlan_ipv6,
++							    &ifa->addr))
++						bond_glean_dev_ipv6(vlan_dev,
++								    &vlan->vlan_ipv6);
++					return NOTIFY_OK;
++				default:
++					return NOTIFY_DONE;
++				}
++			}
++		}
++	}
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block bond_inet6addr_notifier = {
++	.notifier_call = bond_inet6addr_event,
 +};
- 
- // rx machine states(43.4.11 in the 802.3ad standard)
- typedef enum {
-@@ -277,6 +278,7 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution, int lacp_fas
- int  bond_3ad_bind_slave(struct slave *slave);
- void bond_3ad_unbind_slave(struct slave *slave);
- void bond_3ad_state_machine_handler(struct work_struct *);
-+void bond_3ad_initiate_agg_selection(struct bonding *bond, int timeout);
- void bond_3ad_adapter_speed_changed(struct slave *slave);
- void bond_3ad_adapter_duplex_changed(struct slave *slave);
- void bond_3ad_handle_link_change(struct slave *slave, char link);
++
++void bond_register_ipv6_notifier(void)
++{
++	register_inet6addr_notifier(&bond_inet6addr_notifier);
++}
++
++void bond_unregister_ipv6_notifier(void)
++{
++	unregister_inet6addr_notifier(&bond_inet6addr_notifier);
++}
++
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 798d98c..02de3e0 100644
+index 39575d7..798d98c 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -97,6 +97,7 @@ static int use_carrier	= 1;
- static char *mode	= NULL;
- static char *primary	= NULL;
- static char *lacp_rate	= NULL;
-+static char *ad_select  = NULL;
- static char *xmit_hash_policy = NULL;
- static int arp_interval = BOND_LINK_ARP_INTERV;
- static char *arp_ip_target[BOND_MAX_ARP_TARGETS] = { NULL, };
-@@ -130,6 +131,8 @@ MODULE_PARM_DESC(primary, "Primary network device to use");
- module_param(lacp_rate, charp, 0);
- MODULE_PARM_DESC(lacp_rate, "LACPDU tx rate to request from 802.3ad partner "
- 			    "(slow/fast)");
-+module_param(ad_select, charp, 0);
-+MODULE_PARM_DESC(ad_select, "803.ad aggregation selection logic: stable (0, default), bandwidth (1), count (2)");
- module_param(xmit_hash_policy, charp, 0);
- MODULE_PARM_DESC(xmit_hash_policy, "XOR hashing method: 0 for layer 2 (default)"
- 				   ", 1 for layer 3+4");
-@@ -200,6 +203,13 @@ struct bond_parm_tbl fail_over_mac_tbl[] = {
- {	NULL,			-1},
- };
+@@ -89,6 +89,7 @@
  
-+struct bond_parm_tbl ad_select_tbl[] = {
-+{	"stable",	BOND_AD_STABLE},
-+{	"bandwidth",	BOND_AD_BANDWIDTH},
-+{	"count",	BOND_AD_COUNT},
-+{	NULL,		-1},
-+};
-+
- /*-------------------------- Forward declarations ---------------------------*/
+ static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
+ static int num_grat_arp = 1;
++static int num_unsol_na = 1;
+ static int miimon	= BOND_LINK_MON_INTERV;
+ static int updelay	= 0;
+ static int downdelay	= 0;
+@@ -107,6 +108,8 @@ module_param(max_bonds, int, 0);
+ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+ module_param(num_grat_arp, int, 0644);
+ MODULE_PARM_DESC(num_grat_arp, "Number of gratuitous ARP packets to send on failover event");
++module_param(num_unsol_na, int, 0644);
++MODULE_PARM_DESC(num_unsol_na, "Number of unsolicited IPv6 Neighbor Advertisements packets to send on failover event");
+ module_param(miimon, int, 0);
+ MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
+ module_param(updelay, int, 0);
+@@ -242,14 +245,13 @@ static int bond_add_vlan(struct bonding *bond, unsigned short vlan_id)
+ 	dprintk("bond: %s, vlan id %d\n",
+ 		(bond ? bond->dev->name: "None"), vlan_id);
  
- static void bond_send_gratuitous_arp(struct bonding *bond);
-@@ -3318,6 +3328,8 @@ static void bond_info_show_master(struct seq_file *seq)
- 		seq_puts(seq, "\n802.3ad info\n");
- 		seq_printf(seq, "LACP rate: %s\n",
- 			   (bond->params.lacp_fast) ? "fast" : "slow");
-+		seq_printf(seq, "Aggregator selection policy (ad_select): %s\n",
-+			   ad_select_tbl[bond->params.ad_select].modename);
- 
- 		if (bond_3ad_get_active_agg_info(bond, &ad_info)) {
- 			seq_printf(seq, "bond %s has no active aggregator\n",
-@@ -3824,6 +3836,7 @@ static int bond_open(struct net_device *bond_dev)
- 		queue_delayed_work(bond->wq, &bond->ad_work, 0);
- 		/* register to receive LACPDUs */
- 		bond_register_lacpdu(bond);
-+		bond_3ad_initiate_agg_selection(bond, 1);
+-	vlan = kmalloc(sizeof(struct vlan_entry), GFP_KERNEL);
++	vlan = kzalloc(sizeof(struct vlan_entry), GFP_KERNEL);
+ 	if (!vlan) {
+ 		return -ENOMEM;
  	}
  
- 	return 0;
-@@ -4763,6 +4776,23 @@ static int bond_check_params(struct bond_params *params)
- 		}
+ 	INIT_LIST_HEAD(&vlan->vlan_list);
+ 	vlan->vlan_id = vlan_id;
+-	vlan->vlan_ip = 0;
+ 
+ 	write_lock_bh(&bond->lock);
+ 
+@@ -1208,6 +1210,9 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			bond->send_grat_arp = bond->params.num_grat_arp;
+ 			bond_send_gratuitous_arp(bond);
+ 
++			bond->send_unsol_na = bond->params.num_unsol_na;
++			bond_send_unsolicited_na(bond);
++
+ 			write_unlock_bh(&bond->curr_slave_lock);
+ 			read_unlock(&bond->lock);
+ 
+@@ -2463,6 +2468,12 @@ void bond_mii_monitor(struct work_struct *work)
+ 		read_unlock(&bond->curr_slave_lock);
  	}
  
-+	if (ad_select) {
-+		params->ad_select = bond_parse_parm(ad_select, ad_select_tbl);
-+		if (params->ad_select == -1) {
-+			printk(KERN_ERR DRV_NAME
-+			       ": Error: Invalid ad_select \"%s\"\n",
-+			       ad_select == NULL ? "NULL" : ad_select);
-+			return -EINVAL;
-+		}
-+
-+		if (bond_mode != BOND_MODE_8023AD) {
-+			printk(KERN_WARNING DRV_NAME
-+			       ": ad_select param only affects 802.3ad mode\n");
-+		}
-+	} else {
-+		params->ad_select = BOND_AD_STABLE;
++	if (bond->send_unsol_na) {
++		read_lock(&bond->curr_slave_lock);
++		bond_send_unsolicited_na(bond);
++		read_unlock(&bond->curr_slave_lock);
 +	}
 +
- 	if (max_bonds < 0 || max_bonds > INT_MAX) {
- 		printk(KERN_WARNING DRV_NAME
- 		       ": Warning: max_bonds (%d) not in range %d-%d, so it "
+ 	if (bond_miimon_inspect(bond)) {
+ 		read_unlock(&bond->lock);
+ 		rtnl_lock();
+@@ -3158,6 +3169,12 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 		read_unlock(&bond->curr_slave_lock);
+ 	}
+ 
++	if (bond->send_unsol_na) {
++		read_lock(&bond->curr_slave_lock);
++		bond_send_unsolicited_na(bond);
++		read_unlock(&bond->curr_slave_lock);
++	}
++
+ 	if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
+ 		read_unlock(&bond->lock);
+ 		rtnl_lock();
+@@ -3827,6 +3844,7 @@ static int bond_close(struct net_device *bond_dev)
+ 	write_lock_bh(&bond->lock);
+ 
+ 	bond->send_grat_arp = 0;
++	bond->send_unsol_na = 0;
+ 
+ 	/* signal timers not to re-arm */
+ 	bond->kill_timers = 1;
+@@ -4542,6 +4560,7 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
+ 	bond->primary_slave = NULL;
+ 	bond->dev = bond_dev;
+ 	bond->send_grat_arp = 0;
++	bond->send_unsol_na = 0;
+ 	bond->setup_by_slave = 0;
+ 	INIT_LIST_HEAD(&bond->vlan_list);
+ 
+@@ -4791,6 +4810,13 @@ static int bond_check_params(struct bond_params *params)
+ 		num_grat_arp = 1;
+ 	}
+ 
++	if (num_unsol_na < 0 || num_unsol_na > 255) {
++		printk(KERN_WARNING DRV_NAME
++		       ": Warning: num_unsol_na (%d) not in range 0-255 so it "
++		       "was reset to 1 \n", num_unsol_na);
++		num_unsol_na = 1;
++	}
++
+ 	/* reset values for 802.3ad */
+ 	if (bond_mode == BOND_MODE_8023AD) {
+ 		if (!miimon) {
+@@ -4992,6 +5018,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->xmit_policy = xmit_hashtype;
+ 	params->miimon = miimon;
+ 	params->num_grat_arp = num_grat_arp;
++	params->num_unsol_na = num_unsol_na;
+ 	params->arp_interval = arp_interval;
+ 	params->arp_validate = arp_validate_value;
+ 	params->updelay = updelay;
+@@ -5144,6 +5171,7 @@ static int __init bonding_init(void)
+ 
+ 	register_netdevice_notifier(&bond_netdev_notifier);
+ 	register_inetaddr_notifier(&bond_inetaddr_notifier);
++	bond_register_ipv6_notifier();
+ 
+ 	goto out;
+ err:
+@@ -5166,6 +5194,7 @@ static void __exit bonding_exit(void)
+ {
+ 	unregister_netdevice_notifier(&bond_netdev_notifier);
+ 	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
++	bond_unregister_ipv6_notifier();
+ 
+ 	bond_destroy_sysfs();
+ 
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 8788e3e..aaf2927 100644
+index e400d7d..8788e3e 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -48,6 +48,7 @@ extern struct list_head bond_dev_list;
- extern struct bond_params bonding_defaults;
- extern struct bond_parm_tbl bond_mode_tbl[];
- extern struct bond_parm_tbl bond_lacp_tbl[];
-+extern struct bond_parm_tbl ad_select_tbl[];
- extern struct bond_parm_tbl xmit_hashtype_tbl[];
- extern struct bond_parm_tbl arp_validate_tbl[];
- extern struct bond_parm_tbl fail_over_mac_tbl[];
-@@ -944,6 +945,53 @@ out:
+@@ -983,6 +983,47 @@ out:
+ 	return ret;
  }
- static DEVICE_ATTR(lacp_rate, S_IRUGO | S_IWUSR, bonding_show_lacp, bonding_store_lacp);
- 
-+static ssize_t bonding_show_ad_select(struct device *d,
-+				      struct device_attribute *attr,
-+				      char *buf)
+ static DEVICE_ATTR(num_grat_arp, S_IRUGO | S_IWUSR, bonding_show_n_grat_arp, bonding_store_n_grat_arp);
++
++/*
++ * Show and set the number of unsolicted NA's to send after a failover event.
++ */
++static ssize_t bonding_show_n_unsol_na(struct device *d,
++				       struct device_attribute *attr,
++				       char *buf)
 +{
 +	struct bonding *bond = to_bond(d);
 +
-+	return sprintf(buf, "%s %d\n",
-+		ad_select_tbl[bond->params.ad_select].modename,
-+		bond->params.ad_select);
++	return sprintf(buf, "%d\n", bond->params.num_unsol_na);
 +}
 +
-+
-+static ssize_t bonding_store_ad_select(struct device *d,
-+				       struct device_attribute *attr,
-+				       const char *buf, size_t count)
++static ssize_t bonding_store_n_unsol_na(struct device *d,
++					struct device_attribute *attr,
++					const char *buf, size_t count)
 +{
 +	int new_value, ret = count;
 +	struct bonding *bond = to_bond(d);
 +
-+	if (bond->dev->flags & IFF_UP) {
++	if (sscanf(buf, "%d", &new_value) != 1) {
 +		printk(KERN_ERR DRV_NAME
-+		       ": %s: Unable to update ad_select because interface "
-+		       "is up.\n", bond->dev->name);
-+		ret = -EPERM;
++		       ": %s: no num_unsol_na value specified.\n",
++		       bond->dev->name);
++		ret = -EINVAL;
 +		goto out;
 +	}
-+
-+	new_value = bond_parse_parm(buf, ad_select_tbl);
-+
-+	if (new_value != -1) {
-+		bond->params.ad_select = new_value;
-+		printk(KERN_INFO DRV_NAME
-+		       ": %s: Setting ad_select to %s (%d).\n",
-+		       bond->dev->name, ad_select_tbl[new_value].modename,
-+		       new_value);
-+	} else {
++	if (new_value < 0 || new_value > 255) {
 +		printk(KERN_ERR DRV_NAME
-+		       ": %s: Ignoring invalid ad_select value %.*s.\n",
-+		       bond->dev->name, (int)strlen(buf) - 1, buf);
++		       ": %s: Invalid num_unsol_na value %d not in range 0-255; rejected.\n",
++		       bond->dev->name, new_value);
 +		ret = -EINVAL;
++		goto out;
++	} else {
++		bond->params.num_unsol_na = new_value;
 +	}
 +out:
 +	return ret;
 +}
-+
-+static DEVICE_ATTR(ad_select, S_IRUGO | S_IWUSR, bonding_show_ad_select, bonding_store_ad_select);
++static DEVICE_ATTR(num_unsol_na, S_IRUGO | S_IWUSR, bonding_show_n_unsol_na, bonding_store_n_unsol_na);
 +
  /*
-  * Show and set the number of grat ARP to send after a failover event.
-  */
-@@ -1459,6 +1507,7 @@ static struct attribute *per_bond_attrs[] = {
- 	&dev_attr_downdelay.attr,
- 	&dev_attr_updelay.attr,
+  * Show and set the MII monitor interval.  There are two tricky bits
+  * here.  First, if MII monitoring is activated, then we must disable
+@@ -1420,6 +1461,7 @@ static struct attribute *per_bond_attrs[] = {
  	&dev_attr_lacp_rate.attr,
-+	&dev_attr_ad_select.attr,
  	&dev_attr_xmit_hash_policy.attr,
  	&dev_attr_num_grat_arp.attr,
- 	&dev_attr_num_unsol_na.attr,
++	&dev_attr_num_unsol_na.attr,
+ 	&dev_attr_miimon.attr,
+ 	&dev_attr_primary.attr,
+ 	&dev_attr_use_carrier.attr,
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 0491c7c..b5eb8e6 100644
+index ffb668d..0491c7c 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -23,8 +23,8 @@
+@@ -19,16 +19,19 @@
+ #include <linux/proc_fs.h>
+ #include <linux/if_bonding.h>
+ #include <linux/kobject.h>
++#include <linux/in6.h>
  #include "bond_3ad.h"
  #include "bond_alb.h"
  
--#define DRV_VERSION	"3.4.0"
--#define DRV_RELDATE	"October 7, 2008"
-+#define DRV_VERSION	"3.5.0"
-+#define DRV_RELDATE	"November 4, 2008"
+-#define DRV_VERSION	"3.3.0"
+-#define DRV_RELDATE	"June 10, 2008"
++#define DRV_VERSION	"3.4.0"
++#define DRV_RELDATE	"October 7, 2008"
  #define DRV_NAME	"bonding"
  #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
  
-@@ -137,6 +137,7 @@ struct bond_params {
- 	int updelay;
- 	int downdelay;
- 	int lacp_fast;
-+	int ad_select;
- 	char primary[IFNAMSIZ];
- 	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
+ #define BOND_MAX_ARP_TARGETS	16
+ 
++extern struct list_head bond_dev_list;
++
+ #ifdef BONDING_DEBUG
+ #define dprintk(fmt, args...) \
+ 	printk(KERN_DEBUG     \
+@@ -126,6 +129,7 @@ struct bond_params {
+ 	int xmit_policy;
+ 	int miimon;
+ 	int num_grat_arp;
++	int num_unsol_na;
+ 	int arp_interval;
+ 	int arp_validate;
+ 	int use_carrier;
+@@ -148,6 +152,9 @@ struct vlan_entry {
+ 	struct list_head vlan_list;
+ 	__be32 vlan_ip;
+ 	unsigned short vlan_id;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	struct in6_addr vlan_ipv6;
++#endif
  };
+ 
+ struct slave {
+@@ -195,6 +202,7 @@ struct bonding {
+ 	rwlock_t curr_slave_lock;
+ 	s8       kill_timers;
+ 	s8	 send_grat_arp;
++	s8	 send_unsol_na;
+ 	s8	 setup_by_slave;
+ 	struct   net_device_stats stats;
+ #ifdef CONFIG_PROC_FS
+@@ -218,6 +226,9 @@ struct bonding {
+ 	struct   delayed_work arp_work;
+ 	struct   delayed_work alb_work;
+ 	struct   delayed_work ad_work;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	struct   in6_addr master_ipv6;
++#endif
+ };
+ 
+ /**
+@@ -341,5 +352,24 @@ extern struct bond_parm_tbl xmit_hashtype_tbl[];
+ extern struct bond_parm_tbl arp_validate_tbl[];
+ extern struct bond_parm_tbl fail_over_mac_tbl[];
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++void bond_send_unsolicited_na(struct bonding *bond);
++void bond_register_ipv6_notifier(void);
++void bond_unregister_ipv6_notifier(void);
++#else
++static inline void bond_send_unsolicited_na(struct bonding *bond)
++{
++	return;
++}
++static inline void bond_register_ipv6_notifier(void)
++{
++	return;
++}
++static inline void bond_unregister_ipv6_notifier(void)
++{
++	return;
++}
++#endif
++
+ #endif /* _LINUX_BONDING_H */
+ 
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index 11dd013..ce532f2 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -108,6 +108,20 @@ extern void			ndisc_send_redirect(struct sk_buff *skb,
+ 
+ extern int			ndisc_mc_map(struct in6_addr *addr, char *buf, struct net_device *dev, int dir);
+ 
++extern struct sk_buff		*ndisc_build_skb(struct net_device *dev,
++						 const struct in6_addr *daddr,
++						 const struct in6_addr *saddr,
++						 struct icmp6hdr *icmp6h,
++						 const struct in6_addr *target,
++						 int llinfo);
++
++extern void			ndisc_send_skb(struct sk_buff *skb,
++					       struct net_device *dev,
++					       struct neighbour *neigh,
++					       const struct in6_addr *daddr,
++					       const struct in6_addr *saddr,
++					       struct icmp6hdr *icmp6h);
++
+ 
+ 
+ /*
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 2a6752d..fbf451c 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -437,38 +437,20 @@ static void pndisc_destructor(struct pneigh_entry *n)
+ 	ipv6_dev_mc_dec(dev, &maddr);
+ }
+ 
+-/*
+- *	Send a Neighbour Advertisement
+- */
+-static void __ndisc_send(struct net_device *dev,
+-			 struct neighbour *neigh,
+-			 const struct in6_addr *daddr,
+-			 const struct in6_addr *saddr,
+-			 struct icmp6hdr *icmp6h, const struct in6_addr *target,
+-			 int llinfo)
++struct sk_buff *ndisc_build_skb(struct net_device *dev,
++				const struct in6_addr *daddr,
++				const struct in6_addr *saddr,
++				struct icmp6hdr *icmp6h,
++				const struct in6_addr *target,
++				int llinfo)
+ {
+-	struct flowi fl;
+-	struct dst_entry *dst;
+ 	struct net *net = dev_net(dev);
+ 	struct sock *sk = net->ipv6.ndisc_sk;
+ 	struct sk_buff *skb;
+ 	struct icmp6hdr *hdr;
+-	struct inet6_dev *idev;
+ 	int len;
+ 	int err;
+-	u8 *opt, type;
+-
+-	type = icmp6h->icmp6_type;
+-
+-	icmpv6_flow_init(sk, &fl, type, saddr, daddr, dev->ifindex);
+-
+-	dst = icmp6_dst_alloc(dev, neigh, daddr);
+-	if (!dst)
+-		return;
+-
+-	err = xfrm_lookup(&dst, &fl, NULL, 0);
+-	if (err < 0)
+-		return;
++	u8 *opt;
+ 
+ 	if (!dev->addr_len)
+ 		llinfo = 0;
+@@ -485,8 +467,7 @@ static void __ndisc_send(struct net_device *dev,
+ 		ND_PRINTK0(KERN_ERR
+ 			   "ICMPv6 ND: %s() failed to allocate an skb.\n",
+ 			   __func__);
+-		dst_release(dst);
+-		return;
++		return NULL;
+ 	}
+ 
+ 	skb_reserve(skb, LL_RESERVED_SPACE(dev));
+@@ -513,6 +494,42 @@ static void __ndisc_send(struct net_device *dev,
+ 					   csum_partial((__u8 *) hdr,
+ 							len, 0));
+ 
++	return skb;
++}
++
++EXPORT_SYMBOL(ndisc_build_skb);
++
++void ndisc_send_skb(struct sk_buff *skb,
++		    struct net_device *dev,
++		    struct neighbour *neigh,
++		    const struct in6_addr *daddr,
++		    const struct in6_addr *saddr,
++		    struct icmp6hdr *icmp6h)
++{
++	struct flowi fl;
++	struct dst_entry *dst;
++	struct net *net = dev_net(dev);
++	struct sock *sk = net->ipv6.ndisc_sk;
++	struct inet6_dev *idev;
++	int err;
++	u8 type;
++
++	type = icmp6h->icmp6_type;
++
++	icmpv6_flow_init(sk, &fl, type, saddr, daddr, dev->ifindex);
++
++	dst = icmp6_dst_alloc(dev, neigh, daddr);
++	if (!dst) {
++		kfree_skb(skb);
++		return;
++	}
++
++	err = xfrm_lookup(&dst, &fl, NULL, 0);
++	if (err < 0) {
++		kfree_skb(skb);
++		return;
++	}
++
+ 	skb->dst = dst;
+ 
+ 	idev = in6_dev_get(dst->dev);
+@@ -529,6 +546,27 @@ static void __ndisc_send(struct net_device *dev,
+ 		in6_dev_put(idev);
+ }
+ 
++EXPORT_SYMBOL(ndisc_send_skb);
++
++/*
++ *	Send a Neighbour Discover packet
++ */
++static void __ndisc_send(struct net_device *dev,
++			 struct neighbour *neigh,
++			 const struct in6_addr *daddr,
++			 const struct in6_addr *saddr,
++			 struct icmp6hdr *icmp6h, const struct in6_addr *target,
++			 int llinfo)
++{
++	struct sk_buff *skb;
++
++	skb = ndisc_build_skb(dev, daddr, saddr, icmp6h, target, llinfo);
++	if (!skb)
++		return;
++
++	ndisc_send_skb(skb, dev, neigh, daddr, saddr, icmp6h);
++}
++
+ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
+ 			  const struct in6_addr *daddr,
+ 			  const struct in6_addr *solicited_addr,
 -- 
 1.6.0.2
 
