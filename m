@@ -1,32 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] skb_free_datagram() doing something expensive ?
-Date: Wed, 05 Nov 2008 01:38:24 -0800 (PST)
-Message-ID: <20081105.013824.244777692.davem@davemloft.net>
-References: <4910D47E.4030004@cosmosbay.com>
-	<49112984.3000808@cosmosbay.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Fix ESP SA loading (by default)
+Date: Wed, 5 Nov 2008 17:38:47 +0800
+Message-ID: <20081105093847.GA21763@gondor.apana.org.au>
+References: <20081101.213315.01349801.davem@davemloft.net> <20081103001643.GA22217@x200.localdomain> <20081103010431.GA29905@gondor.apana.org.au> <20081105.013148.156667310.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, minyard@acm.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: adobriyan@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36602
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754229AbYKEJit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 04:38:49 -0500
-In-Reply-To: <49112984.3000808@cosmosbay.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:42709 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754356AbYKEJiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 04:38:54 -0500
+Content-Disposition: inline
+In-Reply-To: <20081105.013148.156667310.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 05 Nov 2008 06:05:08 +0100
+On Wed, Nov 05, 2008 at 01:31:48AM -0800, David Miller wrote:
+>
+> As we've discussed several times it's not "passing" errors
+> that sucks, it's the fact that we use the same traditional
+> UNIX error codes for a thousand different errors. :-)
 
-> What we can do is to avoid reclaiming space if forward_alloc is less than a page
-> 
-> We did that in the past, when introducing sk_mem_reclaim_partial() in commit 9993e7d313e80bdc005d09c7def91903e0068f07
-> ([TCP]: Do not purge sk_forward_alloc entirely in tcp_delack_timer())
-> 
-> This patch gives a nice speedup on UDP, particularly for multiple
-> RTP flows, where each flow has a medium trafic (say VOIP trafic)
+Right.
 
-I like it, patch applied, thanks Eric!
+> I really think we should explore the idea where the current
+> process can get tagged with a string when an error is going
+> to be returned.  Something like:
+> 
+> 	const char *error_desc;
+> 
+> in the task_struct.
+
+Yes this will be heaps better than what we have now.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
