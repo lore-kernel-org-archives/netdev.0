@@ -1,30 +1,38 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio_net: don't set NETIF_F_FRAGLIST
-Date: Thu, 6 Nov 2008 08:53:11 +1100
-Message-ID: <200811060853.11566.rusty@rustcorp.com.au>
-References: <> <1225888486-977-1-git-send-email-markmc@redhat.com>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Wed, 5 Nov 2008 23:20:25 +0100 (CET)
+Message-ID: <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mark McLoughlin <markmc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:59504 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752968AbYKEVxM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 16:53:12 -0500
-In-Reply-To: <1225888486-977-1-git-send-email-markmc@redhat.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Linux Netdev <netdev@vger.kernel.org>,
+	Linux Networking <linux-net@vger.kernel.org>
+To: Daniel J Blueman <daniel.blueman@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755973AbYKEWUq@vger.kernel.org>
+In-Reply-To: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 05 November 2008 23:34:46 Mark McLoughlin wrote:
-> We don't handle skb_shared_info->frag_list, so we shouldn't
-> be setting the NETIF_F_FRAGLIST flag.
+On Tue, 4 Nov 2008, Daniel J Blueman wrote:
 
-We don't?
+> Is it time to enable TCP ECN per default and get the benefits, since 
+> router support has been around and known-about for really considerable 
+> time?
 
-skb_to_sgvec() should handle it OK, is there some subtlety I'm missing?
+I think enabling ECN by default is a bad idea.
 
-Rusty.
+Looking at the largest core router vendor out there:
+
+http://www.cisco.com/en/US/docs/ios/12_2t/12_2t8/feature/guide/ftwrdecn.html#wp1031751
+
+ECN has to actually be turned on in the routers along the way, it's not 
+default behaviour. No ISP I know of does this, but I can do a poll of 
+other ISP engineers in case more information is wanted.
+
+So the upside of enabling it is minimal (I'd gladly see data proving the 
+opposite) and the downside is a lot of trouble with lots of older devices 
+which behave badly when ECN is enabled.
+
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
