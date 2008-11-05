@@ -1,59 +1,130 @@
-From: "Pantelis Koukousoulas" <pktoss@gmail.com>
-Subject: [Patch] Fix asix-based gigabit cards connecting to 10 or 100Mbs networks (resend)
-Date: Wed, 5 Nov 2008 05:28:10 +0200
-Message-ID: <1295ed070811041928u30f84f32h910a32d4d19f1cce@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] skb_free_datagram() doing something expensive ?
+Date: Wed, 05 Nov 2008 06:05:08 +0100
+Message-ID: <49112984.3000808@cosmosbay.com>
+References: <4910D47E.4030004@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, dhollis@davehollis.com
+Content-Type: multipart/mixed;
+ boundary="------------040304030707050006090507"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Corey Minyard <minyard@acm.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.233]:35782 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087AbYKED2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2008 22:28:12 -0500
-Received: by qb-out-0506.google.com with SMTP id f11so1633097qba.17
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2008 19:28:11 -0800 (PST)
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([86.65.150.130]:39691 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750701AbYKEFF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 00:05:26 -0500
+In-Reply-To: <4910D47E.4030004@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for the previous mail, I think this will go as plain text now.
+This is a multi-part message in MIME format.
+--------------040304030707050006090507
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-Hi,
-This morning I mentioned a problem with my belkin card not connecting
-to my network.
-The following patch fixes this problem. It would be great to include
-this to 2.6.28.
+Eric Dumazet a =E9crit :
+> Hi all
+>=20
+> I noticed high contention on udp_memory_allocated on a typical VOIP=20
+> application.
+>=20
+> (Now that oprofile correctly runs on my machine :) )
+>=20
+> I can see that skb_free_datagram() is :
+>=20
+> void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
+> {
+>        kfree_skb(skb);
+>        sk_mem_reclaim(sk);
+> }
+>=20
+> So each time an UDP packet is received, we must touch udp_memory_alloca=
+ted
+>=20
+> Each time application reads a packet, we call sk_mem_reclaim() and touc=
+h=20
+> again udp_memory_allocated.
+>=20
+> Surely this cannot be correct ?
+>=20
+> If this is correct, time is to resurrect a patch to make=20
+> proto->memory_allocated a percpu_counter
+> or something to have a percpu reserve of say 64 or 128 pages to avoid=20
+> cache line trashing...
+>=20
+> tcp_memory_allocated do not have this problem, since tcp carefully call=
+s=20
+> sk_mem_reclaim(sk) only on
+> selected paths, not on fast path.
+>=20
+> Thanks
+>=20
+>=20
 
-Thanks,
-Pantelis
+What we can do is to avoid reclaiming space if forward_alloc is less than=
+ a page
 
+We did that in the past, when introducing sk_mem_reclaim_partial() in=20
+commit 9993e7d313e80bdc005d09c7def91903e0068f07
+([TCP]: Do not purge sk_forward_alloc entirely in tcp_delack_timer())
 
-Add AX_MEDIUM_ENCK also when speed = 10/100Mbps. This allows my belkin
-f5d5055 to work with my 100Mbps switch and with an old 10Mbps ISA card.
-Without this patch, the card is recognized and the interface is brought
-up fine, but no packets actually flow through the interface.
+This patch gives a nice speedup on UDP, particularly for multiple
+RTP flows, where each flow has a medium trafic (say VOIP trafic)
 
-Signed-off-by: Pantelis Koukousoulas <pktoss@gmail.com>
-Cc: David Hollis <dhollis@davehollis.com>
+[PATCH] net: sk_free_datagram() should use sk_mem_reclaim_partial()
 
-Index: linux-next/drivers/net/usb/
-asix.c
-===================================================================
---- linux-next.orig/drivers/net/usb/asix.c      2008-11-04
-19:51:06.000000000 +0200
-+++ linux-next/drivers/net/usb/asix.c   2008-11-04 21:32:55.000000000 +0200
-@@ -1102,12 +1102,14 @@
-        mode = AX88178_MEDIUM_DEFAULT;
+I noticed a contention on udp_memory_allocated on regular UDP application=
+s.
 
-        if (ecmd.speed == SPEED_1000)
--               mode |= AX_MEDIUM_GM | AX_MEDIUM_ENCK;
-+               mode |= AX_MEDIUM_GM;
-        else if (ecmd.speed == SPEED_100)
-                mode |= AX_MEDIUM_PS;
-        else
-                mode &= ~(AX_MEDIUM_PS | AX_MEDIUM_GM);
+While tcp_memory_allocated is seldom used, it appears each incoming UDP f=
+rame
+is currently touching udp_memory_allocated when queued, and when received=
+ by
+application.
 
-+       mode |= AX_MEDIUM_ENCK;
-+
-        if (ecmd.duplex == DUPLEX_FULL)
+One possible solution is to use sk_mem_reclaim_partial() instead of
+sk_mem_reclaim(), so that we keep a small reserve (less than one page)
+of memory for each UDP socket.
+
+We did something very similar on TCP side in commit
+9993e7d313e80bdc005d09c7def91903e0068f07
+([TCP]: Do not purge sk_forward_alloc entirely in tcp_delack_timer())
+
+A more complex solution would need to convert prot->memory_allocated to
+use a percpu_counter with batches of 64 or 128 pages.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--------------040304030707050006090507
+Content-Type: text/plain;
+ name="udp_mem_reclaim.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="udp_mem_reclaim.patch"
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ee63184..5e2ac0c 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -209,7 +209,7 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
+ void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
+ {
+ 	kfree_skb(skb);
+-	sk_mem_reclaim(sk);
++	sk_mem_reclaim_partial(sk);
+ }
+ 
+ /**
+@@ -248,8 +248,7 @@ int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags)
+ 		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 	}
+ 
+-	kfree_skb(skb);
+-	sk_mem_reclaim(sk);
++	skb_free_datagram(sk, skb);
+ 	return err;
+ }
+ 
+
+--------------040304030707050006090507--
