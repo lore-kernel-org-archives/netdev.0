@@ -1,72 +1,76 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [RFC v3] net: add PCINet driver
-Date: Wed, 5 Nov 2008 15:17:44 -0800
-Message-ID: <20081105231744.GB17821@ovro.caltech.edu>
-References: <20081105212225.GA17821@ovro.caltech.edu>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 3/3] net: Don't leak packets when a netns is going down
+Date: Wed, 05 Nov 2008 15:27:34 -0800
+Message-ID: <m1skq53g9l.fsf_-_@frodo.ebiederm.org>
+References: <m18wt6v7eb.fsf@frodo.ebiederm.org> <48EB36FC.4000008@fr.ibm.com>
+	<48EB3F72.5090201@openvz.org> <m1d4ic4pbr.fsf@frodo.ebiederm.org>
+	<48ECA8D2.4090406@openvz.org> <m14p2l4v2l.fsf_-_@frodo.ebiederm.org>
+	<m1y6zx3gcs.fsf_-_@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	"Denis V. Lunev" <den@openvz.org>,
+	Pavel Emelyanov <xemul@openvz.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:54944 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608AbYKEXRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:17:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20081105212225.GA17821@ovro.caltech.edu>
+Received: from out02.mta.xmission.com ([166.70.13.232]:57055 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752354AbYKEXfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:35:08 -0500
+In-Reply-To: <m1y6zx3gcs.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
+	message of "Wed, 05 Nov 2008 15:25:39 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 05, 2008 at 01:22:25PM -0800, Ira Snyder wrote:
 
-Despite my best efforts at testing this version, a bug slipped past.
-There is some problem with this driver, nfsroot, and Linux routing. If
-you do not apply the fix below, udp packets sent by the nfsroot code
-have corrupted checksums after they get routed across the network to
-another host.
+I have been tracking for a while a case where when the
+network namespace exits the cleanup gets stck in an
+endless precessess of:
 
-If I boot both hosts to Linux via other means, the driver works fine
-with no issues. It only happens for nfsroot.
+unregister_netdevice: waiting for lo to become free. Usage count = 3
+unregister_netdevice: waiting for lo to become free. Usage count = 3
+unregister_netdevice: waiting for lo to become free. Usage count = 3
+unregister_netdevice: waiting for lo to become free. Usage count = 3
+unregister_netdevice: waiting for lo to become free. Usage count = 3
+unregister_netdevice: waiting for lo to become free. Usage count = 3
+unregister_netdevice: waiting for lo to become free. Usage count = 3
 
-If I run an nfs server on the PCINET_HOST computer, removing the
-routing, it also works fine.
+It turns out that if you listen on a multicast address an unsubscribe
+packet is sent when the network device goes down.   If you shutdown
+the network namespace without carefully cleaning up this can trigger
+the unsubscribe packet to be sent over the loopback interface while
+the network namespace is going down.
 
-Remove the following line from pcinet_host.c and pcinet_fsl.c:
-ndev->features         |= NETIF_F_NO_CSUM; /* No checksum needed */
+All of which is fine except when we drop the packet and forget to
+free it leaking the skb and the dst entry attached to.  As it
+turns out the dst entry hold a reference to the idev which holds
+the dev and keeps everything from being cleaned up.  Yuck!
 
-In case anyone knows offhand what might be causing this, my setup is as
-follows:
+By fixing my earlier thinko and add the needed kfree_skb and everything
+cleans up beautifully. 
 
-   cPCI Crate
-|-------------------------|
-| PCINET_FSL              |
-|-------------------------|
-|          ^ 10.0.0.2     |
-|          |              |
-| PCINet Driver Link here |
-|          |              |
-|          v 10.0.0.1     |
-|-------------------------|
-| PCINET_HOST             |
-|-------------------------|
-           ^ 192.168.17.14
-           |
- Normal ethernet link here
-           |
-           v
-|-------------------------|
-| Ethernet switch         |
-|-------------------------|
-           ^
-           |
- Normal ethernet link here
-           |
-           v 192.168.17.59
-|-------------------------|
-| NFS Server              |
-|-------------------------|
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/core/dev.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 811507c..a0c6060 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2253,8 +2253,10 @@ int netif_receive_skb(struct sk_buff *skb)
+ 	rcu_read_lock();
+ 
+ 	/* Don't receive packets in an exiting network namespace */
+-	if (!net_alive(dev_net(skb->dev)))
++	if (!net_alive(dev_net(skb->dev))) {
++		kfree_skb(skb);
+ 		goto out;
++	}
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (skb->tc_verd & TC_NCLS) {
+-- 
+1.5.6.5
 
-Ira
