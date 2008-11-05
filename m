@@ -1,48 +1,113 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: Fwd: Network Core
-Date: Wed, 5 Nov 2008 19:52:20 +0200
-Message-ID: <200811051952.20745.rdenis@simphalempin.com>
-References: <530d01580811050939q1c1dc52fra6fc2078d86d36e@mail.gmail.com> <530d01580811050940k2010ba3fpd0973f23e390c5e7@mail.gmail.com>
+From: Andre Schwarz <andre.schwarz@matrix-vision.de>
+Subject: Questions on kernel skb send / netdev queue monitoring
+Date: Wed, 05 Nov 2008 18:53:23 +0100
+Message-ID: <2009170231@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Diego ." <eljedi@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:34609 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753339AbYKERwY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 12:52:24 -0500
-In-Reply-To: <530d01580811050940k2010ba3fpd0973f23e390c5e7@mail.gmail.com>
-Content-Disposition: inline
+Received: from fmmailgate04.web.de ([217.72.192.242]:39353 "EHLO
+	fmmailgate04.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753004AbYKERx0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 12:53:26 -0500
+Received: from web.de
+	by fmmailgate04.web.de (Postfix) with SMTP id D4BAF5F3C22D
+	for <netdev@vger.kernel.org>; Wed,  5 Nov 2008 18:53:24 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hello!
+Hi,
 
-Le mercredi 5 novembre 2008 19:40:45 Diego ., vous avez =E9crit=A0:
-> Could you point me to somewhere i can find some info about howto to
-> port/create a network protocol to/on linux? ( i mean, some basic info
-> like the one we can find with the fs layer. I'm not asking about a
-> magic tutorial about how to port my protocol ). Or some basic network
-> layer info.
+we're running 2.6.27 on a MPC8343 based board.
+The board is working as a camera and is supposed to stream image data
+over 1000M Ethernet.
 
-My experience with taking over maintainance of the Nokia Phonet stack i=
-s that=20
-there is no such documentation.
+Ethernet is connected via 2x Vitesse VSC8601 RGMII PHY, i.e. "eth0" and
+"eth1" present.
 
-http://vger.kernel.org/~davem/ contains some basic infos, especially us=
-eful=20
-w.r.t. network buffer management. Other I stick to the Linux Cross Refe=
-rence=20
-at http://lxr.linux.no/ and read the source code. Some of the simpler n=
-etwork=20
-layers (_not_ IPv4 neither IPv6) can be useful as a basic reference (I =
-read=20
-through CAN quite a abut).
+Basically the system is running fine for quite some time - starting wit=
+h
+kernel 2.6.19.
+Lately I have some trouble regarding performance and errors.
 
-Hope this helps,
+Obviously I'm doing something wrong ... hopefully someone can enlighten=
+ me.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+
+How the system works :
+
+- Kernel driver allocates static list of skb to hold a complete image.
+This can be up to 4k skb depending on mtu.
+- Imaging device (FPGA @ PCI) initiates DMA into skb.
+- driver sends the skb out.
+
+
+1. Sending
+
+This is my "inner loop" send function and is called for every skb in th=
+e
+list.
+
+static inline int gevss_send_get_ehdr(TGevStream *gevs, struct sk_buff =
+*skb)
+{
+        int result;
+        struct sk_buff *slow_skb =3D skb_clone(skb, GFP_ATOMIC);
+
+        atomic_inc(&slow_skb->users);
+        result =3D gevs->rt->u.dst.output(slow_skb);
+        kfree_skb(slow_skb);
+
+        return result;
+}
+
+Is there really any need for cloning each skb before sending ?
+I'd really like to send the static skb without consuming it. How can
+this be done ?
+
+Is "gevs->rt->u.dst.output(slow_skb)" reasonable ?
+What about "hard_start_xmit" and/or "dev_queue_xmit" inside netdev ?
+Are these functions supposed to be used by other drivers ?
+
+What result can I expect if there's a failure, i.e. the HW-queue is ful=
+l ?
+How should this be handled ? retry,i.e. send again after a while ?
+Can I query the xmit queue size/usage ?
+
+Actually I'm checking for NETDEV_TX_OK and NETDEV_TX_BUSY.
+Is this reasonable ?
+
+
+2. "overruns"
+
+I've never seen that before. The overrun counter is incrementing quite
+fast even during proper operation.
+Looks like this is also an issue with not throttling the sender when th=
+e
+xmit queue is full ...  :-(=20
+How can I avoid this ?
+
+eth0      Link encap:Ethernet  HWaddr 00:0C:8D:30:40:25
+          inet addr:192.168.65.55  Bcast:192.168.65.255  Mask:255.255.2=
+55.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:929 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:180937 errors:0 dropped:0 overruns:54002 carrier:0=
+  =20
+          collisions:0 txqueuelen:1000
+          RX bytes:65212 (63.6 KiB)  TX bytes:262068658 (249.9 MiB)
+          Base address:0xa000
+
+
+
+
+Any help is welcome.
+
+regards,
+Andre
+
+____________________________________________________________________
+Psssst! Schon vom neuen WEB.DE MultiMessenger geh=F6rt?=20
+Der kann`s mit allen: http://www.produkte.web.de/messenger/?did=3D3123
+
