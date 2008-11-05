@@ -1,182 +1,120 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [PATCH RFC v2] net: add PCINet driver
-Date: Wed, 5 Nov 2008 11:32:50 -0800
-Message-ID: <20081105193250.GC31188@ovro.caltech.edu>
-References: <20081029202027.GH12879@ovro.caltech.edu> <200811042123.03819.arnd@arndb.de> <20081104212528.GD4641@ovro.caltech.edu> <200811051451.00065.arnd@arndb.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: tbench wrt. loopback TSO
+Date: Wed, 5 Nov 2008 21:46:03 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811052108250.9159@wrl-59.cs.helsinki.fi>
+References: <20081105114900.GA18691@ioremap.net> <20081105.035454.87914782.davem@davemloft.net>
+ <Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>
+ <20081105.040943.03609283.davem@davemloft.net>
+ <Pine.LNX.4.64.0811051414250.23792@wrl-59.cs.helsinki.fi>
+ <20081105130405.GA26435@ioremap.net> <Pine.LNX.4.64.0811051527210.23792@wrl-59.cs.helsinki.fi>
+ <4911EA97.8080101@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-427629296-1225914363=:9159"
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, efault@gmx.de, mingo@elte.hu,
+	a.p.zijlstra@chello.nl, Herbert Xu <herbert@gondor.apana.org.au>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:41248 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754752AbYKETcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 14:32:52 -0500
-Content-Disposition: inline
-In-Reply-To: <200811051451.00065.arnd@arndb.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42407 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbYKETqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 14:46:07 -0500
+In-Reply-To: <4911EA97.8080101@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 05, 2008 at 02:50:59PM +0100, Arnd Bergmann wrote:
-> On Tuesday 04 November 2008, Ira Snyder wrote:
-> > On Tue, Nov 04, 2008 at 09:23:03PM +0100, Arnd Bergmann wrote:
-> > > On Tuesday 04 November 2008, Ira Snyder wrote:
-> > > > I don't really know how to do that. I got a warning here from sparse
-> > > > telling me something about expensive pointer subtraction. Adding a dummy
-> > > > 32bit padding variable got rid of the warning, but I didn't change the
-> > > > driver.
-> > > 
-> > > Ok, I see. However, adding the packed attribute makes it more expensive
-> > > to use.
-> > > 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-427629296-1225914363=:9159
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Wed, 5 Nov 2008, Rick Jones wrote:
+
+> Ilpo Järvinen wrote:
+> > On Wed, 5 Nov 2008, Evgeniy Polyakov wrote:
 > > 
-> > Ok. Is there any way to make sure that the structure compiles to the
-> > same representation on the host and agent system without using packed?
-> 
-> Only knowledge about the alignment on all the possible architectures ;-)
-> As a simplified rule, always pad every struct member to the largest
-> other member in the struct and always use explicitly sized types like
-> __u8 or __le32.
->  
-
-Ok, I tried using:
-struct circ_buf_desc {
-	__le32 sc;
-	__le32 len;
-	__le32 addr;
-	__le32 padding;
-};
-
-The structure came out the same size on both x86 and powerpc, and the
-driver still works. I'll put this change in the driver.
-
-> > Hopefully that's a good description. :) It seems to me that both sides
-> > of the connection need to read the descriptors (to get packet length,
-> > clean up dirty packets, etc.) and write them (to set packet length, mark
-> > packets dirty, etc.) I just can't come up with something that is
-> > local-read / remote-write only.
-> 
-> If I understand your description correctly, the only remote read is
-> when the host accesses the buffer descriptors to find free space.
-> Avoiding this read access may improve the latency a bit. In our ring
-> buffer concept, both host and endpoint allocate a memory buffer that
-> gets ioremapped into the remote side. Since you always need to read
-> the descriptors from powerpc, you should probably keep them in powerpc
-> memory, but you can change the code so that for finding the next
-> free entry, the host will look in its own memory for the number of the
-> next entry, and the powerpc side will write that when it consumes a
-> descriptor to mark it as free.
-> 
-
-There are a few remote reads (from the host).
-
-1) in hard_start_xmit() to make sure the queue is stopped
-2) in wqt_tx_complete() to find the buffer descriptors that have been
-   consumed
-3) in wqt_rx_napi() to find the buffer descriptors that have been
-   dirtied
-4) in wqt_rx_napi() to get the actual packet length of a dirty buffer
-
-I /could/ come up with a scheme to use only writes, but it seems much
-too complicated for a little performance.
-
-I'll keep it in mind, and change it during performance tuning (if
-needed).
-
-> > > Which side allocates them anyway? Since you use ioread32/iowrite32
-> > > on the ppc side, it looks like they are on the PCI host, which does
-> > > not seem to make much sense, because the ppc memory is much closer
-> > > to the DMA engine?
-> > > 
 > > 
-> > The PowerPC allocates them. They are accessible via PCI BAR1. They live
-> > in regular RAM on the PowerPC. I can't remember why I used
-> > ioread32/iowrite32 anymore. I'll try again with in_le32()/out_le32() on
-> > the PowerPC system, and see what happens.
-> 
-> Actually, if they are in powerpc RAM, you must not neither in_le32 nor
-> ioread32. Both are only well-defined on I/O devices (local bus or PCI,
-> respectively). Instead, you should use directly access the buffer using
-> pointer dereferences, and use rmb()/wmb() to make sure anything you
-> access is synchronized with the host.
-> 
-
-I've changed it to just do pointer dereferences, and it works just fine.
-I added appropriate wmb() (I think...)
-
-> > > Obviously, you want the DMA engine to do the data transfers, but here, you
-> > > use ioread32 for mmio transfers to the descriptors, which is slow.
-> > > 
+> > >On Wed, Nov 05, 2008 at 02:25:57PM +0200, Ilpo Järvinen
+> > >(ilpo.jarvinen@helsinki.fi) wrote:
+> > >
+> > > >The problem is that we'd need to _resegment with the next skb_ since the
+> > > >mss boundary and skb boundary would basically constantly be running
+> > > >out-of-sync. That won't get done currently by anything.
+> > >
+> > >Btw, what's that wrong if there will be sub-mss frame per tso frame?
 > > 
-> > I didn't know it was slow :) Maybe this is why I had to make the MTU
-> > very large to get good speed. Using a standard 1500 byte MTU I get
-> > <10 MB/sec transfer speed. Using a 64K MTU, I get ~45MB/sec transfer
-> > speed.
 > > 
-> > Do I need to do any sort of flushing to make sure that the read has
-> > actually gone out of cache and into memory? When the host accesses the
-> > buffer descriptors over PCI, it can only view memory. If a write is
-> > still in the PowerPC cache, the host will get stale data.
+> > I personally don't consider that to be a big deal... I suppose some see
+> > it as bad thing because of the slightly larger header vs data ratio...
+> > Which is significant only if you can saturate the link (or have unbounded
+> > bandwidth such as with lo), so slower links are more affected than high
+> > speed ones...
 > 
-> The access over the bus is cache-coherent, unless you are on one of the
-> more obscure powerpc implementations. This means you do not have a
-> problem with data still being in cache. However, you need to make
-> sure that data arrives in the right order. DMA read accesses over PCI
-> may be reordered, and you need a wmb() between two memory stores if you
-> want to be sure that the host sees them in the correct order.
+> Can't say that I tend to "like" subMSS segments out there in a bulk 
+> transfer but some pseudorandom thoughts:
 > 
+> And the worst that would be would be one full MSS and a single byte, getting
+> us an average of (MSS+1)/2 (roughly).  It only gets better from there
+> (2MSS+1)/3, (3MSS+1)/4 etc etc.
 
-Ok.
+...Note that likelyhood of such 1 byte pathological case are not that high 
+if one is sending pages... For malicious purposes one could always use 
+TCP_NODELAY anyway to force similar small segments so it's hardly worth 
+considering here.
 
-> > > > Yep, I tried to do this. I couldn't figure out a sane ordering that
-> > > > would work. I tried to keep the network and uart as seperate as possible
-> > > > in the code.
-> > > 
-> > > I'd suggest splitting the uart code into a separate driver then.
-> > > 
-> > 
-> > How? In Linux we can only have one driver for a certain set of hardware.
-> > I use the messaging unit to do both network (interrupts and status bits)
-> > and uart (interrupts and message transfer).
-> > 
-> > Both the network and uart _must_ run at the same time. This way I can
-> > type into the bootloader prompt to start a network transfer, and watch
-> > it complete.
-> > 
-> > Remember, I can't have a real serial console plugged into this board.
-> > I'll be using this with about 150 boards in 8 separate chassis, which
-> > makes cabling a nightmare. I'm trying to do as much as possible with the
-> > PCI backplane.
->  
-> When splitting out the hardware specific parts, I would write a device
-> driver for the messaging unit that knows about neither the uart nor the
-> network (or any other high-level protocol). It's a bit more complicated to
-> load the two high-level drivers in that case, but one clean way to do
-> it would be to instantiate a new bus-type from the MU driver and have
-> that driver register devices for itself. Then you can load the high-level
-> driver through udev or have them built into the kernel.
-> 
-> To get really fancy, you could find a way for the host to announce what
-> protocols are supported on though the MU. A use case for that, which I
-> have been thinking about before, would be to allow the host to set up
-> direct virtual point-to-point networks between two endpoints, not involving
-> the host at all once the device is up.
-> 
+For the most sensible cases with full pages, resulting segs are (1460,1448 
+mss):
 
-This is getting pretty complicated, especially for someone just getting
-started writing drivers. :)
+1 2.80548 2.82873
+2 5.61096 5.65746
+3 8.41644 8.48619
+4 11.2219 11.3149
+5 14.0274 14.1436
+6 16.8329 16.9724
+7 19.6384 19.8011
+8 22.4438 22.6298
+9 25.2493 25.4586
+10 28.0548 28.2873
+11 30.8603 31.116
+12 33.6658 33.9448
+13 36.4712 36.7735
+14 39.2767 39.6022
+15 42.0822 42.4309
+16 44.8877 45.2597
 
-It seems like you'd need a set of functions to access specific
-interrupts / message boxes, maybe something like the gpio interface
-(where each gpio pin has an integer number).
+The worst case seems to be 5 pages with 1460 which yields to 40 bytes 
+payload.
 
-Both sides have to agree on what each interrupt means, and which mailbox
-data transfer happens in. So each driver would still be pretty closely
-tied to the hardware.
+> Ignoring the TSO case for a moment, if there is congestion and receiver 
+> window available and a user makes a > MSS send that isn't an integral 
+> multiple of the MSS, we don't delay the last subMSS segment do we?
 
-It seems like too much for someone like me to design. I'll leave it up
-to the pro's.
+Without TSO, only Nagle could prevent sending that submss portion, so the 
+answer depends on what the window in-flight consists of.
 
-Ira
+With TSO, I guess this falls under tcp_tso_should_defer first...
+
+And then, as far as the mss-splitter (that was quoted in this thread by 
+DaveM) we send just the full segment if there's enough room in the 
+receiver window and let the tso/gso handle splitting of that submss 
+segment if necessary... ...Except for that last segment which is important 
+for keeping track of nagle and we currently don't handle nagle correctly 
+if the segment in question would have len > mss (as noted earlier this 
+could be changed though after auditting those len < mss checks). So it 
+will basically be the same as without tso (depends on in-flight win).
+
+We _won't do_ nagle for the intermediate submss segments (it is a design 
+decision which predates times I've been tracking kernel development), for 
+obvious reasons it could just be enabled for them currently because then 
+nagle would basically stall the transfer eg. when opposite dir needs to 
+change mss due to reporting sack blocks. In general those middle submss 
+skbs only occur if mss changes as they're split currently based on mss 
+already at write time.
+
+
+-- 
+ i.
+---696208474-427629296-1225914363=:9159--
