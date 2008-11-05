@@ -1,47 +1,35 @@
-From: "Lovich, Vitali" <vlovich@qualcomm.com>
-Subject: RE: Fwd: Network Core
-Date: Wed, 5 Nov 2008 12:46:30 -0800
-Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F08@NASANEXMB10.na.qualcomm.com>
-References: <530d01580811050939q1c1dc52fra6fc2078d86d36e@mail.gmail.com>
- <530d01580811050940k2010ba3fpd0973f23e390c5e7@mail.gmail.com>
- <4911FDFF.2060302@redhat.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: tbench wrt. loopback TSO
+Date: Wed, 05 Nov 2008 13:06:45 -0800
+Message-ID: <49120AE5.302@hp.com>
+References: <20081105114900.GA18691@ioremap.net>	<20081105.035454.87914782.davem@davemloft.net>	<Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>	<20081105.040943.03609283.davem@davemloft.net>	<Pine.LNX.4.64.0811051414250.23792@wrl-59.cs.helsinki.fi>	<20081105130405.GA26435@ioremap.net>	<Pine.LNX.4.64.0811051527210.23792@wrl-59.cs.helsinki.fi>	<4911EA97.8080101@hp.com> <Pine.LNX.4.64.0811052108250.9159@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chris Snook <csnook@redhat.com>, "Diego ." <eljedi@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, efault@gmx.de, mingo@elte.hu,
+	a.p.zijlstra@chello.nl, Herbert Xu <herbert@gondor.apana.org.au>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:22352 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755115AbYKEUqe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 15:46:34 -0500
-In-Reply-To: <4911FDFF.2060302@redhat.com>
-Content-Language: en-US
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:5447 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbYKEVG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 16:06:57 -0500
+In-Reply-To: <Pine.LNX.4.64.0811052108250.9159@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Chris Snook
-> Sent: November-05-08 12:12 PM
-> To: Diego .
-> Cc: netdev@vger.kernel.org
-> Subject: Re: Fwd: Network Core
+>>Ignoring the TSO case for a moment, if there is congestion and receiver 
+>>window available and a user makes a > MSS send that isn't an integral 
+>>multiple of the MSS, we don't delay the last subMSS segment do we?
 > 
-> Diego . wrote:
-> There are a few O'Reilly books about the kernel networking stack, and
-> anything
-> written in the past few years should be recent enough for your
-> purposes.  It
-> would probably also be helpful to read articles (such as those on
-> lwn.net) about
-> new network stack features that have been added.  The commentary there
-> will give
-> you a general idea of the challenges you'll face, but you'll need to
-> complement
-> that with experience working with the network code.
 > 
-> -- Chris
-Another idea, at least perhaps from a starting point is to determine whether or not it actually needs to be in user space.  With the addition of the tx ring buffer to af_packet, it should be possible to experiment with your network stack in user space.  Once you're comfortable and feel confident with the stack itself, you can port it to kernel space eventually if you want to.
+> Without TSO, only Nagle could prevent sending that submss portion, so the 
+> answer depends on what the window in-flight consists of.
+
+I always thought that Nagle was supposed to be implemented as if it was 
+on a user send() by user send() basis and not segment by segment, in 
+which case no send() > MSS would be delayed by Nagle.
+
+rick jones
