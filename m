@@ -1,52 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: David Miller <davem@davemloft.net>
 Subject: Re: tbench wrt. loopback TSO
-Date: Wed, 5 Nov 2008 14:04:14 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>
-References: <20081027.113904.211811887.davem@davemloft.net>
- <20081105.034224.167388197.davem@davemloft.net> <20081105114900.GA18691@ioremap.net>
- <20081105.035454.87914782.davem@davemloft.net>
+Date: Wed, 05 Nov 2008 04:09:43 -0800 (PST)
+Message-ID: <20081105.040943.03609283.davem@davemloft.net>
+References: <20081105114900.GA18691@ioremap.net>
+	<20081105.035454.87914782.davem@davemloft.net>
+	<Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, Netdev <netdev@vger.kernel.org>, efault@gmx.de,
-	mingo@elte.hu, a.p.zijlstra@chello.nl,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zbr@ioremap.net, netdev@vger.kernel.org, efault@gmx.de,
+	mingo@elte.hu, a.p.zijlstra@chello.nl, herbert@gondor.apana.org.au
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:50717 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755465AbYKEMEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 07:04:16 -0500
-In-Reply-To: <20081105.035454.87914782.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33518
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751639AbYKEMKI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2008 07:10:08 -0500
+In-Reply-To: <Pine.LNX.4.64.0811051355550.23792@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 5 Nov 2008, David Miller wrote:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 5 Nov 2008 14:04:14 +0200 (EET)
 
-> From: Evgeniy Polyakov <zbr@ioremap.net>
-> Date: Wed, 5 Nov 2008 14:49:00 +0300
-> 
-> > But what if we just remove that trimming at all? This may result in
-> > a not fully filled tso frame, but who cares if we copy data from
-> > userspace anyway, will add another potentially small copy at sending
-> > time?
-> 
-> Ok, the only part I care about is whether taking away this modulus
-> will result in a sub-MSS sized packet on the wire, which is
-> undesirable.
->
-> The send logic will prevent this, right?
+> On Wed, 5 Nov 2008, David Miller wrote:
+>=20
+> > From: Evgeniy Polyakov <zbr@ioremap.net>
+> > Date: Wed, 5 Nov 2008 14:49:00 +0300
+> >=20
+> > > But what if we just remove that trimming at all? This may result =
+in
+> > > a not fully filled tso frame, but who cares if we copy data from
+> > > userspace anyway, will add another potentially small copy at send=
+ing
+> > > time?
+> >=20
+> > Ok, the only part I care about is whether taking away this modulus
+> > will result in a sub-MSS sized packet on the wire, which is
+> > undesirable.
+> >
+> > The send logic will prevent this, right?
+>=20
+> I don't see what currently would do that. We'd need to resegment skbs=
+=20
+> there then...
 
-I don't see what currently would do that. We'd need to resegment skbs 
-there then...
+Look at tcp_mss_split_point() in tcp_output.c
 
-> If so, yes I agree, we can delete this.
+I think it ends up doing exactly this.
 
-Would we have something similar to those blobs we discussed when talking 
-about sack data structures it might be provided by machinery we need 
-anyway but currently it gets quite non-trivial since in order to fill a 
-segment we need to input from two skb's which probably requires making 
-another skb or the stack downstream cannot cope afaik.
+'needed' is set to min(skb->len, window)
 
--- 
- i.
+and the return value is "needed - (needed % mss_now)"
+
+The caller splits up the TSO segment as needed to satisfy this
+returned limit.
+
+That should effectively chop off the sub-mss part.
