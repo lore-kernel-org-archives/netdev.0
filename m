@@ -1,38 +1,59 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: time for TCP ECN defaulting to on?
-Date: Wed, 5 Nov 2008 23:20:25 +0100 (CET)
-Message-ID: <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
-References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+From: "Diego ." <eljedi@gmail.com>
+Subject: Re: Fwd: Network Core
+Date: Thu, 6 Nov 2008 00:03:48 +0100
+Message-ID: <530d01580811051503t74edc554g384373256f67c91@mail.gmail.com>
+References: <530d01580811050939q1c1dc52fra6fc2078d86d36e@mail.gmail.com>
+	 <530d01580811050940k2010ba3fpd0973f23e390c5e7@mail.gmail.com>
+	 <4911FDFF.2060302@redhat.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F08@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev <netdev@vger.kernel.org>,
-	Linux Networking <linux-net@vger.kernel.org>
-To: Daniel J Blueman <daniel.blueman@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755973AbYKEWUq@vger.kernel.org>
-In-Reply-To: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Chris Snook" <csnook@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.28]:5944 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752204AbYKEXJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 18:09:29 -0500
+Received: by yw-out-2324.google.com with SMTP id 9so143499ywe.1
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2008 15:09:28 -0800 (PST)
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F08@NASANEXMB10.na.qualcomm.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 Nov 2008, Daniel J Blueman wrote:
+wow men!
 
-> Is it time to enable TCP ECN per default and get the benefits, since 
-> router support has been around and known-about for really considerable 
-> time?
+thank all of you for the answears. Very usefull information..
 
-I think enabling ECN by default is a bad idea.
+thanks once again!!
 
-Looking at the largest core router vendor out there:
-
-http://www.cisco.com/en/US/docs/ios/12_2t/12_2t8/feature/guide/ftwrdecn.html#wp1031751
-
-ECN has to actually be turned on in the routers along the way, it's not 
-default behaviour. No ISP I know of does this, but I can do a poll of 
-other ISP engineers in case more information is wanted.
-
-So the upside of enabling it is minimal (I'd gladly see data proving the 
-opposite) and the downside is a lot of trouble with lots of older devices 
-which behave badly when ECN is enabled.
-
--- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
+On Wed, Nov 5, 2008 at 9:46 PM, Lovich, Vitali <vlovich@qualcomm.com> wrote:
+>
+>
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>> owner@vger.kernel.org] On Behalf Of Chris Snook
+>> Sent: November-05-08 12:12 PM
+>> To: Diego .
+>> Cc: netdev@vger.kernel.org
+>> Subject: Re: Fwd: Network Core
+>>
+>> Diego . wrote:
+>> There are a few O'Reilly books about the kernel networking stack, and
+>> anything
+>> written in the past few years should be recent enough for your
+>> purposes.  It
+>> would probably also be helpful to read articles (such as those on
+>> lwn.net) about
+>> new network stack features that have been added.  The commentary there
+>> will give
+>> you a general idea of the challenges you'll face, but you'll need to
+>> complement
+>> that with experience working with the network code.
+>>
+>> -- Chris
+> Another idea, at least perhaps from a starting point is to determine whether or not it actually needs to be in user space.  With the addition of the tx ring buffer to af_packet, it should be possible to experiment with your network stack in user space.  Once you're comfortable and feel confident with the stack itself, you can port it to kernel space eventually if you want to.
+>
