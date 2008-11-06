@@ -1,73 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 6/7] drivers/net/sfc/falcon.c: fix min() warnings
-Date: Thu, 06 Nov 2008 00:39:12 -0500
-Message-ID: <49128300.1000602@garzik.org>
-References: <200810292122.m9TLMHts020208@imap1.linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	jgarzik@redhat.com
-To: akpm@linux-foundation.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: net-next-2.6 [PATCH 0/4] dccp: Feature negotiation - conclusion of Part I (basis)
+Date: Thu,  6 Nov 2008 06:40:10 +0100
+Message-ID: <1225950014-6337-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <20081104.235652.27274000.davem@davemloft.net>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39867 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899AbYKFFjR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2008 00:39:17 -0500
-In-Reply-To: <200810292122.m9TLMHts020208@imap1.linux-foundation.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47223 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750703AbYKFFk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 00:40:27 -0500
+In-Reply-To: <20081104.235652.27274000.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
-> 
-> drivers/net/sfc/falcon.c: In function 'falcon_spi_write_limit':
-> drivers/net/sfc/falcon.c:1679: warning: comparison of distinct pointer types lacks a cast
-> drivers/net/sfc/falcon.c: In function 'falcon_spi_read':
-> drivers/net/sfc/falcon.c:1720: warning: comparison of distinct pointer types lacks a cast
-> 
-> Driver seems rather confused about types.  Try to help it.
-> 
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
-> Cc: Jeff Garzik <jgarzik@redhat.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/sfc/falcon.c |    9 ++++-----
->  1 file changed, 4 insertions(+), 5 deletions(-)
-> 
-> diff -puN drivers/net/sfc/falcon.c~drivers-net-sfc-falconc-fix-min-warnings drivers/net/sfc/falcon.c
-> --- a/drivers/net/sfc/falcon.c~drivers-net-sfc-falconc-fix-min-warnings
-> +++ a/drivers/net/sfc/falcon.c
-> @@ -1685,8 +1685,8 @@ static int falcon_spi_cmd(const struct e
->  	return 0;
->  }
->  
-> -static unsigned int
-> -falcon_spi_write_limit(const struct efx_spi_device *spi, unsigned int start)
-> +static size_t
-> +falcon_spi_write_limit(const struct efx_spi_device *spi, size_t start)
->  {
->  	return min(FALCON_SPI_MAX_LEN,
->  		   (spi->block_size - (start & (spi->block_size - 1))));
-> @@ -1729,8 +1729,7 @@ int falcon_spi_read(const struct efx_spi
->  	int rc = 0;
->  
->  	while (pos < len) {
-> -		block_len = min((unsigned int)len - pos,
-> -				FALCON_SPI_MAX_LEN);
-> +		block_len = min(len - pos, FALCON_SPI_MAX_LEN);
->  
->  		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
->  		rc = falcon_spi_cmd(spi, command, start + pos, NULL,
-> @@ -1764,7 +1763,7 @@ int falcon_spi_write(const struct efx_sp
->  		if (rc)
->  			break;
->  
-> -		block_len = min((unsigned int)len - pos,
-> +		block_len = min(len - pos,
->  				falcon_spi_write_limit(spi, start + pos));
+Hi Dave,
 
-I would prefer min_t()...
+please find via the following 4 emails the remaining patches for
+the first set part of the feature-negotiation patch set.
+
+I have checked each individually to compile cleanly.
+
+Best regards
+Gerrit
 
 
+Commit summary
+--------------
+The set concludes the first set of the feature negotiation patches to provide
+a self-contained feature negotiation API for the DCCP protocol (RFC 4340-2).
+
+The whole set is structured into 3 main blocks - (1) basis, (2) core,
+(3) integration and cleanup.
+
+Within these blocks, this is the second set and its purpose is to conclude
+the base implementation, preparing for the (15) core patches in the second set.
+
+
+List of patches in this set:
+----------------------------
+Patch #1: Changes the existing policy to allow anytime changes as that lead
+          to unpredictable results.
+Patch #2: Adds registration routines. These form part of the user interface
+          and are later used by the socket API to set individual preferences.
+Patch #3: CCIDs are a negotiable feature. This patch adds support to query the
+          supported CCIDs, so as to advertise only the locally supported ones.
+Patch #4: The choice of CCID in turn creates new feature dependencies. The patch
+          adds automatic tracking of such dependencies to avoid later failure.
+
+The set is also available for viewing online, beginning at
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=822761d3e69a1f7f8b994d1d7efd7771351e0195
+
+
+Patch stats:
+------------
+ Documentation/networking/dccp.txt |    4 
+ include/linux/dccp.h              |    1 
+ net/dccp/ccid.c                   |   48 +++++
+ net/dccp/ccid.h                   |    5 
+ net/dccp/ccids/ccid2.c            |    6 
+ net/dccp/dccp.h                   |    1 
+ net/dccp/feat.c                   |  306 +++++++++++++++++++++++++++++++++-----
+ net/dccp/feat.h                   |   25 ++-
+ net/dccp/options.c                |   18 --
+ net/dccp/output.c                 |    4 
+ net/dccp/proto.c                  |    7 
+ net/dccp/timer.c                  |   12 -
+ 12 files changed, 368 insertions(+), 69 deletions(-)
