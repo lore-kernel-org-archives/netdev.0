@@ -1,33 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pkt_sched: Fix qdisc len in
- qdisc_peek_dequeued()
-Date: Wed, 05 Nov 2008 16:02:48 -0800 (PST)
-Message-ID: <20081105.160248.213863856.davem@davemloft.net>
-References: <20081105134454.GA9376@ff.dom.local>
+From: Andrea Bittau <a.bittau@cs.ucl.ac.uk>
+Subject: UNIX sockets kernel panic
+Date: Thu, 6 Nov 2008 00:14:46 +0000
+Message-ID: <20081106001445.GA5595@shorty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: a.bittau@cs.ucl.ac.uk
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57944
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752890AbYKFADN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 19:03:13 -0500
-In-Reply-To: <20081105134454.GA9376@ff.dom.local>
+Received: from ey-out-2122.google.com ([74.125.78.25]:14142 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752140AbYKFANq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 19:13:46 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so137486eyi.37
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2008 16:13:45 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 5 Nov 2008 13:44:54 +0000
+The following code causes a kernel panic on Linux 2.6.26:
+http://darkircop.org/unix.c
 
-> pkt_sched: Fix qdisc len in qdisc_peek_dequeued()
-> 
-> A packet dequeued and stored as gso_skb in qdisc_peek_dequeued() should
-> be seen as part of the queue for sch->q.qlen queries until it's really
-> dequeued with qdisc_dequeue_peeked(), so qlen needs additional updating
-> in these functions. (Updating qstats.backlog shouldn't matter here.)
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+I haven't investigated the bug so I'm not sure what is causing it, and
+don't know if it's exploitable.  The code passes unix sockets from one
+process to another using unix sockets.  The bug probably has to do with
+closing file descriptors.
 
-Applied, thanks Jarek.
+[I'm not subscribed to the list so please CC me if you answer.]
