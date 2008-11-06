@@ -1,107 +1,38 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 2.6.28] RDMA/cxgb3: deadlock in iw_cxgb3 can cause hang
- when configuring interface.
-Date: Thu, 06 Nov 2008 15:27:21 -0800
-Message-ID: <49137D59.9070306@chelsio.com>
-References: <20081106230642.28808.66765.stgit@dell3.ogc.int>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH 2/3] net: Guaranetee the proper ordering of the
+ loopback device.
+Date: Thu, 06 Nov 2008 13:20:25 -0800 (PST)
+Message-ID: <20081106.132025.228084154.davem@redhat.com>
+References: <m1y6zx3gcs.fsf_-_@frodo.ebiederm.org>
+	<20081105.160047.174722021.davem@davemloft.net>
+	<m14p2l0zyu.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, jeff@garzik.org, wenxiong@us.ibm.com,
-	general@lists.openfabrics.org, netdev@vger.kernel.org
-To: Steve Wise <swise@opengridcomputing.com>
+Cc: dlezcano@fr.ibm.com, containers@lists.osdl.org, den@openvz.org,
+	xemul@openvz.org, netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:22800 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751828AbYKFX15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 18:27:57 -0500
-In-Reply-To: <20081106230642.28808.66765.stgit@dell3.ogc.int>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42602
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751391AbYKFXqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 18:46:52 -0500
+In-Reply-To: <m14p2l0zyu.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steve Wise wrote:
-> From: Steve Wise <swise@opengridcomputing.com>
->
-> When the iw_cxgb3 module's cxgb3_client "add" func gets called by the
-> cxgb3 module, the iwarp driver ends up calling the ethtool ops get_drvinfo
-> function in cxgb3 to get the fw version and other info.  Currently the
-> iwarp driver grabs the rtnl lock around this down call to serialize.
-> As of 2.6.27 or so, things changed such that the rtnl lock is held around
-> the call to the netdev driver open function.  Also the cxgb3_client "add"
-> function doesn't get called if the device is down.  
->
-> So, if you load cxgb3, then load iw_cxgb3, then ifconfig up the device,
-> the iw_cxgb3 add func gets called with the rtnl_lock held.   If you
-> load cxgb3, ifconfig up the device, then load iw_cxgb3, the add func
-> gets called without the rtnl_lock held.  The former causes the deadlock,
-> the latter does not.
->
-> In addition, there are iw_cxgb3 sysfs handlers that also can call
-> down into cxgb3 to gather the fw and hw versions.  These can be called
-> concurrently on different processors and at any time.  Thus we need to
-> push this serialization down in the cxgb3 driver get_drvinfo func.
->
-> The fix is to remove rtnl lock usage, and use a per-device lock in cxgb3.
->
-> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
->   
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 06 Nov 2008 05:02:33 -0800
 
-Acked-by: Divy Le Ray <divy@chelsio.com>
+> 
+> Dave can you please drop this one for the moment.
+> 
+> I cleaned up my patch after the basic testing was over and the
+> result is a kernel that won't boot.  So if we can prevent this
+> patch from spreading and breaking a git-bisect that would be great.
+> 
+> I will follow up in a moment with a properly tested version.
+> My apologies.
 
-> ---
->
->  drivers/infiniband/hw/cxgb3/iwch_provider.c |    6 ------
->  drivers/net/cxgb3/cxgb3_main.c              |    2 ++
->  2 files changed, 2 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-> index ecff980..160ef48 100644
-> --- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-> +++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-> @@ -1102,9 +1102,7 @@ static u64 fw_vers_string_to_u64(struct iwch_dev *iwch_dev)
->  	char *cp, *next;
->  	unsigned fw_maj, fw_min, fw_mic;
->  
-> -	rtnl_lock();
->  	lldev->ethtool_ops->get_drvinfo(lldev, &info);
-> -	rtnl_unlock();
->  
->  	next = info.fw_version + 1;
->  	cp = strsep(&next, ".");
-> @@ -1192,9 +1190,7 @@ static ssize_t show_fw_ver(struct device *dev, struct device_attribute *attr, ch
->  	struct net_device *lldev = iwch_dev->rdev.t3cdev_p->lldev;
->  
->  	PDBG("%s dev 0x%p\n", __func__, dev);
-> -	rtnl_lock();
->  	lldev->ethtool_ops->get_drvinfo(lldev, &info);
-> -	rtnl_unlock();
->  	return sprintf(buf, "%s\n", info.fw_version);
->  }
->  
-> @@ -1207,9 +1203,7 @@ static ssize_t show_hca(struct device *dev, struct device_attribute *attr,
->  	struct net_device *lldev = iwch_dev->rdev.t3cdev_p->lldev;
->  
->  	PDBG("%s dev 0x%p\n", __func__, dev);
-> -	rtnl_lock();
->  	lldev->ethtool_ops->get_drvinfo(lldev, &info);
-> -	rtnl_unlock();
->  	return sprintf(buf, "%s\n", info.driver);
->  }
->  
-> diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-> index 1ace41a..5e663cc 100644
-> --- a/drivers/net/cxgb3/cxgb3_main.c
-> +++ b/drivers/net/cxgb3/cxgb3_main.c
-> @@ -1307,8 +1307,10 @@ static void get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
->  	u32 fw_vers = 0;
->  	u32 tp_vers = 0;
->  
-> +	spin_lock(&adapter->stats_lock);
->  	t3_get_fw_version(adapter, &fw_vers);
->  	t3_get_tp_version(adapter, &tp_vers);
-> +	spin_unlock(&adapter->stats_lock);
->  
->  	strcpy(info->driver, DRV_NAME);
->  	strcpy(info->version, DRV_VERSION);
->   
-
+It's already in my tree, so I need a relative fixup patch not
+an entire new one.
