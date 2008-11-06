@@ -1,51 +1,51 @@
-From: Jianjun Kong <jianjun@zeuux.org>
-Subject: [PATCH] nets: fix problem of using lock
-Date: Thu, 6 Nov 2008 18:41:03 +0800
-Message-ID: <20081106104103.GA29787@ubuntu>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] virtio_net: don't set NETIF_F_FRAGLIST
+Date: Thu, 06 Nov 2008 05:48:06 -0500
+Message-ID: <4912CB66.2050107@garzik.org>
+References: <> <1225888486-977-1-git-send-email-markmc@redhat.com>	 <491283FA.1020404@garzik.org> <1225966352.7284.5.camel@blaa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.zeuux.org ([210.51.160.52]:53549 "EHLO z.billxu.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:59521 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753453AbYKFKlN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2008 05:41:13 -0500
-Content-Disposition: inline
+	id S1753272AbYKFKsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 05:48:15 -0500
+In-Reply-To: <1225966352.7284.5.camel@blaa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Mark McLoughlin wrote:
+> On Thu, 2008-11-06 at 00:43 -0500, Jeff Garzik wrote:
+>> Mark McLoughlin wrote:
+>>> We don't handle skb_shared_info->frag_list, so we shouldn't
+>>> be setting the NETIF_F_FRAGLIST flag.
+>>>
+>>> Signed-off-by: Mark McLoughlin <markmc@redhat.com>
+>>> ---
+>>>  drivers/net/virtio_net.c |    2 +-
+>>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>>
+>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>>> index 0196a0d..9d4fdad 100644
+>>> --- a/drivers/net/virtio_net.c
+>>> +++ b/drivers/net/virtio_net.c
+>>> @@ -505,7 +505,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>>>  	/* Do we support "hardware" checksums? */
+>>>  	if (csum && virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
+>>>  		/* This opens up the world of extra features. */
+>>> -		dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
+>>> +		dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG;
+>>>  		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
+>>>  			dev->features |= NETIF_F_TSO | NETIF_F_UFO
+>>>  				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
+>> applied this and tun patch
+> 
+> Sorry Jeff, Rusty correctly points out that we do in fact handle
+> shinfo->frags; just a moment of blindness on my part.
 
-net/core/skbuff.c: void skb_queue_purge(struct sk_buff_head *list)
+but what about frag_list ?
 
-This function should takes the the list lock, because the operation to
-this list shoule be atomic. And __skb_queue_purge()  (in
-include/linux/skbuff.c) real delete the buffers in the list.
-
-Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
----
- net/core/skbuff.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index ebb6b94..3b89fb1 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1834,9 +1834,11 @@ struct sk_buff *skb_dequeue_tail(struct sk_buff_head *list)
-  */
- void skb_queue_purge(struct sk_buff_head *list)
- {
--	struct sk_buff *skb;
--	while ((skb = skb_dequeue(list)) != NULL)
--		kfree_skb(skb);
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&list->lock, flags);
-+	__skb_queue_purge(list);
-+	spin_unlock_irqrestore(&list->lock, flags);
- }
- 
- /**
--- 
-1.5.6.3
 
