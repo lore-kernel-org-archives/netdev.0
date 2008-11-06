@@ -1,402 +1,104 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RESEND] pkt_sched: Control group classifier
-Date: Thu, 6 Nov 2008 17:13:30 +0100
-Message-ID: <20081106161330.GN20815@postel.suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Andreas Petlund <andreas@petlund.no>
+Subject: forcedeth MCP55 msi problems
+Date: Thu, 6 Nov 2008 17:31:46 +0100
+Message-ID: <037FCE6B-850E-4A88-B4C3-B856B306377E@petlund.no>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: multipart/signed; boundary=Apple-Mail-11-721287231; micalg=sha1; protocol="application/pkcs7-signature"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:47124 "EHLO postel.suug.ch"
+Received: from mail.2750.no ([62.101.244.198]:47733 "EHLO mail.2750.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752718AbYKFQNL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2008 11:13:11 -0500
-Content-Disposition: inline
+	id S1751188AbYKFQmx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 11:42:53 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.2750.no (Postfix) with ESMTP id 282C5EF20A
+	for <netdev@vger.kernel.org>; Thu,  6 Nov 2008 17:32:22 +0100 (CET)
+Received: from mail.2750.no ([127.0.0.1])
+	by localhost (mail.2750.no [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id mwvxpkFwAnzX for <netdev@vger.kernel.org>;
+	Thu,  6 Nov 2008 17:31:59 +0100 (CET)
+Received: from [192.168.100.252] (banaitja.simula.no [129.240.228.18])
+	(using TLSv1 with cipher AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by mail.2750.no (Postfix) with ESMTPSA id 00FBBEF208
+	for <netdev@vger.kernel.org>; Thu,  6 Nov 2008 17:31:58 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The classifier should cover the most common use case and will work
-without any special configuration.
 
-The principle of the classifier is to directly access the
-task_struct via get_current(). In order for this to work,
-classification requests from softirqs must be ignored. This is
-not a problem because the vast majority of packets in softirq
-context are not assigned to a task anyway. For this to work, a
-mechanism is needed to trace softirq context. 
+--Apple-Mail-11-721287231
+Content-Type: text/plain;
+	charset=US-ASCII;
+	format=flowed;
+	delsp=yes
+Content-Transfer-Encoding: 7bit
 
-This repost goes back to the method of relying on the number of
-nested bh disable calls for the sake of not adding too much
-complexity and the option to come up with something more reliable
-if actually needed.
+I have a machine with an Asus motherboard (P5N32-SLI Premium - NVidia  
+MCP55 chipset) where the forcedeth module does not work with msi. This  
+seems to bother quite some people ( see https://bugs.launchpad.net/ubuntu/+source/linux/+bug/136836 
+  ).
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Reading various forum posts makes me inclined to believe this is a  
+firmware problem, but Asus have no fix with their latest BIOS-upgrade  
+(and I am starting to believe that we will never see one as the last  
+update came in March this year).
 
-Index: net-2.6-next/include/linux/cgroup_subsys.h
-===================================================================
---- net-2.6-next.orig/include/linux/cgroup_subsys.h	2008-11-05 15:39:04.000000000 +0100
-+++ net-2.6-next/include/linux/cgroup_subsys.h	2008-11-05 16:16:21.000000000 +0100
-@@ -54,3 +54,9 @@
- #endif
- 
- /* */
-+
-+#ifdef CONFIG_NET_CLS_CGROUP
-+SUBSYS(net_cls)
-+#endif
-+
-+/* */
-Index: net-2.6-next/include/linux/pkt_cls.h
-===================================================================
---- net-2.6-next.orig/include/linux/pkt_cls.h	2008-11-05 15:39:04.000000000 +0100
-+++ net-2.6-next/include/linux/pkt_cls.h	2008-11-05 16:16:21.000000000 +0100
-@@ -394,6 +394,20 @@
- 
- #define TCA_BASIC_MAX (__TCA_BASIC_MAX - 1)
- 
-+
-+/* Cgroup classifier */
-+
-+enum
-+{
-+	TCA_CGROUP_UNSPEC,
-+	TCA_CGROUP_ACT,
-+	TCA_CGROUP_POLICE,
-+	TCA_CGROUP_EMATCHES,
-+	__TCA_CGROUP_MAX,
-+};
-+
-+#define TCA_CGROUP_MAX (__TCA_CGROUP_MAX - 1)
-+
- /* Extended Matches */
- 
- struct tcf_ematch_tree_hdr
-Index: net-2.6-next/net/sched/Kconfig
-===================================================================
---- net-2.6-next.orig/net/sched/Kconfig	2008-11-05 15:39:04.000000000 +0100
-+++ net-2.6-next/net/sched/Kconfig	2008-11-05 16:16:21.000000000 +0100
-@@ -316,6 +316,17 @@
- 	  To compile this code as a module, choose M here: the
- 	  module will be called cls_flow.
- 
-+config NET_CLS_CGROUP
-+	bool "Control Group Classifier"
-+	select NET_CLS
-+	depends on CGROUPS
-+	---help---
-+	  Say Y here if you want to classify packets based on the control
-+	  cgroup of their process.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called cls_cgroup.
-+
- config NET_EMATCH
- 	bool "Extended Matches"
- 	select NET_CLS
-Index: net-2.6-next/net/sched/Makefile
-===================================================================
---- net-2.6-next.orig/net/sched/Makefile	2008-11-05 15:39:04.000000000 +0100
-+++ net-2.6-next/net/sched/Makefile	2008-11-05 16:16:21.000000000 +0100
-@@ -38,6 +38,7 @@
- obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
- obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
- obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
-+obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
- obj-$(CONFIG_NET_EMATCH)	+= ematch.o
- obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
- obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
-Index: net-2.6-next/net/sched/cls_cgroup.c
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6-next/net/sched/cls_cgroup.c	2008-11-06 17:05:33.000000000 +0100
-@@ -0,0 +1,290 @@
-+/*
-+ * net/sched/cls_cgroup.c	Control Group Classifier
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Thomas Graf <tgraf@suug.ch>
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <linux/cgroup.h>
-+#include <net/rtnetlink.h>
-+#include <net/pkt_cls.h>
-+
-+struct cgroup_cls_state
-+{
-+	struct cgroup_subsys_state css;
-+	u32 classid;
-+};
-+
-+static inline struct cgroup_cls_state *net_cls_state(struct cgroup *cgrp)
-+{
-+	return (struct cgroup_cls_state *)
-+		cgroup_subsys_state(cgrp, net_cls_subsys_id);
-+}
-+
-+static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
-+						 struct cgroup *cgrp)
-+{
-+	struct cgroup_cls_state *cs;
-+
-+	if (!(cs = kzalloc(sizeof(*cs), GFP_KERNEL)))
-+		return ERR_PTR(-ENOMEM);
-+
-+	if (cgrp->parent)
-+		cs->classid = net_cls_state(cgrp->parent)->classid;
-+
-+	return &cs->css;
-+}
-+
-+static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp)
-+{
-+	kfree(ss);
-+}
-+
-+static u64 read_classid(struct cgroup *cgrp, struct cftype *cft)
-+{
-+	return net_cls_state(cgrp)->classid;
-+}
-+
-+static int write_classid(struct cgroup *cgrp, struct cftype *cft, u64 value)
-+{
-+	if (!cgroup_lock_live_group(cgrp))
-+		return -ENODEV;
-+
-+	net_cls_state(cgrp)->classid = (u32) value;
-+
-+	cgroup_unlock();
-+
-+	return 0;
-+}
-+
-+static struct cftype ss_files[] = {
-+	{
-+		.name = "classid",
-+		.read_u64 = read_classid,
-+		.write_u64 = write_classid,
-+	},
-+};
-+
-+static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp)
-+{
-+	return cgroup_add_files(cgrp, ss, ss_files, ARRAY_SIZE(ss_files));
-+}
-+
-+struct cgroup_subsys net_cls_subsys = {
-+	.name		= "net_cls",
-+	.create		= cgrp_create,
-+	.destroy	= cgrp_destroy,
-+	.populate	= cgrp_populate,
-+	.subsys_id	= net_cls_subsys_id,
-+};
-+
-+struct cls_cgroup_head
-+{
-+	u32			handle;
-+	struct tcf_exts		exts;
-+	struct tcf_ematch_tree	ematches;
-+};
-+
-+static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+			       struct tcf_result *res)
-+{
-+	struct cls_cgroup_head *head = tp->root;
-+	struct cgroup_cls_state *cs;
-+	int ret = 0;
-+
-+	/*
-+	 * Due to the nature of the classifier it is required to ignore all
-+	 * packets originating from softirq context as accessing `current'
-+	 * would lead to false results.
-+	 *
-+	 * This test assumes that all callers of dev_queue_xmit() explicitely
-+	 * disable bh. Knowing this, it is possible to detect softirq based
-+	 * calls by looking at the number of nested bh disable calls because
-+	 * softirqs always disables bh.
-+	 */
-+	if (softirq_count() != SOFTIRQ_OFFSET)
-+		return -1;
-+
-+	rcu_read_lock();
-+	cs = (struct cgroup_cls_state *) task_subsys_state(current,
-+							   net_cls_subsys_id);
-+	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
-+		res->classid = cs->classid;
-+		res->class = 0;
-+		ret = tcf_exts_exec(skb, &head->exts, res);
-+	} else
-+		ret = -1;
-+
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
-+static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
-+{
-+	return 0UL;
-+}
-+
-+static void cls_cgroup_put(struct tcf_proto *tp, unsigned long f)
-+{
-+}
-+
-+static int cls_cgroup_init(struct tcf_proto *tp)
-+{
-+	return 0;
-+}
-+
-+static const struct tcf_ext_map cgroup_ext_map = {
-+	.action = TCA_CGROUP_ACT,
-+	.police = TCA_CGROUP_POLICE,
-+};
-+
-+static const struct nla_policy cgroup_policy[TCA_CGROUP_MAX + 1] = {
-+	[TCA_CGROUP_EMATCHES]	= { .type = NLA_NESTED },
-+};
-+
-+static int cls_cgroup_change(struct tcf_proto *tp, unsigned long base,
-+			     u32 handle, struct nlattr **tca,
-+			     unsigned long *arg)
-+{
-+	struct nlattr *tb[TCA_CGROUP_MAX+1];
-+	struct cls_cgroup_head *head = tp->root;
-+	struct tcf_ematch_tree t;
-+	struct tcf_exts e;
-+	int err;
-+
-+	if (head == NULL) {
-+		if (!handle)
-+			return -EINVAL;
-+
-+		head = kzalloc(sizeof(*head), GFP_KERNEL);
-+		if (head == NULL)
-+			return -ENOBUFS;
-+
-+		head->handle = handle;
-+
-+		tcf_tree_lock(tp);
-+		tp->root = head;
-+		tcf_tree_unlock(tp);
-+	}
-+
-+	if (handle != head->handle)
-+		return -ENOENT;
-+
-+	err = nla_parse_nested(tb, TCA_CGROUP_MAX, tca[TCA_OPTIONS],
-+			       cgroup_policy);
-+	if (err < 0)
-+		return err;
-+
-+	err = tcf_exts_validate(tp, tb, tca[TCA_RATE], &e, &cgroup_ext_map);
-+	if (err < 0)
-+		return err;
-+
-+	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
-+	if (err < 0)
-+		return err;
-+
-+	tcf_exts_change(tp, &head->exts, &e);
-+	tcf_em_tree_change(tp, &head->ematches, &t);
-+
-+	return 0;
-+}
-+
-+static void cls_cgroup_destroy(struct tcf_proto *tp)
-+{
-+	struct cls_cgroup_head *head;
-+
-+	head = (struct cls_cgroup_head *)xchg(&tp->root, NULL);
-+
-+	if (head) {
-+		tcf_exts_destroy(tp, &head->exts);
-+		tcf_em_tree_destroy(tp, &head->ematches);
-+		kfree(head);
-+	}
-+}
-+
-+static int cls_cgroup_delete(struct tcf_proto *tp, unsigned long arg)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static void cls_cgroup_walk(struct tcf_proto *tp, struct tcf_walker *arg)
-+{
-+	struct cls_cgroup_head *head = tp->root;
-+
-+	if (arg->count < arg->skip)
-+		goto skip;
-+
-+	if (arg->fn(tp, (unsigned long) head, arg) < 0) {
-+		arg->stop = 1;
-+		return;
-+	}
-+skip:
-+	arg->count++;
-+}
-+
-+static int cls_cgroup_dump(struct tcf_proto *tp, unsigned long fh,
-+			   struct sk_buff *skb, struct tcmsg *t)
-+{
-+	struct cls_cgroup_head *head = tp->root;
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct nlattr *nest;
-+
-+	t->tcm_handle = head->handle;
-+
-+	nest = nla_nest_start(skb, TCA_OPTIONS);
-+	if (nest == NULL)
-+		goto nla_put_failure;
-+
-+	if (tcf_exts_dump(skb, &head->exts, &cgroup_ext_map) < 0 ||
-+	    tcf_em_tree_dump(skb, &head->ematches, TCA_CGROUP_EMATCHES) < 0)
-+		goto nla_put_failure;
-+
-+	nla_nest_end(skb, nest);
-+
-+	if (tcf_exts_dump_stats(skb, &head->exts, &cgroup_ext_map) < 0)
-+		goto nla_put_failure;
-+
-+	return skb->len;
-+
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
-+	.kind		=	"cgroup",
-+	.init		=	cls_cgroup_init,
-+	.change		=	cls_cgroup_change,
-+	.classify	=	cls_cgroup_classify,
-+	.destroy	=	cls_cgroup_destroy,
-+	.get		=	cls_cgroup_get,
-+	.put		=	cls_cgroup_put,
-+	.delete		=	cls_cgroup_delete,
-+	.walk		=	cls_cgroup_walk,
-+	.dump		=	cls_cgroup_dump,
-+	.owner		=	THIS_MODULE,
-+};
-+
-+static int __init init_cgroup_cls(void)
-+{
-+	return register_tcf_proto_ops(&cls_cgroup_ops);
-+}
-+
-+static void __exit exit_cgroup_cls(void)
-+{
-+	unregister_tcf_proto_ops(&cls_cgroup_ops);
-+}
-+
-+module_init(init_cgroup_cls);
-+module_exit(exit_cgroup_cls);
-+MODULE_LICENSE("GPL");
+Is it an option to workaround this problem using a hardware-specific  
+quirk that disables msi/msix for the device, or will that affect a lot  
+of users that have no issues with this? On my system the NIC  
+identifies as "cb84". I don't know if this is a common factor for all  
+who has this problem, or only for my motherboard.
+Maybe the benefit of making it work with all MCP55-NICs is worth  
+disabling msi/msix also for unaffected ones?
+
+Does anybody have alternative suggestions?
+
+
+--Apple-Mail-11-721287231
+Content-Disposition: attachment;
+	filename=smime.p7s
+Content-Type: application/pkcs7-signature;
+	name=smime.p7s
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIFrTCCBakw
+ggORoAMCAQICAk2xMA0GCSqGSIb3DQEBBQUAMFQxFDASBgNVBAoTC0NBY2VydCBJbmMuMR4wHAYD
+VQQLExVodHRwOi8vd3d3LkNBY2VydC5vcmcxHDAaBgNVBAMTE0NBY2VydCBDbGFzcyAzIFJvb3Qw
+HhcNMDgwNTA2MTAzNjEzWhcNMTAwNTA2MTAzNjEzWjCBmTEYMBYGA1UEAxMPQW5kcmVhcyBQZXRs
+dW5kMSEwHwYJKoZIhvcNAQkBFhJhbmRyZWFzQHBldGx1bmQubm8xITAfBgkqhkiG9w0BCQEWEmFw
+ZXRsdW5kQHNpbXVsYS5ubzE3MDUGCSqGSIb3DQEJARYoZDdiZmQ3ZGY3MWQyNzkwZWZiOWM3YjI4
+MDRkNDhmZTc2ZTIwMTNjYzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANO0FgEtdB8Q
+Xiq5/0yfCk2j9t0109LVH7NvqpfwDK6+nFrpAWKdcGnwNvpDLM+fVIyK7+N0mMsj3yCUfGnQKz71
+Kl0qvQ1lHKPDBvT77vlSYsVtKzibBMsZy1yBdyWkHAY2WDP1sI0p2Tc65e5qWb4Q1JQy88JuoPpF
+FKZwvFsZUXsJ/YiSbY15imGfUvoMPdl9QVg2OXzL4xUZ/XmPczH+Hzc25RFmtSvRUvagT4jRjl9a
+tkM1XSLa9aIEqVv5r54Yp9fx97FB9WdEcim9RpqRzFZjq5/1LuMwDuPIPepWdx8TXB11SsRCV4oE
+G9c6DT68WXZOzo3AQF3K20mIBn0CAwEAAaOCAT0wggE5MAwGA1UdEwEB/wQCMAAwVgYJYIZIAYb4
+QgENBEkWR1RvIGdldCB5b3VyIG93biBjZXJ0aWZpY2F0ZSBmb3IgRlJFRSBoZWFkIG92ZXIgdG8g
+aHR0cDovL3d3dy5DQWNlcnQub3JnMEAGA1UdJQQ5MDcGCCsGAQUFBwMEBggrBgEFBQcDAgYKKwYB
+BAGCNwoDBAYKKwYBBAGCNwoDAwYJYIZIAYb4QgQBMDIGCCsGAQUFBwEBBCYwJDAiBggrBgEFBQcw
+AYYWaHR0cDovL29jc3AuY2FjZXJ0Lm9yZzBbBgNVHREEVDBSgRJhbmRyZWFzQHBldGx1bmQubm+B
+EmFwZXRsdW5kQHNpbXVsYS5ub4EoZDdiZmQ3ZGY3MWQyNzkwZWZiOWM3YjI4MDRkNDhmZTc2ZTIw
+MTNjYzANBgkqhkiG9w0BAQUFAAOCAgEACQurlIpzpYGuZVl1+Oy8NXMGx2NcKxqydxATviCzKijM
+4p5QzZJqUOBkSK3dd9CrTsYJMk9koujia2kxX2edMu2BwJBJVZe17bT3spJyG6eBOPGvxaCxpnlA
+jeTOsVf5JAO7p+tfWAR0qj3p8P0J1C+/7okExvZMOJgm/RiLNtaGy0WrW4mhaWfmGEgvGyqGfjFf
+j3f2LFQede0zm2HBEPePTxKzeZ64hWFVKQ8Nvs1csxyto764n7wZWP05VoxU/ZrBMbNiJyr8s3f7
+Ee9wf/SjvoG3tJHvz/obJpkOeEvZv4jGy6drnuUk/KU2GATaxT9pqGEsPPo3xhyDT4Aa3CFb0y8q
+DXXggve3ARInKACiyo2UWpRPefHctMeEg8DIV6p/8qfobr1AfBZZwtsjwRIytJarmcL1nzsqMRFH
+piGstHBDjVxIy7XEz7Thjx2anBUSWKIUi0ZR/sEwlxUlaww30dUBPRVlaUKLWmOaaZZEL6a/M1mZ
+xOLvRO0gFvAE4EKYrO18nOtUrKRW3bF8sUewsGND1BBOt3zvp2QSqfRy0zFpEDHCDcagpEGOLQew
+mY1JnBOqt8uqlvqGE6oSz5Bf6x5ApgvxoWIJvpVszxzbayWVpzZk4rCGkuTxCDEd90U3ZXOQ5MFr
+cwbVHaGt9UOUWZVz8BMKI2r/6Tvn6zkxggK6MIICtgIBATBaMFQxFDASBgNVBAoTC0NBY2VydCBJ
+bmMuMR4wHAYDVQQLExVodHRwOi8vd3d3LkNBY2VydC5vcmcxHDAaBgNVBAMTE0NBY2VydCBDbGFz
+cyAzIFJvb3QCAk2xMAkGBSsOAwIaBQCgggE1MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJ
+KoZIhvcNAQkFMQ8XDTA4MTEwNjE2MzE0N1owIwYJKoZIhvcNAQkEMRYEFG05nL11K/3tf5U9RNQt
+81blpcN8MGkGCSsGAQQBgjcQBDFcMFowVDEUMBIGA1UEChMLQ0FjZXJ0IEluYy4xHjAcBgNVBAsT
+FWh0dHA6Ly93d3cuQ0FjZXJ0Lm9yZzEcMBoGA1UEAxMTQ0FjZXJ0IENsYXNzIDMgUm9vdAICTbEw
+awYLKoZIhvcNAQkQAgsxXKBaMFQxFDASBgNVBAoTC0NBY2VydCBJbmMuMR4wHAYDVQQLExVodHRw
+Oi8vd3d3LkNBY2VydC5vcmcxHDAaBgNVBAMTE0NBY2VydCBDbGFzcyAzIFJvb3QCAk2xMA0GCSqG
+SIb3DQEBAQUABIIBAIb0EbE1lW16/B2w3GRv5qNBGMmflxttZUEdyeX2oI1CSw0Whma5iKqsIdko
+0ZNlG/h4LtCYZkioGf2wSBtqrWyMw4AWzT/wKZf0u0bbCuEfzECEiydfg2TWV8bd2QoyA14y/61D
+sBDcIr3cwgHvsp52nXEPsjZR5of2/57SMXDyPgbooYPPGOkoc/6GEcVVVU1AvC8ZsXFvp4wVVEh6
+FtjTPaR79Q68jptg/fJjmi+Y3LkCZ4Fn0pNhmVJO1fM2DQeA2fOxm/vuuNvfD+42KzWso2X+zpr8
+en8H/dJRxojg5d1BOAsqSjVywlob2h+kxdXnpeFpK1PhgaAVJWm30ZEAAAAAAAA=
+
+--Apple-Mail-11-721287231--
