@@ -1,173 +1,180 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: Re: IP-less bridge as a martian source
-Date: Thu, 06 Nov 2008 13:00:05 +0100
-Message-ID: <873ai5yshm.fsf@tac.ki.iif.hu>
-References: <87tzb6nodj.fsf@tac.ki.iif.hu> <87wsg0wu78.fsf@tac.ki.iif.hu>
-	<48FF614C.7020507@gmail.com> <48FF7AA3.50408@gmail.com>
-	<87y707mjbi.fsf@tac.ki.iif.hu> <20081031084124.GA4364@ff.dom.local>
-	<877i7novar.fsf@szonett.ki.iif.hu>
-	<20081105094303.GA5378@ff.dom.local> <87prla79d6.fsf@tac.ki.iif.hu>
-	<20081106100032.GA4809@ff.dom.local>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [Fwd: Re: Fwd: [PATCH] Cleanup hso rfkill error handling [was: 2.6.28-rc2
+ / hso driver oops]]
+Date: Thu, 06 Nov 2008 13:07:33 +0100
+Message-ID: <4912DE05.1050208@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:32872 "EHLO tac.ki.iif.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753586AbYKFMAI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2008 07:00:08 -0500
-In-Reply-To: <20081106100032.GA4809@ff.dom.local> (Jarek Poplawski's message
-	of "Thu, 6 Nov 2008 10:00:32 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+To: Cedric Vivier <cedricv-ezYTijPLdFXQT0dZR+AlfA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski <jarkao2@gmail.com> writes:
+See if this patch fixes things up, I think it might,, I hope it applies cleanly
+& let the mailing lists know if the patch works
 
-> On Wed, Nov 05, 2008 at 11:30:45AM +0100, Ferenc Wagner wrote:
->> Jarek Poplawski <jarkao2@gmail.com> writes:
->> 
->>> On Sun, Nov 02, 2008 at 12:55:56AM +0100, Ferenc Wagner wrote:
->>>> Jarek Poplawski <jarkao2@gmail.com> writes:
->>>> 
->>>>> On Wed, Oct 29, 2008 at 05:56:17PM +0100, Ferenc Wagner wrote:
->>>>>
->>>>>> Jarek Poplawski <jarkao2@gmail.com> writes:
->>>>>> 
->>>>>>>>> Ferenc Wagner <wferi@niif.hu> writes:
->>>>>>>>>
->>>>>>>>>> I expected an IP-less bridge interface to pick up no IP
->>>>>>>>>> packets, but apparently this isn't the case: broadcast packets
->>>>>>>>>> with destination address 255.255.255.255 are reported as
->>>>>>>>>> martians by the 2.6.18 kernel, which I find counterintuitive (I
->>>>>>>>>> know 2.6.18 is rather old, but that's the one supported by Xen).
->>>>>>>>>>
->>>>>>>>>>   1. Is this the expected behaviour?
->>>>>>>
->>>>>>> with IP disabled you shouldn't have any martians!
->>>>>> 
->>>>>> In my case, the bridge itself (?) has no IP addresses assigned, but
->>>>>> an other interface (which isn't a bridge port) does have.  In other
->>>>>> words, the only network interface of the host is a bond interface
->>>>>> aggregating the two physical Ethernet interfaces; the two IP
->>>>>> addresses of the host are assigned to this bond0.
->>>>>> 
->>>>>> bond0 is also the raw interface of several .1q VLAN interfaces,
->>>>>> which are ports of bridges (there is one bridge for each VLAN but
->>>>>> the native above).  The other ports of the bridges are the virtual
->>>>>> interfaces of the Xen guests running on this host.  If I run ping
->>>>>> -b 255.255.255.255 on one such guest, that gives a "martian source
->>>>>> 255.255.255.255" warning on the given bridge.  Even though
->>>>>> 255.255.255.255 is the destination address of that ping packet...
->>>>>> 
->>>>>> And this happens on 2.6.26.6, too.
->>>>>
->>>>> This means that even with IP enabled device ip_mkroute_input() should
->>>>> be skipped. So it seems it's not about 255.255.255.255 generally, but
->>>>> just about source address. You didn't give any examples of these
->>>>> warnings, but I guess it's not a 0 address which is most popular with
->>>>> 255.255.255.255.
->>>> 
->>>> Indeed not, sorry.  If I ping -b 255.255.255.255 on a virtual machine
->>>> with IP 193.225.14.155, whose virtual interface is a port of br891:
->>>> 
->>>> martian source 255.255.255.255 from 193.225.14.155, on dev br891
->> 
->> I hope it's not the autoconfigured IPv6 addresses...
+If you don't like fixing this patch up try getting it off the mailing lists.
+
+-------- Original Message --------
+Subject: Re: Fwd: [PATCH] Cleanup hso rfkill error handling [was: 2.6.28-rc2 / hso driver oops]
+Date: Thu, 30 Oct 2008 11:14:16 +0000
+From: Andrew Bird (Sphere Systems) <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
+Organization: Sphere Systems Ltd
+To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+References: <200810301034.13105.ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org> <4909934B.90709-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+
+Hi Denis,
+	Well I think you need to submit a patch to the /MAINTAINERS file adding a 
+subsection for HSO with person name & email address. It probably should be 
+sent via Greg Kroah-Hatman. At the very least get an author/copyright 
+notice/date added to the top of hso.c too. Getting added as a maintainer 
+should help your patch inclusion efforts too.
+
+
+Best regards,
+
+
+Andrew
+
+
+On Thursday 30 October 2008, Denis Joseph Barrow wrote:
+> Hi Andrew,
+> I consider myself as a maintainer of the hso driver, not the only one
+> though. How do I officially become a maintainer?
+> I'm concentrating on developing a new troublesome modem driver at the
+> moment & won't get a chance to active again on hso driver for at a month or
+> two. I'm a bad juggler so it would be good if someone else concentrated on
+> fixes to hso other than me for the moment.
+> I have posted at least 4 patches to the linux usb & linux netdev
+> mailing list & they weren't accepted yet & I need to
+> respin them for the latest kernels.
 >
-> I hope too... Anyway, I did some checking and this all seems to be a
-> real puzzle. As I wrote earlier (according to the comment): "with IP
-> disabled you shouldn't have any martians!". But it looks like deleting
-> all inet addresses isn't enough to have this "IP disabled" status
-> (maybe it's about multicasts or something... - I still have to find the
-> reason), but it's probably not critical for this problem.
->
-> Then I guess we can reconsider this problem like this: since this is a
-> bridge device without any IP address, and "we" expect treating this as
-> IP disabled devices, IMHO it doesn't make much sense to turn rp_filter
-> for such a device; log_martians can report us some other strange
-> address combinations, so it could be useful if there is not too much
-> of this.
+> Andrew Bird (Sphere Systems) wrote:
+> > Hi Denis,
+> > 	I don't know whether you are still working on the hso driver, but if so
+> > this may interest you. You might also want to add yourself as maintainer
+> > for the driver, quite a few of these things get cc'd to me in the absence
+> > of a formal maintainer, but I'm no longer working on the project.
+> >
+> >
+> > Best regards,
+> >
+> >
+> > Andrew
+> >
+> >
+> > ------------------------------------------------------------------------
+> >
+> > Subject:
+> > [PATCH] Cleanup hso rfkill error handling [was: 2.6.28-rc2 / hso driver
+> > oops]
+> > From:
+> > Jonathan McDowell <noodles-4QvXXjU8Dv4@public.gmane.org>
+> > Date:
+> > Thu, 30 Oct 2008 10:27:46 +0000
+> > To:
+> > linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> >
+> > To:
+> > linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > CC:
+> > Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, Andrew Bird
+> > <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
+> >
+> > On Wed, Oct 29, 2008 at 07:40:11PM +0000, Ben Hutchings wrote:
+> >> On Wed, 2008-10-29 at 16:40 +0000, Jonathan McDowell wrote:
+> >>> Hi.
+> >>>
+> >>> Tried out 2.6.28-rc2 today on my EEE 901 and my Option Icon 225 and got
+> >>> the following oops:
+> >>>
+> >>> hso: drivers/net/usb/hso.c: 1.2 Option Wireless
+> >>> usbcore: registered new interface driver hso
+> >>> usb 2-2: new full speed USB device using uhci_hcd and address 3
+> >>> usb 2-2: configuration #1 chosen from 1 choice
+> >>> hso0: Disabled Privacy Extensions
+> >>> BUG: unable to handle kernel NULL pointer dereference at 000000d0
+> >>> IP: [<c03589b9>] dev_driver_string+0x1/0x2a
+> >>
+> >> Something passed a null device pointer to dev_printk().
+> >>
+> >> [...]
+> >>
+> >>> [<f81b8265>] ? hso_create_net_device+0x305/0x32d [hso]
+> >>
+> >> [...]
+> >>
+> >> I think that hso_create_rfkill() is the culprit here (and has been
+> >> inlined into hso_create_net_device()).  It's using hso_dev->dev as the
+> >> first argument to dev_err() and it doesn't look like that field is
+> >> initialised except by kzalloc.  At a guess, it should be using
+> >> &hso_dev->usb->dev.
+> >
+> > Yup, this appears to be the problem, thanks. I think &hso_net->net->dev
+> > is more intuitive for the error message, so I've used that. I've also
+> > added missing line endings on the error messages and set our local
+> > rfkill structure element to NULL on failure so we don't try to call
+> > rfkill_unregister on driver removal if we failed to register at all.
+> >
+> > The patch below Works For Me (TM); the device is detected fine, can be
+> > removed without problems and connects ok. I'll have a prod at why the
+> > rfkill stuff isn't working next, but I believe this cleanup of the error
+> > handling is appropriate no matter what the issue with registration is.
+> >
+> > Signed-Off-By: Jonathan McDowell <noodles-4QvXXjU8Dv4@public.gmane.org>
+> >
+> > -----
+> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> > index 1164c52..9d9622b 100644
+> > --- a/drivers/net/usb/hso.c
+> > +++ b/drivers/net/usb/hso.c
+> > @@ -2184,19 +2184,20 @@ static void hso_create_rfkill(struct hso_device
+> > *hso_dev, struct usb_interface *interface)
+> >  {
+> >  	struct hso_net *hso_net = dev2net(hso_dev);
+> > -	struct device *dev = hso_dev->dev;
+> > +	struct device *dev = &hso_net->net->dev;
+> >  	char *rfkn;
+> >
+> >  	hso_net->rfkill = rfkill_allocate(&interface_to_usbdev(interface)->dev,
+> >  				 RFKILL_TYPE_WLAN);
+> >  	if (!hso_net->rfkill) {
+> > -		dev_err(dev, "%s - Out of memory", __func__);
+> > +		dev_err(dev, "%s - Out of memory\n", __func__);
+> >  		return;
+> >  	}
+> >  	rfkn = kzalloc(20, GFP_KERNEL);
+> >  	if (!rfkn) {
+> >  		rfkill_free(hso_net->rfkill);
+> > -		dev_err(dev, "%s - Out of memory", __func__);
+> > +		hso_net->rfkill = NULL;
+> > +		dev_err(dev, "%s - Out of memory\n", __func__);
+> >  		return;
+> >  	}
+> >  	snprintf(rfkn, 20, "hso-%d",
+> > @@ -2209,7 +2210,8 @@ static void hso_create_rfkill(struct hso_device
+> > *hso_dev, kfree(rfkn);
+> >  		hso_net->rfkill->name = NULL;
+> >  		rfkill_free(hso_net->rfkill);
+> > -		dev_err(dev, "%s - Failed to register rfkill", __func__);
+> > +		hso_net->rfkill = NULL;
+> > +		dev_err(dev, "%s - Failed to register rfkill\n", __func__);
+> >  		return;
+> >  	}
+> >  }
+> > -----
+> >
+> > J.
 
-Yes, rp_filter doesn't make any sense on this bridge interface, as
-there should be no traffic to/from the bridging host through this
-bridge.  Still, it shouldn't hurt either, should it?
 
->> wferi@xen1:~$ sudo cat /proc/net/vlan/vlan891 
->> [...]
->> EGRESSS priority Mappings: 
->
-> Should be corrected: maybe you will send a patch? (Otherwise let me now.)
-
-I sent one.  Hope it's OK.
-
-> Yes, but this 255.255.255.255 address is (or was) special. According
-> to this:
-> http://en.wikipedia.org/wiki/Classful_network
-> and especially this:
-> http://tools.ietf.org/html/draft-wilson-class-e-02
->
-> it could be changed soon.
-
-Yes, but I fail to see how this is relevant in either case.  My
-question is: why does the IP-less bridge pick up any packets?
-Does the host-based addressing model require this, if the host has any
-IP address at all (on some other interface)?
-
->>>>> And, if there is some network address we have a problem: AFAIK this
->>>>> 255.255.255.255 broadcast is special, and it shouldn't be routed to
->>>>> other networks. Your host doesn't seem to recognize this network, so
->>>>> it shouldn't happen on this interface. So it seems, you expect the
->>>>> bridge behavior where it's 2 in 1 (bridge + IP host).
->>>> 
->>>> Yes, this machine is an IP host (SSH access is needed) in a private
->>>> subnet (10.253.2/24) and also bridges traffic belonging to other
->>>> subnets (like for example the above).  It is not a router, though, so
->>>> it knows nothing about the bridged subnets.  Actually, it should be
->>>> totally separated from those, that's why I was alarmed by the martian
->>>> warnings: these "limited broadcast" (255.255.255.255, not routed, as
->>>> you note) addressed packets could reach the bridge!
->>>
->>> Wasn't this ping done within the bridge's reach?
->> 
->> I'm not sure what you mean.  It was done on a virtual machine, whose
->> virtual inteface (vif4.0) is a port of br891 (see above).
->
-> I'm not sure what you mean by "totally separated". Bridges usually
-> don't help to separate, and packets with proper or not proper (for some
-> network) addresses are forwarded.
-
-I didn't mean separating the ports of the bridge, but separating the
-host running the bridge from the traffic the bridge forwards.  It
-should be able to forward all the strangest IP or non-IP traffic of
-the world and stay totally unaffected.
-
->>> but not all. log_martians should tell you if it's something
->>> serious. If you have some martians "by design" it's probably
->>> better to get rid of them before rp_filter
->> 
->> By dropping the in the nat table or by ebtables?  Anyway, "martians by
->> design" does sound particulary sane.
->
-> I mean e.g. when you really have to treat packets with such unusual
-> addresses as in your pings.
-
-Yes, I have to.  Some Wake-on-LAN packets also carry 255.255.255.255
-as their destination address.  Just like various Windows/MacOS
-"neighbour discovery" services.
-
->>> I agree the syntax of this warning is confusing, but I doubt we
->>> should change this after so many years - this could break users'
->>> scripts checking for this.
->> 
->> :) It's surprising after having read stable_api_nonsense.txt...
->
-> Hmm... Could you point me to this most :) point?
-
-For me, the first paragraph says that the user space interface is the
-syscall interface, and that's the only one you can count on being
-stable; in other cases technical superiority overrides compatibility.
-Not that I feel too strongly in this case.
 -- 
-Regards,
-Feri.
+best regards,
+D.J. Barrow
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
