@@ -1,108 +1,52 @@
-From: Ron Madrid <ron_madrid@sbcglobal.net>
-Subject: [PATCH] Add support for Marvell 88E1118 PHY
-Date: Thu,  6 Nov 2008 11:05:26 -0800
-Message-ID: <1225998326-4367-1-git-send-email-ron_madrid@sbcglobal.net>
-Cc: Ron Madrid <ron_madrid@sbcglobal.net>
-To: netdev@vger.kernel.org
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Thu, 6 Nov 2008 22:40:32 +0300
+Message-ID: <20081106194032.GB31673@ioremap.net>
+References: <1225450706.5301.94.camel@localhost> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CB5@NASANEXMB10.na.qualcomm.com> <1225838743.6116.20.camel@fry> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F56@NASANEXMB10.na.qualcomm.com> <20081106080316.GA32337@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FA8@NASANEXMB10.na.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Johann Baudy <johaahn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp118.sbc.mail.sp1.yahoo.com ([69.147.64.91]:35504 "HELO
-	smtp118.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751080AbYKFTJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 14:09:30 -0500
+Received: from genesysrack.ru ([195.178.208.66]:37869 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751348AbYKFTkg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 14:40:36 -0500
+Content-Disposition: inline
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FA8@NASANEXMB10.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch will add support for the Marvell 88E1118 PHY which supports gigabit ethernet among other things.
+Hi Vitali.
 
-Signed-off-by: Ron Madrid <ron_madrid@sbcglobal.net>
----
- drivers/net/phy/marvell.c |   66 +++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 66 insertions(+), 0 deletions(-)
+On Thu, Nov 06, 2008 at 10:49:36AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
+> > What if skb was queued in hardware or qdisk and userspace rewrites
+> > mapped page placed in fraglist?
+> Can you please clarify what you mean?  Are you talking about the user changing the status field after the skb was queued?  Or are you saying that the user may ask the kernel to resize the ring buffer while the skb is queued?
+> 
+> In the first case, I don't think we don't really care - the user is breaking their side of the contract, but we'll still have a valid address since the page pointer should still be valid.
+> 
+> In the second case, the behaviour is undefined because the hardware would use those page pointers for its scatter-gather which would, best case, cause the skb to fail (kernel oops is more likely I think).  We can add this to the documentation, but in the end there's nothing we can really do outside of copying data from the ring buffer into the skb, which defeats the point of doing this.
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 4aa5479..eb6411c 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -227,6 +227,59 @@ static int m88e1111_config_init(struct phy_device *phydev)
- 	return 0;
- }
- 
-+static int m88e1118_config_aneg(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_M1011_PHY_SCR,
-+			MII_M1011_PHY_SCR_AUTO_CROSS);
-+	if (err < 0)
-+		return err;
-+
-+	err = genphy_config_aneg(phydev);
-+	return 0;
-+}
-+
-+static int m88e1118_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Change address */
-+	err = phy_write(phydev, 0x16, 0x0002);
-+	if (err < 0)
-+		return err;
-+
-+	/* Enable 1000 Mbit */
-+	err = phy_write(phydev, 0x15, 0x1070);
-+	if (err < 0)
-+		return err;
-+
-+	/* Change address */
-+	err = phy_write(phydev, 0x16, 0x0003);
-+	if (err < 0)
-+		return err;
-+
-+	/* Adjust LED Control */
-+	err = phy_write(phydev, 0x10, 0x021e);
-+	if (err < 0)
-+		return err;
-+
-+	/* Reset address */
-+	err = phy_write(phydev, 0x16, 0x0);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
- static int m88e1145_config_init(struct phy_device *phydev)
- {
- 	int err;
-@@ -416,6 +469,19 @@ static struct phy_driver marvell_drivers[] = {
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-+		.phy_id = 0x01410e10,
-+		.phy_id_mask = 0xfffffff0,
-+		.name = "Marvell 88E1118",
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.config_init = &m88e1118_config_init,
-+		.config_aneg = &m88e1118_config_aneg,
-+		.read_status = &genphy_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.driver = {.owner = THIS_MODULE,},
-+	},
-+	{
- 		.phy_id = 0x01410cd0,
- 		.phy_id_mask = 0xfffffff0,
- 		.name = "Marvell 88E1145",
+I'm not sure that it is allowed to fail even for root. System could
+sleep and not permit the resize until all skbs are freed though.
+
+> > It is not allowed to store something in cb block which is intended to
+> > live while skb is processed on different layers. In this particular
+> > case
+> > qdisk engine will overwrite skb's cb.
+> > 
+> That's what I figured - however, I was wondering if we even need to go through the qdisc engine.  Couldn't we just bypass it and send out packets directly through the card (i.e. dev_hard_start_xmit) similar to how pktgen does this?  I haven't looked at the documentation (I'm not actually sure with which to start), but are there any caveats that need to be considered (e.g. must be called outside of an interrupt, can't be interruptible, etc.)
+> 
+> The reason I'm thinking we'd want to bypass the qdisc engine is that the idea is that you would use this method only if you want the most performance possible, so why is packet scheduling even needed?  The approach I'm thinking is that if the tx-ring buffer is implemented, we can even get rid of the in-kernel pktgen and port it over to user-space as an example of how to utilize the tx-ring buffer.
+
+I can not say if it is good or bad idea, it is not my project :)
+But existing packet socket does not bypass qdisc, so users may expect
+the same from the new interface. Overall idea of storing something in cb
+and expect it to live there between layers is very subtle: what if
+tomorrow we will gen new layer between driver and qdisc? Or if we will
+start updating cb in the driver itself when it owns skb?
+
 -- 
-1.5.5.1
-
+	Evgeniy Polyakov
