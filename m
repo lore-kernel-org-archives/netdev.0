@@ -1,34 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 2/3] net: Guaranetee the proper ordering of the loopback device.
-Date: Thu, 06 Nov 2008 05:02:33 -0800
-Message-ID: <m14p2l0zyu.fsf@frodo.ebiederm.org>
-References: <48ECA8D2.4090406@openvz.org>
-	<m14p2l4v2l.fsf_-_@frodo.ebiederm.org>
-	<m1y6zx3gcs.fsf_-_@frodo.ebiederm.org>
-	<20081105.160047.174722021.davem@davemloft.net>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [PATCH 2/6] smsc911x: add dynamic bus configuration
+Date: Thu, 06 Nov 2008 13:10:10 +0000
+Message-ID: <1225977010.16885.14.camel@pc1117.cambridge.arm.com>
+References: <1225881342-3485-1-git-send-email-steve.glendinning@smsc.com>
+	 <1225881342-3485-2-git-send-email-steve.glendinning@smsc.com>
+	 <1225881342-3485-3-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dlezcano@fr.ibm.com, containers@lists.osdl.org, den@openvz.org,
-	xemul@openvz.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dustin@sensoria.com, bgat@billgatliff.com,
+	Ian Saturley <ian.saturley@smsc.com>, g.liakhovetski@gmx.de,
+	Peter Korsgaard <jacmet@sunsite.dk>
+To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:44226 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533AbYKFNFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 08:05:19 -0500
-In-Reply-To: <20081105.160047.174722021.davem@davemloft.net> (David Miller's
-	message of "Wed, 05 Nov 2008 16:00:47 -0800 (PST)")
+Received: from cam-admin0.cambridge.arm.com ([193.131.176.58]:55469 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753432AbYKFNK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 08:10:29 -0500
+In-Reply-To: <1225881342-3485-3-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2008-11-05 at 10:35 +0000, Steve Glendinning wrote:
+> Convert the driver to select 16-bit or 32-bit bus access at runtime,
+> at a small performance cost.
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Dave can you please drop this one for the moment.
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
 
-I cleaned up my patch after the basic testing was over and the
-result is a kernel that won't boot.  So if we can prevent this
-patch from spreading and breaking a git-bisect that would be great.
+I tested it on the RealView platforms and works OK (can't tell about the
+other platforms).
 
-I will follow up in a moment with a properly tested version.
-My apologies.
+-- 
+Catalin
 
-Eric
