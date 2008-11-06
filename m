@@ -1,34 +1,43 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [ofa-general] Re: Re: [PATCH] mlx4_en: Pause parameters per port
-Date: Thu, 06 Nov 2008 08:53:40 +0200
-Message-ID: <49129474.1030607@mellanox.co.il>
-References: <4911B244.30205@mellanox.co.il> <49128472.7080607@pobox.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Thu, 6 Nov 2008 11:03:16 +0300
+Message-ID: <20081106080316.GA32337@ioremap.net>
+References: <1225450706.5301.94.camel@localhost> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CB5@NASANEXMB10.na.qualcomm.com> <1225838743.6116.20.camel@fry> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F56@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	general@lists.openfabrics.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <49128472.7080607@pobox.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johann Baudy <johaahn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intermatrixgroup.ru ([195.178.208.66]:57555 "EHLO
+	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753210AbYKFIDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 03:03:20 -0500
+Content-Disposition: inline
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F56@NASANEXMB10.na.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Is this a regression fix?  It doesn't look like one to me, so I am
-> planning to hold this for 2.6.29 (davem/net-next-2.6.git), unless there
-> are problems with this plan?
+Hi Vitali.
+
+On Wed, Nov 05, 2008 at 04:47:03PM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
+> In either case, the skb given to the destructor will still have the correct values for fragments we specified.  Of course, this is based on 2 assumptions:
 > 
+> 1.  Nothing further down the line won't add fragments, thereby overwriting frags[0]
+> 2.  No-one writes to frags[0].page & frags[0].page_offset
+> 
+> 1 is reasonable because since the only reason we would be linearizing in the first place is if the device doesn't support scatter/gather, so it would be strange for something down the line to add more fragments that would have to be linearized anyways.
+> 
+> 2 is reasonable since it would only make sense if something down the line used this as a temporary variable storage, which again should be unlikely.
 
-This is regression fix. When setting pause parameters for one port, they would only change for that port,
-but both of the ports report the same parameters. It means that the second port reports wrong pause parameters.
+What if skb was queued in hardware or qdisk and userspace rewrites
+mapped page placed in fraglist?
 
-Yevgeny
+> Another approach may be to store it in the cb as we had done so originally, except with skb_clone to ensure no other layers overwrite it, although I'm not 100% sure of the implications of skb_clone has for things like the cb & users fields and kfree_skb.
+
+It is not allowed to store something in cb block which is intended to
+live while skb is processed on different layers. In this particular case
+qdisk engine will overwrite skb's cb.
+
+-- 
+	Evgeniy Polyakov
