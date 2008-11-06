@@ -1,46 +1,58 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/6] sfc: Correct address of gPXE boot configuration in
- EEPROM
-Date: Thu, 06 Nov 2008 00:53:44 -0500
-Message-ID: <49128668.5060707@pobox.com>
-References: <20081104203244.GX7331@solarflare.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/6] SMSC LAN911x and LAN921x vendor driver
+Date: Thu, 06 Nov 2008 01:00:08 -0500
+Message-ID: <491287E8.70704@garzik.org>
+References: <1225881342-3485-1-git-send-email-steve.glendinning@smsc.com> <1225881342-3485-2-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, catalin.marinas@arm.com,
+	Bahadir.Balban@arm.com, dustin@sensoria.com, bgat@billgatliff.com,
+	Ian Saturley <ian.saturley@smsc.com>, g.liakhovetski@gmx.de,
+	Peter Korsgaard <jacmet@sunsite.dk>
+To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48999 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:50882 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750703AbYKFFxt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2008 00:53:49 -0500
-In-Reply-To: <20081104203244.GX7331@solarflare.com>
+	id S1750772AbYKFGAO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 01:00:14 -0500
+In-Reply-To: <1225881342-3485-2-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> Due to a hardware bug, the originally assigned range cannot reliably
-> be used for boot configuration and must not be modifiable through
-> ethtool.
+Steve Glendinning wrote:
+> Attached is a driver for SMSC's LAN911x and LAN921x families of embedded
+> ethernet controllers.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> There is an existing smc911x driver in the tree; this is intended to
+> replace it.  Dustin McIntire (the author of the smc911x driver) has
+> expressed his support for switching to this driver.
+> 
+> This driver contains workarounds for all known hardware issues, and has
+> been tested on all flavours of the chip on multiple architectures.
+> 
+> This driver now uses phylib, so this patch also adds support for the
+> device's internal phy
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> Signed-off-by: Bahadir Balban <Bahadir.Balban@arm.com>
+> Signed-off-by: Dustin Mcintire <dustin@sensoria.com>
+> Signed-off-by: Bill Gatliff <bgat@billgatliff.com>
 > ---
->  drivers/net/sfc/ethtool.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-> index fa98af5..cd0d087 100644
-> --- a/drivers/net/sfc/ethtool.c
-> +++ b/drivers/net/sfc/ethtool.c
-> @@ -174,8 +174,8 @@ static struct efx_ethtool_stat efx_ethtool_stats[] = {
->  
->  /* EEPROM range with gPXE configuration */
->  #define EFX_ETHTOOL_EEPROM_MAGIC 0xEFAB
-> -#define EFX_ETHTOOL_EEPROM_MIN 0x100U
-> -#define EFX_ETHTOOL_EEPROM_MAX 0x400U
-> +#define EFX_ETHTOOL_EEPROM_MIN 0x800U
-> +#define EFX_ETHTOOL_EEPROM_MAX 0x1800U
+>  MAINTAINERS              |    6 +
+>  drivers/net/Kconfig      |   14 +
+>  drivers/net/Makefile     |    1 +
+>  drivers/net/phy/smsc.c   |   28 +
+>  drivers/net/smsc911x.c   | 2091 ++++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/smsc911x.h   |  394 +++++++++
+>  include/linux/smsc911x.h |   42 +
+>  7 files changed, 2576 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/smsc911x.c
+>  create mode 100644 drivers/net/smsc911x.h
+>  create mode 100644 include/linux/smsc911x.h
 
-applied 1-5, I want a bit more time to review #6
+applied patch #1
+
+ACK patches 2-6
 
 
