@@ -1,76 +1,51 @@
-From: "Dasgupta, Romit" <romit@ti.com>
-Subject: [SMC911x ]fix for driver resume and compilation warning
-Date: Thu, 6 Nov 2008 15:46:18 +0530
-Message-ID: <B85A65D85D7EB246BE421B3FB0FBB59301B34DBBA2@dbde02.ent.ti.com>
+From: Jianjun Kong <jianjun@zeuux.org>
+Subject: [PATCH] nets: fix problem of using lock
+Date: Thu, 6 Nov 2008 18:41:03 +0800
+Message-ID: <20081106104103.GA29787@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: "dustin@sensoria.com" <dustin@sensoria.com>,
-	"jgarzik@pobox.com" <jgarzik@pobox.com>,
-	"nico@cam.org" <nico@cam.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi,
-     I am trying out suspend, resume on an OMAP3 based board. What I see during resume is that the SMC911x driver resume routing gets stuck after trying to transmit the packet out of the controller. Some debug messages below:
-
---> smc911x_drv_resume
-eth0: --> smc911x_reset
-eth0: smc911x_reset timeout waiting for PM restore
-eth0: --> smc911x_enable
-eth0: --> smc911x_phy_configure()
-eth0: --> smc911x_phy_reset()
-eth0: phy caps=0x782d
-eth0: phy advertised caps=0x0de1
-eth0: --> smc911x_phy_check_media
-smc911x_phy_read: phyaddr=0x1, phyreg=0x01, phydata=0x7809
-smc911x_phy_read: phyaddr=0x1, phyreg=0x01, phydata=0x7809
-eth0: link down
-Restarting tasks ... eth0: --> smc911x_hard_start_xmit
-eth0: --> smc911x_hardware_send_pkt
-eth0: --> smc911x_hard_start_xmit
-eth0: --> smc911x_hardware_send_pkt
-eth0: --> smc911x_hard_start_xmit
-eth0: --> smc911x_hardware_send_pkt
-nfs: server 172.24.190.217 not responding, still trying
-nfs: server 172.24.190.217 not responding, still trying
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.zeuux.org ([210.51.160.52]:53549 "EHLO z.billxu.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753453AbYKFKlN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 05:41:13 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-The following change makes it work fine: (The change within smc911x_drv_probe function was to get rid of a compilation warning).
-Additionally, the SMC9211 data sheet says that when we enter D2 sleep state, we need to set the EDPWRDOWN bit in the PHY Mode control/status register and clear it when we are back to D0. This is not done in the code as far as I can see. So does it mean that the PHY is not powered down but the controller is? I have another patch that fixes it. I will send that as well unless I am missing something.
+net/core/skbuff.c: void skb_queue_purge(struct sk_buff_head *list)
 
-Thanks,
--Romit
+This function should takes the the list lock, because the operation to
+this list shoule be atomic. And __skb_queue_purge()  (in
+include/linux/skbuff.c) real delete the buffers in the list.
 
+Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
+---
+ net/core/skbuff.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-Signed-off-by: Romit Dasgupta <romit@ti.com>
-
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index 5051554..1f26ab0 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -2050,7 +2050,9 @@ err_out:
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ebb6b94..3b89fb1 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1834,9 +1834,11 @@ struct sk_buff *skb_dequeue_tail(struct sk_buff_head *list)
   */
- static int smc911x_drv_probe(struct platform_device *pdev)
+ void skb_queue_purge(struct sk_buff_head *list)
  {
-+#ifdef SMC_DYNAMIC_BUS_CONFIG
- 	struct smc911x_platdata *pd = pdev->dev.platform_data;
-+#endif
- 	struct net_device *ndev;
- 	struct resource *res;
- 	struct smc911x_local *lp;
-@@ -2182,9 +2184,9 @@ static int smc911x_drv_resume(struct platform_device *dev)
+-	struct sk_buff *skb;
+-	while ((skb = skb_dequeue(list)) != NULL)
+-		kfree_skb(skb);
++	unsigned long flags;
++
++	spin_lock_irqsave(&list->lock, flags);
++	__skb_queue_purge(list);
++	spin_unlock_irqrestore(&list->lock, flags);
+ }
  
- 		if (netif_running(ndev)) {
- 			smc911x_reset(ndev);
--			smc911x_enable(ndev);
- 			if (lp->phy_type != 0)
- 				smc911x_phy_configure(&lp->phy_configure);
-+			smc911x_enable(ndev);
- 			netif_device_attach(ndev);
- 		}
- 	}
+ /**
+-- 
+1.5.6.3
+
