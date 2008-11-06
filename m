@@ -1,53 +1,76 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH] virtio_net: don't set NETIF_F_FRAGLIST
-Date: Thu, 06 Nov 2008 10:12:32 +0000
-Message-ID: <1225966352.7284.5.camel@blaa>
-References: <> <1225888486-977-1-git-send-email-markmc@redhat.com>
-	 <491283FA.1020404@garzik.org>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: "Dasgupta, Romit" <romit@ti.com>
+Subject: [SMC911x ]fix for driver resume and compilation warning
+Date: Thu, 6 Nov 2008 15:46:18 +0530
+Message-ID: <B85A65D85D7EB246BE421B3FB0FBB59301B34DBBA2@dbde02.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:38949 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753326AbYKFKNk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2008 05:13:40 -0500
-In-Reply-To: <491283FA.1020404@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: "dustin@sensoria.com" <dustin@sensoria.com>,
+	"jgarzik@pobox.com" <jgarzik@pobox.com>,
+	"nico@cam.org" <nico@cam.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2008-11-06 at 00:43 -0500, Jeff Garzik wrote:
-> Mark McLoughlin wrote:
-> > We don't handle skb_shared_info->frag_list, so we shouldn't
-> > be setting the NETIF_F_FRAGLIST flag.
-> > 
-> > Signed-off-by: Mark McLoughlin <markmc@redhat.com>
-> > ---
-> >  drivers/net/virtio_net.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 0196a0d..9d4fdad 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -505,7 +505,7 @@ static int virtnet_probe(struct virtio_device *vdev)
-> >  	/* Do we support "hardware" checksums? */
-> >  	if (csum && virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
-> >  		/* This opens up the world of extra features. */
-> > -		dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-> > +		dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG;
-> >  		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
-> >  			dev->features |= NETIF_F_TSO | NETIF_F_UFO
-> >  				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
-> 
-> applied this and tun patch
+Hi,
+     I am trying out suspend, resume on an OMAP3 based board. What I see during resume is that the SMC911x driver resume routing gets stuck after trying to transmit the packet out of the controller. Some debug messages below:
 
-Sorry Jeff, Rusty correctly points out that we do in fact handle
-shinfo->frags; just a moment of blindness on my part.
+--> smc911x_drv_resume
+eth0: --> smc911x_reset
+eth0: smc911x_reset timeout waiting for PM restore
+eth0: --> smc911x_enable
+eth0: --> smc911x_phy_configure()
+eth0: --> smc911x_phy_reset()
+eth0: phy caps=0x782d
+eth0: phy advertised caps=0x0de1
+eth0: --> smc911x_phy_check_media
+smc911x_phy_read: phyaddr=0x1, phyreg=0x01, phydata=0x7809
+smc911x_phy_read: phyaddr=0x1, phyreg=0x01, phydata=0x7809
+eth0: link down
+Restarting tasks ... eth0: --> smc911x_hard_start_xmit
+eth0: --> smc911x_hardware_send_pkt
+eth0: --> smc911x_hard_start_xmit
+eth0: --> smc911x_hardware_send_pkt
+eth0: --> smc911x_hard_start_xmit
+eth0: --> smc911x_hardware_send_pkt
+nfs: server 172.24.190.217 not responding, still trying
+nfs: server 172.24.190.217 not responding, still trying
+
+
+The following change makes it work fine: (The change within smc911x_drv_probe function was to get rid of a compilation warning).
+Additionally, the SMC9211 data sheet says that when we enter D2 sleep state, we need to set the EDPWRDOWN bit in the PHY Mode control/status register and clear it when we are back to D0. This is not done in the code as far as I can see. So does it mean that the PHY is not powered down but the controller is? I have another patch that fixes it. I will send that as well unless I am missing something.
 
 Thanks,
-Mark.
+-Romit
 
+
+Signed-off-by: Romit Dasgupta <romit@ti.com>
+
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index 5051554..1f26ab0 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -2050,7 +2050,9 @@ err_out:
+  */
+ static int smc911x_drv_probe(struct platform_device *pdev)
+ {
++#ifdef SMC_DYNAMIC_BUS_CONFIG
+ 	struct smc911x_platdata *pd = pdev->dev.platform_data;
++#endif
+ 	struct net_device *ndev;
+ 	struct resource *res;
+ 	struct smc911x_local *lp;
+@@ -2182,9 +2184,9 @@ static int smc911x_drv_resume(struct platform_device *dev)
+ 
+ 		if (netif_running(ndev)) {
+ 			smc911x_reset(ndev);
+-			smc911x_enable(ndev);
+ 			if (lp->phy_type != 0)
+ 				smc911x_phy_configure(&lp->phy_configure);
++			smc911x_enable(ndev);
+ 			netif_device_attach(ndev);
+ 		}
+ 	}
