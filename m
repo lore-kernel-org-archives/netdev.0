@@ -1,180 +1,141 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [Fwd: Re: Fwd: [PATCH] Cleanup hso rfkill error handling [was: 2.6.28-rc2
- / hso driver oops]]
-Date: Thu, 06 Nov 2008 13:07:33 +0100
-Message-ID: <4912DE05.1050208@option.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: UNIX sockets kernel panic
+Date: Thu, 06 Nov 2008 04:26:00 -0800 (PST)
+Message-ID: <20081106.042600.114065285.davem@redhat.com>
+References: <20081106001445.GA5595@shorty>
+	<20081106011319.GA22389@x200.localdomain>
+	<20081105.171822.193705306.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-To: Cedric Vivier <cedricv-ezYTijPLdFXQT0dZR+AlfA@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, a.bittau@cs.ucl.ac.uk
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:48111 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751381AbYKFM0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 07:26:11 -0500
+In-Reply-To: <20081105.171822.193705306.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-See if this patch fixes things up, I think it might,, I hope it applies cleanly
-& let the mailing lists know if the patch works
+From: David Miller <davem@davemloft.net>
+Date: Wed, 05 Nov 2008 17:18:22 -0800 (PST)
 
-If you don't like fixing this patch up try getting it off the mailing lists.
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Date: Thu, 6 Nov 2008 04:13:19 +0300
+> 
+> > On Thu, Nov 06, 2008 at 12:14:46AM +0000, Andrea Bittau wrote:
+> > > The following code causes a kernel panic on Linux 2.6.26:
+> > > http://darkircop.org/unix.c
+> > > 
+> > > I haven't investigated the bug so I'm not sure what is causing it, and
+> > > don't know if it's exploitable.  The code passes unix sockets from one
+> > > process to another using unix sockets.  The bug probably has to do with
+> > > closing file descriptors.
+> > 
+> > Aie, nice localhost DoS (random oopses)
+> 
+> Indeed.  I'm looking at it too and in my case I get random memory
+> corruption, usually it's skb->destruct being set to garbage and then
+> we hit the WARN_ON(in_irq()) in net/core/skbuff.c
+> 
+> I think the key is passing a unix socket fd (as opposed to some other
+> kind of fd) using SCM_RIGHTS and the ordering of the fd closes.
 
--------- Original Message --------
-Subject: Re: Fwd: [PATCH] Cleanup hso rfkill error handling [was: 2.6.28-rc2 / hso driver oops]
-Date: Thu, 30 Oct 2008 11:14:16 +0000
-From: Andrew Bird (Sphere Systems) <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-Organization: Sphere Systems Ltd
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-References: <200810301034.13105.ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org> <4909934B.90709-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Andrea, can you try this patch?
 
-Hi Denis,
-	Well I think you need to submit a patch to the /MAINTAINERS file adding a 
-subsection for HSO with person name & email address. It probably should be 
-sent via Greg Kroah-Hatman. At the very least get an author/copyright 
-notice/date added to the top of hso.c too. Getting added as a maintainer 
-should help your patch inclusion efforts too.
+net: Fix recursive descent in __scm_destroy().
 
+__scm_destroy() walks the list of file descriptors in the scm_fp_list
+pointed to by the scm_cookie argument.
 
-Best regards,
+Those, in turn, can close sockets and invoke __scm_destroy() again.
 
+There is nothing which limits how deeply this can occur.
 
-Andrew
+The idea for how to fix this is from Linus.  Basically, we do all of
+the fput()s at the top level by collecting all of the scm_fp_list
+objects hit by an fput().  Inside of the initial __scm_destroy() we
+keep running the list until it is empty.
 
+Signed-off-by: David S. Miller <davem@davemloft.net>
 
-On Thursday 30 October 2008, Denis Joseph Barrow wrote:
-> Hi Andrew,
-> I consider myself as a maintainer of the hso driver, not the only one
-> though. How do I officially become a maintainer?
-> I'm concentrating on developing a new troublesome modem driver at the
-> moment & won't get a chance to active again on hso driver for at a month or
-> two. I'm a bad juggler so it would be good if someone else concentrated on
-> fixes to hso other than me for the moment.
-> I have posted at least 4 patches to the linux usb & linux netdev
-> mailing list & they weren't accepted yet & I need to
-> respin them for the latest kernels.
->
-> Andrew Bird (Sphere Systems) wrote:
-> > Hi Denis,
-> > 	I don't know whether you are still working on the hso driver, but if so
-> > this may interest you. You might also want to add yourself as maintainer
-> > for the driver, quite a few of these things get cc'd to me in the absence
-> > of a formal maintainer, but I'm no longer working on the project.
-> >
-> >
-> > Best regards,
-> >
-> >
-> > Andrew
-> >
-> >
-> > ------------------------------------------------------------------------
-> >
-> > Subject:
-> > [PATCH] Cleanup hso rfkill error handling [was: 2.6.28-rc2 / hso driver
-> > oops]
-> > From:
-> > Jonathan McDowell <noodles-4QvXXjU8Dv4@public.gmane.org>
-> > Date:
-> > Thu, 30 Oct 2008 10:27:46 +0000
-> > To:
-> > linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> >
-> > To:
-> > linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > CC:
-> > Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, Andrew Bird
-> > <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-> >
-> > On Wed, Oct 29, 2008 at 07:40:11PM +0000, Ben Hutchings wrote:
-> >> On Wed, 2008-10-29 at 16:40 +0000, Jonathan McDowell wrote:
-> >>> Hi.
-> >>>
-> >>> Tried out 2.6.28-rc2 today on my EEE 901 and my Option Icon 225 and got
-> >>> the following oops:
-> >>>
-> >>> hso: drivers/net/usb/hso.c: 1.2 Option Wireless
-> >>> usbcore: registered new interface driver hso
-> >>> usb 2-2: new full speed USB device using uhci_hcd and address 3
-> >>> usb 2-2: configuration #1 chosen from 1 choice
-> >>> hso0: Disabled Privacy Extensions
-> >>> BUG: unable to handle kernel NULL pointer dereference at 000000d0
-> >>> IP: [<c03589b9>] dev_driver_string+0x1/0x2a
-> >>
-> >> Something passed a null device pointer to dev_printk().
-> >>
-> >> [...]
-> >>
-> >>> [<f81b8265>] ? hso_create_net_device+0x305/0x32d [hso]
-> >>
-> >> [...]
-> >>
-> >> I think that hso_create_rfkill() is the culprit here (and has been
-> >> inlined into hso_create_net_device()).  It's using hso_dev->dev as the
-> >> first argument to dev_err() and it doesn't look like that field is
-> >> initialised except by kzalloc.  At a guess, it should be using
-> >> &hso_dev->usb->dev.
-> >
-> > Yup, this appears to be the problem, thanks. I think &hso_net->net->dev
-> > is more intuitive for the error message, so I've used that. I've also
-> > added missing line endings on the error messages and set our local
-> > rfkill structure element to NULL on failure so we don't try to call
-> > rfkill_unregister on driver removal if we failed to register at all.
-> >
-> > The patch below Works For Me (TM); the device is detected fine, can be
-> > removed without problems and connects ok. I'll have a prod at why the
-> > rfkill stuff isn't working next, but I believe this cleanup of the error
-> > handling is appropriate no matter what the issue with registration is.
-> >
-> > Signed-Off-By: Jonathan McDowell <noodles-4QvXXjU8Dv4@public.gmane.org>
-> >
-> > -----
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index 1164c52..9d9622b 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -2184,19 +2184,20 @@ static void hso_create_rfkill(struct hso_device
-> > *hso_dev, struct usb_interface *interface)
-> >  {
-> >  	struct hso_net *hso_net = dev2net(hso_dev);
-> > -	struct device *dev = hso_dev->dev;
-> > +	struct device *dev = &hso_net->net->dev;
-> >  	char *rfkn;
-> >
-> >  	hso_net->rfkill = rfkill_allocate(&interface_to_usbdev(interface)->dev,
-> >  				 RFKILL_TYPE_WLAN);
-> >  	if (!hso_net->rfkill) {
-> > -		dev_err(dev, "%s - Out of memory", __func__);
-> > +		dev_err(dev, "%s - Out of memory\n", __func__);
-> >  		return;
-> >  	}
-> >  	rfkn = kzalloc(20, GFP_KERNEL);
-> >  	if (!rfkn) {
-> >  		rfkill_free(hso_net->rfkill);
-> > -		dev_err(dev, "%s - Out of memory", __func__);
-> > +		hso_net->rfkill = NULL;
-> > +		dev_err(dev, "%s - Out of memory\n", __func__);
-> >  		return;
-> >  	}
-> >  	snprintf(rfkn, 20, "hso-%d",
-> > @@ -2209,7 +2210,8 @@ static void hso_create_rfkill(struct hso_device
-> > *hso_dev, kfree(rfkn);
-> >  		hso_net->rfkill->name = NULL;
-> >  		rfkill_free(hso_net->rfkill);
-> > -		dev_err(dev, "%s - Failed to register rfkill", __func__);
-> > +		hso_net->rfkill = NULL;
-> > +		dev_err(dev, "%s - Failed to register rfkill\n", __func__);
-> >  		return;
-> >  	}
-> >  }
-> > -----
-> >
-> > J.
-
-
--- 
-best regards,
-D.J. Barrow
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index b483f39..295b7c7 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1349,6 +1349,8 @@ struct task_struct {
+ 	 */
+ 	unsigned long timer_slack_ns;
+ 	unsigned long default_timer_slack_ns;
++
++	struct list_head	*scm_work_list;
+ };
+ 
+ /*
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 06df126..33e9986 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -14,8 +14,9 @@
+ 
+ struct scm_fp_list
+ {
+-	int		count;
+-	struct file	*fp[SCM_MAX_FD];
++	struct list_head	list;
++	int			count;
++	struct file		*fp[SCM_MAX_FD];
+ };
+ 
+ struct scm_cookie
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 10f5c65..ab242cc 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -75,6 +75,7 @@ static int scm_fp_copy(struct cmsghdr *cmsg, struct scm_fp_list **fplp)
+ 		if (!fpl)
+ 			return -ENOMEM;
+ 		*fplp = fpl;
++		INIT_LIST_HEAD(&fpl->list);
+ 		fpl->count = 0;
+ 	}
+ 	fpp = &fpl->fp[fpl->count];
+@@ -106,9 +107,25 @@ void __scm_destroy(struct scm_cookie *scm)
+ 
+ 	if (fpl) {
+ 		scm->fp = NULL;
+-		for (i=fpl->count-1; i>=0; i--)
+-			fput(fpl->fp[i]);
+-		kfree(fpl);
++		if (current->scm_work_list) {
++			list_add_tail(&fpl->list, current->scm_work_list);
++		} else {
++			LIST_HEAD(work_list);
++
++			current->scm_work_list = &work_list;
++
++			list_add(&fpl->list, &work_list);
++			while (!list_empty(&work_list)) {
++				fpl = list_first_entry(&work_list, struct scm_fp_list, list);
++
++				list_del(&fpl->list);
++				for (i=fpl->count-1; i>=0; i--)
++					fput(fpl->fp[i]);
++				kfree(fpl);
++			}
++
++			current->scm_work_list = NULL;
++		}
+ 	}
+ }
+ 
+@@ -284,6 +301,7 @@ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
+ 
+ 	new_fpl = kmalloc(sizeof(*fpl), GFP_KERNEL);
+ 	if (new_fpl) {
++		INIT_LIST_HEAD(&new_fpl->list);
+ 		for (i=fpl->count-1; i>=0; i--)
+ 			get_file(fpl->fp[i]);
+ 		memcpy(new_fpl, fpl, sizeof(*fpl));
