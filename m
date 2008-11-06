@@ -1,42 +1,46 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [BUG] linux-2.6.28-rc3 regression: IRQ smp_affinities not
- respected
-Date: Wed, 05 Nov 2008 17:46:28 -0800
-Message-ID: <1225935988.12402.1.camel@HP1>
-References: <C27F8246C663564A84BB7AB343977242151F4B18B5@IRVEXCHCCR01.corp.ad.broadcom.com>
- <491154C8.3040401@cosmosbay.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/6] sfc: Correct address of gPXE boot configuration in
+ EEPROM
+Date: Thu, 06 Nov 2008 00:36:15 -0500
+Message-ID: <4912824F.6030604@pobox.com>
+References: <20081104203244.GX7331@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux kernel" <linux-kernel@vger.kernel.org>,
-	"Linux Netdev List" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <dada1@cosmosbay.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4654 "EHLO mms1.broadcom.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:39846 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752464AbYKFBs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2008 20:48:57 -0500
-In-Reply-To: <491154C8.3040401@cosmosbay.com>
+	id S1750703AbYKFFgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2008 00:36:20 -0500
+In-Reply-To: <20081104203244.GX7331@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ben Hutchings wrote:
+> Due to a hardware bug, the originally assigned range cannot reliably
+> be used for boot configuration and must not be modifiable through
+> ethtool.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+>  drivers/net/sfc/ethtool.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+> index fa98af5..cd0d087 100644
+> --- a/drivers/net/sfc/ethtool.c
+> +++ b/drivers/net/sfc/ethtool.c
+> @@ -174,8 +174,8 @@ static struct efx_ethtool_stat efx_ethtool_stats[] = {
+>  
+>  /* EEPROM range with gPXE configuration */
+>  #define EFX_ETHTOOL_EEPROM_MAGIC 0xEFAB
+> -#define EFX_ETHTOOL_EEPROM_MIN 0x100U
+> -#define EFX_ETHTOOL_EEPROM_MAX 0x400U
+> +#define EFX_ETHTOOL_EEPROM_MIN 0x800U
+> +#define EFX_ETHTOOL_EEPROM_MAX 0x1800U
 
-On Wed, 2008-11-05 at 00:09 -0800, Eric Dumazet wrote:
-> Thanks Michael for your fast answer
-> 
-> 
-> I tried this MSI disabling and yes, it now works.
-> 
->  16:      42726        128        105        106         89         89
-> 145        152   IO-APIC-fasteoi   uhci_hcd:usb1, eth0, eth1
-> 
-> But I now have same interrupt used on two NIC, so I cannot split the
-> load on two CPUS, unless
-> using a smp_affinity with 2 CPUS on it. Not exactly what I wanted to
-> do..
-> 
-> Do you know if BCM5715S (tg3 driver) have same problem ?
-
-Eric, I believe the 5715 should be OK.
+this seems like something for 2.6.28-rc not 2.6.29, so why wait for 2.6.29?
 
 
