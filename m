@@ -1,44 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch 6/7] drivers/net/sfc/falcon.c: fix min() warnings
-Date: Thu, 06 Nov 2008 12:33:15 +0000
-Message-ID: <1225974795.3150.1.camel@achroite>
-References: <200810292122.m9TLMHts020208@imap1.linux-foundation.org>
-	 <49128300.1000602@garzik.org>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [PATCH 1/6] SMSC LAN911x and LAN921x vendor driver
+Date: Thu, 06 Nov 2008 12:48:21 +0000
+Message-ID: <1225975701.16885.7.camel@pc1117.cambridge.arm.com>
+References: <1225881342-3485-1-git-send-email-steve.glendinning@smsc.com>
+	 <1225881342-3485-2-git-send-email-steve.glendinning@smsc.com>
+	 <491287E8.70704@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	jgarzik@redhat.com
+Cc: Steve Glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org, Bahadir.Balban@arm.com,
+	dustin@sensoria.com, bgat@billgatliff.com,
+	Ian Saturley <ian.saturley@smsc.com>, g.liakhovetski@gmx.de,
+	Peter Korsgaard <jacmet@sunsite.dk>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:53204 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753366AbYKFMdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 07:33:19 -0500
-In-Reply-To: <49128300.1000602@garzik.org>
+Received: from cam-admin0.cambridge.arm.com ([193.131.176.58]:53777 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753605AbYKFMst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 07:48:49 -0500
+In-Reply-To: <491287E8.70704@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-11-06 at 00:39 -0500, Jeff Garzik wrote:
-> akpm@linux-foundation.org wrote:
-> > From: Andrew Morton <akpm@linux-foundation.org>
-> > 
-> > drivers/net/sfc/falcon.c: In function 'falcon_spi_write_limit':
-> > drivers/net/sfc/falcon.c:1679: warning: comparison of distinct pointer types lacks a cast
-> > drivers/net/sfc/falcon.c: In function 'falcon_spi_read':
-> > drivers/net/sfc/falcon.c:1720: warning: comparison of distinct pointer types lacks a cast
-> > 
-> > Driver seems rather confused about types.  Try to help it.
+On Thu, 2008-11-06 at 01:00 -0500, Jeff Garzik wrote:
+> Steve Glendinning wrote:
+> > Attached is a driver for SMSC's LAN911x and LAN921x families of embedded
+> > ethernet controllers.
 [...]
-> I would prefer min_t()...
+> applied patch #1
 
-Andrew has dropped this patch as it is no longer applicable.  I do have
-a patch to clean up the length types which I'll submit later.
+Could you please apply patch #2 as well? The subsequent patches probably
+won't compile without the dynamic bus configuration as they make use of
+it.
 
-Ben.
+Thanks.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Catalin
 
