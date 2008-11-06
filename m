@@ -1,38 +1,31 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH 2/3] net: Guaranetee the proper ordering of the
- loopback device.
-Date: Thu, 06 Nov 2008 13:20:25 -0800 (PST)
-Message-ID: <20081106.132025.228084154.davem@redhat.com>
-References: <m1y6zx3gcs.fsf_-_@frodo.ebiederm.org>
-	<20081105.160047.174722021.davem@davemloft.net>
-	<m14p2l0zyu.fsf@frodo.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes for 2.6.28-rc
+Date: Thu, 06 Nov 2008 15:50:55 -0800 (PST)
+Message-ID: <20081106.155055.158286541.davem@davemloft.net>
+References: <20081106065003.GA19105@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dlezcano@fr.ibm.com, containers@lists.osdl.org, den@openvz.org,
-	xemul@openvz.org, netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42602
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52667
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751391AbYKFXqw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 18:46:52 -0500
-In-Reply-To: <m14p2l0zyu.fsf@frodo.ebiederm.org>
+	by vger.kernel.org with ESMTP id S1751481AbYKFXu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 18:50:56 -0500
+In-Reply-To: <20081106065003.GA19105@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 06 Nov 2008 05:02:33 -0800
+From: Jeff Garzik <jeff@garzik.org>
+Date: Thu, 6 Nov 2008 01:50:03 -0500
 
-> 
-> Dave can you please drop this one for the moment.
-> 
-> I cleaned up my patch after the basic testing was over and the
-> result is a kernel that won't boot.  So if we can prevent this
-> patch from spreading and breaking a git-bisect that would be great.
-> 
-> I will follow up in a moment with a properly tested version.
-> My apologies.
+> Mark McLoughlin (2):
+>       virtio_net: don't set NETIF_F_FRAGLIST
+>       tun: don't set NETIF_F_FRAGLIST
 
-It's already in my tree, so I need a relative fixup patch not
-an entire new one.
+These patches aren't correct, the drivers do in fact handle fragment
+lists properly as was discussed in the threads where these patches
+were posted.
+
+Please pull these changes out and resend your pull request, thanks Jeff!
