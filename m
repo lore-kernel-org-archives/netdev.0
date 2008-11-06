@@ -1,78 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] loopback: optimization
-Date: Wed, 5 Nov 2008 16:42:51 -0800
-Message-ID: <20081105164251.2ca307fb@extreme>
-References: <20081103213758.59a8361d@extreme>
-	<20081105123659.6045b216@extreme>
-	<491228C8.3010100@cosmosbay.com>
+From: "Lovich, Vitali" <vlovich@qualcomm.com>
+Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Wed, 5 Nov 2008 16:47:03 -0800
+Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F56@NASANEXMB10.na.qualcomm.com>
+References: <1225450706.5301.94.camel@localhost>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CB5@NASANEXMB10.na.qualcomm.com>
+ <1225838743.6116.20.camel@fry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: Johann Baudy <johaahn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58881 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752044AbYKFAmy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 19:42:54 -0500
-In-Reply-To: <491228C8.3010100@cosmosbay.com>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:11887 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752044AbYKFArO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2008 19:47:14 -0500
+In-Reply-To: <1225838743.6116.20.camel@fry>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 06 Nov 2008 00:14:16 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-> Stephen Hemminger a =C3=A9crit :
-> > Convert loopback device from using common network queues to a per-c=
-pu
-> > receive queue with NAPI. This gives a small 1% performance gain whe=
-n
-> > measured over 5 runs of tbench. Not sure if it's worth bothering
-> > though.
-> >=20
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >=20
-> >=20
-> > --- a/drivers/net/loopback.c	2008-11-04 15:36:29.000000000 -0800
-> > +++ b/drivers/net/loopback.c	2008-11-05 10:00:20.000000000 -0800
-> > @@ -59,7 +59,10 @@
-> > =20
-> > +/* Special case version of napi_schedule since loopback device has=
- no hard irq */
-> > +void napi_schedule_irq(struct napi_struct *n)
-> > +{
-> > +	if (napi_schedule_prep(n)) {
-> > +		list_add_tail(&n->poll_list, &__get_cpu_var(softnet_data).poll_l=
-ist);
-> > +		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-> > +	}
-> > +}
-> > +
->=20
-> Stephen, I dont get it.
->=20
-> Sure loopback device cannot generate hard irqs, but what prevent's a =
-real hardware
-> interrupt to call NIC driver that can call napi_schedule() and corrup=
-t softnet_data.poll_list ?
->=20
-> Why not using a queue dedicated on loopback directly in cpu_var(softn=
-et_data) ?
->=20
-> (ie not using a napi structure for each cpu and each loopback dev)
->=20
-> This queue would be irq safe yes.
->=20
-> net_rx_action could handle this list without local_irq_disable()/loca=
-l_irq_enable() games.
->=20
-> Hum, maybe complex for loopback_dev_stop() to purge all queues withou=
-t interfering with other namespaces.
 
-I did try a workqueue and kthread version previously, but they both had=
- much worse
-performance. Forgot that the NAPI schedule is shared, so yes that would=
- have to locked.
+> -----Original Message-----
+> From: Johann Baudy [mailto:johaahn@gmail.com]
+> Sent: November-04-08 2:46 PM
+> To: Lovich, Vitali
+> Cc: netdev@vger.kernel.org; Evgeniy Polyakov
+> Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+> 
+> This won't work if your network card doesn't support Scatter/Gather IO.
+> Indeed, when SG is not supported, fragmented packets are linearized
+> after dev_queue_xmit() call. Thus addresses of pages are then lost.
+> 
+> Best regards,
+> Johann
+Hi Johann, 
+Actually, I believe it still will.  There's only two cases that can occur if the device doesn't support scatter gather: dev_queue_xmit linearizes, or it fails (e.g. too much payload - can't reallocate contiguous portion of skb).
 
-Doing it purely for loopback would mean using a tasklet or another soft=
-irq.
+The relevant code is in __pskb_pull_tail of net/core/skbuff.c (note how delta = skb->data_len when called from skb_linearize).
+
+If it linearizes, then great - the actual fragments aren't actually modified (note how eat will be 0, so it won't update the frag list in __pskb_pull_tail).
+If it doesn't, then dev_queue_xmit fails, then it won't have touched the fragments either.
+
+In either case, the skb given to the destructor will still have the correct values for fragments we specified.  Of course, this is based on 2 assumptions:
+
+1.  Nothing further down the line won't add fragments, thereby overwriting frags[0]
+2.  No-one writes to frags[0].page & frags[0].page_offset
+
+1 is reasonable because since the only reason we would be linearizing in the first place is if the device doesn't support scatter/gather, so it would be strange for something down the line to add more fragments that would have to be linearized anyways.
+
+2 is reasonable since it would only make sense if something down the line used this as a temporary variable storage, which again should be unlikely.
+
+Another approach may be to store it in the cb as we had done so originally, except with skb_clone to ensure no other layers overwrite it, although I'm not 100% sure of the implications of skb_clone has for things like the cb & users fields and kfree_skb.
