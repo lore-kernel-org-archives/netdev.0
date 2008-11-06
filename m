@@ -1,37 +1,46 @@
 From: "Mike Frysinger" <vapier.adi@gmail.com>
-Subject: Re: [PATCH] SSB: make it depend on PCI
-Date: Thu, 6 Nov 2008 16:14:30 -0500
-Message-ID: <8bd0f97a0811061314x53e871c8rc9a7de4c4c10f359@mail.gmail.com>
-References: <1225965082-31462-1-git-send-email-vapier@gentoo.org>
-	 <1225970982.3619.211.camel@johannes.berg>
-	 <8bd0f97a0811060332k281ae4d1m1fee62b27d811037@mail.gmail.com>
-	 <200811061759.29319.mb@bu3sch.de>
+Subject: Re: [PATCH] ssb: Fix DMA-API compilation for non-PCI systems
+Date: Thu, 6 Nov 2008 16:16:00 -0500
+Message-ID: <8bd0f97a0811061316u6b9a330dy279cb7dca679ab73@mail.gmail.com>
+References: <200811062149.21841.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Johannes Berg" <johannes@sipsolutions.net>,
+Cc: "John Linville" <linville@tuxdriver.com>,
 	"Mike Frysinger" <vapier@gentoo.org>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: "Michael Buesch" <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.224]:33157 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.229]:34832 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753932AbYKFVOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 16:14:31 -0500
-In-Reply-To: <200811061759.29319.mb@bu3sch.de>
+	with ESMTP id S1751189AbYKFVQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 16:16:01 -0500
+In-Reply-To: <200811062149.21841.mb@bu3sch.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 6, 2008 at 11:59, Michael Buesch wrote:
-> On Thursday 06 November 2008 12:32:50 Mike Frysinger wrote:
->> OK.  regarding the patch, if we drop the "&& PCI" part, i think the
->> rest should get merged ... having empty menus in kconfig is annoying.
->> agreed ?
->
-> We have these all over the place.
+On Thu, Nov 6, 2008 at 15:49, Michael Buesch wrote:
+> --- wireless-testing.orig/include/linux/ssb/ssb.h       2008-08-01 17:26:05.000000000 +0200
+> +++ wireless-testing/include/linux/ssb/ssb.h    2008-11-06 21:45:37.000000000 +0100
+> @@ -427,12 +427,16 @@ static inline int ssb_dma_mapping_error(
+>  {
+>        switch (dev->bus->bustype) {
+>        case SSB_BUSTYPE_PCI:
+> +#ifdef CONFIG_SSB_PCIHOST
+>                return pci_dma_mapping_error(dev->bus->host_pci, addr);
+> +#endif
+> +               break;
+>        case SSB_BUSTYPE_SSB:
+>                return dma_mapping_error(dev->dev, addr);
+>        default:
+> -               __ssb_dma_not_implemented(dev);
+> +               break;
+>        }
 
-that's a weak argument.  empty menus should go away, not remain
-"because other people are doing it too".  with that mentality, there's
-many issues we wouldnt be able to address.
+all these functions now read:
+default: break;
+seems kind of pointless ... why not just drop that case completely
+
+otherwise looks good, thanks
 -mike
