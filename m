@@ -1,53 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] usbnet: enable more aggressive autosuspend
-Date: Fri, 07 Nov 2008 12:22:36 -0800 (PST)
-Message-ID: <20081107.122236.08276398.davem@davemloft.net>
-References: <200811071244.17221.oliver@neukum.org>
-	<49142DC5.8080803@garzik.org>
-	<200811071324.18697.oliver@neukum.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Fri, 07 Nov 2008 12:22:59 -0800 (PST)
+Message-ID: <20081107.122259.246440353.davem@davemloft.net>
+References: <20081106194032.GB31673@ioremap.net>
+	<FCC0EC655BD1AE408C047268D1F5DF4C3BA60FBE@NASANEXMB10.na.qualcomm.com>
+	<20081107172810.GB15239@ioremap.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, per.hallsmark-8A+B91M1NdOzQB+pC5nmwQ@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org
-To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200811071324.18697.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: vlovich@qualcomm.com, johaahn@gmail.com, netdev@vger.kernel.org
+To: zbr@ioremap.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58652
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750920AbYKGUXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 15:23:00 -0500
+In-Reply-To: <20081107172810.GB15239@ioremap.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Date: Fri, 7 Nov 2008 13:24:17 +0100
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Date: Fri, 7 Nov 2008 20:28:10 +0300
 
-> Am Freitag, 7. November 2008 13:00:05 schrieb Jeff Garzik:
-> > Oliver Neukum wrote:
-> > > Am Freitag, 7. November 2008 09:26:33 schrieb Jeff Garzik:
-> > >> I pondered taking the easy route of fixing this by surrounding the 
-> > >> auto_pm reference with an ifdef, but it seems like usbnet could use a 
-> > >> bit more thought -- it is questionable whether usbnet_suspend/resume 
-> > >> should be built at all, if !CONFIG_PM, even though they are exported.
-> > > 
-> > > As this is a generic problem, shouldn't we get the compiler to do
-> > > this for us?
-> > 
-> > Can you be more specific?
+> On Thu, Nov 06, 2008 at 11:53:35AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
+> > Are there any consequences to bypassing qdisc (other than not participating in any load balancing)?  Also, since any users using the tx ring approach would have to write new code, it would be part of the documentation that the send behaviour is optimized for the least latency and highest throughput, thus no guarantees and assumptions can be made about the path the data takes through the stack.
 > 
-> As these methods are static the compiler is able to tell whether they
-> are referenced by anything but the tables. We should be able to set
-> an attribute in the header file that tells the compiler that these methods
-> won't be called and can be omitted in the build. Otherwise we have to ifdef
-> all those methods.
+> qdisc is a base for multiqueue NICs (and all others too now), you can not bypass it there.
 
-The problem is that the content of these functions still needs to be
-parsed, so references to ifdef'd out structure members are still going
-to throw errors.
-
-For the time being please add the necessary CONFIG_PM wrappers around
-the suspend and resume methods, as this is what we do tree wide and
-I don't think you want these usbnet changes blocked by some fancy
-compiler facility that hasn't been implemented yet.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Right.
