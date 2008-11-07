@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipvs: oldlen, newlen should be be16, not be32
-Date: Thu, 06 Nov 2008 23:10:12 -0800 (PST)
-Message-ID: <20081106.231012.95062942.davem@davemloft.net>
-References: <1226023925.5482.2.camel@brick>
-	<20081107022814.GA18907@verge.net.au>
+Subject: Re: [PATCH] phonet: sparse annotations of protocol, remove forward
+ declaration
+Date: Thu, 06 Nov 2008 23:11:01 -0800 (PST)
+Message-ID: <20081106.231101.22551102.davem@davemloft.net>
+References: <1226022793.5482.1.camel@brick>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harvey.harrison@gmail.com, netdev@vger.kernel.org
-To: horms@verge.net.au
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56522
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53745
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751211AbYKGHKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:10:20 -0500
-In-Reply-To: <20081107022814.GA18907@verge.net.au>
+	by vger.kernel.org with ESMTP id S1751189AbYKGHLC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:11:02 -0500
+In-Reply-To: <1226022793.5482.1.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Fri, 7 Nov 2008 13:28:14 +1100
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Thu, 06 Nov 2008 17:53:13 -0800
 
-> On Thu, Nov 06, 2008 at 06:12:05PM -0800, Harvey Harrison wrote:
-> > Noticed by sparse:
- ...
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> net/phonet/af_phonet.c:38:36: error: marked inline, but without a definition
+> net/phonet/pep-gprs.c:63:10: warning: incorrect type in return expression (different base types)
+> net/phonet/pep-gprs.c:63:10:    expected int
+> net/phonet/pep-gprs.c:63:10:    got restricted __be16 [usertype] <noident>
+> net/phonet/pep-gprs.c:65:10: warning: incorrect type in return expression (different base types)
+> net/phonet/pep-gprs.c:65:10:    expected int
+> net/phonet/pep-gprs.c:65:10:    got restricted __be16 [usertype] <noident>
+> net/phonet/pep-gprs.c:124:16: warning: incorrect type in assignment (different base types)
+> net/phonet/pep-gprs.c:124:16:    expected restricted __be16 [usertype] protocol
+> net/phonet/pep-gprs.c:124:16:    got unsigned short [unsigned] [usertype] protocol
 > 
-> I suspect these were introduced by me :-(
-> 
-> Acked-by: Simon Horman <horms@verge.net.au>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 
-Applied to net-next-2.6, thanks everyone.
+Looks good, applied to net-next-2.6
+
+Thanks.
