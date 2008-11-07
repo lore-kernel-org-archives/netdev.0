@@ -1,109 +1,106 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] phonet: sparse annotations of protocol, remove forward
- declaration
-Date: Thu, 06 Nov 2008 17:53:13 -0800
-Message-ID: <1226022793.5482.1.camel@brick>
+Subject: [PATCH] ipvs: oldlen, newlen should be be16, not be32
+Date: Thu, 06 Nov 2008 18:12:05 -0800
+Message-ID: <1226023925.5482.2.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.226]:55997 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.236]:59834 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757AbYKGBxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 20:53:16 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so1065800rvb.1
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2008 17:53:15 -0800 (PST)
+	with ESMTP id S1750784AbYKGCMI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 21:12:08 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so1073528rvb.1
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2008 18:12:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/phonet/af_phonet.c:38:36: error: marked inline, but without a definition
-net/phonet/pep-gprs.c:63:10: warning: incorrect type in return expression (different base types)
-net/phonet/pep-gprs.c:63:10:    expected int
-net/phonet/pep-gprs.c:63:10:    got restricted __be16 [usertype] <noident>
-net/phonet/pep-gprs.c:65:10: warning: incorrect type in return expression (different base types)
-net/phonet/pep-gprs.c:65:10:    expected int
-net/phonet/pep-gprs.c:65:10:    got restricted __be16 [usertype] <noident>
-net/phonet/pep-gprs.c:124:16: warning: incorrect type in assignment (different base types)
-net/phonet/pep-gprs.c:124:16:    expected restricted __be16 [usertype] protocol
-net/phonet/pep-gprs.c:124:16:    got unsigned short [unsigned] [usertype] protocol
+Noticed by sparse:
+net/netfilter/ipvs/ip_vs_proto_tcp.c:195:6: warning: incorrect type in argument 5 (different base types)
+net/netfilter/ipvs/ip_vs_proto_tcp.c:195:6:    expected restricted __be16 [usertype] oldlen
+net/netfilter/ipvs/ip_vs_proto_tcp.c:195:6:    got restricted __be32 [usertype] <noident>
+net/netfilter/ipvs/ip_vs_proto_tcp.c:196:6: warning: incorrect type in argument 6 (different base types)
+net/netfilter/ipvs/ip_vs_proto_tcp.c:196:6:    expected restricted __be16 [usertype] newlen
+net/netfilter/ipvs/ip_vs_proto_tcp.c:196:6:    got restricted __be32 [usertype] <noident>
+net/netfilter/ipvs/ip_vs_proto_tcp.c:270:6: warning: incorrect type in argument 5 (different base types)
+net/netfilter/ipvs/ip_vs_proto_tcp.c:270:6:    expected restricted __be16 [usertype] oldlen
+net/netfilter/ipvs/ip_vs_proto_tcp.c:270:6:    got restricted __be32 [usertype] <noident>
+net/netfilter/ipvs/ip_vs_proto_tcp.c:271:6: warning: incorrect type in argument 6 (different base types)
+net/netfilter/ipvs/ip_vs_proto_tcp.c:271:6:    expected restricted __be16 [usertype] newlen
+net/netfilter/ipvs/ip_vs_proto_tcp.c:271:6:    got restricted __be32 [usertype] <noident>
+net/netfilter/ipvs/ip_vs_proto_udp.c:206:6: warning: incorrect type in argument 5 (different base types)
+net/netfilter/ipvs/ip_vs_proto_udp.c:206:6:    expected restricted __be16 [usertype] oldlen
+net/netfilter/ipvs/ip_vs_proto_udp.c:206:6:    got restricted __be32 [usertype] <noident>
+net/netfilter/ipvs/ip_vs_proto_udp.c:207:6: warning: incorrect type in argument 6 (different base types)
+net/netfilter/ipvs/ip_vs_proto_udp.c:207:6:    expected restricted __be16 [usertype] newlen
+net/netfilter/ipvs/ip_vs_proto_udp.c:207:6:    got restricted __be32 [usertype] <noident>
+net/netfilter/ipvs/ip_vs_proto_udp.c:282:6: warning: incorrect type in argument 5 (different base types)
+net/netfilter/ipvs/ip_vs_proto_udp.c:282:6:    expected restricted __be16 [usertype] oldlen
+net/netfilter/ipvs/ip_vs_proto_udp.c:282:6:    got restricted __be32 [usertype] <noident>
+net/netfilter/ipvs/ip_vs_proto_udp.c:283:6: warning: incorrect type in argument 6 (different base types)
+net/netfilter/ipvs/ip_vs_proto_udp.c:283:6:    expected restricted __be16 [usertype] newlen
+net/netfilter/ipvs/ip_vs_proto_udp.c:283:6:    got restricted __be32 [usertype] <noident>
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
- net/phonet/af_phonet.c |   11 +++++------
- net/phonet/pep-gprs.c  |    8 ++++----
- 2 files changed, 9 insertions(+), 10 deletions(-)
+ net/netfilter/ipvs/ip_vs_proto_tcp.c |    8 ++++----
+ net/netfilter/ipvs/ip_vs_proto_udp.c |    8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index defeb7a..f400ff1 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -35,7 +35,11 @@
- 
- static struct net_proto_family phonet_proto_family;
- static struct phonet_protocol *phonet_proto_get(int protocol);
--static inline void phonet_proto_put(struct phonet_protocol *pp);
-+
-+static inline void phonet_proto_put(struct phonet_protocol *pp)
-+{
-+	module_put(pp->prot->owner);
-+}
- 
- /* protocol family functions */
- 
-@@ -428,11 +432,6 @@ static struct phonet_protocol *phonet_proto_get(int protocol)
- 	return pp;
- }
- 
--static inline void phonet_proto_put(struct phonet_protocol *pp)
--{
--	module_put(pp->prot->owner);
--}
--
- /* Module registration */
- static int __init phonet_init(void)
- {
-diff --git a/net/phonet/pep-gprs.c b/net/phonet/pep-gprs.c
-index 9978afb..a432407 100644
---- a/net/phonet/pep-gprs.c
-+++ b/net/phonet/pep-gprs.c
-@@ -49,14 +49,14 @@ struct gprs_dev {
- 	unsigned		tx_max;
- };
- 
--static int gprs_type_trans(struct sk_buff *skb)
-+static __be16 gprs_type_trans(struct sk_buff *skb)
- {
- 	const u8 *pvfc;
- 	u8 buf;
- 
- 	pvfc = skb_header_pointer(skb, 0, 1, &buf);
- 	if (!pvfc)
--		return 0;
-+		return htons(0);
- 	/* Look at IP version field */
- 	switch (*pvfc >> 4) {
- 	case 4:
-@@ -64,7 +64,7 @@ static int gprs_type_trans(struct sk_buff *skb)
- 	case 6:
- 		return htons(ETH_P_IPV6);
- 	}
--	return 0;
-+	return htons(0);
- }
- 
- /*
-@@ -84,7 +84,7 @@ static void gprs_state_change(struct sock *sk)
- static int gprs_recv(struct gprs_dev *dev, struct sk_buff *skb)
- {
- 	int err = 0;
--	u16 protocol = gprs_type_trans(skb);
-+	__be16 protocol = gprs_type_trans(skb);
- 
- 	if (!protocol) {
- 		err = -EINVAL;
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index dd4566e..8cba418 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -192,8 +192,8 @@ tcp_snat_handler(struct sk_buff *skb,
+ 	/* Adjust TCP checksums */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
+-					htonl(oldlen),
+-					htonl(skb->len - tcphoff));
++					htons(oldlen),
++					htons(skb->len - tcphoff));
+ 	} else if (!cp->app) {
+ 		/* Only port and addr are changed, do fast csum update */
+ 		tcp_fast_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
+@@ -267,8 +267,8 @@ tcp_dnat_handler(struct sk_buff *skb,
+ 	 */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
+-					htonl(oldlen),
+-					htonl(skb->len - tcphoff));
++					htons(oldlen),
++					htons(skb->len - tcphoff));
+ 	} else if (!cp->app) {
+ 		/* Only port and addr are changed, do fast csum update */
+ 		tcp_fast_csum_update(cp->af, tcph, &cp->vaddr, &cp->daddr,
+diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
+index 6eb6039..d2930a7 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_udp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
+@@ -203,8 +203,8 @@ udp_snat_handler(struct sk_buff *skb,
+ 	 */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		udp_partial_csum_update(cp->af, udph, &cp->daddr, &cp->vaddr,
+-					htonl(oldlen),
+-					htonl(skb->len - udphoff));
++					htons(oldlen),
++					htons(skb->len - udphoff));
+ 	} else if (!cp->app && (udph->check != 0)) {
+ 		/* Only port and addr are changed, do fast csum update */
+ 		udp_fast_csum_update(cp->af, udph, &cp->daddr, &cp->vaddr,
+@@ -279,8 +279,8 @@ udp_dnat_handler(struct sk_buff *skb,
+ 	 */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		udp_partial_csum_update(cp->af, udph, &cp->daddr, &cp->vaddr,
+-					htonl(oldlen),
+-					htonl(skb->len - udphoff));
++					htons(oldlen),
++					htons(skb->len - udphoff));
+ 	} else if (!cp->app && (udph->check != 0)) {
+ 		/* Only port and addr are changed, do fast csum update */
+ 		udp_fast_csum_update(cp->af, udph, &cp->vaddr, &cp->daddr,
 -- 
 1.6.0.3.756.gb776d
 
