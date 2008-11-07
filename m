@@ -1,72 +1,35 @@
-From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
-Date: Fri, 7 Nov 2008 11:18:45 +0100
-Message-ID: <1226053017.29620.431.camel@gentoo-jocke.transmode.se>
-References: <1221524685-25968-1-git-send-email-afleming@freescale.com> <490DA8B5.2020303@garzik.org>
-Reply-To: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Fri, 7 Nov 2008 12:16:59 +0100 (CET)
+Message-ID: <alpine.DEB.1.10.0811071214320.10993@uplift.swm.pp.se>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com> <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se> <20081105.151015.206163697.davem@davemloft.net> <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
+ <Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi> <alpine.DEB.1.10.0811070854361.10993@uplift.swm.pp.se> <8763mzx5l7.fsf@obelix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andy Fleming" <afleming@freescale.com>, <netdev@vger.kernel.org>
-To: "Jeff Garzik" <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:6957 "EHLO
-	mail.transmode.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675AbYKGKcb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 05:32:31 -0500
-In-Reply-To: <490DA8B5.2020303@garzik.org>
-content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-137064504-1750580102-1226056619=:10993"
+Cc: Netdev <netdev@vger.kernel.org>, linux-net@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <8763mzx5l7.fsf@obelix.mork.no>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2008-11-02 at 08:18 -0500, Jeff Garzik wrote:
-> Andy Fleming wrote:
-> > From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > 
-> > Creating a VLAN interface on top of ucc_geth adds 4 bytes
-> > to the frame and the HW controller is not prepared to
-> > TX a frame bigger than 1518 bytes which is 4 bytes too
-> > small for a full VLAN frame. Also add 4 extra bytes for future
-> > expansion.
-> > 
-> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > ---
-> >  drivers/net/ucc_geth.c |    6 +++---
-> >  1 files changed, 3 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> > index 8f944e5..8fed4bb 100644
-> > --- a/drivers/net/ucc_geth.c
-> > +++ b/drivers/net/ucc_geth.c
-> > @@ -113,10 +113,10 @@ static struct ucc_geth_info ugeth_primary_info = {
-> >  	.maxGroupAddrInHash = 4,
-> >  	.maxIndAddrInHash = 4,
-> >  	.prel = 7,
-> > -	.maxFrameLength = 1518,
-> > +	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags and 4 extra bytes */
-> >  	.minFrameLength = 64,
-> > -	.maxD1Length = 1520,
-> > -	.maxD2Length = 1520,
-> > +	.maxD1Length = 1520+8,
-> > +	.maxD2Length = 1520+8,
-> >  	.vlantype = 0x8100,
-> 
-> Is this still needed?
-> 
-> I found this buried in my inbox.
-> 
-> If so, please resend with the "+8" converted into a named constant. 
-> Hardcoding lengths like this without named constants (or comments, on 
-> the other lines) tends to be an error-prone practice.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Yes, it is. I do recall the maintainer had some comments though.
-Secondly, I think it should be changed to 8 extra bytes so
-you can fit VLAN+pppoe=4+8 bytes. Possibly it could
-be configuarble at complile time.
+---137064504-1750580102-1226056619=:10993
+Content-Type: TEXT/PLAIN; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-Andy, you think you can work out the details with the maintainer?
-I am much to busy ATM.
+On Fri, 7 Nov 2008, Bjørn Mork wrote:
 
- Jocke
+> I believe you can forget about ECN in core networks as long as these 
+> searches fail:
 
+A lot of ISPs use MPLS yes, but it would be a simplification to say that 
+it's useless without MPLS support, because it's quite common that 
+congestion happens at the interconnections/borders between ISPs and they 
+are very rarely MPLS-labeled.
 
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
+---137064504-1750580102-1226056619=:10993--
