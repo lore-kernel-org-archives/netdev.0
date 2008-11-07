@@ -1,63 +1,49 @@
-From: "Johann Baudy" <johaahn@gmail.com>
-Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Fri, 7 Nov 2008 17:36:06 +0100
-Message-ID: <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
-References: <1225450706.5301.94.camel@localhost>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CB5@NASANEXMB10.na.qualcomm.com>
-	 <1225838743.6116.20.camel@fry>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F56@NASANEXMB10.na.qualcomm.com>
-	 <20081106080316.GA32337@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FA8@NASANEXMB10.na.qualcomm.com>
-	 <20081106194032.GB31673@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FBE@NASANEXMB10.na.qualcomm.com>
+From: Yavor Goulishev <yavor@simplifymedia.com>
+Subject: RE: [Patch] Establishing more than 64K outgoing TCP connections
+Date: Fri, 7 Nov 2008 11:38:14 -0500
+Message-ID: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887F@MBX73.ad2.softcom.biz>
+References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>
+ <20081101.211541.182428064.davem@davemloft.net>
+ <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887B@MBX73.ad2.softcom.biz>,<20081107084555.GA13347@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <zbr@ioremap.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Lovich, Vitali" <vlovich@qualcomm.com>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.224]:39529 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300AbYKGQgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 11:36:08 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so1327447rvb.1
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 08:36:07 -0800 (PST)
-In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FBE@NASANEXMB10.na.qualcomm.com>
-Content-Disposition: inline
+Received: from xsmtp08.mail2web.com ([168.144.250.208]:33962 "EHLO
+	xsmtp08.mail2web.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752347AbYKGQkh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 11:40:37 -0500
+In-Reply-To: <20081107084555.GA13347@ioremap.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vitali.
 
-> Which brings up a possible bug in the proposed patch - the mapped atomic int field should be part of the struct containing a ring buffer - each ring buffer has a different number of mappings.  Otherwise, there will be issues trying to create both a tx & rx ring.
+________________________________________
+From: Evgeniy Polyakov [zbr@ioremap.net]
+Sent: Friday, November 07, 2008 12:45 AM
+To: Yavor Goulishev
+Cc: David Miller; netdev@vger.kernel.org
+Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
 
-Could you please clarify?
-tx_pending_skb is only used for TX process.
+> When sockets (hash results) are evenly distributed over the hash table,
+> access will be O(num_of_elemets / hash_table_size), with particulary big
+> table it will be O(1).
+OK, but this is mainly achieved with good hash function and proper table size.
+My original patch wouldn't change the locations(buckets) of the ports. It will just chose different ports.
+The hack for picking a good port number just looks for empty bucket.
 
-> Are there any consequences to bypassing qdisc (other than not participating in any load balancing)?  Also, since any users using the tx ring approach would have to write new code, it would be part of the documentation that the send behaviour is optimized for the least latency and highest throughput, thus no guarantees and assumptions can be made about the path the data takes through the stack.
->
-> I agree with you about not using the cb - I was just looking at all possible alternatives of how this can be solved.  I'm liking my approach of using the frag list because it's the least intrusive (doesn't require modification of the skb_buff structure) and the seems to be the most resilient (trying to hide data in some unused skb field and hope no one overwrites it)
->
+> If you will add any other fields into hash in inet_csk_get_port(), this
+> will not change anything, since it will just switch hash table bucket to
+> be checked. When we found hash bucket for given port, all its entries
+> are checked to have the same parameters as in provided data. See how
+> bind_conflict() callback is invoked in inet_csk_get_port().
 
-My feeling is that all socket families have to use the same interface.
-We must not bypass it, otherwise we're gonna make a mess.
+It would change. Switching the bucket allows you to grow the table size and keep O(1).
+Without changing the hash function, growing the table size will not help.
+Currently all binds on the same port will go to the same bucket.
 
-I think we must not care about skb frags/device management to get
-tpacket_hdr pointer back from skb. If it is changing tomorrow, we will
-be in trouble.
-
-A generic solution could be to forward a void* argument as the skb
-destructor is forwarded through layers. Kind of:
-skb->destructor(skb->desctructor_arg) when executing the callback. A
-backup copy of destructor/destruct_arg pair should be performed if
-someone needs to replace it.
-This way all entities/layers could use this field to give an argument
-to their destructor without adding a new field in sk_buff struct.
-
-Thanks,
-Johann
--- 
-Johann Baudy
-johaahn@gmail.com
+--Yavor
