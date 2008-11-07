@@ -1,89 +1,91 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: time for TCP ECN defaulting to on?
-Date: Fri, 7 Nov 2008 09:11:48 +0100 (CET)
-Message-ID: <alpine.DEB.1.10.0811070854361.10993@uplift.swm.pp.se>
-References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com> <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se> <20081105.151015.206163697.davem@davemloft.net> <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
- <Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi>
+From: "Dasgupta, Romit" <romit@ti.com>
+Subject: RE: [SMC911x ]fix for driver resume and compilation warning
+Date: Fri, 7 Nov 2008 13:50:32 +0530
+Message-ID: <B85A65D85D7EB246BE421B3FB0FBB59301B34DC1C0@dbde02.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-137064504-1710806521-1226044487=:10993"
-Cc: David Miller <davem@davemloft.net>, daniel.blueman@gmail.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, linux-net@vger.kernel.org
-To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>,
+	"nico@cam.org" <nico@cam.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:44903 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750976AbYKGIUu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 03:20:50 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi,
+                            I think Dustin's email is bouncing back. So I am resending this. Could you kindly tell me who would be the right person to push this code to? 
 
----137064504-1710806521-1226044487=:10993
-Content-Type: TEXT/PLAIN; CHARSET=ISO-8859-15; FORMAT=flowed
-Content-Transfer-Encoding: 8BIT
+Thanks,
+-Romit
 
-On Fri, 7 Nov 2008, Ilpo Järvinen wrote:
+-----Original Message-----
+From: Dasgupta, Romit 
+Sent: Thursday, November 06, 2008 3:46 PM
+To: 'dustin@sensoria.com'; 'jgarzik@pobox.com'; 'nico@cam.org'
+Cc: 'netdev@vger.kernel.org'; linux-omap@vger.kernel.org
+Subject: [SMC911x ]fix for driver resume and compilation warning 
 
-> On Fri, 7 Nov 2008, Mikael Abrahamsson wrote:
->
->> On Wed, 5 Nov 2008, David Miller wrote:
->>
->>> This kind of thinking just perpetuates the problem forever.
->>
->> It's like the TCP option order "bug", where some devices would drop the
->> packets because of buggy implementations, that was changed in Linux to work
->> around others buggy code, and I see "ECN blackhole detection" as a similar
->> measure.
->
-> That is entirely bogus claim! The different ordering of options cost us
-> nothing, while disabling ECN certainly has an innumerable cost both in
-> performance and in nobody taking the initiative which makes the situation
-> worse for everybody.
+Hi,
+     I am trying out suspend, resume on an OMAP3 based board. What I see during resume is that the SMC911x driver resume routing gets stuck after trying to transmit the packet out of the controller. Some debug messages below:
 
-I can't comment on "ECN blackhole detection" costing or costing none since 
-I haven't been able to find the discussion between Alexey Kuznetsov and 
-Sally Floyd that David Miller was referring to. Anything more to go on? A 
-direct link to the thread would be great.
+--> smc911x_drv_resume
+eth0: --> smc911x_reset
+eth0: smc911x_reset timeout waiting for PM restore
+eth0: --> smc911x_enable
+eth0: --> smc911x_phy_configure()
+eth0: --> smc911x_phy_reset()
+eth0: phy caps=0x782d
+eth0: phy advertised caps=0x0de1
+eth0: --> smc911x_phy_check_media
+smc911x_phy_read: phyaddr=0x1, phyreg=0x01, phydata=0x7809
+smc911x_phy_read: phyaddr=0x1, phyreg=0x01, phydata=0x7809
+eth0: link down
+Restarting tasks ... eth0: --> smc911x_hard_start_xmit
+eth0: --> smc911x_hardware_send_pkt
+eth0: --> smc911x_hard_start_xmit
+eth0: --> smc911x_hardware_send_pkt
+eth0: --> smc911x_hard_start_xmit
+eth0: --> smc911x_hardware_send_pkt
+nfs: server 172.24.190.217 not responding, still trying
+nfs: server 172.24.190.217 not responding, still trying
 
-I have sent an email (which will hopefully initiate a discussion) to a 
-mailinglist populated by a lot of the operational ISP community and asked 
-around about ECN and views on that. I also checked around on core router 
-platforms (Cisco 12000 and Cisco CRS-1, which definitely is two of the top 
-three core router platforms deployed in the world) and it seems they do 
-not support ECN as far as I can discern. This pretty much in the next 5 
-year timeframe ECN widespread support in the major core ISP networks out 
-of the question, leaving ECN support on the slower links where it might be 
-deployed faster. I doubt it though.
 
-> And about somebody earlier claiming that they'll get an impressions that
-> Linux stack is broken (if such people even know that there's some network
-> stack in Linux :-))... I'm rather sure those isp supports etc. put a blaim
-> on us anyway even when loads of counterproof would exists because it's
-> just cheaper to do nothing and blaim linux instead. Also some claims
-> asserted by incompetent people easily start to live among random forums;
-> an example from the previous incident: "since disabling timestamps helps,
-> it must be that timestamps are broken" (and somebody even "more clueful"
-> added that they got enabled for 2.6.27?!?), needless to say, neither
-> holds.
+The following change makes it work fine: (The change within smc911x_drv_probe function was to get rid of a compilation warning).
+Additionally, the SMC9211 data sheet says that when we enter D2 sleep state, we need to set the EDPWRDOWN bit in the PHY Mode control/status register and clear it when we are back to D0. This is not done in the code as far as I can see. So does it mean that the PHY is not powered down but the controller is? I have another patch that fixes it. I will send that as well unless I am missing something.
 
-People just want it to work, people disable IPv6 because their DNS servers 
-don't respond properly to AAAA queries so they shut off IPv6 because they 
-they just want everything to work, they don't want to understand.
+Thanks,
+-Romit
 
-Now, IPv6 for me is cruicial to the continuing life and prosperity of the 
-Internet (NAT is bad). ECN is "nice to have".
 
-But let me check out what the ISP community has to say before we get too 
-upset, it might be that people agree and will start requesting ECN in the 
-core equipment (I know I will) and then it might be worthwile after all.
+Signed-off-by: Romit Dasgupta <romit@ti.com>
 
-I do see Linux (and Linux users) as leader(s) in deploying new technology, 
-with ECN being one of them. Question is how much hurt we're going to take 
-for it.
-
-<http://www.merit.edu/mail.archives/nanog/msg12756.html> is a link to my 
-email to the NANOG ML referenced above.
-
--- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
----137064504-1710806521-1226044487=:10993--
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index 5051554..1f26ab0 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -2050,7 +2050,9 @@ err_out:
+  */
+ static int smc911x_drv_probe(struct platform_device *pdev)
+ {
++#ifdef SMC_DYNAMIC_BUS_CONFIG
+ 	struct smc911x_platdata *pd = pdev->dev.platform_data;
++#endif
+ 	struct net_device *ndev;
+ 	struct resource *res;
+ 	struct smc911x_local *lp;
+@@ -2182,9 +2184,9 @@ static int smc911x_drv_resume(struct platform_device *dev)
+ 
+ 		if (netif_running(ndev)) {
+ 			smc911x_reset(ndev);
+-			smc911x_enable(ndev);
+ 			if (lp->phy_type != 0)
+ 				smc911x_phy_configure(&lp->phy_configure);
++			smc911x_enable(ndev);
+ 			netif_device_attach(ndev);
+ 		}
+ 	}
