@@ -1,36 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Network performance forwarding tests on RT
-Date: Fri, 7 Nov 2008 08:52:10 -0800
-Message-ID: <20081107085210.67d4c962@extreme>
-References: <20081105115205.14c5282f@s6510>
-	<20081106185029.0d4c5cd8@redhat.com>
-	<ccb913ac0811062303r7f94f8a8lfe48336d6dafb9f6@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RESEND] pkt_sched: Control group classifier
+Date: Fri, 7 Nov 2008 18:08:50 +0100
+Message-ID: <20081107170850.GO20815@postel.suug.ch>
+References: <20081106161330.GN20815@postel.suug.ch> <166fe7950811070751j475c9aa6n861bc43a97d1aec5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Clark Williams" <williams@redhat.com>,
-	linux-rt-users@vger.kernel.org, netdev@vger.kernel.org
-To: "Tobias Knutsson" <tobias.knutsson@gmail.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <ccb913ac0811062303r7f94f8a8lfe48336d6dafb9f6@mail.gmail.com>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ranjit Manomohan <ranjitm@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:53537 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750953AbYKGRIc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2008 12:08:32 -0500
+Content-Disposition: inline
+In-Reply-To: <166fe7950811070751j475c9aa6n861bc43a97d1aec5@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 7 Nov 2008 08:03:44 +0100
-"Tobias Knutsson" <tobias.knutsson@gmail.com> wrote:
-
-> First off all, let me just say than I am relatively new to PREEMPT_RT and I
-> have no experience with Vyatta. It is just that some thoughts came to me
-> that might be useful to consider.
+* Ranjit Manomohan <ranjitm@google.com> 2008-11-07 07:51
+> > +static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+> > +                              struct tcf_result *res)
+> > +{
+> > +       struct cls_cgroup_head *head = tp->root;
+> > +       struct cgroup_cls_state *cs;
+> > +       int ret = 0;
+> > +
+> > +       /*
+> > +        * Due to the nature of the classifier it is required to ignore all
+> > +        * packets originating from softirq context as accessing `current'
+> > +        * would lead to false results.
+> > +        *
+> > +        * This test assumes that all callers of dev_queue_xmit() explicitely
+> > +        * disable bh. Knowing this, it is possible to detect softirq based
+> > +        * calls by looking at the number of nested bh disable calls because
+> > +        * softirqs always disables bh.
+> > +        */
+> > +       if (softirq_count() != SOFTIRQ_OFFSET)
+> > +               return -1;
+> > +
 > 
-> What priorities does the network related threads have? There should be one
-> for the ISR and one each for the soft irq responsible for the receiving and
-> transmitting of network data. Maybe adjusting some of these priorities could
-> improve the situation.
+>     How about caching the cs->classid in the socket here at this point
+> (if there is a mismatch from the current cgroup value)  if we are in
+> process context and using that value if we are in interrupt context.
+> That should help account for the packets in interrupt context and work
+> seamlessly if the task got moved between cgroups or if the cgroup
+> identifier was changed.
 
-What ever the default is, nothing was changed.
+I like the idea, the overhead is relatively small and the sk_buff struct
+does not get polluted. There will still be cases where the skb has been
+orphaned and is no longer connected to a socket but that case is pretty
+rare.
 
-Remember for this test there really is no application activity. Only the hard irq
-threads of the Ethernet device, and the soft irq threads from the network
-scheduler (NAPI).  I made the assumption that default priority is set
-to allow such that hard irq > soft irq.
+Will you work on a follow-up patch?
