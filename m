@@ -1,75 +1,106 @@
-From: Ranjit Manomohan <ranjitm@google.com>
-Subject: Re: [RESEND] pkt_sched: Control group classifier
-Date: Fri, 7 Nov 2008 09:39:30 -0800
-Message-ID: <166fe7950811070939v21d49da7kdae19d7649fbce22@mail.gmail.com>
-References: <20081106161330.GN20815@postel.suug.ch>
-	 <166fe7950811070751j475c9aa6n861bc43a97d1aec5@mail.gmail.com>
-	 <20081107170850.GO20815@postel.suug.ch>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: introduce read_pnet() and write_pnet() functions
+Date: Fri, 07 Nov 2008 18:49:32 +0100
+Message-ID: <49147FAC.8070306@cosmosbay.com>
+References: <49146265.8040301@cosmosbay.com> <20081107174100.GA3469@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:37663 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbYKGRjf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 12:39:35 -0500
-Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
-	by smtp-out.google.com with ESMTP id mA7HdWRh011272
-	for <netdev@vger.kernel.org>; Fri, 7 Nov 2008 09:39:33 -0800
-Received: from rv-out-0708.google.com (rvfc5.prod.google.com [10.140.180.5])
-	by wpaz33.hot.corp.google.com with ESMTP id mA7HdVph008990
-	for <netdev@vger.kernel.org>; Fri, 7 Nov 2008 09:39:31 -0800
-Received: by rv-out-0708.google.com with SMTP id c5so1227569rvf.56
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 09:39:31 -0800 (PST)
-In-Reply-To: <20081107170850.GO20815@postel.suug.ch>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:44177 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751286AbYKGRtw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 12:49:52 -0500
+In-Reply-To: <20081107174100.GA3469@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 7, 2008 at 9:08 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> * Ranjit Manomohan <ranjitm@google.com> 2008-11-07 07:51
->> > +static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
->> > +                              struct tcf_result *res)
->> > +{
->> > +       struct cls_cgroup_head *head = tp->root;
->> > +       struct cgroup_cls_state *cs;
->> > +       int ret = 0;
->> > +
->> > +       /*
->> > +        * Due to the nature of the classifier it is required to ignore all
->> > +        * packets originating from softirq context as accessing `current'
->> > +        * would lead to false results.
->> > +        *
->> > +        * This test assumes that all callers of dev_queue_xmit() explicitely
->> > +        * disable bh. Knowing this, it is possible to detect softirq based
->> > +        * calls by looking at the number of nested bh disable calls because
->> > +        * softirqs always disables bh.
->> > +        */
->> > +       if (softirq_count() != SOFTIRQ_OFFSET)
->> > +               return -1;
->> > +
+Alexey Dobriyan a =E9crit :
+> On Fri, Nov 07, 2008 at 04:44:37PM +0100, Eric Dumazet wrote:
+>> CONFIG_NET_NS is not a widespread option, we can reduce kernel size
+>> not declaring useless "struct net" pointers in several structures.
+>=20
+> This can be done separatedly for each offending "struct net *".
+
+Sure I can split the patch if you think its too complex. I also can lea=
+ve
+#ifdef CONFIG_NET_NS all over if you like them.
+
+>=20
+>> This patch declares three helper to clean various "ifdef CONFIG_NET_=
+NS"
+>> that we have in many places.
+>=20
+> There is an implicit assumption, that all such ifdefs are bad, while =
+if fact
+> there are nothing wrong with them:
+
+Well... we can hide the ugly details.
+
+Especially with #ifdef in C files.
+
+>=20
+> 	#ifdef CONFIG_NET_NS
+> 		struct net *ct_net;
+> 	#endif
+>=20
+>> #ifdef CONFIG_NET_NS
 >>
->>     How about caching the cs->classid in the socket here at this point
->> (if there is a mismatch from the current cgroup value)  if we are in
->> process context and using that value if we are in interrupt context.
->> That should help account for the packets in interrupt context and work
->> seamlessly if the task got moved between cgroups or if the cgroup
->> identifier was changed.
->
-> I like the idea, the overhead is relatively small and the sk_buff struct
-> does not get polluted. There will still be cases where the skb has been
-> orphaned and is no longer connected to a socket but that case is pretty
-> rare.
->
-> Will you work on a follow-up patch?
+>> #define DECLARE_PNET(name) struct net *name;
+>=20
+> One more macro, instead of immediately understandable thing.
 
-Tied up with a few things right now, but I can get around to it
-sometime next week (if you don't get a chance to implement it before
-that)
+DECLARE_PNET() ?
+Did you check DECLARE_RWSEM, DECLARE_WAITQUEUE,=20
+DECLARE_PER_CPU, DECLARE_BITMAP ... ???
 
--Thanks,
-Ranjit
+>=20
+>> static inline void write_pnet(struct net **pnet, struct net *net)
+>> {
+>>        *pnet =3D net;
+>> }
+>>
+>> static inline struct net *read_pnet(struct net * const *pnet)
+>> {
+>>        return *pnet;
+>> }
+>> #else
+>>
+>> #define DECLARE_PNET(name)
+>> #define write_pnet(pnet, net)   do { (void)(net);} while (0)
+>> #define read_pnet(pnet)         (&init_net)
+>>
+>> #endif
+>>
+>> In particular, using these helpers permits a shrink of inet_bind_buc=
+ket
+>> (16 bytes instead of 32 on 32bit arches, and 32 bytes instead of 64 =
+on 64bits)
+>=20
+> Why not just fix exactly bind bucket issue.
+
+Another #ifdef ?=20
+
+>=20
+> As I posted earlier, ->dst_net can go after IPv6 dst_ops can be embed=
+ded
+> directly into struct netns_ipv6, but header dependencies aren't trivi=
+al.
+>=20
+> As for netns comparisons, use net_eq() to amortize the cost somewhat.
+>=20
+>=20
+
+I believe all "struct net*" parameter passing could disappear with appr=
+opriate macros.
+
+This stuff currently eat a precious register on i386/x86_64/... archite=
+ctures.
 
 
->
+
