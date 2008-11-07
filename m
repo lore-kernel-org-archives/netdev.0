@@ -1,49 +1,111 @@
-From: Clark Williams <williams@redhat.com>
-Subject: Re: Network performance forwarding tests on RT
-Date: Thu, 6 Nov 2008 18:50:29 -0600
-Message-ID: <20081106185029.0d4c5cd8@redhat.com>
-References: <20081105115205.14c5282f@s6510>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] phonet: sparse annotations of protocol, remove forward
+ declaration
+Date: Thu, 06 Nov 2008 17:53:13 -0800
+Message-ID: <1226022793.5482.1.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: base64
-Cc: linux-rt-users@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <20081105115205.14c5282f@s6510>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.226]:55997 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757AbYKGBxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 20:53:16 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so1065800rvb.1
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2008 17:53:15 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBMQ0KDQpPbiBXZWQs
-IDUgTm92IDIwMDggMTE6NTI6MDUgLTA4MDANClN0ZXBoZW4gSGVtbWluZ2VyIDxzaGVtbWluZ2Vy
-QHZ5YXR0YS5jb20+IHdyb3RlOg0KDQo+IEFzIGFuIGV4cGVyaW1lbnQsIEkgcmVidWlsdCBhIHZl
-cnNpb24gb2YgVnlhdHRhIHVzaW5nIDIuNi4yNi1ydDExIGtlcm5lbC4NCj4gVGhpcyByZXF1aXJl
-ZCBzb21lIGZpeGVzIHRvIHVuaW9uZnMgYW5kIGF1ZnMgd2hpY2ggSSdsbCBzZW5kIHRvIGFueW9u
-ZSB3aG8gd2FudHMuDQoNCkknZCBsaWtlIHRvIHNlZSB0aG9zZSBmaXhlcy4NCg0KPiANCj4gVGhl
-IHBlcmZvcm1hbmNlIG9mIHRoZSBSVCBQUkVFTVBUIGtlcm5lbCBpcyB3b3JzZSB0aGFuIG5vbi1Q
-UkVFTVBUIGtlcm5lbC4NCj4gDQo+IFJ1bm5pbmcgUkZDMjU0NCwgZnJhbWUgbG9zcyB0ZXN0IHdl
-IHRoZSBsb3NzIHJhdGUgaXMgd29yc2Ugb24gUlQgdGhhbiBub24gUlQuDQo+IElkZWFsbHksIHRo
-ZXJlIHdvdWxkIGJlIG5vIGxvc3MsIGJ1dCBvbiB0aGlzIHBsYXRmb3JtLCB0aGUgYmVzdCB3ZSBo
-YXZlDQo+IHNlZW4gaXMgNzAlIGxvc3MgYXQgNjQgYnl0ZXMuDQo+IA0KDQpXZSd2ZSBzZWVuIHRo
-YXQgYXMgeW91IHB1c2ggdGhlIHdvcmtsb2FkcyB1cCB0byBtYXgsIHRoZSBhZGRpdGlvbmFsIG92
-ZXJoZWFkIG9mIHJ0X211dGV4ZXMgc3RhcnRzIHRvIHNob3cgYW5kIHRoZSBwZXJmb3JtYW5jZSBv
-ZiB0aGUgUlQga2VybmVsIGRyb3BzIG9mZi4gIFNvIGlmIHlvdSdyZSB0cnlpbmcgdG8gcHVzaCB0
-aGUgbWF4aW11bSBhbW91bnQgb2YgYml0cyBhY3Jvc3MgYSB3aXJlIGFuZCB5b3UgZG9uJ3QgY2Fy
-ZSBhYm91dCBldmVudCBsYXRlbmN5LCB0aGVuIEkgd291bGRuJ3QgcmVjb21tZW5kIGFuIFJUIGtl
-cm5lbC4gDQoNCj4gDQo+IFNpemUJMi42LjI2CQkyLjYuMjYtcnQxMQ0KPiA2NAk4MC41JQkJOTkl
-DQo+IDEyOAk2NwkJOTkNCj4gMjU2CTQzCQk5Mg0KPiA1MTIJMAkJNTQNCj4gMTAyNAkwCQkzDQo+
-IDEyODAJMAkJMA0KPiAxNTE4CTAJCTANCj4gDQo+IE1vcmUgaW1wb3J0YW50bHksIHdpdGggUlQg
-UFJFRU1QVCwgdGhlIGRyaXZlciBnZXRzIHN0dWNrIGFuZCB0aW1lcyBvdXQNCj4gdW5kZXIgaGVh
-dnkgbG9hZCAoc2VlIDk5JSBsb3NzIGFib3ZlKS4gSXQgYXBwZWFycyB0aGUgY2hhbmdlIHRvIG5l
-dHdvcmsNCj4gc2NoZWR1bGluZyByZWxhdGVkIHRvIE5BUEkgZG9lc24ndCB3b3JrIHdlbGwgdW5k
-ZXIgbG9hZC4NCj4gDQoNCkRpZCB5b3UgZG8gYW55dGhpbmcgd2l0aCB0aGUgcHJpb3JpdGllcyBv
-ZiBpbnRlcnJ1cHQgdGhyZWFkcz8gV2UgZ2VuZXJhbGx5IGJvb3N0IGhhcmQgSVJRIHRocmVhZHMg
-KHNob3cgdXAgYXMgW0lSUS14eHhdIGluIGEgcHMpIHRvIFNDSEVEX0ZJRk8gODAtODUgYW5kIGJv
-b3N0IHRoZSBzb2Z0aXJxIHRocmVhZHMgdG8gYmV0d2VlbiA3MC03NS4NCg0KU2luY2UgaW50ZXJy
-dXB0IHByb2Nlc3NpbmcgaW4gUlQgdGFrZXMgcGxhY2UgaW4gU0NIRURfRklGTyBrZXJuZWwgdGhy
-ZWFkcywgaWYgeW91IHB1c2ggdGhlIGxvYWQgdXAgaGlnaCBlbm91Z2gsIGl0J3MgZW50aXJlbHkg
-cG9zc2libGUgdG8gc3RhcnZlIGxvd2VyIHByaW9yaXR5IHNvZnRpcnEvaGFyZGlycSB0aHJlYWRz
-IGluIHRoZSBzeXN0ZW0uDQogDQpDbGFyaw0KLS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0N
-ClZlcnNpb246IEdudVBHIHYyLjAuOSAoR05VL0xpbnV4KQ0KDQppRVlFQVJFQ0FBWUZBa2tUa05z
-QUNna1FIeXVqLytUVEVwMS9vQUNkR2ozY0VzTlRGRDN6RzF1WHJKU25PUng4DQoxUmtBb0tZQVBD
-QVE0QUxpNU5QUk1OYkVFNkNqa1pRag0KPWtPOWgNCi0tLS0tRU5EIFBHUCBTSUdOQVRVUkUtLS0t
-LQ0K
+net/phonet/af_phonet.c:38:36: error: marked inline, but without a definition
+net/phonet/pep-gprs.c:63:10: warning: incorrect type in return expression (different base types)
+net/phonet/pep-gprs.c:63:10:    expected int
+net/phonet/pep-gprs.c:63:10:    got restricted __be16 [usertype] <noident>
+net/phonet/pep-gprs.c:65:10: warning: incorrect type in return expression (different base types)
+net/phonet/pep-gprs.c:65:10:    expected int
+net/phonet/pep-gprs.c:65:10:    got restricted __be16 [usertype] <noident>
+net/phonet/pep-gprs.c:124:16: warning: incorrect type in assignment (different base types)
+net/phonet/pep-gprs.c:124:16:    expected restricted __be16 [usertype] protocol
+net/phonet/pep-gprs.c:124:16:    got unsigned short [unsigned] [usertype] protocol
+
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ net/phonet/af_phonet.c |   11 +++++------
+ net/phonet/pep-gprs.c  |    8 ++++----
+ 2 files changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index defeb7a..f400ff1 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -35,7 +35,11 @@
+ 
+ static struct net_proto_family phonet_proto_family;
+ static struct phonet_protocol *phonet_proto_get(int protocol);
+-static inline void phonet_proto_put(struct phonet_protocol *pp);
++
++static inline void phonet_proto_put(struct phonet_protocol *pp)
++{
++	module_put(pp->prot->owner);
++}
+ 
+ /* protocol family functions */
+ 
+@@ -428,11 +432,6 @@ static struct phonet_protocol *phonet_proto_get(int protocol)
+ 	return pp;
+ }
+ 
+-static inline void phonet_proto_put(struct phonet_protocol *pp)
+-{
+-	module_put(pp->prot->owner);
+-}
+-
+ /* Module registration */
+ static int __init phonet_init(void)
+ {
+diff --git a/net/phonet/pep-gprs.c b/net/phonet/pep-gprs.c
+index 9978afb..a432407 100644
+--- a/net/phonet/pep-gprs.c
++++ b/net/phonet/pep-gprs.c
+@@ -49,14 +49,14 @@ struct gprs_dev {
+ 	unsigned		tx_max;
+ };
+ 
+-static int gprs_type_trans(struct sk_buff *skb)
++static __be16 gprs_type_trans(struct sk_buff *skb)
+ {
+ 	const u8 *pvfc;
+ 	u8 buf;
+ 
+ 	pvfc = skb_header_pointer(skb, 0, 1, &buf);
+ 	if (!pvfc)
+-		return 0;
++		return htons(0);
+ 	/* Look at IP version field */
+ 	switch (*pvfc >> 4) {
+ 	case 4:
+@@ -64,7 +64,7 @@ static int gprs_type_trans(struct sk_buff *skb)
+ 	case 6:
+ 		return htons(ETH_P_IPV6);
+ 	}
+-	return 0;
++	return htons(0);
+ }
+ 
+ /*
+@@ -84,7 +84,7 @@ static void gprs_state_change(struct sock *sk)
+ static int gprs_recv(struct gprs_dev *dev, struct sk_buff *skb)
+ {
+ 	int err = 0;
+-	u16 protocol = gprs_type_trans(skb);
++	__be16 protocol = gprs_type_trans(skb);
+ 
+ 	if (!protocol) {
+ 		err = -EINVAL;
+-- 
+1.6.0.3.756.gb776d
+
+
+
