@@ -1,60 +1,96 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [RFC-PATCH] netfilter: payload_len is be16, add size of struct
- rather than size of pointer
-Date: Fri, 07 Nov 2008 09:13:43 -0800
-Message-ID: <1226078023.11596.17.camel@brick>
+From: "Lovich, Vitali" <vlovich@qualcomm.com>
+Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Fri, 7 Nov 2008 09:19:07 -0800
+Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA61024@NASANEXMB10.na.qualcomm.com>
+References: <1225450706.5301.94.camel@localhost>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CA2@NASANEXMB10.na.qualcomm.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60CB5@NASANEXMB10.na.qualcomm.com>
+	 <1225838743.6116.20.camel@fry>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60F56@NASANEXMB10.na.qualcomm.com>
+	 <20081106080316.GA32337@ioremap.net>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FA8@NASANEXMB10.na.qualcomm.com>
+	 <20081106194032.GB31673@ioremap.net>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FBE@NASANEXMB10.na.qualcomm.com>
+ <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Wensong Zhang <wensong@linuxvirtualserver.org>,
-	Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Johann Baudy <johaahn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:33854 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976AbYKGROs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 12:14:48 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so532211yxm.1
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 09:14:47 -0800 (PST)
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:2625 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816AbYKGRTN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 12:19:13 -0500
+In-Reply-To: <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-payload_len is a be16 value, not cpu_endian, also the size of a ponter
-to a struct ipv6hdr was being added, not the size of the struct itself.
+Hi Johann,
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-I'm quite supicious of the following code in net/netfilter/ipvs/ip_vs_xmit.c
+> -----Original Message-----
+> From: Johann Baudy [mailto:johaahn@gmail.com]
+> Sent: November-07-08 8:36 AM
+> To: Lovich, Vitali
+> Cc: Evgeniy Polyakov; netdev@vger.kernel.org
+> Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+> 
+> > Which brings up a possible bug in the proposed patch - the mapped
+> atomic int field should be part of the struct containing a ring buffer
+> - each ring buffer has a different number of mappings.  Otherwise,
+> there will be issues trying to create both a tx & rx ring.
+> 
+> Could you please clarify?
+> tx_pending_skb is only used for TX process.
+Right, but I'm referring to the mapped variable in struct packet_sock.  It should actually be part of packet_ring_buffer - otherwise after mapping a tx-ring, mapped will be non-0, so packet_set_ring actually won't work - relevant condition is:
+if (closing || atomic_read(&po->mapped) == 0)
+ // create mapping
 
-Line 714:
-	iph->payload_len	=	old_iph->payload_len + sizeof(old_iph);
+Similarly, what Evgeniy was saying is that packet_set_ring shouldn't succeed if there are pending packets.  This would also mean we have to acquire the same lock that sending does.
+> 
+> > Are there any consequences to bypassing qdisc (other than not
+> participating in any load balancing)?  Also, since any users using the
+> tx ring approach would have to write new code, it would be part of the
+> documentation that the send behaviour is optimized for the least
+> latency and highest throughput, thus no guarantees and assumptions can
+> be made about the path the data takes through the stack.
+> >
+> > I agree with you about not using the cb - I was just looking at all
+> possible alternatives of how this can be solved.  I'm liking my
+> approach of using the frag list because it's the least intrusive
+> (doesn't require modification of the skb_buff structure) and the seems
+> to be the most resilient (trying to hide data in some unused skb field
+> and hope no one overwrites it)
+> >
+> 
+> My feeling is that all socket families have to use the same interface.
+> We must not bypass it, otherwise we're gonna make a mess.
+It's not going to be a mess - qdisc is for load balancing only as far as I'm aware.  Either qdisc will pass it on directly to dev_hard_start_xmit or it'll schedule a softirq to do this.  Either way, it's just an intermediary layer to control the flow of traffic.  Particularly since the MMAP is meant to be as high-performing as possible, I don't see why we should participate in flow control which will only increase latency & cpu usage while decreasing throughput - if we put this in the documentation that usage of the mmap approach to sending bypasses flow control, I think it's 
 
-I believe that the payload_len is a big-endian value and this is treating it as
-cpu-ordered.  In addition, it is adding the size of a pointer to a struct ipv6hdr
-and not the size of the struct itself.
+Am I missing the point for qdisc?
+ 
+> I think we must not care about skb frags/device management to get
+> tpacket_hdr pointer back from skb. If it is changing tomorrow, we will
+> be in trouble. 
+I'm a bit confused about the point you are trying to make here.  Could you please clarify?
 
-If I'm correct, I'd suggest the following is what _may_ have been intended.
+> 
+> A generic solution could be to forward a void* argument as the skb
+> destructor is forwarded through layers. Kind of:
+> skb->destructor(skb->desctructor_arg) when executing the callback. A
+> backup copy of destructor/destruct_arg pair should be performed if
+> someone needs to replace it.
+> This way all entities/layers could use this field to give an argument
+> to their destructor without adding a new field in sk_buff struct.
+This would require a massive change in the kernel to add a feature that up till now no one has needed.  Certainly, I don't think it's wise to introduce such a wide-spread change when we could just as well accomplish it through other means.  Here are my problems with this approach:
 
- net/netfilter/ipvs/ip_vs_xmit.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+1.  There's no need to actually pass the argument through the destructor - it could just be part of the skb (after all, since the callback only happens in one place, it's not like we could customize that argument - it would always be skb->destructor_arg).  That way whoever needs to use would use it,  but there's no need to change all existing destructor code.
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 2f36721..425ab14 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -711,7 +711,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	iph			=	ipv6_hdr(skb);
- 	iph->version		=	6;
- 	iph->nexthdr		=	IPPROTO_IPV6;
--	iph->payload_len	=	old_iph->payload_len + sizeof(old_iph);
-+	iph->payload_len	=	old_iph->payload_len;
-+	be16_add_cpu(&iph->payload_len, sizeof(*old_iph));
- 	iph->priority		=	old_iph->priority;
- 	memset(&iph->flow_lbl, 0, sizeof(iph->flow_lbl));
- 	iph->daddr		=	rt->rt6i_dst.addr;
--- 
-1.6.0.3.756.gb776d
+2.  Backing up this field isn't really possible since where would you place that backup?
 
+3.  You're increasing the size of the structure for everyone, even if they have disabled PACKET_MMAP (and since no-one else uses this, it doesn't really make sense).  So if it is decided that the correct approach is to store the pointer in the skb, then we should continue doing what other protocols do in the situation where they need custom data in the skb and just add our own custom pointer surrounded by an #ifdef/#endif for PACKET_MMAP. 
 
-
+Thanks,
+Vitali
