@@ -1,46 +1,54 @@
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Subject: RE: [Patch] Establishing more than 64K outgoing TCP connections
-Date: Fri, 7 Nov 2008 02:40:32 -0500
-Message-ID: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887D@MBX73.ad2.softcom.biz>
-References: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887B@MBX73.ad2.softcom.biz>
-	<20081106.230405.25075428.davem@davemloft.net>
-	<241CE5A1B2AFFA4987A663380D74C0BB3FFD15887C@MBX73.ad2.softcom.biz>,<20081106.233010.138165162.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Fri, 7 Nov 2008 09:53:18 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+ <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
+ <20081105.151015.206163697.davem@davemloft.net>
+ <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, daniel.blueman@gmail.com,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, linux-net@vger.kernel.org
+To: Mikael Abrahamsson <swmike@swm.pp.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xsmtp19.mail2web.com ([168.144.250.190]:35208 "EHLO
-	xsmtp19.mail2web.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbYKGHlk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:41:40 -0500
-In-Reply-To: <20081106.233010.138165162.davem@davemloft.net>
-Content-Language: en-US
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:44058 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751007AbYKGHxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:53:20 -0500
+In-Reply-To: <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is not complain it is an observation.
-And you are proving me right again!
-But I'm done. You have it under control I'm sure.
+On Fri, 7 Nov 2008, Mikael Abrahamsson wrote:
 
---Yavor
-________________________________________
-From: David Miller [davem@davemloft.net]
-Sent: Thursday, November 06, 2008 11:30 PM
-To: Yavor Goulishev
-Cc: netdev@vger.kernel.org
-Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
+> On Wed, 5 Nov 2008, David Miller wrote:
+> 
+> > This kind of thinking just perpetuates the problem forever.
+> 
+> It's like the TCP option order "bug", where some devices would drop the
+> packets because of buggy implementations, that was changed in Linux to work
+> around others buggy code, and I see "ECN blackhole detection" as a similar
+> measure.
 
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Date: Fri, 7 Nov 2008 02:15:15 -0500
+That is entirely bogus claim! The different ordering of options cost us 
+nothing, while disabling ECN certainly has an innumerable cost both in 
+performance and in nobody taking the initiative which makes the situation 
+worse for everybody.
 
-> Now I know why the kernel stays broken for so long.
-> Some people don't want to admit their errors and fix the issues.
-> Or at least explain them so that someone else can fix it for them.
-> I hope you work on something really important!
+And about somebody earlier claiming that they'll get an impressions that 
+Linux stack is broken (if such people even know that there's some network 
+stack in Linux :-))... I'm rather sure those isp supports etc. put a blaim 
+on us anyway even when loads of counterproof would exists because it's 
+just cheaper to do nothing and blaim linux instead. Also some claims 
+asserted by incompetent people easily start to live among random forums; 
+an example from the previous incident: "since disabling timestamps helps, 
+it must be that timestamps are broken" (and somebody even "more clueful" 
+added that they got enabled for 2.6.27?!?), needless to say, neither 
+holds.
 
-Yes, a locally exploitable DoS that effects every Linux system
-out there.
 
-Are you done complaining now?
+-- 
+ i.
