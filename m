@@ -1,27 +1,41 @@
-From: Roman Chertov <roman@santabarbaralabs.com>
-Subject: 2.6.24.7 ipv6 send redirect
-Date: Fri, 07 Nov 2008 11:16:16 -0800
-Message-ID: <49149400.2060301@santabarbaralabs.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
+Date: Fri, 07 Nov 2008 11:54:01 -0800 (PST)
+Message-ID: <20081107.115401.214017400.davem@davemloft.net>
+References: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887B@MBX73.ad2.softcom.biz>
+	<20081107084555.GA13347@ioremap.net>
+	<241CE5A1B2AFFA4987A663380D74C0BB3FFD15887F@MBX73.ad2.softcom.biz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: zbr@ioremap.net, netdev@vger.kernel.org
+To: yavor@simplifymedia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.196]:61805 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750962AbYKGTQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2008 14:16:16 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57934
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750940AbYKGTyC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 14:54:02 -0500
+In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887F@MBX73.ad2.softcom.biz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-    I need to disable IPv6 ICMP redirect messages.  In the 
-/proc/sys/net/ipv4/conf/all/ there is a flag send_redirects which 
-disables sending of the redirects in IPv4.  However, this option is not 
-present in the /proc/sys/net/ipv6/conf/all/.  Did this option get moved 
-to another location?  I would prefer to disable the redirects via a flag 
-and want to resort to changing the IPv6 forwarding code as the last measure.
+From: Yavor Goulishev <yavor@simplifymedia.com>
+Date: Fri, 7 Nov 2008 11:38:14 -0500
 
-Thanks,
+> It would change. Switching the bucket allows you to grow the table
+> size and keep O(1).  Without changing the hash function, growing the
+> table size will not help.  Currently all binds on the same port will
+> go to the same bucket.
 
-Roman
+I hear a lot of talk about a "new hash function" but what in the world are you
+going to hash on other than the port?
+
+Listening sockets can bind to just a specific port, with source and
+destination address set to "ANY" (ie. wildcard).
+
+Therefore, if you use some idea like using saddr or daddr in the hash
+function, then a listening socket bind will have to walk the entire table
+to see if any socket exists already bound to that port.
+
+You really lack some fundamental understanding of the code you are trying
+to change, and the things that code must cater to.
