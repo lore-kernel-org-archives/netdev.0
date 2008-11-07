@@ -1,58 +1,55 @@
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Subject: RE: [Patch] Establishing more than 64K outgoing TCP connections
-Date: Fri, 7 Nov 2008 10:56:12 -0500
-Message-ID: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887E@MBX73.ad2.softcom.biz>
-References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>
- <20081101.211541.182428064.davem@davemloft.net>,<200811071036.44215.remi.denis-courmont@nokia.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
+Date: Fri, 07 Nov 2008 17:23:01 +0100
+Message-ID: <49146B65.5030504@cosmosbay.com>
+References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz> <20081101.211541.182428064.davem@davemloft.net>,<200811071036.44215.remi.denis-courmont@nokia.com> <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887E@MBX73.ad2.softcom.biz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: =?iso-8859-1?Q?R=E9mi_Denis-Courmont?=
+Cc: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yavor Goulishev <yavor@simplifymedia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xsmtp14.mail2web.com ([168.144.250.179]:56868 "EHLO
-	xsmtp14.mail2web.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752014AbYKGP6Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 10:58:16 -0500
-In-Reply-To: <200811071036.44215.remi.denis-courmont@nokia.com>
-Content-Language: en-US
+Received: from gw1.cosmosbay.com ([86.65.150.130]:35024 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751568AbYKGQYF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 11:24:05 -0500
+In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887E@MBX73.ad2.softcom.biz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
-I"m not kernel hacker and I don't want to be.
-I stumbled on something and I fixed it.
-That's not my focus or interest.
-I've spend  a couple of hours on it, just to unblock my project.
-That's all.
+Please dont top post your messages on this list.
 
-What was a complete surprise for me was fact that
-something so fundamental can be broken for so long.
-After wasting some time on your mailing list I know
-that it is not technical issue.
+Yavor Goulishev a =E9crit :
+> Hey,
+> I"m not kernel hacker and I don't want to be.
+> I stumbled on something and I fixed it.
+> That's not my focus or interest.
+> I've spend  a couple of hours on it, just to unblock my project.
+> That's all.
+>=20
+> What was a complete surprise for me was fact that
+> something so fundamental can be broken for so long.
+> After wasting some time on your mailing list I know
+> that it is not technical issue.
 
---Yavor
-________________________________________
-=46rom: netdev-owner@vger.kernel.org [netdev-owner@vger.kernel.org] On =
-Behalf Of R=E9mi Denis-Courmont [remi.denis-courmont@nokia.com]
-Sent: Friday, November 07, 2008 12:36 AM
-To: netdev@vger.kernel.org
-Subject: Re: [Patch] Establishing more than 64K outgoing TCP connection=
-s
+Thats the deal.
 
-On Sunday 02 November 2008 06:15:41 ext David Miller, you wrote:
-> As I mentioned in my initial reply to you, this exact patch
-> has been proposed in the future and rejected.
-                           ^^^^^^
-You've just destroyed the last remaining bits of hope of ever becoming =
-a great
-hacker, for I know I will never be able to know future patches :(
+You post a patch, other people comment on it, and if its good,
+patch is accepted. Linux kernel developement is not an easy task.
+Not being a "kernel hacker" wont allow you to bypass the rules.
 
---
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+As many people are concerned, its even more important to adopt
+a right attitude, because if people are upset, they wont even
+consider your patch. Yes, thats a pity.
+
+Your concern is valid, but your patch in its current form
+is not *the* solution.
+
+About your idea of having a hash (port , IP), it is not
+applicable. If you believe I am wrong, please post
+a new patch so that truth can be revealed.
+
+
