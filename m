@@ -1,130 +1,69 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] net: introduce read_pnet() and write_pnet() functions
-Date: Fri, 7 Nov 2008 21:07:38 +0300
-Message-ID: <20081107180738.GA3657@x200.localdomain>
-References: <49146265.8040301@cosmosbay.com> <20081107174100.GA3469@x200.localdomain> <49147FAC.8070306@cosmosbay.com>
+From: "John Heffner" <johnwheffner@gmail.com>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Fri, 7 Nov 2008 10:38:26 -0800
+Message-ID: <1e41a3230811071038p58a55cc6g9103b891ca15a1df@mail.gmail.com>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+	 <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
+	 <20081105.151015.206163697.davem@davemloft.net>
+	 <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
+	 <Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi>
+	 <4914240F.7050701@blueteddy.net>
+	 <20081107142950.13906925@lxorguk.ukuu.org.uk>
+	 <491454A3.1040802@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.178]:2878 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbYKGSET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 13:04:19 -0500
-Received: by ik-out-1112.google.com with SMTP id c29so1159624ika.5
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 10:04:17 -0800 (PST)
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	"Dave Hudson" <linux-kernel@blueteddy.net>,
+	"=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	"Mikael Abrahamsson" <swmike@swm.pp.se>,
+	"David Miller" <davem@davemloft.net>, daniel.blueman@gmail.com,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, linux-net@vger.kernel.org
+To: "David Newall" <davidn@davidnewall.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <491454A3.1040802@davidnewall.com>
 Content-Disposition: inline
-In-Reply-To: <49147FAC.8070306@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 07, 2008 at 06:49:32PM +0100, Eric Dumazet wrote:
-> Alexey Dobriyan a =E9crit :
->> On Fri, Nov 07, 2008 at 04:44:37PM +0100, Eric Dumazet wrote:
->>> CONFIG_NET_NS is not a widespread option, we can reduce kernel size
->>> not declaring useless "struct net" pointers in several structures.
->>
->> This can be done separatedly for each offending "struct net *".
+The IETF has provided a spec, and additional documents on deployment
+issues.  They have provided all the guidance they are going to.  It's
+now up to implementers to weigh the trade-offs.
+
+My own observations and opinions, for what they're worth:
+
+Turning on ECN doesn't hurt as much as it used to.  Back in the early
+'00s, there were a lot of devices sold especially to financial
+institutions to "protect" their web sites.  These devices dropped any
+packets with (previously) reserved header bits set, because some
+people used these as a covert information channel.  I believe these
+devices are not as common as they once were, but there are still a few
+big sites that black hole these packets.  (I know that southwest.com
+is still an offender.)
+
+I have not actually heard of any issues with consumer-grade stuff, but
+that may be because ECN has been disabled by default for so long.
+
+Almost no network operators turn on ECN marking in their routers.  In
+fact, almost none care to do any sort of AQM.  The practical benefits
+of ECN are still somewhat unclear for most people.  For example, it
+can help with latency-sensitive applications, but mostly requires a
+big queue to work well, so doesn't help as much as you would hope.
+There are some interesting ideas on how to better use ECN information,
+but these are mostly still research.
+
+ECN black hole detection is pretty simple, and I don't see much reason
+not to do it.
+
+  -John
+
+
+On Fri, Nov 7, 2008 at 6:45 AM, David Newall <davidn@davidnewall.com> wrote:
+> Isn't this a question for the IETF to answer?  Are they saying turn on
+> ECN now?
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-> Sure I can split the patch if you think its too complex. I also can l=
-eave
-> #ifdef CONFIG_NET_NS all over if you like them.
->
->>
->>> This patch declares three helper to clean various "ifdef CONFIG_NET=
-_NS"
->>> that we have in many places.
->>
->> There is an implicit assumption, that all such ifdefs are bad, while=
- if fact
->> there are nothing wrong with them:
->
-> Well... we can hide the ugly details.
->
-> Especially with #ifdef in C files.
-
-They are ugly when embedded in C if/else constructs, like this:
-
-	const struct user_regset_view *task_user_regset_view(struct task_struc=
-t *task)
-	{
-	#ifdef CONFIG_IA32_EMULATION
-	        if (test_tsk_thread_flag(task, TIF_IA32))
-	#endif
-	#if defined CONFIG_X86_32 || defined CONFIG_IA32_EMULATION
-	                return &user_x86_32_view;
-	#endif
-	#ifdef CONFIG_X86_64
-	        return &user_x86_64_view;
-	#endif
-	}
-
->> 	#ifdef CONFIG_NET_NS
->> 		struct net *ct_net;
->> 	#endif
->>
->>> #ifdef CONFIG_NET_NS
->>>
->>> #define DECLARE_PNET(name) struct net *name;
->>
->> One more macro, instead of immediately understandable thing.
->
-> DECLARE_PNET() ?
-> Did you check DECLARE_RWSEM, DECLARE_WAITQUEUE, DECLARE_PER_CPU,=20
-> DECLARE_BITMAP ... ???
-
-Yes, DECLARE_PNET. The rest exists because of complex initialization
-sometimes dependent on debugging options which all users would have
-zero chance to fill correctly. struct net is one C assignment regardles
-of anything.
-
->>> static inline void write_pnet(struct net **pnet, struct net *net)
->>> {
->>>        *pnet =3D net;
->>> }
->>>
->>> static inline struct net *read_pnet(struct net * const *pnet)
->>> {
->>>        return *pnet;
->>> }
->>> #else
->>>
->>> #define DECLARE_PNET(name)
->>> #define write_pnet(pnet, net)   do { (void)(net);} while (0)
->>> #define read_pnet(pnet)         (&init_net)
->>>
->>> #endif
->>>
->>> In particular, using these helpers permits a shrink of inet_bind_bu=
-cket
->>> (16 bytes instead of 32 on 32bit arches, and 32 bytes instead of 64=
- on 64bits)
->>
->> Why not just fix exactly bind bucket issue.
->
-> Another #ifdef ?=20
-
-Another localized ifdef in header.
-
->> As I posted earlier, ->dst_net can go after IPv6 dst_ops can be embe=
-dded
->> directly into struct netns_ipv6, but header dependencies aren't triv=
-ial.
->>
->> As for netns comparisons, use net_eq() to amortize the cost somewhat=
-=2E
->>
->>
->
-> I believe all "struct net*" parameter passing could disappear with ap=
-propriate macros.
->
-> This stuff currently eat a precious register on i386/x86_64/... archi=
-tectures.
-
-BTW, it'd be nice to check with current most popupar netdev benchmark :=
--)
