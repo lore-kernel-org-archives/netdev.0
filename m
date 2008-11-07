@@ -1,86 +1,43 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [BUG] rmmod bfin_mac netdev driver module will cause system crash.
-Date: Fri, 7 Nov 2008 10:24:50 +0100
-Message-ID: <20081107092450.GG32552@xi.wantstofly.org>
-References: <386072610811040045w2944a856jd55809f0a7532dbd@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Fri, 07 Nov 2008 10:12:20 +0100
+Message-ID: <8763mzx5l7.fsf@obelix.mork.no>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
+	<alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
+	<20081105.151015.206163697.davem@davemloft.net>
+	<alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
+	<Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi>
+	<alpine.DEB.1.10.0811070854361.10993@uplift.swm.pp.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
-	Byron Bradley <byron.bbradley@gmail.com>,
-	Tim Ellis <tim.ellis@mac.com>, Imre Kaloz <kaloz@openwrt.org>,
-	Nicolas Pitre <nico@cam.org>, Dirk Teurlings <dirk@upexia.nl>,
-	Peter van Valderen <p.v.valderen@gmail.com>
-To: Bryan Wu <cooloney@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:51559 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751281AbYKGJYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 04:24:52 -0500
-Content-Disposition: inline
-In-Reply-To: <386072610811040045w2944a856jd55809f0a7532dbd@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ilpo =?utf-8?Q?J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>, daniel.blueman@gmail.com,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, linux-net@vger.kernel.org
+To: Mikael Abrahamsson <swmike@swm.pp.se>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0811070854361.10993@uplift.swm.pp.se> (Mikael
+	Abrahamsson's message of "Fri, 7 Nov 2008 09:11:48 +0100 (CET)")
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 04, 2008 at 04:45:13PM +0800, Bryan Wu wrote:
+Mikael Abrahamsson <swmike@swm.pp.se> writes:
 
-> Hi Lennert,
+> I have sent an email (which will hopefully initiate a discussion) to =
+a
+> mailinglist populated by a lot of the operational ISP community and
+> asked around about ECN and views on that. I also checked around on
+> core router platforms (Cisco 12000 and Cisco CRS-1, which definitely
+> is two of the top three core router platforms deployed in the world)
+> and it seems they do not support ECN as far as I can discern.
 
-Hi Bryan,
+I believe you can forget about ECN in core networks as long as these
+searches fail:
 
-
-> I got a regression since I update our blackfin kernel to the lastest
-> 2.6.28-rc2 which includes your phylib patches.
-> Please find the tracker here:
-> https://blackfin.uclinux.org/gf/project/uclinux-dist/tracker/?action=TrackerItemEdit&tracker_id=141&tracker_item_id=4595
-> 
-> Briefly, the calling chain is:
-> in bfin_mac_remove(), mdiobus_unregister() ->
-> device_unregister(&bus->dev); -> put_device() -> kobject_put() ->
-> kref_put(&kobj->kref, kobject_release); -> kobject_release() ->
-> kobject_cleanup() -> mdiobus_release().
-> So in mdiobus_unregister() bus->state = MDIOBUS_UNREGISTERED; but in
-> mdiobus_release(), this BUG_ON will fire:
-> BUG_ON(bus->state != MDIOBUS_RELEASED);
-> 
-> How about this patch?
-> 
-> ---
-> Index: drivers/net/phy/mdio_bus.c
-> ===================================================================
-> --- drivers/net/phy/mdio_bus.c	(revision 5575)
-> +++ drivers/net/phy/mdio_bus.c	(working copy)
-> @@ -134,13 +134,16 @@
->  	int i;
-> 
->  	BUG_ON(bus->state != MDIOBUS_REGISTERED);
-> -	bus->state = MDIOBUS_UNREGISTERED;
-> 
-> +	bus->state = MDIOBUS_RELEASED;
-> +
->  	device_unregister(&bus->dev);
->  	for (i = 0; i < PHY_MAX_ADDR; i++) {
->  		if (bus->phy_map[i])
->  			device_unregister(&bus->phy_map[i]->dev);
->  	}
-> +
-> +	bus->state = MDIOBUS_UNREGISTERED;
->  }
->  EXPORT_SYMBOL(mdiobus_unregister);
-> ---
-
-Actually, what I think should be done is this.  Can you try that?
+ http://www.google.com/search?q=3D%22rfc+5129%22+site%3Acisco.com
+ http://www.google.com/search?q=3D%22rfc+5129%22+site%3Ajuniper.net
 
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index d0ed1ef..536bda1 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -136,7 +136,7 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	BUG_ON(bus->state != MDIOBUS_REGISTERED);
- 	bus->state = MDIOBUS_UNREGISTERED;
- 
--	device_unregister(&bus->dev);
-+	device_del(&bus->dev);
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
- 		if (bus->phy_map[i])
- 			device_unregister(&bus->phy_map[i]->dev);
+
+Bj=C3=B8rn
