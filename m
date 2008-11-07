@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_key: mark policy as dead before destroying
-Date: Thu, 06 Nov 2008 23:09:07 -0800 (PST)
-Message-ID: <20081106.230907.42708270.davem@davemloft.net>
-References: <20081107024954.GA20157@x200.localdomain>
+Subject: Re: [PATCH] ipvs: oldlen, newlen should be be16, not be32
+Date: Thu, 06 Nov 2008 23:10:12 -0800 (PST)
+Message-ID: <20081106.231012.95062942.davem@davemloft.net>
+References: <1226023925.5482.2.camel@brick>
+	<20081107022814.GA18907@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Cc: harvey.harrison@gmail.com, netdev@vger.kernel.org
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56518
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56522
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751052AbYKGHJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:09:08 -0500
-In-Reply-To: <20081107024954.GA20157@x200.localdomain>
+	by vger.kernel.org with ESMTP id S1751211AbYKGHKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:10:20 -0500
+In-Reply-To: <20081107022814.GA18907@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Fri, 7 Nov 2008 05:49:54 +0300
+From: Simon Horman <horms@verge.net.au>
+Date: Fri, 7 Nov 2008 13:28:14 +1100
 
-> xfrm_policy_destroy() will oops if not dead policy is passed to it.
-> On error path in pfkey_compile_policy() exactly this happens.
+> On Thu, Nov 06, 2008 at 06:12:05PM -0800, Harvey Harrison wrote:
+> > Noticed by sparse:
+ ...
+> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 > 
-> Oopsable for CAP_NET_ADMIN owners.
+> I suspect these were introduced by me :-(
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-Good catch, applied to net-2.6
-
-Thanks.
+Applied to net-next-2.6, thanks everyone.
