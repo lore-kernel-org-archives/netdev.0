@@ -1,58 +1,53 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] phonet: sparse annotations of protocol, remove forward
- declaration
-Date: Fri, 07 Nov 2008 12:02:01 -0800
-Message-ID: <1226088121.11596.55.camel@brick>
-References: <1226022793.5482.1.camel@brick>
-	 <200811071041.41787.remi.denis-courmont@nokia.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] usbnet: enable more aggressive autosuspend
+Date: Fri, 07 Nov 2008 12:22:36 -0800 (PST)
+Message-ID: <20081107.122236.08276398.davem@davemloft.net>
+References: <200811071244.17221.oliver@neukum.org>
+	<49142DC5.8080803@garzik.org>
+	<200811071324.18697.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:23249 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400AbYKGUCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 15:02:04 -0500
-Received: by wf-out-1314.google.com with SMTP id 27so1432127wfd.4
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 12:02:03 -0800 (PST)
-In-Reply-To: <200811071041.41787.remi.denis-courmont@nokia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, per.hallsmark-8A+B91M1NdOzQB+pC5nmwQ@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org
+To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200811071324.18697.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-11-07 at 10:41 +0200, R=C3=A9mi Denis-Courmont wrote:
-> On Friday 07 November 2008 03:53:13 ext Harvey Harrison, you wrote:
-> > net/phonet/af_phonet.c:38:36: error: marked inline, but without a
-> > definition
-> > net/phonet/pep-gprs.c:63:10: warning: incorrect type in return=20
-> > expression (different base types)
-> > net/phonet/pep-gprs.c:63:10:    expected int
-> > net/phonet/pep-gprs.c:63:10:    got restricted __be16 [usertype]
-> > <noident>=20
-> > net/phonet/pep-gprs.c:65:10: warning: incorrect type in return
-> > expression=20
-> > (different base types)
-> > net/phonet/pep-gprs.c:65:10:    expected int=20
-> > net/phonet/pep-gprs.c:65:10:    got restricted __be16 [usertype]
-> > <noident>=20
-> > net/phonet/pep-gprs.c:124:16: warning: incorrect type in assignment
-> > (different base types)
-> > net/phonet/pep-gprs.c:124:16:    expected restricted=20
-> > __be16 [usertype] protocol
-> > net/phonet/pep-gprs.c:124:16:    got unsigned short [unsigned]
-> > [usertype] protocol=20
->=20
-> Thanks. May I ask where the documentation to run these checks is?
->=20
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Date: Fri, 7 Nov 2008 13:24:17 +0100
 
-You need to add the -D__CHECK_ENDIAN__ flag to sparse to enable these
-checks.
+> Am Freitag, 7. November 2008 13:00:05 schrieb Jeff Garzik:
+> > Oliver Neukum wrote:
+> > > Am Freitag, 7. November 2008 09:26:33 schrieb Jeff Garzik:
+> > >> I pondered taking the easy route of fixing this by surrounding the 
+> > >> auto_pm reference with an ifdef, but it seems like usbnet could use a 
+> > >> bit more thought -- it is questionable whether usbnet_suspend/resume 
+> > >> should be built at all, if !CONFIG_PM, even though they are exported.
+> > > 
+> > > As this is a generic problem, shouldn't we get the compiler to do
+> > > this for us?
+> > 
+> > Can you be more specific?
+> 
+> As these methods are static the compiler is able to tell whether they
+> are referenced by anything but the tables. We should be able to set
+> an attribute in the header file that tells the compiler that these methods
+> won't be called and can be omitted in the build. Otherwise we have to ifdef
+> all those methods.
 
-make C=3D1 CF=3D-D__CHECK_ENDIAN__
+The problem is that the content of these functions still needs to be
+parsed, so references to ifdef'd out structure members are still going
+to throw errors.
 
-should do the trick if you have sparse already.
-
-Harvey
-
+For the time being please add the necessary CONFIG_PM wrappers around
+the suspend and resume methods, as this is what we do tree wide and
+I don't think you want these usbnet changes blocked by some fancy
+compiler facility that hasn't been implemented yet.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
