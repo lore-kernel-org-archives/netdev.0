@@ -1,44 +1,75 @@
-From: Janek Kozicki <janek_listy@wp.pl>
-Subject: Belkin F5U258 Host to Host cable (usbnet, plusb) - that patch
- works.
-Date: Fri, 7 Nov 2008 18:37:37 +0100
-Message-ID: <20081107183737.34f66e98@szpak>
+From: Ranjit Manomohan <ranjitm@google.com>
+Subject: Re: [RESEND] pkt_sched: Control group classifier
+Date: Fri, 7 Nov 2008 09:39:30 -0800
+Message-ID: <166fe7950811070939v21d49da7kdae19d7649fbce22@mail.gmail.com>
+References: <20081106161330.GN20815@postel.suug.ch>
+	 <166fe7950811070751j475c9aa6n861bc43a97d1aec5@mail.gmail.com>
+	 <20081107170850.GO20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.wp.pl ([212.77.101.5]:57105 "EHLO mx1.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751596AbYKGRht (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2008 12:37:49 -0500
-Received: from a3gw.hmg.inpg.fr (HELO szpak) (janek_listy@[194.254.65.43])
-          (envelope-sender <janek_listy@wp.pl>)
-          by smtp.wp.pl (WP-SMTPD) with SMTP
-          for <netdev@vger.kernel.org>; 7 Nov 2008 18:37:41 +0100
+Received: from smtp-out.google.com ([216.239.45.13]:37663 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbYKGRjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 12:39:35 -0500
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id mA7HdWRh011272
+	for <netdev@vger.kernel.org>; Fri, 7 Nov 2008 09:39:33 -0800
+Received: from rv-out-0708.google.com (rvfc5.prod.google.com [10.140.180.5])
+	by wpaz33.hot.corp.google.com with ESMTP id mA7HdVph008990
+	for <netdev@vger.kernel.org>; Fri, 7 Nov 2008 09:39:31 -0800
+Received: by rv-out-0708.google.com with SMTP id c5so1227569rvf.56
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 09:39:31 -0800 (PST)
+In-Reply-To: <20081107170850.GO20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, Nov 7, 2008 at 9:08 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> * Ranjit Manomohan <ranjitm@google.com> 2008-11-07 07:51
+>> > +static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+>> > +                              struct tcf_result *res)
+>> > +{
+>> > +       struct cls_cgroup_head *head = tp->root;
+>> > +       struct cgroup_cls_state *cs;
+>> > +       int ret = 0;
+>> > +
+>> > +       /*
+>> > +        * Due to the nature of the classifier it is required to ignore all
+>> > +        * packets originating from softirq context as accessing `current'
+>> > +        * would lead to false results.
+>> > +        *
+>> > +        * This test assumes that all callers of dev_queue_xmit() explicitely
+>> > +        * disable bh. Knowing this, it is possible to detect softirq based
+>> > +        * calls by looking at the number of nested bh disable calls because
+>> > +        * softirqs always disables bh.
+>> > +        */
+>> > +       if (softirq_count() != SOFTIRQ_OFFSET)
+>> > +               return -1;
+>> > +
+>>
+>>     How about caching the cs->classid in the socket here at this point
+>> (if there is a mismatch from the current cgroup value)  if we are in
+>> process context and using that value if we are in interrupt context.
+>> That should help account for the packets in interrupt context and work
+>> seamlessly if the task got moved between cgroups or if the cgroup
+>> identifier was changed.
+>
+> I like the idea, the overhead is relatively small and the sk_buff struct
+> does not get polluted. There will still be cases where the skb has been
+> orphaned and is no longer connected to a socket but that case is pretty
+> rare.
+>
+> Will you work on a follow-up patch?
 
-I bought this new Belkin "Vista" (bleh) host to host USB network
-cable. It uses F5U258 chipset. And it works with that patch (posted
-on this mailing list on 16 Feb 2008):
+Tied up with a few things right now, but I can get around to it
+sometime next week (if you don't get a chance to implement it before
+that)
 
-  http://article.gmane.org/gmane.linux.network/86240
-
-I just wanted to let you know that this patch works well, and it
-would be kind-of useful if it was applied to linux source.
-
-Currently I will need to apply this patch every time when I upgrade
-my kernel, which is kind of painful because I got used to debian
-prebuilt linux-image packages :)
+-Thanks,
+Ranjit
 
 
-I didn't subscribe to this mailing list (sorry for that) because I just
-wanted to let you know that this patch works and nothing more. If
-this post creates some additional discussion I'll watch it through
-online archive (or you could CC me if that's not too cumbersome for you ;)
-
--- 
-Janek Kozicki                                                         |
+>
