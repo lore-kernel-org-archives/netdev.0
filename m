@@ -1,54 +1,60 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RESEND] pkt_sched: Control group classifier
-Date: Fri, 7 Nov 2008 18:08:50 +0100
-Message-ID: <20081107170850.GO20815@postel.suug.ch>
-References: <20081106161330.GN20815@postel.suug.ch> <166fe7950811070751j475c9aa6n861bc43a97d1aec5@mail.gmail.com>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [RFC-PATCH] netfilter: payload_len is be16, add size of struct
+ rather than size of pointer
+Date: Fri, 07 Nov 2008 09:13:43 -0800
+Message-ID: <1226078023.11596.17.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ranjit Manomohan <ranjitm@google.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Wensong Zhang <wensong@linuxvirtualserver.org>,
+	Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:53537 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750953AbYKGRIc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2008 12:08:32 -0500
-Content-Disposition: inline
-In-Reply-To: <166fe7950811070751j475c9aa6n861bc43a97d1aec5@mail.gmail.com>
+Received: from yx-out-2324.google.com ([74.125.44.30]:33854 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750976AbYKGROs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 12:14:48 -0500
+Received: by yx-out-2324.google.com with SMTP id 8so532211yxm.1
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 09:14:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Ranjit Manomohan <ranjitm@google.com> 2008-11-07 07:51
-> > +static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
-> > +                              struct tcf_result *res)
-> > +{
-> > +       struct cls_cgroup_head *head = tp->root;
-> > +       struct cgroup_cls_state *cs;
-> > +       int ret = 0;
-> > +
-> > +       /*
-> > +        * Due to the nature of the classifier it is required to ignore all
-> > +        * packets originating from softirq context as accessing `current'
-> > +        * would lead to false results.
-> > +        *
-> > +        * This test assumes that all callers of dev_queue_xmit() explicitely
-> > +        * disable bh. Knowing this, it is possible to detect softirq based
-> > +        * calls by looking at the number of nested bh disable calls because
-> > +        * softirqs always disables bh.
-> > +        */
-> > +       if (softirq_count() != SOFTIRQ_OFFSET)
-> > +               return -1;
-> > +
-> 
->     How about caching the cs->classid in the socket here at this point
-> (if there is a mismatch from the current cgroup value)  if we are in
-> process context and using that value if we are in interrupt context.
-> That should help account for the packets in interrupt context and work
-> seamlessly if the task got moved between cgroups or if the cgroup
-> identifier was changed.
+payload_len is a be16 value, not cpu_endian, also the size of a ponter
+to a struct ipv6hdr was being added, not the size of the struct itself.
 
-I like the idea, the overhead is relatively small and the sk_buff struct
-does not get polluted. There will still be cases where the skb has been
-orphaned and is no longer connected to a socket but that case is pretty
-rare.
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+I'm quite supicious of the following code in net/netfilter/ipvs/ip_vs_xmit.c
 
-Will you work on a follow-up patch?
+Line 714:
+	iph->payload_len	=	old_iph->payload_len + sizeof(old_iph);
+
+I believe that the payload_len is a big-endian value and this is treating it as
+cpu-ordered.  In addition, it is adding the size of a pointer to a struct ipv6hdr
+and not the size of the struct itself.
+
+If I'm correct, I'd suggest the following is what _may_ have been intended.
+
+ net/netfilter/ipvs/ip_vs_xmit.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 2f36721..425ab14 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -711,7 +711,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	iph			=	ipv6_hdr(skb);
+ 	iph->version		=	6;
+ 	iph->nexthdr		=	IPPROTO_IPV6;
+-	iph->payload_len	=	old_iph->payload_len + sizeof(old_iph);
++	iph->payload_len	=	old_iph->payload_len;
++	be16_add_cpu(&iph->payload_len, sizeof(*old_iph));
+ 	iph->priority		=	old_iph->priority;
+ 	memset(&iph->flow_lbl, 0, sizeof(iph->flow_lbl));
+ 	iph->daddr		=	rt->rt6i_dst.addr;
+-- 
+1.6.0.3.756.gb776d
+
+
+
