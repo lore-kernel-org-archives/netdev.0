@@ -1,54 +1,43 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: time for TCP ECN defaulting to on?
-Date: Fri, 7 Nov 2008 09:53:18 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi>
-References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>
- <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
- <20081105.151015.206163697.davem@davemloft.net>
- <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver updates for 2.6.29
+Date: Fri, 07 Nov 2008 03:08:24 -0500
+Message-ID: <4913F778.7000206@garzik.org>
+References: <20081106065059.GA19202@havoc.gtf.org> <20081106.221330.181959128.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, daniel.blueman@gmail.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, linux-net@vger.kernel.org
-To: Mikael Abrahamsson <swmike@swm.pp.se>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:44058 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751007AbYKGHxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:53:20 -0500
-In-Reply-To: <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
+Received: from srv5.dvmed.net ([207.36.208.214]:57364 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751124AbYKGII1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2008 03:08:27 -0500
+In-Reply-To: <20081106.221330.181959128.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 7 Nov 2008, Mikael Abrahamsson wrote:
-
-> On Wed, 5 Nov 2008, David Miller wrote:
+David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Thu, 6 Nov 2008 01:50:59 -0500
 > 
-> > This kind of thinking just perpetuates the problem forever.
+>> Please pull from 'davem-next' branch of
+>> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
+>>
+>> to receive the following updates:
 > 
-> It's like the TCP option order "bug", where some devices would drop the
-> packets because of buggy implementations, that was changed in Linux to work
-> around others buggy code, and I see "ECN blackhole detection" as a similar
-> measure.
+> drivers/net/usb/usbnet.c: In function 'usbnet_suspend':
+> drivers/net/usb/usbnet.c:1357: error: 'struct usb_device' has no member named 'auto_pm'
+> 
+> Please fix this up and send me another pull request.
 
-That is entirely bogus claim! The different ordering of options cost us 
-nothing, while disabling ECN certainly has an innumerable cost both in 
-performance and in nobody taking the initiative which makes the situation 
-worse for everybody.
+hmmm, builds for me on x86 and x86-64.
 
-And about somebody earlier claiming that they'll get an impressions that 
-Linux stack is broken (if such people even know that there's some network 
-stack in Linux :-))... I'm rather sure those isp supports etc. put a blaim 
-on us anyway even when loads of counterproof would exists because it's 
-just cheaper to do nothing and blaim linux instead. Also some claims 
-asserted by incompetent people easily start to live among random forums; 
-an example from the previous incident: "since disabling timestamps helps, 
-it must be that timestamps are broken" (and somebody even "more clueful" 
-added that they got enabled for 2.6.27?!?), needless to say, neither 
-holds.
+<looks>  are you building with CONFIG_PM disabled, perhaps?  I'll try 
+that build next...
+
+	Jeff
 
 
--- 
- i.
+
+
