@@ -1,34 +1,44 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [net-next] kernel bug at dev.c:4021
-Date: Sat, 8 Nov 2008 01:39:07 +0300
-Message-ID: <20081107223907.GA18677@x200.localdomain>
-References: <20081107154407.43165cc4@osprey.hogchain.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] via-velocity: enable perfect filtering for multicast
+	packets
+Date: Fri, 7 Nov 2008 23:36:17 +0100
+Message-ID: <20081107223617.GA23082@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: netdev@vger.kernel.org,
+	=?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	HaraldWelte@viatech.com, JoeyZhuo@via.com.tw, AJJiang@via.com.tw,
+	BruceChang@via.com.tw, WaltonLi@via.com.tw
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:30441 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751279AbYKGWfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 17:35:48 -0500
-Received: by ik-out-1112.google.com with SMTP id c29so1274845ika.5
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 14:35:45 -0800 (PST)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58754 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752095AbYKGWgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 17:36:39 -0500
 Content-Disposition: inline
-In-Reply-To: <20081107154407.43165cc4@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 07, 2008 at 03:44:07PM -0600, Jay Cliburn wrote:
-> Pulled davem's net-next today (20081107, head
-> 167c6274c30d17c41742096d1a12c32bd3b7e366) and was greeted with an
-> unbootable system.
+Signed-off-by: Joey Zhuo <joeyzhuo@via.com.tw>
+Acked-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/via-velocity.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->  [<ffffffff812444ed>] register_netdev+0x3f/0x4d
->  [<ffffffff811e85a1>] loopback_net_init+0x4c/0x89
->  [<ffffffff8123f3d8>] register_pernet_operations+0x39/0xb0
->  [<ffffffff8123f47b>] register_pernet_device+0x2c/0x59
->  [<ffffffff81534678>] ? net_dev_init+0x0/0x18d
->  [<ffffffff81534703>] net_dev_init+0x8b/0x18d
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 3590ea5..11cb3e5 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -2296,7 +2296,7 @@ static void velocity_set_multi(struct net_device *dev)
+ 		}
+ 
+ 		mac_set_cam_mask(regs, vptr->mCAMmask);
+-		rx_mode = (RCR_AM | RCR_AB);
++		rx_mode = RCR_AM | RCR_AB | RCR_AP;
+ 	}
+ 	if (dev->mtu > 1500)
+ 		rx_mode |= RCR_AL;
+-- 
+1.5.3.3
 
-Do git-revert ae33bc40c0d96d02f51a996482ea7e41c5152695 meanwhile.
