@@ -1,41 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
-Date: Fri, 07 Nov 2008 11:54:01 -0800 (PST)
-Message-ID: <20081107.115401.214017400.davem@davemloft.net>
-References: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887B@MBX73.ad2.softcom.biz>
-	<20081107084555.GA13347@ioremap.net>
-	<241CE5A1B2AFFA4987A663380D74C0BB3FFD15887F@MBX73.ad2.softcom.biz>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] phonet: sparse annotations of protocol, remove forward
+ declaration
+Date: Fri, 07 Nov 2008 12:02:01 -0800
+Message-ID: <1226088121.11596.55.camel@brick>
+References: <1226022793.5482.1.camel@brick>
+	 <200811071041.41787.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, netdev@vger.kernel.org
-To: yavor@simplifymedia.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57934
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750940AbYKGTyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 14:54:02 -0500
-In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887F@MBX73.ad2.softcom.biz>
+Received: from wf-out-1314.google.com ([209.85.200.169]:23249 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbYKGUCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 15:02:04 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so1432127wfd.4
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 12:02:03 -0800 (PST)
+In-Reply-To: <200811071041.41787.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Date: Fri, 7 Nov 2008 11:38:14 -0500
+On Fri, 2008-11-07 at 10:41 +0200, R=C3=A9mi Denis-Courmont wrote:
+> On Friday 07 November 2008 03:53:13 ext Harvey Harrison, you wrote:
+> > net/phonet/af_phonet.c:38:36: error: marked inline, but without a
+> > definition
+> > net/phonet/pep-gprs.c:63:10: warning: incorrect type in return=20
+> > expression (different base types)
+> > net/phonet/pep-gprs.c:63:10:    expected int
+> > net/phonet/pep-gprs.c:63:10:    got restricted __be16 [usertype]
+> > <noident>=20
+> > net/phonet/pep-gprs.c:65:10: warning: incorrect type in return
+> > expression=20
+> > (different base types)
+> > net/phonet/pep-gprs.c:65:10:    expected int=20
+> > net/phonet/pep-gprs.c:65:10:    got restricted __be16 [usertype]
+> > <noident>=20
+> > net/phonet/pep-gprs.c:124:16: warning: incorrect type in assignment
+> > (different base types)
+> > net/phonet/pep-gprs.c:124:16:    expected restricted=20
+> > __be16 [usertype] protocol
+> > net/phonet/pep-gprs.c:124:16:    got unsigned short [unsigned]
+> > [usertype] protocol=20
+>=20
+> Thanks. May I ask where the documentation to run these checks is?
+>=20
 
-> It would change. Switching the bucket allows you to grow the table
-> size and keep O(1).  Without changing the hash function, growing the
-> table size will not help.  Currently all binds on the same port will
-> go to the same bucket.
+You need to add the -D__CHECK_ENDIAN__ flag to sparse to enable these
+checks.
 
-I hear a lot of talk about a "new hash function" but what in the world are you
-going to hash on other than the port?
+make C=3D1 CF=3D-D__CHECK_ENDIAN__
 
-Listening sockets can bind to just a specific port, with source and
-destination address set to "ANY" (ie. wildcard).
+should do the trick if you have sparse already.
 
-Therefore, if you use some idea like using saddr or daddr in the hash
-function, then a listening socket bind will have to walk the entire table
-to see if any socket exists already bound to that port.
+Harvey
 
-You really lack some fundamental understanding of the code you are trying
-to change, and the things that code must cater to.
