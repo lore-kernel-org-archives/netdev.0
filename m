@@ -1,31 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: time for TCP ECN defaulting to on?
-Date: Thu, 06 Nov 2008 20:49:29 -0800 (PST)
-Message-ID: <20081106.204929.161401868.davem@davemloft.net>
-References: <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>
-	<20081105.151015.206163697.davem@davemloft.net>
-	<alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
+From: Yavor Goulishev <yavor@simplifymedia.com>
+Subject: RE: [Patch] Establishing more than 64K outgoing TCP connections
+Date: Fri, 7 Nov 2008 01:12:36 -0500
+Message-ID: <241CE5A1B2AFFA4987A663380D74C0BB3FFD158878@MBX73.ad2.softcom.biz>
+References: <241CE5A1B2AFFA4987A663380D74C0BB3FD69B08A7@MBX73.ad2.softcom.biz>,<20081101.211541.182428064.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel.blueman@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-net@vger.kernel.org
-To: swmike@swm.pp.se
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xsmtp04.mail2web.com ([168.144.250.226]:32909 "EHLO
+	xsmtp04.mail2web.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898AbYKGGMw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 01:12:52 -0500
+In-Reply-To: <20081101.211541.182428064.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Date: Fri, 7 Nov 2008 05:46:28 +0100 (CET)
+OK,
+I see that you want to access the hash table in O(1)  and
+you try to get a port number at empty bucket. This is clever.
+However having hash table size 65536 and hash function just the port number can
+work only for 64K binds, right? If I need more they need to go in the chains.
 
-> I see that in
-> <http://www.icir.org/floyd/papers/draft-ietf-tsvwg-tcp-ecn-00.txt>
-> there is a recommendation to not use ECN on retransmits, is there
-> code right now (or planned) to do some kind of "ECN blackhole
-> detection", ie if no response is received to SYN with ECN set,
-> continue by sending the second SYN without ECN and keep this
-> information for the duration of the TCP session?
+So may be having a better hash function and configurable table size (/proc/sys/net/...)
+can work without limitation and with good performance.
+For example:
+    hash_fn = (port + local_ip) % size
 
-No, we are firmly against any form of ECN blackhole detection.  Alexey Kuznetsov and
-Sally Floyd argued this out exhaustively several years ago.
+--Yavor
+________________________________________
+From: David Miller [davem@davemloft.net]
+Sent: Saturday, November 01, 2008 8:15 PM
+To: Yavor Goulishev
+Cc: netdev@vger.kernel.org
+Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
+
+From: Yavor Goulishev <yavor@simplifymedia.com>
+Date: Tue, 28 Oct 2008 17:06:33 -0400
+
+> I'm sending you a tiny patch for the kernel.  The change allowed me
+> to establish more than 64K outgoing TCP connections from a single
+> Linux box.  Being able to use multihomed client box to load test a
+> server reduced dramatically the number of physical boxes I needed.
+> The other way to go was virtual machines, but you can't beat the
+> simplicity of the single multihomed client.  Also the patch fixes an
+> important symmetry.  Using the multihome setup is a simple technique
+> to overcome the 64K limit on the server side.  The patch makes it
+> possible on the client side too.
+>
+> The fix is only for TCP but probably the same issue exists for UDP.
+> I didn't had the time to investigate.
+>
+> The patch is against the latest code base 2.6.28-rc2.
+
+As I mentioned in my initial reply to you, this exact patch
+has been proposed in the future and rejected.
+
+The problem is that although it fixes the limitation, it
+introduces a new problem.
+
+The current code tries to keep the hash chains as shallow
+as possible.  One part of how it achieves this is that it
+tries to use up all the available ports using it's
+scanning algorithm.  Your change works against this, and
+will tend to make the hash chains deeper.
+
+A solution needs to be devised which handles both issues.
