@@ -1,37 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/1] via-velocity: enable perfect filtering for
-	multicast packets
-Date: Sat, 8 Nov 2008 00:03:25 +0100
-Message-ID: <20081107230325.GA24091@electric-eye.fr.zoreil.com>
-References: <20081107223617.GA23082@electric-eye.fr.zoreil.com> <20081107144935.01202e62.akpm@linux-foundation.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
+Date: Sat, 8 Nov 2008 02:04:00 +0300
+Message-ID: <20081107230400.GA28576@ioremap.net>
+References: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887B@MBX73.ad2.softcom.biz> <20081107084555.GA13347@ioremap.net> <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887F@MBX73.ad2.softcom.biz> <20081107.115401.214017400.davem@davemloft.net> <241CE5A1B2AFFA4987A663380D74C0BB3FFDA39997@MBX73.ad2.softcom.biz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	=?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>,
-	HaraldWelte@viatech.com, JoeyZhuo@via.com.tw, AJJiang@via.com.tw,
-	BruceChang@via.com.tw, WaltonLi@via.com.tw
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yavor Goulishev <yavor@simplifymedia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45480 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752268AbYKGXEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 18:04:05 -0500
+Received: from broadrack.ru ([195.178.208.66]:47831 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752156AbYKGXEE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2008 18:04:04 -0500
 Content-Disposition: inline
-In-Reply-To: <20081107144935.01202e62.akpm@linux-foundation.org>
+In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FFDA39997@MBX73.ad2.softcom.biz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> :
-[...]
-> Is this a bugfix, a regression fix or a feature?
+On Fri, Nov 07, 2008 at 05:37:33PM -0500, Yavor Goulishev (yavor@simplifymedia.com) wrote:
+> It is not the entire table. It is O(number_of_local_interfaces).
+> In general, if you have more then one interface you either need to flatten the
+> ip/port space and have a smart way to access it in O(1) or you have the O(number_of_local_interfaces).
+> The case of ANY can be solved with special ANY interface. So you can get O(1) even there, but the space will grow.
 
-It is not a regression fix. I would say thet it is somewhere between
-the bugfix and the feature.
-
-> 
-> I assume that it was authored by Joey ?
-
-Yes.
+As was already pointed, you can use SO_BINDTODEVICE for this purpose.
+Next solution you may think of is already implemented as SO_REUSEADDR
+socket option.
 
 -- 
-Ueimor
+	Evgeniy Polyakov
