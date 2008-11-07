@@ -1,52 +1,22 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH] ipv6: fix ip6_mr_init error path
-Date: Fri, 07 Nov 2008 15:20:26 +0100
-Message-ID: <20081107142027.249107446@nptl.frec.bull.fr>
-References: <20081107142025.563493104@nptl.frec.bull.fr>
-Cc: netdev <netdev@vger.kernel.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Dave Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:58706 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543AbYKGOi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 09:38:26 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Sat, 08 Nov 2008 01:15:55 +1030
+Message-ID: <491454A3.1040802@davidnewall.com>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com>	<alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se>	<20081105.151015.206163697.davem@davemloft.net>	<alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>	<Pine.LNX.4.64.0811070931190.23284@wrl-59.cs.helsinki.fi>	<4914240F.7050701@blueteddy.net> <20081107142950.13906925@lxorguk.ukuu.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Dave Hudson <linux-kernel@blueteddy.net>,
+	=?ISO-8859-1?Q?Ilpo_J=E4r?= =?ISO-8859-1?Q?vinen?=
+	<ilpo.jarvinen@helsinki.fi>, Mikael Abrahamsson <swmike@swm.pp.se>,
+	David Miller <davem@davemloft.net>, daniel.blueman@gmail.com,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, linux-net@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753885AbYKGOqX@vger.kernel.org>
+In-Reply-To: <20081107142950.13906925@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The order of cleanup operations in the error/exit section of ip6_mr_init()
-is completely inversed. It should be the other way around.
-Also a del_timer() is missing in the error path.
-
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
----
- net/ipv6/ip6mr.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-Index: net-2.6/net/ipv6/ip6mr.c
-===================================================================
---- net-2.6.orig/net/ipv6/ip6mr.c
-+++ net-2.6/net/ipv6/ip6mr.c
-@@ -981,14 +981,15 @@ int __init ip6_mr_init(void)
- 		goto proc_cache_fail;
- #endif
- 	return 0;
--reg_notif_fail:
--	kmem_cache_destroy(mrt_cachep);
- #ifdef CONFIG_PROC_FS
--proc_vif_fail:
--	unregister_netdevice_notifier(&ip6_mr_notifier);
- proc_cache_fail:
- 	proc_net_remove(&init_net, "ip6_mr_vif");
-+proc_vif_fail:
-+	unregister_netdevice_notifier(&ip6_mr_notifier);
- #endif
-+reg_notif_fail:
-+	del_timer(&ipmr_expire_timer);
-+	kmem_cache_destroy(mrt_cachep);
- 	return err;
- }
- 
-
--- 
+Isn't this a question for the IETF to answer?  Are they saying turn on
+ECN now?
