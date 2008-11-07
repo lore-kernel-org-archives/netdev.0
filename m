@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] Establishing more than 64K outgoing TCP connections
-Date: Thu, 06 Nov 2008 23:04:05 -0800 (PST)
-Message-ID: <20081106.230405.25075428.davem@davemloft.net>
-References: <241CE5A1B2AFFA4987A663380D74C0BB3FFD158878@MBX73.ad2.softcom.biz>
-	<20081106.222323.230548519.davem@davemloft.net>
-	<241CE5A1B2AFFA4987A663380D74C0BB3FFD15887B@MBX73.ad2.softcom.biz>
+Subject: Re: [PATCH] mark flow_cache_cpu_prepare() as __init
+Date: Thu, 06 Nov 2008 23:07:59 -0800 (PST)
+Message-ID: <20081106.230759.51179763.davem@davemloft.net>
+References: <20081107034059.GA20845@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: yavor@simplifymedia.com
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40749
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56515
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750952AbYKGHEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:04:06 -0500
-In-Reply-To: <241CE5A1B2AFFA4987A663380D74C0BB3FFD15887B@MBX73.ad2.softcom.biz>
+	by vger.kernel.org with ESMTP id S1750861AbYKGHIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 02:08:00 -0500
+In-Reply-To: <20081107034059.GA20845@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yavor Goulishev <yavor@simplifymedia.com>
-Date: Fri, 7 Nov 2008 01:57:34 -0500
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Fri, 7 Nov 2008 06:40:59 +0300
 
-> The current hash is only the port number.
-> Not sure why you want linear access in a hash table though:
->   >  I'm asking for O(num_ports_bound / hash_table_size) access.
-> What is this? Searching for unused port number?
+> It's called from __init code only. And__devinit in generic networking code
+> is pretty strange :^)
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Come back when you figure it out then.  I really don't have time to
-explain it at the moment, perhaps someone else can.
+I believe the history of this is that we used to call this thing
+as a CPU hotplug operation, and at the time that was the appropriate
+marker to use for such things.
+
+Applied to net-next-2.6, thanks!
