@@ -1,39 +1,43 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] mark flow_cache_cpu_prepare() as __init
-Date: Fri, 7 Nov 2008 06:40:59 +0300
-Message-ID: <20081107034059.GA20845@x200.localdomain>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Fri, 7 Nov 2008 05:46:28 +0100 (CET)
+Message-ID: <alpine.DEB.1.10.0811070529550.10993@uplift.swm.pp.se>
+References: <6278d2220811040632u7a36d68ekad5de517fd0671bb@mail.gmail.com> <alpine.DEB.1.10.0811052316210.10993@uplift.swm.pp.se> <20081105.151015.206163697.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:27887 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbYKGDhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2008 22:37:40 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so519559nfc.21
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2008 19:37:38 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: daniel.blueman@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-net@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20081105.151015.206163697.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It's called from __init code only. And__devinit in generic networking code
-is pretty strange :^)
+On Wed, 5 Nov 2008, David Miller wrote:
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+> This kind of thinking just perpetuates the problem forever.
 
- net/core/flow.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Well, I also think IPv6 breaks things for some people (mostly buggt DNS 
+resolvers) but I wholly support this being default on. The ISP business is 
+going in the direction of faster links and smaller interface buffers, 
+meaning WRED is used less and less, thus lessening the benefit of ECN.
 
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -307,7 +307,7 @@ void flow_cache_flush(void)
- 	put_online_cpus();
- }
- 
--static void __devinit flow_cache_cpu_prepare(int cpu)
-+static void __init flow_cache_cpu_prepare(int cpu)
- {
- 	struct tasklet_struct *tasklet;
- 	unsigned long order;
+I see that in 
+<http://www.icir.org/floyd/papers/draft-ietf-tsvwg-tcp-ecn-00.txt> there 
+is a recommendation to not use ECN on retransmits, is there code right now 
+(or planned) to do some kind of "ECN blackhole detection", ie if no 
+response is received to SYN with ECN set, continue by sending the second 
+SYN without ECN and keep this information for the duration of the TCP 
+session?
+
+If there is, I do agree with you that enabling ECN by default is a good 
+idea. Without such code, I still believe there are enough broken devices 
+out there that will create problems for people.
+
+It's like the TCP option order "bug", where some devices would drop the 
+packets because of buggy implementations, that was changed in Linux to 
+work around others buggy code, and I see "ECN blackhole detection" as a 
+similar measure.
+
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
