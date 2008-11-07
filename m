@@ -1,87 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH] pktgen: add full reset functionality
-Date: Fri, 07 Nov 2008 14:01:40 -0800
-Message-ID: <20081107220140.8528.21932.stgit@gitlost.lost>
+Subject: [PATCH] ixgbe: Fix usage of netif_*_all_queues() with
+	netif_carrier_{off|on}()
+Date: Fri, 07 Nov 2008 14:16:08 -0800
+Message-ID: <20081107221608.13396.10693.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Robert Olsson <robert.olsson@its.uu.se>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:34017
-	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751530AbYKGWCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 17:02:02 -0500
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:47478 "EHLO
+	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752002AbYKGWQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 17:16:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-While testing pktgen, I found that sometimes my configurations from
-previous runs would be left over, particularly when going from a test
-with 8 threads down to a test with 4 threads.
+netif_carrier_off() is sufficient to stop Tx into the driver.  Stopping the Tx
+queues is redundant and unnecessary.  By the same token, netif_carrier_on()
+will be sufficient to re-enable Tx, so waking the queues is unnecessary.
 
-This adds new functionality to pktgen where you can call
-pgset "reset"
-
-and it will be just like you just insmod'ed pktgen again.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Robert Olsson <robert.olsson@its.uu.se>
 ---
 
- net/core/pktgen.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index fa4973b..a4f5ad1 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -422,6 +422,7 @@ static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
- 					  const char *ifname);
- static int pktgen_device_event(struct notifier_block *, unsigned long, void *);
- static void pktgen_run_all_threads(void);
-+static void pktgen_reset_all_threads(void);
- static void pktgen_stop_all_threads_ifs(void);
- static int pktgen_stop_device(struct pktgen_dev *pkt_dev);
- static void pktgen_stop(struct pktgen_thread *t);
-@@ -480,6 +481,9 @@ static ssize_t pgctrl_write(struct file *file, const char __user * buf,
- 	else if (!strcmp(data, "start"))
- 		pktgen_run_all_threads();
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 4c23d78..0748526 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1998,6 +1998,9 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
  
-+	else if (!strcmp(data, "reset"))
-+		pktgen_reset_all_threads();
-+
- 	else
- 		printk(KERN_WARNING "pktgen: Unknown command: %s\n", data);
+ 	ixgbe_irq_enable(adapter);
  
-@@ -3173,6 +3177,24 @@ static void pktgen_run_all_threads(void)
- 	pktgen_wait_all_threads_run();
- }
++	/* enable transmits */
++	netif_tx_start_all_queues(netdev);
++
+ 	/* bring the link up in the watchdog, this could race with our first
+ 	 * link up interrupt but shouldn't be a problem */
+ 	adapter->flags |= IXGBE_FLAG_NEED_LINK_UPDATE;
+@@ -3248,7 +3251,6 @@ static void ixgbe_watchdog_task(struct work_struct *work)
+ 			         (FLOW_TX ? "TX" : "None"))));
  
-+static void pktgen_reset_all_threads(void)
-+{
-+	struct pktgen_thread *t;
-+
-+	pr_debug("pktgen: entering pktgen_reset_all_threads.\n");
-+
-+	mutex_lock(&pktgen_thread_lock);
-+
-+	list_for_each_entry(t, &pktgen_threads, th_list)
-+		t->control |= (T_REMDEVALL);
-+
-+	mutex_unlock(&pktgen_thread_lock);
-+
-+	schedule_timeout_interruptible(msecs_to_jiffies(125));	/* Propagate thread->control  */
-+
-+	pktgen_wait_all_threads_run();
-+}
-+
- static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
- {
- 	__u64 total_us, bps, mbps, pps, idle;
+ 			netif_carrier_on(netdev);
+-			netif_tx_wake_all_queues(netdev);
+ 		} else {
+ 			/* Force detection of hung controller */
+ 			adapter->detect_tx_hung = true;
+@@ -3259,7 +3261,6 @@ static void ixgbe_watchdog_task(struct work_struct *work)
+ 		if (netif_carrier_ok(netdev)) {
+ 			DPRINTK(LINK, INFO, "NIC Link is Down\n");
+ 			netif_carrier_off(netdev);
+-			netif_tx_stop_all_queues(netdev);
+ 		}
+ 	}
+ 
+@@ -3946,7 +3947,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	netif_carrier_off(netdev);
+-	netif_tx_stop_all_queues(netdev);
+ 
+ 	ixgbe_napi_add_all(adapter);
+ 
 
