@@ -1,715 +1,258 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] network device ops phase 1
-Date: Fri, 7 Nov 2008 15:50:23 -0800
-Message-ID: <20081107155023.2dea5e0f@extreme>
+From: Eric Sesterhenn <snakebyte@gmx.de>
+Subject: seq_read bugs with ipmr
+Date: Sat, 8 Nov 2008 01:22:08 +0100
+Message-ID: <20081108002208.GB17721@alice>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: alan@lxorguk.ukuu.org.uk
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37546 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751118AbYKGXu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2008 18:50:27 -0500
+Received: from mail.gmx.net ([213.165.64.20]:55064 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752312AbYKHAWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2008 19:22:13 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This early work on a series of patches to separate the management portions
-of the network device (immutable function pointers) from the data
-structure part of the network device.
+hi,
 
-This patch involves some hackery to maintain compatablity between the
-new and old model, so all 300+ drivers don't have to be changed at once.
-There are two copies of the same function pointers during the transistional
-step. As the transistion is completed the nag message can be changed to
-an WARN_ON, and the compatiablity code can be made configurable.
+running a bunch of network related stresstests (isic, isicng, ...) 
+and trying to read all files in /proc afterwards gave me two
+oopses. I was able to reproduce them on another box with
+a different config. I was able to reproduce this on 2.6.24 too,
+so this is no regression. The icmpsic is version 0.06. 
+The minimal testcase to trigger this:
 
-A couple function pointers aren't moved:
-* destructor can't be in net_device_ops because it may need to be referenced after
-   the module is unloaded.
-* hard_start_xmit is in the fast path for transmit.
+------------8<----------------
+#!/bin/bash
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+icmpsic -s 127.0.0.1 -d 127.0.0.1 -p 100000
 
----
- include/linux/if.h        |    3 +
- include/linux/netdevice.h |  213 +++++++++++++++++++++++++++++++++------------
- net/Kconfig               |    3 +
- net/core/dev.c            |  109 +++++++++++++++++-------
- net/core/neighbour.c      |    3 +-
- net/core/netpoll.c        |    7 +-
- net/sched/sch_generic.c   |    4 +-
- 7 files changed, 250 insertions(+), 92 deletions(-)
+find /proc/net/ | xargs cat > /dev/null
 
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 2a6e296..4286deb 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -67,6 +67,8 @@
- #define IFF_ISATAP	0x80		/* ISATAP interface (RFC4214)	*/
- #define IFF_MASTER_ARPMON 0x100		/* bonding master, ARP mon in use */
- 
-+#define IFF_NETDEV_OPS  0x8000		/* network devices ops allocated */
-+
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
- 
-@@ -94,6 +96,7 @@
- #define IF_PROTO_FR_ETH_PVC 0x200B
- #define IF_PROTO_RAW    0x200C          /* RAW Socket                   */
- 
-+
- /* RFC 2863 operational status */
- enum {
- 	IF_OPER_UNKNOWN,
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 12d7f44..5d94afd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -451,6 +451,113 @@ struct netdev_queue {
- 	struct Qdisc		*qdisc_sleeping;
- } ____cacheline_aligned_in_smp;
- 
-+
-+/*
-+ * This structure defines the management hooks for network devices.
-+ * The following hooks can bed defined and are optonal (can be null)
-+ * unless otherwise noted.
-+ *
-+ * int (*init)(struct net_device *dev);
-+ *     This function is called once when network device is registered.
-+ *     The network device can use this to any late stage initializaton
-+ *     or semantic validattion. It can fail with an error code which will
-+ *     be propogated back to register_netdev
-+ *
-+ * void (*uninit)(struct net_device *dev);
-+ *     This function is called when device is unregistered or when registration
-+ *     fails. It is not called if init fails.
-+ *
-+ * int (*open)(struct net_device *dev);
-+ *     This function is called when network device transistions to the up
-+ *     state.
-+ *
-+ * int (*stop)(struct net_device *dev);
-+ *     This function is called when network device transistions to the down
-+ *     state.
-+ *
-+ * void (*change_rx_flags)(struct net_device *dev, int flags);
-+ *	This function is called to allow device receiver to make
-+ *	changes to configuration when multicast or promiscious is enabled.
-+ *
-+ * void (*set_rx_mode)(struct net_device *dev);
-+ *	This function is called device changes address list filtering.
-+ *
-+ * void (*set_multicast_list)(struct net_device *dev);
-+ *	This function is called when the multicast address list changes.
-+ *
-+ * int (*set_mac_address)(struct net_device *dev, void *addr);
-+ *	This function  is called when the Media Access Control address
-+ *	needs to be changed. If not this interface is not defined, the
-+ *	mac address can not be changed.
-+ *
-+ * int (*validate_addr)(struct net_device *dev);
-+ *
-+ * int (*do_ioctl)(struct net_device *dev, struct ifreq *ifr, int cmd);
-+ *
-+ * int (*set_config)(struct net_device *dev, struct ifmap *map);
-+ *
-+ * int (*change_mtu)(struct net_device *dev, int new_mtu);
-+ *
-+ * void (*tx_timeout) (struct net_device *dev);
-+ *
-+ * struct net_device_stats* (*get_stats)(struct net_device *dev);
-+ *
-+ * int (*neigh_setup)(struct net_device *dev, struct neigh_parms *);
-+ *
-+ * void(*vlan_rx_register)(struct net_device *dev, struct vlan_group *grp);
-+ *
-+ * void (*vlan_rx_add_vid)(struct net_device *dev, unsigned short vid);
-+ *
-+ * void (*vlan_rx_kill_vid)(struct net_device *dev, unsigned short vid);
-+ *
-+ * void (*poll_controller)(struct net_device *dev);
-+ *
-+ * For transistional compatiablity (for a few releases), the old pointer
-+ * info is copied.
-+ */
-+struct net_device_ops {
-+	int			(*init)(struct net_device *dev);
-+	void			(*uninit)(struct net_device *dev);
-+	int			(*open)(struct net_device *dev);
-+	int			(*stop)(struct net_device *dev);
-+#define HAVE_CHANGE_RX_FLAGS
-+	void			(*change_rx_flags)(struct net_device *dev,
-+						   int flags);
-+#define HAVE_SET_RX_MODE
-+	void			(*set_rx_mode)(struct net_device *dev);
-+#define HAVE_MULTICAST
-+	void			(*set_multicast_list)(struct net_device *dev);
-+#define HAVE_SET_MAC_ADDR
-+	int			(*set_mac_address)(struct net_device *dev,
-+						   void *addr);
-+#define HAVE_VALIDATE_ADDR
-+	int			(*validate_addr)(struct net_device *dev);
-+#define HAVE_PRIVATE_IOCTL
-+	int			(*do_ioctl)(struct net_device *dev,
-+					    struct ifreq *ifr, int cmd);
-+#define HAVE_SET_CONFIG
-+	int			(*set_config)(struct net_device *dev,
-+					      struct ifmap *map);
-+#define HAVE_CHANGE_MTU
-+	int			(*change_mtu)(struct net_device *dev, int new_mtu);
-+
-+#define HAVE_TX_TIMEOUT
-+	void			(*tx_timeout) (struct net_device *dev);
-+
-+	struct net_device_stats* (*get_stats)(struct net_device *dev);
-+	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
-+	void			(*vlan_rx_register)(struct net_device *dev,
-+						    struct vlan_group *grp);
-+	void			(*vlan_rx_add_vid)(struct net_device *dev,
-+						   unsigned short vid);
-+	void			(*vlan_rx_kill_vid)(struct net_device *dev,
-+						    unsigned short vid);
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+#define HAVE_NETDEV_POLL
-+	void                    (*poll_controller)(struct net_device *dev);
-+#endif
-+};
-+
- /*
-  *	The DEVICE structure.
-  *	Actually, this whole structure is a big mistake.  It mixes I/O
-@@ -498,11 +605,6 @@ struct net_device
- #ifdef CONFIG_NETPOLL
- 	struct list_head	napi_list;
- #endif
--	
--	/* The device initialization function. Called only once. */
--	int			(*init)(struct net_device *dev);
--
--	/* ------- Fields preinitialized in Space.c finish here ------- */
- 
- 	/* Net device features */
- 	unsigned long		features;
-@@ -553,8 +655,6 @@ struct net_device
- 	int			ifindex;
- 	int			iflink;
- 
--
--	struct net_device_stats* (*get_stats)(struct net_device *dev);
- 	struct net_device_stats	stats;
- 
- #ifdef CONFIG_WIRELESS_EXT
-@@ -564,18 +664,13 @@ struct net_device
- 	/* Instance data managed by the core of Wireless Extensions. */
- 	struct iw_public_data *	wireless_data;
- #endif
-+	/* Management operations */
-+	const struct net_device_ops *netdev_ops;
- 	const struct ethtool_ops *ethtool_ops;
- 
- 	/* Hardware header description */
- 	const struct header_ops *header_ops;
- 
--	/*
--	 * This marks the end of the "visible" part of the structure. All
--	 * fields hereafter are internal to the system, and may change at
--	 * will (read: may be cleaned up at will).
--	 */
--
--
- 	unsigned int		flags;	/* interface flags (a la BSD)	*/
- 	unsigned short		gflags;
-         unsigned short          priv_flags; /* Like 'flags' but invisible to userspace. */
-@@ -648,6 +743,10 @@ struct net_device
- 	/* Number of TX queues currently active in device  */
- 	unsigned int		real_num_tx_queues;
- 
-+	/* Map buffer to appropriate transmit queue */
-+	u16			(*select_queue)(struct net_device *dev,
-+						struct sk_buff *skb);
-+
- 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
- 	spinlock_t		tx_global_lock;
- /*
-@@ -662,9 +761,6 @@ struct net_device
- 	int			watchdog_timeo; /* used by dev_watchdog() */
- 	struct timer_list	watchdog_timer;
- 
--/*
-- * refcnt is a very hot point, so align it on SMP
-- */
- 	/* Number of references to this device */
- 	atomic_t		refcnt ____cacheline_aligned_in_smp;
- 
-@@ -683,10 +779,49 @@ struct net_device
- 	       NETREG_RELEASED,		/* called free_netdev */
- 	} reg_state;
- 
-+	/* Called from unregister, can be used to call free_netdev */
-+	void (*destructor)(struct net_device *dev);
-+
-+#ifdef CONFIG_NETPOLL
-+	struct netpoll_info	*npinfo;
-+#endif
-+
-+#ifdef CONFIG_NET_NS
-+	/* Network namespace this network device is inside */
-+	struct net		*nd_net;
-+#endif
-+
-+	/* mid-layer private */
-+	void			*ml_priv;
-+
-+	/* bridge stuff */
-+	struct net_bridge_port	*br_port;
-+	/* macvlan */
-+	struct macvlan_port	*macvlan_port;
-+	/* GARP */
-+	struct garp_port	*garp_port;
-+
-+	/* class/net/name entry */
-+	struct device		dev;
-+	/* space for optional statistics and wireless sysfs groups */
-+	struct attribute_group  *sysfs_groups[3];
-+
-+	/* rtnetlink link ops */
-+	const struct rtnl_link_ops *rtnl_link_ops;
-+
-+	/* VLAN feature mask */
-+	unsigned long vlan_features;
-+
-+	/* for setting kernel sock attribute on TCP connection setup */
-+#define GSO_MAX_SIZE		65536
-+	unsigned int		gso_max_size;
-+
-+#ifdef CONFIG_COMPAT_NET_DEV_OPS
-+	/* The device initialization function. Called only once. */
-+	int			(*init)(struct net_device *dev);
-+
- 	/* Called after device is detached from network. */
- 	void			(*uninit)(struct net_device *dev);
--	/* Called after last user reference disappears. */
--	void			(*destructor)(struct net_device *dev);
- 
- 	/* Pointers to interface service routines.	*/
- 	int			(*open)(struct net_device *dev);
-@@ -716,53 +851,19 @@ struct net_device
- #define HAVE_TX_TIMEOUT
- 	void			(*tx_timeout) (struct net_device *dev);
- 
-+	struct net_device_stats* (*get_stats)(struct net_device *dev);
-+
-+	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
- 	void			(*vlan_rx_register)(struct net_device *dev,
- 						    struct vlan_group *grp);
- 	void			(*vlan_rx_add_vid)(struct net_device *dev,
- 						   unsigned short vid);
- 	void			(*vlan_rx_kill_vid)(struct net_device *dev,
- 						    unsigned short vid);
--
--	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
--#ifdef CONFIG_NETPOLL
--	struct netpoll_info	*npinfo;
--#endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	void                    (*poll_controller)(struct net_device *dev);
- #endif
--
--	u16			(*select_queue)(struct net_device *dev,
--						struct sk_buff *skb);
--
--#ifdef CONFIG_NET_NS
--	/* Network namespace this network device is inside */
--	struct net		*nd_net;
- #endif
--
--	/* mid-layer private */
--	void			*ml_priv;
--
--	/* bridge stuff */
--	struct net_bridge_port	*br_port;
--	/* macvlan */
--	struct macvlan_port	*macvlan_port;
--	/* GARP */
--	struct garp_port	*garp_port;
--
--	/* class/net/name entry */
--	struct device		dev;
--	/* space for optional statistics and wireless sysfs groups */
--	struct attribute_group  *sysfs_groups[3];
--
--	/* rtnetlink link ops */
--	const struct rtnl_link_ops *rtnl_link_ops;
--
--	/* VLAN feature mask */
--	unsigned long vlan_features;
--
--	/* for setting kernel sock attribute on TCP connection setup */
--#define GSO_MAX_SIZE		65536
--	unsigned int		gso_max_size;
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-diff --git a/net/Kconfig b/net/Kconfig
-index 8c3d97c..4e2e40b 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -32,6 +32,9 @@ config NET_NS
- 	  Allow user space to create what appear to be multiple instances
- 	  of the network stack.
- 
-+config COMPAT_NET_DEV_OPS
-+       def_bool y
-+
- source "net/packet/Kconfig"
- source "net/unix/Kconfig"
- source "net/xfrm/Kconfig"
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a0c6060..1ab06ba 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1060,6 +1060,7 @@ void dev_load(struct net *net, const char *name)
-  */
- int dev_open(struct net_device *dev)
- {
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 	int ret = 0;
- 
- 	ASSERT_RTNL();
-@@ -1082,11 +1083,11 @@ int dev_open(struct net_device *dev)
- 	 */
- 	set_bit(__LINK_STATE_START, &dev->state);
- 
--	if (dev->validate_addr)
--		ret = dev->validate_addr(dev);
-+	if (ops->validate_addr)
-+		ret = ops->validate_addr(dev);
- 
--	if (!ret && dev->open)
--		ret = dev->open(dev);
-+	if (!ret && ops->open)
-+		ret = ops->open(dev);
- 
- 	/*
- 	 *	If it went open OK then:
-@@ -1130,6 +1131,7 @@ int dev_open(struct net_device *dev)
-  */
- int dev_close(struct net_device *dev)
- {
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 	ASSERT_RTNL();
- 
- 	might_sleep();
-@@ -1162,8 +1164,8 @@ int dev_close(struct net_device *dev)
- 	 *	We allow it to be called even after a DETACH hot-plug
- 	 *	event.
- 	 */
--	if (dev->stop)
--		dev->stop(dev);
-+	if (ops->stop)
-+		ops->stop(dev);
- 
- 	/*
- 	 *	Device is now down.
-@@ -2955,8 +2957,10 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
- 
- static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
--	if (dev->flags & IFF_UP && dev->change_rx_flags)
--		dev->change_rx_flags(dev, flags);
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if ((dev->flags & IFF_UP) && ops->change_rx_flags)
-+		ops->change_rx_flags(dev, flags);
- }
- 
- static int __dev_set_promiscuity(struct net_device *dev, int inc)
-@@ -3076,6 +3080,8 @@ int dev_set_allmulti(struct net_device *dev, int inc)
-  */
- void __dev_set_rx_mode(struct net_device *dev)
- {
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
- 	/* dev_open will call this function so the list will stay sane. */
- 	if (!(dev->flags&IFF_UP))
- 		return;
-@@ -3083,8 +3089,8 @@ void __dev_set_rx_mode(struct net_device *dev)
- 	if (!netif_device_present(dev))
- 		return;
- 
--	if (dev->set_rx_mode)
--		dev->set_rx_mode(dev);
-+	if (ops->set_rx_mode)
-+		ops->set_rx_mode(dev);
- 	else {
- 		/* Unicast addresses changes may only happen under the rtnl,
- 		 * therefore calling __dev_set_promiscuity here is safe.
-@@ -3097,8 +3103,8 @@ void __dev_set_rx_mode(struct net_device *dev)
- 			dev->uc_promisc = 0;
- 		}
- 
--		if (dev->set_multicast_list)
--			dev->set_multicast_list(dev);
-+		if (ops->set_multicast_list)
-+			ops->set_multicast_list(dev);
- 	}
- }
- 
-@@ -3457,6 +3463,7 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
-  */
- int dev_set_mtu(struct net_device *dev, int new_mtu)
- {
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 	int err;
- 
- 	if (new_mtu == dev->mtu)
-@@ -3470,10 +3477,11 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
- 		return -ENODEV;
- 
- 	err = 0;
--	if (dev->change_mtu)
--		err = dev->change_mtu(dev, new_mtu);
-+	if (ops->change_mtu)
-+		err = ops->change_mtu(dev, new_mtu);
- 	else
- 		dev->mtu = new_mtu;
-+
- 	if (!err && dev->flags & IFF_UP)
- 		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
- 	return err;
-@@ -3488,15 +3496,16 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
-  */
- int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- {
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 	int err;
- 
--	if (!dev->set_mac_address)
-+	if (!ops->set_mac_address)
- 		return -EOPNOTSUPP;
- 	if (sa->sa_family != dev->type)
- 		return -EINVAL;
- 	if (!netif_device_present(dev))
- 		return -ENODEV;
--	err = dev->set_mac_address(dev, sa);
-+	err = ops->set_mac_address(dev, sa);
- 	if (!err)
- 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
- 	return err;
-@@ -3576,6 +3585,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- {
- 	int err;
- 	struct net_device *dev = __dev_get_by_name(net, ifr->ifr_name);
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 
- 	if (!dev)
- 		return -ENODEV;
-@@ -3603,15 +3613,15 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 			return 0;
- 
- 		case SIOCSIFMAP:
--			if (dev->set_config) {
-+			if (ops->set_config) {
- 				if (!netif_device_present(dev))
- 					return -ENODEV;
--				return dev->set_config(dev, &ifr->ifr_map);
-+				return ops->set_config(dev, &ifr->ifr_map);
- 			}
- 			return -EOPNOTSUPP;
- 
- 		case SIOCADDMULTI:
--			if ((!dev->set_multicast_list && !dev->set_rx_mode) ||
-+			if ((!ops->set_multicast_list && !ops->set_rx_mode) ||
- 			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
- 				return -EINVAL;
- 			if (!netif_device_present(dev))
-@@ -3620,7 +3630,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 					  dev->addr_len, 1);
- 
- 		case SIOCDELMULTI:
--			if ((!dev->set_multicast_list && !dev->set_rx_mode) ||
-+			if ((!ops->set_multicast_list && !ops->set_rx_mode) ||
- 			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
- 				return -EINVAL;
- 			if (!netif_device_present(dev))
-@@ -3658,10 +3668,9 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 			    cmd == SIOCBRDELIF ||
- 			    cmd == SIOCWANDEV) {
- 				err = -EOPNOTSUPP;
--				if (dev->do_ioctl) {
-+				if (ops->do_ioctl) {
- 					if (netif_device_present(dev))
--						err = dev->do_ioctl(dev, ifr,
--								    cmd);
-+						err = ops->do_ioctl(dev, ifr, cmd);
- 					else
- 						err = -ENODEV;
- 				}
-@@ -4013,7 +4022,7 @@ int register_netdevice(struct net_device *dev)
- 	struct hlist_head *head;
- 	struct hlist_node *p;
- 	int ret;
--	struct net *net;
-+	struct net *net = dev_net(dev);
- 
- 	BUG_ON(dev_boot_phase);
- 	ASSERT_RTNL();
-@@ -4022,8 +4031,7 @@ int register_netdevice(struct net_device *dev)
- 
- 	/* When net_device's are persistent, this will be fatal. */
- 	BUG_ON(dev->reg_state != NETREG_UNINITIALIZED);
--	BUG_ON(!dev_net(dev));
--	net = dev_net(dev);
-+	BUG_ON(!net);
- 
- 	spin_lock_init(&dev->addr_list_lock);
- 	netdev_set_addr_lockdep_class(dev);
-@@ -4031,9 +4039,46 @@ int register_netdevice(struct net_device *dev)
- 
- 	dev->iflink = -1;
- 
-+#ifdef CONFIG_COMPAT_NET_DEV_OPS
-+	/* Netdevice_ops API compatiability hack */
-+	if (!dev->netdev_ops) {
-+		struct net_device_ops *ops;
-+		char drivername[64];
-+		pr_info("%s (%s): not using net_device_ops yet\n",
-+			dev->name, netdev_drivername(dev, drivername, 64));
-+
-+		ops = kmalloc(sizeof(struct net_device_ops), GFP_ATOMIC);
-+		if (!ops)
-+			return -ENOMEM;
-+
-+		ops->init = dev->init;
-+		ops->uninit = dev->uninit;
-+		ops->open = dev->open;
-+		ops->stop = dev->stop;
-+		ops->change_rx_flags = dev->change_rx_flags;
-+		ops->set_rx_mode = dev->set_rx_mode;
-+		ops->set_multicast_list = dev->set_multicast_list;
-+		ops->set_mac_address = dev->set_mac_address;
-+		ops->validate_addr = dev->validate_addr;
-+		ops->do_ioctl = dev->do_ioctl;
-+		ops->set_config = dev->set_config;
-+		ops->change_mtu = dev->change_mtu;
-+		ops->tx_timeout = dev->tx_timeout;
-+		ops->get_stats = dev->get_stats;
-+		ops->neigh_setup = dev->neigh_setup;
-+		ops->vlan_rx_register = dev->vlan_rx_register;
-+		ops->vlan_rx_add_vid = dev->vlan_rx_add_vid;
-+		ops->vlan_rx_kill_vid = dev->vlan_rx_kill_vid;
-+		ops->poll_controller = dev->poll_controller;
-+
-+		dev->netdev_ops = ops;
-+		dev->priv_flags |= IFF_NETDEV_OPS;
-+	}
-+#endif
-+
- 	/* Init, if this function is available */
--	if (dev->init) {
--		ret = dev->init(dev);
-+	if (dev->netdev_ops->init) {
-+		ret = dev->netdev_ops->init(dev);
- 		if (ret) {
- 			if (ret > 0)
- 				ret = -EIO;
-@@ -4111,8 +4156,8 @@ out:
- 	return ret;
- 
- err_uninit:
--	if (dev->uninit)
--		dev->uninit(dev);
-+	if (dev->netdev_ops->uninit)
-+		dev->netdev_ops->uninit(dev);
- 	goto out;
- }
- 
-@@ -4378,6 +4423,10 @@ void free_netdev(struct net_device *dev)
- 		return;
- 	}
- 
-+	if (dev->priv_flags & IFF_NETDEV_OPS) {
-+		kfree(dev->netdev_ops);
-+	}
-+
- 	BUG_ON(dev->reg_state != NETREG_UNREGISTERED);
- 	dev->reg_state = NETREG_RELEASED;
- 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index d9bbe01..96c84a1 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1330,6 +1330,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- {
- 	struct neigh_parms *p, *ref;
- 	struct net *net;
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 
- 	net = dev_net(dev);
- 	ref = lookup_neigh_params(tbl, net, 0);
-@@ -1343,7 +1344,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 		p->reachable_time =
- 				neigh_rand_reach_time(p->base_reachable_time);
- 
--		if (dev->neigh_setup && dev->neigh_setup(dev, p)) {
-+		if (ops->neigh_setup && ops->neigh_setup(dev, p)) {
- 			kfree(p);
- 			return NULL;
- 		}
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 34f5d07..e0e43b9 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -172,12 +172,13 @@ static void service_arp_queue(struct netpoll_info *npi)
- void netpoll_poll(struct netpoll *np)
- {
- 	struct net_device *dev = np->dev;
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 
--	if (!dev || !netif_running(dev) || !dev->poll_controller)
-+	if (!dev || !netif_running(dev) || !ops->poll_controller)
- 		return;
- 
- 	/* Process pending work on NIC */
--	dev->poll_controller(dev);
-+	ops->poll_controller(dev);
- 
- 	poll_napi(dev);
- 
-@@ -694,7 +695,7 @@ int netpoll_setup(struct netpoll *np)
- 		atomic_inc(&npinfo->refcnt);
- 	}
- 
--	if (!ndev->poll_controller) {
-+	if (!ndev->netdev_ops->poll_controller) {
- 		printk(KERN_ERR "%s: %s doesn't support polling, aborting.\n",
- 		       np->name, np->dev_name);
- 		err = -ENOTSUPP;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 1192da2..b906d76 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -224,7 +224,7 @@ static void dev_watchdog(unsigned long arg)
- 				char drivername[64];
- 				WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
- 				       dev->name, netdev_drivername(dev, drivername, 64));
--				dev->tx_timeout(dev);
-+				dev->netdev_ops->tx_timeout(dev);
- 			}
- 			if (!mod_timer(&dev->watchdog_timer,
- 				       round_jiffies(jiffies +
-@@ -239,7 +239,7 @@ static void dev_watchdog(unsigned long arg)
- 
- void __netdev_watchdog_up(struct net_device *dev)
- {
--	if (dev->tx_timeout) {
-+	if (dev->netdev_ops->tx_timeout) {
- 		if (dev->watchdog_timeo <= 0)
- 			dev->watchdog_timeo = 5*HZ;
- 		if (!mod_timer(&dev->watchdog_timer,
--- 
-1.5.4.3
+cat /proc/net/ip_mr_cache
+cat /proc/net/ip_mr_vif
+------------8<----------------
 
+
+root@computer-desktop:~/testing# cat /proc/338/net/ip_mr_cache
+
+[ 1572.702100] BUG: unable to handle kernel NULL pointer dereference at 000001c1
+[ 1572.702588] IP: [<c05942c6>] ipmr_mfc_seq_show+0x26/0xf0
+[ 1572.702906] *pde = 00000000 
+[ 1572.703178] Oops: 0000 [#1] DEBUG_PAGEALLOC
+[ 1572.703547] last sysfs file: /sys/block/md0/md/reshape_position
+[ 1572.703812] Dumping ftrace buffer:
+[ 1572.703959]    (ftrace buffer empty)
+[ 1572.704038] Modules linked in: ip6table_filter ip6_tables af_packet nfsd auth_rpcgss exportfs nfs lockd nfs_acl sunrpc ipv6 fuse unix
+[ 1572.704038] 
+[ 1572.704038] Pid: 10475, comm: cat Not tainted (2.6.28-rc3 #59) 
+[ 1572.704038] EIP: 0060:[<c05942c6>] EFLAGS: 00010202 CPU: 0
+[ 1572.704038] EIP is at ipmr_mfc_seq_show+0x26/0xf0
+[ 1572.704038] EAX: c9196128 EBX: c8b8ebb0 ECX: c06be34c EDX: 00000199
+[ 1572.704038] ESI: c9196128 EDI: 00000199 EBP: c927ff0c ESP: c927fed8
+[ 1572.704038]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+[ 1572.704038] Process cat (pid: 10475, ti=c927f000 task=c915e710 task.ti=c927f000)
+[ 1572.704038] Stack:
+[ 1572.704038]  00000002 00000002 00000000 c0594421 00000000 c927ff00 c0594421 c8b8ebb0
+[ 1572.704038]  00000199 c9196128 00000036 c9196128 00000199 c927ff48 c01c1554 00001000
+[ 1572.704038]  086f2000 c4a55a30 c9196148 00000000 00000000 00000001 00000000 00000000
+[ 1572.704038] Call Trace:
+[ 1572.704038]  [<c0594421>] ? ipmr_mfc_seq_idx+0x21/0xc0
+[ 1572.704038]  [<c0594421>] ? ipmr_mfc_seq_idx+0x21/0xc0
+[ 1572.704038]  [<c01c1554>] ? seq_read+0x1e4/0x2e0
+[ 1572.704038]  [<c01c1370>] ? seq_read+0x0/0x2e0
+[ 1572.704038]  [<c01e6eb2>] ? proc_reg_read+0x62/0x90
+[ 1572.704038]  [<c01a9031>] ? vfs_read+0xa1/0x160
+[ 1572.704038]  [<c01e6e50>] ? proc_reg_read+0x0/0x90
+[ 1572.704038]  [<c01a91c2>] ? sys_read+0x42/0x70
+[ 1572.704038]  [<c01036c1>] ? sysenter_do_call+0x12/0x31
+[ 1572.704038] Code: bf 00 00 00 00 55 89 e5 57 56 53 83 ec 28 e8 6a 01 b7 ff 89 55 ec 83 ea 01 89 45 f0 0f 84 be 00 00 00 8b 55 ec 8b 45 f0 8b 58 64 <8b> 42 28 89 44 24 1c 8b 42 20 89 44 24 18 8b 42 24 89 44 24 14 
+[ 1572.704038] EIP: [<c05942c6>] ipmr_mfc_seq_show+0x26/0xf0 SS:ESP 0068:c927fed8
+[ 1572.795742] ---[ end trace 2fef75e6cd09c1fb ]---
+
+(gdb) l *(ipmr_mfc_seq_show+0x26)
+0xc05942c6 is in ipmr_mfc_seq_show (net/ipv4/ipmr.c:1869).
+1864			 "Group    Origin   Iif     Pkts    Bytes    Wrong Oifs\n");
+1865		} else {
+1866			const struct mfc_cache *mfc = v;
+1867			const struct ipmr_mfc_iter *it = seq->private;
+1868	
+1869			seq_printf(seq, "%08lX %08lX %-3d %8ld %8ld %8ld",
+1870				   (unsigned long) mfc->mfc_mcastgrp,
+1871				   (unsigned long) mfc->mfc_origin,
+1872				   mfc->mfc_parent,
+1873				   mfc->mfc_un.res.pkt,
+
+
+
+root@computer-desktop:~/testing# cat /proc/338/net/ip_mr_vif
+
+[ 1572.811395] BUG: unable to handle kernel paging request at a903f90e
+[ 1572.811850] IP: [<c02a47fe>] strnlen+0xe/0x20
+[ 1572.812217] *pde = 00000000 
+[ 1572.812472] Oops: 0000 [#2] DEBUG_PAGEALLOC
+[ 1572.812819] last sysfs file: /sys/block/md0/md/reshape_position
+[ 1572.813002] Modules linked in: ip6table_filter ip6_tables af_packet nfsd auth_rpcgss exportfs nfs lockd nfs_acl sunrpc ipv6 fuse unix
+[ 1572.814874] 
+[ 1572.815025] Pid: 10478, comm: cat Tainted: G      D    (2.6.28-rc3 #59) 
+[ 1572.815275] EIP: 0060:[<c02a47fe>] EFLAGS: 00010297 CPU: 0
+[ 1572.815460] EIP is at strnlen+0xe/0x20
+[ 1572.815636] EAX: a903f90e EBX: c0812c0a ECX: a903f90e EDX: fffffffe
+[ 1572.815824] ESI: c8a8e000 EDI: a903f90e EBP: c92ced70 ESP: c92ced70
+[ 1572.816068]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+[ 1572.816175] Process cat (pid: 10478, ti=c92ce000 task=ca96a710 task.ti=c92ce000)
+[ 1572.816175] Stack:
+[ 1572.816175]  c92ced8c c02a3598 c8a8dbb2 00000004 c0812c0a 0000000a c92ceee8 c92ceec0
+[ 1572.816175]  c02a3ad4 0000000a ffffffff 00000010 00000002 ffffffff 00000000 c92ceee8
+[ 1572.816175]  00000451 c8a8dbaf c018f0bd 0000000a c8a8dbb2 c8a8e000 ffffffff c010442a
+[ 1572.816175] Call Trace:
+[ 1572.816175]  [<c02a3598>] ? string+0x28/0xd0
+[ 1572.816175]  [<c02a3ad4>] ? vsnprintf+0x494/0x8b0
+[ 1572.816175]  [<c018f0bd>] ? __do_fault+0x1fd/0x3b0
+[ 1572.816175]  [<c010442a>] ? ftrace_call+0x5/0x8
+[ 1572.816175]  [<c011d072>] ? lookup_address+0x12/0x90
+[ 1572.816175]  [<c011d4cb>] ? __change_page_attr_set_clr+0xab/0x570
+[ 1572.816175]  [<c018f44c>] ? handle_mm_fault+0x1dc/0x610
+[ 1572.816175]  [<c010442a>] ? ftrace_call+0x5/0x8
+[ 1572.816175]  [<c018c05e>] ? page_address+0xe/0xe0
+[ 1572.816175]  [<c010442a>] ? ftrace_call+0x5/0x8
+[ 1572.816175]  [<c01c0f6f>] ? seq_printf+0x2f/0x60
+[ 1572.816175]  [<c059427a>] ? ipmr_vif_seq_show+0x7a/0xa0
+[ 1572.816175]  [<c01c1554>] ? seq_read+0x1e4/0x2e0
+[ 1572.816175]  [<c01c1370>] ? seq_read+0x0/0x2e0
+[ 1572.816175]  [<c01e6eb2>] ? proc_reg_read+0x62/0x90
+[ 1572.816175]  [<c01a9031>] ? vfs_read+0xa1/0x160
+[ 1572.816175]  [<c01e6e50>] ? proc_reg_read+0x0/0x90
+[ 1572.816175]  [<c01a91c2>] ? sys_read+0x42/0x70
+[ 1572.816175]  [<c01036c1>] ? sysenter_do_call+0x12/0x31
+[ 1572.816175] Code: 57 e8 3f fc e5 ff 85 c9 89 c7 89 d0 74 05 f2 ae 75 01 4f 89 f8 5f 5d c3 90 8d 74 26 00 55 89 e5 e8 20 fc e5 ff 89 c1 89 c8 eb 06 <80> 38 00 74 07 40 4a 83 fa ff 75 f4 29 c8 5d c3 90 90 55 89 e5 
+[ 1572.816175] EIP: [<c02a47fe>] strnlen+0xe/0x20 SS:ESP 0068:c92ced70
+[ 1572.834407] ---[ end trace 2fef75e6cd09c1fb ]---
+
+
+caused by the seq_printf() in "net/ipv4/ipmr.c" line 1737
+ipmr_vif_seq_show()
+
+
+Here are the oopses from the second box:
+
+cat /proc/190/net/ip_mr_cache
+
+[ 3221.884344] BUG: unable to handle kernel NULL pointer dereference at 000001b1
+[ 3221.884695] IP: [<c06d2bf1>] ipmr_mfc_seq_show+0x2d/0xb2
+[ 3221.884937] *pde = 00000000 
+[ 3221.885205] Oops: 0000 [#22] PREEMPT DEBUG_PAGEALLOC
+[ 3221.885605] last sysfs file: /sys/block/md0/md/reshape_position
+[ 3221.885756] Modules linked in:
+[ 3221.885946] 
+[ 3221.886057] Pid: 19709, comm: cat Tainted: G      D    (2.6.28-rc3-00234-gfed4d59 #139) System Name
+[ 3221.886057] EIP: 0060:[<c06d2bf1>] EFLAGS: 00010206 CPU: 0
+[ 3221.886057] EIP is at ipmr_mfc_seq_show+0x2d/0xb2
+[ 3221.886057] EAX: cb911160 EBX: ceff9f18 ECX: c08171c8 EDX: 00000189
+[ 3221.886057] ESI: 00000189 EDI: 00000189 EBP: cb9fff10 ESP: cb9ffefc
+[ 3221.886057]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+[ 3221.886057] Process cat (pid: 19709, ti=cb9ff000 task=c90fc0b0 task.ti=cb9ff000)
+[ 3221.886057] Stack:
+[ 3221.886057]  cb911160 00000001 c08171c8 cb911160 00000189 cb9fff50 c01a3e41 00000400
+[ 3221.886057]  08db8000 c9067100 cb911180 00000000 00000000 00000036 00000001 00000000
+[ 3221.886057]  00000000 00000000 fffffffb cf06ab40 c01a3c5c cb9fff74 c01c3dab cb9fff9c
+[ 3221.886057] Call Trace:
+[ 3221.886057]  [<c01a3e41>] ? seq_read+0x1e5/0x2bd
+[ 3221.886057]  [<c01a3c5c>] ? seq_read+0x0/0x2bd
+[ 3221.886057]  [<c01c3dab>] ? proc_reg_read+0x65/0x79
+[ 3221.886057]  [<c01c3d46>] ? proc_reg_read+0x0/0x79
+[ 3221.886057]  [<c0190381>] ? vfs_read+0x8f/0x10b
+[ 3221.886057]  [<c019069f>] ? sys_read+0x40/0x65
+[ 3221.886057]  [<c0103a91>] ? sysenter_do_call+0x12/0x31
+[ 3221.886057] Code: e5 57 56 53 83 ec 08 e8 26 1c a3 ff 83 fa 01 89 d6 89 45 ec 75 0f ba c9 bc 9c c0 e8 2a 09 ad ff e9 81 00 00 00 8b 45 ec 8b 58 6c <ff> 72 28 ff 72 20 ff 72 24 0f b7 42 0c 50 ff 72 08 ff 72 04 68 
+[ 3221.886057] EIP: [<c06d2bf1>] ipmr_mfc_seq_show+0x2d/0xb2 SS:ESP 0068:cb9ffefc
+[ 3221.897871] ---[ end trace e2e58d1efbfe6295 ]---
+
+
+cat /proc/190/net/ip_mr_vif
+
+[ 3158.523276] BUG: unable to handle kernel paging request at ffffffff
+[ 3158.523467] IP: [<c04e4784>] strnlen+0xe/0x1e
+[ 3158.523691] *pde = 0003a067 *pte = 00000000 
+[ 3158.523852] Oops: 0000 [#21] PREEMPT DEBUG_PAGEALLOC
+[ 3158.524016] last sysfs file: /sys/block/md0/md/reshape_position
+[ 3158.524016] Modules linked in:
+[ 3158.524016] 
+[ 3158.524016] Pid: 19683, comm: cat Tainted: G      D    (2.6.28-rc3-00234-gfed4d59 #139) System Name
+[ 3158.524016] EIP: 0060:[<c04e4784>] EFLAGS: 00010297 CPU: 0
+[ 3158.524016] EIP is at strnlen+0xe/0x1e
+[ 3158.524016] EAX: ffffffff EBX: cba6d45f ECX: ffffffff EDX: fffffffe
+[ 3158.524016] ESI: ffffffff EDI: 0000000a EBP: c9052d84 ESP: c9052d84
+[ 3158.524016]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+[ 3158.524016] Process cat (pid: 19683, ti=c9052000 task=c90fc0b0 task.ti=c9052000)
+[ 3158.524016] Stack:
+[ 3158.524016]  c9052d9c c04e39dc cba6e0f0 c9052ef0 cba6d45f c9052ef0 c9052ec0 c04e3d2f
+[ 3158.524016]  0000000a ffffffff 00000010 00000c94 cba6d45c 0000000a cba6e0f0 00000010
+[ 3158.524016]  0000000a ffffffff cba52a94 c09cbca2 c9052de4 c079bf87 cba52a94 00000001
+[ 3158.524016] Call Trace:
+[ 3158.524016]  [<c04e39dc>] ? string+0x2b/0x74
+[ 3158.524016]  [<c04e3d2f>] ? vsnprintf+0x30a/0x5b9
+[ 3158.524016]  [<c079bf87>] ? _spin_unlock_irqrestore+0x47/0x5d
+[ 3158.524016]  [<c0120424>] ? __wake_up+0x31/0x3b
+[ 3158.524016]  [<c0533511>] ? n_tty_receive_buf+0xf8c/0xfc5
+[ 3158.524016]  [<c013f513>] ? clockevents_program_event+0xd9/0xe8
+[ 3158.524016]  [<c014034f>] ? tick_dev_program_event+0x2d/0x9a
+[ 3158.524016]  [<c01a3816>] ? seq_printf+0x30/0x50
+[ 3158.524016]  [<c06d2bba>] ? ipmr_vif_seq_show+0x5d/0x67
+[ 3158.524016]  [<c01a3e41>] ? seq_read+0x1e5/0x2bd
+[ 3158.524016]  [<c01a3c5c>] ? seq_read+0x0/0x2bd
+[ 3158.524016]  [<c01c3dab>] ? proc_reg_read+0x65/0x79
+[ 3158.524016]  [<c01c3d46>] ? proc_reg_read+0x0/0x79
+[ 3158.524016]  [<c0190381>] ? vfs_read+0x8f/0x10b
+[ 3158.524016]  [<c019069f>] ? sys_read+0x40/0x65
+[ 3158.524016]  [<c0103a91>] ? sysenter_do_call+0x12/0x31
+[ 3158.524016] Code: 5d c3 55 89 e5 57 e8 94 00 c2 ff 85 c9 89 c7 89 d0 74 05 f2 ae 75 01 4f 89 f8 5f 5d c3 55 89 e5 e8 7a 00 c2 ff 89 c1 89 c8 eb 06 <80> 38 00 74 07 40 4a 83 fa ff 75 f4 29 c8 5d c3 55 89 e5 57 56 
+[ 3158.524016] EIP: [<c04e4784>] strnlen+0xe/0x1e SS:ESP 0068:c9052d84
+[ 3158.524016] ---[ end trace e2e58d1efbfe6295 ]---
+[ 3158.524016] note: cat[19683] exited with preempt_count 1
+[ 3158.534211] BUG: scheduling while atomic: cat/19683/0x10000002
+[ 3158.534359] INFO: lockdep is turned off.
+[ 3158.534508] Modules linked in:
+[ 3158.534716] Pid: 19683, comm: cat Tainted: G      D    2.6.28-rc3-00234-gfed4d59 #139
+[ 3158.534908] Call Trace:
+[ 3158.535077]  [<c0123b7b>] __schedule_bug+0x5d/0x64
+[ 3158.535222]  [<c07997ab>] schedule+0x6b/0x45c
+[ 3158.535392]  [<c0170f5f>] ? free_hot_cold_page+0x1d9/0x20a
+[ 3158.535541]  [<c0123ba3>] __cond_resched+0x21/0x3a
+[ 3158.535699]  [<c0799cd1>] _cond_resched+0x24/0x2f
+[ 3158.535851]  [<c01798e9>] unmap_vmas+0x385/0x44f
+[ 3158.536037]  [<c01441bc>] ? trace_hardirqs_on_caller+0x17/0x12e
+[ 3158.536194]  [<c017c9b7>] exit_mmap+0x83/0x104
+[ 3158.536357]  [<c0125112>] mmput+0x39/0x89
+[ 3158.536498]  [<c01284c7>] exit_mm+0xc3/0xcb
+[ 3158.536656]  [<c01296f4>] do_exit+0x1b2/0x6fc
+[ 3158.536798]  [<c0127cc4>] ? printk+0x1a/0x1c
+[ 3158.536959]  [<c0126e78>] ? print_oops_end_marker+0x23/0x28
+[ 3158.537165]  [<c079cb4d>] oops_end+0x82/0x8a
+[ 3158.537311]  [<c0105a69>] die+0x5c/0x64
+[ 3158.537470]  [<c079deb6>] do_page_fault+0x532/0x5fb
+[ 3158.537615]  [<c079d984>] ? do_page_fault+0x0/0x5fb
+[ 3158.537777]  [<c079d984>] ? do_page_fault+0x0/0x5fb
+[ 3158.537922]  [<c079c27f>] error_code+0x6f/0x74
+[ 3158.538103]  [<c04e4784>] ? strnlen+0xe/0x1e
+[ 3158.538246]  [<c04e39dc>] string+0x2b/0x74
+[ 3158.538404]  [<c04e3d2f>] vsnprintf+0x30a/0x5b9
+[ 3158.538551]  [<c079bf87>] ? _spin_unlock_irqrestore+0x47/0x5d
+[ 3158.538718]  [<c0120424>] ? __wake_up+0x31/0x3b
+[ 3158.538861]  [<c0533511>] ? n_tty_receive_buf+0xf8c/0xfc5
+[ 3158.539048]  [<c013f513>] ? clockevents_program_event+0xd9/0xe8
+[ 3158.539201]  [<c014034f>] ? tick_dev_program_event+0x2d/0x9a
+[ 3158.539375]  [<c01a3816>] seq_printf+0x30/0x50
+[ 3158.539518]  [<c06d2bba>] ipmr_vif_seq_show+0x5d/0x67
+[ 3158.539681]  [<c01a3e41>] seq_read+0x1e5/0x2bd
+[ 3158.539825]  [<c01a3c5c>] ? seq_read+0x0/0x2bd
+[ 3158.539983]  [<c01c3dab>] proc_reg_read+0x65/0x79
+[ 3158.540164]  [<c01c3d46>] ? proc_reg_read+0x0/0x79
+[ 3158.540308]  [<c0190381>] vfs_read+0x8f/0x10b
+[ 3158.540467]  [<c019069f>] sys_read+0x40/0x65
+[ 3158.540607]  [<c0103a91>] sysenter_do_call+0x12/0x31
+
+
+Greetings, Eric
