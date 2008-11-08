@@ -1,83 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 3/3] igb: Use device_set_wakeup_enable
-Date: Fri, 07 Nov 2008 22:30:37 -0800
-Message-ID: <20081108063037.19150.26825.stgit@gitlost.lost>
-References: <20081108063000.19150.42783.stgit@gitlost.lost>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] net: fix /proc/net/snmp as memory corruptor
+Date: Sat, 8 Nov 2008 09:42:26 +0300
+Message-ID: <20081108064226.GA32078@x200.localdomain>
+References: <20081108002208.GB17721@alice> <20081108010237.GA7062@x200.localdomain> <20081108025256.GA16001@x200.localdomain> <20081108033618.GA27960@x200.localdomain> <4915295B.4050102@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Sesterhenn <snakebyte@gmx.de>, davem@davemloft.net,
+	netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:54242 "EHLO
-	QMTA03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751790AbYKHGaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 01:30:55 -0500
-In-Reply-To: <20081108063000.19150.42783.stgit@gitlost.lost>
+Received: from ik-out-1112.google.com ([66.249.90.178]:8756 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751849AbYKHGjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 01:39:06 -0500
+Received: by ik-out-1112.google.com with SMTP id c29so1348542ika.5
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 22:39:03 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4915295B.4050102@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: \"Rafael J. Wysocki\" <rjw@sisk.pl>
+On Sat, Nov 08, 2008 at 06:53:31AM +0100, Eric Dumazet wrote:
+> Alexey Dobriyan a =E9crit :
+>> On Sat, Nov 08, 2008 at 05:52:56AM +0300, Alexey Dobriyan wrote:
+>>> On Sat, Nov 08, 2008 at 04:02:37AM +0300, Alexey Dobriyan wrote:
+>>>> On Sat, Nov 08, 2008 at 01:22:08AM +0100, Eric Sesterhenn wrote:
+>>>>> running a bunch of network related stresstests (isic, isicng,=20
+>>>>> ...) and trying to read all files in /proc afterwards gave me two
+>>>>> oopses. I was able to reproduce them on another box with
+>>>>> a different config. I was able to reproduce this on 2.6.24 too,
+>>>>> so this is no regression. The icmpsic is version 0.06. The=20
+>>>>> minimal testcase to trigger this:
+>>>>>
+>>>>> ------------8<----------------
+>>>>> #!/bin/bash
+>>>>>
+>>>>> icmpsic -s 127.0.0.1 -d 127.0.0.1 -p 100000
+>>>>>
+>>>>> find /proc/net/ | xargs cat > /dev/null
+>>>>>
+>>>>> cat /proc/net/ip_mr_cache
+>>>>> cat /proc/net/ip_mr_vif
+>>>>> ------------8<----------------
+>>>>>
+>>>>>
+>>>>> root@computer-desktop:~/testing# cat /proc/338/net/ip_mr_cache
+>>>>>
+>>>>> [ 1572.702100] BUG: unable to handle kernel NULL pointer derefere=
+nceat 000001c1
+>>>>> [ 1572.702588] IP: [<c05942c6>] ipmr_mfc_seq_show+0x26/0xf0
+>>>> Reproduced.
+>>> 	icmpsic -s 127.0.0.1 -d 127.0.0.1 -p 100000
+>>> 	cat /proc/net/snmp				# sic
+>>> 	cat /proc/net/ip_mr_cache
+>>>
+>>> mfc_cache_array is full of small integers
+>>>
+>>> 	[0] =3D 0x1a8
+>>> 	[1] =3D 0x1a9
+>>>
+>>> and so on.
+>>
+>> OK, this minimally fixes mfc_cache_array corruption.
+>>
+>> Someone was scared of 16 integers on stack. :^)
+>
+> Good spot Alexey :)
 
-Since dev->power.should_wakeup bit is used by the PCI core to
-decide whether the device should wake up the system from sleep
-states, set/unset this bit whenever WOL is enabled/disabled using
-igb_set_wol().  Accordingly, use device_can_wakeup() for checking
-if wake-up is supported by the device.
-
-Signed-off-by: "Rafael J. Wysocki" <rjw@sisk.pl>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/igb/igb_ethtool.c |    8 ++++++--
- drivers/net/igb/igb_main.c    |    1 +
- 2 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 58906c9..89964fa 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -1776,7 +1776,8 @@ static void igb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 
- 	/* this function will set ->supported = 0 and return 1 if wol is not
- 	 * supported by this hardware */
--	if (igb_wol_exclusion(adapter, wol))
-+	if (igb_wol_exclusion(adapter, wol) ||
-+	    !device_can_wakeup(&adapter->pdev->dev))
- 		return;
- 
- 	/* apply any specific unsupported masks here */
-@@ -1805,7 +1806,8 @@ static int igb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & (WAKE_PHY | WAKE_ARP | WAKE_MAGICSECURE))
- 		return -EOPNOTSUPP;
- 
--	if (igb_wol_exclusion(adapter, wol))
-+	if (igb_wol_exclusion(adapter, wol) ||
-+	    !device_can_wakeup(&adapter->pdev->dev))
- 		return wol->wolopts ? -EOPNOTSUPP : 0;
- 
- 	switch (hw->device_id) {
-@@ -1825,6 +1827,8 @@ static int igb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & WAKE_MAGIC)
- 		adapter->wol |= E1000_WUFC_MAG;
- 
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 1f397cd..0a98015 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1244,6 +1244,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 
- 	/* initialize the wol settings based on the eeprom settings */
- 	adapter->wol = adapter->eeprom_wol;
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
- 
- 	/* reset the hardware with the new settings */
- 	igb_reset(adapter);
-
+This patch works too.
