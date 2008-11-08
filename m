@@ -1,53 +1,115 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: ieee80211_crypt_wep.c:(.text+0x90dd7): undefined reference to `crypto_free_tfm'
-Date: Sat, 8 Nov 2008 13:13:30 +0300
-Message-ID: <20081108101330.GA19184@ioremap.net>
-References: <20081108075437.GA312@elte.hu>
+From: Robert Olsson <robert@robur.slu.se>
+Subject: [NET-NEXT PATCH] pktgen: add full reset functionality
+Date: Sat, 8 Nov 2008 11:21:52 +0100
+Message-ID: <18709.26688.587966.479504@robur.slu.se>
+References: <20081107220140.8528.21932.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Zhu Yi <yi.zhu@intel.com>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Transfer-Encoding: 8BIT
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Robert Olsson <robert.olsson@its.uu.se>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from broadrack.ru ([195.178.208.66]:54812 "EHLO tservice.net.ru"
+Received: from robur.slu.se ([130.238.98.12]:34087 "EHLO robur.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751012AbYKHKNc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Nov 2008 05:13:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20081108075437.GA312@elte.hu>
+	id S1751945AbYKHKVy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 05:21:54 -0500
+In-Reply-To: <20081107220140.8528.21932.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ingo.
 
-On Sat, Nov 08, 2008 at 08:54:37AM +0100, Ingo Molnar (mingo@elte.hu) wrote:
-> not sure whether this has been reported before, but with latest upstream 
-> i get this new build failure with certain (rare, randconfig) configs:
-> 
->  net/built-in.o: In function `prism2_wep_deinit':
->  ieee80211_crypt_wep.c:(.text+0x90dd7): undefined reference to `crypto_free_tfm'
->  ieee80211_crypt_wep.c:(.text+0x90de3): undefined reference to `crypto_free_tfm'
->  net/built-in.o: In function `prism2_wep_init':
->  ieee80211_crypt_wep.c:(.text+0x90fab): undefined reference to `crypto_alloc_base'
->  ieee80211_crypt_wep.c:(.text+0x90fc9): undefined reference to `crypto_alloc_base'
->  ieee80211_crypt_wep.c:(.text+0x91007): undefined reference to `crypto_free_tfm'
->  ieee80211_crypt_wep.c:(.text+0x91031): undefined reference to `crypto_free_tfm'
 
-The problem is:
+Jeff Kirsher writes:
+ > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+ > 
+ > While testing pktgen, I found that sometimes my configurations from
+ > previous runs would be left over, particularly when going from a test
+ > with 8 threads down to a test with 4 threads.
+ > 
+ > This adds new functionality to pktgen where you can call
+ > pgset "reset"
 
-> CONFIG_IEEE80211=y
-> CONFIG_IEEE80211_CRYPT_WEP=y
+ Yes thats more convenient than looping over the threads from 
+ the bash scripts.
 
-> CONFIG_CRYPTO=m
 
-While
-config IEEE80211_CRYPT_WEP
-        tristate "IEEE 802.11 WEP encryption (802.1x)"
-	depends on IEEE80211
-	select CRYPTO
+ > and it will be just like you just insmod'ed pktgen again.
 
-Looks like select does not force 'yes' instead of 'module'?
+ For less impact I'll think you just can run pktgen_rem_all_ifs() 
+ for all threads. 
 
--- 
-	Evgeniy Polyakov
+void pktgen_reset_all_threads(void)
+{
+.
+	mutex_lock(&pktgen_thread_lock);
+	list_for_each_entry(t, &pktgen_threads, th_list)
+			       pktgen_rem_all_ifs(t);
+	mutex_unlock(&pktgen_thread_lock);
+
+ .
+
+ > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+ > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+ > CC: Robert Olsson <robert.olsson@its.uu.se>
+
+Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+
+Cheers
+				--ro	
+
+
+ > ---
+ > 
+ >  net/core/pktgen.c |   22 ++++++++++++++++++++++
+ >  1 files changed, 22 insertions(+), 0 deletions(-)
+ > 
+ > diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+ > index fa4973b..a4f5ad1 100644
+ > --- a/net/core/pktgen.c
+ > +++ b/net/core/pktgen.c
+ > @@ -422,6 +422,7 @@ static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
+ >  					  const char *ifname);
+ >  static int pktgen_device_event(struct notifier_block *, unsigned long, void *);
+ >  static void pktgen_run_all_threads(void);
+ > +static void pktgen_reset_all_threads(void);
+ >  static void pktgen_stop_all_threads_ifs(void);
+ >  static int pktgen_stop_device(struct pktgen_dev *pkt_dev);
+ >  static void pktgen_stop(struct pktgen_thread *t);
+ > @@ -480,6 +481,9 @@ static ssize_t pgctrl_write(struct file *file, const char __user * buf,
+ >  	else if (!strcmp(data, "start"))
+ >  		pktgen_run_all_threads();
+ >  
+ > +	else if (!strcmp(data, "reset"))
+ > +		pktgen_reset_all_threads();
+ > +
+ >  	else
+ >  		printk(KERN_WARNING "pktgen: Unknown command: %s\n", data);
+ >  
+ > @@ -3173,6 +3177,24 @@ static void pktgen_run_all_threads(void)
+ >  	pktgen_wait_all_threads_run();
+ >  }
+ >  
+ > +static void pktgen_reset_all_threads(void)
+ > +{
+ > +	struct pktgen_thread *t;
+ > +
+ > +	pr_debug("pktgen: entering pktgen_reset_all_threads.\n");
+ > +
+ > +	mutex_lock(&pktgen_thread_lock);
+ > +
+ > +	list_for_each_entry(t, &pktgen_threads, th_list)
+ > +		t->control |= (T_REMDEVALL);
+ > +
+ > +	mutex_unlock(&pktgen_thread_lock);
+ > +
+ > +	schedule_timeout_interruptible(msecs_to_jiffies(125));	/* Propagate thread->control  */
+ > +
+ > +	pktgen_wait_all_threads_run();
+ > +}
+ > +
+ >  static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
+ >  {
+ >  	__u64 total_us, bps, mbps, pps, idle;
