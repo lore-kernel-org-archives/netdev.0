@@ -1,39 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] e1000e: fix warn_on reload after phy_id error
-Date: Fri, 07 Nov 2008 16:27:39 -0800
-Message-ID: <20081108002739.17508.60954.stgit@gitlost.lost>
+From: "Julius Volz" <julius.volz@gmail.com>
+Subject: Re: [RFC-PATCH] netfilter: payload_len is be16, add size of struct rather than size of pointer
+Date: Sat, 8 Nov 2008 01:51:13 +0100
+Message-ID: <43ca39800811071651s68da93b4if9cf2c84eec0e3f5@mail.gmail.com>
+References: <1226078023.11596.17.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: jeff@garzik.org
+Cc: "Wensong Zhang" <wensong@linuxvirtualserver.org>,
+	"Julian Anastasov" <ja@ssi.bg>,
+	"David Miller" <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org
+To: "Harvey Harrison" <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:41410 "EHLO
-	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751353AbYKHA2K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 19:28:10 -0500
+Received: from rv-out-0506.google.com ([209.85.198.232]:14981 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628AbYKHAvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 19:51:14 -0500
+In-Reply-To: <1226078023.11596.17.camel@brick>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the driver fails to initialize the first time due to the failure in the
-phy_id check the kernel triggers a warn_on on the second try to load the
-driver because the driver did not free the msi/x resources in the first
-load because of the previous failure in phy_id check.
----
+On Fri, Nov 7, 2008 at 6:13 PM, Harvey Harrison
+<harvey.harrison@gmail.com> wrote:
+> payload_len is a be16 value, not cpu_endian, also the size of a ponter
+> to a struct ipv6hdr was being added, not the size of the struct itself.
+>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---
+> I'm quite supicious of the following code in net/netfilter/ipvs/ip_vs_xmit.c
+>
+> Line 714:
+>        iph->payload_len        =       old_iph->payload_len + sizeof(old_iph);
+>
+> I believe that the payload_len is a big-endian value and this is treating it as
+> cpu-ordered.  In addition, it is adding the size of a pointer to a struct ipv6hdr
+> and not the size of the struct itself.
+>
+> If I'm correct, I'd suggest the following is what _may_ have been intended.
+>
+>  net/netfilter/ipvs/ip_vs_xmit.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> index 2f36721..425ab14 100644
+> --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> @@ -711,7 +711,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+>        iph                     =       ipv6_hdr(skb);
+>        iph->version            =       6;
+>        iph->nexthdr            =       IPPROTO_IPV6;
+> -       iph->payload_len        =       old_iph->payload_len + sizeof(old_iph);
+> +       iph->payload_len        =       old_iph->payload_len;
+> +       be16_add_cpu(&iph->payload_len, sizeof(*old_iph));
+>        iph->priority           =       old_iph->priority;
+>        memset(&iph->flow_lbl, 0, sizeof(iph->flow_lbl));
+>        iph->daddr              =       rt->rt6i_dst.addr;
+> --
+> 1.6.0.3.756.gb776d
 
- drivers/net/e1000e/netdev.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Yes, both of that makes sense, thank you!
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 2c8dffd..f6ebebb 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -5009,6 +5009,7 @@ err_hw_init:
- err_sw_init:
- 	if (adapter->hw.flash_address)
- 		iounmap(adapter->hw.flash_address);
-+	e1000e_reset_interrupt_capability(adapter);
- err_flashmap:
- 	iounmap(adapter->hw.hw_addr);
- err_ioremap:
+This function was never tested because IIRC there was/is no
+decapsulation support for IPv6 in IPv6 tunneling on the receiving side
+(please correct me if I'm wrong). I sent some packets through it which
+somehow arrived at the real server, but that was about it. So the
+whole code in that function is pretty only an idea of how the v6
+tunneling should work ;)
 
+Julius
