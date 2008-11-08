@@ -1,38 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 0/3] Fix WOL for e1000/e1000e/igb
-Date: Fri, 07 Nov 2008 17:03:52 -0800
-Message-ID: <20081108005940.18278.33953.stgit@gitlost.lost>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] tipc: trivial endian annotation in debug statement
+Date: Fri, 07 Nov 2008 17:12:07 -0800
+Message-ID: <1226106727.11596.59.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: jeff@garzik.org
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:39339
-	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752305AbYKHBEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 20:04:09 -0500
+Received: from rv-out-0506.google.com ([209.85.198.234]:13862 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750903AbYKHBMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 20:12:10 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so1544946rvb.1
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 17:12:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series implements fixes for WOL for e1000, e1000e, and igb.  Also correct the patch subject line.
+Use htonl rather than ntohl on a u32.
+net/tipc/name_table.c:557:2: warning: cast to restricted __be32
 
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
+ net/tipc/name_table.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Rafael J. Wysocki (3):
-      igb: Use device_set_wakeup_enable
-      e1000: Use device_set_wakeup_enable
-      e1000e: Use device_set_wakeup_enable
-
-
- drivers/net/e1000/e1000_ethtool.c |    8 ++++++--
- drivers/net/e1000/e1000_main.c    |    1 +
- drivers/net/e1000e/ethtool.c      |    8 ++++++--
- drivers/net/e1000e/netdev.c       |    1 +
- drivers/net/igb/igb_ethtool.c     |    8 ++++++--
- drivers/net/igb/igb_main.c        |    1 +
- 6 files changed, 21 insertions(+), 6 deletions(-)
-
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index cd72e22..acab41a 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -555,7 +555,7 @@ static struct name_seq *nametbl_find_seq(u32 type)
+ 	struct name_seq *ns;
+ 
+ 	dbg("find_seq %u,(%u,0x%x) table = %p, hash[type] = %u\n",
+-	    type, ntohl(type), type, table.types, hash(type));
++	    type, htonl(type), type, table.types, hash(type));
+ 
+ 	seq_head = &table.types[hash(type)];
+ 	hlist_for_each_entry(ns, seq_node, seq_head, ns_list) {
 -- 
-Cheers,
-Jeff
+1.6.0.3.756.gb776d
+
+
+
