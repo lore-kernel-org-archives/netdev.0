@@ -1,40 +1,43 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] net: fix /proc/net/snmp as memory corruptor
-Date: Sat, 8 Nov 2008 13:05:12 -0800
-Message-ID: <OF3DE3524D.66B1A705-ON882574FB.00729B02-882574FB.0073D449@us.ibm.com>
-References: <4915FAAC.1010905@cosmosbay.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] net: fix setting of skb->tail in skb_recycle_check()
+Date: Sun, 9 Nov 2008 00:09:43 +0100
+Message-ID: <20081108230943.GW32552@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, alan@lxorguk.ukuu.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Eric Sesterhenn <snakebyte@gmx.de>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux@ddcrew.com, dirk@upexia.nl
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:50242 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752245AbYKHVFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 16:05:15 -0500
-In-Reply-To: <4915FAAC.1010905@cosmosbay.com>
+Received: from xi.wantstofly.org ([80.101.37.227]:54847 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752945AbYKHXJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 18:09:45 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> If you are not sure what I am talking about, then you should probably
-> not use static variables at all. I found this fix quite obvious...
+Since skb_reset_tail_pointer() reads skb->data, we need to set
+skb->data before calling skb_reset_tail_pointer().  This was causing
+spurious skb_over_panic()s from skb_put() being called on a recycled
+skb that had its skb->tail set to beyond where it should have been.
 
-        Actually, I didn't realize "out" was static -- was looking at just
-the patch, and obviously missing your point.
-        I don't have a problem with 16 ints on the stack (or shorts, as
-you pointed out)-- I didn't want the data on the stack, which may be
-64-bit ints. In your patch, you're collecting all of it on the stack
-(doubling its size).
-        If there is no interlocking at a higher layer (and I haven't 
-looked
-at this in a long time...) (ie, exclusive opens), then I agree, it
-shouldn't be static.
+Bug report from Peter van Valderen <linux@ddcrew.com>.
 
-        Why not just that? (ie, add count=0 as Alexey did and remove the
-static qualifier from "out")
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+--
+Please apply for 2.6.28, thanks!
 
-                                +-DLS
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 2c218a0..a17117e 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -454,8 +454,8 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
+ 	shinfo->frag_list = NULL;
+ 
+ 	memset(skb, 0, offsetof(struct sk_buff, tail));
+-	skb_reset_tail_pointer(skb);
+ 	skb->data = skb->head + NET_SKB_PAD;
++	skb_reset_tail_pointer(skb);
+ 
+ 	return 1;
+ }
 
