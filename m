@@ -1,75 +1,53 @@
-From: Eric Sesterhenn <snakebyte@gmx.de>
-Subject: Re: [PATCH] net: fix /proc/net/snmp as memory corruptor
-Date: Sat, 8 Nov 2008 10:48:24 +0100
-Message-ID: <20081108094824.GA2546@alice>
-References: <20081108002208.GB17721@alice> <20081108010237.GA7062@x200.localdomain> <20081108025256.GA16001@x200.localdomain> <20081108033618.GA27960@x200.localdomain> <4915295B.4050102@cosmosbay.com> <20081108064226.GA32078@x200.localdomain>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: ieee80211_crypt_wep.c:(.text+0x90dd7): undefined reference to `crypto_free_tfm'
+Date: Sat, 8 Nov 2008 13:13:30 +0300
+Message-ID: <20081108101330.GA19184@ioremap.net>
+References: <20081108075437.GA312@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Zhu Yi <yi.zhu@intel.com>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:47600 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752294AbYKHJsr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 04:48:47 -0500
+Received: from broadrack.ru ([195.178.208.66]:54812 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751012AbYKHKNc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Nov 2008 05:13:32 -0500
 Content-Disposition: inline
-In-Reply-To: <20081108064226.GA32078@x200.localdomain>
+In-Reply-To: <20081108075437.GA312@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Alexey Dobriyan (adobriyan@gmail.com) wrote:
-> On Sat, Nov 08, 2008 at 06:53:31AM +0100, Eric Dumazet wrote:
-> > Alexey Dobriyan a =C3=A9crit :
-> >> On Sat, Nov 08, 2008 at 05:52:56AM +0300, Alexey Dobriyan wrote:
-> >>> On Sat, Nov 08, 2008 at 04:02:37AM +0300, Alexey Dobriyan wrote:
-> >>>> On Sat, Nov 08, 2008 at 01:22:08AM +0100, Eric Sesterhenn wrote:
-> >>>>> running a bunch of network related stresstests (isic, isicng,=20
-> >>>>> ...) and trying to read all files in /proc afterwards gave me t=
-wo
-> >>>>> oopses. I was able to reproduce them on another box with
-> >>>>> a different config. I was able to reproduce this on 2.6.24 too,
-> >>>>> so this is no regression. The icmpsic is version 0.06. The=20
-> >>>>> minimal testcase to trigger this:
-> >>>>>
-> >>>>> ------------8<----------------
-> >>>>> #!/bin/bash
-> >>>>>
-> >>>>> icmpsic -s 127.0.0.1 -d 127.0.0.1 -p 100000
-> >>>>>
-> >>>>> find /proc/net/ | xargs cat > /dev/null
-> >>>>>
-> >>>>> cat /proc/net/ip_mr_cache
-> >>>>> cat /proc/net/ip_mr_vif
-> >>>>> ------------8<----------------
-> >>>>>
-> >>>>>
-> >>>>> root@computer-desktop:~/testing# cat /proc/338/net/ip_mr_cache
-> >>>>>
-> >>>>> [ 1572.702100] BUG: unable to handle kernel NULL pointer derefe=
-renceat 000001c1
-> >>>>> [ 1572.702588] IP: [<c05942c6>] ipmr_mfc_seq_show+0x26/0xf0
-> >>>> Reproduced.
-> >>> 	icmpsic -s 127.0.0.1 -d 127.0.0.1 -p 100000
-> >>> 	cat /proc/net/snmp				# sic
-> >>> 	cat /proc/net/ip_mr_cache
-> >>>
-> >>> mfc_cache_array is full of small integers
-> >>>
-> >>> 	[0] =3D 0x1a8
-> >>> 	[1] =3D 0x1a9
-> >>>
-> >>> and so on.
-> >>
-> >> OK, this minimally fixes mfc_cache_array corruption.
-> >>
-> >> Someone was scared of 16 integers on stack. :^)
-> >
-> > Good spot Alexey :)
->=20
-> This patch works too.
+Hi Ingo.
 
-Wow, that was fast :-) Also verified that the patch fixes the issue.
+On Sat, Nov 08, 2008 at 08:54:37AM +0100, Ingo Molnar (mingo@elte.hu) wrote:
+> not sure whether this has been reported before, but with latest upstream 
+> i get this new build failure with certain (rare, randconfig) configs:
+> 
+>  net/built-in.o: In function `prism2_wep_deinit':
+>  ieee80211_crypt_wep.c:(.text+0x90dd7): undefined reference to `crypto_free_tfm'
+>  ieee80211_crypt_wep.c:(.text+0x90de3): undefined reference to `crypto_free_tfm'
+>  net/built-in.o: In function `prism2_wep_init':
+>  ieee80211_crypt_wep.c:(.text+0x90fab): undefined reference to `crypto_alloc_base'
+>  ieee80211_crypt_wep.c:(.text+0x90fc9): undefined reference to `crypto_alloc_base'
+>  ieee80211_crypt_wep.c:(.text+0x91007): undefined reference to `crypto_free_tfm'
+>  ieee80211_crypt_wep.c:(.text+0x91031): undefined reference to `crypto_free_tfm'
 
-Thanks, Eric
+The problem is:
+
+> CONFIG_IEEE80211=y
+> CONFIG_IEEE80211_CRYPT_WEP=y
+
+> CONFIG_CRYPTO=m
+
+While
+config IEEE80211_CRYPT_WEP
+        tristate "IEEE 802.11 WEP encryption (802.1x)"
+	depends on IEEE80211
+	select CRYPTO
+
+Looks like select does not force 'yes' instead of 'module'?
+
+-- 
+	Evgeniy Polyakov
