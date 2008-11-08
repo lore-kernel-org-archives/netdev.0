@@ -1,76 +1,47 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 7/7] DCB: Fixes for the setpfcstate and setnumtcs
-	command.
-Date: Fri, 07 Nov 2008 16:55:07 -0800
-Message-ID: <20081108005455.17939.81006.stgit@gitlost.lost>
-References: <20081108005042.17939.47091.stgit@gitlost.lost>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: seq_read bugs with ipmr
+Date: Sat, 8 Nov 2008 04:02:37 +0300
+Message-ID: <20081108010237.GA7062@x200.localdomain>
+References: <20081108002208.GB17721@alice>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Multanen <eric.w.multanen@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk
+To: Eric Sesterhenn <snakebyte@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:47790
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752707AbYKHAz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 19:55:26 -0500
-In-Reply-To: <20081108005042.17939.47091.stgit@gitlost.lost>
+Received: from nf-out-0910.google.com ([64.233.182.186]:18175 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752542AbYKHA7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 19:59:17 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so767119nfc.21
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 16:59:15 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20081108002208.GB17721@alice>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Multanen <eric.w.multanen@intel.com>
+On Sat, Nov 08, 2008 at 01:22:08AM +0100, Eric Sesterhenn wrote:
+> running a bunch of network related stresstests (isic, isicng, ...) 
+> and trying to read all files in /proc afterwards gave me two
+> oopses. I was able to reproduce them on another box with
+> a different config. I was able to reproduce this on 2.6.24 too,
+> so this is no regression. The icmpsic is version 0.06. 
+> The minimal testcase to trigger this:
+> 
+> ------------8<----------------
+> #!/bin/bash
+> 
+> icmpsic -s 127.0.0.1 -d 127.0.0.1 -p 100000
+> 
+> find /proc/net/ | xargs cat > /dev/null
+> 
+> cat /proc/net/ip_mr_cache
+> cat /proc/net/ip_mr_vif
+> ------------8<----------------
+> 
+> 
+> root@computer-desktop:~/testing# cat /proc/338/net/ip_mr_cache
+> 
+> [ 1572.702100] BUG: unable to handle kernel NULL pointer dereference at 000001c1
+> [ 1572.702588] IP: [<c05942c6>] ipmr_mfc_seq_show+0x26/0xf0
 
-Removes invalid extra call to the setnumtcs operation.
-Fix dcbnl_setpfcstate by referencing the PFC state attribute and calling the setpfcstate operation.
-
-Signed-off-by: Eric Multanen <eric.w.multanen@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- net/dcb/dcbnl.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
-
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index a8e0c79..b2bda3f 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -467,7 +467,6 @@ static int dcbnl_setnumtcs(struct net_device *netdev, struct nlattr **tb,
- 	struct nlattr *data[DCB_NUMTCS_ATTR_MAX + 1];
- 	int ret = -EINVAL;
- 	u8 value;
--	u8 status;
- 	int i;
- 
- 	if (!tb[DCB_ATTR_NUMTCS] || !netdev->dcbnl_ops->setstate)
-@@ -490,14 +489,11 @@ static int dcbnl_setnumtcs(struct net_device *netdev, struct nlattr **tb,
- 		ret = netdev->dcbnl_ops->setnumtcs(netdev, i, value);
- 
- 		if (ret)
--			goto err;
-+			goto operr;
- 	}
- 
--	value = nla_get_u8(tb[DCB_ATTR_STATE]);
--
--	status = netdev->dcbnl_ops->setnumtcs(netdev, i, value);
--
--	ret = dcbnl_reply(!!status, RTM_SETDCB, DCB_CMD_SNUMTCS,
-+operr:
-+	ret = dcbnl_reply(!!ret, RTM_SETDCB, DCB_CMD_SNUMTCS,
- 	                  DCB_ATTR_NUMTCS, pid, seq, flags);
- 
- err:
-@@ -528,9 +524,9 @@ static int dcbnl_setpfcstate(struct net_device *netdev, struct nlattr **tb,
- 	if (!tb[DCB_ATTR_PFC_STATE] || !netdev->dcbnl_ops->setpfcstate)
- 		return ret;
- 
--	value = nla_get_u8(tb[DCB_ATTR_STATE]);
-+	value = nla_get_u8(tb[DCB_ATTR_PFC_STATE]);
- 
--	netdev->dcbnl_ops->setstate(netdev, value);
-+	netdev->dcbnl_ops->setpfcstate(netdev, value);
- 
- 	ret = dcbnl_reply(0, RTM_SETDCB, DCB_CMD_PFC_SSTATE, DCB_ATTR_PFC_STATE,
- 	                  pid, seq, flags);
-
+Reproduced.
