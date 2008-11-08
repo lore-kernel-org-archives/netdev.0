@@ -1,45 +1,42 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] tipc: trivial endian annotation in debug statement
-Date: Fri, 07 Nov 2008 17:12:07 -0800
-Message-ID: <1226106727.11596.59.camel@brick>
+From: Jianjun Kong <jianjun@zeuux.org>
+Subject: [PATCH] nets: fix a buffer overrun
+Date: Sat, 8 Nov 2008 10:35:58 +0800
+Message-ID: <20081108023558.GB6384@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux-Kernel-Mailing-List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.234]:13862 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903AbYKHBMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2008 20:12:10 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so1544946rvb.1
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2008 17:12:09 -0800 (PST)
+Received: from smtp.zeuux.org ([210.51.160.52]:60823 "EHLO z.billxu.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751780AbYKHCfw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2008 21:35:52 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use htonl rather than ntohl on a u32.
-net/tipc/name_table.c:557:2: warning: cast to restricted __be32
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+net/mac80211/debugfs_sta.c
+The trailing zero was written to state[4], it's out of bounds.
+
+Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
 ---
- net/tipc/name_table.c |    2 +-
+ net/mac80211/debugfs_sta.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index cd72e22..acab41a 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -555,7 +555,7 @@ static struct name_seq *nametbl_find_seq(u32 type)
- 	struct name_seq *ns;
- 
- 	dbg("find_seq %u,(%u,0x%x) table = %p, hash[type] = %u\n",
--	    type, ntohl(type), type, table.types, hash(type));
-+	    type, htonl(type), type, table.types, hash(type));
- 
- 	seq_head = &table.types[hash(type)];
- 	hlist_for_each_entry(ns, seq_node, seq_head, ns_list) {
+diff --git a/net/mac80211/debugfs_sta.c b/net/mac80211/debugfs_sta.c
+index 189d0ba..b85c4f2 100644
+--- a/net/mac80211/debugfs_sta.c
++++ b/net/mac80211/debugfs_sta.c
+@@ -199,7 +199,7 @@ static ssize_t sta_agg_status_write(struct file *file,
+ 		/* toggle Rx aggregation command */
+ 		tid_num = tid_num - 100;
+ 		if (tid_static_rx[tid_num] == 1) {
+-			strcpy(state, "off ");
++			strcpy(state, "off");
+ 			ieee80211_sta_stop_rx_ba_session(sta->sdata, da, tid_num, 0,
+ 					WLAN_REASON_QSTA_REQUIRE_SETUP);
+ 			sta->ampdu_mlme.tid_state_rx[tid_num] |=
 -- 
-1.6.0.3.756.gb776d
-
-
-
+1.5.6.3
