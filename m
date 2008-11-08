@@ -1,115 +1,46 @@
 From: Robert Olsson <robert@robur.slu.se>
-Subject: [NET-NEXT PATCH] pktgen: add full reset functionality
-Date: Sat, 8 Nov 2008 11:21:52 +0100
-Message-ID: <18709.26688.587966.479504@robur.slu.se>
-References: <20081107220140.8528.21932.stgit@gitlost.lost>
+Subject: [PATCH] pktgen: fix multiple queue warning
+Date: Sat, 8 Nov 2008 12:29:32 +0100
+Message-ID: <18709.30748.784246.990265@robur.slu.se>
+References: <20081028193042.22781.15774.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
+Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Robert Olsson <robert.olsson@its.uu.se>
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from robur.slu.se ([130.238.98.12]:34087 "EHLO robur.slu.se"
+Received: from robur.slu.se ([130.238.98.12]:49940 "EHLO robur.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751945AbYKHKVy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 05:21:54 -0500
-In-Reply-To: <20081107220140.8528.21932.stgit@gitlost.lost>
+	id S1753067AbYKHL3e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Nov 2008 06:29:34 -0500
+In-Reply-To: <20081028193042.22781.15774.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-
 Jeff Kirsher writes:
- > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
- > 
- > While testing pktgen, I found that sometimes my configurations from
- > previous runs would be left over, particularly when going from a test
- > with 8 threads down to a test with 4 threads.
- > 
- > This adds new functionality to pktgen where you can call
- > pgset "reset"
-
- Yes thats more convenient than looping over the threads from 
- the bash scripts.
 
 
- > and it will be just like you just insmod'ed pktgen again.
+ > -	if (ntxq <= num_online_cpus() && (pkt_dev->flags & F_QUEUE_MAP_CPU)) {
+ > +	if (ntxq > num_online_cpus() && (pkt_dev->flags & F_QUEUE_MAP_CPU)) {
+ >  		printk(KERN_WARNING "pktgen: WARNING: QUEUE_MAP_CPU "
+ > -		       "disabled because CPU count (%d) exceeds number ",
+ > -		       num_online_cpus());
+ > -		printk(KERN_WARNING "pktgen: WARNING: of tx queues "
+ > -		       "(%d) on %s \n", ntxq, pkt_dev->odev->name);
 
- For less impact I'll think you just can run pktgen_rem_all_ifs() 
- for all threads. 
+ 
+ Jeff,
 
-void pktgen_reset_all_threads(void)
-{
-.
-	mutex_lock(&pktgen_thread_lock);
-	list_for_each_entry(t, &pktgen_threads, th_list)
-			       pktgen_rem_all_ifs(t);
-	mutex_unlock(&pktgen_thread_lock);
+ This triggers with the niu driver which has 12 TX queues on our 8 CPU-core 
+ system. Might be best to make sure that pkt_dev->cur_queue_map never exceeds 
+ ntxq.
 
- .
+pkt_dev->cur_queue_map  = pkt_dev->cur_queue_map % pkt_dev->odev->real_num_tx_queues;
 
- > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
- > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
- > CC: Robert Olsson <robert.olsson@its.uu.se>
-
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
-
-
-Cheers
-				--ro	
-
-
- > ---
- > 
- >  net/core/pktgen.c |   22 ++++++++++++++++++++++
- >  1 files changed, 22 insertions(+), 0 deletions(-)
- > 
- > diff --git a/net/core/pktgen.c b/net/core/pktgen.c
- > index fa4973b..a4f5ad1 100644
- > --- a/net/core/pktgen.c
- > +++ b/net/core/pktgen.c
- > @@ -422,6 +422,7 @@ static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
- >  					  const char *ifname);
- >  static int pktgen_device_event(struct notifier_block *, unsigned long, void *);
- >  static void pktgen_run_all_threads(void);
- > +static void pktgen_reset_all_threads(void);
- >  static void pktgen_stop_all_threads_ifs(void);
- >  static int pktgen_stop_device(struct pktgen_dev *pkt_dev);
- >  static void pktgen_stop(struct pktgen_thread *t);
- > @@ -480,6 +481,9 @@ static ssize_t pgctrl_write(struct file *file, const char __user * buf,
- >  	else if (!strcmp(data, "start"))
- >  		pktgen_run_all_threads();
- >  
- > +	else if (!strcmp(data, "reset"))
- > +		pktgen_reset_all_threads();
- > +
- >  	else
- >  		printk(KERN_WARNING "pktgen: Unknown command: %s\n", data);
- >  
- > @@ -3173,6 +3177,24 @@ static void pktgen_run_all_threads(void)
- >  	pktgen_wait_all_threads_run();
- >  }
- >  
- > +static void pktgen_reset_all_threads(void)
- > +{
- > +	struct pktgen_thread *t;
- > +
- > +	pr_debug("pktgen: entering pktgen_reset_all_threads.\n");
- > +
- > +	mutex_lock(&pktgen_thread_lock);
- > +
- > +	list_for_each_entry(t, &pktgen_threads, th_list)
- > +		t->control |= (T_REMDEVALL);
- > +
- > +	mutex_unlock(&pktgen_thread_lock);
- > +
- > +	schedule_timeout_interruptible(msecs_to_jiffies(125));	/* Propagate thread->control  */
- > +
- > +	pktgen_wait_all_threads_run();
- > +}
- > +
- >  static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
- >  {
- >  	__u64 total_us, bps, mbps, pps, idle;
+ Cheers.
+					--ro
+ 
+ 
