@@ -1,30 +1,41 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: mmotm 2008-11-06-13-44 uploaded (smc-ultra)
-Date: Sat, 8 Nov 2008 10:09:11 -0800
-Message-ID: <20081108100911.e475ff0f.randy.dunlap@oracle.com>
-References: <200811062144.mA6LiWj8004200@imap1.linux-foundation.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] net: fix /proc/net/snmp as memory corruptor
+Date: Sat, 8 Nov 2008 11:53:09 -0800
+Message-ID: <OF6C282093.F9856B9A-ON882574FB.006C580F-882574FB.006D3BF5@us.ibm.com>
+References: <4915295B.4050102@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>,
-	p_gortmaker@yahoo.com
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753827AbYKHSKO@vger.kernel.org>
-In-Reply-To: <200811062144.mA6LiWj8004200@imap1.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, alan@lxorguk.ukuu.org.uk,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Eric Sesterhenn <snakebyte@gmx.de>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:40925 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751019AbYKHTxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 14:53:13 -0500
+In-Reply-To: <4915295B.4050102@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 06 Nov 2008 13:44:32 -0800 akpm@linux-foundation.org wrote:
+Oh, that was me! Thank you, Alexey!
 
-> The mm-of-the-moment snapshot 2008-11-06-13-44 has been uploaded to
-> 
->    http://userweb.kernel.org/~akpm/mmotm/
-> 
-> It contains the following patches against 2.6.28-rc3:
+> This should be fixed as well, or multiple threads reading /proc/net/snmp
+> could get mixed results without proper locking.
 
+I don't believe locking is an issue here. If the values
+change between the first and second tests, being counters,
+they are still nonzero. If they are different in different
+threads, it reflects an actual change in the counter. So
+I'm not sure what you're talking about here.
 
-mmotm-2008-1106-1344/drivers/net/smc-ultra.c: In function 'ultra_probe1':
-mmotm-2008-1106-1344/drivers/net/smc-ultra.c:254: error: 'mac' undeclared (first use in this function)
+I don't think they should be on the stack (obviously, or
+I wouldn't have written it this way). So, FWIW, I like
+Alexey's fix, which is what the code should've been.
 
----
-~Randy
+For Alexey's patch:
+
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
+
+                                                +-DLS
+
