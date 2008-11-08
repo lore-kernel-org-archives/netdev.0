@@ -1,40 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND] pkt_sched: Control group classifier
-Date: Fri, 07 Nov 2008 22:56:08 -0800 (PST)
-Message-ID: <20081107.225608.01221973.davem@davemloft.net>
-References: <20081106161330.GN20815@postel.suug.ch>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2/3] net: Guaranetee the proper ordering of the loopback device.
+Date: Fri, 07 Nov 2008 23:13:30 -0800
+Message-ID: <m1fxm2r8px.fsf@frodo.ebiederm.org>
+References: <m1y6zx3gcs.fsf_-_@frodo.ebiederm.org>
+	<20081105.160047.174722021.davem@davemloft.net>
+	<m14p2l0zyu.fsf@frodo.ebiederm.org>
+	<20081107.225352.193700609.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: dlezcano@fr.ibm.com, containers@lists.osdl.org, den@openvz.org,
+	xemul@openvz.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57323
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752394AbYKHG4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 01:56:09 -0500
-In-Reply-To: <20081106161330.GN20815@postel.suug.ch>
+Received: from out02.mta.xmission.com ([166.70.13.232]:47770 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752278AbYKHHPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2008 02:15:22 -0500
+In-Reply-To: <20081107.225352.193700609.davem@davemloft.net> (David Miller's
+	message of "Fri, 07 Nov 2008 22:53:52 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 6 Nov 2008 17:13:30 +0100
+David Miller <davem@davemloft.net> writes:
 
-> The classifier should cover the most common use case and will work
-> without any special configuration.
-> 
-> The principle of the classifier is to directly access the
-> task_struct via get_current(). In order for this to work,
-> classification requests from softirqs must be ignored. This is
-> not a problem because the vast majority of packets in softirq
-> context are not assigned to a task anyway. For this to work, a
-> mechanism is needed to trace softirq context. 
-> 
-> This repost goes back to the method of relying on the number of
-> nested bh disable calls for the sake of not adding too much
-> complexity and the option to come up with something more reliable
-> if actually needed.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> I'm putting a revert changeset in there, then your two new patches on
+> top.
+>
+> I'm not screwing up my GIT tree for everyone who pulls from me just
+> because you can't be bothered to test the actual changes you send me.
 
-Applied, thanks Thomas.
+Understood.  When I sent the email it looked like it might not have landed
+in your git tree yet.  I badly messed up on that one and I apologize.
+
+Eric
+
