@@ -1,65 +1,56 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: fix /proc/net/snmp as memory corruptor
-Date: Sun, 09 Nov 2008 09:25:54 +0100
-Message-ID: <49169E92.8080802@cosmosbay.com>
-References: <OF3DE3524D.66B1A705-ON882574FB.00729B02-882574FB.0073D449@us.ibm.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 1/2 2.6.28] cxgb3 - eeprom read fixes
+Date: Sun, 09 Nov 2008 00:55:28 -0800
+Message-ID: <20081109085528.3526.2329.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, alan@lxorguk.ukuu.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Eric Sesterhenn <snakebyte@gmx.de>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:34824 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451AbYKII0Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2008 03:26:24 -0500
-In-Reply-To: <OF3DE3524D.66B1A705-ON882574FB.00729B02-882574FB.0073D449@us.ibm.com>
+Received: from stargate.chelsio.com ([12.22.49.110]:8288 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753919AbYKIIzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2008 03:55:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens a =E9crit :
->> If you are not sure what I am talking about, then you should probabl=
-y
->> not use static variables at all. I found this fix quite obvious...
->=20
->         Actually, I didn't realize "out" was static -- was looking at=
- just
-> the patch, and obviously missing your point.
->         I don't have a problem with 16 ints on the stack (or shorts, =
-as
-> you pointed out)-- I didn't want the data on the stack, which may be
-> 64-bit ints. In your patch, you're collecting all of it on the stack
-> (doubling its size).
->         If there is no interlocking at a higher layer (and I haven't=20
-> looked
-> at this in a long time...) (ie, exclusive opens), then I agree, it
-> shouldn't be static.
->=20
->         Why not just that? (ie, add count=3D0 as Alexey did and remov=
-e the
-> static qualifier from "out")
+From: Divy Le Ray <divy@chelsio.com>
 
-Well, this patch also saves 143+64 bytes because of the cleanup.
+Protect against invalid phy entries in the eeprom.
+Extend eeprom access timeout.
 
-before :
-# size net/ipv4/proc.o
-   text    data     bss     dec     hex filename
-   5191      16      64    5271    1497 net/ipv4/proc.o
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-After :
-# size net/ipv4/proc.o
-   text    data     bss     dec     hex filename
-   5048      16       0    5064    13c8 net/ipv4/proc.o
+ drivers/net/cxgb3/t3_hw.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-1) bug correction from Alexey
-2) bug correction about using a static array without exclusion
-3) minor cleanup to save 143 bytes of text and 64 bytes of data
-4) save thousand of cpu cycles if many possible cpus.
-5) Actually works, even if using 128 bytes on stack, in a function
-   that only calls seq_printf() (we are not in the network stack)
-
-
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 968f64b..9a0898b 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -572,7 +572,7 @@ struct t3_vpd {
+ 	u32 pad;		/* for multiple-of-4 sizing and alignment */
+ };
+ 
+-#define EEPROM_MAX_POLL   4
++#define EEPROM_MAX_POLL   40
+ #define EEPROM_STAT_ADDR  0x4000
+ #define VPD_BASE          0xc00
+ 
+@@ -3690,6 +3690,12 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
+ 			;
+ 
+ 		pti = &port_types[adapter->params.vpd.port_type[j]];
++		if (!pti->phy_prep) {
++			CH_ALERT(adapter, "Invalid port type index %d\n",
++				 adapter->params.vpd.port_type[j]);
++			return -EINVAL;
++		}
++
+ 		ret = pti->phy_prep(&p->phy, adapter, ai->phy_base_addr + j,
+ 				    ai->mdio_ops);
+ 		if (ret)
 
