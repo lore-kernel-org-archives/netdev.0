@@ -1,39 +1,231 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] SSB: make it depend on PCI
-Date: Sun, 9 Nov 2008 12:49:51 +0100
-Message-ID: <200811091249.52071.mb@bu3sch.de>
-References: <1225965082-31462-1-git-send-email-vapier@gentoo.org> <8bd0f97a0811060315j7d11e1a7p257a4a1bea640f7b@mail.gmail.com> <Pine.LNX.4.64.0811091149280.19341@anakin>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Mike Frysinger <vapier.adi@gmail.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Miklos Szeredi <miklos@szeredi.hu>
+Subject: [patch] net: unix: fix inflight counting bug in garbage collector
+Date: Sun, 09 Nov 2008 15:23:57 +0100
+Message-ID: <E1KzBCn-00062L-Fp@pomaz-ex.szeredi.hu>
+Cc: torvalds@linux-foundation.org, a.bittau@cs.ucl.ac.uk,
+	adobriyan@gmail.com, viro@ZenIV.linux.org.uk,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, stable@kernel.org
+To: davem@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bu3sch.de ([62.75.166.246]:51362 "EHLO vs166246.vserver.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754629AbYKILuo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Nov 2008 06:50:44 -0500
-In-Reply-To: <Pine.LNX.4.64.0811091149280.19341@anakin>
-Content-Disposition: inline
+Received: from fxip-0047f.externet.hu ([88.209.222.127]:46861 "EHLO
+	pomaz-ex.szeredi.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754955AbYKIOYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2008 09:24:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 09 November 2008 11:51:37 Geert Uytterhoeven wrote:
-> I had the same issue on m68k, not only with SSB but also with other legacy
-> drivers (hp100 Ethernet, AIC7xxx SCSI). It was fixed in commit
-> 998aaf01c6f6f3dffc1ea9e7b20b131e38fdbc78 ("m68k: <asm/pci.h> needs
-> <asm-generic/pci-dma-compat.h>").
+Hi David,
 
-Ok, nice.
-I'd suggest we additionally fix the architectures this way.
+This patch fixes the BUG_ON triggered by Andrea's tests.  It turned
+out to be completely independent of the stack overflow issue, but
+happens to be triggered by the same test program.
 
-My patch already is on its way upstream and I think that's OK.
-The codepaths that it #ifdefs out are dead code on non-PCI, so I think
-it's OK to #ifdef them.
+Should qualify for -stable too.
 
--- 
-Greetings Michael.
+Thanks,
+Miklos
+
+----
+From: Miklos Szeredi <mszeredi@suse.cz>
+
+Previously I assumed that the receive queues of candidates don't
+change during the GC.  This is only half true, nothing can be received
+from the queues (see comment in unix_gc()), but buffers could be added
+through the other half of the socket pair, which may still have file
+descriptors referring to it.
+
+This can result in inc_inflight_move_tail() erronously increasing the
+"inflight" counter for a unix socket for which dec_inflight() wasn't
+previously called.  This in turn can trigger the "BUG_ON(total_refs <
+inflight_refs)" in a later garbage collection run.
+
+Fix this by only manipulating the "inflight" counter for sockets which
+are candidates themselves.  Duplicating the file references in
+unix_attach_fds() is also needed to prevent a socket becoming a
+candidate for GC while the skb that contains it is not yet queued.
+
+Reported-by: Andrea Bittau <a.bittau@cs.ucl.ac.uk>
+Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
+CC: stable@kernel.org
+---
+ include/net/af_unix.h |    1 +
+ net/unix/af_unix.c    |   31 ++++++++++++++++++++++++-------
+ net/unix/garbage.c    |   49 +++++++++++++++++++++++++++++++++++++------------
+ 3 files changed, 62 insertions(+), 19 deletions(-)
+
+Index: linux.git/include/net/af_unix.h
+===================================================================
+--- linux.git.orig/include/net/af_unix.h	2008-11-09 14:39:04.000000000 +0100
++++ linux.git/include/net/af_unix.h	2008-11-09 14:39:11.000000000 +0100
+@@ -54,6 +54,7 @@ struct unix_sock {
+         atomic_long_t           inflight;
+         spinlock_t		lock;
+ 	unsigned int		gc_candidate : 1;
++	unsigned int		gc_maybe_cycle : 1;
+         wait_queue_head_t       peer_wait;
+ };
+ #define unix_sk(__sk) ((struct unix_sock *)__sk)
+Index: linux.git/net/unix/garbage.c
+===================================================================
+--- linux.git.orig/net/unix/garbage.c	2008-11-09 14:39:04.000000000 +0100
++++ linux.git/net/unix/garbage.c	2008-11-09 14:39:11.000000000 +0100
+@@ -186,8 +186,17 @@ static void scan_inflight(struct sock *x
+ 				 */
+ 				struct sock *sk = unix_get_socket(*fp++);
+ 				if (sk) {
+-					hit = true;
+-					func(unix_sk(sk));
++					struct unix_sock *u = unix_sk(sk);
++
++					/*
++					 * Ignore non-candidates, they could
++					 * have been added to the queues after
++					 * starting the garbage collection
++					 */
++					if (u->gc_candidate) {
++						hit = true;
++						func(u);
++					}
+ 				}
+ 			}
+ 			if (hit && hitlist != NULL) {
+@@ -249,11 +258,11 @@ static void inc_inflight_move_tail(struc
+ {
+ 	atomic_long_inc(&u->inflight);
+ 	/*
+-	 * If this is still a candidate, move it to the end of the
+-	 * list, so that it's checked even if it was already passed
+-	 * over
++	 * If this still might be part of a cycle, move it to the end
++	 * of the list, so that it's checked even if it was already
++	 * passed over
+ 	 */
+-	if (u->gc_candidate)
++	if (u->gc_maybe_cycle)
+ 		list_move_tail(&u->link, &gc_candidates);
+ }
+ 
+@@ -267,6 +276,7 @@ void unix_gc(void)
+ 	struct unix_sock *next;
+ 	struct sk_buff_head hitlist;
+ 	struct list_head cursor;
++	LIST_HEAD(not_cycle_list);
+ 
+ 	spin_lock(&unix_gc_lock);
+ 
+@@ -282,10 +292,14 @@ void unix_gc(void)
+ 	 *
+ 	 * Holding unix_gc_lock will protect these candidates from
+ 	 * being detached, and hence from gaining an external
+-	 * reference.  This also means, that since there are no
+-	 * possible receivers, the receive queues of these sockets are
+-	 * static during the GC, even though the dequeue is done
+-	 * before the detach without atomicity guarantees.
++	 * reference.  Since there are no possible receivers, all
++	 * buffers currently on the candidates' queues stay there
++	 * during the garbage collection.
++	 *
++	 * We also know that no new candidate can be added onto the
++	 * receive queues.  Other, non candidate sockets _can_ be
++	 * added to queue, so we must make sure only to touch
++	 * candidates.
+ 	 */
+ 	list_for_each_entry_safe(u, next, &gc_inflight_list, link) {
+ 		long total_refs;
+@@ -299,6 +313,7 @@ void unix_gc(void)
+ 		if (total_refs == inflight_refs) {
+ 			list_move_tail(&u->link, &gc_candidates);
+ 			u->gc_candidate = 1;
++			u->gc_maybe_cycle = 1;
+ 		}
+ 	}
+ 
+@@ -325,14 +340,24 @@ void unix_gc(void)
+ 		list_move(&cursor, &u->link);
+ 
+ 		if (atomic_long_read(&u->inflight) > 0) {
+-			list_move_tail(&u->link, &gc_inflight_list);
+-			u->gc_candidate = 0;
++			list_move_tail(&u->link, &not_cycle_list);
++			u->gc_maybe_cycle = 0;
+ 			scan_children(&u->sk, inc_inflight_move_tail, NULL);
+ 		}
+ 	}
+ 	list_del(&cursor);
+ 
+ 	/*
++	 * not_cycle_list contains those sockets which do not make up a
++	 * cycle.  Restore these to the inflight list.
++	 */
++	while (!list_empty(&not_cycle_list)) {
++		u = list_entry(not_cycle_list.next, struct unix_sock, link);
++		u->gc_candidate = 0;
++		list_move_tail(&u->link, &gc_inflight_list);
++	}
++
++	/*
+ 	 * Now gc_candidates contains only garbage.  Restore original
+ 	 * inflight counters for these as well, and remove the skbuffs
+ 	 * which are creating the cycle(s).
+Index: linux.git/net/unix/af_unix.c
+===================================================================
+--- linux.git.orig/net/unix/af_unix.c	2008-11-09 14:39:04.000000000 +0100
++++ linux.git/net/unix/af_unix.c	2008-11-09 14:39:11.000000000 +0100
+@@ -1302,14 +1302,23 @@ static void unix_destruct_fds(struct sk_
+ 	sock_wfree(skb);
+ }
+ 
+-static void unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
++static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ {
+ 	int i;
++
++	/*
++	 * Need to duplicate file references for the sake of garbage
++	 * collection.  Otherwise a socket in the fps might become a
++	 * candidate for GC while the skb is not yet queued.
++	 */
++	UNIXCB(skb).fp = scm_fp_dup(scm->fp);
++	if (!UNIXCB(skb).fp)
++		return -ENOMEM;
++
+ 	for (i=scm->fp->count-1; i>=0; i--)
+ 		unix_inflight(scm->fp->fp[i]);
+-	UNIXCB(skb).fp = scm->fp;
+ 	skb->destructor = unix_destruct_fds;
+-	scm->fp = NULL;
++	return 0;
+ }
+ 
+ /*
+@@ -1368,8 +1377,11 @@ static int unix_dgram_sendmsg(struct kio
+ 		goto out;
+ 
+ 	memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
+-	if (siocb->scm->fp)
+-		unix_attach_fds(siocb->scm, skb);
++	if (siocb->scm->fp) {
++		err = unix_attach_fds(siocb->scm, skb);
++		if (err)
++			goto out_free;
++	}
+ 	unix_get_secdata(siocb->scm, skb);
+ 
+ 	skb_reset_transport_header(skb);
+@@ -1538,8 +1550,13 @@ static int unix_stream_sendmsg(struct ki
+ 		size = min_t(int, size, skb_tailroom(skb));
+ 
+ 		memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
+-		if (siocb->scm->fp)
+-			unix_attach_fds(siocb->scm, skb);
++		if (siocb->scm->fp) {
++			err = unix_attach_fds(siocb->scm, skb);
++			if (err) {
++				kfree_skb(skb);
++				goto out_err;
++			}
++		}
+ 
+ 		if ((err = memcpy_fromiovec(skb_put(skb,size), msg->msg_iov, size)) != 0) {
+ 			kfree_skb(skb);
