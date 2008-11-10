@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] dccp: Resolve dependencies of features on choice
- of CCID
-Date: Mon, 10 Nov 2008 13:20:38 -0800 (PST)
-Message-ID: <20081110.132038.16329379.davem@davemloft.net>
-References: <1225950014-6337-4-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1225950014-6337-5-git-send-email-gerrit@erg.abdn.ac.uk>
-	<20081110.131748.152587229.davem@davemloft.net>
+Subject: Re: pull request: wireless-next-2.6 2008-11-10
+Date: Mon, 10 Nov 2008 13:30:54 -0800 (PST)
+Message-ID: <20081110.133054.154011074.davem@davemloft.net>
+References: <20081110204500.GL3546@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=utf-8
 Content-Transfer-Encoding: base64
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42975
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59062
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750889AbYKJVUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2008 16:20:38 -0500
-In-Reply-To: <20081110.131748.152587229.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1750759AbYKJVay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2008 16:30:54 -0500
+In-Reply-To: <20081110204500.GL3546@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpOZXZlcm1pbmQsIEknbSByZXZlcnRpbmcgYWxsIDQgcGF0Y2hlcy4NCg0KU2VuZCBtZSBzb21l
-dGhpbmcgd2hpY2ggYWN0dWFsbHkgY29tcGlsZXMgbmV4dCB0aW1lOg0KDQpuZXQvZGNjcC9mZWF0
-LmM6IEluIGZ1bmN0aW9uIOKAmF9fZmVhdF9yZWdpc3Rlcl9ubuKAmToNCm5ldC9kY2NwL2ZlYXQu
-YzoyNTI6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhkY2NwX2Zl
-YXRfZGVmYXVsdF92YWx1ZeKAmQ0KbmV0L2RjY3AvZmVhdC5jOjI1NTogZXJyb3I6IGltcGxpY2l0
-IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIOKAmGRjY3BfZmVhdF9wdXNoX2NoYW5nZeKAmQ0KbWFr
-ZVsyXTogKioqIFtuZXQvZGNjcC9mZWF0Lm9dIEVycm9yIDENCm1ha2VbMl06ICoqKiBXYWl0aW5n
-IGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQo=
+RnJvbTogIkpvaG4gVy4gTGludmlsbGUiIDxsaW52aWxsZUB0dXhkcml2ZXIuY29tPg0KRGF0ZTog
+TW9uLCAxMCBOb3YgMjAwOCAxNTo0NTowMCAtMDUwMA0KDQo+IEFuIG92ZXJkdWUgcGFzc2xlIG9m
+IHBhdGNoZXMgaW50ZW5kZWQgZm9yIDIuNi4yOS4uLg0KPiANCj4gVGhlcmUgaXMgYSBidW5jaCBv
+ZiBzdHVmZiBoZXJlLCBtb3N0bHkgZHJpdmVyIHVwZGF0ZXMuICBXZSBmaXggc29tZSBvZg0KPiB0
+aGUgIuKAmF9fSUVFRTgwMjExX0NPTkZfU0hPUlRfU0xPVF9USU1F4oCZIGlzIGRlcHJlY2F0ZWQi
+IHdhcm5pbmdzLA0KPiBhbHRob3VnaCB1bmZvcnR1bmF0ZWx5IGEgY291cGxlIG1vcmUgcmVtYWlu
+IC0tIHdlJ3JlIHdvcmtpbmcgb24gdGhvc2UNCj4gdG9vLg0KPiANCj4gUGxlYXNlIGxldCBtZSBr
+bm93IGlmIHRoZXJlIGFyZSBwcm9ibGVtcyENCg0KUHVsbGVkLCB0aGFua3MgYSBsb3QgSm9obi4g
+IEkgaG9wZSB5b3UncmUgZmVlbGluZyBiZXR0ZXIgdGhpcyB3ZWVrLg0KDQpCVFcsIEkgbm90aWNl
+ZCB0aGF0IHByaW50X3NzaWQoKSBpcyBhIGdvb2QgY2FuZGlkYXRlIGZvciBhIG5ldw0KJXBYIGZv
+cm1hdCBzcGVjaWZpZXIgZXh0ZW5zaW9uLCBqdXN0IGxpa2UgaG93IHdlIGdvdCByaWQgb2YNCnBy
+aW50X21hYygpLCBOSVBRVUFEKCkgYW5kIGZyaWVuZHMgcmVjZW50bHkgaW4gdGhlIG5ldC1uZXh0
+DQp0cmVlLg0K
