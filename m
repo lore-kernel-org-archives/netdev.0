@@ -1,56 +1,66 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 2.6.28] myri10ge: fix stop/go ordering even more
-Date: Mon, 10 Nov 2008 13:58:41 +0100
-Message-ID: <49183001.5010405@myri.com>
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: [regression]  benchmark throughput loss from a622cf6..f7160c7
+	pull
+Date: Mon, 10 Nov 2008 14:22:10 +0100
+Message-ID: <1226323330.4846.3.camel@marge.simson.net>
+References: <1226313350.10058.16.camel@marge.simson.net>
+	 <20081110125001.GA28643@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Miklos Szeredi <mszeredi@suse.cz>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Travis <travis@sgi.com>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1951 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754724AbYKJNAE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2008 08:00:04 -0500
+Received: from mail.gmx.net ([213.165.64.20]:34579 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754290AbYKJNWP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2008 08:22:15 -0500
+In-Reply-To: <20081110125001.GA28643@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The doorbell writes may be seen out of order by the firmware if they
-are in WC memory since the tx spin(un)lock does not flush WC writes.
-Hence if the "stop" is written on a different CPU than the "go", it
-is possible that the stop will arrive after the go unless we add an
-explicit memory barrier (and mmiowb() is not enough).
+On Mon, 2008-11-10 at 13:50 +0100, Ingo Molnar wrote:
+> * Mike Galbraith <efault@gmx.de> wrote:
+> 
+> > Greetings,
+> > 
+> > While retesting that recent scheduler fixes/improvements had 
+> > survived integration into mainline, I found that we've regressed a 
+> > bit since.. yesterday.  In testing, it seems that CFS has finally 
+> > passed what the old O(1) scheduler could deliver in scalability and 
+> > throughput, but we already lost a bit.
+> 
+> but CFS backported to a kernel with no other regressions measurably 
+> surpasses O(1) performance in all the metrics you are following, 
+> right?
 
-It fixes transmit hangs in multi tx queue mode.
+Yes.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
+> i.e. the current state of things, when comparing these workloads to 
+> 2.6.22 is that we slowed down in non-scheduler codepaths and the CFS 
+> speedups helps offset some of that slowdown.
 
---- linux-git/drivers/net/myri10ge/myri10ge.c	2008-11-07 10:01:32.000000000 +0100
-+++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-11-07 13:58:07.000000000 +0100
-@@ -75,7 +75,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
- 
--#define MYRI10GE_VERSION_STR "1.4.3-1.375"
-+#define MYRI10GE_VERSION_STR "1.4.3-1.378"
- 
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
-@@ -1393,6 +1393,7 @@
- 		if (tx->req == tx->done) {
- 			tx->queue_active = 0;
- 			put_be32(htonl(1), tx->send_stop);
-+			mb();
- 			mmiowb();
- 		}
- 		__netif_tx_unlock(dev_queue);
-@@ -2865,6 +2866,7 @@
- 	if ((mgp->dev->real_num_tx_queues > 1) && tx->queue_active == 0) {
- 		tx->queue_active = 1;
- 		put_be32(htonl(1), tx->send_go);
-+		mb();
- 		mmiowb();
- 	}
- 	tx->pkt_start++;
+That's the way it looks to me, yes.
 
+> But not all of it, and we also have new slowdowns:
+> 
+> > Reverting 984f2f3 cd83e42 2d3854a and 6209344 recovered the loss.
+> 
+> hm, that's two changes in essence:
+> 
+>  2d3854a: cpumask: introduce new API, without changing anything
+>  6209344: net: unix: fix inflight counting bug in garbage collector
+> 
+> i'm surprised about the cpumask impact, it's just new APIs in essence, 
+> with little material changes elsewhere.
+
+Dunno, I try not to look while testing, just test/report, look later.
+
+	-Mike
 
