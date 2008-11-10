@@ -1,50 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ssb: Fix DMA-API compilation for non-PCI systems
-Date: Mon, 10 Nov 2008 14:53:43 -0800 (PST)
-Message-ID: <20081110.145343.171487164.davem@davemloft.net>
-References: <20081110.135231.96349017.davem@davemloft.net>
-	<200811102307.37838.mb@bu3sch.de>
+From: Ferenc Wagner <wferi@niif.hu>
+Subject: Re: [PATCH] vlan: Fix typos in proc output string
+Date: Tue, 11 Nov 2008 00:20:17 +0100
+Message-ID: <87hc6f5fta.fsf@tac.ki.iif.hu>
+References: <877i7hyuf0.fsf@tac.ki.iif.hu>
+	<20081110.133802.83808112.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: mb@bu3sch.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39421
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751557AbYKJWxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2008 17:53:44 -0500
-In-Reply-To: <200811102307.37838.mb@bu3sch.de>
+Received: from tac.ki.iif.hu ([193.6.222.43]:56545 "EHLO tac.ki.iif.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750865AbYKJXUU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2008 18:20:20 -0500
+In-Reply-To: <20081110.133802.83808112.davem@davemloft.net> (David Miller's
+	message of "Mon, 10 Nov 2008 13:38:02 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Buesch <mb@bu3sch.de>
-Date: Mon, 10 Nov 2008 23:07:37 +0100
+David Miller <davem@davemloft.net> writes:
 
-> On Monday 10 November 2008 22:52:31 David Miller wrote:
-> > 
-> > I applied this since it's a build buster and we should
-> > get it fixed quickly.
-> > 
-> > But as I look at this, the thing to really do here is get
-> > rid of these stupid switch statements.  None of it is needed.
-> > 
-> > The layer that sets up the SSB devices should simply save the
-> > generic device pointer for the DMA entity into some new
-> > ->dma_dev struct member.
-> >
-> > Then you just use generic dma_*() interfaces unilaterally.  For PCI
-> > devices it will "just work".
-> 
-> We tried that. It doesn't work. It breaks on several architectures
-> that do special things in the pci_dma... functions.
-> See the git history and mailinglists, please.
+> From: Ferenc Wagner <wferi@niif.hu>
+> Date: Thu, 06 Nov 2008 12:18:27 +0100
+>
+>> Signed-off-by: Ferenc Wagner <wferi@niif.hu>
+>  ...
+>> @@ -314,7 +314,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
+>>  		   dev_info->ingress_priority_map[6],
+>>  		   dev_info->ingress_priority_map[7]);
+>>  
+>> -	seq_printf(seq, "EGRESSS priority Mappings: ");
+>> +	seq_printf(seq, " EGRESS priority mappings: ");
+>>  	for (i = 0; i < 16; i++) {
+>>  		const struct vlan_priority_tci_mapping *mp
+>>  			= dev_info->egress_priority_map[i];
+>
+> The typo fix is clearly correct, but adding the leading
+> space is not.  Are you simply trying to make the values
+> line up with the INGRESS ones on the previous line?
 
-Then those architectures need to fix their implementations,
-simply.  They aren't implementing the generic DMA interfaces
-properly.  Other subsystems do make use of the generic DMA
-interfaces in this way.
+Not as much the values, as those are separated by single spaces on the
+egress line but double spaces on the ingress line, except for 6 and 7,
+so that is a mess anyway (shall I send another most important patch to
+this end?)  But I find the titles easier to parse when their common
+parts are lined up.
 
-Even something as simple as checking for &pci_bus_type in the
-dma_*() routines (like powerpc did for quite some time) is
-enough to fix the problem.
+> Anyways, I'm applying this fix, but I wish you had clarified
+> the change as it wasn't totally clear even to me.
+
+Thanks, sorry, and next time I will try to be more explicit.
+-- 
+Regards,
+Feri.
