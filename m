@@ -1,55 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [proposed patch] via-rhine: prevent oops when requesting an IRQ
-Date: Mon, 10 Nov 2008 17:35:14 -0500
-Message-ID: <4918B722.8020703@garzik.org>
-References: <20081104192357.2b0dbe22@redhat.com>	<491289AD.9070401@garzik.org> <20081110172836.0aaec702@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ssb: Fix DMA-API compilation for non-PCI systems
+Date: Mon, 10 Nov 2008 14:53:43 -0800 (PST)
+Message-ID: <20081110.145343.171487164.davem@davemloft.net>
+References: <20081110.135231.96349017.davem@davemloft.net>
+	<200811102307.37838.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Chuck Ebbert <cebbert@redhat.com>
+To: mb@bu3sch.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33269 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752763AbYKJWfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2008 17:35:17 -0500
-In-Reply-To: <20081110172836.0aaec702@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39421
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751557AbYKJWxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2008 17:53:44 -0500
+In-Reply-To: <200811102307.37838.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chuck Ebbert wrote:
-> On Thu, 06 Nov 2008 01:07:41 -0500
-> Jeff Garzik <jeff@garzik.org> wrote:
+From: Michael Buesch <mb@bu3sch.de>
+Date: Mon, 10 Nov 2008 23:07:37 +0100
+
+> On Monday 10 November 2008 22:52:31 David Miller wrote:
+> > 
+> > I applied this since it's a build buster and we should
+> > get it fixed quickly.
+> > 
+> > But as I look at this, the thing to really do here is get
+> > rid of these stupid switch statements.  None of it is needed.
+> > 
+> > The layer that sets up the SSB devices should simply save the
+> > generic device pointer for the DMA entity into some new
+> > ->dma_dev struct member.
+> >
+> > Then you just use generic dma_*() interfaces unilaterally.  For PCI
+> > devices it will "just work".
 > 
->> Chuck Ebbert wrote:
->>> via-rhine: prevent oops when requesting an IRQ
->>>
->>> via-rhine requests an IRQ before it's ready to handle an interrupt.
->>> It oopses when CONFIG_DEBUG_SHIRQ is enabled.
->>>
->>> https://bugzilla.redhat.com/show_bug.cgi?id=469303
->>>
->>> ---
->>>
->>> NOTE: UNTESTED: Is it okay to init the hardware before requesting the
->>> IRQ, or should that be done afterward?
->> First of all, _ideally_ your interrupt handler should be able to any 
->> state of software initialization, once registers are mapped.  So I would 
->> first concentrate on "hardening" the interrupt handler, if feasible.
->>
->> It is certainly a common technique to disable interrupts somehow, during 
->> initialization of the hardware.  Note, though, that doing things before 
->> request_irq() is no real guarantee you are out of danger -- you might be 
->> on a shared PCI irq, and your init causes that interrupt to "scream" 
->> even though your driver has not registered the irq.
->>
-> 
-> The problem with this driver is that it doesn't call alloc_ring() before
-> request_irq() and then it oopses in the interrupt handler trying to access
-> the ring.
+> We tried that. It doesn't work. It breaks on several architectures
+> that do special things in the pci_dma... functions.
+> See the git history and mailinglists, please.
 
-Allocation should definitely occur prior to request_irq()
+Then those architectures need to fix their implementations,
+simply.  They aren't implementing the generic DMA interfaces
+properly.  Other subsystems do make use of the generic DMA
+interfaces in this way.
 
-	Jeff
-
-
+Even something as simple as checking for &pci_bus_type in the
+dma_*() routines (like powerpc did for quite some time) is
+enough to fix the problem.
