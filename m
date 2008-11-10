@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [1/3] IRDA: Create new field tx_extra in skbuff
-Date: Mon, 10 Nov 2008 12:51:16 -0800 (PST)
-Message-ID: <20081110.125116.67111379.davem@davemloft.net>
-References: <49185CBD.2040601@ceibo.fiec.espol.edu.ec>
+Subject: Re: [PATCH 1/4] dccp: Limit feature negotiation to connection
+ setup phase
+Date: Mon, 10 Nov 2008 13:15:15 -0800 (PST)
+Message-ID: <20081110.131515.155716151.davem@davemloft.net>
+References: <20081104.235652.27274000.davem@davemloft.net>
+	<1225950014-6337-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1225950014-6337-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org
-To: avillaci@ceibo.fiec.espol.edu.ec
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59026
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58210
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752892AbYKJUvQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2008 15:51:16 -0500
-In-Reply-To: <49185CBD.2040601@ceibo.fiec.espol.edu.ec>
+	by vger.kernel.org with ESMTP id S1751016AbYKJVPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2008 16:15:16 -0500
+In-Reply-To: <1225950014-6337-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Alex Villac=ED=ADs Lasso <avillaci@ceibo.fiec.espol.edu.ec>
-Date: Mon, 10 Nov 2008 11:09:33 -0500
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu,  6 Nov 2008 06:40:11 +0100
 
-> @@ -279,6 +279,14 @@
->  	 */
->  	char			cb[48];
-> =20
-> +	/*
-> +	 * Additional space for layer-specific variables that need to
-> +	 * survive past dev_queue_xmit(), which clobbers cb above.
-> +	 * Intended for use by drivers that need additional layer-specific
-> +	 * parameters in order to transmit a packet properly.
-> +	 */
-> +	char			tx_extra[32];
-> +
+> This patch limits feature-negotiation to the connnection-setup phase:
+> 
+>  1. Although it is theoretically possible to perform feature negotiation at any
+>     time (and RFC 4340 supports this), in practice this is prohibitively complex,
+>     as it requires to put traffic on hold for each new negotiation.
+>  2. As a byproduct of restricting feature negotiation to connection setup, the
+>     feature-negotiation retransmit timer is no longer required. This part is now
+>     mapped onto the protocol-level retransmission.
+>     Details indicating why timers are no longer needed can be found on
+>     http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
+> 	                                      implementation_notes.html
+> 
+> This patch disables anytime negotiation, subsequent patches work out full
+> feature negotiation support for connection setup.
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-This kind of bloat is absolutely not acceptable.
-
-With IRDA as the only user of this thing, %99.99999 of systems out
-there will just have this wasted space doing absolutely nothing.
+Applied.
