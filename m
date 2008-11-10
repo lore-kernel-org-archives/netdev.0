@@ -1,54 +1,44 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: Re: [PATCH] vlan: Fix typos in proc output string
-Date: Tue, 11 Nov 2008 00:20:17 +0100
-Message-ID: <87hc6f5fta.fsf@tac.ki.iif.hu>
-References: <877i7hyuf0.fsf@tac.ki.iif.hu>
-	<20081110.133802.83808112.davem@davemloft.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: ssb: Fix DMA-API compilation for non-PCI systems
+Date: Tue, 11 Nov 2008 00:32:00 +0100
+Message-ID: <200811110032.00814.mb@bu3sch.de>
+References: <20081110.135231.96349017.davem@davemloft.net> <200811102307.37838.mb@bu3sch.de> <20081110.145343.171487164.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:56545 "EHLO tac.ki.iif.hu"
+Received: from bu3sch.de ([62.75.166.246]:37377 "EHLO vs166246.vserver.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750865AbYKJXUU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2008 18:20:20 -0500
-In-Reply-To: <20081110.133802.83808112.davem@davemloft.net> (David Miller's
-	message of "Mon, 10 Nov 2008 13:38:02 -0800 (PST)")
+	id S1752650AbYKJXcZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2008 18:32:25 -0500
+In-Reply-To: <20081110.145343.171487164.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Monday 10 November 2008 23:53:43 David Miller wrote:
+> Then those architectures need to fix their implementations,
+> simply.  They aren't implementing the generic DMA interfaces
+> properly.  Other subsystems do make use of the generic DMA
+> interfaces in this way.
+> 
+> Even something as simple as checking for &pci_bus_type in the
+> dma_*() routines (like powerpc did for quite some time) is
+> enough to fix the problem.
 
-> From: Ferenc Wagner <wferi@niif.hu>
-> Date: Thu, 06 Nov 2008 12:18:27 +0100
->
->> Signed-off-by: Ferenc Wagner <wferi@niif.hu>
->  ...
->> @@ -314,7 +314,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
->>  		   dev_info->ingress_priority_map[6],
->>  		   dev_info->ingress_priority_map[7]);
->>  
->> -	seq_printf(seq, "EGRESSS priority Mappings: ");
->> +	seq_printf(seq, " EGRESS priority mappings: ");
->>  	for (i = 0; i < 16; i++) {
->>  		const struct vlan_priority_tci_mapping *mp
->>  			= dev_info->egress_priority_map[i];
->
-> The typo fix is clearly correct, but adding the leading
-> space is not.  Are you simply trying to make the values
-> line up with the INGRESS ones on the previous line?
+Yeah, sure. The architectures are broken.
+But the bugreports hit _my_ code. I got pretty tired of forwarding stuff
+to the arch maintainers, so I implemented something that does work in
+every situation. The bugreports stopped immediately (Except this tiny build
+failure that does only hit under rare circumstances).
 
-Not as much the values, as those are separated by single spaces on the
-egress line but double spaces on the ingress line, except for 6 and 7,
-so that is a mess anyway (shall I send another most important patch to
-this end?)  But I find the titles easier to parse when their common
-parts are lined up.
+DMA is pretty much a mess, if you look at how ever arch does implement the API
+in a slightly different way.
+If somebody wants to fix this, I'm certainly OK with it. But for now we will
+have to live with SSB implementing a wrapper around the ssb-host-device DMA APIs.
 
-> Anyways, I'm applying this fix, but I wish you had clarified
-> the change as it wasn't totally clear even to me.
-
-Thanks, sorry, and next time I will try to be more explicit.
 -- 
-Regards,
-Feri.
+Greetings Michael.
