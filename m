@@ -1,447 +1,103 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] phylib: make mdio-gpio work without OF (v3)
-Date: Mon, 10 Nov 2008 17:11:46 +0200
-Message-ID: <20081110151145.12986.45668.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
+From: =?ISO-8859-1?Q?Alex_Villac=ED=ADs_Lasso?=
+	<avillaci@ceibo.fiec.espol.edu.ec>
+Subject: [1/3] IRDA: Create new field tx_extra in skbuff
+Date: Mon, 10 Nov 2008 11:09:33 -0500
+Message-ID: <49185CBD.2040601@ceibo.fiec.espol.edu.ec>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: multipart/mixed;
+ boundary="------------050802030305090406010507"
+To: irda-users@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host-200-93-199-98.telconet.net ([200.93.199.98]:58354 "EHLO
+	elastix.palosanto.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751347AbYKJQKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2008 11:10:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------050802030305090406010507
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+
+For background, see regression report at 
+http://bugzilla.kernel.org/show_bug.cgi?id=11795
+
+This patchset attempts to fix a regression that broke the irda stack as 
+a result of the qdisc patches merged in 2.6.27.
+
+The previous patchsets attempt to fix the clobbering of the irda 
+information by storing it within the data payload itself, as an 
+additional header. For this, space has been allocated via skb_pull (?!) 
+and later, skb_reserve(). The problem with this approach is that  we do 
+not have a guarantee that all skbuffs that are processed in the irda 
+stack are actually allocated with functions that reserve the required 
+space for the irda metadata, especially in the tx route. In addition, 
+this approach mixes the payload data with metadata that should not be 
+transmitted at all, which is a bit disorganized.
+
+This is the first of 3 patches that try a different approach. Instead of 
+allocating an additional "header" within the data buffer itself, it 
+introduces a new field within the skbuff, named tx_extra. This field 
+should be used for passing data from the higher layers that is required 
+for the drivers to transmit the packet correctly, and formalizes the 
+previous usage of the cb field by the irda stack. The only issue I see 
+is that every single skbuff carries an additional 32 bytes which are not 
+put to any use in other stacks (for now). I was thinking about a pointer 
+field to on-the-fly allocated data, but that means messing around with 
+the skbuff allocation functions, the cloning functions (involving 
+deciding how to behave on cloning), etc. This way is simpler to understand.
+
+This patch and the other two that follow fix the issue for me under 
+2.6.28-rc3. Please comment on this, as I am messing around with the 
+skbuff structure, which potentially affects all network stacks.
+
+Signed-off-by: Alex Villacís Lasso <a_villacis@palosanto.com>
+
+-- 
+perl -e '$x=2.4;print sprintf("%.0f + %.0f = %.0f\n",$x,$x,$x+$x);'
+
+
+--------------050802030305090406010507
+Content-Type: text/x-patch;
+ name="0001-irda-Introduce_skbuff_tx_extra.patch"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	Laurent Pinchart <laurent.pinchart@skynet.be>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Mike Frysinger <vapier.adi@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-embedded-owner@vger.kernel.org>
-Received: from 82-135-208-232.static.zebra.lt (HELO Programuotojas.82-135-208-232.ip.zebra.lt) (paulius.zaleckas@[82.135.208.232])
-          (envelope-sender <paulius.zaleckas@teltonika.lt>)
-          by teltonika.lt (qmail-ldap-1.03) with SMTP
-          for <netdev@vger.kernel.org>; 10 Nov 2008 15:09:47 -0000
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: inline;
+ filename="0001-irda-Introduce_skbuff_tx_extra.patch"
 
-make mdio-gpio work with non OpenFirmware gpio implementation.
-
-Aditional changes to mdio-gpio:
-- use gpio_request() and gpio_free()
-- place irq[] array in struct mdio_gpio_info
-- add module description, author and license
-- add note about compiling this driver as module
-- rename mdc and mdio function (were ugly names)
-- change MII to MDIO in bus name
-- add __init __exit to module (un)loading functions
-- probe fails if no phys added to the bus
-- kzalloc bitbang with sizeof(*bitbang)
-
-Changes since v2:
-- more #ifdefs reduction
-- platform driver will be registered on OF platforms also
-- unified platform and OF bus_id to phy%i
-
-Changes since v1:
-- removed NO_IRQ
-- reduced #idefs
-
-Laurent, please test this driver under OF.
-
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Cc: Laurent Pinchart <laurent.pinchart@skynet.be>
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Cc: Mike Frysinger <vapier.adi@gmail.com>
----
-
- drivers/net/phy/Kconfig     |    5 +
- drivers/net/phy/mdio-gpio.c |  232 ++++++++++++++++++++++++++++++-------------
- include/linux/mdio-gpio.h   |   25 +++++
- 3 files changed, 191 insertions(+), 71 deletions(-)
- create mode 100644 include/linux/mdio-gpio.h
-
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 0318077..c4c5a2f 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -86,8 +86,11 @@ config MDIO_BITBANG
+diff -ur linux-2.6.28-rc3-git-orig/include/linux/skbuff.h linux-2.6.28-rc3-git/include/linux/skbuff.h
+--- linux-2.6.28-rc3-git-orig/include/linux/skbuff.h	2008-11-06 19:44:23.000000000 -0500
++++ linux-2.6.28-rc3-git/include/linux/skbuff.h	2008-11-08 11:47:46.000000000 -0500
+@@ -279,6 +279,14 @@
+ 	 */
+ 	char			cb[48];
  
- config MDIO_GPIO
- 	tristate "Support for GPIO lib-based bitbanged MDIO buses"
--	depends on MDIO_BITBANG && OF_GPIO
-+	depends on MDIO_BITBANG && GENERIC_GPIO
- 	---help---
- 	  Supports GPIO lib-based MDIO busses.
- 
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called mdio-gpio.
++	/*
++	 * Additional space for layer-specific variables that need to
++	 * survive past dev_queue_xmit(), which clobbers cb above.
++	 * Intended for use by drivers that need additional layer-specific
++	 * parameters in order to transmit a packet properly.
++	 */
++	char			tx_extra[32];
 +
- endif # PHYLIB
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 2ff9775..1a889fa 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -1,9 +1,12 @@
+ 	unsigned int		len,
+ 				data_len;
+ 	__u16			mac_len,
+diff -ur linux-2.6.28-rc3-git-orig/include/net/irda/irda_device.h linux-2.6.28-rc3-git/include/net/irda/irda_device.h
+--- linux-2.6.28-rc3-git-orig/include/net/irda/irda_device.h	2008-11-06 19:44:23.000000000 -0500
++++ linux-2.6.28-rc3-git/include/net/irda/irda_device.h	2008-11-08 11:55:00.000000000 -0500
+@@ -230,6 +230,12 @@
+ 
+ void irda_setup_dma(int channel, dma_addr_t buffer, int count, int mode);
+ 
++
++static inline struct irda_skb_cb *irda_get_skb_cb(struct sk_buff *skb)
++{
++	return (struct irda_skb_cb *)skb->tx_extra;
++}
++
  /*
-- * OpenFirmware GPIO based MDIO bitbang driver.
-+ * GPIO based MDIO bitbang driver.
-+ * Supports OpenFirmware.
+  * Function irda_get_mtt (skb)
   *
-  * Copyright (c) 2008 CSE Semaphore Belgium.
-  *  by Laurent Pinchart <laurentp@cse-semaphore.com>
-  *
-+ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-+ *
-  * Based on earlier work by
-  *
-  * Copyright (c) 2003 Intracom S.A.
-@@ -21,9 +24,14 @@
- #include <linux/slab.h>
- #include <linux/init.h>
- #include <linux/interrupt.h>
--#include <linux/mdio-bitbang.h>
-+#include <linux/platform_device.h>
-+#include <linux/gpio.h>
-+#include <linux/mdio-gpio.h>
-+
-+#ifdef CONFIG_OF_GPIO
- #include <linux/of_gpio.h>
- #include <linux/of_platform.h>
-+#endif
- 
- struct mdio_gpio_info {
- 	struct mdiobb_ctrl ctrl;
-@@ -41,7 +49,7 @@ static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
- 		gpio_direction_input(bitbang->mdio);
- }
- 
--static int mdio_read(struct mdiobb_ctrl *ctrl)
-+static int mdio_get(struct mdiobb_ctrl *ctrl)
- {
- 	struct mdio_gpio_info *bitbang =
- 		container_of(ctrl, struct mdio_gpio_info, ctrl);
-@@ -49,7 +57,7 @@ static int mdio_read(struct mdiobb_ctrl *ctrl)
- 	return gpio_get_value(bitbang->mdio);
- }
- 
--static void mdio(struct mdiobb_ctrl *ctrl, int what)
-+static void mdio_set(struct mdiobb_ctrl *ctrl, int what)
- {
- 	struct mdio_gpio_info *bitbang =
- 		container_of(ctrl, struct mdio_gpio_info, ctrl);
-@@ -57,7 +65,7 @@ static void mdio(struct mdiobb_ctrl *ctrl, int what)
- 	gpio_set_value(bitbang->mdio, what);
- }
- 
--static void mdc(struct mdiobb_ctrl *ctrl, int what)
-+static void mdc_set(struct mdiobb_ctrl *ctrl, int what)
- {
- 	struct mdio_gpio_info *bitbang =
- 		container_of(ctrl, struct mdio_gpio_info, ctrl);
-@@ -67,93 +75,69 @@ static void mdc(struct mdiobb_ctrl *ctrl, int what)
- 
- static struct mdiobb_ops mdio_gpio_ops = {
- 	.owner = THIS_MODULE,
--	.set_mdc = mdc,
-+	.set_mdc = mdc_set,
- 	.set_mdio_dir = mdio_dir,
--	.set_mdio_data = mdio,
--	.get_mdio_data = mdio_read,
-+	.set_mdio_data = mdio_set,
-+	.get_mdio_data = mdio_get,
- };
- 
--static int __devinit mdio_ofgpio_bitbang_init(struct mii_bus *bus,
--                                         struct device_node *np)
--{
--	struct mdio_gpio_info *bitbang = bus->priv;
--
--	bitbang->mdc = of_get_gpio(np, 0);
--	bitbang->mdio = of_get_gpio(np, 1);
--
--	if (bitbang->mdc < 0 || bitbang->mdio < 0)
--		return -ENODEV;
--
--	snprintf(bus->id, MII_BUS_ID_SIZE, "%x", bitbang->mdc);
--	return 0;
--}
--
--static void __devinit add_phy(struct mii_bus *bus, struct device_node *np)
-+static int __devinit mdio_gpio_bus_init(struct device *dev,
-+					struct mdio_gpio_platform_data *pdata,
-+					int bus_id)
- {
--	const u32 *data;
--	int len, id, irq;
--
--	data = of_get_property(np, "reg", &len);
--	if (!data || len != 4)
--		return;
--
--	id = *data;
--	bus->phy_mask &= ~(1 << id);
--
--	irq = of_irq_to_resource(np, 0, NULL);
--	if (irq != NO_IRQ)
--		bus->irq[id] = irq;
--}
--
--static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
--                                        const struct of_device_id *match)
--{
--	struct device_node *np = NULL;
- 	struct mii_bus *new_bus;
- 	struct mdio_gpio_info *bitbang;
- 	int ret = -ENOMEM;
- 	int i;
- 
--	bitbang = kzalloc(sizeof(struct mdio_gpio_info), GFP_KERNEL);
-+	bitbang = kzalloc(sizeof(*bitbang), GFP_KERNEL);
- 	if (!bitbang)
- 		goto out;
- 
- 	bitbang->ctrl.ops = &mdio_gpio_ops;
-+	bitbang->mdc = pdata->mdc;
-+	bitbang->mdio = pdata->mdio;
- 
- 	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
- 	if (!new_bus)
- 		goto out_free_bitbang;
- 
--	new_bus->name = "GPIO Bitbanged MII",
-+	new_bus->name = "GPIO Bitbanged MDIO",
- 
--	ret = mdio_ofgpio_bitbang_init(new_bus, ofdev->node);
--	if (ret)
--		goto out_free_bus;
-+	ret = -ENODEV;
- 
--	new_bus->phy_mask = ~0;
--	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
--	if (!new_bus->irq)
-+	new_bus->phy_mask = pdata->phy_mask;
-+	new_bus->irq = pdata->irqs;
-+	new_bus->parent = dev;
-+
-+	if (new_bus->phy_mask == ~0)
- 		goto out_free_bus;
- 
- 	for (i = 0; i < PHY_MAX_ADDR; i++)
--		new_bus->irq[i] = -1;
-+		if (!new_bus->irq[i])
-+			new_bus->irq[i] = PHY_POLL;
- 
--	while ((np = of_get_next_child(ofdev->node, np)))
--		if (!strcmp(np->type, "ethernet-phy"))
--			add_phy(new_bus, np);
-+	snprintf(new_bus->id, MII_BUS_ID_SIZE, "phy%i", bus_id);
-+
-+	if (gpio_request(bitbang->mdc, "mdc"))
-+		goto out_free_bus;
- 
--	new_bus->parent = &ofdev->dev;
--	dev_set_drvdata(&ofdev->dev, new_bus);
-+	if (gpio_request(bitbang->mdio, "mdio"))
-+		goto out_free_mdc;
-+
-+	dev_set_drvdata(dev, new_bus);
- 
- 	ret = mdiobus_register(new_bus);
- 	if (ret)
--		goto out_free_irqs;
-+		goto out_free_all;
- 
- 	return 0;
- 
--out_free_irqs:
--	dev_set_drvdata(&ofdev->dev, NULL);
--	kfree(new_bus->irq);
-+out_free_all:
-+	dev_set_drvdata(dev, NULL);
-+	gpio_free(bitbang->mdio);
-+out_free_mdc:
-+	gpio_free(bitbang->mdc);
- out_free_bus:
- 	free_mdio_bitbang(new_bus);
- out_free_bitbang:
-@@ -162,16 +146,86 @@ out:
- 	return ret;
- }
- 
--static int mdio_ofgpio_remove(struct of_device *ofdev)
-+static void __devexit mdio_gpio_bus_destroy(struct device *dev)
- {
--	struct mii_bus *bus = dev_get_drvdata(&ofdev->dev);
-+	struct mii_bus *bus = dev_get_drvdata(dev);
- 	struct mdio_gpio_info *bitbang = bus->priv;
- 
- 	mdiobus_unregister(bus);
--	kfree(bus->irq);
- 	free_mdio_bitbang(bus);
--	dev_set_drvdata(&ofdev->dev, NULL);
-+	dev_set_drvdata(dev, NULL);
-+	gpio_free(bitbang->mdc);
-+	gpio_free(bitbang->mdio);
- 	kfree(bitbang);
-+}
-+
-+static int __devinit mdio_gpio_probe(struct platform_device *pdev)
-+{
-+	struct mdio_gpio_platform_data *pdata = pdev->dev.platform_data;
-+
-+	if (!pdata)
-+		return -ENODEV;
-+
-+	return mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
-+}
-+
-+static int __devexit mdio_gpio_remove(struct platform_device *pdev)
-+{
-+	mdio_gpio_bus_destroy(&pdev->dev);
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_OF_GPIO
-+static void __devinit add_phy(struct mdio_gpio_platform_data *pdata,
-+			      struct device_node *np)
-+{
-+	const u32 *data;
-+	int len, id, irq;
-+
-+	data = of_get_property(np, "reg", &len);
-+	if (!data || len != 4)
-+		return;
-+
-+	id = *data;
-+	pdata->phy_mask &= ~(1 << id);
-+
-+	irq = of_irq_to_resource(np, 0, NULL);
-+	if (irq)
-+		pdata->irqs[id] = irq;
-+}
-+
-+static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
-+                                        const struct of_device_id *match)
-+{
-+	struct device_node *np = NULL;
-+	struct mdio_gpio_platform_data *pdata;
-+
-+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
-+	if (!pdata)
-+		return -ENOMEM;
-+
-+	pdata->mdc = of_get_gpio(ofdev->node, 0);
-+	pdata->mdio = of_get_gpio(ofdev->node, 1);
-+
-+	if (pdata->mdc < 0 || pdata->mdio < 0)
-+		goto out_free;
-+
-+	while ((np = of_get_next_child(ofdev->node, np)))
-+		if (!strcmp(np->type, "ethernet-phy"))
-+			add_phy(pdata, np);
-+
-+	return mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
-+
-+out_free:
-+	kfree(pdata);
-+	return -ENODEV;
-+}
-+
-+static int __devexit mdio_ofgpio_remove(struct of_device *ofdev)
-+{
-+	mdio_gpio_bus_destroy(&ofdev->dev);
-+	kfree(ofdev->dev.platform_data);
- 
- 	return 0;
- }
-@@ -187,18 +241,56 @@ static struct of_platform_driver mdio_ofgpio_driver = {
- 	.name = "mdio-gpio",
- 	.match_table = mdio_ofgpio_match,
- 	.probe = mdio_ofgpio_probe,
--	.remove = mdio_ofgpio_remove,
-+	.remove = __devexit_p(mdio_ofgpio_remove),
- };
- 
--static int mdio_ofgpio_init(void)
-+static inline int __init mdio_ofgpio_init(void)
- {
- 	return of_register_platform_driver(&mdio_ofgpio_driver);
- }
- 
--static void mdio_ofgpio_exit(void)
-+static inline void __exit mdio_ofgpio_exit(void)
- {
- 	of_unregister_platform_driver(&mdio_ofgpio_driver);
- }
-+#else
-+static inline int __init mdio_ofgpio_init(void) { return 0; }
-+static inline void __exit mdio_ofgpio_exit(void) { }
-+#endif /* CONFIG_OF_GPIO */
-+
-+static struct platform_driver mdio_gpio_driver = {
-+	.probe = mdio_gpio_probe,
-+	.remove = __devexit_p(mdio_gpio_remove),
-+	.driver		= {
-+		.name	= "mdio-gpio",
-+		.owner	= THIS_MODULE,
-+	},
-+};
-+
-+static int __init mdio_gpio_init(void)
-+{
-+	int ret;
-+
-+	ret = mdio_ofgpio_init();
-+	if (ret)
-+		return ret;
-+
-+	ret = platform_driver_register(&mdio_gpio_driver);
-+	if (ret)
-+		mdio_ofgpio_exit();
-+
-+	return ret;
-+}
-+module_init(mdio_gpio_init);
-+
-+static void __exit mdio_gpio_exit(void)
-+{
-+	platform_driver_unregister(&mdio_gpio_driver);
-+	mdio_ofgpio_exit();
-+}
-+module_exit(mdio_gpio_exit);
- 
--module_init(mdio_ofgpio_init);
--module_exit(mdio_ofgpio_exit);
-+MODULE_ALIAS("platform:mdio-gpio");
-+MODULE_AUTHOR("Laurent Pinchart, Paulius Zaleckas");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("Generic driver for MDIO bus emulation using GPIO");
-diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
-new file mode 100644
-index 0000000..e9d3fdf
---- /dev/null
-+++ b/include/linux/mdio-gpio.h
-@@ -0,0 +1,25 @@
-+/*
-+ * MDIO-GPIO bus platform data structures
-+ *
-+ * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2. This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#ifndef __LINUX_MDIO_GPIO_H
-+#define __LINUX_MDIO_GPIO_H
-+
-+#include <linux/mdio-bitbang.h>
-+
-+struct mdio_gpio_platform_data {
-+	/* GPIO numbers for bus pins */
-+	unsigned int mdc;
-+	unsigned int mdio;
-+
-+	unsigned int phy_mask;
-+	int irqs[PHY_MAX_ADDR];
-+};
-+
-+#endif /* __LINUX_MDIO_GPIO_H */
+
+--------------050802030305090406010507--
