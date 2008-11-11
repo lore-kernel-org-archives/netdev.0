@@ -1,39 +1,42 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] ixgbe: Fix usage of netif_*_all_queues() with
-	netif_carrier_{off|on}()
-Date: Tue, 11 Nov 2008 00:37:37 -0800
-Message-ID: <F86E8680A7D9D74A99DC6345E35A69290DF8592E@orsmsx503.amr.corp.intel.com>
-References: <20081107221608.13396.10693.stgit@gitlost.lost>
- <49194369.7030902@garzik.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: ssb: Fix DMA-API compilation for non-PCI systems
+Date: Tue, 11 Nov 2008 03:56:35 -0500
+Message-ID: <20081111085635.GA6511@infradead.org>
+References: <20081110.135231.96349017.davem@davemloft.net> <200811102307.37838.mb@bu3sch.de> <20081110.145343.171487164.davem@davemloft.net> <200811110032.00814.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Jeff Garzik <jeff@garzik.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28422 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755339AbYKKIhk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2008 03:37:40 -0500
-In-Reply-To: <49194369.7030902@garzik.org>
-Content-Language: en-US
+Received: from bombadil.infradead.org ([18.85.46.34]:60693 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755832AbYKKI4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 03:56:37 -0500
+Content-Disposition: inline
+In-Reply-To: <200811110032.00814.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+PiBGcm9tOiBQSiBXYXNraWV3aWN6IDxwZXRlci5wLndh
-c2tpZXdpY3ouanJAaW50ZWwuY29tPg0KPj4NCj4+IG5ldGlmX2NhcnJpZXJfb2ZmKCkgaXMgc3Vm
-ZmljaWVudCB0byBzdG9wIFR4IGludG8gdGhlIGRyaXZlci4gIFN0b3BwaW5nIHRoZSBUeA0KPj4g
-cXVldWVzIGlzIHJlZHVuZGFudCBhbmQgdW5uZWNlc3NhcnkuICBCeSB0aGUgc2FtZSB0b2tlbiwg
-bmV0aWZfY2Fycmllcl9vbigpDQo+PiB3aWxsIGJlIHN1ZmZpY2llbnQgdG8gcmUtZW5hYmxlIFR4
-LCBzbyB3YWtpbmcgdGhlIHF1ZXVlcyBpcyB1bm5lY2Vzc2FyeS4NCg0KPiBJcyB0aGlzIGEgZml4
-IGFzIHRoZSBzdWJqZWN0IHNheXMgKDIuNi4yOCksIG9yIGFuIG9wdGltaXphdGlvbiBhcyB0aGUN
-Cj4gZGVzY3JpcHRpb24gaW1wbGllcyAoMi42LjI5KT8NCg0KPiBBRkFJQ1MgZnJvbSBhIHF1aWNr
-IGdsYW5jZSwgdGhpbmdzIGFyZSBub3QgYWN0dWFsbHkgX2Jyb2tlbl8sIGFyZSB0aGV5Pw0KDQo+
-ICAgICAgICBKZWZmDQoNClRoaXMgY2FuIGJlIGFwcGxpZWQgdG8gMi42LjI5OyBpdCBkb2Vzbid0
-IG5lZWQgMi42LjI4IGluY2x1c2lvbi4gIE5vdGhpbmcgaXMgYnJva2VuIGhlcmUsIGl0J3MganVz
-dCBwb29yIHVzYWdlLiAgRGF2ZU0gcG9pbnRlZCB0aGlzIG91dCB0byB1cyBhd2hpbGUgYWdvLCBh
-bmQgSSd2ZSBmaW5hbGx5IGdvdHRlbiBhcm91bmQgdG8gZ2V0dGluZyB0aGUgc2ltcGxlIHBhdGNo
-IG91dCB0byBjb3JyZWN0IHRoZSB1bm5lZWRlZCBvdmVyaGVhZC4NCg0KQ2hlZXJzLA0KLVBKIFdh
-c2tpZXdpY3oNCg==
+On Tue, Nov 11, 2008 at 12:32:00AM +0100, Michael Buesch wrote:
+> On Monday 10 November 2008 23:53:43 David Miller wrote:
+> > Then those architectures need to fix their implementations,
+> > simply.  They aren't implementing the generic DMA interfaces
+> > properly.  Other subsystems do make use of the generic DMA
+> > interfaces in this way.
+> > 
+> > Even something as simple as checking for &pci_bus_type in the
+> > dma_*() routines (like powerpc did for quite some time) is
+> > enough to fix the problem.
+> 
+> Yeah, sure. The architectures are broken.
+> But the bugreports hit _my_ code. I got pretty tired of forwarding stuff
+> to the arch maintainers, so I implemented something that does work in
+> every situation. The bugreports stopped immediately (Except this tiny build
+> failure that does only hit under rare circumstances).
+> 
+> DMA is pretty much a mess, if you look at how ever arch does implement the API
+> in a slightly different way.
+
+We have tons of PCI drivers using the dma_ routines.  So please report
+the broken architecture to get it fixes instead of whining.
+
