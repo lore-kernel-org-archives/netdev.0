@@ -1,54 +1,71 @@
-From: "Lovich, Vitali" <vlovich@qualcomm.com>
-Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Tue, 11 Nov 2008 10:19:43 -0800
-Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C4@NASANEXMB10.na.qualcomm.com>
-References: <1225450706.5301.94.camel@localhost>
-	 <20081106080316.GA32337@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FA8@NASANEXMB10.na.qualcomm.com>
-	 <20081106194032.GB31673@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FBE@NASANEXMB10.na.qualcomm.com>
-	 <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61024@NASANEXMB10.na.qualcomm.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61126@NASANEXMB10.na.qualcomm.com>
-	 <7e0dd21a0811110410v5fa8abadib70cebecb282bc1@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B8@NASANEXMB10.na.qualcomm.com>
- <7e0dd21a0811111008x2e674384kaa560d766a8f643e@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-next-2.6 2008-11-11
+Date: Tue, 11 Nov 2008 13:18:35 -0500
+Message-ID: <20081111181834.GA20151@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Johann Baudy <johaahn@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:29967 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141AbYKKSTq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 13:19:46 -0500
-In-Reply-To: <7e0dd21a0811111008x2e674384kaa560d766a8f643e@mail.gmail.com>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37876 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750725AbYKKSbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 13:31:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dave,
 
+Another quick patch for 2.6.29 -- this fixes a build break for ath9k
+when RFKILL is enabled.  Sorry for letting that slip through!
 
-> -----Original Message-----
-> From: Johann Baudy [mailto:johaahn@gmail.com]
-> Sent: November-11-08 10:08 AM
-> To: Lovich, Vitali
-> Cc: Evgeniy Polyakov; netdev@vger.kernel.org
-> Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-> 
-> If there is an error in packet_skb_fill, it returns a negative value
-> as error code. If a negative value is returned from packet_skb_fill we
-> exit send() procedure and set status of packet to TP_STATUS_USER.
-> (this is how error is handled in my last code (not sure committed
-> one)).
-> Do you want to introduce a new packet status that marks packet as
-> ERROR (with TP_STATUS_LOOSING for example?). This way user will be
-> able to determine easily the one which is failing?
-> 
-> PS: I need to test my last code at office and I'll send it.
-I'm saying that that frame's status should just be set to TP_STATUS_KERNEL, not user.  The kernel wants nothing to do with this frame any more and the user needs to know that.  I was going to add statistics tracking to keep track of how many packets were sent vs rejected.  This was more of an issue with my approach where I had a dedicated kernel thread doing all of this.
+John
 
-Thanks,
-Vitali
+---
+
+Individual patch is available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+
+---
+
+The following changes since commit fb28ad35906af2f042c94e2f9c0f898ef9acfa37:
+  Kay Sievers (1):
+        net: struct device - replace bus_id with dev_name(), dev_set_name()
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
+
+Sujith (1):
+      ath9k: Fix compilation failure when RFKILL is enabled
+
+ drivers/net/wireless/ath9k/main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/ath9k/main.c b/drivers/net/wireless/ath9k/main.c
+index fb50aa0..f830fe1 100644
+--- a/drivers/net/wireless/ath9k/main.c
++++ b/drivers/net/wireless/ath9k/main.c
+@@ -37,6 +37,8 @@ static struct pci_device_id ath_pci_id_table[] __devinitdata = {
+ 	{ 0 }
+ };
+ 
++static void ath_detach(struct ath_softc *sc);
++
+ static int ath_get_channel(struct ath_softc *sc,
+ 			   struct ieee80211_channel *chan)
+ {
+@@ -813,7 +815,7 @@ static int ath_start_rfkill_poll(struct ath_softc *sc)
+ 			pci_iounmap(sc->pdev, sc->mem);
+ 			pci_release_region(sc->pdev, 0);
+ 			pci_disable_device(sc->pdev);
+-			ieee80211_free_hw(hw);
++			ieee80211_free_hw(sc->hw);
+ 			return -EIO;
+ 		} else {
+ 			sc->sc_flags |= SC_OP_RFKILL_REGISTERED;
+-- 
+John W. Linville		Linux should be at the core
+linville@tuxdriver.com			of your literate lifestyle.
