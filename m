@@ -1,48 +1,78 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Strange TCP dump between a Linux and a Samsung phone
-Date: Tue, 11 Nov 2008 17:05:25 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811111701260.3930@wrl-59.cs.helsinki.fi>
-References: <4919910E.6080700@route66.ro>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] bnx2: fix poll_controller method so that proper
+ structures are passed and all rx queues are checked
+Date: Tue, 11 Nov 2008 07:12:13 -0800
+Message-ID: <C27F8246C663564A84BB7AB343977242151F4B18B9@IRVEXCHCCR01.corp.ad.broadcom.com>
+References: <20081111140055.GA30481@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: ROUTE 66 - Catalin BOIE <cboie@route66.ro>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: "'Neil Horman'" <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jgarzik@pobox.com" <jgarzik@pobox.com>,
+	"'davem@davemloft.net'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:39752 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755821AbYKKPF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 10:05:28 -0500
-In-Reply-To: <4919910E.6080700@route66.ro>
+Received: from mms2.broadcom.com ([216.31.210.18]:2799 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755479AbYKKPM1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 10:12:27 -0500
+In-Reply-To: <20081111140055.GA30481@hmsreliant.think-freely.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Nov 2008, ROUTE 66 - Catalin BOIE wrote:
+Neil Horman wrote:
 
-> I have captured a strange dump between a Linux kernel
-> 2.6.25.6-55.fc9.x86_64 and a Samsung device.
+> Hey-
+>       I noted recently that bnx2 had a few problems with its
+> poll_controller
+> method:
+>
+> 1) It passes a net_device structure to bnx2_interrupt, but
+> bnx2_interrupt
+> expects a bnx2_napi structure.
+>
+> 2) bnx2_interrupt never checks all its rx queues, so theres
+> no guarantee that
+> we'll see incomming frames.
+>
+> This patch should fix both those problems
+>
+> Regards
+> Neil
+>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>
+>
+>  bnx2.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+>
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index 430d430..9e1f0e3 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -7203,10 +7203,12 @@ bnx2_change_mtu(struct net_device
+> *dev, int new_mtu)
+>  static void
+>  poll_bnx2(struct net_device *dev)
+>  {
+> +     int i;
+>       struct bnx2 *bp = netdev_priv(dev);
+>
+>       disable_irq(bp->pdev->irq);
+> -     bnx2_interrupt(bp->pdev->irq, dev);
+> +     for (i = 0; i < bp->irq_nvecs; i++)
+> +             bnx2_interrupt(bp->pdev->irq, &bp->bnx2_napi[i]);
 
-Please upgrade or prove that the tcp fixes that were in the later kernel 
-(.7 iirc or 2.6.26) got applied into that -55 part.
+Neil, thanks for the patch.
 
-> I looked at it and it seems that the Linux stack does not send any
-> retransmissions to Samsung device.
-> But, I want a competent look from you.
-> 
-> The connection is done over a 3G connection.
-> The capture was done on a router between the two endpoints.
-> c.66.com is the Linux machine, the other IP is the Samsung device.
+We should probably pass bp->irq_tbl[i].vector as 1st parameter
+for correctness, even though it doesn't really matter in this
+case since it is not used by bnx2_interrupt().
 
-...snip...
+>       enable_irq(bp->pdev->irq);
+>  }
+>  #endif
 
-> As you may see, the Samsung device keeps sending an ACK for 1261841 and
-> after some time closes the connection.
-> Why the Linux stack does no retransmissions?
-
-Looks like a know bug in frto which got fixed.
-
-If upgrade is not an option, you can experiment by playing with tcp_frto 
-sysctl (with 0 you should not encounter that bug).
-
--- 
- i.
