@@ -1,55 +1,80 @@
-From: David Madore <david.madore@ens.fr>
-Subject: Re: atl1e Ethernet driver not seeing packets sent to 33:33:00:00:00:01 multicast
-Date: Tue, 11 Nov 2008 23:00:15 +0100
-Message-ID: <20081111220015.GA18215@clipper.ens.fr>
-References: <20081111133108.GA7124@clipper.ens.fr> <20081111080611.7f6d4371@osprey.hogchain.net> <20081111155908.GA14665@clipper.ens.fr> <20081111100816.58a7cf09@osprey.hogchain.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] ipv6: routing header fixes
+Date: Tue, 11 Nov 2008 17:11:43 -0500
+Message-ID: <491A031F.40901@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing-List <linux-kernel@vger.kernel.org>,
-	Linux NetDev Mailing-List <netdev@vger.kernel.org>,
-	atl1-devel@lists.sourceforge.net
-To: "J. K. Cliburn" <jcliburn@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------080601040304090305060700"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shan Wei <shanwei@cn.fujitsu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nef2.ens.fr ([129.199.96.40]:3615 "EHLO nef2.ens.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750808AbYKKWA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2008 17:00:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20081111100816.58a7cf09@osprey.hogchain.net>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:4618 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbYKKWMI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 17:12:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 11, 2008 at 10:08:16AM -0600, J. K. Cliburn wrote:
-> Can you please try this patch?
-> 
-> diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/atl1e/atl1e_hw.c
-> index 949e753..c0d5f7c 100644
-> --- a/drivers/net/atl1e/atl1e_hw.c
-> +++ b/drivers/net/atl1e/atl1e_hw.c
-> @@ -163,9 +163,6 @@ int atl1e_read_mac_addr(struct atl1e_hw *hw)
->   * atl1e_hash_mc_addr
->   *  purpose
->   *      set hash value for a multicast address
-> - *      hash calcu processing :
-> - *          1. calcu 32bit CRC for multicast address
-> - *          2. reverse crc with MSB to LSB
->   */
->  u32 atl1e_hash_mc_addr(struct atl1e_hw *hw, u8 *mc_addr)
->  {
-> @@ -174,7 +171,6 @@ u32 atl1e_hash_mc_addr(struct atl1e_hw *hw, u8 *mc_addr)
->  	int i;
->  
->  	crc32 = ether_crc_le(6, mc_addr);
-> -	crc32 = ~crc32;
->  	for (i = 0; i < 32; i++)
->  		value |= (((crc32 >> i) & 1) << (31 - i));
->  
+This is a multi-part message in MIME format.
+--------------080601040304090305060700
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Now it works.  Many thanks!
+This patch fixes two bugs:
 
-Happy hacking,
+1. setsockopt() of anything but a Type 2 routing header should return 
+EINVAL instead of EPERM.  Noticed by Shan Wei (shanwei@cn.fujitsu.com).
 
--- 
-     David A. Madore
-    (david.madore@ens.fr,
-     http://www.madore.org/~david/ )
+2. setsockopt()/sendmsg() of a Type 2 routing header with invalid length 
+or segments should return EINVAL.  These values are statically fixed in 
+RFC 3775, unlike the variable Type 0 was.
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+
+--------------080601040304090305060700
+Content-Type: text/x-diff;
+ name="rthdr2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="rthdr2.patch"
+
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 410046a..e44deb8 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -661,6 +661,11 @@ int datagram_send_ctl(struct net *net,
+ 			switch (rthdr->type) {
+ #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+ 			case IPV6_SRCRT_TYPE_2:
++				if (rthdr->hdrlen != 2 ||
++				    rthdr->segments_left != 1) {
++					err = -EINVAL;
++					goto exit_f;
++				}
+ 				break;
+ #endif
+ 			default:
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 4e5eac3..2aa294b 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -366,11 +366,16 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		}
+ 
+ 		/* routing header option needs extra check */
++		retv = -EINVAL;
+ 		if (optname == IPV6_RTHDR && opt && opt->srcrt) {
+ 			struct ipv6_rt_hdr *rthdr = opt->srcrt;
+ 			switch (rthdr->type) {
+ #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+ 			case IPV6_SRCRT_TYPE_2:
++				if (rthdr->hdrlen != 2 ||
++				    rthdr->segments_left != 1)
++					goto sticky_done;
++
+ 				break;
+ #endif
+ 			default:
+
+--------------080601040304090305060700--
