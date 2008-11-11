@@ -1,44 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] dsa: fix master interface allmulti/promisc handling
-Date: Mon, 10 Nov 2008 21:53:22 -0800 (PST)
-Message-ID: <20081110.215322.106664497.davem@davemloft.net>
-References: <20081109232309.GE32552@xi.wantstofly.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [irda-users] [1/3] IRDA: Create new field tx_extra in skbuff
+Date: Tue, 11 Nov 2008 09:22:14 +0300
+Message-ID: <20081111062214.GA20261@ioremap.net>
+References: <49185CBD.2040601@ceibo.fiec.espol.edu.ec> <20081110163546.GA19804@ioremap.net> <20081110165544.GB19804@ioremap.net> <20081111010001.GB7511@sortiz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alex =?utf-8?B?VmlsbGFjw63CrXM=?= Lasso
+	<avillaci@ceibo.fiec.espol.edu.ec>,
+	irda-users@lists.sourceforge.net, netdev@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54631
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751122AbYKKFxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 00:53:22 -0500
-In-Reply-To: <20081109232309.GE32552@xi.wantstofly.org>
+Received: from netgear.net.ru ([195.178.208.66]:47409 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752075AbYKKGWR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 01:22:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20081111010001.GB7511@sortiz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Mon, 10 Nov 2008 00:23:09 +0100
+Hi Samuel.
 
-> Before commit b6c40d68ff6498b7f63ddf97cf0aa818d748dee7 ("net: only
-> invoke dev->change_rx_flags when device is UP"), the dsa driver could
-> sort-of get away with only fiddling with the master interface's
-> allmulti/promisc counts in ->change_rx_flags() and not touching them
-> in ->open() or ->stop().  After this commit (note that it was merged
-> almost simultaneously with the dsa patches, which is why this wasn't
-> caught initially), the breakage that was already there became more
-> apparent.
-> 
-> Since it makes no sense to keep the master interface's allmulti or
-> promisc count pinned for a slave interface that is down, copy the vlan
-> driver's sync logic (which does exactly what we want) over to dsa to
-> fix this.
-> 
-> Bug report from Dirk Teurlings <dirk@upexia.nl> and Peter van Valderen
-> <linux@ddcrew.com>.
-> 
-> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> Tested-by: Dirk Teurlings <dirk@upexia.nl>
-> Tested-by: Peter van Valderen <linux@ddcrew.com>
+On Tue, Nov 11, 2008 at 02:00:01AM +0100, Samuel Ortiz (samuel@sortiz.org) wrote:
+> I thought about that solution, but the irda_skb_cb line field has to be kept
+> per skb. It is needed for ircomm LMP flow control, in the skb destructor. I
+> see that BT rfcomm does something similar, but uses the skbuff->sk as a
+> rfcomm_dev pointer. As far as I understand the skbuff structure, that doesnt
+> look like a reasonnable solution, as we cant assume the sk pointer won't be
+> altered down the line.
 
-Also applied, thanks a lot.
+It depends... If you own skb (when reference counter is 1), you can
+owerwrite socket pointer with own data as long as destructor will also
+be updated. You can try to clone skb and free old one to achieve this,
+but it is not the fastest operation, althouhg I think both bt and irda
+can afford that. Obviously in the first case you have to call old
+destructor with old socket pointer also.
+
+-- 
+	Evgeniy Polyakov
