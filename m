@@ -1,49 +1,63 @@
-From: David Madore <david.madore@ens.fr>
-Subject: atl1e Ethernet driver not seeing packets sent to 33:33:00:00:00:01 multicast
-Date: Tue, 11 Nov 2008 14:31:08 +0100
-Message-ID: <20081111133108.GA7124@clipper.ens.fr>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] bnx2: fix poll_controller method so that proper structures
+	are passed and all rx queues are checked
+Date: Tue, 11 Nov 2008 09:00:55 -0500
+Message-ID: <20081111140055.GA30481@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Linux Kernel Mailing-List <linux-kernel@vger.kernel.org>,
-	Linux NetDev Mailing-List <netdev@vger.kernel.org>,
-	atl1-devel@lists.sourceforge.net
+Cc: nhorman@tuxdriver.com
+To: mchan@broadcom.com, netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nef2.ens.fr ([129.199.96.40]:3028 "EHLO nef2.ens.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753334AbYKKNbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2008 08:31:12 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39602 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753762AbYKKODH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 09:03:07 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hey-
+	I noted recently that bnx2 had a few problems with its poll_controller
+method:
 
-This is on Ubuntu 8.10 "Intrepid Ibex" using its stock kernel
-(2.6.27-7.16), with an Eee PC 901 whose Ethernet adapter is (according
-to lspci):
+1) It passes a net_device structure to bnx2_interrupt, but bnx2_interrupt
+expects a bnx2_napi structure.
 
-04:00.0 Ethernet controller: Attansic Technology Corp. L1 Gigabit Ethernet Adapter (rev b0)
+2) bnx2_interrupt never checks all its rx queues, so theres no guarantee that
+we'll see incomming frames.
 
-using driver atl1e of said kernel.
+This patch should fix both those problems
 
-_Unless_ the network device is put in promiscuous mode (e.g., by
-running tcpdump), it does not see packets sent to Ethernet multicast
-address 33:33:00:00:00:01.  E.g., IPv6 packets to ff02::1
-(ip6-allnodes) are not seen.
+Regards
+Neil
 
-Practical consequence: IPv6 is broken, because router advertisements
-are not received.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-("ip maddr show" does give "link  33:33:00:00:00:01" among the
-subscribed multicast addresses, so it's not a config problem.)
 
-Is this a known problem?  Is there a patch fixing it?
+ bnx2.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Until then, a workaround is to put the device in promiscuous mode.
 
-Happy hacking,
-
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 430d430..9e1f0e3 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7203,10 +7203,12 @@ bnx2_change_mtu(struct net_device *dev, int new_mtu)
+ static void
+ poll_bnx2(struct net_device *dev)
+ {
++	int i;
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 
+ 	disable_irq(bp->pdev->irq);
+-	bnx2_interrupt(bp->pdev->irq, dev);
++	for (i = 0; i < bp->irq_nvecs; i++)
++		bnx2_interrupt(bp->pdev->irq, &bp->bnx2_napi[i]);
+ 	enable_irq(bp->pdev->irq);
+ }
+ #endif
 -- 
-     David A. Madore
-    (david.madore@ens.fr,
-     http://www.madore.org/~david/ )
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
