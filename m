@@ -1,35 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.27] tcp_htcp: last_cong bug fix
-Date: Tue, 11 Nov 2008 14:16:00 -0800 (PST)
-Message-ID: <20081111.141600.225275728.davem@davemloft.net>
-References: <0E5A87BC-8FA8-40A5-8032-9FA18D07D7CE@nuim.ie>
-	<20081110.215033.22437445.davem@davemloft.net>
-	<B4ABF490-649C-4981-A953-B5FA55022EBD@nuim.ie>
+From: "J. K. Cliburn" <jcliburn@gmail.com>
+Subject: [PATCH] atl1e: remove unnecessary crc inversion
+Date: Tue, 11 Nov 2008 16:21:48 -0600
+Message-ID: <20081111162148.5b56db58@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: Doug.Leith@nuim.ie
+Cc: netdev@vger.kernel.org, Chris Snook <csnook@redhat.com>,
+	jie.yang@atheros.com, David Madore <david.madore@ens.fr>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52241
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750938AbYKKWQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 17:16:01 -0500
-In-Reply-To: <B4ABF490-649C-4981-A953-B5FA55022EBD@nuim.ie>
+Received: from rv-out-0506.google.com ([209.85.198.229]:48213 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751486AbYKKWVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 17:21:54 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so104486rvb.1
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2008 14:21:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Douglas Leith <Doug.Leith@nuim.ie>
-Date: Tue, 11 Nov 2008 15:33:33 +0000
+atl1e: remove unnecessary crc inversion
 
-> Revised patch with requested style changes.
+Inverting the crc after calling ether_crc_le() is unnecessary and breaks
+multicast. Remove it.
 
-Your email client corrupted the patch, turning tab characters
-into spaces.
+Tested-by: David Madore <david.madore@ens.fr>
+Signed-off-by: Jay Cliburn <jcliburn@gmail.com>
+Cc: stable@kernel.org
+---
+ drivers/net/atl1e/atl1e_hw.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-Please turn off content formatting in your email client,
-or alternatively use an attachment for the patch itself.
-
-There is some help in linux/Documentation/email-clients.txt
-
-Please fix this up and resubmit, thank you very much.
+diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/atl1e/atl1e_hw.c
+index 949e753..c0d5f7c 100644
+--- a/drivers/net/atl1e/atl1e_hw.c
++++ b/drivers/net/atl1e/atl1e_hw.c
+@@ -163,9 +163,6 @@ int atl1e_read_mac_addr(struct atl1e_hw *hw)
+  * atl1e_hash_mc_addr
+  *  purpose
+  *      set hash value for a multicast address
+- *      hash calcu processing :
+- *          1. calcu 32bit CRC for multicast address
+- *          2. reverse crc with MSB to LSB
+  */
+ u32 atl1e_hash_mc_addr(struct atl1e_hw *hw, u8 *mc_addr)
+ {
+@@ -174,7 +171,6 @@ u32 atl1e_hash_mc_addr(struct atl1e_hw *hw, u8 *mc_addr)
+ 	int i;
+ 
+ 	crc32 = ether_crc_le(6, mc_addr);
+-	crc32 = ~crc32;
+ 	for (i = 0; i < 32; i++)
+ 		value |= (((crc32 >> i) & 1) << (31 - i));
+ 
+-- 
+1.5.6.5
