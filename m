@@ -1,93 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: [PATCH] bnx2: fix poll_controller method so that proper
-	structures are passed and all rx queues are checked
-Date: Tue, 11 Nov 2008 11:46:34 -0500
-Message-ID: <20081111164634.GB30481@hmsreliant.think-freely.org>
-References: <20081111140055.GA30481@hmsreliant.think-freely.org> <C27F8246C663564A84BB7AB343977242151F4B18B9@IRVEXCHCCR01.corp.ad.broadcom.com>
+ structures are passed and all rx queues are checked
+Date: Tue, 11 Nov 2008 09:09:10 -0800
+Message-ID: <1226423350.23218.9.camel@HP1>
+References: <20081111140055.GA30481@hmsreliant.think-freely.org>
+ <C27F8246C663564A84BB7AB343977242151F4B18B9@IRVEXCHCCR01.corp.ad.broadcom.com>
+ <20081111164634.GB30481@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"jgarzik@pobox.com" <jgarzik@pobox.com>,
 	"'davem@davemloft.net'" <davem@davemloft.net>
-To: Michael Chan <mchan@broadcom.com>
+To: "Neil Horman" <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59576 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbYKKQtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 11:49:06 -0500
-Content-Disposition: inline
-In-Reply-To: <C27F8246C663564A84BB7AB343977242151F4B18B9@IRVEXCHCCR01.corp.ad.broadcom.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3724 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752899AbYKKRL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 12:11:57 -0500
+In-Reply-To: <20081111164634.GB30481@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 11, 2008 at 07:12:13AM -0800, Michael Chan wrote:
-> Neil Horman wrote:
-> 
-> > Hey-
-> >       I noted recently that bnx2 had a few problems with its
-> > poll_controller
-> > method:
-> >
-> > 1) It passes a net_device structure to bnx2_interrupt, but
-> > bnx2_interrupt
-> > expects a bnx2_napi structure.
-> >
-> > 2) bnx2_interrupt never checks all its rx queues, so theres
-> > no guarantee that
-> > we'll see incomming frames.
-> >
-> > This patch should fix both those problems
-> >
-> > Regards
-> > Neil
-> >
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >
-> >
-> >  bnx2.c |    4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> >
-> >
-> > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> > index 430d430..9e1f0e3 100644
-> > --- a/drivers/net/bnx2.c
-> > +++ b/drivers/net/bnx2.c
-> > @@ -7203,10 +7203,12 @@ bnx2_change_mtu(struct net_device
-> > *dev, int new_mtu)
-> >  static void
-> >  poll_bnx2(struct net_device *dev)
-> >  {
-> > +     int i;
-> >       struct bnx2 *bp = netdev_priv(dev);
-> >
-> >       disable_irq(bp->pdev->irq);
-> > -     bnx2_interrupt(bp->pdev->irq, dev);
-> > +     for (i = 0; i < bp->irq_nvecs; i++)
-> > +             bnx2_interrupt(bp->pdev->irq, &bp->bnx2_napi[i]);
-> 
-> Neil, thanks for the patch.
-> 
-> We should probably pass bp->irq_tbl[i].vector as 1st parameter
-> for correctness, even though it doesn't really matter in this
-> case since it is not used by bnx2_interrupt().
-> 
-I thought we overwrote pdev->irq with the value from irq_tbl when we registered
-for msi interrupts?
 
-Neil
-
-> >       enable_irq(bp->pdev->irq);
-> >  }
-> >  #endif
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Tue, 2008-11-11 at 08:46 -0800, Neil Horman wrote:
+> On Tue, Nov 11, 2008 at 07:12:13AM -0800, Michael Chan wrote:
+> > Neil Horman wrote:
+> > > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> > > index 430d430..9e1f0e3 100644
+> > > --- a/drivers/net/bnx2.c
+> > > +++ b/drivers/net/bnx2.c
+> > > @@ -7203,10 +7203,12 @@ bnx2_change_mtu(struct net_device
+> > > *dev, int new_mtu)
+> > >  static void
+> > >  poll_bnx2(struct net_device *dev)
+> > >  {
+> > > +     int i;
+> > >       struct bnx2 *bp = netdev_priv(dev);
+> > >
+> > >       disable_irq(bp->pdev->irq);
+> > > -     bnx2_interrupt(bp->pdev->irq, dev);
+> > > +     for (i = 0; i < bp->irq_nvecs; i++)
+> > > +             bnx2_interrupt(bp->pdev->irq, &bp->bnx2_napi[i]);
+> > 
+> > Neil, thanks for the patch.
+> > 
+> > We should probably pass bp->irq_tbl[i].vector as 1st parameter
+> > for correctness, even though it doesn't really matter in this
+> > case since it is not used by bnx2_interrupt().
+> > 
+> I thought we overwrote pdev->irq with the value from irq_tbl when we registered
+> for msi interrupts?
 > 
 
--- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+In MSI and INTA mode, we store pdev->irq into irq_tbl[0].vector.  In
+MSI-X mode, we'll have multiple vectors in the irq_tbl entries and
+pdev->irq is no longer relevant.  So to be correct when we have multiple
+vectors, the irq_tbl values should be used.
+
+Thanks.
+
+
