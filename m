@@ -1,71 +1,63 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [PATCH] phylib: make mdio-gpio work without OF (v3)
-Date: Tue, 11 Nov 2008 11:03:52 +0200
-Message-ID: <49194A78.8040202@teltonika.lt>
-References: <20081110151145.12986.45668.stgit@Programuotojas.82-135-208-232.ip.zebra.lt> <200811101815.54126.laurentp@cse-semaphore.com>
+From: "Hillier, Gernot" <gernot.hillier@siemens.com>
+Subject: Re: e1000e: sporadic "hardware error"s with Intel 82563EB on Supermicro
+ X7DB3
+Date: Tue, 11 Nov 2008 11:05:23 +0100
+Message-ID: <491958E3.1030501@siemens.com>
+References: <EA929A9653AAE14F841771FB1DE5A1365F498F4EDC@rrsmsx501.amr.corp.intel.com> <E3627BC91D010645BD262A1E8720005106A64162@orsmsx420.amr.corp.intel.com> <48EE04C0.6070504@siemens.com> <48F463D1.70605@siemens.com> <E3627BC91D010645BD262A1E8720005106B67989@orsmsx420.amr.corp.intel.com> <48F766CB.3030603@siemens.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-embedded@vger.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Mike Frysinger <vapier.adi@gmail.com>
-To: Laurent Pinchart <laurentp@cse-semaphore.com>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <200811101815.54126.laurentp@cse-semaphore.com>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Hockert, Jeff W" <jeff.w.hockert@intel.com>
+To: "Graham, David" <david.graham@intel.com>,
+	"Fodor, Zoltan" <zoltan.fodor@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from david.siemens.de ([192.35.17.14]:16672 "EHLO david.siemens.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753299AbYKKJ7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 04:59:32 -0500
+In-Reply-To: <48F766CB.3030603@siemens.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Laurent Pinchart wrote:
-> Hi Paulius,
+Dear Dave,
+
+On 2008-10-16, Hillier, Gernot wrote:
+> Hi there!
 > 
-> sorry for the late reply. I've been busy at work with a release and had no 
-> time to test the patch. Comments follow.
-> 
-> On Monday 10 November 2008, Paulius Zaleckas wrote:
->> make mdio-gpio work with non OpenFirmware gpio implementation.
+> Graham, David wrote:
+>> It would help if you could provide a little more information. Could you
+>> provide (for one of each of the two configurations that you have - one
+>> with the IPMI card, one without):
 >>
->> Aditional changes to mdio-gpio:
->> - use gpio_request() and gpio_free()
->> - place irq[] array in struct mdio_gpio_info
->> - add module description, author and license
->> - add note about compiling this driver as module
->> - rename mdc and mdio function (were ugly names)
->> - change MII to MDIO in bus name
->> - add __init __exit to module (un)loading functions
->> - probe fails if no phys added to the bus
->> - kzalloc bitbang with sizeof(*bitbang)
->>
->> Changes since v2:
->> - more #ifdefs reduction
->> - platform driver will be registered on OF platforms also
->> - unified platform and OF bus_id to phy%i
->>
->> Changes since v1:
->> - removed NO_IRQ
->> - reduced #idefs
->>
->> Laurent, please test this driver under OF.
+>> 	lspci -t
+>> 	lspci -vvv -xxxx
+>> 	ethtool -e eth0
 > 
-> Unfortunately this breaks on OF platforms (at least on mine):
-> 
-> ~ # ifconfig eth0 up
-> [  258.886051] eb:01 not found
-> [  258.887409] eth0: Could not attach to phy
-> 
-> The bus id was "%x"...
->
-> And you renamed it to phy%i. Ethernet drivers relying on the id should be 
-> updated as well.
+> Ok, it turned out that we still can reproduce the problem - even after the
+> firmware upgrade. So I collected the information you requested from two
+> machines:
 
-I done this to be closer to what phylib documentation says...
-I did search over drivers and found out that almost all of them uses "%x"...
+Wanted to let you know that this problem seems to be fixed for us.
 
-> Updating drivers/net/fs_enet/fs_enet-main.c (in find_phy) fixed the problem 
-> for my platform. Please not that this requires a change to 
-> drivers/net/fs_enet/mii-bitbang.c (in fs_mii_bitbang_init) as well.
+We received a preliminary update from Supermicro which contains a new NIC
+firmware 2.5 they recently received from your side with improved Shared LAN
+support (56313.eep, release date 2008-10-01) .
 
-A lot more than that...
-So actually it is better to just change it back to "%x".
+After flashing this update together with a new BMC card firmware 1.59, the
+problem has finally vanished for us. (For some reason, only updating the
+NIC firmware wasn't possible, so we can't unfortunately nail down which
+update part really fixed the problem.)
 
-Waiting for comments from other people and I will respin patch with this change.
+1.5 days of an rmmod/insmod loop and 2.5 days of a complete OS reboot loop
+now have been passed w/o problems. Both tests triggered the problem
+reliably within at most one day before.
+
+So thanks again for your help!
+
+-- 
+With kind regards,
+
+Gernot Hillier
+Siemens AG, Corporate Competence Center Embedded Linux
