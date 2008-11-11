@@ -1,42 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: fix warn_on reload after phy_id error
-Date: Tue, 11 Nov 2008 03:31:10 -0500
-Message-ID: <491942CE.4010604@garzik.org>
-References: <20081108002739.17508.60954.stgit@gitlost.lost>
+Subject: Re: [PATCH] ixgbe: Fix usage of netif_*_all_queues() with	netif_carrier_{off|on}()
+Date: Tue, 11 Nov 2008 03:33:45 -0500
+Message-ID: <49194369.7030902@garzik.org>
+References: <20081107221608.13396.10693.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36956 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36975 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753334AbYKKIbN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2008 03:31:13 -0500
-In-Reply-To: <20081108002739.17508.60954.stgit@gitlost.lost>
+	id S1754715AbYKKIds (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 03:33:48 -0500
+In-Reply-To: <20081107221608.13396.10693.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Jeff Kirsher wrote:
-> If the driver fails to initialize the first time due to the failure in the
-> phy_id check the kernel triggers a warn_on on the second try to load the
-> driver because the driver did not free the msi/x resources in the first
-> load because of the previous failure in phy_id check.
+> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> 
+> netif_carrier_off() is sufficient to stop Tx into the driver.  Stopping the Tx
+> queues is redundant and unnecessary.  By the same token, netif_carrier_on()
+> will be sufficient to re-enable Tx, so waking the queues is unnecessary.
 
-Is that all one sentence?  Can I buy a comma or semi-colon, Pat?  :)
+Is this a fix as the subject says (2.6.28), or an optimization as the 
+description implies (2.6.29)?
 
-More seriously, this description is not very helpful.  A good 
-description precisely outlines the _solution_ ("fix msi/x resource 
-leak"), perhaps with a bit of concise problem description ("failure to 
-free msi/x resources").
-
-Your description focuses mostly on what the user/tester experiences and 
-observes, whereas in a changeset description the most important thing to 
-communicate is to describe the engineering change to the driver (proper 
-release of resources).
+AFAICS from a quick glance, things are not actually _broken_, are they?
 
 	Jeff
-
 
 
 
