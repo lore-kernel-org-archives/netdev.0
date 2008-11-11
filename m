@@ -1,77 +1,61 @@
-From: "Lovich, Vitali" <vlovich@qualcomm.com>
-Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Tue, 11 Nov 2008 11:10:21 -0800
-Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA611D9@NASANEXMB10.na.qualcomm.com>
-References: <1225450706.5301.94.camel@localhost>
+From: "Johann Baudy" <johaahn@gmail.com>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Tue, 11 Nov 2008 20:19:09 +0100
+Message-ID: <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com>
+References: <20081106080316.GA32337@ioremap.net>
 	 <20081106194032.GB31673@ioremap.net>
 	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FBE@NASANEXMB10.na.qualcomm.com>
 	 <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
 	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61024@NASANEXMB10.na.qualcomm.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61126@NASANEXMB10.na.qualcomm.com>
-	 <7e0dd21a0811110410v5fa8abadib70cebecb282bc1@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B8@NASANEXMB10.na.qualcomm.com>
-	 <7e0dd21a0811111008x2e674384kaa560d766a8f643e@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C4@NASANEXMB10.na.qualcomm.com>
- <7e0dd21a0811111059i4d1bc0e6va6032bbfb3f0002c@mail.gmail.com>
+	 <7e0dd21a0811110343v677c511ck69314fa19ace44b7@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B5@NASANEXMB10.na.qualcomm.com>
+	 <7e0dd21a0811110950g1182b86cv3e938df93f53d29d@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C3@NASANEXMB10.na.qualcomm.com>
+	 <20081111185036.GA17717@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Lovich, Vitali" <vlovich@qualcomm.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Johann Baudy <johaahn@gmail.com>
+To: "Evgeniy Polyakov" <zbr@ioremap.net>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:36790 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbYKKTKX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 14:10:23 -0500
-In-Reply-To: <7e0dd21a0811111059i4d1bc0e6va6032bbfb3f0002c@mail.gmail.com>
-Content-Language: en-US
+Received: from fk-out-0910.google.com ([209.85.128.189]:53830 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751235AbYKKTTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 14:19:12 -0500
+Received: by fk-out-0910.google.com with SMTP id 18so35837fkq.5
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2008 11:19:10 -0800 (PST)
+In-Reply-To: <20081111185036.GA17717@ioremap.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Evgeniy, David,
 
+> I think you should be almost 200% sure that skb is not allowed to grow up :)
+Well! I'm lost :)
 
-> -----Original Message-----
-> From: Johann Baudy [mailto:johaahn@gmail.com]
-> Sent: November-11-08 10:59 AM
-> To: Lovich, Vitali
-> Cc: Evgeniy Polyakov; netdev@vger.kernel.org
-> Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-> 
-> Hi Vitali,
-> 
-> > I'm saying that that frame's status should just be set to
-> TP_STATUS_KERNEL, not user.  The kernel wants nothing to do with this
-> frame any more and the user needs to know that.  I was going to add
-> statistics tracking to keep track of how many packets were sent vs
-> rejected.  This was more of an issue with my approach where I had a
-> dedicated kernel thread doing all of this.
-> 
-> In all cases of error, Kernel is blocking on the same frame until
-> update, indeed packet_increment_head() is only called on success.
-> I've done this in order to not skip a packet in case of
-> skb_alloc_send_skb error().
-> 
-> I believe, we have 3 options on all failure, if we set packet to:
-> - TP_STATUS_KERNEL: User can consider that buffer is free and it will
-> fill it again.
-> If we choose TP_STATUS_KERNEL by default, that's means content is lost
-> even for sock_alloc_send_skb() error. Such behavior is not acceptable,
-> User is not able to show the difference between packet success and
-> packet failure on a specific frame (same status).
-> - TP_STATUS_USER: Kernel will try to send it again and again,
-> especially if send() is called in a loop (even it is impossible).
-> This is current way of working, It looks like a manner to block on
-> issue.
-> - TP_STATUS_LOOSING(or other): as TP_STATUS_USER with more info for
-> user.
-> Whereas TP_STATUS_USER, this one provides user with the buffer where
-> error has occurred.
-> 
-> Thanks,
-> Johann
+How can we forward a pointer from skb allocation to skb destructor
+without adding a kind of destructor argument in sk_buff struct?
+
+Thanks in advance,
+Johann
+
+On Tue, Nov 11, 2008 at 7:50 PM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
+> Hi.
+>
+> On Tue, Nov 11, 2008 at 10:14:54AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
+>> Right, we're saying the exact same thing I think.  I had wanted just a void * that is specific to PACKET_MMAP, so that no one else pays the price if they don't need to.  You instead want to make it a feature flag - that's fine I think, but we need to make a note of that in the Kconfig file (that enabling PACKET_MMAP increases all skbs by the size of a long).  I'd still rather prefer using the fragments instead though, because it seems like a reasonable solution that has 0 impact on any other code.
+>
+> I think you should be almost 200% sure that skb is not allowed to grow up :)
+>
 > --
-> Johann Baudy
-> johaahn@gmail.com
+>        Evgeniy Polyakov
+>
 
-So the way I had done it is that non-recoverable errors are those caused by malformed data coming from the user (i.e. packet size is invalid).  In this case, we free the frame and return.  In all other cases, it assumed that the cause was some kind of bad kernel state (i.e. no memory, device busy, etc) that will eventually be recovered from, so we keep retrying or return to the user without changing the status code.
+
+
+-- 
+Johann Baudy
+johaahn@gmail.com
