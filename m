@@ -1,71 +1,29 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-next-2.6 2008-11-11
-Date: Tue, 11 Nov 2008 13:18:35 -0500
-Message-ID: <20081111181834.GA20151@tuxdriver.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Tue, 11 Nov 2008 21:50:36 +0300
+Message-ID: <20081111185036.GA17717@ioremap.net>
+References: <20081106080316.GA32337@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FA8@NASANEXMB10.na.qualcomm.com> <20081106194032.GB31673@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA60FBE@NASANEXMB10.na.qualcomm.com> <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA61024@NASANEXMB10.na.qualcomm.com> <7e0dd21a0811110343v677c511ck69314fa19ace44b7@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B5@NASANEXMB10.na.qualcomm.com> <7e0dd21a0811110950g1182b86cv3e938df93f53d29d@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C3@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: Johann Baudy <johaahn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37876 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725AbYKKSbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 13:31:08 -0500
+Received: from kandzendo.ru ([195.178.208.66]:57883 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751826AbYKKSuj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 13:50:39 -0500
 Content-Disposition: inline
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C3@NASANEXMB10.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Hi.
 
-Another quick patch for 2.6.29 -- this fixes a build break for ath9k
-when RFKILL is enabled.  Sorry for letting that slip through!
+On Tue, Nov 11, 2008 at 10:14:54AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
+> Right, we're saying the exact same thing I think.  I had wanted just a void * that is specific to PACKET_MMAP, so that no one else pays the price if they don't need to.  You instead want to make it a feature flag - that's fine I think, but we need to make a note of that in the Kconfig file (that enabling PACKET_MMAP increases all skbs by the size of a long).  I'd still rather prefer using the fragments instead though, because it seems like a reasonable solution that has 0 impact on any other code.
 
-John
+I think you should be almost 200% sure that skb is not allowed to grow up :)
 
----
-
-Individual patch is available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit fb28ad35906af2f042c94e2f9c0f898ef9acfa37:
-  Kay Sievers (1):
-        net: struct device - replace bus_id with dev_name(), dev_set_name()
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
-
-Sujith (1):
-      ath9k: Fix compilation failure when RFKILL is enabled
-
- drivers/net/wireless/ath9k/main.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/ath9k/main.c b/drivers/net/wireless/ath9k/main.c
-index fb50aa0..f830fe1 100644
---- a/drivers/net/wireless/ath9k/main.c
-+++ b/drivers/net/wireless/ath9k/main.c
-@@ -37,6 +37,8 @@ static struct pci_device_id ath_pci_id_table[] __devinitdata = {
- 	{ 0 }
- };
- 
-+static void ath_detach(struct ath_softc *sc);
-+
- static int ath_get_channel(struct ath_softc *sc,
- 			   struct ieee80211_channel *chan)
- {
-@@ -813,7 +815,7 @@ static int ath_start_rfkill_poll(struct ath_softc *sc)
- 			pci_iounmap(sc->pdev, sc->mem);
- 			pci_release_region(sc->pdev, 0);
- 			pci_disable_device(sc->pdev);
--			ieee80211_free_hw(hw);
-+			ieee80211_free_hw(sc->hw);
- 			return -EIO;
- 		} else {
- 			sc->sc_flags |= SC_OP_RFKILL_REGISTERED;
 -- 
-John W. Linville		Linux should be at the core
-linville@tuxdriver.com			of your literate lifestyle.
+	Evgeniy Polyakov
