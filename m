@@ -1,80 +1,35 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] ipv6: routing header fixes
-Date: Tue, 11 Nov 2008 17:11:43 -0500
-Message-ID: <491A031F.40901@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.27] tcp_htcp: last_cong bug fix
+Date: Tue, 11 Nov 2008 14:16:00 -0800 (PST)
+Message-ID: <20081111.141600.225275728.davem@davemloft.net>
+References: <0E5A87BC-8FA8-40A5-8032-9FA18D07D7CE@nuim.ie>
+	<20081110.215033.22437445.davem@davemloft.net>
+	<B4ABF490-649C-4981-A953-B5FA55022EBD@nuim.ie>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080601040304090305060700"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Shan Wei <shanwei@cn.fujitsu.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: Doug.Leith@nuim.ie
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:4618 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006AbYKKWMI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 17:12:08 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52241
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750938AbYKKWQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 17:16:01 -0500
+In-Reply-To: <B4ABF490-649C-4981-A953-B5FA55022EBD@nuim.ie>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080601040304090305060700
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Douglas Leith <Doug.Leith@nuim.ie>
+Date: Tue, 11 Nov 2008 15:33:33 +0000
 
-This patch fixes two bugs:
+> Revised patch with requested style changes.
 
-1. setsockopt() of anything but a Type 2 routing header should return 
-EINVAL instead of EPERM.  Noticed by Shan Wei (shanwei@cn.fujitsu.com).
+Your email client corrupted the patch, turning tab characters
+into spaces.
 
-2. setsockopt()/sendmsg() of a Type 2 routing header with invalid length 
-or segments should return EINVAL.  These values are statically fixed in 
-RFC 3775, unlike the variable Type 0 was.
+Please turn off content formatting in your email client,
+or alternatively use an attachment for the patch itself.
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
+There is some help in linux/Documentation/email-clients.txt
 
---------------080601040304090305060700
-Content-Type: text/x-diff;
- name="rthdr2.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="rthdr2.patch"
-
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 410046a..e44deb8 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -661,6 +661,11 @@ int datagram_send_ctl(struct net *net,
- 			switch (rthdr->type) {
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- 			case IPV6_SRCRT_TYPE_2:
-+				if (rthdr->hdrlen != 2 ||
-+				    rthdr->segments_left != 1) {
-+					err = -EINVAL;
-+					goto exit_f;
-+				}
- 				break;
- #endif
- 			default:
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 4e5eac3..2aa294b 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -366,11 +366,16 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		}
- 
- 		/* routing header option needs extra check */
-+		retv = -EINVAL;
- 		if (optname == IPV6_RTHDR && opt && opt->srcrt) {
- 			struct ipv6_rt_hdr *rthdr = opt->srcrt;
- 			switch (rthdr->type) {
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- 			case IPV6_SRCRT_TYPE_2:
-+				if (rthdr->hdrlen != 2 ||
-+				    rthdr->segments_left != 1)
-+					goto sticky_done;
-+
- 				break;
- #endif
- 			default:
-
---------------080601040304090305060700--
+Please fix this up and resubmit, thank you very much.
