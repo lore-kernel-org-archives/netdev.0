@@ -1,43 +1,42 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [patch] net: unix: fix inflight counting bug in
-	garbage collector
-Date: Mon, 10 Nov 2008 23:32:37 -0800
-Message-ID: <20081111073237.GA13973@kroah.com>
-References: <E1KzBCn-00062L-Fp@pomaz-ex.szeredi.hu> <20081110.225938.79412569.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000e: fix warn_on reload after phy_id error
+Date: Tue, 11 Nov 2008 03:31:10 -0500
+Message-ID: <491942CE.4010604@garzik.org>
+References: <20081108002739.17508.60954.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: miklos@szeredi.hu, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, a.bittau@cs.ucl.ac.uk,
-	stable@kernel.org, viro@ZenIV.linux.org.uk,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	adobriyan@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:60326 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752445AbYKKHgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2008 02:36:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20081110.225938.79412569.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:36956 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753334AbYKKIbN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2008 03:31:13 -0500
+In-Reply-To: <20081108002739.17508.60954.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 10, 2008 at 10:59:38PM -0800, David Miller wrote:
-> From: Miklos Szeredi <miklos@szeredi.hu>
-> Date: Sun, 09 Nov 2008 15:23:57 +0100
-> 
-> > This patch fixes the BUG_ON triggered by Andrea's tests.  It turned
-> > out to be completely independent of the stack overflow issue, but
-> > happens to be triggered by the same test program.
-> > 
-> > Should qualify for -stable too.
-> 
-> Miklos thanks a lot for fixing this.  And Linus thanks for
-> queueing this up to 2.6.28-rc4
-> 
-> Stable folks, please include this in -stable as soon as you
-> can, since the BUG can be triggered by local users.
+Jeff Kirsher wrote:
+> If the driver fails to initialize the first time due to the failure in the
+> phy_id check the kernel triggers a warn_on on the second try to load the
+> driver because the driver did not free the msi/x resources in the first
+> load because of the previous failure in phy_id check.
 
-Thanks, will do.
+Is that all one sentence?  Can I buy a comma or semi-colon, Pat?  :)
 
-greg k-h
+More seriously, this description is not very helpful.  A good 
+description precisely outlines the _solution_ ("fix msi/x resource 
+leak"), perhaps with a bit of concise problem description ("failure to 
+free msi/x resources").
+
+Your description focuses mostly on what the user/tester experiences and 
+observes, whereas in a changeset description the most important thing to 
+communicate is to describe the engineering change to the driver (proper 
+release of resources).
+
+	Jeff
+
+
+
+
