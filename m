@@ -1,79 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] network device ops phase 1
-Date: Mon, 10 Nov 2008 17:21:07 -0800
-Message-ID: <20081110172107.4285b5b8@extreme>
-References: <20081107155023.2dea5e0f@extreme>
-	<20081110.170211.149124971.davem@davemloft.net>
+From: Jianjun Kong <jianjun@zeuux.org>
+Subject: Re: [PATCH] nets: fix problem of using lock
+Date: Tue, 11 Nov 2008 09:34:21 +0800
+Message-ID: <20081111013421.GA7091@ubuntu>
+References: <20081106104103.GA29787@ubuntu> <20081110.133515.130695626.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37286 "EHLO mail.vyatta.com"
+Received: from smtp.zeuux.org ([210.51.160.52]:61139 "EHLO z.billxu.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753538AbYKKBVL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2008 20:21:11 -0500
-In-Reply-To: <20081110.170211.149124971.davem@davemloft.net>
+	id S1752817AbYKKBeD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2008 20:34:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20081110.133515.130695626.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Nov 2008 17:02:11 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Mon, Nov 10, 2008 at 01:35:15PM -0800, David Miller wrote:
+>From: Jianjun Kong <jianjun@zeuux.org>
+>Date: Thu, 6 Nov 2008 18:41:03 +0800
+>
+>> net/core/skbuff.c: void skb_queue_purge(struct sk_buff_head *list)
+>> 
+>> This function should takes the the list lock, because the operation to
+>> this list shoule be atomic. And __skb_queue_purge()  (in
+>> include/linux/skbuff.c) real delete the buffers in the list.
+>> 
+>> Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
+>
+>No, this function is fine.  skb_dequeue() takes the lock so
+>there cannot be any list corruption.
+>
+>And this function is called in contexts where the caller knows
+>that no new packets can be added to the list (closing a socket,
+>shutting down a device, etc.)  And even if new packets could
+>appear, taking the lock over the entire function would not
+>help that problem.
+>
+>In fact, I suspect that many if not all skb_queue_purge() callers
+>can be converted to use __skb_queue_purge().
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Fri, 7 Nov 2008 15:50:23 -0800
->=20
-> > This early work on a series of patches to separate the management p=
-ortions
-> > of the network device (immutable function pointers) from the data
-> > structure part of the network device.
->  ...
->=20
-> I think this is a good way to attack this kind of transition.
->=20
-> Fix the build errors, do some testing, and please resubmit:
->=20
-> net/core/dev.c: In function =E2=80=98register_netdevice=E2=80=99:
-> net/core/dev.c:4075: error: =E2=80=98struct net_device_ops=E2=80=99 h=
-as no member named =E2=80=98poll_controller=E2=80=99
-> net/core/dev.c:4075: error: =E2=80=98struct net_device=E2=80=99 has n=
-o member named =E2=80=98poll_controller=E2=80=99
-> make[2]: *** [net/core/dev.o] Error 1
-> make[1]: *** [net/core] Error 2
-> make: *** [net] Error 2
-> make: *** Waiting for unfinished jobs....
->=20
-> Thanks.
+Thanks, I've known :-)
 
-This is one case where I wish GCC had more C++ style anonymous structur=
-es
-so the following would work, and avoid the copying and allocation.
-
-struct net_device_ops {
-   int (*init)(struct net_device *);
-=2E..
-};
-
-struct net_device {
-=2E..
-#ifdef CONFIG_COMPAT_XXX
-   struct net_device_ops;
-#endif
-   struct net_device_ops *ops;
-};
-
-
-void register_netdevice(struct net_device *dev)
-{
-=2E..
-
-#ifdef CONFIG_COMPAT_XXX
-      if (ops =3D=3D NULL) {
-         printk("loser device %s", dev->name);
-         dev->ops =3D (struct net_device_ops *) dev->init;
-      }
-#endif
-
-}
-
+-- 
+Jianjun Kong @_@ Happy Hacking
+Homepage: http://kongove.cn/
+Gtalk: kongjianjun@gmail.com
