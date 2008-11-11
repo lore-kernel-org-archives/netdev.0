@@ -1,49 +1,29 @@
-From: Jianjun Kong <jianjun@zeuux.org>
-Subject: Re: [PATCH] nets: fix problem of using lock
-Date: Tue, 11 Nov 2008 09:34:21 +0800
-Message-ID: <20081111013421.GA7091@ubuntu>
-References: <20081106104103.GA29787@ubuntu> <20081110.133515.130695626.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] nets: fix a buffer overrun
+Date: Mon, 10 Nov 2008 21:37:53 -0800 (PST)
+Message-ID: <20081110.213753.223716878.davem@davemloft.net>
+References: <20081108023558.GB6384@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: jianjun@zeuux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.zeuux.org ([210.51.160.52]:61139 "EHLO z.billxu.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752817AbYKKBeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2008 20:34:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20081110.133515.130695626.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55444
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751198AbYKKFhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 00:37:54 -0500
+In-Reply-To: <20081108023558.GB6384@ubuntu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 10, 2008 at 01:35:15PM -0800, David Miller wrote:
->From: Jianjun Kong <jianjun@zeuux.org>
->Date: Thu, 6 Nov 2008 18:41:03 +0800
->
->> net/core/skbuff.c: void skb_queue_purge(struct sk_buff_head *list)
->> 
->> This function should takes the the list lock, because the operation to
->> this list shoule be atomic. And __skb_queue_purge()  (in
->> include/linux/skbuff.c) real delete the buffers in the list.
->> 
->> Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
->
->No, this function is fine.  skb_dequeue() takes the lock so
->there cannot be any list corruption.
->
->And this function is called in contexts where the caller knows
->that no new packets can be added to the list (closing a socket,
->shutting down a device, etc.)  And even if new packets could
->appear, taking the lock over the entire function would not
->help that problem.
->
->In fact, I suspect that many if not all skb_queue_purge() callers
->can be converted to use __skb_queue_purge().
+From: Jianjun Kong <jianjun@zeuux.org>
+Date: Sat, 8 Nov 2008 10:35:58 +0800
 
-Thanks, I've known :-)
+> net/mac80211/debugfs_sta.c
+> The trailing zero was written to state[4], it's out of bounds.
+> 
+> Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
 
--- 
-Jianjun Kong @_@ Happy Hacking
-Homepage: http://kongove.cn/
-Gtalk: kongjianjun@gmail.com
+Applied, thank you.
