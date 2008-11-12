@@ -1,268 +1,59 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: v2 [PATCH 4/4] dccp: Resolve dependencies of features on choice of
-	CCID
-Date: Wed, 12 Nov 2008 07:37:45 +0100
-Message-ID: <20081112063745.GF6405@gerrit.erg.abdn.ac.uk>
-References: <20081104.235652.27274000.davem@davemloft.net> <1225950014-6337-1-git-send-email-gerrit@erg.abdn.ac.uk> <1225950014-6337-2-git-send-email-gerrit@erg.abdn.ac.uk> <1225950014-6337-3-git-send-email-gerrit@erg.abdn.ac.uk> <1225950014-6337-4-git-send-email-gerrit@erg.abdn.ac.uk> <1225950014-6337-5-git-send-email-gerrit@erg.abdn.ac.uk>
+From: ROUTE 66 - Catalin BOIE <cboie@route66.ro>
+Subject: Re: Strange TCP dump between a Linux and a Samsung phone
+Date: Wed, 12 Nov 2008 09:15:13 +0200
+Message-ID: <491A8281.6040804@route66.ro>
+References: <4919910E.6080700@route66.ro> <Pine.LNX.4.64.0811111701260.3930@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: =?UTF-8?B?77+9?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53187 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751362AbYKLGhu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 01:37:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1225950014-6337-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from mail.route66.ro ([91.201.80.3]:47349 "EHLO mail.route66.ro"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751077AbYKLHQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 02:16:08 -0500
+In-Reply-To: <Pine.LNX.4.64.0811111701260.3930@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp: Resolve dependencies of features on choice of CCID
+=EF=BF=BD wrote:
+> On Tue, 11 Nov 2008, ROUTE 66 - Catalin BOIE wrote:
 
-This provides a missing link in the code chain, as several features implicitly
-depend and/or rely on the choice of CCID. Most notably, this is the Send Ack Vector
-feature, but also Ack Ratio and Send Loss Event Rate (also taken care of).
+Hello!
 
-For Send Ack Vector, the situation is as follows:
- * since CCID2 mandates the use of Ack Vectors, there is no point in allowing 
-   endpoints which use CCID2 to disable Ack Vector features such a connection;
+After upgrading to 2.6.26.?, the problem was fixed!
+Thank you very much for your super quick answer!
 
- * a peer with a TX CCID of CCID2 will always expect Ack Vectors, and a peer
-   with a RX CCID of CCID2 must always send Ack Vectors (RFC 4341, sec. 4);
+>> I have captured a strange dump between a Linux kernel
+>> 2.6.25.6-55.fc9.x86_64 and a Samsung device.
+>=20
+> Please upgrade or prove that the tcp fixes that were in the later ker=
+nel=20
+> (.7 iirc or 2.6.26) got applied into that -55 part.
+>> I looked at it and it seems that the Linux stack does not send any
+>> retransmissions to Samsung device.
+>> But, I want a competent look from you.
+>>
+>> The connection is done over a 3G connection.
+>> The capture was done on a router between the two endpoints.
+>> c.66.com is the Linux machine, the other IP is the Samsung device.
+>=20
+> ...snip...
+>=20
+>> As you may see, the Samsung device keeps sending an ACK for 1261841 =
+and
+>> after some time closes the connection.
+>> Why the Linux stack does no retransmissions?
+>=20
+> Looks like a know bug in frto which got fixed.
+>=20
+> If upgrade is not an option, you can experiment by playing with tcp_f=
+rto=20
+> sysctl (with 0 you should not encounter that bug).
 
- * for all other CCIDs, the use of (Send) Ack Vector is optional and thus
-   negotiable. However, this implies that the code negotiating the use of Ack
-   Vectors also supports it (i.e. is able to supply and to either parse or
-   ignore received Ack Vectors). Since this is not the case (CCID-3 has no Ack
-   Vector support), the use of Ack Vectors is here disabled, with a comment
-   in the source code.
+Thanks!
 
-An analogous consideration arises for the Send Loss Event Rate feature,
-since the CCID-3 implementation does not support the loss interval options
-of RFC 4342. To make such use explicit, corresponding feature-negotiation
-options are inserted which signal the use of the loss event rate option,
-as it is used by the CCID3 code.
-
-Lastly, the values of the Ack Ratio feature are matched to the choice of CCID.
-
-The patch implements this as a function which is called after the user has
-made all other registrations for changing default values of features.
-
-The table is variable-length, the reserved (and hence for feature-negotiation
-invalid, confirmed by considering section 19.4 of RFC 4340) feature number `0'
-is used to mark the end of the table.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
----
- net/dccp/dccp.h   |    1 
- net/dccp/feat.c   |  160 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/dccp/output.c |    4 +
- net/dccp/proto.c  |    3 +
- 4 files changed, 168 insertions(+)
-
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -442,6 +442,7 @@ static inline int dccp_ack_pending(const
- 	       inet_csk_ack_scheduled(sk);
- }
- 
-+extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
- extern void dccp_feat_list_purge(struct list_head *fn_list);
- 
- extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -400,6 +400,166 @@ int dccp_feat_change(struct dccp_minisoc
- 
- EXPORT_SYMBOL_GPL(dccp_feat_change);
- 
-+/*
-+ *	Tracking features whose value depend on the choice of CCID
-+ *
-+ * This is designed with an extension in mind so that a list walk could be done
-+ * before activating any features. However, the existing framework was found to
-+ * work satisfactorily up until now, the automatic verification is left open.
-+ * When adding new CCIDs, add a corresponding dependency table here.
-+ */
-+static const struct ccid_dependency *dccp_feat_ccid_deps(u8 ccid, bool is_local)
-+{
-+	static const struct ccid_dependency ccid2_dependencies[2][2] = {
-+		/*
-+		 * CCID2 mandates Ack Vectors (RFC 4341, 4.): as CCID is a TX
-+		 * feature and Send Ack Vector is an RX feature, `is_local'
-+		 * needs to be reversed.
-+		 */
-+		{	/* Dependencies of the receiver-side (remote) CCID2 */
-+			{
-+				.dependent_feat	= DCCPF_SEND_ACK_VECTOR,
-+				.is_local	= true,
-+				.is_mandatory	= true,
-+				.val		= 1
-+			},
-+			{ 0, 0, 0, 0 }
-+		},
-+		{	/* Dependencies of the sender-side (local) CCID2 */
-+			{
-+				.dependent_feat	= DCCPF_SEND_ACK_VECTOR,
-+				.is_local	= false,
-+				.is_mandatory	= true,
-+				.val		= 1
-+			},
-+			{ 0, 0, 0, 0 }
-+		}
-+	};
-+	static const struct ccid_dependency ccid3_dependencies[2][5] = {
-+		{	/*
-+			 * Dependencies of the receiver-side CCID3
-+			 */
-+			{	/* locally disable Ack Vectors */
-+				.dependent_feat	= DCCPF_SEND_ACK_VECTOR,
-+				.is_local	= true,
-+				.is_mandatory	= false,
-+				.val		= 0
-+			},
-+			{	/* see below why Send Loss Event Rate is on */
-+				.dependent_feat	= DCCPF_SEND_LEV_RATE,
-+				.is_local	= true,
-+				.is_mandatory	= true,
-+				.val		= 1
-+			},
-+			{	/* NDP Count is needed as per RFC 4342, 6.1.1 */
-+				.dependent_feat	= DCCPF_SEND_NDP_COUNT,
-+				.is_local	= false,
-+				.is_mandatory	= true,
-+				.val		= 1
-+			},
-+			{ 0, 0, 0, 0 },
-+		},
-+		{	/*
-+			 * CCID3 at the TX side: we request that the HC-receiver
-+			 * will not send Ack Vectors (they will be ignored, so
-+			 * Mandatory is not set); we enable Send Loss Event Rate
-+			 * (Mandatory since the implementation does not support
-+			 * the Loss Intervals option of RFC 4342, 8.6).
-+			 * The last two options are for peer's information only.
-+			*/
-+			{
-+				.dependent_feat	= DCCPF_SEND_ACK_VECTOR,
-+				.is_local	= false,
-+				.is_mandatory	= false,
-+				.val		= 0
-+			},
-+			{
-+				.dependent_feat	= DCCPF_SEND_LEV_RATE,
-+				.is_local	= false,
-+				.is_mandatory	= true,
-+				.val		= 1
-+			},
-+			{	/* this CCID does not support Ack Ratio */
-+				.dependent_feat	= DCCPF_ACK_RATIO,
-+				.is_local	= true,
-+				.is_mandatory	= false,
-+				.val		= 0
-+			},
-+			{	/* tell receiver we are sending NDP counts */
-+				.dependent_feat	= DCCPF_SEND_NDP_COUNT,
-+				.is_local	= true,
-+				.is_mandatory	= false,
-+				.val		= 1
-+			},
-+			{ 0, 0, 0, 0 }
-+		}
-+	};
-+	switch (ccid) {
-+	case DCCPC_CCID2:
-+		return ccid2_dependencies[is_local];
-+	case DCCPC_CCID3:
-+		return ccid3_dependencies[is_local];
-+	default:
-+		return NULL;
-+	}
-+}
-+
-+/**
-+ * dccp_feat_propagate_ccid - Resolve dependencies of features on choice of CCID
-+ * @fn: feature-negotiation list to update
-+ * @id: CCID number to track
-+ * @is_local: whether TX CCID (1) or RX CCID (0) is meant
-+ * This function needs to be called after registering all other features.
-+ */
-+static int dccp_feat_propagate_ccid(struct list_head *fn, u8 id, bool is_local)
-+{
-+	const struct ccid_dependency *table = dccp_feat_ccid_deps(id, is_local);
-+	int i, rc = (table == NULL);
-+
-+	for (i = 0; rc == 0 && table[i].dependent_feat != DCCPF_RESERVED; i++)
-+		if (dccp_feat_type(table[i].dependent_feat) == FEAT_SP)
-+			rc = __feat_register_sp(fn, table[i].dependent_feat,
-+						    table[i].is_local,
-+						    table[i].is_mandatory,
-+						    &table[i].val, 1);
-+		else
-+			rc = __feat_register_nn(fn, table[i].dependent_feat,
-+						    table[i].is_mandatory,
-+						    table[i].val);
-+	return rc;
-+}
-+
-+/**
-+ * dccp_feat_finalise_settings  -  Finalise settings before starting negotiation
-+ * @dp: client or listening socket (settings will be inherited)
-+ * This is called after all registrations (socket initialisation, sysctls, and
-+ * sockopt calls), and before sending the first packet containing Change options
-+ * (ie. client-Request or server-Response), to ensure internal consistency.
-+ */
-+int dccp_feat_finalise_settings(struct dccp_sock *dp)
-+{
-+	struct list_head *fn = &dp->dccps_featneg;
-+	struct dccp_feat_entry *entry;
-+	int i = 2, ccids[2] = { -1, -1 };
-+
-+	/*
-+	 * Propagating CCIDs:
-+	 * 1) not useful to propagate CCID settings if this host advertises more
-+	 *    than one CCID: the choice of CCID  may still change - if this is
-+	 *    the client, or if this is the server and the client sends
-+	 *    singleton CCID values.
-+	 * 2) since is that propagate_ccid changes the list, we defer changing
-+	 *    the sorted list until after the traversal.
-+	 */
-+	list_for_each_entry(entry, fn, node)
-+		if (entry->feat_num == DCCPF_CCID && entry->val.sp.len == 1)
-+			ccids[entry->is_local] = entry->val.sp.vec[0];
-+	while (i--)
-+		if (ccids[i] > 0 && dccp_feat_propagate_ccid(fn, ccids[i], i))
-+			return -1;
-+	return 0;
-+}
-+
- static int dccp_feat_update_ccid(struct sock *sk, u8 type, u8 new_ccid_nr)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -469,6 +469,10 @@ int dccp_connect(struct sock *sk)
- 	struct sk_buff *skb;
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 
-+	/* do not connect if feature negotiation setup fails */
-+	if (dccp_feat_finalise_settings(dccp_sk(sk)))
-+		return -EPROTO;
-+
- 	dccp_connect_init(sk);
- 
- 	skb = alloc_skb(sk->sk_prot->max_header, sk->sk_allocation);
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -278,6 +278,9 @@ static inline int dccp_listen_start(stru
- 	struct dccp_sock *dp = dccp_sk(sk);
- 
- 	dp->dccps_role = DCCP_ROLE_LISTEN;
-+	/* do not start to listen if feature negotiation setup fails */
-+	if (dccp_feat_finalise_settings(dp))
-+		return -EPROTO;
- 	return inet_csk_listen_start(sk, backlog);
- }
- 
+--=20
+Catalin BOIE
+ROUTE 66
