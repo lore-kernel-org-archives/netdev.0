@@ -1,81 +1,129 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [UPDATED PATCH] e1000e: Use device_set_wakeup_enable
-Date: Wed, 12 Nov 2008 11:52:32 -0800
-Message-ID: <20081112195232.23587.24774.stgit@gitlost.lost>
+From: Andi Kleen <ak@linux.intel.com>
+Subject: Re: [RFC PATCH 00/13] hardware time stamping + igb example	implementation
+Date: Wed, 12 Nov 2008 21:23:29 +0100
+Message-ID: <491B3B41.7000001@linux.intel.com>
+References: <1226414697.17450.852.camel@ecld0pohly>	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly> <491B23FE.9000105@hartkopp.net> <491B2D03.1090700@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Hartkopp <oliver@hartkopp.net>,
+	Patrick Ohly <patrick.ohly@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:46289 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752604AbYKLTwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 14:52:55 -0500
+Received: from mga06.intel.com ([134.134.136.21]:26029 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751746AbYKLUXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 15:23:17 -0500
+In-Reply-To: <491B2D03.1090700@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: \"Rafael J. Wysocki\" <rjw@sisk.pl>
+Eric Dumazet wrote:
+> Oliver Hartkopp a =E9crit :
+>> Patrick Ohly wrote:
+>>> On Wed, 2008-11-12 at 16:06 +0000, Andi Kleen wrote:
+>>> =20
+>>>> As a general comment on the patch series I'm still a little scepti=
+cal
+>>>> the time stamp offset method is a good idea. Since it tries to=20
+>>>> approximate
+>>>> several unsynchronized clocks the result will always be of a littl=
+e=20
+>>>> poor
+>>>> quality, which will likely lead to problems sooner or later (or ra=
+ther
+>>>> require ugly workarounds in the user).
+>>>>
+>>>> I think it would be better to just bite the bullet and add new fie=
+lds
+>>>> for this to the skbs. Hardware timestamps are useful enough to jus=
+tify
+>>>> this.
+>>>>    =20
+>>>
+>>> I'm all for it, as long as it doesn't keep this feature out of the
+>>> mainline.
+>>>
+>>> At least one additional ktime_t field would be needed for the raw
+>>> hardware time stamp. Transformation to system time (as needed by PT=
+P)
+>>> would have to be delayed until the packet is delivered via a socket=
+=2E The
+>>> code would be easier (and a bit more accurate) if also another ktim=
+e_t
+>>> was added to store the transformed value directly after generating =
+it.
+>>>
+>>> An extra field would also solve one of the open problems (tstamp se=
+t to
+>>> time stamp when dev_start_xmit_hard is called for IP_MULTICAST_LOOP=
+).
+>>>
+>>>  =20
+>>
+>> I really wondered if you posted the series to get an impression why=20
+>> adding a new field is a good idea ;-)
+>> Ok, i'm not that experienced on timestamps but i really got confused=
+=20
+>> reading the patches and it's documentation (even together with the=20
+>> discussion on the ML). I would also vote for having a new field in t=
+he=20
+>> skb instead of this current 'bit-compression' approach which smells=20
+>> quite expensive at runtime and in code size. Not talking about the=20
+>> mentioned potential locking issues ...
+>=20
+> New fields in skb are probably the easy way to handle the problem, we
+> all know that.
+>=20
+> But adding fields on such heavy duty structure for less than 0.001 % =
+of
+> handled frames is disgusting.
 
-Since dev->power.should_wakeup bit is used by the PCI core to
-decide whether the device should wake up the system from sleep
-states, set/unset this bit whenever WOL is enabled/disabled using
-e1000_set_wol().  Accordingly, use device_can_wakeup() for checking
-if wake-up is supported by the device.
+You have a strange definition of "disgusting".
 
-Signed-off-by: "Rafael J. Wysocki" <rjw@sisk.pl>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+But if that's true that applies to the existing timestamp in there then=
+ too
+(and a couple of other fields in there too)
 
- drivers/net/e1000e/ethtool.c |    8 ++++++--
- drivers/net/e1000e/netdev.c  |    1 +
- 2 files changed, 7 insertions(+), 2 deletions(-)
+Also I suspect that your percent numbers are wrong, depending on the wo=
+rkload.
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 70c11c8..62421ce 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1713,7 +1713,8 @@ static void e1000_get_wol(struct net_device *netdev,
- 	wol->supported = 0;
- 	wol->wolopts = 0;
- 
--	if (!(adapter->flags & FLAG_HAS_WOL))
-+	if (!(adapter->flags & FLAG_HAS_WOL) ||
-+	    !device_can_wakeup(&adapter->pdev->dev))
- 		return;
- 
- 	wol->supported = WAKE_UCAST | WAKE_MCAST |
-@@ -1751,7 +1752,8 @@ static int e1000_set_wol(struct net_device *netdev,
- 	if (wol->wolopts & WAKE_MAGICSECURE)
- 		return -EOPNOTSUPP;
- 
--	if (!(adapter->flags & FLAG_HAS_WOL))
-+	if (!(adapter->flags & FLAG_HAS_WOL) ||
-+	    !device_can_wakeup(&adapter->pdev->dev))
- 		return wol->wolopts ? -EOPNOTSUPP : 0;
- 
- 	/* these settings will always override what we currently have */
-@@ -1770,6 +1772,8 @@ static int e1000_set_wol(struct net_device *netdev,
- 	if (wol->wolopts & WAKE_ARP)
- 		adapter->wol |= E1000_WUFC_ARP;
- 
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index abd492b..2c8dffd 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4970,6 +4970,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	/* initialize the wol settings based on the eeprom settings */
- 	adapter->wol = adapter->eeprom_wol;
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
- 
- 	/* reset the hardware with the new settings */
- 	e1000e_reset(adapter);
+Personally I think hardware time stamps should replace the existing
+time stamp and I suspect more and more applications will move to that e=
+ventually.
 
+
+> If an application needs skb hw timestamp, get it when reading message=
+,=20
+> with appropriate
+> API, that calls NIC driver method, giving skb pointer as an argument.=
+=20
+> NIC driver
+> search in its local table a match of skb pointer (giving the most rec=
+ent=20
+> match of course),
+> and converts hwtimestamp into "generic application format". No need f=
+or=20
+> a fast search, just
+> a linear search in the table, so that feeding it is really easy (mayb=
+e=20
+> lockless)
+
+This will probably be a disaster on e.g. high speed network sniffing
+(which is one of the primary use cases of the hardware
+As soon as there is any reordering in the queue (and that is inevitable
+if you scale over multiple CPUs) your linear searches could get quite
+long and bounce cache lines like mad. Also I doubt it can be really
+done lockless.
+
+Also to be honest such a complicated and likely badly performing scheme=
+ just to save 4-8 bytes
+would match my own definition of "disgusting".
+
+-Andi
