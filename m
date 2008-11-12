@@ -1,38 +1,65 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH 2.6.28] RDMA/cxgb3: deadlock in iw_cxgb3
-	can cause hang when configuring interface.
-Date: Wed, 12 Nov 2008 10:20:40 -0800
-Message-ID: <adazlk4n6vb.fsf@cisco.com>
-References: <20081106230642.28808.66765.stgit@dell3.ogc.int>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [RFC PATCH 00/13] hardware time stamping + igb example	implementation
+Date: Wed, 12 Nov 2008 19:44:14 +0100
+Message-ID: <491B23FE.9000105@hartkopp.net>
+References: <1226414697.17450.852.camel@ecld0pohly>	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org, divy@chelsio.com,
-	jeff@garzik.org, wenxiong@us.ibm.com
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20081106230642.28808.66765.stgit@dell3.ogc.int> (Steve Wise's
-	message of "Thu, 06 Nov 2008 17:06:42 -0600")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Patrick Ohly <patrick.ohly@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:55975 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754409AbYKLSo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 13:44:27 -0500
+In-Reply-To: <1226507118.31699.91.camel@ecld0pohly>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Looks good, applied.
+Patrick Ohly wrote:
+> On Wed, 2008-11-12 at 16:06 +0000, Andi Kleen wrote:
+>   
+>> As a general comment on the patch series I'm still a little sceptical
+>> the time stamp offset method is a good idea. Since it tries to approximate
+>> several unsynchronized clocks the result will always be of a little poor
+>> quality, which will likely lead to problems sooner or later (or rather
+>> require ugly workarounds in the user).
+>>
+>> I think it would be better to just bite the bullet and add new fields
+>> for this to the skbs. Hardware timestamps are useful enough to justify
+>> this.
+>>     
+>
+> I'm all for it, as long as it doesn't keep this feature out of the
+> mainline.
+>
+> At least one additional ktime_t field would be needed for the raw
+> hardware time stamp. Transformation to system time (as needed by PTP)
+> would have to be delayed until the packet is delivered via a socket. The
+> code would be easier (and a bit more accurate) if also another ktime_t
+> was added to store the transformed value directly after generating it.
+>
+> An extra field would also solve one of the open problems (tstamp set to
+> time stamp when dev_start_xmit_hard is called for IP_MULTICAST_LOOP).
+>
+>   
 
-However, I think it's a little yucky to call ethtool ops without rtnl,
-although it is of course perfectly safe in this case.  It might be nicer
-to introduce a new cxgb3 <-> iw_cxgb3 interface that returns the
-firmware version, which can also be used to implement the get_drvinfo
-ethtool op as well.  That would let you avoid fw_vers_string_to_u64() as
-well -- it is a little silly at the moment how cxgb3 converts to a
-string and then iw_cxgb3 parses that string.
+I really wondered if you posted the series to get an impression why 
+adding a new field is a good idea ;-)
+Ok, i'm not that experienced on timestamps but i really got confused 
+reading the patches and it's documentation (even together with the 
+discussion on the ML). I would also vote for having a new field in the 
+skb instead of this current 'bit-compression' approach which smells 
+quite expensive at runtime and in code size. Not talking about the 
+mentioned potential locking issues ...
 
-But that's all much lower priority than just fixing a deadlock.
+Regards,
+Oliver
 
- - R.
