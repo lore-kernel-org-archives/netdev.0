@@ -1,111 +1,60 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC PATCH 00/13] hardware time stamping + igb example	implementation
-Date: Wed, 12 Nov 2008 20:22:43 +0100
-Message-ID: <491B2D03.1090700@cosmosbay.com>
-References: <1226414697.17450.852.camel@ecld0pohly>	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly> <491B23FE.9000105@hartkopp.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: ARP table question
+Date: Wed, 12 Nov 2008 11:43:39 -0800
+Message-ID: <491B31EB.4050304@candelatech.com>
+References: <491B1600.4080505@candelatech.com> <491B1841.9050404@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick Ohly <patrick.ohly@intel.com>,
-	Andi Kleen <ak@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:33403 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbYKLTXD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 14:23:03 -0500
-In-Reply-To: <491B23FE.9000105@hartkopp.net>
+Received: from mail.candelatech.com ([208.74.158.172]:38401 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751879AbYKLTno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 14:43:44 -0500
+In-Reply-To: <491B1841.9050404@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Hartkopp a =E9crit :
-> Patrick Ohly wrote:
->> On Wed, 2008-11-12 at 16:06 +0000, Andi Kleen wrote:
->> =20
->>> As a general comment on the patch series I'm still a little sceptic=
-al
->>> the time stamp offset method is a good idea. Since it tries to=20
->>> approximate
->>> several unsynchronized clocks the result will always be of a little=
- poor
->>> quality, which will likely lead to problems sooner or later (or rat=
-her
->>> require ugly workarounds in the user).
->>>
->>> I think it would be better to just bite the bullet and add new fiel=
-ds
->>> for this to the skbs. Hardware timestamps are useful enough to just=
-ify
->>> this.
->>>    =20
->>
->> I'm all for it, as long as it doesn't keep this feature out of the
->> mainline.
->>
->> At least one additional ktime_t field would be needed for the raw
->> hardware time stamp. Transformation to system time (as needed by PTP=
-)
->> would have to be delayed until the packet is delivered via a socket.=
- The
->> code would be easier (and a bit more accurate) if also another ktime=
-_t
->> was added to store the transformed value directly after generating i=
-t.
->>
->> An extra field would also solve one of the open problems (tstamp set=
- to
->> time stamp when dev_start_xmit_hard is called for IP_MULTICAST_LOOP)=
-=2E
->>
->>  =20
->=20
-> I really wondered if you posted the series to get an impression why=20
-> adding a new field is a good idea ;-)
-> Ok, i'm not that experienced on timestamps but i really got confused=20
-> reading the patches and it's documentation (even together with the=20
-> discussion on the ML). I would also vote for having a new field in th=
-e=20
-> skb instead of this current 'bit-compression' approach which smells=20
-> quite expensive at runtime and in code size. Not talking about the=20
-> mentioned potential locking issues ...
+I have 500 mac-vlans on a system talking to 500 other
+mac-vlans.  My problem is that the arp-table gets extremely
+huge because every time an arp-request comes in on all mac-vlans,
+a stale arp entry is added for each mac-vlan.  I have filtering
+turned on, but that doesn't help because the neigh_event_ns call
+below will cause a stale neighbor entry to be created regardless
+of whether a replay will be sent or not.
 
-New fields in skb are probably the easy way to handle the problem, we
-all know that.
+Maybe the neigh_event code should be below the checks for dont_send,
+and only create check neigh_event_ns if we are !dont_send?
 
-But adding fields on such heavy duty structure for less than 0.001 % of
-handled frames is disgusting.
 
-Crazy idea here :
+This is the code I'm talking about, in arp.c (in kernel 2.6.25.15)
 
-Say your NIC is capable of generating hw timestamps at TX or RX time.
 
-Instead of storing them in skb, store them in a local structure (of the=
- driver)
-The local structure could contain an array of 4096 (or whatever size) c=
-ouples of
-{pointer to skb, hardware timestamp with whatever format is needed by t=
-his NIC}
+	if (arp->ar_op == htons(ARPOP_REQUEST) &&
+	    ip_route_input(skb, tip, sip, 0, dev) == 0) {
 
-If an application needs skb hw timestamp, get it when reading message, =
-with appropriate
-API, that calls NIC driver method, giving skb pointer as an argument. N=
-IC driver
-search in its local table a match of skb pointer (giving the most recen=
-t match of course),
-and converts hwtimestamp into "generic application format". No need for=
- a fast search, just
-a linear search in the table, so that feeding it is really easy (maybe =
-lockless)
+		rt = (struct rtable*)skb->dst;
+		addr_type = rt->rt_type;
 
-=46or TX side, a flag on skb could ask NIC driver to feed transmited sk=
-b (or a copy of them)
- to a raw socket (kind of a loopback for selected packets), once TX hst=
-amp is collected in local table.
+		if (addr_type == RTN_LOCAL) {
+			n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
+				int dont_send = 0;
 
+				if (!dont_send)
+					dont_send |= arp_ignore(in_dev,sip,tip);
+				if (!dont_send && IN_DEV_ARPFILTER(in_dev))
+					dont_send |= arp_filter(sip,tip,dev);
+				if (!dont_send)
+					arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,dev->dev_addr,sha);
+
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
