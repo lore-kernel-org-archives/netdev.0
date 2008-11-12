@@ -1,36 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: #ifdef inet_bind_bucket::ib_net
-Date: Wed, 12 Nov 2008 03:16:51 -0800 (PST)
-Message-ID: <20081112.031651.239477846.davem@davemloft.net>
-References: <20081111111946.GD3665@x200.localdomain>
-	<20081111.164554.143409564.davem@davemloft.net>
-	<20081112104439.GA4292@x200.localdomain>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] lockdep: silence warnings
+Date: Wed, 12 Nov 2008 14:36:46 +0300
+Message-ID: <20081112113646.GA4629@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37783
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750886AbYKLLQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 06:16:52 -0500
-In-Reply-To: <20081112104439.GA4292@x200.localdomain>
+Received: from ug-out-1314.google.com ([66.249.92.174]:4255 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751657AbYKLLdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 06:33:24 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so1013850ugf.37
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2008 03:33:22 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Wed, 12 Nov 2008 13:44:39 +0300
+net/bluetooth/af_bluetooth.c:57: warning: 'bt_key_strings' defined but not used
+net/bluetooth/af_bluetooth.c:68: warning: 'bt_slock_key_strings' defined but not used
 
-> On the other hand, people are interrupted with ctags jumping when suddenly
-> whole new file appears, so loss of context is even more.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-I can't remember ever reading a patch using ctags, nor actual code for
-that matter.  It's not the best facility.
+ include/linux/lockdep.h |    4 ++--
+ net/core/sock.c         |    2 --
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-People read straight code.  And inline functions defined somewhere had
-damn well better be named well enough to have their basic operation
-or side effect be understood.
-
-If you absolutely, positively, must know the implementation details,
-you go look it up (using 'git grep' or plain 'grep', not ctags).
+--- a/include/linux/lockdep.h
++++ b/include/linux/lockdep.h
+@@ -331,10 +331,10 @@ static inline void lockdep_on(void)
+ # define lock_set_subclass(l, s, i)		do { } while (0)
+ # define lockdep_init()				do { } while (0)
+ # define lockdep_info()				do { } while (0)
+-# define lockdep_init_map(lock, name, key, sub)	do { (void)(key); } while (0)
++# define lockdep_init_map(lock, name, key, sub)	do { (void)(name); (void)(key); } while (0)
+ # define lockdep_set_class(lock, key)		do { (void)(key); } while (0)
+ # define lockdep_set_class_and_name(lock, key, name) \
+-		do { (void)(key); } while (0)
++		do { (void)(key); (void)(name); } while (0)
+ #define lockdep_set_class_and_subclass(lock, key, sub) \
+ 		do { (void)(key); } while (0)
+ #define lockdep_set_subclass(lock, sub)		do { } while (0)
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -136,7 +136,6 @@
+ static struct lock_class_key af_family_keys[AF_MAX];
+ static struct lock_class_key af_family_slock_keys[AF_MAX];
+ 
+-#ifdef CONFIG_DEBUG_LOCK_ALLOC
+ /*
+  * Make lock validator output more readable. (we pre-construct these
+  * strings build-time, so that runtime initialization of socket
+@@ -187,7 +186,6 @@ static const char *af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
+   "clock-AF_MAX"
+ };
+-#endif
+ 
+ /*
+  * sk_callback_lock locking rules are per-address-family,
