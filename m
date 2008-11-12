@@ -1,39 +1,88 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 4/4] dccp: Resolve dependencies of features on choice
-	of CCID
-Date: Wed, 12 Nov 2008 07:14:03 +0100
-Message-ID: <20081112061402.GA6405@gerrit.erg.abdn.ac.uk>
-References: <1225950014-6337-4-git-send-email-gerrit@erg.abdn.ac.uk> <1225950014-6337-5-git-send-email-gerrit@erg.abdn.ac.uk> <20081110.131748.152587229.davem@davemloft.net> <20081110.132038.16329379.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] nets: Introduce read_pnet() and write_pnet()  helpers
+Date: Wed, 12 Nov 2008 07:20:46 +0100
+Message-ID: <491A75BE.1010907@cosmosbay.com>
+References: <20081110.164424.167225199.davem@davemloft.net>	<20081111110847.GC3665@x200.localdomain>	<20081111111946.GD3665@x200.localdomain> <20081111.164554.143409564.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080503060008040409080805"
+Cc: adobriyan@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52775 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750956AbYKLGOM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 01:14:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20081110.132038.16329379.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:44408 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751086AbYKLGUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 01:20:55 -0500
+In-Reply-To: <20081111.164554.143409564.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David, -
-| Send me something which actually compiles next time:
-| 
-| net/dccp/feat.c: In function ???__feat_register_nn???:
-| net/dccp/feat.c:252: error: implicit declaration of function ???dccp_feat_default_value???
-| net/dccp/feat.c:255: error: implicit declaration of function ???dccp_feat_push_change???
-| make[2]: *** [net/dccp/feat.o] Error 1
-| make[2]: *** Waiting for unfinished jobs....
-| 
-Apologies. This was a resubmitted set and patch 2/4, after diff-ing each
-of the patches, was found to still have the old format. The set had been
-changed to avoid build warnings about dependencies throughout, this
-patch unfortunately had the old format.
+This is a multi-part message in MIME format.
+--------------080503060008040409080805
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-When resubmitting next I will make sure to only use fresh copies for
-each, no matter if it is the same patch. 
+So in this version I splited the patches to make them clear
 
-Will re-send the 4 from the up-to-date local copies, these are known to
-compile without errors/warnings. 
+I removed the DECLARE_PNET since it was apparently using too
+many capital letters :)
+
+Thanks
+
+[PATCH] nets: Introduce read_pnet() and write_pnet() helpers
+
+This patch introduces two helpers that deal with reading and writing
+struct net pointers in various network structures.
+
+Their implementation depends on CONFIG_NET_NS
+
+For symmetry, both functions work with "struct net **pnet".
+
+Their usage should reduce the number of #ifdef CONFIG_NET_NS,
+without adding many helpers for each network structure
+that hold a "struct net *pointer"
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+ include/net/net_namespace.h |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+)
+
+
+--------------080503060008040409080805
+Content-Type: text/plain;
+ name="pnet.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="pnet.patch"
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 700c53a..3195577 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -192,6 +192,24 @@ static inline void release_net(struct net *net)
+ }
+ #endif
+ 
++#ifdef CONFIG_NET_NS
++
++static inline void write_pnet(struct net **pnet, struct net *net)
++{
++	*pnet = net;
++}
++
++static inline struct net *read_pnet(struct net * const *pnet)
++{
++	return *pnet;
++}
++
++#else
++
++#define write_pnet(pnet, net)	do { (void)(net);} while (0)
++#define read_pnet(pnet)		(&init_net)
++
++#endif
+ 
+ #define for_each_net(VAR)				\
+ 	list_for_each_entry(VAR, &net_namespace_list, list)
+
+--------------080503060008040409080805--
