@@ -1,67 +1,47 @@
-From: "Lovich, Vitali" <vlovich@qualcomm.com>
-Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Wed, 12 Nov 2008 13:23:33 -0800
-Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA6128D@NASANEXMB10.na.qualcomm.com>
-References: <20081111185036.GA17717@ioremap.net>
- <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com>
- <20081111192954.GA19409@ioremap.net>
- <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com>
- <20081112135828.GA30946@ioremap.net>
- <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
- <20081112174114.GA4743@ioremap.net>
- <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com>
- <20081112181134.GA5396@ioremap.net>
- <FCC0EC655BD1AE408C047268D1F5DF4C3BA61272@NASANEXMB10.na.qualcomm.com>
- <20081112191400.GA6291@ioremap.net>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
+Date: Wed, 12 Nov 2008 22:31:43 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0811122213180.1212@ask.diku.dk>
+References: <20081112.014923.68124784.davem@davemloft.net>
+ <1226487710.6834.53.camel@localhost.localdomain> <20081112.035240.226243372.davem@davemloft.net>
+ <20081112.041143.11487260.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Johann Baudy <johaahn@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:57820 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074AbYKLVXi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 16:23:38 -0500
-In-Reply-To: <20081112191400.GA6291@ioremap.net>
-Content-Language: en-US
+Received: from mgw1.diku.dk ([130.225.96.91]:57684 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752165AbYKLVbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 16:31:47 -0500
+In-Reply-To: <20081112.041143.11487260.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Hi Google,
 
-> -----Original Message-----
-> From: Evgeniy Polyakov [mailto:zbr@ioremap.net]
-> Sent: November-12-08 11:14 AM
-> To: Lovich, Vitali
-> Cc: Johann Baudy; netdev@vger.kernel.org
-> Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-> 
-> Here is the main point: why do you ever care about data that was or was
-> not transmitted and want to update something at destruction time and
-> not
-> when dev_qeueue_xmit() returns. As pointed above, destruction time does
-> not guarantee that skb was sent as long as return from
-> dev_qeueue_xmit().
-I don't care whether or not the data was sent - I care whether or not the driver
-might still use the data in the frame the skb is referring to.  In the destructor, clearly the
-driver can't since it gave up its reference.  After dev_queue_xmit, we don't know because
-the driver (or the skb queue layer) may have decided to delay packet transmission.
+On Wed, 12 Nov 2008, David Miller wrote:
 
-Potentially the user might even have written half the payload of a packet when the device decides to
-send out the skb for that frame and thus send out half the payload from one 
-packet and half the payload from another.
+> Guess what that does?  The packet counters live in the upper
+> 32-bits and the MARK bits live in the lower 32-bits of the
+> TX_CS register.
+>
+> So it first reads the packet counters, and as a side effect that
+> clears the MARK bits in the TX_CS register.  So when we read the lower
+> 32-bits the MARK bits are always seen as zero.
 
-> 
-> So you can update whatever flags you have to after return of the
-> dev_qeueue_xmit() and will get the same behaviour as sendfile:
-> immediate write into the same memory area results in sending new
-> content
-> (on some NICs).
-But using your approach, how can a user ever know whether or not he actually sent
-a packet?
+For the thorough reader, the TX_CS Transmit Control and Status register is 
+described in table 26-15 page 761-762 in the PDF document titled: 
+"UltraSPARC T2 supplement to UltraSPARC architecture 2007", downloadable 
+from: 
+http://opensparc-t2.sunsource.net/specs/UST2-UASuppl-current-draft-HP-EXT.pdf
 
-Am I missing something fundamental in my understanding?  I don't see any way, outside
-of using the skb destructor, to notify the user when he can safely write to a frame
-without interfering with any pending skbs.
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
