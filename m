@@ -1,7 +1,7 @@
 From: Andi Kleen <ak@linux.intel.com>
 Subject: Re: [RFC PATCH 00/13] hardware time stamping + igb example	implementation
-Date: Wed, 12 Nov 2008 21:23:29 +0100
-Message-ID: <491B3B41.7000001@linux.intel.com>
+Date: Wed, 12 Nov 2008 21:23:37 +0100
+Message-ID: <491B3B49.7070402@linux.intel.com>
 References: <1226414697.17450.852.camel@ecld0pohly>	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly> <491B23FE.9000105@hartkopp.net> <491B2D03.1090700@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
@@ -16,10 +16,10 @@ Cc: Oliver Hartkopp <oliver@hartkopp.net>,
 	"Ronciak, John" <john.ronciak@intel.com>
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:26029 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751746AbYKLUXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 15:23:17 -0500
+Received: from mga09.intel.com ([134.134.136.24]:31160 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753726AbYKLUX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 15:23:26 -0500
 In-Reply-To: <491B2D03.1090700@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
