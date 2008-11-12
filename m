@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.27] tcp_htcp: last_cong bug fix
-Date: Wed, 12 Nov 2008 00:41:49 -0800 (PST)
-Message-ID: <20081112.004149.183320510.davem@davemloft.net>
-References: <B4ABF490-649C-4981-A953-B5FA55022EBD@nuim.ie>
-	<20081111.141600.225275728.davem@davemloft.net>
-	<98649BFE-855E-429E-AB30-BAFED77A5FF1@nuim.ie>
+Subject: Re: v2 [PATCH 1/4] dccp: Limit feature negotiation to connection
+ setup phase
+Date: Wed, 12 Nov 2008 00:49:41 -0800 (PST)
+Message-ID: <20081112.004941.199724451.davem@davemloft.net>
+References: <1225950014-6337-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1225950014-6337-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	<20081112063709.GC6405@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: Doug.Leith@nuim.ie
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56600
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37209
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752965AbYKLIlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 03:41:50 -0500
-In-Reply-To: <98649BFE-855E-429E-AB30-BAFED77A5FF1@nuim.ie>
+	by vger.kernel.org with ESMTP id S1751362AbYKLItm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 03:49:42 -0500
+In-Reply-To: <20081112063709.GC6405@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Douglas Leith <Doug.Leith@nuim.ie>
-Date: Wed, 12 Nov 2008 08:36:30 +0000
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Wed, 12 Nov 2008 07:37:09 +0100
 
-> Patch attached.
+> dccp: Limit feature negotiation to connection setup phase
 
-I wanted you to make a full resubmission with the patch fixed up.
-
-Otherwise I don't have your commit message, and it isn't all collected
-properly when your patch is logged to:
-
-	http://patchwork.ozlabs.org/project/netdev/list
-
-When you are requested to fixup a patch or make some modification,
-always, and I do mean always, make a fresh new submission (changelog
-and all) unless you are told otherwise.
+Applied.
