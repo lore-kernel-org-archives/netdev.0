@@ -1,118 +1,122 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2008-11-12
-Date: Wed, 12 Nov 2008 17:27:39 -0500
-Message-ID: <20081112222739.GK2411@tuxdriver.com>
+From: "Lovich, Vitali" <vlovich@qualcomm.com>
+Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Wed, 12 Nov 2008 14:33:53 -0800
+Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA612A5@NASANEXMB10.na.qualcomm.com>
+References: <20081111192954.GA19409@ioremap.net>
+ <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com>
+ <20081112135828.GA30946@ioremap.net>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
+ <20081112174114.GA4743@ioremap.net>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com>
+ <20081112181134.GA5396@ioremap.net>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA61272@NASANEXMB10.na.qualcomm.com>
+ <20081112191400.GA6291@ioremap.net>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA6128D@NASANEXMB10.na.qualcomm.com>
+ <20081112214601.GA19547@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Johann Baudy <johaahn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36209 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752923AbYKLWbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 17:31:08 -0500
-Content-Disposition: inline
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:20977 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbYKLWd5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 17:33:57 -0500
+In-Reply-To: <20081112214601.GA19547@ioremap.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
 
-A few fixes intended for 2.6.28.  Included are a couple of USB IDs, a
-mac80211 fix to avoid sleeping during RCU, and a nasty hack to hostap to
-make it's skb->cb trickery work again...
 
-Please let me know if there are problems!
+> -----Original Message-----
+> From: Evgeniy Polyakov [mailto:zbr@ioremap.net]
+> Sent: November-12-08 1:46 PM
+> To: Lovich, Vitali
+> Cc: Johann Baudy; netdev@vger.kernel.org
+> Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+> 
+> On Wed, Nov 12, 2008 at 01:23:33PM -0800, Lovich, Vitali
+> (vlovich@qualcomm.com) wrote:
+> > I don't care whether or not the data was sent - I care whether or not
+> the driver
+> > might still use the data in the frame the skb is referring to.  In
+> the destructor, clearly the
+> > driver can't since it gave up its reference.  After dev_queue_xmit,
+> we don't know because
+> > the driver (or the skb queue layer) may have decided to delay packet
+> transmission.
+> >
+> > Potentially the user might even have written half the payload of a
+> packet when the device decides to
+> > send out the skb for that frame and thus send out half the payload
+> from one
+> > packet and half the payload from another.
+> 
+> And what's the point in waiting for data to be unused?
+So that the application in user space can actually send uncorrupted packets.
+Think for instance if I have a 1GB pcap dump and I want to replay it - without
+Waiting for data to be unused, I could potentially send out corrupt packets or
+skip some.
+> You want to implement a system, which will behave more consistent than
+> existing zero-copy approach, but yet not 100% correctly...
+I'm trying to implement a system which is zero-copy with traditional socket send()
+semantics (or at least as close as is possible).  I don't see why it wouldn't work
+100% correctly.
 
-Thanks,
+> > > So you can update whatever flags you have to after return of the
+> > > dev_qeueue_xmit() and will get the same behaviour as sendfile:
+> > > immediate write into the same memory area results in sending new
+> > > content
+> > > (on some NICs).
+> > But using your approach, how can a user ever know whether or not he
+> actually sent
+> > a packet?
+> 
+> There is no way to know that. At all. skb can be dropped by zillions of
+> reasons and after it was submitted to the qdisk layer, there is no way
+> to know how its life will continue. Well, in some cases it is possible
+> to know (when qdisk just frees skb), but it is far from 100% of the
+> cases.
+Right - so I don't really care if the skb gets silently dropped by lower
+layers.  My only concern is that there is some kind of protection that the
+user can use to ensure that he doesn't overwrite data that is in the middle of
+being transmitted.  I think that's the communication disconnect we're having.
+You think I'm concerned about dropped packets - but that's just a side issue.
+I recognize that some lower layer may abandon the skb for whatever reason.  The
+main issue is data integrity - the pages in the scatter/gather list aren't touched
+in user space until the device lets go of the skb.  With your approach, a race is actually
+extremely likely (guaranteed if we roll in the ring buffer at all).  Consider:
 
-John
+Thread A
+Calls send in loop to flush buffer
 
----
+Thread B
+Fills buffer
+As soon as next frame is free (using the status flag), fill it in & update status flag.
 
-Individual patches are available here:
+Clearly, Thread B would actually see the status flag
+cleared before the device actually tried to send the skb (unless the skb managed to
+get sent out before dev_queue_xmit returned).
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit d809a1595610a7c0b0bd55f159e5dc37def0ac28:
-  David S. Miller (1):
-        Merge branch 'davem-fixes' of master.kernel.org:/.../jgarzik/netdev-2.6
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Bob Jolliffe (1):
-      rtl8187 : support for Sitecom WL-168 0001 v4
-
-Ivan Kuten (1):
-      rtl8187: Add Abocom USB ID
-
-Johannes Berg (2):
-      mac80211: fix notify_mac function
-      hostap: pad the skb->cb usage in lieu of a proper fix
-
- drivers/net/wireless/hostap/hostap_wlan.h |    5 ++++-
- drivers/net/wireless/rtl8187_dev.c        |    3 +++
- net/mac80211/mlme.c                       |    6 +++---
- 3 files changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/wireless/hostap/hostap_wlan.h b/drivers/net/wireless/hostap/hostap_wlan.h
-index ffdf487..a68f97c 100644
---- a/drivers/net/wireless/hostap/hostap_wlan.h
-+++ b/drivers/net/wireless/hostap/hostap_wlan.h
-@@ -918,9 +918,12 @@ struct hostap_interface {
- 
- /*
-  * TX meta data - stored in skb->cb buffer, so this must not be increased over
-- * the 40-byte limit
-+ * the 48-byte limit.
-+ * THE PADDING THIS STARTS WITH IS A HORRIBLE HACK THAT SHOULD NOT LIVE
-+ * TO SEE THE DAY.
-  */
- struct hostap_skb_tx_data {
-+	unsigned int __padding_for_default_qdiscs;
- 	u32 magic; /* HOSTAP_SKB_TX_DATA_MAGIC */
- 	u8 rate; /* transmit rate */
- #define HOSTAP_TX_FLAGS_WDS BIT(0)
-diff --git a/drivers/net/wireless/rtl8187_dev.c b/drivers/net/wireless/rtl8187_dev.c
-index 431e3c7..69eb013 100644
---- a/drivers/net/wireless/rtl8187_dev.c
-+++ b/drivers/net/wireless/rtl8187_dev.c
-@@ -48,6 +48,9 @@ static struct usb_device_id rtl8187_table[] __devinitdata = {
- 	{USB_DEVICE(0x03f0, 0xca02), .driver_info = DEVICE_RTL8187},
- 	/* Sitecom */
- 	{USB_DEVICE(0x0df6, 0x000d), .driver_info = DEVICE_RTL8187},
-+	{USB_DEVICE(0x0df6, 0x0028), .driver_info = DEVICE_RTL8187B},
-+	/* Abocom */
-+	{USB_DEVICE(0x13d1, 0xabe6), .driver_info = DEVICE_RTL8187},
- 	{}
- };
- 
-diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
-index 87665d7..14d165f 100644
---- a/net/mac80211/mlme.c
-+++ b/net/mac80211/mlme.c
-@@ -2570,14 +2570,14 @@ void ieee80211_notify_mac(struct ieee80211_hw *hw,
- 
- 	switch (notif_type) {
- 	case IEEE80211_NOTIFY_RE_ASSOC:
--		rcu_read_lock();
--		list_for_each_entry_rcu(sdata, &local->interfaces, list) {
-+		rtnl_lock();
-+		list_for_each_entry(sdata, &local->interfaces, list) {
- 			if (sdata->vif.type != NL80211_IFTYPE_STATION)
- 				continue;
- 
- 			ieee80211_sta_req_auth(sdata, &sdata->u.sta);
- 		}
--		rcu_read_unlock();
-+		rtnl_unlock();
- 		break;
- 	}
- }
--- 
-John W. Linville		Linux should be at the core
-linville@tuxdriver.com			of your literate lifestyle.
+> 
+> > Am I missing something fundamental in my understanding?  I don't see
+> any way, outside
+> > of using the skb destructor, to notify the user when he can safely
+> write to a frame
+> > without interfering with any pending skbs.
+> 
+> Having a callback at destruction time does mean that noone uses skb,
+> but
+> are you sure this is needed? With existing zero-copy (splice/sendfile)
+> this is not true, but you want to extend this approach...
+> 
+> If you _do_ want to make it that way, you can remove destructor at all
+> and implement own packet-socket-only allocation policy and thus have
+> own
+> private destructor without extending skb.
+Can you please elaborate on this further.  What do you mean by custom allocation policy
+and private destructor?  Isn't that exactly what we're doing now?  We're just trying to
+figure out in our destructor which frame the skb was built from.
