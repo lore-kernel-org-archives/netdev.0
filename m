@@ -1,56 +1,43 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: atl1: use magic packet wake-on-lan only
-Date: Wed, 12 Nov 2008 12:37:00 -0500
-Message-ID: <491B143C.5050404@redhat.com>
-References: <20081109150530.3eb555f9@osprey.hogchain.net>	<49188091.3090709@redhat.com> <20081111183546.72de1714@osprey.hogchain.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Wed, 12 Nov 2008 20:41:14 +0300
+Message-ID: <20081112174114.GA4743@ioremap.net>
+References: <7e0dd21a0811110343v677c511ck69314fa19ace44b7@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B5@NASANEXMB10.na.qualcomm.com> <7e0dd21a0811110950g1182b86cv3e938df93f53d29d@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C3@NASANEXMB10.na.qualcomm.com> <20081111185036.GA17717@ioremap.net> <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com> <20081111192954.GA19409@ioremap.net> <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com> <20081112135828.GA30946@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, Jie.yang@atheros.com, netdev@vger.kernel.org
-To: "J. K. Cliburn" <jcliburn@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johann Baudy <johaahn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:59389 "EHLO mx2.redhat.com"
+Received: from matrixpower.ru ([195.178.208.66]:33567 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751793AbYKLRhM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 12:37:12 -0500
-In-Reply-To: <20081111183546.72de1714@osprey.hogchain.net>
+	id S1751530AbYKLRlP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 12:41:15 -0500
+Content-Disposition: inline
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-J. K. Cliburn wrote:
-> On Mon, 10 Nov 2008 13:42:25 -0500
-> Chris Snook <csnook@redhat.com> wrote:
-> 
->> J. K. Cliburn wrote:
->>> atl1: use magic packet wake-on-lan only
->>>
->>> Of the various WOL options provided in include/linux/ethtool.h, the
->>> L1 NIC supports only magic packet.  Remove all options except magic
->>> packet from the atl1 driver.
->> Technically, we could implement the rest via the programmable 
->> pattern-matching hardware, but that would be an immense amount of
->> work.
-> 
-> Thanks for the pointer to the pattern matching capability.  I had
-> forgotten about it.
-> 
-> What prompted the patch was a user asking some questions off-list about
-> the L1 and WOL, and I realized the atl1 driver was advertising WOL
-> options that weren't implemented.
-> 
-> I think the magic-packet-only patch I submitted to Jeff is still
-> relevant, but I'm going to explore the pattern matching capability and
-> see if we can implement some additional WOL options.  IMHO, though,
-> those should be provided in a separate (future) patch.  Do you agree?
-> 
-> Jay
+Hi Vitali.
 
-Completely.  Programming the pattern matching hardware is a lot more 
-involved than setting a single bit in the hardware.
+On Wed, Nov 12, 2008 at 09:07:43AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
+> I think you misunderstand how the API works.  Yes the user could call send from the thread he's filling in data from.  But the idea is that he would ideally do this from another thread so that it's possible to control latency between packet sends.  Additionally, even without trying to control latency, there would still have to be complicated logic in userspace to determine when enough packets have been placed in the buffer to overcome the cost of a system call.
+> 
+> This is why we need to know which frame in the ring buffer the skb is associated with.
 
-Are there any other NICs that have pattern-matching WoLAN capability? 
-If so, how do their drivers take advantage of them?  If it turns out to 
-be a widely underutilized feature, it might make sense to let ethtool do 
-the dirty work.
+What's the problem of invoking send machinery from different thread?
+You can wait in appropriate syscall until multiple packets have been
+sent and then return, or update some shared flag in the mapped area
+which says that something is being sent. When dev_queue_xmit() for
+selected set of packets completes, you can update that variable, and
+based on its value userspace can overwrite the area used by already
+sent packets.
 
--- Chris
+I see the only reason to have a notification about skb completion is an
+absolute need to send sync data, i.e. packet data can not be overwritten
+until packet reaches the media. But getting that existing Linux
+splice/sendfile and any other ->sendpage() users are racy in this regard
+for centuries, this does not look as a strong demand for me.
+
+-- 
+	Evgeniy Polyakov
