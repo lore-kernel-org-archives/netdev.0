@@ -1,27 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove struct dst_entry::entry_size
-Date: Tue, 11 Nov 2008 17:25:40 -0800 (PST)
-Message-ID: <20081111.172540.136370985.davem@davemloft.net>
-References: <20081111132445.GA14810@x200.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: SKB truesize bug
+Date: Wed, 12 Nov 2008 09:37:44 +0800
+Message-ID: <20081112013744.GB18072@gondor.apana.org.au>
+References: <20081111092513.67c2a988@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38277
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751839AbYKLBZk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 20:25:40 -0500
-In-Reply-To: <20081111132445.GA14810@x200.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:56489 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751022AbYKLBhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 20:37:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20081111092513.67c2a988@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 11 Nov 2008 16:24:45 +0300
+On Tue, Nov 11, 2008 at 09:25:13AM -0800, Stephen Hemminger wrote:
+> Is this bug fixed?  is it in the 2.6.26.8 kernel?
 
-> Unused after kmem_cache_zalloc() conversion.
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+No and yes.
 
-Applied.
+We need to fix up the truesize when resizing packets for IPsec
+processing.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
