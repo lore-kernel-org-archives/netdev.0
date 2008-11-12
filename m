@@ -1,33 +1,38 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Wed, 12 Nov 2008 21:11:34 +0300
-Message-ID: <20081112181134.GA5396@ioremap.net>
-References: <7e0dd21a0811110950g1182b86cv3e938df93f53d29d@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C3@NASANEXMB10.na.qualcomm.com> <20081111185036.GA17717@ioremap.net> <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com> <20081111192954.GA19409@ioremap.net> <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com> <20081112135828.GA30946@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com> <20081112174114.GA4743@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH 2.6.28] RDMA/cxgb3: deadlock in iw_cxgb3
+	can cause hang when configuring interface.
+Date: Wed, 12 Nov 2008 10:20:40 -0800
+Message-ID: <adazlk4n6vb.fsf@cisco.com>
+References: <20081106230642.28808.66765.stgit@dell3.ogc.int>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johann Baudy <johaahn@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Lovich, Vitali" <vlovich@qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cs-studio.ru ([195.178.208.66]:48844 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751604AbYKLSLg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 13:11:36 -0500
-Content-Disposition: inline
-In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org, divy@chelsio.com,
+	jeff@garzik.org, wenxiong@us.ibm.com
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20081106230642.28808.66765.stgit@dell3.ogc.int> (Steve Wise's
+	message of "Thu, 06 Nov 2008 17:06:42 -0600")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 12, 2008 at 09:59:20AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
-> They aren't racy - not in the sense that your suggestion would make it.  With current splice & sendfile, when it returns from the syscall, the user knows that it has been transmitted and thus can continue using the file descriptors & memory (in the case of vmsplice).  However, with your suggestion, the user could actually never know when it's safe to write into memory (even in a single-threaded situation).  Thus it is racy in a single-threaded situation (even on a UP it's potentially racy) which is a pretty amazing feat.  Consider:
+Looks good, applied.
 
-Problem is, that when sendfile() returns nothing has been transferred.
-And in some NICs it will take a while to actually make a transfer.
-And what you wrote below is exactly the same problem as exists with
-splice/sendfile in particular and ->sendpage() in general.
+However, I think it's a little yucky to call ethtool ops without rtnl,
+although it is of course perfectly safe in this case.  It might be nicer
+to introduce a new cxgb3 <-> iw_cxgb3 interface that returns the
+firmware version, which can also be used to implement the get_drvinfo
+ethtool op as well.  That would let you avoid fw_vers_string_to_u64() as
+well -- it is a little silly at the moment how cxgb3 converts to a
+string and then iw_cxgb3 parses that string.
 
-Please also update your mailer to wrap strings into 80-or-so lines, it
-is hard to answer into the middle of the paragraph.
+But that's all much lower priority than just fixing a deadlock.
 
--- 
-	Evgeniy Polyakov
+ - R.
