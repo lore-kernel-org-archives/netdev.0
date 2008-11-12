@@ -1,30 +1,48 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-11-12
-Date: Wed, 12 Nov 2008 14:39:01 -0800 (PST)
-Message-ID: <20081112.143901.224895622.davem@davemloft.net>
-References: <20081112222739.GK2411@tuxdriver.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: mmotm 2008-11-06-13-44 uploaded (smc-ultra)
+Date: Wed, 12 Nov 2008 14:50:29 -0800
+Message-ID: <20081112145029.8034a6f5.akpm@linux-foundation.org>
+References: <200811062144.mA6LiWj8004200@imap1.linux-foundation.org>
+	<20081108100911.e475ff0f.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081112222739.GK2411-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	p_gortmaker@yahoo.com,
+	=?ISO-8859-1?Q?M=E1rton_N=E9meth?= <nm127@freemail.hu>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39671 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755674AbYKLWus convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 17:50:48 -0500
+In-Reply-To: <20081108100911.e475ff0f.randy.dunlap@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 12 Nov 2008 17:27:39 -0500
+On Sat, 8 Nov 2008 10:09:11 -0800
+Randy Dunlap <randy.dunlap@oracle.com> wrote:
 
-> A few fixes intended for 2.6.28.  Included are a couple of USB IDs, a
-> mac80211 fix to avoid sleeping during RCU, and a nasty hack to hostap to
-> make it's skb->cb trickery work again...
-> 
-> Please let me know if there are problems!
+> On Thu, 06 Nov 2008 13:44:32 -0800 akpm@linux-foundation.org wrote:
+>=20
+> > The mm-of-the-moment snapshot 2008-11-06-13-44 has been uploaded to
+> >=20
+> >    http://userweb.kernel.org/~akpm/mmotm/
+> >=20
+> > It contains the following patches against 2.6.28-rc3:
+>=20
+>=20
+> mmotm-2008-1106-1344/drivers/net/smc-ultra.c: In function 'ultra_prob=
+e1':
+> mmotm-2008-1106-1344/drivers/net/smc-ultra.c:254: error: 'mac' undecl=
+ared (first use in this function)
+>=20
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Caused by M=E1rton's smc-ultra-get-rid-of-eth%d-message.patch.  Someone
+went and removed `mac' from linux-next, and that patch depended upon it=
+=2E
+
+M=E1rton, I'll drop the patch.  Please redo and resend (against linux-n=
+ext),
+thanks.
