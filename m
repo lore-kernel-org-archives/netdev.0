@@ -1,64 +1,71 @@
-From: Andi Kleen <ak@linux.intel.com>
-Subject: Re: [RFC PATCH 00/13] hardware time stamping + igb example	implementation
-Date: Wed, 12 Nov 2008 22:34:27 +0100
-Message-ID: <491B4BE3.3010104@linux.intel.com>
-References: <1226414697.17450.852.camel@ecld0pohly>	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly> <491B23FE.9000105@hartkopp.net> <491B2D03.1090700@cosmosbay.com> <491B3B49.7070402@linux.intel.com> <491B42FF.3000407@cosmosbay.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
+Date: Wed, 12 Nov 2008 21:50:57 +0000
+Message-ID: <1226526657.3016.10.camel@achroite>
+References: <20081112.035240.226243372.davem@davemloft.net>
+	 <20081112.041143.11487260.davem@davemloft.net>
+	 <1226494493.3016.3.camel@achroite>
+	 <20081112.134618.30673281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <oliver@hartkopp.net>,
-	Patrick Ohly <patrick.ohly@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: jdb@comx.dk, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:47005 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751635AbYKLVvE (ORCPT
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:40781 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752042AbYKLVvE (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 16:51:04 -0500
-In-Reply-To: <491B42FF.3000407@cosmosbay.com>
+In-Reply-To: <20081112.134618.30673281.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-
-> This scheme only is needed for special devices, 
-
-It's going to be supported by a large range of mass market NICs,
-not special devices.
-
-used by PTP.
+On Wed, 2008-11-12 at 13:46 -0800, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 12 Nov 2008 12:54:53 +0000
 > 
-> Only *selected* frames really need to gather hwtstamp.
+> > On Wed, 2008-11-12 at 04:11 -0800, David Miller wrote:
+> > [...]
+> > > So the following patch should fix this bug.  writeq() should
+> > > be OK as-is, so doesn't need a similar change.
+> > > 
+> > > diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+> > > index 9acb5d7..d8463b1 100644
+> > > --- a/drivers/net/niu.c
+> > > +++ b/drivers/net/niu.c
+> > > @@ -51,8 +51,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
+> > >  #ifndef readq
+> > >  static u64 readq(void __iomem *reg)
+> > >  {
+> > > -	return (((u64)readl(reg + 0x4UL) << 32) |
+> > > -		(u64)readl(reg));
+> > > +	return ((u64) readl(reg)) | (((u64) readl(reg + 4UL)) << 32);
+> > >  }
+> > 
+> > Since there's no sequence point between the reads, there's no guarantee
+> > that the reads happen in the order written (regardless of barriers
+> > inside readl()).  This needs to be split into two statements.
+> 
+> What version of the C language are you using?
 
-Yes but the NIC cannot decide that.
+Any version will do.
 
-> TCP trafic wont use hwtstamp. 
+> I personally think it's safe.  If the compiler sees "A | B" it's going
+> to emit the code to compute A, then the code to emit B, and finally
+> the "|" operation.
+> 
+> Everything I've always seen says that for "|" the expressions are
+> evaluated left to right.
 
-Actually it wouldn't surprise me if one of the numerous
-TCP congestion avoidance algorithms that get added all the time
-starts making use of such an enhanced time stamp.
+I think you're confusing it with "||" which does have this sequencing
+rule.
 
->Most UDP trafic wont use hwstamp.
+See <http://c-faq.com/expr/seqpoints.html> if you're not convinced.
 
-That depends. For example if you're running a packet sniffer
-most packets will carry it. Probably also others. e.g. dhcp
-is using timestamps and it would make sense to switch it to
-hw timestamps when available.
-Now if you're running a DHCP server ...
+Ben.
 
-> I threw a "crazy idea", that can be changed if necessary, say with a cookie
-> that identifies the slot in NIC driver structure. O(1) lookup if really 
-> needed.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-I think "crazy" describes it well because it would be a lot of dubious
-and likely not performing well effort just to save 8 bytes.
-
-BTW it wouldn't surprise me if skb heads had some free space in common
-situations anyways becaus it's unlikely it fits exactly into 4K pages
-in slab/slub.
-
--Andi
