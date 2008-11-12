@@ -1,39 +1,50 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: ifdef struct sock::sk_async_wait_queue
-Date: Wed, 12 Nov 2008 15:13:08 +0300
-Message-ID: <20081112121308.GA4759@x200.localdomain>
+From: "Johann Baudy" <johaahn@gmail.com>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Wed, 12 Nov 2008 13:09:37 +0100
+Message-ID: <7e0dd21a0811120409jc770a1u3b538a413218cf94@mail.gmail.com>
+References: <1225450706.5301.94.camel@localhost>
+	 <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61024@NASANEXMB10.na.qualcomm.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61126@NASANEXMB10.na.qualcomm.com>
+	 <7e0dd21a0811110410v5fa8abadib70cebecb282bc1@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B8@NASANEXMB10.na.qualcomm.com>
+	 <7e0dd21a0811111008x2e674384kaa560d766a8f643e@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C4@NASANEXMB10.na.qualcomm.com>
+	 <7e0dd21a0811111059i4d1bc0e6va6032bbfb3f0002c@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611D9@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Evgeniy Polyakov" <zbr@ioremap.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:14285 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751279AbYKLMJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 07:09:40 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1021833ugf.37
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2008 04:09:38 -0800 (PST)
+Received: from fg-out-1718.google.com ([72.14.220.156]:59340 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096AbYKLMJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 07:09:39 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so372783fgg.17
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2008 04:09:37 -0800 (PST)
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA611D9@NASANEXMB10.na.qualcomm.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Every user is under CONFIG_NET_DMA already, so ifdef field as well.
+Hi Vitali,
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+> So the way I had done it is that non-recoverable errors are those caused by malformed data coming from the user (i.e. packet size is invalid).  In this case, we free the frame and return.  In all other cases, it assumed that the cause was some kind of bad kernel state (i.e. no memory, device busy, etc) that will eventually be recovered from, so we keep retrying or return to the user without changing the status code.
 
- include/net/sock.h |    2 ++
- 1 file changed, 2 insertions(+)
+I still believe that we should stop on non-recoverable errors. User
+must be informed that the packet has not been sent.
+If you skip the frame and set status to TP_STATUS_KERNEL. Frame will
+be lost and user will think that malformed frame has been transmitted.
 
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -239,7 +239,9 @@ struct sock {
- 	int			sk_sndbuf;
- 	struct sk_buff_head	sk_receive_queue;
- 	struct sk_buff_head	sk_write_queue;
-+#ifdef CONFIG_NET_DMA
- 	struct sk_buff_head	sk_async_wait_queue;
-+#endif
- 	int			sk_wmem_queued;
- 	int			sk_forward_alloc;
- 	gfp_t			sk_allocation;
+I'm using TP_STATUS_LOSING in case of non-recoverable error. We can
+maybe introduce a socket option to chose the behavior for
+non-recoverable error.
+
+Best regards,
+Johann
+-- 
+Johann Baudy
+johaahn@gmail.com
