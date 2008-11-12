@@ -1,43 +1,68 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Wed, 12 Nov 2008 20:41:14 +0300
-Message-ID: <20081112174114.GA4743@ioremap.net>
-References: <7e0dd21a0811110343v677c511ck69314fa19ace44b7@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B5@NASANEXMB10.na.qualcomm.com> <7e0dd21a0811110950g1182b86cv3e938df93f53d29d@mail.gmail.com> <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C3@NASANEXMB10.na.qualcomm.com> <20081111185036.GA17717@ioremap.net> <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com> <20081111192954.GA19409@ioremap.net> <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com> <20081112135828.GA30946@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
+Date: Wed, 12 Nov 2008 18:56:48 +0100
+Message-ID: <491B18E0.7040502@krogh.cc>
+References: <20081112.014923.68124784.davem@davemloft.net>	<1226487710.6834.53.camel@localhost.localdomain>	<20081112.035240.226243372.davem@davemloft.net> <20081112.041143.11487260.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johann Baudy <johaahn@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Lovich, Vitali" <vlovich@qualcomm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jdb@comx.dk, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from matrixpower.ru ([195.178.208.66]:33567 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751530AbYKLRlP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 12:41:15 -0500
-Content-Disposition: inline
-In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:40279 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751763AbYKLR45 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 12:56:57 -0500
+In-Reply-To: <20081112.041143.11487260.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vitali.
-
-On Wed, Nov 12, 2008 at 09:07:43AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
-> I think you misunderstand how the API works.  Yes the user could call send from the thread he's filling in data from.  But the idea is that he would ideally do this from another thread so that it's possible to control latency between packet sends.  Additionally, even without trying to control latency, there would still have to be complicated logic in userspace to determine when enough packets have been placed in the buffer to overcome the cost of a system call.
+David Miller wrote:
+> I am guessing you're running a 32-bit x86 kernel.
 > 
-> This is why we need to know which frame in the ring buffer the skb is associated with.
+> In such a case the driver has to define a local readq()
+> and writeq() implementation.
+> 
+> What I provide for NIU right now reads the upper 32-bits
+> then the lower 32-bits of the register.
+> 
+> Guess what that does?  The packet counters live in the upper
+> 32-bits and the MARK bits live in the lower 32-bits of the
+> TX_CS register.
+> 
+> So it first reads the packet counters, and as a side effect that
+> clears the MARK bits in the TX_CS register.  So when we read the lower
+> 32-bits the MARK bits are always seen as zero.
+> 
+> BzzaaarT!
+> 
+> So the following patch should fix this bug.  writeq() should
+> be OK as-is, so doesn't need a similar change.
+> 
+> diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+> index 9acb5d7..d8463b1 100644
+> --- a/drivers/net/niu.c
+> +++ b/drivers/net/niu.c
+> @@ -51,8 +51,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
+>  #ifndef readq
+>  static u64 readq(void __iomem *reg)
+>  {
+> -	return (((u64)readl(reg + 0x4UL) << 32) |
+> -		(u64)readl(reg));
+> +	return ((u64) readl(reg)) | (((u64) readl(reg + 4UL)) << 32);
+>  }
+>  
+>  static void writeq(u64 val, void __iomem *reg)
 
-What's the problem of invoking send machinery from different thread?
-You can wait in appropriate syscall until multiple packets have been
-sent and then return, or update some shared flag in the mapped area
-which says that something is being sent. When dev_queue_xmit() for
-selected set of packets completes, you can update that variable, and
-based on its value userspace can overwrite the area used by already
-sent packets.
+On my system, I'm not in a position where I can just pull down the 
+server and test, but if the above seems plausible that it is the same 
+bug I hit using the 10GBitE card, then I'll definately try to test it out.
 
-I see the only reason to have a notification about skb completion is an
-absolute need to send sync data, i.e. packet data can not be overwritten
-until packet reaches the media. But getting that existing Linux
-splice/sendfile and any other ->sendpage() users are racy in this regard
-for centuries, this does not look as a strong demand for me.
+I sort-of reliably hit the problem after a few day of production on a 16 
+core, amd64 system running NFS-server.
 
+Does it seem likely to be the same problem?
+
+Thanks
 -- 
-	Evgeniy Polyakov
+Jesper Krogh
