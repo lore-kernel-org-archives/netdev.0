@@ -1,72 +1,81 @@
-From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: Re: [tproxy] udp + tproxy
-Date: Wed, 12 Nov 2008 20:27:10 +0100
-Message-ID: <1226518030.10667.68.camel@bzorp.balabit>
-References: <1226490030.31896.12.camel@sysandrey.icomswg.local>
-	 <20081112185910.GA1793@sch.bme.hu>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [UPDATED PATCH] e1000e: Use device_set_wakeup_enable
+Date: Wed, 12 Nov 2008 11:52:32 -0800
+Message-ID: <20081112195232.23587.24774.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrey Luzgin <andrey@icomsw.com>, tproxy@lists.balabit.hu,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: KOVACS Krisztian <hidden@sch.bme.hu>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from support.balabit.hu ([195.70.41.86]:49996 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752303AbYKLTs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 14:48:59 -0500
-In-Reply-To: <20081112185910.GA1793@sch.bme.hu>
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:46289 "EHLO
+	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752604AbYKLTwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 14:52:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-11-12 at 19:59 +0100, KOVACS Krisztian wrote:
-> Hi,
-> 
-> On sze, nov 12, 2008 at 11:40:30 +0000, Andrey Luzgin wrote:
-> > Hello,
-> > 
-> > While I can see example of using udp on tproxy2 onto the
-> > redirect-udp-recv.c
-> > file, I can't find equivalent on tproxy4.
-> > 
-> > For getting the original destination IP, I just use setsockopt
-> > IP_PKTINFO:
-> > setsockopt(sd, SOL_IP, IP_PKTINFO , &flags, sizeof(flags));
-> > 
-> > But I don't know how to get the original destination port:
-> > 
-> > a) I manually defined IP_RECVORIGADDRS  to be 11273 as I find on
-> > tproxy2:
-> > setsockopt(sd, SOL_IP, IP_RECVORIGADDRS , &flags, sizeof(flags));
-> > but the setsockopt failed.
-> > 
-> > b) the getsockname give me the server listening port.
-> 
-> 
-> Since tproxy 4 (unlike tproxy 2) doesn't modify the incoming packets in
-> any way you should be able to get the correct destination address by
-> simply calling recvfrom() and using the source address returned by the
-> kernel.
-> 
+From: \"Rafael J. Wysocki\" <rjw@sisk.pl>
 
-This is not true, recvfrom() returns the client address and does not
-return the original destination. There was a hack in 2.2 kernels, that
-it could return the targeted address in the 2nd half of the "struct
-sockaddr_in" structure.
+Since dev->power.should_wakeup bit is used by the PCI core to
+decide whether the device should wake up the system from sleep
+states, set/unset this bit whenever WOL is enabled/disabled using
+e1000_set_wol().  Accordingly, use device_can_wakeup() for checking
+if wake-up is supported by the device.
 
-But that hack was crude. 
+Signed-off-by: "Rafael J. Wysocki" <rjw@sisk.pl>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-I can only see two options to proceed with full udp proxying: accept()
-support for UDP, or a recvmsg() ancillary data (IP_RECVORIGADDRS) as
-above.
+ drivers/net/e1000e/ethtool.c |    8 ++++++--
+ drivers/net/e1000e/netdev.c  |    1 +
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-I'll see whether I can come up with a patch for the latter.
-
-In Zorp we're using accept() for UDP sockets, but I doubt it could be
-integrated to mainline, the other option is doable, although potentially
-racy.
-
--- 
-Bazsi
-
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 70c11c8..62421ce 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -1713,7 +1713,8 @@ static void e1000_get_wol(struct net_device *netdev,
+ 	wol->supported = 0;
+ 	wol->wolopts = 0;
+ 
+-	if (!(adapter->flags & FLAG_HAS_WOL))
++	if (!(adapter->flags & FLAG_HAS_WOL) ||
++	    !device_can_wakeup(&adapter->pdev->dev))
+ 		return;
+ 
+ 	wol->supported = WAKE_UCAST | WAKE_MCAST |
+@@ -1751,7 +1752,8 @@ static int e1000_set_wol(struct net_device *netdev,
+ 	if (wol->wolopts & WAKE_MAGICSECURE)
+ 		return -EOPNOTSUPP;
+ 
+-	if (!(adapter->flags & FLAG_HAS_WOL))
++	if (!(adapter->flags & FLAG_HAS_WOL) ||
++	    !device_can_wakeup(&adapter->pdev->dev))
+ 		return wol->wolopts ? -EOPNOTSUPP : 0;
+ 
+ 	/* these settings will always override what we currently have */
+@@ -1770,6 +1772,8 @@ static int e1000_set_wol(struct net_device *netdev,
+ 	if (wol->wolopts & WAKE_ARP)
+ 		adapter->wol |= E1000_WUFC_ARP;
+ 
++	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index abd492b..2c8dffd 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4970,6 +4970,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 
+ 	/* initialize the wol settings based on the eeprom settings */
+ 	adapter->wol = adapter->eeprom_wol;
++	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+ 
+ 	/* reset the hardware with the new settings */
+ 	e1000e_reset(adapter);
 
