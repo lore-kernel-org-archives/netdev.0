@@ -1,53 +1,45 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: Re: [RFC PATCH 02/13] extended semantic of sk_buff::tstamp: lowest
-	bit	marks hardware time stamps
-Date: Wed, 12 Nov 2008 09:09:04 +0100
-Message-ID: <1226477344.31699.44.camel@ecld0pohly>
-References: <1226414697.17450.852.camel@ecld0pohly>
-	 <1226415407.31699.1.camel@ecld0pohly>  <491A88AB.8070006@cosmosbay.com>
+Subject: Re: Storing hardware timestamps - how about using the new skb's
+	control block?
+Date: Wed, 12 Nov 2008 09:27:18 +0100
+Message-ID: <1226478438.31699.55.camel@ecld0pohly>
+References: <20081112072340.1c0c1a74.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>, Andi Kleen <ak@linux.intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Oliver Hartkopp <oliver@hartkopp.net>
-To: Eric Dumazet <dada1@cosmosbay.com>
+	Octavian Purdila <opurdila@ixiacom.com>
+To: Mark Smith
+	<nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:30961 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:46945 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751144AbYKLIJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 03:09:09 -0500
-In-Reply-To: <491A88AB.8070006@cosmosbay.com>
+	id S1751428AbYKLI1W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 03:27:22 -0500
+In-Reply-To: <20081112072340.1c0c1a74.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-11-12 at 07:41 +0000, Eric Dumazet wrote:
-> Please use ktime_t instead of "union ktime"
-
-Are you sure? 
-
-include/linux/ktime.h says
-        typedef union ktime ktime_t;            /* Kill this */
-and the CodingStyle also seems to be against it.
-
-I thought it would be good to avoid using the typedef in new code, but
-if consistency with the existing code is preferred, then I'll change it.
-
-> > +
-> > +	/*
-> > +	 * make sure that lowest bit is never set: it marks hardware
-> > +	 * time stamps
-> > +	 */
-> > +#if BITS_PER_LONG != 64 && !defined(CONFIG_KTIME_SCALAR)
-> > +	skb->tstamp.tv.sec = skb->tstamp.tv.sec / 2 * 2;
+On Tue, 2008-11-11 at 20:53 +0000, Mark Smith wrote:
+> Just a quick suggestion for storing hardware timestamps, how about
+> storing them in the new skb's control block?
 > 
-> .tv.sec ? are you sure you dont want .tv.nsec ?
+> From what I understand, any private users of the control block are
+> supposed to ignore the existing value, and if a protocol/tap is going
+> to be looking at the new skb, it should have done a skb_share_check()
+> first to grab it's own private copy if necessary, protecting the
+> control block stored timestamp value from any of the other skb
+> users who might change the control block value for their own purposes.
 
-Eek! Right. I'm pretty sure I compiled this in 32 bit mode, but I
-haven't actually tried the result.
+My understanding of sk_buff->cb might be wrong, but isn't each layer
+allowed to overwrite it as the packet traverses the different queues?
+skb_share_check() is not mandatory: the owner of a packet has to call it
+if he wants to preserve the control block, not the recipient of a
+packet.
+
+If that understanding is correct, then I don't see how the control block
+can be used to communicate information across layers. Or do I miss
+something fundamental?
 
 -- 
 Best Regards, Patrick Ohly
