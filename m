@@ -1,41 +1,39 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: Why does IPV6 link local address advertised as /64?
-Date: Wed, 12 Nov 2008 07:29:12 +0200
-Message-ID: <20081112052912.GX30968@mea-ext.zmailer.org>
-References: <20081111204906.081d9d57@extreme>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 4/4] dccp: Resolve dependencies of features on choice
+	of CCID
+Date: Wed, 12 Nov 2008 07:14:03 +0100
+Message-ID: <20081112061402.GA6405@gerrit.erg.abdn.ac.uk>
+References: <1225950014-6337-4-git-send-email-gerrit@erg.abdn.ac.uk> <1225950014-6337-5-git-send-email-gerrit@erg.abdn.ac.uk> <20081110.131748.152587229.davem@davemloft.net> <20081110.132038.16329379.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:48529 "EHLO z2.cat.iki.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751022AbYKLF3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 00:29:16 -0500
-Received: (mea@mea-ext) by mail.zmailer.org id S2261317AbYKLF3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 07:29:12 +0200
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52775 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750956AbYKLGOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 01:14:12 -0500
 Content-Disposition: inline
-In-Reply-To: <20081111204906.081d9d57@extreme>
+In-Reply-To: <20081110.132038.16329379.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 11, 2008 at 08:49:06PM -0800, Stephen Hemminger wrote:
-> It seems to make more sense to have only the actual host (ie /128)
-> on the link-local address or is there some other purpose to
-> using a /64?
+David, -
+| Send me something which actually compiles next time:
+| 
+| net/dccp/feat.c: In function ???__feat_register_nn???:
+| net/dccp/feat.c:252: error: implicit declaration of function ???dccp_feat_default_value???
+| net/dccp/feat.c:255: error: implicit declaration of function ???dccp_feat_push_change???
+| make[2]: *** [net/dccp/feat.o] Error 1
+| make[2]: *** Waiting for unfinished jobs....
+| 
+Apologies. This was a resubmitted set and patch 2/4, after diff-ing each
+of the patches, was found to still have the old format. The set had been
+changed to avoid build warnings about dependencies throughout, this
+patch unfortunately had the old format.
 
-The purpose of the link-local prefixes is not to report interface
-physical address, but enable communication without yet having
-full configuration in place  -  this enables ZeroConfig, DHCP6,
-etc. mechanisms.
+When resubmitting next I will make sure to only use fresh copies for
+each, no matter if it is the same patch. 
 
-Consider Ethernet with link-local address, you can do peer-to-peer
-communication there without global addresses by using MAC address
-derived link-local address.  Indeed the global prefix RA's are
-link-local multicasts.
-
-Furthermore, with links using _same_ /64 prefix and possibly varying
-suffix, all applications using the link-local addresses must also
-inform socket binding of the interface where it is to be applied to.
-
-         /Matti Aarnio
+Will re-send the 4 from the up-to-date local copies, these are known to
+compile without errors/warnings. 
