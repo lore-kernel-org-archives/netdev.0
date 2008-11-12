@@ -1,71 +1,96 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
-Date: Wed, 12 Nov 2008 21:50:57 +0000
-Message-ID: <1226526657.3016.10.camel@achroite>
-References: <20081112.035240.226243372.davem@davemloft.net>
-	 <20081112.041143.11487260.davem@davemloft.net>
-	 <1226494493.3016.3.camel@achroite>
-	 <20081112.134618.30673281.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: ARP table question
+Date: Wed, 12 Nov 2008 14:10:26 -0800
+Message-ID: <491B5452.6020709@candelatech.com>
+References: <491B1600.4080505@candelatech.com> <491B1841.9050404@candelatech.com> <491B31EB.4050304@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jdb@comx.dk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------070103070709000309040004"
+Cc: Patrick McHardy <kaber@trash.net>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:40781 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752042AbYKLVvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 16:51:04 -0500
-In-Reply-To: <20081112.134618.30673281.davem@davemloft.net>
+Received: from mail.candelatech.com ([208.74.158.172]:46761 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755151AbYKLWKb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 17:10:31 -0500
+In-Reply-To: <491B31EB.4050304@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-11-12 at 13:46 -0800, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 12 Nov 2008 12:54:53 +0000
+This is a multi-part message in MIME format.
+--------------070103070709000309040004
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Ben Greear wrote:
+> I have 500 mac-vlans on a system talking to 500 other
+> mac-vlans.  My problem is that the arp-table gets extremely
+> huge because every time an arp-request comes in on all mac-vlans,
+> a stale arp entry is added for each mac-vlan.  I have filtering
+> turned on, but that doesn't help because the neigh_event_ns call
+> below will cause a stale neighbor entry to be created regardless
+> of whether a replay will be sent or not.
 > 
-> > On Wed, 2008-11-12 at 04:11 -0800, David Miller wrote:
-> > [...]
-> > > So the following patch should fix this bug.  writeq() should
-> > > be OK as-is, so doesn't need a similar change.
-> > > 
-> > > diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-> > > index 9acb5d7..d8463b1 100644
-> > > --- a/drivers/net/niu.c
-> > > +++ b/drivers/net/niu.c
-> > > @@ -51,8 +51,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
-> > >  #ifndef readq
-> > >  static u64 readq(void __iomem *reg)
-> > >  {
-> > > -	return (((u64)readl(reg + 0x4UL) << 32) |
-> > > -		(u64)readl(reg));
-> > > +	return ((u64) readl(reg)) | (((u64) readl(reg + 4UL)) << 32);
-> > >  }
-> > 
-> > Since there's no sequence point between the reads, there's no guarantee
-> > that the reads happen in the order written (regardless of barriers
-> > inside readl()).  This needs to be split into two statements.
-> 
-> What version of the C language are you using?
+> Maybe the neigh_event code should be below the checks for dont_send,
+> and only create check neigh_event_ns if we are !dont_send?
 
-Any version will do.
+The attached patch makes it work much better for me.  The patch
+will cause the code to NOT create a stale neighbor entry if we
+are not going to respond to the ARP request.  The old code
+*would* create a stale entry even if we are not going to respond.
 
-> I personally think it's safe.  If the compiler sees "A | B" it's going
-> to emit the code to compute A, then the code to emit B, and finally
-> the "|" operation.
-> 
-> Everything I've always seen says that for "|" the expressions are
-> evaluated left to right.
+This is against 2.6.25.15.
 
-I think you're confusing it with "||" which does have this sequencing
-rule.
+Signed-off-by:  Ben Greear<greearb@candelatech.com>
 
-See <http://c-faq.com/expr/seqpoints.html> if you're not convinced.
-
-Ben.
+Thanks,
+Ben
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
+
+--------------070103070709000309040004
+Content-Type: text/x-patch;
+ name="patch0.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch0.patch"
+
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 8c16b42..dd454b7 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -872,18 +872,18 @@ static int arp_process(struct sk_buff *skb)
+ 		addr_type = rt->rt_type;
+ 
+ 		if (addr_type == RTN_LOCAL) {
+-			n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
+-			if (n) {
+-				int dont_send = 0;
+-
+-				if (!dont_send)
+-					dont_send |= arp_ignore(in_dev,sip,tip);
+-				if (!dont_send && IN_DEV_ARPFILTER(in_dev))
+-					dont_send |= arp_filter(sip,tip,dev);
+-				if (!dont_send)
+-					arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,dev->dev_addr,sha);
++			int dont_send = 0;
+ 
+-				neigh_release(n);
++			if (!dont_send)
++				dont_send |= arp_ignore(in_dev,sip,tip);
++			if (!dont_send && IN_DEV_ARPFILTER(in_dev))
++				dont_send |= arp_filter(sip,tip,dev);
++			if (!dont_send) {
++				n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
++				if (n) {
++					arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,dev->dev_addr,sha);
++					neigh_release(n);
++				}
+ 			}
+ 			goto out;
+ 		} else if (IN_DEV_FORWARD(in_dev)) {
+
+--------------070103070709000309040004--
