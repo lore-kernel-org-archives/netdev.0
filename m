@@ -1,70 +1,47 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
-Date: Wed, 12 Nov 2008 14:58:23 -0800
-Message-ID: <ada8wromu0g.fsf@cisco.com>
-References: <1226494493.3016.3.camel@achroite>
-	<20081112.134618.30673281.davem@davemloft.net>
-	<1226526657.3016.10.camel@achroite>
-	<20081112.142625.120012106.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 5/5] bnx2: Update version to 1.8.2.
+Date: Wed, 12 Nov 2008 15:10:04 -0800
+Message-ID: <1226531404-26118-5-git-send-email-mchan@broadcom.com>
+References: <1226531404-26118-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, jdb@comx.dk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	"Matt Carlson" <mcarlson@broadcom.com>,
+	"Benjamin Li" <benli@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:27860 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbYKLW6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 17:58:25 -0500
-In-Reply-To: <20081112.142625.120012106.davem@davemloft.net> (David Miller's
-	message of "Wed, 12 Nov 2008 14:26:25 -0800 (PST)")
+Received: from mms1.broadcom.com ([216.31.210.17]:2683 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752042AbYKLXDr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 18:03:47 -0500
+In-Reply-To: <1226531404-26118-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > Just google "C order of evaluation" and you will get hundreds
- > of tables, and all of them will have an entry for "|" (not
- > just "||") which says that operands are evaluated left to
- > right.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
+---
+ drivers/net/bnx2.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-You're talking about associativity, which says how an expression like
-"a | b | c" is implicitly parenthesized.  The order of evaluation is
-undefined -- in fact the C standard I have says:
-
-  Except as specified later (for the function-call (), &&, ||, ?:, and
-  comma operators), the order of evaluation of subexpressions and the
-  order in which side effects take place are both unspecified.
-
-So there is no rule about which subexpression is evaluated first in an
-expression like "a | b".
-
- > And since these MMIO reads are volatile operations, there is
- > no way the compiler can execute them out of order.
-
-"volatile" just means that accessing a volatile expression is considered
-a side effect -- and side effects are only ordered with respect to
-sequence points.
-
-So according to my understanding of the C standard, there is no required
-on which readl() is done first in an expression like "readl(a) | readl(b)".
-
- > And the plain truth is that no compiler does, and that is what
- > matters in the end.
-
-I think it's cleaner to avoid relying on undefined behavior (eg gcc 4.5
-will probably break things), especially when the fix is so simple --
-something the following should work fine:
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 9acb5d7..1fb0d2f 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -51,8 +51,8 @@ MODULE_VERSION(DRV_MODULE_VERSION);
- #ifndef readq
- static u64 readq(void __iomem *reg)
- {
--	return (((u64)readl(reg + 0x4UL) << 32) |
--		(u64)readl(reg));
-+	u64 v = readl(reg);
-+	return v | (u64) readl(reg + 0x4UL) << 32;
- }
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 84563b0..0853b3c 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -57,8 +57,8 @@
  
- static void writeq(u64 val, void __iomem *reg)
+ #define DRV_MODULE_NAME		"bnx2"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"1.8.1"
+-#define DRV_MODULE_RELDATE	"Oct 7, 2008"
++#define DRV_MODULE_VERSION	"1.8.2"
++#define DRV_MODULE_RELDATE	"Nov 10, 2008"
+ 
+ #define RUN_AT(x) (jiffies + (x))
+ 
+-- 
+1.5.6.GIT
+
+
