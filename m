@@ -1,63 +1,71 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: [PATCH] Remove unused parameter of xfrm_gen_index()
-Date: Wed, 12 Nov 2008 14:10:03 +0100
-Message-ID: <87zlk5ccpg.fsf@natisbad.org>
+From: "Johann Baudy" <johaahn@gmail.com>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Wed, 12 Nov 2008 14:43:07 +0100
+Message-ID: <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com>
+References: <20081106194032.GB31673@ioremap.net>
+	 <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61024@NASANEXMB10.na.qualcomm.com>
+	 <7e0dd21a0811110343v677c511ck69314fa19ace44b7@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B5@NASANEXMB10.na.qualcomm.com>
+	 <7e0dd21a0811110950g1182b86cv3e938df93f53d29d@mail.gmail.com>
+	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C3@NASANEXMB10.na.qualcomm.com>
+	 <20081111185036.GA17717@ioremap.net>
+	 <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com>
+	 <20081111192954.GA19409@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Lovich, Vitali" <vlovich@qualcomm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Evgeniy Polyakov" <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:33553 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751828AbYKLN0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 08:26:38 -0500
+Received: from fk-out-0910.google.com ([209.85.128.191]:30633 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881AbYKLNnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 08:43:09 -0500
+Received: by fk-out-0910.google.com with SMTP id 18so443965fkq.5
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2008 05:43:07 -0800 (PST)
+In-Reply-To: <20081111192954.GA19409@ioremap.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hi Evgeniy,
 
-In commit 2518c7c2b3d7f0a6b302b4efe17c911f8dd4049f, the last use of
-xfrm_gen_policy() first argument was removed, but the argument was
-left behind in the prototype. Patch is against current net-2.6.
+> There are several possibilities:
+> * update destructor with your own data and put old one behind the data
+>        in skb
+> * update destructor, but put your own data into some storage which can
+>        be accessed from your callback, storage entry may contain
+>        whatever data you want and of course old destructor
+> * put your data into socket pointer (there still may be issues with
+>        destructor)
+> * if you fully own the skb, reuse whatever members there you like
+>        (except those which may be used by lower layer)
+> * find why do you need to have callback at destruction time and
+>        eliminate this problem.
+>        Btw, netchannels do this way, since they are very similar to
+>        packet socket, but compared to your approach they have a copy.
+>
+Thanks a lot for this list :)
+So for example, is using of skb->mark to store a buffer index a good solution ?
+Or do you prefer another solution?
+
+> At the first place I do not understand, why do you want to change the
+> skb, since you can mmap whatever area you need and provide those pages
+> into skb, which at free time will drop the reference counter. Skb lives
+> in socket queue, so until it is empty you can sleep not allowing mapped
+> buffer to shrink.
+We need to get the tpacket_hdr associated to data in skb in order to
+inform user that buffer is now available (This is done through status
+field, which is not sent over the network). What do you mean with
+"provide those pages", through frags? If yes, is it ok when frags are
+linearized?
+
+Best regards,
+Johann
 
 
-Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
----
- net/xfrm/xfrm_policy.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 058f04f..959958c 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -521,7 +521,7 @@ static DECLARE_WORK(xfrm_hash_work, xfrm_hash_resize);
- 
- /* Generate new index... KAME seems to generate them ordered by cost
-  * of an absolute inpredictability of ordering of rules. This will not pass. */
--static u32 xfrm_gen_index(u8 type, int dir)
-+static u32 xfrm_gen_index(int dir)
- {
- 	static u32 idx_generator;
- 
-@@ -608,7 +608,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 		list_del(&delpol->walk.all);
- 		xfrm_policy_count[dir]--;
- 	}
--	policy->index = delpol ? delpol->index : xfrm_gen_index(policy->type, dir);
-+	policy->index = delpol ? delpol->index : xfrm_gen_index(dir);
- 	hlist_add_head(&policy->byidx, xfrm_policy_byidx+idx_hash(policy->index));
- 	policy->curlft.add_time = get_seconds();
- 	policy->curlft.use_time = 0;
-@@ -1138,7 +1138,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- 	sk->sk_policy[dir] = pol;
- 	if (pol) {
- 		pol->curlft.add_time = get_seconds();
--		pol->index = xfrm_gen_index(pol->type, XFRM_POLICY_MAX+dir);
-+		pol->index = xfrm_gen_index(XFRM_POLICY_MAX+dir);
- 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
- 	}
- 	if (old_pol)
 -- 
-1.5.6.5
-
-
+Johann Baudy
+johaahn@gmail.com
