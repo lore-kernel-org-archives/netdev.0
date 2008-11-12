@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: v2 [PATCH 4/4] dccp: Resolve dependencies of features on
- choice of CCID
-Date: Wed, 12 Nov 2008 00:49:58 -0800 (PST)
-Message-ID: <20081112.004958.20024679.davem@davemloft.net>
-References: <1225950014-6337-4-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1225950014-6337-5-git-send-email-gerrit@erg.abdn.ac.uk>
-	<20081112063745.GF6405@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH] nets: Introduce read_pnet() and write_pnet() helpers
+Date: Wed, 12 Nov 2008 00:53:42 -0800 (PST)
+Message-ID: <20081112.005342.156066202.davem@davemloft.net>
+References: <20081111111946.GD3665@x200.localdomain>
+	<20081111.164554.143409564.davem@davemloft.net>
+	<491A75BE.1010907@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: adobriyan@gmail.com, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37218
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43902
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751790AbYKLIt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 03:49:59 -0500
-In-Reply-To: <20081112063745.GF6405@gerrit.erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1750973AbYKLIxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 03:53:43 -0500
+In-Reply-To: <491A75BE.1010907@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Wed, 12 Nov 2008 07:37:45 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 12 Nov 2008 07:20:46 +0100
 
-> dccp: Resolve dependencies of features on choice of CCID
+> [PATCH] nets: Introduce read_pnet() and write_pnet() helpers
+> 
+> This patch introduces two helpers that deal with reading and writing
+> struct net pointers in various network structures.
+> 
+> Their implementation depends on CONFIG_NET_NS
+> 
+> For symmetry, both functions work with "struct net **pnet".
+> 
+> Their usage should reduce the number of #ifdef CONFIG_NET_NS,
+> without adding many helpers for each network structure
+> that hold a "struct net *pointer"
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
 Applied.
