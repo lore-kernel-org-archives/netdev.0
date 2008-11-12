@@ -1,56 +1,33 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: shy netns_ok check
-Date: Wed, 12 Nov 2008 03:15:09 +0300
-Message-ID: <20081112001509.GA2749@x200.localdomain>
+From: "J. K. Cliburn" <jcliburn@gmail.com>
+Subject: Re: atl1e Ethernet driver not seeing packets sent to
+ 33:33:00:00:00:01 multicast
+Date: Tue, 11 Nov 2008 18:13:16 -0600
+Message-ID: <20081111181316.36e819fa@osprey.hogchain.net>
+References: <20081111133108.GA7124@clipper.ens.fr>
+	<20081111080611.7f6d4371@osprey.hogchain.net>
+	<20081111155908.GA14665@clipper.ens.fr>
+	<20081111100816.58a7cf09@osprey.hogchain.net>
+	<20081111220015.GA18215@clipper.ens.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, den@openvz.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:39354 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbYKLALo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 19:11:44 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so905722ugf.37
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2008 16:11:42 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing-List <linux-kernel@vger.kernel.org>,
+	Linux NetDev Mailing-List <netdev@vger.kernel.org>,
+	atl1-devel@lists.sourceforge.net
+To: David Madore <david.madore@ens.fr>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753187AbYKLANd@vger.kernel.org>
+In-Reply-To: <20081111220015.GA18215@clipper.ens.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sigh...
+On Tue, 11 Nov 2008 23:00:15 +0100
+David Madore <david.madore@ens.fr> wrote:
 
-Failure to pass netns_ok check is SILENT, except some MIB counted is
-incremented somewhere.
+> On Tue, Nov 11, 2008 at 10:08:16AM -0600, J. K. Cliburn wrote:
+> > Can you please try this patch?
+[...]
+> Now it works.  Many thanks!
 
-And adding "netns_ok = 1" (after long head-scratching session) is usually
-the last step in making some protocol netns-ready...
+Thank you very much for reporting the bug and testing the fix.
 
-Please, apply.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- net/ipv4/ip_input.c |   10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -209,9 +209,17 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
- 
- 		hash = protocol & (MAX_INET_PROTOS - 1);
- 		ipprot = rcu_dereference(inet_protos[hash]);
--		if (ipprot != NULL && (net == &init_net || ipprot->netns_ok)) {
-+		if (ipprot != NULL) {
- 			int ret;
- 
-+			if (!net_eq(net, &init_net) && !ipprot->netns_ok) {
-+				if (net_ratelimit())
-+					printk("%s: proto %d isn't netns-ready\n",
-+						__func__, protocol);
-+				kfree_skb(skb);
-+				goto out;
-+			}
-+
- 			if (!ipprot->no_policy) {
- 				if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
- 					kfree_skb(skb);
+Jay
