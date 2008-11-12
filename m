@@ -1,54 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
-Date: Wed, 12 Nov 2008 13:46:18 -0800 (PST)
-Message-ID: <20081112.134618.30673281.davem@davemloft.net>
-References: <20081112.035240.226243372.davem@davemloft.net>
-	<20081112.041143.11487260.davem@davemloft.net>
-	<1226494493.3016.3.camel@achroite>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Thu, 13 Nov 2008 00:46:01 +0300
+Message-ID: <20081112214601.GA19547@ioremap.net>
+References: <20081111192954.GA19409@ioremap.net> <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com> <20081112135828.GA30946@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com> <20081112174114.GA4743@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com> <20081112181134.GA5396@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA61272@NASANEXMB10.na.qualcomm.com> <20081112191400.GA6291@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA6128D@NASANEXMB10.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jdb@comx.dk, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Johann Baudy <johaahn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Lovich, Vitali" <vlovich@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57599
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751298AbYKLVqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 16:46:18 -0500
-In-Reply-To: <1226494493.3016.3.camel@achroite>
+Received: from genesysrack.ru ([195.178.208.66]:60000 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751420AbYKLVqC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2008 16:46:02 -0500
+Content-Disposition: inline
+In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA6128D@NASANEXMB10.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 12 Nov 2008 12:54:53 +0000
-
-> On Wed, 2008-11-12 at 04:11 -0800, David Miller wrote:
-> [...]
-> > So the following patch should fix this bug.  writeq() should
-> > be OK as-is, so doesn't need a similar change.
-> > 
-> > diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-> > index 9acb5d7..d8463b1 100644
-> > --- a/drivers/net/niu.c
-> > +++ b/drivers/net/niu.c
-> > @@ -51,8 +51,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
-> >  #ifndef readq
-> >  static u64 readq(void __iomem *reg)
-> >  {
-> > -	return (((u64)readl(reg + 0x4UL) << 32) |
-> > -		(u64)readl(reg));
-> > +	return ((u64) readl(reg)) | (((u64) readl(reg + 4UL)) << 32);
-> >  }
+On Wed, Nov 12, 2008 at 01:23:33PM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
+> I don't care whether or not the data was sent - I care whether or not the driver
+> might still use the data in the frame the skb is referring to.  In the destructor, clearly the
+> driver can't since it gave up its reference.  After dev_queue_xmit, we don't know because
+> the driver (or the skb queue layer) may have decided to delay packet transmission.
 > 
-> Since there's no sequence point between the reads, there's no guarantee
-> that the reads happen in the order written (regardless of barriers
-> inside readl()).  This needs to be split into two statements.
+> Potentially the user might even have written half the payload of a packet when the device decides to
+> send out the skb for that frame and thus send out half the payload from one 
+> packet and half the payload from another.
 
-What version of the C language are you using?
+And what's the point in waiting for data to be unused?
+You want to implement a system, which will behave more consistent than
+existing zero-copy approach, but yet not 100% correctly...
 
-I personally think it's safe.  If the compiler sees "A | B" it's going
-to emit the code to compute A, then the code to emit B, and finally
-the "|" operation.
+> > So you can update whatever flags you have to after return of the
+> > dev_qeueue_xmit() and will get the same behaviour as sendfile:
+> > immediate write into the same memory area results in sending new
+> > content
+> > (on some NICs).
+> But using your approach, how can a user ever know whether or not he actually sent
+> a packet?
 
-Everything I've always seen says that for "|" the expressions are
-evaluated left to right.
+There is no way to know that. At all. skb can be dropped by zillions of
+reasons and after it was submitted to the qdisk layer, there is no way
+to know how its life will continue. Well, in some cases it is possible
+to know (when qdisk just frees skb), but it is far from 100% of the
+cases.
+
+> Am I missing something fundamental in my understanding?  I don't see any way, outside
+> of using the skb destructor, to notify the user when he can safely write to a frame
+> without interfering with any pending skbs.
+
+Having a callback at destruction time does mean that noone uses skb, but
+are you sure this is needed? With existing zero-copy (splice/sendfile)
+this is not true, but you want to extend this approach...
+
+If you _do_ want to make it that way, you can remove destructor at all
+and implement own packet-socket-only allocation policy and thus have own
+private destructor without extending skb.
+
+-- 
+	Evgeniy Polyakov
