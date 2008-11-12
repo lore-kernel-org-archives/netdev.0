@@ -1,49 +1,28 @@
-From: "J. K. Cliburn" <jcliburn@gmail.com>
-Subject: Re: atl1: use magic packet wake-on-lan only
-Date: Tue, 11 Nov 2008 18:35:46 -0600
-Message-ID: <20081111183546.72de1714@osprey.hogchain.net>
-References: <20081109150530.3eb555f9@osprey.hogchain.net>
-	<49188091.3090709@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes for 2.6.28-rc
+Date: Tue, 11 Nov 2008 16:42:25 -0800 (PST)
+Message-ID: <20081111.164225.09772730.davem@davemloft.net>
+References: <20081111085830.GA24681@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, Jie.yang@atheros.com, netdev@vger.kernel.org
-To: Chris Snook <csnook@redhat.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f11.google.com ([209.85.217.11]:37376 "EHLO
-	mail-gx0-f11.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756125AbYKLAg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 19:36:29 -0500
-Received: by gxk4 with SMTP id 4so3053708gxk.17
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2008 16:36:28 -0800 (PST)
-In-Reply-To: <49188091.3090709@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35239
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757189AbYKLAm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2008 19:42:26 -0500
+In-Reply-To: <20081111085830.GA24681@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Nov 2008 13:42:25 -0500
-Chris Snook <csnook@redhat.com> wrote:
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 11 Nov 2008 03:58:30 -0500
 
-> J. K. Cliburn wrote:
-> > atl1: use magic packet wake-on-lan only
-> > 
-> > Of the various WOL options provided in include/linux/ethtool.h, the
-> > L1 NIC supports only magic packet.  Remove all options except magic
-> > packet from the atl1 driver.
+> Please pull from 'davem-fixes' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
 > 
-> Technically, we could implement the rest via the programmable 
-> pattern-matching hardware, but that would be an immense amount of
-> work.
+> to receive the following updates:
 
-Thanks for the pointer to the pattern matching capability.  I had
-forgotten about it.
-
-What prompted the patch was a user asking some questions off-list about
-the L1 and WOL, and I realized the atl1 driver was advertising WOL
-options that weren't implemented.
-
-I think the magic-packet-only patch I submitted to Jeff is still
-relevant, but I'm going to explore the pattern matching capability and
-see if we can implement some additional WOL options.  IMHO, though,
-those should be provided in a separate (future) patch.  Do you agree?
-
-Jay
+Pulled, thanks a lot Jeff.
