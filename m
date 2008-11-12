@@ -1,68 +1,59 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2] usbnet: enable more aggressive autosuspend
-Date: Wed, 12 Nov 2008 04:36:46 -0500
-Message-ID: <491AA3AE.4070704@garzik.org>
-References: <200811071244.17221.oliver@neukum.org>	<49142DC5.8080803@garzik.org>	<200811071324.18697.oliver@neukum.org> <20081107.122236.08276398.davem@davemloft.net> <491A9B59.9080208@t2data.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.27] tcp_htcp: last_cong bug fix
+Date: Wed, 12 Nov 2008 01:44:03 -0800 (PST)
+Message-ID: <20081112.014403.210407962.davem@davemloft.net>
+References: <20081110.215033.22437445.davem@davemloft.net>
+	<B4ABF490-649C-4981-A953-B5FA55022EBD@nuim.ie>
+	<63599554-7243-4E44-BFEF-5B4B36743606@nuim.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org
-To: Per Hallsmark <per.hallsmark-8A+B91M1NdOzQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <491A9B59.9080208-8A+B91M1NdOzQB+pC5nmwQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: Doug.Leith@nuim.ie
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38814
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751261AbYKLJoF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 04:44:05 -0500
+In-Reply-To: <63599554-7243-4E44-BFEF-5B4B36743606@nuim.ie>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Per Hallsmark wrote:
-> David Miller wrote:
->> From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
->> Date: Fri, 7 Nov 2008 13:24:17 +0100
->>
->>  
->>> Am Freitag, 7. November 2008 13:00:05 schrieb Jeff Garzik:
->>>    
->>>> Oliver Neukum wrote:
->>>>      
->>>>> Am Freitag, 7. November 2008 09:26:33 schrieb Jeff Garzik:
->>>>>        
->>>>>> I pondered taking the easy route of fixing this by surrounding the 
->>>>>> auto_pm reference with an ifdef, but it seems like usbnet could 
->>>>>> use a bit more thought -- it is questionable whether 
->>>>>> usbnet_suspend/resume should be built at all, if !CONFIG_PM, even 
->>>>>> though they are exported.
->>>>>>           
->>>>> As this is a generic problem, shouldn't we get the compiler to do
->>>>> this for us?
->>>>>         
->>>> Can you be more specific?
->>>>       
->>> As these methods are static the compiler is able to tell whether they
->>> are referenced by anything but the tables. We should be able to set
->>> an attribute in the header file that tells the compiler that these 
->>> methods
->>> won't be called and can be omitted in the build. Otherwise we have to 
->>> ifdef
->>> all those methods.
->>>     
->>
->> The problem is that the content of these functions still needs to be
->> parsed, so references to ifdef'd out structure members are still going
->> to throw errors.
->>
->> For the time being please add the necessary CONFIG_PM wrappers around
->> the suspend and resume methods, as this is what we do tree wide and
->> I don't think you want these usbnet changes blocked by some fancy
->> compiler facility that hasn't been implemented yet.
->>   
-> Ok, this news I've missed. Should I regenerate the patch or is it 
-> handled anyway?
+From: Douglas Leith <Doug.Leith@nuim.ie>
+Date: Wed, 12 Nov 2008 08:58:18 +0000
 
-regenerate, please
+> This patch fixes a minor bug in tcp_htcp.c which has been
+> highlighted by Lachlan Andrew and Lawrence Stewart.  Currently, the
+> time since the last congestion event, which is stored in variable
+> last_cong, is reset whenever there is a state change into
+> TCP_CA_Open.  This includes transitions of the type
+> TCP_CA_Open->TCP_CA_Disorder->TCP_CA_Open which are not associated
+> with backoff of cwnd.  The patch changes last_cong to be updated
+> only on transitions into TCP_CA_Open that occur after experiencing
+> the congestion-related states TCP_CA_Loss, TCP_CA_Recovery,
+> TCP_CA_CWR.
+> 
+> Signed-off-by:  Doug Leith <doug.leith@nuim.ie>
 
+Applied, but I still had to fix up a bunch of details :-(
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++		ca->undo_last_cong = 0;  
+
+That line had trailing whitespace.
+
++	case TCP_CA_Open: 
+
+That one too.
+
++        		if (ca->undo_last_cong) { 
+
+That line had an initial set of space characters, instead
+of pure leading tab characters.
+
++				ca->last_cong = jiffies;   
+
+More trailing whitespace.
+
++		break;	
+
+And some more trailing whitespace.
