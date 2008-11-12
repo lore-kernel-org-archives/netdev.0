@@ -1,89 +1,67 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Fw: [Bug 12014] New: Incorrect Urgent Pointer in outgoing packets
-Date: Wed, 12 Nov 2008 23:12:47 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811122129260.17579@wrl-59.cs.helsinki.fi>
-References: <20081112082735.5aa06a15@extreme>
+From: "Lovich, Vitali" <vlovich@qualcomm.com>
+Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
+Date: Wed, 12 Nov 2008 13:23:33 -0800
+Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA6128D@NASANEXMB10.na.qualcomm.com>
+References: <20081111185036.GA17717@ioremap.net>
+ <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com>
+ <20081111192954.GA19409@ioremap.net>
+ <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com>
+ <20081112135828.GA30946@ioremap.net>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
+ <20081112174114.GA4743@ioremap.net>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com>
+ <20081112181134.GA5396@ioremap.net>
+ <FCC0EC655BD1AE408C047268D1F5DF4C3BA61272@NASANEXMB10.na.qualcomm.com>
+ <20081112191400.GA6291@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: kernel@tesarici.cz
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Johann Baudy <johaahn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:32907 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463AbYKLVMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 16:12:50 -0500
-In-Reply-To: <20081112082735.5aa06a15@extreme>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:57820 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752074AbYKLVXi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 16:23:38 -0500
+In-Reply-To: <20081112191400.GA6291@ioremap.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Nov 2008, Stephen Hemminger wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=12014
+
+> -----Original Message-----
+> From: Evgeniy Polyakov [mailto:zbr@ioremap.net]
+> Sent: November-12-08 11:14 AM
+> To: Lovich, Vitali
+> Cc: Johann Baudy; netdev@vger.kernel.org
+> Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
 > 
->            Summary: Incorrect Urgent Pointer in outgoing packets
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.27
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: kernel@tesarici.cz
+> Here is the main point: why do you ever care about data that was or was
+> not transmitted and want to update something at destruction time and
+> not
+> when dev_qeueue_xmit() returns. As pointed above, destruction time does
+> not guarantee that skb was sent as long as return from
+> dev_qeueue_xmit().
+I don't care whether or not the data was sent - I care whether or not the driver
+might still use the data in the frame the skb is referring to.  In the destructor, clearly the
+driver can't since it gave up its reference.  After dev_queue_xmit, we don't know because
+the driver (or the skb queue layer) may have decided to delay packet transmission.
+
+Potentially the user might even have written half the payload of a packet when the device decides to
+send out the skb for that frame and thus send out half the payload from one 
+packet and half the payload from another.
+
 > 
-> 
-> Latest working kernel version: ??? (maybe never)
-> Earliest failing kernel version: 2.6.27
-> Distribution: kernel.org
-> Hardware Environment: x86, x86_64
-> Software Environment: Oracle, testcase
-> Problem Description:
-> 
-> When urgent mode is initiated using send(..., MSG_OOB), and the current
-> outgoing queue is longer than MTU, several packets are sent out with the URG
-> flag set.
+> So you can update whatever flags you have to after return of the
+> dev_qeueue_xmit() and will get the same behaviour as sendfile:
+> immediate write into the same memory area results in sending new
+> content
+> (on some NICs).
+But using your approach, how can a user ever know whether or not he actually sent
+a packet?
 
-This urg flag in many segments is expected to happen (the urg pointer
-might not point to the current segment but something that will follow)...
-
-> However, the Urgent Pointer field in the TCP header is not updated
-> correctly. Instead, it stays the same.
-
-...but I've hard time believing that this true since the the only place
-where urg_ptr is assigned is in tcp_output.c and that's done relative
-to segments seqno:
-
-	th->urg_ptr = htons(tp->snd_up - tcb->seq);
-
-So if what you say is true, it means that snd_up should advance equally
-to the segments seqno. Which means that writes would update it.
-
-> The receiving end interprets this as a new urgent message inserted further in
-> the stream, sends multiple SIGURGs to the server application and reads across
-> the urgent data. This behaviour is correct.
-> 
-> Steps to reproduce:
-> 
-> 1. Initiate a TCP connection
-> 2. Fill the outgoing queue with some (normal) data
-> 3. Send an urgent message (with MSG_OOB)
-> 4. Send some more non-urgent data.
-
-Can you prove that your application is doing what you describe, I suspect 
-that you e.g., forget to clear MSG_OOB... Can you strace the program 
-please...  Getting a tcpdump at the same time wouldn't hurt either.
-
-I've tried with this exact sequence recently (though after the rewrite of 
-urg handling for 2.6.28), and did get a nicely working urg after fixing 
-the bug that got introduced by the rewrite and just a single sigurg. It 
-seems that I've lost that tcpdump somewhere though. I was using sendfile 
-though for the normal data while you might not be doing the same.
-
-
--- 
- i.
+Am I missing something fundamental in my understanding?  I don't see any way, outside
+of using the skb destructor, to notify the user when he can safely write to a frame
+without interfering with any pending skbs.
