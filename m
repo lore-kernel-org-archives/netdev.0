@@ -1,50 +1,82 @@
-From: "Johann Baudy" <johaahn@gmail.com>
-Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Wed, 12 Nov 2008 13:09:37 +0100
-Message-ID: <7e0dd21a0811120409jc770a1u3b538a413218cf94@mail.gmail.com>
-References: <1225450706.5301.94.camel@localhost>
-	 <7e0dd21a0811070836q8deb631qe8093282229b403e@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61024@NASANEXMB10.na.qualcomm.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61126@NASANEXMB10.na.qualcomm.com>
-	 <7e0dd21a0811110410v5fa8abadib70cebecb282bc1@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611B8@NASANEXMB10.na.qualcomm.com>
-	 <7e0dd21a0811111008x2e674384kaa560d766a8f643e@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611C4@NASANEXMB10.na.qualcomm.com>
-	 <7e0dd21a0811111059i4d1bc0e6va6032bbfb3f0002c@mail.gmail.com>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA611D9@NASANEXMB10.na.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
+Date: Wed, 12 Nov 2008 04:11:43 -0800 (PST)
+Message-ID: <20081112.041143.11487260.davem@davemloft.net>
+References: <20081112.014923.68124784.davem@davemloft.net>
+	<1226487710.6834.53.camel@localhost.localdomain>
+	<20081112.035240.226243372.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <zbr@ioremap.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Lovich, Vitali" <vlovich@qualcomm.com>
+Cc: netdev@vger.kernel.org
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:59340 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096AbYKLMJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 07:09:39 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so372783fgg.17
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2008 04:09:37 -0800 (PST)
-In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA611D9@NASANEXMB10.na.qualcomm.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50302
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751525AbYKLMLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 07:11:43 -0500
+In-Reply-To: <20081112.035240.226243372.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vitali,
+From: David Miller <davem@davemloft.net>
+Date: Wed, 12 Nov 2008 03:52:40 -0800 (PST)
 
-> So the way I had done it is that non-recoverable errors are those caused by malformed data coming from the user (i.e. packet size is invalid).  In this case, we free the frame and return.  In all other cases, it assumed that the cause was some kind of bad kernel state (i.e. no memory, device busy, etc) that will eventually be recovered from, so we keep retrying or return to the user without changing the status code.
+> Ok, Jesper, please try two things for me, leave the debugging patch
+> in there for all the tests:
+> 
+> 1) Retrigger the problem (with or without MSI, doesn't matter) but
+>    add back in that test I asked you to try last week.  The one
+>    where the "if (++rp->mark_counter == rp->mark_freq)" condition
+>    test in niu_start_xmit() is commented out, so that the
+>    "mrk |= TX_DESC_MARK;" statement always runs.
+> 
+>    Get me the log dump produced by that scenerio.
+> 
+> 2) Next, simply comment out the:
+> 
+> 	if (unlikely(!(cs & (TX_CS_MK | TX_CS_MMK))))
+> 		goto out;
+> 
+>    lines in niu_tx_work().
+> 
+> Let's see what new info we can get out of this.
 
-I still believe that we should stop on non-recoverable errors. User
-must be informed that the packet has not been sent.
-If you skip the frame and set status to TP_STATUS_KERNEL. Frame will
-be lost and user will think that malformed frame has been transmitted.
+These tests are still useful for me, so please perform them,
+but I think I've found the bug.
 
-I'm using TP_STATUS_LOSING in case of non-recoverable error. We can
-maybe introduce a socket option to chose the behavior for
-non-recoverable error.
+I am guessing you're running a 32-bit x86 kernel.
 
-Best regards,
-Johann
--- 
-Johann Baudy
-johaahn@gmail.com
+In such a case the driver has to define a local readq()
+and writeq() implementation.
+
+What I provide for NIU right now reads the upper 32-bits
+then the lower 32-bits of the register.
+
+Guess what that does?  The packet counters live in the upper
+32-bits and the MARK bits live in the lower 32-bits of the
+TX_CS register.
+
+So it first reads the packet counters, and as a side effect that
+clears the MARK bits in the TX_CS register.  So when we read the lower
+32-bits the MARK bits are always seen as zero.
+
+BzzaaarT!
+
+So the following patch should fix this bug.  writeq() should
+be OK as-is, so doesn't need a similar change.
+
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index 9acb5d7..d8463b1 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -51,8 +51,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
+ #ifndef readq
+ static u64 readq(void __iomem *reg)
+ {
+-	return (((u64)readl(reg + 0x4UL) << 32) |
+-		(u64)readl(reg));
++	return ((u64) readl(reg)) | (((u64) readl(reg + 4UL)) << 32);
+ }
+ 
+ static void writeq(u64 val, void __iomem *reg)
