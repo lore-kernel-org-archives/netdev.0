@@ -1,42 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: #ifdef inet_bind_bucket::ib_net
-Date: Wed, 12 Nov 2008 04:24:23 -0800 (PST)
-Message-ID: <20081112.042423.237213345.davem@davemloft.net>
-References: <20081112104439.GA4292@x200.localdomain>
-	<491AB4F5.2070206@cosmosbay.com>
-	<20081112122448.GA12646@x200.localdomain>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
+Date: Wed, 12 Nov 2008 13:49:39 +0100
+Message-ID: <1226494179.6834.64.camel@localhost.localdomain>
+References: <20081112.014923.68124784.davem@davemloft.net>
+	 <1226487710.6834.53.camel@localhost.localdomain>
+	 <20081112.035240.226243372.davem@davemloft.net>
+	 <20081112.041143.11487260.davem@davemloft.net>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47246
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753727AbYKLMYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 07:24:23 -0500
-In-Reply-To: <20081112122448.GA12646@x200.localdomain>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:48811 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751899AbYKLMtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 07:49:50 -0500
+In-Reply-To: <20081112.041143.11487260.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Wed, 12 Nov 2008 15:24:48 +0300
+On Wed, 2008-11-12 at 04:11 -0800, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 12 Nov 2008 03:52:40 -0800 (PST)
+>
+> These tests are still useful for me, so please perform them,
 
-> +static inline void ib_net_set(struct inet_bind_bucket *ib, struct net *net)
-> +{
-> +#ifdef CONFIG_NET_NS
-> +	ib->ib_net = net;
-> +#endif
-> +}
-> +
+As a gratitude for your work and being allowed to operate your expresso
+machine, I'll be happy to perform the tests even though the bug has been
+found.
 
-It's basically read_pnet() hidden behind another name.
-And you'll add new "aliases" for read_pnet() over and over
-again.
+> but I think I've found the bug.
 
-That makes no sense to me.
+Yes! you have found the bug! :-)
 
-I like read_pnet() much better, and the only thing that
-can be improved is read_pnet()'d name (along with the
-name of every other similar interface already in
-net_namespace.h)
+(This is on the non SMP and non MSI kernel.  First test pktgen test says
+I can route 319 kpps using a single CPU, promising as I got 160 kpps
+using the Sun nxge driver)
+
+Tested-by: Jesper Dangaard Brouer <jdb@comx.dk>
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+> I am guessing you're running a 32-bit x86 kernel.
+> 
+> In such a case the driver has to define a local readq()
+> and writeq() implementation.
+> 
+> What I provide for NIU right now reads the upper 32-bits
+> then the lower 32-bits of the register.
+> 
+> Guess what that does?  The packet counters live in the upper
+> 32-bits and the MARK bits live in the lower 32-bits of the
+> TX_CS register.
+> 
+> So it first reads the packet counters, and as a side effect that
+> clears the MARK bits in the TX_CS register.  So when we read the lower
+> 32-bits the MARK bits are always seen as zero.
+> 
+> BzzaaarT!
+> 
+> So the following patch should fix this bug.  writeq() should
+> be OK as-is, so doesn't need a similar change.
+> 
+> diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+> index 9acb5d7..d8463b1 100644
+> --- a/drivers/net/niu.c
+> +++ b/drivers/net/niu.c
+> @@ -51,8 +51,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
+>  #ifndef readq
+>  static u64 readq(void __iomem *reg)
+>  {
+> -	return (((u64)readl(reg + 0x4UL) << 32) |
+> -		(u64)readl(reg));
+> +	return ((u64) readl(reg)) | (((u64) readl(reg + 4UL)) << 32);
+>  }
+>  
+>  static void writeq(u64 val, void __iomem *reg)
