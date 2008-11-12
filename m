@@ -1,63 +1,111 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Wed, 12 Nov 2008 22:14:00 +0300
-Message-ID: <20081112191400.GA6291@ioremap.net>
-References: <20081111185036.GA17717@ioremap.net> <7e0dd21a0811111119h3675a137t422bd508ccf2c963@mail.gmail.com> <20081111192954.GA19409@ioremap.net> <7e0dd21a0811120543k6907de3aw6b0c3de49b2ea5d2@mail.gmail.com> <20081112135828.GA30946@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com> <20081112174114.GA4743@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com> <20081112181134.GA5396@ioremap.net> <FCC0EC655BD1AE408C047268D1F5DF4C3BA61272@NASANEXMB10.na.qualcomm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC PATCH 00/13] hardware time stamping + igb example	implementation
+Date: Wed, 12 Nov 2008 20:22:43 +0100
+Message-ID: <491B2D03.1090700@cosmosbay.com>
+References: <1226414697.17450.852.camel@ecld0pohly>	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly> <491B23FE.9000105@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johann Baudy <johaahn@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Lovich, Vitali" <vlovich@qualcomm.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick Ohly <patrick.ohly@intel.com>,
+	Andi Kleen <ak@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from broadrack.ru ([195.178.208.66]:55440 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751640AbYKLTOE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2008 14:14:04 -0500
-Content-Disposition: inline
-In-Reply-To: <FCC0EC655BD1AE408C047268D1F5DF4C3BA61272@NASANEXMB10.na.qualcomm.com>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:33403 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbYKLTXD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 14:23:03 -0500
+In-Reply-To: <491B23FE.9000105@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 12, 2008 at 11:05:03AM -0800, Lovich, Vitali (vlovich@qualcomm.com) wrote:
-> I still don't see it.  This can only be a problem for vmsplice, since I believe
-> sendpage & splice copy the data from the source pipe if necessary.
-> vmsplice solves this through the SPLICE_F_GIFT flag (if not specified, 
-> I'm assuming it copies the data into a temporary buffer).  So I don't 
-> believe that these are actually racy functions if used properly.
+Oliver Hartkopp a =E9crit :
+> Patrick Ohly wrote:
+>> On Wed, 2008-11-12 at 16:06 +0000, Andi Kleen wrote:
+>> =20
+>>> As a general comment on the patch series I'm still a little sceptic=
+al
+>>> the time stamp offset method is a good idea. Since it tries to=20
+>>> approximate
+>>> several unsynchronized clocks the result will always be of a little=
+ poor
+>>> quality, which will likely lead to problems sooner or later (or rat=
+her
+>>> require ugly workarounds in the user).
+>>>
+>>> I think it would be better to just bite the bullet and add new fiel=
+ds
+>>> for this to the skbs. Hardware timestamps are useful enough to just=
+ify
+>>> this.
+>>>    =20
+>>
+>> I'm all for it, as long as it doesn't keep this feature out of the
+>> mainline.
+>>
+>> At least one additional ktime_t field would be needed for the raw
+>> hardware time stamp. Transformation to system time (as needed by PTP=
+)
+>> would have to be delayed until the packet is delivered via a socket.=
+ The
+>> code would be easier (and a bit more accurate) if also another ktime=
+_t
+>> was added to store the transformed value directly after generating i=
+t.
+>>
+>> An extra field would also solve one of the open problems (tstamp set=
+ to
+>> time stamp when dev_start_xmit_hard is called for IP_MULTICAST_LOOP)=
+=2E
+>>
+>>  =20
+>=20
+> I really wondered if you posted the series to get an impression why=20
+> adding a new field is a good idea ;-)
+> Ok, i'm not that experienced on timestamps but i really got confused=20
+> reading the patches and it's documentation (even together with the=20
+> discussion on the ML). I would also vote for having a new field in th=
+e=20
+> skb instead of this current 'bit-compression' approach which smells=20
+> quite expensive at runtime and in code size. Not talking about the=20
+> mentioned potential locking issues ...
 
-Sendpage only copies data if underlying device does not support
-scatter-gather and hardware checksum capabilities. Effectively what's
-being done is a page (no matter if it is anonymous mapping or VFS page
-cache) reference counter increase and skb submit, which in the best case
-results in dev_queue_xmit() just like in your approach. Then syscall
-returns and userspace will never ever know that page was transmitted.
-It actually can be dropped just there without even seeing the wire if
-hardware decided that, that is why hardware checksumming is needed:
-hardware will calculate appropriate checksums over the data which is in
-given pages at real send time and not when userspace called sendpage().
+New fields in skb are probably the easy way to handle the problem, we
+all know that.
 
-> However, your suggestion makes non-racy usage of the tx ring impossible
-> unless you know ahead of time how many frames you will need (in which case, resetting
-> the status flag is pointless).  But for proper ring buffer behaviour, it needs to
-> clear the flag in the skb destructor, once we know the data will no longer be used by
-> the driver.
+But adding fields on such heavy duty structure for less than 0.001 % of
+handled frames is disgusting.
 
-Here is the main point: why do you ever care about data that was or was
-not transmitted and want to update something at destruction time and not
-when dev_qeueue_xmit() returns. As pointed above, destruction time does
-not guarantee that skb was sent as long as return from dev_qeueue_xmit().
+Crazy idea here :
 
-So you can update whatever flags you have to after return of the
-dev_qeueue_xmit() and will get the same behaviour as sendfile:
-immediate write into the same memory area results in sending new content
-(on some NICs).
+Say your NIC is capable of generating hw timestamps at TX or RX time.
 
-> > Please also update your mailer to wrap strings into 80-or-so lines, it
-> > is hard to answer into the middle of the paragraph.
-> Sorry - I hate using Outlook because it doesn't seem to honour my settings.
-> I'll split up the lines manually instead of trusting Outlook.
+Instead of storing them in skb, store them in a local structure (of the=
+ driver)
+The local structure could contain an array of 4096 (or whatever size) c=
+ouples of
+{pointer to skb, hardware timestamp with whatever format is needed by t=
+his NIC}
 
-Non-trivial solution for long mails :)
+If an application needs skb hw timestamp, get it when reading message, =
+with appropriate
+API, that calls NIC driver method, giving skb pointer as an argument. N=
+IC driver
+search in its local table a match of skb pointer (giving the most recen=
+t match of course),
+and converts hwtimestamp into "generic application format". No need for=
+ a fast search, just
+a linear search in the table, so that feeding it is really easy (maybe =
+lockless)
 
--- 
-	Evgeniy Polyakov
+=46or TX side, a flag on skb could ask NIC driver to feed transmited sk=
+b (or a copy of them)
+ to a raw socket (kind of a loopback for selected packets), once TX hst=
+amp is collected in local table.
+
+
