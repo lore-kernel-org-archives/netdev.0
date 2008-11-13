@@ -1,29 +1,35 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [tproxy] udp + tproxy
-Date: Thu, 13 Nov 2008 08:17:14 +0100 (CET)
-Message-ID: <alpine.LNX.1.10.0811130815300.8076@fbirervta.pbzchgretzou.qr>
-References: <1226490030.31896.12.camel@sysandrey.icomswg.local>  <20081112185910.GA1793@sch.bme.hu> <1226518030.10667.68.camel@bzorp.balabit>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: shy netns_ok check
+Date: Wed, 12 Nov 2008 23:24:13 -0800 (PST)
+Message-ID: <20081112.232413.169243333.davem@davemloft.net>
+References: <20081112001509.GA2749@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
-	Andrey Luzgin <andrey@icomsw.com>, tproxy@lists.balabit.hu,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Balazs Scheidler <bazsi@balabit.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1226518030.10667.68.camel@bzorp.balabit>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, den@openvz.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36439
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751261AbYKMHYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 02:24:13 -0500
+In-Reply-To: <20081112001509.GA2749@x200.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Wed, 12 Nov 2008 03:15:09 +0300
 
-On Wednesday 2008-11-12 20:27, Balazs Scheidler wrote:
->> 
->> Since tproxy 4 (unlike tproxy 2) doesn't modify the incoming packets in
->> any way you should be able to get the correct destination address by
->> simply calling recvfrom() and using the source address returned by the
->> kernel.
->
->This is not true, recvfrom() returns the client address and does not
->return the original destination.
+> Sigh...
+> 
+> Failure to pass netns_ok check is SILENT, except some MIB counted is
+> incremented somewhere.
+> 
+> And adding "netns_ok = 1" (after long head-scratching session) is usually
+> the last step in making some protocol netns-ready...
+> 
+> Please, apply.
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Mh, perhaps getsockname() could do something - well, at least
-if used with accept() and as such, mostly for TCP only.
+Applied, thanks Alexey.
