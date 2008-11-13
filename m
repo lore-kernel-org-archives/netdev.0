@@ -1,58 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
-Date: Thu, 13 Nov 2008 14:19:01 -0800 (PST)
-Message-ID: <20081113.141901.08693191.davem@davemloft.net>
-References: <20081112.035240.226243372.davem@davemloft.net>
-	<20081112.041143.11487260.davem@davemloft.net>
-	<1226567412.6834.80.camel@localhost.localdomain>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [PATCH] reintroduce accept4
+Date: Fri, 14 Nov 2008 09:25:52 +1100
+Message-ID: <18716.43376.534965.688695@cargo.ozlabs.ibm.com>
+References: <200810261641.m9QGfotr024285@hs20-bc2-1.build.redhat.com>
+	<517f3f820811131351l1305b2d2u43ab4e0601d97f93@mail.gmail.com>
+	<20081113140541.23754cad.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jdb@comx.dk
+Cc: "Michael Kerrisk" <mtk.manpages@gmail.com>,
+	subrata@linux.vnet.ibm.com, linux-arch@vger.kernel.org,
+	drepper@redhat.com, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org, linux-api@vger.kernel.org,
+	linux-man@vger.kernel.org, davidel@xmailserver.org,
+	netdev@vger.kernel.org, roland@redhat.com, oleg@tv-sign.ru,
+	hch@lst.de, davem@davemloft.net, alan@redhat.com, jakub@redhat.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53124
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752141AbYKMWTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 17:19:01 -0500
-In-Reply-To: <1226567412.6834.80.camel@localhost.localdomain>
+Received: from ozlabs.org ([203.10.76.45]:56014 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752722AbYKMW0C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Nov 2008 17:26:02 -0500
+In-Reply-To: <20081113140541.23754cad.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Date: Thu, 13 Nov 2008 10:10:12 +0100
+Andrew Morton writes:
 
-> On Wed, 2008-11-12 at 04:11 -0800, David Miller wrote:
-> > From: David Miller <davem@davemloft.net>
-> > Date: Wed, 12 Nov 2008 03:52:40 -0800 (PST)
-> > 
-> > > Ok, Jesper, please try two things for me, leave the debugging patch
-> > > in there for all the tests:
-> > > 
-> > > 1) Retrigger the problem (with or without MSI, doesn't matter) but
-> > >    add back in that test I asked you to try last week.  The one
-> > >    where the "if (++rp->mark_counter == rp->mark_freq)" condition
-> > >    test in niu_start_xmit() is commented out, so that the
-> > >    "mrk |= TX_DESC_MARK;" statement always runs.
-> > > 
-> > >    Get me the log dump produced by that scenerio.
+> > I think Ulrich wanted to try to see this patch in for 2.6.28; it's
+> > past the merge window of course, so it's up to you, but I have no
+> > problem with that.
 > 
-> ------------[ cut here ]------------
-> WARNING: at net/sched/sch_generic.c:226 dev_watchdog+0x21e/0x230()
-> NETDEV WATCHDOG: eth2 (niu): transmit timed out
-> Modules linked in: niu ipmi_si hpwdt serio_raw bnx2 zlib_inflate rng_core ipmi_msghandler hpilo ehci_hcd uhci_hcd sr_mod cdrom
-> Pid: 0, comm: swapper Not tainted 2.6.28-rc4-davem #17
-> Call Trace:
+> That's easy - I'll send it to Linus and let him decide ;)
 
-Thanks a lot for making this test Jesper, even though the bug
-is fixed.
+Ulrich's patch only updated x86.  If you're going to send it to Linus,
+please give us other architecture maintainers a chance to get patches
+to you to wire it up on our architectures, and then send Linus the
+combined patch.
 
-> niu 0000:0b:00.0: niu: eth2: TX_RING[ 5] CHANNEL 5 LDN 37
-> niu 0000:0b:00.0: niu: eth2: TX_RING[ 5] parent->lgd_map[ldn] 2
-> niu 0000:0b:00.0: niu: eth2: TX_RING[ 5] Num pending TX SKBs: 237
-> niu 0000:0b:00.0: niu: eth2: TX_RING[ 5] TX_CS sw[00ed00ec00000000] hw[00ed00ec00000000]
-
-Same signature, counters advancing yet no mark bits are set.
-
-Now if we can fix that MSIX BUG() and start analyzing your
-pps performance with oprofile, we'll be in good shape :)
+Paul.
