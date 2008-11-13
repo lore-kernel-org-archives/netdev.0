@@ -1,39 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] bnx2: fix poll_controller method so that proper
-	structures are passed and all rx queues are checked
-Date: Wed, 12 Nov 2008 20:09:42 -0500
-Message-ID: <20081113010942.GA25768@localhost.localdomain>
-References: <20081111173708.GC30481@hmsreliant.think-freely.org> <1226426364.23218.14.camel@HP1> <20081111185559.GD30481@hmsreliant.think-freely.org> <20081112.162359.114568315.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Remove unused parameter of xfrm_gen_index()
+Date: Thu, 13 Nov 2008 10:01:02 +0800
+Message-ID: <20081113020102.GA27879@gondor.apana.org.au>
+References: <87zlk5ccpg.fsf@natisbad.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, netdev@vger.kernel.org, jgarzik@pobox.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Arnaud Ebalard <arno@natisbad.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57527 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505AbYKMBLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 20:11:53 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:47473 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752343AbYKMCBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 21:01:12 -0500
 Content-Disposition: inline
-In-Reply-To: <20081112.162359.114568315.davem@davemloft.net>
+In-Reply-To: <87zlk5ccpg.fsf@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 12, 2008 at 04:23:59PM -0800, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Tue, 11 Nov 2008 15:58:03 -0500
+On Wed, Nov 12, 2008 at 02:10:03PM +0100, Arnaud Ebalard wrote:
+> Hi David,
 > 
-> > Fix bnx2 so that netpoll works properly.  Specifically:
-> > 
-> > 1) Fix parameters to bnx2_interrupt to be a struct bnx2_napi rather than a
-> > struct net_device
-> > 
-> > 2) Fix poll_controller method to check every queue in the rx case so frames
-> > aren't missed
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> In commit 2518c7c2b3d7f0a6b302b4efe17c911f8dd4049f, the last use of
+> xfrm_gen_policy() first argument was removed, but the argument was
+> left behind in the prototype. Patch is against current net-2.6.
 > 
-> This looks good, applied, thanks Neil!
-> 
-Thank you Dave!
-Neil
+> Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
 
+Looks good to me.
+
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
