@@ -1,106 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Wed, 12 Nov 2008 16:31:21 -0800 (PST)
-Message-ID: <20081112.163121.175570126.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] bnx2: fix poll_controller method so that proper
+	structures are passed and all rx queues are checked
+Date: Wed, 12 Nov 2008 20:09:42 -0500
+Message-ID: <20081113010942.GA25768@localhost.localdomain>
+References: <20081111173708.GC30481@hmsreliant.think-freely.org> <1226426364.23218.14.camel@HP1> <20081111185559.GD30481@hmsreliant.think-freely.org> <20081112.162359.114568315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com, netdev@vger.kernel.org, jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35882
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750777AbYKMAbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 19:31:21 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57527 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505AbYKMBLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2008 20:11:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20081112.162359.114568315.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Nov 12, 2008 at 04:23:59PM -0800, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 11 Nov 2008 15:58:03 -0500
+> 
+> > Fix bnx2 so that netpoll works properly.  Specifically:
+> > 
+> > 1) Fix parameters to bnx2_interrupt to be a struct bnx2_napi rather than a
+> > struct net_device
+> > 
+> > 2) Fix poll_controller method to check every queue in the rx case so frames
+> > aren't missed
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> This looks good, applied, thanks Neil!
+> 
+Thank you Dave!
+Neil
 
-Mostly driver fixes, as usual:
-
-1) NIU driver doesn't work properly on 32-bit
-
-2) BNX2 driver passes wrong object down into interrupt handler from
-   ->poll_controller() and also doesn't check all RX queues.  Fix from
-   Neil Horman.
-
-3) put_cmsg_compat() uses SO_TIMESTAMP* instead of SCM_TIMESTAMP*
-   They are the same values, but it makes the code super confusing
-   to read.
-
-4) EEPROM handling and multiqueue fixes to CXGB3 from Divy Le Ray.
-
-5) HTCP congestion control module does not handle state transitions
-   properly in all cases.  Certain actions, in particular the
-   recording of the "last congestion event" timestamp, should only
-   occur when we transition back to TCP_CA_OPEN from a state where we
-   know loss occurred.  Fix from Doug Leith.
-
-6) CXGB3 can deadlock due to incorrect RTNL semaphore grabbing, fix
-   from Steve Wise.
-
-7) Add new device IDs to rtl8187 driver, from Bob Jolliffe.
-
-8) Fix smc911x resume, from Romit Dasgupta.
-
-Please pull, thanks a lot!
-
-The following changes since commit f21f237cf55494c3a4209de323281a3b0528da10:
-  Linus Torvalds (1):
-        Merge branch 'timers-fixes-for-linus' of git://git.kernel.org/.../tip/linux-2.6-tip
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Bob Jolliffe (1):
-      rtl8187 : support for Sitecom WL-168 0001 v4
-
-Brice Goglin (1):
-      myri10ge: fix stop/go ordering even more
-
-Dasgupta, Romit (1):
-      [netdrvr] smc911x: fix for driver resume (and compilation warning)
-
-David S. Miller (3):
-      Merge branch 'davem-fixes' of master.kernel.org:/.../jgarzik/netdev-2.6
-      niu: Fix readq implementation when architecture does not provide one.
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-
-Divy Le Ray (2):
-      cxgb3 - eeprom read fixes
-      cxgb3 - Limit multiqueue setting to msi-x
-
-Doug Leith (1):
-      tcp_htcp: last_cong bug fix
-
-Ivan Kuten (1):
-      rtl8187: Add Abocom USB ID
-
-Johannes Berg (2):
-      mac80211: fix notify_mac function
-      hostap: pad the skb->cb usage in lieu of a proper fix
-
-Neil Horman (1):
-      bnx2: fix poll_controller to pass proper structures and check all rx queues
-
-Patrick Ohly (1):
-      net: put_cmsg_compat + SO_TIMESTAMP[NS]: use same name for value as caller
-
-Steve Wise (1):
-      RDMA/cxgb3: deadlock in iw_cxgb3 can cause hang when configuring interface.
-
- drivers/infiniband/hw/cxgb3/iwch_provider.c |    6 ------
- drivers/net/bnx2.c                          |    9 ++++++---
- drivers/net/cxgb3/cxgb3_main.c              |    4 +++-
- drivers/net/cxgb3/t3_hw.c                   |    8 +++++++-
- drivers/net/myri10ge/myri10ge.c             |    4 +++-
- drivers/net/niu.c                           |    3 +--
- drivers/net/smc911x.c                       |    4 +++-
- drivers/net/wireless/hostap/hostap_wlan.h   |    5 ++++-
- drivers/net/wireless/rtl8187_dev.c          |    3 +++
- net/compat.c                                |    4 ++--
- net/ipv4/tcp_htcp.c                         |   14 ++++++++++----
- net/mac80211/mlme.c                         |    6 +++---
- 12 files changed, 45 insertions(+), 25 deletions(-)
