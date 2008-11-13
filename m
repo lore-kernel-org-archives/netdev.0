@@ -1,22 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 9p: restrict RDMA usage
-Date: Wed, 12 Nov 2008 23:35:12 -0800 (PST)
-Message-ID: <20081112.233512.181207552.davem@davemloft.net>
+Subject: Re: [PATCH 1/4 net-next] netdevice: safe convert to netdev_priv()
+ #part-1
+Date: Thu, 13 Nov 2008 00:01:14 -0800 (PST)
+Message-ID: <20081113.000114.66982563.davem@davemloft.net>
+References: <491B9456.6090602@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: randy.dunlap@oracle.com
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39436
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37726
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751235AbYKMHfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 02:35:12 -0500
+	by vger.kernel.org with ESMTP id S1750740AbYKMIBP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 03:01:15 -0500
+In-Reply-To: <491B9456.6090602@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Thu, 13 Nov 2008 10:43:34 +0800
 
-I've applied this to net-2.6 thanks Randy.
+> We have some reasons to kill netdev->priv:
+> 1. netdev->priv is equal to netdev_priv().
+> 2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
+>    netdev_priv() is more flexible than netdev->priv.
+> But we cann't kill netdev->priv, because so many drivers reference to it
+> directly.
+> 
+> This patch is a safe convert for netdev->priv to netdev_priv(netdev).
+> Since all of the netdev->priv is only for read.
+> But it is too big to be sent in one mail.
+> I split it to 4 parts and make every part smaller than 100,000 bytes,
+> which is max size allowed by vger.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-I didn't get it earlier because I thought perhaps the
-Infiniband folks might want to have picked this one up.
+Applied.
