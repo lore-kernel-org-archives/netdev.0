@@ -1,88 +1,66 @@
-From: Sami Farin <safari-kernel@safari.iki.fi>
-Subject: Re: Linux 2.6.27.5 / SFQ/HTB scheduling problems
-Date: Thu, 13 Nov 2008 16:29:58 +0200
-Message-ID: <20081113142958.36pzkmzwtxd3wbox@m.safari.iki.fi>
-References: <20081113114814.sslsf752hwbvsh5o@m.safari.iki.fi> <20081113135904.GA23103@ff.dom.local>
+From: "Ohly, Patrick" <patrick.ohly@intel.com>
+Subject: RE: [RFC PATCH 00/13] hardware time stamping + igb example
+ implementation
+Date: Thu, 13 Nov 2008 15:53:27 +0000
+Message-ID: <5B860B0D7BC1B74498C0C6D8C6E39A4F1E2FF9E2@irsmsx503.ger.corp.intel.com>
+References: <1226414697.17450.852.camel@ecld0pohly>
+	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly>
+ <491B23FE.9000105@hartkopp.net> <491B2D03.1090700@cosmosbay.com>
+ <491B3B49.7070402@linux.intel.com> <491B42FF.3000407@cosmosbay.com>
+ <491B4BE3.3010104@linux.intel.com> <491B581B.5090105@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ingo Oeser <netdev@axxeo.de>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Oliver Hartkopp <oliver@hartkopp.net>,
+	Andi Kleen <ak@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-out.inet.fi ([195.156.147.13]:33748 "EHLO kirsi2.inet.fi"
+Received: from mga09.intel.com ([134.134.136.24]:56574 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752661AbYKMOaB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Nov 2008 09:30:01 -0500
-Received: from safari.iki.fi (80.223.84.180) by kirsi2.inet.fi (8.5.014)
-        id 48FC5B890139F5D5 for netdev@vger.kernel.org; Thu, 13 Nov 2008 16:29:59 +0200
-Content-Disposition: inline
-In-Reply-To: <20081113135904.GA23103@ff.dom.local>
+	id S1751420AbYKMPxj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 10:53:39 -0500
+In-Reply-To: <491B581B.5090105@hartkopp.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 13, 2008 at 13:59:04 +0000, Jarek Poplawski wrote:
-> On 13-11-2008 12:48, Sami Farin wrote:
-> > On Thu, Nov 13, 2008 at 07:15:43 +0000, Jarek Poplawski wrote:
-> >> On 11-11-2008 22:47, Sami Farin wrote:
-> >> ...
-> >>> When 2.6.27.5 was sending:
-> >>>
-> >>> 2008-11-11T21:16:13.488287Z IP (tos 0x0, ttl 255, id 10323, offset 0, flags [none], proto TCP (6), length 7152) 80.223.84.180.40449 > 74.54.226.166.80: ., cksum 0xee52 (incorrect (-> 0x96a4), 4123538094:4123545194(7100) ack 1017886112 win 710 <nop,nop,timestamp 418352 372760162>
-> >>> 2008-11-11T21:16:13.620018Z IP (tos 0x0, ttl 255, id 10328, offset 0, flags [none], proto TCP (6), length 7152) 80.223.84.180.40449 > 74.54.226.166.80: ., cksum 0xee52 (incorrect (-> 0xf1d0), 4123545194:4123552294(7100) ack 1017886112 win 710 <nop,nop,timestamp 418458 372760270>
-> >>> 2008-11-11T21:16:13.751751Z IP (tos 0x0, ttl 255, id 10333, offset 0, flags [none], proto TCP (6), length 7152) 80.223.84.180.40449 > 74.54.226.166.80: ., cksum 0xee52 (incorrect (-> 0xc685), 4123552294:4123559394(7100) ack 1017886112 win 710 <nop,nop,timestamp 418562 372760374>
-> >>>
-> >>> I noticed it's 7152 bytes a packet!
-> >>> Is this a new trick in 2.6.27 or 2.6.26?
-> >>> But:
-> >>> <3>[ 1583.914947] 0000:00:19.0: eth0: Jumbo Frames not supported.
-> >>>
-> >> Could you check for TSO (and maybe turn this off) with ethtool?
-> > 
-> > It was off:
-> > 
-> > # ethtool -k eth0
-> > Offload parameters for eth0:
-> > rx-checksumming: off
-> > tx-checksumming: off
-> > scatter-gather: off
-> > tcp segmentation offload: off
-> 
-> I guess the later options are off as well? What is mtu btw?
+Oliver Hartkopp wrote:
+>Andi Kleen wrote:
+>>Eric Dumazet wrote:
+>>> I threw a "crazy idea", that can be changed if necessary, say with a 
+>>> cookie
+>>> that identifies the slot in NIC driver structure. O(1) lookup if 
+>>> really needed.
+>>
+>> I think "crazy" describes it well because it would be a lot of dubious
+>> and likely not performing well effort just to save 8 bytes.
+>>
+>
+> The crazy idea from Eric looks easier and more clearly to me than the 
+> discussed patch set from Patrick Ohly - but i wonder if we should give a 
+> separate hw timestamp a try ...
 
-What later options?  MTU is 1472.
+For reasons that have been mentioned already here (some hardware can
+time stamp every packet, new use cases) I think it would be important
+to have the hwtstamp information right in the skb. I can change the
+patch series so that it uses one additional ktime_t hwtstamp field; give
+me a few days, I'm currently traveling.
 
-Oh, I had old ethtool..
-These with v 6:
+> I know Patrick is not a friend of a CONFIG option here. But when we make 
+> it right HW timestamp could only be disabled on CONFIG_EMBEDDED or 
+> something like that.
 
-# ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: off
-tx-checksumming: off
-scatter-gather: off
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: on
+I'm not a friend of a config option because it was suggested that
+hardware tstamps should off on *standard* kernels. That's of little
+use for users of unmodified distributions who want to run PTP.
 
-Wow.  I turned gso off and now it works just like before.
-No packets over size of mtu anymore, either.
+If the feature is only disabled on special distributions, then I really
+don't mind, but at the same time I wonder whether these distributions
+are performance sensitive enough to care about the additional field.
 
-State       Recv-Q Send-Q               Local Address:Port                 Peer Address:Port
-ESTAB      0      122334        80.223.84.180:57694        74.54.226.166:80     timer:(on,4.475ms,0) uid:518 ino:4546485 sk:2ea3ac80ffff8800
-         ts sackcubic wscale:8,3 rto:4499 rtt:2914.12/378.5 cwnd:134 ssthresh:30 send 522.4Kbps rcv_space:5728
-
---- 84.250.192.1 ping statistics ---
-50 packets transmitted, 50 received, 0% packet loss, time 1877ms
-rtt min/avg/max/mdev = 22.463/38.354/99.126/13.738 ms, pipe 3, ipg/ewma 38.309/34.963 ms
-
-... 
-> Anyway these TSO/GSO/jumbo_frames are usually bad idea with packet
-> schedulers (or need more tweaking - e.g. sfq quantum).
-
-Well this GSO on by default was an unexpected surprise for me, for sure.
-
-Maybe a warning on htb (or something) module load
-"GSO enabled, everything might not work as expected, try 
-'ethtool -K eth0 gso off' to turn GSO off"..? ;)
-
--- 
-"That man is the richest whose pleasures are the cheapest."
- - Henry David Thoreau
-
+Bye, Patrick
