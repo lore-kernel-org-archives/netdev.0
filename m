@@ -1,38 +1,37 @@
-From: "Alexey Dobriyan" <adobriyan@gmail.com>
-Subject: Re: [PATCH v3] net: #ifdef inet_bind_bucket::ib_net
-Date: Fri, 14 Nov 2008 02:21:31 +0300
-Message-ID: <b6fcc0a0811131521h69419b4an102a0cee98841a83@mail.gmail.com>
+From: Volker Armin Hemmann <volker.armin.hemmann@tu-clausthal.de>
+Subject: build error with 2.6.27.6+reiser4+ehci-hub patch. ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
+Date: Fri, 14 Nov 2008 00:45:19 +0100
+Message-ID: <200811140045.20166.volker.armin.hemmann@tu-clausthal.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:42099 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751598AbYKMXVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 18:21:33 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so487177eyi.37
-        for <netdev@vger.kernel.org>; Thu, 13 Nov 2008 15:21:31 -0800 (PST)
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <greg@kroah.com>, stable@kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755882AbYKMXpo@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > Something is wrong with read_pnet() as nobody suggested to mass use it
-> > or send a patch doing it.
->
-> I did. My plan is to zap all superflous #ifdef CONFIG_NET_NS if possible.
+Hi,
+with my old config from 2.6.27.5 (which has the same patches) I get thi=
+s=20
+error:
+make all modules_install install
+<snip>
+  OBJCOPY arch/x86/boot/setup.bin
+  OBJCOPY arch/x86/boot/vmlinux.bin
+  HOSTCC  arch/x86/boot/tools/build
+  BUILD   arch/x86/boot/bzImage
+Root device is (9, 1)
+Setup is 11436 bytes (padded to 11776 bytes).
+System is 2180 kB
+CRC 54816509
+Kernel: arch/x86/boot/bzImage is ready  (#1)
+  Building modules, stage 2.
+  MODPOST 136 modules
+ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
+make[1]: *** [__modpost] Fehler 1
+make: *** [modules] Fehler 2
 
-That's not mass usage.
-
-Mass usage is, say, s/dev_net/read_pnet/.
-
-Do you want to do this too?
-
-> How do you want to implement a C function that can write to ib->ib_net ?
-
-I've sent ib_net_set().
-
-> Take the time to read the patch, please.
-
-You too.
+Gl=FCck Auf,
+Volker
