@@ -1,10 +1,11 @@
 From: "Michael Kerrisk" <mtk.manpages-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 Subject: Re: [PATCH] reintroduce accept4
-Date: Thu, 13 Nov 2008 17:11:10 -0500
-Message-ID: <cfd18e0f0811131411o5b47175dl36b022bc762181e5@mail.gmail.com>
+Date: Thu, 13 Nov 2008 17:14:13 -0500
+Message-ID: <cfd18e0f0811131414k7edfa2fw7c7d5581845f3742@mail.gmail.com>
 References: <200810261641.m9QGfotr024285@hs20-bc2-1.build.redhat.com>
 	 <517f3f820811131351l1305b2d2u43ab4e0601d97f93@mail.gmail.com>
 	 <cfd18e0f0811131402j7ec6a60cq462916cc9715b9aa@mail.gmail.com>
+	 <cfd18e0f0811131411o5b47175dl36b022bc762181e5@mail.gmail.com>
 Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -22,22 +23,20 @@ Cc: "Subrata Modak" <subrata-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
 	"Jakub Jelinek" <jakub-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 To: "Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cfd18e0f0811131402j7ec6a60cq462916cc9715b9aa-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <cfd18e0f0811131411o5b47175dl36b022bc762181e5-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Content-Disposition: inline
 Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Here's my test program.  Works on x86-32.  Should work on x86-64, but
-I don't have a system to hand to test with.
+Andrew,
 
-It tests accept4() with each of the four possible combinations of
-SOCK_CLOEXEC and SOCK_NONBLOCK set/clear in 'flags', and verifies that
-the appropriate flags are set on the file descriptor/open file
-description returned by accept4().
+There was a couplke of crufty printf()'s in the preceding version that
+I didn't notice until just after I hit send.  Paste this version into
+the changelog instead.
 
-I tested Ulrich's patch in this thread by applying against 2.6.28-rc2,
-and it passes according to my test program.
+Cheers,
 
+Michael
 /* test_accept4.c
 
    Copyright (C) 2008, Linux Foundation, written by Michael Kerrisk
@@ -105,10 +104,8 @@ accept4(int fd, struct sockaddr *sockaddr, socklen_t *addrlen, int flags)
     args[2] = (long) addrlen;
     args[3] = flags;
 
-    printf("x86-32\n"); /* XXX */
     return syscall(SYS_socketcall, SYS_ACCEPT4, args);
 #else
-    printf("x86-64\n"); /* XXX */
     return syscall(SYS_accept4, fd, sockaddr, addrlen, flags);
 #endif
 }
