@@ -1,64 +1,72 @@
-From: Sami Farin <safari-kernel@safari.iki.fi>
-Subject: Re: Linux 2.6.27.5 / SFQ/HTB scheduling problems
-Date: Thu, 13 Nov 2008 13:48:14 +0200
-Message-ID: <20081113114814.sslsf752hwbvsh5o@m.safari.iki.fi>
-References: <20081111214702.subn3mt7uylkiref@m.safari.iki.fi> <20081113071543.GB4505@ff.dom.local>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH 0/3] net: RCU lookups for UDP, DCCP and TCP protocol
+Date: Thu, 13 Nov 2008 14:13:20 +0100
+Message-ID: <491C27F0.8000507@cosmosbay.com>
+References: <4908627C.6030001@acm.org> <490874F2.2060306@cosmosbay.com> <49088288.6050805@acm.org> <49088AD1.7040805@cosmosbay.com> <20081029163739.GB6732@linux.vnet.ibm.com> <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com> <4909D551.9080309@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Corey Minyard <minyard@acm.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	benny+usenet@amorsen.dk,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Christian Bell <christian@myri.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-out.inet.fi ([195.156.147.13]:46394 "EHLO kirsi2.inet.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753109AbYKMLsR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Nov 2008 06:48:17 -0500
-Received: from safari.iki.fi (80.223.84.180) by kirsi2.inet.fi (8.5.014)
-        id 48FC5B890137E886 for netdev@vger.kernel.org; Thu, 13 Nov 2008 13:48:15 +0200
-Content-Disposition: inline
-In-Reply-To: <20081113071543.GB4505@ff.dom.local>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:43279 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658AbYKMNOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 08:14:06 -0500
+In-Reply-To: <4909D551.9080309@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 13, 2008 at 07:15:43 +0000, Jarek Poplawski wrote:
-> On 11-11-2008 22:47, Sami Farin wrote:
-> ...
-> > When 2.6.27.5 was sending:
-> > 
-> > 2008-11-11T21:16:13.488287Z IP (tos 0x0, ttl 255, id 10323, offset 0, flags [none], proto TCP (6), length 7152) 80.223.84.180.40449 > 74.54.226.166.80: ., cksum 0xee52 (incorrect (-> 0x96a4), 4123538094:4123545194(7100) ack 1017886112 win 710 <nop,nop,timestamp 418352 372760162>
-> > 2008-11-11T21:16:13.620018Z IP (tos 0x0, ttl 255, id 10328, offset 0, flags [none], proto TCP (6), length 7152) 80.223.84.180.40449 > 74.54.226.166.80: ., cksum 0xee52 (incorrect (-> 0xf1d0), 4123545194:4123552294(7100) ack 1017886112 win 710 <nop,nop,timestamp 418458 372760270>
-> > 2008-11-11T21:16:13.751751Z IP (tos 0x0, ttl 255, id 10333, offset 0, flags [none], proto TCP (6), length 7152) 80.223.84.180.40449 > 74.54.226.166.80: ., cksum 0xee52 (incorrect (-> 0xc685), 4123552294:4123559394(7100) ack 1017886112 win 710 <nop,nop,timestamp 418562 372760374>
-> > 
-> > I noticed it's 7152 bytes a packet!
-> > Is this a new trick in 2.6.27 or 2.6.26?
-> > But:
-> > <3>[ 1583.914947] 0000:00:19.0: eth0: Jumbo Frames not supported.
-> > 
-> 
-> Could you check for TSO (and maybe turn this off) with ethtool?
+Hi all
 
-It was off:
+Here is a serie of three patches (based on net-next-2.6), to continue work
+with RCU on UDP/TCP/DCCP stacks
 
-# ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: off
-tx-checksumming: off
-scatter-gather: off
-tcp segmentation offload: off
+Many thanks for all usefull reviews and comments, especially from Paul and Corey.
 
-Sometimes I am also sending over 15000 byte packets according to
-tcpdump.  What I'd like to know is:
-1) How can I get tcpdump to show the actual packets I am sending,
-   without needing to buy another computer for sniffing the packets?
-2) What does it really mean when 15000 byte packet is sent?
-   Can other packets be queued normally "in between" or am I doomed
-   to 250 ms latency, if I happen to e.g. ping one microsecond after
-   the first of these packets is being sent?
-   Or are many packets of the same stream just coalesced into one
-   bigger, if there are no other packets from other streams in
-   between, so that is looks neater when tcpdump is used?
+1) Introduce hlist_nulls variant of hlist
 
-P.S. google does not add References header field so scoring does
-not work very well :(
+   hlist uses NULL value to finish a chain.
+   hlist_nulls variant use the low order bit set to 1 to signal an end marker.
+   This allows to store many different end markers, so that some RCU lockless
+   algos (used in TCP/UDP stack for example) can save some memory barriers in
+   fast paths.
 
--- 
-Do what you love because life is too short for anything else.
+2) Use hlist_nulls in UDP RCU code
 
+   This is a straightforward patch, using hlist_nulls infrastructure.
+   RCU-ification already done on UDP two weeks ago, so hlist_nulls
+   permits us to avoid some memory barriers, both at lookup time
+   and delete time. Patch is large because it adds new macros to
+   include/net/sock.h. These macros will be used by TCP & DCCP too.
+
+3) Convert TCP & DCCP hash tables to use RCU & hlist_nulls
+
+   RCU was added to UDP lookups, using a fast infrastructure :
+   - sockets kmem_cache use SLAB_DESTROY_BY_RCU and dont pay the
+     price of call_rcu() at freeing time.
+   - hlist_nulls permits to use few memory barriers.
+
+   This patch uses same infrastructure for TCP/DCCP established
+   and timewait sockets.
+
+   Thanks to SLAB_DESTROY_BY_RCU, no slowdown for applications
+   using short lived TCP connections. A followup patch, converting
+   rwlocks to spinlocks will even speedup this case.
+
+   __inet_lookup_established() is pretty fast now we dont have to
+   dirty a contended cache line (read_lock/read_unlock)
+
+   Only established and timewait hashtable are converted to RCU
+  (bind table and listen table are still using traditional locking)
+
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
