@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Family matter
-Date: Fri, 14 Nov 2008 15:47:55 -0800 (PST)
-Message-ID: <20081114.154755.125924051.davem@davemloft.net>
-References: <491E0D01.6060300@garzik.org>
+Subject: Re: [git patches] net driver fixes for 2.6.28-rc
+Date: Fri, 14 Nov 2008 15:48:17 -0800 (PST)
+Message-ID: <20081114.154817.23444168.davem@davemloft.net>
+References: <20081114232543.GA2276@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48732
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48735
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751598AbYKNXr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 18:47:56 -0500
-In-Reply-To: <491E0D01.6060300@garzik.org>
+	by vger.kernel.org with ESMTP id S1751697AbYKNXsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 18:48:18 -0500
+In-Reply-To: <20081114232543.GA2276@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 14 Nov 2008 18:42:57 -0500
+Date: Fri, 14 Nov 2008 18:25:43 -0500
 
-> I'm going overseas Sunday-Wednesday to deal with a family matter.
-> If any important fixes arise, please grab them, as my email access
-> will be spotty.  patchworks should be up-to-date with regards to
-> what I've applied and sent to you.
+> 
+> Please pull from 'davem-fixes' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
 
-Ok, will do, take care Jeff.
+Pulled, thanks Jeff.
+
