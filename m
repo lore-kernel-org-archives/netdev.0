@@ -1,53 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Validation of DMA params breaks e100 driver (2.6.28-rc2)
-Date: Thu, 13 Nov 2008 18:42:25 -0800 (PST)
-Message-ID: <20081113.184225.113857300.davem@davemloft.net>
-References: <4909E08F.9040306@users.sourceforge.net>
-	<20081031210131.GA18015@flint.arm.linux.org.uk>
-	<Pine.WNT.4.63.0811131718390.984@jbrandeb-desk.amr.corp.intel.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] build error with 2.6.27.6+reiser4+ehci-hub patch.
+	ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
+Date: Thu, 13 Nov 2008 20:07:32 -0800
+Message-ID: <20081114040732.GB17810@kroah.com>
+References: <200811140045.20166.volker.armin.hemmann@tu-clausthal.de> <20081114000725.GC19644@kroah.com> <20081114012617.GG7331@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux@arm.linux.org.uk, grfstrm@users.sourceforge.net,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: jesse.brandeburg@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58089
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751155AbYKNCm0 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Nov 2008 21:42:26 -0500
-In-Reply-To: <Pine.WNT.4.63.0811131718390.984@jbrandeb-desk.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Volker Armin Hemmann <volker.armin.hemmann@tu-clausthal.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	linux-kernel@vger.kernel.org, stable@kernel.org,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755470AbYKNEM0@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081114012617.GG7331@solarflare.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Thu, 13 Nov 2008 17:21:50 -0800 (Pacific Standard Time)
+On Fri, Nov 14, 2008 at 01:26:19AM +0000, Ben Hutchings wrote:
+> Greg KH wrote:
+> > On Fri, Nov 14, 2008 at 12:45:19AM +0100, Volker Armin Hemmann wrote:
+> > > Hi,
+> > > with my old config from 2.6.27.5 (which has the same patches) I get this 
+> > > error:
+> > > make all modules_install install
+> > > <snip>
+> > >   OBJCOPY arch/x86/boot/setup.bin
+> > >   OBJCOPY arch/x86/boot/vmlinux.bin
+> > >   HOSTCC  arch/x86/boot/tools/build
+> > >   BUILD   arch/x86/boot/bzImage
+> > > Root device is (9, 1)
+> > > Setup is 11436 bytes (padded to 11776 bytes).
+> > > System is 2180 kB
+> > > CRC 54816509
+> > > Kernel: arch/x86/boot/bzImage is ready  (#1)
+> > >   Building modules, stage 2.
+> > >   MODPOST 136 modules
+> > > ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
+> > > make[1]: *** [__modpost] Fehler 1
+> > > make: *** [modules] Fehler 2
+> > 
+> > Francois, this is due to your commit
+> > 38d501ca6eb1f05d238bef785e51ca71dbfe0115, in the release, which was a
+> > backport of ccdffb9a88b2907b159538d7bfd6256621db4f84.
+> > 
+> > Care to look into this?
+> 
+> R8169 needs to select MII.  You could cherry-pick
+> b73724921d906d1642f9f6d054079c6b095903fe.
 
-> On Fri, 31 Oct 2008, Russell King - ARM Linux wrote:
->=20
-> > On Thu, Oct 30, 2008 at 05:27:59PM +0100, Anders Grafstr=F6m wrote:
-> > > The e100 driver triggers BUG_ON(buf->direction !=3D dir)
-> > > by doing pci_map_single(..., PCI_DMA_BIDIRECTIONAL)
-> > > and pci_dma_sync_single_for_device(..., PCI_DMA_TODEVICE).
-> > >=20
-> > > I'm guessing it's allowed to do that and that something like
-> > > the patch below is called for?
-> >=20
-> > No, it is not allowed to do that - that's why it's called "BUG_ON".
-> > Changing the DMA direction, especially with dmabounce will result
-> > in unexpected behaviour.
->=20
-> okay, how about this patch...  only compile tested as I couldn't get=20
-> net-next-2.6 to boot on my test machine.  I'll get some testing done =
-on=20
-> this, but in the meantime....
->=20
-> e100: fix dma error in direction for mapping
->=20
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Yes, that looks correct, I'll do that.
 
-=46WIW this looks good to me.
+Volker, does this patch solve your problem?
 
-Acked-by: David S. Miller <davem@davemloft.net>
+thanks,
+
+greg k-h
