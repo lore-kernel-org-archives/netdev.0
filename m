@@ -1,53 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: niu: Bump driver version and release date.
-Date: Fri, 14 Nov 2008 14:48:17 -0800 (PST)
-Message-ID: <20081114.144817.154642509.davem@davemloft.net>
+Subject: Re: [PATCH] scm: fix scm_fp_list->list initialization made in
+ wrong place
+Date: Fri, 14 Nov 2008 14:52:18 -0800 (PST)
+Message-ID: <20081114.145218.125819122.davem@davemloft.net>
+References: <491D8C1A.5060003@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51101
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44743
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751416AbYKNWsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 17:48:18 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id EC391C8C196
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 14:48:17 -0800 (PST)
+	by vger.kernel.org with ESMTP id S1751641AbYKNWwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 17:52:18 -0500
+In-Reply-To: <491D8C1A.5060003@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Fri, 14 Nov 2008 17:32:58 +0300
 
-I've just added the following patch to net-2.6
+> This is the next page of the scm recursion story (the commit 
+> f8d570a4 net: Fix recursive descent in __scm_destroy()).
+> 
+> In function scm_fp_dup(), the INIT_LIST_HEAD(&fpl->list) of newly
+> created fpl is done *before* the subsequent memcpy from the old 
+> structure and thus the freshly initialized list is overwritten.
+> 
+> But that's OK, since this initialization is not required at all,
+> since the fpl->list is list_add-ed at the destruction time in any
+> case (and is unused in other code), so I propose to drop both
+> initializations, rather than moving it after the memcpy.
+> 
+> Please, correct me if I miss something significant.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-niu: Bump driver version and release date.
+Yep, this is totally correct.
 
-This driver is pretty mature, and the worst of the known
-problems has been fixed (the 32-bit failures due to readq
-implementation).
+Linus even noticed this in my original patch but kept them there
+because they seemed harmless to him.
 
-So let's finally give it a version of 1.0
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/niu.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index be6b4d7..1b6f548 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -33,8 +33,8 @@
- 
- #define DRV_MODULE_NAME		"niu"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"0.9"
--#define DRV_MODULE_RELDATE	"May 4, 2008"
-+#define DRV_MODULE_VERSION	"1.0"
-+#define DRV_MODULE_RELDATE	"Nov 14, 2008"
- 
- static char version[] __devinitdata =
- 	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
--- 
-1.5.6.5
-
+Patch applied to net-2.6, thanks!
