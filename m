@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: use %pI4, remove get_{u8/u16/u32} and
- put_{u8/u16/u32} inlines
-Date: Thu, 13 Nov 2008 22:42:07 -0800 (PST)
-Message-ID: <20081113.224207.25857066.davem@davemloft.net>
-References: <1226639846.5483.3.camel@brick>
+Subject: Re: [PATCH] remove an unnecessary field in struct tcp_skb_cb
+Date: Thu, 13 Nov 2008 22:55:40 -0800 (PST)
+Message-ID: <20081113.225540.34583336.davem@davemloft.net>
+References: <1226571707.18006.23.camel@nathan.suse.cz>
+	<491C6DA6.8030200@gmail.com>
+	<87fxlvcsam.fsf@basil.nowhere.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kkeil@suse.de
-To: harvey.harrison@gmail.com
+Cc: hummerbliss@gmail.com, ptesarik@suse.cz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50707
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60448
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750777AbYKNGmI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 01:42:08 -0500
-In-Reply-To: <1226639846.5483.3.camel@brick>
+	by vger.kernel.org with ESMTP id S1751126AbYKNGzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 01:55:41 -0500
+In-Reply-To: <87fxlvcsam.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Thu, 13 Nov 2008 21:17:25 -0800
+From: Andi Kleen <andi@firstfloor.org>
+Date: Thu, 13 Nov 2008 20:57:53 +0100
 
-> They would have been better named as get_be16, put_be16, etc.
-> as they were hiding an endian shift inside.
+> Saikiran Madugula <hummerbliss@gmail.com> writes:
 > 
-> They don't add much over explicitly coding the byteshifting
-> and gcc sometimes has a problem with builtin_constant_p inside
-> inline functions, so it may do a better job of byteswapping
-> at compile time rather than runtime.
+> > Petr Tesarik wrote:
+> >> The urg_ptr field is not used anywhere and is merely confusing.
+> >> 
+> > grep -r "urg_ptr" on my linux tree says otherwise.
 > 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> I think you're confusing it with tcphdr's field of the same name.
+> Petr's patch is correct as far as I can see.
 
-Applied, thanks Harvey.
+Right, patch applied, thanks everyone.
