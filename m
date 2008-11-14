@@ -1,45 +1,55 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: make sure struct dst_entry refcount is aligned on
- 64 bytes
-Date: Fri, 14 Nov 2008 14:37:38 +0100
-Message-ID: <491D7F22.9020707@cosmosbay.com>
-References: <491D323B.9030802@cosmosbay.com> <20081114.005437.09284570.davem@davemloft.net> <491D3F18.5030505@cosmosbay.com> <20081114093613.GA2834@x200.localdomain> <491D5725.50006@cosmosbay.com> <20081114113558.GA9692@x200.localdomain> <491D644A.4040309@cosmosbay.com> <20081114132230.GA27462@x200.localdomain>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] scm: fix scm_fp_list->list initialization made in wrong place
+Date: Fri, 14 Nov 2008 17:32:58 +0300
+Message-ID: <491D8C1A.5060003@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	shemminger@vyatta.com,
-	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:33627 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbYKNNhu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 08:37:50 -0500
-In-Reply-To: <20081114132230.GA27462@x200.localdomain>
+Received: from mailhub.sw.ru ([195.214.232.25]:16450 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259AbYKNOdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2008 09:33:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan a =E9crit :
+This is the next page of the scm recursion story (the commit 
+f8d570a4 net: Fix recursive descent in __scm_destroy()).
 
-> Hmm, indeed.
->=20
-> I tried moving __refcnt et al to the very beginning, but it seems to =
-make
-> things worse (on x86_64, almost within statistical error).
->=20
-> And there is no way to use offset_of() inside struct definition. :-(
+In function scm_fp_dup(), the INIT_LIST_HEAD(&fpl->list) of newly
+created fpl is done *before* the subsequent memcpy from the old 
+structure and thus the freshly initialized list is overwritten.
 
-Yes, it is important that the beginning of structure contain read mostl=
-y fields.
+But that's OK, since this initialization is not required at all,
+since the fpl->list is list_add-ed at the destruction time in any
+case (and is unused in other code), so I propose to drop both
+initializations, rather than moving it after the memcpy.
 
-refcnt being the most written field (incremented / decremented for each=
- packet),
-it is really important to move it outside of the first 128 bytes=20
-(192 bytes on 64 bit arches) of dst_entry
+Please, correct me if I miss something significant.
 
-I wonder if some real hot dst_entries could be splitted (one copy for e=
-ach stream),
-to reduce ping-pongs.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
+---
+
+diff --git a/net/core/scm.c b/net/core/scm.c
+index ab242cc..b12303d 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -75,7 +75,6 @@ static int scm_fp_copy(struct cmsghdr *cmsg, struct scm_fp_list **fplp)
+ 		if (!fpl)
+ 			return -ENOMEM;
+ 		*fplp = fpl;
+-		INIT_LIST_HEAD(&fpl->list);
+ 		fpl->count = 0;
+ 	}
+ 	fpp = &fpl->fp[fpl->count];
+@@ -301,7 +300,6 @@ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
+ 
+ 	new_fpl = kmalloc(sizeof(*fpl), GFP_KERNEL);
+ 	if (new_fpl) {
+-		INIT_LIST_HEAD(&new_fpl->list);
+ 		for (i=fpl->count-1; i>=0; i--)
+ 			get_file(fpl->fp[i]);
+ 		memcpy(new_fpl, fpl, sizeof(*fpl));
