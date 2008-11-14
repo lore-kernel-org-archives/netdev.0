@@ -1,40 +1,63 @@
-From: <jie.yang@atheros.com>
-Subject: [PATCH net-next] atl1e:remove unnecessary crc inversion
-Date: Fri, 14 Nov 2008 16:58:07 +0800
-Message-ID: <12266530874043-git-send-email-jie.yang@atheros.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: speedup dst_release()
+Date: Fri, 14 Nov 2008 10:04:24 +0100
+Message-ID: <491D3F18.5030505@cosmosbay.com>
+References: <491D323B.9030802@cosmosbay.com> <20081114.005437.09284570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <pyunyh@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.atheros.com ([12.36.123.2]:51352 "EHLO mail.atheros.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751037AbYKNI6K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2008 03:58:10 -0500
-Received: from mail.atheros.com ([10.10.20.108])
-	by sidewinder.atheros.com
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 00:58:10 -0800
+Received: from gw1.cosmosbay.com ([86.65.150.130]:35748 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750727AbYKNJEf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 04:04:35 -0500
+In-Reply-To: <20081114.005437.09284570.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jie Yang <jie.yang@atheros.com>
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Fri, 14 Nov 2008 09:09:31 +0100
+>=20
+>> During tbench/oprofile sessions, I found that dst_release() was in t=
+hird position.
+>  ...
+>> Instead of first checking the refcount value, then decrement it,
+>> we use atomic_dec_return() to help CPU to make the right memory tran=
+saction
+>> (ie getting the cache line in exclusive mode)
+>  ...
+>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> This looks great, applied, thanks Eric.
+>=20
 
-remove unnecessary crc inversion.
+Thanks David
 
-Signed-off-by: Jie Yang <jie.yang @atheros.com>
----
 
-diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/atl1e/atl1e_hw.c
-index 8cbc1b5..a2c93d1 100644
---- a/drivers/net/atl1e/atl1e_hw.c
-+++ b/drivers/net/atl1e/atl1e_hw.c
-@@ -174,7 +174,6 @@ u32 atl1e_hash_mc_addr(struct atl1e_hw *hw, u8 *mc_addr)
-        int i;
+I think I understood some regressions here on 32bits=20
 
-        crc32 = ether_crc_le(6, mc_addr);
--       crc32 = ~crc32;
-        for (i = 0; i < 32; i++)
-                value |= (((crc32 >> i) & 1) << (31 - i));
+offsetof(struct dst_entry, __refcnt) is 0x7c again !!!
+
+This is really really bad for performance
+
+I believe this comes from a patch from Alexey Dobriyan
+(commit def8b4faff5ca349beafbbfeb2c51f3602a6ef3a
+net: reduce structures when XFRM=3Dn)
+
+
+This kills effort from Zhang Yanmin (and me...)
+
+(commit f1dd9c379cac7d5a76259e7dffcd5f8edc697d17
+[NET]: Fix tbench regression in 2.6.25-rc1)
+
+
+Really we must find something so that this damned __refcnt is starting =
+at 0x80
 
 
