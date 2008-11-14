@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: speedup dst_release()
-Date: Fri, 14 Nov 2008 00:54:37 -0800 (PST)
-Message-ID: <20081114.005437.09284570.davem@davemloft.net>
-References: <491D323B.9030802@cosmosbay.com>
+From: <jie.yang@atheros.com>
+Subject: [PATCH net-next] atl1e:remove unnecessary crc inversion
+Date: Fri, 14 Nov 2008 16:58:07 +0800
+Message-ID: <12266530874043-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: dada1@cosmosbay.com
+Content-Type: text/plain
+Cc: <pyunyh@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60351
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750734AbYKNIyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 03:54:38 -0500
-In-Reply-To: <491D323B.9030802@cosmosbay.com>
+Received: from mail.atheros.com ([12.36.123.2]:51352 "EHLO mail.atheros.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751037AbYKNI6K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2008 03:58:10 -0500
+Received: from mail.atheros.com ([10.10.20.108])
+	by sidewinder.atheros.com
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 00:58:10 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 14 Nov 2008 09:09:31 +0100
+From: Jie Yang <jie.yang@atheros.com>
 
-> During tbench/oprofile sessions, I found that dst_release() was in third position.
- ...
-> Instead of first checking the refcount value, then decrement it,
-> we use atomic_dec_return() to help CPU to make the right memory transaction
-> (ie getting the cache line in exclusive mode)
- ...
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+remove unnecessary crc inversion.
 
-This looks great, applied, thanks Eric.
+Signed-off-by: Jie Yang <jie.yang @atheros.com>
+---
+
+diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/atl1e/atl1e_hw.c
+index 8cbc1b5..a2c93d1 100644
+--- a/drivers/net/atl1e/atl1e_hw.c
++++ b/drivers/net/atl1e/atl1e_hw.c
+@@ -174,7 +174,6 @@ u32 atl1e_hash_mc_addr(struct atl1e_hw *hw, u8 *mc_addr)
+        int i;
+
+        crc32 = ether_crc_le(6, mc_addr);
+-       crc32 = ~crc32;
+        for (i = 0; i < 32; i++)
+                value |= (((crc32 >> i) & 1) << (31 - i));
+
+
