@@ -1,54 +1,65 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
-	(rmmod BUG)
-Date: Fri, 14 Nov 2008 19:49:22 +0100
-Message-ID: <1226688562.12092.8.camel@localhost.localdomain>
-References: <20081112.041143.11487260.davem@davemloft.net>
-	 <1226494179.6834.64.camel@localhost.localdomain>
-	 <1226566222.6834.76.camel@localhost.localdomain>
-	 <20081113.140824.156293734.davem@davemloft.net>
-	 <1226666324.17392.11.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: =?ISO-8859-1?Q?Anders_Grafstr=F6m?= <grfstrm@users.sourceforge.net>
+Subject: Re: Validation of DMA params breaks e100 driver (2.6.28-rc2)
+Date: Fri, 14 Nov 2008 21:37:33 +0100
+Message-ID: <491DE18D.2070302@users.sourceforge.net>
+References: <4909E08F.9040306@users.sourceforge.net>
+	<20081031210131.GA18015@flint.arm.linux.org.uk>
+	<Pine.WNT.4.63.0811131718390.984@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:56922 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbYKNStu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 13:49:50 -0500
-In-Reply-To: <1226666324.17392.11.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.arm.linux.org.uk"
+	<linux-arm-kernel@lists.arm.linux.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
+In-Reply-To: <Pine.WNT.4.63.0811131718390.984@jbrandeb-desk.amr.corp.intel.com>
+List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
+List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
+List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
+List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
+List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-11-14 at 13:38 +0100, Jesper Dangaard Brouer wrote:
-> On Thu, 2008-11-13 at 14:08 -0800, David Miller wrote:
-> > I suspect that something might be changing np->num_ldg, but
-> > anyways the following debugging patch should provide some
-> > clues.  Please reproduce this and send the logs it generates.
-> 
-> Debugging the rmmod problem...
-> 
-> I found a strange behavior, rmmod'ing the niu driver will only cause a
-> kernel BUG, if the driver was loaded at boot time.  If I remove the
-> niu.ko driver from /lib/modules/2.6.28-rc4-davem/kernel/drivers/net/
-> reboot the system.  After that I can load and unload the niu.ko driver
-> without problems... hmmm
+Brandeburg, Jesse wrote:
+> On Fri, 31 Oct 2008, Russell King - ARM Linux wrote:
+> =
 
-Perhaps this is a regression, as the problem is not in v2.6.27.
+>> On Thu, Oct 30, 2008 at 05:27:59PM +0100, Anders Grafstr=F6m wrote:
+>>> The e100 driver triggers BUG_ON(buf->direction !=3D dir)
+>>> by doing pci_map_single(..., PCI_DMA_BIDIRECTIONAL)
+>>> and pci_dma_sync_single_for_device(..., PCI_DMA_TODEVICE).
+>>>
+>>> I'm guessing it's allowed to do that and that something like
+>>> the patch below is called for?
+>> No, it is not allowed to do that - that's why it's called "BUG_ON".
+>> Changing the DMA direction, especially with dmabounce will result
+>> in unexpected behaviour.
+> =
 
-I'll start bisecting monday...
+> okay, how about this patch...  only compile tested as I couldn't get =
 
-I'm not sure its a NIU driver bug, as the number of changes to niu.c is
-very small since v2.6.27. (git log v2.6.27.. drivers/net/niu.c)
+> net-next-2.6 to boot on my test machine.  I'll get some testing done on =
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+> this, but in the meantime....
+> =
+
+> e100: fix dma error in direction for mapping
+> =
+
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+I failed to save this patch (flowed format?) but I applied it manually
+to 2.6.28-rc4 and tried it. Appears to work.
+
+
+-------------------------------------------------------------------
+List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
