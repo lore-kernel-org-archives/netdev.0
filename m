@@ -1,58 +1,71 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] build error with 2.6.27.6+reiser4+ehci-hub patch.
-	ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
-Date: Thu, 13 Nov 2008 20:07:32 -0800
-Message-ID: <20081114040732.GB17810@kroah.com>
-References: <200811140045.20166.volker.armin.hemmann@tu-clausthal.de> <20081114000725.GC19644@kroah.com> <20081114012617.GG7331@solarflare.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH v3] net: #ifdef inet_bind_bucket::ib_net
+Date: Fri, 14 Nov 2008 05:36:15 +0100
+Message-ID: <491D003F.7060605@cosmosbay.com>
+References: <b6fcc0a0811131521h69419b4an102a0cee98841a83@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Volker Armin Hemmann <volker.armin.hemmann@tu-clausthal.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	linux-kernel@vger.kernel.org, stable@kernel.org,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755470AbYKNEM0@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081114012617.GG7331@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:54185 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192AbYKNEgX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2008 23:36:23 -0500
+In-Reply-To: <b6fcc0a0811131521h69419b4an102a0cee98841a83@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 14, 2008 at 01:26:19AM +0000, Ben Hutchings wrote:
-> Greg KH wrote:
-> > On Fri, Nov 14, 2008 at 12:45:19AM +0100, Volker Armin Hemmann wrote:
-> > > Hi,
-> > > with my old config from 2.6.27.5 (which has the same patches) I get this 
-> > > error:
-> > > make all modules_install install
-> > > <snip>
-> > >   OBJCOPY arch/x86/boot/setup.bin
-> > >   OBJCOPY arch/x86/boot/vmlinux.bin
-> > >   HOSTCC  arch/x86/boot/tools/build
-> > >   BUILD   arch/x86/boot/bzImage
-> > > Root device is (9, 1)
-> > > Setup is 11436 bytes (padded to 11776 bytes).
-> > > System is 2180 kB
-> > > CRC 54816509
-> > > Kernel: arch/x86/boot/bzImage is ready  (#1)
-> > >   Building modules, stage 2.
-> > >   MODPOST 136 modules
-> > > ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
-> > > make[1]: *** [__modpost] Fehler 1
-> > > make: *** [modules] Fehler 2
-> > 
-> > Francois, this is due to your commit
-> > 38d501ca6eb1f05d238bef785e51ca71dbfe0115, in the release, which was a
-> > backport of ccdffb9a88b2907b159538d7bfd6256621db4f84.
-> > 
-> > Care to look into this?
-> 
-> R8169 needs to select MII.  You could cherry-pick
-> b73724921d906d1642f9f6d054079c6b095903fe.
+Alexey Dobriyan a =E9crit :
+>>> Something is wrong with read_pnet() as nobody suggested to mass use=
+ it
+>>> or send a patch doing it.
+>> I did. My plan is to zap all superflous #ifdef CONFIG_NET_NS if poss=
+ible.
+>=20
+> That's not mass usage.
+>=20
+> Mass usage is, say, s/dev_net/read_pnet/.
+>=20
+> Do you want to do this too?
 
-Yes, that looks correct, I'll do that.
+Yes, it was present on my original first patch.
+I said I was going to split the big patch.
+How many mails will be necessary until you get the point ?
 
-Volker, does this patch solve your problem?
+I was waiting *you* change "read_pnet()/write_pnet()" names as you
+intended, *before* submitting new patches, in order not to
+duplicate work.
 
-thanks,
+=46or instance, I dont like :
 
-greg k-h
+static inline
+struct net *dev_net(const struct net_device *dev)
+{
+#ifdef CONFIG_NET_NS
+        return dev->nd_net;
+#else
+        return &init_net;
+#endif
+}
+
+
+I prefer :
+
+static inline
+struct net *dev_net(const struct net_device *dev)
+{
+	return read_pnet(&dev->nd_net);
+}
+
+This is better because :
+
+1) No #ifdef CONFIG_NET_NS
+
+2) The magic about &init_net is not duplicated in ten different include=
+ files, but
+   centralized in the right file : include/net/net_namespace.h
+
+
