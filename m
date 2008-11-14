@@ -1,92 +1,40 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: speedup dst_release()
-Date: Fri, 14 Nov 2008 09:09:31 +0100
-Message-ID: <491D323B.9030802@cosmosbay.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: macb phy address bug?
+Date: Fri, 14 Nov 2008 09:46:53 +0100
+Message-ID: <491D3AFD.1080509@st.com>
+References: <200811140853.13729.giulio.benetti@micronovasrl.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010803000309050203030902"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Giulio Benetti <giulio.benetti@micronovasrl.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:46840 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbYKNIJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 03:09:40 -0500
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:38919 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750727AbYKNIty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 03:49:54 -0500
+In-Reply-To: <200811140853.13729.giulio.benetti@micronovasrl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010803000309050203030902
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-During tbench/oprofile sessions, I found that dst_release() was in third position.
-
-CPU: Core 2, speed 2999.68 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit mask of 0x00 (Unhalted core cycles) count 100000
-samples  %        symbol name
-483726    9.0185  __copy_user_zeroing_intel
-191466    3.5697  __copy_user_intel
-185475    3.4580  dst_release
-175114    3.2648  ip_queue_xmit
-153447    2.8608  tcp_sendmsg
-108775    2.0280  tcp_recvmsg
-102659    1.9140  sysenter_past_esp
-101450    1.8914  tcp_current_mss
-95067     1.7724  __copy_from_user_ll
-86531     1.6133  tcp_transmit_skb
-
-Of course, all CPUS fight on the dst_entry associated with 127.0.0.1 
-
-Instead of first checking the refcount value, then decrement it,
-we use atomic_dec_return() to help CPU to make the right memory transaction
-(ie getting the cache line in exclusive mode)
-
-dst_release() is now at the fifth position, and tbench a litle bit faster ;)
-
-CPU: Core 2, speed 3000.1 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit mask of 0x00 (Unhalted core cycles) count 100000
-samples  %        symbol name
-647107    8.8072  __copy_user_zeroing_intel
-258840    3.5229  ip_queue_xmit
-258302    3.5155  __copy_user_intel
-209629    2.8531  tcp_sendmsg
-165632    2.2543  dst_release
-149232    2.0311  tcp_current_mss
-147821    2.0119  tcp_recvmsg
-137893    1.8767  sysenter_past_esp
-127473    1.7349  __copy_from_user_ll
-121308    1.6510  ip_finish_output
-118510    1.6129  tcp_transmit_skb
-109295    1.4875  tcp_v4_rcv
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---------------010803000309050203030902
-Content-Type: text/plain;
- name="dst_release.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="dst_release.patch"
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 09c1530..07e5ad2 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -263,9 +263,11 @@ again:
- void dst_release(struct dst_entry *dst)
- {
- 	if (dst) {
--		WARN_ON(atomic_read(&dst->__refcnt) < 1);
-+               int newrefcnt;
-+
- 		smp_mb__before_atomic_dec();
--		atomic_dec(&dst->__refcnt);
-+               newrefcnt = atomic_dec_return(&dst->__refcnt);
-+               WARN_ON(newrefcnt < 0);
- 	}
- }
- EXPORT_SYMBOL(dst_release);
-
---------------010803000309050203030902--
+Giulio Benetti wrote:
+> PHYID returns 0xffff and not 0xffffffff when not found and in some 
+> case(at91sam9263) 0x0. Maybe this patch could be useful.
+>
+>
+>
+> Signed-off-by: Giulio Benetti <giulio.benetti@micronovasrl.com>
+>   
+Hi Giulio,
+it sounds like a work around for a hardware error.
+Is my understanding that, broken hardware is sometimes missing the pull 
+down resistor on the  MDIO line, which results in reads to non-existent 
+devices returning  0 rather than 0xffff.
+Your fix looks good for me, although, I don't know if some vendors 
+actually use 0 as valid UID.
+Moreover, when I met this problem, I decided to move just this hack 
+within the MAC driver  (as soon as the PHY is connected to the driver) 
+instead of patching the PAL code.
+Hoping this could be useful.
+Ciao
+ Peppe
