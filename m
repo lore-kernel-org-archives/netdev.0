@@ -1,89 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH[1/1] NIU: Add Sun CP3260 ATCA blade support
-Date: Fri, 14 Nov 2008 14:45:21 -0800 (PST)
-Message-ID: <20081114.144521.56971719.davem@davemloft.net>
-References: <491DB3B4.5010805@Sun.COM>
+Subject: [PATCH]: niu: Bump driver version and release date.
+Date: Fri, 14 Nov 2008 14:48:17 -0800 (PST)
+Message-ID: <20081114.144817.154642509.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Matheos.Worku@Sun.COM
-To: Santwona.Behera@Sun.COM
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51098
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51101
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751608AbYKNWpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 17:45:22 -0500
-In-Reply-To: <491DB3B4.5010805@Sun.COM>
+	by vger.kernel.org with ESMTP id S1751416AbYKNWsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 17:48:18 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id EC391C8C196
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 14:48:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Santwona.Behera@Sun.COM
-Date: Fri, 14 Nov 2008 09:21:56 -0800
 
-> This patch adds support for the Sun CP3260 ATCA blade which is
-> a N2 based ATCA blade with 2 NIU ports. The NIU ports do not
-> have on-board PHY.
+I've just added the following patch to net-2.6
 
-This patch looks great.
+niu: Bump driver version and release date.
 
-I've made some extremely minor coding style fixups, and applied
-this patch to net-2.6  Interdiff is below.
+This driver is pretty mature, and the worst of the known
+problems has been fixed (the 32-bit failures due to readq
+implementation).
 
-Thank you!
+So let's finally give it a version of 1.0
 
---- drivers/net/niu.c~	2008-11-14 14:36:52.000000000 -0800
-+++ drivers/net/niu.c	2008-11-14 14:40:33.000000000 -0800
-@@ -446,12 +446,12 @@ static int serdes_init_niu_10g_fiber(str
- static int serdes_init_niu_1g_serdes(struct niu *np)
- {
- 	struct niu_link_config *lp = &np->link_config;
--	u32 tx_cfg, rx_cfg;
- 	u16 pll_cfg, pll_sts;
-+	int max_retry = 100;
-+	u64 sig, mask, val;
-+	u32 tx_cfg, rx_cfg;
- 	unsigned long i;
- 	int err;
--	u64 sig, mask, val;
--	int max_retry = 100;
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/niu.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index be6b4d7..1b6f548 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -33,8 +33,8 @@
  
- 	tx_cfg = (PLL_TX_CFG_ENTX | PLL_TX_CFG_SWING_1375MV |
- 		  PLL_TX_CFG_RATE_HALF);
-@@ -545,12 +545,11 @@ static int serdes_init_niu_1g_serdes(str
- static int serdes_init_niu_10g_serdes(struct niu *np)
- {
- 	struct niu_link_config *lp = &np->link_config;
--	u32 tx_cfg, rx_cfg;
--	u32 pll_cfg, pll_sts;
-+	u32 tx_cfg, rx_cfg, pll_cfg, pll_sts;
-+	int max_retry = 100;
-+	u64 sig, mask, val;
- 	unsigned long i;
- 	int err;
--	u64 sig, mask, val;
--	int max_retry = 100;
+ #define DRV_MODULE_NAME		"niu"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"0.9"
+-#define DRV_MODULE_RELDATE	"May 4, 2008"
++#define DRV_MODULE_VERSION	"1.0"
++#define DRV_MODULE_RELDATE	"Nov 14, 2008"
  
- 	tx_cfg = (PLL_TX_CFG_ENTX | PLL_TX_CFG_SWING_1375MV);
- 	rx_cfg = (PLL_RX_CFG_ENRX | PLL_RX_CFG_TERM_0P8VDDT |
-@@ -643,7 +642,6 @@ static int serdes_init_niu_10g_serdes(st
- 	}
- 
- 	if ((sig & mask) != val) {
--
- 		pr_info(PFX "NIU Port %u signal bits [%08x] are not "
- 			"[%08x] for 10G...trying 1G\n",
- 			np->port, (int) (sig & mask), (int) val);
-@@ -2428,11 +2426,11 @@ static int niu_determine_phy_disposition
- 		case NIU_FLAGS_10G | NIU_FLAGS_XCVR_SERDES:
- 			/* 10G Serdes */
- 			tp = &phy_template_niu_10g_serdes;
--		      break;
-+			break;
- 		case NIU_FLAGS_XCVR_SERDES:
- 			/* 1G Serdes */
- 			tp = &phy_template_niu_1g_serdes;
--		      break;
-+			break;
- 		case NIU_FLAGS_10G | NIU_FLAGS_FIBER:
- 			/* 10G Fiber */
- 		default:
+ static char version[] __devinitdata =
+ 	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
+-- 
+1.5.6.5
+
