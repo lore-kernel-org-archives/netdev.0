@@ -1,101 +1,76 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH v3] net: #ifdef inet_bind_bucket::ib_net
-Date: Fri, 14 Nov 2008 09:41:12 +0300
-Message-ID: <20081114064112.GA2376@x200.localdomain>
-References: <b6fcc0a0811131521h69419b4an102a0cee98841a83@mail.gmail.com> <491D003F.7060605@cosmosbay.com> <20081113.204025.162228911.davem@davemloft.net> <491D0482.1030706@cosmosbay.com> <20081114061452.GA2227@x200.localdomain> <491D18D9.1050708@cosmosbay.com>
+From: Volker Armin Hemmann <volker.armin.hemmann@tu-clausthal.de>
+Subject: Re: [stable] build error with 2.6.27.6+reiser4+ehci-hub patch. ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
+Date: Fri, 14 Nov 2008 07:39:46 +0100
+Message-ID: <200811140739.46888.volker.armin.hemmann@tu-clausthal.de>
+References: <200811140045.20166.volker.armin.hemmann@tu-clausthal.de> <20081114012617.GG7331@solarflare.com> <20081114040732.GB17810@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	linux-kernel@vger.kernel.org, stable@kernel.org,
+	netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:42167 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbYKNGhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 01:37:43 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1562043ugf.37
-        for <netdev@vger.kernel.org>; Thu, 13 Nov 2008 22:37:41 -0800 (PST)
+Received: from hades.rz.tu-clausthal.de ([139.174.2.20]:63117 "EHLO
+	hades.rz.tu-clausthal.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbYKNGjx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 01:39:53 -0500
+In-Reply-To: <20081114040732.GB17810@kroah.com>
 Content-Disposition: inline
-In-Reply-To: <491D18D9.1050708@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 14, 2008 at 07:21:13AM +0100, Eric Dumazet wrote:
-> Alexey Dobriyan a =E9crit :
->> On Fri, Nov 14, 2008 at 05:54:26AM +0100, Eric Dumazet wrote:
->>> David Miller a =E9crit :
->>>> From: Eric Dumazet <dada1@cosmosbay.com>
->>>> Date: Fri, 14 Nov 2008 05:36:15 +0100
->>>>
->>>>> This is better because :
->>>>>
->>>>> 1) No #ifdef CONFIG_NET_NS
->>>>>
->>>>> 2) The magic about &init_net is not duplicated in ten different i=
-nclude files, but
->>>>>    centralized in the right file : include/net/net_namespace.h
->>>> I %100 agree.
->>> Speaking of those functions, what do you think of this one ?
->>>
->>> static inline
->>> void dev_net_set(struct net_device *dev, struct net *net)
->>> {
->>> #ifdef CONFIG_NET_NS
->>>        release_net(dev->nd_net);
->>>        dev->nd_net =3D hold_net(net);
->>> #endif
->>> }
->>>
->>> I believe that its safer to hold a reference on "new" *before*
->>> releasing reference on "old" object.
->>>
->>> Also, release_net() and hold_net() can be defined to do
->>> the use_count refcounting regardless of CONFIG_NET_NS
->>> (Its a different NETNS_REFCNT_DEBUG #ifdef)
->>
->> NETNS_REFCNT_DEBUG makes sense only with NET_NS=3Dy because init_net
->> is never freed.
+On Freitag 14 November 2008, Greg KH wrote:
+> On Fri, Nov 14, 2008 at 01:26:19AM +0000, Ben Hutchings wrote:
+> > Greg KH wrote:
+> > > On Fri, Nov 14, 2008 at 12:45:19AM +0100, Volker Armin Hemmann wr=
+ote:
+> > > > Hi,
+> > > > with my old config from 2.6.27.5 (which has the same patches) I=
+ get
+> > > > this error:
+> > > > make all modules_install install
+> > > > <snip>
+> > > >   OBJCOPY arch/x86/boot/setup.bin
+> > > >   OBJCOPY arch/x86/boot/vmlinux.bin
+> > > >   HOSTCC  arch/x86/boot/tools/build
+> > > >   BUILD   arch/x86/boot/bzImage
+> > > > Root device is (9, 1)
+> > > > Setup is 11436 bytes (padded to 11776 bytes).
+> > > > System is 2180 kB
+> > > > CRC 54816509
+> > > > Kernel: arch/x86/boot/bzImage is ready  (#1)
+> > > >   Building modules, stage 2.
+> > > >   MODPOST 136 modules
+> > > > ERROR: "mii_ethtool_gset" [drivers/net/r8169.ko] undefined!
+> > > > make[1]: *** [__modpost] Fehler 1
+> > > > make: *** [modules] Fehler 2
+> > >
+> > > Francois, this is due to your commit
+> > > 38d501ca6eb1f05d238bef785e51ca71dbfe0115, in the release, which w=
+as a
+> > > backport of ccdffb9a88b2907b159538d7bfd6256621db4f84.
+> > >
+> > > Care to look into this?
+> >
+> > R8169 needs to select MII.  You could cherry-pick
+> > b73724921d906d1642f9f6d054079c6b095903fe.
 >
-> It makes sense when you want to debug things, without full NET_NS
+> Yes, that looks correct, I'll do that.
+>
+> Volker, does this patch solve your problem?
+>
+> thanks,
+>
+> greg k-h
 
-It doesn't work without NET_NS at all.
+which patch? b73724921d906d1642f9f6d054079c6b095903fe? I don't use git&=
+co and=20
+I really don't know how to cherry pick one out of it. If I only have to=
+ set a=20
+config option - that is not a problem, just an annoyance.=20
 
-Check triggers right before netns is freed, and init_net is never freed=
-=2E
-You can move the check (interesting, to where?) or watch usecount live
-somehow.
+Gl=FCck Auf
+Volker
 
-> Check CONFIG_PROVE_LOCKING or other debugging stuff
->
-> CONFIG_SMP can be unset, still we are able to check spinlocks are
-> lock()/unlock() are correctly paired
->
->>
->>> Yet another example where read_pnet() and write_pnet()
->>> are the right answer : Its cleaner and fixes *bugs*.
->>
->> pnet stuff by definition can't fix bugs :-)
->
-> It will, I bet it.
->
-> Cant you see difference between
->
-> #ifdef CONFIG_NET_NS
-> 	ptr->net =3D expression;
-> #endif
->
-> and
->
-> write_pnet(&ptr->net, expression);
->
-> Answer : In the 2nd case, (expression) is evaluated.
->
-> In case its evaluation has side effects (like... refcounting), it mak=
-es a huge difference.
-
-We don't do such tricky thing with netns pointers. It either comes from=
- somewhere (netdevice)
-and you use it as is or it's &init_net.
-
-It's almost a cookie, nobody evaluates cookies. Such code should reject=
-ed.
