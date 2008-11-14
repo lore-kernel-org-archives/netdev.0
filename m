@@ -1,574 +1,454 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH v2] [PCI] move ICHx GbE NVM write-protection from e1000e to
-	PCI quirk
-Date: Fri, 14 Nov 2008 09:02:59 -0800
-Message-ID: <20081114170204.5456.51126.stgit@gitlost.lost>
+From: Santwona.Behera@Sun.COM
+Subject: PATCH[1/1] NIU: Add Sun CP3260 ATCA blade support
+Date: Fri, 14 Nov 2008 09:21:56 -0800
+Message-ID: <491DB3B4.5010805@Sun.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org
+Content-Type: multipart/mixed; boundary="Boundary_(ID_hSu9Ynimf8sRsUvBVvNY9w)"
+Cc: Santwona Behera <Santwona.Behera@Sun.COM>,
+	Matheos Worku <Matheos.Worku@Sun.COM>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:45546 "EHLO
-	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750918AbYKNRDY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 12:03:24 -0500
+Received: from sca-es-mail-2.Sun.COM ([192.18.43.133]:49307 "EHLO
+	sca-es-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752864AbYKNRWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 12:22:11 -0500
+Received: from fe-sfbay-10.sun.com ([192.18.43.129])
+	by sca-es-mail-2.sun.com (8.13.7+Sun/8.12.9) with ESMTP id mAEHMAaE010219
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 09:22:10 -0800 (PST)
+Received: from conversion-daemon.fe-sfbay-10.sun.com by fe-sfbay-10.sun.com
+ (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
+ id <0KAC004011NEO500@fe-sfbay-10.sun.com>
+ (original mail from Santwona.Behera@Sun.COM) for netdev@vger.kernel.org; Fri,
+ 14 Nov 2008 09:22:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+This is a multi-part message in MIME format.
 
-The write-protection method being in the driver probe routine is called
-late in the boot sequence, and not at all if the driver is never loaded.
-By making it a PCI quirk the NVM is protected much earlier whether or not
-the driver is loaded.  The write-protection quirk can be disabled with a
-new kernel parameter in the unlikely event the NVM needs to be modified.
+--Boundary_(ID_hSu9Ynimf8sRsUvBVvNY9w)
+Content-type: text/plain; format=flowed; charset=ISO-8859-1
+Content-transfer-encoding: 7BIT
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+This patch adds support for the Sun CP3260 ATCA blade which is
+a N2 based ATCA blade with 2 NIU ports. The NIU ports do not
+have on-board PHY.
+
+--Boundary_(ID_hSu9Ynimf8sRsUvBVvNY9w)
+Content-type: text/x-patch; name=niu-add-Sun-CP3260-support.patch
+Content-transfer-encoding: 7BIT
+Content-disposition: inline; filename=niu-add-Sun-CP3260-support.patch
+
+Signed-off-by: Santwona Behera <santwona.behera@sun.com>
 ---
+ drivers/net/niu.c |  288 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/niu.h |   13 +++
+ 2 files changed, 295 insertions(+), 6 deletions(-)
 
- Documentation/kernel-parameters.txt |    4 +
- drivers/net/Makefile                |    1 
- drivers/net/e1000e/Makefile         |    1 
- drivers/net/e1000e/e1000.h          |    1 
- drivers/net/e1000e/ethtool.c        |    6 +
- drivers/net/e1000e/ich8lan.c        |   93 +++-----------------
- drivers/net/e1000e/ich8lan.h        |   68 +++++++++++++++
- drivers/net/e1000e/netdev.c         |    4 -
- drivers/net/e1000e/param.c          |   30 ------
- drivers/net/e1000e/quirks.c         |  163 +++++++++++++++++++++++++++++++++++
- 10 files changed, 257 insertions(+), 114 deletions(-)
- create mode 100644 drivers/net/e1000e/ich8lan.h
- create mode 100644 drivers/net/e1000e/quirks.c
-
-diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
-index c86c074..73affad 100644
---- a/Documentation/kernel-parameters.txt
-+++ b/Documentation/kernel-parameters.txt
-@@ -2386,6 +2386,10 @@ and is between 256 and 4096 characters. It is defined in the file
- 	norandmaps	Don't use address space randomization
- 			Equivalent to echo 0 > /proc/sys/kernel/randomize_va_space
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index d8463b1..e8fa427 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -406,7 +406,7 @@ static int esr2_set_rx_cfg(struct niu *np, unsigned long channel, u32 val)
+ }
  
-+	ichlan_protect=	[KNL] Intel ICHx GbE NVM write-protection
-+			Format: { enable (default) | disable }
-+			disable: disable NVM write protection
-+
- ______________________________________________________________________
- 
- TODO:
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index f19acf8..e3979dc 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -4,6 +4,7 @@
- 
- obj-$(CONFIG_E1000) += e1000/
- obj-$(CONFIG_E1000E) += e1000e/
-+obj-y += e1000e/
- obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
- obj-$(CONFIG_IGB) += igb/
- obj-$(CONFIG_IXGBE) += ixgbe/
-diff --git a/drivers/net/e1000e/Makefile b/drivers/net/e1000e/Makefile
-index 360c913..a3eb70c 100644
---- a/drivers/net/e1000e/Makefile
-+++ b/drivers/net/e1000e/Makefile
-@@ -35,3 +35,4 @@ obj-$(CONFIG_E1000E) += e1000e.o
- e1000e-objs := 82571.o ich8lan.o es2lan.o \
- 	       lib.o phy.o param.o ethtool.o netdev.o
- 
-+obj-y += quirks.o
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index c55fd6f..96a5979 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -413,7 +413,6 @@ extern bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
- extern bool e1000e_get_laa_state_82571(struct e1000_hw *hw);
- extern void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state);
- 
--extern void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw);
- extern void e1000e_set_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw,
- 						 bool state);
- extern void e1000e_igp3_phy_powerdown_workaround_ich8lan(struct e1000_hw *hw);
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 62421ce..436b33c 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -533,8 +533,12 @@ static int e1000_set_eeprom(struct net_device *netdev,
- 	if (eeprom->magic != (adapter->pdev->vendor | (adapter->pdev->device << 16)))
- 		return -EFAULT;
- 
--	if (adapter->flags & FLAG_READ_ONLY_NVM)
-+	if (adapter->flags & FLAG_READ_ONLY_NVM) {
-+		e_info("NVM is read-only. Reboot with 'ichlan_protect=disable' "
-+		       "only if you absolutely *must* change the EEPROM/NVM, "
-+		       "otherwise leave it read-only to prevent corruption.\n");
- 		return -EINVAL;
-+	}
- 
- 	max_len = hw->nvm.word_size * 2;
- 
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 523b971..a9a2506 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -54,13 +54,11 @@
- #include <linux/pci.h>
- 
- #include "e1000.h"
-+#include "ich8lan.h"
- 
--#define ICH_FLASH_GFPREG		0x0000
--#define ICH_FLASH_HSFSTS		0x0004
- #define ICH_FLASH_HSFCTL		0x0006
- #define ICH_FLASH_FADDR			0x0008
- #define ICH_FLASH_FDATA0		0x0010
--#define ICH_FLASH_PR0			0x0074
- 
- #define ICH_FLASH_READ_COMMAND_TIMEOUT	500
- #define ICH_FLASH_WRITE_COMMAND_TIMEOUT	500
-@@ -72,7 +70,6 @@
- #define ICH_CYCLE_WRITE			2
- #define ICH_CYCLE_ERASE			3
- 
--#define FLASH_GFPREG_BASE_MASK		0x1FFF
- #define FLASH_SECTOR_ADDR_SHIFT		12
- 
- #define ICH_FLASH_SEG_SIZE_256		256
-@@ -112,23 +109,6 @@
- #define IGP3_VR_CTRL_DEV_POWERDOWN_MODE_MASK 0x0300
- #define IGP3_VR_CTRL_MODE_SHUTDOWN	0x0200
- 
--/* ICH GbE Flash Hardware Sequencing Flash Status Register bit breakdown */
--/* Offset 04h HSFSTS */
--union ich8_hws_flash_status {
--	struct ich8_hsfsts {
--		u16 flcdone    :1; /* bit 0 Flash Cycle Done */
--		u16 flcerr     :1; /* bit 1 Flash Cycle Error */
--		u16 dael       :1; /* bit 2 Direct Access error Log */
--		u16 berasesz   :2; /* bit 4:3 Sector Erase Size */
--		u16 flcinprog  :1; /* bit 5 flash cycle in Progress */
--		u16 reserved1  :2; /* bit 13:6 Reserved */
--		u16 reserved2  :6; /* bit 13:6 Reserved */
--		u16 fldesvalid :1; /* bit 14 Flash Descriptor Valid */
--		u16 flockdn    :1; /* bit 15 Flash Config Lock-Down */
--	} hsf_status;
--	u16 regval;
--};
--
- /* ICH GbE Flash Hardware Sequencing Flash control Register bit breakdown */
- /* Offset 06h FLCTL */
- union ich8_hws_flash_ctrl {
-@@ -153,19 +133,6 @@ union ich8_hws_flash_regacc {
- 	u16 regval;
- };
- 
--/* ICH Flash Protected Region */
--union ich8_flash_protected_range {
--	struct ich8_pr {
--		u32 base:13;     /* 0:12 Protected Range Base */
--		u32 reserved1:2; /* 13:14 Reserved */
--		u32 rpe:1;       /* 15 Read Protection Enable */
--		u32 limit:13;    /* 16:28 Protected Range Limit */
--		u32 reserved2:2; /* 29:30 Reserved */
--		u32 wpe:1;       /* 31 Write Protection Enable */
--	} range;
--	u32 regval;
--};
--
- static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw);
- static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw);
- static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw);
-@@ -364,6 +331,9 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_adapter *adapter)
- static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
+ /* Mode is always 10G fiber.  */
+-static int serdes_init_niu(struct niu *np)
++static int serdes_init_niu_10g_fiber(struct niu *np)
  {
- 	struct e1000_hw *hw = &adapter->hw;
-+	union ich8_flash_protected_range pr0;
-+	union ich8_hws_flash_status hsfsts;
-+	u32 gfpreg;
- 	s32 rc;
- 
- 	rc = e1000_init_mac_params_ich8lan(adapter);
-@@ -382,6 +352,17 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
- 	    (adapter->hw.phy.type == e1000_phy_igp_3))
- 		adapter->flags |= FLAG_LSC_GIG_SPEED_DROP;
- 
-+	/* Check if GbE Sector of NVM is Write-protected */
-+	gfpreg = er32flash(ICH_FLASH_GFPREG);
-+	pr0.regval = er32flash(ICH_FLASH_PR0);
-+	hsfsts.regval = er16flash(ICH_FLASH_HSFSTS);
-+
-+	if ((pr0.range.base == (gfpreg & FLASH_GFPREG_BASE_MASK)) &&
-+	    (pr0.range.limit == ((gfpreg >> 16) & FLASH_GFPREG_BASE_MASK)) &&
-+	    (pr0.range.wpe == true) &&
-+	    (hsfsts.hsf_status.flockdn == true))
-+		adapter->flags |= FLAG_READ_ONLY_NVM;
-+
+ 	struct niu_link_config *lp = &np->link_config;
+ 	u32 tx_cfg, rx_cfg;
+@@ -443,6 +443,225 @@ static int serdes_init_niu(struct niu *np)
  	return 0;
  }
  
-@@ -1417,7 +1398,6 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	 * programming failed.
- 	 */
- 	if (ret_val) {
--		/* Possibly read-only, see e1000e_write_protect_nvm_ich8lan() */
- 		hw_dbg(hw, "Flash commit failed.\n");
- 		e1000_release_swflag_ich8lan(hw);
- 		return ret_val;
-@@ -1508,49 +1488,6 @@ static s32 e1000_validate_nvm_checksum_ich8lan(struct e1000_hw *hw)
- }
- 
- /**
-- *  e1000e_write_protect_nvm_ich8lan - Make the NVM read-only
-- *  @hw: pointer to the HW structure
-- *
-- *  To prevent malicious write/erase of the NVM, set it to be read-only
-- *  so that the hardware ignores all write/erase cycles of the NVM via
-- *  the flash control registers.  The shadow-ram copy of the NVM will
-- *  still be updated, however any updates to this copy will not stick
-- *  across driver reloads.
-- **/
--void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw)
--{
--	union ich8_flash_protected_range pr0;
--	union ich8_hws_flash_status hsfsts;
--	u32 gfpreg;
--	s32 ret_val;
--
--	ret_val = e1000_acquire_swflag_ich8lan(hw);
--	if (ret_val)
--		return;
--
--	gfpreg = er32flash(ICH_FLASH_GFPREG);
--
--	/* Write-protect GbE Sector of NVM */
--	pr0.regval = er32flash(ICH_FLASH_PR0);
--	pr0.range.base = gfpreg & FLASH_GFPREG_BASE_MASK;
--	pr0.range.limit = ((gfpreg >> 16) & FLASH_GFPREG_BASE_MASK);
--	pr0.range.wpe = true;
--	ew32flash(ICH_FLASH_PR0, pr0.regval);
--
--	/*
--	 * Lock down a subset of GbE Flash Control Registers, e.g.
--	 * PR0 to prevent the write-protection from being lifted.
--	 * Once FLOCKDN is set, the registers protected by it cannot
--	 * be written until FLOCKDN is cleared by a hardware reset.
--	 */
--	hsfsts.regval = er16flash(ICH_FLASH_HSFSTS);
--	hsfsts.hsf_status.flockdn = true;
--	ew32flash(ICH_FLASH_HSFSTS, hsfsts.regval);
--
--	e1000_release_swflag_ich8lan(hw);
--}
--
--/**
-  *  e1000_write_flash_data_ich8lan - Writes bytes to the NVM
-  *  @hw: pointer to the HW structure
-  *  @offset: The offset (in bytes) of the byte/word to read.
-diff --git a/drivers/net/e1000e/ich8lan.h b/drivers/net/e1000e/ich8lan.h
-new file mode 100644
-index 0000000..13c73f5
---- /dev/null
-+++ b/drivers/net/e1000e/ich8lan.h
-@@ -0,0 +1,68 @@
-+/*******************************************************************************
-+
-+  Intel PRO/1000 Linux driver
-+  Copyright(c) 1999 - 2008 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  Linux NICS <linux.nics@intel.com>
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+
-+#ifndef _ICH8LAN_H_
-+#define _ICH8LAN_H_
-+
-+#define ICH_FLASH_GFPREG                 0x0000
-+#define ICH_FLASH_HSFSTS                 0x0004
-+#define ICH_FLASH_PR0                    0x0074
-+
-+#define FLASH_GFPREG_BASE_MASK           0x1FFF
-+
-+/* ICH GbE Flash Hardware Sequencing Flash Status Register bit breakdown */
-+/* Offset 04h HSFSTS */
-+union ich8_hws_flash_status {
-+	struct ich8_hsfsts {
-+		u16 flcdone    :1; /* bit 0 Flash Cycle Done */
-+		u16 flcerr     :1; /* bit 1 Flash Cycle Error */
-+		u16 dael       :1; /* bit 2 Direct Access error Log */
-+		u16 berasesz   :2; /* bit 4:3 Sector Erase Size */
-+		u16 flcinprog  :1; /* bit 5 flash cycle in Progress */
-+		u16 reserved1  :2; /* bit 13:6 Reserved */
-+		u16 reserved2  :6; /* bit 13:6 Reserved */
-+		u16 fldesvalid :1; /* bit 14 Flash Descriptor Valid */
-+		u16 flockdn    :1; /* bit 15 Flash Config Lock-Down */
-+	} hsf_status;
-+	u16 regval;
-+};
-+
-+/* ICH Flash Protected Region */
-+union ich8_flash_protected_range {
-+	struct ich8_pr {
-+		u32 base:13;     /* 0:12 Protected Range Base */
-+		u32 reserved1:2; /* 13:14 Reserved */
-+		u32 rpe:1;       /* 15 Read Protection Enable */
-+		u32 limit:13;    /* 16:28 Protected Range Limit */
-+		u32 reserved2:2; /* 29:30 Reserved */
-+		u32 wpe:1;       /* 31 Write Protection Enable */
-+	} range;
-+	u32 regval;
-+};
-+
-+#endif
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 91795f7..3c4789a 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4849,10 +4849,6 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_hw_init;
- 
--	if ((adapter->flags & FLAG_IS_ICH) &&
--	    (adapter->flags & FLAG_READ_ONLY_NVM))
--		e1000e_write_protect_nvm_ich8lan(&adapter->hw);
--
- 	hw->mac.ops.get_bus_info(&adapter->hw);
- 
- 	adapter->hw.phy.autoneg_wait_to_complete = 0;
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index e909f96..bdf1eb0 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -143,15 +143,6 @@ E1000_PARAM(SmartPowerDownEnable, "Enable PHY smart power down");
- E1000_PARAM(KumeranLockLoss, "Enable Kumeran lock loss workaround");
- 
- /*
-- * Write Protect NVM
-- *
-- * Valid Range: 0, 1
-- *
-- * Default Value: 1 (enabled)
-- */
--E1000_PARAM(WriteProtectNVM, "Write-protect NVM [WARNING: disabling this can lead to corrupted NVM]");
--
--/*
-  * Enable CRC Stripping
-  *
-  * Valid Range: 0, 1
-@@ -449,25 +440,4 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 								       opt.def);
- 		}
- 	}
--	{ /* Write-protect NVM */
--		const struct e1000_option opt = {
--			.type = enable_option,
--			.name = "Write-protect NVM",
--			.err  = "defaulting to Enabled",
--			.def  = OPTION_ENABLED
--		};
--
--		if (adapter->flags & FLAG_IS_ICH) {
--			if (num_WriteProtectNVM > bd) {
--				unsigned int write_protect_nvm = WriteProtectNVM[bd];
--				e1000_validate_option(&write_protect_nvm, &opt,
--						      adapter);
--				if (write_protect_nvm)
--					adapter->flags |= FLAG_READ_ONLY_NVM;
--			} else {
--				if (opt.def)
--					adapter->flags |= FLAG_READ_ONLY_NVM;
--			}
--		}
--	}
- }
-diff --git a/drivers/net/e1000e/quirks.c b/drivers/net/e1000e/quirks.c
-new file mode 100644
-index 0000000..6287f69
---- /dev/null
-+++ b/drivers/net/e1000e/quirks.c
-@@ -0,0 +1,163 @@
-+/*******************************************************************************
-+
-+  Intel PRO/1000 Linux driver
-+  Copyright(c) 1999 - 2008 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  Linux NICS <linux.nics@intel.com>
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+#include "ich8lan.h"
-+#include "defines.h"
-+
-+#define E1000_EXTCNF_CTRL	0x00F00
-+
-+static int ichlan_nvm_write_protect = 1;
-+
-+static int __init ichlan_nvm_write_setup(char *str)
++static int serdes_init_niu_1g_serdes(struct niu *np)
 +{
-+	if (str) {
-+		if (!strncmp("disable", str, 7))
-+			ichlan_nvm_write_protect = 0;
-+	}
-+	return 1;
-+}
-+__setup("ichlan_protect=", ichlan_nvm_write_setup);
++	struct niu_link_config *lp = &np->link_config;
++	u32 tx_cfg, rx_cfg;
++	u16 pll_cfg, pll_sts;
++	unsigned long i;
++	int err;
++	u64 sig, mask, val;
++	int max_retry = 100;
 +
++	tx_cfg = (PLL_TX_CFG_ENTX | PLL_TX_CFG_SWING_1375MV |
++		  PLL_TX_CFG_RATE_HALF);
++	rx_cfg = (PLL_RX_CFG_ENRX | PLL_RX_CFG_TERM_0P8VDDT |
++		  PLL_RX_CFG_ALIGN_ENA | PLL_RX_CFG_LOS_LTHRESH |
++		  PLL_RX_CFG_RATE_HALF);
 +
-+/*
-+ * The GbE region of the NVM on certain ICHx-based platforms is not write-
-+ * protected.  Accesss to this region is through mapped flash control
-+ * registers located at an address provided by BAR1.  Because the NVM
-+ * region is not write-protected, malicious code (intentional or not) can
-+ * write to the mapped flash control registers and potentially cause the
-+ * NVM region to be corrupted.  This quirk prevents this from happening.
-+ */
-+static void __devinit quirk_ichlan(struct pci_dev *dev)
-+{
-+	union ich8_flash_protected_range pr0;
-+	union ich8_hws_flash_status hsfsts;
-+	u8 __iomem *csr = NULL;
-+	u8 __iomem *flash = NULL;
-+	u32 timeout = 100;
-+	u32 reg_val;
++	if (np->port == 0)
++		rx_cfg |= PLL_RX_CFG_EQ_LP_ADAPTIVE;
 +
-+	if (ichlan_nvm_write_protect == 0)
-+		goto out;
++	if (lp->loopback_mode == LOOPBACK_PHY) {
++		u16 test_cfg = PLL_TEST_CFG_LOOPBACK_CML_DIS;
 +
-+	if (!(pci_resource_flags(dev, 0) & IORESOURCE_MEM) ||
-+	    !(pci_resource_flags(dev, 1) & IORESOURCE_MEM)) {
-+		dev_err(&dev->dev, "Required BAR not a memory resource\n");
-+		goto out;
++		mdio_write(np, np->port, NIU_ESR2_DEV_ADDR,
++			   ESR2_TI_PLL_TEST_CFG_L, test_cfg);
++
++		tx_cfg |= PLL_TX_CFG_ENTEST;
++		rx_cfg |= PLL_RX_CFG_ENTEST;
 +	}
 +
-+	csr = ioremap(pci_resource_start(dev, 0), pci_resource_len(dev, 0));
-+	if (!csr) {
-+		dev_err(&dev->dev, "Cannot map CSR register space\n");
-+		goto out;
++	/* Initialize PLL for 1G */
++	pll_cfg = (PLL_CFG_ENPLL | PLL_CFG_MPY_8X);
++
++	err = mdio_write(np, np->port, NIU_ESR2_DEV_ADDR,
++			 ESR2_TI_PLL_CFG_L, pll_cfg);
++	if (err) {
++		dev_err(np->device, PFX "NIU Port %d "
++			"serdes_init_niu_1g_serdes: "
++			"mdio write to ESR2_TI_PLL_CFG_L failed", np->port);
++		return err;
 +	}
 +
-+	flash = ioremap(pci_resource_start(dev, 1), pci_resource_len(dev, 1));
-+	if (!flash) {
-+		dev_err(&dev->dev, "Cannot map flash register space\n");
-+		goto out;
++	pll_sts = PLL_CFG_ENPLL;
++
++	err = mdio_write(np, np->port, NIU_ESR2_DEV_ADDR,
++			 ESR2_TI_PLL_STS_L, pll_sts);
++	if (err) {
++		dev_err(np->device, PFX "NIU Port %d "
++			"serdes_init_niu_1g_serdes: "
++			"mdio write to ESR2_TI_PLL_STS_L failed", np->port);
++		return err;
 +	}
 +
-+	/* Acquire the HW/SW/FW semaphore */
-+	might_sleep();
-+	while (timeout) {
-+		reg_val = readl(csr + E1000_EXTCNF_CTRL);
-+		reg_val |= E1000_EXTCNF_CTRL_SWFLAG;
-+		writel(reg_val, csr + E1000_EXTCNF_CTRL);
++	udelay(200);
 +
-+		reg_val = readl(csr + E1000_EXTCNF_CTRL);
-+		if (reg_val & E1000_EXTCNF_CTRL_SWFLAG)
++	/* Initialize all 4 lanes of the SERDES.  */
++	for (i = 0; i < 4; i++) {
++		err = esr2_set_tx_cfg(np, i, tx_cfg);
++		if (err)
++			return err;
++	}
++
++	for (i = 0; i < 4; i++) {
++		err = esr2_set_rx_cfg(np, i, rx_cfg);
++		if (err)
++			return err;
++	}
++
++	switch (np->port) {
++	case 0:
++		val = (ESR_INT_SRDY0_P0 | ESR_INT_DET0_P0);
++		mask = val;
++		break;
++
++	case 1:
++		val = (ESR_INT_SRDY0_P1 | ESR_INT_DET0_P1);
++		mask = val;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	while (max_retry--) {
++		sig = nr64(ESR_INT_SIGNALS);
++		if ((sig & mask) == val)
 +			break;
-+		mdelay(1);
-+		timeout--;
-+	}
-+	if (!timeout) {
-+		dev_err(&dev->dev, "FW or HW has locked the NVM too long\n");
-+		goto out;
++
++		mdelay(500);
 +	}
 +
-+	/* Get base/limit of GbE region */
-+	reg_val = readl(flash + ICH_FLASH_GFPREG);
++	if ((sig & mask) != val) {
++		dev_err(np->device, PFX "Port %u signal bits [%08x] are not "
++			"[%08x]\n", np->port, (int) (sig & mask), (int) val);
++		return -ENODEV;
++	}
 +
-+	/* Write-protect GbE region of NVM */
-+	pr0.regval = readl(flash + ICH_FLASH_PR0);
-+	pr0.range.base = reg_val & FLASH_GFPREG_BASE_MASK;
-+	pr0.range.limit = ((reg_val >> 16) & FLASH_GFPREG_BASE_MASK);
-+	pr0.range.wpe = true;
-+	writel(pr0.regval, flash + ICH_FLASH_PR0);
-+
-+	/*
-+	 * Lock down a subset of GbE Flash Control Registers, e.g.
-+	 * PR0 to prevent the write-protection from being lifted.
-+	 * Once FLOCKDN is set, the registers protected by it cannot
-+	 * be written until FLOCKDN is cleared by a hardware reset.
-+	 */
-+	hsfsts.regval = readw(flash + ICH_FLASH_HSFSTS);
-+	hsfsts.hsf_status.flockdn = true;
-+	writew(hsfsts.regval, flash + ICH_FLASH_HSFSTS);
-+
-+	/* Release the HW/SW/FW semaphore */
-+	reg_val = readl(csr + E1000_EXTCNF_CTRL);
-+	reg_val &= ~E1000_EXTCNF_CTRL_SWFLAG;
-+	writel(reg_val, csr + E1000_EXTCNF_CTRL);
-+
-+	/* flush writes */
-+	pci_read_config_word(dev, PCI_STATUS, (u16 *)&reg_val);
-+
-+out:
-+	if (flash)
-+		iounmap(flash);
-+	if (csr)
-+		iounmap(csr);
-+	if (pr0.range.wpe != true)
-+		dev_info(&dev->dev, "NVM write-protection disabled\n"
-+		                    "Warning: can lead to a corrupted NVM\n");
-+	return;
++	return 0;
 +}
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1049, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x104a, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x104b, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x104c, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x104d, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10bd, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10bf, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10c0, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10c2, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10c3, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10c4, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10c5, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10cb, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10cc, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10cd, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10ce, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10de, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10df, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10e5, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10f5, quirk_ichlan);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x294c, quirk_ichlan);
++
++static int serdes_init_niu_10g_serdes(struct niu *np)
++{
++	struct niu_link_config *lp = &np->link_config;
++	u32 tx_cfg, rx_cfg;
++	u32 pll_cfg, pll_sts;
++	unsigned long i;
++	int err;
++	u64 sig, mask, val;
++	int max_retry = 100;
++
++	tx_cfg = (PLL_TX_CFG_ENTX | PLL_TX_CFG_SWING_1375MV);
++	rx_cfg = (PLL_RX_CFG_ENRX | PLL_RX_CFG_TERM_0P8VDDT |
++		  PLL_RX_CFG_ALIGN_ENA | PLL_RX_CFG_LOS_LTHRESH |
++		  PLL_RX_CFG_EQ_LP_ADAPTIVE);
++
++	if (lp->loopback_mode == LOOPBACK_PHY) {
++		u16 test_cfg = PLL_TEST_CFG_LOOPBACK_CML_DIS;
++
++		mdio_write(np, np->port, NIU_ESR2_DEV_ADDR,
++			   ESR2_TI_PLL_TEST_CFG_L, test_cfg);
++
++		tx_cfg |= PLL_TX_CFG_ENTEST;
++		rx_cfg |= PLL_RX_CFG_ENTEST;
++	}
++
++	/* Initialize PLL for 10G */
++	pll_cfg = (PLL_CFG_ENPLL | PLL_CFG_MPY_10X);
++
++	err = mdio_write(np, np->port, NIU_ESR2_DEV_ADDR,
++			 ESR2_TI_PLL_CFG_L, pll_cfg & 0xffff);
++	if (err) {
++		dev_err(np->device, PFX "NIU Port %d "
++			"serdes_init_niu_10g_serdes: "
++			"mdio write to ESR2_TI_PLL_CFG_L failed", np->port);
++		return err;
++	}
++
++	pll_sts = PLL_CFG_ENPLL;
++
++	err = mdio_write(np, np->port, NIU_ESR2_DEV_ADDR,
++			 ESR2_TI_PLL_STS_L, pll_sts & 0xffff);
++	if (err) {
++		dev_err(np->device, PFX "NIU Port %d "
++			"serdes_init_niu_10g_serdes: "
++			"mdio write to ESR2_TI_PLL_STS_L failed", np->port);
++		return err;
++	}
++
++	udelay(200);
++
++	/* Initialize all 4 lanes of the SERDES.  */
++	for (i = 0; i < 4; i++) {
++		err = esr2_set_tx_cfg(np, i, tx_cfg);
++		if (err)
++			return err;
++	}
++
++	for (i = 0; i < 4; i++) {
++		err = esr2_set_rx_cfg(np, i, rx_cfg);
++		if (err)
++			return err;
++	}
++
++	/* check if serdes is ready */
++
++	switch (np->port) {
++	case 0:
++		mask = ESR_INT_SIGNALS_P0_BITS;
++		val = (ESR_INT_SRDY0_P0 |
++		       ESR_INT_DET0_P0 |
++		       ESR_INT_XSRDY_P0 |
++		       ESR_INT_XDP_P0_CH3 |
++		       ESR_INT_XDP_P0_CH2 |
++		       ESR_INT_XDP_P0_CH1 |
++		       ESR_INT_XDP_P0_CH0);
++		break;
++
++	case 1:
++		mask = ESR_INT_SIGNALS_P1_BITS;
++		val = (ESR_INT_SRDY0_P1 |
++		       ESR_INT_DET0_P1 |
++		       ESR_INT_XSRDY_P1 |
++		       ESR_INT_XDP_P1_CH3 |
++		       ESR_INT_XDP_P1_CH2 |
++		       ESR_INT_XDP_P1_CH1 |
++		       ESR_INT_XDP_P1_CH0);
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	while (max_retry--) {
++		sig = nr64(ESR_INT_SIGNALS);
++		if ((sig & mask) == val)
++			break;
++
++		mdelay(500);
++	}
++
++	if ((sig & mask) != val) {
++
++		pr_info(PFX "NIU Port %u signal bits [%08x] are not "
++			"[%08x] for 10G...trying 1G\n",
++			np->port, (int) (sig & mask), (int) val);
++
++		/* 10G failed, try initializing at 1G */
++		err = serdes_init_niu_1g_serdes(np);
++		if (!err) {
++			np->flags &= ~NIU_FLAGS_10G;
++			np->mac_xcvr = MAC_XCVR_PCS;
++		}  else {
++			dev_err(np->device, PFX "Port %u 10G/1G SERDES "
++				"Link Failed \n", np->port);
++			return -ENODEV;
++		}
++	}
++	return 0;
++}
++
+ static int esr_read_rxtx_ctrl(struct niu *np, unsigned long chan, u32 *val)
+ {
+ 	int err;
+@@ -1954,13 +2173,23 @@ static const struct niu_phy_ops phy_ops_10g_serdes = {
+ 	.link_status		= link_status_10g_serdes,
+ };
+ 
++static const struct niu_phy_ops phy_ops_10g_serdes_niu = {
++	.serdes_init		= serdes_init_niu_10g_serdes,
++	.link_status		= link_status_10g_serdes,
++};
++
++static const struct niu_phy_ops phy_ops_1g_serdes_niu = {
++	.serdes_init		= serdes_init_niu_1g_serdes,
++	.link_status		= link_status_1g_serdes,
++};
++
+ static const struct niu_phy_ops phy_ops_1g_rgmii = {
+ 	.xcvr_init		= xcvr_init_1g_rgmii,
+ 	.link_status		= link_status_1g_rgmii,
+ };
+ 
+ static const struct niu_phy_ops phy_ops_10g_fiber_niu = {
+-	.serdes_init		= serdes_init_niu,
++	.serdes_init		= serdes_init_niu_10g_fiber,
+ 	.xcvr_init		= xcvr_init_10g,
+ 	.link_status		= link_status_10g,
+ };
+@@ -1998,11 +2227,21 @@ struct niu_phy_template {
+ 	u32				phy_addr_base;
+ };
+ 
+-static const struct niu_phy_template phy_template_niu = {
++static const struct niu_phy_template phy_template_niu_10g_fiber = {
+ 	.ops		= &phy_ops_10g_fiber_niu,
+ 	.phy_addr_base	= 16,
+ };
+ 
++static const struct niu_phy_template phy_template_niu_10g_serdes = {
++	.ops		= &phy_ops_10g_serdes_niu,
++	.phy_addr_base	= 0,
++};
++
++static const struct niu_phy_template phy_template_niu_1g_serdes = {
++	.ops		= &phy_ops_1g_serdes_niu,
++	.phy_addr_base	= 0,
++};
++
+ static const struct niu_phy_template phy_template_10g_fiber = {
+ 	.ops		= &phy_ops_10g_fiber,
+ 	.phy_addr_base	= 8,
+@@ -2182,8 +2421,25 @@ static int niu_determine_phy_disposition(struct niu *np)
+ 	u32 phy_addr_off = 0;
+ 
+ 	if (plat_type == PLAT_TYPE_NIU) {
+-		tp = &phy_template_niu;
+-		phy_addr_off += np->port;
++		switch (np->flags &
++			(NIU_FLAGS_10G |
++			 NIU_FLAGS_FIBER |
++			 NIU_FLAGS_XCVR_SERDES)) {
++		case NIU_FLAGS_10G | NIU_FLAGS_XCVR_SERDES:
++			/* 10G Serdes */
++			tp = &phy_template_niu_10g_serdes;
++		      break;
++		case NIU_FLAGS_XCVR_SERDES:
++			/* 1G Serdes */
++			tp = &phy_template_niu_1g_serdes;
++		      break;
++		case NIU_FLAGS_10G | NIU_FLAGS_FIBER:
++			/* 10G Fiber */
++		default:
++			tp = &phy_template_niu_10g_fiber;
++			phy_addr_off += np->port;
++			break;
++		}
+ 	} else {
+ 		switch (np->flags &
+ 			(NIU_FLAGS_10G |
+@@ -7213,6 +7469,12 @@ static int __devinit niu_phy_type_prop_decode(struct niu *np,
+ 		np->flags |= NIU_FLAGS_10G;
+ 		np->flags &= ~NIU_FLAGS_FIBER;
+ 		np->mac_xcvr = MAC_XCVR_XPCS;
++	} else if (!strcmp(phy_prop, "xgsd") || !strcmp(phy_prop, "gsd")) {
++		/* 10G Serdes or 1G Serdes, default to 10G */
++		np->flags |= NIU_FLAGS_10G;
++		np->flags &= ~NIU_FLAGS_FIBER;
++		np->flags |= NIU_FLAGS_XCVR_SERDES;
++		np->mac_xcvr = MAC_XCVR_XPCS;
+ 	} else {
+ 		return -EINVAL;
+ 	}
+@@ -7741,6 +8003,8 @@ static int __devinit walk_phys(struct niu *np, struct niu_parent *parent)
+ 	u32 val;
+ 	int err;
+ 
++	num_10g = num_1g = 0;
++
+ 	if (!strcmp(np->vpd.model, NIU_ALONSO_MDL_STR) ||
+ 	    !strcmp(np->vpd.model, NIU_KIMI_MDL_STR)) {
+ 		num_10g = 0;
+@@ -7757,6 +8021,16 @@ static int __devinit walk_phys(struct niu *np, struct niu_parent *parent)
+ 		parent->num_ports = 2;
+ 		val = (phy_encode(PORT_TYPE_10G, 0) |
+ 		       phy_encode(PORT_TYPE_10G, 1));
++	} else if ((np->flags & NIU_FLAGS_XCVR_SERDES) &&
++		   (parent->plat_type == PLAT_TYPE_NIU)) {
++		/* this is the Monza case */
++		if (np->flags & NIU_FLAGS_10G) {
++			val = (phy_encode(PORT_TYPE_10G, 0) |
++			       phy_encode(PORT_TYPE_10G, 1));
++		} else {
++			val = (phy_encode(PORT_TYPE_1G, 0) |
++			       phy_encode(PORT_TYPE_1G, 1));
++		}
+ 	} else {
+ 		err = fill_phy_probe_info(np, parent, info);
+ 		if (err)
+@@ -8656,7 +8930,9 @@ static void __devinit niu_device_announce(struct niu *np)
+ 				dev->name,
+ 				(np->flags & NIU_FLAGS_XMAC ? "XMAC" : "BMAC"),
+ 				(np->flags & NIU_FLAGS_10G ? "10G" : "1G"),
+-				(np->flags & NIU_FLAGS_FIBER ? "FIBER" : "COPPER"),
++				(np->flags & NIU_FLAGS_FIBER ? "FIBER" :
++				 (np->flags & NIU_FLAGS_XCVR_SERDES ? "SERDES" :
++				  "COPPER")),
+ 				(np->mac_xcvr == MAC_XCVR_MII ? "MII" :
+ 				 (np->mac_xcvr == MAC_XCVR_PCS ? "PCS" : "XPCS")),
+ 				np->vpd.phy_type);
+diff --git a/drivers/net/niu.h b/drivers/net/niu.h
+index c6fa883..180ca8a 100644
+--- a/drivers/net/niu.h
++++ b/drivers/net/niu.h
+@@ -1048,6 +1048,13 @@
+ #define  PLL_CFG_LD_SHIFT		8
+ #define  PLL_CFG_MPY			0x0000001e
+ #define  PLL_CFG_MPY_SHIFT		1
++#define  PLL_CFG_MPY_4X		0x0
++#define  PLL_CFG_MPY_5X		0x00000002
++#define  PLL_CFG_MPY_6X		0x00000004
++#define  PLL_CFG_MPY_8X		0x00000008
++#define  PLL_CFG_MPY_10X		0x0000000a
++#define  PLL_CFG_MPY_12X		0x0000000c
++#define  PLL_CFG_MPY_12P5X		0x0000000e
+ #define  PLL_CFG_ENPLL			0x00000001
+ 
+ #define ESR2_TI_PLL_STS_L		(ESR2_BASE + 0x002)
+@@ -1093,6 +1100,9 @@
+ #define  PLL_TX_CFG_INVPAIR		0x00000080
+ #define  PLL_TX_CFG_RATE		0x00000060
+ #define  PLL_TX_CFG_RATE_SHIFT		5
++#define  PLL_TX_CFG_RATE_FULL		0x0
++#define  PLL_TX_CFG_RATE_HALF		0x20
++#define  PLL_TX_CFG_RATE_QUAD		0x40
+ #define  PLL_TX_CFG_BUSWIDTH		0x0000001c
+ #define  PLL_TX_CFG_BUSWIDTH_SHIFT	2
+ #define  PLL_TX_CFG_ENTEST		0x00000002
+@@ -1132,6 +1142,9 @@
+ #define  PLL_RX_CFG_INVPAIR		0x00000080
+ #define  PLL_RX_CFG_RATE		0x00000060
+ #define  PLL_RX_CFG_RATE_SHIFT		5
++#define  PLL_RX_CFG_RATE_FULL		0x0
++#define  PLL_RX_CFG_RATE_HALF		0x20
++#define  PLL_RX_CFG_RATE_QUAD		0x40
+ #define  PLL_RX_CFG_BUSWIDTH		0x0000001c
+ #define  PLL_RX_CFG_BUSWIDTH_SHIFT	2
+ #define  PLL_RX_CFG_ENTEST		0x00000002
+-- 
+1.6.0.4
 
+
+--Boundary_(ID_hSu9Ynimf8sRsUvBVvNY9w)--
