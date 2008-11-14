@@ -1,57 +1,92 @@
-From: Giulio Benetti <giulio.benetti@micronovasrl.com>
-Subject: macb phy address bug?
-Date: Fri, 14 Nov 2008 08:53:13 +0100
-Message-ID: <200811140853.13729.giulio.benetti@micronovasrl.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] net: speedup dst_release()
+Date: Fri, 14 Nov 2008 09:09:31 +0100
+Message-ID: <491D323B.9030802@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_p5SHJOX6dmTexmV"
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------010803000309050203030902"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.etics.it ([212.103.198.88]:4371 "EHLO etics.it"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751009AbYKNH66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2008 02:58:58 -0500
-Received: from pc001.dominio.micronovasrl.com by etics.it (MDaemon PRO v10.0.1 trial)
-	with ESMTP id md50000057661.msg
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 08:53:13 +0100
+Received: from gw1.cosmosbay.com ([86.65.150.130]:46840 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbYKNIJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 03:09:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_p5SHJOX6dmTexmV
+This is a multi-part message in MIME format.
+--------------010803000309050203030902
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+During tbench/oprofile sessions, I found that dst_release() was in third position.
+
+CPU: Core 2, speed 2999.68 MHz (estimated)
+Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit mask of 0x00 (Unhalted core cycles) count 100000
+samples  %        symbol name
+483726    9.0185  __copy_user_zeroing_intel
+191466    3.5697  __copy_user_intel
+185475    3.4580  dst_release
+175114    3.2648  ip_queue_xmit
+153447    2.8608  tcp_sendmsg
+108775    2.0280  tcp_recvmsg
+102659    1.9140  sysenter_past_esp
+101450    1.8914  tcp_current_mss
+95067     1.7724  __copy_from_user_ll
+86531     1.6133  tcp_transmit_skb
+
+Of course, all CPUS fight on the dst_entry associated with 127.0.0.1 
+
+Instead of first checking the refcount value, then decrement it,
+we use atomic_dec_return() to help CPU to make the right memory transaction
+(ie getting the cache line in exclusive mode)
+
+dst_release() is now at the fifth position, and tbench a litle bit faster ;)
+
+CPU: Core 2, speed 3000.1 MHz (estimated)
+Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit mask of 0x00 (Unhalted core cycles) count 100000
+samples  %        symbol name
+647107    8.8072  __copy_user_zeroing_intel
+258840    3.5229  ip_queue_xmit
+258302    3.5155  __copy_user_intel
+209629    2.8531  tcp_sendmsg
+165632    2.2543  dst_release
+149232    2.0311  tcp_current_mss
+147821    2.0119  tcp_recvmsg
+137893    1.8767  sysenter_past_esp
+127473    1.7349  __copy_from_user_ll
+121308    1.6510  ip_finish_output
+118510    1.6129  tcp_transmit_skb
+109295    1.4875  tcp_v4_rcv
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--------------010803000309050203030902
 Content-Type: text/plain;
-  charset="us-ascii"
+ name="dst_release.patch"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Content-Disposition: inline;
+ filename="dst_release.patch"
 
-PHYID returns 0xffff and not 0xffffffff when not found and in some 
-case(at91sam9263) 0x0. Maybe this patch could be useful.
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 09c1530..07e5ad2 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -263,9 +263,11 @@ again:
+ void dst_release(struct dst_entry *dst)
+ {
+ 	if (dst) {
+-		WARN_ON(atomic_read(&dst->__refcnt) < 1);
++               int newrefcnt;
++
+ 		smp_mb__before_atomic_dec();
+-		atomic_dec(&dst->__refcnt);
++               newrefcnt = atomic_dec_return(&dst->__refcnt);
++               WARN_ON(newrefcnt < 0);
+ 	}
+ }
+ EXPORT_SYMBOL(dst_release);
 
-
-
-Signed-off-by: Giulio Benetti <giulio.benetti@micronovasrl.com>
-
---Boundary-00=_p5SHJOX6dmTexmV
-Content-Type: text/x-diff;
-  charset="iso 8859-15";
-  name="macb.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="macb.patch"
-
-diff -urN -X exclude linux.orig/drivers/net/phy/phy_device.c linux/drivers/net/phy/phy_device.c
---- linux.orig/drivers/net/phy/phy_device.c	2008-11-11 17:52:13.000000000 +0100
-+++ linux/drivers/net/phy/phy_device.c	2008-11-12 19:20:47.000000000 +0100
-@@ -227,8 +227,8 @@
- 	if (r)
- 		return ERR_PTR(r);
- 
--	/* If the phy_id is all Fs, there is no device there */
--	if (0xffffffff == phy_id)
-+	/* If the phy_id is all Fs or all 0s, there is no device there */
-+	if ((0xffff == phy_id) || (0x00 == phy_id))
- 		return NULL;
- 
- 	dev = phy_device_create(bus, addr, phy_id);
-
---Boundary-00=_p5SHJOX6dmTexmV--
-
+--------------010803000309050203030902--
