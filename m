@@ -1,38 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: skge: PCI error cmd=0x117 status=0x22b0
-Date: Fri, 14 Nov 2008 08:42:09 -0800
-Message-ID: <20081114084209.0ee411fd@extreme>
-References: <20081114153646.GB7172@fi.muni.cz>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 1/2] e1000e: fix warn_on reload after phy_id error
+Date: Fri, 14 Nov 2008 08:45:07 -0800
+Message-ID: <20081114164507.5342.19559.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jan Kasprzak <kas@fi.muni.cz>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51175 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751037AbYKNQmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2008 11:42:13 -0500
-In-Reply-To: <20081114153646.GB7172@fi.muni.cz>
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:60426 "EHLO
+	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750918AbYKNQp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 11:45:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Nov 2008 16:36:46 +0100
-Jan Kasprzak <kas@fi.muni.cz> wrote:
+If the driver fails to initialize the first time due to the failure in the
+phy_id check the kernel triggers a warn_on on the second try to load the
+driver because the driver did not free the msi/x resources in the first
+load because of the previous failure in phy_id check.
 
-> 	Hello,
-> 
-> I have an ASUS M2R32-MVP board with the skge network card. From time to time
-> the network freezes with the following message (this one taken from
-> 2.6.27-rc7, another one added even with timing information at the end
-> of this mail):
-> 
-> skge 0000:03:04.0: PCI error cmd=0x117 status=0x22b0
-> skge 0000:03:04.0: unable to clear error (so ignoring them)
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-The device is getting a PCI master abort on a DMA.
-Either, you have hardware issues, or there is a driver bug when accessing
-a particular memory address.  Do you have 4G or more of memory?
+ drivers/net/e1000e/netdev.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Some motherboards are crap and don't actually allow DMA from high memory.
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 2c8dffd..f6ebebb 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5009,6 +5009,7 @@ err_hw_init:
+ err_sw_init:
+ 	if (adapter->hw.flash_address)
+ 		iounmap(adapter->hw.flash_address);
++	e1000e_reset_interrupt_capability(adapter);
+ err_flashmap:
+ 	iounmap(adapter->hw.hw_addr);
+ err_ioremap:
 
