@@ -1,102 +1,279 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] isdn: bugfix in isdn_net_ciscohdlck_slarp_send_reply,
- trivial sparse fixes
-Date: Fri, 14 Nov 2008 09:33:49 -0800
-Message-ID: <1226684029.5483.12.camel@brick>
+From: "Michael Kerrisk" <mtk.manpages@googlemail.com>
+Subject: Re: [PATCH] reintroduce accept4
+Date: Fri, 14 Nov 2008 12:40:53 -0500
+Message-ID: <cfd18e0f0811140940n3efb1963qd5b1aab42dae1c1b@mail.gmail.com>
+References: <200810261641.m9QGfotr024285@hs20-bc2-1.build.redhat.com>
+	 <517f3f820811131351l1305b2d2u43ab4e0601d97f93@mail.gmail.com>
+	 <20081113140541.23754cad.akpm@linux-foundation.org>
+	 <18716.43376.534965.688695@cargo.ozlabs.ibm.com>
+	 <18716.43543.256621.825529@cargo.ozlabs.ibm.com>
+	 <20081113145737.96898aaf.akpm@linux-foundation.org>
+Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@ZenIV.linux.org.uk>, Karsten Keil <kkeil@suse.de>,
-	linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.174]:14238 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752174AbYKNRkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 12:40:24 -0500
-Received: by wf-out-1314.google.com with SMTP id 27so1516863wfd.4
-        for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 09:40:23 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Paul Mackerras" <paulus@samba.org>, subrata@linux.vnet.ibm.com,
+	linux-arch@vger.kernel.org, drepper@redhat.com,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	linux-api@vger.kernel.org, linux-man@vger.kernel.org,
+	davidel@xmailserver.org, netdev@vger.kernel.org, roland@redhat.com,
+	oleg@tv-sign.ru, hch@lst.de, davem@davemloft.net, alan@redhat.com,
+	jakub@redhat.com
+To: "Andrew Morton" <akpm@linux-foundation.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20081113145737.96898aaf.akpm@linux-foundation.org>
+Content-Disposition: inline
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit a144ea4b7a13087081ab5402fa9ad0bcfd249e67 [IPV4]: annotate struct in_ifaddr
+> Here's the latest version, for review-n-test enjoyment:
 
-Missed the extra byteswap because the previous isdn inline helpers
-hid the extra htonl inside put_u32.  This was causing an extra byteswap
-on little-endian arches.
+Andrew,
 
-While here, do the trivial annotation of the struct ip_ports and change
-the remaining casts to __be16 where applicable.
+I made a few small tweaks to the changelog: wording fixes, and para
+break fixes; other than that, changed the text to say that I rewrote
+(rather than updated) the test program.  Please substitute it with the
+following.
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-Dave, the yesterday's patch was a zero-change patch that exposed this
-bug, this patch changes behavior in the above-referenced function.
+Cheers,
 
- drivers/isdn/i4l/isdn_net.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+Michael
 
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index 8fff0bd..8e51bfb 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -865,8 +865,8 @@ isdn_net_hangup(struct net_device *d)
- }
- 
- typedef struct {
--	unsigned short source;
--	unsigned short dest;
-+	__be16 source;
-+	__be16 dest;
- } ip_ports;
- 
- static void
-@@ -1355,7 +1355,7 @@ isdn_net_get_stats(struct net_device *dev)
-  *      This is normal practice and works for any 'now in use' protocol.
-  */
- 
--static unsigned short
-+static __be16
- isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct ethhdr *eth;
-@@ -1637,8 +1637,8 @@ isdn_net_ciscohdlck_slarp_send_reply(isdn_net_local *lp)
- 	/* slarp reply, send own ip/netmask; if values are nonsense remote
- 	 * should think we are unable to provide it with an address via SLARP */
- 	*(__be32 *)(p +  4) = cpu_to_be32(CISCO_SLARP_REPLY);
--	*(__be32 *)(p +  8) = cpu_to_be32(addr); // address
--	*(__be32 *)(p + 12) = cpu_to_be32(mask); // netmask
-+	*(__be32 *)(p +  8) = addr; // address
-+	*(__be32 *)(p + 12) = mask; // netmask
- 	*(__be16 *)(p + 16) = cpu_to_be16(0); // unused
- 	p += 18;
- 
-@@ -1817,7 +1817,7 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
- 			/* IP with type field */
- 			olp->huptimer = 0;
- 			lp->huptimer = 0;
--			skb->protocol = *(unsigned short *) &(skb->data[0]);
-+			skb->protocol = *(__be16 *)&(skb->data[0]);
- 			skb_pull(skb, 2);
- 			if (*(unsigned short *) skb->data == 0xFFFF)
- 				skb->protocol = htons(ETH_P_802_3);
-@@ -1899,12 +1899,12 @@ static int isdn_net_header(struct sk_buff *skb, struct net_device *dev,
- 			break;
- 		case ISDN_NET_ENCAP_IPTYP:
- 			/* ethernet type field */
--			*((ushort *) skb_push(skb, 2)) = htons(type);
-+			*((__be16 *)skb_push(skb, 2)) = htons(type);
- 			len = 2;
- 			break;
- 		case ISDN_NET_ENCAP_UIHDLC:
- 			/* HDLC with UI-Frames (for ispa with -h1 option) */
--			*((ushort *) skb_push(skb, 2)) = htons(0x0103);
-+			*((__be16 *)skb_push(skb, 2)) = htons(0x0103);
- 			len = 2;
- 			break;
- 		case ISDN_NET_ENCAP_CISCOHDLC:
--- 
-1.6.0.4.879.g9d19a
+===
+From: Ulrich Drepper <drepper@redhat.com>
+
+Introduce a new accept4() system call.  The addition of this system call
+matches analogous changes in 2.6.27 (dup3(), evenfd2(), signalfd4(),
+inotify_init1(), epoll_create1(), pipe2()) which added new system calls
+that differed from analogous traditional system calls in adding a flags
+argument that can be used to access additional functionality.
+
+The accept4() system call is exactly the same as accept(), except that
+it adds a flags bit-mask argument.  Two flags are initially implemented.
+(Most of the new system calls in 2.6.27 also had both of these flags.)
+
+SOCK_CLOEXEC causes the close-on-exec (FD_CLOEXEC) flag to be enabled
+for the new file descriptor returned by accept4().  This is a useful
+security feature to avoid leaking information in a multithreaded
+program where one thread is doing an accept() at the same time as
+another thread is doing a fork() plus exec().  More details here:
+http://udrepper.livejournal.com/20407.html "Secure File Descriptor Handling",
+Ulrich Drepper).
+
+The other flag is SOCK_NONBLOCK, which causes the O_NONBLOCK flag
+to be enabled on the new open file description created by accept4().
+(This flag is merely a convenience, saving the use of additional calls
+fcntl(F_GETFL) and fcntl (F_SETFL) to achieve the same result.
+
+Here's a test program.  Works on x86-32.  Should work on x86-64, but
+I (mtk) don't have a system to hand to test with.
+
+It tests accept4() with each of the four possible combinations of
+SOCK_CLOEXEC and SOCK_NONBLOCK set/clear in 'flags', and verifies
+that the appropriate flags are set on the file descriptor/open file
+description returned by accept4().
+
+I tested Ulrich's patch in this thread by applying against 2.6.28-rc2,
+and it passes according to my test program.
+
+/* test_accept4.c
+
+  Copyright (C) 2008, Linux Foundation, written by Michael Kerrisk
+       <mtk.manpages@gmail.com>
+
+  Licensed under the GNU GPLv2 or later.
+*/
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+
+#define PORT_NUM 33333
+
+#define die(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+/**********************************************************************/
+
+/* The following is what we need until glibc gets a wrapper for
+  accept4() */
+
+/* Flags for socket(), socketpair(), accept4() */
+#ifndef SOCK_CLOEXEC
+#define SOCK_CLOEXEC    O_CLOEXEC
+#endif
+#ifndef SOCK_NONBLOCK
+#define SOCK_NONBLOCK   O_NONBLOCK
+#endif
+
+#ifdef __x86_64__
+#define SYS_accept4 288
+#elif __i386__
+#define USE_SOCKETCALL 1
+#define SYS_ACCEPT4 18
+#else
+#error "Sorry -- don't know the syscall # on this architecture"
+#endif
+
+static int
+accept4(int fd, struct sockaddr *sockaddr, socklen_t *addrlen, int flags)
+{
+   printf("Calling accept4(): flags = %x", flags);
+   if (flags != 0) {
+       printf(" (");
+       if (flags & SOCK_CLOEXEC)
+           printf("SOCK_CLOEXEC");
+       if ((flags & SOCK_CLOEXEC) && (flags & SOCK_NONBLOCK))
+           printf(" ");
+       if (flags & SOCK_NONBLOCK)
+           printf("SOCK_NONBLOCK");
+       printf(")");
+   }
+   printf("\n");
+
+#if USE_SOCKETCALL
+   long args[6];
+
+   args[0] = fd;
+   args[1] = (long) sockaddr;
+   args[2] = (long) addrlen;
+   args[3] = flags;
+
+   return syscall(SYS_socketcall, SYS_ACCEPT4, args);
+#else
+   return syscall(SYS_accept4, fd, sockaddr, addrlen, flags);
+#endif
+}
+
+/**********************************************************************/
 
 
+static int
+do_test(int lfd, struct sockaddr_in *conn_addr,
+       int closeonexec_flag, int nonblock_flag)
+{
+   int connfd, acceptfd;
+   int fdf, flf, fdf_pass, flf_pass;
+   struct sockaddr_in claddr;
+   socklen_t addrlen;
 
+   printf("=======================================\n");
+
+   connfd = socket(AF_INET, SOCK_STREAM, 0);
+   if (connfd == -1)
+       die("socket");
+   if (connect(connfd, (struct sockaddr *) conn_addr,
+               sizeof(struct sockaddr_in)) == -1)
+       die("connect");
+
+   addrlen = sizeof(struct sockaddr_in);
+   acceptfd = accept4(lfd, (struct sockaddr *) &claddr, &addrlen,
+                      closeonexec_flag | nonblock_flag);
+   if (acceptfd == -1) {
+       perror("accept4()");
+       close(connfd);
+       return 0;
+   }
+
+   fdf = fcntl(acceptfd, F_GETFD);
+   if (fdf == -1)
+       die("fcntl:F_GETFD");
+   fdf_pass = ((fdf & FD_CLOEXEC) != 0) ==
+              ((closeonexec_flag & SOCK_CLOEXEC) != 0);
+   printf("Close-on-exec flag is %sset (%s); ",
+           (fdf & FD_CLOEXEC) ? "" : "not ",
+           fdf_pass ? "OK" : "failed");
+
+   flf = fcntl(acceptfd, F_GETFL);
+   if (flf == -1)
+       die("fcntl:F_GETFD");
+   flf_pass = ((flf & O_NONBLOCK) != 0) ==
+              ((nonblock_flag & SOCK_NONBLOCK) !=0);
+   printf("nonblock flag is %sset (%s)\n",
+           (flf & O_NONBLOCK) ? "" : "not ",
+           flf_pass ? "OK" : "failed");
+
+   close(acceptfd);
+   close(connfd);
+
+   printf("Test result: %s\n", (fdf_pass && flf_pass) ? "PASS" : "FAIL");
+   return fdf_pass && flf_pass;
+}
+
+
+static int
+create_listening_socket(int port_num)
+{
+   struct sockaddr_in svaddr;
+   int lfd;
+   int optval;
+
+   memset(&svaddr, 0, sizeof(struct sockaddr_in));
+   svaddr.sin_family = AF_INET;
+   svaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+   svaddr.sin_port = htons(port_num);
+
+   lfd = socket(AF_INET, SOCK_STREAM, 0);
+   if (lfd == -1)
+       die("socket");
+
+   optval = 1;
+   if (setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval,
+                  sizeof(optval)) == -1)
+       die("setsockopt");
+
+   if (bind(lfd, (struct sockaddr *) &svaddr,
+            sizeof(struct sockaddr_in)) == -1)
+       die("bind");
+
+   if (listen(lfd, 5) == -1)
+       die("listen");
+
+   return lfd;
+}
+
+
+int
+main(int argc, char *argv[])
+{
+   struct sockaddr_in conn_addr;
+   int lfd;
+   int port_num;
+   int passed;
+
+   passed = 1;
+
+   port_num = (argc > 1) ? atoi(argv[1]) : PORT_NUM;
+
+   memset(&conn_addr, 0, sizeof(struct sockaddr_in));
+   conn_addr.sin_family = AF_INET;
+   conn_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   conn_addr.sin_port = htons(port_num);
+
+   lfd = create_listening_socket(port_num);
+
+   if (!do_test(lfd, &conn_addr, 0, 0))
+       passed = 0;
+   if (!do_test(lfd, &conn_addr, SOCK_CLOEXEC, 0))
+       passed = 0;
+   if (!do_test(lfd, &conn_addr, 0, SOCK_NONBLOCK))
+       passed = 0;
+   if (!do_test(lfd, &conn_addr, SOCK_CLOEXEC, SOCK_NONBLOCK))
+       passed = 0;
+
+   close(lfd);
+
+   exit(passed ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+
+[mtk.manpages@gmail.com: rewrote changelog and test program]
+Signed-off-by: Ulrich Drepper <drepper@redhat.com>
+Tested-by: Michael Kerrisk <mtk.manpages@gmail.com>
+Acked-by: Michael Kerrisk <mtk.manpages@gmail.com>
+Cc: <linux-api@vger.kernel.org>
+Cc: <linux-arch@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
