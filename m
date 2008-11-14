@@ -1,7 +1,7 @@
 From: Dan Williams <dan.j.williams@intel.com>
-Subject: [PATCH 06/13] net_dma: convert to dma_find_channel
-Date: Fri, 14 Nov 2008 14:34:48 -0700
-Message-ID: <20081114213447.32354.34821.stgit@dwillia2-linux.ch.intel.com>
+Subject: [PATCH 12/13] dmaengine: remove 'bigref' infrastructure
+Date: Fri, 14 Nov 2008 14:35:19 -0700
+Message-ID: <20081114213518.32354.20458.stgit@dwillia2-linux.ch.intel.com>
 References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,188 +10,234 @@ Cc: maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
 	g.liakhovetski@gmx.de, nicolas.ferre@atmel.com
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27491 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:30395 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755746AbYKNVev (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2008 16:34:51 -0500
+	id S1755895AbYKNVfU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2008 16:35:20 -0500
 In-Reply-To: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the general-purpose channel allocation provided by dmaengine.
+Reference counting is done at the module level so clients need not worry
+that a channel will leave while they are actively using dmaengine.
 
 Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
 
- include/linux/netdevice.h |    3 ---
- include/net/netdma.h      |   11 -----------
- net/core/dev.c            |   40 ----------------------------------------
- net/ipv4/tcp.c            |    4 ++--
- net/ipv4/tcp_input.c      |    2 +-
- net/ipv4/tcp_ipv4.c       |    2 +-
- net/ipv6/tcp_ipv6.c       |    2 +-
- 7 files changed, 5 insertions(+), 59 deletions(-)
+ drivers/dma/dmaengine.c   |   86 +++++----------------------------------------
+ drivers/dma/iop-adma.c    |    1 -
+ drivers/dma/mv_xor.c      |    1 -
+ include/linux/dmaengine.h |    7 ----
+ 4 files changed, 9 insertions(+), 86 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9d77b1d..800866e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1004,9 +1004,6 @@ struct softnet_data
- 	struct sk_buff		*completion_queue;
+diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+index 26f862c..a6c0d72 100644
+--- a/drivers/dma/dmaengine.c
++++ b/drivers/dma/dmaengine.c
+@@ -34,26 +34,15 @@
+  * The subsystem keeps a global list of dma_device structs it is protected by a
+  * mutex, dma_list_mutex.
+  *
++ * A subsystem can get access to a channel by calling dmaengine_get() followed
++ * by dma_find_channel(), or if it has need for an exclusive channel it can call
++ * dma_request_channel().  Once a channel is allocated a reference is taken
++ * against its corresponding driver to disable removal.
++ *
+  * Each device has a channels list, which runs unlocked but is never modified
+  * once the device is registered, it's just setup by the driver.
+  *
+- * Each device has a kref, which is initialized to 1 when the device is
+- * registered. A kref_get is done for each device registered.  When the
+- * device is released, the corresponding kref_put is done in the release
+- * method. Every time one of the device's channels is allocated to a client,
+- * a kref_get occurs.  When the channel is freed, the corresponding kref_put
+- * happens. The device's release function does a completion, so
+- * unregister_device does a remove event, device_unregister, a kref_put
+- * for the first reference, then waits on the completion for all other
+- * references to finish.
+- *
+- * Each channel has an open-coded implementation of Rusty Russell's "bigref,"
+- * with a kref and a per_cpu local_t.  A dma_chan_get is called when a client
+- * signals that it wants to use a channel, and dma_chan_put is called when
+- * a channel is removed or a client using it is unregistered.  A client can
+- * take extra references per outstanding transaction, as is the case with
+- * the NET DMA client.  The release function does a kref_put on the device.
+- *	-ChrisL, DanW
++ * See Documentation/dmaengine.txt for more details
+  */
  
- 	struct napi_struct	backlog;
--#ifdef CONFIG_NET_DMA
--	struct dma_chan		*net_dma;
--#endif
+ #include <linux/init.h>
+@@ -114,18 +103,9 @@ static struct device_attribute dma_attrs[] = {
+ 	__ATTR_NULL
  };
  
- DECLARE_PER_CPU(struct softnet_data,softnet_data);
-diff --git a/include/net/netdma.h b/include/net/netdma.h
-index cbe2737..8ba8ce2 100644
---- a/include/net/netdma.h
-+++ b/include/net/netdma.h
-@@ -24,17 +24,6 @@
- #include <linux/dmaengine.h>
- #include <linux/skbuff.h>
- 
--static inline struct dma_chan *get_softnet_dma(void)
+-static void dma_async_device_cleanup(struct kref *kref);
+-
+-static void dma_dev_release(struct device *dev)
 -{
--	struct dma_chan *chan;
--
--	rcu_read_lock();
--	chan = rcu_dereference(__get_cpu_var(softnet_data).net_dma);
--	rcu_read_unlock();
--
--	return chan;
+-	struct dma_chan *chan = to_dma_chan(dev);
+-	kref_put(&chan->device->refcount, dma_async_device_cleanup);
 -}
 -
- int dma_skb_copy_datagram_iovec(struct dma_chan* chan,
- 		struct sk_buff *skb, int offset, struct iovec *to,
- 		size_t len, struct dma_pinned_list *pinned_list);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 301a449..56e6965 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4591,44 +4591,6 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+ static struct class dma_devclass = {
+ 	.name		= "dma",
+ 	.dev_attrs	= dma_attrs,
+-	.dev_release	= dma_dev_release,
+ };
  
- #ifdef CONFIG_NET_DMA
+ /* --- client and device registration --- */
+@@ -222,29 +202,6 @@ enum dma_status dma_sync_wait(struct dma_chan *chan, dma_cookie_t cookie)
+ EXPORT_SYMBOL(dma_sync_wait);
+ 
  /**
-- * net_dma_rebalance - try to maintain one DMA channel per CPU
-- * @net_dma: DMA client and associated data (lock, channels, channel_mask)
-- *
-- * This is called when the number of channels allocated to the net_dma client
-- * changes.  The net_dma client tries to have one DMA channel per CPU.
+- * dma_chan_cleanup - release a DMA channel's resources
+- * @kref: kernel reference structure that contains the DMA channel device
 - */
--
--static void net_dma_rebalance(struct net_dma *net_dma)
+-void dma_chan_cleanup(struct kref *kref)
 -{
--	unsigned int cpu, i, n, chan_idx;
--	struct dma_chan *chan;
+-	struct dma_chan *chan = container_of(kref, struct dma_chan, refcount);
+-	kref_put(&chan->device->refcount, dma_async_device_cleanup);
+-}
+-EXPORT_SYMBOL(dma_chan_cleanup);
 -
--	if (cpus_empty(net_dma->channel_mask)) {
--		for_each_online_cpu(cpu)
--			rcu_assign_pointer(per_cpu(softnet_data, cpu).net_dma, NULL);
--		return;
--	}
+-static void dma_chan_free_rcu(struct rcu_head *rcu)
+-{
+-	struct dma_chan *chan = container_of(rcu, struct dma_chan, rcu);
 -
--	i = 0;
--	cpu = first_cpu(cpu_online_map);
+-	kref_put(&chan->refcount, dma_chan_cleanup);
+-}
 -
--	for_each_cpu_mask_nr(chan_idx, net_dma->channel_mask) {
--		chan = net_dma->channels[chan_idx];
--
--		n = ((num_online_cpus() / cpus_weight(net_dma->channel_mask))
--		   + (i < (num_online_cpus() %
--			cpus_weight(net_dma->channel_mask)) ? 1 : 0));
--
--		while(n) {
--			per_cpu(softnet_data, cpu).net_dma = chan;
--			cpu = next_cpu(cpu, cpu_online_map);
--			n--;
--		}
--		i++;
--	}
+-static void dma_chan_release(struct dma_chan *chan)
+-{
+-	call_rcu(&chan->rcu, dma_chan_free_rcu);
 -}
 -
 -/**
-  * netdev_dma_event - event callback for the net_dma_client
-  * @client: should always be net_dma_client
-  * @chan: DMA channel for the event
-@@ -4657,7 +4619,6 @@ netdev_dma_event(struct dma_client *client, struct dma_chan *chan,
- 			ack = DMA_ACK;
- 			net_dma->channels[pos] = chan;
- 			cpu_set(pos, net_dma->channel_mask);
--			net_dma_rebalance(net_dma);
+  * dma_cap_mask_all - enable iteration over all operation types
+  */
+ static dma_cap_mask_t dma_cap_mask_all;
+@@ -622,8 +579,6 @@ int dma_async_device_register(struct dma_device *device)
+ 	BUG_ON(!device->device_issue_pending);
+ 	BUG_ON(!device->dev);
+ 
+-	init_completion(&device->done);
+-	kref_init(&device->refcount);
+ 	device->dev_id = id++;
+ 
+ 	/* represent channels in sysfs. Probably want devs too */
+@@ -640,19 +595,11 @@ int dma_async_device_register(struct dma_device *device)
+ 
+ 		rc = device_register(&chan->dev);
+ 		if (rc) {
+-			chancnt--;
+ 			free_percpu(chan->local);
+ 			chan->local = NULL;
+ 			goto err_out;
  		}
- 		break;
- 	case DMA_RESOURCE_REMOVED:
-@@ -4672,7 +4633,6 @@ netdev_dma_event(struct dma_client *client, struct dma_chan *chan,
- 			ack = DMA_ACK;
- 			cpu_clear(pos, net_dma->channel_mask);
- 			net_dma->channels[i] = NULL;
--			net_dma_rebalance(net_dma);
- 		}
- 		break;
- 	default:
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 40ec69f..5da9edb 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1315,7 +1315,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		if ((available < target) &&
- 		    (len > sysctl_tcp_dma_copybreak) && !(flags & MSG_PEEK) &&
- 		    !sysctl_tcp_low_latency &&
--		    __get_cpu_var(softnet_data).net_dma) {
-+		    dma_find_channel(DMA_MEMCPY)) {
- 			preempt_enable_no_resched();
- 			tp->ucopy.pinned_list =
- 					dma_pin_iovec_pages(msg->msg_iov, len);
-@@ -1525,7 +1525,7 @@ do_prequeue:
- 		if (!(flags & MSG_TRUNC)) {
- #ifdef CONFIG_NET_DMA
- 			if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
--				tp->ucopy.dma_chan = get_softnet_dma();
-+				tp->ucopy.dma_chan = dma_find_channel(DMA_MEMCPY);
+-
+-		/* One for the channel, one of the class device */
+-		kref_get(&device->refcount);
+-		kref_get(&device->refcount);
+-		kref_init(&chan->refcount);
+ 		chan->client_count = 0;
+-		chan->slow_ref = 0;
+-		INIT_RCU_HEAD(&chan->rcu);
+ 	}
+ 	device->chancnt = chancnt;
  
- 			if (tp->ucopy.dma_chan) {
- 				tp->ucopy.dma_cookie = dma_skb_copy_datagram_iovec(
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d77c0d2..620ca4e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4682,7 +4682,7 @@ static int tcp_dma_try_early_copy(struct sock *sk, struct sk_buff *skb,
- 		return 0;
+@@ -683,9 +630,7 @@ err_out:
+ 	list_for_each_entry(chan, &device->channels, device_node) {
+ 		if (chan->local == NULL)
+ 			continue;
+-		kref_put(&device->refcount, dma_async_device_cleanup);
+ 		device_unregister(&chan->dev);
+-		chancnt--;
+ 		free_percpu(chan->local);
+ 	}
+ 	return rc;
+@@ -693,20 +638,11 @@ err_out:
+ EXPORT_SYMBOL(dma_async_device_register);
  
- 	if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
--		tp->ucopy.dma_chan = get_softnet_dma();
-+		tp->ucopy.dma_chan = dma_find_channel(DMA_MEMCPY);
+ /**
+- * dma_async_device_cleanup - function called when all references are released
+- * @kref: kernel reference object
+- */
+-static void dma_async_device_cleanup(struct kref *kref)
+-{
+-	struct dma_device *device;
+-
+-	device = container_of(kref, struct dma_device, refcount);
+-	complete(&device->done);
+-}
+-
+-/**
+  * dma_async_device_unregister - unregisters DMA devices
+  * @device: &dma_device
++ *
++ * This routine is called by dma driver exit routines, dmaengine holds module
++ * references to prevent it being called while channels are in use.
+  */
+ void dma_async_device_unregister(struct dma_device *device)
+ {
+@@ -722,11 +658,7 @@ void dma_async_device_unregister(struct dma_device *device)
+ 			  "%s called while %d clients hold a reference\n",
+ 			  __func__, chan->client_count);
+ 		device_unregister(&chan->dev);
+-		dma_chan_release(chan);
+ 	}
+-
+-	kref_put(&device->refcount, dma_async_device_cleanup);
+-	wait_for_completion(&device->done);
+ }
+ EXPORT_SYMBOL(dma_async_device_unregister);
  
- 	if (tp->ucopy.dma_chan && skb_csum_unnecessary(skb)) {
+diff --git a/drivers/dma/iop-adma.c b/drivers/dma/iop-adma.c
+index 44c483e..6963400 100644
+--- a/drivers/dma/iop-adma.c
++++ b/drivers/dma/iop-adma.c
+@@ -1243,7 +1243,6 @@ static int __devinit iop_adma_probe(struct platform_device *pdev)
+ 	spin_lock_init(&iop_chan->lock);
+ 	INIT_LIST_HEAD(&iop_chan->chain);
+ 	INIT_LIST_HEAD(&iop_chan->all_slots);
+-	INIT_RCU_HEAD(&iop_chan->common.rcu);
+ 	iop_chan->common.device = dma_dev;
+ 	list_add_tail(&iop_chan->common.device_node, &dma_dev->channels);
  
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5c8fa7f..b671d49 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1600,7 +1600,7 @@ process:
- #ifdef CONFIG_NET_DMA
- 		struct tcp_sock *tp = tcp_sk(sk);
- 		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
--			tp->ucopy.dma_chan = get_softnet_dma();
-+			tp->ucopy.dma_chan = dma_find_channel(DMA_MEMCPY);
- 		if (tp->ucopy.dma_chan)
- 			ret = tcp_v4_do_rcv(sk, skb);
- 		else
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index b6b356b..d41a896 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1640,7 +1640,7 @@ process:
- #ifdef CONFIG_NET_DMA
- 		struct tcp_sock *tp = tcp_sk(sk);
- 		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
--			tp->ucopy.dma_chan = get_softnet_dma();
-+			tp->ucopy.dma_chan = dma_find_channel(DMA_MEMCPY);
- 		if (tp->ucopy.dma_chan)
- 			ret = tcp_v6_do_rcv(sk, skb);
- 		else
+diff --git a/drivers/dma/mv_xor.c b/drivers/dma/mv_xor.c
+index dabdc36..acb271d 100644
+--- a/drivers/dma/mv_xor.c
++++ b/drivers/dma/mv_xor.c
+@@ -1210,7 +1210,6 @@ static int __devinit mv_xor_probe(struct platform_device *pdev)
+ 	INIT_LIST_HEAD(&mv_chan->chain);
+ 	INIT_LIST_HEAD(&mv_chan->completed_slots);
+ 	INIT_LIST_HEAD(&mv_chan->all_slots);
+-	INIT_RCU_HEAD(&mv_chan->common.rcu);
+ 	mv_chan->common.device = dma_dev;
+ 
+ 	list_add_tail(&mv_chan->common.device_node, &dma_dev->channels);
+diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
+index ad9fd55..32edaf4 100644
+--- a/include/linux/dmaengine.h
++++ b/include/linux/dmaengine.h
+@@ -156,10 +156,6 @@ struct dma_chan {
+ 	int chan_id;
+ 	struct device dev;
+ 
+-	struct kref refcount;
+-	int slow_ref;
+-	struct rcu_head rcu;
+-
+ 	struct list_head device_node;
+ 	struct dma_chan_percpu *local;
+ 	int client_count;
+@@ -247,9 +243,6 @@ struct dma_device {
+ 	dma_cap_mask_t  cap_mask;
+ 	int max_xor;
+ 
+-	struct kref refcount;
+-	struct completion done;
+-
+ 	int dev_id;
+ 	struct device *dev;
+ 
 
