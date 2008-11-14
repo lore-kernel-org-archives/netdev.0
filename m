@@ -1,69 +1,57 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Linux 2.6.27.5 / SFQ/HTB scheduling problems
-Date: Fri, 14 Nov 2008 07:21:14 +0000
-Message-ID: <20081114072114.GA4408@ff.dom.local>
-References: <20081113142958.36pzkmzwtxd3wbox@m.safari.iki.fi>
+From: Giulio Benetti <giulio.benetti@micronovasrl.com>
+Subject: macb phy address bug?
+Date: Fri, 14 Nov 2008 08:53:13 +0100
+Message-ID: <200811140853.13729.giulio.benetti@micronovasrl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sami Farin <safari-kernel@safari.iki.fi>
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_p5SHJOX6dmTexmV"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:42463 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799AbYKNHVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 02:21:21 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1566550ugf.37
-        for <netdev@vger.kernel.org>; Thu, 13 Nov 2008 23:21:19 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081113142958.36pzkmzwtxd3wbox@m.safari.iki.fi>
+Received: from mail.etics.it ([212.103.198.88]:4371 "EHLO etics.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751009AbYKNH66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2008 02:58:58 -0500
+Received: from pc001.dominio.micronovasrl.com by etics.it (MDaemon PRO v10.0.1 trial)
+	with ESMTP id md50000057661.msg
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 08:53:13 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-11-2008 15:29, Sami Farin wrote:
-...
-> Oh, I had old ethtool..
-> These with v 6:
-> 
-> # ethtool -k eth0
-> Offload parameters for eth0:
-> rx-checksumming: off
-> tx-checksumming: off
-> scatter-gather: off
-> tcp segmentation offload: off
-> udp fragmentation offload: off
-> generic segmentation offload: on
-> 
-> Wow.  I turned gso off and now it works just like before.
-> No packets over size of mtu anymore, either.
-> 
-> State       Recv-Q Send-Q               Local Address:Port                 Peer Address:Port
-> ESTAB      0      122334        80.223.84.180:57694        74.54.226.166:80     timer:(on,4.475ms,0) uid:518 ino:4546485 sk:2ea3ac80ffff8800
->          ts sackcubic wscale:8,3 rto:4499 rtt:2914.12/378.5 cwnd:134 ssthresh:30 send 522.4Kbps rcv_space:5728
-> 
-> --- 84.250.192.1 ping statistics ---
-> 50 packets transmitted, 50 received, 0% packet loss, time 1877ms
-> rtt min/avg/max/mdev = 22.463/38.354/99.126/13.738 ms, pipe 3, ipg/ewma 38.309/34.963 ms
-> 
-> ... 
->> Anyway these TSO/GSO/jumbo_frames are usually bad idea with packet
->> schedulers (or need more tweaking - e.g. sfq quantum).
-> 
-> Well this GSO on by default was an unexpected surprise for me, for sure.
-> 
-> Maybe a warning on htb (or something) module load
-> "GSO enabled, everything might not work as expected, try 
-> 'ethtool -K eth0 gso off' to turn GSO off"..? ;)
+--Boundary-00=_p5SHJOX6dmTexmV
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I agree, such a warning could be useful.
+PHYID returns 0xffff and not 0xffffffff when not found and in some 
+case(at91sam9263) 0x0. Maybe this patch could be useful.
 
-BTW, r2q == 1 in your config could harm latency too; if it's because
-of quantum warnings, usually (if there are big rate differences
-between classes) it's better to use htb class's "quantum" parameter
-(tc class add htb help).
 
-Jarek P.
 
-PS: it seems your mailer setting prevents adding your email as "To:"
-while doing "Reply All". Sometimes it's intended, but not the most
-popular on this list (e.g. I'd prefer to be "To/Cc-ed", because I'm
-not a subscriber at the moment).
+Signed-off-by: Giulio Benetti <giulio.benetti@micronovasrl.com>
+
+--Boundary-00=_p5SHJOX6dmTexmV
+Content-Type: text/x-diff;
+  charset="iso 8859-15";
+  name="macb.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="macb.patch"
+
+diff -urN -X exclude linux.orig/drivers/net/phy/phy_device.c linux/drivers/net/phy/phy_device.c
+--- linux.orig/drivers/net/phy/phy_device.c	2008-11-11 17:52:13.000000000 +0100
++++ linux/drivers/net/phy/phy_device.c	2008-11-12 19:20:47.000000000 +0100
+@@ -227,8 +227,8 @@
+ 	if (r)
+ 		return ERR_PTR(r);
+ 
+-	/* If the phy_id is all Fs, there is no device there */
+-	if (0xffffffff == phy_id)
++	/* If the phy_id is all Fs or all 0s, there is no device there */
++	if ((0xffff == phy_id) || (0x00 == phy_id))
+ 		return NULL;
+ 
+ 	dev = phy_device_create(bus, addr, phy_id);
+
+--Boundary-00=_p5SHJOX6dmTexmV--
+
