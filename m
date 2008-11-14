@@ -1,8 +1,8 @@
 From: Dan Williams <dan.j.williams@intel.com>
-Subject: [PATCH 01/13] async_tx,
-	dmaengine: document channel allocation and api rework
-Date: Fri, 14 Nov 2008 14:34:21 -0700
-Message-ID: <20081114213421.32354.55126.stgit@dwillia2-linux.ch.intel.com>
+Subject: [PATCH 03/13] dmaengine: up-level reference counting to the module
+	level
+Date: Fri, 14 Nov 2008 14:34:32 -0700
+Message-ID: <20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
 References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,239 +11,475 @@ Cc: maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
 	g.liakhovetski@gmx.de, nicolas.ferre@atmel.com
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35033 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53355 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752504AbYKNVec (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2008 16:34:32 -0500
+	id S1753535AbYKNVeg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2008 16:34:36 -0500
 In-Reply-To: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Wouldn't it be better if the dmaengine layer made sure it didn't pass
-the same channel several times to a client?
+Simply, if a client wants any dmaengine channel then prevent all dmaengine
+modules from being removed.  Once the clients are done re-enable module
+removal.
 
-I mean, you seem concerned that the memcpy() API should be transparent
-and easy to use, but the whole registration interface is just
-ridiculously complicated..."
-	- Haavard
+Why?, beyond reducing complication:
+1/ Tracking reference counts per-transaction in an efficient manner, as
+   is currently done, requires a complicated scheme to avoid cache-line
+   bouncing effects.
+2/ Per-transaction ref-counting gives the false impression that a
+   dma-driver can be gracefully removed ahead of its user (net, md, or
+   dma-slave)
+3/ None of the in-tree dma-drivers talk to hot pluggable hardware, but
+   if such an engine were built one day we still would not need to notify
+   clients of remove events.  The driver can simply return NULL to a
+   ->prep() request, something that is much easier for a client to handle.
 
-The dmaengine and async_tx registration/allocation interface is indeed
-needlessly complicated.  This redesign has the following goals:
-
-1/ Simplify reference counting: dma channels are not something one would
-   expect to be hotplugged, it should be an exceptional event handled by
-   drivers not something clients should be mandated to handle in a
-   callback.  The common case channel removal event is 'rmmod <dma driver>',
-   which for simplicity should be disallowed if the channel is in use.
-2/ Add an interface for requesting exclusive access to a channel
-   suitable to device-to-memory users.
-3/ Convert all memory-to-memory users over to a common allocator, the goal
-   here is to not have competing channel allocation schemes.  The only
-   competition should be between device-to-memory exclusive allocations and
-   the memory-to-memory usage case where channels are shared between
-   multiple "clients".
-
-Cc: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Cc: Neil Brown <neilb@suse.de>
-Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
 
- Documentation/crypto/async-tx-api.txt |  135 ++++++++++++++++-----------------
- Documentation/dmaengine.txt           |    1 
- 2 files changed, 68 insertions(+), 68 deletions(-)
- create mode 100644 Documentation/dmaengine.txt
+ crypto/async_tx/async_tx.c   |    4 -
+ drivers/dma/dmaengine.c      |  190 +++++++++++++++++++++++++-----------------
+ drivers/dma/dmatest.c        |    2 
+ drivers/dma/dw_dmac.c        |    2 
+ drivers/mmc/host/atmel-mci.c |    4 -
+ include/linux/dmaengine.h    |   21 -----
+ include/net/netdma.h         |    4 -
+ net/ipv4/tcp.c               |    1 
+ 8 files changed, 118 insertions(+), 110 deletions(-)
 
-diff --git a/Documentation/crypto/async-tx-api.txt b/Documentation/crypto/async-tx-api.txt
-index c1e9545..48e7b35 100644
---- a/Documentation/crypto/async-tx-api.txt
-+++ b/Documentation/crypto/async-tx-api.txt
-@@ -13,9 +13,9 @@
- 3.6 Constraints
- 3.7 Example
+diff --git a/crypto/async_tx/async_tx.c b/crypto/async_tx/async_tx.c
+index 8cfac18..43fe4cb 100644
+--- a/crypto/async_tx/async_tx.c
++++ b/crypto/async_tx/async_tx.c
+@@ -198,8 +198,6 @@ dma_channel_add_remove(struct dma_client *client,
+ 		/* add the channel to the generic management list */
+ 		master_ref = kmalloc(sizeof(*master_ref), GFP_KERNEL);
+ 		if (master_ref) {
+-			/* keep a reference until async_tx is unloaded */
+-			dma_chan_get(chan);
+ 			init_dma_chan_ref(master_ref, chan);
+ 			spin_lock_irqsave(&async_tx_lock, flags);
+ 			list_add_tail_rcu(&master_ref->node,
+@@ -221,8 +219,6 @@ dma_channel_add_remove(struct dma_client *client,
+ 		spin_lock_irqsave(&async_tx_lock, flags);
+ 		list_for_each_entry(ref, &async_tx_master_list, node)
+ 			if (ref->chan == chan) {
+-				/* permit backing devices to go away */
+-				dma_chan_put(ref->chan);
+ 				list_del_rcu(&ref->node);
+ 				call_rcu(&ref->rcu, free_dma_chan_ref);
+ 				found = 1;
+diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+index 5410c04..df37073 100644
+--- a/drivers/dma/dmaengine.c
++++ b/drivers/dma/dmaengine.c
+@@ -74,6 +74,7 @@
+ static DEFINE_MUTEX(dma_list_mutex);
+ static LIST_HEAD(dma_device_list);
+ static LIST_HEAD(dma_client_list);
++static long dmaengine_ref_count;
  
--4 DRIVER DEVELOPER NOTES
-+4 DMAENGINE DRIVER DEVELOPER NOTES
- 4.1 Conformance points
--4.2 "My application needs finer control of hardware channels"
-+4.2 "My application needs exclusive control of hardware channels"
+ /* --- sysfs implementation --- */
  
- 5 SOURCE
- 
-@@ -80,9 +80,7 @@ acknowledged by the application before the offload engine driver is allowed to
- recycle (or free) the descriptor.  A descriptor can be acked by one of the
- following methods:
- 1/ setting the ASYNC_TX_ACK flag if no child operations are to be submitted
--2/ setting the ASYNC_TX_DEP_ACK flag to acknowledge the parent
--   descriptor of a new operation.
--3/ calling async_tx_ack() on the descriptor.
-+2/ calling async_tx_ack() on the descriptor.
- 
- 3.4 When does the operation execute?
- Operations do not immediately issue after return from the
-@@ -101,12 +99,15 @@ of an operation.
-    it polls for the completion of the operation.  It handles dependency
-    chains and issuing pending operations.
- 2/ Specify a completion callback.  The callback routine runs in tasklet
--   context if the offload engine driver supports interrupts, or it is
--   called in application context if the operation is carried out
--   synchronously in software.  The callback can be set in the call to
--   async_<operation>, or when the application needs to submit a chain of
--   unknown length it can use the async_trigger_callback() routine to set a
--   completion interrupt/callback at the end of the chain.
-+   context if an offload engine performs the operation, or it is called
-+   in process context if the operation is carried out synchronously in
-+   software.  The callback can by specified by using the
-+   async_trigger_callback() interface.
-+   Note: if the application knows ahead of time that it wants a
-+   completion callback on a particular operation it should specify
-+   ASYNC_TX_DELAY_SUBMIT to the flags.  Otherwise, async_trigger_callback
-+   will be required to allocate and queue a separate 'interrupt'
-+   descriptor.
- 
- 3.6 Constraints:
- 1/ Calls to async_<operation> are not permitted in IRQ context.  Other
-@@ -133,14 +134,20 @@ int run_xor_copy_xor(struct page **xor_srcs,
- 		     size_t copy_len)
+@@ -105,19 +106,8 @@ static ssize_t show_bytes_transferred(struct device *dev, struct device_attribut
+ static ssize_t show_in_use(struct device *dev, struct device_attribute *attr, char *buf)
  {
- 	struct dma_async_tx_descriptor *tx;
-+	/* async_xor overwrites input parameters to save stack space */
-+	struct page *srcs[xor_src_cnt];
+ 	struct dma_chan *chan = to_dma_chan(dev);
+-	int in_use = 0;
+-
+-	if (unlikely(chan->slow_ref) &&
+-		atomic_read(&chan->refcount.refcount) > 1)
+-		in_use = 1;
+-	else {
+-		if (local_read(&(per_cpu_ptr(chan->local,
+-			get_cpu())->refcount)) > 0)
+-			in_use = 1;
+-		put_cpu();
+-	}
  
--	tx = async_xor(xor_dest, xor_srcs, 0, xor_src_cnt, xor_len,
--		       ASYNC_TX_XOR_DROP_DST, NULL, NULL, NULL);
--	tx = async_memcpy(copy_dest, copy_src, 0, 0, copy_len,
--			  ASYNC_TX_DEP_ACK, tx, NULL, NULL);
--	tx = async_xor(xor_dest, xor_srcs, 0, xor_src_cnt, xor_len,
--		       ASYNC_TX_XOR_DROP_DST | ASYNC_TX_DEP_ACK | ASYNC_TX_ACK,
--		       tx, complete_xor_copy_xor, NULL);
-+	memcpy(srcs, xor_srcs, sizeof(struct page *) * xor_src_cnt));
-+	tx = async_xor(xor_dest, srcs, 0, xor_src_cnt, xor_len,
-+		       ASYNC_TX_XOR_DROP_DST, NULL);
-+
-+	tx = async_memcpy(copy_dest, copy_src, 0, 0, copy_len, 0, tx);
-+
-+	memcpy(srcs, xor_srcs, sizeof(struct page *) * xor_src_cnt));
-+	tx = async_xor(xor_dest, srcs, 0, xor_src_cnt, xor_len,
-+		       ASYNC_TX_XOR_DROP_DST | ASYNC_TX_DELAY_SUBMIT, tx);
-+
-+	tx = async_trigger_callback(tx, complete_xor_copy_xor, NULL);
- 
- 	async_tx_issue_pending_all();
+-	return sprintf(buf, "%d\n", in_use);
++	return sprintf(buf, "%d\n", chan->client_count);
  }
-@@ -150,6 +157,7 @@ ops_run_* and ops_complete_* routines in drivers/md/raid5.c for more
- implementation examples.
  
- 4 DRIVER DEVELOPMENT NOTES
+ static struct device_attribute dma_attrs[] = {
+@@ -155,6 +145,67 @@ __dma_chan_satisfies_mask(struct dma_chan *chan, dma_cap_mask_t *want)
+ 	return bitmap_equal(want->bits, has.bits, DMA_TX_TYPE_END);
+ }
+ 
++static struct module *dma_chan_to_owner(struct dma_chan *chan)
++{
++	return chan->device->dev->driver->owner;
++}
 +
- 4.1 Conformance points:
- There are a few conformance points required in dmaengine drivers to
- accommodate assumptions made by applications using the async_tx API:
-@@ -158,58 +166,49 @@ accommodate assumptions made by applications using the async_tx API:
- 3/ Use async_tx_run_dependencies() in the descriptor clean up path to
-    handle submission of dependent operations
++/**
++ * balance_ref_count - catch up the channel reference count
++ */
++static void balance_ref_count(struct dma_chan *chan)
++{
++	struct module *owner = dma_chan_to_owner(chan);
++
++	while (chan->client_count < dmaengine_ref_count) {
++		__module_get(owner);
++		chan->client_count++;
++	}
++}
++
++/**
++ * dma_chan_get - try to grab a dma channel's parent driver module
++ * @chan - channel to grab
++ */
++static int dma_chan_get(struct dma_chan *chan)
++{
++	int err = -ENODEV;
++	struct module *owner = dma_chan_to_owner(chan);
++
++	if (chan->client_count) {
++		__module_get(owner);
++		err = 0;
++	} else if (try_module_get(owner))
++		err = 0;
++
++	if (err == 0)
++		chan->client_count++;
++
++	/* allocate upon first client reference */
++	if (chan->client_count == 1 && err == 0) {
++		int desc = chan->device->device_alloc_chan_resources(chan, NULL);
++
++		if (desc < 0) {
++			chan->client_count = 0;
++			module_put(owner);
++			err = -ENOMEM;
++		} else
++			balance_ref_count(chan);
++	}
++
++	return err;
++}
++
++static void dma_chan_put(struct dma_chan *chan)
++{
++	if (!chan->client_count)
++		return; /* this channel failed alloc_chan_resources */
++	chan->client_count--;
++	module_put(dma_chan_to_owner(chan));
++	if (chan->client_count == 0)
++		chan->device->device_free_chan_resources(chan);
++}
++
+ /**
+  * dma_client_chan_alloc - try to allocate channels to a client
+  * @client: &dma_client
+@@ -165,7 +216,6 @@ static void dma_client_chan_alloc(struct dma_client *client)
+ {
+ 	struct dma_device *device;
+ 	struct dma_chan *chan;
+-	int desc;	/* allocated descriptor count */
+ 	enum dma_state_client ack;
  
--4.2 "My application needs finer control of hardware channels"
--This requirement seems to arise from cases where a DMA engine driver is
--trying to support device-to-memory DMA.  The dmaengine and async_tx
--implementations were designed for offloading memory-to-memory
--operations; however, there are some capabilities of the dmaengine layer
--that can be used for platform-specific channel management.
--Platform-specific constraints can be handled by registering the
--application as a 'dma_client' and implementing a 'dma_event_callback' to
--apply a filter to the available channels in the system.  Before showing
--how to implement a custom dma_event callback some background of
--dmaengine's client support is required.
+ 	/* Find a channel */
+@@ -178,23 +228,16 @@ static void dma_client_chan_alloc(struct dma_client *client)
+ 		list_for_each_entry(chan, &device->channels, device_node) {
+ 			if (!dma_chan_satisfies_mask(chan, client->cap_mask))
+ 				continue;
++			if (!chan->client_count)
++				continue;
++			ack = client->event_callback(client, chan,
++						     DMA_RESOURCE_AVAILABLE);
+ 
+-			desc = chan->device->device_alloc_chan_resources(
+-					chan, client);
+-			if (desc >= 0) {
+-				ack = client->event_callback(client,
+-						chan,
+-						DMA_RESOURCE_AVAILABLE);
 -
--The following routines in dmaengine support multiple clients requesting
--use of a channel:
--- dma_async_client_register(struct dma_client *client)
--- dma_async_client_chan_request(struct dma_client *client)
--
--dma_async_client_register takes a pointer to an initialized dma_client
--structure.  It expects that the 'event_callback' and 'cap_mask' fields
--are already initialized.
--
--dma_async_client_chan_request triggers dmaengine to notify the client of
--all channels that satisfy the capability mask.  It is up to the client's
--event_callback routine to track how many channels the client needs and
--how many it is currently using.  The dma_event_callback routine returns a
--dma_state_client code to let dmaengine know the status of the
--allocation.
--
--Below is the example of how to extend this functionality for
--platform-specific filtering of the available channels beyond the
--standard capability mask:
--
--static enum dma_state_client
--my_dma_client_callback(struct dma_client *client,
--			struct dma_chan *chan, enum dma_state state)
+-				/* we are done once this client rejects
+-				 * an available resource
+-				 */
+-				if (ack == DMA_ACK) {
+-					dma_chan_get(chan);
+-					chan->client_count++;
+-				} else if (ack == DMA_NAK)
+-					return;
+-			}
++			/* we are done once this client rejects
++			 * an available resource
++			 */
++			if (ack == DMA_NAK)
++				return;
+ 		}
+ 	}
+ }
+@@ -224,7 +267,6 @@ EXPORT_SYMBOL(dma_sync_wait);
+ void dma_chan_cleanup(struct kref *kref)
+ {
+ 	struct dma_chan *chan = container_of(kref, struct dma_chan, refcount);
+-	chan->device->device_free_chan_resources(chan);
+ 	kref_put(&chan->device->refcount, dma_async_device_cleanup);
+ }
+ EXPORT_SYMBOL(dma_chan_cleanup);
+@@ -232,18 +274,12 @@ EXPORT_SYMBOL(dma_chan_cleanup);
+ static void dma_chan_free_rcu(struct rcu_head *rcu)
+ {
+ 	struct dma_chan *chan = container_of(rcu, struct dma_chan, rcu);
+-	int bias = 0x7FFFFFFF;
+-	int i;
+-	for_each_possible_cpu(i)
+-		bias -= local_read(&per_cpu_ptr(chan->local, i)->refcount);
+-	atomic_sub(bias, &chan->refcount.refcount);
++
+ 	kref_put(&chan->refcount, dma_chan_cleanup);
+ }
+ 
+ static void dma_chan_release(struct dma_chan *chan)
+ {
+-	atomic_add(0x7FFFFFFF, &chan->refcount.refcount);
+-	chan->slow_ref = 1;
+ 	call_rcu(&chan->rcu, dma_chan_free_rcu);
+ }
+ 
+@@ -263,43 +299,36 @@ static void dma_clients_notify_available(void)
+ }
+ 
+ /**
+- * dma_chans_notify_available - tell the clients that a channel is going away
+- * @chan: channel on its way out
+- */
+-static void dma_clients_notify_removed(struct dma_chan *chan)
 -{
--	struct dma_device *dma_dev;
--	struct my_platform_specific_dma *plat_dma_dev;
--	
--	dma_dev = chan->device;
--	plat_dma_dev = container_of(dma_dev,
--				    struct my_platform_specific_dma,
--				    dma_dev);
+-	struct dma_client *client;
+-	enum dma_state_client ack;
 -
--	if (!plat_dma_dev->platform_specific_capability)
--		return DMA_DUP;
+-	mutex_lock(&dma_list_mutex);
 -
--	. . .
+-	list_for_each_entry(client, &dma_client_list, global_node) {
+-		ack = client->event_callback(client, chan,
+-				DMA_RESOURCE_REMOVED);
+-
+-		/* client was holding resources for this channel so
+-		 * free it
+-		 */
+-		if (ack == DMA_ACK) {
+-			dma_chan_put(chan);
+-			chan->client_count--;
+-		}
+-	}
+-
+-	mutex_unlock(&dma_list_mutex);
 -}
-+4.2 "My application needs exclusive control of hardware channels"
-+Primarily this requirement arises from cases where a DMA engine driver
-+is being used to support device-to-memory operations.  A channel that is
-+performing these operations cannot, for many platform specific reasons,
-+be shared.  For these cases the dma_request_channel() interface is
-+provided.
+-
+-/**
+  * dma_async_client_register - register a &dma_client
+  * @client: ptr to a client structure with valid 'event_callback' and 'cap_mask'
+  */
+ void dma_async_client_register(struct dma_client *client)
+ {
++	struct dma_device *device, *_d;
++	struct dma_chan *chan;
++	int err;
 +
-+The interface is:
-+struct dma_chan *dma_request_channel(dma_cap_mask_t mask,
-+				     dma_filter_fn filter_fn,
-+				     void *filter_param);
-+
-+Where dma_filter_fn is defined as:
-+typedef bool (*dma_filter_fn)(struct dma_chan *chan, void *filter_param);
-+
-+When the optional 'filter_fn' parameter is set to NULL
-+dma_request_channel simply returns the first channel that satisfies the
-+capability mask.  Otherwise, when the mask parameter is insufficient for
-+specifying the necessary channel, the filter_fn routine can be used to
-+disposition the available channels in the system. The filter_fn routine
-+is called once for each free channel in the system.  Upon seeing a
-+suitable channel filter_fn returns DMA_ACK which flags that channel to
-+be the return value from dma_request_channel.  A channel allocated via
-+this interface is exclusive to the caller, until dma_release_channel()
-+is called.
-+
-+The DMA_PRIVATE capability flag is used to tag dma devices that should
-+not be used by the general-purpose allocator.  It can be set at
-+initialization time if it is known that a channel will always be
-+private.  Alternatively, it is set when dma_request_channel() finds an
-+unused "public" channel.
-+
-+A couple caveats to note when implementing a driver and consumer:
-+1/ Once a channel has been privately allocated it will no longer be
-+   considered by the general-purpose allocator even after a call to
-+   dma_release_channel().
-+2/ Since capabilities are specified at the device level a dma_device
-+   with multiple channels will either have all channels public, or all
-+   channels private.
+ 	/* validate client data */
+ 	BUG_ON(dma_has_cap(DMA_SLAVE, client->cap_mask) &&
+ 		!client->slave);
  
- 5 SOURCE
--include/linux/dmaengine.h: core header file for DMA drivers and clients
+ 	mutex_lock(&dma_list_mutex);
++	dmaengine_ref_count++;
 +
-+include/linux/dmaengine.h: core header file for DMA drivers and api users
- drivers/dma/dmaengine.c: offload engine channel management routines
- drivers/dma/: location for offload engine drivers
- include/linux/async_tx.h: core header file for the async_tx api
-diff --git a/Documentation/dmaengine.txt b/Documentation/dmaengine.txt
-new file mode 100644
-index 0000000..0c1c2f6
---- /dev/null
-+++ b/Documentation/dmaengine.txt
-@@ -0,0 +1 @@
-+See Documentation/crypto/async-tx-api.txt
++	/* try to grab channels */
++	list_for_each_entry_safe(device, _d, &dma_device_list, global_node)
++		list_for_each_entry(chan, &device->channels, device_node) {
++			err = dma_chan_get(chan);
++			if (err == -ENODEV) {
++				/* module removed before we could use it */
++				list_del_init(&device->global_node);
++				break;
++			} else if (err)
++				pr_err("dmaengine: failed to get %s: (%d)",
++				       dev_name(&chan->dev), err);
++		}
++
++
+ 	list_add_tail(&client->global_node, &dma_client_list);
+ 	mutex_unlock(&dma_list_mutex);
+ }
+@@ -315,23 +344,17 @@ void dma_async_client_unregister(struct dma_client *client)
+ {
+ 	struct dma_device *device;
+ 	struct dma_chan *chan;
+-	enum dma_state_client ack;
+ 
+ 	if (!client)
+ 		return;
+ 
+ 	mutex_lock(&dma_list_mutex);
+-	/* free all channels the client is holding */
++	dmaengine_ref_count--;
++	BUG_ON(dmaengine_ref_count < 0);
++	/* drop channel references */
+ 	list_for_each_entry(device, &dma_device_list, global_node)
+-		list_for_each_entry(chan, &device->channels, device_node) {
+-			ack = client->event_callback(client, chan,
+-				DMA_RESOURCE_REMOVED);
+-
+-			if (ack == DMA_ACK) {
+-				dma_chan_put(chan);
+-				chan->client_count--;
+-			}
+-		}
++		list_for_each_entry(chan, &device->channels, device_node)
++			dma_chan_put(chan);
+ 
+ 	list_del(&client->global_node);
+ 	mutex_unlock(&dma_list_mutex);
+@@ -420,6 +443,19 @@ int dma_async_device_register(struct dma_device *device)
+ 	}
+ 
+ 	mutex_lock(&dma_list_mutex);
++	list_for_each_entry(chan, &device->channels, device_node) {
++		/* if clients are already waiting for channels we need to
++		 * take references on their behalf
++		 */
++		if (dmaengine_ref_count && dma_chan_get(chan) == -ENODEV) {
++			/* note we can only get here for the first
++			 * channel as the remaining channels are
++			 * guaranteed to get a reference
++			 */
++			rc = -ENODEV;
++			goto err_out;
++		}
++	}
+ 	list_add_tail(&device->global_node, &dma_device_list);
+ 	mutex_unlock(&dma_list_mutex);
+ 
+@@ -465,7 +501,9 @@ void dma_async_device_unregister(struct dma_device *device)
+ 	mutex_unlock(&dma_list_mutex);
+ 
+ 	list_for_each_entry(chan, &device->channels, device_node) {
+-		dma_clients_notify_removed(chan);
++		WARN_ONCE(chan->client_count,
++			  "%s called while %d clients hold a reference\n",
++			  __func__, chan->client_count);
+ 		device_unregister(&chan->dev);
+ 		dma_chan_release(chan);
+ 	}
+diff --git a/drivers/dma/dmatest.c b/drivers/dma/dmatest.c
+index ed9636b..db40508 100644
+--- a/drivers/dma/dmatest.c
++++ b/drivers/dma/dmatest.c
+@@ -215,7 +215,6 @@ static int dmatest_func(void *data)
+ 
+ 	smp_rmb();
+ 	chan = thread->chan;
+-	dma_chan_get(chan);
+ 
+ 	while (!kthread_should_stop()) {
+ 		total_tests++;
+@@ -293,7 +292,6 @@ static int dmatest_func(void *data)
+ 	}
+ 
+ 	ret = 0;
+-	dma_chan_put(chan);
+ 	kfree(thread->dstbuf);
+ err_dstbuf:
+ 	kfree(thread->srcbuf);
+diff --git a/drivers/dma/dw_dmac.c b/drivers/dma/dw_dmac.c
+index 0778d99..377dafa 100644
+--- a/drivers/dma/dw_dmac.c
++++ b/drivers/dma/dw_dmac.c
+@@ -773,7 +773,7 @@ static int dwc_alloc_chan_resources(struct dma_chan *chan,
+ 	dev_vdbg(&chan->dev, "alloc_chan_resources\n");
+ 
+ 	/* Channels doing slave DMA can only handle one client. */
+-	if (dwc->dws || client->slave) {
++	if (dwc->dws || (client && client->slave)) {
+ 		if (chan->client_count)
+ 			return -EBUSY;
+ 	}
+diff --git a/drivers/mmc/host/atmel-mci.c b/drivers/mmc/host/atmel-mci.c
+index 7a3f243..6c11f4d 100644
+--- a/drivers/mmc/host/atmel-mci.c
++++ b/drivers/mmc/host/atmel-mci.c
+@@ -593,10 +593,8 @@ atmci_submit_data_dma(struct atmel_mci *host, struct mmc_data *data)
+ 
+ 	/* If we don't have a channel, we can't do DMA */
+ 	chan = host->dma.chan;
+-	if (chan) {
+-		dma_chan_get(chan);
++	if (chan)
+ 		host->data_chan = chan;
+-	}
+ 
+ 	if (!chan)
+ 		return -ENODEV;
+diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
+index e4ec7e7..d18d37d 100644
+--- a/include/linux/dmaengine.h
++++ b/include/linux/dmaengine.h
+@@ -165,7 +165,6 @@ struct dma_slave {
+  */
+ 
+ struct dma_chan_percpu {
+-	local_t refcount;
+ 	/* stats */
+ 	unsigned long memcpy_count;
+ 	unsigned long bytes_transferred;
+@@ -205,26 +204,6 @@ struct dma_chan {
+ 
+ void dma_chan_cleanup(struct kref *kref);
+ 
+-static inline void dma_chan_get(struct dma_chan *chan)
+-{
+-	if (unlikely(chan->slow_ref))
+-		kref_get(&chan->refcount);
+-	else {
+-		local_inc(&(per_cpu_ptr(chan->local, get_cpu())->refcount));
+-		put_cpu();
+-	}
+-}
+-
+-static inline void dma_chan_put(struct dma_chan *chan)
+-{
+-	if (unlikely(chan->slow_ref))
+-		kref_put(&chan->refcount, dma_chan_cleanup);
+-	else {
+-		local_dec(&(per_cpu_ptr(chan->local, get_cpu())->refcount));
+-		put_cpu();
+-	}
+-}
+-
+ /*
+  * typedef dma_event_callback - function pointer to a DMA event callback
+  * For each channel added to the system this routine is called for each client.
+diff --git a/include/net/netdma.h b/include/net/netdma.h
+index f28c6e0..cbe2737 100644
+--- a/include/net/netdma.h
++++ b/include/net/netdma.h
+@@ -27,11 +27,11 @@
+ static inline struct dma_chan *get_softnet_dma(void)
+ {
+ 	struct dma_chan *chan;
++
+ 	rcu_read_lock();
+ 	chan = rcu_dereference(__get_cpu_var(softnet_data).net_dma);
+-	if (chan)
+-		dma_chan_get(chan);
+ 	rcu_read_unlock();
++
+ 	return chan;
+ }
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index c5aca0b..40ec69f 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1630,7 +1630,6 @@ skip_copy:
+ 
+ 		/* Safe to free early-copied skbs now */
+ 		__skb_queue_purge(&sk->sk_async_wait_queue);
+-		dma_chan_put(tp->ucopy.dma_chan);
+ 		tp->ucopy.dma_chan = NULL;
+ 	}
+ 	if (tp->ucopy.pinned_list) {
 
