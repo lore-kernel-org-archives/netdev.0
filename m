@@ -1,65 +1,87 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next-2.6 [PATCH 0/5] dccp: Feature negotiation - begin of Part II (core)
-Date: Sat, 15 Nov 2008 13:11:14 +0100
-Message-ID: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/5] dccp: Tidy up setsockopt calls
+Date: Sat, 15 Nov 2008 13:11:19 +0100
+Message-ID: <1226751079-15019-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+ <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1226751079-15019-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1226751079-15019-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1226751079-15019-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:42066 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754872AbYKOML1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2008 07:11:27 -0500
-In-Reply-To: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk>
+	id S1754999AbYKOMLa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2008 07:11:30 -0500
+In-Reply-To: <1226751079-15019-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This splits the setsockopt calls into two groups, depending on whether an
+integer argument (val) is required and whether routines being called do
+their own locking.
 
-I would like to continue with the patches in the Core set, the second
-out of three blocks. If the time of submission is inconvenient, please
-let me know, I will then resubmit later.
+Some options (such as setting the CCID) use u8 rather than int, so that for
+these the test with regard to integer-sizeof can not be used.
 
-Patches have been compile-tested with sparse checking enabled.
+The second switch-case statement now only has those statements which need
+locking and which make use of `val'.
 
-Gerrit
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Reviewed-by: Eugene Teo <eugeneteo@kernel.sg>
+---
+ net/dccp/proto.c |   23 ++++++++++++-----------
+ 1 files changed, 12 insertions(+), 11 deletions(-)
 
-
-Commit summary:
----------------
-The set begins the second set (out of three) of the feature negotiation patches,
-to provide a self-contained feature negotiation API for the DCCP protocol.
-
-The whole set is structured into 3 main blocks - (1) basis, (2) core,
-(3) integration and cleanup.
-
-Within these blocks, this set introduces the first parts of a new API to 
-communicate feature-negotiation changes via socket options.
-
-
-List of patches in this set:
-----------------------------
-Patch #1: Provides a mechanism to resolve CCID-dependent features. Since
-          CCIDs are a server-priority feature, this is done by the server.
-Patch #2: Deprecates old featneg API, as it was dangerous/clumsy.
-Patch #3: Support to negotiate checksum-coverage values (as in UDP-Lite).
-Patch #4: Deprecates Ack Ratio sysctl, to enable automatic updating.
-Patch #5: Tidies up the setsockopt interface for new additions.
-
-The set is also available for viewing online, beginning at
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=1a2c162f1f3fee8965ef4ea3f509cd5a88be6c4f
-
-
-Patch stats:
-------------
- Documentation/networking/dccp.txt |    3 
- include/linux/dccp.h              |   13 ---
- net/dccp/dccp.h                   |    2 
- net/dccp/feat.c                   |  109 ++++++++++++++++++--------------
- net/dccp/feat.h                   |    5 -
- net/dccp/minisocks.c              |    1 
- net/dccp/options.c                |    1 
- net/dccp/output.c                 |   13 ++-
- net/dccp/proto.c                  |  129 +++++++++++++++-----------------------
- net/dccp/sysctl.c                 |    7 --
- 10 files changed, 133 insertions(+), 150 deletions(-)
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -512,7 +512,17 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 	struct dccp_sock *dp = dccp_sk(sk);
+ 	int val, err = 0;
+ 
+-	if (optlen < sizeof(int))
++	switch (optname) {
++	case DCCP_SOCKOPT_PACKET_SIZE:
++		DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app\n");
++		return 0;
++	case DCCP_SOCKOPT_CHANGE_L:
++	case DCCP_SOCKOPT_CHANGE_R:
++		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
++		return 0;
++	}
++
++	if (optlen < (int)sizeof(int))
+ 		return -EINVAL;
+ 
+ 	if (get_user(val, (int __user *)optval))
+@@ -523,15 +533,6 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 
+ 	lock_sock(sk);
+ 	switch (optname) {
+-	case DCCP_SOCKOPT_PACKET_SIZE:
+-		DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app\n");
+-		err = 0;
+-		break;
+-	case DCCP_SOCKOPT_CHANGE_L:
+-	case DCCP_SOCKOPT_CHANGE_R:
+-		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
+-		err = 0;
+-		break;
+ 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
+ 		if (dp->dccps_role != DCCP_ROLE_SERVER)
+ 			err = -EOPNOTSUPP;
+@@ -548,8 +549,8 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		err = -ENOPROTOOPT;
+ 		break;
+ 	}
+-
+ 	release_sock(sk);
++
+ 	return err;
+ }
+ 
