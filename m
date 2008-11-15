@@ -1,57 +1,84 @@
-From: "Tarr, Stephen F" <Stephen.Tarr@xerox.com>
-Subject: RE: IPv6 and link state transitions
-Date: Fri, 14 Nov 2008 22:04:24 -0800
-Message-ID: <78EAC2D97114034EB62AAA10FCC251060543F924@USA7061MS01.na.xerox.net>
-References: <78EAC2D97114034EB62AAA10FCC2510608047D83@USA7061MS01.na.xerox.net> <20081114152840.41c0b6c6@extreme>
+From: "Karl Pickett" <karl.pickett@gmail.com>
+Subject: Re: tcp_tw_recycle broken?
+Date: Sat, 15 Nov 2008 02:29:27 -0500
+Message-ID: <f9be06770811142329x7d6dcb89vd573962970d503b3@mail.gmail.com>
+References: <f9be06770811142037v794cf4f8w7a82ab45c0f3820c@mail.gmail.com>
+	 <20081115055748.GY24654@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wvmler3.mail.xerox.com ([13.8.138.218]:34233 "EHLO
-	wvmler3.mail.xerox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276AbYKOGYE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2008 01:24:04 -0500
-Received: from wvmlir1.mail.xerox.com (wvmlir1.mail.xerox.com [13.147.8.221])
-	by wvmler3.mail.xerox.com (8.14.2/8.13.8) with ESMTP id mAF64WWf012333
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 22:04:32 -0800
-Received: from wvmlir1.mail.xerox.com (localhost.localdomain [127.0.0.1])
-	by wvmlir1.mail.xerox.com (8.14.2/8.13.6) with ESMTP id mAF64PFc028525
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 22:04:25 -0800
-Received: from USA0300GW002.na.xerox.net (usa0300gw002.na.xerox.net [13.135.210.15])
-	by wvmlir1.mail.xerox.com (8.14.2/8.13.6) with ESMTP id mAF64PES028519
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 22:04:25 -0800
-Content-class: urn:content-classes:message
+Received: from wf-out-1314.google.com ([209.85.200.171]:3530 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752722AbYKOH32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2008 02:29:28 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so1773426wfd.4
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 23:29:27 -0800 (PST)
+In-Reply-To: <20081115055748.GY24654@1wt.eu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Driver should not use set_bit directly.
-> The correct way for a driver that has carrier to work is
-> 
-> mydrvr_open(struct net_device *dev)
-> {
-> ...
-> 	if (mydrv_phy_isoffline(dev))
->               netif_carrier_off(dev);
-> ...
-> }
-> 
-> mydrv_phy_intr(...) {
->     if (mydrv_phy_isoffline(dev))
->           netif_carrier_off(dev);
->     else
->           netif_carrier_on(dev)
-> }
+On Sat, Nov 15, 2008 at 12:57 AM, Willy Tarreau <w@1wt.eu> wrote:
+> On Fri, Nov 14, 2008 at 11:37:06PM -0500, Karl Pickett wrote:
+>> Hey.  Developing a http proxy on fedora 9 (2.6.25) and running into a
+>> strange issue.
+>>
+>> Having the proxy set up and tear down 6000 tcp connections a second to
+>> the same test server ip and port,
+>> it quickly blows up (5 seconds) due to all 30000 ephemeral ports going
+>> to TIME_WAIT.
+>> setting tw_recycle=1 fixed the problem, and there are never more than
+>> a couple hundred ports in TIME_WAIT.
+>>
+>> BUT...
+>>
+>> Changing the load test to alternate between two test server ips, it
+>> blows up.  Connect: can't assign requested address. (note I am not
+>> binding before hand, I tried
+>> and binding first to port 0 made no difference - it just blows up then
+>> during the bind).
+>>
+>> And there are ~28K ports in TIME_WAIT.  For example:
+>>
+>> proxy_ip:30000 load_test_1:8080 TIME_WAIT
+>> proxy_ip:30000 load_test_2:8080 TIME_WAIT
+>> ...
+>> but most are not duplicates of the same local port.
+>>
+>>
+>> What. The.  Heck.
+>>
+>> So short of rebuilding the kernel with time_wait as 1 second, is there
+>> any other way not to brick my proxy?
+>
+> two things :
+>  - set tcp_tw_reuse to 1 too.
+>  - do a setsockopt(SO_REUSEADDR) before connect()
+>
+> Using this, my proxy has no problem at 35K sess/s on 2.6.25. I'm not sure
+> if disabling either option above still works.
+>
+> Hoping this helps,
+> Willy
+>
+>
 
-I actually tried that first, but that led to an extraneous
-up/down transition during initialization and (at least sometimes)
-extra packets transmitted after the link came up.
-Is there some other way to set the initial link state during
-initialization -- before the NETDEV_UP event is sent and
-without triggering an extra NETDEV_DOWN?  And should it really
-be the specific mac or phy driver or the generic phy code that
-sets that state?
+Thanks for the help.  Well, it looks like tw_reuse is what I wanted...
+not tw_recycle.  Based on a python test program over loopback,
+tw_reuse alone solves the problem... so_reuseaddr doesn't do anything.
+ And apparently the tcp code is too much for me...looking at the
+source I thought tw_reuse only can happen when timestamps are enabled.
+ But even after disabling timestamps tw_reuse still works over
+loopback.
 
--Steve Tarr
+I'll have to wait until Monday to try it again in the lab.  I was
+trying combinations of tw_reuse and recycle, too many to remember
+apparently.
 
+May I just confirm.. is tcp_tw_reuse NOT dependent on receiving timestamps?
+
+
+-- 
+Karl Pickett
