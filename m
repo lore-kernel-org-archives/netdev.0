@@ -1,130 +1,230 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/5] dccp: Deprecate Ack Ratio sysctl
-Date: Sat, 15 Nov 2008 13:11:18 +0100
-Message-ID: <1226751079-15019-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/5] dccp: Deprecate old setsockopt framework
+Date: Sat, 15 Nov 2008 13:11:16 +0100
+Message-ID: <1226751079-15019-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk>
  <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1226751079-15019-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1226751079-15019-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:42066 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755416AbYKOMLm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2008 07:11:42 -0500
-In-Reply-To: <1226751079-15019-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754809AbYKOMLp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2008 07:11:45 -0500
+In-Reply-To: <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch deprecates the Ack Ratio sysctl, since
- * Ack Ratio is entirely ignored by CCID-3 and CCID-4,
- * Ack Ratio currently doesn't work in CCID-2 (i.e. is always set to 1);
- * even if it would work in CCID-2, there is no point for a user to change it:
-   - Ack Ratio is constrained by cwnd (RFC 4341, 6.1.2),
-   - if Ack Ratio > cwnd, the system resorts to spurious RTO timeouts
-     (since waiting for Acks which will never arrive in this window),
-   - cwnd is not a user-configurable value.
+The previous setsockopt interface, which passed socket options via struct
+dccp_so_feat, is complicated/difficult to use. Continuing to support it leads to
+ugly code since the old approach did not distinguish between NN and SP values.
 
-The only reasonable place for Ack Ratio is to print it for debugging. It is
-planned to do this later on, as part of e.g. dccp_probe.
+This patch removes the old setsockopt interface and replaces it with two new
+functions to register NN/SP values for feature negotiation. 
+These are essentially wrappers around the internal __feat_register functions,
+with checking added to avoid
 
-With this patch Ack Ratio is now under full control of feature negotiation:
- * Ack Ratio is resolved as a dependency of the selected CCID;
- * if the chosen CCID supports it (i.e. CCID == CCID-2), Ack Ratio is set to
-   the default of 2, following RFC 4340, 11.3 - "New connections start with Ack
-   Ratio 2 for both endpoints";
- * what happens then is part of another patch set, since it concerns the
-   dynamic update of Ack Ratio while the connection is in full flight.
-
-Thanks to Tomasz Grobelny for discussion leading up to this patch.
+ * wrong usage (type);
+ * changing values while the connection is in progress.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- Documentation/networking/dccp.txt |    3 ---
- include/linux/dccp.h              |    2 --
- net/dccp/dccp.h                   |    1 -
- net/dccp/minisocks.c              |    1 -
- net/dccp/options.c                |    1 -
- net/dccp/sysctl.c                 |    7 -------
- 6 files changed, 0 insertions(+), 15 deletions(-)
+ include/linux/dccp.h |    7 -----
+ net/dccp/feat.c      |   72 ++++++++++++++++++-------------------------------
+ net/dccp/feat.h      |    5 ++-
+ net/dccp/proto.c     |   53 +-----------------------------------
+ 4 files changed, 32 insertions(+), 105 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -125,9 +125,6 @@ send_ndp = 1
- send_ackvec = 1
- 	Whether or not to send Ack Vector options (sec. 11.5).
- 
--ack_ratio = 2
--	The default Ack Ratio (sec. 11.3) to use.
--
- tx_ccid = 2
- 	Default CCID for the sender-receiver half-connection.
- 
 --- a/include/linux/dccp.h
 +++ b/include/linux/dccp.h
-@@ -368,7 +368,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
-   * @dccpms_ccid - Congestion Control Id (CCID) (section 10)
-   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
-   * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
--  * @dccpms_ack_ratio - Ack Ratio Feature (section 11.3)
-   * @dccpms_pending - List of features being negotiated
-   * @dccpms_conf -
-   */
-@@ -378,7 +377,6 @@ struct dccp_minisock {
- 	__u8			dccpms_tx_ccid;
- 	__u8			dccpms_send_ack_vector;
- 	__u8			dccpms_send_ndp_count;
--	__u8			dccpms_ack_ratio;
- 	struct list_head	dccpms_pending;
- 	struct list_head	dccpms_conf;
+@@ -193,13 +193,6 @@ enum dccp_feature_numbers {
+ 	DCCPF_MAX_CCID_SPECIFIC = 255,
  };
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -98,7 +98,6 @@ extern int  sysctl_dccp_retries2;
- extern int  sysctl_dccp_feat_sequence_window;
- extern int  sysctl_dccp_feat_rx_ccid;
- extern int  sysctl_dccp_feat_tx_ccid;
--extern int  sysctl_dccp_feat_ack_ratio;
- extern int  sysctl_dccp_feat_send_ack_vector;
- extern int  sysctl_dccp_feat_send_ndp_count;
- extern int  sysctl_dccp_tx_qlen;
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -47,7 +47,6 @@ void dccp_minisock_init(struct dccp_minisock *dmsk)
- 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
- 	dmsk->dccpms_rx_ccid	     = sysctl_dccp_feat_rx_ccid;
- 	dmsk->dccpms_tx_ccid	     = sysctl_dccp_feat_tx_ccid;
--	dmsk->dccpms_ack_ratio	     = sysctl_dccp_feat_ack_ratio;
- 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
- 	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
- }
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -26,7 +26,6 @@
- int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
- int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
- int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
--int sysctl_dccp_feat_ack_ratio	      = DCCPF_INITIAL_ACK_RATIO;
- int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
- int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
  
---- a/net/dccp/sysctl.c
-+++ b/net/dccp/sysctl.c
-@@ -41,13 +41,6 @@ static struct ctl_table dccp_default_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
--		.procname	= "ack_ratio",
--		.data		= &sysctl_dccp_feat_ack_ratio,
--		.maxlen		= sizeof(sysctl_dccp_feat_ack_ratio),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
--	},
--	{
- 		.procname	= "send_ackvec",
- 		.data		= &sysctl_dccp_feat_send_ack_vector,
- 		.maxlen		= sizeof(sysctl_dccp_feat_send_ack_vector),
+-/* this structure is argument to DCCP_SOCKOPT_CHANGE_X */
+-struct dccp_so_feat {
+-	__u8 dccpsf_feat;
+-	__u8 __user *dccpsf_val;
+-	__u8 dccpsf_len;
+-};
+-
+ /* DCCP socket options */
+ #define DCCP_SOCKOPT_PACKET_SIZE	1 /* XXX deprecated, without effect */
+ #define DCCP_SOCKOPT_SERVICE		2
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -364,53 +364,35 @@ static int __feat_register_sp(struct list_head *fn, u8 feat, u8 is_local,
+ 	return dccp_feat_push_change(fn, feat, is_local, mandatory, &fval);
+ }
+ 
+-int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+-		     u8 *val, u8 len, gfp_t gfp)
+-{
+-	struct dccp_opt_pend *opt;
+-
+-	dccp_feat_debug(type, feature, *val);
+-
+-	if (len > 3) {
+-		DCCP_WARN("invalid length %d\n", len);
++/**
++ * dccp_feat_register_sp  -  Register requests to change SP feature values
++ * @sk: client or listening socket
++ * @feat: one of %dccp_feature_numbers
++ * @is_local: whether the local (1) or remote (0) @feat is meant
++ * @list: array of preferred values, in descending order of preference
++ * @len: length of @list in bytes
++ */
++int dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
++			  u8 const *list, u8 len)
++{	 /* any changes must be registered before establishing the connection */
++	if (sk->sk_state != DCCP_CLOSED)
++		return -EISCONN;
++	if (dccp_feat_type(feat) != FEAT_SP)
+ 		return -EINVAL;
+-	}
+-	/* XXX add further sanity checks */
+-
+-	/* check if that feature is already being negotiated */
+-	list_for_each_entry(opt, &dmsk->dccpms_pending, dccpop_node) {
+-		/* ok we found a negotiation for this option already */
+-		if (opt->dccpop_feat == feature && opt->dccpop_type == type) {
+-			dccp_pr_debug("Replacing old\n");
+-			/* replace */
+-			BUG_ON(opt->dccpop_val == NULL);
+-			kfree(opt->dccpop_val);
+-			opt->dccpop_val	 = val;
+-			opt->dccpop_len	 = len;
+-			opt->dccpop_conf = 0;
+-			return 0;
+-		}
+-	}
+-
+-	/* negotiation for a new feature */
+-	opt = kmalloc(sizeof(*opt), gfp);
+-	if (opt == NULL)
+-		return -ENOMEM;
+-
+-	opt->dccpop_type = type;
+-	opt->dccpop_feat = feature;
+-	opt->dccpop_len	 = len;
+-	opt->dccpop_val	 = val;
+-	opt->dccpop_conf = 0;
+-	opt->dccpop_sc	 = NULL;
+-
+-	BUG_ON(opt->dccpop_val == NULL);
+-
+-	list_add_tail(&opt->dccpop_node, &dmsk->dccpms_pending);
+-	return 0;
++	return __feat_register_sp(&dccp_sk(sk)->dccps_featneg, feat, is_local,
++				  0, list, len);
+ }
+ 
+-EXPORT_SYMBOL_GPL(dccp_feat_change);
++/* Analogous to dccp_feat_register_sp(), but for non-negotiable values */
++int dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val)
++{
++	/* any changes must be registered before establishing the connection */
++	if (sk->sk_state != DCCP_CLOSED)
++		return -EISCONN;
++	if (dccp_feat_type(feat) != FEAT_NN)
++		return -EINVAL;
++	return __feat_register_nn(&dccp_sk(sk)->dccps_featneg, feat, 0, val);
++}
+ 
+ /*
+  *	Tracking features whose value depend on the choice of CCID
+@@ -1108,7 +1090,7 @@ int dccp_feat_init(struct sock *sk)
+ 
+ 	/* Ack ratio */
+ 	rc = __feat_register_nn(&dp->dccps_featneg, DCCPF_ACK_RATIO, 0,
+-				dmsk->dccpms_ack_ratio);
++				dp->dccps_l_ack_ratio);
+ out:
+ 	return rc;
+ }
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -111,8 +111,9 @@ static inline void dccp_feat_debug(const u8 type, const u8 feat, const u8 val)
+ #define dccp_feat_debug(type, feat, val)
+ #endif /* CONFIG_IP_DCCP_DEBUG */
+ 
+-extern int  dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+-			     u8 *val, u8 len, gfp_t gfp);
++extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
++				  u8 const *list, u8 len);
++extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
+ extern int  dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature,
+ 				  u8 *val, u8 len);
+ extern int  dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -470,44 +470,6 @@ static int dccp_setsockopt_service(struct sock *sk, const __be32 service,
+ 	return 0;
+ }
+ 
+-/* byte 1 is feature.  the rest is the preference list */
+-static int dccp_setsockopt_change(struct sock *sk, int type,
+-				  struct dccp_so_feat __user *optval)
+-{
+-	struct dccp_so_feat opt;
+-	u8 *val;
+-	int rc;
+-
+-	if (copy_from_user(&opt, optval, sizeof(opt)))
+-		return -EFAULT;
+-	/*
+-	 * rfc4340: 6.1. Change Options
+-	 */
+-	if (opt.dccpsf_len < 1)
+-		return -EINVAL;
+-
+-	val = kmalloc(opt.dccpsf_len, GFP_KERNEL);
+-	if (!val)
+-		return -ENOMEM;
+-
+-	if (copy_from_user(val, opt.dccpsf_val, opt.dccpsf_len)) {
+-		rc = -EFAULT;
+-		goto out_free_val;
+-	}
+-
+-	rc = dccp_feat_change(dccp_msk(sk), type, opt.dccpsf_feat,
+-			      val, opt.dccpsf_len, GFP_KERNEL);
+-	if (rc)
+-		goto out_free_val;
+-
+-out:
+-	return rc;
+-
+-out_free_val:
+-	kfree(val);
+-	goto out;
+-}
+-
+ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		char __user *optval, int optlen)
+ {
+@@ -530,20 +492,9 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		err = 0;
+ 		break;
+ 	case DCCP_SOCKOPT_CHANGE_L:
+-		if (optlen != sizeof(struct dccp_so_feat))
+-			err = -EINVAL;
+-		else
+-			err = dccp_setsockopt_change(sk, DCCPO_CHANGE_L,
+-						     (struct dccp_so_feat __user *)
+-						     optval);
+-		break;
+ 	case DCCP_SOCKOPT_CHANGE_R:
+-		if (optlen != sizeof(struct dccp_so_feat))
+-			err = -EINVAL;
+-		else
+-			err = dccp_setsockopt_change(sk, DCCPO_CHANGE_R,
+-						     (struct dccp_so_feat __user *)
+-						     optval);
++		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
++		err = 0;
+ 		break;
+ 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
+ 		if (dp->dccps_role != DCCP_ROLE_SERVER)
