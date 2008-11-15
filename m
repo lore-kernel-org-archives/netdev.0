@@ -1,163 +1,126 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [BUG] net: fix /proc/net/snmp as memory corruptor
-Date: Fri, 14 Nov 2008 22:02:37 -0800
-Message-ID: <20081115060237.GA3910@kroah.com>
-References: <491D07E0.9010903@cosmosbay.com> <20081115051015.GB26468@kroah.com> <491E5D4D.1080800@cosmosbay.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 03/13] dmaengine: up-level reference counting to the
+ module level
+Date: Fri, 14 Nov 2008 22:08:42 -0800
+Message-ID: <20081114220842.482d56e5.akpm@linux-foundation.org>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+	<20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Nq2Wo0NMKNjxTN9z"
-Content-Transfer-Encoding: 8bit
-Cc: stable@kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
+	g.liakhovetski@gmx.de, nicolas.ferre@atmel.com
+To: Dan Williams <dan.j.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:38515 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751906AbYKOGFr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2008 01:05:47 -0500
-Content-Disposition: inline
-In-Reply-To: <491E5D4D.1080800@cosmosbay.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47107 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752114AbYKOGIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2008 01:08:50 -0500
+In-Reply-To: <20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 14 Nov 2008 14:34:32 -0700 Dan Williams <dan.j.williams@intel.com> wrote:
 
---Nq2Wo0NMKNjxTN9z
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: 8bit
+> Simply, if a client wants any dmaengine channel then prevent all dmaengine
+> modules from being removed.  Once the clients are done re-enable module
+> removal.
+> 
+> Why?, beyond reducing complication:
+> 1/ Tracking reference counts per-transaction in an efficient manner, as
+>    is currently done, requires a complicated scheme to avoid cache-line
+>    bouncing effects.
+> 2/ Per-transaction ref-counting gives the false impression that a
+>    dma-driver can be gracefully removed ahead of its user (net, md, or
+>    dma-slave)
+> 3/ None of the in-tree dma-drivers talk to hot pluggable hardware, but
+>    if such an engine were built one day we still would not need to notify
+>    clients of remove events.  The driver can simply return NULL to a
+>    ->prep() request, something that is much easier for a client to handle.
+> 
+> ...
+>  
+> +static struct module *dma_chan_to_owner(struct dma_chan *chan)
+> +{
+> +	return chan->device->dev->driver->owner;
+> +}
 
-On Sat, Nov 15, 2008 at 06:25:33AM +0100, Eric Dumazet wrote:
-> Greg KH a écrit :
->> On Fri, Nov 14, 2008 at 06:08:48AM +0100, Eric Dumazet wrote:
->>> Hello Greg
->>>
->>> A patch was submited about /proc/net/snmp being a memory corruptor and 
->>> not SMP safe
->>>
->>> (commit b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8)
->>>
->>> These bugs are present on 2.6.26 & 2.6.27.
->> I looking at this, it doesn't seem to apply at all to the .27 tree.  If
->> David doesn't object, care to backport it there and send it to
->> stable@kernel.org?
+Has this all been tested with CONFIG_MODULES=n?
+
+It looks like we have a lot of unneeded code if CONFIG_MODULES=n. 
+However that might not be a case which is worth bothering about.
+
+> +/**
+> + * balance_ref_count - catch up the channel reference count
+> + */
+> +static void balance_ref_count(struct dma_chan *chan)
+
+Forgot to kerneldocument the argument.
+
+> +{
+> +	struct module *owner = dma_chan_to_owner(chan);
+> +
+> +	while (chan->client_count < dmaengine_ref_count) {
+> +		__module_get(owner);
+> +		chan->client_count++;
+> +	}
+> +}
+
+The locking for ->client_count is undocumented.
+
+> +/**
+> + * dma_chan_get - try to grab a dma channel's parent driver module
+> + * @chan - channel to grab
+> + */
+> +static int dma_chan_get(struct dma_chan *chan)
+> +{
+> +	int err = -ENODEV;
+> +	struct module *owner = dma_chan_to_owner(chan);
+> +
+> +	if (chan->client_count) {
+> +		__module_get(owner);
+> +		err = 0;
+> +	} else if (try_module_get(owner))
+> +		err = 0;
+
+I wonder if try_module_get() could be used in both cases (migt not make
+sense to do so though).
+
+> +	if (err == 0)
+> +		chan->client_count++;
+
+Locking for this?
+
+> +	/* allocate upon first client reference */
+> +	if (chan->client_count == 1 && err == 0) {
+> +		int desc = chan->device->device_alloc_chan_resources(chan, NULL);
+> +
+> +		if (desc < 0) {
+> +			chan->client_count = 0;
+> +			module_put(owner);
+> +			err = -ENOMEM;
+
+Shouldn't we just propagate the ->device_alloc_chan_resources() return value?
+
+> +		} else
+> +			balance_ref_count(chan);
+> +	}
+> +
+> +	return err;
+> +}
+> +
+> +static void dma_chan_put(struct dma_chan *chan)
+> +{
+> +	if (!chan->client_count)
+> +		return; /* this channel failed alloc_chan_resources */
+
+Or we had a bug ;)
+
+> +	chan->client_count--;
+
+Undocumented locking..
+
 >
-> Strange... I just tried to apply patch on top of a fresh linux-2.6.27.6 
-> tree and got no error
+> ...
 >
-> # patch -p1 < /tmp/icmp_snmp.patch
-> patching file net/ipv4/proc.c
-> #
-
-I've attached the patch I tried to apply below.  It fails with:
-	$ patch -p1 --dry-run < ../net-fix-proc-net-snmp-as-memory-corruptor.patch 
-	patching file net/ipv4/proc.c
-	Hunk #1 FAILED at 237.
-	1 out of 1 hunk FAILED -- saving rejects to file net/ipv4/proc.c.rej
-
-
-Any thoughts?
-
-thanks,
-
-greg k-h
-
---Nq2Wo0NMKNjxTN9z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="net-fix-proc-net-snmp-as-memory-corruptor.patch"
-
->From b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8 Mon Sep 17 00:00:00 2001
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 10 Nov 2008 21:43:08 -0800
-Subject: net: fix /proc/net/snmp as memory corruptor
-
-From: Eric Dumazet <dada1@cosmosbay.com>
-
-commit b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8 upstream.
-
-icmpmsg_put() can happily corrupt kernel memory, using a static
-table and forgetting to reset an array index in a loop.
-
-Remove the static array since its not safe without proper locking.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -237,43 +237,45 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_SENTINEL
- };
- 
-+static void icmpmsg_put_line(struct seq_file *seq, unsigned long *vals,
-+			     unsigned short *type, int count)
-+{
-+	int j;
-+
-+	if (count) {
-+		seq_printf(seq, "nIcmpMsg:");
-+		for (j = 0; j < count; ++j)
-+			seq_printf(seq, " %sType%u",
-+				type[j] & 0x100 ? "Out" : "In",
-+				type[j] & 0xff);
-+		seq_printf(seq, "nIcmpMsg:");
-+		for (j = 0; j < count; ++j)
-+			seq_printf(seq, " %lu", vals[j]);
-+	}
-+}
-+
- static void icmpmsg_put(struct seq_file *seq)
- {
- #define PERLINE	16
- 
--	int j, i, count;
--	static int out[PERLINE];
-+	int i, count;
-+	unsigned short type[PERLINE];
-+	unsigned long vals[PERLINE], val;
- 	struct net *net = seq->private;
- 
- 	count = 0;
- 	for (i = 0; i < ICMPMSG_MIB_MAX; i++) {
--
--		if (snmp_fold_field((void **) net->mib.icmpmsg_statistics, i))
--			out[count++] = i;
--		if (count < PERLINE)
--			continue;
--
--		seq_printf(seq, "nIcmpMsg:");
--		for (j = 0; j < PERLINE; ++j)
--			seq_printf(seq, " %sType%u", i & 0x100 ? "Out" : "In",
--					i & 0xff);
--		seq_printf(seq, "nIcmpMsg: ");
--		for (j = 0; j < PERLINE; ++j)
--			seq_printf(seq, " %lu",
--				snmp_fold_field((void **) net->mib.icmpmsg_statistics,
--				out[j]));
--		seq_putc(seq, 'n');
--	}
--	if (count) {
--		seq_printf(seq, "nIcmpMsg:");
--		for (j = 0; j < count; ++j)
--			seq_printf(seq, " %sType%u", out[j] & 0x100 ? "Out" 
--				"In", out[j] & 0xff);
--		seq_printf(seq, "nIcmpMsg:");
--		for (j = 0; j < count; ++j)
--			seq_printf(seq, " %lu", snmp_fold_field((void **)
--				net->mib.icmpmsg_statistics, out[j]));
-+		val = snmp_fold_field((void **) net->mib.icmpmsg_statistics, i);
-+		if (val) {
-+			type[count] = i;
-+			vals[count++] = val;
-+		}
-+		if (count == PERLINE) {
-+			icmpmsg_put_line(seq, vals, type, count);
-+			count = 0;
-+		}
- 	}
-+	icmpmsg_put_line(seq, vals, type, count);
- 
- #undef PERLINE
- }
-
---Nq2Wo0NMKNjxTN9z--
