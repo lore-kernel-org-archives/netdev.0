@@ -1,175 +1,111 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [stable] [BUG] net: fix /proc/net/snmp as memory corruptor
-Date: Sat, 15 Nov 2008 09:37:27 +0100
-Message-ID: <491E8A47.1090007@cosmosbay.com>
-References: <491D07E0.9010903@cosmosbay.com> <20081115051015.GB26468@kroah.com> <491E5D4D.1080800@cosmosbay.com> <20081115060237.GA3910@kroah.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [RFC] dccp ccid-3: High-res or low-res timers?
+Date: Sat, 15 Nov 2008 11:50:42 +0100
+Message-ID: <20081115105042.GA7798@gerrit.erg.abdn.ac.uk>
+References: <5bc4c4570810171021ua6371ebs1ffdf471382a8b13@mail.gmail.com> <20081105052733.GG6564@gerrit.erg.abdn.ac.uk> <5bc4c4570811060538h2d662507u5de1fb62c61cd569@mail.gmail.com> <20081106152048.GA3621@gerrit.erg.abdn.ac.uk> <20081106153824.GA9709@ghostprotocols.net> <5bc4c4570811060946j4d5d8d1mf88f8b92c72b59c7@mail.gmail.com> <5bc4c4570811061004nfc2afdcn6035d49ae654aef1@mail.gmail.com> <5bc4c4570811061017j3acef860vee84992e7295d06d@mail.gmail.com> <5bc4c4570811061405qe72e43cx861c537885804132@mail.gmail.com> <20081108085035.GA7112@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010709040606020202000607"
-Cc: stable@kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Leandro Sales <leandroal@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	ian.mcdonald@jandi.co.nz, DCCP Mailing List <dccp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:58622 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753408AbYKOIhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2008 03:37:40 -0500
-In-Reply-To: <20081115060237.GA3910@kroah.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40665 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753796AbYKOKvW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2008 05:51:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20081108085035.GA7112@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010709040606020202000607
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+I would appreciate some advice and insights regarding the use of
+high-resolution timers within a transport protocol, specifically
+DCCP with CCID-3 (RFC 5348).
 
-Greg KH a =E9crit :
-> On Sat, Nov 15, 2008 at 06:25:33AM +0100, Eric Dumazet wrote:
->> Greg KH a =E9crit :
->>> On Fri, Nov 14, 2008 at 06:08:48AM +0100, Eric Dumazet wrote:
->>>> Hello Greg
->>>>
->>>> A patch was submited about /proc/net/snmp being a memory corruptor a=
-nd=20
->>>> not SMP safe
->>>>
->>>> (commit b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8)
->>>>
->>>> These bugs are present on 2.6.26 & 2.6.27.
->>> I looking at this, it doesn't seem to apply at all to the .27 tree.  =
-If
->>> David doesn't object, care to backport it there and send it to
->>> stable@kernel.org?
->> Strange... I just tried to apply patch on top of a fresh linux-2.6.27.=
-6=20
->> tree and got no error
->>
->> # patch -p1 < /tmp/icmp_snmp.patch
->> patching file net/ipv4/proc.c
->> #
->=20
-> I've attached the patch I tried to apply below.  It fails with:
-> 	$ patch -p1 --dry-run < ../net-fix-proc-net-snmp-as-memory-corruptor.p=
-atch=20
-> 	patching file net/ipv4/proc.c
-> 	Hunk #1 FAILED at 237.
-> 	1 out of 1 hunk FAILED -- saving rejects to file net/ipv4/proc.c.rej
->=20
->=20
-> Any thoughts?
->=20
-> thanks,
->=20
-> greg k-h
->=20
+Currently the implementation is in a limbo of high-resolution and
+low-resolution code. It is not good, neither here nor there, so
+I would like to work on making the interface consistent.
 
-Yes, you lost all the '\' character in "\n" sequences...=20
-Also one missing ":" at the end of one line
+After thinking this through I encountered a number of points
+which made me question whether high-resolution timers will lead to
+better performance and a cleaner interface.
 
-I dont know how you did it :)
+I'd appreciate comments and input on this, the points are below.
 
-Here is the (manually) corrected file=20
+1. Handling unavoidable waiting times
+-------------------------------------
+ One can not expect that, if the scheduling clock says 'send in x
+ microseconds', a packet will indeed leave after x microseconds; due to
+ waiting times. An example is in net/dccp/timer.c, when the socket is
+ currently locked - we wait for a "small" amount of time:
 
---------------010709040606020202000607
-Content-Type: text/plain;
- name="p.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="p.patch"
+	bh_lock_sock(sk);
+	if (sock_owned_by_user(sk))
+		sk_reset_timer(sk, &dp->dccps_xmit_timer, jiffies + 1);
+	else
+		dccp_write_xmit(sk, 0);
+	bh_unlock_sock(sk);
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 10 Nov 2008 21:43:08 -0800
-Subject: net: fix /proc/net/snmp as memory corruptor
 
-From: Eric Dumazet <dada1@cosmosbay.com>
+2. Dependency on high-resolution timers
+---------------------------------------
+ Committing the CCID-3/CCID-4 implementations to using high-resolution
+ timers means that the modules can not be built/loaded when the kernel
+ does not offer sufficient resolution.
 
-commit b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8 upstream.
+ This has recently made it hard for someone using CCID-3 to find out
+ why DCCP would not run, where the cause was that high-resolution timers
+ were not enabled in the kernel.
 
-icmpmsg_put() can happily corrupt kernel memory, using a static
-table and forgetting to reset an array index in a loop.
 
-Remove the static array since its not safe without proper locking.
+3. Noise in the output
+----------------------
+When tracking the speed of a car every 10 seconds, there is a lot of variation
+in the values, due to stopping at traffic lights, accelerating etc. But when
+considering a larger timescale, one can say that the average speed from city
+A to city B was xx mph, since the whole journey took 2.5 hours.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+The same can currently be observed with X_recv - there is one commit which 
+tries to make X_recv as fine-grained as possible, it is labelled "dccp ccid-3:
+Update the computation of X_recv",
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=2d0b687025494e5d8918ffcc7029d793390835cc
 
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -237,43 +237,45 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_SENTINEL
- };
- 
-+static void icmpmsg_put_line(struct seq_file *seq, unsigned long *vals,
-+			     unsigned short *type, int count)
-+{
-+	int j;
-+
-+	if (count) {
-+		seq_printf(seq, "\nIcmpMsg:");
-+		for (j = 0; j < count; ++j)
-+			seq_printf(seq, " %sType%u",
-+				type[j] & 0x100 ? "Out" : "In",
-+				type[j] & 0xff);
-+		seq_printf(seq, "\nIcmpMsg:");
-+		for (j = 0; j < count; ++j)
-+			seq_printf(seq, " %lu", vals[j]);
-+	}
-+}
-+
- static void icmpmsg_put(struct seq_file *seq)
- {
- #define PERLINE	16
- 
--	int j, i, count;
--	static int out[PERLINE];
-+	int i, count;
-+	unsigned short type[PERLINE];
-+	unsigned long vals[PERLINE], val;
- 	struct net *net = seq->private;
- 
- 	count = 0;
- 	for (i = 0; i < ICMPMSG_MIB_MAX; i++) {
--
--		if (snmp_fold_field((void **) net->mib.icmpmsg_statistics, i))
--			out[count++] = i;
--		if (count < PERLINE)
--			continue;
--
--		seq_printf(seq, "\nIcmpMsg:");
--		for (j = 0; j < PERLINE; ++j)
--			seq_printf(seq, " %sType%u", i & 0x100 ? "Out" : "In",
--					i & 0xff);
--		seq_printf(seq, "\nIcmpMsg: ");
--		for (j = 0; j < PERLINE; ++j)
--			seq_printf(seq, " %lu",
--				snmp_fold_field((void **) net->mib.icmpmsg_statistics,
--				out[j]));
--		seq_putc(seq, '\n');
--	}
--	if (count) {
--		seq_printf(seq, "\nIcmpMsg:");
--		for (j = 0; j < count; ++j)
--			seq_printf(seq, " %sType%u", out[j] & 0x100 ? "Out" :
--				"In", out[j] & 0xff);
--		seq_printf(seq, "\nIcmpMsg:");
--		for (j = 0; j < count; ++j)
--			seq_printf(seq, " %lu", snmp_fold_field((void **)
--				net->mib.icmpmsg_statistics, out[j]));
-+		val = snmp_fold_field((void **) net->mib.icmpmsg_statistics, i);
-+		if (val) {
-+			type[count] = i;
-+			vals[count++] = val;
-+		}
-+		if (count == PERLINE) {
-+			icmpmsg_put_line(seq, vals, type, count);
-+			count = 0;
-+		}
- 	}
-+	icmpmsg_put_line(seq, vals, type, count);
- 
- #undef PERLINE
- }
+The result is that X_recv now shows much wider variation, on a small timescale
+there is a lot happening. It can best be seen by plotting the X_recv using
+dccp_probe. Without this commit the graphs are much 'quieter' and just show
+the long-term average.
 
---------------010709040606020202000607--
+In TCP Westwood for instance a low-pass filter is used to filter out the 
+high-frequency changes in the measurements of the Ack Rate:
+
+"TCP Westwood: Bandwidth Estimation for Enhanced Transport over Wireless Links"
+Mobicom 2001
+http://www.cs.ucla.edu/NRL/hpi/tcpw/tcpw_papers/2001-mobicom-0.pdf
+
+I'd appreciate opinions on this, as I think 
+
+With regard to CCID-3, it also seems to be be better to revert the above
+commit and just use long-term averages.
+
+
+4. Not sure using high-resolution is the answer
+-----------------------------------------------
+While a fine-grained timer resolution may be desirable, it is not
+necessarily a must. The implementation of rate-based pacing in TCP
+(http://www.isi.edu/~johnh/PAPERS/Visweswaraiah97b.html) for instance
+also used low(er) resolution timers and it worked.
+
+The RFC for CCID-3 (http://www.rfc-archive.org/getrfc.php?rfc=5348) also
+does not high-resolution; it supports coarse-grained timestamps (section
+6.3 and RFC 4342) and discusses implementation issues when using a 
+lower resolution (section 8.3).
+
+The counter-argument could be that CCID-3 is a transport protocol with a
+built-in Token Bucket Filter so that similar considerations apply as for
+the Qdisc API (net/sched/sch_api.c).
+
+Summing up, I have doubts that basing CCID-3 will bring advantages and
+would much rather go the other way and (consistently) use lower resolution.
+
+Thoughts?
