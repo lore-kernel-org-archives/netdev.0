@@ -1,55 +1,36 @@
-From: "Karl Pickett" <karl.pickett@gmail.com>
-Subject: tcp_tw_recycle broken?
-Date: Fri, 14 Nov 2008 23:37:06 -0500
-Message-ID: <f9be06770811142037v794cf4f8w7a82ab45c0f3820c@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [BUG] net: fix /proc/net/snmp as memory corruptor
+Date: Fri, 14 Nov 2008 21:10:15 -0800
+Message-ID: <20081115051015.GB26468@kroah.com>
+References: <491D07E0.9010903@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@kernel.org, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.233]:32093 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751782AbYKOEhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 23:37:07 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so1673280rvb.1
-        for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 20:37:06 -0800 (PST)
+Received: from kroah.org ([198.145.64.141]:51505 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751208AbYKOFQL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2008 00:16:11 -0500
 Content-Disposition: inline
+In-Reply-To: <491D07E0.9010903@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey.  Developing a http proxy on fedora 9 (2.6.25) and running into a
-strange issue.
+On Fri, Nov 14, 2008 at 06:08:48AM +0100, Eric Dumazet wrote:
+> Hello Greg
+> 
+> A patch was submited about /proc/net/snmp being a memory corruptor and not SMP safe
+> 
+> (commit b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8)
+> 
+> These bugs are present on 2.6.26 & 2.6.27.
 
-Having the proxy set up and tear down 6000 tcp connections a second to
-the same test server ip and port,
-it quickly blows up (5 seconds) due to all 30000 ephemeral ports going
-to TIME_WAIT.
-setting tw_recycle=1 fixed the problem, and there are never more than
-a couple hundred ports in TIME_WAIT.
+I looking at this, it doesn't seem to apply at all to the .27 tree.  If
+David doesn't object, care to backport it there and send it to
+stable@kernel.org?
 
-BUT...
+thanks,
 
-Changing the load test to alternate between two test server ips, it
-blows up.  Connect: can't assign requested address. (note I am not
-binding before hand, I tried
-and binding first to port 0 made no difference - it just blows up then
-during the bind).
-
-And there are ~28K ports in TIME_WAIT.  For example:
-
-proxy_ip:30000 load_test_1:8080 TIME_WAIT
-proxy_ip:30000 load_test_2:8080 TIME_WAIT
-...
-but most are not duplicates of the same local port.
-
-
-What. The.  Heck.
-
-So short of rebuilding the kernel with time_wait as 1 second, is there
-any other way not to brick my proxy?
-
---
-Karl Pickett
-
---
-Karl Pickett
+greg k-h
