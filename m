@@ -1,121 +1,128 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/5] dccp: Feature negotiation for minimum-checksum-coverage
-Date: Sat, 15 Nov 2008 13:11:17 +0100
-Message-ID: <1226751079-15019-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/5] dccp: Mechanism to resolve CCID dependencies
+Date: Sat, 15 Nov 2008 13:11:15 +0100
+Message-ID: <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk>
  <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1226751079-15019-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:42066 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755207AbYKOMLd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2008 07:11:33 -0500
-In-Reply-To: <1226751079-15019-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755273AbYKOMLk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2008 07:11:40 -0500
+In-Reply-To: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides feature negotiation for server minimum checksum coverage
-which so far has been missing.
+This adds a hook to resolve features whose value depends on the choice of
+CCID. It is done at the server since it can only be done after the CCID
+values have been negotiated; i.e. the client will add its CCID preference
+list on the Change options sent in the Request, which will be reconciled
+with the local preference list of the server.
 
-Since sender/receiver coverage values range only from 0...15, their
-type has also been reduced in size from u16 to u4.
-
-Feature-negotiation options are now generated for both sender and receiver
-coverage, i.e. when the peer has `forgotten' to enable partial coverage
-then feature negotiation will automatically enable (negotiate) the partial
-coverage value for this connection.
+The concept is documented on
+http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
+				implementation_notes.html#ccid_dependencies
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- include/linux/dccp.h |    4 +-
- net/dccp/proto.c     |   53 +++++++++++++++++++++++++++++++++++++------------
- 2 files changed, 42 insertions(+), 15 deletions(-)
+ net/dccp/dccp.h   |    1 +
+ net/dccp/feat.c   |   37 +++++++++++++++++++++++++++++++++++++
+ net/dccp/output.c |   13 +++++++++----
+ 3 files changed, 47 insertions(+), 4 deletions(-)
 
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -527,8 +527,8 @@ struct dccp_sock {
- 	__u32				dccps_timestamp_time;
- 	__u16				dccps_l_ack_ratio;
- 	__u16				dccps_r_ack_ratio;
--	__u16				dccps_pcslen;
--	__u16				dccps_pcrlen;
-+	__u8				dccps_pcslen:4;
-+	__u8				dccps_pcrlen:4;
- 	__u64				dccps_ndp_count:48;
- 	unsigned long			dccps_rate_last;
- 	struct dccp_minisock		dccps_minisock;
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -470,6 +470,42 @@ static int dccp_setsockopt_service(struct sock *sk, const __be32 service,
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -443,6 +443,7 @@ static inline int dccp_ack_pending(const struct sock *sk)
+ }
+ 
+ extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
++extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
+ extern void dccp_feat_list_purge(struct list_head *fn_list);
+ 
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -166,6 +166,18 @@ static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
+  * - SP values are always freshly allocated
+  * - list is sorted in increasing order of feature number (faster lookup)
+  */
++static struct dccp_feat_entry *dccp_feat_list_lookup(struct list_head *fn_list,
++						     u8 feat_num, bool is_local)
++{
++	struct dccp_feat_entry *entry;
++
++	list_for_each_entry(entry, fn_list, node)
++		if (entry->feat_num == feat_num && entry->is_local == is_local)
++			return entry;
++		else if (entry->feat_num > feat_num)
++			break;
++	return NULL;
++}
+ 
+ /**
+  * dccp_feat_entry_new  -  Central list update routine (called by all others)
+@@ -560,6 +572,31 @@ int dccp_feat_finalise_settings(struct dccp_sock *dp)
  	return 0;
  }
  
-+static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
++/**
++ * dccp_feat_server_ccid_dependencies  -  Resolve CCID-dependent features
++ * It is the server which resolves the dependencies once the CCID has been
++ * fully negotiated. If no CCID has been negotiated, it uses the default CCID.
++ */
++int dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq)
 +{
-+	u8 *list, len;
-+	int i, rc;
++	struct list_head *fn = &dreq->dreq_featneg;
++	struct dccp_feat_entry *entry;
++	u8 is_local, ccid;
 +
-+	if (cscov < 0 || cscov > 15)
-+		return -EINVAL;
-+	/*
-+	 * Populate a list of permissible values, in the range cscov...15. This
-+	 * is necessary since feature negotiation of single values only works if
-+	 * both sides incidentally choose the same value. Since the list starts
-+	 * lowest-value first, negotiation will pick the smallest shared value.
-+	 */
-+	if (cscov == 0)
-+		return 0;
-+	len = 16 - cscov;
++	for (is_local = 0; is_local <= 1; is_local++) {
++		entry = dccp_feat_list_lookup(fn, DCCPF_CCID, is_local);
 +
-+	list = kmalloc(len, GFP_KERNEL);
-+	if (list == NULL)
-+		return -ENOBUFS;
-+
-+	for (i = 0; i < len; i++)
-+		list[i] = cscov++;
-+
-+	rc = dccp_feat_register_sp(sk, DCCPF_MIN_CSUM_COVER, rx, list, len);
-+
-+	if (rc == 0) {
-+		if (rx)
-+			dccp_sk(sk)->dccps_pcrlen = cscov;
++		if (entry != NULL && !entry->empty_confirm)
++			ccid = entry->val.sp.vec[0];
 +		else
-+			dccp_sk(sk)->dccps_pcslen = cscov;
++			ccid = dccp_feat_default_value(DCCPF_CCID);
++
++		if (dccp_feat_propagate_ccid(fn, ccid, is_local))
++			return -1;
 +	}
-+	kfree(list);
-+	return rc;
++	return 0;
 +}
 +
- static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 		char __user *optval, int optlen)
+ static int dccp_feat_update_ccid(struct sock *sk, u8 type, u8 new_ccid_nr)
  {
-@@ -502,20 +538,11 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 		else
- 			dp->dccps_server_timewait = (val != 0);
- 		break;
--	case DCCP_SOCKOPT_SEND_CSCOV:	/* sender side, RFC 4340, sec. 9.2 */
--		if (val < 0 || val > 15)
--			err = -EINVAL;
--		else
--			dp->dccps_pcslen = val;
-+	case DCCP_SOCKOPT_SEND_CSCOV:
-+		err = dccp_setsockopt_cscov(sk, val, false);
- 		break;
--	case DCCP_SOCKOPT_RECV_CSCOV:	/* receiver side, RFC 4340 sec. 9.2.1 */
--		if (val < 0 || val > 15)
--			err = -EINVAL;
--		else {
--			dp->dccps_pcrlen = val;
--			/* FIXME: add feature negotiation,
--			 * ChangeL(MinimumChecksumCoverage, val) */
--		}
-+	case DCCP_SOCKOPT_RECV_CSCOV:
-+		err = dccp_setsockopt_cscov(sk, val, true);
- 		break;
- 	default:
- 		err = -ENOPROTOOPT;
+ 	struct dccp_sock *dp = dccp_sk(sk);
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -339,10 +339,12 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
+ 	DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_RESPONSE;
+ 	DCCP_SKB_CB(skb)->dccpd_seq  = dreq->dreq_iss;
+ 
+-	if (dccp_insert_options_rsk(dreq, skb)) {
+-		kfree_skb(skb);
+-		return NULL;
+-	}
++	/* Resolve feature dependencies resulting from choice of CCID */
++	if (dccp_feat_server_ccid_dependencies(dreq))
++		goto response_failed;
++
++	if (dccp_insert_options_rsk(dreq, skb))
++		goto response_failed;
+ 
+ 	/* Build and checksum header */
+ 	dh = dccp_zeroed_hdr(skb, dccp_header_size);
+@@ -363,6 +365,9 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
+ 	inet_rsk(req)->acked = 1;
+ 	DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+ 	return skb;
++response_failed:
++	kfree_skb(skb);
++	return NULL;
+ }
+ 
+ EXPORT_SYMBOL_GPL(dccp_make_response);
