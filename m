@@ -1,36 +1,34 @@
 From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [BUG] net: fix /proc/net/snmp as memory corruptor
-Date: Fri, 14 Nov 2008 21:10:15 -0800
-Message-ID: <20081115051015.GB26468@kroah.com>
-References: <491D07E0.9010903@cosmosbay.com>
+Subject: Re: [stable] [PATCH stable] r8169: Fix MII compilation error
+Date: Fri, 14 Nov 2008 21:07:32 -0800
+Message-ID: <20081115050732.GA26468@kroah.com>
+References: <200811141629.32474.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: stable@kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: stable@kernel.org, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:51505 "EHLO coco.kroah.org"
+Received: from kroah.org ([198.145.64.141]:51502 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751208AbYKOFQL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2008 00:16:11 -0500
+	id S1750847AbYKOFQK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2008 00:16:10 -0500
 Content-Disposition: inline
-In-Reply-To: <491D07E0.9010903@cosmosbay.com>
+In-Reply-To: <200811141629.32474.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 14, 2008 at 06:08:48AM +0100, Eric Dumazet wrote:
-> Hello Greg
+On Fri, Nov 14, 2008 at 04:29:32PM +0100, Michael Buesch wrote:
+> This fixes a compilation error (undefined MII symbols), if
+> CONFIG_MII is not selected.
 > 
-> A patch was submited about /proc/net/snmp being a memory corruptor and not SMP safe
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
 > 
-> (commit b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8)
+> ---
 > 
-> These bugs are present on 2.6.26 & 2.6.27.
+> This fix already is in Linus' tree and I think it's a -stable candidate,
+> as I just hit the bug while trying to compile 2.6.27.6.
 
-I looking at this, it doesn't seem to apply at all to the .27 tree.  If
-David doesn't object, care to backport it there and send it to
-stable@kernel.org?
-
-thanks,
+Thanks, I just added commit b73724921d906 to the queue instead.
 
 greg k-h
