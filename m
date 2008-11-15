@@ -1,128 +1,130 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/5] dccp: Mechanism to resolve CCID dependencies
-Date: Sat, 15 Nov 2008 13:11:15 +0100
-Message-ID: <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/5] dccp: Deprecate Ack Ratio sysctl
+Date: Sat, 15 Nov 2008 13:11:18 +0100
+Message-ID: <1226751079-15019-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk>
  <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1226751079-15019-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1226751079-15019-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:42066 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755273AbYKOMLk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2008 07:11:40 -0500
-In-Reply-To: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755416AbYKOMLm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2008 07:11:42 -0500
+In-Reply-To: <1226751079-15019-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a hook to resolve features whose value depends on the choice of
-CCID. It is done at the server since it can only be done after the CCID
-values have been negotiated; i.e. the client will add its CCID preference
-list on the Change options sent in the Request, which will be reconciled
-with the local preference list of the server.
+This patch deprecates the Ack Ratio sysctl, since
+ * Ack Ratio is entirely ignored by CCID-3 and CCID-4,
+ * Ack Ratio currently doesn't work in CCID-2 (i.e. is always set to 1);
+ * even if it would work in CCID-2, there is no point for a user to change it:
+   - Ack Ratio is constrained by cwnd (RFC 4341, 6.1.2),
+   - if Ack Ratio > cwnd, the system resorts to spurious RTO timeouts
+     (since waiting for Acks which will never arrive in this window),
+   - cwnd is not a user-configurable value.
 
-The concept is documented on
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
-				implementation_notes.html#ccid_dependencies
+The only reasonable place for Ack Ratio is to print it for debugging. It is
+planned to do this later on, as part of e.g. dccp_probe.
+
+With this patch Ack Ratio is now under full control of feature negotiation:
+ * Ack Ratio is resolved as a dependency of the selected CCID;
+ * if the chosen CCID supports it (i.e. CCID == CCID-2), Ack Ratio is set to
+   the default of 2, following RFC 4340, 11.3 - "New connections start with Ack
+   Ratio 2 for both endpoints";
+ * what happens then is part of another patch set, since it concerns the
+   dynamic update of Ack Ratio while the connection is in full flight.
+
+Thanks to Tomasz Grobelny for discussion leading up to this patch.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/dccp.h   |    1 +
- net/dccp/feat.c   |   37 +++++++++++++++++++++++++++++++++++++
- net/dccp/output.c |   13 +++++++++----
- 3 files changed, 47 insertions(+), 4 deletions(-)
+ Documentation/networking/dccp.txt |    3 ---
+ include/linux/dccp.h              |    2 --
+ net/dccp/dccp.h                   |    1 -
+ net/dccp/minisocks.c              |    1 -
+ net/dccp/options.c                |    1 -
+ net/dccp/sysctl.c                 |    7 -------
+ 6 files changed, 0 insertions(+), 15 deletions(-)
 
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -125,9 +125,6 @@ send_ndp = 1
+ send_ackvec = 1
+ 	Whether or not to send Ack Vector options (sec. 11.5).
+ 
+-ack_ratio = 2
+-	The default Ack Ratio (sec. 11.3) to use.
+-
+ tx_ccid = 2
+ 	Default CCID for the sender-receiver half-connection.
+ 
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -368,7 +368,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+   * @dccpms_ccid - Congestion Control Id (CCID) (section 10)
+   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
+   * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
+-  * @dccpms_ack_ratio - Ack Ratio Feature (section 11.3)
+   * @dccpms_pending - List of features being negotiated
+   * @dccpms_conf -
+   */
+@@ -378,7 +377,6 @@ struct dccp_minisock {
+ 	__u8			dccpms_tx_ccid;
+ 	__u8			dccpms_send_ack_vector;
+ 	__u8			dccpms_send_ndp_count;
+-	__u8			dccpms_ack_ratio;
+ 	struct list_head	dccpms_pending;
+ 	struct list_head	dccpms_conf;
+ };
 --- a/net/dccp/dccp.h
 +++ b/net/dccp/dccp.h
-@@ -443,6 +443,7 @@ static inline int dccp_ack_pending(const struct sock *sk)
+@@ -98,7 +98,6 @@ extern int  sysctl_dccp_retries2;
+ extern int  sysctl_dccp_feat_sequence_window;
+ extern int  sysctl_dccp_feat_rx_ccid;
+ extern int  sysctl_dccp_feat_tx_ccid;
+-extern int  sysctl_dccp_feat_ack_ratio;
+ extern int  sysctl_dccp_feat_send_ack_vector;
+ extern int  sysctl_dccp_feat_send_ndp_count;
+ extern int  sysctl_dccp_tx_qlen;
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -47,7 +47,6 @@ void dccp_minisock_init(struct dccp_minisock *dmsk)
+ 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
+ 	dmsk->dccpms_rx_ccid	     = sysctl_dccp_feat_rx_ccid;
+ 	dmsk->dccpms_tx_ccid	     = sysctl_dccp_feat_tx_ccid;
+-	dmsk->dccpms_ack_ratio	     = sysctl_dccp_feat_ack_ratio;
+ 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
+ 	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
  }
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -26,7 +26,6 @@
+ int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
+ int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
+ int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
+-int sysctl_dccp_feat_ack_ratio	      = DCCPF_INITIAL_ACK_RATIO;
+ int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
+ int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
  
- extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
-+extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
- extern void dccp_feat_list_purge(struct list_head *fn_list);
- 
- extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -166,6 +166,18 @@ static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
-  * - SP values are always freshly allocated
-  * - list is sorted in increasing order of feature number (faster lookup)
-  */
-+static struct dccp_feat_entry *dccp_feat_list_lookup(struct list_head *fn_list,
-+						     u8 feat_num, bool is_local)
-+{
-+	struct dccp_feat_entry *entry;
-+
-+	list_for_each_entry(entry, fn_list, node)
-+		if (entry->feat_num == feat_num && entry->is_local == is_local)
-+			return entry;
-+		else if (entry->feat_num > feat_num)
-+			break;
-+	return NULL;
-+}
- 
- /**
-  * dccp_feat_entry_new  -  Central list update routine (called by all others)
-@@ -560,6 +572,31 @@ int dccp_feat_finalise_settings(struct dccp_sock *dp)
- 	return 0;
- }
- 
-+/**
-+ * dccp_feat_server_ccid_dependencies  -  Resolve CCID-dependent features
-+ * It is the server which resolves the dependencies once the CCID has been
-+ * fully negotiated. If no CCID has been negotiated, it uses the default CCID.
-+ */
-+int dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq)
-+{
-+	struct list_head *fn = &dreq->dreq_featneg;
-+	struct dccp_feat_entry *entry;
-+	u8 is_local, ccid;
-+
-+	for (is_local = 0; is_local <= 1; is_local++) {
-+		entry = dccp_feat_list_lookup(fn, DCCPF_CCID, is_local);
-+
-+		if (entry != NULL && !entry->empty_confirm)
-+			ccid = entry->val.sp.vec[0];
-+		else
-+			ccid = dccp_feat_default_value(DCCPF_CCID);
-+
-+		if (dccp_feat_propagate_ccid(fn, ccid, is_local))
-+			return -1;
-+	}
-+	return 0;
-+}
-+
- static int dccp_feat_update_ccid(struct sock *sk, u8 type, u8 new_ccid_nr)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -339,10 +339,12 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
- 	DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_RESPONSE;
- 	DCCP_SKB_CB(skb)->dccpd_seq  = dreq->dreq_iss;
- 
--	if (dccp_insert_options_rsk(dreq, skb)) {
--		kfree_skb(skb);
--		return NULL;
--	}
-+	/* Resolve feature dependencies resulting from choice of CCID */
-+	if (dccp_feat_server_ccid_dependencies(dreq))
-+		goto response_failed;
-+
-+	if (dccp_insert_options_rsk(dreq, skb))
-+		goto response_failed;
- 
- 	/* Build and checksum header */
- 	dh = dccp_zeroed_hdr(skb, dccp_header_size);
-@@ -363,6 +365,9 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
- 	inet_rsk(req)->acked = 1;
- 	DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
- 	return skb;
-+response_failed:
-+	kfree_skb(skb);
-+	return NULL;
- }
- 
- EXPORT_SYMBOL_GPL(dccp_make_response);
+--- a/net/dccp/sysctl.c
++++ b/net/dccp/sysctl.c
+@@ -41,13 +41,6 @@ static struct ctl_table dccp_default_table[] = {
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+-		.procname	= "ack_ratio",
+-		.data		= &sysctl_dccp_feat_ack_ratio,
+-		.maxlen		= sizeof(sysctl_dccp_feat_ack_ratio),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+ 		.procname	= "send_ackvec",
+ 		.data		= &sysctl_dccp_feat_send_ack_vector,
+ 		.maxlen		= sizeof(sysctl_dccp_feat_send_ack_vector),
