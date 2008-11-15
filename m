@@ -1,49 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter
- (rmmod BUG)
-Date: Fri, 14 Nov 2008 16:21:05 -0800 (PST)
-Message-ID: <20081114.162105.193724466.davem@davemloft.net>
-References: <20081113.140824.156293734.davem@davemloft.net>
-	<1226666324.17392.11.camel@localhost.localdomain>
-	<1226688562.12092.8.camel@localhost.localdomain>
+From: INFORMATION DEPT <arumbold@sympatico.ca>
+Subject: End Of Year Winner
+Date: Fri, 14 Nov 2008 19:53:28 -0500
+Message-ID: <20081115005328.QURT22699.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: paul_bell01@ymail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jdb@comx.dk
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54875
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752363AbYKOAVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2008 19:21:06 -0500
-In-Reply-To: <1226688562.12092.8.camel@localhost.localdomain>
+Received: from simmts8-qfe0.srvr.bell.ca ([206.47.199.166]:55392 "EHLO
+	simmts8-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751176AbYKOAx3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2008 19:53:29 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts8-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20081115005328.QURT22699.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Fri, 14 Nov 2008 19:53:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Date: Fri, 14 Nov 2008 19:49:22 +0100
+You have just been awarded of the sum of =A3500,000.00 Pounds which was=
+ won by your E-MAIL Address in our Dell Promo. Do get back to this offi=
+ce with your requirement such  via (paul_bell01@live.com) with your.Nam=
+e.. Adress... Age....Occupation
 
-> On Fri, 2008-11-14 at 13:38 +0100, Jesper Dangaard Brouer wrote:
-> > On Thu, 2008-11-13 at 14:08 -0800, David Miller wrote:
-> > > I suspect that something might be changing np->num_ldg, but
-> > > anyways the following debugging patch should provide some
-> > > clues.  Please reproduce this and send the logs it generates.
-> > 
-> > Debugging the rmmod problem...
-> > 
-> > I found a strange behavior, rmmod'ing the niu driver will only cause a
-> > kernel BUG, if the driver was loaded at boot time.  If I remove the
-> > niu.ko driver from /lib/modules/2.6.28-rc4-davem/kernel/drivers/net/
-> > reboot the system.  After that I can load and unload the niu.ko driver
-> > without problems... hmmm
-> 
-> Perhaps this is a regression, as the problem is not in v2.6.27.
-
-This is what I started to suspect as well.
-
-> I'll start bisecting monday...
-> 
-> I'm not sure its a NIU driver bug, as the number of changes to niu.c is
-> very small since v2.6.27. (git log v2.6.27.. drivers/net/niu.c)
-
-Ok, let me know what your bisect finds.
