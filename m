@@ -1,18 +1,17 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ixgbe: Fix usage of netif_*_all_queues() with
- netif_carrier_{off|on}()
-Date: Sun, 16 Nov 2008 00:32:05 -0800 (PST)
-Message-ID: <20081116.003205.100193514.davem@davemloft.net>
+Subject: Re: pegasus: minor resource shrinkage
+Date: Sun, 16 Nov 2008 00:36:28 -0800 (PST)
+Message-ID: <20081116.003628.06225324.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: dbrownell@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45948
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38027
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751404AbYKPIcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 03:32:06 -0500
+	by vger.kernel.org with ESMTP id S1751202AbYKPIg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 03:36:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
