@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sfc: Add driverlink API to support virtual NIC drivers
-Date: Sun, 16 Nov 2008 00:45:57 -0800 (PST)
-Message-ID: <20081116.004557.210684346.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: time for TCP ECN defaulting to on?
+Date: Sun, 16 Nov 2008 17:13:06 +0800
+Message-ID: <E1L1dgo-0007pG-SL@gondolin.me.apana.org.au>
+References: <20081104.145242.112948002.davem@davemloft.net>
+Cc: linux-kernel@blueteddy.net, daniel.blueman@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43656
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751274AbYKPIp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 03:45:57 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:34509 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751618AbYKPJNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 04:13:17 -0500
+In-Reply-To: <20081104.145242.112948002.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller <davem@davemloft.net> wrote:
+>
+> This is because TSO, which is on by default, doesn't support ECN
+> in many implementations.
 
-I'm not applying this patch, it is just a gateway for proprietary
-extensions to the driver.
+Dave, we fixed that ages ago.
 
-The fact that it allows any module to hook into the driver and
-decide how to handle every TX or RX frame basically makes this
-change a non-starter.
-
-Many many years ago, various vendor drivers tried to do something
-similar, so that their proprietary bonding modules could work,
-and instead we improved the Linux bonding driver to have feature
-parity with whatever those guys were offering.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
