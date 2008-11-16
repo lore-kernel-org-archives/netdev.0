@@ -1,42 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] niu: bitwise or does not imply ordering
-Date: Sun, 16 Nov 2008 12:49:24 -0800 (PST)
-Message-ID: <20081116.124924.146154114.davem@davemloft.net>
-References: <312268717986b8b45674.846930886.miltonm@bga.com>
-	<1226849525.8189.6.camel@localhost.localdomain>
+From: Maxim Levitsky <maximlevitsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 2.6.28-rc5: Reported regressions from 2.6.27
+Date: Sun, 16 Nov 2008 23:40:54 +0200
+Message-ID: <49209366.3060500@gmail.com>
+References: <VwdsQNEjR_C.A.CiD.9_FIJB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: miltonm@bga.com, segher@kernel.crashing.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: jdb@comx.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37596
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752100AbYKPUtZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 15:49:25 -0500
-In-Reply-To: <1226849525.8189.6.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <VwdsQNEjR_C.A.CiD.9_FIJB@chimera>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Date: Sun, 16 Nov 2008 16:32:05 +0100
+Just to note, here on acer aspire one suspend to disk is broken too.
+System suspends, and then hangs.
 
-> 
-> I have tested it on the actual hardware, it works...
-> 
-> I actually agree that we should make it explicit, eventhough DaveM seems
-> to disagree on the netdev list.
+If I shutdown the system, and then attempt resume, it resumes, and then hangs.
 
-I'm also not applying this patch for another reason.
-
-This is a knee-jerk reaction patch, purely.  This person
-saw the commit and wants to fix only _THIS_ case.
-
-Well guess what?  If you really CARED, you'd go change this
-across the whole tree.  This exact construct exists ALL
-OVER the kernel.  In fact there are sequences that match
-this new NIU code exactly.
-
-Did these people complaining look for those?  No.
+Best regards,
+	Maxim Levitsky
