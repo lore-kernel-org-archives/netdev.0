@@ -1,22 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: fix smc911x.c printf typo
-Date: Sun, 16 Nov 2008 01:40:28 -0800 (PST)
-Message-ID: <20081116.014028.125236475.davem@davemloft.net>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Regression in bonding between 2.6.26.8 and 2.6.27.6
+Date: Sun, 16 Nov 2008 10:41:41 +0100
+Message-ID: <491FEAD5.4090205@krogh.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vernoninhand@gmail.com
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36377
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751703AbYKPJk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 04:40:29 -0500
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:39639 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751722AbYKPJlm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Nov 2008 04:41:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi.
 
-Your email client corrupted this patch, breaking up lines and making
-other modifications which make the patch not usable.
+I have something that looks like a regression in bonding between 
+2.6.26.8 and 2.6.27.6 (I'll try the mid-steps later).
 
-Please fix this up and resubmit your change, thanks!
+Setup: LACP bond(mode=4,mmimon=100) with 3 NIC's and dhcp on top (static 
+ip didn't work either).
+
+Problem: The bond doesn't get up after bootup. Subsequence ifdown/ifup 
+brings it up.
+
+I suspect it it timing related. The interface being configured before 
+it's ready:
+root@quad01:~# dmesg | egrep '(dhc|bond)'
+[   12.421963] bonding: MII link monitoring set to 100 ms
+[   12.483370] bonding: bond0: enslaving eth0 as a backup interface with 
+an up link.
+[   12.523372] bonding: bond0: enslaving eth1 as a backup interface with 
+an up link.
+[   12.611731] bonding: bond0: enslaving eth2 as a backup interface with 
+a down link.
+[   12.780816] warning: `dhclient3' uses 32-bit capabilities (legacy 
+support in use)
+[   15.720491] bonding: bond0: link status definitely up for interface eth2.
+[   87.800324] bond0: no IPv6 routers present
+
+
+The setup is a 3 NIC bond on a Sun X2200 dual-cpu Quad-core server.
+I have similar bond on a X4600 where they works with 2.6.27.6 so I 
+suspect that the difference is that the X4600 has all NIC's from the
+same vendor where as the X2200 has 2 Broadcom NIC's and 2 NVidia nics.
+
+root@quad01:~# lspci | grep -i ethernet
+00:08.0 Bridge: nVidia Corporation MCP55 Ethernet (rev a3)
+00:09.0 Bridge: nVidia Corporation MCP55 Ethernet (rev a3)
+06:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5715 
+Gigabit Ethernet (rev a3)
+06:04.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5715 
+Gigabit Ethernet (rev a3)
+
+
+
+
+-- 
+Jesper
