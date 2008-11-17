@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Cleanup of af_unix
-Date: Sun, 16 Nov 2008 22:59:02 -0800 (PST)
-Message-ID: <20081116.225902.11466540.davem@davemloft.net>
-References: <49210AE7.3050405@cosmosbay.com>
-	<20081116.223209.239966240.davem@davemloft.net>
-	<4921133D.6070800@cosmosbay.com>
+Subject: Re: [PATCH] ematch: simpler tcf_em_unregister()
+Date: Sun, 16 Nov 2008 23:02:06 -0800 (PST)
+Message-ID: <20081116.230206.213449343.davem@davemloft.net>
+References: <20081115225501.GA2189@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37121
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37125
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751997AbYKQG7C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 01:59:02 -0500
-In-Reply-To: <4921133D.6070800@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1751888AbYKQHCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 02:02:06 -0500
+In-Reply-To: <20081115225501.GA2189@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 17 Nov 2008 07:46:21 +0100
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Sun, 16 Nov 2008 01:55:01 +0300
 
-> net: Cleanup of af_unix
+> Simply delete ops from list and let list debugging do the job.
 > 
-> This is a pure cleanup of net/unix/af_unix.c to meet current code style standards
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied.
+Looks good, none of the callers were checking the return
+value anyways :)
