@@ -1,83 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Re: [2.6.26] OOPS in __linkwatch_run_queue (unable to
- handle kernel NULL pointer dereference at 00000235)
-Date: Mon, 17 Nov 2008 00:50:25 -0800 (PST)
-Message-ID: <20081117.005025.141630310.davem@davemloft.net>
-References: <20081030020910.f97ee3fc.akpm@linux-foundation.org>
-	<20081117084058.GA6345@ff.dom.local>
+From: Robert Olsson <robert@robur.slu.se>
+Subject: Re: [PATCH] pktgen: fix multiple queue warning
+Date: Mon, 17 Nov 2008 09:59:03 +0100
+Message-ID: <18721.12887.390889.914789@robur.slu.se>
+References: <20081028193042.22781.15774.stgit@gitlost.lost>
+	<18709.30748.784246.990265@robur.slu.se>
+	<20081116.233006.128063706.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: folkert@vanheusden.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: Robert.Olsson@data.slu.se, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, jeff@garzik.org,
+	jesse.brandeburg@intel.com, robert.olsson@its.uu.se
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38054
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752606AbYKQIu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 03:50:26 -0500
-In-Reply-To: <20081117084058.GA6345@ff.dom.local>
+Received: from robur.slu.se ([130.238.98.12]:36480 "EHLO robur.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752290AbYKQI7G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 03:59:06 -0500
+In-Reply-To: <20081116.233006.128063706.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 17 Nov 2008 08:40:58 +0000
 
-> net: link_watch: Don't add a linkwatch event before register_netdev()
-> 
-> b44 and some other network drivers run netif_carrier_off() before
-> register_netdev(). Then, if register fails, free_netdev() destruction
-> is done while dev is still referenced and held on the lweventlist.
-> 
-> Of course, it would be nice if all drivers could use some common order
-> of calling things like register_netdev() vs. netif_carrier_off(), but
-> since there is a lot of this I guess there is probably some reason,
-> so this patch doesn't change the order but assumes that such an early
-> netif_carrier_off() is only to set the __LINK_STATE_NOCARRIER flag,
-> and some netif_carrier_on()/_off() will still follow.
-> 
-> Reported-by: Folkert van Heusden <folkert@vanheusden.com>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+David Miller writes:
 
-Ugh, drivers should not be fiddling with stuff like this before the
-device object is even registered.
+ > >  This triggers with the niu driver which has 12 TX queues on our 8 CPU-core 
 
-I can just imagine all sorts of other operations drivers might find
-it "convenient" to do before the sucker is even registered, causing
-similar if not even worse problems.
+> Can someone cook up a patch to fix this?
 
-It's pretty simple, make netif_carrier_off() be the first thing
-->open() does and make it the last thing ->stop() and ->suspend()
-do.  That's how to fix this bug.
+Here is one suggestion...
 
-I'm going to fix this as follows.  B44 already abided by 2/3 of
-this by handling the ->stop() and ->suspend() cases correctly already.
+As number of TX queues in unrelated to number of CPU's we remove this test
+and just make sure nxtq never gets exceeded.
 
-b44: Do not call netif_carrier_off() before device is even registered.
+Cheers.
+					--ro
 
-This is illegal.  Instead simply do this first thing in ->open().
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index c3bda5c..2e353b8 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -1426,6 +1426,8 @@ static int b44_open(struct net_device *dev)
- 	struct b44 *bp = netdev_priv(dev);
- 	int err;
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index a47f5ba..8997e91 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1973,13 +1973,7 @@ static void pktgen_setup_inject(struct pktgen_dev *pkt_dev)
  
-+	netif_carrier_off(dev);
+ 	/* make sure that we don't pick a non-existing transmit queue */
+ 	ntxq = pkt_dev->odev->real_num_tx_queues;
+-	if (ntxq > num_online_cpus() && (pkt_dev->flags & F_QUEUE_MAP_CPU)) {
+-		printk(KERN_WARNING "pktgen: WARNING: QUEUE_MAP_CPU "
+-		       "disabled because CPU count (%d) exceeds number "
+-		       "of tx queues (%d) on %s\n", num_online_cpus(), ntxq,
+-		       pkt_dev->odev->name);
+-		pkt_dev->flags &= ~F_QUEUE_MAP_CPU;
+-	}
 +
- 	err = b44_alloc_consistent(bp, GFP_KERNEL);
- 	if (err)
- 		goto out;
-@@ -2165,8 +2167,6 @@ static int __devinit b44_init_one(struct ssb_device *sdev,
- 	dev->irq = sdev->irq;
- 	SET_ETHTOOL_OPS(dev, &b44_ethtool_ops);
+ 	if (ntxq <= pkt_dev->queue_map_min) {
+ 		printk(KERN_WARNING "pktgen: WARNING: Requested "
+ 		       "queue_map_min (zero-based) (%d) exceeds valid range "
+@@ -2202,6 +2196,7 @@ static void set_cur_queue_map(struct pktgen_dev *pkt_dev)
+ 		}
+ 		pkt_dev->cur_queue_map = t;
+ 	}
++	pkt_dev->cur_queue_map  = pkt_dev->cur_queue_map % pkt_dev->odev->real_num_tx_queues;
+ }
  
--	netif_carrier_off(dev);
--
- 	err = ssb_bus_powerup(sdev->bus, 0);
- 	if (err) {
- 		dev_err(sdev->dev,
+ /* Increment/randomize headers according to flags and current values
+
