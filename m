@@ -1,105 +1,106 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] ixgbe: fix compilation with gcc-3.4
-Date: Mon, 17 Nov 2008 13:01:49 +0300
-Message-ID: <20081117100149.GA10586@x200.localdomain>
+Subject: [PATCH] phonet: fix compilation with gcc-3.4
+Date: Mon, 17 Nov 2008 13:03:20 +0300
+Message-ID: <20081117100320.GB10586@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:49753 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.172]:48657 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750922AbYKQJ6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 04:58:15 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so355283ugf.37
-        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 01:58:13 -0800 (PST)
+	with ESMTP id S1751618AbYKQJ7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 04:59:44 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so355615ugf.37
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 01:59:43 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  CC [M]  drivers/net/ixgbe/ixgbe_main.o
-drivers/net/ixgbe/ixgbe_main.c: In function `ixgbe_intr':
-drivers/net/ixgbe/ixgbe_main.c:1290: sorry, unimplemented: inlining failed in call to 'ixgbe_irq_enable': function body not available
-drivers/net/ixgbe/ixgbe_main.c:1312: sorry, unimplemented: called from here
-make[4]: *** [drivers/net/ixgbe/ixgbe_main.o] Error 1
+  CC [M]  net/phonet/af_phonet.o
+net/phonet/af_phonet.c: In function `pn_socket_create':
+net/phonet/af_phonet.c:38: sorry, unimplemented: inlining failed in call to 'phonet_proto_put': function body not available
+net/phonet/af_phonet.c:99: sorry, unimplemented: called from here
+make[3]: *** [net/phonet/af_phonet.o] Error 1
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   58 +++++++++++++++++++----------------------
- 1 file changed, 28 insertions(+), 30 deletions(-)
+ net/phonet/af_phonet.c |   52 ++++++++++++++++++++++---------------------------
+ 1 file changed, 24 insertions(+), 28 deletions(-)
 
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1287,7 +1287,34 @@ static void ixgbe_set_itr(struct ixgbe_adapter *adapter)
- 	return;
- }
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -33,9 +33,30 @@
+ #include <net/phonet/phonet.h>
+ #include <net/phonet/pn_dev.h>
  
--static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter);
-+/**
-+ * ixgbe_irq_disable - Mask off interrupt generation on the NIC
-+ * @adapter: board private structure
-+ **/
-+static inline void ixgbe_irq_disable(struct ixgbe_adapter *adapter)
+-static struct net_proto_family phonet_proto_family;
+-static struct phonet_protocol *phonet_proto_get(int protocol);
+-static inline void phonet_proto_put(struct phonet_protocol *pp);
++/* Transport protocol registration */
++static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
++static DEFINE_SPINLOCK(proto_tab_lock);
++
++static struct phonet_protocol *phonet_proto_get(int protocol)
 +{
-+	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, ~0);
-+	IXGBE_WRITE_FLUSH(&adapter->hw);
-+	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
-+		int i;
-+		for (i = 0; i < adapter->num_msix_vectors; i++)
-+			synchronize_irq(adapter->msix_entries[i].vector);
-+	} else {
-+		synchronize_irq(adapter->pdev->irq);
-+	}
++	struct phonet_protocol *pp;
++
++	if (protocol >= PHONET_NPROTO)
++		return NULL;
++
++	spin_lock(&proto_tab_lock);
++	pp = proto_tab[protocol];
++	if (pp && !try_module_get(pp->prot->owner))
++		pp = NULL;
++	spin_unlock(&proto_tab_lock);
++
++	return pp;
 +}
 +
-+/**
-+ * ixgbe_irq_enable - Enable default interrupt generation settings
-+ * @adapter: board private structure
-+ **/
-+static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
++static inline void phonet_proto_put(struct phonet_protocol *pp)
 +{
-+	u32 mask;
-+	mask = IXGBE_EIMS_ENABLE_MASK;
-+	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
-+	IXGBE_WRITE_FLUSH(&adapter->hw);
++	module_put(pp->prot->owner);
 +}
  
- /**
-  * ixgbe_intr - legacy mode Interrupt Handler
-@@ -1394,35 +1421,6 @@ static void ixgbe_free_irq(struct ixgbe_adapter *adapter)
- }
+ /* protocol family functions */
  
- /**
-- * ixgbe_irq_disable - Mask off interrupt generation on the NIC
-- * @adapter: board private structure
-- **/
--static inline void ixgbe_irq_disable(struct ixgbe_adapter *adapter)
+@@ -375,10 +396,6 @@ static struct packet_type phonet_packet_type = {
+ 	.func = phonet_rcv,
+ };
+ 
+-/* Transport protocol registration */
+-static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
+-static DEFINE_SPINLOCK(proto_tab_lock);
+-
+ int __init_or_module phonet_proto_register(int protocol,
+ 						struct phonet_protocol *pp)
+ {
+@@ -412,27 +429,6 @@ void phonet_proto_unregister(int protocol, struct phonet_protocol *pp)
+ }
+ EXPORT_SYMBOL(phonet_proto_unregister);
+ 
+-static struct phonet_protocol *phonet_proto_get(int protocol)
 -{
--	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, ~0);
--	IXGBE_WRITE_FLUSH(&adapter->hw);
--	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
--		int i;
--		for (i = 0; i < adapter->num_msix_vectors; i++)
--			synchronize_irq(adapter->msix_entries[i].vector);
--	} else {
--		synchronize_irq(adapter->pdev->irq);
--	}
+-	struct phonet_protocol *pp;
+-
+-	if (protocol >= PHONET_NPROTO)
+-		return NULL;
+-
+-	spin_lock(&proto_tab_lock);
+-	pp = proto_tab[protocol];
+-	if (pp && !try_module_get(pp->prot->owner))
+-		pp = NULL;
+-	spin_unlock(&proto_tab_lock);
+-
+-	return pp;
 -}
 -
--/**
-- * ixgbe_irq_enable - Enable default interrupt generation settings
-- * @adapter: board private structure
-- **/
--static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
+-static inline void phonet_proto_put(struct phonet_protocol *pp)
 -{
--	u32 mask;
--	mask = IXGBE_EIMS_ENABLE_MASK;
--	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
--	IXGBE_WRITE_FLUSH(&adapter->hw);
+-	module_put(pp->prot->owner);
 -}
 -
--/**
-  * ixgbe_configure_msi_and_legacy - Initialize PIN (INTA...) and MSI interrupts
-  *
-  **/
+ /* Module registration */
+ static int __init phonet_init(void)
+ {
