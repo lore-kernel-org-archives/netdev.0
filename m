@@ -1,89 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] dccp ccid-3: High-res or low-res timers?
-Date: Sun, 16 Nov 2008 22:48:34 -0800 (PST)
-Message-ID: <20081116.224834.166724077.davem@davemloft.net>
-References: <5bc4c4570811061405qe72e43cx861c537885804132@mail.gmail.com>
-	<20081108085035.GA7112@gerrit.erg.abdn.ac.uk>
-	<20081115105042.GA7798@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/5] dccp: Mechanism to resolve CCID dependencies
+Date: Sun, 16 Nov 2008 22:50:40 -0800 (PST)
+Message-ID: <20081116.225040.197479116.davem@davemloft.net>
+References: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk>
+	<1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: leandroal@gmail.com, acme@redhat.com, ian.mcdonald@jandi.co.nz,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50654
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50660
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750952AbYKQGse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 01:48:34 -0500
-In-Reply-To: <20081115105042.GA7798@gerrit.erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1751514AbYKQGul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 01:50:41 -0500
+In-Reply-To: <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Sat, 15 Nov 2008 11:50:42 +0100
+Date: Sat, 15 Nov 2008 13:11:15 +0100
 
-> 1. Handling unavoidable waiting times
-> -------------------------------------
->  One can not expect that, if the scheduling clock says 'send in x
->  microseconds', a packet will indeed leave after x microseconds; due to
->  waiting times. An example is in net/dccp/timer.c, when the socket is
->  currently locked - we wait for a "small" amount of time:
+> This adds a hook to resolve features whose value depends on the choice of
+> CCID. It is done at the server since it can only be done after the CCID
+> values have been negotiated; i.e. the client will add its CCID preference
+> list on the Change options sent in the Request, which will be reconciled
+> with the local preference list of the server.
 > 
-> 	bh_lock_sock(sk);
-> 	if (sock_owned_by_user(sk))
-> 		sk_reset_timer(sk, &dp->dccps_xmit_timer, jiffies + 1);
-> 	else
-> 		dccp_write_xmit(sk, 0);
-> 	bh_unlock_sock(sk);
-
-This should not happen often enough to be statistically meaningful.
-
-If it does we have serious lock contention and we should fix that.
-
-> 2. Dependency on high-resolution timers
-> ---------------------------------------
->  Committing the CCID-3/CCID-4 implementations to using high-resolution
->  timers means that the modules can not be built/loaded when the kernel
->  does not offer sufficient resolution.
+> The concept is documented on
+> http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
+> 				implementation_notes.html#ccid_dependencies
 > 
->  This has recently made it hard for someone using CCID-3 to find out
->  why DCCP would not run, where the cause was that high-resolution timers
->  were not enabled in the kernel.
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 
-This could be argued as a bug in the hrtimer interface.  What it should
-do is let you use the interfaces always, and the kernel gives you as
-fine a resolution as the current configuration supports.
+Applied.
 
-> 3. Noise in the output
-> ----------------------
-> When tracking the speed of a car every 10 seconds, there is a lot of variation
-> in the values, due to stopping at traffic lights, accelerating etc. But when
-> considering a larger timescale, one can say that the average speed from city
-> A to city B was xx mph, since the whole journey took 2.5 hours.
+> +	list_for_each_entry(entry, fn_list, node)
+> +		if (entry->feat_num == feat_num && entry->is_local == is_local)
+> +			return entry;
+> +		else if (entry->feat_num > feat_num)
+> +			break;
 
-This argument is sound.
-
-> 4. Not sure using high-resolution is the answer
-> -----------------------------------------------
-> While a fine-grained timer resolution may be desirable, it is not
-> necessarily a must. The implementation of rate-based pacing in TCP
-> (http://www.isi.edu/~johnh/PAPERS/Visweswaraiah97b.html) for instance
-> also used low(er) resolution timers and it worked.
-> 
-> The RFC for CCID-3 (http://www.rfc-archive.org/getrfc.php?rfc=5348) also
-> does not high-resolution; it supports coarse-grained timestamps (section
-> 6.3 and RFC 4342) and discusses implementation issues when using a 
-> lower resolution (section 8.3).
-> 
-> The counter-argument could be that CCID-3 is a transport protocol with a
-> built-in Token Bucket Filter so that similar considerations apply as for
-> the Qdisc API (net/sched/sch_api.c).
-> 
-> Summing up, I have doubts that basing CCID-3 will bring advantages and
-> would much rather go the other way and (consistently) use lower resolution.
-> 
-> Thoughts?
-
-I wouldn't bother with high resolution timers, mostly because they are more
-expensive and the benefit of them here is at best "unknown".
+Personally, I would have put braces around this basic block.
