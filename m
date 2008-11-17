@@ -1,57 +1,59 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] net: make ip_rt_acct a normal percpu var
-Date: Mon, 17 Nov 2008 20:50:30 +1030
-Message-ID: <200811172050.31308.rusty@rustcorp.com.au>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 1/2] Add SMC_MEM_RESERVED for OMAP platform.
+Date: Mon, 17 Nov 2008 10:31:03 +0000
+Message-ID: <OF1AFB43DD.9BED76B1-ON80257504.00386A7C-80257504.0039CC57@smsc.com>
+References: <1226914195-20473-1-git-send-email-stanley.miao@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: "Stanley.Miao" <stanley.miao@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:37771 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751773AbYKQKUm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 05:20:42 -0500
-Content-Disposition: inline
+Received: from mail.smsc.com ([170.129.50.11]:3273 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752270AbYKQKbg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 05:31:36 -0500
+In-Reply-To: <1226914195-20473-1-git-send-email-stanley.miao@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhlcmUncyBubyByZWFzb24gZm9yIHRoaXMgdG8gYmUgZHluYW1pY2FsbHkgYWxsb2NhdGVkOiB3
-ZSBwYW5pYyBpZgphbGxvY2F0aW9uIGZhaWxzIGFueXdheS4KClNpZ25lZC1vZmYtYnk6IFJ1c3R5
-IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KCmRpZmYgLXIgNjQzYzJjZGZkYjYyIGlu
-Y2x1ZGUvbmV0L3JvdXRlLmgKLS0tIGEvaW5jbHVkZS9uZXQvcm91dGUuaAlNb24gTm92IDE3IDE5
-OjU3OjQyIDIwMDggKzEwMzAKKysrIGIvaW5jbHVkZS9uZXQvcm91dGUuaAlNb24gTm92IDE3IDIw
-OjIzOjM3IDIwMDggKzEwMzAKQEAgLTM0LDYgKzM0LDcgQEAKICNpbmNsdWRlIDxsaW51eC9pcC5o
-PgogI2luY2x1ZGUgPGxpbnV4L2NhY2hlLmg+CiAjaW5jbHVkZSA8bGludXgvc2VjdXJpdHkuaD4K
-KyNpbmNsdWRlIDxsaW51eC9wZXJjcHUuaD4KIAogI2lmbmRlZiBfX0tFUk5FTF9fCiAjd2Fybmlu
-ZyBUaGlzIGZpbGUgaXMgbm90IHN1cHBvc2VkIHRvIGJlIHVzZWQgb3V0c2lkZSBvZiBrZXJuZWwu
-CkBAIC0xMDUsNyArMTA2LDcgQEAKICAgICAgICAgdW5zaWduZWQgaW50IG91dF9obGlzdF9zZWFy
-Y2g7CiB9OwogCi1leHRlcm4gc3RydWN0IGlwX3J0X2FjY3QgKmlwX3J0X2FjY3Q7CitERUNMQVJF
-X1BFUl9DUFUoc3RydWN0IGlwX3J0X2FjY3RbMjU2XSwgaXBfcnRfYWNjdCk7CiAKIHN0cnVjdCBp
-bl9kZXZpY2U7CiBleHRlcm4gaW50CQlpcF9ydF9pbml0KHZvaWQpOwpkaWZmIC1yIDY0M2MyY2Rm
-ZGI2MiBuZXQvaXB2NC9pcF9pbnB1dC5jCi0tLSBhL25ldC9pcHY0L2lwX2lucHV0LmMJTW9uIE5v
-diAxNyAxOTo1Nzo0MiAyMDA4ICsxMDMwCisrKyBiL25ldC9pcHY0L2lwX2lucHV0LmMJTW9uIE5v
-diAxNyAyMDoyMzozNyAyMDA4ICsxMDMwCkBAIC0zMzksNyArMzM5LDcgQEAKIAogI2lmZGVmIENP
-TkZJR19ORVRfQ0xTX1JPVVRFCiAJaWYgKHVubGlrZWx5KHNrYi0+ZHN0LT50Y2xhc3NpZCkpIHsK
-LQkJc3RydWN0IGlwX3J0X2FjY3QgKnN0ID0gcGVyX2NwdV9wdHIoaXBfcnRfYWNjdCwgc21wX3By
-b2Nlc3Nvcl9pZCgpKTsKKwkJc3RydWN0IGlwX3J0X2FjY3QgKnN0ID0gX19nZXRfY3B1X3Zhcihp
-cF9ydF9hY2N0KTsKIAkJdTMyIGlkeCA9IHNrYi0+ZHN0LT50Y2xhc3NpZDsKIAkJc3RbaWR4JjB4
-RkZdLm9fcGFja2V0cysrOwogCQlzdFtpZHgmMHhGRl0ub19ieXRlcys9c2tiLT5sZW47CmRpZmYg
-LXIgNjQzYzJjZGZkYjYyIG5ldC9pcHY0L3JvdXRlLmMKLS0tIGEvbmV0L2lwdjQvcm91dGUuYwlN
-b24gTm92IDE3IDE5OjU3OjQyIDIwMDggKzEwMzAKKysrIGIvbmV0L2lwdjQvcm91dGUuYwlNb24g
-Tm92IDE3IDIwOjIzOjM3IDIwMDggKzEwMzAKQEAgLTU0MSw3ICs1NDEsNyBAQAogCQkJdW5zaWdu
-ZWQgaW50IGo7CiAJCQl1MzIgKnNyYzsKIAotCQkJc3JjID0gKCh1MzIgKikgcGVyX2NwdV9wdHIo
-aXBfcnRfYWNjdCwgaSkpICsgb2Zmc2V0OworCQkJc3JjID0gKCh1MzIgKilwZXJfY3B1KGlwX3J0
-X2FjY3QsIGkpKSArIG9mZnNldDsKIAkJCWZvciAoaiA9IDA7IGogPCBsZW5ndGgvNDsgaisrKQog
-CQkJCWRzdFtqXSArPSBzcmNbal07CiAJCX0KQEAgLTMyMzcsNyArMzIzNyw3IEBACiAKIAogI2lm
-ZGVmIENPTkZJR19ORVRfQ0xTX1JPVVRFCi1zdHJ1Y3QgaXBfcnRfYWNjdCAqaXBfcnRfYWNjdCBf
-X3JlYWRfbW9zdGx5OworREVGSU5FX1BFUl9DUFUoc3RydWN0IGlwX3J0X2FjY3RbMjU2XSwgaXBf
-cnRfYWNjdCk7CiAjZW5kaWYgLyogQ09ORklHX05FVF9DTFNfUk9VVEUgKi8KIAogc3RhdGljIF9f
-aW5pdGRhdGEgdW5zaWduZWQgbG9uZyByaGFzaF9lbnRyaWVzOwpAQCAtMzI1MywxMiArMzI1Myw2
-IEBACiBpbnQgX19pbml0IGlwX3J0X2luaXQodm9pZCkKIHsKIAlpbnQgcmMgPSAwOwotCi0jaWZk
-ZWYgQ09ORklHX05FVF9DTFNfUk9VVEUKLQlpcF9ydF9hY2N0ID0gX19hbGxvY19wZXJjcHUoMjU2
-ICogc2l6ZW9mKHN0cnVjdCBpcF9ydF9hY2N0KSk7Ci0JaWYgKCFpcF9ydF9hY2N0KQotCQlwYW5p
-YygiSVA6IGZhaWxlZCB0byBhbGxvY2F0ZSBpcF9ydF9hY2N0XG4iKTsKLSNlbmRpZgogCiAJaXB2
-NF9kc3Rfb3BzLmttZW1fY2FjaGVwID0KIAkJa21lbV9jYWNoZV9jcmVhdGUoImlwX2RzdF9jYWNo
-ZSIsIHNpemVvZihzdHJ1Y3QgcnRhYmxlKSwgMCwKAAo=
+Hi Stanley,
+
+Jeff has merged the smsc911x driver into -next, this is intended to 
+replace smc911x moving forward.  I'll forward the patchset to you 
+off-list, it includes platform_data support for several platforms so 
+adding support for omap should be simple.
+
+> diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
+> index cc7d85b..d1b3b9b 100644
+> --- a/drivers/net/smc911x.h
+> +++ b/drivers/net/smc911x.h
+> @@ -42,6 +42,16 @@
+>    #define SMC_USE_16BIT      0
+>    #define SMC_USE_32BIT      1
+>    #define SMC_IRQ_SENSE      IRQF_TRIGGER_LOW
+> +#elif defined(CONFIG_ARCH_OMAP34XX)
+> +  #define SMC_USE_16BIT      0
+> +  #define SMC_USE_32BIT      1
+> +  #define SMC_IRQ_SENSE      IRQF_TRIGGER_LOW
+> +  #define SMC_MEM_RESERVED   1
+> +#elif defined(CONFIG_ARCH_OMAP24XX)
+> +  #define SMC_USE_16BIT      0
+> +  #define SMC_USE_32BIT      1
+> +  #define SMC_IRQ_SENSE      IRQF_TRIGGER_LOW
+> +  #define SMC_MEM_RESERVED   1
+>  #else
+>  /*
+>   * Default configuration
+
+nack - this platform-specific configuration shouldn't be in the driver, 
+SMC_DYNAMIC_BUS_CONFIG was added so this can be specified in 
+platform_data.
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
+
