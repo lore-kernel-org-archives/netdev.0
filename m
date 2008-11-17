@@ -1,36 +1,43 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [NET-NEXT PATCH] e100: fix dma error in direction for mapping
-Date: Mon, 17 Nov 2008 10:53:54 +0000
-Message-ID: <20081117105354.GB2603@flint.arm.linux.org.uk>
-References: <20081114235154.13239.11435.stgit@gitlost.lost>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] net: make /proc/net/protocols namespace aware
+Date: Mon, 17 Nov 2008 14:15:16 +0300
+Message-ID: <20081117111516.GA10542@x200.localdomain>
+References: <49214C74.3020303@cosmosbay.com> <49214D37.2090502@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Denis V. Lunev" <den@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:52254 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752391AbYKQKyQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 05:54:16 -0500
+Received: from ug-out-1314.google.com ([66.249.92.171]:60070 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753129AbYKQLLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 06:11:41 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so372470ugf.37
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 03:11:39 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20081114235154.13239.11435.stgit@gitlost.lost>
+In-Reply-To: <49214D37.2090502@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 14, 2008 at 03:51:54PM -0800, Jeff Kirsher wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> The e100 driver triggers BUG_ON(buf->direction != dir)
-> by doing pci_map_single(..., PCI_DMA_BIDIRECTIONAL)
-> and pci_dma_sync_single_for_device(..., PCI_DMA_TODEVICE).
-> 
-> Changing the DMA direction, especially with dmabounce will result
-> in unexpected behaviour.
-> 
-> Reported-by: Anders Grafstrom <grfstrm@users.sourceforge.net>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Russell King <linux@arm.linux.org.uk>
+On Mon, Nov 17, 2008 at 11:53:43AM +0100, Eric Dumazet wrote:
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
 
-Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> @@ -2230,7 +2230,8 @@ static const struct seq_operations proto_seq_ops = {
+>  
+>  static int proto_seq_open(struct inode *inode, struct file *file)
+>  {
+> -	return seq_open(file, &proto_seq_ops);
+> +	return seq_open_net(inode, file, &proto_seq_ops,
+> +			    sizeof(struct seq_net_private));
+
+You have to hook seq_release_net if you do this.
+
+>  }
+>  
+>  static const struct file_operations proto_seq_fops = {
+> @@ -2241,10 +2242,28 @@ static const struct file_operations proto_seq_fops = {
+>  	.release	= seq_release,
+	+.release	= seq_release_net,
