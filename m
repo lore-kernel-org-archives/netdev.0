@@ -1,47 +1,72 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: 2.6.28-rc5: Reported regressions from 2.6.27
-Date: Mon, 17 Nov 2008 20:36:46 +0900
-Message-ID: <1226921806.8582.6.camel@localhost.localdomain>
-References: <VwdsQNEjR_C.A.CiD.9_FIJB@chimera>
-	 <20081116182953.6231ae8c@lxorguk.ukuu.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20081116182953.6231ae8c@lxorguk.ukuu.org.uk>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 2/3] Clean up alloc_percpu: add align argument to __alloc_percpu.
+Date: Mon, 17 Nov 2008 13:26:24 +0000 (UTC)
+Message-ID: <20081117132509.757C5DDDE6@ozlabs.org>
+Cc: akpm@linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752772AbYKQNZo@vger.kernel.org>
+Date: Mon Nov 17 23:47:44 CST 2008
+Cc: Christoph Lameter <cl@linux-foundation.org>
+Cc: Jens Axboe <axboe@kernel.dk>
+Cc: netdev@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2008-11-16 at 18:29 +0000, Alan Cox wrote:
-> >      the majority of these patches have not been merged for over two weeks
-> >      (for almost three weeks in many cases and for over a _month_ in one case).
-> >      IMO, this is insane.]
-> 
-> Some of them are quite serious too - some stuff is basically unusable in
-> 2.6.28rc due to the vmalloc bug.
-> 
-> Is there any reason why someone (Rafael ?) shouldn't simply submit all of
-> those patches that look sensible, are reported to fix regressions and
-> whose maintainer has not provided a reason to NOT apply them into the
-> tree ?
 
-There is for SCSI.  Our two bugzilla entries each have several patches
-(one has two, the other has four).  The patches listed in the
-regressions aren't necessarily going to be the ones applied (depending
-on how the arguing and testing goes).
+This prepares for a real __alloc_percpu, by adding an alignment argument.
+Currently there are two files which use this, so fix them up too.
 
-James
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> 
+Cc: Christoph Lameter <cl@linux-foundation.org>
+Cc: Jens Axboe <axboe@kernel.dk>
+Cc: netdev@vger.kernel.org
+---
+ block/blktrace.c       |    2 +-
+ include/linux/percpu.h |    5 +++--
+ net/ipv4/af_inet.c     |    4 ++--
+ 3 files changed, 6 insertions(+), 5 deletions(-)
 
-
+diff -r d7e495785ad1 block/blktrace.c
+--- a/block/blktrace.c	Mon Nov 17 20:23:37 2008 +1030
++++ b/block/blktrace.c	Mon Nov 17 20:56:22 2008 +1030
+@@ -389,7 +389,7 @@
+ 	if (!bt->sequence)
+ 		goto err;
+ 
+-	bt->msg_data = __alloc_percpu(BLK_TN_MAX_MSG);
++	bt->msg_data = __alloc_percpu(BLK_TN_MAX_MSG, __alignof__(char));
+ 	if (!bt->msg_data)
+ 		goto err;
+ 
+diff -r d7e495785ad1 include/linux/percpu.h
+--- a/include/linux/percpu.h	Mon Nov 17 20:23:37 2008 +1030
++++ b/include/linux/percpu.h	Mon Nov 17 20:56:22 2008 +1030
+@@ -112,9 +112,10 @@
+ 
+ /* (legacy) interface for use without CPU hotplug handling */
+ 
+-#define __alloc_percpu(size)	percpu_alloc_mask((size), GFP_KERNEL, \
++#define __alloc_percpu(size, align)	percpu_alloc_mask((size), GFP_KERNEL, \
+ 						  cpu_possible_map)
+-#define alloc_percpu(type)	(type *)__alloc_percpu(sizeof(type))
++#define alloc_percpu(type)	(type *)__alloc_percpu(sizeof(type), \
++						       __alignof__(type))
+ #define free_percpu(ptr)	percpu_free((ptr))
+ #define per_cpu_ptr(ptr, cpu)	percpu_ptr((ptr), (cpu))
+ 
+diff -r d7e495785ad1 net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c	Mon Nov 17 20:23:37 2008 +1030
++++ b/net/ipv4/af_inet.c	Mon Nov 17 20:56:22 2008 +1030
+@@ -1283,10 +1283,10 @@
+ int snmp_mib_init(void *ptr[2], size_t mibsize)
+ {
+ 	BUG_ON(ptr == NULL);
+-	ptr[0] = __alloc_percpu(mibsize);
++	ptr[0] = __alloc_percpu(mibsize, __alignof__(unsigned long));
+ 	if (!ptr[0])
+ 		goto err0;
+-	ptr[1] = __alloc_percpu(mibsize);
++	ptr[1] = __alloc_percpu(mibsize, __alignof__(unsigned long));
+ 	if (!ptr[1])
+ 		goto err1;
+ 	return 0;
