@@ -1,64 +1,57 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: af_unix should update its inuse counter
-Date: Mon, 17 Nov 2008 11:09:33 +0100
-Message-ID: <492142DD.2030906@cosmosbay.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] net: make ip_rt_acct a normal percpu var
+Date: Mon, 17 Nov 2008 20:50:30 +1030
+Message-ID: <200811172050.31308.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060404060308010309000809"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:49350 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500AbYKQKJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 05:09:42 -0500
+Received: from ozlabs.org ([203.10.76.45]:37771 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751773AbYKQKUm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 05:20:42 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060404060308010309000809
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-This patch is a preparation to namespace conversion of /proc/net/protocols
-
-In order to have relevant information for UNIX protocol, we should use
-sock_prot_inuse_add() to update a (percpu and pernamespace) counter of
-inuse sockets.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- net/unix/af_unix.c |    4 ++++
- 1 files changed, 4 insertions(+)
-
---------------060404060308010309000809
-Content-Type: text/plain;
- name="af_unix_inuse.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="af_unix_inuse.patch"
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index a1eb596..36856ca 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -361,6 +361,7 @@ static void unix_sock_destructor(struct sock *sk)
- 		unix_release_addr(u->addr);
- 
- 	atomic_dec(&unix_nr_socks);
-+	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
- #ifdef UNIX_REFCNT_DEBUG
- 	printk(KERN_DEBUG "UNIX %p is destroyed, %d are still alive.\n", sk,
- 		atomic_read(&unix_nr_socks));
-@@ -612,6 +613,9 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
- out:
- 	if (sk == NULL)
- 		atomic_dec(&unix_nr_socks);
-+	else
-+		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
-+		
- 	return sk;
- }
- 
-
---------------060404060308010309000809--
+VGhlcmUncyBubyByZWFzb24gZm9yIHRoaXMgdG8gYmUgZHluYW1pY2FsbHkgYWxsb2NhdGVkOiB3
+ZSBwYW5pYyBpZgphbGxvY2F0aW9uIGZhaWxzIGFueXdheS4KClNpZ25lZC1vZmYtYnk6IFJ1c3R5
+IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KCmRpZmYgLXIgNjQzYzJjZGZkYjYyIGlu
+Y2x1ZGUvbmV0L3JvdXRlLmgKLS0tIGEvaW5jbHVkZS9uZXQvcm91dGUuaAlNb24gTm92IDE3IDE5
+OjU3OjQyIDIwMDggKzEwMzAKKysrIGIvaW5jbHVkZS9uZXQvcm91dGUuaAlNb24gTm92IDE3IDIw
+OjIzOjM3IDIwMDggKzEwMzAKQEAgLTM0LDYgKzM0LDcgQEAKICNpbmNsdWRlIDxsaW51eC9pcC5o
+PgogI2luY2x1ZGUgPGxpbnV4L2NhY2hlLmg+CiAjaW5jbHVkZSA8bGludXgvc2VjdXJpdHkuaD4K
+KyNpbmNsdWRlIDxsaW51eC9wZXJjcHUuaD4KIAogI2lmbmRlZiBfX0tFUk5FTF9fCiAjd2Fybmlu
+ZyBUaGlzIGZpbGUgaXMgbm90IHN1cHBvc2VkIHRvIGJlIHVzZWQgb3V0c2lkZSBvZiBrZXJuZWwu
+CkBAIC0xMDUsNyArMTA2LDcgQEAKICAgICAgICAgdW5zaWduZWQgaW50IG91dF9obGlzdF9zZWFy
+Y2g7CiB9OwogCi1leHRlcm4gc3RydWN0IGlwX3J0X2FjY3QgKmlwX3J0X2FjY3Q7CitERUNMQVJF
+X1BFUl9DUFUoc3RydWN0IGlwX3J0X2FjY3RbMjU2XSwgaXBfcnRfYWNjdCk7CiAKIHN0cnVjdCBp
+bl9kZXZpY2U7CiBleHRlcm4gaW50CQlpcF9ydF9pbml0KHZvaWQpOwpkaWZmIC1yIDY0M2MyY2Rm
+ZGI2MiBuZXQvaXB2NC9pcF9pbnB1dC5jCi0tLSBhL25ldC9pcHY0L2lwX2lucHV0LmMJTW9uIE5v
+diAxNyAxOTo1Nzo0MiAyMDA4ICsxMDMwCisrKyBiL25ldC9pcHY0L2lwX2lucHV0LmMJTW9uIE5v
+diAxNyAyMDoyMzozNyAyMDA4ICsxMDMwCkBAIC0zMzksNyArMzM5LDcgQEAKIAogI2lmZGVmIENP
+TkZJR19ORVRfQ0xTX1JPVVRFCiAJaWYgKHVubGlrZWx5KHNrYi0+ZHN0LT50Y2xhc3NpZCkpIHsK
+LQkJc3RydWN0IGlwX3J0X2FjY3QgKnN0ID0gcGVyX2NwdV9wdHIoaXBfcnRfYWNjdCwgc21wX3By
+b2Nlc3Nvcl9pZCgpKTsKKwkJc3RydWN0IGlwX3J0X2FjY3QgKnN0ID0gX19nZXRfY3B1X3Zhcihp
+cF9ydF9hY2N0KTsKIAkJdTMyIGlkeCA9IHNrYi0+ZHN0LT50Y2xhc3NpZDsKIAkJc3RbaWR4JjB4
+RkZdLm9fcGFja2V0cysrOwogCQlzdFtpZHgmMHhGRl0ub19ieXRlcys9c2tiLT5sZW47CmRpZmYg
+LXIgNjQzYzJjZGZkYjYyIG5ldC9pcHY0L3JvdXRlLmMKLS0tIGEvbmV0L2lwdjQvcm91dGUuYwlN
+b24gTm92IDE3IDE5OjU3OjQyIDIwMDggKzEwMzAKKysrIGIvbmV0L2lwdjQvcm91dGUuYwlNb24g
+Tm92IDE3IDIwOjIzOjM3IDIwMDggKzEwMzAKQEAgLTU0MSw3ICs1NDEsNyBAQAogCQkJdW5zaWdu
+ZWQgaW50IGo7CiAJCQl1MzIgKnNyYzsKIAotCQkJc3JjID0gKCh1MzIgKikgcGVyX2NwdV9wdHIo
+aXBfcnRfYWNjdCwgaSkpICsgb2Zmc2V0OworCQkJc3JjID0gKCh1MzIgKilwZXJfY3B1KGlwX3J0
+X2FjY3QsIGkpKSArIG9mZnNldDsKIAkJCWZvciAoaiA9IDA7IGogPCBsZW5ndGgvNDsgaisrKQog
+CQkJCWRzdFtqXSArPSBzcmNbal07CiAJCX0KQEAgLTMyMzcsNyArMzIzNyw3IEBACiAKIAogI2lm
+ZGVmIENPTkZJR19ORVRfQ0xTX1JPVVRFCi1zdHJ1Y3QgaXBfcnRfYWNjdCAqaXBfcnRfYWNjdCBf
+X3JlYWRfbW9zdGx5OworREVGSU5FX1BFUl9DUFUoc3RydWN0IGlwX3J0X2FjY3RbMjU2XSwgaXBf
+cnRfYWNjdCk7CiAjZW5kaWYgLyogQ09ORklHX05FVF9DTFNfUk9VVEUgKi8KIAogc3RhdGljIF9f
+aW5pdGRhdGEgdW5zaWduZWQgbG9uZyByaGFzaF9lbnRyaWVzOwpAQCAtMzI1MywxMiArMzI1Myw2
+IEBACiBpbnQgX19pbml0IGlwX3J0X2luaXQodm9pZCkKIHsKIAlpbnQgcmMgPSAwOwotCi0jaWZk
+ZWYgQ09ORklHX05FVF9DTFNfUk9VVEUKLQlpcF9ydF9hY2N0ID0gX19hbGxvY19wZXJjcHUoMjU2
+ICogc2l6ZW9mKHN0cnVjdCBpcF9ydF9hY2N0KSk7Ci0JaWYgKCFpcF9ydF9hY2N0KQotCQlwYW5p
+YygiSVA6IGZhaWxlZCB0byBhbGxvY2F0ZSBpcF9ydF9hY2N0XG4iKTsKLSNlbmRpZgogCiAJaXB2
+NF9kc3Rfb3BzLmttZW1fY2FjaGVwID0KIAkJa21lbV9jYWNoZV9jcmVhdGUoImlwX2RzdF9jYWNo
+ZSIsIHNpemVvZihzdHJ1Y3QgcnRhYmxlKSwgMCwKAAo=
