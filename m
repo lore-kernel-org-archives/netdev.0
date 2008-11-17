@@ -1,84 +1,105 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: [PATCH] pci: Added quirk to disable msi for MCP55 NIC on Asus P5N32-SLI
- Premium
-Date: Mon, 17 Nov 2008 10:31:35 +0100
-Message-ID: <492139F7.3050303@simula.no>
-References: <037FCE6B-850E-4A88-B4C3-B856B306377E@petlund.no>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] ixgbe: fix compilation with gcc-3.4
+Date: Mon, 17 Nov 2008 13:01:49 +0300
+Message-ID: <20081117100149.GA10586@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-forward1.uio.no ([129.240.10.70]:49870 "EHLO
-	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751945AbYKQJbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 04:31:20 -0500
-Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
-	(envelope-from <apetlund@simula.no>)
-	id 1L20Ry-0001jH-O4
-	for netdev@vger.kernel.org; Mon, 17 Nov 2008 10:31:18 +0100
-In-Reply-To: <037FCE6B-850E-4A88-B4C3-B856B306377E@petlund.no>
+Received: from ug-out-1314.google.com ([66.249.92.175]:49753 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750922AbYKQJ6P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 04:58:15 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so355283ugf.37
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 01:58:13 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andreas Petlund wrote:
-> I have a machine with an Asus motherboard (P5N32-SLI Premium - NVidia
-> MCP55 chipset) where the forcedeth module does not work with msi. This
-> seems to bother quite some people ( see
-> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/136836 ).
-> 
-> Reading various forum posts makes me inclined to believe this is a
-> firmware problem, but Asus have no fix with their latest BIOS-upgrade
-> (and I am starting to believe that we will never see one as the last
-> update came in March this year).
-> 
-> Is it an option to workaround this problem using a hardware-specific
-> quirk that disables msi/msix for the device, or will that affect a lot
-> of users that have no issues with this? On my system the NIC identifies
-> as "cb84". I don't know if this is a common factor for all who has this
-> problem, or only for my motherboard.
-> Maybe the benefit of making it work with all MCP55-NICs is worth
-> disabling msi/msix also for unaffected ones?
-> 
-> Does anybody have alternative suggestions?
-> 
+  CC [M]  drivers/net/ixgbe/ixgbe_main.o
+drivers/net/ixgbe/ixgbe_main.c: In function `ixgbe_intr':
+drivers/net/ixgbe/ixgbe_main.c:1290: sorry, unimplemented: inlining failed in call to 'ixgbe_irq_enable': function body not available
+drivers/net/ixgbe/ixgbe_main.c:1312: sorry, unimplemented: called from here
+make[4]: *** [drivers/net/ixgbe/ixgbe_main.o] Error 1
 
-This patch detects the known affected motherboard and disables msi for the MCP55 NIC devices, allowing normal network operation without manually having to reload forcedeth module with msi=0 and msix=0.
-
-
-Signed-off-by: Andreas Petlund <andreas@petlund.no>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- drivers/pci/quirks.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 5049a47..1bbd912 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -1828,6 +1828,22 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_SERVERWORKS,
- 			 PCI_DEVICE_ID_SERVERWORKS_HT1000_PXB,
- 			 ht_enable_msi_mapping);
+ drivers/net/ixgbe/ixgbe_main.c |   58 +++++++++++++++++++----------------------
+ 1 file changed, 28 insertions(+), 30 deletions(-)
+
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1287,7 +1287,34 @@ static void ixgbe_set_itr(struct ixgbe_adapter *adapter)
+ 	return;
+ }
  
-+/* The P5N32-SLI Premium motherboard from Asus has a problem with msi
-+ * for the MCP55 NIC. It is not yet determined whether the msi problem
-+ * also affects other devices. As for now, turn off msi for this device.
-+ */
-+static void __devinit nvenet_msi_disable(struct pci_dev *dev)
+-static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter);
++/**
++ * ixgbe_irq_disable - Mask off interrupt generation on the NIC
++ * @adapter: board private structure
++ **/
++static inline void ixgbe_irq_disable(struct ixgbe_adapter *adapter)
 +{
-+	if (dmi_name_in_vendors("P5N32-SLI PREMIUM")) {
-+		dev_info(&dev->dev,
-+			 "Disabling msi for MCP55 NIC on P5N32-SLI Premium\n");
-+		dev->no_msi = 1;
++	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, ~0);
++	IXGBE_WRITE_FLUSH(&adapter->hw);
++	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
++		int i;
++		for (i = 0; i < adapter->num_msix_vectors; i++)
++			synchronize_irq(adapter->msix_entries[i].vector);
++	} else {
++		synchronize_irq(adapter->pdev->irq);
 +	}
 +}
-+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_NVIDIA,
-+			PCI_DEVICE_ID_NVIDIA_NVENET_15,
-+			nvenet_msi_disable);
 +
- static void __devinit nv_msi_ht_cap_quirk(struct pci_dev *dev)
- {
- 	struct pci_dev *host_bridge;
--- 
-1.5.6.3
-
++/**
++ * ixgbe_irq_enable - Enable default interrupt generation settings
++ * @adapter: board private structure
++ **/
++static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
++{
++	u32 mask;
++	mask = IXGBE_EIMS_ENABLE_MASK;
++	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
++	IXGBE_WRITE_FLUSH(&adapter->hw);
++}
+ 
+ /**
+  * ixgbe_intr - legacy mode Interrupt Handler
+@@ -1394,35 +1421,6 @@ static void ixgbe_free_irq(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
+- * ixgbe_irq_disable - Mask off interrupt generation on the NIC
+- * @adapter: board private structure
+- **/
+-static inline void ixgbe_irq_disable(struct ixgbe_adapter *adapter)
+-{
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, ~0);
+-	IXGBE_WRITE_FLUSH(&adapter->hw);
+-	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
+-		int i;
+-		for (i = 0; i < adapter->num_msix_vectors; i++)
+-			synchronize_irq(adapter->msix_entries[i].vector);
+-	} else {
+-		synchronize_irq(adapter->pdev->irq);
+-	}
+-}
+-
+-/**
+- * ixgbe_irq_enable - Enable default interrupt generation settings
+- * @adapter: board private structure
+- **/
+-static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
+-{
+-	u32 mask;
+-	mask = IXGBE_EIMS_ENABLE_MASK;
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
+-	IXGBE_WRITE_FLUSH(&adapter->hw);
+-}
+-
+-/**
+  * ixgbe_configure_msi_and_legacy - Initialize PIN (INTA...) and MSI interrupts
+  *
+  **/
