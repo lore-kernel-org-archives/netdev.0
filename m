@@ -1,95 +1,76 @@
-From: Trent Piepho <tpiepho@freescale.com>
-Subject: [PATCH] phylib: Fix auto-negotiation restart avoidance
-Date: Mon, 17 Nov 2008 13:33:25 -0800
-Message-ID: <1226957605-5407-1-git-send-email-tpiepho@freescale.com>
-Cc: Scott Wood <scottwood@freescale.com>,
-	Trent Piepho <tpiepho@freescale.com>,
-	Andy Fleming <afleming@freescale.com>
-To: netdev@vger.kernel.org
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH-2.6.28] net: ipg.c fix bracing on endian swapping
+Date: Mon, 17 Nov 2008 13:42:09 -0800
+Message-ID: <1226958129.6150.10.camel@brick>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:63879 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754990AbYKQVfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 16:35:52 -0500
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id mAHLZnD7016705
-	for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 14:35:50 -0700 (MST)
+Received: from wf-out-1314.google.com ([209.85.200.175]:39324 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751279AbYKQVmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 16:42:12 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so2809105wfd.4
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 13:42:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A previous patch, 51e2a3846eab18711f4eb59cd0a4c33054e2980a, made
-genphy_config_aneg() not restart aneg by calling genphy_restart_aneg() if
-the advertisement hadn't changed.
+rxfd->frag_info is a __le64, IPG_RFI_FRAGLEN is a cpu-endian
+constant and wants to be outside of the le64_to_cpu. Fixed
+in multiple places.
 
-But, genphy_restart_aneg() doesn't just restart aneg, it may also *enable*
-aneg or un-isolate the PHY from the MII (those functions are controlled by
-the same register).  The code to avoid calling genphy_restart_aneg() didn't
-consider this.
+Also an occurrence where le64_to_cpu was used instead of cpu_to_le64
 
-So, modify genphy_config_aneg() to also check if the PHY needs to have aneg
-enabled or be un-isolated before deciding not to restart aneg.
-
-This caused a problem with certain Davicom PHYs, as that driver isolates
-the PHY (why?) before calling genphy_config_aneg() and expects the PHY to
-be un-isolated by that function.
-
-Signed-off-by: Trent Piepho <tpiepho@freescale.com>
-Reported-by: Scott Wood <scottwood@freescale.com>
-CC: Andy Fleming <afleming@freescale.com>
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
-This fixes a 2.6.28 regression.
+ drivers/net/ipg.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
- drivers/net/phy/phy_device.c |   34 +++++++++++++++++++++++-----------
- 1 files changed, 23 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index e11b03b..4fe2a53 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -564,20 +564,32 @@ EXPORT_SYMBOL(genphy_restart_aneg);
-  */
- int genphy_config_aneg(struct phy_device *phydev)
- {
--	int result = 0;
-+	int result;
+diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
+index 7373daf..0593698 100644
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -1112,7 +1112,7 @@ static void ipg_nic_rx_free_skb(struct net_device *dev)
+ 		struct ipg_rx *rxfd = sp->rxd + entry;
  
--	if (AUTONEG_ENABLE == phydev->autoneg) {
--		int result = genphy_config_advert(phydev);
-+	if (AUTONEG_ENABLE != phydev->autoneg)
-+		return genphy_setup_forced(phydev);
-+
-+	result = genphy_config_advert(phydev);
-+
-+	if (result < 0) /* error */
-+		return result;
+ 		pci_unmap_single(sp->pdev,
+-			le64_to_cpu(rxfd->frag_info & ~IPG_RFI_FRAGLEN),
++			le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+ 			sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+ 		dev_kfree_skb_irq(sp->rx_buff[entry]);
+ 		sp->rx_buff[entry] = NULL;
+@@ -1179,7 +1179,7 @@ static int ipg_nic_rx_check_error(struct net_device *dev)
+ 		 */
+ 		if (sp->rx_buff[entry]) {
+ 			pci_unmap_single(sp->pdev,
+-				le64_to_cpu(rxfd->frag_info & ~IPG_RFI_FRAGLEN),
++				le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+ 				sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
  
--		if (result < 0) /* error */
--			return result;
-+	if (result == 0) {
-+		/* Advertisment hasn't changed, but maybe aneg was never on to
-+		 * begin with?  Or maybe phy was isolated? */
-+		int ctl = phy_read(phydev, MII_BMCR);
-+
-+		if (ctl < 0)
-+			return ctl;
-+
-+		if (!(ctl & BMCR_ANENABLE) || (ctl & BMCR_ISOLATE))
-+			result = 1; /* do restart aneg */
-+	}
+ 			dev_kfree_skb_irq(sp->rx_buff[entry]);
+@@ -1246,7 +1246,7 @@ static void ipg_nic_rx_with_start(struct net_device *dev,
+ 	if (jumbo->found_start)
+ 		dev_kfree_skb_irq(jumbo->skb);
  
--		/* Only restart aneg if we are advertising something different
--		 * than we were before.	 */
--		if (result > 0)
--			result = genphy_restart_aneg(phydev);
--	} else
--		result = genphy_setup_forced(phydev);
-+	/* Only restart aneg if we are advertising something different
-+	 * than we were before.	 */
-+	if (result > 0)
-+		result = genphy_restart_aneg(phydev);
+-	pci_unmap_single(pdev, le64_to_cpu(rxfd->frag_info & ~IPG_RFI_FRAGLEN),
++	pci_unmap_single(pdev, le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+ 			 sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
  
- 	return result;
- }
+ 	skb_put(skb, sp->rxfrag_size);
+@@ -1349,7 +1349,7 @@ static int ipg_nic_rx_jumbo(struct net_device *dev)
+ 		unsigned int entry = curr % IPG_RFDLIST_LENGTH;
+ 		struct ipg_rx *rxfd = sp->rxd + entry;
+ 
+-		if (!(rxfd->rfs & le64_to_cpu(IPG_RFS_RFDDONE)))
++		if (!(rxfd->rfs & cpu_to_le64(IPG_RFS_RFDDONE)))
+ 			break;
+ 
+ 		switch (ipg_nic_rx_check_frame_type(dev)) {
 -- 
-1.5.4.1
+1.6.0.4.994.g16bd3e
+
+
 
