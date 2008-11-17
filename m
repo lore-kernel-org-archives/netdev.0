@@ -1,43 +1,71 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [TPROXY] implemented IP_RECVORIGDSTADDR socket option
-Date: Sun, 16 Nov 2008 19:32:10 -0800 (PST)
-Message-ID: <20081116.193210.05230282.davem@davemloft.net>
-References: <1226572624.7164.11.camel@bzorp.balabit>
+Subject: Re: [PATCH 4/3] rcu: documents rculist_nulls
+Date: Sun, 16 Nov 2008 19:36:59 -0800 (PST)
+Message-ID: <20081116.193659.159456126.davem@davemloft.net>
+References: <491C2F27.2000908@cosmosbay.com>
+	<491C4FA8.4020704@cosmosbay.com>
+	<1226675798.7685.7797.camel@twins>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jengelh@medozas.de, tproxy@lists.balabit.hu,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hidden@sch.bme.hu, andrey@icomsw.com
-To: bazsi@balabit.hu
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1226572624.7164.11.camel@bzorp.balabit>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dada1@cosmosbay.com, minyard@acm.org, paulmck@linux.vnet.ibm.com,
+	shemminger@vyatta.com, benny+usenet@amorsen.dk,
+	netdev@vger.kernel.org, cl@linux-foundation.org, zbr@ioremap.net,
+	christian@myri.com
+To: a.p.zijlstra@chello.nl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36305
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755492AbYKQDhA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Nov 2008 22:37:00 -0500
+In-Reply-To: <1226675798.7685.7797.camel@twins>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Balazs Scheidler <bazsi@balabit.hu>
-Date: Thu, 13 Nov 2008 11:37:04 +0100
+=46rom: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date: Fri, 14 Nov 2008 16:16:38 +0100
 
-> In case UDP traffic is redirected to a local UDP socket,
-> the originally addressed destination address/port
-> cannot be recovered with the in-kernel tproxy.
-> 
-> This patch adds an IP_RECVORIGDSTADDR sockopt that enables
-> a IP_ORIGDSTADDR ancillary message in recvmsg(). This
-> ancillary message contains the original destination address/port
-> of the packet being received.
-> 
-> Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
+> On Thu, 2008-11-13 at 17:02 +0100, Eric Dumazet wrote:
+> >=20
+> Eric Dumazet a =E9crit :
+> > > Peter Zijlstra a =E9crit :
+> > >> So by not using some memory barriers (would be nice to have it
+> > >> illustrated which ones), we can race and end up on the wrong cha=
+in, in
+> > >> case that happens we detect this by using this per-chain termina=
+tor and
+> > >> try again.
+> > >>
+> > >> It would be really good to have it explained in the rculist_null=
+s.h
+> > >> comments what memory barriers are missing, what races they open,=
+ and how
+> > >> the this special terminator trick closes that race.
+> > >=20
+> > > OK, maybe I should add a Documentation/RCU/rculist_nulls.txt file=
+ with
+> > > appropriate examples and documentation.
+> > >=20
+> > > (Say the lookup/insert algorithms, with standard hlist and memory=
+ barriers,
+> > > and with hlist_nulls without those two memory barriers.
+> > >=20
+> >=20
+> > [PATCH 4/3] rcu: documents rculist_nulls
+> >=20
+> > Adds Documentation/RCU/rculist_nulls.txt file to describe how 'null=
+s'
+> > end-of-list can help in some RCU algos.
+> >=20
+> >=20
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> Acked-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 
-I'm going to apply this to net-next-2.6, thanks!
+Since there seems to be consensus for these changes I'm going to merge =
+this
+stuff into net-next-2.6 so that I can add in the users that Eric has wr=
+itten.
 
-I was going to suggest simply adding a port member to the
-in_pktinfo struct, because at worst the user will see
-a MSG_CTRUNC.
-
-But I guess that is not worth the risk.
-
-If you want to do the function pointer cleanup suggested
-by David Stevens, please make that as a followon patch.
-
-Thanks.
+Thanks everyone for the review and feedback.
