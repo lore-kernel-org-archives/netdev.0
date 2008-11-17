@@ -1,44 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: fix multiple queue warning
-Date: Sun, 16 Nov 2008 23:30:06 -0800 (PST)
-Message-ID: <20081116.233006.128063706.davem@davemloft.net>
-References: <20081028193042.22781.15774.stgit@gitlost.lost>
-	<18709.30748.784246.990265@robur.slu.se>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: Cleanup of af_unix
+Date: Sun, 16 Nov 2008 23:34:42 -0800
+Message-ID: <1226907282.4037.31.camel@localhost>
+References: <49210AE7.3050405@cosmosbay.com>
+	 <20081116.223209.239966240.davem@davemloft.net>
+	 <4921133D.6070800@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, jesse.brandeburg@intel.com,
-	robert.olsson@its.uu.se
-To: robert@robur.slu.se
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55939
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757501AbYKQHaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 02:30:06 -0500
-In-Reply-To: <18709.30748.784246.990265@robur.slu.se>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2856 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758648AbYKQHen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 02:34:43 -0500
+In-Reply-To: <4921133D.6070800@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Olsson <robert@robur.slu.se>
-Date: Sat, 8 Nov 2008 12:29:32 +0100
-
-> Jeff Kirsher writes:
+On Mon, 2008-11-17 at 07:46 +0100, Eric Dumazet wrote:
+> [PATCH] net: Cleanup of af_unix
 > 
->  > -	if (ntxq <= num_online_cpus() && (pkt_dev->flags & F_QUEUE_MAP_CPU)) {
->  > +	if (ntxq > num_online_cpus() && (pkt_dev->flags & F_QUEUE_MAP_CPU)) {
->  >  		printk(KERN_WARNING "pktgen: WARNING: QUEUE_MAP_CPU "
->  > -		       "disabled because CPU count (%d) exceeds number ",
->  > -		       num_online_cpus());
->  > -		printk(KERN_WARNING "pktgen: WARNING: of tx queues "
->  > -		       "(%d) on %s \n", ntxq, pkt_dev->odev->name);
+> This is a pure cleanup of net/unix/af_unix.c to meet current code style standards
 > 
->  This triggers with the niu driver which has 12 TX queues on our 8 CPU-core 
->  system. Might be best to make sure that pkt_dev->cur_queue_map never exceeds 
->  ntxq.
-> 
-> pkt_dev->cur_queue_map  = pkt_dev->cur_queue_map % pkt_dev->odev->real_num_tx_queues;
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> --- 
+>  net/unix/af_unix.c |  117 ++++++++++++++++++++-----------------------
+>  1 files changed, 55 insertions(+), 62 deletions(-)
+> plain text document attachment (af_unix_cleanup.patch)
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 4a39771..58db2a2 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -354,7 +353,7 @@ static void unix_sock_destructor(struct sock *sk)
+>  	WARN_ON(!sk_unhashed(sk));
+>  	WARN_ON(sk->sk_socket);
+>  	if (!sock_flag(sk, SOCK_DEAD)) {
+> -		printk("Attempt to release alive unix socket: %p\n", sk);
+> +		printk(KERN_DEBUG "Attempt to release alive unix socket: %p\n", sk);
+>  		return;
+>  	}
+>  
 
-Can someone cook up a patch to fix this?
+Well, perhaps not quite pure.
+The KERN_ level selection is debatable.
+This could or perhaps should be KERN_INFO.
 
-Thanks.
+
