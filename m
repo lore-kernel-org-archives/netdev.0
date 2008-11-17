@@ -1,40 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] dccp: Tidy up setsockopt calls
-Date: Sun, 16 Nov 2008 22:57:05 -0800 (PST)
-Message-ID: <20081116.225705.57687104.davem@davemloft.net>
-References: <1226751079-15019-4-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1226751079-15019-5-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1226751079-15019-6-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH net-next]netdevice: 82596: Convert netdev->priv to netdev_priv
+Date: Mon, 17 Nov 2008 14:58:35 +0800
+Message-ID: <4921161B.90605@cn.fujitsu.com>
+References: <4921095D.9010109@cn.fujitsu.com> <20081116.223637.108010315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48343
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751878AbYKQG5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 01:57:06 -0500
-In-Reply-To: <1226751079-15019-6-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from cn.fujitsu.com ([222.73.24.84]:52507 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751418AbYKQG66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 01:58:58 -0500
+In-Reply-To: <20081116.223637.108010315.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Sat, 15 Nov 2008 13:11:19 +0100
+David Miller said the following on 2008-11-17 14:36:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Mon, 17 Nov 2008 14:04:13 +0800
+> 
+>> -#ifdef __mc68000__
+>> -	cache_push(virt_to_phys((void *)(dev->mem_start)), 4096);
+>> -	cache_clear(virt_to_phys((void *)(dev->mem_start)), 4096);
+>> -	kernel_set_cachemode((void *)(dev->mem_start), 4096, IOMAP_NOCACHE_SER);
+>> -#endif
+> 
+> Do you have any idea what this code is doing that you are removing?
+> 
+> It's changing the cache mode of the memory behind ->mem_start because
+> this "lp" struct is directly accessed by the hardware, and without
+> these operations the CPU and the device won't see consistent
+> values in the structure.
+> 
+> Therefore your change breaks the driver.
+> 
 
-> This splits the setsockopt calls into two groups, depending on whether an
-> integer argument (val) is required and whether routines being called do
-> their own locking.
-> 
-> Some options (such as setting the CCID) use u8 rather than int, so that for
-> these the test with regard to integer-sizeof can not be used.
-> 
-> The second switch-case statement now only has those statements which need
-> locking and which make use of `val'.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> Reviewed-by: Eugene Teo <eugeneteo@kernel.sg>
+Yes. I was wrong.
+Will send a patch again.
+Thank you for stopping my fool code.
 
-Applied.
