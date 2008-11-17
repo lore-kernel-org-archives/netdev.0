@@ -1,50 +1,46 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 2/5] dccp: Deprecate old setsockopt framework
-Date: Mon, 17 Nov 2008 16:31:55 +0100
-Message-ID: <20081117153155.GA3446@gerrit.erg.abdn.ac.uk>
-References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk> <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk> <1226751079-15019-3-git-send-email-gerrit@erg.abdn.ac.uk> <20081116.225310.261827389.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] softirq: Use local_irq_save() in local_bh_enable()
+Date: Mon, 17 Nov 2008 17:16:17 +0100
+Message-ID: <20081117161617.GF12081@elte.hu>
+References: <87y6zwwy5c.fsf@tac.ki.iif.hu> <20081117133548.GC6345@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>,
+	Ferenc Wagner <wferi@niif.hu>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:32794 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750919AbYKQPcE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 10:32:04 -0500
+Received: from mx2.mail.elte.hu ([157.181.151.9]:33779 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753278AbYKQQQb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 11:16:31 -0500
 Content-Disposition: inline
-In-Reply-To: <20081116.225310.261827389.davem@davemloft.net>
+In-Reply-To: <20081117133548.GC6345@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > This patch removes the old setsockopt interface and replaces it with two new
-| > functions to register NN/SP values for feature negotiation. 
-<snip>
-| But you have to understand that this is something you should think
-| about never doing again.  User interfaces are never "oops sorry, we
-| misdesigned that, we'll just take it away and emit some warning,
-| fix your app"  Once it's out there, you gotta support it forever.
-| 
 
-I hope that the present solution of replacing is sufficient since there was
-at least one crash reported with the old interface, on
-http://www.spinics.net/lists/dccp/msg03371.html
+* Jarek Poplawski <jarkao2@gmail.com> wrote:
 
-Later within the patch set (not in the current submission) there is also a 
-setsockopt warning that the old interface is no longer valid (in the patch
-"dccp: Deprecate old setsockopt framework" on http://eden-feed.erg.abdn.ac.uk).
+> This report: http://marc.info/?l=linux-netdev&m=122599341430090&w=2 
+> shows local_bh_enable() is used in the wrong context (irqs 
+> disabled). It happens when a usual network receive path is called by 
+> netconsole, which simply turns off irqs around this all. Probably 
+> this is wrong, but it worked like this long time, and it's not 
+> trivial to fix this.
+> 
+> Anyway, a commit 0f476b6d91a1395bda6464e653ce66ea9bea7167 "softirq: 
+> remove irqs_disabled warning from local_bh_enable" can break things 
+> after changing from local_irq_save() to local_irq_disable(). Before 
+> this commit there was only a warning, now a lockup is possible, so 
+> it could be treated as a regression. This patch reverts the change 
+> in irqs.
 
-With regard to interface changes, it would be best/easier to keep them within
-one release. I am not up-to-date how long net-next-2.6 will remain open,
-but if you are pushing it out soon, it would be best not to push out the old
-and the new interface in parallel.
+hm, but calling local_bh_enable() with hardirqs off is a bug. It might 
+be a long-standing bug, but it can cause lockups even with that change 
+reverted: when we process softirqs in local_bh_enable(). So why not 
+fix the bug instead?
 
-I am otherwise happy to resubmit the reviewed patches again later, as
-already done after the last merge window.
-
-With regard to compilation there are no concerns, patches are all tested to
-compile standalone.
-
-Please let me know how you would like to proceed.
-
-Gerrit
+	Ingo
