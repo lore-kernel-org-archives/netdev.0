@@ -1,72 +1,71 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 2/3] Clean up alloc_percpu: add align argument to __alloc_percpu.
-Date: Mon, 17 Nov 2008 13:26:24 +0000 (UTC)
-Message-ID: <20081117132509.757C5DDDE6@ozlabs.org>
-Cc: akpm@linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752772AbYKQNZo@vger.kernel.org>
-Date: Mon Nov 17 23:47:44 CST 2008
-Cc: Christoph Lameter <cl@linux-foundation.org>
-Cc: Jens Axboe <axboe@kernel.dk>
-Cc: netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] softirq: Use local_irq_save() in local_bh_enable()
+Date: Mon, 17 Nov 2008 13:35:48 +0000
+Message-ID: <20081117133548.GC6345@ff.dom.local>
+References: <87y6zwwy5c.fsf@tac.ki.iif.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>,
+	Ferenc Wagner <wferi@niif.hu>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.238]:17530 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752064AbYKQNf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 08:35:59 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so2436305rvb.1
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 05:35:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <87y6zwwy5c.fsf@tac.ki.iif.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This report: http://marc.info/?l=linux-netdev&m=122599341430090&w=2
+shows local_bh_enable() is used in the wrong context (irqs disabled).
+It happens when a usual network receive path is called by netconsole,
+which simply turns off irqs around this all. Probably this is wrong,
+but it worked like this long time, and it's not trivial to fix this.
 
-This prepares for a real __alloc_percpu, by adding an alignment argument.
-Currently there are two files which use this, so fix them up too.
+Anyway, a commit 0f476b6d91a1395bda6464e653ce66ea9bea7167 "softirq:
+remove irqs_disabled warning from local_bh_enable" can break things
+after changing from local_irq_save() to local_irq_disable(). Before
+this commit there was only a warning, now a lockup is possible, so
+it could be treated as a regression. This patch reverts the change
+in irqs.
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> 
-Cc: Christoph Lameter <cl@linux-foundation.org>
-Cc: Jens Axboe <axboe@kernel.dk>
-Cc: netdev@vger.kernel.org
+Reported-by: Ferenc Wagner <wferi@niif.hu>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
- block/blktrace.c       |    2 +-
- include/linux/percpu.h |    5 +++--
- net/ipv4/af_inet.c     |    4 ++--
- 3 files changed, 6 insertions(+), 5 deletions(-)
 
-diff -r d7e495785ad1 block/blktrace.c
---- a/block/blktrace.c	Mon Nov 17 20:23:37 2008 +1030
-+++ b/block/blktrace.c	Mon Nov 17 20:56:22 2008 +1030
-@@ -389,7 +389,7 @@
- 	if (!bt->sequence)
- 		goto err;
+ kernel/softirq.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index e7c69a7..756c928 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -135,9 +135,12 @@ EXPORT_SYMBOL(_local_bh_enable);
  
--	bt->msg_data = __alloc_percpu(BLK_TN_MAX_MSG);
-+	bt->msg_data = __alloc_percpu(BLK_TN_MAX_MSG, __alignof__(char));
- 	if (!bt->msg_data)
- 		goto err;
- 
-diff -r d7e495785ad1 include/linux/percpu.h
---- a/include/linux/percpu.h	Mon Nov 17 20:23:37 2008 +1030
-+++ b/include/linux/percpu.h	Mon Nov 17 20:56:22 2008 +1030
-@@ -112,9 +112,10 @@
- 
- /* (legacy) interface for use without CPU hotplug handling */
- 
--#define __alloc_percpu(size)	percpu_alloc_mask((size), GFP_KERNEL, \
-+#define __alloc_percpu(size, align)	percpu_alloc_mask((size), GFP_KERNEL, \
- 						  cpu_possible_map)
--#define alloc_percpu(type)	(type *)__alloc_percpu(sizeof(type))
-+#define alloc_percpu(type)	(type *)__alloc_percpu(sizeof(type), \
-+						       __alignof__(type))
- #define free_percpu(ptr)	percpu_free((ptr))
- #define per_cpu_ptr(ptr, cpu)	percpu_ptr((ptr), (cpu))
- 
-diff -r d7e495785ad1 net/ipv4/af_inet.c
---- a/net/ipv4/af_inet.c	Mon Nov 17 20:23:37 2008 +1030
-+++ b/net/ipv4/af_inet.c	Mon Nov 17 20:56:22 2008 +1030
-@@ -1283,10 +1283,10 @@
- int snmp_mib_init(void *ptr[2], size_t mibsize)
+ static inline void _local_bh_enable_ip(unsigned long ip)
  {
- 	BUG_ON(ptr == NULL);
--	ptr[0] = __alloc_percpu(mibsize);
-+	ptr[0] = __alloc_percpu(mibsize, __alignof__(unsigned long));
- 	if (!ptr[0])
- 		goto err0;
--	ptr[1] = __alloc_percpu(mibsize);
-+	ptr[1] = __alloc_percpu(mibsize, __alignof__(unsigned long));
- 	if (!ptr[1])
- 		goto err1;
- 	return 0;
++#ifdef CONFIG_TRACE_IRQFLAGS
++	unsigned long flags;
++#endif
+ 	WARN_ON_ONCE(in_irq() || irqs_disabled());
+ #ifdef CONFIG_TRACE_IRQFLAGS
+-	local_irq_disable();
++	local_irq_save(flags);
+ #endif
+ 	/*
+ 	 * Are softirqs going to be turned on now:
+@@ -155,7 +158,7 @@ static inline void _local_bh_enable_ip(unsigned long ip)
+ 
+ 	dec_preempt_count();
+ #ifdef CONFIG_TRACE_IRQFLAGS
+-	local_irq_enable();
++	local_irq_restore(flags);
+ #endif
+ 	preempt_check_resched();
+ }
