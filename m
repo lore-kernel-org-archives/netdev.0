@@ -1,118 +1,68 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH] ixgbe: fix compilation with gcc-3.4
-Date: Mon, 17 Nov 2008 11:26:46 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0811171125390.7996@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20081117100149.GA10586@x200.localdomain>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:28892 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751048AbYKQT0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 14:26:53 -0500
-In-Reply-To: <20081117100149.GA10586@x200.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: [resend take 2 4/4] DST Makefile/Kconfig files.
+Date: Mon, 17 Nov 2008 22:21:39 +0300
+Message-ID: <12269496993388-git-send-email-zbr@ioremap.net>
+References: <12269496993020-git-send-email-zbr@ioremap.net>
+ <12269496993007-git-send-email-zbr@ioremap.net>
+ <12269496993328-git-send-email-zbr@ioremap.net>
+ <12269496991188-git-send-email-zbr@ioremap.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <12269496991188-git-send-email-zbr@ioremap.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-On Mon, 17 Nov 2008, Alexey Dobriyan wrote:
-
->   CC [M]  drivers/net/ixgbe/ixgbe_main.o
-> drivers/net/ixgbe/ixgbe_main.c: In function `ixgbe_intr':
-> drivers/net/ixgbe/ixgbe_main.c:1290: sorry, unimplemented: inlining failed in call to 'ixgbe_irq_enable': function body not available
-> drivers/net/ixgbe/ixgbe_main.c:1312: sorry, unimplemented: called from here
-> make[4]: *** [drivers/net/ixgbe/ixgbe_main.o] Error 1
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ---
-> 
->  drivers/net/ixgbe/ixgbe_main.c |   58 +++++++++++++++++++----------------------
->  1 file changed, 28 insertions(+), 30 deletions(-)
-> 
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -1287,7 +1287,34 @@ static void ixgbe_set_itr(struct ixgbe_adapter *adapter)
->  	return;
->  }
->  
-> -static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter);
-> +/**
-> + * ixgbe_irq_disable - Mask off interrupt generation on the NIC
-> + * @adapter: board private structure
-> + **/
-> +static inline void ixgbe_irq_disable(struct ixgbe_adapter *adapter)
-> +{
-> +	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, ~0);
-> +	IXGBE_WRITE_FLUSH(&adapter->hw);
-> +	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
-> +		int i;
-> +		for (i = 0; i < adapter->num_msix_vectors; i++)
-> +			synchronize_irq(adapter->msix_entries[i].vector);
-> +	} else {
-> +		synchronize_irq(adapter->pdev->irq);
-> +	}
-> +}
-> +
-> +/**
-> + * ixgbe_irq_enable - Enable default interrupt generation settings
-> + * @adapter: board private structure
-> + **/
-> +static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
-> +{
-> +	u32 mask;
-> +	mask = IXGBE_EIMS_ENABLE_MASK;
-> +	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
-> +	IXGBE_WRITE_FLUSH(&adapter->hw);
-> +}
->  
->  /**
->   * ixgbe_intr - legacy mode Interrupt Handler
-> @@ -1394,35 +1421,6 @@ static void ixgbe_free_irq(struct ixgbe_adapter *adapter)
->  }
->  
->  /**
-> - * ixgbe_irq_disable - Mask off interrupt generation on the NIC
-> - * @adapter: board private structure
-> - **/
-> -static inline void ixgbe_irq_disable(struct ixgbe_adapter *adapter)
-> -{
-> -	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, ~0);
-> -	IXGBE_WRITE_FLUSH(&adapter->hw);
-> -	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
-> -		int i;
-> -		for (i = 0; i < adapter->num_msix_vectors; i++)
-> -			synchronize_irq(adapter->msix_entries[i].vector);
-> -	} else {
-> -		synchronize_irq(adapter->pdev->irq);
-> -	}
-> -}
-> -
-> -/**
-> - * ixgbe_irq_enable - Enable default interrupt generation settings
-> - * @adapter: board private structure
-> - **/
-> -static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
-> -{
-> -	u32 mask;
-> -	mask = IXGBE_EIMS_ENABLE_MASK;
-> -	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
-> -	IXGBE_WRITE_FLUSH(&adapter->hw);
-> -}
-> -
-> -/**
->   * ixgbe_configure_msi_and_legacy - Initialize PIN (INTA...) and MSI interrupts
->   *
->   **/
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-
--PJ Waskiewicz
-<peter.p.waskiewicz.jr@intel.com>
+diff --git a/drivers/block/Kconfig b/drivers/block/Kconfig
+index 61ad8d6..2a92cd8 100644
+--- a/drivers/block/Kconfig
++++ b/drivers/block/Kconfig
+@@ -445,4 +445,6 @@ config BLK_DEV_HD
+ 
+ 	  If unsure, say N.
+ 
++source "drivers/block/dst/Kconfig"
++
+ endif # BLK_DEV
+diff --git a/drivers/block/Makefile b/drivers/block/Makefile
+index 204332b..6400de0 100644
+--- a/drivers/block/Makefile
++++ b/drivers/block/Makefile
+@@ -32,3 +32,5 @@ obj-$(CONFIG_BLK_DEV_UB)	+= ub.o
+ obj-$(CONFIG_BLK_DEV_HD)	+= hd.o
+ 
+ obj-$(CONFIG_XEN_BLKDEV_FRONTEND)	+= xen-blkfront.o
++
++obj-$(CONFIG_DST)	+= dst/
+diff --git a/drivers/block/dst/Kconfig b/drivers/block/dst/Kconfig
+new file mode 100644
+index 0000000..507dba8
+--- /dev/null
++++ b/drivers/block/dst/Kconfig
+@@ -0,0 +1,14 @@
++config DST
++	tristate "Distributed storage"
++	depends on NET && CRYPTO && SYSFS
++	select CONNECTOR
++	select LIBCRC32C
++	---help---
++	This driver allows to create a distributed storage block device.
++
++config DST_DEBUG
++	bool "DST debug"
++	depends on DST
++	---help---
++	This option will turn HEAVY debugging of the DST.
++	Turn it on ONLY if you have to debug some really obscure problem.
+diff --git a/drivers/block/dst/Makefile b/drivers/block/dst/Makefile
+new file mode 100644
+index 0000000..3a8b0cf
+--- /dev/null
++++ b/drivers/block/dst/Makefile
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_DST) += nst.o
++
++nst-y := dcore.o state.o export.o thread_pool.o crypto.o trans.o
