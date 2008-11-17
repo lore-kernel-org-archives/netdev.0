@@ -1,58 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] filter: add SKF_AD_NLATTR_NEST to look for nested attributes
-Date: Mon, 17 Nov 2008 15:35:09 +0100
-Message-ID: <4921811D.3080204@trash.net>
-References: <20081117083136.10840.70283.stgit@Decadence> <20081117.003622.132924683.davem@davemloft.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH net-next v2]netdevice: 82596: Convert netdev->priv to
+ netdev_priv
+Date: Mon, 17 Nov 2008 22:42:16 +0800
+Message-ID: <492182C8.6060704@cn.fujitsu.com>
+References: <4921095D.9010109@cn.fujitsu.com>	<20081116.223637.108010315.davem@davemloft.net>	<49213856.6040802@cn.fujitsu.com> <20081117.012939.72047312.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081117.003622.132924683.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:58762 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750783AbYKQOms (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 09:42:48 -0500
+In-Reply-To: <20081117.012939.72047312.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
->> SKF_AD_NLATTR allows us to find the first matching attribute in a
->> stream of netlink attributes from one offset to the end of the
->> netlink message. This is not suitable to look for a specific
->> matching inside a set of nested attributes.
->>
->> For example, in ctnetlink messages, if we look for the CTA_V6_SRC
->> attribute in a message that talks about an IPv4 connection,
->> SKF_AD_NLATTR returns the offset of CTA_STATUS which has the same
->> value of CTA_V6_SRC but outside the nest. To differenciate
->> CTA_STATUS and CTA_V6_SRC, we would have to make assumptions on the
->> size of the attribute and the usual offset, resulting in horrible
->> BSF code.
->>
->> This patch adds SKF_AD_NLATTR_NEST, which is a variant of
->> SKF_AD_NLATTR, that looks for an attribute inside the limits of
->> a nested attributes, but not further.
->>
->> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+David Miller said the following on 2008-11-17 17:29:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Mon, 17 Nov 2008 17:24:38 +0800
 > 
-> This looks fine to me, Patrick is it ok with you too?
+>> The memory, which pointed by netdev->priv, can be allocated by alloc_etherdev().
+>> We don't need to use __get_free_pages() to get memory.
+>>
+>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 > 
-> If Patrick has no objections I'll apply it to net-next-2.6
+> I don't think this is right either.
+> 
+> There might be device imposed alignment constraints, for example.
+> 
+> And a whole page is also being allocated so that this cache mode
+> change doesn't have an effect on unrelated kernel memory.  That could
+> kill performance if some critical other data structure sits in the
+> same page and now has it's cacheability disabled.
+> 
 
-I think this needs more validation to avoid overruning the skb data:
+On this situation, I think that keeping mem_start and using ml_priv
+is the only way to remove directly reference of netdev->priv.
 
-> +		case SKF_AD_NLATTR_NEST: {
-> +			struct nlattr *nla;
-> +
-> +			if (skb_is_nonlinear(skb))
-> +				return 0;
-> +			if (A > skb->len - sizeof(struct nlattr))
-> +				return 0;
-> +
-> +			nla = nla_find_nested((struct nlattr *)&skb->data[A],X);
+I will send v3 tomorrow.
 
-This interprets skb->data as nlattr and takes the nla_len member
-as limit for nla_find(), so it needs to be validated not to exceed
-the skb length.
 
-Besides that, the patch looks fine.
