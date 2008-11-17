@@ -1,16 +1,16 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 29/33] ixgb: convert to net_device_ops
-Date: Mon, 17 Nov 2008 15:42:36 -0800
-Message-ID: <20081117234357.262431493@vyatta.com>
+Subject: [PATCH 28/33] enic: convert to net_device_ops
+Date: Mon, 17 Nov 2008 15:42:35 -0800
+Message-ID: <20081117234357.173505630@vyatta.com>
 References: <20081117234207.854110282@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:55117 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:55114 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752366AbYKRAAV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 19:00:21 -0500
-Content-Disposition: inline; filename=ixgb-netdev_ops.patch
+	id S1752343AbYKRAAU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 19:00:20 -0500
+Content-Disposition: inline; filename=enic-netdev_ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -18,109 +18,54 @@ Convert this driver to network device ops. Compile tested only.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/net/ixgb/ixgb_main.c	2008-11-17 14:03:54.000000000 -0800
-+++ b/drivers/net/ixgb/ixgb_main.c	2008-11-17 14:03:57.000000000 -0800
-@@ -321,6 +321,23 @@ ixgb_reset(struct ixgb_adapter *adapter)
- 	}
+--- a/drivers/net/enic/enic_main.c	2008-11-17 13:23:10.000000000 -0800
++++ b/drivers/net/enic/enic_main.c	2008-11-17 13:26:25.000000000 -0800
+@@ -1590,6 +1590,22 @@ static void enic_iounmap(struct enic *en
+ 		iounmap(enic->bar0.vaddr);
  }
  
-+static const struct net_device_ops ixgb_netdev_ops = {
-+	.open 			= ixgb_open,
-+	.stop			= ixgb_close,
-+	.get_stats		= ixgb_get_stats,
-+	.set_multicast_list	= ixgb_set_multi,
-+	.validate_addr		= eth_validate_addr,
-+	.set_mac_address	= ixgb_set_mac,
-+	.change_mtu		= ixgb_change_mtu,
-+	.tx_timeout		= ixgb_tx_timeout,
-+	.vlan_rx_register	= ixgb_vlan_rx_register,
-+	.vlan_rx_add_vid	= ixgb_vlan_rx_add_vid,
-+	.vlan_rx_kill_vid	= ixgb_vlan_rx_kill_vid,
++static const struct net_device_ops enic_netdev_ops = {
++	.open = enic_open,
++	.stop = enic_stop,
++	.get_stats = enic_get_stats,
++	.validate_addr = eth_validate_addr,
++	.set_multicast_list = enic_set_multicast_list,
++	.change_mtu = enic_change_mtu,
++	.vlan_rx_register = enic_vlan_rx_register,
++	.vlan_rx_add_vid = enic_vlan_rx_add_vid,
++	.vlan_rx_kill_vid = enic_vlan_rx_kill_vid,
++	.tx_timeout = enic_tx_timeout,
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.poll_controller	= ixgb_netpoll,
++	.poll_controller = enic_poll_controller,
 +#endif
 +};
 +
- /**
-  * ixgb_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-@@ -396,23 +413,11 @@ ixgb_probe(struct pci_dev *pdev, const s
- 		}
+ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	const struct pci_device_id *ent)
+ {
+@@ -1813,21 +1829,10 @@ static int __devinit enic_probe(struct p
+ 		goto err_out_free_vnic_resources;
  	}
  
--	netdev->open = &ixgb_open;
--	netdev->stop = &ixgb_close;
-+	netdev->netdev_ops = &ixgb_netdev_ops;
- 	netdev->hard_start_xmit = &ixgb_xmit_frame;
--	netdev->get_stats = &ixgb_get_stats;
--	netdev->set_multicast_list = &ixgb_set_multi;
--	netdev->set_mac_address = &ixgb_set_mac;
--	netdev->change_mtu = &ixgb_change_mtu;
- 	ixgb_set_ethtool_ops(netdev);
--	netdev->tx_timeout = &ixgb_tx_timeout;
- 	netdev->watchdog_timeo = 5 * HZ;
- 	netif_napi_add(netdev, &adapter->napi, ixgb_clean, 64);
--	netdev->vlan_rx_register = ixgb_vlan_rx_register;
--	netdev->vlan_rx_add_vid = ixgb_vlan_rx_add_vid;
--	netdev->vlan_rx_kill_vid = ixgb_vlan_rx_kill_vid;
+-	netdev->open = enic_open;
+-	netdev->stop = enic_stop;
++	netdev->netdev_ops = &enic_netdev_ops;
+ 	netdev->hard_start_xmit = enic_hard_start_xmit;
+-	netdev->get_stats = enic_get_stats;
+-	netdev->set_multicast_list = enic_set_multicast_list;
+-	netdev->change_mtu = enic_change_mtu;
+-	netdev->vlan_rx_register = enic_vlan_rx_register;
+-	netdev->vlan_rx_add_vid = enic_vlan_rx_add_vid;
+-	netdev->vlan_rx_kill_vid = enic_vlan_rx_kill_vid;
+-	netdev->tx_timeout = enic_tx_timeout;
+ 	netdev->watchdog_timeo = 2 * HZ;
+ 	netdev->ethtool_ops = &enic_ethtool_ops;
 -#ifdef CONFIG_NET_POLL_CONTROLLER
--	netdev->poll_controller = ixgb_netpoll;
+-	netdev->poll_controller = enic_poll_controller;
 -#endif
  
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
---- a/drivers/net/ixgbe/ixgbe_main.c	2008-11-17 14:03:54.000000000 -0800
-+++ b/drivers/net/ixgbe/ixgbe_main.c	2008-11-17 14:05:29.000000000 -0800
-@@ -3727,6 +3727,23 @@ static int ixgbe_link_config(struct ixgb
- 	return hw->mac.ops.setup_link_speed(hw, autoneg, true, true);
- }
- 
-+static const struct net_device_ops ixgbe_netdev_ops = {
-+	.open 			= ixgbe_open,
-+	.stop			= ixgbe_close,
-+	.get_stats		= ixgbe_get_stats,
-+	.set_multicast_list	= ixgbe_set_rx_mode,
-+	.validate_addr		= eth_validate_addr,
-+	.set_mac_address	= ixgbe_set_mac,
-+	.change_mtu		= ixgbe_change_mtu,
-+	.tx_timeout		= ixgbe_tx_timeout,
-+	.vlan_rx_register	= ixgbe_vlan_rx_register,
-+	.vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
-+	.vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.poll_controller	= ixgbe_netpoll,
-+#endif
-+};
-+
- /**
-  * ixgbe_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-@@ -3808,23 +3825,10 @@ static int __devinit ixgbe_probe(struct 
- 			continue;
- 	}
- 
--	netdev->open = &ixgbe_open;
--	netdev->stop = &ixgbe_close;
-+	netdev->netdev_ops = &ixgbe_netdev_ops;
- 	netdev->hard_start_xmit = &ixgbe_xmit_frame;
--	netdev->get_stats = &ixgbe_get_stats;
--	netdev->set_rx_mode = &ixgbe_set_rx_mode;
--	netdev->set_multicast_list = &ixgbe_set_rx_mode;
--	netdev->set_mac_address = &ixgbe_set_mac;
--	netdev->change_mtu = &ixgbe_change_mtu;
- 	ixgbe_set_ethtool_ops(netdev);
--	netdev->tx_timeout = &ixgbe_tx_timeout;
- 	netdev->watchdog_timeo = 5 * HZ;
--	netdev->vlan_rx_register = ixgbe_vlan_rx_register;
--	netdev->vlan_rx_add_vid = ixgbe_vlan_rx_add_vid;
--	netdev->vlan_rx_kill_vid = ixgbe_vlan_rx_kill_vid;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	netdev->poll_controller = ixgbe_netpoll;
--#endif
- 	strcpy(netdev->name, pci_name(pdev));
- 
- 	adapter->bd_number = cards_found;
+ 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
+ 	default:
 
 -- 
 
