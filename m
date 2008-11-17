@@ -1,63 +1,58 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: inet_diag_handler structs can be const
-Date: Mon, 17 Nov 2008 18:10:18 +0100
-Message-ID: <4921A57A.4070505@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010900050204070903040800"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 2/2] drivers/s390/ - csum_partial - remove unnecessary casts
+Date: Mon, 17 Nov 2008 09:55:12 -0800
+Message-ID: <1226944512-13310-3-git-send-email-joe@perches.com>
+References: <1226944512-13310-1-git-send-email-joe@perches.com>
+Cc: David Miller <davem@davemloft.net>,
+	Frank Blaschka <frank.blaschka@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:54500 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751773AbYKQRK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 12:10:27 -0500
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:3349 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752078AbYKQRzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 12:55:04 -0500
+In-Reply-To: <1226944512-13310-1-git-send-email-joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010900050204070903040800
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+    The first argument to csum_partial is const void *
+    casts to char/u8 * are not necessary
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/dccp/diag.c     |    2 +-
- net/ipv4/tcp_diag.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/s390/net/qeth_core_offl.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
---------------010900050204070903040800
-Content-Type: text/plain;
- name="const_inet_diag_handler.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="const_inet_diag_handler.patch"
-
-diff --git a/net/dccp/diag.c b/net/dccp/diag.c
-index d8a3509..d1e1003 100644
---- a/net/dccp/diag.c
-+++ b/net/dccp/diag.c
-@@ -45,7 +45,7 @@ static void dccp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
- 		dccp_get_info(sk, _info);
+diff --git a/drivers/s390/net/qeth_core_offl.c b/drivers/s390/net/qeth_core_offl.c
+index 452874e..4080126 100644
+--- a/drivers/s390/net/qeth_core_offl.c
++++ b/drivers/s390/net/qeth_core_offl.c
+@@ -350,7 +350,7 @@ static __wsum qeth_eddp_check_tcp4_hdr(struct qeth_eddp_data *eddp,
+ 	phcsum = csum_tcpudp_nofold(eddp->nh.ip4.h.saddr, eddp->nh.ip4.h.daddr,
+ 				    eddp->thl + data_len, IPPROTO_TCP, 0);
+ 	/* compute checksum of tcp header */
+-	return csum_partial((u8 *)&eddp->th, eddp->thl, phcsum);
++	return csum_partial(&eddp->th, eddp->thl, phcsum);
  }
  
--static struct inet_diag_handler dccp_diag_handler = {
-+static const struct inet_diag_handler dccp_diag_handler = {
- 	.idiag_hashinfo	 = &dccp_hashinfo,
- 	.idiag_get_info	 = dccp_diag_get_info,
- 	.idiag_type	 = DCCPDIAG_GETSOCK,
-diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-index 838d491..fcbcd4f 100644
---- a/net/ipv4/tcp_diag.c
-+++ b/net/ipv4/tcp_diag.c
-@@ -34,7 +34,7 @@ static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
- 		tcp_get_info(sk, info);
+ static __wsum qeth_eddp_check_tcp6_hdr(struct qeth_eddp_data *eddp,
+@@ -362,12 +362,12 @@ static __wsum qeth_eddp_check_tcp6_hdr(struct qeth_eddp_data *eddp,
+ 	QETH_DBF_TEXT(TRACE, 5, "eddpckt6");
+ 	eddp->th.tcp.h.check = 0;
+ 	/* compute pseudo header checksum */
+-	phcsum = csum_partial((u8 *)&eddp->nh.ip6.h.saddr,
++	phcsum = csum_partial(&eddp->nh.ip6.h.saddr,
+ 			      sizeof(struct in6_addr), 0);
+-	phcsum = csum_partial((u8 *)&eddp->nh.ip6.h.daddr,
++	phcsum = csum_partial(&eddp->nh.ip6.h.daddr,
+ 			      sizeof(struct in6_addr), phcsum);
+ 	proto = htonl(IPPROTO_TCP);
+-	phcsum = csum_partial((u8 *)&proto, sizeof(u32), phcsum);
++	phcsum = csum_partial(&proto, sizeof(u32), phcsum);
+ 	return phcsum;
  }
  
--static struct inet_diag_handler tcp_diag_handler = {
-+static const struct inet_diag_handler tcp_diag_handler = {
- 	.idiag_hashinfo	 = &tcp_hashinfo,
- 	.idiag_get_info	 = tcp_diag_get_info,
- 	.idiag_type	 = TCPDIAG_GETSOCK,
+-- 
+1.6.0.2
 
---------------010900050204070903040800--
