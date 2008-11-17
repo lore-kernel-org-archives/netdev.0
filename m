@@ -1,71 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] softirq: Use local_irq_save() in local_bh_enable()
-Date: Mon, 17 Nov 2008 13:35:48 +0000
-Message-ID: <20081117133548.GC6345@ff.dom.local>
-References: <87y6zwwy5c.fsf@tac.ki.iif.hu>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] phylib: fix phy name example in documentation
+Date: Mon, 17 Nov 2008 16:03:13 +0200
+Message-ID: <20081117140313.8019.48296.stgit@Programuotojas.82-135-208-232.ip.zebra.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>,
-	Ferenc Wagner <wferi@niif.hu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.238]:17530 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbYKQNf7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 08:35:59 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so2436305rvb.1
-        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 05:35:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <87y6zwwy5c.fsf@tac.ki.iif.hu>
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:58856 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751331AbYKQODX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 09:03:23 -0500
+Received: from 82-135-208-232.static.zebra.lt (HELO Programuotojas.82-135-208-232.ip.zebra.lt) (paulius.zaleckas@[82.135.208.232])
+          (envelope-sender <paulius.zaleckas@teltonika.lt>)
+          by teltonika.lt (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 17 Nov 2008 14:00:53 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This report: http://marc.info/?l=linux-netdev&m=122599341430090&w=2
-shows local_bh_enable() is used in the wrong context (irqs disabled).
-It happens when a usual network receive path is called by netconsole,
-which simply turns off irqs around this all. Probably this is wrong,
-but it worked like this long time, and it's not trivial to fix this.
+All MDIO bus drivers currently name bus with "%x" format.
+There is one exception where mv643xx_eth driver is using "%d".
+Phy address on the bus uses format "%02x".
 
-Anyway, a commit 0f476b6d91a1395bda6464e653ce66ea9bea7167 "softirq:
-remove irqs_disabled warning from local_bh_enable" can break things
-after changing from local_irq_save() to local_irq_disable(). Before
-this commit there was only a warning, now a lockup is possible, so
-it could be treated as a regression. This patch reverts the change
-in irqs.
+Fixing phy name example to match all real life MDIO drivers.
 
-Reported-by: Ferenc Wagner <wferi@niif.hu>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 ---
 
- kernel/softirq.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ Documentation/networking/phy.txt |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/kernel/softirq.c b/kernel/softirq.c
-index e7c69a7..756c928 100644
---- a/kernel/softirq.c
-+++ b/kernel/softirq.c
-@@ -135,9 +135,12 @@ EXPORT_SYMBOL(_local_bh_enable);
- 
- static inline void _local_bh_enable_ip(unsigned long ip)
- {
-+#ifdef CONFIG_TRACE_IRQFLAGS
-+	unsigned long flags;
-+#endif
- 	WARN_ON_ONCE(in_irq() || irqs_disabled());
- #ifdef CONFIG_TRACE_IRQFLAGS
--	local_irq_disable();
-+	local_irq_save(flags);
- #endif
- 	/*
- 	 * Are softirqs going to be turned on now:
-@@ -155,7 +158,7 @@ static inline void _local_bh_enable_ip(unsigned long ip)
- 
- 	dec_preempt_count();
- #ifdef CONFIG_TRACE_IRQFLAGS
--	local_irq_enable();
-+	local_irq_restore(flags);
- #endif
- 	preempt_check_resched();
- }
+
+diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
+index 8df6a7b..88bb71b 100644
+--- a/Documentation/networking/phy.txt
++++ b/Documentation/networking/phy.txt
+@@ -96,7 +96,7 @@ Letting the PHY Abstraction Layer do Everything
+    static void adjust_link(struct net_device *dev);
+  
+  Next, you need to know the device name of the PHY connected to this device. 
+- The name will look something like, "phy0:0", where the first number is the
++ The name will look something like, "0:00", where the first number is the
+  bus id, and the second is the PHY's address on that bus.  Typically,
+  the bus is responsible for making its ID unique.
+  
+
