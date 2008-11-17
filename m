@@ -1,61 +1,79 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] isdn: remove extra byteswap in
- isdn_net_ciscohdlck_slarp_send_reply
-Date: Sun, 16 Nov 2008 20:18:36 -0800
-Message-ID: <1226895516.6150.4.camel@brick>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [BUG] net: fix /proc/net/snmp as memory corruptor
+Date: Sun, 16 Nov 2008 20:51:13 -0800
+Message-ID: <20081117045113.GA29327@kroah.com>
+References: <491D07E0.9010903@cosmosbay.com> <20081115051015.GB26468@kroah.com> <491E5D4D.1080800@cosmosbay.com> <20081115060237.GA3910@kroah.com> <491E8A47.1090007@cosmosbay.com> <20081115184309.GA24983@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Al Viro <viro@ZenIV.linux.org.uk>, Karsten Keil <kkeil@suse.de>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, stable@kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:61519 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755724AbYKQESk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 23:18:40 -0500
-Received: by wf-out-1314.google.com with SMTP id 27so2429688wfd.4
-        for <netdev@vger.kernel.org>; Sun, 16 Nov 2008 20:18:40 -0800 (PST)
+Received: from kroah.org ([198.145.64.141]:34606 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751061AbYKQFdE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 00:33:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20081115184309.GA24983@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit a144ea4b7a13087081ab5402fa9ad0bcfd249e67 [IPV4]: annotate struct in_ifaddr
+On Sat, Nov 15, 2008 at 10:43:09AM -0800, Greg KH wrote:
+> On Sat, Nov 15, 2008 at 09:37:27AM +0100, Eric Dumazet wrote:
+> > Greg KH a =E9crit :
+> >> On Sat, Nov 15, 2008 at 06:25:33AM +0100, Eric Dumazet wrote:
+> >>> Greg KH a =E9crit :
+> >>>> On Fri, Nov 14, 2008 at 06:08:48AM +0100, Eric Dumazet wrote:
+> >>>>> Hello Greg
+> >>>>>
+> >>>>> A patch was submited about /proc/net/snmp being a memory corrup=
+tor and=20
+> >>>>> not SMP safe
+> >>>>>
+> >>>>> (commit b971e7ac834e9f4bda96d5a96ae9abccd01c1dd8)
+> >>>>>
+> >>>>> These bugs are present on 2.6.26 & 2.6.27.
+> >>>> I looking at this, it doesn't seem to apply at all to the .27 tr=
+ee.  If
+> >>>> David doesn't object, care to backport it there and send it to
+> >>>> stable@kernel.org?
+> >>> Strange... I just tried to apply patch on top of a fresh linux-2.=
+6.27.6=20
+> >>> tree and got no error
+> >>>
+> >>> # patch -p1 < /tmp/icmp_snmp.patch
+> >>> patching file net/ipv4/proc.c
+> >>> #
+> >> I've attached the patch I tried to apply below.  It fails with:
+> >> 	$ patch -p1 --dry-run <=20
+> >> ../net-fix-proc-net-snmp-as-memory-corruptor.patch 	patching file=20
+> >> net/ipv4/proc.c
+> >> 	Hunk #1 FAILED at 237.
+> >> 	1 out of 1 hunk FAILED -- saving rejects to file net/ipv4/proc.c.=
+rej
+> >> Any thoughts?
+> >> thanks,
+> >> greg k-h
+> >
+> > Yes, you lost all the '\' character in "\n" sequences... Also one m=
+issing=20
+> > ":" at the end of one line
+> >
+> > I dont know how you did it :)
+>=20
+> Oh crap, that's my fault.  I hate bash at times, I'm using a script t=
+o
+> copy changesets and format them in the way that works for the stable
+> tree.  I need to switch it to perl so these things don't happen :(
+>=20
+> In looking closer, I also messed up on some other patches in this -rc=
+1,
+> I need to redo the whole thing.  Ugh.
+>=20
+> Thanks for pointing this out, I'll fix it up.
 
-Missed this extra byteswap as the isdn inlines hide the htonl inside put_u32
-which causes an extra byteswap on little-endian arches.
+Ok, I've now added it, thanks for being patient and helping me find my
+problem.
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-Dave, this is the minimal patch suitable to fix mainline without any net-next
-material mixed in.  I'd suggest sending this one to Linus and then applying
-my previous patch to net-next (if you need a resend, just ask)
-
-Then whenever you do your net-next merge with Linus, the resolution should be trivial.
-
-Harvey
-
- drivers/isdn/i4l/isdn_net.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index bb904a0..1bfc55d 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -1641,8 +1641,10 @@ isdn_net_ciscohdlck_slarp_send_reply(isdn_net_local *lp)
- 	/* slarp reply, send own ip/netmask; if values are nonsense remote
- 	 * should think we are unable to provide it with an address via SLARP */
- 	p += put_u32(p, CISCO_SLARP_REPLY);
--	p += put_u32(p, addr);	// address
--	p += put_u32(p, mask);	// netmask
-+	*(__be32 *)p = addr;	// address
-+	p += 4;
-+	*(__be32 *)p = mask;	// netmask
-+	p += 4;
- 	p += put_u16(p, 0);	// unused
- 
- 	isdn_net_write_super(lp, skb);
--- 
-1.6.0.4.994.g16bd3e
-
-
-
+greg k-h
