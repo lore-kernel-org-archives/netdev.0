@@ -1,76 +1,65 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 26/33] e100: convert to net_device_ops
-Date: Mon, 17 Nov 2008 15:42:33 -0800
-Message-ID: <20081117234357.003576785@vyatta.com>
+Subject: [PATCH 24/33] via-velocity: convert to net_device_ops
+Date: Mon, 17 Nov 2008 15:42:31 -0800
+Message-ID: <20081117234356.835021131@vyatta.com>
 References: <20081117234207.854110282@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:55108 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:55102 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752342AbYKRAAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 19:00:18 -0500
-Content-Disposition: inline; filename=e100-netdev.patch
+	id S1752020AbYKRAAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 19:00:16 -0500
+Content-Disposition: inline; filename=via-netdev_ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert to new network device ops interface. Compile tested only.
+Convert this driver to network device ops. Compile tested only.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/e100.c	2008-11-17 13:56:53.000000000 -0800
-+++ b/drivers/net/e100.c	2008-11-17 14:07:06.000000000 -0800
-@@ -2612,6 +2612,20 @@ static int e100_close(struct net_device 
+--- a/drivers/net/via-velocity.c	2008-11-17 12:56:02.000000000 -0800
++++ b/drivers/net/via-velocity.c	2008-11-17 12:58:13.000000000 -0800
+@@ -849,6 +849,19 @@ static int velocity_soft_reset(struct ve
  	return 0;
  }
  
-+static const struct net_device_ops e100_netdev_ops = {
-+	.open			= e100_open,
-+	.stop			= e100_close,
-+	.validate_addr		= eth_validate_addr,
-+	.set_multicast_list	= e100_set_multicast_list,
-+	.set_mac_address	= e100_set_mac_address,
-+	.change_mtu		= e100_change_mtu,
-+	.do_ioctl		= e100_do_ioctl,
-+	.tx_timeout		= e100_tx_timeout,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.poll_controller	= e100_netpoll,
-+#endif
++static const struct net_device_ops velocity_netdev_ops = {
++	.open = velocity_open,
++	.stop = velocity_close,
++	.get_stats = velocity_get_stats,
++	.validate_addr	= eth_validate_addr,
++	.set_multicast_list = velocity_set_multi,
++	.change_mtu = velocity_change_mtu,
++	.do_ioctl = velocity_ioctl,
++	.vlan_rx_add_vid = velocity_vlan_rx_add_vid,
++	.vlan_rx_kill_vid = velocity_vlan_rx_kill_vid,
++	.vlan_rx_register = velocity_vlan_rx_register,
 +};
 +
- static int __devinit e100_probe(struct pci_dev *pdev,
- 	const struct pci_device_id *ent)
- {
-@@ -2625,19 +2639,10 @@ static int __devinit e100_probe(struct p
- 		return -ENOMEM;
- 	}
+ /**
+  *	velocity_found1		-	set up discovered velocity card
+  *	@pdev: PCI device
+@@ -958,18 +971,9 @@ static int __devinit velocity_found1(str
+ 	vptr->phy_id = MII_GET_PHY_ID(vptr->mac_regs);
  
--	netdev->open = e100_open;
--	netdev->stop = e100_close;
-+	netdev->netdev_ops = &e100_netdev_ops;
- 	netdev->hard_start_xmit = e100_xmit_frame;
--	netdev->set_multicast_list = e100_set_multicast_list;
--	netdev->set_mac_address = e100_set_mac_address;
--	netdev->change_mtu = e100_change_mtu;
--	netdev->do_ioctl = e100_do_ioctl;
- 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
--	netdev->tx_timeout = e100_tx_timeout;
- 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	netdev->poll_controller = e100_netpoll;
--#endif
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+ 	dev->irq = pdev->irq;
+-	dev->open = velocity_open;
+ 	dev->hard_start_xmit = velocity_xmit;
+-	dev->stop = velocity_close;
+-	dev->get_stats = velocity_get_stats;
+-	dev->set_multicast_list = velocity_set_multi;
+-	dev->do_ioctl = velocity_ioctl;
++	dev->netdev_ops = &velocity_netdev_ops;
+ 	dev->ethtool_ops = &velocity_ethtool_ops;
+-	dev->change_mtu = velocity_change_mtu;
+-
+-	dev->vlan_rx_add_vid = velocity_vlan_rx_add_vid;
+-	dev->vlan_rx_kill_vid = velocity_vlan_rx_kill_vid;
+-	dev->vlan_rx_register = velocity_vlan_rx_register;
  
- 	nic = netdev_priv(netdev);
-@@ -2845,7 +2850,7 @@ static pci_ers_result_t e100_io_error_de
- 	struct nic *nic = netdev_priv(netdev);
- 
- 	/* Similar to calling e100_down(), but avoids adapter I/O. */
--	netdev->stop(netdev);
-+	e100_close(netdev);
- 
- 	/* Detach; put netif into a state similar to hotplug unplug. */
- 	napi_enable(&nic->napi);
+ #ifdef  VELOCITY_ZERO_COPY_SUPPORT
+ 	dev->features |= NETIF_F_SG;
 
 -- 
 
