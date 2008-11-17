@@ -1,34 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: RCU lookups for UDP, DCCP and TCP protocol
-Date: Sun, 16 Nov 2008 19:41:46 -0800 (PST)
-Message-ID: <20081116.194146.35091404.davem@davemloft.net>
-References: <4908DEDE.5030706@cosmosbay.com>
-	<4909D551.9080309@cosmosbay.com>
-	<491C27F0.8000507@cosmosbay.com>
+Subject: Re: [PATCH 1/3] virtio_net: Recycle some more rx buffer pages
+Date: Sun, 16 Nov 2008 19:45:05 -0800 (PST)
+Message-ID: <20081116.194505.140648013.davem@davemloft.net>
+References: <200811171344.57410.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, minyard@acm.org, shemminger@vyatta.com,
-	benny+usenet@amorsen.dk, netdev@vger.kernel.org,
-	cl@linux-foundation.org, a.p.zijlstra@chello.nl, zbr@ioremap.net,
-	christian@myri.com
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org, markmc@redhat.com
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46087
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48611
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755507AbYKQDlr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 22:41:47 -0500
-In-Reply-To: <491C27F0.8000507@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1752349AbYKQDpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2008 22:45:06 -0500
+In-Reply-To: <200811171344.57410.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 13 Nov 2008 14:13:20 +0100
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Mon, 17 Nov 2008 13:44:57 +1030
 
-> Here is a serie of three patches (based on net-next-2.6), to continue work
-> with RCU on UDP/TCP/DCCP stacks
+> @@ -82,6 +82,16 @@ static void give_a_page(struct virtnet_info *vi, struct 
+> page *page)
 
-All 4 patches applied to net-next-2.6, thanks a lot Eric!
-
-These patches are incredibly cool!
-
+-E_EMAIL_CLIENT_NEWLINES
