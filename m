@@ -1,77 +1,58 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 13/33] e1000e: convert to net_device_ops
-Date: Mon, 17 Nov 2008 15:42:20 -0800
-Message-ID: <20081117234355.888854880@vyatta.com>
+Subject: [PATCH 32/33] niu: convert to net_device_ops
+Date: Mon, 17 Nov 2008 15:42:39 -0800
+Message-ID: <20081117234357.517904432@vyatta.com>
 References: <20081117234207.854110282@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:55069 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:55127 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751962AbYKRAAI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 19:00:08 -0500
-Content-Disposition: inline; filename=e1000e-netdev_ops.patch
+	id S1752369AbYKRAAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 19:00:24 -0500
+Content-Disposition: inline; filename=niu-netdev_ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert e1000e to network device ops.
+Convert this driver to network device ops. Compile tested only (give me hw!)
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/e1000e/netdev.c	2008-11-17 07:57:18.000000000 -0800
-+++ b/drivers/net/e1000e/netdev.c	2008-11-17 10:25:30.000000000 -0800
-@@ -4686,6 +4686,25 @@ static void e1000_eeprom_checks(struct e
- 	}
+--- a/drivers/net/niu.c	2008-11-17 13:45:41.000000000 -0800
++++ b/drivers/net/niu.c	2008-11-17 13:48:46.000000000 -0800
+@@ -8618,19 +8618,24 @@ static struct net_device * __devinit niu
+ 	return dev;
  }
  
-+static const struct net_device_ops e1000e_netdev_ops = {
-+	.open			= e1000_open,
-+	.stop			= e1000_close,
-+	.get_stats		= e1000_get_stats,
-+	.set_multicast_list	= e1000_set_multi,
-+	.set_mac_address	= e1000_set_mac,
-+	.change_mtu		= e1000_change_mtu,
-+	.do_ioctl		= e1000_ioctl,
-+	.tx_timeout		= e1000_tx_timeout,
++static const struct net_device_ops niu_netdev_ops = {
++	.open			= niu_open,
++	.stop			= niu_close,
++	.get_stats		= niu_get_stats,
++	.set_multicast_list	= niu_set_rx_mode,
 +	.validate_addr		= eth_validate_addr,
-+
-+	.vlan_rx_register	= e1000_vlan_rx_register,
-+	.vlan_rx_add_vid	= e1000_vlan_rx_add_vid,
-+	.vlan_rx_kill_vid	= e1000_vlan_rx_kill_vid,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.poll_controller	= e1000_netpoll,
-+#endif
++	.set_mac_address	= niu_set_mac_addr,
++	.do_ioctl		= niu_ioctl,
++	.tx_timeout		= niu_tx_timeout,
++	.change_mtu		= niu_change_mtu,
 +};
 +
- /**
-  * e1000_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-@@ -4783,24 +4802,11 @@ static int __devinit e1000_probe(struct 
- 	}
+ static void __devinit niu_assign_netdev_ops(struct net_device *dev)
+ {
+-	dev->open = niu_open;
+-	dev->stop = niu_close;
+-	dev->get_stats = niu_get_stats;
+-	dev->set_multicast_list = niu_set_rx_mode;
+-	dev->set_mac_address = niu_set_mac_addr;
+-	dev->do_ioctl = niu_ioctl;
+-	dev->tx_timeout = niu_tx_timeout;
++	dev->netdev_ops = &niu_netdev_ops;
+ 	dev->hard_start_xmit = niu_start_xmit;
+ 	dev->ethtool_ops = &niu_ethtool_ops;
+ 	dev->watchdog_timeo = NIU_TX_TIMEOUT;
+-	dev->change_mtu = niu_change_mtu;
+ }
  
- 	/* construct the net_device struct */
--	netdev->open			= &e1000_open;
--	netdev->stop			= &e1000_close;
-+	netdev->netdev_ops		= &e1000e_netdev_ops;
- 	netdev->hard_start_xmit		= &e1000_xmit_frame;
--	netdev->get_stats		= &e1000_get_stats;
--	netdev->set_multicast_list	= &e1000_set_multi;
--	netdev->set_mac_address		= &e1000_set_mac;
--	netdev->change_mtu		= &e1000_change_mtu;
--	netdev->do_ioctl		= &e1000_ioctl;
- 	e1000e_set_ethtool_ops(netdev);
--	netdev->tx_timeout		= &e1000_tx_timeout;
- 	netdev->watchdog_timeo		= 5 * HZ;
- 	netif_napi_add(netdev, &adapter->napi, e1000_clean, 64);
--	netdev->vlan_rx_register	= e1000_vlan_rx_register;
--	netdev->vlan_rx_add_vid		= e1000_vlan_rx_add_vid;
--	netdev->vlan_rx_kill_vid	= e1000_vlan_rx_kill_vid;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	netdev->poll_controller		= e1000_netpoll;
--#endif
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
- 	netdev->mem_start = mmio_start;
+ static void __devinit niu_device_announce(struct niu *np)
 
 -- 
 
