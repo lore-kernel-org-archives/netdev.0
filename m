@@ -1,53 +1,47 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: ARP table question
-Date: Mon, 17 Nov 2008 10:17:05 -0800
-Message-ID: <4921B521.1010305@candelatech.com>
-References: <491B1841.9050404@candelatech.com>	<491B31EB.4050304@candelatech.com>	<491B5452.6020709@candelatech.com> <20081116.191628.135824721.davem@davemloft.net>
+From: "Pantelis Koukousoulas" <pktoss@gmail.com>
+Subject: [PATCH] Fix asix-based gigabit cards connecting to 10 or 100Mbs networks
+Date: Mon, 17 Nov 2008 20:41:57 +0200
+Message-ID: <1295ed070811171041j1258ec41kc6b1db61e83b628e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:34707 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752442AbYKQSRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 13:17:12 -0500
-In-Reply-To: <20081116.191628.135824721.davem@davemloft.net>
+Received: from rv-out-0506.google.com ([209.85.198.237]:36098 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753030AbYKQSl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 13:41:58 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so2546004rvb.1
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 10:41:57 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
+Add AX_MEDIUM_ENCK also when speed = 10/100Mbps. This allows my belkin
+ f5d5055 to work with my 100Mbps switch and with an old 10Mbps ISA card.
+ Without this patch, the card is recognized and the interface is brought
+ up fine, but no packets actually flow through the interface.
 
-> This change makes a lot of sense to me, I'll add it to net-next-2.6
-> so it can cook in there for a while just in case there are some
-> unwanted side-effects.
+ Signed-off-by: Pantelis Koukousoulas <pktoss@gmail.com>
+ Acked-by: David Hollis <dhollis@davehollis.com>
 
-Thanks Dave.
+ Index: linux-next/drivers/net/usb/
+ asix.c
+ ===================================================================
+ --- linux-next.orig/drivers/net/usb/asix.c      2008-11-04
+ 19:51:06.000000000 +0200
+ +++ linux-next/drivers/net/usb/asix.c   2008-11-04 21:32:55.000000000 +0200
+ @@ -1102,12 +1102,14 @@
+        mode = AX88178_MEDIUM_DEFAULT;
 
-I think I found another problem as well:  If I start 1 TCP and 1 UDP connection
-between each of the 500 interfaces on mac-vlans, the ARP tables will not converge.
+        if (ecmd.speed == SPEED_1000)
+ -               mode |= AX_MEDIUM_GM | AX_MEDIUM_ENCK;
+ +               mode |= AX_MEDIUM_GM;
+        else if (ecmd.speed == SPEED_100)
+                mode |= AX_MEDIUM_PS;
+        else
+                mode &= ~(AX_MEDIUM_PS | AX_MEDIUM_GM);
 
-It seems to be because mac-vlan has to copy broadcast packets to every
-mac-vlan on a physical device, there are just too many packets:
-
-500 vlans arping once per second means 500 pkts per second on the
-other NIC.
-Other NIC must copy these 500 times,
-so, 250000 packets per second in each direction are
-processed by the stack (they are not all on the wire, at least).
-
-A few get through and those UDP/TCP connections start consuming
-bandwidth, which clogs up the 1G link enough that other responses
-are lost most of the time.
-
-I'm going to try to work on some sort of random backoff for ARP that can
-be enabled in this situation next.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+ +       mode |= AX_MEDIUM_ENCK;
+ +
+        if (ecmd.duplex == DUPLEX_FULL)
