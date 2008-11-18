@@ -1,67 +1,75 @@
-From: "Lovich, Vitali" <vlovich@qualcomm.com>
-Subject: RE: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-Date: Tue, 18 Nov 2008 11:46:18 -0800
-Message-ID: <FCC0EC655BD1AE408C047268D1F5DF4C3BA6152F@NASANEXMB10.na.qualcomm.com>
-References: <20081111192954.GA19409@ioremap.net>
-	 <20081112135828.GA30946@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA6124F@NASANEXMB10.na.qualcomm.com>
-	 <20081112174114.GA4743@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61260@NASANEXMB10.na.qualcomm.com>
-	 <20081112181134.GA5396@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA61272@NASANEXMB10.na.qualcomm.com>
-	 <20081112191400.GA6291@ioremap.net>
-	 <FCC0EC655BD1AE408C047268D1F5DF4C3BA6128D@NASANEXMB10.na.qualcomm.com>
-	 <20081112214601.GA19547@ioremap.net>
- <7e0dd21a0811181049i45c4ffd6md964f6acfa0d4c79@mail.gmail.com>
+From: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
+Subject: Re: [atl1-devel] atl2: don't mess up irq on suspend/resume (probably
+ msi only)
+Date: Tue, 18 Nov 2008 19:51:39 +0000
+Message-ID: <49231CCB.8010900@tuffmail.co.uk>
+References: <49201401.1060600@tuffmail.co.uk>	<4921E574.3090602@tuffmail.co.uk> <20081117181336.1a270561@osprey.hogchain.net> <4922D195.9010505@tuffmail.co.uk> <4922FD09.2070007@tuffmail.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Johann Baudy <johaahn@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, atl1-devel@lists.sourceforge.net,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jay Cliburn <jcliburn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:13993 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751657AbYKRTqV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 14:46:21 -0500
-In-Reply-To: <7e0dd21a0811181049i45c4ffd6md964f6acfa0d4c79@mail.gmail.com>
-Content-Language: en-US
+Received: from ey-out-2122.google.com ([74.125.78.25]:51428 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751935AbYKRTvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 14:51:45 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so1236369eyi.37
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 11:51:42 -0800 (PST)
+In-Reply-To: <4922FD09.2070007@tuffmail.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Alan Jenkins wrote:
+> Alan Jenkins wrote:
+>> Jay Cliburn wrote:
+>>> [adding netdev to cc list]
+>>>
+>>> On Mon, 17 Nov 2008 21:43:16 +0000
+>>> Alan Jenkins <alan-jenkins@tuffmail.co.uk> wrote:
+>>>
+>>>
+>>>> Don't listen to me. The problem went away because when I was testing
+>>>> my patch, I plugged the ethernet in and actually used it. My patch
+>>>> doesn't seem to fix anything.
+>>>>
+>>>> So I now have the steps to reproduce this warning: remove the ethernet
+>>>> cable and suspend.
+>>>>
+>>>> Also, I was speaking rubbish because the warning isn't on the resume
+>>>> path. It seems to be when network-manager re-opens the device on
+>>>> resume.
+>>>>
+>>>> I'll have another look for possible culprits. Hints appreciated :).
+>>> Does this help?
+>>
+>> Ah! Yes, that fixes it, thanks.
+>
+> Just noticed another problem. If I suspend with the cable plugged in,
+> I get a warning message about freeing the IRQ
+which was caused by your patch.  It works better (for both cable plugged and unplugged cases) if I do this instead:
 
 
-> -----Original Message-----
-> From: Johann Baudy [mailto:johaahn@gmail.com]
-> Sent: November-18-08 10:49 AM
-> To: Evgeniy Polyakov
-> Cc: Lovich, Vitali; netdev@vger.kernel.org
-> Subject: Re: [PATCH] Packet socket: mmapped IO: PACKET_TX_RING
-> 
-> Hi Evgeniy,
-> 
-> > If you _do_ want to make it that way, you can remove destructor at
-> all
-> > and implement own packet-socket-only allocation policy and thus have
-> own
-> > private destructor without extending skb.
-> 
-> Currently, we are executing sock_alloc_send_skb() to allocate a new
-> skb from socket.
-> Then, we replace destructor sock_wfree() with our destructor
-> packet_skb_destruct() which executes sock_wfree() once status of
-> packet frame (associated to skb data) has been given back to user
-> (status changed).
-Just a clarification - sock_wfree is called !before! we set the status back.  Not extremely important, but it's cleaner that way & the constant sock_wfree/sock_alloc_send_skb is more likely to keep reallocating the same memory.
+diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
+index f5bdc92..8571e8c 100644
+--- a/drivers/net/atlx/atl2.c
++++ b/drivers/net/atlx/atl2.c
+@@ -1690,9 +1690,11 @@ static int atl2_resume(struct pci_dev *pdev)
+ 
+ 	ATL2_WRITE_REG(&adapter->hw, REG_WOL_CTRL, 0);
+ 
+-	err = atl2_request_irq(adapter);
+-	if (netif_running(netdev) && err)
+-		return err;
++	if (netif_running(netdev)) {
++		err = atl2_request_irq(adapter);
++		if (err)
++			return err;
++	}
+ 
+ 	atl2_reset_hw(&adapter->hw);
+ 
 
-Oh, and Johann, here are the perf #s we were talking about off the list.
 
-Frame size/Packets per second/Line-rate (GBit/s)
-8942/144270/9.61
-1500/387544/4.32
- 500/591648/2.19
-  43/925328/0.30  (43 bytes is about 1-byte of payload for a UDP packet)
-
-I should have the latency #'s numbers in a little while.
-
-Vitali
