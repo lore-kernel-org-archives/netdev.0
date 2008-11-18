@@ -1,42 +1,85 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 00/33] Network Devices Ops (v0.3)
-Date: Mon, 17 Nov 2008 17:35:58 -0800
-Message-ID: <20081117173558.7d861bcf@extreme>
+Subject: Re: [PATCH 30/33] tg3: convert to net_device_ops
+Date: Mon, 17 Nov 2008 17:37:06 -0800
+Message-ID: <20081117173706.31960184@extreme>
 References: <20081117234207.854110282@vyatta.com>
-	<9929d2390811171727m14571c8bg64909d346a3753a0@mail.gmail.com>
+	<20081117234357.345529638@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36546 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:36634 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751792AbYKRBgC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 20:36:02 -0500
-In-Reply-To: <9929d2390811171727m14571c8bg64909d346a3753a0@mail.gmail.com>
+	id S1751061AbYKRBhI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 20:37:08 -0500
+In-Reply-To: <20081117234357.345529638@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Nov 2008 17:27:05 -0800
-"Jeff Kirsher" <jeffrey.t.kirsher@intel.com> wrote:
+Convert this driver to network device ops.
 
-> On Mon, Nov 17, 2008 at 3:42 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > This sequence of patches breaks the network device adminstration
-> > function table away from the network device data structure. It is
-> > a transitional API change (both keep working), and this set of patches
-> > hits a range of commonly used drivers. This should be enough to make sure
-> > both old and new interfaces get used and tested.
-> >
-> > --
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> 
-> Did I miss a patch, or did you intentionally not convert ixgbe?
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Since it was so similar to ixgb, both files are patched in same patch bundle.
+---
+Handle non-vlan build.
+
+--- a/drivers/net/tg3.c	2008-11-17 17:21:58.000000000 -0800
++++ b/drivers/net/tg3.c	2008-11-17 17:26:45.000000000 -0800
+@@ -13343,6 +13343,24 @@ static void __devinit tg3_init_coal(stru
+ 	}
+ }
+ 
++static const struct net_device_ops tg3_netdev_ops = {
++	.open			= tg3_open,
++	.stop			= tg3_close,
++	.get_stats		= tg3_get_stats,
++	.validate_addr		= eth_validate_addr,
++	.set_multicast_list	= tg3_set_rx_mode,
++	.set_mac_address	= tg3_set_mac_addr,
++	.do_ioctl		= tg3_ioctl,
++	.tx_timeout		= tg3_tx_timeout,
++	.change_mtu		= tg3_change_mtu,
++#if TG3_VLAN_TAG_USED
++	.vlan_rx_register	= tg3_vlan_rx_register,
++#endif
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.poll_controller	= tg3_poll_controller,
++#endif
++};
++
+ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 				  const struct pci_device_id *ent)
+ {
+@@ -13400,7 +13418,6 @@ static int __devinit tg3_init_one(struct
+ 
+ #if TG3_VLAN_TAG_USED
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-	dev->vlan_rx_register = tg3_vlan_rx_register;
+ #endif
+ 
+ 	tp = netdev_priv(dev);
+@@ -13458,21 +13475,11 @@ static int __devinit tg3_init_one(struct
+ 	tp->rx_jumbo_pending = TG3_DEF_RX_JUMBO_RING_PENDING;
+ 	tp->tx_pending = TG3_DEF_TX_RING_PENDING;
+ 
+-	dev->open = tg3_open;
+-	dev->stop = tg3_close;
+-	dev->get_stats = tg3_get_stats;
+-	dev->set_multicast_list = tg3_set_rx_mode;
+-	dev->set_mac_address = tg3_set_mac_addr;
+-	dev->do_ioctl = tg3_ioctl;
+-	dev->tx_timeout = tg3_tx_timeout;
++	dev->netdev_ops = &tg3_netdev_ops;
+ 	netif_napi_add(dev, &tp->napi, tg3_poll, 64);
+ 	dev->ethtool_ops = &tg3_ethtool_ops;
+ 	dev->watchdog_timeo = TG3_TX_TIMEOUT;
+-	dev->change_mtu = tg3_change_mtu;
+ 	dev->irq = pdev->irq;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = tg3_poll_controller;
+-#endif
+ 
+ 	err = tg3_get_invariants(tp);
+ 	if (err) {
