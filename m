@@ -1,75 +1,76 @@
-From: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
-Subject: Re: [atl1-devel] atl2: don't mess up irq on suspend/resume (probably
- msi only)
-Date: Tue, 18 Nov 2008 19:51:39 +0000
-Message-ID: <49231CCB.8010900@tuffmail.co.uk>
-References: <49201401.1060600@tuffmail.co.uk>	<4921E574.3090602@tuffmail.co.uk> <20081117181336.1a270561@osprey.hogchain.net> <4922D195.9010505@tuffmail.co.uk> <4922FD09.2070007@tuffmail.co.uk>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH net-next] myri10ge: remove hardcoded sram_size
+Date: Tue, 18 Nov 2008 21:11:15 +0100
+Message-ID: <49232163.9050902@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: csnook@redhat.com, atl1-devel@lists.sourceforge.net,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jay Cliburn <jcliburn@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:51428 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751935AbYKRTvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 14:51:45 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so1236369eyi.37
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 11:51:42 -0800 (PST)
-In-Reply-To: <4922FD09.2070007@tuffmail.co.uk>
+Received: from mailbox2.myri.com ([64.172.73.26]:1948 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752360AbYKRULV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2008 15:11:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Jenkins wrote:
-> Alan Jenkins wrote:
->> Jay Cliburn wrote:
->>> [adding netdev to cc list]
->>>
->>> On Mon, 17 Nov 2008 21:43:16 +0000
->>> Alan Jenkins <alan-jenkins@tuffmail.co.uk> wrote:
->>>
->>>
->>>> Don't listen to me. The problem went away because when I was testing
->>>> my patch, I plugged the ethernet in and actually used it. My patch
->>>> doesn't seem to fix anything.
->>>>
->>>> So I now have the steps to reproduce this warning: remove the ethernet
->>>> cable and suspend.
->>>>
->>>> Also, I was speaking rubbish because the warning isn't on the resume
->>>> path. It seems to be when network-manager re-opens the device on
->>>> resume.
->>>>
->>>> I'll have another look for possible culprits. Hints appreciated :).
->>> Does this help?
->>
->> Ah! Yes, that fixes it, thanks.
->
-> Just noticed another problem. If I suspend with the cable plugged in,
-> I get a warning message about freeing the IRQ
-which was caused by your patch.  It works better (for both cable plugged and unplugged cases) if I do this instead:
+Removes the use of a hardcoded sram_size, determine string_spec
+location from the MCP header instead.
 
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |   23 +++++++++++++----------
+ 1 file changed, 13 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-index f5bdc92..8571e8c 100644
---- a/drivers/net/atlx/atl2.c
-+++ b/drivers/net/atlx/atl2.c
-@@ -1690,9 +1690,11 @@ static int atl2_resume(struct pci_dev *pdev)
+Index: net-next-2.6/drivers/net/myri10ge/myri10ge.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/myri10ge/myri10ge.c	2008-11-18 21:04:02.000000000 +0100
++++ net-next-2.6/drivers/net/myri10ge/myri10ge.c	2008-11-18 21:04:10.000000000 +0100
+@@ -3737,6 +3737,7 @@
+ 	int i;
+ 	int status = -ENXIO;
+ 	int dac_enabled;
++	unsigned hdr_offset, ss_offset;
  
- 	ATL2_WRITE_REG(&adapter->hw, REG_WOL_CTRL, 0);
- 
--	err = atl2_request_irq(adapter);
--	if (netif_running(netdev) && err)
--		return err;
-+	if (netif_running(netdev)) {
-+		err = atl2_request_irq(adapter);
-+		if (err)
-+			return err;
+ 	netdev = alloc_etherdev_mq(sizeof(*mgp), MYRI10GE_MAX_SLICES);
+ 	if (netdev == NULL) {
+@@ -3804,14 +3805,6 @@
+ 	if (mgp->mtrr >= 0)
+ 		mgp->wc_enabled = 1;
+ #endif
+-	/* Hack.  need to get rid of these magic numbers */
+-	mgp->sram_size =
+-	    2 * 1024 * 1024 - (2 * (48 * 1024) + (32 * 1024)) - 0x100;
+-	if (mgp->sram_size > mgp->board_span) {
+-		dev_err(&pdev->dev, "board span %ld bytes too small\n",
+-			mgp->board_span);
+-		goto abort_with_mtrr;
+-	}
+ 	mgp->sram = ioremap_wc(mgp->iomem_base, mgp->board_span);
+ 	if (mgp->sram == NULL) {
+ 		dev_err(&pdev->dev, "ioremap failed for %ld bytes at 0x%lx\n",
+@@ -3819,9 +3812,19 @@
+ 		status = -ENXIO;
+ 		goto abort_with_mtrr;
+ 	}
++	hdr_offset =
++	    ntohl(__raw_readl(mgp->sram + MCP_HEADER_PTR_OFFSET)) & 0xffffc;
++	ss_offset = hdr_offset + offsetof(struct mcp_gen_header, string_specs);
++	mgp->sram_size = ntohl(__raw_readl(mgp->sram + ss_offset));
++	if (mgp->sram_size > mgp->board_span ||
++	    mgp->sram_size <= MYRI10GE_FW_OFFSET) {
++		dev_err(&pdev->dev,
++			"invalid sram_size %dB or board span %ldB\n",
++			mgp->sram_size, mgp->board_span);
++		goto abort_with_ioremap;
 +	}
- 
- 	atl2_reset_hw(&adapter->hw);
- 
+ 	memcpy_fromio(mgp->eeprom_strings,
+-		      mgp->sram + mgp->sram_size - MYRI10GE_EEPROM_STRINGS_SIZE,
+-		      MYRI10GE_EEPROM_STRINGS_SIZE);
++		      mgp->sram + mgp->sram_size, MYRI10GE_EEPROM_STRINGS_SIZE);
+ 	memset(mgp->eeprom_strings + MYRI10GE_EEPROM_STRINGS_SIZE - 2, 0, 2);
+ 	status = myri10ge_read_mac_addr(mgp);
+ 	if (status)
 
 
