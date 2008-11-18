@@ -1,61 +1,85 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] softirq: Use local_irq_save() in local_bh_enable()
-Date: Tue, 18 Nov 2008 07:49:22 +0000
-Message-ID: <20081118074922.GB4440@ff.dom.local>
-References: <20081117133548.GC6345@ff.dom.local> <1226931509.3902.16.camel@johannes.berg>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: macb phy address bug?
+Date: Tue, 18 Nov 2008 09:50:17 +0100
+Message-ID: <492281C9.6060006@st.com>
+References: <20081116.015050.238612963.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	Ferenc Wagner <wferi@niif.hu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752811AbYKRHtp@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1226931509.3902.16.camel@johannes.berg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------090806010104000104010305"
+Cc: giulio.benetti@micronovasrl.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:55527 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750790AbYKRIxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 03:53:42 -0500
+In-Reply-To: <20081116.015050.238612963.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 17, 2008 at 03:18:28PM +0100, Johannes Berg wrote:
-> On Mon, 2008-11-17 at 13:35 +0000, Jarek Poplawski wrote:
-> > This report: http://marc.info/?l=linux-netdev&m=122599341430090&w=2
-> > shows local_bh_enable() is used in the wrong context (irqs disabled).
-> > It happens when a usual network receive path is called by netconsole,
-> > which simply turns off irqs around this all. Probably this is wrong,
-> > but it worked like this long time, and it's not trivial to fix this.
-> 
-> Unfortunately my brain lacks the magic to decrypt x86 stack traces, so
-> I'm unable to read much from that report other than that it hit the
-> WARN_ON. That looks more like the TX path to me?
+This is a multi-part message in MIME format.
+--------------090806010104000104010305
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-OK, this looks like both paths (which is probably common in networking).
+In my opinion, we need to rework this patch again for two reasons:
+1) it doesn't cover the case when the PHYID is 0xffffffff.
+2) we need to add an explicit comment on the PHYID check to highlight that
+    this is a  work-around the broken hardware (in case we get 0xffff or 
+0x0).
+I've also tested it on several PHY devices: e.g. smsc lan 8700, ste101p, 
+ste100p,
+DP83865 National GPHY.
+Where, for some of these, we need to treat the phyid=0 as wrong UID.
+Please, review the attached patch.
 
-> Anyway, my patch made
-> that trigger for everybody rather than just on NOPREEMPT/UP (or
-> something like that) and made the code easier to understand by removing
-> the flags that are pointless anyway if the API is used correctly.
-> 
-> You can find discussion around the patch at
-> http://lkml.org/lkml/2008/6/17/259
+Regards,
+Peppe
 
-Yes, it's very interesting.
+David Miller wrote:
+> I've applied this patch to net-2.6, thanks.
+>
+> As mentioned there is some rare chance that the new
+> zero test could cause problems, in which case we'll
+> need to undo that part.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>   
 
-> 
-> > Anyway, a commit 0f476b6d91a1395bda6464e653ce66ea9bea7167 "softirq:
-> > remove irqs_disabled warning from local_bh_enable" can break things
-> > after changing from local_irq_save() to local_irq_disable(). Before
-> > this commit there was only a warning, now a lockup is possible, so
-> > it could be treated as a regression. This patch reverts the change
-> > in irqs.
-> 
-> Do we have evidence of this actually hitting often? This is the first
-> report of anything going wrong that I've seen ever since a single one
-> right after this commit went into testing five months ago.
-> 
-> IFF we want to add this back (and I'm not in favour) then please add a
-> big comment that this is only to accomodate broken users.
 
-Yes, it seems there should be more such reports from netconsole users.
-But, I guess we kind of expect this if we still use WARN_ON and not
-BUG_ON here?
+--------------090806010104000104010305
+Content-Type: text/x-patch;
+ name="phy_dev_uid_detection.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="phy_dev_uid_detection.patch"
 
-Jarek P.
+Fix phy_id detection also for broken hardware.
+
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+
+--- phy_device.c.orig	2008-11-18 09:25:06.929041000 +0100
++++ phy_device.c	2008-11-18 09:27:15.876041000 +0100
+@@ -227,7 +227,16 @@ struct phy_device * get_phy_device(struc
+ 	if (r)
+ 		return ERR_PTR(r);
+ 
+-	/* If the phy_id is all Fs or all 0s, there is no device there */
++	/* If the phy_id is mostly Fs, there is no device there */
++	if ((phy_id & 0x1fffffff) == 0x1fffffff)
++		return NULL;
++
++	/*
++	 * Broken hardware is sometimes missing the pull down resistor on the
++	 * MDIO line, which results in reads to non-existent devices returning
++	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
++	 * device as well.
++	 */ 
+ 	if ((0xffff == phy_id) || (0x00 == phy_id))
+ 		return NULL;
+ 
+
+--------------090806010104000104010305--
