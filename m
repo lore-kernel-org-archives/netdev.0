@@ -1,193 +1,157 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH 03/13] dmaengine: up-level reference counting to the
-	module level
-Date: Mon, 17 Nov 2008 20:42:04 -0700
-Message-ID: <1226979724.25411.20.camel@dwillia2-linux.ch.intel.com>
-References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
-	 <20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
-	 <20081114220842.482d56e5.akpm@linux-foundation.org>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH net-next v3]netdevice: 82596: Convert netdev->priv to netdev_priv
+Date: Tue, 18 Nov 2008 11:57:25 +0800
+Message-ID: <49223D25.9030006@cn.fujitsu.com>
+References: <4921095D.9010109@cn.fujitsu.com>	<20081116.223637.108010315.davem@davemloft.net>	<49213856.6040802@cn.fujitsu.com> <20081117.012939.72047312.davem@davemloft.net> <492182C8.6060704@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>,
-	"hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
-	"g.liakhovetski@gmx.de" <g.liakhovetski@gmx.de>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:60128 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751918AbYKRDmG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 22:42:06 -0500
-In-Reply-To: <20081114220842.482d56e5.akpm@linux-foundation.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:62486 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751589AbYKRD5o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 22:57:44 -0500
+In-Reply-To: <492182C8.6060704@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the review.
+1. When alloc_etherdev(), no memory be allocated to netdev->priv.
+2. And it's need to get a whole page for priv.
 
-On Fri, 2008-11-14 at 23:08 -0700, Andrew Morton wrote: 
-> > +static struct module *dma_chan_to_owner(struct dma_chan *chan)
-> > +{
-> > +	return chan->device->dev->driver->owner;
-> > +}
-> 
-> Has this all been tested with CONFIG_MODULES=n?
-> 
+For these reasons, use netdev->ml_priv to point to the page is the
+best method to convert directly reference of netdev->priv.
 
-It works, the only thing that changes is that ->owner is always NULL. 
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ drivers/net/82596.c |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
 
-> It looks like we have a lot of unneeded code if CONFIG_MODULES=n. 
-> However that might not be a case which is worth bothering about.
-
-We still need all the other reference counting machinery to identify
-busy channels.
-
-> 
-> > +/**
-> > + * balance_ref_count - catch up the channel reference count
-> > + */
-> > +static void balance_ref_count(struct dma_chan *chan)
-> 
-> Forgot to kerneldocument the argument.
-
-yup
-
-> 
-> > +{
-> > +	struct module *owner = dma_chan_to_owner(chan);
-> > +
-> > +	while (chan->client_count < dmaengine_ref_count) {
-> > +		__module_get(owner);
-> > +		chan->client_count++;
-> > +	}
-> > +}
-> 
-> The locking for ->client_count is undocumented.
-
-diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
-index dce6d00..9396891 100644
---- a/drivers/dma/dmaengine.c
-+++ b/drivers/dma/dmaengine.c
-@@ -129,6 +129,9 @@ static struct module *dma_chan_to_owner(struct dma_chan *chan)
+diff --git a/drivers/net/82596.c b/drivers/net/82596.c
+index 717fe2f..23fe416 100644
+--- a/drivers/net/82596.c
++++ b/drivers/net/82596.c
+@@ -457,7 +457,7 @@ static inline int wait_cfg(struct net_device *dev, struct i596_cmd *cmd, int del
  
- /**
-  * balance_ref_count - catch up the channel reference count
-+ * @chan - channel to balance ->client_count versus dmaengine_ref_count
-+ *
-+ * balance_ref_count must be called under dma_list_mutex
-  */
- static void balance_ref_count(struct dma_chan *chan)
+ static void i596_display_data(struct net_device *dev)
  {
-
-
-> > +/**
-> > + * dma_chan_get - try to grab a dma channel's parent driver module
-> > + * @chan - channel to grab
-> > + */
-> > +static int dma_chan_get(struct dma_chan *chan)
-> > +{
-> > +	int err = -ENODEV;
-> > +	struct module *owner = dma_chan_to_owner(chan);
-> > +
-> > +	if (chan->client_count) {
-> > +		__module_get(owner);
-> > +		err = 0;
-> > +	} else if (try_module_get(owner))
-> > +		err = 0;
-> 
-> I wonder if try_module_get() could be used in both cases (migt not make
-> sense to do so though).
-
-Yes, but I like how it documents the assumption that the backing module
-has been referenced when client_count is non-zero.
-
-> 
-> > +	if (err == 0)
-> > +		chan->client_count++;
-> 
-> Locking for this?
-
-@@ -146,6 +146,8 @@ static void balance_ref_count(struct dma_chan *chan)
- /**
-  * dma_chan_get - try to grab a dma channel's parent driver module
-  * @chan - channel to grab
-+ *
-+ * Must be called under dma_list_mutex
-  */
- static int dma_chan_get(struct dma_chan *chan)
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	struct i596_cmd *cmd;
+ 	struct i596_rfd *rfd;
+ 	struct i596_rbd *rbd;
+@@ -527,7 +527,7 @@ static irqreturn_t i596_error(int irq, void *dev_id)
+ 
+ static inline void init_rx_bufs(struct net_device *dev)
  {
-
-> 
-> > +	/* allocate upon first client reference */
-> > +	if (chan->client_count == 1 && err == 0) {
-> > +		int desc = chan->device->device_alloc_chan_resources(chan, NULL);
-> > +
-> > +		if (desc < 0) {
-> > +			chan->client_count = 0;
-> > +			module_put(owner);
-> > +			err = -ENOMEM;
-> 
-> Shouldn't we just propagate the ->device_alloc_chan_resources() return value?
-> 
-
-Yes, this is broken.
-
-@@ -165,12 +165,11 @@ static int dma_chan_get(struct dma_chan *chan)
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	int i;
+ 	struct i596_rfd *rfd;
+ 	struct i596_rbd *rbd;
+@@ -578,7 +578,7 @@ static inline void init_rx_bufs(struct net_device *dev)
  
- 	/* allocate upon first client reference */
- 	if (chan->client_count == 1 && err == 0) {
--		int desc = chan->device->device_alloc_chan_resources(chan);
-+		err = chan->device->device_alloc_chan_resources(chan);
+ static inline void remove_rx_bufs(struct net_device *dev)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	struct i596_rbd *rbd;
+ 	int i;
  
--		if (desc < 0) {
-+		if (err < 0) {
- 			chan->client_count = 0;
- 			module_put(owner);
--			err = -ENOMEM;
- 		} else if (!dma_has_cap(DMA_PRIVATE, chan->device->cap_mask))
- 			balance_ref_count(chan);
+@@ -592,7 +592,7 @@ static inline void remove_rx_bufs(struct net_device *dev)
+ 
+ static void rebuild_rx_bufs(struct net_device *dev)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	int i;
+ 
+ 	/* Ensure rx frame/buffer descriptors are tidy */
+@@ -611,7 +611,7 @@ static void rebuild_rx_bufs(struct net_device *dev)
+ 
+ static int init_i596_mem(struct net_device *dev)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ #if !defined(ENABLE_MVME16x_NET) && !defined(ENABLE_BVME6000_NET) || defined(ENABLE_APRICOT)
+ 	short ioaddr = dev->base_addr;
+ #endif
+@@ -764,7 +764,7 @@ failed:
+ 
+ static inline int i596_rx(struct net_device *dev)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	struct i596_rfd *rfd;
+ 	struct i596_rbd *rbd;
+ 	int frames = 0;
+@@ -958,7 +958,7 @@ static void i596_reset(struct net_device *dev, struct i596_private *lp,
+ 
+ static void i596_add_cmd(struct net_device *dev, struct i596_cmd *cmd)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 
+@@ -1028,7 +1028,7 @@ static int i596_open(struct net_device *dev)
+ 
+ static void i596_tx_timeout (struct net_device *dev)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	/* Transmitter timeout, serious problems. */
+@@ -1057,7 +1057,7 @@ static void i596_tx_timeout (struct net_device *dev)
+ 
+ static int i596_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	struct tx_cmd *tx_cmd;
+ 	struct i596_tbd *tbd;
+ 	short length = skb->len;
+@@ -1239,9 +1239,9 @@ found:
+ 	dev->tx_timeout = i596_tx_timeout;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+ 
+-	dev->priv = (void *)(dev->mem_start);
++	dev->ml_priv = (void *)(dev->mem_start);
+ 
+-	lp = dev->priv;
++	lp = dev->ml_priv;
+ 	DEB(DEB_INIT,printk(KERN_DEBUG "%s: lp at 0x%08lx (%zd bytes), "
+ 			"lp->scb at 0x%08lx\n",
+ 			dev->name, (unsigned long)lp,
+@@ -1302,7 +1302,7 @@ static irqreturn_t i596_interrupt(int irq, void *dev_id)
  	}
-
-
-> > +		} else
-> > +			balance_ref_count(chan);
-> > +	}
-> > +
-> > +	return err;
-> > +}
-> > +
-> > +static void dma_chan_put(struct dma_chan *chan)
-> > +{
-> > +	if (!chan->client_count)
-> > +		return; /* this channel failed alloc_chan_resources */
-> 
-> Or we had a bug ;)
-
-...hopefully caught by the BUG_ON(dmaengine_ref_count < 0) in
-dmaengine_put().
-
-> 
-> > +	chan->client_count--;
-> 
-> Undocumented locking..
-
-@@ -178,6 +178,12 @@ static int dma_chan_get(struct dma_chan *chan)
- 	return err;
- }
  
-+/**
-+ * dma_chan_put - drop a reference to a dma channel's parent driver module
-+ * @chan - channel to release
-+ *
-+ * Must be called under dma_list_mutex
-+ */
- static void dma_chan_put(struct dma_chan *chan)
+ 	ioaddr = dev->base_addr;
+-	lp = dev->priv;
++	lp = dev->ml_priv;
+ 
+ 	spin_lock (&lp->lock);
+ 
+@@ -1445,7 +1445,7 @@ static irqreturn_t i596_interrupt(int irq, void *dev_id)
+ 
+ static int i596_close(struct net_device *dev)
  {
- 	if (!chan->client_count)
-
-
-Regards,
-Dan
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	unsigned long flags;
+ 
+ 	netif_stop_queue(dev);
+@@ -1495,7 +1495,7 @@ static int i596_close(struct net_device *dev)
+ 
+ static void set_multicast_list(struct net_device *dev)
+ {
+-	struct i596_private *lp = dev->priv;
++	struct i596_private *lp = dev->ml_priv;
+ 	int config = 0, cnt;
+ 
+ 	DEB(DEB_MULTI,printk(KERN_DEBUG "%s: set multicast list, %d entries, promisc %s, allmulti %s\n",
+-- 
+1.5.3.4
 
