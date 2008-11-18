@@ -1,62 +1,68 @@
-From: Giulio Benetti <giulio.benetti@micronovasrl.com>
-Subject: Re: macb phy address bug?
-Date: Tue, 18 Nov 2008 12:54:10 +0100
-Message-ID: <gfuad2$907$1@ger.gmane.org>
-References: <20081116.015050.238612963.davem@davemloft.net> <492281C9.6060006@st.com>
+From: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
+Subject: Re: [atl1-devel] atl2: don't mess up irq on suspend/resume (probably
+ msi only)
+Date: Tue, 18 Nov 2008 14:30:45 +0000
+Message-ID: <4922D195.9010505@tuffmail.co.uk>
+References: <49201401.1060600@tuffmail.co.uk>	<4921E574.3090602@tuffmail.co.uk> <20081117181336.1a270561@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, atl1-devel@lists.sourceforge.net,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jay Cliburn <jcliburn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:39015 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750854AbYKROaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2008 09:30:07 -0500
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1L2Rac-0007fZ-Ga
-	for netdev@vger.kernel.org; Tue, 18 Nov 2008 14:30:02 +0000
-Received: from 88.62.46.0 ([88.62.46.0])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 14:30:02 +0000
-Received: from giulio.benetti by 88.62.46.0 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 14:30:02 +0000
+Received: from ey-out-2122.google.com ([74.125.78.24]:2486 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385AbYKROav (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 09:30:51 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so1173062eyi.37
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 06:30:49 -0800 (PST)
+In-Reply-To: <20081117181336.1a270561@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Giuseppe CAVALLARO wrote:
-
-> In my opinion, we need to rework this patch again for two reasons:
-> 1) it doesn't cover the case when the PHYID is 0xffffffff.
-> 2) we need to add an explicit comment on the PHYID check to highlight that
->     this is a  work-around the broken hardware (in case we get 0xffff or
-> 0x0).
-> I've also tested it on several PHY devices: e.g. smsc lan 8700, ste101p,
-> ste100p,
-> DP83865 National GPHY.
-> Where, for some of these, we need to treat the phyid=0 as wrong UID.
-> Please, review the attached patch.
-> 
-> Regards,
-> Peppe
-> 
-> David Miller wrote:
->> I've applied this patch to net-2.6, thanks.
+Jay Cliburn wrote:
+> [adding netdev to cc list]
+>
+> On Mon, 17 Nov 2008 21:43:16 +0000
+> Alan Jenkins <alan-jenkins@tuffmail.co.uk> wrote:
+>
+>
+>   
+>> Don't listen to me.  The problem went away because when I was testing
+>> my patch, I plugged the ethernet in and actually used it.  My patch
+>> doesn't seem to fix anything.
 >>
->> As mentioned there is some rare chance that the new
->> zero test could cause problems, in which case we'll
->> need to undo that part.
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> So I now have the steps to reproduce this warning: remove the ethernet
+>> cable and suspend.
 >>
+>> Also, I was speaking rubbish because the warning isn't on the resume
+>> path.  It seems to be when network-manager re-opens the device on
+>> resume.
 >>
+>> I'll have another look for possible culprits.  Hints appreciated :).
+>>     
+>
+> Does this help?
+>   
 
-You're right on hardware, it's my fault. The problem is on the primitives of 
-mdio from atmel, I will patch them.
+Ah! Yes, that fixes it, thanks.
 
-Giulio
-
+> diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
+> index f5bdc92..5b292f0 100644
+> --- a/drivers/net/atlx/atl2.c
+> +++ b/drivers/net/atlx/atl2.c
+> @@ -1690,10 +1690,6 @@ static int atl2_resume(struct pci_dev *pdev)
+>  
+>  	ATL2_WRITE_REG(&adapter->hw, REG_WOL_CTRL, 0);
+>  
+> -	err = atl2_request_irq(adapter);
+> -	if (netif_running(netdev) && err)
+> -		return err;
+> -
+> 	atl2_reset_hw(&adapter->hw);
+>  
+> 	if (netif_running(netdev))
+>   
 
