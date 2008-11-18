@@ -1,54 +1,72 @@
-From: "Kaplowitz, David" <dkaplowitz@irobot.com>
-Subject: multicast forwarding
-Date: Tue, 18 Nov 2008 12:03:18 -0500
-Message-ID: <1227027798.8765.28.camel@irbt-1279>
-Reply-To: "Kaplowitz, David" <dkaplowitz@irobot.com>
+From: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
+Subject: Re: [atl1-devel] atl2: don't mess up irq on suspend/resume (probably
+ msi only)
+Date: Tue, 18 Nov 2008 17:36:09 +0000
+Message-ID: <4922FD09.2070007@tuffmail.co.uk>
+References: <49201401.1060600@tuffmail.co.uk>	<4921E574.3090602@tuffmail.co.uk> <20081117181336.1a270561@osprey.hogchain.net> <4922D195.9010505@tuffmail.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	micalg=pgp-sha1;
-	protocol="application/pgp-signature";
-	boundary="=-PU0wY0oonxT1+OKTW2Vm"
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, atl1-devel@lists.sourceforge.net,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jay Cliburn <jcliburn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.irobot.com ([206.83.81.187]:15986 "EHLO smtp1.irobot.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756163AbYKRRSc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2008 12:18:32 -0500
-Content-class: urn:content-classes:message
+Received: from nf-out-0910.google.com ([64.233.182.187]:24331 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752480AbYKRRf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 12:35:57 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so1473935nfc.21
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 09:35:55 -0800 (PST)
+In-Reply-To: <4922D195.9010505@tuffmail.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Alan Jenkins wrote:
+> Jay Cliburn wrote:
+>   
+>> [adding netdev to cc list]
+>>
+>> On Mon, 17 Nov 2008 21:43:16 +0000
+>> Alan Jenkins <alan-jenkins@tuffmail.co.uk> wrote:
+>>
+>>
+>>   
+>>     
+>>> Don't listen to me.  The problem went away because when I was testing
+>>> my patch, I plugged the ethernet in and actually used it.  My patch
+>>> doesn't seem to fix anything.
+>>>
+>>> So I now have the steps to reproduce this warning: remove the ethernet
+>>> cable and suspend.
+>>>
+>>> Also, I was speaking rubbish because the warning isn't on the resume
+>>> path.  It seems to be when network-manager re-opens the device on
+>>> resume.
+>>>
+>>> I'll have another look for possible culprits.  Hints appreciated :).
+>>>     
+>>>       
+>> Does this help?
+>>   
+>>     
+>
+> Ah! Yes, that fixes it, thanks.
+>   
 
---=-PU0wY0oonxT1+OKTW2Vm
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Just noticed another problem. If I suspend with the cable plugged in, I 
+get a warning message about freeing the IRQ:
 
-Greetings,
+[ 331.023417] atl2 0000:03:00.0: restoring config space at offset 0x1 
+(was 0x100006, writing 0x100406)
+[ 331.023453] atl2 0000:03:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+[ 331.023462] atl2 0000:03:00.0: setting latency timer to 64
+[ 331.043449] ath5k_pci 0000:01:00.0: restoring config space at offset 
+0xf (was 0x100, writing 0x10a)
+...
+[ 332.681591] Restarting tasks ... done.
+[ 333.617398] hpet1: lost 2 rtc interrupts
+[ 334.016700] Trying to free already-free IRQ 17
+[ 334.057257] ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[ 334.082570] atl2 0000:03:00.0: irq 44 for MSI/MSI-X
 
-I have an interesting difficulty.  I want to be able to grab a multicast
-stream from a machine (192.168.12.13) and forward/rebroadcast/rewrite
-it, such that the packets seem to come from my DMZ host (192.168.12.12).
-
-I have been trying an iptables solution, but that doesn't seem to be
-working at the moment, and it was recommended to me by =EF=BB=BFj_engelh on=
- the
-#iptables channel to ask at this address for further assistance.
-
-Thank you for your time and effort on my behalf.
-
--dkap
-
-
---=-PU0wY0oonxT1+OKTW2Vm
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBJIvVWueMqKH4VzoYRAvpJAJsEgnnw8JNsru4Zdi2In5nyBF/GVACeMCE5
-EiOTJufsI71JMLfcbUo32gw=
-=ep9W
------END PGP SIGNATURE-----
-
---=-PU0wY0oonxT1+OKTW2Vm--
