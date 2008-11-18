@@ -1,67 +1,42 @@
-From: "stanley.miao" <stanley.miao@windriver.com>
-Subject: Re: [PATCH 1/2] Add SMC_MEM_RESERVED for OMAP platform.
-Date: Tue, 18 Nov 2008 09:37:41 +0800
-Message-ID: <1226972261.14497.4.camel@localhost>
-References: <OF1AFB43DD.9BED76B1-ON80257504.00386A7C-80257504.0039CC57@smsc.com>
-Reply-To: stanley.miao@windriver.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 00/33] Network Devices Ops (v0.3)
+Date: Mon, 17 Nov 2008 17:35:58 -0800
+Message-ID: <20081117173558.7d861bcf@extreme>
+References: <20081117234207.854110282@vyatta.com>
+	<9929d2390811171727m14571c8bg64909d346a3753a0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Steve.Glendinning@smsc.com
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53423 "EHLO mail.wrs.com"
+Received: from mail.vyatta.com ([76.74.103.46]:36546 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751867AbYKRBbf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 20:31:35 -0500
-In-Reply-To: <OF1AFB43DD.9BED76B1-ON80257504.00386A7C-80257504.0039CC57@smsc.com>
+	id S1751792AbYKRBgC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2008 20:36:02 -0500
+In-Reply-To: <9929d2390811171727m14571c8bg64909d346a3753a0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-11-17 at 10:31 +0000, Steve.Glendinning@smsc.com wrote:
-> Hi Stanley,
-> 
-> Jeff has merged the smsc911x driver into -next, this is intended to 
-> replace smc911x moving forward.  I'll forward the patchset to you 
-> off-list, it includes platform_data support for several platforms so 
-> adding support for omap should be simple.
+On Mon, 17 Nov 2008 17:27:05 -0800
+"Jeff Kirsher" <jeffrey.t.kirsher@intel.com> wrote:
 
-OK, Thanks.
+> On Mon, Nov 17, 2008 at 3:42 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+> > This sequence of patches breaks the network device adminstration
+> > function table away from the network device data structure. It is
+> > a transitional API change (both keep working), and this set of patches
+> > hits a range of commonly used drivers. This should be enough to make sure
+> > both old and new interfaces get used and tested.
+> >
+> > --
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> 
+> Did I miss a patch, or did you intentionally not convert ixgbe?
 
-Stanley.
-
-> 
-> > diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
-> > index cc7d85b..d1b3b9b 100644
-> > --- a/drivers/net/smc911x.h
-> > +++ b/drivers/net/smc911x.h
-> > @@ -42,6 +42,16 @@
-> >    #define SMC_USE_16BIT      0
-> >    #define SMC_USE_32BIT      1
-> >    #define SMC_IRQ_SENSE      IRQF_TRIGGER_LOW
-> > +#elif defined(CONFIG_ARCH_OMAP34XX)
-> > +  #define SMC_USE_16BIT      0
-> > +  #define SMC_USE_32BIT      1
-> > +  #define SMC_IRQ_SENSE      IRQF_TRIGGER_LOW
-> > +  #define SMC_MEM_RESERVED   1
-> > +#elif defined(CONFIG_ARCH_OMAP24XX)
-> > +  #define SMC_USE_16BIT      0
-> > +  #define SMC_USE_32BIT      1
-> > +  #define SMC_IRQ_SENSE      IRQF_TRIGGER_LOW
-> > +  #define SMC_MEM_RESERVED   1
-> >  #else
-> >  /*
-> >   * Default configuration
-> 
-> nack - this platform-specific configuration shouldn't be in the driver, 
-> SMC_DYNAMIC_BUS_CONFIG was added so this can be specified in 
-> platform_data.
-> 
-> Regards,
-> --
-> Steve Glendinning
-> SMSC GmbH
-> m: +44 777 933 9124
-> e: steve.glendinning@smsc.com
-> 
+Since it was so similar to ixgb, both files are patched in same patch bundle.
