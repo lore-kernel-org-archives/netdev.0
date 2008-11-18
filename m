@@ -1,148 +1,61 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH net-next]netdevice hamradio: Convert directly reference of
- netdev->priv
-Date: Tue, 18 Nov 2008 12:03:09 +0800
-Message-ID: <49223E7D.8090308@cn.fujitsu.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/5] dccp: Mechanism to resolve CCID dependencies
+Date: Tue, 18 Nov 2008 06:03:47 +0100
+Message-ID: <20081118050346.GA3846@gerrit.erg.abdn.ac.uk>
+References: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk> <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk> <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk> <20081116.225040.197479116.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	NETDEV <netdev@vger.kernel.org>
+Content-Type: multipart/mixed; boundary="DocE+STaALJfprDB"
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54677 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751792AbYKREDa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 23:03:30 -0500
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50543 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750945AbYKRFDz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2008 00:03:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20081116.225040.197479116.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since all the memory, which pointed by netdev->priv, are allocated in advance instead of
-by alloc_netdev().
-Use netdev->ml_priv to point to those memory.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/net/hamradio/dmascc.c |   12 ++++++------
- drivers/net/hamradio/scc.c    |   12 ++++++------
- 2 files changed, 12 insertions(+), 12 deletions(-)
+--DocE+STaALJfprDB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
-index 7e46114..e671033 100644
---- a/drivers/net/hamradio/dmascc.c
-+++ b/drivers/net/hamradio/dmascc.c
-@@ -572,7 +572,7 @@ static int __init setup_adapter(int card_base, int type, int n)
- 		priv->param.persist = 256;
- 		priv->param.dma = -1;
- 		INIT_WORK(&priv->rx_work, rx_bh);
--		dev->priv = priv;
-+		dev->ml_priv = priv;
- 		sprintf(dev->name, "dmascc%i", 2 * n + i);
- 		dev->base_addr = card_base;
- 		dev->irq = irq;
-@@ -720,7 +720,7 @@ static int read_scc_data(struct scc_priv *priv)
- 
- static int scc_open(struct net_device *dev)
+| > +	list_for_each_entry(entry, fn_list, node)
+| > +		if (entry->feat_num == feat_num && entry->is_local == is_local)
+| > +			return entry;
+| > +		else if (entry->feat_num > feat_num)
+| > +			break;
+| 
+| Personally, I would have put braces around this basic block.
+| 
+If it is possible to modify without disturbance, I attach a patch for this and
+have changed it in the test tree.
+
+I have checked that making this change does not affect subsequent
+patches - it works with either variant.
+
+--DocE+STaALJfprDB
+Content-Type: text/x-diff; charset=us-ascii
+Content-Description: Missing braces
+Content-Disposition: attachment; filename="3.diff"
+
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -171,11 +171,12 @@ static struct dccp_feat_entry *dccp_feat
  {
--	struct scc_priv *priv = dev->priv;
-+	struct scc_priv *priv = dev->ml_priv;
- 	struct scc_info *info = priv->info;
- 	int card_base = priv->card_base;
+ 	struct dccp_feat_entry *entry;
  
-@@ -862,7 +862,7 @@ static int scc_open(struct net_device *dev)
- 
- static int scc_close(struct net_device *dev)
- {
--	struct scc_priv *priv = dev->priv;
-+	struct scc_priv *priv = dev->ml_priv;
- 	struct scc_info *info = priv->info;
- 	int card_base = priv->card_base;
- 
-@@ -891,7 +891,7 @@ static int scc_close(struct net_device *dev)
- 
- static int scc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
--	struct scc_priv *priv = dev->priv;
-+	struct scc_priv *priv = dev->ml_priv;
- 
- 	switch (cmd) {
- 	case SIOCGSCCPARAM:
-@@ -918,7 +918,7 @@ static int scc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 
- static int scc_send_packet(struct sk_buff *skb, struct net_device *dev)
- {
--	struct scc_priv *priv = dev->priv;
-+	struct scc_priv *priv = dev->ml_priv;
- 	unsigned long flags;
- 	int i;
- 
-@@ -963,7 +963,7 @@ static int scc_send_packet(struct sk_buff *skb, struct net_device *dev)
- 
- static struct net_device_stats *scc_get_stats(struct net_device *dev)
- {
--	struct scc_priv *priv = dev->priv;
-+	struct scc_priv *priv = dev->ml_priv;
- 
- 	return &priv->stats;
+-	list_for_each_entry(entry, fn_list, node)
++	list_for_each_entry(entry, fn_list, node) {
+ 		if (entry->feat_num == feat_num && entry->is_local == is_local)
+ 			return entry;
+ 		else if (entry->feat_num > feat_num)
+ 			break;
++	}
+ 	return NULL;
  }
-diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
-index 802d1c7..c011af7 100644
---- a/drivers/net/hamradio/scc.c
-+++ b/drivers/net/hamradio/scc.c
-@@ -1518,7 +1518,7 @@ static int scc_net_alloc(const char *name, struct scc_channel *scc)
- 	if (!dev) 
- 		return -ENOMEM;
  
--	dev->priv = scc;
-+	dev->ml_priv = scc;
- 	scc->dev = dev;
- 	spin_lock_init(&scc->lock);
- 	init_timer(&scc->tx_t);
-@@ -1575,7 +1575,7 @@ static void scc_net_setup(struct net_device *dev)
- 
- static int scc_net_open(struct net_device *dev)
- {
--	struct scc_channel *scc = (struct scc_channel *) dev->priv;
-+	struct scc_channel *scc = (struct scc_channel *) dev->ml_priv;
- 
-  	if (!scc->init)
- 		return -EINVAL;
-@@ -1593,7 +1593,7 @@ static int scc_net_open(struct net_device *dev)
- 
- static int scc_net_close(struct net_device *dev)
- {
--	struct scc_channel *scc = (struct scc_channel *) dev->priv;
-+	struct scc_channel *scc = (struct scc_channel *) dev->ml_priv;
- 	unsigned long flags;
- 
- 	netif_stop_queue(dev);
-@@ -1634,7 +1634,7 @@ static void scc_net_rx(struct scc_channel *scc, struct sk_buff *skb)
- 
- static int scc_net_tx(struct sk_buff *skb, struct net_device *dev)
- {
--	struct scc_channel *scc = (struct scc_channel *) dev->priv;
-+	struct scc_channel *scc = (struct scc_channel *) dev->ml_priv;
- 	unsigned long flags;
- 	char kisscmd;
- 
-@@ -1704,7 +1704,7 @@ static int scc_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	struct scc_mem_config memcfg;
- 	struct scc_hw_config hwcfg;
- 	struct scc_calibrate cal;
--	struct scc_channel *scc = (struct scc_channel *) dev->priv;
-+	struct scc_channel *scc = (struct scc_channel *) dev->ml_priv;
- 	int chan;
- 	unsigned char device_name[IFNAMSIZ];
- 	void __user *arg = ifr->ifr_data;
-@@ -1951,7 +1951,7 @@ static int scc_net_set_mac_address(struct net_device *dev, void *addr)
- 
- static struct net_device_stats *scc_net_get_stats(struct net_device *dev)
- {
--	struct scc_channel *scc = (struct scc_channel *) dev->priv;
-+	struct scc_channel *scc = (struct scc_channel *) dev->ml_priv;
- 	
- 	scc->dev_stat.rx_errors = scc->stat.rxerrs + scc->stat.rx_over;
- 	scc->dev_stat.tx_errors = scc->stat.txerrs + scc->stat.tx_under;
--- 
-1.5.3.4
 
+--DocE+STaALJfprDB--
