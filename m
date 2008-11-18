@@ -1,65 +1,47 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: macb phy address bug?
-Date: Tue, 18 Nov 2008 16:35:08 +0100
-Message-ID: <4922E0AC.6080801@st.com>
-References: <20081116.015050.238612963.davem@davemloft.net> <492281C9.6060006@st.com> <gfuad2$907$1@ger.gmane.org>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: [PATCH] [TPROXY] fill struct flowi->flags in udp_sendmsg()
+Date: Tue, 18 Nov 2008 16:26:32 +0100
+Message-ID: <6afd3db7f90a6e8637f3f97607422abb8997c64b.1227023129.git.bazsi@balabit.hu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040608070807010300080708"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Giulio Benetti <giulio.benetti@micronovasrl.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:40406 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752179AbYKRPiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 10:38:24 -0500
-In-Reply-To: <gfuad2$907$1@ger.gmane.org>
+Received: from support.balabit.hu ([195.70.41.86]:39487 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752010AbYKRPsF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2008 10:48:05 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 2B3D939C3C7
+	for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 16:48:01 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040608070807010300080708
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+    udp_sendmsg() didn't fill struct flowi->flags, which means that
+    the route lookup would fail for non-local IPs even if the
+    IP_TRANSPARENT sockopt was set.
 
-Thanks Giulio for your feedback.
+    This prevents sendto() to work properly for UDP sockets, whereas
+    bind(foreign-ip) + connect() + send() worked fine.
 
-So I do think, this is the patch we need.
+Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
+---
+ net/ipv4/udp.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Peppe
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index cf02701..98c1fd0 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -633,6 +633,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 						.saddr = saddr,
+ 						.tos = tos } },
+ 				    .proto = sk->sk_protocol,
++				    .flags = inet_sk_flowi_flags(sk),
+ 				    .uli_u = { .ports =
+ 					       { .sport = inet->sport,
+ 						 .dport = dport } } };
+-- 
+1.5.4.3
 
---------------040608070807010300080708
-Content-Type: text/x-patch;
- name="phy_dev_uid_detection.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="phy_dev_uid_detection.patch"
 
-Fix phy_id detection also for broken hardware.
-
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-
---- a/drivers/net/phy/phy_device.c.orig	2008-11-18 09:25:06.929041000 +0100
-+++ a/drivers/net/phy/phy_device.c	2008-11-18 16:34:12.929001000 +0100
-@@ -227,8 +227,17 @@ struct phy_device * get_phy_device(struc
- 	if (r)
- 		return ERR_PTR(r);
- 
--	/* If the phy_id is all Fs or all 0s, there is no device there */
--	if ((0xffff == phy_id) || (0x00 == phy_id))
-+	/* If the phy_id is mostly Fs, there is no device there */
-+	if ((phy_id & 0x1fffffff) == 0x1fffffff)
-+		return NULL;
-+
-+	/*
-+	 * Broken hardware is sometimes missing the pull down resistor on the
-+	 * MDIO line, which results in reads to non-existent devices returning
-+	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
-+	 * device as well.
-+	 */ 
-+	if (phy_id == 0)
- 		return NULL;
- 
- 	dev = phy_device_create(bus, addr, phy_id);
-
---------------040608070807010300080708--
