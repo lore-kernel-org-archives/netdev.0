@@ -1,615 +1,842 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT v3 PATCH 5/5] DCB: Add support for DCB BCN
-Date: Mon, 17 Nov 2008 17:02:16 -0800
-Message-ID: <20081118010213.7105.99364.stgit@gitlost.lost>
-References: <20081118010033.7105.88061.stgit@gitlost.lost>
+Subject: [NET-NEXT PATCH] ixgbe: add SFP+ driver support
+Date: Mon, 17 Nov 2008 17:03:24 -0800
+Message-ID: <20081118010324.7426.80212.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Cc: netdev@vger.kernel.org, jeff@garzik.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:51490 "EHLO
-	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751918AbYKRBCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 20:02:35 -0500
-In-Reply-To: <20081118010033.7105.88061.stgit@gitlost.lost>
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:49349
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751941AbYKRBDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 20:03:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Donald Skidmore <donald.c.skidmore@intel.com>
 
-Adds an interface to configure the Backward Congestion Notification (BCN) feature.  In a BCN capabale network, congestion notifications from congested points out in the network can cause the end station limit the rate of a given traffic flow.
+This patch adds support for SFP+ PHY in the following device ID's (10DB,
+10F1, 10E1).  These SFP+ PHY's are accessed via an I2C interface so the
+patch also includes functions to support this.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Another feature of note is that the PHY is pluggable and some
+rearchitecting was needed to support this.
+
+Signed-off-by: Donald Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_dcb.h    |   27 ++++++
- drivers/net/ixgbe/ixgbe_dcb_nl.c |  176 ++++++++++++++++++++++++++++++++++++++
- include/linux/dcbnl.h            |   44 +++++++++-
- include/net/dcbnl.h              |    4 +
- net/dcb/dcbnl.c                  |  174 ++++++++++++++++++++++++++++++++++++--
- 5 files changed, 416 insertions(+), 9 deletions(-)
+ drivers/net/ixgbe/ixgbe.h       |    5 +
+ drivers/net/ixgbe/ixgbe_82598.c |  160 ++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_main.c  |   91 +++++++++++++-
+ drivers/net/ixgbe/ixgbe_phy.c   |  258 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_phy.h   |   18 +++
+ drivers/net/ixgbe/ixgbe_type.h  |   22 +++
+ 6 files changed, 547 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb.h b/drivers/net/ixgbe/ixgbe_dcb.h
-index 62dfd24..75f6efe 100644
---- a/drivers/net/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb.h
-@@ -108,7 +108,34 @@ enum dcb_rx_pba_cfg {
- 	pba_80_48      /* PBA[0-3] each use 80KB, PBA[4-7] each use 48KB */
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 3bfbc05..d8b7d7a 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -315,12 +315,15 @@ struct ixgbe_adapter {
+ 	unsigned long link_check_timeout;
+ 
+ 	struct work_struct watchdog_task;
++	struct work_struct sfp_task;
++	struct timer_list sfp_timer;
  };
  
-+/*
-+ * This structure contains many values encoded as fixed-point
-+ * numbers, meaning that some of bits are dedicated to the
-+ * magnitude and others to the fraction part. In the comments
-+ * this is shown as f=n, where n is the number of fraction bits.
-+ * These fraction bits are always the low-order bits. The size
-+ * of the magnitude is not specified.
-+ */
-+struct bcn_config {
-+	u32 rp_admin_mode[MAX_TRAFFIC_CLASS]; /* BCN enabled, per TC */
-+	u32 bcna_option[2]; /* BCNA Port + MAC Addr */
-+	u32 rp_w;        /* Derivative Weight, f=3 */
-+	u32 rp_gi;       /* Increase Gain, f=12 */
-+	u32 rp_gd;       /* Decrease Gain, f=12 */
-+	u32 rp_ru;       /* Rate Unit */
-+	u32 rp_alpha;    /* Max Decrease Factor, f=12 */
-+	u32 rp_beta;     /* Max Increase Factor, f=12 */
-+	u32 rp_ri;       /* Initial Rate */
-+	u32 rp_td;       /* Drift Interval Timer */
-+	u32 rp_rd;       /* Drift Increase */
-+	u32 rp_tmax;     /* Severe Congestion Backoff Timer Range */
-+	u32 rp_rmin;     /* Severe Congestion Restart Rate */
-+	u32 rp_wrtt;     /* RTT Moving Average Weight */
-+};
-+
- struct ixgbe_dcb_config {
-+	struct bcn_config bcn;
-+
- 	struct tc_configuration tc_config[MAX_TRAFFIC_CLASS];
- 	u8     bw_percentage[2][MAX_BW_GROUP]; /* One each for Tx/Rx */
+ enum ixbge_state_t {
+ 	__IXGBE_TESTING,
+ 	__IXGBE_RESETTING,
+-	__IXGBE_DOWN
++	__IXGBE_DOWN,
++	__IXGBE_SFP_MODULE_NOT_FOUND
+ };
  
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index dd940a8..615c280 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -34,6 +34,7 @@
- #define BIT_PFC		0x02
- #define BIT_PG_RX	0x04
- #define BIT_PG_TX	0x08
-+#define BIT_BCN         0x10
+ enum ixgbe_boards {
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
+index c2cdb04..7e09dab 100644
+--- a/drivers/net/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ixgbe/ixgbe_82598.c
+@@ -46,6 +46,8 @@ static s32 ixgbe_setup_copper_link_speed_82598(struct ixgbe_hw *hw,
+                                                ixgbe_link_speed speed,
+                                                bool autoneg,
+                                                bool autoneg_wait_to_complete);
++static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
++                                       u8 *eeprom_data);
  
- int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
-                        struct ixgbe_dcb_config *dst_dcb_cfg, int tc_max)
-@@ -88,6 +89,23 @@ int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
- 			src_dcb_cfg->tc_config[i - DCB_PFC_UP_ATTR_0].dcb_pfc;
+ /**
+  */
+@@ -53,6 +55,8 @@ static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_mac_info *mac = &hw->mac;
+ 	struct ixgbe_phy_info *phy = &hw->phy;
++	s32 ret_val = 0;
++	u16 list_offset, data_offset;
+ 
+ 	/* Call PHY identify routine to get the phy type */
+ 	ixgbe_identify_phy_generic(hw);
+@@ -64,6 +68,27 @@ static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
+ 		phy->ops.get_firmware_version =
+ 		             &ixgbe_get_phy_firmware_version_tnx;
+ 		break;
++	case ixgbe_phy_nl:
++		phy->ops.reset = &ixgbe_reset_phy_nl;
++
++		/* Call SFP+ identify routine to get the SFP+ module type */
++		ret_val = phy->ops.identify_sfp(hw);
++		if (ret_val != 0)
++			goto out;
++		else if (hw->phy.sfp_type == ixgbe_sfp_type_unknown) {
++			ret_val = IXGBE_ERR_SFP_NOT_SUPPORTED;
++			goto out;
++		}
++
++		/* Check to see if SFP+ module is supported */
++		ret_val = ixgbe_get_sfp_init_sequence_offsets(hw,
++		                                              &list_offset,
++		                                              &data_offset);
++		if (ret_val != 0) {
++			ret_val = IXGBE_ERR_SFP_NOT_SUPPORTED;
++			goto out;
++		}
++		break;
+ 	default:
+ 		break;
  	}
+@@ -82,7 +107,8 @@ static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
+ 	mac->max_rx_queues = IXGBE_82598_MAX_RX_QUEUES;
+ 	mac->max_tx_queues = IXGBE_82598_MAX_TX_QUEUES;
  
-+	for (i = DCB_BCN_ATTR_RP_0; i < DCB_BCN_ATTR_RP_ALL; i++) {
-+		dst_dcb_cfg->bcn.rp_admin_mode[i - DCB_BCN_ATTR_RP_0] =
-+			src_dcb_cfg->bcn.rp_admin_mode[i - DCB_BCN_ATTR_RP_0];
-+	}
-+	dst_dcb_cfg->bcn.rp_alpha = src_dcb_cfg->bcn.rp_alpha;
-+	dst_dcb_cfg->bcn.rp_beta = src_dcb_cfg->bcn.rp_beta;
-+	dst_dcb_cfg->bcn.rp_gd = src_dcb_cfg->bcn.rp_gd;
-+	dst_dcb_cfg->bcn.rp_gi = src_dcb_cfg->bcn.rp_gi;
-+	dst_dcb_cfg->bcn.rp_tmax = src_dcb_cfg->bcn.rp_tmax;
-+	dst_dcb_cfg->bcn.rp_td = src_dcb_cfg->bcn.rp_td;
-+	dst_dcb_cfg->bcn.rp_rmin = src_dcb_cfg->bcn.rp_rmin;
-+	dst_dcb_cfg->bcn.rp_w = src_dcb_cfg->bcn.rp_w;
-+	dst_dcb_cfg->bcn.rp_rd = src_dcb_cfg->bcn.rp_rd;
-+	dst_dcb_cfg->bcn.rp_ru = src_dcb_cfg->bcn.rp_ru;
-+	dst_dcb_cfg->bcn.rp_wrtt = src_dcb_cfg->bcn.rp_wrtt;
-+	dst_dcb_cfg->bcn.rp_ri = src_dcb_cfg->bcn.rp_ri;
+-	return 0;
++out:
++	return ret_val;
+ }
+ 
+ /**
+@@ -191,7 +217,10 @@ static enum ixgbe_media_type ixgbe_get_media_type_82598(struct ixgbe_hw *hw)
+ 	case IXGBE_DEV_ID_82598AF_SINGLE_PORT:
+ 	case IXGBE_DEV_ID_82598EB_CX4:
+ 	case IXGBE_DEV_ID_82598_CX4_DUAL_PORT:
++	case IXGBE_DEV_ID_82598_DA_DUAL_PORT:
++	case IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM:
+ 	case IXGBE_DEV_ID_82598EB_XF_LR:
++	case IXGBE_DEV_ID_82598EB_SFP_LOM:
+ 		media_type = ixgbe_media_type_fiber;
+ 		break;
+ 	case IXGBE_DEV_ID_82598AT:
+@@ -399,6 +428,46 @@ static s32 ixgbe_check_mac_link_82598(struct ixgbe_hw *hw,
+ {
+ 	u32 links_reg;
+ 	u32 i;
++	u16 link_reg, adapt_comp_reg;
 +
++	/*
++	 * SERDES PHY requires us to read link status from register 0xC79F.
++	 * Bit 0 set indicates link is up/ready; clear indicates link down.
++	 * 0xC00C is read to check that the XAUI lanes are active.  Bit 0
++	 * clear indicates active; set indicates inactive.
++	 */
++	if (hw->phy.type == ixgbe_phy_nl) {
++		hw->phy.ops.read_reg(hw, 0xC79F, IXGBE_TWINAX_DEV, &link_reg);
++		hw->phy.ops.read_reg(hw, 0xC79F, IXGBE_TWINAX_DEV, &link_reg);
++		hw->phy.ops.read_reg(hw, 0xC00C, IXGBE_TWINAX_DEV,
++		                     &adapt_comp_reg);
++		if (link_up_wait_to_complete) {
++			for (i = 0; i < IXGBE_LINK_UP_TIME; i++) {
++				if ((link_reg & 1) &&
++				    ((adapt_comp_reg & 1) == 0)) {
++					*link_up = true;
++					break;
++				} else {
++					*link_up = false;
++				}
++				msleep(100);
++				hw->phy.ops.read_reg(hw, 0xC79F,
++				                     IXGBE_TWINAX_DEV,
++				                     &link_reg);
++				hw->phy.ops.read_reg(hw, 0xC00C,
++				                     IXGBE_TWINAX_DEV,
++				                     &adapt_comp_reg);
++			}
++		} else {
++			if ((link_reg & 1) && ((adapt_comp_reg & 1) == 0))
++				*link_up = true;
++			else
++				*link_up = false;
++		}
++
++		if (*link_up == false)
++			goto out;
++	}
+ 
+ 	links_reg = IXGBE_READ_REG(hw, IXGBE_LINKS);
+ 	if (link_up_wait_to_complete) {
+@@ -424,6 +493,7 @@ static s32 ixgbe_check_mac_link_82598(struct ixgbe_hw *hw,
+ 	else
+ 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
+ 
++out:
  	return 0;
  }
  
-@@ -313,6 +331,7 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+@@ -859,6 +929,69 @@ s32 ixgbe_write_analog_reg8_82598(struct ixgbe_hw *hw, u32 reg, u8 val)
+ }
+ 
+ /**
++ *  ixgbe_read_i2c_eeprom_82598 - Read 8 bit EEPROM word of an SFP+ module
++ *  over I2C interface through an intermediate phy.
++ *  @hw: pointer to hardware structure
++ *  @byte_offset: EEPROM byte offset to read
++ *  @eeprom_data: value read
++ *
++ *  Performs byte read operation to SFP module's EEPROM over I2C interface.
++ **/
++s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
++                                u8 *eeprom_data)
++{
++	s32 status = 0;
++	u16 sfp_addr = 0;
++	u16 sfp_data = 0;
++	u16 sfp_stat = 0;
++	u32 i;
++
++	if (hw->phy.type == ixgbe_phy_nl) {
++		/*
++		 * phy SDA/SCL registers are at addresses 0xC30A to
++		 * 0xC30D.  These registers are used to talk to the SFP+
++		 * module's EEPROM through the SDA/SCL (I2C) interface.
++		 */
++		sfp_addr = (IXGBE_I2C_EEPROM_DEV_ADDR << 8) + byte_offset;
++		sfp_addr = (sfp_addr | IXGBE_I2C_EEPROM_READ_MASK);
++		hw->phy.ops.write_reg(hw,
++		                      IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR,
++		                      IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++		                      sfp_addr);
++
++		/* Poll status */
++		for (i = 0; i < 100; i++) {
++			hw->phy.ops.read_reg(hw,
++			                     IXGBE_MDIO_PMA_PMD_SDA_SCL_STAT,
++			                     IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++			                     &sfp_stat);
++			sfp_stat = sfp_stat & IXGBE_I2C_EEPROM_STATUS_MASK;
++			if (sfp_stat != IXGBE_I2C_EEPROM_STATUS_IN_PROGRESS)
++				break;
++			msleep(10);
++		}
++
++		if (sfp_stat != IXGBE_I2C_EEPROM_STATUS_PASS) {
++			hw_dbg(hw, "EEPROM read did not pass.\n");
++			status = IXGBE_ERR_SFP_NOT_PRESENT;
++			goto out;
++		}
++
++		/* Read data */
++		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA,
++		                     IXGBE_MDIO_PMA_PMD_DEV_TYPE, &sfp_data);
++
++		*eeprom_data = (u8)(sfp_data >> 8);
++	} else {
++		status = IXGBE_ERR_PHY;
++		goto out;
++	}
++
++out:
++	return status;
++}
++
++/**
+  *  ixgbe_get_supported_physical_layer_82598 - Returns physical layer type
+  *  @hw: pointer to hardware structure
+  *
+@@ -873,8 +1006,12 @@ s32 ixgbe_get_supported_physical_layer_82598(struct ixgbe_hw *hw)
+ 	case IXGBE_DEV_ID_82598_CX4_DUAL_PORT:
+ 		physical_layer = IXGBE_PHYSICAL_LAYER_10GBASE_CX4;
+ 		break;
++	case IXGBE_DEV_ID_82598_DA_DUAL_PORT:
++		physical_layer = IXGBE_PHYSICAL_LAYER_SFP_PLUS_CU;
++		break;
+ 	case IXGBE_DEV_ID_82598AF_DUAL_PORT:
+ 	case IXGBE_DEV_ID_82598AF_SINGLE_PORT:
++	case IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM:
+ 		physical_layer = IXGBE_PHYSICAL_LAYER_10GBASE_SR;
+ 		break;
+ 	case IXGBE_DEV_ID_82598EB_XF_LR:
+@@ -884,6 +1021,24 @@ s32 ixgbe_get_supported_physical_layer_82598(struct ixgbe_hw *hw)
+ 		physical_layer = (IXGBE_PHYSICAL_LAYER_10GBASE_T |
+ 		                  IXGBE_PHYSICAL_LAYER_1000BASE_T);
+ 		break;
++	case IXGBE_DEV_ID_82598EB_SFP_LOM:
++		hw->phy.ops.identify_sfp(hw);
++
++		switch (hw->phy.sfp_type) {
++		case ixgbe_sfp_type_da_cu:
++			physical_layer = IXGBE_PHYSICAL_LAYER_SFP_PLUS_CU;
++			break;
++		case ixgbe_sfp_type_sr:
++			physical_layer = IXGBE_PHYSICAL_LAYER_10GBASE_SR;
++			break;
++		case ixgbe_sfp_type_lr:
++			physical_layer = IXGBE_PHYSICAL_LAYER_10GBASE_LR;
++			break;
++		default:
++			physical_layer = IXGBE_PHYSICAL_LAYER_UNKNOWN;
++			break;
++		}
++		break;
+ 
+ 	default:
+ 		physical_layer = IXGBE_PHYSICAL_LAYER_UNKNOWN;
+@@ -935,12 +1090,13 @@ static struct ixgbe_eeprom_operations eeprom_ops_82598 = {
+ 
+ static struct ixgbe_phy_operations phy_ops_82598 = {
+ 	.identify		= &ixgbe_identify_phy_generic,
+-	/* .identify_sfp	= &ixgbe_identify_sfp_module_generic, */
++	.identify_sfp		= &ixgbe_identify_sfp_module_generic,
+ 	.reset			= &ixgbe_reset_phy_generic,
+ 	.read_reg		= &ixgbe_read_phy_reg_generic,
+ 	.write_reg		= &ixgbe_write_phy_reg_generic,
+ 	.setup_link		= &ixgbe_setup_phy_link_generic,
+ 	.setup_link_speed	= &ixgbe_setup_phy_link_speed_generic,
++	.read_i2c_eeprom	= &ixgbe_read_i2c_eeprom_82598,
+ };
+ 
+ struct ixgbe_info ixgbe_82598_info = {
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 4bf9b1c..a2fe0f8 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -74,8 +74,14 @@ static struct pci_device_id ixgbe_pci_tbl[] = {
+ 	 board_82598 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_CX4_DUAL_PORT),
+ 	 board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_DA_DUAL_PORT),
++	 board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM),
++	 board_82598 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_XF_LR),
+ 	 board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_SFP_LOM),
++	 board_82598 },
+ 
+ 	/* required last entry */
+ 	{0, }
+@@ -2714,6 +2720,56 @@ err_alloc_queues:
+ }
+ 
+ /**
++ * ixgbe_sfp_timer - worker thread to find a missing module
++ * @data: pointer to our adapter struct
++ **/
++static void ixgbe_sfp_timer(unsigned long data)
++{
++	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)data;
++
++	/* Do the sfp_timer outside of interrupt context due to the
++	 * delays that sfp+ detection requires */
++	schedule_work(&adapter->sfp_task);
++}
++
++/**
++ * ixgbe_sfp_task - worker thread to find a missing module
++ * @work: pointer to work_struct containing our data
++ **/
++static void ixgbe_sfp_task(struct work_struct *work)
++{
++	struct ixgbe_adapter *adapter = container_of(work,
++	                                             struct ixgbe_adapter,
++	                                             sfp_task);
++	struct ixgbe_hw *hw = &adapter->hw;
++
++	if ((hw->phy.type == ixgbe_phy_nl) &&
++	    (hw->phy.sfp_type == ixgbe_sfp_type_not_present)) {
++		s32 ret = hw->phy.ops.identify_sfp(hw);
++		if (ret)
++			goto reschedule;
++		ret = hw->phy.ops.reset(hw);
++		if (ret == IXGBE_ERR_SFP_NOT_SUPPORTED) {
++			DPRINTK(PROBE, ERR, "failed to initialize because an "
++			        "unsupported SFP+ module type was detected.\n"
++			        "Reload the driver after installing a "
++			        "supported module.\n");
++			unregister_netdev(adapter->netdev);
++		} else {
++			DPRINTK(PROBE, INFO, "detected SFP+: %d\n",
++			        hw->phy.sfp_type);
++		}
++		/* don't need this routine any more */
++		clear_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
++	}
++	return;
++reschedule:
++	if (test_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state))
++		mod_timer(&adapter->sfp_timer,
++		          round_jiffies(jiffies + (2 * HZ)));
++}
++
++/**
+  * ixgbe_sw_init - Initialize general software structures (struct ixgbe_adapter)
+  * @adapter: board private structure to initialize
+  *
+@@ -4044,11 +4100,30 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ 	/* PHY */
+ 	memcpy(&hw->phy.ops, ii->phy_ops, sizeof(hw->phy.ops));
+-	/* phy->sfp_type = ixgbe_sfp_type_unknown; */
++	hw->phy.sfp_type = ixgbe_sfp_type_unknown;
++
++	/* set up this timer and work struct before calling get_invariants
++	 * which might start the timer */
++	init_timer(&adapter->sfp_timer);
++	adapter->sfp_timer.function = &ixgbe_sfp_timer;
++	adapter->sfp_timer.data = (unsigned long) adapter;
++
++	INIT_WORK(&adapter->sfp_task, ixgbe_sfp_task);
+ 
+ 	err = ii->get_invariants(hw);
+-	if (err)
++	if (err == IXGBE_ERR_SFP_NOT_PRESENT) {
++		/* start a kernel thread to watch for a module to arrive */
++		set_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
++		mod_timer(&adapter->sfp_timer,
++		          round_jiffies(jiffies + (2 * HZ)));
++		err = 0;
++	} else if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
++		DPRINTK(PROBE, ERR, "failed to load because an "
++		        "unsupported SFP+ module type was detected.\n");
+ 		goto err_hw_init;
++	} else if (err) {
++		goto err_hw_init;
++	}
+ 
+ 	/* setup the private structure */
+ 	err = ixgbe_sw_init(adapter);
+@@ -4182,6 +4257,9 @@ err_hw_init:
+ err_sw_init:
+ 	ixgbe_reset_interrupt_capability(adapter);
+ err_eeprom:
++	clear_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
++	del_timer_sync(&adapter->sfp_timer);
++	cancel_work_sync(&adapter->sfp_task);
+ 	iounmap(hw->hw_addr);
+ err_ioremap:
+ 	free_netdev(netdev);
+@@ -4208,8 +4286,14 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
  	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	int ret;
  
-+	adapter->dcb_set_bitmap &= ~BIT_BCN;	/* no set for BCN */
- 	if (!adapter->dcb_set_bitmap)
- 		return 1;
+ 	set_bit(__IXGBE_DOWN, &adapter->state);
++	/* clear the module not found bit to make sure the worker won't
++	 * reschedule */
++	clear_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
+ 	del_timer_sync(&adapter->watchdog_timer);
  
-@@ -417,6 +436,157 @@ static void ixgbe_dcbnl_setpfcstate(struct net_device *netdev, u8 state)
- 	return;
++	del_timer_sync(&adapter->sfp_timer);
++	cancel_work_sync(&adapter->watchdog_task);
++	cancel_work_sync(&adapter->sfp_task);
+ 	flush_scheduled_work();
+ 
+ #ifdef CONFIG_IXGBE_DCA
+@@ -4220,7 +4304,8 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
+ 	}
+ 
+ #endif
+-	unregister_netdev(netdev);
++	if (netdev->reg_state == NETREG_REGISTERED)
++		unregister_netdev(netdev);
+ 
+ 	ixgbe_reset_interrupt_capability(adapter);
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
+index 981e6d8..5a8669a 100644
+--- a/drivers/net/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ixgbe/ixgbe_phy.c
+@@ -127,6 +127,9 @@ static enum ixgbe_phy_type ixgbe_get_phy_type_from_id(u32 phy_id)
+ 	case QT2022_PHY_ID:
+ 		phy_type = ixgbe_phy_qt;
+ 		break;
++	case ATH_PHY_ID:
++		phy_type = ixgbe_phy_nl;
++		break;
+ 	default:
+ 		phy_type = ixgbe_phy_unknown;
+ 		break;
+@@ -430,6 +433,261 @@ s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
  }
  
-+static void ixgbe_dcbnl_getbcnrp(struct net_device *netdev, int priority,
-+				  u8 *setting)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	*setting = adapter->dcb_cfg.bcn.rp_admin_mode[priority];
-+}
-+
-+
-+static void ixgbe_dcbnl_getbcncfg(struct net_device *netdev, int enum_index,
-+				  u32 *setting)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	switch (enum_index) {
-+	case DCB_BCN_ATTR_ALPHA:
-+		*setting = adapter->dcb_cfg.bcn.rp_alpha;
-+		break;
-+	case DCB_BCN_ATTR_BETA:
-+		*setting = adapter->dcb_cfg.bcn.rp_beta;
-+		break;
-+	case DCB_BCN_ATTR_GD:
-+		*setting = adapter->dcb_cfg.bcn.rp_gd;
-+		break;
-+	case DCB_BCN_ATTR_GI:
-+		*setting = adapter->dcb_cfg.bcn.rp_gi;
-+		break;
-+	case DCB_BCN_ATTR_TMAX:
-+		*setting = adapter->dcb_cfg.bcn.rp_tmax;
-+		break;
-+	case DCB_BCN_ATTR_TD:
-+		*setting = adapter->dcb_cfg.bcn.rp_td;
-+		break;
-+	case DCB_BCN_ATTR_RMIN:
-+		*setting = adapter->dcb_cfg.bcn.rp_rmin;
-+		break;
-+	case DCB_BCN_ATTR_W:
-+		*setting = adapter->dcb_cfg.bcn.rp_w;
-+		break;
-+	case DCB_BCN_ATTR_RD:
-+		*setting = adapter->dcb_cfg.bcn.rp_rd;
-+		break;
-+	case DCB_BCN_ATTR_RU:
-+		*setting = adapter->dcb_cfg.bcn.rp_ru;
-+		break;
-+	case DCB_BCN_ATTR_WRTT:
-+		*setting = adapter->dcb_cfg.bcn.rp_wrtt;
-+		break;
-+	case DCB_BCN_ATTR_RI:
-+		*setting = adapter->dcb_cfg.bcn.rp_ri;
-+		break;
-+	default:
-+		*setting = -1;
-+	}
-+}
-+
-+static void ixgbe_dcbnl_setbcnrp(struct net_device *netdev, int priority,
-+				 u8 setting)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	adapter->temp_dcb_cfg.bcn.rp_admin_mode[priority] = setting;
-+
-+	if (adapter->temp_dcb_cfg.bcn.rp_admin_mode[priority] !=
-+	    adapter->dcb_cfg.bcn.rp_admin_mode[priority])
-+		adapter->dcb_set_bitmap |= BIT_BCN;
-+}
-+
-+static void ixgbe_dcbnl_setbcncfg(struct net_device *netdev, int enum_index,
-+				 u32 setting)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	switch (enum_index) {
-+	case DCB_BCN_ATTR_ALPHA:
-+		adapter->temp_dcb_cfg.bcn.rp_alpha = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_alpha !=
-+		    adapter->dcb_cfg.bcn.rp_alpha)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_BETA:
-+		adapter->temp_dcb_cfg.bcn.rp_beta = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_beta !=
-+		    adapter->dcb_cfg.bcn.rp_beta)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_GD:
-+		adapter->temp_dcb_cfg.bcn.rp_gd = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_gd !=
-+		    adapter->dcb_cfg.bcn.rp_gd)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_GI:
-+		adapter->temp_dcb_cfg.bcn.rp_gi = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_gi !=
-+		    adapter->dcb_cfg.bcn.rp_gi)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_TMAX:
-+		adapter->temp_dcb_cfg.bcn.rp_tmax = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_tmax !=
-+		    adapter->dcb_cfg.bcn.rp_tmax)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_TD:
-+		adapter->temp_dcb_cfg.bcn.rp_td = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_td !=
-+		    adapter->dcb_cfg.bcn.rp_td)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_RMIN:
-+		adapter->temp_dcb_cfg.bcn.rp_rmin = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_rmin !=
-+		    adapter->dcb_cfg.bcn.rp_rmin)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_W:
-+		adapter->temp_dcb_cfg.bcn.rp_w = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_w !=
-+		    adapter->dcb_cfg.bcn.rp_w)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_RD:
-+		adapter->temp_dcb_cfg.bcn.rp_rd = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_rd !=
-+		    adapter->dcb_cfg.bcn.rp_rd)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_RU:
-+		adapter->temp_dcb_cfg.bcn.rp_ru = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_ru !=
-+		    adapter->dcb_cfg.bcn.rp_ru)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_WRTT:
-+		adapter->temp_dcb_cfg.bcn.rp_wrtt = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_wrtt !=
-+		    adapter->dcb_cfg.bcn.rp_wrtt)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	case DCB_BCN_ATTR_RI:
-+		adapter->temp_dcb_cfg.bcn.rp_ri = setting;
-+		if (adapter->temp_dcb_cfg.bcn.rp_ri !=
-+		    adapter->dcb_cfg.bcn.rp_ri)
-+			adapter->dcb_set_bitmap |= BIT_BCN;
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
- struct dcbnl_rtnl_ops dcbnl_ops = {
- 	.getstate	= ixgbe_dcbnl_get_state,
- 	.setstate	= ixgbe_dcbnl_set_state,
-@@ -436,6 +606,10 @@ struct dcbnl_rtnl_ops dcbnl_ops = {
- 	.getnumtcs	= ixgbe_dcbnl_getnumtcs,
- 	.setnumtcs	= ixgbe_dcbnl_setnumtcs,
- 	.getpfcstate	= ixgbe_dcbnl_getpfcstate,
--	.setpfcstate	= ixgbe_dcbnl_setpfcstate
-+	.setpfcstate	= ixgbe_dcbnl_setpfcstate,
-+	.getbcncfg      = ixgbe_dcbnl_getbcncfg,
-+	.getbcnrp       = ixgbe_dcbnl_getbcnrp,
-+	.setbcncfg      = ixgbe_dcbnl_setbcncfg,
-+	.setbcnrp       = ixgbe_dcbnl_setbcnrp
- };
- 
-diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-index 6cc4560..e73a614 100644
---- a/include/linux/dcbnl.h
-+++ b/include/linux/dcbnl.h
-@@ -46,6 +46,8 @@ struct dcbmsg {
-  * @DCB_CMD_GCAP: request the DCB capabilities of the device
-  * @DCB_CMD_GNUMTCS: get the number of traffic classes currently supported
-  * @DCB_CMD_SNUMTCS: set the number of traffic classes
-+ * @DCB_CMD_GBCN: set backward congestion notification configuration
-+ * @DCB_CMD_SBCN: get backward congestion notification configration.
-  */
- enum dcbnl_commands {
- 	DCB_CMD_UNDEFINED,
-@@ -62,18 +64,24 @@ enum dcbnl_commands {
- 	DCB_CMD_PFC_SCFG,
- 
- 	DCB_CMD_SET_ALL,
-+
- 	DCB_CMD_GPERM_HWADDR,
-+
- 	DCB_CMD_GCAP,
-+
- 	DCB_CMD_GNUMTCS,
- 	DCB_CMD_SNUMTCS,
-+
- 	DCB_CMD_PFC_GSTATE,
- 	DCB_CMD_PFC_SSTATE,
- 
-+	DCB_CMD_BCN_GCFG,
-+	DCB_CMD_BCN_SCFG,
-+
- 	__DCB_CMD_ENUM_MAX,
- 	DCB_CMD_MAX = __DCB_CMD_ENUM_MAX - 1,
- };
- 
--
  /**
-  * enum dcbnl_attrs - DCB top-level netlink attributes
-  *
-@@ -88,6 +96,7 @@ enum dcbnl_commands {
-  * @DCB_ATTR_PERM_HWADDR: MAC address of the physical device (NLA_NESTED)
-  * @DCB_ATTR_CAP: DCB capabilities of the device (NLA_NESTED)
-  * @DCB_ATTR_NUMTCS: number of traffic classes supported (NLA_NESTED)
-+ * @DCB_ATTR_BCN: backward congestion notification configuration (NLA_NESTED)
-  */
- enum dcbnl_attrs {
- 	DCB_ATTR_UNDEFINED,
-@@ -102,6 +111,7 @@ enum dcbnl_attrs {
- 	DCB_ATTR_PERM_HWADDR,
- 	DCB_ATTR_CAP,
- 	DCB_ATTR_NUMTCS,
-+	DCB_ATTR_BCN,
- 
- 	__DCB_ATTR_ENUM_MAX,
- 	DCB_ATTR_MAX = __DCB_ATTR_ENUM_MAX - 1,
-@@ -282,6 +292,38 @@ enum dcbnl_numtcs_attrs {
- 	DCB_NUMTCS_ATTR_MAX = __DCB_NUMTCS_ATTR_ENUM_MAX - 1,
- };
- 
-+enum dcbnl_bcn_attrs{
-+	DCB_BCN_ATTR_UNDEFINED = 0,
-+
-+	DCB_BCN_ATTR_RP_0,
-+	DCB_BCN_ATTR_RP_1,
-+	DCB_BCN_ATTR_RP_2,
-+	DCB_BCN_ATTR_RP_3,
-+	DCB_BCN_ATTR_RP_4,
-+	DCB_BCN_ATTR_RP_5,
-+	DCB_BCN_ATTR_RP_6,
-+	DCB_BCN_ATTR_RP_7,
-+	DCB_BCN_ATTR_RP_ALL,
-+
-+	DCB_BCN_ATTR_ALPHA,
-+	DCB_BCN_ATTR_BETA,
-+	DCB_BCN_ATTR_GD,
-+	DCB_BCN_ATTR_GI,
-+	DCB_BCN_ATTR_TMAX,
-+	DCB_BCN_ATTR_TD,
-+	DCB_BCN_ATTR_RMIN,
-+	DCB_BCN_ATTR_W,
-+	DCB_BCN_ATTR_RD,
-+	DCB_BCN_ATTR_RU,
-+	DCB_BCN_ATTR_WRTT,
-+	DCB_BCN_ATTR_RI,
-+	DCB_BCN_ATTR_C,
-+	DCB_BCN_ATTR_ALL,
-+
-+	__DCB_BCN_ATTR_ENUM_MAX,
-+	DCB_BCN_ATTR_MAX = __DCB_BCN_ATTR_ENUM_MAX - 1,
-+};
-+
- /**
-  * enum dcb_general_attr_values - general DCB attribute values
-  *
-diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index c7d87ca..91e0a3d 100644
---- a/include/net/dcbnl.h
-+++ b/include/net/dcbnl.h
-@@ -44,6 +44,10 @@ struct dcbnl_rtnl_ops {
- 	u8   (*setnumtcs)(struct net_device *, int, u8);
- 	u8   (*getpfcstate)(struct net_device *);
- 	void (*setpfcstate)(struct net_device *, u8);
-+	void (*getbcncfg)(struct net_device *, int, u32 *);
-+	void (*setbcncfg)(struct net_device *, int, u32);
-+	void (*getbcnrp)(struct net_device *, int, u8 *);
-+	void (*setbcnrp)(struct net_device *, int, u8);
- };
- 
- #endif /* __NET_DCBNL_H__ */
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 758419c..b2bda3f 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -55,14 +55,15 @@ MODULE_LICENSE("GPL");
- 
- /* DCB netlink attributes policy */
- static struct nla_policy dcbnl_rtnl_policy[DCB_ATTR_MAX + 1] = {
--	[DCB_ATTR_IFNAME]    = {.type = NLA_STRING, .len = IFNAMSIZ - 1},
--	[DCB_ATTR_STATE]     = {.type = NLA_U8},
--	[DCB_ATTR_PFC_CFG]   = {.type = NLA_NESTED},
--	[DCB_ATTR_PG_CFG]    = {.type = NLA_NESTED},
--	[DCB_ATTR_SET_ALL]   = {.type = NLA_U8},
-+	[DCB_ATTR_IFNAME]      = {.type = NLA_NUL_STRING, .len = IFNAMSIZ - 1},
-+	[DCB_ATTR_STATE]       = {.type = NLA_U8},
-+	[DCB_ATTR_PFC_CFG]     = {.type = NLA_NESTED},
-+	[DCB_ATTR_PG_CFG]      = {.type = NLA_NESTED},
-+	[DCB_ATTR_SET_ALL]     = {.type = NLA_U8},
- 	[DCB_ATTR_PERM_HWADDR] = {.type = NLA_FLAG},
--	[DCB_ATTR_CAP]       = {.type = NLA_NESTED},
--	[DCB_ATTR_PFC_STATE] = {.type = NLA_U8},
-+	[DCB_ATTR_CAP]         = {.type = NLA_NESTED},
-+	[DCB_ATTR_PFC_STATE]   = {.type = NLA_U8},
-+	[DCB_ATTR_BCN]         = {.type = NLA_NESTED},
- };
- 
- /* DCB priority flow control to User Priority nested attributes */
-@@ -128,6 +129,33 @@ static struct nla_policy dcbnl_numtcs_nest[DCB_NUMTCS_ATTR_MAX + 1] = {
- 	[DCB_NUMTCS_ATTR_PFC]     = {.type = NLA_U8},
- };
- 
-+/* DCB BCN nested attributes. */
-+static struct nla_policy dcbnl_bcn_nest[DCB_BCN_ATTR_MAX + 1] = {
-+	[DCB_BCN_ATTR_RP_0]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_1]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_2]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_3]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_4]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_5]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_6]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_7]         = {.type = NLA_U8},
-+	[DCB_BCN_ATTR_RP_ALL]       = {.type = NLA_FLAG},
-+	[DCB_BCN_ATTR_ALPHA]        = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_BETA]         = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_GD]           = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_GI]           = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_TMAX]         = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_TD]           = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_RMIN]         = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_W]            = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_RD]           = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_RU]           = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_WRTT]         = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_RI]           = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_C]            = {.type = NLA_U32},
-+	[DCB_BCN_ATTR_ALL]          = {.type = NLA_FLAG},
-+};
-+
- /* standard netlink reply call */
- static int dcbnl_reply(u8 value, u8 event, u8 cmd, u8 attr, u32 pid,
-                        u32 seq, u16 flags)
-@@ -843,6 +871,130 @@ static int dcbnl_pgrx_setcfg(struct net_device *netdev, struct nlattr **tb,
- 	return __dcbnl_pg_setcfg(netdev, tb, pid, seq, flags, 1);
- }
- 
-+static int dcbnl_bcn_getcfg(struct net_device *netdev, struct nlattr **tb,
-+                            u32 pid, u32 seq, u16 flags)
++ *  ixgbe_reset_phy_nl - Performs a PHY reset
++ *  @hw: pointer to hardware structure
++ **/
++s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw)
 +{
-+	struct sk_buff *dcbnl_skb;
-+	struct nlmsghdr *nlh;
-+	struct dcbmsg *dcb;
-+	struct nlattr *bcn_nest;
-+	struct nlattr *bcn_tb[DCB_BCN_ATTR_MAX + 1];
-+	u8 value_byte;
-+	u32 value_integer;
-+	int ret  = -EINVAL;
-+	bool getall = false;
-+	int i;
++	u16 phy_offset, control, eword, edata, block_crc;
++	bool end_data = false;
++	u16 list_offset, data_offset;
++	u16 phy_data = 0;
++	s32 ret_val = 0;
++	u32 i;
 +
-+	if (!tb[DCB_ATTR_BCN] || !netdev->dcbnl_ops->getbcnrp ||
-+	    !netdev->dcbnl_ops->getbcncfg)
-+		return ret;
++	hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_XS_CONTROL,
++	                     IXGBE_MDIO_PHY_XS_DEV_TYPE, &phy_data);
 +
-+	ret = nla_parse_nested(bcn_tb, DCB_BCN_ATTR_MAX,
-+	                       tb[DCB_ATTR_BCN], dcbnl_bcn_nest);
++	/* reset the PHY and poll for completion */
++	hw->phy.ops.write_reg(hw, IXGBE_MDIO_PHY_XS_CONTROL,
++	                      IXGBE_MDIO_PHY_XS_DEV_TYPE,
++	                      (phy_data | IXGBE_MDIO_PHY_XS_RESET));
 +
-+	if (ret)
-+		goto err_out;
-+
-+	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcbnl_skb)
-+		goto err_out;
-+
-+	nlh = NLMSG_NEW(dcbnl_skb, pid, seq, RTM_GETDCB, sizeof(*dcb), flags);
-+
-+	dcb = NLMSG_DATA(nlh);
-+	dcb->dcb_family = AF_UNSPEC;
-+	dcb->cmd = DCB_CMD_BCN_GCFG;
-+
-+	bcn_nest = nla_nest_start(dcbnl_skb, DCB_ATTR_BCN);
-+	if (!bcn_nest)
-+		goto err;
-+
-+	if (bcn_tb[DCB_BCN_ATTR_ALL])
-+		getall = true;
-+
-+	for (i = DCB_BCN_ATTR_RP_0; i <= DCB_BCN_ATTR_RP_7; i++) {
-+		if (!getall && !bcn_tb[i])
-+			continue;
-+
-+		netdev->dcbnl_ops->getbcnrp(netdev, i - DCB_BCN_ATTR_RP_0,
-+		                            &value_byte);
-+		ret = nla_put_u8(dcbnl_skb, i, value_byte);
-+		if (ret)
-+			goto err_bcn;
++	for (i = 0; i < 100; i++) {
++		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_XS_CONTROL,
++		                     IXGBE_MDIO_PHY_XS_DEV_TYPE, &phy_data);
++		if ((phy_data & IXGBE_MDIO_PHY_XS_RESET) == 0)
++			break;
++		msleep(10);
 +	}
 +
-+	for (i = DCB_BCN_ATTR_ALPHA; i <= DCB_BCN_ATTR_RI; i++) {
-+		if (!getall && !bcn_tb[i])
-+			continue;
-+
-+		netdev->dcbnl_ops->getbcncfg(netdev, i,
-+		                             &value_integer);
-+		ret = nla_put_u32(dcbnl_skb, i, value_integer);
-+		if (ret)
-+			goto err_bcn;
++	if ((phy_data & IXGBE_MDIO_PHY_XS_RESET) != 0) {
++		hw_dbg(hw, "PHY reset did not complete.\n");
++		ret_val = IXGBE_ERR_PHY;
++		goto out;
 +	}
 +
-+	nla_nest_end(dcbnl_skb, bcn_nest);
++	/* Get init offsets */
++	ret_val = ixgbe_get_sfp_init_sequence_offsets(hw, &list_offset,
++	                                              &data_offset);
++	if (ret_val != 0)
++		goto out;
 +
-+	nlmsg_end(dcbnl_skb, nlh);
++	ret_val = hw->eeprom.ops.read(hw, data_offset, &block_crc);
++	data_offset++;
++	while (!end_data) {
++		/*
++		 * Read control word from PHY init contents offset
++		 */
++		ret_val = hw->eeprom.ops.read(hw, data_offset, &eword);
++		control = (eword & IXGBE_CONTROL_MASK_NL) >>
++		           IXGBE_CONTROL_SHIFT_NL;
++		edata = eword & IXGBE_DATA_MASK_NL;
++		switch (control) {
++		case IXGBE_DELAY_NL:
++			data_offset++;
++			hw_dbg(hw, "DELAY: %d MS\n", edata);
++			msleep(edata);
++			break;
++		case IXGBE_DATA_NL:
++			hw_dbg(hw, "DATA:  \n");
++			data_offset++;
++			hw->eeprom.ops.read(hw, data_offset++,
++			                    &phy_offset);
++			for (i = 0; i < edata; i++) {
++				hw->eeprom.ops.read(hw, data_offset, &eword);
++				hw->phy.ops.write_reg(hw, phy_offset,
++				                      IXGBE_TWINAX_DEV, eword);
++				hw_dbg(hw, "Wrote %4.4x to %4.4x\n", eword,
++				       phy_offset);
++				data_offset++;
++				phy_offset++;
++			}
++			break;
++		case IXGBE_CONTROL_NL:
++			data_offset++;
++			hw_dbg(hw, "CONTROL: \n");
++			if (edata == IXGBE_CONTROL_EOL_NL) {
++				hw_dbg(hw, "EOL\n");
++				end_data = true;
++			} else if (edata == IXGBE_CONTROL_SOL_NL) {
++				hw_dbg(hw, "SOL\n");
++			} else {
++				hw_dbg(hw, "Bad control value\n");
++				ret_val = IXGBE_ERR_PHY;
++				goto out;
++			}
++			break;
++		default:
++			hw_dbg(hw, "Bad control type\n");
++			ret_val = IXGBE_ERR_PHY;
++			goto out;
++		}
++	}
 +
-+	ret = rtnl_unicast(dcbnl_skb, &init_net, pid);
-+	if (ret)
-+		goto err;
++out:
++	return ret_val;
++}
++
++/**
++ *  ixgbe_identify_sfp_module_generic - Identifies SFP module and assigns
++ *                                      the PHY type.
++ *  @hw: pointer to hardware structure
++ *
++ *  Searches for and indentifies the SFP module.  Assings appropriate PHY type.
++ **/
++s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
++{
++	s32 status = IXGBE_ERR_PHY_ADDR_INVALID;
++	u32 vendor_oui = 0;
++	u8 identifier = 0;
++	u8 comp_codes_1g = 0;
++	u8 comp_codes_10g = 0;
++	u8 oui_bytes[4] = {0, 0, 0, 0};
++	u8 transmission_media = 0;
++
++	status = hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_IDENTIFIER,
++	                                     &identifier);
++
++	if (status == IXGBE_ERR_SFP_NOT_PRESENT) {
++		hw->phy.sfp_type = ixgbe_sfp_type_not_present;
++		goto out;
++	}
++
++	if (identifier == IXGBE_SFF_IDENTIFIER_SFP) {
++		hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_1GBE_COMP_CODES,
++		                            &comp_codes_1g);
++		hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_10GBE_COMP_CODES,
++		                            &comp_codes_10g);
++		hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_TRANSMISSION_MEDIA,
++		                            &transmission_media);
++
++		/* ID Module
++		 * =========
++		 * 0	SFP_DA_CU
++		 * 1	SFP_SR
++		 * 2	SFP_LR
++		 */
++		if (transmission_media & IXGBE_SFF_TWIN_AX_CAPABLE)
++			hw->phy.sfp_type = ixgbe_sfp_type_da_cu;
++		else if (comp_codes_10g & IXGBE_SFF_10GBASESR_CAPABLE)
++			hw->phy.sfp_type = ixgbe_sfp_type_sr;
++		else if (comp_codes_10g & IXGBE_SFF_10GBASELR_CAPABLE)
++			hw->phy.sfp_type = ixgbe_sfp_type_lr;
++		else
++			hw->phy.sfp_type = ixgbe_sfp_type_unknown;
++
++		/* Determine PHY vendor */
++		if (hw->phy.type == ixgbe_phy_unknown) {
++			hw->phy.id = identifier;
++			hw->phy.ops.read_i2c_eeprom(hw,
++			                            IXGBE_SFF_VENDOR_OUI_BYTE0,
++			                            &oui_bytes[0]);
++			hw->phy.ops.read_i2c_eeprom(hw,
++			                            IXGBE_SFF_VENDOR_OUI_BYTE1,
++			                            &oui_bytes[1]);
++			hw->phy.ops.read_i2c_eeprom(hw,
++			                            IXGBE_SFF_VENDOR_OUI_BYTE2,
++			                            &oui_bytes[2]);
++
++			vendor_oui =
++			  ((oui_bytes[0] << IXGBE_SFF_VENDOR_OUI_BYTE0_SHIFT) |
++			   (oui_bytes[1] << IXGBE_SFF_VENDOR_OUI_BYTE1_SHIFT) |
++			   (oui_bytes[2] << IXGBE_SFF_VENDOR_OUI_BYTE2_SHIFT));
++
++			switch (vendor_oui) {
++			case IXGBE_SFF_VENDOR_OUI_TYCO:
++				if (transmission_media &
++				    IXGBE_SFF_TWIN_AX_CAPABLE)
++					hw->phy.type = ixgbe_phy_tw_tyco;
++				break;
++			case IXGBE_SFF_VENDOR_OUI_FTL:
++				hw->phy.type = ixgbe_phy_sfp_ftl;
++				break;
++			case IXGBE_SFF_VENDOR_OUI_AVAGO:
++				hw->phy.type = ixgbe_phy_sfp_avago;
++				break;
++			default:
++				if (transmission_media &
++				    IXGBE_SFF_TWIN_AX_CAPABLE)
++					hw->phy.type = ixgbe_phy_tw_unknown;
++				else
++					hw->phy.type = ixgbe_phy_sfp_unknown;
++				break;
++			}
++		}
++		status = 0;
++	}
++
++out:
++	return status;
++}
++
++/**
++ *  ixgbe_get_sfp_init_sequence_offsets - Checks the MAC's EEPROM to see
++ *  if it supports a given SFP+ module type, if so it returns the offsets to the
++ *  phy init sequence block.
++ *  @hw: pointer to hardware structure
++ *  @list_offset: offset to the SFP ID list
++ *  @data_offset: offset to the SFP data block
++ **/
++s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
++                                        u16 *list_offset,
++                                        u16 *data_offset)
++{
++	u16 sfp_id;
++
++	if (hw->phy.sfp_type == ixgbe_sfp_type_unknown)
++		return IXGBE_ERR_SFP_NOT_SUPPORTED;
++
++	if (hw->phy.sfp_type == ixgbe_sfp_type_not_present)
++		return IXGBE_ERR_SFP_NOT_PRESENT;
++
++	if ((hw->device_id == IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM) &&
++	    (hw->phy.sfp_type == ixgbe_sfp_type_da_cu))
++		return IXGBE_ERR_SFP_NOT_SUPPORTED;
++
++	/* Read offset to PHY init contents */
++	hw->eeprom.ops.read(hw, IXGBE_PHY_INIT_OFFSET_NL, list_offset);
++
++	if ((!*list_offset) || (*list_offset == 0xFFFF))
++		return IXGBE_ERR_PHY;
++
++	/* Shift offset to first ID word */
++	(*list_offset)++;
++
++	/*
++	 * Find the matching SFP ID in the EEPROM
++	 * and program the init sequence
++	 */
++	hw->eeprom.ops.read(hw, *list_offset, &sfp_id);
++
++	while (sfp_id != IXGBE_PHY_INIT_END_NL) {
++		if (sfp_id == hw->phy.sfp_type) {
++			(*list_offset)++;
++			hw->eeprom.ops.read(hw, *list_offset, data_offset);
++			if ((!*data_offset) || (*data_offset == 0xFFFF)) {
++				hw_dbg(hw, "SFP+ module not supported\n");
++				return IXGBE_ERR_SFP_NOT_SUPPORTED;
++			} else {
++				break;
++			}
++		} else {
++			(*list_offset) += 2;
++			if (hw->eeprom.ops.read(hw, *list_offset, &sfp_id))
++				return IXGBE_ERR_PHY;
++		}
++	}
++
++	if (sfp_id == IXGBE_PHY_INIT_END_NL) {
++		hw_dbg(hw, "No matching SFP+ module found\n");
++		return IXGBE_ERR_SFP_NOT_SUPPORTED;
++	}
 +
 +	return 0;
-+
-+err_bcn:
-+	nla_nest_cancel(dcbnl_skb, bcn_nest);
-+nlmsg_failure:
-+err:
-+	kfree(dcbnl_skb);
-+err_out:
-+	ret  = -EINVAL;
-+	return ret;
 +}
 +
-+static int dcbnl_bcn_setcfg(struct net_device *netdev, struct nlattr **tb,
-+                            u32 pid, u32 seq, u16 flags)
-+{
-+	struct nlattr *data[DCB_BCN_ATTR_MAX + 1];
-+	int i;
-+	int ret = -EINVAL;
-+	u8 value_byte;
-+	u32 value_int;
++/**
+  *  ixgbe_check_phy_link_tnx - Determine link and speed status
+  *  @hw: pointer to hardware structure
+  *
+diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
+index 5cc063d..43a97bc 100644
+--- a/drivers/net/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ixgbe/ixgbe_phy.h
+@@ -63,6 +63,18 @@
+ #define IXGBE_SFF_VENDOR_OUI_FTL      0x00906500
+ #define IXGBE_SFF_VENDOR_OUI_AVAGO    0x00176A00
+ 
++/* I2C SDA and SCL timing parameters for standard mode */
++#define IXGBE_I2C_T_HD_STA  4
++#define IXGBE_I2C_T_LOW     5
++#define IXGBE_I2C_T_HIGH    4
++#define IXGBE_I2C_T_SU_STA  5
++#define IXGBE_I2C_T_HD_DATA 5
++#define IXGBE_I2C_T_SU_DATA 1
++#define IXGBE_I2C_T_RISE    1
++#define IXGBE_I2C_T_FALL    1
++#define IXGBE_I2C_T_SU_STO  4
++#define IXGBE_I2C_T_BUF     5
 +
-+	if (!tb[DCB_ATTR_BCN] || !netdev->dcbnl_ops->setbcncfg
-+	    || !netdev->dcbnl_ops->setbcnrp)
-+		return ret;
+ 
+ s32 ixgbe_init_phy_ops_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw);
+@@ -84,4 +96,10 @@ s32 ixgbe_check_phy_link_tnx(struct ixgbe_hw *hw,
+ s32 ixgbe_get_phy_firmware_version_tnx(struct ixgbe_hw *hw,
+                                        u16 *firmware_version);
+ 
++s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw);
++s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw);
++s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
++                                        u16 *list_offset,
++                                        u16 *data_offset);
 +
-+	ret = nla_parse_nested(data, DCB_BCN_ATTR_MAX,
-+	                       tb[DCB_ATTR_BCN],
-+	                       dcbnl_pfc_up_nest);
-+	if (ret)
-+		goto err;
+ #endif /* _IXGBE_PHY_H_ */
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index 51df39d..83a11ff 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -36,9 +36,12 @@
+ /* Device IDs */
+ #define IXGBE_DEV_ID_82598AF_DUAL_PORT   0x10C6
+ #define IXGBE_DEV_ID_82598AF_SINGLE_PORT 0x10C7
++#define IXGBE_DEV_ID_82598EB_SFP_LOM     0x10DB
+ #define IXGBE_DEV_ID_82598AT             0x10C8
+ #define IXGBE_DEV_ID_82598EB_CX4         0x10DD
+ #define IXGBE_DEV_ID_82598_CX4_DUAL_PORT 0x10EC
++#define IXGBE_DEV_ID_82598_DA_DUAL_PORT  0x10F1
++#define IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM      0x10E1
+ #define IXGBE_DEV_ID_82598EB_XF_LR       0x10F4
+ 
+ /* General Registers */
+@@ -453,6 +456,7 @@
+ #define IXGBE_MDIO_PHY_XS_DEV_TYPE                0x4
+ #define IXGBE_MDIO_AUTO_NEG_DEV_TYPE              0x7
+ #define IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE     0x1E   /* Device 30 */
++#define IXGBE_TWINAX_DEV                          1
+ 
+ #define IXGBE_MDIO_COMMAND_TIMEOUT     100 /* PHY Timeout for 1 GB mode */
+ 
+@@ -488,14 +492,27 @@
+ #define IXGBE_PHY_REVISION_MASK        0xFFFFFFF0
+ #define IXGBE_MAX_PHY_ADDR             32
+ 
+-/* PHY IDs*/
++/* PHY IDs */
+ #define TN1010_PHY_ID    0x00A19410
+ #define TNX_FW_REV       0xB
+ #define QT2022_PHY_ID    0x0043A400
++#define ATH_PHY_ID       0x03429050
+ 
+ /* PHY Types */
+ #define IXGBE_M88E1145_E_PHY_ID  0x01410CD0
+ 
++/* Special PHY Init Routine */
++#define IXGBE_PHY_INIT_OFFSET_NL 0x002B
++#define IXGBE_PHY_INIT_END_NL    0xFFFF
++#define IXGBE_CONTROL_MASK_NL    0xF000
++#define IXGBE_DATA_MASK_NL       0x0FFF
++#define IXGBE_CONTROL_SHIFT_NL   12
++#define IXGBE_DELAY_NL           0
++#define IXGBE_DATA_NL            1
++#define IXGBE_CONTROL_NL         0x000F
++#define IXGBE_CONTROL_EOL_NL     0x0FFF
++#define IXGBE_CONTROL_SOL_NL     0x0000
 +
-+	for (i = DCB_BCN_ATTR_RP_0; i <= DCB_BCN_ATTR_RP_7; i++) {
-+		if (data[i] == NULL)
-+			continue;
-+		value_byte = nla_get_u8(data[i]);
-+		netdev->dcbnl_ops->setbcnrp(netdev,
-+			data[i]->nla_type - DCB_BCN_ATTR_RP_0, value_byte);
-+	}
-+
-+	for (i = DCB_BCN_ATTR_ALPHA; i <= DCB_BCN_ATTR_RI; i++) {
-+		if (data[i] == NULL)
-+			continue;
-+		value_int = nla_get_u32(data[i]);
-+		netdev->dcbnl_ops->setbcncfg(netdev,
-+	                                     i, value_int);
-+	}
-+
-+	ret = dcbnl_reply(0, RTM_SETDCB, DCB_CMD_BCN_SCFG, DCB_ATTR_BCN,
-+	                  pid, seq, flags);
-+err:
-+	return ret;
-+}
-+
- static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -891,6 +1043,10 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		ret = dcbnl_pgrx_getcfg(netdev, tb, pid, nlh->nlmsg_seq,
- 		                        nlh->nlmsg_flags);
- 		goto out;
-+	case DCB_CMD_BCN_GCFG:
-+		ret = dcbnl_bcn_getcfg(netdev, tb, pid, nlh->nlmsg_seq,
-+		                       nlh->nlmsg_flags);
-+		goto out;
- 	case DCB_CMD_SSTATE:
- 		ret = dcbnl_setstate(netdev, tb, pid, nlh->nlmsg_seq,
- 		                     nlh->nlmsg_flags);
-@@ -932,6 +1088,10 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		ret = dcbnl_setpfcstate(netdev, tb, pid, nlh->nlmsg_seq,
- 		                        nlh->nlmsg_flags);
- 		goto out;
-+	case DCB_CMD_BCN_SCFG:
-+		ret = dcbnl_bcn_setcfg(netdev, tb, pid, nlh->nlmsg_seq,
-+		                       nlh->nlmsg_flags);
-+		goto out;
- 	default:
- 		goto errout;
- 	}
+ /* General purpose Interrupt Enable */
+ #define IXGBE_SDP0_GPIEN         0x00000001 /* SDP0 */
+ #define IXGBE_SDP1_GPIEN         0x00000002 /* SDP1 */
+@@ -1208,6 +1225,7 @@ enum ixgbe_phy_type {
+ 	ixgbe_phy_tn,
+ 	ixgbe_phy_qt,
+ 	ixgbe_phy_xaui,
++	ixgbe_phy_nl,
+ 	ixgbe_phy_tw_tyco,
+ 	ixgbe_phy_tw_unknown,
+ 	ixgbe_phy_sfp_avago,
+@@ -1229,6 +1247,7 @@ enum ixgbe_sfp_type {
+ 	ixgbe_sfp_type_da_cu = 0,
+ 	ixgbe_sfp_type_sr = 1,
+ 	ixgbe_sfp_type_lr = 2,
++	ixgbe_sfp_type_not_present = 0xFFFE,
+ 	ixgbe_sfp_type_unknown = 0xFFFF
+ };
+ 
+@@ -1492,6 +1511,7 @@ struct ixgbe_info {
+ #define IXGBE_ERR_PHY_ADDR_INVALID              -17
+ #define IXGBE_ERR_I2C                           -18
+ #define IXGBE_ERR_SFP_NOT_SUPPORTED             -19
++#define IXGBE_ERR_SFP_NOT_PRESENT               -20
+ #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
+ 
+ #endif /* _IXGBE_TYPE_H_ */
 
