@@ -1,72 +1,80 @@
-From: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
-Subject: Re: [atl1-devel] atl2: don't mess up irq on suspend/resume (probably
- msi only)
-Date: Tue, 18 Nov 2008 17:36:09 +0000
-Message-ID: <4922FD09.2070007@tuffmail.co.uk>
-References: <49201401.1060600@tuffmail.co.uk>	<4921E574.3090602@tuffmail.co.uk> <20081117181336.1a270561@osprey.hogchain.net> <4922D195.9010505@tuffmail.co.uk>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [RFC] dccp ccid-3: High-res or low-res timers?
+Date: Wed, 19 Nov 2008 06:41:08 +1300
+Message-ID: <5640c7e00811180941l671fd3a0w390529df9222163e@mail.gmail.com>
+References: <5bc4c4570811060538h2d662507u5de1fb62c61cd569@mail.gmail.com>
+	 <20081106153824.GA9709@ghostprotocols.net>
+	 <5bc4c4570811060946j4d5d8d1mf88f8b92c72b59c7@mail.gmail.com>
+	 <5bc4c4570811061004nfc2afdcn6035d49ae654aef1@mail.gmail.com>
+	 <5bc4c4570811061017j3acef860vee84992e7295d06d@mail.gmail.com>
+	 <5bc4c4570811061405qe72e43cx861c537885804132@mail.gmail.com>
+	 <20081108085035.GA7112@gerrit.erg.abdn.ac.uk>
+	 <20081115105042.GA7798@gerrit.erg.abdn.ac.uk>
+	 <5640c7e00811160014p17414c54v2499c5b1e996278f@mail.gmail.com>
+	 <20081118061414.GA4015@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: csnook@redhat.com, atl1-devel@lists.sourceforge.net,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jay Cliburn <jcliburn@gmail.com>
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>,
+	"Ian McDonald" <ian.mcdonald@jandi.co.nz>,
+	"Leandro Sales" <leandroal@gmail.com>,
+	"Arnaldo Carvalho de Melo" <acme@redhat.com>,
+	"DCCP Mailing
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:24331 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752480AbYKRRf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 12:35:57 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so1473935nfc.21
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 09:35:55 -0800 (PST)
-In-Reply-To: <4922D195.9010505@tuffmail.co.uk>
+Received: from gv-out-0910.google.com ([216.239.58.187]:52625 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752537AbYKRRlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2008 12:41:12 -0500
+Received: by gv-out-0910.google.com with SMTP id e6so541884gvc.37
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2008 09:41:09 -0800 (PST)
+In-Reply-To: <20081118061414.GA4015@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Jenkins wrote:
-> Jay Cliburn wrote:
->   
->> [adding netdev to cc list]
->>
->> On Mon, 17 Nov 2008 21:43:16 +0000
->> Alan Jenkins <alan-jenkins@tuffmail.co.uk> wrote:
->>
->>
->>   
->>     
->>> Don't listen to me.  The problem went away because when I was testing
->>> my patch, I plugged the ethernet in and actually used it.  My patch
->>> doesn't seem to fix anything.
->>>
->>> So I now have the steps to reproduce this warning: remove the ethernet
->>> cable and suspend.
->>>
->>> Also, I was speaking rubbish because the warning isn't on the resume
->>> path.  It seems to be when network-manager re-opens the device on
->>> resume.
->>>
->>> I'll have another look for possible culprits.  Hints appreciated :).
->>>     
->>>       
->> Does this help?
->>   
->>     
+On Tue, Nov 18, 2008 at 7:14 PM, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+> | The RFC uses an example of 1 msec scheduling and 0.1 msec RTT. However
+> | what would be worse is devices on a LAN with 10 msec timer - e.g. two
+> | embedded devices at home - I haven't done the maths but I think the
+> | rate achievable would be quite low.
+> If we use lower-resolution timers I think there should be a
+> recommendation (in the Kconfig menu for instance) not to use
+> low HZ values.
 >
-> Ah! Yes, that fixes it, thanks.
->   
+> Previously this was done as a build warning, but it is annoying if
+> people do an allmodconfig and are not otherwise interested in DCCP.
+>
+Agree
 
-Just noticed another problem. If I suspend with the cable plugged in, I 
-get a warning message about freeing the IRQ:
+> Do you think we could live with clamping the RTT to some sensible
+> minimum, since on a local LAN the use of congestion control is
+> questionable? I was thinking in the order of 0.5 ... 1msec.
+>
+I think that is a good idea - if 1 msec, and HZ = 1000 then we
+wouldn't lose any transmission capability.
 
-[ 331.023417] atl2 0000:03:00.0: restoring config space at offset 0x1 
-(was 0x100006, writing 0x100406)
-[ 331.023453] atl2 0000:03:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
-[ 331.023462] atl2 0000:03:00.0: setting latency timer to 64
-[ 331.043449] ath5k_pci 0000:01:00.0: restoring config space at offset 
-0xf (was 0x100, writing 0x10a)
-...
-[ 332.681591] Restarting tasks ... done.
-[ 333.617398] hpet1: lost 2 rtc interrupts
-[ 334.016700] Trying to free already-free IRQ 17
-[ 334.057257] ADDRCONF(NETDEV_UP): wlan0: link is not ready
-[ 334.082570] atl2 0000:03:00.0: irq 44 for MSI/MSI-X
+> | Thinking laterally there is another possible solution - something I
+> | used way back in the 80s for another project - build your own
+> | scheduler! We could set a high resolution timer to tick every 0.1 msec
+> | and then use the coarse grained algorithm at that point....
+> |
+> So we have three possible options - timer-based (low/high), and your
+> suggestion above. We can keep these variants open by spawning an
+> experimental subtree which provides an alternative implementation, so
+> that people could explore alternative algorithms, compare and send patches.
+>
+> For production use the low-resolution variant is the simplest and less
+> expensive option, and it is good that there is consensus about it.
+>
+Yes - and with your RTT clamping then no need to do my idea around scheduler.
 
+> In a discussion about two years ago there was another
+> idea, doing away with the nofeedback timer, by checking the nofeedback
+> time at the instant a packet is sent.
+>
+I think this is useful as reduces the amount of timers going off,
+which reduces system load.
+
+-- 
+Web: http://wand.net.nz/~iam4/, http://www.jandi.co.nz
+Blog: http://iansblog.jandi.co.nz
