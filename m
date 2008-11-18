@@ -1,283 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 3/3] igb: Fix tx/rx_ring_count parameters for igb on
-	suspend/resume/ring resize
-Date: Mon, 17 Nov 2008 18:05:50 -0800
-Message-ID: <20081118020550.10912.1643.stgit@gitlost.lost>
-References: <20081118020510.10912.94106.stgit@gitlost.lost>
+Subject: [NET-NEXT PATCH] igb: use dev_printk instead of printk
+Date: Mon, 17 Nov 2008 18:06:35 -0800
+Message-ID: <20081118020635.10966.83143.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Bjorn Helgaas <bjorn.helgaas@hp.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:42180
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751946AbYKRCGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 21:06:39 -0500
-In-Reply-To: <20081118020510.10912.94106.stgit@gitlost.lost>
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:53058 "EHLO
+	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752047AbYKRCGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 21:06:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-When suspending the device the ring structure is freed which causes it to
-loose track of the count.  To resolve this we need to move the ring count
-outside of the ring structure and store it in the adapter struct.
+Use dev_printk() instead of printk() to give a little more context
+and use consistent format.
 
-In addition to resolving the suspend/resume issue this patch also addresses
-issues seen in the event of memory allocation errors causing uneven ring
-sizes on multiple queues.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h         |    4 ++
- drivers/net/igb/igb_ethtool.c |  102 ++++++++++++++++++++---------------------
- drivers/net/igb/igb_main.c    |   10 ++--
- 3 files changed, 59 insertions(+), 57 deletions(-)
+ drivers/net/igb/igb_main.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 4ff6f05..acf2569 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -294,6 +294,8 @@ struct igb_adapter {
- 	unsigned int lro_flushed;
- 	unsigned int lro_no_desc;
- #endif
-+	unsigned int tx_ring_count;
-+	unsigned int rx_ring_count;
- };
- 
- #define IGB_FLAG_HAS_MSI           (1 << 0)
-@@ -325,6 +327,8 @@ extern void igb_reset(struct igb_adapter *);
- extern int igb_set_spd_dplx(struct igb_adapter *, u16);
- extern int igb_setup_tx_resources(struct igb_adapter *, struct igb_ring *);
- extern int igb_setup_rx_resources(struct igb_adapter *, struct igb_ring *);
-+extern void igb_free_tx_resources(struct igb_ring *);
-+extern void igb_free_rx_resources(struct igb_ring *);
- extern void igb_update_stats(struct igb_adapter *);
- extern void igb_set_ethtool_ops(struct net_device *);
- 
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index f89fdc7..7bad3dc 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -714,15 +714,13 @@ static void igb_get_ringparam(struct net_device *netdev,
- 			      struct ethtool_ringparam *ring)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
--	struct igb_ring *tx_ring = adapter->tx_ring;
--	struct igb_ring *rx_ring = adapter->rx_ring;
- 
- 	ring->rx_max_pending = IGB_MAX_RXD;
- 	ring->tx_max_pending = IGB_MAX_TXD;
- 	ring->rx_mini_max_pending = 0;
- 	ring->rx_jumbo_max_pending = 0;
--	ring->rx_pending = rx_ring->count;
--	ring->tx_pending = tx_ring->count;
-+	ring->rx_pending = adapter->rx_ring_count;
-+	ring->tx_pending = adapter->tx_ring_count;
- 	ring->rx_mini_pending = 0;
- 	ring->rx_jumbo_pending = 0;
- }
-@@ -731,12 +729,9 @@ static int igb_set_ringparam(struct net_device *netdev,
- 			     struct ethtool_ringparam *ring)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
--	struct igb_buffer *old_buf;
--	struct igb_buffer *old_rx_buf;
--	void *old_desc;
-+	struct igb_ring *temp_ring;
- 	int i, err;
--	u32 new_rx_count, new_tx_count, old_size;
--	dma_addr_t old_dma;
-+	u32 new_rx_count, new_tx_count;
- 
- 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
- 		return -EINVAL;
-@@ -749,12 +744,19 @@ static int igb_set_ringparam(struct net_device *netdev,
- 	new_tx_count = min(new_tx_count, (u32)IGB_MAX_TXD);
- 	new_tx_count = ALIGN(new_tx_count, REQ_TX_DESCRIPTOR_MULTIPLE);
- 
--	if ((new_tx_count == adapter->tx_ring->count) &&
--	    (new_rx_count == adapter->rx_ring->count)) {
-+	if ((new_tx_count == adapter->tx_ring_count) &&
-+	    (new_rx_count == adapter->rx_ring_count)) {
- 		/* nothing to do */
- 		return 0;
- 	}
- 
-+	if (adapter->num_tx_queues > adapter->num_rx_queues)
-+		temp_ring = vmalloc(adapter->num_tx_queues * sizeof(struct igb_ring));
-+	else
-+		temp_ring = vmalloc(adapter->num_rx_queues * sizeof(struct igb_ring));
-+	if (!temp_ring)
-+		return -ENOMEM;
-+
- 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
- 		msleep(1);
- 
-@@ -766,62 +768,55 @@ static int igb_set_ringparam(struct net_device *netdev,
- 	 * because the ISRs in MSI-X mode get passed pointers
- 	 * to the tx and rx ring structs.
- 	 */
--	if (new_tx_count != adapter->tx_ring->count) {
-+	if (new_tx_count != adapter->tx_ring_count) {
-+		memcpy(temp_ring, adapter->tx_ring,
-+		       adapter->num_tx_queues * sizeof(struct igb_ring));
-+
- 		for (i = 0; i < adapter->num_tx_queues; i++) {
--			/* Save existing descriptor ring */
--			old_buf = adapter->tx_ring[i].buffer_info;
--			old_desc = adapter->tx_ring[i].desc;
--			old_size = adapter->tx_ring[i].size;
--			old_dma = adapter->tx_ring[i].dma;
--			/* Try to allocate a new one */
--			adapter->tx_ring[i].buffer_info = NULL;
--			adapter->tx_ring[i].desc = NULL;
--			adapter->tx_ring[i].count = new_tx_count;
--			err = igb_setup_tx_resources(adapter,
--						&adapter->tx_ring[i]);
-+			temp_ring[i].count = new_tx_count;
-+			err = igb_setup_tx_resources(adapter, &temp_ring[i]);
- 			if (err) {
--				/* Restore the old one so at least
--				   the adapter still works, even if
--				   we failed the request */
--				adapter->tx_ring[i].buffer_info = old_buf;
--				adapter->tx_ring[i].desc = old_desc;
--				adapter->tx_ring[i].size = old_size;
--				adapter->tx_ring[i].dma = old_dma;
-+				while (i) {
-+					i--;
-+					igb_free_tx_resources(&temp_ring[i]);
-+				}
- 				goto err_setup;
- 			}
--			/* Free the old buffer manually */
--			vfree(old_buf);
--			pci_free_consistent(adapter->pdev, old_size,
--					    old_desc, old_dma);
- 		}
-+
-+		for (i = 0; i < adapter->num_tx_queues; i++)
-+			igb_free_tx_resources(&adapter->tx_ring[i]);
-+
-+		memcpy(adapter->tx_ring, temp_ring,
-+		       adapter->num_tx_queues * sizeof(struct igb_ring));
-+
-+		adapter->tx_ring_count = new_tx_count;
- 	}
- 
- 	if (new_rx_count != adapter->rx_ring->count) {
--		for (i = 0; i < adapter->num_rx_queues; i++) {
-+		memcpy(temp_ring, adapter->rx_ring,
-+		       adapter->num_rx_queues * sizeof(struct igb_ring));
- 
--			old_rx_buf = adapter->rx_ring[i].buffer_info;
--			old_desc = adapter->rx_ring[i].desc;
--			old_size = adapter->rx_ring[i].size;
--			old_dma = adapter->rx_ring[i].dma;
--
--			adapter->rx_ring[i].buffer_info = NULL;
--			adapter->rx_ring[i].desc = NULL;
--			adapter->rx_ring[i].dma = 0;
--			adapter->rx_ring[i].count = new_rx_count;
--			err = igb_setup_rx_resources(adapter,
--						     &adapter->rx_ring[i]);
-+		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			temp_ring[i].count = new_rx_count;
-+			err = igb_setup_rx_resources(adapter, &temp_ring[i]);
- 			if (err) {
--				adapter->rx_ring[i].buffer_info = old_rx_buf;
--				adapter->rx_ring[i].desc = old_desc;
--				adapter->rx_ring[i].size = old_size;
--				adapter->rx_ring[i].dma = old_dma;
-+				while (i) {
-+					i--;
-+					igb_free_rx_resources(&temp_ring[i]);
-+				}
- 				goto err_setup;
- 			}
- 
--			vfree(old_rx_buf);
--			pci_free_consistent(adapter->pdev, old_size, old_desc,
--					    old_dma);
- 		}
-+
-+		for (i = 0; i < adapter->num_rx_queues; i++)
-+			igb_free_rx_resources(&adapter->rx_ring[i]);
-+
-+		memcpy(adapter->rx_ring, temp_ring,
-+		       adapter->num_rx_queues * sizeof(struct igb_ring));
-+
-+		adapter->rx_ring_count = new_rx_count;
- 	}
- 
- 	err = 0;
-@@ -830,6 +825,7 @@ err_setup:
- 		igb_up(adapter);
- 
- 	clear_bit(__IGB_RESETTING, &adapter->state);
-+	vfree(temp_ring);
- 	return err;
- }
- 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index c298ae8..b1530be 100644
+index b1530be..b52626a 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -76,8 +76,6 @@ static int igb_setup_all_tx_resources(struct igb_adapter *);
- static int igb_setup_all_rx_resources(struct igb_adapter *);
- static void igb_free_all_tx_resources(struct igb_adapter *);
- static void igb_free_all_rx_resources(struct igb_adapter *);
--static void igb_free_tx_resources(struct igb_ring *);
--static void igb_free_rx_resources(struct igb_ring *);
- void igb_update_stats(struct igb_adapter *);
- static int igb_probe(struct pci_dev *, const struct pci_device_id *);
- static void __devexit igb_remove(struct pci_dev *pdev);
-@@ -259,11 +257,13 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
- 		struct igb_ring *ring = &(adapter->tx_ring[i]);
-+		ring->count = adapter->tx_ring_count;
- 		ring->adapter = adapter;
- 		ring->queue_index = i;
- 	}
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		struct igb_ring *ring = &(adapter->rx_ring[i]);
-+		ring->count = adapter->rx_ring_count;
- 		ring->adapter = adapter;
- 		ring->queue_index = i;
- 		ring->itr_register = E1000_ITR;
-@@ -1395,6 +1395,8 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 
- 	pci_read_config_word(pdev, PCI_COMMAND, &hw->bus.pci_cmd_word);
- 
-+	adapter->tx_ring_count = IGB_DEFAULT_TXD;
-+	adapter->rx_ring_count = IGB_DEFAULT_RXD;
- 	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
- 	adapter->rx_ps_hdr_size = 0; /* disable packet split */
- 	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
-@@ -1983,7 +1985,7 @@ static void igb_configure_rx(struct igb_adapter *adapter)
-  *
-  * Free all transmit software resources
-  **/
--static void igb_free_tx_resources(struct igb_ring *tx_ring)
-+void igb_free_tx_resources(struct igb_ring *tx_ring)
- {
- 	struct pci_dev *pdev = tx_ring->adapter->pdev;
- 
-@@ -2083,7 +2085,7 @@ static void igb_clean_all_tx_rings(struct igb_adapter *adapter)
-  *
-  * Free all receive software resources
-  **/
--static void igb_free_rx_resources(struct igb_ring *rx_ring)
-+void igb_free_rx_resources(struct igb_ring *rx_ring)
- {
- 	struct pci_dev *pdev = rx_ring->adapter->pdev;
- 
+@@ -1019,10 +1019,9 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 			state &= ~PCIE_LINK_STATE_L0S;
+ 			pci_write_config_word(us_dev, pos + PCI_EXP_LNKCTL,
+ 			                      state);
+-			printk(KERN_INFO "Disabling ASPM L0s upstream switch "
+-			       "port %x:%x.%x\n", us_dev->bus->number,
+-			       PCI_SLOT(us_dev->devfn),
+-			       PCI_FUNC(us_dev->devfn));
++			dev_info(&pdev->dev,
++				 "Disabling ASPM L0s upstream switch port %s\n",
++				 pci_name(us_dev));
+ 		}
+ 	default:
+ 		break;
 
