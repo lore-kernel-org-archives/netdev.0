@@ -1,61 +1,42 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 1/5] dccp: Mechanism to resolve CCID dependencies
-Date: Tue, 18 Nov 2008 06:03:47 +0100
-Message-ID: <20081118050346.GA3846@gerrit.erg.abdn.ac.uk>
-References: <20081112063643.GB6405@gerrit.erg.abdn.ac.uk> <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk> <1226751079-15019-2-git-send-email-gerrit@erg.abdn.ac.uk> <20081116.225040.197479116.davem@davemloft.net>
+Subject: Re: [RFC] dccp ccid-3: High-res or low-res timers?
+Date: Tue, 18 Nov 2008 06:07:35 +0100
+Message-ID: <20081118050735.GB3846@gerrit.erg.abdn.ac.uk>
+References: <5bc4c4570811061405qe72e43cx861c537885804132@mail.gmail.com> <20081108085035.GA7112@gerrit.erg.abdn.ac.uk> <20081115105042.GA7798@gerrit.erg.abdn.ac.uk> <20081116.224834.166724077.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="DocE+STaALJfprDB"
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: leandroal@gmail.com, acme@redhat.com, ian.mcdonald@jandi.co.nz,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50543 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50643 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750945AbYKRFDz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2008 00:03:55 -0500
+	id S1750944AbYKRFIf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2008 00:08:35 -0500
 Content-Disposition: inline
-In-Reply-To: <20081116.225040.197479116.davem@davemloft.net>
+In-Reply-To: <20081116.224834.166724077.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---DocE+STaALJfprDB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-| > +	list_for_each_entry(entry, fn_list, node)
-| > +		if (entry->feat_num == feat_num && entry->is_local == is_local)
-| > +			return entry;
-| > +		else if (entry->feat_num > feat_num)
-| > +			break;
+Dave, -
+| > Summing up, I have doubts that basing CCID-3 will bring advantages and
+| > would much rather go the other way and (consistently) use lower resolution.
+| > 
+| > Thoughts?
 | 
-| Personally, I would have put braces around this basic block.
+| I wouldn't bother with high resolution timers, mostly because they are more
+| expensive and the benefit of them here is at best "unknown".
 | 
-If it is possible to modify without disturbance, I attach a patch for this and
-have changed it in the test tree.
+Thanks a lot for the reply. I am glad for this suggestion, since it will
+allow simpler code while at the same time still supporting a basic,
+working implementation of CCID-3.
 
-I have checked that making this change does not affect subsequent
-patches - it works with either variant.
+If people want to experiment with higher-resolution timers (as per other
+replies), this can be put into an experimental subtree on 
+eden-feed.erg.abdn.ac.uk.
 
---DocE+STaALJfprDB
-Content-Type: text/x-diff; charset=us-ascii
-Content-Description: Missing braces
-Content-Disposition: attachment; filename="3.diff"
+If it is okay with Leandro and Tommi, it would finally also make it
+possible to sort out consolidating the CCID-3/CCID-4 code.
 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -171,11 +171,12 @@ static struct dccp_feat_entry *dccp_feat
- {
- 	struct dccp_feat_entry *entry;
- 
--	list_for_each_entry(entry, fn_list, node)
-+	list_for_each_entry(entry, fn_list, node) {
- 		if (entry->feat_num == feat_num && entry->is_local == is_local)
- 			return entry;
- 		else if (entry->feat_num > feat_num)
- 			break;
-+	}
- 	return NULL;
- }
- 
-
---DocE+STaALJfprDB--
+Thanks again,
+Gerrit
