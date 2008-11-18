@@ -1,71 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 19/33] atl1e: convert to net_device_ops
-Date: Mon, 17 Nov 2008 15:42:26 -0800
-Message-ID: <20081117234356.410646815@vyatta.com>
-References: <20081117234207.854110282@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jay Cliburn <jcliburn@gmail.com>
+Subject: Re: [atl1-devel] atl2: don't mess up irq on suspend/resume
+ (probably msi only)
+Date: Mon, 17 Nov 2008 18:13:36 -0600
+Message-ID: <20081117181336.1a270561@osprey.hogchain.net>
+References: <49201401.1060600@tuffmail.co.uk>
+	<4921E574.3090602@tuffmail.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, atl1-devel@lists.sourceforge.net,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:55087 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752240AbYKRAAL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2008 19:00:11 -0500
-Content-Disposition: inline; filename=atl1e-netdev_ops.patch
+Received: from rv-out-0506.google.com ([209.85.198.229]:7071 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbYKRANn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2008 19:13:43 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so2659662rvb.1
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2008 16:13:42 -0800 (PST)
+In-Reply-To: <4921E574.3090602@tuffmail.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert this driver to network device ops. Compile tested only.
+[adding netdev to cc list]
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+On Mon, 17 Nov 2008 21:43:16 +0000
+Alan Jenkins <alan-jenkins@tuffmail.co.uk> wrote:
 
---- a/drivers/net/atl1e/atl1e_main.c	2008-11-17 11:59:32.000000000 -0800
-+++ b/drivers/net/atl1e/atl1e_main.c	2008-11-17 12:05:05.000000000 -0800
-@@ -2253,26 +2253,32 @@ static void atl1e_shutdown(struct pci_de
- 	atl1e_suspend(pdev, PMSG_SUSPEND);
- }
+
+> Don't listen to me.  The problem went away because when I was testing
+> my patch, I plugged the ethernet in and actually used it.  My patch
+> doesn't seem to fix anything.
+> 
+> So I now have the steps to reproduce this warning: remove the ethernet
+> cable and suspend.
+> 
+> Also, I was speaking rubbish because the warning isn't on the resume
+> path.  It seems to be when network-manager re-opens the device on
+> resume.
+> 
+> I'll have another look for possible culprits.  Hints appreciated :).
+
+Does this help?
+
+diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
+index f5bdc92..5b292f0 100644
+--- a/drivers/net/atlx/atl2.c
++++ b/drivers/net/atlx/atl2.c
+@@ -1690,10 +1690,6 @@ static int atl2_resume(struct pci_dev *pdev)
  
-+static const struct net_device_ops atl1e_netdev_ops = {
-+	.open 	 	    = atl1e_open,
-+	.stop 	 	    = atl1e_close,
-+	.get_stats 	    = atl1e_get_stats,
-+	.set_multicast_list = atl1e_set_multi,
-+	.validate_addr	    = eth_validate_addr,
-+	.set_mac_address    = atl1e_set_mac_addr,
-+	.change_mtu 	    = atl1e_change_mtu,
-+	.do_ioctl 	    = atl1e_ioctl,
-+	.tx_timeout 	    = atl1e_tx_timeout,
-+	.vlan_rx_register   = atl1e_vlan_rx_register,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.poll_controller    = atl1e_netpoll,
-+#endif
-+
-+};
-+
- static int atl1e_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
- {
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
- 	pci_set_drvdata(pdev, netdev);
+ 	ATL2_WRITE_REG(&adapter->hw, REG_WOL_CTRL, 0);
  
- 	netdev->irq  = pdev->irq;
--	netdev->open = &atl1e_open;
--	netdev->stop = &atl1e_close;
--	netdev->hard_start_xmit = &atl1e_xmit_frame;
--	netdev->get_stats = &atl1e_get_stats;
--	netdev->set_multicast_list = &atl1e_set_multi;
--	netdev->set_mac_address = &atl1e_set_mac_addr;
--	netdev->change_mtu = &atl1e_change_mtu;
--	netdev->do_ioctl = &atl1e_ioctl;
--	netdev->tx_timeout = &atl1e_tx_timeout;
-+	netdev->netdev_ops = &atl1e_netdev_ops;
-+	netdev->hard_start_xmit = atl1e_xmit_frame,
- 	netdev->watchdog_timeo = AT_TX_WATCHDOG;
--	netdev->vlan_rx_register = atl1e_vlan_rx_register;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	netdev->poll_controller = atl1e_netpoll;
--#endif
- 	atl1e_set_ethtool_ops(netdev);
+-	err = atl2_request_irq(adapter);
+-	if (netif_running(netdev) && err)
+-		return err;
+-
+	atl2_reset_hw(&adapter->hw);
  
- 	netdev->features = NETIF_F_SG | NETIF_F_HW_CSUM |
-
--- 
-
+	if (netif_running(netdev))
