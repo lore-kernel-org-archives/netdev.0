@@ -1,60 +1,82 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: make ip_rt_acct a normal percpu var
-Date: Thu, 20 Nov 2008 00:23:48 +0100
-Message-ID: <4924A004.2050105@cosmosbay.com>
-References: <200811172050.31308.rusty@rustcorp.com.au> <200811190208.11346.rusty@rustcorp.com.au> <20081119.142023.117741600.davem@davemloft.net> <200811200943.21410.rusty@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Re: [2.6.26] OOPS in __linkwatch_run_queue (unable to
+ handle kernel NULL pointer dereference at 00000235)
+Date: Wed, 19 Nov 2008 15:35:45 -0800 (PST)
+Message-ID: <20081119.153545.42955147.davem@davemloft.net>
+References: <20081117.005025.141630310.davem@davemloft.net>
+	<20081117091108.GB6345@ff.dom.local>
+	<20081117.011509.71878779.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: folkert@vanheusden.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:33432 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021AbYKSXX4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 18:23:56 -0500
-In-Reply-To: <200811200943.21410.rusty@rustcorp.com.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57654
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751940AbYKSXfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 18:35:45 -0500
+In-Reply-To: <20081117.011509.71878779.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell a =E9crit :
-> On Thursday 20 November 2008 08:50:23 David Miller wrote:
->> Do you really need this to forward some work you are doing?  If not
->> can we just let sleeping dogs lie on this one? :)
->=20
-> Yes, I have patches to convert the dynamic percpu data to use the sam=
-e=20
-> mechanism as static percpu data.  Unfortunately we don't have a mecha=
-nism for=20
-> enlarging the percpu region (which is why this wasn't done earlier), =
-so we use=20
-> a heuristic to figure out how much extra percpu region to allocate at=
- boot.
->=20
-> And 4k makes this one of the Big Pigs in dynamic per-cpu allocations.
->=20
-> (SNMP mibs are even worse, but that's a separate debate...)
->=20
-> I can try to implement a bss-like DEFINE_PER_CPU_ZERO(), but it seems=
- silly to=20
-> talk about tight boot loader size restrictions for SMP kernels.
->=20
+From: David Miller <davem@davemloft.net>
+Date: Mon, 17 Nov 2008 01:15:09 -0800 (PST)
 
-Then, if we really want to run 4096 cpus on a machine, we dont want to =
-allocate
-16 MBytes of memory for these ip_rt_acct counters, or even more for SNM=
-P mibs.
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 17 Nov 2008 09:11:08 +0000
+> 
+> > On Mon, Nov 17, 2008 at 12:50:25AM -0800, David Miller wrote:
+> > Yes, this looks very nice! But this should be done in "a few" more
+> > drivers, like cxgb3 etc.
+> 
+> Thanks for pointing that out, I'll fix those cases too.
 
-Maybe its time to design a new mechanism, to avoid the basic "one varia=
-ble" shared
-by all cpus, and avoid the overkill "one separate variable for each cpu=
-", and loop
-4096 times to do the sum of this variable...
+I did an audit, and found that this construct is too pervasive to
+fix right now.  Even e1000 and e1000e do this call of netif_carrier_off()
+before the device is even registered.
 
-Something that would allocate a maximum of eight blocs.
+So here is the bandaid I'll use to fix the bug in 2.6.28
 
-Then atomic ops would be necessary for updates of SNMP counters (only i=
-f NR_CPUS > 8)
+net: Do not fire linkwatch events until the device is registered.
 
+Several device drivers try to do things like netif_carrier_off()
+before register_netdev() is invoked.  This is bogus, but too many
+drivers do this to fix them all up in one go.
+
+Reported-by: Folkert van Heusden <folkert@vanheusden.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sched/sch_generic.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 93cd30c..cdcd16f 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -270,6 +270,8 @@ static void dev_watchdog_down(struct net_device *dev)
+ void netif_carrier_on(struct net_device *dev)
+ {
+ 	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
++		if (dev->reg_state == NETREG_UNINITIALIZED)
++			return;
+ 		linkwatch_fire_event(dev);
+ 		if (netif_running(dev))
+ 			__netdev_watchdog_up(dev);
+@@ -285,8 +287,11 @@ EXPORT_SYMBOL(netif_carrier_on);
+  */
+ void netif_carrier_off(struct net_device *dev)
+ {
+-	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state))
++	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
++		if (dev->reg_state == NETREG_UNINITIALIZED)
++			return;
+ 		linkwatch_fire_event(dev);
++	}
+ }
+ EXPORT_SYMBOL(netif_carrier_off);
+ 
+-- 
+1.5.6.5
 
