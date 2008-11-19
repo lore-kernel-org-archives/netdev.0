@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Cleanup of af_unix
-Date: Wed, 19 Nov 2008 15:48:18 -0800 (PST)
-Message-ID: <20081119.154818.02238416.davem@davemloft.net>
-References: <4921133D.6070800@cosmosbay.com>
-	<1226907282.4037.31.camel@localhost>
-	<4921C3FD.106@cosmosbay.com>
+Subject: Re: [PATCH-2.6.28] net: jme.c rxdesc.flags is __le16, other
+ missing endian swaps
+Date: Wed, 19 Nov 2008 15:51:10 -0800 (PST)
+Message-ID: <20081119.155110.213037648.davem@davemloft.net>
+References: <1226957405.6150.8.camel@brick>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: cooldavid@cooldavid.org, netdev@vger.kernel.org
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41179
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42013
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752193AbYKSXsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 18:48:18 -0500
-In-Reply-To: <4921C3FD.106@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1751931AbYKSXvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 18:51:10 -0500
+In-Reply-To: <1226957405.6150.8.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 17 Nov 2008 20:20:29 +0100
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Mon, 17 Nov 2008 13:30:05 -0800
 
-> [PATCH] net: af_unix should use KERN_INFO instead of KERN_DEBUG
+> This is the minimal patch to fix endian mismatches.  These are
+> probably bugs on big-endian arches, noops on little endian.
 > 
-> As spotted by Joe Perches, we should use KERN_INFO in unix_sock_destructor()
+> jme_rxsum_ok could be improved to directly take a __le16 and
+> change all of the masks/sets to be in little-endian, but
+> has not been done here to keep the patch small.
 > 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---
+> Dave, could use confirmation here, but looks almost certainly like a bugfix
+> for big-endian.
 
-Applied.
+This looks good, applied, thanks Harvey.
