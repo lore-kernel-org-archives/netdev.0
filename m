@@ -1,129 +1,107 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Oops/Warning report for the week of November 19th, 2008
-Date: Wed, 19 Nov 2008 08:01:06 -0800
-Message-ID: <20081119080106.23943160@infradead.org>
+From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-11-18
+Date: Wed, 19 Nov 2008 18:51:49 +0200
+Message-ID: <1ba2fa240811190851i5dda6734w10d38b0f27e5ac97@mail.gmail.com>
+References: <20081119000719.GA19756@tuxdriver.com>
+	 <1ba2fa240811182246m17a6baf0ybde19af030a65819@mail.gmail.com>
+	 <1ba2fa240811190134u7974a840i532e8ed0e18f8c72@mail.gmail.com>
+	 <20081119143919.GA3485@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, x86@vger.kernel.org, tytso@mit.edu,
-	linux-ide@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-ide-owner@vger.kernel.org>
-Sender: linux-ide-owner@vger.kernel.org
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081119143919.GA3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 19, 2008 at 4:39 PM, John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> On Wed, Nov 19, 2008 at 11:34:37AM +0200, Tomas Winkler wrote:
+>> On Wed, Nov 19, 2008 at 8:46 AM, Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> > On Wed, Nov 19, 2008 at 2:07 AM, John W. Linville
+>> > <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+>
+>> >>      mac80211: remove ieee80211_notify_mac
+>> >>      iwlagn: fix RX skb alignment
+>> >
+>> > IMHO its premature pushing ttese 2 patches up, they came in yestrday
+>> > and nobody here has run tthe code
+>
+> Well, thanks for your opinion.  Here is mine:
+>
+> The iwlwifi drivers have been hitting these problems for months,
+> and I have seen no effort by your team to address the problems.
 
-This week, a total of 4488 oopses and warnings have been reported,
-compared to 3926 reports in the previous week.
-(Reports prior to 2.6.26 have been omitted in collecting the top 10)
+There is a lot of effort to solve this I'm not sure what mailing list
+are u reading.
+We even presented test patches with alignment issues as Johannes few
+month ago but
+we didn't get the feedback that it hit anything. So you are totally off here.
 
-I'd like to point specifically at numbers 7 and 8 this week, they are new in 
-the top 10 out of nowhere...
+> It is possible that your team is working on them behind closed doors
+> and will eventually throw something over the wall to us.  I'm tired
+> of waiting for that, and I imagine that hordes of iwlagn users are
+> tired of waiting as well.
 
+This is embarrassing also for us that we cannot locate this specific
+problem but it not like we are not doing anything.Not sure there are
+other examples that we are not addressing bugs promptly.
 
-Per file statistics
-463	external/virtualbox/module
-399	kernel/power/main.c
-324	drivers/net/r8169.c
-235	fs/jbd/journal.c
-164	drivers/net/sis900.c
-152	drivers/parport/procfs.c
-150	drivers/ata/libata-sff.c
-99	drivers/net/wireless/iwlwifi/iwl-tx.c
-97	drivers/base/power/main.c
-90	net/sched/sch_generic.c
-77	drivers/net/wireless/iwlwifi/iwl-3945-rs.c
-75	kernel/timer.c
+> Johannes has presented us with plausible fixes, and people are
+> reporting that the patches work for them.
 
+I'm not against merging these patches to wireless-testing but pushing
+them upstream before testing them
+is just plainly wrong and all I asked for to test them. You are
+presenting here double standards here.
 
-Fix availble
-------------
-Rank 4: journal_update_superblock (warning)
-	Reported 239 times (6187 total reports)
-	Likely caused by the user removing a USB stick while mounted
-	Fix available in the -mm tree
-	This warning was last seen in version 2.6.27.5, and first seen in 2.6.24-rc6-git1.
-	More info: http://www.kerneloops.org/searchweek.php?search=journal_update_superblock
+ I can merge these patches,
+> or wait/hope/pray for some to come from your team.  Experience suggests
+> that if fixes do come from your team that they will either be buried
+> in some monster patch that largely addresses something else, or
+> that the patches will arrive with a changelog that is terse and/or
+> unintelligble.  Subsequently, I am not optimistic about waiting.
 
-Rank 6: parport_device_proc_register (warning)
-	Reported 143 times (5957 total reports)
-	Duplicate /proc registration in the parport driver
-	Alan has a patch that fixes most cases
-	This warning was last seen in version 2.6.27-rc7-git1, and first seen in 2.6.24-rc5.
-	More info: http://www.kerneloops.org/searchweek.php?search=parport_device_proc_register
+I've believe that we are addressing all the complains above and
+currently  if you are not seeing this I'm really sorry.
 
-Rank 14: ext3_commit_super (warning)
-	Reported 45 times (1555 total reports)
-	Likely caused by the user removing a USB stick while mounted
-	A fix for this issue is in the -mm tree
-	This warning was last seen in version 2.6.27.6, and first seen in 2.6.24.
-	More info: http://www.kerneloops.org/searchweek.php?search=ext3_commit_super
+> I think Johannes cited four different bugzilla.kernel.org entries
+> between those two patches.  What is your team doing to address
+> those bugs?
 
-Not yet fixed
--------------
-Rank 1: VBoxDrvLinuxIOCtl (warning)
-	Reported 460 times (747 total reports)
-	[external] bug in the VirtualBox drivers
-	This warning was last seen in version 2.6.28-rc3, and first seen in 2.6.25.11.
-	More info: http://www.kerneloops.org/searchweek.php?search=VBoxDrvLinuxIOCtl
+Again you are not reading the mailing list and not the bugs logs.
 
-Rank 2: suspend_test_finish (warning)
-	Suspend resume test finds drivers that take too long.
-	Linus merged a patch to show which driver it was recently.
-	Reported 408 times (874 total reports)
-	This warning was last seen in version 2.6.28-rc1, and first seen in 2.6.27-rc0-git14.
-	More info: http://www.kerneloops.org/searchweek.php?search=suspend_test_finish
+>
+> Obviously, I still think that those patches should be merged.
 
-Rank 3: dev_watchdog(r8169) (network timeout)
-	Reported 326 times (1113 total reports)
-	This driver has been consistently high in the reports
-	This timeout was last seen in version 2.6.28-rc2-git7, and first seen in 2.6.26.6.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(r8169)
+I'm not against just give it day or two to run it.  We have for
+example nightly regression builds with publicly available results why
+you cannot wait till we can run?  I think you've hurried to push it up
+just as a statement forgetting of possible regressions.
 
-Rank 5: dev_watchdog(sis900) (warning)
-	Reported 166 times (1337 total reports)
-	This warning was last seen in version 2.6.27.5, and first seen in 2.6.26-rc4-git2.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(sis900)
+>
+>> Just checked our bug database,  the ieee80211_notify_mac was
+>> introduced mainly to overcome HW bug when
+>> receiver become deaf  in heavy traffic such as ftp in noisy
+>> environment. Otherwise reconnection was too slow to keep ftp going. We
+>> need to check whether we are still hitting this before applying
+>> removal this function
+>
+> You are welcome to submit patches that address your hardware issue
+> and which do not introduce locking problems.
 
-Rank 7: __atapi_pio_bytes (warning)
-	Reported 108 times
-	This is a new entry this week that started showing up
-	This warning was last seen in version 2.6.27.5, and first seen in 2.6.27.4.
-	More info: http://www.kerneloops.org/searchweek.php?search=__atapi_pio_bytes
+That was my suggestion that we fix it and I believe  we have normal
+discussion about it till you took your eager pushing steps. Replacing
+one regression with another is just not sane.
 
-Rank 8: iwl_tx_cmd_complete (warning)
-	Reported 99 times (240 total reports)
-	This appears to be a recent regression in the iwlwifi driver
-	This warning was last seen in version 2.6.28-rc4, and first seen in 2.6.27-rc9.
-	More info: http://www.kerneloops.org/searchweek.php?search=iwl_tx_cmd_complete
-
-Rank 10: rs_get_rate (warning)
-	Reported 78 times (894 total reports)
-	Bug in the Intel IWL wireless drivers
-	This warning was last seen in version 2.6.27.5, and first seen in 2.6.25-rc2-git5.
-	More info: http://www.kerneloops.org/searchweek.php?search=rs_get_rate
-
-Rank 11: run_timer_softirq (soft lockup)
-	Reported 62 times (834 total reports)
-	The hope is that the timer rework in 2.6.28 fixes these
-	This oops was last seen in version 2.6.27.5, and first seen in 2.6.25.
-	More info: http://www.kerneloops.org/searchweek.php?search=run_timer_softirq
-
-Rank 12: device_pm_add (warning)
-	Reported 61 times (840 total reports)
-	This got "fixed" by removing the warning
-	This warning was last seen in version 2.6.27-rc4, and first seen in 2.6.26-rc5.
-	More info: http://www.kerneloops.org/searchweek.php?search=device_pm_add
-
-Rank 13: dev_watchdog(cdc_ether) (oops)
-	Reported 59 times (206 total reports)
-	This oops was last seen in version 2.6.27.6, and first seen in 2.6.26.6.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(cdc_ether)
-
-
-
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+Thanks
+Tomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
