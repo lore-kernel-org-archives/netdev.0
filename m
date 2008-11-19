@@ -1,55 +1,60 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: pkt_sched: fix missing check for packet overrun in qdisc_dump_stab()
-Date: Wed, 19 Nov 2008 14:20:51 +0100
-Message-ID: <492412B3.8050300@trash.net>
+Subject: netlink: avoid memset of 0 bytes sparse warning
+Date: Wed, 19 Nov 2008 14:56:12 +0100
+Message-ID: <49241AFC.5030705@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080709060703020301000008"
+ boundary="------------000801040807000502010903"
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63626 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:64410 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752467AbYKSNVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 08:21:00 -0500
+	with ESMTP id S1752394AbYKSN4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 08:56:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------080709060703020301000008
+--------------000801040807000502010903
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
 
---------------080709060703020301000008
+--------------000801040807000502010903
 Content-Type: text/x-patch;
  name="01.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
  filename="01.diff"
 
-commit c870f95c8c5c40d2c38970246ed737b8264f0b0e
+commit d30196c4cab8442451794d25a8d8a072dadca2eb
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Nov 19 14:19:11 2008 +0100
+Date:   Wed Nov 19 14:55:11 2008 +0100
 
-    pkt_sched: fix missing check for packet overrun in qdisc_dump_stab()
+    netlink: avoid memset of 0 bytes sparse warning
     
-    nla_nest_start() might return NULL, causing a NULL pointer dereference.
+    A netlink attribute padding of zero triggers this sparse warning:
+    
+    include/linux/netlink.h:245:8: warning: memset with byte count of 0
+    
+    Avoid the memset when the size parameter is constant and requires no padding.
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 5bcef13..1ef25e6 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -422,6 +422,8 @@ static int qdisc_dump_stab(struct sk_buff *skb, struct qdisc_size_table *stab)
- 	struct nlattr *nest;
- 
- 	nest = nla_nest_start(skb, TCA_STAB);
-+	if (nest == NULL)
-+		goto nla_put_failure;
- 	NLA_PUT(skb, TCA_STAB_BASE, sizeof(stab->szopts), &stab->szopts);
- 	nla_nest_end(skb, nest);
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 9ff1b54..51b09a1 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -242,7 +242,8 @@ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
+ 	nlh->nlmsg_flags = flags;
+ 	nlh->nlmsg_pid = pid;
+ 	nlh->nlmsg_seq = seq;
+-	memset(NLMSG_DATA(nlh) + len, 0, NLMSG_ALIGN(size) - size);
++	if (!__builtin_constant_p(size) || NLMSG_ALIGN(size) - size != 0)
++		memset(NLMSG_DATA(nlh) + len, 0, NLMSG_ALIGN(size) - size);
+ 	return nlh;
+ }
  
 
---------------080709060703020301000008--
+--------------000801040807000502010903--
