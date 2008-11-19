@@ -1,47 +1,152 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-11-18
-Date: Tue, 18 Nov 2008 20:54:54 -0500
-Message-ID: <20081119015453.GA10311@tuxdriver.com>
-References: <20081119000719.GA19756@tuxdriver.com> <1227058418.4014.99.camel@johannes.berg>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH net-next] netdevice lance: Convert directly reference of netdev->priv
+Date: Wed, 19 Nov 2008 10:11:05 +0800
+Message-ID: <492375B9.8020807@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1227058418.4014.99.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	NETDEV <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:64236 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751035AbYKSCL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2008 21:11:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2008 at 02:33:38AM +0100, Johannes Berg wrote:
-> > and a final one fixes some mysterious DMA alignment problems
-> > that have been plaguing iwlwifi for some time.
-> 
-> 
-> > The following changes since commit 5f9021cfdc3524a4c5e3d7ae2d049eb7adcd6776:
-> >   Johannes Berg (1):
-> >         rtnetlink: propagate error from dev_change_flags in do_setlink()
-> 
-> heh.
-> 
-> >      iwlagn: fix RX skb alignment
-> 
-> So Luis pointed out a bug in that, it might be useful to squish in this
-> patch: http://marc.info/?l=linux-wireless&m=122705425425763&w=2
-> 
-> (also below for reference)
-> 
-> But we can also just add it on top, whichever way you prefer.
+This patch is to kill directly reference of netdev->priv too.
+Because the private data should be allocated in DMA area, alloc_etherdev()
+can't satisfy this needs.
+Use netdev->ml_priv to point to lance_private.
 
-I'll get it in the next run, soon.
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ drivers/net/lance.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
 
-John
+diff --git a/drivers/net/lance.c b/drivers/net/lance.c
+index f63789a..e81b611 100644
+--- a/drivers/net/lance.c
++++ b/drivers/net/lance.c
+@@ -359,7 +359,7 @@ int __init init_module(void)
+ 
+ static void cleanup_card(struct net_device *dev)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 	if (dev->dma != 4)
+ 		free_dma(dev->dma);
+ 	release_region(dev->base_addr, LANCE_TOTAL_SIZE);
+@@ -418,7 +418,7 @@ static int __init do_lance_probe(struct net_device *dev)
+ 			if (card < NUM_CARDS) { /*Signature OK*/
+ 				result = lance_probe1(dev, ioaddr, 0, 0);
+ 				if (!result) {
+-					struct lance_private *lp = dev->priv;
++					struct lance_private *lp = dev->ml_priv;
+ 					int ver = lp->chip_version;
+ 
+ 					r->name = chip_table[ver].name;
+@@ -537,7 +537,7 @@ static int __init lance_probe1(struct net_device *dev, int ioaddr, int irq, int
+ 	if(lp==NULL)
+ 		return -ENODEV;
+ 	if (lance_debug > 6) printk(" (#0x%05lx)", (unsigned long)lp);
+-	dev->priv = lp;
++	dev->ml_priv = lp;
+ 	lp->name = chipname;
+ 	lp->rx_buffs = (unsigned long)kmalloc(PKT_BUF_SZ*RX_RING_SIZE,
+ 						  GFP_DMA | GFP_KERNEL);
+@@ -741,7 +741,7 @@ out_lp:
+ static int
+ lance_open(struct net_device *dev)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 	int ioaddr = dev->base_addr;
+ 	int i;
+ 
+@@ -829,7 +829,7 @@ lance_open(struct net_device *dev)
+ static void
+ lance_purge_ring(struct net_device *dev)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 	int i;
+ 
+ 	/* Free all the skbuffs in the Rx and Tx queues. */
+@@ -853,7 +853,7 @@ lance_purge_ring(struct net_device *dev)
+ static void
+ lance_init_ring(struct net_device *dev, gfp_t gfp)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 	int i;
+ 
+ 	lp->cur_rx = lp->cur_tx = 0;
+@@ -895,7 +895,7 @@ lance_init_ring(struct net_device *dev, gfp_t gfp)
+ static void
+ lance_restart(struct net_device *dev, unsigned int csr0_bits, int must_reinit)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 
+ 	if (must_reinit ||
+ 		(chip_table[lp->chip_version].flags & LANCE_MUST_REINIT_RING)) {
+@@ -909,7 +909,7 @@ lance_restart(struct net_device *dev, unsigned int csr0_bits, int must_reinit)
+ 
+ static void lance_tx_timeout (struct net_device *dev)
+ {
+-	struct lance_private *lp = (struct lance_private *) dev->priv;
++	struct lance_private *lp = (struct lance_private *) dev->ml_priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	outw (0, ioaddr + LANCE_ADDR);
+@@ -943,7 +943,7 @@ static void lance_tx_timeout (struct net_device *dev)
+ 
+ static int lance_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 	int ioaddr = dev->base_addr;
+ 	int entry;
+ 	unsigned long flags;
+@@ -1020,7 +1020,7 @@ static irqreturn_t lance_interrupt(int irq, void *dev_id)
+ 	int must_restart;
+ 
+ 	ioaddr = dev->base_addr;
+-	lp = dev->priv;
++	lp = dev->ml_priv;
+ 
+ 	spin_lock (&lp->devlock);
+ 
+@@ -1133,7 +1133,7 @@ static irqreturn_t lance_interrupt(int irq, void *dev_id)
+ static int
+ lance_rx(struct net_device *dev)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 	int entry = lp->cur_rx & RX_RING_MOD_MASK;
+ 	int i;
+ 
+@@ -1211,7 +1211,7 @@ static int
+ lance_close(struct net_device *dev)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 
+ 	netif_stop_queue (dev);
+ 
+@@ -1244,7 +1244,7 @@ lance_close(struct net_device *dev)
+ 
+ static struct net_device_stats *lance_get_stats(struct net_device *dev)
+ {
+-	struct lance_private *lp = dev->priv;
++	struct lance_private *lp = dev->ml_priv;
+ 
+ 	if (chip_table[lp->chip_version].flags & LANCE_HAS_MISSED_FRAME) {
+ 		short ioaddr = dev->base_addr;
 -- 
-John W. Linville		Linux should be at the core
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			of your literate lifestyle.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.5.3.4
+
