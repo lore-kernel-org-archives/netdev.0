@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: af_packet should update its inuse counter
-Date: Wed, 19 Nov 2008 14:25:43 -0800 (PST)
-Message-ID: <20081119.142543.192726776.davem@davemloft.net>
-References: <49214C1F.2060000@cosmosbay.com>
+Subject: Re: [PATCH] smsc95xx: add tx checksum offload support
+Date: Wed, 19 Nov 2008 14:28:55 -0800 (PST)
+Message-ID: <20081119.142855.124711576.davem@davemloft.net>
+References: <1226919000-13597-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
+To: steve.glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53681
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55422
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751210AbYKSWZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 17:25:43 -0500
-In-Reply-To: <49214C1F.2060000@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1750695AbYKSW2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 17:28:55 -0500
+In-Reply-To: <1226919000-13597-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 17 Nov 2008 11:49:03 +0100
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Mon, 17 Nov 2008 10:50:00 +0000
 
-> This patch is a preparation to namespace conversion of /proc/net/protocols
-> 
-> In order to have relevant information for PACKET protocols, we should use
-> sock_prot_inuse_add() to update a (percpu and pernamespace) counter of
-> inuse sockets.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> @@ -757,6 +787,7 @@ static int smsc95xx_phy_initialize(struct usbnet *dev)
+>  static int smsc95xx_reset(struct usbnet *dev)
+>  {
+>  	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+> +	struct net_device *netdev = dev->net;
+>  	u32 read_buf, write_buf, burst_cap;
+>  	int ret = 0, timeout;
+>  	DECLARE_MAC_BUF(mac);
 
-Applied to net-next-2.6, thanks.
+This smsc95xx_reset function doesn't even exist in the current driver.
