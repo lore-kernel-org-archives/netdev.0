@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: make /proc/net/protocols namespace aware
-Date: Wed, 19 Nov 2008 15:14:13 -0800 (PST)
-Message-ID: <20081119.151413.237646291.davem@davemloft.net>
-References: <49214D37.2090502@cosmosbay.com>
-	<20081117111516.GA10542@x200.localdomain>
-	<4921551B.4000102@cosmosbay.com>
+Subject: Re: [PATCH] net: make ip_rt_acct a normal percpu var
+Date: Wed, 19 Nov 2008 15:17:54 -0800 (PST)
+Message-ID: <20081119.151754.44649102.davem@davemloft.net>
+References: <200811190208.11346.rusty@rustcorp.com.au>
+	<20081119.142023.117741600.davem@davemloft.net>
+	<200811200943.21410.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, den@openvz.org, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46509
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46896
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752016AbYKSXON (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 18:14:13 -0500
-In-Reply-To: <4921551B.4000102@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1751021AbYKSXRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 18:17:54 -0500
+In-Reply-To: <200811200943.21410.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 17 Nov 2008 12:27:23 +0100
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Thu, 20 Nov 2008 09:43:21 +1030
 
-> Good catch, thanks Alexey
+> On Thursday 20 November 2008 08:50:23 David Miller wrote:
+> > Do you really need this to forward some work you are doing?  If not
+> > can we just let sleeping dogs lie on this one? :)
 > 
-> [PATCH] net: make /proc/net/protocols namespace aware
-> Converting /proc/net/protocols to be namespace aware is quite easy
-> and permits us to use sock_prot_inuse_get().
+> Yes, I have patches to convert the dynamic percpu data to use the same 
+> mechanism as static percpu data.  Unfortunately we don't have a mechanism for 
+> enlarging the percpu region (which is why this wasn't done earlier), so we use 
+> a heuristic to figure out how much extra percpu region to allocate at boot.
 > 
-> This provides seperate counters for each protocol. For example
-> we can really count TCPv6 sockets and TCPv4 sockets, while previously,
-> we had the same value, and this value was not namespace aware.
+> And 4k makes this one of the Big Pigs in dynamic per-cpu allocations.
 > 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> (SNMP mibs are even worse, but that's a separate debate...)
 
-Applied to net-next-2.6, thanks.
+We make a big fuss (rightly) about a few hundred bytes and this sucker
+is FOUR KILOBYTES.
+
+Really for the time being I'd rather see this converted to a
+num_possible_cpus() sized normal kzalloc() and direct indexing.  I
+don't want the networking to bloat up the main kernel image by so
+much.
+
+> I can try to implement a bss-like DEFINE_PER_CPU_ZERO(), but it seems silly to 
+> talk about tight boot loader size restrictions for SMP kernels.
+
+SMP these days is candy.  And sparc is what has the bootloader restrictions
+btw :)
