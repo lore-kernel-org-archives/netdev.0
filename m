@@ -1,319 +1,169 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: pkt_sched 01/02: remove unnecessary xchg() in packet schedulers
-Date: Wed, 19 Nov 2008 19:03:06 +0100
-Message-ID: <492454DA.5080306@trash.net>
+Subject: pkt_sched 02/02: remove unnecessary xchg() in packet classifiers
+Date: Wed, 19 Nov 2008 19:03:09 +0100
+Message-ID: <492454DD.2050603@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------040309020108020107090605"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+ boundary="------------000000090802080805090801"
+To: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36536 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:36539 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753345AbYKSSDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 13:03:14 -0500
+	with ESMTP id S1753462AbYKSSDQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 13:03:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------040309020108020107090605
+--------------000000090802080805090801
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
-These two patches get rid of the xchg() usage in net/sched
-with exception of teql, where they might actually be needed
-(I didn't really check since it uses them in different contexts
-then other packet schedulers and thus it doesn't really belong
-in this patchset anyways).
 
-The patches apply on top of the DRR patch.
-
-
---------------040309020108020107090605
+--------------000000090802080805090801
 Content-Type: text/x-patch;
- name="01.diff"
+ name="02.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="01.diff"
+ filename="02.diff"
 
-commit 7f23be11b3d23ca23822a3e65b7eda10ec129e9a
+commit 40bed8277a202ff329488dd975bd9fd3655363f0
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Nov 19 18:58:17 2008 +0100
+Date:   Wed Nov 19 18:58:18 2008 +0100
 
-    pkt_sched: remove unnecessary xchg() in packet schedulers
+    pkt_sched: remove unnecessary xchg() in packet classifiers
     
     The use of xchg() hasn't been necessary since 2.2.something when proper
-    locking was added to packet schedulers.
+    locking was added to packet schedulers. In the case of classifiers they
+    mostly weren't even necessary before that since they're mainly used
+    to assign a NULL pointer to the filter root in the ->destroy path;
+    the root is destroyed immediately after that.
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index ca90f6e..2a8b83a 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -102,7 +102,8 @@ static int atm_tc_graft(struct Qdisc *sch, unsigned long arg,
- 		return -EINVAL;
- 	if (!new)
- 		new = &noop_qdisc;
--	*old = xchg(&flow->q, new);
-+	*old = flow->q;
-+	flow->q = new;
- 	if (*old)
- 		qdisc_reset(*old);
- 	return 0;
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index a99e37e..3a9569a 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1635,7 +1635,8 @@ static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- #endif
- 		}
- 		sch_tree_lock(sch);
--		*old = xchg(&cl->q, new);
-+		*old = cl->q;
-+		cl->q = new;
- 		qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 		qdisc_reset(*old);
- 		sch_tree_unlock(sch);
-@@ -1776,8 +1777,8 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
- 			cbq_deactivate_class(cl);
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 16e7ac9..173fcc4 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -531,7 +531,8 @@ void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+ 	if (src->action) {
+ 		struct tc_action *act;
+ 		tcf_tree_lock(tp);
+-		act = xchg(&dst->action, src->action);
++		act = dst->action;
++		dst->action = src->action;
+ 		tcf_tree_unlock(tp);
+ 		if (act)
+ 			tcf_action_destroy(act, TCA_ACT_UNBIND);
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index 956915c..4e2bda8 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -102,7 +102,7 @@ static inline void basic_delete_filter(struct tcf_proto *tp,
  
- 		if (rtab) {
--			rtab = xchg(&cl->R_tab, rtab);
--			qdisc_put_rtab(rtab);
-+			qdisc_put_rtab(cl->R_tab);
-+			cl->R_tab = rtab;
- 		}
+ static void basic_destroy(struct tcf_proto *tp)
+ {
+-	struct basic_head *head = (struct basic_head *) xchg(&tp->root, NULL);
++	struct basic_head *head = tp->root;
+ 	struct basic_filter *f, *n;
  
- 		if (tb[TCA_CBQ_LSSOPT])
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index dd075ef..2d40e45 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -208,7 +208,8 @@ static int drr_graft_class(struct Qdisc *sch, unsigned long arg,
+ 	list_for_each_entry_safe(f, n, &head->flist, link) {
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 53ada2c..0d68b19 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -201,9 +201,7 @@ static int cls_cgroup_change(struct tcf_proto *tp, unsigned long base,
  
- 	sch_tree_lock(sch);
- 	drr_purge_queue(cl);
--	*old = xchg(&cl->qdisc, new);
-+	*old = cl->qdisc;
-+	cl->qdisc = new;
- 	sch_tree_unlock(sch);
- 	return 0;
- }
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 3f9427a..d303daa 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -68,7 +68,8 @@ static int dsmark_graft(struct Qdisc *sch, unsigned long arg,
- 	}
- 
- 	sch_tree_lock(sch);
--	*old = xchg(&p->q, new);
-+	*old = p->q;
-+	p->q = new;
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 071c474..51dd3f4 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1202,7 +1202,8 @@ hfsc_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 
- 	sch_tree_lock(sch);
- 	hfsc_purge_queue(sch, cl);
--	*old = xchg(&cl->qdisc, new);
-+	*old = cl->qdisc;
-+	cl->qdisc = new;
- 	sch_tree_unlock(sch);
- 	return 0;
- }
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 83f5e69..3a119f5 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1100,7 +1100,9 @@ static int htb_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 		    == NULL)
- 			return -ENOBUFS;
- 		sch_tree_lock(sch);
--		if ((*old = xchg(&cl->un.leaf.q, new)) != NULL) {
-+		*old = cl->un.leaf.q;
-+		cl->un.leaf.q = new;
-+		if (*old != NULL) {
- 			qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 			qdisc_reset(*old);
- 		}
-diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-index f645ac5..7e15186 100644
---- a/net/sched/sch_multiq.c
-+++ b/net/sched/sch_multiq.c
-@@ -214,7 +214,8 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
- 	q->bands = qopt->bands;
- 	for (i = q->bands; i < q->max_bands; i++) {
- 		if (q->queues[i] != &noop_qdisc) {
--			struct Qdisc *child = xchg(&q->queues[i], &noop_qdisc);
-+			struct Qdisc *child = q->queues[i];
-+			q->queues[i] = &noop_qdisc;
- 			qdisc_tree_decrease_qlen(child, child->q.qlen);
- 			qdisc_destroy(child);
- 		}
-@@ -224,7 +225,7 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
- 
- 	for (i = 0; i < q->bands; i++) {
- 		if (q->queues[i] == &noop_qdisc) {
--			struct Qdisc *child;
-+			struct Qdisc *child, *old;
- 			child = qdisc_create_dflt(qdisc_dev(sch),
- 						  sch->dev_queue,
- 						  &pfifo_qdisc_ops,
-@@ -232,12 +233,13 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
- 							    i + 1));
- 			if (child) {
- 				sch_tree_lock(sch);
--				child = xchg(&q->queues[i], child);
-+				old = q->queues[i];
-+				q->queues[i] = child;
- 
--				if (child != &noop_qdisc) {
--					qdisc_tree_decrease_qlen(child,
--								 child->q.qlen);
--					qdisc_destroy(child);
-+				if (old != &noop_qdisc) {
-+					qdisc_tree_decrease_qlen(old,
-+								 old->q.qlen);
-+					qdisc_destroy(old);
- 				}
- 				sch_tree_unlock(sch);
- 			}
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 3cbc3ff..f840d6b 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -331,10 +331,9 @@ static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
- 	root_lock = qdisc_root_sleeping_lock(sch);
- 
- 	spin_lock_bh(root_lock);
--	d = xchg(&q->delay_dist, d);
-+	kfree(q->delay_dist);
-+	q->delay_dist = d;
- 	spin_unlock_bh(root_lock);
+ static void cls_cgroup_destroy(struct tcf_proto *tp)
+ {
+-	struct cls_cgroup_head *head;
 -
--	kfree(d);
- 	return 0;
- }
+-	head = (struct cls_cgroup_head *)xchg(&tp->root, NULL);
++	struct cls_cgroup_head *head = tp->root;
  
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index ea65a87..94cecef 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -187,7 +187,8 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
- 	memcpy(q->prio2band, qopt->priomap, TC_PRIO_MAX+1);
+ 	if (head) {
+ 		tcf_exts_destroy(tp, &head->exts);
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index b0f90e5..6d6e875 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -148,7 +148,7 @@ fw_delete_filter(struct tcf_proto *tp, struct fw_filter *f)
  
- 	for (i=q->bands; i<TCQ_PRIO_BANDS; i++) {
--		struct Qdisc *child = xchg(&q->queues[i], &noop_qdisc);
-+		struct Qdisc *child = q->queues[i];
-+		q->queues[i] = &noop_qdisc;
- 		if (child != &noop_qdisc) {
- 			qdisc_tree_decrease_qlen(child, child->q.qlen);
- 			qdisc_destroy(child);
-@@ -197,18 +198,19 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
+ static void fw_destroy(struct tcf_proto *tp)
+ {
+-	struct fw_head *head = (struct fw_head*)xchg(&tp->root, NULL);
++	struct fw_head *head = tp->root;
+ 	struct fw_filter *f;
+ 	int h;
  
- 	for (i=0; i<q->bands; i++) {
- 		if (q->queues[i] == &noop_qdisc) {
--			struct Qdisc *child;
-+			struct Qdisc *child, *old;
- 			child = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
- 						  &pfifo_qdisc_ops,
- 						  TC_H_MAKE(sch->handle, i + 1));
- 			if (child) {
- 				sch_tree_lock(sch);
--				child = xchg(&q->queues[i], child);
-+				old = q->queues[i];
-+				q->queues[i] = child;
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index e3d8455..bdf1f41 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -260,7 +260,7 @@ route4_delete_filter(struct tcf_proto *tp, struct route4_filter *f)
  
--				if (child != &noop_qdisc) {
--					qdisc_tree_decrease_qlen(child,
--								 child->q.qlen);
--					qdisc_destroy(child);
-+				if (old != &noop_qdisc) {
-+					qdisc_tree_decrease_qlen(old,
-+								 old->q.qlen);
-+					qdisc_destroy(old);
- 				}
- 				sch_tree_unlock(sch);
- 			}
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 6a0371c..2bdf241 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -202,7 +202,8 @@ static int red_change(struct Qdisc *sch, struct nlattr *opt)
- 	q->limit = ctl->limit;
- 	if (child) {
- 		qdisc_tree_decrease_qlen(q->qdisc, q->qdisc->q.qlen);
--		qdisc_destroy(xchg(&q->qdisc, child));
-+		qdisc_destroy(q->qdisc);
-+		q->qdisc = child;
+ static void route4_destroy(struct tcf_proto *tp)
+ {
+-	struct route4_head *head = xchg(&tp->root, NULL);
++	struct route4_head *head = tp->root;
+ 	int h1, h2;
+ 
+ 	if (head == NULL)
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 7a7bff5..e806f23 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -13,12 +13,6 @@
+ #include <net/netlink.h>
+ #include <net/pkt_cls.h>
+ 
+-
+-/*
+- * Not quite sure if we need all the xchgs Alexey uses when accessing things.
+- * Can always add them later ... :)
+- */
+-
+ /*
+  * Passing parameters to the root seems to be done more awkwardly than really
+  * necessary. At least, u32 doesn't seem to use such dirty hacks. To be
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 246f906..05d1780 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -387,7 +387,7 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
+ static void u32_destroy(struct tcf_proto *tp)
+ {
+ 	struct tc_u_common *tp_c = tp->data;
+-	struct tc_u_hnode *root_ht = xchg(&tp->root, NULL);
++	struct tc_u_hnode *root_ht = tp->root;
+ 
+ 	WARN_ON(root_ht == NULL);
+ 
+@@ -479,7 +479,7 @@ static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
+ 	err = -EINVAL;
+ 	if (tb[TCA_U32_LINK]) {
+ 		u32 handle = nla_get_u32(tb[TCA_U32_LINK]);
+-		struct tc_u_hnode *ht_down = NULL;
++		struct tc_u_hnode *ht_down = NULL, *ht_old;
+ 
+ 		if (TC_U32_KEY(handle))
+ 			goto errout;
+@@ -493,11 +493,12 @@ static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
+ 		}
+ 
+ 		tcf_tree_lock(tp);
+-		ht_down = xchg(&n->ht_down, ht_down);
++		ht_old = n->ht_down;
++		n->ht_down = ht_down;
+ 		tcf_tree_unlock(tp);
+ 
+-		if (ht_down)
+-			ht_down->refcnt--;
++		if (ht_old)
++			ht_old->refcnt--;
  	}
- 
- 	red_set_parms(&q->parms, ctl->qth_min, ctl->qth_max, ctl->Wlog,
-@@ -283,7 +284,8 @@ static int red_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 		new = &noop_qdisc;
- 
- 	sch_tree_lock(sch);
--	*old = xchg(&q->qdisc, new);
-+	*old = q->qdisc;
-+	q->qdisc = new;
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index bb7783d..a2f93c0 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -236,6 +236,7 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
- 	struct tc_tbf_qopt *qopt;
- 	struct qdisc_rate_table *rtab = NULL;
- 	struct qdisc_rate_table *ptab = NULL;
-+	struct qdisc_rate_table *tmp;
- 	struct Qdisc *child = NULL;
- 	int max_size,n;
- 
-@@ -284,7 +285,8 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
- 	sch_tree_lock(sch);
- 	if (child) {
- 		qdisc_tree_decrease_qlen(q->qdisc, q->qdisc->q.qlen);
--		qdisc_destroy(xchg(&q->qdisc, child));
-+		qdisc_destroy(q->qdisc);
-+		q->qdisc = child;
- 	}
- 	q->limit = qopt->limit;
- 	q->mtu = qopt->mtu;
-@@ -292,8 +294,14 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
- 	q->buffer = qopt->buffer;
- 	q->tokens = q->buffer;
- 	q->ptokens = q->mtu;
--	rtab = xchg(&q->R_tab, rtab);
--	ptab = xchg(&q->P_tab, ptab);
-+
-+	tmp = q->R_tab;
-+	q->R_tab = rtab;
-+	rtab = tmp;
-+
-+	tmp = q->P_tab;
-+	q->P_tab = ptab;
-+	ptab = tmp;
- 	sch_tree_unlock(sch);
- 	err = 0;
- done:
-@@ -383,7 +391,8 @@ static int tbf_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 		new = &noop_qdisc;
- 
- 	sch_tree_lock(sch);
--	*old = xchg(&q->qdisc, new);
-+	*old = q->qdisc;
-+	q->qdisc = new;
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
+ 	if (tb[TCA_U32_CLASSID]) {
+ 		n->res.classid = nla_get_u32(tb[TCA_U32_CLASSID]);
 
---------------040309020108020107090605--
+--------------000000090802080805090801--
