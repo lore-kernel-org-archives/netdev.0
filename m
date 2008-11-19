@@ -1,51 +1,57 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: Re: [RFC PATCH 00/13] hardware time stamping + igb example
-	implementation
-Date: Wed, 19 Nov 2008 13:39:29 +0100
-Message-ID: <1227098369.16263.39.camel@ecld0pohly>
+Subject: Re: [RFC PATCH 02/13] extended semantic of sk_buff::tstamp: lowest
+	bit marks hardware time stamps
+Date: Wed, 19 Nov 2008 13:50:06 +0100
+Message-ID: <1227099006.16263.46.camel@ecld0pohly>
 References: <1226414697.17450.852.camel@ecld0pohly>
-	 <491AFF09.8070907@linux.intel.com> <1226507118.31699.91.camel@ecld0pohly>
-	 <491B23FE.9000105@hartkopp.net>
+	 <1226415407.31699.1.camel@ecld0pohly>
+	 <20081112.015855.198624869.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ingo Oeser <netdev@axxeo.de>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16722 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:32864 "EHLO mga02.intel.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751918AbYKSMjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2008 07:39:33 -0500
-In-Reply-To: <491B23FE.9000105@hartkopp.net>
+	id S1752497AbYKSMuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 07:50:10 -0500
+In-Reply-To: <20081112.015855.198624869.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-11-12 at 18:44 +0000, Oliver Hartkopp wrote:
-> I really wondered if you posted the series to get an impression why 
-> adding a new field is a good idea ;-)
+On Wed, 2008-11-12 at 09:58 +0000, David Miller wrote:
+> From: Patrick Ohly <patrick.ohly@intel.com>
+> Date: Wed, 22 Oct 2008 10:17:24 +0200
+> 
+> > +int skb_hwtstamp_raw(const struct sk_buff *skb, struct timespec *stamp)
+> > +{
+> > +	struct rtable *rt;
+> > +	struct in_device *idev;
+> > +	struct net_device *netdev;
+> > +
+> > +	if (skb_hwtstamp_available(skb) &&
+> > +	    (rt = skb->rtable) != NULL &&
+> > +	    (idev = rt->idev) != NULL &&
+> > +	    (netdev = idev->dev) != NULL  &&
+> > +	    netdev->hwtstamp_raw) {
+> > +		return netdev->hwtstamp_raw(skb, stamp);
+> > +	} else {
+> > +		return 0;
+> > +	}
+> > +}
+> > +
+> > +EXPORT_SYMBOL_GPL(skb_hwtstamp_raw);
+> 
+> You can't be accessing the generic destination cache entry attached to
+> the SKB, here in generic SKB code, as a pointer to an ipv4 specific
+> route object.  What if this is an IPV6 or DECNET packet?
 
-Oh dear, my secret plan has been revealed ;-) No, I was really hoping
-that the patch would be acceptable. After rewriting the patch series
-with one additional field the code is simpler (or so I hope). I just
-posted it to linux-kernel and linux-net.
-
-> I would also vote for having a new field in the 
-> skb instead of this current 'bit-compression' approach which smells 
-> quite expensive at runtime and in code size. Not talking about the 
-> mentioned potential locking issues ...
-
-The locking issues still remain: the hardware reconfiguration in the
-ioctl needs to be coordinated with the ongoing time stamping. Then
-there's the raw2sys callback which is made by the socket layer into the
-device. That one is problematic also because finding that device isn't
-as easy as I thought (see my other mails), so perhaps we should get rid
-of the delayed transformation and add two fields.
+Yes, this is problematic. The revised patch still depends on this
+pointer chain, now to convert the raw hardware time stamp to system
+time. I don't see any clean solution right now except adding both raw
+and transformed value to the skb (16 additional bytes instead of just 8,
+or zero as in the original patch).
 
 -- 
 Best Regards, Patrick Ohly
