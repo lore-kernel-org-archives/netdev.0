@@ -1,617 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: pkt_sched: add DRR scheduler
-Date: Wed, 19 Nov 2008 15:26:31 +0100
-Message-ID: <49242217.5030406@trash.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-11-18
+Date: Wed, 19 Nov 2008 09:39:19 -0500
+Message-ID: <20081119143919.GA3485@tuxdriver.com>
+References: <20081119000719.GA19756@tuxdriver.com> <1ba2fa240811182246m17a6baf0ybde19af030a65819@mail.gmail.com> <1ba2fa240811190134u7974a840i532e8ed0e18f8c72@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020503090806040906040903"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65019 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752692AbYKSO0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 09:26:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+To: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1ba2fa240811190134u7974a840i532e8ed0e18f8c72-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020503090806040906040903
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, Nov 19, 2008 at 11:34:37AM +0200, Tomas Winkler wrote:
+> On Wed, Nov 19, 2008 at 8:46 AM, Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Wed, Nov 19, 2008 at 2:07 AM, John W. Linville
+> > <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
 
-
---------------020503090806040906040903
-Content-Type: text/x-patch;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
-
-commit 9a2114f922015699b3b8402941f9e444f4a84369
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Nov 19 15:25:03 2008 +0100
-
-    pkt_sched: add DRR scheduler
-    
-    Add classful DRR scheduler as a more flexible replacement for SFQ.
-    
-    The main difference to the algorithm described in "Efficient Fair Queueing
-    using Deficit Round Robin" is that this implementation doesn't drop packets
-    from the longest queue on overrun because its classful and limits are
-    handled by each individual child qdisc.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 5d921fa..e3f133a 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -500,4 +500,20 @@ struct tc_netem_corrupt
+> >>      mac80211: remove ieee80211_notify_mac
+> >>      iwlagn: fix RX skb alignment
+> >
+> > IMHO its premature pushing ttese 2 patches up, they came in yestrday
+> > and nobody here has run tthe code
  
- #define NETEM_DIST_SCALE	8192
- 
-+/* DRR */
-+
-+enum
-+{
-+	TCA_DRR_UNSPEC,
-+	TCA_DRR_QUANTUM,
-+	__TCA_DRR_MAX
-+};
-+
-+#define TCA_DRR_MAX	(__TCA_DRR_MAX - 1)
-+
-+struct tc_drr_stats
-+{
-+	u32	deficit;
-+};
-+
- #endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 36543b6..ba31fe3 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -194,6 +194,17 @@ config NET_SCH_NETEM
- 
- 	  If unsure, say N.
- 
-+config NET_SCH_DRR
-+	tristate "Deficit round robing scheduler (DRR)"
-+	help
-+	  Say Y here if you want to use the Deficit round robin (DRR) packet
-+	  scheduling algorithm.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sch_drr.
-+
-+	  If unsure, say N.
-+
- config NET_SCH_INGRESS
- 	tristate "Ingress Qdisc"
- 	depends on NET_CLS_ACT
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 70b35f8..54d950c 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -30,6 +30,7 @@ obj-$(CONFIG_NET_SCH_PRIO)	+= sch_prio.o
- obj-$(CONFIG_NET_SCH_MULTIQ)	+= sch_multiq.o
- obj-$(CONFIG_NET_SCH_ATM)	+= sch_atm.o
- obj-$(CONFIG_NET_SCH_NETEM)	+= sch_netem.o
-+obj-$(CONFIG_NET_SCH_DRR)	+= sch_drr.o
- obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
- obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
- obj-$(CONFIG_NET_CLS_FW)	+= cls_fw.o
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-new file mode 100644
-index 0000000..dd075ef
---- /dev/null
-+++ b/net/sched/sch_drr.c
-@@ -0,0 +1,505 @@
-+/*
-+ * net/sched/sch_drr.c         Deficit Round Robin scheduler
-+ *
-+ * Copyright (c) 2008 Patrick McHardy <kaber@trash.net>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/errno.h>
-+#include <linux/netdevice.h>
-+#include <linux/pkt_sched.h>
-+#include <net/sch_generic.h>
-+#include <net/pkt_sched.h>
-+#include <net/pkt_cls.h>
-+
-+struct drr_class {
-+	struct Qdisc_class_common	common;
-+	unsigned int			refcnt;
-+	unsigned int			filter_cnt;
-+
-+	struct gnet_stats_basic		bstats;
-+	struct gnet_stats_queue		qstats;
-+	struct gnet_stats_rate_est	rate_est;
-+	struct list_head		alist;
-+	struct Qdisc *			qdisc;
-+
-+	u32				quantum;
-+	u32				deficit;
-+};
-+
-+struct drr_sched {
-+	struct list_head		active;
-+	struct tcf_proto *		filter_list;
-+	struct Qdisc_class_hash		clhash;
-+};
-+
-+static struct drr_class *drr_find_class(struct Qdisc *sch, u32 classid)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct Qdisc_class_common *clc;
-+
-+	clc = qdisc_class_find(&q->clhash, classid);
-+	if (clc == NULL)
-+		return NULL;
-+	return container_of(clc, struct drr_class, common);
-+}
-+
-+static void drr_purge_queue(struct drr_class *cl)
-+{
-+	unsigned int len = cl->qdisc->q.qlen;
-+
-+	qdisc_reset(cl->qdisc);
-+	qdisc_tree_decrease_qlen(cl->qdisc, len);
-+}
-+
-+static const struct nla_policy drr_policy[TCA_DRR_MAX + 1] = {
-+	[TCA_DRR_QUANTUM]	= { .type = NLA_U32 },
-+};
-+
-+static int drr_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
-+			    struct nlattr **tca, unsigned long *arg)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl = (struct drr_class *)*arg;
-+	struct nlattr *tb[TCA_DRR_MAX + 1];
-+	u32 quantum;
-+	int err;
-+
-+	err = nla_parse_nested(tb, TCA_DRR_MAX, tca[TCA_OPTIONS], drr_policy);
-+	if (err < 0)
-+		return err;
-+
-+	if (tb[TCA_DRR_QUANTUM]) {
-+		quantum = nla_get_u32(tb[TCA_DRR_QUANTUM]);
-+		if (quantum == 0)
-+			return -EINVAL;
-+	} else
-+		quantum = psched_mtu(qdisc_dev(sch));
-+
-+	if (cl != NULL) {
-+		sch_tree_lock(sch);
-+		if (tb[TCA_DRR_QUANTUM])
-+			cl->quantum = quantum;
-+		sch_tree_unlock(sch);
-+
-+		if (tca[TCA_RATE])
-+			gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+					      qdisc_root_sleeping_lock(sch),
-+					      tca[TCA_RATE]);
-+		return 0;
-+	}
-+
-+	cl = kzalloc(sizeof(struct drr_class), GFP_KERNEL);
-+	if (cl == NULL)
-+		return -ENOBUFS;
-+
-+	cl->refcnt	   = 1;
-+	cl->common.classid = classid;
-+	cl->quantum	   = quantum;
-+	cl->qdisc	   = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
-+					       &pfifo_qdisc_ops, classid);
-+	if (cl->qdisc == NULL)
-+		cl->qdisc = &noop_qdisc;
-+
-+	if (tca[TCA_RATE])
-+		gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+				      qdisc_root_sleeping_lock(sch),
-+				      tca[TCA_RATE]);
-+
-+	sch_tree_lock(sch);
-+	qdisc_class_hash_insert(&q->clhash, &cl->common);
-+	sch_tree_unlock(sch);
-+
-+	qdisc_class_hash_grow(sch, &q->clhash);
-+
-+	*arg = (unsigned long)cl;
-+	return 0;
-+}
-+
-+static void drr_destroy_class(struct Qdisc *sch, struct drr_class *cl)
-+{
-+	gen_kill_estimator(&cl->bstats, &cl->rate_est);
-+	qdisc_destroy(cl->qdisc);
-+	kfree(cl);
-+}
-+
-+static int drr_delete_class(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl = (struct drr_class *)arg;
-+
-+	if (cl->filter_cnt > 0)
-+		return -EBUSY;
-+
-+	sch_tree_lock(sch);
-+
-+	drr_purge_queue(cl);
-+	qdisc_class_hash_remove(&q->clhash, &cl->common);
-+
-+	if (--cl->refcnt == 0)
-+		drr_destroy_class(sch, cl);
-+
-+	sch_tree_unlock(sch);
-+	return 0;
-+}
-+
-+static unsigned long drr_get_class(struct Qdisc *sch, u32 classid)
-+{
-+	struct drr_class *cl = drr_find_class(sch, classid);
-+
-+	if (cl != NULL)
-+		cl->refcnt++;
-+
-+	return (unsigned long)cl;
-+}
-+
-+static void drr_put_class(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct drr_class *cl = (struct drr_class *)arg;
-+
-+	if (--cl->refcnt == 0)
-+		drr_destroy_class(sch, cl);
-+}
-+
-+static struct tcf_proto **drr_tcf_chain(struct Qdisc *sch, unsigned long cl)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+
-+	if (cl)
-+		return NULL;
-+
-+	return &q->filter_list;
-+}
-+
-+static unsigned long drr_bind_tcf(struct Qdisc *sch, unsigned long parent,
-+				  u32 classid)
-+{
-+	struct drr_class *cl = drr_find_class(sch, classid);
-+
-+	if (cl != NULL)
-+		cl->filter_cnt++;
-+
-+	return (unsigned long)cl;
-+}
-+
-+static void drr_unbind_tcf(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct drr_class *cl = (struct drr_class *)arg;
-+
-+	cl->filter_cnt--;
-+}
-+
-+static int drr_graft_class(struct Qdisc *sch, unsigned long arg,
-+			   struct Qdisc *new, struct Qdisc **old)
-+{
-+	struct drr_class *cl = (struct drr_class *)arg;
-+
-+	if (new == NULL) {
-+		new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
-+					&pfifo_qdisc_ops, cl->common.classid);
-+		if (new == NULL)
-+			new = &noop_qdisc;
-+	}
-+
-+	sch_tree_lock(sch);
-+	drr_purge_queue(cl);
-+	*old = xchg(&cl->qdisc, new);
-+	sch_tree_unlock(sch);
-+	return 0;
-+}
-+
-+static struct Qdisc *drr_class_leaf(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct drr_class *cl = (struct drr_class *)arg;
-+
-+	return cl->qdisc;
-+}
-+
-+static void drr_qlen_notify(struct Qdisc *csh, unsigned long arg)
-+{
-+	struct drr_class *cl = (struct drr_class *)arg;
-+
-+	if (cl->qdisc->q.qlen == 0)
-+		list_del(&cl->alist);
-+}
-+
-+static int drr_dump_class(struct Qdisc *sch, unsigned long arg,
-+			  struct sk_buff *skb, struct tcmsg *tcm)
-+{
-+	struct drr_class *cl = (struct drr_class *)arg;
-+	struct nlattr *nest;
-+
-+	tcm->tcm_parent	= TC_H_ROOT;
-+	tcm->tcm_handle	= cl->common.classid;
-+	tcm->tcm_info	= cl->qdisc->handle;
-+
-+	nest = nla_nest_start(skb, TCA_OPTIONS);
-+	if (nest == NULL)
-+		goto nla_put_failure;
-+	NLA_PUT_U32(skb, TCA_DRR_QUANTUM, cl->quantum);
-+	return nla_nest_end(skb, nest);
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nest);
-+	return -EMSGSIZE;
-+}
-+
-+static int drr_dump_class_stats(struct Qdisc *sch, unsigned long arg,
-+				struct gnet_dump *d)
-+{
-+	struct drr_class *cl = (struct drr_class *)arg;
-+	struct tc_drr_stats xstats;
-+	
-+	memset(&xstats, 0, sizeof(xstats));
-+	if (cl->qdisc->q.qlen)
-+		xstats.deficit = cl->deficit;
-+
-+	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
-+	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-+	    gnet_stats_copy_queue(d, &cl->qdisc->qstats) < 0)
-+		return -1;
-+
-+	return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
-+}
-+
-+static void drr_walk(struct Qdisc *sch, struct qdisc_walker *arg)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl;
-+	struct hlist_node *n;
-+	unsigned int i;
-+
-+	if (arg->stop)
-+		return;
-+
-+	for (i = 0; i < q->clhash.hashsize; i++) {
-+		hlist_for_each_entry(cl, n, &q->clhash.hash[i], common.hnode) {
-+			if (arg->count < arg->skip) {
-+				arg->count++;
-+				continue;
-+			}
-+			if (arg->fn(sch, (unsigned long)cl, arg) < 0) {
-+				arg->stop = 1;
-+				return;
-+			}
-+			arg->count++;
-+		}
-+	}
-+}
-+
-+static struct drr_class *drr_classify(struct sk_buff *skb, struct Qdisc *sch,
-+				      int *qerr)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl;
-+	struct tcf_result res;
-+	int result;
-+
-+	if (TC_H_MAJ(skb->priority ^ sch->handle) == 0) {
-+		cl = drr_find_class(sch, skb->priority);
-+		if (cl != NULL)
-+			return cl;
-+	}
-+
-+	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-+	result = tc_classify(skb, q->filter_list, &res);
-+	if (result >= 0) {
-+#ifdef CONFIG_NET_CLS_ACT
-+		switch (result) {
-+		case TC_ACT_QUEUED:
-+		case TC_ACT_STOLEN:
-+			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+		case TC_ACT_SHOT:
-+			return NULL;
-+		}
-+#endif
-+		cl = (struct drr_class *)res.class;
-+		if (cl == NULL)
-+			cl = drr_find_class(sch, res.classid);
-+		return cl;
-+	}
-+	return NULL;
-+}
-+
-+static int drr_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl;
-+	unsigned int len;
-+	int err;
-+
-+	cl = drr_classify(skb, sch, &err);
-+	if (cl == NULL) {
-+		if (err & __NET_XMIT_BYPASS)
-+			sch->qstats.drops++;
-+		kfree_skb(skb);
-+		return err;
-+	}
-+
-+	len = qdisc_pkt_len(skb);
-+	err = qdisc_enqueue(skb, cl->qdisc);
-+	if (unlikely(err != NET_XMIT_SUCCESS)) {
-+		if (net_xmit_drop_count(err)) {
-+			cl->qstats.drops++;
-+			sch->qstats.drops++;
-+		}
-+		return err;
-+	}
-+
-+	if (cl->qdisc->q.qlen == 1) {
-+		list_add_tail(&cl->alist, &q->active);
-+		cl->deficit = cl->quantum;
-+	}
-+
-+	cl->bstats.packets++;
-+	cl->bstats.bytes += len;
-+	sch->bstats.packets++;
-+	sch->bstats.bytes += len;
-+
-+	sch->q.qlen++;
-+	return err;
-+}
-+
-+static struct sk_buff *drr_dequeue(struct Qdisc *sch)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl;
-+	struct sk_buff *skb;
-+	unsigned int len;
-+
-+	while (!list_empty(&q->active)) {
-+		cl = list_first_entry(&q->active, struct drr_class, alist);
-+		skb = cl->qdisc->ops->peek(cl->qdisc);
-+		if (skb == NULL)
-+			goto skip;
-+
-+		len = qdisc_pkt_len(skb);
-+		if (len <= cl->deficit) {
-+			cl->deficit -= len;
-+			skb = qdisc_dequeue_peeked(cl->qdisc);
-+			if (cl->qdisc->q.qlen == 0)
-+				list_del(&cl->alist);
-+			sch->q.qlen--;
-+			return skb;
-+		}
-+
-+		cl->deficit += cl->quantum;
-+skip:
-+		list_move_tail(&cl->alist, &q->active);
-+	}
-+	return NULL;
-+}
-+
-+static unsigned int drr_drop(struct Qdisc *sch)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl;
-+	unsigned int len;
-+
-+	list_for_each_entry(cl, &q->active, alist) {
-+		if (cl->qdisc->ops->drop) {
-+			len = cl->qdisc->ops->drop(cl->qdisc);
-+			if (len > 0) {
-+				if (cl->qdisc->q.qlen == 0)
-+					list_del(&cl->alist);
-+				return len;
-+			}
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int drr_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	int err;
-+
-+	err = qdisc_class_hash_init(&q->clhash);
-+	if (err < 0)
-+		return err;
-+	INIT_LIST_HEAD(&q->active);
-+	return 0;
-+}
-+
-+static void drr_reset_qdisc(struct Qdisc *sch)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl;
-+	struct hlist_node *n;
-+	unsigned int i;
-+
-+	for (i = 0; i < q->clhash.hashsize; i++) {
-+		hlist_for_each_entry(cl, n, &q->clhash.hash[i], common.hnode) {
-+			if (cl->qdisc->q.qlen)
-+				list_del(&cl->alist);
-+			qdisc_reset(cl->qdisc);
-+		}
-+	}
-+	sch->q.qlen = 0;
-+}
-+
-+static void drr_destroy_qdisc(struct Qdisc *sch)
-+{
-+	struct drr_sched *q = qdisc_priv(sch);
-+	struct drr_class *cl;
-+	struct hlist_node *n, *next;
-+	unsigned int i;
-+
-+	tcf_destroy_chain(&q->filter_list);
-+
-+	for (i = 0; i < q->clhash.hashsize; i++) {
-+		hlist_for_each_entry_safe(cl, n, next, &q->clhash.hash[i],
-+					  common.hnode)
-+			drr_destroy_class(sch, cl);
-+	}
-+	qdisc_class_hash_destroy(&q->clhash);
-+}
-+
-+static const struct Qdisc_class_ops drr_class_ops = {
-+	.change		= drr_change_class,
-+	.delete		= drr_delete_class,
-+	.get		= drr_get_class,
-+	.put		= drr_put_class,
-+	.tcf_chain	= drr_tcf_chain,
-+	.bind_tcf	= drr_bind_tcf,
-+	.unbind_tcf	= drr_unbind_tcf,
-+	.graft		= drr_graft_class,
-+	.leaf		= drr_class_leaf,
-+	.qlen_notify	= drr_qlen_notify,
-+	.dump		= drr_dump_class,
-+	.dump_stats	= drr_dump_class_stats,
-+	.walk		= drr_walk,
-+};
-+
-+static struct Qdisc_ops drr_qdisc_ops __read_mostly = {
-+	.cl_ops		= &drr_class_ops,
-+	.id		= "drr",
-+	.priv_size	= sizeof(struct drr_sched),
-+	.enqueue	= drr_enqueue,
-+	.dequeue	= drr_dequeue,
-+	.peek		= qdisc_peek_dequeued,
-+	.drop		= drr_drop,
-+	.init		= drr_init_qdisc,
-+	.reset		= drr_reset_qdisc,
-+	.destroy	= drr_destroy_qdisc,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int __init drr_init(void)
-+{
-+	return register_qdisc(&drr_qdisc_ops);
-+}
-+
-+static void __exit drr_exit(void)
-+{
-+	unregister_qdisc(&drr_qdisc_ops);
-+}
-+
-+module_init(drr_init);
-+module_exit(drr_exit);
-+MODULE_LICENSE("GPL");
+Well, thanks for your opinion.  Here is mine:
 
---------------020503090806040906040903--
+The iwlwifi drivers have been hitting these problems for months,
+and I have seen no effort by your team to address the problems.
+It is possible that your team is working on them behind closed doors
+and will eventually throw something over the wall to us.  I'm tired
+of waiting for that, and I imagine that hordes of iwlagn users are
+tired of waiting as well.
+
+Johannes has presented us with plausible fixes, and people are
+reporting that the patches work for them.  I can merge these patches,
+or wait/hope/pray for some to come from your team.  Experience suggests
+that if fixes do come from your team that they will either be buried
+in some monster patch that largely addresses something else, or
+that the patches will arrive with a changelog that is terse and/or
+unintelligble.  Subsequently, I am not optimistic about waiting.
+
+I think Johannes cited four different bugzilla.kernel.org entries
+between those two patches.  What is your team doing to address
+those bugs?
+
+Obviously, I still think that those patches should be merged.
+
+> Just checked our bug database,  the ieee80211_notify_mac was
+> introduced mainly to overcome HW bug when
+> receiver become deaf  in heavy traffic such as ftp in noisy
+> environment. Otherwise reconnection was too slow to keep ftp going. We
+> need to check whether we are still hitting this before applying
+> removal this function
+
+You are welcome to submit patches that address your hardware issue
+and which do not introduce locking problems.
+
+Thanks,
+
+John
+-- 
+John W. Linville		Linux should be at the core
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			of your literate lifestyle.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
