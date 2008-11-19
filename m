@@ -1,107 +1,356 @@
-From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-11-18
-Date: Wed, 19 Nov 2008 18:51:49 +0200
-Message-ID: <1ba2fa240811190851i5dda6734w10d38b0f27e5ac97@mail.gmail.com>
-References: <20081119000719.GA19756@tuxdriver.com>
-	 <1ba2fa240811182246m17a6baf0ybde19af030a65819@mail.gmail.com>
-	 <1ba2fa240811190134u7974a840i532e8ed0e18f8c72@mail.gmail.com>
-	 <20081119143919.GA3485@tuxdriver.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/3] rcu: Introduce hlist_nulls variant of hlist
+Date: Wed, 19 Nov 2008 09:01:17 -0800
+Message-ID: <20081119170117.GA6753@linux.vnet.ibm.com>
+References: <20081029163739.GB6732@linux.vnet.ibm.com> <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com> <4909D551.9080309@cosmosbay.com> <491C282A.5050802@cosmosbay.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081119143919.GA3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Corey Minyard <minyard@acm.org>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	benny+usenet@amorsen.dk,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Christian Bell <christian@myri.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:43608 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752857AbYKSRBs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 12:01:48 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e8.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mAJGvFXD008713
+	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 11:57:15 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mAJH1K2T173020
+	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 12:01:22 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mAJI1N3d011126
+	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 13:01:25 -0500
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <491C282A.5050802@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2008 at 4:39 PM, John W. Linville
-<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> On Wed, Nov 19, 2008 at 11:34:37AM +0200, Tomas Winkler wrote:
->> On Wed, Nov 19, 2008 at 8:46 AM, Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> > On Wed, Nov 19, 2008 at 2:07 AM, John W. Linville
->> > <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+On Thu, Nov 13, 2008 at 02:14:18PM +0100, Eric Dumazet wrote:
+> hlist uses NULL value to finish a chain.
 >
->> >>      mac80211: remove ieee80211_notify_mac
->> >>      iwlagn: fix RX skb alignment
->> >
->> > IMHO its premature pushing ttese 2 patches up, they came in yestrday
->> > and nobody here has run tthe code
+> hlist_nulls variant use the low order bit set to 1 to signal an end-of-list 
+> marker.
 >
-> Well, thanks for your opinion.  Here is mine:
+> This allows to store many different end markers, so that some RCU lockless
+> algos (used in TCP/UDP stack for example) can save some memory barriers in
+> fast paths.
 >
-> The iwlwifi drivers have been hitting these problems for months,
-> and I have seen no effort by your team to address the problems.
-
-There is a lot of effort to solve this I'm not sure what mailing list
-are u reading.
-We even presented test patches with alignment issues as Johannes few
-month ago but
-we didn't get the feedback that it hit anything. So you are totally off here.
-
-> It is possible that your team is working on them behind closed doors
-> and will eventually throw something over the wall to us.  I'm tired
-> of waiting for that, and I imagine that hordes of iwlagn users are
-> tired of waiting as well.
-
-This is embarrassing also for us that we cannot locate this specific
-problem but it not like we are not doing anything.Not sure there are
-other examples that we are not addressing bugs promptly.
-
-> Johannes has presented us with plausible fixes, and people are
-> reporting that the patches work for them.
-
-I'm not against merging these patches to wireless-testing but pushing
-them upstream before testing them
-is just plainly wrong and all I asked for to test them. You are
-presenting here double standards here.
-
- I can merge these patches,
-> or wait/hope/pray for some to come from your team.  Experience suggests
-> that if fixes do come from your team that they will either be buried
-> in some monster patch that largely addresses something else, or
-> that the patches will arrive with a changelog that is terse and/or
-> unintelligble.  Subsequently, I am not optimistic about waiting.
-
-I've believe that we are addressing all the complains above and
-currently  if you are not seeing this I'm really sorry.
-
-> I think Johannes cited four different bugzilla.kernel.org entries
-> between those two patches.  What is your team doing to address
-> those bugs?
-
-Again you are not reading the mailing list and not the bugs logs.
-
+> Two new files are added :
 >
-> Obviously, I still think that those patches should be merged.
-
-I'm not against just give it day or two to run it.  We have for
-example nightly regression builds with publicly available results why
-you cannot wait till we can run?  I think you've hurried to push it up
-just as a statement forgetting of possible regressions.
-
+> include/linux/list_nulls.h
+>  - mimics hlist part of include/linux/list.h, derived to hlist_nulls 
+> variant
 >
->> Just checked our bug database,  the ieee80211_notify_mac was
->> introduced mainly to overcome HW bug when
->> receiver become deaf  in heavy traffic such as ftp in noisy
->> environment. Otherwise reconnection was too slow to keep ftp going. We
->> need to check whether we are still hitting this before applying
->> removal this function
+> include/linux/rculist_nulls.h
+>  - mimics hlist part of include/linux/rculist.h, derived to hlist_nulls 
+> variant
 >
-> You are welcome to submit patches that address your hardware issue
-> and which do not introduce locking problems.
+>   Only four helpers are declared for the moment :
+>
+>     hlist_nulls_del_init_rcu(), hlist_nulls_del_rcu(),
+>     hlist_nulls_add_head_rcu() and hlist_nulls_for_each_entry_rcu()
+>
+> prefetches() were removed, since an end of list is not anymore NULL value.
+> prefetches() could trigger useless (and possibly dangerous) memory 
+> transactions.
+>
+> Example of use (extracted from __udp4_lib_lookup())
+>
+> 	struct sock *sk, *result;
+>        struct hlist_nulls_node *node;
+>        unsigned short hnum = ntohs(dport);
+>        unsigned int hash = udp_hashfn(net, hnum);
+>        struct udp_hslot *hslot = &udptable->hash[hash];
+>        int score, badness;
+>
+>        rcu_read_lock();
+> begin:
+>        result = NULL;
+>        badness = -1;
+>        sk_nulls_for_each_rcu(sk, node, &hslot->head) {
+>                score = compute_score(sk, net, saddr, hnum, sport,
+>                                      daddr, dport, dif);
+>                if (score > badness) {
+>                        result = sk;
+>                        badness = score;
+>                }
+>        }
+>        /*
+>         * if the nulls value we got at the end of this lookup is
+>         * not the expected one, we must restart lookup.
+>         * We probably met an item that was moved to another chain.
+>         */
+>        if (get_nulls_value(node) != hash)
+>                goto begin;
+>
+>        if (result) {
+>                if (unlikely(!atomic_inc_not_zero(&result->sk_refcnt)))
+>                        result = NULL;
+>                else if (unlikely(compute_score(result, net, saddr, hnum, 
+> sport,
+>                                  daddr, dport, dif) < badness)) {
+>                        sock_put(result);
+>                        goto begin;
+>                }
+>        }
+>        rcu_read_unlock();
+>        return result;
 
-That was my suggestion that we fix it and I believe  we have normal
-discussion about it till you took your eager pushing steps. Replacing
-one regression with another is just not sane.
+Looks good, but a few questions and suggestions interspersed below.
 
-Thanks
-Tomas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+							Thanx, Paul
+
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> ---
+> include/linux/list_nulls.h    |   94 +++++++++++++++++++++++++++
+> include/linux/rculist_nulls.h |  110 ++++++++++++++++++++++++++++++++
+> 2 files changed, 204 insertions(+)
+
+> diff --git a/include/linux/list_nulls.h b/include/linux/list_nulls.h
+> new file mode 100644
+> index 0000000..856dee8
+> --- /dev/null
+> +++ b/include/linux/list_nulls.h
+> @@ -0,0 +1,94 @@
+> +#ifndef _LINUX_LIST_NULLS_H
+> +#define _LINUX_LIST_NULLS_H
+> +
+> +/*
+> + * Special version of lists, where end of list is not a NULL pointer,
+> + * but a 'nulls' marker, which can have many different values.
+> + * (up to 2^31 different values guaranteed on all platforms)
+> + *
+> + * In the standard hlist, termination of a list is the NULL pointer.
+> + * In this special 'nulls' variant, we use the fact that objects stored in
+> + * a list are aligned on a word (4 or 8 bytes alignment).
+> + * We therefore use the last significant bit of 'ptr' :
+> + * Set to 1 : This is a 'nulls' end-of-list marker (ptr >> 1)
+> + * Set to 0 : This is a pointer to some object (ptr)
+> + */
+> +
+> +struct hlist_nulls_head {
+> +	struct hlist_nulls_node *first;
+> +};
+> +
+> +struct hlist_nulls_node {
+> +	struct hlist_nulls_node *next, **pprev;
+> +};
+> +#define INIT_HLIST_NULLS_HEAD(ptr, nulls) \
+> +	((ptr)->first = (struct hlist_nulls_node *) (1UL | (((long)nulls) << 1)))
+> +
+> +#define hlist_nulls_entry(ptr, type, member) container_of(ptr,type,member)
+> +/**
+> + * ptr_is_a_nulls - Test if a ptr is a nulls
+> + * @ptr: ptr to be tested
+> + *
+> + */
+> +static inline int is_a_nulls(const struct hlist_nulls_node *ptr)
+> +{
+> +	return ((unsigned long)ptr & 1);
+> +}
+> +
+> +/**
+> + * get_nulls_value - Get the 'nulls' value of the end of chain
+> + * @ptr: end of chain
+> + *
+> + * Should be called only if is_a_nulls(ptr);
+> + */
+> +static inline unsigned long get_nulls_value(const struct hlist_nulls_node *ptr)
+> +{
+> +	return ((unsigned long)ptr) >> 1;
+> +}
+> +
+> +static inline int hlist_nulls_unhashed(const struct hlist_nulls_node *h)
+> +{
+> +	return !h->pprev;
+> +}
+> +
+> +static inline int hlist_nulls_empty(const struct hlist_nulls_head *h)
+> +{
+> +	return is_a_nulls(h->first);
+> +}
+> +
+> +static inline void __hlist_nulls_del(struct hlist_nulls_node *n)
+> +{
+> +	struct hlist_nulls_node *next = n->next;
+> +	struct hlist_nulls_node **pprev = n->pprev;
+> +	*pprev = next;
+> +	if (!is_a_nulls(next))
+> +		next->pprev = pprev;
+> +}
+> +
+> +/**
+> + * hlist_nulls_for_each_entry	- iterate over list of given type
+> + * @tpos:	the type * to use as a loop cursor.
+> + * @pos:	the &struct hlist_node to use as a loop cursor.
+> + * @head:	the head for your list.
+> + * @member:	the name of the hlist_node within the struct.
+> + *
+> + */
+> +#define hlist_nulls_for_each_entry(tpos, pos, head, member)		       \
+> +	for (pos = (head)->first;					       \
+> +	     (!is_a_nulls(pos)) &&					       \
+> +		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1;}); \
+> +	     pos = pos->next)
+> +
+> +/**
+> + * hlist_nulls_for_each_entry_from - iterate over a hlist continuing from current point
+> + * @tpos:	the type * to use as a loop cursor.
+> + * @pos:	the &struct hlist_node to use as a loop cursor.
+
+And @pos is the starting point, correct?  Suggest something like:
+
+	@pos:	the &struct hlist_node serving as starting point and cursor
+
+> + * @member:	the name of the hlist_node within the struct.
+> + *
+> + */
+> +#define hlist_nulls_for_each_entry_from(tpos, pos, member)	\
+> +	for (; (!is_a_nulls(pos)) && 				\
+> +		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1;}); \
+> +	     pos = pos->next)
+> +
+> +#endif
+> diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
+> new file mode 100644
+> index 0000000..b185ac4
+> --- /dev/null
+> +++ b/include/linux/rculist_nulls.h
+> @@ -0,0 +1,110 @@
+> +#ifndef _LINUX_RCULIST_NULLS_H
+> +#define _LINUX_RCULIST_NULLS_H
+> +
+> +#ifdef __KERNEL__
+> +
+> +/*
+> + * RCU-protected list version
+> + */
+> +#include <linux/list_nulls.h>
+> +#include <linux/rcupdate.h>
+> +
+> +/**
+> + * hlist_nulls_del_init_rcu - deletes entry from hash list with re-initialization
+> + * @n: the element to delete from the hash list.
+> + *
+> + * Note: hlist_nulls_unhashed() on the node return true after this. It is
+> + * useful for RCU based read lockfree traversal if the writer side
+> + * must know if the list entry is still hashed or already unhashed.
+> + *
+> + * In particular, it means that we can not poison the forward pointers
+> + * that may still be used for walking the hash list and we can only
+> + * zero the pprev pointer so list_unhashed() will return true after
+> + * this.
+> + *
+> + * The caller must take whatever precautions are necessary (such as
+> + * holding appropriate locks) to avoid racing with another
+> + * list-mutation primitive, such as hlist_nulls_add_head_rcu() or
+> + * hlist_nulls_del_rcu(), running on this same list.  However, it is
+> + * perfectly legal to run concurrently with the _rcu list-traversal
+> + * primitives, such as hlist_nulls_for_each_entry_rcu().
+> + */
+> +static inline void hlist_nulls_del_init_rcu(struct hlist_nulls_node *n)
+> +{
+> +	if (!hlist_nulls_unhashed(n)) {
+> +		__hlist_nulls_del(n);
+> +		n->pprev = NULL;
+> +	}
+> +}
+
+The point here is to allow an RCU reader to grab the update-side lock
+while holding a reference to an hlist_nulls_node, and then be able to
+blindly call hlist_nulls_del_init_rcu() without having to do any complex
+check to see if the element has already been deleted?
+
+But this only works if each free operation waits for a grace period.
+If using SLAB_DESTROY_BY_RCU, the would-be deleter still needs to
+revalidate after grabbing the update-side lock, right?  Hmmm...
+
+> +
+> +/**
+> + * hlist_nulls_del_rcu - deletes entry from hash list without re-initialization
+> + * @n: the element to delete from the hash list.
+> + *
+> + * Note: hlist_nulls_unhashed() on entry does not return true after this,
+> + * the entry is in an undefined state. It is useful for RCU based
+> + * lockfree traversal.
+> + *
+> + * In particular, it means that we can not poison the forward
+> + * pointers that may still be used for walking the hash list.
+> + *
+> + * The caller must take whatever precautions are necessary
+> + * (such as holding appropriate locks) to avoid racing
+> + * with another list-mutation primitive, such as hlist_nulls_add_head_rcu()
+> + * or hlist_nulls_del_rcu(), running on this same list.
+> + * However, it is perfectly legal to run concurrently with
+> + * the _rcu list-traversal primitives, such as
+> + * hlist_nulls_for_each_entry().
+> + */
+> +static inline void hlist_nulls_del_rcu(struct hlist_nulls_node *n)
+> +{
+> +	__hlist_nulls_del(n);
+> +	n->pprev = LIST_POISON2;
+> +}
+> +
+> +/**
+> + * hlist_nulls_add_head_rcu
+> + * @n: the element to add to the hash list.
+> + * @h: the list to add to.
+> + *
+> + * Description:
+> + * Adds the specified element to the specified hlist_nulls,
+> + * while permitting racing traversals.
+> + *
+> + * The caller must take whatever precautions are necessary
+> + * (such as holding appropriate locks) to avoid racing
+> + * with another list-mutation primitive, such as hlist_nulls_add_head_rcu()
+> + * or hlist_nulls_del_rcu(), running on this same list.
+> + * However, it is perfectly legal to run concurrently with
+> + * the _rcu list-traversal primitives, such as
+> + * hlist_nulls_for_each_entry_rcu(), used to prevent memory-consistency
+> + * problems on Alpha CPUs.  Regardless of the type of CPU, the
+> + * list-traversal primitive must be guarded by rcu_read_lock().
+> + */
+> +static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
+> +					struct hlist_nulls_head *h)
+> +{
+> +	struct hlist_nulls_node *first = h->first;
+> +
+> +	n->next = first;
+> +	n->pprev = &h->first;
+> +	rcu_assign_pointer(h->first, n);
+> +	if (!is_a_nulls(first))
+> +		first->pprev = &n->next;
+> +}
+> +/**
+> + * hlist_nulls_for_each_entry_rcu - iterate over rcu list of given type
+> + * @tpos:	the type * to use as a loop cursor.
+> + * @pos:	the &struct hlist_nulls_node to use as a loop cursor.
+> + * @head:	the head for your list.
+> + * @member:	the name of the hlist_nulls_node within the struct.
+> + *
+> + */
+> +#define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member) \
+> +	for (pos = rcu_dereference((head)->first);			 \
+> +		(!is_a_nulls(pos)) && 			\
+> +		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
+> +		pos = rcu_dereference(pos->next))
+> +
+> +#endif
+> +#endif
+
+Any chance of using a trick like Oleg used to get rid of the "pos"
+argument?  http://lkml.org/lkml/2008/3/12/47
+
+The hlist_nulls_node must always be at an even address, correct?
+Couldn't this fact be used to allow testing for is_a_nulls() on tpos
+rather than on pos?  Or is there a better way to approach this?
