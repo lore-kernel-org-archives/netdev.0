@@ -1,356 +1,267 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/3] rcu: Introduce hlist_nulls variant of hlist
-Date: Wed, 19 Nov 2008 09:01:17 -0800
-Message-ID: <20081119170117.GA6753@linux.vnet.ibm.com>
-References: <20081029163739.GB6732@linux.vnet.ibm.com> <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com> <4909D551.9080309@cosmosbay.com> <491C282A.5050802@cosmosbay.com>
+Subject: Re: [PATCH 4/3] rcu: documents rculist_nulls
+Date: Wed, 19 Nov 2008 09:07:03 -0800
+Message-ID: <20081119170703.GB6753@linux.vnet.ibm.com>
+References: <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com> <4909D551.9080309@cosmosbay.com> <491C282A.5050802@cosmosbay.com> <1226582997.7685.4786.camel@twins> <491C2F27.2000908@cosmosbay.com> <491C4FA8.4020704@cosmosbay.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Corey Minyard <minyard@acm.org>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	David Miller <davem@davemloft.net>,
+	Corey Minyard <minyard@acm.org>,
 	Stephen Hemminger <shemminger@vyatta.com>,
 	benny+usenet@amorsen.dk,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Christoph Lameter <cl@linux-foundation.org>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Christian Bell <christian@myri.com>
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:43608 "EHLO e8.ny.us.ibm.com"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:44640 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752857AbYKSRBs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2008 12:01:48 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e8.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mAJGvFXD008713
-	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 11:57:15 -0500
+	id S1751917AbYKSRHJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 12:07:09 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mAJH6oWj009995
+	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 12:06:50 -0500
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mAJH1K2T173020
-	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 12:01:22 -0500
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mAJH75Br159104
+	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 12:07:05 -0500
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mAJI1N3d011126
-	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 13:01:25 -0500
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mAJI79NE008497
+	for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 13:07:11 -0500
 Content-Disposition: inline
-In-Reply-To: <491C282A.5050802@cosmosbay.com>
+In-Reply-To: <491C4FA8.4020704@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 13, 2008 at 02:14:18PM +0100, Eric Dumazet wrote:
-> hlist uses NULL value to finish a chain.
+On Thu, Nov 13, 2008 at 05:02:48PM +0100, Eric Dumazet wrote:
+> Eric Dumazet a =E9crit :
+>> Peter Zijlstra a =E9crit :
+>>> So by not using some memory barriers (would be nice to have it
+>>> illustrated which ones), we can race and end up on the wrong chain,=
+ in
+>>> case that happens we detect this by using this per-chain terminator=
+ and
+>>> try again.
+>>>
+>>> It would be really good to have it explained in the rculist_nulls.h
+>>> comments what memory barriers are missing, what races they open, an=
+d how
+>>> the this special terminator trick closes that race.
+>> OK, maybe I should add a Documentation/RCU/rculist_nulls.txt file wi=
+th
+>> appropriate examples and documentation.
+>> (Say the lookup/insert algorithms, with standard hlist and memory=20
+>> barriers,
+>> and with hlist_nulls without those two memory barriers.
 >
-> hlist_nulls variant use the low order bit set to 1 to signal an end-of-list 
-> marker.
->
-> This allows to store many different end markers, so that some RCU lockless
-> algos (used in TCP/UDP stack for example) can save some memory barriers in
-> fast paths.
->
-> Two new files are added :
->
-> include/linux/list_nulls.h
->  - mimics hlist part of include/linux/list.h, derived to hlist_nulls 
-> variant
->
-> include/linux/rculist_nulls.h
->  - mimics hlist part of include/linux/rculist.h, derived to hlist_nulls 
-> variant
->
->   Only four helpers are declared for the moment :
->
->     hlist_nulls_del_init_rcu(), hlist_nulls_del_rcu(),
->     hlist_nulls_add_head_rcu() and hlist_nulls_for_each_entry_rcu()
->
-> prefetches() were removed, since an end of list is not anymore NULL value.
-> prefetches() could trigger useless (and possibly dangerous) memory 
-> transactions.
->
-> Example of use (extracted from __udp4_lib_lookup())
->
-> 	struct sock *sk, *result;
->        struct hlist_nulls_node *node;
->        unsigned short hnum = ntohs(dport);
->        unsigned int hash = udp_hashfn(net, hnum);
->        struct udp_hslot *hslot = &udptable->hash[hash];
->        int score, badness;
->
->        rcu_read_lock();
-> begin:
->        result = NULL;
->        badness = -1;
->        sk_nulls_for_each_rcu(sk, node, &hslot->head) {
->                score = compute_score(sk, net, saddr, hnum, sport,
->                                      daddr, dport, dif);
->                if (score > badness) {
->                        result = sk;
->                        badness = score;
->                }
->        }
->        /*
->         * if the nulls value we got at the end of this lookup is
->         * not the expected one, we must restart lookup.
->         * We probably met an item that was moved to another chain.
->         */
->        if (get_nulls_value(node) != hash)
->                goto begin;
->
->        if (result) {
->                if (unlikely(!atomic_inc_not_zero(&result->sk_refcnt)))
->                        result = NULL;
->                else if (unlikely(compute_score(result, net, saddr, hnum, 
-> sport,
->                                  daddr, dport, dif) < badness)) {
->                        sock_put(result);
->                        goto begin;
->                }
->        }
->        rcu_read_unlock();
->        return result;
+> [PATCH 4/3] rcu: documents rculist_nulls
 
-Looks good, but a few questions and suggestions interspersed below.
+Very good -- only one small suggestion below.
 
-							Thanx, Paul
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
+> Adds Documentation/RCU/rculist_nulls.txt file to describe how 'nulls'
+> end-of-list can help in some RCU algos.
+>
+>
 > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 > ---
-> include/linux/list_nulls.h    |   94 +++++++++++++++++++++++++++
-> include/linux/rculist_nulls.h |  110 ++++++++++++++++++++++++++++++++
-> 2 files changed, 204 insertions(+)
+> Documentation/RCU/rculist_nulls.txt |  167 ++++++++++++++++++++++++++
+> 1 files changed, 167 insertions(+)
 
-> diff --git a/include/linux/list_nulls.h b/include/linux/list_nulls.h
+> diff --git a/Documentation/RCU/rculist_nulls.txt b/Documentation/RCU/=
+rculist_nulls.txt
 > new file mode 100644
-> index 0000000..856dee8
+> index 0000000..5db5549
 > --- /dev/null
-> +++ b/include/linux/list_nulls.h
-> @@ -0,0 +1,94 @@
-> +#ifndef _LINUX_LIST_NULLS_H
-> +#define _LINUX_LIST_NULLS_H
+> +++ b/Documentation/RCU/rculist_nulls.txt
+> @@ -0,0 +1,167 @@
+> +Using hlist_nulls to protect read-mostly linked lists and
+> +objects using SLAB_DESTROY_BY_RCU allocations.
+> +
+> +Please read the basics in Documentation/RCU/listRCU.txt
+> +
+> +Using special makers (called 'nulls') is a convenient way
+> +to solve following problem :
+> +
+> +A typical RCU linked list managing objects which are
+> +allocated with SLAB_DESTROY_BY_RCU kmem_cache can
+> +use following algos :
+> +
+> +1) Lookup algo
+> +--------------
+> +rcu_read_lock()
+> +begin:
+> +obj =3D lockless_lookup(key);
+> +if (obj) {
+> +  if (!try_get_ref(obj)) // might fail for free objects
+> +    goto begin;
+> +  /*
+> +   * Because a writer could delete object, and a writer could
+> +   * reuse these object before the RCU grace period, we
+> +   * must check key after geting the reference on object
+> +   */
+> +  if (obj->key !=3D key) { // not the object we expected
+
+In some cases, a "generation number" will be needed.  For example, ther=
+e
+are algorithms that must detect when an object has been removed and the=
+n
+re-inserted with the same key.  One increments the generation number
+on each free and sometimes also on each allocation.
+
+> +     put_ref(obj);
+> +     goto begin;
+> +   }
+> +}
+> +rcu_read_unlock();
+> +
+> +Beware that lockless_lookup(key) cannot use traditional hlist_for_ea=
+ch_entry_rcu()
+> +but a version with an additional memory barrier (smp_rmb())
+> +
+> +lockless_lookup(key)
+> +{
+> +   struct hlist_node *node, *next;
+> +   for (pos =3D rcu_dereference((head)->first);
+> +          pos && ({ next =3D pos->next; smp_rmb(); prefetch(next); 1=
+; }) &&
+> +          ({ tpos =3D hlist_entry(pos, typeof(*tpos), member); 1; })=
+;=20
+> +          pos =3D rcu_dereference(next))
+> +      if (obj->key =3D=3D key)
+> +         return obj;
+> +   return NULL;
+> +
+> +And note the traditional hlist_for_each_entry_rcu() misses this smp_=
+rmb() :
+> +
+> +   struct hlist_node *node;
+> +   for (pos =3D rcu_dereference((head)->first);
+> +		pos && ({ prefetch(pos->next); 1; }) &&
+> +		({ tpos =3D hlist_entry(pos, typeof(*tpos), member); 1; });
+> +		pos =3D rcu_dereference(pos->next))
+> +      if (obj->key =3D=3D key)
+> +         return obj;
+> +   return NULL;
+> +}
+> +
+> +Quoting Corey Minyard :
+> +
+> +"If the object is moved from one list to another list in-between the
+> + time the hash is calculated and the next field is accessed, and the
+> + object has moved to the end of a new list, the traversal will not
+> + complete properly on the list it should have, since the object will
+> + be on the end of the new list and there's not a way to tell it's on=
+ a
+> + new list and restart the list traversal.  I think that this can be
+> + solved by pre-fetching the "next" field (with proper barriers) befo=
+re
+> + checking the key."
+> +
+> +2) Insert algo :
+> +----------------
+> +
+> +We need to make sure a reader cannot read the new 'obj->obj_next' va=
+lue
+> +and previous value of 'obj->key'. Or else, an item could be deleted
+> +from a chain, and inserted into another chain. If new chain was empt=
+y
+> +before the move, 'next' pointer is NULL, and lockless reader can
+> +not detect it missed following items in original chain.
 > +
 > +/*
-> + * Special version of lists, where end of list is not a NULL pointer,
-> + * but a 'nulls' marker, which can have many different values.
-> + * (up to 2^31 different values guaranteed on all platforms)
-> + *
-> + * In the standard hlist, termination of a list is the NULL pointer.
-> + * In this special 'nulls' variant, we use the fact that objects stored in
-> + * a list are aligned on a word (4 or 8 bytes alignment).
-> + * We therefore use the last significant bit of 'ptr' :
-> + * Set to 1 : This is a 'nulls' end-of-list marker (ptr >> 1)
-> + * Set to 0 : This is a pointer to some object (ptr)
+> + * Please note that new inserts are done at the head of list,
+> + * not in the middle or end.
 > + */
-> +
-> +struct hlist_nulls_head {
-> +	struct hlist_nulls_node *first;
-> +};
-> +
-> +struct hlist_nulls_node {
-> +	struct hlist_nulls_node *next, **pprev;
-> +};
-> +#define INIT_HLIST_NULLS_HEAD(ptr, nulls) \
-> +	((ptr)->first = (struct hlist_nulls_node *) (1UL | (((long)nulls) << 1)))
-> +
-> +#define hlist_nulls_entry(ptr, type, member) container_of(ptr,type,member)
-> +/**
-> + * ptr_is_a_nulls - Test if a ptr is a nulls
-> + * @ptr: ptr to be tested
-> + *
+> +obj =3D kmem_cache_alloc(...);
+> +lock_chain(); // typically a spin_lock()
+> +obj->key =3D key;
+> +atomic_inc(&obj->refcnt);
+> +/*
+> + * we need to make sure obj->key is updated before obj->next
 > + */
-> +static inline int is_a_nulls(const struct hlist_nulls_node *ptr)
-> +{
-> +	return ((unsigned long)ptr & 1);
+> +smp_wmb();
+> +hlist_add_head_rcu(&obj->obj_node, list);
+> +unlock_chain(); // typically a spin_unlock()
+> +
+> +
+> +3) Remove algo
+> +--------------
+> +Nothing special here, we can use a standard RCU hlist deletion.
+> +But thanks to SLAB_DESTROY_BY_RCU, beware a deleted object can be re=
+used=20
+> +very very fast (before the end of RCU grace period)
+> +
+> +if (put_last_reference_on(obj) {
+> +   lock_chain(); // typically a spin_lock()
+> +   hlist_del_init_rcu(&obj->obj_node);
+> +   unlock_chain(); // typically a spin_unlock()
+> +   kmem_cache_free(cachep, obj);
 > +}
 > +
-> +/**
-> + * get_nulls_value - Get the 'nulls' value of the end of chain
-> + * @ptr: end of chain
-> + *
-> + * Should be called only if is_a_nulls(ptr);
+> +
+> +
+> +--------------------------------------------------------------------=
+------
+> +With hlist_nulls we can avoid extra smp_rmb() in lockless_lookup()
+> +and extra smp_wmb() in insert function.
+> +
+> +For example, if we choose to store the slot number as the 'nulls'
+> +end-of-list marker for each slot of the hash table, we can detect
+> +a race (some writer did a delete and/or a move of an object
+> +to another chain) checking the final 'nulls' value if
+> +the lookup met the end of chain. If final 'nulls' value
+> +is not the slot number, then we must restart the lookup at
+> +the begining. If the object was moved to same chain,
+> +then the reader doesnt care : It might eventually
+> +scan the list again without harm.
+> +
+> +
+> +1) lookup algo
+> +
+> + head =3D &table[slot];
+> + rcu_read_lock();
+> +begin:
+> + hlist_nulls_for_each_entry_rcu(obj, node, head, member) {
+> +   if (obj->key =3D=3D key) {
+> +      if (!try_get_ref(obj)) // might fail for free objects
+> +         goto begin;
+> +      if (obj->key !=3D key) { // not the object we expected
+> +         put_ref(obj);
+> +         goto begin;
+> +      }
+> +  goto out;
+> + }
+> +/*
+> + * if the nulls value we got at the end of this lookup is
+> + * not the expected one, we must restart lookup.
+> + * We probably met an item that was moved to another chain.
 > + */
-> +static inline unsigned long get_nulls_value(const struct hlist_nulls_node *ptr)
-> +{
-> +	return ((unsigned long)ptr) >> 1;
-> +}
+> + if (get_nulls_value(node) !=3D slot)
+> +   goto begin;
+> + obj =3D NULL;
 > +
-> +static inline int hlist_nulls_unhashed(const struct hlist_nulls_node *h)
-> +{
-> +	return !h->pprev;
-> +}
+> +out:
+> + rcu_read_unlock();
 > +
-> +static inline int hlist_nulls_empty(const struct hlist_nulls_head *h)
-> +{
-> +	return is_a_nulls(h->first);
-> +}
-> +
-> +static inline void __hlist_nulls_del(struct hlist_nulls_node *n)
-> +{
-> +	struct hlist_nulls_node *next = n->next;
-> +	struct hlist_nulls_node **pprev = n->pprev;
-> +	*pprev = next;
-> +	if (!is_a_nulls(next))
-> +		next->pprev = pprev;
-> +}
-> +
-> +/**
-> + * hlist_nulls_for_each_entry	- iterate over list of given type
-> + * @tpos:	the type * to use as a loop cursor.
-> + * @pos:	the &struct hlist_node to use as a loop cursor.
-> + * @head:	the head for your list.
-> + * @member:	the name of the hlist_node within the struct.
-> + *
-> + */
-> +#define hlist_nulls_for_each_entry(tpos, pos, head, member)		       \
-> +	for (pos = (head)->first;					       \
-> +	     (!is_a_nulls(pos)) &&					       \
-> +		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1;}); \
-> +	     pos = pos->next)
-> +
-> +/**
-> + * hlist_nulls_for_each_entry_from - iterate over a hlist continuing from current point
-> + * @tpos:	the type * to use as a loop cursor.
-> + * @pos:	the &struct hlist_node to use as a loop cursor.
-
-And @pos is the starting point, correct?  Suggest something like:
-
-	@pos:	the &struct hlist_node serving as starting point and cursor
-
-> + * @member:	the name of the hlist_node within the struct.
-> + *
-> + */
-> +#define hlist_nulls_for_each_entry_from(tpos, pos, member)	\
-> +	for (; (!is_a_nulls(pos)) && 				\
-> +		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1;}); \
-> +	     pos = pos->next)
-> +
-> +#endif
-> diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
-> new file mode 100644
-> index 0000000..b185ac4
-> --- /dev/null
-> +++ b/include/linux/rculist_nulls.h
-> @@ -0,0 +1,110 @@
-> +#ifndef _LINUX_RCULIST_NULLS_H
-> +#define _LINUX_RCULIST_NULLS_H
-> +
-> +#ifdef __KERNEL__
+> +2) Insert function :
+> +--------------------
 > +
 > +/*
-> + * RCU-protected list version
+> + * Please note that new inserts are done at the head of list,
+> + * not in the middle or end.
 > + */
-> +#include <linux/list_nulls.h>
-> +#include <linux/rcupdate.h>
-> +
-> +/**
-> + * hlist_nulls_del_init_rcu - deletes entry from hash list with re-initialization
-> + * @n: the element to delete from the hash list.
-> + *
-> + * Note: hlist_nulls_unhashed() on the node return true after this. It is
-> + * useful for RCU based read lockfree traversal if the writer side
-> + * must know if the list entry is still hashed or already unhashed.
-> + *
-> + * In particular, it means that we can not poison the forward pointers
-> + * that may still be used for walking the hash list and we can only
-> + * zero the pprev pointer so list_unhashed() will return true after
-> + * this.
-> + *
-> + * The caller must take whatever precautions are necessary (such as
-> + * holding appropriate locks) to avoid racing with another
-> + * list-mutation primitive, such as hlist_nulls_add_head_rcu() or
-> + * hlist_nulls_del_rcu(), running on this same list.  However, it is
-> + * perfectly legal to run concurrently with the _rcu list-traversal
-> + * primitives, such as hlist_nulls_for_each_entry_rcu().
+> +obj =3D kmem_cache_alloc(cachep);
+> +lock_chain(); // typically a spin_lock()
+> +obj->key =3D key;
+> +atomic_set(&obj->refcnt, 1);
+> +/*
+> + * insert obj in RCU way (readers might be traversing chain)
 > + */
-> +static inline void hlist_nulls_del_init_rcu(struct hlist_nulls_node *n)
-> +{
-> +	if (!hlist_nulls_unhashed(n)) {
-> +		__hlist_nulls_del(n);
-> +		n->pprev = NULL;
-> +	}
-> +}
+> +hlist_nulls_add_head_rcu(&obj->obj_node, list);
+> +unlock_chain(); // typically a spin_unlock()
 
-The point here is to allow an RCU reader to grab the update-side lock
-while holding a reference to an hlist_nulls_node, and then be able to
-blindly call hlist_nulls_del_init_rcu() without having to do any complex
-check to see if the element has already been deleted?
-
-But this only works if each free operation waits for a grace period.
-If using SLAB_DESTROY_BY_RCU, the would-be deleter still needs to
-revalidate after grabbing the update-side lock, right?  Hmmm...
-
-> +
-> +/**
-> + * hlist_nulls_del_rcu - deletes entry from hash list without re-initialization
-> + * @n: the element to delete from the hash list.
-> + *
-> + * Note: hlist_nulls_unhashed() on entry does not return true after this,
-> + * the entry is in an undefined state. It is useful for RCU based
-> + * lockfree traversal.
-> + *
-> + * In particular, it means that we can not poison the forward
-> + * pointers that may still be used for walking the hash list.
-> + *
-> + * The caller must take whatever precautions are necessary
-> + * (such as holding appropriate locks) to avoid racing
-> + * with another list-mutation primitive, such as hlist_nulls_add_head_rcu()
-> + * or hlist_nulls_del_rcu(), running on this same list.
-> + * However, it is perfectly legal to run concurrently with
-> + * the _rcu list-traversal primitives, such as
-> + * hlist_nulls_for_each_entry().
-> + */
-> +static inline void hlist_nulls_del_rcu(struct hlist_nulls_node *n)
-> +{
-> +	__hlist_nulls_del(n);
-> +	n->pprev = LIST_POISON2;
-> +}
-> +
-> +/**
-> + * hlist_nulls_add_head_rcu
-> + * @n: the element to add to the hash list.
-> + * @h: the list to add to.
-> + *
-> + * Description:
-> + * Adds the specified element to the specified hlist_nulls,
-> + * while permitting racing traversals.
-> + *
-> + * The caller must take whatever precautions are necessary
-> + * (such as holding appropriate locks) to avoid racing
-> + * with another list-mutation primitive, such as hlist_nulls_add_head_rcu()
-> + * or hlist_nulls_del_rcu(), running on this same list.
-> + * However, it is perfectly legal to run concurrently with
-> + * the _rcu list-traversal primitives, such as
-> + * hlist_nulls_for_each_entry_rcu(), used to prevent memory-consistency
-> + * problems on Alpha CPUs.  Regardless of the type of CPU, the
-> + * list-traversal primitive must be guarded by rcu_read_lock().
-> + */
-> +static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
-> +					struct hlist_nulls_head *h)
-> +{
-> +	struct hlist_nulls_node *first = h->first;
-> +
-> +	n->next = first;
-> +	n->pprev = &h->first;
-> +	rcu_assign_pointer(h->first, n);
-> +	if (!is_a_nulls(first))
-> +		first->pprev = &n->next;
-> +}
-> +/**
-> + * hlist_nulls_for_each_entry_rcu - iterate over rcu list of given type
-> + * @tpos:	the type * to use as a loop cursor.
-> + * @pos:	the &struct hlist_nulls_node to use as a loop cursor.
-> + * @head:	the head for your list.
-> + * @member:	the name of the hlist_nulls_node within the struct.
-> + *
-> + */
-> +#define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member) \
-> +	for (pos = rcu_dereference((head)->first);			 \
-> +		(!is_a_nulls(pos)) && 			\
-> +		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
-> +		pos = rcu_dereference(pos->next))
-> +
-> +#endif
-> +#endif
-
-Any chance of using a trick like Oleg used to get rid of the "pos"
-argument?  http://lkml.org/lkml/2008/3/12/47
-
-The hlist_nulls_node must always be at an even address, correct?
-Couldn't this fact be used to allow testing for is_a_nulls() on tpos
-rather than on pos?  Or is there a better way to approach this?
