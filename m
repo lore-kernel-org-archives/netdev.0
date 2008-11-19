@@ -1,50 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NIU driver: Sun x8 Express Quad Gigabit Ethernet Adapter (perf
- + regression IRQs)
-Date: Wed, 19 Nov 2008 15:11:38 -0800 (PST)
-Message-ID: <20081119.151138.93409143.davem@davemloft.net>
-References: <1226572171.6834.87.camel@localhost.localdomain>
-	<20081113.141513.116537651.davem@davemloft.net>
-	<Pine.LNX.4.64.0811192333130.30818@ask.diku.dk>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] net: make ip_rt_acct a normal percpu var
+Date: Thu, 20 Nov 2008 09:43:21 +1030
+Message-ID: <200811200943.21410.rusty@rustcorp.com.au>
+References: <200811172050.31308.rusty@rustcorp.com.au> <200811190208.11346.rusty@rustcorp.com.au> <20081119.142023.117741600.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jdb@comx.dk, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: hawk@diku.dk
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46501
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753104AbYKSXLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 18:11:38 -0500
-In-Reply-To: <Pine.LNX.4.64.0811192333130.30818@ask.diku.dk>
+Received: from ozlabs.org ([203.10.76.45]:46968 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751929AbYKSXNc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 18:13:32 -0500
+In-Reply-To: <20081119.142023.117741600.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Date: Wed, 19 Nov 2008 23:58:12 +0100 (CET)
+On Thursday 20 November 2008 08:50:23 David Miller wrote:
+> Do you really need this to forward some work you are doing?  If not
+> can we just let sleeping dogs lie on this one? :)
 
-> Well that was not the real cause of the performance loss.  Because
-> on kernel 2.6.27 I get really good performance (900-1200kpps)
-> compared to 2.6.28 (git net-2.6).
->
-> The cause of this problem (tracked down together with Robert Olsson)
-> is that on 2.6.28 I have a lot less IRQs available.  It seems max 34
-> IRQs.
->
-> Due the reduced number of IRQs the NIU driver cannot get enough IRQs
-> to the interfaces, and starts to use "IO-APIC" based IRQs.
+Yes, I have patches to convert the dynamic percpu data to use the same 
+mechanism as static percpu data.  Unfortunately we don't have a mechanism for 
+enlarging the percpu region (which is why this wasn't done earlier), so we use 
+a heuristic to figure out how much extra percpu region to allocate at boot.
 
-This is almost certainly related to the driver unload bug.
+And 4k makes this one of the Big Pigs in dynamic per-cpu allocations.
 
-I know you ran into unbuildable/unbootable kernels during a bisect,
-but you really need to track down this regression.
+(SNMP mibs are even worse, but that's a separate debate...)
 
-There were a lot of IRQ changes, especially on x86.  The sequence is
-something like:
+I can try to implement a bss-like DEFINE_PER_CPU_ZERO(), but it seems silly to 
+talk about tight boot loader size restrictions for SMP kernels.
 
-1) dyn irqs
-2) APIC/IO_APIC handling integration
-3) by-hand REVERT of dyn irqs, it was done by hand in order to not
-   lose the #2 changes
-4) interrupt remapping support
-
+Cheers,
+Rusty.
