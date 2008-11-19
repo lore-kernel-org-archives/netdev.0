@@ -1,103 +1,74 @@
-From: David Miller <davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [PATCH] netconsole: Disable softirqs in write_msg()
-Date: Wed, 19 Nov 2008 02:10:45 -0800 (PST)
-Message-ID: <20081119.021045.222679286.davem@davemloft.net>
-References: <87y6zwwy5c.fsf@tac.ki.iif.hu>
-	<20081119084106.GA6699@ff.dom.local>
+Date: Wed, 19 Nov 2008 11:14:41 +0100
+Message-ID: <20081119101441.GB6184@elte.hu>
+References: <87y6zwwy5c.fsf@tac.ki.iif.hu> <20081119084106.GA6699@ff.dom.local> <20081119093004.GD22309@elte.hu> <20081119.014222.193698982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, mingo@elte.hu, johannes@sipsolutions.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, jeff@garzik.org, johannes@sipsolutions.net,
 	wferi@niif.hu, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jarkao2@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56173
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752517AbYKSKKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 05:10:45 -0500
-In-Reply-To: <20081119084106.GA6699@ff.dom.local>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:39315 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752709AbYKSKO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 05:14:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20081119.014222.193698982.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 19 Nov 2008 08:41:06 +0000
 
-> This report: http://marc.info/?l=linux-netdev&m=122599341430090&w=2
-> shows local_bh_enable() is used in the wrong context (irqs disabled).
-> It happens when a usual network path is called by netconsole, which
-> simply turns off hardirqs around this all.
+* David Miller <davem@davemloft.net> wrote:
 
-This backtrace call path is anything but "usual".
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Wed, 19 Nov 2008 10:30:04 +0100
+> 
+> > * Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > 
+> > > diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> > > index d304d38..f6ecad8 100644
+> > > --- a/drivers/net/netconsole.c
+> > > +++ b/drivers/net/netconsole.c
+> > > @@ -702,6 +702,8 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
+> > >  	if (list_empty(&target_list))
+> > >  		return;
+> > >  
+> > > +	/* Avoid enabling softirqs with hardirqs disabled */
+> > > +	local_bh_disable();
+> > >  	spin_lock_irqsave(&target_list_lock, flags);
+> > >  	list_for_each_entry(nt, &target_list, list) {
+> > >  		netconsole_target_get(nt);
+> > > @@ -723,6 +725,7 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
+> > >  		netconsole_target_put(nt);
+> > >  	}
+> > >  	spin_unlock_irqrestore(&target_list_lock, flags);
+> > > +	local_bh_enable();
+> > 
+> > but netconsole can be triggered from printk - and printk can be called 
+> > from hardirqs-off sections - so this doesnt really fix the bug. 
+> > Netconsole should not do BH processing.
+> 
+> Well, it sort of "has to".  It calls the NAPI ->poll() method of the 
+> driver to try and make forward progress with TX reclaim so it can 
+> send new messages.
+> 
+> It is very careful not to recursively invoke into ->poll() and other 
+> nasty situations.
+> 
+> Didn't you write some of this code Ingo a very long time ago? :-)))
 
-There is a UDP send, and a local_bh_enable() done there triggers
-softirqs, which processes device (I would guess loopback, or
-some non-NAPI device) backlog processing.
+it is causing problems, so i'd like to distance myself from that 
+careless mistake of my youth! [ And once it starts working again i'd 
+like to take credit for having started that brilliant piece of 
+innovation. ]
 
-This triggers an input netfilter ipt_LOG rule, which triggers a
-printk over netconsole.
+> Anyways, I'll look more closely at this and the original report, 
+> this never was a problem before.
 
-netpoll finds the TX queue of the tg3 device (which is NAPI)
-full, so it invokes ->poll() to try and free up some TX queue
-space.
+Thanks! We strengthened/cleaned up the bh checks a tiny bit recently, 
+maybe that caused this to pop up. It might explain some netconsole 
+lockups perhaps? Or, the new warning might be bogus. It's a bit of a 
+maze.
 
-This in turn triggers a packet receive, which hits bridging netfilter,
-which does a conntrack lookup, which does the BH disable/enable which
-triggers the warning.
-
-I mean, this is just a very crazy trace :-)
-
-I see an easy way around this.  We should just punt on non-netpoll
-RX packets that try to get processed during a netconsole ->poll()
-run.
-
-Wait a second, this is _supposed_ to be already happening.  Perhaps
-the tests in netpoll_rx() are screwed up.
-
-net/core/netpoll.c'd poll_one_napi() explicitly sets NETPOLL_RX_DROP
-in npinfo->rx_flags as well as increment "trapped", and that is
-supposed to make netpoll_rx() return non-zero which tells the caller
-to ignore and drop all RX packets.
-
-What isn't that happening?
-
-netpoll_rx()'s test is:
-
-	if (!npinfo || (!npinfo->rx_np && !npinfo->rx_flags))
-		return 0;
-
-which looks perfectly fine.  npinfo will be non-NULL by definition
-because we are doing netpoll for netconsole on this device, and
-->rx_flags are non-zero by the above mentioned code.
-
-So we get to __netpoll_rx() by the next bit of code.
-
-	if (npinfo->rx_flags && __netpoll_rx(skb))
-		ret = 1;
-
-And __netpoll_rx() says:
-
-	struct netpoll *np = npi->rx_np;
-
-	if (!np)
-		goto out;
-
-this should trigger because a netpoll RX agent shouldn't be attached,
-then:
-
-out:
-	if (atomic_read(&trapped)) {
-		kfree_skb(skb);
-		return 1;
-	}
-
-	return 0;
-
-which should trigger because trapped is non-zero, thus we free the SKB
-and return 1.
-
-We need to figure out why this isn't working properly.  Maybe it's some
-bug we fixed, or some weird change in the SUSE Xen mods this used has
-applied.
-
-I also took a quick look at 2.6.26.6 and I don't see any bugs in this
-area there.
+	Ingo
