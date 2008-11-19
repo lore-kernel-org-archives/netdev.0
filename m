@@ -1,165 +1,54 @@
-From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-11-18
-Date: Wed, 19 Nov 2008 23:55:15 +0200
-Message-ID: <1ba2fa240811191355p7218dd84j8517d9ff4bab4e0b@mail.gmail.com>
-References: <20081119000719.GA19756@tuxdriver.com>
-	 <1ba2fa240811182246m17a6baf0ybde19af030a65819@mail.gmail.com>
-	 <1ba2fa240811190134u7974a840i532e8ed0e18f8c72@mail.gmail.com>
-	 <20081119143919.GA3485@tuxdriver.com>
-	 <1ba2fa240811190851i5dda6734w10d38b0f27e5ac97@mail.gmail.com>
-	 <20081119185340.GC3485@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/33] Network Devices Ops (v0.3)
+Date: Wed, 19 Nov 2008 14:04:44 -0800 (PST)
+Message-ID: <20081119.140444.179873784.davem@davemloft.net>
+References: <9929d2390811171727m14571c8bg64909d346a3753a0@mail.gmail.com>
+	<20081117173558.7d861bcf@extreme>
+	<9929d2390811191355k247ac638l4cb98f9c3cdc237f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081119185340.GC3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53292
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750716AbYKSWEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 17:04:45 -0500
+In-Reply-To: <9929d2390811191355k247ac638l4cb98f9c3cdc237f@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2008 at 8:53 PM, John W. Linville
-<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> On Wed, Nov 19, 2008 at 06:51:49PM +0200, Tomas Winkler wrote:
->> On Wed, Nov 19, 2008 at 4:39 PM, John W. Linville
->> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->> > On Wed, Nov 19, 2008 at 11:34:37AM +0200, Tomas Winkler wrote:
->> >> On Wed, Nov 19, 2008 at 8:46 AM, Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> >> > On Wed, Nov 19, 2008 at 2:07 AM, John W. Linville
->> >> > <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->> >
->> >> >>      mac80211: remove ieee80211_notify_mac
->> >> >>      iwlagn: fix RX skb alignment
->> >> >
->> >> > IMHO its premature pushing ttese 2 patches up, they came in yestrday
->> >> > and nobody here has run tthe code
->> >
->> > Well, thanks for your opinion.  Here is mine:
->> >
->> > The iwlwifi drivers have been hitting these problems for months,
->> > and I have seen no effort by your team to address the problems.
->>
->> There is a lot of effort to solve this I'm not sure what mailing list
->> are u reading.
->> We even presented test patches with alignment issues as Johannes few
->> month ago but
->> we didn't get the feedback that it hit anything. So you are totally off here.
->
-> Citation needed.  All I see is Johannes' patch followed by your FUD.
->
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Date: Wed, 19 Nov 2008 13:55:12 -0800
 
-http://marc.info/?l=linux-wireless&m=122549613209468&w=2,
-there is Yi's patch also mentioned int in the Johannes commit.
-unfortunately there was a programming typo in it.
+> On Mon, Nov 17, 2008 at 5:35 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+> > On Mon, 17 Nov 2008 17:27:05 -0800
+> > "Jeff Kirsher" <jeffrey.t.kirsher@intel.com> wrote:
+> >
+> >> On Mon, Nov 17, 2008 at 3:42 PM, Stephen Hemminger
+> >> <shemminger@vyatta.com> wrote:
+> >> > This sequence of patches breaks the network device adminstration
+> >> > function table away from the network device data structure. It is
+> >> > a transitional API change (both keep working), and this set of patches
+> >> > hits a range of commonly used drivers. This should be enough to make sure
+> >> > both old and new interfaces get used and tested.
+> >> >
+> >> >
+> >>
+> >> Did I miss a patch, or did you intentionally not convert ixgbe?
+> >
+> > Since it was so similar to ixgb, both files are patched in same patch bundle.
+> > --
+> >
+> 
+> Looking at this further, what is the benefit of this change?  For this
+> massive of a change, I would expect some sort of significant benefit.
+> 
+> What is the driving force behind this change?
 
-There is  named 'iwlwifi: get some more information about command
-failure' in your pull request you've just issued!!!
+If you have 1,000 virtual MAC vlan devices, you have 1,000 copies of
+these ops pointers being accessed by the CPU, that's stupid.
 
->> > It is possible that your team is working on them behind closed doors
->> > and will eventually throw something over the wall to us.  I'm tired
->> > of waiting for that, and I imagine that hordes of iwlagn users are
->> > tired of waiting as well.
->>
->> This is embarrassing also for us that we cannot locate this specific
->> problem but it not like we are not doing anything.Not sure there are
->> other examples that we are not addressing bugs promptly.
->>
->> > Johannes has presented us with plausible fixes, and people are
->> > reporting that the patches work for them.
->>
->> I'm not against merging these patches to wireless-testing but pushing
->> them upstream before testing them
->> is just plainly wrong and all I asked for to test them. You are
->> presenting here double standards here.
->
-> Others have tested it already.
-
-You cannot be serious about 5 minute testing.  We already have reports
-that it  doesn't solve the issue completely.
-
->
->>  I can merge these patches,
->> > or wait/hope/pray for some to come from your team.  Experience suggests
->> > that if fixes do come from your team that they will either be buried
->> > in some monster patch that largely addresses something else, or
->> > that the patches will arrive with a changelog that is terse and/or
->> > unintelligble.  Subsequently, I am not optimistic about waiting.
->>
->> I've believe that we are addressing all the complains above and
->> currently  if you are not seeing this I'm really sorry.
->
-> I'm not seeing i
-
-I've resubmitted  every patch you've had an issue with readability of
-the commit message so you should be first to see it.
-
->
->> > I think Johannes cited four different bugzilla.kernel.org entries
->> > between those two patches.  What is your team doing to address
->> > those bugs?
->>
->> Again you are not reading the mailing list and not the bugs logs.
->
-> http://bugzilla.kernel.org/show_bug.cgi?id=11731
-> http://bugzilla.kernel.org/show_bug.cgi?id=11818
-> http://bugzilla.kernel.org/show_bug.cgi?id=11923
-> http://bugzilla.kernel.org/show_bug.cgi?id=11983
-> http://bugzilla.kernel.org/show_bug.cgi?id=12017
-> http://bugzilla.kernel.org/show_bug.cgi?id=12044
-> http://bugzilla.kernel.org/show_bug.cgi?id=12046
->
-All of those are actively tracked by Yi as far as I can say.
-
-> Those are only the ones not assigned to a specific person.  Yet, each
-> of them has a member of your team CC'ed.  Also, I made no effort to
-> track-down the ones in vendor bugzillas.
-
-
-
->> > Obviously, I still think that those patches should be merged.
->>
->> I'm not against just give it day or two to run it.  We have for
->> example nightly regression builds with publicly available results why
->> you cannot wait till we can run?  I think you've hurried to push it up
->> just as a statement forgetting of possible regressions.
->
-> I merely did not wait for your blessing, mostly because I have no
-> idea when it might come.
-
-This just prove you are doing  statements.
-
->
->> >> Just checked our bug database,  the ieee80211_notify_mac was
->> >> introduced mainly to overcome HW bug when
->> >> receiver become deaf  in heavy traffic such as ftp in noisy
->> >> environment. Otherwise reconnection was too slow to keep ftp going. We
->> >> need to check whether we are still hitting this before applying
->> >> removal this function
->> >
->> > You are welcome to submit patches that address your hardware issue
->> > and which do not introduce locking problems.
->>
->> That was my suggestion that we fix it and I believe  we have normal
->> discussion about it till you took your eager pushing steps. Replacing
->> one regression with another is just not sane.
->
-> ieee80211_notify_mac is creating locking problems.  I'd rather hit
-> a few disconnects than endure locking problems.
->
-> Now, if you could put as much energy into fixing these issues as you
-> are putting into arguing with me or anyone else contradicting you...
-
-I'm not a yes man and if I think differently I say so. It's legitimate
-to have another opinion and I'm really trying to keep it technical and
-I'm not ashamed to say if I'm wrong, but you people are so hostile
-from some unknown reason I just hope somebody in anthropology is
-making his doctoral thesis of it to explain it to me.
-
-Tomas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It's just one of many examples.
