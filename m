@@ -1,60 +1,66 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] netconsole: Disable softirqs in write_msg()
-Date: Wed, 19 Nov 2008 08:41:06 +0000
-Message-ID: <20081119084106.GA6699@ff.dom.local>
+Subject: [PATCH] softirq: Fix warnings triggered by netconsole
+Date: Wed, 19 Nov 2008 08:41:26 +0000
+Message-ID: <20081119084125.GB6699@ff.dom.local>
 References: <87y6zwwy5c.fsf@tac.ki.iif.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Johannes Berg <johannes@sipsolutions.net>,
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>,
 	Ferenc Wagner <wferi@niif.hu>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ug-out-1314.google.com ([66.249.92.168]:37544 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751671AbYKSIlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 03:41:14 -0500
+	with ESMTP id S1752029AbYKSIlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 03:41:31 -0500
 Received: by ug-out-1314.google.com with SMTP id 39so449492ugf.37
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 00:41:12 -0800 (PST)
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2008 00:41:30 -0800 (PST)
 Content-Disposition: inline
 In-Reply-To: <87y6zwwy5c.fsf@tac.ki.iif.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This report: http://marc.info/?l=linux-netdev&m=122599341430090&w=2
-shows local_bh_enable() is used in the wrong context (irqs disabled).
-It happens when a usual network path is called by netconsole, which
-simply turns off hardirqs around this all.
-
-This patch additionally disables softirqs to avoid possibility of
-enabling bh and calling do_softirq() with hardirqs disabled.
+Consider netconsole case as special in local_bh_enable()/_disable().
+This patch skips in_irq() and irqs_disabled() warnings for NETPOLL
+configs when it's safe wrt. do_softirq().
 
 Reported-by: Ferenc Wagner <wferi@niif.hu>
 Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
+[apply on top of my first softirq patch in this thread]
 
- drivers/net/netconsole.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index d304d38..f6ecad8 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -702,6 +702,8 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
- 	if (list_empty(&target_list))
- 		return;
+diff -Nurp a/kernel/softirq.c b/kernel/softirq.c
+--- a/kernel/softirq.c	2008-11-19 07:33:23.000000000 +0000
++++ b/kernel/softirq.c	2008-11-19 07:26:28.000000000 +0000
+@@ -76,7 +76,12 @@ static void __local_bh_disable(unsigned 
+ {
+ 	unsigned long flags;
  
-+	/* Avoid enabling softirqs with hardirqs disabled */
-+	local_bh_disable();
- 	spin_lock_irqsave(&target_list_lock, flags);
- 	list_for_each_entry(nt, &target_list, list) {
- 		netconsole_target_get(nt);
-@@ -723,6 +725,7 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
- 		netconsole_target_put(nt);
- 	}
- 	spin_unlock_irqrestore(&target_list_lock, flags);
-+	local_bh_enable();
- }
++#ifdef CONFIG_NETPOLL
++	if (!softirq_count())
++		WARN_ON_ONCE(in_irq());
++#else
+ 	WARN_ON_ONCE(in_irq());
++#endif
  
- static struct console netconsole = {
+ 	raw_local_irq_save(flags);
+ 	add_preempt_count(SOFTIRQ_OFFSET);
+@@ -138,7 +143,16 @@ static inline void _local_bh_enable_ip(u
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ 	unsigned long flags;
+ #endif
++#ifdef CONFIG_NETPOLL
++	/*
++	 * Special-case - netconsole runs network code with all interrupts
++	 * disabled. Warn only if it can be really dangerous:
++	 */
++	if (softirq_count() == SOFTIRQ_OFFSET)
++		WARN_ON_ONCE(in_irq() || irqs_disabled());
++#else
+ 	WARN_ON_ONCE(in_irq() || irqs_disabled());
++#endif
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ 	local_irq_save(flags);
+ #endif
