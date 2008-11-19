@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ixgbe: fix compilation with gcc-3.4
-Date: Wed, 19 Nov 2008 14:17:13 -0800 (PST)
-Message-ID: <20081119.141713.62157635.davem@davemloft.net>
-References: <20081117100149.GA10586@x200.localdomain>
-	<Pine.WNT.4.64.0811171125390.7996@ppwaskie-MOBL2.amr.corp.intel.com>
+Subject: Re: [PATCH] phonet: fix compilation with gcc-3.4
+Date: Wed, 19 Nov 2008 14:17:54 -0800 (PST)
+Message-ID: <20081119.141754.217006788.davem@davemloft.net>
+References: <20081117100320.GB10586@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org
-To: peter.p.waskiewicz.jr@intel.com
+Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36091
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36094
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750747AbYKSWRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 17:17:14 -0500
-In-Reply-To: <Pine.WNT.4.64.0811171125390.7996@ppwaskie-MOBL2.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1751262AbYKSWRz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 17:17:55 -0500
+In-Reply-To: <20081117100320.GB10586@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 17 Nov 2008 11:26:46 -0800 (Pacific Standard Time)
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Mon, 17 Nov 2008 13:03:20 +0300
 
+>   CC [M]  net/phonet/af_phonet.o
+> net/phonet/af_phonet.c: In function `pn_socket_create':
+> net/phonet/af_phonet.c:38: sorry, unimplemented: inlining failed in call to 'phonet_proto_put': function body not available
+> net/phonet/af_phonet.c:99: sorry, unimplemented: called from here
+> make[3]: *** [net/phonet/af_phonet.o] Error 1
 > 
-> On Mon, 17 Nov 2008, Alexey Dobriyan wrote:
-> 
-> >   CC [M]  drivers/net/ixgbe/ixgbe_main.o
-> > drivers/net/ixgbe/ixgbe_main.c: In function `ixgbe_intr':
-> > drivers/net/ixgbe/ixgbe_main.c:1290: sorry, unimplemented: inlining failed in call to 'ixgbe_irq_enable': function body not available
-> > drivers/net/ixgbe/ixgbe_main.c:1312: sorry, unimplemented: called from here
-> > make[4]: *** [drivers/net/ixgbe/ixgbe_main.o] Error 1
-> > 
-> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
- ...
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied.
+Also applied, thanks Alexey.
