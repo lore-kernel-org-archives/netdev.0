@@ -1,207 +1,152 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [RFC PATCH 08/11] clocksource: allow usage independent of timekeeping.c
-Date: Wed, 19 Nov 2008 13:08:45 +0100
-Message-ID: <1227096528-24150-9-git-send-email-patrick.ohly@intel.com>
+Subject: [RFC PATCH 05/11] ip: support for TX timestamps on UDP and RAW sockets
+Date: Wed, 19 Nov 2008 13:08:42 +0100
+Message-ID: <1227096528-24150-6-git-send-email-patrick.ohly@intel.com>
 References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
  <1227096528-24150-2-git-send-email-patrick.ohly@intel.com>
  <1227096528-24150-3-git-send-email-patrick.ohly@intel.com>
  <1227096528-24150-4-git-send-email-patrick.ohly@intel.com>
  <1227096528-24150-5-git-send-email-patrick.ohly@intel.com>
- <1227096528-24150-6-git-send-email-patrick.ohly@intel.com>
- <1227096528-24150-7-git-send-email-patrick.ohly@intel.com>
- <1227096528-24150-8-git-send-email-patrick.ohly@intel.com>
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Patrick Ohly <patrick.ohly@intel.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18063 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:2282 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752805AbYKSMJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2008 07:09:09 -0500
-In-Reply-To: <1227096528-24150-8-git-send-email-patrick.ohly@intel.com>
+	id S1752642AbYKSMJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 07:09:03 -0500
+In-Reply-To: <1227096528-24150-5-git-send-email-patrick.ohly@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So far struct clocksource acted as the interface between time/timekeeping
-and hardware. This patch generalizes the concept so that the same
-interface can also be used in other contexts.
-
-The only change as far as kernel/time/timekeeping is concerned is that
-the hardware access can be done either with or without passing
-the clocksource pointer as context. This is necessary in those
-cases when there is more than one instance of the hardware.
-
-The extensions in this patch add code which turns the raw cycle count
-provided by hardware into a continously increasing time value. This
-reuses fields also used by timekeeping.c. Because of slightly different
-semantic (__get_nsec_offset does not update cycle_last, clocksource_read_ns
-does that transparently) timekeeping.c was not modified to use the
-generalized code.
-
-The new code does no locking of the clocksource. This is the responsibility
-of the caller.
+Instructions for time stamping outgoing packets are take from the
+socket layer and later copied into the new skb.
 ---
- include/linux/clocksource.h |  119 ++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 118 insertions(+), 1 deletions(-)
+ include/net/ip.h     |    1 +
+ net/can/raw.c        |    6 ++++++
+ net/ipv4/icmp.c      |    2 ++
+ net/ipv4/ip_output.c |    2 ++
+ net/ipv4/raw.c       |    1 +
+ net/ipv4/udp.c       |    4 ++++
+ 6 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
-index f88d32f..5435bd2 100644
---- a/include/linux/clocksource.h
-+++ b/include/linux/clocksource.h
-@@ -24,6 +24,9 @@ struct clocksource;
- /**
-  * struct clocksource - hardware abstraction for a free running counter
-  *	Provides mostly state-free accessors to the underlying hardware.
-+ *      Also provides utility functions which convert the underlying
-+ *      hardware cycle values into a non-decreasing count of nanoseconds
-+ *      ("time").
-  *
-  * @name:		ptr to clocksource name
-  * @list:		list head for registration
-@@ -43,6 +46,9 @@ struct clocksource;
-  *				The ideal clocksource. A must-use where
-  *				available.
-  * @read:		returns a cycle value
-+ * @read_clock:         alternative to read which gets a pointer to the clock
-+ *                      source so that the same code can read different clocks;
-+ *                      either read or read_clock must be set
-  * @mask:		bitmask for two's complement
-  *			subtraction of non 64 bit counters
-  * @mult:		cycle to nanosecond multiplier (adjusted by NTP)
-@@ -62,6 +68,7 @@ struct clocksource {
- 	struct list_head list;
- 	int rating;
- 	cycle_t (*read)(void);
-+	cycle_t (*read_clock)(struct clocksource *cs);
- 	cycle_t mask;
- 	u32 mult;
- 	u32 mult_orig;
-@@ -170,7 +177,7 @@ static inline u32 clocksource_hz2mult(u32 hz, u32 shift_constant)
-  */
- static inline cycle_t clocksource_read(struct clocksource *cs)
- {
--	return cs->read();
-+	return (cs->read ? cs->read() : cs->read_clock(cs));
- }
+diff --git a/include/net/ip.h b/include/net/ip.h
+index bc026ec..9bc2b65 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -55,6 +55,7 @@ struct ipcm_cookie
+ 	__be32			addr;
+ 	int			oif;
+ 	struct ip_options	*opt;
++	union sk_buff_hwtstamp	tstamp_tx;
+ };
  
- /**
-@@ -190,6 +197,116 @@ static inline s64 cyc2ns(struct clocksource *cs, cycle_t cycles)
- }
+ #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 6e0663f..d4a38e3 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -618,6 +618,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct raw_sock *ro = raw_sk(sk);
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
++	union sk_buff_hwtstamp tstamp_tx;
+ 	int ifindex;
+ 	int err;
  
- /**
-+ * clocksource_read_ns - get nanoseconds since last call of this function
-+ *                       (never negative)
-+ * @cs:         Pointer to clocksource
-+ *
-+ * When the underlying cycle counter runs over, this will be handled
-+ * correctly as long as it does not run over more than once between
-+ * calls.
-+ *
-+ * The first call to this function for a new clock source initializes
-+ * the time tracking and returns bogus results.
-+ */
-+static inline s64 clocksource_read_ns(struct clocksource *cs)
-+{
-+	cycle_t cycle_now, cycle_delta;
-+	s64 ns_offset;
+@@ -639,6 +640,10 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (!dev)
+ 		return -ENXIO;
+ 
++	err = sock_tx_timestamp(msg, sk, &tstamp_tx);
++	if (err < 0)
++		return err;
 +
-+	/* read clocksource: */
-+	cycle_now = clocksource_read(cs);
-+
-+	/* calculate the delta since the last clocksource_read_ns: */
-+	cycle_delta = (cycle_now - cs->cycle_last) & cs->mask;
-+
-+	/* convert to nanoseconds: */
-+	ns_offset = cyc2ns(cs, cycle_delta);
-+
-+	/* update time stamp of clocksource_read_ns call: */
-+	cs->cycle_last = cycle_now;
-+
-+	return ns_offset;
-+}
-+
-+/**
-+ * clocksource_init_time - initialize a clock source for use with
-+ *                         %clocksource_read_time() and
-+ *                         %clocksource_cyc2time()
-+ * @cs:            Pointer to clocksource.
-+ * @start_tstamp:  Arbitrary initial time stamp.
-+ *
-+ * After this call the current cycle register (roughly) corresponds to
-+ * the initial time stamp. Every call to %clocksource_read_time()
-+ * increments the time stamp counter by the number of elapsed
-+ * nanoseconds.
-+ */
-+static inline void clocksource_init_time(struct clocksource *cs,
-+					u64 start_tstamp)
-+{
-+	cs->cycle_last = clocksource_read(cs);
-+	cs->xtime_nsec = start_tstamp;
-+}
-+
-+/**
-+ * clocksource_read_time - return nanoseconds since %clocksource_init_time()
-+ *                         plus the initial time stamp
-+ * @cs:          Pointer to clocksource.
-+ *
-+ * In other words, keeps track of time since the same epoch as
-+ * the function which generated the initial time stamp. Don't mix
-+ * with calls to %clocksource_read_ns()!
-+ */
-+static inline u64 clocksource_read_time(struct clocksource *cs)
-+{
-+	u64 nsec;
-+
-+	/* increment time by nanoseconds since last call */
-+	nsec = clocksource_read_ns(cs);
-+	nsec += cs->xtime_nsec;
-+	cs->xtime_nsec = nsec;
-+
-+	return nsec;
-+}
-+
-+/**
-+ * clocksource_cyc2time - convert an absolute cycle time stamp to same
-+ *                        time base as values returned by
-+ *                        %clocksource_read_time()
-+ * @cs:            Pointer to clocksource.
-+ * @cycle_tstamp:  a value returned by cs->read()
-+ *
-+ * Cycle time stamps that are converted correctly as long as they
-+ * fall into the time interval [-1/2 max cycle count, 1/2 cycle count],
-+ * with "max cycle count" == cs->mask+1.
-+ *
-+ * This avoids situations where a cycle time stamp is generated, the
-+ * current cycle counter is updated, and then when transforming the
-+ * time stamp the value is treated as if it was in the future. Always
-+ * updating the cycle counter would also work, but incurr additional
-+ * overhead.
-+ */
-+static inline u64 clocksource_cyc2time(struct clocksource *cs,
-+				cycle_t cycle_tstamp)
-+{
-+	u64 cycle_delta = (cycle_tstamp - cs->cycle_last) & cs->mask;
-+	u64 nsec;
-+
-+	/*
-+	 * Instead of always treating cycle_tstamp as more recent
-+	 * than cs->cycle_last, detect when it is too far in the
-+	 * future and treat it as old time stamp instead.
-+	 */
-+	if (cycle_delta > cs->mask / 2) {
-+		cycle_delta = (cs->cycle_last - cycle_tstamp) & cs->mask;
-+		nsec = cs->xtime_nsec - cyc2ns(cs, cycle_delta);
-+	} else {
-+		nsec = cyc2ns(cs, cycle_delta) + cs->xtime_nsec;
-+	}
-+
-+	return nsec;
-+}
-+
-+/**
-  * clocksource_calculate_interval - Calculates a clocksource interval struct
-  *
-  * @c:		Pointer to clocksource.
+ 	skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT,
+ 				  &err);
+ 	if (!skb) {
+@@ -654,6 +659,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	}
+ 	skb->dev = dev;
+ 	skb->sk  = sk;
++	skb->hwtstamp = tstamp_tx;
+ 
+ 	err = can_send(skb, ro->loopback);
+ 
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 21e497e..ba739f4 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -375,6 +375,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	inet->tos = ip_hdr(skb)->tos;
+ 	daddr = ipc.addr = rt->rt_src;
+ 	ipc.opt = NULL;
++	ipc.tstamp_tx.hwtstamp.tv64 = 0;
+ 	if (icmp_param->replyopts.optlen) {
+ 		ipc.opt = &icmp_param->replyopts;
+ 		if (ipc.opt->srr)
+@@ -532,6 +533,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	inet_sk(sk)->tos = tos;
+ 	ipc.addr = iph->saddr;
+ 	ipc.opt = &icmp_param.replyopts;
++	ipc.tstamp_tx.hwtstamp.tv64 = 0;
+ 
+ 	{
+ 		struct flowi fl = {
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 46d7be2..1498848 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -940,6 +940,7 @@ alloc_new_skb:
+ 			skb->ip_summed = csummode;
+ 			skb->csum = 0;
+ 			skb_reserve(skb, hh_len);
++			skb->hwtstamp = ipc->tstamp_tx;
+ 
+ 			/*
+ 			 *	Find where to start putting bytes.
+@@ -1354,6 +1355,7 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
+ 
+ 	daddr = ipc.addr = rt->rt_src;
+ 	ipc.opt = NULL;
++	ipc.tstamp_tx.hwtstamp.tv64 = 0;
+ 
+ 	if (replyopts.opt.optlen) {
+ 		ipc.opt = &replyopts.opt;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 998fcff..9115ed5 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -493,6 +493,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 
+ 	ipc.addr = inet->saddr;
+ 	ipc.opt = NULL;
++	ipc.tstamp_tx.hwtstamp.tv64 = 0;
+ 	ipc.oif = sk->sk_bound_dev_if;
+ 
+ 	if (msg->msg_controllen) {
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index fea2d87..32c4e98 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -573,6 +573,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		return -EOPNOTSUPP;
+ 
+ 	ipc.opt = NULL;
++	ipc.tstamp_tx.hwtstamp.tv64 = 0;
+ 
+ 	if (up->pending) {
+ 		/*
+@@ -620,6 +621,9 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	ipc.addr = inet->saddr;
+ 
+ 	ipc.oif = sk->sk_bound_dev_if;
++	err = sock_tx_timestamp(msg, sk, &ipc.tstamp_tx);
++	if (err)
++		return err;
+ 	if (msg->msg_controllen) {
+ 		err = ip_cmsg_send(sock_net(sk), msg, &ipc);
+ 		if (err)
 -- 
 1.6.0.4
 
