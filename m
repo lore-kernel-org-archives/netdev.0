@@ -1,52 +1,44 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH] ipv6: use seq_release_private for ip6mr.c /proc entries
-Date: Wed, 19 Nov 2008 21:41:38 +0100
-Message-ID: <20081119204141.938837793@theryb.frec.bull.fr>
-References: <20081119204128.826163131@theryb.frec.bull.fr>
-Cc: netdev <netdev@vger.kernel.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Dave Miller <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] sfc: Fix dependency for SFC_MTD
+Date: Wed, 19 Nov 2008 20:48:52 +0000
+Message-ID: <20081119204850.GF8240@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:52814 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752433AbYKSUoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 15:44:32 -0500
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:56299 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752882AbYKSUtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 15:49:01 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ip6mr.c, /proc entries /proc/net/ip6_mr_cache and /proc/net/ip6_mr_vif
-are opened with seq_open_private(), thus seq_release_private() should be 
-used to release them.
-Should fix a small memory leak.
-
-Benjamin
-
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+Randy Dunlap found that SFC_MTD was selected when sfc was built-in and
+the MTD core was a module.  Don't allow that combination.
 ---
- net/ipv6/ip6mr.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/sfc/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Index: net-2.6/net/ipv6/ip6mr.c
-===================================================================
---- net-2.6.orig/net/ipv6/ip6mr.c
-+++ net-2.6/net/ipv6/ip6mr.c
-@@ -224,7 +224,7 @@ static struct file_operations ip6mr_vif_
- 	.open    = ip6mr_vif_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_private,
- };
- 
- static void *ipmr_mfc_seq_start(struct seq_file *seq, loff_t *pos)
-@@ -338,7 +338,7 @@ static struct file_operations ip6mr_mfc_
- 	.open    = ipmr_mfc_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_private,
- };
- #endif
- 
-
+diff --git a/drivers/net/sfc/Kconfig b/drivers/net/sfc/Kconfig
+index 3e25fb3..c535408 100644
+--- a/drivers/net/sfc/Kconfig
++++ b/drivers/net/sfc/Kconfig
+@@ -14,7 +14,7 @@ config SFC
+ 	  will be called sfc.
+ config SFC_MTD
+ 	bool "Solarflare Solarstorm SFC4000 flash MTD support"
+-	depends on SFC && MTD
++	depends on SFC && MTD && !(SFC=y && MTD=m)
+ 	default y
+ 	help
+ 	  This exposes the on-board flash memory as an MTD device (e.g.
 -- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
