@@ -1,60 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netlink: avoid memset of 0 bytes sparse warning
-Date: Wed, 19 Nov 2008 14:56:12 +0100
-Message-ID: <49241AFC.5030705@trash.net>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: PHYLIB dependency in kernel 2.6.27.6
+Date: Wed, 19 Nov 2008 14:09:33 +0000 (GMT)
+Message-ID: <alpine.LFD.1.10.0811191359170.22228@ftp.linux-mips.org>
+References: <a278970e0811161427r2f941e10jafbc8ab1d425d64e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000801040807000502010903"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Luca Tiburzio <luca.tiburzio@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64410 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752394AbYKSN4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 08:56:18 -0500
+Received: from ftp.linux-mips.org ([213.58.128.207]:36114 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753185AbYKSOJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 09:09:46 -0500
+In-Reply-To: <a278970e0811161427r2f941e10jafbc8ab1d425d64e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000801040807000502010903
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Sun, 16 Nov 2008, Luca Tiburzio wrote:
 
+> in make process of linux 2.6.27.6 the PHYLIB depends on
+> 
+> NETDEVICES && !S390 && NET_ETHERNET
+> 
+> but if I enable only
+> 
+> Ethernet (1000 Mbit) (NETDEV_1000)
+> i loose visibility of PHYLIB
+> 
+> it should be better that  PHYLIB depends on:
+> NETDEVICES && !S390 && (NET_ETHERNET || NETDEV_1000)
 
---------------000801040807000502010903
-Content-Type: text/x-patch;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
+ Well, practice shows selecting PHYLIB via a reverse dependency is 
+probably the most reasonable approach, but given the option is enabled for 
+explicit selection otherwise for legacy Ethernet devices, it may make 
+sense to do so for Gigabit devices too.  Not sure about 10Gb, but here is 
+a patch from my pile I prepared a while ago, but haven't submitted it 
+yet.  Feel free to push it further if you find it useful.  Please note 
+netdev is the right list for networking matters.
 
-commit d30196c4cab8442451794d25a8d8a072dadca2eb
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Nov 19 14:55:11 2008 +0100
+  Maciej
 
-    netlink: avoid memset of 0 bytes sparse warning
-    
-    A netlink attribute padding of zero triggers this sparse warning:
-    
-    include/linux/netlink.h:245:8: warning: memset with byte count of 0
-    
-    Avoid the memset when the size parameter is constant and requires no padding.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ Make PHYLIB available for selection for NETDEV_1000 too.
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 9ff1b54..51b09a1 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -242,7 +242,8 @@ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
- 	nlh->nlmsg_flags = flags;
- 	nlh->nlmsg_pid = pid;
- 	nlh->nlmsg_seq = seq;
--	memset(NLMSG_DATA(nlh) + len, 0, NLMSG_ALIGN(size) - size);
-+	if (!__builtin_constant_p(size) || NLMSG_ALIGN(size) - size != 0)
-+		memset(NLMSG_DATA(nlh) + len, 0, NLMSG_ALIGN(size) - size);
- 	return nlh;
- }
- 
-
---------------000801040807000502010903--
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+patch-2.6.26-rc1-20080505-phy-1000-1
+diff -up --recursive --new-file linux-2.6.26-rc1-20080505.macro/drivers/net/phy/Kconfig linux-2.6.26-rc1-20080505/drivers/net/phy/Kconfig
+--- linux-2.6.26-rc1-20080505.macro/drivers/net/phy/Kconfig	2008-05-17 05:57:43.000000000 +0000
++++ linux-2.6.26-rc1-20080505/drivers/net/phy/Kconfig	2008-05-17 06:09:49.000000000 +0000
+@@ -5,7 +5,7 @@
+ menuconfig PHYLIB
+ 	tristate "PHY Device support and infrastructure"
+ 	depends on !S390
+-	depends on NET_ETHERNET
++	depends on NET_ETHERNET || NETDEV_1000
+ 	help
+ 	  Ethernet controllers are usually attached to PHY
+ 	  devices.  This option provides infrastructure for
