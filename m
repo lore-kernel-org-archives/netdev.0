@@ -1,848 +1,402 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [RFC PATCH 02/11] net: new user space API for time stamping of incoming and outgoing packets
-Date: Wed, 19 Nov 2008 13:08:39 +0100
-Message-ID: <1227096528-24150-3-git-send-email-patrick.ohly@intel.com>
+Subject: [RFC PATCH 04/11] net: socket infrastructure for SO_TIMESTAMPING
+Date: Wed, 19 Nov 2008 13:08:41 +0100
+Message-ID: <1227096528-24150-5-git-send-email-patrick.ohly@intel.com>
 References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
  <1227096528-24150-2-git-send-email-patrick.ohly@intel.com>
+ <1227096528-24150-3-git-send-email-patrick.ohly@intel.com>
+ <1227096528-24150-4-git-send-email-patrick.ohly@intel.com>
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Patrick Ohly <patrick.ohly@intel.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58043 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53505 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752530AbYKSMI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2008 07:08:56 -0500
-In-Reply-To: <1227096528-24150-2-git-send-email-patrick.ohly@intel.com>
+	id S1752656AbYKSMJB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 07:09:01 -0500
+In-Reply-To: <1227096528-24150-4-git-send-email-patrick.ohly@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-User space can request hardware and/or software time stamping.
-Reporting of the result(s) via a new control message is enabled
-separately for each field in the message because some of the
-fields may require additional computation and thus cause overhead.
-
-When a TX timestamp operation is requested, the TX skb will be cloned
-and the clone will be time stamped (in hardware or software) and added
-to the socket error queue of the skb, if the skb has a socket
-associated with it.
-
-The actual TX timestamp will reach userspace as a RX timestamp on the
-cloned packet. If timestamping is requested and no timestamping is
-done in the device driver (potentially this may use hardware
-timestamping), it will be done in software after the device's
-start_hard_xmit routine.
-
-TODO: add SO_TIMESTAMPING define also to other platforms
+The overlap with the old SO_TIMESTAMP[NS] options is handled so
+that time stamping in software (net_enable_timestamp()) is
+enabled when SO_TIMESTAMP[NS] and/or SO_TIMESTAMPING_RX_SOFTWARE
+is set.  It's disabled if all of these are off.
 ---
- Documentation/networking/timestamping.txt          |  178 ++++++++
- .../networking/timestamping/timestamping.c         |  469 ++++++++++++++++++++
- arch/x86/include/asm/socket.h                      |    3 +
- include/linux/errqueue.h                           |    1 +
- include/linux/sockios.h                            |    3 +
- include/net/timestamping.h                         |   95 ++++
- 6 files changed, 749 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/networking/timestamping.txt
- create mode 100644 Documentation/networking/timestamping/timestamping.c
- create mode 100644 include/net/timestamping.h
+ include/net/sock.h |   37 ++++++++++++++++++++++--
+ net/compat.c       |   19 ++++++++----
+ net/core/sock.c    |   79 ++++++++++++++++++++++++++++++++++++++++++++--------
+ net/socket.c       |   75 ++++++++++++++++++++++++++++++++++++-------------
+ 4 files changed, 168 insertions(+), 42 deletions(-)
 
-diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-new file mode 100644
-index 0000000..3ae60b5
---- /dev/null
-+++ b/Documentation/networking/timestamping.txt
-@@ -0,0 +1,178 @@
-+The existing interfaces for getting network packages time stamped are:
-+
-+* SO_TIMESTAMP
-+  Generate time stamp for each incoming packet using the (not necessarily
-+  monotonous!) system time. Result is returned via recv_msg() in a
-+  control message as timeval (usec resolution).
-+
-+* SO_TIMESTAMPNS
-+  Same time stamping mechanism as SO_TIMESTAMP, but returns result as
-+  timespec (nsec resolution).
-+
-+* IP_MULTICAST_LOOP + SO_TIMESTAMP[NS]
-+  Only for multicasts: approximate send time stamp by receiving the looped
-+  packet and using its receive time stamp.
-+
-+The following interface complements the existing ones: receive time
-+stamps can be generated and returned for arbitrary packets and much
-+closer to the point where the packet is really sent. Time stamps can
-+be generated in software (as before) or in hardware (if the hardware
-+has such a feature).
-+
-+SO_TIMESTAMPING:
-+
-+Instructs the socket layer which kind of information is wanted. The
-+parameter is an integer with some of the following bits set. Setting
-+other bits is an error and doesn't change the current state.
-+
-+SOF_TIMESTAMPING_TX_HARDWARE:  try to obtain send time stamp in hardware
-+SOF_TIMESTAMPING_TX_SOFTWARE:  if SOF_TIMESTAMPING_TX_HARDWARE is off or
-+                               fails, then do it in software
-+SOF_TIMESTAMPING_RX_HARDWARE:  return the original, unmodified time stamp
-+                               as generated by the hardware
-+SOF_TIMESTAMPING_RX_SOFTWARE:  if SOF_TIMESTAMPING_RX_HARDWARE is off or
-+                               fails, then do it in software
-+SOF_TIMESTAMPING_RAW_HARDWARE: return original raw hardware time stamp
-+SOF_TIMESTAMPING_SYS_HARDWARE: return hardware time stamp transformed to
-+                               the system time base
-+SOF_TIMESTAMPING_SOFTWARE:     return system time stamp generated in
-+                               software
-+
-+SOF_TIMESTAMPING_TX/RX determine how time stamps are generated.
-+SOF_TIMESTAMPING_RAW/SYS determine how they are reported in the
-+following control message:
-+    struct scm_timestamping {
-+           struct timespec systime;
-+           struct timespec hwtimetrans;
-+           struct timespec hwtimeraw;
-+    };
-+
-+recvmsg() can be used to get this control message for regular incoming
-+packets. For send time stamps the outgoing packet is looped back to
-+the socket's error queue with the send time stamp(s) attached. It can
-+be received with recvmsg(flags=MSG_ERRQUEUE). The call returns the
-+original outgoing packet data including all headers preprended down to
-+and including the link layer, the scm_timestamping control message and
-+a sock_extended_err control message with ee_errno==ENOMSG and
-+ee_origin==SO_EE_ORIGIN_TIMESTAMPING. A socket with such a pending
-+bounced packet is ready for reading as far as select() is concerned.
-+
-+All three values correspond to the same event in time, but were
-+generated in different ways. Each of these values may be empty (= all
-+zero), in which case no such value was available. If the application
-+is not interested in some of these values, they can be left blank to
-+avoid the potential overhead of calculating them.
-+
-+systime is the value of the system time at that moment. This
-+corresponds to the value also returned via SO_TIMESTAMP[NS]. If the
-+time stamp was generated by hardware, then this field is
-+empty. Otherwise it is filled in if SOF_TIMESTAMPING_SOFTWARE is
-+set.
-+
-+hwtimeraw is the original hardware time stamp. Filled in if
-+SOF_TIMESTAMPING_RAW_HARDWARE is set. No assumptions about its
-+relation to system time should be made.
-+
-+hwtimetrans is the hardware time stamp transformed so that it
-+corresponds as good as possible to system time. This correlation is
-+not perfect; as a consequence, sorting packets received via different
-+NICs by their hwtimetrans may differ from the order in which they were
-+received. hwtimetrans may be non-monotonic even for the same NIC.
-+Filled in if SOF_TIMESTAMPING_SYS_HARDWARE is set. Requires support
-+by the network device and will be empty without that support.
-+
-+
-+SIOCSHWTSTAMP:
-+
-+Hardware time stamping must also be initialized for each device driver
-+that is expected to do hardware time stamping. The parameter is:
-+
-+struct hwtstamp_config {
-+    int flags;           /**< no flags defined right now, must be zero */
-+    int tx_type;         /**< HWTSTAMP_TX_* */
-+    int rx_filter_type;  /**< HWTSTAMP_RX_* */
-+};
-+
-+Desired behavior is passed into the kernel and to a specific device by
-+calling ioctl(SIOCSHWTSTAMP) with a pointer to a struct ifreq whose
-+ifr_data points to a struct hwtstamp_config. The tx_type and
-+rx_filter_type are hints to the driver what it is expected to do. If
-+the requested fine-grained filtering for incoming packets is not
-+supported, the driver may time stamp more than just the requested types
-+of packets.
-+
-+A driver which supports hardware time stamping shall update the struct
-+with the actual, possibly more permissive configuration. If the
-+requested packets cannot be time stamped, then nothing should be
-+changed and ERANGE shall be returned (in contrast to EINVAL, which
-+indicates that SIOCSHWTSTAMP is not supported at all).
-+
-+Only a processes with admin rights may change the configuration. User
-+space is responsible to ensure that multiple processes don't interfere
-+with each other and that the settings are reset.
-+
-+/** possible values for hwtstamp_config->tx_type */
-+enum {
-+	/**
-+	 * no outgoing packet will need hardware time stamping;
-+	 * should a packet arrive which asks for it, no hardware
-+	 * time stamping will be done
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 0a63894..0f71951 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -158,7 +158,7 @@ struct sock_common {
+   *	@sk_allocation: allocation mode
+   *	@sk_sndbuf: size of send buffer in bytes
+   *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
+-  *		   %SO_OOBINLINE settings
++  *		   %SO_OOBINLINE settings, %SO_TIMESTAMPING settings
+   *	@sk_no_check: %SO_NO_CHECK setting, wether or not checkup packets
+   *	@sk_route_caps: route capabilities (e.g. %NETIF_F_TSO)
+   *	@sk_gso_type: GSO type (e.g. %SKB_GSO_TCPV4)
+@@ -488,6 +488,13 @@ enum sock_flags {
+ 	SOCK_RCVTSTAMPNS, /* %SO_TIMESTAMPNS setting */
+ 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
+ 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
++	SOCK_TIMESTAMPING_TX_HARDWARE, /* %SO_TIMESTAMPING %SOF_TIMESTAMPING_TX_HARDWARE */
++	SOCK_TIMESTAMPING_TX_SOFTWARE, /* %SO_TIMESTAMPING %SOF_TIMESTAMPING_TX_SOFTWARE */
++	SOCK_TIMESTAMPING_RX_HARDWARE, /* %SO_TIMESTAMPING %SOF_TIMESTAMPING_RX_HARDWARE */
++	SOCK_TIMESTAMPING_RX_SOFTWARE, /* %SO_TIMESTAMPING %SOF_TIMESTAMPING_RX_SOFTWARE */
++	SOCK_TIMESTAMPING_SOFTWARE,    /* %SO_TIMESTAMPING %SOF_TIMESTAMPING_SOFTWARE */
++	SOCK_TIMESTAMPING_RAW_HARDWARE, /* %SO_TIMESTAMPING %SOF_TIMESTAMPING_RAW_HARDWARE */
++	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SO_TIMESTAMPING %SOF_TIMESTAMPING_SYS_HARDWARE */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+@@ -1342,13 +1349,37 @@ sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
+ {
+ 	ktime_t kt = skb->tstamp;
+ 
+-	if (sock_flag(sk, SOCK_RCVTSTAMP))
++	/*
++	 * generate control messages if receive time stamping requested
++	 * or if time stamp available (RX hardware or TX software/hardware
++	 * case) and reporting via SO_TIMESTAMPING enabled
 +	 */
-+	HWTSTAMP_TX_OFF,
-+
-+	/**
-+	 * enables hardware time stamping for outgoing packets;
-+	 * the sender of the packet decides which are to be
-+	 * time stamped by setting SOF_TIMESTAMPING_TX_SOFTWARE
-+	 * before sending the packet
-+	 */
-+	HWTSTAMP_TX_ON,
-+};
-+
-+/** possible values for hwtstamp_config->rx_filter_type */
-+enum {
-+	/** time stamp no incoming packet at all */
-+	HWTSTAMP_FILTER_NONE,
-+
-+	/** time stamp any incoming packet */
-+	HWTSTAMP_FILTER_ALL,
-+
-+        /** return value: time stamp all packets requested plus some others */
-+        HWTSTAMP_FILTER_SOME,
-+
-+	/** PTP v1, UDP, any kind of event packet */
-+	HWTSTAMP_FILTER_PTP_V1_L4_EVENT,
-+
-+        ...
-+};
-+
-+
-+DEVICE IMPLEMENTATION
-+
-+A driver which supports hardware time stamping must support the
-+SIOCSHWTSTAMP ioctl. Time stamps for received packets must be stored
-+in the skb with skb_hwtstamp_set().
-+
-+Time stamps for outgoing packets are to be generated as follows:
-+- In hard_start_xmit(), check if skb_hwtstamp_check_tx_hardware()
-+  returns non-zero. If yes, then the driver is expected
-+  to do hardware time stamping.
-+- If this is possible for the skb and requested, then declare
-+  that the driver is doing the time stamping by calling
-+  skb_hwtstamp_tx_in_progress(). A driver not supporting
-+  hardware time stamping doesn't do that. A driver must never
-+  touch sk_buff::tstamp! It is used to store how time stamping
-+  for an outgoing packets is to be done.
-+- As soon as the driver has sent the packet and/or obtained a
-+  hardware time stamp for it, it passes the time stamp back by
-+  calling skb_hwtstamp_tx() with the original skb, the raw
-+  hardware time stamp and a handle to the device (necessary
-+  to convert the hardware time stamp to system time). If obtaining
-+  the hardware time stamp somehow fails, then the driver should
-+  not fall back to software time stamping. The rationale is that
-+  this would occur at a later time in the processing pipeline
-+  than other software time stamping and therefore could lead
-+  to unexpected deltas between time stamps.
-+- If the driver did not call skb_hwtstamp_tx_in_progress(), then
-+  dev_hard_start_xmit() checks whether software time stamping
-+  is wanted as fallback and potentially generates the time stamp.
-diff --git a/Documentation/networking/timestamping/timestamping.c b/Documentation/networking/timestamping/timestamping.c
-new file mode 100644
-index 0000000..7ffc466
---- /dev/null
-+++ b/Documentation/networking/timestamping/timestamping.c
-@@ -0,0 +1,469 @@
-+/**
-+ * This program demonstrates how the various time stamping features in
-+ * the Linux kernel work. It emulates the behavior of a PTP
-+ * implementation in stand-alone master mode by sending PTPv1 Sync
-+ * multicasts once every second. It looks for similar packets, but
-+ * beyond that doesn't actually implement PTP.
++	if ((sock_flag(sk, SOCK_RCVTSTAMP) ||
++		sock_flag(sk, SOCK_TIMESTAMPING_RX_SOFTWARE)) ||
++		(kt.tv64 && sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE)) ||
++		(skb_hwtstamp_available(skb) &&
++			(sock_flag(sk, SOCK_TIMESTAMPING_SYS_HARDWARE) ||
++				sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE))))
+ 		__sock_recv_timestamp(msg, sk, skb);
+ 	else
+ 		sk->sk_stamp = kt;
+ }
+ 
+ /**
++ * sock_tx_timestamp - checks whether the outgoing packet is to be time stamped
++ * @msg: outgoing packet
++ * @sk: socket sending this packet
++ * @stamp_tx: filled with instructions for time stamping
 + *
-+ * Outgoing packets are time stamped with SO_TIMESTAMPING with or
-+ * without hardware support.
-+ *
-+ * Incoming packets are time stamped with SO_TIMESTAMPING with or
-+ * without hardware support, SIOCGSTAMP[NS] (per-socket time stamp) and
-+ * SO_TIMESTAMP[NS].
++ * Currently only depends on SOCK_TIMESTAMPING* flags. Returns error code if
++ * parameters are invalid.
 + */
++extern int sock_tx_timestamp(struct msghdr *msg,
++			struct sock *sk,
++			union sk_buff_hwtstamp *stamp_tx);
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <errno.h>
-+#include <string.h>
 +
-+#include <sys/time.h>
-+#include <sys/socket.h>
-+#include <sys/select.h>
-+#include <sys/ioctl.h>
-+#include <arpa/inet.h>
-+#include <net/if.h>
-+
-+#include "asm/types.h"
-+#include "net/timestamping.h"
-+#include "linux/errqueue.h"
-+
-+#ifndef SO_TIMESTAMPNS
-+# define SO_TIMESTAMPNS 35
-+#endif
-+
-+#ifndef SIOCGSTAMPNS
-+# define SIOCGSTAMPNS 0x8907
-+#endif
-+
-+static void usage(const char *error)
-+{
-+	if (error)
-+		printf("invalid option: %s\n", error);
-+	printf("timestamping interface (IP_MULTICAST_LOOP|SO_TIMESTAMP|SO_TIMESTAMPNS|SOF_TIMESTAMPING_TX_HARDWARE|SOF_TIMESTAMPING_TX_SOFTWARE|SOF_TIMESTAMPING_RX_HARDWARE|SOF_TIMESTAMPING_RX_SOFTWARE|SOF_TIMESTAMPING_SOFTWARE|SOF_TIMESTAMPING_SYS_HARDWARE|SOF_TIMESTAMPING_RAW_HARDWARE|SIOCGSTAMP|SIOCGSTAMPNS)*\n");
-+	exit(1);
-+}
-+
-+static void bail(const char *error)
-+{
-+	printf("%s: %s\n", error, strerror(errno));
-+	exit(1);
-+}
-+
-+static const unsigned char sync[] = {
-+	0x00,0x01, 0x00,0x01,
-+	0x5f,0x44, 0x46,0x4c,
-+	0x54,0x00, 0x00,0x00,
-+	0x00,0x00, 0x00,0x00,
-+	0x00,0x00, 0x00,0x00,
-+	0x01,0x01,
-+
-+	/* fake uuid */
-+	0x00,0x01,
-+	0x02,0x03, 0x04,0x05,
-+
-+	0x00,0x01, 0x00,0x37,
-+	0x00,0x00, 0x00,0x08,
-+	0x00,0x00, 0x00,0x00,
-+	0x49,0x05, 0xcd,0x01,
-+	0x29,0xb1, 0x8d,0xb0,
-+	0x00,0x00, 0x00,0x00,
-+	0x00,0x01,
-+
-+	/* fake uuid */
-+	0x00,0x01,
-+	0x02,0x03, 0x04,0x05,
-+
-+	0x00,0x00, 0x00,0x37,
-+	0x00,0x00, 0x00,0x04,
-+	0x44,0x46, 0x4c,0x54,
-+	0x00,0x00, 0xf0,0x60,
-+	0x00,0x01, 0x00,0x00,
-+	0x00,0x00, 0x00,0x01,
-+	0x00,0x00, 0xf0,0x60,
-+	0x00,0x00, 0x00,0x00,
-+	0x00,0x00, 0x00,0x04,
-+	0x44,0x46, 0x4c,0x54,
-+	0x00,0x01,
-+
-+	/* fake uuid */
-+	0x00,0x01,
-+	0x02,0x03, 0x04,0x05,
-+
-+	0x00,0x00, 0x00,0x00,
-+	0x00,0x00, 0x00,0x00,
-+	0x00,0x00, 0x00,0x00,
-+	0x00,0x00, 0x00,0x00
-+};
-+
-+static void sendpacket(int sock, struct sockaddr *addr, socklen_t addr_len)
-+{
-+	struct timeval now;
-+	int res;
-+
-+	res = sendto(sock, sync, sizeof(sync), 0,
-+		addr, addr_len);
-+	gettimeofday(&now, 0);
-+	if (res < 0)
-+		printf("%s: %s\n", "send", strerror(errno));
-+	else
-+		printf("%ld.%06ld: sent %d bytes\n",
-+			(long)now.tv_sec, (long)now.tv_usec,
-+			res);
-+}
-+
-+static void recvpacket(int sock, int recvmsg_flags,
-+		int siocgstamp, int siocgstampns)
-+{
-+	char data[256];
-+	struct timeval now;
-+	struct msghdr msg;
-+	struct iovec entry;
-+	struct sockaddr_in from_addr;
-+	struct {
-+		struct cmsghdr cm;
-+		char control[512];
-+	} control;
-+	int res;
-+
-+	memset(&msg, 0, sizeof(msg));
-+	msg.msg_iov = &entry;
-+	msg.msg_iovlen = 1;
-+	entry.iov_base = data;
-+	entry.iov_len = sizeof(data);
-+	msg.msg_name = (caddr_t)&from_addr;
-+	msg.msg_namelen = sizeof(from_addr);
-+	msg.msg_control = &control;
-+	msg.msg_controllen = sizeof(control);
-+
-+	res = recvmsg(sock, &msg, recvmsg_flags|MSG_DONTWAIT);
-+	gettimeofday(&now, 0);
-+	if (res < 0) {
-+		printf("%s %s: %s\n",
-+			"recvmsg",
-+			(recvmsg_flags & MSG_ERRQUEUE) ? "error" : "regular",
-+			strerror(errno));
-+	} else {
-+		struct cmsghdr *cmsg;
-+		struct timeval tv;
-+		struct timespec ts;
-+
-+		printf("%ld.%06ld: received %s data, %d bytes from %s, %d bytes control messages\n",
-+			(long)now.tv_sec, (long)now.tv_usec,
-+			(recvmsg_flags & MSG_ERRQUEUE) ? "error" : "regular",
-+			res,
-+			inet_ntoa(from_addr.sin_addr),
-+			msg.msg_controllen);
-+		for (cmsg = CMSG_FIRSTHDR(&msg);
-+		     cmsg;
-+		     cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-+			printf("   cmsg len %d: ", cmsg->cmsg_len);
-+			switch (cmsg->cmsg_level) {
-+			case SOL_SOCKET:
-+				printf("SOL_SOCKET ");
-+				switch (cmsg->cmsg_type) {
-+				case SO_TIMESTAMP: {
-+					struct timeval *stamp =
-+						(struct timeval *)CMSG_DATA(cmsg);
-+					printf("SO_TIMESTAMP %ld.%06ld",
-+						(long)stamp->tv_sec,
-+						(long)stamp->tv_usec);
-+					break;
-+				}
-+				case SO_TIMESTAMPNS: {
-+					struct timespec *stamp =
-+						(struct timespec *)CMSG_DATA(cmsg);
-+					printf("SO_TIMESTAMPNS %ld.%09ld",
-+						(long)stamp->tv_sec,
-+						(long)stamp->tv_nsec);
-+					break;
-+				}
-+				case SO_TIMESTAMPING: {
-+					struct timespec *stamp =
-+						(struct timespec *)CMSG_DATA(cmsg);
-+					printf("SO_TIMESTAMPING ");
-+					printf("SW %ld.%09ld ",
-+						(long)stamp->tv_sec,
-+						(long)stamp->tv_nsec);
-+					stamp++;
-+					printf("HW transformed %ld.%09ld ",
-+						(long)stamp->tv_sec,
-+						(long)stamp->tv_nsec);
-+					stamp++;
-+					printf("HW raw %ld.%09ld",
-+						(long)stamp->tv_sec,
-+						(long)stamp->tv_nsec);
-+					break;
-+				}
-+				default:
-+					printf("type %d", cmsg->cmsg_type);
-+					break;
-+				}
-+				break;
-+			case IPPROTO_IP:
-+				printf("IPPROTO_IP ");
-+				switch (cmsg->cmsg_type) {
-+				case IP_RECVERR: {
-+					struct sock_extended_err *err =
-+						(struct sock_extended_err *)CMSG_DATA(cmsg);
-+					printf("IP_RECVERR ee_errno '%s' ee_origin %d => %s",
-+						strerror(err->ee_errno),
-+						err->ee_origin,
-+#ifdef SO_EE_ORIGIN_TIMESTAMPING
-+						err->ee_origin == SO_EE_ORIGIN_TIMESTAMPING ?
-+						"bounced packet" : "unexpected origin"
-+#else
-+						"probably SO_EE_ORIGIN_TIMESTAMPING"
-+#endif
-+						);
-+					if (res < sizeof(sync))
-+						printf(" => truncated data?!");
-+					else if (!memcmp(sync, data + res - sizeof(sync),
-+								sizeof(sync)))
-+						printf(" => GOT OUR DATA BACK (HURRAY!)");
-+					break;
-+				}
-+				case IP_PKTINFO: {
-+					struct in_pktinfo *pktinfo =
-+						(struct in_pktinfo *)CMSG_DATA(cmsg);
-+					printf("IP_PKTINFO interface index %u",
-+						pktinfo->ipi_ifindex);
-+					break;
-+				}
-+				default:
-+					printf("type %d", cmsg->cmsg_type);
-+					break;
-+				}
-+				break;
-+			default:
-+				printf("level %d type %d",
-+					cmsg->cmsg_level,
-+					cmsg->cmsg_type);
-+				break;
-+			}
-+			printf("\n");
++/**
+  * sk_eat_skb - Release a skb if it is no longer needed
+  * @sk: socket to eat this skb from
+  * @skb: socket buffer to eat
+@@ -1416,7 +1447,7 @@ static inline struct sock *skb_steal_sock(struct sk_buff *skb)
+ 	return NULL;
+ }
+ 
+-extern void sock_enable_timestamp(struct sock *sk);
++extern void sock_enable_timestamp(struct sock *sk, int flag);
+ extern int sock_get_timestamp(struct sock *, struct timeval __user *);
+ extern int sock_get_timestampns(struct sock *, struct timespec __user *);
+ 
+diff --git a/net/compat.c b/net/compat.c
+index 6ce1a1c..954377e 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -216,7 +216,7 @@ Efault:
+ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *data)
+ {
+ 	struct compat_timeval ctv;
+-	struct compat_timespec cts;
++	struct compat_timespec cts[3];
+ 	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
+ 	struct compat_cmsghdr cmhdr;
+ 	int cmlen;
+@@ -233,12 +233,17 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+ 		data = &ctv;
+ 		len = sizeof(ctv);
+ 	}
+-	if (level == SOL_SOCKET && type == SCM_TIMESTAMPNS) {
++	if (level == SOL_SOCKET &&
++		(type == SCM_TIMESTAMPNS || type == SCM_TIMESTAMPING)) {
++		int count = type == SCM_TIMESTAMPNS ? 1 : 3;
++		int i;
+ 		struct timespec *ts = (struct timespec *)data;
+-		cts.tv_sec = ts->tv_sec;
+-		cts.tv_nsec = ts->tv_nsec;
++		for (i = 0; i < count; i++) {
++			cts[i].tv_sec = ts[i].tv_sec;
++			cts[i].tv_nsec = ts[i].tv_nsec;
 +		}
-+
-+		if (siocgstamp) {
-+			if (ioctl(sock, SIOCGSTAMP, &tv))
-+				printf("   %s: %s\n", "SIOCGSTAMP", strerror(errno));
-+			else
-+				printf("SIOCGSTAMP %ld.%06ld\n",
-+					(long)tv.tv_sec,
-+					(long)tv.tv_usec);
+ 		data = &cts;
+-		len = sizeof(cts);
++		len = sizeof(cts[0]) * count;
+ 	}
+ 
+ 	cmlen = CMSG_COMPAT_LEN(len);
+@@ -455,7 +460,7 @@ int compat_sock_get_timestamp(struct sock *sk, struct timeval __user *userstamp)
+ 	struct timeval tv;
+ 
+ 	if (!sock_flag(sk, SOCK_TIMESTAMP))
+-		sock_enable_timestamp(sk);
++		sock_enable_timestamp(sk, SOCK_TIMESTAMP);
+ 	tv = ktime_to_timeval(sk->sk_stamp);
+ 	if (tv.tv_sec == -1)
+ 		return err;
+@@ -479,7 +484,7 @@ int compat_sock_get_timestampns(struct sock *sk, struct timespec __user *usersta
+ 	struct timespec ts;
+ 
+ 	if (!sock_flag(sk, SOCK_TIMESTAMP))
+-		sock_enable_timestamp(sk);
++		sock_enable_timestamp(sk, SOCK_TIMESTAMP);
+ 	ts = ktime_to_timespec(sk->sk_stamp);
+ 	if (ts.tv_sec == -1)
+ 		return err;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 38de9c3..1a4895a 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -120,6 +120,7 @@
+ #include <net/net_namespace.h>
+ #include <net/request_sock.h>
+ #include <net/sock.h>
++#include <net/timestamping.h>
+ #include <net/xfrm.h>
+ #include <linux/ipsec.h>
+ 
+@@ -257,11 +258,14 @@ static void sock_warn_obsolete_bsdism(const char *name)
+ 	}
+ }
+ 
+-static void sock_disable_timestamp(struct sock *sk)
++static void sock_disable_timestamp(struct sock *sk, int flag)
+ {
+-	if (sock_flag(sk, SOCK_TIMESTAMP)) {
+-		sock_reset_flag(sk, SOCK_TIMESTAMP);
+-		net_disable_timestamp();
++	if (sock_flag(sk, flag)) {
++		sock_reset_flag(sk, flag);
++		if (!sock_flag(sk, SOCK_TIMESTAMP) &&
++			!sock_flag(sk, SOCK_TIMESTAMPING_RX_SOFTWARE)) {
++			net_disable_timestamp();
 +		}
-+		if (siocgstampns) {
-+			if (ioctl(sock, SIOCGSTAMPNS, &ts))
-+				printf("   %s: %s\n", "SIOCGSTAMPNS", strerror(errno));
-+			else
-+				printf("SIOCGSTAMPNS %ld.%09ld\n",
-+					(long)ts.tv_sec,
-+					(long)ts.tv_nsec);
+ 	}
+ }
+ 
+@@ -616,13 +620,36 @@ set_rcvbuf:
+ 			else
+ 				sock_set_flag(sk, SOCK_RCVTSTAMPNS);
+ 			sock_set_flag(sk, SOCK_RCVTSTAMP);
+-			sock_enable_timestamp(sk);
++			sock_enable_timestamp(sk, SOCK_TIMESTAMP);
+ 		} else {
+ 			sock_reset_flag(sk, SOCK_RCVTSTAMP);
+ 			sock_reset_flag(sk, SOCK_RCVTSTAMPNS);
+ 		}
+ 		break;
+ 
++	case SO_TIMESTAMPING:
++		if (val & ~SOF_TIMESTAMPING_MASK) {
++			ret = EINVAL;
++			break;
 +		}
-+	}
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	int so_timestamping_flags = 0;
-+	int so_timestamp = 0;
-+	int so_timestampns = 0;
-+	int siocgstamp = 0;
-+	int siocgstampns = 0;
-+	int ip_multicast_loop = 0;
-+	char *interface;
-+	int i;
-+	int enabled = 1;
-+	int sock;
-+	struct ifreq device;
-+	struct ifreq hwtstamp;
-+	struct hwtstamp_config hwconfig, hwconfig_requested;
-+	struct sockaddr_in addr;
-+	struct ip_mreq imr;
-+	struct in_addr iaddr;
-+	int val;
-+	socklen_t len;
-+	struct timeval next;
-+
-+	if (argc < 2)
-+		usage(0);
-+	interface = argv[1];
-+
-+	for (i = 2; i < argc; i++ ) {
-+		if (!strcasecmp(argv[i], "SO_TIMESTAMP")) {
-+			so_timestamp = 1;
-+		} else if (!strcasecmp(argv[i], "SO_TIMESTAMPNS")) {
-+			so_timestampns = 1;
-+		} else if (!strcasecmp(argv[i], "SIOCGSTAMP")) {
-+			siocgstamp = 1;
-+		} else if (!strcasecmp(argv[i], "SIOCGSTAMPNS")) {
-+			siocgstampns = 1;
-+		} else if (!strcasecmp(argv[i], "IP_MULTICAST_LOOP")) {
-+			ip_multicast_loop = 1;
-+		} else if (!strcasecmp(argv[i], "SOF_TIMESTAMPING_TX_HARDWARE")) {
-+			so_timestamping_flags |= SOF_TIMESTAMPING_TX_HARDWARE;
-+		} else if (!strcasecmp(argv[i], "SOF_TIMESTAMPING_TX_SOFTWARE")) {
-+			so_timestamping_flags |= SOF_TIMESTAMPING_TX_SOFTWARE;
-+		} else if (!strcasecmp(argv[i], "SOF_TIMESTAMPING_RX_HARDWARE")) {
-+			so_timestamping_flags |= SOF_TIMESTAMPING_RX_HARDWARE;
-+		} else if (!strcasecmp(argv[i], "SOF_TIMESTAMPING_RX_SOFTWARE")) {
-+			so_timestamping_flags |= SOF_TIMESTAMPING_RX_SOFTWARE;
-+		} else if (!strcasecmp(argv[i], "SOF_TIMESTAMPING_SOFTWARE")) {
-+			so_timestamping_flags |= SOF_TIMESTAMPING_SOFTWARE;
-+		} else if (!strcasecmp(argv[i], "SOF_TIMESTAMPING_SYS_HARDWARE")) {
-+			so_timestamping_flags |= SOF_TIMESTAMPING_SYS_HARDWARE;
-+		} else if (!strcasecmp(argv[i], "SOF_TIMESTAMPING_RAW_HARDWARE")) {
-+			so_timestamping_flags |= SOF_TIMESTAMPING_RAW_HARDWARE;
-+		} else {
-+			usage(argv[i]);
-+		}
-+	}
-+
-+	sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-+	if (socket < 0)
-+		bail("socket");
-+
-+	memset(&device, 0, sizeof(device));
-+	strncpy(device.ifr_name, interface, sizeof(device.ifr_name));
-+	if (ioctl(sock, SIOCGIFADDR, &device) < 0)
-+		bail("getting interface IP address");
-+
-+	memset(&hwtstamp, 0, sizeof(hwtstamp));
-+	strncpy(hwtstamp.ifr_name, interface, sizeof(hwtstamp.ifr_name));
-+	hwtstamp.ifr_data = (void *)&hwconfig;
-+	memset(&hwconfig, 0, sizeof(&hwconfig));
-+	hwconfig.tx_type =
-+		(so_timestamping_flags & SOF_TIMESTAMPING_TX_HARDWARE) ?
-+		HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
-+	hwconfig.rx_filter_type =
-+		(so_timestamping_flags & SOF_TIMESTAMPING_RX_HARDWARE) ?
-+		HWTSTAMP_FILTER_PTP_V1_L4_SYNC : HWTSTAMP_FILTER_NONE;
-+	hwconfig_requested = hwconfig;
-+	if (ioctl(sock, SIOCSHWTSTAMP, &hwtstamp) < 0) {
-+		if ((errno == EINVAL || errno == ENOTSUP) &&
-+			hwconfig_requested.tx_type == HWTSTAMP_TX_OFF &&
-+			hwconfig_requested.rx_filter_type == HWTSTAMP_FILTER_NONE)
-+			printf("SIOCSHWTSTAMP: disabling hardware time stamping not possible\n");
++		sock_valbool_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE,
++				val & SOF_TIMESTAMPING_TX_HARDWARE);
++		sock_valbool_flag(sk, SOCK_TIMESTAMPING_TX_SOFTWARE,
++				val & SOF_TIMESTAMPING_TX_SOFTWARE);
++		sock_valbool_flag(sk, SOCK_TIMESTAMPING_RX_HARDWARE,
++				val & SOF_TIMESTAMPING_RX_HARDWARE);
++		if (val & SOF_TIMESTAMPING_RX_SOFTWARE)
++			sock_enable_timestamp(sk, SOCK_TIMESTAMPING_RX_SOFTWARE);
 +		else
-+			bail("SIOCSHWTSTAMP");
-+	}
-+	printf("SIOCSHWTSTAMP: tx_type %d requested, got %d; rx_filter_type %d requested, got %d\n",
-+		hwconfig_requested.tx_type, hwconfig.tx_type,
-+		hwconfig_requested.rx_filter_type, hwconfig.rx_filter_type);
++			sock_disable_timestamp(sk, SOCK_TIMESTAMPING_RX_SOFTWARE);
++		sock_valbool_flag(sk, SOCK_TIMESTAMPING_SOFTWARE,
++				val & SOF_TIMESTAMPING_SOFTWARE);
++		sock_valbool_flag(sk, SOCK_TIMESTAMPING_SYS_HARDWARE,
++				val & SOF_TIMESTAMPING_SYS_HARDWARE);
++		sock_valbool_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE,
++				val & SOF_TIMESTAMPING_RAW_HARDWARE);
++		break;
 +
-+	/* bind to PTP port */
-+	addr.sin_family = AF_INET;
-+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-+	addr.sin_port = htons(319 /* PTP event port */);
-+	if (bind(sock, (struct sockaddr*)&addr, sizeof(struct sockaddr_in)) < 0)
-+		bail("bind");
+ 	case SO_RCVLOWAT:
+ 		if (val < 0)
+ 			val = INT_MAX;
+@@ -768,6 +795,24 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sock_flag(sk, SOCK_RCVTSTAMPNS);
+ 		break;
+ 
++	case SO_TIMESTAMPING:
++		v.val = 0;
++		if (sock_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE))
++			v.val |= SOF_TIMESTAMPING_TX_HARDWARE;
++		if (sock_flag(sk, SOCK_TIMESTAMPING_TX_SOFTWARE))
++			v.val |= SOF_TIMESTAMPING_TX_SOFTWARE;
++		if (sock_flag(sk, SOCK_TIMESTAMPING_RX_HARDWARE))
++			v.val |= SOF_TIMESTAMPING_RX_HARDWARE;
++		if (sock_flag(sk, SOCK_TIMESTAMPING_RX_SOFTWARE))
++			v.val |= SOF_TIMESTAMPING_RX_SOFTWARE;
++		if (sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE))
++			v.val |= SOF_TIMESTAMPING_SOFTWARE;
++		if (sock_flag(sk, SOCK_TIMESTAMPING_SYS_HARDWARE))
++			v.val |= SOF_TIMESTAMPING_SYS_HARDWARE;
++		if (sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE))
++			v.val |= SOF_TIMESTAMPING_RAW_HARDWARE;
++		break;
 +
-+	/* set multicast group for outgoing packets */
-+	inet_aton("224.0.1.130", &iaddr); /* alternate PTP domain 1 */
-+	addr.sin_addr = iaddr;
-+	imr.imr_multiaddr.s_addr = iaddr.s_addr;
-+	imr.imr_interface.s_addr = ((struct sockaddr_in *)&device.ifr_addr)->sin_addr.s_addr;
-+	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF,
-+			&imr.imr_interface.s_addr, sizeof(struct in_addr)) < 0)
-+		bail("set multicast");
-+
-+	/* join multicast group, loop our own packet */
-+	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &imr, sizeof(struct ip_mreq)) < 0)
-+		bail("join multicast group");
-+
-+	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &ip_multicast_loop, sizeof(enabled)) < 0) {
-+		bail("loop multicast");
-+	}
-+
-+	/* set socket options for time stamping */
-+	if (so_timestamp &&
-+		setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &enabled, sizeof(enabled)) < 0)
-+		bail("setsockopt SO_TIMESTAMP");
-+
-+	if (so_timestampns &&
-+		setsockopt(sock, SOL_SOCKET, SO_TIMESTAMPNS, &enabled, sizeof(enabled)) < 0)
-+		bail("setsockopt SO_TIMESTAMPNS");
-+
-+	if (so_timestamping_flags &&
-+		setsockopt(sock, SOL_SOCKET, SO_TIMESTAMPING, &so_timestamping_flags, sizeof(so_timestamping_flags)) < 0)
-+		bail("setsockopt SO_TIMESTAMPING");
-+
-+	/* request IP_PKTINFO for debugging purposes */
-+	if (setsockopt(sock, SOL_IP, IP_PKTINFO, &enabled, sizeof(enabled)) < 0)
-+		printf("%s: %s\n", "setsockopt IP_PKTINFO", strerror(errno));
-+
-+	/* verify socket options */
-+	len = sizeof(val);
-+	if (getsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &val, &len) < 0)
-+		printf("%s: %s\n", "getsockopt SO_TIMESTAMP", strerror(errno));
-+	else
-+		printf("SO_TIMESTAMP %d\n", val);
-+
-+	if (getsockopt(sock, SOL_SOCKET, SO_TIMESTAMPNS, &val, &len) < 0)
-+		printf("%s: %s\n", "getsockopt SO_TIMESTAMPNS", strerror(errno));
-+	else
-+		printf("SO_TIMESTAMPNS %d\n", val);
-+
-+	if (getsockopt(sock, SOL_SOCKET, SO_TIMESTAMPING, &val, &len) < 0) {
-+		printf("%s: %s\n", "getsockopt SO_TIMESTAMPING", strerror(errno));
-+	} else {
-+		printf("SO_TIMESTAMPING %d\n", val);
-+		if (val != so_timestamping_flags)
-+			printf("   not the expected value %d\n", so_timestamping_flags);
-+	}
-+
-+	/* send packets forever every five seconds */
-+	gettimeofday(&next, 0);
-+	next.tv_sec = (next.tv_sec + 1) / 5 * 5;
-+	next.tv_usec = 0;
-+	while(1) {
-+		struct timeval now;
-+		struct timeval delta;
-+		long delta_us;
-+		int res;
-+		fd_set readfs, errorfs;
-+
-+		gettimeofday(&now, 0);
-+		delta_us = (long)(next.tv_sec - now.tv_sec) * 1000000 +
-+			(long)(next.tv_usec - now.tv_usec);
-+		if (delta_us > 0) {
-+			/* continue waiting for timeout or data */
-+			delta.tv_sec = delta_us / 1000000;
-+			delta.tv_usec = delta_us % 1000000;
-+
-+			FD_ZERO(&readfs);
-+			FD_ZERO(&errorfs);
-+			FD_SET(sock, &readfs);
-+			FD_SET(sock, &errorfs);
-+			printf("%ld.%06ld: select %ldus\n",
-+				(long)now.tv_sec, (long)now.tv_usec,
-+				delta_us);
-+			res = select(sock + 1, &readfs, 0, &errorfs, &delta);
-+			gettimeofday(&now, 0);
-+			printf("%ld.%06ld: select returned: %d, %s\n",
-+				(long)now.tv_sec, (long)now.tv_usec,
-+				res,
-+				res < 0 ? strerror(errno) : "success");
-+			if (res > 0) {
-+				if (FD_ISSET(sock, &readfs))
-+					printf("ready for reading\n");
-+				if (FD_ISSET(sock, &errorfs))
-+					printf("has error\n");
-+				recvpacket(sock, 0,
-+					siocgstamp,
-+					siocgstampns);
-+				recvpacket(sock, MSG_ERRQUEUE,
-+					siocgstamp,
-+					siocgstampns);
-+			}
-+		} else {
-+			/* write one packet */
-+			sendpacket(sock, (struct sockaddr *)&addr, sizeof(addr));
-+			next.tv_sec += 5;
-+			continue;
-+		}
-+	}
-+
+ 	case SO_RCVTIMEO:
+ 		lv=sizeof(struct timeval);
+ 		if (sk->sk_rcvtimeo == MAX_SCHEDULE_TIMEOUT) {
+@@ -969,7 +1014,8 @@ void sk_free(struct sock *sk)
+ 		rcu_assign_pointer(sk->sk_filter, NULL);
+ 	}
+ 
+-	sock_disable_timestamp(sk);
++	sock_disable_timestamp(sk, SOCK_TIMESTAMP);
++	sock_disable_timestamp(sk, SOCK_TIMESTAMPING_RX_SOFTWARE);
+ 
+ 	if (atomic_read(&sk->sk_omem_alloc))
+ 		printk(KERN_DEBUG "%s: optmem leakage (%d bytes) detected.\n",
+@@ -1783,7 +1829,7 @@ int sock_get_timestamp(struct sock *sk, struct timeval __user *userstamp)
+ {
+ 	struct timeval tv;
+ 	if (!sock_flag(sk, SOCK_TIMESTAMP))
+-		sock_enable_timestamp(sk);
++		sock_enable_timestamp(sk, SOCK_TIMESTAMP);
+ 	tv = ktime_to_timeval(sk->sk_stamp);
+ 	if (tv.tv_sec == -1)
+ 		return -ENOENT;
+@@ -1799,7 +1845,7 @@ int sock_get_timestampns(struct sock *sk, struct timespec __user *userstamp)
+ {
+ 	struct timespec ts;
+ 	if (!sock_flag(sk, SOCK_TIMESTAMP))
+-		sock_enable_timestamp(sk);
++		sock_enable_timestamp(sk, SOCK_TIMESTAMP);
+ 	ts = ktime_to_timespec(sk->sk_stamp);
+ 	if (ts.tv_sec == -1)
+ 		return -ENOENT;
+@@ -1811,11 +1857,20 @@ int sock_get_timestampns(struct sock *sk, struct timespec __user *userstamp)
+ }
+ EXPORT_SYMBOL(sock_get_timestampns);
+ 
+-void sock_enable_timestamp(struct sock *sk)
++void sock_enable_timestamp(struct sock *sk, int flag)
+ {
+-	if (!sock_flag(sk, SOCK_TIMESTAMP)) {
+-		sock_set_flag(sk, SOCK_TIMESTAMP);
+-		net_enable_timestamp();
++	if (!sock_flag(sk, flag)) {
++		sock_set_flag(sk, flag);
++		/*
++		 * we just set one of the two flags which require net
++		 * time stamping, but time stamping might have been on
++		 * already because of the other one
++		 */
++		if (!sock_flag(sk,
++				flag == SOCK_TIMESTAMP ?
++				SOCK_TIMESTAMPING_RX_SOFTWARE :
++				SOCK_TIMESTAMP))
++			net_enable_timestamp();
+ 	}
+ }
+ 
+diff --git a/net/socket.c b/net/socket.c
+index d7128b7..1ad00e1 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -545,6 +545,18 @@ void sock_release(struct socket *sock)
+ 	sock->file = NULL;
+ }
+ 
++int sock_tx_timestamp(struct msghdr *msg, struct sock *sk,
++		union sk_buff_hwtstamp *tstamp_tx)
++{
++	tstamp_tx->hwtstamp.tv64 = 0;
++	tstamp_tx->tstamp_tx_hardware =
++		sock_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE);
++	tstamp_tx->tstamp_tx_software =
++		sock_flag(sk, SOCK_TIMESTAMPING_TX_SOFTWARE);
 +	return 0;
 +}
-diff --git a/arch/x86/include/asm/socket.h b/arch/x86/include/asm/socket.h
-index 8ab9cc8..79e1f6c 100644
---- a/arch/x86/include/asm/socket.h
-+++ b/arch/x86/include/asm/socket.h
-@@ -54,4 +54,7 @@
++EXPORT_SYMBOL(sock_tx_timestamp);
++
+ static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 				 struct msghdr *msg, size_t size)
+ {
+@@ -601,26 +613,49 @@ int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 	struct sk_buff *skb)
+ {
+-	ktime_t kt = skb->tstamp;
+-
+-	if (!sock_flag(sk, SOCK_RCVTSTAMPNS)) {
+-		struct timeval tv;
+-		/* Race occurred between timestamp enabling and packet
+-		   receiving.  Fill in the current time for now. */
+-		if (kt.tv64 == 0)
+-			kt = ktime_get_real();
+-		skb->tstamp = kt;
+-		tv = ktime_to_timeval(kt);
+-		put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP, sizeof(tv), &tv);
+-	} else {
+-		struct timespec ts;
+-		/* Race occurred between timestamp enabling and packet
+-		   receiving.  Fill in the current time for now. */
+-		if (kt.tv64 == 0)
+-			kt = ktime_get_real();
+-		skb->tstamp = kt;
+-		ts = ktime_to_timespec(kt);
+-		put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPNS, sizeof(ts), &ts);
++	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP);
++
++	/* Race occurred between timestamp enabling and packet
++	   receiving.  Fill in the current time for now. */
++	if (need_software_tstamp && skb->tstamp.tv64 == 0)
++		__net_timestamp(skb);
++
++	if (need_software_tstamp) {
++		if (!sock_flag(sk, SOCK_RCVTSTAMPNS)) {
++			struct timeval tv;
++			skb_get_timestamp(skb, &tv);
++			put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP,
++				sizeof(tv), &tv);
++		} else {
++			struct timespec ts;
++			skb_get_timestampns(skb, &ts);
++			put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPNS,
++				sizeof(ts), &ts);
++		}
++	}
++
++	if (sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE) ||
++		sock_flag(sk, SOCK_TIMESTAMPING_SYS_HARDWARE) ||
++		sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE)) {
++		struct timespec ts[3];
++		int empty = 1;
++		memset(ts, 0, sizeof(ts));
++		if (skb->tstamp.tv64 &&
++			sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE)) {
++			skb_get_timestampns(skb, ts + 0);
++			empty = 0;
++		}
++		if (skb_hwtstamp_available(skb)) {
++			if (sock_flag(sk, SOCK_TIMESTAMPING_SYS_HARDWARE) &&
++				skb_hwtstamp_transformed(skb, ts + 1))
++				empty = 0;
++			if (sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE) &&
++				skb_hwtstamp_raw(skb, ts + 2))
++				empty = 0;
++		}
++		if (!empty)
++			put_cmsg(msg, SOL_SOCKET,
++				SCM_TIMESTAMPING, sizeof(ts), &ts);
+ 	}
+ }
  
- #define SO_MARK			36
- 
-+#define SO_TIMESTAMPING         37
-+#define SCM_TIMESTAMPING        SO_TIMESTAMPING
-+
- #endif /* _ASM_X86_SOCKET_H */
-diff --git a/include/linux/errqueue.h b/include/linux/errqueue.h
-index 92f8d4f..86d88dd 100644
---- a/include/linux/errqueue.h
-+++ b/include/linux/errqueue.h
-@@ -16,6 +16,7 @@ struct sock_extended_err
- #define SO_EE_ORIGIN_LOCAL	1
- #define SO_EE_ORIGIN_ICMP	2
- #define SO_EE_ORIGIN_ICMP6	3
-+#define SO_EE_ORIGIN_TIMESTAMPING 4
- 
- #define SO_EE_OFFENDER(ee)	((struct sockaddr*)((ee)+1))
- 
-diff --git a/include/linux/sockios.h b/include/linux/sockios.h
-index abef759..209ee22 100644
---- a/include/linux/sockios.h
-+++ b/include/linux/sockios.h
-@@ -122,6 +122,9 @@
- #define SIOCBRADDIF	0x89a2		/* add interface to bridge      */
- #define SIOCBRDELIF	0x89a3		/* remove interface from bridge */
- 
-+/* hardware time stamping: parameters in net/timestamping.h */
-+#define SIOCSHWTSTAMP   0x89b0
-+
- /* Device private ioctl calls */
- 
- /*
-diff --git a/include/net/timestamping.h b/include/net/timestamping.h
-new file mode 100644
-index 0000000..c271caa
---- /dev/null
-+++ b/include/net/timestamping.h
-@@ -0,0 +1,95 @@
-+#ifndef _NET_TIMESTAMPING_H
-+#define _NET_TIMESTAMPING_H
-+
-+#include <linux/socket.h>   /* for SO_TIMESTAMPING */
-+
-+/**
-+ * user space linux/socket.h might not have these defines yet:
-+ * provide fallback
-+ */
-+#if !defined(__kernel__) && !defined(SO_TIMESTAMPING)
-+# define SO_TIMESTAMPING         37
-+# define SCM_TIMESTAMPING        SO_TIMESTAMPING
-+#endif
-+
-+/** %SO_TIMESTAMPING gets an integer bit field comprised of these values */
-+enum {
-+	SOF_TIMESTAMPING_TX_HARDWARE = (1<<0),
-+	SOF_TIMESTAMPING_TX_SOFTWARE = (1<<1),
-+	SOF_TIMESTAMPING_RX_HARDWARE = (1<<2),
-+	SOF_TIMESTAMPING_RX_SOFTWARE = (1<<3),
-+	SOF_TIMESTAMPING_SOFTWARE = (1<<4),
-+	SOF_TIMESTAMPING_SYS_HARDWARE = (1<<5),
-+	SOF_TIMESTAMPING_RAW_HARDWARE = (1<<6),
-+	SOF_TIMESTAMPING_MASK = (SOF_TIMESTAMPING_RAW_HARDWARE - 1) | SOF_TIMESTAMPING_RAW_HARDWARE
-+};
-+
-+#if !defined(__kernel__) && !defined(SIOCSHWTSTAMP)
-+# define SIOCSHWTSTAMP 0x89b0
-+#endif
-+
-+/** %SIOCSHWTSTAMP expects a struct ifreq with a ifr_data pointer to this struct  */
-+struct hwtstamp_config {
-+	int flags;           /**< no flags defined right now, must be zero */
-+	int tx_type;         /**< one of HWTSTAMP_TX_* */
-+	int rx_filter_type;  /**< one of HWTSTAMP_RX_* */
-+};
-+
-+/** possible values for hwtstamp_config->tx_type */
-+enum {
-+	/**
-+	 * no outgoing packet will need hardware time stamping;
-+	 * should a packet arrive which asks for it, no hardware
-+	 * time stamping will be done
-+	 */
-+	HWTSTAMP_TX_OFF,
-+
-+	/**
-+	 * enables hardware time stamping for outgoing packets;
-+	 * the sender of the packet decides which are to be
-+	 * time stamped by setting SOF_TIMESTAMPING_TX_SOFTWARE
-+	 * before sending the packet
-+	 */
-+	HWTSTAMP_TX_ON,
-+};
-+
-+/** possible values for hwtstamp_config->rx_filter_type */
-+enum {
-+	/** time stamp no incoming packet at all */
-+	HWTSTAMP_FILTER_NONE,
-+
-+	/** time stamp any incoming packet */
-+	HWTSTAMP_FILTER_ALL,
-+
-+        /** return value: time stamp all packets requested plus some others */
-+        HWTSTAMP_FILTER_SOME,
-+
-+	/** PTP v1, UDP, any kind of event packet */
-+	HWTSTAMP_FILTER_PTP_V1_L4_EVENT,
-+	/** PTP v1, UDP, Sync packet */
-+	HWTSTAMP_FILTER_PTP_V1_L4_SYNC,
-+	/** PTP v1, UDP, Delay_req packet */
-+	HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ,
-+	/** PTP v2, UDP, any kind of event packet */
-+	HWTSTAMP_FILTER_PTP_V2_L4_EVENT,
-+	/** PTP v2, UDP, Sync packet */
-+	HWTSTAMP_FILTER_PTP_V2_L4_SYNC,
-+	/** PTP v2, UDP, Delay_req packet */
-+	HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ,
-+
-+	/** 802.AS1, Ethernet, any kind of event packet */
-+	HWTSTAMP_FILTER_PTP_V2_L2_EVENT,
-+	/** 802.AS1, Ethernet, Sync packet */
-+	HWTSTAMP_FILTER_PTP_V2_L2_SYNC,
-+	/** 802.AS1, Ethernet, Delay_req packet */
-+	HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ,
-+
-+	/** PTP v2/802.AS1, any layer, any kind of event packet */
-+	HWTSTAMP_FILTER_PTP_V2_EVENT,
-+	/** PTP v2/802.AS1, any layer, Sync packet */
-+	HWTSTAMP_FILTER_PTP_V2_SYNC,
-+	/** PTP v2/802.AS1, any layer, Delay_req packet */
-+	HWTSTAMP_FILTER_PTP_V2_DELAY_REQ,
-+};
-+
-+#endif /* _NET_TIMESTAMPING_H */
 -- 
 1.6.0.4
 
