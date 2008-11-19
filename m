@@ -1,39 +1,55 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: iproute: add DRR support
-Date: Wed, 19 Nov 2008 16:04:53 +0100
-Message-ID: <49242B15.1010902@trash.net>
+Subject: Re: iproute: add DRR support
+Date: Wed, 19 Nov 2008 16:08:05 +0100
+Message-ID: <49242BD5.5070909@trash.net>
+References: <49242B15.1010902@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010903020808090402060807"
+ boundary="------------030803000007020308080600"
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33088 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:33154 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbYKSPFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 10:05:00 -0500
+	with ESMTP id S1752864AbYKSPIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 10:08:12 -0500
+In-Reply-To: <49242B15.1010902@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------010903020808090402060807
+--------------030803000007020308080600
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch adds support for the DRR scheduler I just sent
-to iproute.
+Patrick McHardy wrote:
+> This patch adds support for the DRR scheduler I just sent
+> to iproute.
+> 
+> + * q_drr.c		WRR.
+> + *
+> + *		This program is free software; you can redistribute it and/or
+> + *		modify it under the terms of the GNU General Public License
+> + *		as published by the Free Software Foundation; either version
+> + *		2 of the License, or (at your option) any later version.
+> + *
+> + * Authors:	Martin Devera  <devik@cdi.cz>
+
+I forgot to remove left-overs from my template :)
+Fixed version attached.
 
 
---------------010903020808090402060807
+
+--------------030803000007020308080600
 Content-Type: text/x-patch;
  name="01.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
  filename="01.diff"
 
-commit 2d51cb0c3bd75c92ddedf4114568af57ab277bf6
+commit 4b029a05be7f9101a6f0c2fd19e06f6af0ce5419
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Nov 19 16:03:25 2008 +0100
+Date:   Wed Nov 19 16:07:08 2008 +0100
 
     iproute: add DRR support
     
@@ -78,19 +94,19 @@ index a3005e9..8eba685 100644
  TCMODULES += m_ipt.o
 diff --git a/tc/q_drr.c b/tc/q_drr.c
 new file mode 100644
-index 0000000..f4d1555
+index 0000000..7d2d874
 --- /dev/null
 +++ b/tc/q_drr.c
 @@ -0,0 +1,124 @@
 +/*
-+ * q_drr.c		WRR.
++ * q_drr.c		DRR.
 + *
 + *		This program is free software; you can redistribute it and/or
 + *		modify it under the terms of the GNU General Public License
 + *		as published by the Free Software Foundation; either version
 + *		2 of the License, or (at your option) any later version.
 + *
-+ * Authors:	Martin Devera  <devik@cdi.cz>
++ * Authors:	Patrick McHardy <kaber@trash.net>
 + *
 + */
 +
@@ -207,4 +223,4 @@ index 0000000..f4d1555
 +	.print_copt	= drr_print_opt,
 +};
 
---------------010903020808090402060807--
+--------------030803000007020308080600--
