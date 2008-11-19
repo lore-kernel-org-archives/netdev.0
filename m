@@ -1,65 +1,47 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: hardware time stamping with extra skb->hwtstamp
-Date: Wed, 19 Nov 2008 13:08:37 +0100
-Message-ID: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Subject: [RFC PATCH 01/11] put_cmsg_compat + SO_TIMESTAMP[NS]: use same name for value as caller
+Date: Wed, 19 Nov 2008 13:08:38 +0100
+Message-ID: <1227096528-24150-2-git-send-email-patrick.ohly@intel.com>
+References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick Ohly <patrick.ohly@intel.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:58043 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752433AbYKSMIw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2008 07:08:52 -0500
+	id S1752483AbYKSMIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2008 07:08:53 -0500
+In-Reply-To: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series was discussed before on linux-netdev ("hardware
-time stamping + igb example implementation"). Since then I have
-rebased against net-next and addressed all comments sent so far,
-except Octavian's suggestion to include more information in the
-packet which is bounced back to the application.
+In __sock_recv_timestamp() the additional SCM_TIMESTAMP[NS] is used. This
+has the same value as SO_TIMESTAMP[NS], so this is a purely cosmetic change.
+---
+ net/compat.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-As suggested by David, I'm now also including linux-kernel because:
- * patch 2 adds a new user space API (documentation and example
-   program included, but no man page patch yet)
- * patch 8 extends the clocksource struct (mostly adds code, but
-   also adds one branch to reading the clock, which may affect
-   gettimeofday)
- * patch 10 adds generic code for time synchronization (not
-   network specific, so people not subscribed to linux-netdev
-   might have comments)
-
-The open question on linux-netdev was whether struct sk_buff
-should be extended to hold the additional hardware time
-stamp. The previous patch avoided that at the cost of much more
-complicated code and side effects on normal time stamping.
-
-This patch now adds a 8 byte field unconditionally. The
-implementation is a lot more straight-forward. The user space
-API was already designed to cover this case, so it remained
-unchanged.
-
-There's one unsolved problem, though: time synchronization with
-PTP (the use case I'm working on) requires a transformation of
-raw hardware time stamps into system time. Currently this is done
-at the socket level by finding the device which created the time
-stamp and letting it do the transformation. This fails for
-incoming packets because skb->rt points to the "lo" device.
-
-Perhaps the interface number can be used to find the real
-hardware device. Alternatively the conversion could be done when
-generating the time stamp (might also be more accurate), but then
-another 8 byte field is needed. Delta encoding won't help because
-one cannot assume that hardware time stamps track system time
-closely enough.
-
-I'm posting the patch despite this problem so that the discussion
-can move forward. There are other TODOs anyway; in particular the
-igb extension is just a proof-of-concept.
-
+diff --git a/net/compat.c b/net/compat.c
+index 67fb6a3..6ce1a1c 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -226,14 +226,14 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+ 		return 0; /* XXX: return error? check spec. */
+ 	}
+ 
+-	if (level == SOL_SOCKET && type == SO_TIMESTAMP) {
++	if (level == SOL_SOCKET && type == SCM_TIMESTAMP) {
+ 		struct timeval *tv = (struct timeval *)data;
+ 		ctv.tv_sec = tv->tv_sec;
+ 		ctv.tv_usec = tv->tv_usec;
+ 		data = &ctv;
+ 		len = sizeof(ctv);
+ 	}
+-	if (level == SOL_SOCKET && type == SO_TIMESTAMPNS) {
++	if (level == SOL_SOCKET && type == SCM_TIMESTAMPNS) {
+ 		struct timespec *ts = (struct timespec *)data;
+ 		cts.tv_sec = ts->tv_sec;
+ 		cts.tv_nsec = ts->tv_nsec;
 -- 
-Best Regards, Patrick Ohly
+1.6.0.4
 
-The content of this message is my personal opinion only and although
-I am an employee of Intel, the statements I make here in no way
-represent Intel's position on the issue, nor am I authorized to speak
-on behalf of Intel on this matter.
