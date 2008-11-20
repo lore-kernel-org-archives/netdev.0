@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: use seq_release_private for ip6mr.c /proc entries
-Date: Thu, 20 Nov 2008 04:16:24 -0800 (PST)
-Message-ID: <20081120.041624.120712715.davem@davemloft.net>
-References: <20081119204128.826163131@theryb.frec.bull.fr>
-	<20081119204141.938837793@theryb.frec.bull.fr>
+Subject: Re: [PATCH] sfc: Fix dependency for SFC_MTD
+Date: Thu, 20 Nov 2008 04:17:53 -0800 (PST)
+Message-ID: <20081120.041753.264904694.davem@davemloft.net>
+References: <20081119204850.GF8240@solarflare.com>
+	<20081119205353.GG8240@solarflare.com>
+	<4924872E.5070102@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: benjamin.thery@bull.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60502
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754122AbYKTMQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 07:16:24 -0500
-In-Reply-To: <20081119204141.938837793@theryb.frec.bull.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com, dwmw2@infradead.org,
+	sfr@canb.auug.org.au, linux-next@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4924872E.5070102@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Benjamin Thery <benjamin.thery@bull.net>
-Date: Wed, 19 Nov 2008 21:41:38 +0100
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Wed, 19 Nov 2008 13:37:50 -0800
 
-> In ip6mr.c, /proc entries /proc/net/ip6_mr_cache and /proc/net/ip6_mr_vif
-> are opened with seq_open_private(), thus seq_release_private() should be 
-> used to release them.
-> Should fix a small memory leak.
+> Ben Hutchings wrote:
+> > Randy Dunlap found that SFC_MTD was selected when sfc was built-in and
+> > the MTD core was a module.  Don't allow that combination.
+> > 
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 > 
-> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+> Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> I realized that this problem came up because SFC_MTD is a boolean
+> that depends on tristates, so the boolean is set (=y) when
+> SFC=y or SFC=m.  Thus extra handling for it is needed,
+> like Ben did here.
 
-Applied, thanks a lot Benjamin.
+Applied, thanks everyone.
