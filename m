@@ -1,37 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net: define feature flags for FCoE offloads
-Date: Wed, 19 Nov 2008 17:18:10 -0800 (PST)
-Message-ID: <20081119.171810.102832831.davem@davemloft.net>
-References: <20081119.154710.135220757.davem@davemloft.net>
-	<1DB50624F8348F48840F2E2CF6040A9D2F383FB5@orsmsx508.amr.corp.intel.com>
-	<20081119.171426.197284550.davem@davemloft.net>
+Subject: Re: [PATCH 30/33] tg3: convert to net_device_ops
+Date: Wed, 19 Nov 2008 17:21:16 -0800 (PST)
+Message-ID: <20081119.172116.09278780.davem@davemloft.net>
+References: <20081117173706.31960184@extreme>
+	<20081119210447.GA26448@xw6200.broadcom.net>
+	<20081119130727.262ac42a@extreme>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: yi.zou@intel.com
+Cc: mcarlson@broadcom.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41405
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50837
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752506AbYKTBSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 20:18:10 -0500
-In-Reply-To: <20081119.171426.197284550.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1752533AbYKTBVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 20:21:16 -0500
+In-Reply-To: <20081119130727.262ac42a@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 19 Nov 2008 17:14:26 -0800 (PST)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 19 Nov 2008 13:07:27 -0800
 
-BTW, the netdev address has been wrong this entire time, it's
-"netdev" not "linux-netdev".  Fixed.
+> On Wed, 19 Nov 2008 13:04:47 -0800
+> "Matt Carlson" <mcarlson@broadcom.com> wrote:
+> 
+> > On Mon, Nov 17, 2008 at 05:37:06PM -0800, Stephen Hemminger wrote:
+> > > Convert this driver to network device ops.
+> > > 
+> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > > 
+> > > ---
+> > > Handle non-vlan build.
+> > > 
+> > > --- a/drivers/net/tg3.c	2008-11-17 17:21:58.000000000 -0800
+> > > +++ b/drivers/net/tg3.c	2008-11-17 17:26:45.000000000 -0800
+> > > @@ -13343,6 +13343,24 @@ static void __devinit tg3_init_coal(stru
+> > >  	}
+> > >  }
+> > >  
+> > > +static const struct net_device_ops tg3_netdev_ops = {
+> > > +	.open			= tg3_open,
+> > > +	.stop			= tg3_close,
+> > 
+> > One more completely trivial nit.  Is there a reason why you chose
+> > the verbs to be "open" and "stop" rather than "open" and "close" or
+> > "start" and "stop"?
+> 
+> Because that is what they were before (but in a different place).
 
-> From: "Zou, Yi" <yi.zou@intel.com>
-> Date: Wed, 19 Nov 2008 16:02:03 -0800
-> 
-> > Thanks for reviewing the patch. I am hoping to make use of the
-> > existing gso logic as much as possible for fcoe segmentation as
-> > well, to hookup fcoe segmentation using ptype->gso_segment().
-> 
-> There is no way for anyone to evaluate this usage and determine
-> whether it makes sense or not until you post those patches.
+Right.
