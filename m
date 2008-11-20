@@ -1,32 +1,34 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: pkt_sched: add DRR scheduler
-Date: Thu, 20 Nov 2008 12:06:47 +0000
-Message-ID: <20081120120647.GC5275@ff.dom.local>
-References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net> <20081120115137.GB5275@ff.dom.local> <492550D3.7060602@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pkt_sched: fix missing check for packet overrun in
+ qdisc_dump_stab()
+Date: Thu, 20 Nov 2008 04:07:26 -0800 (PST)
+Message-ID: <20081120.040726.38539265.davem@davemloft.net>
+References: <492412B3.8050300@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:60694 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245AbYKTMGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 07:06:54 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so252567ugf.37
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2008 04:06:52 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <492550D3.7060602@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35185
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754000AbYKTMHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 07:07:25 -0500
+In-Reply-To: <492412B3.8050300@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 20, 2008 at 12:58:11PM +0100, Patrick McHardy wrote:
-...
-> Its trivial to use though, these is only a single optional parameter,
-> the quantum.
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 19 Nov 2008 14:20:51 +0100
 
-OK, but if you advertise this as a "flexible replacement for SFQ"
-sb. could be mislead, so I mean at least a simple example of such
-replacement.
+> commit c870f95c8c5c40d2c38970246ed737b8264f0b0e
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Wed Nov 19 14:19:11 2008 +0100
+> 
+>     pkt_sched: fix missing check for packet overrun in qdisc_dump_stab()
+>     
+>     nla_nest_start() might return NULL, causing a NULL pointer dereference.
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Jarek P.
+Applied.
