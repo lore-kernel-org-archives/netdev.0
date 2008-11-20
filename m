@@ -1,52 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 30/33] tg3: convert to net_device_ops
-Date: Wed, 19 Nov 2008 17:21:16 -0800 (PST)
-Message-ID: <20081119.172116.09278780.davem@davemloft.net>
-References: <20081117173706.31960184@extreme>
-	<20081119210447.GA26448@xw6200.broadcom.net>
-	<20081119130727.262ac42a@extreme>
+Subject: Re: [PATCH 00/33] Network Devices Ops (v0.3)
+Date: Wed, 19 Nov 2008 17:33:53 -0800 (PST)
+Message-ID: <20081119.173353.251644773.davem@davemloft.net>
+References: <20081117234207.854110282@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50837
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35808
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752533AbYKTBVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 20:21:16 -0500
-In-Reply-To: <20081119130727.262ac42a@extreme>
+	by vger.kernel.org with ESMTP id S1751292AbYKTBdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2008 20:33:53 -0500
+In-Reply-To: <20081117234207.854110282@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 19 Nov 2008 13:07:27 -0800
+Date: Mon, 17 Nov 2008 15:42:07 -0800
 
-> On Wed, 19 Nov 2008 13:04:47 -0800
-> "Matt Carlson" <mcarlson@broadcom.com> wrote:
-> 
-> > On Mon, Nov 17, 2008 at 05:37:06PM -0800, Stephen Hemminger wrote:
-> > > Convert this driver to network device ops.
-> > > 
-> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > > 
-> > > ---
-> > > Handle non-vlan build.
-> > > 
-> > > --- a/drivers/net/tg3.c	2008-11-17 17:21:58.000000000 -0800
-> > > +++ b/drivers/net/tg3.c	2008-11-17 17:26:45.000000000 -0800
-> > > @@ -13343,6 +13343,24 @@ static void __devinit tg3_init_coal(stru
-> > >  	}
-> > >  }
-> > >  
-> > > +static const struct net_device_ops tg3_netdev_ops = {
-> > > +	.open			= tg3_open,
-> > > +	.stop			= tg3_close,
-> > 
-> > One more completely trivial nit.  Is there a reason why you chose
-> > the verbs to be "open" and "stop" rather than "open" and "close" or
-> > "start" and "stop"?
-> 
-> Because that is what they were before (but in a different place).
+> This sequence of patches breaks the network device adminstration 
+> function table away from the network device data structure. It is
+> a transitional API change (both keep working), and this set of patches
+> hits a range of commonly used drivers. This should be enough to make sure
+> both old and new interfaces get used and tested.
 
-Right.
+I'm starting to apply these patches, thanks Stephen.
+
+I really think we should move even fast-path function pointers
+here.  When we have tons of virtual devices configured, it
+doesn't make sense for us to touch tons of ->hard_start_xmit
+pointer values which all evaluate to the same thing.
+
+ops are ops
