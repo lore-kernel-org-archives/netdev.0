@@ -1,31 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT PATCH 1/3] igb: update name to reflect new hardware
-Date: Thu, 20 Nov 2008 00:47:08 -0800 (PST)
-Message-ID: <20081120.004708.185980466.davem@davemloft.net>
-References: <20081118020510.10912.94106.stgit@gitlost.lost>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] question about inet_listen_lock(), and [PATCH] net: listening_hash
+ get a spinlock per bucket
+Date: Thu, 20 Nov 2008 09:47:26 +0100
+Message-ID: <4925241E.7090505@cosmosbay.com>
+References: <492199FF.3030205@cosmosbay.com> <20081120.004103.45482570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52483
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753860AbYKTIrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 03:47:08 -0500
-In-Reply-To: <20081118020510.10912.94106.stgit@gitlost.lost>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:45865 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753843AbYKTIrb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 03:47:31 -0500
+In-Reply-To: <20081120.004103.45482570.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 17 Nov 2008 18:05:10 -0800
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Mon, 17 Nov 2008 17:21:19 +0100
+>=20
+>> [PATCH] net: listening_hash get a spinlock per bucket
+>>
+>> This patch prepares RCU migration of listening_hash table for
+>> TCP/DCCP protocols.
+>>
+>> listening_hash table being small (32 slots per protocol), we add
+>> a spinlock for each slot, instead of a single rwlock for whole table=
+=2E
+>>
+>> This should reduce hold time of readers, and writers concurrency.
+>>
+>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> Ok it looks indeed as this sleeping thing was just a queer way to wai=
+t
+> when there was some thread dumping listening sockets.  I guess it mus=
+t
+> have been _really_ slow back when that was written by Alexey :)
+>=20
+> I've applied your patch to net-next-2.6, thanks Eric!
+>=20
+>=20
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch adds the 82576 device to the description for igb in Kconfig.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Thanks a lot David for your analysis, I will continue the work further.
 
-Applied.
