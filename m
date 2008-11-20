@@ -1,56 +1,58 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-next-2.6 2008-11-18
-Date: Thu, 20 Nov 2008 09:43:01 -0500
-Message-ID: <20081120144300.GB4329@tuxdriver.com>
-References: <20081119000852.GB19756@tuxdriver.com> <20081120.050348.134053835.davem@davemloft.net>
+From: David Hollis <dhollis@davehollis.com>
+Subject: [RESEND] [PATCH] asix.c: Fix AX88178 connectivity with 10/100 networks
+Date: Thu, 20 Nov 2008 10:25:41 -0500
+Message-ID: <1227194741.4420.37.camel@dhollis-lnx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au
+Content-Type: multipart/mixed; boundary="=-lBxgp/BPbsGUcZZ0Ok09"
+Cc: netdev@vger.kernel.org, pktoss@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51878 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756696AbYKTOqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 09:46:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20081120.050348.134053835.davem@davemloft.net>
+Received: from vms173003pub.verizon.net ([206.46.173.3]:36632 "EHLO
+	vms173003pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754869AbYKTPZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 10:25:57 -0500
+Received: from smtp.davehollis.com ([96.228.138.81]) by vms173003.mailsrvcs.net
+ (Sun Java System Messaging Server 6.2-6.01 (built Apr  3 2006))
+ with ESMTPA id <0KAN00FX41IYWG80@vms173003.mailsrvcs.net> for
+ netdev@vger.kernel.org; Thu, 20 Nov 2008 09:25:46 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 20, 2008 at 05:03:48AM -0800, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Tue, 18 Nov 2008 19:08:52 -0500
-> 
-> > Here is another big round of updates intended for 2.6.29.  This batch is
-> > mostly driver updates as well as a bunch of file movement.  Also, some
-> > patches from me are working towards refactoring/minimizing the old
-> > ieee80211 component into a support library for ipw2100 and ipw2200 and
-> > also collecting more code into lib80211 for sharing between more
-> > drivers.
-> > 
-> > Please let me know if there are problems!
->  ...
-> > P.S.  I have included a merge-test branch as an example of how the
-> > merge conflicts with the wireless-2.6 pull request from today should
-> > be resolved.
-> 
-> John, I took the stable fixes and those are in the pull request
-> I just sent to Linus.
-> 
-> Once he takes that in I'll merge those bits into net-next-2.6 and
-> resolve the conflicts created solely by that merge.
-> 
-> What I think makes sense right now for your net-next-2.6 stuff is
-> for you to just sit tight until I do the merge, then you can respin
-> your tree, include Rami Rosen's build fix, and take care of the
-> remaining merge issues at the same time.
-> 
-> I'll post on netdev when I do the merging, as I usually do.
 
-Sure, that sounds fine...thanks!
+--=-lBxgp/BPbsGUcZZ0Ok09
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-John
--- 
-John W. Linville		Linux should be at the core
-linville@tuxdriver.com			of your literate lifestyle.
+Add AX_MEDIUM_ENCK also when speed = 10/100Mbps.  This makes the Belkin
+F5D5055 device work properly.
+
+Signed-off-by: Pantelis Koukousoulas <pktoss@gmail.com>
+Acked-by: David Hollis <dhollis@davehollis.com>
+
+--=-lBxgp/BPbsGUcZZ0Ok09
+Content-Description: 
+Content-Disposition: inline; filename="asix.c-enck.diff"
+Content-Type: text/x-patch; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+--- a/drivers/net/usb/asix.c	2008-11-20 09:50:04.000000000 -0500
++++ b/drivers/net/usb/asix.c	2008-11-20 09:50:36.000000000 -0500
+@@ -1102,12 +1102,14 @@ static int ax88178_link_reset(struct usb
+ 	mode = AX88178_MEDIUM_DEFAULT;
+ 
+ 	if (ecmd.speed == SPEED_1000)
+-		mode |= AX_MEDIUM_GM | AX_MEDIUM_ENCK;
++		mode |= AX_MEDIUM_GM;
+ 	else if (ecmd.speed == SPEED_100)
+ 		mode |= AX_MEDIUM_PS;
+ 	else
+ 		mode &= ~(AX_MEDIUM_PS | AX_MEDIUM_GM);
+ 
++	mode |= AX_MEDIUM_ENCK;
++
+ 	if (ecmd.duplex == DUPLEX_FULL)
+ 		mode |= AX_MEDIUM_FD;
+ 	else
+
+--=-lBxgp/BPbsGUcZZ0Ok09--
+
