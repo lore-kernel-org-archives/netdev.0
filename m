@@ -1,36 +1,26 @@
-From: Kostya B <bkostya@hotmail.com>
-Subject: RE: SKB truesize bug
-Date: Thu, 20 Nov 2008 11:59:28 +0000
-Message-ID: <COL107-W365F57B30278309D1E88F9B60C0@phx.gbl>
-References: <BAY121-W44CAF03A4C79BFC4FEEEBDB6DE0@phx.gbl>
-	<20080429.032714.263350536.davem@davemloft.net>
-  	<20080429120713.GA19937@gondor.apana.org.au>
-  <20080429.223747.211215854.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 6/6] mv643xx_eth: calculate descriptor pointer only
+ once in rxq_refill()
+Date: Thu, 20 Nov 2008 03:59:42 -0800 (PST)
+Message-ID: <20081120.035942.110949848.davem@davemloft.net>
+References: <20081118223028.GX5006@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1255"
-Content-Transfer-Encoding: 8bit
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from col0-omc1-s2.col0.hotmail.com ([65.55.34.12]:24947 "EHLO
-	col0-omc1-s2.col0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754733AbYKTL73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 06:59:29 -0500
-In-Reply-To: <20080429.223747.211215854.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42757
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754254AbYKTL7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 06:59:42 -0500
+In-Reply-To: <20081118223028.GX5006@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Tue, 18 Nov 2008 23:30:29 +0100
 
-Hi,
+> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 
-Perhaps we should take a closer look on pskb_expand_head()
-
-And add 
-
-+skb->truesize = size + sizeof(struct sk_buff);
-
-
-Kostya
-
-_________________________________________________________________
-Invite your mail contacts to join your friends list with Windows Live Spaces. It's easy!
-http://spaces.live.com/spacesapi.aspx?wx_action=create&wx_url=/friends.aspx&mkt=en-us
+Applied.
