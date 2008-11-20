@@ -1,115 +1,63 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 02/33] netdev: introduce dev_get_stats()
-Date: Thu, 20 Nov 2008 10:17:02 +0100
-Message-ID: <49252B0E.10602@cosmosbay.com>
-References: <20081117234207.854110282@vyatta.com>	<20081117234354.948324675@vyatta.com> <20081119.214057.200155427.davem@davemloft.net>
+From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-11-18
+Date: Thu, 20 Nov 2008 11:27:07 +0200
+Message-ID: <1ba2fa240811200127m32f69b40h4fdd55de20926b95@mail.gmail.com>
+References: <20081119000719.GA19756@tuxdriver.com>
+	 <1ba2fa240811182246m17a6baf0ybde19af030a65819@mail.gmail.com>
+	 <1ba2fa240811190134u7974a840i532e8ed0e18f8c72@mail.gmail.com>
+	 <20081119143919.GA3485@tuxdriver.com>
+	 <1ba2fa240811190851i5dda6734w10d38b0f27e5ac97@mail.gmail.com>
+	 <20081119185340.GC3485@tuxdriver.com>
+	 <1ba2fa240811191355p7218dd84j8517d9ff4bab4e0b@mail.gmail.com>
+	 <20081120003748.GK3485@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:48275 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094AbYKTJRH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 04:17:07 -0500
-In-Reply-To: <20081119.214057.200155427.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081120003748.GK3485-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Mon, 17 Nov 2008 15:42:09 -0800
->=20
->> In order for the network device ops get_stats call to be immutable, =
-the handling
->> of the default internal network device stats block has to be changed=
-=2E Add a new
->> helper function which replaces the old use of internal_get_stats.
+On Thu, Nov 20, 2008 at 2:37 AM, John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> On Wed, Nov 19, 2008 at 11:55:15PM +0200, Tomas Winkler wrote:
+>> On Wed, Nov 19, 2008 at 8:53 PM, John W. Linville
+>> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+>
+>> > Now, if you could put as much energy into fixing these issues as you
+>> > are putting into arguing with me or anyone else contradicting you...
 >>
->> Note: change return code to make it clear that the caller should not
->> go changing the returned statistics.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> Applied.
+>> I'm not a yes man and if I think differently I say so. It's legitimate
+>> to have another opinion and I'm really trying to keep it technical and
+>> I'm not ashamed to say if I'm wrong, but you people are so hostile
+>> from some unknown reason I just hope somebody in anthropology is
+>> making his doctoral thesis of it to explain it to me.
+>
+> Of course!  You are right and all the rest of us are wrong.  How could
+> I have been so stupid?  Thank you for being so easy to work with
+> while the rest of us are being so difficult.
+>
 
-I have one comment about netdev stats
+Citing my self again ' I'm not ashamed to say if I'm wrong'  I'm not
+always right and  you be careful with majority
+rightness it put whole nations into misery.
 
-on 32bit arches, SMP :
+> Are you done?
 
-struct net_device =3D 0x480
-offsetof(struct net_device, features)=3D0x44
-offsetof(struct net_device, stats)=3D0x50
-offsetof(struct net_device, stats.rx_packets)=3D0x50
+Common John you've started that. Compare your IMHO with mine, it's not
+full of empty accusations. I'm not less frustrated with development
+process of mac80211 then you are with our, and if you see the history
+this is where we always clash. I think we also have valid points if
+you would care to listen.
 
-So we trash features field, thats a problem...
-
-I wonder if we could zap stats from netdev structure.
-Some drivers already use external stats handling (like loopback)
-
-get_dev_stats() would accept a second parameter : a pointer to a struct=
- net_device_stats
-provided by the reader, that the driver could use as a working zone, or=
- not.
-
-static struct net_device_stats *bond_get_stats(struct net_device *bond_=
-dev,
-	struct net_device_stats *temp)
-{
-        struct bonding *bond =3D netdev_priv(bond_dev);
-        struct net_device_stats wrk;
-        struct slave *slave;
-        int i;
-
-	/* use the caller provided zone */
-        memset(temp, 0, sizeof(struct net_device_stats));
-
-        read_lock_bh(&bond->lock);
-
-        bond_for_each_slave(bond, slave, i) {
-                const struct net_device_stats *sstats =3D dev_get_stats=
-(slave->dev, &wrk);
-
-                temp->rx_packets +=3D sstats->rx_packets;
-                temp->rx_bytes +=3D sstats->rx_bytes;
-                temp->rx_errors +=3D sstats->rx_errors;
-		...
-	}
-
-
-        read_unlock_bh(&bond->lock);
-
-        return temp;
-}
-
-=2E...
-
-static struct net_device_stats *loopback_get_stats(struct net_device *d=
-ev,
-			struct net_device_stats *temp)
-{
-        const struct pcpu_lstats *pcpu_lstats;
-        unsigned long bytes =3D 0;
-        unsigned long packets =3D 0;
-        int i;
-
-	memset(temp, 0, sizeof(*temp);
-        pcpu_lstats =3D dev->ml_priv;
-        for_each_possible_cpu(i) {
-                const struct pcpu_lstats *lb_stats;
-
-                lb_stats =3D per_cpu_ptr(pcpu_lstats, i);
-                bytes   +=3D lb_stats->bytes;
-                packets +=3D lb_stats->packets;
-        }
-        temp->rx_packets =3D packets;
-        temp->tx_packets =3D packets;
-        temp->rx_bytes =3D bytes;
-        temp->tx_bytes =3D bytes;
-        return temp;
-}
-
-=2E..
-
+Thanks
+Tomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
