@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: fix smc911x.c printf typo
-Date: Thu, 20 Nov 2008 01:56:23 -0800 (PST)
-Message-ID: <20081120.015623.19468400.davem@davemloft.net>
-References: <20081116.014028.125236475.davem@davemloft.net>
-	<20081118152555.60adae61@vsauder-lx.localdomain>
+Subject: Re: [PATCH] net: tulip/de2104x.c replace register macros with
+ static inlines
+Date: Thu, 20 Nov 2008 02:01:18 -0800 (PST)
+Message-ID: <20081120.020118.74510390.davem@davemloft.net>
+References: <1227044153.13182.6.camel@brick>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vernoninhand@gmail.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36859
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52240
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753037AbYKTJ4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 04:56:23 -0500
-In-Reply-To: <20081118152555.60adae61@vsauder-lx.localdomain>
+	by vger.kernel.org with ESMTP id S1753577AbYKTKBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 05:01:18 -0500
+In-Reply-To: <1227044153.13182.6.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vernon Sauder <vernoninhand@gmail.com>
-Date: Tue, 18 Nov 2008 15:25:55 -0500
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Tue, 18 Nov 2008 13:35:53 -0800
 
-> David Miller wrote:
-> 
-> >
-> >Your email client corrupted this patch, breaking up lines and making
-> >other modifications which make the patch not usable.
-> >
-> >Please fix this up and resubmit your change, thanks!
-> 
-> Sorry about that. I didn't even see it. Here it is again. I also
-> attached it if that works better.
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---
+> I noticed this while checking out the sparse warning about do-while not
+> being a compound statement, maybe a bit silly, but I had it done, so I'll
+> see if you want to apply it.
 
-Applied, thanks Vernon.
+Not really. :)
+
+This is a common idiom, hiting the device private pointer variable
+purely inside of the macro definition.  Probably more than at least 10
+drivers do this, and trust me it saves a lot of typing. :)
+
