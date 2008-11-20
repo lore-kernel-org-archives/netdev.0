@@ -1,41 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/33] netdev: network device operations infrastructure
-Date: Wed, 19 Nov 2008 21:27:16 -0800 (PST)
-Message-ID: <20081119.212716.85235118.davem@davemloft.net>
-References: <20081117234207.854110282@vyatta.com>
-	<20081117234354.864259203@vyatta.com>
-	<20081119.212650.102527885.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0xfe/0x17e() with tg3 network
+Date: Thu, 20 Nov 2008 06:37:47 +0100
+Message-ID: <20081120053746.GB15168@1wt.eu>
+References: <491954E1.2050002@gmail.com> <1226403067.7685.1598.camel@twins> <491E49AA.60407@gmail.com> <20081118065006.GC24654@1wt.eu> <20081120031101.GD26448@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Roger Heflin <rogerheflin@gmail.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51468
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752962AbYKTF1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 00:27:16 -0500
-In-Reply-To: <20081119.212650.102527885.davem@davemloft.net>
+Received: from 1wt.eu ([62.212.114.60]:1307 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752623AbYKTFh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2008 00:37:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20081120031101.GD26448@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 19 Nov 2008 21:26:50 -0800 (PST)
+Hello Matt,
 
-> Ok, I'm applying this but it needs the following interdiff to cure some
-> build failures.
+On Wed, Nov 19, 2008 at 07:11:01PM -0800, Matt Carlson wrote:
+> > My tg3 is just PCI-based, no PCIe in this beast. I can send more
+> > info when I turn it on. I don't think that the tg3 driver changes
+> > often, so most likely digging through the changes between 2.6.25
+> > and 2.6.27 should not take much time. I just don't know if I can
+> > reliably reproduce the issue right now.
+> 
+> Willy, this problem description sounds a little different than the
+> original report.  There was a bug where the driver would wait 2.5
+> seconds for a firmware event that would never get serviced.  That
+> fix has already landed in the 2.6.27 tree though.
+> 
+> I glanced over the changes between 2.6.25 and 2.6.27.6.  There are quite
+> a few changes related to phylib support for an upcoming device, but not
+> so many changes that affect older devices.  What device are you using?
 
-Durrr!  And here is that interdiff!
+I think it's a 5704, but I will check this this morning when I'm at
+work. I also want to try to reliably reproduce the problem. After
+that, I see only 29 patches which differ from the two kernels, it
+should be pretty easy to spot the culprit.
 
---- net/core/dev.c~	2008-11-19 17:36:28.000000000 -0800
-+++ net/core/dev.c	2008-11-19 17:36:56.000000000 -0800
-@@ -4037,7 +4037,9 @@ int register_netdevice(struct net_device
- 		dev->vlan_rx_register = ops->vlan_rx_register;
- 		dev->vlan_rx_add_vid = ops->vlan_rx_add_vid;
- 		dev->vlan_rx_kill_vid = ops->vlan_rx_kill_vid;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
- 		dev->poll_controller = ops->poll_controller;
-+#endif
- 	} else {
- 		char drivername[64];
- 		pr_info("%s (%s): not using net_device_ops yet\n",
+If you think it's a different bug than original report (though I
+really thought it was the same), I'll post my findings in a separate
+thread not to mix investigations.
+
+Thanks,
+Willy
+
