@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix asix-based cards connecting to 10/100Mbs LAN.
-Date: Thu, 20 Nov 2008 01:48:55 -0800 (PST)
-Message-ID: <20081120.014855.141891162.davem@davemloft.net>
-References: <1227174463-18158-1-git-send-email-pktoss@gmail.com>
+Subject: Re: [PATCH net-next] myri10ge: fix per-slice rx/tx_dropped counters
+Date: Thu, 20 Nov 2008 01:50:13 -0800 (PST)
+Message-ID: <20081120.015013.229192420.davem@davemloft.net>
+References: <49232150.4010202@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pktoss@gmail.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41038
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41041
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753746AbYKTJsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 04:48:55 -0500
-In-Reply-To: <1227174463-18158-1-git-send-email-pktoss@gmail.com>
+	by vger.kernel.org with ESMTP id S1753245AbYKTJuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 04:50:13 -0500
+In-Reply-To: <49232150.4010202@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pantelis Koukousoulas <pktoss@gmail.com>
-Date: Thu, 20 Nov 2008 11:47:43 +0200
+From: Brice Goglin <brice@myri.com>
+Date: Tue, 18 Nov 2008 21:10:56 +0100
 
-> Add AX_MEDIUM_ENCK also when speed = 10/100Mbps. This allows my belkin
->  f5d5055 to work with my 100Mbps switch and with an old 10Mbps ISA card.
->  Without this patch, the card is recognized and the interface is brought
->  up fine, but no packets actually flow through the interface.
+> Properly attribute transmit and receive drops by incrementing the
+> per-slice counter.
 > 
-> Signed-off-by: Pantelis Koukousoulas <pktoss@gmail.com>
-> Acked-by: David Hollis <dhollis@davehollis.com>
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-Patch applied, thank you.
+Applied.
