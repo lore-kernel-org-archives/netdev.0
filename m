@@ -1,58 +1,50 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: [RESEND] [PATCH] asix.c: Fix AX88178 connectivity with 10/100 networks
-Date: Thu, 20 Nov 2008 10:25:41 -0500
-Message-ID: <1227194741.4420.37.camel@dhollis-lnx>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-lBxgp/BPbsGUcZZ0Ok09"
-Cc: netdev@vger.kernel.org, pktoss@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH] phy: fix phy_id detection also for broken hardware.
+Date: Thu, 20 Nov 2008 16:57:36 +0100
+Message-ID: <1227196656-4361-1-git-send-email-peppe.cavallaro@st.com>
+Cc: davem@davemloft.net, giulio.benetti@micronovasrl.com,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173003pub.verizon.net ([206.46.173.3]:36632 "EHLO
-	vms173003pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754869AbYKTPZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 10:25:57 -0500
-Received: from smtp.davehollis.com ([96.228.138.81]) by vms173003.mailsrvcs.net
- (Sun Java System Messaging Server 6.2-6.01 (built Apr  3 2006))
- with ESMTPA id <0KAN00FX41IYWG80@vms173003.mailsrvcs.net> for
- netdev@vger.kernel.org; Thu, 20 Nov 2008 09:25:46 -0600 (CST)
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:60075 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755409AbYKTQBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 11:01:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch fixes the case when the phy_ids is mostly Fs and in some case 0x0
+due to broken hardware.
 
---=-lBxgp/BPbsGUcZZ0Ok09
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/phy/phy_device.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
 
-Add AX_MEDIUM_ENCK also when speed = 10/100Mbps.  This makes the Belkin
-F5D5055 device work properly.
-
-Signed-off-by: Pantelis Koukousoulas <pktoss@gmail.com>
-Acked-by: David Hollis <dhollis@davehollis.com>
-
---=-lBxgp/BPbsGUcZZ0Ok09
-Content-Description: 
-Content-Disposition: inline; filename="asix.c-enck.diff"
-Content-Type: text/x-patch; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
---- a/drivers/net/usb/asix.c	2008-11-20 09:50:04.000000000 -0500
-+++ b/drivers/net/usb/asix.c	2008-11-20 09:50:36.000000000 -0500
-@@ -1102,12 +1102,14 @@ static int ax88178_link_reset(struct usb
- 	mode = AX88178_MEDIUM_DEFAULT;
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 8fb1fac..effa489 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -227,8 +227,17 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
+ 	if (r)
+ 		return ERR_PTR(r);
  
- 	if (ecmd.speed == SPEED_1000)
--		mode |= AX_MEDIUM_GM | AX_MEDIUM_ENCK;
-+		mode |= AX_MEDIUM_GM;
- 	else if (ecmd.speed == SPEED_100)
- 		mode |= AX_MEDIUM_PS;
- 	else
- 		mode &= ~(AX_MEDIUM_PS | AX_MEDIUM_GM);
- 
-+	mode |= AX_MEDIUM_ENCK;
+-	/* If the phy_id is all Fs or all 0s, there is no device there */
+-	if ((0xffff == phy_id) || (0x00 == phy_id))
++	/* If the phy_id is mostly Fs, there is no device there */
++	if ((phy_id & 0x1fffffff) == 0x1fffffff)
++		return NULL;
 +
- 	if (ecmd.duplex == DUPLEX_FULL)
- 		mode |= AX_MEDIUM_FD;
- 	else
-
---=-lBxgp/BPbsGUcZZ0Ok09--
++	/*
++	 * Broken hardware is sometimes missing the pull down resistor on the
++	 * MDIO line, which results in reads to non-existent devices returning
++	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
++	 * device as well.
++	 */ 
++	if (phy_id == 0)
+ 		return NULL;
+ 
+ 	dev = phy_device_create(bus, addr, phy_id);
+-- 
+1.5.6.5
 
