@@ -1,49 +1,53 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] net: make ip_rt_acct a normal percpu var
-Date: Thu, 20 Nov 2008 14:52:35 +1030
-Message-ID: <200811201452.35527.rusty@rustcorp.com.au>
-References: <200811190208.11346.rusty@rustcorp.com.au> <200811200943.21410.rusty@rustcorp.com.au> <20081119.151754.44649102.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 00/33] Network Devices Ops (v0.3)
+Date: Thu, 20 Nov 2008 06:21:29 +0100
+Message-ID: <4924F3D9.3020908@cosmosbay.com>
+References: <20081117234207.854110282@vyatta.com>	<20081119.173353.251644773.davem@davemloft.net> <20081119190212.6d589358@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:59980 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752418AbYKTEWm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2008 23:22:42 -0500
-In-Reply-To: <20081119.151754.44649102.davem@davemloft.net>
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([86.65.150.130]:60190 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751473AbYKTFVe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 00:21:34 -0500
+In-Reply-To: <20081119190212.6d589358@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 20 November 2008 09:47:54 David Miller wrote:
-> We make a big fuss (rightly) about a few hundred bytes and this sucker
-> is FOUR KILOBYTES.
+Stephen Hemminger a =E9crit :
+> On Wed, 19 Nov 2008 17:33:53 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
+>=20
+>> From: Stephen Hemminger <shemminger@vyatta.com>
+>> Date: Mon, 17 Nov 2008 15:42:07 -0800
+>>
+>>> This sequence of patches breaks the network device adminstration=20
+>>> function table away from the network device data structure. It is
+>>> a transitional API change (both keep working), and this set of patc=
+hes
+>>> hits a range of commonly used drivers. This should be enough to mak=
+e sure
+>>> both old and new interfaces get used and tested.
+>> I'm starting to apply these patches, thanks Stephen.
+>>
+>> I really think we should move even fast-path function pointers
+>> here.  When we have tons of virtual devices configured, it
+>> doesn't make sense for us to touch tons of ->hard_start_xmit
+>> pointer values which all evaluate to the same thing.
+>>
+>> ops are ops
+>=20
+> I have some more pending. I'll add neigh_setup and xmit stuff.
 
-Sure, but this is just trading 4k runtime for 4k static, ie. it's just 
-unhiding it.  That's very different from adding random bloat.
+So if you plan to release a new release of Network Device Ops...
 
-> Really for the time being I'd rather see this converted to a
-> num_possible_cpus() sized normal kzalloc() and direct indexing.  I
-> don't want the networking to bloat up the main kernel image by so
-> much.
+I would have one suggestion about these ops, that would be to prefix
+method names (open, close, ...) by a ndo_ or something that ease grepin=
+g...
 
-Nooooooo! :)
+Thanks
 
-First, num_possible_cpus() is the wrong answer (if there are holes in 
-cpu_possible_map).  Second, there's little point having percpu infrastructure 
-which people avoid.  Third, that memory not going to be numa-aware.  Fourth, 
-the dynamic percpu version is fewer instructions (with dynamic percpu 
-patches).
-
-I've spent an hour trying to implement DEFINE_PER_CPU_ZERO(), but AFAICT it 
-can't be done (gas rejects "b" as a section attribute) :(
-
-So I've dropped the patch, but I wonder if this 4k of stats should be here at 
-all.
-
-Thanks,
-Rusty.
