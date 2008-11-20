@@ -1,42 +1,40 @@
-From: =?ISO-8859-1?Q?Roar_Bj=F8rgum_Rotvik?= <roarbr@tihlde.org>
-Subject: Re: Is there any function similar to inet_ntoa() in Kernel or NetFilter
- ?
-Date: Thu, 20 Nov 2008 10:34:18 +0100
-Message-ID: <49252F1A.4060304@tihlde.org>
-References: <192580.22596.qm@web111104.mail.gq1.yahoo.com>
+From: Jay Cliburn <jcliburn@gmail.com>
+Subject: Re: [atl1-devel] atl2: don't mess up irq on suspend/resume
+ (probably msi only)
+Date: Thu, 20 Nov 2008 05:33:29 -0600
+Message-ID: <20081120053329.1722745f@osprey.hogchain.net>
+References: <4922FD09.2070007@tuffmail.co.uk>
+	<49231CCB.8010900@tuffmail.co.uk>
+	<20081119183443.7ca1cf23@osprey.hogchain.net>
+	<20081120.014420.256210031.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: linux_kernel_chan@yahoo.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: atl1-devel@lists.sourceforge.net, alan-jenkins@tuffmail.co.uk,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail49.e.nsc.no ([193.213.115.49]:49264 "EHLO mail49.e.nsc.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753618AbYKTK0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2008 05:26:04 -0500
-In-Reply-To: <192580.22596.qm@web111104.mail.gq1.yahoo.com>
+Received: from hs-out-0708.google.com ([64.233.178.240]:55513 "EHLO
+	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755993AbYKTLdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 06:33:36 -0500
+Received: by hs-out-0708.google.com with SMTP id 4so195685hsl.5
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2008 03:33:34 -0800 (PST)
+In-Reply-To: <20081120.014420.256210031.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kunsheng Chen wrote:
-> Hello, everyone,
->=20
-> I am doing a project similar to iptable using netfilter, currently I =
-want to convert a IP address from 'long int' back to dotted address.
->=20
-> I don't know whether there is some functions inside kernel or netfilt=
-er that could make that like using inet_ntoa() in <arpa/inet.h>
+On Thu, 20 Nov 2008 01:44:20 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-How about NIPQUAD and NIPQUAD_FMT (for IPv4):
-http://lxr.linux.no/linux+v2.6.27.6/include/linux/kernel.h#L324
-http://lxr.linux.no/linux+v2.6.27.6/include/linux/kernel.h#L319
+> From: Jay Cliburn <jcliburn@gmail.com>
+> Date: Wed, 19 Nov 2008 18:34:43 -0600
+> 
+> > Can someone tell before I submit this patch if the description is
+> > sane?
+> > 
+> > atl2: don't request irq on resume if netif running
+> 
+> It looks good, mind if I just apply this as-is?
 
-Example on how to use:
-http://lxr.linux.no/linux+v2.6.27.6/net/ipv4/ipconfig.c#L1184
-
-printk("my address is " NIPQUAD_FMT "\n", NIPQUAD(ic_myaddr));
-
---=20
-Roar Bj=F8rgum Rotvik
-
+Yes please.  Go right ahead.  Thanks.
