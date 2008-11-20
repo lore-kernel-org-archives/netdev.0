@@ -1,34 +1,148 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: How to use ixp4xx_hss (or generic-hdlc?)
-Date: Thu, 20 Nov 2008 23:24:31 +0100
-Message-ID: <20081120222431.GA16068@electric-eye.fr.zoreil.com>
-References: <b0438a630811200942nac803a4hb0c054bf28195cb3@mail.gmail.com>
+From: Cord Walter <cord.walter@gmx.de>
+Subject: axnet_cs / pcnet_cs: moving PCMCIA_DEVICE_PROD_ID for Netgear FA411
+Date: Fri, 21 Nov 2008 00:46:57 +0100
+Message-ID: <4925F6F1.9010305@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, khc@pm.waw.pl
-To: Miguel =?iso-8859-1?Q?=C1ngel_=C1lvarez?=
-	<gotzoncabanes@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45011 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753092AbYKTWY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 17:24:58 -0500
+Content-Type: multipart/mixed; boundary="------------020804070900030701090806"
+Cc: linux-pcmcia@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
+List-Post: <mailto:linux-pcmcia@lists.infradead.org>
+List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
+Sender: linux-pcmcia-bounces@lists.infradead.org
+Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------020804070900030701090806
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
+
+Hi,
+
+after noticing that my Netgear FA411 (PCMCIA-NIC) [1] stopped working with
+the release of the 2.6.25 kernel (sidux-version), I checked the
+respective driver sources and noticed that the pcnet_cs driver bailed
+out with "use axnet_cs instead" for the Netgear FA411, but axnet_cs
+doesn't claim this ID.
+
+I compiled a kernel with the PCMCIA-ID for the netgear card moved to
+axnet_cs from pcnet_cs which worked. I then contacted sidux-kernel
+maintainer Stefan Lippers-Hollmann who turned the info into this patch
+and integrated it into the kernel:
+
+<http://svn.berlios.de/svnroot/repos/fullstory/linux-sidux-2.6/trunk/debian/patches/features/2.6.27.4_PCMCIA_move-PCMCIA-ID-for-Netgear-FA411-from-pcnet_cs-to-axnet_cs.patch>
+
+This works for me and AFAIK there were no reports of any breakage for
+other devices on sidux-support.
+
+This looks like a trivial patch, but since I have very limited
+experience with kernel modifications  I might be woefully wrong there.
+But if there are no side effects of this patch, is it possible to get it
+into the official kernel?
+
+I can provide more detailed information on the affected hardware if
+necessary.
+
+-cord
+
+
+[1]
+Socket 1 Device 0:      [axnet_cs]              (bus ID: 1.0)
+        Configuration:  state: on
+        Product Name:   NETGEAR FA411 Fast Ethernet
+        Identification: manf_id: 0x0149 card_id: 0x0411
+                        function: 6 (network)
+                        prod_id(1): "NETGEAR" (0x9aa79dc3)
+                        prod_id(2): "FA411" (0x40fad875)
+                        prod_id(3): "Fast Ethernet" (0xb4be14e3)
+                        prod_id(4): --- (---)
+-- 
+Cord Walter
+email: cord.walter@gmx.de
+
+Weil es niemanden etwas angeht, dass ich nichts zu verbergen habe:
+http://www.gnupg.org/
+http://www.truecrypt.org/
+...und überhaupt: http://www.FreiheitstattAngst.de
+
+
+
+--------------020804070900030701090806
+Content-Type: text/x-diff;
+	name="2.6.27.4_PCMCIA_move-PCMCIA-ID-for-Netgear-FA411-from-pcnet_cs-to-axnet_cs.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename*0="2.6.27.4_PCMCIA_move-PCMCIA-ID-for-Netgear-FA411-from-pcnet_";
+	filename*1="cs-to-axnet_cs.patch"
+
+From: Stefan Lippers-Hollmann <s.l-h@gmx.de>
+Date: Sat, 1 Nov 2008 23:53:04 +0000
+Subject: [PATCH] PCMCIA: move PCMCIA ID for Netgear FA411 from pcnet_cs to axnet_cs:
+
+Since kernel 2.6.25, commit 61da96be07ec860e260ca4af0199b9d48d000b80 
+(pcnet_cs: if AX88190-based card, printk "use axnet_cs instead" message.), 
+pcnet_cs bails out with "use axnet_cs instead" for the Netgear FA411, but 
+axnet_cs doesn't claim this ID.
+
+Socket 1 Device 0:      [axnet_cs]              (bus ID: 1.0)
+        Configuration:  state: on
+        Product Name:   NETGEAR FA411 Fast Ethernet
+        Identification: manf_id: 0x0149 card_id: 0x0411
+                        function: 6 (network)
+                        prod_id(1): "NETGEAR" (0x9aa79dc3)
+                        prod_id(2): "FA411" (0x40fad875)
+                        prod_id(3): "Fast Ethernet" (0xb4be14e3)
+                        prod_id(4): --- (---)
+
+Cc: stable <stable@kernel.org> [2.6.25, 2.6.26, 2.6.27]
+Signed-off-by: Stefan Lippers-Hollmann <s.l-h@gmx.de>
+Signed-off-by: Cord Walter <qord@cwalter.net>
+---
+ drivers/net/pcmcia/axnet_cs.c |    1 +
+ drivers/net/pcmcia/pcnet_cs.c |    1 -
+ 2 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
+index b37a498..713091e 100644
+--- a/drivers/net/pcmcia/axnet_cs.c
++++ b/drivers/net/pcmcia/axnet_cs.c
+@@ -779,6 +779,7 @@ static struct pcmcia_device_id axnet_ids[] = {
+ 	PCMCIA_DEVICE_PROD_ID12("IO DATA", "ETXPCM", 0x547e66dc, 0x233adac2),
+ 	PCMCIA_DEVICE_PROD_ID12("Linksys", "EtherFast 10/100 PC Card (PCMPC100 V3)", 0x0733cc81, 0x232019a8),
+ 	PCMCIA_DEVICE_PROD_ID12("MELCO", "LPC3-TX", 0x481e0094, 0xf91af609),
++	PCMCIA_DEVICE_PROD_ID12("NETGEAR", "FA411", 0x9aa79dc3, 0x40fad875),
+ 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "100BASE", 0x281f1c5d, 0x7c2add04),
+ 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "FastEtherCard", 0x281f1c5d, 0x7ef26116),
+ 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "FEP501", 0x281f1c5d, 0x2e272058),
+diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+index e40d630..ce486f0 100644
+--- a/drivers/net/pcmcia/pcnet_cs.c
++++ b/drivers/net/pcmcia/pcnet_cs.c
+@@ -1693,7 +1693,6 @@ static struct pcmcia_device_id pcnet_ids[] = {
+ 	PCMCIA_DEVICE_PROD_ID12("National Semiconductor", "InfoMover NE4100", 0x36e1191f, 0xa6617ec8),
+ 	PCMCIA_DEVICE_PROD_ID12("NEC", "PC-9801N-J12", 0x18df0ba0, 0xbc912d76),
+ 	PCMCIA_DEVICE_PROD_ID12("NETGEAR", "FA410TX", 0x9aa79dc3, 0x60e5bc0e),
+-	PCMCIA_DEVICE_PROD_ID12("NETGEAR", "FA411", 0x9aa79dc3, 0x40fad875),
+ 	PCMCIA_DEVICE_PROD_ID12("Network Everywhere", "Fast Ethernet 10/100 PC Card", 0x820a67b6, 0x31ed1a5f),
+ 	PCMCIA_DEVICE_PROD_ID12("NextCom K.K.", "Next Hawk", 0xaedaec74, 0xad050ef1),
+ 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "10/100Mbps Ethernet Card", 0x281f1c5d, 0x6e41773b),
+-- 
+1.5.6.5
+
+
+
+
+--------------020804070900030701090806
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <b0438a630811200942nac803a4hb0c054bf28195cb3@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Miguel =C1ngel =C1lvarez <gotzoncabanes@gmail.com> :
-[...]
-> Is there any kind of tutorials on using generic-hdlc interfaces?
 
-Google + ixp4xx_hss + sethdlc -> first entry
-
-http://www.kernel.org/pub/linux/utils/net/hdlc/
-
-The DSCC4 mini-HOWTO is rather old but it is imho a decent intro
-if you are a bit lost.
-
---=20
-Ueimor
+--------------020804070900030701090806--
