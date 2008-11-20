@@ -1,34 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: pkt_sched: add DRR scheduler
-Date: Thu, 20 Nov 2008 12:58:11 +0100
-Message-ID: <492550D3.7060602@trash.net>
-References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net> <20081120115137.GB5275@ff.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/6] mv643xx_eth: introduce per-port register area
+ pointer
+Date: Thu, 20 Nov 2008 03:59:19 -0800 (PST)
+Message-ID: <20081120.035919.07437424.davem@davemloft.net>
+References: <20081118222859.GT5006@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev@vger.kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56764 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754052AbYKTL6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 06:58:19 -0500
-In-Reply-To: <20081120115137.GB5275@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42745
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755439AbYKTL7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 06:59:19 -0500
+In-Reply-To: <20081118222859.GT5006@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Thu, Nov 20, 2008 at 12:42:58PM +0100, Patrick McHardy wrote:
-> ...
->   
->> Documentation for this in the kernel tree seems pretty useless though.
->>     
->
-> Right! What about iproute2 tree? (examples/?)
->   
-Yes, I'll send something when I find some time (manpage probably).
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Tue, 18 Nov 2008 23:29:01 +0100
 
-Its trivial to use though, these is only a single optional parameter,
-the quantum.
+> The mv643xx_eth driver uses the rdl()/wrl() macros to read and
+> write hardware registers.  Per-port registers are accessed in the
+> following way:
+> 
+> 	#define PORT_STATUS(p)			(0x0444 + ((p) << 10))
+> 
+> 	[...]
+> 
+> 	static inline u32 rdl(struct mv643xx_eth_private *mp, int offset)
+> 	{
+> 		return readl(mp->shared->base + offset);
+> 	}
+> 
+> 	[...]
+> 
+> 	port_status = rdl(mp, PORT_STATUS(mp->port_num));
+> 
+> By giving the per-port 'struct mv643xx_eth_private' its own
+> 'void __iomem *base' pointer that points to the per-port register
+> area, we can get rid of both the double indirection and the << 10
+> that is done for every per-port register access -- this patch does
+> that.
+> 
+> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 
+Applied.
