@@ -1,44 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] filter: add SKF_AD_NLATTR_NEST to look for nested
- attributes
-Date: Thu, 20 Nov 2008 00:49:35 -0800 (PST)
-Message-ID: <20081120.004935.255394712.davem@davemloft.net>
-References: <20081118030112.28254.90533.stgit@Decadence>
-	<49229DAE.6060105@trash.net>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] smsc95xx: add tx checksum offload support
+Date: Thu, 20 Nov 2008 08:50:16 +0000
+Message-ID: <OF79130DF4.191FC25A-ON80257507.002E9C9F-80257507.00309F9A@smsc.com>
+References: <20081119.142855.124711576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49229DAE.6060105@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: ian.saturley@smsc.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.smsc.com ([170.129.50.11]:1742 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753988AbYKTIvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2008 03:51:39 -0500
+In-Reply-To: <20081119.142855.124711576.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 18 Nov 2008 11:49:18 +0100
+Hi David,
 
-> Pablo Neira Ayuso wrote:
-> > SKF_AD_NLATTR allows us to find the first matching attribute in a
-> > stream of netlink attributes from one offset to the end of the
-> > netlink message. This is not suitable to look for a specific
-> > matching inside a set of nested attributes.
-> > For example, in ctnetlink messages, if we look for the CTA_V6_SRC
-> > attribute in a message that talks about an IPv4 connection,
-> > SKF_AD_NLATTR returns the offset of CTA_STATUS which has the same
-> > value of CTA_V6_SRC but outside the nest. To differenciate
-> > CTA_STATUS and CTA_V6_SRC, we would have to make assumptions on the
-> > size of the attribute and the usual offset, resulting in horrible
-> > BSF code.
-> > This patch adds SKF_AD_NLATTR_NEST, which is a variant of
-> > SKF_AD_NLATTR, that looks for an attribute inside the limits of
-> > a nested attributes, but not further.
-> > This patch validates that we have enough room to look for the
-> > nested attributes - based on a suggestion from Patrick McHardy.
+David Miller <davem@davemloft.net> wrote on 19/11/2008 22:28:55:
+
+> From: Steve Glendinning <steve.glendinning@smsc.com>
+> Date: Mon, 17 Nov 2008 10:50:00 +0000
 > 
-> Looks good, thanks Pablo.
+> > @@ -757,6 +787,7 @@ static int smsc95xx_phy_initialize(struct usbnet 
+*dev)
+> >  static int smsc95xx_reset(struct usbnet *dev)
+> >  {
+> >     struct smsc95xx_priv *pdata = (struct smsc95xx_priv 
+*)(dev->data[0]);
+> > +   struct net_device *netdev = dev->net;
+> >     u32 read_buf, write_buf, burst_cap;
+> >     int ret = 0, timeout;
+> >     DECLARE_MAC_BUF(mac);
 > 
-> Acked-by: Patrick McHardy <kaber@trash.net>
+> This smsc95xx_reset function doesn't even exist in the current driver.
 
-Applied, thanks everyone.
+Are you sure you're looking at the same drivers/net/usb/smsc95xx.c?  In 
+both Linus's tree and net-next-2.6 this function is on line 757.
+
+The patch was against Linus's tree, the version in net-next-2.6 also has 
+Johannes Berg's print_mac patch applied so this section of code no longer 
+has DECLARE_MAC_BUF(mac);.  Would you like me to rebase against 
+net-next-2.6 and resubmit?
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
