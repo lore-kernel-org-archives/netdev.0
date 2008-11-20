@@ -1,133 +1,133 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 6/9] hippi: convert driver to net_device_ops
-Date: Thu, 20 Nov 2008 09:59:19 -0800
-Message-ID: <20081120175934.009148987@vyatta.com>
+Subject: [PATCH 9/9] ipgre: convert to netdevice_ops
+Date: Thu, 20 Nov 2008 09:59:22 -0800
+Message-ID: <20081120175934.301212308@vyatta.com>
 References: <20081120175913.943543638@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:53078 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:53086 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753925AbYKTSEO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2008 13:04:14 -0500
-Content-Disposition: inline; filename=hippi-netdev_ops.patch
+	id S1754722AbYKTSER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2008 13:04:17 -0500
+Content-Disposition: inline; filename=ipgre-netdev_ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert the HIPPI infrastructure for use with net_device_ops.
+Convert ipgre tunnel to netdevice ops.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- drivers/net/rrunner.c       |   15 +++++++++++----
- include/linux/hippidevice.h |    4 +++-
- net/802/hippi.c             |   14 +++++++++-----
- 3 files changed, 23 insertions(+), 10 deletions(-)
 
---- a/include/linux/hippidevice.h	2008-11-19 22:10:52.000000000 -0800
-+++ b/include/linux/hippidevice.h	2008-11-20 09:19:03.000000000 -0800
-@@ -32,7 +32,9 @@ struct hippi_cb {
- };
+--- a/net/ipv4/ip_gre.c	2008-11-20 09:49:13.000000000 -0800
++++ b/net/ipv4/ip_gre.c	2008-11-20 09:56:39.000000000 -0800
+@@ -126,8 +126,6 @@ static int ipgre_tunnel_bind_dev(struct 
  
- extern __be16 hippi_type_trans(struct sk_buff *skb, struct net_device *dev);
+ /* Fallback tunnel: no source, no destination, no key, no options */
+ 
+-static int ipgre_fb_tunnel_init(struct net_device *dev);
 -
-+extern int hippi_change_mtu(struct net_device *dev, int new_mtu);
-+extern int hippi_mac_addr(struct net_device *dev, void *p);
-+extern int hippi_neigh_setup_dev(struct net_device *dev, struct neigh_parms *p);
- extern struct net_device *alloc_hippi_dev(int sizeof_priv);
+ #define HASH_SIZE  16
+ 
+ static int ipgre_net_id;
+@@ -1142,6 +1140,7 @@ static int ipgre_open(struct net_device 
+ static int ipgre_close(struct net_device *dev)
+ {
+ 	struct ip_tunnel *t = netdev_priv(dev);
++
+ 	if (ipv4_is_multicast(t->parms.iph.daddr) && t->mlink) {
+ 		struct in_device *in_dev;
+ 		in_dev = inetdev_by_index(dev_net(dev), t->mlink);
+@@ -1155,14 +1154,22 @@ static int ipgre_close(struct net_device
+ 
  #endif
  
---- a/net/802/hippi.c	2008-11-19 22:10:52.000000000 -0800
-+++ b/net/802/hippi.c	2008-11-20 09:19:03.000000000 -0800
-@@ -144,7 +144,7 @@ __be16 hippi_type_trans(struct sk_buff *
- 
- EXPORT_SYMBOL(hippi_type_trans);
- 
--static int hippi_change_mtu(struct net_device *dev, int new_mtu)
-+int hippi_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	/*
- 	 * HIPPI's got these nice large MTUs.
-@@ -154,12 +154,13 @@ static int hippi_change_mtu(struct net_d
- 	dev->mtu = new_mtu;
- 	return(0);
- }
-+EXPORT_SYMBOL(hippi_change_mtu);
- 
- /*
-  * For HIPPI we will actually use the lower 4 bytes of the hardware
-  * address as the I-FIELD rather than the actual hardware address.
-  */
--static int hippi_mac_addr(struct net_device *dev, void *p)
-+int hippi_mac_addr(struct net_device *dev, void *p)
- {
- 	struct sockaddr *addr = p;
- 	if (netif_running(dev))
-@@ -167,8 +168,9 @@ static int hippi_mac_addr(struct net_dev
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
- 	return 0;
- }
-+EXPORT_SYMBOL(hippi_mac_addr);
- 
--static int hippi_neigh_setup_dev(struct net_device *dev, struct neigh_parms *p)
-+int hippi_neigh_setup_dev(struct net_device *dev, struct neigh_parms *p)
- {
- 	/* Never send broadcast/multicast ARP messages */
- 	p->mcast_probes = 0;
-@@ -181,6 +183,7 @@ static int hippi_neigh_setup_dev(struct 
- 		p->ucast_probes = 0;
- 	return 0;
- }
-+EXPORT_SYMBOL(hippi_neigh_setup_dev);
- 
- static const struct header_ops hippi_header_ops = {
- 	.create		= hippi_header,
-@@ -190,11 +193,12 @@ static const struct header_ops hippi_hea
- 
- static void hippi_setup(struct net_device *dev)
- {
--	dev->set_multicast_list		= NULL;
-+#ifdef CONFIG_COMPAT_NET_DEV_OPS
- 	dev->change_mtu			= hippi_change_mtu;
--	dev->header_ops			= &hippi_header_ops;
- 	dev->set_mac_address 		= hippi_mac_addr;
- 	dev->neigh_setup 		= hippi_neigh_setup_dev;
++static const struct net_device_ops ipgre_netdev_ops = {
++	.ndo_init		= ipgre_tunnel_init,
++	.ndo_uninit		= ipgre_tunnel_uninit,
++#ifdef CONFIG_NET_IPGRE_BROADCAST
++	.ndo_open		= ipgre_open,
++	.ndo_stop		= ipgre_close,
 +#endif
-+	dev->header_ops			= &hippi_header_ops;
- 
- 	/*
- 	 * We don't support HIPPI `ARP' for the time being, and probably
---- a/drivers/net/rrunner.c	2008-11-20 09:40:37.000000000 -0800
-+++ b/drivers/net/rrunner.c	2008-11-20 09:41:29.000000000 -0800
-@@ -63,6 +63,16 @@ MODULE_LICENSE("GPL");
- 
- static char version[] __devinitdata = "rrunner.c: v0.50 11/11/2002  Jes Sorensen (jes@wildopensource.com)\n";
- 
-+
-+static const struct net_device_ops rr_netdev_ops = {
-+	.ndo_open 		= rr_open,
-+	.ndo_stop		= rr_close,
-+	.ndo_do_ioctl		= rr_ioctl,
-+	.ndo_start_xmit		= rr_start_xmit,
-+	.ndo_change_mtu		= hippi_change_mtu,
-+	.ndo_set_mac_address	= hippi_mac_addr,
++	.ndo_start_xmit		= ipgre_tunnel_xmit,
++	.ndo_do_ioctl		= ipgre_tunnel_ioctl,
++	.ndo_change_mtu		= ipgre_tunnel_change_mtu,
 +};
 +
- /*
-  * Implementation notes:
-  *
-@@ -115,10 +125,7 @@ static int __devinit rr_init_one(struct 
- 	spin_lock_init(&rrpriv->lock);
+ static void ipgre_tunnel_setup(struct net_device *dev)
+ {
+-	dev->init		= ipgre_tunnel_init;
+-	dev->uninit		= ipgre_tunnel_uninit;
++	dev->netdev_ops		= &ipgre_netdev_ops;
+ 	dev->destructor 	= free_netdev;
+-	dev->hard_start_xmit	= ipgre_tunnel_xmit;
+-	dev->do_ioctl		= ipgre_tunnel_ioctl;
+-	dev->change_mtu		= ipgre_tunnel_change_mtu;
  
- 	dev->irq = pdev->irq;
--	dev->open = &rr_open;
--	dev->hard_start_xmit = &rr_start_xmit;
--	dev->stop = &rr_close;
--	dev->do_ioctl = &rr_ioctl;
-+	dev->netdev_ops = &rr_netdev_ops;
+ 	dev->type		= ARPHRD_IPGRE;
+ 	dev->needed_headroom 	= LL_MAX_HEADER + sizeof(struct iphdr) + 4;
+@@ -1194,8 +1201,6 @@ static int ipgre_tunnel_init(struct net_
+ 				return -EINVAL;
+ 			dev->flags = IFF_BROADCAST;
+ 			dev->header_ops = &ipgre_header_ops;
+-			dev->open = ipgre_open;
+-			dev->stop = ipgre_close;
+ 		}
+ #endif
+ 	} else
+@@ -1204,7 +1209,7 @@ static int ipgre_tunnel_init(struct net_
+ 	return 0;
+ }
  
- 	dev->base_addr = pci_resource_start(pdev, 0);
+-static int ipgre_fb_tunnel_init(struct net_device *dev)
++static void ipgre_fb_tunnel_init(struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct iphdr *iph = &tunnel->parms.iph;
+@@ -1220,7 +1225,6 @@ static int ipgre_fb_tunnel_init(struct n
  
+ 	dev_hold(dev);
+ 	ign->tunnels_wc[0]	= tunnel;
+-	return 0;
+ }
+ 
+ 
+@@ -1265,7 +1269,7 @@ static int ipgre_init_net(struct net *ne
+ 		goto err_alloc_dev;
+ 	}
+ 
+-	ign->fb_tunnel_dev->init = ipgre_fb_tunnel_init;
++	ipgre_fb_tunnel_init(ign->fb_tunnel_dev);
+ 	dev_net_set(ign->fb_tunnel_dev, net);
+ 	ign->fb_tunnel_dev->rtnl_link_ops = &ipgre_link_ops;
+ 
+@@ -1397,16 +1401,22 @@ static int ipgre_tap_init(struct net_dev
+ 	return 0;
+ }
+ 
++static const struct net_device_ops ipgre_tap_netdev_ops = {
++	.ndo_init		= ipgre_tap_init,
++	.ndo_uninit		= ipgre_tunnel_uninit,
++	.ndo_start_xmit		= ipgre_tunnel_xmit,
++	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_change_mtu		= ipgre_tunnel_change_mtu,
++};
++
+ static void ipgre_tap_setup(struct net_device *dev)
+ {
+ 
+ 	ether_setup(dev);
+ 
+-	dev->init		= ipgre_tap_init;
+-	dev->uninit		= ipgre_tunnel_uninit;
++	dev->netdev_ops		= &ipgre_netdev_ops;
+ 	dev->destructor 	= free_netdev;
+-	dev->hard_start_xmit	= ipgre_tunnel_xmit;
+-	dev->change_mtu		= ipgre_tunnel_change_mtu;
+ 
+ 	dev->iflink		= 0;
+ 	dev->features		|= NETIF_F_NETNS_LOCAL;
 
 -- 
 
