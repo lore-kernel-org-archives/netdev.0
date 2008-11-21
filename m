@@ -1,41 +1,83 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 0/10] DMA-API debugging facility
-Date: Fri, 21 Nov 2008 18:45:51 +0100
-Message-ID: <20081121174551.GC4336@elte.hu>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227286492.4901.208.camel@macbook.infradead.org> <20081121165722.GD1386@amd.com> <1227287215.4901.213.camel@macbook.infradead.org> <20081121171802.GK733@elte.hu> <20081121172046.GF1386@amd.com> <1227288269.4901.222.camel@macbook.infradead.org> <20081121172722.GG1386@amd.com>
+From: "Andrew Brampton" <brampton@gmail.com>
+Subject: Receive Side Support (RSS) - Adding support into the kernel
+Date: Fri, 21 Nov 2008 17:48:22 +0000
+Message-ID: <d41814900811210948p2fb2059epbd381a8105ab8959@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-To: Joerg Roedel <joerg.roedel@amd.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:56807 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755661AbYKURqY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 12:46:24 -0500
+Received: from rv-out-0506.google.com ([209.85.198.235]:1443 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756304AbYKURsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 12:48:23 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so1044734rvb.1
+        for <netdev@vger.kernel.org>; Fri, 21 Nov 2008 09:48:23 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20081121172722.GG1386@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
+Recently I've been interested in receive side support (RSS)[1], the
+ability for a network card to hash certain fields in a incoming
+packet's header, and map this hash to a particular core/processor on
+the computer. The idea is that each packet, for example, in a TCP
+connection will always be processed by the same core.
 
-* Joerg Roedel <joerg.roedel@amd.com> wrote:
+Now, some drivers have support for RSS, such as the Intel ixgbe
+drivers, and a few others, but the drivers either statically setup the
+RSS support, or just leave it disabled.
 
-> On Fri, Nov 21, 2008 at 05:24:29PM +0000, David Woodhouse wrote:
-> > On Fri, 2008-11-21 at 18:20 +0100, Joerg Roedel wrote:
-> > > Ok, I will move the generic bits to lib/ and include/linux and let
-> > > architectures decide if they want to use it.
-> > 
-> > Once you've done that, I'll try to hook it up on PowerPC to make 
-> > sure it works there.
-> 
-> Ok, cool. Thanks
+I believe there should be some way for the kernel to configure the RSS
+support inside the drivers. I've googled, and not seen people talking
+about adding support. Now I feel I could code some patches which will
+begin to add support, but before I do this I wanted to ask for
+opinions on the subject. I must note I've never submitted a patch to
+the linux kernel, but over the past few years I have made a number of
+private hacks, which have worked good enough for me :)
 
-i'll give it a whirl on x86 once the allocation bug is resolved. x86 
-testing will be the most interesting in practice, because most drivers 
-there are developed with no dynamic DMA in mind. (many of the x86 
-drivers were developed before IOMMUs were supported in Linux)
+There are three RSS settings which can be configured
+1) Which fields of the packet get hashed.
+2) The key used by the hashing algorithm
+3) The indirection table, which is used to map a 7bit hash value to a
+particular core.
 
-	Ingo
+I also see there are two things which may configure these options, the
+user, or the kernel.
+The kernel could for example, configure the indirection table based on
+some kind of knowledge (such as which cores are free, or which cores
+the receiving application is running on). This task may be too complex
+for the kernel to normally do, so the second approach is to configure
+this stuff from user-land.
+The user-land approach, would be similar to the irqbalance daemon[2].
+The irqbalance daemon changes which cores interrupts are fired for
+different hardware devices (such as network card) to improve either
+performance or power management. I can imagine a RSS daemon which
+monitors all the current UDP/TCP flows and decide how to balance them
+across the cores.
+
+I think creating a userland daemon is the best approach, as such here
+are my suggestions for changes to be made to the kernel.
+
+I'm suggesting that firstly each driver exports a set of functions
+which allow the RSS settings to be changed. This can be done by adding
+another field to the net_device struct, which would be a struct of
+function pointers, such as rss_set_key, rss_get_get, rss_set_hash,
+rss_get_hash, etc. Then I suggest creating a new netlink namespace,
+which would allow a userland application to configure this on each
+device. I'm unsure if the rtnetlink can be altered, since that already
+supports queues, and other similar assignments.
+
+Ok, that is my general idea for the moment. I'd be interested in
+hearing people's responses. If my current approach sounds good, then
+I'll start hacking, and send patches for review. If my approach sounds
+bad I would love to hear why and refine my ideas. Also if people want
+it I can write a more detailed document explaining exactly what
+changes I would make.
+
+thanks
+Andrew Brampton
+PhD Student, Lancaster University
+
+[1] http://www.microsoft.com/whdc/device/network/ndis_rss.mspx
+[2] http://www.irqbalance.org/
