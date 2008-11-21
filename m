@@ -1,7 +1,7 @@
 From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: [PATCH 02/10] x86: add data structures for DMA-API debugging
-Date: Fri, 21 Nov 2008 17:26:02 +0100
-Message-ID: <1227284770-19215-3-git-send-email-joerg.roedel@amd.com>
+Subject: [PATCH 10/10] x86: add checks for sync_sg* code
+Date: Fri, 21 Nov 2008 17:26:10 +0100
+Message-ID: <1227284770-19215-11-git-send-email-joerg.roedel@amd.com>
 References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,69 +11,113 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 To: Ingo Molnar <mingo@redhat.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:5021 "EHLO
-	WA4EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752668AbYKUQ0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:26:22 -0500
+Received: from outbound-sin.frontbridge.com ([207.46.51.80]:3687 "EHLO
+	SG2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756507AbYKUQ0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:26:40 -0500
 In-Reply-To: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: adds a new header file for DMA-API debugging
+Impact: detect bugs in sync_sg* usage
 
 Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
- arch/x86/include/asm/dma_debug.h |   41 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
- create mode 100644 arch/x86/include/asm/dma_debug.h
+ arch/x86/include/asm/dma-mapping.h |    2 ++
+ arch/x86/include/asm/dma_debug.h   |   20 ++++++++++++++++++++
+ arch/x86/kernel/pci-dma-debug.c    |   24 ++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+), 0 deletions(-)
 
+diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
+index 2b6399d..6a580e9 100644
+--- a/arch/x86/include/asm/dma-mapping.h
++++ b/arch/x86/include/asm/dma-mapping.h
+@@ -215,6 +215,7 @@ dma_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
+ 	BUG_ON(!valid_dma_direction(direction));
+ 	if (ops->sync_sg_for_cpu)
+ 		ops->sync_sg_for_cpu(hwdev, sg, nelems, direction);
++	debug_sync_sg_for_cpu(hwdev, sg, nelems, direction);
+ 	flush_write_buffers();
+ }
+ 
+@@ -227,6 +228,7 @@ dma_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
+ 	BUG_ON(!valid_dma_direction(direction));
+ 	if (ops->sync_sg_for_device)
+ 		ops->sync_sg_for_device(hwdev, sg, nelems, direction);
++	debug_sync_sg_for_device(hwdev, sg, nelems, direction);
+ 
+ 	flush_write_buffers();
+ }
 diff --git a/arch/x86/include/asm/dma_debug.h b/arch/x86/include/asm/dma_debug.h
-new file mode 100644
-index 0000000..d79f024
---- /dev/null
+index bc4a841..b30d3c9 100644
+--- a/arch/x86/include/asm/dma_debug.h
 +++ b/arch/x86/include/asm/dma_debug.h
-@@ -0,0 +1,41 @@
-+/*
-+ * Copyright (C) 2008 Advanced Micro Devices, Inc.
-+ *
-+ * Author: Joerg Roedel <joerg.roedel@amd.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
-+ */
+@@ -86,6 +86,14 @@ void debug_sync_single_range_for_device(struct device *dev,
+ 					unsigned long offset,
+ 					size_t size, int direction);
+ 
++extern
++void debug_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
++			   int nelems, int direction);
 +
-+#ifndef __ASM_X86_DMA_DEBUG
-+#define __ASM_X86_DMA_DEBUG
++extern
++void debug_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
++			      int nelems, int direction);
 +
-+/* Allocation flags */
-+#define DMA_DEBUG_SINGLE        0
-+#define DMA_DEBUG_SG            1
-+#define DMA_DEBUG_COHERENT      2
+ #else /* CONFIG_DMA_API_DEBUG */
+ 
+ static inline
+@@ -156,6 +164,18 @@ void debug_sync_single_range_for_device(struct device *dev,
+ {
+ }
+ 
++static inline
++void debug_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
++			   int nelems, int direction)
++{
++}
 +
-+struct device;
-+struct list_head;
++static inline
++void debug_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
++			      int nelems, int direction)
++{
++}
 +
-+struct dma_debug_entry {
-+	struct list_head list;
-+	struct device *dev;
-+	int type;
-+	void *cpu_addr;
-+	u64 dev_addr;
-+	u64 size;
-+	int direction;
-+};
+ #endif /* CONFIG_DMA_API_DEBUG */
+ 
+ #endif /* __ASM_X86_DMA_DEBUG */
+diff --git a/arch/x86/kernel/pci-dma-debug.c b/arch/x86/kernel/pci-dma-debug.c
+index 92b9491..ac8e1f9 100644
+--- a/arch/x86/kernel/pci-dma-debug.c
++++ b/arch/x86/kernel/pci-dma-debug.c
+@@ -439,3 +439,27 @@ void debug_sync_single_range_for_device(struct device *dev,
+ }
+ EXPORT_SYMBOL(debug_sync_single_range_for_device);
+ 
++void debug_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
++			   int nelems, int direction)
++{
++	struct scatterlist *s;
++	int i;
 +
-+#endif /* __ASM_X86_DMA_DEBUG */
++	for_each_sg(sg, s, nelems, i)
++		check_sync(dev, s->dma_address, s->dma_length, 0,
++			   direction, true);
++}
++EXPORT_SYMBOL(debug_sync_sg_for_cpu);
++
++void debug_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
++			      int nelems, int direction)
++{
++	struct scatterlist *s;
++	int i;
++
++	for_each_sg(sg, s, nelems, i)
++		check_sync(dev, s->dma_address, s->dma_length, 0,
++			   direction, false);
++}
++EXPORT_SYMBOL(debug_sync_sg_for_device);
++
 -- 
 1.5.6.4
 
