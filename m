@@ -1,148 +1,85 @@
-From: Cord Walter <cord.walter@gmx.de>
-Subject: axnet_cs / pcnet_cs: moving PCMCIA_DEVICE_PROD_ID for Netgear FA411
-Date: Fri, 21 Nov 2008 00:46:57 +0100
-Message-ID: <4925F6F1.9010305@gmx.de>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Regression: Bisected, IRQ and MSI allocations screwed without
+ sparse irq
+Date: Thu, 20 Nov 2008 16:34:29 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0811201539360.3197@localhost.localdomain>
+References: <1226572171.6834.87.camel@localhost.localdomain> <20081113.141513.116537651.davem@davemloft.net> <Pine.LNX.4.64.0811192333130.30818@ask.diku.dk> <20081119.151138.93409143.davem@davemloft.net> <Pine.LNX.4.64.0811202035590.19962@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------020804070900030701090806"
-Cc: linux-pcmcia@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
-	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
-List-Post: <mailto:linux-pcmcia@lists.infradead.org>
-List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
-	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
-Sender: linux-pcmcia-bounces@lists.infradead.org
-Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <jdb@comx.dk>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.tglx.de ([62.245.132.106]:32768 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753634AbYKUAex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2008 19:34:53 -0500
+In-Reply-To: <Pine.LNX.4.64.0811202035590.19962@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020804070900030701090806
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8bit
+Jesper,
 
-Hi,
+On Thu, 20 Nov 2008, Jesper Dangaard Brouer wrote:
+> I have bisected a regression to your commit
+> 3235e936c0cc3589309280b6f59e5096779adae3,
+> "x86: remove sparse irq from Kconfig".
+> 
+> Its actually not necessary your fault, as your commit simply removes
+> the config option HAVE_SPARSE_IRQ.  This revels the bug / regression
+> I'm exposted to.
 
-after noticing that my Netgear FA411 (PCMCIA-NIC) [1] stopped working with
-the release of the 2.6.25 kernel (sidux-version), I checked the
-respective driver sources and noticed that the pcnet_cs driver bailed
-out with "use axnet_cs instead" for the Netgear FA411, but axnet_cs
-doesn't claim this ID.
+Yup, the bisect result is pretty useless.
+ 
+> The cause of this problem (tracked down together with Robert Olsson)
+> is that on 2.6.28 I have a lot less IRQs available.  It seems max 34
+> IRQs.  Due the reduced number of IRQs the NIU driver cannot get
+> enough IRQs to the interfaces, and starts to use "IO-APIC" based
+> IRQs.
 
-I compiled a kernel with the PCMCIA-ID for the netgear card moved to
-axnet_cs from pcnet_cs which worked. I then contacted sidux-kernel
-maintainer Stefan Lippers-Hollmann who turned the info into this patch
-and integrated it into the kernel:
+Can you please try the attached patch ?
 
-<http://svn.berlios.de/svnroot/repos/fullstory/linux-sidux-2.6/trunk/debian/patches/features/2.6.27.4_PCMCIA_move-PCMCIA-ID-for-Netgear-FA411-from-pcnet_cs-to-axnet_cs.patch>
+Thanks,
 
-This works for me and AFAIK there were no reports of any breakage for
-other devices on sidux-support.
+	tglx
 
-This looks like a trivial patch, but since I have very limited
-experience with kernel modifications  I might be woefully wrong there.
-But if there are no side effects of this patch, is it possible to get it
-into the official kernel?
+-----
+ arch/x86/kernel/io_apic.c |   22 +---------------------
+ 1 file changed, 1 insertion(+), 21 deletions(-)
 
-I can provide more detailed information on the affected hardware if
-necessary.
-
--cord
-
-
-[1]
-Socket 1 Device 0:      [axnet_cs]              (bus ID: 1.0)
-        Configuration:  state: on
-        Product Name:   NETGEAR FA411 Fast Ethernet
-        Identification: manf_id: 0x0149 card_id: 0x0411
-                        function: 6 (network)
-                        prod_id(1): "NETGEAR" (0x9aa79dc3)
-                        prod_id(2): "FA411" (0x40fad875)
-                        prod_id(3): "Fast Ethernet" (0xb4be14e3)
-                        prod_id(4): --- (---)
--- 
-Cord Walter
-email: cord.walter@gmx.de
-
-Weil es niemanden etwas angeht, dass ich nichts zu verbergen habe:
-http://www.gnupg.org/
-http://www.truecrypt.org/
-...und überhaupt: http://www.FreiheitstattAngst.de
-
-
-
---------------020804070900030701090806
-Content-Type: text/x-diff;
-	name="2.6.27.4_PCMCIA_move-PCMCIA-ID-for-Netgear-FA411-from-pcnet_cs-to-axnet_cs.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename*0="2.6.27.4_PCMCIA_move-PCMCIA-ID-for-Netgear-FA411-from-pcnet_";
-	filename*1="cs-to-axnet_cs.patch"
-
-From: Stefan Lippers-Hollmann <s.l-h@gmx.de>
-Date: Sat, 1 Nov 2008 23:53:04 +0000
-Subject: [PATCH] PCMCIA: move PCMCIA ID for Netgear FA411 from pcnet_cs to axnet_cs:
-
-Since kernel 2.6.25, commit 61da96be07ec860e260ca4af0199b9d48d000b80 
-(pcnet_cs: if AX88190-based card, printk "use axnet_cs instead" message.), 
-pcnet_cs bails out with "use axnet_cs instead" for the Netgear FA411, but 
-axnet_cs doesn't claim this ID.
-
-Socket 1 Device 0:      [axnet_cs]              (bus ID: 1.0)
-        Configuration:  state: on
-        Product Name:   NETGEAR FA411 Fast Ethernet
-        Identification: manf_id: 0x0149 card_id: 0x0411
-                        function: 6 (network)
-                        prod_id(1): "NETGEAR" (0x9aa79dc3)
-                        prod_id(2): "FA411" (0x40fad875)
-                        prod_id(3): "Fast Ethernet" (0xb4be14e3)
-                        prod_id(4): --- (---)
-
-Cc: stable <stable@kernel.org> [2.6.25, 2.6.26, 2.6.27]
-Signed-off-by: Stefan Lippers-Hollmann <s.l-h@gmx.de>
-Signed-off-by: Cord Walter <qord@cwalter.net>
----
- drivers/net/pcmcia/axnet_cs.c |    1 +
- drivers/net/pcmcia/pcnet_cs.c |    1 -
- 2 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
-index b37a498..713091e 100644
---- a/drivers/net/pcmcia/axnet_cs.c
-+++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -779,6 +779,7 @@ static struct pcmcia_device_id axnet_ids[] = {
- 	PCMCIA_DEVICE_PROD_ID12("IO DATA", "ETXPCM", 0x547e66dc, 0x233adac2),
- 	PCMCIA_DEVICE_PROD_ID12("Linksys", "EtherFast 10/100 PC Card (PCMPC100 V3)", 0x0733cc81, 0x232019a8),
- 	PCMCIA_DEVICE_PROD_ID12("MELCO", "LPC3-TX", 0x481e0094, 0xf91af609),
-+	PCMCIA_DEVICE_PROD_ID12("NETGEAR", "FA411", 0x9aa79dc3, 0x40fad875),
- 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "100BASE", 0x281f1c5d, 0x7c2add04),
- 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "FastEtherCard", 0x281f1c5d, 0x7ef26116),
- 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "FEP501", 0x281f1c5d, 0x2e272058),
-diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index e40d630..ce486f0 100644
---- a/drivers/net/pcmcia/pcnet_cs.c
-+++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -1693,7 +1693,6 @@ static struct pcmcia_device_id pcnet_ids[] = {
- 	PCMCIA_DEVICE_PROD_ID12("National Semiconductor", "InfoMover NE4100", 0x36e1191f, 0xa6617ec8),
- 	PCMCIA_DEVICE_PROD_ID12("NEC", "PC-9801N-J12", 0x18df0ba0, 0xbc912d76),
- 	PCMCIA_DEVICE_PROD_ID12("NETGEAR", "FA410TX", 0x9aa79dc3, 0x60e5bc0e),
--	PCMCIA_DEVICE_PROD_ID12("NETGEAR", "FA411", 0x9aa79dc3, 0x40fad875),
- 	PCMCIA_DEVICE_PROD_ID12("Network Everywhere", "Fast Ethernet 10/100 PC Card", 0x820a67b6, 0x31ed1a5f),
- 	PCMCIA_DEVICE_PROD_ID12("NextCom K.K.", "Next Hawk", 0xaedaec74, 0xad050ef1),
- 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "10/100Mbps Ethernet Card", 0x281f1c5d, 0x6e41773b),
--- 
-1.5.6.5
-
-
-
-
---------------020804070900030701090806
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---------------020804070900030701090806--
+Index: linux-2.6/arch/x86/kernel/io_apic.c
+===================================================================
+--- linux-2.6.orig/arch/x86/kernel/io_apic.c
++++ linux-2.6/arch/x86/kernel/io_apic.c
+@@ -3594,27 +3594,7 @@ int __init io_apic_get_redir_entries (in
+ 
+ int __init probe_nr_irqs(void)
+ {
+-	int idx;
+-	int nr = 0;
+-#ifndef CONFIG_XEN
+-	int nr_min = 32;
+-#else
+-	int nr_min = NR_IRQS;
+-#endif
+-
+-	for (idx = 0; idx < nr_ioapics; idx++)
+-		nr += io_apic_get_redir_entries(idx) + 1;
+-
+-	/* double it for hotplug and msi and nmi */
+-	nr <<= 1;
+-
+-	/* something wrong ? */
+-	if (nr < nr_min)
+-		nr = nr_min;
+-	if (WARN_ON(nr > NR_IRQS))
+-		nr = NR_IRQS;
+-
+-	return nr;
++	return NR_IRQS;
+ }
+ 
+ /* --------------------------------------------------------------------------
