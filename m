@@ -1,103 +1,82 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: Regression: Bisected, IRQ and MSI allocations screwed without
-	sparse irq
-Date: Fri, 21 Nov 2008 11:33:34 +0100
-Message-ID: <1227263614.25811.25.camel@localhost.localdomain>
-References: <1226572171.6834.87.camel@localhost.localdomain>
-	 <20081113.141513.116537651.davem@davemloft.net>
-	 <Pine.LNX.4.64.0811192333130.30818@ask.diku.dk>
-	 <20081119.151138.93409143.davem@davemloft.net>
-	 <Pine.LNX.4.64.0811202035590.19962@ask.diku.dk>
-	 <alpine.LFD.2.00.0811201539360.3197@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: Petr Tesarik <ptesarik@suse.cz>
+Subject: [PATCH] Do not use TSO/GSO when there is urgent data
+Date: Fri, 21 Nov 2008 13:19:45 +0100
+Message-ID: <200811211319.45515.ptesarik@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Ilpo =?utf-8?q?J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Jan =?utf-8?q?=C5=A0embera?= <jsembera@suse.cz>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:39941 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753235AbYKUKdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 05:33:38 -0500
-In-Reply-To: <alpine.LFD.2.00.0811201539360.3197@localhost.localdomain>
+Received: from styx.suse.cz ([82.119.242.94]:39108 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753556AbYKUMSp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 07:18:45 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-11-20 at 16:34 -0800, Thomas Gleixner wrote:
-> On Thu, 20 Nov 2008, Jesper Dangaard Brouer wrote:
-> > I have bisected a regression to your commit
-> > 3235e936c0cc3589309280b6f59e5096779adae3,
-> > "x86: remove sparse irq from Kconfig".
-> > 
-> > Its actually not necessary your fault, as your commit simply removes
-> > the config option HAVE_SPARSE_IRQ.  This revels the bug / regression
-> > I'm exposted to.
-> 
-> Yup, the bisect result is pretty useless.
->  
-> > The cause of this problem (tracked down together with Robert Olsson)
-> > is that on 2.6.28 I have a lot less IRQs available.  It seems max 34
-> > IRQs.  Due the reduced number of IRQs the NIU driver cannot get
-> > enough IRQs to the interfaces, and starts to use "IO-APIC" based
-> > IRQs.
-> 
-> Can you please try the attached patch ?
+This patch fixes http://bugzilla.kernel.org/show_bug.cgi?id=12014
 
-I have tried the patch and it solved the problem! :-)
+Since most (if not all) implementations of TSO and even the in-kernel
+software GSO do not update the urgent pointer when splitting a large
+segment, it is necessary to turn off TSO/GSO for all outgoing traffic
+with the URG pointer set.
 
-I'll gladly test other patches from your.  Guess this patch needs to be
-brushed up before a mainline patch is ready.
+Looking at tcp_current_mss (and the preceding comment) I even think
+this was the original intention. However, this approach is insufficient,
+because TSO/GSO is turned off only for newly created frames, not for
+frames which were already pending at the arrival of a message with
+MSG_OOB set. These frames were created when TSO/GSO was enabled,
+so they may be large, and they will have the urgent pointer set
+in tcp_transmit_skb().
 
-My hardware is a HP ProLiant DL380-G5.
+With this patch, such large packets will be fragmented again before
+going to the transmit routine.
 
+As a side note, at least the following NICs are known to screw up
+the urgent pointer in the TCP header when doing TSO:
 
-> -----
->  arch/x86/kernel/io_apic.c |   22 +---------------------
->  1 file changed, 1 insertion(+), 21 deletions(-)
-> 
-> Index: linux-2.6/arch/x86/kernel/io_apic.c
-> ===================================================================
-> --- linux-2.6.orig/arch/x86/kernel/io_apic.c
-> +++ linux-2.6/arch/x86/kernel/io_apic.c
-> @@ -3594,27 +3594,7 @@ int __init io_apic_get_redir_entries (in
->  
->  int __init probe_nr_irqs(void)
->  {
-> -	int idx;
-> -	int nr = 0;
-> -#ifndef CONFIG_XEN
-> -	int nr_min = 32;
-> -#else
-> -	int nr_min = NR_IRQS;
-> -#endif
-> -
-> -	for (idx = 0; idx < nr_ioapics; idx++)
-> -		nr += io_apic_get_redir_entries(idx) + 1;
-> -
-> -	/* double it for hotplug and msi and nmi */
-> -	nr <<= 1;
-> -
-> -	/* something wrong ? */
-> -	if (nr < nr_min)
-> -		nr = nr_min;
-> -	if (WARN_ON(nr > NR_IRQS))
-> -		nr = NR_IRQS;
-> -
-> -	return nr;
-> +	return NR_IRQS;
->  }
->  
+	Intel 82566MM (PCI ID 8086:1049)
+	Intel 82566DC (PCI ID 8086:104b)
+	Intel 82541GI (PCI ID 8086:1076)
+	Broadcom NetXtreme II BCM5708 (PCI ID 14e4:164c)
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+CC: Jan Sembera <jsembera@suse.cz>
+CC: Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>
+
+--
+ tcp_output.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -722,7 +722,8 @@ static void tcp_queue_skb(struct sock *sk, struct sk_buff 
+*skb)
+ static void tcp_set_skb_tso_segs(struct sock *sk, struct sk_buff *skb,
+ 				 unsigned int mss_now)
+ {
+-	if (skb->len <= mss_now || !sk_can_gso(sk)) {
++	if (skb->len <= mss_now || !sk_can_gso(sk) ||
++	    tcp_urg_mode(tcp_sk(sk))) {
+ 		/* Avoid the costly divide in the normal
+ 		 * non-TSO case.
+ 		 */
+@@ -1163,7 +1164,9 @@ static int tcp_init_tso_segs(struct sock *sk, struct 
+sk_buff *skb,
+ {
+ 	int tso_segs = tcp_skb_pcount(skb);
+ 
+-	if (!tso_segs || (tso_segs > 1 && tcp_skb_mss(skb) != mss_now)) {
++	if (!tso_segs ||
++	    (tso_segs > 1 && (tcp_skb_mss(skb) != mss_now ||
++			      tcp_urg_mode(tcp_sk(sk))))) {
+ 		tcp_set_skb_tso_segs(sk, skb, mss_now);
+ 		tso_segs = tcp_skb_pcount(skb);
+ 	}
