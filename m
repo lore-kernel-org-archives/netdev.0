@@ -1,37 +1,24 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: Re: next-20081117: kernel freezes with netconsole enabled
-Date: Fri, 21 Nov 2008 19:52:02 +0300
-Message-ID: <a4423d670811210852q739a3929g23a0476927bbcc11@mail.gmail.com>
-References: <20081119175740.GE12456@orion> <1227119251.3149.57.camel@calx>
+From: Joerg Roedel <joro@8bytes.org>
+Subject: Re: [PATCH 0/10] DMA-API debugging facility
+Date: Fri, 21 Nov 2008 17:52:20 +0100
+Message-ID: <20081121165220.GE29705@8bytes.org>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, satyam.sharma@gmail.com
-To: "Matt Mackall" <mpm@selenic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.188]:14286 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbYKUQwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:52:04 -0500
-Received: by rn-out-0910.google.com with SMTP id k40so875213rnd.17
-        for <netdev@vger.kernel.org>; Fri, 21 Nov 2008 08:52:03 -0800 (PST)
-In-Reply-To: <1227119251.3149.57.camel@calx>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: Joerg Roedel <joerg.roedel@amd.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757808AbYKUQwx@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2008/11/19 Matt Mackall <mpm@selenic.com>:
-> On Wed, 2008-11-19 at 20:57 +0300, Alexander Beregalov wrote:
->> Hi
->>
->> It is x86_64 SMP
->> The kernel freezes while transferring kernel log through netconsole,
->> SysRq does not work at that moment.
->
-> Does it survive if you boot with 'quiet'? Is this new behavior or have
-> you successfully used netconsole before?
+btw, if somebody wants to try out this code, it can also be pulled from
 
-`queit` parameter does not help. The problem happens on 2.6.28-rc6 and
-2.6.27 as well.
-I will try older kernels next week.
+  git://git.kernel.org/pub/scm/linux/kernel/git/joro/linux-2.6-iommu.git dma-api-debug
+
+Have fun,
+
+     Joerg
