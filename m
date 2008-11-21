@@ -1,7 +1,7 @@
 From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: [PATCH 09/10] x86: add checks for sync_single_range* code
-Date: Fri, 21 Nov 2008 17:26:09 +0100
-Message-ID: <1227284770-19215-10-git-send-email-joerg.roedel@amd.com>
+Subject: [PATCH 02/10] x86: add data structures for DMA-API debugging
+Date: Fri, 21 Nov 2008 17:26:02 +0100
+Message-ID: <1227284770-19215-3-git-send-email-joerg.roedel@amd.com>
 References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,114 +11,69 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 To: Ingo Molnar <mingo@redhat.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-va3.frontbridge.com ([216.32.180.16]:3152 "EHLO
-	VA3EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755271AbYKUQ03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:26:29 -0500
+Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:5021 "EHLO
+	WA4EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752668AbYKUQ0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:26:22 -0500
 In-Reply-To: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: detect bugs in sync_single_range* usage
+Impact: adds a new header file for DMA-API debugging
 
 Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
- arch/x86/include/asm/dma-mapping.h |    4 ++++
- arch/x86/include/asm/dma_debug.h   |   26 ++++++++++++++++++++++++++
- arch/x86/kernel/pci-dma-debug.c    |   17 +++++++++++++++++
- 3 files changed, 47 insertions(+), 0 deletions(-)
+ arch/x86/include/asm/dma_debug.h |   41 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 41 insertions(+), 0 deletions(-)
+ create mode 100644 arch/x86/include/asm/dma_debug.h
 
-diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-index 63bed40..2b6399d 100644
---- a/arch/x86/include/asm/dma-mapping.h
-+++ b/arch/x86/include/asm/dma-mapping.h
-@@ -185,6 +185,8 @@ dma_sync_single_range_for_cpu(struct device *hwdev, dma_addr_t dma_handle,
- 	if (ops->sync_single_range_for_cpu)
- 		ops->sync_single_range_for_cpu(hwdev, dma_handle, offset,
- 					       size, direction);
-+	debug_sync_single_range_for_cpu(hwdev, dma_handle, offset,
-+					size, direction);
- 	flush_write_buffers();
- }
- 
-@@ -199,6 +201,8 @@ dma_sync_single_range_for_device(struct device *hwdev, dma_addr_t dma_handle,
- 	if (ops->sync_single_range_for_device)
- 		ops->sync_single_range_for_device(hwdev, dma_handle,
- 						  offset, size, direction);
-+	debug_sync_single_range_for_device(hwdev, dma_handle, offset,
-+					   size, direction);
- 	flush_write_buffers();
- }
- 
 diff --git a/arch/x86/include/asm/dma_debug.h b/arch/x86/include/asm/dma_debug.h
-index 8262cd1..bc4a841 100644
---- a/arch/x86/include/asm/dma_debug.h
+new file mode 100644
+index 0000000..d79f024
+--- /dev/null
 +++ b/arch/x86/include/asm/dma_debug.h
-@@ -75,6 +75,17 @@ extern
- void debug_sync_single_for_device(struct device *dev, dma_addr_t dma_handle,
- 				  size_t size, int direction);
- 
-+extern
-+void debug_sync_single_range_for_cpu(struct device *dev, dma_addr_t dma_handle,
-+				     unsigned long offset, size_t size,
-+				     int direction);
+@@ -0,0 +1,41 @@
++/*
++ * Copyright (C) 2008 Advanced Micro Devices, Inc.
++ *
++ * Author: Joerg Roedel <joerg.roedel@amd.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++ */
 +
-+extern
-+void debug_sync_single_range_for_device(struct device *dev,
-+					dma_addr_t dma_handle,
-+					unsigned long offset,
-+					size_t size, int direction);
++#ifndef __ASM_X86_DMA_DEBUG
++#define __ASM_X86_DMA_DEBUG
 +
- #else /* CONFIG_DMA_API_DEBUG */
- 
- static inline
-@@ -130,6 +141,21 @@ void debug_sync_single_for_device(struct device *dev, dma_addr_t dma_handle,
- {
- }
- 
-+static inline
-+void debug_sync_single_range_for_cpu(struct device *dev, dma_addr_t dma_handle,
-+				     unsigned long offset, size_t size,
-+				     int direction)
-+{
-+}
++/* Allocation flags */
++#define DMA_DEBUG_SINGLE        0
++#define DMA_DEBUG_SG            1
++#define DMA_DEBUG_COHERENT      2
 +
-+static inline
-+void debug_sync_single_range_for_device(struct device *dev,
-+					dma_addr_t dma_handle,
-+					unsigned long offset,
-+					size_t size, int direction)
-+{
-+}
++struct device;
++struct list_head;
 +
- #endif /* CONFIG_DMA_API_DEBUG */
- 
- #endif /* __ASM_X86_DMA_DEBUG */
-diff --git a/arch/x86/kernel/pci-dma-debug.c b/arch/x86/kernel/pci-dma-debug.c
-index 1dfcd33..92b9491 100644
---- a/arch/x86/kernel/pci-dma-debug.c
-+++ b/arch/x86/kernel/pci-dma-debug.c
-@@ -422,3 +422,20 @@ void debug_sync_single_for_device(struct device *dev, dma_addr_t dma_handle,
- }
- EXPORT_SYMBOL(debug_sync_single_for_device);
- 
-+void debug_sync_single_range_for_cpu(struct device *dev, dma_addr_t dma_handle,
-+				     unsigned long offset, size_t size,
-+				     int direction)
-+{
-+	check_sync(dev, dma_handle, size, offset, direction, true);
-+}
-+EXPORT_SYMBOL(debug_sync_single_range_for_cpu);
++struct dma_debug_entry {
++	struct list_head list;
++	struct device *dev;
++	int type;
++	void *cpu_addr;
++	u64 dev_addr;
++	u64 size;
++	int direction;
++};
 +
-+void debug_sync_single_range_for_device(struct device *dev,
-+					dma_addr_t dma_handle,
-+					unsigned long offset,
-+					size_t size, int direction)
-+{
-+	check_sync(dev, dma_handle, size, offset, direction, false);
-+}
-+EXPORT_SYMBOL(debug_sync_single_range_for_device);
-+
++#endif /* __ASM_X86_DMA_DEBUG */
 -- 
 1.5.6.4
 
