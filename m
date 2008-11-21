@@ -1,151 +1,156 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] tcp: fix potential corner case issue in segmentation (Was:
- Re: [PATCH] Do not use TSO/GSO when there is urgent data)
-Date: Fri, 21 Nov 2008 15:07:32 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811211438420.3930@wrl-59.cs.helsinki.fi>
-References: <200811211319.45515.ptesarik@suse.cz>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH] Fix memory leak in the proto_register function
+Date: Fri, 21 Nov 2008 12:08:08 -0200
+Message-ID: <20081121140808.GA20958@ghostprotocols.net>
+References: <20081121125628.11468.72009.stgit@pc1117.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2123648892-1227272852=:3930"
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Jan =?utf-8?q?=C5=A0embera?=" <jsembera@suse.cz>
-To: Petr Tesarik <ptesarik@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: Catalin Marinas <catalin.marinas@arm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:57702 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752663AbYKUNHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 08:07:35 -0500
-In-Reply-To: <200811211319.45515.ptesarik@suse.cz>
+Received: from mx2.redhat.com ([66.187.237.31]:60299 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752743AbYKUOIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 09:08:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20081121125628.11468.72009.stgit@pc1117.cambridge.arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Please send networking patches to netdev@vger.kernel.org as well.
 
----696208474-2123648892-1227272852=:3930
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+David,
+	Please apply.
 
-On Fri, 21 Nov 2008, Petr Tesarik wrote:
+- arnaldo
 
-> This patch fixes http://bugzilla.kernel.org/show_bug.cgi?id=12014
-> 
-> Since most (if not all) implementations of TSO and even the in-kernel
-> software GSO do not update the urgent pointer when splitting a large
-> segment, it is necessary to turn off TSO/GSO for all outgoing traffic
-> with the URG pointer set.
+> Em Fri, Nov 21, 2008 at 12:56:28PM +0000, Catalin Marinas escreveu:
+If the slub allocator is used, kmem_cache_create() may merge two or more
+kmem_cache's into one but the cache name pointer is not updated and
+kmem_cache_name() is no longer guaranteed to return the pointer passed
+to the former function. This patch stores the kmalloc'ed pointers in the
+corresponding request_sock_ops and timewait_sock_ops structures.
 
-Good observation, I totally missed this possibility of T/GSO while 
-looking.
-
-> Looking at tcp_current_mss (and the preceding comment) I even think
-> this was the original intention. However, this approach is insufficient,
-> because TSO/GSO is turned off only for newly created frames, not for
-> frames which were already pending at the arrival of a message with
-> MSG_OOB set. These frames were created when TSO/GSO was enabled,
-> so they may be large, and they will have the urgent pointer set
-> in tcp_transmit_skb().
-> 
-> With this patch, such large packets will be fragmented again before
-> going to the transmit routine.
-
-I wonder if there's some corner case which still fails to fragment
-in tcp_retransmit_xmit's in skb->len <= cur_mss case if cur_mss
-grew very recently (and therefore skb-len now fits to a single segment).
-
-Patch below, changed subject is due to patchwork as requested by DaveM
-(if you'd find that strange).
-
-> As a side note, at least the following NICs are known to screw up
-> the urgent pointer in the TCP header when doing TSO:
-> 
-> 	Intel 82566MM (PCI ID 8086:1049)
-> 	Intel 82566DC (PCI ID 8086:104b)
-> 	Intel 82541GI (PCI ID 8086:1076)
-> 	Broadcom NetXtreme II BCM5708 (PCI ID 14e4:164c)
-
-Heh, it might already be longer than the list we would get from the 
-working ones. Not very likely too many people consider urg too
-seriously to get it right.
-
-> Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
-> CC: Jan Sembera <jsembera@suse.cz>
-> CC: Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>
-> 
-> --
->  tcp_output.c |    7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -722,7 +722,8 @@ static void tcp_queue_skb(struct sock *sk, struct sk_buff 
-> *skb)
->  static void tcp_set_skb_tso_segs(struct sock *sk, struct sk_buff *skb,
->  				 unsigned int mss_now)
->  {
-> -	if (skb->len <= mss_now || !sk_can_gso(sk)) {
-> +	if (skb->len <= mss_now || !sk_can_gso(sk) ||
-> +	    tcp_urg_mode(tcp_sk(sk))) {
->  		/* Avoid the costly divide in the normal
->  		 * non-TSO case.
->  		 */
-> @@ -1163,7 +1164,9 @@ static int tcp_init_tso_segs(struct sock *sk, struct 
-> sk_buff *skb,
->  {
->  	int tso_segs = tcp_skb_pcount(skb);
->  
-> -	if (!tso_segs || (tso_segs > 1 && tcp_skb_mss(skb) != mss_now)) {
-> +	if (!tso_segs ||
-> +	    (tso_segs > 1 && (tcp_skb_mss(skb) != mss_now ||
-> +			      tcp_urg_mode(tcp_sk(sk))))) {
->  		tcp_set_skb_tso_segs(sk, skb, mss_now);
->  		tso_segs = tcp_skb_pcount(skb);
->  	}
-
-It's a bit intrusive but I couldn't immediately come up with alternative 
-that would have worked (came up with some not working ones :-)).
-
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-
-
--- 
- i.
-
-
---
-
-[PATCH] tcp: fix potential corner case issue in segmentation
-
-If cur_mss grew very recently so that the previously G/TSOed skb
-now fits well into a single segment, it might get send up in
-parts unless we calculate # of segments again. Whether it actually
-would break something more than that I don't know. But this would
-create a more significant problem with the urg t/gso problem that
-was found by Petr Tesarik <ptesarik@suse.cz>.
-
-Compile tested only.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Reviewed-by: Christoph Lameter <cl@linux-foundation.org>
 ---
- net/ipv4/tcp_output.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ include/net/request_sock.h  |    1 +
+ include/net/timewait_sock.h |    1 +
+ net/core/sock.c             |   31 ++++++++++++-------------------
+ 3 files changed, 14 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index a524627..129f46b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1944,6 +1944,8 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	if (skb->len > cur_mss) {
- 		if (tcp_fragment(sk, skb, cur_mss, cur_mss))
- 			return -ENOMEM; /* We'll try again later. */
-+	} else {
-+		tcp_init_tso_segs(sk, skb, cur_mss);
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index cac811e..c719084 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -31,6 +31,7 @@ struct request_sock_ops {
+ 	int		family;
+ 	int		obj_size;
+ 	struct kmem_cache	*slab;
++	char		*slab_name;
+ 	int		(*rtx_syn_ack)(struct sock *sk,
+ 				       struct request_sock *req);
+ 	void		(*send_ack)(struct sock *sk, struct sk_buff *skb,
+diff --git a/include/net/timewait_sock.h b/include/net/timewait_sock.h
+index 1e1ee32..97c3b14 100644
+--- a/include/net/timewait_sock.h
++++ b/include/net/timewait_sock.h
+@@ -16,6 +16,7 @@
+ 
+ struct timewait_sock_ops {
+ 	struct kmem_cache	*twsk_slab;
++	char		*twsk_slab_name;
+ 	unsigned int	twsk_obj_size;
+ 	int		(*twsk_unique)(struct sock *sk,
+ 				       struct sock *sktw, void *twp);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 341e394..edf7220 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2035,9 +2035,6 @@ static inline void release_proto_idx(struct proto *prot)
+ 
+ int proto_register(struct proto *prot, int alloc_slab)
+ {
+-	char *request_sock_slab_name = NULL;
+-	char *timewait_sock_slab_name;
+-
+ 	if (alloc_slab) {
+ 		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
+ 					       SLAB_HWCACHE_ALIGN, NULL);
+@@ -2051,12 +2048,12 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 		if (prot->rsk_prot != NULL) {
+ 			static const char mask[] = "request_sock_%s";
+ 
+-			request_sock_slab_name = kmalloc(strlen(prot->name) + sizeof(mask) - 1, GFP_KERNEL);
+-			if (request_sock_slab_name == NULL)
++			prot->rsk_prot->slab_name = kmalloc(strlen(prot->name) + sizeof(mask) - 1, GFP_KERNEL);
++			if (prot->rsk_prot->slab_name == NULL)
+ 				goto out_free_sock_slab;
+ 
+-			sprintf(request_sock_slab_name, mask, prot->name);
+-			prot->rsk_prot->slab = kmem_cache_create(request_sock_slab_name,
++			sprintf(prot->rsk_prot->slab_name, mask, prot->name);
++			prot->rsk_prot->slab = kmem_cache_create(prot->rsk_prot->slab_name,
+ 								 prot->rsk_prot->obj_size, 0,
+ 								 SLAB_HWCACHE_ALIGN, NULL);
+ 
+@@ -2070,14 +2067,14 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 		if (prot->twsk_prot != NULL) {
+ 			static const char mask[] = "tw_sock_%s";
+ 
+-			timewait_sock_slab_name = kmalloc(strlen(prot->name) + sizeof(mask) - 1, GFP_KERNEL);
++			prot->twsk_prot->twsk_slab_name = kmalloc(strlen(prot->name) + sizeof(mask) - 1, GFP_KERNEL);
+ 
+-			if (timewait_sock_slab_name == NULL)
++			if (prot->twsk_prot->twsk_slab_name == NULL)
+ 				goto out_free_request_sock_slab;
+ 
+-			sprintf(timewait_sock_slab_name, mask, prot->name);
++			sprintf(prot->twsk_prot->twsk_slab_name, mask, prot->name);
+ 			prot->twsk_prot->twsk_slab =
+-				kmem_cache_create(timewait_sock_slab_name,
++				kmem_cache_create(prot->twsk_prot->twsk_slab_name,
+ 						  prot->twsk_prot->twsk_obj_size,
+ 						  0, SLAB_HWCACHE_ALIGN,
+ 						  NULL);
+@@ -2093,14 +2090,14 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 	return 0;
+ 
+ out_free_timewait_sock_slab_name:
+-	kfree(timewait_sock_slab_name);
++	kfree(prot->twsk_prot->twsk_slab_name);
+ out_free_request_sock_slab:
+ 	if (prot->rsk_prot && prot->rsk_prot->slab) {
+ 		kmem_cache_destroy(prot->rsk_prot->slab);
+ 		prot->rsk_prot->slab = NULL;
+ 	}
+ out_free_request_sock_slab_name:
+-	kfree(request_sock_slab_name);
++	kfree(prot->rsk_prot->slab_name);
+ out_free_sock_slab:
+ 	kmem_cache_destroy(prot->slab);
+ 	prot->slab = NULL;
+@@ -2123,18 +2120,14 @@ void proto_unregister(struct proto *prot)
  	}
  
- 	/* Collapse two adjacent packets if worthwhile and we can. */
--- 
-1.5.2.2
+ 	if (prot->rsk_prot != NULL && prot->rsk_prot->slab != NULL) {
+-		const char *name = kmem_cache_name(prot->rsk_prot->slab);
+-
+ 		kmem_cache_destroy(prot->rsk_prot->slab);
+-		kfree(name);
++		kfree(prot->rsk_prot->slab_name);
+ 		prot->rsk_prot->slab = NULL;
+ 	}
+ 
+ 	if (prot->twsk_prot != NULL && prot->twsk_prot->twsk_slab != NULL) {
+-		const char *name = kmem_cache_name(prot->twsk_prot->twsk_slab);
+-
+ 		kmem_cache_destroy(prot->twsk_prot->twsk_slab);
+-		kfree(name);
++		kfree(prot->twsk_prot->twsk_slab_name);
+ 		prot->twsk_prot->twsk_slab = NULL;
+ 	}
+ }
 
----696208474-2123648892-1227272852=:3930--
