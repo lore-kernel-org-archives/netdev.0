@@ -1,100 +1,175 @@
 From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: [PATCH 0/10] DMA-API debugging facility
-Date: Fri, 21 Nov 2008 17:26:00 +0100
-Message-ID: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
+Subject: [PATCH 04/10] x86: add helper functions for consistency checks
+Date: Fri, 21 Nov 2008 17:26:04 +0100
+Message-ID: <1227284770-19215-5-git-send-email-joerg.roedel@amd.com>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org
+	iommu@lists.linux-foundation.org,
+	Joerg Roedel <joerg.roedel@amd.com>
 To: Ingo Molnar <mingo@redhat.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-va3.frontbridge.com ([216.32.180.16]:3674 "EHLO
-	VA3EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756253AbYKUQ0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:26:32 -0500
+Received: from outbound-sin.frontbridge.com ([207.46.51.80]:8497 "EHLO
+	SG2EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757289AbYKUQ1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:27:46 -0500
+In-Reply-To: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Impact: adds helper functions to be used later
 
-this patchset introduces code to debug drivers usage of the DMA-API.
-Tests with hardware IOMMUs have shown several bugs in drivers regarding
-the usage of that API.
-Problems were found especially in network card drivers.
+Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
+---
+ arch/x86/kernel/pci-dma-debug.c |  125 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 125 insertions(+), 0 deletions(-)
 
-These bugs often don't show up or have any negative impact if there is
-no hardware IOMMU in use in the system. But with an hardware IOMMU these
-bugs turn the hardware unusable or, in the worst case, cause data
-corruption on devices which are managed by other (good) drivers.
-
-With the code these patches introduce driver developers can find several
-bugs of misusing the DMA-API in their drivers. But be aware, it can not
-find all possible bugs. If it finds a problem it prints out messages
-like
-
-tg3 0000:08:04.0: PCI-DMA: device driver tries to free DMA memory it has not allocated [device address=0x000000042f0f3ae7] [size=48 bytes]
-Pid: 6285, comm: bash Not tainted 2.6.28-rc5-00176-g6ae6379-dirty #6
-Call Trace:
- <IRQ>  [<ffffffff80221276>] check_unmap+0x52/0x1ce
- [<ffffffff80221af0>] debug_unmap_single+0x61/0xa4
- [<ffffffff8053d396>] skb_dma_unmap+0xf2/0x10c
- [<ffffffff8040a986>] tg3_poll+0xe8/0x822
- [<ffffffff803abe2f>] mix_pool_bytes_extract+0x5c/0x155
- [<ffffffff80540e42>] net_rx_action+0x9d/0x170
- [<ffffffff8023bc3c>] __do_softirq+0x7a/0x13d
- [<ffffffff8020c3cc>] call_softirq+0x1c/0x28
- [<ffffffff8020d8ac>] do_softirq+0x2c/0x68
- [<ffffffff8023bb7c>] irq_exit+0x3f/0x85
- [<ffffffff8020db5e>] do_IRQ+0x14d/0x16f
- [<ffffffff8020b686>] ret_from_intr+0x0/0xa
- <EOI>  [<ffffffff80368187>] memcmp+0xb/0x22
- [<ffffffff8029f11e>] __d_lookup+0xb9/0xf9
- [<ffffffff80298166>] do_lookup+0x2a/0x1c1
- [<ffffffff8029979f>] __link_path_walk+0x331/0xc0d
- [<ffffffff8029a0c1>] path_walk+0x46/0x8b
- [<ffffffff8029a245>] do_path_lookup+0xff/0x121
- [<ffffffff8029ad2d>] path_lookup_open+0x54/0x95
- [<ffffffff8029af7c>] do_filp_open+0x9d/0x782
- [<ffffffff802a234e>] alloc_fd+0x69/0x10c
- [<ffffffff8028fda9>] do_sys_open+0x48/0xcc
- [<ffffffff8020b17b>] system_call_fastpath+0x16/0x1b
-
-or (from another machine with AMD IOMMU):
-
-ixgbe 0000:02:00.0: PCI-DMA: device driver frees DMA memory with different size [device address=0x0000000003fed812] [map size=258 bytes] [unmap size=256 bytes]
-Pid: 6178, comm: rmmod Not tainted 2.6.28-rc5 #4
-Call Trace:
- [<ffffffff8022a2ae>] iommu_queue_inv_iommu_pages+0x5e/0x70
- [<ffffffff80225956>] check_unmap+0x1c6/0x240
- [<ffffffff80225ff5>] debug_unmap_single+0xb5/0x110
- [<ffffffffa0213997>] ixgbe_clean_rx_ring+0x147/0x220
- [<ffffffffa0214d7d>] ixgbe_down+0x2fd/0x3d0 [ixgbe]
- [<ffffffffa02150b3>] ixgbe_close+0x13/0xc0 [ixgbe]
- [<ffffffff80431326>] dev_close+0x56/0xa0
- [<ffffffff804313b3>] rollback_registered+0x43/0x220
- [<ffffffff804315a5>] unregister_netdevice+0x15/0x60
- [<ffffffff80431601>] unregister_netdev+0x11/0x20
- [<ffffffffa021aef8>] ixgbe_remove+0x48/0x16e [ixgbe]
- [<ffffffff80386ffc>] pci_device_remove+0x2c/0x60
- [<ffffffff803ef929>] __device_release_driver+0x99/0x100
- [<ffffffff803efa48>] driver_detach+0xb8/0xc0
- [<ffffffff803eea6e>] bus_remove_driver+0x8e/0xd0
- [<ffffffff80387374>] pci_unregister_driver+0x34/0x90
- [<ffffffff8026c6c7>] sys_delete_module+0x1c7/0x2a0
- [<ffffffff802a9ce9>] do_munmap+0x349/0x390
- [<ffffffff80374481>] __up_write+0x21/0x150
- [<ffffffff8020c30b>] system_call_fastpath+0x16/0x1b
-
-This way driver developers get an idea where the problem is in their
-code.
-
-Please review and send any objections or, if there are none, consider
-for inclusion ;)
-
-Thanks,
-
-Joerg
-
+diff --git a/arch/x86/kernel/pci-dma-debug.c b/arch/x86/kernel/pci-dma-debug.c
+index c2d3408..fc95631 100644
+--- a/arch/x86/kernel/pci-dma-debug.c
++++ b/arch/x86/kernel/pci-dma-debug.c
+@@ -42,6 +42,11 @@ static struct kmem_cache *dma_entry_cache;
+ /* lock to protect the data structures */
+ static DEFINE_SPINLOCK(dma_lock);
+ 
++static char *type2name[3] = { "single", "scather-gather", "coherent" };
++
++static char *dir2name[4] = { "DMA_BIDIRECTIONAL", "DMA_TO_DEVICE",
++			     "DMA_FROM_DEVICE", "DMA_NONE" };
++
+ static int hash_fn(struct dma_debug_entry *entry)
+ {
+ 	/*
+@@ -95,6 +100,126 @@ static void remove_dma_entry(struct dma_debug_entry *entry)
+ 	list_del(&entry->list);
+ }
+ 
++static bool check_unmap(struct dma_debug_entry *ref,
++		struct dma_debug_entry *entry)
++{
++	bool errors = false;
++
++	if (!entry) {
++		dev_printk(KERN_ERR, ref->dev, "PCI-DMA: device driver tries "
++			   "to free DMA memory it has not allocated "
++			   "[device address=0x%016llx] [size=%llu bytes]\n",
++			   ref->dev_addr, ref->size);
++		dump_stack();
++
++		return false;
++	}
++
++	if (ref->size != entry->size) {
++		dev_printk(KERN_ERR, ref->dev, "PCI-DMA: device driver frees "
++			   "DMA memory with different size "
++			   "[device address=0x%016llx] [map size=%llu bytes] "
++			   "[unmap size=%llu bytes]\n",
++			   ref->dev_addr, entry->size, ref->size);
++		errors = true;
++	}
++
++	if (ref->type != entry->type) {
++		dev_printk(KERN_ERR, ref->dev, "PCI-DMA: device driver frees "
++			   "DMA memory different that it was allocated "
++			   "[device address=0x%016llx] [size=%llu bytes] "
++			   "[mapped as %s] [unmapped as %s]\n",
++			   ref->dev_addr, ref->size,
++			   type2name[entry->type], type2name[ref->type]);
++		errors = true;
++	} else if ((entry->type == DMA_DEBUG_COHERENT) &&
++		   (ref->cpu_addr != entry->cpu_addr)) {
++		dev_printk(KERN_ERR, ref->dev, "PCI-DMA: device driver frees "
++			   "DMA memory with different CPU address "
++			   "[device address=0x%016llx] [size=%llu bytes] "
++			   "[cpu alloc address=%p] [cpu free address=%p]",
++			   ref->dev_addr, ref->size,
++			   entry->cpu_addr, ref->cpu_addr);
++		errors = true;
++
++	}
++
++	/*
++	 * This may be no bug in reality - but most implementations of the
++	 * DMA API don't handle this properly, so check for it here
++	 */
++	if (ref->direction != entry->direction) {
++		dev_printk(KERN_ERR, ref->dev, "PCI-DMA: device driver frees "
++			   "DMA memory with different direction "
++			   "[device address=0x%016llx] [size=%llu bytes] "
++			   "[mapped with %s] [unmapped with %s]\n",
++			   ref->dev_addr, ref->size,
++			   dir2name[entry->direction],
++			   dir2name[ref->direction]);
++		errors = true;
++	}
++
++	if (errors)
++		dump_stack();
++
++	return true;
++}
++
++static void check_sync(struct device *dev, dma_addr_t addr,
++		u64 size, u64 offset, int direction, bool to_cpu)
++{
++	bool error = false;
++	unsigned long flags;
++	struct dma_debug_entry ref = {
++		.dev = dev,
++		.dev_addr = addr,
++		.size = size,
++		.direction = direction,
++	};
++	struct dma_debug_entry *entry;
++
++	spin_lock_irqsave(&dma_lock, flags);
++
++	entry = find_dma_entry(&ref);
++
++	if (!entry) {
++		dev_printk(KERN_ERR, dev, "PCI-DMA: device driver tries "
++			   "to sync DMA memory it has not allocated "
++			   "[device address=0x%016llx] [size=%llu bytes]\n",
++			   addr, size);
++		error = true;
++		goto out;
++	}
++
++	if ((offset + size) > entry->size) {
++		dev_printk(KERN_ERR, dev, "PCI-DMA: device driver syncs"
++			   " DMA memory outside allocated range "
++			   "[device address=0x%016llx] "
++			   "[allocation size=%llu bytes] [sync offset=%llu] "
++			   "[sync size=%llu]\n", entry->dev_addr, entry->size,
++			   offset, size);
++		error = true;
++	}
++
++	if (direction != entry->direction) {
++		dev_printk(KERN_ERR, dev, "PCI-DMA: device driver syncs "
++			   "DMA memory with different direction "
++			   "[device address=0x%016llx] [size=%llu bytes] "
++			   "[mapped with %s] [synced with %s]\n",
++			   addr, entry->size,
++			   dir2name[entry->direction],
++			   dir2name[direction]);
++		error = true;
++	}
++
++out:
++	spin_unlock_irqrestore(&dma_lock, flags);
++
++	if (error)
++		dump_stack();
++}
++
++
+ void dma_debug_init(void)
+ {
+ 	int i;
+-- 
+1.5.6.4
 
 
