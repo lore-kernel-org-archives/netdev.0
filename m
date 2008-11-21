@@ -1,49 +1,60 @@
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: Re: [PATCH netdev-2.6] jme: JMicron Gigabit Ethernet Driver
-Date: Sat, 22 Nov 2008 00:22:14 +0800
-Message-ID: <20081121161840.M52663@cooldavid.org>
-References: <20081120212045.27879d22@extreme> <20081120.213627.210066076.davem@davemloft.net> <20081120224542.10feb72d@extreme> <20081121.004633.193696042.davem@davemloft.net>
-Reply-To: cooldavid@cooldavid.org
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 0/10] DMA-API debugging facility
+Date: Fri, 21 Nov 2008 17:37:17 +0100
+Message-ID: <20081121163717.GA733@elte.hu>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
-Cc: akeem@jmicron.com, ethanhsiao@jmicron.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org
+To: Joerg Roedel <joerg.roedel@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([220.133.139.86]:51453 "EHLO cooldavid.org"
+Received: from mx3.mail.elte.hu ([157.181.1.138]:36120 "EHLO mx3.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754017AbYKUQe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 11:34:27 -0500
-In-Reply-To: <20081121.004633.193696042.davem@davemloft.net>
+	id S1751838AbYKUQhe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 11:37:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Nov 2008 00:46:33 -0800 (PST), David Miller wrote
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Thu, 20 Nov 2008 22:45:42 -0800
-> 
-> > On Thu, 20 Nov 2008 21:36:27 -0800 (PST)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> > > From: Stephen Hemminger <shemminger@vyatta.com>
-> > > Date: Thu, 20 Nov 2008 21:20:45 -0800
-> > > 
-> > > > 6. Not using pci dma allocation which is more standard convention
-> > > 
-> > > Using the generic DMA interfaces is actually preferred.  There is
-> > > no effective difference other than using a more generic interface.
-> > 
-> > Ok, but this???
-> 
-> Yes, of course, all of those NAPI et al. abstraction macros have
-> to go.
-> 
-> I was only commenting about the DMA bits, the rest of your
-> criticism was on target.
-Thank you for point those out.
-This is my first driver, so I still have many things to learn.
-I'll work on it. Any suggestion or help is very welcome!
 
-Guo-Fu Tseng
+* Joerg Roedel <joerg.roedel@amd.com> wrote:
 
+> Hi,
+> 
+> this patchset introduces code to debug drivers usage of the DMA-API. 
+> Tests with hardware IOMMUs have shown several bugs in drivers 
+> regarding the usage of that API. Problems were found especially in 
+> network card drivers.
+> 
+> These bugs often don't show up or have any negative impact if there 
+> is no hardware IOMMU in use in the system. But with an hardware 
+> IOMMU these bugs turn the hardware unusable or, in the worst case, 
+> cause data corruption on devices which are managed by other (good) 
+> drivers.
+> 
+> With the code these patches introduce driver developers can find 
+> several bugs of misusing the DMA-API in their drivers. But be aware, 
+> it can not find all possible bugs. If it finds a problem it prints 
+> out messages like
+> 
+> tg3 0000:08:04.0: PCI-DMA: device driver tries to free DMA memory it 
+> has not allocated [device address=0x000000042f0f3ae7] [size=48 
+> bytes]
+>
+> Pid: 6285, comm: bash Not tainted 2.6.28-rc5-00176-g6ae6379-dirty #6
+> Call Trace:
+>  <IRQ>  [<ffffffff80221276>] check_unmap+0x52/0x1ce
+>  [<ffffffff80221af0>] debug_unmap_single+0x61/0xa4
+>  [<ffffffff8053d396>] skb_dma_unmap+0xf2/0x10c
+>  [<ffffffff8040a986>] tg3_poll+0xe8/0x822
+>  [<ffffffff803abe2f>] mix_pool_bytes_extract+0x5c/0x155
+>  [<ffffffff80540e42>] net_rx_action+0x9d/0x170
+
+very nice! I like this approach - and have a few comments on some 
+details - will post them as a reply to the patchs.
+
+	Ingo
