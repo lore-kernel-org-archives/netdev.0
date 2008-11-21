@@ -1,39 +1,40 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 01/10] x86: add Kconfig entry for DMA-API debugging
-Date: Fri, 21 Nov 2008 17:40:14 +0100
-Message-ID: <20081121164014.GB733@elte.hu>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227284770-19215-2-git-send-email-joerg.roedel@amd.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Regression: Bisected, IRQ and MSI allocations screwed without
+ sparse irq
+Date: Fri, 21 Nov 2008 08:40:47 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0811210838360.3232@localhost.localdomain>
+References: <1226572171.6834.87.camel@localhost.localdomain>  <20081113.141513.116537651.davem@davemloft.net>  <Pine.LNX.4.64.0811192333130.30818@ask.diku.dk>  <20081119.151138.93409143.davem@davemloft.net>  <Pine.LNX.4.64.0811202035590.19962@ask.diku.dk>
+ <alpine.LFD.2.00.0811201539360.3197@localhost.localdomain> <1227263614.25811.25.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org
-To: Joerg Roedel <joerg.roedel@amd.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Jesper Dangaard Brouer <jdb@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:48116 "EHLO mx2.mail.elte.hu"
+Received: from www.tglx.de ([62.245.132.106]:41500 "EHLO www.tglx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752688AbYKUQkf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 11:40:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1227284770-19215-2-git-send-email-joerg.roedel@amd.com>
+	id S1754141AbYKUQlE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 11:41:04 -0500
+In-Reply-To: <1227263614.25811.25.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 21 Nov 2008, Jesper Dangaard Brouer wrote:
+> > Can you please try the attached patch ?
+> 
+> I have tried the patch and it solved the problem! :-)
+> 
+> I'll gladly test other patches from your.  Guess this patch needs to be
+> brushed up before a mainline patch is ready.
 
-* Joerg Roedel <joerg.roedel@amd.com> wrote:
+Ok, I queue it for mainline. This solves just the number of irqs
+limitation, the rmmod problem still persists, right ?
 
-> +config DMA_API_DEBUG
-> +	default n
+Thanks,
 
-'default n' can be omitted in general from interactive Kconfig 
-entries.
+	tglx
 
-> +	bool "Enable debugging of DMA-API usage"
-> +	depends on X86
 
-perhaps add a proper dependency on iommu or swiotlb presence as well - 
-in case we decide to make it all disable-able again and dont have the 
-callbacks present?
-
-	Ingo
