@@ -1,85 +1,65 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] network devices generating uevents?
-Date: Fri, 21 Nov 2008 13:46:59 -0800
-Message-ID: <20081121134659.5b305b5c@extreme>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [NET-NEXT v4 PATCH 1/5] ixgbe: this patch adds support for DCB to the kernel and ixgbe driver
+Date: Fri, 21 Nov 2008 14:20:01 -0800
+Message-ID: <9929d2390811211420q68b4f015t356ff45b5f04f363@mail.gmail.com>
+References: <20081121020055.22180.24154.stgit@gitlost.lost>
+	 <4926B26C.7010200@trash.net> <adaabbtgdv6.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "Patrick McHardy" <kaber@trash.net>, davem@davemloft.net,
+	netdev@vger.kernel.org, jeff@garzik.org,
+	"Alexander Duyck" <alexander.h.duyck@intel.com>,
+	"Peter P Waskiewicz Jr" <peter.p.waskiewicz.jr@intel.com>
+To: "Roland Dreier" <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36680 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752675AbYKUVrE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 16:47:04 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 3569E4F4228
-	for <netdev@vger.kernel.org>; Fri, 21 Nov 2008 13:47:04 -0800 (PST)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id oHNuWaLykKai for <netdev@vger.kernel.org>;
-	Fri, 21 Nov 2008 13:47:02 -0800 (PST)
-Received: from extreme (unknown [96.225.231.79])
-	by mail.vyatta.com (Postfix) with ESMTP id 002744F4226
-	for <netdev@vger.kernel.org>; Fri, 21 Nov 2008 13:47:01 -0800 (PST)
+Received: from mail-gx0-f11.google.com ([209.85.217.11]:57981 "EHLO
+	mail-gx0-f11.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752843AbYKUWUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 17:20:03 -0500
+Received: by gxk4 with SMTP id 4so1045556gxk.13
+        for <netdev@vger.kernel.org>; Fri, 21 Nov 2008 14:20:02 -0800 (PST)
+In-Reply-To: <adaabbtgdv6.fsf@cisco.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Perhaps the following would make it easier for applications to
-track network device events without having to use netlink.
-Compile tested only so far. The implementation is almost trivial...
+On Fri, Nov 21, 2008 at 9:58 AM, Roland Dreier <rdreier@cisco.com> wrote:
+>  > > --- /dev/null
+>  > > +++ b/net/dcb/Kconfig
+>  > > @@ -0,0 +1,12 @@
+>  > > +config DCB
+>  > > +        tristate "Data Center Bridging support"
+>
+>  > A help text would be nice to have.
+>
+> Yes, agreed -- something giving a hint about what DCB is (per-priority
+> pause, BCN) and guidance for the user that this should be enabled if
+> using DCB-capable NICs and switches.
+>
+>  > > +
+>  > > +config DCBNL
+>  > > +  bool "Data Center Bridging netlink interface support"
+>  > > +  depends on DCB
+>  > > +  default n
+>  > > +  ---help---
+>  > > +    This option turns on the netlink interface
+>  > > +    (dcbnl) for Data Center Bridging capable devices.
+>  > > +
+>  > > +    If unsure, say N.
+>
+> Now that I look at this config, it looks rather strange.  When does is
+> ever make sense to enable DCB but not DCBNL?  How else does one
+> configure all the DCB parameters except by running dcbd in userspace?
+> Should there even be a separate DCBNL option at all?
+>
+>  - R.
+> --
+>
 
---- a/net/core/Makefile	2008-11-21 12:25:31.000000000 -0800
-+++ b/net/core/Makefile	2008-11-21 13:32:30.000000000 -0800
-@@ -17,3 +17,4 @@ obj-$(CONFIG_NET_PKTGEN) += pktgen.o
- obj-$(CONFIG_NETPOLL) += netpoll.o
- obj-$(CONFIG_NET_DMA) += user_dma.o
- obj-$(CONFIG_FIB_RULES) += fib_rules.o
-+obj-$(CONFIG_HOTPLUG) += uevent.o
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/net/core/uevent.c	2008-11-21 13:42:13.000000000 -0800
-@@ -0,0 +1,45 @@
-+/*
-+ * Linux network device event notification
-+ *
-+ * Author:
-+ *	Stephen Hemminger <shemminger@vyatta.com>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/kobject.h>
-+#include <linux/notifier.h>
-+
-+static int netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
-+{
-+	struct net_device *netdev = ptr;
-+
-+	switch (event) {
-+	case NETDEV_UNREGISTER:
-+		kobject_uevent(&netdev->dev.kobj, KOBJ_REMOVE);
-+		break;
-+	case NETDEV_REGISTER:
-+		kobject_uevent(&netdev->dev.kobj, KOBJ_ADD);
-+		break;
-+	case NETDEV_UP:
-+		kobject_uevent(&netdev->dev.kobj, KOBJ_ONLINE);
-+		break;
-+	case NETDEV_DOWN:
-+		kobject_uevent(&netdev->dev.kobj, KOBJ_OFFLINE);
-+		break;
-+	case NETDEV_CHANGE:
-+		kobject_uevent(&netdev->dev.kobj, KOBJ_CHANGE);
-+		break;
-+	}
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block netdev_uevent_notifier = {
-+	.notifier_call	= netdev_event,
-+};
-+
-+static int __init netdev_uevent_init(void)
-+{
-+	return register_netdevice_notifier(&netdev_uevent_notifier);
-+}
-+device_initcall(netdev_uevent_init);
+Thanks for the comments.  I am working on patches based on your
+comments and should have something by Monday at the latest.
+
+-- 
+Cheers,
+Jeff
