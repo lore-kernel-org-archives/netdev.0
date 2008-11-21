@@ -1,51 +1,41 @@
 From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 06/10] x86: add check code for map/unmap_sg code
-Date: Fri, 21 Nov 2008 18:10:55 +0100
-Message-ID: <20081121171055.GJ733@elte.hu>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227284770-19215-7-git-send-email-joerg.roedel@amd.com>
+Subject: Re: [PATCH 0/10] DMA-API debugging facility
+Date: Fri, 21 Nov 2008 18:18:02 +0100
+Message-ID: <20081121171802.GK733@elte.hu>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227286492.4901.208.camel@macbook.infradead.org> <20081121165722.GD1386@amd.com> <1227287215.4901.213.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org
-To: Joerg Roedel <joerg.roedel@amd.com>
+Cc: Joerg Roedel <joerg.roedel@amd.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:59191 "EHLO mx3.mail.elte.hu"
+Received: from mx3.mail.elte.hu ([157.181.1.138]:49510 "EHLO mx3.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754318AbYKURLR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 12:11:17 -0500
+	id S1752429AbYKURSb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 12:18:31 -0500
 Content-Disposition: inline
-In-Reply-To: <1227284770-19215-7-git-send-email-joerg.roedel@amd.com>
+In-Reply-To: <1227287215.4901.213.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-* Joerg Roedel <joerg.roedel@amd.com> wrote:
+* David Woodhouse <dwmw2@infradead.org> wrote:
 
-> +	ret =  ops->map_sg(hwdev, sg, nents, direction);
+> On Fri, 2008-11-21 at 17:57 +0100, Joerg Roedel wrote:
+> > Yes, in principle we could move most of it to generic code. There is
+> > nothing architecture specific in it.
+> > Anybody who prefers this to be arch/x86 before moving it to lib/?
+> 
+> I think it's better to start off with a generic version, and test it 
+> on more than one architecture before feeding it upstream. That way, 
+> you know you aren't going to have to go back to the drawing board 
+> with it.
 
-stray double space in '=  ops'.
-
-another very small detail:
-
-> +	unsigned long flags;
-> +	struct dma_debug_entry *entry;
-> +	struct scatterlist *s;
-> +	int i;
-
-please order them like this, similar to the include line:
-
-> +	struct dma_debug_entry *entry;
-> +	struct scatterlist *s;
-> +	unsigned long flags;
-> +	int i;
-
-that makes the whole variable section non-intrusive. (and also acts as 
-a patch-conflict-reducer mechanism in the future - when variable 
-definition lines get particularly long)
-
-(not a hard rule, exceptions are possible - grouping same-type fields 
-together, etc.)
+Joerg, i'd suggest to make the generic conceptual bits generic, and 
+add an HAVE_DMA_DEBUG_SUPPORT Kconfig bool flag to every architecture 
+that enables it. It needs active changes to every architecture that 
+supports this facility.
 
 	Ingo
