@@ -1,38 +1,119 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] fs: pipe/sockets/anon dentries should not have a parent
-Date: Fri, 21 Nov 2008 10:36:26 -0500
-Message-ID: <20081121153626.GA9281@infradead.org>
-References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com>
+From: Petr Tesarik <ptesarik@suse.cz>
+Subject: Re: [PATCH] tcp: fix potential corner case issue in segmentation (Was: Re: [PATCH] Do not use TSO/GSO when there is urgent data)
+Date: Fri, 21 Nov 2008 16:51:51 +0100
+Message-ID: <200811211651.52024.ptesarik@suse.cz>
+References: <200811211319.45515.ptesarik@suse.cz> <Pine.LNX.4.64.0811211438420.3930@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mingo@elte.hu,
-	cl@linux-foundation.org, rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	kernel-testers@vger.kernel.org, efault@gmx.de,
-	a.p.zijlstra@chello.nl, Linux Netdev List <netdev@vger.kernel.org>,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Jan =?utf-8?q?=C5=A0embera?=" <jsembera@suse.cz>
+To: "Ilpo =?utf-8?q?J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:52065 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752626AbYKUPuw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 10:50:52 -0500
+In-Reply-To: <Pine.LNX.4.64.0811211438420.3930@wrl-59.cs.helsinki.fi>
 Content-Disposition: inline
-In-Reply-To: <4926D022.5060008@cosmosbay.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 21, 2008 at 04:13:38PM +0100, Eric Dumazet wrote:
-> [PATCH] fs: pipe/sockets/anon dentries should not have a parent
+Dne Friday 21 of November 2008 14:07:32 Ilpo J=C3=A4rvinen napsal(a):
+> On Fri, 21 Nov 2008, Petr Tesarik wrote:
+> > This patch fixes http://bugzilla.kernel.org/show_bug.cgi?id=3D12014
+> >
+> > Since most (if not all) implementations of TSO and even the in-kern=
+el
+> > software GSO do not update the urgent pointer when splitting a larg=
+e
+> > segment, it is necessary to turn off TSO/GSO for all outgoing traff=
+ic
+> > with the URG pointer set.
 >
-> Linking pipe/sockets/anon dentries to one root 'parent' has no functional
-> impact at all, but a scalability one.
+> Good observation, I totally missed this possibility of T/GSO while
+> looking.
 >
-> We can avoid touching a cache line at allocation stage (inside d_alloc(), no need
-> to touch root->d_count), but also at freeing time (in d_kill, decrementing d_count)
-> We avoid an expensive atomic_dec_and_lock() call on the root dentry.
+> > Looking at tcp_current_mss (and the preceding comment) I even think
+> > this was the original intention. However, this approach is insuffic=
+ient,
+> > because TSO/GSO is turned off only for newly created frames, not fo=
+r
+> > frames which were already pending at the arrival of a message with
+> > MSG_OOB set. These frames were created when TSO/GSO was enabled,
+> > so they may be large, and they will have the urgent pointer set
+> > in tcp_transmit_skb().
+> >
+> > With this patch, such large packets will be fragmented again before
+> > going to the transmit routine.
 >
-> If we correct dnotify_parent() and inotify_d_instantiate() to take into account
-> a NULL d_parent, we can call d_alloc() with a NULL parent instead of root dentry.
+> I wonder if there's some corner case which still fails to fragment
+> in tcp_retransmit_xmit's in skb->len <=3D cur_mss case if cur_mss
+> grew very recently (and therefore skb-len now fits to a single segmen=
+t).
 
-Sorry folks, but a NULL d_parent is a no-go from the VFS perspective,
-but you can set d_parent to the dentry itself which is the magic used
-for root of tree dentries.  They should also be marked
-DCACHE_DISCONNECTED to make sure this is not unexpected.
+This shouldn't be a problem, because TSO only applies to packets which =
+are=20
+larger than MSS, so the problematic case is when cur_mss gets smaller, =
+not=20
+when it grows. In other words, the original implementation of=20
+tcp_retransmit_xmit() could never make use of TSO/GSO, anyway...
 
-And this kind of stuff really needs to go through -fsdevel.
+>[...]
+> > Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+> > CC: Jan Sembera <jsembera@suse.cz>
+> > CC: Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>
+> >
+> > --
+> >  tcp_output.c |    7 +++++--
+> >  1 file changed, 5 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> > --- a/net/ipv4/tcp_output.c
+> > +++ b/net/ipv4/tcp_output.c
+> > @@ -722,7 +722,8 @@ static void tcp_queue_skb(struct sock *sk, stru=
+ct
+> > sk_buff *skb)
+> >  static void tcp_set_skb_tso_segs(struct sock *sk, struct sk_buff *=
+skb,
+> >  				 unsigned int mss_now)
+> >  {
+> > -	if (skb->len <=3D mss_now || !sk_can_gso(sk)) {
+> > +	if (skb->len <=3D mss_now || !sk_can_gso(sk) ||
+> > +	    tcp_urg_mode(tcp_sk(sk))) {
+> >  		/* Avoid the costly divide in the normal
+> >  		 * non-TSO case.
+> >  		 */
+> > @@ -1163,7 +1164,9 @@ static int tcp_init_tso_segs(struct sock *sk,
+> > struct sk_buff *skb,
+> >  {
+> >  	int tso_segs =3D tcp_skb_pcount(skb);
+> >
+> > -	if (!tso_segs || (tso_segs > 1 && tcp_skb_mss(skb) !=3D mss_now))=
+ {
+> > +	if (!tso_segs ||
+> > +	    (tso_segs > 1 && (tcp_skb_mss(skb) !=3D mss_now ||
+> > +			      tcp_urg_mode(tcp_sk(sk))))) {
+> >  		tcp_set_skb_tso_segs(sk, skb, mss_now);
+> >  		tso_segs =3D tcp_skb_pcount(skb);
+> >  	}
+>
+> It's a bit intrusive but I couldn't immediately come up with alternat=
+ive
+> that would have worked (came up with some not working ones :-)).
+
+Yes, I also noticed that. We could add some more code to tcp_mark_urg()=
+, e.g.=20
+walk sk_write_queue and adjust the pending SKBs there...
+
+Is it OK to simply set all skb->gso_segs to zero, and let the next call=
+ to=20
+tcp_init_tso_segs redo them? I mean, will tcp_init_tso_segs() be always=
+=20
+called on all SKBs which are in the write queue at the time tcp_mark_ur=
+g() is=20
+called?
+
+Petr
