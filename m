@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: convert TCP/DCCP ehash rwlocks to spinlocks
-Date: Thu, 20 Nov 2008 20:39:46 -0800 (PST)
-Message-ID: <20081120.203946.89534386.davem@davemloft.net>
-References: <4925B244.3090807@cosmosbay.com>
+Subject: Re: [PATCH] Fix asix-based cards connecting to 10/100Mbs LAN.
+Date: Thu, 20 Nov 2008 20:40:37 -0800 (PST)
+Message-ID: <20081120.204037.142894236.davem@davemloft.net>
+References: <1295ed070811200203j4ee959dcjbdd40738e6c3622c@mail.gmail.com>
+	<20081120.034831.268224100.davem@davemloft.net>
+	<1295ed070811200842y7e3c75f3q494f1759806adb86@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: pktoss@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34112
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34115
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752024AbYKUEjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 23:39:46 -0500
-In-Reply-To: <4925B244.3090807@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1752338AbYKUEkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 23:40:37 -0500
+In-Reply-To: <1295ed070811200842y7e3c75f3q494f1759806adb86@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 20 Nov 2008 19:53:56 +0100
+From: "Pantelis Koukousoulas" <pktoss@gmail.com>
+Date: Thu, 20 Nov 2008 18:42:10 +0200
 
-> Now TCP & DCCP use RCU lookups, we can convert ehash rwlocks to spinlocks.
+> > Patch applied, thank you.
 > 
-> /proc/net/tcp and other seq_file 'readers' can safely be converted to 'writers'.
-> 
-> This should speedup writers, since spin_lock()/spin_unlock()
-> only use one atomic operation instead of two for write_lock()/write_unlock()
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Thanks for applying :)
+> Should I expect this for 2.6.28 or 2.6.29 ?
 
-Nice work, applied, thanks Eric.
-
-Feel free to provide lat_connect and similar before/after numbers for
-changes like this in the future :)
+It's in Linus's tree already.
