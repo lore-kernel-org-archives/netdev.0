@@ -1,36 +1,44 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 0/10] DMA-API debugging facility
-Date: Fri, 21 Nov 2008 17:24:29 +0000
-Message-ID: <1227288269.4901.222.camel@macbook.infradead.org>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
-	 <1227286492.4901.208.camel@macbook.infradead.org>
-	 <20081121165722.GD1386@amd.com>
-	 <1227287215.4901.213.camel@macbook.infradead.org>
-	 <20081121171802.GK733@elte.hu>  <20081121172046.GF1386@amd.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 03/10] x86: add initialization code for DMA-API
+	debugging
+Date: Fri, 21 Nov 2008 18:27:07 +0100
+Message-ID: <20081121172707.GA4336@elte.hu>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227284770-19215-4-git-send-email-joerg.roedel@amd.com> <20081121165628.GD733@elte.hu> <20081121171004.GE1386@amd.com> <20081121171952.GL733@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org
 To: Joerg Roedel <joerg.roedel@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:42116 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107AbYKURYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 12:24:40 -0500
-In-Reply-To: <20081121172046.GF1386@amd.com>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:38877 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750794AbYKUR1k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 12:27:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20081121171952.GL733@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-11-21 at 18:20 +0100, Joerg Roedel wrote:
-> Ok, I will move the generic bits to lib/ and include/linux and let
-> architectures decide if they want to use it.
 
-Once you've done that, I'll try to hook it up on PowerPC to make sure it
-works there.
+* Ingo Molnar <mingo@elte.hu> wrote:
 
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+> > > We dont have a gfp flag passed in as all the DMA mapping APIs 
+> > > really expect all allocations having been done in advance 
+> > > already.
+> > 
+> > Hmm, I can change the code to pre-allocate a certain 
+> > (configurable?) number of these entries and disble the checking if 
+> > we run out of it.
+> 
+> yeah, that's a good approach too - that's what lockdep does. Perhaps 
+> make the max entries nr a Kconfig entity - so it can be tuned 
+> up/down depending on what type of iommu scheme is enabled.
 
+there's another reason why we want to do that: this scheme covers all 
+of DMA - not just the ones which need to go via an iommu and for which 
+there's an IOTLB entry present. So the pool should probably be sized 
+after RAM size, to be on the safe side.
+
+	Ingo
