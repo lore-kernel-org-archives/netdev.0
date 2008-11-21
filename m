@@ -1,36 +1,63 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 0/10] DMA-API debugging facility
-Date: Fri, 21 Nov 2008 17:06:55 +0000
-Message-ID: <1227287215.4901.213.camel@macbook.infradead.org>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
-	 <1227286492.4901.208.camel@macbook.infradead.org>
-	 <20081121165722.GD1386@amd.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 04/10] x86: add helper functions for consistency checks
+Date: Fri, 21 Nov 2008 18:07:19 +0100
+Message-ID: <20081121170719.GI733@elte.hu>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227284770-19215-5-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org
 To: Joerg Roedel <joerg.roedel@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:53254 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753281AbYKURHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 12:07:03 -0500
-In-Reply-To: <20081121165722.GD1386@amd.com>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:45179 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757289AbYKURHp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 12:07:45 -0500
+Content-Disposition: inline
+In-Reply-To: <1227284770-19215-5-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-11-21 at 17:57 +0100, Joerg Roedel wrote:
-> Yes, in principle we could move most of it to generic code. There is
-> nothing architecture specific in it.
-> Anybody who prefers this to be arch/x86 before moving it to lib/?
 
-I think it's better to start off with a generic version, and test it on
-more than one architecture before feeding it upstream. That way, you
-know you aren't going to have to go back to the drawing board with it.
+* Joerg Roedel <joerg.roedel@amd.com> wrote:
 
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+> +static bool check_unmap(struct dma_debug_entry *ref,
+> +		struct dma_debug_entry *entry)
+> +{
+> +	bool errors = false;
+> +
+> +	if (!entry) {
+> +		dev_printk(KERN_ERR, ref->dev, "PCI-DMA: device driver tries "
+> +			   "to free DMA memory it has not allocated "
+> +			   "[device address=0x%016llx] [size=%llu bytes]\n",
+> +			   ref->dev_addr, ref->size);
+> +		dump_stack();
+> +
+> +		return false;
 
+okay, the warnings need to be one-shot. It will be enabled by distros 
+in debug kernels to test a wide range of drivers, and the output will 
+be collected by kerneloops.org. Distros will disable the debug feature 
+fast if it spams the logs.
+
+So please make it WARN_ONCE() type of warnings. Dont use dump_stack() 
+directly but use the WARN() signature so that it's picked up by 
+automated bug collection mechanisms.
+
+This holds true for all the other warnings as well. Plus probably the 
+whole mechanism should self-deactivate like lockdep does, when it 
+notices the first error. That guarantees that even if it has a false 
+positive or some other bug it wont break more stuff.
+
+> +	struct dma_debug_entry ref = {
+> +		.dev = dev,
+> +		.dev_addr = addr,
+> +		.size = size,
+> +		.direction = direction,
+> +	};
+
+(align the field init vertically please.)
+
+	Ingo
