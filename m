@@ -1,7 +1,7 @@
 From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: [PATCH 07/10] x86: add checks for alloc/free_coherent code
-Date: Fri, 21 Nov 2008 17:26:07 +0100
-Message-ID: <1227284770-19215-8-git-send-email-joerg.roedel@amd.com>
+Subject: [PATCH 05/10] x86: add check code for map/unmap_single code
+Date: Fri, 21 Nov 2008 17:26:05 +0100
+Message-ID: <1227284770-19215-6-git-send-email-joerg.roedel@amd.com>
 References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,83 +11,84 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 To: Ingo Molnar <mingo@redhat.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:6049 "EHLO
-	WA4EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756286AbYKUQ0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:26:33 -0500
+Received: from outbound-sin.frontbridge.com ([207.46.51.80]:2944 "EHLO
+	SG2EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755468AbYKUQ0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 11:26:30 -0500
 In-Reply-To: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: detect bugs in alloc/free_coherent usage
+Impact: detect bugs in map/unmap_single usage
 
 Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
- arch/x86/include/asm/dma-mapping.h |   10 +++++-
+ arch/x86/include/asm/dma-mapping.h |    9 +++++-
  arch/x86/include/asm/dma_debug.h   |   20 +++++++++++++
- arch/x86/kernel/pci-dma-debug.c    |   56 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 84 insertions(+), 2 deletions(-)
+ arch/x86/kernel/pci-dma-debug.c    |   55 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 83 insertions(+), 1 deletions(-)
 
 diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-index c7bdb75..2893adb 100644
+index 83d7b7d..c9bead2 100644
 --- a/arch/x86/include/asm/dma-mapping.h
 +++ b/arch/x86/include/asm/dma-mapping.h
-@@ -304,8 +304,12 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 	if (!ops->alloc_coherent)
- 		return NULL;
+@@ -98,9 +98,14 @@ dma_map_single(struct device *hwdev, void *ptr, size_t size,
+ 	       int direction)
+ {
+ 	struct dma_mapping_ops *ops = get_dma_ops(hwdev);
++	dma_addr_t addr;
  
--	return ops->alloc_coherent(dev, size, dma_handle,
--				   dma_alloc_coherent_gfp_flags(dev, gfp));
-+	memory = ops->alloc_coherent(dev, size, dma_handle,
-+				     dma_alloc_coherent_gfp_flags(dev, gfp));
+ 	BUG_ON(!valid_dma_direction(direction));
+-	return ops->map_single(hwdev, virt_to_phys(ptr), size, direction);
++	addr = ops->map_single(hwdev, virt_to_phys(ptr), size, direction);
 +
-+	debug_alloc_coherent(dev, size, *dma_handle, memory);
++	debug_map_single(hwdev, ptr, size, direction, addr);
 +
-+	return memory;
++	return addr;
  }
  
- static inline void dma_free_coherent(struct device *dev, size_t size,
-@@ -320,6 +324,8 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
- 
- 	if (ops->free_coherent)
- 		ops->free_coherent(dev, size, vaddr, bus);
+ static inline void
+@@ -112,6 +117,8 @@ dma_unmap_single(struct device *dev, dma_addr_t addr, size_t size,
+ 	BUG_ON(!valid_dma_direction(direction));
+ 	if (ops->unmap_single)
+ 		ops->unmap_single(dev, addr, size, direction);
 +
-+	debug_free_coherent(dev, size, vaddr, bus);
++	debug_unmap_single(dev, addr, size, direction);
  }
  
- #endif
+ static inline int
 diff --git a/arch/x86/include/asm/dma_debug.h b/arch/x86/include/asm/dma_debug.h
-index ff06d1c..7245e27 100644
+index f2c3d53..ba4d9b7 100644
 --- a/arch/x86/include/asm/dma_debug.h
 +++ b/arch/x86/include/asm/dma_debug.h
-@@ -59,6 +59,14 @@ extern
- void debug_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 		    int nelems, int dir);
+@@ -43,6 +43,14 @@ struct dma_debug_entry {
+ extern
+ void dma_debug_init(void);
  
 +extern
-+void debug_alloc_coherent(struct device *dev, size_t size,
-+			  dma_addr_t dma_addr, void *virt);
++void debug_map_single(struct device *dev, void *ptr, size_t size,
++		      int direction, dma_addr_t dma_addr);
 +
 +extern
-+void debug_free_coherent(struct device *dev, size_t size,
-+			 void *virt, dma_addr_t addr);
++void debug_unmap_single(struct device *dev, dma_addr_t addr,
++			size_t size, int direction);
 +
  #else /* CONFIG_DMA_API_DEBUG */
  
  static inline
-@@ -90,6 +98,18 @@ void debug_unmap_sg(struct device *dev, struct scatterlist *sglist,
+@@ -50,6 +58,18 @@ void dma_debug_init(void)
  {
  }
  
 +static inline
-+void debug_alloc_coherent(struct device *dev, size_t size,
-+			  dma_addr_t dma_addr, void *virt)
++void debug_map_single(struct device *dev, void *ptr, size_t size,
++		      int direction, dma_addr_t dma_addr)
 +{
 +}
 +
 +static inline
-+void debug_free_coherent(struct device *dev, size_t size,
-+			 void *virt, dma_addr_t addr)
++void debug_unmap_single(struct device *dev, dma_addr_t addr,
++			size_t size, int direction)
 +{
 +}
 +
@@ -95,15 +96,15 @@ index ff06d1c..7245e27 100644
  
  #endif /* __ASM_X86_DMA_DEBUG */
 diff --git a/arch/x86/kernel/pci-dma-debug.c b/arch/x86/kernel/pci-dma-debug.c
-index 55ef69a..db5ef9a 100644
+index fc95631..9afb6c8 100644
 --- a/arch/x86/kernel/pci-dma-debug.c
 +++ b/arch/x86/kernel/pci-dma-debug.c
-@@ -352,3 +352,59 @@ void debug_unmap_sg(struct device *dev, struct scatterlist *sglist,
+@@ -234,3 +234,58 @@ void dma_debug_init(void)
+ 	printk(KERN_INFO "PCI-DMA: DMA API debugging enabled by kernel config\n");
  }
- EXPORT_SYMBOL(debug_unmap_sg);
  
-+void debug_alloc_coherent(struct device *dev, size_t size,
-+			  dma_addr_t dma_addr, void *virt)
++void debug_map_single(struct device *dev, void *ptr, size_t size,
++		      int direction, dma_addr_t dma_addr)
 +{
 +	unsigned long flags;
 +	struct dma_debug_entry *entry;
@@ -115,30 +116,29 @@ index 55ef69a..db5ef9a 100644
 +	if (!entry)
 +		return;
 +
-+	entry->type      = DMA_DEBUG_COHERENT;
-+	entry->dev       = dev;
-+	entry->cpu_addr  = virt;
-+	entry->size      = size;
-+	entry->dev_addr  = dma_addr;
-+	entry->direction = DMA_BIDIRECTIONAL;
++	entry->dev = dev;
++	entry->type = DMA_DEBUG_SINGLE;
++	entry->cpu_addr = ptr;
++	entry->dev_addr = dma_addr;
++	entry->size = size;
++	entry->direction = direction;
 +
 +	spin_lock_irqsave(&dma_lock, flags);
 +	add_dma_entry(entry);
 +	spin_unlock_irqrestore(&dma_lock, flags);
 +}
-+EXPORT_SYMBOL(debug_alloc_coherent);
++EXPORT_SYMBOL(debug_map_single);
 +
-+void debug_free_coherent(struct device *dev, size_t size,
-+			 void *virt, dma_addr_t addr)
++void debug_unmap_single(struct device *dev, dma_addr_t addr,
++			size_t size, int direction)
 +{
 +	unsigned long flags;
 +	struct dma_debug_entry ref = {
-+		.type = DMA_DEBUG_COHERENT,
++		.type = DMA_DEBUG_SINGLE,
 +		.dev = dev,
-+		.cpu_addr = virt,
 +		.dev_addr = addr,
 +		.size = size,
-+		.direction = DMA_BIDIRECTIONAL,
++		.direction = direction,
 +	};
 +	struct dma_debug_entry *entry;
 +
@@ -156,7 +156,7 @@ index 55ef69a..db5ef9a 100644
 +
 +	spin_unlock_irqrestore(&dma_lock, flags);
 +}
-+EXPORT_SYMBOL(debug_free_coherent);
++EXPORT_SYMBOL(debug_unmap_single);
 +
 -- 
 1.5.6.4
