@@ -1,61 +1,44 @@
-From: Cord Walter <cord.walter@gmx.de>
-Subject: Re: axnet_cs / pcnet_cs: moving PCMCIA_DEVICE_PROD_ID for Netgear
- FA411
-Date: Fri, 21 Nov 2008 15:10:27 +0100
-Message-ID: <4926C153.3090104@gmx.de>
-References: <4925F6F1.9010305@gmx.de> <20081121214812.b03d7166.komurojun-mbn@nifty.com>
+From: David Hollis <dhollis@davehollis.com>
+Subject: Re: [PATCH] Fix asix-based cards connecting to 10/100Mbs LAN.
+Date: Fri, 21 Nov 2008 09:41:44 -0500
+Message-ID: <1227278504.5900.1.camel@dhollis-lnx>
+References: <1295ed070811200203j4ee959dcjbdd40738e6c3622c@mail.gmail.com>
+	<20081120.034831.268224100.davem@davemloft.net>
+	<1295ed070811200842y7e3c75f3q494f1759806adb86@mail.gmail.com>
+	<20081120.204037.142894236.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Komuro <komurojun-mbn@nifty.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: pktoss@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sour.ops.eusc.inter.net ([84.23.254.154]:52795 "EHLO
-	sour.ops.eusc.inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752029AbYKUOK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 09:10:29 -0500
-In-Reply-To: <20081121214812.b03d7166.komurojun-mbn@nifty.com>
+Received: from vms173003pub.verizon.net ([206.46.173.3]:51349 "EHLO
+	vms173003pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756021AbYKUOmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 09:42:05 -0500
+Received: from smtp.davehollis.com ([96.228.138.81]) by vms173003.mailsrvcs.net
+ (Sun Java System Messaging Server 6.2-6.01 (built Apr  3 2006))
+ with ESMTPA id <0KAO00KYEU5NCK94@vms173003.mailsrvcs.net> for
+ netdev@vger.kernel.org; Fri, 21 Nov 2008 08:41:48 -0600 (CST)
+In-reply-to: <20081120.204037.142894236.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Komuro schrieb:
-> On Fri, 21 Nov 2008 00:46:57 +0100
-> Cord Walter <cord.walter@gmx.de> wrote:
->=20
->> after noticing that my Netgear FA411 (PCMCIA-NIC) [1] stopped workin=
-g with
->> the release of the 2.6.25 kernel (sidux-version),
->=20
-> You are right. My patch has a bug.
-> The patch below fixes this problem.
->=20
-> By the way,
-> (1) Does your FA411 work properly with the pcnet_cs driver before?
+On Thu, 2008-11-20 at 20:40 -0800, David Miller wrote:
+> From: "Pantelis Koukousoulas" <pktoss@gmail.com>
+> Date: Thu, 20 Nov 2008 18:42:10 +0200
+> 
+> > > Patch applied, thank you.
+> > 
+> > Thanks for applying :)
+> > Should I expect this for 2.6.28 or 2.6.29 ?
+> 
+> It's in Linus's tree already.
 
-Yes, it worked until the 2.6.25 release.
+Which means that it will be in 2.6.28 final.
 
-> (2) Please post the full-dmesg (axnet_cs).
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-This is what I get from dmesg when plugging in the FA411:
-
-pccard: PCMCIA card inserted into slot 1
-cs: memory probe 0xa0000000-0xa0ffffff: clean.
-pcmcia: registering new device pcmcia1.0
-eth0: Asix AX88790: io 0x300, irq 3, hw_addr 00:09:5b:08:98:93
-udev: renamed network interface eth0 to eth1
-NET: Registered protocol family 17
-
-
-Does this help?
-
--cord
-
---=20
-Cord Walter
-email: cord.walter@gmx.de
-
-Weil es niemanden etwas angeht, dass ich nichts zu verbergen habe:
-http://www.gnupg.org/
-http://www.truecrypt.org/
-=2E..und =C3=BCberhaupt: http://www.FreiheitstattAngst.de
