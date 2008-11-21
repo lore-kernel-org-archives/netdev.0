@@ -1,40 +1,67 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: Regression: Bisected, IRQ and MSI allocations screwed without
- sparse irq
-Date: Fri, 21 Nov 2008 08:40:47 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0811210838360.3232@localhost.localdomain>
-References: <1226572171.6834.87.camel@localhost.localdomain>  <20081113.141513.116537651.davem@davemloft.net>  <Pine.LNX.4.64.0811192333130.30818@ask.diku.dk>  <20081119.151138.93409143.davem@davemloft.net>  <Pine.LNX.4.64.0811202035590.19962@ask.diku.dk>
- <alpine.LFD.2.00.0811201539360.3197@localhost.localdomain> <1227263614.25811.25.camel@localhost.localdomain>
+From: Joerg Roedel <joerg.roedel@amd.com>
+Subject: Re: [PATCH 0/10] DMA-API debugging facility
+Date: Fri, 21 Nov 2008 17:40:41 +0100
+Message-ID: <20081121164041.GA1386@amd.com>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <20081121163717.GA733@elte.hu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Jesper Dangaard Brouer <jdb@comx.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:41500 "EHLO www.tglx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754141AbYKUQlE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 11:41:04 -0500
-In-Reply-To: <1227263614.25811.25.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ingo Molnar <mingo@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757096AbYKUQlV@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081121163717.GA733@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Nov 2008, Jesper Dangaard Brouer wrote:
-> > Can you please try the attached patch ?
+On Fri, Nov 21, 2008 at 05:37:17PM +0100, Ingo Molnar wrote:
 > 
-> I have tried the patch and it solved the problem! :-)
+> * Joerg Roedel <joerg.roedel@amd.com> wrote:
 > 
-> I'll gladly test other patches from your.  Guess this patch needs to be
-> brushed up before a mainline patch is ready.
+> > Hi,
+> > 
+> > this patchset introduces code to debug drivers usage of the DMA-API. 
+> > Tests with hardware IOMMUs have shown several bugs in drivers 
+> > regarding the usage of that API. Problems were found especially in 
+> > network card drivers.
+> > 
+> > These bugs often don't show up or have any negative impact if there 
+> > is no hardware IOMMU in use in the system. But with an hardware 
+> > IOMMU these bugs turn the hardware unusable or, in the worst case, 
+> > cause data corruption on devices which are managed by other (good) 
+> > drivers.
+> > 
+> > With the code these patches introduce driver developers can find 
+> > several bugs of misusing the DMA-API in their drivers. But be aware, 
+> > it can not find all possible bugs. If it finds a problem it prints 
+> > out messages like
+> > 
+> > tg3 0000:08:04.0: PCI-DMA: device driver tries to free DMA memory it 
+> > has not allocated [device address=0x000000042f0f3ae7] [size=48 
+> > bytes]
+> >
+> > Pid: 6285, comm: bash Not tainted 2.6.28-rc5-00176-g6ae6379-dirty #6
+> > Call Trace:
+> >  <IRQ>  [<ffffffff80221276>] check_unmap+0x52/0x1ce
+> >  [<ffffffff80221af0>] debug_unmap_single+0x61/0xa4
+> >  [<ffffffff8053d396>] skb_dma_unmap+0xf2/0x10c
+> >  [<ffffffff8040a986>] tg3_poll+0xe8/0x822
+> >  [<ffffffff803abe2f>] mix_pool_bytes_extract+0x5c/0x155
+> >  [<ffffffff80540e42>] net_rx_action+0x9d/0x170
+> 
+> very nice! I like this approach - and have a few comments on some 
+> details - will post them as a reply to the patchs.
 
-Ok, I queue it for mainline. This solves just the number of irqs
-limitation, the rmmod problem still persists, right ?
+Cool. Thank you.
 
-Thanks,
+Joerg
 
-	tglx
-
-
+-- 
+           |           AMD Saxony Limited Liability Company & Co. KG
+ Operating |         Wilschdorfer Landstr. 101, 01109 Dresden, Germany
+ System    |                  Register Court Dresden: HRA 4896
+ Research  |              General Partner authorized to represent:
+ Center    |             AMD Saxony LLC (Wilmington, Delaware, US)
+           | General Manager of AMD Saxony LLC: Dr. Hans-R. Deppe, Thomas McCoy
