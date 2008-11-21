@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/9] defxx: convert driver to net_device_ops
-Date: Thu, 20 Nov 2008 20:31:57 -0800 (PST)
-Message-ID: <20081120.203157.89586123.davem@davemloft.net>
+Subject: Re: [PATCH 6/9] hippi: convert driver to net_device_ops
+Date: Thu, 20 Nov 2008 20:32:22 -0800 (PST)
+Message-ID: <20081120.203222.129218404.davem@davemloft.net>
 References: <20081120175913.943543638@vyatta.com>
-	<20081120175933.921580158@vyatta.com>
+	<20081120175934.009148987@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59502
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59505
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752580AbYKUEb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 23:31:57 -0500
-In-Reply-To: <20081120175933.921580158@vyatta.com>
+	by vger.kernel.org with ESMTP id S1752588AbYKUEcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2008 23:32:22 -0500
+In-Reply-To: <20081120175934.009148987@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 20 Nov 2008 09:59:18 -0800
+Date: Thu, 20 Nov 2008 09:59:19 -0800
 
-> Convert this driver to net_device_ops.
+> Convert the HIPPI infrastructure for use with net_device_ops.
 > 
 > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
