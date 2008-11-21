@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 02/10] tg3: Qualify use of tp->pcix_cap
-Date: Fri, 21 Nov 2008 11:00:04 -0800
-Message-ID: <1227295575.5614@xw6200>
+Subject: [PATCH 06/10] tg3: Embrace pci_ioremap_bar()
+Date: Fri, 21 Nov 2008 11:01:54 -0800
+Message-ID: <1227295576.5622@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,118 +9,76 @@ Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
 	andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1317 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1305 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754534AbYKUT0b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754341AbYKUT0b (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 21 Nov 2008 14:26:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes sure the device is a PCIX device before attempting to
-use the pcix_cap device structure member.  This is prep work for the
-following patch.
+Per Dave Miller's suggestion, replace the remaining ioremap_nocache()
+call with pci_ioremap_bar().  Remove the two IORESOURCE_MEM checks as
+they are redundant.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   50 ++++++++++++++++++++++++--------------------------
- 1 files changed, 24 insertions(+), 26 deletions(-)
+ drivers/net/tg3.c |   21 +--------------------
+ 1 files changed, 1 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 0a82ea8..821e381 100644
+index 2b70b0f..89d897d 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5876,7 +5876,7 @@ static void tg3_restore_pci_state(struct tg3 *tp)
+@@ -13514,7 +13514,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 				  const struct pci_device_id *ent)
+ {
+ 	static int tg3_version_printed = 0;
+-	resource_size_t tg3reg_len;
+ 	struct net_device *dev;
+ 	struct tg3 *tp;
+ 	int err, pm_cap;
+@@ -13531,13 +13530,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 		return err;
  	}
  
- 	/* Make sure PCI-X relaxed ordering bit is clear. */
--	if (tp->pcix_cap) {
-+	if (tp->tg3_flags & TG3_FLAG_PCIX_MODE) {
- 		u16 pcix_cmd;
- 
- 		pci_read_config_word(tp->pdev, tp->pcix_cap + PCI_X_CMD,
-@@ -12190,6 +12190,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	     (tp->tg3_flags2 & TG3_FLG2_5780_CLASS))
- 		tp->tg3_flags2 |= TG3_FLG2_JUMBO_CAPABLE;
- 
-+	pci_read_config_dword(tp->pdev, TG3PCI_PCISTATE,
-+			      &pci_state_reg);
-+
- 	pcie_cap = pci_find_capability(tp->pdev, PCI_CAP_ID_EXP);
- 	if (pcie_cap != 0) {
- 		tp->tg3_flags2 |= TG3_FLG2_PCI_EXPRESS;
-@@ -12205,8 +12208,20 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 			if (lnkctl & PCI_EXP_LNKCTL_CLKREQ_EN)
- 				tp->tg3_flags2 &= ~TG3_FLG2_HW_TSO_2;
- 		}
--	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
-+	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785) {
- 		tp->tg3_flags2 |= TG3_FLG2_PCI_EXPRESS;
-+	} else if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
-+		   (tp->tg3_flags2 & TG3_FLG2_5780_CLASS)) {
-+		tp->pcix_cap = pci_find_capability(tp->pdev, PCI_CAP_ID_PCIX);
-+		if (!tp->pcix_cap) {
-+			printk(KERN_ERR PFX "Cannot find PCI-X "
-+					    "capability, aborting.\n");
-+			return -EIO;
-+		}
-+
-+		if (!(pci_state_reg & PCISTATE_CONV_PCI_MODE))
-+			tp->tg3_flags |= TG3_FLAG_PCIX_MODE;
-+	}
- 
- 	/* If we have an AMD 762 or VIA K8T800 chipset, write
- 	 * reordering to the mailbox registers done by the host
-@@ -12231,29 +12246,18 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 				       cacheline_sz_reg);
- 	}
- 
--	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
--	    (tp->tg3_flags2 & TG3_FLG2_5780_CLASS)) {
--		tp->pcix_cap = pci_find_capability(tp->pdev, PCI_CAP_ID_PCIX);
--		if (!tp->pcix_cap) {
--			printk(KERN_ERR PFX "Cannot find PCI-X "
--					    "capability, aborting.\n");
--			return -EIO;
--		}
+-	if (!(pci_resource_flags(pdev, BAR_0) & IORESOURCE_MEM)) {
+-		printk(KERN_ERR PFX "Cannot find proper PCI device "
+-		       "base address, aborting.\n");
+-		err = -ENODEV;
+-		goto err_out_disable_pdev;
 -	}
 -
--	pci_read_config_dword(tp->pdev, TG3PCI_PCISTATE,
--			      &pci_state_reg);
+ 	err = pci_request_regions(pdev, DRV_MODULE_NAME);
+ 	if (err) {
+ 		printk(KERN_ERR PFX "Cannot obtain PCI resources, "
+@@ -13606,11 +13598,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	spin_lock_init(&tp->indirect_lock);
+ 	INIT_WORK(&tp->reset_task, tg3_reset_task);
+ 
+-	dev->mem_start = pci_resource_start(pdev, BAR_0);
+-	tg3reg_len = pci_resource_len(pdev, BAR_0);
+-	dev->mem_end = dev->mem_start + tg3reg_len;
 -
--	if (tp->pcix_cap && (pci_state_reg & PCISTATE_CONV_PCI_MODE) == 0) {
--		tp->tg3_flags |= TG3_FLAG_PCIX_MODE;
-+	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5700_BX) {
-+		/* 5700 BX chips need to have their TX producer index
-+		 * mailboxes written twice to workaround a bug.
-+		 */
-+		tp->tg3_flags |= TG3_FLAG_TXD_MBOX_HWBUG;
- 
--		/* If this is a 5700 BX chipset, and we are in PCI-X
--		 * mode, enable register write workaround.
-+		/* If we are in PCI-X mode, enable register write workaround.
- 		 *
- 		 * The workaround is to use indirect register accesses
- 		 * for all chip writes not to mailbox registers.
- 		 */
--		if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5700_BX) {
-+		if (tp->tg3_flags & TG3_FLAG_PCIX_MODE) {
- 			u32 pm_reg;
- 
- 			tp->tg3_flags |= TG3_FLAG_PCIX_TARGET_HWBUG;
-@@ -12278,12 +12282,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		}
+-	tp->regs = ioremap_nocache(dev->mem_start, tg3reg_len);
++	tp->regs = pci_ioremap_bar(pdev, BAR_0);
+ 	if (!tp->regs) {
+ 		printk(KERN_ERR PFX "Cannot map device registers, "
+ 		       "aborting.\n");
+@@ -13733,13 +13721,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
  	}
  
--	/* 5700 BX chips need to have their TX producer index mailboxes
--	 * written twice to workaround a bug.
--	 */
--	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5700_BX)
--		tp->tg3_flags |= TG3_FLAG_TXD_MBOX_HWBUG;
+ 	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE) {
+-		if (!(pci_resource_flags(pdev, BAR_2) & IORESOURCE_MEM)) {
+-			printk(KERN_ERR PFX "Cannot find proper PCI device "
+-			       "base address for APE, aborting.\n");
+-			err = -ENODEV;
+-			goto err_out_iounmap;
+-		}
 -
- 	if ((pci_state_reg & PCISTATE_BUS_SPEED_HIGH) != 0)
- 		tp->tg3_flags |= TG3_FLAG_PCI_HIGH_SPEED;
- 	if ((pci_state_reg & PCISTATE_BUS_32BIT) != 0)
+ 		tp->aperegs = pci_ioremap_bar(pdev, BAR_2);
+ 		if (!tp->aperegs) {
+ 			printk(KERN_ERR PFX "Cannot map APE registers, "
 -- 
 1.5.6.4
 
