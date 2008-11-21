@@ -1,48 +1,41 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH net-next 2/2] netdevice pc300: Add the reason about PC300
- BROKEN in Kconfig
-Date: Fri, 21 Nov 2008 17:02:59 +0800
-Message-ID: <49267943.6010804@cn.fujitsu.com>
+Subject: Re: [NET-NEXT v4 PATCH 1/5] ixgbe: this patch adds support for DCB
+ to the	kernel and ixgbe driver
+Date: Fri, 21 Nov 2008 17:14:16 +0800
+Message-ID: <49267BE8.6020205@cn.fujitsu.com>
+References: <20081121020055.22180.24154.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Krzysztof Halasa <khc@pm.waw.pl>, Alan Cox <alan@redhat.com>,
-	NETDEV <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49184 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:56184 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752818AbYKUJDP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 04:03:15 -0500
+	id S1751769AbYKUJOc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2008 04:14:32 -0500
+In-Reply-To: <20081121020055.22180.24154.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When compile test my previous patch, I found PC300 driver was broken.
-And there is no explanation about the broken.
-Add the reason about why change this driver to broken in Kconfig.
+Jeff Kirsher said the following on 2008-11-21 10:00:
+> diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+> index a610016..aaa4404 100644
+> --- a/drivers/net/ixgbe/ixgbe_ethtool.c
+> +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+> @@ -97,9 +97,18 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
+>  	((((struct ixgbe_adapter *)netdev_priv(netdev))->num_tx_queues + \
+>  	((struct ixgbe_adapter *)netdev_priv(netdev))->num_rx_queues) * \
+>  	(sizeof(struct ixgbe_queue_stats) / sizeof(u64)))
+> -#define IXGBE_STATS_LEN (IXGBE_GLOBAL_STATS_LEN + IXGBE_QUEUE_STATS_LEN)
+>  #define IXGBE_GLOBAL_STATS_LEN ARRAY_SIZE(ixgbe_gstrings_stats)
+> -#define IXGBE_STATS_LEN (IXGBE_GLOBAL_STATS_LEN + IXGBE_QUEUE_STATS_LEN)
+> +#define IXGBE_PB_STATS_LEN ( \
+> +                 (((struct ixgbe_adapter *)netdev->priv)->flags & \
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/net/wan/Kconfig |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
-index 21efd99..0725161 100644
---- a/drivers/net/wan/Kconfig
-+++ b/drivers/net/wan/Kconfig
-@@ -207,6 +207,8 @@ config PC300
- 	tristate "Cyclades-PC300 support (RS-232/V.35, X.21, T1/E1 boards)"
- 	depends on HDLC && PCI && BROKEN
- 	---help---
-+	  This driver is broken because of struct tty_driver change.
-+
- 	  Driver for the Cyclades-PC300 synchronous communication boards.
- 
- 	  These boards provide synchronous serial interfaces to your
--- 
-1.5.3.4
-
-
-
+Dave, please don't hate me. :)
+I know you've applied it.
+But I don't want this directly reference of netdev->priv.
 
