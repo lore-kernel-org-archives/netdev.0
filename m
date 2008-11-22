@@ -1,33 +1,49 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 1/3] driver/net/*: remove redundant argument comments
-Date: Sat, 22 Nov 2008 11:40:14 +0000
-Message-ID: <20081122114014.379f2762@lxorguk.ukuu.org.uk>
-References: <4927b790.0e0d6e0a.65cc.ffffcb05@mx.google.com>
-	<9929d2390811212355j635e0e8iee0e53678efc5f09@mail.gmail.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH 03/10] x86: add initialization code for DMA-API
+ debugging
+Date: Sat, 22 Nov 2008 21:28:00 +0900
+Message-ID: <20081122212439C.fujita.tomonori@lab.ntt.co.jp>
+References: <20081122120058I.fujita.tomonori@lab.ntt.co.jp>
+	<20081122094032.GJ29705@8bytes.org>
+	<20081122191533K.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Qinghuang Feng" <qhfeng.kernel@gmail.com>,
-	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Cc: joro@8bytes.org, netdev@vger.kernel.org, tglx@linutronix.de,
+	mingo@redhat.com, linux-kernel@vger.kernel.org,
+	iommu@lists.linux-foundation.org
+To: joerg.roedel@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:36078 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758116AbYKVLmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 06:42:09 -0500
-In-Reply-To: <9929d2390811212355j635e0e8iee0e53678efc5f09@mail.gmail.com>
+Received: from sh.osrg.net ([192.16.179.4]:38673 "EHLO sh.osrg.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757195AbYKVM2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Nov 2008 07:28:37 -0500
+In-Reply-To: <20081122191533K.fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > - * @rx_ring: pointer to receive ring structure
-> >  * @cleaned_count: number of buffers to allocate this pass
-> >  **/
-> >
+On Sat, 22 Nov 2008 19:16:05 +0900
+FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+
+> On Sat, 22 Nov 2008 10:40:32 +0100
+> Joerg Roedel <joro@8bytes.org> wrote:
 > 
-> NAK - rather than removing documentation, I would suggest improving
-> the documentation.  
+> > > > +static int hash_fn(struct dma_debug_entry *entry)
+> > > > +{
+> > > > +	/*
+> > > > +	 * Hash function is based on the dma address.
+> > > > +	 * We use bits 20-27 here as the index into the hash
+> > > > +	 */
+> > > > +	BUG_ON(entry->dev_addr == bad_dma_address);
+> > > 
+> > > 'bad_dma_address' is x86 specific. You already found it though.
+> > 
+> > Interesting. Is there another value for dma_addr_t which drivers can
+> > check for to find out if a dma-api operation failed?
+> 
+> They are architecture dependent. But only X86 uses a variable because
+> of GART and swiotlb, I think.
 
-I would suggest reading the patch more carefully - there is no rx_ring
-argument. The documentation in the header is stale.
-
+BTW, this code doesn't work even on x86 (swiotlb). dma_map_error
+should be used, which is an architecture-independent way to test a dma
+address.
