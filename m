@@ -1,47 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT v4 PATCH 1/5] ixgbe: this patch adds support for DCB
- to the kernel and ixgbe driver
-Date: Fri, 21 Nov 2008 16:48:12 -0800 (PST)
-Message-ID: <20081121.164812.237199469.davem@davemloft.net>
-References: <20081121020055.22180.24154.stgit@gitlost.lost>
-	<4926B26C.7010200@trash.net>
-	<adaabbtgdv6.fsf@cisco.com>
+Subject: Re: [NET-NEXT PATCH 01/14] e1000e: disable correctable errors for
+ quad ports while going to D3
+Date: Fri, 21 Nov 2008 16:49:17 -0800 (PST)
+Message-ID: <20081121.164917.112963763.davem@davemloft.net>
+References: <20081121185859.32313.42332.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org,
-	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com
-To: rdreier@cisco.com
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	alexander.h.duyck@intel.com, bruce.w.allan@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36953
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36959
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752250AbYKVAsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 19:48:13 -0500
-In-Reply-To: <adaabbtgdv6.fsf@cisco.com>
+	by vger.kernel.org with ESMTP id S1754646AbYKVAtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 19:49:18 -0500
+In-Reply-To: <20081121185859.32313.42332.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Fri, 21 Nov 2008 09:58:37 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 21 Nov 2008 10:59:00 -0800
 
->  > > +
->  > > +config DCBNL
->  > > +	bool "Data Center Bridging netlink interface support"
->  > > +	depends on DCB
->  > > +	default n
->  > > +	---help---
->  > > +	  This option turns on the netlink interface
->  > > +	  (dcbnl) for Data Center Bridging capable devices.
->  > > +
->  > > +	  If unsure, say N.
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Now that I look at this config, it looks rather strange.  When does is
-> ever make sense to enable DCB but not DCBNL?  How else does one
-> configure all the DCB parameters except by running dcbd in userspace?
-> Should there even be a separate DCBNL option at all?
+> There has been an issue seen with the pci-e quad port adapters that will
+> cause them to generate a pci-e correctable error on some system while
+> transitioning to D3.
+> 
+> Since no action is needed on this correctable error the simplest solution
+> is to mask off the reporting of correctable errors.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Yes, that makes sense.
-
-If DCBNL is the only way to enable and control DCB, there is no sense
-to have two seperate options.
+Applied.
