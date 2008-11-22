@@ -1,48 +1,37 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 14/32] ixgbe section fixes
-Date: Sat, 22 Nov 2008 11:43:17 -0800
-Message-ID: <9929d2390811221143n66f3f09bu3801919a54263589@mail.gmail.com>
-References: <E1L3wOM-0006Ti-Jt@ZenIV.linux.org.uk>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: net-next/unix: BUG: using smp_processor_id() in preemptible
+Date: Sat, 22 Nov 2008 23:04:53 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811221634370.10534@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, netdev <netdev@vger.kernel.org>
-To: "Al Viro" <viro@ftp.linux.org.uk>
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.248]:61865 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669AbYKVTnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 14:43:19 -0500
-Received: by hs-out-0708.google.com with SMTP id 4so647994hsl.5
-        for <netdev@vger.kernel.org>; Sat, 22 Nov 2008 11:43:17 -0800 (PST)
-In-Reply-To: <E1L3wOM-0006Ti-Jt@ZenIV.linux.org.uk>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41416 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752039AbYKVVE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 16:04:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 22, 2008 at 9:35 AM, Al Viro <viro@ftp.linux.org.uk> wrote:
->
-> ixgbe_init_interrupt_scheme() is called from ixgbe_resume().  Build that
-> with CONFIG_PM and without CONFIG_HOTPLUG and you've got a problem.
-> Several helpers called by it also are misannotated __devinit.
->
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
->  drivers/net/ixgbe/ixgbe_main.c |    9 ++++-----
->  1 files changed, 4 insertions(+), 5 deletions(-)
->
+I got plenty of these from sock_prot_inuse_add:
 
-Adding Netdev...
+BUG: using smp_processor_id() in preemptible [00000000] code: rcS/1146
 
-Patch does not apply to latest net-next-2.6 tree because half of the
-requested changes are already applied to the driver in an earlier
-commit.
+caller is sock_prot_inuse_add+0x24/0x42
+Pid: 1146, comm: rcS Not tainted 2.6.28-rc6-01121-g89a2f15 #76
+Call Trace:
+ [<ffffffff80365767>] debug_smp_processor_id+0xd3/0xe8
+ [<ffffffff80485a0f>] sock_prot_inuse_add+0x24/0x42
+ [<ffffffff80514cdd>] unix_create1+0x161/0x176
+ [<ffffffff80514d52>] unix_create+0x60/0x6b
+ [<ffffffff80483f66>] __sock_create+0x144/0x1bd
+ [<ffffffff80483edb>] ? __sock_create+0xb9/0x1bd
+ [<ffffffff8048402d>] sock_create+0x2d/0x2f
+ [<ffffffff80484274>] sys_socket+0x29/0x5b
+ [<ffffffff8020c10a>] system_call_fastpath+0x16/0x1b
 
-Please re-test with
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-if possible.
 
 -- 
-Cheers,
-Jeff
+ i.
