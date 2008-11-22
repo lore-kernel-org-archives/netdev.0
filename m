@@ -1,51 +1,51 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH net-next] myri10ge: update DCA comments
-Date: Sat, 22 Nov 2008 10:23:02 +0100
-Message-ID: <4927CF76.7080407@myri.com>
+From: Joerg Roedel <joro@8bytes.org>
+Subject: Re: [PATCH 0/10] DMA-API debugging facility
+Date: Sat, 22 Nov 2008 10:29:04 +0100
+Message-ID: <20081122092904.GF29705@8bytes.org>
+References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <20081122115802K.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: joerg.roedel@amd.com, netdev@vger.kernel.org, tglx@linutronix.de,
+	mingo@redhat.com, linux-kernel@vger.kernel.org,
+	iommu@lists.linux-foundation.org
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1797 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751072AbYKVJXS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2008 04:23:18 -0500
+Received: from 8bytes.org ([88.198.83.132]:33298 "EHLO 8bytes.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752032AbYKVJ3H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Nov 2008 04:29:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20081122115802K.fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update DCA sections closing comments.
+On Sat, Nov 22, 2008 at 12:27:39PM +0900, FUJITA Tomonori wrote:
+> On Fri, 21 Nov 2008 17:26:00 +0100
+> Joerg Roedel <joerg.roedel@amd.com> wrote:
+> 
+> > Hi,
+> > 
+> > this patchset introduces code to debug drivers usage of the DMA-API.
+> > Tests with hardware IOMMUs have shown several bugs in drivers regarding
+> > the usage of that API.
+> > Problems were found especially in network card drivers.
+> 
+> Especially? Have you met dma similar bugs with storage (scsi, etc)
+> drivers?
 
-Signed-off-by: Brice Goglin <brice@myri.com>
+No. For me the code only triggered network card drivers. Namely the
+ixgbe, tg3 and bnx2 driver.
 
---- linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-11-22 10:06:58.000000000 +0100
-+++ net-next-2.6/drivers/net/myri10ge/myri10ge.c	2008-11-22 09:53:31.000000000 +0100
-@@ -1024,7 +1024,7 @@
- 			ss->dca_tag = NULL;
- 		}
- 	}
--#endif				/* CONFIG_DCA */
-+#endif				/* CONFIG_MYRI10GE_DCA */
- 
- 	/* reset mcp/driver shared state back to 0 */
- 
-@@ -1121,7 +1121,7 @@
- 		myri10ge_teardown_dca(mgp);
- 	return 0;
- }
--#endif				/* CONFIG_DCA */
-+#endif				/* CONFIG_MYRI10GE_DCA */
- 
- static inline void
- myri10ge_submit_8rx(struct mcp_kreq_ether_recv __iomem * dst,
-@@ -4027,7 +4026,7 @@
- 	.next = NULL,
- 	.priority = 0,
- };
--#endif				/* CONFIG_DCA */
-+#endif				/* CONFIG_MYRI10GE_DCA */
- 
- static __init int myri10ge_init_module(void)
- {
+> 
+> > This way driver developers get an idea where the problem is in their
+> > code.
+> > 
+> > Please review and send any objections or, if there are none, consider
+> > for inclusion ;)
+> 
+> This should be architecture independent code. Except for that, it
+> looks very useful.
 
+Thanks,
 
+Joerg
