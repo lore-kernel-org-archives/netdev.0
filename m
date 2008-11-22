@@ -1,78 +1,64 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH 0/10] DMA-API debugging facility
-Date: Sat, 22 Nov 2008 19:16:04 +0900
-Message-ID: <20081122190740P.fujita.tomonori@lab.ntt.co.jp>
-References: <20081121174551.GC4336@elte.hu>
-	<20081122122730W.fujita.tomonori@lab.ntt.co.jp>
-	<20081122093318.GG29705@8bytes.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org,
-	mingo@redhat.com, netdev@vger.kernel.org, tglx@linutronix.de
-To: joro@8bytes.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/5] dccp: Support for Mandatory options
+Date: Sat, 22 Nov 2008 11:30:40 +0100
+Message-ID: <1227349841-9440-5-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1227349841-9440-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1227349841-9440-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1227349841-9440-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1227349841-9440-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:49499 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753669AbYKVKQv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2008 05:16:51 -0500
-In-Reply-To: <20081122093318.GG29705@8bytes.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54502 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754415AbYKVKat (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Nov 2008 05:30:49 -0500
+In-Reply-To: <1227349841-9440-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Nov 2008 10:33:18 +0100
-Joerg Roedel <joro@8bytes.org> wrote:
+Support for Mandatory options is provided by this patch, which will
+be used by subsequent feature-negotiation patches.
 
-> On Sat, Nov 22, 2008 at 12:27:43PM +0900, FUJITA Tomonori wrote:
-> > On Fri, 21 Nov 2008 18:45:51 +0100
-> > Ingo Molnar <mingo@elte.hu> wrote:
-> > 
-> > > 
-> > > * Joerg Roedel <joerg.roedel@amd.com> wrote:
-> > > 
-> > > > On Fri, Nov 21, 2008 at 05:24:29PM +0000, David Woodhouse wrote:
-> > > > > On Fri, 2008-11-21 at 18:20 +0100, Joerg Roedel wrote:
-> > > > > > Ok, I will move the generic bits to lib/ and include/linux and let
-> > > > > > architectures decide if they want to use it.
-> > > > > 
-> > > > > Once you've done that, I'll try to hook it up on PowerPC to make 
-> > > > > sure it works there.
-> > > > 
-> > > > Ok, cool. Thanks
-> > > 
-> > > i'll give it a whirl on x86 once the allocation bug is resolved. x86 
-> > > testing will be the most interesting in practice, because most drivers 
-> > > there are developed with no dynamic DMA in mind. (many of the x86 
-> > > drivers were developed before IOMMUs were supported in Linux)
-> > 
-> > Yeah, one of the problems due to this is that some drivers wrongly
-> > assume that the dma mapping operations never fail (they do DMA with a
-> > wrong address). With VT-d and AMD IOMMU, the dma mapping operations
-> > fail just because of OOM.
-> 
-> At least AMD IOMMU code will not fail because of memory shortage. All
-> necessary data structures, including the pagetables, are preallocated.
-> The only place were it might fail is dma_alloc_coherent. But that is not
-> specific to that driver.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/dccp/feat.h    |    2 ++
+ net/dccp/options.c |   15 +++++++++++++++
+ 2 files changed, 17 insertions(+), 0 deletions(-)
 
-Oops, you are right. Somehow I wrongly thought that AMD IOMMU
-allocates pte on the fly like VT-d.
-
-
-> > Some time ago, I hooked the fault injection mechanism to the dma
-> > mapping operations (I linked struct fault_attr to struct pci_dev so
-> > you can make dma_map_single/sg fail with a particular pci device). It
-> > might interest some people:
-> > 
-> > git://git.kernel.org/pub/scm/linux/kernel/git/tomo/linux-2.6-misc.git dmafault
-> 
-> This would also be helpful to find bugs in drivers together with this
-> code. Do you plan to submit it?
-
-Yeah, with your debug mechanism, this might be more helpful because
-the debug mechanism can catch drivers that don't handle dma mapping
-failure properly. I'll submit this after you finish the debug
-mechanism.
-
-Thanks,
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -138,4 +138,6 @@ extern int  dccp_feat_init(struct sock *sk);
+ 
+ extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
+ extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
++
++extern int  dccp_insert_option_mandatory(struct sk_buff *skb);
+ #endif /* _DCCP_FEAT_H */
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -467,6 +467,21 @@ static int dccp_insert_option_timestamp_echo(struct dccp_sock *dp,
+ 	return 0;
+ }
+ 
++/**
++ * dccp_insert_option_mandatory  -  Mandatory option (5.8.2)
++ * Note that since we are using skb_push, this function needs to be called
++ * _after_ inserting the option it is supposed to influence (stack order).
++ */
++int dccp_insert_option_mandatory(struct sk_buff *skb)
++{
++	if (DCCP_SKB_CB(skb)->dccpd_opt_len >= DCCP_MAX_OPT_LEN)
++		return -1;
++
++	DCCP_SKB_CB(skb)->dccpd_opt_len++;
++	*skb_push(skb, 1) = DCCPO_MANDATORY;
++	return 0;
++}
++
+ static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
+ 				u8 *val, u8 len)
+ {
