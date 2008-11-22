@@ -1,51 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT PATCH 09/14] e1000e: fix possible buffer overflow
-Date: Fri, 21 Nov 2008 16:57:00 -0800 (PST)
-Message-ID: <20081121.165700.138867321.davem@davemloft.net>
-References: <20081121185859.32313.42332.stgit@gitlost.lost>
-	<20081121190128.32313.90707.stgit@gitlost.lost>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [NET-NEXT v4 PATCH 1/5] ixgbe: this patch adds support for DCB to the kernel and ixgbe driver
+Date: Fri, 21 Nov 2008 16:57:12 -0800
+Message-ID: <9929d2390811211657g7443bafex6aef259939dcbdc2@mail.gmail.com>
+References: <20081121020055.22180.24154.stgit@gitlost.lost>
+	 <4926B26C.7010200@trash.net> <adaabbtgdv6.fsf@cisco.com>
+	 <20081121.164812.237199469.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, bruce.w.allan@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: rdreier@cisco.com, kaber@trash.net, netdev@vger.kernel.org,
+	jeff@garzik.org, alexander.h.duyck@intel.com,
+	peter.p.waskiewicz.jr@intel.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46654
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754046AbYKVA5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 19:57:01 -0500
-In-Reply-To: <20081121190128.32313.90707.stgit@gitlost.lost>
+Received: from yx-out-2324.google.com ([74.125.44.30]:34073 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250AbYKVA5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 19:57:13 -0500
+Received: by yx-out-2324.google.com with SMTP id 8so537228yxm.1
+        for <netdev@vger.kernel.org>; Fri, 21 Nov 2008 16:57:12 -0800 (PST)
+In-Reply-To: <20081121.164812.237199469.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 21 Nov 2008 11:01:28 -0800
+On Fri, Nov 21, 2008 at 4:48 PM, David Miller <davem@davemloft.net> wrote:
+> From: Roland Dreier <rdreier@cisco.com>
+> Date: Fri, 21 Nov 2008 09:58:37 -0800
+>
+>>  > > +
+>>  > > +config DCBNL
+>>  > > +        bool "Data Center Bridging netlink interface support"
+>>  > > +        depends on DCB
+>>  > > +        default n
+>>  > > +        ---help---
+>>  > > +          This option turns on the netlink interface
+>>  > > +          (dcbnl) for Data Center Bridging capable devices.
+>>  > > +
+>>  > > +          If unsure, say N.
+>>
+>> Now that I look at this config, it looks rather strange.  When does is
+>> ever make sense to enable DCB but not DCBNL?  How else does one
+>> configure all the DCB parameters except by running dcbd in userspace?
+>> Should there even be a separate DCBNL option at all?
+>
+> Yes, that makes sense.
+>
+> If DCBNL is the only way to enable and control DCB, there is no sense
+> to have two seperate options.
+> --
+>
 
-> From: Bruce Allan <bruce.w.allan@intel.com>
-> 
-> Put in missing bounds checking of an array.
-> 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Sounds fine with me.  I will get a patch out later.
 
-No magic constants, please.  What does the "+ 5" mean?
-
-And using a macro that is:
-
-1) Used in exactly one place
-2) Gives no more information than the expanded ARRAY_SIZE()
-
-is pretty useless as well.
-
-Patch not applied.
-
-> @@ -721,6 +723,9 @@ static s32 e1000_get_cable_length_80003es2lan(struct e1000_hw *hw)
->  		return ret_val;
->  
->  	index = phy_data & GG82563_DSPD_CABLE_LENGTH;
-> +	if (index >= GG82563_CABLE_LENGTH_TABLE_SIZE + 5)
-> +		return E1000_ERR_PHY;
-> +
->  	phy->min_cable_length = e1000_gg82563_cable_length_table[index];
->  	phy->max_cable_length = e1000_gg82563_cable_length_table[index+5];
->  
+-- 
+Cheers,
+Jeff
