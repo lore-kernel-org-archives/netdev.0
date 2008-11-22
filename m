@@ -1,27 +1,42 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH net-next] netdevice hdlc: Convert directly reference of netdev->priv
-Date: Sat, 22 Nov 2008 01:12:21 +0100
-Message-ID: <m33ahksjoa.fsf@maximus.localdomain>
-References: <49267939.9090808@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next/-mm/mainline] net/hp-plus: fix link errors
+Date: Fri, 21 Nov 2008 16:33:35 -0800 (PST)
+Message-ID: <20081121.163335.255948683.davem@davemloft.net>
+References: <20081120211724.09b94026.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com,
+	alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:35950 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751989AbYKVAMY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2008 19:12:24 -0500
-In-Reply-To: <49267939.9090808@cn.fujitsu.com> (Wang Chen's message of "Fri\, 21 Nov 2008 17\:02\:49 +0800")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46589
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751989AbYKVAdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2008 19:33:36 -0500
+In-Reply-To: <20081120211724.09b94026.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen <wangchen@cn.fujitsu.com> writes:
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Thu, 20 Nov 2008 21:17:24 -0800
 
-> Krzysztof said that he will take this one, but not.
+> Fix hp-plus driver link errors.
+> Builds as loadable module and kernel image driver.
+> All drivers that use 8390.o or 8390p.o that will build on
+> i386 with MCA/PCI/EISA/ISA were built successfully both
+> =m and =y.
+> 
+> drivers/built-in.o: In function `hpp_open':
+> hp-plus.c:(.text+0xac06c): undefined reference to `eip_interrupt'
+> hp-plus.c:(.text+0xac0d7): undefined reference to `eip_open'
+> drivers/built-in.o: In function `hpp_close':
+> hp-plus.c:(.text+0xac1bb): undefined reference to `eip_close'
+> drivers/built-in.o: In function `hpp_probe1':
+> hp-plus.c:(.init.text+0xa98a): undefined reference to `NS8390p_init'
+> drivers/built-in.o: In function `hp_plus_probe':
+> (.init.text+0xa9fe): undefined reference to `__alloc_eip_netdev'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Actually I did. Not yet made it upstream, right :-(
--- 
-Krzysztof Halasa
+Applied, thanks Randy.
