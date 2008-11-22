@@ -1,49 +1,53 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH 03/10] x86: add initialization code for DMA-API
- debugging
-Date: Sat, 22 Nov 2008 21:28:00 +0900
-Message-ID: <20081122212439C.fujita.tomonori@lab.ntt.co.jp>
-References: <20081122120058I.fujita.tomonori@lab.ntt.co.jp>
-	<20081122094032.GJ29705@8bytes.org>
-	<20081122191533K.fujita.tomonori@lab.ntt.co.jp>
+From: "Andrew Brampton" <brampton@gmail.com>
+Subject: Re: Receive Side Support (RSS) - Adding support into the kernel
+Date: Sat, 22 Nov 2008 17:04:29 +0000
+Message-ID: <d41814900811220904q3b25a46dtb0e008b7222b8449@mail.gmail.com>
+References: <d41814900811210948p2fb2059epbd381a8105ab8959@mail.gmail.com>
+	 <20081121.152612.60802006.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: joro@8bytes.org, netdev@vger.kernel.org, tglx@linutronix.de,
-	mingo@redhat.com, linux-kernel@vger.kernel.org,
-	iommu@lists.linux-foundation.org
-To: joerg.roedel@amd.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:38673 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757195AbYKVM2h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2008 07:28:37 -0500
-In-Reply-To: <20081122191533K.fujita.tomonori@lab.ntt.co.jp>
+Received: from rv-out-0506.google.com ([209.85.198.226]:42696 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758604AbYKVREa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 12:04:30 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so1405284rvb.1
+        for <netdev@vger.kernel.org>; Sat, 22 Nov 2008 09:04:29 -0800 (PST)
+In-Reply-To: <20081121.152612.60802006.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Nov 2008 19:16:05 +0900
-FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+2008/11/21 David Miller <davem@davemloft.net>:
+> From: "Andrew Brampton" <brampton@gmail.com>
+> Date: Fri, 21 Nov 2008 17:48:22 +0000
+>
+>> Hi,
+>> Recently I've been interested in receive side support (RSS)[1], the
+>
+> It's receive side "scaling", not "support".
+>
+>> There are three RSS settings which can be configured
+>> 1) Which fields of the packet get hashed.
+>> 2) The key used by the hashing algorithm
+>> 3) The indirection table, which is used to map a 7bit hash value to a
+>> particular core.
+>
+> We already have an ethtool interface for configuring aspects of this,
+> with more knobs on the way.
+>
 
-> On Sat, 22 Nov 2008 10:40:32 +0100
-> Joerg Roedel <joro@8bytes.org> wrote:
-> 
-> > > > +static int hash_fn(struct dma_debug_entry *entry)
-> > > > +{
-> > > > +	/*
-> > > > +	 * Hash function is based on the dma address.
-> > > > +	 * We use bits 20-27 here as the index into the hash
-> > > > +	 */
-> > > > +	BUG_ON(entry->dev_addr == bad_dma_address);
-> > > 
-> > > 'bad_dma_address' is x86 specific. You already found it though.
-> > 
-> > Interesting. Is there another value for dma_addr_t which drivers can
-> > check for to find out if a dma-api operation failed?
-> 
-> They are architecture dependent. But only X86 uses a variable because
-> of GART and swiotlb, I think.
+Well thanks David, and Ben for your input. I am aware that the S in
+RSS was for scaling, I obviously had a error between my brain and my
+keyboard.
 
-BTW, this code doesn't work even on x86 (swiotlb). dma_map_error
-should be used, which is an architecture-independent way to test a dma
-address.
+Anyway, I look forward to the changes appearing in ethtool, and if I
+see a opportunity to help out, then I will offer my assistance.
+Perhaps I'll try and add the ethtool rx_hash support to the ixgbe
+drivers (since I have a couple of these cards). I guess I'll speak to
+the Intel guys about that.
+
+thanks for your time
+Andrew
