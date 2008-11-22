@@ -1,57 +1,32 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: af_netlink should update its inuse counter
-Date: Sat, 22 Nov 2008 09:40:10 +0100
-Message-ID: <4927C56A.5080307@cosmosbay.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH net-next] myri10ge: update firmware headers
+Date: Sat, 22 Nov 2008 10:23:10 +0100
+Message-ID: <4927CF7E.60207@myri.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000108040703040205010101"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:44037 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbYKVIkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 03:40:15 -0500
+Received: from mailbox2.myri.com ([64.172.73.26]:1801 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752664AbYKVJXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Nov 2008 04:23:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000108040703040205010101
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Update myri10ge firmware headers.
 
-In order to have relevant information for NETLINK protocol, in
-/proc/net/protocols, we should use sock_prot_inuse_add() to
-update a (percpu and pernamespace) counter of inuse sockets.
+Signed-off-by: Brice Goglin <brice@myri.com>
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---------------000108040703040205010101
-Content-Type: text/plain;
- name="af_netlink.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="af_netlink.patch"
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 480184a..a2071dc 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -452,6 +452,7 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol)
- 	if (err < 0)
- 		goto out_module;
+--- linux-tmp/drivers/net/myri10ge/myri10ge_mcp_gen_header.h	2008-11-22 10:06:58.000000000 +0100
++++ net-next-2.6/drivers/net/myri10ge/myri10ge_mcp_gen_header.h	2008-10-29 10:25:24.000000000 +0100
+@@ -41,6 +41,7 @@
+ 	unsigned short handoff_id_major;	/* must be equal */
+ 	unsigned short handoff_id_caps;	/* bitfield: new mcp must have superset */
+ 	unsigned msix_table_addr;	/* start address of msix table in firmware */
++	unsigned bss_addr;	/* start of bss */
+ 	/* 8 */
+ };
  
-+	sock_prot_inuse_add(net, &netlink_proto, 1);
- 	nlk = nlk_sk(sock->sk);
- 	nlk->module = module;
- out:
-@@ -511,6 +512,7 @@ static int netlink_release(struct socket *sock)
- 	kfree(nlk->groups);
- 	nlk->groups = NULL;
- 
-+	sock_prot_inuse_add(sock_net(sk), &netlink_proto, -1);
- 	sock_put(sk);
- 	return 0;
- }
 
---------------000108040703040205010101--
+
