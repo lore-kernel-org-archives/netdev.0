@@ -1,32 +1,33 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH net-next] netdevice hdlc: Convert directly reference of
- netdev->priv
-Date: Sat, 22 Nov 2008 19:08:10 +0800
-Message-ID: <4927E81A.4060303@cn.fujitsu.com>
-References: <49267939.9090808@cn.fujitsu.com> <m33ahksjoa.fsf@maximus.localdomain>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 1/3] driver/net/*: remove redundant argument comments
+Date: Sat, 22 Nov 2008 11:40:14 +0000
+Message-ID: <20081122114014.379f2762@lxorguk.ukuu.org.uk>
+References: <4927b790.0e0d6e0a.65cc.ffffcb05@mx.google.com>
+	<9929d2390811212355j635e0e8iee0e53678efc5f09@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	NETDEV <netdev@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: "Qinghuang Feng" <qhfeng.kernel@gmail.com>,
+	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56847 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756627AbYKVLIe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2008 06:08:34 -0500
-In-Reply-To: <m33ahksjoa.fsf@maximus.localdomain>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:36078 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758116AbYKVLmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 06:42:09 -0500
+In-Reply-To: <9929d2390811212355j635e0e8iee0e53678efc5f09@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa said the following on 2008-11-22 8:12:
-> Wang Chen <wangchen@cn.fujitsu.com> writes:
+> > - * @rx_ring: pointer to receive ring structure
+> >  * @cleaned_count: number of buffers to allocate this pass
+> >  **/
+> >
 > 
->> Krzysztof said that he will take this one, but not.
-> 
-> Actually I did. Not yet made it upstream, right :-(
+> NAK - rather than removing documentation, I would suggest improving
+> the documentation.  
 
-Ooh. I am too impatience to wait you do it ;)
-Any way, thank you, Krzysztof.
+I would suggest reading the patch more carefully - there is no rx_ring
+argument. The documentation in the header is stale.
 
