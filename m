@@ -1,97 +1,166 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/5] dccp: Increase the scope of variable-length htonl/ntohl functions
-Date: Sat, 22 Nov 2008 11:30:39 +0100
-Message-ID: <1227349841-9440-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/5] dccp: Header option insertion routine for feature-negotiation
+Date: Sat, 22 Nov 2008 11:30:41 +0100
+Message-ID: <1227349841-9440-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1227349841-9440-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1227349841-9440-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1227349841-9440-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1227349841-9440-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1227349841-9440-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54502 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754415AbYKVKaz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2008 05:30:55 -0500
-In-Reply-To: <1227349841-9440-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755066AbYKVKa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Nov 2008 05:30:58 -0500
+In-Reply-To: <1227349841-9440-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This extends the scope of two available functions, encode|decode_value_var,
-to work up to 6 (8) bytes, to match maximum requirements in the RFC.
-
-These functions are going to be used both by general option processing and
-feature negotiation code, hence declarations have been put into feat.h.
+The patch extends existing code:
+ * Confirm options divide into the confirmed value plus an optional preference
+   list for SP values. Previously only the preference list was echoed for SP
+   values, now the confirmed value is added as per RFC 4340, 6.1;
+ * length and sanity checks are added to avoid illegal memory (or NULL) access.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/feat.h    |   14 ++++++++++++++
- net/dccp/options.c |   21 ++++++++++++++-------
- 2 files changed, 28 insertions(+), 7 deletions(-)
+ net/dccp/feat.h    |    2 +
+ net/dccp/options.c |   91 ++++++++++++++++++----------------------------------
+ 2 files changed, 33 insertions(+), 60 deletions(-)
 
 --- a/net/dccp/feat.h
 +++ b/net/dccp/feat.h
-@@ -124,4 +124,18 @@ extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
- extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
- extern int  dccp_feat_init(struct sock *sk);
+@@ -140,4 +140,6 @@ extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
+ extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
  
-+/*
-+ * Encoding variable-length options and their maximum length.
-+ *
-+ * This affects NN options (SP options are all u8) and other variable-length
-+ * options (see table 3 in RFC 4340). The limit is currently given the Sequence
-+ * Window NN value (sec. 7.5.2) and the NDP count (sec. 7.7) option, all other
-+ * options consume less than 6 bytes (timestamps are 4 bytes).
-+ * When updating this constant (e.g. due to new internet drafts / RFCs), make
-+ * sure that you also update all code which refers to it.
-+ */
-+#define DCCP_OPTVAL_MAXLEN	6
-+
-+extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
-+extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
+ extern int  dccp_insert_option_mandatory(struct sk_buff *skb);
++extern int  dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat,
++			       u8 *val, u8 len, bool repeat_first);
  #endif /* _DCCP_FEAT_H */
 --- a/net/dccp/options.c
 +++ b/net/dccp/options.c
-@@ -29,16 +29,20 @@ int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
- int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
- int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
+@@ -482,23 +482,46 @@ int dccp_insert_option_mandatory(struct sk_buff *skb)
+ 	return 0;
+ }
  
--static u32 dccp_decode_value_var(const unsigned char *bf, const u8 len)
-+u64 dccp_decode_value_var(const u8 *bf, const u8 len)
+-static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
+-				u8 *val, u8 len)
++/**
++ * dccp_insert_fn_opt  -  Insert single Feature-Negotiation option into @skb
++ * @type: %DCCPO_CHANGE_L, %DCCPO_CHANGE_R, %DCCPO_CONFIRM_L, %DCCPO_CONFIRM_R
++ * @feat: one out of %dccp_feature_numbers
++ * @val: NN value or SP array (preferred element first) to copy
++ * @len: true length of @val in bytes (excluding first element repetition)
++ * @repeat_first: whether to copy the first element of @val twice
++ * The last argument is used to construct Confirm options, where the preferred
++ * value and the preference list appear separately (RFC 4340, 6.3.1). Preference
++ * lists are kept such that the preferred entry is always first, so we only need
++ * to copy twice, and avoid the overhead of cloning into a bigger array.
++ */
++int dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat,
++		       u8 *val, u8 len, bool repeat_first)
  {
--	u32 value = 0;
-+	u64 value = 0;
+-	u8 *to;
++	u8 tot_len, *to;
  
-+	if (len >= DCCP_OPTVAL_MAXLEN)
-+		value += ((u64)*bf++) << 40;
-+	if (len > 4)
-+		value += ((u64)*bf++) << 32;
- 	if (len > 3)
--		value += *bf++ << 24;
-+		value += ((u64)*bf++) << 24;
- 	if (len > 2)
--		value += *bf++ << 16;
-+		value += ((u64)*bf++) << 16;
- 	if (len > 1)
--		value += *bf++ << 8;
-+		value += ((u64)*bf++) << 8;
- 	if (len > 0)
- 		value += *bf;
+-	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len + 3 > DCCP_MAX_OPT_LEN) {
+-		DCCP_WARN("packet too small for feature %d option!\n", feat);
++	/* take the `Feature' field and possible repetition into account */
++	if (len > (DCCP_SINGLE_OPT_MAXLEN - 2)) {
++		DCCP_WARN("length %u for feature %u too large\n", len, feat);
+ 		return -1;
+ 	}
  
-@@ -298,9 +302,12 @@ out_invalid_option:
+-	DCCP_SKB_CB(skb)->dccpd_opt_len += len + 3;
++	if (unlikely(val == NULL || len == 0))
++		len = repeat_first = 0;
++	tot_len = 3 + repeat_first + len;
++
++	if (DCCP_SKB_CB(skb)->dccpd_opt_len + tot_len > DCCP_MAX_OPT_LEN) {
++		DCCP_WARN("packet too small for feature %d option!\n", feat);
++		return -1;
++	}
++	DCCP_SKB_CB(skb)->dccpd_opt_len += tot_len;
  
- EXPORT_SYMBOL_GPL(dccp_parse_options);
+-	to    = skb_push(skb, len + 3);
++	to    = skb_push(skb, tot_len);
+ 	*to++ = type;
+-	*to++ = len + 3;
++	*to++ = tot_len;
+ 	*to++ = feat;
  
--static void dccp_encode_value_var(const u32 value, unsigned char *to,
--				  const unsigned int len)
-+void dccp_encode_value_var(const u64 value, u8 *to, const u8 len)
++	if (repeat_first)
++		*to++ = *val;
+ 	if (len)
+ 		memcpy(to, val, len);
+ 
+@@ -508,51 +531,6 @@ static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
+ 	return 0;
+ }
+ 
+-static int dccp_insert_options_feat(struct sock *sk, struct sk_buff *skb)
+-{
+-	struct dccp_minisock *dmsk = dccp_msk(sk);
+-	struct dccp_opt_pend *opt, *next;
+-	int change = 0;
+-
+-	/* confirm any options [NN opts] */
+-	list_for_each_entry_safe(opt, next, &dmsk->dccpms_conf, dccpop_node) {
+-		dccp_insert_feat_opt(skb, opt->dccpop_type,
+-				     opt->dccpop_feat, opt->dccpop_val,
+-				     opt->dccpop_len);
+-		/* fear empty confirms */
+-		if (opt->dccpop_val)
+-			kfree(opt->dccpop_val);
+-		kfree(opt);
+-	}
+-	INIT_LIST_HEAD(&dmsk->dccpms_conf);
+-
+-	/* see which features we need to send */
+-	list_for_each_entry(opt, &dmsk->dccpms_pending, dccpop_node) {
+-		/* see if we need to send any confirm */
+-		if (opt->dccpop_sc) {
+-			dccp_insert_feat_opt(skb, opt->dccpop_type + 1,
+-					     opt->dccpop_feat,
+-					     opt->dccpop_sc->dccpoc_val,
+-					     opt->dccpop_sc->dccpoc_len);
+-
+-			BUG_ON(!opt->dccpop_sc->dccpoc_val);
+-			kfree(opt->dccpop_sc->dccpoc_val);
+-			kfree(opt->dccpop_sc);
+-			opt->dccpop_sc = NULL;
+-		}
+-
+-		/* any option not confirmed, re-send it */
+-		if (!opt->dccpop_conf) {
+-			dccp_insert_feat_opt(skb, opt->dccpop_type,
+-					     opt->dccpop_feat, opt->dccpop_val,
+-					     opt->dccpop_len);
+-			change++;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+ /* The length of all options needs to be a multiple of 4 (5.8) */
+ static void dccp_insert_option_padding(struct sk_buff *skb)
  {
-+	if (len >= DCCP_OPTVAL_MAXLEN)
-+		*to++ = (value & 0xFF0000000000ull) >> 40;
-+	if (len > 4)
-+		*to++ = (value & 0xFF00000000ull) >> 32;
- 	if (len > 3)
- 		*to++ = (value & 0xFF000000) >> 24;
- 	if (len > 2)
+@@ -589,13 +567,6 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
+ 		dp->dccps_hc_rx_insert_options = 0;
+ 	}
+ 
+-	/* Feature negotiation */
+-	/* Data packets can't do feat negotiation */
+-	if (DCCP_SKB_CB(skb)->dccpd_type != DCCP_PKT_DATA &&
+-	    DCCP_SKB_CB(skb)->dccpd_type != DCCP_PKT_DATAACK &&
+-	    dccp_insert_options_feat(sk, skb))
+-		return -1;
+-
+ 	/*
+ 	 * Obtain RTT sample from Request/Response exchange.
+ 	 * This is currently used in CCID 3 initialisation.
