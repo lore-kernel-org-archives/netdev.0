@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] enic: misc cleanup items:
-Date: Fri, 21 Nov 2008 21:29:31 -0800 (PST)
-Message-ID: <20081121.212931.263705520.davem@davemloft.net>
-References: <20081122003219.15540.26759.stgit@palito_client100.nuovasystems.com>
-	<20081122003418.15540.83506.stgit@palito_client100.nuovasystems.com>
+Subject: Re: [NET-NEXT PATCH] igb: do not use phy ops in ethtool test
+ cleanup for non-copper parts
+Date: Fri, 21 Nov 2008 21:30:33 -0800 (PST)
+Message-ID: <20081121.213033.134929699.davem@davemloft.net>
+References: <20081121235912.2150.53268.stgit@gitlost.lost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: scofeldm@cisco.com
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54326
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44423
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750835AbYKVF3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 00:29:32 -0500
-In-Reply-To: <20081122003418.15540.83506.stgit@palito_client100.nuovasystems.com>
+	by vger.kernel.org with ESMTP id S1751110AbYKVFae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 00:30:34 -0500
+In-Reply-To: <20081121235912.2150.53268.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <scofeldm@cisco.com>
-Date: Fri, 21 Nov 2008 16:34:18 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 21 Nov 2008 15:59:12 -0800
 
-> enic: misc cleanup items:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Clarrify reading PBA has no side-effect (clearing).
-> Add missing GPL license text.
+> Currently the igb driver is experiencing a panic due to a null function
+> pointer being used during the cleanup of the ethtool looback test on
+> fiber/serdes parts.  This patch prevents that and adds a check prior to
+> calling any phy function.
 > 
-> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
