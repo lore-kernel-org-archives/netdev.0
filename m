@@ -1,42 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: nf_conntrack_sctp: fix build warning
-Date: Sun, 23 Nov 2008 13:59:55 -0800 (PST)
-Message-ID: <20081123.135955.202482968.davem@davemloft.net>
-References: <20081123113315.GA16697@localhost>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] 8139too: use err.h macros
+Date: Sun, 23 Nov 2008 23:31:42 +0100
+Message-ID: <20081123223142.GA2597@electric-eye.fr.zoreil.com>
+References: <20081123102237.42cc99dd@extreme> <20081123183645.GA11340@havoc.gtf.org> <20081123.135311.74121589.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: kaber@trash.net, linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: fengguang.wu@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36477
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751095AbYKWV7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2008 16:59:55 -0500
-In-Reply-To: <20081123113315.GA16697@localhost>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:51132 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750780AbYKWWc3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2008 17:32:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20081123.135311.74121589.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogV3UgRmVuZ2d1YW5nIDxmZW5nZ3Vhbmcud3VAaW50ZWwuY29tPg0KRGF0ZTogU3VuLCAy
-MyBOb3YgMjAwOCAxOTozMzoxNSArMDgwMA0KDQpsaW51eC1uZXQgaXMgbm90IHRoZSBtYWlsaW5n
-IGxpc3QgZm9yIG5ldHdvcmsgZGV2ZWxvcG1lbnQNCmRpc2N1c3Npb24sIGl0IGlzIGZvciB1c2Vy
-IHF1ZXN0aW9ucy4gIFBvc3QgcGF0Y2hlcyBhbmQNCmRldmVsb3BlciBxdWVzdGlvbnMgdG8gbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZyBpbnN0ZWFkLg0KDQo+IG5ldC9uZXRmaWx0ZXIvbmZfY29ubnRy
-YWNrX3Byb3RvX3NjdHAuYzogSW4gZnVuY3Rpb24g4oCYc2N0cF9wYWNrZXTigJk6DQo+IG5ldC9u
-ZXRmaWx0ZXIvbmZfY29ubnRyYWNrX3Byb3RvX3NjdHAuYzozNzY6IHdhcm5pbmc6IGFycmF5IHN1
-YnNjcmlwdCBpcyBhYm92ZSBhcnJheSBib3VuZHMNCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFd1IEZl
-bmdndWFuZyA8d2ZnQGxpbnV4LmludGVsLmNvbT4NCj4gLS0tDQo+IA0KPiBESVNDTEFJTUVSOiBJ
-J20gbmV3YmllIHRvIHRoZSBjb2RlLCBhbmQgdGhpcyBmaXggY291bGQgYmUgd3JvbmchDQo+IA0K
-PiBkaWZmIC0tZ2l0IGEvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfcHJvdG9fc2N0cC5jIGIv
-bmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfcHJvdG9fc2N0cC5jDQo+IGluZGV4IGFlOGMyNjAu
-LmQzMWNlZDQgMTAwNjQ0DQo+IC0tLSBhL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX3Byb3Rv
-X3NjdHAuYw0KPiArKysgYi9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19wcm90b19zY3RwLmMN
-Cj4gQEAgLTM3Myw2ICszNzMsOSBAQCBzdGF0aWMgaW50IHNjdHBfcGFja2V0KHN0cnVjdCBuZl9j
-b25uICpjdCwNCj4gIAl9DQo+ICAJd3JpdGVfdW5sb2NrX2JoKCZzY3RwX2xvY2spOw0KPiAgDQo+
-ICsJaWYgKG5ld19zdGF0ZSA9PSBTQ1RQX0NPTk5UUkFDS19NQVgpDQo+ICsJCWdvdG8gb3V0Ow0K
-PiArDQo+ICAJbmZfY3RfcmVmcmVzaF9hY2N0KGN0LCBjdGluZm8sIHNrYiwgc2N0cF90aW1lb3V0
-c1tuZXdfc3RhdGVdKTsNCj4gIA0KPiAgCWlmIChvbGRfc3RhdGUgPT0gU0NUUF9DT05OVFJBQ0tf
-Q09PS0lFX0VDSE9FRCAmJg0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDog
-c2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtbmV0IiBpbg0KPiB0aGUgYm9keSBvZiBh
-IG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBp
-bmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg==
+David Miller <davem@davemloft.net> :
+[...]
+> Two return values without having to return it by reference
+> as an argument.
+
+It is quite common in fs/ too.
+
+I would use it more frequently.
+
+-- 
+Ueimor
