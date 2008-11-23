@@ -1,46 +1,73 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] 8139too: use err.h macros
-Date: Sun, 23 Nov 2008 13:36:45 -0500
-Message-ID: <20081123183645.GA11340@havoc.gtf.org>
-References: <20081123102237.42cc99dd@extreme>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: Convert TCP/DCCP listening hash tables to use RCU
+Date: Sun, 23 Nov 2008 19:42:14 +0100
+Message-ID: <4929A406.4070103@cosmosbay.com>
+References: <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com> <4909D551.9080309@cosmosbay.com> <491C2873.60004@cosmosbay.com> <49292368.2060201@cosmosbay.com> <20081123155932.GB7932@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Corey Minyard <minyard@acm.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	benny+usenet@amorsen.dk,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Christian Bell <christian@myri.com>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:52680 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751407AbYKWSgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Nov 2008 13:36:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20081123102237.42cc99dd@extreme>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:57841 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751760AbYKWSnj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2008 13:43:39 -0500
+In-Reply-To: <20081123155932.GB7932@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 23, 2008 at 10:22:37AM -0800, Stephen Hemminger wrote:
-> Instead of using call by reference use the PTR_ERR macros to handle
-> return value with error case. Compile tested only.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/drivers/net/8139too.c	2008-11-23 10:16:26.000000000 -0800
-> +++ b/drivers/net/8139too.c	2008-11-23 10:19:05.000000000 -0800
-> @@ -741,8 +741,7 @@ static void rtl8139_chip_reset (void __i
->  }
->  
->  
-> -static int __devinit rtl8139_init_board (struct pci_dev *pdev,
-> -					 struct net_device **dev_out)
-> +static __devinit struct net_device * rtl8139_init_board (struct pci_dev *pdev)
->  {
->  	void __iomem *ioaddr;
->  	struct net_device *dev;
+Paul E. McKenney a =E9crit :
+> On Sun, Nov 23, 2008 at 10:33:28AM +0100, Eric Dumazet wrote:
+>> Hi David
+>>
+>> Please find patch to convert TCP/DCCP listening hash tables
+>> to RCU.
+>>
+>> A followup patch will cleanup all sk_node fields and macros
+>> that are not used anymore.
+>>
+>> Thanks
+>>
+>> [PATCH] net: Convert TCP/DCCP listening hash tables to use RCU
+>>
+>> This is the last step to be able to perform full RCU lookups
+>> in __inet_lookup() : After established/timewait tables, we
+>> add RCU lookups to listening hash table.
+>>
+>> The only trick here is that a socket of a given type (TCP ipv4,
+>> TCP ipv6, ...) can now flight between two different tables
+>> (established and listening) during a RCU grace period, so we
+>> must use different 'nulls' end-of-chain values for two tables.
+>>
+>> We define a large value :
+>>
+>> #define LISTENING_NULLS_BASE (1U << 29)
+>=20
+> I do like this use of the full set up upper bits!  However, wouldn't =
+it
+> be a good idea to use a larger base value for 64-bit systems, perhaps
+> using CONFIG_64BIT to choose?  500M entries might not seem like that
+> many in a few years time...
+>=20
 
-I won't NAK this, but I do wonder why a solution based on yucky
-magic typecasting is preferred...?
+Well, this value is correct up to 2^29 slots, and a hash table of 2^32 =
+bytes
+(8 bytes per pointer)
 
-	Jeff
+A TCP socket uses about 1472 bytes on 64bit arches, so 2^29 sessions
+would need 800 GB of ram, not counting dentries, inodes, ...
 
+I really doubt a machine, even with 4096 cpus should/can handle so many
+tcp sessions :)
 
 
