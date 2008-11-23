@@ -1,69 +1,41 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 03/10] x86: add initialization code for DMA-API debugging
-Date: Sun, 23 Nov 2008 20:36:45 +0100
-Message-ID: <87r652i69e.fsf@basil.nowhere.org>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
-	<1227284770-19215-4-git-send-email-joerg.roedel@amd.com>
+From: Jirka Pirko <jirka@pirko.cz>
+Subject: [PATCH] tokenring/3c359.c: fix allocation null check
+Date: Sun, 23 Nov 2008 20:28:50 +0100
+Message-ID: <20081123202850.372eb7cb@jirka.pirko.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org
-To: Joerg Roedel <joerg.roedel@amd.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, davem@davemloft.net
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:56091 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752229AbYKWTgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2008 14:36:44 -0500
-In-Reply-To: <1227284770-19215-4-git-send-email-joerg.roedel@amd.com> (Joerg Roedel's message of "Fri, 21 Nov 2008 17:26:03 +0100")
+Received: from onyx.pirko.cz ([84.16.102.30]:49539 "EHLO onyx.pirko.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757997AbYKWUAS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Nov 2008 15:00:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joerg Roedel <joerg.roedel@amd.com> writes:
-> +/* Hash list to save the allocated dma addresses */
-> +static struct list_head dma_entry_hash[HASH_SIZE];
+Fixed type when allocating rx_ring, tx_ring was checked for null instead.
 
-Hash tables should use hlists.
+Signed-off-by: Jirka Pirko <jirka@pirko.cz>
+---
+ drivers/net/tokenring/3c359.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> +static int hash_fn(struct dma_debug_entry *entry)
-> +{
-> +	/*
-> +	 * Hash function is based on the dma address.
-> +	 * We use bits 20-27 here as the index into the hash
-> +	 */
-> +	BUG_ON(entry->dev_addr == bad_dma_address);
-> +
-> +	return (entry->dev_addr >> HASH_FN_SHIFT) & HASH_FN_MASK;
-
-It would be probably safer to use a stronger hash like FNV
-There are a couple to reuse in include/
-
-> +}
-> +
-> +static struct dma_debug_entry *dma_entry_alloc(void)
-> +{
-> +	gfp_t gfp = GFP_KERNEL | __GFP_ZERO;
-> +
-> +	if (in_atomic())
-> +		gfp |= GFP_ATOMIC;
-> +
-> +	return kmem_cache_alloc(dma_entry_cache, gfp);
-> +}
-
-While the basic idea is reasonable this function is unfortunately
-broken. It's not always safe to allocate memory (e.g. in the block
-write out path which uses map_sg). You would need to use
-a mempool or something.
-
-Besides the other problem of using GFP_ATOMIC is that it can 
-fail under high load and you don't handle this case very well
-(would report a bug incorrectly). And stress tests tend to 
-trigger that, reporting false positives in such a case is a very very
-bad thing, it leads to QA people putting these messages
-on their blacklists.
-
--Andi
-
+diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c359.c
+index bf62132..f832f9b 100644
+--- a/drivers/net/tokenring/3c359.c
++++ b/drivers/net/tokenring/3c359.c
+@@ -644,7 +644,7 @@ static int xl_open(struct net_device *dev)
+ 		return -ENOMEM;
+ 	}
+ 	xl_priv->xl_rx_ring = kzalloc((sizeof(struct xl_rx_desc) * XL_RX_RING_SIZE) +7, GFP_DMA | GFP_KERNEL);
+-	if (xl_priv->xl_tx_ring == NULL) {
++	if (xl_priv->xl_rx_ring == NULL) {
+ 		printk(KERN_WARNING "%s: Not enough memory to allocate rx buffers.\n",
+ 				     dev->name);
+ 		free_irq(dev->irq,dev);
 -- 
-ak@linux.intel.com
+1.5.4.3
+
+
