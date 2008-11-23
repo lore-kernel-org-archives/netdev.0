@@ -1,47 +1,37 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH 2/6] smsc911x: add dynamic bus configuration
-Date: Sun, 23 Nov 2008 13:39:05 +0000
-Message-ID: <OF7747D767.14F5C717-ON8025750A.004A27CB-8025750A.004B0FA5@smsc.com>
-References: <1225977010.16885.14.camel@pc1117.cambridge.arm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Question about HFSC atm+man patches
+Date: Sun, 23 Nov 2008 15:05:35 +0100
+Message-ID: <4929632F.3050200@trash.net>
+References: <49292F54.4020803@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: ian.saturley@smsc.com, Catalin Marinas <catalin.marinas@arm.com>,
-	netdev@vger.kernel.org, jeff@garzik.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:4092 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757919AbYKWNkO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Nov 2008 08:40:14 -0500
-In-Reply-To: <1225977010.16885.14.camel@pc1117.cambridge.arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Michal Soltys <soltys@ziu.info>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <49292F54.4020803@ziu.info>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-Catalin Marinas <catalin.marinas@arm.com> wrote on 06/11/2008 13:10:10:
-> > Convert the driver to select 16-bit or 32-bit bus access at runtime,
-> > at a small performance cost.
-> > 
-> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Michal Soltys wrote:
+> I'm thinking about writing few simple patches that would introduce layer
+> 2 adaptation to HFSC. Generally - instead of preparing adjusted rate
+> table like some of the other qdiscs do (tbf, htb, ...), hfsc could
+> simply adjust packets' lengths in qdisc code (and there are just few 
+> places where it's done) - as it's used for all time / curve related 
+> computations later. So the whole thing should be, at least in theory, 
+> pretty straightforward.
 > 
-> Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+> The tc's interface would of course remain the same - that is - linklayer
+> and overhead options, consistently with other qdiscs.
 > 
-> I tested it on the RealView platforms and works OK (can't tell about the
-> other platforms).
+> Would such approach be valid and possibly accepted ?
 
-Could you please apply the second patch in this set  to net-next (Jeff 
-applied the first, the others are listed as "awaiting upstream" in 
-patchwork), as all the later platform-dependant patches in the set require 
-it.
+We already support generic size adjustment for all qdiscs. I'm
+not sure about the userspace interface though.
 
-Should I push the sh arch-dependant patches (3-5) via the sh tree, or does 
-it make more sense to include them here as they depend on patches 1-2?
+> Another thing I'd like to add is detailed tc-hfsc man page (and maybe
+> add/update other ones - but that's for a bit later).
 
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
+That would be great.
