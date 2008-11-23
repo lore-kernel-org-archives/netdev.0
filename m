@@ -1,73 +1,89 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: Convert TCP/DCCP listening hash tables to use RCU
-Date: Sun, 23 Nov 2008 19:42:14 +0100
-Message-ID: <4929A406.4070103@cosmosbay.com>
-References: <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com> <4909D551.9080309@cosmosbay.com> <491C2873.60004@cosmosbay.com> <49292368.2060201@cosmosbay.com> <20081123155932.GB7932@linux.vnet.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] 8139too: use err.h macros
+Date: Sun, 23 Nov 2008 10:45:37 -0800
+Message-ID: <20081123104537.792633cd@extreme>
+References: <20081123102237.42cc99dd@extreme>
+	<20081123183645.GA11340@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Corey Minyard <minyard@acm.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	benny+usenet@amorsen.dk,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Christian Bell <christian@myri.com>
-To: paulmck@linux.vnet.ibm.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:57841 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751760AbYKWSnj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2008 13:43:39 -0500
-In-Reply-To: <20081123155932.GB7932@linux.vnet.ibm.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48705 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751723AbYKWSqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2008 13:46:18 -0500
+In-Reply-To: <20081123183645.GA11340@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul E. McKenney a =E9crit :
-> On Sun, Nov 23, 2008 at 10:33:28AM +0100, Eric Dumazet wrote:
->> Hi David
->>
->> Please find patch to convert TCP/DCCP listening hash tables
->> to RCU.
->>
->> A followup patch will cleanup all sk_node fields and macros
->> that are not used anymore.
->>
->> Thanks
->>
->> [PATCH] net: Convert TCP/DCCP listening hash tables to use RCU
->>
->> This is the last step to be able to perform full RCU lookups
->> in __inet_lookup() : After established/timewait tables, we
->> add RCU lookups to listening hash table.
->>
->> The only trick here is that a socket of a given type (TCP ipv4,
->> TCP ipv6, ...) can now flight between two different tables
->> (established and listening) during a RCU grace period, so we
->> must use different 'nulls' end-of-chain values for two tables.
->>
->> We define a large value :
->>
->> #define LISTENING_NULLS_BASE (1U << 29)
->=20
-> I do like this use of the full set up upper bits!  However, wouldn't =
-it
-> be a good idea to use a larger base value for 64-bit systems, perhaps
-> using CONFIG_64BIT to choose?  500M entries might not seem like that
-> many in a few years time...
->=20
+On Sun, 23 Nov 2008 13:36:45 -0500
+Jeff Garzik <jeff@garzik.org> wrote:
 
-Well, this value is correct up to 2^29 slots, and a hash table of 2^32 =
-bytes
-(8 bytes per pointer)
+> On Sun, Nov 23, 2008 at 10:22:37AM -0800, Stephen Hemminger wrote:
+> > Instead of using call by reference use the PTR_ERR macros to handle
+> > return value with error case. Compile tested only.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > --- a/drivers/net/8139too.c	2008-11-23 10:16:26.000000000 -0800
+> > +++ b/drivers/net/8139too.c	2008-11-23 10:19:05.000000000 -0800
+> > @@ -741,8 +741,7 @@ static void rtl8139_chip_reset (void __i
+> >  }
+> >  
+> >  
+> > -static int __devinit rtl8139_init_board (struct pci_dev *pdev,
+> > -					 struct net_device **dev_out)
+> > +static __devinit struct net_device * rtl8139_init_board (struct pci_dev *pdev)
+> >  {
+> >  	void __iomem *ioaddr;
+> >  	struct net_device *dev;
+> 
+> I won't NAK this, but I do wonder why a solution based on yucky
+> magic typecasting is preferred...?
+> 
+> 	Jeff
 
-A TCP socket uses about 1472 bytes on 64bit arches, so 2^29 sessions
-would need 800 GB of ram, not counting dentries, inodes, ...
+Dave described the issue last year:
+=================================================================================
 
-I really doubt a machine, even with 4096 cpus should/can handle so many
-tcp sessions :)
+Today I want to talk about multiple return values. In short, don't do it :-) It really is a sign that things need to be redesigned, and on top of it multiple return values result in quite inefficient code.
 
+The most common case with C is when you need to allocate some memory and return it to caller, but if something goes wrong you want to give some error status too.
+
+So you end up with absolute crap like this:
+
+int create_foo(int flags, struct foo **foop)
+
+or, even worse:
+
+struct foo *create_foo(int flags, int *errp)
+
+I mean, that just doesn't deserve to live. First of all, the compiler has to allocate stack space for that "by reference" turd you had to add to the arguments to pass that second piece of information back. And that's slow, even on register starved cpus like x86 where stack accesses have been heavily optimized inside of the cpu to make up for that.
+
+Secondly, the semantics are not entirely clear. If an error happens for the second API above, will the function return value always be NULL? In the first API above, when an error happens will the "*foop" always be NULL'd out for me or is the caller expected to do that? Likewise, for the second API above, if there is no error and non-NULL is returned, can I depend upon "*errp" being set to zero?
+
+You don't know, because when you look at that interface definition you simply cannot tell. It's one big ambiguous ugly interface.
+
+For this particular case in the kernel we've settled on a set of macros that allow a pointer and an error to be returned in a single function return value. Basically, it takes advantage of the fact that the range of negative error codes cannot ever be legitimate pointers. So the interface above looks like:
+
+struct foo *create_foo(int flags)
+
+and the caller first checks:
+
+	p = create_foo(flags);
+	if (IS_ERR(p)) {
+		err = PTR_ERR(p);
+		return err;
+	}
+
+And if "IS_ERR" is not true, it is a non-NULL pointer and no error happened.
+
+It is completely unambiguous what the return values mean, and how they will be presented to the caller. Yes, it's true that looking at the function definition you can't "see" this. But once people are exposed to this pattern enough they pick it up, and it allows us to eliminate ambiguity and unclear semantics for these kinds of cases. 
+
+
+
+http://vger.kernel.org/~davem/cgi-bin/blog.cgi/2007/12/31
 
