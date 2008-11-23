@@ -1,345 +1,146 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] fs: pipe/sockets/anon dentries should have themselves
- as parent
-Date: Sun, 23 Nov 2008 04:53:13 +0100
-Message-ID: <4928D3A9.8060805@cosmosbay.com>
-References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121153626.GA9281@infradead.org> <4926F6C5.9030108@cosmosbay.com> <20081121184344.GC5707@parisc-linux.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12086] New: NETDEV WATCHDOG: eth0 (atl1):
+ transmit timed out
+Date: Sat, 22 Nov 2008 20:58:03 -0800
+Message-ID: <20081122205803.517ad692.akpm@linux-foundation.org>
+References: <bug-12086-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030909020809070702010904"
-Cc: Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>, mingo@elte.hu,
-	cl@linux-foundation.org, rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	kernel-testers@vger.kernel.org, efault@gmx.de,
-	a.p.zijlstra@chello.nl, Linux Netdev List <netdev@vger.kernel.org>,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org
-To: Matthew Wilcox <matthew@wil.cx>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, bharattharee@gmail.com,
+	Jay Cliburn <jacliburn@bellsouth.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:35216 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755384AbYKWDxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 22:53:51 -0500
-In-Reply-To: <20081121184344.GC5707@parisc-linux.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48126 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754199AbYKWE6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2008 23:58:36 -0500
+In-Reply-To: <bug-12086-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030909020809070702010904
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
 
-Matthew Wilcox a =E9crit :
-> On Fri, Nov 21, 2008 at 06:58:29PM +0100, Eric Dumazet wrote:
->> +/**
->> + * d_alloc_unhashed - allocate unhashed dentry
->> + * @inode: inode to allocate the dentry for
->> + * @name: dentry name
->=20
-> It's normal to list the parameters in the order they're passed to the
-> function.  Not sure if we have a tool that checks for this or not --
-> Randy?
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Yes, no problem, better to have the same order.
+On Sat, 22 Nov 2008 19:04:26 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 
->=20
->> + *
->> + * Allocate an unhashed dentry for the inode given. The inode is
->> + * instantiated and returned. %NULL is returned if there is insuffici=
-ent
->> + * memory. Unhashed dentries have themselves as a parent.
->> + */
->> +=20
->> +struct dentry * d_alloc_unhashed(const char *name, struct inode *inod=
-e)
->> +{
->> +	struct qstr q =3D { .name =3D name, .len =3D strlen(name) };
->> +	struct dentry *res;
->> +
->> +	res =3D d_alloc(NULL, &q);
->> +	if (res) {
->> +		res->d_sb =3D inode->i_sb;
->> +		res->d_parent =3D res;
->> +		/*
->> +		 * We dont want to push this dentry into global dentry hash table.
->> +		 * We pretend dentry is already hashed, by unsetting DCACHE_UNHASHE=
-D
->> +		 * This permits a working /proc/$pid/fd/XXX on sockets,pipes,anon
->> +		 */
->=20
-> Line length ... as checkpatch would have warned you ;-)
->=20
-> And there are several other grammatical nitpicks with this comment.  Tr=
-y
-> this:
->=20
-> 		/*
-> 		 * We don't want to put this dentry in the global dentry
-> 		 * hash table, so we pretend the dentry is already hashed
-> 		 * by unsetting DCACHE_UNHASHED.  This permits=20
-> 		 * /proc/$pid/fd/XXX t work for sockets, pipes and
-> 		 * anonymous files (signalfd, timerfd, etc).
-> 		 */
+> http://bugzilla.kernel.org/show_bug.cgi?id=12086
+> 
+>            Summary: NETDEV WATCHDOG: eth0 (atl1): transmit timed out
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.27.5-41.fc9.x86_64
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Fedora
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: bharattharee@gmail.com
+> 
+> 
+> Latest working kernel version: 2.6.27.5-41.fc9.x86_64
+> 
+> Earliest failing kernel version: 2.6.27.5-41.fc9.x86_64
 
-Yes, this is better.
+This doesn't make sense - the same kernel version failed and didn't fail?
 
->=20
->> +		res->d_flags &=3D ~DCACHE_UNHASHED;
->> +		res->d_flags |=3D DCACHE_DISCONNECTED;
->=20
-> Is this really better than:
->=20
-> 		res->d_flags =3D res->d_flags & ~DCACHE_UNHASHED |
-> 						DCACHE_DISCONNECTED;
+We're trying to find out if this is a regression.
 
-Well, I personally prefer the two lines, intention is more readable :)
-
->=20
-> Anyway, nice cleanup.
->=20
-
-Thanks Matthew, here is an updated version of the patch.
-
-[PATCH] fs: pipe/sockets/anon dentries should have themselves as parent
-
-
-Linking pipe/sockets/anon dentries to one root 'parent' has no functional=
-
-impact at all, but a scalability one.
-
-We can avoid touching a cache line at allocation stage (inside d_alloc(),=
- no need
-to touch root->d_count), but also at freeing time (in d_kill, decrementin=
-g d_count)
-We avoid an expensive atomic_dec_and_lock() call on the root dentry.
-
-We add d_alloc_unhashed(const char *name, struct inode *inode) helper
-to be used by pipes/socket/anon. This function is about the same as
-d_alloc_root() but for unhashed entries.
-
-Before patch, time to run 8 *  1 million of close(socket()) calls on 8 CP=
-US was :
-
-real    0m27.496s
-user    0m0.657s
-sys     3m39.092s
-
-After patch :
-
-real    0m23.843s
-user    0m0.616s
-sys     3m9.732s
-
-
-Old oprofile :
-CPU: Core 2, speed 3000.11 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a uni=
-t mask of 0x00 (Unhalted core cycles) count 100000
-samples  cum. samples  %        cum. %     symbol name
-164257   164257        11.0245  11.0245    init_file
-155488   319745        10.4359  21.4604    d_alloc
-151887   471632        10.1942  31.6547    _atomic_dec_and_lock
-91620    563252         6.1493  37.8039    inet_create
-74245    637497         4.9831  42.7871    kmem_cache_alloc
-46702    684199         3.1345  45.9216    dentry_iput
-46186    730385         3.0999  49.0215    tcp_close
-42824    773209         2.8742  51.8957    kmem_cache_free
-37275    810484         2.5018  54.3975    wake_up_inode
-36553    847037         2.4533  56.8508    tcp_v4_init_sock
-35661    882698         2.3935  59.2443    inotify_d_instantiate
-32998    915696         2.2147  61.4590    sysenter_past_esp
-31442    947138         2.1103  63.5693    d_instantiate
-31303    978441         2.1010  65.6703    generic_forget_inode
-27533    1005974        1.8479  67.5183    vfs_dq_drop
-24237    1030211        1.6267  69.1450    sock_attach_fd
-19290    1049501        1.2947  70.4397    __copy_from_user_ll
-
-
-New oprofile :
-CPU: Core 2, speed 3000.11 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a uni=
-t mask of 0x00 (Unhalted core cycles) count 100000
-samples  cum. samples  %        cum. %     symbol name
-148703   148703        10.8581  10.8581    inet_create
-116680   265383         8.5198  19.3779    new_inode
-108912   374295         7.9526  27.3306    init_file
-82911    457206         6.0541  33.3846    kmem_cache_alloc
-65690    522896         4.7966  38.1812    wake_up_inode
-53286    576182         3.8909  42.0721    _atomic_dec_and_lock
-43814    619996         3.1992  45.2713    generic_forget_inode
-41993    661989         3.0663  48.3376    d_alloc
-41244    703233         3.0116  51.3492    kmem_cache_free
-39244    742477         2.8655  54.2148    tcp_v4_init_sock
-37402    779879         2.7310  56.9458    tcp_close
-33336    813215         2.4342  59.3800    sysenter_past_esp
-28596    841811         2.0880  61.4680    inode_has_buffers
-25769    867580         1.8816  63.3496    d_kill
-22606    890186         1.6507  65.0003    dentry_iput
-20224    910410         1.4767  66.4770    vfs_dq_drop
-19800    930210         1.4458  67.9228    __copy_from_user_ll
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- fs/anon_inodes.c       |    9 +--------
- fs/dcache.c            |   33 +++++++++++++++++++++++++++++++++
- fs/pipe.c              |   10 +---------
- include/linux/dcache.h |    1 +
- net/socket.c           |   10 +---------
- 5 files changed, 37 insertions(+), 26 deletions(-)
-
---------------030909020809070702010904
-Content-Type: text/plain;
- name="d_alloc_unhashed2.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="d_alloc_unhashed2.patch"
-
-diff --git a/fs/anon_inodes.c b/fs/anon_inodes.c
-index 3662dd4..9fd0515 100644
---- a/fs/anon_inodes.c
-+++ b/fs/anon_inodes.c
-@@ -71,7 +71,6 @@ static struct dentry_operations anon_inodefs_dentry_operations = {
- int anon_inode_getfd(const char *name, const struct file_operations *fops,
- 		     void *priv, int flags)
- {
--	struct qstr this;
- 	struct dentry *dentry;
- 	struct file *file;
- 	int error, fd;
-@@ -89,10 +88,7 @@ int anon_inode_getfd(const char *name, const struct file_operations *fops,
- 	 * using the inode sequence number.
- 	 */
- 	error = -ENOMEM;
--	this.name = name;
--	this.len = strlen(name);
--	this.hash = 0;
--	dentry = d_alloc(anon_inode_mnt->mnt_sb->s_root, &this);
-+	dentry = d_alloc_unhashed(name, anon_inode_inode);
- 	if (!dentry)
- 		goto err_put_unused_fd;
- 
-@@ -104,9 +100,6 @@ int anon_inode_getfd(const char *name, const struct file_operations *fops,
- 	atomic_inc(&anon_inode_inode->i_count);
- 
- 	dentry->d_op = &anon_inodefs_dentry_operations;
--	/* Do not publish this dentry inside the global dentry hash table */
--	dentry->d_flags &= ~DCACHE_UNHASHED;
--	d_instantiate(dentry, anon_inode_inode);
- 
- 	error = -ENFILE;
- 	file = alloc_file(anon_inode_mnt, dentry,
-diff --git a/fs/dcache.c b/fs/dcache.c
-index a1d86c7..43ef88d 100644
---- a/fs/dcache.c
-+++ b/fs/dcache.c
-@@ -1111,6 +1111,39 @@ struct dentry * d_alloc_root(struct inode * root_inode)
- 	return res;
- }
- 
-+/**
-+ * d_alloc_unhashed - allocate unhashed dentry
-+ * @name: dentry name
-+ * @inode: inode to allocate the dentry for
-+ *
-+ * Allocate an unhashed dentry for the inode given. The inode is
-+ * instantiated and returned. %NULL is returned if there is insufficient
-+ * memory. Unhashed dentries have themselves as a parent.
-+ */
-+ 
-+struct dentry * d_alloc_unhashed(const char *name, struct inode *inode)
-+{
-+	struct qstr q = { .name = name, .len = strlen(name) };
-+	struct dentry *res;
-+
-+	res = d_alloc(NULL, &q);
-+	if (res) {
-+		res->d_sb = inode->i_sb;
-+		res->d_parent = res;
-+		/*
-+		 * We dont want to push this dentry into global dentry
-+		 * hash table, so we pretend the dentry is already hashed
-+		 * by unsetting DCACHE_UNHASHED. This permits
-+		 * /proc/$pid/fd/XXX to work for sockets, pipes, and
-+		 * anonymous files (signalfd, timerfd, ...)
-+		 */
-+		res->d_flags &= ~DCACHE_UNHASHED;
-+		res->d_flags |= DCACHE_DISCONNECTED;
-+		d_instantiate(res, inode);
-+	}
-+	return res;
-+}
-+
- static inline struct hlist_head *d_hash(struct dentry *parent,
- 					unsigned long hash)
- {
-diff --git a/fs/pipe.c b/fs/pipe.c
-index 7aea8b8..29fcac2 100644
---- a/fs/pipe.c
-+++ b/fs/pipe.c
-@@ -918,7 +918,6 @@ struct file *create_write_pipe(int flags)
- 	struct inode *inode;
- 	struct file *f;
- 	struct dentry *dentry;
--	struct qstr name = { .name = "" };
- 
- 	err = -ENFILE;
- 	inode = get_pipe_inode();
-@@ -926,18 +925,11 @@ struct file *create_write_pipe(int flags)
- 		goto err;
- 
- 	err = -ENOMEM;
--	dentry = d_alloc(pipe_mnt->mnt_sb->s_root, &name);
-+	dentry = d_alloc_unhashed("", inode);
- 	if (!dentry)
- 		goto err_inode;
- 
- 	dentry->d_op = &pipefs_dentry_operations;
--	/*
--	 * We dont want to publish this dentry into global dentry hash table.
--	 * We pretend dentry is already hashed, by unsetting DCACHE_UNHASHED
--	 * This permits a working /proc/$pid/fd/XXX on pipes
--	 */
--	dentry->d_flags &= ~DCACHE_UNHASHED;
--	d_instantiate(dentry, inode);
- 
- 	err = -ENFILE;
- 	f = alloc_file(pipe_mnt, dentry, FMODE_WRITE, &write_pipefifo_fops);
-diff --git a/include/linux/dcache.h b/include/linux/dcache.h
-index a37359d..12438d6 100644
---- a/include/linux/dcache.h
-+++ b/include/linux/dcache.h
-@@ -238,6 +238,7 @@ extern int d_invalidate(struct dentry *);
- 
- /* only used at mount-time */
- extern struct dentry * d_alloc_root(struct inode *);
-+extern struct dentry * d_alloc_unhashed(const char *, struct inode *);
- 
- /* <clickety>-<click> the ramfs-type tree */
- extern void d_genocide(struct dentry *);
-diff --git a/net/socket.c b/net/socket.c
-index e9d65ea..b659b5d 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -371,20 +371,12 @@ static int sock_alloc_fd(struct file **filep, int flags)
- static int sock_attach_fd(struct socket *sock, struct file *file, int flags)
- {
- 	struct dentry *dentry;
--	struct qstr name = { .name = "" };
- 
--	dentry = d_alloc(sock_mnt->mnt_sb->s_root, &name);
-+	dentry = d_alloc_unhashed("", SOCK_INODE(sock));
- 	if (unlikely(!dentry))
- 		return -ENOMEM;
- 
- 	dentry->d_op = &sockfs_dentry_operations;
--	/*
--	 * We dont want to push this dentry into global dentry hash table.
--	 * We pretend dentry is already hashed, by unsetting DCACHE_UNHASHED
--	 * This permits a working /proc/$pid/fd/XXX on sockets
--	 */
--	dentry->d_flags &= ~DCACHE_UNHASHED;
--	d_instantiate(dentry, SOCK_INODE(sock));
- 
- 	sock->file = file;
- 	init_file(file, sock_mnt, dentry, FMODE_READ | FMODE_WRITE,
-
---------------030909020809070702010904--
+> Distribution: FEDORA 9 x86_64
+> 
+> Hardware Environment: AMD +4400, Dual-core, RAM=2GB, HDD=(250+40)GB
+> 
+> Software Environment: FEDORA 9 x86_64
+> 
+> Problem Description: Today morning got the following "kernel failure" message
+> from "kernel-loops".
+> 
+> -----------------------------------------------------------------------------
+> WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0xfe/0x15d()
+> NETDEV WATCHDOG: eth0 (atl1): transmit timed out
+> NETDEV WATCHDOG: eth0 (atl1): transmit timed out
+> Modules linked in: xt_state ipt_REJECT xt_tcpudp nfsd lockd nfs_acl auth_rpcgss
+> exportfs bridge stp bnep rfcomm l2cap bluetooth ib_iser rdma_cm ib_cm iw_cm
+> ib_sa ib_mad ib_core ib_addr iscsi_tcp libiscsi scsi_transport_iscsi autofs4
+> sunrpc iptable_filter ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4
+> nf_conntrack ip_tables x_tables cpufreq_ondemand powernow_k8 freq_table ipv6
+> fuse dm_multipath scsi_dh kvm_amd kvm snd_hda_intel snd_seq_dummy ppdev
+> snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss
+> snd_pcm snd_timer snd_page_alloc snd_hwdep atl1 sc92031 snd sr_mod nvidia(P)
+> parport_pc i2c_nforce2 floppy pcspkr k8temp cdrom parport pata_amd mii i2c_core
+> soundcore hwmon sg dm_snapshot dm_zero dm_mirror dm_log dm_mod sata_nv
+> pata_acpi ata_generic libata sd_mod scsi_mod crc_t10dif ext3 jbd mbcache
+> uhci_hcd ohci_hcd ehci_hcd [last unloaded: scsi_wait_scan]
+> Pid: 0, comm: swapper Tainted: P          2.6.27.5-41.fc9.x86_64 #1
+> 
+> Call Trace:
+>  <IRQ>  [<ffffffff8103bb01>] warn_slowpath+0xae/0xd7
+>  [<ffffffff810b3522>] ? virt_to_head_page+0x31/0x41
+>  [<ffffffff810b4df2>] ? kmem_cache_free+0x99/0xb8
+>  [<ffffffff810b3522>] ? virt_to_head_page+0x31/0x41
+>  [<ffffffff81138b0b>] ? blk_remove_plug+0x71/0xa5
+>  [<ffffffff81135d3f>] ? elv_queue_empty+0x22/0x24
+>  [<ffffffff81138dc2>] ? blk_run_queue+0x30/0x35
+>  [<ffffffffa005c4fa>] ? scsi_run_queue+0x29f/0x2d2 [scsi_mod]
+>  [<ffffffff81053d42>] ? sched_clock_cpu+0x10f/0x120
+>  [<ffffffffa005d190>] ? scsi_next_command+0x3e/0x46 [scsi_mod]
+>  [<ffffffff812b665a>] ? _spin_lock+0x9/0xc
+>  [<ffffffff81247521>] ? netif_tx_lock+0x64/0x7e
+>  [<ffffffff81053d42>] ? sched_clock_cpu+0x10f/0x120
+>  [<ffffffff8124769b>] dev_watchdog+0xfe/0x15d
+>  [<ffffffff8124759d>] ? dev_watchdog+0x0/0x15d
+>  [<ffffffff81045212>] run_timer_softirq+0x19c/0x222
+>  [<ffffffff810570a2>] ? clockevents_program_event+0x73/0x7c
+>  [<ffffffff8104102e>] __do_softirq+0x7e/0x10c
+>  [<ffffffff8100dbcc>] call_softirq+0x1c/0x28
+>  [<ffffffff8100edd6>] do_softirq+0x4d/0xb0
+>  [<ffffffff81040c03>] irq_exit+0x4e/0x9d
+>  [<ffffffff8101ca3a>] smp_apic_timer_interrupt+0x8f/0xa8
+>  [<ffffffff8100d3d8>] apic_timer_interrupt+0x88/0x90
+>  <EOI>  [<ffffffff8102172a>] ? native_safe_halt+0x6/0x8
+>  [<ffffffff810132cf>] ? need_resched+0x1e/0x28
+>  [<ffffffff810133b4>] ? default_idle+0x2a/0x4c
+>  [<ffffffff81013504>] ? c1e_idle+0x120/0x127
+>  [<ffffffff812b963a>] ? atomic_notifier_call_chain+0x13/0x15
+>  [<ffffffff8100b279>] ? cpu_idle+0xb2/0x10b
+>  [<ffffffff812a49dd>] ? rest_init+0x61/0x63
+> 
+> ---[ end trace 9d3a40971e1bbe78 ]---
+> 
+> Steps to reproduce: Not quite aware on how to reproduce the error.
+> 
+> When did it happen: 
+> ---------------------
+> ---> This is the first time I am seeing this "kernel failure" message.
+> ---> Did not experience this problem in earlier kernel versions of FEDORA 9
+> x86_64
+> 
+> ---> Why in this kernel got this message? 
+> Do not know the reason. But this kernel was compiled.
+> 
+> ---> Why the kernel was compiled?
+> This kernel version had in-build "XEN" enabled, which was restricting me from
+> installing the NVIDIA driver.
+> Therefore removed the latest kernel version, downloaded the source code of the
+> latest version, compiled it without "XEN" and converted into "rpm package" to
+> install it.
+> 
+> ---> Any fruitful result after installing the compiled version?
+> YES, was able to install the latest NVIDIA driver.
+> 
+> ---> Status of the machine?
+> It is currently working fine. Graphics are working as expected.
+> 
+> The "network card" eth0 is working fine. Kindly let me know if it is a serious
+> bug or not to be worried of.
+> Kindly advise on the steps if this "kernel failure" message can be solved.
+> 
+> ----------------------------------------------------------------------
+> Since in the "trace" I saw this error, logged this bug in "NETWORKING".
+> If I have placed the bug in wrong section, kindly advise on the appropriate
+> section where this bug can be logged.
+> 
