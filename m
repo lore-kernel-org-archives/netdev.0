@@ -1,486 +1,309 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net: Convert TCP/DCCP listening hash tables to use RCU
-Date: Sun, 23 Nov 2008 07:59:32 -0800
-Message-ID: <20081123155932.GB7932@linux.vnet.ibm.com>
-References: <49089BE5.3090705@acm.org> <4908A134.4040705@cosmosbay.com> <4908AB3F.1060003@acm.org> <20081029185200.GE6732@linux.vnet.ibm.com> <4908C0CD.5050406@cosmosbay.com> <20081029201759.GF6732@linux.vnet.ibm.com> <4908DEDE.5030706@cosmosbay.com> <4909D551.9080309@cosmosbay.com> <491C2873.60004@cosmosbay.com> <49292368.2060201@cosmosbay.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Corey Minyard <minyard@acm.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	benny+usenet@amorsen.dk,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Christian Bell <christian@myri.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:48417 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751087AbYKWP7g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Nov 2008 10:59:36 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mANFxGHI012858
-	for <netdev@vger.kernel.org>; Sun, 23 Nov 2008 10:59:16 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mANFxXLd131250
-	for <netdev@vger.kernel.org>; Sun, 23 Nov 2008 10:59:35 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mANGxeD4004474
-	for <netdev@vger.kernel.org>; Sun, 23 Nov 2008 11:59:41 -0500
-Content-Disposition: inline
-In-Reply-To: <49292368.2060201@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [RFC PATCH 1/2] smsc911x: add support for sh3 RX DMA
+Date: Sun, 23 Nov 2008 16:04:33 +0000
+Message-ID: <1227456274-10388-1-git-send-email-steve.glendinning@smsc.com>
+Cc: linux-sh@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 23, 2008 at 10:33:28AM +0100, Eric Dumazet wrote:
-> Hi David
->
-> Please find patch to convert TCP/DCCP listening hash tables
-> to RCU.
->
-> A followup patch will cleanup all sk_node fields and macros
-> that are not used anymore.
->
-> Thanks
->
-> [PATCH] net: Convert TCP/DCCP listening hash tables to use RCU
->
-> This is the last step to be able to perform full RCU lookups
-> in __inet_lookup() : After established/timewait tables, we
-> add RCU lookups to listening hash table.
->
-> The only trick here is that a socket of a given type (TCP ipv4,
-> TCP ipv6, ...) can now flight between two different tables
-> (established and listening) during a RCU grace period, so we
-> must use different 'nulls' end-of-chain values for two tables.
->
-> We define a large value :
->
-> #define LISTENING_NULLS_BASE (1U << 29)
+I've been working on adding DMA support to the smsc911x driver.  As this 
+family of devices is non-pci, DMA transfers must be initiated and 
+controlled by the host CPU.  Unfortunately this makes some of the code 
+necessarily platform-specific.
 
-I do like this use of the full set up upper bits!  However, wouldn't it
-be a good idea to use a larger base value for 64-bit systems, perhaps
-using CONFIG_64BIT to choose?  500M entries might not seem like that
-many in a few years time...
+This patch adds RX DMA support for the sh architecture.  Tested on 
+SH7709S (sh3), where it gives a small (~10%) iperf tcp throughput 
+increase.  DMA or PIO is selected at compile-time.
 
-						Thanx, Paul
+My first attempt stopped NAPI polling during a DMA transfer, then used 
+DMA completion interrupts to pass the packet up and re-enable polling.
+Obviously this defeats the interrupt-mitigation of NAPI, and on my test 
+platform actually *reduced* performance!
 
-> So that slots in listening table are guaranteed to have different
-> end-of-chain values than slots in established table. A reader can
-> still detect it finished its lookup in the right chain.
->
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> ---
-> include/net/inet_hashtables.h |    9 +
-> net/ipv4/inet_diag.c          |    4
-> net/ipv4/inet_hashtables.c    |  148 ++++++++++++++++----------------
-> net/ipv4/tcp_ipv4.c           |    8 -
-> net/ipv6/inet6_hashtables.c   |   94 ++++++++++++--------
-> 5 files changed, 147 insertions(+), 116 deletions(-)
+This patch leaves NAPI polling enabled, so a later poll completes the 
+transfer.  I'm concerned this is essentially busy-waiting on the 
+transfer, but it does show a small performance gain.  Is this a good or 
+bad idea?
 
-> diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-> index ec7ee2e..df90118 100644
-> --- a/include/net/inet_hashtables.h
-> +++ b/include/net/inet_hashtables.h
-> @@ -99,9 +99,16 @@ struct inet_bind_hashbucket {
->  	struct hlist_head	chain;
->  };
-> 
-> +/*
-> + * Sockets can be hashed in established or listening table
-> + * We must use different 'nulls' end-of-chain value for listening
-> + * hash table, or we might find a socket that was closed and
-> + * reallocated/inserted into established hash table
-> + */
-> +#define LISTENING_NULLS_BASE (1U << 29)
->  struct inet_listen_hashbucket {
->  	spinlock_t		lock;
-> -	struct hlist_head	head;
-> +	struct hlist_nulls_head	head;
->  };
-> 
->  /* This is for listening sockets, thus all sockets which possess wildcards. */
-> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-> index 998a78f..588a779 100644
-> --- a/net/ipv4/inet_diag.c
-> +++ b/net/ipv4/inet_diag.c
-> @@ -720,13 +720,13 @@ static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
-> 
->  		for (i = s_i; i < INET_LHTABLE_SIZE; i++) {
->  			struct sock *sk;
-> -			struct hlist_node *node;
-> +			struct hlist_nulls_node *node;
->  			struct inet_listen_hashbucket *ilb;
-> 
->  			num = 0;
->  			ilb = &hashinfo->listening_hash[i];
->  			spin_lock_bh(&ilb->lock);
-> -			sk_for_each(sk, node, &ilb->head) {
-> +			sk_nulls_for_each(sk, node, &ilb->head) {
->  				struct inet_sock *inet = inet_sk(sk);
-> 
->  				if (num < s_num) {
-> diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-> index 4c273a9..11fcb87 100644
-> --- a/net/ipv4/inet_hashtables.c
-> +++ b/net/ipv4/inet_hashtables.c
-> @@ -110,78 +110,79 @@ void __inet_inherit_port(struct sock *sk, struct sock *child)
-> 
->  EXPORT_SYMBOL_GPL(__inet_inherit_port);
-> 
-> +static inline int compute_score(struct sock *sk, struct net *net,
-> +				const unsigned short hnum, const __be32 daddr,
-> +				const int dif)
-> +{
-> +	int score = -1;
-> +	struct inet_sock *inet = inet_sk(sk);
-> +
-> +	if (net_eq(sock_net(sk), net) && inet->num == hnum &&
-> +			!ipv6_only_sock(sk)) {
-> +		__be32 rcv_saddr = inet->rcv_saddr;
-> +		score = sk->sk_family == PF_INET ? 1 : 0;
-> +		if (rcv_saddr) {
-> +			if (rcv_saddr != daddr)
-> +				return -1;
-> +			score += 2;
-> +		}
-> +		if (sk->sk_bound_dev_if) {
-> +			if (sk->sk_bound_dev_if != dif)
-> +				return -1;
-> +			score += 2;
-> +		}
-> +	}
-> +	return score;
-> +}
-> +
->  /*
->   * Don't inline this cruft. Here are some nice properties to exploit here. The
->   * BSD API does not allow a listening sock to specify the remote port nor the
->   * remote address for the connection. So always assume those are both
->   * wildcarded during the search since they can never be otherwise.
->   */
-> -static struct sock *inet_lookup_listener_slow(struct net *net,
-> -					      const struct hlist_head *head,
-> -					      const __be32 daddr,
-> -					      const unsigned short hnum,
-> -					      const int dif)
-> -{
-> -	struct sock *result = NULL, *sk;
-> -	const struct hlist_node *node;
-> -	int hiscore = -1;
-> -
-> -	sk_for_each(sk, node, head) {
-> -		const struct inet_sock *inet = inet_sk(sk);
-> -
-> -		if (net_eq(sock_net(sk), net) && inet->num == hnum &&
-> -				!ipv6_only_sock(sk)) {
-> -			const __be32 rcv_saddr = inet->rcv_saddr;
-> -			int score = sk->sk_family == PF_INET ? 1 : 0;
-> -
-> -			if (rcv_saddr) {
-> -				if (rcv_saddr != daddr)
-> -					continue;
-> -				score += 2;
-> -			}
-> -			if (sk->sk_bound_dev_if) {
-> -				if (sk->sk_bound_dev_if != dif)
-> -					continue;
-> -				score += 2;
-> -			}
-> -			if (score == 5)
-> -				return sk;
-> -			if (score > hiscore) {
-> -				hiscore	= score;
-> -				result	= sk;
-> -			}
-> -		}
-> -	}
-> -	return result;
-> -}
-> 
-> -/* Optimize the common listener case. */
-> +
->  struct sock *__inet_lookup_listener(struct net *net,
->  				    struct inet_hashinfo *hashinfo,
->  				    const __be32 daddr, const unsigned short hnum,
->  				    const int dif)
->  {
-> -	struct sock *sk = NULL;
-> -	struct inet_listen_hashbucket *ilb;
-> +	struct sock *sk, *result;
-> +	struct hlist_nulls_node *node;
-> +	unsigned int hash = inet_lhashfn(net, hnum);
-> +	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
-> +	int score, hiscore;
-> 
-> -	ilb = &hashinfo->listening_hash[inet_lhashfn(net, hnum)];
-> -	spin_lock(&ilb->lock);
-> -	if (!hlist_empty(&ilb->head)) {
-> -		const struct inet_sock *inet = inet_sk((sk = __sk_head(&ilb->head)));
-> -
-> -		if (inet->num == hnum && !sk->sk_node.next &&
-> -		    (!inet->rcv_saddr || inet->rcv_saddr == daddr) &&
-> -		    (sk->sk_family == PF_INET || !ipv6_only_sock(sk)) &&
-> -		    !sk->sk_bound_dev_if && net_eq(sock_net(sk), net))
-> -			goto sherry_cache;
-> -		sk = inet_lookup_listener_slow(net, &ilb->head, daddr, hnum, dif);
-> +	rcu_read_lock();
-> +begin:
-> +	result = NULL;
-> +	hiscore = -1;
-> +	sk_nulls_for_each_rcu(sk, node, &ilb->head) {
-> +		score = compute_score(sk, net, hnum, daddr, dif);
-> +		if (score > hiscore) {
-> +			result = sk;
-> +			hiscore = score;
-> +		}
->  	}
-> -	if (sk) {
-> -sherry_cache:
-> -		sock_hold(sk);
-> +	/*
-> +	 * if the nulls value we got at the end of this lookup is
-> +	 * not the expected one, we must restart lookup.
-> +	 * We probably met an item that was moved to another chain.
-> +	 */
-> +	if (get_nulls_value(node) != hash + LISTENING_NULLS_BASE)
-> +		goto begin;
-> +	if (result) {
-> +		if (unlikely(!atomic_inc_not_zero(&result->sk_refcnt)))
-> +			result = NULL;
-> +		else if (unlikely(compute_score(result, net, hnum, daddr,
-> +				  dif) < hiscore)) {
-> +			sock_put(result);
-> +			goto begin;
-> +		}
->  	}
-> -	spin_unlock(&ilb->lock);
-> -	return sk;
-> +	rcu_read_unlock();
-> +	return result;
->  }
->  EXPORT_SYMBOL_GPL(__inet_lookup_listener);
-> 
-> @@ -370,7 +371,7 @@ static void __inet_hash(struct sock *sk)
->  	ilb = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
-> 
->  	spin_lock(&ilb->lock);
-> -	__sk_add_node(sk, &ilb->head);
-> +	__sk_nulls_add_node_rcu(sk, &ilb->head);
->  	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
->  	spin_unlock(&ilb->lock);
->  }
-> @@ -388,26 +389,22 @@ EXPORT_SYMBOL_GPL(inet_hash);
->  void inet_unhash(struct sock *sk)
->  {
->  	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
-> +	spinlock_t *lock;
-> +	int done;
-> 
->  	if (sk_unhashed(sk))
->  		return;
-> 
-> -	if (sk->sk_state == TCP_LISTEN) {
-> -		struct inet_listen_hashbucket *ilb;
-> +	if (sk->sk_state == TCP_LISTEN)
-> +		lock = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)].lock;
-> +	else
-> +		lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
-> 
-> -		ilb = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
-> -		spin_lock_bh(&ilb->lock);
-> -		if (__sk_del_node_init(sk))
-> -			sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-> -		spin_unlock_bh(&ilb->lock);
-> -	} else {
-> -		spinlock_t *lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
-> -
-> -		spin_lock_bh(lock);
-> -		if (__sk_nulls_del_node_init_rcu(sk))
-> -			sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-> -		spin_unlock_bh(lock);
-> -	}
-> +	spin_lock_bh(lock);
-> +	done =__sk_nulls_del_node_init_rcu(sk);
-> +	spin_unlock_bh(lock);
-> +	if (done)
-> +		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
->  }
->  EXPORT_SYMBOL_GPL(inet_unhash);
-> 
-> @@ -526,8 +523,11 @@ void inet_hashinfo_init(struct inet_hashinfo *h)
->  {
->  	int i;
-> 
-> -	for (i = 0; i < INET_LHTABLE_SIZE; i++)
-> +	for (i = 0; i < INET_LHTABLE_SIZE; i++) {
->  		spin_lock_init(&h->listening_hash[i].lock);
-> +		INIT_HLIST_NULLS_HEAD(&h->listening_hash[i].head,
-> +				      i + LISTENING_NULLS_BASE);
-> +		}
->  }
-> 
->  EXPORT_SYMBOL_GPL(inet_hashinfo_init);
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index a81caa1..cab2458 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1868,7 +1868,7 @@ static inline struct inet_timewait_sock *tw_next(struct inet_timewait_sock *tw)
->  static void *listening_get_next(struct seq_file *seq, void *cur)
->  {
->  	struct inet_connection_sock *icsk;
-> -	struct hlist_node *node;
-> +	struct hlist_nulls_node *node;
->  	struct sock *sk = cur;
->  	struct inet_listen_hashbucket *ilb;
->  	struct tcp_iter_state *st = seq->private;
-> @@ -1878,7 +1878,7 @@ static void *listening_get_next(struct seq_file *seq, void *cur)
->  		st->bucket = 0;
->  		ilb = &tcp_hashinfo.listening_hash[0];
->  		spin_lock_bh(&ilb->lock);
-> -		sk = sk_head(&ilb->head);
-> +		sk = sk_nulls_head(&ilb->head);
->  		goto get_sk;
->  	}
->  	ilb = &tcp_hashinfo.listening_hash[st->bucket];
-> @@ -1914,7 +1914,7 @@ get_req:
->  		sk = sk_next(sk);
->  	}
->  get_sk:
-> -	sk_for_each_from(sk, node) {
-> +	sk_nulls_for_each_from(sk, node) {
->  		if (sk->sk_family == st->family && net_eq(sock_net(sk), net)) {
->  			cur = sk;
->  			goto out;
-> @@ -1935,7 +1935,7 @@ start_req:
->  	if (++st->bucket < INET_LHTABLE_SIZE) {
->  		ilb = &tcp_hashinfo.listening_hash[st->bucket];
->  		spin_lock_bh(&ilb->lock);
-> -		sk = sk_head(&ilb->head);
-> +		sk = sk_nulls_head(&ilb->head);
->  		goto get_sk;
->  	}
->  	cur = NULL;
-> diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-> index e0fd681..8fe267f 100644
-> --- a/net/ipv6/inet6_hashtables.c
-> +++ b/net/ipv6/inet6_hashtables.c
-> @@ -33,7 +33,7 @@ void __inet6_hash(struct sock *sk)
-> 
->  		ilb = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
->  		spin_lock(&ilb->lock);
-> -		__sk_add_node(sk, &ilb->head);
-> +		__sk_nulls_add_node_rcu(sk, &ilb->head);
->  		spin_unlock(&ilb->lock);
->  	} else {
->  		unsigned int hash;
-> @@ -118,47 +118,71 @@ out:
->  }
->  EXPORT_SYMBOL(__inet6_lookup_established);
-> 
-> +static int inline compute_score(struct sock *sk, struct net *net,
-> +				const unsigned short hnum,
-> +				const struct in6_addr *daddr,
-> +				const int dif)
-> +{
-> +	int score = -1;
-> +
-> +	if (net_eq(sock_net(sk), net) && inet_sk(sk)->num == hnum &&
-> +	    sk->sk_family == PF_INET6) {
-> +		const struct ipv6_pinfo *np = inet6_sk(sk);
-> +
-> +		score = 1;
-> +		if (!ipv6_addr_any(&np->rcv_saddr)) {
-> +			if (!ipv6_addr_equal(&np->rcv_saddr, daddr))
-> +				return -1;
-> +			score++;
-> +		}
-> +		if (sk->sk_bound_dev_if) {
-> +			if (sk->sk_bound_dev_if != dif)
-> +				return -1;
-> +			score++;
-> +		}
-> +	}
-> +	return score;
-> +}
-> +
->  struct sock *inet6_lookup_listener(struct net *net,
->  		struct inet_hashinfo *hashinfo, const struct in6_addr *daddr,
->  		const unsigned short hnum, const int dif)
->  {
->  	struct sock *sk;
-> -	const struct hlist_node *node;
-> -	struct sock *result = NULL;
-> -	int score, hiscore = 0;
-> -	struct inet_listen_hashbucket *ilb;
-> -
-> -	ilb = &hashinfo->listening_hash[inet_lhashfn(net, hnum)];
-> -	spin_lock(&ilb->lock);
-> -	sk_for_each(sk, node, &ilb->head) {
-> -		if (net_eq(sock_net(sk), net) && inet_sk(sk)->num == hnum &&
-> -				sk->sk_family == PF_INET6) {
-> -			const struct ipv6_pinfo *np = inet6_sk(sk);
-> -
-> -			score = 1;
-> -			if (!ipv6_addr_any(&np->rcv_saddr)) {
-> -				if (!ipv6_addr_equal(&np->rcv_saddr, daddr))
-> -					continue;
-> -				score++;
-> -			}
-> -			if (sk->sk_bound_dev_if) {
-> -				if (sk->sk_bound_dev_if != dif)
-> -					continue;
-> -				score++;
-> -			}
-> -			if (score == 3) {
-> -				result = sk;
-> -				break;
-> -			}
-> -			if (score > hiscore) {
-> -				hiscore = score;
-> -				result = sk;
-> -			}
-> +	const struct hlist_nulls_node *node;
-> +	struct sock *result;
-> +	int score, hiscore;
-> +	unsigned int hash = inet_lhashfn(net, hnum);
-> +	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
-> +
-> +	rcu_read_lock();
-> +begin:
-> +	result = NULL;
-> +	hiscore = -1;
-> +	sk_nulls_for_each(sk, node, &ilb->head) {
-> +		score = compute_score(sk, net, hnum, daddr, dif);
-> +		if (score > hiscore) {
-> +			hiscore = score;
-> +			result = sk;
->  		}
->  	}
-> -	if (result)
-> -		sock_hold(result);
-> -	spin_unlock(&ilb->lock);
-> +	/*
-> +	 * if the nulls value we got at the end of this lookup is
-> +	 * not the expected one, we must restart lookup.
-> +	 * We probably met an item that was moved to another chain.
-> +	 */
-> +	if (get_nulls_value(node) != hash + LISTENING_NULLS_BASE)
-> +		goto begin;
-> +	if (result) {
-> +		if (unlikely(!atomic_inc_not_zero(&result->sk_refcnt)))
-> +			result = NULL;
-> +		else if (unlikely(compute_score(result, net, hnum, daddr,
-> +				  dif) < hiscore)) {
-> +			sock_put(result);
-> +			goto begin;
-> +		}
-> +	}
-> +	rcu_read_unlock();
->  	return result;
->  }
-> 
+I'd be interested to hear if anyone has advice on how to make this 
+patch more generic.  There's definitely been interest from arm pxa
+users in adding DMA, and some of this code must be re-usable for this.
+
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/smsc911x.c   |  131 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/smsc911x.h   |    4 ++
+ include/linux/smsc911x.h |    3 +
+ 3 files changed, 138 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index 4b8ff84..b3d9f9e 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -52,6 +52,11 @@
+ #include <linux/smsc911x.h>
+ #include "smsc911x.h"
+ 
++#ifdef SMSC_USE_SH_RX_DMA
++#include <asm/dma.h>
++#include <../arch/sh/drivers/dma/dma-sh.h>
++#endif
++
+ #define SMSC_CHIPNAME		"smsc911x"
+ #define SMSC_MDIONAME		"smsc911x-mdio"
+ #define SMSC_DRV_VERSION	"2008-10-21"
+@@ -116,6 +121,10 @@ struct smsc911x_data {
+ 	unsigned int clear_bits_mask;
+ 	unsigned int hashhi;
+ 	unsigned int hashlo;
++
++#ifdef SMSC_USE_SH_RX_DMA
++	struct sk_buff *rx_skb;
++#endif
+ };
+ 
+ /* The 16-bit access functions are significantly slower, due to the locking
+@@ -962,12 +971,37 @@ smsc911x_rx_counterrors(struct net_device *dev, unsigned int rxstat)
+ 	}
+ }
+ 
++#ifdef SMSC_USE_SH_RX_DMA
++static void smsc911x_set_rx_cfg_for_dma(struct smsc911x_data *pdata)
++{
++	/* set RX Data offset and end alignment for DMA transfers */
++	switch (dma_get_cache_alignment()) {
++	case 16:
++		smsc911x_reg_write(pdata, RX_CFG, 0x40000200);
++		break;
++
++	case 32:
++		smsc911x_reg_write(pdata, RX_CFG, 0x80001200);
++		break;
++
++	default:
++		BUG();
++		break;
++	}
++}
++#endif
++
+ /* Quickly dumps bad packets */
+ static void
+ smsc911x_rx_fastforward(struct smsc911x_data *pdata, unsigned int pktbytes)
+ {
+ 	unsigned int pktwords = (pktbytes + NET_IP_ALIGN + 3) >> 2;
+ 
++#ifdef SMSC_USE_SH_RX_DMA
++	/* Remove extra DMA padding */
++	smsc911x_reg_write(pdata, RX_CFG, NET_IP_ALIGN << 8);
++#endif
++
+ 	if (likely(pktwords >= 4)) {
+ 		unsigned int timeout = 500;
+ 		unsigned int val;
+@@ -985,6 +1019,11 @@ smsc911x_rx_fastforward(struct smsc911x_data *pdata, unsigned int pktbytes)
+ 		while (pktwords--)
+ 			temp = smsc911x_reg_read(pdata, RX_DATA_FIFO);
+ 	}
++
++#ifdef SMSC_USE_SH_RX_DMA
++	/* restore RX Data offset and end alignment for DMA transfers */
++	smsc911x_set_rx_cfg_for_dma(pdata);
++#endif
+ }
+ 
+ /* NAPI poll function */
+@@ -995,11 +1034,33 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+ 	struct net_device *dev = pdata->dev;
+ 	int npackets = 0;
+ 
++#ifdef SMSC_USE_SH_RX_DMA
++	/* check for pending transfer */
++	if (pdata->rx_skb) {
++		/* return immediately if the transfer hasn't finished */
++		if (get_dma_residue(pdata->config.rx_dma_ch))
++			return npackets;
++
++		/* transfer is complete, pass packet up */
++		pdata->rx_skb->dev = pdata->dev;
++		pdata->rx_skb->protocol =
++			eth_type_trans(pdata->rx_skb, pdata->dev);
++		pdata->rx_skb->ip_summed = CHECKSUM_NONE;
++		netif_receive_skb(pdata->rx_skb);
++		pdata->rx_skb = 0;
++	}
++#endif
++
+ 	while (likely(netif_running(dev)) && (npackets < budget)) {
+ 		unsigned int pktlength;
+ 		unsigned int pktwords;
+ 		struct sk_buff *skb;
+ 		unsigned int rxstat = smsc911x_rx_get_rxstatus(pdata);
++#ifdef SMSC_USE_SH_RX_DMA
++		unsigned long physaddrfrom, physaddrto;
++		int cachebytes = dma_get_cache_alignment();
++		unsigned long alignmask = cachebytes - 1;
++#endif
+ 
+ 		if (!rxstat) {
+ 			unsigned int temp;
+@@ -1018,7 +1079,13 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+ 		npackets++;
+ 
+ 		pktlength = ((rxstat & 0x3FFF0000) >> 16);
++#ifdef SMSC_USE_SH_RX_DMA
++		pktwords = (pktlength + (cachebytes - 14) + cachebytes - 1) &
++			(~alignmask);
++#else
+ 		pktwords = (pktlength + NET_IP_ALIGN + 3) >> 2;
++#endif
++
+ 		smsc911x_rx_counterrors(dev, rxstat);
+ 
+ 		if (unlikely(rxstat & RX_STS_ES_)) {
+@@ -1031,7 +1098,11 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+ 			continue;
+ 		}
+ 
++#ifdef SMSC_USE_SH_RX_DMA
++		skb = netdev_alloc_skb(dev, pktlength + (2 * cachebytes));
++#else
+ 		skb = netdev_alloc_skb(dev, pktlength + NET_IP_ALIGN);
++#endif
+ 		if (unlikely(!skb)) {
+ 			SMSC_WARNING(RX_ERR,
+ 				"Unable to allocate skb for rx packet");
+@@ -1041,22 +1112,51 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+ 			break;
+ 		}
+ 
++#ifdef SMSC_USE_SH_RX_DMA
++		pdata->rx_skb = skb;
++#endif
++
+ 		skb->data = skb->head;
+ 		skb_reset_tail_pointer(skb);
+ 
+ 		/* Align IP on 16B boundary */
++#ifdef SMSC_USE_SH_RX_DMA
++		skb_reserve(skb, cachebytes - 14);
++#else
+ 		skb_reserve(skb, NET_IP_ALIGN);
++#endif
+ 		skb_put(skb, pktlength - 4);
++
++#ifdef SMSC_USE_SH_RX_DMA
++		/* Calculate the physical transfer addresses */
++		physaddrfrom = virt_to_phys(pdata->ioaddr + RX_DATA_FIFO);
++		physaddrto = virt_to_phys(skb->head);
++		BUG_ON(physaddrfrom & alignmask);
++		BUG_ON(physaddrto & alignmask);
++
++		/* Flush cache */
++		dma_cache_sync(NULL, skb->head, pktwords, DMA_FROM_DEVICE);
++
++		/* Start the DMA transfer */
++		dma_read(pdata->config.rx_dma_ch, physaddrfrom, physaddrto,
++			 pktwords);
++#else
+ 		smsc911x_rx_readfifo(pdata, (unsigned int *)skb->head,
+ 				     pktwords);
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		netif_receive_skb(skb);
++#endif
+ 
+ 		/* Update counters */
+ 		dev->stats.rx_packets++;
+ 		dev->stats.rx_bytes += (pktlength - 4);
+ 		dev->last_rx = jiffies;
++
++#ifdef SMSC_USE_SH_RX_DMA
++		/* Packet scheduled, break out of loop */
++		break;
++#endif
+ 	}
+ 
+ 	/* Return total received packets */
+@@ -1261,8 +1361,34 @@ static int smsc911x_open(struct net_device *dev)
+ 	temp &= ~(FIFO_INT_RX_STS_LEVEL_);
+ 	smsc911x_reg_write(pdata, FIFO_INT, temp);
+ 
++#ifdef SMSC_USE_SH_RX_DMA
++	/* set RX Data offset to 2 bytes for alignment and set end alignment
++	 * for DMA transfers */
++	smsc911x_set_rx_cfg_for_dma(pdata);
++#else
+ 	/* set RX Data offset to 2 bytes for alignment */
+ 	smsc911x_reg_write(pdata, RX_CFG, (2 << 8));
++#endif
++
++#ifdef SMSC_USE_SH_RX_DMA
++	/* Configure Rx DMA channel for fixed source address and incremented
++	 * destination address */
++	dma_configure_channel(pdata->config.rx_dma_ch,
++		DM_INC | TS_128 | 0x400 | TM_BUR);
++
++	if (request_dma(pdata->config.rx_dma_ch, SMSC_CHIPNAME) < 0) {
++		SMSC_WARNING(DRV, "Error requesting Rx DMA channel %d",
++			pdata->config.rx_dma_ch);
++		return -ENODEV;
++	}
++
++	printk(KERN_INFO "%s: Rx DMA %i\n", dev->name,
++		pdata->config.rx_dma_ch);
++#else
++	printk(KERN_INFO "%s: Rx PIO\n", dev->name);
++#endif
++
++	printk(KERN_INFO "%s: Tx PIO\n", dev->name);
+ 
+ 	/* enable NAPI polling before enabling RX interrupts */
+ 	napi_enable(&pdata->napi);
+@@ -1307,6 +1433,11 @@ static int smsc911x_stop(struct net_device *dev)
+ 	/* Bring the PHY down */
+ 	phy_stop(pdata->phy_dev);
+ 
++	/* Free DMA channels */
++#ifdef SMSC_USE_SH_RX_DMA
++	free_dma(pdata->config.rx_dma_ch);
++#endif
++
+ 	SMSC_TRACE(IFDOWN, "Interface stopped");
+ 	return 0;
+ }
+diff --git a/drivers/net/smsc911x.h b/drivers/net/smsc911x.h
+index f818cf0..4634dcf 100644
+--- a/drivers/net/smsc911x.h
++++ b/drivers/net/smsc911x.h
+@@ -33,6 +33,10 @@
+  * can be succesfully looped back */
+ #define USE_PHY_WORK_AROUND
+ 
++#ifdef CONFIG_SH_DMA
++#define SMSC_USE_SH_RX_DMA
++#endif /* CONFIG_SH_DMA */
++
+ #define DPRINTK(nlevel, klevel, fmt, args...) \
+ 	((void)((NETIF_MSG_##nlevel & pdata->msg_enable) && \
+ 	printk(KERN_##klevel "%s: %s: " fmt "\n", \
+diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
+index 1cbf031..0d9408a 100644
+--- a/include/linux/smsc911x.h
++++ b/include/linux/smsc911x.h
+@@ -30,6 +30,9 @@ struct smsc911x_platform_config {
+ 	unsigned int irq_type;
+ 	unsigned int flags;
+ 	phy_interface_t phy_interface;
++#ifdef CONFIG_SH_DMA
++	int rx_dma_ch;
++#endif
+ };
+ 
+ /* Constants for platform_device irq polarity configuration */
+-- 
+1.5.6.5
 
