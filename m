@@ -1,83 +1,88 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 03/10] x86: add initialization code for DMA-API
-	debugging
-Date: Sun, 23 Nov 2008 12:35:43 +0100
-Message-ID: <20081123113543.GD29663@elte.hu>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227284770-19215-4-git-send-email-joerg.roedel@amd.com> <20081121174348.GB4336@elte.hu> <20081122094807.GK29705@8bytes.org> <20081123112818.GC29663@elte.hu>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: [Bugme-new] [Bug 12087] New: [drivers/net/cxgb3/sge.c:563]:
+ Possible memory leak: s
+Date: Sun, 23 Nov 2008 05:40:19 -0600
+Message-ID: <20081123054019.532d83ac@osprey.hogchain.net>
+References: <bug-12087-10286@http.bugzilla.kernel.org/>
+	<20081122213532.fe01a22c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Roedel <joerg.roedel@amd.com>, netdev@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org,
-	iommu@lists.linux-foundation.org
-To: Joerg Roedel <joro@8bytes.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	danielm77@spray.se, divy@chelsio.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:45001 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758763AbYKWLf6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Nov 2008 06:35:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20081123112818.GC29663@elte.hu>
+Received: from fmailhost05.isp.att.net ([207.115.11.55]:38247 "EHLO
+	fmailhost05.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757014AbYKWLkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2008 06:40:23 -0500
+In-Reply-To: <20081122213532.fe01a22c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+[adding cxgb3 maintainer to cc list]
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+On Sat, 22 Nov 2008 21:35:32 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
 > 
-> * Joerg Roedel <joro@8bytes.org> wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via
+> the bugzilla web interface).
 > 
-> > On Fri, Nov 21, 2008 at 06:43:48PM +0100, Ingo Molnar wrote:
-> > > 
-> > > * Joerg Roedel <joerg.roedel@amd.com> wrote:
-> > > 
-> > > > +static struct list_head dma_entry_hash[HASH_SIZE];
-> > > > +
-> > > > +/* A slab cache to allocate dma_map_entries fast */
-> > > > +static struct kmem_cache *dma_entry_cache;
-> > > > +
-> > > > +/* lock to protect the data structures */
-> > > > +static DEFINE_SPINLOCK(dma_lock);
-> > > 
-> > > some more generic comments about the data structure: it's main purpose 
-> > > is to provide a mapping based on (dev,addr). There's little if any 
-> > > cross-entry interaction - same-address+same-dev DMA is checked.
-> > > 
-> > > 1)
-> > > 
-> > > the hash:
-> > > 
-> > > + 	return (entry->dev_addr >> HASH_FN_SHIFT) & HASH_FN_MASK;
-> > > 
-> > > should mix in entry->dev as well - that way we get not just per 
-> > > address but per device hash space separation as well.
-> > > 
-> > > 2)
-> > > 
-> > > HASH_FN_SHIFT is 1MB chunks right now - that's probably fine in 
-> > > practice albeit perhaps a bit too small. There's seldom any coherency 
-> > > between the physical addresses of DMA - we rarely have any real 
-> > > (performance-relevant) physical co-location of DMA addresses beyond 4K 
-> > > granularity. So using 1MB chunking here will discard a good deal of 
-> > > random low bits we should be hashing on.
-> > > 
-> > > 3)
-> > > 
-> > > And the most scalable locking would be per hash bucket locking - no 
-> > > global lock is needed. The bucket hash heads should probably be 
-> > > cacheline sized - so we'd get one lock per bucket.
+> On Sat, 22 Nov 2008 21:11:51 -0800 (PST)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=12087
 > > 
-> > Hmm, I just had the idea of saving this data in struct device. How 
-> > about that? The locking should scale too and we can extend it 
-> > easier. For example it simplifys a per-device disable function for 
-> > the checking. Or another future feature might be leak tracing.
+> >            Summary: [drivers/net/cxgb3/sge.c:563]: Possible memory
+> > leak: s Product: Drivers
+> >            Version: 2.5
+> >      KernelVersion: latest git tree
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Network
+> >         AssignedTo: jgarzik@pobox.com
+> >         ReportedBy: danielm77@spray.se
+> > 
+> > 
+> > There will be a memory leak in the function alloc_ring when the
+> > parameter sw_size is nonzero and metadata is NULL. I don't know if
+> > that can happen.
+> > 
+> > Here is the code, taken from the latest git tree.
+> > 
+> > static void *alloc_ring(struct pci_dev *pdev, size_t nelem, size_t
+> > elem_size, size_t sw_size, dma_addr_t * phys, void *metadata)
+> > {
+> >         size_t len = nelem * elem_size;
+> >         void *s = NULL;
+> >         void *p = dma_alloc_coherent(&pdev->dev, len, phys,
+> > GFP_KERNEL);
+> > 
+> >         if (!p)
+> >                 return NULL;
+> >         if (sw_size) {
+> >                 s = kcalloc(nelem, sw_size, GFP_KERNEL);
+> > 
+> >                 if (!s) {
+> >                         dma_free_coherent(&pdev->dev, len, p,
+> > *phys); return NULL;
+> >                 }
+> >         }
+> >         if (metadata)
+> >                 *(void **)metadata = s;
+> >         memset(p, 0, len);
+> >         return p;
+> > }
+> > 
+> > 
 > 
-> that will help with spreading the hash across devices, but brings in 
-> lifetime issues: you must be absolutely sure all DMA has drained at 
-> the point a device is deinitialized.
-
-Note that obviously proper DMA quiescence is a must-have during device 
-dinit anyway, but still, it's an extra complication to init/deinit the 
-hashes, etc.
-
-	Ingo
+> yeah, that is a bit silly-looking.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
