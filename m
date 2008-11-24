@@ -1,106 +1,103 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0xfe/0x17e() with tg3 network
-Date: Mon, 24 Nov 2008 22:52:47 +0100
-Message-ID: <20081124215247.GA29696@1wt.eu>
-References: <491954E1.2050002@gmail.com> <1226403067.7685.1598.camel@twins> <491E49AA.60407@gmail.com> <20081118065006.GC24654@1wt.eu> <20081120031101.GD26448@xw6200.broadcom.net> <20081120053746.GB15168@1wt.eu> <20081120184310.GB27712@xw6200.broadcom.net> <20081120212637.GB23844@1wt.eu> <20081120215318.GB27907@xw6200.broadcom.net> <20081124132744.GB24851@1wt.eu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roger Heflin <rogerheflin@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 39/39] wimax/i2400m: add CREDITS and MAINTAINERS entries
+Date: Mon, 24 Nov 2008 13:51:02 -0800
+Message-ID: <2bfaa60443ce02eba31071f34a986e89c39d73fb.1227562829.git.inaky@linux.intel.com>
+References: <cover.1227562829.git.inaky@linux.intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1377 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754059AbYKXVxA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 16:53:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20081124132744.GB24851@1wt.eu>
+Received: from mga12.intel.com ([143.182.124.36]:47824 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753593AbYKXVvx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:53 -0500
+In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Matt,
+This patch adds entries for the original developers of the i2400m
+drivers and up-to-date maintainer entries.
 
-just a follow-up.
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ CREDITS     |   17 +++++++++++++++++
+ MAINTAINERS |   16 ++++++++++++++++
+ 2 files changed, 33 insertions(+), 0 deletions(-)
 
-On Mon, Nov 24, 2008 at 02:27:44PM +0100, Willy Tarreau wrote:
-> Hi Matt,
-> 
-> On Thu, Nov 20, 2008 at 01:53:18PM -0800, Matt Carlson wrote:
-> > > Today, with the notebook connected to a gig switch, I could not reproduce
-> > > the problem, even after one hour of approximately the same workload. I'll
-> > > retry with the original 100 Mbps switch on monday.
-> 
-> fairly easier now with the same switch. I just have to transfer 100k objects
-> over HTTP via this switch to see the problem happen :
-> 
-> tg3: eth0: The system may be re-ordering memory-mapped I/O cycles to the network device, attempting to recover. Please report the problem to the driver maintainer and include system chipset information.
-> tg3: tg3_stop_block timed out, ofs=1400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=c00 enable_bit=2
-> tg3: eth0: Link is down.
-> tg3: eth0: Link is up at 100 Mbps, full duplex.
-> tg3: eth0: Flow control is on for TX and on for RX.
-> 
-> The switch is an el-cheapo D-Link 10/100. Note that this time I did not see
-> any warning. Maybe I did not wait long enough though.
-
-Got it again, just had to be patient to fire a second test :
-
-WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0x1a4/0x1b0()
-NETDEV WATCHDOG: eth0 (tg3): transmit timed out
-Modules linked in: nfs lockd sunrpc mtdblock mtd_blkdevs slram mtd xt_tcpudp x_tables usbhid usb_storage ehci_hcd uhci_hcd usbcore snd_pcm_oss snd_mixer_oss snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd soundcore snd_page_alloc tg3 libphy ide_cs yenta_socket rsrc_nonstatic [last unloaded: ip_tables]
-Pid: 0, comm: swapper Not tainted 2.6.27-wt2-wtap #1
- [<b01254a7>] warn_slowpath+0x67/0x90
- [<b01741a9>] ? get_slab+0x9/0x70
- [<b03d21af>] ? pskb_copy+0x2f/0x160
- [<b03aa332>] ? input_defuzz_abs_event+0x12/0xa0
- [<b03aa574>] ? input_handle_event+0x14/0x2a0
- [<b03b3d76>] ? synaptics_process_packet+0x2b6/0x3d0
- [<b0108a48>] ? native_io_delay+0x8/0x40
- [<b02ab4c9>] ? strlen+0x9/0x20
- [<b02a961e>] ? strlcpy+0x1e/0x60
- [<b03dbfbc>] ? netdev_drivername+0x3c/0x40
- [<b03e7c84>] dev_watchdog+0x1a4/0x1b0
- [<b013a27e>] ? run_hrtimer_pending+0xe/0xb0
- [<b03e7ae0>] ? dev_watchdog+0x0/0x1b0
- [<b012d548>] ? timer_stats_account_timer+0x38/0x40
- [<b03e7ae0>] ? dev_watchdog+0x0/0x1b0
- [<b012dbbc>] run_timer_softirq+0xac/0x170
- [<b013f863>] ? tick_periodic+0x33/0x70
- [<b013f8b7>] ? tick_handle_periodic+0x17/0x70
- [<b03e7ae0>] ? dev_watchdog+0x0/0x1b0
- [<b0129ae4>] __do_softirq+0x84/0xa0
- [<b0129b35>] do_softirq+0x35/0x40
- [<b0129bf6>] irq_exit+0x66/0x70
- [<b0105869>] do_IRQ+0x49/0x90
- [<b013bc30>] ? sched_clock_cpu+0xb0/0x100
- [<b010449b>] common_interrupt+0x23/0x28
- [<b0305158>] ? acpi_safe_halt+0x1b/0x29
- [<b0305b07>] acpi_idle_enter_c1+0xa6/0x117
- [<b03c096b>] cpuidle_idle_call+0x6b/0xa0
- [<b010206f>] cpu_idle+0x4f/0x70
- [<b04458dd>] rest_init+0x4d/0x50
- =======================
----[ end trace 1cc3b74458d87dab ]---
-tg3: eth0: transmit timed out, resetting
-tg3: DEBUG: MAC_TX_STATUS[0000000b] MAC_RX_STATUS[00000006]
-tg3: DEBUG: RDMAC_STATUS[00000000] WDMAC_STATUS[00000008]
-tg3: tg3_stop_block timed out, ofs=1400 enable_bit=2
-tg3: tg3_stop_block timed out, ofs=c00 enable_bit=2
-tg3: tg3_stop_block timed out, ofs=4c00 enable_bit=2
-tg3: eth0: Link is down.
-tg3: eth0: Link is up at 100 Mbps, full duplex.
-tg3: eth0: Flow control is on for TX and on for RX.
-
-The ease with which I reproduce it here clearly indicates that this is
-related to the switch, probably just the fact that it is at 100 Mbps.
-Unfortunately this evening I must go, but I still have one 100 Mbps
-switch somewhere at home, I'll reproduce the same test ASAP in order
-to bisect the issue.
-
-Regards,
-Willy
-
-
+diff --git a/CREDITS b/CREDITS
+index b50db17..ae5b804 100644
+--- a/CREDITS
++++ b/CREDITS
+@@ -464,6 +464,11 @@ S: 1200 Goldenrod Dr.
+ S: Nampa, Idaho 83686
+ S: USA
+ 
++N: Dirk J. Brandewie
++E: dirk.j.brandewie@intel.com
++E: linux-wimax@intel.com
++D: Intel Wireless WiMAX Connection 2400 SDIO driver
++
+ N: Derrick J. Brashear
+ E: shadow@dementia.org
+ W: http://www.dementia.org/~shadow
+@@ -2119,6 +2124,11 @@ N: H.J. Lu
+ E: hjl@gnu.ai.mit.edu
+ D: GCC + libraries hacker
+ 
++N: Yanir Lubetkin
++E: yanirx.lubatkin@intel.com
++E: linux-wimax@intel.com
++D: Intel Wireless WiMAX Connection 2400 driver
++
+ N: Michal Ludvig
+ E: michal@logix.cz
+ E: michal.ludvig@asterisk.co.nz
+@@ -2693,6 +2703,13 @@ S: RR #5, 497 Pole Line Road
+ S: Thunder Bay, Ontario
+ S: CANADA P7C 5M9
+ 
++N: Inaky Perez-Gonzalez
++E: inaky.perez-gonzalez@intel.com
++E: linux-wimax@intel.com
++E: inakypg@yahoo.com
++D: WiMAX stack
++D: Intel Wireless WiMAX Connection 2400 driver
++
+ N: Yuri Per
+ E: yuri@pts.mipt.ru
+ D: Some smbfs fixes
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 8e0777f..7950b97 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2299,6 +2299,14 @@ W:	http://lists.sourceforge.net/mailman/listinfo/ipw2100-devel
+ W:	http://ipw2200.sourceforge.net
+ S:	Supported
+ 
++INTEL WIRELESS WIMAX CONNECTION 2400
++P:	Inaky Perez-Gonzalez
++M:	inaky.perez-gonzalez@intel.com
++M:	linux-wimax@intel.com
++L:	wimax@linuxwimax.org
++S:	Supported
++W:	http://linuxwimax.org
++
+ INTEL WIRELESS WIFI LINK (iwlwifi)
+ P:	Zhu Yi
+ M:	yi.zhu@intel.com
+@@ -4704,6 +4712,14 @@ M:	zaga@fly.cc.fer.hr
+ L:	linux-scsi@vger.kernel.org
+ S:	Maintained
+ 
++WIMAX STACK
++P:	Inaky Perez-Gonzalez
++M:	inaky.perez-gonzalez@intel.com
++M:	linux-wimax@intel.com
++L:	wimax@linuxwimax.org
++S:	Supported
++W:	http://linuxwimax.org
++
+ WIMEDIA LLC PROTOCOL (WLP) SUBSYSTEM
+ P:	David Vrabel
+ M:	david.vrabel@csr.com
+-- 
+1.5.6.5
 
