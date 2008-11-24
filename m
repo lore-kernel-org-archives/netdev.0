@@ -1,65 +1,74 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: FYI - TCP/IP thin stream latency
-Date: Mon, 24 Nov 2008 16:00:16 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0810290125300.7092@wrl-59.cs.helsinki.fi>
-References: <20081016095518.749ae6e9@speedy> <20081022.221410.139436406.davem@davemloft.net>
- <Pine.LNX.4.64.0810231516220.7072@wrl-59.cs.helsinki.fi>
- <20081028.154814.179119403.davem@davemloft.net>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: Question about HFSC atm+man patches
+Date: Mon, 24 Nov 2008 14:56:42 +0100
+Message-ID: <492AB29A.3010601@ziu.info>
+References: <49292F54.4020803@ziu.info> <4929632F.3050200@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, doug.leith@nuim.ie,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:44981 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751724AbYKXOAS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 09:00:18 -0500
-In-Reply-To: <20081028.154814.179119403.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0811241554531.28566@wrl-59.cs.helsinki.fi>
+Received: from relay.ppgk.com.pl ([80.53.243.36]:26975 "EHLO relay.ppgk.com.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752318AbYKXOGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2008 09:06:15 -0500
+In-Reply-To: <4929632F.3050200@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'll post this rexmit combining again along with the other
-tcp changes... Commenting your concerns below.
-
-On Tue, 28 Oct 2008, David Miller wrote:
-
-> Small error:
+Patrick McHardy wrote:
+> Michal Soltys wrote:
+>> I'm thinking about writing few simple patches that would introduce layer
+>> 2 adaptation to HFSC. Generally - instead of preparing adjusted rate
+>> table like some of the other qdiscs do (tbf, htb, ...), hfsc could
+>> simply adjust packets' lengths in qdisc code (and there are just few 
+>> places where it's done) - as it's used for all time / curve related 
+>> computations later. So the whole thing should be, at least in theory, 
+>> pretty straightforward.
+>>
+>> The tc's interface would of course remain the same - that is - linklayer
+>> and overhead options, consistently with other qdiscs.
+>>
+>> Would such approach be valid and possibly accepted ?
 > 
-> > +static int tcp_can_collapse(struct sock *sk, struct sk_buff *skb)
-> > +{
-> > +	if (tcp_skb_pcount(skb) > 1)
-> > +		return 0;
-> > +	/* Once recombining for SACK completes this check could be made
-> > +	 * less strict by reusing those parts.
-> > +	 */
-> > +	if (skb_shinfo(skb)->nr_frags != 0)
-> > +		return 0;
-> > +	if (skb_cloned(skb))
-> > +		return 0;
-> > +	if (skb == tcp_send_head(sk))
-> > +		return 0;
-> > +	/* Some heurestics for collapsing over SACK'd could be invented */
-> > +	if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)
-> > +		return 0;
-> > +
-> > +	return 1;
-> > +}
+> We already support generic size adjustment for all qdiscs. I'm
+> not sure about the userspace interface though.
 > 
-> For the "skb === tcp_send_head()" test, we're not interested if
-> "skb" is equal, but rather whether next_skb is equal.
 
-But that's what's actually happening... We'll terminate the loop
-at that skb where it matches without doing any useful work for it,
-so I'm just using a different way of "saying" the same as you.
+More about what I have in mind - in april '08 there was set of 8 patches
+-
+http://kerneltrap.org/mailarchive/linux-netdev/2008/4/9/1386524/thread#mid-1386524
 
-> But the structure looks fine and when you send me a tested version
-> of this patch I'll apply it to net-next-2.6, thanks!
+They added atm adaptation to tbf, htb, cbq and filter's action police.
+The rate table is precalculated in userspace, and depending on tc
+invocation - will be either unaltered, or the times will be set
+according to lengths aligned to atm cells (tc_calc_rtable, in tc/tc_core.c).
 
-Tested along with the other recombining things posting in couple of
-minutes.
+On the kernel's side, rata table is consulted through qdisc_l2t
+function, where overhead and cell_align are taken into account as well.
 
--- 
- i.
+Anyway - HFSC wasn't included in that patchset, as it didn't use rate
+table - so what I have in mind is essentially:
+
+len = hfsc_l2_adapt(q->overhead,qdisc_pkt_len(skb));
+
+instead of
+
+len = qdisc_pkt_len(skb);
+
++ setup from tc and hfsc_init (overhead parameter, pointing
+hfsc_l2_adapt to required function, sanity checks, etc.).
+
+>> Another thing I'd like to add is detailed tc-hfsc man page (and maybe
+>> add/update other ones - but that's for a bit later).
+> 
+> That would be great.
+
+Allright, will do.
+
+
+ps.
+
+Removed linux-net from CC.
+
