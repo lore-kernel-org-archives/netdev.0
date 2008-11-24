@@ -1,45 +1,147 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Could we avoid touching dst->refcount in some cases ?
-Date: Mon, 24 Nov 2008 15:36:11 -0800 (PST)
-Message-ID: <20081124.153611.199553928.davem@davemloft.net>
-References: <87y6z9h33h.fsf@basil.nowhere.org>
-	<492A7E85.3060502@cosmosbay.com>
-	<20081124112709.GX6703@one.firstfloor.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: andi@firstfloor.org
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: [PATCH] phylib: Add Vitesse VSC8221 SGMII PHY
+Date: Mon, 24 Nov 2008 15:28:36 -0800
+Message-ID: <1227569316-28242-1-git-send-email-tpiepho@freescale.com>
+Cc: Trent Piepho <tpiepho@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59775
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752752AbYKXXgM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 18:36:12 -0500
-In-Reply-To: <20081124112709.GX6703@one.firstfloor.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:38709 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751939AbYKXXg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 18:36:28 -0500
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id mAONaEPQ011817
+	for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 16:36:26 -0700 (MST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Andi Kleen <andi@firstfloor.org>
-Date: Mon, 24 Nov 2008 12:27:09 +0100
+PHY is mostly compatible with the existing VSC8244 PHY.  The init sequence
+is different and the interrupt mask lacks some bits present in the VSC8244.
 
-> On Mon, Nov 24, 2008 at 11:14:29AM +0100, Eric Dumazet wrote:
-> > Andi Kleen a =E9crit :
-> > >Eric Dumazet <dada1@cosmosbay.com> writes:
-> > >
-> > >>tbench has hard time incrementing decrementing the route cache re=
-fcount
-> > >>shared by all communications on localhost.
-> > >
-> > >iirc there was a patch some time ago to use per CPU loopback devic=
-es to=20
-> > >avoid this, but it was considered too much a benchmark hack.
-> > >As core counts increase it might stop being that though.
-> >=20
-> > Well, you probably mention Stephen patch to avoid dirtying other co=
-ntended
-> > cache lines (one napi structure per cpu)
->=20
-> No that patch wasn't from Stephen. iirc it was from someone at SGI.
+Rather than making a copy of the existing VSC234x config_intr function and
+change one constant, I modify it to select the interrupt mask based on
+which driver is calling it.  This lets it be used by both drivers.
 
-That's how I remember it too.
+Signed-off-by: Trent Piepho <tpiepho@freescale.com>
+---
+ drivers/net/phy/vitesse.c |   64 ++++++++++++++++++++++++++++++++++++++------
+ 1 files changed, 55 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index 8874497..dd3b244 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -34,6 +34,8 @@
+ #define MII_VSC8244_IMASK_DUPLEX	0x1000
+ #define MII_VSC8244_IMASK_MASK		0xf000
+ 
++#define MII_VSC8221_IMASK_MASK		0xa000
++
+ /* Vitesse Interrupt Status Register */
+ #define MII_VSC8244_ISTAT		0x1a
+ #define MII_VSC8244_ISTAT_STATUS	0x8000
+@@ -49,6 +51,12 @@
+ #define MII_VSC8244_AUXCONSTAT_GBIT    	0x0010
+ #define MII_VSC8244_AUXCONSTAT_100     	0x0008
+ 
++#define MII_VSC8221_AUXCONSTAT_INIT	0x0004 /* need to set this bit? */
++#define MII_VSC8221_AUXCONSTAT_RESERVED	0x0004
++
++#define PHY_ID_VSC8244			0x000fc6c0
++#define PHY_ID_VSC8221			0x000fc550
++
+ MODULE_DESCRIPTION("Vitesse PHY driver");
+ MODULE_AUTHOR("Kriston Carson");
+ MODULE_LICENSE("GPL");
+@@ -95,13 +103,15 @@ static int vsc824x_ack_interrupt(struct phy_device *phydev)
+ 	return (err < 0) ? err : 0;
+ }
+ 
+-static int vsc824x_config_intr(struct phy_device *phydev)
++static int vsc82xx_config_intr(struct phy_device *phydev)
+ {
+ 	int err;
+ 
+ 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
+ 		err = phy_write(phydev, MII_VSC8244_IMASK,
+-				MII_VSC8244_IMASK_MASK);
++			phydev->drv->phy_id == PHY_ID_VSC8244 ?
++				MII_VSC8244_IMASK_MASK :
++				MII_VSC8221_IMASK_MASK);
+ 	else {
+ 		/*
+ 		 * The Vitesse PHY cannot clear the interrupt
+@@ -120,7 +130,7 @@ static int vsc824x_config_intr(struct phy_device *phydev)
+ 
+ /* Vitesse 824x */
+ static struct phy_driver vsc8244_driver = {
+-	.phy_id		= 0x000fc6c0,
++	.phy_id		= PHY_ID_VSC8244,
+ 	.name		= "Vitesse VSC8244",
+ 	.phy_id_mask	= 0x000fffc0,
+ 	.features	= PHY_GBIT_FEATURES,
+@@ -129,19 +139,55 @@ static struct phy_driver vsc8244_driver = {
+ 	.config_aneg	= &genphy_config_aneg,
+ 	.read_status	= &genphy_read_status,
+ 	.ack_interrupt	= &vsc824x_ack_interrupt,
+-	.config_intr	= &vsc824x_config_intr,
++	.config_intr	= &vsc82xx_config_intr,
+ 	.driver 	= { .owner = THIS_MODULE,},
+ };
+ 
+-static int __init vsc8244_init(void)
++static int vsc8221_config_init(struct phy_device *phydev)
+ {
+-	return phy_driver_register(&vsc8244_driver);
++	int err;
++
++	err = phy_write(phydev, MII_VSC8244_AUX_CONSTAT,
++			MII_VSC8221_AUXCONSTAT_INIT);
++	return err;
++
++	/* Perhaps we should set EXT_CON1 based on the interface?
++	   Options are 802.3Z SerDes or SGMII */
++}
++
++/* Vitesse 8221 */
++static struct phy_driver vsc8221_driver = {
++	.phy_id		= PHY_ID_VSC8221,
++	.phy_id_mask	= 0x000ffff0,
++	.name		= "Vitesse VSC8221",
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= &vsc8221_config_init,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.ack_interrupt	= &vsc824x_ack_interrupt,
++	.config_intr	= &vsc82xx_config_intr,
++	.driver 	= { .owner = THIS_MODULE,},
++};
++
++static int __init vsc82xx_init(void)
++{
++	int err;
++
++	err = phy_driver_register(&vsc8244_driver);
++	if (err < 0)
++		return err;
++	err = phy_driver_register(&vsc8221_driver);
++	if (err < 0)
++		phy_driver_unregister(&vsc8244_driver);
++	return err;
+ }
+ 
+-static void __exit vsc8244_exit(void)
++static void __exit vsc82xx_exit(void)
+ {
+ 	phy_driver_unregister(&vsc8244_driver);
++	phy_driver_unregister(&vsc8221_driver);
+ }
+ 
+-module_init(vsc8244_init);
+-module_exit(vsc8244_exit);
++module_init(vsc82xx_init);
++module_exit(vsc82xx_exit);
+-- 
+1.5.4.1
+
