@@ -1,55 +1,52 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
+From: Greg KH <greg@kroah.com>
 Subject: Re: [patch 1/1][RFC]Handle uevent per namespace
-Date: Mon, 24 Nov 2008 16:20:46 +0100
-Message-ID: <492AC64E.9080800@fr.ibm.com>
-References: <492A86FA.5080804@fr.ibm.com> <ac3eb2510811240714l76b15469lea541bb4badd328@mail.gmail.com>
+Date: Mon, 24 Nov 2008 07:31:38 -0800
+Message-ID: <20081124153138.GA16742@kroah.com>
+References: <492A86FA.5080804@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
+	David Miller <davem@davemloft.net>,
 	Linux Containers <containers@lists.osdl.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Benjamin Thery <benjamin.thery@bull.net>
-To: Kay Sievers <kay.sievers@vrfy.org>
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:41092 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753945AbYKXPUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 10:20:54 -0500
-In-Reply-To: <ac3eb2510811240714l76b15469lea541bb4badd328@mail.gmail.com>
+Received: from kroah.org ([198.145.64.141]:34854 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752473AbYKXPmX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2008 10:42:23 -0500
+Content-Disposition: inline
+In-Reply-To: <492A86FA.5080804@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kay Sievers wrote:
-> On Mon, Nov 24, 2008 at 11:50, Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
+On Mon, Nov 24, 2008 at 11:50:34AM +0100, Daniel Lezcano wrote:
+>
+
+> Subject: Handle uevent per namespace
+> From: Daniel Lezcano <dlezcano@fr.ibm.com>
 > 
->  struct kobject {
->  	const char		*name;
->  	struct list_head	entry;
-> @@ -63,6 +65,9 @@ struct kobject {
->  	struct kset		*kset;
->  	struct kobj_type	*ktype;
->  	struct sysfs_dirent	*sd;
-> +#ifdef CONFIG_NET
-> +	struct net              *net;
-> +#endif
->  	struct kref		kref;
->  	unsigned int state_initialized:1;
->  	unsigned int state_in_sysfs:1;
+> At present when a network device is destroyed, inside a network
+> namespace, and this device has the same name as one network device
+> belonging to the initial network namespace (eg. eth0), the udev daemon
+> will disable the interface in the initial network namespace.
 > 
-> We cannot do that. Network specific stuff does not belong into
-> kobjects. Kobjects are not in any way subsystem specific, and we need
-> to keep it that way.
+> IMHO, udev should not receive this event. The uevents should be per
+> namespace or at least do not send events when not for the initial
+> network namespace.
 
-That makes sense :)
+IMHO, network namespaces are a mess and not something that you should be
+doing at all :)
 
-Is there a way to follow up from the kobject, the netdev associated with 
-it ? I mean in the function kobject_uevent_env, how can I check the 
-event is related to a network device and retrieve the struct net_device 
-from it ?
+> The following patch is a RFC for making uevent namespace aware. I don't
+> know this part of the kernel code, so I am pretty sure t is not the 
+> right way to do that :) 
 
-Thanks.
-  -- Daniel
+Like Kay said, please don't change the kobject core for this, try just
+filtering in the network core the events that you handle there.
 
+good luck,
+
+greg k-h
