@@ -1,36 +1,37 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 34/39] i2400m/SDIO: firmware upload backend
-Date: Mon, 24 Nov 2008 13:50:57 -0800
-Message-ID: <464c6ca5f07d5b5b75d1407f0febf9b735d38a17.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 35/39] i2400m/SDIO: read transactions from the SDIO device
+Date: Mon, 24 Nov 2008 13:50:58 -0800
+Message-ID: <727104aa6691953dc0422b31c2b7e336c0babcef.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:57411 "EHLO
+Received: from mga12.intel.com ([143.182.124.36]:47824 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753514AbYKXVvt (ORCPT
+	with ESMTP id S1753542AbYKXVvt (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:49 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements the backends for the generic driver (i2400m) to be
-able to load firmware to the SDIO device.
+This code implements reading from the SDIO device; when data is ready
+the SDIO IRQ is fired and that will allocate an skb, put all the data
+there and then pass it to the generic driver for processing and delivery.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/sdio-fw.c |  224 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 224 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
+ drivers/net/wimax/i2400m/sdio-rx.c |  255 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 255 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
 
-diff --git a/drivers/net/wimax/i2400m/sdio-fw.c b/drivers/net/wimax/i2400m/sdio-fw.c
+diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
 new file mode 100644
-index 0000000..8e3a286
+index 0000000..fe1d277
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio-fw.c
-@@ -0,0 +1,224 @@
++++ b/drivers/net/wimax/i2400m/sdio-rx.c
+@@ -0,0 +1,255 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Firmware uploader's SDIO specifics
++ * SDIO RX handling
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -63,194 +64,225 @@ index 0000000..8e3a286
 + *
 + *
 + * Intel Corporation <linux-wimax@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
 + *  - Initial implementation
 + *
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - Bus generic/specific split for USB
 + *
-+ * Dirk Brandewie <dirk.j.brandewie@intel.com>
-+ *  - Initial implementation for SDIO
++ * This handles the RX path on SDIO.
 + *
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - SDIO rehash for changes in the bus-driver model
++ * The SDIO bus driver calls the "irq" routine when data is available.
++ * This is not a traditional interrupt routine since the SDIO bus
++ * driver calls us from its irq thread context.  Because of this
++ * sleeping in the SDIO RX IRQ routine is okay.
 + *
-+ * THE PROCEDURE
++ * From there on, we obtain the size of the data that is available,
++ * allocate an skb, copy it and then pass it to the generic driver's
++ * RX routine [i2400m_rx()].
 + *
-+ * See fw.c for the generic description of this procedure.
++ * ROADMAP
 + *
-+ * This file implements only the SDIO specifics. It boils down to how
-+ * to send a command and waiting for an acknowledgement from the
-+ * device. We do polled reads.
++ * i2400ms_irq()
++ *   i2400ms_rx()
++ *     __i2400ms_rx_get_size()
++ *     i2400m_rx()
 + *
-+ * COMMAND EXECUTION
++ * i2400ms_rx_setup()
 + *
-+ * THe generic firmware upload code will call i2400m_bus_bm_cmd_send()
-+ * to send commands.
-+ *
-+ * The SDIO devices expects things in 256 byte blocks, so it will pad
-+ * it, compute the checksum (if needed) and pass it to SDIO.
-+ *
-+ * ACK RECEPTION
-+ *
-+ * This works in polling mode -- the fw loader says when to wait for
-+ * data and for that it calls i2400ms_bus_bm_wait_for_ack().
-+ *
-+ * This will poll the device for data until it is received. We need to
-+ * receive at least as much bytes as where asked for (although it'll
-+ * always be a multiple of 256 bytes).
++ * i2400ms_rx_release()
 + */
++#include <linux/workqueue.h>
++#include <linux/wait.h>
++#include <linux/skbuff.h>
++#include <linux/mmc/sdio.h>
 +#include <linux/mmc/sdio_func.h>
 +#include "i2400m-sdio.h"
 +
-+
-+#define D_SUBMODULE sdio_fw
++#define D_SUBMODULE sdio_rx
 +#include "sdio-debug-levels.h"
 +
++
 +/*
-+ * Send a boot-mode command to the SDIO function
++ * Read and return the amount of bytes available for RX
 + *
-+ * We use a bounce buffer (i2400m->bm_cmd_buf) because we need to
-+ * touch the header if the RAW flag is not set.
++ * The RX size has to be read like this: byte reads of three
++ * sequential locations; then glue'em together.
 + *
-+ * @flags: pass thru from i2400m_bm_cmd()
-+ * @return: cmd_size if ok, < 0 errno code on error.
-+ *
-+ * Note the command is padded to the SDIO block size for the device.
++ * sdio_readl() doesn't work.
 + */
-+ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *i2400m,
-+				const struct i2400m_bootrom_header *_cmd,
-+				size_t cmd_size, int flags)
++ssize_t __i2400ms_rx_get_size(struct i2400ms *i2400ms)
 +{
-+	ssize_t result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
-+	struct i2400m_bootrom_header *cmd;
-+	/* SDIO restriction */
-+	size_t cmd_size_a = ALIGN(cmd_size, I2400MS_BLK_SIZE);
++	int ret, cnt, val;
++	ssize_t rx_size;
++	unsigned xfer_size_addr;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &i2400ms->func->dev;
 +
-+	d_fnstart(5, dev, "(i2400m %p cmd %p size %zu)\n",
-+		  i2400m, _cmd, cmd_size);
-+	result = -E2BIG;
-+	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
-+		goto error_too_big;
-+
-+	memcpy(i2400m->bm_cmd_buf, _cmd, cmd_size);	/* Prep command */
-+	cmd = i2400m->bm_cmd_buf;
-+	if (cmd_size_a > cmd_size)			/* Zero pad space */
-+		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
-+	if ((flags & I2400M_BM_CMD_RAW) == 0) {
-+		if (WARN_ON(i2400m_brh_get_response_required(cmd) == 0))
-+			dev_warn(dev, "SW BUG: response_required == 0\n");
-+		i2400m_bm_cmd_prepare(cmd);
++	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
++	xfer_size_addr = I2400MS_INTR_GET_SIZE_ADDR;
++	rx_size = 0;
++	for (cnt = 0; cnt < 3; cnt++) {
++		val = sdio_readb(func, xfer_size_addr + cnt, &ret);
++		if (ret < 0) {
++			dev_err(dev, "RX: Can't read byte %d of RX size from "
++				"0x%08x: %d\n", cnt, xfer_size_addr + cnt, ret);
++			rx_size = ret;
++			goto error_read;
++		}
++		rx_size = rx_size << 8 | (val & 0xff);
 +	}
-+	d_printf(4, dev, "BM cmd %d: %zu bytes (%zu padded)\n",
-+		 opcode, cmd_size, cmd_size_a);
-+	d_dump(5, dev, cmd, cmd_size);
++	d_printf(6, dev, "RX: rx_size is %ld\n", (long) rx_size);
++error_read:
++	d_fnend(7, dev, "(i2400ms %p) = %ld\n", i2400ms, (long) rx_size);
++	return rx_size;
++}
 +
-+	sdio_claim_host(i2400ms->func);			/* Send & check */
-+	result = sdio_memcpy_toio(i2400ms->func, I2400MS_DATA_ADDR,
-+				  i2400m->bm_cmd_buf, cmd_size_a);
-+	sdio_release_host(i2400ms->func);
++
++/*
++ * Read data from the device (when in normal)
++ *
++ * Allocate an SKB of the right size, read the data in and then
++ * deliver it to the generic layer.
++ *
++ * We also check for a reboot barker. That means the device died and
++ * we have to reboot it.
++ */
++static
++void i2400ms_rx(struct i2400ms *i2400ms)
++{
++	int ret;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++	struct i2400m *i2400m = &i2400ms->i2400m;
++	struct sk_buff *skb;
++	ssize_t rx_size;
++
++	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
++	rx_size = __i2400ms_rx_get_size(i2400ms);
++	if (rx_size < 0) {
++		ret = rx_size;
++		goto error_get_size;
++	}
++	ret = -ENOMEM;
++	skb = alloc_skb(rx_size, GFP_ATOMIC);
++	if (NULL == skb) {
++		dev_err(dev, "RX: unable to alloc skb\n");
++		goto error_alloc_skb;
++	}
++
++	ret = sdio_memcpy_fromio(func, skb->data,
++				 I2400MS_DATA_ADDR, rx_size);
++	if (ret < 0) {
++		dev_err(dev, "RX: SDIO data read failed: %d\n", ret);
++		goto error_memcpy_fromio;
++	}
++	/* Check if device has reset */
++	if (!memcmp(skb->data, i2400m_NBOOT_BARKER,
++		    sizeof(i2400m_NBOOT_BARKER))
++	    || !memcmp(skb->data, i2400m_SBOOT_BARKER,
++		       sizeof(i2400m_SBOOT_BARKER))) {
++		ret = i2400m_dev_reset_handle(i2400m);
++		kfree_skb(skb);
++	} else {
++		skb_put(skb, rx_size);
++		i2400m_rx(i2400m, skb);
++	}
++	d_fnend(7, dev, "(i2400ms %p) = void\n", i2400ms);
++	return;
++
++error_memcpy_fromio:
++	kfree_skb(skb);
++error_alloc_skb:
++error_get_size:
++	d_fnend(7, dev, "(i2400ms %p) = %d\n", i2400ms, ret);
++	return;
++}
++
++
++/*
++ * Process an interrupt from the SDIO card
++ *
++ * FIXME: need to process other events that are not just ready-to-read
++ *
++ * Checks there is data ready and then proceeds to read it.
++ */
++static
++void i2400ms_irq(struct sdio_func *func)
++{
++	int ret;
++	struct i2400ms *i2400ms = sdio_get_drvdata(func);
++	struct i2400m *i2400m = &i2400ms->i2400m;
++	struct device *dev = &func->dev;
++	int val;
++
++	d_fnstart(6, dev, "(i2400ms %p)\n", i2400ms);
++	val = sdio_readb(func, I2400MS_INTR_STATUS_ADDR, &ret);
++	if (ret < 0) {
++		dev_err(dev, "RX: Can't read interrupt status: %d\n", ret);
++		goto error_no_irq;
++	}
++	if (!val) {
++		dev_err(dev, "RX: BUG? got IRQ but no interrupt ready?\n");
++		goto error_no_irq;
++	}
++	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
++	if (WARN_ON(i2400m->boot_mode))
++		dev_err(dev, "RX: SW BUG? boot mode and IRQ is up?\n");
++	else
++		i2400ms_rx(i2400ms);
++error_no_irq:
++	d_fnend(6, dev, "(i2400ms %p) = void\n", i2400ms);
++	return;
++}
++
++
++/*
++ * Setup SDIO RX
++ *
++ * Hooks up the IRQ handler and then enables IRQs.
++ */
++int i2400ms_rx_setup(struct i2400ms *i2400ms)
++{
++	int result;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++
++	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
++	sdio_claim_host(func);
++	result = sdio_claim_irq(func, i2400ms_irq);
 +	if (result < 0) {
-+		dev_err(dev, "BM cmd %d: cannot send: %ld\n",
-+			opcode, (long) result);
-+		goto error_cmd_send;
++		dev_err(dev, "Cannot claim IRQ: %d\n", result);
++		goto error_irq_claim;
 +	}
-+	result = cmd_size;
-+error_cmd_send:
-+error_too_big:
-+	d_fnend(5, dev, "(i2400m %p cmd %p size %zu) = %d\n",
-+		i2400m, _cmd, cmd_size, (int) result);
++	result = 0;
++	sdio_writeb(func, 1, I2400MS_INTR_ENABLE_ADDR, &result);
++	if (result < 0) {
++		sdio_release_irq(func);
++		dev_err(dev, "Failed to enable interrupts %d\n", result);
++	}
++error_irq_claim:
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
 +	return result;
 +}
 +
 +
 +/*
-+ * Read an ack from the device's boot-mode (polling)
++ * Tear down SDIO RX
 + *
-+ * @i2400m:
-+ * @_ack: pointer to where to store the read data
-+ * @ack_size: how many bytes we should read
-+ *
-+ * Returns: < 0 errno code on error; otherwise, amount of received bytes.
-+ *
-+ * The ACK for a BM command is always at least sizeof(*ack) bytes, so
-+ * check for that. We don't need to check for device reboots
-+ *
-+ * NOTE: We do an artificial timeout of 1 sec over the SDIO timeout;
-+ *     this way we have control over it...there is no way that I know
-+ *     of setting an SDIO transaction timeout.
++ * Disables IRQs in the device and removes the IRQ handler.
 + */
-+ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *i2400m,
-+				    struct i2400m_bootrom_header *ack,
-+				    size_t ack_size)
++void i2400ms_rx_release(struct i2400ms *i2400ms)
 +{
 +	int result;
-+	ssize_t rx_size;
-+	u64 timeout;
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
 +	struct sdio_func *func = i2400ms->func;
 +	struct device *dev = &func->dev;
 +
-+	BUG_ON(sizeof(*ack) > ack_size);
-+
-+	d_fnstart(5, dev, "(i2400m %p ack %p size %zu)\n",
-+		  i2400m, ack, ack_size);
-+
-+	timeout = get_jiffies_64() + 2 * HZ;
++	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
 +	sdio_claim_host(func);
-+	while (1) {
-+		if (time_after64(get_jiffies_64(), timeout)) {
-+			rx_size = -ETIMEDOUT;
-+			dev_err(dev, "timeout waiting for ack data\n");
-+			goto error_timedout;
-+		}
-+
-+		/* Find the RX size, check if it fits or not -- it if
-+		 * doesn't fit, fail, as we have no way to dispose of
-+		 * the extra data. */
-+		rx_size = __i2400ms_rx_get_size(i2400ms);
-+		if (rx_size < 0)
-+			goto error_rx_get_size;
-+		result = -ENOSPC;		/* Check it fits */
-+		if (rx_size < sizeof(*ack)) {
-+			rx_size = -EIO;
-+			dev_err(dev, "HW BUG? received is too small (%zu vs "
-+				"%zu needed)\n", sizeof(*ack), rx_size);
-+			goto error_too_small;
-+		}
-+		if (rx_size > I2400M_BM_ACK_BUF_SIZE) {
-+			dev_err(dev, "SW BUG? BM_ACK_BUF is too small (%u vs "
-+				"%zu needed)\n", I2400M_BM_ACK_BUF_SIZE,
-+				rx_size);
-+			goto error_too_small;
-+		}
-+
-+		/* Read it */
-+		result = sdio_memcpy_fromio(func, i2400m->bm_ack_buf,
-+					    I2400MS_DATA_ADDR, rx_size);
-+		if (result == -ETIMEDOUT || result == -ETIME)
-+			continue;
-+		if (result < 0) {
-+			dev_err(dev, "BM SDIO receive (%zu B) failed: %d\n",
-+				rx_size, result);
-+			goto error_read;
-+		} else
-+			break;
-+	}
-+	rx_size = min((ssize_t)ack_size, rx_size);
-+	memcpy(ack, i2400m->bm_ack_buf, rx_size);
-+error_read:
-+error_too_small:
-+error_rx_get_size:
-+error_timedout:
++	sdio_writeb(func, 0, I2400MS_INTR_ENABLE_ADDR, &result);
++	sdio_release_irq(func);
 +	sdio_release_host(func);
-+	d_fnend(5, dev, "(i2400m %p ack %p size %zu) = %ld\n",
-+		i2400m, ack, ack_size, (long) rx_size);
-+	return rx_size;
++	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
 +}
 -- 
 1.5.6.5
