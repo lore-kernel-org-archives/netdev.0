@@ -1,165 +1,101 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] net: gen_estimator: Fix gen_kill_estimator() lookups
-Date: Mon, 24 Nov 2008 12:04:04 +0000
-Message-ID: <20081124120404.GA16413@ff.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v2] pkt_sched: sch_drr: Fix drr_dequeue() loop
+Date: Mon, 24 Nov 2008 13:15:07 +0100
+Message-ID: <492A9ACB.4050504@trash.net>
+References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net> <20081124105345.GB13957@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------040407090903000307070301"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:49298 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750823AbYKXMEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 07:04:11 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so795301eyi.37
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 04:04:09 -0800 (PST)
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:61942 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751334AbYKXMPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 07:15:17 -0500
+In-Reply-To: <20081124105345.GB13957@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gen_kill_estimator() linear lists lookups are very slow, and e.g. while
-deleting a large number of HTB classes soft lockups were reported. Here
-is another try to fix this problem: this time internally, with rbtree,
-so similarly to Jamal's hashing idea IIRC. (Looking for next hits could
-be still optimized, but it's really fast as it is.)
+This is a multi-part message in MIME format.
+--------------040407090903000307070301
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Reported-by: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
+Jarek Poplawski wrote:
+> (Changelog fixed only)
+> 
+> pkt_sched: sch_drr: Fix drr_dequeue() loop
+> 
+> If all child qdiscs of sch_drr are non-work-conserving (e.g. sch_tbf)
+> drr_dequeue() will busy-loop waiting for skbs instead of leaving the
+> job for a watchdog. Checking for list_empty() in each loop isn't
+> necessary either, because this can never be true except the first time.
 
- net/core/gen_estimator.c |   76 ++++++++++++++++++++++++++++++++++------------
- 1 files changed, 56 insertions(+), 20 deletions(-)
+Thanks for the report. I don't like to overcomplicate treatment
+of this broken configuration though, so this patch simply returns
+NULL when the inner qdiscs is non-work-conserving.
 
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 57abe82..80aa160 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -31,6 +31,7 @@
- #include <linux/skbuff.h>
- #include <linux/rtnetlink.h>
- #include <linux/init.h>
-+#include <linux/rbtree.h>
- #include <net/sock.h>
- #include <net/gen_stats.h>
+
+
+
+--------------040407090903000307070301
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit f995e708c778d5c3201d769ffae636f6941654ed
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Nov 24 13:13:16 2008 +0100
+
+    pkt_sched: sch_drr: fix drr_dequeue loop()
+    
+    Jarek Poplawski points out:
+    
+    If all child qdiscs of sch_drr are non-work-conserving (e.g. sch_tbf)
+    drr_dequeue() will busy-loop waiting for skbs instead of leaving the
+    job for a watchdog. Checking for list_empty() in each loop isn't
+    necessary either, because this can never be true except the first time.
+    
+    Using non-work-conserving qdiscs as children of DRR makes no sense,
+    simply bail out in that case.
+    
+    Reported-by: Jarek Poplawski <jarkao2@gmail.com>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index 37e6ab9..e7a7e87 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -373,11 +373,13 @@ static struct sk_buff *drr_dequeue(struct Qdisc *sch)
+ 	struct sk_buff *skb;
+ 	unsigned int len;
  
-@@ -89,6 +90,7 @@ struct gen_estimator
- 	u32			avpps;
- 	u32			avbps;
- 	struct rcu_head		e_rcu;
-+	struct rb_node		node;
- };
+-	while (!list_empty(&q->active)) {
++	if (list_empty(&q->active))
++		goto out;
++	while (1) {
+ 		cl = list_first_entry(&q->active, struct drr_class, alist);
+ 		skb = cl->qdisc->ops->peek(cl->qdisc);
+ 		if (skb == NULL)
+-			goto skip;
++			goto out;
  
- struct gen_estimator_head
-@@ -102,6 +104,9 @@ static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
- /* Protects against NULL dereference */
- static DEFINE_RWLOCK(est_lock);
+ 		len = qdisc_pkt_len(skb);
+ 		if (len <= cl->deficit) {
+@@ -390,9 +392,9 @@ static struct sk_buff *drr_dequeue(struct Qdisc *sch)
+ 		}
  
-+/* Protects against soft lockup during large deletion */
-+static struct rb_root est_root = RB_ROOT;
-+
- static void est_timer(unsigned long arg)
- {
- 	int idx = (int)arg;
-@@ -139,6 +144,45 @@ skip:
- 	rcu_read_unlock();
- }
- 
-+static void gen_add_node(struct gen_estimator *est)
-+{
-+	struct rb_node **p = &est_root.rb_node, *parent = NULL;
-+
-+	while (*p) {
-+		struct gen_estimator *e;
-+
-+		parent = *p;
-+		e = rb_entry(parent, struct gen_estimator, node);
-+
-+		if (est->bstats > e->bstats)
-+			p = &parent->rb_right;
-+		else
-+			p = &parent->rb_left;
-+	}
-+	rb_link_node(&est->node, parent, p);
-+	rb_insert_color(&est->node, &est_root);
-+}
-+
-+static struct gen_estimator *gen_find_node(struct gnet_stats_basic *bstats,
-+					   struct gnet_stats_rate_est *rate_est)
-+{
-+	struct rb_node *p = est_root.rb_node;
-+
-+	while (p) {
-+		struct gen_estimator *e;
-+
-+		e = rb_entry(p, struct gen_estimator, node);
-+
-+		if (bstats > e->bstats)
-+			p = p->rb_right;
-+		else if (bstats < e->bstats || rate_est != e->rate_est)
-+			p = p->rb_left;
-+		else
-+			return e;
-+	}
-+	return NULL;
-+}
-+
- /**
-  * gen_new_estimator - create a new rate estimator
-  * @bstats: basic statistics
-@@ -194,6 +238,8 @@ int gen_new_estimator(struct gnet_stats_basic *bstats,
- 		mod_timer(&elist[idx].timer, jiffies + ((HZ/4) << idx));
- 
- 	list_add_rcu(&est->list, &elist[idx].list);
-+	gen_add_node(est);
-+
- 	return 0;
- }
- 
-@@ -209,34 +255,24 @@ static void __gen_kill_estimator(struct rcu_head *head)
-  * @bstats: basic statistics
-  * @rate_est: rate estimator statistics
-  *
-- * Removes the rate estimator specified by &bstats and &rate_est
-- * and deletes the timer.
-+ * Removes the rate estimator specified by &bstats and &rate_est.
-  *
-  * NOTE: Called under rtnl_mutex
-  */
- void gen_kill_estimator(struct gnet_stats_basic *bstats,
--	struct gnet_stats_rate_est *rate_est)
-+			struct gnet_stats_rate_est *rate_est)
- {
--	int idx;
--	struct gen_estimator *e, *n;
--
--	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
--
--		/* Skip non initialized indexes */
--		if (!elist[idx].timer.function)
--			continue;
-+	struct gen_estimator *e;
- 
--		list_for_each_entry_safe(e, n, &elist[idx].list, list) {
--			if (e->rate_est != rate_est || e->bstats != bstats)
--				continue;
-+	while ((e = gen_find_node(bstats, rate_est))) {
-+		rb_erase(&e->node, &est_root);
- 
--			write_lock_bh(&est_lock);
--			e->bstats = NULL;
--			write_unlock_bh(&est_lock);
-+		write_lock_bh(&est_lock);
-+		e->bstats = NULL;
-+		write_unlock_bh(&est_lock);
- 
--			list_del_rcu(&e->list);
--			call_rcu(&e->e_rcu, __gen_kill_estimator);
--		}
-+		list_del_rcu(&e->list);
-+		call_rcu(&e->e_rcu, __gen_kill_estimator);
+ 		cl->deficit += cl->quantum;
+-skip:
+ 		list_move_tail(&cl->alist, &q->active);
  	}
++out:
+ 	return NULL;
  }
  
+
+--------------040407090903000307070301--
