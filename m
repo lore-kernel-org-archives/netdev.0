@@ -1,65 +1,116 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [Bugme-new] [Bug 12086] New: NETDEV WATCHDOG: eth0 (atl1):
- transmit timed out
-Date: Mon, 24 Nov 2008 15:32:47 -0600
-Message-ID: <20081124153247.38b80731@osprey.hogchain.net>
-References: <bug-12086-10286@http.bugzilla.kernel.org/>
-	<20081122205803.517ad692.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	bharattharee@gmail.com
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 01/39] wimax: documentation for the stack
+Date: Mon, 24 Nov 2008 13:50:24 -0800
+Message-ID: <ebea1c0d196d8f8bc24ccc7675e669324543bb30.1227562829.git.inaky@linux.intel.com>
+References: <cover.1227562829.git.inaky@linux.intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost02.isp.att.net ([204.127.217.102]:39964 "EHLO
-	fmailhost02.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752348AbYKXVcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:32:51 -0500
-In-Reply-To: <20081122205803.517ad692.akpm@linux-foundation.org>
+Received: from mga12.intel.com ([143.182.124.36]:47824 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752947AbYKXVvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:14 -0500
+In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Nov 2008 20:58:03 -0800
-Andrew Morton <akpm@linux-foundation.org> wrote:
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ Documentation/wimax/README.wimax |   86 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 86 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/wimax/README.wimax
 
+diff --git a/Documentation/wimax/README.wimax b/Documentation/wimax/README.wimax
+new file mode 100644
+index 0000000..5f6a0a1
+--- /dev/null
++++ b/Documentation/wimax/README.wimax
+@@ -0,0 +1,86 @@
++   Linux kernel WiMAX stack
++
++   (C) 2008 Intel Corporation < linux-wimax@intel.com >
++
++   This provides a basic Linux kernel WiMAX stack to provide a common
++   control API for WiMAX devices, usable from kernel and user space.
++
++Design
++
++   The WiMAX stack is designed to provide for common WiMAX control
++   services to current and future WiMAX devices from any vendor.
++
++   Because currently there is only one and we don't know what would be the
++   common services, the APIs it currently provides are very minimal.
++   However, it is done in such a way that it is easily extensible to
++   accommodate future requirements.
++
++   The stack works by embedding a struct wimax_dev in your device's
++   control structures. This provides a set of callbacks that the WiMAX
++   stack will call in order to implement control operations requested by
++   the user. As well, the stack provides API functions that the driver
++   calls to notify about changes of state in the device.
++
++   The stack exports the API calls needed to control the device to user
++   space using generic netlink as a marshalling mechanism. You can access
++   them using your own code or use the wrappers provided for your
++   convenience in libwimax (in the wimax-tools package).
++
++   For detailed information on the stack, please see
++   include/net/wimax.h.
++
++Usage
++
++   For usage in a driver (registration, API, etc) please refer to the
++   instructions in the header file include/net/wimax.h.
++
++   When a device is registered with the WiMAX stack, a set of control
++   files will appear under the wimax/ subdirectory in the device's sysfs
++   directory that the user can tweak for control.
++
++   The device's sysfs directory can be found with find:
++
++$ find /sys/devices -name net:wmx0
++/sys/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/net:wmx0
++
++   Where wmx0 is the network device name of your device. Note the paths
++   will vary from system to system.
++
++sysfs: controlling debug output from the stack
++
++   The WiMAX stack is compiled, by default, with debug messages that can
++   be used to diagnose issues. By default, said messages are disabled.
++
++   By tweaking the values reported in the wimax/debug-levels file, each
++   submodule in the stack can be made to be verbose about its operation.
++
++   To see the current debug levels:
++
++$ cd /sys/devices/...../net:wmx0
++$ cat wimax/debug_levels
++0 id_table
++7 op_msg
++0 op_open
++0 op_reset
++0 op_rfkill
++0 stack
++
++   In this example, the id_table submodule has a debug level of 7 (very
++   verbose).
++
++   To increase the debug level of, for example, the op_rfkill sumodule,
++   just write:
++
++$ echo 3 op_rfkill > wimax/debug_levels
++
++   Increasing numbers yield increasing debug information; for details of
++   what is each, check the source.
++
++   To reset any level to minimum operation, set its level to zero.
++
++sysfs: finding generic netlink information (deprecated)
++
++   The files wimax/gnl_family_id and wimax/gnl_version contain information
++   about the generic netlink registration for each device.
++
++   These files are deprecated.
+-- 
+1.5.6.5
 
-> > Call Trace:
-> >  <IRQ>  [<ffffffff8103bb01>] warn_slowpath+0xae/0xd7
-> >  [<ffffffff810b3522>] ? virt_to_head_page+0x31/0x41
-> >  [<ffffffff810b4df2>] ? kmem_cache_free+0x99/0xb8
-> >  [<ffffffff810b3522>] ? virt_to_head_page+0x31/0x41
-> >  [<ffffffff81138b0b>] ? blk_remove_plug+0x71/0xa5
-> >  [<ffffffff81135d3f>] ? elv_queue_empty+0x22/0x24
-> >  [<ffffffff81138dc2>] ? blk_run_queue+0x30/0x35
-> >  [<ffffffffa005c4fa>] ? scsi_run_queue+0x29f/0x2d2 [scsi_mod]
-> >  [<ffffffff81053d42>] ? sched_clock_cpu+0x10f/0x120
-> >  [<ffffffffa005d190>] ? scsi_next_command+0x3e/0x46 [scsi_mod]
-> >  [<ffffffff812b665a>] ? _spin_lock+0x9/0xc
-> >  [<ffffffff81247521>] ? netif_tx_lock+0x64/0x7e
-> >  [<ffffffff81053d42>] ? sched_clock_cpu+0x10f/0x120
-> >  [<ffffffff8124769b>] dev_watchdog+0xfe/0x15d
-> >  [<ffffffff8124759d>] ? dev_watchdog+0x0/0x15d
-> >  [<ffffffff81045212>] run_timer_softirq+0x19c/0x222
-> >  [<ffffffff810570a2>] ? clockevents_program_event+0x73/0x7c
-> >  [<ffffffff8104102e>] __do_softirq+0x7e/0x10c
-> >  [<ffffffff8100dbcc>] call_softirq+0x1c/0x28
-> >  [<ffffffff8100edd6>] do_softirq+0x4d/0xb0
-> >  [<ffffffff81040c03>] irq_exit+0x4e/0x9d
-> >  [<ffffffff8101ca3a>] smp_apic_timer_interrupt+0x8f/0xa8
-> >  [<ffffffff8100d3d8>] apic_timer_interrupt+0x88/0x90
-> >  <EOI>  [<ffffffff8102172a>] ? native_safe_halt+0x6/0x8
-> >  [<ffffffff810132cf>] ? need_resched+0x1e/0x28
-> >  [<ffffffff810133b4>] ? default_idle+0x2a/0x4c
-> >  [<ffffffff81013504>] ? c1e_idle+0x120/0x127
-> >  [<ffffffff812b963a>] ? atomic_notifier_call_chain+0x13/0x15
-> >  [<ffffffff8100b279>] ? cpu_idle+0xb2/0x10b
-> >  [<ffffffff812a49dd>] ? rest_init+0x61/0x63
-> > 
-> > ---[ end trace 9d3a40971e1bbe78 ]---
-
-Were you doing anything in particular on the system whenever this
-warning occurred?  Restarting the interface, perhaps?  Or
-unplugging/replugging the network cable?  Restarting a router or switch?
-
-Does it happen when the proprietary Nvidia driver isn't loaded?
