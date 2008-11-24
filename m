@@ -1,42 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Could we avoid touching dst->refcount in some cases ?
-Date: Mon, 24 Nov 2008 15:39:54 -0800 (PST)
-Message-ID: <20081124.153954.215777060.davem@davemloft.net>
-References: <492A6C94.7030308@cosmosbay.com>
-	<87y6z9h33h.fsf@basil.nowhere.org>
-	<492A7E85.3060502@cosmosbay.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: [PATCH 02/39] wimax: declarations for the in-kernel WiMAX API
+Date: Mon, 24 Nov 2008 15:43:33 -0800
+Message-ID: <200811241543.33830.inaky@linux.intel.com>
+References: <cover.1227562829.git.inaky@linux.intel.com> <8deda2d5304761622a3744cd3e9a39551490bced.1227562829.git.inaky@linux.intel.com> <20081124143326.58fdcbed@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59177
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753559AbYKXXjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 18:39:54 -0500
-In-Reply-To: <492A7E85.3060502@cosmosbay.com>
+Received: from mga09.intel.com ([134.134.136.24]:28629 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753581AbYKXXnu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2008 18:43:50 -0500
+In-Reply-To: <20081124143326.58fdcbed@extreme>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 24 Nov 2008 11:14:29 +0100
+On Monday 24 November 2008, Stephen Hemminger wrote:
+> On Mon, 24 Nov 2008 13:50:25 -0800
+>
+> Inaky Perez-Gonzalez <inaky@linux.intel.com> wrote:
+> > [...snip...]
+> > + */ 
+> > +struct wimax_dev {
+> > +	struct net_device *net_dev;
+> > +	struct list_head id_table_node;
+> > +	struct list_head pipe_list;
+> > +	struct wimax_pipe *pipe_msg;
+> > +	struct mutex mutex;		/* Protects all members and API calls */
+> > +	enum wimax_st state;
+> > +
+> > +	int (*op_msg_from_user)(struct wimax_dev *wimax_dev,
+> > +				const void *, size_t,
+> > +				const struct genl_info *info);
+> > +	int (*op_rfkill_sw_toggle)(struct wimax_dev *wimax_dev,
+> > +				   enum wimax_rf_state);
+> > +	int (*op_reset)(struct wimax_dev *wimax_dev);
+>
+> Move function pointers separate from data??
 
-> So maybe we could make ip_append_data() (or its callers) a
-> litle bit smarter, avoiding increment/decrement if possible.
+Most devices will have only a single adapter, so I thought it was not worth 
+the overhead of the double dereference when average you will have a single 
+copy.
 
-These ideas are interesting but hard to make work.
+> > +	struct genl_family gnl_family;
+>
+> Isn't family for all of wimax not per device?
 
-I think the receive path has more chance of getting gains
-from this, to be honest.
+Nope, it is per device. One generic netlink family per device (named "WiMAX 
+DEVICENAME"). 
 
-One third (effectively) of TCP stream packets are ACKs and
-freed immediately.  This means that the looked up route does
-not escape the packet receive path.  So we could elide the
-counter increment in that case.
+Makes it very easy in user and kernel space, no need for the overhead of 
+having an extra attribute for the destination interface.
 
-In fact, once we queue even TCP data, there is no need for
-that cached skb->dst route any longer.
+> > +	struct rfkill *rfkill;
+> > +	struct input_dev *rfkill_input;
+> > +	unsigned rf_hw:1;
+> > +	unsigned rf_sw:1;
+>
+> don't bother with bitfield overhead make them u8
 
-So pretty much all TCP packets could avoid the dst refcounting
-on receive.
+sure
+
+> > +	char name[32];
+> > +};
+>
+> Why have name in this data structure? Do you handle network device
+> renames properly?
+
+This is a physical name, not the network interface name (recommended name in 
+the members documentation is DRIVERNAME:physical path.
+
+The reason is it is used to register different things (rfkill device, input 
+device for rfkill, threads). It being tied to the physical path makes it easy 
+to map and not vulnerable to renames.
+
+Now it might be too short, that's another matter.
+
+-- 
+Inaky
