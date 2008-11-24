@@ -1,7 +1,8 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] aoe: remove private mac address format function
-Date: Mon, 24 Nov 2008 11:55:00 -0800
-Message-ID: <1227556500.5511.19.camel@brick>
+Subject: [PATCHv2] aoe: remove private mac address format function
+Date: Mon, 24 Nov 2008 12:02:20 -0800
+Message-ID: <1227556940.5511.20.camel@brick>
+References: <1227556500.5511.19.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,12 +10,13 @@ Cc: Jens Axboe <jens.axboe@oracle.com>,
 	linux-netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.174]:46918 "EHLO
+Received: from wf-out-1314.google.com ([209.85.200.169]:54277 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752521AbYKXTzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 14:55:04 -0500
-Received: by wf-out-1314.google.com with SMTP id 26so2283469wfd.26
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 11:55:03 -0800 (PST)
+	with ESMTP id S1750812AbYKXUCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 15:02:24 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so2411320wfd.4
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 12:02:23 -0800 (PST)
+In-Reply-To: <1227556500.5511.19.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,14 +24,14 @@ Add %pm to omit the colons when printing a mac address.
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
-Jens, sent to netdev/DaveM as the extended printk bits are in
-net-next and not mainline and this patch depends on them.
+Sorry, missed a git-add of the aoeblk.c part in the last patch.
 
  drivers/block/aoe/aoe.h    |    1 -
+ drivers/block/aoe/aoeblk.c |    2 +-
  drivers/block/aoe/aoecmd.c |   22 ++++++++++------------
  drivers/block/aoe/aoenet.c |   11 -----------
  lib/vsprintf.c             |    3 +++
- 4 files changed, 13 insertions(+), 24 deletions(-)
+ 5 files changed, 14 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/block/aoe/aoe.h b/drivers/block/aoe/aoe.h
 index 93f3690..c237527 100644
@@ -40,6 +42,19 @@ index 93f3690..c237527 100644
  int set_aoe_iflist(const char __user *str, size_t size);
  
 -unsigned long long mac_addr(char addr[6]);
+diff --git a/drivers/block/aoe/aoeblk.c b/drivers/block/aoe/aoeblk.c
+index 1747dd2..2307a27 100644
+--- a/drivers/block/aoe/aoeblk.c
++++ b/drivers/block/aoe/aoeblk.c
+@@ -37,7 +37,7 @@ static ssize_t aoedisk_show_mac(struct device *dev,
+ 
+ 	if (t == NULL)
+ 		return snprintf(page, PAGE_SIZE, "none\n");
+-	return snprintf(page, PAGE_SIZE, "%012llx\n", mac_addr(t->addr));
++	return snprintf(page, PAGE_SIZE, "%pm\n", t->addr);
+ }
+ static ssize_t aoedisk_show_netif(struct device *dev,
+ 				  struct device_attribute *attr, char *page)
 diff --git a/drivers/block/aoe/aoecmd.c b/drivers/block/aoe/aoecmd.c
 index 71ff78c..45c5a33 100644
 --- a/drivers/block/aoe/aoecmd.c
