@@ -1,85 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v2] pkt_sched: sch_drr: Fix drr_dequeue() loop
-Date: Mon, 24 Nov 2008 10:53:45 +0000
-Message-ID: <20081124105345.GB13957@ff.dom.local>
-References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] Could we avoid touching dst->refcount in some cases ?
+Date: Mon, 24 Nov 2008 12:27:09 +0100
+Message-ID: <20081124112709.GX6703@one.firstfloor.org>
+References: <492A6C94.7030308@cosmosbay.com> <87y6z9h33h.fsf@basil.nowhere.org> <492A7E85.3060502@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:29287 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbYKXKxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 05:53:51 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so783075eyi.37
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 02:53:49 -0800 (PST)
+Received: from one.firstfloor.org ([213.235.205.2]:39478 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751806AbYKXLQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 06:16:57 -0500
 Content-Disposition: inline
-In-Reply-To: <49254D42.10506@trash.net>
+In-Reply-To: <492A7E85.3060502@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Changelog fixed only)
+On Mon, Nov 24, 2008 at 11:14:29AM +0100, Eric Dumazet wrote:
+> Andi Kleen a =E9crit :
+> >Eric Dumazet <dada1@cosmosbay.com> writes:
+> >
+> >>tbench has hard time incrementing decrementing the route cache refc=
+ount
+> >>shared by all communications on localhost.
+> >
+> >iirc there was a patch some time ago to use per CPU loopback devices=
+ to=20
+> >avoid this, but it was considered too much a benchmark hack.
+> >As core counts increase it might stop being that though.
+>=20
+> Well, you probably mention Stephen patch to avoid dirtying other cont=
+ended
+> cache lines (one napi structure per cpu)
 
-pkt_sched: sch_drr: Fix drr_dequeue() loop
+No that patch wasn't from Stephen. iirc it was from someone at SGI.
 
-If all child qdiscs of sch_drr are non-work-conserving (e.g. sch_tbf)
-drr_dequeue() will busy-loop waiting for skbs instead of leaving the
-job for a watchdog. Checking for list_empty() in each loop isn't
-necessary either, because this can never be true except the first time.
+-Andi
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
-
- net/sched/sch_drr.c |   24 +++++++++++++++++++++---
- 1 files changed, 21 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index 37e6ab9..ab75461 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -369,12 +369,17 @@ static int drr_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- static struct sk_buff *drr_dequeue(struct Qdisc *sch)
- {
- 	struct drr_sched *q = qdisc_priv(sch);
--	struct drr_class *cl;
-+	struct drr_class *cl, *cl_first;
- 	struct sk_buff *skb;
- 	unsigned int len;
-+	bool skb_waiting = false;
- 
--	while (!list_empty(&q->active)) {
--		cl = list_first_entry(&q->active, struct drr_class, alist);
-+	if (list_empty(&q->active))
-+		return NULL;
-+
-+	cl_first = cl = list_first_entry(&q->active, struct drr_class, alist);
-+
-+	while (1) {
- 		skb = cl->qdisc->ops->peek(cl->qdisc);
- 		if (skb == NULL)
- 			goto skip;
-@@ -390,9 +395,22 @@ static struct sk_buff *drr_dequeue(struct Qdisc *sch)
- 		}
- 
- 		cl->deficit += cl->quantum;
-+		skb_waiting = true;
- skip:
- 		list_move_tail(&cl->alist, &q->active);
-+		cl = list_first_entry(&q->active, struct drr_class, alist);
-+
-+		if (cl == cl_first) {
-+			if (skb_waiting) {
-+				/* next round of deficit refilling */
-+				skb_waiting = false;
-+			} else {
-+				/* all qdiscs are non-work-conserving! */
-+				break;
-+			}
-+		}
- 	}
-+
- 	return NULL;
- }
- 
+--=20
+ak@linux.intel.com
