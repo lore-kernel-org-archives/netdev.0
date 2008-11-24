@@ -1,41 +1,41 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 08/39] wimax: Mappping of generic netlink family IDs to net devices
-Date: Mon, 24 Nov 2008 13:50:31 -0800
-Message-ID: <7d94ad9b6bd5c699a841cbcf8013f9d43c386cfb.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 03/39] wimax: constants and definitions to interact with user space
+Date: Mon, 24 Nov 2008 13:50:26 -0800
+Message-ID: <33aed8a04742b4b02023e960f833fe61c68553d6.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:21168 "EHLO
+Received: from mga12.intel.com ([143.182.124.36]:47824 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753177AbYKXVvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:18 -0500
+	with ESMTP id S1753146AbYKXVvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:14 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Low overhead method to map generic netlink family IDs to the WiMAX
-device attached to them that optimizes for the case where most systems
-have a single WiMAX device, or at most, a very low number of WiMAX
-adaptors.
+This file defines the user/kernel API protocol through generic
+netlink.
+
+User space can copy it verbatim and use it.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/id-table.c |  141 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 141 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/id-table.c
+ include/linux/wimax.h |  235 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 235 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/wimax.h
 
-diff --git a/drivers/net/wimax/id-table.c b/drivers/net/wimax/id-table.c
+diff --git a/include/linux/wimax.h b/include/linux/wimax.h
 new file mode 100644
-index 0000000..e3fb020
+index 0000000..5751695
 --- /dev/null
-+++ b/drivers/net/wimax/id-table.c
-@@ -0,0 +1,141 @@
++++ b/include/linux/wimax.h
+@@ -0,0 +1,235 @@
 +/*
-+ * Linux WiMAX
-+ * Mappping of generic netlink family IDs to net devices
++ * Linux WiMax
++ * API for user space
 + *
 + *
-+ * Copyright (C) 2005-2006 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
@@ -53,124 +53,218 @@ index 0000000..e3fb020
 + * 02110-1301, USA.
 + *
 + *
-+ * We assign a single generic netlink family ID to each device (to
-+ * simplify lookup).
++ * This file declares the user/kernel protocol that is spoken over
++ * Generic Netlink, as well as any type declaration that is to be used
++ * by kernel and user space.
 + *
-+ * We need a way to map family ID to a wimax_dev pointer.
-+ * 
-+ * The idea is to use a very simple lookup. Using a netlink attribute
-+ * with (for example) the interface name implies a heavier search over
-+ * all the network devices; seemed kind of a waste given that we know
-+ * we are looking for a WiMAX device and that most systems will have
-+ * just a single WiMAX adapter.
++ * It is intended for user space to clone it verbatim to use it as a
++ * primary reference for definitions.
 + *
-+ * We put all the WiMAX devices in the system in a linked list and
-+ * match the generic link family ID against the list.
-+ *
-+ * By using a linked list, the case of a single adapter in the system
-+ * becomes (almost) no overhead, while still working for many more. If
-+ * it ever goes beyond two, I'll be surprised.
++ * Stuff intended for kernel usage as well as full protocol and stack
++ * documentation is rooted in include/net/wimax.h.
 + */
-+#include <linux/device.h>
-+#include <net/genetlink.h>
-+#include <linux/netdevice.h>
-+#include <linux/list.h>
-+#include <linux/wimax.h>
-+#include "wimax-internal.h"
 +
++#ifndef __LINUX__WIMAX_H__
++#define __LINUX__WIMAX_H__
 +
-+#define D_SUBMODULE id_table
-+#include "debug-levels.h"
++#include <linux/types.h>
 +
-+
-+static spinlock_t wimax_id_table_lock = SPIN_LOCK_UNLOCKED;
-+static struct list_head wimax_id_table = LIST_HEAD_INIT(wimax_id_table);
++enum {
++	/**
++	 * Version of the interface (unsigned decimal, MMm, max 25.5)
++	 * M - Major: change if removing or modifying an existing call.
++	 * m - minor: change when adding a new call
++	 */
++	WIMAX_GNL_VERSION = 30,
++	/* Generic NetLink attributes */
++	WIMAX_GNL_ATTR_INVALID = 0x00,
++	WIMAX_GNL_ATTR_MAX = 5,
++};
 +
 +
 +/*
-+ * wimax_id_table_add - add a gennetlink familiy ID / wimax_dev mapping
++ * Generic NetLink operations
 + *
-+ * @wimax_dev: WiMAX device descriptor to associate to the Generic
-+ *     Netlink family ID.
-+ *
-+ * Look for an empty spot in the ID table; if none found, double the
-+ * table's size and get the first spot.
++ * Most of these map to an API call; _OP_ stands for operation, _RP_
++ * for reply and _RE_ for report (aka: signal).
 + */
-+void wimax_id_table_add(struct wimax_dev *wimax_dev)
-+{
-+	d_fnstart(3, NULL, "(wimax_dev %p)\n", wimax_dev);
-+	spin_lock(&wimax_id_table_lock);
-+	list_add(&wimax_dev->id_table_node, &wimax_id_table);
-+	spin_unlock(&wimax_id_table_lock);
-+	d_fnend(3, NULL, "(wimax_dev %p)\n", wimax_dev);
-+}
++enum {
++	WIMAX_GNL_OP_MSG_FROM_USER,	/* User to kernel message */
++	WIMAX_GNL_OP_MSG_TO_USER,	/* Kernel to user message */
++	WIMAX_GNL_OP_OPEN,	/* Open a handle to a wimax device */
++	WIMAX_GNL_OP_UNUSED,	/* Unused */
++	WIMAX_GNL_OP_RFKILL,	/* Run wimax_rfkill() */
++	WIMAX_GNL_RP_IFINFO,	/* Reply to OPEN: Interface info */
++	WIMAX_GNL_RP_RESULT,	/* Reply: result of operation */
++	WIMAX_GNL_OP_RESET,	/* Run wimax_rfkill() */
++	WIMAX_GNL_RE_STATE_CHANGE,	/* Report: status change */
++	WIMAX_GNL_OP_MAX,
++};
++
++
++/* Message from user / to user */
++enum {
++	WIMAX_GNL_MSG_DATA = 1,
++};
 +
 +
 +/*
-+ * wimax_get_netdev_by_info - lookup a wimax_dev from the gennetlink info
++ * wimax_rfkill()
 + *
-+ * The generic netlink family ID has been filled out in the
-+ * nlmsghdr->nlmsg_type field, so we pull it from there, look it up in
-+ * the mapping table and reference the wimax_dev.
-+ *
-+ * When done, the reference should be dropped with
-+ * 'dev_put(wimax_dev->net_dev)'. 
++ * The state of the radio (ON/OFF) is mapped to the rfkill subsystem's
++ * switch state (DISABLED/ENABLED).
 + */
-+struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *info)
-+{
-+	struct wimax_dev *wimax_dev;
-+	int id = info->nlhdr->nlmsg_type;
++enum wimax_rf_state {
++	WIMAX_RF_OFF = 0,	/* Radio is off, rfkill on/enabled */
++	WIMAX_RF_ON = 1,	/* Radio is on, rfkill off/disabled */
++	WIMAX_RF_QUERY = 2,
++};
 +
-+	d_fnstart(3, NULL, "(info %p [id %d])\n", info, id);
-+	spin_lock(&wimax_id_table_lock);
-+	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
-+		if (wimax_dev->gnl_family.id == id) {
-+			dev_hold(wimax_dev->net_dev);
-+			goto out_unlock;
-+		}
-+	}
-+	d_printf(1, NULL, "wimax: no device associated to ID %d\n", id);
-+	wimax_dev = NULL;
-+out_unlock:
-+	spin_unlock(&wimax_id_table_lock);
-+	d_fnend(3, NULL, "(info %p) = %p\n", info, wimax_dev);
-+	return wimax_dev;
-+}
++/* Attributes */
++enum {
++	WIMAX_GNL_RFKILL_STATE = 1,
++};
 +
 +
 +/*
-+ * wimax_id_table_rm - Remove a gennetlink familiy ID / wimax_dev mapping
++ * wimax_open()
 + *
-+ * @id: family ID to remove from the table
++ * Attributes for the interface-info reply
 + */
-+void wimax_id_table_rm(struct wimax_dev *wimax_dev)
-+{
-+	spin_lock(&wimax_id_table_lock);
-+	list_del_init(&wimax_dev->id_table_node);
-+	spin_unlock(&wimax_id_table_lock);
-+}
++enum {
++	WIMAX_GNL_IFINFO_MC_GROUPS = 1,
++	WIMAX_GNL_IFINFO_MC_GROUP,
++	WIMAX_GNL_IFINFO_MC_NAME,
++	WIMAX_GNL_IFINFO_MC_ID,
++	WIMAX_GNL_IFINFO_MAX,		/* Used by user space */
++};
 +
 +
 +/*
-+ * Release the gennetlink family id / mapping table
-+ *
-+ * On debug, verify that the table is empty upon removal.
++ * Attributes for the result-of-operation
 + */
-+void wimax_id_table_release(void)
-+{
-+#ifndef CONFIG_BUG
-+	return;
-+#endif
-+	struct wimax_dev *wimax_dev;
-+	    
-+	spin_lock(&wimax_id_table_lock);
-+	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
-+		printk(KERN_ERR "BUG: %s wimax_dev %p id %u not cleared\n",
-+		       __func__, wimax_dev, wimax_dev->gnl_family.id);
-+		WARN_ON(1);
-+	}
-+	spin_unlock(&wimax_id_table_lock);
-+}
++enum {
++	WIMAX_GNL_RESULT_CODE = 1,
++};
++
++
++/*
++ * Attributes for the Report State Change
++ *
++ * For now we just have the old and new states; new attributes might
++ * be added later on.
++ */
++enum {
++	WIMAX_GNL_STCH_STATE_OLD = 1,
++	WIMAX_GNL_STCH_STATE_NEW,
++};
++
++
++/**
++ * enum wimax_st - The different states of a WiMAX device
++ * @__WIMAX_ST_NULL: The device structure has been allocated and zeroed,
++ *     but still wimax_dev_add() hasn't been called. There is no state.
++ *
++ * @WIMAX_ST_DOWN: The device has been registered with the WiMAX and
++ *     networking stacks, but it is not initialized (normally that is
++ *     done with 'ifconfig DEV up' [or equivalent], which can upload
++ *     firmware and enable communications with the device).
++ *     In this state, the device is powered down and using as less
++ *     power as possible.
++ *     This state is the default after a call to wimax_dev_add(). It
++ *     is ok to have drivers move directly to %WIMAX_ST_UNINITIALIZED
++ *     or %WIMAX_ST_RADIO_OFF in _probe() after the call to
++ *     wimax_dev_add().
++ *     It is recommended that the driver leaves this state when
++ *     calling 'ifconfig DEV up' and enters it back on 'ifconfig DEV
++ *     down'.
++ *
++ * @__WIMAX_ST_QUIESCING: The device is being torn down, so no API
++ *     operations are allowed to proceed except the ones needed to
++ *     complete the device clean up process.
++ *
++ * @WIMAX_ST_UNINITIALIZED: [optional] Communication with the device
++ *     is setup, but the device still requires some configuration
++ *     before being operational.
++ *     Some WiMAX API calls might work.
++ *
++ * @WIMAX_ST_RADIO_OFF: The device is fully up; radio is off (wether
++ *     by hardware or software switches).
++ *     It is recommended to always leave the device in this state
++ *     after initialization.
++ *
++ * @WIMAX_ST_READY: The device is fully up and radio is on.
++ *
++ * @WIMAX_ST_SCANNING: [optional] The device has been instructed to
++ *     scan. In this state, the device cannot be actively connected to
++ *     a network.
++ *
++ * @WIMAX_ST_CONNECTING: The device is connecting to a network. This
++ *     state exists because in some devices, the connect process can
++ *     include a number of negotiations between user space, kernel
++ *     space and the device. User space needs to know what the device
++ *     is doing. If the connect sequence in a device is atomic and
++ *     fast, the device can transition directly to CONNECTED
++ *
++ * @WIMAX_ST_CONNECTED: The device is connected to a network.
++ *
++ * @__WIMAX_ST_INVALID: This is an invalid state used to mark the
++ *     maximum numeric value of states.
++ *
++ * Description:
++ *
++ * Transitions from one state to another one are atomic and can only
++ * be caused in kernel space with wimax_state_change(). To read the
++ * state, use wimax_state_get().
++ *
++ * States starting with __ are internal and shall not be used or
++ * referred to by drivers. They look ugly, but that's the point -- if
++ * any use is made non-internal to the stack, it is easier to catch on
++ * review.
++ *
++ * All API operations [with well defined exceptions] will take the
++ * device mutex before starting and then check the state. If the state
++ * is %__WIMAX_ST_NULL, %WIMAX_ST_DOWN, %WIMAX_ST_UNINITIALIZED or
++ * %__WIMAX_ST_QUIESCING, it will drop the lock and quit with
++ * -%EINVAL, -%ENOMEDIUM, -%ENOTCONN or -%ESHUTDOWN.
++ *
++ * The order of the definitions is important, so we can do numerical
++ * comparisons (eg: < %WIMAX_ST_RADIO_OFF means the device is not ready
++ * to operate).
++ */
++/*
++ * The allowed state transitions are described in the table below
++ * (states in rows can go to states in columns where there is an X):
++ *
++ *                                  UNINI   RADIO READY SCAN CONNEC CONNEC
++ *             NULL DOWN QUIESCING TIALIZED  OFF        NING  TING   TED
++ * NULL         -    x
++ * DOWN              -      x        x       x
++ * QUIESCING         x      -
++ * UNINITIALIZED            x        -       x
++ * RADIO_OFF                x                -     x
++ * READY                    x                x     -     x     x      x
++ * SCANNING                 x                x     x     -     x      x
++ * CONNECTING               x                x     x     x     -      x
++ * CONNECTED                x                x     x                  -
++ *
++ * This table not available in kernel-doc because the formatting messes it up.
++ */
++ enum wimax_st {
++	__WIMAX_ST_NULL = 0,
++	WIMAX_ST_DOWN,
++	__WIMAX_ST_QUIESCING,
++	WIMAX_ST_UNINITIALIZED,
++	WIMAX_ST_RADIO_OFF,
++	WIMAX_ST_READY,
++	WIMAX_ST_SCANNING,
++	WIMAX_ST_CONNECTING,
++	WIMAX_ST_CONNECTED,
++	__WIMAX_ST_INVALID			/* Always keep last */
++};
++
++
++#endif /* #ifndef __LINUX__WIMAX_H__ */
 -- 
 1.5.6.5
 
