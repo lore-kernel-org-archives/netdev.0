@@ -1,44 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] lro: ip fragment checking
-Date: Mon, 24 Nov 2008 16:51:08 +0000
-Message-ID: <1227545468.3162.4.camel@achroite>
-References: <492ACEC4.3020702@de.ibm.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 02/10] tcp: move tcp_simple_retransmit to tcp_input
+Date: Mon, 24 Nov 2008 18:58:25 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811241844490.30728@wrl-59.cs.helsinki.fi>
+References: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1227536527-29713-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <87skphqdx7.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tklein@de.ibm.com, Christoph Raisch <raisch@de.ibm.com>,
-	jb.billaud@gmail.com, hering2@de.ibm.com
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1455546864-1227545905=:30728"
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:34013 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753108AbYKXQvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:51:14 -0500
-In-Reply-To: <492ACEC4.3020702@de.ibm.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60578 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751920AbYKXQ61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:58:27 -0500
+In-Reply-To: <87skphqdx7.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-11-24 at 16:56 +0100, Jan-Bernd Themann wrote:
-> Currently there is no checking in the LRO receive path whether
-> TCP packets are ip fragmented. We should not consider
-> those packets for aggregation.
-> I'm not sure if this checking is actually required. Does anyone
-> know if it is possible to get fragmented TCP packets without
-> the tcp stack changing the MSS size?
-> This patch introduces explicit checking. Any objections?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-LRO depends on the hardware performing TCP checksum offload, and the TCP
-checksum cannot be verified for IP fragments in isolation.  So I think
-drivers should not be passing fragments into inet_lro or should reject
-them in its get_frag_header() or get_skb_header() method.  Certainly sfc
-doesn't pass fragments into inet_lro because they have not been
-checksummed.
+---696208474-1455546864-1227545905=:30728
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Ben.
+On Mon, 24 Nov 2008, Andi Kleen wrote:
+
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> writes:
+> 
+> tcp: move tcp_simple_retransmit to tcp_input
+> 
+> Why? It seems like a clear output function.
+
+What makes you think so? It's as much output as e.g., tcp_enter_loss
+(or in fact less than that since enter_loss is triggered mainly by rto)?
+
+Besides, it's action based on input, the name is just misnower as it 
+retransmit nothing except calling tcp_xmit_retransmit_queue. Every state 
+change it does is similar to what is being done elsewhere in 
+the tcp_input.c (I won't waste my time on listing them here :-)).
+
+Not that it's that extremely big deal but doing some wq processing 
+related changes have forced me to go into that other file just because
+of that particular function.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+ i.
+---696208474-1455546864-1227545905=:30728--
