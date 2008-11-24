@@ -1,54 +1,58 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch 1/1][RFC]Handle uevent per namespace
-Date: Mon, 24 Nov 2008 16:55:10 +0100
-Message-ID: <492ACE5E.9020601@fr.ibm.com>
-References: <492A86FA.5080804@fr.ibm.com> <20081124153138.GA16742@kroah.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [RFC PATCH] lro: ip fragment checking
+Date: Mon, 24 Nov 2008 16:56:52 +0100
+Message-ID: <492ACEC4.3020702@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Containers <containers@lists.osdl.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Greg KH <greg@kroah.com>
+Cc: linux-kernel@vger.kernel.org, tklein@de.ibm.com,
+	Christoph Raisch <raisch@de.ibm.com>, jb.billaud@gmail.com,
+	hering2@de.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:57351 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752713AbYKXPzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 10:55:19 -0500
-In-Reply-To: <20081124153138.GA16742@kroah.com>
+Received: from mtagate1.de.ibm.com ([195.212.17.161]:41279 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752945AbYKXP4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 10:56:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg KH wrote:
-> On Mon, Nov 24, 2008 at 11:50:34AM +0100, Daniel Lezcano wrote:
-> 
->> Subject: Handle uevent per namespace
->> From: Daniel Lezcano <dlezcano@fr.ibm.com>
->>
->> At present when a network device is destroyed, inside a network
->> namespace, and this device has the same name as one network device
->> belonging to the initial network namespace (eg. eth0), the udev daemon
->> will disable the interface in the initial network namespace.
->>
->> IMHO, udev should not receive this event. The uevents should be per
->> namespace or at least do not send events when not for the initial
->> network namespace.
-> 
-> IMHO, network namespaces are a mess and not something that you should be
-> doing at all :)
-> 
->> The following patch is a RFC for making uevent namespace aware. I don't
->> know this part of the kernel code, so I am pretty sure t is not the 
->> right way to do that :) 
-> 
-> Like Kay said, please don't change the kobject core for this, try just
-> filtering in the network core the events that you handle there.
+Currently there is no checking in the LRO receive path whether
+TCP packets are ip fragmented. We should not consider
+those packets for aggregation.
+I'm not sure if this checking is actually required. Does anyone
+know if it is possible to get fragmented TCP packets without
+the tcp stack changing the MSS size?
+This patch introduces explicit checking. Any objections?
 
-Oh, why I didn't think about that :)
-That will be a cleaner and a smaller patch.
+Regards,
 
-Thanks.
-   -- Daniel
+Jan-Bernd
+
+---
+
+
+
+ net/ipv4/inet_lro.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index cfd034a..1f9159d 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -64,6 +64,9 @@ static int lro_tcp_ip_check(struct iphdr *iph, struct tcphdr *tcph,
+ 	if (iph->ihl != IPH_LEN_WO_OPTIONS)
+ 		return -1;
+ 
++	if (iph->frag_off & IP_MF)
++		return -1;
++
+ 	if (tcph->cwr || tcph->ece || tcph->urg || !tcph->ack
+ 	    || tcph->rst || tcph->syn || tcph->fin)
+ 		return -1;
+-- 
+1.5.5
+
+
+
+
