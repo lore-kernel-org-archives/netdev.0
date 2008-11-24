@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tokenring/3c359.c: Prevent possible mem leak when open
- failed
-Date: Mon, 24 Nov 2008 14:49:19 -0800 (PST)
-Message-ID: <20081124.144919.41364747.davem@davemloft.net>
-References: <20081123214410.44810f99@jirka.pirko.cz>
+Subject: Re: [PATCH net-next] netdevice sbni: Convert directly reference of
+ netdev->priv
+Date: Mon, 24 Nov 2008 14:52:25 -0800 (PST)
+Message-ID: <20081124.145225.150446015.davem@davemloft.net>
+References: <492A2611.804@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: jirka@pirko.cz
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, khc@pm.waw.pl
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59188
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59192
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753353AbYKXWtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 17:49:19 -0500
-In-Reply-To: <20081123214410.44810f99@jirka.pirko.cz>
+	by vger.kernel.org with ESMTP id S1753233AbYKXWwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 17:52:25 -0500
+In-Reply-To: <492A2611.804@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jirka Pirko <jirka@pirko.cz>
-Date: Sun, 23 Nov 2008 21:44:10 +0100
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Mon, 24 Nov 2008 11:57:05 +0800
 
-> Freeing previously allocated buffers in case of error.
+> 1. convert netdev->priv to netdev_priv().
+> 2. make sbni_pci_probe() be static.
 > 
-> Signed-off-by: Jirka Pirko <jirka@pirko.cz>
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
 Applied.
