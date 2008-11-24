@@ -1,93 +1,154 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: bridge: Fix update_pmtu crash with GRE
-Date: Mon, 24 Nov 2008 14:49:57 +0800
-Message-ID: <20081124064957.GA15999@gondor.apana.org.au>
-References: <20081009070424.GA16684@gondor.apana.org.au> <E1KnpaS-0004Pe-Qt@gondolin.me.apana.org.au> <48EDC429.5090502@snapgear.com> <20081009103956.GA18751@gondor.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: net-next/unix: BUG: using smp_processor_id() in preemptible
+Date: Mon, 24 Nov 2008 09:01:49 +0100
+Message-ID: <492A5F6D.3040708@cosmosbay.com>
+References: <Pine.LNX.4.64.0811221634370.10534@wrl-59.cs.helsinki.fi>	<4928CECE.602@cosmosbay.com>	<20081123.172014.78676422.davem@davemloft.net> <20081123.173426.255648175.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Philip Craig <philipc@snapgear.com>
+Content-Type: multipart/mixed;
+ boundary="------------090906080605010506050700"
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57168 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751410AbYKXGuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 01:50:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20081009103956.GA18751@gondor.apana.org.au>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:41362 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbYKXIB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 03:01:58 -0500
+In-Reply-To: <20081123.173426.255648175.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 09, 2008 at 06:39:56PM +0800, Herbert Xu wrote:
->
-> > +/*
-> > + * We've finished passing through netfilter, so we can remove the fake dst.
-> > + * This is required by some lower layers, eg ip_gre
-> > + */
-> > +static int br_nf_dev_queue_xmit_finish(struct sk_buff *skb)
-> > +{
-> > +	if (skb->dst == (struct dst_entry *)&__fake_rtable) {
-> > +		dst_release(skb->dst);
-> > +		skb->dst = NULL;
-> > +	}
-> > +
-> > +	return br_dev_queue_push_xmit(skb);
-> > +}
-> 
-> Alternatively we could give fake_rtable an ops structure.
+This is a multi-part message in MIME format.
+--------------090906080605010506050700
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-Looks like this fell through the cracks:
+David Miller a =E9crit :
+> From: David Miller <davem@davemloft.net>
+> Date: Sun, 23 Nov 2008 17:20:14 -0800 (PST)
+>=20
+>> From: Eric Dumazet <dada1@cosmosbay.com>
+>> Date: Sun, 23 Nov 2008 04:32:30 +0100
+>>
+>>> [PATCH] net: make sock_prot_inuse_add() preempt safe
+>  ...
+>> Eric, you added this bug by starting to use this interface in
+>> situations where BH's were not disabled.
+>>
+>> Ever existing use adhered to that rule.
+>>
+>> If you therefore want to call this interface in new locations,
+>> you have to make sure those locations follow the rule too.
+>=20
+> Here is what I commited to fix this bug.
+>=20
+> net: Make sure BHs are disabled in sock_prot_inuse_add()
+>=20
+> The rule of calling sock_prot_inuse_add() is that BHs must
+> be disabled.  Some new calls were added where this was not
+> true and this tiggers warnings as reported by Ilpo.
+>=20
+> Fix this by adding explicit BH disabling around those call sites.
+>=20
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/netlink/af_netlink.c |    3 +++
+>  net/sctp/socket.c        |    4 ++++
+>  net/unix/af_unix.c       |    2 ++
+>  3 files changed, 9 insertions(+), 0 deletions(-)
 
-bridge: Fix update_pmtu crash with GRE
+I believe some bits are missing
 
-As GRE tries to call the update_pmtu function on skb->dst and
-bridge supplies an skb->dst that has a NULL ops field, all is
-not well.
+Ilpo report was about unix_create1() being preemptable for example
 
-This patch fixes this by giving the bridge device an ops field
-with an update_pmtu function.  For the moment I've left all
-other fields blank but we can fill them in later should the
-need arise.
+Thanks
 
-Based on report and patch by Philip Craig.
+[PATCH] net: Make sure BHs are disabled in sock_prot_inuse_add()
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+The rule of calling sock_prot_inuse_add() is that BHs must
+be disabled.  Some new calls were added where this was not
+true and this tiggers warnings as reported by Ilpo.
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index fa5cda4..45f61c3 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -101,6 +101,18 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
- 	 pppoe_proto(skb) == htons(PPP_IPV6) && \
- 	 brnf_filter_pppoe_tagged)
+Fix this by adding explicit BH disabling around those call sites,
+or moving sock_prot_inuse_add() call inside an existing BH disabled
+section.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+
+ net/ipv4/inet_hashtables.c |    2 +-
+ net/packet/af_packet.c     |    4 ++--
+ net/unix/af_unix.c         |    6 ++++--
+ 3 files changed, 7 insertions(+), 5 deletions(-)
+
+--------------090906080605010506050700
+Content-Type: text/plain;
+ name="prot_inuse.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="prot_inuse.patch"
+
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 11fcb87..6a1045d 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -402,9 +402,9 @@ void inet_unhash(struct sock *sk)
  
-+static void fake_update_pmtu(struct dst_entry *dst, u32 mtu)
-+{
-+}
-+
-+static struct dst_ops fake_dst_ops = {
-+	.family =		AF_INET,
-+	.protocol =		__constant_htons(ETH_P_IP),
-+	.update_pmtu =		fake_update_pmtu,
-+	.entry_size =		sizeof(struct rtable),
-+	.entries =		ATOMIC_INIT(0),
-+};
-+
- /*
-  * Initialize bogus route table used to keep netfilter happy.
-  * Currently, we fill in the PMTU entry because netfilter
-@@ -117,6 +129,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
- 	rt->u.dst.path = &rt->u.dst;
- 	rt->u.dst.metrics[RTAX_MTU - 1] = 1500;
- 	rt->u.dst.flags	= DST_NOXFRM;
-+	rt->u.dst.ops = &fake_dst_ops;
+ 	spin_lock_bh(lock);
+ 	done =__sk_nulls_del_node_init_rcu(sk);
+-	spin_unlock_bh(lock);
+ 	if (done)
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
++	spin_unlock_bh(lock);
+ }
+ EXPORT_SYMBOL_GPL(inet_unhash);
+ 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b4870a3..5f94db2 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -872,6 +872,7 @@ static int packet_release(struct socket *sock)
+ 
+ 	write_lock_bh(&net->packet.sklist_lock);
+ 	sk_del_node_init(sk);
++	sock_prot_inuse_add(net, sk->sk_prot, -1);
+ 	write_unlock_bh(&net->packet.sklist_lock);
+ 
+ 	/*
+@@ -910,7 +911,6 @@ static int packet_release(struct socket *sock)
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ 	sk_refcnt_debug_release(sk);
+ 
+-	sock_prot_inuse_add(net, sk->sk_prot, -1);
+ 	sock_put(sk);
+ 	return 0;
+ }
+@@ -1085,8 +1085,8 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
+ 
+ 	write_lock_bh(&net->packet.sklist_lock);
+ 	sk_add_node(sk, &net->packet.sklist);
+-	write_unlock_bh(&net->packet.sklist_lock);
+ 	sock_prot_inuse_add(net, &packet_proto, 1);
++	write_unlock_bh(&net->packet.sklist_lock);
+ 	return(0);
+ out:
+ 	return err;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index a45a9f7..3a35a6e 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -615,9 +615,11 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
+ out:
+ 	if (sk == NULL)
+ 		atomic_dec(&unix_nr_socks);
+-	else
++	else {
++		local_bh_disable();
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
+-
++		local_bh_enable();
++	}
+ 	return sk;
  }
  
- static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--------------090906080605010506050700--
