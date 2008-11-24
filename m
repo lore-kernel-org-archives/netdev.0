@@ -1,492 +1,194 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 19/39] i2400m: sysfs controls
-Date: Mon, 24 Nov 2008 13:50:42 -0800
-Message-ID: <50c439125339069856c5ba57c817de253ba99bb3.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 32/39] i2400m/SDIO: header for the SDIO subdriver
+Date: Mon, 24 Nov 2008 13:50:55 -0800
+Message-ID: <02e7fbd671c12ebaedfd45477dfb3acf8e84e8a2.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:47824 "EHLO
+Received: from mga12.intel.com ([143.182.124.36]:21168 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752947AbYKXVv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:28 -0500
+	with ESMTP id S1753219AbYKXVvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:48 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Expose knobs to control the device (induce reset, power saving,
-querying tx or rx stats, internal debug information and debug level
-manipulation).
+This contains the common function declaration and constants for the
+SDIO driver for the 2400m Wireless WiMAX Connection and the debug
+level settings for the SDIO driver.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/sysfs.c |  458 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 458 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sysfs.c
+ drivers/net/wimax/i2400m/i2400m-sdio.h       |  130 ++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +++++
+ 2 files changed, 152 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
+ create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
 
-diff --git a/drivers/net/wimax/i2400m/sysfs.c b/drivers/net/wimax/i2400m/sysfs.c
+diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
 new file mode 100644
-index 0000000..3640719
+index 0000000..1c9cd54
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/sysfs.c
-@@ -0,0 +1,458 @@
++++ b/drivers/net/wimax/i2400m/i2400m-sdio.h
+@@ -0,0 +1,130 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Sysfs interfaces to show driver and device information
++ * SDIO-specific i2400m driver definitions
 + *
 + *
-+ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Brian Bian <brian.bian@intel.com>
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
++ * This driver implements the bus-specific part of the i2400m for
++ * SDIO. Check i2400m.h for a generic driver description.
 + *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ * ARCHITECTURE
++ *
++ * This driver sits under the bus-generic i2400m driver, providing the
++ * connection to the device.
++ *
++ * When probed, all the function pointers are setup and then the
++ * bus-generic code called. The generic driver will then use the
++ * provided pointers for uploading firmware (i2400ms_bus_bm*() in
++ * sdio-fw.c) and then setting up the device (i2400ms_dev_*() in
++ * sdio.c).
++ *
++ * Once firmware is uploaded, TX functions (sdio-tx.c) are called when
++ * data is ready for transmission in the TX fifo; then the SDIO IRQ is
++ * fired and data is available (sdio-rx.c), it is sent to the generic
++ * driver for processing with i2400m_rx.
 + */
 +
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/spinlock.h>
-+#include <linux/device.h>
++#ifndef __I2400M_SDIO_H__
++#define __I2400M_SDIO_H__
++
 +#include "i2400m.h"
 +
++/* Host-Device interface for SDIO */
++enum {
++	I2400MS_BLK_SIZE = 256,
++	I2400MS_PL_SIZE_MAX = 0x3E00,
 +
-+#define D_SUBMODULE sysfs
-+#include "debug-levels.h"
-+
-+/*
-+ * Cold reset the device (deferred work routine)
-+ *
-+ * Need to use a workstruct because when done from sysfs, the device
-+ * lock is taken, so after a reset, the new device "instance" is
-+ * connected before we have a chance to disconnect the current
-+ * instance. This creates problems for upper layers, as for example
-+ * the management daemon for a while could think we have two wimax
-+ * connections in the system.
-+ *
-+ * Note calling _put before _reset_cold is ok because _put uses
-+ * netdev's dev_put(), which won't free anything.
-+ *
-+ * In any case, it has to be before, as if not we enter a race
-+ * coindition calling reset_cold(); it would try to unregister the
-+ * device, but it will keep the reference count and because reset had
-+ * a device lock...well, big mess.
-+ */
-+static
-+void __i2400m_reset_cold_work(struct work_struct *ws)
-+{
-+	struct i2400m_work *iw =
-+		container_of(ws, struct i2400m_work, ws);
-+	i2400m_put(iw->i2400m);
-+	iw->i2400m->bus_reset(iw->i2400m, I2400M_RT_COLD);
-+	kfree(iw);
-+}
-+
-+static
-+ssize_t i2400m_reset_cold_store(struct device *dev,
-+				struct device_attribute *attr,
-+				const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned val;
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u\n", &val) != 1)
-+		goto error_no_unsigned;
-+	if (val != 1)
-+		goto error_bad_value;
-+	i2400m_schedule_work(i2400m, __i2400m_reset_cold_work, GFP_KERNEL);
-+	if (result >= 1)
-+		result = size;
-+error_no_unsigned:
-+error_bad_value:
-+	return result;
-+}
-+
-+static
-+DEVICE_ATTR(i2400m_reset_cold, S_IRUGO | S_IWUSR,
-+	    NULL, i2400m_reset_cold_store);
-+
-+
-+/*
-+ * Warm reset the device
-+ *
-+ * We just warm reset the device; no need to defer, as the device will
-+ * not disconnect.
-+ */
-+static
-+ssize_t i2400m_reset_warm_store(struct device *dev,
-+				struct device_attribute *attr,
-+				const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned val;
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u\n", &val) != 1)
-+		goto error_no_unsigned;
-+	if (val != 1)
-+		goto error_bad_value;
-+	result = i2400m->bus_reset(i2400m, I2400M_RT_WARM);
-+	if (result >= 0)
-+		result = size;
-+error_no_unsigned:
-+error_bad_value:
-+	return result;
-+}
-+
-+static
-+DEVICE_ATTR(i2400m_reset_warm, S_IRUGO | S_IWUSR,
-+	    NULL, i2400m_reset_warm_store);
-+
-+
-+/*
-+ * Show RX statistics
-+ *
-+ * Total #payloads | min #payloads in a RX | max #payloads in a RX
-+ * Total #RXs | Total bytes | min #bytes in a RX | max #bytes in a RX
-+ *
-+ * Write 1 to clear.
-+ */
-+static
-+ssize_t i2400m_rx_stats_show(struct device *dev,
-+			     struct device_attribute *attr,
-+			     char *buf)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	result = snprintf(buf, PAGE_SIZE, "%u %u %u %u %u %u %u\n",
-+			  i2400m->rx_pl_num, i2400m->rx_pl_min,
-+			  i2400m->rx_pl_max, i2400m->rx_num,
-+			  i2400m->rx_size_acc,
-+			  i2400m->rx_size_min, i2400m->rx_size_max);
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	return result;
-+}
-+
-+static
-+ssize_t i2400m_rx_stats_store(struct device *dev,
-+			      struct device_attribute *attr,
-+			      const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned val;
-+	unsigned long flags;
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u\n", &val) != 1)
-+		goto error_no_unsigned;
-+	if (val != 1)
-+		goto error_bad_value;
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	i2400m->rx_pl_num = 0;
-+	i2400m->rx_pl_max = 0;
-+	i2400m->rx_pl_min = UINT_MAX;
-+	i2400m->rx_num = 0;
-+	i2400m->rx_size_acc = 0;
-+	i2400m->rx_size_min = UINT_MAX;
-+	i2400m->rx_size_max = 0;
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	result = size;
-+error_no_unsigned:
-+error_bad_value:
-+	return result;
-+}
-+
-+static
-+DEVICE_ATTR(i2400m_rx_stats, S_IRUGO | S_IWUSR,
-+	    i2400m_rx_stats_show, i2400m_rx_stats_store);
-+
-+
-+/*
-+ * Show TX statistics
-+ *
-+ * Total #payloads | min #payloads in a TX | max #payloads in a TX
-+ * Total #TXs | Total bytes | min #bytes in a TX | max #bytes in a TX
-+ *
-+ * Write 1 to clear.
-+ */
-+static
-+ssize_t i2400m_tx_stats_show(struct device *dev,
-+			     struct device_attribute *attr,
-+			     char *buf)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&i2400m->tx_lock, flags);
-+	result = snprintf(buf, PAGE_SIZE, "%u %u %u %u %u %u %u\n",
-+			  i2400m->tx_pl_num, i2400m->tx_pl_min,
-+			  i2400m->tx_pl_max, i2400m->tx_num,
-+			  i2400m->tx_size_acc,
-+			  i2400m->tx_size_min, i2400m->tx_size_max);
-+	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+	return result;
-+}
-+
-+static
-+ssize_t i2400m_tx_stats_store(struct device *dev,
-+			      struct device_attribute *attr,
-+			      const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned val;
-+	unsigned long flags;
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u\n", &val) != 1)
-+		goto error_no_unsigned;
-+	if (val != 1)
-+		goto error_bad_value;
-+	spin_lock_irqsave(&i2400m->tx_lock, flags);
-+	i2400m->tx_pl_num = 0;
-+	i2400m->tx_pl_max = 0;
-+	i2400m->tx_pl_min = UINT_MAX;
-+	i2400m->tx_num = 0;
-+	i2400m->tx_size_acc = 0;
-+	i2400m->tx_size_min = UINT_MAX;
-+	i2400m->tx_size_max = 0;
-+	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+	result = size;
-+error_no_unsigned:
-+error_bad_value:
-+	return result;
-+}
-+
-+static
-+DEVICE_ATTR(i2400m_tx_stats, S_IRUGO | S_IWUSR,
-+	    i2400m_tx_stats_show, i2400m_tx_stats_store);
-+
-+/*
-+ * Show debug stuff
-+ *
-+ * Don't poke with this unless you know what you are doing.
-+ */
-+static
-+ssize_t i2400m_debug_store(struct device *dev,
-+			   struct device_attribute *attr,
-+			   const char *buf, size_t size)
-+{
-+	ssize_t result = 0;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	char var[256], val[256];
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%254s %254s\n", var, val) != 2) {
-+		dev_err(dev, "debug: bad format, expected VARIABLE VALUE\n");
-+		goto error;
-+	}
-+
-+	if (!strcmp(var, "state")) {
-+		enum i2400m_system_state state;
-+		if (sscanf(val, "%u", &state) != 1) {
-+			dev_err(dev, "debug/state: can't parse unsigned %s\n",
-+				val);
-+			goto error;
-+		}
-+		if (state < I2400M_SS_UNINITIALIZED || state >= I2400M_SS_MAX) {
-+			dev_err(dev, "debug/state: %u is out of range\n",
-+				state);
-+			goto error;
-+		}
-+		i2400m->state = state;
-+		result = size;
-+	} else
-+		dev_err(dev, "debug: unknown variable %s\n", var);
-+error:
-+	return result;
-+}
-+
-+/*
-+ * Show debug stuff
-+ */
-+static
-+ssize_t i2400m_debug_show(struct device *dev,
-+			  struct device_attribute *attr,
-+			  char *buf)
-+{
-+	ssize_t result = 0;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned long flags;
-+
-+	result += scnprintf(
-+		buf, PAGE_SIZE,
-+		"Don't poke with this unless you know what you are doing. \n"
-+		"It provides means to modify internal settings in the \n"
-+		"driver that can be used to exercise error paths.\n"
-+		"\n"
-+		"Format for setting them is 'echo FIELD VALUE' (fields \n"
-+		"marked ! can't be set)\n"
-+		"\n");
-+
-+	result += scnprintf(buf + result, PAGE_SIZE - result,
-+			    "!queue: %s\n",
-+			    netif_queue_stopped(to_net_dev(dev)) ?
-+			    "stopped" : "running");
-+
-+	spin_lock_irqsave(&i2400m->tx_lock, flags);
-+	result += scnprintf(
-+		buf + result, PAGE_SIZE - result,
-+		"!TX FIFO in: %zu\n"
-+		"!TX FIFO out: %zu (%zu used)\n"
-+		"!TX FIFO msg: @%zd\n",
-+		i2400m->tx_in, i2400m->tx_out,
-+		i2400m->tx_out - i2400m->tx_in,
-+		(size_t) (i2400m->tx_msg ?
-+			  (void *) i2400m->tx_msg - i2400m->tx_buf : -1));
-+	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+
-+	result += scnprintf(
-+		buf + result, PAGE_SIZE - result,
-+		"state: %u\n", i2400m->state);
-+	return result;
-+}
-+static
-+DEVICE_ATTR(i2400m_debug, S_IRUGO | S_IWUSR,
-+	    i2400m_debug_show, i2400m_debug_store);
-+
-+
-+/*
-+ * Trace received messages from user space
-+ *
-+ * In order to tap the bidirectional message stream in the 'msg' pipe,
-+ * user space can read from the 'msg' pipe; however, due to
-+ * limitations in libnl, we can't know what the different applications
-+ * are sending down to the kernel.
-+ *
-+ * So we have this hack where the driver will echo any message
-+ * received on the msg pipe from user space [through a call to
-+ * wimax_dev->op_msg_from_user() into i2400m_op_msg_from_user()] into
-+ * the 'trace' pipe that this driver creates.
-+ *
-+ * So then, reading from both the 'trace' and 'msg' pipes in user spce
-+ * will provide a full dump of the traffic.
-+ *
-+ * Write 1 to activate, 0 to clear.
-+ *
-+ * It is not really very atomic, but it is also not too critical.
-+ */
-+static
-+ssize_t i2400m_trace_msg_from_user_show(struct device *dev,
-+					struct device_attribute *attr,
-+					char *buf)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+
-+	result = snprintf(buf, PAGE_SIZE, "%u\n",
-+			  i2400m->trace_msg_from_user);
-+	return result;
-+}
-+
-+static
-+ssize_t i2400m_trace_msg_from_user_store(struct device *dev,
-+					 struct device_attribute *attr,
-+					 const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned val;
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u\n", &val) == 1) {
-+		i2400m->trace_msg_from_user = val ? 1 : 0;
-+		result = size;
-+	}
-+	return result;
-+}
-+
-+static
-+DEVICE_ATTR(i2400m_trace_msg_from_user, S_IRUGO | S_IWUSR,
-+	    i2400m_trace_msg_from_user_show, i2400m_trace_msg_from_user_store);
-+
-+
-+/*
-+ * Ask the device to enter power saving mode.
-+ *
-+ * This is not really selective suspend mode, but asking the device to
-+ * enter selective suspend on its own.
-+ */
-+static
-+ssize_t i2400m_suspend_store(struct device *dev,
-+				struct device_attribute *attr,
-+				const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned val;
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u\n", &val) != 1)
-+		goto error_no_unsigned;
-+	if (val != 1)
-+		goto error_bad_value;
-+	result = i2400m_cmd_enter_powersave(i2400m);
-+	if (result >= 0)
-+		result = size;
-+error_no_unsigned:
-+error_bad_value:
-+	return result;
-+}
-+
-+static
-+DEVICE_ATTR(i2400m_suspend, S_IRUGO | S_IWUSR,
-+	    NULL, i2400m_suspend_store);
-+
-+
-+/*
-+ * Debug levels control; see debug.h
-+ */
-+struct d_level D_LEVEL[] = {
-+	D_SUBMODULE_DEFINE(control),
-+	D_SUBMODULE_DEFINE(driver),
-+	D_SUBMODULE_DEFINE(fw),
-+	D_SUBMODULE_DEFINE(netdev),
-+	D_SUBMODULE_DEFINE(rfkill),
-+	D_SUBMODULE_DEFINE(rx),
-+	D_SUBMODULE_DEFINE(sysfs),
-+	D_SUBMODULE_DEFINE(tx),
-+};
-+size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+
-+static
-+DEVICE_ATTR(i2400m_debug_levels, S_IRUGO | S_IWUSR,
-+	    d_level_show, d_level_store);
-+
-+
-+static
-+struct attribute *i2400m_dev_attrs[] = {
-+	&dev_attr_i2400m_reset_cold.attr,
-+	&dev_attr_i2400m_reset_warm.attr,
-+	&dev_attr_i2400m_suspend.attr,
-+	&dev_attr_i2400m_rx_stats.attr,
-+	&dev_attr_i2400m_tx_stats.attr,
-+	&dev_attr_i2400m_debug.attr,
-+	&dev_attr_i2400m_debug_levels.attr,
-+	&dev_attr_i2400m_trace_msg_from_user.attr,
-+	NULL,
++	I2400MS_DATA_ADDR = 0x0,
++	I2400MS_INTR_STATUS_ADDR = 0x13,
++	I2400MS_INTR_CLEAR_ADDR = 0x13,
++	I2400MS_INTR_ENABLE_ADDR = 0x14,
++	I2400MS_INTR_GET_SIZE_ADDR = 0x2C,
++	/* The number of ticks to wait for the device to signal that
++	 * it is ready */
++	I2400MS_INIT_SLEEP_INTERVAL = 10,
 +};
 +
-+struct attribute_group i2400m_dev_attr_group = {
-+	.name = NULL,		/* we want them in the same directory */
-+	.attrs = i2400m_dev_attrs,
++
++/**
++ * struct i2400ms - descriptor for a SDIO connected i2400m
++ *
++ * @i2400m: bus-generic i2400m implementation; has to be first (see
++ *     it's documentation in i2400m.h).
++ *
++ * @func: pointer to our SDIO function
++ *
++ * @tx_worker: workqueue struct used to TX data when the bus-generic
++ *     code signals packets are pending for transmission to the device.
++ *
++ * @tx_workqueue: workqeueue used for data TX; we don't use the
++ *     system's workqueue as that might cause deadlocks with code in
++ *     the bus-generic driver.
++ */
++struct i2400ms {
++	struct i2400m i2400m;		/* FIRST! See doc */
++	struct sdio_func *func;
++
++	struct work_struct tx_worker;
++	struct workqueue_struct *tx_workqueue;
++	char tx_wq_name[32];
 +};
++
++
++static inline
++void i2400ms_init(struct i2400ms *i2400ms)
++{
++	i2400m_init(&i2400ms->i2400m);
++}
++
++
++extern int i2400ms_rx_setup(struct i2400ms *);
++extern void i2400ms_rx_release(struct i2400ms *);
++extern ssize_t __i2400ms_rx_get_size(struct i2400ms *);
++
++extern int i2400ms_tx_setup(struct i2400ms *);
++extern void i2400ms_tx_release(struct i2400ms *);
++extern void i2400ms_bus_tx_kick(struct i2400m *);
++
++extern ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *,
++				       const struct i2400m_bootrom_header *,
++				       size_t, int);
++extern ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *,
++					   struct i2400m_bootrom_header *,
++					   size_t);
++#endif /* #ifndef __I2400M_SDIO_H__ */
+diff --git a/drivers/net/wimax/i2400m/sdio-debug-levels.h b/drivers/net/wimax/i2400m/sdio-debug-levels.h
+new file mode 100644
+index 0000000..561adb0
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/sdio-debug-levels.h
+@@ -0,0 +1,22 @@
++/*
++ * debug levels control file for the i2400m module's
++ */
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
++
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME i2400m_sdio
++#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
++
++#include "../debug.h"
++
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(sdio_main),
++	D_SUBMODULE_DECLARE(sdio_tx),
++	D_SUBMODULE_DECLARE(sdio_rx),
++	D_SUBMODULE_DECLARE(sdio_fw)
++};
++
++
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
 
