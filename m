@@ -1,38 +1,39 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 22/39] i2400m: handling of the data/control reception path
-Date: Mon, 24 Nov 2008 13:50:45 -0800
-Message-ID: <72dd4fef0d50eee6506805c04e4d466d8c04296a.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 25/39] i2400m/USB: header for the USB bus driver
+Date: Mon, 24 Nov 2008 13:50:48 -0800
+Message-ID: <6ac6311b28a8a1c2cb69148e5fa4d490ac4bcb2c.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:57411 "EHLO
+Received: from mga12.intel.com ([143.182.124.36]:13165 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753372AbYKXVve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:34 -0500
+	with ESMTP id S1753277AbYKXVvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:37 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Handling of data coming from the i2400m device (IP packets, control
-and diagnostics). This parses the received read transaction from the
-device, breaks it in chunks and passes it to the corresponding
-subsystems (network and control).
+This contains the common function declaration and constants for the
+USB driver for the 2400m Wireless WiMAX Connection, as well as the
+debug level settings for the USB driver.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/rx.c |  536 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 536 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/rx.c
+ drivers/net/wimax/i2400m/i2400m-usb.h       |  190 +++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/usb-debug-levels.h |   42 ++++++
+ 2 files changed, 232 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
+ create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
 
-diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
 new file mode 100644
-index 0000000..dbe9e5e
+index 0000000..e22cde4
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/rx.c
-@@ -0,0 +1,536 @@
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -0,0 +1,190 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Handle incoming traffic and deliver it to the control or data planes
++ * USB-specific i2400m driver definitions
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -65,507 +66,209 @@ index 0000000..dbe9e5e
 + *
 + *
 + * Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + *  - Initial implementation
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - Use skb_clone(), break up processing in chunks
-+ *  - Split transport/device specific
-+ *  - Make buffer size dynamic to exert less memory pressure
 + *
 + *
-+ * This handles the RX path.
++ * This driver implements the bus-specific part of the i2400m for
++ * USB. Check i2400m.h for a generic driver description.
 + *
-+ * We receive an RX message from the bus-specific driver, which
-+ * contains one or more payloads that have potentially different
-+ * destinataries (data or control paths).
++ * ARCHITECTURE
 + *
-+ * So we just take that payload from the transport specific code in
-+ * the form of an skb, break it up in chunks (a cloned skb each in the
-+ * case of network packets) and pass it to netdev or to the
-+ * command/ack handler (and from there to the WiMAX stack).
++ * This driver listens to notifications sent from the notification
++ * endpoint (in usb-notif.c); when data is ready to read, the code in
++ * there schedules a read from the device (usb-rx.c) and then passes
++ * the data to the generic RX code (rx.c).
 + *
-+ * PROTOCOL FORMAT
++ * When the generic driver needs to send data (network or control), it
++ * queues up in the TX FIFO (tx.c) and that will notify the driver
++ * through the i2400m->bus_tx_kick() callback
++ * (usb-tx.c:i2400mu_bus_tx_kick) which will send the items in the
++ * FIFO queue.
 + *
-+ * The format of the buffer is:
-+ *
-+ * HEADER                      (struct i2400m_msg_hdr)
-+ * PAYLOAD DESCRIPTOR 0        (struct i2400m_pld)
-+ * PAYLOAD DESCRIPTOR 1
-+ * ...
-+ * PAYLOAD DESCRIPTOR N
-+ * PAYLOAD 0                   (raw bytes)
-+ * PAYLOAD 1
-+ * ...
-+ * PAYLOAD N
-+ *
-+ * See tx.c for a deeper description on alignment requirements and
-+ * other fun facts of it.
-+ *
-+ * ROADMAP
-+ *
-+ * i2400m_rx
-+ *   i2400m_rx_msg_hdr_check
-+ *   i2400m_rx_pl_descr_check
-+ *   i2400m_rx_payload
-+ *     i2400m_net_rx
-+ *     i2400m_rx_ctl
-+ *       i2400m_msg_size_check
-+ *       i2400m_report_hook_work    [in a workqueue]
-+ *         i2400m_report_hook
-+ *       wimax_msg_to_user
-+ *       i2400m_rx_ctl_ack
-+ *         wimax_msg_to_user_alloc
-+ *     i2400m_rx_trace
-+ *       i2400m_msg_size_check
-+ *       wimax_pipe_msg
++ * This driver, as well, implements the USB-specific ops for the generic
++ * driver to be able to setup/teardown communication with the device
++ * [i2400m_bus_dev_start() and i2400m_bus_dev_stop()], reseting the
++ * device [i2400m_bus_reset()] and performing firmware upload
++ * [i2400m_bus_bm_cmd() and i2400_bus_bm_wait_for_ack()].
 + */
-+#include <linux/kernel.h>
-+#include <linux/if_arp.h>
-+#include <linux/netdevice.h>
-+#include <linux/workqueue.h>
++
++#ifndef __I2400M_USB_H__
++#define __I2400M_USB_H__
++
 +#include "i2400m.h"
++#include "edc.h"
++#include <linux/kthread.h>
 +
++/* Host-Device interface for USB */
++enum {
++	I2400MU_MAX_NOTIFICATION_LEN = 256,
++	I2400MU_BLK_SIZE = 16,
++	I2400MU_PL_SIZE_MAX = 0x3EFF,
 +
-+#define D_SUBMODULE rx
-+#include "debug-levels.h"
-+
-+struct i2400m_report_hook_args {
-+	struct sk_buff *skb_rx;
-+	const struct i2400m_l3l4_hdr *l3l4_hdr;
-+	size_t size;
++	/* Endpoints */
++	I2400MU_EP_BULK_OUT = 0,
++	I2400MU_EP_NOTIFICATION,
++	I2400MU_EP_RESET_COLD,
++	I2400MU_EP_BULK_IN,
 +};
 +
 +
-+/*
-+ * Execute i2400m_report_hook in a workqueue
-+ *
-+ * Unpacks arguments from the deferred call, executes it and then
-+ * drops the references.
-+ *
-+ * Obvious NOTE: References are needed because we are a separate
-+ *     thread; otherwise the buffer changes under us because it is
-+ *     released by the original caller.
-+ */
-+static
-+void i2400m_report_hook_work(struct work_struct *ws)
-+{
-+	struct i2400m_work *iw =
-+		container_of(ws, struct i2400m_work, ws);
-+	struct i2400m_report_hook_args *args = (void *) iw->pl;
-+	i2400m_report_hook(iw->i2400m, args->l3l4_hdr, args->size);
-+	kfree_skb(args->skb_rx);
-+	i2400m_put(iw->i2400m);
-+	kfree(iw);
-+}
-+
-+
-+/*
-+ * Process an ack to a command
-+ *
-+ * @i2400m: device descriptor
-+ * @payload: pointer to message
-+ * @size: size of the message
-+ *
-+ * Pass the acknodledgment (in an skb) to the thread that is waiting
-+ * for it in i2400m->msg_completion.
-+ *
-+ * We need to coordinate properly with the thread waiting for the
-+ * ack. Check if it is waiting or if it is gone. We loose the spinlock
-+ * to avoid allocating on atomic contexts (yeah, could use GFP_ATOMIC,
-+ * but this is not so speed critical).
-+ */
-+static
-+void i2400m_rx_ctl_ack(struct i2400m *i2400m,
-+		       const void *payload, size_t size)
-+{
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
-+	unsigned long flags;
-+	struct sk_buff *ack_skb;
-+
-+	/* Anyone waiting for an answer? */
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	if (i2400m->ack_skb != ERR_PTR(-EINPROGRESS)) {
-+		dev_err(dev, "Huh? reply to command with no waiters\n");
-+		goto error_no_waiter;
-+	}
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+
-+	ack_skb = wimax_msg_to_user_alloc(
-+		wimax_dev, payload, size, GFP_KERNEL);
-+
-+	/* Check waiter didn't time out waiting for the answer... */
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	if (i2400m->ack_skb != ERR_PTR(-EINPROGRESS)) {
-+		d_printf(1, dev, "Huh? waiter for command reply cancelled\n");
-+		goto error_waiter_cancelled;
-+	}
-+	if (ack_skb == NULL) {
-+		dev_err(dev, "CMD/GET/SET ack: cannot allocate SKB\n");
-+		i2400m->ack_skb = ERR_PTR(-ENOMEM);
-+	} else
-+		i2400m->ack_skb = ack_skb;
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	complete(&i2400m->msg_completion);
-+	return;
-+
-+error_waiter_cancelled:
-+	if (ack_skb)
-+		kfree_skb(ack_skb);
-+error_no_waiter:
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	return;
-+}
-+
-+
-+/*
-+ * Receive and process a control payload
-+ *
-+ * @i2400m: device descriptor
-+ * @skb_rx: skb that contains the payload (for reference counting)
-+ * @payload: pointer to message
-+ * @size: size of the message
-+ *
-+ * There are two types of control RX messages: reports (asynchronous,
-+ * like your every day interrupts) and 'acks' (reponses to a command,
-+ * get or set request).
-+ *
-+ * If it is a report, we run hooks on it (to extract information for
-+ * things we need to do in the driver) and then pass it over to the
-+ * WiMAX stack to send it to user space.
-+ *
-+ * NOTE: report processing is done in a workqueue specific to the
-+ *     generic driver, to avoid deadlocks in the system.
-+ *
-+ * If it is not a report, it is an ack to a previously executed
-+ * command, set or get, so wake up whoever is waiting for it from
-+ * i2400m_msg_to_dev(). i2400m_rx_ctl_ack() takes care of that.
-+ *
-+ * Note that the sizes we pass to other functions from here are the
-+ * sizes of the _l3l4_hdr + payload, not full buffer sizes, as we have
-+ * verified in _msg_size_check() that they are congruent.
-+ *
-+ * For reports: We can't clone the original skb where the data is
-+ * because we need to send this up via netlink; netlink has to add
-+ * headers and we can't overwrite what's preceeding the payload...as
-+ * it is another message. So we just dup them.
-+ */
-+static
-+void i2400m_rx_ctl(struct i2400m *i2400m, struct sk_buff *skb_rx,
-+		   const void *payload, size_t size)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	const struct i2400m_l3l4_hdr *l3l4_hdr = payload;
-+	unsigned msg_type;
-+
-+	result = i2400m_msg_size_check(i2400m, l3l4_hdr, size);
-+	if (result < 0) {
-+		dev_err(dev, "HW BUG? device sent a bad message: %d\n",
-+			result);
-+		goto error_check;
-+	}
-+	msg_type = le16_to_cpu(l3l4_hdr->type);
-+	d_printf(1, dev, "%s 0x%04x: %zu bytes\n",
-+		 msg_type & I2400M_MT_REPORT_MASK ? "REPORT" : "CMD/SET/GET",
-+		 msg_type, size);
-+	d_dump(2, dev, l3l4_hdr, size);
-+	if (msg_type & I2400M_MT_REPORT_MASK) {
-+		/* These hooks have to be ran serialized; as well, the
-+		 * handling might force the execution of commands, and
-+		 * that might cause reentrancy issues with
-+		 * bus-specific subdrivers and workqueues. So we run
-+		 * it in a separate workqueue. */
-+		struct i2400m_report_hook_args args = {
-+			.skb_rx = skb_rx,
-+			.l3l4_hdr = l3l4_hdr,
-+			.size = size
-+		};
-+		if (unlikely(i2400m->ready == 0))	/* only send if up */
-+			return;
-+		skb_get(skb_rx);
-+		i2400m_queue_work(i2400m, i2400m_report_hook_work,
-+				  GFP_KERNEL, &args, sizeof(args));
-+		result = wimax_msg_to_user(&i2400m->wimax_dev, l3l4_hdr, size,
-+					   GFP_KERNEL);
-+		if (result < 0)
-+			dev_err(dev, "error sending report to userspace: %d\n",
-+				result);
-+	} else		/* an ack to a CMD, GET or SET */
-+		i2400m_rx_ctl_ack(i2400m, payload, size);
-+error_check:
-+	return;
-+}
-+
-+
-+
-+
-+/*
-+ * Receive and send up a trace
-+ *
-+ * @i2400m: device descriptor
-+ * @skb_rx: skb that contains the trace (for reference counting)
-+ * @payload: pointer to trace message inside the skb
-+ * @size: size of the message
-+ *
-+ * THe i2400m might produce trace information (diagnostics) and we
-+ * send them through a different kernel-to-user pipe (to avoid
-+ * clogging it).
-+ *
-+ * As in i2400m_rx_ctl(), we can't clone the original skb where the
-+ * data is because we need to send this up via netlink; netlink has to
-+ * add headers and we can't overwrite what's preceeding the
-+ * payload...as it is another message. So we just dup them.
-+ */
-+static
-+void i2400m_rx_trace(struct i2400m *i2400m,
-+		     const void *payload, size_t size)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
-+	const struct i2400m_l3l4_hdr *l3l4_hdr = payload;
-+	unsigned msg_type;
-+
-+	result = i2400m_msg_size_check(i2400m, l3l4_hdr, size);
-+	if (result < 0) {
-+		dev_err(dev, "HW BUG? device sent a bad trace message: %d\n",
-+			result);
-+		goto error_check;
-+	}
-+	msg_type = le16_to_cpu(l3l4_hdr->type);
-+	d_printf(1, dev, "Trace %s 0x%04x: %zu bytes\n",
-+		 msg_type & I2400M_MT_REPORT_MASK ? "REPORT" : "CMD/SET/GET",
-+		 msg_type, size);
-+	d_dump(2, dev, l3l4_hdr, size);
-+	if (unlikely(i2400m->ready == 0))	/* only send if up */
-+		return;
-+	result = wimax_pipe_msg(wimax_dev, i2400m->pipe_trace,
-+				l3l4_hdr, size, GFP_KERNEL);
-+	if (result < 0)
-+		dev_err(dev, "error sending trace to userspace: %d\n",
-+			result);
-+error_check:
-+	return;
-+}
-+
-+
-+/*
-+ * Act on a received payload
-+ *
-+ * @i2400m: device instance
-+ * @skb_rx: skb where the transaction was received
-+ * @single: 1 if there is only one payload, 0 otherwise
-+ * @pld: payload descriptor
-+ * @payload: payload data
-+ *
-+ * Upon reception of a payload, look at its guts in the payload
-+ * descriptor and decide what to do with it.
-+ */
-+static
-+void i2400m_rx_payload(struct i2400m *i2400m, struct sk_buff *skb_rx,
-+		       unsigned single, const struct i2400m_pld *pld,
-+		       const void *payload)
-+{
-+	struct device *dev = i2400m_dev(i2400m);
-+	size_t pl_size = i2400m_pld_size(pld);
-+	enum i2400m_pt pl_type = i2400m_pld_type(pld);
-+
-+	switch (pl_type) {
-+	case I2400M_PT_DATA:
-+		d_printf(3, dev, "RX: data payload %zu bytes\n", pl_size);
-+		i2400m_net_rx(i2400m, skb_rx, single, payload, pl_size);
-+		break;
-+	case I2400M_PT_CTRL:
-+		i2400m_rx_ctl(i2400m, skb_rx, payload, pl_size);
-+		break;
-+	case I2400M_PT_TRACE:
-+		i2400m_rx_trace(i2400m, payload, pl_size);
-+		break;
-+	default:	/* Anything else shouldn't come to the host */
-+		if (printk_ratelimit())
-+			dev_err(dev, "RX: HW BUG? unexpected payload type %u\n",
-+				pl_type);
-+	}
-+}
-+
-+
-+/*
-+ * Check a received transaction's message header
-+ *
-+ * @i2400m: device descriptor
-+ * @msg_hdr: message header
-+ * @buf_size: size of the received buffer
-+ *
-+ * Check that the declarations done by a RX buffer message header are
-+ * sane and consistent with the amount of data that was received.
-+ */
-+static
-+int i2400m_rx_msg_hdr_check(struct i2400m *i2400m,
-+			    const struct i2400m_msg_hdr *msg_hdr,
-+			    size_t buf_size)
-+{
-+	int result = -EIO;
-+	struct device *dev = i2400m_dev(i2400m);
-+	if (buf_size < sizeof(*msg_hdr)) {
-+		dev_err(dev, "RX: HW BUG? message with short header (%zu "
-+			"vs %zu bytes expected)\n", buf_size, sizeof(*msg_hdr));
-+		goto error;
-+	}
-+	if (msg_hdr->barker != cpu_to_le32(I2400M_D2H_MSG_BARKER)) {
-+		dev_err(dev, "RX: HW BUG? message received with unknown "
-+			"barker 0x%08x (buf_size %zu bytes)\n",
-+			le32_to_cpu(msg_hdr->barker), buf_size);
-+		goto error;
-+	}
-+	if (msg_hdr->num_pls == 0) {
-+		dev_err(dev, "RX: HW BUG? zero payload packets in message\n");
-+		goto error;
-+	}
-+	if (le16_to_cpu(msg_hdr->num_pls) > I2400M_MAX_PLS_IN_MSG) {
-+		dev_err(dev, "RX: HW BUG? message contains more payload "
-+			"than maximum; ignoring.\n");
-+		goto error;
-+	}
-+	result = 0;
-+error:
-+	return result;
-+}
-+
-+
-+/*
-+ * Check a payload descriptor against the received data
-+ *
-+ * @i2400m: device descriptor
-+ * @pld: payload descriptor
-+ * @pl_itr: offset (in bytes) in the received buffer the payload is
-+ *          located
-+ * @buf_size: size of the received buffer
-+ *
-+ * Given a payload descriptor (part of a RX buffer), check it is sane
-+ * and that the data it declares fits in the buffer.
-+ */
-+static
-+int i2400m_rx_pl_descr_check(struct i2400m *i2400m,
-+			      const struct i2400m_pld *pld,
-+			      size_t pl_itr, size_t buf_size)
-+{
-+	int result = -EIO;
-+	struct device *dev = i2400m_dev(i2400m);
-+	size_t pl_size = i2400m_pld_size(pld);
-+	enum i2400m_pt pl_type = i2400m_pld_type(pld);
-+
-+	if (pl_size > i2400m->bus_pl_size_max) {
-+		dev_err(dev, "RX: HW BUG? payload @%zu: size %zu is "
-+			"bigger than maximum %zu; ignoring message\n",
-+			pl_itr, pl_size, i2400m->bus_pl_size_max);
-+		goto error;
-+	}
-+	if (pl_itr + pl_size > buf_size) {	/* enough? */
-+		dev_err(dev, "RX: HW BUG? payload @%zu: size %zu "
-+			"goes beyond the received buffer "
-+			"size (%zu bytes); ignoring message\n",
-+			pl_itr, pl_size, buf_size);
-+		goto error;
-+	}
-+	if (pl_type >= I2400M_PT_ILLEGAL) {
-+		dev_err(dev, "RX: HW BUG? illegal payload type %u; "
-+			"ignoring message\n", pl_type);
-+		goto error;
-+	}
-+	result = 0;
-+error:
-+	return result;
-+}
-+
-+
 +/**
-+ * i2400m_rx - Receive a buffer of data from the device
++ * struct i2400mu - descriptor for a USB connected i2400m
 + *
-+ * @i2400m: device descriptor
-+ * @skb: skbuff where the data has been received
++ * @i2400m: bus-generic i2400m implementation; has to be first (see
++ *     it's documentation in i2400m.h).
 + *
-+ * Parse in a buffer of data that contains an RX message sent from the
-+ * device. See the file header for the format. Run all checks on the
-+ * buffer header, then run over each payload's descriptors, verify
-+ * their consistency and act on each payload's contents.  If
-+ * everything is succesful, update the device's statistics.
++ * @usb_dev: pointer to our USB device
 + *
-+ * Note: You need to set the skb to contain only the length of the
-+ * received buffer; for that, use skb_trim(skb, RECEIVED_SIZE).
++ * @usb_iface: pointer to our USB interface
 + *
-+ * Returns:
++ * @urb_edc: error density counter; used to keep a density-on-time tab
++ *     on how many soft (retryable or ignorable) errors we get. If we
++ *     go over the threshold, we consider the bus transport is failing
++ *     too much and reset.
 + *
-+ * 0 if ok, < 0 errno on error
++ * @notif_urb: URB for receiving notifications from the device.
 + *
-+ * If ok, this function owns now the skb and the caller DOESN'T have
-+ * to run kfree_skb() on it. However, on error, the caller still owns
-+ * the skb and it is responsible for releasing it.
++ * @tx_kthread: thread we use for data TX. We use a thread because in
++ *     order to do deep power saving and put the device to sleep, we
++ *     need to call usb_autopm_*() [blocking functions].
++ *
++ * @tx_wq: waitqueue for the TX kthread to sleep when there is no data
++ *     to be sent; when more data is available, it is woken up by
++ *     i2400mu_bus_tx_kick().
++ *
++ * @rx_kthread: thread we use for data RX. We use a thread because in
++ *     order to do deep power saving and put the device to sleep, we
++ *     need to call usb_autopm_*() [blocking functions].
++ *
++ * @rx_wq: waitqueue for the RX kthread to sleep when there is no data
++ *     to receive. When data is available, it is woken up by
++ *     usb-notif.c:i2400mu_notification_grok().
++ *
++ * @rx_pending_count: number of rx-data-ready notifications that were
++ *     still not handled by the RX kthread.
++ *
++ * @rx_size: current RX buffer size that is being used.
++ *
++ * @rx_size_acc: accumulator of the sizes of the previous read
++ *     transactions.
++ *
++ * @rx_size_cnt: number of read transactions accumulated in
++ *     @rx_size_acc.
++ *
++ * @do_autopm: disable(0)/enable(>0) calling the
++ *     usb_autopm_get/put_interface() barriers when executing
++ *     commands. See doc in i2400mu_suspend() for more information.
++ *
++ * @rx_size_auto_shrink: if true, the rx_size is shrinked
++ *     automatically based on the average size of the received
++ *     transactions. This allows the receive code to allocate smaller
++ *     chunks of memory and thus reduce pressure on the memory
++ *     allocator by not wasting so much space. By default it is
++ *     enabled.
 + */
-+int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
-+{
-+	int i, result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	const struct i2400m_msg_hdr *msg_hdr;
-+	size_t pl_itr, pl_size, skb_len;
-+	unsigned long flags;
-+	unsigned num_pls;
++struct i2400mu {
++	struct i2400m i2400m;		/* FIRST! See doc */
 +
-+	skb_len = skb->len;
-+	d_fnstart(4, dev, "(i2400m %p skb %p [size %zu])\n",
-+		  i2400m, skb, skb_len);
-+	result = -EIO;
-+	msg_hdr = (void *) skb->data;
-+	result = i2400m_rx_msg_hdr_check(i2400m, msg_hdr, skb->len);
-+	if (result < 0)
-+		goto error_msg_hdr_check;
-+	result = -EIO;
-+	num_pls = le16_to_cpu(msg_hdr->num_pls);
-+	pl_itr = sizeof(*msg_hdr) +	/* Check payload descriptor(s) */
-+		num_pls * sizeof(msg_hdr->pld[0]);
-+	pl_itr = ALIGN(pl_itr, I2400M_PL_PAD);
-+	if (pl_itr > skb->len) {	/* got all the payload descriptors? */
-+		dev_err(dev, "RX: HW BUG? message too short (%u bytes) for "
-+			"%u payload descriptors (%zu each, total %zu)\n",
-+			skb->len, num_pls, sizeof(msg_hdr->pld[0]), pl_itr);
-+		goto error_pl_descr_short;
-+	}
-+	/* Walk each payload payload--check we really got it */
-+	for (i = 0; i < num_pls; i++) {
-+		/* work around old gcc warnings */
-+		pl_size = i2400m_pld_size(&msg_hdr->pld[i]);
-+		result = i2400m_rx_pl_descr_check(i2400m, &msg_hdr->pld[i],
-+						  pl_itr, skb->len);
-+		if (result < 0)
-+			goto error_pl_descr_check;
-+		i2400m_rx_payload(i2400m, skb, num_pls == 1, &msg_hdr->pld[i],
-+				  skb->data + pl_itr);
-+		pl_itr += ALIGN(pl_size, I2400M_PL_PAD);
-+		cond_resched();		/* Don't monopolize */
-+	}
-+	kfree_skb(skb);
-+	/* Update device statistics */
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	i2400m->rx_pl_num += i;
-+	if (i > i2400m->rx_pl_max)
-+		i2400m->rx_pl_max = i;
-+	if (i < i2400m->rx_pl_min)
-+		i2400m->rx_pl_min = i;
-+	i2400m->rx_num++;
-+	i2400m->rx_size_acc += skb->len;
-+	if (skb->len < i2400m->rx_size_min)
-+		i2400m->rx_size_min = skb->len;
-+	if (skb->len > i2400m->rx_size_max)
-+		i2400m->rx_size_max = skb->len;
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+error_pl_descr_check:
-+error_pl_descr_short:
-+error_msg_hdr_check:
-+	d_fnend(4, dev, "(i2400m %p skb %p [size %zu]) = %d\n",
-+		i2400m, skb, skb_len, result);
-+	return result;
++	struct usb_device *usb_dev;
++	struct usb_interface *usb_iface;
++	struct edc urb_edc;		/* Error density counter */
++
++	struct urb *notif_urb;
++	struct task_struct *tx_kthread;
++	wait_queue_head_t tx_wq;
++
++	struct task_struct *rx_kthread;
++	wait_queue_head_t rx_wq;
++	atomic_t rx_pending_count;
++	size_t rx_size, rx_size_acc, rx_size_cnt;
++	atomic_t do_autopm;
++	unsigned rx_size_auto_shrink:1;
++};
++
++
++static inline
++void i2400mu_init(struct i2400mu *i2400mu)
++{
++	i2400m_init(&i2400mu->i2400m);
++	edc_init(&i2400mu->urb_edc);
++	init_waitqueue_head(&i2400mu->tx_wq);
++	atomic_set(&i2400mu->rx_pending_count, 0);
++	init_waitqueue_head(&i2400mu->rx_wq);
++	i2400mu->rx_size = PAGE_SIZE - sizeof(struct skb_shared_info);
++	atomic_set(&i2400mu->do_autopm, 1);
++	i2400mu->rx_size_auto_shrink = 1;
 +}
-+EXPORT_SYMBOL_GPL(i2400m_rx);
++
++extern int i2400mu_notification_setup(struct i2400mu *);
++extern void i2400mu_notification_release(struct i2400mu *);
++
++extern int i2400mu_rx_setup(struct i2400mu *);
++extern void i2400mu_rx_release(struct i2400mu *);
++extern void i2400mu_rx_kick(struct i2400mu *);
++
++extern int i2400mu_tx_setup(struct i2400mu *);
++extern void i2400mu_tx_release(struct i2400mu *);
++extern void i2400mu_bus_tx_kick(struct i2400m *);
++
++extern ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *,
++				       const struct i2400m_bootrom_header *,
++				       size_t, int);
++extern ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *,
++					   struct i2400m_bootrom_header *,
++					   size_t);
++#endif /* #ifndef __I2400M_USB_H__ */
+diff --git a/drivers/net/wimax/i2400m/usb-debug-levels.h b/drivers/net/wimax/i2400m/usb-debug-levels.h
+new file mode 100644
+index 0000000..aac3034
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/usb-debug-levels.h
+@@ -0,0 +1,42 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Debug levels control file for the i2400m-usb module
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ */
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
++
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME i2400m_usb
++#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
++
++#include "../debug.h"
++
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(usb),
++	D_SUBMODULE_DECLARE(fw),
++	D_SUBMODULE_DECLARE(notif),
++	D_SUBMODULE_DECLARE(rx),
++	D_SUBMODULE_DECLARE(tx),
++};
++
++
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
 
