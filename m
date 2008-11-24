@@ -1,57 +1,44 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: Make sure BHs are disabled in sock_prot_inuse_add()
-Date: Mon, 24 Nov 2008 18:23:24 +0100
-Message-ID: <492AE30C.70907@cosmosbay.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Realtek 8169 problems with net booting
+Date: Mon, 24 Nov 2008 18:14:56 +0000
+Message-ID: <20081124181456.66a967d2@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000507050300020804040808"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:43545 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbYKXRX2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 12:23:28 -0500
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:44668 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752804AbYKXSOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 13:14:44 -0500
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+	by lxorguk.ukuu.org.uk (8.14.2/8.14.2) with ESMTP id mAOIEu2U032590
+	for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 18:14:56 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000507050300020804040808
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On one box here it has always been the case that now and then the boot
+with crash just after r8169 is loaded iff the BIOS network rom (ie the
+dhcp stuff) is enabled. Its erratic, hard to reproduce but I finally got
+around to looking at the driver and have a question that seems to apply
+to several network drivers
 
-Third round of patch about sock_prot_inuse_add() ...
+8169 does this
 
-Thanks
+	pci_set_master
+	twiddle a few bits
+	soft reset chip
 
-[PATCH] net: Make sure BHs are disabled in sock_prot_inuse_add()
+The master bit is off when the driver is loaded it appears but surely the
+driver should do
 
-There is still a call to sock_prot_inuse_add() in af_netlink
-while in a preemptable section. Add explicit BH disable around
-this call.
+	twiddle a few bits
+	soft reset chip
+	pci_set_master
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+otherwise it has no idea if a warm boot from Linux without neat shutdown,
+or a BIOS tftp has left the chip trying to spew into main memory ?
 
---------------000507050300020804040808
-Content-Type: text/plain;
- name="af_netlink.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="af_netlink.patch"
+Alan
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index c7d7657..9eb895c 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -515,7 +515,9 @@ static int netlink_release(struct socket *sock)
- 	kfree(nlk->groups);
- 	nlk->groups = NULL;
- 
-+	local_bh_disable();
- 	sock_prot_inuse_add(sock_net(sk), &netlink_proto, -1);
-+	local_bh_enable();
- 	sock_put(sk);
- 	return 0;
- }
 
---------------000507050300020804040808--
