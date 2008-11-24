@@ -1,7 +1,7 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: sch_drr: Fix drr_dequeue() loop
-Date: Mon, 24 Nov 2008 10:50:23 +0000
-Message-ID: <20081124105023.GA13957@ff.dom.local>
+Subject: [PATCH v2] pkt_sched: sch_drr: Fix drr_dequeue() loop
+Date: Mon, 24 Nov 2008 10:53:45 +0000
+Message-ID: <20081124105345.GB13957@ff.dom.local>
 References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,23 +9,25 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:40674 "EHLO
+Received: from ey-out-2122.google.com ([74.125.78.26]:29287 "EHLO
 	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbYKXKua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 05:50:30 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so782515eyi.37
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 02:50:28 -0800 (PST)
+	with ESMTP id S1750964AbYKXKxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 05:53:51 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so783075eyi.37
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 02:53:49 -0800 (PST)
 Content-Disposition: inline
 In-Reply-To: <49254D42.10506@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pkt_sched: sch_drr: Fix loop in drr_dequeue
+(Changelog fixed only)
+
+pkt_sched: sch_drr: Fix drr_dequeue() loop
 
 If all child qdiscs of sch_drr are non-work-conserving (e.g. sch_tbf)
 drr_dequeue() will busy-loop waiting for skbs instead of leaving the
 job for a watchdog. Checking for list_empty() in each loop isn't
-necessary either, because this can never be true exept the first time.
+necessary either, because this can never be true except the first time.
 
 Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
