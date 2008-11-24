@@ -1,554 +1,580 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 15/39] i2400m: host-to-device protocol definitions
-Date: Mon, 24 Nov 2008 13:50:38 -0800
-Message-ID: <8579d0e299eef401d932b55d8ecf0750790fd56a.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 05/39] wimax: debug macros and debug settings for the WiMAX stack
+Date: Mon, 24 Nov 2008 13:50:28 -0800
+Message-ID: <2ebfd920bdffdb22e6e6539915f4698cd950eda5.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:47824 "EHLO
+Received: from mga12.intel.com ([143.182.124.36]:21168 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753034AbYKXVvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:25 -0500
+	with ESMTP id S1753184AbYKXVvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:15 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This defines the structures and constants for the host-device
-protocols:
-
- - boot / firmware upload protocol
-
- - general data transport protocol
-
- - control protocol
-
-This header file is done in such a way that can also be used verbatim
-by user space.
+This file contains a simple debug framework that is used in the stack;
+it allows the debug level to be controlled at compile-time (so the
+debug code is optimized out) and at run-time (for what wasn't compiled
+out).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax-i2400m.h |  512 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 512 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax-i2400m.h
+ drivers/net/wimax/debug-levels.h |   42 ++++
+ drivers/net/wimax/debug.h        |  495 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 537 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/debug-levels.h
+ create mode 100644 drivers/net/wimax/debug.h
 
-diff --git a/include/linux/wimax-i2400m.h b/include/linux/wimax-i2400m.h
+diff --git a/drivers/net/wimax/debug-levels.h b/drivers/net/wimax/debug-levels.h
 new file mode 100644
-index 0000000..d111f6c
+index 0000000..c1c3f80
 --- /dev/null
-+++ b/include/linux/wimax-i2400m.h
-@@ -0,0 +1,512 @@
++++ b/drivers/net/wimax/debug-levels.h
+@@ -0,0 +1,42 @@
 +/*
-+ * Intel Wireless WiMax Connection 2400m
-+ * Host-Device protocol interface definitions
++ * Linux WiMAX Stack
++ * Debug levels control file for the wimax module
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ *
-+ * Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - Initial implementation
 + *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
 + *
-+ * This header defines the data structures and constants used to
-+ * communicate with the device.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
 + *
-+ * BOOTMODE/BOOTROM/FIRMWARE UPLOAD PROTOCOL
-+ *
-+ * The firmware upload protocol is quite simple and only requires a
-+ * handful of commands. See drivers/net/wimax/i2400m/fw.c for more
-+ * details.
-+ *
-+ * The BCF data structure is for the firmware file header.
-+ *
-+ *
-+ * THE DATA / CONTROL PROTOCOL
-+ *
-+ * This is the normal protocol spoken with the device once the
-+ * firmware is uploaded. It transports data payloads and control
-+ * messages back and forth.
-+ *
-+ * It consists 'messages' that pack one or more payloads each. The
-+ * format is described in detail in drivers/net/wimax/i2400m/rx.c and
-+ * tx.c.
-+ *
-+ *
-+ * THE L3L4 PROTOCOL
-+ *
-+ * The term L3L4 refers to Layer 3 (the device), Layer 4 (the
-+ * driver/host software).
-+ *
-+ * This is the control protocol used by the host to control the i2400m
-+ * device (scan, connect, disconnect...). This is sent to / received
-+ * as control frames. These frames consist of a header and zero or
-+ * more TLVs with information. We call each control frame a "message".
-+ *
-+ * Each message is composed of:
-+ *
-+ * HEADER
-+ * [TLV0 + PAYLOAD0]
-+ * [TLV1 + PAYLOAD1]
-+ * [...]
-+ * [TLVN + PAYLOADN]
-+ *
-+ * The HEADER is defined by 'struct i2400m_l3l4_hdr'. The payloads are
-+ * defined by a TLV structure (Type Length Value) which is a 'header'
-+ * (struct i2400m_tlv_hdr) and then the payload.
-+ *
-+ * All integers are represented as Little Endian.
-+ *
-+ * - REQUESTS AND EVENTS
-+ *
-+ * The requests can be clasified as follows:
-+ *
-+ *   COMMAND:  implies a request from the host to the device requesting
-+ *             an action being performed. The device will reply with a
-+ *             message (with the same type as the command), status and
-+ *             no (TLV) payload. Execution of a command might cause
-+ *             events (of different type) to be sent later on as
-+ *             device's state changes.
-+ *
-+ *   GET/SET:  similar to COMMAND, but will not cause other
-+ *             EVENTs. The reply, in the case of GET, will contain
-+ *             TLVs with the requested information.
-+ *
-+ *   EVENT:    asynchronous messages sent from the device, maybe as a
-+ *             consequence of previous COMMANDs but disassociated from
-+ *             them.
-+ *
-+ * Only one request might be pending at the same time (ie: don't
-+ * parallelize nor post another GET request before the previous
-+ * COMMAND has been acknowledged with it's corresponding reply by the
-+ * device).
-+ *
-+ * The different requests and their formats are described below:
-+ *
-+ *  I2400M_MT_*   Message types
-+ *  I2400M_MS_*   Message status (for replies, events)
-+ *  i2400m_tlv_*  TLVs
-+ *
-+ * data types are named 'struct i2400m_msg_OPNAME', OPNAME matching the
-+ * operation.
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
 + */
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
 +
-+#ifndef __LINUX__WIMAX_I2400M_H__
-+#define __LINUX__WIMAX_I2400M_H__
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME wimax
++#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
++
++#include "debug.h"
++
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(id_table),
++	D_SUBMODULE_DECLARE(op_msg),
++	D_SUBMODULE_DECLARE(op_open),
++	D_SUBMODULE_DECLARE(op_reset),
++	D_SUBMODULE_DECLARE(op_rfkill),
++	D_SUBMODULE_DECLARE(stack),
++};
++
++#endif /* #ifndef __debug_levels__h__ */
+diff --git a/drivers/net/wimax/debug.h b/drivers/net/wimax/debug.h
+new file mode 100644
+index 0000000..9e02c8d
+--- /dev/null
++++ b/drivers/net/wimax/debug.h
+@@ -0,0 +1,495 @@
++/*
++ * Linux WiMAX
++ * Collection of tools to manage debug operations.
++ *
++ *
++ * Copyright (C) 2005-2007 Intel Corporation
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ *
++ *
++ * Don't #include this file directly, read on!
++ *
++ *
++ * EXECUTING DEBUGGING ACTIONS OR NOT
++ *
++ * The main thing this framework provides is decission power to take a
++ * debug action (like printing a message) if the current debug level
++ * allows it.
++ *
++ * The decission power is at two levels: at compile-time (what does
++ * not make it is compiled out) and at run-time. The run-time
++ * selection is done per-submodule (as they are declared by the user
++ * of the framework).
++ *
++ * A call to d_test(L) (L being the target debug level) returns true
++ * if the action should be taken because the current debug levels
++ * allow it (both compile and run time).
++ *
++ * It follows that a call to d_test() that can be determined to be
++ * always false at compile time will get the code depending on it
++ * compiled out by optimization.
++ *
++ *
++ * DEBUG LEVELS
++ *
++ * It is up to the caller to define how much a debugging level is.
++ *
++ * Convention sets 0 as "no debug" (so an action marked as debug level 0
++ * will always be taken). The increasing debug levels are used for
++ * increased verbosity.
++ *
++ *
++ * USAGE
++ *
++ * Group the code in modules and submodules inside each module [which
++ * in most cases maps to Linux modules and .c files that compose
++ * those].
++ *
++ *
++ * For each module, there is:
++ *
++ *  - a MODULENAME (single word, legal C identifier)
++ *
++ *  - a debug-levels.h header file that declares the list of
++ *    submodules and that is included by all .c files that use
++ *    the debugging tools. The file name can be anything.
++ *
++ *  - some (optional) .c code to manipulate the runtime debug levels
++ *    (through sysfs). This has to be attached to some sysfs point.
++ *
++ * The debug-levels.h file would look like:
++ *
++ *     #ifndef __debug_levels__h__
++ *     #define __debug_levels__h__
++ *
++ *     #define D_MODULENAME modulename
++ *     #define D_MASTER 10
++ *
++ *     #include ".../whereveritis/.../debug.h"
++ *
++ *     enum d_module {
++ *             D_SUBMODULE_DECLARE(submodule_1),
++ *             D_SUBMODULE_DECLARE(submodule_2),
++ *             ...
++ *             D_SUBMODULE_DECLARE(submodule_N)
++ *     };
++ *
++ *     #endif
++ *
++ * D_MASTER is the maximum compile-time debug level; any debug actions
++ * above this will be out. D_MODULENAME is the module name (legal C
++ * identifier), which has to be unique for each module (to avoid
++ * namespace collisions during linkage). Note those #defines need to
++ * be done before #including debug.h
++ *
++ * We declare N different submodules whose debug level can be
++ * independently controlled during runtime.
++ *
++ * In a .c file of the module (and only in one of them), define the
++ * following code:
++ *
++ *     struct d_level D_LEVEL[] = {
++ *             D_SUBMODULE_DEFINE(submodule_1),
++ *             D_SUBMODULE_DEFINE(submodule_2),
++ *             ...
++ *             D_SUBMODULE_DEFINE(submodule_N),
++ *     };
++ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
++ *
++ *     static
++ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
++ *                 d_level_show, d_level_store);
++ *
++ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
++ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
++ * #defined also in this file.
++ *
++ * Of course, the levels can be manipulated using other mechanisms;
++ * d_level_show() and d_level_store() are provided for
++ * convenience. However, it should be remembered that even if this
++ * will show attached to some particular instance of a device, the
++ * settings are *global*.
++ *
++ *
++ * On each submodule (for example, .c files), the debug infrastructure
++ * should be included like this:
++ *
++ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
++ *     #include "debug-levels.h"
++ *
++ * after #including all your include files.
++ *
++ *
++ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
++ * d_fnend(), d_printf(), d_dump()].
++ *
++ * If their debug level is greater than D_MASTER, they will be
++ * compiled out.
++ *
++ * If their debug level is lower or equal than D_MASTER but greater
++ * than the current debug level of their submodule, they'll be
++ * ignored.
++ *
++ * Otherwise, the action will be performed.
++ */
++#ifndef __debug__h__
++#define __debug__h__
 +
 +#include <linux/types.h>
++#include <linux/device.h>
++
++
++/* Backend stuff */
++
++/*
++ * Debug backend: generate a message header from a 'struct device'
++ *
++ * @head: buffer where to place the header
++ * @head_size: length of @head
++ * @dev: pointer to device used to generate a header from. If NULL,
++ *     an empty ("") header is generated.
++ */
++static inline
++void __d_head(char *head, size_t head_size,
++	      struct device *dev)
++{
++	if (dev == NULL)
++		head[0] = 0;
++	else if ((unsigned long)dev < 4096) {
++		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
++		WARN_ON(1);
++	} else
++		snprintf(head, head_size, "%s %s: ",
++			 dev_driver_string(dev), dev->bus_id);
++}
 +
 +
 +/*
-+ * Host Device Interface (HDI) common to all busses
++ * Debug backend: log some message if debugging is enabled
++ *
++ * @l: intended debug level
++ * @tag: tag to prefix the message with
++ * @dev: 'struct device' associated to this message
++ * @f: printf-like format and arguments
++ *
++ * Note this is optimized out if it doesn't pass the compile-time
++ * check; however, it is *always* compiled. This is useful to make
++ * sure the printf-like formats and variables are always checked and
++ * they don't get bit rot if you have all the debugging disabled.
++ */
++#define _d_printf(l, tag, dev, f, a...)					\
++do {									\
++	char head[64];							\
++	if (!d_test(l))							\
++		break;							\
++	__d_head(head, sizeof(head), dev);				\
++	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
++} while (0 && dev)
++
++
++/*
++ * CPP sintatic sugar to generate A_B like symbol names when one of
++ * the arguments is a a preprocessor #define.
++ */
++#define __D_PASTE__(varname, modulename) varname##_##modulename
++#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
++#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
++
++
++/*
++ * Store a submodule's runtime debug level and name
++ */
++struct d_level {
++	unsigned level;
++	const char *name;
++};
++
++
++/*
++ * List of available submodules and their debug levels
++ *
++ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
++ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
++ * convenience.
++ *
++ * This array and the size are defined on some .c file that is part of
++ * the current module.
++ */
++#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
++#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
++
++extern struct d_level D_LEVEL[];
++extern size_t D_LEVEL_SIZE;
++
++
++/*
++ * Frontend stuff
++ *
++ *
++ * Stuff you need to declare prior to using the actual "debug" actions
++ * (defined below).
 + */
 +
-+/* Boot-mode (firmware upload mode) commands */
-+
-+/* Header for the firmware file */
-+struct i2400m_bcf_hdr {
-+	__le32 module_type;
-+	__le32 header_len;
-+	__le32 header_version;
-+	__le32 module_id;
-+	__le32 module_vendor;
-+	__le32 date;		/* BCD YYYMMDD */
-+	__le32 size;
-+	__le32 key_size;	/* in dwords */
-+	__le32 modulus_size;	/* in dwords */
-+	__le32 exponent_size;	/* in dwords */
-+	__u8 reserved[88];
-+} __attribute__ ((packed));
-+
-+/* Boot mode opcodes */
-+enum i2400m_brh_opcode {
-+	I2400M_BRH_READ = 1,
-+	I2400M_BRH_WRITE = 2,
-+	I2400M_BRH_JUMP = 3,
-+	I2400M_BRH_SIGNED_JUMP = 8,
-+	I2400M_BRH_HASH_PAYLOAD_ONLY = 9,
-+};
-+
-+/* Boot mode command masks and stuff */
-+enum i2400m_brh {
-+	I2400M_BRH_SIGNATURE = 0xcbbc0000,
-+	I2400M_BRH_SIGNATURE_MASK = 0xffff0000,
-+	I2400M_BRH_SIGNATURE_SHIFT = 16,
-+	I2400M_BRH_OPCODE_MASK = 0x0000000f,
-+	I2400M_BRH_RESPONSE_MASK = 0x000000f0,
-+	I2400M_BRH_RESPONSE_SHIFT = 4,
-+	I2400M_BRH_DIRECT_ACCESS = 0x00000400,
-+	I2400M_BRH_RESPONSE_REQUIRED = 0x00000200,
-+	I2400M_BRH_USE_CHECKSUM = 0x00000100,
-+};
++#ifndef D_MODULENAME
++#error D_MODULENAME is not defined in your debug-levels.h file
++/**
++ * D_MODULE - Name of the current module
++ *
++ * #define in your module's debug-levels.h, making sure it is
++ * unique. This has to be a legal C identifier.
++ */
++#define D_MODULENAME undefined_modulename
++#endif
 +
 +
-+/* Constants for bcf->module_id */
-+enum i2400m_bcf_mod_id {
-+	/* Firmware file carries its own pokes -- pokes are a set of
-+	 * magical values that have to be written in certain memory
-+	 * addresses to get the device up and ready for firmware
-+	 * download when it is in non-signed boot mode. */
-+	I2400M_BCF_MOD_ID_POKES = 0x000000001,
-+};
++#ifndef D_MASTER
++#warning D_MASTER not defined, but debug.h included! [see docs]
++/**
++ * D_MASTER - Compile time maximum debug level
++ *
++ * #define in your debug-levels.h file to the maximum debug level the
++ * runtime code will be allowed to have. This allows you to provide a
++ * main knob.
++ *
++ * Anything above that level will be optimized out of the compile.
++ *
++ * Defaults to zero (no debug code compiled in).
++ *
++ * Maximum one definition per module (at the debug-levels.h file).
++ */
++#define D_MASTER 0
++#endif
++
++
++#ifndef D_SUBMODULE
++#error D_SUBMODULE not defined, but debug.h included! [see docs]
++/**
++ * D_SUBMODULE - Name of the current submodule
++ *
++ * #define in your submodule .c file before #including debug-levels.h
++ * to the name of the current submodule as previously declared and
++ * defined with D_SUBMODULE_DECLARE() (in your module's
++ * debug-levels.h) and D_SUBMODULE_DEFINE().
++ *
++ * This is used to provide runtime-control over the debug levels.
++ *
++ * Maximum one per .c file! Can be shared among different .c files
++ * (meaning they belong to the same submodule categorization).
++ */
++#define D_SUBMODULE undefined_module
++#endif
 +
 +
 +/**
-+ * i2400m_bootrom_header - Header for a boot-mode command
++ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
 + *
-+ * @cmd: the above command descriptor
-+ * @target_addr: where on the device memory should the action be performed.
-+ * @data_size: for read/write, amount of data to be read/written
-+ * @block_checksum: checksum value (if applicable)
-+ * @payload: the beginning of data attached to this header
-+ */
-+struct i2400m_bootrom_header {
-+	__le32 command;		/* Compose with enum i2400_brh */
-+	__le32 target_addr;
-+	__le32 data_size;
-+	__le32 block_checksum;
-+	char payload[0];
-+} __attribute__ ((packed));
-+
-+
-+/*
-+ * Data / control protocol
-+ */
-+
-+/* Packet types for the host-device interface */
-+enum i2400m_pt {
-+	I2400M_PT_DATA = 0,
-+	I2400M_PT_CTRL,
-+	I2400M_PT_TRACE,	/* For device debug */
-+	I2400M_PT_RESET_WARM,	/* device reset */
-+	I2400M_PT_RESET_COLD,	/* USB[transport] reset, like reconnect */
-+	I2400M_PT_ILLEGAL
-+};
-+
-+
-+/*
-+ * Payload for a data packet
++ * @_name: name of the submodule, restricted to the chars that make up a
++ *     valid C identifier ([a-zA-Z0-9_]).
 + *
-+ * This is prefixed to each and every outgoing DATA type.
-+ */
-+struct i2400m_pl_data_hdr {
-+	__le32 reserved;
-+} __attribute__((packed));
-+
-+
-+/* Misc constants */
-+enum {
-+	I2400M_PL_PAD = 16,	/* Payload data size alignment */
-+	I2400M_PL_SIZE_MAX = 0x3EFF,
-+	I2400M_MAX_PLS_IN_MSG = 60,
-+	/* protocol barkers: sync sequences; for notifications they
-+	 * are sent in groups of four. */
-+	I2400M_H2D_PREVIEW_BARKER = 0xcafe900d,
-+	I2400M_COLD_RESET_BARKER = 0xc01dc01d,
-+	I2400M_WARM_RESET_BARKER = 0x50f750f7,
-+	I2400M_NBOOT_BARKER = 0xdeadbeef,
-+	I2400M_SBOOT_BARKER = 0x0ff1c1a1,
-+	I2400M_ACK_BARKER = 0xfeedbabe,
-+	I2400M_D2H_MSG_BARKER = 0xbeefbabe,
-+};
-+
-+
-+/*
-+ * Hardware payload descriptor
++ * Declare in the module's debug-levels.h header file as:
 + *
-+ * Bitfields encoded in a struct to enforce typing semantics.
++ * enum d_module {
++ *         D_SUBMODULE_DECLARE(submodule_1),
++ *         D_SUBMODULE_DECLARE(submodule_2),
++ *         D_SUBMODULE_DECLARE(submodule_3),
++ * };
 + *
-+ * Look in rx.c and tx.c for a full description of the format.
++ * Some corresponding .c file needs to have a matching
++ * D_SUBMODULE_DEFINE().
 + */
-+struct i2400m_pld {
-+	__le32 val;
-+} __attribute__ ((packed));
-+
-+#define I2400M_PLD_SIZE_MASK 0x00003fff
-+#define I2400M_PLD_TYPE_SHIFT 16
-+#define I2400M_PLD_TYPE_MASK 0x000f0000
-+
-+/*
-+ * Header for a TX message or RX message
-+ *
-+ * @barker: preamble
-+ * @size: used for management of the FIFO queue buffer; before
-+ *     sending, this is converted to be a real preamble. This
-+ *     indicates the real size of the TX message that starts at this
-+ *     point. If the highest bit is set, then this message is to be
-+ *     skipped.
-+ * @sequence: sequence number of this message
-+ * @offset: offset where the message itself starts -- see the comments
-+ *     in the file header about message header and payload descriptor
-+ *     alignment.
-+ * @num_pls: number of payloads in this message
-+ * @padding: amount of padding bytes at the end of the message to make
-+ *           it be of block-size aligned
-+ *
-+ * Look in rx.c and tx.c for a full description of the format.
-+ */
-+struct i2400m_msg_hdr {
-+	union {
-+		__le32 barker;
-+		__u32 size;	/* same size type as barker!! */
-+	};
-+	union {
-+		__le32 sequence;
-+		__u32 offset;	/* same size type as barker!! */
-+	};
-+	__le16 num_pls;
-+	__le16 rsv1;
-+	__le16 padding;
-+	__le16 rsv2;
-+	struct i2400m_pld pld[0];
-+} __attribute__ ((packed));
-+
-+
-+
-+/*
-+ * L3/L4 control protocol
-+ */
-+
-+enum {
-+	/* Interface version */
-+	I2400M_L3L4_VERSION             = 0x0100,
-+};
-+
-+/* Message types */
-+enum i2400m_mt {
-+	I2400M_MT_RESERVED              = 0x0000,
-+	I2400M_MT_INVALID               = 0xffff,
-+	I2400M_MT_REPORT_MASK		= 0x8000,
-+
-+	I2400M_MT_GET_SCAN_RESULT  	= 0x4202,
-+	I2400M_MT_SET_SCAN_PARAM   	= 0x4402,
-+	I2400M_MT_CMD_RF_CONTROL   	= 0x4602,
-+	I2400M_MT_CMD_SCAN         	= 0x4603,
-+	I2400M_MT_CMD_CONNECT      	= 0x4604,
-+	I2400M_MT_CMD_DISCONNECT   	= 0x4605,
-+	I2400M_MT_CMD_EXIT_IDLE   	= 0x4606,
-+	I2400M_MT_GET_LM_VERSION   	= 0x5201,
-+	I2400M_MT_GET_DEVICE_INFO  	= 0x5202,
-+	I2400M_MT_GET_LINK_STATUS  	= 0x5203,
-+	I2400M_MT_GET_STATISTICS   	= 0x5204,
-+	I2400M_MT_GET_STATE        	= 0x5205,
-+	I2400M_MT_GET_MEDIA_STATUS	= 0x5206,
-+	I2400M_MT_SET_INIT_CONFIG	= 0x5404,
-+	I2400M_MT_CMD_INIT	        = 0x5601,
-+	I2400M_MT_CMD_TERMINATE		= 0x5602,
-+	I2400M_MT_CMD_MODE_OF_OP	= 0x5603,
-+	I2400M_MT_CMD_RESET_DEVICE	= 0x5604,
-+	I2400M_MT_CMD_MONITOR_CONTROL   = 0x5605,
-+	I2400M_MT_CMD_ENTER_POWERSAVE   = 0x5606,
-+	I2400M_MT_GET_TLS_OPERATION_RESULT = 0x6201,
-+	I2400M_MT_SET_EAP_SUCCESS       = 0x6402,
-+	I2400M_MT_SET_EAP_FAIL          = 0x6403,
-+	I2400M_MT_SET_EAP_KEY          	= 0x6404,
-+	I2400M_MT_CMD_SEND_EAP_RESPONSE = 0x6602,
-+	I2400M_MT_REPORT_SCAN_RESULT    = 0xc002,
-+	I2400M_MT_REPORT_STATE		= 0xd002,
-+	I2400M_MT_REPORT_POWERSAVE_READY = 0xd005,
-+	I2400M_MT_REPORT_EAP_REQUEST    = 0xe002,
-+	I2400M_MT_REPORT_EAP_RESTART    = 0xe003,
-+	I2400M_MT_REPORT_ALT_ACCEPT    	= 0xe004,
-+	I2400M_MT_REPORT_KEY_REQUEST 	= 0xe005,
-+};
-+
-+
-+/*
-+ * Message Ack Status codes
-+ *
-+ * When a message is replied-to, this status is reported.
-+ */
-+enum i2400m_ms {
-+	I2400M_MS_DONE_OK                  = 0,
-+	I2400M_MS_DONE_IN_PROGRESS         = 1,
-+	I2400M_MS_INVALID_OP               = 2,
-+	I2400M_MS_BAD_STATE                = 3,
-+	I2400M_MS_ILLEGAL_VALUE            = 4,
-+	I2400M_MS_MISSING_PARAMS           = 5,
-+	I2400M_MS_VERSION_ERROR            = 6,
-+	I2400M_MS_ACCESSIBILITY_ERROR      = 7,
-+	I2400M_MS_BUSY                     = 8,
-+	I2400M_MS_CORRUPTED_TLV            = 9,
-+	I2400M_MS_UNINITIALIZED            = 10,
-+	I2400M_MS_UNKNOWN_ERROR            = 11,
-+	I2400M_MS_PRODUCTION_ERROR         = 12,
-+	I2400M_MS_NO_RF                    = 13,
-+	I2400M_MS_NOT_READY_FOR_POWERSAVE  = 14,
-+	I2400M_MS_THERMAL_CRITICAL         = 15,
-+	I2400M_MS_MAX
-+};
++#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
 +
 +
 +/**
-+ * i2400m_tlv - enumeration of the different types of TLVs
++ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
 + *
-+ * TLVs stand for type-length-value and are the header for a payload
-+ * composed of almost anything. Each payload has a type assigned
-+ * and a length.
++ * @_name: name of the submodule, restricted to the chars that make up a
++ *     valid C identifier ([a-zA-Z0-9_]).
++ *
++ * Use once per module (in some .c file) as:
++ *
++ * static
++ * struct d_level d_level_SUBMODULENAME[] = {
++ *         D_SUBMODULE_DEFINE(submodule_1),
++ *         D_SUBMODULE_DEFINE(submodule_2),
++ *         D_SUBMODULE_DEFINE(submodule_3),
++ * };
++ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
++ *
++ * Matching D_SUBMODULE_DECLARE()s have to be present in a
++ * debug-levels.h header file.
 + */
-+enum i2400m_tlv {
-+	I2400M_TLV_L4_MESSAGE_VERSIONS = 129,
-+	I2400M_TLV_SYSTEM_STATE = 141,
-+	I2400M_TLV_MEDIA_STATUS = 161,
-+	I2400M_TLV_RF_OPERATION = 162,
-+	I2400M_TLV_RF_STATUS = 163,
-+	I2400M_TLV_DEVICE_RESET_TYPE = 132,
-+	I2400M_TLV_CONFIG_IDLE_PARAMETERS = 601,
-+};
++#define D_SUBMODULE_DEFINE(_name)		\
++[__D_SUBMODULE_##_name] = {			\
++	.level = 0,				\
++	.name = #_name				\
++}
 +
 +
-+struct i2400m_tlv_hdr {
-+	__le16 type;
-+	__le16 length;		/* payload's */
-+	__u8   pl[0];
-+} __attribute__((packed));
 +
-+
-+struct i2400m_l3l4_hdr {
-+	__le16 type;
-+	__le16 length;		/* payload's */
-+	__le16 version;
-+	__le16 resv1;
-+	__le16 status;
-+	__le16 resv2;
-+	struct i2400m_tlv_hdr pl[0];
-+} __attribute__((packed));
++/* The actual "debug" operations */
 +
 +
 +/**
-+ * i2400m_system_state - different states of the device
++ * d_test - Returns true if debugging should be enabled
++ *
++ * @l: intended debug level (unsigned)
++ *
++ * If the master debug switch is enabled and the current settings are
++ * higher or equal to the requested level, then debugging
++ * output/actions should be enabled.
++ *
++ * NOTE:
++ *
++ * This needs to be coded so that it can be evaluated in compile
++ * time; this is why the ugly BUG_ON() is placed in there, so the
++ * D_MASTER evaluation compiles all out if it is compile-time false.
 + */
-+enum i2400m_system_state {
-+	I2400M_SS_UNINITIALIZED = 1,
-+	I2400M_SS_INIT,
-+	I2400M_SS_READY,
-+	I2400M_SS_SCAN,
-+	I2400M_SS_STANDBY,
-+	I2400M_SS_CONNECTING,
-+	I2400M_SS_WIMAX_CONNECTED,
-+	I2400M_SS_DATA_PATH_CONNECTED,
-+	I2400M_SS_IDLE,
-+	I2400M_SS_DISCONNECTING,
-+	I2400M_SS_OUT_OF_ZONE,
-+	I2400M_SS_SLEEPACTIVE,
-+	I2400M_SS_PRODUCTION,
-+	I2400M_SS_CONFIG,
-+	I2400M_SS_RF_OFF,
-+	I2400M_SS_RF_SHUTDOWN,
-+	I2400M_SS_DEVICE_DISCONNECT,
-+	I2400M_SS_MAX,
-+};
++#define d_test(l)							\
++({									\
++	unsigned __l = l;	/* type enforcer */			\
++	(D_MASTER) >= __l						\
++	&& ({								\
++		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE); \
++		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
++	});								\
++})
 +
 +
 +/**
-+ * i2400m_tlv_system_state - report on the state of the system
++ * d_fnstart - log message at function start if debugging enabled
 + *
-+ * @state: see enum i2400m_system_state
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
 + */
-+struct i2400m_tlv_system_state {
-+	struct i2400m_tlv_hdr hdr;
-+	__le32 state;
-+} __attribute__((packed));
++#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
 +
 +
-+struct i2400m_tlv_l4_message_versions {
-+	struct i2400m_tlv_hdr hdr;
-+	__le16 major;
-+	__le16 minor;
-+	__le16 branch;
-+	__le16 reserved;
-+} __attribute__((packed));
++/**
++ * d_fnend - log message at function end if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
 +
 +
-+struct i2400m_tlv_detailed_device_info {
-+	struct i2400m_tlv_hdr hdr;
-+	__u8 reserved1[400];
-+	__u8 mac_address[6];
-+	__u8 reserved2[2];
-+} __attribute__((packed));
++/**
++ * d_printf - log message if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
 +
 +
-+enum i2400m_rf_switch_status {
-+	I2400M_RF_SWITCH_ON = 1,
-+	I2400M_RF_SWITCH_OFF = 2,
-+};
-+
-+struct i2400m_tlv_rf_switches_status {
-+	struct i2400m_tlv_hdr hdr;
-+	__u8 sw_rf_switch;	/* 1 ON, 2 OFF */
-+	__u8 hw_rf_switch;	/* 1 ON, 2 OFF */
-+	__u8 reserved[2];
-+} __attribute__((packed));
-+
-+
-+enum {
-+	i2400m_rf_operation_on = 1,
-+	i2400m_rf_operation_off = 2
-+};
-+
-+struct i2400m_tlv_rf_operation {
-+	struct i2400m_tlv_hdr hdr;
-+	__le32 status;	/* 1 ON, 2 OFF */
-+} __attribute__((packed));
++/**
++ * d_dump - log buffer hex dump if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_dump(l, dev, ptr, size)			\
++do {							\
++	char head[64];					\
++	if (!d_test(l))					\
++		break;					\
++	__d_head(head, sizeof(head), dev);		\
++	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
++		       ((void *) ptr), (size), 0);	\
++} while (0 && dev)
 +
 +
-+enum i2400m_tlv_reset_type {
-+	I2400M_RESET_TYPE_COLD = 1,
-+	I2400M_RESET_TYPE_WARM
-+};
-+
-+struct i2400m_tlv_device_reset_type {
-+	struct i2400m_tlv_hdr hdr;
-+	__le32 reset_type;
-+} __attribute__((packed));
 +
 +
-+struct i2400m_tlv_config_idle_parameters {
-+	struct i2400m_tlv_hdr hdr;
-+	__le32 idle_timeout;	/* 100 to 300000 ms [5min], 100 increments
-+				 * 0 disabled */
-+	__le32 idle_paging_interval;	/* frames */
-+} __attribute__((packed));
++/*
++ * Exporting the runtime debug levels via sysfs
++ *
++ * The d_level_{store,show}() manipulators defined below can be used
++ * to define the following:
++ *
++ *     static
++ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
++ *                 d_level_show, d_level_store);
++ *
++ * Then the 'debug_levels' device attribute variable has to be
++ * registered with the corresponding 'struct device'.
++ *
++ * Note these are attached to a device-specific struct even if they
++ * are global. So if debugging is increased through the deviceX's
++ * sysfs controls, the increase will affect all instances of the code,
++ * not only those of deviceX.
++ *
++ * There is no good "global" place to attach them (the module doesn't
++ * exist when linked into the kernel, for example). For now, it does
++ * the trick.
++ */
 +
 +
-+enum i2400m_media_status {
-+	I2400M_MEDIA_STATUS_LINK_UP = 1,
-+	I2400M_MEDIA_STATUS_LINK_DOWN,
-+	I2400M_MEDIA_STATUS_LINK_RENEW,
-+};
++/*
++ * Shows a list of the module name and current debug level
++ */
++static inline
++ssize_t d_level_show(struct device *dev, struct device_attribute *attr,
++		     char *buf)
++{
++	ssize_t result = 0;
++	unsigned itr;
 +
-+struct i2400m_tlv_media_status {
-+	struct i2400m_tlv_hdr hdr;
-+	__le32 media_status;
-+} __attribute__((packed));
++	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
++		result += scnprintf(buf + result, PAGE_SIZE - result,
++				    "%u %s\n",
++				    D_LEVEL[itr].level, D_LEVEL[itr].name);
++	return result;
++}
 +
-+#endif /* #ifndef __LINUX__WIMAX_I2400M_H__ */
++
++/*
++ * Takes a (new) log level and module name and sets it
++ */
++static inline
++ssize_t d_level_store(struct device *dev, struct device_attribute *attr,
++		      const char *buf, size_t size)
++{
++	ssize_t result;
++	unsigned level, itr;
++	char name[32];
++
++	result = -EINVAL;
++	if (sscanf(buf, "%u %31s\n", &level, name) != 2) {
++		dev_err(dev, "error: expecting 'LEVEL SUBMODULENAME'; "
++			"can't parse '%s'\n", buf);
++		goto error_bad_values;
++	}
++	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
++		if (!strcmp(D_LEVEL[itr].name, name)) {
++			D_LEVEL[itr].level = level;
++			return size;
++		}
++	dev_err(dev, "error: trying to set debug level for "
++		"unknown debug submodule '%s'\n", name);
++	result = -ENXIO;
++error_bad_values:
++	return result;
++}
++
++
++#endif /* #ifndef __debug__h__ */
 -- 
 1.5.6.5
 
