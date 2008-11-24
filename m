@@ -1,40 +1,44 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: respin of hso patches for linux-2.6.28-rc6 hso_close_fix.patch
- [patch 2/6 ]
-Date: Mon, 24 Nov 2008 16:50:19 +0000
-Message-ID: <20081124165019.624ee996@lxorguk.ukuu.org.uk>
-References: <492ABD5A.4000006@option.com>
-	<FBF372EF-F4F8-479B-B2E7-0E93D96B252B@holtmann.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH] lro: ip fragment checking
+Date: Mon, 24 Nov 2008 16:51:08 +0000
+Message-ID: <1227545468.3162.4.camel@achroite>
+References: <492ACEC4.3020702@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Denis Joseph Barrow <D.Barow@option.com>,
-	Linux USB kernel mailing list <linux-usb@vger.kernel.org>,
-	Linux netdev Mailing list <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tklein@de.ibm.com, Christoph Raisch <raisch@de.ibm.com>,
+	jb.billaud@gmail.com, hering2@de.ibm.com
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:57959 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753354AbYKXQuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:50:12 -0500
-In-Reply-To: <FBF372EF-F4F8-479B-B2E7-0E93D96B252B@holtmann.org>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:34013 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753108AbYKXQvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:51:14 -0500
+In-Reply-To: <492ACEC4.3020702@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > 	D1("Closing serial port");
-> > +	if (serial == NULL || serial->magic != HSO_SERIAL_MAGIC) {
-> > +		D1("invalid serial structure bailing out.\n");
-> > +		return;
-> > +	}
-> 
-> using !serial instead of serial == NULL would be better.
+On Mon, 2008-11-24 at 16:56 +0100, Jan-Bernd Themann wrote:
+> Currently there is no checking in the LRO receive path whether
+> TCP packets are ip fragmented. We should not consider
+> those packets for aggregation.
+> I'm not sure if this checking is actually required. Does anyone
+> know if it is possible to get fragmented TCP packets without
+> the tcp stack changing the MSS size?
+> This patch introduces explicit checking. Any objections?
 
-A lot of serial code uses == NULL and its just as clear IMHO.
+LRO depends on the hardware performing TCP checksum offload, and the TCP
+checksum cannot be verified for IP fragments in isolation.  So I think
+drivers should not be passing fragments into inet_lro or should reject
+them in its get_frag_header() or get_skb_header() method.  Certainly sfc
+doesn't pass fragments into inet_lro because they have not been
+checksummed.
 
-A bigger concern would be the lack of refcounting. Really for 2.6.28 now
-the refcount patches are in the direction should be refcounting the tty
-objects at least.
+Ben.
 
-I've got a pair of proposed patches I'll post for comment
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Alan
