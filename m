@@ -1,49 +1,106 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: gen_estimator: Fix gen_kill_estimator() lookups
-Date: Mon, 24 Nov 2008 15:49:02 -0800 (PST)
-Message-ID: <20081124.154902.123250582.davem@davemloft.net>
-References: <20081124120404.GA16413@ff.dom.local>
-	<1227532725.22481.14.camel@dogo.mojatatu.com>
-	<20081124133724.GC16755@ff.dom.local>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH 1/2] igb: remove unneeded bit refrence when enabling
+	jumbo frames
+Date: Mon, 24 Nov 2008 15:48:45 -0800
+Message-ID: <20081124234845.24515.6891.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, slavon@bigtelecom.ru, denys@visp.net.lb,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36615
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753704AbYKXXtE (ORCPT
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:44895 "EHLO
+	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753597AbYKXXtE (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 18:49:04 -0500
-In-Reply-To: <20081124133724.GC16755@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 24 Nov 2008 13:37:24 +0000
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> On Mon, Nov 24, 2008 at 08:18:45AM -0500, jamal wrote:
-> > On Mon, 2008-11-24 at 12:04 +0000, Jarek Poplawski wrote:
-> > > gen_kill_estimator() linear lists lookups are very slow, and e.g. while
-> > > deleting a large number of HTB classes soft lockups were reported. Here
-> > > is another try to fix this problem: this time internally, with rbtree,
-> > > so similarly to Jamal's hashing idea IIRC. (Looking for next hits could
-> > > be still optimized, but it's really fast as it is.)
-> > 
-> > Certainly a big improvement. Compared to hashing i suggested:
-> > the deletion speed is probably equal or better than using a hash.
-> > I think a hash would have performed better in the case of addition
-> > than the rb tree; but you primarily concerned about deletion, so this
-> > good.
-> 
-> I first thought about a hash, but alas Patrick's solution is sched
-> only... Anyway, I din't see too much overhead in memory use, and no
-> diffrence in addition times (without batching).
+There is a reference to a Buffer Size extention bit that is unneded by
+82575/82576 hardware.  Since it is not needed it should be removed from the
+code.
 
-The kinds of things that can matter in using tree vs. hash really
-only occur in the data path, and all of this stuff is control plane.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-> > Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+ drivers/net/igb/e1000_defines.h |    6 ------
+ drivers/net/igb/igb_main.c      |   20 ++++++--------------
+ 2 files changed, 6 insertions(+), 20 deletions(-)
 
-Applied to net-next-2.6, thanks everyone.
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index ce70068..c5fe784 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -168,18 +168,12 @@
+ #define E1000_RCTL_RDMTS_HALF     0x00000000    /* rx desc min threshold size */
+ #define E1000_RCTL_MO_SHIFT       12            /* multicast offset shift */
+ #define E1000_RCTL_BAM            0x00008000    /* broadcast enable */
+-/* these buffer sizes are valid if E1000_RCTL_BSEX is 0 */
+ #define E1000_RCTL_SZ_2048        0x00000000    /* rx buffer size 2048 */
+ #define E1000_RCTL_SZ_1024        0x00010000    /* rx buffer size 1024 */
+ #define E1000_RCTL_SZ_512         0x00020000    /* rx buffer size 512 */
+ #define E1000_RCTL_SZ_256         0x00030000    /* rx buffer size 256 */
+-/* these buffer sizes are valid if E1000_RCTL_BSEX is 1 */
+-#define E1000_RCTL_SZ_16384       0x00010000    /* rx buffer size 16384 */
+-#define E1000_RCTL_SZ_8192        0x00020000    /* rx buffer size 8192 */
+-#define E1000_RCTL_SZ_4096        0x00030000    /* rx buffer size 4096 */
+ #define E1000_RCTL_VFE            0x00040000    /* vlan filter enable */
+ #define E1000_RCTL_CFIEN          0x00080000    /* canonical form enable */
+-#define E1000_RCTL_BSEX           0x02000000    /* Buffer size extension */
+ #define E1000_RCTL_SECRC          0x04000000    /* Strip Ethernet CRC */
+ 
+ /*
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index b64c41a..ae65fae 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1791,37 +1791,29 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 	*/
+ 	rctl |= E1000_RCTL_SECRC;
+ 
+-	rctl &= ~E1000_RCTL_SBP;
++	/*
++	 * disable store bad packets, long packet enable, and clear size bits.
++	 */
++	rctl &= ~(E1000_RCTL_SBP | E1000_RCTL_LPE | E1000_RCTL_SZ_256);
+ 
+-	if (adapter->netdev->mtu <= ETH_DATA_LEN)
+-		rctl &= ~E1000_RCTL_LPE;
+-	else
+-		rctl |= E1000_RCTL_LPE;
+-	if (adapter->rx_buffer_len <= IGB_RXBUFFER_2048) {
++	if (adapter->netdev->mtu <= ETH_DATA_LEN) {
+ 		/* Setup buffer sizes */
+-		rctl &= ~E1000_RCTL_SZ_4096;
+-		rctl |= E1000_RCTL_BSEX;
+ 		switch (adapter->rx_buffer_len) {
+ 		case IGB_RXBUFFER_256:
+ 			rctl |= E1000_RCTL_SZ_256;
+-			rctl &= ~E1000_RCTL_BSEX;
+ 			break;
+ 		case IGB_RXBUFFER_512:
+ 			rctl |= E1000_RCTL_SZ_512;
+-			rctl &= ~E1000_RCTL_BSEX;
+ 			break;
+ 		case IGB_RXBUFFER_1024:
+ 			rctl |= E1000_RCTL_SZ_1024;
+-			rctl &= ~E1000_RCTL_BSEX;
+ 			break;
+-		case IGB_RXBUFFER_2048:
+ 		default:
+ 			rctl |= E1000_RCTL_SZ_2048;
+-			rctl &= ~E1000_RCTL_BSEX;
+ 			break;
+ 		}
+ 	} else {
+-		rctl &= ~E1000_RCTL_BSEX;
++		rctl |= E1000_RCTL_LPE;
+ 		srrctl = adapter->rx_buffer_len >> E1000_SRRCTL_BSIZEPKT_SHIFT;
+ 	}
+ 
+
