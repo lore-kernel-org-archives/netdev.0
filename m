@@ -1,41 +1,105 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 02/10] tcp: move tcp_simple_retransmit to tcp_input
-Date: Mon, 24 Nov 2008 20:07:10 +0100
-Message-ID: <20081124190710.GA6703@one.firstfloor.org>
-References: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi> <1227536527-29713-2-git-send-email-ilpo.jarvinen@helsinki.fi> <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi> <87skphqdx7.fsf@basil.nowhere.org> <Pine.LNX.4.64.0811241844490.30728@wrl-59.cs.helsinki.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] netdev: generate kobject uevent on network events.
+Date: Mon, 24 Nov 2008 11:45:22 -0800
+Message-ID: <20081124114522.1e8de3fe@extreme>
+References: <20081121234110.22b47154@extreme>
+ <ac3eb2510811220608y33662b0bkb66026c2a21b061e@mail.gmail.com>
+ <F6B63A37-A69F-4197-B7E5-C9FD9BFA76F6@holtmann.org>
+ <20081122223249.4be03e4e@extreme>
+ <ac3eb2510811230813s3cb5c248k1e15d9ece581c8ad@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:60652 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752067AbYKXS4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 13:56:55 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0811241844490.30728@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Marcel Holtmann" <marcel@holtmann.org>,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
+To: "Kay Sievers" <kay.sievers@vrfy.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <ac3eb2510811230813s3cb5c248k1e15d9ece581c8ad@mail.gmail.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 24, 2008 at 06:58:25PM +0200, Ilpo J=E4rvinen wrote:
-> On Mon, 24 Nov 2008, Andi Kleen wrote:
->=20
-> > "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
-> >=20
-> > tcp: move tcp_simple_retransmit to tcp_input
-> >=20
-> > Why? It seems like a clear output function.
->=20
-> What makes you think so? It's as much output as e.g., tcp_enter_loss
+It is easier for some applications to deal with text based interfaces
+like uevent, rather than using netlink to listen for events.
 
-the path mtu code calls it to output a packet.
+Note, this does not deal with network namespaces but that is a generic
+problem that already exists with kobjects (see rename events).
 
-> (or in fact less than that since enter_loss is triggered mainly by rt=
-o)?
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-enter_loss doesn't send a packet.
+---
+ net/core/Makefile |    1 
+ net/core/uevent.c |   61 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 62 insertions(+)
 
--Andi
+--- a/net/core/Makefile	2008-11-24 08:40:10.000000000 -0800
++++ b/net/core/Makefile	2008-11-24 08:51:01.000000000 -0800
+@@ -17,3 +17,4 @@ obj-$(CONFIG_NET_PKTGEN) += pktgen.o
+ obj-$(CONFIG_NETPOLL) += netpoll.o
+ obj-$(CONFIG_NET_DMA) += user_dma.o
+ obj-$(CONFIG_FIB_RULES) += fib_rules.o
++obj-$(CONFIG_HOTPLUG) += uevent.o
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/net/core/uevent.c	2008-11-24 09:06:50.000000000 -0800
+@@ -0,0 +1,60 @@
++/*
++ * Linux network device event notification
++ *
++ * Author:
++ *	Stephen Hemminger <shemminger@vyatta.com>
++ */
++
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/kobject.h>
++#include <linux/notifier.h>
++
++/*
++ * Generate uevent in response to nework device changes.
++ * NB: KOBJ_MOVE is already genereated by kobject_rename
++ */
++static int netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
++{
++	struct net_device *netdev = ptr;
++
++	switch (event) {
++	case NETDEV_UNREGISTER:
++		kobject_uevent(&netdev->dev.kobj, KOBJ_REMOVE);
++		break;
++	case NETDEV_REGISTER:
++		kobject_uevent(&netdev->dev.kobj, KOBJ_ADD);
++		break;
++	case NETDEV_UP:
++		kobject_uevent(&netdev->dev.kobj, KOBJ_ONLINE);
++		break;
++	case NETDEV_DOWN:
++		kobject_uevent(&netdev->dev.kobj, KOBJ_OFFLINE);
++		break;
++	case NETDEV_CHANGE:
++		if (netif_running(netdev)) {
++			char str[64] = "DEVSTATE=UP";
++			char *envp[2] = { str, NULL };
++
++			if (netif_oper_up(netdev))
++				strcat(str, ",RUNNING");
++			if (netif_carrier_ok(netdev))
++				strcat(str, ",LOWER_UP");
++			if (netif_dormant(netdev))
++				strcat(str, ",DORMANT");
++			kobject_uevent_env(&netdev->dev.kobj, KOBJ_CHANGE, envp);
++		}
++		break;
++	}
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block netdev_uevent_notifier = {
++	.notifier_call	= netdev_event,
++};
++
++static int __init netdev_uevent_init(void)
++{
++	return register_netdevice_notifier(&netdev_uevent_notifier);
++}
++device_initcall(netdev_uevent_init);
+
