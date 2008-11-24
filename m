@@ -1,42 +1,49 @@
-From: jamal <j.hadi123@gmail.com>
-Subject: Re: [PATCH] net: gen_estimator: Fix gen_kill_estimator() lookups
-Date: Mon, 24 Nov 2008 10:00:58 -0500
-Message-ID: <1227538858.22481.29.camel@dogo.mojatatu.com>
-References: <20081124120404.GA16413@ff.dom.local>
-	 <1227532725.22481.14.camel@dogo.mojatatu.com>
-	 <20081124133724.GC16755@ff.dom.local>
-Reply-To: hadi@cyberus.ca
+From: "Kay Sievers" <kay.sievers@vrfy.org>
+Subject: Re: [patch 1/1][RFC]Handle uevent per namespace
+Date: Mon, 24 Nov 2008 16:14:54 +0100
+Message-ID: <ac3eb2510811240714l76b15469lea541bb4badd328@mail.gmail.com>
+References: <492A86FA.5080804@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"Linux Netdev List" <netdev@vger.kernel.org>,
+	"Greg KH" <greg@kroah.com>, "David Miller" <davem@davemloft.net>,
+	"Linux Containers" <containers@lists.osdl.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Benjamin Thery" <benjamin.thery@bull.net>
+To: "Daniel Lezcano" <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:48891 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178AbYKXPBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 10:01:17 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so836331yxm.1
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 07:01:16 -0800 (PST)
-In-Reply-To: <20081124133724.GC16755@ff.dom.local>
+Received: from ey-out-2122.google.com ([74.125.78.25]:54806 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751083AbYKXPO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 10:14:56 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so831959eyi.37
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 07:14:55 -0800 (PST)
+In-Reply-To: <492A86FA.5080804@fr.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-11-24 at 13:37 +0000, Jarek Poplawski wrote:
+On Mon, Nov 24, 2008 at 11:50, Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
 
-> I first thought about a hash, but alas Patrick's solution is sched
-> only... Anyway, I din't see too much overhead in memory use, and no
-> diffrence in addition times (without batching).
+ struct kobject {
+ 	const char		*name;
+ 	struct list_head	entry;
+@@ -63,6 +65,9 @@ struct kobject {
+ 	struct kset		*kset;
+ 	struct kobj_type	*ktype;
+ 	struct sysfs_dirent	*sd;
++#ifdef CONFIG_NET
++	struct net              *net;
++#endif
+ 	struct kref		kref;
+ 	unsigned int state_initialized:1;
+ 	unsigned int state_in_sysfs:1;
 
-Showing numbers in a commit for perf improvement IMO is always a good
-thing.
-BTW, I dont think it would make a noticeable difference (batching
-notwithstanding) in addition or even deletion unless you have quiet a
-few with the same estimate sampling time loaded.
+We cannot do that. Network specific stuff does not belong into
+kobjects. Kobjects are not in any way subsystem specific, and we need
+to keep it that way.
 
-cheers,
-jamal
-
+Thanks,
+Kay
