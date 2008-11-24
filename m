@@ -1,64 +1,80 @@
-From: Marcel Holtmann <holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-11-18
-Date: Mon, 24 Nov 2008 09:33:38 +0100
-Message-ID: <3A9C0F67-8E8C-4E38-AC96-4437ED0D53DD@linux.intel.com>
-References: <20081119000719.GA19756@tuxdriver.com> <1ba2fa240811182246m17a6baf0ybde19af030a65819@mail.gmail.com> <1ba2fa240811190134u7974a840i532e8ed0e18f8c72@mail.gmail.com> <20081119143919.GA3485@tuxdriver.com> <1227497655.2548.257.camel@debian.sh.intel.com> <7E134DC0-A86D-460A-B5DC-22E6D9BEED92@linux.intel.com> <1227508394.2548.307.camel@debian.sh.intel.com>
-Mime-Version: 1.0 (Apple Message framework v929.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org" <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1227508394.2548.307.camel-F7Q/YMNgnyhhZnBKgDE8z0EOCMrvLtNR@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: net-next/unix: BUG: using smp_processor_id() in preemptible
+Date: Mon, 24 Nov 2008 10:41:47 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811241039210.28478@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0811221634370.10534@wrl-59.cs.helsinki.fi>
+ <4928CECE.602@cosmosbay.com> <20081123.172014.78676422.davem@davemloft.net>
+ <20081123.173426.255648175.davem@davemloft.net> <492A5F6D.3040708@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: MULTIPART/Mixed; boundary="=_courier-23966-1227513720-0001-2"
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:59400 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751107AbYKXIlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 03:41:49 -0500
+In-Reply-To: <492A5F6D.3040708@cosmosbay.com>
+Content-ID: <Pine.LNX.4.64.0811241039211.28478@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Yi,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
->> http://www.intellinuxwireless.org/bugzilla/show_bug.cgi?id=1703
->>
->> and just relying on Bugzilla is not gonna be good enough. The Linux
->> kernel development has always been done via mailing lists. And while
->> there is a kernel and other Bugzillas, the main authority is still  
->> the
->> mailing list. So if you wanna get massive feedback or have testing
->> patches for debugging, then these need to be posted to linux-wireless
->> and not "hidden" into a Bugzilla.
->
-> This is generally true for bugs easy to debug with. But in this  
-> example,
-> the first reporter opened this bug 4 months ago. People usually don't
-> follow thread for such a long time. There are also some reporters  
-> never
-> show up in this ML.
+--=_courier-23966-1227513720-0001-2
+Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0811241039212.28478@wrl-59.cs.helsinki.fi>
 
-true to some degree, but searching mailing list archives is a lot  
-simpler then bug reports.
+On Mon, 24 Nov 2008, Eric Dumazet wrote:
 
->> I do have a perfect environment in Vancouver that allows me to  
->> trigger
->> this behavior within a few minutes. So if you really wanna debug  
->> this,
->> then just send debug patches to the mailing list and I am happy to  
->> run
->> such kernels.
->
-> Can you still reproduce this bug with Johannes' patch?
+> David Miller a écrit :
+> > From: David Miller <davem@davemloft.net>
+> > Date: Sun, 23 Nov 2008 17:20:14 -0800 (PST)
+> > 
+> > > From: Eric Dumazet <dada1@cosmosbay.com>
+> > > Date: Sun, 23 Nov 2008 04:32:30 +0100
+> > >
+> > > > [PATCH] net: make sock_prot_inuse_add() preempt safe
+> >  ...
+> > > Eric, you added this bug by starting to use this interface in
+> > > situations where BH's were not disabled.
+> > >
+> > > Ever existing use adhered to that rule.
+> > >
+> > > If you therefore want to call this interface in new locations,
+> > > you have to make sure those locations follow the rule too.
+> > 
+> > Here is what I commited to fix this bug.
+> > 
+> > net: Make sure BHs are disabled in sock_prot_inuse_add()
+> > 
+> > The rule of calling sock_prot_inuse_add() is that BHs must
+> > be disabled.  Some new calls were added where this was not
+> > true and this tiggers warnings as reported by Ilpo.
+> > 
+> > Fix this by adding explicit BH disabling around those call sites.
+> > 
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > ---
+> >  net/netlink/af_netlink.c |    3 +++
+> >  net/sctp/socket.c        |    4 ++++
+> >  net/unix/af_unix.c       |    2 ++
+> >  3 files changed, 9 insertions(+), 0 deletions(-)
+> 
+> I believe some bits are missing
+> 
+> Ilpo report was about unix_create1() being preemptable for example
 
-we will see once I am back in Vancouver. Will be some time in December  
-though.
+Yes, basically these two sites I got (during boot, I didn't look much 
+further if I could have gotten them from somewhere else too):
 
-Regards
+$ grep -A1 '[]] sock_prot_inuse_add[+]' dmesg.log  | grep "fffff" | grep -v sock_prot_inuse_add | sort | uniq
+ [<ffffffff80514cdd>] unix_create1+0x161/0x176
+ [<ffffffff805151de>] unix_sock_destructor+0xb6/0xbc
 
-Marcel
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+ i.
+--=_courier-23966-1227513720-0001-2--
