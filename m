@@ -1,43 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [ROSE] zero length frame filtering in af_rose.c
-Date: Sun, 23 Nov 2008 15:56:40 -0800 (PST)
-Message-ID: <20081123.155640.257952451.davem@davemloft.net>
-References: <200811221108.54242.bpidoux@free.fr>
+From: Wu Fengguang <fengguang.wu@intel.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack_sctp: fix build warning
+Date: Mon, 24 Nov 2008 08:06:52 +0800
+Message-ID: <20081124000652.GA5424@localhost>
+References: <20081123113315.GA16697@localhost> <20081123.135955.202482968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
-	ralf@linux-mips.org
-To: f6bvp@amsat.org, bpidoux@free.fr
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <200811221108.54242.bpidoux@free.fr>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "kaber@trash.net" <kaber@trash.net>,
+	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:52020 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750887AbYKXAHF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Nov 2008 19:07:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20081123.135955.202482968.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bernard Pidoux <bpidoux@free.fr>
-Date: Sat, 22 Nov 2008 11:08:52 +0100
+On Sun, Nov 23, 2008 at 11:59:55PM +0200, David Miller wrote:
+> From: Wu Fengguang <fengguang.wu@intel.com>
+> Date: Sun, 23 Nov 2008 19:33:15 +0800
+>=20
+> linux-net is not the mailing list for network development
+> discussion, it is for user questions.  Post patches and
+> developer questions to netdev@vger.kernel.org instead.
 
-> +=A0=A0=A0=A0=A0=A0=A0}
-> +
-> =A0=A0=A0=A0=A0=A0=A0=A0if (copied > size) {
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0copied =3D size;
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0msg->msg_flags |=3D M=
-SG_TRUNC;
-> --=20
+OK, thanks for the CC!
 
-This patch, as well as your changelog message, have space
-and tab characters severely corrupted by your email client.
+=46engguang
+---
 
-Please fix this and resubmit.
+net/netfilter/nf_conntrack_proto_sctp.c: In function =E2=80=98sctp_pack=
+et=E2=80=99:
+net/netfilter/nf_conntrack_proto_sctp.c:376: warning: array subscript i=
+s above array bounds
 
-In fact, this corruption is so severe I want you to email
-this patch to yourself and try to apply it.  Do not resubmit
-this until you can email the patch to yourself and apply it
-cleanly.
+Signed-off-by: Wu Fengguang <wfg@linux.intel.com>
+---
 
-Thank you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+DISCLAIMER: I'm newbie to the code, and this fix could be wrong!
+
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf=
+_conntrack_proto_sctp.c
+index ae8c260..d31ced4 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -373,6 +373,9 @@ static int sctp_packet(struct nf_conn *ct,
+ 	}
+ 	write_unlock_bh(&sctp_lock);
+=20
++	if (new_state =3D=3D SCTP_CONNTRACK_MAX)
++		goto out;
++
+ 	nf_ct_refresh_acct(ct, ctinfo, skb, sctp_timeouts[new_state]);
+=20
+ 	if (old_state =3D=3D SCTP_CONNTRACK_COOKIE_ECHOED &&
