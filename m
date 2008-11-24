@@ -1,73 +1,52 @@
-From: Bernard Pidoux <bernard.pidoux@upmc.fr>
-Subject: [PATCH] [ROSE] zero length frame filtering in af_rose.c
-Date: Mon, 24 Nov 2008 22:49:40 +0100
-Message-ID: <492B2174.1030503@upmc.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] myri10ge: fix indentation
+Date: Mon, 24 Nov 2008 14:43:57 -0800 (PST)
+Message-ID: <20081124.144357.65741555.davem@davemloft.net>
+References: <49295DFD.9050609@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	David Miller <davem@davemloft.net>
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g19.free.fr ([212.27.42.28]:38347 "EHLO smtp2-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753233AbYKXWnk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 17:43:40 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46705
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753493AbYKXWn5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 17:43:57 -0500
+In-Reply-To: <49295DFD.9050609@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since changeset e79ad711a0108475c1b3a03815527e7237020b08 from  mainline,
->From David S. Miller, 
-empty packet can be transmitted on connected socket for datagram protocols.
+From: Brice Goglin <brice@myri.com>
+Date: Sun, 23 Nov 2008 14:43:25 +0100
 
-However, this patch broke a high level application using ROSE network protocol with connected datagram.
+> Bring the indentation in line with the output of the Lindent script.
+> 
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-Bulletin Board Stations perform bulletins forwarding between BBS stations via ROSE network using a forward protocol.
-Now, if for some reason, a buffer in the application software happens to be empty at a specific moment,
-ROSE sends an empty packet via unfiltered packet socket.
-When received, this ROSE packet introduces perturbations of data exchange of BBS forwarding,
-for the application message forwarding protocol is waiting for something else.
-We agree that a more careful programming of the application protocol would avoid this situation and we are
-willing to debug it.
-But, as an empty frame is no use and does not have any meaning for ROSE protocol,
-we may consider filtering zero length data both when sending and receiving socket data.
+Please don't blindly apply tools like this.
 
-The proposed patch repaired BBS data exchange through ROSE network that were broken since 2.6.22.11 kernel.
+>  static const struct net_device_ops myri10ge_netdev_ops = {
+> -	.ndo_open		= myri10ge_open,
+> -	.ndo_stop		= myri10ge_close,
+> -	.ndo_start_xmit		= myri10ge_xmit,
+> -	.ndo_get_stats		= myri10ge_get_stats,
+> -	.ndo_validate_addr	= eth_validate_addr,
+> -	.ndo_change_mtu		= myri10ge_change_mtu,
+> +	.ndo_open = myri10ge_open,
+> +	.ndo_stop = myri10ge_close,
+> +	.ndo_start_xmit = myri10ge_xmit,
+> +	.ndo_get_stats = myri10ge_get_stats,
+> +	.ndo_validate_addr = eth_validate_addr,
+> +	.ndo_change_mtu = myri10ge_change_mtu,
+>  	.ndo_set_multicast_list = myri10ge_set_multicast_list,
+> -	.ndo_set_mac_address	= myri10ge_set_mac_address,
+> +	.ndo_set_mac_address = myri10ge_set_mac_address,
+>  };
+>  
 
-Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
----
- net/rose/af_rose.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+I specifically used tabs here when applying this, on the left side of
+the equal sign, in order to line everything up nicely.  And now this
+patch is undoing that.
 
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 8a54cff..92af3a6 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -1075,6 +1075,10 @@ static int rose_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	unsigned char *asmptr;
- 	int n, size, qbit = 0;
- 
-+	/* ROSE empty frame has no meaning : don't send */
-+	if (len == 0)
-+		return 0;
-+
- 	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_CMSG_COMPAT))
- 		return -EINVAL;
- 
-@@ -1268,6 +1272,12 @@ static int rose_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	skb_reset_transport_header(skb);
- 	copied     = skb->len;
- 
-+	/* ROSE empty frame has no meaning : ignore it */
-+	if (copied == 0) {
-+		skb_free_datagram(sk, skb);
-+		return copied;
-+	}
-+
- 	if (copied > size) {
- 		copied = size;
- 		msg->msg_flags |= MSG_TRUNC;
--- 
-1.5.5
-
+Patch not applied.
