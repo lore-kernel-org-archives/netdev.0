@@ -1,52 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] myri10ge: fix indentation
-Date: Mon, 24 Nov 2008 14:43:57 -0800 (PST)
-Message-ID: <20081124.144357.65741555.davem@davemloft.net>
-References: <49295DFD.9050609@myri.com>
+Subject: Re: [RFC PATCH 1/2] smsc911x: add support for sh3 RX DMA
+Date: Mon, 24 Nov 2008 14:46:03 -0800 (PST)
+Message-ID: <20081124.144603.153139690.davem@davemloft.net>
+References: <1227456274-10388-1-git-send-email-steve.glendinning@smsc.com>
+	<20081124034237.GB26414@linux-sh.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: brice@myri.com
+Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, ian.saturley@smsc.com
+To: lethal@linux-sh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46705
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46709
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753493AbYKXWn5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 17:43:57 -0500
-In-Reply-To: <49295DFD.9050609@myri.com>
+	by vger.kernel.org with ESMTP id S1753230AbYKXWqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 17:46:04 -0500
+In-Reply-To: <20081124034237.GB26414@linux-sh.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brice Goglin <brice@myri.com>
-Date: Sun, 23 Nov 2008 14:43:25 +0100
+From: Paul Mundt <lethal@linux-sh.org>
+Date: Mon, 24 Nov 2008 12:42:37 +0900
 
-> Bring the indentation in line with the output of the Lindent script.
+> On Sun, Nov 23, 2008 at 04:04:33PM +0000, Steve Glendinning wrote:
+> > I've been working on adding DMA support to the smsc911x driver.  As this 
+> > family of devices is non-pci, DMA transfers must be initiated and 
+> > controlled by the host CPU.  Unfortunately this makes some of the code 
+> > necessarily platform-specific.
+> > 
+> > This patch adds RX DMA support for the sh architecture.  Tested on 
+> > SH7709S (sh3), where it gives a small (~10%) iperf tcp throughput 
+> > increase.  DMA or PIO is selected at compile-time.
+> > 
+> > My first attempt stopped NAPI polling during a DMA transfer, then used 
+> > DMA completion interrupts to pass the packet up and re-enable polling.
+> > Obviously this defeats the interrupt-mitigation of NAPI, and on my test 
+> > platform actually *reduced* performance!
+> > 
+> > This patch leaves NAPI polling enabled, so a later poll completes the 
+> > transfer.  I'm concerned this is essentially busy-waiting on the 
+> > transfer, but it does show a small performance gain.  Is this a good or 
+> > bad idea?
+> > 
+> > I'd be interested to hear if anyone has advice on how to make this 
+> > patch more generic.  There's definitely been interest from arm pxa
+> > users in adding DMA, and some of this code must be re-usable for this.
+> > 
+> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> The intent was to move everything over to the dmaengine framework and
+> have drivers (especially generic ones) opt for using that instead. This
+> hasn't happened yet, but it doesn't seem like there is much point in
+> adding hacks to the smsc911x driver at present given the overhead
+> involved in the interrupt handling. While this is something that can
+> easily be improved, I would rather put more effort in to getting things
+> moved over to the generic frameworks now that they exist, and optimize
+> later.
 
-Please don't blindly apply tools like this.
-
->  static const struct net_device_ops myri10ge_netdev_ops = {
-> -	.ndo_open		= myri10ge_open,
-> -	.ndo_stop		= myri10ge_close,
-> -	.ndo_start_xmit		= myri10ge_xmit,
-> -	.ndo_get_stats		= myri10ge_get_stats,
-> -	.ndo_validate_addr	= eth_validate_addr,
-> -	.ndo_change_mtu		= myri10ge_change_mtu,
-> +	.ndo_open = myri10ge_open,
-> +	.ndo_stop = myri10ge_close,
-> +	.ndo_start_xmit = myri10ge_xmit,
-> +	.ndo_get_stats = myri10ge_get_stats,
-> +	.ndo_validate_addr = eth_validate_addr,
-> +	.ndo_change_mtu = myri10ge_change_mtu,
->  	.ndo_set_multicast_list = myri10ge_set_multicast_list,
-> -	.ndo_set_mac_address	= myri10ge_set_mac_address,
-> +	.ndo_set_mac_address = myri10ge_set_mac_address,
->  };
->  
-
-I specifically used tabs here when applying this, on the left side of
-the equal sign, in order to line everything up nicely.  And now this
-patch is undoing that.
-
-Patch not applied.
+I'll therefore drop these two patches for now.
