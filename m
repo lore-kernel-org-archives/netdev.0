@@ -1,51 +1,25 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 02/10] tcp: move tcp_simple_retransmit to tcp_input
-Date: Mon, 24 Nov 2008 18:58:25 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0811241844490.30728@wrl-59.cs.helsinki.fi>
-References: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1227536527-29713-2-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
- <87skphqdx7.fsf@basil.nowhere.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH next]infiniband: Kill directly reference of netdev->priv
+Date: Mon, 24 Nov 2008 09:01:28 -0800
+Message-ID: <adaabbpf47r.fsf@cisco.com>
+References: <492A748F.9040308@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1455546864-1227545905=:30728"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>, rolandd@cisco.com,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	general@lists.openfabrics.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60578 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751920AbYKXQ61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:58:27 -0500
-In-Reply-To: <87skphqdx7.fsf@basil.nowhere.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:12189 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752734AbYKXRBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 12:01:32 -0500
+In-Reply-To: <492A748F.9040308@cn.fujitsu.com> (Wang Chen's message of "Mon,
+	24 Nov 2008 17:31:59 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Looks fine to me.
 
----696208474-1455546864-1227545905=:30728
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Mon, 24 Nov 2008, Andi Kleen wrote:
-
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> writes:
-> 
-> tcp: move tcp_simple_retransmit to tcp_input
-> 
-> Why? It seems like a clear output function.
-
-What makes you think so? It's as much output as e.g., tcp_enter_loss
-(or in fact less than that since enter_loss is triggered mainly by rto)?
-
-Besides, it's action based on input, the name is just misnower as it 
-retransmit nothing except calling tcp_xmit_retransmit_queue. Every state 
-change it does is similar to what is being done elsewhere in 
-the tcp_input.c (I won't waste my time on listing them here :-)).
-
-Not that it's that extremely big deal but doing some wq processing 
-related changes have forced me to go into that other file just because
-of that particular function.
-
--- 
- i.
----696208474-1455546864-1227545905=:30728--
+Acked-by: Roland Dreier <rolandd@cisco.com>
