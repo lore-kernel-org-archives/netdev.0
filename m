@@ -1,39 +1,54 @@
-From: nik-lists@varna.net
-Subject: e1000 and PBA
-Date: Mon, 24 Nov 2008 17:28:49 +0200 (EET)
-Message-ID: <1d380c73ba9296d4277c279e9808e84a.webmail@www.varna.net>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [patch 1/1][RFC]Handle uevent per namespace
+Date: Mon, 24 Nov 2008 16:55:10 +0100
+Message-ID: <492ACE5E.9020601@fr.ibm.com>
+References: <492A86FA.5080804@fr.ibm.com> <20081124153138.GA16742@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=windows-1251
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Containers <containers@lists.osdl.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.Varna.Net ([217.145.80.1]:59767 "EHLO ns.varna.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752693AbYKXPuT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 10:50:19 -0500
-Received: from www.varna.net (mail2.Varna.Net [217.145.80.3])
-	by ns.varna.net (8.13.6/8.13.6) with ESMTP id mAOFSne1022150
-	for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 17:28:49 +0200
+Received: from mtagate1.uk.ibm.com ([194.196.100.161]:57351 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752713AbYKXPzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 10:55:19 -0500
+In-Reply-To: <20081124153138.GA16742@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Greg KH wrote:
+> On Mon, Nov 24, 2008 at 11:50:34AM +0100, Daniel Lezcano wrote:
+> 
+>> Subject: Handle uevent per namespace
+>> From: Daniel Lezcano <dlezcano@fr.ibm.com>
+>>
+>> At present when a network device is destroyed, inside a network
+>> namespace, and this device has the same name as one network device
+>> belonging to the initial network namespace (eg. eth0), the udev daemon
+>> will disable the interface in the initial network namespace.
+>>
+>> IMHO, udev should not receive this event. The uevents should be per
+>> namespace or at least do not send events when not for the initial
+>> network namespace.
+> 
+> IMHO, network namespaces are a mess and not something that you should be
+> doing at all :)
+> 
+>> The following patch is a RFC for making uevent namespace aware. I don't
+>> know this part of the kernel code, so I am pretty sure t is not the 
+>> right way to do that :) 
+> 
+> Like Kay said, please don't change the kobject core for this, try just
+> filtering in the network core the events that you handle there.
 
-I am experiencing rx_missed_errors with Intel 82541 based gige and e1000
-8.0.6  on 32Bbit 33MHz PCI. In my opinion, the network load is not so
-heavy - 15 kpps and 90 Mbit/s at peaktimes. CPU load is no more than 30%.
-I know it is old hardware (Athlon@1725), but sill, it should be able to
-handle this amount of traffic - here is no shaping, and there is hardly
-any firewall rules. After lot of reading in maillists and forums, my
-conclusion is that the bottleneck is in the RX FIFO buffers. Therefore, I
-want to try increasing the RX PBA size. How can I check how much is the
-overall PBS, which is split for TX/RX buffers by the driver? According to
-the source, PBA is read from the card registers in the e1000_reset
-function. Can I check this value somehow with ethtool ? Maybe after I know
-how much PBS is available, I will be able to calculate how much RX FIFO
-will be left if I need only 4K TX FIFO (pretty enough for full wire-speed
-transmitting according to the tdriver source).
+Oh, why I didn't think about that :)
+That will be a cleaner and a smaller patch.
 
-Thank you very much in advance.
-
-
+Thanks.
+   -- Daniel
