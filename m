@@ -1,33 +1,30 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 02/10] tcp: move tcp_simple_retransmit to tcp_input
-Date: Mon, 24 Nov 2008 17:36:20 +0100
-Message-ID: <87skphqdx7.fsf@basil.nowhere.org>
-References: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1227536527-29713-2-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 1/1] ixp4xx_hss: Non-used lut variable
+Date: Mon, 24 Nov 2008 17:36:03 +0100
+Message-ID: <m3hc5x13po.fsf@maximus.localdomain>
+References: <b0438a630811240637i3636b297taafa01f4947a4b1c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?utf-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-2?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:39813 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753004AbYKXQgR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:36:17 -0500
-In-Reply-To: <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
- (Ilpo =?utf-8?Q?J=C3=A4rvinen's?= message of "Mon, 24 Nov 2008 16:21:59
- +0200")
+Received: from khc.piap.pl ([195.187.100.11]:39581 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752473AbYKXQgF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:36:05 -0500
+In-Reply-To: <b0438a630811240637i3636b297taafa01f4947a4b1c@mail.gmail.com>
+ ("Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez=22's?= message of "Mon\, 24 Nov
+ 2008 15\:37\:42 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
+"Miguel =C1ngel =C1lvarez" <gotzoncabanes@gmail.com> writes:
 
-tcp: move tcp_simple_retransmit to tcp_input
+> Taking a look to ixp4xx_hss code, I have found a non-used variable in
+> hss_config_set_lut. I suppose it is part of a deprecated code. This
+> patch removes it.
 
-Why? It seems like a clear output function.
-
--Andi
-
+You must be right. Thanks.
 --=20
-ak@linux.intel.com
+Krzysztof Halasa
