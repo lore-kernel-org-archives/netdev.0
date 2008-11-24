@@ -1,96 +1,52 @@
-From: Wu Fengguang <fengguang.wu@intel.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack_sctp: fix build warning
-Date: Mon, 24 Nov 2008 09:17:27 +0800
-Message-ID: <20081124011727.GA6462@localhost>
-References: <20081123113315.GA16697@localhost> <20081123.135955.202482968.davem@davemloft.net> <20081124000652.GA5424@localhost> <4929FEA9.9090801@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next/unix: BUG: using smp_processor_id() in preemptible
+Date: Sun, 23 Nov 2008 17:20:14 -0800 (PST)
+Message-ID: <20081123.172014.78676422.davem@davemloft.net>
+References: <Pine.LNX.4.64.0811221634370.10534@wrl-59.cs.helsinki.fi>
+	<4928CECE.602@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:49850 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751107AbYKXBRj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Nov 2008 20:17:39 -0500
-Content-Disposition: inline
-In-Reply-To: <4929FEA9.9090801@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57362
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751624AbYKXBUP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Nov 2008 20:20:15 -0500
+In-Reply-To: <4928CECE.602@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2008 at 03:08:57AM +0200, Wang Chen wrote:
-> Wu Fengguang said the following on 2008-11-24 8:06:
-> > On Sun, Nov 23, 2008 at 11:59:55PM +0200, David Miller wrote:
-> >> From: Wu Fengguang <fengguang.wu@intel.com>
-> >> Date: Sun, 23 Nov 2008 19:33:15 +0800
-> >>
-> >> linux-net is not the mailing list for network development
-> >> discussion, it is for user questions.  Post patches and
-> >> developer questions to netdev@vger.kernel.org instead.
-> >=20
-> > OK, thanks for the CC!
-> >=20
-> > Fengguang
-> > ---
-> >=20
-> > net/netfilter/nf_conntrack_proto_sctp.c: In function =E2=80=98sctp_=
-packet=E2=80=99:
-> > net/netfilter/nf_conntrack_proto_sctp.c:376: warning: array subscri=
-pt is above array bounds
-> >=20
-> > Signed-off-by: Wu Fengguang <wfg@linux.intel.com>
-> > ---
-> >=20
-> > DISCLAIMER: I'm newbie to the code, and this fix could be wrong!
-> >=20
-> > diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilte=
-r/nf_conntrack_proto_sctp.c
-> > index ae8c260..d31ced4 100644
-> > --- a/net/netfilter/nf_conntrack_proto_sctp.c
-> > +++ b/net/netfilter/nf_conntrack_proto_sctp.c
-> > @@ -373,6 +373,9 @@ static int sctp_packet(struct nf_conn *ct,
-> >  	}
-> >  	write_unlock_bh(&sctp_lock);
-> > =20
-> > +	if (new_state =3D=3D SCTP_CONNTRACK_MAX)
-> > +		goto out;
-> > +
+=46rom: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sun, 23 Nov 2008 04:32:30 +0100
+
+> [PATCH] net: make sock_prot_inuse_add() preempt safe
 >=20
-> print some debug info would be better?
+> Ilpo J=E4rvinen reported that commit a8076d8db98de6da61394b2e942320e4=
+612643ac
+> (net: af_unix should update its inuse counter) was triggering
+> a warning in smp_processor_id(), being called in a preemptible code.
+>=20
+> Fix is to make sock_prot_inuse_add() safe in this regard. This fix
+> can be reverted when new percpu infrastructure is ready, allowing
+> a cpu to safely do a increment/decrement on a percpu var.
+>=20
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Like this one?
-+		pr_debug("Empty sctp packet\n");
+Eric, you added this bug by starting to use this interface in
+situations where BH's were not disabled.
 
-=46engguang
----
-netfilter: nf_conntrack_sctp: fix build warning
+Ever existing use adhered to that rule.
 
-net/netfilter/nf_conntrack_proto_sctp.c: In function =E2=80=98sctp_pack=
-et=E2=80=99:
-net/netfilter/nf_conntrack_proto_sctp.c:376: warning: array subscript i=
-s above array bounds
+If you therefore want to call this interface in new locations,
+you have to make sure those locations follow the rule too.
 
-Signed-off-by: Wu Fengguang <wfg@linux.intel.com>
----
+Making it expensive for all the existing cases which were already
+safe, is not the way to fix this.  And saying some future not-merged
+change justifies this added cost is besides the point.
 
-DISCLAIMER: I'm newbie to the code, and this fix could be wrong!
-
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf=
-_conntrack_proto_sctp.c
-index ae8c260..a0bc24b 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -373,6 +373,11 @@ static int sctp_packet(struct nf_conn *ct,
- 	}
- 	write_unlock_bh(&sctp_lock);
-=20
-+	if (new_state =3D=3D SCTP_CONNTRACK_MAX) {
-+		pr_debug("Empty sctp packet\n");
-+		goto out;
-+	}
-+
- 	nf_ct_refresh_acct(ct, ctinfo, skb, sctp_timeouts[new_state]);
-=20
- 	if (old_state =3D=3D SCTP_CONNTRACK_COOKIE_ECHOED &&
+What is valid is getting rid of the BH disables you need to add
+to net/unix/af_unix.c et al.'s call sites, once those percpu patches
+are added.  Not the other way around.
