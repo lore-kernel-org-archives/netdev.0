@@ -1,59 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] pkt_sched: sch_drr: Fix drr_dequeue() loop
-Date: Mon, 24 Nov 2008 13:45:16 +0000
-Message-ID: <20081124134516.GD16755@ff.dom.local>
-References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net> <20081124105345.GB13957@ff.dom.local> <492A9ACB.4050504@trash.net> <20081124123349.GA16755@ff.dom.local> <492AA058.9060302@trash.net> <20081124125150.GB16755@ff.dom.local> <492AA96C.6000807@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] net: avoid a pair of dst_hold()/dst_release() in ip_push_pending_frames()
+Date: Mon, 24 Nov 2008 14:59:51 +0100
+Message-ID: <492AB357.1080304@cosmosbay.com>
+References: <492A6C94.7030308@cosmosbay.com> <87y6z9h33h.fsf@basil.nowhere.org> <492A7E85.3060502@cosmosbay.com> <492A8F05.3080509@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------050304030009070809050009"
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Corey Minyard <minyard@acm.org>,
+	Christian Bell <christian@myri.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:57079 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133AbYKXNpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 08:45:22 -0500
-Received: by ik-out-1112.google.com with SMTP id c29so1641645ika.5
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 05:45:20 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <492AA96C.6000807@trash.net>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:60863 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570AbYKXOAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 09:00:06 -0500
+In-Reply-To: <492A8F05.3080509@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2008 at 02:17:32PM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
->> On Mon, Nov 24, 2008 at 01:38:48PM +0100, Patrick McHardy wrote:
->> ...
->>> TBF with an inner DRR is fine. The other way around is broken
->>> in the sense that the behaviour is undefined.
->>
->> IMHO, this other way (e.g. a class with TBF per user), should work too.
->
-> The behaviour undefined, so what does "work too" mean in this context?
->
-> The main question is: what should be done with the class when it
-> throttles?
->
-> You suggest moving it to the end of the active list. Should its deficit
-> be recharged in that case? Possible no because it didn't send packets -
-> but then again it might have handed out *some* packets (less than the
-> deficit) before it started throttling. Both ways would introduce
-> unfairness.
->
-> What could be done without harming the algorithm is to treat throttled
-> classes as inactive until they become unthrottled again, meaning they
-> would be added to the end of the active list with a full deficit. But
-> we have no indication for specific classes, unthrottling simply triggers
-> another dequeue of the root, so the implementation would get quite
-> complicated, leaving alone the fact that each TBF would potentially
-> start its own watchdog, causing excessive wakeups.
->
-> And I don't see much use for this, what is the advantage over using
-> HTB or HFSC?
+This is a multi-part message in MIME format.
+--------------050304030009070809050009
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Probably no advantage, if you now these things... or for testing. But
-I like to give users a choice, at least if it's not obviously wrong.
-Of course, if you think this harms the proper configs with too much
-overhead, then there is no question we should forget about this.
+We can reduce pressure on dst entry refcount that slowdown UDP transmit
+path on SMP machines. This pressure is visible on RTP servers when
+delivering content to mediagateways, especially big ones, handling
+thousand of streams. Several cpus send UDP frames to the same
+destination, hence use the same dst entry.
 
-Jarek P.
+This patch makes ip_push_pending_frames() steal the refcount its
+callers had to take when filling inet->cork.dst.
+
+This doesnt avoid all refcounting, but still gives speedups on SMP,
+on UDP/RAW transmit path.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+ net/ipv4/ip_output.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletion(-)
+
+--------------050304030009070809050009
+Content-Type: text/plain;
+ name="ip_push_pending_frames.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ip_push_pending_frames.patch"
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 46d7be2..89bc1b9 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1279,7 +1279,12 @@ int ip_push_pending_frames(struct sock *sk)
+ 
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sk->sk_mark;
+-	skb->dst = dst_clone(&rt->u.dst);
++	/*
++	 * Steal rt from cork.dst to avoid a pair of atomic_inc/atomic_dec
++	 * on dst refcount
++	 */
++	inet->cork.dst = NULL;
++	skb->dst = &rt->u.dst;
+ 
+ 	if (iph->protocol == IPPROTO_ICMP)
+ 		icmp_out_count(net, ((struct icmphdr *)
+
+--------------050304030009070809050009--
