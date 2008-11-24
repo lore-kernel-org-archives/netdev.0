@@ -1,299 +1,525 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 29/39] i2400m/USB: handling of notifications from the device
-Date: Mon, 24 Nov 2008 13:50:52 -0800
-Message-ID: <f9ea6de3c6fd6afc1d5fcf93828c833395f1f4bc.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 33/39] i2400m/SDIO: main probe/disconnect and backend routines
+Date: Mon, 24 Nov 2008 13:50:56 -0800
+Message-ID: <ebb7666e2505e51dd9efafa7924afdb9e84abe5a.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga12.intel.com ([143.182.124.36]:13165 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753735AbYKXVvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:42 -0500
+	with ESMTP id S1753406AbYKXVvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:48 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the device has anything for the host (namely when there is data
-ready to be read or when it resets), it sends a notification to the
-host; this is the code that receives and deals with them, passing
-reads to i2400m_rx() or handling resets with
-i2400m_dev_reset_handle().
+Implements probe/disconnect for the SDIO device, as well as main
+backends for the generic driver to control the SDIO device
+(bus_dev_start(), bus_dev_stop() and bus_reset()).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/usb-notif.c |  263 ++++++++++++++++++++++++++++++++++
- 1 files changed, 263 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/usb-notif.c
+ drivers/net/wimax/i2400m/sdio.c |  491 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 491 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio.c
 
-diff --git a/drivers/net/wimax/i2400m/usb-notif.c b/drivers/net/wimax/i2400m/usb-notif.c
+diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
 new file mode 100644
-index 0000000..2715d58
+index 0000000..984e416
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/usb-notif.c
-@@ -0,0 +1,263 @@
++++ b/drivers/net/wimax/i2400m/sdio.c
+@@ -0,0 +1,491 @@
 +/*
-+ * Intel Wireless WiMAX Connection 2400m over USB
-+ * Notification handling
++ * Intel Wireless WiMAX Connection 2400m
++ * Linux driver model glue for the SDIO device, reset & fw upload
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ *
-+ * Intel Corporation <linux-wimax@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - Initial implementation
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
 + *
 + *
-+ * The notification endpoint is active when the device is not in boot
-+ * mode; in here we just read and get notifications; based on those,
-+ * we act to either reinitialize the device after a reboot or to
-+ * submit a RX request.
++ * See i2400m-sdio.h for a general description of this driver.
++ *
++ * This file implements driver model glue, and hook ups for the
++ * generic driver to implement the bus-specific functions (device
++ * communication setup/tear down, firmware upload and resetting).
 + *
 + * ROADMAP
 + *
-+ * i2400mu_usb_notification_setup()
++ * i2400m_probe()
++ *   alloc_netdev()
++ *     i2400ms_netdev_setup()
++ *       i2400ms_init()
++ *       i2400m_netdev_setup()
++ *   i2400ms_enable_function()
++ *   i2400m_setup()
 + *
-+ * i2400mu_usb_notification_release()
++ * i2400m_remove()
++ *     i2400m_release()
++ *     free_netdev(net_dev)
 + *
-+ * i2400mu_usb_notification_cb()	Called when a URB is ready
-+ *   i2400mu_notif_grok()
-+ *     i2400m_dev_reset_handle()
-+ *     i2400mu_rx_kick()
++ * i2400ms_bus_reset()            Called by i2400m->bus_reset
++ *   __i2400ms_reset()
++ *     __i2400ms_send_barker()
++ *
++ * i2400ms_bus_dev_start()        Called by i2400m_dev_start() [who is
++ *   i2400ms_tx_setup()           called by i2400m_setup()]
++ *   i2400ms_rx_setup()
++ *
++ * i2400ms_bus_dev_stop()         Called by i2400m_dev_stop() [who is
++ *   i2400ms_rx_release()         is called by i2400m_release()]
++ *   i2400ms_tx_release()
++ *
 + */
-+#include <linux/usb.h>
-+#include "i2400m-usb.h"
 +
++#include <linux/mmc/sdio.h>
++#include <linux/mmc/sdio_func.h>
++#include "i2400m-sdio.h"
++#include <linux/wimax-i2400m.h>
 +
-+#define D_SUBMODULE notif
-+#include "usb-debug-levels.h"
++#define D_SUBMODULE sdio_main
++#include "sdio-debug-levels.h"
 +
++/* IOE WiMAX function timeout in seconds */
++static int ioe_timeout = 2;
++module_param(ioe_timeout, int, 0);
 +
-+static const
-+__le32 i2400m_ZERO_BARKER[4] = { 0, 0, 0, 0 };
-+
++/* Our firmware file name */
++#define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-" I2400M_FW_VERSION ".sbcf"
 +
 +/*
-+ * Process a received notification
++ * Enable the SDIO function
 + *
-+ * In normal operation mode, we can only receive two types of payloads
-+ * on the notification endpoint:
++ * Tries to enable the SDIO function; might fail if it is still not
++ * ready (in some hardware, the SDIO WiMAX function is only enabled
++ * when we ask it to explicitly doing). Tries until a timeout is
++ * reached.
 + *
-+ *   - a reboot barker, we do a bootstrap (the device has reseted).
++ * The reverse of this is...sdio_disable_function()
 + *
-+ *   - a block of zeroes: there is pending data in the IN endpoint
++ * Returns: 0 if the SDIO function was enabled, < 0 errno code on
++ *     error (-ENODEV when it was unable to enable the function).
 + */
 +static
-+int i2400mu_notification_grok(struct i2400mu *i2400mu, const void *buf,
-+				 size_t buf_len)
++int i2400ms_enable_function(struct sdio_func *func)
 +{
-+	int ret;
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+	struct i2400m *i2400m = &i2400mu->i2400m;
++	u64 timeout;
++	int err;
++	struct device *dev = &func->dev;
 +
-+	d_fnstart(4, dev, "(i2400m %p buf %p buf_len %zu)\n",
-+		  i2400mu, buf, buf_len);
-+	ret = -EIO;
-+	if (buf_len < sizeof(i2400m_NBOOT_BARKER))
-+		/* Not a bug, just ignore */
-+		goto error_bad_size;
-+	if (!memcmp(i2400m_NBOOT_BARKER, buf, sizeof(i2400m_NBOOT_BARKER))
-+	    || !memcmp(i2400m_SBOOT_BARKER, buf, sizeof(i2400m_SBOOT_BARKER)))
-+		ret = i2400m_dev_reset_handle(i2400m);
-+	else if (!memcmp(i2400m_ZERO_BARKER, buf, sizeof(i2400m_ZERO_BARKER))) {
-+		i2400mu_rx_kick(i2400mu);
-+		ret = 0;
-+	} else {	/* Unknown or unexpected data in the notif message */
-+		char prefix[64];
-+		ret = -EIO;
-+		dev_err(dev, "HW BUG? Unknown/unexpected data in notification "
-+			"message (%zu bytes)\n", buf_len);
-+		snprintf(prefix, sizeof(prefix), "%s %s: ",
-+			 dev_driver_string(dev) , dev->bus_id);
-+		if (buf_len > 64) {
-+			print_hex_dump(KERN_ERR, prefix, DUMP_PREFIX_OFFSET,
-+				       8, 4, buf, 64, 0);
-+			printk(KERN_ERR "%s... (only first 64 bytes "
-+			       "dumped)\n", prefix);
-+		} else
-+			print_hex_dump(KERN_ERR, prefix, DUMP_PREFIX_OFFSET,
-+				       8, 4, buf, buf_len, 0);
++	d_fnstart(3, dev, "(func %p)\n", func);
++	/* Setup timeout (FIXME: This needs to read the CIS table to
++	 * get a real timeout) and then wait for the device to signal
++	 * it is ready */
++	timeout = get_jiffies_64() + ioe_timeout * HZ;
++	err = -ENODEV;
++	while (err != 0 && time_before64(get_jiffies_64(), timeout)) {
++		sdio_claim_host(func);
++		err = sdio_enable_func(func);
++		if (0 == err) {
++			sdio_release_host(func);
++			d_printf(2, dev, "SDIO function enabled\n");
++			goto function_enabled;
++		}
++		d_printf(2, dev, "SDIO function failed to enable: %d\n", err);
++		sdio_disable_func(func);
++		sdio_release_host(func);
++		msleep(I2400MS_INIT_SLEEP_INTERVAL);
 +	}
-+error_bad_size:
-+	d_fnend(4, dev, "(i2400m %p buf %p buf_len %zu) = %d\n",
-+		i2400mu, buf, buf_len, ret);
-+	return ret;
++	/* If timed out, device is not there yet -- get -ENODEV so
++	 * the device driver core will retry later on. */
++	if (err == -ETIME) {
++		dev_err(dev, "Can't enable WiMAX function; "
++			" has the function been enabled?\n");
++		err = -ENODEV;
++	}
++function_enabled:
++	d_fnend(3, dev, "(func %p) = %d\n", func, err);
++	return err;
 +}
 +
 +
 +/*
-+ * URB callback for the notification endpoint
++ * Setup driver resources needed to communicate with the device
 + *
-+ * @urb: the urb received from the notification endpoint
-+ *
-+ * This function will just process the USB side of the transaction,
-+ * checking everything is fine, pass the processing to
-+ * i2400m_notification_grok() and resubmit the URB.
++ * The fw needs some time to settle, and it was just uploaded,
++ * so give it a break first. I'd prefer to just wait for the device to
++ * send something, but seems the poking we do to enable SDIO stuff
++ * interferes with it, so just give it a break before starting...
 + */
 +static
-+void i2400mu_notification_cb(struct urb *urb)
++int i2400ms_bus_dev_start(struct i2400m *i2400m)
 +{
-+	int ret;
-+	struct i2400mu *i2400mu = urb->context;
-+	struct device *dev = &i2400mu->usb_iface->dev;
++	int result;
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
 +
-+	d_fnstart(4, dev, "(urb %p status %d actual_length %d)\n",
-+		  urb, urb->status, urb->actual_length);
-+	ret = urb->status;
-+	switch (ret) {
-+	case 0:
-+		ret = i2400mu_notification_grok(i2400mu, urb->transfer_buffer,
-+						urb->actual_length);
-+		if (ret == -EIO && edc_inc(&i2400mu->urb_edc, EDC_MAX_ERRORS,
-+					   EDC_ERROR_TIMEFRAME))
-+			goto error_exceeded;
-+		if (ret == -ENOMEM)	/* uff...power cycle? shutdown? */
-+			goto error_exceeded;
-+		break;
-+	case -EINVAL:			/* while removing driver */
-+	case -ENODEV:			/* dev disconnect ... */
-+	case -ENOENT:			/* ditto */
-+	case -ESHUTDOWN:		/* URB killed */
-+	case -ECONNRESET:		/* disconnection */
-+		goto out;		/* Notify around */
-+	default:			/* Some error? */
-+		if (edc_inc(&i2400mu->urb_edc,
-+			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME))
-+			goto error_exceeded;
-+		dev_err(dev, "notification: URB error %d, retrying\n",
-+			urb->status);
-+	}
-+	usb_mark_last_busy(i2400mu->usb_dev);
-+	ret = usb_submit_urb(i2400mu->notif_urb, GFP_ATOMIC);
-+	if (ret != 0) {
-+		dev_err(dev, "notification: cannot submit URB: %d\n", ret);
-+		goto error_submit;
-+	}
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	msleep(200);
++	result = i2400ms_rx_setup(i2400ms);
++	if (result < 0)
++		goto error_rx_setup;
++	result = i2400ms_tx_setup(i2400ms);
++	if (result < 0)
++		goto error_tx_setup;
++	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
++	return result;
 +
-+	d_fnend(4, dev, "(urb %p status %d actual_length %d) = void\n",
-+		urb, urb->status, urb->actual_length);
-+	return;
++	i2400ms_tx_release(i2400ms);
++error_tx_setup:
++	i2400ms_rx_release(i2400ms);
++error_rx_setup:
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++	return result;
++}
 +
-+error_exceeded:
-+	dev_err(dev, "maximum errors in notification URB exceeded; "
-+		"resetting device\n");
-+error_submit:
-+	usb_queue_reset_device(i2400mu->usb_iface);
-+out:
-+	d_fnend(4, dev, "(urb %p status %d actual_length %d) = void\n",
-+		urb, urb->status, urb->actual_length);
-+	return;
++
++static
++void i2400ms_bus_dev_stop(struct i2400m *i2400m)
++{
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	i2400ms_rx_release(i2400ms);
++	i2400ms_tx_release(i2400ms);
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
 +}
 +
 +
 +/*
-+ * setup the notification endpoint
++ * Sends a barker buffer to the device
 + *
-+ * @i2400m: device descriptor
-+ *
-+ * This procedure prepares the notification urb and handler for receiving
-+ * unsolicited barkers from the device.
++ * This helper will allocate a kmalloced buffer and use it to transmit
++ * (then free it). Reason for this is that the SDIO host controller
++ * expects alignment (unknown exactly which) which the stack won't
++ * really provide and certain arches/host-controller combinations
++ * cannot use stack/vmalloc/text areas for DMA transfers.
 + */
-+int i2400mu_notification_setup(struct i2400mu *i2400mu)
++static
++int __i2400ms_send_barker(struct i2400ms *i2400ms,
++			  const __le32 *barker, size_t barker_size)
 +{
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+	int usb_pipe, ret = 0;
-+	struct usb_endpoint_descriptor *epd;
-+	char *buf;
++	int  ret;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++	void *buffer;
 +
-+	d_fnstart(4, dev, "(i2400m %p)\n", i2400mu);
-+	buf = kmalloc(I2400MU_MAX_NOTIFICATION_LEN, GFP_KERNEL | GFP_DMA);
-+	if (buf == NULL) {
-+		dev_err(dev, "notification: buffer allocation failed\n");
-+		ret = -ENOMEM;
-+		goto error_buf_alloc;
-+	}
++	ret = -ENOMEM;
++	buffer = kmalloc(I2400MS_BLK_SIZE, GFP_KERNEL);
++	if (buffer == NULL)
++		goto error_kzalloc;
 +
-+	i2400mu->notif_urb = usb_alloc_urb(0, GFP_KERNEL);
-+	if (!i2400mu->notif_urb) {
-+		ret = -ENOMEM;
-+		dev_err(dev, "notification: cannot allocate URB\n");
-+		goto error_alloc_urb;
-+	}
-+	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_NOTIFICATION);
-+	usb_pipe = usb_rcvintpipe(i2400mu->usb_dev, epd->bEndpointAddress);
-+	usb_fill_int_urb(i2400mu->notif_urb, i2400mu->usb_dev, usb_pipe,
-+			 buf, I2400MU_MAX_NOTIFICATION_LEN,
-+			 i2400mu_notification_cb, i2400mu, epd->bInterval);
-+	ret = usb_submit_urb(i2400mu->notif_urb, GFP_KERNEL);
-+	if (ret != 0) {
-+		dev_err(dev, "notification: cannot submit URB: %d\n", ret);
-+		goto error_submit;
-+	}
-+	d_fnend(4, dev, "(i2400m %p) = %d\n", i2400mu, ret);
-+	return ret;
++	memcpy(buffer, barker, barker_size);
++	sdio_claim_host(func);
++	ret = sdio_memcpy_toio(func, 0, buffer, I2400MS_BLK_SIZE);
++	sdio_release_host(func);
 +
-+error_submit:
-+	usb_free_urb(i2400mu->notif_urb);
-+error_alloc_urb:
-+	kfree(buf);
-+error_buf_alloc:
-+	d_fnend(4, dev, "(i2400m %p) = %d\n", i2400mu, ret);
++	if (ret < 0)
++		d_printf(0, dev, "E: barker error: %d\n", ret);
++
++	kfree(buffer);
++error_kzalloc:
 +	return ret;
 +}
 +
 +
 +/*
-+ * Tear down of the notification mechanism
++ * Reset a device at different levels (warm, cold or bus)
 + *
-+ * @i2400m: device descriptor
++ * @i2400ms: device descriptor
++ * @reset_type: soft, warm or bus reset (I2400M_RT_WARM/SOFT/BUS)
 + *
-+ * Kill the interrupt endpoint urb, free any allocated resources.
++ * FIXME: not tested -- need to confirm expected effects
 + *
-+ * We need to check if we have done it before as for example,
-+ * _suspend() call this; if after a suspend() we get a _disconnect()
-+ * (as the case is when hibernating), nothing bad happens.
++ * Warm and cold resets get an SDIO reset if they fail (unimplemented)
++ *
++ * Warm reset:
++ *
++ * The device will be fully reset internally, but won't be
++ * disconnected from the USB bus (so no reenumeration will
++ * happen). Firmware upload will be neccessary.
++ *
++ * The device will send a reboot barker in the notification endpoint
++ * that will trigger the driver to reinitialize the state
++ * automatically from notif.c:i2400m_notification_grok() into
++ * i2400m_dev_bootstrap_delayed().
++ *
++ * Cold and bus (USB) reset:
++ *
++ * The device will be fully reset internally, disconnected from the
++ * USB bus an a reenumeration will happen. Firmware upload will be
++ * neccessary. Thus, we don't do any locking or struct
++ * reinitialization, as we are going to be fully disconnected and
++ * reenumerated.
++ *
++ * Note we need to return -ENODEV if a warm reset was requested and we
++ * had to resort to a bus reset. See i2400m_op_reset(), wimax_reset()
++ * and wimax_dev->op_reset.
++ *
++ * WARNING: no driver state saved/fixed
 + */
-+void i2400mu_notification_release(struct i2400mu *i2400mu)
++static
++int i2400ms_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
 +{
-+	struct device *dev = &i2400mu->usb_iface->dev;
++	int result;
++	struct i2400ms *i2400ms =
++		container_of(i2400m, struct i2400ms, i2400m);
++	struct device *dev = i2400m_dev(i2400m);
++	static const __le32 i2400m_WARM_BOOT_BARKER[4] = {
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++	};
++	static const __le32 i2400m_COLD_BOOT_BARKER[4] = {
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++	};
 +
-+	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
-+	if (i2400mu->notif_urb != NULL) {
-+		usb_kill_urb(i2400mu->notif_urb);
-+		kfree(i2400mu->notif_urb->transfer_buffer);
-+		usb_free_urb(i2400mu->notif_urb);
-+		i2400mu->notif_urb = NULL;
++	if (rt == I2400M_RT_WARM)
++		result = __i2400ms_send_barker(i2400ms, i2400m_WARM_BOOT_BARKER,
++					       sizeof(i2400m_WARM_BOOT_BARKER));
++	else if (rt == I2400M_RT_COLD)
++		result = __i2400ms_send_barker(i2400ms, i2400m_COLD_BOOT_BARKER,
++					       sizeof(i2400m_COLD_BOOT_BARKER));
++	else if (rt == I2400M_RT_BUS) {
++do_bus_reset:
++		dev_err(dev, "FIXME: SDIO bus reset not implemented\n");
++		result = rt == I2400M_RT_WARM ? -ENODEV : -ENOSYS;
++	} else
++		BUG();
++	if (result < 0 && rt != I2400M_RT_BUS) {
++		dev_err(dev, "%s reset failed (%d); trying SDIO reset\n",
++			rt == I2400M_RT_WARM ? "warm" : "cold", result);
++		rt = I2400M_RT_BUS;
++		goto do_bus_reset;
 +	}
-+	d_fnend(4, dev, "(i2400mu %p)\n", i2400mu);
++	return result;
 +}
 +
++
++static
++void i2400ms_netdev_setup(struct net_device *net_dev)
++{
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	i2400ms_init(i2400ms);
++	i2400m_netdev_setup(net_dev);
++}
++
++
++/*
++ * Debug levels control; see debug.h
++ */
++struct d_level D_LEVEL[] = {
++	D_SUBMODULE_DEFINE(sdio_main),
++	D_SUBMODULE_DEFINE(sdio_tx),
++	D_SUBMODULE_DEFINE(sdio_rx),
++	D_SUBMODULE_DEFINE(sdio_fw),
++};
++size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
++
++static
++DEVICE_ATTR(i2400ms_debug_levels, S_IRUGO | S_IWUSR,
++	    d_level_show, d_level_store);
++
++static
++struct attribute *i2400ms_dev_attrs[] = {
++	&dev_attr_i2400ms_debug_levels.attr,
++	NULL,
++};
++
++static
++struct attribute_group i2400ms_dev_attr_group = {
++	.name = NULL,		/* we want them in the same directory */
++	.attrs = i2400ms_dev_attrs,
++};
++
++
++/*
++ * Probe a i2400m interface and register it
++ *
++ * @func:    SDIO function
++ * @id:      SDIO device ID
++ * @returns: 0 if ok, < 0 errno code on error.
++ *
++ * Alloc a net device, initialize the bus-specific details and then
++ * calls the bus-generic initialization routine. That will register
++ * the wimax and netdev devices, upload the firmware [using
++ * _bus_bm_*()], call _bus_dev_start() to finalize the setup of the
++ * communication with the device and then will start to talk to it to
++ * finnish setting it up.
++ *
++ * Initialization is tricky; some instances of the hw are packed with
++ * others in a way that requires a third driver that enables the WiMAX
++ * function. In those cases, we can't enable the SDIO function and
++ * we'll return with -ENODEV. When the driver that enables the WiMAX
++ * function does its thing, it has to do a bus_rescan_devices() on the
++ * SDIO bus so this driver is called again to enumerate the WiMAX
++ * function.
++ */
++static
++int i2400ms_probe(struct sdio_func *func,
++		  const struct sdio_device_id *id)
++{
++	int result;
++	struct net_device *net_dev;
++	struct device *dev = &func->dev;
++	struct i2400m *i2400m;
++	struct i2400ms *i2400ms;
++
++	/* Allocate instance [calls i2400m_netdev_setup() on it]. */
++	result = -ENOMEM;
++	net_dev = alloc_netdev(sizeof(*i2400ms), "wmx%d",
++			       i2400ms_netdev_setup);
++	if (net_dev == NULL) {
++		dev_err(dev, "no memory for network device instance\n");
++		goto error_alloc_netdev;
++	}
++	SET_NETDEV_DEV(net_dev, dev);
++	i2400m = net_dev_to_i2400m(net_dev);
++	i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	i2400m->wimax_dev.net_dev = net_dev;
++	i2400ms->func = func;
++	sdio_set_drvdata(func, i2400ms);
++
++	i2400m->bus_tx_block_size = I2400MS_BLK_SIZE;
++	i2400m->bus_pl_size_max = I2400MS_PL_SIZE_MAX;
++	i2400m->bus_dev_start = i2400ms_bus_dev_start;
++	i2400m->bus_dev_stop = i2400ms_bus_dev_stop;
++	i2400m->bus_tx_kick = i2400ms_bus_tx_kick;
++	i2400m->bus_reset = i2400ms_bus_reset;
++	i2400m->bus_bm_cmd_send = i2400ms_bus_bm_cmd_send;
++	i2400m->bus_bm_wait_for_ack = i2400ms_bus_bm_wait_for_ack;
++	i2400m->bus_fw_name = I2400MS_FW_FILE_NAME;
++	i2400m->bus_bm_mac_addr_impaired = 1;
++
++	result = i2400ms_enable_function(i2400ms->func);
++	if (result < 0) {
++		dev_err(dev, "Cannot enable SDIO function: %d\n", result);
++		goto error_func_enable;
++	}
++
++	sdio_claim_host(func);
++	result = sdio_set_block_size(func, I2400MS_BLK_SIZE);
++	if (result < 0) {
++		dev_err(dev, "Failed to set block size: %d\n", result);
++		goto error_set_blk_size;
++	}
++	sdio_release_host(func);
++
++	result = i2400m_setup(i2400m, I2400M_BRI_NO_REBOOT);
++	if (result < 0) {
++		dev_err(dev, "cannot setup device: %d\n", result);
++		goto error_setup;
++	}
++
++	result = sysfs_create_group(&dev->kobj, &i2400ms_dev_attr_group);
++	if (result < 0) {
++		dev_err(dev, "cannot create SDIO sysfs files: %d\n",
++			result);
++		goto error_create_group;
++	}
++	return 0;
++
++error_create_group:
++	i2400m_release(i2400m);
++error_setup:
++	sdio_set_drvdata(func, i2400ms);
++	sdio_claim_host(func);
++error_set_blk_size:
++	sdio_disable_func(func);
++	sdio_release_host(func);
++error_func_enable:
++	free_netdev(net_dev);
++error_alloc_netdev:
++	return result;
++}
++
++
++static
++void i2400ms_remove(struct sdio_func *func)
++{
++	struct device *dev = &func->dev;
++	struct i2400ms *i2400ms = sdio_get_drvdata(func);
++	struct i2400m *i2400m = &i2400ms->i2400m;
++	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++
++	d_fnstart(3, dev, "SDIO func %p\n", func);
++	sysfs_remove_group(&dev->kobj, &i2400ms_dev_attr_group);
++	i2400m_release(i2400m);
++	sdio_set_drvdata(func, NULL);
++	sdio_claim_host(func);
++	sdio_disable_func(func);
++	sdio_release_host(func);
++	free_netdev(net_dev);
++	d_fnend(3, dev, "SDIO func %p\n", func);
++}
++
++enum {
++	I2400MS_INTEL_VID = 0x89,
++};
++
++static
++const struct sdio_device_id i2400ms_sdio_ids[] = {
++	/* Intel: i2400m WiMAX over SDIO */
++	{ SDIO_DEVICE(I2400MS_INTEL_VID, 0x1402) },
++	{ }, 			/* end: all zeroes */
++};
++MODULE_DEVICE_TABLE(sdio, i2400ms_sdio_ids);
++
++
++static
++struct sdio_driver i2400m_sdio_driver = {
++	.name		= KBUILD_MODNAME,
++	.probe		= i2400ms_probe,
++	.remove		= i2400ms_remove,
++	.id_table	= i2400ms_sdio_ids,
++};
++
++
++static
++int __init i2400ms_driver_init(void)
++{
++	return sdio_register_driver(&i2400m_sdio_driver);
++}
++module_init(i2400ms_driver_init);
++
++
++static
++void __exit i2400ms_driver_exit(void)
++{
++	flush_scheduled_work();	/* for the stuff we schedule */
++	sdio_unregister_driver(&i2400m_sdio_driver);
++}
++module_exit(i2400ms_driver_exit);
++
++
++MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
++MODULE_DESCRIPTION("Intel 2400M WiMAX networking for SDIO");
++MODULE_LICENSE("GPL");
++MODULE_FIRMWARE(I2400MS_FW_FILE_NAME);
 -- 
 1.5.6.5
 
