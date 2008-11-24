@@ -1,76 +1,49 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH next]infiniband: Kill directly reference of netdev->priv
-Date: Mon, 24 Nov 2008 17:31:59 +0800
-Message-ID: <492A748F.9040308@cn.fujitsu.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] Could we avoid touching dst->refcount in some cases ?
+Date: Mon, 24 Nov 2008 10:42:42 +0100
+Message-ID: <87y6z9h33h.fsf@basil.nowhere.org>
+References: <492A6C94.7030308@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>, rolandd@cisco.com,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	general@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59367 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751372AbYKXJcM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 04:32:12 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:35617 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672AbYKXJmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 04:42:42 -0500
+In-Reply-To: <492A6C94.7030308@cosmosbay.com> (Eric Dumazet's message of "Mon, 24 Nov 2008 09:57:56 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This use of netdev->priv is wrong.
-The right way is:
-alloc_netdev() with no memory for private data.
-make netdev->ml_priv to point to c2_dev.
+Eric Dumazet <dada1@cosmosbay.com> writes:
 
-I am doing this kind of work for net-next tree.
-So I send this patch to Dave, although infiniband's maintainer is
-not him.
+> tbench has hard time incrementing decrementing the route cache refcount
+> shared by all communications on localhost.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/infiniband/hw/amso1100/c2_provider.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+iirc there was a patch some time ago to use per CPU loopback devices to 
+avoid this, but it was considered too much a benchmark hack.
+As core counts increase it might stop being that though.
 
-diff --git a/drivers/infiniband/hw/amso1100/c2_provider.c b/drivers/infiniband/hw/amso1100/c2_provider.c
-index 69580e2..5119d65 100644
---- a/drivers/infiniband/hw/amso1100/c2_provider.c
-+++ b/drivers/infiniband/hw/amso1100/c2_provider.c
-@@ -653,7 +653,7 @@ static int c2_service_destroy(struct iw_cm_id *cm_id)
- static int c2_pseudo_up(struct net_device *netdev)
- {
- 	struct in_device *ind;
--	struct c2_dev *c2dev = netdev->priv;
-+	struct c2_dev *c2dev = netdev->ml_priv;
- 
- 	ind = in_dev_get(netdev);
- 	if (!ind)
-@@ -678,7 +678,7 @@ static int c2_pseudo_up(struct net_device *netdev)
- static int c2_pseudo_down(struct net_device *netdev)
- {
- 	struct in_device *ind;
--	struct c2_dev *c2dev = netdev->priv;
-+	struct c2_dev *c2dev = netdev->ml_priv;
- 
- 	ind = in_dev_get(netdev);
- 	if (!ind)
-@@ -746,14 +746,14 @@ static struct net_device *c2_pseudo_netdev_init(struct c2_dev *c2dev)
- 	/* change ethxxx to iwxxx */
- 	strcpy(name, "iw");
- 	strcat(name, &c2dev->netdev->name[3]);
--	netdev = alloc_netdev(sizeof(*netdev), name, setup);
-+	netdev = alloc_netdev(0, name, setup);
- 	if (!netdev) {
- 		printk(KERN_ERR PFX "%s -  etherdev alloc failed",
- 			__func__);
- 		return NULL;
- 	}
- 
--	netdev->priv = c2dev;
-+	netdev->ml_priv = c2dev;
- 
- 	SET_NETDEV_DEV(netdev, &c2dev->pcidev->dev);
- 
+>
+> On real world, we also have this problem on RTP servers sending many UDP
+> frames to mediagateways, especially big ones handling thousand of streams.
+>
+> Given that route entries are using RCU, we probably can avoid incrementing
+> their refcount in case of connected sockets ?
+
+Normally they can be hold over sleeps or queuing of skbs too, and RCU
+doesn't handle that. To make it handle that you would need to define a
+custom RCU period designed for this case, but this would be probably
+tricky and fragile: especially I'm not sure even if you had a "any
+packet queued" RCU method it be guaranteed to always finish 
+because there is no fixed upper livetime of a packet.
+
+The other issue is that on preemptible kernels you would need to 
+disable preemption all the time such a routing entry is hold, which
+could be potentially quite long.
+
+-Andi
+
 -- 
-1.5.3.4
-
-
+ak@linux.intel.com
