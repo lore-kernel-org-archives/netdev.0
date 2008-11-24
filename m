@@ -1,128 +1,143 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 26/39] i2400m/USB: error density tracking
-Date: Mon, 24 Nov 2008 13:50:49 -0800
-Message-ID: <a7e6b80841cbb62436a73fadf40bd6260a1891a5.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 37/39] i2400m: Makefile and Kconfig
+Date: Mon, 24 Nov 2008 13:51:00 -0800
+Message-ID: <39be706ca76281a81636be32de15cb214af71a51.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:57411 "EHLO
+Received: from mga12.intel.com ([143.182.124.36]:13165 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753574AbYKXVvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:38 -0500
+	with ESMTP id S1753225AbYKXVvx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:53 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a simple framework for tracking the amount of soft-errors in
-time, so that if they go over a certain threshold they can be
-considered hard errors and recovery started (instead of just
-retrying).
-
-We use this in the USB driver -- some of the USB errors are considered
-soft and retried.
+This patch provides the Makefile and KConfig for the i2400m driver,
+integrating them into the WiMAX stack's Makefile and Kconfig.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/edc.h |   90 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 90 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/edc.h
+ drivers/net/wimax/Kconfig         |    5 ++++
+ drivers/net/wimax/Makefile        |    1 +
+ drivers/net/wimax/i2400m/Kconfig  |   49 +++++++++++++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/Makefile |   28 +++++++++++++++++++++
+ 4 files changed, 83 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/Kconfig
+ create mode 100644 drivers/net/wimax/i2400m/Makefile
 
-diff --git a/drivers/net/wimax/i2400m/edc.h b/drivers/net/wimax/i2400m/edc.h
+diff --git a/drivers/net/wimax/Kconfig b/drivers/net/wimax/Kconfig
+index 98d4c27..cdd845c 100644
+--- a/drivers/net/wimax/Kconfig
++++ b/drivers/net/wimax/Kconfig
+@@ -31,3 +31,8 @@ config WIMAX_DEBUG_LEVEL
+ 
+          It is recommended that it is left at 8.
+ 
++if WIMAX
++
++source "drivers/net/wimax/i2400m/Kconfig"
++
++endif
+diff --git a/drivers/net/wimax/Makefile b/drivers/net/wimax/Makefile
+index 22d5a28..a199447 100644
+--- a/drivers/net/wimax/Makefile
++++ b/drivers/net/wimax/Makefile
+@@ -1,4 +1,5 @@
+ 
++obj-$(CONFIG_WIMAX_I2400M)	+= i2400m/
+ obj-$(CONFIG_WIMAX)		+= wimax.o
+ 
+ wimax-objs :=		\
+diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
 new file mode 100644
-index 0000000..714540f
+index 0000000..3f582a9
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/edc.h
-@@ -0,0 +1,90 @@
-+/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Error Density Count: cheapo error density (over time) counter
-+ *
-+ *
-+ * Copyright (C) 2005-2007 Intel Corporation <linux-wimax@intel.com>
-+ * Reinette Chatre <reinette.chatre@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * Embed an 'struct edc' somewhere. Each time there is a soft or
-+ * retryable error, call edc_inc() and check if the error top
-+ * watermark has been reached.
-+ */
++++ b/drivers/net/wimax/i2400m/Kconfig
+@@ -0,0 +1,49 @@
 +
-+#ifndef __EDC_H__
-+#define __EDC_H__
++config WIMAX_I2400M
++        tristate
++	depends on WIMAX
++        select FW_LOADER
 +
-+enum {
-+	EDC_MAX_ERRORS = 10,
-+	EDC_ERROR_TIMEFRAME = HZ,
-+};
++comment "Enable USB support to see USB drivers"
++        depends on !USB
 +
-+/* error density counter */
-+struct edc {
-+	unsigned long timestart;
-+	u16 errorcount;
-+};
++comment "Enable MMC support to see SDIO drivers"
++        depends on !MMC
 +
-+static inline void edc_init(struct edc *edc)
-+{
-+	edc->timestart = jiffies;
-+}
++config WIMAX_I2400M_USB
++	tristate "Support for Intel Wireless WiMAX Connection 2400 over USB (eg: 5x50)"
++	depends on WIMAX && USB
++        select WIMAX_I2400M
++	help
++	  Select if you have a device based on the Intel WiMAX
++	  Connection 2400 over USB (like any of the Intel 5x50
++	  Wireless Wifi/WiMAX Link series).
 +
-+/**
-+ * edc_inc - report a soft error and check if we are over the watermark
-+ *
-+ * @edc: pointer to error density counter.
-+ * @max_err: maximum number of errors we can accept over the timeframe
-+ * @timeframe: lenght of the timeframe (in jiffies).
-+ *
-+ * Returns: !0 1 if maximum acceptable errors per timeframe has been
-+ *     exceeded. 0 otherwise.
-+ *
-+ * This is way to determine if the number of acceptable errors per time
-+ * period has been exceeded. It is not accurate as there are cases in which
-+ * this scheme will not work, for example if there are periodic occurences
-+ * of errors that straddle updates to the start time. This scheme is
-+ * sufficient for our usage.
-+ *
-+ * To use, embed a 'struct edc' somewhere, initialize it with
-+ * edc_init() and when an error hits:
-+ *
-+ * if (do_something_fails_with_a_soft_error) {
-+ *        if (edc_inc(&my->edc, MAX_ERRORS, MAX_TIMEFRAME))
-+ * 	           Ops, hard error, do something about it
-+ *        else
-+ *                 Retry or ignore, depending on whatever
-+ * }
-+ */
-+static inline int edc_inc(struct edc *edc, u16 max_err, u16 timeframe)
-+{
-+	unsigned long now;
++          If unsure, it is safe to select M (module).
 +
-+	now = jiffies;
-+	if (now - edc->timestart > timeframe) {
-+		edc->errorcount = 1;
-+		edc->timestart = now;
-+	} else if (++edc->errorcount > max_err) {
-+		edc->errorcount = 0;
-+		edc->timestart = now;
-+		return 1;
-+	}
-+	return 0;
-+}
++config WIMAX_I2400M_SDIO
++	tristate "Support for Intel Wireless WiMAX Connection 2400 over SDIO"
++	depends on WIMAX && MMC
++        select WIMAX_I2400M
++	help
++	  Select if you have a device based on the Intel WiMAX
++	  Connection 2400 over SDIO.
 +
-+#endif /* #ifndef __EDC_H__ */
++          If unsure, it is safe to select M (module).
++
++config WIMAX_I2400M_DEBUG_LEVEL
++       int "WiMAX i2400m debug level"
++       depends on WIMAX_I2400M
++       default 8
++       help
++
++         Select the maximum debug verbosity level to be compiled into
++         the WiMAX i2400m driver code.
++
++         By default, this is disabled at runtime and can be
++         selectively enabled at runtime for different parts of the
++         code using the sysfs debug-levels file.
++
++         If set at zero, this will compile out all the debug code.
++
++         It is recommended that it is left at 8.
+diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
+new file mode 100644
+index 0000000..7113a5f
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/Makefile
+@@ -0,0 +1,28 @@
++
++obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
++obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
++obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
++
++i2400m-objs :=		\
++	control.o	\
++	driver.o	\
++	fw.o		\
++	op-rfkill.o	\
++	sysfs.o		\
++	netdev.o	\
++	tx.o		\
++	rx.o
++
++i2400m-usb-objs :=		\
++	usb-fw.o		\
++	usb-notif.o		\
++	usb-tx.o		\
++	usb-rx.o		\
++	usb.o
++
++
++i2400m-sdio-objs := 		\
++	sdio.o      		\
++	sdio-tx.o   		\
++	sdio-fw.o	 	\
++	sdio-rx.o
 -- 
 1.5.6.5
 
