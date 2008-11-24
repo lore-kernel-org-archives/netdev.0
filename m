@@ -1,93 +1,129 @@
-From: Denis Joseph Barrow <D.Barow@option.com>
-Subject: respin of hso patches for linux-2.6.28-rc6 hso_new_ids.patch [patch
- 1/6]
-Date: Mon, 24 Nov 2008 15:39:50 +0100
-Message-ID: <492ABCB6.9010406@option.com>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: respin of hso patches for linux-2.6.28-rc6 hso_close_fix.patch [patch
+ 2/6 ]
+Date: Mon, 24 Nov 2008 15:42:34 +0100
+Message-ID: <492ABD5A.4000006@option.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000901090501080006010101"
-To: Linux USB kernel mailing list <linux-usb@vger.kernel.org>,
-	Linux netdev Mailing list <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.option.com ([81.246.70.163]:61360 "EHLO
-	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752827AbYKXOjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 09:39:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ boundary="------------000408000302080000080209"
+To: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000901090501080006010101
+--------------000408000302080000080209
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
-These patches have been also tested against
-Dave Millers net tree net-next tree
-& Jeff Garziks netdev_next tree
-
-The patches are posted in order of simplicity & importance
-the last patches in the list are the least vital.
-
-The series file is as follows
-
-hso_new_ids.patch
-hso_close_fix.patch
-hso_einval.patch
-hso_mutex.patch
-hso_modem_signals.patch
-hso_reset_resume.patch	
-
-Add new usb device id's supported by the hso driver.
-Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
+Moved serial_open_count in hso_serial_open to
+prevent crashes owing to the serial structure being made NULL
+when hso_serial_close is called even though hso_serial_open
+returned -ENODEV, Alan Cox pointed out this happens,
+also put in sanity check in hso_serial_close
+to check for a valid serial structure which should prevent
+the most reproducable crash in the driver when the hso device
+is disconnected while in use.
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
 ---
 Index: linux-2.6.28-rc6.patches/drivers/net/usb/hso.c
 ===================================================================
---- linux-2.6.28-rc6.patches.orig/drivers/net/usb/hso.c	2008-11-24 14:01:02.000000000 +0100
-+++ linux-2.6.28-rc6.patches/drivers/net/usb/hso.c	2008-11-24 14:01:45.000000000 +0100
-@@ -417,6 +417,11 @@
- 	{USB_DEVICE(0x0af0, 0x7401)},		/* GI 0401 */
- 	{USB_DEVICE(0x0af0, 0x7501)},		/* GTM 382 */
- 	{USB_DEVICE(0x0af0, 0x7601)},		/* GE40x */
-+	{USB_DEVICE(0x0af0, 0x7701)},
-+	{USB_DEVICE(0x0af0, 0x7801)},
-+	{USB_DEVICE(0x0af0, 0x7901)},
-+	{USB_DEVICE(0x0af0, 0x7361)},
-+	{icon321_port_device(0x0af0, 0xd051)},
- 	{}
- };
- MODULE_DEVICE_TABLE(usb, hso_ids);
-
-
+--- linux-2.6.28-rc6.patches.orig/drivers/net/usb/hso.c	2008-11-24 14:01:45.000000000 +0100
++++ linux-2.6.28-rc6.patches/drivers/net/usb/hso.c	2008-11-24 14:10:15.000000000 +0100
+@@ -1235,6 +1235,11 @@
+ 	}
+ 
+ 	mutex_lock(&serial->parent->mutex);
++	/* check for port already opened, if not set the termios */
++	/* The serial->open count needs to be here as hso_serial_close
++	 *  will be called even if hso_serial_open returns -ENODEV.
++	 */
++	serial->open_count++;
+ 	result = usb_autopm_get_interface(serial->parent->interface);
+ 	if (result < 0)
+ 		goto err_out;
+@@ -1246,8 +1251,6 @@
+ 	tty->driver_data = serial;
+ 	serial->tty = tty;
+ 
+-	/* check for port already opened, if not set the termios */
+-	serial->open_count++;
+ 	if (serial->open_count == 1) {
+ 		tty->low_latency = 1;
+ 		serial->rx_state = RX_IDLE;
+@@ -1285,6 +1288,10 @@
+ 	u8 usb_gone;
+ 
+ 	D1("Closing serial port");
++	if (serial == NULL || serial->magic != HSO_SERIAL_MAGIC) {
++		D1("invalid serial structure bailing out.\n");
++		return;
++	}
+ 
+ 	mutex_lock(&serial->parent->mutex);
+ 	usb_gone = serial->parent->usb_gone;
 
 -- 
 best regards,
 D.J. Barrow
 
---------------000901090501080006010101
+--------------000408000302080000080209
 Content-Type: text/x-diff;
- name="hso_new_ids.patch"
+ name="hso_close_fix.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="hso_new_ids.patch"
+ filename="hso_close_fix.patch"
 
-Add new usb device id's supported by the hso driver.
-Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
+Moved serial_open_count in hso_serial_open to
+prevent crashes owing to the serial structure being made NULL
+when hso_serial_close is called even though hso_serial_open
+returned -ENODEV, Alan Cox pointed out this happens,
+also put in sanity check in hso_serial_close
+to check for a valid serial structure which should prevent
+the most reproducable crash in the driver when the hso device
+is disconnected while in use.
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
 ---
 Index: linux-2.6.28-rc6.patches/drivers/net/usb/hso.c
 ===================================================================
---- linux-2.6.28-rc6.patches.orig/drivers/net/usb/hso.c	2008-11-24 14:01:02.000000000 +0100
-+++ linux-2.6.28-rc6.patches/drivers/net/usb/hso.c	2008-11-24 14:01:45.000000000 +0100
-@@ -417,6 +417,11 @@
- 	{USB_DEVICE(0x0af0, 0x7401)},		/* GI 0401 */
- 	{USB_DEVICE(0x0af0, 0x7501)},		/* GTM 382 */
- 	{USB_DEVICE(0x0af0, 0x7601)},		/* GE40x */
-+	{USB_DEVICE(0x0af0, 0x7701)},
-+	{USB_DEVICE(0x0af0, 0x7801)},
-+	{USB_DEVICE(0x0af0, 0x7901)},
-+	{USB_DEVICE(0x0af0, 0x7361)},
-+	{icon321_port_device(0x0af0, 0xd051)},
- 	{}
- };
- MODULE_DEVICE_TABLE(usb, hso_ids);
+--- linux-2.6.28-rc6.patches.orig/drivers/net/usb/hso.c	2008-11-24 14:01:45.000000000 +0100
++++ linux-2.6.28-rc6.patches/drivers/net/usb/hso.c	2008-11-24 14:10:15.000000000 +0100
+@@ -1235,6 +1235,11 @@
+ 	}
+ 
+ 	mutex_lock(&serial->parent->mutex);
++	/* check for port already opened, if not set the termios */
++	/* The serial->open count needs to be here as hso_serial_close
++	 *  will be called even if hso_serial_open returns -ENODEV.
++	 */
++	serial->open_count++;
+ 	result = usb_autopm_get_interface(serial->parent->interface);
+ 	if (result < 0)
+ 		goto err_out;
+@@ -1246,8 +1251,6 @@
+ 	tty->driver_data = serial;
+ 	serial->tty = tty;
+ 
+-	/* check for port already opened, if not set the termios */
+-	serial->open_count++;
+ 	if (serial->open_count == 1) {
+ 		tty->low_latency = 1;
+ 		serial->rx_state = RX_IDLE;
+@@ -1285,6 +1288,10 @@
+ 	u8 usb_gone;
+ 
+ 	D1("Closing serial port");
++	if (serial == NULL || serial->magic != HSO_SERIAL_MAGIC) {
++		D1("invalid serial structure bailing out.\n");
++		return;
++	}
+ 
+ 	mutex_lock(&serial->parent->mutex);
+ 	usb_gone = serial->parent->usb_gone;
 
---------------000901090501080006010101--
+--------------000408000302080000080209--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
