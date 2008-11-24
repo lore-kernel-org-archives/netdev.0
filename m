@@ -1,33 +1,68 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] pkt_sched: sch_drr: Fix drr_dequeue() loop
-Date: Mon, 24 Nov 2008 12:51:50 +0000
-Message-ID: <20081124125150.GB16755@ff.dom.local>
-References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net> <20081124105345.GB13957@ff.dom.local> <492A9ACB.4050504@trash.net> <20081124123349.GA16755@ff.dom.local> <492AA058.9060302@trash.net>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] net: af_unix should disable preempt around
+	sock_prot_inuse_add()
+Date: Mon, 24 Nov 2008 15:54:57 +0300
+Message-ID: <20081124125457.GA6255@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org, dada1@cosmosbay.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:7626 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752208AbYKXMv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 07:51:56 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so724659ugf.37
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 04:51:55 -0800 (PST)
+Received: from nf-out-0910.google.com ([64.233.182.191]:40793 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751334AbYKXMzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 07:55:04 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so1033811nfc.21
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 04:55:02 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <492AA058.9060302@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2008 at 01:38:48PM +0100, Patrick McHardy wrote:
-...
-> TBF with an inner DRR is fine. The other way around is broken
-> in the sense that the behaviour is undefined.
 
-IMHO, this other way (e.g. a class with TBF per user), should work too.
 
-BTW, since this "broken" config isn't very apparent, maybe you should
-add some warning?
+BUG: using smp_processor_id() in preemptible [00000000] code: ini
 
-Jarek P. 
+caller is sock_prot_inuse_add+0x24/0x42
+Pid: 738, comm: init-early.sh Tainted: G        W  2.6.28-rc6-nex
+
+Call Trace:
+ [<ffffffff8037fb72>] debug_smp_processor_id+0xca/0xe0
+ [<ffffffff8046afc9>] sock_prot_inuse_add+0x24/0x42
+ [<ffffffff804baf2c>] unix_create1+0x161/0x176
+ [<ffffffff804bb03d>] unix_stream_connect+0x94/0x3b0
+ [<ffffffff80468a84>] sys_connect+0x68/0x8e
+ [<ffffffff8020b75b>] system_call_fastpath+0x16/0x1b
+
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+
+ net/unix/af_unix.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index a9b3c90..f7a1d46 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -361,7 +361,9 @@ static void unix_sock_destructor(struct sock *sk)
+ 		unix_release_addr(u->addr);
+ 
+ 	atomic_dec(&unix_nr_socks);
++	preempt_disable();
+ 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
++	preempt_enable();
+ #ifdef UNIX_REFCNT_DEBUG
+ 	printk(KERN_DEBUG "UNIX %p is destroyed, %d are still alive.\n", sk,
+ 		atomic_read(&unix_nr_socks));
+@@ -612,9 +614,11 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
+ out:
+ 	if (sk == NULL)
+ 		atomic_dec(&unix_nr_socks);
+-	else
++	else {
++		preempt_disable();
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
+-
++		preempt_enable();
++	}
+ 	return sk;
+ }
+ 
