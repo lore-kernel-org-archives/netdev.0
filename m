@@ -1,55 +1,51 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: pull request: wireless-2.6 2008-11-18
-Date: Mon, 24 Nov 2008 14:33:14 +0800
-Message-ID: <1227508394.2548.307.camel@debian.sh.intel.com>
-References: <20081119000719.GA19756@tuxdriver.com>
-	 <1ba2fa240811182246m17a6baf0ybde19af030a65819@mail.gmail.com>
-	 <1ba2fa240811190134u7974a840i532e8ed0e18f8c72@mail.gmail.com>
-	 <20081119143919.GA3485@tuxdriver.com>
-	 <1227497655.2548.257.camel@debian.sh.intel.com>
-	 <7E134DC0-A86D-460A-B5DC-22E6D9BEED92@linux.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] eth: Declare an optimized compare_ether_addr_64bits()
+ function
+Date: Sun, 23 Nov 2008 22:46:21 -0800 (PST)
+Message-ID: <20081123.224621.07006022.davem@davemloft.net>
+References: <4927B275.1030407@cosmosbay.com>
+	<20081123.154554.255301279.davem@davemloft.net>
+	<492A4962.1080400@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Tomas Winkler <tomasw@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
-To: Marcel Holtmann <holtmann@linux.intel.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:61410 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750954AbYKXGcz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 01:32:55 -0500
-In-Reply-To: <7E134DC0-A86D-460A-B5DC-22E6D9BEED92@linux.intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48550
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751150AbYKXGqW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2008 01:46:22 -0500
+In-Reply-To: <492A4962.1080400@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-11-24 at 11:50 +0800, Marcel Holtmann wrote:
-> http://www.intellinuxwireless.org/bugzilla/show_bug.cgi?id=1703
-> 
-> and just relying on Bugzilla is not gonna be good enough. The Linux  
-> kernel development has always been done via mailing lists. And while  
-> there is a kernel and other Bugzillas, the main authority is still the
-> mailing list. So if you wanna get massive feedback or have testing  
-> patches for debugging, then these need to be posted to linux-wireless
-> and not "hidden" into a Bugzilla.
+=46rom: Eric Dumazet <dada1@cosmosbay.com>
+Date: Mon, 24 Nov 2008 07:27:46 +0100
 
-This is generally true for bugs easy to debug with. But in this example,
-the first reporter opened this bug 4 months ago. People usually don't
-follow thread for such a long time. There are also some reporters never
-show up in this ML.
+> David Miller a =E9crit :
+> > From: Eric Dumazet <dada1@cosmosbay.com>
+> > Date: Sat, 22 Nov 2008 08:19:17 +0100
+> >=20
+> >> This patch implements a compare_ether_addr_64bits() function, that
+> >> handles the case of x86 cpus, but might be used on other arches as
+> >> well, if their potential misaligned long word reads are not
+> >> expensive.
+> > We have a test for this, HAVE_EFFICIENT_UNALIGNED_ACCESS
+> > Please use that instead of CONFIG_X86 and I'll apply this
+> > to net-next-2.6
+> >=20
+>=20
+> Excellent !
+>=20
+> I missed this cool feature.
 
-> I do have a perfect environment in Vancouver that allows me to trigger
-> this behavior within a few minutes. So if you really wanna debug this,
-> then just send debug patches to the mailing list and I am happy to run
-> such kernels.
+Sorry, one last nit.
 
-Can you still reproduce this bug with Johannes' patch?
+If the platform defines HAVE_EFFICIENT_UNALIGNED_ACCESS, there
+is not point in going and using the get_unaligned() interfaces.
+They are by definition a NOP in such cases.
 
-Thanks,
--yi
-
+So I toss them while applying this second version of your
+patch, thanks!
