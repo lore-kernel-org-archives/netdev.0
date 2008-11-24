@@ -1,90 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netdev: generate kobject uevent on network events.
-Date: Mon, 24 Nov 2008 12:06:45 -0800
-Message-ID: <20081124120645.417ea6e7@extreme>
-References: <20081121234110.22b47154@extreme>
-	<ac3eb2510811220608y33662b0bkb66026c2a21b061e@mail.gmail.com>
-	<F6B63A37-A69F-4197-B7E5-C9FD9BFA76F6@holtmann.org>
-	<20081122223249.4be03e4e@extreme>
-	<ac3eb2510811230813s3cb5c248k1e15d9ece581c8ad@mail.gmail.com>
-	<20081124114522.1e8de3fe@extreme>
-	<ac3eb2510811241155h4f51784cgf44d2e3d7ae807b8@mail.gmail.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [RFC PATCH] lro: ip fragment checking
+Date: Mon, 24 Nov 2008 13:04:33 -0800
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A1714B0C9@orsmsx507.amr.corp.intel.com>
+References: <492ACEC4.3020702@de.ibm.com> <1227545468.3162.4.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"Marcel Holtmann" <marcel@holtmann.org>,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
-To: "Kay Sievers" <kay.sievers@vrfy.org>
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"tklein@de.ibm.com" <tklein@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	"jb.billaud@gmail.com" <jb.billaud@gmail.com>,
+	"hering2@de.ibm.com" <hering2@de.ibm.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50658 "EHLO mail.vyatta.com"
+Received: from mga09.intel.com ([134.134.136.24]:35692 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751150AbYKXUGs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 15:06:48 -0500
-In-Reply-To: <ac3eb2510811241155h4f51784cgf44d2e3d7ae807b8@mail.gmail.com>
+	id S1752776AbYKXVEh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:04:37 -0500
+In-Reply-To: <1227545468.3162.4.camel@achroite>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 24 Nov 2008 20:55:02 +0100
-"Kay Sievers" <kay.sievers@vrfy.org> wrote:
-
-> On Mon, Nov 24, 2008 at 20:45, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> > It is easier for some applications to deal with text based interfaces
-> > like uevent, rather than using netlink to listen for events.
-> >
-> > Note, this does not deal with network namespaces but that is a generic
-> > problem that already exists with kobjects (see rename events).
-> >
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >
-> > ---
-> >  net/core/Makefile |    1
-> >  net/core/uevent.c |   61 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-> >  2 files changed, 62 insertions(+)
-> >
-> > --- a/net/core/Makefile 2008-11-24 08:40:10.000000000 -0800
-> > +++ b/net/core/Makefile 2008-11-24 08:51:01.000000000 -0800
-> > @@ -17,3 +17,4 @@ obj-$(CONFIG_NET_PKTGEN) += pktgen.o
-> >  obj-$(CONFIG_NETPOLL) += netpoll.o
-> >  obj-$(CONFIG_NET_DMA) += user_dma.o
-> >  obj-$(CONFIG_FIB_RULES) += fib_rules.o
-> > +obj-$(CONFIG_HOTPLUG) += uevent.o
-> > --- /dev/null   1970-01-01 00:00:00.000000000 +0000
-> > +++ b/net/core/uevent.c 2008-11-24 09:06:50.000000000 -0800
-> > @@ -0,0 +1,60 @@
-> > +/*
-> > + * Linux network device event notification
-> > + *
-> > + * Author:
-> > + *     Stephen Hemminger <shemminger@vyatta.com>
-> > + */
-> > +
-> > +#include <linux/kernel.h>
-> > +#include <linux/netdevice.h>
-> > +#include <linux/kobject.h>
-> > +#include <linux/notifier.h>
-> > +
-> > +/*
-> > + * Generate uevent in response to nework device changes.
-> > + * NB: KOBJ_MOVE is already genereated by kobject_rename
-> > + */
-> > +static int netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
-> > +{
-> > +       struct net_device *netdev = ptr;
-> > +
-> > +       switch (event) {
-> > +       case NETDEV_UNREGISTER:
-> > +               kobject_uevent(&netdev->dev.kobj, KOBJ_REMOVE);
-> > +               break;
-> > +       case NETDEV_REGISTER:
-> > +               kobject_uevent(&netdev->dev.kobj, KOBJ_ADD);
-> > +               break;
+Ben Hutchings wrote:
+> On Mon, 2008-11-24 at 16:56 +0100, Jan-Bernd Themann wrote:
+>> Currently there is no checking in the LRO receive path whether
+>> TCP packets are ip fragmented. We should not consider
+>> those packets for aggregation.
+>> I'm not sure if this checking is actually required. Does anyone
+>> know if it is possible to get fragmented TCP packets without
+>> the tcp stack changing the MSS size?
+>> This patch introduces explicit checking. Any objections?
 > 
-> Did you do anything else to prevent the duplicated add/remove events?
-> The core does send these already. I replied with a "udevadm monitor"
-> output to your earlier mail. Don't you see the duplicates on your box?
-> 
-> Thanks,
-> Kay
+> LRO depends on the hardware performing TCP checksum offload, and the
+> TCP checksum cannot be verified for IP fragments in isolation.  So I
+> think drivers should not be passing fragments into inet_lro or should
+> reject them in its get_frag_header() or get_skb_header() method. 
+> Certainly sfc doesn't pass fragments into inet_lro because they have
+> not been checksummed.
 
-okay, then i'll just take it out of here.
+The fragments, definitely will not have checksums offloaded, but
+what about the first packet in the chain?  I haven't verified in
+ixgbe or igb whether or not it could try and aggregate a packet
+with MF set if it was the first fragment in a series of IP fragments.
