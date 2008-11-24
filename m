@@ -1,44 +1,33 @@
-From: "Michael Kerrisk" <mtk.manpages@googlemail.com>
-Subject: IP_PASSSEC documentation?
-Date: Mon, 24 Nov 2008 11:34:48 -0500
-Message-ID: <cfd18e0f0811240834q78aa5c7as566da7bb6f4f5d74@mail.gmail.com>
-Reply-To: mtk.manpages@gmail.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 02/10] tcp: move tcp_simple_retransmit to tcp_input
+Date: Mon, 24 Nov 2008 17:36:20 +0100
+Message-ID: <87skphqdx7.fsf@basil.nowhere.org>
+References: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1227536527-29713-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
-	"James Morris" <jmorris@namei.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>
-To: "Catherine Zhang" <cxzhang@watson.ibm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: =?utf-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:13900 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753186AbYKXQeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:34:50 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so1745008fgg.17
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 08:34:48 -0800 (PST)
-Content-Disposition: inline
+Received: from one.firstfloor.org ([213.235.205.2]:39813 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753004AbYKXQgR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 11:36:17 -0500
+In-Reply-To: <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+ (Ilpo =?utf-8?Q?J=C3=A4rvinen's?= message of "Mon, 24 Nov 2008 16:21:59
+ +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Catherine,
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
 
-It looks like your commit
+tcp: move tcp_simple_retransmit to tcp_input
 
-commit 2c7946a7bf45ae86736ab3b43d0085e43947945c
-Author: Catherine Zhang <cxzhang@watson.ibm.com>
-Date:   Mon Mar 20 22:41:23 2006 -0800
+Why? It seems like a clear output function.
 
-added IP_PASSSEC to Linux 2.6.17.  Could you please supply some
-documentation (plaintext is fine) suitable for inclusion in 2.6.17?
+-Andi
 
-Thanks,
-
-Michael
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-git://git.kernel.org/pub/scm/docs/man-pages/man-pages.git
-man-pages online: http://www.kernel.org/doc/man-pages/online_pages.html
-Found a bug? http://www.kernel.org/doc/man-pages/reporting_bugs.html
+--=20
+ak@linux.intel.com
