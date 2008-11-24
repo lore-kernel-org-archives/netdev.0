@@ -1,34 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] netdev: add HAVE_NET_DEVICE_OPS
-Date: Mon, 24 Nov 2008 10:39:47 -0800
-Message-ID: <20081124103947.32307e7b@extreme>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 02/10] tcp: move tcp_simple_retransmit to tcp_input
+Date: Mon, 24 Nov 2008 20:07:10 +0100
+Message-ID: <20081124190710.GA6703@one.firstfloor.org>
+References: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi> <1227536527-29713-2-git-send-email-ilpo.jarvinen@helsinki.fi> <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi> <87skphqdx7.fsf@basil.nowhere.org> <Pine.LNX.4.64.0811241844490.30728@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46601 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751586AbYKXSju (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 13:39:50 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:60652 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752067AbYKXS4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 13:56:55 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0811241844490.30728@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As a concession to vendors who have to deal with one source for different
-kernel versions, add a HAVE_NET_DEVICE_OPS so they don't end up hard
-coding ifdef against kernel version.
+On Mon, Nov 24, 2008 at 06:58:25PM +0200, Ilpo J=E4rvinen wrote:
+> On Mon, 24 Nov 2008, Andi Kleen wrote:
+>=20
+> > "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
+> >=20
+> > tcp: move tcp_simple_retransmit to tcp_input
+> >=20
+> > Why? It seems like a clear output function.
+>=20
+> What makes you think so? It's as much output as e.g., tcp_enter_loss
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+the path mtu code calls it to output a packet.
 
+> (or in fact less than that since enter_loss is triggered mainly by rt=
+o)?
 
---- a/include/linux/netdevice.h	2008-11-23 08:49:59.000000000 -0800
-+++ b/include/linux/netdevice.h	2008-11-23 08:50:16.000000000 -0800
-@@ -545,6 +545,7 @@ struct netdev_queue {
-  *
-  * void (*ndo_poll_controller)(struct net_device *dev);
-  */
-+#define HAVE_NET_DEVICE_OPS
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
- 	void			(*ndo_uninit)(struct net_device *dev);
+enter_loss doesn't send a packet.
+
+-Andi
