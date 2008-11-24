@@ -1,43 +1,51 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 0/n]: 2 is better than 1 - tcp recombining; both with SACK and rexmits
-Date: Mon, 24 Nov 2008 16:21:57 +0200
-Message-ID: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH 03/10] tcp: more aggressive skipping
+Date: Mon, 24 Nov 2008 16:22:00 +0200
+Message-ID: <1227536527-29713-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <1227536527-29713-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1227536527-29713-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52538 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:35317 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753054AbYKXOWJ (ORCPT
+	with ESMTP id S1753079AbYKXOWJ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 09:22:09 -0500
+In-Reply-To: <1227536527-29713-3-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Skb recombining is finally there for SACK, after fixing some accesses
-to already freed memory and accounting issues and plenty of state/data
-corrupters and some corner-cases which I didn't found by hitting them,
-it seems to finally make enough sense and run flawlessly. But still
-please read the skb part of the shifting with more care than usual
-since I'm on a territory which is pretty unknown to me though I learned
-a lot while figuring things out. E.g., do I set checksum fields correctly,
-are pre-condition checks missing something important, etc.
+I knew already when rewriting the sacktag that this condition
+was too conservative, change it now since it prevent lot of
+useless work (especially in the sack shifter decision code
+that is being added by a later patch). This shouldn't change
+anything really, just save some processing regardless of the
+shifter.
 
-The current approach already is enough to get most of the benefits from
-recombining. There's still room for some improvements but they can be
-built on top of this machinery once we're sure that it indeed works.
-E.g, not all sack patterns are handled as good as they could be, full
-shift special case optimizations, dsack/sack for already sacked skbs
-w/o fragmenting, ... Just to mention some.
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-NOTE: Like I said before, there is a pending problem with tcpdump
-getting EFAULT for some reason if cloned skbs get handled.
-
-Also the rexmissions combining is included (comments to your concerns
-in the original thread). ...and some minor code reorganization.
-NOTE: there's one obvious MIBs patch for debug only purpose for those
-interested enough.
-
-
---
- i.
-
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 01b7458..84ca4f7 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1401,7 +1401,7 @@ static struct sk_buff *tcp_sacktag_skip(struct sk=
+_buff *skb, struct sock *sk,
+ 		if (skb =3D=3D tcp_send_head(sk))
+ 			break;
+=20
+-		if (!before(TCP_SKB_CB(skb)->end_seq, skip_to_seq))
++		if (after(TCP_SKB_CB(skb)->end_seq, skip_to_seq))
+ 			break;
+=20
+ 		*fack_count +=3D tcp_skb_pcount(skb);
+--=20
+1.5.2.2
 
