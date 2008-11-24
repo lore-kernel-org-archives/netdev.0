@@ -1,576 +1,373 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 18/39] i2400m: linkage to the networking stack
-Date: Mon, 24 Nov 2008 13:50:41 -0800
-Message-ID: <05fdc24ad68629f79b5ba122234afc8a40785ba3.1227562829.git.inaky@linux.intel.com>
+Subject: [PATCH 28/39] i2400m/USB: firmware upload backend
+Date: Mon, 24 Nov 2008 13:50:51 -0800
+Message-ID: <825270a61f24ed521996b2e4bfe426fe715b0a4e.1227562829.git.inaky@linux.intel.com>
 References: <cover.1227562829.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:57411 "EHLO
+Received: from mga12.intel.com ([143.182.124.36]:21168 "EHLO
 	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753324AbYKXVv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:27 -0500
+	with ESMTP id S1753352AbYKXVvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 16:51:42 -0500
 In-Reply-To: <cover.1227562829.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implementation of the glue to the network stack so the WiMAX device
-shows up as an Ethernet device.
-
-Initially we shot for implementing a Pure IP device -- however, the
-world seems to turn around Ethernet devices. Main issues were with the
-ISC DHCP client and servers (as they don't understand types other than
-Ethernet and Token Ring).
-
-We proceeded to register with IANA the PureIP hw type, so that DHCP
-requests could declare such. We also created patches to the main ISC
-DHCP versions to support it. However, until all that permeates into
-deployments, there is going to be a long time.
-
-So we moved back to wrap Ethernet frames around the PureIP device. At
-the time being this has overhead; we need to reallocate with space for
-an Ethernet header. The reason is the device-to-host protocol
-coalesces many network packets into a single message, so we can't
-introduce Ethernet headers without overwriting valid data from other
-packets.
-
-Follow up versions of the firmware have this issue solved.
+This implements the backends for the generic driver (i2400m) to be
+able to load firmware to the USB device.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/netdev.c |  524 +++++++++++++++++++++++++++++++++++++
- 1 files changed, 524 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/netdev.c
+ drivers/net/wimax/i2400m/usb-fw.c |  340 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 340 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/usb-fw.c
 
-diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
+diff --git a/drivers/net/wimax/i2400m/usb-fw.c b/drivers/net/wimax/i2400m/usb-fw.c
 new file mode 100644
-index 0000000..63fe708
+index 0000000..5ad287c
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/netdev.c
-@@ -0,0 +1,524 @@
++++ b/drivers/net/wimax/i2400m/usb-fw.c
+@@ -0,0 +1,340 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Glue with the networking stack
++ * Firmware uploader's USB specifics
 + *
 + *
-+ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
 + * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Initial implementation
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - bus generic/specific split
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
++ * THE PROCEDURE
 + *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ * See fw.c for the generic description of this procedure.
 + *
++ * This file implements only the USB specifics. It boils down to how
++ * to send a command and waiting for an acknowledgement from the
++ * device.
 + *
-+ * This implements an ethernet device for the i2400m.
++ * This code (and process) is single threaded. It assumes it is the
++ * only thread poking around (guaranteed by fw.c).
 + *
-+ * We fake being an ethernet device to simplify the support from user
-+ * space and from the other side. The world is (sadly) configured to
-+ * take in only Ethernet devices...
++ * COMMAND EXECUTION
 + *
-+ * Because of this, currently there is an copy-each-rxed-packet
-+ * overhead on the RX path. Each IP packet has to be reallocated to
-+ * add an ethernet header (as there is no space in what we get from
-+ * the device). This is a known drawback and coming versions of the
-+ * device's firmware are being changed to add header space that can be
-+ * used to insert the ethernet header without having to reallocate and
-+ * copy.
++ * A write URB is posted with the buffer to the bulk output endpoint.
 + *
-+ * TX error handling is tricky; because we have to FIFO/queue the
-+ * buffers for transmission (as the hardware likes it aggregated), we
-+ * just give the skb to the TX subsystem and by the time it is
-+ * transmitted, we have long forgotten about it. So we just don't care
-+ * too much about it.
++ * ACK RECEPTION
 + *
-+ * Note that when the device is in idle mode with the basestation, we
-+ * need to negotiate coming back up online. That involves negotiation
-+ * and possible user space interaction. Thus, we defer to a workqueue
-+ * to do all that. By default, we only queue a single packet and drop
-+ * the rest, as potentially the time to go back from idle to normal is
-+ * long.
++ * We just post a URB to the notification endpoint and wait for
++ * data. We repeat until we get all the data we expect (as indicated
++ * by the call from the bus generic code).
++ *
++ * The data is not read from the bulk in endpoint for boot mode.
 + *
 + * ROADMAP
 + *
-+ * i2400m_open         Called on ifconfig up
-+ * i2400m_stop         Called on ifconfig down
++ * i2400mu_bus_bm_cmd_send
++ *   i2400m_bm_cmd_prepare...
++ *   i2400mu_tx_bulk_out
 + *
-+ * i2400m_hard_start_xmit Called by the network stack to send a packet
-+ *   i2400m_net_wake_tx	  Wake up device from basestation-IDLE & TX
-+ *     i2400m_wake_tx_work
-+ *       i2400m_cmd_exit_idle
-+ *       i2400m_tx
-+ *   i2400m_net_tx        TX a data frame
-+ *     i2400m_tx
-+ *
-+ * i2400m_change_mtu      Called on ifconfig mtu XXX
-+ *
-+ * i2400m_tx_timeout      Called when the device times out
-+ *
-+ * i2400m_net_rx          Called by the RX code when a data frame is
-+ *                        available.
-+ * i2400m_netdev_setup    Called to setup all the netdev stuff from
-+ *                        alloc_netdev.
++ * i2400mu_bus_bm_wait_for_ack
++ *   i2400m_notif_submit
 + */
-+#include <linux/if_arp.h>
-+#include <linux/netdevice.h>
-+#include "i2400m.h"
++#include <linux/usb.h>
++#include "i2400m-usb.h"
 +
 +
-+#define D_SUBMODULE netdev
-+#include "debug-levels.h"
-+
-+enum {
-+/* netdev interface */
-+	/*
-+	 * Out of NWG spec (R1_v1.2.2), 3.3.3 ASN Bearer Plane MTU Size
-+	 *
-+	 * The MTU is 1400 or less
-+	 */
-+	I2400M_MAX_MTU = 1400,
-+	I2400M_TX_TIMEOUT = HZ,
-+	I2400M_TX_QLEN = 5,
-+};
-+
-+
-+static
-+int i2400m_open(struct net_device *net_dev)
-+{
-+	int result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
-+	struct device *dev = i2400m_dev(i2400m);
-+
-+	d_fnstart(3, dev, "(net_dev %p [i2400m %p])\n", net_dev, i2400m);
-+	if (i2400m->ready == 0) {
-+		dev_err(dev, "Device is still initializing\n");
-+		result = -EBUSY;
-+	} else
-+		result = 0;
-+	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = %d\n",
-+		net_dev, i2400m, result);
-+	return result;
-+}
++#define D_SUBMODULE fw
++#include "usb-debug-levels.h"
 +
 +
 +/*
++ * Synchronous write to the device
 + *
-+ * On kernel versions where cancel_work_sync() didn't return anything,
-+ * we rely on wake_tx_skb() being non-NULL.
++ * Takes care of updating EDC counts and thus, handle device errors.
 + */
 +static
-+int i2400m_stop(struct net_device *net_dev)
-+{
-+	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
-+	struct device *dev = i2400m_dev(i2400m);
-+
-+	d_fnstart(3, dev, "(net_dev %p [i2400m %p])\n", net_dev, i2400m);
-+	/* See i2400m_hard_start_xmit(), references are taken there
-+	 * and here we release them if the work was still
-+	 * pending. Note we can't differentiate work not pending vs
-+	 * never scheduled, so the NULL check does that. */
-+	if (cancel_work_sync(&i2400m->wake_tx_ws) == 0
-+	    && i2400m->wake_tx_skb != NULL) {
-+		unsigned long flags;
-+		struct sk_buff *wake_tx_skb;
-+		spin_lock_irqsave(&i2400m->tx_lock, flags);
-+		wake_tx_skb = i2400m->wake_tx_skb;	/* compat help */
-+		i2400m->wake_tx_skb = NULL;	/* compat help */
-+		spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+		i2400m_put(i2400m);
-+		kfree_skb(wake_tx_skb);
-+	}
-+	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = 0\n", net_dev, i2400m);
-+	return 0;
-+}
-+
-+
-+/*
-+ * Wake up the device and transmit a held SKB, then restart the net queue
-+ *
-+ * When the device goes into basestation-idle mode, we need to tell it
-+ * to exit that mode; it will negotiate with the base station, user
-+ * space may have to intervene to rehandshake crypto and then tell us
-+ * when it is ready to transmit the packet we have "queued". Still we
-+ * need to give it sometime after it reports being ok.
-+ *
-+ * On error, there is not much we can do. If the error was on TX, we
-+ * still wake the queue up to see if the next packet will be luckier.
-+ *
-+ * If _cmd_exit_idle() fails...well, it could be many things; most
-+ * commonly it is that something else took the device out of IDLE mode
-+ * (for example, the base station). In that case we get an -EILSEQ and
-+ * we are just going to ignore that one. If the device is back to
-+ * connected, then fine -- if it is someother state, the packet will
-+ * be dropped anyway.
-+ */
-+void i2400m_wake_tx_work(struct work_struct *ws)
++ssize_t i2400mu_tx_bulk_out(struct i2400mu *i2400mu, void *buf, size_t buf_size)
 +{
 +	int result;
-+	struct i2400m *i2400m = container_of(ws, struct i2400m, wake_tx_ws);
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct sk_buff *skb = i2400m->wake_tx_skb;
-+	unsigned long flags;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	int len;
++	struct usb_endpoint_descriptor *epd;
++	int pipe, do_autopm = 1;
 +
-+	spin_lock_irqsave(&i2400m->tx_lock, flags);
-+	skb = i2400m->wake_tx_skb;
-+	i2400m->wake_tx_skb = NULL;
-+	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+
-+	d_fnstart(3, dev, "(ws %p i2400m %p skb %p)\n", ws, i2400m, skb);
-+	result = -EINVAL;
-+	if (skb == NULL) {
-+		dev_err(dev, "WAKE&TX: skb dissapeared!\n");
-+		goto out_put;
-+	}
-+	result = i2400m_cmd_exit_idle(i2400m);
-+	if (result == -EILSEQ)
-+		result = 0;
++	result = usb_autopm_get_interface(i2400mu->usb_iface);
 +	if (result < 0) {
-+		dev_err(dev, "WAKE&TX: device didn't get out of idle: "
-+			"%d\n", result);
-+			goto error;
++		dev_err(dev, "BM-CMD: can't get autopm: %d\n", result);
++		do_autopm = 0;
 +	}
-+	result = wait_event_timeout(i2400m->state_wq,
-+				    i2400m->state != I2400M_SS_IDLE, 5 * HZ);
-+	if (result == 0)
-+		result = -ETIMEDOUT;
-+	if (result < 0) {
-+		dev_err(dev, "WAKE&TX: error waiting for device to exit IDLE: "
-+			"%d\n", result);
-+		goto error;
-+	}
-+	msleep(20);	/* device still needs some time or it drops it */
-+	result = i2400m_tx(i2400m, skb->data, skb->len, I2400M_PT_DATA);
-+	netif_wake_queue(i2400m->wimax_dev.net_dev);
-+error:
-+	kfree_skb(skb);	/* refcount transferred by _hard_start_xmit() */
-+out_put:
-+	i2400m_put(i2400m);
-+	d_fnend(3, dev, "(ws %p i2400m %p skb %p) = void [%d]\n",
-+		ws, i2400m, skb, result);
-+}
-+
-+
-+/*
-+ * Prepare the data payload TX header
-+ *
-+ * The i2400m expects a 4 byte header in front of a data packet.
-+ *
-+ * Because we pretend to be an ethernet device, this packet comes with
-+ * an ethernet header. Pull it and push our header.
-+ */
-+static
-+void i2400m_tx_prep_header(struct sk_buff *skb)
-+{
-+	struct i2400m_pl_data_hdr *pl_hdr;
-+	skb_pull(skb, ETH_HLEN);
-+	pl_hdr = (struct i2400m_pl_data_hdr *) skb_push(skb, sizeof(*pl_hdr));
-+	pl_hdr->reserved = 0;
-+}
-+
-+
-+/*
-+ * TX an skb to an idle device
-+ *
-+ * When the device is in basestation-idle mode, we need to wake it up
-+ * and then TX. So we queue a work_struct for doing so.
-+ *
-+ * We need to get an extra ref for the skb (so it is not dropped), as
-+ * well as be careful not to queue more than one request (won't help
-+ * at all). If more than one request comes or there are errors, we
-+ * just drop the packets (see i2400m_hard_start_xmit()).
-+ */
-+static
-+int i2400m_net_wake_tx(struct i2400m *i2400m, struct net_device *net_dev,
-+		       struct sk_buff *skb)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	unsigned long flags;
-+
-+	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
-+	if (net_ratelimit()) {
-+		d_printf(3, dev, "WAKE&NETTX: "
-+			 "skb %p sending %d bytes to radio\n",
-+			 skb, skb->len);
-+		d_dump(4, dev, skb->data, skb->len);
-+	}
-+	/* We hold a ref count for i2400m and skb, so when
-+	 * stopping() the device, we need to cancel that work
-+	 * and if pending, release those resources. */
-+	result = 0;
-+	spin_lock_irqsave(&i2400m->tx_lock, flags);
-+	if (!work_pending(&i2400m->wake_tx_ws)) {
-+		netif_stop_queue(net_dev);
-+		i2400m_get(i2400m);
-+		i2400m->wake_tx_skb = skb_get(skb);	/* transfer ref count */
-+		i2400m_tx_prep_header(skb);
-+		result = schedule_work(&i2400m->wake_tx_ws);
-+		WARN_ON(result == 0);
-+	}
-+	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+	if (result == 0) {
-+		/* Yes, this happens even if we stopped the
-+		 * queue -- blame the queue disciplines that
-+		 * queue without looking -- I guess there is a reason
-+		 * for that. */
-+		if (net_ratelimit())
-+			d_printf(1, dev, "NETTX: device exiting idle, "
-+				 "dropping skb %p, queue running %d\n",
-+				 skb, netif_queue_stopped(net_dev));
-+		result = -EBUSY;
-+	}
-+	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
-+	return result;
-+}
-+
-+
-+/*
-+ * Transmit a packet to the base station on behalf of the network stack.
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error.
-+ *
-+ * We need to pull the ethernet header and add the hardware header,
-+ * which is currently set to all zeroes and reserved.
-+ */
-+static
-+int i2400m_net_tx(struct i2400m *i2400m, struct net_device *net_dev,
-+		  struct sk_buff *skb)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+
-+	d_fnstart(3, dev, "(i2400m %p net_dev %p skb %p)\n",
-+		  i2400m, net_dev, skb);
-+	/* FIXME: check eth hdr, only IPv4 is routed by the device as of now */
-+	net_dev->trans_start = jiffies;
-+	i2400m_tx_prep_header(skb);
-+	d_printf(3, dev, "NETTX: skb %p sending %d bytes to radio\n",
-+		 skb, skb->len);
-+	d_dump(4, dev, skb->data, skb->len);
-+	result = i2400m_tx(i2400m, skb->data, skb->len, I2400M_PT_DATA);
-+	d_fnend(3, dev, "(i2400m %p net_dev %p skb %p) = %d\n",
-+		i2400m, net_dev, skb, result);
-+	return result;
-+}
-+
-+
-+/*
-+ * Transmit a packet to the base station on behalf of the network stack
-+ *
-+ *
-+ * Returns: NETDEV_TX_OK (always, even in case of error)
-+ *
-+ * In case of error, we just drop it. Reasons:
-+ *
-+ *  - we add a hw header to each skb, and if the network stack
-+ *    retries, we have no way to know if that skb has it or not.
-+ *
-+ *  - network protocols have their own drop-recovery mechanisms
-+ *
-+ *  - there is not much else we can do
-+ *
-+ * If the device is idle, we need to wake it up; that is an operation
-+ * that will sleep. See i2400m_net_wake_tx() for details.
-+ */
-+static
-+int i2400m_hard_start_xmit(struct sk_buff *skb,
-+			   struct net_device *net_dev)
-+{
-+	int result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
-+	struct device *dev = i2400m_dev(i2400m);
-+
-+	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
-+	if (i2400m->state == I2400M_SS_IDLE)
-+		result = i2400m_net_wake_tx(i2400m, net_dev, skb);
-+	else
-+		result = i2400m_net_tx(i2400m, net_dev, skb);
-+	if (result <  0)
-+		net_dev->stats.tx_dropped++;
-+	else {
-+		net_dev->stats.tx_packets++;
-+		net_dev->stats.tx_bytes += skb->len;
-+	}
-+	kfree_skb(skb);
-+	result = NETDEV_TX_OK;
-+	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
-+	return result;
-+}
-+
-+
-+static
-+int i2400m_change_mtu(struct net_device *net_dev, int new_mtu)
-+{
-+	int result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
-+	struct device *dev = i2400m_dev(i2400m);
-+
-+	if (new_mtu >= I2400M_MAX_MTU) {
-+		dev_err(dev, "Cannot change MTU to %d (max is %d)\n",
-+			new_mtu, I2400M_MAX_MTU);
-+		result = -EINVAL;
-+	} else {
-+		net_dev->mtu = new_mtu;
-+		result = 0;
-+	}
-+	return result;
-+}
-+
-+
-+static
-+void i2400m_tx_timeout(struct net_device *net_dev)
-+{
-+	/*
-+	 * We might want to kick the device
-+	 *
-+	 * There is not much we can do though, as the device requires
-+	 * that we send the data aggregated. By the time we receive
-+	 * this, there might be data pending to be sent or not...
-+	 */
-+	net_dev->stats.tx_errors++;
-+	return;
-+}
-+
-+
-+/*
-+ * Create a fake ethernet header
-+ *
-+ * For emulating an ethernet device, every received IP header has to
-+ * be prefixed with an ethernet header.
-+ *
-+ * What we receive has (potentially) many IP packets concatenated with
-+ * no ETH_HLEN bytes prefixed. Thus there is no space for an eth
-+ * header.
-+ *
-+ * We would have to reallocate or do ugly fragment tricks in order to
-+ * add it.
-+ *
-+ * But what we do is use the header space of the RX transaction
-+ * (*msg_hdr) as we don't need it anymore; then we'll point all the
-+ * data skbs there, as they share the same backing store.
-+ *
-+ * We only support IPv4 for v3 firmware.
-+ */
-+static
-+void i2400m_rx_fake_eth_header(struct net_device *net_dev,
-+			       void *_eth_hdr)
-+{
-+	struct ethhdr *eth_hdr = _eth_hdr;
-+
-+	memcpy(eth_hdr->h_dest, net_dev->dev_addr, sizeof(eth_hdr->h_dest));
-+	memset(eth_hdr->h_source, 0, sizeof(eth_hdr->h_dest));
-+	eth_hdr->h_proto = __constant_cpu_to_be16(ETH_P_IP);
-+}
-+
-+
-+/*
-+ * i2400m_net_rx - pass a network packet to the stack
-+ *
-+ * @i2400m: device instance
-+ * @skb_rx: the skb where the buffer pointed to by @buf is
-+ * @i: 1 if payload is the only one
-+ * @buf: pointer to the buffer containing the data
-+ * @len: buffer's length
-+ *
-+ * We just clone the skb and set it up so that it's skb->data pointer
-+ * points to "buf" and it's length.
-+ *
-+ * Note that if the payload is the last (or the only one) in a
-+ * multi-payload message, we don't clone the SKB but just reuse it.
-+ *
-+ * This function is normally run from a thread context. However, we
-+ * still use netif_rx() instead of netif_receive_skb() as was
-+ * recommended in the mailing list. Reason is in some stress tests
-+ * when sending/receiving a lot of data we seem to hit a softlock in
-+ * the kernel's TCP implementation [aroudn tcp_delay_timer()]. Using
-+ * netif_rx() took care of the issue.
-+ *
-+ * This is, of course, still open to do more research on why running
-+ * with netif_receive_skb() hits this softlock. FIXME.
-+ *
-+ * FIXME: currently we don't do any efforts at distinguishing if what
-+ * we got was an IPv4 or IPv6 header, to setup the protocol field
-+ * correctly.
-+ */
-+void i2400m_net_rx(struct i2400m *i2400m, struct sk_buff *skb_rx,
-+		   unsigned i, const void *buf, int buf_len)
-+{
-+	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct sk_buff *skb;
-+
-+	d_fnstart(2, dev, "(i2400m %p buf %p buf_len %d)\n",
-+		  i2400m, buf, buf_len);
-+	if (i) {
-+		skb = skb_get(skb_rx);
-+		d_printf(2, dev, "RX: reusing first payload skb %p\n", skb);
-+		skb_pull(skb, buf - (void *) skb->data);
-+		skb_trim(skb, (void *) skb_end_pointer(skb) - buf);
-+	} else {
-+		/* Yes, this is bad -- a lot of overhead -- see
-+		 * comments at the top of the file */
-+		skb = __netdev_alloc_skb(net_dev, buf_len, GFP_KERNEL);
-+		if (skb == NULL) {
-+			dev_err(dev, "NETRX: no memory to realloc skb\n");
-+			net_dev->stats.rx_dropped++;
-+			goto error_skb_realloc;
++	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_BULK_OUT);
++	pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++retry:
++	result = usb_bulk_msg(i2400mu->usb_dev, pipe, buf, buf_size, &len, HZ);
++	switch (result) {
++	case 0:
++		if (len != buf_size) {
++			dev_err(dev, "BM-CMD: short write (%u B vs %zu "
++				"expected)\n", len, buf_size);
++			result = -EIO;
++			break;
 +		}
-+		memcpy(skb_put(skb, buf_len), buf, buf_len);
++		result = len;
++		break;
++	case -EINVAL:			/* while removing driver */
++	case -ENODEV:			/* dev disconnect ... */
++	case -ENOENT:			/* just ignore it */
++	case -ESHUTDOWN:		/* and exit */
++	case -ECONNRESET:
++		result = -ESHUTDOWN;
++		break;
++	case -ETIMEDOUT:			/* bah... */
++		break;
++	default:				/* any other? */
++		if (edc_inc(&i2400mu->urb_edc,
++			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME)) {
++				dev_err(dev, "BM-CMD: maximum errors in "
++					"URB exceeded; resetting device\n");
++				usb_queue_reset_device(i2400mu->usb_iface);
++				result = -ENODEV;
++				break;
++		}
++		dev_err(dev, "BM-CMD: URB error %d, retrying\n",
++			result);
++		goto retry;
 +	}
-+	i2400m_rx_fake_eth_header(i2400m->wimax_dev.net_dev,
-+				  skb->data - ETH_HLEN);
-+	skb_set_mac_header(skb, -ETH_HLEN);
-+	skb->dev = i2400m->wimax_dev.net_dev;
-+	skb->protocol = htons(ETH_P_IP);
-+	net_dev->stats.rx_packets++;
-+	net_dev->stats.rx_bytes += buf_len;
-+	d_printf(3, dev, "NETRX: receiving %d bytes to network stack\n",
-+		buf_len);
-+	d_dump(4, dev, buf, buf_len);
-+	netif_rx_ni(skb);	/* see notes in function header */
-+error_skb_realloc:
-+	d_fnend(2, dev, "(i2400m %p buf %p buf_len %d) = void\n",
-+		i2400m, buf, buf_len);
++	result = len;
++	if (do_autopm)
++		usb_autopm_put_interface(i2400mu->usb_iface);
++	return result;
 +}
 +
 +
-+/**
-+ * i2400m_netdev_setup - Setup setup @net_dev's i2400m private data
++/*
++ * Send a boot-mode command over the bulk-out pipe
 + *
-+ * Called by alloc_netdev()
++ * Command can be a raw command, which requires no preparation (and
++ * which might not even be following the command format). Checks that
++ * the right amount of data was transfered.
++ *
++ * To satisfy USB requirements (no onstack, vmalloc or in data segment
++ * buffers), we copy the command to i2400m->bm_cmd_buf and send it from
++ * there.
++ *
++ * @flags: pass thru from i2400m_bm_cmd()
++ * @return: cmd_size if ok, < 0 errno code on error.
 + */
-+void i2400m_netdev_setup(struct net_device *net_dev)
++ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *i2400m,
++				const struct i2400m_bootrom_header *_cmd,
++				size_t cmd_size, int flags)
 +{
-+	d_fnstart(3, NULL, "(net_dev %p)\n", net_dev);
-+	ether_setup(net_dev);
-+	net_dev->mtu = I2400M_MAX_MTU;
-+	net_dev->tx_queue_len = I2400M_TX_QLEN;
-+	net_dev->features =
-+		  NETIF_F_VLAN_CHALLENGED
-+		| NETIF_F_HIGHDMA;
-+	net_dev->flags =
-+		IFF_NOARP		/* i2400m is apure IP device */
-+		& (~IFF_BROADCAST	/* i2400m is P2P */
-+		   & ~IFF_MULTICAST);
-+	net_dev->watchdog_timeo = I2400M_TX_TIMEOUT;
-+	net_dev->open = i2400m_open;
-+	net_dev->stop = i2400m_stop;
-+	net_dev->hard_start_xmit = i2400m_hard_start_xmit;
-+	net_dev->change_mtu = i2400m_change_mtu;
-+	net_dev->tx_timeout = i2400m_tx_timeout;
-+	d_fnend(3, NULL, "(net_dev %p) = void\n", net_dev);
-+}
-+EXPORT_SYMBOL_GPL(i2400m_netdev_setup);
++	ssize_t result;
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
++	struct i2400m_bootrom_header *cmd;
++	size_t cmd_size_a = ALIGN(cmd_size, 16);	/* USB restriction */
 +
++	d_fnstart(8, dev, "(i2400m %p cmd %p size %zu)\n",
++		  i2400m, _cmd, cmd_size);
++	result = -E2BIG;
++	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
++		goto error_too_big;
++	memcpy(i2400m->bm_cmd_buf, _cmd, cmd_size);
++	cmd = i2400m->bm_cmd_buf;
++	if (cmd_size_a > cmd_size)			/* Zero pad space */
++		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
++	if ((flags & I2400M_BM_CMD_RAW) == 0) {
++		if (WARN_ON(i2400m_brh_get_response_required(cmd) == 0))
++			dev_warn(dev, "SW BUG: response_required == 0\n");
++		i2400m_bm_cmd_prepare(cmd);
++	}
++	result = i2400mu_tx_bulk_out(i2400mu, i2400m->bm_cmd_buf, cmd_size);
++	if (result < 0) {
++		dev_err(dev, "boot-mode cmd %d: cannot send: %zd\n",
++			opcode, result);
++		goto error_cmd_send;
++	}
++	if (result != cmd_size) {		/* all was transferred? */
++		dev_err(dev, "boot-mode cmd %d: incomplete transfer "
++			"(%zu vs %zu submitted)\n",  opcode, result, cmd_size);
++		result = -EIO;
++		goto error_cmd_size;
++	}
++error_cmd_size:
++error_cmd_send:
++error_too_big:
++	d_fnend(8, dev, "(i2400m %p cmd %p size %zu) = %zd\n",
++		i2400m, _cmd, cmd_size, result);
++	return result;
++}
++
++
++static
++void __i2400mu_bm_notif_cb(struct urb *urb)
++{
++	complete(urb->context);
++}
++
++
++/*
++ * submit a read to the notification endpoint
++ *
++ * @i2400m: device descriptor
++ * @urb: urb to use
++ * @completion: completion varible to complete when done
++ *
++ * Data is always read to i2400m->bm_ack_buf
++ */
++static
++int i2400mu_notif_submit(struct i2400mu *i2400mu, struct urb *urb,
++			 struct completion *completion)
++{
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct usb_endpoint_descriptor *epd;
++	int pipe;
++
++	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_NOTIFICATION);
++	pipe = usb_rcvintpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++	usb_fill_int_urb(urb, i2400mu->usb_dev, pipe,
++			 i2400m->bm_ack_buf, I2400M_BM_ACK_BUF_SIZE,
++			 __i2400mu_bm_notif_cb, completion,
++			 epd->bInterval);
++	return usb_submit_urb(urb, GFP_KERNEL);
++}
++
++
++/*
++ * Read an ack from  the notification endpoint
++ *
++ * @i2400m:
++ * @_ack: pointer to where to store the read data
++ * @ack_size: how many bytes we should read
++ *
++ * Returns: < 0 errno code on error; otherwise, amount of received bytes.
++ *
++ * Submits a notification read, appends the read data to the given ack
++ * buffer and then repeats (until @ack_size bytes have been
++ * received).
++ */
++ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *i2400m,
++				    struct i2400m_bootrom_header *_ack,
++				    size_t ack_size)
++{
++	ssize_t result = -ENOMEM;
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct urb notif_urb;
++	void *ack = _ack;
++	size_t offset, len;
++	long val;
++	int do_autopm = 1;
++	DECLARE_COMPLETION_ONSTACK(notif_completion);
++
++	d_fnstart(8, dev, "(i2400m %p ack %p size %zu)\n",
++		  i2400m, ack, ack_size);
++	BUG_ON(_ack == i2400m->bm_ack_buf);
++	result = usb_autopm_get_interface(i2400mu->usb_iface);
++	if (result < 0) {
++		dev_err(dev, "BM-ACK: can't get autopm: %d\n", (int) result);
++		do_autopm = 0;
++	}
++	usb_init_urb(&notif_urb);	/* ready notifications */
++	usb_get_urb(&notif_urb);
++	offset = 0;
++	while (offset < ack_size) {
++		init_completion(&notif_completion);
++		result = i2400mu_notif_submit(i2400mu, &notif_urb,
++					      &notif_completion);
++		if (result < 0)
++			goto error_notif_urb_submit;
++		val = wait_for_completion_interruptible_timeout(
++			&notif_completion, HZ);
++		if (val == 0) {
++			result = -ETIMEDOUT;
++			usb_kill_urb(&notif_urb);	/* Timedout */
++			goto error_notif_wait;
++		}
++		if (val == -ERESTARTSYS) {
++			result = -EINTR;		/* Interrupted */
++			usb_kill_urb(&notif_urb);
++			goto error_notif_wait;
++		}
++		result = notif_urb.status;		/* How was the ack? */
++		switch (result) {
++		case 0:
++			break;
++		case -EINVAL:			/* while removing driver */
++		case -ENODEV:			/* dev disconnect ... */
++		case -ENOENT:			/* just ignore it */
++		case -ESHUTDOWN:		/* and exit */
++		case -ECONNRESET:
++			result = -ESHUTDOWN;
++			goto error_dev_gone;
++		default:				/* any other? */
++			usb_kill_urb(&notif_urb);	/* Timedout */
++			if (edc_inc(&i2400mu->urb_edc,
++				    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME))
++				goto error_exceeded;
++			dev_err(dev, "BM-ACK: URB error %d, "
++				"retrying\n", notif_urb.status);
++			continue;	/* retry */
++		}
++		if (notif_urb.actual_length == 0) {
++			d_printf(6, dev, "ZLP received, retrying\n");
++			continue;
++		}
++		/* Got data, append it to the buffer */
++		len = min(ack_size - offset, (size_t) notif_urb.actual_length);
++		memcpy(ack + offset, i2400m->bm_ack_buf, len);
++		offset += len;
++	}
++	result = offset;
++error_notif_urb_submit:
++error_notif_wait:
++error_dev_gone:
++out:
++	if (do_autopm)
++		usb_autopm_put_interface(i2400mu->usb_iface);
++	d_fnend(8, dev, "(i2400m %p ack %p size %zu) = %zd\n",
++		i2400m, ack, ack_size, result);
++	return result;
++
++error_exceeded:
++	dev_err(dev, "bm: maximum errors in notification URB exceeded; "
++		"resetting device\n");
++	usb_queue_reset_device(i2400mu->usb_iface);
++	goto out;
++}
 -- 
 1.5.6.5
 
