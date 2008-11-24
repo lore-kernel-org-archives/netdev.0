@@ -1,68 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: bridge 03/03: netfilter: fix update_pmtu crash with GRE
-Date: Mon, 24 Nov 2008 14:44:39 +0100 (MET)
-Message-ID: <20081124134431.462.53634.sendpatchset@x2.localnet>
-References: <20081124134427.462.77824.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2] pkt_sched: sch_drr: Fix drr_dequeue() loop
+Date: Mon, 24 Nov 2008 13:45:16 +0000
+Message-ID: <20081124134516.GD16755@ff.dom.local>
+References: <20081120113557.GA5275@ff.dom.local> <49254D42.10506@trash.net> <20081124105345.GB13957@ff.dom.local> <492A9ACB.4050504@trash.net> <20081124123349.GA16755@ff.dom.local> <492AA058.9060302@trash.net> <20081124125150.GB16755@ff.dom.local> <492AA96C.6000807@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63759 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133AbYKXNol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 08:44:41 -0500
-In-Reply-To: <20081124134427.462.77824.sendpatchset@x2.localnet>
+Received: from ik-out-1112.google.com ([66.249.90.183]:57079 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752133AbYKXNpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 08:45:22 -0500
+Received: by ik-out-1112.google.com with SMTP id c29so1641645ika.5
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 05:45:20 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <492AA96C.6000807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 1e8768f064c00a4fbb42e87bc42b371bd9ca01c0
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Mon Nov 24 13:31:14 2008 +0100
+On Mon, Nov 24, 2008 at 02:17:32PM +0100, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> On Mon, Nov 24, 2008 at 01:38:48PM +0100, Patrick McHardy wrote:
+>> ...
+>>> TBF with an inner DRR is fine. The other way around is broken
+>>> in the sense that the behaviour is undefined.
+>>
+>> IMHO, this other way (e.g. a class with TBF per user), should work too.
+>
+> The behaviour undefined, so what does "work too" mean in this context?
+>
+> The main question is: what should be done with the class when it
+> throttles?
+>
+> You suggest moving it to the end of the active list. Should its deficit
+> be recharged in that case? Possible no because it didn't send packets -
+> but then again it might have handed out *some* packets (less than the
+> deficit) before it started throttling. Both ways would introduce
+> unfairness.
+>
+> What could be done without harming the algorithm is to treat throttled
+> classes as inactive until they become unthrottled again, meaning they
+> would be added to the end of the active list with a full deficit. But
+> we have no indication for specific classes, unthrottling simply triggers
+> another dequeue of the root, so the implementation would get quite
+> complicated, leaving alone the fact that each TBF would potentially
+> start its own watchdog, causing excessive wakeups.
+>
+> And I don't see much use for this, what is the advantage over using
+> HTB or HFSC?
 
-    bridge: netfilter: fix update_pmtu crash with GRE
-    
-    As GRE tries to call the update_pmtu function on skb->dst and
-    bridge supplies an skb->dst that has a NULL ops field, all is
-    not well.
-    
-    This patch fixes this by giving the bridge device an ops field
-    with an update_pmtu function.  For the moment I've left all
-    other fields blank but we can fill them in later should the
-    need arise.
-    
-    Based on report and patch by Philip Craig.
-    
-    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Probably no advantage, if you now these things... or for testing. But
+I like to give users a choice, at least if it's not obviously wrong.
+Of course, if you think this harms the proper configs with too much
+overhead, then there is no question we should forget about this.
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index fa5cda4..45f61c3 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -101,6 +101,18 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
- 	 pppoe_proto(skb) == htons(PPP_IPV6) && \
- 	 brnf_filter_pppoe_tagged)
- 
-+static void fake_update_pmtu(struct dst_entry *dst, u32 mtu)
-+{
-+}
-+
-+static struct dst_ops fake_dst_ops = {
-+	.family =		AF_INET,
-+	.protocol =		__constant_htons(ETH_P_IP),
-+	.update_pmtu =		fake_update_pmtu,
-+	.entry_size =		sizeof(struct rtable),
-+	.entries =		ATOMIC_INIT(0),
-+};
-+
- /*
-  * Initialize bogus route table used to keep netfilter happy.
-  * Currently, we fill in the PMTU entry because netfilter
-@@ -117,6 +129,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
- 	rt->u.dst.path = &rt->u.dst;
- 	rt->u.dst.metrics[RTAX_MTU - 1] = 1500;
- 	rt->u.dst.flags	= DST_NOXFRM;
-+	rt->u.dst.ops = &fake_dst_ops;
- }
- 
- static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
+Jarek P.
