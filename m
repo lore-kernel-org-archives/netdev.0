@@ -1,43 +1,38 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] net: avoid a pair of dst_hold()/dst_release() in ip_append_data()
-Date: Tue, 25 Nov 2008 03:22:32 +0100
-Message-ID: <20081125022232.GE6703@one.firstfloor.org>
-References: <87y6z9h33h.fsf@basil.nowhere.org> <492A7E85.3060502@cosmosbay.com> <492A8F05.3080509@cosmosbay.com> <20081124.155531.135918197.davem@davemloft.net>
+From: "Kay Sievers" <kay.sievers@vrfy.org>
+Subject: Re: [PATCH] netdev: generate kobject uevent on network state transitions
+Date: Tue, 25 Nov 2008 04:08:32 +0100
+Message-ID: <ac3eb2510811241908w3d8db29ai7e2ff98d4f8f6edd@mail.gmail.com>
+References: <20081121234110.22b47154@extreme>
+	 <ac3eb2510811220608y33662b0bkb66026c2a21b061e@mail.gmail.com>
+	 <F6B63A37-A69F-4197-B7E5-C9FD9BFA76F6@holtmann.org>
+	 <20081122223249.4be03e4e@extreme>
+	 <ac3eb2510811230813s3cb5c248k1e15d9ece581c8ad@mail.gmail.com>
+	 <20081124114522.1e8de3fe@extreme> <1227557174.3162.7.camel@achroite>
+	 <20081124150347.73050f98@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dada1@cosmosbay.com, andi@firstfloor.org, netdev@vger.kernel.org,
-	minyard@acm.org, christian@myri.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:41540 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752522AbYKYCMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 21:12:19 -0500
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Marcel Holtmann" <marcel@holtmann.org>,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20081124150347.73050f98@extreme>
 Content-Disposition: inline
-In-Reply-To: <20081124.155531.135918197.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Thinking more I believe we can do similar tricks for all TCP
-> transmit traffic.
+On Tue, Nov 25, 2008 at 00:03, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> It is easier for some applications to deal with text based interfaces
+> like uevent, rather than using netlink to listen for events.
+>
+> Note, this does not deal with network namespaces but that is a generic
+> problem that already exists with kobjects (see rename events).
+>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Sounds reasonable.
+Works fine here.
 
-> 
-> Packets bound to sockets never outlive those sockets (and thus
-> their cached routes) unless we skb_orphan().
-> 
-> The only not covered case is where the socket cached route
-> is reset or changed.  We could defer the dst put until the
-> transmit queue reaches a certain point, kind of like a retransmit
-> queue RCU :-)
-> 
-> Just some ideas...
-
-netfilter makes it somewhat tricky, for compatibility you would
-need to reclone the route on the fly.
-
--Andi
-
--- 
-ak@linux.intel.com
+Thanks,
+Kay
