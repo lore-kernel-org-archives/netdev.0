@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 35/53] netns xfrm: xfrm_policy_check in netns
-Date: Tue, 25 Nov 2008 20:27:07 +0300
-Message-ID: <1227634045-27534-35-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 39/53] netns xfrm: xfrm_input() fixup
+Date: Tue, 25 Nov 2008 20:27:11 +0300
+Message-ID: <1227634045-27534-39-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -36,76 +36,51 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-32-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-33-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-34-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-35-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-36-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-37-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-38-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:41378 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbYKYRZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:05 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so23508eyi.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:02 -0800 (PST)
-In-Reply-To: <1227634045-27534-34-git-send-email-adobriyan@gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.190]:3932 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754310AbYKYRZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:14 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so28136nfc.21
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:14 -0800 (PST)
+In-Reply-To: <1227634045-27534-38-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/xfrm.h     |    3 ++-
- net/xfrm/xfrm_policy.c |    5 +++--
- 2 files changed, 5 insertions(+), 3 deletions(-)
+ net/xfrm/xfrm_input.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 1dc4ff0..158848f 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -992,12 +992,13 @@ static inline int __xfrm_policy_check2(struct sock *sk, int dir,
- 				       struct sk_buff *skb,
- 				       unsigned int family, int reverse)
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index c08a93e..a714dce 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -104,6 +104,7 @@ EXPORT_SYMBOL(xfrm_prepare_input);
+ 
+ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
  {
 +	struct net *net = dev_net(skb->dev);
- 	int ndir = dir | (reverse ? XFRM_POLICY_MASK + 1 : 0);
+ 	int err;
+ 	__be32 seq;
+ 	struct xfrm_state *x;
+@@ -151,7 +152,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 			goto drop;
+ 		}
  
- 	if (sk && sk->sk_policy[XFRM_POLICY_IN])
- 		return __xfrm_policy_check(sk, ndir, skb, family);
- 
--	return	(!init_net.xfrm.policy_count[dir] && !skb->sp) ||
-+	return	(!net->xfrm.policy_count[dir] && !skb->sp) ||
- 		(skb->dst->flags & DST_NOPOLICY) ||
- 		__xfrm_policy_check(sk, ndir, skb, family);
- }
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 7c88a25..8097c99 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1894,6 +1894,7 @@ static inline int secpath_has_nontransport(struct sec_path *sp, int k, int *idxp
- int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 			unsigned short family)
- {
-+	struct net *net = dev_net(skb->dev);
- 	struct xfrm_policy *pol;
- 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
- 	int npols = 0;
-@@ -1938,7 +1939,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 	}
- 
- 	if (!pol)
--		pol = flow_cache_lookup(&init_net, &fl, family, fl_dir,
-+		pol = flow_cache_lookup(net, &fl, family, fl_dir,
- 					xfrm_policy_lookup);
- 
- 	if (IS_ERR(pol)) {
-@@ -1961,7 +1962,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 	npols ++;
- #ifdef CONFIG_XFRM_SUB_POLICY
- 	if (pols[0]->type != XFRM_POLICY_TYPE_MAIN) {
--		pols[1] = xfrm_policy_lookup_bytype(&init_net, XFRM_POLICY_TYPE_MAIN,
-+		pols[1] = xfrm_policy_lookup_bytype(net, XFRM_POLICY_TYPE_MAIN,
- 						    &fl, family,
- 						    XFRM_POLICY_IN);
- 		if (pols[1]) {
+-		x = xfrm_state_lookup(&init_net, daddr, spi, nexthdr, family);
++		x = xfrm_state_lookup(net, daddr, spi, nexthdr, family);
+ 		if (x == NULL) {
+ 			XFRM_INC_STATS(LINUX_MIB_XFRMINNOSTATES);
+ 			xfrm_audit_state_notfound(skb, family, spi, seq);
 -- 
 1.5.6.5
 
