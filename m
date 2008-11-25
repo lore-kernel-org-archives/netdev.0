@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 10/53] netns xfrm: per-netns xfrm_hash_work
-Date: Tue, 25 Nov 2008 20:26:42 +0300
-Message-ID: <1227634045-27534-10-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 45/53] netns xfrm: ->get_saddr in netns
+Date: Tue, 25 Nov 2008 20:27:17 +0300
+Message-ID: <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -11,139 +11,156 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-7-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-8-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-9-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-10-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-11-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-12-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-13-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-14-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-15-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-16-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-17-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-18-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-19-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-20-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-21-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-22-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-23-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-24-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-25-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-26-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-27-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-28-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-29-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-30-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-31-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-32-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-33-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-34-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-35-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-36-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-37-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-38-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-39-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-40-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-41-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-42-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-43-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:28929 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753842AbYKYRXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:23:55 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1144223ugf.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:23:54 -0800 (PST)
-In-Reply-To: <1227634045-27534-9-git-send-email-adobriyan@gmail.com>
+Received: from ey-out-2122.google.com ([74.125.78.24]:40948 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753129AbYKYRZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:30 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so23228eyi.37
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:29 -0800 (PST)
+In-Reply-To: <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All of this is implicit passing which netns's hashes should be resized.
-
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/netns/xfrm.h |    2 ++
- net/xfrm/xfrm_state.c    |   35 +++++++++++++++++------------------
- 2 files changed, 19 insertions(+), 18 deletions(-)
+ include/net/xfrm.h      |    2 +-
+ net/ipv4/xfrm4_policy.c |    5 +++--
+ net/ipv6/xfrm6_policy.c |    5 +++--
+ net/xfrm/xfrm_policy.c  |    7 ++++---
+ 4 files changed, 11 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 492b471..bd68802 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -2,6 +2,7 @@
- #define __NETNS_XFRM_H
- 
- #include <linux/list.h>
-+#include <linux/workqueue.h>
- 
- struct netns_xfrm {
- 	struct list_head	state_all;
-@@ -18,6 +19,7 @@ struct netns_xfrm {
- 	struct hlist_head	*state_byspi;
- 	unsigned int		state_hmask;
- 	unsigned int		state_num;
-+	struct work_struct	state_hash_work;
- };
- 
- #endif
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 7ecf6ee..1b2a72c 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -109,16 +109,16 @@ static void xfrm_hash_transfer(struct hlist_head *list,
- 	}
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index b16d4c0..d076f3d 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -269,7 +269,7 @@ struct xfrm_policy_afinfo {
+ 	struct dst_entry	*(*dst_lookup)(struct net *net, int tos,
+ 					       xfrm_address_t *saddr,
+ 					       xfrm_address_t *daddr);
+-	int			(*get_saddr)(xfrm_address_t *saddr, xfrm_address_t *daddr);
++	int			(*get_saddr)(struct net *net, xfrm_address_t *saddr, xfrm_address_t *daddr);
+ 	struct dst_entry	*(*find_bundle)(struct flowi *fl, struct xfrm_policy *policy);
+ 	void			(*decode_session)(struct sk_buff *skb,
+ 						  struct flowi *fl,
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index e1cf9ed..2ad24ba 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -44,12 +44,13 @@ static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
+ 	return dst;
  }
  
--static unsigned long xfrm_hash_new_size(void)
-+static unsigned long xfrm_hash_new_size(unsigned int state_hmask)
+-static int xfrm4_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
++static int xfrm4_get_saddr(struct net *net,
++			   xfrm_address_t *saddr, xfrm_address_t *daddr)
  {
--	return ((init_net.xfrm.state_hmask + 1) << 1) *
--		sizeof(struct hlist_head);
-+	return ((state_hmask + 1) << 1) * sizeof(struct hlist_head);
+ 	struct dst_entry *dst;
+ 	struct rtable *rt;
+ 
+-	dst = xfrm4_dst_lookup(&init_net, 0, NULL, daddr);
++	dst = xfrm4_dst_lookup(net, 0, NULL, daddr);
+ 	if (IS_ERR(dst))
+ 		return -EHOSTUNREACH;
+ 
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index d7a5b8b..97ab068 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -50,12 +50,13 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
+ 	return dst;
  }
  
- static DEFINE_MUTEX(hash_resize_mutex);
- 
--static void xfrm_hash_resize(struct work_struct *__unused)
-+static void xfrm_hash_resize(struct work_struct *work)
+-static int xfrm6_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
++static int xfrm6_get_saddr(struct net *net,
++			   xfrm_address_t *saddr, xfrm_address_t *daddr)
  {
-+	struct net *net = container_of(work, struct net, xfrm.state_hash_work);
- 	struct hlist_head *ndst, *nsrc, *nspi, *odst, *osrc, *ospi;
- 	unsigned long nsize, osize;
- 	unsigned int nhashmask, ohashmask;
-@@ -126,7 +126,7 @@ static void xfrm_hash_resize(struct work_struct *__unused)
+ 	struct dst_entry *dst;
+ 	struct net_device *dev;
  
- 	mutex_lock(&hash_resize_mutex);
+-	dst = xfrm6_dst_lookup(&init_net, 0, NULL, daddr);
++	dst = xfrm6_dst_lookup(net, 0, NULL, daddr);
+ 	if (IS_ERR(dst))
+ 		return -EHOSTUNREACH;
  
--	nsize = xfrm_hash_new_size();
-+	nsize = xfrm_hash_new_size(net->xfrm.state_hmask);
- 	ndst = xfrm_hash_alloc(nsize);
- 	if (!ndst)
- 		goto out_unlock;
-@@ -145,19 +145,19 @@ static void xfrm_hash_resize(struct work_struct *__unused)
- 	spin_lock_bh(&xfrm_state_lock);
- 
- 	nhashmask = (nsize / sizeof(struct hlist_head)) - 1U;
--	for (i = init_net.xfrm.state_hmask; i >= 0; i--)
--		xfrm_hash_transfer(init_net.xfrm.state_bydst+i, ndst, nsrc, nspi,
-+	for (i = net->xfrm.state_hmask; i >= 0; i--)
-+		xfrm_hash_transfer(net->xfrm.state_bydst+i, ndst, nsrc, nspi,
- 				   nhashmask);
- 
--	odst = init_net.xfrm.state_bydst;
--	osrc = init_net.xfrm.state_bysrc;
--	ospi = init_net.xfrm.state_byspi;
--	ohashmask = init_net.xfrm.state_hmask;
-+	odst = net->xfrm.state_bydst;
-+	osrc = net->xfrm.state_bysrc;
-+	ospi = net->xfrm.state_byspi;
-+	ohashmask = net->xfrm.state_hmask;
- 
--	init_net.xfrm.state_bydst = ndst;
--	init_net.xfrm.state_bysrc = nsrc;
--	init_net.xfrm.state_byspi = nspi;
--	init_net.xfrm.state_hmask = nhashmask;
-+	net->xfrm.state_bydst = ndst;
-+	net->xfrm.state_bysrc = nsrc;
-+	net->xfrm.state_byspi = nspi;
-+	net->xfrm.state_hmask = nhashmask;
- 
- 	spin_unlock_bh(&xfrm_state_lock);
- 
-@@ -170,8 +170,6 @@ out_unlock:
- 	mutex_unlock(&hash_resize_mutex);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 2b0a80b..7c7bb54 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1187,7 +1187,7 @@ int __xfrm_sk_clone_policy(struct sock *sk)
  }
  
--static DECLARE_WORK(xfrm_hash_work, xfrm_hash_resize);
--
- DECLARE_WAIT_QUEUE_HEAD(km_waitq);
- EXPORT_SYMBOL(km_waitq);
+ static int
+-xfrm_get_saddr(xfrm_address_t *local, xfrm_address_t *remote,
++xfrm_get_saddr(struct net *net, xfrm_address_t *local, xfrm_address_t *remote,
+ 	       unsigned short family)
+ {
+ 	int err;
+@@ -1195,7 +1195,7 @@ xfrm_get_saddr(xfrm_address_t *local, xfrm_address_t *remote,
  
-@@ -754,7 +752,7 @@ static void xfrm_hash_grow_check(int have_hash_collision)
- 	if (have_hash_collision &&
- 	    (init_net.xfrm.state_hmask + 1) < xfrm_state_hashmax &&
- 	    init_net.xfrm.state_num > init_net.xfrm.state_hmask)
--		schedule_work(&xfrm_hash_work);
-+		schedule_work(&init_net.xfrm.state_hash_work);
+ 	if (unlikely(afinfo == NULL))
+ 		return -EINVAL;
+-	err = afinfo->get_saddr(local, remote);
++	err = afinfo->get_saddr(net, local, remote);
+ 	xfrm_policy_put_afinfo(afinfo);
+ 	return err;
  }
- 
- struct xfrm_state *
-@@ -2089,6 +2087,7 @@ int __net_init xfrm_state_init(struct net *net)
- 	net->xfrm.state_hmask = ((sz / sizeof(struct hlist_head)) - 1);
- 
- 	net->xfrm.state_num = 0;
-+	INIT_WORK(&net->xfrm.state_hash_work, xfrm_hash_resize);
- 	INIT_WORK(&xfrm_state_gc_work, xfrm_state_gc_task);
- 	return 0;
- 
+@@ -1207,6 +1207,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, struct flowi *fl,
+ 		      struct xfrm_state **xfrm,
+ 		      unsigned short family)
+ {
++	struct net *net = xp_net(policy);
+ 	int nx;
+ 	int i, error;
+ 	xfrm_address_t *daddr = xfrm_flowi_daddr(fl, family);
+@@ -1225,7 +1226,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, struct flowi *fl,
+ 			local = &tmpl->saddr;
+ 			family = tmpl->encap_family;
+ 			if (xfrm_addr_any(local, family)) {
+-				error = xfrm_get_saddr(&tmp, remote, family);
++				error = xfrm_get_saddr(net, &tmp, remote, family);
+ 				if (error)
+ 					goto fail;
+ 				local = &tmp;
 -- 
 1.5.6.5
 
