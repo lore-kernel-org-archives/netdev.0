@@ -1,226 +1,296 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 19/53] netns xfrm: per-netns xfrm_policy_bydst hash
-Date: Tue, 25 Nov 2008 20:26:51 +0300
-Message-ID: <1227634045-27534-19-git-send-email-adobriyan@gmail.com>
-References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-4-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-5-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-6-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-7-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-8-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-9-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-10-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-11-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-12-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-13-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-14-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-15-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-16-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-17-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-18-git-send-email-adobriyan@gmail.com>
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1b/2] tc: check for errors in gen_rate_estimator creation
+Date: Tue, 25 Nov 2008 10:58:50 -0800
+Message-ID: <20081125105850.7aa30a3d@extreme>
+References: <20081125101656.52348bdd@extreme>
+	<492C43DF.1040703@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.176]:41399 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287AbYKYS5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 13:57:15 -0500
-Received: by ik-out-1112.google.com with SMTP id c29so81529ika.5
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 10:57:13 -0800 (PST)
-In-Reply-To: <1227634045-27534-18-git-send-email-adobriyan@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:49008 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750823AbYKYS6x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2008 13:58:53 -0500
+In-Reply-To: <492C43DF.1040703@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
- include/net/netns/xfrm.h |    6 +++++
- net/xfrm/xfrm_policy.c   |   57 ++++++++++++++++++++++++++-------------------
- 2 files changed, 39 insertions(+), 24 deletions(-)
+The functions gen_new_estimator and gen_replace_estimator can return errors,
+but they were being ignored.
 
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index c756831..39cfa79 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -6,6 +6,11 @@
- #include <linux/workqueue.h>
- #include <linux/xfrm.h>
- 
-+struct xfrm_policy_hash {
-+	struct hlist_head	*table;
-+	unsigned int		hmask;
-+};
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
+---
+ net/sched/act_police.c |   25 +++++++++++++++++--------
+ net/sched/sch_api.c    |   12 ++++++++----
+ net/sched/sch_cbq.c    |   33 ++++++++++++++++++++++++---------
+ net/sched/sch_drr.c    |   26 ++++++++++++++++++--------
+ net/sched/sch_hfsc.c   |   12 ++++++++----
+ net/sched/sch_htb.c    |   22 +++++++++++++++-------
+ 6 files changed, 90 insertions(+), 40 deletions(-)
+
+--- a/net/sched/act_police.c	2008-11-25 10:51:47.000000000 -0800
++++ b/net/sched/act_police.c	2008-11-25 10:54:16.000000000 -0800
+@@ -185,14 +185,21 @@ override:
+ 		if (parm->peakrate.rate) {
+ 			P_tab = qdisc_get_rtab(&parm->peakrate,
+ 					       tb[TCA_POLICE_PEAKRATE]);
+-			if (P_tab == NULL) {
+-				qdisc_put_rtab(R_tab);
++			if (P_tab == NULL)
+ 				goto failure;
+-			}
+ 		}
+ 	}
+-	/* No failure allowed after this point */
 +
- struct netns_xfrm {
- 	struct list_head	state_all;
- 	/*
-@@ -31,6 +36,7 @@ struct netns_xfrm {
- 	struct hlist_head	*policy_byidx;
- 	unsigned int		policy_idx_hmask;
- 	struct hlist_head	policy_inexact[XFRM_POLICY_MAX * 2];
-+	struct xfrm_policy_hash	policy_bydst[XFRM_POLICY_MAX * 2];
- };
+ 	spin_lock_bh(&police->tcf_lock);
++	if (est) {
++		err = gen_replace_estimator(&police->tcf_bstats,
++					    &police->tcf_rate_est,
++					    &police->tcf_lock, est);
++		if (err)
++			goto failure_unlock;
++	}
++
++	/* No failure allowed after this point */
+ 	if (R_tab != NULL) {
+ 		qdisc_put_rtab(police->tcfp_R_tab);
+ 		police->tcfp_R_tab = R_tab;
+@@ -217,10 +224,6 @@ override:
  
- #endif
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index ba4e95b..929b2fd 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -322,12 +322,6 @@ static void xfrm_policy_kill(struct xfrm_policy *policy)
- 	schedule_work(&xfrm_policy_gc_work);
- }
+ 	if (tb[TCA_POLICE_AVRATE])
+ 		police->tcfp_ewma_rate = nla_get_u32(tb[TCA_POLICE_AVRATE]);
+-	if (est)
+-		gen_replace_estimator(&police->tcf_bstats,
+-				      &police->tcf_rate_est,
+-				      &police->tcf_lock, est);
  
--struct xfrm_policy_hash {
--	struct hlist_head	*table;
--	unsigned int		hmask;
--};
--
--static struct xfrm_policy_hash xfrm_policy_bydst[XFRM_POLICY_MAX*2] __read_mostly;
- static unsigned int xfrm_policy_hashmax __read_mostly = 1 * 1024 * 1024;
+ 	spin_unlock_bh(&police->tcf_lock);
+ 	if (ret != ACT_P_CREATED)
+@@ -238,7 +241,13 @@ override:
+ 	a->priv = police;
+ 	return ret;
  
- static inline unsigned int idx_hash(u32 index)
-@@ -337,20 +331,20 @@ static inline unsigned int idx_hash(u32 index)
- 
- static struct hlist_head *policy_hash_bysel(struct xfrm_selector *sel, unsigned short family, int dir)
- {
--	unsigned int hmask = xfrm_policy_bydst[dir].hmask;
-+	unsigned int hmask = init_net.xfrm.policy_bydst[dir].hmask;
- 	unsigned int hash = __sel_hash(sel, family, hmask);
- 
- 	return (hash == hmask + 1 ?
- 		&init_net.xfrm.policy_inexact[dir] :
--		xfrm_policy_bydst[dir].table + hash);
-+		init_net.xfrm.policy_bydst[dir].table + hash);
- }
- 
- static struct hlist_head *policy_hash_direct(xfrm_address_t *daddr, xfrm_address_t *saddr, unsigned short family, int dir)
- {
--	unsigned int hmask = xfrm_policy_bydst[dir].hmask;
-+	unsigned int hmask = init_net.xfrm.policy_bydst[dir].hmask;
- 	unsigned int hash = __addr_hash(daddr, saddr, family, hmask);
- 
--	return xfrm_policy_bydst[dir].table + hash;
-+	return init_net.xfrm.policy_bydst[dir].table + hash;
- }
- 
- static void xfrm_dst_hash_transfer(struct hlist_head *list,
-@@ -407,10 +401,10 @@ static unsigned long xfrm_new_hash_mask(unsigned int old_hmask)
- 
- static void xfrm_bydst_resize(int dir)
- {
--	unsigned int hmask = xfrm_policy_bydst[dir].hmask;
-+	unsigned int hmask = init_net.xfrm.policy_bydst[dir].hmask;
- 	unsigned int nhashmask = xfrm_new_hash_mask(hmask);
- 	unsigned int nsize = (nhashmask + 1) * sizeof(struct hlist_head);
--	struct hlist_head *odst = xfrm_policy_bydst[dir].table;
-+	struct hlist_head *odst = init_net.xfrm.policy_bydst[dir].table;
- 	struct hlist_head *ndst = xfrm_hash_alloc(nsize);
- 	int i;
- 
-@@ -422,8 +416,8 @@ static void xfrm_bydst_resize(int dir)
- 	for (i = hmask; i >= 0; i--)
- 		xfrm_dst_hash_transfer(odst + i, ndst, nhashmask);
- 
--	xfrm_policy_bydst[dir].table = ndst;
--	xfrm_policy_bydst[dir].hmask = nhashmask;
-+	init_net.xfrm.policy_bydst[dir].table = ndst;
-+	init_net.xfrm.policy_bydst[dir].hmask = nhashmask;
- 
- 	write_unlock_bh(&xfrm_policy_lock);
- 
-@@ -458,7 +452,7 @@ static void xfrm_byidx_resize(int total)
- static inline int xfrm_bydst_should_resize(int dir, int *total)
- {
- 	unsigned int cnt = xfrm_policy_count[dir];
--	unsigned int hmask = xfrm_policy_bydst[dir].hmask;
-+	unsigned int hmask = init_net.xfrm.policy_bydst[dir].hmask;
- 
- 	if (total)
- 		*total += cnt;
-@@ -763,9 +757,9 @@ xfrm_policy_flush_secctx_check(u8 type, struct xfrm_audit *audit_info)
- 				return err;
- 			}
- 		}
--		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
-+		for (i = init_net.xfrm.policy_bydst[dir].hmask; i >= 0; i--) {
- 			hlist_for_each_entry(pol, entry,
--					     xfrm_policy_bydst[dir].table + i,
-+					     init_net.xfrm.policy_bydst[dir].table + i,
- 					     bydst) {
- 				if (pol->type != type)
- 					continue;
-@@ -827,10 +821,10 @@ int xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info)
- 			goto again1;
- 		}
- 
--		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
-+		for (i = init_net.xfrm.policy_bydst[dir].hmask; i >= 0; i--) {
- 	again2:
- 			hlist_for_each_entry(pol, entry,
--					     xfrm_policy_bydst[dir].table + i,
-+					     init_net.xfrm.policy_bydst[dir].table + i,
- 					     bydst) {
- 				if (pol->type != type)
- 					continue;
-@@ -2154,8 +2148,8 @@ static void xfrm_prune_bundles(int (*func)(struct dst_entry *))
- 				     &init_net.xfrm.policy_inexact[dir], bydst)
- 			prune_one_bundle(pol, func, &gc_list);
- 
--		table = xfrm_policy_bydst[dir].table;
--		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
-+		table = init_net.xfrm.policy_bydst[dir].table;
-+		for (i = init_net.xfrm.policy_bydst[dir].hmask; i >= 0; i--) {
- 			hlist_for_each_entry(pol, entry, table + i, bydst)
- 				prune_one_bundle(pol, func, &gc_list);
- 		}
-@@ -2415,11 +2409,11 @@ static int __net_init xfrm_policy_init(struct net *net)
- 
- 		INIT_HLIST_HEAD(&net->xfrm.policy_inexact[dir]);
- 
--		htab = &xfrm_policy_bydst[dir];
-+		htab = &net->xfrm.policy_bydst[dir];
- 		htab->table = xfrm_hash_alloc(sz);
--		htab->hmask = hmask;
- 		if (!htab->table)
--			panic("XFRM: failed to allocate bydst hash\n");
-+			goto out_bydst;
-+		htab->hmask = hmask;
++failure_unlock:
++	spin_unlock_bh(&police->tcf_lock);
+ failure:
++	if (P_tab)
++		qdisc_put_rtab(P_tab);
++	if (R_tab)
++		qdisc_put_rtab(R_tab);
+ 	if (ret == ACT_P_CREATED)
+ 		kfree(police);
+ 	return err;
+--- a/net/sched/sch_api.c	2008-11-25 10:51:47.000000000 -0800
++++ b/net/sched/sch_api.c	2008-11-25 10:54:16.000000000 -0800
+@@ -887,6 +887,14 @@ static int qdisc_change(struct Qdisc *sc
+ 			return err;
  	}
  
- 	INIT_LIST_HEAD(&net->xfrm.policy_all);
-@@ -2427,6 +2421,14 @@ static int __net_init xfrm_policy_init(struct net *net)
- 		register_netdevice_notifier(&xfrm_dev_notifier);
++	if (tca[TCA_RATE]) {
++		err = gen_replace_estimator(&sch->bstats, &sch->rate_est,
++					    qdisc_root_sleeping_lock(sch),
++					    tca[TCA_RATE]);
++		if (err)
++			return err;
++	}
++
+ 	if (tca[TCA_STAB]) {
+ 		stab = qdisc_get_stab(tca[TCA_STAB]);
+ 		if (IS_ERR(stab))
+@@ -896,10 +904,6 @@ static int qdisc_change(struct Qdisc *sc
+ 	qdisc_put_stab(sch->stab);
+ 	sch->stab = stab;
+ 
+-	if (tca[TCA_RATE])
+-		gen_replace_estimator(&sch->bstats, &sch->rate_est,
+-				      qdisc_root_sleeping_lock(sch),
+-				      tca[TCA_RATE]);
+ 	return 0;
+ }
+ 
+--- a/net/sched/sch_cbq.c	2008-11-25 10:51:47.000000000 -0800
++++ b/net/sched/sch_cbq.c	2008-11-25 10:56:15.000000000 -0800
+@@ -1765,11 +1765,23 @@ cbq_change_class(struct Qdisc *sch, u32 
+ 		}
+ 
+ 		if (tb[TCA_CBQ_RATE]) {
+-			rtab = qdisc_get_rtab(nla_data(tb[TCA_CBQ_RATE]), tb[TCA_CBQ_RTAB]);
++			rtab = qdisc_get_rtab(nla_data(tb[TCA_CBQ_RATE]),
++					      tb[TCA_CBQ_RTAB]);
+ 			if (rtab == NULL)
+ 				return -EINVAL;
+ 		}
+ 
++		if (tca[TCA_RATE]) {
++			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
++						    qdisc_root_sleeping_lock(sch),
++						    tca[TCA_RATE]);
++			if (err) {
++				if (rtab)
++					qdisc_put_rtab(rtab);
++				return err;
++			}
++		}
++
+ 		/* Change class parameters */
+ 		sch_tree_lock(sch);
+ 
+@@ -1805,10 +1817,6 @@ cbq_change_class(struct Qdisc *sch, u32 
+ 
+ 		sch_tree_unlock(sch);
+ 
+-		if (tca[TCA_RATE])
+-			gen_replace_estimator(&cl->bstats, &cl->rate_est,
+-					      qdisc_root_sleeping_lock(sch),
+-					      tca[TCA_RATE]);
+ 		return 0;
+ 	}
+ 
+@@ -1855,6 +1863,17 @@ cbq_change_class(struct Qdisc *sch, u32 
+ 	cl = kzalloc(sizeof(*cl), GFP_KERNEL);
+ 	if (cl == NULL)
+ 		goto failure;
++
++	if (tca[TCA_RATE]) {
++		err = gen_new_estimator(&cl->bstats, &cl->rate_est,
++					qdisc_root_sleeping_lock(sch),
++					tca[TCA_RATE]);
++		if (err) {
++			kfree(cl);
++			goto failure;
++		}
++	}
++
+ 	cl->R_tab = rtab;
+ 	rtab = NULL;
+ 	cl->refcnt = 1;
+@@ -1896,10 +1915,6 @@ cbq_change_class(struct Qdisc *sch, u32 
+ 
+ 	qdisc_class_hash_grow(sch, &q->clhash);
+ 
+-	if (tca[TCA_RATE])
+-		gen_new_estimator(&cl->bstats, &cl->rate_est,
+-				  qdisc_root_sleeping_lock(sch), tca[TCA_RATE]);
+-
+ 	*arg = (unsigned long)cl;
  	return 0;
  
-+out_bydst:
-+	for (dir--; dir >= 0; dir--) {
-+		struct xfrm_policy_hash *htab;
-+
-+		htab = &net->xfrm.policy_bydst[dir];
-+		xfrm_hash_free(htab->table, sz);
-+	}
-+	xfrm_hash_free(net->xfrm.policy_byidx, sz);
- out_byidx:
- 	return -ENOMEM;
- }
-@@ -2439,7 +2441,14 @@ static void xfrm_policy_fini(struct net *net)
- 	WARN_ON(!list_empty(&net->xfrm.policy_all));
+--- a/net/sched/sch_drr.c	2008-11-25 10:51:47.000000000 -0800
++++ b/net/sched/sch_drr.c	2008-11-25 10:54:16.000000000 -0800
+@@ -82,15 +82,19 @@ static int drr_change_class(struct Qdisc
+ 		quantum = psched_mtu(qdisc_dev(sch));
  
- 	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
-+		struct xfrm_policy_hash *htab;
+ 	if (cl != NULL) {
++		if (tca[TCA_RATE]) {
++			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
++						    qdisc_root_sleeping_lock(sch),
++						    tca[TCA_RATE]);
++			if (err)
++				return err;
++		}
 +
- 		WARN_ON(!hlist_empty(&net->xfrm.policy_inexact[dir]));
-+
-+		htab = &net->xfrm.policy_bydst[dir];
-+		sz = (htab->hmask + 1);
-+		WARN_ON(!hlist_empty(htab->table));
-+		xfrm_hash_free(htab->table, sz);
+ 		sch_tree_lock(sch);
+ 		if (tb[TCA_DRR_QUANTUM])
+ 			cl->quantum = quantum;
+ 		sch_tree_unlock(sch);
+ 
+-		if (tca[TCA_RATE])
+-			gen_replace_estimator(&cl->bstats, &cl->rate_est,
+-					      qdisc_root_sleeping_lock(sch),
+-					      tca[TCA_RATE]);
+ 		return 0;
  	}
  
- 	sz = (net->xfrm.policy_idx_hmask + 1) * sizeof(struct hlist_head);
--- 
-1.5.6.5
-
+@@ -106,10 +110,16 @@ static int drr_change_class(struct Qdisc
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
+ 
+-	if (tca[TCA_RATE])
+-		gen_replace_estimator(&cl->bstats, &cl->rate_est,
+-				      qdisc_root_sleeping_lock(sch),
+-				      tca[TCA_RATE]);
++	if (tca[TCA_RATE]) {
++		err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
++					    qdisc_root_sleeping_lock(sch),
++					    tca[TCA_RATE]);
++		if (err) {
++			qdisc_destroy(cl->qdisc);
++			kfree(cl);
++			return err;
++		}
++	}
+ 
+ 	sch_tree_lock(sch);
+ 	qdisc_class_hash_insert(&q->clhash, &cl->common);
+--- a/net/sched/sch_hfsc.c	2008-11-25 10:51:47.000000000 -0800
++++ b/net/sched/sch_hfsc.c	2008-11-25 10:54:16.000000000 -0800
+@@ -1018,6 +1018,14 @@ hfsc_change_class(struct Qdisc *sch, u32
+ 		}
+ 		cur_time = psched_get_time();
+ 
++		if (tca[TCA_RATE]) {
++			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
++					      qdisc_root_sleeping_lock(sch),
++					      tca[TCA_RATE]);
++			if (err)
++				return err;
++		}
++
+ 		sch_tree_lock(sch);
+ 		if (rsc != NULL)
+ 			hfsc_change_rsc(cl, rsc, cur_time);
+@@ -1034,10 +1042,6 @@ hfsc_change_class(struct Qdisc *sch, u32
+ 		}
+ 		sch_tree_unlock(sch);
+ 
+-		if (tca[TCA_RATE])
+-			gen_replace_estimator(&cl->bstats, &cl->rate_est,
+-					      qdisc_root_sleeping_lock(sch),
+-					      tca[TCA_RATE]);
+ 		return 0;
+ 	}
+ 
+--- a/net/sched/sch_htb.c	2008-11-25 10:51:47.000000000 -0800
++++ b/net/sched/sch_htb.c	2008-11-25 10:54:16.000000000 -0800
+@@ -1332,9 +1332,14 @@ static int htb_change_class(struct Qdisc
+ 		if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
+ 			goto failure;
+ 
+-		gen_new_estimator(&cl->bstats, &cl->rate_est,
+-				  qdisc_root_sleeping_lock(sch),
+-				  tca[TCA_RATE] ? : &est.nla);
++		err = gen_new_estimator(&cl->bstats, &cl->rate_est,
++					qdisc_root_sleeping_lock(sch),
++					tca[TCA_RATE] ? : &est.nla);
++		if (err) {
++			kfree(cl);
++			goto failure;
++		}
++
+ 		cl->refcnt = 1;
+ 		cl->children = 0;
+ 		INIT_LIST_HEAD(&cl->un.leaf.drop_list);
+@@ -1386,10 +1391,13 @@ static int htb_change_class(struct Qdisc
+ 		if (parent)
+ 			parent->children++;
+ 	} else {
+-		if (tca[TCA_RATE])
+-			gen_replace_estimator(&cl->bstats, &cl->rate_est,
+-					      qdisc_root_sleeping_lock(sch),
+-					      tca[TCA_RATE]);
++		if (tca[TCA_RATE]) {
++			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
++						    qdisc_root_sleeping_lock(sch),
++						    tca[TCA_RATE]);
++			if (err)
++				return err;
++		}
+ 		sch_tree_lock(sch);
+ 	}
+ 
