@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1b/2] tc: check for errors in gen_rate_estimator creation
-Date: Tue, 25 Nov 2008 10:58:50 -0800
-Message-ID: <20081125105850.7aa30a3d@extreme>
+Subject: [PATCH 1a/2] tc: propogate errors from tcf_hash_create
+Date: Tue, 25 Nov 2008 10:57:27 -0800
+Message-ID: <20081125105727.56b7efef@extreme>
 References: <20081125101656.52348bdd@extreme>
 	<492C43DF.1040703@trash.net>
 Mime-Version: 1.0
@@ -10,287 +10,155 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49008 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:49057 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750823AbYKYS6x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Nov 2008 13:58:53 -0500
+	id S1751976AbYKYS67 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2008 13:58:59 -0500
 In-Reply-To: <492C43DF.1040703@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The functions gen_new_estimator and gen_replace_estimator can return errors,
-but they were being ignored.
+Allow tcf_hash_create to return different errors on estimator failure.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
 ---
- net/sched/act_police.c |   25 +++++++++++++++++--------
- net/sched/sch_api.c    |   12 ++++++++----
- net/sched/sch_cbq.c    |   33 ++++++++++++++++++++++++---------
- net/sched/sch_drr.c    |   26 ++++++++++++++++++--------
- net/sched/sch_hfsc.c   |   12 ++++++++----
- net/sched/sch_htb.c    |   22 +++++++++++++++-------
- 6 files changed, 90 insertions(+), 40 deletions(-)
+ net/sched/act_api.c     |   18 +++++++++++++-----
+ net/sched/act_gact.c    |    4 ++--
+ net/sched/act_ipt.c     |    4 ++--
+ net/sched/act_mirred.c  |    4 ++--
+ net/sched/act_nat.c     |    4 ++--
+ net/sched/act_pedit.c   |    4 ++--
+ net/sched/act_simple.c  |    4 ++--
+ net/sched/act_skbedit.c |    4 ++--
+ 8 files changed, 27 insertions(+), 19 deletions(-)
 
---- a/net/sched/act_police.c	2008-11-25 10:51:47.000000000 -0800
-+++ b/net/sched/act_police.c	2008-11-25 10:54:16.000000000 -0800
-@@ -185,14 +185,21 @@ override:
- 		if (parm->peakrate.rate) {
- 			P_tab = qdisc_get_rtab(&parm->peakrate,
- 					       tb[TCA_POLICE_PEAKRATE]);
--			if (P_tab == NULL) {
--				qdisc_put_rtab(R_tab);
-+			if (P_tab == NULL)
- 				goto failure;
--			}
- 		}
- 	}
--	/* No failure allowed after this point */
-+
- 	spin_lock_bh(&police->tcf_lock);
-+	if (est) {
-+		err = gen_replace_estimator(&police->tcf_bstats,
-+					    &police->tcf_rate_est,
-+					    &police->tcf_lock, est);
-+		if (err)
-+			goto failure_unlock;
-+	}
-+
-+	/* No failure allowed after this point */
- 	if (R_tab != NULL) {
- 		qdisc_put_rtab(police->tcfp_R_tab);
- 		police->tcfp_R_tab = R_tab;
-@@ -217,10 +224,6 @@ override:
- 
- 	if (tb[TCA_POLICE_AVRATE])
- 		police->tcfp_ewma_rate = nla_get_u32(tb[TCA_POLICE_AVRATE]);
--	if (est)
--		gen_replace_estimator(&police->tcf_bstats,
--				      &police->tcf_rate_est,
--				      &police->tcf_lock, est);
- 
- 	spin_unlock_bh(&police->tcf_lock);
- 	if (ret != ACT_P_CREATED)
-@@ -238,7 +241,13 @@ override:
- 	a->priv = police;
- 	return ret;
- 
-+failure_unlock:
-+	spin_unlock_bh(&police->tcf_lock);
- failure:
-+	if (P_tab)
-+		qdisc_put_rtab(P_tab);
-+	if (R_tab)
-+		qdisc_put_rtab(R_tab);
- 	if (ret == ACT_P_CREATED)
- 		kfree(police);
- 	return err;
---- a/net/sched/sch_api.c	2008-11-25 10:51:47.000000000 -0800
-+++ b/net/sched/sch_api.c	2008-11-25 10:54:16.000000000 -0800
-@@ -887,6 +887,14 @@ static int qdisc_change(struct Qdisc *sc
- 			return err;
- 	}
- 
-+	if (tca[TCA_RATE]) {
-+		err = gen_replace_estimator(&sch->bstats, &sch->rate_est,
-+					    qdisc_root_sleeping_lock(sch),
-+					    tca[TCA_RATE]);
-+		if (err)
-+			return err;
-+	}
-+
- 	if (tca[TCA_STAB]) {
- 		stab = qdisc_get_stab(tca[TCA_STAB]);
- 		if (IS_ERR(stab))
-@@ -896,10 +904,6 @@ static int qdisc_change(struct Qdisc *sc
- 	qdisc_put_stab(sch->stab);
- 	sch->stab = stab;
- 
--	if (tca[TCA_RATE])
--		gen_replace_estimator(&sch->bstats, &sch->rate_est,
--				      qdisc_root_sleeping_lock(sch),
--				      tca[TCA_RATE]);
- 	return 0;
+--- a/net/sched/act_api.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_api.c	2008-11-25 10:50:56.000000000 -0800
+@@ -214,12 +214,14 @@ struct tcf_common *tcf_hash_check(u32 in
  }
+ EXPORT_SYMBOL(tcf_hash_check);
  
---- a/net/sched/sch_cbq.c	2008-11-25 10:51:47.000000000 -0800
-+++ b/net/sched/sch_cbq.c	2008-11-25 10:56:15.000000000 -0800
-@@ -1765,11 +1765,23 @@ cbq_change_class(struct Qdisc *sch, u32 
- 		}
+-struct tcf_common *tcf_hash_create(u32 index, struct nlattr *est, struct tc_action *a, int size, int bind, u32 *idx_gen, struct tcf_hashinfo *hinfo)
++struct tcf_common *tcf_hash_create(u32 index, struct nlattr *est,
++				   struct tc_action *a, int size, int bind,
++				   u32 *idx_gen, struct tcf_hashinfo *hinfo)
+ {
+ 	struct tcf_common *p = kzalloc(size, GFP_KERNEL);
  
- 		if (tb[TCA_CBQ_RATE]) {
--			rtab = qdisc_get_rtab(nla_data(tb[TCA_CBQ_RATE]), tb[TCA_CBQ_RTAB]);
-+			rtab = qdisc_get_rtab(nla_data(tb[TCA_CBQ_RATE]),
-+					      tb[TCA_CBQ_RTAB]);
- 			if (rtab == NULL)
- 				return -EINVAL;
- 		}
- 
-+		if (tca[TCA_RATE]) {
-+			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+						    qdisc_root_sleeping_lock(sch),
-+						    tca[TCA_RATE]);
-+			if (err) {
-+				if (rtab)
-+					qdisc_put_rtab(rtab);
-+				return err;
-+			}
-+		}
-+
- 		/* Change class parameters */
- 		sch_tree_lock(sch);
- 
-@@ -1805,10 +1817,6 @@ cbq_change_class(struct Qdisc *sch, u32 
- 
- 		sch_tree_unlock(sch);
- 
--		if (tca[TCA_RATE])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
--					      qdisc_root_sleeping_lock(sch),
--					      tca[TCA_RATE]);
- 		return 0;
- 	}
- 
-@@ -1855,6 +1863,17 @@ cbq_change_class(struct Qdisc *sch, u32 
- 	cl = kzalloc(sizeof(*cl), GFP_KERNEL);
- 	if (cl == NULL)
- 		goto failure;
-+
-+	if (tca[TCA_RATE]) {
-+		err = gen_new_estimator(&cl->bstats, &cl->rate_est,
-+					qdisc_root_sleeping_lock(sch),
-+					tca[TCA_RATE]);
+ 	if (unlikely(!p))
+-		return p;
++		return ERR_PTR(-ENOMEM);
+ 	p->tcfc_refcnt = 1;
+ 	if (bind)
+ 		p->tcfc_bindcnt = 1;
+@@ -228,9 +230,15 @@ struct tcf_common *tcf_hash_create(u32 i
+ 	p->tcfc_index = index ? index : tcf_hash_new_index(idx_gen, hinfo);
+ 	p->tcfc_tm.install = jiffies;
+ 	p->tcfc_tm.lastuse = jiffies;
+-	if (est)
+-		gen_new_estimator(&p->tcfc_bstats, &p->tcfc_rate_est,
+-				  &p->tcfc_lock, est);
++	if (est) {
++		int err = gen_new_estimator(&p->tcfc_bstats, &p->tcfc_rate_est,
++					    &p->tcfc_lock, est);
 +		if (err) {
-+			kfree(cl);
-+			goto failure;
++			kfree(p);
++			return ERR_PTR(err);
 +		}
 +	}
 +
- 	cl->R_tab = rtab;
- 	rtab = NULL;
- 	cl->refcnt = 1;
-@@ -1896,10 +1915,6 @@ cbq_change_class(struct Qdisc *sch, u32 
- 
- 	qdisc_class_hash_grow(sch, &q->clhash);
- 
--	if (tca[TCA_RATE])
--		gen_new_estimator(&cl->bstats, &cl->rate_est,
--				  qdisc_root_sleeping_lock(sch), tca[TCA_RATE]);
--
- 	*arg = (unsigned long)cl;
- 	return 0;
- 
---- a/net/sched/sch_drr.c	2008-11-25 10:51:47.000000000 -0800
-+++ b/net/sched/sch_drr.c	2008-11-25 10:54:16.000000000 -0800
-@@ -82,15 +82,19 @@ static int drr_change_class(struct Qdisc
- 		quantum = psched_mtu(qdisc_dev(sch));
- 
- 	if (cl != NULL) {
-+		if (tca[TCA_RATE]) {
-+			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+						    qdisc_root_sleeping_lock(sch),
-+						    tca[TCA_RATE]);
-+			if (err)
-+				return err;
-+		}
-+
- 		sch_tree_lock(sch);
- 		if (tb[TCA_DRR_QUANTUM])
- 			cl->quantum = quantum;
- 		sch_tree_unlock(sch);
- 
--		if (tca[TCA_RATE])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
--					      qdisc_root_sleeping_lock(sch),
--					      tca[TCA_RATE]);
- 		return 0;
- 	}
- 
-@@ -106,10 +110,16 @@ static int drr_change_class(struct Qdisc
- 	if (cl->qdisc == NULL)
- 		cl->qdisc = &noop_qdisc;
- 
--	if (tca[TCA_RATE])
--		gen_replace_estimator(&cl->bstats, &cl->rate_est,
--				      qdisc_root_sleeping_lock(sch),
--				      tca[TCA_RATE]);
-+	if (tca[TCA_RATE]) {
-+		err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+					    qdisc_root_sleeping_lock(sch),
-+					    tca[TCA_RATE]);
-+		if (err) {
-+			qdisc_destroy(cl->qdisc);
-+			kfree(cl);
-+			return err;
-+		}
-+	}
- 
- 	sch_tree_lock(sch);
- 	qdisc_class_hash_insert(&q->clhash, &cl->common);
---- a/net/sched/sch_hfsc.c	2008-11-25 10:51:47.000000000 -0800
-+++ b/net/sched/sch_hfsc.c	2008-11-25 10:54:16.000000000 -0800
-@@ -1018,6 +1018,14 @@ hfsc_change_class(struct Qdisc *sch, u32
- 		}
- 		cur_time = psched_get_time();
- 
-+		if (tca[TCA_RATE]) {
-+			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+					      qdisc_root_sleeping_lock(sch),
-+					      tca[TCA_RATE]);
-+			if (err)
-+				return err;
-+		}
-+
- 		sch_tree_lock(sch);
- 		if (rsc != NULL)
- 			hfsc_change_rsc(cl, rsc, cur_time);
-@@ -1034,10 +1042,6 @@ hfsc_change_class(struct Qdisc *sch, u32
- 		}
- 		sch_tree_unlock(sch);
- 
--		if (tca[TCA_RATE])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
--					      qdisc_root_sleeping_lock(sch),
--					      tca[TCA_RATE]);
- 		return 0;
- 	}
- 
---- a/net/sched/sch_htb.c	2008-11-25 10:51:47.000000000 -0800
-+++ b/net/sched/sch_htb.c	2008-11-25 10:54:16.000000000 -0800
-@@ -1332,9 +1332,14 @@ static int htb_change_class(struct Qdisc
- 		if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
- 			goto failure;
- 
--		gen_new_estimator(&cl->bstats, &cl->rate_est,
--				  qdisc_root_sleeping_lock(sch),
--				  tca[TCA_RATE] ? : &est.nla);
-+		err = gen_new_estimator(&cl->bstats, &cl->rate_est,
-+					qdisc_root_sleeping_lock(sch),
-+					tca[TCA_RATE] ? : &est.nla);
-+		if (err) {
-+			kfree(cl);
-+			goto failure;
-+		}
-+
- 		cl->refcnt = 1;
- 		cl->children = 0;
- 		INIT_LIST_HEAD(&cl->un.leaf.drop_list);
-@@ -1386,10 +1391,13 @@ static int htb_change_class(struct Qdisc
- 		if (parent)
- 			parent->children++;
+ 	a->priv = (void *) p;
+ 	return p;
+ }
+--- a/net/sched/act_gact.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_gact.c	2008-11-25 10:52:19.000000000 -0800
+@@ -88,8 +88,8 @@ static int tcf_gact_init(struct nlattr *
+ 	if (!pc) {
+ 		pc = tcf_hash_create(parm->index, est, a, sizeof(*gact),
+ 				     bind, &gact_idx_gen, &gact_hash_info);
+-		if (unlikely(!pc))
+-			return -ENOMEM;
++		if (IS_ERR(pc))
++		    return PTR_ERR(pc);
+ 		ret = ACT_P_CREATED;
  	} else {
--		if (tca[TCA_RATE])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
--					      qdisc_root_sleeping_lock(sch),
--					      tca[TCA_RATE]);
-+		if (tca[TCA_RATE]) {
-+			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+						    qdisc_root_sleeping_lock(sch),
-+						    tca[TCA_RATE]);
-+			if (err)
-+				return err;
-+		}
- 		sch_tree_lock(sch);
- 	}
+ 		if (!ovr) {
+--- a/net/sched/act_ipt.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_ipt.c	2008-11-25 10:52:31.000000000 -0800
+@@ -136,8 +136,8 @@ static int tcf_ipt_init(struct nlattr *n
+ 	if (!pc) {
+ 		pc = tcf_hash_create(index, est, a, sizeof(*ipt), bind,
+ 				     &ipt_idx_gen, &ipt_hash_info);
+-		if (unlikely(!pc))
+-			return -ENOMEM;
++		if (IS_ERR(pc))
++		    return PTR_ERR(pc);
+ 		ret = ACT_P_CREATED;
+ 	} else {
+ 		if (!ovr) {
+--- a/net/sched/act_mirred.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_mirred.c	2008-11-25 10:52:25.000000000 -0800
+@@ -105,8 +105,8 @@ static int tcf_mirred_init(struct nlattr
+ 			return -EINVAL;
+ 		pc = tcf_hash_create(parm->index, est, a, sizeof(*m), bind,
+ 				     &mirred_idx_gen, &mirred_hash_info);
+-		if (unlikely(!pc))
+-			return -ENOMEM;
++		if (IS_ERR(pc))
++		    return PTR_ERR(pc);
+ 		ret = ACT_P_CREATED;
+ 	} else {
+ 		if (!ovr) {
+--- a/net/sched/act_nat.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_nat.c	2008-11-25 10:52:37.000000000 -0800
+@@ -68,8 +68,8 @@ static int tcf_nat_init(struct nlattr *n
+ 	if (!pc) {
+ 		pc = tcf_hash_create(parm->index, est, a, sizeof(*p), bind,
+ 				     &nat_idx_gen, &nat_hash_info);
+-		if (unlikely(!pc))
+-			return -ENOMEM;
++		if (IS_ERR(pc))
++		    return PTR_ERR(pc);
+ 		p = to_tcf_nat(pc);
+ 		ret = ACT_P_CREATED;
+ 	} else {
+--- a/net/sched/act_pedit.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_pedit.c	2008-11-25 10:52:44.000000000 -0800
+@@ -68,8 +68,8 @@ static int tcf_pedit_init(struct nlattr 
+ 			return -EINVAL;
+ 		pc = tcf_hash_create(parm->index, est, a, sizeof(*p), bind,
+ 				     &pedit_idx_gen, &pedit_hash_info);
+-		if (unlikely(!pc))
+-			return -ENOMEM;
++		if (IS_ERR(pc))
++		    return PTR_ERR(pc);
+ 		p = to_pedit(pc);
+ 		keys = kmalloc(ksize, GFP_KERNEL);
+ 		if (keys == NULL) {
+--- a/net/sched/act_simple.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_simple.c	2008-11-25 10:52:51.000000000 -0800
+@@ -124,8 +124,8 @@ static int tcf_simp_init(struct nlattr *
+ 	if (!pc) {
+ 		pc = tcf_hash_create(parm->index, est, a, sizeof(*d), bind,
+ 				     &simp_idx_gen, &simp_hash_info);
+-		if (unlikely(!pc))
+-			return -ENOMEM;
++		if (IS_ERR(pc))
++		    return PTR_ERR(pc);
  
+ 		d = to_defact(pc);
+ 		ret = alloc_defdata(d, defdata);
+--- a/net/sched/act_skbedit.c	2008-11-25 10:47:48.000000000 -0800
++++ b/net/sched/act_skbedit.c	2008-11-25 10:53:11.000000000 -0800
+@@ -104,8 +104,8 @@ static int tcf_skbedit_init(struct nlatt
+ 	if (!pc) {
+ 		pc = tcf_hash_create(parm->index, est, a, sizeof(*d), bind,
+ 				     &skbedit_idx_gen, &skbedit_hash_info);
+-		if (unlikely(!pc))
+-			return -ENOMEM;
++		if (IS_ERR(pc))
++		    return PTR_ERR(pc);
+ 
+ 		d = to_skbedit(pc);
+ 		ret = ACT_P_CREATED;
