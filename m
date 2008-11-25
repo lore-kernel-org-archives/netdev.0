@@ -1,69 +1,60 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH -next/-mm/mainline] net/hp-plus: fix link errors
-Date: Tue, 25 Nov 2008 09:59:52 -0800
-Message-ID: <20081125095952.f25e8286.randy.dunlap@oracle.com>
-References: <20081120211724.09b94026.randy.dunlap@oracle.com>
-	<20081121.163335.255948683.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: make skb_truesize_bug() call WARN()
+Date: Tue, 25 Nov 2008 18:02:19 +0000
+Message-ID: <1227636139.3109.11.camel@achroite>
+References: <20081125083250.2ad7d75d@infradead.org>
+	 <1227631323.3109.7.camel@achroite>  <20081125095432.04d73b01@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com,
-	alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:50712 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168AbYKYSAz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 13:00:55 -0500
-In-Reply-To: <20081121.163335.255948683.davem@davemloft.net>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:37145 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752266AbYKYSC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 13:02:26 -0500
+In-Reply-To: <20081125095432.04d73b01@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Nov 2008 16:33:35 -0800 (PST) David Miller wrote:
+On Tue, 2008-11-25 at 09:54 -0800, Arjan van de Ven wrote:
+> On Tue, 25 Nov 2008 16:42:03 +0000
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+>=20
+> > On Tue, 2008-11-25 at 08:32 -0800, Arjan van de Ven wrote:
+> > > From 97a8ab520c378568e172c555a156b469137a3828 Mon Sep 17 00:00:00
+> > > 2001 From: Arjan van de Ven <arjan@linux.intel.com>
+> > > Date: Tue, 25 Nov 2008 08:30:04 -0800
+> > > Subject: [PATCH] net: make skb_truesize_bug() call WARN()
+> > >=20
+> > > The truesize message check is important enough to make it print
+> > > "BUG" to the user console... lets also make it important enough t=
+o
+> > > spit a backtrace/module list etc so that kerneloops.org can track
+> > > them.
+[...]
+> > =EF=BB=BFThe bug reports I've seen (with my Debian hat on, not rela=
+ting to
+> > sfc) show that configurations that trigger this warning are likely =
+to
+> > trigger many times over and there's nothing the user can do about
+> > it.  So by all means do make the warning more obvious, but please
+> > make it WARN_ON_ONCE and then use printk qualified by net_ratelimit=
+().
+> >=20
+>=20
+> if there's no value in those subsequent printk's.. why not just this?
+[...]
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Thu, 20 Nov 2008 21:17:24 -0800
-> 
-> > Fix hp-plus driver link errors.
-> > Builds as loadable module and kernel image driver.
-> > All drivers that use 8390.o or 8390p.o that will build on
-> > i386 with MCA/PCI/EISA/ISA were built successfully both
-> > =m and =y.
-> > 
-> > drivers/built-in.o: In function `hpp_open':
-> > hp-plus.c:(.text+0xac06c): undefined reference to `eip_interrupt'
-> > hp-plus.c:(.text+0xac0d7): undefined reference to `eip_open'
-> > drivers/built-in.o: In function `hpp_close':
-> > hp-plus.c:(.text+0xac1bb): undefined reference to `eip_close'
-> > drivers/built-in.o: In function `hpp_probe1':
-> > hp-plus.c:(.init.text+0xa98a): undefined reference to `NS8390p_init'
-> > drivers/built-in.o: In function `hp_plus_probe':
-> > (.init.text+0xa9fe): undefined reference to `__alloc_eip_netdev'
-> > 
-> > Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Applied, thanks Randy.
-> --
+I think there may be some value in them: users who want to help debug
+this can experiment to see which configurations or traffic types do or
+don't result in invalid truesize.
 
-Dave,
-I'm seeing build problems (still/again) in linux-next like
+Ben.
 
-WARNING: drivers/net/8390p: 'ei_set_multicast_list' exported twice. Previous export was in drivers/net/8390.ko
-WARNING: drivers/net/8390p: 'ei_get_stats' exported twice. Previous export was in drivers/net/8390.ko
-WARNING: drivers/net/8390p: 'ei_start_xmit' exported twice. Previous export was in drivers/net/8390.ko
-WARNING: drivers/net/8390p: 'ei_tx_timeout' exported twice. Previous export was in drivers/net/8390.ko
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-and
-
-build-r6464.out:(.text+0x1050): multiple definition of `ei_get_stats'
-build-r6464.out:(.text+0x1150): multiple definition of `ei_start_xmit'
-build-r6464.out:(.text+0xef0): multiple definition of `ei_tx_timeout'
-build-r6464.out:(.text+0x1100): multiple definition of `ei_set_multicast_list'
-
-
-which I guess (have not yet verified) are caused by this ($subject) patch.
-
-You might want to drop/revert it until I see what's going on.
-
----
-~Randy
