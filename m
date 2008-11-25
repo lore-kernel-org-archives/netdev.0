@@ -1,48 +1,57 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH/RFC v1 00/12] Support for Broadcom 63xx SOCs
-Date: Tue, 25 Nov 2008 18:44:26 +0100
-Message-ID: <200811251844.27405.florian@openwrt.org>
-References: <1224382022-24173-1-git-send-email-mbizon@freebox.fr> <200810221558.27338.florian@openwrt.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 1/1] netns: filter out uevent not belonging to init_net
+Date: Tue, 25 Nov 2008 09:40:59 -0800
+Message-ID: <m14p1vg0us.fsf@frodo.ebiederm.org>
+References: <20081125165159.411202515@mai-009101017029.toulouse-stg.fr.ibm.com>
+	<20081125165346.554858327@mai-009101017029.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-	afleming@freescale.com, jgarzik@pobox.com,
-	linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
-	linux-pcmcia@lists.infradead.org, linux-serial@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Maxime Bizon <mbizon@freebox.fr>
-Return-path: <linux-serial-owner@vger.kernel.org>
-In-Reply-To: <200810221558.27338.florian@openwrt.org>
-Content-Disposition: inline
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	benjamin.thery@bull.net, containers@lists.osdl.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49618 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752133AbYKYRqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:46:08 -0500
+In-Reply-To: <20081125165346.554858327@mai-009101017029.toulouse-stg.fr.ibm.com>
+	(Daniel Lezcano's message of "Tue, 25 Nov 2008 17:52:00 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi again,
+Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 
-Le Wednesday 22 October 2008 15:58:23 Florian Fainelli, vous avez =E9cr=
-it=A0:
-> I prefer you get some feedback on your patches first before submittin=
-g my
-> changes.
+> This patch will filter out the uevent not related to the init_net.
+> Without this patch if a network device is created in a network
+> namespace with the same name as one network device belonging to the
+> initial network namespace (eg. eth0), when the network namespace
+> will die and the network device will be destroyed, an event will
+> be sent and catched by the udevd daemon. That will result to have
+> the real network device to be shutdown because the udevd/uevent are
+> not namespace aware.
 
-So the OpenWrt community did the following succesful tests :
+It is belt and suspenders at this point.  As those devices should
+not even be in sysfs at the moment.  But it keeps us from doing the
+wrong thing when sysfs support starts coming on line.
 
-- Inventel Livebox Pro (Need the OpenWrt patches plus some glue code to=
-=20
-retrieve the MAC address) (6348)
-- Neufbox 4 (6358)
-- Comtrend CT536+ (6348)
-- A custom design based on a BCM6348
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-There might be other successful reports as well.
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
---
-To unsubscribe from this list: send the line "unsubscribe linux-serial"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> ---
+>  net/core/net-sysfs.c |    3 +++
+>  1 file changed, 3 insertions(+)
+>
+> Index: net-next-2.6/net/core/net-sysfs.c
+> ===================================================================
+> --- net-next-2.6.orig/net/core/net-sysfs.c
+> +++ net-next-2.6/net/core/net-sysfs.c
+> @@ -427,6 +427,9 @@ static int netdev_uevent(struct device *
+>  	struct net_device *dev = to_net_dev(d);
+>  	int retval;
+>  
+> +	if (!net_eq(dev_net(dev), &init_net))
+> +		return 0;
+> +
+>  	/* pass interface to uevent. */
+>  	retval = add_uevent_var(env, "INTERFACE=%s", dev->name);
+>  	if (retval)
