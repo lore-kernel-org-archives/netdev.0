@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 14/53] netns xfrm: add struct xfrm_policy::xp_net
-Date: Tue, 25 Nov 2008 20:26:46 +0300
-Message-ID: <1227634045-27534-14-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 18/53] netns xfrm: per-netns inexact policies
+Date: Tue, 25 Nov 2008 20:26:50 +0300
+Message-ID: <1227634045-27534-18-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -15,140 +15,141 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-11-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-12-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-13-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-14-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-15-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-16-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-17-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:28929 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752747AbYKYRYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:24:06 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1144223ugf.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:24:05 -0800 (PST)
-In-Reply-To: <1227634045-27534-13-git-send-email-adobriyan@gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.184]:4839 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754424AbYKYRYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:24:16 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so28104nfc.21
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:24:16 -0800 (PST)
+In-Reply-To: <1227634045-27534-17-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Again, to avoid complications with passing netns when not necessary.
-Again, ->xp_net is set-once field, once set it never changes.
-
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/xfrm.h     |   10 +++++++++-
- net/key/af_key.c       |    4 ++--
- net/xfrm/xfrm_policy.c |    5 +++--
- net/xfrm/xfrm_user.c   |    4 ++--
- 4 files changed, 16 insertions(+), 7 deletions(-)
+ include/net/netns/xfrm.h |    2 ++
+ net/xfrm/xfrm_policy.c   |   20 ++++++++++++--------
+ 2 files changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 0d4353c..1ab1756 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -475,6 +475,9 @@ struct xfrm_policy_walk {
+diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+index 42dc318..c756831 100644
+--- a/include/net/netns/xfrm.h
++++ b/include/net/netns/xfrm.h
+@@ -4,6 +4,7 @@
+ #include <linux/list.h>
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
++#include <linux/xfrm.h>
  
- struct xfrm_policy
- {
-+#ifdef CONFIG_NET_NS
-+	struct net		*xp_net;
-+#endif
- 	struct hlist_node	bydst;
- 	struct hlist_node	byidx;
- 
-@@ -499,6 +502,11 @@ struct xfrm_policy
- 	struct xfrm_tmpl       	xfrm_vec[XFRM_MAX_DEPTH];
+ struct netns_xfrm {
+ 	struct list_head	state_all;
+@@ -29,6 +30,7 @@ struct netns_xfrm {
+ 	struct list_head	policy_all;
+ 	struct hlist_head	*policy_byidx;
+ 	unsigned int		policy_idx_hmask;
++	struct hlist_head	policy_inexact[XFRM_POLICY_MAX * 2];
  };
  
-+static inline struct net *xp_net(struct xfrm_policy *xp)
-+{
-+	return read_pnet(&xp->xp_net);
-+}
-+
- struct xfrm_kmaddress {
- 	xfrm_address_t          local;
- 	xfrm_address_t          remote;
-@@ -1425,7 +1433,7 @@ static inline int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
- }
  #endif
- 
--struct xfrm_policy *xfrm_policy_alloc(gfp_t gfp);
-+struct xfrm_policy *xfrm_policy_alloc(struct net *net, gfp_t gfp);
- 
- extern void xfrm_policy_walk_init(struct xfrm_policy_walk *walk, u8 type);
- extern int xfrm_policy_walk(struct xfrm_policy_walk *walk,
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index f202ba6..036315d 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2174,7 +2174,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, struct sadb_msg *h
- 	if (!pol->sadb_x_policy_dir || pol->sadb_x_policy_dir >= IPSEC_DIR_MAX)
- 		return -EINVAL;
- 
--	xp = xfrm_policy_alloc(GFP_KERNEL);
-+	xp = xfrm_policy_alloc(&init_net, GFP_KERNEL);
- 	if (xp == NULL)
- 		return -ENOBUFS;
- 
-@@ -3141,7 +3141,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
- 	    (!pol->sadb_x_policy_dir || pol->sadb_x_policy_dir > IPSEC_DIR_OUTBOUND))
- 		return NULL;
- 
--	xp = xfrm_policy_alloc(GFP_ATOMIC);
-+	xp = xfrm_policy_alloc(&init_net, GFP_ATOMIC);
- 	if (xp == NULL) {
- 		*dir = -ENOBUFS;
- 		return NULL;
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index cf2bf3a..3eccefa 100644
+index 9e37a44..ba4e95b 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -228,13 +228,14 @@ expired:
-  * SPD calls.
-  */
+@@ -327,7 +327,6 @@ struct xfrm_policy_hash {
+ 	unsigned int		hmask;
+ };
  
--struct xfrm_policy *xfrm_policy_alloc(gfp_t gfp)
-+struct xfrm_policy *xfrm_policy_alloc(struct net *net, gfp_t gfp)
+-static struct hlist_head xfrm_policy_inexact[XFRM_POLICY_MAX*2];
+ static struct xfrm_policy_hash xfrm_policy_bydst[XFRM_POLICY_MAX*2] __read_mostly;
+ static unsigned int xfrm_policy_hashmax __read_mostly = 1 * 1024 * 1024;
+ 
+@@ -342,7 +341,7 @@ static struct hlist_head *policy_hash_bysel(struct xfrm_selector *sel, unsigned
+ 	unsigned int hash = __sel_hash(sel, family, hmask);
+ 
+ 	return (hash == hmask + 1 ?
+-		&xfrm_policy_inexact[dir] :
++		&init_net.xfrm.policy_inexact[dir] :
+ 		xfrm_policy_bydst[dir].table + hash);
+ }
+ 
+@@ -752,7 +751,7 @@ xfrm_policy_flush_secctx_check(u8 type, struct xfrm_audit *audit_info)
+ 		int i;
+ 
+ 		hlist_for_each_entry(pol, entry,
+-				     &xfrm_policy_inexact[dir], bydst) {
++				     &init_net.xfrm.policy_inexact[dir], bydst) {
+ 			if (pol->type != type)
+ 				continue;
+ 			err = security_xfrm_policy_delete(pol->security);
+@@ -810,7 +809,7 @@ int xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info)
+ 		killed = 0;
+ 	again1:
+ 		hlist_for_each_entry(pol, entry,
+-				     &xfrm_policy_inexact[dir], bydst) {
++				     &init_net.xfrm.policy_inexact[dir], bydst) {
+ 			if (pol->type != type)
+ 				continue;
+ 			hlist_del(&pol->bydst);
+@@ -983,7 +982,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(u8 type, struct flowi *fl,
+ 			break;
+ 		}
+ 	}
+-	chain = &xfrm_policy_inexact[dir];
++	chain = &init_net.xfrm.policy_inexact[dir];
+ 	hlist_for_each_entry(pol, entry, chain, bydst) {
+ 		err = xfrm_policy_match(pol, fl, type, family, dir);
+ 		if (err) {
+@@ -2152,7 +2151,7 @@ static void xfrm_prune_bundles(int (*func)(struct dst_entry *))
+ 		int i;
+ 
+ 		hlist_for_each_entry(pol, entry,
+-				     &xfrm_policy_inexact[dir], bydst)
++				     &init_net.xfrm.policy_inexact[dir], bydst)
+ 			prune_one_bundle(pol, func, &gc_list);
+ 
+ 		table = xfrm_policy_bydst[dir].table;
+@@ -2414,7 +2413,7 @@ static int __net_init xfrm_policy_init(struct net *net)
+ 	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
+ 		struct xfrm_policy_hash *htab;
+ 
+-		INIT_HLIST_HEAD(&xfrm_policy_inexact[dir]);
++		INIT_HLIST_HEAD(&net->xfrm.policy_inexact[dir]);
+ 
+ 		htab = &xfrm_policy_bydst[dir];
+ 		htab->table = xfrm_hash_alloc(sz);
+@@ -2435,9 +2434,14 @@ out_byidx:
+ static void xfrm_policy_fini(struct net *net)
  {
- 	struct xfrm_policy *policy;
+ 	unsigned int sz;
++	int dir;
  
- 	policy = kzalloc(sizeof(struct xfrm_policy), gfp);
+ 	WARN_ON(!list_empty(&net->xfrm.policy_all));
  
- 	if (policy) {
-+		write_pnet(&policy->xp_net, net);
- 		INIT_LIST_HEAD(&policy->walk.all);
- 		INIT_HLIST_NODE(&policy->bydst);
- 		INIT_HLIST_NODE(&policy->byidx);
-@@ -1153,7 +1154,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- 
- static struct xfrm_policy *clone_policy(struct xfrm_policy *old, int dir)
- {
--	struct xfrm_policy *newp = xfrm_policy_alloc(GFP_ATOMIC);
-+	struct xfrm_policy *newp = xfrm_policy_alloc(xp_net(old), GFP_ATOMIC);
- 
- 	if (newp) {
- 		newp->selector = old->selector;
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 65cdaa5..765c01e 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1080,7 +1080,7 @@ static void copy_to_user_policy(struct xfrm_policy *xp, struct xfrm_userpolicy_i
- 
- static struct xfrm_policy *xfrm_policy_construct(struct xfrm_userpolicy_info *p, struct nlattr **attrs, int *errp)
- {
--	struct xfrm_policy *xp = xfrm_policy_alloc(GFP_KERNEL);
-+	struct xfrm_policy *xp = xfrm_policy_alloc(&init_net, GFP_KERNEL);
- 	int err;
- 
- 	if (!xp) {
-@@ -2291,7 +2291,7 @@ static struct xfrm_policy *xfrm_compile_policy(struct sock *sk, int opt,
- 	if (p->dir > XFRM_POLICY_OUT)
- 		return NULL;
- 
--	xp = xfrm_policy_alloc(GFP_KERNEL);
-+	xp = xfrm_policy_alloc(&init_net, GFP_KERNEL);
- 	if (xp == NULL) {
- 		*dir = -ENOBUFS;
- 		return NULL;
++	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
++		WARN_ON(!hlist_empty(&net->xfrm.policy_inexact[dir]));
++	}
++
+ 	sz = (net->xfrm.policy_idx_hmask + 1) * sizeof(struct hlist_head);
+ 	WARN_ON(!hlist_empty(net->xfrm.policy_byidx));
+ 	xfrm_hash_free(net->xfrm.policy_byidx, sz);
+@@ -2590,7 +2594,7 @@ static struct xfrm_policy * xfrm_migrate_policy_find(struct xfrm_selector *sel,
+ 			break;
+ 		}
+ 	}
+-	chain = &xfrm_policy_inexact[dir];
++	chain = &init_net.xfrm.policy_inexact[dir];
+ 	hlist_for_each_entry(pol, entry, chain, bydst) {
+ 		if (xfrm_migrate_selector_match(sel, &pol->selector) &&
+ 		    pol->type == type &&
 -- 
 1.5.6.5
 
