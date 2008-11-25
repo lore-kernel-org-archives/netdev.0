@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 52/53] netns xfrm: /proc/net/xfrm_stat in netns
-Date: Tue, 25 Nov 2008 20:27:24 +0300
-Message-ID: <1227634045-27534-52-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 47/53] netns PF_KEY: part 1
+Date: Tue, 25 Nov 2008 20:27:19 +0300
+Message-ID: <1227634045-27534-47-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -48,139 +48,241 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-46-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-47-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-48-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-49-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-50-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-51-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:40948 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753743AbYKYRZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:49 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so23228eyi.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:48 -0800 (PST)
-In-Reply-To: <1227634045-27534-51-git-send-email-adobriyan@gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.169]:29237 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753111AbYKYRZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:36 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so1144716ugf.37
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:35 -0800 (PST)
+In-Reply-To: <1227634045-27534-46-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+* netns boilerplate
+* keep per-netns socket list
+* keep per-netns number of sockets
+
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/xfrm.h     |    3 ++-
- net/xfrm/xfrm_policy.c |   11 +++++++----
- net/xfrm/xfrm_proc.c   |   26 ++++++++++++--------------
- 3 files changed, 21 insertions(+), 19 deletions(-)
+ net/key/af_key.c |   88 ++++++++++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 73 insertions(+), 15 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 78ec3e8..1554ccd 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1306,7 +1306,8 @@ static inline void xfrm6_fini(void)
- #endif
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index ea7755a..e80b264 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -27,6 +27,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/init.h>
+ #include <net/net_namespace.h>
++#include <net/netns/generic.h>
+ #include <net/xfrm.h>
  
- #ifdef CONFIG_XFRM_STATISTICS
--extern int xfrm_proc_init(void);
-+extern int xfrm_proc_init(struct net *net);
-+extern void xfrm_proc_fini(struct net *net);
- #endif
+ #include <net/sock.h>
+@@ -34,15 +35,16 @@
+ #define _X2KEY(x) ((x) == XFRM_INF ? 0 : (x))
+ #define _KEY2X(x) ((x) == 0 ? XFRM_INF : (x))
  
- extern void xfrm_state_walk_init(struct xfrm_state_walk *walk, u8 proto);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index e239a25..38822b3 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2377,14 +2377,20 @@ static struct notifier_block xfrm_dev_notifier = {
- #ifdef CONFIG_XFRM_STATISTICS
- static int __net_init xfrm_statistics_init(struct net *net)
+-
+-/* List of all pfkey sockets. */
+-static HLIST_HEAD(pfkey_table);
++static int pfkey_net_id;
++struct netns_pfkey {
++	/* List of all pfkey sockets. */
++	struct hlist_head table;
++	atomic_t socks_nr;
++};
+ static DECLARE_WAIT_QUEUE_HEAD(pfkey_table_wait);
+ static DEFINE_RWLOCK(pfkey_table_lock);
+ static atomic_t pfkey_table_users = ATOMIC_INIT(0);
+ 
+-static atomic_t pfkey_socks_nr = ATOMIC_INIT(0);
+-
+ struct pfkey_sock {
+ 	/* struct sock must be the first member of struct pfkey_sock */
+ 	struct sock	sk;
+@@ -89,6 +91,9 @@ static void pfkey_terminate_dump(struct pfkey_sock *pfk)
+ 
+ static void pfkey_sock_destruct(struct sock *sk)
  {
-+	int rv;
++	struct net *net = sock_net(sk);
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
 +
- 	if (snmp_mib_init((void **)net->mib.xfrm_statistics,
- 			  sizeof(struct linux_xfrm_mib)) < 0)
+ 	pfkey_terminate_dump(pfkey_sk(sk));
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ 
+@@ -100,7 +105,7 @@ static void pfkey_sock_destruct(struct sock *sk)
+ 	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
+ 	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+ 
+-	atomic_dec(&pfkey_socks_nr);
++	atomic_dec(&net_pfkey->socks_nr);
+ }
+ 
+ static void pfkey_table_grab(void)
+@@ -151,8 +156,11 @@ static const struct proto_ops pfkey_ops;
+ 
+ static void pfkey_insert(struct sock *sk)
+ {
++	struct net *net = sock_net(sk);
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
++
+ 	pfkey_table_grab();
+-	sk_add_node(sk, &pfkey_table);
++	sk_add_node(sk, &net_pfkey->table);
+ 	pfkey_table_ungrab();
+ }
+ 
+@@ -171,12 +179,10 @@ static struct proto key_proto = {
+ 
+ static int pfkey_create(struct net *net, struct socket *sock, int protocol)
+ {
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
+ 	struct sock *sk;
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EAFNOSUPPORT;
+-
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 	if (sock->type != SOCK_RAW)
+@@ -195,7 +201,7 @@ static int pfkey_create(struct net *net, struct socket *sock, int protocol)
+ 	sk->sk_family = PF_KEY;
+ 	sk->sk_destruct = pfkey_sock_destruct;
+ 
+-	atomic_inc(&pfkey_socks_nr);
++	atomic_inc(&net_pfkey->socks_nr);
+ 
+ 	pfkey_insert(sk);
+ 
+@@ -257,6 +263,8 @@ static int pfkey_broadcast_one(struct sk_buff *skb, struct sk_buff **skb2,
+ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
+ 			   int broadcast_flags, struct sock *one_sk)
+ {
++	struct net *net = &init_net;
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
+ 	struct sock *sk;
+ 	struct hlist_node *node;
+ 	struct sk_buff *skb2 = NULL;
+@@ -269,7 +277,7 @@ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
  		return -ENOMEM;
--	return 0;
-+	rv = xfrm_proc_init(net);
-+	if (rv < 0)
-+		snmp_mib_free((void **)net->mib.xfrm_statistics);
-+	return rv;
- }
  
- static void xfrm_statistics_fini(struct net *net)
+ 	pfkey_lock_table();
+-	sk_for_each(sk, node, &pfkey_table) {
++	sk_for_each(sk, node, &net_pfkey->table) {
+ 		struct pfkey_sock *pfk = pfkey_sk(sk);
+ 		int err2;
+ 
+@@ -2943,7 +2951,10 @@ static int key_notify_sa_expire(struct xfrm_state *x, struct km_event *c)
+ 
+ static int pfkey_send_notify(struct xfrm_state *x, struct km_event *c)
  {
-+	xfrm_proc_fini(net);
- 	snmp_mib_free((void **)net->mib.xfrm_statistics);
- }
- #else
-@@ -2524,9 +2530,6 @@ void __init xfrm_init(void)
+-	if (atomic_read(&pfkey_socks_nr) == 0)
++	struct net *net = &init_net;
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
++
++	if (atomic_read(&net_pfkey->socks_nr) == 0)
+ 		return 0;
+ 
+ 	switch (c->event) {
+@@ -3647,6 +3658,8 @@ static int pfkey_seq_show(struct seq_file *f, void *v)
+ 
+ static void *pfkey_seq_start(struct seq_file *f, loff_t *ppos)
  {
- 	register_pernet_subsys(&xfrm_net_ops);
- 	xfrm_input_init();
--#ifdef CONFIG_XFRM_STATISTICS
--	xfrm_proc_init();
--#endif
- }
++	struct net *net = &init_net;
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
+ 	struct sock *s;
+ 	struct hlist_node *node;
+ 	loff_t pos = *ppos;
+@@ -3655,7 +3668,7 @@ static void *pfkey_seq_start(struct seq_file *f, loff_t *ppos)
+ 	if (pos == 0)
+ 		return SEQ_START_TOKEN;
  
- #ifdef CONFIG_AUDITSYSCALL
-diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
-index 27a2ab9..284eaef 100644
---- a/net/xfrm/xfrm_proc.c
-+++ b/net/xfrm/xfrm_proc.c
-@@ -59,17 +59,18 @@ fold_field(void *mib[], int offt)
+-	sk_for_each(s, node, &pfkey_table)
++	sk_for_each(s, node, &net_pfkey->table)
+ 		if (pos-- == 1)
+ 			return s;
  
- static int xfrm_statistics_seq_show(struct seq_file *seq, void *v)
+@@ -3664,9 +3677,12 @@ static void *pfkey_seq_start(struct seq_file *f, loff_t *ppos)
+ 
+ static void *pfkey_seq_next(struct seq_file *f, void *v, loff_t *ppos)
  {
-+	struct net *net = seq->private;
- 	int i;
- 	for (i=0; xfrm_mib_list[i].name; i++)
- 		seq_printf(seq, "%-24s\t%lu\n", xfrm_mib_list[i].name,
--			   fold_field((void **)init_net.mib.xfrm_statistics,
-+			   fold_field((void **)net->mib.xfrm_statistics,
- 				      xfrm_mib_list[i].entry));
- 	return 0;
++	struct net *net = &init_net;
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
++
+ 	++*ppos;
+ 	return (v == SEQ_START_TOKEN) ?
+-		sk_head(&pfkey_table) :
++		sk_head(&net_pfkey->table) :
+ 			sk_next((struct sock *)v);
  }
  
- static int xfrm_statistics_seq_open(struct inode *inode, struct file *file)
- {
--	return single_open(file, xfrm_statistics_seq_show, NULL);
-+	return single_open_net(inode, file, xfrm_statistics_seq_show);
- }
- 
- static struct file_operations xfrm_statistics_seq_fops = {
-@@ -77,21 +78,18 @@ static struct file_operations xfrm_statistics_seq_fops = {
- 	.open	 = xfrm_statistics_seq_open,
- 	.read	 = seq_read,
- 	.llseek	 = seq_lseek,
--	.release = single_release,
-+	.release = single_release_net,
+@@ -3731,8 +3747,45 @@ static struct xfrm_mgr pfkeyv2_mgr =
+ 	.migrate	= pfkey_send_migrate,
  };
  
--int __init xfrm_proc_init(void)
-+int __net_init xfrm_proc_init(struct net *net)
- {
--	int rc = 0;
--
--	if (!proc_net_fops_create(&init_net, "xfrm_stat", S_IRUGO,
-+	if (!proc_net_fops_create(net, "xfrm_stat", S_IRUGO,
- 				  &xfrm_statistics_seq_fops))
--		goto stat_fail;
--
-- out:
--	return rc;
-+		return -ENOMEM;
-+	return 0;
-+}
- 
-- stat_fail:
--	rc = -ENOMEM;
--	goto out;
-+void xfrm_proc_fini(struct net *net)
++static int __net_init pfkey_net_init(struct net *net)
 +{
-+	proc_net_remove(net, "xfrm_stat");
- }
++	struct netns_pfkey *net_pfkey;
++	int rv;
++
++	net_pfkey = kmalloc(sizeof(struct netns_pfkey), GFP_KERNEL);
++	if (!net_pfkey) {
++		rv = -ENOMEM;
++		goto out_kmalloc;
++	}
++	INIT_HLIST_HEAD(&net_pfkey->table);
++	atomic_set(&net_pfkey->socks_nr, 0);
++	rv = net_assign_generic(net, pfkey_net_id, net_pfkey);
++	if (rv < 0)
++		goto out_assign;
++	return 0;
++
++out_assign:
++	kfree(net_pfkey);
++out_kmalloc:
++	return rv;
++}
++
++static void __net_exit pfkey_net_exit(struct net *net)
++{
++	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
++
++	BUG_ON(!hlist_empty(&net_pfkey->table));
++	kfree(net_pfkey);
++}
++
++static struct pernet_operations pfkey_net_ops = {
++	.init = pfkey_net_init,
++	.exit = pfkey_net_exit,
++};
++
+ static void __exit ipsec_pfkey_exit(void)
+ {
++	unregister_pernet_gen_subsys(pfkey_net_id, &pfkey_net_ops);
+ 	xfrm_unregister_km(&pfkeyv2_mgr);
+ 	pfkey_exit_proc();
+ 	sock_unregister(PF_KEY);
+@@ -3755,8 +3808,13 @@ static int __init ipsec_pfkey_init(void)
+ 	err = xfrm_register_km(&pfkeyv2_mgr);
+ 	if (err != 0)
+ 		goto out_remove_proc_entry;
++	err = register_pernet_gen_subsys(&pfkey_net_id, &pfkey_net_ops);
++	if (err != 0)
++		goto out_xfrm_unregister_km;
+ out:
+ 	return err;
++out_xfrm_unregister_km:
++	xfrm_unregister_km(&pfkeyv2_mgr);
+ out_remove_proc_entry:
+ 	pfkey_exit_proc();
+ out_sock_unregister:
 -- 
 1.5.6.5
 
