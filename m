@@ -1,83 +1,56 @@
-From: Martin Willi <martin@strongswan.org>
-Subject: [RFC PATCH] xfrm: Accept XFRM_STATE_AF_UNSPEC SAs on IPv4/IPv6  only hosts
-Date: Tue, 25 Nov 2008 17:10:06 +0100
-Message-ID: <1227629406.21037.193.camel@martin>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: [PATCH] net: make skb_truesize_bug() call WARN()
+Date: Tue, 25 Nov 2008 08:32:50 -0800
+Message-ID: <20081125083250.2ad7d75d@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.km23152-01.keymachine.de ([87.118.114.125]:36593 "EHLO
-	km23152-01.keymachine.de" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751976AbYKYQKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 11:10:35 -0500
-Received: from localhost (km23152-01.keymachine.de [127.0.0.1])
-	by km23152-01.keymachine.de (Postfix) with SMTP id DC37F2F19DEC
-	for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 17:10:10 +0100 (CET)
+Received: from casper.infradead.org ([85.118.1.10]:58438 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750917AbYKYQbu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 11:31:50 -0500
+Received: from c-71-193-193-226.hsd1.or.comcast.net ([71.193.193.226] helo=localhost.localdomain)
+	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
+	id 1L50pI-0007Lu-He
+	for netdev@vger.kernel.org; Tue, 25 Nov 2008 16:31:49 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Installing SAs using the XFRM_STATE_AF_UNSPEC fails on hosts with
-support for one address family only. This patch accepts such SAs, even
-if the processing of not supported packets will fail.
+>From 97a8ab520c378568e172c555a156b469137a3828 Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Tue, 25 Nov 2008 08:30:04 -0800
+Subject: [PATCH] net: make skb_truesize_bug() call WARN()
 
-Signed-off-by: Martin Willi <martin@strongswan.org>
+The truesize message check is important enough to make it print "BUG" to the
+user console... lets also make it important enough to spit a backtrace/module list
+etc so that kerneloops.org can track them.
 
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
 ---
-For me the meaning of that flag is not really clear. If it means
-"I-want-to-run-v6-in-v4-or-vice-versa" then the current behavior
-(reject SA) is probably ok.
-However, in my understanding ("accept-any-inner-address-family"), the
-kernel should accept such SAs. Otherwise userspace has to query the
-supported address families.
+ net/core/skbuff.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 508337f..456782b 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -2032,8 +2032,9 @@ int xfrm_init_state(struct xfrm_state *x)
- 		x->inner_mode = inner_mode;
- 	} else {
- 		struct xfrm_mode *inner_mode_iaf;
-+		int iafamily = AF_INET;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 391be91..1a1f4d1 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -149,7 +149,7 @@ void skb_under_panic(struct sk_buff *skb, int sz, void *here)
  
--		inner_mode = xfrm_get_mode(x->props.mode, AF_INET);
-+		inner_mode = xfrm_get_mode(x->props.mode, x->props.family);
- 		if (inner_mode == NULL)
- 			goto error;
- 
-@@ -2041,22 +2042,17 @@ int xfrm_init_state(struct xfrm_state *x)
- 			xfrm_put_mode(inner_mode);
- 			goto error;
- 		}
-+		x->inner_mode = inner_mode;
- 
--		inner_mode_iaf = xfrm_get_mode(x->props.mode, AF_INET6);
--		if (inner_mode_iaf == NULL)
--			goto error;
-+		if (x->props.family == AF_INET)
-+			iafamily = AF_INET6;
- 
--		if (!(inner_mode_iaf->flags & XFRM_MODE_FLAG_TUNNEL)) {
--			xfrm_put_mode(inner_mode_iaf);
--			goto error;
--		}
--
--		if (x->props.family == AF_INET) {
--			x->inner_mode = inner_mode;
--			x->inner_mode_iaf = inner_mode_iaf;
--		} else {
--			x->inner_mode = inner_mode_iaf;
--			x->inner_mode_iaf = inner_mode;
-+		inner_mode_iaf = xfrm_get_mode(x->props.mode, iafamily);
-+		if (inner_mode_iaf) {
-+			if (inner_mode_iaf->flags & XFRM_MODE_FLAG_TUNNEL)
-+				x->inner_mode_iaf = inner_mode_iaf;
-+			else
-+				xfrm_put_mode(inner_mode_iaf);
- 		}
- 	}
- 
+ void skb_truesize_bug(struct sk_buff *skb)
+ {
+-	printk(KERN_ERR "SKB BUG: Invalid truesize (%u) "
++	WARN(1, KERN_ERR "SKB BUG: Invalid truesize (%u) "
+ 	       "len=%u, sizeof(sk_buff)=%Zd\n",
+ 	       skb->truesize, skb->len, sizeof(struct sk_buff));
+ }
+-- 
+1.6.0.3
 
 
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
