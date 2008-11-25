@@ -1,24 +1,26 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: [resend take 3 1/4] DST core files.
-Date: Tue, 25 Nov 2008 17:37:47 +0300
-Message-ID: <1227623874638-git-send-email-zbr@ioremap.net>
+Subject: [resend take 3 3/4] DST crypto thread pool.
+Date: Tue, 25 Nov 2008 17:37:49 +0300
+Message-ID: <12276238742680-git-send-email-zbr@ioremap.net>
 References: <12276238703113-git-send-email-zbr@ioremap.net>
+ <1227623874638-git-send-email-zbr@ioremap.net>
+ <12276238741618-git-send-email-zbr@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-fsdevel@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <12276238703113-git-send-email-zbr@ioremap.net>
+In-Reply-To: <12276238741618-git-send-email-zbr@ioremap.net>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-diff --git a/drivers/block/dst/dcore.c b/drivers/block/dst/dcore.c
+diff --git a/drivers/block/dst/crypto.c b/drivers/block/dst/crypto.c
 new file mode 100644
-index 0000000..fea201b
+index 0000000..7250f90
 --- /dev/null
-+++ b/drivers/block/dst/dcore.c
-@@ -0,0 +1,972 @@
++++ b/drivers/block/dst/crypto.c
+@@ -0,0 +1,731 @@
 +/*
 + * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
 + * All rights reserved.
@@ -34,1328 +36,730 @@ index 0000000..fea201b
 + * GNU General Public License for more details.
 + */
 +
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/blkdev.h>
 +#include <linux/bio.h>
-+#include <linux/buffer_head.h>
-+#include <linux/connector.h>
++#include <linux/crypto.h>
 +#include <linux/dst.h>
-+#include <linux/device.h>
-+#include <linux/jhash.h>
-+#include <linux/idr.h>
-+#include <linux/init.h>
-+#include <linux/namei.h>
++#include <linux/kernel.h>
++#include <linux/scatterlist.h>
 +#include <linux/slab.h>
-+#include <linux/socket.h>
-+
-+#include <linux/in.h>
-+#include <linux/in6.h>
-+
-+#include <net/sock.h>
-+
-+static int dst_major;
-+
-+static DEFINE_MUTEX(dst_hash_lock);
-+static struct list_head *dst_hashtable;
-+static unsigned int dst_hashtable_size = 128;
-+module_param(dst_hashtable_size, uint, 0644);
-+
-+static char dst_name[] = "Sik tee or kunem kez";
-+
-+static DEFINE_IDR(dst_index_idr);
-+static struct cb_id cn_dst_id = { CN_DST_IDX, CN_DST_VAL };
 +
 +/*
-+ * DST sysfs tree for device called 'storage':
-+ *
-+ * /sys/bus/dst/devices/storage/
-+ * /sys/bus/dst/devices/storage/type : 192.168.4.80:1025
-+ * /sys/bus/dst/devices/storage/size : 800
-+ * /sys/bus/dst/devices/storage/name : storage
++ * Tricky bastard, but IV can be more complex with time...
 + */
-+
-+static int dst_dev_match(struct device *dev, struct device_driver *drv)
++static inline u64 dst_gen_iv(struct dst_trans *t)
 +{
-+	return 1;
++	return t->gen;
 +}
-+
-+static struct bus_type dst_dev_bus_type = {
-+	.name 		= "dst",
-+	.match 		= &dst_dev_match,
-+};
-+
-+static void dst_node_release(struct device *dev)
-+{
-+	struct dst_info *info = container_of(dev, struct dst_info, device);
-+
-+	kfree(info);
-+}
-+
-+static struct device dst_node_dev = {
-+	.bus 		= &dst_dev_bus_type,
-+	.release 	= &dst_node_release
-+};
 +
 +/*
-+ * Setting size of the node after it was changed.
++ * Crypto machinery: hash/cipher support for the given crypto controls.
 + */
-+static void dst_node_set_size(struct dst_node *n)
++static struct crypto_hash *dst_init_hash(struct dst_crypto_ctl *ctl, u8 *key)
 +{
-+	struct block_device *bdev;
++	int err;
++	struct crypto_hash *hash;
 +
-+	set_capacity(n->disk, n->size >> 9);
-+
-+	bdev = bdget_disk(n->disk, 0);
-+	if (bdev) {
-+		mutex_lock(&bdev->bd_inode->i_mutex);
-+		i_size_write(bdev->bd_inode, n->size);
-+		mutex_unlock(&bdev->bd_inode->i_mutex);
-+		bdput(bdev);
++	hash = crypto_alloc_hash(ctl->hash_algo, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(hash)) {
++		err = PTR_ERR(hash);
++		dprintk("%s: failed to allocate hash '%s', err: %d.\n",
++				__func__, ctl->hash_algo, err);
++		goto err_out_exit;
 +	}
++
++	ctl->crypto_attached_size = crypto_hash_digestsize(hash);
++
++	if (!ctl->hash_keysize)
++		return hash;
++
++	err = crypto_hash_setkey(hash, key, ctl->hash_keysize);
++	if (err) {
++		dprintk("%s: failed to set key for hash '%s', err: %d.\n",
++				__func__, ctl->hash_algo, err);
++		goto err_out_free;
++	}
++
++	return hash;
++
++err_out_free:
++	crypto_free_hash(hash);
++err_out_exit:
++	return ERR_PTR(err);
 +}
 +
-+/*
-+ * Distributed storage request processing function.
-+ */
-+static int dst_request(struct request_queue *q, struct bio *bio)
++static struct crypto_ablkcipher *dst_init_cipher(struct dst_crypto_ctl *ctl, u8 *key)
 +{
-+	struct dst_node *n = q->queuedata;
++	int err = -EINVAL;
++	struct crypto_ablkcipher *cipher;
 +
-+	bio_get(bio);
-+
-+	return dst_process_bio(n, bio);
-+}
-+
-+/*
-+ * Open/close callbacks for appropriate block device.
-+ */
-+static int dst_bdev_open(struct inode *inode, struct file *filp)
-+{
-+	struct dst_node *n = inode->i_bdev->bd_disk->private_data;
-+
-+	dst_node_get(n);
-+	return 0;
-+}
-+
-+static int dst_bdev_release(struct inode *inode, struct file *filp)
-+{
-+	struct dst_node *n = inode->i_bdev->bd_disk->private_data;
-+
-+	dst_node_put(n);
-+	return 0;
-+}
-+
-+static struct block_device_operations dst_blk_ops = {
-+	.open		= dst_bdev_open,
-+	.release	= dst_bdev_release,
-+	.owner		= THIS_MODULE,
-+};
-+
-+/*
-+ * Block layer binding - disk is created when array is fully configured
-+ * by userspace request.
-+ */
-+static int dst_node_create_disk(struct dst_node *n)
-+{
-+	int err = -ENOMEM;
-+	u32 index = 0;
-+
-+	n->queue = blk_alloc_queue(GFP_KERNEL);
-+	if (!n->queue)
++	if (!ctl->cipher_keysize)
 +		goto err_out_exit;
 +
-+	n->queue->queuedata = n;
-+	blk_queue_make_request(n->queue, dst_request);
-+	blk_queue_max_phys_segments(n->queue, n->max_pages);
-+	blk_queue_max_hw_segments(n->queue, n->max_pages);
-+
-+	err = -ENOMEM;
-+	n->disk = alloc_disk(1);
-+	if (!n->disk)
-+		goto err_out_free_queue;
-+
-+	if (!(n->state->permissions & DST_PERM_WRITE)) {
-+		printk(KERN_INFO "DST node %s attached read-only.\n", n->name);
-+		set_disk_ro(n->disk, 1);
++	cipher = crypto_alloc_ablkcipher(ctl->cipher_algo, 0, 0);
++	if (IS_ERR(cipher)) {
++		err = PTR_ERR(cipher);
++		dprintk("%s: failed to allocate cipher '%s', err: %d.\n",
++				__func__, ctl->cipher_algo, err);
++		goto err_out_exit;
 +	}
 +
-+	if (!idr_pre_get(&dst_index_idr, GFP_KERNEL))
-+		goto err_out_put;
++	crypto_ablkcipher_clear_flags(cipher, ~0);
 +
-+	mutex_lock(&dst_hash_lock);
-+	err = idr_get_new(&dst_index_idr, NULL, &index);
-+	mutex_unlock(&dst_hash_lock);
-+	if (err)
-+		goto err_out_put;
++	err = crypto_ablkcipher_setkey(cipher, key, ctl->cipher_keysize);
++	if (err) {
++		dprintk("%s: failed to set key for cipher '%s', err: %d.\n",
++				__func__, ctl->cipher_algo, err);
++		goto err_out_free;
++	}
 +
-+	n->disk->major = dst_major;
-+	n->disk->first_minor = index;
-+	n->disk->fops = &dst_blk_ops;
-+	n->disk->queue = n->queue;
-+	n->disk->private_data = n;
-+	snprintf(n->disk->disk_name, sizeof(n->disk->disk_name), "dst-%s", n->name);
++	return cipher;
 +
-+	return 0;
-+
-+err_out_put:
-+	put_disk(n->disk);
-+err_out_free_queue:
-+	blk_cleanup_queue(n->queue);
++err_out_free:
++	crypto_free_ablkcipher(cipher);
 +err_out_exit:
-+	return err;
++	return ERR_PTR(err);
 +}
 +
 +/*
-+ * Sysfs machinery: show device's size.
++ * Crypto engine has a pool of pages to encrypt data into before sending
++ * it over the network. This pool is freed/allocated here.
 + */
-+static ssize_t dst_show_size(struct device *dev,
-+		struct device_attribute *attr, char *buf)
++static void dst_crypto_pages_free(struct dst_crypto_engine *e)
 +{
-+	struct dst_info *info = container_of(dev, struct dst_info, device);
++	unsigned int i;
 +
-+	return sprintf(buf, "%llu\n", info->size);
++	for (i=0; i<e->page_num; ++i)
++		__free_page(e->pages[i]);
++	kfree(e->pages);
 +}
 +
-+/*
-+ * Show local exported device.
-+ */
-+static ssize_t dst_show_local(struct device *dev,
-+		struct device_attribute *attr, char *buf)
-+{
-+	struct dst_info *info = container_of(dev, struct dst_info, device);
-+
-+	return sprintf(buf, "%s\n", info->local);
-+}
-+
-+/*
-+ * Shows type of the remote node - device major/minor number
-+ * for local nodes and address (af_inet ipv4/ipv6 only) for remote nodes.
-+ */
-+static ssize_t dst_show_type(struct device *dev,
-+		struct device_attribute *attr, char *buf)
-+{
-+	struct dst_info *info = container_of(dev, struct dst_info, device);
-+	int family = info->net.addr.sa_family;
-+
-+	if (family == AF_INET) {
-+		struct sockaddr_in *sin = (struct sockaddr_in *)&info->net.addr;
-+		return sprintf(buf, "%u.%u.%u.%u:%d\n",
-+			NIPQUAD(sin->sin_addr.s_addr), ntohs(sin->sin_port));
-+	} else if (family == AF_INET6) {
-+		struct sockaddr_in6 *sin = (struct sockaddr_in6 *)&info->net.addr;
-+		return sprintf(buf,
-+			"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d\n",
-+			NIP6(sin->sin6_addr), ntohs(sin->sin6_port));
-+	} else {
-+		int i, sz = PAGE_SIZE - 2; /* 0 symbol and '\n' below */
-+		int size, addrlen = info->net.addr.sa_data_len;
-+		unsigned char *a = (unsigned char *)&info->net.addr.sa_data;
-+		char *buf_orig = buf;
-+
-+		size = snprintf(buf, sz, "family: %d, addrlen: %u, addr: ",
-+				family, addrlen);
-+		sz -= size;
-+		buf += size;
-+
-+		for (i=0; i<addrlen; ++i) {
-+			if (sz < 3)
-+				break;
-+
-+			size = snprintf(buf, sz, "%02x ", a[i]);
-+			sz -= size;
-+			buf += size;
-+		}
-+		buf += sprintf(buf, "\n");
-+
-+		return buf - buf_orig;
-+	}
-+	return 0;
-+}
-+
-+static struct device_attribute dst_node_attrs[] = {
-+	__ATTR(size, 0444, dst_show_size, NULL),
-+	__ATTR(type, 0444, dst_show_type, NULL),
-+	__ATTR(local, 0444, dst_show_local, NULL),
-+};
-+
-+static int dst_create_node_attributes(struct dst_node *n)
-+{
-+	int err, i;
-+
-+	for (i=0; i<ARRAY_SIZE(dst_node_attrs); ++i) {
-+		err = device_create_file(&n->info->device,
-+				&dst_node_attrs[i]);
-+		if (err)
-+			goto err_out_remove_all;
-+	}
-+	return 0;
-+
-+err_out_remove_all:
-+	while (--i >= 0)
-+		device_remove_file(&n->info->device,
-+				&dst_node_attrs[i]);
-+
-+	return err;
-+}
-+
-+static void dst_remove_node_attributes(struct dst_node *n)
++static int dst_crypto_pages_alloc(struct dst_crypto_engine *e, int num)
 +{
 +	int i;
 +
-+	for (i=0; i<ARRAY_SIZE(dst_node_attrs); ++i)
-+		device_remove_file(&n->info->device,
-+				&dst_node_attrs[i]);
++	e->pages = kmalloc(num * sizeof(struct page **), GFP_KERNEL);
++	if (!e->pages)
++		return -ENOMEM;
++
++	for (i=0; i<num; ++i) {
++		e->pages[i] = alloc_page(GFP_KERNEL);
++		if (!e->pages[i])
++			goto err_out_free_pages;
++	}
++
++	e->page_num = num;
++	return 0;
++
++err_out_free_pages:
++	while (--i >= 0)
++		__free_page(e->pages[i]);
++
++	kfree(e->pages);
++	return -ENOMEM;
 +}
 +
 +/*
-+ * Sysfs cleanup and initialization.
-+ * Shows number of useful parameters.
++ * Initialize crypto engine for given node.
++ * Setup cipher/hash, keys, pool of threads and private data.
 + */
-+static void dst_node_sysfs_exit(struct dst_node *n)
-+{
-+	if (n->info) {
-+		dst_remove_node_attributes(n);
-+		device_unregister(&n->info->device);
-+		n->info = NULL;
-+	}
-+}
-+
-+static int dst_node_sysfs_init(struct dst_node *n)
++static int dst_crypto_engine_init(struct dst_crypto_engine *e, struct dst_node *n)
 +{
 +	int err;
++	struct dst_crypto_ctl *ctl = &n->crypto;
 +
-+	n->info = kzalloc(sizeof(struct dst_info), GFP_KERNEL);
-+	if (!n->info)
-+		return -ENOMEM;
-+
-+	memcpy(&n->info->device, &dst_node_dev, sizeof(struct device));
-+	n->info->size = n->size;
-+
-+	snprintf(n->info->device.bus_id, sizeof(n->info->device.bus_id), "dst-%s", n->name);
-+	err = device_register(&n->info->device);
-+	if (err) {
-+		dprintk(KERN_ERR "Failed to register node '%s', err: %d.\n",
-+				n->name, err);
++	err = dst_crypto_pages_alloc(e, n->max_pages);
++	if (err)
 +		goto err_out_exit;
++
++	e->size = PAGE_SIZE;
++	e->data = kmalloc(e->size, GFP_KERNEL);
++	if (!e->data) {
++		err = -ENOMEM;
++		goto err_out_free_pages;
 +	}
 +
-+	dst_create_node_attributes(n);
++	if (ctl->hash_algo[0]) {
++		e->hash = dst_init_hash(ctl, n->hash_key);
++		if (IS_ERR(e->hash)) {
++			err = PTR_ERR(e->hash);
++			e->hash = NULL;
++			goto err_out_free;
++		}
++	}
++
++	if (ctl->cipher_algo[0]) {
++		e->cipher = dst_init_cipher(ctl, n->cipher_key);
++		if (IS_ERR(e->cipher)) {
++			err = PTR_ERR(e->cipher);
++			e->cipher = NULL;
++			goto err_out_free_hash;
++		}
++	}
 +
 +	return 0;
 +
++err_out_free_hash:
++	crypto_free_hash(e->hash);
++err_out_free:
++	kfree(e->data);
++err_out_free_pages:
++	dst_crypto_pages_free(e);
 +err_out_exit:
-+	kfree(n->info);
-+	n->info = NULL;
 +	return err;
 +}
 +
-+/*
-+ * DST node hash tables machinery.
-+ */
-+static inline unsigned int dst_hash(char *str, unsigned int size)
++static void dst_crypto_engine_exit(struct dst_crypto_engine *e)
 +{
-+	return (jhash(str, size, 0) % dst_hashtable_size);
-+}
-+
-+static void dst_node_remove(struct dst_node *n)
-+{
-+	mutex_lock(&dst_hash_lock);
-+	list_del_init(&n->node_entry);
-+	mutex_unlock(&dst_hash_lock);
-+}
-+
-+static void dst_node_add(struct dst_node *n)
-+{
-+	unsigned hash = dst_hash(n->name, sizeof(n->name));
-+
-+	mutex_lock(&dst_hash_lock);
-+	list_add_tail(&n->node_entry, &dst_hashtable[hash]);
-+	mutex_unlock(&dst_hash_lock);
++	if (e->hash)
++		crypto_free_hash(e->hash);
++	if (e->cipher)
++		crypto_free_ablkcipher(e->cipher);
++	dst_crypto_pages_free(e);
++	kfree(e->data);
 +}
 +
 +/*
-+ * Cleaning node when it is about to be freed.
-+ * There are still users of the socket though,
-+ * so connection cleanup should be protected.
++ * Waiting for cipher processing to be completed.
 + */
-+static void dst_node_cleanup(struct dst_node *n)
++struct dst_crypto_completion
 +{
-+	struct dst_state *st = n->state;
-+
-+	if (!st)
-+		return;
-+
-+	if (n->queue) {
-+		blk_cleanup_queue(n->queue);
-+
-+		mutex_lock(&dst_hash_lock);
-+		idr_remove(&dst_index_idr, n->disk->first_minor);
-+		mutex_unlock(&dst_hash_lock);
-+
-+		put_disk(n->disk);
-+	}
-+
-+	if (n->bdev) {
-+		sync_blockdev(n->bdev);
-+		blkdev_put(n->bdev);
-+	}
-+
-+	dst_state_lock(st);
-+	st->need_exit = 1;
-+	dst_state_exit_connected(st);
-+	dst_state_unlock(st);
-+
-+	wake_up(&st->thread_wait);
-+
-+	dst_state_put(st);
-+	n->state = NULL;
-+}
-+
-+/*
-+ * Free security attributes attached to given node.
-+ */
-+static void dst_security_exit(struct dst_node *n)
-+{
-+	struct dst_secure *s, *tmp;
-+
-+	list_for_each_entry_safe(s, tmp, &n->security_list, sec_entry) {
-+		list_del(&s->sec_entry);
-+		kfree(s);
-+	}
-+}
-+
-+/*
-+ * Free node when there are no more users.
-+ * Actually node has to be freed on behalf od userspace process,
-+ * since there are number of threads, which are embedded in the
-+ * node, so they can not exit and free node from there, that is
-+ * why there is a wakeup if reference counter is not equal to zero.
-+ */
-+void dst_node_put(struct dst_node *n)
-+{
-+	if (unlikely(!n))
-+		return;
-+
-+	dprintk("%s: n: %p, refcnt: %d.\n",
-+			__func__, n, atomic_read(&n->refcnt));
-+
-+	if (atomic_dec_and_test(&n->refcnt)) {
-+		dst_node_remove(n);
-+		n->trans_scan_timeout = 0;
-+		dst_node_cleanup(n);
-+		thread_pool_destroy(n->pool);
-+		dst_node_sysfs_exit(n);
-+		dst_node_crypto_exit(n);
-+		dst_security_exit(n);
-+		dst_node_trans_exit(n);
-+
-+		kfree(n);
-+
-+		dprintk("%s: freed n: %p.\n", __func__, n);
-+	} else {
-+		wake_up(&n->wait);
-+	}
-+}
-+
-+/*
-+ * This function finds devices major/minor numbers for given pathname.
-+ */
-+static int dst_lookup_device(const char *path, dev_t *dev)
-+{
-+	int err;
-+	struct nameidata nd;
-+	struct inode *inode;
-+
-+	err = path_lookup(path, LOOKUP_FOLLOW, &nd);
-+	if (err)
-+		return err;
-+
-+	inode = nd.path.dentry->d_inode;
-+	if (!inode) {
-+		err = -ENOENT;
-+		goto out;
-+	}
-+
-+	if (!S_ISBLK(inode->i_mode)) {
-+		err = -ENOTBLK;
-+		goto out;
-+	}
-+
-+	*dev = inode->i_rdev;
-+
-+out:
-+	path_put(&nd.path);
-+	return err;
-+}
-+
-+/*
-+ * Setting up export device: lookup by the name, get its size
-+ * and setup listening socket, which will accept clients, which
-+ * will submit IO for given storage.
-+ */
-+static int dst_setup_export(struct dst_node *n, struct dst_ctl *ctl,
-+		struct dst_export_ctl *le)
-+{
-+	int err;
-+	dev_t dev = 0; /* gcc likes to scream here */
-+
-+	snprintf(n->info->local, sizeof(n->info->local), "%s", le->device);
-+
-+	err = dst_lookup_device(le->device, &dev);
-+	if (err)
-+		return err;
-+
-+	n->bdev = open_by_devnum(dev, FMODE_READ|FMODE_WRITE);
-+	if (!n->bdev)
-+		return -ENODEV;
-+
-+	if (n->size != 0)
-+		n->size = min_t(loff_t, n->bdev->bd_inode->i_size, n->size);
-+	else
-+		n->size = n->bdev->bd_inode->i_size;
-+
-+	n->info->size = n->size;
-+	err = dst_node_init_listened(n, le);
-+	if (err)
-+		goto err_out_cleanup;
-+
-+	return 0;
-+
-+err_out_cleanup:
-+	blkdev_put(n->bdev);
-+	n->bdev = NULL;
-+
-+	return err;
-+}
-+
-+/* Empty thread pool callbacks for the network processing threads. */
-+static inline void *dst_thread_network_init(void *data)
-+{
-+	dprintk("%s: data: %p.\n", __func__, data);
-+	return data;
-+}
-+
-+static inline void dst_thread_network_cleanup(void *data)
-+{
-+	dprintk("%s: data: %p.\n", __func__, data);
-+}
-+
-+/*
-+ * Allocate DST node and initialize some of its parameters.
-+ */
-+static struct dst_node *dst_alloc_node(struct dst_ctl *ctl,
-+		int (*start)(struct dst_node *),
-+		int num)
-+{
-+	struct dst_node *n;
-+	int err;
-+
-+	n = kzalloc(sizeof(struct dst_node), GFP_KERNEL);
-+	if (!n)
-+		return NULL;
-+
-+	INIT_LIST_HEAD(&n->node_entry);
-+
-+	INIT_LIST_HEAD(&n->security_list);
-+	mutex_init(&n->security_lock);
-+
-+	init_waitqueue_head(&n->wait);
-+
-+	n->trans_scan_timeout = msecs_to_jiffies(ctl->trans_scan_timeout);
-+	if (!n->trans_scan_timeout)
-+		n->trans_scan_timeout = HZ;
-+
-+	n->trans_max_retries = ctl->trans_max_retries;
-+	if (!n->trans_max_retries)
-+		n->trans_max_retries = 10;
-+
-+	/*
-+	 * Pretty much arbitrary default numbers.
-+	 * 32 matches maximum number of pages in bio originated from ext3 (31).
-+	 */
-+	n->max_pages = ctl->max_pages;
-+	if (!n->max_pages)
-+		n->max_pages = 32;
-+
-+	if (n->max_pages > 1024)
-+		n->max_pages = 1024;
-+
-+	n->start = start;
-+	n->size = ctl->size;
-+
-+	atomic_set(&n->refcnt, 1);
-+	atomic_long_set(&n->gen, 0);
-+	snprintf(n->name, sizeof(n->name), "%s", ctl->name);
-+
-+	err = dst_node_sysfs_init(n);
-+	if (err)
-+		goto err_out_free;
-+
-+	n->pool = thread_pool_create(num, n->name, dst_thread_network_init,
-+			dst_thread_network_cleanup, n);
-+	if (IS_ERR(n->pool)) {
-+		err = PTR_ERR(n->pool);
-+		goto err_out_sysfs_exit;
-+	}
-+
-+	dprintk("%s: n: %p, name: %s.\n", __func__, n, n->name);
-+
-+	return n;
-+
-+err_out_sysfs_exit:
-+	dst_node_sysfs_exit(n);
-+err_out_free:
-+	kfree(n);
-+	return NULL;
-+}
-+
-+/*
-+ * Starting a node, connected to the remote server:
-+ * register block device and initialize transaction mechanism.
-+ * In revers order though.
-+ *
-+ * It will autonegotiate some parameters with the remote node
-+ * and update local if needed.
-+ *
-+ * Transaction initialization should be the last thing before
-+ * starting the node, since transaction should include not only
-+ * block IO, but also crypto related data (if any), which are
-+ * initialized separately.
-+ */
-+static int dst_start_remote(struct dst_node *n)
-+{
-+	int err;
-+
-+	err = dst_node_trans_init(n, sizeof(struct dst_trans));
-+	if (err)
-+		return err;
-+
-+	err = dst_node_create_disk(n);
-+	if (err)
-+		return err;
-+
-+	dst_node_set_size(n);
-+	add_disk(n->disk);
-+
-+	dprintk("DST: started remote node '%s', minor: %d.\n", n->name, n->disk->first_minor);
-+
-+	return 0;
-+}
-+
-+/*
-+ * Adding remote node and initialize connection.
-+ */
-+static int dst_add_remote(struct dst_node *n, struct dst_ctl *ctl,
-+		void *data, unsigned int size)
-+{
-+	int err;
-+	struct dst_network_ctl *rctl = data;
-+
-+	if (n)
-+		return -EEXIST;
-+
-+	if (size != sizeof(struct dst_network_ctl))
-+		return -EINVAL;
-+
-+	n = dst_alloc_node(ctl, dst_start_remote, 1);
-+	if (!n)
-+		return -ENOMEM;
-+
-+	memcpy(&n->info->net, rctl, sizeof(struct dst_network_ctl));
-+	err = dst_node_init_connected(n, rctl);
-+	if (err)
-+		goto err_out_free;
-+
-+	dst_node_add(n);
-+
-+	return 0;
-+
-+err_out_free:
-+	dst_node_put(n);
-+	return err;
-+}
-+
-+/*
-+ * Adding export node: initializing block device and listening socket.
-+ */
-+static int dst_add_export(struct dst_node *n, struct dst_ctl *ctl,
-+		void *data, unsigned int size)
-+{
-+	int err;
-+	struct dst_export_ctl *le = data;
-+
-+	if (n)
-+		return -EEXIST;
-+
-+	if (size != sizeof(struct dst_export_ctl))
-+		return -EINVAL;
-+
-+	n = dst_alloc_node(ctl, dst_start_export, 2);
-+	if (!n)
-+		return -EINVAL;
-+
-+	err = dst_setup_export(n, ctl, le);
-+	if (err)
-+		goto err_out_free;
-+
-+	dst_node_add(n);
-+
-+	return 0;
-+
-+err_out_free:
-+	dst_node_put(n);
-+	return err;
-+}
-+
-+static int dst_node_remove_unload(struct dst_node *n)
-+{
-+	printk(KERN_INFO "STOPPED name: '%s', size: %llu.\n",
-+			n->name, n->size);
-+
-+	if (n->disk)
-+		del_gendisk(n->disk);
-+
-+	dst_node_remove(n);
-+	dst_node_sysfs_exit(n);
-+
-+	/*
-+	 * This is not a hack. Really.
-+	 * Node's reference counter allows to implement fine grained
-+	 * node freeing, but since all transactions (which hold node's
-+	 * reference counter) are processed in the dedicated thread,
-+	 * it is possible that reference will hit zero in that thread,
-+	 * so we will not be able to exit thread and cleanup the node.
-+	 *
-+	 * So, we remove disk, so no new activity is possible, and
-+	 * wait until all pending transaction are completed (either
-+	 * in receiving thread or by timeout in workqueue), in this
-+	 * case reference counter will be less or equal to 2 (once set in
-+	 * dst_alloc_node() and then in connector message parser;
-+	 * or when we force module unloading, and connector message
-+	 * parser does not hold a reference, in this case reference
-+	 * counter will be equal to 1),
-+	 * and subsequent dst_node_put() calls will free the node.
-+	 */
-+	dprintk("%s: going to sleep with %d refcnt.\n", __func__, atomic_read(&n->refcnt));
-+	wait_event(n->wait, atomic_read(&n->refcnt) <= 2);
-+
-+	dst_node_put(n);
-+	return 0;
-+}
-+
-+/*
-+ * Remove node from the hash table.
-+ */
-+static int dst_del_node(struct dst_node *n, struct dst_ctl *ctl,
-+		void *data, unsigned int size)
-+{
-+	if (!n)
-+		return -ENODEV;
-+
-+	return dst_node_remove_unload(n);
-+}
-+
-+/*
-+ * Initialize crypto processing for given node.
-+ */
-+static int dst_crypto_init(struct dst_node *n, struct dst_ctl *ctl,
-+		void *data, unsigned int size)
-+{
-+	struct dst_crypto_ctl *crypto = data;
-+
-+	if (!n)
-+		return -ENODEV;
-+
-+	if (size != sizeof(struct dst_crypto_ctl) + crypto->hash_keysize +
-+			crypto->cipher_keysize)
-+		return -EINVAL;
-+
-+	if (n->trans_cache)
-+		return -EEXIST;
-+
-+	return dst_node_crypto_init(n, crypto);
-+}
-+
-+/*
-+ * Security attributes for given node.
-+ */
-+static int dst_security_init(struct dst_node *n, struct dst_ctl *ctl,
-+		void *data, unsigned int size)
-+{
-+	struct dst_secure *s;
-+
-+	if (!n)
-+		return -ENODEV;
-+
-+	if (size != sizeof(struct dst_secure_user))
-+		return -EINVAL;
-+
-+	s = kmalloc(sizeof(struct dst_secure), GFP_KERNEL);
-+	if (!s)
-+		return -ENOMEM;
-+
-+	memcpy(&s->sec, data, size);
-+
-+	mutex_lock(&n->security_lock);
-+	list_add_tail(&s->sec_entry, &n->security_list);
-+	mutex_unlock(&n->security_lock);
-+
-+	return 0;
-+}
-+
-+/*
-+ * Kill'em all!
-+ */
-+static int dst_start_node(struct dst_node *n, struct dst_ctl *ctl,
-+		void *data, unsigned int size)
-+{
-+	int err;
-+
-+	if (!n)
-+		return -ENODEV;
-+
-+	if (n->trans_cache)
-+		return 0;
-+
-+	err = n->start(n);
-+	if (err)
-+		return err;
-+
-+	printk(KERN_INFO "STARTED name: '%s', size: %llu.\n", n->name, n->size);
-+	return 0;
-+}
-+
-+typedef int (*dst_command_func)(struct dst_node *n, struct dst_ctl *ctl,
-+		void *data, unsigned int size);
-+
-+/*
-+ * List of userspace commands.
-+ */
-+static dst_command_func dst_commands[] = {
-+	[DST_ADD_REMOTE] = &dst_add_remote,
-+	[DST_ADD_EXPORT] = &dst_add_export,
-+	[DST_DEL_NODE] = &dst_del_node,
-+	[DST_CRYPTO] = &dst_crypto_init,
-+	[DST_SECURITY] = &dst_security_init,
-+	[DST_START] = &dst_start_node,
++	struct completion		complete;
++	int				error;
 +};
 +
-+/*
-+ * Configuration parser.
-+ */
-+static void cn_dst_callback(void *data)
++static void dst_crypto_complete(struct crypto_async_request *req, int err)
 +{
-+	struct dst_ctl *ctl;
-+	struct cn_msg *msg = data;
++	struct dst_crypto_completion *c = req->data;
++
++	if (err == -EINPROGRESS)
++		return;
++
++	dprintk("%s: req: %p, err: %d.\n", __func__, req, err);
++	c->error = err;
++	complete(&c->complete);
++}
++
++static int dst_crypto_process(struct ablkcipher_request *req,
++		struct scatterlist *sg_dst, struct scatterlist *sg_src,
++		void *iv, int enc, unsigned long timeout)
++{
++	struct dst_crypto_completion c;
 +	int err;
-+	struct dst_ctl_ack ack;
-+	struct dst_node *n = NULL, *tmp;
-+	unsigned int hash;
 +
-+	if (msg->len < sizeof(struct dst_ctl)) {
-+		err = -EBADMSG;
-+		goto out;
-+	}
++	init_completion(&c.complete);
++	c.error = -EINPROGRESS;
 +
-+	ctl = (struct dst_ctl *)msg->data;
++	ablkcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
++					dst_crypto_complete, &c);
 +
-+	if (ctl->cmd >= DST_CMD_MAX) {
-+		err = -EINVAL;
-+		goto out;
-+	}
-+	hash = dst_hash(ctl->name, sizeof(ctl->name));
++	ablkcipher_request_set_crypt(req, sg_src, sg_dst, sg_src->length, iv);
 +
-+	mutex_lock(&dst_hash_lock);
-+	list_for_each_entry(tmp, &dst_hashtable[hash], node_entry) {
-+		if (!memcmp(tmp->name, ctl->name, sizeof(tmp->name))) {
-+			n = tmp;
-+			dst_node_get(n);
++	if (enc)
++		err = crypto_ablkcipher_encrypt(req);
++	else
++		err = crypto_ablkcipher_decrypt(req);
++
++	switch (err) {
++		case -EINPROGRESS:
++		case -EBUSY:
++			err = wait_for_completion_interruptible_timeout(&c.complete,
++					timeout);
++			if (!err)
++				err = -ETIMEDOUT;
++			else
++				err = c.error;
 +			break;
-+		}
++		default:
++			break;
 +	}
-+	mutex_unlock(&dst_hash_lock);
 +
-+	err = dst_commands[ctl->cmd](n, ctl, msg->data + sizeof(struct dst_ctl),
-+			msg->len - sizeof(struct dst_ctl));
-+
-+	dst_node_put(n);
-+out:
-+	memcpy(&ack.msg, msg, sizeof(struct cn_msg));
-+
-+	ack.msg.ack = msg->ack + 1;
-+	ack.msg.len = sizeof(struct dst_ctl_ack) - sizeof(struct cn_msg);
-+
-+	ack.error = err;
-+
-+	cn_netlink_send(&ack.msg, 0, GFP_KERNEL);
++	return err;
 +}
 +
 +/*
-+ * Global initialization: sysfs, hash table, block device registration,
-+ * connector and various caches.
++ * DST uses generic iteration approach for data crypto processing.
++ * Single block IO request is switched into array of scatterlists,
++ * which are submitted to the crypto processing iterator.
++ *
++ * Input and output iterator initialization are different, since
++ * in output case we can not encrypt data in-place and need a
++ * temporary storage, which is then being sent to the remote peer.
 + */
-+static int __init dst_sysfs_init(void)
++static int dst_trans_iter_out(struct bio *bio, struct dst_crypto_engine *e,
++		int (* iterator) (struct dst_crypto_engine *e,
++				  struct scatterlist *dst,
++				  struct scatterlist *src))
 +{
-+	return bus_register(&dst_dev_bus_type);
-+}
++	struct bio_vec *bv;
++	int err, i;
 +
-+static void dst_sysfs_exit(void)
-+{
-+	bus_unregister(&dst_dev_bus_type);
-+}
++	sg_init_table(e->src, bio->bi_vcnt);
++	sg_init_table(e->dst, bio->bi_vcnt);
 +
-+static int __init dst_hashtable_init(void)
-+{
-+	unsigned int i;
++	bio_for_each_segment(bv, bio, i) {
++		sg_set_page(&e->src[i], bv->bv_page, bv->bv_len, bv->bv_offset);
++		sg_set_page(&e->dst[i], e->pages[i], bv->bv_len, bv->bv_offset);
 +
-+	dst_hashtable = kcalloc(dst_hashtable_size, sizeof(struct list_head),
-+			GFP_KERNEL);
-+	if (!dst_hashtable)
-+		return -ENOMEM;
-+
-+	for (i=0; i<dst_hashtable_size; ++i)
-+		INIT_LIST_HEAD(&dst_hashtable[i]);
++		err = iterator(e, &e->dst[i], &e->src[i]);
++		if (err)
++			return err;
++	}
 +
 +	return 0;
 +}
 +
-+static void dst_hashtable_exit(void)
++static int dst_trans_iter_in(struct bio *bio, struct dst_crypto_engine *e,
++		int (* iterator) (struct dst_crypto_engine *e,
++				  struct scatterlist *dst,
++				  struct scatterlist *src))
 +{
-+	unsigned int i;
-+	struct dst_node *n, *tmp;
++	struct bio_vec *bv;
++	int err, i;
 +
-+	for (i=0; i<dst_hashtable_size; ++i) {
-+		list_for_each_entry_safe(n, tmp, &dst_hashtable[i], node_entry) {
-+			dst_node_remove_unload(n);
-+		}
++	sg_init_table(e->src, bio->bi_vcnt);
++	sg_init_table(e->dst, bio->bi_vcnt);
++
++	bio_for_each_segment(bv, bio, i) {
++		sg_set_page(&e->src[i], bv->bv_page, bv->bv_len, bv->bv_offset);
++		sg_set_page(&e->dst[i], bv->bv_page, bv->bv_len, bv->bv_offset);
++
++		err = iterator(e, &e->dst[i], &e->src[i]);
++		if (err)
++			return err;
 +	}
 +
-+	kfree(dst_hashtable);
++	return 0;
 +}
 +
-+static int __init dst_sys_init(void)
++static int dst_crypt_iterator(struct dst_crypto_engine *e,
++		struct scatterlist *sg_dst, struct scatterlist *sg_src)
 +{
++	struct ablkcipher_request *req = e->data;
++	u8 iv[32];
++
++	memset(iv, 0, sizeof(iv));
++
++	memcpy(iv, &e->iv, sizeof(e->iv));
++
++	return dst_crypto_process(req, sg_dst, sg_src, iv, e->enc, e->timeout);
++}
++
++static int dst_crypt(struct dst_crypto_engine *e, struct bio *bio)
++{
++	struct ablkcipher_request *req = e->data;
++
++	memset(req, 0, sizeof(struct ablkcipher_request));
++	ablkcipher_request_set_tfm(req, e->cipher);
++
++	if (e->enc)
++		return dst_trans_iter_out(bio, e, dst_crypt_iterator);
++	else
++		return dst_trans_iter_in(bio, e, dst_crypt_iterator);
++}
++
++static int dst_hash_iterator(struct dst_crypto_engine *e,
++		struct scatterlist *sg_dst, struct scatterlist *sg_src)
++{
++	return crypto_hash_update(e->data, sg_src, sg_src->length);
++}
++
++static int dst_hash(struct dst_crypto_engine *e, struct bio *bio, void *dst)
++{
++	struct hash_desc *desc = e->data;
++	int err;
++
++	desc->tfm = e->hash;
++	desc->flags = 0;
++
++	err = crypto_hash_init(desc);
++	if (err)
++		return err;
++
++	err = dst_trans_iter_in(bio, e, dst_hash_iterator);
++	if (err)
++		return err;
++
++	err = crypto_hash_final(desc, dst);
++	if (err)
++		return err;
++
++	return 0;
++}
++
++/*
++ * Initialize/cleanup a crypto thread. The only thing it should
++ * do is to allocate a pool of pages as temporary storage.
++ * And to setup cipher and/or hash.
++ */
++static void *dst_crypto_thread_init(void *data)
++{
++	struct dst_node *n = data;
++	struct dst_crypto_engine *e;
 +	int err = -ENOMEM;
 +
-+	err = dst_hashtable_init();
-+	if (err)
++	e = kzalloc(sizeof(struct dst_crypto_engine), GFP_KERNEL);
++	if (!e)
 +		goto err_out_exit;
++	e->src = kcalloc(2 * n->max_pages, sizeof(struct scatterlist),
++			GFP_KERNEL);
++	if (!e->src)
++		goto err_out_free;
 +
-+	err = dst_export_init();
++	e->dst = e->src + n->max_pages;
++
++	err = dst_crypto_engine_init(e, n);
 +	if (err)
-+		goto err_out_hashtable_exit;
++		goto err_out_free_all;
 +
-+	err = register_blkdev(dst_major, DST_NAME);
-+	if (err < 0)
-+		goto err_out_export_exit;
-+	if (err)
-+		dst_major = err;
++	return e;
 +
-+	err = dst_sysfs_init();
-+	if (err)
-+		goto err_out_unregister;
++err_out_free_all:
++	kfree(e->src);
++err_out_free:
++	kfree(e);
++err_out_exit:
++	return ERR_PTR(err);
++}
 +
-+	err = cn_add_callback(&cn_dst_id, "DST", cn_dst_callback);
-+	if (err)
-+		goto err_out_sysfs_exit;
++static void dst_crypto_thread_cleanup(void *private)
++{
++	struct dst_crypto_engine *e = private;
 +
-+	printk(KERN_INFO "Distributed storage, '%s' release.\n", dst_name);
++	dst_crypto_engine_exit(e);
++	kfree(e->src);
++	kfree(e);
++}
++
++/*
++ * Initialize crypto engine for given node: store keys, create pool
++ * of threads, initialize each one.
++ *
++ * Each thread has unique ID, but 0 and 1 are reserved for receiving and accepting
++ * threads (if export node), so IDs could start from 2, but starting them
++ * from 10 allows easily understand what this thread is for.
++ */
++int dst_node_crypto_init(struct dst_node *n, struct dst_crypto_ctl *ctl)
++{
++	void *key = (ctl + 1);
++	int err = -ENOMEM, i;
++	char name[32];
++
++	if (ctl->hash_keysize) {
++		n->hash_key = kmalloc(ctl->hash_keysize, GFP_KERNEL);
++		if (!n->hash_key)
++			goto err_out_exit;
++		memcpy(n->hash_key, key, ctl->hash_keysize);
++	}
++
++	if (ctl->cipher_keysize) {
++		n->cipher_key = kmalloc(ctl->cipher_keysize, GFP_KERNEL);
++		if (!n->cipher_key)
++			goto err_out_free_hash;
++		memcpy(n->cipher_key, key, ctl->cipher_keysize);
++	}
++	memcpy(&n->crypto, ctl, sizeof(struct dst_crypto_ctl));
++
++	for (i=0; i<ctl->thread_num; ++i) {
++		snprintf(name, sizeof(name), "%s-crypto-%d", n->name, i);
++		/* Unique ids... */
++		err = thread_pool_add_worker(n->pool, name, i+10,
++			dst_crypto_thread_init, dst_crypto_thread_cleanup, n);
++		if (err)
++			goto err_out_free_threads;
++	}
 +
 +	return 0;
 +
-+err_out_sysfs_exit:
-+	dst_sysfs_exit();
-+err_out_unregister:
-+	unregister_blkdev(dst_major, DST_NAME);
-+err_out_export_exit:
-+	dst_export_exit();
-+err_out_hashtable_exit:
-+	dst_hashtable_exit();
++err_out_free_threads:
++	while (--i >= 0)
++		thread_pool_del_worker_id(n->pool, i+10);
++
++	if (ctl->cipher_keysize)
++		kfree(n->cipher_key);
++	ctl->cipher_keysize = 0;
++err_out_free_hash:
++	if (ctl->hash_keysize)
++		kfree(n->hash_key);
++	ctl->hash_keysize = 0;
 +err_out_exit:
 +	return err;
 +}
 +
-+static void __exit dst_sys_exit(void)
++void dst_node_crypto_exit(struct dst_node *n)
 +{
-+	cn_del_callback(&cn_dst_id);
-+	unregister_blkdev(dst_major, DST_NAME);
-+	dst_hashtable_exit();
-+	dst_sysfs_exit();
-+	dst_export_exit();
++	struct dst_crypto_ctl *ctl = &n->crypto;
++
++	if (ctl->cipher_algo[0] || ctl->hash_algo[0]) {
++		kfree(n->hash_key);
++		kfree(n->cipher_key);
++	}
 +}
 +
-+module_init(dst_sys_init);
-+module_exit(dst_sys_exit);
-+
-+MODULE_DESCRIPTION("Distributed storage");
-+MODULE_AUTHOR("Evgeniy Polyakov <zbr@ioremap.net>");
-+MODULE_LICENSE("GPL");
-diff --git a/drivers/block/dst/trans.c b/drivers/block/dst/trans.c
-new file mode 100644
-index 0000000..557d372
---- /dev/null
-+++ b/drivers/block/dst/trans.c
-@@ -0,0 +1,335 @@
 +/*
-+ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
++ * Thrad pool setup callback. Just stores a transaction in private data.
 + */
-+
-+#include <linux/bio.h>
-+#include <linux/dst.h>
-+#include <linux/slab.h>
-+#include <linux/mempool.h>
-+
-+/*
-+ * Transaction memory pool size.
-+ */
-+static int dst_mempool_num = 32;
-+module_param(dst_mempool_num, int, 0644);
-+
-+/*
-+ * Transaction tree management.
-+ */
-+static inline int dst_trans_cmp(dst_gen_t gen, dst_gen_t new)
++static int dst_trans_crypto_setup(void *crypto_engine, void *trans)
 +{
-+	if (gen < new)
-+		return 1;
-+	if (gen > new)
-+		return -1;
++	struct dst_crypto_engine *e = crypto_engine;
++
++	e->private = trans;
 +	return 0;
 +}
 +
-+struct dst_trans *dst_trans_search(struct dst_node *node, dst_gen_t gen)
++#if 0
++static void dst_dump_bio(struct bio *bio)
 +{
-+	struct rb_root *root = &node->trans_root;
-+	struct rb_node *n = root->rb_node;
-+	struct dst_trans *t, *ret = NULL;
-+	int cmp;
++	u8 *p;
++	struct bio_vec *bv;
++	int i;
 +
-+	while (n) {
-+		t = rb_entry(n, struct dst_trans, trans_entry);
++	bio_for_each_segment(bv, bio, i) {
++		dprintk("%s: %llu/%u: size: %u, offset: %u, data: ",
++				__func__, bio->bi_sector, bio->bi_size,
++				bv->bv_len, bv->bv_offset);
 +
-+		cmp = dst_trans_cmp(t->gen, gen);
-+		if (cmp < 0)
-+			n = n->rb_left;
-+		else if (cmp > 0)
-+			n = n->rb_right;
-+		else {
-+			ret = t;
-+			break;
-+		}
++		p = kmap(bv->bv_page) + bv->bv_offset;
++		for (i=0; i<bv->bv_len; ++i)
++			printk("%02x ", p[i]);
++		kunmap(bv->bv_page);
++		printk("\n");
 +	}
-+
-+	dprintk("%s: %s transaction: id: %llu.\n", __func__,
-+			(ret)?"found":"not found", gen);
-+
-+	return ret;
 +}
++#endif
 +
-+static int dst_trans_insert(struct dst_trans *new)
++/*
++ * Encrypt/hash data and send it to the network.
++ */
++static int dst_crypto_process_sending(struct dst_crypto_engine *e,
++		struct bio *bio, u8 *hash)
 +{
-+	struct rb_root *root = &new->n->trans_root;
-+	struct rb_node **n = &root->rb_node, *parent = NULL;
-+	struct dst_trans *ret = NULL, *t;
-+	int cmp;
++	int err;
 +
-+	while (*n) {
-+		parent = *n;
++	if (e->cipher) {
++		err = dst_crypt(e, bio);
++		if (err)
++			goto err_out_exit;
++	}
 +
-+		t = rb_entry(parent, struct dst_trans, trans_entry);
++	if (e->hash) {
++		err = dst_hash(e, bio, hash);
++		if (err)
++			goto err_out_exit;
 +
-+		cmp = dst_trans_cmp(t->gen, new->gen);
-+		if (cmp < 0)
-+			n = &parent->rb_left;
-+		else if (cmp > 0)
-+			n = &parent->rb_right;
-+		else {
-+			ret = t;
-+			break;
++#ifdef CONFIG_DST_DEBUG
++		{
++			unsigned int i;
++
++			/* dst_dump_bio(bio); */
++
++			printk(KERN_DEBUG "%s: bio: %llu/%u, rw: %lu, hash: ",
++				__func__, (u64)bio->bi_sector,
++				bio->bi_size, bio_data_dir(bio));
++			for (i=0; i<crypto_hash_digestsize(e->hash); ++i)
++					printk("%02x ", hash[i]);
++			printk("\n");
 +		}
++#endif
 +	}
-+
-+	new->send_time = jiffies;
-+	if (ret) {
-+		printk("%s: exist: old: gen: %llu, bio: %llu/%u, send_time: %lu, "
-+				"new: gen: %llu, bio: %llu/%u, send_time: %lu.\n",
-+			__func__,
-+			ret->gen, (u64)ret->bio->bi_sector,
-+			ret->bio->bi_size, ret->send_time,
-+			new->gen, (u64)new->bio->bi_sector,
-+			new->bio->bi_size, new->send_time);
-+		return -EEXIST;
-+	}
-+
-+	rb_link_node(&new->trans_entry, parent, n);
-+	rb_insert_color(&new->trans_entry, root);
-+
-+	dprintk("%s: inserted: gen: %llu, bio: %llu/%u, send_time: %lu.\n",
-+		__func__, new->gen, (u64)new->bio->bi_sector,
-+		new->bio->bi_size, new->send_time);
 +
 +	return 0;
++
++err_out_exit:
++	return err;
 +}
 +
-+int dst_trans_remove_nolock(struct dst_trans *t)
++/*
++ * Check if received data is valid. Decipher if it is.
++ */
++static int dst_crypto_process_receiving(struct dst_crypto_engine *e,
++		struct bio *bio, u8 *hash, u8 *recv_hash)
++{
++	int err;
++
++	if (e->hash) {
++		int mismatch;
++
++		err = dst_hash(e, bio, hash);
++		if (err)
++			goto err_out_exit;
++
++		mismatch = !!memcmp(recv_hash, hash,
++				crypto_hash_digestsize(e->hash));
++#ifdef CONFIG_DST_DEBUG
++		/* dst_dump_bio(bio); */
++
++		printk(KERN_DEBUG "%s: bio: %llu/%u, rw: %lu, hash mismatch: %d",
++			__func__, (u64)bio->bi_sector, bio->bi_size,
++			bio_data_dir(bio), mismatch);
++		if (mismatch) {
++			unsigned int i;
++
++			printk(", recv/calc: ");
++			for (i=0; i<crypto_hash_digestsize(e->hash); ++i) {
++				printk("%02x/%02x ", recv_hash[i], hash[i]);
++			}
++		}
++		printk("\n");
++#endif
++		err = -1;
++		if (mismatch)
++			goto err_out_exit;
++	}
++
++	if (e->cipher) {
++		err = dst_crypt(e, bio);
++		if (err)
++			goto err_out_exit;
++	}
++
++	return 0;
++
++err_out_exit:
++	return err;
++}
++
++/*
++ * Thread pool callback to encrypt data and send it to the netowork.
++ */
++static int dst_trans_crypto_action(void *crypto_engine, void *schedule_data)
++{
++	struct dst_crypto_engine *e = crypto_engine;
++	struct dst_trans *t = schedule_data;
++	struct bio *bio = t->bio;
++	int err;
++
++	dprintk("%s: t: %p, gen: %llu, cipher: %p, hash: %p.\n",
++			__func__, t, t->gen, e->cipher, e->hash);
++
++	e->enc = t->enc;
++	e->iv = dst_gen_iv(t);
++
++	if (bio_data_dir(bio) == WRITE) {
++		err = dst_crypto_process_sending(e, bio, t->cmd.hash);
++		if (err)
++			goto err_out_exit;
++
++		if (e->hash) {
++			t->cmd.csize = crypto_hash_digestsize(e->hash);
++			t->cmd.size += t->cmd.csize;
++		}
++
++		return dst_trans_send(t);
++	} else {
++		u8 *hash = e->data + e->size/2;
++
++		err = dst_crypto_process_receiving(e, bio, hash, t->cmd.hash);
++		if (err)
++			goto err_out_exit;
++
++		dst_trans_remove(t);
++		dst_trans_put(t);
++	}
++
++	return 0;
++
++err_out_exit:
++	t->error = err;
++	dst_trans_put(t);
++	return err;
++}
++
++/*
++ * Schedule crypto processing for given transaction.
++ */
++int dst_trans_crypto(struct dst_trans *t)
 +{
 +	struct dst_node *n = t->n;
++	int err;
 +
-+	if (t->trans_entry.rb_parent_color) {
-+		rb_erase(&t->trans_entry, &n->trans_root);
-+		t->trans_entry.rb_parent_color = 0;
-+	}
-+	return 0;
-+}
-+
-+int dst_trans_remove(struct dst_trans *t)
-+{
-+	int ret;
-+	struct dst_node *n = t->n;
-+
-+	mutex_lock(&n->trans_lock);
-+	ret = dst_trans_remove_nolock(t);
-+	mutex_unlock(&n->trans_lock);
-+
-+	return ret;
-+}
-+
-+/*
-+ * When transaction is completed and there are no more users,
-+ * we complete appriate block IO request with given error status.
-+ */
-+void dst_trans_put(struct dst_trans *t)
-+{
-+	if (atomic_dec_and_test(&t->refcnt)) {
-+		struct bio *bio = t->bio;
-+
-+		dprintk("%s: completed t: %p, gen: %llu, bio: %p.\n",
-+				__func__, t, t->gen, bio);
-+
-+		bio_endio(bio, t->error);
-+		bio_put(bio);
-+
-+		dst_node_put(t->n);
-+		mempool_free(t, t->n->trans_pool);
-+	}
-+}
-+
-+/*
-+ * Process given block IO request: allocate transaction, insert it into the tree
-+ * and send/schedule crypto processing.
-+ */
-+int dst_process_bio(struct dst_node *n, struct bio *bio)
-+{
-+	struct dst_trans *t;
-+	int err = -ENOMEM;
-+
-+	t = mempool_alloc(n->trans_pool, GFP_NOFS);
-+	if (!t)
++	err = thread_pool_schedule(n->pool,
++		dst_trans_crypto_setup, dst_trans_crypto_action,
++		t, MAX_SCHEDULE_TIMEOUT);
++	if (err)
 +		goto err_out_exit;
 +
-+	t->n = dst_node_get(n);
-+	t->bio = bio;
-+	t->error = 0;
-+	t->retries = 0;
-+	atomic_set(&t->refcnt, 1);
-+	t->gen = atomic_long_inc_return(&n->gen);
-+
-+	t->enc = bio_data_dir(bio);
-+	dst_bio_to_cmd(bio, &t->cmd, DST_IO, t->gen);
-+
-+	mutex_lock(&n->trans_lock);
-+	err = dst_trans_insert(t);
-+	mutex_unlock(&n->trans_lock);
-+	if (err)
-+		goto err_out_free;
-+
-+	dprintk("%s: gen: %llu, bio: %llu/%u, dir/enc: %d, need_crypto: %d.\n",
-+			__func__, t->gen, (u64)bio->bi_sector,
-+			bio->bi_size, t->enc, dst_need_crypto(n));
-+
-+	if (dst_need_crypto(n) && t->enc)
-+		dst_trans_crypto(t);
-+	else
-+		dst_trans_send(t);
-+
 +	return 0;
 +
-+err_out_free:
-+	dst_node_put(n);
-+	mempool_free(t, n->trans_pool);
 +err_out_exit:
-+	bio_endio(bio, err);
++	dst_trans_put(t);
++	return err;
++}
++
++/*
++ * Crypto machinery for the export node.
++ */
++static int dst_export_crypto_setup(void *crypto_engine, void *bio)
++{
++	struct dst_crypto_engine *e = crypto_engine;
++
++	e->private = bio;
++	return 0;
++}
++
++static int dst_export_crypto_action(void *crypto_engine, void *schedule_data)
++{
++	struct dst_crypto_engine *e = crypto_engine;
++	struct bio *bio = schedule_data;
++	struct dst_export_priv *p = bio->bi_private;
++	int err;
++
++	dprintk("%s: e: %p, data: %p, bio: %llu/%u, dir: %lu.\n", __func__,
++		e, e->data, (u64)bio->bi_sector, bio->bi_size, bio_data_dir(bio));
++
++	e->enc = (bio_data_dir(bio) == READ);
++	e->iv = p->cmd.id;
++
++	if (bio_data_dir(bio) == WRITE) {
++		u8 *hash = e->data + e->size/2;
++
++		err = dst_crypto_process_receiving(e, bio, hash, p->cmd.hash);
++		if (err)
++			goto err_out_exit;
++
++		generic_make_request(bio);
++	} else {
++		err = dst_crypto_process_sending(e, bio, p->cmd.hash);
++		if (err)
++			goto err_out_exit;
++
++		if (e->hash) {
++			p->cmd.csize = crypto_hash_digestsize(e->hash);
++			p->cmd.size += p->cmd.csize;
++		}
++
++		err = dst_export_send_bio(bio);
++	}
++	return 0;
++
++err_out_exit:
 +	bio_put(bio);
 +	return err;
 +}
 +
-+/*
-+ * Scan for timeout/stale transactions.
-+ * Each transaction is being resent multiple times before error completion.
-+ */
-+static void dst_trans_scan(struct work_struct *work)
++int dst_export_crypto(struct dst_node *n, struct bio *bio)
 +{
-+	struct dst_node *n = container_of(work, struct dst_node, trans_work.work);
-+	struct rb_node *rb_node;
-+	struct dst_trans *t;
-+	unsigned long timeout = n->trans_scan_timeout;
-+	int num = 10 * n->trans_max_retries;
++	int err;
 +
-+	mutex_lock(&n->trans_lock);
-+
-+	for (rb_node = rb_first(&n->trans_root); rb_node; ) {
-+		t = rb_entry(rb_node, struct dst_trans, trans_entry);
-+
-+		if (timeout && time_after(t->send_time + timeout, jiffies)
-+				&& t->retries == 0)
-+			break;
-+#if 0
-+		dprintk("%s: t: %p, gen: %llu, n: %s, retries: %u, max: %u.\n",
-+			__func__, t, t->gen, n->name,
-+			t->retries, n->trans_max_retries);
-+#endif
-+		if (--num == 0)
-+			break;
-+
-+		dst_trans_get(t);
-+
-+		rb_node = rb_next(rb_node);
-+
-+		if (timeout && (++t->retries < n->trans_max_retries)) {
-+			dst_trans_send(t);
-+		} else {
-+			t->error = -ETIMEDOUT;
-+			dst_trans_remove_nolock(t);
-+			dst_trans_put(t);
-+		}
-+
-+		dst_trans_put(t);
-+	}
-+
-+	mutex_unlock(&n->trans_lock);
-+
-+	/*
-+	 * If no timeout specified then system is in the middle of exiting process,
-+	 * so no need to reschedule scanning process again.
-+	 */
-+	if (timeout) {
-+		if (!num)
-+			timeout = HZ;
-+		schedule_delayed_work(&n->trans_work, timeout);
-+	}
-+}
-+
-+/*
-+ * Flush all transactions and mark them as timed out.
-+ * Destroy transaction pools.
-+ */
-+void dst_node_trans_exit(struct dst_node *n)
-+{
-+	struct dst_trans *t;
-+	struct rb_node *rb_node;
-+
-+	if (!n->trans_cache)
-+		return;
-+
-+	dprintk("%s: n: %p, cancelling the work.\n", __func__, n);
-+	cancel_delayed_work_sync(&n->trans_work);
-+	flush_scheduled_work();
-+	dprintk("%s: n: %p, work has been cancelled.\n", __func__, n);
-+
-+	for (rb_node = rb_first(&n->trans_root); rb_node; ) {
-+		t = rb_entry(rb_node, struct dst_trans, trans_entry);
-+
-+		dprintk("%s: t: %p, gen: %llu, n: %s.\n",
-+			__func__, t, t->gen, n->name);
-+
-+		rb_node = rb_next(rb_node);
-+
-+		t->error = -ETIMEDOUT;
-+		dst_trans_remove_nolock(t);
-+		dst_trans_put(t);
-+	}
-+
-+	mempool_destroy(n->trans_pool);
-+	kmem_cache_destroy(n->trans_cache);
-+}
-+
-+/*
-+ * Initialize transaction storage for given node.
-+ * Transaction stores not only control information,
-+ * but also network command and crypto data (if needed)
-+ * to reduce number of allocations. Thus transaction size
-+ * differs from node to node.
-+ */
-+int dst_node_trans_init(struct dst_node *n, unsigned int size)
-+{
-+	/*
-+	 * We need this, since node with given name can be dropped from the
-+	 * hash table, but be still alive, so subsequent creation of the node
-+	 * with the same name may collide with existing cache name.
-+	 */
-+
-+	snprintf(n->cache_name, sizeof(n->cache_name), "%s-%p", n->name, n);
-+
-+	n->trans_cache = kmem_cache_create(n->cache_name,
-+			size + n->crypto.crypto_attached_size,
-+			0, 0, NULL);
-+	if (!n->trans_cache)
++	err = thread_pool_schedule(n->pool,
++		dst_export_crypto_setup, dst_export_crypto_action,
++		bio, MAX_SCHEDULE_TIMEOUT);
++	if (err)
 +		goto err_out_exit;
-+
-+	n->trans_pool = mempool_create_slab_pool(dst_mempool_num, n->trans_cache);
-+	if (!n->trans_pool)
-+		goto err_out_cache_destroy;
-+
-+	mutex_init(&n->trans_lock);
-+	n->trans_root = RB_ROOT;
-+
-+	INIT_DELAYED_WORK(&n->trans_work, dst_trans_scan);
-+	schedule_delayed_work(&n->trans_work, n->trans_scan_timeout);
-+
-+	dprintk("%s: n: %p, size: %u, crypto: %u.\n",
-+		__func__, n, size, n->crypto.crypto_attached_size);
 +
 +	return 0;
 +
-+err_out_cache_destroy:
-+	kmem_cache_destroy(n->trans_cache);
 +err_out_exit:
-+	return -ENOMEM;
++	bio_put(bio);
++	return err;
 +}
-diff --git a/include/linux/connector.h b/include/linux/connector.h
-index 5c7f946..1980f08 100644
---- a/include/linux/connector.h
-+++ b/include/linux/connector.h
-@@ -39,8 +39,10 @@
- #define CN_IDX_V86D			0x4
- #define CN_VAL_V86D_UVESAFB		0x1
- #define CN_IDX_BB			0x5	/* BlackBoard, from the TSP GPL sampling framework */
-+#define CN_DST_IDX			0x6
-+#define CN_DST_VAL			0x1
- 
--#define CN_NETLINK_USERS		6
-+#define CN_NETLINK_USERS		7
- 
- /*
-  * Maximum connector's message size.
-diff --git a/include/linux/dst.h b/include/linux/dst.h
+diff --git a/drivers/block/dst/thread_pool.c b/drivers/block/dst/thread_pool.c
 new file mode 100644
-index 0000000..83b2ba0
+index 0000000..c35754d
 --- /dev/null
-+++ b/include/linux/dst.h
-@@ -0,0 +1,587 @@
++++ b/drivers/block/dst/thread_pool.c
+@@ -0,0 +1,345 @@
 +/*
-+ * 2007+ Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
 + * All rights reserved.
 + *
 + * This program is free software; you can redistribute it and/or modify
@@ -1369,575 +773,333 @@ index 0000000..83b2ba0
 + * GNU General Public License for more details.
 + */
 +
-+#ifndef __DST_H
-+#define __DST_H
-+
-+#include <linux/types.h>
-+#include <linux/connector.h>
-+
-+#define DST_NAMELEN		32
-+#define DST_NAME		"dst"
-+
-+enum {
-+	/* Remove node with given id from storage */
-+	DST_DEL_NODE	= 0,
-+	/* Add remote node with given id to the storage */
-+	DST_ADD_REMOTE,
-+	/* Add local node with given id to the storage to be exported and used by remote peers */
-+	DST_ADD_EXPORT,
-+	/* Crypto initialization command (hash/cipher used to protect the connection) */
-+	DST_CRYPTO,
-+	/* Security attributes for given connection (permissions for example) */
-+	DST_SECURITY,
-+	/* Register given node in the block layer subsystem */
-+	DST_START,
-+	DST_CMD_MAX
-+};
-+
-+struct dst_ctl
-+{
-+	/* Storage name */
-+	char			name[DST_NAMELEN];
-+	/* Command flags */
-+	__u32			flags;
-+	/* Command itself (see above) */
-+	__u32			cmd;
-+	/* Maximum number of pages per single request in this device */
-+	__u32			max_pages;
-+	/* Stale/error transaction scanning timeout in milliseconds */
-+	__u32			trans_scan_timeout;
-+	/* Maximum number of retry sends before completing transaction as broken */
-+	__u32			trans_max_retries;
-+	/* Storage size */
-+	__u64			size;
-+};
-+
-+/* Reply command carries completion status */
-+struct dst_ctl_ack
-+{
-+	struct cn_msg		msg;
-+	int			error;
-+	int			unused[3];
-+};
++#include <linux/kernel.h>
++#include <linux/dst.h>
++#include <linux/kthread.h>
++#include <linux/slab.h>
 +
 +/*
-+ * Unfortunaltely socket address structure is not exported to userspace
-+ * and is redefined there.
++ * Thread pool abstraction allows to schedule a work to be performed
++ * on behalf of kernel thread. One does not operate with threads itself,
++ * instead user provides setup and cleanup callbacks for thread pool itself,
++ * and action and cleanup callbacks for each submitted work.
++ *
++ * Each worker has private data initialized at creation time and data,
++ * provided by user at scheduling time.
++ *
++ * When action is being performed, thread can not be used by other users,
++ * instead they will sleep until there is free thread to pick their work.
 + */
-+#define SADDR_MAX_DATA	128
-+
-+struct saddr {
-+	/* address family, AF_xxx	*/
-+	unsigned short		sa_family;
-+	/* 14 bytes of protocol address	*/
-+	char			sa_data[SADDR_MAX_DATA];
-+	/* Number of bytes used in sa_data */
-+	unsigned short		sa_data_len;
-+};
-+
-+/* Address structure */
-+struct dst_network_ctl
++struct thread_pool_worker
 +{
-+	/* Socket type: datagram, stream...*/
-+	unsigned int		type;
-+	/* Let me guess, is it a Jupiter diameter? */
-+	unsigned int		proto;
-+	/* Peer's address */
-+	struct saddr		addr;
-+};
++	struct list_head	worker_entry;
 +
-+struct dst_crypto_ctl
-+{
-+	/* Cipher and hash names */
-+	char			cipher_algo[DST_NAMELEN];
-+	char			hash_algo[DST_NAMELEN];
++	struct task_struct	*thread;
 +
-+	/* Key sizes. Can be zero for digest for example */
-+	unsigned int		cipher_keysize, hash_keysize;
-+	/* Alignment. Calculated by the DST itself. */
-+	unsigned int		crypto_attached_size;
-+	/* Number of threads to perform crypto operations */
-+	int			thread_num;
-+};
-+
-+/* Export security attributes have this bits checked in when client connects */
-+#define DST_PERM_READ		(1<<0)
-+#define DST_PERM_WRITE		(1<<1)
-+
-+/*
-+ * Right now it is simple model, where each remote address
-+ * is assigned to set of permissions it is allowed to perform.
-+ * In real world block device does not know anything but
-+ * reading and writing, so it should be more than enough.
-+ */
-+struct dst_secure_user
-+{
-+	unsigned int		permissions;
-+	struct saddr		addr;
-+};
-+
-+/*
-+ * Export control command: device to export and network address to accept
-+ * clients to work with given device
-+ */
-+struct dst_export_ctl
-+{
-+	char			device[DST_NAMELEN];
-+	struct dst_network_ctl	ctl;
-+};
-+
-+enum {
-+	DST_CFG	= 1, 		/* Request remote configuration */
-+	DST_IO,			/* IO command */
-+	DST_IO_RESPONSE,	/* IO response */
-+	DST_PING,		/* Keepalive message */
-+	DST_NCMD_MAX,
-+};
-+
-+struct dst_cmd
-+{
-+	/* Network command itself, see above */
-+	__u32			cmd;
-+	/*
-+	 * Size of the attached data
-+	 * (in most cases, for READ command it means how many bytes were requested)
-+	 */
-+	__u32			size;
-+	/* Crypto size: number of attached bytes with digest/hmac */
-+	__u32			csize;
-+	/* Here we can carry secret data */
-+	__u32			reserved;
-+	/* Read/write bits, see how they are encoded in bio structure */
-+	__u64			rw;
-+	/* BIO flags */
-+	__u64			flags;
-+	/* Unique command id (like transaction ID) */
-+	__u64			id;
-+	/* Sector to start IO from */
-+	__u64			sector;
-+	/* Hash data is placed after this header */
-+	__u8			hash[0];
-+};
-+
-+/*
-+ * Convert command to/from network byte order.
-+ * We do not use hton*() functions, since there is
-+ * no 64-bit implementation.
-+ */
-+static inline void dst_convert_cmd(struct dst_cmd *c)
-+{
-+	c->cmd = __cpu_to_be32(c->cmd);
-+	c->csize = __cpu_to_be32(c->csize);
-+	c->size = __cpu_to_be32(c->size);
-+	c->sector = __cpu_to_be64(c->sector);
-+	c->id = __cpu_to_be64(c->id);
-+	c->flags = __cpu_to_be64(c->flags);
-+	c->rw = __cpu_to_be64(c->rw);
-+}
-+
-+/* Transaction id */
-+typedef __u64 dst_gen_t;
-+
-+#ifdef __KERNEL__
-+
-+#include <linux/blkdev.h>
-+#include <linux/bio.h>
-+#include <linux/device.h>
-+#include <linux/mempool.h>
-+#include <linux/net.h>
-+#include <linux/poll.h>
-+#include <linux/rbtree.h>
-+
-+#ifdef CONFIG_DST_DEBUG
-+#define dprintk(f, a...) printk(KERN_NOTICE f, ##a)
-+#else
-+static inline void __attribute__ ((format (printf, 1, 2)))
-+	dprintk(const char *fmt, ...) {}
-+#endif
-+
-+struct dst_node;
-+
-+struct dst_trans
-+{
-+	/* DST node we are working with */
-+	struct dst_node		*n;
-+
-+	/* Entry inside transaction tree */
-+	struct rb_node		trans_entry;
-+
-+	/* Merlin kills this transaction when this memory cell equals zero */
-+	atomic_t		refcnt;
-+
-+	/* How this transaction should be processed by crypto engine */
-+	short			enc;
-+	/* How many times this transaction was resent */
-+	short			retries;
-+	/* Completion status */
-+	int			error;
-+
-+	/* When did we send it to the remote peer */
-+	long			send_time;
-+
-+	/* My name is...
-+	 * Well, computers does not speak, they have unique id instead */
-+	dst_gen_t		gen;
-+
-+	/* Block IO we are working with */
-+	struct bio		*bio;
-+
-+	/* Network command for above block IO request */
-+	struct dst_cmd		cmd;
-+};
-+
-+struct dst_crypto_engine
-+{
-+	/* What should we do with all block requests */
-+	struct crypto_hash	*hash;
-+	struct crypto_ablkcipher	*cipher;
-+
-+	/* Pool of pages used to encrypt data into before sending */
-+	int			page_num;
-+	struct page		**pages;
-+
-+	/* What to do with current request */
-+	int			enc;
-+	/* Who we are and where do we go */
-+	struct scatterlist	*src, *dst;
-+
-+	/* Maximum timeout waiting for encryption to be completed */
-+	long			timeout;
-+	/* IV is a 64-bit sequential counter */
-+	u64			iv;
-+
-+	/* Secret data */
-+	void			*private;
-+
-+	/* Cached temporary data lives here */
-+	int			size;
-+	void			*data;
-+};
-+
-+struct dst_state
-+{
-+	/* The main state protection */
-+	struct mutex		state_lock;
-+
-+	/* Polling machinery for sockets */
-+	wait_queue_t 		wait;
-+	wait_queue_head_t 	*whead;
-+	/* Most of events are being waited here */
-+	wait_queue_head_t 	thread_wait;
-+
-+	/* Who owns this? */
-+	struct dst_node		*node;
-+
-+	/* Network address for this state */
-+	struct dst_network_ctl	ctl;
-+
-+	/* Permissions to work with: read-only or rw connection */
-+	u32			permissions;
-+
-+	/* Called when we need to clean private data */
-+	void			(* cleanup)(struct dst_state *st);
-+
-+	/* Used by the server: BIO completion queues BIOs here */
-+	struct list_head	request_list;
-+	spinlock_t		request_lock;
-+
-+	/* Guess what? No, it is not number of planets */
-+	atomic_t		refcnt;
-+
-+	/* This flags is set when connection should be dropped */
-+	int			need_exit;
-+
-+	/*
-+	 * Socket to work with. Second pointer is used for
-+	 * lockless check if socket was changed before performing
-+	 * next action (like working with cached polling result)
-+	 */
-+	struct socket		*socket, *read_socket;
-+
-+	/* Cached preallocated data */
-+	void			*data;
-+	unsigned int		size;
-+
-+	/* Currently processed command */
-+	struct dst_cmd		cmd;
-+};
-+
-+struct dst_info
-+{
-+	/* Device size */
-+	u64			size;
-+
-+	/* Local device name for export devices */
-+	char			local[DST_NAMELEN];
-+
-+	/* Network setup */
-+	struct dst_network_ctl	net;
-+
-+	/* Sysfs bits use this */
-+	struct device		device;
-+};
-+
-+struct dst_node
-+{
-+	struct list_head	node_entry;
-+
-+	/* Hi, my name is stored here */
-+	char			name[DST_NAMELEN];
-+	/* My cache name is stored here */
-+	char			cache_name[DST_NAMELEN];
-+
-+	/* Block device attached to given node.
-+	 * Only valid for exporting nodes */
-+	struct block_device 	*bdev;
-+	/* Network state machine for given peer */
-+	struct dst_state	*state;
-+
-+	/* Block IO machinery */
-+	struct request_queue	*queue;
-+	struct gendisk		*disk;
-+
-+	/* Number of threads in processing pool */
-+	int			thread_num;
-+	/* Maximum number of pages in single IO */
-+	int			max_pages;
-+
-+	/* I'm that big in bytes */
-+	loff_t			size;
-+
-+	/* Exported to userspace node information */
-+	struct dst_info		*info;
-+	
-+	/*
-+	 * Security attribute list.
-+	 * Used only by exporting node currently.
-+	 */
-+	struct list_head	security_list;
-+	struct mutex		security_lock;
-+
-+	/*
-+	 * When this unerflows below zero, university collapses.
-+	 * But this will not happen, since node will be freed,
-+	 * when reference counter reaches zero.
-+	 */
-+	atomic_t		refcnt;
-+
-+	/* How precisely should I be started? */
-+	int 			(*start)(struct dst_node *);
-+
-+	/* Crypto capabilities */
-+	struct dst_crypto_ctl	crypto;
-+	u8			*hash_key;
-+	u8			*cipher_key;
-+
-+	/* Pool of processing thread */
 +	struct thread_pool	*pool;
 +
-+	/* Transaction IDs live here */
-+	atomic_long_t		gen;
-+
-+	/*
-+	 * How frequently and how many times transaction
-+	 * tree should be scanned to drop stale objects.
-+	 */
-+	long			trans_scan_timeout;
-+	int			trans_max_retries;
-+
-+	/* Small gnomes live here */
-+	struct rb_root		trans_root;
-+	struct mutex		trans_lock;
-+
-+	/*
-+	 * Transaction cache/memory pool.
-+	 * It is big enough to contain not only transaction
-+	 * itself, but additional crypto data (digest/hmac).
-+	 */
-+	struct kmem_cache	*trans_cache;
-+	mempool_t		*trans_pool;
-+
-+	/* This entity scans transaction tree */
-+	struct delayed_work 	trans_work;
++	int			error;
++	int			has_data;
++	int			need_exit;
++	unsigned int		id;
 +
 +	wait_queue_head_t	wait;
++
++	void			*private;
++	void			*schedule_data;
++
++	int			(* action)(void *private, void *schedule_data);
++	void			(* cleanup)(void *private);
 +};
 +
-+/* Kernel representation of the security attribute */
-+struct dst_secure
++static void thread_pool_exit_worker(struct thread_pool_worker *w)
 +{
-+	struct list_head	sec_entry;
-+	struct dst_secure_user	sec;
-+};
++	kthread_stop(w->thread);
 +
-+int dst_process_bio(struct dst_node *n, struct bio *bio);
-+
-+int dst_node_init_connected(struct dst_node *n, struct dst_network_ctl *r);
-+int dst_node_init_listened(struct dst_node *n, struct dst_export_ctl *le);
-+
-+static inline struct dst_state *dst_state_get(struct dst_state *st)
-+{
-+	BUG_ON(atomic_read(&st->refcnt) == 0);
-+	atomic_inc(&st->refcnt);
-+	return st;
++	w->cleanup(w->private);
++	kfree(w);
 +}
 +
-+void dst_state_put(struct dst_state *st);
-+
-+struct dst_state *dst_state_alloc(struct dst_node *n);
-+int dst_state_socket_create(struct dst_state *st);
-+void dst_state_socket_release(struct dst_state *st);
-+
-+void dst_state_exit_connected(struct dst_state *st);
-+
-+int dst_state_schedule_receiver(struct dst_state *st);
-+
-+void dst_dump_addr(struct socket *sk, struct sockaddr *sa, char *str);
-+
-+static inline void dst_state_lock(struct dst_state *st)
++/*
++ * Called to mark thread as ready and allow users to schedule new work.
++ */
++static void thread_pool_worker_make_ready(struct thread_pool_worker *w)
 +{
-+	mutex_lock(&st->state_lock);
++	struct thread_pool *p = w->pool;
++
++	mutex_lock(&p->thread_lock);
++
++	if (!w->need_exit) {
++		list_move_tail(&w->worker_entry, &p->ready_list);
++		w->has_data = 0;
++		mutex_unlock(&p->thread_lock);
++
++		wake_up(&p->wait);
++	} else {
++		p->thread_num--;
++		list_del(&w->worker_entry);
++		mutex_unlock(&p->thread_lock);
++
++		thread_pool_exit_worker(w);
++	}
 +}
 +
-+static inline void dst_state_unlock(struct dst_state *st)
++/*
++ * Thread action loop: waits until there is new work.
++ */
++static int thread_pool_worker_func(void *data)
 +{
-+	mutex_unlock(&st->state_lock);
-+}
++	struct thread_pool_worker *w = data;
 +
-+void dst_poll_exit(struct dst_state *st);
-+int dst_poll_init(struct dst_state *st);
++	while (!kthread_should_stop()) {
++		wait_event_interruptible(w->wait,
++			kthread_should_stop() || w->has_data);
 +
-+static inline unsigned int dst_state_poll(struct dst_state *st)
-+{
-+	unsigned int revents = POLLHUP | POLLERR;
++		if (kthread_should_stop())
++			break;
 +
-+	dst_state_lock(st);
-+	if (st->socket)
-+		revents = st->socket->ops->poll(NULL, st->socket, NULL);
-+	dst_state_unlock(st);
++		if (!w->has_data)
++			continue;
 +
-+	return revents;
-+}
++		w->action(w->private, w->schedule_data);
++		thread_pool_worker_make_ready(w);
++	}
 +
-+static inline int dst_thread_setup(void *private, void *data)
-+{
 +	return 0;
 +}
 +
-+void dst_node_put(struct dst_node *n);
-+
-+static inline struct dst_node *dst_node_get(struct dst_node *n)
++/*
++ * Remove single worker without specifying which one.
++ */
++void thread_pool_del_worker(struct thread_pool *p)
 +{
-+	atomic_inc(&n->refcnt);
-+	return n;
++	struct thread_pool_worker *w = NULL;
++
++	while (!w) {
++		wait_event(p->wait, !list_empty(&p->ready_list) || !p->thread_num);
++
++		dprintk("%s: locking list_empty: %d, thread_num: %d.\n",
++				__func__, list_empty(&p->ready_list), p->thread_num);
++
++		mutex_lock(&p->thread_lock);
++		if (!list_empty(&p->ready_list)) {
++			w = list_first_entry(&p->ready_list,
++					struct thread_pool_worker,
++					worker_entry);
++
++			dprintk("%s: deleting w: %p, thread_num: %d, list: %p [%p.%p].\n",
++					__func__, w, p->thread_num, &p->ready_list,
++					p->ready_list.prev, p->ready_list.next);
++
++			p->thread_num--;
++			list_del(&w->worker_entry);
++		}
++		mutex_unlock(&p->thread_lock);
++	}
++
++	if (w)
++		thread_pool_exit_worker(w);
++	dprintk("%s: deleted w: %p, thread_num: %d.\n",
++			__func__, w, p->thread_num);
 +}
-+
-+int dst_data_recv(struct dst_state *st, void *data, unsigned int size);
-+int dst_recv_cdata(struct dst_state *st, void *cdata);
-+int dst_data_send_header(struct socket *sock,
-+		void *data, unsigned int size, int more);
-+
-+int dst_send_bio(struct dst_state *st, struct dst_cmd *cmd, struct bio *bio);
-+
-+int dst_process_io(struct dst_state *st);
-+int dst_export_crypto(struct dst_node *n, struct bio *bio);
-+int dst_export_send_bio(struct bio *bio);
-+int dst_start_export(struct dst_node *n);
-+
-+int __init dst_export_init(void);
-+void dst_export_exit(void);
-+
-+/* Private structure for export block IO requests */
-+struct dst_export_priv
-+{
-+	struct list_head		request_entry;
-+	struct dst_state		*state;
-+	struct bio			*bio;
-+	struct dst_cmd			cmd;
-+};
-+
-+static inline void dst_trans_get(struct dst_trans *t)
-+{
-+	atomic_inc(&t->refcnt);
-+}
-+
-+struct dst_trans *dst_trans_search(struct dst_node *node, dst_gen_t gen);
-+int dst_trans_remove(struct dst_trans *t);
-+int dst_trans_remove_nolock(struct dst_trans *t);
-+void dst_trans_put(struct dst_trans *t);
 +
 +/*
-+ * Convert bio into network command.
++ * Remove a worker with given ID.
 + */
-+static inline void dst_bio_to_cmd(struct bio *bio, struct dst_cmd *cmd,
-+		u32 command, u64 id)
++void thread_pool_del_worker_id(struct thread_pool *p, unsigned int id)
 +{
-+	cmd->cmd = command;
-+	cmd->flags = (bio->bi_flags << BIO_POOL_BITS) >> BIO_POOL_BITS;
-+	cmd->rw = bio->bi_rw;
-+	cmd->size = bio->bi_size;
-+	cmd->csize = 0;
-+	cmd->id = id;
-+	cmd->sector = bio->bi_sector;
-+};
++	struct thread_pool_worker *w;
++	int found = 0;
 +
-+int dst_trans_send(struct dst_trans *t);
-+int dst_trans_crypto(struct dst_trans *t);
++	mutex_lock(&p->thread_lock);
++	list_for_each_entry(w, &p->ready_list, worker_entry) {
++		if (w->id == id) {
++			found = 1;
++			p->thread_num--;
++			list_del(&w->worker_entry);
++			break;
++		}
++	}
 +
-+int dst_node_crypto_init(struct dst_node *n, struct dst_crypto_ctl *ctl);
-+void dst_node_crypto_exit(struct dst_node *n);
++	if (!found) {
++		list_for_each_entry(w, &p->active_list, worker_entry) {
++			if (w->id == id) {
++				w->need_exit = 1;
++				break;
++			}
++		}
++	}
++	mutex_unlock(&p->thread_lock);
 +
-+static inline int dst_need_crypto(struct dst_node *n)
-+{
-+	struct dst_crypto_ctl *c = &n->crypto;
-+	/*
-+	 * Logical OR is appropriate here, but boolean one produces
-+	 * more optimal code, so it is used instead.
-+	 */
-+	return (c->hash_algo[0] | c->cipher_algo[0]);
++	if (found)
++		thread_pool_exit_worker(w);
 +}
 +
-+int dst_node_trans_init(struct dst_node *n, unsigned int size);
-+void dst_node_trans_exit(struct dst_node *n);
-+
 +/*
-+ * Pool of threads.
-+ * Ready list contains threads currently free to be used,
-+ * active one contains threads with some work scheduled for them.
-+ * Caller can wait in given queue when thread is ready.
++ * Add new worker thread with given parameters.
++ * If initialization callback fails, return error.
 + */
-+struct thread_pool
-+{
-+	int			thread_num;
-+	struct mutex		thread_lock;
-+	struct list_head	ready_list, active_list;
-+
-+	wait_queue_head_t	wait;
-+};
-+
-+void thread_pool_del_worker(struct thread_pool *p);
-+void thread_pool_del_worker_id(struct thread_pool *p, unsigned int id);
 +int thread_pool_add_worker(struct thread_pool *p,
 +		char *name,
 +		unsigned int id,
-+		void *(* init)(void *data),
-+		void (* cleanup)(void *data),
-+		void *data);
++		void *(* init)(void *private),
++		void (* cleanup)(void *private),
++		void *private)
++{
++	struct thread_pool_worker *w;
++	int err = -ENOMEM;
 +
-+void thread_pool_destroy(struct thread_pool *p);
++	w = kzalloc(sizeof(struct thread_pool_worker), GFP_KERNEL);
++	if (!w)
++		goto err_out_exit;
++
++	w->pool = p;
++	init_waitqueue_head(&w->wait);
++	w->cleanup = cleanup;
++	w->id = id;
++
++	w->thread = kthread_run(thread_pool_worker_func, w, "%s", name);
++	if (IS_ERR(w->thread)) {
++		err = PTR_ERR(w->thread);
++		goto err_out_free;
++	}
++
++	w->private = init(private);
++	if (IS_ERR(w->private)) {
++		err = PTR_ERR(w->private);
++		goto err_out_stop_thread;
++	}
++
++	mutex_lock(&p->thread_lock);
++	list_add_tail(&w->worker_entry, &p->ready_list);
++	p->thread_num++;
++	mutex_unlock(&p->thread_lock);
++
++	return 0;
++
++err_out_stop_thread:
++	kthread_stop(w->thread);
++err_out_free:
++	kfree(w);
++err_out_exit:
++	return err;
++}
++
++/*
++ * Destroy the whole pool.
++ */
++void thread_pool_destroy(struct thread_pool *p)
++{
++	while (p->thread_num) {
++		dprintk("%s: num: %d.\n", __func__, p->thread_num);
++		thread_pool_del_worker(p);
++	}
++
++	kfree(p);
++}
++
++/*
++ * Create a pool with given number of threads.
++ * They will have sequential IDs started from zero.
++ */
 +struct thread_pool *thread_pool_create(int num, char *name,
-+		void *(* init)(void *data),
-+		void (* cleanup)(void *data),
-+		void *data);
++		void *(* init)(void *private),
++		void (* cleanup)(void *private),
++		void *private)
++{
++	struct thread_pool_worker *w, *tmp;
++	struct thread_pool *p;
++	int err = -ENOMEM;
++	int i;
 +
-+int thread_pool_schedule(struct thread_pool *p,
-+		int (* setup)(void *stored_private, void *setup_data),
-+		int (* action)(void *stored_private, void *setup_data),
-+		void *setup_data, long timeout);
++	p = kzalloc(sizeof(struct thread_pool), GFP_KERNEL);
++	if (!p)
++		goto err_out_exit;
++
++	init_waitqueue_head(&p->wait);
++	mutex_init(&p->thread_lock);
++	INIT_LIST_HEAD(&p->ready_list);
++	INIT_LIST_HEAD(&p->active_list);
++	p->thread_num = 0;
++
++	for (i=0; i<num; ++i) {
++		err = thread_pool_add_worker(p, name, i, init,
++				cleanup, private);
++		if (err)
++			goto err_out_free_all;
++	}
++
++	return p;
++
++err_out_free_all:
++	list_for_each_entry_safe(w, tmp, &p->ready_list, worker_entry) {
++		list_del(&w->worker_entry);
++		thread_pool_exit_worker(w);
++	}
++	kfree(p);
++err_out_exit:
++	return ERR_PTR(err);
++}
++
++/*
++ * Schedule execution of the action on a given thread,
++ * provided ID pointer has to match previously stored
++ * private data.
++ */
 +int thread_pool_schedule_private(struct thread_pool *p,
 +		int (* setup)(void *private, void *data),
 +		int (* action)(void *private, void *data),
-+		void *data, long timeout, void *id);
++		void *data, long timeout, void *id)
++{
++	struct thread_pool_worker *w, *tmp, *worker = NULL;
++	int err = 0;
 +
-+#endif /* __KERNEL__ */
-+#endif /* __DST_H */
++	while (!worker && !err) {
++		timeout = wait_event_interruptible_timeout(p->wait,
++				!list_empty(&p->ready_list),
++				timeout);
++
++		if (!timeout) {
++			err = -ETIMEDOUT;
++			break;
++		}
++
++		worker = NULL;
++		mutex_lock(&p->thread_lock);
++		list_for_each_entry_safe(w, tmp, &p->ready_list, worker_entry) {
++			if (id && id != w->private)
++				continue;
++
++			worker = w;
++
++			list_move_tail(&w->worker_entry, &p->active_list);
++
++			err = setup(w->private, data);
++			if (!err) {
++				w->schedule_data = data;
++				w->action = action;
++				w->has_data = 1;
++				wake_up(&w->wait);
++			} else {
++				list_move_tail(&w->worker_entry, &p->ready_list);
++			}
++
++			break;
++		}
++		mutex_unlock(&p->thread_lock);
++	}
++
++	return err;
++}
++
++/*
++ * Schedule execution on arbitrary thread from the pool.
++ */
++int thread_pool_schedule(struct thread_pool *p,
++		int (* setup)(void *private, void *data),
++		int (* action)(void *private, void *data),
++		void *data, long timeout)
++{
++	return thread_pool_schedule_private(p, setup,
++			action, data, timeout, NULL);
++}
