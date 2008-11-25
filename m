@@ -1,60 +1,84 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: make skb_truesize_bug() call WARN()
-Date: Tue, 25 Nov 2008 18:02:19 +0000
-Message-ID: <1227636139.3109.11.camel@achroite>
-References: <20081125083250.2ad7d75d@infradead.org>
-	 <1227631323.3109.7.camel@achroite>  <20081125095432.04d73b01@infradead.org>
+From: SEBASTIEN LEGER <sebastienleger@yahoo.fr>
+Subject: Re : [PATCH] Naming interrupt vectors/niu
+Date: Tue, 25 Nov 2008 17:19:53 +0000 (GMT)
+Message-ID: <625027.33655.qm@web28104.mail.ukl.yahoo.com>
+References: <18732.7560.67492.918339@robur.slu.se> <Pine.LNX.4.64.0811251652240.27162@tyr.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Robert Olsson <robert@robur.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:37145 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752266AbYKYSC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 13:02:26 -0500
-In-Reply-To: <20081125095432.04d73b01@infradead.org>
+Received: from web28104.mail.ukl.yahoo.com ([217.146.182.124]:31122 "HELO
+	web28104.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752519AbYKYSCb convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2008 13:02:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-11-25 at 09:54 -0800, Arjan van de Ven wrote:
-> On Tue, 25 Nov 2008 16:42:03 +0000
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
->=20
-> > On Tue, 2008-11-25 at 08:32 -0800, Arjan van de Ven wrote:
-> > > From 97a8ab520c378568e172c555a156b469137a3828 Mon Sep 17 00:00:00
-> > > 2001 From: Arjan van de Ven <arjan@linux.intel.com>
-> > > Date: Tue, 25 Nov 2008 08:30:04 -0800
-> > > Subject: [PATCH] net: make skb_truesize_bug() call WARN()
-> > >=20
-> > > The truesize message check is important enough to make it print
-> > > "BUG" to the user console... lets also make it important enough t=
-o
-> > > spit a backtrace/module list etc so that kerneloops.org can track
-> > > them.
-[...]
-> > =EF=BB=BFThe bug reports I've seen (with my Debian hat on, not rela=
-ting to
-> > sfc) show that configurations that trigger this warning are likely =
-to
-> > trigger many times over and there's nothing the user can do about
-> > it.  So by all means do make the warning more obvious, but please
-> > make it WARN_ON_ONCE and then use printk qualified by net_ratelimit=
-().
-> >=20
->=20
-> if there's no value in those subsequent printk's.. why not just this?
-[...]
 
-I think there may be some value in them: users who want to help debug
-this can experiment to see which configurations or traffic types do or
-don't result in invalid truesize.
+Hi,
 
-Ben.
+on multiqueue hardware, isn't RSS meant to bind packets from the same f=
+low on a specific cpu?
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+So, does it make sense to control RX smp affinity from /proc/irq/*/smp_=
+affinity on multiqueue adapters with RSS support?
 
+thanks,
+
+Sebastien
+
+________________________________
+De : Jesper Dangaard Brouer <hawk@diku.dk>
+=C0 : Robert Olsson <robert@robur.slu.se>
+Cc : David Miller <davem@davemloft.net>; netdev@vger.kernel.org; Robert=
+=2EOlsson@data.slu.se
+Envoy=E9 le : Mardi, 25 Novembre 2008, 16h58mn 06s
+Objet : Re: [PATCH] Naming interrupt vectors/niu
+
+
+On Tue, 25 Nov 2008, Robert Olsson wrote:
+
+> A patch to put names on the niu interrupt vectors according the synta=
+x below.
+> This is needed to assign correct affinity.
+>
+> > So on a multiqueue card with 2 RX queues and 2 TX queues we'd
+> > have names like:
+> >
+> >     eth0-rx-0
+> >     eth0-rx-1
+> >     eth0-tx-0
+> >     eth0-tx-1
+>
+>
+> Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+Tested-by: Jesper Dangaard Brouer <jdb@comx.dk>
+
+
+I have tested the patch and it also works on the Quad 1G SUN NIC.
+I really like the idea behind the patch, as it makes it a lot easier to=
+=20
+get the smp affinity right...
+
+Hilsen
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+     =20
