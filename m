@@ -1,57 +1,30 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: Make sure BHs are disabled in sock_prot_inuse_add()
-Date: Tue, 25 Nov 2008 21:35:23 +0100
-Message-ID: <492C618B.8090403@cosmosbay.com>
-References: <492AE30C.70907@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: niu: ethtool -s support?
+Date: Tue, 25 Nov 2008 13:31:24 -0800 (PST)
+Message-ID: <20081125.133124.74121407.davem@davemloft.net>
+References: <20081125133530.GA1633@schweikert.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030307070608000405060004"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: david@schweikert.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:42982 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751553AbYKYUf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 15:35:28 -0500
-In-Reply-To: <492AE30C.70907@cosmosbay.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47305
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752350AbYKYVbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 16:31:25 -0500
+In-Reply-To: <20081125133530.GA1633@schweikert.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030307070608000405060004
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: David Schweikert <david@schweikert.ch>
+Date: Tue, 25 Nov 2008 14:35:30 +0100
 
-Oh well...
+> Hi,
+> 
+> It is apparently not possible to set the link parameters on a niu
+> interface (speed, duplex mode, auto-negotiation) with ethtool.
+> Is support for it planned?
 
-[PATCH] net: Make sure BHs are disabled in sock_prot_inuse_add()
-
-prot->destroy is not called with BH disabled. So we must add
-explicit BH disable around call to sock_prot_inuse_add()
-in sctp_destroy_sock()
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---------------030307070608000405060004
-Content-Type: text/plain;
- name="sctp_prot_inuse.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sctp_prot_inuse.patch"
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index f03af84..ba81fe3 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3633,7 +3633,9 @@ SCTP_STATIC void sctp_destroy_sock(struct sock *sk)
- 	ep = sctp_sk(sk)->ep;
- 	sctp_endpoint_free(ep);
- 	atomic_dec(&sctp_sockets_allocated);
-+	local_bh_disable();
- 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-+	local_bh_enable();
- }
- 
- /* API 4.1.7 shutdown() - TCP Style Syntax
-
---------------030307070608000405060004--
+Yes, at some point, although that work is pretty low priority
+to be honest.
