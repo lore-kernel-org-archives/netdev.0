@@ -1,121 +1,184 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 04/53] netns xfrm: per-netns xfrm_state_all list
-Date: Tue, 25 Nov 2008 20:26:36 +0300
-Message-ID: <1227634045-27534-4-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 03/53] netns xfrm: add struct xfrm_state::xs_net
+Date: Tue, 25 Nov 2008 20:26:35 +0300
+Message-ID: <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:28929 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754286AbYKYRXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:23:39 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1144223ugf.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:23:38 -0800 (PST)
-In-Reply-To: <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
+Received: from ey-out-2122.google.com ([74.125.78.26]:41337 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754359AbYKYRXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:23:36 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so23232eyi.37
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:23:34 -0800 (PST)
+In-Reply-To: <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is done to get
-a) simple "something leaked" check
-b) cover possible DoSes when other netns puts many, many xfrm_states
-   onto a list.
-c) not miss "alien xfrm_state" check in some of list iterators in future.
+To avoid unnecessary complications with passing netns around.
+
+* set once, very early after allocating
+* once set, never changes
+
+For a while create every xfrm_state in init_net.
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/netns/xfrm.h |    3 +++
- net/xfrm/xfrm_state.c    |   14 ++++++++------
- 2 files changed, 11 insertions(+), 6 deletions(-)
+ include/net/xfrm.h    |   10 +++++++++-
+ net/ipv4/ipcomp.c     |    2 +-
+ net/ipv6/ipcomp6.c    |    2 +-
+ net/key/af_key.c      |    2 +-
+ net/xfrm/xfrm_state.c |    9 +++++----
+ net/xfrm/xfrm_user.c  |    4 ++--
+ 6 files changed, 19 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 1cb0024..6ae234a 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -1,7 +1,10 @@
- #ifndef __NETNS_XFRM_H
- #define __NETNS_XFRM_H
- 
-+#include <linux/list.h>
-+
- struct netns_xfrm {
-+	struct list_head	state_all;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 9107d6f..9da8903 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -130,6 +130,9 @@ struct xfrm_state_walk {
+ /* Full description of state of transformer. */
+ struct xfrm_state
+ {
++#ifdef CONFIG_NET_NS
++	struct net		*xs_net;
++#endif
+ 	union {
+ 		struct hlist_node	gclist;
+ 		struct hlist_node	bydst;
+@@ -223,6 +226,11 @@ struct xfrm_state
+ 	void			*data;
  };
  
- #endif
++static inline struct net *xs_net(struct xfrm_state *x)
++{
++	return read_pnet(&x->xs_net);
++}
++
+ /* xflags - make enum if more show up */
+ #define XFRM_TIME_DEFER	1
+ 
+@@ -1296,7 +1304,7 @@ extern void xfrm_state_walk_init(struct xfrm_state_walk *walk, u8 proto);
+ extern int xfrm_state_walk(struct xfrm_state_walk *walk,
+ 			   int (*func)(struct xfrm_state *, int, void*), void *);
+ extern void xfrm_state_walk_done(struct xfrm_state_walk *walk);
+-extern struct xfrm_state *xfrm_state_alloc(void);
++extern struct xfrm_state *xfrm_state_alloc(struct net *net);
+ extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr, 
+ 					  struct flowi *fl, struct xfrm_tmpl *tmpl,
+ 					  struct xfrm_policy *pol, int *err,
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index ec8264a..0a35f1b 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -49,7 +49,7 @@ static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
+ {
+ 	struct xfrm_state *t;
+ 
+-	t = xfrm_state_alloc();
++	t = xfrm_state_alloc(&init_net);
+ 	if (t == NULL)
+ 		goto out;
+ 
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index d4576a9..c369638 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -76,7 +76,7 @@ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
+ {
+ 	struct xfrm_state *t = NULL;
+ 
+-	t = xfrm_state_alloc();
++	t = xfrm_state_alloc(&init_net);
+ 	if (!t)
+ 		goto out;
+ 
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 5b22e01..bde8aad 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1122,7 +1122,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct sadb_msg *hdr,
+ 	     (key->sadb_key_bits+7) / 8 > key->sadb_key_len * sizeof(uint64_t)))
+ 		return ERR_PTR(-EINVAL);
+ 
+-	x = xfrm_state_alloc();
++	x = xfrm_state_alloc(&init_net);
+ 	if (x == NULL)
+ 		return ERR_PTR(-ENOBUFS);
+ 
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 81bde76..85bb854 100644
+index 268fe3f..81bde76 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -50,7 +50,6 @@ static DEFINE_SPINLOCK(xfrm_state_lock);
-  * Main use is finding SA after policy selected tunnel or transport mode.
-  * Also, it can be used by ah/esp icmp error handler to find offending SA.
-  */
--static LIST_HEAD(xfrm_state_all);
- static struct hlist_head *xfrm_state_bydst __read_mostly;
- static struct hlist_head *xfrm_state_bysrc __read_mostly;
- static struct hlist_head *xfrm_state_byspi __read_mostly;
-@@ -855,7 +854,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+@@ -504,13 +504,14 @@ out:
  
- 		if (km_query(x, tmpl, pol) == 0) {
- 			x->km.state = XFRM_STATE_ACQ;
--			list_add(&x->km.all, &xfrm_state_all);
-+			list_add(&x->km.all, &init_net.xfrm.state_all);
- 			hlist_add_head(&x->bydst, xfrm_state_bydst+h);
- 			h = xfrm_src_hash(daddr, saddr, family);
- 			hlist_add_head(&x->bysrc, xfrm_state_bysrc+h);
-@@ -924,7 +923,7 @@ static void __xfrm_state_insert(struct xfrm_state *x)
+ static void xfrm_replay_timer_handler(unsigned long data);
  
- 	x->genid = ++xfrm_state_genid;
- 
--	list_add(&x->km.all, &xfrm_state_all);
-+	list_add(&x->km.all, &init_net.xfrm.state_all);
- 
- 	h = xfrm_dst_hash(&x->id.daddr, &x->props.saddr,
- 			  x->props.reqid, x->props.family);
-@@ -1053,7 +1052,7 @@ static struct xfrm_state *__find_acq_core(unsigned short family, u8 mode, u32 re
- 		xfrm_state_hold(x);
- 		x->timer.expires = jiffies + sysctl_xfrm_acq_expires*HZ;
- 		add_timer(&x->timer);
--		list_add(&x->km.all, &xfrm_state_all);
-+		list_add(&x->km.all, &init_net.xfrm.state_all);
- 		hlist_add_head(&x->bydst, xfrm_state_bydst+h);
- 		h = xfrm_src_hash(daddr, saddr, family);
- 		hlist_add_head(&x->bysrc, xfrm_state_bysrc+h);
-@@ -1559,10 +1558,10 @@ int xfrm_state_walk(struct xfrm_state_walk *walk,
- 
- 	spin_lock_bh(&xfrm_state_lock);
- 	if (list_empty(&walk->all))
--		x = list_first_entry(&xfrm_state_all, struct xfrm_state_walk, all);
-+		x = list_first_entry(&init_net.xfrm.state_all, struct xfrm_state_walk, all);
- 	else
- 		x = list_entry(&walk->all, struct xfrm_state_walk, all);
--	list_for_each_entry_from(x, &xfrm_state_all, all) {
-+	list_for_each_entry_from(x, &init_net.xfrm.state_all, all) {
- 		if (x->state == XFRM_STATE_DEAD)
- 			continue;
- 		state = container_of(x, struct xfrm_state, km);
-@@ -2085,6 +2084,8 @@ int __net_init xfrm_state_init(struct net *net)
+-struct xfrm_state *xfrm_state_alloc(void)
++struct xfrm_state *xfrm_state_alloc(struct net *net)
  {
- 	unsigned int sz;
+ 	struct xfrm_state *x;
  
-+	INIT_LIST_HEAD(&net->xfrm.state_all);
-+
- 	sz = sizeof(struct hlist_head) * 8;
+ 	x = kzalloc(sizeof(struct xfrm_state), GFP_ATOMIC);
  
- 	xfrm_state_bydst = xfrm_hash_alloc(sz);
-@@ -2100,6 +2101,7 @@ int __net_init xfrm_state_init(struct net *net)
+ 	if (x) {
++		write_pnet(&x->xs_net, net);
+ 		atomic_set(&x->refcnt, 1);
+ 		atomic_set(&x->tunnel_users, 0);
+ 		INIT_LIST_HEAD(&x->km.all);
+@@ -835,7 +836,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 			error = -EEXIST;
+ 			goto out;
+ 		}
+-		x = xfrm_state_alloc();
++		x = xfrm_state_alloc(&init_net);
+ 		if (x == NULL) {
+ 			error = -ENOMEM;
+ 			goto out;
+@@ -1017,7 +1018,7 @@ static struct xfrm_state *__find_acq_core(unsigned short family, u8 mode, u32 re
+ 	if (!create)
+ 		return NULL;
  
- void xfrm_state_fini(struct net *net)
+-	x = xfrm_state_alloc();
++	x = xfrm_state_alloc(&init_net);
+ 	if (likely(x)) {
+ 		switch (family) {
+ 		case AF_INET:
+@@ -1125,7 +1126,7 @@ EXPORT_SYMBOL(xfrm_state_add);
+ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
  {
-+	WARN_ON(!list_empty(&net->xfrm.state_all));
- }
+ 	int err = -ENOMEM;
+-	struct xfrm_state *x = xfrm_state_alloc();
++	struct xfrm_state *x = xfrm_state_alloc(&init_net);
+ 	if (!x)
+ 		goto error;
  
- #ifdef CONFIG_AUDITSYSCALL
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index ee15d5d..65cdaa5 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -320,7 +320,7 @@ static struct xfrm_state *xfrm_state_construct(struct xfrm_usersa_info *p,
+ 					       struct nlattr **attrs,
+ 					       int *errp)
+ {
+-	struct xfrm_state *x = xfrm_state_alloc();
++	struct xfrm_state *x = xfrm_state_alloc(&init_net);
+ 	int err = -ENOMEM;
+ 
+ 	if (!x)
+@@ -1663,7 +1663,7 @@ static int xfrm_add_acquire(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct nlattr *rt = attrs[XFRMA_TMPL];
+ 
+ 	struct xfrm_user_acquire *ua = nlmsg_data(nlh);
+-	struct xfrm_state *x = xfrm_state_alloc();
++	struct xfrm_state *x = xfrm_state_alloc(&init_net);
+ 	int err = -ENOMEM;
+ 
+ 	if (!x)
 -- 
 1.5.6.5
 
